@@ -1,0 +1,17 @@
+// bitcrush — word length and sample rate, reduced
+cols(10)
+rows(2)
+widgets({
+  rez: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Rez", bind: "Rez", min: 0, max: 1 },
+  rate: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Rate", bind: "Rate", min: 0, max: 1 },
+  steps: { type: "lcdscreen", col: 4, row: 0, colSpan: 6, rowSpan: 2 },
+})
+vertical({
+  cols: 4,
+  rows: 4,
+  widgets: {
+    rez: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Rez", bind: "Rez", min: 0, max: 1 },
+    rate: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Rate", bind: "Rate", min: 0, max: 1 },
+    steps: { type: "lcdscreen", col: 0, row: 2, colSpan: 4, rowSpan: 2 },
+  },
+})

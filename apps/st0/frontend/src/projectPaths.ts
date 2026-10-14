@@ -4,10 +4,10 @@
 // than an anchored `^`, since a path may carry a project-folder prefix in a workspace.
 
 /** A project file's extension. `.yml` too: it is the same format under another spelling. */
-export const PROJECT_EXT = /\.ya?ml$/i;
+export const PROJECT_EXT = /\.(?:ya?ml|k7x)$/i;
 
 const kind = (folder: string): RegExp =>
-  new RegExp(`(^|/)${folder}/[^/]+.ya?ml$`, "i");
+  new RegExp(`(^|/)${folder}/[^/]+.(?:ya?ml|k7x)$`, "i");
 
 /** A MIDI sequence file — the Editor panel previews its inline notes. */
 export const isSeqFile = (path: string): boolean =>
@@ -24,7 +24,7 @@ export const isVideoTrackFile = (path: string): boolean =>
 
 /** A module file — the one whose rack's `source:` names a file BESIDE it, rather than the project-relative path a clip's source is. */
 export const isRackModuleFile = (path: string): boolean =>
-  /(^|\/)modules\/[^/]+\/[^/]+\/module\.ya?ml$/i.test(norm(path));
+  /(^|\/)modules\/[^/]+\/[^/]+\/module\.(?:ya?ml|k7x)$/i.test(norm(path));
 
 /** The chain-`use` key a file answers to in `hints.racks` — a module's folder name or a NODE's stem, so both spellings ask one key. */
 export const rackKeyOf = (path: string): string | null => {
@@ -32,18 +32,20 @@ export const rackKeyOf = (path: string): string | null => {
   if (isRackModuleFile(p))
     return (
       p
-        .replace(/\/module\.ya?ml$/i, "")
+        .replace(/\/module\.(?:ya?ml|k7x)$/i, "")
         .split("/")
         .pop() ?? null
     );
   // A chain project's file holds many nodes, keyed by uuid, so its path names none (packages/song/docs/chainFiles.md).
-  const m = /(^|\/)nodes\/([^/]+)\.ya?ml$/i.exec(p);
+  const m = /(^|\/)nodes\/([^/]+)\.(?:ya?ml|k7x)$/i.exec(p);
   return m ? m[2] : null;
 };
 
 /** A module file the BUILDER opens — both, in both trees, since the builder edits both and its routes take either. */
 export const isModuleFile = (path: string): boolean =>
-  /(^|\/)_?modules\/[^/]+\/([^/]+\/)?(module|ui)\.ya?ml$/i.test(norm(path));
+  /(^|\/)_?modules\/[^/]+\/([^/]+\/)?(module|ui)\.(?:ya?ml|k7x)$/i.test(
+    norm(path),
+  );
 
 /** The file in `files` that IS `<folder>/<id>`, or null — a lookup and not a search, since `tracks/kick` and `clips/kick` both exist. */
 export function entityFile(
@@ -51,7 +53,10 @@ export function entityFile(
   folder: string,
   id: string,
 ): string | null {
-  const want = new RegExp(`(^|/)${esc(folder)}/${esc(id)}\\.ya?ml$`, "i");
+  const want = new RegExp(
+    `(^|/)${esc(folder)}/${esc(id)}\\.(?:ya?ml|k7x)$`,
+    "i",
+  );
   return files.find((p) => want.test(norm(p))) ?? null;
 }
 
@@ -83,7 +88,7 @@ export function inActiveProject(
 
 /** The generic module file beside `rel` — a node's sibling. */
 export const moduleFileOf = (rel: string): string =>
-  norm(rel).replace(/\/[^/]+\.ya?ml$/i, "/module.yaml");
+  norm(rel).replace(/\/[^/]+\.(?:ya?ml|k7x)$/i, "/module.yaml");
 
 /** The value of a top-level scalar field, quoted or not, with trailing comments and a flow mapping's `,`/`}` dropped. */
 export function readScalarField(text: string, key: string): string | null {

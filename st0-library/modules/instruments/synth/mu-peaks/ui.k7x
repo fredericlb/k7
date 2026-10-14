@@ -1,0 +1,43 @@
+// mu-peaks — three drum voices side by side: kick, snare and FM drum, each drawn on the strip above
+cols(18)
+rows(4)
+widgets({
+  kick: { type: "group", col: 6, row: 0, colSpan: 4, rowSpan: 4, label: "KICK", color: "#ff6a1a26" },
+  kick_pitch: { type: "knob", col: 6, row: 0, colSpan: 2, rowSpan: 2, label: "Pitch", bind: "Kick pitch", min: 0, max: 1 },
+  kick_punch: { type: "knob", col: 8, row: 0, colSpan: 2, rowSpan: 2, label: "Punch", bind: "Kick punch", min: 0, max: 1 },
+  kick_tone: { type: "knob", col: 6, row: 2, colSpan: 2, rowSpan: 2, label: "Tone", bind: "Kick tone", min: 0, max: 1 },
+  kick_decay: { type: "knob", col: 8, row: 2, colSpan: 2, rowSpan: 2, label: "Decay", bind: "Kick decay", min: 0, max: 1 },
+  snare: { type: "group", col: 10, row: 0, colSpan: 4, rowSpan: 4, label: "SNARE", color: "#3d7dff26" },
+  snare_pitch: { type: "knob", col: 10, row: 0, colSpan: 2, rowSpan: 2, label: "Pitch", bind: "Snare pitch", min: 0, max: 1 },
+  snare_snappy: { type: "knob", col: 12, row: 0, colSpan: 2, rowSpan: 2, label: "Snappy", bind: "Snare snappy", min: 0, max: 1 },
+  snare_tone: { type: "knob", col: 10, row: 2, colSpan: 2, rowSpan: 2, label: "Tone", bind: "Snare tone", min: 0, max: 1 },
+  snare_decay: { type: "knob", col: 12, row: 2, colSpan: 2, rowSpan: 2, label: "Decay", bind: "Snare decay", min: 0, max: 1 },
+  fm: { type: "group", col: 14, row: 0, colSpan: 4, rowSpan: 4, label: "FM", color: "#3ec96b26" },
+  fm_pitch: { type: "knob", col: 14, row: 0, colSpan: 2, rowSpan: 2, label: "Pitch", bind: "FM drum pitch", min: 0, max: 1 },
+  fm_amount: { type: "knob", col: 16, row: 0, colSpan: 2, rowSpan: 2, label: "FM", bind: "FM drum FM", min: 0, max: 1 },
+  fm_noise: { type: "knob", col: 14, row: 2, colSpan: 2, rowSpan: 2, label: "Noise", bind: "FM drum noise", min: 0, max: 1 },
+  fm_decay: { type: "knob", col: 16, row: 2, colSpan: 2, rowSpan: 2, label: "Decay", bind: "FM drum decay", min: 0, max: 1 },
+  drums: { type: "lcdscreen", col: 0, row: 0, colSpan: 6, rowSpan: 4 },
+})
+vertical({
+  cols: 4,
+  rows: 15,
+  widgets: {
+    drums: { type: "lcdscreen", col: 0, row: 0, colSpan: 4, rowSpan: 3 },
+    kick: { type: "group", col: 0, row: 3, colSpan: 4, rowSpan: 4, label: "KICK", color: "#ff6a1a26" },
+    kick_pitch: { type: "knob", col: 0, row: 3, colSpan: 2, rowSpan: 2, label: "Pitch", bind: "Kick pitch", min: 0, max: 1 },
+    kick_tone: { type: "knob", col: 0, row: 5, colSpan: 2, rowSpan: 2, label: "Tone", bind: "Kick tone", min: 0, max: 1 },
+    kick_punch: { type: "knob", col: 2, row: 3, colSpan: 2, rowSpan: 2, label: "Punch", bind: "Kick punch", min: 0, max: 1 },
+    kick_decay: { type: "knob", col: 2, row: 5, colSpan: 2, rowSpan: 2, label: "Decay", bind: "Kick decay", min: 0, max: 1 },
+    snare: { type: "group", col: 0, row: 7, colSpan: 4, rowSpan: 4, label: "SNARE", color: "#3d7dff26" },
+    snare_pitch: { type: "knob", col: 0, row: 7, colSpan: 2, rowSpan: 2, label: "Pitch", bind: "Snare pitch", min: 0, max: 1 },
+    snare_tone: { type: "knob", col: 0, row: 9, colSpan: 2, rowSpan: 2, label: "Tone", bind: "Snare tone", min: 0, max: 1 },
+    snare_snappy: { type: "knob", col: 2, row: 7, colSpan: 2, rowSpan: 2, label: "Snappy", bind: "Snare snappy", min: 0, max: 1 },
+    snare_decay: { type: "knob", col: 2, row: 9, colSpan: 2, rowSpan: 2, label: "Decay", bind: "Snare decay", min: 0, max: 1 },
+    fm: { type: "group", col: 0, row: 11, colSpan: 4, rowSpan: 4, label: "FM", color: "#3ec96b26" },
+    fm_pitch: { type: "knob", col: 0, row: 11, colSpan: 2, rowSpan: 2, label: "Pitch", bind: "FM drum pitch", min: 0, max: 1 },
+    fm_noise: { type: "knob", col: 0, row: 13, colSpan: 2, rowSpan: 2, label: "Noise", bind: "FM drum noise", min: 0, max: 1 },
+    fm_amount: { type: "knob", col: 2, row: 11, colSpan: 2, rowSpan: 2, label: "FM", bind: "FM drum FM", min: 0, max: 1 },
+    fm_decay: { type: "knob", col: 2, row: 13, colSpan: 2, rowSpan: 2, label: "Decay", bind: "FM drum decay", min: 0, max: 1 },
+  },
+})

@@ -1,3 +1,0 @@
-# nc-17 — the face for NC-17, a plugin the engine scans.
-# Everything it IS comes from the ref below; what lives here is the ui.yaml beside this file.
-extends: "@engine/nc-17"

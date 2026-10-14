@@ -1,0 +1,23 @@
+// iron-oxide-5 — tape machine emulation
+cols(6)
+rows(2)
+widgets({
+  tone: { type: "group", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "TONE", color: "#3ec96b26" },
+  tape_low: { type: "fader", col: 0, row: 0, rowSpan: 2, label: "Low", bind: "Tape Low", min: 0, max: 1 },
+  tape_high: { type: "fader", col: 1, row: 0, rowSpan: 2, label: "High", bind: "Tape High", min: 0, max: 1 },
+  tape: { type: "group", col: 2, row: 0, colSpan: 4, rowSpan: 2, label: "TAPE", color: "#3d7dff26" },
+  flutter: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Flutter", bind: "Flutter", min: 0, max: 1 },
+  noise: { type: "knob", col: 4, row: 0, colSpan: 2, rowSpan: 2, label: "Noise", bind: "Noise", min: 0, max: 1 },
+})
+vertical({
+  cols: 4,
+  rows: 5,
+  widgets: {
+    tone: { type: "group", col: 0, row: 0, colSpan: 4, rowSpan: 3, label: "TONE", color: "#3ec96b26" },
+    tape_low: { type: "fader", col: 1, row: 0, rowSpan: 3, label: "Low", bind: "Tape Low", min: 0, max: 1 },
+    tape_high: { type: "fader", col: 2, row: 0, rowSpan: 3, label: "High", bind: "Tape High", min: 0, max: 1 },
+    tape: { type: "group", col: 0, row: 3, colSpan: 4, rowSpan: 2, label: "TAPE", color: "#3d7dff26" },
+    flutter: { type: "knob", col: 0, row: 3, colSpan: 2, rowSpan: 2, label: "Flutter", bind: "Flutter", min: 0, max: 1 },
+    noise: { type: "knob", col: 2, row: 3, colSpan: 2, rowSpan: 2, label: "Noise", bind: "Noise", min: 0, max: 1 },
+  },
+})

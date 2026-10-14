@@ -1,0 +1,6 @@
+// st0-rack — a drum RACK, one module for every kit, each an ENGINE under engines/ (studio: packages/song/docs/racks.md).
+// `samples` is the sampler: the node's own `rack:` taps, a library sample per note. Every other engine is an SFZ kit:
+// its .sfz under `params: sfz:` and its pads under `kit:` — name: note — velocity layers, round-robins and hi-hat
+// choke included, the pads being the kit's own notes. A node picks one with `engine:`; the acoustic kit is the default.
+engine("naked-drums")
+// A drum kit drawn as pads — a sampled kit played whole, or library samples you choose — each kit one of its engines.

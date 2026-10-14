@@ -114,9 +114,9 @@ import {
   isInSharedModules,
   isLibraryEditable,
   isLibraryName,
+  isLibraryRootEditable,
   LIBRARIES_DIR,
   librariesHome,
-  libraryFamilyRoots,
   libraryOf,
   libraryRoot,
   moduleLibraryDirs,
@@ -130,6 +130,15 @@ import {
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
 import { ensureVideoRun } from "@studio/song/videoOutputs";
 import {
+  isDocName,
+  isK7xPath,
+  realPath,
+  wsExists,
+  wsRead,
+  wsWrite,
+} from "@studio/song/yaml/workspaceFile";
+import {
+  ACCOUNT_LIBRARY,
   ENGINE_NS,
   type ModuleNamespace,
 } from "@studio/song-schema/moduleTypes";
@@ -229,7 +238,7 @@ export { isBinary, skip };
 function parseCompileError(msg: string): Diagnostic[] {
   const out: Diagnostic[] = [];
   for (const line of msg.split("\n")) {
-    const m = /^\s*(\S+\.ya?ml)(?::(\d+))?:\s*(.+)$/i.exec(line);
+    const m = /^\s*(\S+\.(?:ya?ml|k7x))(?::(\d+))?:\s*(.+)$/i.exec(line);
     if (m)
       out.push({
         file: m[1].replace(/^\.\//, ""),
@@ -277,10 +286,10 @@ export function projectDirsUnder(
 }
 
 // A project FILE by name — every "file or folder?" test asks this rather than naming an extension.
-const PROJECT_FILE = /\.ya?ml$/i;
-// What moves the revision: the YAML, and a VST's .vstpreset — its params, rewritten IN PLACE by its
+const PROJECT_FILE = /\.(ya?ml|k7x)$/i;
+// What moves the revision: the YAML or k7x, and a VST's .vstpreset — its params, rewritten IN PLACE by its
 // own window, which is what an automatic freeze must notice (packages/song/docs/autoFreeze.md).
-const REVISION_FILE = /\.(ya?ml|vstpreset)$/i;
+const REVISION_FILE = /\.(ya?ml|k7x|vstpreset)$/i;
 
 /** One file found by `walkProject`, from a single `statSync` — see docs/workspace.md. */
 interface WalkedFile {
@@ -293,9 +302,10 @@ interface WalkedFile {
 
 /** Is `abs` inside one of the account libraries' `samples/`, `irs/` or `wavetables/` — and nowhere else of theirs? */
 function inLibrarySounds(abs: string): boolean {
-  return (["samples", "irs", "wavetables"] as const).some((family) =>
-    libraryFamilyRoots(family).some((l) => abs.startsWith(l.root + sep)),
-  );
+  const lib = libraryOf(abs);
+  if (!lib) return false;
+  const family = relative(lib.root, abs).split(sep)[0];
+  return family === "samples" || family === "irs" || family === "wavetables";
 }
 
 /** What a journalled mutation answers, tokens included — see docs/workspace.md. */
@@ -727,8 +737,8 @@ export class Workspace {
     const segs = rel.split(/[\\/]+/).filter((s) => s && s !== ".");
     if (segs[0] === LIBRARIES_DIR) {
       // Each library is confined to its OWN root, wherever an overlay points it.
-      if (segs[1] && isLibraryName(segs[1])) {
-        const root = libraryRoot(segs[1]);
+      if (segs[1] && (isLibraryName(segs[1]) || segs[1] === ACCOUNT_LIBRARY)) {
+        const root = libraryRoot(segs[1], this.activeProject ?? this.root);
         return confined(
           resolve(root, ...segs.slice(2)),
           root,
@@ -1361,13 +1371,13 @@ export class Workspace {
       abs,
     }));
     // Every library is a row, one with no `modules/` yet included: its chains are listed under it.
-    for (const lib of accountLibraries())
+    for (const lib of accountLibraries(dir))
       if (!roots.some((r) => r.ns === lib.name))
         roots.push({ ns: lib.name, abs: join(lib.root, "modules") });
     const out: ModuleLibrary[] = roots.map(({ ns, abs }) => {
       const exists = existsSync(abs);
       // A library REPOSITORY's sound folders too, walked like its modules: the tab draws them and takes drops on them.
-      const lib = accountLibraries().find((l) => l.name === ns);
+      const lib = accountLibraries(dir).find((l) => l.name === ns);
       const sounds = (family: "samples" | "irs" | "wavetables" | "models") => {
         const at = lib ? join(lib.root, family) : null;
         return at && existsSync(at) ? this.walk(at) : [];
@@ -1395,7 +1405,7 @@ export class Workspace {
   /** The CHAINS the account's libraries hold, by `@<library>/<path>`: `path` is the chain's file, or a folder chain's folder. */
   libraryChains(): { ref: string; path: string; nodes: string[] }[] {
     // The walk is shared with the ACCOUNT's own listing, which has no workspace to be relative to.
-    return libraryChainDirs().map((c) => ({
+    return libraryChainDirs(this.activeProject ?? this.root).map((c) => ({
       ref: c.ref,
       path: this.toRel(c.at),
       nodes: c.nodes,
@@ -1443,16 +1453,16 @@ export class Workspace {
           walk(abs);
           continue;
         }
-        if (!e.isFile() || !/\.ya?ml$/i.test(e.name)) continue;
+        if (!e.isFile() || !isDocName(e.name)) continue;
         let parsed: ReturnType<typeof parsePlaylist> = null;
         try {
-          parsed = parsePlaylist(readFileSync(abs, "utf8"));
+          parsed = parsePlaylist(wsRead(abs));
         } catch {
           parsed = null; // unreadable bytes read exactly like unparseable ones from here
         }
         out.push({
           path: this.toRel(abs),
-          name: e.name.replace(/\.ya?ml$/i, ""),
+          name: e.name.replace(/\.(ya?ml|k7x)$/i, ""),
           ...(parsed?.title ? { title: parsed.title } : {}),
           count: parsed?.items.length ?? 0,
           ok: parsed !== null,
@@ -1511,15 +1521,12 @@ export class Workspace {
     const dir = this.safePath(`${root}/${segs.join("/")}`);
     this.assertLibraryWritable(dir, "create a module in");
     const file = join(dir, "module.yaml");
-    if (existsSync(file)) throw new Error(`${this.toRel(file)} already exists`);
+    if (wsExists(file))
+      throw new Error(`${this.toRel(realPath(file))} already exists`);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(
-      file,
-      `# ${segs[segs.length - 1]}\nplugin:\n  type: \n  name: \n`,
-      "utf8",
-    );
+    wsWrite(file, `# ${segs[segs.length - 1]}\nplugin:\n  type: \n  name: \n`);
     this.invalidateProjectDoc();
-    return { path: this.toRel(file), dir: this.toRel(dir) };
+    return { path: this.toRel(realPath(file)), dir: this.toRel(dir) };
   }
 
   /** The named bases the module at `rel` may be set to, ancestors included — docs/workspace.md. */
@@ -1585,7 +1592,9 @@ export class Workspace {
     const abs = this.safePath(rel);
     if (isBinary(basename(abs)))
       return { path: rel, binary: true, content: "" };
-    return { path: rel, binary: false, content: readFileSync(abs, "utf8") };
+    // A .k7x path is served as written; a YAML name reads a .k7x file as YAML (packages/song/docs/k7xFiles.md).
+    const content = isK7xPath(abs) ? readFileSync(abs, "utf8") : wsRead(abs);
+    return { path: rel, binary: false, content };
   }
 
   /** Save a file, forking a `_modules` one instead of refusing it — see docs/workspace.md. */
@@ -1600,7 +1609,8 @@ export class Workspace {
     this.assertLibraryWritable(abs, "write");
     if (isBinary(basename(abs))) throw new Error("cannot edit a binary file");
     mkdirSync(dirname(abs), { recursive: true });
-    writeFileSync(abs, content, "utf8");
+    if (isK7xPath(abs)) writeFileSync(abs, content, "utf8");
+    else wsWrite(abs, content);
     this.invalidateProjectDoc();
     return {};
   }
@@ -1655,9 +1665,11 @@ export class Workspace {
   /** A library is written only by an admin, whose account overlays it writable — docs/libraries.md. */
   assertLibraryWritable(abs: string, verb = "change"): void {
     const lib = libraryOf(abs);
-    if (lib && !isLibraryEditable(lib.name))
+    if (lib && !isLibraryRootEditable(lib))
       throw new Error(
-        `can't ${verb} '${this.toRel(abs)}': only the origin's admins edit a library`,
+        isLibraryEditable(lib.name)
+          ? `can't ${verb} '${this.toRel(abs)}': a published version never changes — edit the draft`
+          : `can't ${verb} '${this.toRel(abs)}': only the origin's admins edit a library`,
       );
   }
 
@@ -1874,9 +1886,7 @@ export class Workspace {
   } {
     let current: string | undefined;
     try {
-      const root = parseYaml(
-        readFileSync(join(dir, "project.yaml"), "utf8"),
-      ) as {
+      const root = parseYaml(wsRead(join(dir, "project.yaml"))) as {
         project?: { console?: unknown };
       };
       if (typeof root?.project?.console === "string")
@@ -2407,10 +2417,10 @@ export class Workspace {
     const dir = this.activeProject ?? this.root;
     let name = basename(dir);
     try {
-      const m = /name:\s*"([^"]+)"/.exec(
-        readFileSync(join(dir, "project.yaml"), "utf8"),
-      );
-      if (m) name = m[1];
+      const root = parseYaml(wsRead(join(dir, "project.yaml"))) as {
+        project?: { name?: unknown };
+      } | null;
+      if (typeof root?.project?.name === "string") name = root.project.name;
     } catch {
       /* no project.yaml — keep the folder name */
     }

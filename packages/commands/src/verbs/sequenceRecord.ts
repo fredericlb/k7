@@ -3,8 +3,9 @@
 // placement on the lane — one command, so the take is one undo. Notes arrive in SONG beats, the
 // file stores them clip-local. See packages/commands/docs/verbs.md.
 
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { wsExists, wsRemove, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { addTrackPlacement } from "@studio/song-edit/trackMix";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import {
@@ -83,7 +84,7 @@ export function writeRecordedSequence(
   // A track id may hold characters a sequence filename may not.
   const base = /^[A-Za-z0-9_.-]+$/.test(track) ? `${track}-rec` : "rec";
   let n = 1;
-  while (existsSync(join(dir, "sequences", `${base}-${n}.yaml`))) n++;
+  while (wsExists(join(dir, "sequences", `${base}-${n}.yaml`))) n++;
   const id = `${base}-${n}`;
   // Rounded as the recorded sequences already on disk are: a microsecond is below anything heard.
   const round = (v: number, places: number) => Number(v.toFixed(places));
@@ -100,13 +101,13 @@ export function writeRecordedSequence(
   const empty = ['from: "1:1"', `to: "${bars + 1}:1"`, ""];
   const file = join(dir, "sequences", `${id}.yaml`);
   mkdirSync(join(dir, "sequences"), { recursive: true });
-  writeFileSync(file, appendNotes(empty.join("\n"), local), "utf8");
+  wsWrite(file, appendNotes(empty.join("\n"), local));
   const at = beatsToPosition(from, num, den);
   try {
     addTrackPlacement(dir, track, id, at);
   } catch (e) {
     // A sequence no lane places is a file nobody asked for: the take failed whole.
-    rmSync(file, { force: true });
+    wsRemove(file);
     throw e;
   }
   return { id, at, count: local.length };

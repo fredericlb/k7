@@ -1,0 +1,6 @@
+// High Pass  [audioEffect] — one knob that thins, 0 (a corner at 20 Hz, so nothing) to 100 (20 kHz, so almost
+// silence). The blindtest's "highpass", reimplemented with the same geometric curve.
+// Its DSP is described in jsdsp.ts beside this file, not compiled into the engine.
+plugin({ type: "jsdsp", name: "High Pass" })
+params({ Amount: 0 })
+// A resonance-free high-pass whose corner runs from 20 Hz at 0 to 20 kHz at 100, geometrically. Both extremes are deliberately unusable — the point is the sweep between them.

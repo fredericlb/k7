@@ -6,12 +6,13 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { parse as parseK7x } from "@studio/k7x/document";
 import {
   type ModuleUI,
   UiFileSchema,
   type Widget,
 } from "@studio/song-schema/yaml/moduleSchema";
-import { parse } from "yaml";
+import { parse as parseYaml } from "yaml";
 import {
   atControlIssues,
   eqBandIssues,
@@ -21,21 +22,33 @@ import { gridIssues, twinIssues } from "../src/layoutTwins";
 
 const LIBRARY = resolve(import.meta.dirname, "../../../st0-library");
 
-/** Every ui.yaml under the library, or the ones named. */
+/** A panel's data, read by its extension: a ui.k7x or a ui.yaml (packages/k7x/docs/language.md). */
+const parse = (text: string, file: string): unknown =>
+  file.endsWith(".k7x") ? parseK7x(text) : parseYaml(text);
+
+/** A module folder's panel file, the .k7x spelling first as the loader reads it. */
+const panelIn = (dir: string): string =>
+  existsSync(join(dir, "ui.k7x")) ? join(dir, "ui.k7x") : join(dir, "ui.yaml");
+
+/** Every ui.k7x or ui.yaml under the library, or the ones named. */
 function targets(args: string[]): string[] {
-  if (args.length) return args.map((a) => join(resolve(a), "ui.yaml"));
-  const out = execFileSync("git", ["-C", LIBRARY, "ls-files", "*ui.yaml"], {
-    encoding: "utf8",
-  });
+  if (args.length) return args.map((a) => panelIn(resolve(a)));
+  const out = execFileSync(
+    "git",
+    ["-C", LIBRARY, "ls-files", "*ui.yaml", "*ui.k7x"],
+    { encoding: "utf8" },
+  );
   return [
     ...new Set([
       ...out
         .split("\n")
         .filter(Boolean)
         .map((f) => join(LIBRARY, f)),
-      ...execFileSync("find", [join(LIBRARY, "modules"), "-name", "ui.yaml"], {
-        encoding: "utf8",
-      })
+      ...execFileSync(
+        "find",
+        [join(LIBRARY, "modules"), "-name", "ui.yaml", "-o", "-name", "ui.k7x"],
+        { encoding: "utf8" },
+      )
         .split("\n")
         .filter(Boolean),
     ]),
@@ -63,7 +76,7 @@ function committed(file: string): ModuleUI | null {
       ["-C", LIBRARY, "show", `HEAD:${relative(LIBRARY, file)}`],
       { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
     );
-    const r = UiFileSchema.safeParse(parse(text));
+    const r = UiFileSchema.safeParse(parse(text, file));
     return r.success ? r.data : null;
   } catch {
     return null;
@@ -97,9 +110,9 @@ function screensOf(source: string): Set<string> {
 function check(file: string): string[] {
   let raw: unknown;
   try {
-    raw = parse(readFileSync(file, "utf8"));
+    raw = parse(readFileSync(file, "utf8"), file);
   } catch (e) {
-    return [`not YAML: ${(e as Error).message}`];
+    return [`unreadable: ${(e as Error).message}`];
   }
   const r = UiFileSchema.safeParse(raw);
   if (!r.success)

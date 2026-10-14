@@ -24,6 +24,7 @@ import type { Batch } from "./liveLog.ts";
 import { isBinary, skip } from "./workspace.ts";
 
 const MIX = "plugin: mixer\nparams:\n  gain: 0.5\n  pan: 0\n";
+const FILE = "song.st0/nodes/mix.yaml";
 
 interface Cap {
   root: string;
@@ -98,6 +99,20 @@ describe("LiveCapture", () => {
         ops: [
           { op: "set", path: ["params", "gain"], yaml: "0.8\n", was: "0.5\n" },
         ],
+      },
+    ]);
+  });
+
+  it("captures a .k7x value edit as one k7x path op", async () => {
+    const K7X = 'plugin("mixer")\nparams({ gain: 0.5, pan: 0 }) // kept\n';
+    const a = replica("k7x", { "song.st0/nodes/mix.k7x": K7X });
+    put(a.root, "song.st0/nodes/mix.k7x", K7X.replace("0.5", "0.8"));
+    const [b] = await batches(a, 1);
+    expect(b.ops).toEqual([
+      {
+        kind: "k7x",
+        file: "song.st0/nodes/mix.k7x",
+        ops: [{ op: "set", path: ["params", "gain"], k7x: "0.8", was: "0.5" }],
       },
     ]);
   });
@@ -327,8 +342,12 @@ function confirmedOf(room: Room): MemoryConfirmed {
 }
 
 /** A capture wired to a Replica the way liveRelay.ts wires it, with the room in-process instead of a socket. */
-function synced(name: string, room: Room) {
-  const c = replica(name);
+function synced(
+  name: string,
+  room: Room,
+  files: Record<string, string> = { [FILE]: MIX },
+) {
+  const c = replica(name, files);
   const r = new Replica(
     name,
     {
@@ -363,7 +382,7 @@ function receive(c: ReturnType<typeof synced>, entry: Sequenced): void {
   expect(c.r.remote(entry)).toEqual([]);
 }
 
-function seededRoom(): Room {
+function seededRoom(file = FILE, text = MIX): Room {
   const room = new Room();
   room.submit({
     id: "seed",
@@ -371,12 +390,10 @@ function seededRoom(): Room {
     local: 0,
     ts: 0,
     label: "seed",
-    ops: [{ kind: "text", file: "song.st0/nodes/mix.yaml", text: MIX }],
+    ops: [{ kind: "text", file, text }],
   });
   return room;
 }
-
-const FILE = "song.st0/nodes/mix.yaml";
 
 describe("two replicas through a room", () => {
   it("converge on two edits to different values of one file, and echo nothing back", async () => {
@@ -442,5 +459,53 @@ describe("two replicas through a room", () => {
     receive(b, fromA);
     expect(read(b.root, FILE)).toBe(room.files.get(FILE));
     expect(read(a.root, FILE)).toBe(room.files.get(FILE));
+  });
+});
+
+const K7X_FILE = "song.st0/nodes/mix.k7x";
+const K7X_MIX =
+  'plugin("mixer")\n// the strip\nparams({ gain: 0.5, pan: 0 })\n';
+
+describe("two replicas through a room, on a .k7x file", () => {
+  it("converge on two edits to different values, comments kept, and echo nothing back", async () => {
+    const room = seededRoom(K7X_FILE, K7X_MIX);
+    const a = synced("a", room, { [K7X_FILE]: K7X_MIX });
+    const b = synced("b", room, { [K7X_FILE]: K7X_MIX });
+    put(a.root, K7X_FILE, K7X_MIX.replace("gain: 0.5", "gain: 0.9"));
+    put(b.root, K7X_FILE, K7X_MIX.replace("pan: 0", "pan: -0.25"));
+    const [fromA] = await batches(a, 1);
+    await batches(b, 1);
+    expect(fromA.ops[0].kind).toBe("k7x");
+    const entries = [...send(a, room), ...send(b, room)];
+    for (const c of [a, b]) for (const e of entries) receive(c, e);
+    const merged = room.files.get(K7X_FILE);
+    expect(merged).toBe(
+      'plugin("mixer")\n// the strip\nparams({ gain: 0.9, pan: -0.25 })\n',
+    );
+    expect(read(a.root, K7X_FILE)).toBe(merged);
+    expect(read(b.root, K7X_FILE)).toBe(merged);
+    await settle();
+    expect(a.batches).toHaveLength(1);
+    expect(b.batches).toHaveLength(1);
+  });
+
+  it("set aside the later of two edits to one value, keeping the first in place", async () => {
+    const room = seededRoom(K7X_FILE, K7X_MIX);
+    const a = synced("a", room, { [K7X_FILE]: K7X_MIX });
+    const b = synced("b", room, { [K7X_FILE]: K7X_MIX });
+    put(a.root, K7X_FILE, K7X_MIX.replace("gain: 0.5", "gain: 0.1"));
+    put(b.root, K7X_FILE, K7X_MIX.replace("gain: 0.5", "gain: 0.9"));
+    await batches(a, 1);
+    await batches(b, 1);
+    const [fromA] = send(a, room);
+    const [fromB] = send(b, room);
+    for (const [c, es] of [
+      [a, [fromA, fromB]],
+      [b, [fromA, fromB]],
+    ] as const)
+      for (const e of es) receive(c, e);
+    expect(read(a.root, K7X_FILE)).toContain("gain: 0.1");
+    expect(read(a.root, K7X_FILE)).toBe(read(b.root, K7X_FILE));
+    expect(fromB.parked).toMatchObject([{ replica: "b", kept: "0.1" }]);
   });
 });

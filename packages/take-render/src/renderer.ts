@@ -4,10 +4,11 @@
 // A caller never spawns the engine itself, so it does not care which one it was given.
 
 import { spawn } from "node:child_process";
-import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
+import { wsWrite } from "@studio/song/yaml/workspaceFile";
 
 /** The engine's render manifest: the mixdown plus, with `stems`, one wav per audible track, relative to the folder. */
 export interface RenderManifest {
@@ -48,7 +49,7 @@ export function localRenderer(
 ): Renderer {
   return async (doc, outDir, opts = {}) => {
     const docFile = join(outDir, "doc.json");
-    writeFileSync(docFile, JSON.stringify(doc));
+    wsWrite(docFile, JSON.stringify(doc));
     const args = ["--render", docFile, "--out", outDir];
     if (opts.stems) args.push("--stems");
     if (opts.base) args.push("--base", opts.base);

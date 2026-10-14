@@ -4,6 +4,7 @@
 
 import { existsSync, readdirSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
+import { wsExists } from "./yaml/workspaceFile";
 
 /** The folder a module keeps its bases in, and the extensions a base file carries. */
 export const MODULE_BASES_DIR = "base";
@@ -52,7 +53,7 @@ export function basePresetIn(
   const root = resolve(folder, MODULE_BASES_DIR);
   for (const ext of BASE_EXTS) {
     const file = resolve(root, `${base.trim()}${ext}`);
-    if (file.startsWith(root + sep) && existsSync(file)) return file;
+    if (file.startsWith(root + sep) && wsExists(file)) return file;
   }
   return undefined;
 }

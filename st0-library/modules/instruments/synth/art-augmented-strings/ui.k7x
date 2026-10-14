@@ -1,0 +1,77 @@
+// augmented-strings — Augmented STRINGS: macros, FX sends, the two layers' level and filter, vibrato and tremolo
+cols(14)
+rows(4)
+widgets({})
+tabs([
+  name("Main")
+    .widgets({
+      macro_grp: { type: "group", col: 0, row: 0, colSpan: 8, rowSpan: 2, label: "MACRO", color: "#ffffff12" },
+      morph: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Morph", bind: "Morph", min: 0, max: 1 },
+      color: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Color", bind: "Color", min: 0, max: 1 },
+      motion: { type: "knob", col: 4, row: 0, colSpan: 2, rowSpan: 2, label: "Motion", bind: "Motion", min: 0, max: 1 },
+      time: { type: "knob", col: 6, row: 0, colSpan: 2, rowSpan: 2, label: "Time", bind: "Time", min: 0, max: 1 },
+      layers_screen: { type: "lcdscreen", col: 8, row: 0, colSpan: 6, rowSpan: 4 },
+      fx_grp: { type: "group", col: 0, row: 2, colSpan: 8, rowSpan: 2, label: "FX", color: "#ff3b301a" },
+      fx_a: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "FX A", bind: "FX A", min: 0, max: 1 },
+      fx_b: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "FX B", bind: "FX B", min: 0, max: 1 },
+      delay: { type: "knob", col: 4, row: 2, colSpan: 2, rowSpan: 2, label: "Delay", bind: "Delay", min: 0, max: 1 },
+      reverb: { type: "knob", col: 6, row: 2, colSpan: 2, rowSpan: 2, label: "Reverb", bind: "Reverb", min: 0, max: 1 },
+    }),
+  name("Layers")
+    .widgets({
+      layer_a_grp: { type: "group", col: 0, row: 0, colSpan: 8, rowSpan: 2, label: "LYR A", color: "#3d7dff26" },
+      a_level: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Level", bind: "Layer A Volume", min: 0, max: 1 },
+      a_cutoff: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Cutoff", bind: "Layer A Filter Cutoff", min: 0, max: 1 },
+      a_res: { type: "knob", col: 4, row: 0, colSpan: 2, rowSpan: 2, label: "Res", bind: "Layer A Filter Resonance", min: 0, max: 1 },
+      a_env: { type: "knob", col: 6, row: 0, colSpan: 2, rowSpan: 2, label: "Env", bind: "Layer A Filter Env Amount", min: 0, max: 1 },
+      layer_b_grp: { type: "group", col: 0, row: 2, colSpan: 8, rowSpan: 2, label: "LYR B", color: "#3d7dff26" },
+      b_level: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Level", bind: "Layer B Volume", min: 0, max: 1 },
+      b_cutoff: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Cutoff", bind: "Layer B Filter Cutoff", min: 0, max: 1 },
+      b_res: { type: "knob", col: 4, row: 2, colSpan: 2, rowSpan: 2, label: "Res", bind: "Layer B Filter Resonance", min: 0, max: 1 },
+      b_env: { type: "knob", col: 6, row: 2, colSpan: 2, rowSpan: 2, label: "Env", bind: "Layer B Filter Env Amount", min: 0, max: 1 },
+      mod_grp: { type: "group", col: 8, row: 0, colSpan: 6, rowSpan: 2, label: "MOD", color: "#3ec96b1f" },
+      vib: { type: "knob", col: 8, row: 0, colSpan: 2, rowSpan: 2, label: "Vibrato", bind: "Vibrato Amp", min: 0, max: 1 },
+      vib_rate: { type: "knob", col: 10, row: 0, colSpan: 2, rowSpan: 2, label: "V.Rate", bind: "Vibrato RateUnSynced", min: 0, max: 1 },
+      trem: { type: "knob", col: 12, row: 0, colSpan: 2, rowSpan: 2, label: "Tremolo", bind: "Tremolo Amp", min: 0, max: 1 },
+      space_screen: { type: "lcdscreen", col: 8, row: 2, colSpan: 6, rowSpan: 2 },
+    }),
+])
+vertical({
+  cols: 4,
+  rows: 14,
+  widgets: {},
+  tabs: [
+    name("Main")
+      .widgets({
+        macro_grp: { type: "group", col: 0, row: 0, colSpan: 4, rowSpan: 4, label: "MACRO", color: "#ffffff12" },
+        morph: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Morph", bind: "Morph", min: 0, max: 1 },
+        color: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Color", bind: "Color", min: 0, max: 1 },
+        motion: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Motion", bind: "Motion", min: 0, max: 1 },
+        time: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Time", bind: "Time", min: 0, max: 1 },
+        layers_screen: { type: "lcdscreen", col: 0, row: 4, colSpan: 4, rowSpan: 3 },
+        fx_grp: { type: "group", col: 0, row: 7, colSpan: 4, rowSpan: 4, label: "FX", color: "#ff3b301a" },
+        fx_a: { type: "knob", col: 0, row: 7, colSpan: 2, rowSpan: 2, label: "FX A", bind: "FX A", min: 0, max: 1 },
+        fx_b: { type: "knob", col: 2, row: 7, colSpan: 2, rowSpan: 2, label: "FX B", bind: "FX B", min: 0, max: 1 },
+        delay: { type: "knob", col: 0, row: 9, colSpan: 2, rowSpan: 2, label: "Delay", bind: "Delay", min: 0, max: 1 },
+        reverb: { type: "knob", col: 2, row: 9, colSpan: 2, rowSpan: 2, label: "Reverb", bind: "Reverb", min: 0, max: 1 },
+      }),
+    name("Layers")
+      .widgets({
+        layer_a_grp: { type: "group", col: 0, row: 0, colSpan: 4, rowSpan: 4, label: "LYR A", color: "#3d7dff26" },
+        a_level: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Level", bind: "Layer A Volume", min: 0, max: 1 },
+        a_cutoff: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Cutoff", bind: "Layer A Filter Cutoff", min: 0, max: 1 },
+        a_res: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Res", bind: "Layer A Filter Resonance", min: 0, max: 1 },
+        a_env: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Env", bind: "Layer A Filter Env Amount", min: 0, max: 1 },
+        mod_grp: { type: "group", col: 0, row: 4, colSpan: 4, rowSpan: 4, label: "MOD", color: "#3ec96b1f" },
+        vib: { type: "knob", col: 0, row: 4, colSpan: 2, rowSpan: 2, label: "Vibrato", bind: "Vibrato Amp", min: 0, max: 1 },
+        vib_rate: { type: "knob", col: 2, row: 4, colSpan: 2, rowSpan: 2, label: "V.Rate", bind: "Vibrato RateUnSynced", min: 0, max: 1 },
+        trem: { type: "knob", col: 0, row: 6, colSpan: 2, rowSpan: 2, label: "Tremolo", bind: "Tremolo Amp", min: 0, max: 1 },
+        layer_b_grp: { type: "group", col: 0, row: 8, colSpan: 4, rowSpan: 4, label: "LYR B", color: "#3d7dff26" },
+        b_level: { type: "knob", col: 0, row: 8, colSpan: 2, rowSpan: 2, label: "Level", bind: "Layer B Volume", min: 0, max: 1 },
+        b_cutoff: { type: "knob", col: 2, row: 8, colSpan: 2, rowSpan: 2, label: "Cutoff", bind: "Layer B Filter Cutoff", min: 0, max: 1 },
+        b_res: { type: "knob", col: 0, row: 10, colSpan: 2, rowSpan: 2, label: "Res", bind: "Layer B Filter Resonance", min: 0, max: 1 },
+        b_env: { type: "knob", col: 2, row: 10, colSpan: 2, rowSpan: 2, label: "Env", bind: "Layer B Filter Env Amount", min: 0, max: 1 },
+        space_screen: { type: "lcdscreen", col: 0, row: 12, colSpan: 4, rowSpan: 2 },
+      }),
+  ],
+})

@@ -17,7 +17,7 @@ export interface Reload {
 export const UNKNOWN_RELOAD: Reload = { key: 0, files: null };
 
 /** Entities gathered BY NAME, anchored at the project root: a module may legitimately be called `clips`. */
-const NAMED_ONLY = /^(clips|sequences|curves)\/[^/]+\.ya?ml$/;
+const NAMED_ONLY = /^(clips|sequences|curves)\/[^/]+\.(?:ya?ml|k7x)$/;
 
 /** Did a file appear or disappear? — the only thing `/tree` draws. */
 export const movedTheTree = (r: Reload): boolean =>
@@ -29,7 +29,8 @@ export const movedTheVocabulary = (r: Reload): boolean =>
   r.files.some((f) => f.kind !== "edited" || !NAMED_ONLY.test(f.path));
 
 /** A lane's events, a clip, a sequence, a curve — what a TIMELINE edit writes, none of which wires anything. */
-const ARRANGEMENT_ONLY = /^(tracks|clips|sequences|curves)\/[^/]+\.ya?ml$/;
+const ARRANGEMENT_ONLY =
+  /^(tracks|clips|sequences|curves)\/[^/]+\.(?:ya?ml|k7x)$/;
 
 /** Could this have changed the CHAINS — a node, a cable, an input? No when it only rewrote the arrangement. */
 export const movedTheChains = (r: Reload): boolean =>
@@ -43,7 +44,7 @@ export const movedTheSurfaces = (r: Reload): boolean =>
 export const movedTheAudio = (r: Reload): boolean =>
   r.files === null ||
   r.files.some(
-    (f) => /^(tracks|clips)\//.test(f.path) || !/\.ya?ml$/.test(f.path),
+    (f) => /^(tracks|clips)\//.test(f.path) || !/\.(?:ya?ml|k7x)$/.test(f.path),
   );
 
 /** A counter that moves only when `moved` says this reload concerns it — the dependency to give an effect in place of `reload.key`. */

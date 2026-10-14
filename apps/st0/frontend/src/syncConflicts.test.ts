@@ -28,8 +28,8 @@ describe("describeConflict", () => {
     expect(describeConflict(c)).toEqual({
       file: "song/song.yaml",
       paths: ["tracks.bass.gain"],
-      kept: { k: "value", yaml: "-6" },
-      alternative: { k: "value", yaml: "-3" },
+      kept: { k: "value", source: "-6" },
+      alternative: { k: "value", source: "-3" },
     });
   });
 

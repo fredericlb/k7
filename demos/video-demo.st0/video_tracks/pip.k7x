@@ -1,0 +1,5 @@
+x(960)
+events([ref("bars").start(0).length(8).source_from(0)])
+y(540)
+w(320)
+h(180)

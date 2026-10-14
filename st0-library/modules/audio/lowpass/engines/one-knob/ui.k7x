@@ -1,0 +1,15 @@
+// lowpass — one knob that muffles, a corner from 20 kHz down to 200 Hz
+cols(8)
+rows(2)
+widgets({
+  amount: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Amount", bind: "Amount", min: 0, max: 100 },
+  response: { type: "lcdscreen", col: 2, row: 0, colSpan: 6, rowSpan: 2 },
+})
+vertical({
+  cols: 4,
+  rows: 4,
+  widgets: {
+    amount: { type: "knob", col: 1, row: 0, colSpan: 2, rowSpan: 2, label: "Amount", bind: "Amount", min: 0, max: 100 },
+    response: { type: "lcdscreen", col: 0, row: 2, colSpan: 4, rowSpan: 2 },
+  },
+})

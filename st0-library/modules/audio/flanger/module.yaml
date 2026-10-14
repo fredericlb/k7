@@ -1,6 +1,0 @@
-# Flanger  [audioEffect] — a short delay swept by an LFO and fed back into itself, so the comb notches it makes
-# slide up and down the spectrum. That sliding IS the effect; a fixed short delay is just a hollow tone.
-# Its DSP is described in flanger.ts beside this file, not compiled into the engine.
-plugin:
-  type: jsdsp
-  name: Flanger

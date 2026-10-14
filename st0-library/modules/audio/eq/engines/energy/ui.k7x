@@ -1,0 +1,30 @@
+// energy — Airwindows Energy, eight named tone regions, low to high
+cols(8)
+rows(4)
+widgets({
+  bands: { type: "group", col: 0, row: 0, colSpan: 8, rowSpan: 4, label: "BANDS", color: "#3ec96b26" },
+  snarl: { type: "fader", col: 0, row: 0, rowSpan: 4, label: "Snarl", bind: "Snarl", min: 0, max: 1 },
+  yowr: { type: "fader", col: 1, row: 0, rowSpan: 4, label: "Yowr", bind: "Yowr", min: 0, max: 1 },
+  chug: { type: "fader", col: 2, row: 0, rowSpan: 4, label: "Chug", bind: "Chug", min: 0, max: 1 },
+  scrape: { type: "fader", col: 3, row: 0, rowSpan: 4, label: "Scrape", bind: "Scrape", min: 0, max: 1 },
+  fizz: { type: "fader", col: 4, row: 0, rowSpan: 4, label: "Fizz", bind: "Fizz", min: 0, max: 1 },
+  rat: { type: "fader", col: 5, row: 0, rowSpan: 4, label: "Rat", bind: "Rat", min: 0, max: 1 },
+  glitter: { type: "fader", col: 6, row: 0, rowSpan: 4, label: "Glitter", bind: "Glitter", min: 0, max: 1 },
+  hiss: { type: "fader", col: 7, row: 0, rowSpan: 4, label: "Hiss", bind: "Hiss", min: 0, max: 1 },
+})
+vertical({
+  cols: 4,
+  rows: 6,
+  widgets: {
+    bands_low: { type: "group", col: 0, row: 0, colSpan: 4, rowSpan: 3, label: "LOW", color: "#3ec96b26" },
+    snarl: { type: "fader", col: 0, row: 0, rowSpan: 3, label: "Snarl", bind: "Snarl", min: 0, max: 1 },
+    yowr: { type: "fader", col: 1, row: 0, rowSpan: 3, label: "Yowr", bind: "Yowr", min: 0, max: 1 },
+    chug: { type: "fader", col: 2, row: 0, rowSpan: 3, label: "Chug", bind: "Chug", min: 0, max: 1 },
+    scrape: { type: "fader", col: 3, row: 0, rowSpan: 3, label: "Scrape", bind: "Scrape", min: 0, max: 1 },
+    bands_high: { type: "group", col: 0, row: 3, colSpan: 4, rowSpan: 3, label: "HIGH", color: "#3ec96b26" },
+    fizz: { type: "fader", col: 0, row: 3, rowSpan: 3, label: "Fizz", bind: "Fizz", min: 0, max: 1 },
+    rat: { type: "fader", col: 1, row: 3, rowSpan: 3, label: "Rat", bind: "Rat", min: 0, max: 1 },
+    glitter: { type: "fader", col: 2, row: 3, rowSpan: 3, label: "Glitter", bind: "Glitter", min: 0, max: 1 },
+    hiss: { type: "fader", col: 3, row: 3, rowSpan: 3, label: "Hiss", bind: "Hiss", min: 0, max: 1 },
+  },
+})

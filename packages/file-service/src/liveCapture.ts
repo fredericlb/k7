@@ -23,8 +23,8 @@ import { SETTLE_MS } from "@studio/song/moduleCache";
 import { BlobCache, cloneFile, sha256Buffer, sha256File } from "./liveBlobs.ts";
 import {
   BlobIndex,
-  isYaml,
   type Known,
+  keepsText,
   looksBinary,
   stampOf,
   TEXT_CEILING,
@@ -442,7 +442,7 @@ export class LiveCapture {
     if (looksBinary(buf)) return opaque(id(buf));
     const text = buf.toString("utf8");
     const hash = textHash(text);
-    return { now: { stamp, hash, text: isYaml(rel) ? text : null }, text };
+    return { now: { stamp, hash, text: keepsText(rel) ? text : null }, text };
   }
 
   /** The ledger as the baseline says the text files were, opaque files as they are on disk. */
@@ -470,7 +470,7 @@ export class LiveCapture {
       this.ledger.set(rel, {
         stamp: "",
         hash,
-        text: isYaml(rel) && !ref ? text : null,
+        text: keepsText(rel) && !ref ? text : null,
         ...(ref ? { ref } : {}),
       });
     }

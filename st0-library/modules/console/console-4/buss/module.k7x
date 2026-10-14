@@ -1,0 +1,3 @@
+// console-4-buss — the face for Console 4 Buss, a plugin the engine scans.
+// Everything it IS comes from the ref below; what lives here is the ui.yaml beside this file.
+extends("@engine/console-4-buss")

@@ -4,7 +4,7 @@
 // the file service without this. Nothing here reaches the compiler: an assembly is a drawing.
 // Full rationale: docs/assemblies.md.
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { libraryRef, libraryRefParts } from "@studio/song-schema/moduleTypes";
 import {
@@ -22,6 +22,7 @@ import type {
 import type { Diagnostic } from "./loader";
 import { libraryFamilyRoot, libraryFamilyRoots } from "./sharedFolders";
 import { entityFiles } from "./yaml/moduleIO";
+import { wsExists, wsRead } from "./yaml/workspaceFile";
 
 export type { ProjectAssemblies, ProjectAssembly };
 export { ASSEMBLIES_DIR, ASSEMBLY_FILE };
@@ -37,7 +38,7 @@ export function projectAssemblies(dir: string): ProjectAssemblies {
     const rel = file.rel.replace(/^\/+/, "");
     let text: string;
     try {
-      text = readFileSync(file.path, "utf8");
+      text = wsRead(file.path);
     } catch (e) {
       diagnostics.push({
         file: rel,
@@ -63,16 +64,16 @@ export function projectAssemblies(dir: string): ProjectAssemblies {
 }
 
 /** The folder a ref names, or null — `@st0/turntable` is the `st0` library's `assemblies/turntable`. */
-export function assemblyFolder(_dir: string, ref: string): string | null {
+export function assemblyFolder(dir: string, ref: string): string | null {
   const parts = libraryRefParts(ref);
   if (!parts) return null;
-  const root = libraryFamilyRoot(parts.library, ASSEMBLIES_DIR);
+  const root = libraryFamilyRoot(parts.library, ASSEMBLIES_DIR, dir);
   if (!root) return null;
   // A ref is a path under the family folder, so a `..` in it would reach out of the library.
   const segs = parts.rest.split(/[\\/]+/);
   if (segs.some((s) => !s || s === "." || s === "..")) return null;
   const folder = join(root, ...segs);
-  return existsSync(join(folder, ASSEMBLY_FILE)) ? folder : null;
+  return wsExists(join(folder, ASSEMBLY_FILE)) ? folder : null;
 }
 
 /** One template as the library holds it, or null when the ref resolves to nothing — a WARNING, never fatal. */
@@ -83,7 +84,7 @@ export function loadAssemblyTemplate(
   const folder = assemblyFolder(dir, ref);
   if (!folder) return null;
   const { value, issues } = parseAssemblyTemplate(
-    readFileSync(join(folder, ASSEMBLY_FILE), "utf8"),
+    wsRead(join(folder, ASSEMBLY_FILE)),
   );
   // An unreadable template is an EMPTY one with its complaint attached: the box still draws.
   return {
@@ -95,13 +96,16 @@ export function loadAssemblyTemplate(
 
 /** Every assembly template the libraries hold, by ref — what a picker and the builder list. */
 export function libraryAssemblies(
-  _dir: string,
+  dir: string,
 ): { ref: string; path: string }[] {
   const out: { ref: string; path: string }[] = [];
-  for (const { name: library, root } of libraryFamilyRoots(ASSEMBLIES_DIR)) {
+  for (const { name: library, root } of libraryFamilyRoots(
+    ASSEMBLIES_DIR,
+    dir,
+  )) {
     // A folder holding an `assembly.yaml` IS one, and nothing inside one is another.
     const walk = (folder: string, rel: string[]): void => {
-      if (existsSync(join(folder, ASSEMBLY_FILE))) {
+      if (wsExists(join(folder, ASSEMBLY_FILE))) {
         out.push({ ref: libraryRef(library, rel.join("/")), path: folder });
         return;
       }

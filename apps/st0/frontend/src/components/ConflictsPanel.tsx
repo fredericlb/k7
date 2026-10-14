@@ -55,7 +55,7 @@ export function ConflictsTab({
 function SideView({ label, side }: { label: string; side: Side }) {
   const text =
     side.k === "value"
-      ? side.yaml
+      ? side.source
       : side.k === "absent"
         ? m["conflicts.absent"]()
         : side.k === "text"

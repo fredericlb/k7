@@ -1,0 +1,21 @@
+// chorus-classic — Tracktion's chorus as a graph, a delay swept by an LFO and spread in stereo, whose knobs automate
+cols(8)
+rows(4)
+widgets({
+  mod_section: { type: "group", col: 0, row: 0, colSpan: 6, rowSpan: 2, label: "MOD", color: "#3d7dff26" },
+  speed: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Speed", bind: "Speed", min: 0, max: 10 },
+  depth: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Depth", bind: "Depth", min: 0, max: 20 },
+  width: { type: "knob", col: 4, row: 0, colSpan: 2, rowSpan: 2, label: "Width", bind: "Width", min: 0, max: 1 },
+  sweep: { type: "lcdscreen", col: 0, row: 2, colSpan: 8, rowSpan: 2 },
+})
+vertical({
+  cols: 4,
+  rows: 6,
+  widgets: {
+    mod_section: { type: "group", col: 0, row: 0, colSpan: 4, rowSpan: 4, label: "MOD", color: "#3d7dff26" },
+    speed: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Speed", bind: "Speed", min: 0, max: 10 },
+    depth: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Depth", bind: "Depth", min: 0, max: 20 },
+    width: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Width", bind: "Width", min: 0, max: 1 },
+    sweep: { type: "lcdscreen", col: 0, row: 4, colSpan: 4, rowSpan: 2 },
+  },
+})

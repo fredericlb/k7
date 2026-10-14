@@ -1,0 +1,6 @@
+// side-dull — Airwindows Side Dull, a low pass on the side channel only
+cols(3)
+rows(3)
+widgets({
+  cutoff: { type: "knob", col: 0, row: 0, colSpan: 3, rowSpan: 3, label: "Cutoff", bind: "Cutoff", min: 0, max: 1 },
+})

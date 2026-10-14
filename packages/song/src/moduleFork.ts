@@ -3,7 +3,7 @@
 // A `@workspace` or `@st0` module that already HAS a folder is simply edited in place — there is
 // no project-local copy to fork into instead. Rationale: docs/moduleFork.md.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { ENGINES_DIR } from "@studio/song-schema/engines";
 import { namePart } from "@studio/song-schema/instanceName";
@@ -23,6 +23,7 @@ import {
 } from "./sharedFolders";
 import { loadUiLibrary, writeUiFile } from "./uiLibrary";
 import { entityFileFor } from "./yaml/moduleIO";
+import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 export type ForkedModule = {
   /** The shared ref that was edited, e.g. "@engine/audio/delay/tape-delay". */
@@ -109,8 +110,7 @@ export function materialiseEngineModule(
   // `@workspace` module from that point on, docs/moduleFork.md.
   const typeDir = resolve(dir, SHARED_MODULES_PATH, type);
   let module = stem;
-  for (let n = 2; existsSync(join(typeDir, module)); n++)
-    module = `${stem}_${n}`;
+  for (let n = 2; wsExists(join(typeDir, module)); n++) module = `${stem}_${n}`;
 
   mkdirSync(join(typeDir, module), { recursive: true });
   const plugin = found.plugin as { type?: unknown; name?: unknown } | undefined;
@@ -122,7 +122,7 @@ export function materialiseEngineModule(
     : // An io module (IN / OUT / …) has no plugin — its `io:` IS its substance.
       `# ${module}: ${ref}, given a folder so it can carry a panel and presets.\n` +
       `io: ${JSON.stringify(String(found.io ?? ""))}\n`;
-  writeFileSync(join(typeDir, module, "module.yaml"), body, "utf8");
+  wsWrite(join(typeDir, module, "module.yaml"), body);
 
   // The panel follows, if the engine module had one drawn under its ref somewhere readable.
   const panel = loadUiLibrary(dir).byRef[ref];
@@ -135,9 +135,9 @@ export function materialiseEngineModule(
   let chains: string[] = [];
   if (isChainProject(dir)) chains = repointChainItems(dir, ref, localRef);
   else if (graphFile) {
-    const text = readFileSync(graphFile.path, "utf8");
+    const text = wsRead(graphFile.path);
     const r = renameNode(text, ref, localRef);
-    if (r.text !== text) writeFileSync(graphFile.path, r.text, "utf8");
+    if (r.text !== text) wsWrite(graphFile.path, r.text);
     chains = chainsUsing(r.text, localRef);
   }
 

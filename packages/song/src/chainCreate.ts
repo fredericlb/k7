@@ -5,7 +5,7 @@
 // What would be got wrong: the name a caller asked for names the CHAIN; the node is its fresh id.
 // See docs/chainFiles.md.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { parseChain } from "@studio/song-schema/yaml/chainFile";
 import { CHAINS_DIR, TRACKS_DIR } from "@studio/song-schema/yaml/chainSchema";
@@ -18,13 +18,14 @@ import {
   YAMLSeq,
 } from "yaml";
 import { newNodeId, readChainProject } from "./chainProject";
+import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 const OPTS = { version: "1.2" as const, strict: false };
 
 /** Whether `chains/<name>` is taken — a chain file of that name, either extension. */
 export const chainTaken = (dir: string, name: string): boolean =>
-  existsSync(join(dir, CHAINS_DIR, `${name}.yaml`)) ||
-  existsSync(join(dir, CHAINS_DIR, `${name}.yml`));
+  wsExists(join(dir, CHAINS_DIR, `${name}.yaml`)) ||
+  wsExists(join(dir, CHAINS_DIR, `${name}.yml`));
 
 /** Write a node, given as a node file's text, as the one item of a new loose chain `chain`; its id and file. */
 export function createChainNode(
@@ -49,7 +50,7 @@ export function createChainNode(
   doc.commentBefore = src.commentBefore ?? src.contents?.commentBefore ?? null;
   mkdirSync(join(dir, CHAINS_DIR), { recursive: true });
   const rel = `${CHAINS_DIR}/${chain}.yaml`;
-  writeFileSync(join(dir, rel), doc.toString({ lineWidth: 0 }), "utf8");
+  wsWrite(join(dir, rel), doc.toString({ lineWidth: 0 }));
   return { id, rel };
 }
 
@@ -60,7 +61,7 @@ export function createChainLane(
   body: string,
 ): string[] {
   const track = `${TRACKS_DIR}/${lane}.yaml`;
-  if (existsSync(join(dir, track)))
+  if (wsExists(join(dir, track)))
     throw new Error(`track '${lane}' already exists (${track})`);
   if (chainTaken(dir, lane))
     throw new Error(
@@ -68,12 +69,11 @@ export function createChainLane(
     );
   mkdirSync(join(dir, TRACKS_DIR), { recursive: true });
   mkdirSync(join(dir, CHAINS_DIR), { recursive: true });
-  writeFileSync(join(dir, track), body, "utf8");
+  wsWrite(join(dir, track), body);
   const chain = `${CHAINS_DIR}/${lane}.yaml`;
-  writeFileSync(
+  wsWrite(
     join(dir, chain),
     `start: true\nsteps:\n  - { id: ${newNodeId()}, track: ${JSON.stringify(lane)} }\n`,
-    "utf8",
   );
   return [track, chain];
 }
@@ -91,8 +91,8 @@ export function insertChainInput(
       `'${lane}' sits inside a subchain or a parallel step — wire its input by hand`,
     );
   const yml = join(dir, CHAINS_DIR, `${at.chain}.yaml`);
-  const path = existsSync(yml) ? yml : join(dir, CHAINS_DIR, `${at.chain}.yml`);
-  const doc = parseDocument(readFileSync(path, "utf8"), OPTS);
+  const path = wsExists(yml) ? yml : join(dir, CHAINS_DIR, `${at.chain}.yml`);
+  const doc = parseDocument(wsRead(path), OPTS);
   const steps = doc.get("steps");
   if (!isSeq(steps)) throw new Error(`${at.chain} has no steps`);
   const src = parseDocument(body, OPTS);
@@ -108,6 +108,6 @@ export function insertChainInput(
     throw new Error(
       `the input would make ${at.chain} unreadable — ${parsed.issues[0]?.message ?? ""}`.trim(),
     );
-  writeFileSync(path, out, "utf8");
+  wsWrite(path, out);
   return { id, rel: `${CHAINS_DIR}/${at.chain}.yaml` };
 }

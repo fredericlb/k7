@@ -1,0 +1,6 @@
+// de-hiss — Airwindows DeHiss, a hiss gate
+cols(3)
+rows(3)
+widgets({
+  thresh: { type: "knob", col: 0, row: 0, colSpan: 3, rowSpan: 3, label: "Thresh", bind: "Thresh", min: 0, max: 1 },
+})

@@ -6,20 +6,14 @@
 //
 // One-shot and re-runnable: a project with no `@engine/…` left is reported as already migrated.
 
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, readdirSync, rmSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { engineModules, engineRef } from "./engineCatalogue";
 import { loadProjectRoot, MODULE_TYPES } from "./loader";
 import { moduleFileFor, nodeFiles } from "./yaml/moduleIO";
+import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 /** The node a module used BARE becomes. Its chain step gains this suffix. */
 export const DEFAULT_NODE = "default";
@@ -53,10 +47,7 @@ function libraryRoot(dir: string): string | null {
   }
   for (const p of from) {
     const abs = join(dir, p);
-    if (
-      existsSync(join(abs, "config.yaml")) ||
-      existsSync(join(abs, "config.yml"))
-    )
+    if (wsExists(join(abs, "config.yaml")) || wsExists(join(abs, "config.yml")))
       return abs;
   }
   return null;
@@ -70,7 +61,7 @@ function classify(
   if (!lib) return { kind: "missing" };
   const file = moduleFileFor(join(lib, target), "", "module");
   if (!file) return { kind: "missing" };
-  const doc = (parseYaml(readFileSync(file.path, "utf8"), { version: "1.2" }) ??
+  const doc = (parseYaml(wsRead(file.path), { version: "1.2" }) ??
     {}) as Record<string, unknown>;
   const keys = Object.keys(doc);
   // A wrapper says ONLY which plugin to load; anything else is authored, and authored things stay.
@@ -82,9 +73,8 @@ function classify(
 function bareChainSteps(dir: string): Set<string> {
   const file = join(dir, GRAPH_FILE);
   const out = new Set<string>();
-  if (!existsSync(file)) return out;
-  const doc = (parseYaml(readFileSync(file, "utf8"), { version: "1.2" }) ??
-    {}) as {
+  if (!wsExists(file)) return out;
+  const doc = (parseYaml(wsRead(file), { version: "1.2" }) ?? {}) as {
     tracks?: Record<string, string[]>;
     modules?: Record<string, string[]>;
   };
@@ -122,19 +112,19 @@ export function migrateProjectModules(
 ): ModuleMigration {
   const out = empty();
   const modulesDir = join(dir, "modules");
-  if (!existsSync(modulesDir)) return out;
+  if (!wsExists(modulesDir)) return out;
   const lib = libraryRoot(dir);
   // The modules the chains name WITHOUT a node: those gain a name, and the chains follow.
   const bare = bareChainSteps(dir);
 
   for (const type of Object.keys(MODULE_TYPES)) {
     const typeDir = join(modulesDir, type);
-    if (!existsSync(typeDir)) continue;
+    if (!wsExists(typeDir)) continue;
     for (const name of readdirSync(typeDir)) {
       const folder = join(typeDir, name);
       const generic = moduleFileFor(folder, "", "module");
       if (!generic) continue;
-      const doc = (parseYaml(readFileSync(generic.path, "utf8"), {
+      const doc = (parseYaml(wsRead(generic.path), {
         version: "1.2",
       }) ?? {}) as Record<string, unknown>;
       const ref = typeof doc.extends === "string" ? doc.extends : "";
@@ -178,7 +168,7 @@ export function migrateProjectModules(
 
       const existing = [...nodeFiles(folder, "")];
       for (const { node, file } of existing) {
-        const own = (parseYaml(readFileSync(file.path, "utf8"), {
+        const own = (parseYaml(wsRead(file.path), {
           version: "1.2",
         }) ?? {}) as Record<string, unknown>;
         write(file.path, under(base, own), `${name}:${node}`);
@@ -221,11 +211,7 @@ function write(
     : `# ${key}: one use of a plugin the engine provides.\n` +
       `# The plugin is named here, so this project says what it uses whatever this\n` +
       `# machine has scanned.\n`;
-  writeFileSync(
-    path,
-    head + stringifyYaml(value, { version: "1.2", lineWidth: 0 }),
-    "utf8",
-  );
+  wsWrite(path, head + stringifyYaml(value, { version: "1.2", lineWidth: 0 }));
 }
 
 /** Everything about the library itself: the wrappers go, the authored modules stay, the namespace changes. */
@@ -244,7 +230,7 @@ export function migrateLibrary(root: string): LibraryMigration {
     kept: [],
     errors: [],
   };
-  if (!existsSync(root)) {
+  if (!wsExists(root)) {
     out.errors.push(`${root}: not found`);
     return out;
   }
@@ -263,7 +249,7 @@ export function migrateLibrary(root: string): LibraryMigration {
           f.name !== basename(file.path) &&
           (!f.isDirectory() || f.name.endsWith(".presets")),
       );
-      const doc = (parseYaml(readFileSync(file.path, "utf8"), {
+      const doc = (parseYaml(wsRead(file.path), {
         version: "1.2",
       }) ?? {}) as Record<string, unknown>;
       const keys = Object.keys(doc);
@@ -287,27 +273,27 @@ export function migrateLibrary(root: string): LibraryMigration {
   };
   // io lives in the projects: IN and OUT come from the engine, and a channel belongs to a song.
   const io = join(root, "io");
-  if (existsSync(io)) {
+  if (wsExists(io)) {
     rmSync(io, { recursive: true, force: true });
     out.removed.push("io");
     out.changed = true;
   }
   for (const type of Object.keys(MODULE_TYPES)) {
     const typeDir = join(root, type);
-    if (existsSync(typeDir)) walk(typeDir, type);
+    if (wsExists(typeDir)) walk(typeDir, type);
   }
   // The namespace: what is left is what someone wrote, so it is a library, not the engine.
-  const config = existsSync(join(root, "config.yaml"))
+  const config = wsExists(join(root, "config.yaml"))
     ? join(root, "config.yaml")
     : join(root, "config.yml");
-  if (existsSync(config)) {
-    const text = readFileSync(config, "utf8");
+  if (wsExists(config)) {
+    const text = wsRead(config);
     const next = text.replace(
       /^(namespace:\s*)["']?engine["']?\s*$/m,
       "$1library",
     );
     if (next !== text) {
-      writeFileSync(config, next, "utf8");
+      wsWrite(config, next);
       out.changed = true;
     }
   }

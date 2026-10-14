@@ -53,7 +53,7 @@ Everything inside a library — making, renaming, deleting, moving, a builder's 
 a preset saved into it — is refused by the file service unless the account is one of the origin's
 admins. The refusal says so; the tab still offers the entries, since the service is the gate. What
 forced it: a library is ONE folder on the server that every account reads, so a write into it is
-everybody's at once. An admin's file service writes into that folder in place
+everybody's at once. An admin's file service writes into its `draft/`, never a published version
 (`packages/file-service/docs/libraries.md`), from whichever project is open.
 
 That is what lets the song that names a module be the place to hear an edit — there is no special
@@ -253,8 +253,8 @@ So Save writes all four files. Ctrl+S and vim's `:w` are that button — all fou
 pane you happen to be looking at. The machinery underneath is the ordinary one: `useAutosave`'s
 `manual` mode keeps the validation and the held-back buffers and only turns the timer off
 (`packages/ui-editor/docs/autosave.md`). A Save writes with `PUT /file`, the route a project file
-takes, and nothing else: nothing in the song changes, since no song records which version of a
-library it uses (`packages/song/docs/sharedFolders.md`).
+takes, and nothing else: nothing in the song changes, since the version a song hears is its
+workspace's pin, not a field of the song (`packages/song/docs/sharedFolders.md`).
 
 ## The bench is not where a library is edited
 

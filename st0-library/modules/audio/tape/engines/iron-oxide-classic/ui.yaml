@@ -1,5 +1,0 @@
-# iron-oxide-classic — classic tape machine emulation
-cols: 3
-rows: 3
-widgets:
-  tape_speed: { type: knob, col: 0, row: 0, colSpan: 3, rowSpan: 3, label: Speed, bind: Tape Speed, min: 0, max: 1 }

@@ -5,7 +5,6 @@
 // which names the file that is actually wrong. These pin the diagnostic instead.
 
 import {
-  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -18,6 +17,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { libraryModuleIssues, loadModuleRefs } from "./loader";
 import { compileNodeProject } from "./nodeProject";
+import { copyAsYaml } from "./testSupport";
 
 const DEMOS = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -95,9 +95,11 @@ describe("…and when a module DOES name it", () => {
   it("says the ref failed to load, rather than that it is unknown", () => {
     // "unknown module" sends you looking for a file that is there with wrong CONTENT.
     const song = join(ws, "demo");
-    cpSync(SONG, song, { recursive: true });
+    copyAsYaml(SONG, song, { recursive: true });
     // The Examples workspace's own shared library, beside every demo project.
-    cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
+    copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
+      recursive: true,
+    });
     writeFileSync(
       join(song, "project.yaml"),
       // Filled rather than added: a second key would fail to parse for an unrelated reason.

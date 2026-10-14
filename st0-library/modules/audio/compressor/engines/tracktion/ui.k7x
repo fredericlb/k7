@@ -1,0 +1,25 @@
+// compressor — the engine's compressor, with a sidechain gain
+cols(7)
+rows(4)
+widgets({
+  curve: { type: "lcdscreen", col: 0, row: 0, colSpan: 6, rowSpan: 2 },
+  comp_grp: { type: "group", col: 0, row: 2, colSpan: 4, rowSpan: 2, label: "COMP", color: "#3d7dff26" },
+  threshold: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Thresh", bind: "Threshold", min: 0.01, max: 1, curve: "log" },
+  ratio: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Ratio", bind: "Ratio", min: 0, max: 0.95 },
+  attack: { type: "knob", col: 6, row: 0, label: "Attack", bind: "Attack", min: 0.3, max: 200, curve: "log" },
+  release: { type: "knob", col: 6, row: 1, label: "Release", bind: "Release", min: 10, max: 300, curve: "log" },
+  sidechain: { type: "knob", col: 5, row: 2, colSpan: 2, rowSpan: 2, label: "SC Gain", bind: "Sidechain gain", min: -24, max: 24 },
+})
+vertical({
+  cols: 4,
+  rows: 8,
+  widgets: {
+    curve: { type: "lcdscreen", col: 0, row: 0, colSpan: 4, rowSpan: 2 },
+    comp_grp: { type: "group", col: 0, row: 2, colSpan: 4, rowSpan: 4, label: "COMP", color: "#3d7dff26" },
+    ratio: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Ratio", bind: "Ratio", min: 0, max: 0.95 },
+    threshold: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Thresh", bind: "Threshold", min: 0.01, max: 1, curve: "log" },
+    attack: { type: "knob", col: 0, row: 4, colSpan: 2, rowSpan: 2, label: "Attack", bind: "Attack", min: 0.3, max: 200, curve: "log" },
+    release: { type: "knob", col: 2, row: 4, colSpan: 2, rowSpan: 2, label: "Release", bind: "Release", min: 10, max: 300, curve: "log" },
+    sidechain: { type: "knob", col: 0, row: 6, colSpan: 2, rowSpan: 2, label: "SC Gain", bind: "Sidechain gain", min: -24, max: 24 },
+  },
+})

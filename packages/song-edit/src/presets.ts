@@ -4,13 +4,7 @@
 // One thing a reader gets wrong: the scope is WHERE a preset lives, the path is WHICH module it
 // is for — a workspace may keep presets for a library module. See packages/song/docs/userPresets.md.
 
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, readdirSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { swappedModule } from "@studio/song/alternatives";
 import { moduleBaseChoices } from "@studio/song/basePreset";
@@ -22,10 +16,20 @@ import {
 } from "@studio/song/moduleResolve";
 import {
   accountLibraries,
-  isLibraryEditable,
+  isLibraryRootEditable,
+  libraryRoot,
 } from "@studio/song/sharedFolders";
+import {
+  isDocName,
+  wsExists,
+  wsRead,
+  wsWrite,
+} from "@studio/song/yaml/workspaceFile";
 import { currentEngine, engineNames } from "@studio/song-schema/engines";
-import { isLibraryName } from "@studio/song-schema/moduleTypes";
+import {
+  ACCOUNT_LIBRARY,
+  isLibraryName,
+} from "@studio/song-schema/moduleTypes";
 import {
   LIBRARY_PRESETS_DIR,
   type NodePresets,
@@ -65,15 +69,21 @@ export function presetRefOf(dir: string, node: string): string | null {
 }
 
 /** Every scope this project can keep a preset in: its workspace, then each library by name. */
-export function presetScopes(): PresetScope[] {
-  return [WORKSPACE_SCOPE, ...accountLibraries().map((l) => l.name)];
+export function presetScopes(dir?: string): PresetScope[] {
+  return [
+    WORKSPACE_SCOPE,
+    ACCOUNT_LIBRARY,
+    ...accountLibraries(dir).map((l) => l.name),
+  ];
 }
 
 // The preset tree a scope keeps — `_presets/` beside the project, or a library's `presets/`.
 function scopeRoot(dir: string, scope: PresetScope): string {
   if (scope === WORKSPACE_SCOPE) return resolve(dir, "..", SHARED_PRESETS_DIR);
+  if (scope === ACCOUNT_LIBRARY)
+    return join(libraryRoot(ACCOUNT_LIBRARY), LIBRARY_PRESETS_DIR);
   const lib = isLibraryName(scope)
-    ? accountLibraries().find((l) => l.name === scope)
+    ? accountLibraries(dir).find((l) => l.name === scope)
     : undefined;
   if (!lib) throw new Error(`no library '${scope}' to keep presets in`);
   return join(lib.root, LIBRARY_PRESETS_DIR);
@@ -113,10 +123,10 @@ export function listNodePresets(dir: string, node: string): NodePresets {
   const presets: PresetEntry[] = [];
   for (const scope of scopes) {
     const folder = presetFolder(dir, scope, ref);
-    if (!existsSync(folder)) continue;
+    if (!wsExists(folder)) continue;
     const names = readdirSync(folder, { withFileTypes: true })
-      .filter((e) => e.isFile() && /\.ya?ml$/.test(e.name))
-      .map((e) => e.name.replace(/\.ya?ml$/, ""))
+      .filter((e) => e.isFile() && isDocName(e.name))
+      .map((e) => e.name.replace(/\.(ya?ml|k7x)$/i, ""))
       .filter((n) => PRESET_NAME.test(n))
       .sort((a, b) => a.localeCompare(b));
     for (const name of names) presets.push({ scope, name });
@@ -132,11 +142,11 @@ export function readPreset(
   name: string,
 ): PresetFile {
   const path = presetFile(dir, scope, ref, name);
-  const found = existsSync(path) ? path : path.replace(/\.yaml$/, ".yml");
-  if (!existsSync(found))
+  const found = wsExists(path) ? path : path.replace(/\.yaml$/, ".yml");
+  if (!wsExists(found))
     throw new Error(`no preset '${name}' in ${scope} for ${ref}`);
   const r = PresetFileSchema.safeParse(
-    parseYaml(readFileSync(found, "utf8"), { version: "1.2" }) ?? {},
+    parseYaml(wsRead(found), { version: "1.2" }) ?? {},
   );
   if (!r.success)
     throw new Error(
@@ -222,12 +232,15 @@ export function writeNodePreset(
   const ref = presetRefOf(dir, node);
   if (!ref)
     throw new Error(`'${node}' extends no module, so it has no presets`);
-  if (scope !== WORKSPACE_SCOPE && !isLibraryEditable(scope))
+  if (
+    scope !== WORKSPACE_SCOPE &&
+    !isLibraryRootEditable({ name: scope, root: libraryRoot(scope, dir) })
+  )
     throw new Error(
       `a preset is kept in '${scope}' by the origin's admins only — a library is theirs to edit`,
     );
   const path = presetFile(dir, scope, ref, name.trim());
-  const exists = existsSync(path);
+  const exists = wsExists(path);
   if (mode === "new" && exists)
     throw new Error(
       `preset '${name}' already exists in ${scope} — update it instead`,
@@ -241,7 +254,7 @@ export function writeNodePreset(
       `'${node}' has no params, base or pads to keep — set some first`,
     );
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, presetFileText(ref, preset), "utf8");
+  wsWrite(path, presetFileText(ref, preset));
   return { path, ref, preset };
 }
 

@@ -1,0 +1,7 @@
+// tape-fat — lean/fat tape tone
+cols(4)
+rows(2)
+widgets({
+  lean_fat: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Lean/Ft", bind: "Lean/Ft", min: 0, max: 1 },
+  depth: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Depth", bind: "Depth", min: 0, max: 1 },
+})

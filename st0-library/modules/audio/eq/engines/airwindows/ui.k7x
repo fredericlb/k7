@@ -1,0 +1,29 @@
+// eq — a three-band tone EQ with a highpass and a lowpass
+cols(7)
+rows(4)
+widgets({
+  tone_section: { type: "group", col: 0, row: 0, colSpan: 5, rowSpan: 4, label: "TONE", color: "#3ec96b26" },
+  bass: { type: "fader", col: 0, row: 0, rowSpan: 4, label: "Bass", bind: "Bass", min: 0, max: 1 },
+  mid: { type: "fader", col: 1, row: 0, rowSpan: 4, label: "Mid", bind: "Mid", min: 0, max: 1 },
+  treble: { type: "fader", col: 2, row: 0, rowSpan: 4, label: "Treble", bind: "Treble", min: 0, max: 1 },
+  bass_freq: { type: "knob", col: 3, row: 0, colSpan: 2, rowSpan: 2, label: "BassFrq", bind: "BassFrq", min: 0, max: 1 },
+  treb_freq: { type: "knob", col: 3, row: 2, colSpan: 2, rowSpan: 2, label: "TrebFrq", bind: "TrebFrq", min: 0, max: 1 },
+  filter_section: { type: "group", col: 5, row: 0, colSpan: 2, rowSpan: 4, label: "FILTER", color: "#3d7dff26" },
+  hipass: { type: "knob", col: 5, row: 0, colSpan: 2, rowSpan: 2, label: "Hipass", bind: "Hipass", min: 0, max: 1 },
+  lowpass: { type: "knob", col: 5, row: 2, colSpan: 2, rowSpan: 2, label: "Lowpass", bind: "Lowpass", min: 0, max: 1 },
+})
+vertical({
+  cols: 4,
+  rows: 7,
+  widgets: {
+    tone_section: { type: "group", col: 0, row: 0, colSpan: 4, rowSpan: 5, label: "TONE", color: "#3ec96b26" },
+    bass_freq: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "BassFrq", bind: "BassFrq", min: 0, max: 1 },
+    treb_freq: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "TrebFrq", bind: "TrebFrq", min: 0, max: 1 },
+    bass: { type: "fader", col: 0, row: 2, rowSpan: 3, label: "Bass", bind: "Bass", min: 0, max: 1 },
+    mid: { type: "fader", col: 1, row: 2, rowSpan: 3, label: "Mid", bind: "Mid", min: 0, max: 1 },
+    treble: { type: "fader", col: 2, row: 2, rowSpan: 3, label: "Treble", bind: "Treble", min: 0, max: 1 },
+    filter_section: { type: "group", col: 0, row: 5, colSpan: 4, rowSpan: 2, label: "FILTER", color: "#3d7dff26" },
+    hipass: { type: "knob", col: 0, row: 5, colSpan: 2, rowSpan: 2, label: "Hipass", bind: "Hipass", min: 0, max: 1 },
+    lowpass: { type: "knob", col: 2, row: 5, colSpan: 2, rowSpan: 2, label: "Lowpass", bind: "Lowpass", min: 0, max: 1 },
+  },
+})

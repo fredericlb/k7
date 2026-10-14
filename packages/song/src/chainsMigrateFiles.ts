@@ -2,14 +2,7 @@
 // + `vstpresets/` + `assets/` + `layout.yaml`. Every non-lane node gets an `id` and loses its name; a
 // lane keeps its name, which is its file in `tracks/`. Refuses what it cannot carry over. docs/chainFiles.md.
 
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-} from "node:fs";
+import { mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { isIoSource } from "@studio/song-schema/moduleTypes";
 import type { Item } from "@studio/song-schema/yaml/chainSchema";
@@ -35,6 +28,7 @@ import {
 } from "./loader";
 import { resolveModuleMap } from "./moduleResolve";
 import { lanesOf } from "./trackModule";
+import { wsExists, wsRead } from "./yaml/workspaceFile";
 
 export interface FilesMigration {
   /** Old node name → its id, for everything that is not a lane. */
@@ -47,18 +41,18 @@ export interface FilesMigration {
 /** Why this project cannot be migrated yet, or null — each reason names a file that refers to nodes by NAME. */
 export function migrationBlocker(dir: string): string | null {
   if (isChainProject(dir)) return "already a chain project";
-  if (!existsSync(join(dir, GRAPH_FILE))) return `no ${GRAPH_FILE}`;
-  if (existsSync(join(dir, "assemblies"))) return "assemblies/ names nodes";
-  if (existsSync(join(dir, "views"))) return "views/ binds node params";
+  if (!wsExists(join(dir, GRAPH_FILE))) return `no ${GRAPH_FILE}`;
+  if (wsExists(join(dir, "assemblies"))) return "assemblies/ names nodes";
+  if (wsExists(join(dir, "views"))) return "views/ binds node params";
   // Only what this knows how to move: node files, their presets, `assets/` and `base/`.
   const nodes = join(dir, "nodes");
-  for (const f of existsSync(nodes) ? readdirSync(nodes) : [])
+  for (const f of wsExists(nodes) ? readdirSync(nodes) : [])
     if (!/\.(ya?ml|vstpreset)$/.test(f) && f !== "assets" && f !== "base")
       return `nodes/${f} is neither a node, a preset, assets/ nor base/`;
   const surf = join(dir, "surfaces");
-  if (existsSync(surf))
+  if (wsExists(surf))
     for (const f of readdirSync(surf))
-      if (/mapping:/.test(readFileSync(join(surf, f), "utf8")))
+      if (/mapping:/.test(wsRead(join(surf, f))))
         return `surfaces/${f} maps node params`;
   return null;
 }
@@ -81,11 +75,11 @@ export function migrateToChainFiles(
   const ids: Record<string, string> = {};
   const raw = (n: string): Record<string, unknown> => {
     const f = join(nodesDir, `${n}.yaml`);
-    return existsSync(f) ? (parse(readFileSync(f, "utf8")) ?? {}) : {};
+    return wsExists(f) ? (parse(wsRead(f)) ?? {}) : {};
   };
   const idOf = (n: string) => (ids[n] ??= newNodeId());
   const presetOf = (n: string) =>
-    existsSync(join(nodesDir, `${n}.vstpreset`)) ? `${n}.vstpreset` : undefined;
+    wsExists(join(nodesDir, `${n}.vstpreset`)) ? `${n}.vstpreset` : undefined;
 
   const itemOf = (n: string): Item => {
     if (lanes.has(n)) return { id: idOf(n), track: n };
@@ -115,12 +109,12 @@ export function migrateToChainFiles(
   writeLayout(dir, positions);
   mkdirSync(join(dir, TRACKS_DIR), { recursive: true });
   for (const n of lanes)
-    if (existsSync(join(nodesDir, `${n}.yaml`)))
+    if (wsExists(join(nodesDir, `${n}.yaml`)))
       renameSync(
         join(nodesDir, `${n}.yaml`),
         join(dir, TRACKS_DIR, `${n}.yaml`),
       );
-  for (const f of existsSync(nodesDir) ? readdirSync(nodesDir) : []) {
+  for (const f of wsExists(nodesDir) ? readdirSync(nodesDir) : []) {
     if (f.endsWith(".vstpreset")) {
       mkdirSync(join(dir, VSTPRESETS_DIR), { recursive: true });
       renameSync(join(nodesDir, f), join(dir, VSTPRESETS_DIR, f));

@@ -7,6 +7,7 @@
     "OIDC_SCOPES": "openid profile email groups",
     "STUDIO_LOCAL_USER": "1",
     "K7_INSTANCE": "local",
+    "STUDIO_LIBRARY_ORIGIN": "https://st0.app",
     "COOKIE_DOMAIN": ""
   },
   "dirs": {

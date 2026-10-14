@@ -1,6 +1,0 @@
-# purest-air — Airwindows Purest Air, a treble boost with its own limit
-cols: 4
-rows: 2
-widgets:
-  boost: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Boost, bind: Boost, min: 0, max: 1 }
-  limit: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Limit, bind: Limit, min: 0, max: 1 }

@@ -17,9 +17,24 @@ export type YamlOp =
     }
   | { op: "delete"; path: KeyPath; was?: string | null };
 
+/** One value set or removed in a .k7x file: YamlOp's shape, the values carried as k7x source. */
+export type K7xOp =
+  | {
+      op: "set";
+      path: KeyPath;
+      k7x: string;
+      was?: string | null;
+      after?: string | null;
+    }
+  | { op: "delete"; path: KeyPath; was?: string | null };
+
+/** Either kind of path op: what the room checks and sets aside the same way, whatever the format. */
+export type PathOp = YamlOp | K7xOp;
+
 /** One file's change, workspace-relative; `was` is the replaced text's `textHash` (null: absent, missing: unchecked). */
 export type FileOp =
   | { kind: "yaml"; file: string; ops: YamlOp[] }
+  | { kind: "k7x"; file: string; ops: K7xOp[] }
   | { kind: "text"; file: string; text: string; was?: string | null }
   | { kind: "remove"; file: string; was?: string | null };
 
@@ -44,9 +59,9 @@ export interface Conflict {
   replica: string;
   ts: number;
   label: string;
-  /** The op set aside: one YAML op, or a whole text or removal. */
+  /** The op set aside: one YAML or k7x op, or a whole text or removal. */
   op: FileOp;
-  /** For a YAML op, the value kept in its place as YAML source (null: absent). */
+  /** For a path op, the value kept in its place, as source in the file's own format (null: absent). */
   kept?: string | null;
 }
 

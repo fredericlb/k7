@@ -1,9 +1,0 @@
-# The pattern's "Pad" part, as a GENERATED lane: the engine plays it from
-# algo/pattern.strudel while the transport rolls, which is why it says `strudel:` where an
-# authored lane says `events:`.
-#
-# Nothing here says what it carries — a lane is not typed, and each event leaves by the output
-# its own material fits. What makes these notes is that the pattern names no sample and that
-# graph.yaml wires `pad#midi:` to the instrument.
-extends: "@meta/strudel-track"
-strudel: algo/pattern.strudel

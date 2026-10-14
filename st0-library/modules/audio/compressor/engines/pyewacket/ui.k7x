@@ -1,0 +1,15 @@
+// pyewacket — a compressor driven from its input gain
+cols(6)
+rows(2)
+widgets({
+  levels: { type: "lcdscreen", col: 0, row: 0, colSpan: 4, rowSpan: 2 },
+  release: { type: "knob", col: 4, row: 0, colSpan: 2, rowSpan: 2, label: "Release", bind: "Release", min: 0, max: 1 },
+})
+vertical({
+  cols: 4,
+  rows: 4,
+  widgets: {
+    levels: { type: "lcdscreen", col: 0, row: 0, colSpan: 4, rowSpan: 2 },
+    release: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Release", bind: "Release", min: 0, max: 1 },
+  },
+})

@@ -1,0 +1,6 @@
+// Pitch Wobble  [audioEffect] — warped vinyl: three sines at irrational ratios stretching a delay line, so the
+// pitch drifts and never repeats. The blindtest's "pitchvar", by a different mechanism — see jsdsp.ts.
+// Its DSP is described in jsdsp.ts beside this file, not compiled into the engine.
+plugin({ type: "jsdsp", name: "Pitch Wobble" })
+params({ Amount: 0 })
+// A tape warp. One knob scales both the rates (0.23, 0.71 and 1.37 Hz, times 0.3 to 3.3) and the depth (up to ±49 ms around a 60 ms base). It bends pitch by moving a delay, so the wobble is inseparable from a slight smear — which is what a warped record does too.

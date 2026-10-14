@@ -9,6 +9,10 @@
 // checked by the compiler, loops and helpers for the repetitive parts, and reuse — a `wah()` you call twice with
 // different bounds rather than a file you copy.
 
+import { AudioNode, MidiNode, ScalarNode } from "./chain";
+
+export { AudioNode, MidiNode, ScalarNode };
+
 // Scalar, Audio and Midi are DIFFERENT TYPES, and that is not decoration — see ../docs/builder.md.
 
 /** A control-rate value: a parameter, a literal, or the output of a once-per-block node. */
@@ -69,17 +73,17 @@ export class GraphBuilder {
   private counter = 0;
 
   /** The sample rate. On the BUILDER too, because a module's source imports nothing at runtime. */
-  readonly sr: Scalar = sr;
+  readonly sr: ScalarNode = new ScalarNode(sr.name, this);
 
   /** Declare a parameter. The returned signal reads it; the module exposes it as a knob or a dropdown. */
-  param(name: string, spec: ParamSpec): Scalar {
+  param(name: string, spec: ParamSpec): ScalarNode {
     if (this.json.params.some((p) => p.name === name))
       throw new Error(`duplicate param: ${name}`);
     this.json.params.push({ name, ...spec });
-    return { name, rate: "control" };
+    return new ScalarNode(name, this);
   }
 
-  private node(type: string, ins: Input[], mode?: string): Scalar {
+  private node(type: string, ins: Input[], mode?: string): ScalarNode {
     const out = `n${this.counter++}`;
     const n: NodeJson = {
       type,
@@ -88,7 +92,7 @@ export class GraphBuilder {
     };
     if (mode) n.mode = mode;
     this.json.nodes.push(n);
-    return { name: out, rate: "control" };
+    return new ScalarNode(out, this);
   }
 
   // A node that transforms the AUDIO writes no scalar, so it gets no output signal.
@@ -104,30 +108,30 @@ export class GraphBuilder {
   // --- analysis: per sample over the input ---------------------------------
 
   /** Peak envelope of the incoming audio, in linear gain. Times in milliseconds. */
-  envelope(attackMs: Input, releaseMs: Input): Scalar {
+  envelope(attackMs: Input, releaseMs: Input): ScalarNode {
     return this.node("envelope", [attackMs, releaseMs]);
   }
 
   // --- control: once per block ----------------------------------------------
 
   /** Linear gain -> dB, floored at -100. */
-  todb(x: Input): Scalar {
+  todb(x: Input): ScalarNode {
     return this.node("todb", [x]);
   }
   /** dB -> linear gain: todb's inverse, and what turns a computed level into something `gain` can use. */
-  fromdb(x: Input): Scalar {
+  fromdb(x: Input): ScalarNode {
     return this.node("fromdb", [x]);
   }
   /** a + t·(b − a). */
-  lerp(a: Input, b: Input, t: Input): Scalar {
+  lerp(a: Input, b: Input, t: Input): ScalarNode {
     return this.node("lerp", [a, b, t]);
   }
   /** Where `x` sits between `lo` and `hi`, as 0..1, clamped. Swap lo/hi to invert. */
-  linmap(x: Input, lo: Input, hi: Input): Scalar {
+  linmap(x: Input, lo: Input, hi: Input): ScalarNode {
     return this.node("linmap", [x, lo, hi]);
   }
   /** Geometric interpolation, for Hz. `lo` must be the LOW end: a descending pair is refused — ../docs/builder.md. */
-  geolerp(lo: Input, hi: Input, t: Input): Scalar {
+  geolerp(lo: Input, hi: Input, t: Input): ScalarNode {
     if (typeof lo === "number" && typeof hi === "number" && lo > hi)
       throw new Error(
         `geolerp(${lo}, ${hi}) is descending — the engine sorts its ends, so this would read as ` +
@@ -135,24 +139,24 @@ export class GraphBuilder {
       );
     return this.node("geolerp", [lo, hi, t]);
   }
-  clamp(x: Input, lo: Input, hi: Input): Scalar {
+  clamp(x: Input, lo: Input, hi: Input): ScalarNode {
     return this.node("clamp", [x, lo, hi]);
   }
   /** `pick` >= 0.5 chooses `b`, else `a`. */
-  select(a: Input, b: Input, pick: Input): Scalar {
+  select(a: Input, b: Input, pick: Input): ScalarNode {
     return this.node("select", [a, b, pick]);
   }
-  add(a: Input, b: Input): Scalar {
+  add(a: Input, b: Input): ScalarNode {
     return this.node("add", [a, b]);
   }
-  sub(a: Input, b: Input): Scalar {
+  sub(a: Input, b: Input): ScalarNode {
     return this.node("sub", [a, b]);
   }
-  mul(a: Input, b: Input): Scalar {
+  mul(a: Input, b: Input): ScalarNode {
     return this.node("mul", [a, b]);
   }
   /** One-pole smoothing ACROSS blocks — what stops a per-block coefficient jump from zippering. */
-  glide(x: Input): Scalar {
+  glide(x: Input): ScalarNode {
     return this.node("glide", [x]);
   }
 
@@ -190,16 +194,16 @@ export class GraphBuilder {
   // One per-sample loop in declared order, so reading a LATER node's wire is the unit delay — ../docs/builder.md.
 
   /** Name a wire before anything writes it — how a feedback loop is drawn; the name is the whole mechanism. */
-  wire(name: string): Audio {
-    return { name, rate: "audio" };
+  wire(name: string): AudioNode {
+    return new AudioNode(name, this);
   }
 
   /** An incoming signal, as a wire. `port` indexes the module's own inputs — packages/song/docs/ports.md. */
-  input(port = 0): Audio {
+  input(port = 0): AudioNode {
     const out = `n${this.counter++}`;
     // The first port emits no field at all, so every graph written before ports existed is byte-identical.
     this.json.nodes.push({ type: "ain", ...(port > 0 ? { port } : {}), out });
-    return { name: out, rate: "audio" };
+    return new AudioNode(out, this);
   }
 
   /** A low-frequency oscillator, -1..1, at SAMPLE rate so it cannot zipper; `spread` runs the right channel that share of a cycle ahead. */
@@ -207,7 +211,7 @@ export class GraphBuilder {
     shape: "sine" | "triangle" | "saw" | "square",
     rateHz: Input,
     spread?: Input,
-  ): Audio {
+  ): AudioNode {
     const out = `n${this.counter++}`;
     const k = (i: Input) => (typeof i === "number" ? i : i.name);
     this.json.nodes.push({
@@ -217,10 +221,10 @@ export class GraphBuilder {
       out,
       shape,
     });
-    return { name: out, rate: "audio" };
+    return new AudioNode(out, this);
   }
   /** A first-order all-pass, its corner `baseHz` moved by `octaves` (a wire); `into` names the wire it writes, for a feedback loop. */
-  allpass(x: Audio, baseHz: Input, octaves?: Audio, into?: Audio): Audio {
+  allpass(x: Audio, baseHz: Input, octaves?: Audio, into?: Audio): AudioNode {
     const out = into ? into.name : `n${this.counter++}`;
     this.json.nodes.push({
       type: "aallpass",
@@ -228,30 +232,35 @@ export class GraphBuilder {
       k: [typeof baseHz === "number" ? baseHz : baseHz.name],
       out,
     });
-    return { name: out, rate: "audio" };
+    return new AudioNode(out, this);
   }
   /** Send a wire to the output. */
   output(x: Audio): void {
     this.json.nodes.push({ type: "aout", in: [x.name] });
   }
   /** Multiply two wires, or a wire by a scalar. */
-  amul(a: Audio, b: Audio | Input): Audio {
+  amul(a: Audio, b: Audio | Input): AudioNode {
     return typeof b !== "number" && b.rate === "audio"
       ? this.anode("amul", [a, b], [])
       : this.anode("amul", [a], [b]);
   }
   /** Add two wires, or a scalar offset to a wire — the engine's node has always taken either. */
-  aadd(a: Audio, b: Audio | Input): Audio {
+  aadd(a: Audio, b: Audio | Input): AudioNode {
     return typeof b !== "number" && b.rate === "audio"
       ? this.anode("aadd", [a, b], [])
       : this.anode("aadd", [a], [b]);
   }
   /** tanh saturation — what keeps a feedback loop musical instead of divergent. */
-  saturate(x: Audio, drive: Input = 1): Audio {
+  saturate(x: Audio, drive: Input = 1): AudioNode {
     return this.anode("atanh", [x], [drive]);
   }
   /** A delay line. `maxMs` is allocated once at prepare, so it is a ceiling rather than a suggestion. */
-  delay(x: Audio, timeMs: Input | Audio, maxMs: number, into?: Audio): Audio {
+  delay(
+    x: Audio,
+    timeMs: Input | Audio,
+    maxMs: number,
+    into?: Audio,
+  ): AudioNode {
     const out = into ? into.name : `n${this.counter++}`;
     // A modulating WIRE goes in the audio slot (read per sample); a fixed time stays a scalar.
     const modulated = typeof timeMs !== "number" && timeMs.rate === "audio";
@@ -264,17 +273,17 @@ export class GraphBuilder {
       out,
       maxMs,
     });
-    return { name: out, rate: "audio" };
+    return new AudioNode(out, this);
   }
 
   // A sample-phase node: AUDIO wires in `in`, scalars in `k`. The split is the whole point of the two types.
-  private anode(type: string, ins: Audio[], ks: Input[]): Audio {
+  private anode(type: string, ins: Audio[], ks: Input[]): AudioNode {
     const out = `n${this.counter++}`;
     const n: NodeJson = { type, out };
     if (ins.length) n.in = ins.map((i) => i.name);
     if (ks.length) n.k = ks.map((i) => (typeof i === "number" ? i : i.name));
     this.json.nodes.push(n);
-    return { name: out, rate: "audio" };
+    return new AudioNode(out, this);
   }
 
   // --- MIDI ---------------------------------------------------------------
@@ -282,36 +291,36 @@ export class GraphBuilder {
   // Once per block over the note list, on the SAME builder because a MIDI module still declares parameters.
 
   /** The incoming note stream. */
-  midi(): Midi {
-    return { rate: "midi" };
+  midi(): MidiNode {
+    return new MidiNode(this);
   }
 
   /** Shift every note by `semitones`, rounded. Notes past the keyboard's ends are clamped, never dropped. */
-  transpose(m: Midi, semitones: Input): Midi {
+  transpose(m: Midi, semitones: Input): MidiNode {
     this.mnode("transpose", semitones);
-    return m;
+    return this.midiOf(m);
   }
 
   /** Scale note-on velocities. Never reaches zero — velocity 0 is a note-off in MIDI. */
-  velocity(m: Midi, scale: Input): Midi {
+  velocity(m: Midi, scale: Input): MidiNode {
     this.mnode("velocity", scale);
-    return m;
+    return this.midiOf(m);
   }
 
   /** Force every message onto one channel (1..16). */
-  channel(m: Midi, ch: Input): Midi {
+  channel(m: Midi, ch: Input): MidiNode {
     this.mnode("mchannel", ch);
-    return m;
+    return this.midiOf(m);
   }
 
   /** EAT the keys: note-ons and note-offs leave the stream and become the graph's held set. */
-  hold(m: Midi): Midi {
+  hold(m: Midi): MidiNode {
     this.json.nodes.push({ type: "mhold" });
-    return m;
+    return this.midiOf(m);
   }
 
   /** Strike the held set every `stepBeats`, each note lasting `gate` of that step — docs/builder.md. */
-  strike(m: Midi, stepBeats: Input, gate: Input): Midi {
+  strike(m: Midi, stepBeats: Input, gate: Input): MidiNode {
     this.json.nodes.push({
       type: "mstrike",
       in: [
@@ -319,7 +328,7 @@ export class GraphBuilder {
         typeof gate === "number" ? gate : gate.name,
       ],
     });
-    return m;
+    return this.midiOf(m);
   }
 
   // --- which strikes play, and how loud: set before `strike`, read by it per step (../docs/builder.md) ---
@@ -331,9 +340,9 @@ export class GraphBuilder {
     length: Input,
     density: Input,
     rotate: Input,
-  ): Midi {
+  ): MidiNode {
     this.mnode("mpattern", mode, length, density, rotate);
-    return m;
+    return this.midiOf(m);
   }
 
   /** Accents among the hits: `count` of them as played, the rest at `low`; `opposite` swaps, `keep` pins them to steps. */
@@ -343,21 +352,26 @@ export class GraphBuilder {
     low: Input,
     opposite: Input,
     keep: Input,
-  ): Midi {
+  ): MidiNode {
     this.mnode("maccent", count, low, opposite, keep);
-    return m;
+    return this.midiOf(m);
   }
 
   /** The chance, 0..1, that a step the pattern plays is struck at all. */
-  chance(m: Midi, p: Input): Midi {
+  chance(m: Midi, p: Input): MidiNode {
     this.mnode("mchance", p);
-    return m;
+    return this.midiOf(m);
   }
 
   /** The share of velocity each repeat loses after the first, 0..1. Never down to a note-off. */
-  decay(m: Midi, d: Input): Midi {
+  decay(m: Midi, d: Input): MidiNode {
     this.mnode("mdecay", d);
-    return m;
+    return this.midiOf(m);
+  }
+
+  // The stream handed in may be a plain Midi from an older graph; hand back one that chains.
+  private midiOf(m: Midi): MidiNode {
+    return m instanceof MidiNode ? m : new MidiNode(this);
   }
 
   // A MIDI node takes SCALARS and no wires, hence no `out`: it acts on the plugin's buffer, not on a value.

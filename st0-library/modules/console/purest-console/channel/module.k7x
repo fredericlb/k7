@@ -1,0 +1,3 @@
+// purest-console-channel — the face for Purest Console Channel, a plugin the engine scans.
+// Everything it IS comes from the ref below; what lives here is the ui.yaml beside this file.
+extends("@engine/purest-console-channel")

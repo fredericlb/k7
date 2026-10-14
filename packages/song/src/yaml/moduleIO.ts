@@ -3,13 +3,14 @@
 // and root files (project.yaml, graph.yaml, settings.yaml). Validation is Zod,
 // in-process, with the line and column of the offending key.
 
-import { type Dirent, existsSync, readdirSync, statSync } from "node:fs";
+import { type Dirent, readdirSync, statSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import {
   formatIssue,
   type ModuleIssue,
   parseModule,
 } from "@studio/song-schema/yaml/moduleFile";
+import { wsExists, wsIssues, yamlRetired } from "./workspaceFile";
 import { settledParse } from "./yamlCache";
 
 export interface ModuleFile {
@@ -19,8 +20,10 @@ export interface ModuleFile {
   rel: string;
 }
 
-// `.yml` as well as `.yaml`: same format, other spelling, and `.yaml` wins when both exist.
-const EXTS = [".yaml", ".yml"];
+// In order of precedence: a `.k7x` file wins over its YAML spelling, and `.yaml` over `.yml` (docs/k7xFiles.md).
+const EXTS = [".k7x", ".yaml", ".yml"];
+/** The extensions a lookup probes: every spelling, or the k7x one alone once YAML is retired. */
+const exts = (): string[] => (yamlRetired() ? [".k7x"] : EXTS);
 
 /** The module folder's OWN basenames — anything else there is a node, so add a new sibling here. */
 export const UI_BASE = "ui";
@@ -42,9 +45,9 @@ export function moduleFileFor(
   relDir: string,
   base: string,
 ): ModuleFile | null {
-  for (const ext of EXTS) {
+  for (const ext of exts()) {
     const path = join(folder, `${base}${ext}`);
-    if (existsSync(path)) return { path, rel: `${relDir}/${base}${ext}` };
+    if (wsExists(path)) return { path, rel: `${relDir}/${base}${ext}` };
   }
   return null;
 }
@@ -60,7 +63,7 @@ function yamlFilesIn(folder: string): Map<string, string> {
   const byBase = new Map<string, string>();
   for (const e of found) {
     const ext = extname(e.name).toLowerCase();
-    if (!EXTS.includes(ext)) continue;
+    if (!exts().includes(ext)) continue;
     if (e.isDirectory()) continue;
     if (!e.isFile()) {
       // A symlink, or something stranger: ask what it points AT — a library reached through one must load.
@@ -71,8 +74,10 @@ function yamlFilesIn(folder: string): Map<string, string> {
       }
     }
     const base = basename(e.name, ext);
-    // `.yaml` wins when both spellings are there, whichever order readdir returned them in.
-    if (ext === ".yaml" || !byBase.has(base)) byBase.set(base, e.name);
+    // The earlier extension wins when several spellings are there, whichever order readdir returned them in.
+    const held = byBase.get(base);
+    if (!held || EXTS.indexOf(ext) < EXTS.indexOf(extname(held).toLowerCase()))
+      byBase.set(base, e.name);
   }
   return byBase;
 }
@@ -130,11 +135,13 @@ export function readModuleFile(file: ModuleFile): ReadModule {
   return {
     // Cloned: the loaders write `ui` and `cc` onto what they get, and the parse is shared.
     value: value ? structuredClone(value as Record<string, unknown>) : null,
-    issues: issues.map((i: ModuleIssue) => formatIssue(file.rel, i)),
+    issues: wsIssues(file.path, issues).map((i: ModuleIssue) =>
+      formatIssue(file.rel, i),
+    ),
   };
 }
 
-/** Is `dir` a st0 project — does it hold a `project.yaml` (or `.yml`)? */
+/** Is `dir` a st0 project — does it hold a `project.yaml` (or `.yml`, or `.k7x`)? */
 export function isProjectFolder(dir: string): boolean {
   try {
     return entityFileFor(dir, "", "project") !== null;

@@ -4,7 +4,7 @@
 // vocabulary. Every gather is wrapped so a broken project degrades to whatever loaded
 // rather than throwing — completion on a half-written file is exactly when you need it.
 
-import { type Dirent, existsSync, readdirSync } from "node:fs";
+import { type Dirent, readdirSync } from "node:fs";
 import { extname, join } from "node:path";
 import {
   builtinParamsFor,
@@ -38,6 +38,7 @@ import {
 import { assetLookup, moduleAssetChoices } from "./moduleAssetChoices";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
 import { loadPreferences } from "./preferences";
+import { wsExists } from "./yaml/workspaceFile";
 
 export interface Hints {
   baseModules: string[]; // plugin module refs a module can `extends` ("type/name", "@ns/type/name")
@@ -219,7 +220,7 @@ function projectHintsIn(dir: string): Hints {
   const addPath = (kind: string, name: string, stem: string) => {
     for (const ext of ["yaml", "yml"]) {
       const rel = `${stem}.${ext}`;
-      if (existsSync(join(dir, rel))) {
+      if (wsExists(join(dir, rel))) {
         paths[`${kind}:${name}`] = rel;
         return;
       }

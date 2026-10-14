@@ -122,7 +122,7 @@ export function ChainsBuilder({
 
   /** The node id the drawing selects: the focused file without its extension, or none. */
   const selectedNode = useMemo(
-    () => (focusNode ? focusNode.replace(/.ya?ml$/i, "") : null),
+    () => (focusNode ? focusNode.replace(/.(?:ya?ml|k7x)$/i, "") : null),
     [focusNode],
   );
 

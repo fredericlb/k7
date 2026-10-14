@@ -462,7 +462,7 @@ answers.
 
 ## `GLOBAL_COMMAND` is a copy, and it drifts
 
-The verbs that need no active project — the rig preferences and the workspace's set lists — are matched by one regular expression, and it is a copy of names that live in `commands.yaml`.
+The verbs that need no active project — the rig preferences, the workspace's set lists and its library pins — are matched by one regular expression, and it is a copy of names that live in `commands.yaml`.
 Check the catalogue before adding to it.
 
 It falls out of step silently, and is invisible from st0's command bar, which always has a project

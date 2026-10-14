@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readYamlEntities } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 import { loadAudioClipDoc } from "./project";
-import { writeYaml } from "./testSupport";
+import { copyAsYaml, writeYaml } from "./testSupport";
 
 // `from`/`to` window the SOURCE FILE at two levels, and the effective pair is the most restrictive.
 
@@ -31,7 +31,7 @@ const kick = () =>
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-cwin-"));
-  cpSync(SONG, dir, { recursive: true });
+  copyAsYaml(SONG, dir, { recursive: true });
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 

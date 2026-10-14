@@ -1,8 +1,9 @@
-// corpus.test.ts — every scalar of every YAML file in demos/ and the library, edited the way song's writers edit it,
-// must travel as path ops and replay byte for byte: the whole-text fallback is for comments, not values.
+// corpus.test.ts — every scalar of every file in demos/ and the library, as YAML and edited the way song's writers edit it,
+// must travel as path ops and replay byte for byte; a .k7x file is tested through its YAML view, under its YAML name.
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { toYaml } from "@studio/k7x/yaml-bridge";
 import { describe, expect, it } from "vitest";
 import {
   isMap,
@@ -25,9 +26,19 @@ function yamlFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const abs = join(dir, name);
     if (statSync(abs).isDirectory()) return yamlFiles(abs);
-    return /\.ya?ml$/.test(name) ? [abs] : [];
+    return /\.(ya?ml|k7x)$/.test(name) ? [abs] : [];
   });
 }
+
+/** A corpus file as YAML text: itself, or a .k7x file's YAML view. */
+const yamlText = (abs: string): string => {
+  const raw = readFileSync(abs, "utf8");
+  return abs.endsWith(".k7x") ? toYaml(raw) : raw;
+};
+
+/** The workspace-relative name an op carries: the YAML spelling, so the YAML path is what is tested. */
+const yamlName = (abs: string): string =>
+  relative(ROOT, abs).replace(/\.k7x$/, ".yaml");
 
 /** Every path to a scalar reachable through string-keyed maps. */
 function scalarPaths(node: unknown, path: string[] = []): string[][] {
@@ -83,7 +94,7 @@ describe("the YAML corpus", () => {
     let edits = 0;
     const fallbacks: string[] = [];
     for (const abs of files) {
-      const before = readFileSync(abs, "utf8");
+      const before = yamlText(abs);
       const doc = parseDocument(before, { version: "1.2" });
       // A file the writers would already reformat on first touch is not a value edit's business.
       if (doc.errors.length || doc.toString({ lineWidth: 0 }) !== before)
@@ -91,10 +102,10 @@ describe("the YAML corpus", () => {
       // Five values a file keep the run in seconds; the full sweep is in ../docs/ops.md.
       for (const path of scalarPaths(doc.contents).slice(0, 5)) {
         const after = writerEdit(before, path, changed(doc.getIn(path)));
-        const op = fileOpFor(relative(ROOT, abs), before, after);
+        const op = fileOpFor(yamlName(abs), before, after);
         edits++;
         if (op?.kind !== "yaml")
-          fallbacks.push(`${relative(ROOT, abs)} ${path.join(".")}`);
+          fallbacks.push(`${yamlName(abs)} ${path.join(".")}`);
         else expect(applyFileOp(before, op)).toBe(after);
       }
     }
@@ -113,16 +124,16 @@ describe("the YAML corpus", () => {
       const d = parseDocument(before, { version: "1.2" });
       edit(d);
       const after = d.toString({ lineWidth: 0 });
-      const op = fileOpFor(relative(ROOT, abs), before, after);
+      const op = fileOpFor(yamlName(abs), before, after);
       edits++;
       const items =
         op?.kind === "yaml" &&
         op.ops.every((o) => o.path.some((s) => s.startsWith("[")));
-      if (!items) misses.push(relative(ROOT, abs));
+      if (!items) misses.push(yamlName(abs));
       else expect(applyFileOp(before, op)).toBe(after);
     };
     for (const abs of files) {
-      const before = readFileSync(abs, "utf8");
+      const before = yamlText(abs);
       const doc = parseDocument(before, { version: "1.2" });
       if (doc.errors.length || doc.toString({ lineWidth: 0 }) !== before)
         continue;

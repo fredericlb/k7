@@ -1,0 +1,69 @@
+// mellotron-v — the tape frame and its wear, the player's pitch and tone, the four macros and the envelope
+cols(16)
+rows(4)
+widgets({})
+tabs([
+  name("TAPE")
+    .widgets({
+      tape: { type: "group", col: 0, row: 0, colSpan: 8, rowSpan: 2, label: "TAPE", color: "#ff6a1a26" },
+      flutter: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Flutter", bind: "Flutter Amount", min: 0, max: 1 },
+      saturation: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Satur", bind: "Tape Saturation Amount", min: 0, max: 1 },
+      mechanics: { type: "knob", col: 4, row: 0, colSpan: 2, rowSpan: 2, label: "Mechan", bind: "Mechanics", min: 0, max: 1 },
+      noise: { type: "knob", col: 6, row: 0, colSpan: 2, rowSpan: 2, label: "Noise", bind: "Noise Floor", min: 0, max: 1 },
+      play: { type: "group", col: 0, row: 2, colSpan: 8, rowSpan: 2, label: "PLAY", color: "#3d7dff26" },
+      pitch: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Pitch", bind: "Master Pitch", min: 0, max: 1 },
+      tone: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Tone", bind: "Master Tone", min: 0, max: 1 },
+      velocity: { type: "knob", col: 4, row: 2, colSpan: 2, rowSpan: 2, label: "Vel>Vol", bind: "Velocity to Volume", min: 0, max: 1 },
+      at_flutter: { type: "knob", col: 6, row: 2, colSpan: 2, rowSpan: 2, label: "AT>Flut", bind: "AfterTouch to Flutter", min: 0, max: 1 },
+      tape_screen: { type: "lcdscreen", col: 8, row: 0, colSpan: 8, rowSpan: 4 },
+    }),
+  name("MACRO")
+    .widgets({
+      macro: { type: "group", col: 0, row: 0, colSpan: 8, rowSpan: 2, label: "MACRO", color: "#3ec96b26" },
+      brightness: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Bright", bind: "Brightness", min: 0, max: 1 },
+      timbre: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Timbre", bind: "Timbre", min: 0, max: 1 },
+      time: { type: "knob", col: 4, row: 0, colSpan: 2, rowSpan: 2, label: "Time", bind: "Time", min: 0, max: 1 },
+      movement: { type: "knob", col: 6, row: 0, colSpan: 2, rowSpan: 2, label: "Move", bind: "Movement", min: 0, max: 1 },
+      env: { type: "group", col: 0, row: 2, colSpan: 8, rowSpan: 2, label: "ENV", color: "#ffffff1a" },
+      attack: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Attack", bind: "Macro Attack", min: 0, max: 1 },
+      decay: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Decay", bind: "Macro Decay", min: 0, max: 1 },
+      sustain: { type: "knob", col: 4, row: 2, colSpan: 2, rowSpan: 2, label: "Sustain", bind: "Macro Sustain", min: 0, max: 1 },
+      release: { type: "knob", col: 6, row: 2, colSpan: 2, rowSpan: 2, label: "Release", bind: "Macro Release", min: 0, max: 1 },
+      env_screen: { type: "lcdscreen", col: 8, row: 0, colSpan: 8, rowSpan: 4 },
+    }),
+])
+vertical({
+  cols: 4,
+  rows: 11,
+  widgets: {},
+  tabs: [
+    name("TAPE")
+      .widgets({
+        tape: { type: "group", col: 0, row: 0, colSpan: 4, rowSpan: 4, label: "TAPE", color: "#ff6a1a26" },
+        flutter: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Flutter", bind: "Flutter Amount", min: 0, max: 1 },
+        saturation: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Satur", bind: "Tape Saturation Amount", min: 0, max: 1 },
+        mechanics: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Mechan", bind: "Mechanics", min: 0, max: 1 },
+        noise: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Noise", bind: "Noise Floor", min: 0, max: 1 },
+        play: { type: "group", col: 0, row: 4, colSpan: 4, rowSpan: 4, label: "PLAY", color: "#3d7dff26" },
+        pitch: { type: "knob", col: 0, row: 4, colSpan: 2, rowSpan: 2, label: "Pitch", bind: "Master Pitch", min: 0, max: 1 },
+        tone: { type: "knob", col: 2, row: 4, colSpan: 2, rowSpan: 2, label: "Tone", bind: "Master Tone", min: 0, max: 1 },
+        velocity: { type: "knob", col: 0, row: 6, colSpan: 2, rowSpan: 2, label: "Vel>Vol", bind: "Velocity to Volume", min: 0, max: 1 },
+        at_flutter: { type: "knob", col: 2, row: 6, colSpan: 2, rowSpan: 2, label: "AT>Flut", bind: "AfterTouch to Flutter", min: 0, max: 1 },
+        tape_screen: { type: "lcdscreen", col: 0, row: 8, colSpan: 4, rowSpan: 3 },
+      }),
+    name("MACRO")
+      .widgets({
+        macro: { type: "group", col: 0, row: 0, colSpan: 4, rowSpan: 4, label: "MACRO", color: "#3ec96b26" },
+        brightness: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Bright", bind: "Brightness", min: 0, max: 1 },
+        timbre: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Timbre", bind: "Timbre", min: 0, max: 1 },
+        time: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Time", bind: "Time", min: 0, max: 1 },
+        movement: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Move", bind: "Movement", min: 0, max: 1 },
+        env: { type: "group", col: 0, row: 4, colSpan: 4, rowSpan: 4, label: "ENV", color: "#ffffff1a" },
+        attack: { type: "knob", col: 0, row: 4, colSpan: 2, rowSpan: 2, label: "Attack", bind: "Macro Attack", min: 0, max: 1 },
+        decay: { type: "knob", col: 2, row: 4, colSpan: 2, rowSpan: 2, label: "Decay", bind: "Macro Decay", min: 0, max: 1 },
+        sustain: { type: "knob", col: 0, row: 6, colSpan: 2, rowSpan: 2, label: "Sustain", bind: "Macro Sustain", min: 0, max: 1 },
+        release: { type: "knob", col: 2, row: 6, colSpan: 2, rowSpan: 2, label: "Release", bind: "Macro Release", min: 0, max: 1 },
+        env_screen: { type: "lcdscreen", col: 0, row: 8, colSpan: 4, rowSpan: 3 },
+      }),
+  ],
+})

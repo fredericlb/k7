@@ -1,0 +1,10 @@
+// "box" — a SHAPE: it draws a primitive on the picture lane it is wired to, and takes no picture
+// in. The folder it sits in (`_modules/shapes/`) is what says so.
+//
+// The geometry is `params:` rather than fields, and that is the whole point of a shape being a
+// module: a param is what a curve can drive, so this rectangle can be made to move.
+// See packages/song-video/docs/shapes.md.
+type("shape")
+shape("square")
+color("#e2b53acc")
+params({ x: 448, y: 220, w: 384, h: 280 })

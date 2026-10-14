@@ -1,0 +1,6 @@
+// groove-wear — vinyl groove wear
+cols(3)
+rows(3)
+widgets({
+  wear: { type: "knob", col: 0, row: 0, colSpan: 3, rowSpan: 3, label: "Wear", bind: "Wear", min: 0, max: 1 },
+})

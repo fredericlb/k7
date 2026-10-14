@@ -3,12 +3,12 @@
 // first whenever anything else plays that material, so only what was right-clicked changes.
 // See packages/audio-passes/docs/processChain.md.
 
-import { copyFileSync, existsSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { processWithChain } from "@studio/audio-passes/processChain";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { laneFileFor } from "@studio/song/chainItemEdit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
+import { wsCopy, wsExists, wsRemove } from "@studio/song/yaml/workspaceFile";
 import { editTrackStruct } from "@studio/song-edit/trackMix";
 import { materialRefOf } from "@studio/song-schema/placementId";
 import { parsePosition } from "@studio/song-schema/timecode";
@@ -58,7 +58,7 @@ export function ownMaterial(
   while (taken.has(`${ref}-${n}`)) n++;
   const id = `${ref}-${n}`;
   const to = join(dirname(src.file.path), `${id}.yaml`);
-  copyFileSync(src.file.path, to);
+  wsCopy(src.file.path, to);
   let hit = false;
   editTrackStruct(
     dir,
@@ -72,7 +72,7 @@ export function ownMaterial(
     "give an event its own clip",
   );
   if (!hit) {
-    rmSync(to, { force: true });
+    wsRemove(to);
     throw new Error(`no event on '${track}' at that position`);
   }
   return id;
@@ -159,7 +159,7 @@ async function processEventCommand(a: string, h: CommandHost): Promise<void> {
       "restore an event's clip",
     );
     const copy = join(h.songPath, "clips", `${own}.yaml`);
-    if (existsSync(copy)) rmSync(copy);
+    if (wsExists(copy)) wsRemove(copy);
   }
   h.log(
     shared && changed

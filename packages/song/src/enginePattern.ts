@@ -2,11 +2,11 @@
 // The pattern's text, its sample banks and how it shares a file with other lanes all travel in the document, since
 // the engine parses no files — engine/st0-engine/docs/patternPlugin.md.
 
-import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { loadLanes } from "./loader";
 import type { PluginDoc } from "./project";
 import type { Lane } from "./trackModule";
+import { wsRead } from "./yaml/workspaceFile";
 
 // Must match PatternPlugin::xmlTypeName in the engine.
 export const PATTERN_PLUGIN_TYPE = "studio_pattern";
@@ -78,7 +78,7 @@ export function patternPlugins<H extends { id: string; port?: string }>(
 ): Map<string, PluginDoc> {
   let source = "";
   try {
-    source = readFileSync(resolve(dir, String(t.strudel)), "utf8");
+    source = wsRead(resolve(dir, String(t.strudel)));
   } catch {
     // A missing file is already reported by the project's own validation; the lane then plays nothing.
   }

@@ -94,6 +94,16 @@ describe("readHeartbeat", () => {
       "127.0.0.1",
     );
   });
+
+  it("keeps the library level a machine runs, and leaves out one that is no level", () => {
+    const kept = readHeartbeat({ ...good(), libraryLevel: 2 });
+    expect(kept.ok && kept.beat.libraryLevel).toBe(2);
+    const odd = readHeartbeat({ ...good(), libraryLevel: "two" });
+    expect(odd.ok && odd.beat.libraryLevel).toBeUndefined();
+    expect(odd.ok && odd.beat.cleaned).toEqual([
+      'libraryLevel: "two" is no level, left out',
+    ]);
+  });
 });
 
 describe("throttledLog", () => {

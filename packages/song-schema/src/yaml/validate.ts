@@ -20,6 +20,7 @@ import {
 } from "./entitySchemas";
 import { parseGraph } from "./graphFile";
 import { GRAPH_BASE } from "./graphSchema";
+import { checkK7x, k7xSyntaxIssue } from "./k7xIssues";
 import { MIX_BASE, parseMix } from "./mixFile";
 import { MIX_VIEW_BASE, parseMixView, VIEWS_DIR } from "./mixViewFile";
 import { locate, type ModuleIssue, parseModule } from "./moduleFile";
@@ -52,6 +53,7 @@ type Parse = (text: string) => { issues: ModuleIssue[] };
 export type { ModuleIssue };
 
 const YAML_EXT = /\.ya?ml$/i;
+const K7X_EXT = /\.k7x$/i;
 const segments = (path: string): string[] =>
   path.replace(/\\/g, "/").split("/");
 
@@ -85,7 +87,10 @@ const isLibraryPresets = (d: string, i: number, all: string[]): boolean =>
 /** The parser for a path, or null — by FOLDER and BASENAME, the way `fileKindFor` reads one. */
 export function parserFor(path: string): Parse | null {
   const parts = segments(path);
-  const base = (parts.at(-1) ?? "").replace(YAML_EXT, "").toLowerCase();
+  const base = (parts.at(-1) ?? "")
+    .replace(YAML_EXT, "")
+    .replace(K7X_EXT, "")
+    .toLowerCase();
   const dirs = parts.slice(0, -1);
   const inFolder = (name: string) => dirs.includes(name);
 
@@ -133,6 +138,7 @@ function syntaxIssues(text: string): ModuleIssue[] {
 
 /** Is `text` a document the compiler could read at `path`? Syntax is checked FIRST and separately. */
 export function validateFile(path: string, text: string): Validity {
+  if (K7X_EXT.test(path)) return validateK7x(path, text);
   if (!YAML_EXT.test(path))
     return { ok: true, issues: [], depth: "none", malformed: false };
   const syntax = syntaxIssues(text);
@@ -142,6 +148,18 @@ export function validateFile(path: string, text: string): Validity {
   if (!parse)
     return { ok: true, issues: [], depth: "syntax", malformed: false };
   const { issues } = parse(text);
+  return { ok: !issues.length, issues, depth: "schema", malformed: false };
+}
+
+/** validateFile for a .k7x buffer: k7x syntax first, then its kind's parser on the YAML view, findings on k7x lines. */
+function validateK7x(path: string, text: string): Validity {
+  const syntax = k7xSyntaxIssue(text);
+  if (syntax)
+    return { ok: false, issues: [syntax], depth: "syntax", malformed: true };
+  const parse = parserFor(path);
+  if (!parse)
+    return { ok: true, issues: [], depth: "syntax", malformed: false };
+  const issues = checkK7x(text, parse, path);
   return { ok: !issues.length, issues, depth: "schema", malformed: false };
 }
 

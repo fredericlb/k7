@@ -1,0 +1,87 @@
+// stage-73-v2 — the tine and its pickup, the suitcase vibrato, the tone stack, the mechanical noises
+cols(16)
+rows(4)
+widgets({})
+tabs([
+  name("PIANO")
+    .widgets({
+      piano: { type: "group", col: 0, row: 0, colSpan: 12, rowSpan: 4, label: "PIANO", color: "#ff6a1a26" },
+      pickup_screen: { type: "lcdscreen", col: 0, row: 0, colSpan: 6, rowSpan: 4 },
+      hardness: { type: "knob", col: 6, row: 0, colSpan: 2, rowSpan: 2, label: "Hammer", bind: "Hammer Hardness", min: 0, max: 1 },
+      resonance: { type: "knob", col: 8, row: 0, colSpan: 2, rowSpan: 2, label: "Tonebar", bind: "Tonebar Resonance", min: 0, max: 1 },
+      distance: { type: "knob", col: 10, row: 0, colSpan: 2, rowSpan: 2, label: "Distance", bind: "Pickup Distance", min: 0, max: 1 },
+      alignment: { type: "knob", col: 6, row: 2, colSpan: 2, rowSpan: 2, label: "Align", bind: "Pickup Alignment", min: 0, max: 1 },
+      dynamics: { type: "knob", col: 8, row: 2, colSpan: 2, rowSpan: 2, label: "Dynamics", bind: "Dynamics", min: 0, max: 1 },
+      macro: { type: "group", col: 12, row: 0, colSpan: 4, rowSpan: 4, label: "MACRO", color: "#3ec96b26" },
+      brightness: { type: "knob", col: 12, row: 0, colSpan: 2, rowSpan: 2, label: "Bright", bind: "Brightness", min: 0, max: 1 },
+      timbre: { type: "knob", col: 14, row: 0, colSpan: 2, rowSpan: 2, label: "Timbre", bind: "Timbre", min: 0, max: 1 },
+      time: { type: "knob", col: 12, row: 2, colSpan: 2, rowSpan: 2, label: "Time", bind: "Time", min: 0, max: 1 },
+      movement: { type: "knob", col: 14, row: 2, colSpan: 2, rowSpan: 2, label: "Move", bind: "Movement", min: 0, max: 1 },
+    }),
+  name("AMP")
+    .widgets({
+      vibrato: { type: "group", col: 0, row: 0, colSpan: 8, rowSpan: 4, label: "VIB", color: "#3ec96b26" },
+      vib_screen: { type: "lcdscreen", col: 0, row: 0, colSpan: 4, rowSpan: 4 },
+      vib_on: { type: "toggle", col: 4, row: 0, colSpan: 2, rowSpan: 2, label: "Vibrato", bind: "Preamp Vibrato On" },
+      vib_depth: { type: "knob", col: 6, row: 0, colSpan: 2, rowSpan: 2, label: "Depth", bind: "Preamp Vibrato Intensity", min: 0, max: 1 },
+      vib_rate: { type: "knob", col: 4, row: 2, colSpan: 2, rowSpan: 2, label: "Rate", bind: "Preamp Vibrato Speed", min: 0, max: 1 },
+      tone_grp: { type: "group", col: 8, row: 0, colSpan: 6, rowSpan: 4, label: "TONE", color: "#3d7dff26" },
+      circuit: { type: "dropdown", col: 8, row: 0, colSpan: 3, label: "Circuit", bind: "Tone Circuit Model", options: [label("<=73'").value(0), label("74'=>").value(1)] },
+      tone: { type: "knob", col: 8, row: 1, colSpan: 2, rowSpan: 2, label: "Tone", bind: "Tone Circuit Tone", min: 0, max: 1 },
+      boost: { type: "fader", col: 11, row: 0, rowSpan: 4, label: "Boost", bind: "Tone Circuit Bass Boost", min: 0, max: 1 },
+      bass: { type: "fader", col: 12, row: 0, rowSpan: 4, label: "Bass", bind: "Preamp Bass", min: 0, max: 1 },
+      treble: { type: "fader", col: 13, row: 0, rowSpan: 4, label: "Treble", bind: "Preamp Treble", min: 0, max: 1 },
+    }),
+  name("NOISE")
+    .widgets({
+      noises: { type: "group", col: 0, row: 0, colSpan: 4, rowSpan: 4, label: "NOISE", color: "#ffffff1a" },
+      hammer_noise: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Hammer", bind: "Hammer Noise", min: 0, max: 1 },
+      damper_noise: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Damper", bind: "Damper Noise", min: 0, max: 1 },
+      tine_noise: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Tine", bind: "Tine Noise", min: 0, max: 1 },
+      pickup_noise: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Pickup", bind: "Pickup Noise", min: 0, max: 1 },
+    }),
+])
+vertical({
+  cols: 4,
+  rows: 12,
+  widgets: {},
+  tabs: [
+    name("PIANO")
+      .widgets({
+        piano: { type: "group", col: 0, row: 0, colSpan: 4, rowSpan: 8, label: "PIANO", color: "#ff6a1a26" },
+        pickup_screen: { type: "lcdscreen", col: 0, row: 0, colSpan: 4, rowSpan: 2 },
+        hardness: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Hammer", bind: "Hammer Hardness", min: 0, max: 1 },
+        resonance: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Tonebar", bind: "Tonebar Resonance", min: 0, max: 1 },
+        distance: { type: "knob", col: 0, row: 4, colSpan: 2, rowSpan: 2, label: "Distance", bind: "Pickup Distance", min: 0, max: 1 },
+        alignment: { type: "knob", col: 2, row: 4, colSpan: 2, rowSpan: 2, label: "Align", bind: "Pickup Alignment", min: 0, max: 1 },
+        dynamics: { type: "knob", col: 0, row: 6, colSpan: 2, rowSpan: 2, label: "Dynamics", bind: "Dynamics", min: 0, max: 1 },
+        macro: { type: "group", col: 0, row: 8, colSpan: 4, rowSpan: 4, label: "MACRO", color: "#3ec96b26" },
+        brightness: { type: "knob", col: 0, row: 8, colSpan: 2, rowSpan: 2, label: "Bright", bind: "Brightness", min: 0, max: 1 },
+        timbre: { type: "knob", col: 2, row: 8, colSpan: 2, rowSpan: 2, label: "Timbre", bind: "Timbre", min: 0, max: 1 },
+        time: { type: "knob", col: 0, row: 10, colSpan: 2, rowSpan: 2, label: "Time", bind: "Time", min: 0, max: 1 },
+        movement: { type: "knob", col: 2, row: 10, colSpan: 2, rowSpan: 2, label: "Move", bind: "Movement", min: 0, max: 1 },
+      }),
+    name("AMP")
+      .widgets({
+        vibrato: { type: "group", col: 0, row: 0, colSpan: 4, rowSpan: 6, label: "VIB", color: "#3ec96b26" },
+        vib_screen: { type: "lcdscreen", col: 0, row: 0, colSpan: 4, rowSpan: 2 },
+        vib_on: { type: "toggle", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Vibrato", bind: "Preamp Vibrato On" },
+        vib_depth: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Depth", bind: "Preamp Vibrato Intensity", min: 0, max: 1 },
+        vib_rate: { type: "knob", col: 0, row: 4, colSpan: 2, rowSpan: 2, label: "Rate", bind: "Preamp Vibrato Speed", min: 0, max: 1 },
+        tone_grp: { type: "group", col: 0, row: 6, colSpan: 4, rowSpan: 5, label: "TONE", color: "#3d7dff26" },
+        circuit: { type: "dropdown", col: 0, row: 6, colSpan: 2, label: "Circuit", bind: "Tone Circuit Model", options: [label("<=73'").value(0), label("74'=>").value(1)] },
+        tone: { type: "knob", col: 2, row: 6, colSpan: 2, rowSpan: 2, label: "Tone", bind: "Tone Circuit Tone", min: 0, max: 1 },
+        boost: { type: "fader", col: 0, row: 8, rowSpan: 3, label: "Boost", bind: "Tone Circuit Bass Boost", min: 0, max: 1 },
+        bass: { type: "fader", col: 1, row: 8, rowSpan: 3, label: "Bass", bind: "Preamp Bass", min: 0, max: 1 },
+        treble: { type: "fader", col: 2, row: 8, rowSpan: 3, label: "Treble", bind: "Preamp Treble", min: 0, max: 1 },
+      }),
+    name("NOISE")
+      .widgets({
+        noises: { type: "group", col: 0, row: 0, colSpan: 4, rowSpan: 4, label: "NOISE", color: "#ffffff1a" },
+        hammer_noise: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Hammer", bind: "Hammer Noise", min: 0, max: 1 },
+        damper_noise: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Damper", bind: "Damper Noise", min: 0, max: 1 },
+        tine_noise: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Tine", bind: "Tine Noise", min: 0, max: 1 },
+        pickup_noise: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Pickup", bind: "Pickup Noise", min: 0, max: 1 },
+      }),
+  ],
+})

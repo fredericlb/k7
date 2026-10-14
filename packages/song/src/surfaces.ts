@@ -3,13 +3,7 @@
 // (yaml/surfaceFile.ts), so an app can read one out of the file service without this.
 // Full rationale: docs/surfaces.md.
 
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { CAMERA_IO } from "@studio/song-schema/moduleTypes";
 import {
@@ -28,6 +22,7 @@ import { isChainProject, readChainProject } from "./chainProject";
 import { type Diagnostic, NODES_DIR } from "./loader";
 import { ensureVideoRun } from "./videoOutputs";
 import { entityFiles } from "./yaml/moduleIO";
+import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 // The shapes are the WIRE's, declared beside the browser-safe parser, so the two sides cannot drift.
 export type { ProjectSurface, ProjectSurfaces };
@@ -43,7 +38,7 @@ export function projectSurfaces(dir: string): ProjectSurfaces {
     const rel = file.rel.replace(/^\/+/, "");
     let text: string;
     try {
-      text = readFileSync(file.path, "utf8");
+      text = wsRead(file.path);
     } catch (e) {
       diagnostics.push({
         file: rel,
@@ -87,7 +82,7 @@ export function createSurfaceFile(
     );
   const layout = known.layouts[0];
   const rel = `${SURFACES_DIR}/${id}.yaml`;
-  if (existsSync(join(dir, rel)))
+  if (wsExists(join(dir, rel)))
     throw new Error(`surface '${id}' already exists (${rel})`);
   if (layout !== "view") {
     const taken = projectSurfaces(dir).surfaces.find(
@@ -99,10 +94,9 @@ export function createSurfaceFile(
       );
   }
   mkdirSync(join(dir, SURFACES_DIR), { recursive: true });
-  writeFileSync(
+  wsWrite(
     join(dir, rel),
     `type: ${type}\nlayout: ${layout}\n${mappingSkeleton(known)}`,
-    "utf8",
   );
   // A viewport brings the picture's two outputs with it, in the same breath — docs/videoOutputs.md.
   if (type === "viewport") ensureVideoRun(dir);
@@ -119,7 +113,7 @@ function mappingSkeleton(known: SurfaceTypeContribution): string {
 
 /** Whether `dir` authors video LANES — a folder probe, kept out of song-video, docs/surfaces.md. */
 export function isVideoProject(dir: string): boolean {
-  return existsSync(resolve(dir, "video_tracks"));
+  return wsExists(resolve(dir, "video_tracks"));
 }
 
 /** `io: camera`, the one field that says a module is a lens — see docs/camera.md. */
@@ -144,7 +138,7 @@ function namesCamera(dir: string): boolean {
   }
   return found.some((name) => {
     try {
-      return CAMERA_FIELD.test(readFileSync(join(nodes, name), "utf8"));
+      return CAMERA_FIELD.test(wsRead(join(nodes, name)));
     } catch {
       return false; // not a file, or unreadable
     }
@@ -160,8 +154,8 @@ export function hasPicture(dir: string): boolean {
 function hasMaterial(dir: string): boolean {
   const abs = resolve(dir);
   return (
-    existsSync(join(abs, "clips")) ||
-    existsSync(join(abs, "sequences")) ||
+    wsExists(join(abs, "clips")) ||
+    wsExists(join(abs, "sequences")) ||
     isVideoProject(abs)
   );
 }

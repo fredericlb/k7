@@ -2,7 +2,6 @@
 // The points ARE the event's window (`from`/`to`), so moving them narrows what it plays — but a looped event
 // keeps its length on the lane, its pass count recomputed, the way a loop brace behaves. See docs/eventLoop.md.
 
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { laneFileFor } from "@studio/song/chainItemEdit";
 import {
@@ -10,6 +9,7 @@ import {
   type WindowValue,
 } from "@studio/song/yaml/materialFile";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
+import { wsRead } from "@studio/song/yaml/workspaceFile";
 import { beatsToPosition, parsePosition } from "@studio/song-schema/timecode";
 import {
   findPlacementAt,
@@ -43,7 +43,7 @@ function sequenceExtent(
   num: number,
   den: number,
 ): number | undefined {
-  const doc = parseYaml(readFileSync(path, "utf8")) as {
+  const doc = parseYaml(wsRead(path)) as {
     notes?: { t?: unknown; d?: unknown }[];
   } | null;
   const ends = (Array.isArray(doc?.notes) ? doc.notes : []).map(
@@ -64,7 +64,7 @@ function placed(
 ): Placed | null {
   const own = laneFileFor(dir, id);
   if (!own) throw new Error(`track "${id}" has no lane file`);
-  const text = readFileSync(own.path, "utf8");
+  const text = wsRead(own.path);
   const at = findPlacementAt(text, fromBeats, num, den);
   if (at < 0) return null;
   const p = placementValues(text)[at] ?? {};

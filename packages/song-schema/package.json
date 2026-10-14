@@ -11,6 +11,7 @@
     "./builtinParams": "./src/builtinParams.ts",
     "./curveMath": "./src/curveMath.ts",
     "./instanceName": "./src/instanceName.ts",
+    "./libraryVersions": "./src/libraryVersions.ts",
     "./moduleTypes": "./src/moduleTypes.ts",
     "./placementId": "./src/placementId.ts",
     "./playlist": "./src/playlist.ts",
@@ -51,6 +52,8 @@
     "./yaml/trackFile": "./src/yaml/trackFile.ts",
     "./yaml/uiFile": "./src/yaml/uiFile.ts",
     "./yaml/validate": "./src/yaml/validate.ts",
+    "./yaml/k7xIssues": "./src/yaml/k7xIssues.ts",
+    "./yaml/sugar": "./src/yaml/sugar.ts",
     "./yaml/videoTrackFile": "./src/yaml/videoTrackFile.ts"
   },
   "scripts": {
@@ -66,6 +69,7 @@
     "yaml": "^2.5.0",
     "zod": "^4.4.3",
     "@studio/engine-protocol": "*",
+    "@studio/k7x": "*",
     "@studio/web-protocol": "*"
   },
   "devDependencies": {

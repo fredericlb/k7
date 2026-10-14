@@ -1,0 +1,43 @@
+// mu-tides — a polyphonic Tides voice: the slope's shape, its ADSR, and the four outputs it spreads
+cols(18)
+rows(4)
+widgets({
+  output_mode: { type: "dropdown", col: 0, row: 0, colSpan: 4, label: "Output", bind: "Output mode", options: [label("Amplitude").value(0), label("Slope/phase").value(1), label("Frequency").value(2)] },
+  wave: { type: "lcdscreen", col: 0, row: 1, colSpan: 4, rowSpan: 3 },
+  slope_group: { type: "group", col: 4, row: 0, colSpan: 4, rowSpan: 4, label: "WAVE", color: "#3d7dff26" },
+  shape: { type: "knob", col: 4, row: 0, colSpan: 2, rowSpan: 2, label: "Shape", bind: "Shape", min: 0, max: 1 },
+  slope: { type: "knob", col: 6, row: 0, colSpan: 2, rowSpan: 2, label: "Slope", bind: "Slope", min: 0, max: 1 },
+  smooth: { type: "knob", col: 4, row: 2, colSpan: 2, rowSpan: 2, label: "Smooth", bind: "Smoothness", min: 0, max: 1 },
+  shift: { type: "knob", col: 6, row: 2, colSpan: 2, rowSpan: 2, label: "Shift", bind: "Shift", min: 0, max: 1 },
+  env: { type: "lcdscreen", col: 8, row: 0, colSpan: 4, rowSpan: 4 },
+  adsr: { type: "group", col: 12, row: 0, colSpan: 4, rowSpan: 4, label: "ENV", color: "#ff6a1a26" },
+  attack: { type: "knob", col: 12, row: 0, colSpan: 2, rowSpan: 2, label: "Attack", bind: "Attack", min: 0.001000000047, max: 2, curve: "log" },
+  decay: { type: "knob", col: 14, row: 0, colSpan: 2, rowSpan: 2, label: "Decay", bind: "Decay", min: 0.004999999888, max: 4, curve: "log" },
+  sustain: { type: "knob", col: 12, row: 2, colSpan: 2, rowSpan: 2, label: "Sustain", bind: "Sustain", min: 0, max: 1 },
+  release: { type: "knob", col: 14, row: 2, colSpan: 2, rowSpan: 2, label: "Release", bind: "Release", min: 0.004999999888, max: 8, curve: "log" },
+  voice: { type: "group", col: 16, row: 0, colSpan: 2, rowSpan: 4, label: "VOICE", color: "#6b6b6b33" },
+  transpose: { type: "knob", col: 16, row: 0, colSpan: 2, rowSpan: 2, label: "Transp", bind: "Transpose", min: -24, max: 24, step: 1 },
+  voices: { type: "knob", col: 16, row: 2, colSpan: 2, rowSpan: 2, label: "Voices", bind: "Voices", min: 1, max: 8, step: 1 },
+})
+vertical({
+  cols: 4,
+  rows: 17,
+  widgets: {
+    output_mode: { type: "dropdown", col: 0, row: 0, colSpan: 4, label: "Output", bind: "Output mode", options: [label("Amplitude").value(0), label("Slope/phase").value(1), label("Frequency").value(2)] },
+    wave: { type: "lcdscreen", col: 0, row: 1, colSpan: 4, rowSpan: 3 },
+    slope_group: { type: "group", col: 0, row: 4, colSpan: 4, rowSpan: 4, label: "WAVE", color: "#3d7dff26" },
+    shape: { type: "knob", col: 0, row: 4, colSpan: 2, rowSpan: 2, label: "Shape", bind: "Shape", min: 0, max: 1 },
+    slope: { type: "knob", col: 2, row: 4, colSpan: 2, rowSpan: 2, label: "Slope", bind: "Slope", min: 0, max: 1 },
+    smooth: { type: "knob", col: 0, row: 6, colSpan: 2, rowSpan: 2, label: "Smooth", bind: "Smoothness", min: 0, max: 1 },
+    shift: { type: "knob", col: 2, row: 6, colSpan: 2, rowSpan: 2, label: "Shift", bind: "Shift", min: 0, max: 1 },
+    env: { type: "lcdscreen", col: 0, row: 8, colSpan: 4, rowSpan: 3 },
+    adsr: { type: "group", col: 0, row: 11, colSpan: 4, rowSpan: 4, label: "ENV", color: "#ff6a1a26" },
+    attack: { type: "knob", col: 0, row: 11, colSpan: 2, rowSpan: 2, label: "Attack", bind: "Attack", min: 0.001000000047, max: 2, curve: "log" },
+    decay: { type: "knob", col: 2, row: 11, colSpan: 2, rowSpan: 2, label: "Decay", bind: "Decay", min: 0.004999999888, max: 4, curve: "log" },
+    sustain: { type: "knob", col: 0, row: 13, colSpan: 2, rowSpan: 2, label: "Sustain", bind: "Sustain", min: 0, max: 1 },
+    release: { type: "knob", col: 2, row: 13, colSpan: 2, rowSpan: 2, label: "Release", bind: "Release", min: 0.004999999888, max: 8, curve: "log" },
+    voice: { type: "group", col: 0, row: 15, colSpan: 4, rowSpan: 2, label: "VOICE", color: "#6b6b6b33" },
+    transpose: { type: "knob", col: 0, row: 15, colSpan: 2, rowSpan: 2, label: "Transp", bind: "Transpose", min: -24, max: 24, step: 1 },
+    voices: { type: "knob", col: 2, row: 15, colSpan: 2, rowSpan: 2, label: "Voices", bind: "Voices", min: 1, max: 8, step: 1 },
+  },
+})

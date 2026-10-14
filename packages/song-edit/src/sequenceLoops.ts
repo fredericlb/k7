@@ -3,7 +3,7 @@
 // Across every lane, every take and every alternative — the per-file writer is @studio/song-schema's
 // halveSequenceLoops. See docs/sequenceLoops.md.
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   chainFiles,
@@ -11,6 +11,12 @@ import {
   laneFolder,
   spliceChainItem,
 } from "@studio/song/chainItemEdit";
+import {
+  isDocName,
+  wsExists,
+  wsRead,
+  wsWrite,
+} from "@studio/song/yaml/workspaceFile";
 import {
   halveSequenceLoops,
   type KeptLoop,
@@ -37,9 +43,9 @@ export function halveLoopsOf(
   const at = join(dir, folder);
   let names: string[] = [];
   try {
-    if (existsSync(at))
+    if (wsExists(at))
       names = readdirSync(at)
-        .filter((f) => /\.ya?ml$/i.test(f))
+        .filter((f) => isDocName(f))
         .sort();
   } catch {
     names = []; // no lanes to reach is not a failure to halve
@@ -49,7 +55,7 @@ export function halveLoopsOf(
     const path = join(dir, rel);
     let before: string;
     try {
-      before = readFileSync(path, "utf8");
+      before = wsRead(path);
     } catch {
       continue;
     }
@@ -57,11 +63,11 @@ export function halveLoopsOf(
     const { text, halved, kept } = isChain
       ? halveInChain(before, ref)
       : halveSequenceLoops(before, ref);
-    const lane = rel.slice(rel.indexOf("/") + 1).replace(/\.ya?ml$/i, "");
+    const lane = rel.slice(rel.indexOf("/") + 1).replace(/\.(ya?ml|k7x)$/i, "");
     out.kept.push(...kept.map((k) => ({ ...k, lane })));
     if (!halved) continue;
     snapshot?.(path);
-    writeFileSync(path, text, "utf8");
+    wsWrite(path, text);
     out.files.push(rel);
     out.halved += halved;
   }

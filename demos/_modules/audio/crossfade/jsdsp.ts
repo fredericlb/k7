@@ -14,7 +14,5 @@ import type { GraphBuilder } from "@studio/dsp";
 export default (g: GraphBuilder) => {
   const mix = g.param("Mix", { min: 0, max: 1, default: 0.5 });
   // Equal GAIN and not equal power: no sqrt among the primitives, so the centre dips a known ~3 dB.
-  const a = g.amul(g.input(0), g.sub(1, mix));
-  const b = g.amul(g.input(1), mix);
-  g.output(g.aadd(a, b));
+  g.input(0).mul(mix.from(1)).add(g.input(1).mul(mix)).out();
 };

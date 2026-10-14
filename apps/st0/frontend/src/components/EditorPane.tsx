@@ -3,6 +3,8 @@ import { javascript } from "@codemirror/lang-javascript";
 import { type Extension, Prec } from "@codemirror/state";
 import { type EditorView, keymap } from "@codemirror/view";
 import { Vim, vim } from "@replit/codemirror-vim";
+import { k7xCompletions } from "@studio/ui-editor/k7x/completions";
+import { k7xLanguage } from "@studio/ui-editor/k7x/language";
 import { type LintItem, lint, refreshLint } from "@studio/ui-editor/lint";
 import { yamlCompletions } from "@studio/ui-editor/yaml/completions";
 import { projectEntityLinks } from "@studio/ui-editor/yaml/entityLinks";
@@ -103,6 +105,8 @@ export function EditorPane({
 
   // A project file — the ones that get the language mode, completion, links and lint.
   const isProjectFile = !!file && /\.ya?ml$/i.test(file.path);
+  // The same project file written in k7x: its own colours, the same vocabulary and lint (packages/k7x/docs/language.md).
+  const isK7xFile = !!file && /\.k7x$/i.test(file.path);
   const isStrudel = !!file && file.path.endsWith(".strudel");
   const extensions = useMemo<Extension[]>(() => {
     const ext: Extension[] = [];
@@ -132,10 +136,19 @@ export function EditorPane({
       if (onPreview) ext.push(projectPreviewGutter(onPreview));
       // A slice-rack file: its symbol names painted in their slice's colour — the link to the docked waveform, made by hue.
       ext.push(sliceSymbolColors());
-    } else if (isStrudel) ext.push(javascript()); // Strudel patterns are JS + mini-notation strings
+    } else if (isK7xFile)
+      ext.push(
+        k7xLanguage(),
+        autocompletion({
+          override: [k7xCompletions(schemaVocabulary(file?.path, hints))],
+        }),
+        lint(() => diagsRef.current),
+      );
+    else if (isStrudel) ext.push(javascript()); // Strudel patterns are JS + mini-notation strings
     return ext;
   }, [
     isProjectFile,
+    isK7xFile,
     isStrudel,
     vimMode,
     hints,

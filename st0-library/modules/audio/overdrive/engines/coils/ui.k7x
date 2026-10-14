@@ -1,0 +1,8 @@
+// coils — a transformer-core saturation
+cols(4)
+rows(4)
+widgets({
+  saturat: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Sat", bind: "Saturat", min: 0, max: 1 },
+  core_dc: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Core DC", bind: "Core DC", min: 0, max: 1 },
+  io: { type: "lcdscreen", col: 0, row: 2, colSpan: 4, rowSpan: 2 },
+})

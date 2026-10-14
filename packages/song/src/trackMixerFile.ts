@@ -4,7 +4,7 @@
 // `track new` writes one for a new lane; `scripts/migrateTrackMixer.ts` for every older one.
 // See docs/trackMixer.md.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
 import { MIX_NODE } from "@studio/song-schema/moduleTypes";
@@ -21,6 +21,7 @@ import { isChainProject, newNodeId, readChainProject } from "./chainProject";
 import type { Chain, GraphDoc } from "./graph";
 import { loadModules } from "./loader";
 import { SHARED_STRIP } from "./scaffoldLive";
+import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 /** The strip's own file: a NODE on the library's mixer, never a copy of it — see docs/trackMixer.md. */
 const mixerNode = (lane: string): string =>
@@ -87,13 +88,13 @@ export function planTrackMixer(
 ): MixerPlan | null {
   if (hasTrackMixer(g, lane)) return null;
   if (isChainProject(dir)) return planChainMixer(dir, lane, g);
-  if (!existsSync(join(dir, GRAPH_FILE)))
+  if (!wsExists(join(dir, GRAPH_FILE)))
     throw new Error(`no ${GRAPH_FILE} — a strip has nowhere to be wired`);
   const c = chainOf(g, lane);
   // The node the strip goes AFTER: the run's last module, or the lane itself when nothing follows it.
   const prev = c?.use.length ? c.use[c.use.length - 1].module : lane;
   if (c) {
-    const text = readFileSync(join(dir, GRAPH_FILE), "utf8");
+    const text = wsRead(join(dir, GRAPH_FILE));
     const dests = parseGraph(text).value?.modules?.[prev] ?? [];
     if (!dests.includes(MIX_NODE))
       throw new Error(
@@ -147,7 +148,7 @@ function applyChainMixer(dir: string, plan: MixerPlan): string[] {
 export function applyTrackMixer(dir: string, plan: MixerPlan): string[] {
   if (isChainProject(dir)) return applyChainMixer(dir, plan);
   const graphPath = join(dir, GRAPH_FILE);
-  const text = readFileSync(graphPath, "utf8");
+  const text = wsRead(graphPath);
   const next = plan.after
     ? insertBetween(text, plan.after, MIX_NODE, plan.name)
     : // An orphan lane is not in the graph at all: it and its strip arrive together.
@@ -155,8 +156,8 @@ export function applyTrackMixer(dir: string, plan: MixerPlan): string[] {
         modules: { [plan.lane]: [plan.name], [plan.name]: [MIX_NODE] },
       });
   mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(join(dir, plan.rel), mixerNode(plan.lane), "utf8");
-  writeFileSync(graphPath, next, "utf8");
+  wsWrite(join(dir, plan.rel), mixerNode(plan.lane));
+  wsWrite(graphPath, next);
   return [plan.rel, GRAPH_FILE];
 }
 

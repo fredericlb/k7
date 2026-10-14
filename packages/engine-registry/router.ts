@@ -93,6 +93,7 @@ export function engineRegistryRouter(
         machineFingerprint: b.machineFingerprint,
         addresses: b.addresses,
         performance: b.performance,
+        libraryLevel: b.libraryLevel,
         publicIpHint: req.ip,
       });
       if (!ok) {

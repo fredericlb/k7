@@ -5,7 +5,7 @@
 // as the bench's own segments and node files whichever layout the library keeps it in — a copy dies
 // with the bench, so an edit made while auditioning reaches nothing shared. See apps/st0/backend/docs/media/banc.md.
 
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { isOfflineModule } from "@studio/audio-passes/coldPass";
 import {
@@ -22,6 +22,7 @@ import {
   LIVE_INPUT,
   LIVE_RECORDER,
 } from "@studio/song/scaffoldLive";
+import { wsCopy, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { formatChains, parseGraph } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { LiveChain } from "@studio/web-protocol";
@@ -86,7 +87,7 @@ function benchName(step: TemplateStep, taken: Set<string>): string {
 /** Every library's chains, by `@<library>/<path>`, each with why it cannot run live against `dir`'s modules — a cold one is listed, not dropped (../../ui-rehearsal/docs/chainSource.md). */
 export function liveChains(dir: string): LiveChain[] {
   const byRef = loadModuleRefs(dir);
-  return libraryChainDirs().map((c) => ({
+  return libraryChainDirs(dir).map((c) => ({
     ref: c.ref,
     unavailable: refusal(c, byRef),
   }));
@@ -95,12 +96,12 @@ export function liveChains(dir: string): LiveChain[] {
 /** Put the chain `ref` of the library between the bench's input and its fader; throws with the reason. */
 export function spliceChain(benchDir: string, ref: string): void {
   // A BARE ref is the default library's: bench addresses minted before libraries had names say one.
-  const chain = findLibraryChain(ref);
+  const chain = findLibraryChain(ref, benchDir);
   if (!chain) throw new Error(`no chain "${ref}" in the library`);
   const why = refusal(chain, loadModuleRefs(benchDir));
   if (why) throw new Error(`the chain "${ref}" cannot run live: ${why}`);
 
-  const rig = parseGraph(readFileSync(join(benchDir, GRAPH_FILE), "utf8"));
+  const rig = parseGraph(wsRead(join(benchDir, GRAPH_FILE)));
   if (!rig.value) throw new Error("the bench has a graph that does not read");
 
   // The template is one run: the input feeds its first step, and its last feeds the fader.
@@ -125,16 +126,11 @@ export function spliceChain(benchDir: string, ref: string): void {
     const at = join(benchDir, "nodes", names[i]);
     // A folder chain's node file is copied as written, its comments with it.
     if (chain.layout === "folder")
-      copyFileSync(join(chain.at, "nodes", `${s.name}.yaml`), `${at}.yaml`);
-    else
-      writeFileSync(
-        `${at}.yaml`,
-        stringify(s.module, { lineWidth: 0 }),
-        "utf8",
-      );
+      wsCopy(join(chain.at, "nodes", `${s.name}.yaml`), `${at}.yaml`);
+    else wsWrite(`${at}.yaml`, stringify(s.module, { lineWidth: 0 }));
     if (s.preset) copyFileSync(s.preset, `${at}.vstpreset`);
   });
-  writeFileSync(
+  wsWrite(
     join(benchDir, GRAPH_FILE),
     formatChains(
       {
@@ -147,6 +143,5 @@ export function spliceChain(benchDir: string, ref: string): void {
       `# The bench, with the library chain "${ref}" COPIED between the input and the fader.\n` +
         `# Nothing here is saved: edit the chain in st0's chains builder. See apps/st0/backend/docs/media/banc.md.`,
     ),
-    "utf8",
   );
 }

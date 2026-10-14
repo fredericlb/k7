@@ -1,7 +1,7 @@
 # A workspace edit as an operation
 
 `@studio/live-sync` turns one file's change into what a replica replays: values set or deleted at key
-paths for a YAML file, the whole text otherwise. The plan it belongs to is
+paths for a YAML or a `.k7x` file, the whole text otherwise. The plan it belongs to is
 [live-sync-plan.md](../../../docs/live-sync-plan.md).
 
 ## The op is DERIVED from the file, never declared by the writer
@@ -88,6 +88,23 @@ reformat what the op does not name: the `yaml` library pads every inline list it
 The sender pays one parse of each side and the replay check. On the library: 0.6 ms median per edit,
 2.4 ms at the 95th percentile. The floor is two parses, which on the largest UI file (313 KB) is about
 160 ms. Those files are generated panels, rarely edited by hand.
+
+## A .k7x file
+
+A `.k7x` file's change is a `k7x` op (`src/k7xOps.ts`): the same paths, the same item segments from
+the same `LIST_KEYS`, the same rule that path ops go only when they replay byte for byte, the same
+`was` checked the same way by the room. Only the values differ: they travel as k7x source, and a
+conflict's `kept` is k7x source too.
+
+The replay is what makes the byte-for-byte rule hold for k7x without any formatting knowledge. A
+changed value is spliced in as its source was written; a new entry or list item, and a removal, go
+through the k7x document's own edits — the very ones the YAML bridge writes with
+(`packages/k7x/docs/bridge.md`). A replica holding the same text, running the same edits, lands on
+the same bytes. Measured over the corpus converted to k7x and edited the way the bridge writes (2,355
+value edits, 90 list-item edits): no fallback, no wrong replay (`src/k7xCorpus.test.ts`).
+
+A `.k7x` file is not merged as lines either, for the reason a YAML one is not: its path ops are its
+merge.
 
 ## Not here
 

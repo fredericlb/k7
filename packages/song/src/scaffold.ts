@@ -5,7 +5,7 @@
 // its `#` comments are the one worked example a reader gets.
 // Full rationale: docs/scaffold.md, and packages/song-video/docs/picture.md for the video half.
 
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
@@ -13,6 +13,7 @@ import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { DEFAULT_COUNT_IN } from "./project";
 import { SHARED_MODULES_PATH } from "./sharedFolders";
 import { addVideoRun } from "./videoOutputs";
+import { wsExists, wsWrite } from "./yaml/workspaceFile";
 
 /** The archetypes THIS module writes: the two with a TIMELINE. `Extract`, so a rename breaks it and
  *  a shape with its own scaffold — `mix`, and both `live` ones — cannot be passed here by mistake. */
@@ -254,7 +255,7 @@ export function writeProjectFiles(
   for (const [rel, content] of Object.entries(files)) {
     const path = join(dir, rel);
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, content, "utf8");
+    wsWrite(path, content);
   }
   return Object.keys(files);
 }
@@ -268,9 +269,9 @@ function ensureWorkspaceSynth(dir: string): void {
     SHARED_MODULES_PATH,
     "instruments/synth/module.yaml",
   );
-  if (existsSync(path)) return;
+  if (wsExists(path)) return;
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(
+  wsWrite(
     path,
     `# "synth": Tracktion's built-in 4OSC. plugin.type is the FORMAT — "internal" for a\n` +
       `# built-in, its xmlTypeName in \`name\` (an external plugin uses type: vst3 etc. and\n` +
@@ -278,7 +279,6 @@ function ensureWorkspaceSynth(dir: string): void {
       `plugin:\n` +
       `  type: internal\n` +
       `  name: 4osc\n`,
-    "utf8",
   );
 }
 
@@ -294,7 +294,7 @@ export function scaffold(
   ensureWorkspaceSynth(dir);
 
   if (picture) {
-    if (!existsSync(SAMPLE_VIDEO))
+    if (!wsExists(SAMPLE_VIDEO))
       throw new Error(
         `bundled sample video missing (${SAMPLE_VIDEO}) — the @studio/song package is incomplete`,
       );

@@ -18,7 +18,7 @@ export function playlistPathOf(name: string): string | null {
   const segs = clean.split("/");
   if (segs.some((s) => !s || s === "." || s === "..")) return null;
   const rel = segs.join("/");
-  return `${PLAYLISTS_DIR}/${/\.ya?ml$/i.test(rel) ? rel : `${rel}${PLAYLIST_EXT}`}`;
+  return `${PLAYLISTS_DIR}/${/\.(ya?ml|k7x)$/i.test(rel) ? rel : `${rel}${PLAYLIST_EXT}`}`;
 }
 
 /** One line of a playlist; `song` is kept VERBATIM, since resolving it needs the médiathèque listing. */

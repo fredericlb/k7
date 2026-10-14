@@ -32,6 +32,7 @@
     "@studio/engine-protocol": "*",
     "@studio/project-shell": "*",
     "@studio/graph-model": "*",
+    "@studio/k7x": "*",
     "@studio/song-schema": "*",
     "@studio/ui-editor": "*",
     "@studio/web-protocol": "*",

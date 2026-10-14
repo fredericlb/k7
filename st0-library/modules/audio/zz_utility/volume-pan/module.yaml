@@ -1,3 +1,0 @@
-# volume-pan — the face for Volume & Pan, a plugin the engine scans.
-# Everything it IS comes from the ref below; what lives here is the ui.yaml beside this file.
-extends: "@engine/volume-pan"

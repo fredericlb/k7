@@ -107,7 +107,7 @@ export function PlaylistEditor({
       path
         .split("/")
         .pop()
-        ?.replace(/\.ya?ml$/i, "") ?? "playlist";
+        ?.replace(/\.(?:ya?ml|k7x)$/i, "") ?? "playlist";
     void api
       .read(path)
       .then((f) => {

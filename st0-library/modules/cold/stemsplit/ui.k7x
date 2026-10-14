@@ -1,0 +1,14 @@
+// panel for @st0/cold/stemsplit
+//
+// Labels and nothing else, and that is honest rather than lazy: this module has no knob to turn. Its one
+// parameter is a FILE (the model), which the builder draws from the module's assets/ on its own, and its
+// outputs are files rather than a signal there is anything to meter. What the panel is for here is saying
+// which four stems come out, in the order the model returns them — the order a chains file wires by name.
+cols(4)
+rows(1)
+widgets({
+  drums: { type: "label", col: 0, row: 0, label: "drums" },
+  bass: { type: "label", col: 1, row: 0, label: "bass" },
+  other: { type: "label", col: 2, row: 0, label: "other" },
+  vocals: { type: "label", col: 3, row: 0, label: "vocals" },
+})

@@ -9,7 +9,6 @@
 // knob that moves and changes nothing.
 
 import {
-  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -19,6 +18,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { copyAsYaml } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildGraphDoc } from "./graphDoc";
 
@@ -32,11 +32,11 @@ let dir: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "fs-offline-"));
   dir = join(root, "synth-demo.st0");
-  cpSync(SONG, dir, { recursive: true });
+  copyAsYaml(SONG, dir, { recursive: true });
   // The demo's own "synth" lives at `@workspace`, its sibling in the Examples workspace.
   const demoModules = join(DEMOS, "_modules");
   if (existsSync(demoModules))
-    cpSync(demoModules, join(root, "_modules"), { recursive: true });
+    copyAsYaml(demoModules, join(root, "_modules"), { recursive: true });
   const folder = join(root, "_modules", "instruments", "synth");
   mkdirSync(folder, { recursive: true });
   writeFileSync(

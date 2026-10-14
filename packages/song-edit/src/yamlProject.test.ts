@@ -1,5 +1,4 @@
 import {
-  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -14,6 +13,7 @@ import { isFolderProject } from "@studio/song/folder";
 import { loadGraph } from "@studio/song/graph";
 import { exportSub, loadModules } from "@studio/song/loader";
 import { compileNodeProject } from "@studio/song/nodeProject";
+import { copyAsYaml } from "@studio/song/testSupport";
 import { isProjectFolder } from "@studio/song/yaml/moduleIO";
 import { ClipSchema } from "@studio/song-schema/yaml/entitySchemas";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -40,8 +40,8 @@ let dir: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-yaml-"));
   dir = join(root, "synth-demo.st0");
-  cpSync(SONG, dir, { recursive: true });
-  cpSync(DEMO_MODULES, join(root, "_modules"), { recursive: true });
+  copyAsYaml(SONG, dir, { recursive: true });
+  copyAsYaml(DEMO_MODULES, join(root, "_modules"), { recursive: true });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 

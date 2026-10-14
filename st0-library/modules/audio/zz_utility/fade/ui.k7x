@@ -1,0 +1,10 @@
+// panel for @st0/audio/zz_utility/fade
+//
+// One fader, drawn as a fader for the reason the crossfade beside it is: a fade has two ends and a
+// middle. What it shows is this lane's own level — on a desk the two move in mirror, and each panel
+// still reads true on its own.
+cols(3)
+rows(2)
+widgets({
+  mix: { type: "fader", col: 1, row: 0, rowSpan: 2, label: "Level", bind: "Level", min: 0, max: 1 },
+})

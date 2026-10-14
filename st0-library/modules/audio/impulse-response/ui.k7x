@@ -1,0 +1,19 @@
+// impulse-response — a convolution reverb, its tail band-limited by two filters
+cols(6)
+rows(4)
+widgets({
+  low_cut: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Lo Cut", bind: "Low Cut", min: 3.486816406, max: 135.0762329 },
+  high_cut: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Hi Cut", bind: "High Cut", min: 3.486816406, max: 135.0762329 },
+  filter_q: { type: "knob", col: 4, row: 0, colSpan: 2, rowSpan: 2, label: "Q", bind: "Filter Q", min: 0.1000000015, max: 14, curve: "log" },
+  band: { type: "lcdscreen", col: 0, row: 2, colSpan: 6, rowSpan: 2 },
+})
+vertical({
+  cols: 4,
+  rows: 6,
+  widgets: {
+    low_cut: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Lo Cut", bind: "Low Cut", min: 3.486816406, max: 135.0762329 },
+    high_cut: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Hi Cut", bind: "High Cut", min: 3.486816406, max: 135.0762329 },
+    filter_q: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Q", bind: "Filter Q", min: 0.1000000015, max: 14, curve: "log" },
+    band: { type: "lcdscreen", col: 0, row: 4, colSpan: 4, rowSpan: 2 },
+  },
+})

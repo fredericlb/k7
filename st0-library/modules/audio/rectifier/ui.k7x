@@ -1,0 +1,4 @@
+// gringer — Gringer, an AirWindows effect with no parameter of its own; its only controls are the footer's
+cols(1)
+rows(1)
+widgets({})

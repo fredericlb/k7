@@ -1,0 +1,3 @@
+// A group lane: no material and no signal of its own, just members.
+extends("@meta/group-track")
+tracks(["pad", "kit"])

@@ -1,0 +1,20 @@
+// Déformées — Thrift Shop — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
+// variante ; l'ordre des modules et la correspondance des valeurs sont dans
+// apps/z0/docs/effects.md du dépôt studio.
+
+steps([
+  id("70a1e00c-61f9-4e98-9e08-1fb8f38ec445")
+    .extends("@st0/audio/vibrato")
+    .engine("wobble")
+    .engines({ wobble: { params: { Amount: 42 } } }),
+  id("48c9a9e1-1d62-42eb-be00-b591a3687a40")
+    .extends("@st0/audio/lowpass")
+    .engine("one-knob")
+    .engines({ one-knob: { params: { Amount: 56 } } }),
+  id("01a2b3a2-75f9-4aea-8829-59ce3f7fa058")
+    .extends("@st0/audio/chorus")
+    // The one-knob chorus the blind test was tuned on, not the module's default.
+    .engine("one-knob")
+    .engines({ one-knob: { params: { Amount: 99 } } }),
+  to([chain("@out")]),
+])

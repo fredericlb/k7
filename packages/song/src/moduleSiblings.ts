@@ -3,7 +3,7 @@
 // because a second copy of it drifts: these files are keyed by folder, and a walk that
 // disagreed about which folders exist would hand a module someone else's panel.
 
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { ENGINES_DIR, engineRefOf } from "@studio/song-schema/engines";
 import { MODULE_TYPES, moduleRefOf } from "@studio/song-schema/moduleTypes";
@@ -11,6 +11,7 @@ import { engineFoldersOf } from "./engines";
 import { cachedForModuleNames } from "./moduleCache";
 import { moduleNamespaceOf, modulePanelRoots } from "./sharedFolders";
 import { moduleFileFor } from "./yaml/moduleIO";
+import { wsExists } from "./yaml/workspaceFile";
 
 /** One found sibling: the ref of the module whose folder holds it, and where it is. */
 export interface SiblingFile {
@@ -54,7 +55,7 @@ export function siblingsIn(
   };
   for (const type of Object.keys(MODULE_TYPES)) {
     const typeDir = join(root, type);
-    if (!existsSync(typeDir)) continue;
+    if (!wsExists(typeDir)) continue;
     for (const name of dirs(typeDir)) {
       const folder = join(typeDir, name);
       at(

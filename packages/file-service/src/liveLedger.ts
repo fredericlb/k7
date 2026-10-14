@@ -21,7 +21,8 @@ export interface Known {
 /** A text file past this travels as an opaque file, like audio. */
 export const TEXT_CEILING = 5 * 1024 * 1024;
 
-export const isYaml = (rel: string): boolean => /\.ya?ml$/i.test(rel);
+/** A file whose text the ledger keeps, to diff its next change into path ops: YAML and k7x. */
+export const keepsText = (rel: string): boolean => /\.(ya?ml|k7x)$/i.test(rel);
 
 /** Git's own test: a NUL byte in the first 8000 bytes makes a file binary, whatever its extension. */
 export const looksBinary = (buf: Buffer): boolean =>

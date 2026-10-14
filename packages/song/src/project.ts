@@ -6,7 +6,7 @@
 // compiler — and are re-exported here so this stays the one import for code that both
 // produces and describes them.
 
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import type {
   AutomationDoc,
@@ -29,6 +29,7 @@ import { assembleFolder, isFolderProject } from "./folder";
 import { exportSub, isVideoSource } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 import type { AssembledClip, AssembledDoc } from "./rawDoc";
+import { isDocName, wsExists, wsRead, yamlRetired } from "./yaml/workspaceFile";
 
 export type * from "@studio/engine-protocol/project";
 
@@ -116,16 +117,16 @@ function readSource(sourcePath: string): AssembledDoc {
       `'${basename(sourcePath)}' is a foreign project file, not a song file. ` +
         `Import it first (click it in the file tree), then open the folder it produces.`,
     );
-  if (/\.ya?ml$/i.test(sourcePath)) return readYamlSong(sourcePath);
+  if (isDocName(sourcePath)) return readYamlSong(sourcePath);
   throw new Error(
-    `unsupported song '${basename(sourcePath)}' — use a .yaml file or a folder project`,
+    `unsupported song '${basename(sourcePath)}' — use a ${yamlRetired() ? ".k7x" : ".k7x or .yaml"} file or a folder project`,
   );
 }
 
 // Read a single-file song: one YAML document holding `project` and `tracks`.
 function readYamlSong(path: string): AssembledDoc {
   const abs = resolve(path);
-  const value = parseYaml(readFileSync(abs, "utf8"), { version: "1.2" });
+  const value = parseYaml(wsRead(abs), { version: "1.2" });
   if (!value || typeof value !== "object")
     throw new Error(`${basename(abs)} is not a song — expected a mapping`);
   return value as AssembledDoc;
@@ -138,8 +139,8 @@ export function loadProject(sourcePath: string): ProjectDoc {
     const dir = statSync(abs).isDirectory() ? abs : dirname(abs);
     // A node project (graph.yaml / modules/) is the graph model — compile it down (nodeProject.ts).
     const doc =
-      existsSync(join(dir, GRAPH_FILE)) ||
-      existsSync(join(dir, "modules")) ||
+      wsExists(join(dir, GRAPH_FILE)) ||
+      wsExists(join(dir, "modules")) ||
       isChainProject(dir)
         ? compileNodeProject(dir)
         : mapDoc(assembleFolder(dir), dir);

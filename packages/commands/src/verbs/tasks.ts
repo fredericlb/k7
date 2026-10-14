@@ -3,8 +3,8 @@
 // drops one. A task is addressed by its NUMBER in the list, as the panel shows it. The file's format and
 // its edits are song-schema's `tasks.ts`; this only reads, writes and refuses. See docs/verbs.md.
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
+import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import {
   addTask,
   removeTask,
@@ -31,8 +31,7 @@ function tasksFile(h: CommandHost): string | null {
   return resolve(h.repoDir, TASKS_FILE);
 }
 
-const read = (abs: string): string =>
-  existsSync(abs) ? readFileSync(abs, "utf8") : "";
+const read = (abs: string): string => (wsExists(abs) ? wsRead(abs) : "");
 
 async function add(a: string, h: CommandHost, mark: boolean): Promise<void> {
   const abs = tasksFile(h);
@@ -63,11 +62,7 @@ async function add(a: string, h: CommandHost, mark: boolean): Promise<void> {
       .join("/");
     at = { project: project || ".", timecode };
   }
-  writeFileSync(
-    abs,
-    addTask(read(abs), { text, ...(at ? { at } : {}) }),
-    "utf8",
-  );
+  wsWrite(abs, addTask(read(abs), { text, ...(at ? { at } : {}) }));
   h.log([`task added${at ? ` at ${at.project} ${at.timecode}` : ""}: ${text}`]);
 }
 
@@ -91,6 +86,6 @@ async function edit(
     h.refuse([`no task ${n} in ${TASKS_FILE}`]);
     return;
   }
-  writeFileSync(abs, after, "utf8");
+  wsWrite(abs, after);
   h.log([op === "done" ? `task ${n} ticked or unticked` : `task ${n} removed`]);
 }

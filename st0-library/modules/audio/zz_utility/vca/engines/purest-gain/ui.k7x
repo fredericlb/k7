@@ -1,0 +1,8 @@
+// purest-gain — a clean gain stage with a smoothed fade
+cols(4)
+rows(2)
+widgets({
+  gain_grp: { type: "group", col: 0, row: 0, colSpan: 4, rowSpan: 2, label: "GAIN", color: "#3d7dff26" },
+  gain: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Gain", bind: "Gain", min: 0, max: 1 },
+  slow_fade: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Fade", bind: "Slow Fade", min: 0, max: 1 },
+})

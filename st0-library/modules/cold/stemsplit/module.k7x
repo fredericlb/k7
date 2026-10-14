@@ -1,0 +1,33 @@
+// Stem Split  [audioEffect] — one mix in, four stems out, by neural inference on a file.
+//
+// COLD for both reasons the word covers at once: the answer needs the whole input, and the analysis is
+// affordable once over a file and hopeless per block. A chain fed by a live input is refused.
+//
+// `plugin: {type: offline}` is the second load-bearing line, and it is what makes four outputs sayable at all.
+// A chain step compiles to a serial insert on one track — one buffer in, the same buffer out — so a module
+// that FANS OUT cannot be a plugin. `offline` says there is no engine plugin: a pass writes the outputs to
+// disk before the render. That is why this folder has no jsdsp.ts, unlike its neighbours.
+//
+// The model is named like any other file-valued param (`onnx:`, exactly as an amp names `nam:`), but 166 MB
+// does not travel through a fork — so this file DECLARES it and the machine's ~/.studio/models holds the bytes.
+cold(true)
+plugin({ type: "offline", name: "Stem Split" })
+// Four audio outputs, in the order the model returns them. These names are what a chains file wires:
+//   modules:
+//     stemsplit#vocals: [ reverb ]
+//     stemsplit#drums:  [ gate ]
+outputs([
+  name("drums").type("audio"),
+  name("bass").type("audio"),
+  name("other").type("audio"),
+  name("vocals").type("audio"),
+])
+params({
+  // HT-Demucs v4, weights stored fp16. Resolved against this module's assets/ first, then ~/.studio/models —
+  // which is where a file this size actually lives.
+  onnx: "htdemucs_fp16weights.onnx",
+})
+// Where a machine without the model downloads it from — st0 offers it from a node's right-click and from the
+// settings' Separation chains. StemSplit's ONNX export of HT-Demucs v4, MIT, 165 612 636 bytes.
+model_url("https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/htdemucs_fp16weights.onnx")
+// Splits a mix into drums, bass, other and vocals. Runs offline on a file, never live: the model needs the whole input, and one pass takes minutes. The four stems are written under stems/ beside the source.

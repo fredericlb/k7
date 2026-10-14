@@ -1,5 +1,4 @@
 import {
-  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -11,6 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { copyAsYaml } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { activeMarkerOf, Workspace } from "./workspace.ts";
 
@@ -24,9 +24,9 @@ let ws: Workspace;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-active-"));
-  cpSync(SONG, join(root, "song.st0"), { recursive: true });
+  copyAsYaml(SONG, join(root, "song.st0"), { recursive: true });
   // The rest of a real workspace: another song, the shared library, and a foreign session.
-  cpSync(SONG, join(root, "other.st0"), { recursive: true });
+  copyAsYaml(SONG, join(root, "other.st0"), { recursive: true });
   mkdirSync(join(root, "_modules", "audio"), { recursive: true });
   writeFileSync(
     join(root, "_modules", "audio", "note.txt"),

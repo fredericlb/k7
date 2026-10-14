@@ -103,6 +103,7 @@ export function normalizePreferences(v: any): Preferences {
 
 export function loadPreferences(): Preferences {
   try {
+    // A machine file, not a workspace one: never through workspaceFile.ts, so never a .k7x (docs/k7xFiles.md).
     if (!existsSync(PREFS_PATH)) return empty();
     return normalizePreferences(parseYaml(readFileSync(PREFS_PATH, "utf8")));
   } catch {

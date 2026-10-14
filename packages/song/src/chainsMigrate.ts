@@ -2,18 +2,13 @@
 // segments (one `modules:` map). A one-shot, re-runnable: a file already in the new shape is
 // left alone, so running it twice is a no-op. See docs/graphFile.md.
 
-import {
-  copyFileSync,
-  existsSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { copyFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { formatChains } from "@studio/song-schema/yaml/graphFile";
 import type { GraphFile } from "@studio/song-schema/yaml/graphSchema";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { parse } from "yaml";
+import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 /** One module the old file used in several chains, and the nodes it became. */
 export interface SplitModule {
@@ -180,16 +175,16 @@ export function migrateChains(dir: string): ChainsMigrationResult {
     created: [],
     errors: [],
   };
-  if (!existsSync(path)) {
+  if (!wsExists(path)) {
     out.errors.push("no graph.yaml");
     return out;
   }
-  const before = readFileSync(path, "utf8");
+  const before = wsRead(path);
   const r = migrateChainsText(before);
   Object.assign(out, r);
   if (!r.changed) return out;
   // The old file, kept beside the new: nothing else can rebuild how the song is wired.
-  if (!existsSync(`${path}.bak`)) copyFileSync(path, `${path}.bak`);
+  if (!wsExists(`${path}.bak`)) copyFileSync(path, `${path}.bak`);
 
   for (const s of r.split) {
     // Only a project-local module has a folder here; splitting a shared one changes every song using it.
@@ -210,27 +205,26 @@ export function migrateChains(dir: string): ChainsMigrationResult {
         continue;
       }
       const file = join(folder, `${name}.yaml`);
-      if (existsSync(file)) continue;
-      writeFileSync(
+      if (wsExists(file)) continue;
+      wsWrite(
         file,
         `# "${inst}" — one use of "${s.module}", so it has its own plugin and its own state.\n` +
           `# Everything it plays is inherited; add \`params:\` to change this one alone.\n`,
-        "utf8",
       );
       out.created.push(`modules/${relOf(dir, folder)}/${name}.yaml`);
     }
   }
-  writeFileSync(path, r.text, "utf8");
+  wsWrite(path, r.text);
   return out;
 }
 
 /** The `modules/<category>/<module>` folder holding a module, found by looking for its module file. */
 function moduleFolder(dir: string, module: string): string | null {
   const root = join(dir, "modules");
-  if (!existsSync(root)) return null;
+  if (!wsExists(root)) return null;
   for (const category of readdirSafe(root)) {
     const folder = join(root, category, module);
-    if (existsSync(join(folder, "module.yaml"))) return folder;
+    if (wsExists(join(folder, "module.yaml"))) return folder;
   }
   return null;
 }

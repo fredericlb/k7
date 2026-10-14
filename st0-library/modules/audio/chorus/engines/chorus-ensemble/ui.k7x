@@ -1,0 +1,7 @@
+// chorus-ensemble — a multi-voice chorus, its sweep speed and range
+cols(4)
+rows(2)
+widgets({
+  speed: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Speed", bind: "Speed", min: 0, max: 1 },
+  range: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Range", bind: "Range", min: 0, max: 1 },
+})

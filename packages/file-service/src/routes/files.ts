@@ -2,9 +2,11 @@
 // resolveWorkspace, so `req.ws` is always a Workspace here. Every former store call
 // is now a method on that workspace; the command layer takes it explicitly.
 
-import { resolve, sep } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { validate, wrap } from "@frediverse/http/route";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
+import { K7X_BACKUP_DIR, migrateToK7x } from "@studio/song/k7xMigrate";
+import { k7xEverywhere } from "@studio/song/yaml/workspaceFile";
 import { listNodePresets } from "@studio/song-edit/presets";
 import { PROJECT_SHAPES } from "@studio/song-schema/yaml/projectSchema";
 import { NEEDS_META } from "@studio/take-render/render";
@@ -30,12 +32,14 @@ import {
   webCompletions,
 } from "../engineLink.ts";
 import { refreshLibraries } from "../libraries.ts";
+import { ensureLibraryPins, libraryVersionsAt } from "../libraryPins.ts";
 import { liveConflicts, liveLogTail, resolveConflict } from "../liveSync.ts";
 import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
 import { serviceLogSince } from "../serviceLog.ts";
 import { preferences, setAudioDevicePref, setVim } from "../workspace.ts";
+import { skip } from "../workspaceFilter.ts";
 
 export const filesRouter = Router();
 
@@ -136,8 +140,16 @@ filesRouter.post(
 /** The module libraries this project can reach, in precedence order — see docs/fileRoutes.md. */
 filesRouter.get(
   "/module-libraries",
-  wrap((req, res) => {
-    res.json({ libraries: req.ws!.moduleLibraries() });
+  wrap(async (req, res) => {
+    const ws = req.ws!;
+    // A library row carries its version too: what this workspace plays, and what it could move to.
+    const versions = await libraryVersionsAt(ws.activeProjectPath() ?? ws.root);
+    res.json({
+      libraries: ws.moduleLibraries().map((l) => {
+        const version = versions.get(l.ns);
+        return version ? { ...l, version } : l;
+      }),
+    });
   }),
 );
 
@@ -230,7 +242,10 @@ filesRouter.post(
   wrap(async (req, res) => {
     const { path } = req.body as z.infer<typeof openBody>;
     // The libraries given their folders, and writable in place for an admin — docs/libraries.md.
-    await refreshLibraries(req.get(ADMIN_HEADER) === "1");
+    const admin = req.get(ADMIN_HEADER) === "1";
+    await refreshLibraries(admin);
+    // A workspace from before versions pins what it already hears, once.
+    ensureLibraryPins(req.ws!.root, { fresh: false, admin });
     try {
       // `.` is the WORKSPACE, which now holds several projects: it names one only when the
       // folder itself is one. Otherwise the workspace decides — see docs/workspaces.md.
@@ -1100,6 +1115,40 @@ filesRouter.post(
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
+  }),
+);
+
+// The workspace's YAML files as .k7x, refused unless the operator says every device reads k7x (packages/song/docs/k7xFiles.md).
+const k7xBody = z.object({ dryRun: z.boolean().optional() });
+filesRouter.post(
+  "/migrate-k7x",
+  validate(k7xBody),
+  wrap(async (req, res) => {
+    const dryRun = (req.body as z.infer<typeof k7xBody>).dryRun === true;
+    if (!dryRun && !k7xEverywhere()) {
+      res.status(409).json({
+        error:
+          "k7x conversion is off: set STUDIO_K7X=1 once every desktop and phone build reads .k7x",
+      });
+      return;
+    }
+    const ws = req.ws!;
+    const backup = join(
+      ws.root,
+      K7X_BACKUP_DIR,
+      new Date().toISOString().replace(/[:.]/g, "-"),
+    );
+    const run = () =>
+      migrateToK7x(ws.root, {
+        backup,
+        dryRun,
+        skip: (rel) => rel.split("/").some(skip),
+      });
+    const report = dryRun
+      ? run()
+      : (await ws.recordChange("conversion en k7x", run)).value;
+    if (!dryRun) ws.invalidateProjectDoc();
+    res.json({ dryRun, backup: dryRun ? null : backup, ...report });
   }),
 );
 

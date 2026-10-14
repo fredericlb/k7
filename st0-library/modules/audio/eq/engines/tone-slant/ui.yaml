@@ -1,6 +1,0 @@
-# tone-slant — a tilt EQ leaning the spectrum toward the highs or the lows
-cols: 4
-rows: 2
-widgets:
-  voicing: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Voicing, bind: Voicing, min: 0, max: 1 }
-  highs: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Highs, bind: Highs, min: 0, max: 1 }

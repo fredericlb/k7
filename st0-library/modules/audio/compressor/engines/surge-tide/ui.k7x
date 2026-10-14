@@ -1,0 +1,7 @@
+// surge-tide — a compressor that accentuates pulses, with its node and rate exposed
+cols(4)
+rows(2)
+widgets({
+  node: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Node", bind: "SurgeNode", min: 0, max: 1 },
+  rate: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Rate", bind: "SurgeRate", min: 0, max: 1 },
+})

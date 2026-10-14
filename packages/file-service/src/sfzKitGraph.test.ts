@@ -2,7 +2,6 @@
 // a kit's — fixed, and played as notes through the node rather than as files. See packages/song/docs/racks.md.
 
 import {
-  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -12,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { copyAsYaml } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildGraphDoc } from "./graphDoc";
 
@@ -24,10 +24,10 @@ let dir: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "fs-sfzkit-"));
   dir = join(root, "synth-demo.st0");
-  cpSync(join(DEMOS, "synth-demo.st0"), dir, { recursive: true });
+  copyAsYaml(join(DEMOS, "synth-demo.st0"), dir, { recursive: true });
   const demoModules = join(DEMOS, "_modules");
   if (existsSync(demoModules))
-    cpSync(demoModules, join(root, "_modules"), { recursive: true });
+    copyAsYaml(demoModules, join(root, "_modules"), { recursive: true });
   // The demo's `synth`, made an SFZ kit with three pads, stated out of note order.
   const folder = join(root, "_modules", "instruments", "synth");
   mkdirSync(folder, { recursive: true });

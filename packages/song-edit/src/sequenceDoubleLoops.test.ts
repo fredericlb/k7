@@ -1,15 +1,9 @@
-import {
-  cpSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compileNodeProject } from "@studio/song/nodeProject";
-import { writeYaml } from "@studio/song/testSupport";
+import { copyAsYaml, writeYaml } from "@studio/song/testSupport";
 import { doubleSequence } from "@studio/song-schema/yaml/sequenceFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { halveLoopsOf } from "./sequenceLoops";
@@ -50,8 +44,8 @@ const laneText = () => readFileSync(join(dir, "nodes", "melody.yaml"), "utf8");
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-seqx2-"));
   dir = join(root, "synth-demo.st0");
-  cpSync(SONG, dir, { recursive: true });
-  cpSync(DEMO_MODULES, join(root, "_modules"), { recursive: true });
+  copyAsYaml(SONG, dir, { recursive: true });
+  copyAsYaml(DEMO_MODULES, join(root, "_modules"), { recursive: true });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 

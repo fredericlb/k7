@@ -5,7 +5,7 @@
 // palette, no CLI, and no entry in the undo journal. Sound had `event move` and picture had a
 // mouse. See docs/picture.md for the three that mirror the three drags.
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   createVideoTrackFile,
@@ -13,6 +13,7 @@ import {
   setLaneOrder,
 } from "@studio/song/loader";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
+import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { orderPosition, reorderTracks } from "@studio/song-schema/trackKind";
 import {
   addVideoPlacement,
@@ -38,7 +39,7 @@ function laneFile(
   lane: string,
   h: CommandHost,
 ): { rel: string; abs: string; text: string } | null {
-  const name = lane.trim().replace(/\.ya?ml$/i, "");
+  const name = lane.trim().replace(/\.(ya?ml|k7x)$/i, "");
   const dir = resolve(h.songPath, LANES_DIR);
   const abs = join(dir, `${name}.yaml`);
   // Containment, as every path-taking verb does: a lane name is one segment, never a way out.
@@ -51,7 +52,7 @@ function laneFile(
     h.refuse([`'${lane}' is not a lane name`]);
     return null;
   }
-  if (!existsSync(abs)) {
+  if (!wsExists(abs)) {
     h.refuse([
       `no picture lane '${name}' — this song's lanes are in ${LANES_DIR}/`,
     ]);
@@ -60,7 +61,7 @@ function laneFile(
   return {
     rel: `${LANES_DIR}/${name}.yaml`,
     abs,
-    text: readFileSync(abs, "utf8"),
+    text: wsRead(abs),
   };
 }
 
@@ -107,7 +108,7 @@ function placementAt(
 function put(abs: string, next: string, h: CommandHost, verb: string): boolean {
   try {
     h.snapshot?.(abs);
-    writeFileSync(abs, next, "utf8");
+    wsWrite(abs, next);
     return true;
   } catch (e) {
     h.refuse([`picture ${verb}: ${(e as Error).message}`]);
@@ -149,8 +150,8 @@ function target(
 function nextLaneId(h: CommandHost): string {
   const dir = resolve(h.songPath, LANES_DIR);
   const taken = new Set(
-    existsSync(dir)
-      ? readdirSync(dir).map((f) => f.replace(/\.ya?ml$/i, ""))
+    wsExists(dir)
+      ? readdirSync(dir).map((f) => f.replace(/\.(ya?ml|k7x)$/i, ""))
       : [],
   );
   let n = 1;
@@ -390,7 +391,7 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     if (sourceFrom === null) return;
     // The ref names a `clips/` entry, and only the compiler reads those — so this reports rather than refuses.
     const clip = resolve(h.songPath, "clips", `${ref}.yaml`);
-    const unknown = !existsSync(clip);
+    const unknown = !wsExists(clip);
     const next = addVideoPlacement(found.text, {
       ref,
       start: at,

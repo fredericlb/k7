@@ -4,14 +4,7 @@
 // The three writes that keep the record honest when a node is renamed or deleted are here too.
 // Full rationale: docs/assemblies.md.
 
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { splitPort } from "@studio/song-schema/moduleTypes";
 import {
@@ -33,6 +26,13 @@ import {
 } from "./assemblies";
 import { isChainProject } from "./chainProject";
 import { entityFiles } from "./yaml/moduleIO";
+import {
+  wsCopy,
+  wsExists,
+  wsRead,
+  wsRemove,
+  wsWrite,
+} from "./yaml/workspaceFile";
 
 /** The name a member takes in the project: the box's, then the template's own word for it. */
 export const memberName = (assembly: string, member: string): string =>
@@ -58,7 +58,7 @@ export function createAssembly(
     throw new Error(
       `invalid assembly name '${id}' — letters, digits, '_' and '-' only`,
     );
-  if (existsSync(fileFor(dir, id)))
+  if (wsExists(fileFor(dir, id)))
     throw new Error(`assembly '${id}' already exists`);
   const loaded = loadAssemblyTemplate(dir, ref);
   if (!loaded)
@@ -73,7 +73,7 @@ export function createAssembly(
   for (const { id: member } of files) members[member] = memberName(id, member);
 
   const graphPath = join(dir, GRAPH_FILE);
-  const graphText = readFileSync(graphPath, "utf8");
+  const graphText = wsRead(graphPath);
   const taken = new Set(
     Object.keys(parseGraph(graphText).value?.modules ?? {}),
   );
@@ -91,9 +91,7 @@ export function createAssembly(
     if (!mapped) return ref_;
     return port ? `${mapped}#${port}` : mapped;
   };
-  const source = parseGraph(
-    readFileSync(join(loaded.folder, GRAPH_FILE), "utf8"),
-  );
+  const source = parseGraph(wsRead(join(loaded.folder, GRAPH_FILE)));
   if (!source.value)
     throw new Error(
       `assembly template '${ref}': its graph.yaml will not read — ${source.issues[0]?.message ?? "unreadable"}`,
@@ -106,10 +104,10 @@ export function createAssembly(
 
   mkdirSync(join(dir, "nodes"), { recursive: true });
   for (const { id: member, file } of files) {
-    copyFileSync(file.path, join(dir, "nodes", `${members[member]}.yaml`));
+    wsCopy(file.path, join(dir, "nodes", `${members[member]}.yaml`));
     // Its opaque plugin state travels with it, or every instance would start from the plugin's default.
     const preset = join(loaded.folder, "nodes", `${member}.vstpreset`);
-    if (existsSync(preset))
+    if (wsExists(preset))
       copyFileSync(preset, join(dir, "nodes", `${members[member]}.vstpreset`));
   }
   let next = mergeSegments(graphText, {
@@ -119,16 +117,15 @@ export function createAssembly(
   });
   // The box's own pin, under the INSTANCE's name — one flat key space, so it needs no folder of its own.
   if (at) next = setNodePosition(next, id, at);
-  writeFileSync(graphPath, next, "utf8");
+  wsWrite(graphPath, next);
 
   mkdirSync(join(dir, ASSEMBLIES_DIR), { recursive: true });
-  writeFileSync(
+  wsWrite(
     fileFor(dir, id),
     formatAssembly(
       { uses: ref, members },
       `# ${id} — one ${ref}. Its members are ordinary nodes; this file is what draws them as a box.`,
     ),
-    "utf8",
   );
   return { file: `${ASSEMBLIES_DIR}/${id}.yaml`, members };
 }
@@ -143,8 +140,8 @@ export function assemblyMembers(dir: string, id: string): string[] {
 /** Drop the RECORD and nothing else: the nodes stay exactly where they are, wired as they were. */
 export function dissolveAssembly(dir: string, id: string): string {
   const path = fileFor(dir, id);
-  if (!existsSync(path)) throw new Error(`no assembly '${id}' in this project`);
-  rmSync(path, { force: true });
+  if (!wsExists(path)) throw new Error(`no assembly '${id}' in this project`);
+  wsRemove(path);
   return `${ASSEMBLIES_DIR}/${id}.yaml`;
 }
 
@@ -157,10 +154,10 @@ export function renameNodeInAssemblies(
   const touched: string[] = [];
   for (const a of assembliesNaming(dir, from)) {
     const path = join(dir, a.file);
-    const text = readFileSync(path, "utf8");
+    const text = wsRead(path);
     const next = renameAssemblyMember(text, from, to);
     if (next === text) continue;
-    writeFileSync(path, next, "utf8");
+    wsWrite(path, next);
     touched.push(a.id);
   }
   return touched;
@@ -171,19 +168,14 @@ export function dropNodeFromAssemblies(dir: string, node: string): string[] {
   const touched: string[] = [];
   for (const a of assembliesNaming(dir, node)) {
     const path = join(dir, a.file);
-    const parsed = parseAssembly(readFileSync(path, "utf8"));
+    const parsed = parseAssembly(wsRead(path));
     if (!parsed.value) continue;
     const members = Object.fromEntries(
       Object.entries(parsed.value.members).filter(([, n]) => n !== node),
     );
     // A box about nothing is not a box: the last member out takes the record with it.
-    if (!Object.keys(members).length) rmSync(path, { force: true });
-    else
-      writeFileSync(
-        path,
-        formatAssembly({ uses: parsed.value.uses, members }),
-        "utf8",
-      );
+    if (!Object.keys(members).length) wsRemove(path);
+    else wsWrite(path, formatAssembly({ uses: parsed.value.uses, members }));
     touched.push(a.id);
   }
   return touched;

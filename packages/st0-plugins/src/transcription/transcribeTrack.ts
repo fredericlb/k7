@@ -2,13 +2,14 @@
 // core when transcription became a plugin. It acts through the CommandHost exactly as any core
 // verb does; what the plugin adds is the DECLARATION beside it (index.ts). See docs/verbs.md.
 
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { CommandHost } from "@studio/commands/commands";
 import { laneFolder } from "@studio/song/chainItemEdit";
 import { createTrackFile, isVideoSource } from "@studio/song/loader";
 import { setFileValue } from "@studio/song/yaml/edit";
+import { wsExists, wsRead } from "@studio/song/yaml/workspaceFile";
 import { listVideoPlacements } from "@studio/song-schema/yaml/videoTrackFile";
 import { parse as parseYaml } from "yaml";
 import { extractAudio, srtOf, transcribeAudio } from "./transcribe";
@@ -39,15 +40,13 @@ export async function transcribeTrack(
     return;
   }
   const laneFile = join(h.songPath, "video_tracks", `${trackIn}.yaml`);
-  if (!existsSync(laneFile)) {
+  if (!wsExists(laneFile)) {
     h.refuse([`no picture lane "${trackIn}" (video_tracks/${trackIn}.yaml)`]);
     return;
   }
   // The FIRST shot decides what is listened to: one video, timed in its own seconds. A lane that
   // cuts between sources would need the segments re-timed onto the timeline to say anything.
-  const shot = listVideoPlacements(readFileSync(laneFile, "utf8")).find(
-    (p) => p.ref,
-  );
+  const shot = listVideoPlacements(wsRead(laneFile)).find((p) => p.ref);
   if (!shot?.ref) {
     h.refuse([`'${trackIn}' places no shot — there is no video to transcribe`]);
     return;
@@ -58,8 +57,8 @@ export async function transcribeTrack(
   }
   const clipFile = join(h.songPath, "clips", `${shot.ref}.yaml`);
   let source = "";
-  if (existsSync(clipFile)) {
-    const doc = parseYaml(readFileSync(clipFile, "utf8")) as {
+  if (wsExists(clipFile)) {
+    const doc = parseYaml(wsRead(clipFile)) as {
       source?: unknown;
     };
     source = typeof doc.source === "string" ? doc.source : "";
@@ -75,7 +74,7 @@ export async function transcribeTrack(
     return;
   }
   const videoPath = resolve(h.songPath, source);
-  if (!existsSync(videoPath)) {
+  if (!wsExists(videoPath)) {
     h.refuse([`the video is not on this machine: ${source}`]);
     return;
   }
@@ -88,7 +87,7 @@ export async function transcribeTrack(
   }
   // `nodes/`, or a chain project's `tracks/` — wherever this project keeps a lane's own file.
   const nodeFile = join(h.songPath, laneFolder(h.songPath), `${trackOut}.yaml`);
-  const existed = existsSync(nodeFile);
+  const existed = wsExists(nodeFile);
   if (!existed) {
     try {
       createTrackFile(h.songPath, trackOut);

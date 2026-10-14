@@ -2,15 +2,7 @@
 // entity, keyed by filename, and the root holds project/settings/chains. Read in-process and validated with
 // Zod, which carries the file, line and column of a bad key into the diagnostics.
 
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import {
   FAUST_FILE,
@@ -114,6 +106,7 @@ import {
   nodeFiles,
   readModuleFile,
 } from "./yaml/moduleIO";
+import { wsExists, wsIssues, wsRead, wsWrite } from "./yaml/workspaceFile";
 import { parsedYaml } from "./yaml/yamlCache";
 
 // The module vocabulary lives in moduleTypes.ts, a leaf with no filesystem; re-exported here where every consumer looks.
@@ -149,13 +142,13 @@ export function readYamlEntities(
   const values: Record<string, unknown> = {};
   const issues: string[] = [];
   const folder = join(dir, sub);
-  if (!existsSync(folder)) return { values, issues };
+  if (!wsExists(folder)) return { values, issues };
   const schema = (ENTITY_SCHEMAS as Record<string, ZodType | undefined>)[sub];
   for (const { id, file } of entityFiles(folder, sub)) {
     // Cached only when a schema will rebuild the result, since a cached object handed out raw is a shared object.
     const raw = schema
       ? parsedYaml(file.path)
-      : parseYaml(readFileSync(file.path, "utf8"), { version: "1.2" });
+      : parseYaml(wsRead(file.path), { version: "1.2" });
     if (!schema) {
       values[id] = raw;
       continue;
@@ -273,7 +266,7 @@ export function resolveAssets(
   for (const [field, family] of Object.entries(LIBRARY_FILE_PARAMS)) {
     const ref = params[field];
     if (typeof ref !== "string" || !ref) continue;
-    out[field] = libraryFile(family, ref);
+    out[field] = libraryFile(family, ref, folderAbs);
     assets[field] = ref;
   }
   return {
@@ -412,7 +405,7 @@ function readModuleTree(
   for (const [type, meta] of Object.entries(MODULE_TYPES)) {
     const rel = root ? `${root}/${type}` : type;
     const abs = join(dir, rel);
-    if (!existsSync(abs) || !statSync(abs).isDirectory()) continue;
+    if (!wsExists(abs) || !statSync(abs).isDirectory()) continue;
     for (const name of readdirSync(abs)) {
       const folder = join(abs, name);
       if (!statSync(folder).isDirectory()) continue;
@@ -501,7 +494,7 @@ function loadNodes(
     return;
   }
   const folder = join(dir, NODES_DIR);
-  if (!existsSync(folder) || !statSync(folder).isDirectory()) return;
+  if (!wsExists(folder) || !statSync(folder).isDirectory()) return;
   for (const { id: node, file } of entityFiles(folder, NODES_DIR)) {
     const read = readModuleFile(file);
     yamlIssues.push(...read.issues);
@@ -578,7 +571,7 @@ function loadChainNodes(
       ? undefined
       : ((n.value as NodeItem).vstpreset ?? `${n.id}.vstpreset`);
     const own =
-      presetName && existsSync(join(presets, presetName))
+      presetName && wsExists(join(presets, presetName))
         ? join(presets, presetName)
         : undefined;
     const preset = basePresetIn(presets, value.base) ?? own;
@@ -791,7 +784,7 @@ export function loadSettings(
 ): Record<string, unknown> {
   const found = entityFileFor(dir, "", "settings");
   if (!found) return {};
-  const raw = parseYaml(readFileSync(found.path, "utf8"), { version: "1.2" });
+  const raw = parseYaml(wsRead(found.path), { version: "1.2" });
   const r = SettingsSchema.safeParse(raw ?? {});
   if (!r.success && validate)
     throw new Error(
@@ -810,7 +803,7 @@ export function loadSettings(
 export function loadProjectRoot(dir: string, validate = false): RawProjectRoot {
   const file = entityFileFor(dir, "", "project");
   if (!file) return {};
-  const raw = parseYaml(readFileSync(file.path, "utf8"), { version: "1.2" });
+  const raw = parseYaml(wsRead(file.path), { version: "1.2" });
   const r = ProjectFileSchema.safeParse(raw ?? {});
   if (!r.success) {
     if (validate)
@@ -842,10 +835,10 @@ export function loadChains(
   }
   const file = entityFileFor(dir, "", GRAPH_BASE);
   if (!file) return root?.chains;
-  const { value, issues } = parseGraphYaml(readFileSync(file.path, "utf8"));
+  const { value, issues } = parseGraphYaml(wsRead(file.path));
   if (issues.length && validate)
     throw new Error(
-      `invalid chains:\n  ${issues
+      `invalid chains:\n  ${wsIssues(file.path, issues)
         .map((i) => formatIssue(file.rel, i))
         .join("\n  ")}`,
     );
@@ -856,10 +849,10 @@ export function loadChains(
 export function loadCuedSongs(dir: string, validate = false): string[] {
   const file = entityFileFor(dir, "", MIX_BASE);
   if (!file) return [];
-  const { value, issues } = parseMixYaml(readFileSync(file.path, "utf8"));
+  const { value, issues } = parseMixYaml(wsRead(file.path));
   if (issues.length && validate)
     throw new Error(
-      `invalid cue sheet:\n  ${issues
+      `invalid cue sheet:\n  ${wsIssues(file.path, issues)
         .map((i) => formatIssue(file.rel, i))
         .join("\n  ")}`,
     );
@@ -1028,7 +1021,7 @@ export function createTrackFile(dir: string, id: string): string[] {
   // A chain project keeps a lane in `tracks/`, played by a chain of its own (docs/chainFiles.md).
   const written = isChainProject(dir) ? createChainLane(dir, id, body) : null;
   const rel = `nodes/${id}.yaml`;
-  if (!written && existsSync(join(dir, rel)))
+  if (!written && wsExists(join(dir, rel)))
     throw new Error(`track '${id}' already exists (${rel})`);
   // A module of that name is NOT in the way: the lane takes the bare name and the module keeps its
   // ref, which is the only way a node names one anyway (docs/trackModules.md). `freeNodeName`
@@ -1036,7 +1029,7 @@ export function createTrackFile(dir: string, id: string): string[] {
 
   if (!written) {
     mkdirSync(join(dir, "nodes"), { recursive: true });
-    writeFileSync(join(dir, rel), body, "utf8");
+    wsWrite(join(dir, rel), body);
   }
 
   const root = loadProjectRoot(dir, true);
@@ -1073,12 +1066,12 @@ export function createVideoTrackFile(dir: string, id: string): string[] {
       `invalid lane name '${id}' — letters, digits, '.', '_' and '-' only`,
     );
   const rel = `video_tracks/${id}.yaml`;
-  if (existsSync(join(dir, rel)))
+  if (wsExists(join(dir, rel)))
     throw new Error(`picture lane '${id}' already exists (${rel})`);
   // The graph draws a song's lanes and its picture lanes in ONE name space, so the two cannot share a name.
   if (
-    existsSync(join(dir, "nodes", `${id}.yaml`)) ||
-    existsSync(join(dir, "tracks", `${id}.yaml`)) ||
+    wsExists(join(dir, "nodes", `${id}.yaml`)) ||
+    wsExists(join(dir, "tracks", `${id}.yaml`)) ||
     id in loadModules(dir)
   )
     throw new Error(`'${id}' is already a track or a module in this project`);
@@ -1092,7 +1085,7 @@ export function createVideoTrackFile(dir: string, id: string): string[] {
 
   mkdirSync(join(dir, "video_tracks"), { recursive: true });
   // No x/y/w/h: a lane stating no rect fills the frame, which is what a new one should do (song-video/docs/picture.md).
-  writeFileSync(join(dir, rel), ["events: []", ""].join("\n"), "utf8");
+  wsWrite(join(dir, rel), ["events: []", ""].join("\n"));
   // Appended, so the new lane draws LAST — on top, where you can see what you just made.
   setFileValue(
     projectFile.path,
@@ -1110,13 +1103,12 @@ export function createSequenceFile(dir: string, id: string): string[] {
       `invalid sequence name '${id}' — letters, digits, '.', '_' and '-' only`,
     );
   const rel = `sequences/${id}.yaml`;
-  if (existsSync(join(dir, rel)))
+  if (wsExists(join(dir, rel)))
     throw new Error(`sequence '${id}' already exists (${rel})`);
   mkdirSync(join(dir, "sequences"), { recursive: true });
-  writeFileSync(
+  wsWrite(
     join(dir, rel),
     ['from: "1:1"', 'to: "5:1"', "notes: []", ""].join("\n"),
-    "utf8",
   );
   return [rel];
 }
@@ -1161,7 +1153,7 @@ export function createModuleFile(
   const rel = isProject
     ? `${SHARED_MODULES_PATH}/${category}/${module}/module.yaml`
     : `modules/${category}/${module}/module.yaml`;
-  if (existsSync(moduleDir))
+  if (wsExists(moduleDir))
     throw new Error(
       `${category}/${module} already exists ${isProject ? "in the workspace's _modules" : "here"}`,
     );
@@ -1171,7 +1163,7 @@ export function createModuleFile(
       `extends: ${JSON.stringify(extendsRef)}\n`
     : `# ${module}: a bare module. Give it a plugin inline, or extend another module, e.g.\n` +
       `#   extends: "@st0/instruments/fourosc"\n`;
-  writeFileSync(join(moduleDir, "module.yaml"), body, "utf8");
+  wsWrite(join(moduleDir, "module.yaml"), body);
   return rel;
 }
 
@@ -1244,10 +1236,10 @@ export function createIoModuleFile(
   if (isChainProject(dir))
     return createChainNode(dir, name, ioModuleBody(name, role)).id;
   const rel = `${NODES_DIR}/${name}.yaml`;
-  if (existsSync(join(dir, rel)))
+  if (wsExists(join(dir, rel)))
     throw new Error(`${rel} already exists — refusing to overwrite`);
   mkdirSync(join(dir, NODES_DIR), { recursive: true });
-  writeFileSync(join(dir, rel), ioModuleBody(name, role), "utf8");
+  wsWrite(join(dir, rel), ioModuleBody(name, role));
   return rel;
 }
 
@@ -1267,7 +1259,7 @@ export function nodeNameTaken(dir: string): (name: string) => boolean {
   const chains = isChainProject(dir);
   return (n) =>
     n in taken ||
-    existsSync(join(dir, NODES_DIR, `${n}.yaml`)) ||
+    wsExists(join(dir, NODES_DIR, `${n}.yaml`)) ||
     (chains && chainTaken(dir, n));
 }
 
@@ -1331,7 +1323,7 @@ export function createNode(
   // the way: the node takes the bare name and the module keeps its ref (docs/trackModules.md).
   const rel = `${NODES_DIR}/${node}.yaml`;
   const chains = isChainProject(dir);
-  if (!chains && existsSync(join(dir, rel)))
+  if (!chains && wsExists(join(dir, rel)))
     throw new Error(`${rel} already exists — refusing to overwrite`);
   const plugin = fromEngine?.plugin;
   // The explicit level, which is the form new files are written in — see loadModuleRefs.
@@ -1353,7 +1345,7 @@ export function createNode(
   // A chain project: one item in a chain named `node`, and the node's id is what comes back.
   if (chains) return createChainNode(dir, node, body).id;
   mkdirSync(join(dir, NODES_DIR), { recursive: true });
-  writeFileSync(join(dir, rel), body, "utf8");
+  wsWrite(join(dir, rel), body);
   return rel;
 }
 
@@ -1386,22 +1378,22 @@ export function cloneModuleFile(
       ? resolve(dir, SHARED_MODULES_PATH, category, n)
       : join(dir, "modules", category, n);
   const srcDir = localDir(name);
-  if (!existsSync(srcDir) || !existsSync(join(srcDir, "module.yaml")))
+  if (!wsExists(srcDir) || !wsExists(join(srcDir, "module.yaml")))
     throw new Error(`module '${category}/${name}' not found`);
   const destDir = localDir(newName);
   const destRel = isProject
     ? `${SHARED_MODULES_PATH}/${category}/${newName}`
     : `modules/${category}/${newName}`;
-  if (existsSync(destDir)) throw new Error(`folder ${destRel}/ already exists`);
+  if (wsExists(destDir)) throw new Error(`folder ${destRel}/ already exists`);
   cpSync(srcDir, destDir, { recursive: true });
   const modPath = join(destDir, "module.yaml"); // rewritten below if it has a `name:` field
   try {
-    const body = readFileSync(modPath, "utf8");
+    const body = wsRead(modPath);
     const rewritten = body.replace(
       /^(name\s*:\s*)"[^"]*"/m,
       `$1${JSON.stringify(newName)}`,
     );
-    if (rewritten !== body) writeFileSync(modPath, rewritten, "utf8");
+    if (rewritten !== body) wsWrite(modPath, rewritten);
   } catch {
     /* read-only or missing — leave as-is */
   }

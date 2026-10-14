@@ -2,14 +2,25 @@
 // thing about it. YAML is a document, so these edit it as one — the value is found by PATH, not by matching
 // source text, and a path that isn't there throws instead of quietly doing nothing.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  type CopySyncOptions,
+  cpSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
+import { toYaml } from "@studio/k7x/yaml-bridge";
 import {
   insertBetween,
   parseGraph,
   renameNode,
 } from "@studio/song-schema/yaml/graphFile";
 import { stringify } from "yaml";
+import { wsRead, wsWrite } from "./yaml/workspaceFile";
 
 /** The BENCH fixture, re-exported here rather than published as a subpath nobody outside imports. */
 export {
@@ -27,11 +38,7 @@ export {
 /** Write `value` as a whole YAML file, making its folder. */
 export function writeYaml(file: string, value: unknown): void {
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(
-    file,
-    stringify(value, { version: "1.2", lineWidth: 0 }),
-    "utf8",
-  );
+  wsWrite(file, stringify(value, { version: "1.2", lineWidth: 0 }));
 }
 
 /** Write a module file: `modules/<type>/<name>/<file>.yaml` (default `module`). */
@@ -66,7 +73,7 @@ export function writeNode(dir: string, name: string, value: unknown): string {
 
 /** The first graph node starting with `prefix`, key or destination; throws so a moved step fails loudly. */
 export function chainNodeNamed(dir: string, prefix: string): string {
-  const { value } = parseGraph(readFileSync(join(dir, "graph.yaml"), "utf8"));
+  const { value } = parseGraph(wsRead(join(dir, "graph.yaml")));
   for (const key of Object.keys(value?.modules ?? {}))
     if (key.startsWith(prefix)) return key;
   for (const dests of Object.values(value?.modules ?? {}))
@@ -77,7 +84,7 @@ export function chainNodeNamed(dir: string, prefix: string): string {
 // Both edits go through the SHIPPING writers, or the tests end up measuring the helper.
 const editChains = (dir: string, f: (text: string) => string): void => {
   const file = join(dir, "graph.yaml");
-  writeFileSync(file, f(readFileSync(file, "utf8")), "utf8");
+  wsWrite(file, f(wsRead(file)));
 };
 
 /** Rename that node to `step.module`, keeping its place and everything wired to it. */
@@ -97,7 +104,7 @@ export function insertChainStepAfter(
   step: { module: string },
 ): void {
   const before = chainNodeNamed(dir, prefix);
-  const { value } = parseGraph(readFileSync(join(dir, "graph.yaml"), "utf8"));
+  const { value } = parseGraph(wsRead(join(dir, "graph.yaml")));
   const dests = value?.modules?.[before] ?? [];
   editChains(dir, (text) => insertBetween(text, before, dests[0], step.module));
 }
@@ -143,4 +150,26 @@ export function writeLibraries(
   for (const [path, value] of Object.entries(modules))
     writeYaml(join(lib, "modules", path, "module.yaml"), value);
   return lib;
+}
+
+/** A copy of a demo as YAML, whichever format it ships in: the fixture for a test that edits the copy as YAML. */
+export function copyAsYaml(
+  src: string,
+  dest: string,
+  opts: CopySyncOptions = { recursive: true },
+): void {
+  cpSync(src, dest, opts);
+  const walk = (at: string): void => {
+    if (!statSync(at).isDirectory()) {
+      if (!at.endsWith(".k7x")) return;
+      writeFileSync(
+        at.replace(/\.k7x$/, ".yaml"),
+        toYaml(readFileSync(at, "utf8")),
+      );
+      rmSync(at);
+      return;
+    }
+    for (const name of readdirSync(at)) walk(join(at, name));
+  };
+  walk(dest);
 }

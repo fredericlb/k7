@@ -3,7 +3,7 @@
 // frequency in cycles/bar) and `custom` (hand-placed points, linear interpolation).
 // `polarity` (unipolar 0..1 / bipolar -1..1) is per-curve — see sampleCurve.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type {
   CurveCondition,
@@ -29,6 +29,7 @@ import {
 import { stringify } from "yaml";
 import { curveRuns, type EnvelopeFire } from "./curveConditions";
 import { exportSub } from "./loader";
+import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 export type Polarity = CurvePolarity;
 export type { LfoShape };
@@ -178,10 +179,9 @@ export function createCurveFile(dir: string, id: string): string {
     );
   const rel = `curves/${id}.yaml`;
   const path = join(dir, rel);
-  if (existsSync(path))
-    throw new Error(`curve '${id}' already exists (${rel})`);
+  if (wsExists(path)) throw new Error(`curve '${id}' already exists (${rel})`);
   mkdirSync(join(dir, "curves"), { recursive: true });
-  writeFileSync(
+  wsWrite(
     path,
     `type: lfo
 ` +
@@ -193,7 +193,6 @@ export function createCurveFile(dir: string, id: string): string {
 ` +
       `phase: 0           # 0..1 of a cycle
 `,
-    "utf8",
   );
   return rel;
 }
@@ -250,16 +249,15 @@ export function writeCurveFile(
     if (value[k] !== undefined) ordered[k] = value[k];
   const rel = `curves/${id}.yaml`;
   const path = join(dir, rel);
-  const created = !existsSync(path);
+  const created = !wsExists(path);
   mkdirSync(join(dir, "curves"), { recursive: true });
-  writeFileSync(
+  wsWrite(
     path,
     stringify(ordered, { lineWidth: 0, flowCollectionPadding: true }).replace(
       // One point a line, as `curve point` writes them: a moved point is a one-line diff.
       /^ {2}- time: "?([^"\n]+)"?\n {4}value: (.+)$/gm,
       '  - { time: "$1", value: $2 }',
     ),
-    "utf8",
   );
   return { rel, created };
 }
@@ -277,11 +275,10 @@ export function createFlatCurveFile(
     );
   const rel = `curves/${id}.yaml`;
   const path = join(dir, rel);
-  if (existsSync(path))
-    throw new Error(`curve '${id}' already exists (${rel})`);
+  if (wsExists(path)) throw new Error(`curve '${id}' already exists (${rel})`);
   const v = Math.min(1, Math.max(0, value));
   mkdirSync(join(dir, "curves"), { recursive: true });
-  writeFileSync(
+  wsWrite(
     path,
     [
       "type: custom",
@@ -291,7 +288,6 @@ export function createFlatCurveFile(
       `  - { time: "${endTc}", value: ${round6(v)} }`,
       "",
     ].join("\n"),
-    "utf8",
   );
   return rel;
 }
@@ -522,11 +518,11 @@ export function editCurveFile(
 ): string {
   const rel = `curves/${id}.yaml`;
   const path = join(dir, rel);
-  if (!existsSync(path)) throw new Error(`no curve '${id}' (${rel})`);
-  const before = readFileSync(path, "utf8");
+  if (!wsExists(path)) throw new Error(`no curve '${id}' (${rel})`);
+  const before = wsRead(path);
   const after = transform(before);
   if (after === null) throw new Error(`nothing to edit in curve '${id}'`);
-  if (after !== before) writeFileSync(path, after, "utf8");
+  if (after !== before) wsWrite(path, after);
   return rel;
 }
 

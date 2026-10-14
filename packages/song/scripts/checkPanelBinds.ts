@@ -7,9 +7,10 @@
 // npx tsx packages/song/scripts/checkPanelBinds.ts [library root] [--only <name filter>] [--json]
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { wsExists, wsRead } from "@studio/song/yaml/workspaceFile";
 import { builtinPluginFor } from "@studio/song-schema/builtinParams";
 import {
   engineModuleOf,
@@ -45,7 +46,7 @@ function engineBinary(): string {
   ])
     for (const exe of ["st0-engine", "st0-engine.exe"]) {
       const f = join(build, p, exe);
-      if (existsSync(f)) return f;
+      if (wsExists(f)) return f;
     }
   throw new Error("no st0-engine build found — set ST0_ENGINE");
 }
@@ -54,9 +55,7 @@ type Plugin = { type: string; name: string };
 type Yaml = Record<string, unknown>;
 
 const readYaml = (f: string): Yaml =>
-  existsSync(f)
-    ? ((parseYaml(readFileSync(f, "utf8"), { version: "1.2" }) ?? {}) as Yaml)
-    : {};
+  wsExists(f) ? ((parseYaml(wsRead(f), { version: "1.2" }) ?? {}) as Yaml) : {};
 
 /** Every folder under the library that holds a module.yaml, keyed by the `@<lib>/…` ref it answers to. */
 function moduleFolders(): Map<string, string> {
@@ -69,7 +68,7 @@ function moduleFolders(): Map<string, string> {
     for (const e of readdirSync(d)) {
       const p = join(d, e);
       if (!statSync(p).isDirectory()) continue;
-      if (existsSync(join(p, "module.yaml")))
+      if (wsExists(join(p, "module.yaml")))
         out.set(`@${ns}/${relative(modulesRoot, p).split(sep).join("/")}`, p);
       walk(p);
     }
@@ -190,7 +189,7 @@ for (const [ref, folder] of [...folders].sort(([a], [b]) =>
   a.localeCompare(b),
 )) {
   const uiFile = join(folder, "ui.yaml");
-  if (!existsSync(uiFile)) continue;
+  if (!wsExists(uiFile)) continue;
   if (only && !ref.toLowerCase().includes(only)) continue;
   const binds = bindsOf(readYaml(uiFile));
   if (!binds.size) continue;

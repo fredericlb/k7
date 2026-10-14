@@ -55,7 +55,7 @@ function projectValues(
 
 /** A project's use of a module, `nodes/<name>.yaml` or a lane's `tracks/<name>.yaml` — it reaches a scanned plugin through its library face. */
 const isNodeFile = (path: string): boolean =>
-  /(^|\/)(nodes|tracks)\/[^/]+\.ya?ml$/.test(path.replace(/\\/g, "/"));
+  /(^|\/)(nodes|tracks)\/[^/]+\.(ya?ml|k7x)$/.test(path.replace(/\\/g, "/"));
 
 /** The vocabulary for the file at `path`. Offers nothing for a file that isn't ours. */
 export function schemaVocabulary(path?: string, hints?: Hints): YamlVocabulary {

@@ -3,7 +3,7 @@
 // same reason as the panel: the FOLDER says which module it belongs to, the file only says how it is
 // played. Read across every module library the project can see. Rationale: docs/controller.md.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import {
   type CcBinding,
@@ -14,6 +14,7 @@ import {
 import { parse as parseYaml } from "yaml";
 import { eachLibrarySibling } from "./moduleSiblings";
 import { CONTROLLER_BASE, moduleFileFor } from "./yaml/moduleIO";
+import { wsRead, wsWrite } from "./yaml/workspaceFile";
 
 /** The map file a module folder holds, as it is written. `.yml` is read too (moduleFileFor probes both). */
 export const CONTROLLER_FILE = `${CONTROLLER_BASE}.yaml`;
@@ -37,7 +38,7 @@ export function loadControllerLibrary(dir: string): ControllerLibrary {
   const out: ControllerLibrary = { byRef: {}, issues: [] };
   eachLibrarySibling(dir, CONTROLLER_BASE, ({ ref, path, rel }, label) => {
     if (out.byRef[ref]) return; // a nearer library already answered
-    const parsed = parseController(readFileSync(path, "utf8"));
+    const parsed = parseController(wsRead(path));
     if (!parsed.value) {
       out.issues.push(`${label}/${rel}: ${parsed.issue}`);
       return;
@@ -91,7 +92,7 @@ export function readModuleController(dir: string, ref: string): ControllerFile {
   if (!folder) return {};
   const found = moduleFileFor(folder, "", CONTROLLER_BASE);
   if (!found) return {};
-  return parseController(readFileSync(found.path, "utf8")).value ?? {};
+  return parseController(wsRead(found.path)).value ?? {};
 }
 
 /** Bind `param` to a CC, or unbind with `null`, into the MODULE's own folder — see docs/controller.md. */
@@ -118,7 +119,7 @@ export function setCcBinding(
   const found = moduleFileFor(folder, "", CONTROLLER_BASE);
   const path = found?.path ?? join(folder, CONTROLLER_FILE);
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, controllerFileText(ref, next), "utf8");
+  wsWrite(path, controllerFileText(ref, next));
   return relative(dir, path);
 }
 

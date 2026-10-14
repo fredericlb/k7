@@ -1,0 +1,11 @@
+// panel for @st0/audio/zz_utility/crossfade
+//
+// One control, drawn as a fader rather than a knob: a crossfade has two ends and a middle, and a fader is the
+// shape that says so. A/B are the port names, so the labels match what the chains file wires.
+cols(3)
+rows(2)
+widgets({
+  a: { type: "label", col: 0, row: 0, label: "A" },
+  mix: { type: "fader", col: 1, row: 0, rowSpan: 2, label: "Mix", bind: "Mix", min: 0, max: 1 },
+  b: { type: "label", col: 2, row: 0, label: "B" },
+})

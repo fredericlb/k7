@@ -1,3 +1,0 @@
-# tone-slant — the face for Tone Slant, a plugin the engine scans.
-# Everything it IS comes from the ref below; what lives here is the ui.yaml beside this file.
-extends: "@engine/tone-slant"

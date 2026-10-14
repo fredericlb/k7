@@ -9,12 +9,12 @@ import {
   renameSync,
   rmSync,
   statSync,
-  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import type { ProjectDoc } from "@studio/song/project";
+import { wsWrite } from "@studio/song/yaml/workspaceFile";
 import {
   MP3_CODEC,
   type Renderer,
@@ -134,7 +134,7 @@ export async function buildShareBundle(
     });
 
     for (const [file, body] of Object.entries(docs))
-      writeFileSync(join(dir, file), JSON.stringify(body), "utf8");
+      wsWrite(join(dir, file), JSON.stringify(body));
 
     const files = [mix.file, ...stems.map((s) => s.file), ...Object.keys(docs)];
     const manifest: ShareManifest = {
@@ -146,11 +146,7 @@ export async function buildShareBundle(
       docs: Object.keys(docs),
       bytes: mix.bytes + stems.reduce((n, s) => n + s.bytes, 0),
     };
-    writeFileSync(
-      join(dir, "snapshot.json"),
-      JSON.stringify(manifest, null, 2),
-      "utf8",
-    );
+    wsWrite(join(dir, "snapshot.json"), JSON.stringify(manifest, null, 2));
     return { dir, manifest, files, cleanup };
   } catch (e) {
     cleanup();

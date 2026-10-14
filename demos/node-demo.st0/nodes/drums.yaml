@@ -1,4 +1,0 @@
-extends: "@meta/track"
-events:
-  - { ref: kick, start: "1:1:1" }
-  - { ref: snare, start: "2:1:1" }

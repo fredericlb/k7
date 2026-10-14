@@ -32,6 +32,31 @@ an ordered list, and its order is its evaluation order. `sr` is exported at modu
 carried by the builder, because a module's source imports nothing at run time — everything it needs
 arrives through that object.
 
+## Chaining, the way a Strudel pattern reads
+
+The handles the builder returns can carry on the chain (`src/chain.ts`):
+
+```ts
+g.input(0).mul(mix.from(1)).add(g.input(1).mul(mix)).out();
+g.midi().hold().pattern(2, 8, 0.5, 0).strike(0.25, 0.5);
+```
+
+- **Each method IS the builder call it names**, so a chained graph is the same graph, node for node,
+  in the same order — the order being the evaluation order, as above. Both spellings stay valid, and
+  a module may mix them.
+- **The rates stay three types.** A scalar's `mul` takes scalars; an audio wire's `mul` is `amul`
+  and also accepts a scalar, as the node always has. A chain cannot smuggle a wire in as a
+  parameter any more than a call can.
+- **`from(a)` is `a − this`**, because the reversed subtraction is what a crossfade or an inverted
+  sweep needs, and `sub` reads the other way.
+- **A node that transforms the buffer stays a builder call** — `biquad`, `gain`, `mix`: it returns
+  nothing, so there is nothing to chain from.
+- **The handle keeps the builder in a private field**, so a handle still compares equal to
+  `{ name, rate }`, and a plain object from an older graph is still accepted wherever a handle is.
+
+This is a TypeScript API and not k7x (`packages/k7x/docs/language.md`): a DSP graph needs names
+bound to nodes, loops and the rate types, which is exactly what k7x leaves out.
+
 ## `geolerp` refuses a descending pair
 
 The engine node **sorts** its two bounds before interpolating (`jmin`/`jmax`, so a graph can never

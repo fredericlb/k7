@@ -3,7 +3,7 @@
 // the surfaces it appears on. Drives both completions() and runCommand(), shared by the
 // web editor and the CLI; the behaviours themselves live in commands.ts.
 
-import { type Dirent, readdirSync, readFileSync } from "node:fs";
+import { type Dirent, readdirSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chainNames } from "@studio/audio-passes/processChain";
@@ -12,6 +12,8 @@ import { loadCurves } from "@studio/song/curves";
 import { nodeCaption, nodePlaces } from "@studio/song/graph";
 import { libraryFiles } from "@studio/song/libraryFiles";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
+import { accountLibraries } from "@studio/song/sharedFolders";
+import { isDocName, wsRead } from "@studio/song/yaml/workspaceFile";
 import { alternativesOf } from "@studio/song-schema/alternatives";
 import {
   completionOrder,
@@ -143,6 +145,8 @@ const PROVIDERS = {
   },
   // Marker names for `project marker delete`. A multi-word name doesn't complete cleanly, but single-word ones do.
   markerNames: (h) => h.project().markers.map((m) => m.name),
+  /** The origin's libraries this machine holds, by name. */
+  libraries: () => accountLibraries().map((l) => l.name),
   /** The workspace's set lists, off `repoDir` and never `songPath` — see docs/completions.md. */
   playlists: (h) => {
     const root = h.repoDir;
@@ -158,8 +162,8 @@ const PROVIDERS = {
       for (const e of entries) {
         const name = under ? `${under}/${e.name}` : e.name;
         if (e.isDirectory()) walk(join(at, e.name), name);
-        else if (e.isFile() && /\.ya?ml$/i.test(e.name))
-          out.push(name.replace(/\.ya?ml$/i, ""));
+        else if (e.isFile() && isDocName(e.name))
+          out.push(name.replace(/\.(ya?ml|k7x)$/i, ""));
       }
     };
     walk(join(root, PLAYLISTS_DIR), "");
@@ -172,8 +176,8 @@ const PROVIDERS = {
       return readdirSync(join(h.songPath, "video_tracks"), {
         withFileTypes: true,
       })
-        .filter((e) => e.isFile() && /\.ya?ml$/i.test(e.name))
-        .map((e) => e.name.replace(/\.ya?ml$/i, ""))
+        .filter((e) => e.isFile() && isDocName(e.name))
+        .map((e) => e.name.replace(/\.(ya?ml|k7x)$/i, ""))
         .sort();
     } catch {
       return []; // a song with no picture has no lanes, which is not an error
@@ -207,8 +211,8 @@ const PROVIDERS = {
   sequenceFiles: (h) => {
     try {
       return readdirSync(join(h.songPath, "sequences"))
-        .filter((f) => /\.ya?ml$/i.test(f))
-        .map((f) => f.replace(/\.ya?ml$/i, ""));
+        .filter((f) => isDocName(f))
+        .map((f) => f.replace(/\.(ya?ml|k7x)$/i, ""));
     } catch {
       return [];
     }
@@ -282,7 +286,7 @@ export function loadCommandSpecs(): CommandSpec[] {
   // completion), so a plugin verb that vanished once the yaml was cached would be the quiet kind.
   if (cached) return [...cached, ...registeredSpecs];
   try {
-    const raw = parseYaml(readFileSync(commandsPath(), "utf8"));
+    const raw = parseYaml(wsRead(commandsPath()));
     cached = (Array.isArray(raw) ? raw : [])
       .filter((c: any) => c?.command && c?.sid)
       .map((c: any) => ({
@@ -436,6 +440,8 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   samples: "file",
   // A playlist IS its file: no marker inside a folder, the extension is the whole rule.
   playlists: "file",
+  // A library is a name from the origin's list, not a path.
+  libraries: "choice",
   // A lane IS its file too, the same way — video_tracks/<id>.yaml, and the id is the stem.
   pictureLanes: "file",
   // Not "file": the surface's file does not exist yet — naming its type is what creates it.
@@ -480,6 +486,8 @@ const PROVIDER_HINT: Record<ProviderName, string> = {
   samples:
     "a sample a library or this project holds under samples/ (@<library>/<path>, @project/<path>)",
   playlists: "a set list of this repository (_playlists/<name>.yaml)",
+  libraries:
+    "one of the origin's libraries, as its refs name it (@<library>/…)",
   pictureLanes: "a picture lane of this song (video_tracks/<id>.yaml)",
   surfaceTypes:
     "which view to draw — the arrangement, the frame, or the desk. Its layout follows.",

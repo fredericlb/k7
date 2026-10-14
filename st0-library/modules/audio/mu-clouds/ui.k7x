@@ -1,0 +1,39 @@
+// mu-clouds — Mutable Clouds, a granular texture synthesizer on the input
+cols(14)
+rows(4)
+widgets({
+  mode: { type: "dropdown", col: 0, row: 0, colSpan: 4, label: "Mode", bind: "Mode", options: [label("Granular").value(0), label("Stretch").value(1), label("Looping delay").value(2), label("Spectral").value(3)] },
+  quality: { type: "dropdown", col: 0, row: 1, colSpan: 4, label: "Quality", bind: "Quality", options: [label("16-bit stereo").value(0), label("16-bit mono").value(1), label("8-bit stereo").value(2), label("8-bit mono").value(3)] },
+  freeze: { type: "toggle", col: 0, row: 2, colSpan: 4, label: "Freeze", bind: "Freeze" },
+  follow_notes: { type: "toggle", col: 0, row: 3, colSpan: 4, label: "Follow", bind: "Follow notes" },
+  grain_section: { type: "group", col: 4, row: 0, colSpan: 10, rowSpan: 2, label: "GRAIN", color: "#3d7dff26" },
+  position: { type: "knob", col: 4, row: 0, colSpan: 2, rowSpan: 2, label: "Pos", bind: "Position", min: 0, max: 1 },
+  size: { type: "knob", col: 6, row: 0, colSpan: 2, rowSpan: 2, label: "Size", bind: "Size", min: 0, max: 1 },
+  pitch: { type: "knob", col: 8, row: 0, colSpan: 2, rowSpan: 2, label: "Pitch", bind: "Pitch", min: -24, max: 24 },
+  density: { type: "knob", col: 10, row: 0, colSpan: 2, rowSpan: 2, label: "Density", bind: "Density", min: 0, max: 1 },
+  texture: { type: "knob", col: 12, row: 0, colSpan: 2, rowSpan: 2, label: "Texture", bind: "Texture", min: 0, max: 1 },
+  blend_section: { type: "group", col: 4, row: 2, colSpan: 6, rowSpan: 2, label: "BLEND", color: "#ff6a1a26" },
+  spread: { type: "knob", col: 4, row: 2, colSpan: 2, rowSpan: 2, label: "Spread", bind: "Spread", min: 0, max: 1 },
+  feedback: { type: "knob", col: 6, row: 2, colSpan: 2, rowSpan: 2, label: "Fdbk", bind: "Feedback", min: 0, max: 1 },
+  reverb: { type: "knob", col: 8, row: 2, colSpan: 2, rowSpan: 2, label: "Reverb", bind: "Reverb", min: 0, max: 1 },
+})
+vertical({
+  cols: 4,
+  rows: 13,
+  widgets: {
+    mode: { type: "dropdown", col: 0, row: 0, colSpan: 4, label: "Mode", bind: "Mode", options: [label("Granular").value(0), label("Stretch").value(1), label("Looping delay").value(2), label("Spectral").value(3)] },
+    quality: { type: "dropdown", col: 0, row: 1, colSpan: 4, label: "Quality", bind: "Quality", options: [label("16-bit stereo").value(0), label("16-bit mono").value(1), label("8-bit stereo").value(2), label("8-bit mono").value(3)] },
+    grain_section: { type: "group", col: 0, row: 2, colSpan: 4, rowSpan: 6, label: "GRAIN", color: "#3d7dff26" },
+    position: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Pos", bind: "Position", min: 0, max: 1 },
+    size: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Size", bind: "Size", min: 0, max: 1 },
+    pitch: { type: "knob", col: 0, row: 4, colSpan: 2, rowSpan: 2, label: "Pitch", bind: "Pitch", min: -24, max: 24 },
+    density: { type: "knob", col: 2, row: 4, colSpan: 2, rowSpan: 2, label: "Density", bind: "Density", min: 0, max: 1 },
+    texture: { type: "knob", col: 0, row: 6, colSpan: 2, rowSpan: 2, label: "Texture", bind: "Texture", min: 0, max: 1 },
+    blend_section: { type: "group", col: 0, row: 8, colSpan: 4, rowSpan: 4, label: "BLEND", color: "#ff6a1a26" },
+    spread: { type: "knob", col: 0, row: 8, colSpan: 2, rowSpan: 2, label: "Spread", bind: "Spread", min: 0, max: 1 },
+    feedback: { type: "knob", col: 2, row: 8, colSpan: 2, rowSpan: 2, label: "Fdbk", bind: "Feedback", min: 0, max: 1 },
+    reverb: { type: "knob", col: 0, row: 10, colSpan: 2, rowSpan: 2, label: "Reverb", bind: "Reverb", min: 0, max: 1 },
+    freeze: { type: "toggle", col: 0, row: 12, colSpan: 2, label: "Freeze", bind: "Freeze" },
+    follow_notes: { type: "toggle", col: 2, row: 12, colSpan: 2, label: "Follow", bind: "Follow notes" },
+  },
+})

@@ -1,0 +1,13 @@
+// The signal graph, as SEGMENTS: each module says where its signal goes next — the lane
+// "drums" included, since a lane is a module too. The chains are DERIVED by following the
+// arrows — a run breaks where the signal splits, and where two signals meet (which is what
+// a bus is).
+//
+// `bypassed` lists the modules the signal passes through untouched, and on a lane that is
+// its mute.
+
+// `MIX` is the mixer's sum and `OUT` is the interface; the run between them is the MASTER
+// CHAIN, and `OUT` carries the song's output level as its `Volume`. Name a module on that
+// line and it processes the whole mix on its way out.
+
+modules({ drums: ["MIX"], MIX: ["OUT"] })

@@ -3762,6 +3762,10 @@ export default function App({
                       reload={reload}
                       activeProject={ws?.activeProject ?? null}
                       projectName={project?.name ?? null}
+                      // A supervisor older than the field reports none: it runs level 1.
+                      engineLevel={
+                        engine ? (engine.engine.libraryLevel ?? 1) : undefined
+                      }
                       vimMode={vimMode}
                       onOpenProject={openProject}
                       onImportProject={imp.askImport}
