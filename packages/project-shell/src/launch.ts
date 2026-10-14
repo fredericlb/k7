@@ -1,6 +1,6 @@
 // launch.ts — which project this editor is open on. The address says so, and nothing
-// else does: `/<repo>/<project>` (st0 answers the origin root). The parsing itself lives in
-// @studio/web-protocol/projects, beside the suffix rule it depends on, because st0's home page
+// else does: `/<repo>/<project>` (k7 answers the origin root). The parsing itself lives in
+// @studio/web-protocol/projects, beside the suffix rule it depends on, because k7's home page
 // WRITES these addresses and both editors READ them — a wire contract, not an app's habit.
 // This module is what the two apps import. See docs/launch.md.
 
@@ -23,7 +23,7 @@ export {
   projectClaimKey,
 } from "@studio/web-protocol/projects";
 
-/** Where projects are chosen: st0's home page, ONE address for every app — see docs/launch.md. */
+/** Where projects are chosen: k7's home page, ONE address for every app — see docs/launch.md. */
 export function projectsUrl(origin: string): string {
-  return `${serviceUrl(origin, "st0")}/`;
+  return `${serviceUrl(origin, "k7")}/`;
 }

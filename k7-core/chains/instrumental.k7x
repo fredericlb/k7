@@ -1,0 +1,18 @@
+// Instrumental — le même morceau, sans sa voix.
+//
+// La jumelle de `stems/` à côté : un seul pas, un module OFFLINE, des FICHIERS en sortie plutôt qu'un
+// signal. Ce qui change tient en une ligne du module qu'elle nomme — il déclare une sortie
+// `instrumental` au lieu des quatre stems, et la passe écrit donc `instrumental.wav` dans `stems/`,
+// la somme de tout ce qui n'est pas la voix.
+//
+// Une chaîne séparée plutôt qu'une option de l'autre : ce qu'on veut RÉCUPÉRER décide laquelle on
+// nomme, et une machine répond à la question une fois pour toutes avec
+// `system instrumental <chaîne>` (le rouage, E/S), comme elle répond à l'autre avec `system stems`.
+
+steps([
+  id("cd98198b-416b-45b0-85dc-5ca5d5487322")
+    // Le séparateur de la médiathèque, réglé pour ne rendre qu'un fichier : le morceau sans sa voix.
+    // Aucun réglage ici non plus — la seule « valeur » est le MODÈLE, déclaré par le module lui-même.
+    .extends("@k7-core/cold/instrumental"),
+  to([chain("@out")]),
+])

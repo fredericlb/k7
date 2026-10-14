@@ -1,7 +1,7 @@
 // repoLookup.ts — the account's libraries, and nothing else. It asked pl8 for two things once:
 // the library pointer, and the git URI behind a short name. The register is gone with the
 // portable address, and the libraries moved to the machine that clones them —
-// apps/st0/frontend/docs/projects.md.
+// apps/k7/frontend/docs/projects.md.
 
 import type {
   AccountLibrariesReply,

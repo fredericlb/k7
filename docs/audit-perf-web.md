@@ -1,6 +1,6 @@
 # Audit — speed on the web side
 
-The counterpart to [engine/st0-engine/docs/audit-stabilite.md](../engine/st0-engine/docs/audit-stabilite.md)
+The counterpart to [engine/k7-runtime/docs/audit-stabilite.md](../engine/k7-runtime/docs/audit-stabilite.md)
 for everything that is not C++: the file service, the compiler, the surfaces — plus the WIRE, where
 the two meet. What belongs to C++ alone (the audio callback, `applyFull`, the compile flags) stays
 there.
@@ -29,7 +29,7 @@ track: a one-track fixture would measure startup and nothing else. Two sizes, 8 
 because what is read is the **curve** — a cost that doubles when the song doubles is fine, a cost
 that quadruples is the finding.
 
-The folder ends in `.st0`, and that is not cosmetic: the service decides a folder is a project by
+The folder ends in `.k7`, and that is not cosmetic: the service decides a folder is a project by
 its NAME. A bare temporary folder compiles perfectly through `@studio/song` and stays invisible to
 `Workspace` — both halves of the harness have to be able to open it.
 
@@ -54,7 +54,7 @@ Three things fall out, none of them visible from reading the code:
 
 ## What each route costs
 
-Measured on the real workstation, on `lemo_mante/01.danse.st0` — a 15-track song in a repository of
+Measured on the real workstation, on `lemo_mante/01.danse.k7` — a 15-track song in a repository of
 721 directories — eight passes per point, in milliseconds:
 
 | | ms | |
@@ -76,7 +76,7 @@ seconds behind is a picker that has not yet seen a folder: a wait, not a lie.
 
 The scan descends INTO a project — a project can nest another — so stopping at the first one
 recognised would be a rule this repository has never had. A test pins it, with the deep project
-(`albums/winter.st0`).
+(`albums/winter.k7`).
 
 ## The module stamp — the top cost
 
@@ -150,7 +150,7 @@ watcher-backed cache: both sources must be wired, not one or the other.
   conditional.
 - **`loadModules`'s clone costs 0.21 ms**, not 19 (above).
 - **The five large React components follow the leaf rule** of
-  [timeline.md](../apps/st0/frontend/docs/timeline.md): each 20 Hz reader is its own component, and
+  [timeline.md](../apps/k7/frontend/docs/timeline.md): each 20 Hz reader is its own component, and
   `Grid`, `RulerTicks`, `ClipContent`, `Node`, `Widget` are memoised on primitive props. The rule
   has a limit: "a leaf" is the right remedy when something is DRAWN, not when a value is merely
   handed to imperative code — there, the right number of components is zero, and the reader

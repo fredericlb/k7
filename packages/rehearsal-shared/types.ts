@@ -35,7 +35,7 @@ export interface Release {
   description: string;
   canDownload: boolean;
   createdAt: string;
-  // Stable id of the originating st0 song (set when uploaded via the CLI).
+  // Stable id of the originating k7 song (set when uploaded via the CLI).
   songUuid?: string | null;
   // Present on the detail endpoint, not on the list endpoint.
   versions?: ReleaseVersion[];

@@ -7,9 +7,9 @@ note and morphed by a knob.
 ## The slot is filled by a STRING param of the same name
 
 ```yaml
-extends: "@st0/instruments/synth/wavetable"
+extends: "@k7-core/instruments/synth/wavetable"
 params:
-  Table: "@st0/basic.wav"
+  Table: "@k7-core/basic.wav"
   Position: 0.4
 ```
 
@@ -35,5 +35,5 @@ not a known param, so the family has to be said. The picker filters its list by 
 
 ## Setting one by hand
 
-`node param <node> Table "@st0/basic.wav"` — on a Faust node a non-numeric value IS a sound file, and
+`node param <node> Table "@k7-core/basic.wav"` — on a Faust node a non-numeric value IS a sound file, and
 a library ref is checked against what the picker would offer (`packages/commands/docs/verbs.md`).

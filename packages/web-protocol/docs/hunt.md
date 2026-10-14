@@ -2,7 +2,7 @@
 
 `hunt.ts` is one row of the médiathèque's "trouver des morceaux" history, as the backend writes it and the
 screen draws it. It is stated here rather than in either half because both read the same rows;
-what the backend *does* with them is `apps/st0/backend/docs/media/hunt.md`.
+what the backend *does* with them is `apps/k7/backend/docs/media/hunt.md`.
 
 ## `exhausted` is not "it failed"
 

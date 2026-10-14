@@ -7,14 +7,14 @@ import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 import { projectFiles, scaffold, videoProjectFiles } from "./scaffold";
 
-// The only project st0 writes from scratch, so "does it load and play" is the whole contract.
+// The only project k7 writes from scratch, so "does it load and play" is the whole contract.
 
 // A workspace, since `scaffold()` now also seeds the WORKSPACE's shared synth module beside it.
 let ws: string;
 let dir: string;
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-scaffold-"));
-  dir = join(ws, "song.st0");
+  dir = join(ws, "song.k7");
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 

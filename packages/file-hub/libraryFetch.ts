@@ -25,7 +25,7 @@ import { type VersionFile, versionFiles } from "./publicLibraries.ts";
 export const libraryOrigin = (): string | null =>
   process.env.STUDIO_LIBRARY_ORIGIN?.replace(/\/+$/, "") || null;
 
-/** The public prefix the origin answers on — apps/st0/backend/src/media/fileHub.ts mounts it. */
+/** The public prefix the origin answers on — apps/k7/backend/src/media/fileHub.ts mounts it. */
 export const PUBLIC_LIBRARIES_PATH = "/api/public/libraries";
 
 /** How long the origin's listing is trusted: an upgrade waits at most this for a new version to show. */

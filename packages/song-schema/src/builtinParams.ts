@@ -6,7 +6,7 @@
 // only one carrying ranges: a knob drawn 0..1 for want of meta writes the wrong number.
 //
 // The table is GENERATED (`builtinParams.generated.ts`); this file is the shape around it.
-// See engine/st0-engine/docs/builtinParams.md.
+// See engine/k7-runtime/docs/builtinParams.md.
 
 import { BUILTIN_PLUGINS } from "./builtinParams.generated";
 import { ENGINE_NS, slugifyPluginName } from "./moduleTypes";

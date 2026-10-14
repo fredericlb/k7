@@ -108,7 +108,7 @@ analysed being analysed once more. `waveformCacheVersion.test.ts` pins it.
    fingerprint is authoritative, mtime is the cheap first gate).
 2. **The freshness verdict** — `cacheFresh` reads the whole sidecar and hashes 128 kB of the audio,
    so `staleWaveformSources` over a project of 110 takes spends ~190 ms answering "nothing to do",
-   and st0's browser asks for a prewarm after every command on the same single process compiling
+   and k7's browser asks for a prewarm after every command on the same single process compiling
    that command's answer. A source judged fresh is remembered against the size+mtime of BOTH files,
    so the next ask is two `stat`s. Only YES is remembered: a stale source is about to be rebuilt
    anyway. The fingerprint still DECIDES.
@@ -135,7 +135,7 @@ decode holds its file's mono signal until the envelope is built, about 57 MB for
 
 The sidecar carries `low` / `mid` / `high` beside `peak` and `rms`: the same envelope split at
 200 Hz and 4 kHz, in the same bucket space, hence a waveform coloured by what is in it
-(`packages/st0-plugins/docs/turntables/waveform.md`).
+(`packages/k7-plugins/docs/turntables/waveform.md`).
 
 The three fields stay **optional** in `FileEnvelope`. The version gate means an up-to-date service
 only serves sidecars that carry them — but a surface reading them must degrade to a plain envelope
@@ -155,10 +155,10 @@ WHICH part of the file the region shows and at what rate: leave them out and tri
 `from` leaves the old picture on screen. The markers themselves go in, not just "is it warped" —
 moving one changes the rate.
 
-**A CACHE IN FRONT OF THIS ONE HAS TO FOLD THE SAME THINGS.** st0's timeline keeps its own entry per
+**A CACHE IN FRONT OF THIS ONE HAS TO FOLD THE SAME THINGS.** k7's timeline keeps its own entry per
 clip, and filed under the id alone it puts that exact bug back one layer up: the block goes on
 drawing the untrimmed envelope. Its mirror of this signature is
-`apps/st0/frontend/src/clipEnvelope.ts`; change one and read the other.
+`apps/k7/frontend/src/clipEnvelope.ts`; change one and read the other.
 
 The sensitivity rides in the signature too, because re-detecting changes the onsets and nothing
 else, and a memo keyed only on the fingerprint would keep serving the previous threshold's answer.

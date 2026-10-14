@@ -33,6 +33,6 @@ well or not: a share of a long song is half a gigabyte of temp.
 
 ## Publishing to k7 is the other one
 
-`project share k7` publishes a release to the rehearsal recorder's pages, on st0's origin or its
+`project share k7` publishes a release to the rehearsal recorder's pages, on k7's origin or its
 `k7.` alias. An unknown song throws `NEEDS_META`, which the route turns into a prompt for artist and
 title. Its credentials sit at the WORKSPACE root — one k7 token serves every project in it.

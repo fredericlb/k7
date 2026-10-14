@@ -1,6 +1,6 @@
 // ampModel.ts — what an amp model FILE is: which runtime plays it and how many knobs it reacts to,
-// read by the keys the engine reads (engine/st0-engine/engine/RtNeuralModel.cpp). A panel's
-// widgets.js uses it to show only the knobs a model has — engine/st0-engine/docs/namPlugin.md.
+// read by the keys the engine reads (engine/k7-runtime/engine/RtNeuralModel.cpp). A panel's
+// widgets.js uses it to show only the knobs a model has — engine/k7-runtime/docs/namPlugin.md.
 // A `.nam` is never opened: its format has no knob inputs, so its answer is known from the name.
 
 import { statSync } from "node:fs";

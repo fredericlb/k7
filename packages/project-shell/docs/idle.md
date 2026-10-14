@@ -36,9 +36,9 @@ transport at all: a guitar played through the rig for twenty minutes, hands off 
 whole point of that archetype.
 
 `markActive()` is the door, and it is deliberately stupid: an exported function that sets the
-timestamp, with no React state to lift from the bottom of the application. st0 beats it from the
+timestamp, with no React state to lift from the bottom of the application. k7 beats it from the
 engine's state frame, at most every ten seconds, whenever the engine is SOUNDING — the transport
-playing, the master above the noise floor, or signal on an input (`apps/st0/frontend/src/sounding.ts`) —
+playing, the master above the noise floor, or signal on an input (`apps/k7/frontend/src/sounding.ts`) —
 and on every MIDI message played into a lane. The meters are the only witness that does not depend
 on which archetype is open. Anything that happens untouched and must count goes through it.
 
@@ -99,7 +99,7 @@ twenty minutes untouched; the screen offering to reopen is the right one either 
 
 `onIdle` / `onResume` are callbacks and not an import, for the reason
 [`ProjectTakenOver`](../src/ProjectGate.tsx) already writes: this package **deliberately does not
-depend** on `@studio/engine-browser`. In st0 it is `EngineGate` that holds `holdEngine`, one notch
+depend** on `@studio/engine-browser`. In k7 it is `EngineGate` that holds `holdEngine`, one notch
 above `ProjectGate`; it passes an `asleep` flag into its effect's dependencies, whose cleanup is
 `release`. A tab with no socket and no loaded project that still renewed its claim every five
 seconds would not be disconnected — it would be squatting.
@@ -132,7 +132,7 @@ stop nothing at all; disconnecting explicitly is what this page does.
 
 **`0` disables.** An application that does not pass `idleTimeoutMs` registers no listener and never
 reaches this phase. The screen's three strings are optional for the same reason — the harness
-pattern of `ProjectGateStrings`. st0 is the only one that turns it on.
+pattern of `ProjectGateStrings`. k7 is the only one that turns it on.
 
 ## What to check in a browser
 

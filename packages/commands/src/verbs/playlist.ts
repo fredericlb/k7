@@ -117,7 +117,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
     if (!first)
       return h.refuse([
         "usage: playlist stems <playlist> [chain]",
-        "       (e.g. playlist stems ete-2026 @st0/stems)",
+        "       (e.g. playlist stems ete-2026 @k7-core/stems)",
       ]);
     if (!chainRef)
       return h.refuse([

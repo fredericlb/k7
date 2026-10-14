@@ -44,7 +44,7 @@ Three reasons not to decode here:
 
 ## Most songs are measured before anyone opens them
 
-The backlog is swept in the background — `analysisSweep.ts`, [analysis.md](../../../apps/st0/backend/docs/media/analysis.md) — so the
+The backlog is swept in the background — `analysisSweep.ts`, [analysis.md](../../../apps/k7/backend/docs/media/analysis.md) — so the
 path below is the exception rather than the rule: a song uploaded a moment ago, one the sweep has
 not reached yet, or one whose sidecar no longer matches its bytes, which the sweep deliberately
 leaves alone.

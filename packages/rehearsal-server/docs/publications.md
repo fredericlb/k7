@@ -6,7 +6,7 @@ release is made to be heard by people who are not at the rehearsal, and a page i
 a second release that nobody else can hear, with nothing to reconcile it against the first.
 
 So a LOCAL instance, a desktop or a phone (`K7_INSTANCE=local`, set in
-`../../../apps/st0/backend/standalone.json`), keeps none. Its `/api/releases`, `/api/pages` and
+`../../../apps/k7/backend/standalone.json`), keeps none. Its `/api/releases`, `/api/pages` and
 `/api/public/pages` are forwarded to the server it is paired with (`../src/publications.ts`). Without
 a server, or with one that does not answer, they are refused with a 503 that says which, and the
 screens show that sentence instead of the lists (`../../ui-rehearsal/src/components/ServerOnly.tsx`).
@@ -27,5 +27,5 @@ without being held, and a track played from a release streams back the same way,
 
 On a local instance, the forwarded routes go before the store's own gate. They read nothing local,
 so a store that is still importing, or failed to import (`store.md`), does not stop them. The gate
-itself covers the rehearsal paths alone: st0's backend serves its other `/api` routes from the same
+itself covers the rehearsal paths alone: k7's backend serves its other `/api` routes from the same
 process, and they wait on none of this.

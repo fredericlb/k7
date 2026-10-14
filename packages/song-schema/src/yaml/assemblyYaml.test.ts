@@ -90,7 +90,7 @@ describe("taking one back off", () => {
 });
 
 const INSTANCE = `# turntableA — deck A's nodes.
-uses: "@st0/turntable"
+uses: "@k7-core/turntable"
 members:
   # the record's own lane
   deck: deckA
@@ -116,12 +116,12 @@ describe("following a node's rename", () => {
 describe("formatAssembly", () => {
   it("writes a document this library reads back", () => {
     const text = formatAssembly(
-      { uses: "@st0/turntable", members: { deck: "deckA" } },
+      { uses: "@k7-core/turntable", members: { deck: "deckA" } },
       "# a header",
     );
     expect(text.startsWith("# a header\n")).toBe(true);
     expect(parseAssembly(text).value).toEqual({
-      uses: "@st0/turntable",
+      uses: "@k7-core/turntable",
       members: { deck: "deckA" },
     });
   });

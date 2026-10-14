@@ -1,0 +1,9 @@
+// clavinet — a sampled Hohner clavinet by Lithalean, from Musical Artifacts (artifact 646): every key from F1 to
+// E6, four velocity layers, so a harder hit plays a brighter sample and not only a louder one. Played by the
+// engine's SFZ player (sfizz), no plugin to install — the `clavinet-v` engine beside it is Arturia's model.
+//
+// Its licence is not stated: Musical Artifacts files it as unknown, and the zip carries no notice. The samples
+// (~55 MB zipped, ~430 MB unpacked) are fetched by the engine machine's supervisor once chosen in the tray's Downloads tab.
+extends("@engine/sfz-player")
+params({ sfz: "@instruments/lithalean-clavinet/Clavinet/Clavinet.sfz" })
+// A sampled Hohner clavinet by Lithalean: every key from F1 to E6, four velocity layers, so it gets brighter when hit harder. Its samples, about 55 MB, download from the k7 tray's Downloads tab.

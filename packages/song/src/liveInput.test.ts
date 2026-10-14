@@ -18,7 +18,7 @@ import { copyAsYaml } from "./testSupport";
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
 const DEMOS = join(here, "..", "..", "..", "demos");
-const SONG = join(DEMOS, "synth-demo.st0");
+const SONG = join(DEMOS, "synth-demo.k7");
 const IN = "@workspace/io/IN:in-1";
 
 describe("a live input, wired by its chain", () => {

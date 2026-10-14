@@ -3,7 +3,7 @@
 // values. Derived rather than tabulated, because hand-kept field lists drift — a derived
 // list cannot be behind its schema.
 //
-// It lives HERE, and not in an app, because three editors need the same answers: st0's
+// It lives HERE, and not in an app, because three editors need the same answers: k7's
 // EditorPane, the médiathèque's, and the module builder's. What it reaches for is pure
 // Zod introspection, no node in it.
 

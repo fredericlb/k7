@@ -16,7 +16,7 @@ import type { ReadableStream as WebReadable } from "node:stream/web";
 import type { BlobCache } from "./liveBlobs.ts";
 
 /** What a HEAD of a blob the store lacks answers when it keeps a partial upload of it: the bytes kept. */
-export const PARTIAL_LENGTH_HEADER = "x-st0fs-partial-length";
+export const PARTIAL_LENGTH_HEADER = "x-k7fs-partial-length";
 
 /** The path segment of the libraries' store, which every account may read: `<blobs>/lib/<hash>`. */
 export const SHARED_STORE = "lib";

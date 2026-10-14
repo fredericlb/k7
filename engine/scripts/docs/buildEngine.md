@@ -2,33 +2,33 @@
 
 `engine/scripts/` builds the two native programs and packages what ships to a musician's machine.
 They live under `engine/` because both deliverables are built around the same two binaries: the
-command-line engine IS those binaries, and the desktop app (`apps/st0-standalone`) carries them.
+command-line engine IS those binaries, and the desktop app (`apps/k7-standalone`) carries them.
 
 | script | what |
 |---|---|
-| `build-engine.mjs` (`npm run engine:build`) | the engine, then the supervisor, then the command-line engine staged in `dist/st0-engine/` |
+| `build-engine.mjs` (`npm run engine:build`) | the engine, then the supervisor, then the command-line engine staged in `dist/k7-runtime/` |
 | `supervisorBuild.mjs` | building and finding the supervisor — one answer for this script, the dev session and the Android app's Gradle build |
 | `package-release.mjs --kind engine\|desktop` | one release file per kind into `dist/release/`, named for a stamp (`docs/desktop-release.md`) |
 | `devEngine.mjs` | the dev session's engine: the supervisor run with `--config <state>/engine-host.json`, and every running supervisor and engine stopped before a relink (`docs/dev.md`) |
 | `buildTools.mjs` | where output goes, and spawning with the Windows shell quirk |
 
-The engine builds through `engine/st0-engine/scripts/build.mjs`, so "how the engine builds" is
+The engine builds through `engine/k7-runtime/scripts/build.mjs`, so "how the engine builds" is
 defined once. Each program's preset comes from the host platform, or from `STUDIO_ENGINE_PRESET` and
 `STUDIO_SUPERVISOR_PRESET` when the build machine names its own — which CI does.
 
 ## The command-line engine is a folder, not an installer
 
-`dist/st0-engine/` holds everything the engine needs to run with no repo and nothing on `PATH`,
+`dist/k7-runtime/` holds everything the engine needs to run with no repo and nothing on `PATH`,
 staged by `packages/supervisor-host/scripts/stageEngine.mjs` — the same function the desktop app
 stages its `bin/` with, so the two deliverables cannot carry different things:
 
 | file | what |
 |---|---|
-| `st0-supervisor` | what the user runs: `st0-supervisor --config engine.json` |
-| `st0-engine` | the audio engine, which the supervisor finds beside itself |
+| `k7-supervisor` | what the user runs: `k7-supervisor --config engine.json` |
+| `k7-runtime` | the audio engine, which the supervisor finds beside itself |
 | ONNX Runtime | the library the supervisor loads for a stem cut |
 | `faust-libs/` | the Faust standard libraries the engine compiles against |
-| `engine.json` | a copy of `engine/st0-supervisor/engine.example.json`, to edit |
+| `engine.json` | a copy of `engine/k7-supervisor/engine.example.json`, to edit |
 
 One flat folder because each binary looks for the next beside itself. An archive of it is the
 release: unpacking it is the whole install, and the config is a file the user edits, so there is
@@ -39,7 +39,7 @@ desktop job packages the app around the binaries its engines job built, compilin
 
 ### ONNX Runtime, beside the supervisor
 
-The supervisor LOADS ONNX Runtime rather than linking it (`engine/st0-supervisor/docs/supervisor.md`),
+The supervisor LOADS ONNX Runtime rather than linking it (`engine/k7-supervisor/docs/supervisor.md`),
 and looks for it beside itself first. Its build copies the library beside the supervisor binary, and
 the staging takes it from there. Missing is a warning, not a failure: the engine runs, and says it
 cannot cut stems.

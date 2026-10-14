@@ -12,7 +12,7 @@ import { stringify } from "./print.ts";
 import { toYaml } from "./yamlBridge.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..", "..");
-const CORPORA = ["demos", "st0-library"]
+const CORPORA = ["demos", "k7-core"]
   .map((d) => join(ROOT, d))
   .filter((d) => existsSync(d));
 const PER_FILE = 40;

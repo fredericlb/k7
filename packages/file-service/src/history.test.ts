@@ -255,40 +255,40 @@ describe("blobs kept by the engine", () => {
 });
 
 describe("Workspace.recordChange", () => {
-  // A workspace whose root holds one `.st0` project, made active.
+  // A workspace whose root holds one `.k7` project, made active.
   afterEach(() => {
-    rmSync(historyStoreFor(join(dir, "proj.st0")), {
+    rmSync(historyStoreFor(join(dir, "proj.k7")), {
       recursive: true,
       force: true,
     });
   });
   const openProject = (): { ws: Workspace; proj: string } => {
-    mkdirSync(join(dir, "proj.st0"));
+    mkdirSync(join(dir, "proj.k7"));
     const ws = new Workspace(dir);
-    ws.setActiveProject("proj.st0");
-    return { ws, proj: "proj.st0" };
+    ws.setActiveProject("proj.k7");
+    return { ws, proj: "proj.k7" };
   };
 
   it("journals a text edit and undo/redo reverts it", async () => {
     const { ws } = openProject();
-    writeFileSync(join(dir, "proj.st0", "a.yaml"), "v1");
+    writeFileSync(join(dir, "proj.k7", "a.yaml"), "v1");
 
-    await ws.recordChange("édition proj.st0/a.yaml", () =>
-      ws.write("proj.st0/a.yaml", "v2"),
+    await ws.recordChange("édition proj.k7/a.yaml", () =>
+      ws.write("proj.k7/a.yaml", "v2"),
     );
-    expect(read("proj.st0/a.yaml")).toBe("v2");
+    expect(read("proj.k7/a.yaml")).toBe("v2");
 
     const undone = await ws.undoHistory();
-    expect(undone?.files).toEqual(["proj.st0/a.yaml"]);
-    expect(read("proj.st0/a.yaml")).toBe("v1");
+    expect(undone?.files).toEqual(["proj.k7/a.yaml"]);
+    expect(read("proj.k7/a.yaml")).toBe("v1");
 
     await ws.redoHistory();
-    expect(read("proj.st0/a.yaml")).toBe("v2");
+    expect(read("proj.k7/a.yaml")).toBe("v2");
   });
 
   it("backs up a binary overwrite via the snapshot hook (a process)", async () => {
     const { ws } = openProject();
-    const wav = join(dir, "proj.st0", "r.wav");
+    const wav = join(dir, "proj.k7", "r.wav");
     writeFileSync(wav, Buffer.from("old"));
 
     await ws.recordChange("clip process", (snapshot) => {
@@ -298,16 +298,16 @@ describe("Workspace.recordChange", () => {
     expect(ws.peekUndo()?.kind).toBe("process");
 
     await ws.undoHistory();
-    expect(read("proj.st0/r.wav")).toBe("old");
+    expect(read("proj.k7/r.wav")).toBe("old");
   });
 
   // The journal is the account's, not the song's: nothing of it may reach the project's repository.
   it("keeps the journal out of the project", async () => {
     const { ws } = openProject();
-    await ws.recordChange("edit", () => ws.write("proj.st0/a.yaml", "v1"));
-    expect(existsSync(join(dir, "proj.st0", "_history"))).toBe(false);
+    await ws.recordChange("edit", () => ws.write("proj.k7/a.yaml", "v1"));
+    expect(existsSync(join(dir, "proj.k7", "_history"))).toBe(false);
     expect(
-      existsSync(join(historyStoreFor(join(dir, "proj.st0")), "journal.json")),
+      existsSync(join(historyStoreFor(join(dir, "proj.k7")), "journal.json")),
     ).toBe(true);
   });
 
@@ -321,25 +321,25 @@ describe("Workspace.recordChange", () => {
   describe("names what it changed", () => {
     it("tells a rewrite from an appearance, project-relative", async () => {
       const { ws } = openProject();
-      mkdirSync(join(dir, "proj.st0", "clips"));
-      writeFileSync(join(dir, "proj.st0", "clips", "a.yaml"), "v1");
+      mkdirSync(join(dir, "proj.k7", "clips"));
+      writeFileSync(join(dir, "proj.k7", "clips", "a.yaml"), "v1");
 
       const rewrite = await ws.recordChange("edit", () =>
-        ws.write("proj.st0/clips/a.yaml", "v2"),
+        ws.write("proj.k7/clips/a.yaml", "v2"),
       );
       expect(rewrite.files).toEqual([{ path: "clips/a.yaml", kind: "edited" }]);
 
       const appear = await ws.recordChange("new", () =>
-        ws.write("proj.st0/clips/b.yaml", "v1"),
+        ws.write("proj.k7/clips/b.yaml", "v1"),
       );
       expect(appear.files).toEqual([{ path: "clips/b.yaml", kind: "added" }]);
     });
 
     it("reports a file that went", async () => {
       const { ws } = openProject();
-      writeFileSync(join(dir, "proj.st0", "a.yaml"), "v1");
+      writeFileSync(join(dir, "proj.k7", "a.yaml"), "v1");
       const gone = await ws.recordChange("delete", () =>
-        rmSync(join(dir, "proj.st0", "a.yaml")),
+        rmSync(join(dir, "proj.k7", "a.yaml")),
       );
       expect(gone.files).toEqual([{ path: "a.yaml", kind: "removed" }]);
     });

@@ -2,7 +2,7 @@
 
 A separation runs HT-Demucs over an audio file on an ENGINE's machine and writes four 24-bit
 WAVs — drums, bass, other, vocals — into `stems/` beside it. It is a **job to poll**, not a call
-that answers with audio. The cut is the native supervisor's (`engine/st0-supervisor/src/Separation.cpp`
+that answers with audio. The cut is the native supervisor's (`engine/k7-supervisor/src/Separation.cpp`
 and its neighbours); this package is the seam a server hands it through.
 
 ## Why it is a module, and why it cannot be a plugin
@@ -52,7 +52,7 @@ reporting.
 
 The format is decided by the **consumer**, and the consumer is a PLATTER: the desk's four
 knobs make a stem something a deck opens
-([packages/st0-plugins/docs/turntables/stems.md](../../../packages/st0-plugins/docs/turntables/stems.md)). Were another chain the only
+([packages/k7-plugins/docs/turntables/stems.md](../../../packages/k7-plugins/docs/turntables/stems.md)). Were another chain the only
 destination, float32 would be the obvious answer — nothing downstream is ever worse than the
 model's own output, so rounding on the way out is a loss taken for nobody. A deck loads the file
 itself, and that decides it.
@@ -143,7 +143,7 @@ The WAV writer is by hand: a 44-byte header is smaller than the argument for a d
 
 A cut is asked for from two places: a project's `clip process`, in the account's file service, and
 the media library's `POST /api/stems`, which holds the masters and drives the cut of a song in the library
-(`apps/st0/backend/docs/media/stems.md`). The worker, the job and `stems/` below are the same either way — only
+(`apps/k7/backend/docs/media/stems.md`). The worker, the job and `stems/` below are the same either way — only
 who is waiting differs.
 
 **The chain is the account's answer.** `stemsChain` in the account's `preferences.yaml`, written
@@ -345,7 +345,7 @@ look at their audio.
 
 ONNX Runtime is a prebuilt shared library, hash-pinned by the supervisor's CMake and **loaded** at
 the first separation rather than linked, so a machine missing it still runs its engine and only the
-cut says what is missing (`engine/st0-supervisor/docs/supervisor.md`).
+cut says what is missing (`engine/k7-supervisor/docs/supervisor.md`).
 
 **macOS is not covered by signing.** Nothing in this repo signs a third-party `.dylib`, so a
 notarised `.app` carrying `libonnxruntime.dylib` is unsolved.

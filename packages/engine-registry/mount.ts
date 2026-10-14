@@ -32,7 +32,7 @@ export interface EngineMount {
 export function mountEngineRegistry(
   app: Express,
   opts: {
-    /** The service's slug, and its file name under ~/.st0/web-endpoints. */
+    /** The service's slug, and its file name under ~/.k7/web-endpoints. */
     service: string;
     requireAuth: RequestHandler;
     alsoGuard?: string[];

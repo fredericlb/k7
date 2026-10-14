@@ -17,7 +17,7 @@ Git cannot be that channel. Commit, push, fetch and merge every few seconds on e
 - hooks that Android refuses to run, and no git binary at all on iOS, where an app cannot start
   another program.
 
-st0 has no git at all: the relay is the only channel, and its log is where history comes from.
+k7 has no git at all: the relay is the only channel, and its log is where history comes from.
 
 ## An edit travels as an operation
 
@@ -73,7 +73,7 @@ A file a remote op just wrote is recorded in the ledger first, so the watcher do
 
 ## Transport
 
-A WebSocket on st0's backend, `/api/sync`, in the same upgrade chain as the rehearsal room
+A WebSocket on k7's backend, `/api/sync`, in the same upgrade chain as the rehearsal room
 (`../packages/rehearsal-server/src/rtc.ts`).
 
 - **File services connect to it as clients,** the server's own included. A machine's file service is
@@ -82,7 +82,7 @@ A WebSocket on st0's backend, `/api/sync`, in the same upgrade chain as the rehe
 - **A device authenticates with a token** issued to it for one account.
 - **Browsers get change notices pushed** as Server-Sent Events (`/api/sync/events`), not the replicas'
   socket: one-way, carried by the session cookie, reconnecting by itself. The `/revision` poll
-  (`../apps/st0/frontend/src/hooks/useRevision.ts`) stays as a slow fallback.
+  (`../apps/k7/frontend/src/hooks/useRevision.ts`) stays as a slow fallback.
 
 An op that touches the active project pushes the project to the engine, as an undo does.
 
@@ -118,7 +118,7 @@ reconnects. Undo stays local and works offline.
 1. **Ops** — done: `@studio/live-sync`, with the exact-replay rule and the library corpus as its test.
 2. **Capture** — done, on unless `STUDIO_LIVE_SYNC=0`: the watcher, the ledger, batches per mutation
    window and a local log (`../packages/file-service/docs/liveCapture.md`).
-3. **The sequencer and relay** — done: `/api/sync` on st0's backend, rooms on disk, replicas that
+3. **The sequencer and relay** — done: `/api/sync` on k7's backend, rooms on disk, replicas that
    replay their own pending edits over the order (`../packages/live-sync/docs/sync.md`,
    `../packages/file-hub/docs/syncRelay.md`).
 4. **Conflicts** — done: every op names what it replaced, the room sets aside one made against a
@@ -126,17 +126,17 @@ reconnects. Undo stays local and works offline.
    (`GET`/`POST /sync/conflicts`).
 5. **A machine replica** — done for the desktop: pairing through the system browser, the pairing kept
    per account, every workspace a replica from the start, and the rooms naming which workspaces
-   exist (`../apps/st0-standalone/docs/sync.md`, `../packages/file-hub/docs/syncRelay.md`).
+   exist (`../apps/k7-standalone/docs/sync.md`, `../packages/file-hub/docs/syncRelay.md`).
 6. **Browser push** — done: each ordered entry is a Server-Sent Event to the account's pages, the
-   `/revision` poll a 30 s fallback, and the open conflicts settled from st0's footer and named over
-   the file's editor (`../packages/file-hub/docs/syncRelay.md`, `../apps/st0/frontend/docs/conflicts.md`).
+   `/revision` poll a 30 s fallback, and the open conflicts settled from k7's footer and named over
+   the file's editor (`../packages/file-hub/docs/syncRelay.md`, `../apps/k7/frontend/docs/conflicts.md`).
 7. **Audio** — done: a binary file is a whole-text op whose text is a blob ref, its bytes uploaded to
    `/api/sync/blobs` before the batch and fetched by each replica (`../packages/file-hub/docs/blobs.md`).
 8. **History** — done: the room's whole log, checkpoints, diff and restore, at `/api/sync/history`
-   and in st0's History panel (`../packages/file-hub/docs/history.md`).
+   and in k7's History panel (`../packages/file-hub/docs/history.md`).
 9. **The phone** — done for Android: the app runs the same backend and hub, pairs through the
    system browser like the desktop, and its libraries follow the origin's read-only
-   (`../engine/st0-engine/docs/android.md`). iOS is not started: it needs the editing code off `node:`.
+   (`../engine/k7-runtime/docs/android.md`). iOS is not started: it needs the editing code off `node:`.
 10. **Merging inside a list** — done: an item of a keyed list is named by its natural key, so two
     additions to one list are two additions and edits to two items merge
     (`../packages/live-sync/docs/ops.md`).

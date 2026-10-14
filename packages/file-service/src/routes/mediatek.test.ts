@@ -1,4 +1,4 @@
-// The cache shell's read side. It and apps/st0/backend's media routes carry MIME tables that must not drift:
+// The cache shell's read side. It and apps/k7/backend's media routes carry MIME tables that must not drift:
 // the two extensions asserted here are what such a drift costs — an .aiff or a .nam this side
 // cannot serve, a cover the hosted side cannot.
 

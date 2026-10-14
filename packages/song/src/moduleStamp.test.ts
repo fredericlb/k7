@@ -33,7 +33,7 @@ const project = (name: string): string => {
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "module-stamp-"));
-  dir = project("one.st0");
+  dir = project("one.k7");
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -56,7 +56,7 @@ describe("withModuleStamp", () => {
 
   // …and per PROJECT: a library chain built while a project is open is exactly that shape.
   it("gives a scope for another project its own stamp", () => {
-    const other = project("two.st0");
+    const other = project("two.k7");
     module_(other, "chorus");
     const seen = withModuleStamp(dir, () =>
       withModuleStamp(other, () => Object.keys(loadModules(other))),
@@ -66,7 +66,7 @@ describe("withModuleStamp", () => {
 
   // The outer scope survives the inner one: restoring, not clearing.
   it("is still inside the outer scope after an inner one returns", () => {
-    const other = project("two.st0");
+    const other = project("two.k7");
     const seen = withModuleStamp(dir, () => {
       const before = Object.keys(loadModules(dir));
       withModuleStamp(other, () => loadModules(other));

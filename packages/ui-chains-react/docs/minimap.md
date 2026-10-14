@@ -5,7 +5,7 @@ block, the pane's view as a frame over them, and two buttons on top — **Zoom f
 **Organize**, drawn as icons (`Maximize`, `Network`) whose tooltip names them. `Minimap.tsx`
 draws it; `DomChains` places it and owns everything it does.
 
-## It is opt-in, and st0's chains pane is the one that opts in
+## It is opt-in, and k7's chains pane is the one that opts in
 
 `minimap` is a prop, off by default. The graph is also drawn in the editor column's panel, in a
 lane's own row and in the module builder's preview; those are small enough that a map would take a
@@ -41,5 +41,5 @@ re-frames it, as it did before anybody touched it.
 
 `graph organize` is a command that rewrites `positions:` and bumps the shell's `organizeKey`, so
 it has to go through the host's reloading command path — the renderer's `command` prop is the QUIET
-one, which reloads nothing. The button therefore exists only when the host passes `onOrganize`; st0
-runs `graph organize` through `runCommand` (`apps/st0/frontend/docs/chainsGraph.md`).
+one, which reloads nothing. The button therefore exists only when the host passes `onOrganize`; k7
+runs `graph organize` through `runCommand` (`apps/k7/frontend/docs/chainsGraph.md`).

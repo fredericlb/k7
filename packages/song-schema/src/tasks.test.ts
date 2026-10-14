@@ -14,7 +14,7 @@ const FILE = `# Tasks
 
 Notes for the band.
 
-- [ ] fix the snare \`05.paradoxe.st0 @ 49:1\`
+- [ ] fix the snare \`05.paradoxe.k7 @ 49:1\`
 - [x] bounce the bass
 * [ ] call Lou
 `;
@@ -26,7 +26,7 @@ describe("parseTasks", () => {
         line: 4,
         text: "fix the snare",
         done: false,
-        at: { project: "05.paradoxe.st0", timecode: "49:1" },
+        at: { project: "05.paradoxe.k7", timecode: "49:1" },
       },
       { line: 5, text: "bounce the bass", done: true },
       { line: 6, text: "call Lou", done: false },
@@ -35,7 +35,7 @@ describe("parseTasks", () => {
 
   it("round-trips a line through taskLine", () => {
     const [t] = parseTasks(FILE);
-    expect(taskLine(t)).toBe("- [ ] fix the snare `05.paradoxe.st0 @ 49:1`");
+    expect(taskLine(t)).toBe("- [ ] fix the snare `05.paradoxe.k7 @ 49:1`");
   });
 });
 
@@ -45,13 +45,13 @@ describe("the edits", () => {
       `${FILE}- [ ] tune the toms\n`,
     );
     expect(
-      addTask("", { text: "first", at: { project: "a.st0", timecode: "2:1" } }),
-    ).toBe("# Tasks\n\n- [ ] first `a.st0 @ 2:1`\n");
+      addTask("", { text: "first", at: { project: "a.k7", timecode: "2:1" } }),
+    ).toBe("# Tasks\n\n- [ ] first `a.k7 @ 2:1`\n");
   });
 
   it("ticks, unticks and removes by position, leaving every other line alone", () => {
     const ticked = setTaskDone(FILE, 1) as string;
-    expect(ticked).toContain("- [x] fix the snare `05.paradoxe.st0 @ 49:1`");
+    expect(ticked).toContain("- [x] fix the snare `05.paradoxe.k7 @ 49:1`");
     expect(ticked).toContain("Notes for the band.");
     expect(setTaskDone(FILE, 2)).toContain("- [ ] bounce the bass");
     const removed = removeTask(FILE, 2) as string;

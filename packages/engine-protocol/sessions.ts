@@ -1,16 +1,16 @@
 // sessions.ts — the session identifier: which project inside one engine a message is about.
 // A wire value, so it lives here: two PROCESSES have to spell it the same way or they drive
 // two different projects and each sees the other's engine as empty. See docs/sessions.md
-// here for the client rules, and engine/st0-engine/docs/protocol.md for the wire.
+// here for the client rules, and engine/k7-runtime/docs/protocol.md for the wire.
 
 /** The default session; the engine reads an absent field as `""`, so do NOT give this a name — see docs/sessions.md. */
 export const DEFAULT_SESSION = "";
 
 /** The SERVICE half of a session id, spelled once because two processes read it — see docs/sessions.md. */
 export const SESSIONS = {
-  st0: "st0",
+  k7: "k7",
   pl8: "pl8",
-  // st0's BENCH, a session of its own so it plays beside the person's song — see docs/sessions.md.
+  // k7's BENCH, a session of its own so it plays beside the person's song — see docs/sessions.md.
   bench: "banc",
 } as const;
 
@@ -30,7 +30,7 @@ export const ENGINE_GLOBAL_REPLIES = [
   "sessions", // the one question whose answer is about the OTHER sessions
   "edit-plugins", // asked by the supervisor, which drives none; each row names its own session
   "whoami", // the identity of the process
-  // Pairing: about a DEVICE and the machine, never a project — engine/st0-engine/docs/pairing.md.
+  // Pairing: about a DEVICE and the machine, never a project — engine/k7-runtime/docs/pairing.md.
   "pair-pending",
   "paired",
   "pair-denied",

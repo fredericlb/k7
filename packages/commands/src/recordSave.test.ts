@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
-const WIN = "C:\\Users\\flb\\.studio\\root\\me\\live.st0\\clips\\rec-1.wav";
+const WIN = "C:\\Users\\flb\\.studio\\root\\me\\live.k7\\clips\\rec-1.wav";
 
 /** A host that saves nothing and only remembers what it was asked to save. */
 function host(): {
@@ -45,7 +45,7 @@ describe("node record save", () => {
 
   it("keeps a path with spaces whole, which is what the quoting is for", async () => {
     const { h, seen } = host();
-    const spaced = "C:\\Users\\flb\\My Rig\\live.st0\\clips\\rec-1.wav";
+    const spaced = "C:\\Users\\flb\\My Rig\\live.k7\\clips\\rec-1.wav";
     await runCommand(`node record save ${JSON.stringify(spaced)}`, h, "cli");
     expect(seen.file).toBe(spaced);
   });
@@ -64,11 +64,11 @@ describe("node record save", () => {
   it("still takes a bare path, which is what a CLI user types", async () => {
     const { h, seen } = host();
     await runCommand(
-      "node record save /home/flb/live.st0/clips/rec-1.wav",
+      "node record save /home/flb/live.k7/clips/rec-1.wav",
       h,
       "cli",
     );
-    expect(seen.file).toBe("/home/flb/live.st0/clips/rec-1.wav");
+    expect(seen.file).toBe("/home/flb/live.k7/clips/rec-1.wav");
   });
 
   it("says where it landed", async () => {

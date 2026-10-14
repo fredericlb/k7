@@ -45,7 +45,7 @@ const ids = () =>
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "tap-chain-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   for (const name of ["chorus", "phaser"]) {
     mkdirSync(join(root, "_modules", "audio", name), { recursive: true });
     writeFileSync(

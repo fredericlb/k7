@@ -17,7 +17,7 @@ export { SHARED_MODULES_DIR } from "@studio/song-schema/moduleTypes";
 
 import { SHARED_MODULES_DIR } from "@studio/song-schema/moduleTypes";
 
-// …and so do the libraries' folder names, for st0's file tree; re-exported as one vocabulary.
+// …and so do the libraries' folder names, for k7's file tree; re-exported as one vocabulary.
 export {
   DEFAULT_LIBRARY,
   isLibraryName,
@@ -108,7 +108,7 @@ export function libraryManifest(
   }
 }
 
-/** The newest version of `name` a st0 at `level` runs, here or among `remote` (the origin's); a version with no manifest asks for nothing. */
+/** The newest version of `name` a k7 at `level` runs, here or among `remote` (the origin's); a version with no manifest asks for nothing. */
 export function newestRunnableVersion(
   name: string,
   remote: readonly { version: number; requires: number }[] = [],
@@ -282,7 +282,7 @@ export {
 
 import type { ModuleNamespace } from "@studio/song-schema/moduleTypes";
 
-/** st0's OWN modules, shipped with its code and read like a library under `@meta` — docs/metaModules.md. */
+/** k7's OWN modules, shipped with its code and read like a library under `@meta` — docs/metaModules.md. */
 export const META_MODULES_ROOT = fileURLToPath(
   new URL("../meta", import.meta.url),
 );

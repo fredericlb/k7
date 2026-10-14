@@ -25,7 +25,7 @@ beforeEach(() => {
   symlinkSync(join(base, "secret"), join(base, "checkout", "escape"));
   mkdirSync(join(base, "edits"));
   // The clone itself is a link, as a dev's library checkout is.
-  symlinkSync(join(base, "checkout"), join(base, "edits", "st0"));
+  symlinkSync(join(base, "checkout"), join(base, "edits", "k7"));
 });
 afterEach(() => rmSync(base, { recursive: true, force: true }));
 
@@ -40,7 +40,7 @@ describe("a perChild root", () => {
   it("serves a file of a library clone that is a link", async () => {
     const [s] = await statPaths(
       [root(true)],
-      [join(base, "edits", "st0", "wavetables", "basic.wav")],
+      [join(base, "edits", "k7", "wavetables", "basic.wav")],
     );
     expect(s.kind).toBe("file");
   });
@@ -48,7 +48,7 @@ describe("a perChild root", () => {
   it("still refuses a link inside the clone that leads out of it", async () => {
     const [s] = await statPaths(
       [root(true)],
-      [join(base, "edits", "st0", "escape", "key")],
+      [join(base, "edits", "k7", "escape", "key")],
     );
     expect(s.kind).toBe("missing");
   });
@@ -56,7 +56,7 @@ describe("a perChild root", () => {
   it("is what makes the difference: a plain root refuses the linked clone", async () => {
     const [s] = await statPaths(
       [root(false)],
-      [join(base, "edits", "st0", "wavetables", "basic.wav")],
+      [join(base, "edits", "k7", "wavetables", "basic.wav")],
     );
     expect(s.kind).toBe("missing");
   });

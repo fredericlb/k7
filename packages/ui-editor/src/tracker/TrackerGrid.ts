@@ -12,7 +12,7 @@ const GUTTER_W = 34; // px, the row-index column
 const CH_W = 64; // px per channel column (fits `C-4` + its MIDI number)
 const EPS = 1e-9;
 
-// Two-char note names so every cell is one width (`C-`, `C#`); octave is MIDI's, 60 → C-4 like the rest of st0.
+// Two-char note names so every cell is one width (`C-`, `C#`); octave is MIDI's, 60 → C-4 like the rest of k7.
 const NAMES2 = [
   "C-",
   "C#",

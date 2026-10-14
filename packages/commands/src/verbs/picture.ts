@@ -1,6 +1,6 @@
 // picture.ts — the `picture …` verbs: a song's VIDEO placements, as commands.
 //
-// Until these existed, a shot could only be moved by dragging it, and `apps/st0/frontend/docs/
+// Until these existed, a shot could only be moved by dragging it, and `apps/k7/frontend/docs/
 // picture.md` recorded the consequences: no context menu on a picture lane, nothing in the
 // palette, no CLI, and no entry in the undo journal. Sound had `event move` and picture had a
 // mouse. See docs/picture.md for the three that mirror the three drags.

@@ -3,12 +3,12 @@
 // pull `node:os` in with the word (mediatekRoot.ts opens one). See docs/songsFile.md.
 
 /** The level the médiathèque is named under — here, so a set list costs no `homedir()` (docs/names.md). */
-export const MEDIATEK_REF = "@st0";
+export const MEDIATEK_REF = "@k7-core";
 
 /** The prefix a SONG ref carries — the médiathèque, then the family. */
 export const MEDIATEK_SONG_REF = `${MEDIATEK_REF}/songs`;
 
-/** The STRUCTURE only, since a ref is `@st0/` + the id verbatim and spaces are legal — see docs/names.md. */
+/** The STRUCTURE only, since a ref is `@k7-core/` + the id verbatim and spaces are legal — see docs/names.md. */
 export const SONG_REF = new RegExp(
   `^${MEDIATEK_SONG_REF}/(?:[^/\\r\\n]+/)*[^/\\r\\n]+$`,
 );

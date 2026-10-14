@@ -15,7 +15,7 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
 const DEMOS = join(here, "..", "..", "..", "demos");
-const SONG = join(DEMOS, "synth-demo.st0");
+const SONG = join(DEMOS, "synth-demo.k7");
 
 // Found by the PREFIX "synth", since the song names a NODE there, and a miss throws loudly.
 
@@ -24,7 +24,7 @@ describe("bare (extends-less) modules", () => {
   let dir: string;
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-bare-"));
-    dir = join(ws, "synth-demo.st0");
+    dir = join(ws, "synth-demo.k7");
     cpSync(SONG, dir, { recursive: true });
     // The Examples workspace's own shared library, beside every demo project.
     cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });

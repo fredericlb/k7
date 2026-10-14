@@ -1,6 +1,6 @@
 // commands.ts — the feature registry: one stable SID (module.new, transport.play, …) per
 // capability, mapped to a handler that acts through a CommandHost, so the SAME feature
-// runs from the web command bar and from `st0 cmd`. Which words invoke a SID lives
+// runs from the web command bar and from `k7 cmd`. Which words invoke a SID lives
 // declaratively in commands.yaml (see commandSpec.ts); this file is just the behaviours.
 
 import { mkdirSync, rmSync } from "node:fs";
@@ -1549,7 +1549,7 @@ async function processCommand(
   if (!target || !chain) {
     h.refuse([
       `usage: ${scope} process <${scope}${scope === "clip" ? "|path" : ""}> <chain>  ` +
-        "(a chain of this project, or @st0/<path>)",
+        "(a chain of this project, or @k7-core/<path>)",
     ]);
     return;
   }
@@ -1596,7 +1596,7 @@ const INTRINSICS: Record<
     if (!Number.isFinite(db)) throw new Error(`'${raw}' is not a number of dB`);
     return { path: setModuleInputGain(dir, module, db), said: `gain ${db} dB` };
   },
-  /** The engine's dry/wet around an effect, 0 all dry .. 1 all wet — engine/st0-engine/docs/mix.md. */
+  /** The engine's dry/wet around an effect, 0 all dry .. 1 all wet — engine/k7-runtime/docs/mix.md. */
   mix: (dir, module, raw) => {
     const mix = Number(raw);
     if (!Number.isFinite(mix) || mix < 0 || mix > 1)
@@ -1606,7 +1606,7 @@ const INTRINSICS: Record<
       said: `mix ${Math.round(mix * 100)}% wet`,
     };
   },
-  /** The engine's level into and out of the module, in dB — engine/st0-engine/docs/mix.md. */
+  /** The engine's level into and out of the module, in dB — engine/k7-runtime/docs/mix.md. */
   "input-volume": (dir, module, raw) =>
     volumeIntrinsic(dir, module, "input", raw),
   "output-volume": (dir, module, raw) =>
@@ -3011,7 +3011,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   /**
    * Transposing CLAMPS onto the keyboard rather than dropping what falls off it — the engine's own
    * `transpose` node does the same, and for the sharper reason: a dropped note leaves its note-off
-   * behind and hangs the voice (engine/st0-engine DspGraph.cpp). A paste, which is not an edit of notes
+   * behind and hangs the voice (engine/k7-runtime DspGraph.cpp). A paste, which is not an edit of notes
    * that exist, drops instead and says so.
    */
   "sequence.notesTranspose": regionCommand(
@@ -4568,7 +4568,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
 
 /** Add a plugin's verb: the SID it dispatches under and the behaviour that runs. The catalogue
  *  half is `registerCommandSpec`'s (commandSpec.ts) — a plugin contributes BOTH, through
- *  `@studio/st0-sdk`'s installer, which calls the two in one move. A SID that is already spoken
+ *  `@studio/k7-sdk`'s installer, which calls the two in one move. A SID that is already spoken
  *  for is refused, never shadowed: one SID, one behaviour. */
 export function registerCommand(c: { sid: string; handler: SidHandler }): void {
   if (SID_HANDLERS[c.sid])

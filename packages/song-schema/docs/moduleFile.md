@@ -37,7 +37,7 @@ control for a module with dry and wet levels and no mix (`packages/ui-chains-rea
 Only a knob takes it, and never equal to its own `bind`.
 
 `mix:` (0..1) is an EFFECT's dry/wet, made by the engine around its plugin and absent for all wet
-(`engine/st0-engine/docs/mix.md`); a panel binds it as `@mix`. `input_volume:` and `output_volume:`
+(`engine/k7-runtime/docs/mix.md`); a panel binds it as `@mix`. `input_volume:` and `output_volume:`
 (dB, −60..+12, absent for 0) are the levels into an audio module and out of anything with audio
 out, on the same stage; a panel binds them as `@input-volume` / `@output-volume`, and the plugin's
 own `Input`/`Output`-like params are refused in `params:` just as its own dry/wet is. An effect with one input whose
@@ -231,7 +231,7 @@ carry its own: two sets of settings are two sounds, and a render of one is not a
 ## Writing the file back
 
 The point of `moduleFile.ts` is not parsing, it is WRITING without reflowing the document or
-dropping comments — st0 edits these constantly and they are in git.
+dropping comments — k7 edits these constantly and they are in git.
 
 YAML 1.2 is forced on the way in: a file may declare 1.1, whose sexagesimals and true-like scalars
 are this app's vocabulary. An empty file is an empty module rather than an error, a scaffolded one

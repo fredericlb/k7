@@ -3,7 +3,7 @@
 // and above all the PLUGLESS policy — the desk binds an `offline` module by its track, the mastering
 // strip refuses it, and swapping those makes one surface send to an address the engine has not got.
 //
-// It also covers st0's mastering resolve for the first time: that one had no direct test at all.
+// It also covers k7's mastering resolve for the first time: that one had no direct test at all.
 
 import type { WebGraph } from "@studio/graph-model";
 import { describe, expect, it } from "vitest";

@@ -217,7 +217,7 @@ describe("resumable transfers", () => {
     await until(() => existsSync(part) && statSync(part).size === 120_000);
     const head = await fetch(`${base}/${h}`, { method: "HEAD", headers: auth });
     expect(head.status).toBe(404);
-    expect(head.headers.get("x-st0fs-partial-length")).toBe("120000");
+    expect(head.headers.get("x-k7fs-partial-length")).toBe("120000");
     // An offset past what is kept is refused with the length to resume from.
     const ahead = await fetch(`${base}/${h}?offset=150000`, {
       method: "PUT",
@@ -225,7 +225,7 @@ describe("resumable transfers", () => {
       body: bytes.subarray(150_000),
     });
     expect(ahead.status).toBe(409);
-    expect(ahead.headers.get("x-st0fs-partial-length")).toBe("120000");
+    expect(ahead.headers.get("x-k7fs-partial-length")).toBe("120000");
     const rest = await fetch(`${base}/${h}?offset=120000`, {
       method: "PUT",
       headers: auth,

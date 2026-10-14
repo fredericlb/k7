@@ -12,18 +12,18 @@ draws screens that show the sound's shape.
 | `src/aiPrompt.ts` | the system prompt: the grid, every widget, the lcdscreen contract, the design brief |
 | `src/aiOrganize.ts` | the wire types, the per-module message, the check |
 | `src/useAiOrganize.ts` | the builder's half: ask, send, land the answer in the buffers |
-| `apps/st0/backend/src/aiOrganize.ts` | the host's half: the call, one repair round |
-| `apps/st0/backend/src/aiSettings.ts` | the account's key and model, write-only from the browser |
+| `apps/k7/backend/src/aiOrganize.ts` | the host's half: the call, one repair round |
+| `apps/k7/backend/src/aiSettings.ts` | the account's key and model, write-only from the browser |
 
 ## The key is the account's, and the button is the host's to offer
 
 The builder does not call Claude itself. It takes an optional `onAiOrganize` and draws the
-button only when a host passes one, the rule `onScanParams` follows (`builder.md`). st0 passes it
+button only when a host passes one, the rule `onScanParams` follows (`builder.md`). k7 passes it
 when its backend says this account has a key. The médiathèque passes nothing, and draws no
 button.
 
-**Each account sets its own key and model** in st0's settings page
-(`apps/st0/frontend/docs/settings.md`), and st0's backend keeps them in a file per account
+**Each account sets its own key and model** in k7's settings page
+(`apps/k7/frontend/docs/settings.md`), and k7's backend keeps them in a file per account
 beside the preferences. An account is a person, and a request billed to somebody else's key is
 one they never agreed to. Nothing in the server's environment has to change for one person to
 turn the feature on. The model is optional: `claude-opus-5` when none is named.
@@ -49,7 +49,7 @@ wants — the dialog is project-shell's `askChoice` — because they are differe
 request with an option:
 
 - **Update** sends the current `ui.yaml` and `widgets.js`, and a sentence saying what should change,
-  which is REQUIRED — the dialog refuses an empty one, and so does st0's backend: an update with
+  which is REQUIRED — the dialog refuses an empty one, and so does k7's backend: an update with
   nothing to change would pay a minute of the account's Claude for the panel it has. The message
   tells the model to change what is asked and keep every other widget id, position, size, bind and
   screen as it is. The answer still replaces the panel whole, so "keep" means "return it unchanged".
@@ -70,7 +70,7 @@ allows, a draw function per screen — and touches nothing else.
 
 A file is named as a person finds it in a checkout, not by a disk path: the builder's paths are
 workspace-relative, and a library module's `_libraries/<name>/…` is that library's own repository,
-so it reads "`modules/…/ui.yaml` in the `st0` library repository". A disk path would be the server's,
+so it reads "`modules/…/ui.yaml` in the `k7-core` library repository". A disk path would be the server's,
 which a local session cannot reach.
 
 What it gives up is the builder's own check and its undo: the files change in the session's
@@ -91,7 +91,7 @@ where one color means one parameter. A neutral brief gets a neutral panel, and a
 150 identical knobs is the one thing Auto organize already produces.
 
 **No `@` controls.** The engine's stage around the module — `@input-volume`, `@mix`,
-`@output-volume` — is drawn by st0 itself on the second line of the card's header (`packages/ui-chains-react/docs/nodeCard.md`),
+`@output-volume` — is drawn by k7 itself on the second line of the card's header (`packages/ui-chains-react/docs/nodeCard.md`),
 and a lane's controls on its strip, so a panel holds none of them: a knob there would be a second
 control for the same thing, placed wherever the model chose. `atControlIssues` refuses a knob,
 slider, fader or number on any `@` param; a `@base` dropdown is not one of those and stays allowed,

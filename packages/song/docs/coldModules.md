@@ -10,7 +10,7 @@ plugin: { type: jsdsp, name: Normalize }
 
 ## Filed under `cold/`, and never suggested
 
-A cold module lives in its library's **`cold/`** type folder (`@st0/cold/normalize`), with audio in
+A cold module lives in its library's **`cold/`** type folder (`@k7-core/cold/normalize`), with audio in
 and audio out like `audio/`; a separator still names its own outputs. The folder is what keeps it
 out of the module picker and the chain completions (`baseModuleRefs`, `projectHints`). Offered
 there, it would be refused the moment it was wired to a lane, which is where nearly every pick

@@ -26,7 +26,7 @@ const DEMOS = join(
   "..",
   "demos",
 );
-const SONG = join(DEMOS, "synth-demo.st0");
+const SONG = join(DEMOS, "synth-demo.k7");
 
 let ws: string;
 let dir: string;

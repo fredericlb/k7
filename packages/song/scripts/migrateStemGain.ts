@@ -1,7 +1,7 @@
 // migrateStemGain.ts — take the `stemcut` module out of a set: a stem's level moves onto the
 // PLATTER that reads it.
 //
-//   npx tsx packages/song/scripts/migrateStemGain.ts <projet.st0> [more…] [--write]
+//   npx tsx packages/song/scripts/migrateStemGain.ts <projet.k7> [more…] [--write]
 //
 // `stemcut` compiled to `gain(Level)`, one multiply, sitting immediately after a node that already
 // had a linear `Gain` over the same 0..2 with the same rest at 1. Two gains in series. See
@@ -36,7 +36,7 @@ const write = args.includes("--write");
 const roots = args.filter((a) => !a.startsWith("--"));
 if (!roots.length) {
   console.error(
-    "usage: migrateStemGain <projet.st0> [more…] [--write]   (dry run without --write)",
+    "usage: migrateStemGain <projet.k7> [more…] [--write]   (dry run without --write)",
   );
   process.exit(2);
 }
@@ -202,6 +202,6 @@ for (const dir of roots) {
 
 console.log(
   `${changed}/${seen} set(s) ${write ? "migrated" : "would change"}. ` +
-    "`@st0/audio/separation/stemcut` can then be dropped from the account's library — nothing " +
+    "`@k7-core/audio/separation/stemcut` can then be dropped from the account's library — nothing " +
     "names it any more (packages/song-schema/docs/stems.md).",
 );

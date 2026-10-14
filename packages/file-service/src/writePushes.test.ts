@@ -62,7 +62,7 @@ const sentCount = () => built.reduce((n, c) => n + c.sent.length, 0);
 
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), "fs-write-push-"));
-  proj = join(root, "song.st0");
+  proj = join(root, "song.k7");
   mkdirSync(join(proj, "nodes"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
   writeFileSync(
@@ -79,7 +79,7 @@ beforeEach(async () => {
     plugin: { type: "internal", name: "Chorus" },
   });
   ws = new Workspace(root);
-  ws.setActiveProject("song.st0");
+  ws.setActiveProject("song.k7");
   setSelectedEngine("ws://127.0.0.1:1/");
 
   const app = express();
@@ -111,7 +111,7 @@ const write = (path: string, content: string) =>
 it("pushes the project when a source write changes it", async () => {
   const before = sentCount();
   await write(
-    "song.st0/nodes/gtr.yaml",
+    "song.k7/nodes/gtr.yaml",
     'extends: "@meta/track"\nevents: []\n# edited\n',
   );
   expect(sentCount()).toBeGreaterThan(before);
@@ -119,12 +119,12 @@ it("pushes the project when a source write changes it", async () => {
 
 it("pushes again for a second, different edit", async () => {
   await write(
-    "song.st0/nodes/gtr.yaml",
+    "song.k7/nodes/gtr.yaml",
     'extends: "@meta/track"\nevents: []\n# one\n',
   );
   const after1 = sentCount();
   await write(
-    "song.st0/nodes/gtr.yaml",
+    "song.k7/nodes/gtr.yaml",
     'extends: "@meta/track"\nevents: []\n# two\n',
   );
   expect(sentCount()).toBeGreaterThan(after1);
@@ -140,9 +140,9 @@ it("does NOT push for a write OUTSIDE the active project", async () => {
 it("pushes a same-bytes rewrite too, because the token counts the mtime", async () => {
   // Stated rather than fixed: `POST /command` gates on the very same comparison (docs/fileRoutes.md).
   const text = 'extends: "@meta/track"\nevents: []\n# same\n';
-  await write("song.st0/nodes/gtr.yaml", text);
+  await write("song.k7/nodes/gtr.yaml", text);
   const settled = sentCount();
-  await write("song.st0/nodes/gtr.yaml", text);
+  await write("song.k7/nodes/gtr.yaml", text);
   expect(sentCount()).toBeGreaterThan(settled);
 });
 
@@ -156,7 +156,7 @@ const step = (dir: "undo" | "redo") =>
 it("pushes after an undo and after a redo, which rewrite the project's files", async () => {
   // The bug this pins: an event restored by Ctrl+Z was on disk and on screen, and silent until the next edit.
   await write(
-    "song.st0/nodes/gtr.yaml",
+    "song.k7/nodes/gtr.yaml",
     'extends: "@meta/track"\nevents: []\n# to undo\n',
   );
   const beforeUndo = sentCount();

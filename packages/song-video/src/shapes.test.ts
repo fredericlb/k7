@@ -15,7 +15,7 @@ let root = "";
 let dir = "";
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "shape-"));
-  dir = join(root, "film.st0");
+  dir = join(root, "film.k7");
   mkdirSync(dir, { recursive: true });
 });
 afterEach(() => {
@@ -37,7 +37,7 @@ function module(name: string, body: string) {
 const BOX =
   "type: shape\nshape: square\ncolor: '#e2b53a'\nparams:\n  x: 40\n  y: 60\n  w: 200\n  h: 120\n";
 const TITLE =
-  "type: shape\nshape: text\ncontent: st0\nfont: sans-serif\ncolor: '#ffffff'\nparams:\n  x: 10\n  y: 20\n  font_size: 72\n";
+  "type: shape\nshape: text\ncontent: k7\nfont: sans-serif\ncolor: '#ffffff'\nparams:\n  x: 10\n  y: 20\n  font_size: 72\n";
 
 /** A project with one picture lane, and whatever graph the case is about. */
 function project(graph: string) {
@@ -89,7 +89,7 @@ describe("a shape wired to a picture lane", () => {
       {
         id: "title",
         type: "text",
-        content: "st0",
+        content: "k7",
         font: "sans-serif",
         fontSize: 72,
         x: 10,

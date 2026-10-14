@@ -1,14 +1,14 @@
 # The client side of the seams
 
-`src/api.ts` is everything the screens ask of the library's backend — st0's backend, whose routes
-are `apps/st0/backend/docs/media/`. An engine's machine is never called from here: what the library
+`src/api.ts` is everything the screens ask of the library's backend — k7's backend, whose routes
+are `apps/k7/backend/docs/media/`. An engine's machine is never called from here: what the library
 needs of one goes through the backend, which reaches it through the engine's tunnel. This page holds
 the reasoning; the file itself keeps one line per fact.
 
 ## `apiBase()`, read at call time
 
 Every path is `apiBase()` + `/api/…`, and `apiBase()` is what the host set through
-`configureLibrary` ([host.md](host.md)). st0 sets its own `BASE`, the routes being on its origin.
+`configureLibrary` ([host.md](host.md)). k7 sets its own `BASE`, the routes being on its origin.
 Read at call time rather than captured at import, because the host configures the module after its
 imports have run, and a captured base is the empty string forever. Every backend path concatenates
 it, including the ones that would read fine bare: a path that concatenates nothing is a path that
@@ -93,8 +93,8 @@ removing a folder is never something a caller does by accident while meaning to 
 ## What this file does NOT ask for
 
 - **`/api/shares`.** The routes are the library's — the shares' bytes and comments are on its
-  volume — but nothing here calls them: the screen that draws them is st0's home page
-  (`apps/st0/frontend/docs/projects.md`).
+  volume — but nothing here calls them: the screen that draws them is k7's home page
+  (`apps/k7/frontend/docs/projects.md`).
 - **A module's vocabulary and a plugin scan.** Both belong to whoever authors a module, and that
   is the editor: a module is written against a project where the plugin it names is actually
   LOADED, and only a loaded plugin can say what its parameters are called. Nothing on these screens

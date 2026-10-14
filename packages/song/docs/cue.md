@@ -15,14 +15,14 @@ modules:
 ```
 
 This is what a two-deck desk needs to be one: cueing deck B while A is playing. See
-[packages/st0-plugins/docs/turntables/cue.md](../../../packages/st0-plugins/docs/turntables/cue.md).
+[packages/k7-plugins/docs/turntables/cue.md](../../../packages/k7-plugins/docs/turntables/cue.md).
 
 ## What it settles, and what it does NOT
 
 The engine has **one** transport, and cueing never asked for two: both decks already play **at the
 same time** on the timeline, and the crossfader decides what the room hears. Only a second output was
 missing. Out of reach with a single transport: starting a deck independently, and a cue point that
-moves only that deck. See [packages/st0-plugins/docs/turntables/mix.md](../../../packages/st0-plugins/docs/turntables/mix.md).
+moves only that deck. See [packages/k7-plugins/docs/turntables/mix.md](../../../packages/k7-plugins/docs/turntables/mix.md).
 
 ## `OUT` is a notation; `CUE` is a real destination
 
@@ -66,7 +66,7 @@ signal it. That is the failure you do not want to discover in public.
 
 The third is not belt-and-braces: track routing is a **playback** notion, and `tracksToDo` does not
 consult it. Without it a delivered mixdown contains the headphone feed. See
-[engine/st0-engine/docs/cueOutput.md](../../../engine/st0-engine/docs/cueOutput.md).
+[engine/k7-runtime/docs/cueOutput.md](../../../engine/k7-runtime/docs/cueOutput.md).
 
 ## The CUE button is not a switch
 
@@ -90,8 +90,8 @@ and both `fadeA` and `cueA` become separate buses. Which forces the **dry** path
 ## Migrating a set that has none
 
 ```bash
-npx tsx packages/song/scripts/migrateSetCue.ts <project.st0> [others…]
-npx tsx packages/song/scripts/migrateSetCue.ts <project.st0> --write
+npx tsx packages/song/scripts/migrateSetCue.ts <project.k7> [others…]
+npx tsx packages/song/scripts/migrateSetCue.ts <project.k7> --write
 ```
 
 Dry by default, idempotent, and through the `yaml` package's `Document` API — the scaffold's comments
@@ -123,12 +123,12 @@ a fresh scaffold, so the fixture cannot drift from the template.
 | applied | `routeTrackOutput` — from `populateEdit` AND from the live diff |
 | diffed | `ChangeKind::TrackOutputChanged` — applied in place, no rebuild |
 | excluded | `tracksOnTheMix()` in `OfflineRender.cpp` |
-| measured | `engine/st0-engine/scripts/cue-bus.ts` |
+| measured | `engine/k7-runtime/scripts/cue-bus.ts` |
 
 ## Checking it
 
 ```bash
-npx tsx engine/st0-engine/scripts/cue-bus.ts
+npx tsx engine/k7-runtime/scripts/cue-bus.ts
 ```
 
 Two sources, one on the mix and one on the cue, rendered changing nothing but the cue bus's

@@ -1,5 +1,5 @@
-// The `library …` verbs: the pin moves to the newest version this st0 runs, a version that needs a
-// newer st0 is refused by name, a version this machine lacks is asked of the host, and the forks
+// The `library …` verbs: the pin moves to the newest version this k7 runs, a version that needs a
+// newer k7 is refused by name, a version this machine lacks is asked of the host, and the forks
 // whose base changed are named — the fork itself never touched.
 
 import {
@@ -25,7 +25,7 @@ const refusals: string[] = [];
 /** A host with a workspace and no project; `fetch` stands in for the hub. */
 const host = (fetch?: (name: string, v: number) => Promise<string | null>) =>
   ({
-    songPath: join(ws, "song.st0"),
+    songPath: join(ws, "song.k7"),
     repoDir: ws,
     project: () => ({ tracks: [], groups: [] }),
     baseModules: [],
@@ -35,13 +35,13 @@ const host = (fetch?: (name: string, v: number) => Promise<string | null>) =>
     fetchLibraryVersion: fetch,
   }) as never;
 
-/** Version `v` of `st0`, needing `requires`, with one module whose plugin is `plugin`. */
+/** Version `v` of `k7`, needing `requires`, with one module whose plugin is `plugin`. */
 function version(v: number, requires: number, plugin: string): void {
-  const at = join(home, "st0", String(v));
+  const at = join(home, "k7-core", String(v));
   mkdirSync(join(at, "modules", "audio", "verb"), { recursive: true });
   writeFileSync(
     join(at, "library.yaml"),
-    `name: st0\nversion: ${v}\nrequires: ${requires}\n`,
+    `name: k7-core\nversion: ${v}\nrequires: ${requires}\n`,
   );
   writeFileSync(
     join(at, "modules", "audio", "verb", "module.yaml"),
@@ -66,9 +66,9 @@ beforeEach(() => {
   mkdirSync(join(ws, "_modules", "audio", "my-verb"), { recursive: true });
   writeFileSync(
     join(ws, "_modules", "audio", "my-verb", "module.yaml"),
-    'extends: "@st0/audio/verb"\n',
+    'extends: "@k7-core/audio/verb"\n',
   );
-  writeFileSync(join(ws, "_library-pins.yaml"), "st0: 1\n");
+  writeFileSync(join(ws, "_library-pins.yaml"), "k7-core: 1\n");
 });
 afterEach(() => {
   process.env.STUDIO_LIBRARIES_HOME = env;
@@ -78,47 +78,47 @@ afterEach(() => {
 });
 
 describe("library upgrade", () => {
-  it("moves to the newest version this st0 runs, and names the fork whose base changed", async () => {
-    await runCommand("library upgrade st0", host(), "cli");
+  it("moves to the newest version this k7 runs, and names the fork whose base changed", async () => {
+    await runCommand("library upgrade k7-core", host(), "cli");
     expect(refusals).toEqual([]);
-    expect(pins()).toBe("st0: 2\n");
+    expect(pins()).toBe("k7-core: 2\n");
     expect(logs).toEqual([
-      "@st0: 1 → 2",
-      "  _modules/audio/my-verb extends @st0/audio/verb, which changed",
+      "@k7-core: 1 → 2",
+      "  _modules/audio/my-verb extends @k7-core/audio/verb, which changed",
     ]);
     expect(
       readFileSync(
         join(ws, "_modules", "audio", "my-verb", "module.yaml"),
         "utf8",
       ),
-    ).toBe('extends: "@st0/audio/verb"\n');
+    ).toBe('extends: "@k7-core/audio/verb"\n');
   });
 
-  it("refuses a version that needs a newer st0, and leaves the pin alone", async () => {
-    await runCommand("library upgrade st0 3", host(), "cli");
-    expect(refusals[0]).toMatch(/needs st0 level 99/);
-    expect(pins()).toBe("st0: 1\n");
+  it("refuses a version that needs a newer k7, and leaves the pin alone", async () => {
+    await runCommand("library upgrade k7-core 3", host(), "cli");
+    expect(refusals[0]).toMatch(/needs k7 level 99/);
+    expect(pins()).toBe("k7-core: 1\n");
   });
 
   it("asks the host for a version this machine lacks, and refuses with its reason", async () => {
     const asked: string[] = [];
     await runCommand(
-      "library upgrade st0 4",
+      "library upgrade k7-core 4",
       host(async (name, v) => {
         asked.push(`${name} ${v}`);
         return "the origin cannot be reached";
       }),
       "cli",
     );
-    expect(asked).toEqual(["st0 4"]);
-    expect(refusals).toEqual(["@st0 4: the origin cannot be reached"]);
-    expect(pins()).toBe("st0: 1\n");
+    expect(asked).toEqual(["k7-core 4"]);
+    expect(refusals).toEqual(["@k7-core 4: the origin cannot be reached"]);
+    expect(pins()).toBe("k7-core: 1\n");
   });
 
   it("lists what each library plays and what is ready", async () => {
     await runCommand("library versions", host(), "cli");
     expect(logs).toEqual([
-      "@st0: plays 1; here 1, 2, 3 (needs level 99) — 2 is ready: library upgrade st0",
+      "@k7-core: plays 1; here 1, 2, 3 (needs level 99) — 2 is ready: library upgrade k7-core",
     ]);
   });
 });

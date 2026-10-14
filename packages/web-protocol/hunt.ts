@@ -1,6 +1,6 @@
 // hunt.ts — the contract for pl8's "trouver des morceaux": one row of the search history, as
 // the backend writes it and the screen draws it. Here rather than in either half because both
-// read the same rows. See apps/st0/backend/docs/media/hunt.md.
+// read the same rows. See apps/k7/backend/docs/media/hunt.md.
 
 /** Four states in three colours: `done` green, `searching` and `downloading` blue, `failed` red. */
 export type HuntStatus = "searching" | "downloading" | "done" | "failed";

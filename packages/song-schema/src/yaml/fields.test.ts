@@ -40,7 +40,7 @@ describe("derived module fields", () => {
       "source", // …and the OTHER kind of source: an io "file" reads audio off disk
       "monitor",
       "gain", // the other thing an input does to its signal, beside whether you hear it
-      "mix", // the engine's dry/wet around an effect — engine/st0-engine/docs/mix.md
+      "mix", // the engine's dry/wet around an effect — engine/k7-runtime/docs/mix.md
       "input_volume", // …and its levels on the same stage
       "output_volume",
       // The named .vstpreset a module starts from, out of its own `base/` — see docs/userPresets.md.

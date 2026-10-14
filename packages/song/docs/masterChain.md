@@ -76,7 +76,7 @@ and removes in place: reshaping the mix bus is a decision taken between two take
 
 Turning a master module's knob or bypassing it does NOT: those are applied in place, like a
 track's, since a rebuild for a knob costs seconds and cuts every tail
-(`engine/st0-engine/docs/projectDiff.md`).
+(`engine/k7-runtime/docs/projectDiff.md`).
 
 **Order** is part of the comparison: swapping the compressor and the EQ leaves both keys present
 and changes the sound, so an unordered comparison would conclude "nothing moved".
@@ -107,7 +107,7 @@ as soon as something reaches the sum — and the verb writes it before inserting
 its promise of a single command.
 
 The scaffolds write it — `scaffold.ts`, `scaffoldSet.ts` and `scaffoldLive.ts`, the last of which
-is also what the bench opens on (`apps/st0/backend/docs/media/banc.md`).
+is also what the bench opens on (`apps/k7/backend/docs/media/banc.md`).
 
 One detail `validate()` has to carry: `from: MIX` is accepted. The sum is neither a track nor a
 chain, it is where all of them arrive, and refusing it warns **every** project at once about the
@@ -119,8 +119,8 @@ one line that is always right.
 rewrite the destinations, then add the run if it is missing:
 
 ```bash
-npx tsx packages/song/scripts/migrateMixOut.ts <project.st0>   # or a folder of projects
-npx tsx packages/song/scripts/migrateMixOut.ts <project.st0> --dry
+npx tsx packages/song/scripts/migrateMixOut.ts <project.k7>   # or a folder of projects
+npx tsx packages/song/scripts/migrateMixOut.ts <project.k7> --dry
 ```
 
 The two steps are **independent**: a project already naming `MIX` passes the first guard and still
@@ -140,11 +140,11 @@ sound**. It brings the file back in line with what the words mean, before a real
 | derived | `chainsGraph.ts`: `MIX` starts a run, like `@in` and like a track |
 | compiled | `nodeProject.ts`: that run's owner is `@master`, and its steps become `masterPlugins` |
 | the wire | `@studio/engine-protocol`'s `ProjectDoc.masterPlugins` — always sent, empty by default |
-| decoded | `docFromJson` in `engine/st0-engine/server/DocJson.cpp` (via `pluginFromJson`, shared with tracks) |
+| decoded | `docFromJson` in `engine/k7-runtime/server/DocJson.cpp` (via `pluginFromJson`, shared with tracks) |
 | placed | `populateMasterChain` in `EditBuilder.cpp`, at the head of the master list — followed by the output gain |
 | drawn | the graph's `MIX` and `OUT` cards (`MAIN_OUT_UI` in `@studio/ui-chains`), the second with its fader |
 | diffed | `ChangeKind::MasterChainChanged` — full rebuild; a knob or a bypass is `PluginParamChanged` / `PluginEnabledChanged`, in place |
-| measured | `engine/st0-engine/scripts/master-chain.ts` |
+| measured | `engine/k7-runtime/scripts/master-chain.ts` |
 
 One nuance on the drawing side: **the graph draws no cable TO `MIX`**. Every track arrives there —
 that is what the mixer is — so those arrows would say nothing the shape does not already say, one
@@ -165,7 +165,7 @@ The TypeScript suites prove the document, the C++ suite proves the diff, and **n
 plugin landed on the bus**. That is what the harness measures:
 
 ```bash
-npx tsx engine/st0-engine/scripts/master-chain.ts
+npx tsx engine/k7-runtime/scripts/master-chain.ts
 ```
 
 It renders the same note twice changing only `masterPlugins`, and compares the peaks. With a

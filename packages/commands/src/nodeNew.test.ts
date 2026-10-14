@@ -34,7 +34,7 @@ const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-new-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
@@ -202,7 +202,11 @@ describe("node new", () => {
   });
 
   it("refuses a whole ref that resolves to nothing, writing no node", async () => {
-    await runCommand("node new @st0/instruments/st0-rack kit", host(), "cli");
+    await runCommand(
+      "node new @k7-core/instruments/k7-rack kit",
+      host(),
+      "cli",
+    );
     expect(logs.join("\n")).toContain("not a module this project can see");
     expect(existsSync(join(dir, "nodes", "kit.yaml"))).toBe(false);
   });

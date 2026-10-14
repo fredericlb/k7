@@ -1,7 +1,7 @@
 # The live sync relay
 
 `syncRelay.ts` orders the batches of every replica of an account's workspace and relays them, at
-`/api/sync` on st0's backend. The ordering itself is `@studio/live-sync`'s Room
+`/api/sync` on k7's backend. The ordering itself is `@studio/live-sync`'s Room
 (`../../live-sync/docs/sync.md`). The plan is `../../../docs/live-sync-plan.md`, phases 3, 5 and 6.
 
 ## In the hub, and authenticated by the hub's own secret
@@ -28,7 +28,7 @@ account's rooms.
 The token comes from the origin's `GET /api/sync/devices/pair`, which a desktop opens in the system
 browser: it signs the browser in when it must, mints a device token named after the machine, and
 redirects to a loopback `return` only (`isLoopbackReturn`, the same rule as the API token's pairing).
-The desktop's side is `apps/st0-standalone/docs/sync.md`. A paired account's service starts with the
+The desktop's side is `apps/k7-standalone/docs/sync.md`. A paired account's service starts with the
 hub and is never stopped for idleness, and pairing restarts it so it dials the new relay.
 
 ## Every workspace a replica, and the rooms say which exist
@@ -38,7 +38,7 @@ opened would otherwise neither send nor receive. On each connect it asks `GET /a
 (`../roomsRoute.ts`, the same token or secret as the socket) which workspaces the account has. The
 origin's own service creates and joins the ones it lacks at once, since the server holds them all; a
 paired machine only lists them, and joins one when the person downloads it
-(`../../../apps/st0-standalone/docs/sync.md`). Either way the relay's first answer fills it. A room left with no file — a workspace removed everywhere — is not offered, so the
+(`../../../apps/k7-standalone/docs/sync.md`). Either way the relay's first answer fills it. A room left with no file — a workspace removed everywhere — is not offered, so the
 machine that removed it does not bring it back. `Examples` is never synced: every build stocks its
 own on every replica.
 
@@ -87,7 +87,7 @@ where it would otherwise wait for its next `/revision` poll.
   touched, how many ops it set aside (`parked`) and how many conflicts it settled (`settled`). The page
   reads the files through the file hub as it always does, so the stream adds no second path to a
   file's contents and no second permission check.
-- **Per account, in this process.** The relay and the browsers' streams are both st0's backend, so the
+- **Per account, in this process.** The relay and the browsers' streams are both k7's backend, so the
   fan-out is a set of open responses per account; a comment every 20 s keeps an idle stream through a
   proxy's timeout, and an account may hold 32 streams at most, one per tab.
 - **A lost notice costs speed, not correctness.** Nothing is replayed to a page that reconnects: the

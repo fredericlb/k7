@@ -40,11 +40,11 @@ steps:
   - { id: lane-gtr, track: gtr }
   # the touch wah
   - id: w1
-    extends: "@st0/audio/wah"
+    extends: "@k7-core/audio/wah"
     params:
       Freq: 1
   - id: d1
-    extends: "@st0/audio/delay"
+    extends: "@k7-core/audio/delay"
     vstpreset: shared.vstpreset
   - to:
       - { chain: MIX }

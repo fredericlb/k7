@@ -51,7 +51,7 @@ export type {
 export type BeginActivity = (name: string) => () => void;
 const noActivity: BeginActivity = () => () => {};
 
-/** Add up work by name, for a host that watches for stalls — see apps/st0/frontend/docs/shell.md. */
+/** Add up work by name, for a host that watches for stalls — see apps/k7/frontend/docs/shell.md. */
 export type Tally = (name: string, ms: number, bytes?: number) => void;
 const noTally: Tally = () => {};
 
@@ -305,7 +305,7 @@ export class EngineClient {
       // The device's key before anything: over the LAN the engine answers nothing else until it sees one (docs/pairing.md).
       const pair = pairFrameFor(url);
       if (pair) ws.send(pair);
-      // Say we DRIVE this session first: the engine frees a project whose last driver left — see engine/st0-engine/docs/sessions.md.
+      // Say we DRIVE this session first: the engine frees a project whose last driver left — see engine/k7-runtime/docs/sessions.md.
       this.sendNow({ type: "hello", role: "driver" });
       // The project FIRST: the subscriptions and the queue below are about a document a restarted engine does not have yet.
       if (this.lastProject)
@@ -597,7 +597,7 @@ export class EngineClient {
       vel: Math.max(0, Math.min(1, vel)),
     });
   }
-  /** A keyboard PLAYED into a track's chain: one channel message, held until its own note-off — engine/st0-engine/docs/protocol.md. */
+  /** A keyboard PLAYED into a track's chain: one channel message, held until its own note-off — engine/k7-runtime/docs/protocol.md. */
   liveMidi(track: string, data: readonly number[]): void {
     const msg = { type: "midi-live", track, data: [...data] };
     // Played notes are for now and are dropped while the link is down; what ENDS a note is kept, or it would hang.
@@ -609,7 +609,7 @@ export class EngineClient {
    * what makes this usable in a rig that never presses play. `on` omitted TOGGLES that node —
    * and that node only. `save` is not here: the engine's job ends at a wav on disk, and sending
    * it anywhere is the file service's, which runs on the machine the file is on.
-   * See engine/st0-engine/docs/recorder.md.
+   * See engine/k7-runtime/docs/recorder.md.
    */
   recorder(node: string, action: "record" | "clear", on?: boolean): void {
     const msg = {

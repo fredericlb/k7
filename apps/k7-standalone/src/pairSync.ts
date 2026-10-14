@@ -1,0 +1,141 @@
+// pairSync.ts — pair this machine's signed-in account with the ORIGIN's relay, once, through the system browser:
+// the origin mints a device token and sends it to a loopback port, and the local backend keeps it for that account.
+// The token never passes through a window: a page could be anything. See docs/sync.md.
+
+import { randomBytes } from "node:crypto";
+import { createServer, type Server } from "node:http";
+import { hostname } from "node:os";
+import { line } from "@frediverse/electron-shell/log";
+import {
+  SYNC_PAIR_RETURN_PATH,
+  SYNC_RELAY_PATH,
+  syncPairUrl,
+} from "@studio/web-protocol/pairing";
+import { session, shell } from "electron";
+import { chosenServer } from "./server.ts";
+
+/** A pairing left unfinished in the browser stops listening after this. */
+const WAIT_MS = 10 * 60_000;
+
+const PAGE = (
+  said: string,
+) => `<!doctype html><meta charset="utf-8"><title>k7</title>
+<body style="font:16px system-ui;background:#101114;color:#e4e4e7;display:grid;place-items:center;height:100vh;margin:0">
+<p>${said}</p>`;
+
+/** The server this machine syncs with: the one chosen at sign-in (server.ts). */
+export const syncOrigin = (): string => chosenServer();
+
+/** The relay's socket at a server's origin: `https://st0.app` → `wss://st0.app/api/sync`. */
+const relayOf = (origin: string): string =>
+  `${origin.replace(/^http/, "ws")}${SYNC_RELAY_PATH}`;
+
+/** The host a relay or server URL names, for comparing a pairing with the server chosen. */
+const hostOf = (url: string): string => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "";
+  }
+};
+
+let pending: Server | null = null;
+/** Account and server pairs asked this run: a pairing the person closed is not reopened at every cookie change. */
+const asked = new Set<string>();
+
+/** Through the app's own session, so the local backend knows which account is asking. */
+async function local<T>(
+  k7: string,
+  path: string,
+  init?: RequestInit,
+): Promise<T | null> {
+  const r = await session.defaultSession
+    .fetch(`${k7}${path}`, init)
+    .catch(() => null);
+  return r?.ok ? ((await r.json()) as T) : null;
+}
+
+/** Pair the account signed in here, unless it is the local user, already paired, or already asked this run. */
+export async function pairIfNeeded(k7: string): Promise<void> {
+  const me = await local<{ user?: { email?: string; local?: boolean } }>(
+    k7,
+    "/auth/me",
+  );
+  const email = me?.user?.email;
+  if (!email || me?.user?.local || asked.has(`${email} ${syncOrigin()}`))
+    return;
+  const remote = await local<{ paired: boolean; url: string | null }>(
+    k7,
+    "/api/sync/remote",
+  );
+  if (!remote) return;
+  // Paired with the server chosen: nothing to do. With another one, that pairing stays until the new one replaces it.
+  if (
+    remote.paired &&
+    remote.url &&
+    hostOf(remote.url) === hostOf(syncOrigin())
+  )
+    return;
+  asked.add(`${email} ${syncOrigin()}`);
+  pending?.close();
+  const state = randomBytes(16).toString("base64url");
+  const server = createServer((req, res) => {
+    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+    const p = url.searchParams;
+    if (url.pathname !== SYNC_PAIR_RETURN_PATH || p.get("state") !== state) {
+      res.writeHead(404).end();
+      return;
+    }
+    server.close();
+    pending = null;
+    // The browser may be signed in to the origin as someone else: their token must not sync this account.
+    if (p.get("identity") !== email) {
+      line(
+        "app",
+        `sync pairing refused: the browser is signed in as ${p.get("identity")}, not ${email}`,
+      );
+      res
+        .writeHead(409, { "Content-Type": "text/html; charset=utf-8" })
+        .end(
+          PAGE(
+            `The browser is signed in to k7 as another account. Sign in there as ${email} and try again.`,
+          ),
+        );
+      return;
+    }
+    res
+      .writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
+      .end(
+        PAGE("This machine now syncs your workspaces. You can close this tab."),
+      );
+    void local(k7, "/api/sync/remote", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      // The relay is reached where the person chose the server, whatever host a proxy showed the origin.
+      body: JSON.stringify({
+        url: relayOf(syncOrigin()),
+        token: p.get("token"),
+      }),
+    }).then((done) =>
+      line(
+        "app",
+        done
+          ? `sync paired with ${syncOrigin()}`
+          : "sync pairing could not be stored",
+      ),
+    );
+  });
+  pending = server;
+  server.listen(0, "127.0.0.1", () => {
+    const address = server.address();
+    if (!address || typeof address === "string") return;
+    const back = `http://127.0.0.1:${address.port}${SYNC_PAIR_RETURN_PATH}`;
+    void shell.openExternal(syncPairUrl(syncOrigin(), back, state, hostname()));
+  });
+  setTimeout(() => {
+    if (pending === server) {
+      server.close();
+      pending = null;
+    }
+  }, WAIT_MS).unref();
+}

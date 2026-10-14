@@ -14,7 +14,7 @@ export interface RecordingCtx {
   baseEnvelope?: Envelope;
   /** Present for a stream that needs tearing down: the WebRTC connection, or the chain's listener. */
   rtc?: { close: () => void };
-  /** Recorded through a chain of st0's library, whose panel stays mounted for the take. */
+  /** Recorded through a chain of k7's library, whose panel stays mounted for the take. */
   chain?: boolean;
 }
 

@@ -129,11 +129,11 @@ name), so there is nothing here to divert — seeing it would mean reading the g
 time. A separation is asked for by naming the library chain that holds it, which is where
 `stemsplit` lives anyway.
 
-**A library's**, under its name: `@st0/live/vocal-strip`, or `@st0/vocal-strip` by bare name —
+**A library's**, under its name: `@k7-core/live/vocal-strip`, or `@k7-core/vocal-strip` by bare name —
 `@drums/kit/room` for another library. The project is asked first and a library only under its
 `@<name>/`, so a project chain can never be shadowed by a library one that happens to share its
 name. A name with no `@` that no project chain answers is looked for in every library, the default
-`st0` first: that is what a bare chain name meant before libraries had names.
+`k7` first: that is what a bare chain name meant before libraries had names.
 
 A library chain is a TEMPLATE — one file, `<library>/chains/<path>.yaml`, written as a project's
 chain is and ending at `@out` (`@studio/song`'s `docs/sharedFolders.md` has the layout and why) —
@@ -142,7 +142,7 @@ the machine's médiathèque cache. `@studio/song`'s `libraryChains.ts` is the on
 command, the bench and the chains builder alike: it walks every library's `chains/`, reads the
 folder layout a clone may still hold as well, and hands back the steps in order. A library with no
 `chains/`, or none cloned at all, is an empty list, never a throw. Each step is resolved through
-the project's module vocabulary, so `extends: "@st0/audio/eq"` arrives with the eq's plugin, params
+the project's module vocabulary, so `extends: "@k7-core/audio/eq"` arrives with the eq's plugin, params
 and preset folded in. A **bypassed** step is in the template and out of the signal, so a bounce
 skips it.
 
@@ -209,7 +209,7 @@ plugin at all (`@studio/song`'s [coldModules.md](../../song/docs/coldModules.md)
   at; the four stems land in `stems/` beside the source, where the médiathèque already looks for
   them (`packages/rehearsal-server/docs/audio.md`). What changes is the workspace, not the project — the run still
   reports `changed`, because the tree has four new files in it.
-- **It runs before the engine check**, and needs no `st0-engine`: a separation is ffmpeg and a
+- **It runs before the engine check**, and needs no `k7-runtime`: a separation is ffmpeg and a
   model, not a bounce.
 - **The running is handed in**, `CommandHost.runColdStep` (`coldPass.ts`'s `RunColdStep`). The
   166 MB model lives in `@studio/file-service`, which depends on this package, so importing it
@@ -228,13 +228,13 @@ one file:
 ```yaml
 # <library>/chains/stems.yaml
 steps:
-  - { id: 69d0d198-…, extends: "@st0/cold/stemsplit" }
+  - { id: 69d0d198-…, extends: "@k7-core/cold/stemsplit" }
   - to: [ { chain: "@out" } ]
 ```
 
-…and then `clip process riff @st0/stems`.
+…and then `clip process riff @k7-core/stems`.
 
-**Name it once with `system stems @st0/stems`.** Which chain separates is a standing answer — the
+**Name it once with `system stems @k7-core/stems`.** Which chain separates is a standing answer — the
 same for every playlist, every set and every clip — so it lives in `<state>/preferences.yaml`
 beside the rig's other ones, and `playlist stems` and `POST /stems` read it rather than asking. The
 verb checks, when it is set, that the chain really separates: the cheap moment to find that out is

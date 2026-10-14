@@ -26,7 +26,7 @@ function engineDefaultGraph(): GraphJson {
       "..",
       "..",
       "engine",
-      "st0-engine",
+      "k7-runtime",
       "engine",
       "GraphDspPlugin.cpp",
     ),

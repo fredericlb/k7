@@ -21,69 +21,85 @@ beforeEach(() => {
   const tmp = mkdtempSync(join(tmpdir(), "hub-libs-"));
   data = join(tmp, "data");
   seed = join(tmp, "seed");
-  mkdirSync(join(seed, "st0", "modules"), { recursive: true });
-  writeFileSync(join(seed, "st0", "modules", "mix.yaml"), "plugin: mixer\n");
-  mkdirSync(join(seed, "st0", ".git"));
+  mkdirSync(join(seed, "k7-core", "modules"), { recursive: true });
+  writeFileSync(
+    join(seed, "k7-core", "modules", "mix.yaml"),
+    "plugin: mixer\n",
+  );
+  mkdirSync(join(seed, "k7-core", ".git"));
 });
 
 describe("the hub's libraries", () => {
   it("lists the seed's libraries until a list is written, and copies one in on first ask, without its .git", () => {
     const store = new LibraryStore(data, seed);
-    expect(store.settings()).toEqual([{ name: "st0" }]);
-    expect(store.ensure()).toMatchObject([{ name: "st0", state: "seeded" }]);
-    expect(
-      readFileSync(join(store.home, "st0", "1", "modules", "mix.yaml"), "utf8"),
-    ).toBe("plugin: mixer\n");
-    expect(existsSync(join(store.home, "st0", "1", ".git"))).toBe(false);
-    expect(store.versions("st0")).toEqual([
-      { name: "st0", version: 1, requires: 1 },
+    expect(store.settings()).toEqual([{ name: "k7-core" }]);
+    expect(store.ensure()).toMatchObject([
+      { name: "k7-core", state: "seeded" },
     ]);
-    expect(store.ensure()).toMatchObject([{ name: "st0", state: "current" }]);
+    expect(
+      readFileSync(
+        join(store.home, "k7-core", "1", "modules", "mix.yaml"),
+        "utf8",
+      ),
+    ).toBe("plugin: mixer\n");
+    expect(existsSync(join(store.home, "k7-core", "1", ".git"))).toBe(false);
+    expect(store.versions("k7-core")).toEqual([
+      { name: "k7-core", version: 1, requires: 1 },
+    ]);
+    expect(store.ensure()).toMatchObject([
+      { name: "k7-core", state: "current" },
+    ]);
   });
 
   it("moves a library still in one folder into its version 1, leaving no draft until an admin asks", () => {
     const store = new LibraryStore(data, seed);
-    mkdirSync(join(store.home, "st0", "modules"), { recursive: true });
-    writeFileSync(join(store.home, "st0", "modules", "old.yaml"), "x: 1\n");
+    mkdirSync(join(store.home, "k7-core", "modules"), { recursive: true });
+    writeFileSync(join(store.home, "k7-core", "modules", "old.yaml"), "x: 1\n");
     expect(store.ensure()).toMatchObject([
-      { name: "st0", state: "current", note: "moved into version 1" },
+      { name: "k7-core", state: "current", note: "moved into version 1" },
     ]);
     expect(
-      existsSync(join(store.home, "st0", "1", "modules", "old.yaml")),
+      existsSync(join(store.home, "k7-core", "1", "modules", "old.yaml")),
     ).toBe(true);
-    expect(existsSync(join(store.home, "st0", "draft"))).toBe(false);
+    expect(existsSync(join(store.home, "k7-core", "draft"))).toBe(false);
     expect(store.ensure({ draft: true })).toMatchObject([
-      { name: "st0", note: "draft copied from version 1" },
+      { name: "k7-core", note: "draft copied from version 1" },
     ]);
     expect(
-      existsSync(join(store.home, "st0", "draft", "modules", "old.yaml")),
+      existsSync(join(store.home, "k7-core", "draft", "modules", "old.yaml")),
     ).toBe(true);
-    expect(existsSync(join(store.home, "st0", "draft", "library.yaml"))).toBe(
-      false,
-    );
+    expect(
+      existsSync(join(store.home, "k7-core", "draft", "library.yaml")),
+    ).toBe(false);
   });
 
-  it("publishes the draft as the next version, frozen with its manifest, and refuses a level this st0 cannot run", () => {
+  it("publishes the draft as the next version, frozen with its manifest, and refuses a level this k7 cannot run", () => {
     const store = new LibraryStore(data, seed);
     store.ensure({ draft: true });
     writeFileSync(
-      join(store.home, "st0", "draft", "modules", "mix.yaml"),
+      join(store.home, "k7-core", "draft", "modules", "mix.yaml"),
       "plugin: newer\n",
     );
-    expect(store.publish("st0", { requires: 99 })).toMatchObject({
+    expect(store.publish("k7-core", { requires: 99 })).toMatchObject({
       error: expect.stringContaining("level 99"),
     });
-    expect(store.publish("st0", { notes: "louder" })).toMatchObject({
+    expect(store.publish("k7-core", { notes: "louder" })).toMatchObject({
       ok: true,
-      manifest: { name: "st0", version: 2, notes: "louder" },
+      manifest: { name: "k7-core", version: 2, notes: "louder" },
     });
     expect(
-      readFileSync(join(store.home, "st0", "2", "modules", "mix.yaml"), "utf8"),
+      readFileSync(
+        join(store.home, "k7-core", "2", "modules", "mix.yaml"),
+        "utf8",
+      ),
     ).toBe("plugin: newer\n");
     expect(
-      readFileSync(join(store.home, "st0", "1", "modules", "mix.yaml"), "utf8"),
+      readFileSync(
+        join(store.home, "k7-core", "1", "modules", "mix.yaml"),
+        "utf8",
+      ),
     ).toBe("plugin: mixer\n");
-    expect(store.versions("st0").map((m) => m.version)).toEqual([1, 2]);
+    expect(store.versions("k7-core").map((m) => m.version)).toEqual([1, 2]);
     expect(store.publish("drums")).toMatchObject({
       error: "'drums' has no draft to publish",
     });
@@ -91,17 +107,17 @@ describe("the hub's libraries", () => {
 
   it("makes a library the seed does not hold empty, and writes the list", () => {
     const store = new LibraryStore(data, seed);
-    const r = store.set([{ name: "st0" }, { name: "drums" }]);
+    const r = store.set([{ name: "k7-core" }, { name: "drums" }]);
     expect(r).toMatchObject({ ok: true });
     expect(existsSync(join(store.home, "drums"))).toBe(true);
     expect(
       JSON.parse(readFileSync(join(data, "libraries.json"), "utf8")),
     ).toEqual({
-      libraries: [{ name: "st0" }, { name: "drums" }],
+      libraries: [{ name: "k7-core" }, { name: "drums" }],
     });
     expect(store.view().libraries).toEqual([
       {
-        name: "st0",
+        name: "k7-core",
         present: true,
         versions: [{ version: 1, requires: 1 }],
         draft: false,
@@ -117,40 +133,44 @@ describe("the hub's libraries", () => {
 
   it("installs a PUBLISHED seed under its own number, and adds a newer one to a machine that has the library", () => {
     writeFileSync(
-      join(seed, "st0", "library.yaml"),
-      "name: st0\nversion: 3\nrequires: 1\n",
+      join(seed, "k7-core", "library.yaml"),
+      "name: k7-core\nversion: 3\nrequires: 1\n",
     );
     const store = new LibraryStore(data, seed);
-    expect(store.ensure()).toMatchObject([{ name: "st0", state: "seeded" }]);
-    expect(store.versions("st0").map((m) => m.version)).toEqual([3]);
+    expect(store.ensure()).toMatchObject([
+      { name: "k7-core", state: "seeded" },
+    ]);
+    expect(store.versions("k7-core").map((m) => m.version)).toEqual([3]);
     // An app update carries version 4: one more frozen version, nothing else touched.
     writeFileSync(
-      join(seed, "st0", "library.yaml"),
-      "name: st0\nversion: 4\nrequires: 1\n",
+      join(seed, "k7-core", "library.yaml"),
+      "name: k7-core\nversion: 4\nrequires: 1\n",
     );
     expect(store.ensure()).toMatchObject([
       {
-        name: "st0",
+        name: "k7-core",
         state: "seeded",
         note: expect.stringContaining("version 4"),
       },
     ]);
-    expect(store.versions("st0").map((m) => m.version)).toEqual([3, 4]);
-    expect(store.ensure()).toMatchObject([{ name: "st0", state: "current" }]);
+    expect(store.versions("k7-core").map((m) => m.version)).toEqual([3, 4]);
+    expect(store.ensure()).toMatchObject([
+      { name: "k7-core", state: "current" },
+    ]);
   });
 
   it("refuses to publish under a name that is no library", () => {
     const store = new LibraryStore(data, seed);
-    expect(store.publish("../st0")).toEqual({
-      error: "'../st0' names no library",
+    expect(store.publish("../k7")).toEqual({
+      error: "'../k7' names no library",
     });
   });
 
   it("keeps the folder of a library the list dropped: it is the library, not a copy", () => {
     const store = new LibraryStore(data, seed);
-    store.set([{ name: "st0" }, { name: "drums" }]);
-    store.set([{ name: "st0" }]);
-    expect(store.settings()).toEqual([{ name: "st0" }]);
+    store.set([{ name: "k7-core" }, { name: "drums" }]);
+    store.set([{ name: "k7-core" }]);
+    expect(store.settings()).toEqual([{ name: "k7-core" }]);
     expect(existsSync(join(store.home, "drums"))).toBe(true);
   });
 
@@ -159,25 +179,27 @@ describe("the hub's libraries", () => {
     writeFileSync(
       join(data, "libraries.json"),
       JSON.stringify({
-        libraries: [{ name: "st0", uri: "git@example.test:s/st0.git" }],
+        libraries: [{ name: "k7-core", uri: "git@example.test:s/k7.git" }],
       }),
     );
-    expect(new LibraryStore(data).settings()).toEqual([{ name: "st0" }]);
+    expect(new LibraryStore(data).settings()).toEqual([{ name: "k7-core" }]);
   });
 
   it("takes a seed naming its libraries, as a desktop names the submodule's folder", () => {
-    expect(parseSeed(`st0=${join(seed, "st0")}, Bad=x`)).toEqual(
-      new Map([["st0", join(seed, "st0")]]),
+    expect(parseSeed(`k7-core=${join(seed, "k7-core")}, Bad=x`)).toEqual(
+      new Map([["k7-core", join(seed, "k7-core")]]),
     );
-    const store = new LibraryStore(data, `st0=${join(seed, "st0")}`);
-    expect(store.ensure()).toMatchObject([{ name: "st0", state: "seeded" }]);
+    const store = new LibraryStore(data, `k7-core=${join(seed, "k7-core")}`);
+    expect(store.ensure()).toMatchObject([
+      { name: "k7-core", state: "seeded" },
+    ]);
   });
 
   it("validates a list before anything is made", () => {
     expect(settingsProblem([{ name: "Bad Name" }])).toMatch(
       /cannot name a library/,
     );
-    expect(settingsProblem([{ name: "st0" }, { name: "st0" }])).toMatch(
+    expect(settingsProblem([{ name: "k7-core" }, { name: "k7-core" }])).toMatch(
       /two libraries/,
     );
     const store = new LibraryStore(data, seed);

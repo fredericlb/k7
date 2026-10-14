@@ -6,7 +6,7 @@ plan `../../../docs/live-sync-plan.md`.
 
 ## The relay's log is the history
 
-st0 has no git. Every edit made on any replica already reaches the relay as a batch, and the relay
+k7 has no git. Every edit made on any replica already reaches the relay as a batch, and the relay
 already gives it a place in one order. That ordered log is therefore the only complete account of
 what happened to a workspace, and it is kept whole rather than a second record being built beside
 it. It is this repository's own code on every platform, which a git binary is not.

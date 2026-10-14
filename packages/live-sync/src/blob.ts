@@ -4,7 +4,7 @@
 
 import type { FileOp } from "./ops.ts";
 
-const PREFIX = "\u0000st0fs-blob ";
+const PREFIX = "\u0000k7fs-blob ";
 const REF_TAIL = /^([0-9a-f]{64}) (\d+)\n$/;
 
 /** A blob's identity: the sha256 of its bytes, as lowercase hex, and their length. */

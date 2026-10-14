@@ -153,7 +153,7 @@ export function engines(): Engines {
   return access.engines;
 }
 
-// `/api/projects` and `/api/shares` are this service's routes, called from st0 (../docs/api.md).
+// `/api/projects` and `/api/shares` are this service's routes, called from k7 (../docs/api.md).
 
 /** `/api/hunt`, its own prefix: what answers is a daemon on another machine, not this volume. */
 const hget = async <T>(path: string, what: string): Promise<T> =>

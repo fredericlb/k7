@@ -23,7 +23,7 @@ import { copyAsYaml } from "./testSupport";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEMOS = join(here, "..", "..", "..", "demos");
-const SONG = join(DEMOS, "synth-demo.st0");
+const SONG = join(DEMOS, "synth-demo.k7");
 
 let ws: string;
 let dir: string;
@@ -78,7 +78,7 @@ const plugins = () =>
 
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-jsdsp-"));
-  dir = join(ws, "synth-demo.st0");
+  dir = join(ws, "synth-demo.k7");
   copyAsYaml(SONG, dir, { recursive: true });
   // The Examples workspace's own shared library, beside every demo project.
   copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {

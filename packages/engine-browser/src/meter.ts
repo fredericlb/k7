@@ -1,7 +1,7 @@
 // meter.ts — the arithmetic behind a level meter: dB to a bar's fill, and the two things a bar
 // has to REMEMBER across a pass (whether it clipped, and how loud it got).
 //
-// Here rather than in a component because two apps draw the same meter off the same frames — st0's
+// Here rather than in a component because two apps draw the same meter off the same frames — k7's
 // header and the DJ desk's channel strips — and a second copy of `clipLatch` is a second answer to
 // "is the light still on". Pure functions: the subscription is `useEngineState`'s job, not this file's.
 // See docs/meters.md.

@@ -306,7 +306,7 @@ export const api = {
   versionTrackUrl: (id: string, versionId: string, trackId: string) =>
     `${apiBase()}/api/releases/${id}/versions/${versionId}/tracks/${trackId}`,
 
-  // Mint a personal access token for the st0 CLI (Settings UI).
+  // Mint a personal access token for the k7 CLI (Settings UI).
   getApiToken: (): Promise<{ token: string }> => f("/api/token").then(json),
 
   // --- Pages ---

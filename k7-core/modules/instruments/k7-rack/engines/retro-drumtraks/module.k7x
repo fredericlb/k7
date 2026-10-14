@@ -1,0 +1,27 @@
+// retro-drumtraks — an SFZ kit of k7-rack: Sequential Circuits' Drumtraks, notes 48–59.
+// One octave of Retro Drums, The Tic Tok Men's sampled drum machines ("free use" per its README),
+// cleaned up by S. Christian Collins. One sample per sound: no velocity layers, no round-robins.
+// The kit file holds six machines, one per octave; each is its own engine, drawing only its pads.
+// The samples (~2 MB) are not in the library: the engine's machine fetches them at start-up.
+extends("@engine/sfz-player")
+params({
+  sfz: "@instruments/retro-drums/Tic Tok Men RetroDrums 1.sfz",
+  // Its loudest hit at full velocity peaks at 0 dBFS — the level a rack's normalised samples play at.
+  Volume: 4.2,
+})
+// The pads its panel draws, on the notes the kit file plays them on.
+kit({
+  Kick: 48,
+  HatClosed: 49,
+  Snare: 50,
+  HatOpen: 51,
+  Rimshot: 52,
+  Tom2: 53,
+  Ride: 54,
+  Tom1: 55,
+  Crash: 56,
+  Cowbell: 57,
+  Tambourine: 58,
+  Clap: 59,
+})
+// Sequential Circuits' Drumtraks of 1984: sampled early-80s kit with ride, crash, tambourine and clap — Retro Drums by The Tic Tok Men. Its samples, about 2 MB, download from the k7 tray's Downloads tab.

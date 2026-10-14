@@ -21,11 +21,11 @@ const write = (rel: string, body: string): void => {
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-playlists-"));
-  const proj = join(root, "song.st0");
+  const proj = join(root, "song.k7");
   mkdirSync(proj, { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
   ws = new Workspace(root);
-  ws.setActiveProject("song.st0");
+  ws.setActiveProject("song.k7");
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -70,7 +70,7 @@ describe("Workspace.playlists", () => {
   it("looks beside the active project, not inside it", () => {
     // Rooting the walk at the active project would give a workspace of four songs four set lists.
     write("_playlists/mine.yaml", "items: []\n");
-    write("song.st0/_playlists/not-mine.yaml", "items: []\n");
+    write("song.k7/_playlists/not-mine.yaml", "items: []\n");
     expect(ws.playlists().map((p) => p.path)).toEqual(["_playlists/mine.yaml"]);
   });
 

@@ -3,7 +3,7 @@
     "target": "ES2022",
     "lib": ["ES2023"],
     "module": "ESNext",
-    // Bundler resolution, matching st0-backend and file-service: this service now
+    // Bundler resolution, matching k7-backend and file-service: this service now
     // consumes a `@studio/*` package as raw TypeScript, and those packages import each
     // other the way a bundler resolves. NodeNext rejected their extensionless relative
     // imports — a type-check-only failure, since Node 22 runs the sources either way.

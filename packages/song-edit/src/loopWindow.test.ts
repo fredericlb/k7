@@ -11,7 +11,7 @@ import { materialWindow } from "./materialWindow";
 // The model these exercise: the MATERIAL owns its window, the PLACEMENT its `start` and `loop`.
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.k7");
 const DEMO_MODULES = join(here, "..", "..", "..", "demos", "_modules");
 
 let root: string;
@@ -34,7 +34,7 @@ const melody = () =>
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-loop-"));
-  dir = join(root, "synth-demo.st0");
+  dir = join(root, "synth-demo.k7");
   cpSync(SONG, dir, { recursive: true });
   cpSync(DEMO_MODULES, join(root, "_modules"), { recursive: true });
 });

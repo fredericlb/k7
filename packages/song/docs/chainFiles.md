@@ -21,7 +21,7 @@ start: true
 steps:
   - { id: 0525…, extends: "@meta/IN", channel: [ 2 ] }      # a source first
   - { id: e860…, track: ge.rythm }                          # the lane — tracks/ge.rythm.yaml
-  - { id: 944c…, extends: "@st0/audio/auto-wah", bypass: true }
+  - { id: 944c…, extends: "@k7-core/audio/auto-wah", bypass: true }
   - [ { id: …, extends: … }, { id: …, extends: … } ]        # side by side, summed into the next step
   - to: [ { chain: MIX, level: 1 }, { chain: verb, level: 0.3 } ]
 ```
@@ -49,12 +49,12 @@ A chain may hold **subchains**: steps under an `id`, listed beside the chain's o
 start: true
 steps:
   - { id: lane-1, track: gtr }
-  - { id: amp-1, extends: "@st0/audio/amp" }
+  - { id: amp-1, extends: "@k7-core/audio/amp" }
   - to: [ { chain: wet, level: 0.4 }, { chain: MIX, level: 1 } ]
 subchains:
   - id: wet
     steps:
-      - { id: verb-1, extends: "@st0/audio/verb" }
+      - { id: verb-1, extends: "@k7-core/audio/verb" }
       - to: [ { chain: MIX } ]
 ```
 
@@ -87,13 +87,13 @@ through it in series and on to the parent's next step.
 steps:
   - { id: lane-1, track: gtr }
   - { sub: amp }                       # amp-1, then eq-1, then on to strip-1
-  - { id: strip-1, extends: "@st0/audio/strip" }
+  - { id: strip-1, extends: "@k7-core/audio/strip" }
   - to: [ { chain: MIX } ]
 subchains:
   - id: amp
     steps:
-      - { id: amp-1, extends: "@st0/audio/amp" }
-      - { id: eq-1, extends: "@st0/audio/eq" }
+      - { id: amp-1, extends: "@k7-core/audio/amp" }
+      - { id: eq-1, extends: "@k7-core/audio/eq" }
 ```
 
 Such a subchain is a STRETCH of its parent's run, which decides the rest: it has no `to:` (its output

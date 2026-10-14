@@ -1,4 +1,4 @@
-// The chain source finds the engine by the claim st0 takes on the bench address — the one
+// The chain source finds the engine by the claim k7 takes on the bench address — the one
 // agreement between the two apps, so it is pinned here against the address reader itself.
 
 import type { PublicEngine } from "@studio/web-protocol";
@@ -21,8 +21,8 @@ const engine = (over: Partial<PublicEngine>): PublicEngine => ({
 });
 
 describe("the chain source", () => {
-  it("names the claim st0 takes when it opens the bench on that chain", () => {
-    const at = parseLaunch(`/${BENCH_REPO}/vocals/warm/live.st0`, "st0", "/");
+  it("names the claim k7 takes when it opens the bench on that chain", () => {
+    const at = parseLaunch(`/${BENCH_REPO}/vocals/warm/live.k7`, "k7", "/");
     expect(at && projectClaimKey(at)).toBe(benchClaim("vocals/warm"));
     expect(benchChainOf(at?.project ?? "")).toBe("vocals/warm");
   });
@@ -33,14 +33,14 @@ describe("the chain source", () => {
       heldProjects: [{ holder, project }],
     });
     const list = [
-      engine({ id: "song", ...held("me@x", "@local/ws/song.st0") }),
+      engine({ id: "song", ...held("me@x", "@local/ws/song.k7") }),
       engine({ id: "theirs", ...held("them@x", claim) }),
       // The song is what the listing names, and the bench sits beside it on the same engine.
       engine({
         id: "mine",
-        heldProject: "@local/ws/song.st0",
+        heldProject: "@local/ws/song.k7",
         heldProjects: [
-          { holder: "me@x", project: "@local/ws/song.st0" },
+          { holder: "me@x", project: "@local/ws/song.k7" },
           { holder: "me@x", project: claim },
         ],
       }),

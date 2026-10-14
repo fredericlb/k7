@@ -21,7 +21,11 @@ import { librariesFixture } from "./testSupport";
 let root: string;
 
 /** A chain is a FOLDER holding a graph file; `nodes` are the yaml files beside it. */
-function chain(path: string, nodes: string[] = [], library = "st0"): string {
+function chain(
+  path: string,
+  nodes: string[] = [],
+  library = "k7-core",
+): string {
   const at = join(
     librariesFixture(root, library),
     "chains",
@@ -47,9 +51,9 @@ describe("libraryChainDirs", () => {
     chain("bass/amp");
     chain("gtr/lead/crunch");
     expect(libraryChainDirs().map((c) => c.ref)).toEqual([
-      "@st0/bass/amp",
-      "@st0/di",
-      "@st0/gtr/lead/crunch",
+      "@k7-core/bass/amp",
+      "@k7-core/di",
+      "@k7-core/gtr/lead/crunch",
     ]);
   });
 
@@ -58,7 +62,7 @@ describe("libraryChainDirs", () => {
     chain("kit/room", [], "drums");
     expect(libraryChainDirs().map((c) => [c.ref, c.library, c.path])).toEqual([
       ["@drums/kit/room", "drums", "kit/room"],
-      ["@st0/di", "st0", "di"],
+      ["@k7-core/di", "k7-core", "di"],
     ]);
   });
 
@@ -76,7 +80,7 @@ describe("libraryChainDirs", () => {
     // A folder INSIDE a chain is part of it; walking on would file `di/presets` as a chain of its own.
     mkdirSync(join(at, "presets"), { recursive: true });
     writeFileSync(join(at, "presets", "graph.yaml"), "modules: {}\n");
-    expect(libraryChainDirs().map((c) => c.ref)).toEqual(["@st0/di"]);
+    expect(libraryChainDirs().map((c) => c.ref)).toEqual(["@k7-core/di"]);
   });
 
   it("says nothing rather than throwing when no library has a chains folder", () => {
@@ -94,7 +98,7 @@ describe("libraryChainDirs", () => {
 describe("chainRefParts / findLibraryChain", () => {
   it("reads a BARE ref as the default library's", () => {
     expect(chainRefParts("bass/di")).toEqual({
-      library: "st0",
+      library: "k7-core",
       path: "bass/di",
     });
     expect(chainRefParts("@drums/kit")).toEqual({
@@ -105,15 +109,15 @@ describe("chainRefParts / findLibraryChain", () => {
 
   it("refuses what names no chain folder", () => {
     expect(chainRefParts("@engine/x")).toBeNull();
-    expect(chainRefParts("@st0/../x")).toBeNull();
+    expect(chainRefParts("@k7-core/../x")).toBeNull();
     expect(chainRefParts("")).toBeNull();
   });
 
   it("finds a chain bare or by its library, and not in another library", () => {
     chain("di");
     chain("room", [], "drums");
-    expect(findLibraryChain("di")?.ref).toBe("@st0/di");
-    expect(findLibraryChain("@st0/di")?.ref).toBe("@st0/di");
+    expect(findLibraryChain("di")?.ref).toBe("@k7-core/di");
+    expect(findLibraryChain("@k7-core/di")?.ref).toBe("@k7-core/di");
     expect(findLibraryChain("@drums/room")?.ref).toBe("@drums/room");
     expect(findLibraryChain("room")).toBeUndefined();
     expect(findLibraryChain("@drums/di")).toBeUndefined();
@@ -121,7 +125,7 @@ describe("chainRefParts / findLibraryChain", () => {
 });
 
 /** A chain FILE `chains/<path>.yaml` in `library`, its text as given. */
-function chainFile(path: string, text: string, library = "st0"): string {
+function chainFile(path: string, text: string, library = "k7-core"): string {
   const at = join(librariesFixture(root, library), "chains", `${path}.yaml`);
   mkdirSync(join(at, ".."), { recursive: true });
   writeFileSync(at, text);
@@ -129,8 +133,8 @@ function chainFile(path: string, text: string, library = "st0"): string {
 }
 
 const TWO_STEPS = `steps:
-  - { id: n1, extends: "@st0/audio/comp", params: { Ratio: 0.5 } }
-  - { id: n2, extends: "@st0/audio/eq", bypass: true }
+  - { id: n1, extends: "@k7-core/audio/comp", params: { Ratio: 0.5 } }
+  - { id: n2, extends: "@k7-core/audio/eq", bypass: true }
   - to: [ { chain: "@out" } ]
 `;
 
@@ -141,8 +145,8 @@ describe("chain files", () => {
     expect(
       libraryChainDirs().map((c) => [c.ref, c.layout, c.nodes.length]),
     ).toEqual([
-      ["@st0/di", "folder", 0],
-      ["@st0/vocals/warm", "file", 0],
+      ["@k7-core/di", "folder", 0],
+      ["@k7-core/vocals/warm", "file", 0],
     ]);
   });
 
@@ -162,20 +166,20 @@ describe("chain files", () => {
     expect(steps).toEqual([
       {
         name: "n1",
-        label: "@st0/audio/comp",
-        module: { extends: "@st0/audio/comp", params: { Ratio: 0.5 } },
+        label: "@k7-core/audio/comp",
+        module: { extends: "@k7-core/audio/comp", params: { Ratio: 0.5 } },
       },
       {
         name: "n2",
-        label: "@st0/audio/eq",
-        module: { extends: "@st0/audio/eq" },
+        label: "@k7-core/audio/eq",
+        module: { extends: "@k7-core/audio/eq" },
         bypass: true,
       },
     ]);
   });
 
   it("finds a node's preset in the LIBRARY's vstpresets/, by its id", () => {
-    const lib = librariesFixture(root, "st0");
+    const lib = librariesFixture(root, "k7-core");
     chainFile("vocals/warm", TWO_STEPS);
     mkdirSync(join(lib, "vstpresets"), { recursive: true });
     writeFileSync(join(lib, "vstpresets", "n1.vstpreset"), "x");

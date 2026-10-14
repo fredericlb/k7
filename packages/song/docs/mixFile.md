@@ -2,7 +2,7 @@
 
 ```yaml
 cues:
-  - ref: "@st0/songs/lemo/mante/danse"
+  - ref: "@k7-core/songs/lemo/mante/danse"
     markers: [ 12.5, null, 48.25 ]
 ```
 
@@ -28,7 +28,7 @@ Which songs the set draws on is answered by the **playlist the desk's surface na
 gone.
 
 Of the two documents, the playlist is the better place for a list of songs: it has a SCREEN
-(st0's cog opens it), it can be shared between sets and reused next season, and it is the thing
+(k7's cog opens it), it can be shared between sets and reused next season, and it is the thing
 somebody has already written by hand. What stays here is the half a playlist has nowhere to put:
 **the cues**. A cue belongs to the desk that plays a song rather than to a list other sets read —
 two bands covering the same track drop the needle in two different places, and a playlist
@@ -39,7 +39,7 @@ Everything below describes this file, except the two sections about the CACHE, w
 what the playlist does — kept here because the reasoning is the same one, and it is the reasoning
 that is worth having.
 
-## A ref is `@st0/` plus the médiathèque id, verbatim
+## A ref is `@k7-core/` plus the médiathèque id, verbatim
 
 A `MediatekEntry.id` is the entry's library-relative POSIX path, and the catalogue's own note
 says nothing else survives a rescan — there is no rowid, because there is no database. A ref that
@@ -55,7 +55,7 @@ with one. `graphFile.md` has the same note for module refs, and for the same rea
 
 ### Why it looks a segment longer than a module ref
 
-`@st0/audio/reverb` means `modules/audio/reverb` — a module ref omits its own family. A song ref
+`@k7-core/audio/reverb` means `modules/audio/reverb` — a module ref omits its own family. A song ref
 carries `songs/` because it is the id.
 
 The two are not made consistent: they are read by different files with different functions
@@ -67,7 +67,7 @@ tell them apart at a distance, which is what would make the inconsistency expens
 The list has no running order. The argument is about a SET LIST — which songs you brought, not
 the order you will play them in, the order being a live decision — and it holds for the playlist
 too, whose lines are sorted for display
-([setList.md](../../../packages/st0-plugins/docs/turntables/setList.md)).
+([setList.md](../../../packages/k7-plugins/docs/turntables/setList.md)).
 
 Here it means something smaller: the order cues are written in is the order they were dropped in,
 and nothing reads it.
@@ -133,8 +133,8 @@ that never had them, on the one screen where that difference matters most.
 
 ```yaml
 cues:
-  - "@st0/songs/artiste/album/titre"
-  - ref: "@st0/songs/artiste/album/autre"
+  - "@k7-core/songs/artiste/album/titre"
+  - ref: "@k7-core/songs/artiste/album/autre"
     markers: [ 12.5, null, 48.25 ]
 ```
 
@@ -143,6 +143,6 @@ until somebody drops a cue — and a list of bare refs reads as it is, with no m
 of refs pointing at almost nothing would make every entry look as though something were missing.
 
 `markers` are the desk's eight cue points, positional, in seconds within the FILE:
-[packages/st0-plugins/docs/turntables/cues.md](../../../packages/st0-plugins/docs/turntables/cues.md). The file is written by the desk,
+[packages/k7-plugins/docs/turntables/cues.md](../../../packages/k7-plugins/docs/turntables/cues.md). The file is written by the desk,
 mid-set, and `withMarkers` edits it **in its text** — the scaffold's comments are the only worked
 example a reader gets, and a desk that ate them on the first cue dropped would not be forgiven.

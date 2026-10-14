@@ -31,7 +31,7 @@ let dir: string;
 /** A song with one lane through one instrument, and one curve to bind. */
 function song(): { root: string; dir: string } {
   const r = mkdtempSync(join(tmpdir(), "td-automate-"));
-  const d = join(r, "song.st0");
+  const d = join(r, "song.k7");
   mkdirSync(d, { recursive: true });
   writeFileSync(
     join(d, "project.yaml"),

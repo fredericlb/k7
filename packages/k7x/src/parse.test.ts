@@ -10,14 +10,14 @@ describe("k7x grammar", () => {
     const text = `// a comment
 project({ name: "demo", tempo: 120, video: false })
 steps([
-  extends("@st0/audio/compressor").engine('tracktion'),
+  extends("@k7-core/audio/compressor").engine('tracktion'),
   to([chain("@out")]), /* trailing comma */
 ])
 markers({})`;
     expect(parse(text)).toEqual({
       project: { name: "demo", tempo: 120, video: false },
       steps: [
-        { extends: "@st0/audio/compressor", engine: "tracktion" },
+        { extends: "@k7-core/audio/compressor", engine: "tracktion" },
         { to: [{ chain: "@out" }] },
       ],
       markers: {},
@@ -110,7 +110,7 @@ describe("stringify", () => {
     content: "two\nlines with a ` and a \\",
     steps: [
       {
-        extends: "@st0/audio/compressor",
+        extends: "@k7-core/audio/compressor",
         engine: "tracktion",
         engines: {
           tracktion: {
@@ -148,7 +148,7 @@ describe("stringify", () => {
       content(\`two
       lines with a \\\` and a \\\\\`)
       steps([
-        extends("@st0/audio/compressor")
+        extends("@k7-core/audio/compressor")
           .engine("tracktion")
           .engines({
             tracktion: { params: { Ratio: 0.125, Attack: 12, Release: 140, Knee: 3, Makeup: 0 } },

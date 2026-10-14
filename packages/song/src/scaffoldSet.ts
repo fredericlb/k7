@@ -1,5 +1,5 @@
 // scaffoldSet.ts — the file map + writer for a new SET: two decks meeting at the mixer, an
-// empty set list, and the desk that plays them. An `.st0` folder like every other, and that is
+// empty set list, and the desk that plays them. An `.k7` folder like every other, and that is
 // the whole of what a set is — a project with no arrangement that declares a `turntables`
 // surface. Hand-authored like scaffold.ts and for the same reason — the `#` comments ship to
 // disk and are the one worked example a reader gets.
@@ -56,7 +56,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# surface carries its \`mapping:\` now). This one is at the root, and it is the desk's.\n` +
       `#\n` +
       `# It does NOT say which songs the set plays: that is the playlist \`surfaces/desk.yaml\`\n` +
-      `# names, a file in \`_playlists/\` at the root of the repository, written in st0 under the\n` +
+      `# names, a file in \`_playlists/\` at the root of the repository, written in k7 under the\n` +
       `# cog. See packages/song/docs/playlists.md.\n` +
       `#\n` +
       `# What is left here is the half a playlist has no place for. A cue belongs to the DESK\n` +
@@ -67,14 +67,14 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# The desk writes this file itself — you drop a cue and the line appears. It is here to\n` +
       `# be read, corrected and committed, not filled in by hand.\n` +
       `#\n` +
-      `# A ref is \`@st0/\` followed by the médiathèque id, verbatim, and the ids are what\n` +
+      `# A ref is \`@k7-core/\` followed by the médiathèque id, verbatim, and the ids are what\n` +
       `# pl8 shows: \`songs/<artiste>/<album>/<titre>\`. Quote them — a plain scalar may not\n` +
       `# open with \`@\` in YAML.\n` +
       `#\n` +
       `# \`markers\` is the desk's eight cue buttons, positional, in seconds into the FILE —\n` +
       `# never the transport's clock, which moves the moment somebody touches a tempo fader:\n` +
       `#\n` +
-      `#  - ref: "@st0/songs/artiste/album/titre"\n` +
+      `#  - ref: "@k7-core/songs/artiste/album/titre"\n` +
       `#    markers: [ 12.5, null, 48.25 ]   # boutons 1 et 3; le 2 est vide\n` +
       `cues: []\n`,
 
@@ -87,7 +87,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# while that track also reaches an audible output. A deck feeding nothing but a\n` +
       `# crossfade would therefore be heard BESIDE it, raw, with nothing able to take it back:\n` +
       `# not a mute, not a disconnect, not a routing — all four were measured, see\n` +
-      `# engine/st0-engine/docs/sidechain.md. One input each, and the blend at the mixer.\n` +
+      `# engine/k7-runtime/docs/sidechain.md. One input each, and the blend at the mixer.\n` +
       `#\n` +
       `# Each fade's \`Level\` IS its lane's gain, so its panel reads true on its own: 0 silent, 1\n` +
       `# full. The desk drives the two in MIRROR — one control, deck A inverted — which is said\n` +
@@ -202,12 +202,12 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# \`param\` is spelled as the module's ui.yaml binds it, so this file, the panel and a MIDI\n` +
       `# map line up key for key.\n` +
       `#\n` +
-      `# The control ids: see packages/st0-plugins/docs/turntables/controls.md for the list.\n` +
+      `# The control ids: see packages/k7-plugins/docs/turntables/controls.md for the list.\n` +
       `#\n` +
       `# \`playlist\` is what the song browser lists — the twelve songs to hand tonight rather\n` +
       `# than the two hundred and seventy-nine on the volume. A NAME under \`_playlists/\` at the\n` +
       `# root of the repository, not a path: the folder is fixed. Write the playlists themselves\n` +
-      `# in st0, under the cog. See packages/song/docs/playlists.md.\n` +
+      `# in k7, under the cog. See packages/song/docs/playlists.md.\n` +
       `#\n` +
       `# Left commented because a new set has no set list yet — the desk says so on its browser\n` +
       `# until this line names one, which is a sentence you can act on.\n` +
@@ -429,15 +429,15 @@ function mutedLanes(): string {
   );
 }
 
-const MEDIATEK_UTILITY = "@st0/audio/utility";
+const MEDIATEK_UTILITY = "@k7-core/audio/utility";
 /** The filter lives under `filter/`, not `utility/`: a category is what draws its icon. */
-const MEDIATEK_FILTER = "@st0/audio/filter";
+const MEDIATEK_FILTER = "@k7-core/audio/filter";
 /** …and the EQ and the delay sit at the root of `audio/`, each one module with its engines — the echo is the delay's. */
-const MEDIATEK_AUDIO = "@st0/audio";
-/** …and the PLATTER, which is st0's own and not a library's: a set cannot play without it (docs/metaModules.md). */
+const MEDIATEK_AUDIO = "@k7-core/audio";
+/** …and the PLATTER, which is k7's own and not a library's: a set cannot play without it (docs/metaModules.md). */
 const META_AUDIO = "@meta/audio";
 /** …and the TEMPO under `cold/`: it reads a deck's whole file before playback (docs/coldModules.md). */
-const MEDIATEK_COLD = "@st0/cold";
+const MEDIATEK_COLD = "@k7-core/cold";
 /** The node names the chains file wires — short on purpose, since the ref is one line away in nodes/. */
 /** One per deck, facing opposite ways — TWO of them are the crossfade, docs/setProject.md. */
 const FADE_A = "fadeA";
@@ -480,7 +480,7 @@ function fadeNode(letter: string, invert: boolean): string {
     `# engine imposes: a module's second port is wired as a SIDECHAIN, and a sidechain reads a\n` +
     `# track only while that track also reaches an audible output. A deck feeding nothing but a\n` +
     `# crossfade would therefore be heard BESIDE it, raw, with no way to take it back — see\n` +
-    `# engine/st0-engine/docs/sidechain.md. One input each, and the blend happens at the mixer.\n` +
+    `# engine/k7-runtime/docs/sidechain.md. One input each, and the blend happens at the mixer.\n` +
     `#\n` +
     `#\n` +
     `# \`Level\` IS this lane's gain, so the panel reads true on its own: 0 silent, 1 full. The\n` +
@@ -520,7 +520,7 @@ function cueNode(letter: string, from = `filter${letter}`): string {
     `# Where it comes OUT is not this file's business and not the project's: \`CUE\` is a pair of\n` +
     `# the interface, named once per MACHINE in preferences.yaml. A machine with no\n` +
     `# second pair plays this bus nowhere at all — never into the room, which is measured in\n` +
-    `# engine/st0-engine/scripts/cue-bus.ts. See packages/song/docs/cue.md.\n` +
+    `# engine/k7-runtime/scripts/cue-bus.ts. See packages/song/docs/cue.md.\n` +
     `extends: ${q(`${MEDIATEK_UTILITY}/fade`)}\n` +
     `params:\n` +
     `  # SILENT at rest: a set starts with nothing in the headphones, and the button is what opens it.\n` +
@@ -617,11 +617,11 @@ function echoNode(letter: string): string {
     `# INPUT and not its output. Wired before the fader it would be cut along with everything else.\n` +
     `#\n` +
     `# \`mix\` is what the desk's knob moves — the ENGINE's dry/wet around the delay, whose own is\n` +
-    `# held at full wet (engine/st0-engine/docs/mix.md) — and it rests at 0: an effect you drop\n` +
+    `# held at full wet (engine/k7-runtime/docs/mix.md) — and it rests at 0: an effect you drop\n` +
     `# into a chain must not be heard before somebody asks for it.\n` +
     `#\n` +
     `# \`Time\` is in MILLISECONDS and follows nothing: the desk knows each deck's BPM, but no\n` +
-    `# binding carries it here yet. See packages/st0-plugins/docs/turntables/fx.md.\n` +
+    `# binding carries it here yet. See packages/k7-plugins/docs/turntables/fx.md.\n` +
     `# The delay's ECHO engine: the one of them whose Time is in milliseconds.\n` +
     `extends: ${q(`${MEDIATEK_AUDIO}/delay`)}\n` +
     `engine: echo\n` +

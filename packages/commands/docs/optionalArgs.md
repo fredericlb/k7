@@ -20,11 +20,11 @@ A `hint:` can say it — *"optional — another track, of the same type as this 
 tells a person reading the catalogue and tells no program anything. It costs nothing while the
 only consumer is a CLI, where a handler reads `argv` and decides for itself.
 
-It costs the moment a **form** consumes the same catalogue. st0's command bar asks for one
+It costs the moment a **form** consumes the same catalogue. k7's command bar asks for one
 param at a time and dispatches on the last one, so "how many are there" is the question that
 decides when the line can run — and `args.length` answers four for a command three of whose
 params you actually have to give, so the bar can never dispatch a bare `event move`: it waits
-for a param the command does not need. `requiredCount` in st0's `commandFill.ts` is the whole
+for a param the command does not need. `requiredCount` in k7's `commandFill.ts` is the whole
 consumer, and it is three lines.
 
 ## TRAILING only
@@ -40,7 +40,7 @@ call site (a flag), which this vocabulary does not have and does not want.
 
 - It is not a default. The handler still decides what absence means — `track new` picks
   `track-N`, and that lives in the handler, not here.
-- It does not make the arg unreachable. In st0's bar, **Tab** steps onto a trailing optional
-  where **Enter** would run past it; see `apps/st0/frontend/docs/commandBar.md`.
+- It does not make the arg unreachable. In k7's bar, **Tab** steps onto a trailing optional
+  where **Enter** would run past it; see `apps/k7/frontend/docs/commandBar.md`.
 - It changes no CLI behaviour. `argv` is the handler's to read, and a handler that treats an
   argument as optional needs no field to do it.

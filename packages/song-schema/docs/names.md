@@ -56,13 +56,13 @@ that file, which owns the rest of the library's layout — the same reason `CHAI
 `@studio/mediatek`'s `types.ts` and not in its scan. `mediatekRoot` re-exports it, so the file that
 owns the layout still offers the word.
 
-A song ref is `@st0/` plus the médiathèque id, VERBATIM. A `MediatekEntry.id` is the entry's
+A song ref is `@k7-core/` plus the médiathèque id, VERBATIM. A `MediatekEntry.id` is the entry's
 library-relative POSIX path (`songs/artist/album/title`) and the catalogue's own note says nothing
 else survives a rescan. A ref that IS the id therefore needs nothing resolved to be compared,
 deduplicated or fetched — the resolution is a lookup, not a computation, and a ref that resolves to
 nothing is still a well-formed name for the thing to go and fetch.
 
-A MODULE ref omits its family (`@st0/audio/reverb` means `modules/audio/reverb`) where a song ref
+A MODULE ref omits its family (`@k7-core/audio/reverb` means `modules/audio/reverb`) where a song ref
 carries the whole id. The two are deliberately not made consistent: rewriting every song already
 written would cost more than the asymmetry, and they are read by different files, so nothing has to
 tell them apart at a distance.

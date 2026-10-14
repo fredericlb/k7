@@ -1,0 +1,83 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+/* Shared design tokens (palette + radii) — keeps k7/web in sync with the
+   other frediverse apps. */
+@import "@frediverse/ui/theme.css";
+
+/* @frediverse/ui is consumed as source OUTSIDE this app tree, so Tailwind v4 must be
+   told to scan it to generate the component utility classes. Four levels up to the repo
+   root, then through `commons/` — the package lives in the submodule, at
+   commons/packages/ui/src. Tailwind ignores a @source path that doesn't exist WITHOUT
+   warning, so getting this wrong silently drops every design-system class that the app's
+   own source doesn't also happen to use — the component still renders, just unstyled. */
+@source "../../../../commons/packages/ui/src";
+
+/* studio's OWN shared tier, for exactly the same reason: `packages/*` is consumed as source,
+   outside this app tree, so its classes exist only if scanned. It bites quietly — what a
+   package shares with the app (`flex`, `border-t`) is generated anyway, so only the classes
+   unique to the package are dropped and the component looks almost right. `h-[30%]` on the
+   module builder's bottom panes was the first to actually depend on one. */
+@source "../../../../packages/ui-user-menu/src";
+@source "../../../../packages/ui-mini-player/src";
+@source "../../../../packages/ui-module-builder/src";
+@source "../../../../packages/ui-chains-react/src";
+@source "../../../../packages/ui-editor/src";
+@source "../../../../packages/ui-eyes/src";
+@source "../../../../packages/ui-waveform/src";
+/* The DESK. Missing until now, and it is the sharpest example of the paragraph above: the
+   layout classes it shares with the app (`flex`, `w-16`, `gap-2`) were generated anyway, so the
+   strip stood in the right place with the right spacing — and every class the desk alone uses
+   was dropped. `fill-muted`, `stroke-border` and `stroke-foreground` are only ever written
+   here, so a knob drew an SVG with no fill and no stroke: present, positioned, and invisible.
+   That is what "the filter knob is gone" was, and why resizing the strip did not bring it
+   back. See ChannelStrip.tsx. */
+@source "../../../../packages/k7-plugins/src/turntables";
+/* The GATE and the toasts. Every screen you see before the shell — cloning a repository, a
+   workspace that will not open — is drawn from here, which is the worst place to be unstyled:
+   it is what somebody sees when something has already gone wrong. Same omission, found by
+   checking every package that renders JSX against this list rather than one at a time. */
+@source "../../../../packages/project-shell/src";
+/* The MEDIA LIBRARY, mounted under /media and in the settings page. */
+@source "../../../../packages/ui-library/src";
+/* The REHEARSAL pages, mounted under /rehearsal, and the packages they draw with. */
+@source "../../../../packages/ui-rehearsal/src";
+@source "../../../../packages/recorder/src";
+@source "../../../../packages/lyrics/src";
+@source "../../../../packages/score/src";
+@source "../../../../packages/tablature/src";
+
+/* @studio/ui-waveform's own stylesheet colours its wrapper from --surface and --border, which is
+   what k7 — its first host — calls them; the shared palette prefixes everything `--sh-`, so the two
+   are bound here rather than hardcoded there. */
+:root {
+  --surface: var(--sh-card);
+  --border: var(--sh-border);
+}
+
+/* The media library's tree panel, `bg-tree-panel`: the sidebar's tint mixed INTO the page colour
+   rather than left translucent, because on a phone the tree is a drawer over the song list. */
+@theme inline {
+  --color-tree-panel: color-mix(
+    in oklab,
+    var(--color-primary) 20%,
+    var(--color-background)
+  );
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    color-scheme: dark;
+    /* A pane's scroll no longer preventDefaults a two-finger slide — that slide IS the pan now
+       (usePanZoom.ts). A pane that has hit its end must not hand the rest to the page, which on
+       a Mac answers with a rubber-band bounce of the whole shell. */
+    overscroll-behavior: none;
+  }
+  body {
+    background: var(--sh-background);
+    color: var(--sh-foreground);
+  }
+}

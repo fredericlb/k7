@@ -6,7 +6,7 @@ import { fieldsAt, fileKindFor, valuesAt } from "./fields";
 import { validateFile } from "./validate";
 
 const CHAIN =
-  'start: true\nsteps:\n  - { id: l1, track: gtr }\n  - { id: a1, extends: "@st0/audio/chorus" }\n  - to: [ { chain: MIX } ]\n';
+  'start: true\nsteps:\n  - { id: l1, track: gtr }\n  - { id: a1, extends: "@k7-core/audio/chorus" }\n  - to: [ { chain: MIX } ]\n';
 
 describe("validateFile", () => {
   it("checks chains/<name>.yaml as a chain file", () => {
@@ -29,11 +29,14 @@ describe("validateFile", () => {
 
   it("keeps a library chain folder's graph.yaml and nodes/ as they were read", () => {
     expect(
-      validateFile("_libraries/st0/chains/verb/graph.yaml", "modules: {}\n").ok,
+      validateFile("_libraries/k7-core/chains/verb/graph.yaml", "modules: {}\n")
+        .ok,
     ).toBe(true);
     expect(
-      validateFile("_libraries/st0/chains/verb/nodes/v.yaml", "extends: 3\n")
-        .ok,
+      validateFile(
+        "_libraries/k7-core/chains/verb/nodes/v.yaml",
+        "extends: 3\n",
+      ).ok,
     ).toBe(false);
   });
 });

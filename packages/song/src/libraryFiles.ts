@@ -22,7 +22,7 @@ const MAX_DEPTH = 6;
 /** The level a project's own sounds answer to, as a library's answer to its name. */
 export const PROJECT_SOUNDS = "project";
 
-/** Every file in every library's `family` folder — and the project's, given one — as `@<level>/<path>`, sorted. */
+/** Every file in every library's `family` folder — and the project's, given one — as `@<level>/<path>`, sorted, the project's first. */
 export function libraryFiles(
   family: SoundFamily,
   projectDir?: string,
@@ -55,7 +55,10 @@ export function libraryFiles(
     };
     walk(lib.root, 0);
   }
-  return out.sort();
+  // The project's own first, whatever the libraries are called; each level sorted inside.
+  const own = (ref: string): number =>
+    ref.startsWith(`@${PROJECT_SOUNDS}/`) ? 0 : 1;
+  return out.sort((a, b) => own(a) - own(b) || (a < b ? -1 : a > b ? 1 : 0));
 }
 
 /** The file a `@<library>/<path>` or `@project/<path>` ref names in that `family` folder, or undefined — never outside it. */

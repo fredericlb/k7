@@ -21,7 +21,7 @@ export interface ConsoleSystem {
   label: string;
 }
 
-/** The ref of a console system's half — `@st0/console/console-6` → `…/channel`. */
+/** The ref of a console system's half — `@k7-core/console/console-6` → `…/channel`. */
 const halfRef = (system: string, half: string): string => `${system}/${half}`;
 
 /** Every system the project's libraries hold: a `console/<system>/` with BOTH halves in it. */

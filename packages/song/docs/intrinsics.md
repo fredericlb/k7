@@ -52,12 +52,12 @@ widget its panel would be inert.
   taking a number someone typed.
 - **`@input-volume`, `@output-volume`** — the level into an audio module and out of any module with
   audio out, in dB (−60..+12), made by the ENGINE's stage around the plugin like `@mix`, and LIVE like
-  it (`engine/st0-engine/docs/mix.md`). Written as `input_volume:` / `output_volume:`, and 0 dB
+  it (`engine/k7-runtime/docs/mix.md`). Written as `input_volume:` / `output_volume:`, and 0 dB
   writes no line. On a LANE, `@output-volume` is the mixer fader instead, the lane's level having
   always been that fader's; the name says which side of the module it acts on, which `@volume` did
   not once a module had two levels.
 - **`@mix`** — an EFFECT's dry/wet, 0 all dry to 1 all wet, which the ENGINE makes around the
-  plugin (`engine/st0-engine/docs/mix.md`). The one intrinsic that is also LIVE: the field is what
+  plugin (`engine/k7-runtime/docs/mix.md`). The one intrinsic that is also LIVE: the field is what
   the file keeps, and a knob sends the same name to the running engine as a plugin param, so a
   drag is heard before it is written. 1 writes no line at all, since no `mix:` already means all
   wet, and a module never saved with a blend should not grow one by being turned back up.

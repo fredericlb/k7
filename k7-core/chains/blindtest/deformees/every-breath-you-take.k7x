@@ -1,0 +1,19 @@
+// Déformées — Every Breath You Take — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
+// variante ; l'ordre des modules et la correspondance des valeurs sont dans
+// apps/z0/docs/effects.md du dépôt studio.
+
+steps([
+  id("def13cdd-00ba-4567-9ac8-4fa2dd05accf")
+    .extends("@k7-core/audio/lowpass")
+    .engine("one-knob")
+    .engines({ one-knob: { params: { Amount: 72 } } }),
+  id("1c906595-1f16-434a-8703-d2c3b3d38b01")
+    .extends("@k7-core/audio/phaser")
+    .engine("one-knob")
+    .engines({ one-knob: { params: { Amount: 50 } } }),
+  id("953eedba-ea3b-4aac-988a-43cab8b566d4")
+    .extends("@k7-core/audio/overdrive")
+    .engine("one-knob")
+    .engines({ one-knob: { params: { Amount: 12 } } }),
+  to([chain("@out")]),
+])

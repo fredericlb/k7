@@ -26,11 +26,11 @@ Range reads and fills from the médiathèque, so a cached session makes no round
 
 ## The library is reached over loopback, with a service token
 
-The médiathèque runs in the same process — st0's backend mounts both — yet this package calls it
+The médiathèque runs in the same process — k7's backend mounts both — yet this package calls it
 over HTTP, through `@studio/mediatek/remote` (`remoteLibrary`, `remoteWriter`, `pushRecording`,
 `pushSong`); `src/mediatek.ts` is a façade over that one client. The host hands the link in at
 mount: `http://127.0.0.1:<port>` and a `service:k7` token that `mediaTokens()` mints in the same
-process (`apps/st0/backend/src/server.ts`). Nothing is configured: no URL and no token in
+process (`apps/k7/backend/src/server.ts`). Nothing is configured: no URL and no token in
 `env.yaml`.
 
 HTTP rather than an in-process call, because the library's routes are where its rules live — the
@@ -246,13 +246,13 @@ are relayed as they are, without the server looking at them.
 
 ## Configuration
 
-Read from st0's backend section of `env.yaml` (`src/env.ts`): `K7_DATA_DIR` — the store
+Read from k7's backend section of `env.yaml` (`src/env.ts`): `K7_DATA_DIR` — the store
 ([store.md](store.md)), the local audio cache and the uploads in flight,
 `~/.studio/k7` by default so a dev run needs no volume, `/rehearsal-data` on the `k7-data` volume
 in the image — and `CACHE_MAX_GB`, past which that cache is trimmed ([audit.md](audit.md)).
 
-`K7_API_TOKEN_SECRET` signs the personal tokens a user mints from st0's settings and saves in a
-workspace's `.settings.json` to publish to these pages. It is NOT st0's `API_TOKEN_SECRET`: it
+`K7_API_TOKEN_SECRET` signs the personal tokens a user mints from k7's settings and saves in a
+workspace's `.settings.json` to publish to these pages. It is NOT k7's `API_TOKEN_SECRET`: it
 defaults to `${SESSION_SECRET}:api-token`, the derivation the tokens already in circulation were
-signed with, so every one of them keeps verifying. `GET /api/token` mints one; st0's own
+signed with, so every one of them keeps verifying. `GET /api/token` mints one; k7's own
 `POST /api/token` and `GET /api/token/pair` are the media library's, and differ by method.

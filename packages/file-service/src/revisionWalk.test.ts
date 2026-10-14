@@ -20,7 +20,7 @@ let ws: Workspace;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "fs-rev-"));
-  proj = join(root, "song.st0");
+  proj = join(root, "song.k7");
   mkdirSync(join(proj, "nodes"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
   writeFileSync(join(proj, "graph.yaml"), "modules:\n  gtr: [ OUT ]\n", "utf8");
@@ -33,7 +33,7 @@ beforeEach(() => {
     plugin: { type: "internal", name: "Chorus" },
   });
   ws = new Workspace(root);
-  ws.setActiveProject("song.st0");
+  ws.setActiveProject("song.k7");
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));

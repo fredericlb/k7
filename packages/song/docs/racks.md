@@ -37,10 +37,10 @@ still load: they are how racks were written, and `scripts/migrateRacks.ts` conve
 rack's windows cut into one file each, byte for byte, the kit moved into the nodes that play the
 module, and a module no node plays converted in place so nothing is lost.
 
-## …or a KIT's pads: `st0-rack`'s other engines
+## …or a KIT's pads: `k7-rack`'s other engines
 
 A sampled drum kit is better played whole — its velocity layers, round-robins and hi-hat choke are
-the point of it — so it can be drawn as a rack without becoming one. `@st0/instruments/st0-rack`
+the point of it — so it can be drawn as a rack without becoming one. `@k7-core/instruments/k7-rack`
 is ONE module for every kit, each an ENGINE of it (`engines.md`): `samples`, the rack whose taps are
 the node's, and every other engine an SFZ player (`params: sfz:`) naming its pads under `kit:`,
 `<name>: <note>`. A node changes kit the way it changes
@@ -85,7 +85,7 @@ second keymap over the first, which a drum part written for General MIDI would t
 kit from other notes, change the kit.
 
 ```yaml
-# st0-rack/engines/naked-drums/module.yaml
+# k7-rack/engines/naked-drums/module.yaml
 extends: "@engine/sfz-player"
 params:
   sfz: "@instruments/naked-drums/Wilkinson Audio/Naked Drums/User/Naked Drums GM.sfz"
@@ -97,7 +97,7 @@ kit:
 
 ### A kit from an SFZ drum kit
 
-`engine/st0-engine/scripts/sfz-to-rack.ts` makes a rack kit out of a sampled one: each piece RENDERED
+`engine/k7-runtime/scripts/sfz-to-rack.ts` makes a rack kit out of a sampled one: each piece RENDERED
 through the engine's SFZ player at one velocity, its silent tail trimmed, one file per piece under a
 library's `samples/`, and a preset mapping each to its note. Rendered rather than copied, because a
 sampled kit plays several microphones per hit — a close mic and the overheads at least — and the
@@ -115,12 +115,12 @@ on a rack's sounds and a kit's pads alike, and `node tap out <node> <tap> <subch
 # chains/drums.yaml
 steps:
   - { id: lane-drums, track: drums }
-  - { id: kit-1, extends: "@st0/instruments/st0-rack", tap_outs: { Snare: snare-fx } }
+  - { id: kit-1, extends: "@k7-core/instruments/k7-rack", tap_outs: { Snare: snare-fx } }
   - to: [ { chain: MIX } ]
 subchains:
   - id: snare-fx
     steps:
-      - { id: snare-verb, extends: "@st0/audio/verb" }
+      - { id: snare-verb, extends: "@k7-core/audio/verb" }
       - to: [ { chain: MIX } ]
 ```
 
@@ -132,12 +132,12 @@ subchains:
   run of its own to be fed, and is refused. A route to anything else is refused by name, at the
   command and at the compile, rather than swallowing the tap.
 - **A real output, not a copy.** The engine runs the instrument in a rack of its own and returns
-  the tap's pair on the subchain's track (`engine/st0-engine/docs/tapOutputs.md`): the routed tap
+  the tap's pair on the subchain's track (`engine/k7-runtime/docs/tapOutputs.md`): the routed tap
   leaves the main output, and the kit stays one instrument, its hi-hat choke included. Pairs are
   numbered in the order of the taps' names (`src/tapOuts.ts`), so a rebuild lands every tap where it was.
 - **Drawn as a jack.** The node grows an output named after the tap, with a cable to the subchain
   (`packages/ui-chains/src/graph.ts`).
-- **Edited from the tap.** A pad's **Edit chain…** opens a popin on its chain (st0's `docs/shell.md`),
+- **Edited from the tap.** A pad's **Edit chain…** opens a popin on its chain (k7's `docs/shell.md`),
   whose buttons are `node tap chain add|move|remove`: the first module makes the subchain and routes
   the tap, and the last one removed takes both away — a tap-fed subchain with no node feeds nothing,
   and the next graph edit would drop it and leave the route dangling (`packages/song-edit/src/tapChain.ts`).
@@ -198,7 +198,7 @@ and no optimistic override to place.
 
 ## Clicking one AUDITIONS the sample
 
-The host decides how a pad is made audible (`onTriggerRack`), and st0 sends it through `preview` —
+The host decides how a pad is made audible (`onTriggerRack`), and k7 sends it through `preview` —
 the same route the editor's gutter ▶ uses: the file service resolves the clip or the slice window
 and the engine auditions it through a hidden one-shot sampler.
 
@@ -208,8 +208,8 @@ note of a *loaded* plugin — its whole client vocabulary is transport, params, 
 plugin listing — so playing it in place would mean a new protocol message and its C++ side. The
 audition route exists, end to end, and answers "which sound is this?", which is what a pad is for.
 
-Every st0 pane that draws a kit — the chains pane, the graph panel, a lane's module row — plays it,
-through one hook (`apps/st0/frontend/src/hooks/useRackTrigger.ts`): a pad that sounds in one and is
+Every k7 pane that draws a kit — the chains pane, the graph panel, a lane's module row — plays it,
+through one hook (`apps/k7/frontend/src/hooks/useRackTrigger.ts`): a pad that sounds in one and is
 silent in another reads as a broken card. What it plays is whatever material the tap has — a library
 sample, resolved onto a file by the loader, a clip, or a slice window — so an older kit's pads play
 too.
@@ -228,7 +228,7 @@ read-only, never clickable-and-silent.
 And it is **derived, not observed**. The engine reports no notes: its live frame is
 `{ playing, playhead, levels, inputLevels, armed, recordEnabled, waveform }` and nothing about a
 sampler's voices. But the browser holds the arrangement and the playhead at the same time, so it
-can answer the question itself — `apps/st0/frontend/src/rackLit.ts` turns the lane feeding a rack's
+can answer the question itself — `apps/k7/frontend/src/rackLit.ts` turns the lane feeding a rack's
 chain into a list of `{ from, to, key }` in arrangement beats, and each frame asks which of them
 contain the playhead.
 

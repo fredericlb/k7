@@ -103,7 +103,7 @@ function song(): string {
 function libraries(): string {
   const d = librariesFixture(ws);
   // Descriptive only — the level comes from where the root SITS, not from this line.
-  put(d, "modules/config.yaml", "namespace: st0\n");
+  put(d, "modules/config.yaml", "namespace: k7-core\n");
   put(
     d,
     "modules/audio/eq/module.yaml",
@@ -117,12 +117,12 @@ function libraries(): string {
   put(
     d,
     "chains/live/vocal-strip/nodes/hp.yaml",
-    'extends: "@st0/audio/eq"\nparams:\n  Low: -12\n',
+    'extends: "@k7-core/audio/eq"\nparams:\n  Low: -12\n',
   );
   put(
     d,
     "chains/live/vocal-strip/nodes/air.yaml",
-    'extends: "@st0/audio/eq"\n',
+    'extends: "@k7-core/audio/eq"\n',
   );
   return d;
 }
@@ -146,7 +146,7 @@ describe("resolving a chain of the project", () => {
     ]);
     const c = resolveChain(dir, project, "gtr");
     expect(c.plugins.map((p) => p.name)).toEqual(["amp"]);
-    // The engine's own stage travels beside the plugin's params — engine/st0-engine/docs/mix.md.
+    // The engine's own stage travels beside the plugin's params — engine/k7-runtime/docs/mix.md.
     expect(c.plugins[0].params).toEqual({
       Depth: 3,
       "@mix": 1,
@@ -174,14 +174,14 @@ describe("resolving a chain of the project", () => {
   it("offers the project's chains and the médiathèque's under its own token", () => {
     expect(chainNames(dir, loadProject(dir))).toEqual([
       "gtr",
-      "@st0/live/vocal-strip",
+      "@k7-core/live/vocal-strip",
     ]);
   });
 });
 
 describe("resolving a chain of the médiathèque", () => {
   it("resolves each step through what it extends", () => {
-    const c = resolveChain(dir, loadProject(dir), "@st0/live/vocal-strip");
+    const c = resolveChain(dir, loadProject(dir), "@k7-core/live/vocal-strip");
     // The step's own params win, and a step overriding nothing still arrives with the module's.
     expect(c.plugins.map((p) => p.type)).toEqual(["4Band EQ", "4Band EQ"]);
     expect(c.plugins[0].params).toEqual({ Low: -12 });
@@ -193,7 +193,7 @@ describe("resolving a chain of the médiathèque", () => {
 
   it("is found by its bare name too", () => {
     expect(
-      resolveChain(dir, loadProject(dir), "@st0/vocal-strip").plugins,
+      resolveChain(dir, loadProject(dir), "@k7-core/vocal-strip").plugins,
     ).toHaveLength(2);
   });
 
@@ -204,7 +204,7 @@ describe("resolving a chain of the médiathèque", () => {
       force: true,
     });
     expect(() =>
-      resolveChain(dir, loadProject(dir), "@st0/live/vocal-strip"),
+      resolveChain(dir, loadProject(dir), "@k7-core/live/vocal-strip"),
     ).toThrow(/cannot load: hp .*not in this machine's cache/);
   });
 });
@@ -215,11 +215,11 @@ describe("a library chain kept as one file", () => {
     put(
       library,
       "chains/live/vocal-file.yaml",
-      'steps:\n  - { id: s1, extends: "@st0/audio/eq", params: { Low: -12 } }\n' +
-        '  - { id: s2, extends: "@st0/audio/eq", bypass: true }\n' +
-        '  - { id: s3, extends: "@st0/audio/eq" }\n  - to: [ { chain: "@out" } ]\n',
+      'steps:\n  - { id: s1, extends: "@k7-core/audio/eq", params: { Low: -12 } }\n' +
+        '  - { id: s2, extends: "@k7-core/audio/eq", bypass: true }\n' +
+        '  - { id: s3, extends: "@k7-core/audio/eq" }\n  - to: [ { chain: "@out" } ]\n',
     );
-    const c = resolveChain(dir, loadProject(dir), "@st0/live/vocal-file");
+    const c = resolveChain(dir, loadProject(dir), "@k7-core/live/vocal-file");
     expect(c.plugins.map((p) => [p.id, p.params])).toEqual([
       ["process:s1", { Low: -12 }],
       ["process:s3", { Low: 1 }],
@@ -237,19 +237,21 @@ describe("a library chain kept as one file", () => {
     put(
       library,
       "chains/stems.yaml",
-      'steps:\n  - { id: cut, extends: "@st0/audio/stemsplit" }\n  - to: [ { chain: "@out" } ]\n',
+      'steps:\n  - { id: cut, extends: "@k7-core/audio/stemsplit" }\n  - to: [ { chain: "@out" } ]\n',
     );
     expect(coldChains(dir).map((c) => [c.ref, c.unavailable])).toEqual([
-      ["@st0/stems", null],
+      ["@k7-core/stems", null],
     ]);
     expect(
-      resolveChain(dir, loadProject(dir), "@st0/stems").cold.map((s) => s.step),
-    ).toEqual(["@st0/audio/stemsplit"]);
+      resolveChain(dir, loadProject(dir), "@k7-core/stems").cold.map(
+        (s) => s.step,
+      ),
+    ).toEqual(["@k7-core/audio/stemsplit"]);
   });
 
   it("names what a file that is not a template's shape gets wrong", () => {
     put(library, "chains/bad.yaml", "start: true\nsteps: []\n");
-    expect(() => resolveChain(dir, loadProject(dir), "@st0/bad")).toThrow(
+    expect(() => resolveChain(dir, loadProject(dir), "@k7-core/bad")).toThrow(
       /no `start`/,
     );
   });
@@ -283,19 +285,19 @@ describe("a chain that separates", () => {
     put(
       library,
       "chains/tools/stems/nodes/split.yaml",
-      'extends: "@st0/audio/stemsplit"\n',
+      'extends: "@k7-core/audio/stemsplit"\n',
     );
     if (withEq)
       put(
         library,
         "chains/tools/stems/nodes/air.yaml",
-        'extends: "@st0/audio/eq"\n',
+        'extends: "@k7-core/audio/eq"\n',
       );
   };
 
   it("resolves the offline step as COLD, with its model, and no plugin", () => {
     stemChain();
-    const c = resolveChain(dir, loadProject(dir), "@st0/tools/stems");
+    const c = resolveChain(dir, loadProject(dir), "@k7-core/tools/stems");
     expect(c.plugins).toEqual([]);
     expect(c.cold.map((s) => s.step)).toEqual(["split"]);
     expect(c.cold[0].model).toMatch(/htdemucs\.onnx$/);
@@ -305,22 +307,22 @@ describe("a chain that separates", () => {
     // Flattened for a render a chain has no ports, so a step after a separator cannot name one.
     stemChain({ withEq: true });
     expect(() =>
-      resolveChain(dir, loadProject(dir), "@st0/tools/stems"),
+      resolveChain(dir, loadProject(dir), "@k7-core/tools/stems"),
     ).toThrow(/both separates \(split\) and processes/);
   });
 
   it("tells a missing MODEL from a module authored without one", () => {
     stemChain({ model: false });
     expect(() =>
-      resolveChain(dir, loadProject(dir), "@st0/tools/stems"),
-    ).toThrow(/not on this machine.*~\/\.st0\/models/s);
+      resolveChain(dir, loadProject(dir), "@k7-core/tools/stems"),
+    ).toThrow(/not on this machine.*~\/\.k7\/models/s);
     put(
       library,
       "modules/audio/stemsplit/module.yaml",
       "cold: true\nplugin: { type: offline, name: Stem Split }\n",
     );
     expect(() =>
-      resolveChain(dir, loadProject(dir), "@st0/tools/stems"),
+      resolveChain(dir, loadProject(dir), "@k7-core/tools/stems"),
     ).toThrow(/names no model/);
   });
 
@@ -331,7 +333,7 @@ describe("a chain that separates", () => {
       dir,
       loadProject(dir),
       "riff",
-      "@st0/tools/stems",
+      "@k7-core/tools/stems",
       "clip",
       undefined,
       async ({ step, source, outDir }) => {
@@ -348,17 +350,17 @@ describe("a chain that separates", () => {
     expect(r.lines.join("\n")).toMatch(/4 file\(s\)/);
     expect(r.lines.join("\n")).toMatch(/stems\/vocals\.wav/);
     // No render, so nothing about the engine binary: the cold branch is BEFORE that check.
-    expect(r.lines.join("\n")).not.toMatch(/st0-engine/);
+    expect(r.lines.join("\n")).not.toMatch(/k7-runtime/);
   });
 
-  // What st0's settings offer for `system stems` / `system instrumental` — docs/processChain.md.
+  // What k7's settings offer for `system stems` / `system instrumental` — docs/processChain.md.
   describe("the library's cold chains", () => {
     it("lists a chain that separates, and not one that only processes", () => {
       stemChain();
       // `live/vocal-strip` is the fixture's EQ chain: it treats, so it could never separate.
       expect(coldChains(dir)).toEqual([
         {
-          ref: "@st0/tools/stems",
+          ref: "@k7-core/tools/stems",
           instrumental: false,
           unavailable: null,
           downloads: [],
@@ -375,7 +377,7 @@ describe("a chain that separates", () => {
       // The machine's state, not the chain's: hiding it made a library full of separating chains read as holding none.
       stemChain({ model: false });
       const [c] = coldChains(dir);
-      expect(c.ref).toBe("@st0/tools/stems");
+      expect(c.ref).toBe("@k7-core/tools/stems");
       expect(c.unavailable).toMatch(
         /wants the model 'htdemucs\.onnx', which is not on this machine/,
       );
@@ -418,17 +420,17 @@ describe("a chain that separates", () => {
       put(
         library,
         "chains/tools/karaoke/nodes/cut.yaml",
-        'extends: "@st0/audio/vocalless"\n',
+        'extends: "@k7-core/audio/vocalless"\n',
       );
       expect(coldChains(dir)).toEqual([
         {
-          ref: "@st0/tools/karaoke",
+          ref: "@k7-core/tools/karaoke",
           instrumental: true,
           unavailable: null,
           downloads: [],
         },
         {
-          ref: "@st0/tools/stems",
+          ref: "@k7-core/tools/stems",
           instrumental: false,
           unavailable: null,
           downloads: [],
@@ -443,7 +445,7 @@ describe("a chain that separates", () => {
       dir,
       loadProject(dir),
       "riff",
-      "@st0/tools/stems",
+      "@k7-core/tools/stems",
       "clip",
     );
     expect(r.changed).toBe(false);

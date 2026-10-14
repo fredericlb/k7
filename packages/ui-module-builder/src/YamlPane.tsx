@@ -1,6 +1,6 @@
 // YamlPane.tsx — one of the module's files as text. YAML for three of them, FAUST or JavaScript
-// for the sources, chosen by extension. Deliberately smaller than st0's EditorPane: no sequence tracker,
-// no waveform, no video readers. Those exist because st0 edits a SONG's material.
+// for the sources, chosen by extension. Deliberately smaller than k7's EditorPane: no sequence tracker,
+// no waveform, no video readers. Those exist because k7 edits a SONG's material.
 
 import { autocompletion } from "@codemirror/autocomplete";
 import { javascript } from "@codemirror/lang-javascript";

@@ -28,7 +28,7 @@ and not a layout read.
 ## 3. It does not re-render to hand the same numbers to a ref
 
 It reads the store directly (`store.subscribe` into a ref), the way `RecordingPane` and
-`useMidiRecording` do in st0. **A live tap re-renders nothing.** The subscription still runs on
+`useMidiRecording` do in k7. **A live tap re-renders nothing.** The subscription still runs on
 every frame, but it is a map lookup and a length check, and it marks the canvas dirty instead of
 the component.
 

@@ -3,8 +3,8 @@
 import { describe, expect, it } from "vitest";
 import { cueMarkers, cueRefs, parseMix, withMarkers } from "./mixFile";
 
-const A = "@st0/songs/Daft Punk/Album inconnu/Around the world";
-const B = "@st0/songs/Alain Bashung/Album inconnu/La nuit je mens";
+const A = "@k7-core/songs/Daft Punk/Album inconnu/Around the world";
+const B = "@k7-core/songs/Alain Bashung/Album inconnu/La nuit je mens";
 
 const PLAIN = `# where this set drops the needle
 cues:

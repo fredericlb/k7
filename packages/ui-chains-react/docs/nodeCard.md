@@ -7,7 +7,7 @@ each.
 ## Two names: one drawn, one on hover
 
 A node and its module are two different things — `sy_jun-chorus` is one use of
-`@st0/audio/modulation/chorus-ense`. A header saying only the node's name makes seventeen uses of
+`@k7-core/audio/modulation/chorus-ense`. A header saying only the node's name makes seventeen uses of
 one mixer read as seventeen unrelated cards.
 
 So the header wears the MODULE — the last segment of its ref, which is its file name — or the
@@ -222,7 +222,7 @@ would go wrong.
 A module card ends in a BAR (`.dgx-foot`, `FOOTER_H` tall, which `nodeSize` adds under the panel so
 it covers none of it). A strip draws none: it has neither a stage nor attribute sets.
 
-Its LEFT holds the engine's stage (`engine/st0-engine/docs/mix.md`) — the up to three values the engine
+Its LEFT holds the engine's stage (`engine/k7-runtime/docs/mix.md`) — the up to three values the engine
 wraps a plugin in, carried on the step as `stage` (`packages/song/src/ownMix.ts`) — as small knobs
 (`FOOT_KNOB_PX`) in signal order: IN, MIX, OUT, each only when the stage has it, its name the tooltip.
 They are ordinary widgets (a drag, a typed value, a MIDI map). Its CENTRE holds the node's badges —
@@ -240,7 +240,7 @@ A card whose plugin costs something says so in a small badge: `3%`, or `3% · 45
 plugins holding a big buffer. On a module card it is one of the bottom bar's centred badges; on a card
 with no bar it sits ON the header's bottom border at the right, absolute, so it takes no width from
 the name, which is already sized to the last pixel. The figures
-are the engine's (`engine/st0-engine/docs/load.md`), shaped in `src/nodeLoad.ts`:
+are the engine's (`engine/k7-runtime/docs/load.md`), shaped in `src/nodeLoad.ts`:
 
 - **Silent under 1 % and under 1 MB.** Most nodes cost nearly nothing, and a graph where every card
   says "0%" teaches the eye to skip the one that says 40.

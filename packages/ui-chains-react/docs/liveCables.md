@@ -111,8 +111,8 @@ list below.
 
 The engine measures sound and knows nothing of the frame, so the levels are silent about a
 video lane, so every cable on the picture side of the graph would stay still through a playing song.
-What the browser has instead is the shots and the playhead, which is the same bargain st0 already
-strikes for a rack's lit pads (`apps/st0/frontend/src/rackLit.ts`).
+What the browser has instead is the shots and the playhead, which is the same bargain k7 already
+strikes for a rack's lit pads (`apps/k7/frontend/src/rackLit.ts`).
 
 A host passes `videoSpans`: when each video lane is showing a picture, in seconds. A **prop**
 rather than a subscription, and the split is what each thing does — the meters move twenty times
@@ -122,7 +122,7 @@ playhead still re-renders nothing.
 
 Three rules hold it honest:
 
-- **The interval rule is the compositor's**, not the graph's. st0 builds the spans with
+- **The interval rule is the compositor's**, not the graph's. k7 builds the spans with
   `@studio/ui-eyes`'s `activeAt` rule — a cut belongs to the later shot, a shot with no length
   runs to the next one, a hidden lane shows nothing, a lane of shapes follows its activation spans — and
   `videoSpans.test.ts` asserts the two agree point by point rather than restating it. A cable

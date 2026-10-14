@@ -27,6 +27,6 @@ goes on answering *wrongly* is worse than one that is absent. What the net adds 
 
 ## Not covered
 
-`engine/st0-engine` has one `try`/`catch` in its whole library (`NamPlugin.cpp`), no `try` at
+`engine/k7-runtime` has one `try`/`catch` in its whole library (`NamPlugin.cpp`), no `try` at
 `main()` level and no `std::set_terminate`. An exception thrown from a lambda posted on the
 message thread ends the process without a word. Open lot — `docs/constat.md`.

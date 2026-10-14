@@ -23,10 +23,10 @@ start: "0:1:0"
 describe("fileOpFor", () => {
   it("sends a value change as one path op, leaving comments alone", () => {
     const after = MODULE.replace("gain: 0.5", "gain: 0.7");
-    const op = fileOpFor("song.st0/nodes/mix.yaml", MODULE, after);
+    const op = fileOpFor("song.k7/nodes/mix.yaml", MODULE, after);
     expect(op).toEqual({
       kind: "yaml",
-      file: "song.st0/nodes/mix.yaml",
+      file: "song.k7/nodes/mix.yaml",
       ops: [
         {
           op: "set",

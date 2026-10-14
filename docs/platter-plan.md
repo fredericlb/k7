@@ -1,7 +1,7 @@
 # The platter stretches for itself
 
 The decisions of the platter work, in one place. Current behaviour is described by the ordinary
-pages — `../engine/st0-engine/docs/turntable.md`, `../packages/st0-plugins/docs/turntables/scratch.md`.
+pages — `../engine/k7-runtime/docs/turntable.md`, `../packages/k7-plugins/docs/turntables/scratch.md`.
 
 ## Everything plays through a platter
 
@@ -44,8 +44,8 @@ Facts worth keeping:
   edges.** A stretcher splices, so its output dips mid-burst and every dip is a false edge —
   reporting half the period and no dependence on rate.
 
-The measurements are `engine/st0-engine/scripts/keylock.ts`, the numbers in
-`../engine/st0-engine/docs/turntable.md`: pitch holds at 1000 Hz while the period follows the rate;
+The measurements are `engine/k7-runtime/scripts/keylock.ts`, the numbers in
+`../engine/k7-runtime/docs/turntable.md`: pitch holds at 1000 Hz while the period follows the rate;
 resampling moves both.
 
 ## The desk turns `Key` on, and off while a hand holds the record
@@ -65,7 +65,7 @@ pitch fader running backwards.
 The four parts share a position, a rate and a `Key`; `plattersOf(deck, load)` names them, and
 `place`, `scratch` and the needle all go through that list.
 
-The cost is loading, measured by `packages/st0-plugins/scripts/turntables/put-on.ts`, which times the
+The cost is loading, measured by `packages/k7-plugins/scripts/turntables/put-on.ts`, which times the
 `applied` response:
 
 | putting a record on a deck that already holds one | plain | separated | overhead |
@@ -99,7 +99,7 @@ Gone with the clip path: `slipToPlace`, `slipAfter`, `startSeconds`, `clipStartB
 `TIMELINE_BASE`, `playFrom`, `transportAt`, `sourceAt`, `alignDelay`, the `slip` and `align`
 fields of a `DeckTempo`, and `KEYLOCK_ALGORITHM` / `VARISPEED_ALGORITHM`. `nudgedTempos` only
 sets a target; `syncedTempos` only hands it to the slave, `alignSeek` handling the times. The
-transport starts from zero, on the desk as in st0. Of the four benches only `put-on.ts` still
+transport starts from zero, on the desk as in k7. Of the four benches only `put-on.ts` still
 asks a question with an answer; the numbers of the others survive where they still decide
 something — `docs/bpm.md`, `docs/metronome.md`, and a whole section of `docs/scratch.md` for
 scratch-by-clip, which is what paid for the platter.
@@ -108,6 +108,6 @@ scratch-by-clip, which is what paid for the platter.
 
 The **metronome**. Its clip is the transport's last inhabitant; it has the right spacing between
 beats and an arbitrary offset against the music. It starts at zero, and
-`../packages/st0-plugins/docs/turntables/metronome.md` says the phase is missing rather than simulating it.
+`../packages/k7-plugins/docs/turntables/metronome.md` says the phase is missing rather than simulating it.
 The two candidate remedies — one more platter, or an anchor computed off the needle — are written
 there; neither is decided and neither has been listened to.

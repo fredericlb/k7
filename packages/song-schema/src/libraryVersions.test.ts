@@ -21,22 +21,22 @@ describe("libraryVersions", () => {
 
   it("reads pins, dropping what is no version, and writes them in name order", () => {
     const pins = parseLibraryPins(
-      "st0: 7\ndrums: draft\nbass: soon\nkeys: 0\n",
+      "k7-core: 7\ndrums: draft\nbass: soon\nkeys: 0\n",
     );
-    expect(pins).toEqual({ st0: 7, drums: "draft" });
+    expect(pins).toEqual({ "k7-core": 7, drums: "draft" });
     expect(pinnedVersion(pins, "bass")).toBe(1);
-    expect(stringifyLibraryPins(pins)).toBe("drums: draft\nst0: 7\n");
+    expect(stringifyLibraryPins(pins)).toBe("drums: draft\nk7-core: 7\n");
     expect(parseLibraryPins("- not a map")).toEqual({});
   });
 
-  it("round-trips a manifest and says whether this st0 runs it", () => {
-    const m = { name: "st0", version: 3, requires: LIBRARY_LEVEL + 1 };
+  it("round-trips a manifest and says whether this k7 runs it", () => {
+    const m = { name: "k7-core", version: 3, requires: LIBRARY_LEVEL + 1 };
     expect(parseLibraryManifest(stringifyLibraryManifest(m))).toEqual(m);
     expect(isRunnable(m)).toBe(false);
     expect(isRunnable({ ...m, requires: LIBRARY_LEVEL })).toBe(true);
-    expect(parseLibraryManifest("name: st0\n")).toBeNull();
-    expect(parseLibraryManifest("name: st0\nversion: 2\n")).toEqual({
-      name: "st0",
+    expect(parseLibraryManifest("name: k7-core\n")).toBeNull();
+    expect(parseLibraryManifest("name: k7-core\nversion: 2\n")).toEqual({
+      name: "k7-core",
       version: 2,
       requires: 1,
     });

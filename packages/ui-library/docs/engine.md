@@ -4,9 +4,9 @@ The médiathèque is a hosted catalogue of files, and for most of what it holds 
 to be: a song, a sample and a capture are bytes, and listing them needs nothing but a directory
 walk.
 
-It reaches an `engine/st0-engine` all the same, and it is worth being precise about what for. The
+It reaches an `engine/k7-runtime` all the same, and it is worth being precise about what for. The
 server side — the registry it lists from, and the jobs it sends a machine — is
-[apps/st0/backend/docs/media/engine.md](../../../apps/st0/backend/docs/media/engine.md).
+[apps/k7/backend/docs/media/engine.md](../../../apps/k7/backend/docs/media/engine.md).
 
 ## What it carries: playback, and nothing else
 
@@ -51,7 +51,7 @@ drops the client and its callbacks together, and this hook owns the client outri
 ## The engine id is the account's, and the editor's too
 
 The chosen engine is `engineId` in the ONE preferences document the backend keeps per person
-(`apps/st0/backend/src/server.ts`), beside the editor's command preferences and the playback
+(`apps/k7/backend/src/server.ts`), beside the editor's command preferences and the playback
 destination. Picking a machine in the library picks it for the editor as well, which is the point
 of one origin. It is also why every write goes through `patchPrefs` (`src/prefs.ts`): the store
 replaces the document wholesale, and a bare save of the destination would erase the engine id.
@@ -72,9 +72,9 @@ text file.
 So **modules are built in the editor**, from the file tree's **Libraries** tab of whatever project
 is open, where a real project instantiates a plugin for real and the builder reads the one that is
 actually making the sound. The reasoning is in
-[apps/st0/frontend/docs/sharedModules.md](../../../apps/st0/frontend/docs/sharedModules.md).
+[apps/k7/frontend/docs/sharedModules.md](../../../apps/k7/frontend/docs/sharedModules.md).
 
 The rule underneath is that a builder needs **two** things which live in different places: an
 editable catalogue, and a loaded plugin, which is only ever in a project. When no project you have
 open names the module, the generated one supplies both — the bench,
-[apps/st0/backend/docs/media/banc.md](../../../apps/st0/backend/docs/media/banc.md).
+[apps/k7/backend/docs/media/banc.md](../../../apps/k7/backend/docs/media/banc.md).

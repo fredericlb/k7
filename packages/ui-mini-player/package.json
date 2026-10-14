@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The transport bar at the bottom of an app — play/pause, a scrubber and a close, with no transport of its own. pl8's médiathèque and st0's reference tracks mount the same one. See docs/miniPlayer.md.",
+  "description": "The transport bar at the bottom of an app — play/pause, a scrubber and a close, with no transport of its own. pl8's médiathèque and k7's reference tracks mount the same one. See docs/miniPlayer.md.",
   "types": "./src/MiniPlayer.tsx",
   "exports": {
     ".": "./src/MiniPlayer.tsx"

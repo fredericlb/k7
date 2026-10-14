@@ -51,8 +51,8 @@ describe("fromLocation", () => {
     expect(fromLocation("/nope/deep/path")).toEqual(st());
   });
 
-  it("no longer knows the repositories, which moved to st0's home", () => {
-    // An unknown first segment like any other typo — see apps/st0/frontend/docs/projects.md.
+  it("no longer knows the repositories, which moved to k7's home", () => {
+    // An unknown first segment like any other typo — see apps/k7/frontend/docs/projects.md.
     expect(fromLocation("/projects")).toEqual(st());
     expect(fromLocation("/projects/3f9a1c2b7e40")).toEqual(st());
   });
@@ -130,7 +130,7 @@ describe("fromLocation", () => {
   it("keeps the new section clear of the paths the proxy claims on the origin", () => {
     // Free rather than load-bearing under `/media`, and asserted anyway — see ../docs/routing.md.
     for (const taken of [
-      "st0",
+      "k7",
       "m9",
       "k7",
       "z0",

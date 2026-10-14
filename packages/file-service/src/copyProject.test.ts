@@ -37,10 +37,10 @@ function workspace(name: string, project?: string): string {
 
 /** The same, with a `turntables` surface naming a playlist that lives at the workspace ROOT. */
 function deckWorkspace(): string {
-  const root = workspace("songs", "winter.st0");
-  mkdirSync(join(root, "winter.st0", "surfaces"), { recursive: true });
+  const root = workspace("songs", "winter.k7");
+  mkdirSync(join(root, "winter.k7", "surfaces"), { recursive: true });
   writeFileSync(
-    join(root, "winter.st0", "surfaces", "decks.yaml"),
+    join(root, "winter.k7", "surfaces", "decks.yaml"),
     "type: turntables\nlayout: split\nplaylist: Fred\n",
   );
   mkdirSync(join(root, "_playlists"), { recursive: true });
@@ -53,7 +53,7 @@ beforeEach(() => {
   process.env.USERPROFILE = home;
   process.env.HOME = home;
   // `$STUDIO_HOME` wins over HOME, so it must be pinned too.
-  process.env.STUDIO_HOME = join(home, ".st0");
+  process.env.STUDIO_HOME = join(home, ".k7");
   USER = `someone-${process.pid}-${n++}@example.com`;
   mkdirSync(rootDir(), { recursive: true });
 });
@@ -61,26 +61,26 @@ afterEach(() => rmSync(home, { recursive: true, force: true }));
 
 describe("copyProjectBetween", () => {
   it("copies the project's content and drops what is not content", async () => {
-    workspace("songs", "winter.st0");
+    workspace("songs", "winter.k7");
     const dest = workspace("albums");
 
     const { project } = await copyProjectBetween(
       USER,
       "songs",
-      "winter.st0",
+      "winter.k7",
       "albums",
-      "winter.st0",
+      "winter.k7",
     );
 
-    expect(project).toBe("winter.st0");
-    const at = join(dest, "winter.st0");
+    expect(project).toBe("winter.k7");
+    const at = join(dest, "winter.k7");
     expect(readFileSync(join(at, "project.yaml"), "utf8")).toContain("winter");
     expect(existsSync(join(at, "modules", "bass.yaml"))).toBe(true);
     // The workspace's own idea of what is not content: caches and deps stay behind.
     expect(existsSync(join(at, "kick.wav.cache"))).toBe(false);
     expect(existsSync(join(at, "node_modules"))).toBe(false);
     // The source is untouched — a copy is not a move.
-    expect(existsSync(join(rootDir(), "songs", "winter.st0"))).toBe(true);
+    expect(existsSync(join(rootDir(), "songs", "winter.k7"))).toBe(true);
   });
 
   it("carries the playlist a surface names, which lives at the workspace root", async () => {
@@ -90,9 +90,9 @@ describe("copyProjectBetween", () => {
     const r = await copyProjectBetween(
       USER,
       "songs",
-      "winter.st0",
+      "winter.k7",
       "albums",
-      "winter.st0",
+      "winter.k7",
     );
 
     expect(r.playlists).toEqual(["_playlists/Fred.yaml"]);
@@ -117,9 +117,9 @@ describe("copyProjectBetween", () => {
     const r = await copyProjectBetween(
       USER,
       "songs",
-      "winter.st0",
+      "winter.k7",
       "albums",
-      "winter.st0",
+      "winter.k7",
     );
 
     expect(r.playlists).toBeUndefined();
@@ -129,65 +129,65 @@ describe("copyProjectBetween", () => {
   });
 
   it("renames the copy, keeping the suffix that decides which app opens it", async () => {
-    workspace("songs", "winter.st0");
+    workspace("songs", "winter.k7");
     workspace("albums");
 
     const { project } = await copyProjectBetween(
       USER,
       "songs",
-      "winter.st0",
+      "winter.k7",
       "albums",
-      "spring.st0",
+      "spring.k7",
     );
 
-    expect(project).toBe("spring.st0");
-    expect(existsSync(join(rootDir(), "albums", "spring.st0"))).toBe(true);
+    expect(project).toBe("spring.k7");
+    expect(existsSync(join(rootDir(), "albums", "spring.k7"))).toBe(true);
   });
 
   it("refuses a name whose suffix is not the source's", async () => {
-    workspace("songs", "winter.st0");
+    workspace("songs", "winter.k7");
     workspace("albums");
 
     await expect(
-      copyProjectBetween(USER, "songs", "winter.st0", "albums", "winter.z0"),
+      copyProjectBetween(USER, "songs", "winter.k7", "albums", "winter.z0"),
     ).rejects.toThrow(/suffix/);
   });
 
   it("refuses to clobber a project already there", async () => {
-    workspace("songs", "winter.st0");
-    workspace("albums", "winter.st0");
+    workspace("songs", "winter.k7");
+    workspace("albums", "winter.k7");
 
     await expect(
-      copyProjectBetween(USER, "songs", "winter.st0", "albums", "winter.st0"),
+      copyProjectBetween(USER, "songs", "winter.k7", "albums", "winter.k7"),
     ).rejects.toThrow(/already exists/);
   });
 
   it("refuses a source that is not a project", async () => {
-    const src = workspace("songs", "winter.st0");
+    const src = workspace("songs", "winter.k7");
     mkdirSync(join(src, "notes"));
     workspace("albums");
 
     await expect(
-      copyProjectBetween(USER, "songs", "notes", "albums", "notes.st0"),
+      copyProjectBetween(USER, "songs", "notes", "albums", "notes.k7"),
     ).rejects.toThrow(/not a project/);
   });
 
   it("refuses a destination that is itself one project, where the copy would never list", async () => {
-    workspace("songs", "winter.st0");
-    const single = join(rootDir(), "solo.st0");
+    workspace("songs", "winter.k7");
+    const single = join(rootDir(), "solo.k7");
     mkdirSync(single, { recursive: true });
     writeFileSync(join(single, "project.yaml"), "name: solo\n");
 
     await expect(
-      copyProjectBetween(USER, "songs", "winter.st0", "solo.st0", "winter.st0"),
+      copyProjectBetween(USER, "songs", "winter.k7", "solo.k7", "winter.k7"),
     ).rejects.toThrow(/itself a project/);
   });
 
   it("is a 404-shaped refusal when a workspace is not on this machine", async () => {
-    workspace("songs", "winter.st0");
+    workspace("songs", "winter.k7");
 
     await expect(
-      copyProjectBetween(USER, "songs", "winter.st0", "nowhere", "winter.st0"),
+      copyProjectBetween(USER, "songs", "winter.k7", "nowhere", "winter.k7"),
     ).rejects.toThrow(/unknown workspace/);
   });
 });

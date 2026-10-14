@@ -32,7 +32,7 @@ describe("trackCategory", () => {
   it("falls back on what the instrument says, and only then on other", () => {
     expect(trackCategory("audio_7", ["mu-tides"])).toBe("synth");
     expect(
-      trackCategory("michel", ["@st0/instruments/keys/electric-keys"]),
+      trackCategory("michel", ["@k7-core/instruments/keys/electric-keys"]),
     ).toBe("keys");
     expect(trackCategory("audio_7", ["mixer"])).toBe("other");
   });

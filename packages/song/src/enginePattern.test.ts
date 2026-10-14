@@ -1,5 +1,5 @@
 // Every strudel lane compiles to a lane whose halves are headed by the engine's pattern plugin, carrying the file's
-// text, how the file is shared between lanes, and where samples are looked for. See engine/st0-engine/docs/patternPlugin.md.
+// text, how the file is shared between lanes, and where samples are looked for. See engine/k7-runtime/docs/patternPlugin.md.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -18,7 +18,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 /** Strudel lanes over algo/beat.strudel (each `[name, extra node yaml]`), wired by `chains`. */
 function project(lanes: [string, string?][], chains?: string): string {
-  const p = join(dir, "song.st0");
+  const p = join(dir, "song.k7");
   mkdirSync(join(p, "nodes"), { recursive: true });
   mkdirSync(join(p, "algo"), { recursive: true });
   mkdirSync(join(p, "modules", "io", "OUT"), { recursive: true });

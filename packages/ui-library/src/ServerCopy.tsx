@@ -1,5 +1,5 @@
 // ServerCopy.tsx — on a machine paired with a server: where each entry lives (here, there, both) and the
-// server-only entries with a button to bring one down. The same icons as st0's workspace list.
+// server-only entries with a button to bring one down. The same icons as k7's workspace list.
 // Nothing at all on an unpaired machine or on the server itself. See ../../mediatek/docs/serverCopy.md.
 
 import { Button } from "@frediverse/ui/button";

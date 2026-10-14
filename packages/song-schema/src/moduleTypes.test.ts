@@ -24,7 +24,7 @@ describe("isEngineRef", () => {
   });
 
   it("leaves the other namespaces alone — those are folders, and they complete", () => {
-    expect(isEngineRef("@st0/audio/amp/nam")).toBe(false);
+    expect(isEngineRef("@k7-core/audio/amp/nam")).toBe(false);
     expect(isEngineRef("@workspace/io/desk")).toBe(false);
     expect(isEngineRef("@project/instruments/bass")).toBe(false);
   });

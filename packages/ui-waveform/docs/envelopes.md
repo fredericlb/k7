@@ -53,5 +53,5 @@ linear in dB — and deliberately not the exact tops.
 
 ## Hosts
 
-`Envelope.peak` is optional, and only st0's clip pane passes it. The rehearsal recorder and session views
+`Envelope.peak` is optional, and only k7's clip pane passes it. The rehearsal recorder and session views
 and the médiathèque's song player have one envelope each and draw the solid curve alone.

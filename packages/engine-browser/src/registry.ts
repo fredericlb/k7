@@ -1,6 +1,6 @@
 // registry.ts — a browser's client for the engine registry: which engines exist, taking and
 // releasing the lease on one, and the account's remembered choice. There is ONE registry, pl8's
-// (@studio/engine-registry): pl8 reaches it on its own origin, st0 and z0 across to it. The five
+// (@studio/engine-registry): pl8 reaches it on its own origin, k7 and z0 across to it. The five
 // routes are spelled once here rather than per app: a copy per app drifts, and it drifts in the
 // return types first.
 

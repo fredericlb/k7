@@ -4,7 +4,7 @@
 // resolution is one-way: the two windows are intersected into `sourceFrom`/`sourceTo`, a sequence's
 // window becomes a loop range, the passes are multiplied into `length`. So a surface could draw an
 // event off a compiled document and could not write one back — which is what made copy/paste on the
-// timeline drop the trim, the fades and the passes (apps/st0/frontend/src/clipboard.ts).
+// timeline drop the trim, the fades and the passes (apps/k7/frontend/src/clipboard.ts).
 
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -18,7 +18,7 @@ let dir = "";
 
 /** One lane playing `riff` once, with whatever the placement wants to say about it. */
 function project(name: string, event: Record<string, unknown>): string {
-  const p = join(dir, `${name}.st0`);
+  const p = join(dir, `${name}.k7`);
   writeYaml(join(p, "project.yaml"), { project: { name, tempo: 120 } });
   writeModule(p, "io", "OUT", { io: "out" });
   writeLane(p, "gtr", "track", {

@@ -30,25 +30,25 @@ const flag = (name: string) => {
 const only = flag("--only")?.toLowerCase();
 const asJson = args.includes("--json");
 const root = resolve(
-  args.find((a) => !a.startsWith("--")) ?? join(REPO, "st0-library"),
+  args.find((a) => !a.startsWith("--")) ?? join(REPO, "k7-core"),
 );
 const modulesRoot = join(root, "modules");
 
-/** The engine binary: `$ST0_ENGINE`, else the first build preset that has one. */
+/** The engine binary: `$K7_RUNTIME`, else the first build preset that has one. */
 function engineBinary(): string {
-  if (process.env.ST0_ENGINE) return process.env.ST0_ENGINE;
-  const build = join(REPO, "engine/st0-engine/build");
+  if (process.env.K7_RUNTIME) return process.env.K7_RUNTIME;
+  const build = join(REPO, "engine/k7-runtime/build");
   for (const p of [
     "macos-clang",
     "windows-msvc/RelWithDebInfo",
     "dev-gcc",
     "dev-clang",
   ])
-    for (const exe of ["st0-engine", "st0-engine.exe"]) {
+    for (const exe of ["k7-runtime", "k7-runtime.exe"]) {
       const f = join(build, p, exe);
       if (wsExists(f)) return f;
     }
-  throw new Error("no st0-engine build found — set ST0_ENGINE");
+  throw new Error("no k7-runtime build found — set K7_RUNTIME");
 }
 
 type Plugin = { type: string; name: string };
@@ -60,9 +60,9 @@ const readYaml = (f: string): Yaml =>
 /** Every folder under the library that holds a module.yaml, keyed by the `@<lib>/…` ref it answers to. */
 function moduleFolders(): Map<string, string> {
   const ns =
-    root.split(sep).pop() === "st0-library"
-      ? "st0"
-      : (root.split(sep).pop() ?? "st0");
+    root.split(sep).pop() === "k7-core"
+      ? "k7"
+      : (root.split(sep).pop() ?? "k7-core");
   const out = new Map<string, string>();
   const walk = (d: string) => {
     for (const e of readdirSync(d)) {

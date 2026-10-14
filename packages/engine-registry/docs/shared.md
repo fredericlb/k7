@@ -1,7 +1,7 @@
 # One registry, and it is the origin's
 
-An engine heartbeats to **one** registry per studio family, mounted by st0's backend
-(`apps/st0/backend/src/media/mount.ts`) and answering on st0's origin — `engineRegistryUrl` in
+An engine heartbeats to **one** registry per studio family, mounted by k7's backend
+(`apps/k7/backend/src/media/mount.ts`) and answering on k7's origin — `engineRegistryUrl` in
 `packages/web-protocol/services.ts`. The `play.` host is an alias of that origin, so a supervisor
 that saved `https://play.st0.app` reaches the same registry (`packages/web-protocol/docs/addresses.md`).
 The editor, the media library's player, z0's editor and the rehearsal recorder's chain source all
@@ -20,25 +20,25 @@ each — and the heartbeat count would grow with every service. One registry mak
 connected to that studio" one fact.
 
 The case against a central registry is that one backend would become a request-time dependency of
-another. That coupling does not arise here: no BACKEND asks another. The pages on st0's origin call
+another. That coupling does not arise here: no BACKEND asks another. The pages on k7's origin call
 it same-origin, and z0's editor calls it across the origin (the backend answers every origin's
-credentialed request — `apps/st0/backend/docs/media/cors.md`), the relay included.
+credentialed request — `apps/k7/backend/docs/media/cors.md`), the relay included.
 
 ## Saying what it is
 
-`GET /api/registry/hello` answers `{ service: "st0-registry" }`, open like the heartbeat. It is how the
+`GET /api/registry/hello` answers `{ service: "k7-registry" }`, open like the heartbeat. It is how the
 supervisor tells a registry from any other website before it sends one the engine's token
-(`engine/st0-supervisor/docs/supervisorPolicy.md`); it says nothing else.
+(`engine/k7-supervisor/docs/supervisorPolicy.md`); it says nothing else.
 
 ## What this costs
 
-The registry is down whenever st0's backend is, and so are the workspaces, since the accounts' file
+The registry is down whenever k7's backend is, and so are the workspaces, since the accounts' file
 services are started by the same process (`packages/file-hub/docs/fileHub.md`): that backend down
 is the studio down. A registry that is down is absent from every picker, which is right: the
 engines cannot be listed.
 
 The remembered engine is the ACCOUNT's: the editor and the media library read and write one
-preferences document on st0's backend (`engineId`, the command preferences, the playback
+preferences document on k7's backend (`engineId`, the command preferences, the playback
 destination), so a machine picked in one is picked in the other.
 
 An engine is still listed once and driven by several apps at once, through separate sessions
@@ -46,7 +46,7 @@ An engine is still listed once and driven by several apps at once, through separ
 
 ## One mounting
 
-The registry is mounted in ONE place, st0's backend, and still through one call rather than by hand.
+The registry is mounted in ONE place, k7's backend, and still through one call rather than by hand.
 `mountEngineRegistry(app, { service, requireAuth, exitOnSignal })` installs the guard, the registry and the
 routes, and answers a `serve(server, url)` that attaches the relay after `listen` — the relay
 needs the `http.Server`, which Express does not have before then.
@@ -67,13 +67,13 @@ Three drifts the base removes by construction:
   route's `try/catch` sees it, and every service relays the same bytes. It is
   `engineErrorHandler`, to be mounted LAST.
 - **Leaving.** A service that leaves its advertisement file behind points the file service at a
-  dead port for ever (`~/.st0/web-endpoints/pl8.json` — the service is still named `pl8` — is how
+  dead port for ever (`~/.k7/web-endpoints/pl8.json` — the service is still named `pl8` — is how
   a machine's file service finds the médiathèque). The supervisor does not heartbeat to these
   files — an engine joins an instance only when its `registryUrls` names it. By default the base
   installs SIGINT and SIGTERM and exits inside them, with `alsoOnStop` for what a service has of
   its own. A host that has more to stop passes `exitOnSignal: false` and calls the goodbye `serve`
-  returns itself: st0's backend does, so the account file services stop and the requests in flight
-  drain before the process exits (`apps/st0/backend/docs/media/engine.md`).
+  returns itself: k7's backend does, so the account file services stop and the requests in flight
+  drain before the process exits (`apps/k7/backend/docs/media/engine.md`).
 
 ## What `assigned` means, and why it is nearly obsolete
 

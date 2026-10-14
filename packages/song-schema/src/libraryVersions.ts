@@ -1,10 +1,10 @@
-// libraryVersions.ts — a library as a series of FROZEN versions: the level st0 runs, what a version's
+// libraryVersions.ts — a library as a series of FROZEN versions: the level k7 runs, what a version's
 // `library.yaml` says, and the pins a workspace keeps in `_library-pins.yaml`. No `node:fs`, so
 // the file service and the browser read them by the same rules. Rationale: docs/library-versions-plan.md.
 
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
-/** What this st0 can run: a library whose `requires` is above it is refused — raise it when a library may use something new. */
+/** What this k7 can run: a library whose `requires` is above it is refused — raise it when a library may use something new. */
 export const LIBRARY_LEVEL = 1;
 
 /** The folder an admin edits a library in, beside its published versions. */
@@ -66,7 +66,7 @@ export function stringifyLibraryManifest(m: LibraryManifest): string {
   return stringifyYaml(m);
 }
 
-/** Can a st0 at `level` run this version? */
+/** Can a k7 at `level` run this version? */
 export const isRunnable = (
   m: LibraryManifest,
   level = LIBRARY_LEVEL,

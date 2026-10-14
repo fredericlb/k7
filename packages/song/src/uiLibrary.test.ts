@@ -44,7 +44,7 @@ beforeEach(() => {
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 // A module at `@workspace`, spelled out rather than built by a production writer — a module now
-// lives at `@workspace` or `@st0`, never inside the project.
+// lives at `@workspace` or `@k7-core`, never inside the project.
 const writeSharedModule = (body: string): void => {
   mkdirSync(join(root, "_modules", "audio", "reverb"), { recursive: true });
   writeFileSync(
@@ -55,16 +55,16 @@ const writeSharedModule = (body: string): void => {
 };
 
 describe("panels across more than one library", () => {
-  // A SECOND library at `_libraries/modules`, answering to `@st0` by its folder and no config.
+  // A SECOND library at `_libraries/modules`, answering to `@k7-core` by its folder and no config.
   let media: string;
   beforeEach(() => {
     media = writeLibraries(root);
   });
 
-  it("loads a module OUT of the media library, through the @st0 token", () => {
+  it("loads a module OUT of the media library, through the @k7-core token", () => {
     // The project reaches a library it does not contain, with no path anywhere in project.yaml.
     const refs = loadModuleRefs(dir);
-    expect(refs["@st0/audio/reverb"]).toBeTruthy();
+    expect(refs["@k7-core/audio/reverb"]).toBeTruthy();
     expect(refs["@workspace/audio/delay/tape-delay"]).toBeTruthy();
   });
 
@@ -73,14 +73,18 @@ describe("panels across more than one library", () => {
       join(media, "modules", "audio", "reverb", "ui.yaml"),
       PANEL as unknown as Record<string, unknown>,
     );
-    expect(loadUiLibrary(dir).byRef["@st0/audio/reverb"]?.ui).toEqual(PANEL);
+    expect(loadUiLibrary(dir).byRef["@k7-core/audio/reverb"]?.ui).toEqual(
+      PANEL,
+    );
   });
 
   it("writes a shared module's panel into the shared module's own folder", () => {
     // A panel is drawn for the plugin, so it lands where the plugin is, not in every project.
-    const written = writeUiFile(dir, "@st0/audio/reverb", PANEL);
+    const written = writeUiFile(dir, "@k7-core/audio/reverb", PANEL);
     expect(written).toBe(join(media, "modules", "audio", "reverb", "ui.yaml"));
-    expect(loadUiLibrary(dir).byRef["@st0/audio/reverb"]?.ui).toEqual(PANEL);
+    expect(loadUiLibrary(dir).byRef["@k7-core/audio/reverb"]?.ui).toEqual(
+      PANEL,
+    );
   });
 
   it("refuses a namespace no library this project can see declares", () => {
@@ -92,11 +96,11 @@ describe("panels across more than one library", () => {
 
   it("keeps two modules of the same name apart, one per level", () => {
     // One NAME in two libraries is a fork, so both are keyed separately, nearest first.
-    writeUiFile(dir, "@st0/audio/reverb", { ...PANEL, cols: 9 });
+    writeUiFile(dir, "@k7-core/audio/reverb", { ...PANEL, cols: 9 });
     writeUiFile(dir, "@workspace/audio/reverb", PANEL);
     const lib = loadUiLibrary(dir);
     expect(lib.byRef["@workspace/audio/reverb"].ui.cols).toBe(PANEL.cols);
-    expect(lib.byRef["@st0/audio/reverb"].ui.cols).toBe(9);
+    expect(lib.byRef["@k7-core/audio/reverb"].ui.cols).toBe(9);
     expect(lib.issues).toEqual([]);
   });
 });

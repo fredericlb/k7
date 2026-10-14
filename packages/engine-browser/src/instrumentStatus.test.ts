@@ -15,7 +15,7 @@ function client(session?: string) {
 
 describe("instrument-status", () => {
   it("hands each ref's verdict to the listener", () => {
-    const { feed, got } = client("st0:fred");
+    const { feed, got } = client("k7:fred");
     feed({
       type: "instrument-status",
       status: { "@instruments/nbo-wurt/wurly.sfz": false },

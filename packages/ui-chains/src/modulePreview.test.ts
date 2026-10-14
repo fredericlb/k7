@@ -138,7 +138,7 @@ describe("reading a module's type folder", () => {
   });
 
   it("reads one behind a project prefix, with backslashes", () => {
-    // What st0' file tree hands over on Windows in a multi-project workspace.
+    // What k7' file tree hands over on Windows in a multi-project workspace.
     expect(
       moduleCategoryOf(
         "LEMO - DANSE\\modules\\instruments\\drum_1\\module.yaml",

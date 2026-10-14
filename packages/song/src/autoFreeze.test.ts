@@ -23,7 +23,7 @@ let root = "";
 
 /** gtr → amp (VST) → cab → OUT, keys → verb (VST) → OUT; `cab` a VST too when asked. */
 function project(name: string, opts: { cabVst?: boolean } = {}): string {
-  const p = join(root, name, "song.st0");
+  const p = join(root, name, "song.k7");
   writeYaml(join(p, "project.yaml"), { project: { name: "song" } });
   writeNode(p, "amp", {
     plugin: { type: "vst3", name: "Amp" },

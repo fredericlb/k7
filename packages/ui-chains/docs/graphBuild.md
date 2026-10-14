@@ -106,7 +106,7 @@ strip has neither, and is its panel alone.
 
 ### The header's name has to be readable at that width
 
-`moduleDisplayName` keeps the LAST segment of a module ref — `@st0/audio/modulation/chorus-ense` →
+`moduleDisplayName` keeps the LAST segment of a module ref — `@k7-core/audio/modulation/chorus-ense` →
 `chorus-ense` — because everything before it is where the module is filed, and spending a card's
 width on a namespace every neighbour repeats leaves no room for the word that tells them apart. The
 whole ref stays as the header's `title`.
@@ -135,7 +135,7 @@ HORIZONTAL layout, at most 4 rows, and its `vertical` twin, at most 4 columns. `
 `layout` (and `moduleRow`'s, which passes it on) picks one. `"vertical"` swaps the twin in for the
 panel and marks it `tabsAs: "dropdown"`, so its tabs are a menu across the card's top (`menuH`)
 rather than a column down its left (`columnW` is then 0). A panel with no twin keeps its own grid,
-marked the same way, and the fold below narrows it. st0's per-track view draws horizontal on a
+marked the same way, and the fold below narrows it. k7's per-track view draws horizontal on a
 desktop, where the row is read ACROSS, and vertical on a phone, where it is read DOWN. The global
 graph draws vertical, folded to 4 columns: its cards sit in ranks that run left to right, so a narrow
 card keeps the ranks close and the cables short.
@@ -371,7 +371,7 @@ service hands them to `buildGraphDoc` rather than compiling again, since the gra
 workspace already holds that document memoised on the revision.
 
 - a compiled `length` of **0** means "the source's natural length", which neither side knows. The
-  file service substitutes **4 beats** — the same stand-in st0's timeline draws for the same case —
+  file service substitutes **4 beats** — the same stand-in k7's timeline draws for the same case —
   so a clip is not one width on the lane and another on the graph;
 - a project that **will not compile** has no extents, and the graph still builds. It loses the
   widths, not the clips: this is the screen you fix a broken project from.
@@ -520,7 +520,7 @@ destination is a bus (named after the module it starts at) or a sink.
 
 The **pending** node — the module being created, drawn where it will land — is not built by
 `buildGraph`: the host adds it, with its `jacks` and the two cables of the splice already decided
-(st0's `apps/st0/frontend/src/pendingNode.ts`). The renderer draws those sockets and nothing that
+(k7's `apps/k7/frontend/src/pendingNode.ts`). The renderer draws those sockets and nothing that
 answers a hand: it is dashed and spinning because it does not exist yet, but where its cables run
 is exactly what the wait is for.
 
@@ -600,7 +600,7 @@ its frame's.
 
 **Nothing about the push is recorded**, and that is what puts every card back when the box closes:
 the pass simply stops running. The one thing that could break it is the graph writing a pushed
-position down, so a moved card carries `pushed` — where it belongs — and st0's session memory and
+position down, so a moved card carries `pushed` — where it belongs — and k7's session memory and
 its auto-pin both read THAT rather than where the card is drawn. Pin the shoved position once and
 closing the box would leave the card there for good.
 
@@ -722,7 +722,7 @@ and every cable in the rig would stay still. The seed is therefore `mod:<id>` as
 That list is `liveVideoLanes`, the meters' opposite number. The engine measures sound and knows
 nothing of the frame (@studio/song's docs/picture.md), so a video lane's cables have no meter to
 ripple from — the one part of the graph that could never come alive by observation. What the browser
-HAS is the shots and the playhead: derive it rather than observe it, the same bargain st0 strikes
+HAS is the shots and the playhead: derive it rather than observe it, the same bargain k7 strikes
 for a rack's lit pads. The spans are half-open, like the compositor's own `activeAt` — a cut belongs
 to the LATER shot, so two shots meeting at a boundary never both count — and they are the host's to
 compute, from the same document the viewport draws.
@@ -1187,7 +1187,7 @@ nobody answers at.
 `moduleCategoryOf` reads the segment after `modules/` or `_modules/` rather than a fixed index. The
 same module is named `modules/audio/reverb` by the médiathèque,
 `_modules/audio/delay/tape-delay/module.yaml` by a shared library, and
-`LEMO - DANSE/modules/audio/amp/module.yaml` by st0 in a workspace holding several projects — an
+`LEMO - DANSE/modules/audio/amp/module.yaml` by k7 in a workspace holding several projects — an
 index would be right for one of those and wrong for the others. Anything unrecognised draws as
 audio: a glyph is not worth refusing a preview over.
 

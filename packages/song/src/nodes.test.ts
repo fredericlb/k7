@@ -19,7 +19,7 @@ import { writeNode, writeYaml } from "./testSupport";
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
 const DEMOS = join(here, "..", "..", "..", "demos");
-const SONG = join(DEMOS, "synth-demo.st0");
+const SONG = join(DEMOS, "synth-demo.k7");
 
 describe("splitModuleKey", () => {
   it("splits a ref on its first separator", () => {
@@ -36,7 +36,7 @@ describe("module nodes", () => {
   let dir: string;
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-inst-"));
-    dir = join(ws, "synth-demo.st0");
+    dir = join(ws, "synth-demo.k7");
     cpSync(SONG, dir, { recursive: true });
     // The Examples workspace's own shared library, beside every demo project.
     const shared = join(DEMOS, "_modules");

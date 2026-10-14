@@ -25,8 +25,9 @@ let home: string;
 
 const benchRoot = (): string => join(rootDir(), BENCH_WORKSPACE);
 const benchDir = (): string => join(benchRoot(), BENCH_PROJECT);
-/** The account's `st0` library, where the file service clones it — under `$STUDIO_HOME`. */
-const library = (rel: string): string => join(home, "libraries", "st0", rel);
+/** The account's `k7-core` library, where the file service clones it — under `$STUDIO_HOME`. */
+const library = (rel: string): string =>
+  join(home, "libraries", "k7-core", rel);
 
 const put = (rel: string, text: string): void => {
   mkdirSync(dirname(library(rel)), { recursive: true });
@@ -52,21 +53,21 @@ beforeEach(() => {
     "chains/vocals/warm/graph.yaml",
     'modules:\n  "@in": [ comp ]\n  comp: [ eq ]\n  eq: [ "@out" ]\n',
   );
-  put("chains/vocals/warm/nodes/comp.yaml", 'extends: "@st0/audio/comp"\n');
-  put("chains/vocals/warm/nodes/eq.yaml", 'extends: "@st0/audio/eq"\n');
+  put("chains/vocals/warm/nodes/comp.yaml", 'extends: "@k7-core/audio/comp"\n');
+  put("chains/vocals/warm/nodes/eq.yaml", 'extends: "@k7-core/audio/eq"\n');
   put(
     "chains/master/norm/graph.yaml",
     'modules:\n  "@in": [ norm ]\n  norm: [ "@out" ]\n',
   );
   put(
     "chains/master/norm/nodes/norm.yaml",
-    'extends: "@st0/audio/normalize"\n',
+    'extends: "@k7-core/audio/normalize"\n',
   );
   // The same chain as a FILE: nodes inline, named by id, and a preset in the library's vstpresets/.
   put(
     "chains/vocals/bright.yaml",
-    'steps:\n  - { id: a1, extends: "@st0/audio/comp", params: { Ratio: 0.5 } }\n' +
-      '  - { id: b2, extends: "@st0/audio/eq", bypass: true }\n  - to: [ { chain: "@out" } ]\n',
+    'steps:\n  - { id: a1, extends: "@k7-core/audio/comp", params: { Ratio: 0.5 } }\n' +
+      '  - { id: b2, extends: "@k7-core/audio/eq", bypass: true }\n  - to: [ { chain: "@out" } ]\n',
   );
   put("vstpresets/a1.vstpreset", "state");
 });
@@ -80,9 +81,9 @@ describe("the bench, on a library chain", () => {
   it("lists every chain, refusing a cold one by name", () => {
     const chains = liveChains(benchDir());
     expect(chains.map((c) => c.ref)).toEqual([
-      "@st0/master/norm",
-      "@st0/vocals/bright",
-      "@st0/vocals/warm",
+      "@k7-core/master/norm",
+      "@k7-core/vocals/bright",
+      "@k7-core/vocals/warm",
     ]);
     expect(chains[0].unavailable).toContain("on disk");
     expect(chains[1].unavailable).toBeNull();

@@ -22,42 +22,42 @@ let root: string;
 let ws: Workspace;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-k7x-"));
-  mkdirSync(join(root, "song.st0"));
-  writeFileSync(join(root, "song.st0", "project.k7x"), PROJECT);
+  mkdirSync(join(root, "song.k7"));
+  writeFileSync(join(root, "song.k7", "project.k7x"), PROJECT);
   ws = new Workspace(root);
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("a project written in .k7x", () => {
   it("is a project", () => {
-    expect(ws.workspaceInfo().projects).toContain("song.st0");
+    expect(ws.workspaceInfo().projects).toContain("song.k7");
   });
 
   it("serves the .k7x file as written", () => {
-    expect(ws.read("song.st0/project.k7x").content).toBe(PROJECT);
+    expect(ws.read("song.k7/project.k7x").content).toBe(PROJECT);
   });
 
   it("serves it as YAML by its YAML name", () => {
-    expect(parseYaml(ws.read("song.st0/project.yaml").content)).toEqual({
+    expect(parseYaml(ws.read("song.k7/project.yaml").content)).toEqual({
       project: { name: "demo", tempo: 120, timeSignature: "4/4" },
     });
   });
 
   it("takes a YAML write by that name as an edit of the .k7x file", () => {
     ws.write(
-      "song.st0/project.yaml",
+      "song.k7/project.yaml",
       'project:\n  name: demo\n  tempo: 96\n  timeSignature: "4/4"\n',
     );
-    expect(readFileSync(join(root, "song.st0", "project.k7x"), "utf8")).toBe(
+    expect(readFileSync(join(root, "song.k7", "project.k7x"), "utf8")).toBe(
       PROJECT.replace("120", "96"),
     );
-    expect(existsSync(join(root, "song.st0", "project.yaml"))).toBe(false);
+    expect(existsSync(join(root, "song.k7", "project.yaml"))).toBe(false);
   });
 
   it("writes the .k7x file as given when it is named", () => {
     const next = PROJECT.replace("demo", "renamed");
-    ws.write("song.st0/project.k7x", next);
-    expect(readFileSync(join(root, "song.st0", "project.k7x"), "utf8")).toBe(
+    ws.write("song.k7/project.k7x", next);
+    expect(readFileSync(join(root, "song.k7", "project.k7x"), "utf8")).toBe(
       next,
     );
   });

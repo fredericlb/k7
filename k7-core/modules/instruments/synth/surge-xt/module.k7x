@@ -1,0 +1,9 @@
+// surge-xt — Surge XT, a full hybrid synthesizer built into the engine: three oscillators per scene over a dozen
+// algorithms, two filters from forty models, waveshapers, twelve modulators and a routing matrix, two effect chains.
+// What it plays is a PATCH, a BASE under base/: 608 of Surge's factory patches by category, GPL-3 like Surge.
+//
+// A patch carries its own wavetables, so the engine needs no Surge install. Every parameter but the MIDI ones is a
+// param here, the patch's value until this file sets one; the panel is generated (engine/k7-runtime/docs/surgePlugin.md).
+extends("@engine/surge-xt")
+base("Pads/Bell Pad")
+// Surge XT, the open-source hybrid synthesizer: subtractive, wavetable, FM and physical voices, with 608 factory patches to start from — pads, leads, basses, plucks, keys, brass.

@@ -1,7 +1,7 @@
 # Per-user preferences: a file, not a database
 
 One JSON per user on a volume, keyed by the OIDC subject. It exists because nothing else on the
-hosted side remembers anything **about a person**: without it st0's engine pick lives in
+hosted side remembers anything **about a person**: without it k7's engine pick lives in
 `sessionStorage`, where a second tab does not see it, and `<state>/preferences.yaml` — the one
 thing that looks like this — is per-MACHINE, on the engine's side of the wire, shared by every
 hosted user who selects that machine.
@@ -11,8 +11,8 @@ hosted user who selects that machine.
 What is stored is one engine id per person. Losing it costs one click. That is the whole
 risk budget, and it does not buy a database:
 
-- st0's backend has **no database dependency** — the media library's one database is
-  `node:sqlite`, which is Node itself (`apps/st0/backend/docs/media/comments.md`). Adding Grist to it, for a
+- k7's backend has **no database dependency** — the media library's one database is
+  `node:sqlite`, which is Node itself (`apps/k7/backend/docs/media/comments.md`). Adding Grist to it, for a
   string, would be the largest dependency it has ever taken for the smallest fact it has ever
   stored.
 - The médiathèque's own argument applies unchanged — *the filesystem is the index* — and it
@@ -46,7 +46,7 @@ comes back the day the second rule moves. A subject reads perfectly well without
 A hosted service must not 500 because a volume is missing.
 
 **Except before a merge.** `readForUpdate` answers null only when the file is absent, and throws
-when it is there and cannot be read. A caller that merges a change onto what it read, like st0's
+when it is there and cannot be read. A caller that merges a change onto what it read, like k7's
 AI settings, would otherwise start from `{}` and write the file back without everything the
 unreadable one held: the account's Claude key lost to a model change. It refuses instead, and
 nothing is changed. `read` stays forgiving because a read that only displays loses nothing.
@@ -64,7 +64,7 @@ keep the behaviour.
 
 **A write goes in beside the file and is renamed over it.** Since a truncated file reads as no
 preferences, a crash mid-write would otherwise be a silent reset. That costs a person their command
-layout, and in st0 the Claude key the AI settings keep in a store of the same kind.
+layout, and in k7 the Claude key the AI settings keep in a store of the same kind.
 
 ## Writes are wholesale
 
@@ -73,7 +73,7 @@ to clear — you could pick an engine and never un-pick one.
 
 ## The schema belongs to the host
 
-`preferencesRouter(store, schema)` takes the shape from whoever mounts it. st0 and the
+`preferencesRouter(store, schema)` takes the shape from whoever mounts it. k7 and the
 médiathèque remember different things, and a union of every service's fields would be a
 shape no service actually has.
 

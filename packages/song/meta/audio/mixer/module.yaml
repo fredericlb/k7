@@ -1,5 +1,5 @@
 # mixer — a lane's STRIP: level, pan and three bands, last in every lane's run, over the engine's own
-# MixerPlugin. Shipped with st0 rather than by a library: every lane has one, so no library may
+# MixerPlugin. Shipped with k7 rather than by a library: every lane has one, so no library may
 # remove or change it (packages/song/docs/metaModules.md, docs/trackMixer.md).
 plugin:
   type: internal

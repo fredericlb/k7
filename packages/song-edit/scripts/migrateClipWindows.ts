@@ -1,7 +1,7 @@
 // migrateClipWindows.ts — move every material's `from`/`to` DOWN onto the placements that play it,
 // so a material describes itself and a placement describes its use.
 //
-//   npx tsx packages/song-edit/scripts/migrateClipWindows.ts <project.st0> [--write]
+//   npx tsx packages/song-edit/scripts/migrateClipWindows.ts <project.k7> [--write]
 //
 // Dry by default. The rules and their tests are src/windowDescend.ts.
 //
@@ -52,7 +52,7 @@ function main(): void {
   const [root, ...rest] = process.argv.slice(2);
   if (!root) {
     console.error(
-      "usage: migrateClipWindows.ts <project.st0> [--write]   (dry by default)",
+      "usage: migrateClipWindows.ts <project.k7> [--write]   (dry by default)",
     );
     process.exit(2);
   }

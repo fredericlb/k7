@@ -17,7 +17,7 @@ A useful vocabulary has to be asked for elsewhere, and where depends on the word
 | what is being written | vocabulary | who alone can answer |
 |---|---|---|
 | an `@engine/…` ref | the scanned plugins | the **engine**, over its socket |
-| an `@st0/…` ref | the library's modules | the **catalogue**, over a listing route |
+| an `@k7-core/…` ref | the library's modules | the **catalogue**, over a listing route |
 | a destination in a graph | the declared nodes | **the file itself**, in the buffer |
 
 The third row is the one that costs nothing: the keys of the `modules:` section **are** the list
@@ -29,7 +29,7 @@ keystroke would offer nothing precisely while the line that needs it is being wr
 
 A screen already holding a list for something else is best placed to make a vocabulary of it,
 and needs to ask nobody. The editor's playlist screen does that over the listing it already queries
-(`apps/st0/frontend/docs/playlists.md`), and this catalogue is what answers it, through
+(`apps/k7/frontend/docs/playlists.md`), and this catalogue is what answers it, through
 `/api/mediatek/list?family=songs`.
 
 ## Not covered

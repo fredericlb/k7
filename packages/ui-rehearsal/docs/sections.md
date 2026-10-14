@@ -1,10 +1,10 @@
-# The Rehearsal group of st0's sidebar
+# The Rehearsal group of k7's sidebar
 
-The rehearsal pages have no bar of their own: they are pages of st0's home, and their entries are
+The rehearsal pages have no bar of their own: they are pages of k7's home, and their entries are
 a group of its sidebar, **Rehearsal**, under the media library's
-(`apps/st0/frontend/src/projects/HomeSidebar.tsx`). `src/sections.ts` says what the entries are and
+(`apps/k7/frontend/src/projects/HomeSidebar.tsx`). `src/sections.ts` says what the entries are and
 which one an address belongs to; the host draws them. The page's own action — the red dot that
-starts a take — sits where st0 puts a page's controls (`apps/st0/frontend/src/projects/RehearsalPage.tsx`).
+starts a take — sits where k7 puts a page's controls (`apps/k7/frontend/src/projects/RehearsalPage.tsx`).
 
 ## Four entries
 
@@ -21,8 +21,8 @@ their pages. `/rehearsal/moments` and `/rehearsal/pages` still land on their ent
 page — a session, a moment, a release, a page, a song, an exercise — lights the entry it belongs
 to.
 
-**The settings are a section of st0's `/settings`**, not a fifth entry: every page of the origin
-keeps its settings in that one place (`apps/st0/frontend/docs/settings.md`), and
+**The settings are a section of k7's `/settings`**, not a fifth entry: every page of the origin
+keeps its settings in that one place (`apps/k7/frontend/docs/settings.md`), and
 `/rehearsal/settings` sends there.
 
 Every icon comes from `@frediverse/ui/icons`, the one set every frediverse app draws with — why,
@@ -50,6 +50,6 @@ inside the rehearsal pages. The `/new` forms have Cancel instead, which is the s
 
 Every rehearsal screen is drawn inside `.rehearsal-root`, and its stylesheet (`src/styles/`) is
 scoped under it: its palette as custom properties on the wrapper, and no `:root`, no `body`, no bare
-element rule — a rule that reached st0's own pages would restyle them the moment a rehearsal page
+element rule — a rule that reached k7's own pages would restyle them the moment a rehearsal page
 had been opened once. The fixed docks and pop-ins are offset by `--rehearsal-inset-left`, the
 sidebar's width, so they stay inside the content column.
