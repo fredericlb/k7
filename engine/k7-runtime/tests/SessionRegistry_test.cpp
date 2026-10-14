@@ -80,7 +80,7 @@ void ids_are_sorted_and_copied() {
     reg.emplace("k7");
     reg.emplace("pl8");
     // std::map ordering, and a COPY — the caller walks it without holding the lock.
-    CHECK((reg.ids() == std::vector<std::string>{"m9", "pl8", "k7"}));
+    CHECK((reg.ids() == std::vector<std::string>{"k7", "m9", "pl8"}));
 }
 
 // One writer growing the map while two readers work it, the shape of the real fault: the sender drains a ring through withSession while the message thread emplaces.
