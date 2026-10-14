@@ -569,8 +569,8 @@ function compileNodeProjectIn(
 
   // Non-sink targets naming a chain that isn't track-fed: routing into a track's input is inexpressible, so they drop.
   const busChains = new Set<string>();
+  // A PICTURE lane is never a bus, though a fade's stretch routes into its run (song-video/docs/transitions.md).
   for (const c of Object.values(chains))
-    // A PICTURE lane is never a bus, though a fade's stretch routes into its run (song-video/docs/transitions.md).
     for (const { to } of outTargets(c))
       if (
         !isSink(to) &&
