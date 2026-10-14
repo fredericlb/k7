@@ -243,15 +243,15 @@ export const library = {
       "placement",
     ),
 
-  /** Bring one server-only entry down to this machine; unbounded, since a song's master is long. */
-  download: async (family: string, path: string): Promise<void> => {
+  /** Bring server-only entries down to this machine — one, an album, a playlist's; unbounded, since a song's master is long. */
+  download: async (family: string, paths: string[]): Promise<void> => {
     await json(
       await request(
         `${apiBase()}/api/sync/library/download`,
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ family, path }),
+          body: JSON.stringify({ family, paths }),
         },
         null,
       ),

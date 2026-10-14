@@ -56,6 +56,10 @@ export interface LibraryLabels {
     localOnly: string;
     serverOnly: (host: string) => string;
     download: string;
+    /** A folder's server-only entries at once — an album's songs, a pack's samples. */
+    downloadAll: (count: number) => string;
+    /** The songs an album or a playlist names that only the server holds. */
+    downloadMissing: (count: number) => string;
   };
   addRecording: { add: string; sending: string; cancel: string };
   addSong: {

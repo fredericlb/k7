@@ -158,6 +158,35 @@ describe("placing a paired machine's library", () => {
     });
     expect(r.status).toBe(404);
   });
+
+  it("brings a list down in one call and names what the server lacks", async () => {
+    const r = await fetch(`${local}/api/sync/library/download`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        family: "samples",
+        paths: ["samples/audio/kit/there.wav", "samples/nope.wav"],
+      }),
+    });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({
+      files: 1,
+      missing: ["samples/nope.wav"],
+    });
+    expect((await placement()).serverOnly).toEqual([]);
+  });
+
+  it("brings a whole folder down — an album — through its path", async () => {
+    const r = await fetch(`${local}/api/sync/library/download`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ family: "samples", paths: ["samples/audio/kit"] }),
+    });
+    expect(r.status).toBe(200);
+    expect(
+      readFileSync(join(root, "samples/audio/kit/there.wav"), "utf8"),
+    ).toBe("bytes of samples/audio/kit/there.wav");
+  });
 });
 
 describe("the origin's library for a device", () => {
