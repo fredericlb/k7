@@ -41,10 +41,13 @@ export function useServerCopy(
       const p = await library.placement(family);
       setPlacement(p.paired ? p : null);
     } catch {
-      // A server that is away says nothing about where things are: no icons rather than wrong ones.
-      setPlacement(null);
+      // A server that does not answer this once keeps what it said before: its songs must not vanish from the page.
     }
   }, [family]);
+
+  // Another section is another family: what the last one's server said is not this one's.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the family changing IS the signal.
+  useEffect(() => setPlacement(null), [family]);
 
   // Keyed on `entries`: a local reload is when what is here changed.
   useEffect(() => {

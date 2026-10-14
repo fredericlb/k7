@@ -95,6 +95,12 @@ export function serverOf(hub: FileHub, req: Request): PairedServer | null {
   };
 }
 
+/** How long the server's listing may take: a few hundred songs from a busy origin take seconds. */
+const LISTING_TIMEOUT_MS = 20_000;
+
+/** The last listing each server gave of each family, answered when it is slow or away rather than nothing. */
+const lastListing = new Map<string, FamilyListing>();
+
 /** `GET /?family=` places each entry; `POST /download {family, path | paths}` brings server-only entries down. */
 export function serverCopyRouter(hub: FileHub): Router {
   const r = Router();
@@ -115,21 +121,27 @@ export function serverCopyRouter(hub: FileHub): Router {
         return res.json(none);
       }
       let theirs: FamilyListing;
+      const key = `${server.base} ${family}`;
       try {
-        // Bounded: the library page must not wait on a server that is away.
+        // Bounded: the library page must not wait for ever on a server that is away.
         const got = await fetch(
           `${server.base}${DEVICE_LIBRARY_ROUTE}/list?family=${family}`,
           {
             headers: { authorization: `Bearer ${server.token}` },
-            signal: AbortSignal.timeout(5000),
+            signal: AbortSignal.timeout(LISTING_TIMEOUT_MS),
           },
         );
         if (!got.ok) throw new Error(`${got.status} ${got.statusText}`);
         theirs = (await got.json()) as FamilyListing;
+        lastListing.set(key, theirs);
       } catch (e) {
-        return res.status(502).json({
-          error: `could not list ${server.base}'s library: ${(e as Error).message}`,
-        });
+        // What it said last time beats an empty page: its songs do not vanish because it was slow once.
+        const known = lastListing.get(key);
+        if (!known)
+          return res.status(502).json({
+            error: `could not list ${server.base}'s library: ${(e as Error).message}`,
+          });
+        theirs = known;
       }
       const here = new Set(listFamily(family).entries.map((e) => e.path));
       const placement: LibraryPlacement = {

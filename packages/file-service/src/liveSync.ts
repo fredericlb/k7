@@ -3,7 +3,10 @@
 // server's with a device token. A workspace's batches go to whichever link it has NOW, which is what lets a
 // move switch its server underneath it (liveMove.ts). See docs/liveCapture.md.
 
+import { randomUUID } from "node:crypto";
+import { rmSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
+import { fileOpFor } from "@studio/live-sync/file-op";
 import type { Conflict } from "@studio/live-sync/ops";
 import { Replica } from "@studio/live-sync/replica";
 import type {
@@ -184,6 +187,8 @@ function replicaOf(a: Attached, logDir: string): Linked {
     replica: new Replica(replicaId(), host, confirmed, loadHead(logDir)),
     written,
     onRemote: (files) => remoteLanded(a.ws, files),
+    // Another replica deleted the workspace, or moved it elsewhere: this copy goes too.
+    onEnded: () => void endedRemotely(a),
   };
 }
 
@@ -243,6 +248,56 @@ export function attachLiveCapture(ws: Workspace, name: string): void {
   const replica = linkUp(a, server);
   // With a history, what moved while this service was down is diffed against the confirmed text and sent.
   capture.start(replica.head > 0 ? replica.confirmed : undefined);
+}
+
+/** One batch removing every file of `a` and saying the workspace ENDS: what a deletion and a move both send. */
+export function endBatch(a: Attached, label: string): Batch {
+  const ops = a.capture.textFiles().flatMap((file) => {
+    const op = fileOpFor(file, a.capture.read(file), null);
+    return op ? [op] : [];
+  });
+  return {
+    id: randomUUID(),
+    replica: a.replica?.id ?? replicaId(),
+    local: 0,
+    ts: Date.now(),
+    label,
+    ops,
+    ends: true,
+  };
+}
+
+/** Stop syncing `a` for good: its capture, its link and its history — a workspace of that name later starts afresh. */
+function forget(a: Attached): void {
+  a.capture.stop();
+  a.link?.remove(a.room);
+  attached.delete(a.ws.root);
+  rmSync(a.logDir, { recursive: true, force: true });
+}
+
+/** How long a deletion waits for its server to confirm the room emptied, before letting go anyway. */
+const END_CONFIRM_MS = 15_000;
+
+/** The workspace at `root` is being DELETED here: its room is emptied and told it ends, then sync lets it go. */
+export async function endWorkspace(root: string): Promise<void> {
+  const a = attached.get(root);
+  if (!a) return;
+  if (a.link && a.replica) {
+    a.link.local(a.room, endBatch(a, "workspace deleted"));
+    // Bounded: a server out of reach keeps its copy, which then lists here as on the server only.
+    const end = Date.now() + END_CONFIRM_MS;
+    while (a.replica.unconfirmed().length && Date.now() < end)
+      await new Promise((r) => setTimeout(r, 200));
+  }
+  forget(a);
+}
+
+/** Another replica ended the workspace: stop syncing it, and let the folder go unless it holds what never synced. */
+async function endedRemotely(a: Attached): Promise<void> {
+  forget(a);
+  // Imported late: workspaces.ts loads this module to attach what it opens.
+  const { dropEndedWorkspace } = await import("./workspaces.ts");
+  await dropEndedWorkspace(a.name);
 }
 
 /** Stop capturing the workspace at `root`, which is gone or no longer served. */

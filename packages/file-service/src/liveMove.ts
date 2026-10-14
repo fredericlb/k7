@@ -3,11 +3,8 @@
 // room emptied, which takes the workspace off that server's list and every device's synced with it. The old
 // room's history still holds it. Edits made meanwhile are held and go to the target. See docs/liveCapture.md.
 
-import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { fileOpFor } from "@studio/live-sync/file-op";
-import type { Batch } from "@studio/live-sync/ops";
 import { Replica } from "@studio/live-sync/replica";
 import { ConfirmedDir } from "./liveConfirmed.ts";
 import { replicaId } from "./liveLog.ts";
@@ -20,7 +17,13 @@ import {
   serverOf,
   writeLinkRecord,
 } from "./liveServers.ts";
-import { type Attached, attachedAt, linkUp, reportMoves } from "./liveSync.ts";
+import {
+  type Attached,
+  attachedAt,
+  endBatch,
+  linkUp,
+  reportMoves,
+} from "./liveSync.ts";
 
 /** How long the target may take to confirm the whole workspace, its bytes included. */
 const SEED_TIMEOUT_MS = 30 * 60_000;
@@ -121,19 +124,8 @@ async function moveWorkspace(a: Attached, to: string): Promise<void> {
     );
     toLink.remove(a.room);
 
-    // 2. The target holds it all: the old room is emptied, one batch removing every file.
-    const ops = a.capture.textFiles().flatMap((file) => {
-      const op = fileOpFor(file, a.capture.read(file), null);
-      return op ? [op] : [];
-    });
-    const removal: Batch = {
-      id: randomUUID(),
-      replica: fromReplica.id,
-      local: 0,
-      ts: Date.now(),
-      label: `moved to ${originOf(target.url)}`,
-      ops,
-    };
+    // 2. The target holds it all: the old room is emptied, and told it ends, so its other devices let it go.
+    const removal = endBatch(a, `moved to ${originOf(target.url)}`);
     fromLink.local(a.room, removal);
     await until(
       () => fromReplica.unconfirmed().length === 0,

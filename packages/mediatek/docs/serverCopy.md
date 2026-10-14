@@ -45,5 +45,11 @@ list the server lacks is named back in `missing` rather than failing the rest.
 ## Silent when there is nothing to say
 
 An unpaired machine, and the server itself, answer `paired: false`, and the screen draws no icon.
-A server that is unreachable draws none either, not a wrong one, and the page stays usable on what
-is local.
+A server that has never answered draws none either, not a wrong one, and the page stays usable on
+what is local.
+
+**A server that answered once is not forgotten for being slow.** A few hundred songs from a busy
+origin take seconds to list, so the backend waits up to twenty, and when the server does not answer
+it serves the last listing it had of that family; the page, likewise, keeps the last placement it
+was given rather than clearing it: cleared, every server-only song would vanish from the page each
+time the server is slow, and come back thirty seconds later.

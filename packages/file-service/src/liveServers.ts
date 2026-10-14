@@ -116,7 +116,7 @@ export async function listRooms(
   try {
     const r = await fetch(roomsUrl(server.url), {
       headers: authHeaders(server.auth),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(15_000),
     });
     if (!r.ok) throw new Error(`rooms ${r.status}`);
     const { workspaces } = (await r.json()) as { workspaces: string[] };

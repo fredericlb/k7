@@ -24,6 +24,7 @@ import {
   ACCOUNT_LIBRARY_ROOM,
   attachLiveCapture,
   detachLiveCapture,
+  endWorkspace,
 } from "./liveSync.ts";
 import { closeModuleWatchesUnder } from "./moduleWatch.ts";
 import { rootOwner } from "./owner.ts";
@@ -140,10 +141,52 @@ export async function removeWorkspace(
   // EPERM half-way through a removal — the same reason `deleteProject` lets go (docs/moduleWatch.md).
   closeModuleWatchesUnder(root);
   await unload?.(root);
+  // Sync FIRST: emptied on its server and told it ends, or it comes back, empty, on the next join (docs/workspaces.md).
+  await endWorkspace(root);
   rmSync(root, { recursive: true, force: true });
   // Its marker is beside it, not in it: a workspace made again under the name must not reopen a ghost.
   rmSync(activeMarkerOf(root), { force: true });
   forgetListing(slugify(userEmail));
+}
+
+/** The files under `dir` that are no folder, counted to a bound: whether anything is left worth keeping. */
+function filesUnder(dir: string, bound = 1): number {
+  let n = 0;
+  const walk = (d: string) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (n >= bound) return;
+      if (e.isDirectory()) walk(join(d, e.name));
+      else n++;
+    }
+  };
+  try {
+    walk(dir);
+  } catch {
+    return 0;
+  }
+  return n;
+}
+
+/** Another replica ENDED workspace `name` — deleted it, or moved it away: its folder goes, unless something never synced is left in it. */
+export async function dropEndedWorkspace(name: string): Promise<void> {
+  const root = workspaceRoot(name);
+  if (!existsSync(root)) return;
+  // What sync knew is removed already; a file still here is one it never held — a backup, a local-only file.
+  if (filesUnder(root)) {
+    console.warn(
+      `sync | '${name}' was ended elsewhere; kept here, since it holds files that never synced`,
+    );
+    return;
+  }
+  closeModuleWatchesUnder(root);
+  // Imported late: engineLink reaches back into this registry.
+  const { unloadEngineIfServing } = await import("./engineLink.ts");
+  await unloadEngineIfServing(root);
+  rmSync(root, { recursive: true, force: true });
+  rmSync(activeMarkerOf(root), { force: true });
+  for (const [key, ws] of live) if (ws.root === root) live.delete(key);
+  const owner = rootOwner();
+  if (owner) forgetListing(slugify(owner));
 }
 
 // Every workspace folder under the user's root; Examples is already there, put by the service's startup (demos.ts).

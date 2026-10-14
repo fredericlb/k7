@@ -148,6 +148,15 @@ the bin is `_recycle_bin` **inside** a workspace, so a project falls into it and
 nowhere of its own to fall. Nothing on this machine brings it back, which is why the confirmation
 asks.
 
+**It ends the workspace for sync too, before the folder goes** (`endWorkspace` in `../src/liveSync.ts`).
+Its room is emptied by one batch that says the workspace ENDS, the server's confirmation is awaited
+(bounded), and its sync history is deleted. Without that the room keeps its files, a server rejoins
+every room that holds files, and the folder comes back — EMPTY, since the history it resumed from
+had nothing new to write and the disk it diffed against had nothing left. Every other replica synced
+with that room hears the end and lets its copy go (`dropEndedWorkspace`), unless the copy holds a
+file sync never knew — a backup, a local-only file — which is kept, no longer synced. A move to another
+server ends the room it leaves the same way (`liveCapture.md`, "Several servers").
+
 **The engine is unloaded first, and that is not politeness.** A project of this workspace still
 loaded holds files open, and Windows answers EPERM half-way through a delete — the same wall a
 person hits removing the folder by hand, where Explorer reports it as a request for admin rights

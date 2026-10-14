@@ -27,6 +27,8 @@ export interface Linked {
   written: string[];
   /** Told which files another replica's batch (or a rebase) rewrote. */
   onRemote: (files: string[]) => void;
+  /** Told when another replica's batch ENDS the workspace — deleted, or moved to another server. */
+  onEnded?: () => void;
 }
 
 /** How a link proves its account: the hub's secret for a service it started, a device token for a machine. */
@@ -453,6 +455,11 @@ export class RelayLink {
     });
     saveHead(l.logDir, l.replica.head);
     if (written.length) l.onRemote(written);
+    // Its own end is the replica that sent it, which lets the workspace go itself.
+    if (entry.batch.ends && entry.batch.replica !== l.replica.id) {
+      l.onEnded?.();
+      return;
+    }
     if (failed.length) {
       // This replica's text is not the room's: fetch the room's whole state.
       this.log(
