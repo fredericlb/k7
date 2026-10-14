@@ -142,6 +142,9 @@ const GUTTER_WIDE = Math.round(GUTTER_DESKTOP * 1.3);
 
 // Extra lane height when EXPANDED, so a clip can draw its content. Groups stay ROW_H — they hold no clips.
 const EXPAND_EXTRA = 40;
+// Expand's movement, shared by the lanes and every line spanning them, so they travel as one.
+const GROW =
+  "transition-[height] duration-200 ease-out motion-reduce:transition-none";
 // The shortest an event may be left by a FREE resize — a 64th; the grid's own step is the floor while there is one.
 const MIN_FREE_BEATS = 1 / 16;
 const NATURAL = 4;
@@ -278,7 +281,10 @@ function Playhead({
     // Parked at the lane's left edge and TRANSLATED from there: a position is layout and a transform is not.
     <div
       ref={ref}
-      className="pointer-events-none absolute top-0 z-20 w-px bg-white/80"
+      className={cn(
+        "pointer-events-none absolute top-0 z-20 w-px bg-white/80",
+        GROW,
+      )}
       style={{
         left: left0,
         willChange: "transform",
@@ -3151,6 +3157,7 @@ export function TimelineTab({
                   data-sel-row={rowKey(row)}
                   className={cn(
                     "flex border-b border-border/40",
+                    GROW,
                     // Dimmed == not audible: muted itself, muted by its group, or silenced because something else is soloed.
                     silent(t) && "opacity-50",
                     // …and the reorder drag's two marks: the lane in hand, and the slot it would take.
@@ -3829,7 +3836,7 @@ export function TimelineTab({
             {visMarkers.map((mk) => (
               <div
                 key={mk.tc}
-                className="pointer-events-none absolute top-0 z-20"
+                className={cn("pointer-events-none absolute top-0 z-20", GROW)}
                 style={{
                   left: GUTTER + x(mk.beat),
                   height: contentH,

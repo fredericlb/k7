@@ -1678,3 +1678,10 @@ be revisited when the edge's path table moves is a manifest written wrong.
 
 A page takes the whole width and height, so there is no seam between panes to drag. The one splitter
 is the bottom panel's (`event`/`graph`/`logs`): written in place, it resizes the panel that FOLLOWS it.
+
+**The bottom panel animates its HEIGHT** (`components/BottomPanel.tsx`), for the right column's reason:
+it pushes the page up rather than covering it. Two differences follow from what it holds. Its content
+is pinned at the panel's final height while it travels, since a graph or a roll inside re-fits itself
+on every resize and would do so on every frame. And the transition exists only during the travel:
+the divider drag writes the height per pointermove, and a transition there would make it lag the
+pointer. `motion-reduce` skips the travel.
