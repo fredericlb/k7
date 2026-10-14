@@ -81,6 +81,7 @@ searches in the same order: the list you choose from and the source you get must
 | `uAudio` | `float` 0..1 — the live level of the track wired to the audio port, 0 if there is none |
 | `uTime` | `float` seconds — the **transport** position, not a render-engine clock |
 | `uResolution` | `vec2` px — the viewport |
+| `uPresence` | `float` 0..1 — how much of the shot is on screen: rises over a fade's stretch in, falls over one out, **1 everywhere else** ([transitions.md](transitions.md)) |
 | `uP1`..`uP4` | `float` 0..1 — the four knobs |
 
 Written down because nothing else will tell anyone: GL returns a null location for an unknown

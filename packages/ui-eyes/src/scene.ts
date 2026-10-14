@@ -17,7 +17,8 @@ export interface SceneClip {
 /** How a shot arrives or leaves: how long, and which program draws it — `with` keys `VideoScene.transitions`. */
 export interface SceneFade {
   over: number; // seconds
-  with: string; // a transition name, or "dissolve" — the one this renderer owns
+  with: string; // a transition name, or "dissolve" / "over" — the two this renderer owns
+  chain?: string; // the stretch this shot runs through over the fade — keys `VideoScene.stretches`
 }
 
 /** A transition's two stages, shared by every cut that names it — one program per name, not per cut. */
@@ -99,6 +100,8 @@ export interface VideoScene {
   framePasses?: ScenePass[];
   // Every named transition in the scene, by name — SCENE-level, since one program serves every lane and cut.
   transitions?: Record<string, SceneTransition>;
+  // …and every STRETCH a fade names, by head node: the passes a shot runs through on its way in or out.
+  stretches?: Record<string, ScenePass[]>;
 }
 
 // The structural shape of a brain VideoTrackDoc minus the absolute path, declared here so eyes stays brain-free.
@@ -131,6 +134,7 @@ export function buildScene(
   layers: SceneLayerInput[],
   framePasses: ScenePass[] = [],
   transitions: Record<string, SceneTransition> = {},
+  stretches: Record<string, ScenePass[]> = {},
 ): VideoScene {
   let durationSec = 0;
   const built: VideoLayer[] = layers.map((l) => {
@@ -165,6 +169,11 @@ export function buildScene(
   });
   const frame = framePasses.filter((p) => p.enabled);
   const named = Object.entries(transitions);
+  // A bypassed step is dropped as a lane's is; a stretch left with none still runs, as the identity.
+  const runs = Object.entries(stretches).map(
+    ([k, run]) =>
+      [k, run.filter((p) => p.enabled).map((p) => ({ ...p }))] as const,
+  );
   return {
     viewport,
     fps,
@@ -178,5 +187,6 @@ export function buildScene(
           ),
         }
       : {}),
+    ...(runs.length ? { stretches: Object.fromEntries(runs) } : {}),
   };
 }

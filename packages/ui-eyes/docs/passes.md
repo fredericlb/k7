@@ -86,6 +86,11 @@ output after. That is all that makes them chain.
 A null location in a `PassProgram` is therefore **normal** — a shader ignoring `uP3` has no `uP3`,
 and writing to a null location is a no-op in WebGL, not an error.
 
+`uPresence` is 1 for every pass except one running inside a fade's **stretch**, where it is how much
+of the shot is on screen. Defaulting to 1 rather than 0 is what makes a stretch's module the
+identity when it is wired as an ordinary lane effect
+([transitions.md](../../song-video/docs/transitions.md)).
+
 ### `TRANSITION_UNIFORMS`, the second contract
 
 A **transition** takes two pictures and a progress, which is a different shape: it has its own

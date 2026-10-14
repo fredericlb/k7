@@ -4,6 +4,7 @@
 // It OWNS its canvas (a React-owned one races two GL contexts). A layer may carry GLSL passes
 // and so may the finished frame: passes.ts runs those, docs/passes.md is the page.
 
+import { coverUV, rectToClip, sourceAR, UV_FILL } from "./geometry";
 import {
   compilePass,
   compileTransition,
@@ -14,8 +15,11 @@ import {
   RenderTarget,
   type TransitionProgram,
 } from "./passes";
-import type { ScenePass, SceneShape, VideoScene } from "./scene";
-import { builtinDissolve, DISSOLVE } from "./transitions";
+import { rasterizeShapes } from "./rasterize";
+import type { ScenePass, VideoScene } from "./scene";
+import { Stretches } from "./stretches";
+import type { SlotStretch } from "./timeline";
+import { builtinDissolve, builtinOver, DISSOLVE } from "./transitions";
 
 /** What a layer is blending this frame: which program, how far, and which of the two slots carry a picture. */
 // The slots are stated rather than inferred: `hasFrame` never resets, so it cannot answer "this frame".
@@ -24,6 +28,8 @@ export interface LayerBlend {
   progress: number;
   from: boolean; // slot 0 holds the outgoing picture
   to: boolean; // slot 1 holds the incoming one
+  // Each side's STRETCH this frame, run on its picture before the blend reads it — timeline.ts says which.
+  stretch?: { from?: SlotStretch; to?: SlotStretch };
 }
 
 const VERT = `#version 300 es
@@ -43,42 +49,6 @@ uniform sampler2D uTex;
 uniform vec4 uUV;              // (scaleX, scaleY, offsetX, offsetY) — see coverUV
 out vec4 outColor;
 void main() { outColor = texture(uTex, vUV * uUV.xy + uUV.zw); }`;
-
-/** No transform: sample the texture over its whole face, which is what a rect-shaped one wants. */
-export const UV_FILL: readonly [number, number, number, number] = [1, 1, 0, 0];
-
-/**
- * The UV transform that fills a `dstAR` rect with a `srcAR` picture WITHOUT distorting it: the
- * overflow is cropped, evenly on both sides. A webcam is 4:3 or 16:9 and the frame it lands in is
- * whatever the project says — sampling the whole texture over the whole rect stretches one into
- * the other, which is the distortion this exists to remove.
- *
- * COVER rather than contain: a lane fills its rect. Letterboxing inside a layer would put bars in
- * the middle of a composite, where nothing can paint over them; the FRAME's own bars are the
- * viewport's business, not a layer's.
- *
- * Identity when either aspect is unknown — a source that has not said its size yet must draw
- * undistorted-or-not rather than not at all.
- */
-export function coverUV(
-  srcAR: number,
-  dstAR: number,
-): [number, number, number, number] {
-  if (!(srcAR > 0) || !(dstAR > 0) || srcAR === dstAR) return [1, 1, 0, 0];
-  const wide = srcAR > dstAR;
-  const sx = wide ? dstAR / srcAR : 1;
-  const sy = wide ? 1 : srcAR / dstAR;
-  return [sx, sy, (1 - sx) / 2, (1 - sy) / 2];
-}
-
-/** What a frame source is shaped like, or 0 when it will not say — see `upload`. */
-export function sourceAR(src: TexImageSource): number {
-  const v = src as Partial<HTMLVideoElement> &
-    Partial<VideoFrame> & { width?: number; height?: number };
-  const w = v.videoWidth || v.displayWidth || v.width || 0;
-  const h = v.videoHeight || v.displayHeight || v.height || 0;
-  return w > 0 && h > 0 ? w / h : 0;
-}
 
 interface LayerGL {
   id: string;
@@ -109,22 +79,6 @@ function compile(gl: WebGL2RenderingContext, type: number, src: string) {
   return sh;
 }
 
-// The viewport has a top-left origin, clip space is bottom-left: map a viewport-px rect to clip space, flipping y.
-function rectToClip(
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  vw: number,
-  vh: number,
-): [number, number, number, number] {
-  const x0 = (x / vw) * 2 - 1;
-  const x1 = ((x + w) / vw) * 2 - 1;
-  const y0 = 1 - (y / vh) * 2; // top edge
-  const y1 = 1 - ((y + h) / vh) * 2; // bottom edge
-  return [x0, y1, x1, y0]; // (x0,y0)=bottom-left, (x1,y1)=top-right for the unit-quad lerp
-}
-
 // One picture slot: a texture with the filtering every layer's uploads share, allocated lazily on first upload.
 function makeSlot(gl: WebGL2RenderingContext): WebGLTexture {
   const tex = gl.createTexture()!;
@@ -134,33 +88,6 @@ function makeSlot(gl: WebGL2RenderingContext): WebGLTexture {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   return tex;
-}
-
-// Rasterize a shape layer to a 2D canvas at viewport resolution, once per scene — see docs/compositor.md.
-function rasterizeShapes(
-  shapes: SceneShape[],
-  vw: number,
-  vh: number,
-): OffscreenCanvas {
-  const canvas = new OffscreenCanvas(vw, vh);
-  const ctx = canvas.getContext("2d")!;
-  for (const s of shapes) {
-    ctx.fillStyle = s.color;
-    if (s.type === "square") {
-      ctx.fillRect(s.x, s.y, s.w, s.h);
-    } else if (s.type === "circle") {
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      ctx.font = `${s.fontSize}px ${s.font}`;
-      ctx.textBaseline = "top";
-      // `w` is a MAX width: Canvas condenses the glyphs to fit rather than wrapping (single-line text for v1).
-      if (s.w != null) ctx.fillText(s.content, s.x, s.y, s.w);
-      else ctx.fillText(s.content, s.x, s.y);
-    }
-  }
-  return canvas;
 }
 
 function readClearColor(el: HTMLElement): [number, number, number] {
@@ -185,6 +112,8 @@ export class Compositor {
   private framePrograms: (PassProgram | null)[] = [];
   // One program per NAMED transition, plus the built-in dissolve; a name with no program falls back to it.
   private transitions = new Map<string, TransitionProgram | null>();
+  // The runs a fade puts a shot through, and the two targets their results wait in — stretches.ts.
+  private stretches: Stretches;
   // A 1×1 transparent texel: what a fade goes TO when nothing follows, so GLSL needs no branch.
   private empty: WebGLTexture;
   private warned = new Set<string>();
@@ -199,6 +128,7 @@ export class Compositor {
     this.canvas = canvas;
     this.gl = gl;
     this.clear = clear;
+    this.stretches = new Stretches(gl);
 
     const prog = gl.createProgram()!;
     gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT));
@@ -305,9 +235,11 @@ export class Compositor {
     this.warned.clear();
     for (const t of [
       builtinDissolve(),
+      builtinOver(),
       ...Object.values(scene.transitions ?? {}),
     ])
       this.transitions.set(t.name, compileTransition(gl, t));
+    this.stretches.setScene(scene);
 
     // The offscreen targets: rebuilt only when the viewport changed, dropped when nothing needs them — see docs/passes.md.
     this.framePasses = scene.framePasses ?? [];
@@ -388,7 +320,7 @@ export class Compositor {
         const v = audioByPass[p.id];
         if (v !== undefined) p.audio = v;
       }
-    for (const p of this.framePasses) {
+    for (const p of [...this.framePasses, ...this.stretches.passes()]) {
       const v = audioByPass[p.id];
       if (v !== undefined) p.audio = v;
     }
@@ -398,6 +330,7 @@ export class Compositor {
   private runPasses(
     passes: readonly ScenePass[],
     programs: readonly (PassProgram | null)[],
+    presence = 1,
   ): void {
     const pp = this.pingpong;
     if (!pp) return;
@@ -411,7 +344,7 @@ export class Compositor {
       gl.bindTexture(gl.TEXTURE_2D, pp.frontTexture());
       // Blending OFF inside a chain: a pass REPLACES the picture it was handed — see docs/passes.md.
       gl.disable(gl.BLEND);
-      drawPass(gl, prog, passes[i], res, this.timeSec);
+      drawPass(gl, prog, passes[i], res, this.timeSec, presence);
       gl.enable(gl.BLEND);
       pp.swap();
     }
@@ -420,17 +353,17 @@ export class Compositor {
 
   /** Run a transition into the bound target: two pictures in, one out, full-target like any pass. */
   // A side with no picture is the 1×1 transparent texel, which is what makes fade-to-nothing the same path.
-  private seedBlend(layer: LayerGL, blend: LayerBlend): void {
+  private seedBlend(
+    blend: LayerBlend,
+    sides: [WebGLTexture, WebGLTexture],
+  ): void {
     const gl = this.gl;
     const prog = this.transitionFor(blend.name);
     if (!prog) return;
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, blend.from ? layer.tex : this.empty);
+    gl.bindTexture(gl.TEXTURE_2D, sides[0]);
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(
-      gl.TEXTURE_2D,
-      blend.to && layer.tex2 ? layer.tex2 : this.empty,
-    );
+    gl.bindTexture(gl.TEXTURE_2D, sides[1]);
     gl.activeTexture(gl.TEXTURE0);
     drawTransition(
       gl,
@@ -439,6 +372,47 @@ export class Compositor {
       [this.canvas.width, this.canvas.height],
       this.timeSec,
     );
+  }
+
+  /** The two pictures a blend reads: each slot's texture, through its stretch when it runs one, else the transparent texel. */
+  private blendSides(
+    layer: LayerGL,
+    blend: LayerBlend,
+  ): [WebGLTexture, WebGLTexture] {
+    return [
+      blend.from
+        ? this.stretched(0, layer.tex, blend.stretch?.from)
+        : this.empty,
+      blend.to && layer.tex2
+        ? this.stretched(1, layer.tex2, blend.stretch?.to)
+        : this.empty,
+    ];
+  }
+
+  /** Run one slot's picture through its stretch into that slot's target, or hand it back untouched. */
+  private stretched(
+    slot: 0 | 1,
+    tex: WebGLTexture,
+    s: SlotStretch | undefined,
+  ): WebGLTexture {
+    const run = s ? this.stretches.run(s.chain) : undefined;
+    const target = this.stretches.target(slot);
+    const pp = this.pingpong;
+    if (!s || !run || !target || !pp) return tex;
+    const gl = this.gl;
+    // Seeded full-target with UV_FILL, as the blend samples a slot — the two must agree on where the picture is.
+    pp.bindBack();
+    gl.disable(gl.BLEND);
+    this.blit(tex, [-1, -1, 1, 1]);
+    gl.enable(gl.BLEND);
+    pp.swap();
+    this.runPasses(run.passes, run.programs, s.presence);
+    // Copied OUT of the scratch, since the other slot's run and the blend itself both need it next.
+    target.bind(true);
+    gl.disable(gl.BLEND);
+    this.blit(pp.frontTexture(), [-1, -1, 1, 1]);
+    gl.enable(gl.BLEND);
+    return target.texture;
   }
 
   /** Draw one textured quad of `tex` with the plain program, onto whatever is bound now. */
@@ -520,10 +494,12 @@ export class Compositor {
       if (!blend && !layer.hasFrame) continue;
 
       if (pp && (blend || layer.passes.length)) {
+        // Each side's stretch runs FIRST, through the same scratch the blend is about to be seeded into.
+        const sides = blend ? this.blendSides(layer, blend) : null;
         // The layer's frame seeds the chain full-viewport, so a pass sampling its neighbourhood has the whole picture.
         pp.bindBack();
         gl.disable(gl.BLEND);
-        if (blend) this.seedBlend(layer, blend);
+        if (blend && sides) this.seedBlend(blend, sides);
         else
           this.blit(
             layer.tex,
@@ -581,6 +557,7 @@ export class Compositor {
     this.framePrograms = [];
     for (const t of this.transitions.values()) if (t) gl.deleteProgram(t.prog);
     this.transitions.clear();
+    this.stretches.release();
     gl.deleteTexture(this.empty);
     this.pingpong?.destroy();
     this.pingpong = null;

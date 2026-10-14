@@ -94,12 +94,19 @@ export const PLUGINLESS_CATEGORIES = [
   TRANSITION_CATEGORY,
 ] as const;
 
+/** The type folders whose module is a PASS over a picture — what a lane's run, the frame's and a fade's stretch are made of. */
+export const isPicturePass = (category: string | undefined): boolean =>
+  category === SHADER_CATEGORY || category === "video_effects";
+
 /** …asked the way every consumer wants it: does a module of this type folder hold a PLUGIN at all? */
 export const hostsPlugin = (category: string | undefined): boolean =>
   !(PLUGINLESS_CATEGORIES as readonly string[]).includes(category ?? "");
 
 /** The kind a bare `fade_in: 1` means — resolved by the renderer, so a plain fade needs no module on disk. */
 export const DISSOLVE = "dissolve";
+
+/** …and the kind a fade naming a `chain` and no `with` means: the shot's own alpha, laid over what is under it. */
+export const OVER = "over";
 
 /** The four knobs every shader gets, numbered rather than named and 0..1 — see packages/song-video/docs/shaders.md. */
 export const SHADER_PARAMS = ["P1", "P2", "P3", "P4"] as const;

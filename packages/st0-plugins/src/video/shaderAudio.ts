@@ -26,6 +26,8 @@ export function audioSources(
   for (const t of doc?.videoTracks ?? [])
     for (const p of t.plugins ?? []) take(p);
   for (const p of doc?.framePlugins ?? []) take(p);
+  for (const run of Object.values(doc?.stretches ?? {}))
+    for (const p of run) take(p);
   return out;
 }
 

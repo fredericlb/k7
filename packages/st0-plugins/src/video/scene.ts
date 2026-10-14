@@ -66,5 +66,12 @@ export function sceneOf(
     passesOf(proj.framePlugins),
     // …and the transitions the cuts NAME, whose GLSL rides inline for the reason a shader's does.
     proj.transitions,
+    // …and the stretches a fade runs its shot through, keyed by head node as the fades name them.
+    Object.fromEntries(
+      Object.entries(proj.stretches ?? {}).map(([k, run]) => [
+        k,
+        passesOf(run),
+      ]),
+    ),
   );
 }

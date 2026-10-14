@@ -343,6 +343,7 @@ export class RealtimeDriver {
           progress: to || !frame.to ? frame.blend.progress : 0,
           from,
           to,
+          ...(frame.blend.stretch ? { stretch: frame.blend.stretch } : {}),
         });
     }
 

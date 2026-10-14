@@ -459,7 +459,9 @@ export interface WebVideoClip {
 /** A transition ON a placement (mirrors VideoFadeDoc): how long, and which kind — song-video/docs/transitions.md. */
 export interface WebVideoFade {
   over: number; // seconds
-  with: string; // a modules/video_transitions/ name, or "dissolve"
+  with: string; // a modules/video_transitions/ name, "dissolve", or "over"
+  /** The STRETCH the shot runs through over the fade — a key of `WebVideoProject.stretches`. */
+  chain?: string;
 }
 /** A transition's two stages (mirrors VideoTransitionDoc), keyed by NAME on the project — its GLSL rides inline. */
 export interface WebVideoTransition {
@@ -674,6 +676,8 @@ export interface WebVideoProject {
   framePlugins: WebVideoPlugin[];
   /** Every transition a placement NAMES, by name; the built-in dissolve is absent — the renderer owns it. */
   transitions: Record<string, WebVideoTransition>;
+  /** Every stretch a fade NAMES, by its head node — the passes a shot runs through on its way in or out. */
+  stretches: Record<string, WebVideoPlugin[]>;
 }
 
 // --- Project errors: whether the project even compiles --------------------------

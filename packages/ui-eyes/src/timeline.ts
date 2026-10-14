@@ -15,11 +15,22 @@ export interface Active {
   index: number;
 }
 
-/** What a layer draws at `t`: up to two pictures, and the program between them when a fade runs. */
+/** A shot inside its fade's STRETCH this frame: which run, and how present the shot is — 1 whole, 0 gone. */
+export interface SlotStretch {
+  chain: string;
+  presence: number;
+}
+
+/** What a layer draws at `t`: up to two pictures, the program between them when a fade runs, and each one's stretch. */
 export interface LayerFrame {
   from: Active | null; // the picture going OUT — null means the transparent texel
   to: Active | null; // …and the one coming IN
-  blend: { name: string; progress: number } | null; // null == draw `to` plain, as a cut does
+  // null == draw `to` plain, as a cut does
+  blend: {
+    name: string;
+    progress: number;
+    stretch?: { from?: SlotStretch; to?: SlotStretch };
+  } | null;
 }
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -65,7 +76,26 @@ export function shapesVisibleAt(layer: VideoLayer, t: number): boolean {
   return !layer.clips.length || !!activeAt(layer, t);
 }
 
-/** The whole frame rule for one layer — which two pictures, and how far between them. */
+/** A shot inside its OWN fade-out's stretch at `t`, measured back from its end; undefined outside it. */
+function leaving(a: Active, t: number): SlotStretch | undefined {
+  const fade = a.clip.fadeOut;
+  if (!fade?.chain || !Number.isFinite(a.end)) return undefined;
+  const len = Math.min(fade.over, a.end - a.clip.start);
+  const from = a.end - len;
+  if (!(len > 0) || t < from) return undefined;
+  return { chain: fade.chain, presence: 1 - clamp01((t - from) / len) };
+}
+
+// The stretch half of a blend, absent when neither side runs one — a blend without it is the plain case.
+const stretchOf = (
+  from: SlotStretch | undefined,
+  to: SlotStretch | undefined,
+) =>
+  from || to
+    ? { stretch: { ...(from ? { from } : {}), ...(to ? { to } : {}) } }
+    : {};
+
+/** The whole frame rule for one layer — which two pictures, how far between them, and which run through a stretch. */
 export function layerFrameAt(layer: VideoLayer, t: number): LayerFrame {
   const all = activesAt(layer, t);
   if (!all.length) return { from: null, to: null, blend: null };
@@ -78,15 +108,22 @@ export function layerFrameAt(layer: VideoLayer, t: number): LayerFrame {
   if (fadeIn) {
     const len = Math.min(fadeIn.over, span);
     // `under` may be null, and that is a fade from NOTHING — the same branch, which is the point.
-    if (len > 0 && t < over.clip.start + len)
+    if (len > 0 && t < over.clip.start + len) {
+      const progress = clamp01((t - over.clip.start) / len);
+      // The incoming shot governs the BLEND; the outgoing one still runs its own fade-out's stretch.
+      const into = fadeIn.chain
+        ? { chain: fadeIn.chain, presence: progress }
+        : undefined;
       return {
         from: under,
         to: over,
         blend: {
           name: fadeIn.with,
-          progress: clamp01((t - over.clip.start) / len),
+          progress,
+          ...stretchOf(under ? leaving(under, t) : undefined, into),
         },
       };
+    }
   }
 
   const fadeOut = over.clip.fadeOut;
@@ -98,7 +135,11 @@ export function layerFrameAt(layer: VideoLayer, t: number): LayerFrame {
       return {
         from: over,
         to: null,
-        blend: { name: fadeOut.with, progress: clamp01((t - from) / len) },
+        blend: {
+          name: fadeOut.with,
+          progress: clamp01((t - from) / len),
+          ...stretchOf(leaving(over, t), undefined),
+        },
       };
   }
 

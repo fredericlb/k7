@@ -27,11 +27,16 @@
 // lane is `box_layer` rather than `@workspace/shapes/box` because a lane and a module share one
 // name space, and a lane's own name is never namespaced.
 
+// `iris` is fed by NOTHING and lands on `main`: a STRETCH. No signal reaches it through the graph;
+// a fade on `main` names it (`chain:`), and over that fade the shot runs through it on its way in.
+// See packages/song-video/docs/transitions.md.
+
 modules({
   drums: ["MIX", "@workspace/shaders/glow#audio"],
   MIX: ["OUT"],
   main: ["@workspace/shaders/glow"],
   "@workspace/shaders/glow": ["RENDER"],
+  "@workspace/shaders/iris": ["main"],
   "@workspace/shapes/box": ["box_layer"],
   "@workspace/shapes/dot": ["dot_layer"],
   "@workspace/shapes/title": ["title_layer"],

@@ -104,5 +104,6 @@ A shape wired to `RENDER`, or to nothing at all, compiles and then draws nothing
 failure the picture's `warnings` exist for ([picture.md](picture.md)): a blank lane cannot say why
 it is blank, so the compile says it instead, naming the module and the wire it wants.
 
-`validate()` accepts a shape on a picture lane and a camera on one, and refuses everything else
-aimed at a lane — a video effect landing there would be discarded in silence.
+`validate()` accepts a shape on a picture lane, a camera on one, and a fade's stretch — a run of
+shaders nothing feeds ([transitions.md](transitions.md)) — and refuses everything else aimed at a
+lane: a video effect landing there would be discarded in silence.

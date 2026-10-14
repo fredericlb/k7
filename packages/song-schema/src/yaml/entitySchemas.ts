@@ -213,8 +213,10 @@ const Px = z.number();
 export const FadeSchema = z
   .object({
     over: z.number().min(0), // seconds
-    // A module in modules/video_transitions/, by its bare name; absent is the built-in dissolve.
+    // A module in modules/video_transitions/, by its bare name; absent is the built-in dissolve, or `over` beside a `chain`.
     with: z.string().min(1).optional(),
+    // The head node of a run fed by nothing that lands on this lane: it runs on THIS shot over the fade.
+    chain: z.string().min(1).optional(),
   })
   .strict();
 

@@ -15,6 +15,7 @@ import {
   curveIdFromRef,
   isBuiltinOutput,
   isIoSource,
+  isPicturePass,
   MIDI_IN_IO,
   MIX_NODE,
   type ModuleKind,
@@ -420,9 +421,17 @@ export function checkChainInputs(
 
       // Sources feeding this step in port order, each with its resolved type or undefined when unknowable.
       const tapped = idx === 0 && tapFed.has(step.module);
+      // A STRETCH's head is fed by the shot its fade runs on, which no edge says (song-video/docs/transitions.md).
+      const shot =
+        idx === 0 &&
+        !c.from &&
+        !routedInto.has(chainName) &&
+        inputs[0]?.type === "video" &&
+        c.out.some((o) => !!videoTracks[splitPort(o.to).node]);
       const hasFlow =
         idx > 0 ||
-        (idx === 0 && (!!c.from || routedInto.has(chainName) || tapped));
+        (idx === 0 &&
+          (!!c.from || routedInto.has(chainName) || tapped || shot));
       const sources: {
         id: string;
         type: "audio" | "midi" | "video" | undefined;
@@ -447,7 +456,9 @@ export function checkChainInputs(
               }
             : tapped
               ? { id: "(tap)", type: "audio" }
-              : { id: "(flow)", type: undefined },
+              : shot
+                ? { id: "(shot)", type: "video" }
+                : { id: "(flow)", type: undefined },
         );
       for (const s of Array.isArray(step.in) ? step.in : [])
         sources.push({
@@ -788,6 +799,19 @@ export const carriesShape = (g: GraphDoc, c: Chain): boolean =>
     return !!b && isShapeModule(b);
   });
 
+/** …or is it a STRETCH: picture passes nothing feeds, landing on a picture lane, run by a fade's `chain:` (song-video/docs/transitions.md). */
+export const isStretch = (g: GraphDoc, c: Chain): boolean => {
+  const head = c.use[0]?.module;
+  if (c.from || !head) return false;
+  if (!c.out.some((o) => !!g.videoTracks[splitPort(o.to).node])) return false;
+  if (!c.use.every((s) => isPicturePass(g.modules[s.module]?.category)))
+    return false;
+  // A run another one feeds is a meeting point of that signal, not a shot's.
+  return !Object.values(g.chains).some((o) =>
+    o.out.some((x) => splitPort(x.to).node === head),
+  );
+};
+
 /** Does this chain carry a MIDI device — notes a lane may be fed by, for the browser to record? */
 export const carriesMidiIn = (g: GraphDoc, c: Chain): boolean =>
   c.use.some((s) => {
@@ -913,12 +937,12 @@ export function validate(g: GraphDoc): string[] {
         w.push(
           `chain '${name}': out '${o.to}' is a MIDI device — notes come FROM it, not to it`,
         );
-      // A PICTURE lane takes two things: a camera and a shape. Everything else aimed at one is
-      // discarded silently — see docs/camera.md and song-video/docs/shapes.md.
+      // A PICTURE lane takes three things: a camera, a shape and a fade's stretch. Everything else
+      // aimed at one is discarded silently — see docs/camera.md and song-video/docs/transitions.md.
       else if (g.videoTracks[to]) {
-        if (!carriesCamera(g, c) && !carriesShape(g, c))
+        if (!carriesCamera(g, c) && !carriesShape(g, c) && !isStretch(g, c))
           w.push(
-            `chain '${name}': out '${o.to}' is a picture lane — only a camera's or a shape's picture lands on one`,
+            `chain '${name}': out '${o.to}' is a picture lane — only a camera's or a shape's picture lands on one, or a run of shaders nothing feeds (a fade's \`chain:\`)`,
           );
       }
       // Only a live input's signal may land on a LANE; anything else aimed at one is silently discarded.
@@ -1239,7 +1263,11 @@ function loadGraphIn(dir: string): GraphDoc {
   // Which nodes are LANES has to be settled BEFORE the chains are derived — see docs/graphModel.md.
   const localResolved = resolveModuleMap(localModules, moduleRefsMap);
   const lanes = lanesOf(localResolved);
-  const parsedChains = parseChains(rootChains, (n) => n in lanes);
+  // A PICTURE lane is a lane too, as buildGraph says below: else a lane both fed and feeding is absorbed into a run.
+  const parsedChains = parseChains(
+    rootChains,
+    (n) => n in lanes || !!videoTracksMap[n],
+  );
   // …and the shared modules the chains name by ref, so a step can use one directly.
   const modulesMap = withChainModuleRefs(
     localModules,

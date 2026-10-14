@@ -57,6 +57,7 @@ import {
   loadModules,
   loadProjectRoot,
   loadSettings,
+  loadVideoTracks,
   readYamlEntities,
   withChainModuleRefs,
 } from "./loader";
@@ -441,9 +442,11 @@ function compileNodeProjectIn(
   const moduleRefs = loadModuleRefs(dir, undefined, refIssues); // the `extends` vocabulary
   // The LANES, before the chains, folded from the local modules alone — see docs/graphModel.md.
   const lanesMap = lanesOf(resolveModuleMap(localModules, moduleRefs));
+  // The PICTURE lanes, read unvalidated and for their NAMES only: they are lanes in the derivation, as buildGraph has them.
+  const videoLanes = loadVideoTracks(dir);
   const chains: Record<string, Chain> = parseChains(
     rawChains,
-    (n) => n in lanesMap,
+    (n) => n in lanesMap || n in videoLanes,
   ); // keyed by each head's resolved name
   // A chain project's link levels, which segments cannot carry: a send to a bus plays at its level (docs/chainFiles.md).
   applyLinkLevels(chains, loadLinkLevels(dir));
@@ -538,7 +541,8 @@ function compileNodeProjectIn(
     lanesMap,
     clipsMap,
     seqMap,
-    {},
+    // …which is also what feeds a fade's stretch (song-video/docs/transitions.md).
+    videoLanes,
     new Set(tapFeedsOf(rawChains).map((f) => f.to)),
   );
   if (inputErrs.length)
@@ -565,8 +569,14 @@ function compileNodeProjectIn(
   // Non-sink targets naming a chain that isn't track-fed: routing into a track's input is inexpressible, so they drop.
   const busChains = new Set<string>();
   for (const c of Object.values(chains))
+    // A PICTURE lane is never a bus, though a fade's stretch routes into its run (song-video/docs/transitions.md).
     for (const { to } of outTargets(c))
-      if (!isSink(to) && chains[to] && !isTrackFed(chains[to]))
+      if (
+        !isSink(to) &&
+        chains[to] &&
+        !isTrackFed(chains[to]) &&
+        !(to in videoLanes)
+      )
         busChains.add(to);
 
   /** A run carrying a LIVE INPUT and landing on no lane owns its own track.

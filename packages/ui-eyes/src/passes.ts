@@ -12,6 +12,7 @@ export const PASS_UNIFORMS = [
   "uAudio", // float 0..1 — the live level of the lane wired to the audio port, 0 with none
   "uTime", // float seconds — the transport's position, so an effect can move with the song
   "uResolution", // vec2 px — the viewport, for anything working in pixels rather than in UV
+  "uPresence", // float 0..1 — how much of the shot is on screen: rises over a stretch's fade-in, falls over its fade-out, 1 elsewhere
   "uP1",
   "uP2",
   "uP3",
@@ -160,10 +161,13 @@ export function drawPass(
   pass: ScenePass,
   resolution: [number, number],
   timeSec: number,
+  /** 1 outside a stretch, so a stretch's module run as an ordinary lane effect is the shot whole. */
+  presence = 1,
 ): void {
   // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook — the rule misfires on the `use` prefix.
   gl.useProgram(p.prog);
   if (p.loc.uTex != null) gl.uniform1i(p.loc.uTex, 0);
+  if (p.loc.uPresence != null) gl.uniform1f(p.loc.uPresence, presence);
   if (p.loc.uAudio != null) gl.uniform1f(p.loc.uAudio, pass.audio);
   if (p.loc.uTime != null) gl.uniform1f(p.loc.uTime, timeSec);
   if (p.loc.uResolution != null)

@@ -206,7 +206,7 @@ _modules/shaders/glow/
   shaders/ripple/{vertex,fragment}.glsl
 ```
 
-Every shader gets the same uniforms: `uTex` (the picture coming in), `uAudio` (0..1, the wired lane's level over −60..0 dB, and 0 with nothing wired), `uTime` (the transport's position in seconds), `uResolution`, and `uP1`..`uP4` — the four knobs, each 0..1. They are numbered rather than named because the module cannot know what a shader will call its controls; what each one means is written in that shader's `fragment.glsl`.
+Every shader gets the same uniforms: `uTex` (the picture coming in), `uAudio` (0..1, the wired lane's level over −60..0 dB, and 0 with nothing wired), `uTime` (the transport's position in seconds), `uResolution`, `uPresence` (how much of the shot is on screen — 1, except while a fade runs the shot through this shader, where it rises from 0 on the way in and falls to 0 on the way out), and `uP1`..`uP4` — the four knobs, each 0..1. They are numbered rather than named because the module cannot know what a shader will call its controls; what each one means is written in that shader's `fragment.glsl`.
 
 ```yaml schema=Module
 # _modules/shaders/glow/module.yaml

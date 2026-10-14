@@ -1,7 +1,11 @@
 x(0)
 events([
   ref("counter").start(0).length(4).source_from(0),
-  ref("bars").start(4).length(4).source_from(2.5),
+  ref("bars")
+    .start(3)
+    .length(5)
+    .source_from(1.5)
+    .fade_in({ over: 1, chain: "@workspace/shaders/iris" }),
 ])
 y(0)
 w(1280)

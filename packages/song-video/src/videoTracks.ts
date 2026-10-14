@@ -9,7 +9,7 @@ import type {
   RawVideoPlacement,
   RawVideoTrack,
 } from "@studio/song/rawDoc";
-import { DISSOLVE } from "@studio/song-schema/moduleTypes";
+import { DISSOLVE, OVER } from "@studio/song-schema/moduleTypes";
 import type { VideoClipDoc, VideoFadeDoc, VideoTrackDoc } from "./videoDoc";
 
 /** A placement's fade in the ONE shape everything downstream copies — the scalar's sugar is undone HERE. */
@@ -18,9 +18,13 @@ export function readFade(raw: unknown): VideoFadeDoc | undefined {
   if (typeof raw === "number")
     return raw > 0 ? { over: raw, with: DISSOLVE } : undefined;
   if (!raw || typeof raw !== "object") return undefined;
-  const over = Number((raw as { over?: unknown }).over ?? 0);
+  const map = raw as { over?: unknown; with?: unknown; chain?: unknown };
+  const over = Number(map.over ?? 0);
   if (!(over > 0)) return undefined; // a zero-length fade is a cut, which is the absence of one
-  return { over, with: String((raw as { with?: unknown }).with ?? DISSOLVE) };
+  const chain = typeof map.chain === "string" && map.chain ? map.chain : "";
+  // A stretch with no `with` mixes by its OWN alpha, so the blend is `over` rather than a dissolve.
+  const kind = map.with ?? (chain ? OVER : DISSOLVE);
+  return { over, with: String(kind), ...(chain ? { chain } : {}) };
 }
 
 // A placement -> a VideoClipDoc, in plain DECIMAL SECONDS: no tempo map ever reaches picture.

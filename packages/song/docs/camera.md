@@ -79,7 +79,9 @@ Three shapes, each one a cable that cannot mean anything:
 
 - **into a lens** — picture comes out of a camera, never in. The same sentence a live input gets;
 - **a picture lane fed by something that is not a camera** — an ordinary module aimed at a lane is
-  discarded silently, which is the failure a warning is worth.
+  discarded silently, which is the failure a warning is worth. A shape is the other exception
+  (`song-video/docs/shapes.md`), and a fade's stretch the third: a run of shaders NOTHING feeds,
+  which a placement runs its shot through (`song-video/docs/transitions.md`).
 
 A camera landing on **no** lane is refused by nothing: that is the shape above.
 

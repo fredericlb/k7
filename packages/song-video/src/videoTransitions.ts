@@ -7,13 +7,19 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  DISSOLVE,
+  OVER,
   SHADER_FRAGMENT,
   SHADER_PARAMS,
   SHADER_VERTEX,
   TRANSITION_CATEGORY,
 } from "@studio/song-schema/moduleTypes";
 import { ownerFolders, type ShaderOwner } from "./shaders";
-import type { VideoTrackDoc, VideoTransitionDoc } from "./videoDoc";
+import type {
+  VideoFadeDoc,
+  VideoTrackDoc,
+  VideoTransitionDoc,
+} from "./videoDoc";
 
 /** The four knobs, clamped to 0..1 because the value leaves TypeScript for GLSL — docs/shaders.md. */
 function transitionParams(module: ShaderOwner): Record<string, number> {
@@ -77,6 +83,43 @@ export function collectTransitions(
         if (src) out[fade.with] = src;
       }
   return out;
+}
+
+/** A fade whose `chain:` lands on no stretch of ITS lane, dropped to what it would be without one, and said. */
+// Kept as a fade rather than cut, for the reason a missing `with:` falls back: a cut would move the arrangement.
+function checkFade(
+  fade: VideoFadeDoc | undefined,
+  lane: string,
+  clip: string,
+  lanesOf: Readonly<Record<string, readonly string[]>>,
+  warnings: string[],
+): VideoFadeDoc | undefined {
+  if (!fade?.chain || lanesOf[fade.chain]?.includes(lane)) return fade;
+  warnings.push(
+    `${lane}: '${clip}' names chain '${fade.chain}', which is no run of shaders landing on this lane — it fades as a dissolve`,
+  );
+  return { over: fade.over, with: fade.with === OVER ? DISSOLVE : fade.with };
+}
+
+/** Every fade's `chain:` checked against the stretches landing on its lane — see docs/transitions.md. */
+export function resolveStretches(
+  tracks: VideoTrackDoc[],
+  lanesOf: Readonly<Record<string, readonly string[]>>,
+  warnings: string[],
+): VideoTrackDoc[] {
+  return tracks.map((t) => ({
+    ...t,
+    clips: t.clips.map((c) => {
+      const fadeIn = checkFade(c.fadeIn, t.id, c.id, lanesOf, warnings);
+      const fadeOut = checkFade(c.fadeOut, t.id, c.id, lanesOf, warnings);
+      const { fadeIn: _i, fadeOut: _o, ...rest } = c;
+      return {
+        ...rest,
+        ...(fadeIn ? { fadeIn } : {}),
+        ...(fadeOut ? { fadeOut } : {}),
+      };
+    }),
+  }));
 }
 
 /** The transitions this project offers, for a verb's completion — DISCOVERED on disk, not declared. */

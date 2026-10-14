@@ -2309,6 +2309,7 @@ export class Workspace {
         videoTracks: [],
         framePlugins: [],
         transitions: {},
+        stretches: {},
       };
     const p = this.cachedVideoDoc(dir);
     const videoTracks = this.toWebVideoTracks(p.videoTracks);
@@ -2324,6 +2325,12 @@ export class Workspace {
         Object.entries(p.transitions).map(([k, t]) => [
           k,
           { ...t, params: { ...t.params } },
+        ]),
+      ),
+      stretches: Object.fromEntries(
+        Object.entries(p.stretches).map(([k, run]) => [
+          k,
+          run.map((pl) => ({ ...pl })),
         ]),
       ),
     };

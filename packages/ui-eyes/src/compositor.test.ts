@@ -4,7 +4,8 @@
 // all) and none of those needs one. See song-video/docs/transitions.md.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Compositor, coverUV, sourceAR } from "./compositor";
+import { Compositor } from "./compositor";
+import { coverUV, sourceAR } from "./geometry";
 import type { SceneClip, SceneTransition, VideoScene } from "./scene";
 
 type Log = string[];
@@ -284,6 +285,75 @@ describe("drawing a blend", () => {
       new Map([["main", { name: "wipe", progress: 1, from: true, to: true }]]),
     );
     expect(uniforms.get("uP1")).toEqual([0.75]);
+  });
+});
+
+describe("a fade's STRETCH", () => {
+  const iris = {
+    id: "iris:0",
+    name: "iris",
+    vertex: "// v",
+    fragment: "// f",
+    enabled: true,
+    params: { P1: 0, P2: 0, P3: 0, P4: 0 },
+    audio: 0,
+  };
+  const stretching = () =>
+    make({
+      ...scene([clip({ fadeIn: { over: 1, with: "over", chain: "iris" } })]),
+      stretches: { iris: [iris] },
+    });
+  const blend = (stretch?: { to: { chain: string; presence: number } }) =>
+    new Map([
+      [
+        "main",
+        {
+          name: "over",
+          progress: 0.25,
+          from: true,
+          to: true,
+          ...(stretch ? { stretch } : {}),
+        },
+      ],
+    ]);
+
+  it("allocates a target per picture slot beside the scratch, and only when a fade names one", () => {
+    expect(fbos(stretching().log)).toBe(4);
+  });
+
+  it("hands the run its shot's PRESENCE", () => {
+    const { comp, uniforms } = stretching();
+    comp.draw(
+      new Set(["main"]),
+      blend({ to: { chain: "iris", presence: 0.25 } }),
+    );
+    expect(uniforms.get("uPresence")).toEqual([0.25]);
+  });
+
+  it("blends the STRETCHED picture, not the slot it was uploaded into", () => {
+    const { comp, log, textures } = stretching();
+    // The layer's two slots are the last textures a scene makes.
+    const tex2 = textures[textures.length - 1].id;
+    log.length = 0;
+    comp.draw(
+      new Set(["main"]),
+      blend({ to: { chain: "iris", presence: 0.5 } }),
+    );
+    const at1 = log.lastIndexOf("activeTexture(1)");
+    expect(log[at1 + 1]).not.toBe(`bindTexture(${tex2})`);
+    // …and with no stretch this frame, the slot itself is what the blend reads.
+    log.length = 0;
+    comp.draw(new Set(["main"]), blend());
+    expect(log[log.lastIndexOf("activeTexture(1)") + 1]).toBe(
+      `bindTexture(${tex2})`,
+    );
+  });
+
+  it("owns `over` as it owns the dissolve — no fallback, no warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { comp } = stretching();
+    comp.draw(new Set(["main"]), blend());
+    expect(warn).not.toHaveBeenCalled();
   });
 });
 

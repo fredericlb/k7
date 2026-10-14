@@ -51,6 +51,16 @@ what you see when there is no layer left.
 `LayerBlend` says **which slots carry a picture this frame**, instead of deducing it from
 `hasFrame`: that never goes back down, so it cannot answer "now".
 
+### A side that runs a stretch
+
+A shot inside its fade's **stretch** goes through that run BEFORE the blend reads it
+(`src/stretches.ts`). The run passes through the same ping-pong as everything else, and its result
+is copied into a target of that slot's own: the blend reads both pictures at once, so neither may
+still be sitting in the scratch the other one is about to use. Two targets, allocated only when a
+fade in the scene names a stretch. The blend that follows is unchanged, and `over` — the kind a
+stretch with no `with:` blends by — is a built-in program beside the dissolve
+([transitions.md](../../song-video/docs/transitions.md)).
+
 `draw` goes through a single `bindComposite` closure rather than two branches per layer: a layer
 with its own chain has to **return** to that target after going through the scratch, and both
 places must agree on which one it is.
