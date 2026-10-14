@@ -88,6 +88,7 @@ import { type CommandPrefs, labelOf, orderCommands } from "./commandPrefs";
 import { AssetPicker } from "./components/AssetPicker";
 import type { AudioClipHandle } from "./components/AudioClipPanel";
 import { AudioClipPanel } from "./components/AudioClipPanel";
+import { BottomPanel } from "./components/BottomPanel";
 import { ChainsBuilder } from "./components/ChainsBuilder";
 import { ChainsTab } from "./components/ChainsTab";
 import { ClipView, type EditTarget } from "./components/ClipView";
@@ -4378,347 +4379,329 @@ export default function App({
               </div>
 
               {/* bottom split panel — available on every tab, resizable divider */}
-              {panel && (
-                <>
-                  <div
-                    onPointerDown={startResize}
-                    className="h-1 shrink-0 cursor-row-resize bg-border transition-colors hover:bg-primary/60"
-                  />
-                  <div
-                    ref={panelEl}
-                    className="relative min-h-0 shrink-0 overflow-hidden border-t border-border bg-background"
-                    style={{ height: panelH ?? "50%" }}
-                  >
-                    {/* The panel's ✕ at its top left: a view's own toolbar takes it, else it floats (PanelClose.tsx). */}
-                    <PanelCloseFrame onClose={closePanel}>
-                      {panel === "graph" && (
+              <BottomPanel
+                open={panel !== null}
+                height={panelH ?? "50%"}
+                panelRef={panelEl}
+                onResizeStart={startResize}
+              >
+                {/* The panel's ✕ at its top left: a view's own toolbar takes it, else it floats (PanelClose.tsx). */}
+                <PanelCloseFrame onClose={closePanel}>
+                  {panel === "graph" && (
+                    <PaneBoundary
+                      name="graph panel"
+                      resetKey={reloadKey}
+                      onError={paneError}
+                    >
+                      <GraphPanel
+                        mark={historyMark}
+                        onPreviewNote={previewNote}
+                        cameras={cameras}
+                        inputDevices={inputDevices}
+                        midiDevices={midiDevices}
+                        reloadKey={reloadKey}
+                        organizeKey={organizeKey}
+                        trackId={caret?.trackId ?? null}
+                        trackOrder={trackOrder}
+                        videoSpans={videoLaneSpans}
+                        noteLanes={noteLanes}
+                        viewport={videoDoc?.viewport}
+                        project={projectDoc}
+                        command={quietCommand}
+                        onBypassModule={(mod) => void bypassModule(mod)}
+                        onModuleField={runCommand}
+                        onRecorder={onRecorder}
+                        onProjectField={onProjectField}
+                        onAlternative={runAlternative}
+                        onAssetBrowse={browseAssets}
+                        onTapEdit={editTap}
+                        onWatchWaveform={watchWaveform}
+                        engineWarnings={nodeWarnings}
+                        onContextMenu={openContextMenu}
+                        pluginParamsStore={pluginParamsStore}
+                        setPluginParam={setPluginParam}
+                        moduleParams={offlineParams}
+                        trackControls={trackControls}
+                        onTrackToggle={onLaneToggle}
+                        onTrackSet={onTrackSet}
+                      />
+                    </PaneBoundary>
+                  )}
+                  {/* The EVENT: what a clip's or a lane header's double-click opened, drawn under whichever page is on (docs/shell.md). */}
+                  {panel === "event" && (
+                    <div className="flex h-full min-h-0 min-w-0">
+                      {!graphSlot && (
+                        <p className="m-auto px-4 text-center text-xs text-muted-foreground">
+                          {m["panel.eventEmpty"]()}
+                        </p>
+                      )}
+                      {graphSlot?.kind === "grid" && (
                         <PaneBoundary
-                          name="graph panel"
+                          name="sequence grid"
                           resetKey={reloadKey}
                           onError={paneError}
                         >
-                          <GraphPanel
+                          <SeqGridPane
+                            path={graphSlot.path}
+                            view={graphSlot.view}
+                            onChanged={bumpReload}
+                            setStatus={setStatus}
+                            reloadKey={reloadKey}
+                          />
+                        </PaneBoundary>
+                      )}
+                      {/* A clicked clip's content: `ClipView` draws its own header and ✕, and tells audio from MIDI in one place. */}
+                      {graphSlot?.kind === "clip" && (
+                        <PaneBoundary
+                          name="clip view"
+                          resetKey={reloadKey}
+                          onError={paneError}
+                        >
+                          <ClipView
+                            target={graphSlot.target}
+                            onClose={closeEvent}
+                            // The takes mode's record button and files; a snapshot records nothing, so it offers no takes.
+                            takesHost={frozen ? undefined : takes.host}
+                            // The slot's target is a snapshot from the click; this is what lets the open clip re-read itself after a reload.
+                            reloadKey={reloadKey}
+                            // A click on the editor's arrangement ruler is the timeline's seek.
+                            onSeek={seek}
+                            // The TRACKER view writes its sequence file directly rather than through a command, so its reload is asked for here.
+                            onChanged={bumpReload}
+                            setStatus={setStatus}
+                            // The caret's three verbs and the loop it sets, pointed at whichever grid this pane is drawing.
+                            caretRef={clipGridRef}
+                            onSelection={setClipSel}
+                            onSetLoop={(start, end, enabled) =>
+                              engineRef.current?.loop(start, end, enabled)
+                            }
+                            // An AUDIO clip opens the clip panel, whose onsets, trim and normalise are command lines like everything else.
+                            command={runCommand}
+                            // …except the stretch points, whose edits change nothing outside the clip file, so they go the quiet way.
+                            quietCommand={quietCommand}
+                            // …and they get the same right-click every other entity has.
+                            onContextMenu={openContextMenu}
+                            // The roll's draw gesture, and all four ANSWER the promise rather than dropping it — the ghost is held until the reload lands (rollPending.ts).
+                            onCreateNote={(seqId, key, t0, t1) =>
+                              runCommand(
+                                `sequence note new ${seqId} ${key} ${t0} ${t1}`,
+                              )
+                            }
+                            // The roll's velocity drag, committed like the timeline's clip drag: one command on release.
+                            onSetVelocity={(seqId, key, start, vel) =>
+                              runCommand(
+                                `sequence note velocity ${seqId} ${key} ${start} ${vel}`,
+                              )
+                            }
+                            // …and the note drag the same way — move and stretch are one verb, being one gesture with two grips.
+                            onSetNoteRange={(seqId, key, start, ns, ne) =>
+                              runCommand(
+                                `sequence note timerange ${seqId} ${key} ${start} ${ns} ${ne}`,
+                              )
+                            }
+                            // …except a drag that changed the PITCH, which is the verb that keeps the duration and refuses an occupied slot.
+                            onMoveNote={(seqId, key, start, nk, ns) =>
+                              runCommand(
+                                `sequence note move ${seqId} ${key} ${start} ${nk} ${ns}`,
+                              )
+                            }
+                            // …and a dragged SELECTION, every note in one write and one Ctrl+Z.
+                            onMoveNotes={(seqId, moves) =>
+                              runCommand(
+                                `sequence notes move ${seqId} ${JSON.stringify(moves)}`,
+                              )
+                            }
+                            // …and the ear. Straight down the engine's socket: a note heard is not an edit, so it is journalled nowhere.
+                            onPreviewNote={(track, key, vel) =>
+                              engineRef.current?.previewNote(track, key, vel)
+                            }
+                            waveRef={waveRef}
+                            onWaveView={setWaveView}
+                            rollRef={rollRef}
+                            onRollMode={setRollMode}
+                            // …and the roll's `remove` mode, which is the caret's `x` reached by the pointer instead.
+                            onRemoveNote={(seqId, key, start) =>
+                              runCommand(
+                                `sequence note remove ${seqId} ${key} ${start}`,
+                              )
+                            }
+                          />
+                        </PaneBoundary>
+                      )}
+                      {/* One lane's whole signal path, read left to right; `moduleRow` lays out the graph's own cards (docs/shell.md). */}
+                      {graphSlot?.kind === "trackModules" && (
+                        <PaneBoundary
+                          name="lane modules"
+                          resetKey={reloadKey}
+                          onError={paneError}
+                        >
+                          <TrackModulesPane
                             mark={historyMark}
+                            project={projectDoc}
                             onPreviewNote={previewNote}
                             cameras={cameras}
                             inputDevices={inputDevices}
                             midiDevices={midiDevices}
+                            trackId={graphSlot.trackId}
                             reloadKey={reloadKey}
-                            organizeKey={organizeKey}
-                            trackId={caret?.trackId ?? null}
-                            trackOrder={trackOrder}
-                            videoSpans={videoLaneSpans}
-                            noteLanes={noteLanes}
-                            viewport={videoDoc?.viewport}
-                            project={projectDoc}
                             command={quietCommand}
-                            onBypassModule={(mod) => void bypassModule(mod)}
                             onModuleField={runCommand}
                             onRecorder={onRecorder}
                             onProjectField={onProjectField}
-                            onAlternative={runAlternative}
-                            onAssetBrowse={browseAssets}
-                            onTapEdit={editTap}
-                            onWatchWaveform={watchWaveform}
-                            engineWarnings={nodeWarnings}
-                            onContextMenu={openContextMenu}
+                            trackOrder={trackOrder}
                             pluginParamsStore={pluginParamsStore}
+                            requestPluginParams={requestPluginParams}
+                            watchPluginParams={watchPluginParams}
                             setPluginParam={setPluginParam}
                             moduleParams={offlineParams}
                             trackControls={trackControls}
+                            onContextMenu={openContextMenu}
+                            onBypassModule={(mod) => void bypassModule(mod)}
+                            onAlternative={runAlternative}
+                            onEngine={runEngine}
+                            onPresets={openPresets}
+                            onPresetStep={stepPreset}
+                            presetNames={presetNames}
+                            onAssetBrowse={browseAssets}
+                            onTapEdit={editTap}
+                            onWatchWaveform={watchWaveform}
                             onTrackToggle={onLaneToggle}
                             onTrackSet={onTrackSet}
+                            onEdgeInsert={frozen ? undefined : insertIntoChain}
+                            engineWarnings={nodeWarnings}
+                            showCurves={trackCurves}
+                            onToggleCurves={() => void runCommand("ui curves")}
+                            onTrackInput={(kind) =>
+                              void runCommand(
+                                `track input ${graphSlot.trackId} ${kind}`,
+                              )
+                            }
                           />
                         </PaneBoundary>
                       )}
-                      {/* The EVENT: what a clip's or a lane header's double-click opened, drawn under whichever page is on (docs/shell.md). */}
-                      {panel === "event" && (
-                        <div className="flex h-full min-h-0 min-w-0">
-                          {!graphSlot && (
-                            <p className="m-auto px-4 text-center text-xs text-muted-foreground">
-                              {m["panel.eventEmpty"]()}
-                            </p>
-                          )}
-                          {graphSlot?.kind === "grid" && (
-                            <PaneBoundary
-                              name="sequence grid"
-                              resetKey={reloadKey}
-                              onError={paneError}
-                            >
-                              <SeqGridPane
-                                path={graphSlot.path}
-                                view={graphSlot.view}
-                                onChanged={bumpReload}
-                                setStatus={setStatus}
-                                reloadKey={reloadKey}
-                              />
-                            </PaneBoundary>
-                          )}
-                          {/* A clicked clip's content: `ClipView` draws its own header and ✕, and tells audio from MIDI in one place. */}
-                          {graphSlot?.kind === "clip" && (
-                            <PaneBoundary
-                              name="clip view"
-                              resetKey={reloadKey}
-                              onError={paneError}
-                            >
-                              <ClipView
-                                target={graphSlot.target}
-                                onClose={closeEvent}
-                                // The takes mode's record button and files; a snapshot records nothing, so it offers no takes.
-                                takesHost={frozen ? undefined : takes.host}
-                                // The slot's target is a snapshot from the click; this is what lets the open clip re-read itself after a reload.
-                                reloadKey={reloadKey}
-                                // A click on the editor's arrangement ruler is the timeline's seek.
-                                onSeek={seek}
-                                // The TRACKER view writes its sequence file directly rather than through a command, so its reload is asked for here.
-                                onChanged={bumpReload}
-                                setStatus={setStatus}
-                                // The caret's three verbs and the loop it sets, pointed at whichever grid this pane is drawing.
-                                caretRef={clipGridRef}
-                                onSelection={setClipSel}
-                                onSetLoop={(start, end, enabled) =>
-                                  engineRef.current?.loop(start, end, enabled)
-                                }
-                                // An AUDIO clip opens the clip panel, whose onsets, trim and normalise are command lines like everything else.
-                                command={runCommand}
-                                // …except the stretch points, whose edits change nothing outside the clip file, so they go the quiet way.
-                                quietCommand={quietCommand}
-                                // …and they get the same right-click every other entity has.
-                                onContextMenu={openContextMenu}
-                                // The roll's draw gesture, and all four ANSWER the promise rather than dropping it — the ghost is held until the reload lands (rollPending.ts).
-                                onCreateNote={(seqId, key, t0, t1) =>
-                                  runCommand(
-                                    `sequence note new ${seqId} ${key} ${t0} ${t1}`,
-                                  )
-                                }
-                                // The roll's velocity drag, committed like the timeline's clip drag: one command on release.
-                                onSetVelocity={(seqId, key, start, vel) =>
-                                  runCommand(
-                                    `sequence note velocity ${seqId} ${key} ${start} ${vel}`,
-                                  )
-                                }
-                                // …and the note drag the same way — move and stretch are one verb, being one gesture with two grips.
-                                onSetNoteRange={(seqId, key, start, ns, ne) =>
-                                  runCommand(
-                                    `sequence note timerange ${seqId} ${key} ${start} ${ns} ${ne}`,
-                                  )
-                                }
-                                // …except a drag that changed the PITCH, which is the verb that keeps the duration and refuses an occupied slot.
-                                onMoveNote={(seqId, key, start, nk, ns) =>
-                                  runCommand(
-                                    `sequence note move ${seqId} ${key} ${start} ${nk} ${ns}`,
-                                  )
-                                }
-                                // …and a dragged SELECTION, every note in one write and one Ctrl+Z.
-                                onMoveNotes={(seqId, moves) =>
-                                  runCommand(
-                                    `sequence notes move ${seqId} ${JSON.stringify(moves)}`,
-                                  )
-                                }
-                                // …and the ear. Straight down the engine's socket: a note heard is not an edit, so it is journalled nowhere.
-                                onPreviewNote={(track, key, vel) =>
-                                  engineRef.current?.previewNote(
-                                    track,
-                                    key,
-                                    vel,
-                                  )
-                                }
-                                waveRef={waveRef}
-                                onWaveView={setWaveView}
-                                rollRef={rollRef}
-                                onRollMode={setRollMode}
-                                // …and the roll's `remove` mode, which is the caret's `x` reached by the pointer instead.
-                                onRemoveNote={(seqId, key, start) =>
-                                  runCommand(
-                                    `sequence note remove ${seqId} ${key} ${start}`,
-                                  )
-                                }
-                              />
-                            </PaneBoundary>
-                          )}
-                          {/* One lane's whole signal path, read left to right; `moduleRow` lays out the graph's own cards (docs/shell.md). */}
-                          {graphSlot?.kind === "trackModules" && (
-                            <PaneBoundary
-                              name="lane modules"
-                              resetKey={reloadKey}
-                              onError={paneError}
-                            >
-                              <TrackModulesPane
-                                mark={historyMark}
-                                project={projectDoc}
-                                onPreviewNote={previewNote}
-                                cameras={cameras}
-                                inputDevices={inputDevices}
-                                midiDevices={midiDevices}
-                                trackId={graphSlot.trackId}
-                                reloadKey={reloadKey}
-                                command={quietCommand}
-                                onModuleField={runCommand}
-                                onRecorder={onRecorder}
-                                onProjectField={onProjectField}
-                                trackOrder={trackOrder}
-                                pluginParamsStore={pluginParamsStore}
-                                requestPluginParams={requestPluginParams}
-                                watchPluginParams={watchPluginParams}
-                                setPluginParam={setPluginParam}
-                                moduleParams={offlineParams}
-                                trackControls={trackControls}
-                                onContextMenu={openContextMenu}
-                                onBypassModule={(mod) => void bypassModule(mod)}
-                                onAlternative={runAlternative}
-                                onEngine={runEngine}
-                                onPresets={openPresets}
-                                onPresetStep={stepPreset}
-                                presetNames={presetNames}
-                                onAssetBrowse={browseAssets}
-                                onTapEdit={editTap}
-                                onWatchWaveform={watchWaveform}
-                                onTrackToggle={onLaneToggle}
-                                onTrackSet={onTrackSet}
-                                onEdgeInsert={
-                                  frozen ? undefined : insertIntoChain
-                                }
-                                engineWarnings={nodeWarnings}
-                                showCurves={trackCurves}
-                                onToggleCurves={() =>
-                                  void runCommand("ui curves")
-                                }
-                                onTrackInput={(kind) =>
-                                  void runCommand(
-                                    `track input ${graphSlot.trackId} ${kind}`,
-                                  )
-                                }
-                              />
-                            </PaneBoundary>
-                          )}
-                          {/* A MIDI take's notes as they are played; its clip's own roll replaces it once it lands. */}
-                          {graphSlot?.kind === "midiTake" && liveTake && (
-                            <MidiTakeRoll
-                              take={liveTake}
-                              trackName={
-                                recInfo.names[liveTake.lane] ?? liveTake.lane
-                              }
-                              beatsPerBar={recInfo.beatsPerBar}
-                              countInBeats={
-                                recordEnabled
-                                  ? recInfo.countIn * recInfo.beatsPerBar
-                                  : 0
-                              }
-                              onStop={() => void runCommand("transport stop")}
-                            />
-                          )}
-                          {/* ONE panel for a take and for the file it becomes; `rolling` chooses the picture, not the mount (docs/shell.md). */}
-                          {graphSlot?.kind === "recording" && (
-                            <PaneBoundary
-                              name="audio clip"
-                              resetKey={reloadKey}
-                              onError={paneError}
-                            >
-                              <AudioClipPanel
-                                clip={
-                                  rolling ? null : (reviewTake?.clip ?? null)
-                                }
-                                track={reviewTake?.track ?? ""}
-                                rolling={rolling}
-                                tempo={recInfo.tempo}
-                                beatsPerBar={recInfo.beatsPerBar}
-                                countIn={recInfo.countIn}
-                                startBeat={takeStart}
-                                // Where the clip on screen actually SITS on its lane, asked of the document.
-                                placedAt={reviewBeat ?? takeStart}
-                                // …and as a timecode, without which trim and the window drag have no event to write.
-                                eventAt={rolling ? null : reviewEventAt}
-                                // …and its takes, so the takes mode is there the moment the recording ends.
-                                takes={rolling ? undefined : reviewTakes}
-                                onSeek={seek}
-                                trackOrder={trackOrder}
-                                trackNames={recInfo.names}
-                                command={runCommand}
-                                quietCommand={quietCommand}
-                                onContextMenu={openContextMenu}
-                                reloadKey={reloadKey}
-                                onStop={() => void runCommand("transport stop")}
-                                onClose={() => {
-                                  setReviewOn(null);
-                                  if (reviewTake)
+                      {/* A MIDI take's notes as they are played; its clip's own roll replaces it once it lands. */}
+                      {graphSlot?.kind === "midiTake" && liveTake && (
+                        <MidiTakeRoll
+                          take={liveTake}
+                          trackName={
+                            recInfo.names[liveTake.lane] ?? liveTake.lane
+                          }
+                          beatsPerBar={recInfo.beatsPerBar}
+                          countInBeats={
+                            recordEnabled
+                              ? recInfo.countIn * recInfo.beatsPerBar
+                              : 0
+                          }
+                          onStop={() => void runCommand("transport stop")}
+                        />
+                      )}
+                      {/* ONE panel for a take and for the file it becomes; `rolling` chooses the picture, not the mount (docs/shell.md). */}
+                      {graphSlot?.kind === "recording" && (
+                        <PaneBoundary
+                          name="audio clip"
+                          resetKey={reloadKey}
+                          onError={paneError}
+                        >
+                          <AudioClipPanel
+                            clip={rolling ? null : (reviewTake?.clip ?? null)}
+                            track={reviewTake?.track ?? ""}
+                            rolling={rolling}
+                            tempo={recInfo.tempo}
+                            beatsPerBar={recInfo.beatsPerBar}
+                            countIn={recInfo.countIn}
+                            startBeat={takeStart}
+                            // Where the clip on screen actually SITS on its lane, asked of the document.
+                            placedAt={reviewBeat ?? takeStart}
+                            // …and as a timecode, without which trim and the window drag have no event to write.
+                            eventAt={rolling ? null : reviewEventAt}
+                            // …and its takes, so the takes mode is there the moment the recording ends.
+                            takes={rolling ? undefined : reviewTakes}
+                            onSeek={seek}
+                            trackOrder={trackOrder}
+                            trackNames={recInfo.names}
+                            command={runCommand}
+                            quietCommand={quietCommand}
+                            onContextMenu={openContextMenu}
+                            reloadKey={reloadKey}
+                            onStop={() => void runCommand("transport stop")}
+                            onClose={() => {
+                              setReviewOn(null);
+                              if (reviewTake) setReviewedTake(reviewTake.clip);
+                              closeEvent();
+                            }}
+                            // The event goes and the file stays: one Ctrl+Z brings the take back.
+                            onDiscard={
+                              !rolling && reviewTake && reviewEventAt
+                                ? () => {
+                                    void runCommand(
+                                      `event remove ${reviewTake.track} ${reviewEventAt}`,
+                                    );
+                                    setReviewOn(null);
                                     setReviewedTake(reviewTake.clip);
-                                  closeEvent();
-                                }}
-                                // The event goes and the file stays: one Ctrl+Z brings the take back.
-                                onDiscard={
-                                  !rolling && reviewTake && reviewEventAt
-                                    ? () => {
-                                        void runCommand(
-                                          `event remove ${reviewTake.track} ${reviewEventAt}`,
-                                        );
-                                        setReviewOn(null);
-                                        setReviewedTake(reviewTake.clip);
-                                        closeEvent();
-                                      }
-                                    : undefined
-                                }
-                              />
-                            </PaneBoundary>
-                          )}
-                        </div>
-                      )}
-                      {panel === "mix" && (
-                        <PaneBoundary
-                          name="graph panel"
-                          resetKey={reloadKey}
-                          onError={paneError}
-                        >
-                          <GraphPanel
-                            mark={historyMark}
-                            onPreviewNote={previewNote}
-                            cameras={cameras}
-                            inputDevices={inputDevices}
-                            midiDevices={midiDevices}
-                            reloadKey={reloadKey}
-                            organizeKey={organizeKey}
-                            trackId={null}
-                            strips={mixerStrips}
-                            trackOrder={trackOrder}
-                            videoSpans={videoLaneSpans}
-                            noteLanes={noteLanes}
-                            viewport={videoDoc?.viewport}
-                            project={projectDoc}
-                            command={quietCommand}
-                            onBypassModule={(mod) => void bypassModule(mod)}
-                            onModuleField={runCommand}
-                            onRecorder={onRecorder}
-                            onProjectField={onProjectField}
-                            onAlternative={runAlternative}
-                            onAssetBrowse={browseAssets}
-                            onTapEdit={editTap}
-                            onWatchWaveform={watchWaveform}
-                            engineWarnings={nodeWarnings}
-                            onContextMenu={openContextMenu}
-                            pluginParamsStore={pluginParamsStore}
-                            setPluginParam={setPluginParam}
-                            moduleParams={offlineParams}
-                            trackControls={trackControls}
-                            onTrackToggle={onLaneToggle}
-                            onTrackSet={onTrackSet}
+                                    closeEvent();
+                                  }
+                                : undefined
+                            }
                           />
                         </PaneBoundary>
                       )}
-                      {panel === "logs" && (
-                        <PaneBoundary
-                          name="logs"
-                          resetKey={reloadKey}
-                          onError={paneError}
-                        >
-                          <LogsPanel
-                            lines={logs}
-                            onClear={() => void runCommand("ui logs clear")}
-                          />
-                        </PaneBoundary>
-                      )}
-                    </PanelCloseFrame>
-                  </div>
-                </>
-              )}
+                    </div>
+                  )}
+                  {panel === "mix" && (
+                    <PaneBoundary
+                      name="graph panel"
+                      resetKey={reloadKey}
+                      onError={paneError}
+                    >
+                      <GraphPanel
+                        mark={historyMark}
+                        onPreviewNote={previewNote}
+                        cameras={cameras}
+                        inputDevices={inputDevices}
+                        midiDevices={midiDevices}
+                        reloadKey={reloadKey}
+                        organizeKey={organizeKey}
+                        trackId={null}
+                        strips={mixerStrips}
+                        trackOrder={trackOrder}
+                        videoSpans={videoLaneSpans}
+                        noteLanes={noteLanes}
+                        viewport={videoDoc?.viewport}
+                        project={projectDoc}
+                        command={quietCommand}
+                        onBypassModule={(mod) => void bypassModule(mod)}
+                        onModuleField={runCommand}
+                        onRecorder={onRecorder}
+                        onProjectField={onProjectField}
+                        onAlternative={runAlternative}
+                        onAssetBrowse={browseAssets}
+                        onTapEdit={editTap}
+                        onWatchWaveform={watchWaveform}
+                        engineWarnings={nodeWarnings}
+                        onContextMenu={openContextMenu}
+                        pluginParamsStore={pluginParamsStore}
+                        setPluginParam={setPluginParam}
+                        moduleParams={offlineParams}
+                        trackControls={trackControls}
+                        onTrackToggle={onLaneToggle}
+                        onTrackSet={onTrackSet}
+                      />
+                    </PaneBoundary>
+                  )}
+                  {panel === "logs" && (
+                    <PaneBoundary
+                      name="logs"
+                      resetKey={reloadKey}
+                      onError={paneError}
+                    >
+                      <LogsPanel
+                        lines={logs}
+                        onClear={() => void runCommand("ui logs clear")}
+                      />
+                    </PaneBoundary>
+                  )}
+                </PanelCloseFrame>
+              </BottomPanel>
             </div>
 
             {/* The take once it has stopped: the FILE, its onsets and its level — the editing step beside the live pane (docs/shell.md). */}

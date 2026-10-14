@@ -105,7 +105,9 @@ and `/help` answers the same question from the keymap itself.
 What the header did carry that nothing else does is the **view** toggles, and they now hang
 under the tool column, below a rule: the ruler's unit (bars ↔ seconds), Expand, and the automation
 rows shown or hidden — that last one drawn only when some lane has automation, so it is never a
-toggle that changes nothing. Expand is ON by default. While a bottom panel is open the lanes draw
+toggle that changes nothing. Expand is ON by default, and its lanes travel to their new height
+rather than jump, along with every line spanning them — the playhead, the markers — so nothing
+overhangs the lanes mid-move (`GROW` in `TimelineTab.tsx`). While a bottom panel is open the lanes draw
 folded and Expand is dead, because the panel takes half the height and tall lanes would leave a
 handful of rows. The user's choice is kept, so closing the panel unfolds the lanes again
 (`lanesLocked`). They sit there
