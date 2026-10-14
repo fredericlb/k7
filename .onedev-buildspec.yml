@@ -434,6 +434,8 @@ jobs:
         export CCACHE_DIR=/root/.ccache CCACHE_BASEDIR="$PWD" CCACHE_NOHASHDIR=true CCACHE_MAXSIZE=3G
         ccache --zero-stats
 
+        # A UTF-8 locale for the JVM: without one Gradle reads file names as ASCII and loses st0-library's µcomputer.fxp.
+        export LANG=C.UTF-8 LC_ALL=C.UTF-8
         export ANDROID_HOME=/opt/android-sdk
         SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
         if [ ! -x "$SDKMANAGER" ]; then
