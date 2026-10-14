@@ -54,19 +54,35 @@ interface PairedServer {
   token: string;
 }
 
-/** Copy one entry (a sample's file, a song's folder) from `server` here; the count, 0 when it has none. */
-async function downloadEntry(
+/** Copy each entry (a sample's file, a song's folder) from `server` here, on one manifest; what was copied and what it lacks. */
+async function downloadEntries(
   server: PairedServer,
   family: Family,
-  path: string,
-): Promise<number> {
+  paths: string[],
+): Promise<{ files: number; missing: string[] }> {
   const source = remoteLibrary({ ...server, route: DEVICE_LIBRARY_ROUTE });
-  const files = (await source.manifest(family)).filter(
-    (f) => f.path === path || f.path.startsWith(`${path}/`),
-  );
-  for (const f of files) await source.download(f.path, safePath(f.path));
-  if (files.length) bumped(family);
-  return files.length;
+  const manifest = await source.manifest(family);
+  let files = 0;
+  const missing: string[] = [];
+  for (const path of paths) {
+    const under = manifest.filter(
+      (f) => f.path === path || f.path.startsWith(`${path}/`),
+    );
+    if (!under.length) missing.push(path);
+    for (const f of under) await source.download(f.path, safePath(f.path));
+    files += under.length;
+  }
+  if (files) bumped(family);
+  return { files, missing };
+}
+
+/** One path or several — an album, a playlist's songs — deduplicated, empty ones dropped. */
+function pathsOf(body: unknown): string[] {
+  const b = (body ?? {}) as { path?: unknown; paths?: unknown };
+  const all: unknown[] = Array.isArray(b.paths) ? b.paths : [b.path];
+  return [
+    ...new Set(all.filter((p): p is string => typeof p === "string" && !!p)),
+  ];
 }
 
 /** The paired origin of the session's account, as an http origin and the token to call it with. */
@@ -79,7 +95,7 @@ export function serverOf(hub: FileHub, req: Request): PairedServer | null {
   };
 }
 
-/** `GET /?family=` places each entry; `POST /download {family, path}` brings one server-only entry down. */
+/** `GET /?family=` places each entry; `POST /download {family, path | paths}` brings server-only entries down. */
 export function serverCopyRouter(hub: FileHub): Router {
   const r = Router();
 
@@ -132,17 +148,21 @@ export function serverCopyRouter(hub: FileHub): Router {
     "/download",
     wrap(async (req, res) => {
       const family = asFamily(req.body?.family);
-      const path = typeof req.body?.path === "string" ? req.body.path : "";
+      const paths = pathsOf(req.body);
       if (!family) return res.status(400).json({ error: FAMILY_ERROR });
-      if (!path) return res.status(400).json({ error: "path is required" });
+      if (!paths.length)
+        return res.status(400).json({ error: "path or paths is required" });
       const server = serverOf(hub, req);
       if (!server)
         return res.status(409).json({ error: "this account is not paired" });
       try {
-        const files = await downloadEntry(server, family, path);
-        if (!files)
-          return res.status(404).json({ error: `the server has no '${path}'` });
-        res.json({ files });
+        const got = await downloadEntries(server, family, paths);
+        // A list partly there is a success that names what was not; nothing there at all is a 404.
+        if (!got.files)
+          return res
+            .status(404)
+            .json({ error: `the server has no '${paths.join("', '")}'` });
+        res.json(got);
       } catch (e) {
         res.status(502).json({ error: (e as Error).message });
       }
@@ -178,7 +198,7 @@ export function mountServerCopy(
         const server = serverOf(hub, req);
         if (!server || fileExists(safePath(path))) return;
         const folder = path.split("/").slice(0, -1).join("/");
-        if (!(await downloadEntry(server, "songs", folder)))
+        if (!(await downloadEntries(server, "songs", [folder])).files)
           throw new Error(`the server's library has no '${path}'`);
       },
     }),

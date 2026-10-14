@@ -6,7 +6,9 @@ import { Button } from "@frediverse/ui/button";
 import {
   ArrowDown,
   ArrowUp,
+  CloudDownload,
   ListPlus,
+  Loader2,
   Pause,
   Play,
   Plus,
@@ -40,6 +42,9 @@ export interface PlaylistRowsProps {
   rows: ResolvedItem[];
   /** Null while the catalogue is loading — which is a different sentence from "no such song". */
   songs: MediatekEntry[] | null;
+  /** How many lines only the paired server can play; 0 when unpaired or when nothing is missing. */
+  missing: number;
+  onDownloadMissing: () => Promise<unknown>;
   onAdd: (song: string, variant?: string) => void;
   onRemove: (index: number) => void;
   onMove: (from: number, to: number) => void;
@@ -55,6 +60,8 @@ export interface PlaylistRowsProps {
 export function PlaylistRows({
   rows,
   songs,
+  missing,
+  onDownloadMissing,
   onAdd,
   onRemove,
   onMove,
@@ -69,6 +76,7 @@ export function PlaylistRows({
   const c = labels.common;
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState("");
+  const [downloading, setDownloading] = useState(false);
 
   const hits = useMemo(() => {
     if (!query.trim() || !songs) return [];
@@ -102,6 +110,27 @@ export function PlaylistRows({
           <ListPlus className="h-4 w-4 sm:mr-1" />
           <span className="hidden sm:inline">{l.queueAll}</span>
         </Button>
+        {missing > 0 ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={downloading}
+            title={labels.contents.downloadMissing(missing)}
+            onClick={() => {
+              setDownloading(true);
+              void onDownloadMissing().finally(() => setDownloading(false));
+            }}
+          >
+            {downloading ? (
+              <Loader2 className="h-4 w-4 animate-spin sm:mr-1" />
+            ) : (
+              <CloudDownload className="h-4 w-4 sm:mr-1" />
+            )}
+            <span className="hidden sm:inline">
+              {labels.contents.downloadMissing(missing)}
+            </span>
+          </Button>
+        ) : null}
         <span className="ml-auto shrink-0 text-muted-foreground text-xs tabular-nums">
           {l.songCount(rows.length)}
         </span>
