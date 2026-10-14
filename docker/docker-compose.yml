@@ -31,7 +31,7 @@ x-shared-auth: &shared-auth
 
 services:
   k7:
-    image: dev.frediver.se/frediverse/k7/k7:${APP_VERSION:-latest}
+    image: dev.frediver.se/frediverse/k7/k7-webapp:${APP_VERSION:-latest}
     restart: unless-stopped
     environment:
       <<: *shared-auth

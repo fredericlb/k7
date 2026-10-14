@@ -87,15 +87,15 @@ jobs:
     condition: SUCCESSFUL
     optional: false
   # One image: k7, the media library and the rehearsal recorder included. It keeps its layers in
-  # the registry (cache:k7), so a fresh builder still finds the installs — docs/images.md.
+  # the registry (cache:k7-webapp), so a fresh builder still finds the installs — docs/images.md.
   - type: BuildImageStep
-    name: build and push k7 image
+    name: build and push k7-webapp image
     buildPath: .
     dockerfile: apps/k7/docker/Dockerfile
     output:
       type: RegistryOutput
-      tags: dev.frediver.se/frediverse/k7/k7:@commit_hash@
-    moreOptions: --build-arg APP_VERSION=@build_version@ --cache-from type=registry,ref=dev.frediver.se/frediverse/k7/cache:k7 --cache-to type=registry,ref=dev.frediver.se/frediverse/k7/cache:k7,mode=max,image-manifest=true,oci-mediatypes=true
+      tags: dev.frediver.se/frediverse/k7/k7-webapp:@commit_hash@
+    moreOptions: --build-arg APP_VERSION=@build_version@ --cache-from type=registry,ref=dev.frediver.se/frediverse/k7/cache:k7-webapp --cache-to type=registry,ref=dev.frediver.se/frediverse/k7/cache:k7-webapp,mode=max,image-manifest=true,oci-mediatypes=true
     condition: SUCCESSFUL
     optional: false
   retryCondition: never
@@ -103,7 +103,7 @@ jobs:
   retryDelay: 30
   timeout: 3600
 # The server's engine (engine/docker/Dockerfile): a job of its own, because a cold build compiles
-# Tracktion, JUCE and Faust and outlasts the k7 image's hour. Its layers are kept in cache:k7-runtime,
+# Tracktion, JUCE and Faust and outlasts the k7-webapp image's hour. Its layers are kept in cache:k7-runtime,
 # so a push that touches no native source finds the compile in the cache — docs/server-engine.md.
 - name: build engine image
   steps:
@@ -140,8 +140,8 @@ jobs:
     condition: SUCCESSFUL
     optional: false
   - type: RunImagetoolsStep
-    name: tag k7 image
-    arguments: create -t dev.frediver.se/frediverse/k7/k7:latest -t dev.frediver.se/frediverse/k7/k7:@build_version@ dev.frediver.se/frediverse/k7/k7:@commit_hash@
+    name: tag k7-webapp image
+    arguments: create -t dev.frediver.se/frediverse/k7/k7-webapp:latest -t dev.frediver.se/frediverse/k7/k7-webapp:@build_version@ dev.frediver.se/frediverse/k7/k7-webapp:@commit_hash@
     condition: SUCCESSFUL
     optional: false
   - type: RunImagetoolsStep

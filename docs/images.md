@@ -37,7 +37,7 @@ between builds, so `npm ci` reinstalls from the local cache instead of the regis
 
 ## The layers are kept in the registry, not only in the builder
 
-The `BuildImageStep` exports its cache to `studio/cache:k7` (`mode=max`, so the install
+The `BuildImageStep` exports its cache to `k7/cache:k7-webapp` (`mode=max`, so the install
 stages are in it, not only the final image) and imports it on the next run. A builder that
 starts empty, or one whose cache was pruned, still finds the installs. `image-manifest=true`
 stores the cache as an ordinary OCI image, which a registry that refuses BuildKit's own cache
