@@ -37,6 +37,9 @@ export const KEYS: Record<string, Binding> = {
   enter: "transport rewind",
   // t locates the transport to the timeline caret; quiet on a label, which is a row rather than a beat.
   t: "transport locate",
+  // , and . step the playhead one drawn tick, the grid a drag lands on — a frame once zoomed in on a picture.
+  ",": "transport step prev",
+  ".": "transport step next",
   // Esc backs out ONE layer, outermost first: a popin, the graph slot, the tool in hand, a page other than home, the panel. First match wins.
   esc: [
     { if: "popin", command: "ui popin close" },
@@ -87,6 +90,8 @@ export const KEYS: Record<string, Binding> = {
   // Copy the rectangle, paste it at the caret — the clipboard chords FIRST, which is what the help legend advertises.
   "ctrl+c": COPY_SELECTION,
   "ctrl+v": PASTE_SELECTION,
+  // The blade at the PLAYHEAD on the caret's lane, the edit suites' chord — `b` alone picks the blade itself.
+  "ctrl+b": "selection split",
   // The plain letters stay beside them: a hand already on single keys should not reach for a modifier, nor should one arriving from elsewhere.
   c: COPY_SELECTION,
   // `p` is one line whatever is held: the clipboard carries its kind, so the condition is merely that something IS held.
@@ -120,8 +125,12 @@ export const KEYS: Record<string, Binding> = {
   w: { if: "wave_open", command: "ui wave warp" },
 };
 
-/** The clipboard chords, and the ONLY ones this shell takes off the browser; ⌘ and ⌃ produce the SAME token. */
-const CHORDS: Record<string, string> = { c: "ctrl+c", v: "ctrl+v" };
+/** The clipboard chords and the blade's, the ONLY ones this shell takes off the browser; ⌘ and ⌃ produce the SAME token. */
+const CHORDS: Record<string, string> = {
+  b: "ctrl+b",
+  c: "ctrl+c",
+  v: "ctrl+v",
+};
 
 /** ⌘/⌃ + a letter → its token, or null for every chord that is not ours. */
 const chordToken = (e: KeyboardEvent): string | null =>
@@ -223,6 +232,7 @@ export function keyLabel(token: string): string {
     // Spelt out rather than as a glyph, which too few people read at a glance; on a Mac it is ⌘ that fires it — see CHORDS.
     "ctrl+c": "Ctrl+C",
     "ctrl+v": "Ctrl+V",
+    "ctrl+b": "Ctrl+B",
   };
   if (named[token]) return named[token];
   // A shifted letter arrives as its own uppercase token, so the shift is spelt out whichever letter is bound.

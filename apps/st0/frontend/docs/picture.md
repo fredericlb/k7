@@ -42,6 +42,12 @@ only coordinate — each carrying its own label and weight.
 |---|---|---|
 | `bars` | a bar halves: bar, beat, half-beat (`subdivideBeats`) | bar · beat · subdivision |
 | `seconds` | 1/2/5/10 per decade, then 15s 30s 1m 2m 5m… (`SECOND_TICKS`) | minute · second · fraction |
+| `seconds`, with a picture | 1, 2, 5, 10, 15 FRAMES below a second (`secondTicks(fps)`), then the same | minute · second · frame |
+
+The frame rungs come from the picture's `fps`, which App hands the timeline only when the song
+has a picture lane: a song with none has no frame to land on (`packages/ui-timeline/docs/ticks.md`).
+They apply to the whole grid and not just to the picture rows, since an audio lane's cut or a hit
+point is placed against that same picture.
 
 They are different in KIND, not just in scale: bars halve and time does not. `16s` between labels
 is not a duration anyone reads.

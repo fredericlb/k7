@@ -46,6 +46,15 @@ Drag a shot's **body** to move it, its **left edge** to trim the head (which mov
 or its **right edge** to set its extent. Opening a lane file in the editor also gives you a
 reader per placement, with Set From / Set To.
 
+To cut a shot in two, use the blade (`b`) and click where to cut, or put the caret on the lane
+and press **Ctrl+B** to cut at the playhead. Both work the same way on audio lanes. On picture,
+the cut writes a second placement of the same clip, so nothing is rendered and the frames do
+not change; its sound follows on its own.
+
+In seconds mode, once the song has a picture, the ruler's fine ticks are **frames** (`12f`).
+Every drag and every cut lands on one, and `,` / `.` step the playhead one tick back or
+forward: a frame, once you are zoomed in.
+
 ## A shot's sound
 
 The picture lane plays no sound. The **engine** plays it, from an ordinary audio lane that names

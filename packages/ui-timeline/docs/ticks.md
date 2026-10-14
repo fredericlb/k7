@@ -38,3 +38,22 @@ test asserting on the values themselves.
 A click that lands nowhere near a tick is not a click on tick 0. Callers use the result to
 snap a marker or a seek onto a line the user can SEE, so "nothing was near enough" has to be
 sayable — otherwise a click in empty space silently drops a marker at the origin.
+
+## With a picture, the fine rungs are FRAMES
+
+`secondTicks(fps)` replaces the seconds ladder's sub-second rungs with 1, 2, 5, 10 and 15
+frames when the song has a picture. A cut can only fall on a frame, and the decimal rungs do not
+land on one: at 30 fps, `0.04 s` is 1.2 frames. With frame rungs, every fine tick the ruler
+draws is a frame, so every drag that snaps to the drawn ticks, every cut and every step lands on
+one too. That holds on an AUDIO lane as well: a hit point is placed against a picture, so the
+music lands on its frames too.
+
+A song with no picture keeps the decimal ladder, since a frame means nothing to it.
+`formatSecondTick` labels a frame tick `12f` rather than `0:01.40`. A decimal there would read
+as a typed position and would round: `0:01.40` is frame 12 at 30 fps and is not a frame at 24.
+
+## `adjacentTick` steps strictly
+
+A step from a playhead already ON a tick moves to the next one, never to itself, or the second
+press of the step key would be the first that moved anything. Past the last tick it answers null,
+and the step does nothing rather than wrapping.

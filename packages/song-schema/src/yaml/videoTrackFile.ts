@@ -137,6 +137,56 @@ export function removeVideoPlacementAt(text: string, index: number): string {
   return doc.toString({ lineWidth: 0 });
 }
 
+/** Cut the placement at `index` in two at `cut` seconds, the tail inserted RIGHT AFTER it; null when the cut is not inside it. */
+// After, not appended: file order decides which shot covers which (song-video docs/transitions.md).
+export function splitVideoPlacementAt(
+  text: string,
+  index: number,
+  cut: number,
+): string | null {
+  let doc: ReturnType<typeof parseDocument>;
+  try {
+    doc = parseDocument(text, OPTS);
+  } catch {
+    return null;
+  }
+  const events = doc.getIn(["events"]);
+  if (!isSeq(events) || index < 0 || index >= events.items.length) return null;
+  const at = (i: number, key: string) => doc.getIn(["events", i, key]);
+  const start = num(at(index, "start"));
+  const length = num(at(index, "length"));
+  // The picture's own interval rule: a length, else the next entry's start, else open-ended.
+  const next =
+    index + 1 < events.items.length
+      ? num(at(index + 1, "start"))
+      : Number.POSITIVE_INFINITY;
+  const end = length > 0 ? start + length : next;
+  const ms = (n: number) => Math.round(n * 1000) / 1000;
+  if (!(ms(cut) > start && ms(cut) < end)) return null;
+  const head = ms(cut) - start;
+  const tail = doc.createNode(
+    (events.items[index] as { toJSON(): unknown }).toJSON(),
+  ) as typeof events;
+  tail.flow = (events.items[index] as { flow?: boolean }).flow ?? true;
+  events.items.splice(index + 1, 0, tail);
+  // The head keeps how the shot ARRIVES, the tail how it LEAVES; a cut between them is a plain cut.
+  doc.setIn(["events", index, "length"], ms(head));
+  doc.deleteIn(["events", index, "fade_out"]);
+  doc.setIn(["events", index + 1, "start"], ms(cut));
+  doc.setIn(
+    ["events", index + 1, "length"],
+    length > 0 ? ms(length - head) : 0,
+  );
+  doc.deleteIn(["events", index + 1, "fade_in"]);
+  // An ACTIVATION has no source to trim into, and its schema refuses the key.
+  if (typeof at(index, "ref") === "string")
+    doc.setIn(
+      ["events", index + 1, "source_from"],
+      ms(num(at(index, "source_from")) + head),
+    );
+  return doc.toString({ lineWidth: 0 });
+}
+
 /** Append a placement, creating `events:` when the lane has none. */
 export function addVideoPlacement(
   text: string,

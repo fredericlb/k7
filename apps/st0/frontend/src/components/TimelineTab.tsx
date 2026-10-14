@@ -45,6 +45,7 @@ import {
   usePanScroll,
   zoomCeiling,
 } from "@studio/ui-timeline/panZoom";
+import { adjacentTick } from "@studio/ui-timeline/ticks";
 import { nearestTick } from "@studio/ui-waveform";
 import {
   useCallback,
@@ -107,6 +108,7 @@ import { type TimelineMode, timelineMode } from "../timelineMode";
 import {
   CROSSFADE_BEATS,
   crossfadePair,
+  pictureToolLine,
   TOOL_LABEL,
   TOOLS,
   type Tool,
@@ -510,6 +512,8 @@ export interface TimelineHandle {
   zoomOut: () => void;
   zoomReset: () => void;
   seekToCaret: () => void;
+  /** `transport step` — the drawn tick after (`1`) or before (`-1`) `sec`, in seconds; null past either end (docs/timeline.md). */
+  stepTarget: (sec: number, dir: 1 | -1) => number | null;
   toggleLoop: () => void;
   /** `selection copy` — the events the rectangle holds, in its own coordinates (clipboard.ts). */
   copy: () => MaybeClipboard;
@@ -517,6 +521,8 @@ export interface TimelineHandle {
   pasteLine: (clip: Clipboard) => PasteResult;
   /** `selection delete` — the line removing what `copy` would take: the rectangle's events, or the one under the caret. */
   deleteLine: () => PasteResult;
+  /** `selection split` — the cut the blade would make on the caret's lane, at `sec`, the PLAYHEAD; audio and picture alike. */
+  splitLine: (sec: number) => PasteResult;
   startMove: () => void;
   // The header toggles, so `ui ruler`, `ui lanes` and `ui automation` reach what the buttons reach.
   toggleRuler: () => void;
@@ -535,6 +541,7 @@ export function TimelineTab({
   midiTake = null,
   tasks = NO_TASKS,
   videoTracks,
+  fps,
   onVideoEdit,
   setStatus,
   onEditTarget,
@@ -589,6 +596,8 @@ export function TimelineTab({
   midiTake?: { lane: string; from: number } | null;
   // The song's picture lanes, from the SECOND compile of the same folder (`GET /video-doc`) — see hooks/useVideoDoc.ts.
   videoTracks: WebVideoTrack[];
+  /** The picture's frame rate, absent when the song has none — it puts the seconds ruler's fine ticks on frames (docs/picture.md). */
+  fps?: number;
   /** A picture placement was dragged: set these fields of it in SECONDS, by `ref`, as a LIST — one gesture, one read-modify-write (docs/picture.md). */
   onVideoEdit?: (trackId: string, edits: VideoEdit[]) => void;
   /** OS files were dropped on a lane: upload, declare and place them. Absent ⇒ the pane refuses the drag (hooks/useTimelineDrop.ts). */
@@ -1302,14 +1311,16 @@ export function TimelineTab({
           });
           return;
         }
+        // A cut lands on the grid as a drag does, Shift freeing it (snap.ts).
+        const snapped = e.shiftKey ? at : snapTo(at, unitRef.current);
         const act = toolLine(toolRef.current, {
           track: track.id,
           name: c.name || c.id,
           start: c.start,
           length: c.length,
-          at,
+          at: snapped,
           tc: tc(c.start),
-          atTc: tc(at),
+          atTc: tc(snapped),
           muted: c.disabled,
         });
         if (act?.line) onToolLine?.(act.line);
@@ -1496,6 +1507,37 @@ export function TimelineTab({
     ) => {
       if (e.button !== 0 || !onVideoEditRef.current) return;
       e.stopPropagation();
+      // The tools reach a SHOT too, each on its `picture …` verb, and the grab never starts (docs/timeline.md).
+      if (toolRef.current !== "pointer" && onToolLine) {
+        e.preventDefault();
+        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const pxPerSec = Math.max(1e-6, ppbRef.current * bpsRef.current);
+        const next = track.clips[index + 1];
+        const end =
+          c.length > 0
+            ? c.start + c.length
+            : next
+              ? next.start
+              : Number.POSITIVE_INFINITY;
+        const raw =
+          mode === "move"
+            ? c.start + (e.clientX - r.left) / pxPerSec
+            : mode === "in"
+              ? c.start
+              : end;
+        const act = pictureToolLine(toolRef.current, {
+          lane: track.id,
+          name: c.name || c.id || "on",
+          start: c.start,
+          end,
+          at: e.shiftKey
+            ? raw
+            : snapTo(raw * bpsRef.current, unitRef.current) / bpsRef.current,
+        });
+        if (act?.line) onToolLine(act.line);
+        if (act) setStatus(act.note);
+        if (act) return;
+      }
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
       setVDrag({
         trackId: track.id,
@@ -1514,7 +1556,7 @@ export function TimelineTab({
         moved: false,
       });
     },
-    [],
+    [onToolLine, setStatus],
   );
 
   const onVideoDragMove = useCallback((e: React.PointerEvent) => {
@@ -1856,6 +1898,11 @@ export function TimelineTab({
         if (!proj || caret.beat === LABEL) return;
         onSeek?.((caret.beat * 60) / proj.tempo);
       },
+      stepTarget: (sec, dir) => {
+        const bps = bpsRef.current;
+        const to = adjacentTick(ticksRef.current, sec * bps, dir);
+        return to === null ? null : to / bps;
+      },
       /** `selection copy` — the events inside the rectangle, relative to its corner; TRACK rows only, skipped rather than counted. */
       copy: () => {
         const s = selRef.current;
@@ -1924,6 +1971,58 @@ export function TimelineTab({
         };
       },
       /** `selection delete` — one `events remove` naming each event the rectangle holds, so the lot is one Ctrl+Z. */
+      splitLine: (sec) => {
+        if (!proj) return { note: "no project" };
+        const bps = proj.tempo / 60;
+        const nothing = {
+          note: "nothing to split — put the caret on a lane with a clip under the playhead",
+        };
+        if (caretRow?.kind === "video") {
+          const clips = caretRow.track.clips;
+          // The shot on TOP at the playhead: the last in file order whose span holds it, the picture's own rule.
+          for (let i = clips.length - 1; i >= 0; i--) {
+            const c = clips[i];
+            const next = clips[i + 1];
+            const end =
+              c.length > 0
+                ? c.start + c.length
+                : next
+                  ? next.start
+                  : Number.POSITIVE_INFINITY;
+            if (sec >= c.start && sec < end)
+              return (
+                pictureToolLine("cut", {
+                  lane: caretRow.track.id,
+                  name: c.name || c.id || "on",
+                  start: c.start,
+                  end,
+                  at: sec,
+                }) ?? nothing
+              );
+          }
+          return nothing;
+        }
+        if (caretRow?.kind !== "track" || caretRow.track.generated)
+          return nothing;
+        const at = sec * bps;
+        const c = caretRow.track.clips.find(
+          (x) => at > x.start && (x.length <= 0 || at < x.start + x.length),
+        );
+        if (!c) return nothing;
+        const tc = (b: number) =>
+          beatsToPosition(b, proj.timeSigNumerator, proj.timeSigDenominator);
+        return (
+          toolLine("cut", {
+            track: caretRow.track.id,
+            name: c.name || c.id,
+            start: c.start,
+            length: c.length,
+            at,
+            tc: tc(c.start),
+            atTc: tc(at),
+          }) ?? nothing
+        );
+      },
       deleteLine: () => {
         if (!proj) return { note: "no project" };
         const num = proj.timeSigNumerator;
@@ -2234,9 +2333,10 @@ export function TimelineTab({
     barBeats,
     bps,
     lastBeat,
+    fps,
   );
   // The drawn ticks, for the gestures that SNAP to one — cached on what draws them: built whole, they are up to ~190 000 entries a render.
-  const ticksKey = `${rulerMode}|${beatLo}|${lastBeat}|${unit}|${barBeats}|${bps}|${secStep}`;
+  const ticksKey = `${rulerMode}|${beatLo}|${lastBeat}|${unit}|${barBeats}|${bps}|${secStep}|${fps}`;
   if (ticksCache.current?.key !== ticksKey)
     ticksCache.current = {
       key: ticksKey,
@@ -2248,6 +2348,8 @@ export function TimelineTab({
         barBeats,
         bps,
         secStep,
+        undefined,
+        fps,
       ).map((t) => t.beat),
     };
   const bars = ticksCache.current.beats;
@@ -2264,6 +2366,7 @@ export function TimelineTab({
     barBeats,
     bps,
     secStep,
+    fps,
   };
 
   // Markers inside the visible range, drawn in the ruler; num/den turn a right-click beat into a timecode.

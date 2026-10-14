@@ -7,7 +7,8 @@ import { cn } from "@frediverse/ui/lib/utils";
 import {
   chooseTick,
   formatClock,
-  SECOND_TICKS,
+  formatSecondTick,
+  secondTicks,
   ticksUpTo,
 } from "@studio/ui-timeline/ticks";
 import {
@@ -70,6 +71,8 @@ export const rulerTicks = (
   secStep: number,
   /** The slice actually ON SCREEN, when the caller knows it — what makes the zoom unbounded, `index` still being computed from the ORIGIN. */
   view?: { lo: number; hi: number },
+  /** The picture's frame rate, when the song has one: a fine seconds tick is then labelled by its frame (docs/picture.md). */
+  fps?: number,
 ): RulerTick[] => {
   const lo = Math.max(beatLo, view?.lo ?? beatLo);
   const hi = Math.min(lastBeat, view?.hi ?? lastBeat);
@@ -94,7 +97,7 @@ export const rulerTicks = (
       beat,
       index: Math.round(sec / secStep),
       key: `s:${sec}`,
-      label: formatClock(sec, secStep),
+      label: formatSecondTick(sec, secStep, fps),
       // A minute carries the bar's weight and a whole second the beat's, so the eye reads the same three-level rhythm in either unit.
       level: Math.abs(sec % 60) < 1e-6 ? 0 : whole ? 1 : 2,
     });
@@ -141,6 +144,8 @@ export interface TickProps {
   barBeats: number;
   bps: number;
   secStep: number;
+  /** The picture's frame rate, absent for a song with none — what puts the seconds ladder's fine rungs on frames. */
+  fps?: number;
 }
 
 /** The scale a ruler draws at — ONE function, so the timeline and the clip editors cannot pick different ladders for the same zoom. */
@@ -150,10 +155,11 @@ export function rulerScale(
   barBeats: number,
   bps: number,
   lastBeat: number,
+  fps?: number,
 ): { unit: number; secStep: number; barStride: number } {
   const unit = subdivideBeats(barBeats, ppb);
   const secStep = chooseTick(
-    SECOND_TICKS,
+    secondTicks(fps),
     ppb / bps,
     labelMinPx(formatClock(Math.max(lastBeat, 0) / bps, 1)),
   );
@@ -176,6 +182,7 @@ export const RulerTicks = memo(function RulerTicks({
   barBeats,
   bps,
   secStep,
+  fps,
   ppb,
   barStride,
   scroller,
@@ -197,6 +204,7 @@ export const RulerTicks = memo(function RulerTicks({
         bps,
         secStep,
         view,
+        fps,
       ).map((t) => (
         // Three weights, strided on the tick's index from the ORIGIN, or the surviving labels would change as scrolling moved the first one.
         <div
@@ -227,6 +235,7 @@ export const Grid = memo(function Grid({
   barBeats,
   bps,
   secStep,
+  fps,
   ppb,
   laneW,
   left0,
@@ -257,6 +266,7 @@ export const Grid = memo(function Grid({
         bps,
         secStep,
         view,
+        fps,
       ).map((t) => {
         const left = (t.beat - beatLo) * ppb;
         // A tick at the lane's right edge is a 1px border past the end of the box, and one pixel of horizontal scroll.

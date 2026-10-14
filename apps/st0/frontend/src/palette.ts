@@ -56,10 +56,13 @@ export const LOCAL_COMMANDS = [
   "transport loop", // set/clear the transport loop from the selection
   "transport record", // the global record enable (engine session state, over the wire)
   "transport replay", // back to where playback last started, and roll again (shift+space)
+  "transport step next", // the playhead to the next drawn tick — a frame, zoomed in on a picture (.)
+  "transport step prev", // …and to the one before (,)
   /** The RECTANGLE's own two, beside the catalogue's `selection consolidate` — one head for the three verbs that take a region. */
   "selection copy", // the selected rectangle onto the shell's clipboard (events or notes)
   "selection paste", // put it down at the caret — on the timeline, or in the open grid
   "selection delete", // remove what the rectangle holds, in ONE command line so it is one undo
+  "selection split", // the blade at the playhead, on the caret's lane — audio or picture (ctrl+b)
   "event move", // pick up the clip under the caret and nudge it; commits to disk
   "ui help", // the `?` overlay: commands, keys, and the song-file syntax reference
   // The footer's own buttons, beside the panel row, and the two toggles in the timeline's header.
@@ -212,6 +215,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     en: "Paste what was copied at the caret",
     fr: "Coller ce qui a été copié au curseur",
   },
+  "selection split": {
+    en: "Split the clip under the playhead",
+    fr: "Couper le clip sous la tête de lecture",
+  },
   "selection delete": {
     en: "Delete the selected notes or events",
     fr: "Supprimer les notes ou événements sélectionnés",
@@ -227,6 +234,14 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "transport record": {
     en: "Turn the global record enable on or off",
     fr: "Activer ou désactiver l'enregistrement global",
+  },
+  "transport step next": {
+    en: "Step the playhead to the next grid position",
+    fr: "Avancer la tête de lecture d’un pas de grille",
+  },
+  "transport step prev": {
+    en: "Step the playhead back one grid position",
+    fr: "Reculer la tête de lecture d’un pas de grille",
   },
   "transport replay": {
     en: "Play again from where playback last started",

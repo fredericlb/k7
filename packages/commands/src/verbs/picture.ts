@@ -22,6 +22,7 @@ import {
   setVideoLaneMute,
   setVideoLaneRect,
   setVideoPlacementFieldAt,
+  splitVideoPlacementAt,
   type VideoPlacement,
 } from "@studio/song-schema/yaml/videoTrackFile";
 import { parseWallClock } from "@studio/song-video/videoProject";
@@ -367,6 +368,25 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     if (!put(t.abs, next, h, "delete")) return;
     h.log([
       `${t.rel}: − ${shot.ref} at ${t.at}s (the clip stays; a lane holds placements)`,
+    ]);
+    return h.reload();
+  },
+
+  /** `picture split <lane> <at> <where>` — two placements of one clip, and nothing rendered (docs/picture.md). */
+  "picture.split": (a, h) => {
+    const t = target(a, h, "split", "<where>");
+    if (!t) return;
+    const where = seconds(t.rest[0] ?? "", h);
+    if (where === null) return;
+    const shot = t.list[t.index] as VideoPlacement;
+    const next = splitVideoPlacementAt(t.text, t.index, where);
+    if (next === null) {
+      h.refuse([`${t.rel}: ${where}s is not inside the shot at ${t.at}s`]);
+      return;
+    }
+    if (!put(t.abs, next, h, "split")) return;
+    h.log([
+      `${t.rel}: ${shot.ref || "activation"} at ${t.at}s split at ${where}s`,
     ]);
     return h.reload();
   },

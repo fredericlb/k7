@@ -1501,6 +1501,21 @@
       { name: lane, complete: pictureLanes },
       { name: at, hint: "where the shot starts — seconds or m:ss" },
     ]
+# A picture split is VIRTUAL — two placements of one clip — where an audio one renders two files:
+# a shot has no material of its own to process, so there is nothing a second file would buy.
+- command: "picture split"
+  sid: picture.split
+  readable:
+    en: "Split a shot in two"
+    fr: "Couper un plan en deux"
+  help: "cut one shot in two at a time inside it (e.g. picture split main 4 6.5) — two placements of the same clip"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: at, hint: "where the shot starts — seconds or m:ss" },
+      { name: where, hint: "where to cut — seconds or m:ss, inside the shot" },
+    ]
 - command: "picture add"
   sid: picture.add
   readable:

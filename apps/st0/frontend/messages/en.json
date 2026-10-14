@@ -464,6 +464,7 @@
   "tool.erased": "{name} taken off {track}",
   "tool.unmuted": "{name} given its sound back",
   "tool.muted": "{name} silenced",
+  "tool.shotNoMute": "a shot has no mute of its own — m hides its lane",
   "grid.clipboardHasEvents": "the clipboard holds events, not notes",
   "grid.nothingToPaste": "nothing to paste here — it all falls off the keyboard",
   "grid.pasted": "{n} note{s} pasted",

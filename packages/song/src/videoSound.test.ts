@@ -114,6 +114,35 @@ describe("a shot's sound, where the picture shows it", () => {
     ]);
   });
 
+  it("plays a SPLIT shot as one: the tail picks the sound up exactly where the head left it", () => {
+    // What `picture split main 0 1.5` writes: two placements of one clip, the tail trimmed into it by the head's length.
+    expect(
+      sound([
+        { ref: "a", start: 0, length: 1.5, source_from: 0.5 },
+        { ref: "a", start: 1.5, length: 2.5, source_from: 2 },
+      ]),
+    ).toEqual([
+      {
+        name: "a",
+        start: 0,
+        length: 3,
+        from: 0.5,
+        to: 2,
+        fadeIn: 0,
+        fadeOut: 0,
+      },
+      {
+        name: "a",
+        start: 3,
+        length: 5,
+        from: 2,
+        to: 4.5,
+        fadeIn: 0,
+        fadeOut: 0,
+      },
+    ]);
+  });
+
   it("keeps a shot's own fades, and is silent for a clip with no sound and for an activation", () => {
     expect(
       sound([

@@ -107,7 +107,7 @@ export function soundingLaneRefusal(
   for (const name of (splitWords(userArgs)[0] ?? "").split(",")) {
     const picture = tracks[name]?.videoSource;
     if (picture)
-      return `'${name}' plays ${picture}'s sound — edit the shot instead (picture move | length | head ${picture} …)`;
+      return `'${name}' plays ${picture}'s sound — edit the shot instead (picture move | length | head | split ${picture} …)`;
   }
   return null;
 }

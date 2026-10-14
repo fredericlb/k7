@@ -264,3 +264,23 @@ describe("picture rect", () => {
     expect(refusals.join(" ")).toMatch(/usage: picture rect/);
   });
 });
+
+describe("picture split", () => {
+  it("cuts the shot into two placements of its clip, the tail right behind the head", async () => {
+    lane(TWO);
+    await runCommand("picture split main 4 6.5", host(), "cli");
+    expect(refusals).toEqual([]);
+    expect(shots()).toEqual([
+      { ref: "shot_a", start: 0, length: 4, sourceFrom: 0 },
+      { ref: "shot_b", start: 4, length: 2.5, sourceFrom: 2.5 },
+      { ref: "shot_b", start: 6.5, length: 3.5, sourceFrom: 5 },
+    ]);
+    expect(read()).toContain("# the camera");
+  });
+
+  it("refuses a cut that is not inside the shot", async () => {
+    lane(TWO);
+    await runCommand("picture split main 4 12", host(), "cli");
+    expect(refusals.join("\n")).toMatch(/12s is not inside the shot at 4s/);
+  });
+});

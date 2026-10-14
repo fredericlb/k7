@@ -464,6 +464,7 @@
   "tool.erased": "{name} retiré de {track}",
   "tool.unmuted": "{name} rendu au son",
   "tool.muted": "{name} fait taire",
+  "tool.shotNoMute": "un plan n’a pas de muet à lui — m masque sa piste",
   "grid.clipboardHasEvents": "le presse-papier tient des événements, pas des notes",
   "grid.nothingToPaste": "rien à coller ici — tout tombe hors du clavier",
   "grid.pasted": "{n} note{s} collée{s}",

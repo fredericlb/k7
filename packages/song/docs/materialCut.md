@@ -34,6 +34,12 @@ Splitting writes two files, rejoining writes a third, and the material a split c
 rather than deleted. On audio each of those is a render, so both verbs need a machine with an
 engine on it.
 
+A PICTURE lane's split is the virtual one, and the first reason above is why: a shot has no
+material of its own to process, warp or replace. Its effects are the lane's, and its sound is
+another lane's (`videoSound.md`). Two placements of one clip lose nothing there, and re-encoding
+video to cut it would cost a render and a generation of quality for nothing
+(`packages/commands/docs/picture.md`).
+
 ## The one contract
 
 **What you hear must not change.** A physical split's two halves played back to back are the event

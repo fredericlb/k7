@@ -3,6 +3,7 @@ import {
   type ClipTarget,
   crossfadePair,
   isTool,
+  pictureToolLine,
   TOOL_LABEL,
   TOOLS,
   toolLine,
@@ -115,5 +116,23 @@ describe("crossfadePair", () => {
   it("is nothing beside a lane's end, and never a MIDI event", () => {
     expect(crossfadePair(clips, clips[0], 1)).toBeNull();
     expect(crossfadePair(clips, clips[1], 15)).toBeNull();
+  });
+});
+
+describe("pictureToolLine — the same tools on a shot", () => {
+  const shot = { lane: "main", name: "shot_a", start: 4, end: 10, at: 6.5 };
+  it("cuts with picture split, addressed in seconds", () => {
+    expect(pictureToolLine("cut", shot)?.line).toBe("picture split main 4 6.5");
+  });
+
+  it("refuses a cut on either edge, as a clip's does", () => {
+    expect(pictureToolLine("cut", { ...shot, at: 4 })?.line).toBeUndefined();
+    expect(pictureToolLine("cut", { ...shot, at: 10 })?.line).toBeUndefined();
+  });
+
+  it("erases with picture delete, and has no mute to toggle", () => {
+    expect(pictureToolLine("erase", shot)?.line).toBe("picture delete main 4");
+    expect(pictureToolLine("mute", shot)?.line).toBeUndefined();
+    expect(pictureToolLine("pointer", shot)).toBeNull();
   });
 });
