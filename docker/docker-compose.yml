@@ -31,7 +31,7 @@ x-shared-auth: &shared-auth
 
 services:
   k7:
-    image: dev.frediver.se/frediverse/studio/k7:${APP_VERSION:-latest}
+    image: dev.frediver.se/frediverse/k7/k7:${APP_VERSION:-latest}
     restart: unless-stopped
     environment:
       <<: *shared-auth
@@ -95,7 +95,7 @@ services:
   # The server's own engine — engine/docker/Dockerfile. Not routed through Traefik: it publishes no
   # port, and browsers reach it through k7's relay like any machine's (docs/server-engine.md).
   engine:
-    image: dev.frediver.se/frediverse/studio/k7-runtime:${APP_VERSION:-latest}
+    image: dev.frediver.se/frediverse/k7/k7-runtime:${APP_VERSION:-latest}
     restart: unless-stopped
     depends_on:
       - k7

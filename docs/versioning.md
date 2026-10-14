@@ -99,9 +99,10 @@ Dockerfile does not read. So locally built images read `dev`, and
 their `rN` tag scheme is unrelated to CI's.
 
 That script finds its apps by globbing `apps/*/docker/Dockerfile` and names the image
-after the folder, so nothing is named by hand: `apps/k7/docker/Dockerfile` becomes
-`dev.frediver.se/frediverse/studio/k7` — the same `<repo>/<app>` shape phare's `phare/phare`
-has.
+after the folder, so nothing is named by hand — under the checkout's own folder name, which is the
+`<repo>` of `<repo>/<app>`, the shape phare's `phare/phare` has. CI's images are
+`dev.frediver.se/frediverse/k7/k7` and `…/k7/k7-runtime`, OneDev's registry keeping a project's images
+under its path (`frediverse/k7`), so a checkout pushed by hand lands there only from a folder named `k7`.
 
 `?? "dev"` at each render site covers `vite dev` and a bare `vite build`, where the
 variable is absent entirely. `??` and not `||`: an explicitly empty
