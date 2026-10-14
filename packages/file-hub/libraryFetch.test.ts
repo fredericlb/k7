@@ -28,17 +28,20 @@ let served: string[];
 beforeEach(async () => {
   const tmp = mkdtempSync(join(tmpdir(), "lib-fetch-"));
   const seed = join(tmp, "seed");
-  mkdirSync(join(seed, "st0", "irs"), { recursive: true });
-  writeFileSync(join(seed, "st0", "irs", "room.wav"), "RIFF-room");
-  writeFileSync(join(seed, "st0", "mix.yaml"), "plugin: old\n");
+  mkdirSync(join(seed, "k7-core", "irs"), { recursive: true });
+  writeFileSync(join(seed, "k7-core", "irs", "room.wav"), "RIFF-room");
+  writeFileSync(join(seed, "k7-core", "mix.yaml"), "plugin: old\n");
   origin = new LibraryStore(join(tmp, "origin"), seed);
   origin.ensure({ draft: true });
-  writeFileSync(join(origin.home, "st0", "draft", "mix.yaml"), "plugin: new\n");
-  origin.publish("st0");
+  writeFileSync(
+    join(origin.home, "k7-core", "draft", "mix.yaml"),
+    "plugin: new\n",
+  );
+  origin.publish("k7-core");
   desk = join(tmp, "desk");
-  mkdirSync(join(desk, "st0"), { recursive: true });
+  mkdirSync(join(desk, "k7-core"), { recursive: true });
   // The desk already holds version 1: its seed.
-  const one = join(desk, "st0", "1");
+  const one = join(desk, "k7-core", "1");
   mkdirSync(join(one, "irs"), { recursive: true });
   writeFileSync(join(one, "irs", "room.wav"), "RIFF-room");
   served = [];
@@ -58,29 +61,29 @@ afterEach(() => {
 
 describe("fetchLibraryVersion", () => {
   it("brings version 2 down, copying the file it already holds and downloading the rest", async () => {
-    expect(await fetchLibraryVersion(desk, "st0", 2, url)).toBeNull();
-    expect(readFileSync(join(desk, "st0", "2", "mix.yaml"), "utf8")).toBe(
+    expect(await fetchLibraryVersion(desk, "k7-core", 2, url)).toBeNull();
+    expect(readFileSync(join(desk, "k7-core", "2", "mix.yaml"), "utf8")).toBe(
       "plugin: new\n",
     );
     expect(
-      readFileSync(join(desk, "st0", "2", "irs", "room.wav"), "utf8"),
+      readFileSync(join(desk, "k7-core", "2", "irs", "room.wav"), "utf8"),
     ).toBe("RIFF-room");
     expect(served.sort()).toEqual(["library.yaml", "mix.yaml"]);
   });
 
   it("says why when the origin has no such version, and leaves nothing behind", async () => {
-    expect(await fetchLibraryVersion(desk, "st0", 7, url)).toMatch(
-      /has no st0 7/,
+    expect(await fetchLibraryVersion(desk, "k7-core", 7, url)).toMatch(
+      /has no k7-core 7/,
     );
-    expect(existsSync(join(desk, "st0", "7"))).toBe(false);
+    expect(existsSync(join(desk, "k7-core", "7"))).toBe(false);
   });
 
   it("serves no draft and no path outside a version", async () => {
     expect(
-      (await fetch(`${url}${PUBLIC_LIBRARIES_PATH}/st0/draft`)).status,
+      (await fetch(`${url}${PUBLIC_LIBRARIES_PATH}/k7-core/draft`)).status,
     ).toBe(404);
     const out = await fetch(
-      `${url}${PUBLIC_LIBRARIES_PATH}/st0/2/file?path=${encodeURIComponent("../draft/mix.yaml")}`,
+      `${url}${PUBLIC_LIBRARIES_PATH}/k7-core/2/file?path=${encodeURIComponent("../draft/mix.yaml")}`,
     );
     expect(out.status).toBe(404);
   });

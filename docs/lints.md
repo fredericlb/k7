@@ -24,17 +24,17 @@ It reads only what git tracks, and only paths that look like ours.
 **What counts as "a path into this repo"** is anchored on the four TOP folders — `packages`,
 `apps`, `engine`, `commons` — and deliberately NOT on `docs/` or `scripts/`. Those two are written
 relative to the zone a page is talking about: the root `AGENTS.md` says `docs/picture.md` meaning
-st0's, and moteur's `protocol.md` says `scripts/two-sessions.ts` meaning its own. A check anchored
+k7's, and moteur's `protocol.md` says `scripts/two-sessions.ts` meaning its own. A check anchored
 on them would report a hundred sentences that are perfectly clear to a reader.
 
-The pattern's lookbehind is what keeps `[stems.md](../packages/st0-plugins/docs/turntables/stems.md)` from being
+The pattern's lookbehind is what keeps `[stems.md](../packages/k7-plugins/docs/turntables/stems.md)` from being
 read as a reference to `docs/stems.md`: a match may open on `../`, never in the middle of a path. A
 reference is resolved from the repo root first — how nearly every page writes one — then relative
 to the page, which is how a `../../packages/song/src/…` written inside a package's own `docs/`
 resolves. (Spelling a whole example path here would make this sentence a broken link itself.)
 
 **Two lists soften it, and both are meant to stay short.** `ALLOW` covers paths a page may
-legitimately name although this checkout has not got them: a page inside `engine/st0-engine` writes
+legitimately name although this checkout has not got them: a page inside `engine/k7-runtime` writes
 `engine/EditBuilder.cpp` relative to its own app, and a page may name a file of `@frediverse/*`,
 which is the commons submodule and may not be checked out. A growing list there is the check going
 soft.
@@ -70,7 +70,7 @@ own comment. Condense to a single sentence and move the rest to a doc page.
 A JSX comment's second line starts with PROSE, not with a marker:
 
 ```jsx
-{/* The families moved from the side to the header, where st0 puts its views: the side is
+{/* The families moved from the side to the header, where k7 puts its views: the side is
     worth more as the current zone's tree than as three fixed buttons. */}
 ```
 

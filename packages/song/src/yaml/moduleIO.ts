@@ -141,7 +141,7 @@ export function readModuleFile(file: ModuleFile): ReadModule {
   };
 }
 
-/** Is `dir` a st0 project — does it hold a `project.yaml` (or `.yml`, or `.k7x`)? */
+/** Is `dir` a k7 project — does it hold a `project.yaml` (or `.yml`, or `.k7x`)? */
 export function isProjectFolder(dir: string): boolean {
   try {
     return entityFileFor(dir, "", "project") !== null;

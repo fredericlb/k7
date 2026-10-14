@@ -1,5 +1,5 @@
 // InputChannelBar.tsx — the socket an `io: in` module listens on, as a strip of controls.
-// Its own file because TWO screens need it: the module builder, and st0's text editor, where an
+// Its own file because TWO screens need it: the module builder, and k7's text editor, where an
 // input is most often a two-line node nobody would think to open a builder on. Full rationale in
 // docs/inputChannels.md.
 

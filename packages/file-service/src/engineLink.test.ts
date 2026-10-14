@@ -1,4 +1,4 @@
-// The one test that stops st0' two halves from drifting apart.
+// The one test that stops k7' two halves from drifting apart.
 //
 // The browser drives transport, this service compiles and sends the song. They address the
 // same project only if they spell its session identically — and a mismatch raises nothing
@@ -87,7 +87,7 @@ describe("sessionOf", () => {
       "UPPER@Example.COM",
     ]) {
       noteOwner(email);
-      expect(sessionOf(wsFor(email))).toBe(sessionFor(SESSIONS.st0, email));
+      expect(sessionOf(wsFor(email))).toBe(sessionFor(SESSIONS.k7, email));
     }
   });
 
@@ -98,28 +98,28 @@ describe("sessionOf", () => {
     );
   });
 
-  // The bench runs BESIDE the song, so its workspace is a session of its own — st0's engineSession.test.ts is the other half.
+  // The bench runs BESIDE the song, so its workspace is a session of its own — k7's engineSession.test.ts is the other half.
   it("gives the bench's workspace the bench's session, and nothing else", () => {
     noteOwner("a@x.org");
     expect(sessionOf(wsFor("a@x.org", "Banc"))).toBe(
       sessionFor(SESSIONS.bench, "a@x.org"),
     );
     expect(sessionOf(wsFor("a@x.org", "Bancs"))).toBe(
-      sessionFor(SESSIONS.st0, "a@x.org"),
+      sessionFor(SESSIONS.k7, "a@x.org"),
     );
   });
 
   // Nothing served, or a folder outside the root: the bare session, as before.
   it("falls back to the bare service id outside the workspaces root", () => {
     noteOwner("a@x.org");
-    expect(sessionOf({ root: join("/tmp", "some-song") })).toBe(SESSIONS.st0);
-    expect(sessionOf(null)).toBe(SESSIONS.st0);
+    expect(sessionOf({ root: join("/tmp", "some-song") })).toBe(SESSIONS.k7);
+    expect(sessionOf(null)).toBe(SESSIONS.k7);
   });
 });
 
 // Narrowing a watcher fails SILENTLY, so the predicate is tested rather than trusted — docs/activeProject.md.
 describe("outsideTheWatch", () => {
-  const dir = join("/tmp", "song.st0");
+  const dir = join("/tmp", "song.k7");
   const file = { isFile: () => true } as Stats;
   const folder = { isFile: () => false } as Stats;
 
@@ -209,7 +209,7 @@ describe("pruneIdleLinks", () => {
     // A link dialled for a preview alone: being the bare session is no reason to spare it.
     ensureEngine(null);
     const client = last();
-    expect(pruneIdleLinks(Date.now() + 10 * 60_000)).toEqual([SESSIONS.st0]);
+    expect(pruneIdleLinks(Date.now() + 10 * 60_000)).toEqual([SESSIONS.k7]);
     expect(client.closed).toBe(true);
   });
 
@@ -239,7 +239,7 @@ describe("enginePreview", () => {
     const client = built.at(-1);
     if (!client) throw new Error("no engine client was built");
     expect(client.session).toBe(sessionOf(wsFor("fred@parapluie.org")));
-    expect(client.session).not.toBe(SESSIONS.st0); // the bare id is the silent wrong room
+    expect(client.session).not.toBe(SESSIONS.k7); // the bare id is the silent wrong room
     expect(client.previews).toEqual([["C:/a.wav", 0, 0.5]]);
   });
 });

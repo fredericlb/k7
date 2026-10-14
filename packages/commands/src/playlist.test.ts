@@ -24,7 +24,7 @@ const refusals: string[] = [];
 /** A host with a WORKSPACE and no project; `null` is the CLI's shape, a song folder alone. */
 const host = (repo: string | null = root) =>
   ({
-    songPath: join(root, "song.st0"),
+    songPath: join(root, "song.k7"),
     repoDir: repo ?? undefined,
     project: () => ({ tracks: [], groups: [] }),
     baseModules: [],

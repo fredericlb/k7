@@ -74,7 +74,7 @@ const yamlFiles = (dir: string): string[] =>
         ? [abs]
         : [];
   });
-const files = ["demos", "st0-library"]
+const files = ["demos", "k7-core"]
   .map((d) => join(ROOT, d))
   .filter(existsSync)
   .flatMap(yamlFiles);

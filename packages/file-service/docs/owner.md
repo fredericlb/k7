@@ -32,5 +32,5 @@ What stays on an engine's machine is what belongs to the **machine**, for every 
 copy of the médiathèque, its speakers, its plugin scan, and the separations a hosted service asks of
 it — as jobs over the tunnel, with no file service there.
 
-The server is where a project lives, so st0's backend refuses to start without `$STUDIO_FILES_ROOT`
+The server is where a project lives, so k7's backend refuses to start without `$STUDIO_FILES_ROOT`
 (`packages/file-hub/docs/fileHub.md`).

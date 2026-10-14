@@ -19,7 +19,7 @@ Signalling is **one request and one answer**, candidates included — no trickle
 
 ## libdatachannel
 
-The supervisor answers with **libdatachannel** (`engine/st0-supervisor/src/Rtc.cpp`), the
+The supervisor answers with **libdatachannel** (`engine/k7-supervisor/src/Rtc.cpp`), the
 established stack for the encryption and SCTP a data channel needs, on native threads of its own.
 The TypeScript reference agent answers with node-datachannel, which wraps the same library: an
 optional dependency, loaded on first use, so the server's tests run where its binary is missing

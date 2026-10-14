@@ -15,7 +15,7 @@ import { materialiseEngineModule, sharedModuleRef } from "./moduleFork";
 import { writeLibrary } from "./testSupport";
 import { loadUiLibrary, writeUiFile } from "./uiLibrary";
 
-// A shared module — `@workspace` or `@st0` — is edited in place; there is no project-local copy
+// A shared module — `@workspace` or `@k7-core` — is edited in place; there is no project-local copy
 // to fork a write into instead. What still forks is an ENGINE module, which has no file at all
 // until `materialiseEngineModule` gives it one.
 

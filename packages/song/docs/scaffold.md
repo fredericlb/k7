@@ -15,8 +15,8 @@ opens on**:
 | `mix` | `turntables` | `setProjectFiles` ([setProject.md](setProject.md)) |
 | `video` | `timeline` + `viewport` | `videoProjectFiles` |
 
-That is the whole of what is being chosen. Every one of them is an `.st0` folder opened by the same
-st0 out of the same loader, so "what kind of project is this" has no answers left to arbitrate —
+That is the whole of what is being chosen. Every one of them is an `.k7` folder opened by the same
+k7 out of the same loader, so "what kind of project is this" has no answers left to arbitrate —
 what differs is the screen it declares ([surfaces.md](surfaces.md)).
 
 A scaffolded project is minimal, valid, and immediately playable: one MIDI track (a rising

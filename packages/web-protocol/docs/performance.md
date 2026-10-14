@@ -41,7 +41,7 @@ and the figure would describe memory rather than the disk.
 
 ## Where it is measured, and where it is drawn
 
-- **Measured once**, by the supervisor at startup (`engine/st0-supervisor/src/Performance.cpp`),
+- **Measured once**, by the supervisor at startup (`engine/k7-supervisor/src/Performance.cpp`),
   **before** it starts the engine, so the CPU loop is not competing with a plugin scan. It takes
   well under a second, and the score is written to the merged log (`host | performance 1953`).
 - **Carried** on every heartbeat as `performance`, validated and bounded by the registry — the

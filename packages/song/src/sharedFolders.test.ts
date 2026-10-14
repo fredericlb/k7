@@ -29,7 +29,7 @@ describe("sharedFolders", () => {
       "project:\n  name: song\n",
       "utf8",
     );
-    // The account's `st0` library, where the file service clones it: under `$STUDIO_HOME`.
+    // The account's `k7-core` library, where the file service clones it: under `$STUDIO_HOME`.
     libraries = librariesFixture(ws);
   });
   afterEach(() => {
@@ -100,14 +100,14 @@ describe("sharedFolders", () => {
     addModules();
     addMediatek("modules");
     expect(moduleNamespaceOf(join(ws, "_modules"))).toBe("workspace");
-    expect(moduleNamespaceOf(join(libraries, "modules"))).toBe("st0");
+    expect(moduleNamespaceOf(join(libraries, "modules"))).toBe("k7-core");
   });
 
   it("sees EVERY library the machine cloned, each under its own name", () => {
     addMediatek("modules");
     const drums = librariesFixture(ws, "drums");
     mkdirSync(join(drums, "modules"), { recursive: true });
-    expect(accountLibraries().map((l) => l.name)).toEqual(["drums", "st0"]);
+    expect(accountLibraries().map((l) => l.name)).toEqual(["drums", "k7-core"]);
     expect(moduleLibraryDirs(project)).toEqual([
       join(drums, "modules"),
       join(libraries, "modules"),
@@ -122,18 +122,20 @@ describe("sharedFolders", () => {
     mkdirSync(join(home, "engine", "modules"), { recursive: true });
     mkdirSync(join(home, "Upper", "modules"), { recursive: true });
     addMediatek("modules");
-    expect(accountLibraries().map((l) => l.name)).toEqual(["st0"]);
+    expect(accountLibraries().map((l) => l.name)).toEqual(["k7-core"]);
   });
 
   it("lists one family across the libraries that carry it", () => {
     addMediatek("chains");
     librariesFixture(ws, "drums"); // no chains/ at all
     expect(libraryFamilyRoots("chains")).toEqual([
-      { name: "st0", root: join(libraries, "chains") },
+      { name: "k7-core", root: join(libraries, "chains") },
     ]);
-    expect(libraryFamilyRoot("st0", "chains")).toBe(join(libraries, "chains"));
+    expect(libraryFamilyRoot("k7-core", "chains")).toBe(
+      join(libraries, "chains"),
+    );
     expect(libraryFamilyRoot("drums", "chains")).toBeNull();
-    expect(libraryFamilyRoot("../st0", "chains")).toBeNull();
+    expect(libraryFamilyRoot("../k7", "chains")).toBeNull();
   });
 });
 
@@ -147,7 +149,7 @@ describe("a folder INSIDE a library", () => {
       const chain = join(lib, "chains", "process", "normalize");
       mkdirSync(chain, { recursive: true });
       expect(moduleLibraryDirs(chain)).toEqual([join(lib, "modules")]);
-      expect(libraryOf(chain)).toEqual({ name: "st0", root: lib });
+      expect(libraryOf(chain)).toEqual({ name: "k7-core", root: lib });
     } finally {
       rmSync(ws, { recursive: true, force: true });
     }
@@ -158,7 +160,7 @@ describe("a folder INSIDE a library", () => {
     try {
       librariesFixture(bare);
       expect(libraryOf(bare)).toBeNull();
-      expect(libraryOf(join(bare, "_libraries", "st0"))).toBeNull();
+      expect(libraryOf(join(bare, "_libraries", "k7-core"))).toBeNull();
     } finally {
       rmSync(bare, { recursive: true, force: true });
     }

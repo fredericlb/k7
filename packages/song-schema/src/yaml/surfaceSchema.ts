@@ -105,7 +105,7 @@ export const SurfaceSchema = z
     layout: z.enum(SURFACE_LAYOUTS),
     // The playlist a `turntables` browser lists, by NAME under `_playlists/` — see docs/surfaceFiles.md.
     playlist: z.string().min(1).optional(),
-    // Does this desk SEPARATE a record handed to it unprepared? See packages/st0-plugins/docs/turntables/stems.md.
+    // Does this desk SEPARATE a record handed to it unprepared? See packages/k7-plugins/docs/turntables/stems.md.
     stems: z.boolean().optional(),
     // `MixViewSchema` itself, not a record built the same way, so the two cannot drift (docs/surfaceFiles.md).
     mapping: MixViewSchema.optional(),

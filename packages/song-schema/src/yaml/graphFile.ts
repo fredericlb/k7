@@ -45,7 +45,7 @@ export function parseGraph(text: string): ParsedChains {
           path: "chains",
           message:
             "the old chain-list format — chains are now derived from `modules:` " +
-            "segments. Run `st0 migrate chains <project>`.",
+            "segments. Run `k7 migrate chains <project>`.",
         },
       ],
     };

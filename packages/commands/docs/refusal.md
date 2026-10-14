@@ -18,7 +18,7 @@ refuses says so and then `return`s, exactly as it did before.
 
 `runWebCommand` returns a `CommandOutput` — a `string[]` carrying an optional `refused`. The
 `/command` route puts it on the JSON beside the output, `@studio/project-shell`'s client hands
-it back with the lines, and st0 paints the status line and the log rows **amber** instead of grey.
+it back with the lines, and k7 paints the status line and the log rows **amber** instead of grey.
 The CLI needs nothing: a refusal reads the same on a terminal either way.
 
 One line, one boolean, nothing structured. A refusal is not an error object — it has no code, no

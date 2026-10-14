@@ -116,7 +116,7 @@ forget — every connection sends one.
 
 ### Who calls `sendProject`, and what is not folded
 
-st0 never calls it: its documents are **compiled** from a folder of YAML, which the file service
+k7 never calls it: its documents are **compiled** from a folder of YAML, which the file service
 does, so its browser only drives transport. An app that builds its own document (a module preview,
 a deck) has nothing to compile and no reason to go through a second process to reach a socket it
 already holds.
@@ -143,7 +143,7 @@ VPN, a Docker bridge) asks three times the browser's patience and is declared un
 the engine answers quietly on loopback. So both stop at the same wall, and a first dead address
 can eat at most `ENGINE_DIAL_TIMEOUT_MS`.
 
-The other end of the same problem is in the supervisor's `engine/st0-supervisor/src/Addresses.cpp`: phantom interfaces — VPN,
+The other end of the same problem is in the supervisor's `engine/k7-supervisor/src/Addresses.cpp`: phantom interfaces — VPN,
 containers, WSL, Hyper-V — are not advertised at all. They are not `internal`, so a filter on that
 alone lets them through, and they carry perfectly ordinary private addresses; only their **name**
 tells them apart.

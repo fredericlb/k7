@@ -142,14 +142,14 @@ export function noteOwner(email: string): void {
 
 /** Which session this machine's projects belong to — through `sessionFor`, so the browser's half cannot differ. */
 export function sessionOf(ws: { root: string } | null): string {
-  if (!ws || !owner) return SESSIONS.st0;
+  if (!ws || !owner) return SESSIONS.k7;
   const rel = relative(rootDir(), ws.root);
   // Outside the root is a workspace this service does not own — the bare session, as before.
-  if (!rel || rel.startsWith("..")) return SESSIONS.st0;
-  // The bench's workspace plays in a session of its own, beside the song — apps/st0/backend/docs/media/banc.md.
+  if (!rel || rel.startsWith("..")) return SESSIONS.k7;
+  // The bench's workspace plays in a session of its own, beside the song — apps/k7/backend/docs/media/banc.md.
   if (rel.split(/[\\/]/)[0] === BENCH_WORKSPACE)
     return sessionFor(SESSIONS.bench, owner);
-  return sessionFor(SESSIONS.st0, owner);
+  return sessionFor(SESSIONS.k7, owner);
 }
 
 /** The note above read from outside, in ADDRESSES rather than paths — see docs/activeProject.md. */
@@ -158,7 +158,7 @@ export function servedProject(
 ): { workspace: string; path: string } | null {
   const slug = slugify(userEmail);
   const s =
-    served.get(`${SESSIONS.st0}:${slug}`) ?? served.get(SESSIONS.st0) ?? null;
+    served.get(`${SESSIONS.k7}:${slug}`) ?? served.get(SESSIONS.k7) ?? null;
   if (!s) return null;
   const ws = relative(rootDir(), s.ws.root).split(/[\\/]/);
   // Anything but a single `<workspace>` is one this machine cannot name in an address.
@@ -268,7 +268,7 @@ export function ensureEngine(ws: Workspace | null): EngineClient | undefined {
     existing.lastUsed = Date.now(); // every use, so pruneIdleLinks only ever sees the abandoned
     return existing.client;
   }
-  // The other half of st0's session, and deliberately NOT a driver — see docs/activeProject.md.
+  // The other half of k7's session, and deliberately NOT a driver — see docs/activeProject.md.
   const client = new EngineClient(selectedEngineUrl, session);
   links.set(session, {
     client,
@@ -444,7 +444,7 @@ function enginePlugins(
       clearTimeout(t);
       if (rescan) out.push(`scanned ${plugins.length} plugin(s)`);
       else if (!plugins.length)
-        out.push("no plugins cached — run: st0 engine scan");
+        out.push("no plugins cached — run: k7 engine scan");
       else
         for (const p of plugins)
           out.push(

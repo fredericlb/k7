@@ -17,10 +17,10 @@ runs:
         path: |
           node_modules
           apps/*/node_modules
-          apps/st0/*/node_modules
+          apps/k7/*/node_modules
           packages/*/node_modules
           engine/*/node_modules
-          engine/st0-android/*/node_modules
+          engine/k7-android/*/node_modules
           commons/packages/*/node_modules
           commons/dev/*/node_modules
         # Exact key only: a tree restored from an older lock would be wrong in ways npm ci never checks.

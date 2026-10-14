@@ -1032,7 +1032,7 @@ export async function updateRelease(uid, patch) {
   return getRelease(uid);
 }
 
-// The release for a st0 song id, owner-scoped so two users' ids cannot collide.
+// The release for a k7 song id, owner-scoped so two users' ids cannot collide.
 export async function getReleaseBySongUuid(ownerId, songUuid) {
   if (!songUuid) return null;
   const recs = await db.listRecords("Releases", {

@@ -1,6 +1,6 @@
 // A module's `mix:` — the ENGINE's dry/wet around it — reaches the engine as its plugin's `@mix`
 // param, beside the plugin's own, and inherits through `extends` like any field. Absent, it is not
-// sent at all: all wet is what the engine does with nothing (engine/st0-engine/docs/mix.md).
+// sent at all: all wet is what the engine does with nothing (engine/k7-runtime/docs/mix.md).
 
 import { appendFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -23,8 +23,8 @@ const lead = () =>
 
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-mix-"));
-  dir = join(ws, "synth-demo.st0");
-  copyAsYaml(join(DEMOS, "synth-demo.st0"), dir, { recursive: true });
+  dir = join(ws, "synth-demo.k7");
+  copyAsYaml(join(DEMOS, "synth-demo.k7"), dir, { recursive: true });
   copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
     recursive: true,
   });

@@ -27,7 +27,7 @@ stage, which refuses a param of that name, so the graph is all wet and the modul
 
 `quick-master` makes no sound of its own: no `jsdsp.ts`, no `dsp.dsp`, only an
 `extends: "@engine/quick-master"` and defaults over it, the way `eq3` sits on the engine's
-equaliser. What it names is a compiled built-in, and `engine/st0-engine/docs/quickMaster.md` says why
+equaliser. What it names is a compiled built-in, and `engine/k7-runtime/docs/quickMaster.md` says why
 it could not be a graph: `DspGraph`'s primitives can neither split bands nor reach the difference
 between the two channels.
 
@@ -44,7 +44,7 @@ they answer the same question differently.
 `note-repeat` is a **graph**, three lines of this library: it is a note SOURCE with a clock, which
 is exactly the thing a MIDI graph was long said not to be able to be. The MIDI phase has two nodes
 with state — `mhold` takes the keys, `mstrike` plays them on a clock — and they are what a rhythmic
-MIDI module is made of. `engine/st0-engine/docs/midiGraph.md` argues the whole of it. Its rate is a
+MIDI module is made of. `engine/k7-runtime/docs/midiGraph.md` argues the whole of it. Its rate is a
 PAIR, `Count` divisions rather than one, and `Division` is written in BEATS rather than as an
 index: the panel's dropdown writes the value it labels, so the eight divisions are named in exactly
 one place.
@@ -53,7 +53,7 @@ one place.
 built-in, the second after `quick-master` that makes no sound of its own.
 What it needs that the two nodes do not give is the WALK: an arpeggiator strikes one slot per step,
 chosen by a direction and a number of octaves, where `mstrike` takes the whole held set. That is a
-third node and not a mode flag, and `engine/st0-engine/docs/arpeggiator.md` says where it goes. Its
+third node and not a mode flag, and `engine/k7-runtime/docs/arpeggiator.md` says where it goes. Its
 panel is three dropdowns rather than three knobs: a cadence has nothing between 1/8 and 1/8T.
 
 The two stay separate modules rather than becoming one with a `Pattern: chord|walk` parameter,
@@ -81,7 +81,7 @@ it through.
 The arithmetic is identical. What differs is what each shape demands of the engine, and that is
 where the second wins. A module's second port is wired as a **sidechain**, and a sidechain only
 reads a track if that track actually reaches an audible output — measured five times, in
-`engine/st0-engine/docs/sidechain.md`. A deck feeding only a crossfade is therefore heard **beside**
+`engine/k7-runtime/docs/sidechain.md`. A deck feeding only a crossfade is therefore heard **beside**
 it, raw, and the fade can take nothing away from it. No mute, no unplugging, no routing to a sink
 undoes that: everything that removes it from the master removes it from the fade.
 
@@ -118,7 +118,7 @@ each other. `initIfEmpty` does one thing: give a commit to a repository that has
 a branch for the next machine to fetch.
 
 What that costs, said here because here is where you would come looking for a seed: **a new
-library is empty**, so any `@st0/…` reference resolves to nothing until something is put in it —
+library is empty**, so any `@k7-core/…` reference resolves to nothing until something is put in it —
 including the four a scaffolded SET writes for its decks. And an unresolved reference **is not a
 compile error** (`@studio/song`'s `docs/sharedFolders.md`): the module is simply absent from the
 document, which looks exactly like a module that was bypassed.
@@ -131,9 +131,9 @@ of truth. Two things narrow the gap, and neither is a copy of a module:
 - **The graphs are here as functions**, in `../src`, each with a test. A module's `jsdsp.ts` is that
   function written out — `crossfade.test.ts` compares the two shapes, both ways, so a module copied
   from one cannot silently drift from what is argued here.
-- **The Faust compiler will walk a library**: `engine/st0-engine/tests/Faust_test.cpp` compiles every
+- **The Faust compiler will walk a library**: `engine/k7-runtime/tests/Faust_test.cpp` compiles every
   `.dsp` under `$STUDIO_MODULES`. Point it at yours before pushing one: nothing else compiles a
   Faust module before an account's engine is handed it.
 
-A module is written in st0, against a project where the plugin it names is actually LOADED, and
+A module is written in k7, against a project where the plugin it names is actually LOADED, and
 committed to the library. That is the only path in, and there is deliberately no second one.

@@ -28,7 +28,7 @@ describe("missingModel", () => {
     expect(
       missingModel({
         assets: { onnx: "htdemucs.onnx" },
-        onnx: "/home/me/.st0/models/htdemucs.onnx",
+        onnx: "/home/me/.k7/models/htdemucs.onnx",
         model_url: "https://models.example/htdemucs.onnx",
       }),
     ).toBeNull();
@@ -44,7 +44,7 @@ describe("modelCachePath", () => {
   let before: string | undefined;
   beforeEach(() => {
     before = process.env.STUDIO_MODELS;
-    process.env.STUDIO_MODELS = "/tmp/st0-models-test";
+    process.env.STUDIO_MODELS = "/tmp/k7-models-test";
   });
   afterEach(() => {
     if (before === undefined) delete process.env.STUDIO_MODELS;

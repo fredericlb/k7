@@ -92,7 +92,7 @@ the latter is the WALL clock, which an NTP correction or a daylight step can mov
 running transport, and every reader here subtracts two readings, so a backwards step reads as the
 picture jumping. It is also coarser. Monotonic is the whole requirement.
 
-`TransportClock` is **unused in this repo** — st0 hosts the renderer and has an engine, so the
+`TransportClock` is **unused in this repo** — k7 hosts the renderer and has an engine, so the
 picture follows `EngineClock`. It is kept because the seam is the point: for a host with no device
 whose sample position the picture must agree with, inventing an engine to keep time would be a whole
 process running to hold a number. It has no drift to correct (there is no audio clock to drift

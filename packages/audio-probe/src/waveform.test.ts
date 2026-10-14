@@ -229,7 +229,7 @@ describe("a WARPED clip is drawn at the rate it is PLAYED at", () => {
     ({ id: "c", type: "audio", source: "a.wav", start: 0, ...over }) as ClipDoc;
 
   it("prices the stretch the way the engine does — beats over source seconds", () => {
-    // 01.danse.st0's vocals: cut at 120bpm, played at 110, so 12/11 — docs/waveform.md.
+    // 01.danse.k7's vocals: cut at 120bpm, played at 110, so 12/11 — docs/waveform.md.
     const warp = {
       algorithm: "elastique",
       markers: [

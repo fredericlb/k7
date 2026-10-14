@@ -8,7 +8,7 @@
     "!src/**/*.test.tsx",
     "docs"
   ],
-  "description": "What every app that opens a project needs before it can draw anything: the launch parameters, the file service transport, the repository -> workspace resolution (cloning when this machine has never seen it), and the gate that does all three. st0 mounts it, and z0's editor consumes it as a published package.",
+  "description": "What every app that opens a project needs before it can draw anything: the launch parameters, the file service transport, the repository -> workspace resolution (cloning when this machine has never seen it), and the gate that does all three. k7 mounts it, and z0's editor consumes it as a published package.",
   "types": "./src/launch.ts",
   "exports": {
     "./launch": "./src/launch.ts",

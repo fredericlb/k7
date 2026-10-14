@@ -1,5 +1,5 @@
-// types.ts — the API contract between st0/web's backend and frontend.
-// The backend serves the files of one st0 project directory; the frontend
+// types.ts — the API contract between k7/web's backend and frontend.
+// The backend serves the files of one k7 project directory; the frontend
 // renders a tree, edits text files, and autocompletes from schema-aware hints.
 
 import type { EnginePerformance } from "./performance.ts";
@@ -12,7 +12,7 @@ export interface FileNode {
   dir: boolean;
   kind?: "text" | "binary"; // files only
   project?: boolean; // dirs only — the folder is a project someone can open
-  app?: ProjectApp; // dirs only — WHICH app opens it, from the `.st0`/`.z0` suffix
+  app?: ProjectApp; // dirs only — WHICH app opens it, from the `.k7`/`.z0` suffix
   children?: FileNode[]; // dirs only
 }
 
@@ -130,7 +130,7 @@ export interface Hints {
   // Each module's own assets/ walked, keyed by chain `use` ref: a module carries what it loads, there is no shared library.
   moduleAssets: Record<string, string[]>;
   paramsByBase: Record<string, string[]>; // base ref -> known param names
-  // …and their ranges, for st0's built-in plugins: without one a widget draws 0..1, wrong for a -60..+6 dB fader.
+  // …and their ranges, for k7's built-in plugins: without one a widget draws 0..1, wrong for a -60..+6 dB fader.
   paramMetaByBase: Record<
     string,
     Record<string, { min: number; max: number; def?: number }>
@@ -145,7 +145,7 @@ export interface Hints {
     }
   >;
   keywords: string[]; // words YAML gives meaning to (true/false/null, …)
-  // Scanned plugin names by format, lowercased key — from the engine's scan cache (~/.st0/exts.json).
+  // Scanned plugin names by format, lowercased key — from the engine's scan cache (~/.k7/exts.json).
   pluginNames: Record<string, string[]>;
   // "kind:name" -> the project-relative file defining it (module|base|sink|track|clip|sequence|chain).
   paths: Record<string, string>;
@@ -445,7 +445,7 @@ export interface WebGroup {
   mute: boolean;
   solo: boolean;
 }
-// A video clip: every time here is SECONDS, picture being cut against the wall clock — apps/st0/frontend/docs/picture.md.
+// A video clip: every time here is SECONDS, picture being cut against the wall clock — apps/k7/frontend/docs/picture.md.
 export interface WebVideoClip {
   id: string;
   name: string;
@@ -579,7 +579,7 @@ export type ArgProvider =
 export interface CommandArg {
   name: string;
   kind: ArgClass;
-  // What this argument NAMES off the project — what st0's contextMenu.ts matches a right-click on.
+  // What this argument NAMES off the project — what k7's contextMenu.ts matches a right-click on.
   provider?: ArgProvider;
   // One line on what this argument accepts; empty when there is nothing to promise, and the palette shows no clue.
   hint: string;
@@ -616,7 +616,7 @@ export interface CommandInfo {
   // One sentence per language on what the command DOES; the NAME is never translated — see docs/document.md.
   readable?: { en: string; fr: string };
   args: CommandArg[];
-  // Where a right-click may offer it. Absent ⇒ wherever its leading arguments fit — st0's frontend/docs/contextMenu.md.
+  // Where a right-click may offer it. Absent ⇒ wherever its leading arguments fit — k7's frontend/docs/contextMenu.md.
   menu?: MenuEntity[];
   // The menu asks before running it — the one exception to "nothing here asks twice", same page.
   confirm?: boolean;
@@ -693,7 +693,7 @@ export interface ProjectErrors {
 
 // --- Chains: the routing graph --------------------------------------------------
 
-// Moved to @studio/graph-model, since three apps draw chains and only st0 wants the rest of this file.
+// Moved to @studio/graph-model, since three apps draw chains and only k7 wants the rest of this file.
 
 // ── Engine-side file service headers ─────────────────────────────────────────
 
@@ -701,7 +701,7 @@ export interface ProjectErrors {
 
 /** The authenticated user's email — the file service slugifies it to pick the root. */
 export const USER_HEADER = "x-studio-user";
-/** The chosen workspace name under ~/.st0/root/<slug>/. */
+/** The chosen workspace name under ~/.k7/root/<slug>/. */
 export const WORKSPACE_HEADER = "x-studio-workspace";
 /** The engine's token (from the whoami probe) — the file service's light LAN gate. */
 export const ENGINE_TOKEN_HEADER = "x-studio-engine-token";
@@ -780,7 +780,7 @@ export interface EngineAddresses {
   port: number; // the engine's WebSocket port (same on every address)
 }
 
-/** A workspace under ~/.st0/root/<slug>/, as the picker lists them. */
+/** A workspace under ~/.k7/root/<slug>/, as the picker lists them. */
 export interface WorkspaceSummary {
   name: string; // the folder name (== the workspace name the user picks)
   projectCount: number; // project folders inside, at any depth (0 for empty)
@@ -859,13 +859,13 @@ export interface StemsReply {
 export interface RepoProject {
   path: string;
   app: ProjectApp;
-  /** `project.tags` of an st0 project's project.yaml; absent when it has none. */
+  /** `project.tags` of an k7 project's project.yaml; absent when it has none. */
   tags?: string[];
 }
 
 /** One module LIBRARY a project can reach, nearest first; `exists: false` is a state, not an absence — docs/machine.md. */
 export interface ModuleLibrary {
-  /** The `@`-prefixed level a chain writes: `workspace`, `st0`, `engine`. */
+  /** The `@`-prefixed level a chain writes: `workspace`, `k7`, `engine`. */
   ns: string;
   /** Workspace-relative, so every other route takes it as-is; EMPTY for `@engine`, which has no folder. */
   path: string;
@@ -880,7 +880,7 @@ export interface ModuleLibrary {
   wavetables?: FileNode[];
   /** …and its shared amp MODELS, what an amp's `model` may pick besides its own assets. */
   models?: FileNode[];
-  /** For one of the origin's libraries: the version this workspace plays, and the newest this st0 could move to. */
+  /** For one of the origin's libraries: the version this workspace plays, and the newest this k7 could move to. */
   version?: { pinned: number | "draft"; requires?: number; upgrade?: number };
 }
 
@@ -904,7 +904,7 @@ export interface ShareSummary {
   comments?: CommentCounts;
 }
 
-/** What an author does with a comment. `active` is where every one lands; see apps/st0/backend/docs/media/comments.md. */
+/** What an author does with a comment. `active` is where every one lands; see apps/k7/backend/docs/media/comments.md. */
 export type CommentState = "active" | "resolved" | "ignored";
 
 /** One block of text a visitor left on a frozen snapshot — public, so it carries no identity beyond a chosen name. */

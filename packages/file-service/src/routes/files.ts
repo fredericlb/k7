@@ -178,7 +178,7 @@ filesRouter.post(
   }),
 );
 
-/** The chains the library repository holds — what st0's chains builder lists. */
+/** The chains the library repository holds — what k7's chains builder lists. */
 filesRouter.get(
   "/library-chains",
   wrap((req, res) => {
@@ -459,7 +459,7 @@ filesRouter.post(
   }),
 );
 
-// Scaffold a project at the workspace root and return its path — the same scaffold `st0 create` runs.
+// Scaffold a project at the workspace root and return its path — the same scaffold `k7 create` runs.
 const createProjectBody = z.object({
   /** The ARCHETYPE — `arrangement`, `mix`, `video` or `live`, the last declaring no surface at all. */
   shape: z.enum(PROJECT_SHAPES),
@@ -784,7 +784,7 @@ filesRouter.get(
   "/tree",
   wrap((req, res) => res.json(req.ws!.tree())),
 );
-// The whole workspace, not the open project — st0's home page looking inside a repository (docs/fileRoutes.md).
+// The whole workspace, not the open project — k7's home page looking inside a repository (docs/fileRoutes.md).
 filesRouter.get(
   "/workspace-tree",
   wrap((req, res) => res.json(req.ws!.workspaceTree())),

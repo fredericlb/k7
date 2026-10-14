@@ -1,4 +1,4 @@
-// mediatekRoot.ts — where the machine's media library is, and the `@st0` token a
+// mediatekRoot.ts — where the machine's media library is, and the `@k7-core` token a
 // project uses to name it. Defined HERE, in song, although the rest of the `<state>`
 // layout is engine-client's: engine-client imports song, never the reverse, so this is the
 // only direction the dependency graph allows. `paths.ts` states the same rule for

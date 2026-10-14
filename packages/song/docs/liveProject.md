@@ -5,7 +5,7 @@ The odd ones out: the other three archetypes are named after the surface they op
 are named after what they **are** — nothing is arranged, and there is no lane of any kind.
 
 ```
-rig.st0/
+rig.k7/
   project.yaml            no layers — a name, a tempo, a rate (+ a viewport in live-video)
   settings.yaml           metronome off
   graph.yaml              four lines, six in live-video
@@ -83,7 +83,7 @@ tap and a param watch, as any other node does.
 
 ### The fader is the SHARED strip — the same one every project's mixer node is
 
-`nodes/fader.yaml` extends `@meta/audio/mixer`, st0's own strip ([metaModules.md](metaModules.md)), and two separate things make that the only
+`nodes/fader.yaml` extends `@meta/audio/mixer`, k7's own strip ([metaModules.md](metaModules.md)), and two separate things make that the only
 right answer rather than merely a tidy one.
 
 **The plugin has to be `Mixer`.** `trackMixer` finds the last one in a track's chain, and *a track
@@ -98,7 +98,7 @@ plugin compiles to the same audio and gives you **a card with no controls on it*
 this was found.
 
 So a rig borrows, and the borrowing is declared. A library repository is attached rather than
-seeded ([sharedFolders.md](sharedFolders.md)), so a new account's can be empty, and a `@st0/…` ref
+seeded ([sharedFolders.md](sharedFolders.md)), so a new account's can be empty, and a `@k7-core/…` ref
 that resolves to nothing does not warn — `compileNodeProject` throws `extends unknown module` and
 the project does not open. That is what `neededRefs` is for
 ([scaffoldNeeds.ts](../src/scaffoldNeeds.ts)): it reads every `extends:` off the scaffolded **text**
@@ -197,4 +197,4 @@ project new live <name>
 project new live-video <name>
 ```
 
-…or the **New project** card on st0's home page, where they sit beside the other three.
+…or the **New project** card on k7's home page, where they sit beside the other three.

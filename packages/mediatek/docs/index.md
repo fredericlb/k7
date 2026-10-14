@@ -10,7 +10,7 @@ would cost more than it buys.
   would be a second truth to keep in step with the tree the engine actually reads.
 - **A database is chosen where the data is rows, not where it is bytes.** The rehearsal recorder's store
   holds rows with one consumer, in SQLite (`packages/rehearsal-server/docs/store.md`); the shares' comments are in SQLite
-  because anonymous visitors write them concurrently (`apps/st0/backend/docs/media/comments.md`). Neither
+  because anonymous visitors write them concurrently (`apps/k7/backend/docs/media/comments.md`). Neither
   reason applies to a volume of audio files and their YAML sidecars.
 - **An index would be a dependency for something a walk already does.** A separator earns a
   166 MB model and a per-platform shared library because there is no other way to do the thing at
@@ -44,7 +44,7 @@ dropped with two of its own, and read as having been flattened on the way in.
 
 ## What this volume does NOT hold, and why — two different reasons
 
-**Modules and chains** live *with their families*. A module and a chain are authored in st0,
+**Modules and chains** live *with their families*. A module and a chain are authored in k7,
 against a project where the plugin the module names is actually loaded, and committed to the
 account's **library repository** — a git repository somebody owns, not a folder on this volume.
 See `packages/song/docs/sharedFolders.md`.
@@ -166,8 +166,8 @@ decision, not an assumption nobody revisited.
 `@studio/audio-analysis` writes beside an audio file. It is derived from a file the walk already
 counts, so counting it too says the library changed when only its measurements did.
 
-That rule is load-bearing rather than tidy. st0's backend sweeps the library in the background writing the
-sidecars nobody has asked for yet (`apps/st0/backend/docs/media/analysis.md`), one every quarter second. Were a
+That rule is load-bearing rather than tidy. k7's backend sweeps the library in the background writing the
+sidecars nobody has asked for yet (`apps/k7/backend/docs/media/analysis.md`), one every quarter second. Were a
 sidecar to move the token, each of those writes would invalidate the listing the sweep is walking:
 a full rescan per file, for hours, over a library nobody touched.
 
@@ -226,7 +226,7 @@ project that will not compile.
 
 A write takes its body as bytes or as `{ file }` — an upload a server already streamed to disk,
 which `putFile` MOVES into place (copying only across devices) and which is gone afterwards. That
-is how st0's backend files a 512 MB upload without ever holding it in memory (`apps/st0/backend/docs/media/audit.md`).
+is how k7's backend files a 512 MB upload without ever holding it in memory (`apps/k7/backend/docs/media/audit.md`).
 
 ## The cache is never load-bearing
 

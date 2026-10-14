@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "st0's CodeMirror editor language stack \u2014 the YAML language mode + schema-derived completions + entity links, and the sequence 'tracker' note-grid widget. Consumed as source.",
+  "description": "k7's CodeMirror editor language stack \u2014 the YAML language mode + schema-derived completions + entity links, and the sequence 'tracker' note-grid widget. Consumed as source.",
   "exports": {
     "./yaml/language": "./src/yaml/language.ts",
     "./k7x/language": "./src/k7x/language.ts",

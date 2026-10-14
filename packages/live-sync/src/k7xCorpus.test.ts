@@ -12,7 +12,7 @@ import { itemSegments } from "./k7xOps.ts";
 import { LIST_KEYS } from "./listKeys.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..", "..");
-const CORPORA = ["demos", "st0-library"]
+const CORPORA = ["demos", "k7-core"]
   .map((d) => join(ROOT, d))
   .filter(existsSync);
 

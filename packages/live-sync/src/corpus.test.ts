@@ -18,7 +18,7 @@ import { itemSegments, LIST_KEYS } from "./listKeys.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..", "..");
 // The library is a submodule CI does not check out, so it joins the corpus only where it is present.
-const CORPORA = ["demos", "st0-library"]
+const CORPORA = ["demos", "k7-core"]
   .map((d) => join(ROOT, d))
   .filter((d) => existsSync(d) && readdirSync(d).length > 0);
 

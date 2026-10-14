@@ -18,7 +18,7 @@ alternatives:
 On the graph, each set is a badge above the node's corner — click one to switch, and the `+` after
 them copies the set that is on (`packages/ui-chains-react/docs/nodeCard.md`). A LANE names the set
 it is playing in the timeline's gutter too, and clicking that badge opens a menu running the same
-verbs (`apps/st0/frontend/docs/timeline.md`).
+verbs (`apps/k7/frontend/docs/timeline.md`).
 
 ## The module's own fields are the first set
 
@@ -59,7 +59,7 @@ place — a Wurlitzer played by a VST on set 1 and a Plaits voice on set 2.
 
 ```yaml
 # nodes/wurli.yaml
-extends: "@st0/instruments/wurli-v2"        # set 1: the VST, and its knobs
+extends: "@k7-core/instruments/wurli-v2"        # set 1: the VST, and its knobs
 params: { Tremolo: 0.9 }
 alternative: faust
 alternatives:
@@ -122,7 +122,7 @@ graph's track side rather than from a chain step. That fourth track-side channel
 collapsing next — a lane IS a module node
 ([trackModules.md](trackModules.md)), and this says so the long way round.
 
-`trackAlternatives` has a second reader: st0's timeline names the set each lane is playing in
+`trackAlternatives` has a second reader: k7's timeline names the set each lane is playing in
 its gutter, and opens this same menu from it. It gets there from the chains pane rather than from a
 field of its own on `WebProject` — one map for the badge and the menu means neither can name a set
 the other does not. "Only when there is more than one" is what makes that badge free for every lane

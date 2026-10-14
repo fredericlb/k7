@@ -29,11 +29,11 @@ const run = async (line: string) => {
   return h;
 };
 
-const AMP = '"@st0/audio/amp"';
+const AMP = '"@k7-core/audio/amp"';
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "track-input-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
   put("tracks/keys.yaml", 'extends: "@meta/track"\nevents: []\n');
   put(

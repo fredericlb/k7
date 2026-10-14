@@ -1,0 +1,4 @@
+// The headphone tap — a second fade, not a second crossfade. It leaves the FILTER rather than the
+// channel fader, which is what makes it pre-fade: you cue a record the audience cannot hear.
+extends("@k7-core/audio/zz_utility/fade")
+params({ Level: 0 })

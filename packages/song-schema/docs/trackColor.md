@@ -19,7 +19,7 @@ Seven categories, in the order a song is laid out and each with one hue:
    `acoustic_drums_kit_ludwig`. Drums are tested first, since "acoustic drum kit" is a kit before it
    is anything acoustic.
 3. **The instrument**, when the name says nothing (`audio_7`, `michel`): the compiled lane's
-   instrument, then its other modules — a `@st0/instruments/keys/…` ref, an SFZ kit, a Surge patch, a
+   instrument, then its other modules — a `@k7-core/instruments/keys/…` ref, an SFZ kit, a Surge patch, a
    guitar amp. Only the compile and the commands have this; a view with just a name stops at 2.
 4. **`other`**, and grey.
 

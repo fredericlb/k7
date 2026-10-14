@@ -1469,7 +1469,7 @@ describe("headerFontPx", () => {
 describe("moduleDisplayName", () => {
   // The header wears the LAST segment: a card is one word wide, and the prefix is the useless half.
   it("keeps the last segment of a namespaced reference", () => {
-    expect(moduleDisplayName("@st0/audio/dynamics/comp-opto")).toBe(
+    expect(moduleDisplayName("@k7-core/audio/dynamics/comp-opto")).toBe(
       "comp-opto",
     );
   });
@@ -1479,7 +1479,7 @@ describe("moduleDisplayName", () => {
   });
 
   it("falls back to the whole reference rather than showing nothing", () => {
-    expect(moduleDisplayName("@st0/audio/")).toBe("@st0/audio/");
+    expect(moduleDisplayName("@k7-core/audio/")).toBe("@k7-core/audio/");
     expect(moduleDisplayName("")).toBe("");
   });
 });

@@ -29,9 +29,9 @@ let dir: string;
 let mediatek: string;
 
 beforeEach(() => {
-  // An ordinary `.st0` folder: a set is a SHAPE of st0 project, not a kind of its own.
+  // An ordinary `.k7` folder: a set is a SHAPE of k7 project, not a kind of its own.
   ws = mkdtempSync(join(tmpdir(), "td-set-"));
-  dir = join(ws, "winter.st0");
+  dir = join(ws, "winter.k7");
 
   // A set NAMES the médiathèque's modules, so a test writes `_libraries/` in the workspace itself.
   mediatek = librariesFixture(ws);
@@ -81,7 +81,7 @@ beforeEach(() => {
   library("audio/delay", "engine: echo\n");
   // The deck's echo is the delay's `echo` engine, a node naming it by `engine:`.
   library("audio/delay/engines/echo", "plugin: { type: jsdsp, name: Echo }\n");
-  // No platter here: it is st0's own `@meta/audio/turntable`, which every test resolves (docs/metaModules.md).
+  // No platter here: it is k7's own `@meta/audio/turntable`, which every test resolves (docs/metaModules.md).
   library("audio/eq", "engine: parametric\n");
   library(
     "audio/eq/engines/parametric",
@@ -250,29 +250,29 @@ describe("a scaffolded set", () => {
     scaffoldSet(dir, "winter");
     const ext = (f: string) =>
       /extends:\s*"([^"]+)"/.exec(readFileSync(join(dir, f), "utf8"))?.[1];
-    expect(ext("nodes/fadeA.yaml")).toBe("@st0/audio/utility/fade");
-    expect(ext("nodes/fadeB.yaml")).toBe("@st0/audio/utility/fade");
-    expect(ext("nodes/tempoA.yaml")).toBe("@st0/cold/tempo");
-    expect(ext("nodes/tempoB.yaml")).toBe("@st0/cold/tempo");
+    expect(ext("nodes/fadeA.yaml")).toBe("@k7-core/audio/utility/fade");
+    expect(ext("nodes/fadeB.yaml")).toBe("@k7-core/audio/utility/fade");
+    expect(ext("nodes/tempoA.yaml")).toBe("@k7-core/cold/tempo");
+    expect(ext("nodes/tempoB.yaml")).toBe("@k7-core/cold/tempo");
   });
 
-  it("asks the médiathèque for exactly those seven modules, the platter being st0's own", () => {
+  it("asks the médiathèque for exactly those seven modules, the platter being k7's own", () => {
     scaffoldSet(dir, "winter");
     // One of each and not one per use: fetching a module once per node would be a bug.
     expect(mediatekRefs(dir)).toEqual([
-      "@st0/audio/delay",
-      "@st0/audio/eq",
-      "@st0/audio/filter/multimode",
-      "@st0/audio/utility/fade",
+      "@k7-core/audio/delay",
+      "@k7-core/audio/eq",
+      "@k7-core/audio/filter/multimode",
+      "@k7-core/audio/utility/fade",
       // TWO gains and not one: what separates a trim from a fader is its RANGE — docs/setProject.md.
-      "@st0/audio/utility/gain",
-      "@st0/audio/utility/trim",
+      "@k7-core/audio/utility/gain",
+      "@k7-core/audio/utility/trim",
       // Under `cold/`: it reads the deck's whole file before playback — docs/coldModules.md.
-      "@st0/cold/tempo",
+      "@k7-core/cold/tempo",
     ]);
   });
 
-  it("is an ordinary st0 project with no arrangement", () => {
+  it("is an ordinary k7 project with no arrangement", () => {
     // What says there is no timeline is that no `surfaces/timeline.yaml` was written.
     scaffoldSet(dir, "winter");
     expect(existsSync(join(dir, "surfaces", "timeline.yaml"))).toBe(false);
@@ -591,8 +591,8 @@ describe("a scaffolded set", () => {
     );
     // Sorted, so two surfaces reading the same set cannot draw it two ways.
     expect(mediatekSongRefs(dir, ws)).toEqual([
-      "@st0/songs/lemo/mante/aube",
-      "@st0/songs/lemo/mante/danse",
+      "@k7-core/songs/lemo/mante/aube",
+      "@k7-core/songs/lemo/mante/danse",
     ]);
   });
 
@@ -601,7 +601,9 @@ describe("a scaffolded set", () => {
     scaffoldSet(dir, "winter");
     namePlaylist("ete-2026");
     writePlaylist("ete-2026", "items:\n  - Danse\n  - lemo/mante/aube\n");
-    expect(mediatekSongRefs(dir, ws)).toEqual(["@st0/songs/lemo/mante/aube"]);
+    expect(mediatekSongRefs(dir, ws)).toEqual([
+      "@k7-core/songs/lemo/mante/aube",
+    ]);
   });
 
   it("names nothing when the playlist it points at is not there", () => {

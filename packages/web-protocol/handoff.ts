@@ -1,5 +1,5 @@
 // handoff.ts — how an app moves a sign-in made in the SYSTEM browser into its own views (RFC 8252 §8.12).
-// Both halves read this one rule; a return address it allows is where a signed-in session is sent. See apps/st0/backend/docs/handoff.md.
+// Both halves read this one rule; a return address it allows is where a signed-in session is sent. See apps/k7/backend/docs/handoff.md.
 
 import { isLoopbackReturn } from "./pairing.ts";
 
@@ -13,7 +13,7 @@ export const HANDOFF_REDEEM = "/auth/handoff/redeem";
 export const LOCAL_SIGN_IN = "/auth/local";
 
 /** The Android app's URL scheme; mirrored in its manifest and in AuthHandoff.kt. */
-export const APP_SCHEME = "se.frediver.st0";
+export const APP_SCHEME = "se.frediver.k7";
 
 /** Is this an address a handoff code may be sent to? Loopback http, or the Android app's own scheme. */
 export function isHandoffReturn(raw: string): boolean {

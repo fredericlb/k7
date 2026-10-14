@@ -15,8 +15,8 @@ import {
 } from "../engine/scripts/supervisorBuild.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
-const engineDir = join(repo, "engine", "st0-engine");
-const supervisorDir = join(repo, "engine", "st0-supervisor");
+const engineDir = join(repo, "engine", "k7-runtime");
+const supervisorDir = join(repo, "engine", "k7-supervisor");
 
 // Long enough that a formatter's write burst is one rebuild, short enough to feel like a save.
 const DEBOUNCE_MS = 500;
@@ -30,8 +30,8 @@ const log = (msg) => console.log(`native | ${msg}`);
 const isCxx = (base) => /\.(cpp|h|hpp|mm)$/.test(base);
 
 const TARGETS = {
-  // The C++ that ends up in st0-engine; tests/ is deliberately out (../docs/dev.md).
-  "st0-engine": {
+  // The C++ that ends up in k7-runtime; tests/ is deliberately out (../docs/dev.md).
+  "k7-runtime": {
     dirs: [
       { path: join(engineDir, "engine"), recursive: true, match: isCxx },
       { path: join(engineDir, "server"), recursive: true, match: isCxx },
@@ -45,7 +45,7 @@ const TARGETS = {
     build: buildEngine,
   },
   // The supervisor that runs the engine: a separate CMake project, so its build never touches the engine's.
-  "st0-supervisor": {
+  "k7-supervisor": {
     dirs: [
       { path: join(supervisorDir, "src"), recursive: true, match: isCxx },
       {
@@ -60,19 +60,19 @@ const TARGETS = {
 };
 
 // Rebuild order: the slow one first, so a broken engine never costs a supervisor rebuild (../docs/dev.md).
-const ORDER = ["st0-engine", "st0-supervisor"];
+const ORDER = ["k7-runtime", "k7-supervisor"];
 
 /** Delegated to the moteur's own build:* scripts, so this holds no CMake knowledge. */
 function buildEngine() {
   const script = { win32: "build:win", darwin: "build:mac" }[process.platform];
   if (!script) {
     log(
-      "no engine build script for this platform — leaving engine/st0-engine/build as it is",
+      "no engine build script for this platform — leaving engine/k7-runtime/build as it is",
     );
     return;
   }
-  console.log(`\n▸ npm run ${script} --workspace st0-engine\n`);
-  const r = spawnSync("npm", ["run", script, "--workspace", "st0-engine"], {
+  console.log(`\n▸ npm run ${script} --workspace k7-runtime\n`);
+  const r = spawnSync("npm", ["run", script, "--workspace", "k7-runtime"], {
     cwd: repo,
     stdio: "inherit",
     shell: process.platform === "win32", // npm is a .cmd shim here
@@ -82,7 +82,7 @@ function buildEngine() {
 
   // A build reporting SUCCESS without replacing the image is what this guards (../docs/dev.md).
   const after = engineBinary();
-  if (after && statSync(after).mtimeMs < newestSource("st0-engine"))
+  if (after && statSync(after).mtimeMs < newestSource("k7-runtime"))
     throw new Error(
       `the engine build reported success but ${basename(after)} is still older than its ` +
         "sources — something is holding it open (a surviving engine? see stopAll)",
@@ -97,7 +97,7 @@ function buildEngine() {
 function engineBinary() {
   const build = join(engineDir, "build");
   if (!existsSync(build)) return null;
-  const names = ["st0-engine.exe", "st0-engine"];
+  const names = ["k7-runtime.exe", "k7-runtime"];
   const found = [];
   for (const preset of readdirSync(build))
     for (const cfg of ["", "Release", "RelWithDebInfo", "Debug"])
@@ -209,17 +209,17 @@ await stopAll(); // whatever a previous session or an installed app left behind
 const bin = engineBinary();
 if (!bin) {
   log("no engine binary yet — building it (this one is long)");
-  dirty.add("st0-engine");
-} else if (statSync(bin).mtimeMs < newestSource("st0-engine")) {
+  dirty.add("k7-runtime");
+} else if (statSync(bin).mtimeMs < newestSource("k7-runtime")) {
   log("the engine is older than its sources — rebuilding");
-  dirty.add("st0-engine");
+  dirty.add("k7-runtime");
 }
 const sup = findSupervisor(repo);
-if (!sup || statSync(sup).mtimeMs < newestSource("st0-supervisor")) {
+if (!sup || statSync(sup).mtimeMs < newestSource("k7-supervisor")) {
   log("the supervisor is missing or older than its sources — building it");
-  dirty.add("st0-supervisor");
+  dirty.add("k7-supervisor");
 }
-if (!dirty.size) dirty.add("st0-supervisor"); // nothing stale: still one cycle, which is what starts the engine
+if (!dirty.size) dirty.add("k7-supervisor"); // nothing stale: still one cycle, which is what starts the engine
 
 await cycle();
 
@@ -238,6 +238,6 @@ for (const [target, { dirs }] of Object.entries(TARGETS))
   }
 
 log(
-  "watching engine/st0-engine and engine/st0-supervisor — save to rebuild and restart",
+  "watching engine/k7-runtime and engine/k7-supervisor — save to rebuild and restart",
 );
 setInterval(() => {}, 1 << 30); // the watchers are unref'd, so hold the process open ourselves

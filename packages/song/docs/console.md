@@ -6,7 +6,7 @@ and a BUSS plugin on the sum. The two halves are one system, so the project name
 ```yaml
 # project.yaml
 project:
-  console: "@st0/console/console-6"
+  console: "@k7-core/console/console-6"
 ```
 
 A system is a folder of a library's `console/` type, holding exactly two modules:

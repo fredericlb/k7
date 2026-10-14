@@ -29,7 +29,7 @@ let held: object = {};
 /** One lane through one amp node, the amp carrying a second set of settings. */
 function song(node: string): { root: string; dir: string } {
   const r = mkdtempSync(join(tmpdir(), "td-modalt-"));
-  const d = join(r, "song.st0");
+  const d = join(r, "song.k7");
   mkdirSync(d, { recursive: true });
   writeFileSync(
     join(d, "project.yaml"),

@@ -1,0 +1,26 @@
+// preset for @k7-core/instruments/k7-rack — its sampler engine, the taps being library samples
+engine("samples")
+rack({
+  Kick: { note: 36, sample: "@k7-core/naked_drums/Kick.wav" },
+  SideStick: { note: 37, sample: "@k7-core/naked_drums/SideStick.wav" },
+  Snare: { note: 38, sample: "@k7-core/naked_drums/Snare.wav" },
+  Snare2: { note: 40, sample: "@k7-core/naked_drums/Snare2.wav" },
+  Tom1: { note: 48, sample: "@k7-core/naked_drums/Tom1.wav" },
+  Tom2: { note: 47, sample: "@k7-core/naked_drums/Tom2.wav" },
+  Tom3: { note: 45, sample: "@k7-core/naked_drums/Tom3.wav" },
+  Tom4: { note: 43, sample: "@k7-core/naked_drums/Tom4.wav" },
+  Tom5: { note: 41, sample: "@k7-core/naked_drums/Tom5.wav" },
+  HatTight: { note: 42, sample: "@k7-core/naked_drums/HatTight.wav" },
+  HatPedal: { note: 44, sample: "@k7-core/naked_drums/HatPedal.wav" },
+  HatOpen: { note: 46, sample: "@k7-core/naked_drums/HatOpen.wav" },
+  HatClosed: { note: 54, sample: "@k7-core/naked_drums/HatClosed.wav" },
+  HatHalf: { note: 56, sample: "@k7-core/naked_drums/HatHalf.wav" },
+  RideBow: { note: 51, sample: "@k7-core/naked_drums/RideBow.wav" },
+  RideBell: { note: 53, sample: "@k7-core/naked_drums/RideBell.wav" },
+  Crash1: { note: 49, sample: "@k7-core/naked_drums/Crash1.wav" },
+  Crash1Bell: { note: 58, sample: "@k7-core/naked_drums/Crash1Bell.wav" },
+  Crash2: { note: 57, sample: "@k7-core/naked_drums/Crash2.wav" },
+  Crash2Bell: { note: 59, sample: "@k7-core/naked_drums/Crash2Bell.wav" },
+  Splash: { note: 55, sample: "@k7-core/naked_drums/Splash.wav" },
+  China: { note: 52, sample: "@k7-core/naked_drums/China.wav" },
+})

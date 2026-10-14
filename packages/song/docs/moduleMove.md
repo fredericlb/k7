@@ -1,8 +1,8 @@
 # Moving a library module
 
-In st0's Libraries tab a module row drags onto another folder of its library. That is a move of the
-module's folder, and something more: **a module's ref is its path**, so `@st0/audio/delay/echo`
-moved to `time/` becomes `@st0/audio/time/echo`. A move is a rename of the ref.
+In k7's Libraries tab a module row drags onto another folder of its library. That is a move of the
+module's folder, and something more: **a module's ref is its path**, so `@k7-core/audio/delay/echo`
+moved to `time/` becomes `@k7-core/audio/time/echo`. A move is a rename of the ref.
 
 ## Its refs follow it
 
@@ -39,7 +39,7 @@ to new and can do it in bulk.
 
 Renaming a module's folder changes its ref the same way, and renaming a FOLDER of modules changes
 the ref of every module inside it: `audio/delay` renamed `audio/time` turns
-`@st0/audio/delay/echo` into `@st0/audio/time/echo`. So a rename inside a library's `modules/`
+`@k7-core/audio/delay/echo` into `@k7-core/audio/time/echo`. So a rename inside a library's `modules/`
 repoints too, in its "under" form: the old path matches as a whole ref or as the start of one
 followed by `/`. Without it, renaming a folder and then moving a module out of it strands every
 song using that module: the move repoints refs to the intermediate name, which nothing uses.

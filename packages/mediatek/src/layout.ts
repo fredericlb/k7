@@ -88,7 +88,7 @@ export function ensureLayout(): string {
       "utf8",
     );
 
-  // No namespace file is written: the `@st0` prefix is parsed in code rather than declared.
+  // No namespace file is written: the `@k7-core` prefix is parsed in code rather than declared.
 
   return root;
 }

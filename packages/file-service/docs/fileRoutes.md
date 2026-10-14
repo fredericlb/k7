@@ -46,7 +46,7 @@ engine to host — internal ones and externals (VST and kin), each once — as `
 (`pluginNeeds.ts`). jsdsp, Faust and offline modules are left out: they are built from the
 project's own source on whichever engine plays it.
 
-It takes the project in the query rather than reading the active one because st0's `EngineGate`
+It takes the project in the query rather than reading the active one because k7's `EngineGate`
 asks it BEFORE any engine is chosen, to score each candidate's catalogue against it
 (`packages/engine-browser/src/compat.ts`); opening the project would already need the engine.
 The header asks it again of the open project on each revision, since adding a module can add a
@@ -103,19 +103,19 @@ The libraries are the file hub's, so the open asks the hub to bring them to thei
 (`docs/libraries.md`) and waits only when one is not cloned yet. Nothing about them rides on the
 request: the hub holds the list.
 
-A sync that fails is not a project that refuses: the song opens, and every `@st0/…` ref in it that
+A sync that fails is not a project that refuses: the song opens, and every `@k7-core/…` ref in it that
 does not resolve reports itself missing, which is what the graph already draws a `?` for. The
 failure is logged and swallowed, and the Libraries page shows it on the library's row.
 
 The open then writes the workspace's `_library-pins.yaml` if it has none (`ensureLibraryPins`):
 version 1 of each library, which is what a workspace from before versions already hears, or the
-draft for an admin. `POST /workspaces` writes it too, at the newest version this st0 runs. After
+draft for an admin. `POST /workspaces` writes it too, at the newest version this k7 runs. After
 that, only an upgrade rewrites it (`../../../docs/library-versions-plan.md`).
 
 ## `POST /project/create` takes an ARCHETYPE, not a mode
 
 `arrangement`, `mix` or `video` — each named after the surface it opens on. One field, because
-there is one question: every project is an `.st0` folder, so "which app opens this" has no
+there is one question: every project is an `.k7` folder, so "which app opens this" has no
 answers to arbitrate, and what is left is which scaffold runs. See
 `packages/file-service/src/projectLifecycle.ts`, and `PROJECT_SHAPES`.
 
@@ -149,7 +149,7 @@ Building the graph HERE costs the same 401 ms but spends it inside a request the
 already waiting on, so the canvas can redraw the moment this returns instead of a fetch and a
 parse later. Keying it on the revision keeps `transport play` as cheap as it is without one.
 
-`want` is the other half, and it took a measurement to find: st0 runs a whole class of gestures
+`want` is the other half, and it took a measurement to find: k7 runs a whole class of gestures
 — mute, solo, a fader, a knob — through a caller that deliberately does NOT reload the shell,
 so nothing fetches `/graph` afterwards and a picture built here is thrown away whole.
 62 ms on the reference song, per knob turn, on the one thread everything else queues behind. So
@@ -162,7 +162,7 @@ chains builder's template. Through `safePath` like every other path a browser se
 cannot address its way out of the workspace, and absent for every ordinary command.
 
 `rev` rides beside the graph and does not depend on it — it is the token AFTER the command,
-which a client uses to stop re-asking the questions this reply has already answered (st0's
+which a client uses to stop re-asking the questions this reply has already answered (k7's
 `noteRevision`). Pairing it with the graph would leave a caller that wanted no picture with no
 token either, which is the one thing every writing caller can use.
 
@@ -175,7 +175,7 @@ already held is `rev` this command's change alone.
 The token says something moved, this says what — so a client can re-ask the questions that
 depend on it and skip the ones that cannot. It comes out of the journal's own diff and costs
 nothing here. Absent when the diff could not be taken, which a client must read as "I don't
-know" and not as "nothing". See `ChangedFile` and st0's `reloadScope.ts`.
+know" and not as "nothing". See `ChangedFile` and k7's `reloadScope.ts`.
 
 `refused` rides beside the output lines: the command was understood and declined, which is a
 different fact from "it ran" and from "it threw". Sent only when true, so a surface reading the
@@ -285,7 +285,7 @@ never does.
 
 `forked` is set when the target was an `@engine` ref materialising into its first folder: the
 save landed on a freshly made module, and the editor has to follow it — there was no file open
-before, only a synthesised ref. An ordinary `@workspace` or `@st0` save writes the file it had
+before, only a synthesised ref. An ordinary `@workspace` or `@k7-core` save writes the file it had
 open and answers with no `forked` at all. The reply is `r.value` because a journalled mutation
 answers with the tokens either side of it too, and the editor asks `/revision` like everything
 else.
@@ -296,7 +296,7 @@ else.
 handler RETURNS, which is why the promise goes through `guard`.
 
 `/waveforms/cancel` gives the machine back. The batch runs a SECOND engine process to decode
-audio, and a surface that is playing wants those cores — st0 calls this when the transport
+audio, and a surface that is playing wants those cores — k7 calls this when the transport
 starts and prewarms again when it stops. Sidecars already written stay written, so resuming
 costs only what was in flight.
 

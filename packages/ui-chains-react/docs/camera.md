@@ -3,7 +3,7 @@
 `camera.ts` holds the arithmetic; `DomChains` holds the element and one frame loop. The rules
 below are about **feel**, and the framing rules — `fitKey`, `fitted` vs `userMoved`, the camera
 that survives an unmount — are a separate set, in
-[st0's chainsGraph.md](../../../apps/st0/frontend/docs/chainsGraph.md).
+[k7's chainsGraph.md](../../../apps/k7/frontend/docs/chainsGraph.md).
 
 ## The camera is not React state
 
@@ -93,7 +93,7 @@ animation.
 ## A host may keep every card whole
 
 `alwaysDetailed` turns the far LOD off: `widgets` and `labels` read as on at any zoom, and only the
-cable `boost` still follows the camera. It is for a view whose cards ARE the subject — st0's
+cable `boost` still follows the camera. It is for a view whose cards ARE the subject — k7's
 per-track row, a handful of one lane's modules — where a card collapsing to its name is a card you
 came to look at and can no longer use. The full graph keeps the LOD, because at the zoom that
 frames forty nodes the panels are unreadable and are the costliest thing to render.
@@ -104,7 +104,7 @@ default.
 
 ## A ROW is navigated differently
 
-When the graph is arranged as a row (st0's mix panel), the wheel walks ALONG it and nothing moves
+When the graph is arranged as a row (k7's mix panel), the wheel walks ALONG it and nothing moves
 vertically — there is only one line of cards, and a view that drifts off it is a view of nothing.
 The same holds for a drag: both axes normally, but a row drops the vertical, since a gesture with
 only one useful direction out of two is worse than one with a single honest direction. The wheel
@@ -115,7 +115,7 @@ has to drive x here.
 
 `fixed` turns every gesture off: no wheel, drag, pinch or double-click moves the camera. Because
 no gesture ever takes the camera, the fit is never given up, and the ResizeObserver re-frames on
-every resize. It is for a graph sized to be framed exactly: st0's pinned mixer column, whose
+every resize. It is for a graph sized to be framed exactly: k7's pinned mixer column, whose
 width is the card's aspect ratio at the pane's height (`@studio/ui-chains`'s docs/graphBuild.md).
 A camera you could scroll there would only move the card out of its own column.
 
@@ -188,7 +188,7 @@ it pans.
 
 ## The same rule, elsewhere
 
-st0's timeline, piano roll and waveform draw the same line in `usePanZoom.ts`, but not with this
+k7's timeline, piano roll and waveform draw the same line in `usePanZoom.ts`, but not with this
 code: those are **scroll containers**, so their pan is the browser's own — a plain wheel is
 simply handed back, momentum and axis locking included, and only the pinch is intercepted. A
 pane scrolls; this one translates. Shared rule, different mechanism.

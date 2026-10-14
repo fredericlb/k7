@@ -1,6 +1,6 @@
 // migrateStemLevels.ts — turn a SET's one-way stem cuts into the signed levels a knob can centre on.
 //
-//   npx tsx packages/song/scripts/migrateStemLevels.ts <projet.st0> [more…] [--write]
+//   npx tsx packages/song/scripts/migrateStemLevels.ts <projet.k7> [more…] [--write]
 //
 // `Cut` ran 0..1 and only removed. `Level` runs −1..1: left takes the instrument out, centre is the
 // record as recorded, right adds more of it. So the VALUE is negated as the key is renamed — a set
@@ -25,7 +25,7 @@ const write = args.includes("--write");
 const roots = args.filter((a) => !a.startsWith("--"));
 if (!roots.length) {
   console.error(
-    "usage: migrateStemLevels <projet.st0> [more…] [--write]   (dry run without --write)",
+    "usage: migrateStemLevels <projet.k7> [more…] [--write]   (dry run without --write)",
   );
   process.exit(2);
 }

@@ -1,5 +1,5 @@
 // modelDownloads.ts — fetching a model a module names into this machine's cache (`<state>/models`),
-// from the URL its `model_url` gives. A job, polled: the one model st0 ships a chain for is 166 MB,
+// from the URL its `model_url` gives. A job, polled: the one model k7 ships a chain for is 166 MB,
 // and a request held open that long is one a proxy closes first.
 //
 // The URL is never the caller's to give. Every route here names a MODULE (a project node, or a chain's

@@ -59,7 +59,7 @@ const settle = (ms = 500): Promise<void> =>
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "module-watch-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   // `nodes/` must exist before the watch attaches, or that root is silently uncovered.
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(join(dir, "project.yaml"), "project:\n  name: t\n", "utf8");
@@ -122,7 +122,7 @@ describe("moduleFoldersStill", () => {
   // exercised on `nodes/`, the one root that stays project-local (a module now lives at
   // `@workspace`, shared by both).
   it("keeps two projects apart", async () => {
-    const other = join(root, "other.st0");
+    const other = join(root, "other.k7");
     node_(other, "chorus");
     await settle(); // macOS FSEvents delivers that write late, to a watch opened after it
     watchModuleFolders(dir);

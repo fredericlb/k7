@@ -282,7 +282,7 @@ function ensureWorkspaceSynth(dir: string): void {
   );
 }
 
-/** Write a new st0 project; `video` also gets the bundled sample COPIED in — see docs/scaffold.md. */
+/** Write a new k7 project; `video` also gets the bundled sample COPIED in — see docs/scaffold.md. */
 export function scaffold(
   dir: string,
   name: string,

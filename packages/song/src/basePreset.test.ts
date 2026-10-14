@@ -112,15 +112,15 @@ describe("moduleBaseChoices", () => {
     touch("shared", "base", "warm.vstpreset");
     touch("deep", "base", "old.vstpreset");
     const refs = {
-      "@st0/audio/shared": {
+      "@k7-core/audio/shared": {
         folderAbs: join(root, "shared"),
-        extends: "@st0/audio/deep",
+        extends: "@k7-core/audio/deep",
       },
-      "@st0/audio/deep": { folderAbs: join(root, "deep") },
+      "@k7-core/audio/deep": { folderAbs: join(root, "deep") },
     };
     const local = {
       folderAbs: join(root, "local"),
-      extends: "@st0/audio/shared",
+      extends: "@k7-core/audio/shared",
     };
     expect(moduleBaseChoices(local, refs)).toEqual(["mine", "warm", "old"]);
   });
@@ -129,10 +129,12 @@ describe("moduleBaseChoices", () => {
     // Bases sit on the SHARED module, so listing only the local folder offers nothing.
     touch("shared", "base", "warm.vstpreset");
     mkdirSync(join(root, "local"), { recursive: true });
-    const refs = { "@st0/audio/shared": { folderAbs: join(root, "shared") } };
+    const refs = {
+      "@k7-core/audio/shared": { folderAbs: join(root, "shared") },
+    };
     expect(
       moduleBaseChoices(
-        { folderAbs: join(root, "local"), extends: "@st0/audio/shared" },
+        { folderAbs: join(root, "local"), extends: "@k7-core/audio/shared" },
         refs,
       ),
     ).toEqual(["warm"]);
@@ -141,9 +143,9 @@ describe("moduleBaseChoices", () => {
   it("survives a cycle in extends", () => {
     touch("a", "base", "one.vstpreset");
     const refs: Record<string, { folderAbs?: string; extends?: string }> = {
-      "@st0/a": { folderAbs: join(root, "a"), extends: "@st0/b" },
-      "@st0/b": { folderAbs: join(root, "a"), extends: "@st0/a" },
+      "@k7-core/a": { folderAbs: join(root, "a"), extends: "@k7-core/b" },
+      "@k7-core/b": { folderAbs: join(root, "a"), extends: "@k7-core/a" },
     };
-    expect(moduleBaseChoices(refs["@st0/a"], refs)).toEqual(["one"]);
+    expect(moduleBaseChoices(refs["@k7-core/a"], refs)).toEqual(["one"]);
   });
 });

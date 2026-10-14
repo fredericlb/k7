@@ -5,7 +5,7 @@ A module ref carries its level as an `@` prefix:
 | ref | where the module is | who edits it |
 |---|---|---|
 | `@engine/nam` | **nowhere** — a scanned plugin, synthesised from the machine's scan cache | nobody; it has no file |
-| `@st0/audio/delay/tape-delay` | the origin's library called `st0`, at `st0/modules` under `librariesHome()` — every library is a level of its own name (`@drums/…`) | st0's Libraries tab, by an admin, from any project |
+| `@k7-core/audio/delay/tape-delay` | the origin's library called `k7-core`, at `k7-core/modules` under `librariesHome()` — every library is a level of its own name (`@drums/…`) | k7's Libraries tab, by an admin, from any project |
 | `@workspace/audio/reverb` | the workspace's `_modules/`, shared by every project beside it | the médiathèque |
 
 ## A library is a level, named by the origin's list
@@ -14,19 +14,19 @@ Each of the origin's libraries is read at `libraryRoot(<name>)` — the file hub
 or, for an admin's account, its own clone of that library — and its `modules/` is the level `@<name>`.
 `moduleNamespaceOf`'s test is structural: the library a root sits in, by path, else `workspace`.
 `engine`, `workspace` and `meta` cannot name a library, so no library collides with a fixed level,
-and the origin's first library is `st0` — the level every
+and the origin's first library is `k7-core` — the level every
 ref written before libraries had names uses. See [sharedFolders.md](sharedFolders.md).
 
-## `@st0` names a LIBRARY of modules, and the cache folder is called `mediatek`
+## `@k7-core` names a LIBRARY of modules, and the cache folder is called `mediatek`
 
 The level's name follows the folder of modules rather than the path on the origin: the
-médiathèque is served by st0's backend under `/media`, and the level is `@st0` all the same.
+médiathèque is served by k7's backend under `/media`, and the level is `@k7-core` all the same.
 A level is written into user files, so renaming one means rewriting every chain in every
 repository on every machine at once, and the failure signature is a `?` on a graph node and
 nothing else. That is worth paying to stop a word that appears nowhere; it is not worth paying
 to chase a URL.
 
-> **`@st0` is not the app `apps/st0`.** Nothing resolves through an app either way. The level
+> **`@k7-core` is not the app `apps/k7`.** Nothing resolves through an app either way. The level
 > names a folder of modules, and that folder is what the name follows.
 
 `<state>/mediatek` is a **cache path** on one machine, not a name anybody writes in a file —
@@ -35,9 +35,9 @@ machine in exchange for nothing. `$STUDIO_MEDIATEK` and the `@studio/mediatek` p
 name for the same reason: the médiathèque is what the thing is called, whatever serves
 it.
 
-### `@mediatek/…` resolves to nothing
+### `@mediatek/…` and `@st0/…` resolve to nothing
 
-`@mediatek/…` resolves to nothing, deliberately: a chain step naming an unknown module draws
+Both old spellings of the default library resolve to nothing, deliberately: a chain step naming an unknown module draws
 its name with a `?` on the graph, and an `extends:` that resolves to nothing is reported by
 `libraryModuleIssues`. Neither is silent — which is the bar a rename in this repo has to clear
 (`docs/rename-test-plan.md`).
@@ -48,13 +48,13 @@ npx tsx packages/song/scripts/migrateNamespace.ts <state>/workspace/<you>/<works
 npx tsx packages/song/scripts/migrateNamespace.ts <state>/mediatek --write
 ```
 
-That script is a **text replace** on `@mediatek/`, where `migrateDocFields.ts` beside it goes
+That script is a **text replace** on `@mediatek/` and `@st0/` (and the `st0:` key of a `_library-pins.yaml`), where `migrateDocFields.ts` beside it goes
 through the yaml Document API. The difference is what is being changed: a doc field is a
 *structure*, and rewriting the document is what preserves everything around it — but a namespace
 appears in mapping KEYS (a chain step is one), in scalar values, inside flow sequences, and in
 the comment at the top of a panel. Reserialising to catch all four is exactly what `formatChains`
 does, and it emits a canonical document, which would eat every comment in the file. Replacing one
-unambiguous token touches nothing else: there is no other thing in this repo spelled `@mediatek`.
+unambiguous token touches nothing else: there is no other thing in this repo spelled `@mediatek` or `@st0`.
 
 ## The level comes from the LOCATION
 
@@ -111,7 +111,7 @@ To change a module you do not own, you make one at YOUR level that `extends` it:
 
 ```yaml
 # _modules/audio/my-nam/module.yaml   (@workspace)
-extends: "@st0/audio/amp/nam"
+extends: "@k7-core/audio/amp/nam"
 params:
   Gain: 0.7
 ```
@@ -130,12 +130,12 @@ carry no `ui.yaml` — `writeUiFile` refuses it, in as many words:
 so there is no folder to draw it in
 ```
 
-The answer is a `@st0` module that extends it and holds the panel. The médiathèque
+The answer is a `@k7-core` module that extends it and holds the panel. The médiathèque
 is the editable catalogue, so the face is drawn once, there, for every song that reaches
 for the plugin — rather than copied into each project that plays it.
 
 Contrast that with [moduleFork.md](moduleFork.md)'s `module own <ref>`, which gives an `@engine`
-ref a folder of its OWN rather than a `@st0` module that extends it — the right answer when what
+ref a folder of its OWN rather than a `@k7-core` module that extends it — the right answer when what
 you want is a panel and presets FOR YOU, not a face the whole account reads.
 
 ## Giving the WHOLE scan a face
@@ -156,7 +156,7 @@ no slug.
   identity, so the module passes its input through unchanged; and routing is the graph's job anyway.
 - **Text** — a note that touches no sound; a note here is an `@meta/doc` node.
 - **Insert** — a hardware send and return, whose device is state a module cannot set.
-- **Freeze Point** — a marker for Tracktion's freeze, which st0 does not use: any module freezes
+- **Freeze Point** — a marker for Tracktion's freeze, which k7 does not use: any module freezes
   with `frozen:` (`packages/song/src/autoFreeze.ts`).
 - **Level Meter** — measures what nothing reads; the engine meters every track and the master itself.
 - **Aux Send**, **Aux Return** — these DO carry audio, over a bus number kept as state and so always

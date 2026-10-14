@@ -1,8 +1,8 @@
-// chainSource.ts — the third session source: a chain of st0's library, played on st0's bench and
-// heard HERE. st0 (in an iframe) opens the rig; k7 finds the engine holding it, subscribes to its
+// chainSource.ts — the third session source: a chain of k7's library, played on k7's bench and
+// heard HERE. The editor (in an iframe) opens the rig; the recorder finds the engine holding it, subscribes to its
 // master broadcast and turns that into the MediaStream the recorder takes — ../docs/chainSource.md.
 //
-// What reads wrong: k7 sends the engine no project, only the subscription. It is a second window on
+// What reads wrong: the recorder sends the engine no project, only the subscription. It is a second window on
 // the BENCH's session, which runs beside the person's song rather than replacing it.
 
 import { EngineClient } from "@studio/engine-browser";
@@ -53,17 +53,12 @@ export async function listLiveChains(): Promise<LiveChain[]> {
   return (await readJson<{ chains: LiveChain[] }>(res, "live-chains")).chains;
 }
 
-/** Where st0 opens the bench seeded with `ref` — what the iframe shows. */
+/** Where k7 opens the bench seeded with `ref` — what the iframe shows. */
 export function benchUrl(ref: string): string {
-  return launchUrl(
-    window.location.origin,
-    BENCH_REPO,
-    benchProject(ref),
-    "st0",
-  );
+  return launchUrl(window.location.origin, BENCH_REPO, benchProject(ref), "k7");
 }
 
-/** The claim st0 takes on that address, which is how its engine is found. */
+/** The claim k7 takes on that address, which is how its engine is found. */
 export function benchClaim(ref: string): string {
   return `${BENCH_REPO}/${benchProject(ref)}`;
 }
@@ -111,7 +106,7 @@ const POLL_MS = 1500;
 // Long enough for a first bench, which mounts the library before anything plays.
 const WAIT_MS = 120_000;
 
-/** Listen to the bench st0 opens on `ref`, as `email`, reporting each step through `onPhase`. */
+/** Listen to the bench k7 opens on `ref`, as `email`, reporting each step through `onPhase`. */
 export function openChainSource(
   ref: string,
   email: string,

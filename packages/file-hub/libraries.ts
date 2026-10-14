@@ -2,7 +2,7 @@
 // and one FOLDER per library under `<dataRoot>/libraries/<name>`: its frozen versions `1/`, `2/`…
 // and the `draft/` only admins write. A listed library missing on disk is copied from the seed
 // (`$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…`) as its version 1, or made empty.
-// Its edits reach other replicas through st0fs (libraryRelay.ts). See docs/fileHub.md and
+// Its edits reach other replicas through k7fs (libraryRelay.ts). See docs/fileHub.md and
 // ../../docs/library-versions-plan.md.
 
 import {
@@ -199,7 +199,7 @@ export class LibraryStore {
     const requires = opts.requires ?? this.versions(name).at(-1)?.requires ?? 1;
     if (!Number.isInteger(requires) || requires < 1 || requires > LIBRARY_LEVEL)
       return {
-        error: `'${name}' cannot require level ${requires}: this st0 runs level ${LIBRARY_LEVEL}`,
+        error: `'${name}' cannot require level ${requires}: this k7 runs level ${LIBRARY_LEVEL}`,
       };
     const version = Math.max(0, ...versionNumbers(at)) + 1;
     const manifest: LibraryManifest = { name, version, requires };

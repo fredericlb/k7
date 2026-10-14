@@ -4,7 +4,7 @@
   "files": {
     "includes": [
       "!commons",
-      "!st0-library",
+      "!k7-core",
       "!**/node_modules",
       "!**/.tmp-*",
       "!**/dist",
@@ -16,7 +16,7 @@
       "!**/*.css",
       "!**/*.json",
       "!**/*.jsonc",
-      "!engine/st0-engine"
+      "!engine/k7-runtime"
     ]
   },
   "linter": {

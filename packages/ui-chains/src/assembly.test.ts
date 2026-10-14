@@ -9,7 +9,7 @@ import { jackRef } from "./cables";
 import { assemblyId, buildGraph, type GraphNode, layout } from "./graph";
 
 const BOX = {
-  uses: "@st0/turntable",
+  uses: "@k7-core/turntable",
   label: "Turntable",
   members: ["trimA", "fadeA"],
   inputs: [{ name: "in", type: "audio" as const, node: "trimA" }],

@@ -34,13 +34,13 @@ describe("forkIntoAccount", () => {
     );
     writeFileSync(
       join(project, "graph.yaml"),
-      'modules:\n  verb: { extends: "@st0/audio/reverb" }\n',
+      'modules:\n  verb: { extends: "@k7-core/audio/reverb" }\n',
     );
   });
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
   it("makes @account/<path> extend the library module, and points the project at it", () => {
-    const r = forkIntoAccount(project, "@st0/audio/reverb");
+    const r = forkIntoAccount(project, "@k7-core/audio/reverb");
     expect(r).toMatchObject({ ref: "@account/audio/reverb", created: true });
     expect(readFileSync(join(project, "graph.yaml"), "utf8")).toContain(
       '"@account/audio/reverb"',
@@ -59,12 +59,17 @@ describe("forkIntoAccount", () => {
   });
 
   it("keeps what an earlier fork holds, and refuses what is no library module", () => {
-    forkIntoAccount(project, "@st0/audio/reverb");
+    forkIntoAccount(project, "@k7-core/audio/reverb");
     const file = join(accountLibraryHome(), "modules/audio/reverb/module.yaml");
-    writeFileSync(file, 'extends: "@st0/audio/reverb"\nparams: { Mix: 0.2 }\n');
-    expect(forkIntoAccount(project, "@st0/audio/reverb").created).toBe(false);
+    writeFileSync(
+      file,
+      'extends: "@k7-core/audio/reverb"\nparams: { Mix: 0.2 }\n',
+    );
+    expect(forkIntoAccount(project, "@k7-core/audio/reverb").created).toBe(
+      false,
+    );
     expect(readFileSync(file, "utf8")).toContain("Mix: 0.2");
-    expect(() => forkIntoAccount(project, "@st0/audio/nothing")).toThrow(
+    expect(() => forkIntoAccount(project, "@k7-core/audio/nothing")).toThrow(
       /no such module/,
     );
     expect(() => forkIntoAccount(project, "@account/audio/reverb")).toThrow(

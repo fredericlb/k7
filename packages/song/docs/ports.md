@@ -41,7 +41,7 @@ modules:
 
 `#` because the other two separators are spoken for: `:` joins a module to its node and `/`
 joins a namespace to a category to a name. A port is a third axis, so it needed a third
-character — `@st0/audio/crossfade:live#b` has to stay readable as three separate facts.
+character — `@k7-core/audio/crossfade:live#b` has to stay readable as three separate facts.
 Only the **last** `#` is the port, so nothing else in the ref is disturbed.
 
 A bare destination feeds the first input, which is what every chains file written so far says.
@@ -184,7 +184,7 @@ only for a compressor's trigger. And `sidechainFrom` names a **track**:
 a step's `in` names nodes (a chain, or the track feeding one), and the engine routes from a lane,
 so the compiler resolves each down to the lane it compiles onto.
 
-`engine/st0-engine/docs/sidechain.md` is the engine end of this — the buffer layout, why the wiring
+`engine/k7-runtime/docs/sidechain.md` is the engine end of this — the buffer layout, why the wiring
 gets a pass of its own, and why the source had to go into the plugin's diff identity.
 
 ### A deck feeding a port is still heard on its own

@@ -64,7 +64,7 @@ export type AssemblyTemplate = z.infer<typeof AssemblyTemplateSchema>;
 /** `assemblies/<name>.yaml` — which of THIS project's nodes are that box. */
 export const AssemblyFileSchema = z
   .object({
-    // The template, by the ref a chain template is named by: `@st0/turntable`.
+    // The template, by the ref a chain template is named by: `@k7-core/turntable`.
     uses: z.string().min(1),
     // The template's member name -> this project's node name; the indirection is what lets a
     // migration fold nodes that already exist without renaming one (docs/assemblies.md).

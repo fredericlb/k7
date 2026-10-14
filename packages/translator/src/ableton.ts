@@ -1,4 +1,4 @@
-// ableton.ts — the Ableton Live (.als) -> st0 song mapper: gunzip in memory, parse the
+// ableton.ts — the Ableton Live (.als) -> k7 song mapper: gunzip in memory, parse the
 // LiveSet, project it onto the neutral shape in model.ts. NO disk I/O — a .als does not
 // embed its audio, so sample bytes come from the caller's `readSample`. Deliberately lossy
 // where Live has no portable form (native devices, sends, Session view). See docs/import.md.
@@ -398,7 +398,7 @@ function mapAudioClip(clip: any, ctx: MapCtx): ClipOut | null {
       ]),
     };
 
-  // The in-point is a beat on the CLIP's warp grid, whose second 0 need not be beat 0; st0 counts beats into the FILE.
+  // The in-point is a beat on the CLIP's warp grid, whose second 0 need not be beat 0; k7 counts beats into the FILE.
   const at = materialStart(clip);
   const offset =
     markers.length >= 2

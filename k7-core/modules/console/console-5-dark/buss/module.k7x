@@ -1,0 +1,2 @@
+// buss — Console 5 Dark's buss half: Console 5's own, the darkness being the channel's.
+extends("@k7-core/console/console-5/buss")

@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The seam a stem separation runs through, and the id that keys a job by its work. The separation itself — the ONNX model, ffmpeg, the windows — runs in the native supervisor on an engine's machine (engine/st0-supervisor); this package is what a server hands it through. Consumed as source.",
+  "description": "The seam a stem separation runs through, and the id that keys a job by its work. The separation itself — the ONNX model, ffmpeg, the windows — runs in the native supervisor on an engine's machine (engine/k7-supervisor); this package is what a server hands it through. Consumed as source.",
   "exports": {
     "./separateJobs": "./src/separateJobs.ts"
   },

@@ -34,7 +34,7 @@ const NODES_DIR = "nodes";
 /** How a chain is kept on disk: one file (the format), or the folder an unmigrated clone still holds. */
 export type ChainLayout = "file" | "folder";
 
-/** One chain of a library: its ref (`@st0/bass/di`), which library and path that is, and where it is. */
+/** One chain of a library: its ref (`@k7-core/bass/di`), which library and path that is, and where it is. */
 export interface LibraryChainDir {
   ref: string;
   library: string;

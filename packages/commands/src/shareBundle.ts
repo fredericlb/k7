@@ -158,7 +158,7 @@ export async function buildShareBundle(
 export interface ShareTarget {
   /** pl8's base URL — `mediatekBase()` on the machine that renders. */
   base: string;
-  /** The machine's `service:st0` bearer — `mediatekToken()`. */
+  /** The machine's `service:k7` bearer — `mediatekToken()`. */
   token: string;
   /** Whose share this is. A service token has no person of its own and must name one. */
   user: string;

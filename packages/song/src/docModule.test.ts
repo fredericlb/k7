@@ -15,7 +15,7 @@ let dir: string;
 
 /** A project whose chain runs `amp` and then a note wired off it. */
 function project(content = "watch the gain here"): string {
-  const p = join(dir, "song.st0");
+  const p = join(dir, "song.k7");
   mkdirSync(join(p, "nodes"), { recursive: true });
   writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
   writeFileSync(

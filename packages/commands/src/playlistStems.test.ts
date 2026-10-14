@@ -61,7 +61,7 @@ beforeEach(() => {
   // A project, because the chain is resolved through its module vocabulary.
   put(root, "song/project.yaml", "project:\n  name: t\n  tempo: 120\n");
   // …and the library holding the separator and a chain that names it.
-  put(librariesFixture(root), "modules/config.yaml", "namespace: st0\n");
+  put(librariesFixture(root), "modules/config.yaml", "namespace: k7-core\n");
   put(
     librariesFixture(root),
     "modules/audio/stemsplit/module.yaml",
@@ -80,7 +80,7 @@ beforeEach(() => {
   put(
     librariesFixture(root),
     "chains/stems/nodes/split.yaml",
-    'extends: "@st0/audio/stemsplit"\n',
+    'extends: "@k7-core/audio/stemsplit"\n',
   );
   // …and one that treats rather than separates, for the refusal below.
   put(
@@ -96,7 +96,7 @@ beforeEach(() => {
   put(
     librariesFixture(root),
     "chains/warm/nodes/hp.yaml",
-    'extends: "@st0/audio/eq"\n',
+    'extends: "@k7-core/audio/eq"\n',
   );
 });
 
@@ -119,7 +119,7 @@ describe("playlist stems", () => {
     setList("AC-DC/Back in Black/Hells Bells", "Nirvana/Nevermind/Lithium");
     song("AC-DC/Back in Black/Hells Bells");
     song("Nirvana/Nevermind/Lithium");
-    await runCommand("playlist stems ete @st0/stems", host(), "cli");
+    await runCommand("playlist stems ete @k7-core/stems", host(), "cli");
     expect(asked.map((a) => a.source)).toEqual([
       join(
         media,
@@ -143,7 +143,7 @@ describe("playlist stems", () => {
     setList("Nirvana/Nevermind/Lithium");
     song("Nirvana/Nevermind/Lithium");
     put(media, "songs/Nirvana/Nevermind/Lithium/stems/bass.wav", "done");
-    await runCommand("playlist stems ete @st0/stems", host(), "cli");
+    await runCommand("playlist stems ete @k7-core/stems", host(), "cli");
     expect(asked).toEqual([]);
     expect(logs.join(" ")).toMatch(/0 separated, 1 already done/);
   });
@@ -151,7 +151,7 @@ describe("playlist stems", () => {
   it("names a song this machine has not got, and goes on to the next", async () => {
     setList("Nobody/Nothing/Nowhere", "Nirvana/Nevermind/Lithium");
     song("Nirvana/Nevermind/Lithium");
-    await runCommand("playlist stems ete @st0/stems", host(), "cli");
+    await runCommand("playlist stems ete @k7-core/stems", host(), "cli");
     expect(asked).toHaveLength(1);
     expect(logs.join(" ")).toMatch(
       /Nobody\/Nothing\/Nowhere: not on this machine/,
@@ -161,7 +161,7 @@ describe("playlist stems", () => {
   it("names a folder that holds no audio rather than passing it on", async () => {
     setList("Nirvana/Nevermind/Lithium");
     put(media, "songs/Nirvana/Nevermind/Lithium/song.yaml", "title: Lithium\n");
-    await runCommand("playlist stems ete @st0/stems", host(), "cli");
+    await runCommand("playlist stems ete @k7-core/stems", host(), "cli");
     expect(asked).toEqual([]);
     expect(logs.join(" ")).toMatch(/no audio in its folder/);
   });
@@ -169,7 +169,7 @@ describe("playlist stems", () => {
   it("refuses a chain that TREATS rather than separates, before touching anything", async () => {
     setList("Nirvana/Nevermind/Lithium");
     song("Nirvana/Nevermind/Lithium");
-    await runCommand("playlist stems ete @st0/warm", host(), "cli");
+    await runCommand("playlist stems ete @k7-core/warm", host(), "cli");
     expect(refusals.join(" ")).toMatch(/does not separate/);
     expect(asked).toEqual([]);
   });
@@ -177,7 +177,7 @@ describe("playlist stems", () => {
   it("refuses when the host cannot run an offline step", async () => {
     setList("Nirvana/Nevermind/Lithium");
     song("Nirvana/Nevermind/Lithium");
-    await runCommand("playlist stems ete @st0/stems", host(null), "cli");
+    await runCommand("playlist stems ete @k7-core/stems", host(null), "cli");
     expect(refusals.join(" ")).toMatch(/cannot run an offline step/);
   });
 
@@ -187,7 +187,7 @@ describe("playlist stems", () => {
     song("Nirvana/Nevermind/Lithium");
     await runCommand(
       "playlist stems ete",
-      host(runColdStep, "@st0/stems"),
+      host(runColdStep, "@k7-core/stems"),
       "cli",
     );
     expect(asked).toHaveLength(1);
@@ -199,8 +199,8 @@ describe("playlist stems", () => {
     setList("Nirvana/Nevermind/Lithium");
     song("Nirvana/Nevermind/Lithium");
     await runCommand(
-      "playlist stems ete @st0/warm",
-      host(runColdStep, "@st0/stems"),
+      "playlist stems ete @k7-core/warm",
+      host(runColdStep, "@k7-core/stems"),
       "cli",
     );
     expect(refusals.join(" ")).toMatch(/does not separate/);
@@ -214,26 +214,30 @@ describe("playlist stems", () => {
     await runCommand("playlist stems", host(), "cli");
     expect(refusals.join(" ")).toMatch(/usage: playlist stems/);
     setList();
-    await runCommand("playlist stems ete @st0/stems", host(), "cli");
+    await runCommand("playlist stems ete @k7-core/stems", host(), "cli");
     expect(refusals.join(" ")).toMatch(/names no song/);
   });
 });
 
-// Refusals only, and deliberately: succeeding writes the real `~/.st0/preferences.yaml`.
+// Refusals only, and deliberately: succeeding writes the real `~/.k7/preferences.yaml`.
 describe("system stems", () => {
   it("refuses a chain that does not separate, and says what it wants", async () => {
-    await runCommand("system stems @st0/warm", host(), "cli");
+    await runCommand("system stems @k7-core/warm", host(), "cli");
     expect(refusals.join(" ")).toMatch(/does not separate/);
   });
 
   it("refuses a chain that is not there, in the resolver's own words", async () => {
-    await runCommand("system stems @st0/nope", host(), "cli");
+    await runCommand("system stems @k7-core/nope", host(), "cli");
     expect(refusals.join(" ")).toMatch(/no chain/);
   });
 
   it("with no ref, says what is set rather than assuming", async () => {
-    await runCommand("system stems", host(runColdStep, "@st0/stems"), "cli");
-    expect(refusals.join(" ")).toMatch(/currently: @st0\/stems/);
+    await runCommand(
+      "system stems",
+      host(runColdStep, "@k7-core/stems"),
+      "cli",
+    );
+    expect(refusals.join(" ")).toMatch(/currently: @k7-core\/stems/);
     refusals.length = 0;
     await runCommand("system stems", host(), "cli");
     expect(refusals.join(" ")).toMatch(/nothing is set/);

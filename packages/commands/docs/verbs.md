@@ -79,7 +79,7 @@ success.
   `resolveEvent`), `parseDuration` for the second. A length of 0 REMOVES the fade rather than
   writing a zero.
 - `project add|remove <at> <length>` — `at` is a position, `length` a duration. The caret
-  pre-answers `at` (st0's `commandFill`'s `CARET_ANSWERS`), so from the timeline this reads
+  pre-answers `at` (k7's `commandFill`'s `CARET_ANSWERS`), so from the timeline this reads
   "insert two bars here"; from the CLI it is a whole line, which is what keeps it usable from
   both. What moves is everything positioned in song time and nothing else — see
   `packages/song/docs/insertTime.md` for the inventory and for the rule about a straddling
@@ -235,11 +235,11 @@ The four task verbs write `TODOS.md` at the WORKSPACE root (`h.repoDir`), never 
 and refuse with no workspace rather than fall back — the playlist verbs' rule, for the same reason:
 the list belongs to the workspace. A task is named by its number in the list, as the panel and a
 reader see it, and `task mark` stores the project beside the timecode, one file serving every song
-(`verbs/tasks.ts`; the format is `apps/st0/frontend/docs/tasks.md`'s).
+(`verbs/tasks.ts`; the format is `apps/k7/frontend/docs/tasks.md`'s).
 
 ## `track transcribe` — whisper writes the lane's text
 
-The verb is the transcription plugin's (`packages/st0-plugins/src/transcription`) — this section
+The verb is the transcription plugin's (`packages/k7-plugins/src/transcription`) — this section
 says what it does, not who ships it; the plugin folder is where its machine lives.
 
 `track transcribe <track_in> <track_out>` listens to the video the PICTURE lane `<track_in>` places
@@ -760,7 +760,7 @@ library module's preset shelf, since presets are keyed by what a node extends
 `node new @<library>/<category>/<name> [<node-name>] [x,y]` — a WHOLE ref in the target's place —
 makes the node extend that ref as it stands, with no workspace module in between
 (`packages/song/src/nodeOnRef.ts`). It is for a module that is already right as it is, the
-library's `st0-rack` being the case that needs it: the rack builder's kit is a node of it, and a
+library's `k7-rack` being the case that needs it: the rack builder's kit is a node of it, and a
 local shim extending it would be a second file standing for the same sampler. The ref must resolve.
 
 **io is the one category where the node IS the module.** `node new io/IN <name> [x,y]` writes

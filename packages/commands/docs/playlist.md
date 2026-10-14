@@ -6,7 +6,7 @@ open. They are the only verbs in the catalogue that work **without a project** �
 `playlist stems`, which needs one to resolve its chain and says so.
 
 Where a playlist lives and what shape it has is `packages/song/docs/playlists.md`; what the screen
-does with one is `apps/st0/frontend/docs/playlists.md`.
+does with one is `apps/k7/frontend/docs/playlists.md`.
 
 ## Where a name lands — `playlistFile`
 
@@ -95,12 +95,12 @@ panel's button — and asking each of them would be asking the same question thr
 module separates and which model it wants is a fact about the library and about this machine's
 `<state>/models`, not about the set list in front of you.
 
-st0's settings page sets the same answer with no command (*Separation chains*, apps/st0/frontend/docs/settings.md),
+k7's settings page sets the same answer with no command (*Separation chains*, apps/k7/frontend/docs/settings.md),
 choosing only from the library's cold chains; this verb is the command-bar road to it.
 
 It is **checked while it is set**, which is the cheap moment: a chain that does not separate is
 refused there rather than thirty songs into a set list. A machine with no project open stores it
-unchecked and says so, because a `@st0/…` ref has nothing to resolve against without one — not a
+unchecked and says so, because a `@k7-core/…` ref has nothing to resolve against without one — not a
 failure, since `system` verbs are meant to work from a shell that has opened nothing. `""` on the
 line, quotes and all, is how you say "separate nothing" without a second verb.
 
@@ -116,7 +116,7 @@ here, because the failure it prevents is silent: four stems collected, one of th
 instrumental, and a song that plays with its voice still in it.
 
 `system stems` is resolved against the **open project's** module vocabulary, like every other cold step: that is
-where a `@st0/…` ref becomes a module and a model becomes a path on this machine
+where a `@k7-core/…` ref becomes a module and a model becomes a path on this machine
 (`packages/audio-passes/docs/processChain.md`). This is the one playlist verb that needs a project,
 and it says so rather than throwing.
 

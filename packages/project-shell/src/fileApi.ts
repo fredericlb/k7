@@ -1,6 +1,6 @@
 // fileApi.ts — the transport to the file service behind pl8's file hub: where it is, the headers
 // that identify the caller, and the two verbs everything else is built from. Header-authenticated
-// by the hub's ticket, never by the cookie — see apps/st0/AGENTS.md for the three servers a
+// by the hub's ticket, never by the cookie — see apps/k7/AGENTS.md for the three servers a
 // project app talks to and which is which.
 
 import {
@@ -29,7 +29,7 @@ export interface FileCfg {
 /**
  * Add up main-thread work by name, for a host that watches for stalls. Injected rather than
  * imported: this package draws no screen and must not reach into an app's instruments. Defaults to
- * doing nothing, so nobody has to set it — see apps/st0/frontend/docs/shell.md.
+ * doing nothing, so nobody has to set it — see apps/k7/frontend/docs/shell.md.
  */
 export type Tally = (name: string, ms: number, bytes?: number) => void;
 let tally: Tally = () => {};

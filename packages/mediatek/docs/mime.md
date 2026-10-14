@@ -9,7 +9,7 @@ The library is served by **two HTTP shells** over one library:
 
 | shell | serves |
 |---|---|
-| `apps/st0/backend/src/media/routes/library.ts` | the hosted volume |
+| `apps/k7/backend/src/media/routes/library.ts` | the hosted volume |
 | `packages/file-service/src/routes/mediatek.ts` | this machine's cache |
 
 A table per shell drifts **in both directions** — neither ends up a superset of the other —
@@ -53,7 +53,7 @@ rather than being told something false about it.
 
 Each shell has one test asserting its 400 body equals the shared `FAMILY_ERROR`. A test
 mounting both routers and diffing them cannot exist — `@studio/file-service` is a bundled
-program and st0's backend does not depend on it — so the shared constant is the contract and
+program and k7's backend does not depend on it — so the shared constant is the contract and
 those two tests are its witnesses.
 
 ## What is deliberately NOT shared

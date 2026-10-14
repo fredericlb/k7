@@ -14,11 +14,11 @@ songbook that already reads tablature needs the player and the Guitar Pro files 
 needs engraving-grade output. MPL-2.0 is fine for a dependency used as published.
 
 Its Vite plugin is the separate `@coderline/alphatab-vite` package, registered by the app that
-bundles this one — st0 (`apps/st0/frontend/vite.config.ts`): the copy inside `@coderline/alphatab`
+bundles this one — k7 (`apps/k7/frontend/vite.config.ts`): the copy inside `@coderline/alphatab`
 1.8 re-exports a file the package does not ship.
 
 That plugin, in 1.8.4, writes its workers' environment import with the app's base
-(`import "/@vite/env"` for an app served at the root, which st0 is), matching the unprefixed form
+(`import "/@vite/env"` for an app served at the root, which k7 is), matching the unprefixed form
 the dev server's import analysis resolves — the form Vite writes for its own module workers. An app
 based under a path would need that base stripped back off in dev.
 
@@ -65,6 +65,6 @@ paper is a job the export does not take on.
 ## Where its files live
 
 The plugin copies the Bravura font and the SONiVOX soundfont into the build, and the viewer asks
-for them under the app's base (`/font/`, `/soundfont/` on st0's origin), which st0's backend serves
+for them under the app's base (`/font/`, `/soundfont/` on k7's origin), which k7's backend serves
 like any other static file. The soundfont is not in the PWA's precache list, so playback needs the network the
 first time a score is opened.

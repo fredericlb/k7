@@ -50,7 +50,7 @@ export function coldStepOf(step: string, m: LoadedModule): ColdStep {
   if (!m.onnx)
     throw new Error(
       `step '${step}' wants the model '${authored}', which is not on this machine — put it in ` +
-        `~/.st0/models (or the module's own assets/)`,
+        `~/.k7/models (or the module's own assets/)`,
     );
   return { step, model: String(m.onnx), outputs: outputsOf(step, m) };
 }

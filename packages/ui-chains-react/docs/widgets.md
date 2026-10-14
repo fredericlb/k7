@@ -33,7 +33,7 @@ subscribes to on its own.
 That lit channel is a STORE and not a prop, for the reason the plugin params feed is one: it
 changes as fast as the playhead moves, and a prop would re-render every node in the graph on each
 frame. The pad holds its own subscription and reads a BOOLEAN, so React's own `Object.is` ends
-the render there. The graph does not know how the answer is arrived at — st0 derives it from the
+the render there. The graph does not know how the answer is arrived at — k7 derives it from the
 arrangement and the playhead, which is why it lights for a SEQUENCE and not for live MIDI or a
 strudel lane, whose notes the browser never sees (`packages/song/docs/racks.md`).
 
@@ -64,7 +64,7 @@ an escape hatch — a shader node with nothing picked passes its picture through
 ## The value chain, and the identity trick under it
 
 The value a widget shows is **override, else engine, else authored, else nothing**
-(`apps/st0/frontend/docs/chainsGraph.md`). An override is optimistic: it outranks the incoming
+(`apps/k7/frontend/docs/chainsGraph.md`). An override is optimistic: it outranks the incoming
 frame until that frame catches up.
 
 `dropChannel` returns the **same object** when it dropped nothing. A fresh one is never
@@ -215,7 +215,7 @@ would be a lie the next frame corrects.
 ## The MIX knob, `@mix`
 
 A knob bound to `@mix` is the ENGINE's dry/wet around the module, the same on every effect
-(`engine/st0-engine/docs/mix.md`). It is an `@` bind that is set LIVE: `widgetTarget` makes it a
+(`engine/k7-runtime/docs/mix.md`). It is an `@` bind that is set LIVE: `widgetTarget` makes it a
 plugin target, so a drag reaches the engine at once through `set-plugin-param` and the release
 commits `node param <node> "@mix" <v>`, which writes the module's `mix:`. Every other `@` bind is
 a module field, heard only at the next build. It reads as a percentage like the crossfade knob

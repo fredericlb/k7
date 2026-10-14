@@ -1,6 +1,6 @@
 // presets.ts — a NODE's presets on disk: listed from every preset tree it can see, applied onto
 // the node's own file, saved and updated from what the node resolves to. Keyed by the module the
-// node `extends`, so every use of `@st0/instruments/synth` offers the same shelf, wherever kept.
+// node `extends`, so every use of `@k7-core/instruments/synth` offers the same shelf, wherever kept.
 // One thing a reader gets wrong: the scope is WHERE a preset lives, the path is WHICH module it
 // is for — a workspace may keep presets for a library module. See packages/song/docs/userPresets.md.
 

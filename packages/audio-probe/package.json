@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Measuring decoded audio, and nothing else: where a take really starts and stops (trim gate), and the envelope + beat grid a surface draws over a region. No node:, no filesystem, no process \u2014 which is why a BROWSER may have it. Split out of @studio/commands so st0's clip panel stops pulling a 13k-line node package in for 69 lines of arithmetic. Consumed as source.",
+  "description": "Measuring decoded audio, and nothing else: where a take really starts and stops (trim gate), and the envelope + beat grid a surface draws over a region. No node:, no filesystem, no process \u2014 which is why a BROWSER may have it. Split out of @studio/commands so k7's clip panel stops pulling a 13k-line node package in for 69 lines of arithmetic. Consumed as source.",
   "exports": {
     "./trim-gate": "./src/trimGate.ts",
     "./waveform": "./src/waveform.ts",

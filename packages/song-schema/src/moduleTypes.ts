@@ -282,7 +282,7 @@ export function completionOrder<T>(
   return [...favorite, ...listed];
 }
 
-/** The intrinsic a module's engine-side dry/wet is bound and sent by — engine/st0-engine/docs/mix.md. */
+/** The intrinsic a module's engine-side dry/wet is bound and sent by — engine/k7-runtime/docs/mix.md. */
 export const MIX_PARAM = "@mix";
 
 /** …and the two LEVELS on the same engine stage, in dB: into an audio module, and out of anything with audio out. */
@@ -368,7 +368,7 @@ export function engineModuleOf(p: {
 /** The params whose value is a FILE the plugin loads, not a number — three tiers need the same list, docs/moduleTypes.md. */
 export const FILE_PARAMS = ["model", "onnx"] as const;
 
-/** An amp model is a NAM file or an RTNeural JSON (AIDA-X, Proteus) — engine/st0-engine/docs/namPlugin.md. */
+/** An amp model is a NAM file or an RTNeural JSON (AIDA-X, Proteus) — engine/k7-runtime/docs/namPlugin.md. */
 const PARAM_EXTS: Record<string, readonly string[]> = {
   model: [".nam", ".json"],
 };
@@ -444,7 +444,7 @@ export const isFileParam = (name: string): name is FileParam =>
 /** `plugin: { type: offline }` — no engine plugin, its outputs produced onto disk by a pass first (docs/coldModules.md). */
 export const OFFLINE_TYPE = "offline";
 
-/** `plugin: { type: not_supported }` — the DELIBERATE marker: st0 knows this plugin and knows it cannot load it. */
+/** `plugin: { type: not_supported }` — the DELIBERATE marker: k7 knows this plugin and knows it cannot load it. */
 export const NOT_SUPPORTED_TYPE = "not_supported";
 
 // --- the doc module (see docs/docModules.md) -------------------------------------
@@ -458,7 +458,7 @@ export const isDocRef = (ref: unknown): boolean => ref === DOC_REF;
 
 // --- the not-supported module (see packages/song/docs/notSupported.md) -----------
 
-/** `@meta/not-supported` — what a node stands on when the plugin it WAS is one st0 cannot load. */
+/** `@meta/not-supported` — what a node stands on when the plugin it WAS is one k7 cannot load. */
 export const NOT_SUPPORTED_REF = `${META_NS}/not-supported`;
 
 /** Its category: not a type folder, so nothing can be authored under it — the module has no folder. */
@@ -511,8 +511,8 @@ export const FIXED_NAMESPACES = ["engine", "workspace"] as const;
 /** A module's level: `engine`, `workspace`, or the NAME of a library the account has cloned. */
 export type ModuleNamespace = string;
 
-/** The library an account's first repository is named, so every `@st0/…` written before libraries had names still resolves. */
-export const DEFAULT_LIBRARY = "st0";
+/** The library an account's first repository is named, so every `@k7-core/…` written before libraries had names still resolves. */
+export const DEFAULT_LIBRARY = "k7-core";
 
 /** What a library may be called: a ref segment and a folder name at once, lowercase so no filesystem can disagree. */
 export const LIBRARY_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
@@ -543,12 +543,15 @@ export function libraryRefParts(
     : null;
 }
 
-/** The ref a library gives the thing at `rest` inside it: `@st0/audio/reverb`. */
+/** The ref a library gives the thing at `rest` inside it: `@k7-core/audio/reverb`. */
 export const libraryRef = (library: string, rest: string): string =>
   `@${library}/${rest}`;
 
 /** The other name this level answers to on disk — a NAME and not an accepted spelling, since nothing resolves it (docs/moduleTypes.md). */
 export const LEGACY_MEDIATEK_NS = "mediatek";
+
+/** The default library's name before it was `k7-core` — a NAME for the migration script alone, since nothing resolves it. */
+export const LEGACY_DEFAULT_LIBRARY = "st0";
 
 /** `@meta`'s old spelling — a NAME for the migration script alone, since nothing resolves it (docs/moduleTypes.md). */
 export const LEGACY_META_NS = "studio";

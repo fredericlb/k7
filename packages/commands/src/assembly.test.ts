@@ -35,7 +35,7 @@ const graph = () => readFileSync(join(dir, "graph.yaml"), "utf8");
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "asm-verb-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
   writeFileSync(join(dir, "graph.yaml"), "modules:\n  MIX: [ OUT ]\n", "utf8");
@@ -55,7 +55,7 @@ beforeEach(() => {
   for (const n of ["deck", "fade"])
     writeFileSync(
       join(lib, "nodes", `${n}.yaml`),
-      `extends: "@st0/audio/utility/${n}"\n`,
+      `extends: "@k7-core/audio/utility/${n}"\n`,
       "utf8",
     );
   logs.length = 0;
@@ -64,11 +64,15 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("assembly new", () => {
   it("copies the members in under the box's name, and their wiring with them", async () => {
-    await runCommand("assembly new @st0/turntable turntableA", host(), "cli");
+    await runCommand(
+      "assembly new @k7-core/turntable turntableA",
+      host(),
+      "cli",
+    );
     expect(existsSync(join(dir, "nodes", "turntableA_deck.yaml"))).toBe(true);
     expect(
       readFileSync(join(dir, "nodes", "turntableA_fade.yaml"), "utf8"),
-    ).toContain("@st0/audio/utility/fade");
+    ).toContain("@k7-core/audio/utility/fade");
     const g = graph();
     expect(g).toContain("turntableA_deck: [ turntableA_fade ]");
     // A destination the template does not own is copied verbatim — that is where its signal leaves to.
@@ -79,11 +83,15 @@ describe("assembly new", () => {
   });
 
   it("writes the record, mapping the template's names to this project's", async () => {
-    await runCommand("assembly new @st0/turntable turntableA", host(), "cli");
+    await runCommand(
+      "assembly new @k7-core/turntable turntableA",
+      host(),
+      "cli",
+    );
     const a = parseAssembly(
       readFileSync(join(dir, "assemblies", "turntableA.yaml"), "utf8"),
     ).value;
-    expect(a?.uses).toBe("@st0/turntable");
+    expect(a?.uses).toBe("@k7-core/turntable");
     expect(a?.members).toEqual({
       deck: "turntableA_deck",
       fade: "turntableA_fade",
@@ -92,7 +100,7 @@ describe("assembly new", () => {
 
   it("pins the box under its own name when the click sent one", async () => {
     await runCommand(
-      "assembly new @st0/turntable turntableA 120,40",
+      "assembly new @k7-core/turntable turntableA 120,40",
       host(),
       "cli",
     );
@@ -100,22 +108,34 @@ describe("assembly new", () => {
   });
 
   it("refuses a template no library holds, and writes nothing", async () => {
-    await runCommand("assembly new @st0/nope turntableA", host(), "cli");
-    expect(logs.join(" ")).toContain("no assembly template '@st0/nope'");
+    await runCommand("assembly new @k7-core/nope turntableA", host(), "cli");
+    expect(logs.join(" ")).toContain("no assembly template '@k7-core/nope'");
     expect(existsSync(join(dir, "assemblies"))).toBe(false);
   });
 
   it("refuses a second box of the same name", async () => {
-    await runCommand("assembly new @st0/turntable turntableA", host(), "cli");
+    await runCommand(
+      "assembly new @k7-core/turntable turntableA",
+      host(),
+      "cli",
+    );
     logs.length = 0;
-    await runCommand("assembly new @st0/turntable turntableA", host(), "cli");
+    await runCommand(
+      "assembly new @k7-core/turntable turntableA",
+      host(),
+      "cli",
+    );
     expect(logs.join(" ")).toContain("already exists");
   });
 });
 
 describe("graph move, on a box", () => {
   it("pins it under its own name, though it is no key of `modules:`", async () => {
-    await runCommand("assembly new @st0/turntable turntableA", host(), "cli");
+    await runCommand(
+      "assembly new @k7-core/turntable turntableA",
+      host(),
+      "cli",
+    );
     logs.length = 0;
     await runCommand("graph move turntableA 200 80", host(), "cli");
     expect(logs.join(" ")).toContain("turntableA: pinned at 200,80");
@@ -124,7 +144,7 @@ describe("graph move, on a box", () => {
 
   it("hands it back to the layout", async () => {
     await runCommand(
-      "assembly new @st0/turntable turntableA 10,10",
+      "assembly new @k7-core/turntable turntableA 10,10",
       host(),
       "cli",
     );
@@ -133,7 +153,11 @@ describe("graph move, on a box", () => {
   });
 
   it("still names a box this project has not got, and lists the ones it has", async () => {
-    await runCommand("assembly new @st0/turntable turntableA", host(), "cli");
+    await runCommand(
+      "assembly new @k7-core/turntable turntableA",
+      host(),
+      "cli",
+    );
     logs.length = 0;
     await runCommand("graph move turntableZ 1 1", host(), "cli");
     const said = logs.join(" ");
@@ -144,7 +168,11 @@ describe("graph move, on a box", () => {
 
 describe("assembly dissolve", () => {
   it("drops the record and leaves every node exactly as it was", async () => {
-    await runCommand("assembly new @st0/turntable turntableA", host(), "cli");
+    await runCommand(
+      "assembly new @k7-core/turntable turntableA",
+      host(),
+      "cli",
+    );
     const before = graph();
     logs.length = 0;
     await runCommand("assembly dissolve turntableA", host(), "cli");
@@ -156,7 +184,11 @@ describe("assembly dissolve", () => {
 
 describe("assembly delete", () => {
   it("takes the record AND every node it held", async () => {
-    await runCommand("assembly new @st0/turntable turntableA", host(), "cli");
+    await runCommand(
+      "assembly new @k7-core/turntable turntableA",
+      host(),
+      "cli",
+    );
     logs.length = 0;
     await runCommand("assembly delete turntableA", host(), "cli");
     expect(existsSync(join(dir, "assemblies", "turntableA.yaml"))).toBe(false);
@@ -173,7 +205,11 @@ describe("assembly delete", () => {
 
 describe("a node underneath a box", () => {
   it("takes its box's member entry with it when it is deleted", async () => {
-    await runCommand("assembly new @st0/turntable turntableA", host(), "cli");
+    await runCommand(
+      "assembly new @k7-core/turntable turntableA",
+      host(),
+      "cli",
+    );
     await runCommand("node delete turntableA_deck", host(), "cli");
     const a = parseAssembly(
       readFileSync(join(dir, "assemblies", "turntableA.yaml"), "utf8"),
@@ -182,7 +218,11 @@ describe("a node underneath a box", () => {
   });
 
   it("and the record goes with the LAST member — a box about nothing is not a box", async () => {
-    await runCommand("assembly new @st0/turntable turntableA", host(), "cli");
+    await runCommand(
+      "assembly new @k7-core/turntable turntableA",
+      host(),
+      "cli",
+    );
     await runCommand("node delete turntableA_deck", host(), "cli");
     await runCommand("node delete turntableA_fade", host(), "cli");
     expect(existsSync(join(dir, "assemblies", "turntableA.yaml"))).toBe(false);

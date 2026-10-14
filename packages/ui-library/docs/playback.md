@@ -14,7 +14,7 @@ plays for the médiathèque — a track, a variant.
 
 `localPathOn` (`src/engine/enginePlayback.ts`) asks the backend where a song is on the
 chosen engine's machine; the backend brings the song there through the engine's tunnel and answers
-with the MACHINE's own path (`apps/st0/backend/src/media/routes/engineLocal.ts`). A song is on a machine because
+with the MACHINE's own path (`apps/k7/backend/src/media/routes/engineLocal.ts`). A song is on a machine because
 it was asked for, the first time it is played there, and stays for the next time.
 
 ## What it says when it cannot play
@@ -41,7 +41,7 @@ each copy is a place the trap can be forgotten.
 the engine would eventually write into.
 
 One document builder, then, and it is the degenerate case: what the médiathèque plays is always a
-file. A chain is written in st0 into a library folder by an admin, from whatever project
+file. A chain is written in k7 into a library folder by an admin, from whatever project
 they have open — the engine playing the song already loads it.
 
 ## One session, one sound

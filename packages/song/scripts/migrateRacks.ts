@@ -1,6 +1,6 @@
 // migrateRacks.ts — move every rack's sounds into a LIBRARY's samples/ and its kit into the NODES.
 //
-//   STUDIO_HOME=<home> npx tsx packages/song/scripts/migrateRacks.ts <workspace> [--library st0] [--write]
+//   STUDIO_HOME=<home> npx tsx packages/song/scripts/migrateRacks.ts <workspace> [--library k7] [--write]
 //
 // A tap is a note and a library sample, written on the node (docs/racks.md). A `samples` rack's
 // clips are moved as they are; a `slice` rack's windows are CUT into one file per sound, byte for
@@ -25,13 +25,13 @@ const write = args.includes("--write");
 const library =
   args[args.indexOf("--library") + 1] && args.includes("--library")
     ? args[args.indexOf("--library") + 1]
-    : "st0";
+    : "k7";
 const workspace = args.find(
   (a, i) => !a.startsWith("--") && args[i - 1] !== "--library",
 );
 if (!workspace) {
   console.error(
-    "usage: migrateRacks <workspace> [--library st0] [--write]   (dry without --write)",
+    "usage: migrateRacks <workspace> [--library k7] [--write]   (dry without --write)",
   );
   process.exit(2);
 }

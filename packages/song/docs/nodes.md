@@ -141,7 +141,7 @@ So the graph's `+` runs `node new <type>/<name> <node> [<extends-ref>]`. For a p
 CATALOGUE the ref rides on that one line and the verb scaffolds the folder itself on the way in —
 a catalogue pick has no local folder yet, and the whole gesture is one command; for a module this
 project already has, the ref is absent and the line is the same minus it. See `nodeInsert.ts` in
-st0's frontend.
+k7's frontend.
 
 ## A node names itself
 
@@ -189,7 +189,7 @@ Four things it declines to do, each for its own reason:
 |---|---|
 | a name with no counter, or one that is not digits | not a name this convention made |
 | a name built from a DIFFERENT module | it says nothing about what the node should be called now |
-| the module's leaf does not change (`@st0/audio/reverb` → `@workspace/audio/reverb`) | a different module, the same word — nothing to follow |
+| the module's leaf does not change (`@k7-core/audio/reverb` → `@workspace/audio/reverb`) | a different module, the same word — nothing to follow |
 | a name a `surfaces/` **mapping** points at | see below |
 
 The mapping is the only place outside `graph.yaml` where a node's name is a REFERENCE, and
@@ -230,12 +230,12 @@ The splice itself is `removeNode`'s; a node fed from two paths has both of them 
 leaves the signal path and its file stays on disk with its clips, which is what unlinking means
 everywhere else.
 
-Right-clicking a module in st0's graph offers it, along with everything else a module answers —
+Right-clicking a module in k7's graph offers it, along with everything else a module answers —
 that menu is derived from this catalogue, so the entry exists because the command's first
 argument names a module and for no other reason. It survives on a **dangling** node too, where
 it is the actual repair: a step naming a module that does not exist has no file to open and no
 param to set, but removing it and closing the gap needs no module to exist. That last part the
-catalogue cannot say, and st0 lists it (`apps/st0/frontend/docs/contextMenu.md`).
+catalogue cannot say, and k7 lists it (`apps/k7/frontend/docs/contextMenu.md`).
 
 ## Not covered by this
 

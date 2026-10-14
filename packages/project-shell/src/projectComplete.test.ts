@@ -47,11 +47,11 @@ describe("projectApi.complete", () => {
 
   it("keeps a labelled candidate beside unlabelled ones", async () => {
     reply = [
-      { line: "node bypass 0b7c", label: "@st0/auto-wah · fx · step 2" },
+      { line: "node bypass 0b7c", label: "@k7-core/auto-wah · fx · step 2" },
       "node bypass gtr",
     ];
     expect(await projectApi.complete("node bypass ")).toEqual([
-      { line: "node bypass 0b7c", label: "@st0/auto-wah · fx · step 2" },
+      { line: "node bypass 0b7c", label: "@k7-core/auto-wah · fx · step 2" },
       { line: "node bypass gtr" },
     ]);
   });

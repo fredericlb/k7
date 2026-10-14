@@ -3,7 +3,7 @@
 A desktop paired with a server has a médiathèque of its own: a folder on its disk, seeded on first
 run, that its own backend serves. The server has another. Each song and sample can therefore be on
 the machine only, on the server only, or on both. The library screen says which, with the same
-three icons st0's home page uses for a workspace, and offers a **Download** for what the server
+three icons k7's home page uses for a workspace, and offers a **Download** for what the server
 alone holds (`../../ui-library/src/ServerCopy.tsx`).
 
 ## Matched by path
@@ -15,7 +15,7 @@ the trade `sync.md` already refuses for the cache.
 
 ## The machine's backend asks, not the browser
 
-The browser talks to its own backend (`../../../apps/st0/backend/src/media/routes/serverCopy.ts`), which
+The browser talks to its own backend (`../../../apps/k7/backend/src/media/routes/serverCopy.ts`), which
 asks the server. The device token the pairing brought back (`../../file-hub/docs/syncRelay.md`) is
 held by that backend and never reaches a page. The server answers a device on
 `/api/sync/mediatek`: its ordinary library routes, gated by the device token instead of a session,

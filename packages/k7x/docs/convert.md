@@ -32,12 +32,12 @@ emit every note as three lines (`t:`, `d:`, `k:`), and a k7x note reads as one, 
 ## What is refused
 
 Anchors and aliases, a root that is not a map, and a YAML that does not parse: k7x has no form for
-the first two, and converting the third would guess. None occurs in `demos/` or `st0-library/`, and
+the first two, and converting the third would guess. None occurs in `demos/` or `k7-core/`, and
 neither do tags, multi-document files or non-string keys (the corpus test is `src/corpus.test.ts`).
 
 ## How it is checked
 
-Over every YAML file of `demos/` and `st0-library/`: the converted text parses to the YAML's own
+Over every YAML file of `demos/` and `k7-core/`: the converted text parses to the YAML's own
 data, each comment line appears as many times as the YAML had it, and on the converted text every
 scalar is set, every map entry deleted and every map extended (the first 40 of each per file) with
 the result equal to the expected data and, for a scalar, every byte outside its span unchanged.

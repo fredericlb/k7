@@ -6,8 +6,8 @@ no image. `.github/workflows/desktop.yml` builds it for the three desktops in tw
 
 | stage | job | what it publishes |
 |---|---|---|
-| 1 | `engines` | the **command-line engine**: `engine/st0-engine` and `engine/st0-supervisor` (C++, CMake) compiled and staged as one folder, archived — `.zip` on Windows, `.tar.gz` elsewhere |
-| 2 | `desktop` | the **desktop app**, `apps/st0-standalone`, packaged around stage 1's binaries — the NSIS installer, the `.dmg`, the `.AppImage` |
+| 1 | `engines` | the **command-line engine**: `engine/k7-runtime` and `engine/k7-supervisor` (C++, CMake) compiled and staged as one folder, archived — `.zip` on Windows, `.tar.gz` elsewhere |
+| 2 | `desktop` | the **desktop app**, `apps/k7-standalone`, packaged around stage 1's binaries — the NSIS installer, the `.dmg`, the `.AppImage` |
 
 The desktop job compiles nothing: it unpacks the engines job's archive for its platform and hands it
 to the app's staging through `$STUDIO_PREBUILT_BIN` (`engine/scripts/docs/buildEngine.md`). So the
@@ -25,8 +25,8 @@ release of its own. The snapshot release is deleted and recreated rather than ed
 GitHub release keeps the commit its tag points at however its assets are replaced — an edited one
 would keep advertising the commit it was first cut from.
 
-Each file is named for that channel — `st0-engine_v1.4.0_macos-arm64.tar.gz`,
-`st0_snapshot-9f2c1ab_windows-x64.exe` — and **not** for a package version, which does not move with
+Each file is named for that channel — `k7-runtime_v1.4.0_macos-arm64.tar.gz`,
+`k7_snapshot-9f2c1ab_windows-x64.exe` — and **not** for a package version, which does not move with
 each build. `engine/scripts/package-release.mjs` does the naming, for both kinds.
 
 ## Why the gate job, and not a `paths:` filter
@@ -39,7 +39,7 @@ too, and a tag push carries no commit list for it to match against — the relea
 never run, on the one event that matters most. The `decide` job diffs the push instead and lets
 tags through untested.
 
-Its filter is `engine/`, `apps/` and `packages/` **whole**: the desktop app bundles st0's frontend and
+Its filter is `engine/`, `apps/` and `packages/` **whole**: the desktop app bundles k7's frontend and
 backend and most of the shared tier, and the tier moves together. `commons` counts too: the Electron
 shell under the app, `@frediverse/electron-shell`, lives there, and a change to it reaches this tree as
 a bump of that one path. An `apps/`-only push does rebuild the engines; with their objects cached
@@ -68,7 +68,7 @@ cache, one per platform and capped at 2 GB. The presets read it from `STUDIO_COM
 | `/Z7` (`CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded`) | `/Zi` writes every object into one shared `.pdb`, which a cached object cannot be replayed into |
 | `_MBCS` defined under Ninja | the Visual Studio generator defines it on every target and Ninja does not; Faust's Windows code branches on it, and its other branch does not compile |
 | `/MP` only under the Visual Studio generator | it does nothing under Ninja, and sccache does not cache a compile that carries it |
-| the launcher in the presets, not CMake's own environment variable | that variable also reaches the nested CMake JUCE builds `juceaide` in, in Debug with `/Zi`, which sccache cannot cache; on MSVC that tool builds uncached (`engine/st0-engine/engine/patches/tracktion.cmake`) |
+| the launcher in the presets, not CMake's own environment variable | that variable also reaches the nested CMake JUCE builds `juceaide` in, in Debug with `/Zi`, which sccache cannot cache; on MSVC that tool builds uncached (`engine/k7-runtime/engine/patches/tracktion.cmake`) |
 | `ilammy/msvc-dev-cmd` | Ninja calls `cl.exe` directly, so the job needs the PATH a developer prompt has |
 
 Outside Windows the workflow sets `CMAKE_BUILD_PARALLEL_LEVEL` to every core: the build script keeps
@@ -101,10 +101,10 @@ reach, and the build then runs uncached — the launcher is set only when the st
 
 ## The phone, beside the desktops
 
-The `android` job builds `engine/st0-android`'s APK, debug-signed, and the release carries it as
-`st0-android_<stamp>_arm64.apk`. It is a job of its own rather than a fourth platform of the two
+The `android` job builds `engine/k7-android`'s APK, debug-signed, and the release carries it as
+`k7-android_<stamp>_arm64.apk`. It is a job of its own rather than a fourth platform of the two
 stages: the phone's engine is an arm64 LIBRARY that Gradle compiles inside the app's build
-(`engine/st0-engine/docs/android.md`), so there is no command-line archive for it to share. It runs as
+(`engine/k7-runtime/docs/android.md`), so there is no command-line archive for it to share. It runs as
 OneDev's nightly job does — the image's Android SDK, the platform, build tools and NDK that
 `app/build.gradle.kts` names, JDK 21 — with its own compiler and sources caches, since the same sources
 compile to arm64 there. Like the desktops, a red APK holds the release back.
@@ -119,7 +119,7 @@ repository secret is what a release key would need.
 
 ## The installer each platform gets
 
-electron-builder makes them, from `apps/st0-standalone/electron-builder.cjs`: NSIS on Windows, a `.dmg`
+electron-builder makes them, from `apps/k7-standalone/electron-builder.cjs`: NSIS on Windows, a `.dmg`
 on macOS, an `.AppImage` on Linux. It runs with `--publish never`: on a tagged CI run it would
 otherwise try to publish to GitHub itself, and the release is the `publish` job's alone.
 
@@ -153,11 +153,11 @@ been a script:
 ```bash
 STUDIO_ENGINE_PRESET=release-gcc STUDIO_SUPERVISOR_PRESET=release-gcc node engine/scripts/build-engine.mjs
 node engine/scripts/package-release.mjs --kind engine --stamp local
-npm run package --workspace st0-standalone
+npm run package --workspace k7-standalone
 node engine/scripts/package-release.mjs --kind desktop --stamp local
 ```
 
-`.github/workflows/st0.yml` stays as it is and compiles no C++: it is the gate every push runs
+`.github/workflows/k7.yml` stays as it is and compiles no C++: it is the gate every push runs
 through, and it must be minutes rather than hours.
 
 ## On OneDev
@@ -177,13 +177,13 @@ tree restored from an older lock would be wrong in ways `npm ci` never checks.
 
 **On GitHub, `commons` is a checkout of its own**, at the commit `st0` pins (`git rev-parse
 HEAD:commons`) and read with the `COMMONS_TOKEN` secret: `commons` is a private repository, a run's
-built-in token reads only `st0`, and the token for one must not be the one `st0` is fetched with.
+built-in token reads only `st0` (the repository's name on GitHub), and the token for one must not be the one `st0` is fetched with.
 The secret is a fine-grained token with read access to `fredericlb/commons`'s contents; without it
 the run falls back to the built-in token, which works only if `commons` is public.
 
 **The Windows leg fetches `commons` itself**, as GitHub's does: the checkout takes no submodule, and
 the build step's first act is `git submodule update --init commons`, authenticated with the same
-`submodule-token` secret the checkout uses. `st0-library` is a plain folder of the repository, so the
+`submodule-token` secret the checkout uses. `k7-core` is a plain folder of the repository, so the
 checkout brings it; its paths are kept short because Windows refuses a path past 260 characters.
 
 The Linux one runs in
@@ -198,7 +198,7 @@ Windows agent through a **Remote Shell Executor**, so nothing is installed per r
 and the Visual Studio Build Tools are the agent's, under the account its service logs on as. A
 container would buy isolation at the price of MSVC in a Windows container, which is heavier than
 the machine it would run on. The dependency sources stay on that disk too, in `$STUDIO_FETCHCONTENT_DIR`
-(`%LOCALAPPDATA%\st0-ci\fetch` unless the agent names another), rather than in an OneDev cache:
+(`%LOCALAPPDATA%\k7-ci\fetch` unless the agent names another), rather than in an OneDev cache:
 the machine already keeps them, so nothing crosses the network. `cmd` has no exit trap, so what the
 last night built there is deleted before a run instead of after it.
 
@@ -214,6 +214,6 @@ It overrides no preset, so the agent builds with the host default, `windows-msvc
 job, as on Linux.
 
 **build android app** keeps the same cadence — nightly at 02:00, skipped on a day without commits —
-and publishes a debug-signed APK (`engine/st0-engine/docs/android.md`). It is a native build of the
+and publishes a debug-signed APK (`engine/k7-runtime/docs/android.md`). It is a native build of the
 same weight, so it is paid for on the same schedule. Its SDK is pinned and cached, and its C++ goes
 through its own ccache and its own sources cache — its own because it builds them for arm64.

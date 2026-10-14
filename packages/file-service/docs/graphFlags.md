@@ -19,7 +19,7 @@ BROWSER, so an engine address for one would name a plugin no engine has.
 ## `notSupported` (amber)
 
 The module HAS a plugin, and its `plugin.type` is the deliberate marker
-`"not_supported"` — st0 knows about it and knows it can't load it.
+`"not_supported"` — k7 knows about it and knows it can't load it.
 
 ## `unknownPlugin` (red)
 
@@ -66,13 +66,13 @@ An unknown FORMAT is unloadable anywhere, so `nodeProject` keeps it off the wire
 entirely.
 
 An UNSCANNED plugin is a per-MACHINE condition — the same project opens fine on the
-machine that has it — so it still goes to the engine, which warns (`run 'st0 engine
+machine that has it — so it still goes to the engine, which warns (`run 'k7 engine
 scan'`) and skips it. The flag just says so up front, in the graph, instead of leaving
 you to find out at playback.
 
 Both carry no `ui` and no `pluginId`, and neither has a `hasNativePluginUI`: only a
 plugin the engine can actually instantiate has a native editor window to open. That is
-distinct from `ui`, which is the moduleUI widget grid st0 draws itself.
+distinct from `ui`, which is the moduleUI widget grid k7 draws itself.
 
 `faust` is known on the same grounds as `jsdsp`: a built-in host, handed the module's own source.
 Whether that source COMPILES is the engine's answer and arrives as a warning — not something to guess
@@ -157,7 +157,7 @@ them. A lane that runs no plugins gets no tap — there is nothing to listen to.
   which is the one thing both sides compute the same way and what identifies a placement — a track may
   hold the same clip twice, at two positions. A width is absent when the project would not compile; the
   graph still draws, without them. `NATURAL_BEATS` is the width for a compiled `length` of 0, and it is
-  the same number st0's timeline draws for the same case: neither side knows how long the audio really
+  the same number k7's timeline draws for the same case: neither side knows how long the audio really
   is, and two different guesses would put a clip at one width on the lane and another on the graph.
 - **`trackAlternatives`** only past one: a list of one is not a choice, and a node with nothing to pick
   from should grow no menu.

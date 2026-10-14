@@ -18,8 +18,8 @@ let dir: string;
 
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-faustfiles-"));
-  dir = join(ws, "synth-demo.st0");
-  copyAsYaml(join(DEMOS, "synth-demo.st0"), dir, { recursive: true });
+  dir = join(ws, "synth-demo.k7");
+  copyAsYaml(join(DEMOS, "synth-demo.k7"), dir, { recursive: true });
   copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
     recursive: true,
   });

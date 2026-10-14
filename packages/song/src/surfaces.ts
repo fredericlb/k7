@@ -1,4 +1,4 @@
-// surfaces.ts — the OPTIONAL `surfaces/` folder of an st0 project, read off the disk: one file
+// surfaces.ts — the OPTIONAL `surfaces/` folder of an k7 project, read off the disk: one file
 // per special view the editor should draw. Node-side; the parser itself is browser-safe
 // (yaml/surfaceFile.ts), so an app can read one out of the file service without this.
 // Full rationale: docs/surfaces.md.

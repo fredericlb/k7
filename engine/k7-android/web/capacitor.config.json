@@ -1,0 +1,7 @@
+{
+  "appId": "se.frediver.k7",
+  "appName": "k7",
+  "webDir": "dist",
+  "server": { "androidScheme": "https" },
+  "android": { "allowMixedContent": false }
+}

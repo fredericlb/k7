@@ -1,6 +1,6 @@
 // migrateSetStems.ts — give a SET the four stem lanes per deck it lacks.
 //
-//   npx tsx packages/song/scripts/migrateSetStems.ts <projet.st0> [more…] [--write]
+//   npx tsx packages/song/scripts/migrateSetStems.ts <projet.k7> [more…] [--write]
 //
 // Adds eight lanes, eight nodes, eight bypasses and eight mapping lines, and nothing else.
 // Idempotent, dry by default, and through the yaml Document API so comments and key order come
@@ -35,7 +35,7 @@ const write = args.includes("--write");
 const roots = args.filter((a) => !a.startsWith("--"));
 if (!roots.length) {
   console.error(
-    "usage: migrateSetStems <projet.st0> [more…] [--write]   (dry run without --write)",
+    "usage: migrateSetStems <projet.k7> [more…] [--write]   (dry run without --write)",
   );
   process.exit(2);
 }
@@ -230,6 +230,6 @@ for (const dir of roots) {
 
 console.log(
   `${changed}/${seen} set(s) ${write ? "migrated" : "would change"}. ` +
-    'The desk can also SEPARATE a record put on unprepared — add `stems: "@st0/stems"` ' +
+    'The desk can also SEPARATE a record put on unprepared — add `stems: "@k7-core/stems"` ' +
     "to the surface for that; it is left out here because a separation costs minutes a song.",
 );

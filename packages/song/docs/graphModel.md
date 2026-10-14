@@ -406,8 +406,8 @@ place, by two different rules — so sharing either would let one caller's overl
 next one sees. Aliases survive: a module filed under two refs stays one object.
 
 The ref map keys a module ONCE, under its explicit level (`@workspace/audio/reverb`,
-`@st0/audio/reverb`) — there is no bare spelling to key alongside it: a module lives at
-`@workspace` or `@st0` now, and a ref always carries the `@` that says which. NODES never enter
+`@k7-core/audio/reverb`) — there is no bare spelling to key alongside it: a module lives at
+`@workspace` or `@k7-core` now, and a ref always carries the `@` that says which. NODES never enter
 this map at all; they are a project's own uses, read separately, and a node's `extends:` is
 resolved against this map rather than added to it.
 

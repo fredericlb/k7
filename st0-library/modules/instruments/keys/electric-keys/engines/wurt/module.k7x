@@ -1,9 +1,0 @@
-// wurt — a sampled Wurlitzer, one velocity layer, played by the engine's SFZ player (sfizz). From the No
-// Budget Orchestra archive at bandshed.net (AV Linux), whose collection is CC BY-SA 4.0; the zip itself
-// carries no licence or credit, so the panel credits where it comes from.
-//
-// One layer means velocity changes its level and not its tone — Arturia's `wurli-v2` beside it does that,
-// where it is installed. The samples (~9 MB) are fetched by the engine machine's supervisor once chosen in the tray's Downloads tab.
-extends("@engine/sfz-player")
-params({ sfz: "@instruments/nbo-wurt/wurly.sfz" })
-// A sampled Wurlitzer from the No Budget Orchestra archive (bandshed.net, CC BY-SA): one velocity layer, so it is louder when hit harder rather than brighter. Its samples, about 9 MB, download from the st0 tray's Downloads tab.

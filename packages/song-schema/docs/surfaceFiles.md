@@ -71,7 +71,7 @@ a desk with no stem cut is a complete desk, so a set that does not wire them mus
 missing something. What a scaffold offers and what a surface must have are two questions, and this is
 where their answers part.
 
-`mastering`'s ten are the same copy under the same rule: st0's `mastering/controls.ts` owns the real
+`mastering`'s ten are the same copy under the same rule: k7's `mastering/controls.ts` owns the real
 list and this is the scaffold's, held to it by a test over there. Which is why the vocabulary is
 `comp.low` and not `Low Amount` — a control id is the surface's word for a knob, and the PARAM it
 happens to name today is what the mapping says. All ten name the SAME module, which is what makes
@@ -104,7 +104,7 @@ surface only. It is what the song browser lists: the twelve songs that are to ha
 than the two hundred and seventy-nine on the volume.
 
 **This is where "which songs" lives**, and `songs.yaml` does not answer it: a playlist is a document
-with a screen (st0's cog opens it), it can be shared between sets, and it is the thing a person has
+with a screen (k7's cog opens it), it can be shared between sets, and it is the thing a person has
 already written. What `songs.yaml` holds is the half a playlist has no place for: this set's CUE
 points on a song, which belong to the desk that plays it rather than to a list other sets read
 (`packages/song/docs/setProject.md`).
@@ -121,7 +121,7 @@ would be asking it a question that has nothing to do with it. What a SET decides
 of arithmetic may start because somebody put a record on — and that is
 worth deciding per set, because a rehearsal rig and a stage rig answer it differently. Absent is
 false, and false is a state rather than a fault: the desk draws, plays, and says on its greyed knobs
-that this record was never separated (`packages/st0-plugins/docs/turntables/stems.md`).
+that this record was never separated (`packages/k7-plugins/docs/turntables/stems.md`).
 
 ## What the pair refinements refuse
 

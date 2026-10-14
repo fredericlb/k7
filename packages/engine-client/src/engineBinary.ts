@@ -1,6 +1,6 @@
-// engineBinary.ts — locate the built st0-engine binary, in three tiers:
+// engineBinary.ts — locate the built k7-runtime binary, in three tiers:
 // $STUDIO_ENGINE, the copy vendored beside the bundle (a packaged app), then the CMake
-// preset output dirs under engine/st0-engine/build, newest first but Debug last. The repo tier
+// preset output dirs under engine/k7-runtime/build, newest first but Debug last. The repo tier
 // resolves relative to THIS file, so it works wherever linked — see docs/engineBinary.md.
 
 import { existsSync, readdirSync, statSync } from "node:fs";
@@ -37,7 +37,7 @@ export function findEngineBinary(
 
   for (const dir of [sidecar, dirname(process.execPath)]) {
     if (!dir) continue;
-    for (const name of ["st0-engine.exe", "st0-engine"]) {
+    for (const name of ["k7-runtime.exe", "k7-runtime"]) {
       const p = join(dir, name);
       try {
         if (statSync(p).isFile()) return p;
@@ -52,10 +52,10 @@ export function findEngineBinary(
   const here = sourceDir();
   const root = repo ?? (here ? join(here, "..", "..", "..") : null);
   if (!root) return null;
-  const build = join(root, "engine", "st0-engine", "build");
+  const build = join(root, "engine", "k7-runtime", "build");
   if (!existsSync(build)) return null;
 
-  const names = ["st0-engine.exe", "st0-engine"];
+  const names = ["k7-runtime.exe", "k7-runtime"];
   const configs = ["", "Release", "RelWithDebInfo", "Debug"];
   const found: { path: string; debug: boolean }[] = [];
   for (const preset of readdirSync(build)) {

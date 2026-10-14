@@ -1,4 +1,4 @@
-# Recording through a chain of st0's library
+# Recording through a chain of k7's library
 
 The third answer to "where should the audio come from?", beside this device and the remote one: a
 **chain** of the account's library, played live, and recorded here. The take is an ordinary
@@ -8,16 +8,16 @@ session — same waveform, same highlights, same upload — because what reaches
 ## The bench plays it, the rehearsal page records it
 
 The rehearsal pages run no DSP and load no plugin. A chain's modules are engine plugins, and the only place they
-load is an engine playing a project. So the chain is played on st0's **bench**
-(`apps/st0/backend/docs/media/banc.md`) — the throwaway `live` rig, input → fader → master — opened on the
-address `/@banc/<chain ref>/live.st0`, which puts a **copy** of the chain between the input and the
+load is an engine playing a project. So the chain is played on k7's **bench**
+(`apps/k7/backend/docs/media/banc.md`) — the throwaway `live` rig, input → fader → master — opened on the
+address `/@banc/<chain ref>/live.k7`, which puts a **copy** of the chain between the input and the
 fader.
 
 A copy, not a reference: a template cannot be inlined into a host graph
 (`packages/song/docs/assemblies.md`), and a copy dies with the bench, so a knob turned while
-auditioning reaches nothing shared. Editing the chain for good stays in st0's chains builder.
+auditioning reaches nothing shared. Editing the chain for good stays in k7's chains builder.
 
-The chain is in the address PATH, not in a query: st0's router owns the query and rewrites it within
+The chain is in the address PATH, not in a query: k7's router owns the query and rewrites it within
 a frame (`packages/project-shell/docs/launch.md`), and as a path the gate forwards it to the machine
 untouched. The machine is the side that decides what the
 address means — `benchChainOf` reads it, and the chain is looked up among the ones the library
@@ -29,11 +29,11 @@ it: a missing entry reads as a library missing a chain somebody knows is there.
 
 ## Why a frame
 
-The bench is shown in an iframe — st0's own project page, on the same origin — so the person can **check** what is about to be recorded: the right chain,
-the input picked on the rig's `IN` node, the knobs where they want them. That is st0's project
+The bench is shown in an iframe — k7's own project page, on the same origin — so the person can **check** what is about to be recorded: the right chain,
+the input picked on the rig's `IN` node, the knobs where they want them. That is k7's project
 screen; rebuilding a graph view in the rehearsal pages would be a second chains editor to keep in
 step with the first. A frame rather than a route, because a project page and the home pages are two
-different apps of one SPA (`apps/st0/frontend/src/appMain.tsx`), and the take must not leave the
+different apps of one SPA (`apps/k7/frontend/src/appMain.tsx`), and the take must not leave the
 page it is recorded on.
 
 The frame is **hidden during the take, never unmounted**. Unmounting it reloads the bench and lets go
@@ -43,7 +43,7 @@ to adjust a knob mid-take.
 ## How the sound reaches the recorder
 
 The engine already broadcasts a session's master bus to any socket that subscribes
-(`engine/st0-engine/docs/broadcast.md`), which is what lets z0 be hosted. The page subscribes on its
+(`engine/k7-runtime/docs/broadcast.md`), which is what lets z0 be hosted. The page subscribes on its
 own socket, on the **bench's session** (`sessionFor("banc", …)`) — the bench plays there, beside your
 song rather than instead of it — and the frames go
 through `StreamPlayer` into an `AudioWorklet`, then into a `MediaStreamDestination` that the recorder
@@ -59,7 +59,7 @@ takes. The engine has no feature of its own for this.
   playing is heard — and recorded — under the chain.
 - **The page's socket says it is a driver**, which is `EngineClient`'s default. That is deliberate:
   a person is looking at the recorder, and if the frame were gone the engine would otherwise free the rig 45
-  seconds into the take (`engine/st0-engine/docs/sessions.md`). It sends no project.
+  seconds into the take (`engine/k7-runtime/docs/sessions.md`). It sends no project.
 - **Hearing it here is a toggle.** An engine on this machine already plays through the interface,
   so monitoring starts off there and on for a remote engine; either way the recorder takes the
   stream. Monitoring a local engine as well would play it twice, 150 ms apart.
@@ -71,9 +71,9 @@ takes. The engine has no feature of its own for this.
 
 None of this is covered past `chainSource.test.ts` and `packages/file-service/src/benchChain.test.ts`.
 
-- New session → **st0 chain** → the library's chains are listed, cold ones greyed with the reason;
+- New session → **k7 chain** → the library's chains are listed, cold ones greyed with the reason;
 - pick one → the bench opens in the frame, with the chain between `IN` and `fader`;
 - the status goes *waiting* → *connecting* → *live*, and the meter moves when the input is played;
 - **Record** → the recorder draws the usual live waveform; **Chain** in its header brings the bench back;
-- with a song open in another st0 tab → it stays open and loaded, and the bench opens on its engine;
+- with a song open in another k7 tab → it stays open and loaded, and the bench opens on its engine;
 - stop and save → the session is an ordinary one, and the frame is gone.

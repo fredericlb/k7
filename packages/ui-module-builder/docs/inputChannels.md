@@ -71,12 +71,12 @@ Two consequences that are the interface's and not ours:
 The grouping is remembered in `<state>/preferences.yaml` (`inputPairs`) and replayed to the
 engine on every connect, exactly as the audio device is. Tracktion persists a copy of its own
 and it is unreadable in practice — the only call that loads it also reopens the remembered
-interface, which `engine/st0-engine/AGENTS.md` forbids — so without this the pairing lasts until
+interface, which `engine/k7-runtime/AGENTS.md` forbids — so without this the pairing lasts until
 the next engine restart and then silently reverts, taking the module's sound with it.
 
 ### Both halves are one COMMAND
 
-`system channel type <channel> <mono|stereo>`. The host passes `onRegroupInputs`, st0 dispatches
+`system channel type <channel> <mono|stereo>`. The host passes `onRegroupInputs`, k7 dispatches
 that line, and the two writes above happen on the service's side — the preference first, so a rig
 that answers slowly still remembers what was asked of it.
 
@@ -101,7 +101,7 @@ module.
 
 `inputDevices` and `onRegroupInputs` are **props**, for the same reason `pluginParamNames` is
 one: which inputs exist, and what they can be regrouped into, is a question only the machine
-holding the sound card answers. st0 fills them from `useInputDevices`, which asks
+holding the sound card answers. k7 fills them from `useInputDevices`, which asks
 `ioLevels([])` while the builder is open — an empty set list, because metering a channel
 *enables* it engine-side and the grouping is all that is wanted — and re-asks after a
 regroup, since the engine broadcasts no second copy of the layout.

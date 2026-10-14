@@ -1,0 +1,19 @@
+// Wavetable [instrument] — a table of single-cycle frames, played at the note and swept through by
+// Position, gliding between notes, then a resonant low-pass and an ADSR. Every knob is the program's
+// own, so all of them automate. Its DSP is dsp.dsp beside this file, in Faust, compiled by the ENGINE.
+//
+// The table is the node's `Table`: a library's `wavetables/` (or `@project/…`), 2048-sample frames
+// end to end, any number of them. No band-limited copies yet, so a bright frame aliases on high
+// notes; Cutoff is what tames it.
+plugin({ type: "faust", name: "Wavetable" })
+params({
+  Table: "@k7-core/basic.wav",
+  Position: 0,
+  Cutoff: 8000,
+  Resonance: 1,
+  Attack: 0.01,
+  Decay: 0.3,
+  Sustain: 0.7,
+  Release: 0.4,
+  Glide: 0,
+})

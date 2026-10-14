@@ -105,12 +105,12 @@ extends it. Leaving them out makes every param on every strip in a real song inv
 `byExtends` maps each base ref to what its extenders have written on it, built once in one pass.
 
 Scanning every module INSIDE the loop over every base ref, with a fresh `Object.values(modules)`
-per turn, is 573 base refs × 395 modules on `01.danse.st0` — 226 000 comparisons and 573
+per turn, is 573 base refs × 395 modules on `01.danse.k7` — 226 000 comparisons and 573
 allocations of the same array, most of the 55 ms `/hints` costs, paid after every command in the
 app.
 
 A node needs no case of its own: it names what it uses with `extends`, like any other extender.
-Every ref is namespaced — `@workspace/…`, `@st0/…`, `@engine/…` — and each keeps exactly one
+Every ref is namespaced — `@workspace/…`, `@k7-core/…`, `@engine/…` — and each keeps exactly one
 spelling, so `byExtends` is keyed by the ref as written, with nothing to normalise on the way in.
 
 ## `paths` — turning a reference into a link
@@ -118,7 +118,7 @@ spelling, so `byExtends` is keyed by the ref as written, with nothing to normali
 `"kind:name"` → the project-relative file that defines the entity, so the editor can turn a known
 reference into a link. `kind ∈ module|sink|track|clip|sequence|chain` (chains all live in
 `graph.yaml`). Only kept when the file actually exists and sits INSIDE the project, so an external
-`@ns/…` module is skipped — a ref pointing at `@workspace/…` or `@st0/…` names a file the project's
+`@ns/…` module is skipped — a ref pointing at `@workspace/…` or `@k7-core/…` names a file the project's
 own tree does not contain, and this map answers only in project-relative terms.
 
 `"module:"` keys by the chain `use` ref and points at the file that IS that thing — which is

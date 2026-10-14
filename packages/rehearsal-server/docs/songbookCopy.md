@@ -3,7 +3,7 @@
 ## A song copied from the server keeps its id
 
 On a machine paired with a server (`../../file-hub/docs/syncRelay.md`), the songbook marks each song
-with the same icons st0 uses for a workspace and the médiathèque, and lists the server's songs the
+with the same icons k7 uses for a workspace and the médiathèque, and lists the server's songs the
 machine lacks, each with a **Download** (`../../ui-rehearsal/src/components/SongbookServerCopy.tsx`).
 "On both" means the same song id on both sides. That is why a copy keeps the server's `Uid`: a
 fresh id would make the copy look like a different song and offer the original for download again.

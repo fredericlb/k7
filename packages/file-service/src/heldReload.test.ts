@@ -51,12 +51,12 @@ let ws: InstanceType<typeof Workspace>;
 beforeEach(() => {
   built.length = 0;
   root = mkdtempSync(join(tmpdir(), "td-held-"));
-  const proj = join(root, "rig.st0");
+  const proj = join(root, "rig.k7");
   mkdirSync(join(proj, "nodes"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "rig" } });
   writeFileSync(join(proj, "graph.yaml"), "modules:\n  MIX: [ OUT ]\n");
   ws = new Workspace(root);
-  ws.setActiveProject("rig.st0");
+  ws.setActiveProject("rig.k7");
   setSelectedEngine(`ws://127.0.0.1:3000/${Math.random()}`);
   startEngineForActive(ws);
 });

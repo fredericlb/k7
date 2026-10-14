@@ -280,7 +280,7 @@ export function createRegistry(): EngineRegistry {
           performance: e.performance,
           ...(e.libraryLevel ? { libraryLevel: e.libraryLevel } : {}),
           assigned: holders.length > 0,
-          // Who and what, so a picker can say "busy with X's winter.st0" rather than just "busy".
+          // Who and what, so a picker can say "busy with X's winter.k7" rather than just "busy".
           heldBy: owner?.holder,
           heldProject: owner?.project ?? undefined,
           heldProjects: claimed.map((h) => ({

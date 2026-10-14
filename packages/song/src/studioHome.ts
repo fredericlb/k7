@@ -1,4 +1,4 @@
-// studioHome.ts — where st0 keeps a machine's state: the engine's identity, the settings, the
+// studioHome.ts — where k7 keeps a machine's state: the engine's identity, the settings, the
 // media library and the workspaces. The engine, the file service, the supervisor and the
 // desktop app all address it by name. `$STUDIO_HOME` moves it — tests
 // use it to get a directory of their own.
@@ -8,7 +8,7 @@
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-/** `~/.st0`, or `$STUDIO_HOME`; NORMALISED, and the SAME on all three platforms — engine-client/docs/paths.md. */
+/** `~/.k7`, or `$STUDIO_HOME`; NORMALISED, and the SAME on all three platforms — engine-client/docs/paths.md. */
 export function studioHome(): string {
-  return resolve(process.env.STUDIO_HOME || join(homedir(), ".st0"));
+  return resolve(process.env.STUDIO_HOME || join(homedir(), ".k7"));
 }

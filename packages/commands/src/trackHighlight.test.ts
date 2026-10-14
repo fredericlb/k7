@@ -34,7 +34,7 @@ const strip = () =>
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "track-highlight-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
   put("tracks/gtr.yaml", 'extends: "@meta/track"\nevents: []\n');
   put(

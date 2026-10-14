@@ -24,15 +24,12 @@ let base: string;
 
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), "fs-k7x-"));
-  mkdirSync(join(root, "song.st0", "nodes"), { recursive: true });
+  mkdirSync(join(root, "song.k7", "nodes"), { recursive: true });
   writeFileSync(
-    join(root, "song.st0", "project.yaml"),
+    join(root, "song.k7", "project.yaml"),
     "project:\n  name: song\n",
   );
-  writeFileSync(
-    join(root, "song.st0", "nodes", "gtr.yaml"),
-    "x: &a 1\ny: *a\n",
-  );
+  writeFileSync(join(root, "song.k7", "nodes", "gtr.yaml"), "x: &a 1\ny: *a\n");
   const ws = new Workspace(root);
   const app = express();
   app.use(express.json());
@@ -65,32 +62,32 @@ const migrate = (dryRun: boolean) =>
 it("reports what it would do on a dry run, and touches nothing", async () => {
   const r = await migrate(true);
   expect(r.status).toBe(200);
-  expect(r.body.converted).toEqual(["song.st0/project.yaml"]);
+  expect(r.body.converted).toEqual(["song.k7/project.yaml"]);
   expect(r.body.refused).toEqual([
     {
-      file: "song.st0/nodes/gtr.yaml",
+      file: "song.k7/nodes/gtr.yaml",
       reason: "k7x: YAML anchors have no k7x form",
     },
   ]);
-  expect(existsSync(join(root, "song.st0", "project.k7x"))).toBe(false);
+  expect(existsSync(join(root, "song.k7", "project.k7x"))).toBe(false);
 });
 
 it("refuses a real run until the operator turns it on", async () => {
   const r = await migrate(false);
   expect(r.status).toBe(409);
-  expect(existsSync(join(root, "song.st0", "project.yaml"))).toBe(true);
+  expect(existsSync(join(root, "song.k7", "project.yaml"))).toBe(true);
 });
 
 it("converts once on, keeping each original in the hidden backup", async () => {
   process.env.STUDIO_K7X = "1";
   const r = await migrate(false);
   expect(r.status).toBe(200);
-  expect(r.body.converted).toEqual(["song.st0/project.yaml"]);
-  expect(existsSync(join(root, "song.st0", "project.k7x"))).toBe(true);
-  expect(existsSync(join(root, "song.st0", "project.yaml"))).toBe(false);
+  expect(r.body.converted).toEqual(["song.k7/project.yaml"]);
+  expect(existsSync(join(root, "song.k7", "project.k7x"))).toBe(true);
+  expect(existsSync(join(root, "song.k7", "project.yaml"))).toBe(false);
   const [stamp] = readdirSync(join(root, ".k7x-backup"));
   expect(
-    existsSync(join(root, ".k7x-backup", stamp, "song.st0", "project.yaml")),
+    existsSync(join(root, ".k7x-backup", stamp, "song.k7", "project.yaml")),
   ).toBe(true);
-  expect(existsSync(join(root, "song.st0", "nodes", "gtr.yaml"))).toBe(true);
+  expect(existsSync(join(root, "song.k7", "nodes", "gtr.yaml"))).toBe(true);
 });

@@ -179,7 +179,7 @@ export function workspaceNames(dir: string): string[] {
   }
 }
 
-/** Every workspace on this machine, with its projects — what st0's home page draws (docs/workspaces.md). */
+/** Every workspace on this machine, with its projects — what k7's home page draws (docs/workspaces.md). */
 export async function listMachineWorkspaces(
   userEmail: string,
 ): Promise<AccountWorkspace[]> {
@@ -198,7 +198,7 @@ export async function listMachineWorkspaces(
         // `.` names the workspace folder itself; either way the NAME decides, the one rule both ends use.
         const app = projectApp(path === "." ? name : path.split("/").pop()!);
         if (!app) return [];
-        const tags = app === "st0" ? tagsOf(join(abs, path)) : [];
+        const tags = app === "k7" ? tagsOf(join(abs, path)) : [];
         return [tags.length ? { path, app, tags } : { path, app }];
       }),
     };
@@ -207,7 +207,7 @@ export async function listMachineWorkspaces(
   return rows;
 }
 
-/** An st0 project's tags, read from its project.yaml; none when there is no such file. */
+/** An k7 project's tags, read from its project.yaml; none when there is no such file. */
 function tagsOf(projectDir: string): string[] {
   try {
     return projectTagsOf(wsRead(join(projectDir, "project.yaml")));
@@ -225,7 +225,7 @@ export const forgetListing = (slug: string) => {
   surfaced.delete(slug);
 };
 
-/** Every project that DECLARES a surface, flat — what st0's `/external` page draws (docs/workspaces.md). */
+/** Every project that DECLARES a surface, flat — what k7's `/external` page draws (docs/workspaces.md). */
 export async function listSurfacedProjects(
   userEmail: string,
 ): Promise<SurfacedProject[]> {

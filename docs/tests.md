@@ -25,7 +25,7 @@ Two had opted out by accident:
 | package | test files | tests | why |
 |---|---|---|---|
 | `packages/ui-eyes` | 3 | 37 | no `test` script, no `vitest` devDependency |
-| `engine/st0-engine` | 6 (C++) | — | only `test:mac`; nothing ran on Windows or Linux |
+| `engine/k7-runtime` | 6 (C++) | — | only `test:mac`; nothing ran on Windows or Linux |
 
 Both are fixed, and both were green the moment they were wired in — tests that had been
 written, committed, and then protected nothing. `ui-eyes` is the one that stings: `compositor.test.ts`
@@ -47,14 +47,14 @@ done
 
 ## The C++ suite: two tiers, and a skip that says so
 
-`engine/st0-engine` has `"test": "node scripts/run-tests.mjs"`, so
+`engine/k7-runtime` has `"test": "node scripts/run-tests.mjs"`, so
 `npm run test` compiles and runs it like any other workspace. Three
 things that script does, each because the obvious version is wrong:
 
 **It filters on `^studio_`.** `ctest -N` in this build tree lists **ten** tests, and two of them
 are not ours: Tracktion vendors its own `Benchmarks` and `TestRunner` examples, and CMake registers
 them into our project. They are not even built, so a bare `ctest` fails on a missing executable
-with exit 8. Exactly the same leak the root `vitest.config.ts` excludes `engine/st0-engine/build/**`
+with exit 8. Exactly the same leak the root `vitest.config.ts` excludes `engine/k7-runtime/build/**`
 for — a vendored dependency's own tests turning up as ours.
 
 **It splits fast from slow on a ctest label.** Six of the eight targets are JUCE-free by design —
@@ -65,7 +65,7 @@ so they link the engine. Building those can recompile Tracktion — measured her
 minutes**, and the CMakeLists already called them "opt-in the same way".
 
 So those two carry `LABELS slow`, and the script runs `-LE slow`. The default is the fast tier,
-build included. `npm run test:all --workspace st0-engine` adds the slow two. The label lives in `tests/CMakeLists.txt` rather than in a list inside
+build included. `npm run test:all --workspace k7-runtime` adds the slow two. The label lives in `tests/CMakeLists.txt` rather than in a list inside
 the script, so a new test is fast unless it says otherwise, and the script's target list comes from
 `ctest -N` rather than being spelled out twice.
 
@@ -73,7 +73,7 @@ the script, so a new test is fast unless it says otherwise, and the script's tar
 network. A tree with no `build/<preset>/CMakeCache.txt` therefore prints what to run and exits 0:
 
 ```
-  SKIPPED — engine/st0-engine has no build/dev-gcc.
+  SKIPPED — engine/k7-runtime has no build/dev-gcc.
   The C++ tests need a configured tree; configuring fetches Tracktion and Faust.
 
     cmake --preset dev-gcc
@@ -165,7 +165,7 @@ list is load-bearing for packages that never read it.
 Running `vitest run` from the repository root is the obvious thing to do, and without a guard it
 walks into other people's code:
 
-- `engine/st0-engine/build/**` — CMake vendors Tracktion and JUCE there, and JUCE ships React demo
+- `engine/k7-runtime/build/**` — CMake vendors Tracktion and JUCE there, and JUCE ships React demo
   apps whose `App.test.js` get collected as ours;
 - `.claude/worktrees/**` — every branch ever worked on is checked out here. A bare root run once
   reported 667 failures that belonged to other branches.

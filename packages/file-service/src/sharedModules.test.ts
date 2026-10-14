@@ -30,7 +30,7 @@ const SHARED = "_modules/audio/delay/tape-delay/module.yaml";
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-shared-"));
   writeLibrary(root);
-  const proj = join(root, "song.st0");
+  const proj = join(root, "song.k7");
   mkdirSync(join(proj, "modules"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), {
     project: { name: "song", modules_from: ["../_modules"] },
@@ -41,7 +41,7 @@ beforeEach(() => {
     "utf8",
   );
   ws = new Workspace(root);
-  ws.setActiveProject("song.st0");
+  ws.setActiveProject("song.k7");
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -51,7 +51,7 @@ describe("the shared module library's structure is fixed", () => {
     await expect(ws.renameEntry(SHARED, "other.yaml")).rejects.toThrow(
       /edited in place/,
     );
-    await expect(ws.moveEntry(SHARED, "song.st0")).rejects.toThrow(
+    await expect(ws.moveEntry(SHARED, "song.k7")).rejects.toThrow(
       /edited in place/,
     );
     await expect(ws.deleteEntry("_modules/audio")).rejects.toThrow(
@@ -65,7 +65,7 @@ describe("the shared module library's structure is fixed", () => {
     ).toThrow(/edited in place/);
     // …and refuses to move something INTO it, which is a structural change to the library just the same.
     await expect(
-      ws.moveEntry("song.st0/graph.yaml", "_modules"),
+      ws.moveEntry("song.k7/graph.yaml", "_modules"),
     ).rejects.toThrow(/edited in place/);
   });
 
@@ -131,8 +131,8 @@ describe("saving a shared module writes it in place", () => {
   });
 
   it("answers nothing extra for an ordinary save", () => {
-    expect(ws.write("song.st0/notes.md", "hello")).toEqual({});
-    expect(existsSync(join(root, "song.st0", "notes.md"))).toBe(true);
+    expect(ws.write("song.k7/notes.md", "hello")).toEqual({});
+    expect(existsSync(join(root, "song.k7", "notes.md"))).toBe(true);
   });
 });
 
@@ -150,12 +150,12 @@ describe("the catalogue the builder lists", () => {
   it("offers no FILE for a project with no shared library, rather than throwing", () => {
     // A project with no `_modules` beside it lacks anything to OPEN, not anything to reach for.
     const solo = mkdtempSync(join(tmpdir(), "td-solo-"));
-    mkdirSync(join(solo, "song.st0"), { recursive: true });
-    writeYaml(join(solo, "song.st0", "project.yaml"), {
+    mkdirSync(join(solo, "song.k7"), { recursive: true });
+    writeYaml(join(solo, "song.k7", "project.yaml"), {
       project: { name: "song" },
     });
     const w = new Workspace(solo);
-    w.setActiveProject("song.st0");
+    w.setActiveProject("song.k7");
     const cat = w.moduleCatalogue();
     expect(cat.every((m) => m.path === undefined)).toBe(true);
     expect(cat.map((m) => m.ref)).toContain("@meta/OUT");

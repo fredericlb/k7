@@ -16,7 +16,7 @@ sees it. On one that **remounts**, it is plainly wrong for as long as the browse
 the callback, and it looks like a bug in the drawing rather than in the measuring: the wave stops
 short of its own frame, with the panel's background beyond it.
 
-st0's clip panel is exactly that case. After a take it swaps in `lecture de la prise…` while the
+k7's clip panel is exactly that case. After a take it swaps in `lecture de la prise…` while the
 file is fetched, so the picture that comes back is a **fresh mount** — starting from the guess
 again, every time, which is why "the waveform doesn't fill the panel" is a symptom that shows up
 after recording and nowhere else.
@@ -26,7 +26,7 @@ afterwards.
 
 ## A zero measurement is IGNORED, never floored
 
-A box measured before layout, or while its pane is `hidden` — which is how st0 keeps panes mounted
+A box measured before layout, or while its pane is `hidden` — which is how k7 keeps panes mounted
 and off screen — reports nothing. Flooring that to 1 latches a one-pixel canvas: a pane whose size
 does not change again never fires the observer a second time, so nothing would ever correct it.
 

@@ -1,14 +1,14 @@
 # workspaces.ts — the live set of workspaces, and the two listings over it
 
 One `Workspace` instance per workspace, memoized so its caches (compiled doc, waveforms) persist
-across requests, plus the listings st0's home page and `/external` draw.
+across requests, plus the listings k7's home page and `/external` draw.
 
 ## Opening does NOT create
 
 `getWorkspace` does not mkdir on first touch: that would make any request which merely NAMED a
 workspace conjure one, and a browser tab still retrying with a remembered name would silently
 recreate a workspace you had just deleted, empty. Creation happens only in `createWorkspace`
-(from `POST /workspaces`, st0's home page's **Nouveau**) and `Examples`, so what is on disk
+(from `POST /workspaces`, k7's home page's **Nouveau**) and `Examples`, so what is on disk
 changes because someone asked for it.
 
 `Examples` is stocked when the service STARTS (`syncExamples` in `demos.ts`), not by a listing.
@@ -38,7 +38,7 @@ and validates what is read (`projectFolder`), the destination resolves and valid
 lands (`copyProject`, over `copyProjectInto` in `projectLifecycle.ts`).
 
 **The copy keeps the source's suffix.** The suffix is what decides which application opens a
-folder, so a `.st0` copied as `.z0` would be a song z0 is asked to read: refused by name here
+folder, so a `.k7` copied as `.z0` would be a song z0 is asked to read: refused by name here
 rather than discovered by whoever opens it.
 
 **A workspace that IS a single project is refused as a destination.** Such a workspace lists `.`
@@ -63,7 +63,7 @@ destination's library by design, which is what a shared library IS.
 `renameProject` guards what every writer here guards — the root, the shared library, the recycle
 bin, the no-clobber, the Windows handle retry — plus the one thing a PROJECT folder has that an
 ordinary one has not: **a suffix that names the application**. It is checked with `projectApp` on
-both names rather than by string surgery, so `winter.st0` → `spring.z0` and `winter.st0` →
+both names rather than by string surgery, so `winter.k7` → `spring.z0` and `winter.k7` →
 `spring` are both refused by name, and the caller cannot hand a project to another editor by
 typing.
 
@@ -79,7 +79,7 @@ The compiled-doc cache is invalidated with it, and the project CACHE dropped
 (`forgetProjects`) as a delete and an import do — the listing is memoised, and a renamed project
 would otherwise be listed under a folder that is gone.
 
-## `listMachineWorkspaces` — what st0's home page draws
+## `listMachineWorkspaces` — what k7's home page draws
 
 Every workspace on this machine, with the projects it holds. The machine is the only thing that
 can answer it: the projects are folders on this disk. The walk is the same one `workspaceInfo`
@@ -119,8 +119,8 @@ can offer, and the place that says WHY is the editor, which shows them beside th
 faults.
 
 No policy here about which surfaces are worth a second device. The service reports what the
-project declares; whether a `timeline` can be driven from a phone is the APP's question, and st0
-answers it in one place — see `apps/st0/frontend/docs/external.md`.
+project declares; whether a `timeline` can be driven from a phone is the APP's question, and k7
+answers it in one place — see `apps/k7/frontend/docs/external.md`.
 
 `activeOf` reads the marker file straight off disk rather than opening a `Workspace`, which would
 build its caches to read one line.
@@ -134,7 +134,7 @@ without the workspace's own folder being a project. Three tiers, most deliberate
    expects;
 2. the first `projectDirsUnder(root)`, which is alphabetical because the walk is;
 3. `null` — and that is the ORDINARY state of a workspace just made, since `createWorkspace`
-   writes no project. The gate turns it into st0's first-project wizard rather than mounting an
+   writes no project. The gate turns it into k7's first-project wizard rather than mounting an
    editor over nothing (`packages/project-shell/docs/launch.md`).
 
 `setActiveProject` is untouched by all of this and keeps its exact rule: it checks existence

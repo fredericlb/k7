@@ -66,7 +66,7 @@ export async function answerOffer(
     throw new Error(
       "node-datachannel is not installed on the engine's machine",
     );
-  const pc = new ndc.PeerConnection("st0-engine", {
+  const pc = new ndc.PeerConnection("k7-runtime", {
     iceServers: opts.iceServers ?? [],
   });
   peers.add(pc);

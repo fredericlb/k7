@@ -206,7 +206,7 @@ knob. A param not in this list is a number, and that is still the overwhelming m
 that picks it: a widget that had to repeat them would be a second place to get them wrong, and its
 author already wrote `bind: model`. Most params are named after the one format they load (`onnx`),
 and the name is the rule. `model` is the exception, and has a table entry: an amp model is a `.nam`
-or an RTNeural `.json` (AIDA-X, Proteus — `engine/st0-engine/docs/namPlugin.md`), one param for
+or an RTNeural `.json` (AIDA-X, Proteus — `engine/k7-runtime/docs/namPlugin.md`), one param for
 both, because a module picks an amp and should not have to know which trainer made it. It sits beside `FILE_PARAMS` and free of `node:fs` because the PICKER runs in a
 browser: the panel filters the module's assets down to the ones its param can take.
 `moduleAssetChoices` reads disk and is the node-only half.
@@ -255,19 +255,19 @@ same call `packages/song/docs/nodes.md` and
 
 ## The three levels
 
-A ref carries the level as its `@` prefix — `@engine/audio/nam`, `@st0/…`, `@workspace/…` — and
+A ref carries the level as its `@` prefix — `@engine/audio/nam`, `@k7-core/…`, `@workspace/…` — and
 there is no bare form: every ref names its level explicitly. `engine` is the odd one: it names no
 folder at all, since a scanned plugin is synthesised by `engineCatalogue` from the machine's scan
 cache, so it is a level without a root.
 
 The list lives here and not beside `moduleNamespaceOf`, which decides a level from a folder on disk:
-this is the vocabulary, and a browser has to spell it too — st0's Libraries tab writes `@st0` on a
+this is the vocabulary, and a browser has to spell it too — k7's Libraries tab writes `@k7-core` on a
 row, and `sharedFolders.ts` reads the disk on its first line, so importing it there would drag
 `node:fs` into a bundle.
 
-**`@st0` names the MÉDIATHÈQUE's library — `st0-library/` — and not the editor.** The one level that
+**`@k7-core` names the MÉDIATHÈQUE's library — `k7-core/` — and not the editor.** The one level that
 reads like an app names a library, and it DELIBERATELY does not follow a
-rename. A level is written into user files: every `@st0/…` in every chain of every repository would
+rename. A level is written into user files: every `@k7-core/…` in every chain of every repository would
 have to be rewritten at once, on machines this repo does not have, and the failure is silent enough
 to be nasty (a `?` on a graph node, nothing else). An app is named for where it sits on the origin;
 a level names a folder of modules.
@@ -285,15 +285,15 @@ The account has named LIBRARIES, each a repository the file service clones at
 `modules/`, `chains/`, `assemblies/`. Library `<name>` is the level `@<name>` — `FIXED_NAMESPACES`
 is only `engine` and `workspace`, and every other `@` prefix is a library. `isLibraryName` says what
 a library may be called (a ref segment and a folder name at once, never `engine`, `workspace` or
-`meta`), `libraryRefParts` splits `@<library>/<rest>`, and `DEFAULT_LIBRARY` is `st0`, the name the
-account's first library gets so every `@st0/…` written before libraries had names still resolves.
+`meta`), `libraryRefParts` splits `@<library>/<rest>`, and `DEFAULT_LIBRARY` is `k7`, the name the
+account's first library gets so every `@k7-core/…` written before libraries had names still resolves.
 Not the machine-wide `<state>/mediatek` cache, and not declared anywhere, by the argument that
 leaves `modules_from` dead: a path in a `project.yaml` can be wrong about a folder the loader can
 simply look for.
 
 `LIBRARIES_DIR` (`_libraries`) is the VIRTUAL folder a workspace's file API answers the libraries
 at — `_libraries/<name>/…` — though no workspace holds one on disk. It and `SHARED_MODULES_DIR` are
-here rather than beside `moduleLibraryDirs` because a browser names these folders too — st0's
+here rather than beside `moduleLibraryDirs` because a browser names these folders too — k7's
 Libraries tab reads a module's ref and its library off such a path — and `sharedFolders.ts` reads
 the disk on its first line (`packages/song/docs/sharedFolders.md`).
 
@@ -324,7 +324,7 @@ Neither derived spelling overwrites a TYPE: a type is the addressable one, and "
 would otherwise depend on which came first in the object. The map is built once at module load,
 since it is read per base module per hints gather.
 
-`builtinPluginForRef` answers only for the engine namespace: a `@st0/…` or a project-local ref names
+`builtinPluginForRef` answers only for the engine namespace: a `@k7-core/…` or a project-local ref names
 a FILE, which has to be read and resolved, and this is the seam for the case where there is nothing
 to read.
 
@@ -347,4 +347,4 @@ uses and no lookup finds, which reads as "this project has no such module" about
 the tree. It returns null when the path names no module. It is in this leaf rather than in the
 loader so a BROWSER can ask: `@studio/song/loader` opens `node:fs` on import, and this is a question
 about a string. It searches the LAST `modules/` segment so a workspace-relative path
-(`song.st0/modules/…`) and an absolute one both land on the same place.
+(`song.k7/modules/…`) and an absolute one both land on the same place.

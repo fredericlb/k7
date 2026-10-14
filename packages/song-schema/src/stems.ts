@@ -73,7 +73,7 @@ export const deckPlatter = (deck: string): string => `platter${letterOf(deck)}`;
 /** The BOX a deck's eighteen nodes are drawn as, and the template behind it — see
  *  packages/song/docs/assemblies.md. Spelled here beside the other names a set is made of, so the
  *  scaffold, the migration and the desk cannot come to disagree about what a turntable is called. */
-export const TURNTABLE_REF = "@st0/turntable";
+export const TURNTABLE_REF = "@k7-core/turntable";
 export const turntableBox = (deck: string): string =>
   `turntable${letterOf(deck)}`;
 

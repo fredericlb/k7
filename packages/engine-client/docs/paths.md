@@ -1,13 +1,13 @@
 # Where a machine's state lives
 
-One directory holds everything st0 keeps on a musician's machine: the engine's identity, the
+One directory holds everything k7 keeps on a musician's machine: the engine's identity, the
 supervisor's settings, the plugin scan cache, the media library, the SSH keys, the merged log
 and the **workspaces**. `packages/engine-client/src/paths.ts` is the single definition of what
 is in it; `packages/song/src/studioHome.ts` is where it is.
 
 Throughout the docs it is written `<state>`.
 
-`~/.st0`, on **all three platforms**.
+`~/.k7`, on **all three platforms**.
 
 `$STUDIO_HOME` overrides it, and that is not a debug hatch: it is how every test that touches this
 gets a directory of its own.
@@ -16,8 +16,8 @@ gets a directory of its own.
 
 The per-platform location each OS prefers would be the tidier answer if one program owned this
 directory. Four do, in two languages: `packages/song/src/studioHome.ts`,
-`scripts/stateDir.mjs` for the plain-node scripts, `engine/st0-supervisor/src/Paths.cpp`, and
-`engine/st0-engine/engine/PluginScan.cpp`.
+`scripts/stateDir.mjs` for the plain-node scripts, `engine/k7-supervisor/src/Paths.cpp`, and
+`engine/k7-runtime/engine/PluginScan.cpp`.
 
 Each language's idea of "where application data goes" is subtly its own, and they do not line up:
 JUCE's `userApplicationDataDirectory` is `~/Library` on macOS where node's equivalent is
@@ -52,7 +52,7 @@ misses `%APPDATA%` and `$XDG_CONFIG_HOME` entirely.
 ## The settings file has one name
 
 `<state>/engine-host.json`, pairing with `engine-host.pid`, written by the supervisor
-(`engine/st0-supervisor/src/Settings.h`). `existingSettingsPath` reads that name and no other: a
+(`engine/k7-supervisor/src/Settings.h`). `existingSettingsPath` reads that name and no other: a
 second name carried for ever costs a branch in every reader plus a test that has to keep asserting
 it. A settings file under any other name is not read, so the machine starts from defaults — ports
 8765/8770, an empty audio priority, no paired server. That is a deliberate trade: the file is small,

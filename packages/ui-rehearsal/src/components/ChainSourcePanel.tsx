@@ -1,8 +1,8 @@
-// ChainSourcePanel.tsx — the chain source's screen: pick a chain of the library, see st0's bench
+// ChainSourcePanel.tsx — the chain source's screen: pick a chain of the library, see k7's bench
 // playing it in a frame, hear it, then record its output. See ../../docs/chainSource.md.
 //
-// What reads wrong: the panel is HIDDEN during a take, never unmounted — the frame is st0's open
-// bench, and unmounting it would reload st0 and drop its claim on the engine mid-take.
+// What reads wrong: the panel is HIDDEN during a take, never unmounted — the frame is k7's open
+// bench, and unmounting it would reload k7 and drop its claim on the engine mid-take.
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
@@ -25,7 +25,7 @@ import {
 import { m } from "../paraglide/messages.js";
 
 interface Props {
-  /** Who st0's session belongs to — the email, else the subject, as st0 spells it. */
+  /** Who k7's session belongs to — the email, else the subject, as k7 spells it. */
   who: string;
   /** A take is running on this chain: Record is spent, and Hide is the only way out. */
   recording: boolean;

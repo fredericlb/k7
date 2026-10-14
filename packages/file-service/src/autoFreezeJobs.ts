@@ -189,7 +189,7 @@ async function renderOnEngineMachine(
     return;
   }
   const bin = findEngineBinary();
-  if (!bin) throw new Error("no st0-engine binary on this machine");
+  if (!bin) throw new Error("no k7-runtime binary on this machine");
   await renderToWav(localRenderer(bin), f.cut, outAbs);
 }
 

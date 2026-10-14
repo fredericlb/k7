@@ -36,7 +36,7 @@ that landed is a file the library now has, and the caller can retry the rest.
 |---|---|
 | `_library/` | `library/` |
 
-`_modules/` has **no row**. A module is authored in st0 and committed to the account's library
+`_modules/` has **no row**. A module is authored in k7 and committed to the account's library
 repository — a git repository somebody owns, not a folder on this volume
 (`packages/song/docs/sharedFolders.md`). What travels here is the material a module NAMES:
 impulse responses, amp profiles. A module's face is the `ui.yaml` **inside** the module's own

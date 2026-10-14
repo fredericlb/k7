@@ -21,11 +21,11 @@ const write = (rel: string, body: string): void => {
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-references-"));
-  const proj = join(root, "song.st0");
+  const proj = join(root, "song.k7");
   mkdirSync(proj, { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
   ws = new Workspace(root);
-  ws.setActiveProject("song.st0");
+  ws.setActiveProject("song.k7");
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -53,7 +53,7 @@ describe("Workspace.references", () => {
   it("reads the WORKSPACE root and not the open project", () => {
     // `/tree` is rooted at the active project on purpose, so a listing that followed it
     // would answer nothing for a folder that is deliberately outside every project.
-    write("song.st0/_references/inside.wav", "x");
+    write("song.k7/_references/inside.wav", "x");
     write("_references/beside.wav", "x");
     expect(ws.references().map((r) => r.path)).toEqual([
       "_references/beside.wav",

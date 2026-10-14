@@ -83,7 +83,7 @@ describe("the nodes folder", () => {
     expect(loadModules(dir)).toEqual({});
   });
 
-  it("no longer reads a project's own modules/ at all — a module lives at @workspace or @st0 now", () => {
+  it("no longer reads a project's own modules/ at all — a module lives at @workspace or @k7-core now", () => {
     mkdirSync(join(dir, "modules", "audio", "amp"), { recursive: true });
     writeFileSync(
       join(dir, "modules", "audio", "amp", "module.yaml"),

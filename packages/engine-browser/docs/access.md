@@ -5,9 +5,9 @@ The pieces exist separately: `registry.ts` (the routes), `probe.ts` (measuring),
 
 ## The registry's address is given once, to the constructor
 
-`base` is where the registry answers — st0's backend, the one registry (`packages/engine-registry/docs/shared.md`):
-`serviceUrl(…, "pl8")`, which is st0's origin, for st0 and z0's editor, and the host's `apiBase()` for the
-media library's screens; st0 names the backend holding its preferences through `prefsBase`. It decides both the registry's routes
+`base` is where the registry answers — k7's backend, the one registry (`packages/engine-registry/docs/shared.md`):
+`serviceUrl(…, "pl8")`, which is k7's origin, for k7 and z0's editor, and the host's `apiBase()` for the
+media library's screens; k7 names the backend holding its preferences through `prefsBase`. It decides both the registry's routes
 and what the probe composes.
 Passed separately to two functions it is two places for one fact, and nothing would force an app
 to keep them in step. The one that drifts most quietly is the probe's, and it is what decides
@@ -15,7 +15,7 @@ whether the **relay** is offered: a service can then list its engines correctly 
 them remotely, with no type noticing.
 
 ```ts
-export const engines = engineAccess<PublicEngine, St0Prefs>(PL8, json, { prefsBase: BASE, hostedFiles: true });
+export const engines = engineAccess<PublicEngine, K7Prefs>(PL8, json, { prefsBase: BASE, hostedFiles: true });
 ```
 
 ## `find()` is the sequence, not the pieces
@@ -51,7 +51,7 @@ Where to wire it differs, and the difference is a choice:
 | surface | when |
 |---|---|
 | the media library, `useSongEngine` | **always** — whether the account's engine answers decides where a song plays |
-| st0 `EngineGate` | **only while `picking`** — re-measuring after the choice takes the screen backwards under someone working |
+| k7 `EngineGate` | **only while `picking`** — re-measuring after the choice takes the screen backwards under someone working |
 
 The probe's timeout is **3 s**. Candidates are measured in parallel, so an absent engine costs
 one timeout rather than one per address; and on any machine but the engine's the only workable
@@ -63,7 +63,7 @@ merely longer.
 An HTTPS page does not open `ws://` to a LAN address. Listing them anyway works — the browser
 discards them — but each discarded attempt counts as **mixed content**, and that is what makes a
 page non-installable. The surfaces menu could then not be added to a home screen, which is the
-device it exists for (`apps/st0/frontend/docs/external.md`).
+device it exists for (`apps/k7/frontend/docs/external.md`).
 
 `candidatesFor` therefore offers loopback — potentially trustworthy by definition, dialable from
 HTTPS — and the relay. LAN addresses stay listed over plain HTTP, where they work. An engine whose
@@ -81,22 +81,22 @@ reads, so none of the calls that build that header change, and none of them need
 across origins. `token` stays the engine's own, since the claim is checked against it.
 
 `hostedFiles()` answers the same hub with no engine in the ticket, for a page that lists or edits
-files and plays nothing — st0's home page, whose workspaces exist whether or not an engine runs.
+files and plays nothing — k7's home page, whose workspaces exist whether or not an engine runs.
 
-st0 and z0's editor opt in: they open a project, and a project is the server's. The media library does not —
+k7 and z0's editor opt in: they open a project, and a project is the server's. The media library does not —
 its player resolves songs against the engine machine's own médiathèque cache and sends the
 engine a document itself, which the server's files would name in paths the engine cannot open.
 
 ## Outside this object
 
 - **`EngineClient`**: opening the socket with the service's session
-  (`sessionFor(SESSIONS.st0, …)`), which each app holds and only one of them must —
+  (`sessionFor(SESSIONS.k7, …)`), which each app holds and only one of them must —
   `@studio/engine-protocol/docs/sessions.md`.
 - **The file service**: `fileBase` goes from the probe into `@studio/project-shell/fileApi`, and
   **travels with the address that answered**. A relayed socket beside a direct `http://` rebuilds
   the mixed-content wall on the other half (`@studio/engine-registry/docs/proxy.md`).
-- **The picker's policy**: the media library leaves an editor open with no engine, st0's gate does not. A
-  product difference, not a plumbing one. st0 never asks: every open takes `bestEngine`
+- **The picker's policy**: the media library leaves an editor open with no engine, k7's gate does not. A
+  product difference, not a plumbing one. k7 never asks: every open takes `bestEngine`
   (`choose.ts`) afresh, and does not store what it took as the preference. The order, each step
   only among the equals of the one before:
   1. **compatibility** with the project (`compat.ts`): the share of the plugins the project
@@ -115,7 +115,7 @@ engine a document itself, which the server's files would name in paths the engin
   or busy is no candidate, so the choice falls to this machine's.
 
   The formula is `@studio/web-protocol/compat`, and it is applied on one of two roads, by where
-  the project's files live (`apps/st0/frontend/src/engineCompat.ts`):
+  the project's files live (`apps/k7/frontend/src/engineCompat.ts`):
   - **on the server** (hosted files): the server lists the needs, `/project-plugins`, with no
     engine bound; each catalogue comes from the engine itself, `list-plugins` on a socket of its
     own — a probe query, answered without a session — and the browser scores;
@@ -125,5 +125,5 @@ engine a document itself, which the server's files would name in paths the engin
   When nothing could be told (no `@local` project in the address, no engine answered)
   compatibility is left out and the order starts at 2.
 
-  The header's engine menu (st0's `EngineSwitch`) is an explicit choice, and it saves the
+  The header's engine menu (k7's `EngineSwitch`) is an explicit choice, and it saves the
   preference — step 2 above.

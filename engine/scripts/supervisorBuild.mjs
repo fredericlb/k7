@@ -1,4 +1,4 @@
-// supervisorBuild.mjs — building and finding the native supervisor (engine/st0-supervisor).
+// supervisorBuild.mjs — building and finding the native supervisor (engine/k7-supervisor).
 // Shared by build-engine.mjs and the dev session, so "which binary is the supervisor" has one answer. See docs/buildEngine.md.
 
 import { existsSync, readdirSync, statSync } from "node:fs";
@@ -16,7 +16,7 @@ export function supervisorPreset() {
 
 /** Configure (once) and build the supervisor with CMake; exits on failure, like every step here. */
 export function buildSupervisor(repo) {
-  const dir = join(repo, "engine", "st0-supervisor");
+  const dir = join(repo, "engine", "k7-supervisor");
   const preset = supervisorPreset();
   if (!existsSync(join(dir, "build", preset, "CMakeCache.txt")))
     run("cmake", ["--preset", preset], dir);
@@ -25,12 +25,12 @@ export function buildSupervisor(repo) {
 
 /** The freshest built supervisor, Debug last — the rule the engine binary follows too. */
 export function findSupervisor(repo) {
-  const build = join(repo, "engine", "st0-supervisor", "build");
+  const build = join(repo, "engine", "k7-supervisor", "build");
   if (!existsSync(build)) return null;
   const found = [];
   for (const preset of readdirSync(build))
     for (const cfg of ["", "Release", "RelWithDebInfo", "Debug"])
-      for (const name of ["st0-supervisor.exe", "st0-supervisor"]) {
+      for (const name of ["k7-supervisor.exe", "k7-supervisor"]) {
         const p = join(build, preset, cfg, name);
         if (existsSync(p) && statSync(p).isFile())
           found.push({ path: p, debug: cfg === "Debug" });

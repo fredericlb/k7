@@ -28,7 +28,7 @@ things force that, and each would break the day a file could compute:
   running it is not.
 
 What computes stays where it already is: a `.strudel` pattern, which the engine evaluates
-(`engine/st0-engine/docs/patternPlugin.md`). k7x borrows Strudel's look, not its semantics.
+(`engine/k7-runtime/docs/patternPlugin.md`). k7x borrows Strudel's look, not its semantics.
 
 ## A call is an entry, a chain is a map
 

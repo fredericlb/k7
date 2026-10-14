@@ -53,7 +53,7 @@ function wav(seconds: number): Buffer {
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "evgain-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   // 120 bpm: a beat is half a second.
   put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
   put("clips/a.wav", wav(10));

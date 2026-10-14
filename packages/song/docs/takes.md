@@ -101,4 +101,4 @@ record on where they were not, and rolls from the START of what it re-records: t
 is one, punched into it, else the event's own. Not from the playhead: a take is a part played again,
 from its top, and the count-in rolls in the bars BEFORE that start — Tracktion puts its pre-roll
 ahead of the play position. A MIDI pass turns the engine's record on for the same reason: that is
-what counts in, though the notes are the browser's. See `apps/st0/frontend/docs/clipEditors.md`.
+what counts in, though the notes are the browser's. See `apps/k7/frontend/docs/clipEditors.md`.

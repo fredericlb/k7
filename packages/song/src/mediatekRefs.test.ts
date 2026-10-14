@@ -35,18 +35,18 @@ afterEach(() => {
 describe("the médiathèque modules a project names", () => {
   it("finds the ones a NODE extends — the ordinary way to use one", () => {
     // A node reaches the library through `extends`, and missing it leaves the module uncached.
-    projectNode("gtr", 'extends: "@st0/audio/filter/auto-wah"\n');
-    expect(mediatekRefs(dir)).toEqual(["@st0/audio/filter/auto-wah"]);
+    projectNode("gtr", 'extends: "@k7-core/audio/filter/auto-wah"\n');
+    expect(mediatekRefs(dir)).toEqual(["@k7-core/audio/filter/auto-wah"]);
   });
 
   it("finds one a chain step names outright, node and all", () => {
     // The folder to fetch is the MODULE's, so the node suffix is dropped rather than pathed.
     writeFileSync(
       join(dir, "graph.yaml"),
-      "modules:\n  gtr: [ '@st0/audio/modulation/flanger:warm' ]\n",
+      "modules:\n  gtr: [ '@k7-core/audio/modulation/flanger:warm' ]\n",
       "utf8",
     );
-    expect(mediatekRefs(dir)).toEqual(["@st0/audio/modulation/flanger"]);
+    expect(mediatekRefs(dir)).toEqual(["@k7-core/audio/modulation/flanger"]);
   });
 
   it("ignores every other level", () => {
@@ -63,19 +63,19 @@ describe("the médiathèque modules a project names", () => {
     mkdirSync(at, { recursive: true });
     writeFileSync(
       join(at, "module.yaml"),
-      'extends: "@st0/audio/amp/base"\n',
+      'extends: "@k7-core/audio/amp/base"\n',
       "utf8",
     );
-    projectNode("mine", 'extends: "@st0/audio/amp/child"\n');
+    projectNode("mine", 'extends: "@k7-core/audio/amp/child"\n');
     expect(mediatekRefs(dir)).toEqual([
-      "@st0/audio/amp/base",
-      "@st0/audio/amp/child",
+      "@k7-core/audio/amp/base",
+      "@k7-core/audio/amp/child",
     ]);
   });
 
   it("maps a ref to the folder the whole module lives in", () => {
     // A module IS its folder — the jsdsp source, the presets and the panel come with it.
-    expect(mediatekPathPrefix("@st0/audio/filter/auto-wah")).toBe(
+    expect(mediatekPathPrefix("@k7-core/audio/filter/auto-wah")).toBe(
       "modules/audio/filter/auto-wah/",
     );
   });

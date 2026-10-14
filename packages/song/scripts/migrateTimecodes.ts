@@ -1,7 +1,7 @@
 // migrateTimecodes.ts — rewrite a project's timecodes as bar:beat:eighth:sixteenth, anything
 // finer as ticks.
 //
-//   npx tsx packages/song/scripts/migrateTimecodes.ts <project.st0> [--write]
+//   npx tsx packages/song/scripts/migrateTimecodes.ts <project.k7> [--write]
 //
 // The pressing reason: a SHORT deep chain is legal in both notations and means different things,
 // so until a song is converted three of its times are read half a beat from where they were
@@ -70,7 +70,7 @@ function main(): void {
   const write = args.includes("--write");
   const root = args.find((a) => !a.startsWith("--"));
   if (!root) {
-    console.error("usage: migrateTimecodes.ts <project.st0> [--write]");
+    console.error("usage: migrateTimecodes.ts <project.k7> [--write]");
     process.exit(2);
   }
   const { num, den } = meter(root);

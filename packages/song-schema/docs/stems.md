@@ -2,7 +2,7 @@
 
 The rationale behind `packages/song-schema/src/stems.ts`. How a separation is RUN is
 `packages/stem-separation/docs/stemSplit.md`; what the desk draws is
-`packages/st0-plugins/docs/turntables/stems.md`.
+`packages/k7-plugins/docs/turntables/stems.md`.
 
 ## The order is the knowledge
 
@@ -121,7 +121,7 @@ would be two linear gains in series, and eight compiled DSP graphs per set for n
 
 ### Migrating a set that still has the module
 
-`npx tsx packages/song/scripts/migrateStemGain.ts <projet.st0> --write` — it carries each cut's
+`npx tsx packages/song/scripts/migrateStemGain.ts <projet.k7> --write` — it carries each cut's
 `Level` onto its platter's `Gain`, repoints the binding, and removes the node. Older sets walk the
 whole chain in order: `migrateSetStems` → `migrateSetPlatter` → `migrateStemGain`.
 
@@ -138,7 +138,7 @@ migration that follows a constant which has since moved silently skips the steps
 - **They sum BEFORE the EQ**, because a deck's strip equalises what it sends to the fader, not each
   instrument apart.
 - **A new record resets the four gains.** `deckFile` is part of a plugin's identity
-  (`engine/st0-engine/docs/projectDiff.md`), so putting a song on re-creates the platter and its `Gain`
+  (`engine/k7-runtime/docs/projectDiff.md`), so putting a song on re-creates the platter and its `Gain`
   goes back to the declared 1. The desk clears its own knobs in `putOn` to match — without that it
   would draw a cut that is not applied, and nothing would say so.
 - **The test that decides**: all four at unity, render, compare with the record — it must stay about

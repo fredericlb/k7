@@ -29,7 +29,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 /** A project folder with a graph, and optionally a viewport surface. */
 function project(graph: string, viewport = true): string {
-  const dir = join(root, "song.st0");
+  const dir = join(root, "song.k7");
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
@@ -84,7 +84,7 @@ describe("the run itself", () => {
 
   it("compiles to NOTHING, and changes no audio document", () => {
     // Nothing bakes VideoPluginDoc yet, so the run has no owner and its steps drop.
-    const dir = join(root, "compiled.st0");
+    const dir = join(root, "compiled.k7");
     mkdirSync(dir, { recursive: true });
     writeFileSync(
       join(dir, "project.yaml"),
@@ -158,7 +158,7 @@ describe("ensureVideoRun", () => {
   });
 
   it("says false for a project with no graph at all", () => {
-    const dir = join(root, "bare.st0");
+    const dir = join(root, "bare.k7");
     mkdirSync(dir, { recursive: true });
     expect(ensureVideoRun(dir)).toBe(false);
   });
@@ -179,14 +179,14 @@ describe("where it is added from", () => {
   });
 
   it("the `video` archetype is born with it, and `arrangement` is not", () => {
-    const vid = join(root, "vid.st0");
+    const vid = join(root, "vid.k7");
     mkdirSync(vid, { recursive: true });
     scaffold(vid, "vid", "video");
     expect(read(vid)).toContain("  RENDER: [ VIDEO_OUT ]");
     // …and the note above the map, since the splice writes a line and not a reason.
     expect(read(vid)).toContain("videoOutputs.md");
 
-    const arr = join(root, "arr.st0");
+    const arr = join(root, "arr.k7");
     mkdirSync(arr, { recursive: true });
     scaffold(arr, "arr");
     expect(read(arr)).not.toContain("RENDER");
@@ -194,7 +194,7 @@ describe("where it is added from", () => {
 
   it("the scaffolded video graph still parses, and still declares the audio run", () => {
     // The archetype ADDS to the song's map, so the sound's run must survive the picture's splice.
-    const vid = join(root, "both.st0");
+    const vid = join(root, "both.k7");
     mkdirSync(vid, { recursive: true });
     scaffold(vid, "both", "video");
     const g = loadGraph(vid);

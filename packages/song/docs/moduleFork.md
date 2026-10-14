@@ -1,10 +1,10 @@
 # moduleFork — giving an engine module a folder
 
-A `@workspace` or `@st0` module already has a folder: `module.yaml`, and whichever of `ui.yaml`
+A `@workspace` or `@k7-core` module already has a folder: `module.yaml`, and whichever of `ui.yaml`
 and a `jsdsp.ts` it carries. Editing one is writing that folder directly — no
 special handling here, no redirect. `@workspace` takes the write immediately, like any other file
-st0 saves; `@st0` goes through the Edit-then-publish gate instead, since a save there commits and
-pushes a repository other songs read (`apps/st0/frontend/docs/sharedModules.md`). Neither needs
+k7 saves; `@k7-core` goes through the Edit-then-publish gate instead, since a save there commits and
+pushes a repository other songs read (`apps/k7/frontend/docs/sharedModules.md`). Neither needs
 this file: it is about the module that has no folder at all.
 
 ## The other way in: a module with no folder at all

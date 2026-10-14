@@ -30,10 +30,10 @@
     ".": {
       "entry": ["scripts/*.mjs", "scripts/**/*.mjs", "demos/**/jsdsp.ts"]
     },
-    "engine/st0-engine": {
+    "engine/k7-runtime": {
       "entry": ["scripts/*.{ts,mjs}"]
     },
-    "apps/st0/frontend": {
+    "apps/k7/frontend": {
       "entry": ["src/docs/examples.ts"]
     },
     "packages/rehearsal-server": {

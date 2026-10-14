@@ -14,7 +14,7 @@ import type { LoadedModule } from "./rawDoc";
 import { librariesFixture } from "./testSupport";
 import { loadUiLibrary } from "./uiLibrary";
 
-// A scanned plugin's face is a `@st0` module extending `@engine`, resolved by the PROJECT that loads it.
+// A scanned plugin's face is a `@k7-core` module extending `@engine`, resolved by the PROJECT that loads it.
 
 const SLUG = "@engine/serum";
 
@@ -30,7 +30,7 @@ const CATALOGUE = {
 } as unknown as Record<string, LoadedModule>;
 
 let ws: string;
-/** The library's modules, mounted in the workspace: `<ws>/_libraries/modules` — the `@st0` level. */
+/** The library's modules, mounted in the workspace: `<ws>/_libraries/modules` — the `@k7-core` level. */
 let media: string;
 let dir: string;
 
@@ -41,7 +41,7 @@ beforeEach(() => {
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n  modules_from: [ '@st0' ]\n",
+    "project:\n  name: song\n  tempo: 120\n  modules_from: [ '@k7-core' ]\n",
     "utf8",
   );
   // The médiathèque module: it adds NOTHING but a name and a face. `extends` is the whole substance.
@@ -65,55 +65,55 @@ describe("a scanned plugin's face lives in the médiathèque", () => {
   it("keys the library module and the engine module side by side", () => {
     // Both levels in one map is the precondition for the `extends` below to resolve at all.
     const all = refs();
-    expect(all["@st0/instruments/serum"]).toBeTruthy();
+    expect(all["@k7-core/instruments/serum"]).toBeTruthy();
     expect(all[SLUG]).toBeTruthy();
   });
 
   it("inherits the plugin from the engine ref it extends", () => {
     // The library module declares no `plugin:`, so failing here draws a face over nothing.
     const all = refs();
-    const m = resolveModule(all["@st0/instruments/serum"], all);
+    const m = resolveModule(all["@k7-core/instruments/serum"], all);
     expect(m.plugin).toMatchObject({ type: "vst3", name: "Serum" });
   });
 
   it("keeps the level it is filed at, rather than the one it inherits from", () => {
     // `category` is OWN_ONLY, or the library's copy is filed wherever the engine happened to report.
     const all = refs();
-    const m = resolveModule(all["@st0/instruments/serum"], all);
+    const m = resolveModule(all["@k7-core/instruments/serum"], all);
     expect(m.category).toBe("instruments");
   });
 
   it("draws the panel the médiathèque holds, for a plugin with no folder of its own", () => {
     // `@engine/serum` has no folder to write a ui.yaml into, so the library module holds the panel.
-    const panel = loadUiLibrary(dir).byRef["@st0/instruments/serum"];
+    const panel = loadUiLibrary(dir).byRef["@k7-core/instruments/serum"];
     expect(panel?.ui.widgets.cutoff).toMatchObject({ bind: "Cutoff" });
   });
 
   it("reaches the module itself, not just the panel map", () => {
     // loadModuleRefs overlays the panels onto the modules it keys, which is what a project compiles from.
-    expect(refs()["@st0/instruments/serum"].ui).toMatchObject({
+    expect(refs()["@k7-core/instruments/serum"].ui).toMatchObject({
       cols: 2,
       rows: 1,
     });
   });
 
   it("resolves the library ref on a project header that says nothing at all", () => {
-    // No header field declares the library, so a bare header still has to resolve `@st0/…`.
+    // No header field declares the library, so a bare header still has to resolve `@k7-core/…`.
     writeFileSync(
       join(dir, "project.yaml"),
       "project:\n  name: song\n  tempo: 120\n",
       "utf8",
     );
     const all = loadModuleRefs(dir, CATALOGUE);
-    expect(all["@st0/instruments/serum"]).toBeTruthy();
+    expect(all["@k7-core/instruments/serum"]).toBeTruthy();
     // …and its face comes with it, or the module resolves and then draws nothing.
-    expect(loadUiLibrary(dir).byRef["@st0/instruments/serum"]).toBeTruthy();
+    expect(loadUiLibrary(dir).byRef["@k7-core/instruments/serum"]).toBeTruthy();
   });
 
   it("survives a machine that has never scanned", () => {
     // An unresolved `extends` costs the inheritance, not the project: validate() reports it.
     const all = loadModuleRefs(dir, {});
-    const m = resolveModule(all["@st0/instruments/serum"], all);
+    const m = resolveModule(all["@k7-core/instruments/serum"], all);
     expect(m.plugin).toBeUndefined();
     expect(m.category).toBe("instruments"); // still filed where it sits
   });
@@ -137,7 +137,7 @@ describe("scaffolding that module", () => {
     writeFileSync(at, f.text, "utf8");
     const all = refs();
     const m = resolveModule(
-      all[`@st0/${f.path.replace(/\/module\.yaml$/, "")}`],
+      all[`@k7-core/${f.path.replace(/\/module\.yaml$/, "")}`],
       all,
     );
     expect(m.plugin).toMatchObject({ name: "Serum" });

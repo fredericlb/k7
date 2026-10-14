@@ -4,7 +4,7 @@
 `playing`, `position` and `duration` are props, and the three buttons are callbacks. The two
 screens that mount it play things that have nothing in common —
 
-| | the médiathèque | st0's references |
+| | the médiathèque | k7's references |
 |---|---|---|
 | what plays | a song of the médiathèque | a reference track in the workspace |
 | through what | this tab's `<audio>`, mpv on the host, or the engine | this tab's `<audio>`, always |
@@ -65,4 +65,4 @@ so every host is a media player without doing anything — and the system's butt
 The browser shows these controls only for a page that is itself making sound — the médiathèque
 playing in the tab, a reference track. Playing on mpv or the engine, the page is silent, and
 only the Android app, which relays the session itself, shows them then
-(`engine/st0-engine/docs/android.md`).
+(`engine/k7-runtime/docs/android.md`).

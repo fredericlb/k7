@@ -12,7 +12,7 @@ import { halveLoopsOf } from "./sequenceLoops";
 // and the two halves can now differ. Four passes of one beat become two of two — docs/sequenceLoops.md.
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.k7");
 const DEMO_MODULES = join(here, "..", "..", "..", "demos", "_modules");
 
 let root: string;
@@ -43,7 +43,7 @@ const laneText = () => readFileSync(join(dir, "nodes", "melody.yaml"), "utf8");
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-seqx2-"));
-  dir = join(root, "synth-demo.st0");
+  dir = join(root, "synth-demo.k7");
   copyAsYaml(SONG, dir, { recursive: true });
   copyAsYaml(DEMO_MODULES, join(root, "_modules"), { recursive: true });
 });

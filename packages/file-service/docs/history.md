@@ -1,6 +1,6 @@
 # The undo/redo journal
 
-`history.ts` is a per-project journal that makes Ctrl+Z / Ctrl+Y in st0 undo
+`history.ts` is a per-project journal that makes Ctrl+Z / Ctrl+Y in k7 undo
 **persisted** changes to the project — an editor save, or any command that rewrote a
 file — across the whole project, not just the file on screen. It lives in the file
 service because that is the one place every mutation already funnels through, and because
@@ -49,7 +49,7 @@ before/after content inline; binary changes reference backup blobs. `kind` is `"
 iff the entry carries blobs — the client confirms before undoing one, because it restores
 an audio file.
 
-`GET /history/entries` lists the journal for st0's History panel — every entry's label, time and
+`GET /history/entries` lists the journal for k7's History panel — every entry's label, time and
 PATHS, never its contents, with `undone` past the cursor, and paths relative to the project.
 
 **An applied undo or redo pushes the project to the engine**, as `PUT /file` does after a write
@@ -64,7 +64,7 @@ entries, audio included, that live sync would carry to every replica with the so
 
 - **The journal** — `journal.json`, with every text change inline — is in
   `<studioHome>/.history/<project>-<hash>/` (`historyStoreFor`; `HISTORY_HOME_DIR`). On the server
-  that is `$STUDIO_FILES_ROOT/<account>/.history`, on st0's `/workspaces` volume beside `workspace/`. The name
+  that is `$STUDIO_FILES_ROOT/<account>/.history`, on k7's `/workspaces` volume beside `workspace/`. The name
   is the project folder's, for a reader; the hash is of its path, so two projects of one name do
   not share one. A project moved or renamed starts an empty journal.
 - **Forgotten after a month unused.** The hub sweeps every account's `.history` hourly
@@ -96,7 +96,7 @@ was recorded, not by the server:
   undo; it is the step needing the audio where Ctrl+Z stops, until that engine is bound again.
   The same holds when the engine no longer has the file.
 - **A month on the machine too.** The supervisor deletes a kept file a month after it was last
-  kept or sent back (`purgeKeptHistory`, `engine/st0-supervisor/src/MachineJobs.cpp`): sending it
+  kept or sent back (`purgeKeptHistory`, `engine/k7-supervisor/src/MachineJobs.cpp`): sending it
   back stamps it, so a step still undone and redone stays.
 - **No engine bound** — an import with no machine, a test — keeps the blob here, under the same
   month.

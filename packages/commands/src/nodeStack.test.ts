@@ -23,7 +23,7 @@ const put = (rel: string, text: string): void => {
 };
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "node-stack-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -39,12 +39,12 @@ describe("node stack", () => {
     put("tracks/gtr.yaml", 'extends: "@meta/track"\nevents: []\n');
     put(
       "chains/gtr.yaml",
-      'start: true\nsteps:\n  - { id: lane-gtr, track: gtr }\n  - { id: amp-1, extends: "@st0/audio/amp" }\n  - to: [ { chain: MIX } ]\n',
+      'start: true\nsteps:\n  - { id: lane-gtr, track: gtr }\n  - { id: amp-1, extends: "@k7-core/audio/amp" }\n  - to: [ { chain: MIX } ]\n',
     );
     // `node new` names the CHAIN; the node inside is an id.
     put(
       "chains/eq.yaml",
-      'steps:\n  - { id: eq-1, extends: "@st0/audio/eq" }\n',
+      'steps:\n  - { id: eq-1, extends: "@k7-core/audio/eq" }\n',
     );
     const h = await run("node stack amp-1 eq");
     expect(h.lines.refuse).toEqual([]);

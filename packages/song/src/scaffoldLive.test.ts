@@ -71,7 +71,7 @@ const made = (write: (dir: string, name: string) => unknown): string => {
       `plugin:\n  type: internal\n  name: ${plugin}\n`,
     );
   }
-  const dir = join(ws, "rig.st0");
+  const dir = join(ws, "rig.k7");
   mkdirSync(dir);
   write(dir, "rig");
   return dir;
@@ -176,10 +176,10 @@ describe("the graph it writes", () => {
     }));
 
   it("declares that borrowing, so an empty library is said at CREATION", () => {
-    // A library repository is attached rather than seeded, and an unresolved `@st0/…` ref does
+    // A library repository is attached rather than seeded, and an unresolved `@k7-core/…` ref does
     // not warn — it refuses the whole project. `neededRefs` reads the ref off the scaffolded
     // text, which is how the new-project screen owes it before anything is written.
-    // The strip and the recorder are st0's own `@meta` modules, so a rig owes a library nothing (docs/metaModules.md).
+    // The strip and the recorder are k7's own `@meta` modules, so a rig owes a library nothing (docs/metaModules.md).
     expect(neededRefs(liveProjectFiles("rig"))).toEqual([]);
   });
 });

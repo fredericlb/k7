@@ -18,11 +18,9 @@ function normalize(doc: unknown): unknown {
   );
 }
 
-// The SNAPSHOT KEY without `.st0`: carrying the suffix in would rewrite every snapshot on a rename.
+// The SNAPSHOT KEY without `.k7`: carrying the suffix in would rewrite every snapshot on a rename.
 describe.each(["synth-demo", "rack-demo"])("golden compile: %s", (song) => {
   it("compiles to a stable ProjectDoc (run `vitest -u` to update after an intended change)", () => {
-    expect(
-      normalize(loadProject(join(SONGS, `${song}.st0`))),
-    ).toMatchSnapshot();
+    expect(normalize(loadProject(join(SONGS, `${song}.k7`)))).toMatchSnapshot();
   });
 });

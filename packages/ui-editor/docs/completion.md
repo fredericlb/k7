@@ -21,7 +21,7 @@ this machine's engine scanned plus whatever anybody wrote, and no Zod enum can h
 `[]` for every other kind, and `extends:` is the one reference field in the whole vocabulary
 that completes against nothing at all.
 
-It reads `hints.baseModules`, which the protocol carries and st0's backend fills from the same
+It reads `hints.baseModules`, which the protocol carries and k7's backend fills from the same
 scan cache the engine writes. In a project's NODE file (`nodes/<name>.yaml`) the `@engine` refs are
 dropped from it: a node reaches a scanned plugin through the library module that gives it a face,
 and one extending the raw ref shows no panel (`packages/song/docs/moduleNamespaces.md`). A

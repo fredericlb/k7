@@ -66,7 +66,7 @@ carry. A wav per VST track per edit, committed, is a history that only grows —
 every engine copy and every LFS quota pays for renders nobody will play again.
 
 - **Where.** `<studioHome>/.renders/` (`autoRendersHome`, `AUTO_RENDERS_HOME_DIR`). On the server
-  that is the ACCOUNT's folder on st0's workspaces volume, `$STUDIO_FILES_ROOT/<account>/.renders`, beside its
+  that is the ACCOUNT's folder on k7's workspaces volume, `$STUDIO_FILES_ROOT/<account>/.renders`, beside its
   `workspace/` and never inside it, so no project tree lists it and no commit can pick it up. Per
   account rather than one for the origin: a fingerprint names large files by name and size, and two
   accounts' songs must not be able to hand each other their audio.
@@ -109,7 +109,7 @@ bake its stub, and then play everywhere as the song.
 The render is made on the engine's MACHINE, which is the one with the VSTs:
 
 - when the server hosts the files, as a `render` job on the bound machine's jobs path
-  (`engine/st0-supervisor/src/MachineJobs.cpp`). The doc travels in the request; the tunnel brings
+  (`engine/k7-supervisor/src/MachineJobs.cpp`). The doc travels in the request; the tunnel brings
   its clips down and the render back up (`packages/engine-tunnel/docs/jobs.md`);
 - when the file service runs beside the engine, by the local engine binary, without blocking.
 

@@ -12,7 +12,7 @@ let root = "";
 let dir = "";
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "flags-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   mkdirSync(join(dir, "video_tracks"), { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),

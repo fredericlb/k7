@@ -34,7 +34,7 @@ second project in the same session does not coexist with the first, it clobbers 
 lands somewhere else entirely (a take recorded into the wrong workspace, a transport that moves the
 wrong song).
 
-An account has two sessions st0 plays in: its song's and its **bench**'s
+An account has two sessions k7 plays in: its song's and its **bench**'s
 (`packages/engine-protocol/docs/sessions.md`). The registry tells them apart by the claimed address
 — `claimSlot`, `@banc/…` being the bench — so an account's bench sits beside its own song on one
 engine rather than taking the song's place. That is what lets the rehearsal recorder record through a library
@@ -47,7 +47,7 @@ before the bench), since a client looking for the bench must find it on an engin
 **3. A claim with no project conflicts with nothing.** The media library drives an engine and opens no
 project: it auditions modules and plays songs out of the médiathèque. It passes `project: null`,
 which claims the engine as *in use* and competes for nothing. Without this exemption, looking at
-the catalogue would take the song away from the st0 tab on the same machine — which is worse than
+the catalogue would take the song away from the k7 tab on the same machine — which is worse than
 the problem being fixed.
 
 ## Why a claim carries a secret
@@ -124,7 +124,7 @@ normally releases at once on `pagehide`; only a crash waits the full TTL.
 
 | surface | project claimed | what it does when it loses one |
 |---|---|---|
-| st0 | `<repo>/<projet>` from the address | taken: `EngineGate` shows "opened elsewhere" and stops driving. Lapsed: nothing on screen — the hold loop re-opens |
+| k7 | `<repo>/<projet>` from the address | taken: `EngineGate` shows "opened elsewhere" and stops driving. Lapsed: nothing on screen — the hold loop re-opens |
 | the media library | **none** (`null`) | nothing to lose — see rule 3 |
 
 The address is turned into a claim key by `projectClaimKey` in
@@ -142,4 +142,4 @@ socket. Closing that would mean the engine verifying a claim per session, which 
 decision and belongs with the rest of them (`docs/audit-moteur.md`, section B).
 
 It also says nothing about a tab that goes away. That is the other half, and it is the engine's:
-see `engine/st0-engine/docs/sessions.md`.
+see `engine/k7-runtime/docs/sessions.md`.

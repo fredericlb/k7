@@ -4,7 +4,7 @@
 // difference from the crossfade beside it: two fades facing opposite ways blend two signals without
 // either of them ever having to reach the other's track. A stray `input(1)` would compile, play, and
 // quietly reintroduce the second port — with it, the sidechain, and with that everything that
-// mechanism drags in (engine/st0-engine/docs/sidechain.md).
+// mechanism drags in (engine/k7-runtime/docs/sidechain.md).
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";

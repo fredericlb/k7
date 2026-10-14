@@ -4,16 +4,16 @@ The builder is a whole screen: a code pane over `module.yaml` or `ui.yaml`, the 
 parameters under it, and the widget grid beside them. All of that is identical wherever it is
 drawn, because it is about a module and no host's idea of one differs.
 
-What differs is **who is serving the files**. There are two answers, and st0 uses both — in the
+What differs is **who is serving the files**. There are two answers, and k7 uses both — in the
 same screen, chosen by which tab of its file tree the click came from:
 
 | | a WORKSPACE | a LIBRARY |
 |---|---|---|
-| server | `@studio/file-service`, through the file hub on st0's backend | st0's backend, the media library's routes |
+| server | `@studio/file-service`, through the file hub on k7's backend | k7's backend, the media library's routes |
 | paths | workspace-relative (`modules/audio/reverb/module.yaml`) | library-relative (`modules/audio/reverb/module.yaml`) |
 | auth | `x-studio-{user,workspace,engine-token}` headers | the session cookie |
 | a save into a shared library | **redirected** — the module is forked into the project | written in place, for everyone |
-| hosts | st0's Project tab | st0's Libraries tab |
+| hosts | k7's Project tab | k7's Libraries tab |
 
 Those two path columns read alike and are not alike — the same string names two different files
 — which is exactly the trap a shared component falls into if it builds its own paths. So it
@@ -111,11 +111,11 @@ read-only screen.
 ## `publish` — a save that leaves the machine
 
 This screen has a **Save button** (`useAutosave({ manual: true })`), unlike every text pane in
-st0, because on a SHARED module a save is not a private write: it lands in front of other people.
+k7, because on a SHARED module a save is not a private write: it lands in front of other people.
 
-`publish` is optional, and no host implements it: the save ends at the disk. In st0 that is
+`publish` is optional, and no host implements it: the save ends at the disk. In k7 that is
 already everybody's: a library module is written into the library's folder on the server, which
-every account there reads at once (`apps/st0/frontend/docs/sharedModules.md`). The hook stays for a
+every account there reads at once (`apps/k7/frontend/docs/sharedModules.md`). The hook stays for a
 host whose save must leave the machine with the module itself.
 
 Called **once, after every dirty file has landed**, and never per file. The four files of a
@@ -128,7 +128,7 @@ put a half-edit in front of everybody.
 tracks, clips, chains — and a library has none of those. What survives there is the list of
 modules a sibling may `extend`.
 
-st0's Libraries tab passes the OPEN PROJECT's hints instead, over a library module, and that is
+k7's Libraries tab passes the OPEN PROJECT's hints instead, over a library module, and that is
 the point rather than a shortcut: a shared module is completed against the vocabulary of the
 song you are in, which is more than a library could say about itself.
 
@@ -142,16 +142,16 @@ tells its host through `onRelocated`; it does not follow the path itself, becaus
 owns the title, the engine link and whatever else was pointing at the module that was not there
 before.
 
-An ordinary `@workspace` or `@st0` save never comes back redirected: both write the folder they
+An ordinary `@workspace` or `@k7-core` save never comes back redirected: both write the folder they
 were opened on, directly, in place. Nothing else in this store forks — materialising an engine
 ref is the one act that turns "no file" into a file.
 
 ## What stayed in the apps
 
 The engine link. Only a live plugin can say what its parameters are called, what they span and
-what presets it ships. st0 reaches its engine through the shell's shared socket and finds the
+what presets it ships. k7 reaches its engine through the shell's shared socket and finds the
 plugin in the OPEN project's compiled graph — for a shared module too, by its
-`@st0/…` ref (`apps/st0/frontend/docs/sharedModules.md`). So those arrive as plain props
+`@k7-core/…` ref (`apps/k7/frontend/docs/sharedModules.md`). So those arrive as plain props
 (`pluginParamNames`, `pluginParamMeta`, `presets` and the two callbacks behind the dropdown),
 and a host with no engine passes nothing. The grid, the params list and the file pair work
 without one; they are just less well informed.

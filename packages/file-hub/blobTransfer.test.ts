@@ -110,7 +110,7 @@ describe("a replica's blob transfers", () => {
     const me = new BlobTransfer(s.base, { authorization: "Bearer tok" });
     const cache = new BlobCache(join(s.dataRoot, "cache"));
     await expect(me.get(h, cache, "band")).rejects.toThrow(/404/);
-    await me.get(h, cache, "@lib/st0");
+    await me.get(h, cache, "@lib/k7-core");
     expect(readFileSync(cache.path(h)).equals(bytes)).toBe(true);
   });
 });

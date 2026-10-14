@@ -26,7 +26,7 @@ afterEach(() => {
 
 /** A project folder carrying `surfaces/<name>.yaml`. */
 function withSurface(name: string, body: string): string {
-  const dir = join(root, "song.st0");
+  const dir = join(root, "song.k7");
   mkdirSync(join(dir, "surfaces"), { recursive: true });
   writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
   writeFileSync(join(dir, "surfaces", `${name}.yaml`), body);
@@ -169,7 +169,7 @@ describe("projectSurfaces", () => {
 
   it("is silent about a project with no surfaces/ folder", () => {
     // The folder is OPTIONAL: reporting its absence would flag every song in the médiathèque.
-    const dir = join(root, "plain.st0");
+    const dir = join(root, "plain.k7");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "plain"\n');
     expect(projectSurfaces(dir)).toEqual({ surfaces: [], diagnostics: [] });
@@ -226,7 +226,7 @@ describe("a project holding material and declaring no timeline", () => {
 
   it("warns a project with material and no surfaces/ folder at all", () => {
     // The missing folder and the missing ARRANGEMENT are two sentences; this project gets both.
-    const dir = join(root, "plain.st0");
+    const dir = join(root, "plain.k7");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "plain"\n');
     expect(projectSurfaces(dir).diagnostics).toEqual([]);
@@ -281,7 +281,7 @@ describe("a song with video lanes and no viewport", () => {
 /** The writer behind `project surface new`: what it produces, the parser above accepts. */
 describe("createSurfaceFile", () => {
   const project = (): string => {
-    const dir = join(root, "song.st0");
+    const dir = join(root, "song.k7");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
     return dir;

@@ -86,16 +86,16 @@ jobs:
     artifacts: build_version
     condition: SUCCESSFUL
     optional: false
-  # One image: st0, the media library and the rehearsal recorder included. It keeps its layers in
-  # the registry (cache:st0), so a fresh builder still finds the installs — docs/images.md.
+  # One image: k7, the media library and the rehearsal recorder included. It keeps its layers in
+  # the registry (cache:k7), so a fresh builder still finds the installs — docs/images.md.
   - type: BuildImageStep
-    name: build and push st0 image
+    name: build and push k7 image
     buildPath: .
-    dockerfile: apps/st0/docker/Dockerfile
+    dockerfile: apps/k7/docker/Dockerfile
     output:
       type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/st0:@commit_hash@
-    moreOptions: --build-arg APP_VERSION=@build_version@ --cache-from type=registry,ref=dev.frediver.se/frediverse/studio/cache:st0 --cache-to type=registry,ref=dev.frediver.se/frediverse/studio/cache:st0,mode=max,image-manifest=true,oci-mediatypes=true
+      tags: dev.frediver.se/frediverse/studio/k7:@commit_hash@
+    moreOptions: --build-arg APP_VERSION=@build_version@ --cache-from type=registry,ref=dev.frediver.se/frediverse/studio/cache:k7 --cache-to type=registry,ref=dev.frediver.se/frediverse/studio/cache:k7,mode=max,image-manifest=true,oci-mediatypes=true
     condition: SUCCESSFUL
     optional: false
   retryCondition: never
@@ -103,7 +103,7 @@ jobs:
   retryDelay: 30
   timeout: 3600
 # The server's engine (engine/docker/Dockerfile): a job of its own, because a cold build compiles
-# Tracktion, JUCE and Faust and outlasts the st0 image's hour. Its layers are kept in cache:st0-engine,
+# Tracktion, JUCE and Faust and outlasts the k7 image's hour. Its layers are kept in cache:k7-runtime,
 # so a push that touches no native source finds the compile in the cache — docs/server-engine.md.
 - name: build engine image
   steps:
@@ -117,20 +117,20 @@ jobs:
     condition: SUCCESSFUL
     optional: false
   - type: BuildImageStep
-    name: build and push st0-engine image
+    name: build and push k7-runtime image
     buildPath: .
     dockerfile: engine/docker/Dockerfile
     output:
       type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/st0-engine:@commit_hash@
-    moreOptions: --cache-from type=registry,ref=dev.frediver.se/frediverse/studio/cache:st0-engine --cache-to type=registry,ref=dev.frediver.se/frediverse/studio/cache:st0-engine,mode=max,image-manifest=true,oci-mediatypes=true
+      tags: dev.frediver.se/frediverse/studio/k7-runtime:@commit_hash@
+    moreOptions: --cache-from type=registry,ref=dev.frediver.se/frediverse/studio/cache:k7-runtime --cache-to type=registry,ref=dev.frediver.se/frediverse/studio/cache:k7-runtime,mode=max,image-manifest=true,oci-mediatypes=true
     condition: SUCCESSFUL
     optional: false
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
   timeout: 10800
-# What a deployment pulls: the commit's st0 and engine images, tagged :latest and with its stamp once
+# What a deployment pulls: the commit's k7 and engine images, tagged :latest and with its stamp once
 # the tests pass. imagetools copies a manifest within the registry, so nothing is built or pulled here.
 - name: publish studio images
   steps:
@@ -140,13 +140,13 @@ jobs:
     condition: SUCCESSFUL
     optional: false
   - type: RunImagetoolsStep
-    name: tag st0 image
-    arguments: create -t dev.frediver.se/frediverse/studio/st0:latest -t dev.frediver.se/frediverse/studio/st0:@build_version@ dev.frediver.se/frediverse/studio/st0:@commit_hash@
+    name: tag k7 image
+    arguments: create -t dev.frediver.se/frediverse/studio/k7:latest -t dev.frediver.se/frediverse/studio/k7:@build_version@ dev.frediver.se/frediverse/studio/k7:@commit_hash@
     condition: SUCCESSFUL
     optional: false
   - type: RunImagetoolsStep
-    name: tag st0-engine image
-    arguments: create -t dev.frediver.se/frediverse/studio/st0-engine:latest -t dev.frediver.se/frediverse/studio/st0-engine:@build_version@ dev.frediver.se/frediverse/studio/st0-engine:@commit_hash@
+    name: tag k7-runtime image
+    arguments: create -t dev.frediver.se/frediverse/studio/k7-runtime:latest -t dev.frediver.se/frediverse/studio/k7-runtime:@build_version@ dev.frediver.se/frediverse/studio/k7-runtime:@commit_hash@
     condition: SUCCESSFUL
     optional: false
   triggers:
@@ -238,7 +238,7 @@ jobs:
     name: set up dependency sources cache
     key: fetch-linux
     paths:
-    - /root/.cache/st0-fetch
+    - /root/.cache/k7-fetch
     uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
@@ -286,8 +286,8 @@ jobs:
         # BASEDIR and NOHASHDIR keep a hit from depending on where the workspace is.
         export STUDIO_COMPILER_LAUNCHER=ccache
         # The fetch cache keeps SOURCES only, however the build ends: what CMake built inside it is per preset.
-        export STUDIO_FETCHCONTENT_DIR=/root/.cache/st0-fetch
-        trap 'find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/st0-engine/faust-src/build/lib' EXIT
+        export STUDIO_FETCHCONTENT_DIR=/root/.cache/k7-fetch
+        trap 'find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/k7-runtime/faust-src/build/lib' EXIT
         export CCACHE_DIR=/root/.ccache CCACHE_BASEDIR="$PWD" CCACHE_NOHASHDIR=true CCACHE_MAXSIZE=4G
         ccache --zero-stats
 
@@ -304,7 +304,7 @@ jobs:
           node engine/scripts/build-engine.mjs
         node engine/scripts/package-release.mjs --kind engine --stamp "$STAMP"
         # Then the desktop app, around the binaries just built.
-        npm run package --workspace st0-standalone
+        npm run package --workspace k7-standalone
         node engine/scripts/package-release.mjs --kind desktop --stamp "$STAMP"
         ccache --show-stats
     runAs: 0:0
@@ -327,9 +327,9 @@ jobs:
   retryDelay: 30
   timeout: 5400
 # NIGHTLY, at 02:00 like the desktops, and skipped the same way on a day without commits: the
-# Android app, engine/st0-android — the engine as libst0engine.so, built by its android-arm64 preset,
+# Android app, engine/k7-android — the engine as libk7runtime.so, built by its android-arm64 preset,
 # with the supervisor and the Capacitor page (web/), inside a DEBUG-signed APK (there is no release key). Gradle builds the
-# engine itself through scripts/build.mjs with the SDK's pinned NDK; engine/st0-engine/docs/android.md.
+# engine itself through scripts/build.mjs with the SDK's pinned NDK; engine/k7-runtime/docs/android.md.
 # The SDK is fetched and pinned like every other dependency and kept in a cache keyed by its
 # versions, so a bump of any of them is a new key rather than a stale SDK.
 - name: build android app
@@ -374,7 +374,7 @@ jobs:
     name: set up dependency sources cache
     key: fetch-android
     paths:
-    - /root/.cache/st0-fetch
+    - /root/.cache/k7-fetch
     uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
@@ -407,8 +407,8 @@ jobs:
         # Gradle hands its environment to the engine's CMake, whose presets read this, so it reaches the NDK's clang too.
         export STUDIO_COMPILER_LAUNCHER=ccache
         # The fetch cache keeps SOURCES only, however the build ends: what CMake built inside it is per preset.
-        export STUDIO_FETCHCONTENT_DIR=/root/.cache/st0-fetch
-        trap 'find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/st0-engine/faust-src/build/lib' EXIT
+        export STUDIO_FETCHCONTENT_DIR=/root/.cache/k7-fetch
+        trap 'find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/k7-runtime/faust-src/build/lib' EXIT
         export CCACHE_DIR=/root/.ccache CCACHE_BASEDIR="$PWD" CCACHE_NOHASHDIR=true CCACHE_MAXSIZE=3G
         ccache --zero-stats
 
@@ -424,20 +424,20 @@ jobs:
           mv /tmp/cmdline-tools/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
         fi
         yes | "$SDKMANAGER" --licenses > /dev/null
-        # The versions engine/st0-android/app/build.gradle.kts names: compileSdk and ndkVersion.
+        # The versions engine/k7-android/app/build.gradle.kts names: compileSdk and ndkVersion.
         "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865"
 
         # Same YY.MMDDHHmm stamp as the linux desktop archive, so the night's artifacts match.
         STAMP=$(node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))")
 
-        # The app's page (engine/st0-android/web) is a workspace, and Capacitor's Android runtime,
+        # The app's page (engine/k7-android/web) is a workspace, and Capacitor's Android runtime,
         # which settings.gradle.kts includes, is one of its packages: both come from the root install.
         npm ci
 
-        cd engine/st0-android
+        cd engine/k7-android
         ./gradlew --no-daemon assembleDebug
         mkdir -p ../../dist/release
-        cp app/build/outputs/apk/debug/app-debug.apk "../../dist/release/st0-android_${STAMP}_arm64.apk"
+        cp app/build/outputs/apk/debug/app-debug.apk "../../dist/release/k7-android_${STAMP}_arm64.apk"
         ccache --show-stats
     runAs: 0:0
     useTTY: true
@@ -472,7 +472,7 @@ jobs:
 #
 # commons by hand, as GitHub's leg does: the checkout takes no submodule, and commons is the one there is.
 #
-# The dependency SOURCES stay on the agent's own disk, in STUDIO_FETCHCONTENT_DIR — %LOCALAPPDATA%\st0-ci\fetch
+# The dependency SOURCES stay on the agent's own disk, in STUDIO_FETCHCONTENT_DIR — %LOCALAPPDATA%\k7-ci\fetch
 # unless the agent's environment names another — so a night clones nothing. No OneDev cache: the
 # machine keeps them, and nothing crosses the network. cmd has no trap, so what the last run BUILT
 # there is deleted before this one starts rather than on its way out.
@@ -497,15 +497,15 @@ jobs:
         findstr . last_commit >nul || (echo no commit on this branch in the last 24 hours - nothing to build & exit /b 0)
         git config core.longpaths true || exit /b 1
         git -c "http.extraHeader=OneDevAuthorization: Bearer @secret:submodule-token@" submodule update --init commons || exit /b 1
-        if not defined STUDIO_FETCHCONTENT_DIR set "STUDIO_FETCHCONTENT_DIR=%LOCALAPPDATA%\st0-ci\fetch"
+        if not defined STUDIO_FETCHCONTENT_DIR set "STUDIO_FETCHCONTENT_DIR=%LOCALAPPDATA%\k7-ci\fetch"
         for /d %%P in ("%STUDIO_FETCHCONTENT_DIR%\*") do for /d %%B in ("%%P\*-build") do rmdir /s /q "%%B"
-        if exist "%STUDIO_FETCHCONTENT_DIR%\st0-engine\faust-src\build\lib" rmdir /s /q "%STUDIO_FETCHCONTENT_DIR%\st0-engine\faust-src\build\lib"
+        if exist "%STUDIO_FETCHCONTENT_DIR%\k7-runtime\faust-src\build\lib" rmdir /s /q "%STUDIO_FETCHCONTENT_DIR%\k7-runtime\faust-src\build\lib"
         call npm ci || exit /b 1
         node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))" > build_version || exit /b 1
         set /p STUDIO_RELEASE_STAMP=<build_version
         node engine/scripts/build-engine.mjs || exit /b 1
         node engine/scripts/package-release.mjs --kind engine || exit /b 1
-        call npm run package --workspace st0-standalone || exit /b 1
+        call npm run package --workspace k7-standalone || exit /b 1
         node engine/scripts/package-release.mjs --kind desktop || exit /b 1
     useTTY: false
     condition: SUCCESSFUL

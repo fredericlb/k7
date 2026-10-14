@@ -1,6 +1,0 @@
-// mu-elements — the face for mu-elements, a plugin the engine scans.
-// Everything it IS comes from the ref below; what lives here is the ui.yaml beside this file.
-extends("@engine/mu-elements")
-// Played from notes, and an audio input too: what is wired into `in` excites the resonator beside
-// its own exciters, and the lane's own audio does the same (engine/st0-engine/docs/eurorack.md).
-inputs([name("midi").type("midi"), name("in").type("audio").mandatory(false)])

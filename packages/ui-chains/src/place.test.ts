@@ -9,7 +9,9 @@ const g = {
   chains: {
     gtr: {
       from: "gtr",
-      use: [{ module: ID, uses: "@st0/audio/auto-wah", place: "gtr · step 2" }],
+      use: [
+        { module: ID, uses: "@k7-core/audio/auto-wah", place: "gtr · step 2" },
+      ],
       out: [{ to: "MIX", gain: 1 }],
     },
   },
@@ -23,6 +25,6 @@ describe("an unnamed node", () => {
     const card = buildGraph(g, {}).nodes.find((n) => n.module === ID);
     expect(card?.label).toBe(ID);
     expect(card?.place).toBe("gtr · step 2");
-    expect(card?.uses).toBe("@st0/audio/auto-wah");
+    expect(card?.uses).toBe("@k7-core/audio/auto-wah");
   });
 });

@@ -27,7 +27,7 @@ export interface EditorPref {
 export interface Preferences {
   audioDevice?: AudioDevicePref; // preferred audio interface (engine opens it on connect)
   channels: { in: ChannelLabel[]; out: ChannelLabel[] };
-  /** Which inputs are STEREO, as each pair's 1-based FIRST channel — see engine/st0-engine/docs/audioDevice.md. */
+  /** Which inputs are STEREO, as each pair's 1-based FIRST channel — see engine/k7-runtime/docs/audioDevice.md. */
   inputPairs: number[];
   editor: EditorPref;
   /** The chain that SEPARATES a record into stems — one answer for the whole machine, asked once. */

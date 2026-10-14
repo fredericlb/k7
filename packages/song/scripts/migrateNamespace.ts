@@ -1,18 +1,26 @@
-// migrateNamespace.ts — rewrite the médiathèque's module level, `@mediatek/…` → `@st0/…`, in
-// every YAML of a project, a workspace or the médiathèque itself. Nothing resolves the old
-// spelling, so a file still carrying it names a module that does not exist.
+// migrateNamespace.ts — rewrite the default library's old module levels, `@mediatek/…` and
+// `@st0/…` → `@k7-core/…`, in every YAML and .k7x of a project, a workspace or the médiathèque,
+// and the `st0:` pin of a `_library-pins.yaml`. Nothing resolves the old spellings, so a file still
+// carrying one names a module that does not exist.
 // Why it is a text replace and not the yaml Document API: docs/moduleNamespaces.md.
 //
 //   npx tsx packages/song/scripts/migrateNamespace.ts <dir> [more dirs…] [--write]
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { LEGACY_MEDIATEK_NS } from "@studio/song-schema/moduleTypes";
+import { basename, join } from "node:path";
+import { LIBRARY_PINS_FILE } from "@studio/song-schema/libraryVersions";
+import {
+  DEFAULT_LIBRARY,
+  LEGACY_DEFAULT_LIBRARY,
+  LEGACY_MEDIATEK_NS,
+} from "@studio/song-schema/moduleTypes";
 
-const FROM = `@${LEGACY_MEDIATEK_NS}/`;
-const TO = "@st0/";
+const FROM = [`@${LEGACY_MEDIATEK_NS}/`, `@${LEGACY_DEFAULT_LIBRARY}/`];
+const TO = `@${DEFAULT_LIBRARY}/`;
 // Nothing reads `config.yaml` back, but a line contradicting the loader is a lie, so it is rewritten.
-const CONFIG_LINE = /^(namespace:\s*)["']?mediatek["']?\s*$/m;
+const CONFIG_LINE = /^(namespace:\s*)["']?(mediatek|st0)["']?\s*$/m;
+// A pin is keyed by the library's name, so the old name pins a library that no longer exists.
+const PIN_LINE = new RegExp(`^${LEGACY_DEFAULT_LIBRARY}:`, "m");
 
 const args = process.argv.slice(2);
 const write = args.includes("--write");
@@ -24,8 +32,8 @@ if (!roots.length) {
   process.exit(2);
 }
 
-/** Every *.yaml under `dir`, skipping the places a project keeps things it did not author. */
-function* yamlFiles(dir: string): Generator<string> {
+/** Every *.yaml and *.k7x under `dir`, skipping the places a project keeps things it did not author. */
+function* sourceFiles(dir: string): Generator<string> {
   let entries: string[];
   try {
     entries = readdirSync(dir);
@@ -42,18 +50,33 @@ function* yamlFiles(dir: string): Generator<string> {
     } catch {
       continue;
     }
-    if (st.isDirectory()) yield* yamlFiles(p);
-    else if (/\.ya?ml$/i.test(name)) yield p;
+    if (st.isDirectory()) yield* sourceFiles(p);
+    else if (/\.(ya?ml|k7x)$/i.test(name)) yield p;
   }
+}
+
+/** `text` with every old level rewritten, and how many refs that was. */
+function migrate(file: string, text: string): { after: string; hits: number } {
+  let after = text;
+  let hits = 0;
+  for (const from of FROM) {
+    hits += after.split(from).length - 1;
+    after = after.split(from).join(TO);
+  }
+  after = after.replace(CONFIG_LINE, `$1${DEFAULT_LIBRARY}`);
+  if (basename(file) === LIBRARY_PINS_FILE && PIN_LINE.test(after)) {
+    after = after.replace(PIN_LINE, `${DEFAULT_LIBRARY}:`);
+    hits++;
+  }
+  return { after, hits };
 }
 
 let files = 0;
 let refs = 0;
 for (const root of roots) {
-  for (const file of yamlFiles(root)) {
+  for (const file of sourceFiles(root)) {
     const before = readFileSync(file, "utf8");
-    const hits = before.split(FROM).length - 1;
-    const after = before.split(FROM).join(TO).replace(CONFIG_LINE, "$1st0");
+    const { after, hits } = migrate(file, before);
     if (after === before) continue;
     files++;
     refs += hits;

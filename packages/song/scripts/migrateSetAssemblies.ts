@@ -1,6 +1,6 @@
 // migrateSetAssemblies.ts — draw an existing SET's decks as boxes.
 //
-//   npx tsx packages/song/scripts/migrateSetAssemblies.ts <projet.st0> [more…] [--write]
+//   npx tsx packages/song/scripts/migrateSetAssemblies.ts <projet.k7> [more…] [--write]
 //
 // It writes ONE file per deck, `assemblies/turntable<L>.yaml`, listing which of the graph's nodes
 // are that deck's turntable. Nothing else: no node is renamed, no arrow moved, no line of
@@ -32,7 +32,7 @@ const write = args.includes("--write");
 const roots = args.filter((a) => !a.startsWith("--"));
 if (!roots.length) {
   console.error(
-    "usage: migrateSetAssemblies <projet.st0> [more…] [--write]   (dry run without --write)",
+    "usage: migrateSetAssemblies <projet.k7> [more…] [--write]   (dry run without --write)",
   );
   process.exit(2);
 }

@@ -16,7 +16,7 @@ import { Workspace } from "./workspace.ts";
 // A chain step naming an undefined module is drawn as a `?` node, with every module affordance empty.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/file-service/src
-const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.k7");
 
 let root: string;
 let proj: string;
@@ -24,7 +24,7 @@ let ws: Workspace;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-ghost-"));
-  proj = join(root, "song.st0");
+  proj = join(root, "song.k7");
   cpSync(SONG, proj, { recursive: true });
   // The demo's chains end at "OUT" and the song ships no `modules/io/OUT`, so give it the real sink.
   writeModule(proj, "io", "OUT", { io: "out" });
@@ -32,7 +32,7 @@ beforeEach(() => {
   replaceChainStep(proj, "lead", { module: "ghost" });
 
   ws = new Workspace(root);
-  ws.setActiveProject("song.st0");
+  ws.setActiveProject("song.k7");
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));

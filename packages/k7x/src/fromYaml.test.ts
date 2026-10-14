@@ -44,7 +44,7 @@ describe("a conversion's layout", () => {
   it("still breaks a wide multi-line map, and compacts a short one", () => {
     const block = `steps:
   - id: c0947697-42ed-4aa8-a225-cca0430f1c18
-    extends: "@st0/audio/compressor"
+    extends: "@k7-core/audio/compressor"
     engine: tracktion
     engines:
       tracktion:
@@ -54,7 +54,7 @@ describe("a conversion's layout", () => {
     expect(fromYaml(block)).toBe(
       "steps([\n" +
         '  id("c0947697-42ed-4aa8-a225-cca0430f1c18")\n' +
-        '    .extends("@st0/audio/compressor")\n' +
+        '    .extends("@k7-core/audio/compressor")\n' +
         '    .engine("tracktion")\n' +
         "    .engines({ tracktion: { params: { Ratio: 0.125 } } }),\n" +
         "])\n",

@@ -1,4 +1,4 @@
-// engineEntry.ts — what the ENGINE calls: bundled by engine/st0-engine/scripts/gen-strudel-bundle.mjs and run in QuickJS.
+// engineEntry.ts — what the ENGINE calls: bundled by engine/k7-runtime/scripts/gen-strudel-bundle.mjs and run in QuickJS.
 // Whether an event is a SAMPLE is the engine's to say — it holds the banks — so `s` and `n` travel with every event.
 
 import * as core from "@strudel/core";
@@ -88,7 +88,7 @@ function labelsJson(from: number, to: number): string {
   return JSON.stringify(labels(from, to));
 }
 
-(globalThis as Record<string, unknown>).st0Strudel = {
+(globalThis as Record<string, unknown>).k7Strudel = {
   load,
   laneEvents,
   labels,

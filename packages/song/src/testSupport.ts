@@ -130,7 +130,7 @@ export function writeLibrary(
  * dot-folder INSIDE `root`, so the libraries go when the test's folder does and no two tests share
  * one. Returns the library's own folder — `<home>/libraries/<name>`, as the file service clones it.
  */
-export function librariesFixture(root: string, name = "st0"): string {
+export function librariesFixture(root: string, name = "k7-core"): string {
   const home = join(root, ".studio-home");
   process.env.STUDIO_HOME = home;
   const lib = join(home, "libraries", name);
@@ -144,7 +144,7 @@ export function writeLibraries(
   modules: Record<string, unknown> = {
     "audio/reverb": { plugin: { type: "vst3", name: "Big Reverb" } },
   },
-  name = "st0",
+  name = "k7-core",
 ): string {
   const lib = librariesFixture(root, name);
   for (const [path, value] of Object.entries(modules))

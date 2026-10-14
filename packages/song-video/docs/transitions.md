@@ -200,7 +200,7 @@ to **the layer below**.
 | compiled | `src/videoTracks.ts` -> `VideoClipDoc.fadeIn`, and `src/videoProject.ts` -> `VideoProjectDoc.transitions`, the GLSL **inline** |
 | on the wire | `packages/web-protocol/types.ts` — `WebVideoFade`, `WebVideoTransition` |
 | served | `packages/file-service/src/workspace.ts` — `toWebVideoTracks`, `videoProjectDoc` |
-| adapted | `packages/st0-plugins/src/video/scene.ts` -> `packages/ui-eyes/src/scene.ts` |
+| adapted | `packages/k7-plugins/src/video/scene.ts` -> `packages/ui-eyes/src/scene.ts` |
 | decided | `packages/ui-eyes/src/timeline.ts` — `layerFrameAt`, the only rule |
 | decoded | `packages/ui-eyes/src/realtime.ts` and `packages/ui-eyes/src/export.ts` |
 | drawn | `packages/ui-eyes/src/compositor.ts` + `packages/ui-eyes/src/passes.ts`, the built-in fade in `packages/ui-eyes/src/transitions.ts` |
@@ -221,5 +221,5 @@ for which draw, which texture on which unit, and what is allocated.
 
 **None of them proves a pixel changed**: there is no WebGL2 in the runner, and
 `compositor.test.ts` says so itself. The remaining check is done with the eyes — open
-`demos/video-demo.st0`, overlap two shots, give the second a `fade_in`, and watch the cut become a
+`demos/video-demo.k7`, overlap two shots, give the second a `fade_in`, and watch the cut become a
 fade.

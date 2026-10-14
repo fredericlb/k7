@@ -38,9 +38,9 @@ beforeEach(() => {
   );
   put(
     "chains/vocals/warm/nodes/comp.yaml",
-    '# The comp.\nextends: "@st0/audio/comp"\nparams:\n  # Half.\n  Ratio: 0.5\n',
+    '# The comp.\nextends: "@k7-core/audio/comp"\nparams:\n  # Half.\n  Ratio: 0.5\n',
   );
-  put("chains/vocals/warm/nodes/eq.yaml", 'extends: "@st0/audio/eq"\n');
+  put("chains/vocals/warm/nodes/eq.yaml", 'extends: "@k7-core/audio/eq"\n');
   put("chains/vocals/warm/nodes/comp.vstpreset", "state");
 });
 
@@ -50,7 +50,7 @@ afterEach(() => {
 
 describe("migrating a library's folder chains", () => {
   it("writes one file running the steps the folder declared", () => {
-    const [c] = folderChains("st0", lib);
+    const [c] = folderChains("k7-core", lib);
     // The folder reader refuses a `tracks:` graph, which is why the run is the truth.
     expect(readTemplate(c).steps).toEqual([]);
     const cv = convertFolderChain(c);
@@ -61,14 +61,14 @@ describe("migrating a library's folder chains", () => {
     expect(file.layout).toBe("file");
     const { steps } = readTemplate(file);
     expect(steps.map((s) => [s.module, !!s.bypass])).toEqual([
-      [{ extends: "@st0/audio/comp", params: { Ratio: 0.5 } }, false],
-      [{ extends: "@st0/audio/eq" }, true],
+      [{ extends: "@k7-core/audio/comp", params: { Ratio: 0.5 } }, false],
+      [{ extends: "@k7-core/audio/eq" }, true],
     ]);
     expect(steps.map((s) => s.name)).toEqual(cv.ids.map(([, id]) => id));
   });
 
   it("keeps the comments, less the paragraph about the old ends", () => {
-    const cv = convertFolderChain(folderChains("st0", lib)[0]);
+    const cv = convertFolderChain(folderChains("k7-core", lib)[0]);
     expect(cv.text).toContain("# Warm vocals.");
     expect(cv.text).not.toContain("`@in`");
     expect(cv.text).toContain("# The comp.");
@@ -77,7 +77,7 @@ describe("migrating a library's folder chains", () => {
   });
 
   it("moves a node's preset to the library's vstpresets/, under its id", () => {
-    const cv = convertFolderChain(folderChains("st0", lib)[0]);
+    const cv = convertFolderChain(folderChains("k7-core", lib)[0]);
     applyConversion(cv);
     const comp = cv.ids[0][1];
     expect(
@@ -96,7 +96,7 @@ describe("migrating a library's folder chains", () => {
     put("chains/split/nodes/a.yaml", "extends: x\n");
     put("chains/split/nodes/b.yaml", "extends: x\n");
     put("chains/vocals/warm/notes.md", "hello\n");
-    const [split, warm] = folderChains("st0", lib);
+    const [split, warm] = folderChains("k7-core", lib);
     expect(() => convertFolderChain(split)).toThrow(/not one run/);
     expect(() => convertFolderChain(warm)).toThrow(/notes\.md/);
   });

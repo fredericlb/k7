@@ -80,8 +80,8 @@ without anyone seeing it.
 | `packages/dsp/src/emit.ts` | the package's `build` script (`tsx src/emit.ts`). A pass looking only at `bin` and esbuild entries declares it dead; **a `package.json` `scripts` entry is a caller.** |
 
 `@studio/dsp` is also the author-facing API published to users
-(`apps/st0/docs/25-syntax-instruments.md`), and the C++ pastes its generated JSON
-(`engine/st0-engine/engine/GraphDspPlugin.cpp`).
+(`apps/k7/docs/25-syntax-instruments.md`), and the C++ pastes its generated JSON
+(`engine/k7-runtime/engine/GraphDspPlugin.cpp`).
 
 ### `detectTransients` is called once per file, by the analysis
 
@@ -91,7 +91,7 @@ Nothing calls it per clip region, and nothing should (`packages/file-service/doc
 
 ### A deep import bypasses the `exports` maps
 
-`engine/st0-engine/scripts/render-once.ts` → `packages/file-service/src/render.ts`. The file looks
+`engine/k7-runtime/scripts/render-once.ts` → `packages/file-service/src/render.ts`. The file looks
 unreachable if you look only at `exports`.
 
 ### `commons/` is a submodule
@@ -122,7 +122,7 @@ plumbing stays reachable by relative import inside the package.
 | `export.ts` | `packages/ui-eyes/src/` | **reachable only through the dead barrel above**: `exportScene` (the frame-by-frame WebCodecs export) is therefore reachable by nothing. No surface mounts a button for it. |
 | `probeLocalEngine` | `packages/engine-browser/src/probe.ts` | the registry does this work. Deleting a loopback probe nothing replays is to be decided, not left to rot. |
 | type `Signal` | `packages/dsp/src/index.ts` | `@deprecated`, not one reference left in the whole repo. |
-| `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts` | the two CodeMirror extensions that replace `notes:` **in place**, in the text. The grids' only host (st0, `SeqGrid.tsx`) goes through `mountSeqGrid`, which renders the same grid in a separate container. They keep one property `mountSeqGrid` has not — the YAML envelope stays visible around the grid. |
+| `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts` | the two CodeMirror extensions that replace `notes:` **in place**, in the text. The grids' only host (k7, `SeqGrid.tsx`) goes through `mountSeqGrid`, which renders the same grid in a separate container. They keep one property `mountSeqGrid` has not — the YAML envelope stays visible around the grid. |
 | export `AuthUser` | `packages/ui-library/src/api.ts` | used in its own file, imported by nobody: it is the `export` that is surplus. |
 
 ### SYMBOLS, not files
@@ -149,8 +149,8 @@ public function wrapping them. Counted so the figure does not surprise the next 
 - `packages/song/scripts/` — no npm script wires it in. Eight migrations, and
   `packages/song/src/moduleMigrate.ts` (350+ lines) exists only for `migrateModules.ts`. The folder
   grows by one migration per rename, and nothing removes them once played.
-- `packages/st0-plugins/scripts/turntables/put-on.ts` — this one is **documented** and run by hand
-  (`../packages/st0-plugins/docs/turntables/hosting.md`); it measures a SOUND, which no unit test does.
+- `packages/k7-plugins/scripts/turntables/put-on.ts` — this one is **documented** and run by hand
+  (`../packages/k7-plugins/docs/turntables/hosting.md`); it measures a SOUND, which no unit test does.
 
 ## 3. Built ahead — not to be confused with an oversight
 
@@ -158,7 +158,7 @@ public function wrapping them. Counted so the figure does not surprise the next 
 
 The full chain is alive: `App.tsx` (`onScanParams={api.scanPluginParams}`) → `api.ts`
 (`GET /plugin-params`) → `file-service/src/server.ts` → `awaitPluginParams` → `listPluginParams` →
-`list-plugin-params` → `pluginParamsOf` (`engine/st0-engine/engine/ParamDump.cpp`). What has no caller is
+`list-plugin-params` → `pluginParamsOf` (`engine/k7-runtime/engine/ParamDump.cpp`). What has no caller is
 the **browser half** only: `listPluginParams` (`engine-browser/src/engine.ts`) and
 `onPluginParamList`.
 
@@ -187,14 +187,14 @@ The same chromatic table and the same arithmetic (`((k%12)+12)%12`, `Math.floor(
 |---|---|
 | `packages/ui-editor/src/tracker/RollGrid.ts` | `NOTE_NAMES` |
 | `packages/ui-editor/src/tracker/TrackerGrid.ts` | `NAMES2` (two characters: `C-`) |
-| `apps/st0/frontend/src/components/PianoRoll.tsx` | `NAMES`, exported as `noteName` |
-| `apps/st0/frontend/src/components/IoPanel.tsx` | `NOTE_NAMES` |
+| `apps/k7/frontend/src/components/PianoRoll.tsx` | `NAMES`, exported as `noteName` |
+| `apps/k7/frontend/src/components/IoPanel.tsx` | `NOTE_NAMES` |
 | `packages/ui-rehearsal/src/utils/pitch.ts` | `NOTE_NAMES` |
 | `packages/lyrics/src/chords.ts` | `SHARP` |
 
 Two aggravating details. The first two are in **the same folder of the same package**. And
-`PianoRoll.tsx` carries the comment "one spelling of a key, wherever it is read" — true within st0,
-false the moment you step into `@studio/ui-editor`, which st0 already depends on and which has two of
+`PianoRoll.tsx` carries the comment "one spelling of a key, wherever it is read" — true within k7,
+false the moment you step into `@studio/ui-editor`, which k7 already depends on and which has two of
 its own. The predicate follows: `isBlack = [1,3,6,8,10].includes(...)`, identical in two files.
 
 Not addressed: it is a decision about **where to put the table**, not a cleanup.
@@ -206,7 +206,7 @@ Written here so they stop being mistaken for laziness.
 
 | what is doubled | why it stays |
 |---|---|
-| The `-100 dBFS` floor: `PEAK_FLOOR_DB` (`audio-analysis/src/peak.ts`), `MIN_DB` (`audio-probe/src/trimGate.ts`), and three times in `@studio/dsp` | `trimGate` is **browser-safe** — st0's clip panel imports it — and `peak.ts` spawns a decoder. Sharing the constant would bring a process launcher into the browser to save one number. Tried, reverted. The generated JSON cannot import at all |
+| The `-100 dBFS` floor: `PEAK_FLOOR_DB` (`audio-analysis/src/peak.ts`), `MIN_DB` (`audio-probe/src/trimGate.ts`), and three times in `@studio/dsp` | `trimGate` is **browser-safe** — k7's clip panel imports it — and `peak.ts` spawns a decoder. Sharing the constant would bring a process launcher into the browser to save one number. Tried, reverted. The generated JSON cannot import at all |
 | `FileEnvelope` (`commands/waveform.ts`) ≡ `Envelope` (`ui-turntables/waveform.ts`) | `ui-turntables` does not depend on `@studio/commands`. Both depend on `web-protocol`, which already holds `RegionWaveform` — that is where it would go |
 | `isMouseWheel`: `ui-timeline/panZoom.ts` ≡ `ui-chains-react/camera.ts` | Telling a wheel from a trackpad — three signals (`deltaMode`, `wheelDeltaY`'s 120s, the shape of the delta), identical on both sides. Neither package can depend on the other: `ui-timeline` has **no** `@studio/` dependency and the graph would be importing a package named for the arrangement. Defensible here because **both sides are tested**, case by case. The natural home would be a DOM-gesture package that does not exist; creating one for a ten-line function is a decision, not a cleanup |
 
@@ -216,10 +216,10 @@ what the copies above have when they defend themselves.
 ### Cosmetic, but real
 
 - **The `piano-16` glyph**, SVG body identical byte for byte:
-  `apps/st0/frontend/src/trackIcons.tsx` ≡ `packages/ui-chains-react/src/moduleIcons.tsx`.
+  `apps/k7/frontend/src/trackIcons.tsx` ≡ `packages/ui-chains-react/src/moduleIcons.tsx`.
   (The rest of the glyph-table duplication is argued and accepted — see `moduleIcons.tsx`.)
 - **The full-screen spinner**, three copies of the same block here:
-  `apps/st0/frontend/src/components/{AuthGate,EngineGate}.tsx` and
+  `apps/k7/frontend/src/components/{AuthGate,EngineGate}.tsx` and
   `packages/project-shell/src/ProjectGate.tsx`. Left as is: short presentation blocks, no risk of silent drift — but
   one grows per gate, which makes this count a thing to re-check.
 
@@ -231,7 +231,7 @@ identical lines whose only natural home would be `packages/web-protocol/quality.
 the UI's language into a protocol package. Two lines are not worth that property. Same reasoning for
 `signedInAs` / `currentUser()`.
 
-`AuthUser` is declared five times, and only st0's carries `email?: string | null` and
+`AuthUser` is declared five times, and only k7's carries `email?: string | null` and
 `groups?: string[]`.
 
 ## 5. Config
@@ -239,19 +239,19 @@ the UI's language into a protocol package. Two lines are not worth that property
 | finding | where |
 |---|---|
 | With no test file at all: `graph-model` and `ui-eyes`. | — |
-| Read in code and absent from **every** `.md`, in addition to the fourteen below: `STUDIO_BACKEND_URL`, `STUDIO_ENGINE_PORT`, `STUDIO_FILE_PORT`. | `apps/st0/frontend/vite.config.ts`, `packages/file-service/src/server.ts` |
+| Read in code and absent from **every** `.md`, in addition to the fourteen below: `STUDIO_BACKEND_URL`, `STUDIO_ENGINE_PORT`, `STUDIO_FILE_PORT`. | `apps/k7/frontend/vite.config.ts`, `packages/file-service/src/server.ts` |
 | Imported without being declared, outside the audio axis: `ui-chains-react`, `ui-rehearsal` and `score` (`@storybook/react-vite`). | — |
-| `yaml` in `st0-frontend` is not only test: `rackBuilder.ts` and `sliceSymbols.ts` import it in production. | `apps/st0/frontend` |
+| `yaml` in `k7-frontend` is not only test: `rackBuilder.ts` and `sliceSymbols.ts` import it in production. | `apps/k7/frontend` |
 | `packages/web-protocol` has no `dependencies` block, and that is RIGHT — `types.ts` imports only a `type` from its own `projects.ts`. That absence of a runtime dependency is what lets `engine-client` take it to read `ENGINE_OUTBOX_MAX` without weighing down the supervisor's bundle. | `packages/web-protocol` |
 | Read in code, absent from `env.example.yaml`: `STUDIO_REGISTRY_URL` (9 reads), `STUDIO_WEB_ORIGIN` (5), `STUDIO_DEMOS` (4), `STUDIO_MODELS` (3), `STUDIO_WEB_PORT` (3), `STRUDEL_SAMPLES`, `DIRT_SAMPLES`, `STUDIO_ENGINE_TOKEN`, `STUDIO_SCRATCH`, `K7_URL`, `K7_TOKEN`, `Z0_RENDER_ENGINE`, `MPV_BIN`, `CHROME`. | `env.example.yaml` |
 
 ## 6. A deck has no effects chain
 
 Mix is a desk: two records and a crossfader. A deck's effects chain has no place on it, and the
-desk's only host (st0's `turntables` surface) draws no per-deck graph, so there is no component for
+desk's only host (k7's `turntables` surface) draws no per-deck graph, so there is no component for
 one: an option nothing can mount would cost code and a published subpath that lies about the
 package's surface. See
-[../packages/st0-plugins/docs/turntables/mix.md](../packages/st0-plugins/docs/turntables/mix.md).
+[../packages/k7-plugins/docs/turntables/mix.md](../packages/k7-plugins/docs/turntables/mix.md).
 
 One leftover name: `m9`, an application that does not exist, is a session id in the
 `SessionRegistry_test.cpp` fixtures — any string would do there.

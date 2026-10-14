@@ -2,7 +2,7 @@
 
 `packages/dsp/src/index.ts` is the whole library: a `GraphBuilder` whose every method adds a node,
 and a `graph(fn)` that returns the JSON. The JS runs at **build** time and never goes near the
-audio thread; what plays is the C++ of `engine/st0-engine/engine/DspGraph.h`.
+audio thread; what plays is the C++ of `engine/k7-runtime/engine/DspGraph.h`.
 
 This page holds the reasons the code carries in one line each.
 
@@ -120,7 +120,7 @@ There is no `sqrt` among the primitives, and the crossfade
 (`packages/dsp/src/crossfade.ts`) would have wanted one: a DJ crossfader usually takes the square
 root of each side, so that two uncorrelated tracks keep steady loudness through the middle.
 Inventing one for a single effect is exactly how a graph language ends up with one node per effect
-(`engine/st0-engine/engine/DspGraph.h`). Equal gain therefore dips about 3 dB at centre for uncorrelated
+(`engine/k7-runtime/engine/DspGraph.h`). Equal gain therefore dips about 3 dB at centre for uncorrelated
 material: a known shape, not a defect.
 
 Same reason for the absence of `max`, which the DJ filter works around with a sum because only one
@@ -149,7 +149,7 @@ repeater in three lines (`packages/dsp/src/noteRepeat.ts`).
 
 They break the rule the three above follow — that a MIDI node is a stateless rewrite — and that is
 the point: a note SOURCE needs a memory of what is held and a clock to strike on, and without those
-two nodes every rhythmic MIDI module is a compiled plugin. `engine/st0-engine/docs/midiGraph.md` is
+two nodes every rhythmic MIDI module is a compiled plugin. `engine/k7-runtime/docs/midiGraph.md` is
 where that is argued, including why the state sits on the graph rather than on a node.
 
 ### `pattern`, `accent`, `chance`, `decay` — which strikes play
@@ -158,7 +158,7 @@ Four setters for `strike`, declared between `hold` and it: `pattern(m, mode, len
 rotate)` picks the steps of a cycle (0 every step, 1 a burst, 2 Euclid), `accent(m, count, low,
 opposite, keep)` drops the unaccented hits to `low` of their velocity, `chance(m, p)` rolls each
 step, `decay(m, d)` takes a share of velocity per repeat. They set fields the strike reads per step
-— `engine/st0-engine/docs/midiGraph.md` says why, and what each choice is.
+— `engine/k7-runtime/docs/midiGraph.md` says why, and what each choice is.
 
 `strike`'s step is in **beats**, so a graph follows the tempo without reading one: the plugin hands
 the block length and the length of a beat to `processMidi`, being the only side that can know
