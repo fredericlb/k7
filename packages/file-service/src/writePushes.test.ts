@@ -29,6 +29,8 @@ class FakeClient {
     built.push(this);
   }
   on() {}
+  off() {}
+  listSessions() {}
   connect() {}
   close() {}
   flush() {}

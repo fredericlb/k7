@@ -21,6 +21,7 @@ class FakeClient {
   }
   on() {}
   off() {}
+  listSessions() {}
   connect() {}
   close() {}
   sendProject(doc: ProjectDoc) {
