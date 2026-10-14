@@ -39,6 +39,10 @@ the same answer as a song that is not there. The choice is made once, at creatio
 Delete is an entry of the song's ⋮ menu, drawn only when the song says `canDelete`. The backend
 works that flag out per request and refuses a delete without it with a 403.
 
+A song a device copied from its server (`songbookCopy.md`) is the exception to both rules. It is
+read-only on that device, and anyone using the device may remove it, because removing it there
+takes nothing off the server.
+
 The **singing exercises** follow the same shape for the same reason: a warm-up somebody wrote down
 is worth having whoever is at the desk, so every logged-in user lists them, adds to them and
 improves them, while an entry records its author so that only they can remove it. There is nothing private to keep here —

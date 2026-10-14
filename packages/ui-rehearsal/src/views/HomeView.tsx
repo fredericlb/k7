@@ -1,5 +1,11 @@
 import { AddFab } from "../components/AddFab";
+import { useMomentShare } from "../components/MomentServerShare";
+import { ServerOnly } from "../components/ServerOnly";
 import { SongbookExport } from "../components/SongbookExport";
+import {
+  ServerOnlySongs,
+  useSongbookCopy,
+} from "../components/SongbookServerCopy";
 import { SongbookTable } from "../components/SongbookTable";
 import { m } from "../paraglide/messages.js";
 import type {
@@ -30,6 +36,10 @@ interface Props {
   onOpenSong: (s: Song, tab?: SongTab) => void;
   onNewSong: () => void;
   onToggleSongFavorite: (s: Song) => void;
+  /** Called once a song came down from the paired server, to reload the list. */
+  onSongsChanged: () => void;
+  /** Called when the server holding releases and pages is found reachable, to load them. */
+  onPublicationsReachable: () => void;
   onOpenMoment: (m: Moment) => void;
 }
 
@@ -50,7 +60,13 @@ export function HomeView({
   onNewSong,
   onOpenMoment,
   onToggleSongFavorite,
+  onSongsChanged,
+  onPublicationsReachable,
 }: Props) {
+  // Where each song lives on a machine paired with a server — ../../../rehearsal-server/docs/songbookCopy.md.
+  const copy = useSongbookCopy(songs, onSongsChanged, tab === "songbook");
+  // Which moments the paired server holds; a session never leaves this machine — ../../../rehearsal-server/docs/momentShare.md.
+  const share = useMomentShare(tab === "sessions", moments);
   return (
     <div>
       {tab === "sessions" && (
@@ -60,18 +76,22 @@ export function HomeView({
           onOpen={onOpen}
           onOpenMoment={onOpenMoment}
           onDeleteSession={onDeleteSession}
+          share={share}
         />
       )}
 
       {tab === "releases" && (
-        <PublicationsList
-          releases={releases}
-          pages={pages}
-          onOpenRelease={onOpenRelease}
-          onNewRelease={onNewRelease}
-          onOpenPage={onOpenPage}
-          onNewPage={onNewPage}
-        />
+        // Releases and pages are the server's alone — ../../../rehearsal-server/docs/publications.md.
+        <ServerOnly onAvailable={onPublicationsReachable}>
+          <PublicationsList
+            releases={releases}
+            pages={pages}
+            onOpenRelease={onOpenRelease}
+            onNewRelease={onNewRelease}
+            onOpenPage={onOpenPage}
+            onNewPage={onNewPage}
+          />
+        </ServerOnly>
       )}
 
       {tab === "songbook" && (
@@ -85,9 +105,11 @@ export function HomeView({
             headerMenu={
               <SongbookExport songs={songs.filter((s) => s.favorite)} />
             }
+            copy={copy}
             onOpenSong={onOpenSong}
             onToggleSongFavorite={onToggleSongFavorite}
           />
+          <ServerOnlySongs copy={copy} />
         </div>
       )}
     </div>

@@ -70,6 +70,8 @@ const tokens = mediaTokens();
 // Before the library: its public pages are unguarded and its releases take k7's own bearer.
 const rehearsal = mountRehearsal(app, {
   requireAuth,
+  // Asked per request, so it is the media mount's once that exists: a desktop's releases are its server's.
+  server: (req) => media.pairedServer(req),
   mediatek: {
     base: `http://127.0.0.1:${PORT}`,
     token: tokens.issueApiToken("service:k7"),

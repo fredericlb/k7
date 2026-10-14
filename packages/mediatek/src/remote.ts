@@ -22,6 +22,8 @@ export interface RemoteConfig {
   base: string;
   /** A personal access token — a headless service has no cookie jar. */
   token?: string;
+  /** Where the library answers under `base`: `/api/mediatek`, or `/api/sync/mediatek` for a paired device. */
+  route?: string;
 }
 
 export class RemoteError extends Error {}
@@ -42,7 +44,7 @@ function why(e: unknown): string {
 /** The hosted service as a `LibrarySource`. */
 export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
   const url = (path: string): string =>
-    `${cfg.base.replace(/\/+$/, "")}/api/mediatek${path}`;
+    `${cfg.base.replace(/\/+$/, "")}${cfg.route ?? "/api/mediatek"}${path}`;
   const headers: Record<string, string> = cfg.token
     ? { authorization: `Bearer ${cfg.token}` }
     : {};

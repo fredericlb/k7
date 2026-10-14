@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Foreground only for now: no service, so the backend and the engine live exactly as long as MainActivity (docs/android.md). -->
+<!-- The backend and the engine live exactly as long as MainActivity; the one service only keeps that process in front while a page plays (docs/android.md). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- The engine's WebSocket server, which browsers on the LAN dial; and the studio apps, loaded from the studio — this phone's own, or another. -->
@@ -10,6 +10,9 @@
     <!-- The engine opens the device WITH its inputs (docs/engineHost.md); Oboe wants both below. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- MediaPlaybackService: the process kept in front while a page plays, screen off or app behind another. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <application
         android:allowBackup="false"
@@ -34,5 +37,14 @@
                 <data android:scheme="se.frediver.st0" android:host="auth" />
             </intent-filter>
         </activity>
+        <!-- Holds the process in front while a page plays; MediaPlayback.kt is the session it shows. -->
+        <service
+            android:name=".MediaPlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+        <!-- The media notification's own buttons, which Android 12 and older draw instead of the session's. -->
+        <receiver
+            android:name=".MediaPlayback$Buttons"
+            android:exported="false" />
     </application>
 </manifest>

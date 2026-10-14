@@ -58,6 +58,7 @@ class AppViewsPlugin : Plugin() {
     private var lightBarsBefore = false
     private lateinit var topColorJs: String
     private lateinit var accountJs: String
+    private lateinit var mediaSessionJs: String
     private val views = mutableMapOf<String, WebView>()
     // The address each view was last pointed at by `apps`: a changed studio reloads it, a tab switch does not.
     private val loaded = mutableMapOf<String, String>()
@@ -92,6 +93,7 @@ class AppViewsPlugin : Plugin() {
         lightBarsBefore = barIcons().isAppearanceLightStatusBars
         topColorJs = context.assets.open("top-color.js").bufferedReader().use { it.readText() }
         accountJs = context.assets.open("account.js").bufferedReader().use { it.readText() }
+        mediaSessionJs = context.assets.open("media-session.js").bufferedReader().use { it.readText() }
         appBridge = StudioBridge(
             activity,
             ::appOf,
@@ -258,8 +260,11 @@ class AppViewsPlugin : Plugin() {
         setDownloadListener { url, _, _, _, _ -> openOutside(Uri.parse(url)) }
         appBridge.attach(this, id)
         // The phone's own studio is a loopback one, whose pages derive each service's address from this table, as the desktop's preload gives it.
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT))
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
             WebViewCompat.addDocumentStartJavaScript(this, "window.$PORTS_GLOBAL='${BackendHost.PORTS_SPEC}';", setOf(BackendHost.ORIGIN))
+            // Before the page's own scripts, which may set a media session as they load; StudioBridge checks the origin.
+            WebViewCompat.addDocumentStartJavaScript(this, mediaSessionJs, setOf("*"))
+        }
         frame.addView(
             this,
             FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT).apply { topMargin = topPx + barPx },

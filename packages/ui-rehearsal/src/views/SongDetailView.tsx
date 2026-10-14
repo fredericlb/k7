@@ -29,6 +29,15 @@ import { m } from "../paraglide/messages.js";
 import { hasContent, SONG_TABS, visibleTabs } from "../songTabs";
 import type { Song, SongTab } from "../types";
 
+/** A server's host, for a sentence naming where a copy came from. */
+const hostOf = (origin: string): string => {
+  try {
+    return new URL(origin).host;
+  } catch {
+    return origin;
+  }
+};
+
 interface Props {
   song: Song;
   initialTab?: SongTab;
@@ -95,7 +104,10 @@ export function SongDetailView({
   // `content` stays a string for the text editor; the sheet tab draws its own panel.
   const content = tab === null || tab === "sheet" ? "" : song[tab];
   // An empty tab opens in the editor; a filled one stays read-only until Edit.
-  const [editing, setEditing] = useState(content === "");
+  // A copy of a server's song reads here and is edited there — ../../../rehearsal-server/docs/songbookCopy.md.
+  const readOnly = song.origin !== "";
+  const [editingState, setEditing] = useState(content === "");
+  const editing = editingState && !readOnly;
   const [draft, setDraft] = useState(content);
   const [saving, setSaving] = useState(false);
   const [transpose, setTranspose] = useState(0);
@@ -199,7 +211,10 @@ export function SongDetailView({
   };
 
   const remove = async () => {
-    if (!confirm(m["song.confirmDelete"]())) return;
+    const asked = readOnly
+      ? m["song.confirmRemoveCopy"]({ server: hostOf(song.origin) })
+      : m["song.confirmDelete"]();
+    if (!confirm(asked)) return;
     await onDelete();
   };
 
@@ -236,14 +251,20 @@ export function SongDetailView({
         />
       </div>
 
-      <SongFetchInsert
-        song={song}
-        onDownload={onDownload}
-        onUpload={onUpload}
-        onIgnore={onIgnore}
-        onRetry={onRerun}
-        onDismiss={onDismissFailure}
-      />
+      {readOnly ? (
+        <p className="muted small">
+          {m["song.copyOf"]({ server: hostOf(song.origin) })}
+        </p>
+      ) : (
+        <SongFetchInsert
+          song={song}
+          onDownload={onDownload}
+          onUpload={onUpload}
+          onIgnore={onIgnore}
+          onRetry={onRerun}
+          onDismiss={onDismissFailure}
+        />
+      )}
 
       {tabs.length > 1 && tab !== null && (
         <Tabs value={tab} onValueChange={(v) => setChosen(v as SongTab)}>
@@ -263,7 +284,7 @@ export function SongDetailView({
         <SheetPanel
           sheets={song.sheets}
           urlFor={sheetUrl}
-          onDelete={onDeleteSheet}
+          onDelete={readOnly ? undefined : onDeleteSheet}
         />
       ) : editing ? (
         <>
@@ -323,14 +344,16 @@ export function SongDetailView({
           ) : (
             <Tablature text={content} />
           )}
-          <div className="row" style={{ marginTop: 8 }}>
-            <Button variant="outline" onClick={() => setEditing(true)}>
-              <Pencil className="size-4" />{" "}
-              {tab === "lyrics"
-                ? m["song.edit.lyrics"]()
-                : m["song.edit.tablature"]()}
-            </Button>
-          </div>
+          {!readOnly && (
+            <div className="row" style={{ marginTop: 8 }}>
+              <Button variant="outline" onClick={() => setEditing(true)}>
+                <Pencil className="size-4" />{" "}
+                {tab === "lyrics"
+                  ? m["song.edit.lyrics"]()
+                  : m["song.edit.tablature"]()}
+              </Button>
+            </div>
+          )}
         </>
       )}
 

@@ -8,8 +8,8 @@ would cost more than it buys.
 - **The folder is the truth, on both sides.** The machine's cache runs this same package over a
   local folder, because the engine plays from file paths (`sync.md`). A database holding the rows
   would be a second truth to keep in step with the tree the engine actually reads.
-- **A database is chosen where the data is rows, not where it is bytes.** The rehearsal recorder's PocketBase
-  holds rows with one consumer (`packages/rehearsal-server/docs/pocketbase.md`); the shares' comments are in SQLite
+- **A database is chosen where the data is rows, not where it is bytes.** The rehearsal recorder's store
+  holds rows with one consumer, in SQLite (`packages/rehearsal-server/docs/store.md`); the shares' comments are in SQLite
   because anonymous visitors write them concurrently (`apps/st0/backend/docs/media/comments.md`). Neither
   reason applies to a volume of audio files and their YAML sidecars.
 - **An index would be a dependency for something a walk already does.** A separator earns a

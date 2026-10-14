@@ -1,5 +1,5 @@
-// lock.ts — work on the same key run one at a time, in arrival order: a read-modify-write against PocketBase has no
-// transaction, so two appends to one session, or two sheet uploads to one song, would each overwrite the other.
+// lock.ts — work on the same key run one at a time, in arrival order: a read-modify-write on the store spans awaits
+// (an upload, a fetch), so two appends to one session, or two sheet uploads to one song, would each overwrite the other.
 // The one thing a reader would get wrong: it is per PROCESS — right for this backend, which runs as one (../docs/audit.md).
 
 const tails = new Map<string, Promise<unknown>>();

@@ -13,11 +13,14 @@ import {
 import type { ReactNode } from "react";
 import { m } from "../paraglide/messages.js";
 import type { Song, SongTab } from "../types";
+import { SongPlacementIcon, type useSongbookCopy } from "./SongbookServerCopy";
 
 interface Props {
   songs: Song[];
   /** Drawn at the right end of the header row — the songbook's ⋮ menu. */
   headerMenu?: ReactNode;
+  /** Where each song lives on a machine paired with a server; absent, nothing is drawn. */
+  copy?: ReturnType<typeof useSongbookCopy>;
   onOpenSong: (s: Song, tab?: SongTab) => void;
   onToggleSongFavorite: (s: Song) => void;
 }
@@ -49,6 +52,7 @@ const LINKS = [
 export function SongbookTable({
   songs,
   headerMenu,
+  copy,
   onOpenSong,
   onToggleSongFavorite,
 }: Props) {
@@ -116,6 +120,10 @@ export function SongbookTable({
                     <Globe className="size-4" />
                   )}
                 </span>
+                <SongPlacementIcon
+                  state={copy?.stateOf(s.id) ?? null}
+                  placement={copy?.placement ?? null}
+                />
               </td>
               {/* Cut with … when too long, so a narrow screen never scrolls sideways; the tooltip has it whole. */}
               <td className="songbook-artist" title={s.artist}>

@@ -11,11 +11,24 @@ import type { DeviceTokens } from "./deviceTokens.ts";
 import { historyRouter } from "./historyRoutes.ts";
 import { accountKey, type Instances } from "./instances.ts";
 import { LIBRARIES_ACCOUNT } from "./libraryRelay.ts";
-import { roomsRouter } from "./roomsRoute.ts";
+import { roomsRouter, syncCredential } from "./roomsRoute.ts";
 import { eventsRouter } from "./syncEvents.ts";
 import type { attachSyncRelay } from "./syncRelay.ts";
 import { SYNC_PATH } from "./syncRelay.ts";
-import { forgetRemote, readRemote, writeRemote } from "./syncRemote.ts";
+import {
+  forgetRemote,
+  readRemote,
+  type SyncRemote,
+  writeRemote,
+} from "./syncRemote.ts";
+
+/** Who passed `deviceGate`: the account, the person who paired the device when its token says (older ones do not), the device's name. */
+export interface SyncCaller {
+  slug: string;
+  person: string | null;
+  /** The name the device was paired under; null for a hub secret. */
+  device: string | null;
+}
 
 /** What the sync routes need of the hub. */
 export interface SyncContext {
@@ -25,6 +38,8 @@ export interface SyncContext {
   devices: DeviceTokens;
   instances: Instances;
   userOf: (req: Request) => string;
+  /** The session's OIDC subject, carried in a device token minted from it. */
+  subjectOf: (req: Request) => string;
   /** The running relay, once `serveSync` has attached it. */
   relay: () => ReturnType<typeof attachSyncRelay> | null;
 }
@@ -59,7 +74,11 @@ export class SyncRoutes {
         return void res.status(401).json({ error: "no user on the session" });
       if (!name)
         return void res.status(400).json({ error: "a device needs a name" });
-      const { device, token } = this.c.devices.mint(slug, name);
+      const { device, token } = this.c.devices.mint(
+        slug,
+        name,
+        this.c.subjectOf(req),
+      );
       const proto = req.get("x-forwarded-proto") ?? req.protocol;
       const url = `${proto === "https" ? "wss" : "ws"}://${publicHost(req)}${SYNC_PATH}`;
       res.json({ device, token, url });
@@ -115,7 +134,11 @@ export class SyncRoutes {
         String(req.query.name ?? "")
           .trim()
           .slice(0, 80) || "a machine";
-      const { device, token } = this.c.devices.mint(accountKey(user), name);
+      const { device, token } = this.c.devices.mint(
+        accountKey(user),
+        name,
+        this.c.subjectOf(req),
+      );
       const proto = req.get("x-forwarded-proto") ?? req.protocol;
       const target = new URL(back);
       target.searchParams.set("token", token);
@@ -175,6 +198,33 @@ export class SyncRoutes {
       );
     });
     return r;
+  }
+
+  /** The remote origin the session's account is paired with, or null: what a local surface compares itself against. */
+  remoteOf(req: Request): SyncRemote | null {
+    const user = this.c.userOf(req);
+    return user ? readRemote(this.accountDir(accountKey(user))) : null;
+  }
+
+  /** Let through a caller that proves an account by device token or hub secret; `res.locals.syncCaller` says who. */
+  deviceGate(): RequestHandler {
+    return (req, res, next) => {
+      const cred = syncCredential(req);
+      const device = cred.token ? this.c.devices.verify(cred.token) : null;
+      void this.account(cred).then((slug) => {
+        if (!slug)
+          return void res
+            .status(401)
+            .json({ error: "no device token or hub secret this hub knows" });
+        const caller: SyncCaller = {
+          slug,
+          person: device?.person ?? null,
+          device: device?.name ?? null,
+        };
+        res.locals.syncCaller = caller;
+        next();
+      });
+    };
   }
 
   /** The workspaces an account syncs, for a replica that has not seen them all — docs/syncRelay.md. */

@@ -1,12 +1,6 @@
-// Data access for sessions, highlights and comments — backed by PocketBase.
-//
-// - Session metadata, the loudness envelope (JSON), highlights and comments
-//   live in PocketBase collections (see migrate.ts for the schema).
-// - The recording's BYTES live in the médiathèque's RECORDINGS zone; PocketBase
-//   keeps only the path to them. Cached on local disk so it can be streamed with
-//   HTTP Range for fast seeking. See ../docs/audio.md.
-// - A short in-memory cache of session rows keeps range requests / ownership
-//   checks from hitting PocketBase on every call.
+// store.ts — the rehearsal recorder's data: sessions, moments, releases, pages, songs, in the store (db.ts).
+// A recording's BYTES live in the médiathèque, the store keeping its path; cached on disk for Range (../docs/audio.md).
+// What reads wrong: a short in-memory cache of rows stands between the routes and the store.
 
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -20,12 +14,11 @@ import type {
   Release,
   SongEnvelope,
 } from "@studio/rehearsal-shared";
-import { sheetExt } from "@studio/rehearsal-shared/sheetKind";
 import { cachedFile, once, sweepRowCaches, trimDiskCache } from "./cache.ts";
+import * as db from "./db.ts";
 import { env } from "./env.ts";
 import { serialized } from "./lock.ts";
 import * as mediatek from "./mediatek.ts";
-import * as db from "./pocketbase.ts";
 import { envelopeOf } from "./songEnvelope.ts";
 
 // Under K7_DATA_DIR, never inside the sources: a checkout and an image hold it in the same place.
@@ -118,6 +111,7 @@ function mapComment(rec) {
     tags: parseTags(f.Tags),
     validated: Boolean(f.Validated),
     createdAt: f.CreatedAt || "",
+    sharedFrom: f.SharedFrom || "",
   };
 }
 
@@ -566,8 +560,9 @@ function publicMoment(rec, createdAtByUid) {
   const uid = rec.fields.SessionUid;
   return {
     ...mapComment(rec),
-    // Sessions have no name, so the client labels a moment with its session's date.
-    sessionCreatedAt: createdAtByUid.get(uid) ?? null,
+    // Sessions have no name, so the client labels a moment with its session's date; a shared one carries it.
+    sessionCreatedAt:
+      createdAtByUid.get(uid) ?? (rec.fields.SessionCreatedAt || null),
     sessionAvailable: createdAtByUid.has(uid),
   };
 }
@@ -787,6 +782,18 @@ export async function ensureClipCached(sessionUid, momentId) {
     mediatek.download(String(rec.fields.ClipPath), filePath),
   );
   return { filePath, mime: "audio/webm" };
+}
+
+/** The machine an owner's moment was shared from, "" for one of this server's own — ../docs/momentShare.md. */
+export async function momentSharedFrom(ownerId, momentId): Promise<string> {
+  const recs = await db.listRecords("Comments", { OwnerId: [ownerId] });
+  const rec = recs.find((r) => r.id === momentId);
+  return rec ? String(rec.fields.SharedFrom || "") : "";
+}
+
+/** Forget a moment's cached clip, for a moment whose clip was just replaced. */
+export function dropClipCache(momentId) {
+  safeUnlink(clipCachePath(momentId));
 }
 
 function clipCachePath(momentId) {
@@ -1556,8 +1563,14 @@ async function getSongRecord(uid) {
   return rec;
 }
 
-function invalidateSong(uid) {
+export function invalidateSong(uid) {
   songCache.delete(uid);
+}
+
+/** The server a song was copied from, "" for one of this store's own — ../docs/songbookCopy.md. */
+export async function songOriginOf(uid): Promise<string> {
+  const rec = await getSongRecord(uid);
+  return rec ? String(rec.fields.Origin || "") : "";
 }
 
 function sheetsOf(rec) {
@@ -1627,6 +1640,7 @@ function publicSong(rec, viewer = "", favorites: Set<string> = new Set()) {
     lyricsMatch: f.LyricsMatch || "",
     fetchIgnored: Boolean(f.FetchIgnored),
     private: Boolean(f.Private),
+    origin: f.Origin || "",
     favorite: favorites.has(f.Uid),
     createdAt: f.CreatedAt || "",
   };
@@ -1739,7 +1753,7 @@ export async function deleteSong(uid) {
   return true;
 }
 
-// --- Song sheets (PDF / image / MusicXML files — not audio, so PocketBase holds them) -------
+// --- Song sheets (PDF / image / MusicXML files — not audio, so the store keeps them) -------
 
 // SheetMeta is the order, name and type; the bytes live in the song_sheets collection.
 async function writeSheets(rec, sheets) {
@@ -1774,8 +1788,6 @@ async function addSheetFilesUnlocked(uid, files) {
       mime: file.mime,
     };
     added.push(entry);
-    // Prime the disk cache so the first view streams straight away.
-    fs.writeFileSync(sheetCachePath(uid, entry), file.buffer);
   }
   await writeSheets(rec, [...existing, ...added]);
   invalidateSong(uid);
@@ -1796,7 +1808,6 @@ async function deleteSheetFileUnlocked(uid, fileId) {
   await db.deleteAttachment(gone.attachmentId).catch(() => {
     // The metadata row is what the songbook reads; a stray blob left behind is not fatal.
   });
-  safeUnlink(sheetCachePath(uid, gone));
   invalidateSong(uid);
   return getSong(uid);
 }
@@ -1911,22 +1922,14 @@ export async function songEnvelope(uid) {
   return measured;
 }
 
-/** A sheet file on disk, fetched from PocketBase if need be, so it can be streamed. */
+/** A sheet's file on disk, where the store keeps it, so it can be streamed. */
 export async function ensureSheetFileCached(uid, fileId) {
   const rec = await getSongRecord(uid);
   if (!rec) return null;
   const entry = sheetsOf(rec).find((s) => s.id === fileId);
   if (!entry) return null;
-  const filePath = sheetCachePath(uid, entry);
-  if (!cachedFile(filePath))
-    await once(fetching, filePath, async () => {
-      const buffer = await db.downloadAttachment(entry.attachmentId);
-      // Written under a temporary name and moved, so a reader never serves half a sheet.
-      const tmp = `${filePath}.${randomUUID()}.part`;
-      fs.writeFileSync(tmp, buffer);
-      fs.renameSync(tmp, filePath);
-    });
-  return { filePath, mime: entry.mime, name: entry.name };
+  const filePath = db.attachmentFile(entry.attachmentId);
+  return filePath ? { filePath, mime: entry.mime, name: entry.name } : null;
 }
 
 // --- helpers ----------------------------------------------------------------
@@ -1991,13 +1994,6 @@ async function safeRemote(remote) {
 }
 
 // One sheet file's cache path: keyed by its own id, with a sniffable extension.
-function sheetCachePath(uid, entry) {
-  return path.join(
-    CACHE_DIR,
-    `sheet-${uid}-${entry.id}.${sheetExt(entry.name ?? "", entry.mime)}`,
-  );
-}
-
 function safeUnlink(p) {
   try {
     if (p) fs.unlinkSync(p);

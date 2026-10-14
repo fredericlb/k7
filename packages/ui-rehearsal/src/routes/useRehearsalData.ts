@@ -14,11 +14,23 @@ export function useRehearsalData() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [moments, setMoments] = useState<Moment[]>([]);
 
+  // Releases and pages live on the server alone: refused here, they are an empty list and ServerOnly says why.
   const refreshReleases = useCallback(
-    () => api.listReleases().then(setReleases),
+    () =>
+      api
+        .listReleases()
+        .then(setReleases)
+        .catch(() => setReleases([])),
     [],
   );
-  const refreshPages = useCallback(() => api.listPages().then(setPages), []);
+  const refreshPages = useCallback(
+    () =>
+      api
+        .listPages()
+        .then(setPages)
+        .catch(() => setPages([])),
+    [],
+  );
   const refreshSongs = useCallback(() => api.listSongs().then(setSongs), []);
   // A session edit moves the standalone moments list too, so both refresh together.
   const refreshSessions = useCallback(

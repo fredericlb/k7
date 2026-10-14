@@ -10,7 +10,8 @@ interface Props {
   sheets: SheetFile[];
   // Resolve a file's stream URL (backend serves it with the right mime).
   urlFor: (fileId: string) => string;
-  onDelete: (fileId: string) => Promise<void>;
+  /** Absent, the sheets are read-only: a copy of a server's song. */
+  onDelete?: (fileId: string) => Promise<void>;
 }
 
 // A sheet is files, not text: this draws them and removes them; adding is the song page's bottom link.
@@ -21,7 +22,7 @@ export function SheetPanel({ sheets, urlFor, onDelete }: Props) {
     if (!confirm(m["sheet.remove"]({ name: file.name }))) return;
     setBusy(true);
     try {
-      await onDelete(file.id);
+      await onDelete?.(file.id);
     } finally {
       setBusy(false);
     }
@@ -32,15 +33,17 @@ export function SheetPanel({ sheets, urlFor, onDelete }: Props) {
       <span className="sheet-file-name" title={file.name}>
         {file.name}
       </span>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={busy}
-        onClick={() => remove(file)}
-        title={m["sheet.removeFile"]()}
-      >
-        <Trash2 className="size-4" />
-      </Button>
+      {onDelete && (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={busy}
+          onClick={() => remove(file)}
+          title={m["sheet.removeFile"]()}
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      )}
     </figcaption>
   );
 

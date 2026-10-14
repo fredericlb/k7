@@ -336,6 +336,60 @@
   .songbook-table .songbook-visibility-icon.private {
     opacity: 0.85;
   }
+  /* Releases and pages when their server cannot be reached — ServerOnly.tsx. */
+  .server-only-notice {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+  }
+  /* Whether a paired server holds a copy of a moment — MomentServerShare.tsx. */
+  .moment-placement {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-right: 4px;
+    opacity: 0.45;
+  }
+  .moment-placement.synced {
+    color: var(--color-emerald-500, #10b981);
+    opacity: 1;
+  }
+  /* Where a song lives on a machine paired with a server — SongbookServerCopy.tsx. */
+  .songbook-table .songbook-placement {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-left: 6px;
+    opacity: 0.45;
+  }
+  .songbook-table .songbook-placement.synced {
+    color: var(--color-emerald-500, #10b981);
+    opacity: 1;
+  }
+  .songbook-server-only ul {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .songbook-server-only li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 10px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+  }
+  .songbook-server-only-name {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    gap: 10px;
+  }
   /* The new-song form's public/private choice: radios, since the base rule restyles every button. */
   .song-visibility {
     border: 0;

@@ -5,8 +5,9 @@ and run by the app in `engine/st0-android`, which drives the supervisor as the d
 phone at the studios it is connected to, exactly as on desktop, and the engine serves the same
 WebSocket protocol on port 8765, bound to every interface.
 
-**Foreground only.** There is no service: all of it lives as long as `MainActivity`, and leaving it
-deregisters the engine, stops it and ends the process.
+**It lives as long as `MainActivity`**, and leaving it deregisters the engine, stops it and ends the
+process. The one service, `MediaPlaybackService`, keeps that process in front while a page plays
+(below), and starts nothing of its own.
 
 ## Standalone: the phone runs its own studio
 
@@ -96,6 +97,29 @@ under TypeScript 7.
 `ws://`. The WebView, like any browser, lets an https page open `ws://127.0.0.1` but blocks
 `ws://<LAN IP>` as mixed content. The engine picker probes each address an engine announces and
 keeps one that answers, so a blocked one is simply not chosen. Mixed content stays off.
+
+## A media player to the system
+
+A WebView implements the Media Session API and connects it to nothing: a page that sets one gets
+no notification, no lock-screen controls and no headset buttons. The app makes that connection.
+`assets/media-session.js`, a document-start script in every view, wraps `navigator.mediaSession`
+and posts what the page sets to `StudioBridge` (`media`); `MediaPlayback.kt` holds a platform
+`MediaSession` and its notification from those messages, and sends each system button back as
+`media-action`, which the script hands to the page's own handler. The page code is the standard
+API (`packages/ui-mini-player/docs/miniPlayer.md`) and knows nothing of Android.
+
+| choice | why |
+|---|---|
+| wrap the API in the view rather than add a call to `window.st0Android` | the bar is shared and runs in browsers too; a page written against the standard is a media player in mobile Chrome and here alike |
+| the platform `MediaSession` and `Notification.MediaStyle`, no androidx.media or Media3 | API 29 has all of it; Media3 is built around a `Player` the app does not have, since the sound is the page's |
+| a `mediaPlayback` foreground service while it PLAYS, and only then | without one Android freezes a process whose activity is behind, sound included; paused, the service stops and the notification stays, detached, so play resumes from it |
+| no `POST_NOTIFICATIONS` request | a media-session notification is exempt on Android 13+ |
+| play, pause and next as notification actions too | Android 12 and older draw those rather than the session's controls |
+| the notification dismissed is `stop` | it is the bar's close: the page closes its player and the session goes with it |
+| the task swiped away or the activity left clears it | a detached notification would outlive the process it controls |
+
+A foreground start can be refused when the app is behind (Android 12+); the notification then
+shows without the service, and the log says so under `st0-media`.
 
 ## Signing in happens in the browser
 
@@ -289,11 +313,14 @@ also catches the GL driver's chatter, which is noise.
   APK itself, the view on the local studio and a sign-in through the browser are still to drive.
 - **No ffmpeg, yt-dlp or mpv on the phone**: what needs them — transcoding, the hunt, the server-side
   player — answers as it does on a machine without them.
-- **No PocketBase**, as on desktop: the rehearsal recorder's rows are unavailable.
+- **The rehearsal recorder's store is the server's**: SQLite under `K7_DATA_DIR`, as on desktop and on the server (`packages/rehearsal-server/docs/store.md`).
 - **The tunnel and WebRTC are untested on a phone.** They are the desktop code, built unchanged; no
   studio has driven a phone through them yet.
 - **No external plugins, no plugin scan, no offline render or freeze.**
-- **No foreground service**, so the screen is kept on and the engine stops with the activity.
+- **No foreground service of its own**, so the screen is kept on and the engine stops with the activity.
+  The media one runs only while a page plays.
+- **The media session has not been driven on a phone yet**: background playback in a hidden view,
+  the notification on Android 12 and 13+, and a headset's buttons are each still to check.
 - **Pairing has not been run on a phone.** `SyncPairing.kt` was written against the desktop's flow
   and has not been compiled or driven; the browser reaching the app's loopback port while the app
   is behind it is the part to check first.

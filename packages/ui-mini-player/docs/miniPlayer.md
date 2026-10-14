@@ -44,3 +44,25 @@ until a duration exists, since a range with no maximum is a control that lies ab
 The component never hides itself: the host decides whether there is a bar at all. That is what
 lets "what I have just heard" outlive the last sample — a track running out leaves the row up,
 saying so through `status`, with the play button ready to start it again.
+
+## The bar is also the system's media session
+
+A phone shows what plays on its lock screen and in its notification shade, and a headset's
+buttons pause it: that is what makes an app a media player to the OS, and the browser's Media
+Session API is how a page becomes one. The bar fills it from its own props (`mediaSession.ts`),
+so every host is a media player without doing anything — and the system's buttons call the same
+`onToggle`, `onSeek` and `onClose` the bar's do, so the two can never drive different transports.
+
+- **Two props the bar does not draw**: `artist` and `album` as plain text, since the system
+  cannot show `meta`, which is a node; and `onNext`, the system's skip button, absent when the
+  host has nothing to skip to.
+- **The playhead is reported on a seek, a pause or a new length, not every frame.** The system
+  extrapolates a playing position itself, and a host updating `position` sixty times a second
+  would otherwise send sixty reports — across a bridge, on the Android app.
+- **The session is cleared when the bar unmounts**, since a lock-screen control that outlives the
+  player drives nothing.
+
+The browser shows these controls only for a page that is itself making sound — the médiathèque
+playing in the tab, a reference track. Playing on mpv or the engine, the page is silent, and
+only the Android app, which relays the session itself, shows them then
+(`engine/st0-engine/docs/android.md`).

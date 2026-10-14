@@ -42,6 +42,13 @@ paired machine only lists them, and joins one when the person downloads it
 machine that removed it does not bring it back. `Examples` is never synced: every build stocks its
 own on every replica.
 
+The same token also reads the origin's médiathèque, read-only, at `/api/sync/mediatek`; `deviceGate`
+in `../syncRoutes.ts` is that gate (`../../mediatek/docs/serverCopy.md`). A token minted from a session also names
+the PERSON, the OIDC subject who paired: an account can be shared, and the songbook offers a device
+the private songs of that person alone (`../../rehearsal-server/docs/songbookCopy.md`). A token minted
+before that names nobody and is offered public songs only, until the machine pairs again. The same person
+is who a moment shared from the machine belongs to on the origin (`../../rehearsal-server/docs/momentShare.md`).
+
 ## On disk BEFORE it is relayed
 
 Each ordered entry is appended to `entries.jsonl` before any replica hears of it. Every 200 entries

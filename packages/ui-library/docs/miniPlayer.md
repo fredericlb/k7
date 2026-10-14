@@ -59,6 +59,11 @@ socket is a second client on the same session, driving the same project.
 Right-click a song in the tree → "Add to queue". A song that ends chains into
 the next. The button right of the bar opens it: rows can be moved and removed there.
 
+The system's skip button — a lock screen's, a headset's — is offered while the queue holds
+something, and starts the next track exactly as an ending does: `useStartNext` is the one step
+both take, so a skip and a track running out never disagree about which track is next or about
+skipping one that does not resolve.
+
 ### A queue is not a playlist
 
 The two words look alike; the two things have nothing to do with each other:

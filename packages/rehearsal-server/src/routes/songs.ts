@@ -79,9 +79,32 @@ songsRouter.param("sid", (req, res, next, sid) => {
     .catch(next);
 });
 
-/** A private song is deleted by its creator, a public one by an admin. */
+// A copy of a server's song reads here and changes there; only its star and its removal are this machine's.
+songsRouter.use("/:sid", (req, res, next) => {
+  if (req.method === "GET" || req.method === "HEAD") return next();
+  const own =
+    (req.method === "DELETE" && req.path === "/") ||
+    (req.method === "PUT" && req.path === "/favorite");
+  if (own) return next();
+  store
+    .songOriginOf(req.params.sid)
+    .then((origin) =>
+      origin
+        ? res
+            .status(403)
+            .json({ error: `a copy of ${origin}'s song: edit it there` })
+        : next(),
+    )
+    .catch(next);
+});
+
+/** A copy is removed by whoever uses this machine; a private song by its creator, a public one by an admin. */
 const mayDelete = (song, req) =>
-  song.private ? song.mine : isAdmin(req.user, env.adminGroups);
+  song.origin
+    ? true
+    : song.private
+      ? song.mine
+      : isAdmin(req.user, env.adminGroups);
 
 /** A song as the asking user sees it, with whether they may delete it. */
 const withRights = (song, req) =>
@@ -310,7 +333,7 @@ songsRouter.delete(
 songsRouter.delete(
   "/:sid",
   wrap(async (req, res) => {
-    // Anyone edits a public song; deleting it is an admin's, and a private one its creator's.
+    // Anyone edits a public song; deleting it is an admin's, a private one its creator's, a copy this machine's.
     const song = await store.getSong(req.params.sid, sub(req));
     if (!song) return res.status(404).json({ error: "not found" });
     if (!mayDelete(song, req))

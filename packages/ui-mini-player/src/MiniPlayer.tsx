@@ -1,12 +1,14 @@
 // MiniPlayer.tsx — the bar at the bottom of an app: what is playing, how far in, and a way to
 // stop looking at it. It holds NO transport of its own — every number is a prop and every
-// button is a callback, because the two apps mounting it play very different things.
+// button is a callback, because the two apps mounting it play very different things. It also
+// fills the system's media session, so a phone's lock screen and headset drive the same callbacks.
 // See ../docs/miniPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
 import type { LucideIcon } from "@frediverse/ui/icons";
 import { Pause, Play, X } from "@frediverse/ui/icons";
 import type { ReactNode } from "react";
+import { useMediaSession } from "./mediaSession";
 
 /** mm:ss — one clock, so two readings of one transport never disagree by a rounding. */
 export function clock(sec: number): string {
@@ -30,6 +32,8 @@ export interface MiniPlayerLabels {
 export function MiniPlayer({
   icon: Icon,
   title,
+  artist,
+  album,
   meta,
   status,
   playing,
@@ -39,11 +43,15 @@ export function MiniPlayer({
   onToggle,
   onSeek,
   onClose,
+  onNext,
   children,
 }: {
   /** The glyph before the title — a record, a headphone: what KIND of thing this is. */
   icon: LucideIcon;
   title: string;
+  /** Plain text for the system's media controls, which cannot show `meta`; the bar does not draw them. */
+  artist?: string;
+  album?: string;
   /** Beside the title: the artist, the album, a version badge — whatever the host has. */
   meta?: ReactNode;
   /** The end of the title line, where a failure or "ended" goes; the host words both. */
@@ -56,9 +64,23 @@ export function MiniPlayer({
   onToggle: () => void;
   onSeek: (seconds: number) => void;
   onClose: () => void;
+  /** The system's skip button; the bar draws none, the host's queue button being its own. */
+  onNext?: () => void;
   /** Controls of the host's own, right of the transport and left of the close. */
   children?: ReactNode;
 }) {
+  useMediaSession({
+    title,
+    artist,
+    album,
+    playing,
+    position,
+    duration,
+    onToggle,
+    onSeek,
+    onClose,
+    onNext,
+  });
   const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
   return (
     <section

@@ -7,12 +7,15 @@ import type {
   LrcCandidate,
   Marker,
   Moment,
+  MomentPlacement,
   Page,
+  PublicationsStatus,
   Release,
   ReleasePatch,
   Session,
   SingingExercise,
   Song,
+  SongbookPlacement,
   SongEnvelope,
 } from "./types";
 
@@ -157,6 +160,14 @@ export const api = {
 
   // --- Moments (standalone) ---
   listMoments: (): Promise<Moment[]> => f("/api/moments").then(json),
+  /** Which moments the paired server holds a copy of — ../../rehearsal-server/docs/momentShare.md. */
+  momentPlacement: (): Promise<MomentPlacement> =>
+    f("/api/sync/moments-share").then(json),
+  /** Share one moment with the paired server, replacing its copy; the session stays here. */
+  shareMoment: (id: string): Promise<unknown> =>
+    f(`/api/sync/moments-share/${encodeURIComponent(id)}/share`, {
+      method: "POST",
+    }).then(json),
 
   getMoment: (id: string): Promise<Moment> =>
     f(`/api/moments/${id}`).then(json),
@@ -392,6 +403,19 @@ export const api = {
 
   // --- Songs (songbook) ---
   listSongs: (): Promise<Song[]> => f("/api/songs").then(json),
+  /** Whether releases and pages can be reached: they live on the server alone — ../../rehearsal-server/docs/publications.md. */
+  publicationsStatus: (): Promise<PublicationsStatus> =>
+    f("/api/publications").then(json),
+  /** Where each song lives on a machine paired with a server — ../../rehearsal-server/docs/songbookCopy.md. */
+  songbookPlacement: (): Promise<SongbookPlacement> =>
+    f("/api/sync/songbook-copy").then(json),
+  /** Copy one server-only song here, its sheets and track with it. */
+  downloadSong: (id: string): Promise<unknown> =>
+    f("/api/sync/songbook-copy/download", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id }),
+    }).then(json),
 
   getSong: (id: string): Promise<Song> => f(`/api/songs/${id}`).then(json),
 

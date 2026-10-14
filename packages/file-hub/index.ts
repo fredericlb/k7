@@ -66,6 +66,8 @@ export interface FileHubOptions
     Omit<BindingDeps, "log"> {
   /** Who the session says is calling, or "" — the service's auth, not the hub's. */
   userOf: (req: Request) => string;
+  /** The session's OIDC subject — the person a paired device's token names. */
+  subjectOf?: (req: Request) => string;
   /** Whether the session's caller is in the origin's admin groups; absent, nobody is. */
   isAdmin?: (req: Request) => boolean;
   /** Signs the tickets; stable across restarts when given, or tickets die with the process. */
@@ -142,6 +144,7 @@ export class FileHub {
       devices: this.devices,
       instances: this.instances,
       userOf: opts.userOf,
+      subjectOf: (req) => opts.subjectOf?.(req) ?? "",
       relay: () => this.stopSync,
     });
     // A paired account syncs whether or not anyone opens it, so its service starts with the hub.

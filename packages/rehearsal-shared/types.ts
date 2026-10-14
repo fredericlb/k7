@@ -122,8 +122,10 @@ export interface Song {
   favorite: boolean;
   // The asking user created it.
   mine: boolean;
-  // The asking user may delete it: its creator for a private song, an admin for a public one.
+  // The asking user may delete it: its creator for a private song, an admin for a public one, anyone for a copy.
   canDelete: boolean;
+  // The server this machine copied it from, read-only here; "" for a song of this store's own.
+  origin: string;
   createdAt: string;
 }
 
@@ -169,6 +171,8 @@ export interface Moment {
   tags: string[];
   validated: boolean;
   createdAt: string;
+  // The machine it was shared from, read-only here; "" for a moment of this store's own.
+  sharedFrom: string;
   // Detail endpoint only: the clip's own envelope and markers, on a timeline starting at 0.
   envelope?: Envelope | null;
   markers?: Marker[];
@@ -232,4 +236,43 @@ export interface EventsResult {
   minSilenceSec: number;
   peak: number;
   events: DetectedEvent[];
+}
+
+/** A songbook song as a paired machine lists the server's: enough to name it. */
+export interface SongSummary {
+  id: string;
+  artist: string;
+  title: string;
+  private: boolean;
+}
+
+/** A paired machine's songbook against its server's, by song id — ../rehearsal-server/docs/songbookCopy.md. */
+export interface SongbookPlacement {
+  /** False when this machine is paired with no server, or IS the server. */
+  paired: boolean;
+  /** The server's origin, for a tooltip. */
+  server: string | null;
+  /** This machine's song ids the server holds too. */
+  synced: string[];
+  /** The server's public songs this machine lacks. */
+  serverOnly: SongSummary[];
+}
+
+/** Which of a paired machine's moments its server holds, by moment id — ../rehearsal-server/docs/momentShare.md. */
+export interface MomentPlacement {
+  /** False when this machine is paired with no server, or IS the server. */
+  paired: boolean;
+  /** The server's origin, for a tooltip. */
+  server: string | null;
+  /** This machine's moment ids the server holds a copy of. */
+  shared: string[];
+}
+
+/** Whether releases and pages can be reached from here: they live on the server alone — ../rehearsal-server/docs/publications.md. */
+export interface PublicationsStatus {
+  available: boolean;
+  /** Why not: no server paired, the server not answering, or a pairing too old to name a person. */
+  reason?: "unpaired" | "unreachable" | "repair";
+  /** The server's origin, for the sentence that says so. */
+  server?: string | null;
 }

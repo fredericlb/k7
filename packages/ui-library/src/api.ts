@@ -5,7 +5,7 @@
 import { type EngineAccess, engineAccess } from "@studio/engine-browser/access";
 import type { PlaylistSummary } from "@studio/mediatek/playlists";
 import type { RecordingDay } from "@studio/mediatek/recordings";
-import type { FamilyListing } from "@studio/mediatek/types";
+import type { FamilyListing, LibraryPlacement } from "@studio/mediatek/types";
 import type { PublicEngine } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
 import type {
@@ -233,6 +233,31 @@ export const library = {
 
   list: (family: string) =>
     get<FamilyListing>(`/list?family=${encodeURIComponent(family)}`, "list"),
+
+  /** Where each entry lives on a machine paired with a server — ../../mediatek/docs/serverCopy.md. */
+  placement: async (family: string): Promise<LibraryPlacement> =>
+    json(
+      await request(
+        `${apiBase()}/api/sync/library?family=${encodeURIComponent(family)}`,
+      ),
+      "placement",
+    ),
+
+  /** Bring one server-only entry down to this machine; unbounded, since a song's master is long. */
+  download: async (family: string, path: string): Promise<void> => {
+    await json(
+      await request(
+        `${apiBase()}/api/sync/library/download`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ family, path }),
+        },
+        null,
+      ),
+      "download",
+    );
+  },
 
   /** A file's bytes, for an <audio>/<video> src. Served with Range, so seeking works. */
   fileUrl: (path: string) =>

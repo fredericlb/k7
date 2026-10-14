@@ -18,6 +18,7 @@ const song = (over: Partial<Song> = {}): Song => ({
   fetchIgnored: false,
   private: false,
   canDelete: false,
+  origin: "",
   favorite: false,
   mine: false,
   createdAt: "2026-09-07T10:00:00Z",

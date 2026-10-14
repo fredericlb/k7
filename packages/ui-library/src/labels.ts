@@ -51,6 +51,11 @@ export interface LibraryLabels {
     emptyFamily: string;
     notCatalogued: string;
     noRecordings: string;
+    /** Placement on a machine paired with a server, `host` being the server's. */
+    synced: (host: string) => string;
+    localOnly: string;
+    serverOnly: (host: string) => string;
+    download: string;
   };
   addRecording: { add: string; sending: string; cancel: string };
   addSong: {

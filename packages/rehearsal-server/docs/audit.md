@@ -1,6 +1,6 @@
 # Audit — stability and speed of the rehearsal pages
 
-A standing audit of the rehearsal recorder: this package's routes over PocketBase, mounted in st0's
+A standing audit of the rehearsal recorder: this package's routes over its SQLite store, mounted in st0's
 backend; the pages of `packages/ui-rehearsal`, mounted in st0's SPA; and `packages/recorder`.
 Findings are either an invariant they hold — written down so it is not broken again —
 or a numbered lot still open, and why. Every entry below was read in the code, not reported second
@@ -8,11 +8,11 @@ hand; the measured ones say what was measured.
 
 ## Nothing waits on a stalled upstream for ever
 
-PocketBase and the media library (`mediatek.ts`, `@studio/mediatek/remote`) are both reached with
-`fetch`, and a `fetch` with no signal waits as long as the peer does. Each call is bounded by what it
-carries: a JSON exchange 15–30 s, a measurement the media library may have to compute 5 minutes, a file 10, an
-upload of a whole recording 30. [pocketbase.md](pocketbase.md) has the
-PocketBase half, the shared sign-in and the re-sign on a 401 included.
+The media library (`mediatek.ts`, `@studio/mediatek/remote`) is reached with `fetch`, and a `fetch`
+with no signal waits as long as the peer does. Each call is bounded by what it carries: a JSON
+exchange 15–30 s, a measurement the media library may have to compute 5 minutes, a file 10, an
+upload of a whole recording 30. The store is in this process ([store.md](store.md)) and has no
+peer to wait on.
 
 ## A file is served without ever crashing the process
 
@@ -35,15 +35,15 @@ requests leave no descriptor open (61 before, 56 after).
   an uncaught exception is logged and exits, the container restarting it, and a SIGTERM lets
   in-flight requests finish (`apps/st0/backend/src/server.ts`).
 
-## A request cannot reach another PocketBase endpoint
+## An id from a URL reaches no other file
 
-Ids come from URLs and this package holds a superuser's token, so every id is ENCODED as a path
-segment before it reaches PocketBase ([pocketbase.md](pocketbase.md)). Filter values were escaped already.
+A sheet's id names its file under `sheets/`, so the store refuses one that is not a single plain
+segment, and a filter's field name must be a plain word before it enters a JSON path
+([store.md](store.md)). Values are bound, never spliced into the SQL.
 
 ## Lists read what they show
 
-A session list projects seven fields instead of every envelope, and an IN-list is asked 40 values at
-a time rather than as one query string PocketBase may refuse ([pocketbase.md](pocketbase.md)).
+A session list projects seven fields instead of every envelope, which passes 100 KB for a long take.
 
 ## A take survives a failed upload, and a tab asks before it closes
 
@@ -71,8 +71,8 @@ pushed to the médiathèque as file-backed Blobs (`fs.openAsBlob`, streamed by `
 into the cache; an appended take is concatenated by ffmpeg file to file. Only memory the size of a
 chunk is ever held. Measured: a 5 MB upload lands on disk with no buffer, and nothing is left once the
 request is done; a 20 MB file-backed Blob arrives byte-identical. Saves and appends to one session,
-sheet uploads to one song, a favourite and a nametag each run one at a time per key (`lock.ts`) — the
-read-modify-write against PocketBase has no transaction of its own.
+sheet uploads to one song, a favourite and a nametag each run one at a time per key (`lock.ts`) — a
+read-modify-write spans awaits (an upload, a fetch), so a transaction of the store alone would not cover it.
 
 ## Expensive work is done once, and caches stay bounded
 

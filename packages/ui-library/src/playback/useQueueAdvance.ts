@@ -10,11 +10,10 @@ import type { PlaybackTarget } from "./targets";
 const masterOf = (entry: Parameters<typeof takesOf>[0]): string | null =>
   takesOf(entry).find((t) => t.kind === "master")?.file ?? null;
 
-/** Advance when what was playing ends, SKIPPING a track that does not resolve (../../docs/miniPlayer.md). */
-export function useQueueAdvance(target: PlaybackTarget): void {
+/** Start the queue's next track that resolves, SKIPPING one that does not (../../docs/miniPlayer.md). */
+export function useStartNext(target: PlaybackTarget): () => void {
   const playback = usePlayback();
-
-  const startNext = useCallback(() => {
+  return useCallback(() => {
     // While any are left: skip what does not resolve rather than stopping on it.
     for (;;) {
       const next = playback.takeNext();
@@ -29,6 +28,12 @@ export function useQueueAdvance(target: PlaybackTarget): void {
       return;
     }
   }, [playback.takeNext, playback.start, target]);
+}
+
+/** Advance when what was playing ends, and start the queue when nothing is playing. */
+export function useQueueAdvance(target: PlaybackTarget): void {
+  const playback = usePlayback();
+  const startNext = useStartNext(target);
 
   const seen = useRef(playback.ended);
   useEffect(() => {

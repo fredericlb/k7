@@ -14,13 +14,14 @@ import { startRevisionRefresh } from "@studio/mediatek/revision";
 import { configureMpv } from "@studio/mpv-player/player";
 import { createPlayerRouter } from "@studio/mpv-player/router";
 import { isLoopbackReturn } from "@studio/web-protocol/pairing";
-import type { Express, RequestHandler } from "express";
+import type { Express, Request, RequestHandler } from "express";
 import { startAnalysisSweep } from "./analysisSweep.ts";
 import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
 import { engineLocalRouter } from "./routes/engineLocal.ts";
 import { huntRouter } from "./routes/hunt.ts";
 import { libraryRouter } from "./routes/library.ts";
 import { publicShareRouter } from "./routes/publicShare.ts";
+import { mountServerCopy, serverOf } from "./routes/serverCopy.ts";
 import { settingsRouter } from "./routes/settings.ts";
 import { sharesRouter } from "./routes/shares.ts";
 import { stemsRouter } from "./routes/stems.ts";
@@ -42,6 +43,8 @@ export interface MediaMount {
   serve(server: Server, url: string): void;
   /** Say goodbye to the registry and stop every account's file service; idempotent. */
   stop(): Promise<void>;
+  /** The server the request's account is paired with, or null — where a desktop's releases and pages are. */
+  pairedServer(req: Request): { base: string; token: string } | null;
 }
 
 type Who = { user?: { sub?: string; email?: string } };
@@ -92,6 +95,9 @@ export function mountMedia(
     filesRoot,
     issueApiToken,
   );
+
+  // A paired device reads this library and songbook by its token; its own backend places its copies against ours.
+  mountServerCopy(app, fileHub, requireAuth);
 
   // Play on THIS host's outputs under a dot-directory no family scan sees — packages/mpv-player/docs/mpvPlayer.md.
   configureMpv({
@@ -158,6 +164,7 @@ export function mountMedia(
 
   return {
     issueApiToken,
+    pairedServer: (req) => serverOf(fileHub, req),
     serve(server, url) {
       // Created on boot, so an empty volume is a working library rather than a 404 until an upload.
       try {

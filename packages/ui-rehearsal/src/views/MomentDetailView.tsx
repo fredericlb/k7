@@ -12,6 +12,11 @@ import { Input } from "@frediverse/ui/input";
 import { Waveform } from "@studio/recorder";
 import { useEffect, useRef, useState } from "react";
 import { BackButton } from "../components/BackButton";
+import {
+  type MomentState,
+  MomentStateIcon,
+  ShareMomentButton,
+} from "../components/MomentServerShare";
 import { fmtDate, fmtTime, sessionTitle } from "../format";
 import { m } from "../paraglide/messages.js";
 import type { Marker, Moment } from "../types";
@@ -26,6 +31,12 @@ interface Props {
   onAddMarker: (atSec: number) => Promise<void>;
   onUpdateMarker: (markerId: string, comment: string) => Promise<void>;
   onDeleteMarker: (markerId: string) => Promise<void>;
+  /** The moment's copy on a paired server; absent, nothing is drawn. */
+  share?: {
+    state: MomentState | null;
+    host: string;
+    onShare: () => Promise<void>;
+  };
 }
 
 export function MomentDetailView({
@@ -37,6 +48,7 @@ export function MomentDetailView({
   onAddMarker,
   onUpdateMarker,
   onDeleteMarker,
+  share,
 }: Props) {
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -48,6 +60,8 @@ export function MomentDetailView({
   const rafRef = useRef<number | null>(null);
 
   const markers = moment.markers ?? [];
+  // Shared from a machine: read here, edited there — ../../../rehearsal-server/docs/momentShare.md.
+  const readOnly = moment.sharedFrom !== "";
 
   useEffect(() => {
     const loop = () => {
@@ -153,13 +167,15 @@ export function MomentDetailView({
             <span className="muted small tabular">
               {fmtTime(currentTime)} / {fmtTime(clipDuration)}
             </span>
-            <Button
-              variant="outline"
-              onClick={() => onAddMarker(currentTime)}
-              title={m["marker.addTitle"]()}
-            >
-              <Flag className="size-4" /> {m["marker.add"]()}
-            </Button>
+            {!readOnly && (
+              <Button
+                variant="outline"
+                onClick={() => onAddMarker(currentTime)}
+                title={m["marker.addTitle"]()}
+              >
+                <Flag className="size-4" /> {m["marker.add"]()}
+              </Button>
+            )}
           </div>
         </>
       ) : (
@@ -178,8 +194,8 @@ export function MomentDetailView({
                 key={mk.id}
                 marker={mk}
                 onSeek={seek}
-                onUpdate={onUpdateMarker}
-                onDelete={onDeleteMarker}
+                onUpdate={readOnly ? undefined : onUpdateMarker}
+                onDelete={readOnly ? undefined : onDeleteMarker}
               />
             ))}
           </ul>
@@ -201,8 +217,19 @@ export function MomentDetailView({
         <Button variant="outline" size="sm" onClick={remove}>
           <Trash2 className="size-4" /> {m["moment.delete"]()}
         </Button>
+        {share && (
+          <>
+            <MomentStateIcon state={share.state} host={share.host} />
+            <ShareMomentButton {...share} />
+          </>
+        )}
       </div>
 
+      {readOnly && (
+        <p className="muted small" style={{ marginTop: 12 }}>
+          {m["moment.sharedFrom"]({ device: moment.sharedFrom })}
+        </p>
+      )}
       <p className="muted small" style={{ marginTop: 12 }}>
         {m["moment.captured"]({ at: fmtDate(moment.createdAt) })}
       </p>
@@ -213,8 +240,9 @@ export function MomentDetailView({
 interface MarkerRowProps {
   marker: Marker;
   onSeek: (sec: number) => void;
-  onUpdate: (markerId: string, comment: string) => Promise<void>;
-  onDelete: (markerId: string) => Promise<void>;
+  /** Both absent on a shared moment: the marker is read, not edited. */
+  onUpdate?: (markerId: string, comment: string) => Promise<void>;
+  onDelete?: (markerId: string) => Promise<void>;
 }
 
 function MomentMarkerRow({
@@ -229,7 +257,7 @@ function MomentMarkerRow({
 
   const saveComment = () => {
     const c = comment.trim();
-    if (c !== marker.comment) onUpdate(marker.id, c);
+    if (c !== marker.comment) onUpdate?.(marker.id, c);
   };
 
   return (
@@ -241,18 +269,24 @@ function MomentMarkerRow({
       >
         <Flag className="size-4" /> {fmtTime(marker.atSec)}
       </Button>
-      <Input
-        value={comment}
-        placeholder={m["marker.comment"]()}
-        onChange={(e) => setComment(e.target.value)}
-        onBlur={saveComment}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-        }}
-      />
-      <Button variant="outline" size="sm" onClick={() => onDelete(marker.id)}>
-        <Trash2 className="size-4" />
-      </Button>
+      {onUpdate ? (
+        <Input
+          value={comment}
+          placeholder={m["marker.comment"]()}
+          onChange={(e) => setComment(e.target.value)}
+          onBlur={saveComment}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+          }}
+        />
+      ) : (
+        <span className="marker-comment">{marker.comment}</span>
+      )}
+      {onDelete && (
+        <Button variant="outline" size="sm" onClick={() => onDelete(marker.id)}>
+          <Trash2 className="size-4" />
+        </Button>
+      )}
     </li>
   );
 }

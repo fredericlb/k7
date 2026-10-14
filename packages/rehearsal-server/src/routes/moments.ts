@@ -17,6 +17,22 @@ const markerPatch = z.object({
 
 export const momentsRouter = Router();
 
+// A moment shared from a machine is edited there and shared again; here it is read, or deleted.
+momentsRouter.use("/:mid", (req, res, next) => {
+  if (req.method === "GET" || req.method === "HEAD") return next();
+  if (req.method === "DELETE" && req.path === "/") return next();
+  store
+    .momentSharedFrom(sub(req), req.params.mid)
+    .then((from) =>
+      from
+        ? res.status(403).json({
+            error: `shared from ${from}: edit it there and share it again`,
+          })
+        : next(),
+    )
+    .catch(next);
+});
+
 momentsRouter.get(
   "/",
   wrap(async (req, res) => {

@@ -10,13 +10,10 @@
     }
   },
   "scripts": {
-    "migrate": "tsx src/migrate.ts",
-    "migrate:data": "tsx src/migratePocketbaseData.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "@frediverse/db-grist": "*",
     "@frediverse/env": "*",
     "@frediverse/http": "*",
     "@frediverse/oidc": "*",

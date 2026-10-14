@@ -1,8 +1,8 @@
 // MainActivity.kt — the app, on a phone: starts st0's backend (BackendHost) and the supervisor (which starts the engine), and hosts the
 // page that draws the engine tray while no studio is connected, and over it the studio apps (st0, the
 // media library and the rehearsal recorder among its pages) in full-screen views of their own. The page is web/, bundled; the two plugins registered here are
-// its only way to the native half. FOREGROUND ONLY: there is no service, so leaving this activity quits the
-// supervisor and ends the process, which is also the only way to restart an engine (EngineBridge).
+// its only way to the native half. Leaving this activity quits the supervisor and ends the process, which is also the
+// only way to restart an engine (EngineBridge); MediaPlaybackService only keeps the process in front while a page plays.
 // See docs/android.md.
 
 package se.frediver.st0
@@ -41,6 +41,8 @@ class MainActivity : BridgeActivity() {
         super.onDestroy()
         // Android recreates this activity on its own; only the user leaving ends the process.
         if (!isFinishing) return
+        // A paused track's notification is detached from any service, so it would outlive the process otherwise.
+        MediaPlayback.clear(this)
         // Supervisor FIRST: it deregisters while the engine still answers, then asks the engine to stop.
         SupervisorHost.stop(SUPERVISOR_STOP_MS)
         EngineBridge.stop(ENGINE_STOP_MS)

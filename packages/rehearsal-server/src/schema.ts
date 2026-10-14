@@ -1,14 +1,17 @@
-// The PocketBase collections this app owns. Field names mirror the old Grist
-// columns 1:1, so migratePocketbaseData.ts can copy rows across unchanged.
-// migrate.ts applies this; migratePocketbaseData.ts uses TABLES to know what
-// to copy and which stray Grist columns (e.g. a retired "Favorite") to drop.
+// The collections the rehearsal store holds and the fields of each: what a row reads as when a field
+// was never set, and what the PocketBase import copies. A field is added here and nowhere else.
 
-import type { CollectionSchema } from "./pocketbase.ts";
+export interface FieldSpec {
+  name: string;
+  type: "text" | "number" | "bool";
+}
+
+export type CollectionSchema = Record<string, FieldSpec[]>;
 
 export const SCHEMA: CollectionSchema = {
   Sessions: [
-    { name: "Uid", type: "text", required: true },
-    { name: "OwnerId", type: "text", required: true },
+    { name: "Uid", type: "text" },
+    { name: "OwnerId", type: "text" },
     { name: "CreatedAt", type: "text" },
     { name: "Duration", type: "number" },
     { name: "HasRecording", type: "bool" },
@@ -18,7 +21,7 @@ export const SCHEMA: CollectionSchema = {
     { name: "Gain", type: "number" },
   ],
   Highlights: [
-    { name: "SessionUid", type: "text", required: true },
+    { name: "SessionUid", type: "text" },
     { name: "StartSec", type: "number" },
     { name: "EndSec", type: "number" },
     { name: "DurationSec", type: "number" },
@@ -36,6 +39,10 @@ export const SCHEMA: CollectionSchema = {
     { name: "Validated", type: "bool" },
     { name: "ClipPath", type: "text" },
     { name: "Envelope", type: "text" },
+    // A moment shared from a machine whose session stayed there: the session's date, its label — ../docs/momentShare.md.
+    { name: "SessionCreatedAt", type: "text" },
+    // The machine a shared moment came from; set, the moment is read-only here — ../docs/momentShare.md.
+    { name: "SharedFrom", type: "text" },
   ],
   Markers: [
     { name: "SessionUid", type: "text" },
@@ -46,8 +53,8 @@ export const SCHEMA: CollectionSchema = {
     { name: "CreatedAt", type: "text" },
   ],
   Releases: [
-    { name: "Uid", type: "text", required: true },
-    { name: "OwnerId", type: "text", required: true },
+    { name: "Uid", type: "text" },
+    { name: "OwnerId", type: "text" },
     { name: "Title", type: "text" },
     { name: "Artist", type: "text" },
     { name: "ReleaseDate", type: "text" },
@@ -57,8 +64,8 @@ export const SCHEMA: CollectionSchema = {
     { name: "CreatedAt", type: "text" },
   ],
   Versions: [
-    { name: "Uid", type: "text", required: true },
-    { name: "ReleaseUid", type: "text", required: true },
+    { name: "Uid", type: "text" },
+    { name: "ReleaseUid", type: "text" },
     { name: "Name", type: "text" },
     { name: "AudioPath", type: "text" },
     { name: "AudioMime", type: "text" },
@@ -71,8 +78,8 @@ export const SCHEMA: CollectionSchema = {
     { name: "CreatedAt", type: "text" },
   ],
   Pages: [
-    { name: "Uid", type: "text", required: true },
-    { name: "OwnerId", type: "text", required: true },
+    { name: "Uid", type: "text" },
+    { name: "OwnerId", type: "text" },
     { name: "Nametag", type: "text" },
     { name: "ReleaseUids", type: "text" },
     // JSON { releaseUid: versionUid }: the version a page plays instead of the default.
@@ -80,18 +87,17 @@ export const SCHEMA: CollectionSchema = {
     { name: "CreatedAt", type: "text" },
   ],
   SingingExercises: [
-    { name: "Uid", type: "text", required: true },
-    { name: "OwnerId", type: "text", required: true },
+    { name: "Uid", type: "text" },
+    { name: "OwnerId", type: "text" },
     { name: "Title", type: "text" },
     { name: "Description", type: "text" },
     { name: "VideoUrl", type: "text" },
     { name: "CreatedAt", type: "text" },
   ],
-  // SheetFiles (Grist's own attachment-list UI column) has no PocketBase
-  // equivalent; SheetMeta plus the song_sheets collection replace it.
+  // A song's sheets: SheetMeta orders them, the store's `sheets/` folder holds their bytes.
   Songs: [
-    { name: "Uid", type: "text", required: true },
-    { name: "OwnerId", type: "text", required: true },
+    { name: "Uid", type: "text" },
+    { name: "OwnerId", type: "text" },
     { name: "Artist", type: "text" },
     { name: "Title", type: "text" },
     { name: "Lyrics", type: "text" },
@@ -118,11 +124,11 @@ export const SCHEMA: CollectionSchema = {
     // Seen by its creator alone instead of the whole band — ../docs/ownership.md.
     { name: "Private", type: "bool" },
     { name: "CreatedAt", type: "text" },
+    // The server a device copied the song from; set, the song is read-only on that device — ../docs/songbookCopy.md.
+    { name: "Origin", type: "text" },
   ],
   SongFavorites: [
-    { name: "SongUid", type: "text", required: true },
-    { name: "OwnerId", type: "text", required: true },
+    { name: "SongUid", type: "text" },
+    { name: "OwnerId", type: "text" },
   ],
 };
-
-export const TABLES = Object.keys(SCHEMA);

@@ -45,10 +45,21 @@ export class DeviceTokens {
   }
 
   /** A new device for the account, and the token it will dial with; the token is shown once. */
-  mint(slug: string, name: string): { device: Device; token: string } {
+  mint(
+    slug: string,
+    name: string,
+    /** The OIDC subject of the person who paired, so the origin knows whose private rows to offer. */
+    person?: string,
+  ): { device: Device; token: string } {
     const device: Device = { id: randomUUID(), name, created: Date.now() };
     this.save(slug, [...this.list(slug), device]);
-    const payload = b64(JSON.stringify({ s: slug, d: device.id }));
+    const payload = b64(
+      JSON.stringify({
+        s: slug,
+        d: device.id,
+        ...(person ? { p: person } : {}),
+      }),
+    );
     return { device, token: `${payload}.${this.sign(payload)}` };
   }
 
@@ -61,13 +72,15 @@ export class DeviceTokens {
   }
 
   /** The account and device a token names, when it is signed here and the device is still listed. */
-  verify(token: string): { slug: string; id: string } | null {
+  verify(
+    token: string,
+  ): { slug: string; id: string; name: string; person?: string } | null {
     const [payload, sig] = token.split(".");
     if (!payload || !sig) return null;
     const want = Buffer.from(this.sign(payload));
     const got = Buffer.from(sig);
     if (want.length !== got.length || !timingSafeEqual(want, got)) return null;
-    let claim: { s?: unknown; d?: unknown };
+    let claim: { s?: unknown; d?: unknown; p?: unknown };
     try {
       claim = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
     } catch {
@@ -79,6 +92,11 @@ export class DeviceTokens {
     if (!device) return null;
     device.lastSeen = Date.now();
     this.save(claim.s, devices);
-    return { slug: claim.s, id: claim.d };
+    return {
+      slug: claim.s,
+      id: claim.d,
+      name: device.name,
+      ...(typeof claim.p === "string" ? { person: claim.p } : {}),
+    };
   }
 }

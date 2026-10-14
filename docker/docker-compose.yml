@@ -9,8 +9,8 @@
 #
 # FOUR containers: Traefik routes st0 by Host() straight to its own backend port (no nginx to
 # hand off to) and z0 by a PathPrefix(`/z0`) rule layered on st0's own hostname — st0 answers
-# everything else there; pocketbase, the rehearsal recorder's store, and the engine are reached on
-# the container network only. st0 also answers the `play.` and `k7.` hosts, aliases kept for the share links, registry
+# everything else there; the engine is reached on the container network only, and so is pocketbase,
+# the rehearsal recorder's former store, until st0 has imported it. st0 also answers the `play.` and `k7.` hosts, aliases kept for the share links, registry
 # URLs, publish URLs and public pages saved against them. That's the topology env.yaml's
 # COOKIE_DOMAIN/TRUSTED_ORIGINS document.
 #
@@ -42,11 +42,12 @@ services:
       # Signs the rehearsal recorder's personal tokens, saved in users' settings. Unset is the
       # default derived from SESSION_SECRET that k7 always used, which keeps issued tokens valid.
       K7_API_TOKEN_SECRET: ${K7_API_TOKEN_SECRET:-}
-      # The pocketbase service below, reached over the container network.
+      # Where the rehearsal store is imported from, ONCE, while k7.db is still empty —
+      # packages/rehearsal-server/docs/store.md. Drop all three with the pocketbase service.
       POCKETBASE_URL: ${POCKETBASE_URL:-http://pocketbase:8090}
-      POCKETBASE_EMAIL: ${POCKETBASE_EMAIL:?set POCKETBASE_EMAIL — see .env.example}
-      POCKETBASE_PASSWORD: ${POCKETBASE_PASSWORD:?set POCKETBASE_PASSWORD — see .env.example}
-      # The rehearsal recorder's audio cache and uploads in flight: the volume below.
+      POCKETBASE_EMAIL: ${POCKETBASE_EMAIL:-}
+      POCKETBASE_PASSWORD: ${POCKETBASE_PASSWORD:-}
+      # The rehearsal recorder's store (k7.db and its sheets), its audio cache and uploads in flight: the volume below.
       K7_DATA_DIR: /rehearsal-data
       # Without this, @studio/mediatek defaults to a per-machine state dir
       # (~/.st0/mediatek) instead of the volume below, and the library is empty.
@@ -74,12 +75,9 @@ services:
       - traefik.http.routers.st0.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
       - traefik.http.services.st0.loadbalancer.server.port=8789
 
-  # The rehearsal recorder's data + song-sheet store — packages/rehearsal-server/docs/pocketbase.md.
-  # st0 reaches it over the container network, by service name; not routed through Traefik.
-  # Community image (no official one is published); pin a version for prod rather
-  # than trusting `latest`. First boot has no superuser — create one with
-  # `docker compose exec pocketbase /pb/pocketbase superuser create <email> <password>`
-  # and put those same values in POCKETBASE_EMAIL / POCKETBASE_PASSWORD for st0.
+  # The rehearsal recorder's FORMER store, kept only as the source of st0's one-time import into
+  # k7.db (packages/rehearsal-server/docs/store.md). Once st0's log says "rehearsal: imported …",
+  # remove this service, its volume and st0's POCKETBASE_* above.
   pocketbase:
     image: ghcr.io/muchobien/pocketbase:latest
     restart: unless-stopped

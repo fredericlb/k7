@@ -9,6 +9,7 @@ import { useLabels } from "../host";
 import { usePlayback } from "./PlaybackProvider";
 import { QueueButton } from "./QueueButton";
 import { playbackTargetInfo } from "./targets";
+import { useStartNext } from "./useQueueAdvance";
 
 /** The album, which no field carries: the path's second-to-last segment IS it. */
 function albumOf(path: string): string {
@@ -45,8 +46,11 @@ export function MiniPlayer() {
     seek,
     close,
     queue,
+    target: wanted,
   } = usePlayback();
   const l = useLabels().playback;
+  // The skip the queue's own advance takes, offered to the system's controls while there is a next.
+  const startNext = useStartNext(wanted);
 
   /** The bar appears for a NON-EMPTY queue too, or the queue could not bring up its own button. */
   if (!now) return queue.length ? <QueueOnly /> : null;
@@ -64,6 +68,8 @@ export function MiniPlayer() {
     <Bar
       icon={Disc3}
       title={entry.name}
+      artist={artist}
+      album={album}
       playing={playing}
       position={position}
       duration={duration}
@@ -71,6 +77,7 @@ export function MiniPlayer() {
       onToggle={toggle}
       onSeek={seek}
       onClose={close}
+      onNext={queue.length ? startNext : undefined}
       meta={
         <>
           {/* Which version, when not the master: the strip above may point elsewhere entirely. */}

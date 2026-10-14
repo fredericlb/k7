@@ -99,80 +99,92 @@ export function SongMenu({
             <EllipsisVertical className="size-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="rehearsal-root min-w-56">
-          <DropdownMenuItem onSelect={() => setEditing(true)}>
-            {m["songMenu.edit"]()}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {!has("lyrics") && (
-            <DropdownMenuItem onSelect={() => onAdd("lyrics")}>
-              {m["songMenu.addLyrics"]()}
+        {/* A copy of a server's song changes there; this machine only lets it go. */}
+        {song.origin ? (
+          <DropdownMenuContent align="end" className="rehearsal-root min-w-56">
+            <DropdownMenuItem
+              className="text-destructive"
+              onSelect={() => void onDelete()}
+            >
+              {m["songMenu.removeCopy"]()}
             </DropdownMenuItem>
-          )}
-          {!has("tablature") && (
-            <DropdownMenuItem onSelect={() => onAdd("tablature")}>
-              {m["songMenu.addTablature"]()}
+          </DropdownMenuContent>
+        ) : (
+          <DropdownMenuContent align="end" className="rehearsal-root min-w-56">
+            <DropdownMenuItem onSelect={() => setEditing(true)}>
+              {m["songMenu.edit"]()}
             </DropdownMenuItem>
-          )}
-          <DropdownMenuItem onSelect={() => sheets.current?.click()}>
-            {m["songMenu.addSheets"]()}
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          {/* No track yet is the auto-fetch insert's job, under the title — except once its
-              own "Ignore" was clicked, which is what makes this the one way back in. A track is
-              never replaced nor removed from here: it is a song of pl8's library, changed there. */}
-          {!song.audio && song.fetchIgnored && (
-            <DropdownMenuItem onSelect={() => track.current?.click()}>
-              {m["songMenu.addTrack"]()}
-            </DropdownMenuItem>
-          )}
-          {/* An instrumental song has no voice to take out. */}
-          {song.audio &&
-            !song.instrumental &&
-            song.lyricsMatch !== "instrumental" && (
-              <DropdownMenuItem
-                onSelect={() =>
-                  run(m["fetch.stemming"](), async () => {
-                    const outcome = await makeInstrumental(song, {
-                      pl8,
-                      mixInstrumental: onMixInstrumental,
-                      onPhase: setPhase,
-                    });
-                    return outcome.note;
-                  })
-                }
-              >
-                {m["songMenu.makeInstrumental"]()}
+            <DropdownMenuSeparator />
+            {!has("lyrics") && (
+              <DropdownMenuItem onSelect={() => onAdd("lyrics")}>
+                {m["songMenu.addLyrics"]()}
               </DropdownMenuItem>
             )}
-          <DropdownMenuItem disabled={pipelineRunning} onSelect={onRerun}>
-            {m["songMenu.rerunPipeline"]()}
-          </DropdownMenuItem>
-          {/* Timed lyrics light up against a track, so there is nothing to sync without one. */}
-          {song.audio && (
-            <DropdownMenuItem
-              disabled={pipelineRunning}
-              onSelect={onResyncLyrics}
-            >
-              {m["songMenu.resyncLyrics"]()}
-            </DropdownMenuItem>
-          )}
-
-          {song.canDelete && (
-            <>
-              <DropdownMenuSeparator />
-              {/* A private song is deleted by its creator, a public one by an admin. */}
-              <DropdownMenuItem
-                className="text-destructive"
-                onSelect={() => void onDelete()}
-              >
-                {m["songMenu.deleteSong"]()}
+            {!has("tablature") && (
+              <DropdownMenuItem onSelect={() => onAdd("tablature")}>
+                {m["songMenu.addTablature"]()}
               </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
+            )}
+            <DropdownMenuItem onSelect={() => sheets.current?.click()}>
+              {m["songMenu.addSheets"]()}
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            {/* No track yet is the auto-fetch insert's job, under the title — except once its
+              own "Ignore" was clicked, which is what makes this the one way back in. A track is
+              never replaced nor removed from here: it is a song of pl8's library, changed there. */}
+            {!song.audio && song.fetchIgnored && (
+              <DropdownMenuItem onSelect={() => track.current?.click()}>
+                {m["songMenu.addTrack"]()}
+              </DropdownMenuItem>
+            )}
+            {/* An instrumental song has no voice to take out. */}
+            {song.audio &&
+              !song.instrumental &&
+              song.lyricsMatch !== "instrumental" && (
+                <DropdownMenuItem
+                  onSelect={() =>
+                    run(m["fetch.stemming"](), async () => {
+                      const outcome = await makeInstrumental(song, {
+                        pl8,
+                        mixInstrumental: onMixInstrumental,
+                        onPhase: setPhase,
+                      });
+                      return outcome.note;
+                    })
+                  }
+                >
+                  {m["songMenu.makeInstrumental"]()}
+                </DropdownMenuItem>
+              )}
+            <DropdownMenuItem disabled={pipelineRunning} onSelect={onRerun}>
+              {m["songMenu.rerunPipeline"]()}
+            </DropdownMenuItem>
+            {/* Timed lyrics light up against a track, so there is nothing to sync without one. */}
+            {song.audio && (
+              <DropdownMenuItem
+                disabled={pipelineRunning}
+                onSelect={onResyncLyrics}
+              >
+                {m["songMenu.resyncLyrics"]()}
+              </DropdownMenuItem>
+            )}
+
+            {song.canDelete && (
+              <>
+                <DropdownMenuSeparator />
+                {/* A private song is deleted by its creator, a public one by an admin. */}
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onSelect={() => void onDelete()}
+                >
+                  {m["songMenu.deleteSong"]()}
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        )}
       </DropdownMenu>
 
       {/* Outside the menu, so closing the menu does not unmount it. */}

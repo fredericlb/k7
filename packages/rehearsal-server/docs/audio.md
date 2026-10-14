@@ -4,21 +4,21 @@ The server half of the rehearsal pages' audio. How a take is made in the browser
 `packages/recorder/docs/recorder.md`; how the pages play, transpose and fetch a song is
 `packages/ui-rehearsal/docs/audio.md`.
 
-## PocketBase keeps the facts, the médiathèque keeps the bytes
+## The store keeps the facts, the médiathèque keeps the bytes
 
-A session is a PocketBase row, and its audio lives in the médiathèque's `RECORDINGS` family; the
+A session is a row of the store ([store.md](store.md)), and its audio lives in the médiathèque's `RECORDINGS` family; the
 row keeps only the path.
 
 | | where it lives |
 |---|---|
-| duration, gain, envelope, tags, markers | PocketBase |
+| duration, gain, envelope, tags, markers | the store |
 | a session | `recordings/<day>/<HH-MM-SS>.<ext>` |
 | a moment | `recordings/<day>/moment-…` |
 | a published version | `songs/K7/…` |
 | what the row points at | a path (`RecordingPath`, `ClipPath`, `AudioPath`) |
 | sheet music | a `song_sheets` record — not audio |
 
-PocketBase is a database, and hours of wav have no place in one. A médiathèque is made for it: a
+The store is a database, and hours of wav have no place in one. A médiathèque is made for it: a
 volume, paths, native Range, and a family whose whole role this is — see
 `packages/mediatek/docs/recordings.md`. The rest of the studio can read that family; a
 `song_sheets` file is readable by these routes alone. The local cache, under `K7_DATA_DIR`, serves
@@ -45,7 +45,7 @@ path.
 ## Nothing is pulled
 
 The rehearsal server sends the bytes into the family itself: there is no sync route, and the
-médiathèque does not depend on PocketBase — no PocketBase client is among its dependencies.
+médiathèque does not depend on the rehearsal store, which it never reads.
 
 ## A session is ONE file
 
@@ -81,7 +81,7 @@ failing.
 
 ## Deleting: the bytes first
 
-Deleting a session or a moment removes the bytes from the family **before** the PocketBase row,
+Deleting a session or a moment removes the bytes from the family **before** the row,
 because the row is what carries the path: the other order leaves a take in the family that
 nothing names any more.
 
@@ -117,11 +117,11 @@ Two visible consequences, both wanted:
 - **Extending a session with no path starts over** instead of failing: with no path there is
   nothing to splice onto, so the take becomes the first.
 
-The schema reconcile only adds what is missing ([pocketbase.md](pocketbase.md)), so an undeclared
-field stays present in the PocketBase collection. Emptying it is a manual and deliberate operation.
+A row is a JSON document ([store.md](store.md)), so a field no longer declared stays in the rows
+that have it. Emptying it is a manual and deliberate operation.
 
-**Sheet music** is a `song_sheets` record, linked to its song: not a recording, and
-`uploadAttachment` / `downloadAttachment` serve only that.
+**Sheet music** is a file of the store's `sheets/` folder, linked to its song: not a recording, and
+`uploadAttachment` / `attachmentFile` serve only that.
 
 ## Moments go in the same family
 
@@ -165,7 +165,7 @@ Four decisions in there:
   re-made and what is somebody else's master.
 - **The release is the album, the version is the title.** Three levels for three levels, and each
   version keeps its own folder — which it needs, having its own audio. The release's artist
-  survives in its PocketBase metadata.
+  survives in its row.
 - **Stems go in `stems/`, not beside the master.** The scan takes the folder's first audio file
   as the master and does not descend: a track laid beside it could be played instead of the
   mixdown.
@@ -194,8 +194,8 @@ reading its chords. It is a **song of the media library**, and the row keeps its
 `AudioPath` / `AudioMime` / `AudioName`; the page streams it from the médiathèque, and this
 package keeps no copy.
 
-- **Not a `song_sheets` record**, unlike the sheet files. The rule above holds: metadata in
-  PocketBase, bytes in the médiathèque. A sheet is a page; this is a whole track.
+- **Not a sheet of the store**, unlike the sheet files. The rule above holds: metadata in
+  the store, bytes in the médiathèque. A sheet is a page; this is a whole track.
 - **An upload is filed under the album `k7`**, never under the catalogue's albums: writing
   under the REAL album, where a song of that name may already be, would replace it. No upload
   here may overwrite a catalogued song; replacing an upload only overwrites that folder.
@@ -209,7 +209,7 @@ package keeps no copy.
 The médiathèque's `/api/mediatek/stream` answers Range — without that the waveform could draw but
 not seek.
 
-**The shape is measured once, by the médiathèque, and kept in PocketBase** (`Songs.Envelope`,
+**The shape is measured once, by the médiathèque, and kept in the store** (`Songs.Envelope`,
 written by `src/songEnvelope.ts`): the médiathèque already holds the reference track's bytes and
 already has ffmpeg, via `@studio/audio-analysis` — the same measurement its own catalogue sweep
 computes for every song, reached over `GET /api/mediatek/envelope` instead of decoding anything
@@ -246,8 +246,8 @@ are relayed as they are, without the server looking at them.
 
 ## Configuration
 
-Read from st0's backend section of `env.yaml` (`src/env.ts`): the PocketBase keys
-([pocketbase.md](pocketbase.md)), `K7_DATA_DIR` — the local audio cache and the uploads in flight,
+Read from st0's backend section of `env.yaml` (`src/env.ts`): `K7_DATA_DIR` — the store
+([store.md](store.md)), the local audio cache and the uploads in flight,
 `~/.studio/k7` by default so a dev run needs no volume, `/rehearsal-data` on the `k7-data` volume
 in the image — and `CACHE_MAX_GB`, past which that cache is trimmed ([audit.md](audit.md)).
 

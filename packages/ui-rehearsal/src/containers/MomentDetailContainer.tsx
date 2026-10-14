@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
+import { useMomentShare } from "../components/MomentServerShare";
 import { m } from "../paraglide/messages.js";
 import type { Moment } from "../types";
 import { MomentDetailView } from "../views/MomentDetailView";
@@ -19,6 +20,8 @@ export function MomentDetailContainer({
 }: Props) {
   const [moment, setMoment] = useState<Moment | null>(null);
   const [notFound, setNotFound] = useState(false);
+  // Its copy on a paired server: a moment can be shared, its session never.
+  const share = useMomentShare(true, momentId);
 
   const load = useCallback(async () => {
     try {
@@ -60,6 +63,15 @@ export function MomentDetailContainer({
       onDeleteMarker={async (markerId) => {
         await api.deleteMomentMarker(momentId, markerId);
         await load();
+      }}
+      share={{
+        state: share.stateOf(momentId),
+        host: share.host,
+        // Sharing an unvalidated moment cuts its clip first, so the page reloads to show it.
+        onShare: async () => {
+          await share.share(momentId);
+          await load();
+        },
       }}
     />
   );

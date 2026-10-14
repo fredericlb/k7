@@ -28,6 +28,7 @@ import {
 import { Playlists } from "./Playlists";
 import { usePlayback } from "./playback/PlaybackProvider";
 import { DEFAULT_SECTION, folderOf, type SectionId } from "./routes";
+import { useServerCopy } from "./ServerCopy";
 import { SongEditor } from "./SongEditor";
 import { assetActions, songActions } from "./treeActions";
 import { useLibraryData } from "./useLibraryData";
@@ -78,6 +79,8 @@ export function MediaLibrary({
     refresh,
     refreshSongs,
   } = useLibraryData(section);
+  // Where each entry lives on a machine paired with a server — ../../mediatek/docs/serverCopy.md.
+  const serverCopy = useServerCopy(section, entries, setError);
   useEffect(() => onCounts?.(counts), [counts, onCounts]);
   // The drawer closes with the section it was opened on.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the trigger is the section changing
@@ -394,6 +397,7 @@ export function MediaLibrary({
           isZone={isZone}
           recordings={recordings}
           entries={entries}
+          serverCopy={serverCopy}
           onOpen={openFile}
         />
       )}

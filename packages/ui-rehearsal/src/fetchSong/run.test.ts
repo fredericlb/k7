@@ -37,6 +37,7 @@ const song = (over: Partial<Song> = {}): Song =>
     fetchIgnored: false,
     private: false,
     canDelete: false,
+    origin: "",
     ...over,
   }) as Song;
 

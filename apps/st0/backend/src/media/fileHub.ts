@@ -53,6 +53,7 @@ export function mountFileHub(
     tunnels: engine.tunnels,
     selfPort: () => port,
     userOf: (req) => req.user?.email ?? "",
+    subjectOf: (req) => req.user?.sub ?? "",
     // Who may edit the origin's libraries: the `groups` claim against this list, which empty admits nobody.
     isAdmin: (req) =>
       isAdmin((req as { user?: SessionUser }).user, adminGroups()),

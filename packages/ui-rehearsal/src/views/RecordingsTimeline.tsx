@@ -7,6 +7,10 @@ import { Calendar } from "@frediverse/ui/calendar";
 import { Check, Diamond, Flag, Trash2 } from "@frediverse/ui/icons";
 import { Timeline, TimelineItem } from "@frediverse/ui/timeline";
 import { useState } from "react";
+import {
+  MomentStateIcon,
+  type useMomentShare,
+} from "../components/MomentServerShare";
 import { dayKey, dayKeyToDate, fmtDay, fmtTime } from "../format";
 import { locale } from "../i18n";
 import { m } from "../paraglide/messages.js";
@@ -18,6 +22,8 @@ interface Props {
   onOpen: (s: Session) => void;
   onOpenMoment: (m: Moment) => void;
   onDeleteSession: (id: string) => Promise<void>;
+  /** Where each moment lives on a machine paired with a server; absent, nothing is drawn. */
+  share?: ReturnType<typeof useMomentShare>;
 }
 
 // One row of the day: a session with the moments shown under it, or an orphan moment.
@@ -74,6 +80,7 @@ export function RecordingsTimeline({
   onOpen,
   onOpenMoment,
   onDeleteSession,
+  share,
 }: Props) {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   // Which calendar day is shown (null → the newest day with something to show).
@@ -111,6 +118,10 @@ export function RecordingsTimeline({
       onClick={() => onOpenMoment(mo)}
     >
       <div className="session-name">
+        <MomentStateIcon
+          state={share?.stateOf(mo.id) ?? null}
+          host={share?.host ?? ""}
+        />
         {mo.validated && <Check className="size-3.5" />}
         {fmtTime(mo.startSec)}–{fmtTime(mo.endSec)}
         {mo.text ? ` · ${mo.text}` : ""}

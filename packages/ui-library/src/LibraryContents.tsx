@@ -8,6 +8,11 @@ import type { RecordingDay } from "@studio/mediatek/recordings";
 import { type MediatekEntry, SONG_FILE } from "@studio/mediatek/types";
 import { useLabels } from "./host";
 import { bytes, isSong, relative } from "./libraryTree";
+import {
+  PlacementIcon,
+  ServerOnlyEntries,
+  type useServerCopy,
+} from "./ServerCopy";
 
 export function LibraryContents({
   notice,
@@ -16,6 +21,7 @@ export function LibraryContents({
   isZone,
   recordings,
   entries,
+  serverCopy,
   onOpen,
 }: {
   notice: string | null;
@@ -24,6 +30,7 @@ export function LibraryContents({
   isZone: boolean;
   recordings: RecordingDay[];
   entries: MediatekEntry[] | null;
+  serverCopy: ReturnType<typeof useServerCopy>;
   onOpen: (rel: string) => void;
 }) {
   const l = useLabels();
@@ -61,6 +68,10 @@ export function LibraryContents({
                   : undefined
               }
             >
+              <PlacementIcon
+                state={serverCopy.stateOf(e.path)}
+                server={serverCopy.placement?.server ?? null}
+              />
               <span className="min-w-0 flex-1 truncate">{e.name}</span>
               {/* Not filed: found on disk with no sidecar, and worth SAYING rather than hiding. */}
               {e.meta?.catalogued === false ? (
@@ -88,6 +99,12 @@ export function LibraryContents({
           ))}
         </ul>
       )}
+      {!error && !isZone ? (
+        <ServerOnlyEntries
+          placement={serverCopy.placement}
+          onDownload={serverCopy.download}
+        />
+      ) : null}
     </main>
   );
 }

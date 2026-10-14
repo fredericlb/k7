@@ -67,3 +67,15 @@ export interface FamilyListing {
   /** Family-relative paths NO entry accounts for — an empty folder, a loose file; see scanUnlisted. */
   unlisted: string[];
 }
+
+/** A paired machine's library against its server's, matched by path — see docs/serverCopy.md. */
+export interface LibraryPlacement {
+  /** False when this machine is paired with no server, or IS the server: nothing to say then. */
+  paired: boolean;
+  /** The server's origin, for a tooltip. */
+  server: string | null;
+  /** This family's local paths the server holds too. */
+  synced: string[];
+  /** The server's entries this machine lacks — what a download brings down. */
+  serverOnly: MediatekEntry[];
+}

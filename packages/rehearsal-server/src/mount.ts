@@ -4,14 +4,19 @@
 // What reads wrong: it must be mounted BEFORE the media library, whose catch-all `/api` guard is
 // session-only — the public pages are unguarded and the releases take k7's own bearer.
 
-import type express from "express";
 import { Router } from "express";
 import { bearerOrSession } from "./apitoken.ts";
-import { ensureSchema } from "./ensureSchema.ts";
+import { store } from "./db.ts";
 import { env } from "./env.ts";
+import { jsonErrors } from "./errors.ts";
 import type * as Declared from "./index.d.ts";
 import { linkMediatek } from "./mediatek.ts";
-import { isConfigured as pocketbaseConfigured } from "./pocketbase.ts";
+import { importFromPocketbase } from "./pocketbaseImport.ts";
+import {
+  forwardToServer,
+  PUBLICATION_ROUTES,
+  publicationsStatus,
+} from "./publications.ts";
 import { configRouter } from "./routes/config.ts";
 import { momentsRouter } from "./routes/moments.ts";
 import { pagesRouter } from "./routes/pages.ts";
@@ -25,40 +30,50 @@ import { tokenRouter } from "./routes/token.ts";
 import { attachRtc } from "./rtc.ts";
 import { startCacheSweeps } from "./store.ts";
 
-type HttpError = Error & {
-  status?: number;
-  statusCode?: number;
-  code?: string;
-};
+export { momentDeviceRouter, momentShareRouter } from "./momentShare.ts";
+export {
+  DEVICE_ROUTE as DEVICE_PUBLICATIONS_ROUTE,
+  publicationsDeviceRouter,
+} from "./publications.ts";
+export { songbookCopyRouter, songbookDeviceRouter } from "./songbookCopy.ts";
 
-/** Answered as JSON, never Express's HTML page; an error-mode request that is not ours never reaches it. */
-function jsonErrors(
-  err: HttpError,
-  _req: express.Request,
-  res: express.Response,
-  _next: express.NextFunction,
-): void {
-  const status =
-    err.status ??
-    err.statusCode ??
-    (err.code === "LIMIT_FILE_SIZE" ? 413 : 500);
-  if (status >= 500) console.error(err);
-  if (res.headersSent) {
-    res.destroy();
-    return;
-  }
-  res
-    .status(status)
-    .json({ error: status >= 500 ? "internal error" : err.message });
-}
+/** Every path this package answers under `/api`: what waits for the import, and nothing else. */
+const REHEARSAL_PATHS = [
+  "/config",
+  "/sessions",
+  "/moments",
+  "/releases",
+  "/pages",
+  "/public/pages",
+  "/songs",
+  "/singing",
+  "/rtc",
+  "/token",
+  "/publications",
+];
 
 /** Mount every rehearsal route on `app`; call it after setupAuth and before the media library. */
 export const mountRehearsal: typeof Declared.mountRehearsal = (app, opts) => {
   const { requireAuth } = opts;
   linkMediatek(opts.mediatek);
 
+  // The rehearsal routes wait for the PocketBase import, so nothing is written into a store half filled.
+  let ready: Promise<void> = Promise.resolve();
+  let importFailed: string | null = null;
+  const server = opts.server ?? (() => null);
+
   // One router, so its error handler sees only the errors of the routes inside it.
   const api = Router();
+  api.get("/publications", publicationsStatus(server));
+  // On a desktop or a phone, releases and pages are the paired server's, and wait on nothing local — ../docs/publications.md.
+  if (env.instance === "local")
+    api.use(PUBLICATION_ROUTES, requireAuth, forwardToServer(server));
+  // Its own paths only: this router sits on `/api`, which the media library's routes share.
+  api.use(REHEARSAL_PATHS, (_req, res, next) => {
+    void ready.then(() =>
+      importFailed ? res.status(503).json({ error: importFailed }) : next(),
+    );
+  });
   api.use("/config", requireAuth, configRouter);
   api.use("/sessions", requireAuth, sessionsRouter);
   api.use("/moments", requireAuth, momentsRouter);
@@ -79,22 +94,26 @@ export const mountRehearsal: typeof Declared.mountRehearsal = (app, opts) => {
 
   return {
     serve(server) {
-      // A field schema.ts names but PocketBase lacks would swallow every write to it, so boot adds it.
-      if (pocketbaseConfigured()) {
-        console.log(
-          `   rehearsal: PocketBase at ${env.pocketbase.url}, data in ${env.dataDir}`,
+      console.log(`   rehearsal: data in ${env.dataDir}`);
+      // Once, while the store is empty and a PocketBase is named: the server's rows move out of it — ../docs/store.md.
+      const pb = env.pocketbase;
+      if (pb && store.isEmpty()) {
+        console.log(`   rehearsal: importing from PocketBase at ${pb.url}…`);
+        ready = importFromPocketbase(pb, store).then(
+          (counts) =>
+            console.log(
+              `   rehearsal: imported ${Object.entries(counts)
+                .map(([k, n]) => `${n} ${k}`)
+                .join(", ")}`,
+            ),
+          (err: unknown) => {
+            importFailed = `the rehearsal store could not be imported from PocketBase: ${(err as Error).message}`;
+            console.error(
+              `   ⚠️  ${importFailed} — it is tried again at the next start`,
+            );
+          },
         );
-        void ensureSchema((line) => {
-          if (line.startsWith("✓")) console.log(`   PocketBase ${line}`);
-        }).catch((err: unknown) =>
-          console.error(
-            `   ⚠️  PocketBase schema not reconciled: ${(err as Error).message}`,
-          ),
-        );
-      } else
-        console.log(
-          "   ⚠️  rehearsal: PocketBase NOT configured — set POCKETBASE_* and run `npm run migrate -w @studio/rehearsal-server`",
-        );
+      }
       // After the media library's serve: the registry's upgrade listener must already be there to sit behind this one.
       stopRtc = attachRtc(server);
       stopSweeps = startCacheSweeps();

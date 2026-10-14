@@ -5,6 +5,7 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { api } from "../api";
 import { RecoveredTakes } from "../components/RecoveredTakes";
+import { ServerOnly } from "../components/ServerOnly";
 import { useRehearsalHost, useRehearsalNav } from "../host";
 import { useRehearsalRecording } from "../recording/context";
 import type { HomeTab, Song, SongTab } from "../types";
@@ -87,6 +88,11 @@ export function RehearsalRoutes() {
                     onOpenSong={openSong}
                     onNewSong={() => go("/songs/new")}
                     onToggleSongFavorite={toggleSongFavorite}
+                    onSongsChanged={() => void d.refreshSongs()}
+                    onPublicationsReachable={() => {
+                      void d.refreshReleases();
+                      void d.refreshPages();
+                    }}
                   />
                 }
               />
@@ -110,60 +116,68 @@ export function RehearsalRoutes() {
             <Route
               path="releases/new"
               element={
-                <ReleaseFormView
-                  onSave={async (data) => {
-                    const r = await api.createRelease(data);
-                    await d.refreshReleases();
-                    go(`/releases/${r.id}`);
-                    return r;
-                  }}
-                  onCancel={() => go("/releases")}
-                />
+                <ServerOnly>
+                  <ReleaseFormView
+                    onSave={async (data) => {
+                      const r = await api.createRelease(data);
+                      await d.refreshReleases();
+                      go(`/releases/${r.id}`);
+                      return r;
+                    }}
+                    onCancel={() => go("/releases")}
+                  />
+                </ServerOnly>
               }
             />
 
             <Route
               path="releases/:id"
               element={
-                <ReleaseRoute
-                  onDeleted={() => {
-                    void d.refreshReleases();
-                    go("/releases");
-                  }}
-                  onChange={() => void d.refreshReleases()}
-                  onBack={() => go("/releases")}
-                />
+                <ServerOnly>
+                  <ReleaseRoute
+                    onDeleted={() => {
+                      void d.refreshReleases();
+                      go("/releases");
+                    }}
+                    onChange={() => void d.refreshReleases()}
+                    onBack={() => go("/releases")}
+                  />
+                </ServerOnly>
               }
             />
 
             <Route
               path="pages/new"
               element={
-                <PageFormView
-                  releases={d.releases}
-                  onSave={async (data) => {
-                    const p = await api.createPage(data);
-                    await d.refreshPages();
-                    go(`/pages/${p.id}`);
-                    return p;
-                  }}
-                  onCancel={() => go("/releases")}
-                />
+                <ServerOnly>
+                  <PageFormView
+                    releases={d.releases}
+                    onSave={async (data) => {
+                      const p = await api.createPage(data);
+                      await d.refreshPages();
+                      go(`/pages/${p.id}`);
+                      return p;
+                    }}
+                    onCancel={() => go("/releases")}
+                  />
+                </ServerOnly>
               }
             />
 
             <Route
               path="pages/:id"
               element={
-                <PageRoute
-                  allReleases={d.releases}
-                  onChange={() => void d.refreshPages()}
-                  onDeleted={() => {
-                    void d.refreshPages();
-                    go("/releases");
-                  }}
-                  onBack={() => go("/releases")}
-                />
+                <ServerOnly>
+                  <PageRoute
+                    allReleases={d.releases}
+                    onChange={() => void d.refreshPages()}
+                    onDeleted={() => {
+                      void d.refreshPages();
+                      go("/releases");
+                    }}
+                    onBack={() => go("/releases")}
+                  />
+                </ServerOnly>
               }
             />
 
