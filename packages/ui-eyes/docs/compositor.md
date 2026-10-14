@@ -2,7 +2,8 @@
 
 `compositor.ts` is the **placement**: one texture per layer, one textured quad each, composed
 bottom upwards. What the GLSL does in between is [passes.md](passes.md); how the picture follows
-playback is [realtime.md](realtime.md). The video document's vocabulary is
+playback is [realtime.md](realtime.md), and how a shot that MOVES is drawn on each path is
+[motion.md](motion.md). The video document's vocabulary is
 `packages/song-video/docs/picture.md`.
 
 It is the **single renderer** both drivers share, because `texImage2D` takes an

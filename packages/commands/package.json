@@ -19,6 +19,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@studio/audio-analysis": "*",
     "@studio/audio-passes": "*",
     "@studio/audio-probe": "*",
     "@studio/engine-client": "*",

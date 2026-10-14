@@ -3,6 +3,8 @@
 // Its own document rather than a section of ProjectDoc, which is what keeps the frame out of
 // everything the C++ engine is handed. Full rationale: docs/picture.md.
 
+import type { AnimatedProp, Key } from "@studio/song-schema/keyframes";
+
 // A placed shot; `source` is ABSOLUTE, since whoever renders knows nothing about the project folder.
 export interface VideoClipDoc {
   id: string;
@@ -14,6 +16,8 @@ export interface VideoClipDoc {
   // How this shot arrives and leaves; absent is a hard cut — see docs/transitions.md.
   fadeIn?: VideoFadeDoc;
   fadeOut?: VideoFadeDoc;
+  /** How the shot moves inside its lane's frame: each property's keys, sorted, seconds from the shot's start (docs/animation.md). */
+  animate?: Partial<Record<AnimatedProp, Key[]>>;
 }
 
 /** A transition ON a placement: how long, and which kind. The kind's GLSL is on the PROJECT, once per name. */

@@ -283,6 +283,5 @@ and a caller that threw it away could not derive the chains it had just written.
   pan are a module, so where they sit relative to the freeze point already says whether they bake
   in.
 
-There is no `video_source` field. A song carries picture
-([picture.md](../../song-video/docs/picture.md)), and a lane holding a second word for it would
-have nothing to decide.
+A lane may say `video_source:` instead of `events:`: it then plays a picture lane's shots, its
+clips derived from them at compile time ([videoSound.md](videoSound.md)).

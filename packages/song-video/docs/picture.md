@@ -97,7 +97,8 @@ events:
 
 `fade_in`/`fade_out` say how a shot arrives and leaves, in seconds; a bare number is a dissolve and
 a map names a kind. Overlapping two shots and fading the later one in is a cross-dissolve —
-[transitions.md](transitions.md).
+[transitions.md](transitions.md). `animate:` says how the shot moves while it is on, in keys from
+its own start — [animation.md](animation.md).
 
 The rect is also what the VIEWPORT drags: selecting a layer there and moving or resizing it runs
 `picture rect`, which writes these four keys (`apps/k7/frontend/docs/picture.md`).
@@ -162,8 +163,6 @@ move it. [shapes.md](shapes.md) is the page.
 
 ## What is not there
 
-- **`video_source`.** An audio lane inheriting a video lane's placements, so a shot and its
-  sound cannot drift. Nothing reads the key.
 - **`video_effect` chains.** That shape of `VideoPluginDoc` is modelled and uncompiled: nothing
   turns one into anything a renderer runs. Its SIBLINGS both have a format now — a `shaders`
   module compiles all the way to a GLSL pass on the frame ([shaders.md](shaders.md)), over the

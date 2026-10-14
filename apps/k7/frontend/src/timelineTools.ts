@@ -83,6 +83,43 @@ export function toolLine(tool: Tool, c: ClipTarget): ToolAct {
   }
 }
 
+/** What a press on a SHOT knows about it — in seconds, the picture's own unit, since the `picture …` verbs read them. */
+export interface ShotTarget {
+  lane: string;
+  name: string;
+  start: number;
+  /** Where the shot ends by the picture's rule, Infinity for an open-ended last one. */
+  end: number;
+  at: number;
+}
+
+/** The same tools on a picture lane, each on its `picture …` verb; null leaves the drag underneath to run. */
+export function pictureToolLine(tool: Tool, s: ShotTarget): ToolAct {
+  const sec = (v: number) => String(Math.round(v * 1000) / 1000);
+  switch (tool) {
+    case "pointer":
+    case "crossfade":
+      // A shot's crossfade is its `fade_in`, which its corner handle already draws.
+      return null;
+    case "cut":
+      if (s.at <= s.start + 1e-3)
+        return { note: m["tool.cutAtHead"]({ name: s.name }) };
+      if (s.at >= s.end - 1e-3)
+        return { note: m["tool.cutAtTail"]({ name: s.name }) };
+      return {
+        line: `picture split ${s.lane} ${sec(s.start)} ${sec(s.at)}`,
+        note: m["tool.cutDone"]({ name: s.name, at: `${sec(s.at)}s` }),
+      };
+    case "erase":
+      return {
+        line: `picture delete ${s.lane} ${sec(s.start)}`,
+        note: m["tool.erased"]({ name: s.name, track: s.lane }),
+      };
+    case "mute":
+      return { note: m["tool.shotNoMute"]() };
+  }
+}
+
 /** What a crossfade click makes, beats — a drag sizes it instead. */
 export const CROSSFADE_BEATS = 0.5;
 

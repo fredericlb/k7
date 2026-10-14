@@ -238,10 +238,7 @@ A lane's **alternatives** and its **freeze** belong to every module rather than 
 `events:`), and `frozen:` names a render standing in for everything upstream of the module rather
 than for that one lane. Both are in Instruments.
 
-One more name a lane file may not carry:
-
-- **`video_source:`** — an audio track taking its placements from a video track, so that a shot
-  and its sound would not drift. Nothing reads it.
+A lane playing a video's sound says `video_source:` instead of `events:` — see the Video page.
 
 Every schema is `.strict()`, so a file carrying any of them says so by name and by line
 rather than being read and dropped. There is no migration code and no second accepted spelling: an

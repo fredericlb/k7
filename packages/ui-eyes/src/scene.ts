@@ -12,7 +12,16 @@ export interface SceneClip {
   sourceFrom: number; // the in-point INTO the source
   fadeIn?: SceneFade; // over its own start; absent is a hard cut
   fadeOut?: SceneFade; // over its own end
+  animate?: SceneAnimate; // how it moves in its lane's frame; absent costs nothing — docs/motion.md
 }
+
+/** A shot's animated properties, each its sorted keys in seconds from the shot's start; `ease` shapes the segment leaving a key. */
+export type SceneAnimate = Partial<
+  Record<
+    "x" | "y" | "scale" | "opacity" | "rotate",
+    readonly { t: number; v: number; ease: string }[]
+  >
+>;
 
 /** How a shot arrives or leaves: how long, and which program draws it — `with` keys `VideoScene.transitions`. */
 export interface SceneFade {
@@ -120,6 +129,7 @@ export interface SceneLayerInput {
     sourceFrom: number;
     fadeIn?: SceneFade;
     fadeOut?: SceneFade;
+    animate?: SceneAnimate;
   }[];
   shapes?: SceneShape[];
   passes?: ScenePass[];
@@ -158,6 +168,7 @@ export function buildScene(
         // Never dropped the way a bypassed pass is: a fade has no `enabled`, so absent means absent.
         ...(c.fadeIn ? { fadeIn: { ...c.fadeIn } } : {}),
         ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
+        ...(c.animate ? { animate: c.animate } : {}),
       })),
       // Shapes carry no time, so they don't extend durationSec — a shapes-only song has no natural end to render.
       ...(l.shapes?.length ? { shapes: l.shapes.map((s) => ({ ...s })) } : {}),

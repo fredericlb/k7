@@ -22,6 +22,8 @@ import {
   setVideoLaneMute,
   setVideoLaneRect,
   setVideoPlacementFieldAt,
+  shiftVideoAnimationAt,
+  splitVideoPlacementAt,
   type VideoPlacement,
 } from "@studio/song-schema/yaml/videoTrackFile";
 import { parseWallClock } from "@studio/song-video/videoProject";
@@ -35,7 +37,7 @@ const LANES_DIR = "video_tracks";
 const SAME = 5e-4;
 
 /** A lane's file, or a refusal naming the lanes there are. */
-function laneFile(
+export function laneFile(
   lane: string,
   h: CommandHost,
 ): { rel: string; abs: string; text: string } | null {
@@ -66,7 +68,10 @@ function laneFile(
 }
 
 /** A wall-clock argument as seconds, or a refusal in the dialect's own words. */
-function seconds(word: string | undefined, h: CommandHost): number | null {
+export function seconds(
+  word: string | undefined,
+  h: CommandHost,
+): number | null {
   const s = word === undefined ? null : parseWallClock(word);
   if (s === null) {
     h.refuse([
@@ -105,7 +110,12 @@ function placementAt(
 }
 
 /** Write the lane, snapshotting first so the undo journal has the before — every picture verb ends here. */
-function put(abs: string, next: string, h: CommandHost, verb: string): boolean {
+export function put(
+  abs: string,
+  next: string,
+  h: CommandHost,
+  verb: string,
+): boolean {
   try {
     h.snapshot?.(abs);
     wsWrite(abs, next);
@@ -117,7 +127,7 @@ function put(abs: string, next: string, h: CommandHost, verb: string): boolean {
 }
 
 /** What every verb but `add` opens: the lane, its placements, and which one the time names. */
-function target(
+export function target(
   a: string,
   h: CommandHost,
   verb: string,
@@ -350,6 +360,8 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
         "length",
         shot.length - delta,
       );
+    // …and the keys by the same delta, so an animation stays on the frames it was set on (song-video docs/animation.md).
+    next = shiftVideoAnimationAt(next, t.index, delta);
     if (!put(t.abs, next, h, "head")) return;
     h.log([
       `${t.rel}: ${shot.ref} head ${t.at}s → ${to}s` +
@@ -367,6 +379,25 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     if (!put(t.abs, next, h, "delete")) return;
     h.log([
       `${t.rel}: − ${shot.ref} at ${t.at}s (the clip stays; a lane holds placements)`,
+    ]);
+    return h.reload();
+  },
+
+  /** `picture split <lane> <at> <where>` — two placements of one clip, and nothing rendered (docs/picture.md). */
+  "picture.split": (a, h) => {
+    const t = target(a, h, "split", "<where>");
+    if (!t) return;
+    const where = seconds(t.rest[0] ?? "", h);
+    if (where === null) return;
+    const shot = t.list[t.index] as VideoPlacement;
+    const next = splitVideoPlacementAt(t.text, t.index, where);
+    if (next === null) {
+      h.refuse([`${t.rel}: ${where}s is not inside the shot at ${t.at}s`]);
+      return;
+    }
+    if (!put(t.abs, next, h, "split")) return;
+    h.log([
+      `${t.rel}: ${shot.ref || "activation"} at ${t.at}s split at ${where}s`,
     ]);
     return h.reload();
   },

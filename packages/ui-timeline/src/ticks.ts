@@ -18,6 +18,28 @@ export const SECOND_TICKS: readonly number[] = [
   0.04, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600,
 ];
 
+/** The frames a sub-second rung may span: a ladder of them puts every fine tick ON a frame. */
+const FRAME_RUNGS = [1, 2, 5, 10, 15] as const;
+
+/** The seconds ladder for a song that has a picture at `fps`: below a second it counts FRAMES, since a cut can only fall on one — docs/ticks.md. */
+export function secondTicks(fps?: number): readonly number[] {
+  if (!(fps && fps > 0)) return SECOND_TICKS;
+  const frames = FRAME_RUNGS.map((n) => n / fps).filter((s) => s < 1 - 1e-9);
+  return [...frames, ...SECOND_TICKS.filter((s) => s >= 1)];
+}
+
+/** A seconds tick's label: `m:ss` on whole seconds, and between them the FRAME it is when the ladder counts frames. */
+export function formatSecondTick(
+  sec: number,
+  step: number,
+  fps?: number,
+): string {
+  if (!(fps && fps > 0) || step >= 1) return formatClock(sec, step);
+  const whole = Math.floor(sec + 1e-9);
+  const frame = Math.round((sec - whole) * fps);
+  return frame === 0 ? formatClock(whole, 1) : `${frame}f`;
+}
+
 /** `m:ss`, plus decimals only when the STEP needs them — a 30s ruler does not say "1:30.0". */
 export function formatClock(sec: number, step = 1): string {
   const neg = sec < 0;
@@ -37,6 +59,23 @@ export function ticksUpTo(end: number, step: number): number[] {
   // Counted, not accumulated: adding 0.1 four hundred times lands at 40.000000000000255.
   for (let i = 0; i * step <= end + 1e-9; i++) out.push(i * step);
   return out;
+}
+
+/** The first tick strictly after (`dir` 1) or before (-1) `value` in an ascending list, or null past the end — what a step lands on. */
+export function adjacentTick(
+  ticks: readonly number[],
+  value: number,
+  dir: 1 | -1,
+): number | null {
+  // Strictly, by more than float noise, so a playhead already ON a tick moves off it.
+  const eps = 1e-6;
+  if (dir > 0) {
+    for (const t of ticks) if (t > value + eps) return t;
+    return null;
+  }
+  for (let i = ticks.length - 1; i >= 0; i--)
+    if ((ticks[i] as number) < value - eps) return ticks[i] as number;
+  return null;
 }
 
 /** The tick nearest `value`, or null when the nearest is further than `tolerance` away. */

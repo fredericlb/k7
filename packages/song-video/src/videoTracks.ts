@@ -9,6 +9,13 @@ import type {
   RawVideoPlacement,
   RawVideoTrack,
 } from "@studio/song/rawDoc";
+import {
+  ANIMATED_PROPS,
+  type AnimatedProp,
+  AnimateSchema,
+  type Key,
+  keysOf,
+} from "@studio/song-schema/keyframes";
 import { DISSOLVE, OVER } from "@studio/song-schema/moduleTypes";
 import type { VideoClipDoc, VideoFadeDoc, VideoTrackDoc } from "./videoDoc";
 
@@ -27,6 +34,20 @@ export function readFade(raw: unknown): VideoFadeDoc | undefined {
   return { over, with: String(kind), ...(chain ? { chain } : {}) };
 }
 
+/** A placement's `animate:` as sorted keys per property, or undefined; a malformed map is the schema's to report, on its line. */
+export function readAnimate(
+  raw: unknown,
+): Partial<Record<AnimatedProp, Key[]>> | undefined {
+  const parsed = AnimateSchema.safeParse(raw);
+  if (raw == null || !parsed.success) return undefined;
+  const out: Partial<Record<AnimatedProp, Key[]>> = {};
+  for (const p of ANIMATED_PROPS) {
+    const a = parsed.data[p];
+    if (a !== undefined) out[p] = keysOf(a);
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 // A placement -> a VideoClipDoc, in plain DECIMAL SECONDS: no tempo map ever reaches picture.
 export function videoPlacementToClip(
   dir: string,
@@ -37,6 +58,7 @@ export function videoPlacementToClip(
   lane?: string,
 ): VideoClipDoc {
   const ref = String(p.ref ?? "");
+  const animate = readAnimate(p.animate);
   // No ref is an ACTIVATION: a span with no picture in it, saying the lane is on — docs/shapes.md.
   if (!ref)
     return {
@@ -46,6 +68,7 @@ export function videoPlacementToClip(
       start: Number(p.start ?? 0),
       length: Number(p.length ?? 0),
       sourceFrom: 0,
+      ...(animate ? { animate } : {}),
     };
   if (!clipsMap[ref])
     warnings?.push(
@@ -63,6 +86,7 @@ export function videoPlacementToClip(
     // Absent stays absent, the way a lane with no chain carries no `plugins`.
     ...(fadeIn ? { fadeIn } : {}),
     ...(fadeOut ? { fadeOut } : {}),
+    ...(animate ? { animate } : {}),
   };
 }
 

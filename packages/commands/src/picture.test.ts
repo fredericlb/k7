@@ -264,3 +264,52 @@ describe("picture rect", () => {
     expect(refusals.join(" ")).toMatch(/usage: picture rect/);
   });
 });
+
+describe("picture split", () => {
+  it("cuts the shot into two placements of its clip, the tail right behind the head", async () => {
+    lane(TWO);
+    await runCommand("picture split main 4 6.5", host(), "cli");
+    expect(refusals).toEqual([]);
+    expect(shots()).toEqual([
+      { ref: "shot_a", start: 0, length: 4, sourceFrom: 0 },
+      { ref: "shot_b", start: 4, length: 2.5, sourceFrom: 2.5 },
+      { ref: "shot_b", start: 6.5, length: 3.5, sourceFrom: 5 },
+    ]);
+    expect(read()).toContain("# the camera");
+  });
+
+  it("refuses a cut that is not inside the shot", async () => {
+    lane(TWO);
+    await runCommand("picture split main 4 12", host(), "cli");
+    expect(refusals.join("\n")).toMatch(/12s is not inside the shot at 4s/);
+  });
+});
+
+describe("picture key / unkey", () => {
+  it("sets a key at a TIMELINE time, stored from the shot's own start", async () => {
+    lane(TWO);
+    await runCommand("picture key main 4 scale 7 1.2 inout", host(), "cli");
+    expect(refusals).toEqual([]);
+    // shot_b starts at 4, so a key at 7 on the timeline is 3 s into the shot.
+    expect(read()).toMatch(
+      /animate: \{ scale: \[ \{ t: 3, v: 1\.2, ease: inout \} \] \}/,
+    );
+    expect(read()).toContain("# the camera");
+  });
+
+  it("removes the key it set, and the animation with it", async () => {
+    lane(TWO);
+    await runCommand("picture key main 4 opacity 5 0", host(), "cli");
+    await runCommand("picture unkey main 4 opacity 5", host(), "cli");
+    expect(refusals).toEqual([]);
+    expect(read()).not.toContain("animate");
+  });
+
+  it("names the properties there are, and the eases", async () => {
+    lane(TWO);
+    await runCommand("picture key main 4 size 5 2", host(), "cli");
+    await runCommand("picture key main 4 x 5 2 bounce", host(), "cli");
+    expect(refusals.join("\n")).toMatch(/x, y, scale, opacity, rotate/);
+    expect(refusals.join("\n")).toMatch(/linear, in, out, inout, hold/);
+  });
+});

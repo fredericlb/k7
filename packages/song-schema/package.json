@@ -54,7 +54,9 @@
     "./yaml/validate": "./src/yaml/validate.ts",
     "./yaml/k7xIssues": "./src/yaml/k7xIssues.ts",
     "./yaml/sugar": "./src/yaml/sugar.ts",
-    "./yaml/videoTrackFile": "./src/yaml/videoTrackFile.ts"
+    "./yaml/videoTrackFile": "./src/yaml/videoTrackFile.ts",
+    "./keyframes": "./src/keyframes.ts",
+    "./yaml/videoKeys": "./src/yaml/videoKeys.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

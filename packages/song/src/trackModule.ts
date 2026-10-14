@@ -75,6 +75,8 @@ export interface Lane {
   tracks: string[];
   /** A generated lane's pattern file, project-relative. */
   strudel?: string;
+  /** The PICTURE lane whose shots this lane plays the sound of — docs/videoSound.md. */
+  videoSource?: string;
   /** Left out of the render entirely, chains and all. */
   disabled: boolean;
 }
@@ -95,6 +97,10 @@ export function laneOf(m: LoadedModule | undefined | null): Lane | null {
     strudel:
       strudel && typeof m.strudel === "string" && m.strudel
         ? m.strudel
+        : undefined,
+    videoSource:
+      !group && !strudel && typeof m.video_source === "string" && m.video_source
+        ? m.video_source
         : undefined,
     disabled: m.disabled === true,
   };

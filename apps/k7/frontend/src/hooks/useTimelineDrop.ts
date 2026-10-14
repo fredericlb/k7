@@ -105,6 +105,12 @@ export function useTimelineDrop(
             ? `picture add ${p.lane} ${p.id} ${seconds}`
             : `event add ${p.lane} ${p.id} ${tc}`,
         );
+      // 4. …and a shot's SOUND, which the engine plays from an audio lane (packages/song/docs/videoSound.md).
+      const pictured = plan.place
+        .filter((p) => kindOf.get(p.id) === "video")
+        .map((p) => p.lane);
+      for (const lane of new Set(pictured))
+        await runCommand(`picture sound ${lane}`);
     },
     [project, runCommand, setStatus, bumpReload],
   );

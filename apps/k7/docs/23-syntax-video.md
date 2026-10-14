@@ -29,7 +29,7 @@ its header — and what a drag snaps to is whichever ticks are showing.
 
 A lane of picture. `length: 0` runs to the end of the source; `source_from` trims the head of
 the source, while `start` says where on the timeline the shot sits. `mute` here means **hidden**
-— there is no sound on a lane.
+— a picture lane plays no sound (see A shot's sound, below).
 
 ```yaml schema=VideoTrack
 # name: "A-roll"     # the lane's label; the FILENAME is still its id
@@ -45,6 +45,73 @@ Drag a shot's **body** to move it, its **left edge** to trim the head (which mov
 `source_from` by the same amount, so the frame under the new edge is the one that was there),
 or its **right edge** to set its extent. Opening a lane file in the editor also gives you a
 reader per placement, with Set From / Set To.
+
+To cut a shot in two, use the blade (`b`) and click where to cut, or put the caret on the lane
+and press **Ctrl+B** to cut at the playhead. Both work the same way on audio lanes. On picture,
+the cut writes a second placement of the same clip, so nothing is rendered and the frames do
+not change; its sound follows on its own.
+
+In seconds mode, once the song has a picture, the ruler's fine ticks are **frames** (`12f`).
+Every drag and every cut lands on one, and `,` / `.` step the playhead one tick back or
+forward: a frame, once you are zoomed in.
+
+## Moving a shot
+
+A shot can pan, zoom, turn and fade inside its lane, with keys written on the placement:
+
+```yaml schema=VideoTrack
+events:
+  - ref: shot_a
+    start: 4
+    length: 6
+    animate:
+      scale: [[0, 1], { t: 6, v: 1.2, ease: inout }]   # a slow push in…
+      x: [[0, 0], [6, -80]]                            # …drifting 80 px left
+      opacity: [[0, 0], [0.5, 1]]                      # …faded up over half a second
+      rotate: 2                                        # a constant: tilted throughout
+```
+
+A key is `[time, value]`, its time in seconds **from the shot's own start**, so the animation
+moves with the shot. `x` and `y` are pixels, `scale` is a factor about the lane's centre,
+`opacity` runs from 0 to 1 and `rotate` is in degrees, clockwise. Write `{ t, v, ease }` to ease
+the movement leaving a key: `in`, `out`, `inout`, or `hold` to stay put until the next key.
+
+The lane's rectangle crops the shot, so a push-in on a picture-in-picture stays inside its box.
+Splitting a shot keeps each half's animation exactly, and trimming its head keeps the keys on
+the same frames.
+
+From the command bar, `picture key main 4 scale 10 1.2 inout` sets a key on the shot starting at
+4 s, at 10 s on the timeline. `picture unkey main 4 scale 10` removes it.
+
+## A shot's sound
+
+The picture lane plays no sound. The **engine** plays it, from an ordinary audio lane that names
+the picture lane it follows:
+
+```yaml schema=Module
+# nodes/dialog.yaml
+extends: "@meta/track"
+video_source: main     # this lane's events ARE main's shots
+```
+
+The lane has no `events:` of its own. Each shot on `main` is heard exactly where it is seen:
+from its `source_from`, cut where a later shot covers it, and cross-faded under a `fade_in`.
+Move or trim a shot and its sound moves with it. Everything else is an audio lane like any other:
+a fader, a chain, a mute, a solo.
+
+What it plays is the clip's `sound:`, an audio file extracted from the video once, because the
+engine cannot open every video container on every machine:
+
+```yaml schema=Clip
+# clips/shot_a.yaml
+source: clips/shot_a.mp4
+sound: clips/shot_a.sound.wav
+```
+
+You never write either by hand. Dropping a video on a picture lane runs `picture sound <lane>`,
+which extracts each shot's sound and makes the lane the first time. Run it yourself for footage
+placed some other way. A shot whose file has no sound stays silent, and a lane with no sound at
+all gets no audio lane.
 
 ## Shapes and texts are MODULES
 

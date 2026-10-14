@@ -95,6 +95,7 @@ export interface Track {
   placements: Placement[]; // single only
   tracks: string[]; // group only: member lane names
   strudel?: string; // strudel only: project-relative path to its pattern file
+  videoSource?: string; // the PICTURE lane whose shots this lane sounds (docs/videoSound.md)
 }
 // A video lane as the graph and the timeline need it; its geometry and placements stay in the compiled ProjectDoc.
 export interface VideoTrack {
@@ -677,6 +678,7 @@ export function buildGraph(
       ),
       tracks: lane.tracks,
       strudel: lane.strudel,
+      ...(lane.videoSource ? { videoSource: lane.videoSource } : {}),
     };
   }
 

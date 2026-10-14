@@ -52,11 +52,20 @@ is a change you cannot see. Escape puts it down, on the ladder above the fullscr
 
 Each tool stands on **one verb**, so a press stays one command and one Ctrl+Z:
 
-| tool | press on a clip |
-|---|---|
-| `cut` | `event split`, at the beat under the pointer |
-| `erase` | `event remove` |
-| `mute` | `event status mute`, sent BARE so the toggling is the verb's |
+| tool | press on a clip | press on a shot |
+|---|---|---|
+| `cut` | `event split`, at the grid position under the pointer | `picture split`, likewise |
+| `erase` | `event remove` | `picture delete` |
+| `mute` | `event status mute`, sent BARE so the toggling is the verb's | refused: a shot has no mute, and `m` hides its lane |
+
+**The tools are the same on both kinds of lane**, so the blade means the same thing wherever it
+lands. Only the verb underneath differs, because the two splits are different acts: audio renders
+two files and picture writes two placements (`packages/commands/docs/picture.md`). The picture
+column is `pictureToolLine`, beside `toolLine`, and a press on a shot goes through the same guard
+at the top of its own drag.
+
+**A cut lands on the grid, as a drag does**, and Shift frees it (`snap.ts`). A cut at the raw
+pointer would fall between the lines you can see, and on a picture between two frames.
 
 **There is no pencil**, and the reason is worth writing down: `event add` places a clip that
 already exists, so drawing one would be `sequence new` and then `event add` — two journal entries
@@ -162,6 +171,20 @@ re-target a new clip several times a second while the transport ran.
 
 The one coupling there is runs the useful way: `t` (`transport locate`) sends the **playhead
 to the caret**. You aim, then you send the transport there — not the other way about.
+
+### Stepping and splitting act on the PLAYHEAD
+
+`,` and `.` (`transport step prev | next`) move the playhead to the drawn tick before or after
+it: the same grid every drag and every cut lands on, in whichever unit the ruler is reading.
+Zoomed in on a song with a picture that is ONE FRAME (`packages/ui-timeline/docs/ticks.md`), and
+it is the same step on an audio lane as on a picture lane. The step is not a second grid with a
+setting of its own: a step that landed between the lines you can see would be a position no drag
+can reach.
+
+`Ctrl+B` (`selection split`) is the blade at the playhead, on the caret's lane. It makes the
+same line the cut tool would make there, through the same `toolLine`/`pictureToolLine`, so the
+two ways of cutting cannot disagree about what a cut is. The lane comes from the CARET and the
+time from the PLAYHEAD: you scrub to the frame by eye, and you choose the lane by hand.
 
 ## Live state is drawn by LEAVES, never by the body
 
@@ -871,6 +894,12 @@ Dragging audio or video off the OS onto a lane does three things, in the one ord
 the bytes go into the project's `clips/`, a `clips/<id>.yaml` declares each one, and only then is
 each **placed** — `event add` on an audio lane, `picture add` on a picture one. The plan is
 `timelineDrop.ts`, pure; the three round trips are `hooks/useTimelineDrop.ts`.
+
+A drop onto a picture lane then runs **`picture sound <lane>`**, once per lane, so the footage
+arrives with its sound on an audio lane the engine plays (`packages/song/docs/videoSound.md`). It
+is a fourth round trip rather than part of the placement because it can take a while, extracting
+a long file's sound, and because it is safe to repeat: the lane is made the first time and reused
+after.
 
 **Where it lands is where you dropped it**, snapped to the ticks the ruler is actually drawing —
 the same rule the clip drag and the ruler's click follow, so the lines you can see are the

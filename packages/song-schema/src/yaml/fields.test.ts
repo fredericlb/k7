@@ -55,6 +55,8 @@ describe("derived module fields", () => {
       "disabled",
       "tracks",
       "strudel",
+      // The PICTURE lane a lane plays the sound of — packages/song/docs/videoSound.md.
+      "video_source",
       // FROZEN at this module: the render standing in for everything upstream of it — see docs/freeze.md.
       "frozen",
       "engine",

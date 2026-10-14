@@ -69,8 +69,12 @@ function fakeTarget() {
       uniforms.set(l.name, [v]);
       log.push(`uniform1f(${l.name},${v})`);
     },
-    uniform2f: () => {},
+    uniform2f: (l: { name: string }, a: number, b: number) =>
+      uniforms.set(l.name, [a, b]),
     uniform4fv: () => log.push("uniform4fv(uRect)"),
+    uniformMatrix3fv: (l: { name: string }, _t: boolean, m: Float32Array) =>
+      uniforms.set(l.name, [...m]),
+    scissor: () => log.push("scissor"),
     createTexture: () => {
       const t = next("texture");
       textures.push(t);
@@ -413,5 +417,66 @@ describe("keeping a picture's shape", () => {
     // A <video> before metadata reports 0×0, and 0 is what says "not yet".
     expect(sourceAR({ videoWidth: 0, videoHeight: 0 } as never)).toBe(0);
     expect(sourceAR({} as never)).toBe(0);
+  });
+});
+
+describe("drawing a moved shot", () => {
+  const moving = clip({
+    animate: { opacity: [{ t: 0, v: 0.5, ease: "linear" }] },
+  });
+  const half = { x: 0, y: 0, scale: 1, opacity: 0.5, rotate: 0 };
+
+  it("gives a scene that animates one target per picture slot, for the blend to read", () => {
+    expect(fbos(make(scene([moving])).log)).toBe(2);
+  });
+
+  it("crops a moved shot to its lane on the plain path, and fades it straight", () => {
+    const { comp, log, uniforms } = make(scene([moving]));
+    comp.upload("main", {} as TexImageSource, 0);
+    log.length = 0;
+    comp.draw(new Set(["main"]), undefined, new Map([["main", [half, null]]]));
+    expect(log).toContain("scissor");
+    expect(uniforms.get("uAlpha")).toEqual([0.5, 0]);
+  });
+
+  it("draws a shot at rest exactly as before: no scissor, the identity, full opacity", () => {
+    const { comp, log, uniforms } = make(scene([clip()]));
+    comp.upload("main", {} as TexImageSource, 0);
+    log.length = 0;
+    comp.draw(new Set(["main"]));
+    expect(log).not.toContain("scissor");
+    expect(uniforms.get("uXf")).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+    expect(uniforms.get("uAlpha")).toEqual([1, 0]);
+  });
+
+  it("moves a blend's side into its own target, premultiplied, before the blend reads it", () => {
+    const { comp, log } = make(
+      scene([
+        moving,
+        clip({ id: "b", start: 3, fadeIn: { over: 1, with: "dissolve" } }),
+      ]),
+    );
+    comp.upload("main", {} as TexImageSource, 0);
+    comp.upload("main", {} as TexImageSource, 1);
+    const alphas: number[][] = [];
+    const gl = (
+      comp as unknown as { gl: { uniform2f: (...a: unknown[]) => void } }
+    ).gl;
+    const orig = gl.uniform2f;
+    gl.uniform2f = (l: unknown, a: unknown, b: unknown) => {
+      alphas.push([a as number, b as number]);
+      orig(l, a, b);
+    };
+    log.length = 0;
+    comp.draw(
+      new Set(["main"]),
+      new Map([
+        ["main", { name: "dissolve", progress: 0.5, from: true, to: true }],
+      ]),
+      new Map([["main", [half, null]]]),
+    );
+    // The moved side first, premultiplied at half opacity; the lane's own blit last, untouched.
+    expect(alphas[0]).toEqual([0.5, 1]);
+    expect(alphas.at(-1)).toEqual([1, 0]);
   });
 });

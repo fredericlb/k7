@@ -427,6 +427,8 @@ const MODULE_FIELDS = {
     .string()
     .regex(/^algo\/.+\.strudel$/, "expected algo/<name>.strudel")
     .optional(),
+  // A lane that PLAYS a picture lane's sound, its events derived from that lane's shots — packages/song/docs/videoSound.md.
+  video_source: z.string().min(1).optional(),
   // FROZEN at this module: the render standing in for everything UPSTREAM of it — see docs/freeze.md.
   frozen: z.string().min(1).optional(),
 

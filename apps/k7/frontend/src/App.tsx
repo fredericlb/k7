@@ -2132,9 +2132,27 @@ export default function App({
         setStatus(out.note);
         return true;
       }
+      // The blade at the PLAYHEAD, on the caret's lane — the same line the cut tool makes, audio or picture (docs/timeline.md).
+      if (line === "selection split") {
+        const out = timelineRef.current?.splitLine(
+          store.getSnapshot().playhead,
+        );
+        if (out?.line) void runCommand(out.line);
+        setStatus(out?.note ?? "nothing to split here");
+        return true;
+      }
       // Toggle record over the wire. Reading the live snapshot keeps this out of the deps and always flips current.
       if (line === "transport record") {
         engineRef.current?.setRecordEnabled(!store.getSnapshot().recordEnabled);
+        return true;
+      }
+      // One snap position either way, the ticks the timeline draws: a FRAME once it is zoomed in on a picture (docs/timeline.md).
+      if (line === "transport step next" || line === "transport step prev") {
+        const to = timelineRef.current?.stepTarget(
+          store.getSnapshot().playhead,
+          line.endsWith("next") ? 1 : -1,
+        );
+        if (to !== null && to !== undefined) seek(to);
         return true;
       }
       // Replay: back to where playback last started (`replayAtRef`), then rolls again — `play` is not a toggle.
@@ -3974,6 +3992,8 @@ export default function App({
                                 : null
                             }
                             videoTracks={videoTracks}
+                            // A song with no picture lane has no frame to land on, whatever its document defaults.
+                            fps={videoTracks.length ? videoDoc?.fps : undefined}
                             // The picture drag guards on this handler's own presence, so a snapshot simply has none.
                             onVideoEdit={frozen ? undefined : applyVideoEdit}
                             // …and so does the file drop, for the same reason: a frozen song has nowhere to put the bytes.
