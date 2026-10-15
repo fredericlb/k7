@@ -66,7 +66,7 @@ or tab resets it; new content alone refreshes the draft only while nobody is edi
 
 ## A take is never whole in the backend's memory, and two saves never race
 
-A recording, a mixdown and its stems arrive on DISK (`@frediverse/http/upload`'s `diskUpload`), are
+A recording, a mixdown and its stems, a song's sheets and its reference track arrive on DISK (`@frediverse/http/upload`'s `diskUpload`, with the limits in [serving.md](serving.md)), are
 pushed to the médiathèque as file-backed Blobs (`fs.openAsBlob`, streamed by `fetch`), and are MOVED
 into the cache; an appended take is concatenated by ffmpeg file to file. Only memory the size of a
 chunk is ever held. Measured: a 5 MB upload lands on disk with no buffer, and nothing is left once the

@@ -44,8 +44,9 @@ pagesRouter.post(
   "/",
   validate(createSchema),
   wrap(async (req, res) => {
-    // Checked and taken under one key, or two pages created together could share a nametag.
-    const page = await serialized(`nametag:${req.body.nametag}`, async () => {
+    // Checked and taken under one key, case folded, or two pages created together could share a nametag.
+    const key = `nametag:${req.body.nametag.toLowerCase()}`;
+    const page = await serialized(key, async () => {
       if (await store.nametagExists(req.body.nametag)) return null;
       return store.createPage(sub(req), req.body);
     });
@@ -70,7 +71,7 @@ pagesRouter.patch(
     const { nametag, releaseIds, versionIds, visibility } = req.body;
     const taken = Symbol("taken");
     const page = await serialized(
-      `nametag:${nametag ?? req.params.pid}`,
+      `nametag:${nametag?.toLowerCase() ?? req.params.pid}`,
       async () => {
         if (
           nametag !== undefined &&

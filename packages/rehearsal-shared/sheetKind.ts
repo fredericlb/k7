@@ -61,5 +61,13 @@ export function sheetExt(name: string, mime: string): string {
   return "bin";
 }
 
+/** The type a sheet is SERVED under: a score is bytes for alphaTab, never an XML type a browser would render. */
+export function sheetServedMime(name: string, mime: string): string {
+  const kind = sheetKind(name, mime);
+  if (kind === "pdf") return "application/pdf";
+  if (kind === "image") return mime;
+  return "application/octet-stream";
+}
+
 export const isScore = (sheet: { name: string; mime: string }): boolean =>
   sheetKind(sheet.name, sheet.mime) === "score";

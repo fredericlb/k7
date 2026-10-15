@@ -22,7 +22,9 @@ reads like a moment whose session was deleted, which is what it is from the serv
 The server files the moment under the PERSON who paired the device, the OIDC subject the device
 token names, so it appears in that person's moments on the server. A token from before tokens
 named a person cannot share a moment, and says so: the machine has to pair again. On the server,
-a moment id that belongs to someone else is refused, never overwritten.
+a moment id that belongs to someone else is refused, never overwritten. The id comes from the
+machine and becomes a row id and a cache file's name, so one that is not a plain segment is
+refused (400), as is a `moment` field that is not JSON ([serving.md](serving.md)).
 
 ## Sharing again replaces
 
