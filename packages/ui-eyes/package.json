@@ -14,7 +14,9 @@
     "./exportSupport": "./src/exportSupport.ts",
     "./camera": "./src/camera.ts",
     ".": "./src/index.ts",
-    "./exportQuality": "./src/exportQuality.ts"
+    "./exportQuality": "./src/exportQuality.ts",
+    "./renderPage": "./src/renderPage.ts",
+    "./renderSettings": "./src/renderSettings.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

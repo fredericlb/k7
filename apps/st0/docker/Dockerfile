@@ -41,6 +41,9 @@ RUN --mount=type=cache,target=/root/.npm npm ci --workspace st0-backend --omit=d
 FROM node:22-alpine AS runtime
 # yt-dlp/ffmpeg: media imports and a take's envelope and instrumental; mpv: packages/mpv-player/docs/mpvPlayer.md.
 RUN apk add --no-cache yt-dlp ffmpeg mpv
+# chromium and its fonts: `picture render`, the picture drawn headless (packages/file-service/docs/serverRender.md).
+RUN apk add --no-cache chromium font-noto ttf-freefont
+ENV STUDIO_CHROMIUM=/usr/bin/chromium-browser
 WORKDIR /app
 COPY --from=backend-deps /app ./
 # The whole repo: @studio/* are symlinks to raw TypeScript source, so a missing package is a crash on import.

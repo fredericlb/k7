@@ -3,32 +3,11 @@
 // of the brain's packages, so whoever holds a document adapts into its structural type.
 
 import { mediaUrl } from "@studio/project-shell/fileApi";
-import {
-  buildScene,
-  type ScenePass,
-  type VideoScene,
-} from "@studio/ui-eyes/scene";
-import type { WebVideoPlugin, WebVideoProject } from "@studio/web-protocol";
-import { laneHidden, lensOpen } from "./pictureMix";
+import type { VideoScene } from "@studio/ui-eyes/scene";
+import type { WebVideoProject } from "@studio/web-protocol";
+import { sceneFrom } from "./sceneFrom";
 
-/** A compiled video plugin → the pass eyes runs, or null — two ordinary ways to be null, and `audio` is replaced per frame by the driver. */
-function passOf(p: WebVideoPlugin): ScenePass | null {
-  if (p.type !== "shader" || !p.shader) return null;
-  return {
-    id: p.id,
-    name: p.name,
-    vertex: p.shader.vertex,
-    fragment: p.shader.fragment,
-    enabled: p.enabled,
-    params: p.params,
-    audio: 0,
-    ...(p.lut ? { lut: mediaUrl(p.lut) } : {}),
-  };
-}
-
-const passesOf = (list: WebVideoPlugin[] | undefined): ScenePass[] =>
-  (list ?? []).map(passOf).filter((p): p is ScenePass => p !== null);
-
+/** The scene the viewport and a browser export draw, its media fetched through this file service. */
 export function sceneOf(
   proj: WebVideoProject,
   /** The armed picture lane, which is what `monitor: auto` opens a lens for (pictureMix.ts). */
@@ -36,52 +15,5 @@ export function sceneOf(
   /** Who reads the scene: an EXPORT renders from the optimized copy or the source, never from a proxy (song-video/docs/media.md). */
   use: "preview" | "export" = "preview",
 ): VideoScene {
-  return buildScene(
-    proj.viewport,
-    proj.fps,
-    proj.videoTracks.map((t) => ({
-      id: t.id,
-      // The FOLD, done here: `mute` on the wire is the lane's own flag, and the scene wants the answer.
-      mute: laneHidden(proj.videoTracks, t, armed),
-      // The lens, DROPPED when shut: a camera nothing draws must not be opened (packages/song/docs/camera.md).
-      ...(t.camera !== undefined && lensOpen(t, armed)
-        ? { camera: t.camera }
-        : {}),
-      x: t.x,
-      y: t.y,
-      w: t.w,
-      h: t.h,
-      clips: t.clips.map((c) => ({
-        id: c.id,
-        src: mediaUrl(
-          (use === "preview" ? c.proxy : undefined) ?? c.optimized ?? c.src,
-        ),
-        start: c.start,
-        length: c.length,
-        sourceFrom: c.sourceFrom,
-        ...(c.fadeIn ? { fadeIn: { ...c.fadeIn } } : {}),
-        ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
-        ...(c.animate ? { animate: c.animate } : {}),
-        ...(c.speed !== undefined ? { speed: c.speed } : {}),
-        ...(c.still ? { still: true as const } : {}),
-        ...(c.effect ? { effect: c.effect } : {}),
-        ...(c.captions ? { captions: c.captions } : {}),
-      })),
-      // A shape carries no media — the compositor rasterizes it, and its id is the module node that drew it.
-      shapes: t.shapes.map((s) => ({ ...s })),
-      // …and this lane's own GLSL chain, run over the layer before it is composited.
-      passes: passesOf(t.plugins),
-    })),
-    // The RENDER -> VIDEO_OUT run, over the frame they were composited into.
-    passesOf(proj.framePlugins),
-    // …and the transitions the cuts NAME, whose GLSL rides inline for the reason a shader's does.
-    proj.transitions,
-    // …and the stretches a fade runs its shot through, keyed by head node as the fades name them.
-    Object.fromEntries(
-      Object.entries(proj.stretches ?? {}).map(([k, run]) => [
-        k,
-        passesOf(run),
-      ]),
-    ),
-  );
+  return sceneFrom(proj, armed, use, mediaUrl);
 }

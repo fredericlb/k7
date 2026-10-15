@@ -1626,6 +1626,21 @@
       { name: file, hint: "an .otio or .edl inside the project, named from its folder" },
       { name: prefix, optional: true, hint: "what the new lanes are called — import-1, import-2… unless said" },
     ]
+# The picture rendered on the SERVER, with no browser left open — in the background, into exports/;
+# the words are `project export video`'s — packages/file-service/docs/serverRender.md.
+- command: "picture render"
+  sid: picture.render
+  readable:
+    en: "Render the picture on the server"
+    fr: "Rendre l'image sur le serveur"
+  help: "render the picture with no browser left open (e.g. picture render mp4 size=720p) — in the background, into exports/"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: format, optional: true, values: [webm, mp4] },
+      { name: sound, optional: true, values: [wav, none] },
+      { name: settings, optional: true, hint: "size=720p quality=high from=0:10 to=0:40" },
+    ]
 - command: "picture sound"
   sid: picture.sound
   readable:

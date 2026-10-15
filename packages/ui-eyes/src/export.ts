@@ -282,6 +282,8 @@ export async function exportScene(
         let from = false;
         let to = false;
         for (const w of wanted) {
+          // An ACTIVATION names no media: a reader opened on "" reads the page itself, and fails.
+          if (!w.active.clip.src) continue;
           // A CAPTION is the cue at its source time, set once; between cues the slot carries nothing.
           if (w.active.clip.captions) {
             const cue = captions.frame(

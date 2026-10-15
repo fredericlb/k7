@@ -127,6 +127,12 @@ in the export.
 render: `size=720p` (or `size=1280x720`), `quality=low`, `medium`, `high` or `max`, and a range,
 `from=1:30 to=2:00`. A range gives a file that starts at that moment.
 
+`picture render` makes the same file without keeping a browser open: the server renders it in
+the background and puts it in `exports/`, so you can close the tab and come back. It takes the
+same words — `picture render mp4 size=720p from=1:30 to=2:00`, or `none` for a silent film. It
+is slower than the browser, and WebM is the safe choice there: the server may have no MP4
+encoder. A camera lane renders nothing, since there is no live picture to take.
+
 `project export timeline otio` hands the **cut** to another editor instead: every picture lane as
 an OpenTimelineIO timeline, which DaVinci Resolve opens and `otioconvert` turns into Final Cut,
 Premiere or Avid formats. `project export timeline edl main` writes one lane as an EDL, which

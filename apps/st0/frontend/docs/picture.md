@@ -324,6 +324,9 @@ project export audio wav|mp3                   the mix, rendered by the engine
 project export video webm|mp4 [wav|mp3|none]   the picture, rendered here — the sound married in
 ```
 
+The same render runs on the SERVER as `picture render`, in a headless Chromium
+([packages/file-service/docs/serverRender.md](../../../../packages/file-service/docs/serverRender.md)).
+
 `exportScene` (`@studio/ui-eyes`) renders the viewport frame by frame into that container: the
 same compositor as in real time, but frame *n* is second *n/fps* and every source frame is pulled
 EXACTLY, so a song always renders the same picture.

@@ -67,6 +67,7 @@ import {
   moduleFoldersMoved,
   watchModuleFolders,
 } from "./moduleWatch.ts";
+import { renderPicture } from "./pictureRender.ts";
 import { saveTake } from "./recorderSave.ts";
 import { serviceRenderer } from "./renderers.ts";
 import { rootDir, slugify } from "./slug.ts";
@@ -1042,6 +1043,12 @@ function makeHost(
     // Work a verb starts and does not wait for, one run per tag — a transcode (docs/background.md).
     background: (tag: string, work: () => Promise<string>) =>
       runInBackground(tag, work),
+    // The picture rendered in headless Chromium, the progress said in the log every few seconds of song.
+    renderPicture: (opts) =>
+      renderPicture(ws, opts, (frame, total) => {
+        if (frame % 300 === 0)
+          console.log(`   … picture render ${frame}/${total}`);
+      }),
     // A clip's source envelope for `event trim` — the WHOLE file, from THIS workspace's waveform machinery.
     clipEnvelope: async (clip: string) => {
       try {

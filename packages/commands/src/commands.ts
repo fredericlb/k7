@@ -255,6 +255,7 @@ import { PICTURE_IMPORT_VERBS } from "./verbs/pictureImport.ts";
 import { PICTURE_INTERCHANGE_VERBS } from "./verbs/pictureInterchange.ts";
 import { PICTURE_KEY_VERBS } from "./verbs/pictureKeys.ts";
 import { PICTURE_MEDIA_VERBS } from "./verbs/pictureMedia.ts";
+import { PICTURE_RENDER_VERBS } from "./verbs/pictureRender.ts";
 import { PICTURE_SOUND_VERBS } from "./verbs/pictureSound.ts";
 import { PICTURE_SPEED_VERBS } from "./verbs/pictureSpeed.ts";
 import { PLAYLIST_VERBS } from "./verbs/playlist.ts";
@@ -336,6 +337,15 @@ export interface CommandHost {
   renderer?: Renderer;
   /** Run `work` after the command returns, once per tag; false when that tag is already running. Absent, a verb waits for it. */
   background?(tag: string, work: () => Promise<string>): boolean;
+  /** Render the active project's PICTURE with no browser open; the file written, project-relative — packages/file-service/docs/serverRender.md. */
+  renderPicture?(opts: {
+    format: "webm" | "mp4";
+    audio: boolean;
+    from?: number;
+    to?: number;
+    size?: { height: number } | { width: number; height: number };
+    quality?: "low" | "medium" | "high" | "max";
+  }): Promise<string>;
 }
 
 /** The host's renderer, else this machine's engine binary; null when neither can render. */
@@ -3281,6 +3291,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   ...PICTURE_MEDIA_VERBS,
   ...PICTURE_INTERCHANGE_VERBS,
   ...PICTURE_IMPORT_VERBS,
+  ...PICTURE_RENDER_VERBS,
   // …and the lane's DUPLICATE verbs, which copy a chain where `track new` makes one from scratch.
   ...TRACK_VERBS,
   ...NODE_STACK_VERBS,

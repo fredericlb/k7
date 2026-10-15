@@ -7,11 +7,12 @@
 //
 // See ../docs/picture.md.
 
-import {
-  EXPORT_QUALITIES,
-  type ExportQuality,
-} from "@studio/ui-eyes/exportQuality";
+import { EXPORT_QUALITIES } from "@studio/ui-eyes/exportQuality";
 import { VIDEO_FORMATS, type VideoFormat } from "@studio/ui-eyes/exportSupport";
+import {
+  parseVideoSettings,
+  type VideoSettings,
+} from "@studio/ui-eyes/renderSettings";
 
 /** The mixdown formats the file service will render. */
 export const MIX_FORMATS = ["wav", "mp3"] as const;
@@ -33,15 +34,6 @@ export const DEFAULT_VIDEO_AUDIO: MixFormat = "wav";
 export const TIMELINE_FORMATS = ["otio", "edl"] as const;
 export type TimelineFormat = (typeof TIMELINE_FORMATS)[number];
 
-/** The render's own settings, each optional: what a line leaves out is the viewport's, `high`, the whole song. */
-export interface VideoSettings {
-  /** A height in px (`720p`), the width following the viewport's aspect — or both (`1280x720`). */
-  size?: { height: number } | { width: number; height: number };
-  quality?: ExportQuality;
-  from?: number; // seconds
-  to?: number; // seconds
-}
-
 export type ExportAsk =
   | { kind: "audio"; format: MixFormat }
   /** `audio` is absent only when the line asked for a silent film — `video webm none`. */
@@ -60,39 +52,6 @@ const isVideo = (s: string): s is VideoFormat =>
 
 /** The usage line, built from the vocabularies above so it cannot drift from them. */
 export const EXPORT_USAGE = `usage: project export audio <${MIX_FORMATS.join("|")}> · project export video <${VIDEO_FORMATS.join("|")}> [<${MIX_FORMATS.join("|")}>|none] [size=720p|1280x720] [quality=${EXPORT_QUALITIES.join("|")}] [from=<t>] [to=<t>] · project export timeline <${TIMELINE_FORMATS.join("|")}> [lane]`;
-
-/** Seconds, or `m:ss(.s)` — the picture's own spelling of a time; null for anything else. */
-export function parseClock(s: string): number | null {
-  const m = /^(?:(\d+):)?(\d+(?:\.\d+)?)$/.exec(s);
-  if (!m) return null;
-  const sec = Number(m[2]) + (m[1] ? Number(m[1]) * 60 : 0);
-  return Number.isFinite(sec) ? sec : null;
-}
-
-// One `key=value` word of a video line into `into`; false when it is not one this understands.
-function setting(word: string, into: VideoSettings): boolean {
-  const [key, value = ""] = word.split("=", 2);
-  if (key === "size") {
-    const p = /^(\d+)p$/.exec(value);
-    const wh = /^(\d+)x(\d+)$/.exec(value);
-    if (p) into.size = { height: Number(p[1]) };
-    else if (wh) into.size = { width: Number(wh[1]), height: Number(wh[2]) };
-    else return false;
-    return true;
-  }
-  if (key === "quality") {
-    if (!(EXPORT_QUALITIES as readonly string[]).includes(value)) return false;
-    into.quality = value as ExportQuality;
-    return true;
-  }
-  if (key === "from" || key === "to") {
-    const t = parseClock(value);
-    if (t === null) return false;
-    into[key] = t;
-    return true;
-  }
-  return false;
-}
 
 /**
  * Read the rest of a `project export` line, or null when it says nothing this understands.
@@ -133,15 +92,8 @@ export function parseExportAsk(rest: string): ExportAsk | null {
         ? first
         : undefined;
   if (track === undefined) return null;
-  const settings: VideoSettings = {};
-  for (const word of tail.slice(named ? 1 : 0))
-    if (!setting(word.toLowerCase(), settings)) return null;
-  if (
-    settings.from !== undefined &&
-    settings.to !== undefined &&
-    settings.to <= settings.from
-  )
-    return null;
+  const settings = parseVideoSettings(tail.slice(named ? 1 : 0));
+  if (!settings) return null;
   return {
     kind: "video",
     format: format as VideoFormat,
@@ -149,3 +101,5 @@ export function parseExportAsk(rest: string): ExportAsk | null {
     settings,
   };
 }
+
+export { parseClock, type VideoSettings } from "@studio/ui-eyes/renderSettings";
