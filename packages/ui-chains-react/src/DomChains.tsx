@@ -120,11 +120,7 @@ import {
   newSway,
   stepSway,
 } from "@studio/ui-chains/hang";
-import {
-  compileWidgetsScript,
-  hiddenWidgets,
-  type LcdSounds,
-} from "@studio/ui-chains/lcdScreen";
+import type { LcdSounds } from "@studio/ui-chains/lcdScreen";
 import {
   linkedNodes,
   linkedValue,
@@ -199,6 +195,7 @@ import { type NodeEngines, PresetButton } from "./PresetButton";
 import { Seams } from "./Seams";
 import { type TapAction, TapWidget } from "./TapWidget";
 import { ValueEditor } from "./ValueEditor";
+import { useHiddenWidgets } from "./widgetScript";
 
 /** A play button on the SINK node, opt-in and absent by default — docs/hosting.md. */
 export interface SinkPlay {
@@ -2193,13 +2190,11 @@ function NodeInner({
   const tabs = n.ui?.tabs ?? [];
   const openTab = tabs.length ? Math.min(tabAt, tabs.length - 1) : -1;
   // What the grid draws: the widgets every tab shows, then the open tab's, less those widgets.js's `visible` hides.
-  const hidden = n.ui?.script
-    ? hiddenWidgets(compileWidgetsScript(n.ui.script), {
-        params: n.params ?? {},
-        assets: n.assets ?? {},
-        ampModel: n.ampModel,
-      })
-    : null;
+  const hidden = useHiddenWidgets(n.ui?.script, {
+    params: n.params ?? {},
+    assets: n.assets ?? {},
+    ampModel: n.ampModel,
+  });
   const shownWidgets = n.ui
     ? Object.fromEntries(
         Object.entries({
