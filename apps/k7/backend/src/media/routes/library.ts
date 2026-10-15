@@ -17,7 +17,7 @@ import {
   exists,
   NotWritableError,
   PathEscapesError,
-  safePath,
+  readablePath,
 } from "@studio/mediatek/layout";
 import { manifest } from "@studio/mediatek/manifest";
 import { extOf, mimeFor } from "@studio/mediatek/media";
@@ -108,7 +108,7 @@ libraryRouter.get(
   }),
 );
 
-/** One file's bytes, with Range; `safePath` is the ONLY wall between the query string and disk. */
+/** One file's bytes, with Range; `readablePath` is the ONLY wall between the query string and disk. */
 libraryRouter.get(
   "/file",
   wrap((req, res) => {
@@ -116,7 +116,7 @@ libraryRouter.get(
     if (!rel) return res.status(400).json({ error: "path required" });
     let abs: string;
     try {
-      abs = safePath(rel);
+      abs = readablePath(rel);
     } catch (e) {
       if (e instanceof PathEscapesError)
         return res.status(400).json({ error: e.message });
@@ -140,7 +140,7 @@ libraryRouter.get(
     if (!rel) return res.status(400).json({ error: "path required" });
     let abs: string;
     try {
-      abs = safePath(rel);
+      abs = readablePath(rel);
     } catch (e) {
       if (e instanceof PathEscapesError)
         return res.status(400).json({ error: e.message });
@@ -316,7 +316,7 @@ libraryRouter.post(
 
     let source: string;
     try {
-      source = safePath(path);
+      source = readablePath(path);
     } catch (e) {
       if (e instanceof PathEscapesError)
         return res.status(400).json({ error: e.message });
@@ -365,7 +365,7 @@ libraryRouter.get(
 
     let source: string;
     try {
-      source = safePath(path);
+      source = readablePath(path);
     } catch (e) {
       if (e instanceof PathEscapesError)
         return res.status(400).json({ error: e.message });
