@@ -19,6 +19,7 @@
     "./groupEdge": "./src/groupEdge.ts",
     "./hang": "./src/hang.ts",
     "./lcdScreen": "./src/lcdScreen.ts",
+    "./widgetSandbox": "./src/widgetSandbox.ts",
     "./modulePreview": "./src/modulePreview.ts",
     "./multiSelect": "./src/multiSelect.ts",
     "./stackLayout": "./src/stackLayout.ts",

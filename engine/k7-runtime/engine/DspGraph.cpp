@@ -1,6 +1,7 @@
 #include "DspGraph.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
 #include <limits>
 
@@ -19,6 +20,13 @@ constexpr int maxNoteEvents = 256;
 
 // A wire's value, or `fallback` when it is NaN or infinite: jlimit lets a NaN through, and a NaN reaching a filter or an index never leaves.
 inline float finiteOr(float v, float fallback) { return std::isfinite(v) ? v : fallback; }
+
+// The longest delay line a graph may ask for: a minute, which bounds its allocation at any rate a device opens.
+constexpr float kMaxDelayMs = 60000.0f;
+
+// A graph is a few hundred bytes a few levels deep; these only stop a hostile text before the parser meets it.
+constexpr int kMaxSourceBytes = 1 << 20;
+constexpr int kMaxSourceDepth = 32;
 
 // The slowest tempo a musical step is read at: at zero, one step would last forever.
 constexpr double minSecondsPerBeat = 60.0 / 300.0;
@@ -59,6 +67,34 @@ int DspGraph::awire(const juce::var& v)
             return i;
     aNames_.push_back(name);
     return (int)aNames_.size() - 1;
+}
+
+std::unique_ptr<DspGraph> DspGraph::fromJson(const juce::String& json, juce::String& error)
+{
+    const char* text = json.toRawUTF8();
+    const size_t size = json.getNumBytesAsUTF8();
+    if (size > (size_t)kMaxSourceBytes) {
+        error = "graph description is over 1 MiB";
+        return nullptr;
+    }
+    int depth = 0;
+    bool inString = false, escaped = false;
+    for (size_t i = 0; i < size; ++i) {
+        const char c = text[i];
+        if (inString) {
+            if (escaped) escaped = false;
+            else if (c == '\\') escaped = true;
+            else if (c == '"') inString = false;
+        } else if (c == '"') {
+            inString = true;
+        } else if ((c == '[' || c == '{') && ++depth > kMaxSourceDepth) {
+            error = "graph description nests deeper than " + juce::String(kMaxSourceDepth) + " levels";
+            return nullptr;
+        } else if (c == ']' || c == '}') {
+            --depth;
+        }
+    }
+    return build(juce::JSON::parse(json), error);
 }
 
 std::unique_ptr<DspGraph> DspGraph::build(const juce::var& description, juce::String& error)
@@ -174,7 +210,8 @@ std::unique_ptr<DspGraph> DspGraph::build(const juce::var& description, juce::St
                                          : Kind::atanh;
             if (node.kind == Kind::ain) {
                 // Which of the MODULE's input ports this reads; absent is the first, the chain's own flow.
-                node.mode = juce::jmax(0, (int)o->getProperty("port"));
+                const double port = o->getProperty("port");
+                node.mode = (int)juce::jlimit(0.0, (double)(MAX_CHANS / 2 - 1), std::isfinite(port) ? port : 0.0);
                 g->numInputs_ = juce::jmax(g->numInputs_, node.mode + 1);
             }
             if (node.kind == Kind::alfo) {
@@ -182,7 +219,7 @@ std::unique_ptr<DspGraph> DspGraph::build(const juce::var& description, juce::St
                 node.mode = sh == "triangle" ? 1 : sh == "saw" ? 2 : sh == "square" ? 3 : 0;
             }
             if (node.kind == Kind::adelay) {
-                node.maxMs = juce::jmax(1.0f, (float)(double)o->getProperty("maxMs"));
+                node.maxMs = juce::jlimit(1.0f, kMaxDelayMs, finiteOr((float)(double)o->getProperty("maxMs"), 1.0f));
                 node.delayLine = (int)g->delayLines_.size();
                 g->delayLines_.emplace_back();
                 g->delayWrite_.push_back(0);
@@ -237,8 +274,8 @@ void DspGraph::prepare(double sampleRate, int maxBlockSize)
         if (n.kind == Kind::adelay && n.delayLine >= 0
             && (size_t)n.delayLine < delayLines_.size()) {
             // Rounded UP to a power of two so the wrap is a mask rather than four integer divisions per sample.
-            const int need = juce::jmax(2, (int)std::ceil(n.maxMs * 0.001 * sampleRate) + 2);
-            int len = 2;
+            const auto need = std::max<std::int64_t>(2, (std::int64_t)std::ceil(n.maxMs * 0.001 * sampleRate) + 2);
+            std::int64_t len = 2;
             while (len < need) len <<= 1;
             for (auto& ch : delayLines_[(size_t)n.delayLine])
                 ch.assign((size_t)len, 0.0f);

@@ -63,7 +63,9 @@ What it does have are two **ceilings**: an id longer than 256 bytes is refused, 
 message naming a NEW session once the engine holds 64. The second is the one that bounds the map —
 a length bounds an id, not how many ids a client can name — and each session carries a broadcast
 ring and is walked by the state tick twenty times a second. A message about a session that exists
-is always answered.
+is always answered. Probes are exempt from the count, since they create nothing — except a `whoami`
+or `hello` with `role: "driver"`, which does, and so counts; `EngineHost::addDriver` holds the same
+ceiling itself, as the one place a driver's session comes into being.
 
 The transport's `stop`, `panic` and `flush` use `find()` too: stopping a project nobody sent has
 an obvious answer, which is to do nothing.

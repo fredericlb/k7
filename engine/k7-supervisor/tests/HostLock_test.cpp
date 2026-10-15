@@ -91,10 +91,28 @@ void aLockNamingSomebodyElseIsNotOverwritten()
     CHECK(fs::exists(k7::paths::hostPid()));
 }
 
+// A lock just created and not yet written is another supervisor's, not a stale one to remove.
+void aFreshLockNamingNobodyIsHeld()
+{
+    scratch();
+    std::ofstream(k7::paths::hostPid()).flush();
+    CHECK(k7::hostlock::heldBy() == -1);
+    CHECK(k7::hostlock::acquire() == -1);
+    CHECK(fs::exists(k7::paths::hostPid()));
+    k7::filetime::setMtimeMs(k7::paths::hostPid(), nowMs() - 20000);
+    CHECK(k7::hostlock::acquire() == 0);
+    std::ifstream in(k7::paths::hostPid());
+    int pid = 0;
+    in >> pid;
+    CHECK(pid == k7::process::currentPid());
+    k7::hostlock::release();
+}
+
 }  // namespace
 
 void runHostLockTests()
 {
+    RUN(aFreshLockNamingNobodyIsHeld);
     RUN(aRefreshedLockIsRefused);
     RUN(aStaleLockIsTakenEvenWhenItsPidLives);
     RUN(aLockNamingSomebodyElseIsNotOverwritten);

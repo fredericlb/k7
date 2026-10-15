@@ -1,5 +1,6 @@
-// ServePairing.cpp — the gate every message passes first: a loopback peer drives, a LAN peer drives once paired,
-// and approving a device is the machine's own business. The verbs and the flow are in docs/pairing.md.
+// ServePairing.cpp — the gate every message passes first: a page from a site not allowed is closed at its
+// handshake, a loopback peer drives, a LAN peer drives once paired, and approving a device is the machine's
+// own business. The verbs and the flow are in docs/pairing.md.
 // The one thing a reader would get wrong: relayed traffic (tunnel, WebRTC) reaches us from loopback, and is trusted.
 
 #include "ServeContext.h"
@@ -16,6 +17,9 @@ namespace {
 // What only the machine itself may ask: a paired phone cannot approve a second one, nor list what pairs it.
 const std::unordered_set<std::string> kLocalOnly = {"pair-approve", "pair-deny", "list-pair-requests",
                                                     "list-paired-devices", "unpair-device"};
+
+// The largest frame a socket not yet trusted may send: a pairing request or a probe is well under a kilobyte.
+constexpr size_t kMaxUntrustedBytes = 16 * 1024;
 
 json requestsJson(Pairing& p) {
     json arr = json::array();
@@ -41,6 +45,7 @@ void untrust(ServeContext& ctx, const ix::WebSocket* ws) {
     std::lock_guard<std::mutex> lk(ctx.trustMx);
     ctx.trusted.erase(ws);
     ctx.local.erase(ws);
+    ctx.refused.erase(ws);
 }
 
 void refuse(ix::WebSocket& ws, const std::string& code, const std::string& message) {
@@ -48,6 +53,31 @@ void refuse(ix::WebSocket& ws, const std::string& code, const std::string& messa
 }
 
 }  // namespace
+
+bool screenOrigin(ServeContext& ctx, ix::WebSocket& ws, const ix::WebSocketMessagePtr& msg) {
+    if (msg->type == ix::WebSocketMessageType::Open) {
+        // No Origin is a native client — the supervisor, Node, the desktop app's main process — and passes.
+        const auto& headers = msg->openInfo.headers;
+        const auto origin = headers.find("Origin");
+        if (origin == headers.end() || originAllowed(origin->second, ctx.allowedOrigins)) return false;
+        {
+            std::lock_guard<std::mutex> lk(ctx.trustMx);
+            ctx.refused.insert(&ws);
+        }
+        std::cerr << "[client] refused a page from '" << origin->second << "' (docs/pairing.md)\n";
+        ws.close(1008, "origin not allowed");
+        return true;
+    }
+    if (msg->type == ix::WebSocketMessageType::Close) return false;
+    std::lock_guard<std::mutex> lk(ctx.trustMx);
+    return ctx.refused.count(&ws) != 0;
+}
+
+bool screenFrameSize(ServeContext& ctx, ix::WebSocket& ws, const std::string& peerIp, size_t bytes) {
+    if (bytes <= kMaxUntrustedBytes || isLoopbackAddress(peerIp) || ctx.isTrusted(&ws)) return false;
+    refuse(ws, "unpaired", "this frame is too large for a device that is not paired");
+    return true;
+}
 
 bool screenMessage(ServeContext& ctx, ix::WebSocket& ws, const std::string& peerIp, const json& j,
                    const std::string& type) {
@@ -75,7 +105,7 @@ bool screenMessage(ServeContext& ctx, ix::WebSocket& ws, const std::string& peer
     if (type == "pair") {
         const auto key = j.value("key", std::string{});
         // The engine's own token pairs too: it is what the server holds, for a relay dialling us over the LAN.
-        if (!key.empty() && key == ctx.engineToken) {
+        if (!key.empty() && sameKey(key, ctx.engineToken)) {
             trust(ctx, &ws, false);
             ws.send(json{{"type", "paired"}}.dump());
             return true;

@@ -14,6 +14,7 @@ import {
   type HubMessage,
   TUNNEL_PATH,
   TUNNEL_RENDER_KEY_HEADER,
+  TUNNEL_SECRET_HEADER,
   TUNNEL_TOKEN_HEADER,
   type TunnelRoot,
 } from "./frames.ts";
@@ -25,6 +26,8 @@ export interface TunnelAgentOptions {
   registryUrl: string;
   id: string;
   token: string;
+  /** The machine's tunnel secret, which binds `id` to it at the registry; absent, the tunnel is a legacy one. */
+  tunnelSecret?: string;
   /** The server's render key: sent when set, so this machine renders for that server — docs/jobs.md. */
   renderKey?: string;
   enginePort: number;
@@ -113,6 +116,9 @@ export class TunnelAgent {
     const ws = new WebSocket(tunnelUrl(this.opts.registryUrl, this.opts.id), {
       headers: {
         [TUNNEL_TOKEN_HEADER]: this.opts.token,
+        ...(this.opts.tunnelSecret
+          ? { [TUNNEL_SECRET_HEADER]: this.opts.tunnelSecret }
+          : {}),
         ...(this.opts.renderKey
           ? { [TUNNEL_RENDER_KEY_HEADER]: this.opts.renderKey }
           : {}),
@@ -133,9 +139,14 @@ export class TunnelAgent {
     ws.on("pong", () => {
       this.alive = true;
     });
+    // Guarded: a throw in a socket listener ends the supervisor, so a bad frame from the hub is said and dropped.
     ws.on("message", (data, isBinary) => {
-      if (isBinary) this.onBinary(asBuffer(data as Buffer));
-      else this.onText(asBuffer(data as Buffer).toString("utf8"));
+      try {
+        if (isBinary) this.onBinary(asBuffer(data as Buffer));
+        else this.onText(asBuffer(data as Buffer).toString("utf8"));
+      } catch (e) {
+        this.log(`bad frame from the hub: ${(e as Error).message}`);
+      }
     });
     ws.on("error", () => {});
     ws.on("close", () => {
@@ -165,6 +176,7 @@ export class TunnelAgent {
     } catch {
       return;
     }
+    if (typeof m !== "object" || m === null) return;
     switch (m.t) {
       case "open":
         this.openChannel(m.ch, m.roots, m.kind ?? "engine", m.synced ?? false);
@@ -255,9 +267,14 @@ export class TunnelAgent {
     };
     this.channels.set(ch, c);
     engine.on("open", () => this.tell({ t: "opened", ch }));
-    engine.on("message", (data, isBinary) =>
-      this.toHub(ch, asBuffer(data as Buffer), isBinary),
-    );
+    engine.on("message", (data, isBinary) => {
+      try {
+        this.toHub(ch, asBuffer(data as Buffer), isBinary);
+      } catch (e) {
+        this.log(`ch${ch}: ${(e as Error).message}`);
+        engine.terminate();
+      }
+    });
     engine.on("error", (e) => this.tell({ t: "close", ch, reason: e.message }));
     engine.on("close", () => {
       if (this.channels.get(ch) !== c) return;

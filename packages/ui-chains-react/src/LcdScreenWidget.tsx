@@ -1,32 +1,24 @@
 // LcdScreenWidget.tsx — an lcdscreen widget: a <canvas> behind LCD glass, painted by the function
-// the panel's `widgets.js` keeps under this widget's id. It feeds that function the module's
-// live params and both of its audio taps, and repaints only when one of them moved — the loop
-// rules are the waveform's (docs/waveformWidget.md). An INTERACTIVE screen also gets the pointer and
-// sets params through the host's LcdSetContext. The contract: docs/lcdScreen.md.
+// the panel's `widgets.js` keeps under this widget's id. The script draws in the widget sandbox,
+// never in the page, and sends back a bitmap; this side only sends it the module's live params
+// and both audio taps when one of them moved (the loop rules are the waveform's,
+// docs/waveformWidget.md). An INTERACTIVE screen also forwards the pointer and applies the params
+// the script set through the host's LcdSetContext. The contract and the sandbox: docs/lcdScreen.md.
 
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { useEngineStoreOrNull } from "@studio/engine-browser/store";
 import { WOBBLE_FPS } from "@studio/ui-chains/cableCanvas";
 import type { GraphNode } from "@studio/ui-chains/graph";
 import {
-  compileWidgetsScript,
   LCD_COLORS,
-  type LcdDraw,
-  type LcdFrame,
-  type LcdPointer,
   type LcdPointerEvent,
   type LcdSounds,
   TapHistory,
 } from "@studio/ui-chains/lcdScreen";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type DrawData, widgetSandbox } from "@studio/ui-chains/widgetSandbox";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { LcdZoomContext, lcdBackingScale } from "./lcdZoom";
+import { useSandboxGeneration, useScriptInfo } from "./widgetScript";
 
 /** How a screen changes its module: live while `commit` is false, written into the file when it is true. */
 export type LcdSet = (
@@ -43,6 +35,25 @@ export const LcdSoundsContext = createContext<LcdSounds | null>(null);
 const NOOP = (): void => {};
 type Side = "input" | "output";
 const SIDES: readonly Side[] = ["input", "output"];
+
+// Show a bitmap the sandbox drew: handed over without a copy where the browser can, else drawn.
+function present(canvas: HTMLCanvasElement, bitmap: ImageBitmap | null): void {
+  const w = bitmap?.width ?? 0;
+  const h = bitmap?.height ?? 0;
+  if (bitmap && (canvas.width !== w || canvas.height !== h)) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+  const br = canvas.getContext("bitmaprenderer");
+  if (br) {
+    br.transferFromImageBitmap(bitmap);
+    return;
+  }
+  const ctx = canvas.getContext("2d");
+  ctx?.clearRect(0, 0, canvas.width, canvas.height);
+  if (bitmap) ctx?.drawImage(bitmap, 0, 0);
+  bitmap?.close();
+}
 
 export function LcdScreenWidget({
   n,
@@ -61,11 +72,12 @@ export function LcdScreenWidget({
   override: Record<string, number>;
   onWatch?: (pluginId: string, side: Side, on: boolean) => void;
 }) {
+  const sb = widgetSandbox();
+  const gen = useSandboxGeneration(sb);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pluginId = n.pluginId ?? null;
-  const script = compileWidgetsScript(n.ui?.script);
-  const draw = script.draws[id];
-  const pointer = script.pointers[id];
+  const source = n.ui?.script;
+  const info = useScriptInfo(source);
   const lcdSet = useContext(LcdSetContext);
   const sounds = useContext(LcdSoundsContext);
   const soundsRef = useRef(sounds);
@@ -75,37 +87,35 @@ export function LcdScreenWidget({
   zoomRef.current = zoom;
   // A draw that threw is not called again until its script changes: a throw per frame is a frozen tab.
   const [crash, setCrash] = useState<{ source?: string; message: string }>();
-  const crashed =
-    crash && crash.source === n.ui?.script ? crash.message : undefined;
-  const message = script.error
-    ? `widgets.js: ${script.error}`
-    : !n.ui?.script
-      ? "no widgets.js"
-      : !draw
-        ? `widgets.js has no "${id}"`
-        : crashed
-          ? `${id}: ${crashed}`
-          : undefined;
+  const crashed = crash && crash.source === source ? crash.message : undefined;
+  const message = !source
+    ? "no widgets.js"
+    : !info
+      ? undefined
+      : info.error
+        ? `widgets.js: ${info.error}`
+        : !info.draws.includes(id)
+          ? `widgets.js has no "${id}"`
+          : crashed
+            ? `${id}: ${crashed}`
+            : undefined;
+  const drawable = !!info && !message;
 
-  const drawRef = useRef<LcdDraw | undefined>(draw);
-  drawRef.current = message ? undefined : draw;
-  const pointerRef = useRef<LcdPointer | undefined>(pointer);
-  pointerRef.current = message || !lcdSet ? undefined : pointer;
+  const drawableRef = useRef(drawable);
+  drawableRef.current = drawable;
+  const interactive = drawable && !!lcdSet && !!info?.pointers.includes(id);
   const setRef = useRef(lcdSet);
   setRef.current = lcdSet;
   const nodeRef = useRef(n);
   nodeRef.current = n;
-  const interactive = !!pointerRef.current;
-  // The file a slot names, as the node's assets say, through the host's decoder.
-  const soundOf = useCallback((slot: string): Float32Array | null => {
-    const ref = nodeRef.current.assets?.[slot];
-    return ref ? (soundsRef.current?.get(ref) ?? null) : null;
-  }, []);
-  const sourceRef = useRef(n.ui?.script);
-  sourceRef.current = n.ui?.script;
+  const sourceRef = useRef(source);
+  sourceRef.current = source;
+  const idRef = useRef(id);
+  idRef.current = id;
+  // The sandbox's handle on this canvas, set while it is attached.
+  const screenRef = useRef<number | null>(null);
   const dirtyRef = useRef(true);
   const wakeRef = useRef<() => void>(NOOP);
-  const stateRef = useRef<Record<string, unknown>>({});
   const tapsRef = useRef({ input: new TapHistory(), output: new TapHistory() });
 
   // Authored, then what the engine reports, then what a drag holds — the order every widget reads in.
@@ -132,7 +142,7 @@ export function LcdScreenWidget({
   mergeParams();
   const mergeRef = useRef(mergeParams);
   mergeRef.current = mergeParams;
-  // A render is a param or an override moving, and either is a repaint.
+  // A render is a param, an override or the script's answer moving, and each is a repaint.
   useEffect(() => {
     dirtyRef.current = true;
     wakeRef.current();
@@ -189,18 +199,53 @@ export function LcdScreenWidget({
     };
   }, [pluginId, onWatch]);
 
+  // The sounds the script asked for, and the copy of each the sandbox already holds.
+  const askedRef = useRef(new Set<string>());
+  const sentRef = useRef(new Map<string, Float32Array | null>());
+  const frameData = (W: number, H: number, scale: number): DrawData => {
+    const changed: Record<string, Float32Array | null> = {};
+    let any = false;
+    for (const slot of askedRef.current) {
+      const ref = nodeRef.current.assets?.[slot];
+      const data = ref ? (soundsRef.current?.get(ref) ?? null) : null;
+      if (sentRef.current.has(slot) && sentRef.current.get(slot) === data)
+        continue;
+      sentRef.current.set(slot, data);
+      changed[slot] = data;
+      any = true;
+    }
+    return {
+      width: W,
+      height: H,
+      scale,
+      params: paramsRef.current,
+      input: tapsRef.current.input.points,
+      output: tapsRef.current.output.points,
+      color: LCD_COLORS,
+      now: performance.now(),
+      ...(any ? { sounds: changed } : {}),
+    };
+  };
+  const frameRef = useRef(frameData);
+  frameRef.current = frameData;
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `gen` re-opens the screen in a rebuilt sandbox.
   useEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
+    if (!canvas) return;
+    const screen = sb.attach();
+    if (screen === null) return;
+    screenRef.current = screen;
+    sentRef.current = new Map();
     let W = 0;
     let H = 0;
-    let appliedScale = 0;
     let raf = 0;
     let last = 0;
+    let inflight = false;
+    let live = true;
     const minDt = 1000 / WOBBLE_FPS;
 
-    const paint = (now: number): void => {
+    const paint = (): void => {
       // Sized for the camera too, since the card sits under its CSS scale — docs/lcdScreen.md.
       const scale = lcdBackingScale(
         window.devicePixelRatio || 1,
@@ -208,59 +253,48 @@ export function LcdScreenWidget({
         W,
         H,
       );
-      const bw = Math.round(W * scale);
-      const bh = Math.round(H * scale);
-      if (
-        appliedScale !== scale ||
-        canvas.width !== bw ||
-        canvas.height !== bh
-      ) {
-        canvas.width = bw;
-        canvas.height = bh;
-        appliedScale = scale;
+      const src = sourceRef.current;
+      // Nothing to draw, or a draw that threw: the glass is cleared here, with no round trip.
+      if (!drawableRef.current || !src) {
+        present(canvas, null);
+        return;
       }
-      // Reset every frame: the script may leave any transform, clip or style behind.
-      ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      ctx.clearRect(0, 0, W, H);
-      const f = drawRef.current;
-      if (!f) return;
-      const frame: LcdFrame = {
-        ctx,
-        width: W,
-        height: H,
-        params: paramsRef.current,
-        input: tapsRef.current.input.points,
-        output: tapsRef.current.output.points,
-        state: stateRef.current,
-        color: LCD_COLORS,
-        sound: soundOf,
-        now,
-      };
-      ctx.save();
-      try {
-        f(frame);
-      } catch (e) {
-        drawRef.current = undefined;
-        setCrash({ source: sourceRef.current, message: (e as Error).message });
-      } finally {
-        ctx.restore();
-      }
+      inflight = true;
+      sb.draw(screen, src, idRef.current, frameRef.current(W, H, scale)).then(
+        (r) => {
+          inflight = false;
+          if (!live) {
+            r.bitmap?.close();
+            return;
+          }
+          if (r.bitmap) present(canvas, r.bitmap);
+          if (r.error) setCrash({ source: src, message: r.error });
+          let fresh = false;
+          for (const slot of r.asked ?? [])
+            if (!askedRef.current.has(slot)) {
+              askedRef.current.add(slot);
+              fresh = true;
+            }
+          if (fresh) dirtyRef.current = true;
+          if (dirtyRef.current) wake();
+        },
+      );
     };
 
-    // Started by data, stopped by stillness: a silent module schedules no frames at all.
+    // Started by data, stopped by stillness, one frame in flight: a silent module schedules nothing.
     const tick = (now: number): void => {
       raf = 0;
-      if (!dirtyRef.current || W <= 0 || H <= 0) return;
+      if (!dirtyRef.current || inflight || W <= 0 || H <= 0) return;
       if (now - last < minDt) {
         raf = requestAnimationFrame(tick);
         return;
       }
       last = now;
       dirtyRef.current = false;
-      paint(now);
+      paint();
     };
     const wake = (): void => {
-      if (!raf) raf = requestAnimationFrame(tick);
+      if (!raf && live) raf = requestAnimationFrame(tick);
     };
     wakeRef.current = wake;
 
@@ -280,20 +314,24 @@ export function LcdScreenWidget({
     });
     wake();
     return () => {
+      live = false;
       ro.disconnect();
       unzoom?.();
       if (raf) cancelAnimationFrame(raf);
       wakeRef.current = NOOP;
+      screenRef.current = null;
+      sb.detach(screen);
     };
-  }, [soundOf]);
+  }, [sb, gen]);
 
-  // The pointer, native so a press the script takes never pans the graph — docs/lcdScreen.md.
   useEffect(() => {
+    // The pointer, native so a press the script takes never pans the graph — docs/lcdScreen.md.
     const canvas = canvasRef.current;
     if (!canvas || !interactive) return;
     let gesture: Record<string, number> | null = null;
     let pending: Record<string, number> = {};
     let raf = 0;
+    let live = true;
     const flushLive = (): void => {
       raf = 0;
       const out = pending;
@@ -301,13 +339,15 @@ export function LcdScreenWidget({
       if (Object.keys(out).length)
         setRef.current?.(nodeRef.current, out, false);
     };
+    // Each answer applies its sets in the order the events went, since the sandbox answers in order.
     const run = (
       e: PointerEvent,
       type: LcdPointerEvent["type"],
       into: Record<string, number>,
-    ): boolean => {
-      const f = pointerRef.current;
-      if (!f) return false;
+    ): Promise<void> => {
+      const screen = screenRef.current;
+      const src = sourceRef.current;
+      if (screen === null || !src) return Promise.resolve();
       const box = canvas.getBoundingClientRect();
       // The card is drawn under the camera's scale, and the script works in the canvas's own pixels.
       const sx = box.width > 0 ? canvas.clientWidth / box.width : 1;
@@ -319,43 +359,35 @@ export function LcdScreenWidget({
         shift: e.shiftKey,
         alt: e.altKey,
       };
-      let took: boolean | undefined;
-      try {
-        took = f(
-          {
-            width: canvas.clientWidth,
-            height: canvas.clientHeight,
-            params: paramsRef.current,
-            input: tapsRef.current.input.points,
-            output: tapsRef.current.output.points,
-            state: stateRef.current,
-            color: LCD_COLORS,
-            sound: soundOf,
-            now: performance.now(),
-            set(name, value) {
-              if (typeof value !== "number" || !Number.isFinite(value)) return;
-              into[name] = value;
-              pending[name] = value;
-              heldRef.current = { ...heldRef.current, [name]: value };
-              mergeRef.current();
-              if (!raf) raf = requestAnimationFrame(flushLive);
-            },
-          },
-          ev,
-        );
-      } catch (err) {
-        pointerRef.current = undefined;
-        setCrash({
-          source: sourceRef.current,
-          message: (err as Error).message,
-        });
-        return false;
-      }
-      dirtyRef.current = true;
-      wakeRef.current();
-      return !!took;
+      const frame = frameRef.current(
+        canvas.clientWidth,
+        canvas.clientHeight,
+        1,
+      );
+      return sb.pointer(screen, src, idRef.current, frame, ev).then((r) => {
+        if (!live) return;
+        if (r.error) {
+          setCrash({ source: src, message: r.error });
+          return;
+        }
+        let moved = false;
+        for (const [name, value] of Object.entries(r.sets)) {
+          if (typeof value !== "number" || !Number.isFinite(value)) continue;
+          into[name] = value;
+          pending[name] = value;
+          heldRef.current = { ...heldRef.current, [name]: value };
+          moved = true;
+        }
+        if (moved) {
+          mergeRef.current();
+          if (!raf) raf = requestAnimationFrame(flushLive);
+        }
+        dirtyRef.current = true;
+        wakeRef.current();
+      });
     };
     const commit = (set: Record<string, number>): void => {
+      if (!live) return;
       if (raf) {
         cancelAnimationFrame(raf);
         flushLive();
@@ -379,21 +411,21 @@ export function LcdScreenWidget({
       if (!gesture) return;
       const set = gesture;
       gesture = null;
-      run(e, "up", set);
-      commit(set);
+      run(e, "up", set).then(() => commit(set));
     };
     canvas.addEventListener("pointerdown", down);
     canvas.addEventListener("pointermove", move);
     canvas.addEventListener("pointerup", up);
     canvas.addEventListener("pointercancel", up);
     return () => {
+      live = false;
       canvas.removeEventListener("pointerdown", down);
       canvas.removeEventListener("pointermove", move);
       canvas.removeEventListener("pointerup", up);
       canvas.removeEventListener("pointercancel", up);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [interactive, soundOf]);
+  }, [sb, interactive]);
 
   return (
     <div

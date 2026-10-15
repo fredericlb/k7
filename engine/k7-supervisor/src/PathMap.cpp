@@ -61,7 +61,95 @@ void collect(const ojson& v, const F& keep, std::set<std::string>& into)
 
 const char kSep = static_cast<char>(fs::path::preferred_separator);
 
+#ifdef _WIN32
+const char* const kSeps = "\\/";
+#else
+const char* const kSeps = "/";
+#endif
+
+/** `p` without the empty last element a trailing separator leaves, once lexically normal. */
+fs::path normalised(const fs::path& p)
+{
+    fs::path n = p.lexically_normal();
+    if (!n.has_filename() && n.has_relative_path()) n = n.parent_path();
+    return n;
+}
+
+/** Whether `p` is `root` or below it, compared element by element, never as a string prefix. */
+bool lexicallyInside(const fs::path& root, const fs::path& p)
+{
+    const fs::path a = normalised(root);
+    const fs::path b = normalised(p);
+    auto bi = b.begin();
+    for (auto ai = a.begin(); ai != a.end(); ++ai, ++bi)
+        if (bi == b.end() || *ai != *bi) return false;
+    for (; bi != b.end(); ++bi)
+        if (*bi == "..") return false;
+    return true;
+}
+
 }  // namespace
+
+bool reservedDeviceName(const std::string& seg)
+{
+    // Windows opens a DEVICE for these whatever follows the first dot, and a copy made on Linux reaches Windows.
+    std::string base = seg.substr(0, seg.find('.'));
+    while (!base.empty() && base.back() == ' ') base.pop_back();
+    for (char& c : base)
+        if (c >= 'a' && c <= 'z') c = static_cast<char>(c - 'a' + 'A');
+    if (base == "CON" || base == "PRN" || base == "AUX" || base == "NUL" || base == "CONIN$" || base == "CONOUT$") return true;
+    if (base.rfind("COM", 0) != 0 && base.rfind("LPT", 0) != 0) return false;
+    const std::string n = base.substr(3);
+    return (n.size() == 1 && n[0] >= '0' && n[0] <= '9') || n == "\xC2\xB9" || n == "\xC2\xB2" || n == "\xC2\xB3";
+}
+
+bool safeSegment(const std::string& seg)
+{
+    if (reservedDeviceName(seg)) return false;
+    // Dots and spaces alone are refused whole: Windows trims `.. ` to `..`, and `...` names nothing anywhere.
+    if (seg.find_first_not_of(". ") == std::string::npos) return false;
+    for (const unsigned char c : seg)
+        if (c < 0x20 || c == 0x7f || c == '/' || c == '\\' || c == ':') return false;
+#ifdef _WIN32
+    if (seg.back() == '.' || seg.back() == ' ') return false;
+#endif
+    return true;
+}
+
+std::optional<std::string> joinUnder(const std::string& localRoot, const std::string& rest)
+{
+    const fs::path root = paths::fromUtf8(localRoot);
+    fs::path out = root;
+    for (size_t start = 0;;) {
+        const size_t slash = rest.find('/', start);
+        const std::string seg = rest.substr(start, slash == std::string::npos ? std::string::npos : slash - start);
+        if (!safeSegment(seg)) return std::nullopt;
+        out /= paths::fromUtf8(seg);
+        if (slash == std::string::npos) break;
+        start = slash + 1;
+    }
+    if (!lexicallyInside(root, out)) return std::nullopt;
+    return paths::utf8(out);
+}
+
+std::optional<std::string> relativeUnder(const std::string& localRoot, const std::string& local)
+{
+    if (local == localRoot) return std::string();
+    const std::string prefix = localRoot + kSep;
+    if (local.rfind(prefix, 0) != 0) return std::nullopt;
+    std::string rel;
+    for (size_t start = prefix.size();;) {
+        const size_t end = local.find_first_of(kSeps, start);
+        const std::string seg = local.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        if (!safeSegment(seg)) return std::nullopt;
+        if (!rel.empty()) rel += '/';
+        rel += seg;
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+    if (!lexicallyInside(paths::fromUtf8(localRoot), paths::fromUtf8(local))) return std::nullopt;
+    return rel;
+}
 
 std::optional<SyncLedger::Synced> SyncLedger::get(const std::string& local)
 {
@@ -184,18 +272,7 @@ std::optional<std::string> PathMap::canonical(const std::string& remote) const
         if (remote == r.remote) return r.local;
         const std::string prefix = r.remote + "/";
         if (remote.rfind(prefix, 0) != 0) continue;
-        fs::path out = paths::fromUtf8(r.local);
-        std::string rest = remote.substr(prefix.size());
-        for (size_t start = 0;;) {
-            const size_t slash = rest.find('/', start);
-            const std::string seg = rest.substr(start, slash == std::string::npos ? std::string::npos : slash - start);
-            // A path that climbs, or an empty segment, is refused rather than resolved.
-            if (seg.empty() || seg == "..") return std::nullopt;
-            out /= paths::fromUtf8(seg);
-            if (slash == std::string::npos) break;
-            start = slash + 1;
-        }
-        return paths::utf8(out);
+        return joinUnder(r.local, remote.substr(prefix.size()));
     }
     return std::nullopt;
 }
@@ -205,14 +282,9 @@ std::optional<std::pair<std::string, const MappedRoot*>> PathMap::toRemote(const
     // A version placed beside a held file stands for the canonical path, which is what the server knows.
     const std::string local = ledger_.canonicalOf(named).value_or(named);
     for (const auto& r : roots_) {
-        if (local == r.local) return std::make_pair(r.remote, &r);
-        const std::string prefix = r.local + kSep;
-        if (local.rfind(prefix, 0) != 0) continue;
-        std::string rel = local.substr(prefix.size());
-        if (rel.empty() || rel.rfind("..", 0) == 0) continue;
-        for (char& c : rel)
-            if (c == kSep) c = '/';
-        return std::make_pair(r.remote + "/" + rel, &r);
+        const auto rel = relativeUnder(r.local, local);
+        if (!rel) continue;
+        return std::make_pair(rel->empty() ? r.remote : r.remote + "/" + *rel, &r);
     }
     return std::nullopt;
 }

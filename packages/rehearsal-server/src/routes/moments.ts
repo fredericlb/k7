@@ -1,9 +1,10 @@
 // Moments: standalone views over validated annotations, addressed by their own
 // id and scoped by owner, so they keep working after their session is deleted.
 
-import { streamFile, sub, validate, wrap } from "@frediverse/http";
+import { sub, validate, wrap } from "@frediverse/http";
 import { Router } from "express";
 import { z } from "zod";
+import { streamAudio } from "../serve.ts";
 import * as store from "../store.ts";
 
 const markerCreate = z.object({
@@ -63,7 +64,7 @@ momentsRouter.get(
   wrap(async (req, res) => {
     const info = await store.ensureMomentClipCached(sub(req), req.params.mid);
     if (!info) return res.status(404).json({ error: "no clip" });
-    streamFile(req, res, info.filePath, info.mime);
+    streamAudio(req, res, info.filePath, info.mime);
   }),
 );
 

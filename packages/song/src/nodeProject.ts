@@ -33,6 +33,7 @@ import {
 } from "./chainProject";
 import { busOnlyOf, bypassedOf } from "./chainsGraph";
 import { compClips, markCrossfades } from "./compClips";
+import { confineTo, projectRoots } from "./confine";
 import { withConsole } from "./console";
 import { envelopeFires } from "./curveConditions";
 import { bakeAdsr, bakeCurve, loadCurves } from "./curves";
@@ -118,6 +119,7 @@ function placementToClip(
   num: number,
   den: number,
   tempo: number,
+  roots: readonly string[],
 ): ClipDoc {
   const ref = String(p.ref ?? "");
   const pos = (tc: unknown) =>
@@ -220,7 +222,8 @@ function placementToClip(
     return {
       ...base,
       type: "audio",
-      source: resolve(dir, String(cm.source)),
+      // A source outside the project's roots plays nothing; the compile has already named it (docs/confine.md).
+      source: confineTo(roots, resolve(dir, String(cm.source))) ?? "",
       ...(winBeats > 0 ? { length: winBeats * loops } : {}),
       ...(gain ? { gainDb: gain } : {}),
       ...(loops > 1 && winBeats > 0
@@ -444,6 +447,8 @@ function compileNodeProjectIn(
     prefs = defaultPreferences();
   }
   const root = loadProjectRoot(dir, true); // the root file -> project, markers
+  // What a path in this project's files may reach — docs/confine.md.
+  const roots = projectRoots(dir);
   const rawChains = loadChains(dir, root, true);
   const localModules = loadModules(dir, true); // validated as read — this doc feeds the engine
   // Read WITH their issues: a rejected library module is dropped, and without its complaint the symptom is "extends unknown module".
@@ -511,6 +516,13 @@ function compileNodeProjectIn(
             : `track '${trackId}': clip/sequence '${ref}' not found`,
         );
       } else if (
+        clip?.source &&
+        !confineTo(roots, resolve(dir, String(clip.source)))
+      )
+        refErrs.push(
+          `track '${trackId}': audio clip '${ref}' names a file outside the project (${clip.source})`,
+        );
+      else if (
         clip &&
         !(clip.source && wsExists(resolve(dir, String(clip.source))))
       )
@@ -656,7 +668,10 @@ function compileNodeProjectIn(
     chains,
     withAutoFrozen,
     (n) => n in lanesMap,
-    (r) => wsExists(resolve(dir, r)),
+    (r) => {
+      const at = confineTo(roots, resolve(dir, r));
+      return !!at && wsExists(at);
+    },
   );
   const frozenLanes = new Set(plans.flatMap((p) => [...p.lanes]));
   const frozenPlugins = new Set(plans.flatMap((p) => [...p.modules]));
@@ -666,7 +681,8 @@ function compileNodeProjectIn(
     for (const [name, c] of Object.entries(chains))
       if (c.use.some((s) => s.module === p.at)) {
         const owner = ownerOf(name, c);
-        if (owner) renderOn.set(owner, resolve(dir, p.render));
+        const at = confineTo(roots, resolve(dir, p.render));
+        if (owner && at) renderOn.set(owner, at);
       }
 
   // The TRACK a step's side input comes from, put through the same ownership rule the plugins are (docs/ports.md).
@@ -722,9 +738,11 @@ function compileNodeProjectIn(
       // A rack compiles to a SamplerPlugin, checked BEFORE plugin.type since a rack module carries no `plugin`.
       if (resolvedType(module) === "rack") {
         const rack = resolvedRack(module);
-        // Already absolute from resolveRackAudio; the guard covers any residual relative path.
+        // Already absolute from resolveRackAudio; one outside the project's roots is no sound at all.
         const toAbs = (p: string | undefined): string =>
-          p ? (isAbsolute(p) ? p : resolve(dir, p)) : "";
+          p
+            ? (confineTo(roots, isAbsolute(p) ? p : resolve(dir, p)) ?? "")
+            : "";
         const sourceAbs = rack.rackType === "slice" ? toAbs(rack.source) : "";
         const sounds: RackSoundDoc[] = [];
         for (const [symbol, e] of Object.entries(rack.symbols)) {
@@ -1033,7 +1051,7 @@ function compileNodeProjectIn(
       const placed = (p: RawPlacement): ClipDoc[] =>
         compClips(
           p,
-          placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
+          placementToClip(dir, p, clipsMap, seqMap, num, den, tempo, roots),
           (ref, start) =>
             placementToClip(
               dir,
@@ -1043,6 +1061,7 @@ function compileNodeProjectIn(
               num,
               den,
               tempo,
+              roots,
             ),
           num,
           den,

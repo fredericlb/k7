@@ -25,7 +25,7 @@ MidiGraphPlugin::MidiGraphPlugin(te::PluginCreationInfo info)
                                   ? state.getProperty("graph").toString()
                                   : juce::String(defaultGraphJson());
     juce::String error;
-    graph_ = DspGraph::build(juce::JSON::parse(json), error);
+    graph_ = DspGraph::fromJson(json, error);
     if (graph_ == nullptr) {
         warn("midi graph unusable: " + error.toStdString());
         return;

@@ -93,6 +93,8 @@ struct ServeContext {
     std::mutex trustMx;
     std::unordered_set<const ix::WebSocket*> trusted;
     std::unordered_set<const ix::WebSocket*> local;   // …and the loopback ones among them
+    std::unordered_set<const ix::WebSocket*> refused;   // …and the pages from a site not allowed, closing
+    std::vector<std::string> allowedOrigins;   // `STUDIO_ENGINE_ALLOWED_ORIGINS`, beside the built-in ones
     bool isTrusted(const ix::WebSocket* ws) {
         std::lock_guard<std::mutex> lk(trustMx);
         return trusted.count(ws) != 0;
@@ -104,6 +106,10 @@ struct ServeContext {
     std::function<void(const nlohmann::json&)> broadcastLocal;
 };
 
+// Before even that, the handshake's Origin: true when the socket is a refused page's and the message goes nowhere.
+bool screenOrigin(ServeContext&, ix::WebSocket&, const ix::WebSocketMessagePtr&);
+// …and before the parse: true when a peer not yet trusted sent a frame larger than any of its verbs, refused unread.
+bool screenFrameSize(ServeContext&, ix::WebSocket&, const std::string& peerIp, size_t bytes);
 // Every message passes here first: true when it was answered — a pairing verb, or a refusal — and must go no further (docs/pairing.md).
 bool screenMessage(ServeContext&, ix::WebSocket&, const std::string& peerIp, const nlohmann::json&,
                    const std::string& type);

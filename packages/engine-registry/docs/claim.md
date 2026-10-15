@@ -41,8 +41,12 @@ engine rather than taking the song's place. That is what lets the rehearsal reco
 chain while the song stays open (`packages/ui-rehearsal/docs/chainSource.md`). A different ACCOUNT still displaces
 either: an engine serves one account at a time (`packages/file-hub/docs/fileHub.md`).
 
-The list names every claim (`heldProjects`) beside the one a picker shows (`heldProject`, the song
-before the bench), since a client looking for the bench must find it on an engine a song holds too.
+The list names the asking account's claims (`heldProjects`) beside the one a picker shows
+(`heldProject`, the song before the bench), since a client looking for its bench must find it on an
+engine its song holds too. It names them to THAT account only: the list goes to every signed-in
+account, and another account's email and project name are not theirs to read, so they see
+`assigned` — "in use" — and nothing more. Who took a project is still said to the one it was taken
+from, in the `409` below.
 
 **3. A claim with no project conflicts with nothing.** The media library drives an engine and opens no
 project: it auditions modules and plays songs out of the médiathèque. It passes `project: null`,
@@ -134,11 +138,33 @@ and rule 1 would hold for neither. It is `<repo>/<projet>` — the repository's 
 folder inside it — and never a workspace path, since the same repository is cloned somewhere
 different on every machine.
 
+## The claim is what lets the server reach an engine for an account
+
+Anyone may register an engine, so being LISTED proves nothing about whose machine it is. Every
+server route that reaches an engine on an account's behalf therefore asks `holds(id, holder)`
+first, with the holder read from the session by `claimHolder` — the same name `select` writes:
+
+- the file hub binds an account's workspaces to an engine only while the account holds a claim on
+  it (`holdsClaim`, `packages/file-hub/binding.ts`), and lets go once the claim moves on;
+- a stem cut (`POST /api/stems`) and a song brought down for the player (`POST /api/engine-local`)
+  answer **403** for an engine the caller holds no claim on, since both share the account's files
+  with that machine;
+- the relay forwards a browser's driving frames only while the ticket's account holds a claim, the
+  probe alone passing before (`proxy.md`), and a WebRTC offer is answered only for a claim holder
+  (`packages/engine-tunnel/docs/rtc.md`).
+
+The browser takes a claim only on an engine it chose or was allowed to take unasked
+(`packages/engine-browser/docs/access.md`, "Who is taken unasked"), so these checks are the second
+of two locks, not the only one.
+
 ## What this does NOT solve
 
-The engine can still be driven by a client that never asks the registry at all. The claim is a
-policy at the door, held by the surfaces; the engine itself accepts whatever arrives on its
-socket. Closing that would mean the engine verifying a claim per session, which is a trust-model
+The engine can still be driven by a client that never asks the registry at all — on its own
+machine, or a paired device on the LAN. The claim is a policy at the server's doors; the engine
+itself accepts whatever arrives on a socket it trusts.
+
+Nor does a claim prove ownership: any signed-in account can read an engine's token through the
+relay's probe and claim it, displacing whoever held it, who is told (`tookOver`, the `409`). Closing that would mean the engine verifying a claim per session, which is a trust-model
 decision and belongs with the rest of them (`docs/audit-moteur.md`, section B).
 
 It also says nothing about a tab that goes away. That is the other half, and it is the engine's:

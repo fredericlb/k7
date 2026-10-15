@@ -2,10 +2,11 @@
  * What reads wrong: the page's own visibility still gates every route here, against whatever
  * session the request carries, since requireAuth never ran to copy it onto `req.user`. */
 
-import { streamFile, wrap } from "@frediverse/http";
+import { wrap } from "@frediverse/http";
 import { pageChoices, pageVersion } from "@studio/rehearsal-shared/pageVersion";
 import type { PageVisibility } from "@studio/rehearsal-shared/pageVisibility";
 import { type Request, type Response, Router } from "express";
+import { streamAudio } from "../serve.ts";
 import * as store from "../store.ts";
 
 export const publicPagesRouter = Router();
@@ -87,7 +88,7 @@ publicPagesRouter.get(
       req.params.vid,
     );
     if (!info) return res.status(404).json({ error: "no audio" });
-    streamFile(req, res, info.filePath, info.mime);
+    streamAudio(req, res, info.filePath, info.mime);
   }),
 );
 
@@ -118,6 +119,6 @@ publicPagesRouter.get(
     res.attachment(
       store.versionFileName(found.release, found.version, info.mime),
     );
-    streamFile(req, res, info.filePath, info.mime);
+    streamAudio(req, res, info.filePath, info.mime);
   }),
 );

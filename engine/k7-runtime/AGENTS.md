@@ -89,6 +89,7 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   PatternSchedule.h         …and the notes between its worker and the audio thread, by epoch. JUCE-free
                             and header-only, so tests/ has it in the FAST binary
   SampleBanks.h             a sound name → the WAV it plays, by the Dirt layout. JUCE-free, FAST binary
+  PathRoots.{h,cpp}         which files a document may make the engine read or write — JUCE-free, FAST binary (docs/pathRoots.md)
   StrudelHost.{h,cpp}       the QuickJS runtime and the embedded bundle (strudel/strudel.bundle.js,
                             generated and committed). Its own JUCE-free library, `studio_strudel`
   AirWindowsList.h          generated effect list (docs/airWindowsList.md)
@@ -456,7 +457,8 @@ Build gotchas:
 **The test targets are not built by an ordinary build, so a suite that stopped compiling stays
 invisible.** The presets pin `"targets": ["k7-runtime"]`, so `studio_engine_tests` /
 `studio_session_tests` / `studio_midigraph_tests` / `studio_dspgraph_tests` /
-`studio_recorder_tests` / `studio_pattern_tests` / `studio_samplebanks_tests` / `studio_strudel_tests` /
+`studio_recorder_tests` / `studio_pattern_tests` / `studio_samplebanks_tests` / `studio_pathroots_tests` /
+`studio_strudel_tests` /
 `studio_eurorack_tests` / `studio_ampmodel_tests` / `studio_warp_tests` are only built when
 named — rename a field of the data layer and the suite still referencing it reports nothing until
 someone names it. Build them explicitly after
@@ -468,7 +470,7 @@ cmake --build build/<preset> --config RelWithDebInfo --target \
       studio_engine_tests studio_session_tests studio_midigraph_tests \
       studio_dspgraph_tests studio_recorder_tests studio_pattern_tests studio_samplebanks_tests \
       studio_strudel_tests studio_eurorack_tests studio_ampmodel_tests studio_dither_tests \
-      studio_hflimit_tests studio_warp_tests
+      studio_hflimit_tests studio_warp_tests studio_pathroots_tests
 ctest --test-dir build/<preset> -C RelWithDebInfo -R 'studio_' --output-on-failure
 ```
 

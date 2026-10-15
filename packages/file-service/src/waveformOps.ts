@@ -8,6 +8,11 @@ import { readdirSync, unlinkSync } from "node:fs";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import { beatGrid, regionWaveform } from "@studio/audio-probe/waveform";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
+import {
+  confineTo,
+  confineToProject,
+  projectRoots,
+} from "@studio/song/confine";
 import { materialRefOf } from "@studio/song/nodeProject";
 import type { ClipDoc, ProjectDoc } from "@studio/song/project";
 import { loadAudioClipDoc } from "@studio/song/project";
@@ -194,8 +199,12 @@ export class WaveformOps {
       ? { ...clip, sourceFrom: undefined, sourceTo: undefined }
       : clip;
     // The engine decodes any format and refreshes the sidecar; we slice the returned envelope to the region.
+    // A clip's source is text a file holds: inside the project's roots or nothing (@studio/song docs/confine.md).
+    const source = confineToProject(dir, clip.source);
+    if (!source)
+      throw new Error(`'${clipId}': its file is outside the project`);
     const env = await ensureFileEnvelope(
-      clip.source,
+      source,
       findEngineBinary(),
       sensitivity,
     );
@@ -279,8 +288,11 @@ export class WaveformOps {
       return;
     }
     const clips: ClipDoc[] = [];
+    // Only sources inside the project's roots are decoded, and their sidecars written beside them.
+    const roots = projectRoots(active);
     for (const t of p.tracks)
-      for (const c of t.clips) if (c.type === "audio") clips.push(c);
+      for (const c of t.clips)
+        if (c.type === "audio" && confineTo(roots, c.source)) clips.push(c);
 
     const engineBin = findEngineBinary();
     // Phase 1: rebuild every stale sidecar, a few decodes at a time, before anything is sliced.

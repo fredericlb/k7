@@ -14,6 +14,11 @@ the same `id` as it has news, and the caller decides which one is the last (`req
 machine and **not awaited**: a separation takes minutes, and the next request on the channel must
 not wait behind it.
 
+A caller waits for a bounded time: 15 minutes without a reply (`JOB_IDLE_MS`), or an hour in all
+(`JOB_TIMEOUT_MS`), each overridable per call. Either ends the request with a `JobError` and closes
+the channel, so a machine that went quiet holds no server-side promise, and no channel, for ever. The
+idle bound is long because a `render` says `rendering` once and nothing more until its files are up.
+
 What a machine does is registered by type; the supervisor's list is
 `engine/k7-supervisor/src/MachineJobs.cpp` (`TunnelAgentOptions.jobs` for the TypeScript reference
 agent the server's tests run on). A type it does not know is refused by name.
@@ -47,6 +52,11 @@ Anyone who once played on the server's engine could then announce themselves as 
 every account's renders. The render key is never sent to a browser. A tunnel that offers a WRONG
 key is refused outright rather than treated as an ordinary engine, so a misconfigured render
 machine says so in its log instead of silently rendering nothing.
+
+The registry's engine list marks that machine `server` (`TunnelHub.isRenderer`), and it is the one
+engine reached only through the server that a browser may take without a click: the render key is
+a proof no stranger's heartbeat can make (`packages/engine-browser/docs/access.md`, "Who is taken
+unasked").
 
 `prefetch` and `send-up` are how the machine KEEPS an undo's audio (`packages/file-service/docs/history.md`):
 `prefetch` names files the channel brings down before it answers, with how many are there; `send-up`

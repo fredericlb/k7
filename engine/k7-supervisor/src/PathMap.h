@@ -30,6 +30,18 @@ struct MappedRoot {
     bool writable = false;
 };
 
+/** Whether Windows would open this name as a device (CON, NUL, COM1, LPT1 and the rest), whatever its case or extension. */
+bool reservedDeviceName(const std::string& seg);
+
+/** One name between separators that can only name a child: no `.`, `..`, separator, drive, control char or device name. */
+bool safeSegment(const std::string& seg);
+
+/** `rest` — the `/`-separated part of a server path below its root — under `localRoot`, or nothing if it could leave it. */
+std::optional<std::string> joinUnder(const std::string& localRoot, const std::string& rest);
+
+/** The `/`-separated part of `local` below `localRoot` ("" for the root itself), or nothing if it is not lexically inside. */
+std::optional<std::string> relativeUnder(const std::string& localRoot, const std::string& local);
+
 /** What is known to be the same on both sides, and the downloads in flight — one per agent. */
 class SyncLedger {
 public:

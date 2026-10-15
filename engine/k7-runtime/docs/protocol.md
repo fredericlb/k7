@@ -159,6 +159,10 @@ is bounded there, with a `warn()` when a value is replaced:
 | `sampleRate` | 8 000..768 000, else 48 000 | a rebuild that opens nothing |
 | a note's `key`, a rack entry's `note` | 0..127 | a MIDI number that means nothing |
 | a pad's `repeat` / `skip` | 0..64 | a loop writing that many notes on the message thread |
+| a tap output's `pair`, a track's `inputFrom.pair` | 0..31, the sampler's own range | a rack grown to that many outputs |
+
+Every PATH a document names is held to the engine's roots in the same place — dropped, with a
+warning, when it falls outside them (`docs/pathRoots.md`).
 
 A repeated id is renamed rather than trusted: the second track, module or clip carrying one becomes
 `id#2`, then `#3`, in document order, with a warning. Every map downstream — the diff, the lanes, the

@@ -57,3 +57,12 @@ commit hash only, which nothing deploys. The publish job moves `:latest` and the
 onto that manifest with `docker buildx imagetools create`, a copy inside the registry, once both
 have passed. The stamp travels from the build job as an artifact, because it is baked into the
 SPAs and a second clock reading could disagree with it.
+
+## The process runs as `node`, and its volumes must be `node`'s
+
+The runtime stage ends on `USER node`: the code under `/app` stays root's, so a flaw in a route
+cannot rewrite the server it runs in. What the process writes is its four volumes — `/data`,
+`/library`, `/workspaces`, `/rehearsal-data` — which the image creates owned by `node` before
+declaring them, so a FRESH volume inherits that owner. A volume that already holds files owned by
+root keeps them: it needs a one-time `chown -R 1000:1000` of its contents (for instance
+`docker run --rm -v <volume>:/v alpine chown -R 1000:1000 /v`) before this image can write to it.

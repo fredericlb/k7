@@ -51,6 +51,16 @@ void theFirstBankWins() {
     CHECK(b.resolve("hh", 0) == (project / "hh" / "mine.wav").string());
 }
 
+void aNameCannotClimbOutOfItsBank() {
+    const auto bank = g_root / "climb" / "bank";
+    touch(g_root / "climb" / "secret.wav");
+    touch(g_root / "climb" / "kit" / "a.wav");
+    SampleBanks b({bank.string()});
+    CHECK(b.resolve("../secret", 0).empty());
+    CHECK(b.resolve("../kit", 0).empty());
+    CHECK(b.resolve((g_root / "climb" / "secret").string(), 0).empty());
+}
+
 void anUnknownNameIsANote() {
     SampleBanks b({(g_root / "dirt").string(), (g_root / "missing").string()});
     CHECK(b.resolve("sawtooth", 0).empty());
@@ -66,6 +76,7 @@ int main() {
     RUN(aFlatFileIsFoundToo);
     RUN(theFirstBankWins);
     RUN(anUnknownNameIsANote);
+    RUN(aNameCannotClimbOutOfItsBank);
     fs::remove_all(g_root);
     TEST_MAIN_END();
 }

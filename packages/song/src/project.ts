@@ -25,6 +25,7 @@ import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { parse as parseYaml } from "yaml";
 import { isChainProject } from "./chainProject";
+import { confineToProject } from "./confine";
 import { assembleFolder, isFolderProject } from "./folder";
 import { exportSub, isPictureSource } from "./loader";
 import { compileNodeProject } from "./nodeProject";
@@ -281,7 +282,8 @@ function mapClip(
     id: String(c.id ?? ""),
     type,
     name: String(c.name ?? ""),
-    source: c.source ? resolve(baseDir, String(c.source)) : "",
+    // A source outside the project's roots is no file at all (docs/confine.md).
+    source: c.source ? (confineToProject(baseDir, String(c.source)) ?? "") : "",
     start: Number(c.start ?? 0),
     length: Number(c.length ?? 0),
     offset: Number(c.offset ?? 0),

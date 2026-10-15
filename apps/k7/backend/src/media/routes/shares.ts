@@ -227,7 +227,10 @@ export function sharesRouter(player: PlayerCheck): RouterT {
         }
       }
       const m = pending.manifest;
-      m.files = m.files.map((f) => ({ ...f, bytes: sizes.get(f.path) ?? 0 }));
+      m.files = (m.files ?? []).map((f) => ({
+        ...f,
+        bytes: sizes.get(f.path) ?? 0,
+      }));
       const bytes = [...sizes.values()].reduce((n, b) => n + b, 0);
       m.bytes = bytes;
       writeFileSync(join(dir, "snapshot.json"), JSON.stringify(m), "utf8");

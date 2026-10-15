@@ -7,6 +7,7 @@
 #include "Log.h"
 #include "Paths.h"
 #include "Processes.h"
+#include "Url.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -30,6 +31,21 @@
 namespace k7::engine {
 
 namespace fs = std::filesystem;
+
+std::string allowedOrigins(const std::vector<std::string>& registryUrls)
+{
+    std::vector<std::string> seen;
+    std::string out;
+    for (const auto& r : registryUrls) {
+        const auto u = url::parse(r);
+        if (!u || (u->scheme != "http" && u->scheme != "https")) continue;
+        const std::string o = u->origin();
+        if (o.find(',') != std::string::npos || std::find(seen.begin(), seen.end(), o) != seen.end()) continue;
+        seen.push_back(o);
+        out += (out.empty() ? "" : ",") + o;
+    }
+    return out;
+}
 
 namespace {
 
@@ -162,7 +178,7 @@ namespace {
 constexpr auto kAppStartBound = std::chrono::seconds(20);
 }  // namespace
 
-StartResult start(const EngineIdentity& identity, int port)
+StartResult start(const EngineIdentity& identity, int port, const std::string& origins)
 {
     std::error_code ec;
     fs::create_directories(paths::studioDir(), ec);
@@ -174,7 +190,7 @@ StartResult start(const EngineIdentity& identity, int port)
         return {StartKind::Adopted, app};
     }
     protocol::emit({{"t", "engine"}, {"action", "start"}, {"id", identity.id}, {"token", identity.token},
-                    {"port", port}, {"host", "0.0.0.0"}});
+                    {"port", port}, {"host", "0.0.0.0"}, {"origins", origins}});
     const auto until = std::chrono::steady_clock::now() + kAppStartBound;
     while (!isServing(port)) {
         if (std::chrono::steady_clock::now() > until)
@@ -194,7 +210,7 @@ void stop()
     fs::remove(paths::enginePid(), ec);
 }
 #else
-StartResult start(const EngineIdentity& identity, int port)
+StartResult start(const EngineIdentity& identity, int port, const std::string& origins)
 {
     if (running()) {
         // A pid is not an identity, so the PORT is asked too — here, where a wrong answer costs a spare engine.
@@ -234,7 +250,10 @@ StartResult start(const EngineIdentity& identity, int port)
     opts.program = *bin;
     opts.args = {std::to_string(port)};
     // Reachable on the LAN for a browser on another machine; loopback works as well.
-    opts.env = {{"STUDIO_ENGINE_HOST", "0.0.0.0"}, {"STUDIO_ENGINE_ID", identity.id}, {"STUDIO_ENGINE_TOKEN", identity.token}};
+    opts.env = {{"STUDIO_ENGINE_HOST", "0.0.0.0"},
+                {"STUDIO_ENGINE_ID", identity.id},
+                {"STUDIO_ENGINE_TOKEN", identity.token},
+                {"STUDIO_ENGINE_ALLOWED_ORIGINS", origins}};
     opts.onLine = [](const std::string& line, bool) { log::line("engine", line); };
     const auto spawned = process::spawn(opts);
     if (!spawned.pid) return {StartKind::Error, 0, spawned.error};

@@ -52,17 +52,20 @@ concurrency:
   group: k7-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   js:
     name: tests + typecheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
       - id: commons
         shell: bash
         run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: fredericlb/commons
           ref: ${{ steps.commons.outputs.sha }}
@@ -98,12 +101,12 @@ jobs:
     name: supervisor (native)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
       - id: commons
         shell: bash
         run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: fredericlb/commons
           ref: ${{ steps.commons.outputs.sha }}
@@ -134,12 +137,12 @@ jobs:
     # See the header: 157 pre-existing errors. This reports, it does not gate.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
       - id: commons
         shell: bash
         run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: fredericlb/commons
           ref: ${{ steps.commons.outputs.sha }}

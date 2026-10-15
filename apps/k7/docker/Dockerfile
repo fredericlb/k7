@@ -44,6 +44,11 @@ RUN apk add --no-cache yt-dlp ffmpeg mpv
 # chromium and its fonts: `picture render`, the picture drawn headless (packages/file-service/docs/serverRender.md).
 RUN apk add --no-cache chromium font-noto ttf-freefont
 ENV STUDIO_CHROMIUM=/usr/bin/chromium-browser
+# Before the VOLUME lines, which freeze them: a fresh volume copies this owner (docs/images.md).
+RUN mkdir -p /data /library /workspaces /rehearsal-data \
+ && chown node:node /data /library /workspaces /rehearsal-data
+# Express hides its stack traces and the rehearsal server refuses the dev secret.
+ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=backend-deps /app ./
 # The whole repo: @studio/* are symlinks to raw TypeScript source, so a missing package is a crash on import.
@@ -68,5 +73,7 @@ ENV PORT=8789
 ENV NODE_OPTIONS=--experimental-sqlite
 EXPOSE 8789
 WORKDIR /app/apps/k7/backend
+# Not root: the code under /app is root's and read-only to it; only the volumes above are its own.
+USER node
 # tsx to import the brain's TS source directly — see src/server.ts's own header.
 CMD ["/app/node_modules/.bin/tsx", "src/server.ts"]

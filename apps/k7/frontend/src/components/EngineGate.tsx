@@ -2,8 +2,8 @@
 // socket: engines register themselves, so this lists them, MEASURES each one's latency,
 // and mounts <App/> with the chosen ws address. It picks for you (`bestEngine`): the engine
 // most COMPATIBLE with the project first (it has the plugins the project uses —
-// ../engineCompat.ts), then the best latency class, then the best performance score. The
-// picker only appears when none is usable, or on asking.
+// ../engineCompat.ts), then the best latency class, then the best performance score — among
+// TRUSTED engines only, since anyone may register one. The picker appears otherwise, or on asking.
 
 import { Loader2 } from "@frediverse/ui/icons";
 import { bestEngine } from "@studio/engine-browser/choose";
@@ -164,7 +164,7 @@ export function EngineGate({
         if (cancelled) return;
         if (mine && (await pick(mine, false))) return;
       }
-      // The engine this account chose last, then this machine's, before any faster machine elsewhere (engine-browser docs/access.md).
+      // Only a trusted engine is taken unasked — remembered, reached directly, or the server's (engine-browser docs/access.md).
       const best = bestEngine(r, {
         compat: compat.size ? (id) => compat.get(id)?.score ?? null : undefined,
         remembered: rememberedId,
@@ -187,7 +187,7 @@ export function EngineGate({
     // Hand the chosen engine to the project gate; key by wsUrl so switching engines remounts cleanly.
     return (
       <ProjectGate
-        key={phase.engine.wsUrl!}
+        key={phase.engine.wsUrl ?? phase.engine.engine.id}
         engine={phase.engine}
         external={external}
         // Re-probe on the way back: the list behind the picker is minutes old, and a stale one would offer engines that have gone.

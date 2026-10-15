@@ -10,6 +10,7 @@ import {
   LOCAL_SIGN_IN,
 } from "@studio/web-protocol/handoff";
 import type { Express, Request } from "express";
+import { isLoopbackRequest } from "./loopback.ts";
 
 /** Long enough for a phone to switch apps, short enough that a leaked code is already dead. */
 const CODE_TTL_MS = 120_000;
@@ -108,6 +109,11 @@ export function mountHandoff(
   if (!opts.localUser) return;
   // The desktop works signed out: an existing session is kept, an empty one becomes the local user.
   app.get(LOCAL_SIGN_IN, (req, res) => {
+    // A session for the asking: only this machine's own window may ask, by address and by name.
+    if (!isLoopbackRequest(req))
+      return res
+        .status(403)
+        .send("The local user signs in on this machine only.");
     // biome-ignore lint/style/noNonNullAssertion: setupAuth mounts the session middleware before this.
     const session = req.session!;
     if (!session.user) session.user = LOCAL_USER;

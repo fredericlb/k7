@@ -71,6 +71,7 @@ import {
   readLayout,
   toSegments,
 } from "./chainProject";
+import { confineTo, libraryReadRoots, projectRoots } from "./confine";
 import { loadControllerLibrary } from "./controller";
 import { docModules } from "./docModule";
 import { engineModules, engineRef, ioModules } from "./engineCatalogue";
@@ -178,13 +179,21 @@ export function resolveRackAudio(
   if (!rack || typeof rack !== "object") return rack;
   // `sources/` first, then `assets/`, then loose beside module.yaml — a rack files its audio under
   // `sources/` (docs/moduleAssets.md) and every older layout still loads.
+  // An absolute ref or a `..` that leaves every root the project may read is no file at all (docs/confine.md).
+  const roots = [
+    folderAbs,
+    ...(projectDir ? projectRoots(projectDir) : libraryReadRoots()),
+  ];
   const at = (f: unknown) =>
     typeof f === "string" && f
-      ? isAbsolute(f)
-        ? f
-        : (resolveModuleFileIn(f, [folderAbs], MODULE_SOURCES_DIR) ??
-          resolveModuleAsset(f, folderAbs) ??
-          join(folderAbs, f))
+      ? (confineTo(
+          roots,
+          isAbsolute(f)
+            ? f
+            : (resolveModuleFileIn(f, [folderAbs], MODULE_SOURCES_DIR) ??
+                resolveModuleAsset(f, folderAbs) ??
+                join(folderAbs, f)),
+        ) ?? undefined)
       : f;
   const symbols: NonNullable<RawRack["symbols"]> = {};
   for (const [sym, e] of Object.entries(rack.symbols ?? {}))

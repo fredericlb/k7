@@ -7,6 +7,7 @@ import {
   SHEET_ACCEPT,
   sheetExt,
   sheetKind,
+  sheetServedMime,
 } from "./sheetKind.ts";
 
 describe("sheetKind", () => {
@@ -67,5 +68,24 @@ describe("the picker and the predicate", () => {
       true,
     );
     expect(isScore({ name: "p.png", mime: "image/png" })).toBe(false);
+  });
+});
+
+describe("sheetServedMime", () => {
+  it("serves a score as bytes, never as XML a browser renders", () => {
+    expect(sheetServedMime("p.musicxml", "text/xml")).toBe(
+      "application/octet-stream",
+    );
+    expect(
+      sheetServedMime("p.xml", "application/vnd.recordare.musicxml+xml"),
+    ).toBe("application/octet-stream");
+  });
+
+  it("keeps a PDF and an image's own type, and refuses the rest", () => {
+    expect(sheetServedMime("a.pdf", "application/pdf")).toBe("application/pdf");
+    expect(sheetServedMime("a.svg", "image/svg+xml")).toBe("image/svg+xml");
+    expect(sheetServedMime("a.html", "text/html")).toBe(
+      "application/octet-stream",
+    );
   });
 });

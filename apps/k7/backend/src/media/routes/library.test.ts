@@ -250,6 +250,18 @@ describe("DELETE /folder", () => {
     ).json()) as { entries: unknown[] };
     expect(listed.entries).toEqual([]);
   });
+
+  it("refuses the root and a family root with a 400, and removes nothing", async () => {
+    await post(tags, "ID3");
+    for (const path of [".", "songs/..", "songs", "recordings"]) {
+      const res = await fetch(
+        `${base}/api/mediatek/folder?${new URLSearchParams({ path })}`,
+        { method: "DELETE" },
+      );
+      expect(res.status).toBe(400);
+    }
+    expect(existsSync(join(root, "songs", "Miles Davis"))).toBe(true);
+  });
 });
 
 // The read side: `/file` guesses a content type, and a wrong guess is a file the browser refuses.
@@ -290,6 +302,18 @@ describe("GET /file", () => {
   it("answers 400 for a path that escapes the root, never 500", async () => {
     const r = await fetch(`${base}/api/mediatek/file?path=../../secret`);
     expect(r.status).toBe(400);
+  });
+
+  it("answers 400 for the server's state under a dot-folder", async () => {
+    put(".projects/identities.json", "{}");
+    put(".shares/index/t.json", "{}");
+    for (const path of [".projects/identities.json", ".shares/index/t.json"]) {
+      const q = new URLSearchParams({ path });
+      expect((await fetch(`${base}/api/mediatek/file?${q}`)).status).toBe(400);
+      expect((await fetch(`${base}/api/mediatek/stream?${q}`)).status).toBe(
+        400,
+      );
+    }
   });
 });
 

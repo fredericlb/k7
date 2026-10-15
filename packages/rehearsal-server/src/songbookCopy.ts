@@ -2,7 +2,7 @@
 // its person may see, and the machine places its own against them and copies one down, sheets and track with it.
 // What reads wrong: a copy keeps the song's id, which is how "on both" is told — ../docs/songbookCopy.md.
 
-import { streamFile, sub, wrap } from "@frediverse/http";
+import { sub, wrap } from "@frediverse/http";
 import type {
   SheetFile,
   SongbookPlacement,
@@ -15,6 +15,7 @@ import {
 } from "express";
 import * as db from "./db.ts";
 import type * as Declared from "./index.d.ts";
+import { streamSheet } from "./serve.ts";
 import { ensureSheetFileCached, invalidateSong } from "./store.ts";
 
 /** The facts a copy carries; the owner and the fetch pipeline's state are the machine's own. */
@@ -115,7 +116,7 @@ export const songbookDeviceRouter: typeof Declared.songbookDeviceRouter = (
         return res.status(404).json({ error: "no such song" });
       const info = await ensureSheetFileCached(req.params.uid, req.params.fid);
       if (!info) return res.status(404).json({ error: "no such sheet" });
-      streamFile(req, res, info.filePath, info.mime);
+      streamSheet(req, res, info);
     }),
   );
   return r;

@@ -36,6 +36,9 @@ public:
     /** Build from parsed JSON. Returns nullptr and sets `error` when the description is unusable. */
     static std::unique_ptr<DspGraph> build(const juce::var& description, juce::String& error);
 
+    /** The same from its JSON TEXT, refused unparsed past 1 MiB or 32 levels of nesting: the text comes off the wire. */
+    static std::unique_ptr<DspGraph> fromJson(const juce::String& json, juce::String& error);
+
     const std::vector<DspGraphParam>& params() const { return params_; }
 
     void prepare(double sampleRate, int maxBlockSize);

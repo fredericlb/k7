@@ -6,6 +6,10 @@ Who may open that address is the page's own **visibility**, below. How the addre
 outside k7's sign-in gate is the UI's business (`packages/ui-rehearsal/docs/routing.md`); how the
 Publications entry groups releases under their pages is too (`packages/ui-rehearsal/docs/sections.md`).
 
+**A nametag is one address whatever its case.** `Band` and `band` are the same page to the
+public route and to the uniqueness check (`pagesNamed`, `src/store.ts`), since an address read
+aloud or typed on a phone loses its case; the page keeps the case its owner gave it, for display.
+
 ## Who opens a page
 
 `Pages.Visibility` grades the address (`packages/rehearsal-shared/pageVisibility.ts`):

@@ -110,6 +110,23 @@ afterEach(() => {
 });
 
 describe("track transcribe", () => {
+  it("refuses a video a clip names outside the project", async () => {
+    mkdirSync(join(song, "video_tracks"), { recursive: true });
+    mkdirSync(join(song, "clips"), { recursive: true });
+    writeFileSync(
+      join(song, "video_tracks", "cam.yaml"),
+      "events:\n  - { ref: intro, start: 0, length: 0 }\n",
+      "utf8",
+    );
+    writeFileSync(
+      join(song, "clips", "intro.yaml"),
+      "source: ../../elsewhere/intro.mp4\n",
+      "utf8",
+    );
+    await runCommand("track transcribe cam lyrics", host(), "cli");
+    expect(refusals.join("\n")).toMatch(/outside the project/);
+  });
+
   it.runIf(CAN_SPAWN)(
     "writes the transcript as the new track's content",
     async () => {

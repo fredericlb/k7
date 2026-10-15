@@ -20,6 +20,8 @@ namespace k7::tunnel {
 struct JobContext {
     /** Bring one file down by its LOCAL path, when a request names too many to fetch before it starts. */
     std::function<bool(const std::string& local)> fetch;
+    /** Whether a LOCAL path lies inside a root this channel sends back to the server; unset answers no. */
+    std::function<bool(const std::string& local)> writable;
 };
 
 /** Send one reply; any path in it goes back through the channel's map. */
@@ -35,6 +37,8 @@ struct AgentOptions {
     std::string registryUrl;
     std::string id;
     std::string token;
+    /** The machine's tunnel secret (Identity.h), sent in a header; empty, the hub takes this as a legacy tunnel. */
+    std::string tunnelSecret;
     /** The server's render key, sent when set: this machine then renders for the server (packages/engine-tunnel/docs/jobs.md). */
     std::string renderKey;
     int enginePort = 8765;

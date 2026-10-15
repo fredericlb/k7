@@ -4,20 +4,29 @@
    The star is each person's — ../../docs/ownership.md.
 */
 
-import { streamFile, sub, validate, wrap } from "@frediverse/http";
-import { upload } from "@frediverse/http/upload";
+import { sub, validate, wrap } from "@frediverse/http";
+import { diskUpload } from "@frediverse/http/upload";
 import { isAdmin } from "@frediverse/oidc";
 import { canonicalSheetMime } from "@studio/rehearsal-shared/sheetKind";
 import { Router } from "express";
 import { z } from "zod";
 import { env } from "../env.ts";
 import { searchLrclib } from "../lrclib.ts";
+import { isAudioMime, streamSheet } from "../serve.ts";
 import {
   LibraryPathError,
   linkLibraryInstrumental,
   linkLibraryTrack,
 } from "../songFetch.ts";
 import * as store from "../store.ts";
+import { keepingUploads } from "../uploads.ts";
+
+const MB = 1024 * 1024;
+// On disk as they arrive, each bounded: a page of a score is never 50 MB, nor a sheet twenty files at once.
+const sheetUpload = diskUpload(store.UPLOAD_DIR, 50 * MB);
+const SHEET_FILES = 20;
+// A reference track is one song: fifty minutes of CD-quality wav still fits — ../../docs/serving.md.
+const trackUpload = diskUpload(store.UPLOAD_DIR, 500 * MB);
 
 const required = "artist and title are required";
 const createSchema = z.object({
@@ -187,8 +196,8 @@ songsRouter.get(
 
 songsRouter.post(
   "/:sid/sheets",
-  upload.array("files"),
-  wrap(async (req, res) => {
+  sheetUpload.array("files", SHEET_FILES),
+  keepingUploads(async (req, res) => {
     const uploaded = (req.files as Express.Multer.File[] | undefined) || [];
     if (!uploaded.length)
       return res.status(400).json({ error: "no files uploaded" });
@@ -203,7 +212,7 @@ songsRouter.post(
     const song = await store.addSheetFiles(
       req.params.sid,
       uploaded.map((f) => ({
-        buffer: f.buffer,
+        file: f.path,
         mime: canonicalSheetMime(f.originalname, f.mimetype) as string,
         name: f.originalname,
       })),
@@ -219,7 +228,7 @@ const sendSheet = wrap(async (req, res) => {
     req.params.fid,
   );
   if (!info) return res.status(404).json({ error: "not found" });
-  streamFile(req, res, info.filePath, info.mime);
+  streamSheet(req, res, info);
 });
 
 songsRouter.get("/:sid/sheets/:fid", sendSheet);
@@ -229,22 +238,19 @@ songsRouter.get("/:sid/sheets/:fid/:name", sendSheet);
 // --- The reference track (one per song) ------------------------------------
 
 // Whatever a browser can play, which is wider than what it can record.
-const AUDIO_MIME = /^audio\//;
-
 songsRouter.post(
   "/:sid/audio",
-  upload.single("audio"),
-  wrap(async (req, res) => {
+  trackUpload.single("audio"),
+  keepingUploads(async (req, res) => {
     const file = req.file as Express.Multer.File | undefined;
-    if (!file?.buffer?.length)
-      return res.status(400).json({ error: "no audio file" });
-    if (!AUDIO_MIME.test(file.mimetype))
+    if (!file?.size) return res.status(400).json({ error: "no audio file" });
+    if (!isAudioMime(file.mimetype))
       return res
         .status(400)
         .json({ error: `not an audio file: ${file.mimetype}` });
 
     const song = await store.setSongAudio(req.params.sid, {
-      buffer: file.buffer,
+      file: file.path,
       mime: file.mimetype,
       name: file.originalname,
     });

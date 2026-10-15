@@ -74,6 +74,12 @@ change it finds. That batch reaches the replica, as pending, before the entry do
 
 When an entry rewrites a file of the open project, the project goes to the engine, as an undo does.
 
+Every path another replica names is resolved through `../src/livePath.ts` before it is read or
+written, in the workspace and in the confirmed mirror alike: one that is not a sync path
+(`../../live-sync/docs/ops.md`) or resolves outside the folder throws. The relay refuses such a path
+too, but a desktop's relay is a server it does not control. A frame that throws is logged and
+dropped, never let stop the service.
+
 ## Conflicts
 
 `GET /sync/conflicts` lists what the relay set aside in this workspace, each with the value kept in
@@ -150,6 +156,13 @@ that name. It then runs on its own, the list saying so (`moving`):
 Edits made during a move are held and sent to wherever it is linked at the end — the target, or the
 server it stayed on when the move failed. A failed move leaves the target with what it got: the next
 attempt is refused by the name until that room is emptied there, which is a choice for the person.
+
+**A copy** (`POST /workspaces/sync/copy`) is a move's step 1 alone, under the same refusals, and the
+list says so the same way (`moving`, with `copy`). Nothing is held: the workspace stays linked where
+it was, its edits go on to that server, and the target's room starts from what was here when the copy
+began. From then on they are two workspaces of the same name on two servers, which never hear of each
+other; bringing the copy down here lands it as `<room>.<host>`, as above. One move or copy at a time
+per workspace, since both seed the target under the room's name.
 
 ## A binary's hash outlives the process
 

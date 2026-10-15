@@ -20,7 +20,7 @@ object EngineBridge {
 
     /** Serve with the supervisor's identity, once; `onExit` gets serve()'s exit code, on the engine's thread. */
     @Synchronized
-    fun start(context: Context, id: String, token: String, port: Int, host: String, onExit: (Int) -> Unit) {
+    fun start(context: Context, id: String, token: String, port: Int, host: String, origins: String, onExit: (Int) -> Unit) {
         if (thread != null) {
             Log.w(TAG, "engine already started in this process — a restart needs a new process")
             return
@@ -30,6 +30,7 @@ object EngineBridge {
         Os.setenv("STUDIO_ENGINE_HOST", host, true)
         Os.setenv("STUDIO_ENGINE_ID", id, true)
         Os.setenv("STUDIO_ENGINE_TOKEN", token, true)
+        Os.setenv("STUDIO_ENGINE_ALLOWED_ORIGINS", origins, true)
         Os.setenv("STUDIO_FAUST_LIBS", faustLibs(context).absolutePath, true)
         // Loads libk7runtime (Java's static block), whose JNI_OnLoad registered this very method.
         Java.initialiseJUCE(context.applicationContext)

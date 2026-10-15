@@ -90,6 +90,7 @@ async function waitHealthy(
   while (Date.now() < end) {
     if (child.exitCode !== null)
       throw new Error(`file service exited (${child.exitCode})`);
+    if (child.pid === undefined) throw new Error("file service did not start");
     try {
       const r = await fetch(`http://127.0.0.1:${port}/health`);
       if (r.ok) return;
@@ -154,6 +155,8 @@ export class Instances {
       for (const l of chunk.toString("utf8").split(/\r?\n/))
         if (l.trim()) this.log(`[${slug}] ${l}`);
     };
+    // A spawn that fails emits `error`, which unheard would become the hub's own crash.
+    child.on("error", (e) => this.log(`[${slug}] ${e.message}`));
     child.stdout?.on("data", relay);
     child.stderr?.on("data", relay);
     const inst: Instance = {

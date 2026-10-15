@@ -6,7 +6,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import type { Server } from "node:http";
+import type { IncomingMessage, Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureLayout } from "@studio/mediatek/layout";
@@ -14,7 +14,7 @@ import { SHARE_SCHEMA } from "@studio/web-protocol";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { closeComments } from "../shares/comments.ts";
-import { allowed } from "../shares/player.ts";
+import { allowed, visitorAddress } from "../shares/player.ts";
 import {
   blobDir,
   dropLegacyShares,
@@ -176,6 +176,26 @@ describe("uploading one", () => {
     });
     expect(r.status).toBe(400);
     expect((await body<{ error: string }>(r)).error).toMatch(/never arrived/);
+  });
+
+  it("finishes a manifest that lists no files, or refuses it, but never crashes", async () => {
+    const { files: _f, ...noFiles } = MANIFEST;
+    const r = await fetch(`${base}/api/shares`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ manifest: noFiles }),
+    });
+    if (r.status === 400) return;
+    const draft = await body<Draft>(r);
+    for (const path of draft.expects)
+      await fetch(
+        `${base}/api/shares/${draft.key}/file?path=${encodeURIComponent(path)}`,
+        { method: "PUT", body: "x" },
+      );
+    const done = await fetch(`${base}/api/shares/${draft.key}/finish`, {
+      method: "POST",
+    });
+    expect(done.status).toBe(200);
   });
 
   it("measures the sizes itself rather than believing the draft", async () => {
@@ -474,6 +494,26 @@ describe("a share made before shares were checkpoints", () => {
     const { key } = await share();
     expect(dropLegacyShares()).toBe(0);
     expect(existsSync(blobDir(key))).toBe(true);
+  });
+});
+
+describe("the player's per-visitor address", () => {
+  const req = (xff: string | undefined, remote: string) =>
+    ({
+      headers: xff === undefined ? {} : { "x-forwarded-for": xff },
+      socket: { remoteAddress: remote },
+    }) as unknown as IncomingMessage;
+
+  it("reads the address the edge appended, not the edge's own", () => {
+    expect(visitorAddress(req("203.0.113.9", "10.0.0.2"))).toBe("203.0.113.9");
+    // A visitor's own forged entry comes first; the edge appends the real one last.
+    expect(visitorAddress(req("1.2.3.4, 203.0.113.9", "10.0.0.2"))).toBe(
+      "203.0.113.9",
+    );
+  });
+
+  it("falls back on the socket with no proxy in front", () => {
+    expect(visitorAddress(req(undefined, "127.0.0.1"))).toBe("127.0.0.1");
   });
 });
 

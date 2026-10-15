@@ -8,12 +8,31 @@ file service — reaches it that way, however far apart the two are.
 
 ## Who may hold a tunnel
 
-Only an engine the registry lists, presenting that engine's token in `x-studio-engine-token`. A
-header and never the query string, so no access log keeps the secret. One tunnel per engine: a
-reconnect replaces the socket it outlived rather than adding a second.
+Only an engine the registry lists, presenting that engine's token in `x-studio-engine-token` and,
+once the id is bound to one, its machine's tunnel secret in `x-studio-tunnel-secret`
+(`packages/engine-registry/docs/token.md`). Headers and never the query string, so no access log
+keeps them. One tunnel per engine: a reconnect that passes that check replaces the socket it
+outlived rather than adding a second; one that fails it is refused before the live tunnel is
+touched, so nobody holding the token alone can take an engine's channels over.
 
 Both ends ping every 20 s and drop a peer that missed one. A tunnel that died without a FIN would
 otherwise look alive for ever, and its channels with it.
+
+## Nothing on a tunnel is trusted for shape
+
+Holding a tunnel needs no account, and the heartbeat that lists an engine is open:
+whoever runs a supervisor can send the hub anything. A throw inside a socket listener is an
+uncaught exception, and k7's backend exits on those. So:
+
+- every agent text frame goes through `parseAgentMessage` and every binary header through
+  `asBinaryHeader` (`frames.ts`) — a non-null object, a known `t`, integer `ch`/`req`, `paths` an
+  array of strings — and a frame of any other shape is ignored, never read;
+- every upgrade and message listener on the hub, the relay and the agent catches what is thrown,
+  says it and drops that socket alone; the async handlers (`stat`, `get`, `put`) end in a `catch`;
+- the hub and the relay accept frames up to `MAX_FRAME_BYTES` (16 MiB). The largest legitimate
+  frame is a file chunk, `CHUNK_BYTES` plus its header, or an engine frame passed through — a
+  document or a plugin list — which stays well under it; the `ws` default would let one frame
+  hold 100 MiB of the server's memory.
 
 ## A channel looks like a WebSocket
 

@@ -84,6 +84,9 @@ public:
     // Forget every session holding nothing and quiet for `ttlMs`, returning how many went; called by the state timer. See docs/sessions.md.
     size_t reapEmptySessions(double ttlMs);
 
+    // How many sessions one engine holds at most: each carries a broadcast ring and is walked by the state tick 20 times a second.
+    static constexpr size_t kMaxSessions = 64;
+
     // A socket DRIVING this session arrived, or went — a surface somebody looks at, never the file service's. Message-thread only. See docs/engineHost.md.
     void addDriver(const std::string& session);
     void removeDriver(const std::string& session);

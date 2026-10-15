@@ -44,6 +44,8 @@ export interface SyncContext {
   subjectOf: (req: Request) => string;
   /** The running relay, once `serveSync` has attached it. */
   relay: () => ReturnType<typeof attachSyncRelay> | null;
+  /** Whether an account here may be paired with a remote origin: the desktop and the phone, never the origin itself. */
+  remotePairing: boolean;
 }
 
 /** The host a browser reached this origin at: a proxy in front rewrites Host, and says the original in x-forwarded-host. */
@@ -164,11 +166,16 @@ export class SyncRoutes {
       const user = this.c.userOf(req);
       return user ? { user, home: this.accountDir(accountKey(user)) } : null;
     };
+    // Where pairing is off, nothing here may change: the origin's libraries follow the first paired account (docs/fileHub.md).
+    r.use((req, res, next) => {
+      if (this.c.remotePairing || req.method === "GET") return next();
+      res.status(403).json({ error: "this server is not paired with another" });
+    });
     r.get("/", (req, res) => {
       const w = who(req);
       if (!w)
         return void res.status(401).json({ error: "no user on the session" });
-      const servers = readRemotes(w.home);
+      const servers = this.c.remotePairing ? readRemotes(w.home) : [];
       res.json({
         paired: servers.length > 0,
         url: servers[0]?.url ?? null,
@@ -231,7 +238,8 @@ export class SyncRoutes {
   /** The remote origin the session's account is paired with, or null: what a local surface compares itself against. */
   remoteOf(req: Request): SyncRemote | null {
     const user = this.c.userOf(req);
-    return user ? readRemote(this.accountDir(accountKey(user))) : null;
+    if (!user || !this.c.remotePairing) return null;
+    return readRemote(this.accountDir(accountKey(user)));
   }
 
   /** Let through a caller that proves an account by device token or hub secret; `res.locals.syncCaller` says who. */

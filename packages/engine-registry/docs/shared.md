@@ -20,9 +20,9 @@ each — and the heartbeat count would grow with every service. One registry mak
 connected to that studio" one fact.
 
 The case against a central registry is that one backend would become a request-time dependency of
-another. That coupling does not arise here: no BACKEND asks another. The pages on k7's origin call
-it same-origin, and z0's editor calls it across the origin (the backend answers every origin's
-credentialed request — `apps/k7/backend/docs/media/cors.md`), the relay included.
+another. That coupling does not arise here: no BACKEND asks another. Every page that calls it —
+k7's own and z0's editor, served at `/z0` on k7's hostname — calls it same-origin, the relay
+included; a credentialed call from any other origin is refused (`apps/k7/backend/docs/media/cors.md`).
 
 ## Saying what it is
 
@@ -47,13 +47,14 @@ An engine is still listed once and driven by several apps at once, through separ
 ## One mounting
 
 The registry is mounted in ONE place, k7's backend, and still through one call rather than by hand.
-`mountEngineRegistry(app, { service, requireAuth, exitOnSignal })` installs the guard, the registry and the
-routes, and answers a `serve(server, url)` that attaches the relay after `listen` — the relay
-needs the `http.Server`, which Express does not have before then.
+`mountEngineRegistry(app, { service, requireAuth, exitOnSignal, stateDir })` installs the guard, the registry
+and the routes, and answers a `serve(server, url)` that attaches the relay after `listen` — the relay
+needs the `http.Server`, which Express does not have before then. `stateDir` is where the engines'
+secret bindings outlive a restart (`token.md`); without it they live in memory alone.
 
 The ORDER is the load-bearing part, and that is why this is a function rather than a paragraph:
 `requireAuth` goes on the paths meant for the BROWSER **before** the router, so that those meant
-for the ENGINE — `heartbeat`, `deregister`, where a machine authenticates with its own token —
+for the ENGINE — `heartbeat`, `deregister`, where a machine authenticates with its tunnel secret —
 stay open. Written by hand per service, that order would be a rule every file had to keep; let
 one of them mount a guard over the whole of `/api` and the only thing still protecting the
 heartbeat would be that the router had already answered.

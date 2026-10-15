@@ -15,7 +15,9 @@ import {
   headOnDisk,
   readCheckpoints,
 } from "./historyLog.ts";
-import { type LiveRoom, roomDir } from "./syncRelay.ts";
+import { isWorkspaceName, type LiveRoom, roomDir } from "./syncRelay.ts";
+
+export { isWorkspaceName };
 
 export interface HistoryOptions {
   /** The account folder its rooms are kept under. */
@@ -49,15 +51,6 @@ export interface FileChange {
 /** A binary file travels as a ref starting with NUL. */
 const isBlobRef = (v: string | null): boolean =>
   v?.startsWith("\u0000") ?? false;
-
-/** A workspace name as a single folder name: nothing that could climb out of `.sync-relay`. */
-export const isWorkspaceName = (w: string): boolean =>
-  w.length > 0 &&
-  w.length <= 255 &&
-  w !== "." &&
-  w !== ".." &&
-  !/[/\\]/.test(w) &&
-  !w.includes("\u0000");
 
 export const summary = (e: Sequenced): EntrySummary => ({
   seq: e.seq,

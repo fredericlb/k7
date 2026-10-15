@@ -56,7 +56,11 @@ outside every tunnel root.
   (`checkpointPrefixes`: `_modules`, `_presets` and the pins of every folder above it, and
   `_playlists`). The layout stays the workspace's, so a `../_modules` still resolves.
 - **`home/`**: what the document names in the account's own folder, mostly the renders. The render
-  cache is purged after a month unused, and a share does not expire.
+  cache is purged after a month unused, and a share does not expire. Only a FILE is copied, only
+  when a typed path field of the document names it (a clip's source, a rack sound, a plugin's
+  preset, IR, model, patch or Faust sound), and only from the account's library, renders and
+  models: a share is public, and any other string of the document is text a song file wrote
+  (`packages/song/docs/confine.md`).
 - **The three documents a browser draws** (`project-doc.json`, `graph.json`, `surfaces.json`), built
   from the same compile. `video-doc`, `project-errors`, `/tree` and `/file` are left out, as before:
   a share shows the song, not the folder it was made in.

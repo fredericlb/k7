@@ -6,7 +6,12 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { decodeFrames, decodeMono, monoFromInterleaved } from "./decode.ts";
+import {
+  decodeFrames,
+  decodeMono,
+  monoFromInterleaved,
+  TooLongError,
+} from "./decode.ts";
 import { measureFilePeak, PEAK_FLOOR_DB, toDb } from "./peak.ts";
 
 /** Interleaved f32 from per-channel sample lists. */
@@ -128,6 +133,29 @@ const pieces = ${JSON.stringify(pieces)};
     expect(peak.peakDb).toBeCloseTo(20 * Math.log10(0.8), 4);
     const mono = await decodeMono("ignored.wav", { engineBin });
     expect(mono.mono.flatMap((b) => [...b])).toEqual([0, 0]);
+  });
+
+  it("refuses a header that claims more frames than a decode may hold", async () => {
+    const engineBin = fakeEngine(
+      '{"sampleRate":48000,"channels":1,"frames":1000000000000}',
+      new Float32Array(4),
+      [],
+    );
+    await expect(decodeMono("ignored.wav", { engineBin })).rejects.toThrow(
+      TooLongError,
+    );
+  });
+
+  // A header can lie low: the frames are counted as they arrive, and the decode stops at the cap.
+  it("stops a decode that runs past the cap whatever the header said", async () => {
+    const engineBin = fakeEngine(
+      '{"sampleRate":48000,"channels":1,"frames":2}',
+      new Float32Array(64),
+      [100, 200],
+    );
+    await expect(
+      decodeMono("ignored.wav", { engineBin, maxFrames: 16 }),
+    ).rejects.toThrow(TooLongError);
   });
 
   it("refuses a stream with no header", async () => {

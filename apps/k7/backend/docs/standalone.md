@@ -17,6 +17,7 @@ service's entry.
 | `port` 18789 | not a dev session's 8789, so the desktop app runs beside `npm run dev`; FIXED, because a page's storage is keyed on its origin, port included, and because the OIDC client's redirect is registered on it |
 | `OIDC_*`: k7's provider, the public client `st0-desktop` (the provider's name for it), no secret | an app on the user's device cannot keep a secret, so PKCE alone proves the callback (`apps/k7-standalone/docs/signIn.md`); `groups`, so an account's admin rights come with it |
 | `STUDIO_LOCAL_USER=1` | signed out is a local user, never a dead end: nothing needs a network to start |
+| `STUDIO_LISTEN_HOST` `127.0.0.1` | the backend answers its own machine only — below |
 | `K7_INSTANCE=local` | releases and pages live on the server alone: this backend forwards them to the paired server, and has none without it (`packages/rehearsal-server/docs/publications.md`) |
 | `STUDIO_LIBRARY_ORIGIN` `https://st0.app` | where a machine never paired finds newer versions of the `k7-core` library and fetches them (`packages/file-hub/libraryFetch.ts`); a hosted origin never sets it, since it IS one, and asking another would mix two origins' libraries |
 | `COOKIE_DOMAIN` empty | a domain would make the session cookie `Secure`, and the origin is plain http on loopback |
@@ -26,6 +27,25 @@ service's entry.
 
 The desktop still lets `K7_OIDC_ISSUER` and `K7_OIDC_CLIENT_ID` override the provider, for testing
 against another one.
+
+## It answers its own machine only
+
+`/auth/local` hands a session to whoever asks, so this backend must be unreachable by anyone but the
+person at the machine — a venue's Wi-Fi is full of strangers. Three locks, each for a different way in:
+
+| lock | what it stops |
+|---|---|
+| `STUDIO_LISTEN_HOST=127.0.0.1` — `server.ts` binds there instead of every interface | a device on the same network opening `http://<ip>:18789/auth/local` |
+| `loopbackOnly` (`src/loopback.ts`) on every route while `STUDIO_LOCAL_USER=1`: the peer address AND the `Host` header must be loopback | DNS rebinding: a page whose name resolves to `127.0.0.1` reaches the port from the user's own browser, and only its `Host` gives it away |
+| `/auth/local` checks both again (`src/handoff.ts`) | the same, should a host ever start the local user without the other two |
+
+Nothing on another device needs this backend. A device on the network drives the **engine**, on
+the engine's own port and once paired (`engine/k7-runtime/docs/pairing.md`). The QR codes the window
+draws rebase onto `lanUrls`, which the desktop app does not supply, so they show no code rather than
+a link into this port (`apps/k7/frontend/docs/shell.md`); serving k7's pages to a tablet from here
+would mean lifting all three locks, and a login of its own for the tablet. The supervisor, the file
+services and the window all reach this backend on `127.0.0.1`. The locks cover HTTP routes; a
+WebSocket upgrade is answered by its own listener and is that listener's to check.
 
 ## The bundle: `scripts/bundle.mjs`
 

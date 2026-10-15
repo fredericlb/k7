@@ -64,9 +64,9 @@ that lists the cache or hands the moteur a path, but a browser that has to read 
 writing to the cache is what a sync is for, and a route that let a caller edit it would produce
 files the next sync silently deletes.
 
-`safePath` confines every path to the cache root, lexically and via realpath — the same guard the
-hosted service uses, this one being reachable from a second app. A path that escapes is
-the caller's mistake: 400, never 500.
+`readablePath` confines every path to the cache root, lexically and via realpath, and refuses a dot
+segment — the same guard the hosted service uses, this one being reachable from a second app. A
+path that escapes is the caller's mistake: 400, never 500.
 
 The mime is REQUIRED: `streamFile` sets it unconditionally, so an `undefined` throws inside
 `res.setHeader` and the route answers 500 for every file it is asked for. A cache

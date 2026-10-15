@@ -2,9 +2,11 @@
 // JUCE-free: DocJson.cpp, ProjectDoc.cpp and Warnings.cpp compile straight in, like the diff suite.
 
 #include "../server/DocJson.h"
+#include "PathRoots.h"
 #include "Warnings.h"
 #include "test_harness.h"
 
+#include <filesystem>
 #include <vector>
 
 using namespace studio;
@@ -66,6 +68,53 @@ void duplicate_ids_are_renamed() {
     CHECK(seen.size() == 3);
 }
 
+// An output pair is a rack grown to that many outputs; 0..31 is the sampler's own range.
+void pairs_are_bounded() {
+    const json plugin{{"id", "kit"}, {"tapOuts", json::array({json{{"note", 400}, {"pair", 1000000}}})}};
+    const json track{{"id", "t"}, {"plugins", json::array({plugin})}, {"inputFrom", {{"plugin", "kit"}, {"pair", -7}}}};
+    const auto doc = docFromJson(json{{"tracks", json::array({track})}});
+    CHECK(doc.tracks.at(0).plugins.at(0).tapOuts.at(0).pair == 31);
+    CHECK(doc.tracks.at(0).plugins.at(0).tapOuts.at(0).note == 127);
+    CHECK(doc.tracks.at(0).inputFromPair == 0);
+}
+
+// The engine deletes or overwrites a preset save path on every autosave, so it is a .vstpreset or nothing.
+void preset_save_must_be_a_vstpreset() {
+    std::vector<Warning> seen;
+    setWarningSink([&](const Warning& w) { seen.push_back(w); });
+    const auto kept = pluginFromJson(json{{"id", "a"}, {"presetSave", "/x/Amp.VSTPRESET"}});
+    const auto dropped = pluginFromJson(json{{"id", "b"}, {"presetSave", "/x/.bashrc"}});
+    const auto unc = pluginFromJson(json{{"id", "c"}, {"presetSave", "\\\\host\\share\\a.vstpreset"}});
+    setWarningSink(nullptr);
+    CHECK(kept.presetSave == "/x/Amp.VSTPRESET");
+    CHECK(dropped.presetSave.empty());
+    CHECK(unc.presetSave.empty());
+    CHECK(seen.size() == 2);
+}
+
+// Once serve() set the roots, a path outside them is dropped where it arrives; this runs LAST, the roots being process-wide.
+void paths_outside_the_roots_are_dropped() {
+    namespace fs = std::filesystem;
+    const auto root = fs::weakly_canonical(fs::temp_directory_path()) / "k7-docjson-roots";
+    fs::create_directories(root);
+    setPathRoots({{root.string()}, {root.string()}});
+    std::vector<Warning> seen;
+    setWarningSink([&](const Warning& w) { seen.push_back(w); });
+    const json clip{{"id", "c"}, {"source", (root / "a.wav").string()}};
+    const json stray{{"id", "d"}, {"source", (root / ".." / "b.wav").string()}};
+    const json plugin{{"id", "p"}, {"namFile", "/etc/passwd"}, {"presetSave", (root / "p.vstpreset").string()}};
+    const json track{{"id", "t"}, {"clips", json::array({clip, stray})}, {"plugins", json::array({plugin})}};
+    const auto doc = docFromJson(json{{"recordDir", "/"}, {"tracks", json::array({track})}});
+    setWarningSink(nullptr);
+    CHECK(doc.tracks.at(0).clips.at(0).source == (root / "a.wav").string());
+    CHECK(doc.tracks.at(0).clips.at(1).source.empty());
+    CHECK(doc.tracks.at(0).plugins.at(0).namFile.empty());
+    CHECK(!doc.tracks.at(0).plugins.at(0).presetSave.empty());
+    CHECK(doc.recordDir.empty());
+    CHECK(seen.size() == 3);
+    fs::remove_all(root);
+}
+
 }  // namespace
 
 int main() {
@@ -73,5 +122,8 @@ int main() {
     RUN(timesig_valid_is_kept);
     RUN(note_fields_are_bounded);
     RUN(duplicate_ids_are_renamed);
+    RUN(pairs_are_bounded);
+    RUN(preset_save_must_be_a_vstpreset);
+    RUN(paths_outside_the_roots_are_dropped);
     TEST_MAIN_END();
 }

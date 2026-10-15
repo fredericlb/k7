@@ -184,6 +184,20 @@ describe("the server's door for shared moments", () => {
     expect((await put("m-x", null, MOMENT)).status).toBe(403);
     expect((await put("m-new", "p2", MOMENT)).status).toBe(409);
   });
+
+  it("refuses an id that is not one plain segment, and malformed JSON", async () => {
+    expect((await put("m.x", "p1", MOMENT)).status).toBe(400);
+    expect((await put("..%2Fescape", "p1", MOMENT)).status).toBe(400);
+    const form = new FormData();
+    form.append("moment", "{not json");
+    form.append("clip", new Blob(["webm"]), "moment.webm");
+    const res = await fetch(`${local}/dev/m-bad`, {
+      method: "PUT",
+      headers: { "x-person": "p1" },
+      body: form,
+    });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("a shared moment on the server", () => {

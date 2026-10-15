@@ -39,6 +39,18 @@ every pairing rides in `STUDIO_SYNC_SERVERS`, for the workspaces each server hol
 (`packages/file-service/docs/liveCapture.md`, "Several servers"). A pairing names its server by the
 relay's host, so pairing the same server again replaces it rather than listing it twice.
 `POST /api/sync/remote/main` makes another one main and `DELETE /api/sync/remote?url=` forgets one.
+Every one of these is refused on the origin: only a hub given `remotePairing` pairs (`fileHub.md`).
+
+## The relay trusts the socket, not the payload
+
+A frame is checked whole before anything reads it (`parseToRelay`, `../../live-sync/docs/ops.md`):
+every op of a batch has the shape its kind gives it and a path that stays in the workspace. A room's
+name is a single folder name (`isWorkspaceName`), or `@lib/` and a library name, since it becomes a
+folder under `.sync-relay/`. Anything else is answered `{ t: "error" }`, and so is a throw while a
+frame is handled: a socket is one replica, and must not be able to stop the process every account
+shares. For the same reason an upgrade whose address does not parse is left to the other listeners,
+and a line of `entries.jsonl` that does not parse is skipped on load — the last one, cut short by a
+crash, was never relayed.
 
 ## Every workspace a replica, and the rooms say which exist
 

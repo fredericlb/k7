@@ -223,11 +223,32 @@ describe("the engine claim", () => {
     expect(reg.engineForProject("p")).toBeUndefined();
   });
 
-  it("names the holder and the project in the list, so a picker can say which", () => {
+  // What a server route asks before reaching an engine for an account: a listed engine is not a held one.
+  it("says whether an account holds a claim, and forgets it once released", () => {
+    expect(reg.holds("e1", "alice")).toBe(false);
+    const alice = grant(reg.claim("e1", { project: null, holder: "alice" }));
+    expect(reg.holds("e1", "alice")).toBe(true);
+    expect(reg.holds("e1", "bob")).toBe(false);
+    expect(reg.holds("e1", "")).toBe(false);
+    expect(reg.holds("e2", "alice")).toBe(false);
+    reg.release("e1", alice.secret);
+    expect(reg.holds("e1", "alice")).toBe(false);
+  });
+
+  it("names the holder and the project to that account, and to nobody else", () => {
     grant(reg.claim("e1", { project: "band/winter.k7", holder: "alice" }));
-    const row = reg.list().find((e) => e.id === "e1");
+    const row = reg.list(undefined, "alice").find((e) => e.id === "e1");
     expect(row?.heldBy).toBe("alice");
     expect(row?.heldProject).toBe("band/winter.k7");
+    for (const viewer of ["bob", "", undefined]) {
+      const other = reg.list(undefined, viewer).find((e) => e.id === "e1");
+      expect(other?.assigned).toBe(true);
+      expect(other?.heldBy).toBeUndefined();
+      expect(other?.heldProject).toBeUndefined();
+      expect(other?.heldProjects).toEqual([]);
+    }
+    // The addresses stay: a browser probes its own machines directly.
+    expect(reg.list(undefined, "bob")[0]?.addresses.port).toBe(8765);
   });
 
   describe("the bench is a session of its own", () => {
@@ -243,7 +264,7 @@ describe("the engine claim", () => {
         reg.claim("e1", { project: SONG, holder: "alice", secret: song.secret })
           .ok,
       ).toBe(true);
-      const row = reg.list().find((e) => e.id === "e1");
+      const row = reg.list(undefined, "alice").find((e) => e.id === "e1");
       expect(row?.heldProject).toBe(SONG);
       expect(row?.heldProjects?.map((h) => h.project).sort()).toEqual(
         [BENCH, SONG].sort(),

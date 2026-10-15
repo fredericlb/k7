@@ -17,8 +17,40 @@ path — also arrives from loopback, because the supervisor dials the engine on 
 it. That is right: the server authenticated the browser before relaying it (a session, then an engine
 ticket), so pairing it again would be asking twice.
 
-The consequence to keep in mind: "local" is decided by the peer address alone. Anything that proxies
+The consequence to keep in mind: "local" is decided by the peer address alone, once the page
+check below has let the socket in. Anything that proxies
 LAN traffic into the engine over loopback makes that traffic local, and must authenticate it first.
+
+## A page from another site is closed at the handshake
+
+Loopback trust is about the PEER, and every web page the musician has open is a loopback peer: any
+site can run `new WebSocket("ws://127.0.0.1:8765")` from the browser on this machine. So before
+pairing is even asked, the handshake's `Origin` header is checked (`screenOrigin`, with the rule in
+`Pairing.cpp`'s `originAllowed`), and a socket whose origin is not allowed is closed with code 1008
+and never trusted — every message it sends before the close is dropped.
+
+Allowed:
+
+- **no `Origin` header** — a native client: the supervisor, a Node process, the desktop app's main
+  process. A browser always sends one, so a page cannot pass for one of these;
+- a `ws://` or `wss://` origin, which a browser never sends: it is IXWebSocket's default for a native
+  client, the supervisor's included;
+- loopback pages, any port or none, on `http` or `https`: `127.0.0.1`, `localhost`, `[::1]` — the
+  desktop app's window, a dev server, the phone app's shell page (`https://localhost`) and its studio
+  views (`http://127.0.0.1:<port>`);
+- `https://st0.app` and `https://<sub>.st0.app`, on the default port only;
+- every origin listed in `STUDIO_ENGINE_ALLOWED_ORIGINS`, comma-separated and matched exactly
+  (scheme, host and port). The supervisor sets it to the origins of the studios this machine is
+  listed at, so a self-hosted studio's pages reach its engine; a studio added after the engine
+  started counts from the engine's next start.
+
+Not allowed: every other site, `null` (a sandboxed frame, a `file:` page) and anything that does not
+parse as an origin. What is left to trust is what the machine itself serves on loopback, which is
+the machine already.
+
+On a phone the engine is started by the app rather than spawned, and the supervisor's start frame
+carries the same list as `origins`, which `EngineBridge.kt` exports as `STUDIO_ENGINE_ALLOWED_ORIGINS`
+before it starts the engine.
 
 ## What an unpaired LAN peer may say
 
@@ -31,6 +63,11 @@ Three things, and every other message is answered `{type:"error", code:"unpaired
 
 Machine-wide broadcasts skip untrusted sockets too: an unpaired peer hears its own refusals and
 nothing else.
+
+None of the three is more than a few hundred bytes, so a frame over **16 KB** from a socket not yet
+trusted is refused before it is parsed (`screenFrameSize`). The socket accepts frames far larger
+than that for a paired client's documents, and parsing one is the costly part, so without the cap
+anyone on the room's Wi-Fi could make the engine parse megabytes of JSON per message for nothing.
 
 ## The flow, and why the code is shown on both sides
 
@@ -59,7 +96,8 @@ keep driving until it happens to reconnect. The device forgets a key the engine 
 "pair this device" again rather than failing in a loop.
 
 **The engine's token pairs too.** The registry holds it, and its relay may dial the engine over the
-LAN when the server is not on the engine's machine; it shows the token as its key. A paired device
+LAN when the server is not on the engine's machine; it shows the token as its key, compared in
+constant time like a device's (`sameKey`). A paired device
 also learns the token, from `whoami` — it could pair with it as well, which grants nothing it does not
 already have.
 

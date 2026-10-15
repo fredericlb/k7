@@ -14,6 +14,12 @@ and pipes the channel to the local engine exactly as the tunnel pipes a channel.
 learns WebRTC exists. An engine is offered this path only when its supervisor holds a tunnel
 (`PublicEngine.rtc`), since that is what carries the offer.
 
+The offer is answered only for an account that **holds a claim** on that engine
+(`packages/engine-registry/docs/claim.md`); anyone else gets a 403. The channel reaches the engine as
+a socket of its own machine, past the relay's gate (`packages/engine-registry/docs/proxy.md`), so the
+gate is here, once, before it opens. A picker's first probe, made before its claim, therefore
+measures the relay alone; the probes after the claim race WebRTC too.
+
 Signalling is **one request and one answer**, candidates included — no trickle. It costs up to
 1.5 s of gathering on the first connect, and it spares the server a signalling session to keep.
 

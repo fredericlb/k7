@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <fstream>
 #include <random>
@@ -46,6 +47,8 @@ std::string randomCode() {
     return buf;
 }
 
+}  // namespace
+
 // Equal without returning early on the first difference, so a guess learns nothing from the time it took.
 bool sameKey(const std::string& a, const std::string& b) {
     if (a.size() != b.size()) return false;
@@ -54,12 +57,71 @@ bool sameKey(const std::string& a, const std::string& b) {
     return diff == 0;
 }
 
-}  // namespace
-
 bool isLoopbackAddress(const std::string& ip) {
     std::string v = ip;
     if (v.rfind("::ffff:", 0) == 0) v = v.substr(7);
     return v == "::1" || v == "localhost" || v.rfind("127.", 0) == 0;
+}
+
+namespace {
+
+std::string lower(std::string s) {
+    for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return s;
+}
+
+/** `origin` lower-cased and without a trailing slash, the one spelling both sides are compared in. */
+std::string normalOrigin(const std::string& origin) {
+    std::string o = lower(origin);
+    while (!o.empty() && o.back() == '/') o.pop_back();
+    return o;
+}
+
+}  // namespace
+
+bool originAllowed(const std::string& origin, const std::vector<std::string>& extra) {
+    const std::string o = normalOrigin(origin);
+    const size_t sep = o.find("://");
+    if (sep == std::string::npos) return false;
+    const std::string scheme = o.substr(0, sep);
+    // A browser never sends a ws: origin, so this is a native client (IXWebSocket sends one by default).
+    if (scheme == "ws" || scheme == "wss") return true;
+    for (const auto& e : extra)
+        if (normalOrigin(e) == o) return true;
+    if (scheme != "http" && scheme != "https") return false;
+    const std::string rest = o.substr(sep + 3);
+    const size_t hostEnd = rest.rfind(':');
+    const bool bracketed = !rest.empty() && rest.front() == '[';
+    const bool hasPort = hostEnd != std::string::npos && (!bracketed || hostEnd > rest.find(']'));
+    const std::string host = hasPort ? rest.substr(0, hostEnd) : rest;
+    const std::string port = hasPort ? rest.substr(hostEnd + 1) : std::string{};
+    if (hasPort && (port.empty() || port.find_first_not_of("0123456789") != std::string::npos)) return false;
+    if (host == "127.0.0.1" || host == "localhost" || host == "[::1]") return true;
+    if (scheme != "https" || hasPort) return false;
+    const std::string apex = "st0.app";
+    if (host == apex) return true;
+    const std::string sub = "." + apex;
+    if (host.size() <= sub.size() || host.compare(host.size() - sub.size(), sub.size(), sub) != 0) return false;
+    // Only letters, digits, dots and dashes before the apex, so nothing like `user@` can pass for a subdomain.
+    return host.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789.-") == std::string::npos;
+}
+
+std::vector<std::string> parseOrigins(const std::string& list) {
+    std::vector<std::string> out;
+    size_t start = 0;
+    while (start <= list.size()) {
+        size_t comma = list.find(',', start);
+        if (comma == std::string::npos) comma = list.size();
+        std::string one = list.substr(start, comma - start);
+        const size_t a = one.find_first_not_of(" \t");
+        const size_t b = one.find_last_not_of(" \t");
+        if (a != std::string::npos) {
+            one = normalOrigin(one.substr(a, b - a + 1));
+            if (!one.empty()) out.push_back(one);
+        }
+        start = comma + 1;
+    }
+    return out;
 }
 
 Pairing::Pairing(std::string file) : file_(std::move(file)) {

@@ -138,6 +138,7 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
             auto sock = std::make_shared<ix::WebSocket>();
             sock->setUrl(tunnelUrl(opts.registryUrl, opts.id));
             ix::WebSocketHttpHeaders headers{{kTokenHeader, opts.token}};
+            if (!opts.tunnelSecret.empty()) headers[kSecretHeader] = opts.tunnelSecret;
             if (!opts.renderKey.empty()) headers[kRenderKeyHeader] = opts.renderKey;
             sock->setExtraHeaders(headers);
             sock->setTLSOptions(tls::options());
@@ -435,6 +436,11 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
         std::thread([handler, req, emit, c, type, log] {
             JobContext ctx;
             ctx.fetch = [c](const std::string& local) { return c->map ? c->map->ensureLocal(local) : false; };
+            ctx.writable = [c](const std::string& local) {
+                if (!c->map) return false;
+                const auto m = c->map->toRemote(local);
+                return m.has_value() && m->second->writable;
+            };
             try {
                 handler(req, emit, ctx);
             } catch (const std::exception& e) {

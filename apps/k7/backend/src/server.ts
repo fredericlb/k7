@@ -12,7 +12,7 @@ import { loadServiceEnv } from "@frediverse/env";
 import { precompressedStatic } from "@frediverse/http/precompressed";
 import { behindProxy } from "@frediverse/http/proxied";
 import { setupAuth } from "@frediverse/oidc";
-import { ENGINE_BODY_LIMIT, engineErrorHandler } from "@studio/engine-registry";
+import { ENGINE_BODY_LIMIT } from "@studio/engine-registry";
 import { mountRehearsal } from "@studio/rehearsal-server";
 import { prefsStore } from "@studio/user-prefs";
 import { preferencesRouter } from "@studio/user-prefs/router";
@@ -20,8 +20,15 @@ import { serviceUrl } from "@studio/web-protocol/services";
 import express from "express";
 import { z } from "zod";
 import { aiOrganizeBody, aiOrganizeRouter } from "./aiOrganize";
+import { authRefusals, DEFAULT_SESSION_SECRET } from "./authGuard.ts";
 import { mountHandoff } from "./handoff.ts";
-import { openCors } from "./media/cors.ts";
+import {
+  jsonErrorHandler,
+  securityHeaders,
+  shellFrameHeaders,
+} from "./hardening.ts";
+import { loopbackOnly } from "./loopback.ts";
+import { originPolicyFromEnv, studioCors } from "./media/cors.ts";
 import { mediaTokens, mountMedia } from "./media/mount.ts";
 
 // A stray rejection is logged and survived; an uncaught exception leaves, and the container restarts it.
@@ -36,11 +43,29 @@ process.on("uncaughtException", (err) => {
 // Dev config layered INTO process.env, never read into a value — ../docs/media/config.md.
 Object.assign(process.env, loadServiceEnv("k7-backend"));
 
-const PORT = Number(process.env.PORT || 8789);
-const app = express();
+// No dev-user stub and no guessable session secret on a server — ../docs/hardening.md.
+const refusals = authRefusals(process.env);
+if (refusals.length > 0) {
+  for (const r of refusals) console.error(`FATAL: ${r}`);
+  console.error(
+    "FATAL: refusing to start; set STUDIO_DEV_AUTH=1 only for a local dev session",
+  );
+  process.exit(1);
+}
 
-// Every origin's preflight is answered before anything else runs — ../docs/media/cors.md.
-app.use(openCors);
+const PORT = Number(process.env.PORT || 8789);
+// Unset, every interface; the desktop and the phone set 127.0.0.1 (../docs/standalone.md).
+const LISTEN_HOST = process.env.STUDIO_LISTEN_HOST || undefined;
+const LOCAL_USER = process.env.STUDIO_LOCAL_USER === "1";
+const app = express();
+// Express's own banner tells a client nothing it needs.
+app.disable("x-powered-by");
+app.use(securityHeaders);
+
+// A backend that signs anyone in as the local user answers its own machine, by address and by name.
+if (LOCAL_USER) app.use(loopbackOnly);
+// Listed origins only, and no cross-site write, before anything else runs — ../docs/media/cors.md.
+app.use(studioCors(originPolicyFromEnv()));
 // The module builder's AI organize takes a whole module, so it parses first, with its own limit.
 app.use("/api/ai", aiOrganizeBody);
 // The relay pipes bodies to an engine's file service, so the limit is that service's opinion.
@@ -61,8 +86,8 @@ const { requireAuth } = await setupAuth(app, {
 });
 // An app's system-browser sign-in, and the desktop's signed-out local user (../docs/handoff.md).
 mountHandoff(app, {
-  secret: process.env.SESSION_SECRET || "dev-insecure-secret-change-me",
-  localUser: process.env.STUDIO_LOCAL_USER === "1",
+  secret: process.env.SESSION_SECRET || DEFAULT_SESSION_SECRET,
+  localUser: LOCAL_USER,
 });
 
 // The library's tokens first, so the rehearsal server, mounted ahead of it, can call it with one.
@@ -140,33 +165,39 @@ const FRONTEND_DIST = join(import.meta.dirname, "../../frontend/dist");
 const SHELL_CACHE = "no-cache";
 app.use(
   precompressedStatic(FRONTEND_DIST, {
-    setHeaders: (res, path) =>
+    setHeaders: (res, path) => {
       res.setHeader(
         "Cache-Control",
         path.startsWith(join(FRONTEND_DIST, "assets"))
           ? "public, max-age=31536000, immutable"
           : SHELL_CACHE,
-      ),
+      );
+      if (path.endsWith(".html")) shellFrameHeaders(res);
+    },
   }),
 );
 // Not for /assets/: a hashed chunk that is gone must 404, or the page parses index.html as a script.
 app.get(/^(?!\/api|\/auth|\/assets\/)/, (_req, res) => {
   res.setHeader("Cache-Control", SHELL_CACHE);
+  shellFrameHeaders(res);
   res.sendFile(join(FRONTEND_DIST, "index.html"));
 });
 
-// Mounted LAST: three routes read a 512 MB body, so a caller hanging up is an everyday event.
-app.use(engineErrorHandler);
+// Mounted LAST: a JSON answer for every error, and never a 5xx's message or stack.
+app.use(jsonErrorHandler);
 
+const onListening = () => {
+  const url = `http://${LISTEN_HOST ?? "localhost"}:${PORT}`;
+  // "auth" and not "verifies auth": this backend MINTS the session (../../AGENTS.md).
+  console.log(`🎛  k7 backend on ${url}  (auth + media library + rehearsal)`);
+  media.serve(server, url);
+  // After the library's serve: the rehearsal signaling sits in front of the registry's upgrade listener.
+  rehearsal.serve(server);
+};
 const server = behindProxy(
-  app.listen(PORT, () => {
-    const url = `http://localhost:${PORT}`;
-    // "auth" and not "verifies auth": this backend MINTS the session (../../AGENTS.md).
-    console.log(`🎛  k7 backend on ${url}  (auth + media library + rehearsal)`);
-    media.serve(server, url);
-    // After the library's serve: the rehearsal signaling sits in front of the registry's upgrade listener.
-    rehearsal.serve(server);
-  }),
+  LISTEN_HOST
+    ? app.listen(PORT, LISTEN_HOST, onListening)
+    : app.listen(PORT, onListening),
 );
 // Node's default cuts a request at 5 minutes, and a 512 MB upload over a slow link takes longer.
 server.requestTimeout = 30 * 60_000;

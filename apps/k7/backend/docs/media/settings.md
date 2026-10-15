@@ -8,9 +8,11 @@ does with it, under `/api/settings`.
 ## One for the instance, not one per person
 
 The slskd address, its API key and the SFTP access belong to the **instance**: one daemon, one
-download folder, and every hunt, whoever starts it, goes through them. Anyone signed in can read and
-change them — the same people who can already start a hunt. The hunt history stays per person; only
-what it runs through is shared. A new instance is unconfigured, and the hunt screen says so and
+download folder, and every hunt, whoever starts it, goes through them. Anyone signed in can start a
+hunt, but only an **admin** — the session's `groups` against `$AUTH_ADMIN_GROUPS`, the same reading
+as the libraries' (`apps/k7/backend/src/media/admin.ts`) — can read, change or test them: whoever
+can move the address can send the stored key wherever they point it. The hunt history stays per
+person; only what it runs through is shared. A new instance is unconfigured, and the hunt screen says so and
 links to the settings.
 
 Nothing about slskd comes from the environment: a form changes a key without a restart, and can
@@ -34,6 +36,11 @@ secret counts as **none on file**: the screen shows it missing and it is typed a
 "absent" (keep) from `""` (forget), which is what lets a form leave a secret field empty without
 erasing what is stored.
 
+A kept secret stays bound to the target it was typed for. When `url` changes, the API key is
+dropped unless a new one comes with it; when the SFTP host, user or port changes, so is the
+password. The private key and its passphrase are kept: SSH public-key authentication signs a
+challenge and never sends the key, so a new host learns nothing it could reuse.
+
 The private key is the key **itself**, pasted, not a path: the server has no file of the user's to
 point at. It should be a key distinct from the git deploy key — reaching a git host and opening a
 shell on the slskd machine are two different trusts.
@@ -45,6 +52,10 @@ reported apart — slskd (`GET /application` with the key) and SFTP (sign in and
 folder) — because a form of eight fields is filled in to find out whether it works, and the two
 fail for unrelated reasons. The test reads the SAVED settings, not the form, so a secret on file is
 tested without ever travelling back to the browser.
+
+A failed half answers a fixed sentence and the cause goes to the server's log. The raw error —
+"connection refused", a TLS name, a status line — would turn the test into a probe of whatever
+address the form names.
 
 The routes are **session only**, like `/api/hunt`: a machine token must not read or replace the
 credentials a hunt spends.

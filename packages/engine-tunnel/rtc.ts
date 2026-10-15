@@ -117,27 +117,40 @@ function pipe(dc: DataChannel, opts: RtcOptions, done: () => void): void {
       engine.send(m, { binary: typeof m !== "string" });
     else held.push(m);
   };
-  dc.onMessage((msg) => {
-    const bytes =
-      typeof msg === "string"
-        ? Buffer.from(msg)
-        : Buffer.from(msg as ArrayBuffer);
-    const frame = joiner.push(bytes);
-    if (!frame) return;
-    toEngine("text" in frame ? frame.text : Buffer.from(frame.binary));
-  });
+  // Guarded both ways: a throw inside a native or socket callback would end the supervisor, so it ends this channel.
+  const safely = (fn: () => void): void => {
+    try {
+      fn();
+    } catch (e) {
+      opts.log?.(`rtc channel: ${(e as Error).message}`);
+      end();
+    }
+  };
+  dc.onMessage((msg) =>
+    safely(() => {
+      const bytes =
+        typeof msg === "string"
+          ? Buffer.from(msg)
+          : Buffer.from(msg as ArrayBuffer);
+      const frame = joiner.push(bytes);
+      if (!frame) return;
+      toEngine("text" in frame ? frame.text : Buffer.from(frame.binary));
+    }),
+  );
   engine.on("open", () => {
     for (const m of held.splice(0))
       engine.send(m, { binary: typeof m !== "string" });
   });
-  engine.on("message", (data, isBinary) => {
-    if (!dc.isOpen()) return;
-    const payload = isBinary
-      ? new Uint8Array(data as Buffer)
-      : (data as Buffer).toString("utf8");
-    for (const f of toFragments(payload)) dc.sendMessageBinary(f);
-  });
-  const end = (): void => {
+  engine.on("message", (data, isBinary) =>
+    safely(() => {
+      if (!dc.isOpen()) return;
+      const payload = isBinary
+        ? new Uint8Array(data as Buffer)
+        : (data as Buffer).toString("utf8");
+      for (const f of toFragments(payload)) dc.sendMessageBinary(f);
+    }),
+  );
+  function end(): void {
     try {
       dc.close();
     } catch {
@@ -145,7 +158,7 @@ function pipe(dc: DataChannel, opts: RtcOptions, done: () => void): void {
     }
     engine.close();
     done();
-  };
+  }
   dc.onClosed(end);
   dc.onError((e) => {
     opts.log?.(`rtc channel: ${e}`);

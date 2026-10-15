@@ -27,6 +27,8 @@ export interface ProbeTarget {
   proxyTicket?: string;
   /** Its supervisor holds a tunnel, so a WebRTC candidate is offered too — packages/engine-tunnel/docs/rtc.md. */
   rtc?: boolean;
+  /** The server's own engine, its tunnel authenticated by the render key — packages/engine-tunnel/docs/jobs.md. */
+  server?: boolean;
 }
 
 export interface RankedEngine<E extends ProbeTarget = ProbeTarget> {
@@ -53,6 +55,33 @@ export function fileTokenOf(r: RankedEngine): string | null {
 /** Answered over LOOPBACK: the engine on the machine this page runs on — the one whose speakers you are in front of. */
 export const onThisMachine = (r: { wsUrl: string | null }): boolean =>
   !!r.wsUrl && /^wss?:\/\/(127\.0\.0\.1|localhost|\[::1\])[:/]/.test(r.wsUrl);
+
+/** A loopback or private host: one a browser reaches only on its own machine or its own network. */
+const PRIVATE_HOST =
+  /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|localhost$|\[(::1|f[cd][0-9a-f]*:.*|fe80:.*)\]$)/i;
+
+/** Answered on a DIRECT socket to one of the engine's own private addresses — never the relay nor WebRTC — see docs/access.md. */
+export function reachedDirectly(r: {
+  engine: ProbeTarget;
+  wsUrl: string | null;
+  token: string | null;
+}): boolean {
+  if (!r.wsUrl || !r.token) return false;
+  let u: URL;
+  try {
+    u = new URL(r.wsUrl);
+  } catch {
+    return false;
+  }
+  const { loopback, lanIps, port } = r.engine.addresses;
+  return (
+    u.protocol === "ws:" &&
+    u.port === String(port) &&
+    (u.pathname === "/" || u.pathname === "") &&
+    [loopback, ...(lanIps ?? [])].includes(u.hostname) &&
+    PRIVATE_HOST.test(u.hostname)
+  );
+}
 
 /** Reachable, and therefore measured. Narrows the three nullable fields the engine answered, in one test. */
 export function isReachable<E extends ProbeTarget>(

@@ -143,7 +143,7 @@ int dumpPluginParams(const std::string& type) {
 
 namespace {
 
-/** The PluginDescription a format and an identifier name, REGISTERED with the engine about to create it — docs/plugins.md — or false. */
+/** The PluginDescription the binary at a path holds, REGISTERED with the engine about to create it — the CLI's, docs/plugins.md — or false. */
 bool describeExternal(te::Engine& engine, const std::string& formatName,
                       const std::string& identifier, juce::PluginDescription& desc) {
     juce::AudioPluginFormatManager formats;
@@ -159,6 +159,23 @@ bool describeExternal(te::Engine& engine, const std::string& formatName,
         }
         break;
     }
+    return false;
+}
+
+/** The same, for a socket's ask: only a plugin the scan cache lists, never a binary at a path a client chose — docs/plugins.md. */
+bool describeCached(te::Engine& engine, const std::string& formatName,
+                    const std::string& identifier, juce::PluginDescription& desc) {
+    const auto infos = cachedPluginInfos();
+    for (const auto& i : *infos) {
+        if (i.identifier != identifier || !juce::String(i.format).equalsIgnoreCase(juce::String(formatName))) continue;
+        if (auto xml = juce::parseXML(juce::String(i.descXml)); xml && desc.loadFromXml(*xml)) {
+            engine.getPluginManager().knownPluginList.addType(desc);
+            return true;
+        }
+        // An older cache has no stored description: the path it names is the scan's, not the asker's.
+        return describeExternal(engine, i.format, i.identifier, desc);
+    }
+    std::cerr << "[plugin-params] refused '" << identifier << "': not in the scan cache\n";
     return false;
 }
 
@@ -255,7 +272,7 @@ te::Plugin::Ptr orphanPluginFor(const std::string& formatName, const std::string
         // Describing opens the binary and creating runs it, both in this process.
         const LoadGuard guard{"plugin", identifier};
         juce::PluginDescription desc;
-        found = describeExternal(*shared.engine, formatName, identifier, desc);
+        found = describeCached(*shared.engine, formatName, identifier, desc);
         if (!found) return {};
         return shared.edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, desc);
     });
@@ -306,7 +323,7 @@ std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& fo
         // Describing opens the binary and creating runs it, both in this process.
         const LoadGuard guard{"plugin", identifier};
         juce::PluginDescription desc;
-        found = describeExternal(*shared.engine, formatName, identifier, desc);
+        found = describeCached(*shared.engine, formatName, identifier, desc);
         if (!found) return {};
         return shared.edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, desc);
     });

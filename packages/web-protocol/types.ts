@@ -208,8 +208,8 @@ export interface WorkspaceSyncStatus {
     state: "synced" | "local" | "server";
     server?: string;
     room?: string;
-    /** A move under way to `to`, or the reason it failed (`error`). */
-    moving?: { to: string; error?: string };
+    /** A move under way to `to` — a copy when `copy`, which leaves it where it is — or the reason it failed (`error`). */
+    moving?: { to: string; error?: string; copy?: boolean };
   }[];
 }
 
@@ -1058,17 +1058,21 @@ export interface PublicEngine {
   /** The library level its machine runs — docs/library-versions-plan.md; absent from an older supervisor, which runs level 1. */
   libraryLevel?: number;
   assigned: boolean; // already selected by someone; hidden from the pick list
-  /** Who holds it and what they opened, undefined when free — "busy" alone is a screen people retry; docs/machine.md. */
+  /** Who holds it and what they opened — named only to that same account, anyone else sees `assigned` alone; docs/machine.md. */
   heldBy?: string;
   heldProject?: string;
-  /** EVERY project claimed on it and by whom — an account's bench sits beside its song, docs/claim.md. */
+  /** The ASKING account's claims on it — its bench sits beside its song, docs/claim.md; another account's are never listed. */
   heldProjects?: { holder: string; project: string }[];
+  /** Its supervisor sends no tunnel secret, so nothing stops another machine taking its id — packages/engine-registry/docs/token.md. */
+  legacy?: boolean;
   // This engine's heartbeat arrived from the browser's own public IP — a same-LAN hint, not authoritative.
   sameSourceIp: boolean;
   /** A short-lived pass for the relay, minted by `/engines` and not by the registry — packages/engine-registry/proxy.ts. */
   proxyTicket?: string;
   /** Its supervisor holds a tunnel, so a WebRTC offer can reach it — packages/engine-tunnel/docs/rtc.md. */
   rtc?: boolean;
+  /** The server's own engine: its tunnel presented the render key — packages/engine-tunnel/docs/jobs.md. */
+  server?: boolean;
 }
 
 // How good a link is — Q1/Q2/Q3, off a measured latency — lives in ./quality; see docs/quality.md.

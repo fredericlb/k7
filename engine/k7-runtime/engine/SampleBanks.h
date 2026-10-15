@@ -1,8 +1,10 @@
 // SampleBanks.h — a Strudel sound name (+ variant) → the WAV a pattern lane plays, searched in the banks the document
-// names, in order. JUCE-free and header-only so tests/ has it in the FAST binary.
+// names, in order. JUCE-free, header-only but for PathRoots.cpp, so tests/ has it in the FAST binary.
 // The one thing a reader would get wrong: a name that resolves nowhere is NOT an error — it is a NOTE (docs/patternPlugin.md).
 
 #pragma once
+
+#include "PathRoots.h"
 
 #include <algorithm>
 #include <cctype>
@@ -27,7 +29,8 @@ public:
 
     /** The file for `name`/`index`, or "" — the WAVs in `<bank>/<name>/` sorted and taken modulo, else `<bank>/<name>.wav`. */
     std::string resolve(const std::string& name, int index) {
-        if (name.empty()) return {};
+        // A name is joined under each bank, so one that could climb out of it (`../`, a separator, an absolute path) is a note.
+        if (!safeSoundName(name)) return {};
         const std::string key = name + "#" + std::to_string(index);
         std::lock_guard<std::mutex> g(lock_);
         if (auto it = memo_.find(key); it != memo_.end()) return it->second;

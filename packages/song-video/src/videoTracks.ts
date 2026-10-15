@@ -4,7 +4,7 @@
 // compiles of one folder, and only this one's output ever draws. See docs/picture.md.
 
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { confineToProject } from "@studio/song/confine";
 import type {
   RawClip,
   RawVideoPlacement,
@@ -85,6 +85,17 @@ export function videoPlacementToClip(
     warnings?.push(
       `${lane ? `${lane}: ` : ""}'${ref}' names no clip — add clips/${ref}.yaml, or this shot draws nothing`,
     );
+  // A source outside the project's roots is no file at all (@studio/song docs/confine.md).
+  const source = clipsMap[ref]?.source
+    ? confineToProject(dir, String(clipsMap[ref].source))
+    : "";
+  if (source === null)
+    warnings?.push(
+      `${lane ? `${lane}: ` : ""}'${ref}' names a file outside the project — this shot draws nothing`,
+    );
+  // A derived copy outside the roots is dropped, and the shot falls back to its source.
+  const optimized = confineToProject(dir, clipsMap[ref]?.optimized);
+  const proxy = confineToProject(dir, clipsMap[ref]?.proxy);
   const fadeIn = readFade(p.fade_in);
   const fadeOut = readFade(p.fade_out);
   // Absent stays absent: a shot at its source's own pace says nothing about speed.
@@ -92,13 +103,9 @@ export function videoPlacementToClip(
   return {
     id: ref,
     name: ref,
-    source: clipsMap[ref] ? resolve(dir, String(clipsMap[ref].source)) : "",
-    ...(clipsMap[ref]?.optimized
-      ? { optimized: resolve(dir, String(clipsMap[ref].optimized)) }
-      : {}),
-    ...(clipsMap[ref]?.proxy
-      ? { proxy: resolve(dir, String(clipsMap[ref].proxy)) }
-      : {}),
+    source: source ?? "",
+    ...(optimized ? { optimized } : {}),
+    ...(proxy ? { proxy } : {}),
     ...(IMAGE_SOURCE.test(String(clipsMap[ref]?.source ?? ""))
       ? { still: true as const }
       : {}),
@@ -124,9 +131,16 @@ function captionsOf(
 ): { captions?: CaptionsDoc } {
   const source = String(clip?.source ?? "");
   if (!clip || !CAPTION_SOURCE.test(source)) return {};
+  const path = confineToProject(dir, source);
+  if (path === null) {
+    warnings?.push(
+      `'${ref}': ${source} is outside the project — its captions draw nothing`,
+    );
+    return { captions: { cues: [], style: {} } };
+  }
   let text = "";
   try {
-    text = readFileSync(resolve(dir, source), "utf8");
+    text = readFileSync(path, "utf8");
   } catch {
     warnings?.push(
       `'${ref}': ${source} could not be read — its captions draw nothing`,

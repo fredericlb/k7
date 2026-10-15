@@ -23,6 +23,7 @@ import {
   renameNodeInAssemblies,
 } from "@studio/song/assemblyEdit";
 import { chainNodeName } from "@studio/song/chainGraphEdit";
+import { confineTo } from "@studio/song/confine";
 import { bindModuleCc } from "@studio/song/controllerBind";
 import {
   createCurveFile,
@@ -3641,8 +3642,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     if (typeof current === "string" && current) {
       // Unfreeze: the attribute goes and so does the render it pointed at.
       setModuleFrozen(h.songPath, module, null);
-      rmSync(join(h.songPath, current), { force: true });
-      h.log([`${module}: unfrozen — everything upstream is live again`]);
+      // Only a render INSIDE the project is deleted: `frozen:` is text a file holds (packages/song/docs/confine.md).
+      const render = confineTo([h.songPath], join(h.songPath, current));
+      if (render) rmSync(render, { force: true });
+      h.log([
+        `${module}: unfrozen — everything upstream is live again`,
+        ...(render ? [] : [`  ${current} is outside the project — left alone`]),
+      ]);
       await h.reload();
       return;
     }
