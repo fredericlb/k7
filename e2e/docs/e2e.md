@@ -26,6 +26,22 @@ not on disk here: it is a local tool by construction.
 It signs in as a dedicated account, `sub: "e2e"`. The file hub gives that account a workspace of
 its own, seeded with the `Examples` projects, so a spec that writes never touches a person's work.
 
+## Feature projects
+
+`fixtures/` holds one small project per feature, and `fixtures/README.md` is the table of which is
+which. The `seed` step writes them into a workspace of their own, `E2E`, before every run. Writing
+goes over HTTP, through the same routes the browser uses: the workspace is removed and recreated with
+`/workspaces/remove` and `/workspaces`, never deleted on disk, because the live-sync relay restores a
+folder that disappears behind its back.
+
+The service validates nothing on write, so whether a fixture is a valid project is a test of its
+own (`specs/web/fixtures.spec.ts`), separate from what the screen does with it
+(`specs/web/features.spec.ts`).
+
+A spec that has found a bug keeps asserting the right behaviour under `test.fail`, with the bug in
+its reason: the run stays green, and turns red the day the bug is fixed, which is the reminder to
+drop the mark.
+
 ## What a run needs from the machine
 
 - **The dev session up** (`npm run dev`).

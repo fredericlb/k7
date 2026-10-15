@@ -1,0 +1,19 @@
+// A one-bar beat. `use_rack` links this sequence to the "kit" rack, so the tracker and
+// piano-roll show the drum symbols (BD/SN/HH) in place of note names and let you enter
+// notes by symbol. It is an EDITOR helper only — the notes below are plain MIDI.
+
+notes([
+  t(0).d(0.25).k(36),
+  t(2).d(0.25).k(36),
+  t(1).d(0.25).k(38),
+  t(3).d(0.25).k(38),
+  t(0).d(0.25).k(42),
+  t(0.5).d(0.25).k(42),
+  t(1).d(0.25).k(42),
+  t(1.5).d(0.25).k(42),
+  t(2).d(0.25).k(42),
+  t(2.5).d(0.25).k(42),
+  t(3).d(0.25).k(42),
+  t(3.5).d(0.25).k(42),
+])
+use_rack("kit")

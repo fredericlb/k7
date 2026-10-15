@@ -1,0 +1,2 @@
+extends("@meta/doc")
+content("E2E note: this text is drawn on the graph, wired from the drums lane.")

@@ -1,0 +1,4 @@
+// A one-beat window of the kick, so a loop repeats it on the beat.
+source("clips/kick.wav")
+from(0)
+to(0.5)

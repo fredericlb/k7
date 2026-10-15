@@ -21,10 +21,11 @@ export default defineConfig({
   },
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },
+    { name: "seed", testMatch: /seed\.setup\.ts/, dependencies: ["setup"] },
     {
       name: "web",
       testMatch: /web\/.*\.spec\.ts/,
-      dependencies: ["setup"],
+      dependencies: ["seed"],
       use: { ...devices["Desktop Chrome"], storageState: AUTH_STATE },
     },
   ],

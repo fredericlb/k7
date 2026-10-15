@@ -1,0 +1,3 @@
+// A stretch map as an import would bring it: beat 0 at 0 s, beat 1 at 0.1 s.
+source("clips/kick.wav")
+warp({ algorithm: "elastique", markers: [[0, 0], [1, 0.1]] })

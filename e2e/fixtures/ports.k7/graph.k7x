@@ -1,0 +1,7 @@
+// Two lanes into the two inputs of one crossfade module; the second input arrives on port b.
+modules({
+  deckA: ["@workspace/audio/crossfade"],
+  deckB: ["@workspace/audio/crossfade#b"],
+  "@workspace/audio/crossfade": ["MIX"],
+  MIX: ["OUT"],
+})

@@ -1,0 +1,3 @@
+type("lfo")
+polarity("bipolar")
+frequency(1)

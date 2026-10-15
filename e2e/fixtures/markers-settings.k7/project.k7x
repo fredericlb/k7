@@ -1,0 +1,10 @@
+project({
+  name: "markers-settings",
+  tempo: 96,
+  sampleRate: 48000,
+  timeSignature: "3/4",
+  video: false,
+  layers: [],
+  tags: ["e2e", "settings"],
+})
+markers({ "1:1:1": "intro", "3:1:1": "chorus" })

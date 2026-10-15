@@ -1,0 +1,2 @@
+// A module between MIX and OUT processes every lane on the way out.
+modules({ drums: ["MIX"], MIX: ["glue"], glue: ["OUT"] })

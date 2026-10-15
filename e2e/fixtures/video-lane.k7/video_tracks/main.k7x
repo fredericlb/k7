@@ -1,0 +1,5 @@
+x(0)
+y(0)
+w(1280)
+h(720)
+events([ref("sample").start(0).length(6).source_from(0)])

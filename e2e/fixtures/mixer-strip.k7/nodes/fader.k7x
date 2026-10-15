@@ -1,0 +1,2 @@
+extends("@meta/audio/mixer")
+params({ Volume: -6 })

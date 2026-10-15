@@ -1,0 +1,2 @@
+// The synth module binds Filter Freq to curves/sweep and Osc1 Tune to curves/wobble.
+extends("@workspace/instruments/synth")

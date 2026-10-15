@@ -1,0 +1,12 @@
+// The KIT: which note fires which sound. It belongs to this node, not to the rack module — the
+// module is the sampler, and another node of it could be another kit. Each sound is a tap, a note
+// and a sample; `@project/` names a file in this project's own samples/ folder.
+extends("@workspace/instruments/drumrack")
+type("rack")
+rack({
+  symbols: {
+    BD: { note: 36, sample: "@project/kick.wav" },
+    SN: { note: 38, sample: "@project/snare.wav" },
+    HH: { note: 42, sample: "@project/hat.wav" },
+  },
+})
