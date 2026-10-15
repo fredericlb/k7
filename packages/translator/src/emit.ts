@@ -60,10 +60,12 @@ function yamlText(
   note?: string,
   selfPaths: (string | number)[][] = [],
 ): string {
+  // A note carries names from the imported file: a `\r` or another control character would end the comment early.
   const head = note
     ? `${note
-        .split("\n")
-        .map((l) => `# ${l}`)
+        .split(/\r\n|[\r\n\u0085\u2028\u2029]/)
+        // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
+        .map((l) => `# ${l.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "")}`)
         .join("\n")}\n`
     : "";
   return head + yamlDoc(value, flowPaths, selfPaths).toString({ lineWidth: 0 });

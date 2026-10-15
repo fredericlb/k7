@@ -4,9 +4,10 @@
 
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import type { CommandHost } from "@studio/commands/commands";
 import { laneFolder } from "@studio/song/chainItemEdit";
+import { confineToProject } from "@studio/song/confine";
 import { createTrackFile, isVideoSource } from "@studio/song/loader";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { wsExists, wsRead } from "@studio/song/yaml/workspaceFile";
@@ -73,7 +74,14 @@ export async function transcribeTrack(
     ]);
     return;
   }
-  const videoPath = resolve(h.songPath, source);
+  // Text a clip file holds, so it may not name a file past the project's roots (packages/song/docs/confine.md).
+  const videoPath = confineToProject(h.songPath, source);
+  if (!videoPath) {
+    h.refuse([
+      `clip '${shot.ref}' names a file outside the project: ${source}`,
+    ]);
+    return;
+  }
   if (!wsExists(videoPath)) {
     h.refuse([`the video is not on this machine: ${source}`]);
     return;

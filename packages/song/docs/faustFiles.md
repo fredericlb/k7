@@ -21,7 +21,8 @@ compile sends the map as `faustFiles`; `numericParams` already keeps strings off
 A ref resolves the way a library file does (`docs/libraryFiles.md`): `@<library>/…` in that library's
 `wavetables/`, then its `samples/`; `@project/…` in the project's own `wavetables/` or `samples/`;
 anything else is a path under the project. One that resolves nowhere is passed through unchanged, so
-the engine's warning names exactly what the node said.
+the engine's warning names exactly what the node said. One that leaves the project's roots — an
+absolute path elsewhere, a `..` out — fills no slot at all (`confine.md`).
 
 ## `wavetables/`, a library family of its own
 

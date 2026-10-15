@@ -4,7 +4,7 @@
 // where Live has no portable form (native devices, sends, Session view). See docs/import.md.
 
 import { XMLParser } from "fast-xml-parser";
-import { gunzipSync } from "fflate";
+import { boundedGunzip } from "./inflate";
 import type {
   ClipOut,
   NoteOut,
@@ -100,7 +100,7 @@ export function parseAls(
     );
   let xml: string;
   try {
-    xml = new TextDecoder().decode(gunzipSync(bytes));
+    xml = new TextDecoder().decode(boundedGunzip(bytes));
   } catch (e) {
     throw new Error(`could not decompress the .als: ${(e as Error).message}`);
   }

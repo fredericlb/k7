@@ -5,7 +5,6 @@
 
 import {
   copyFileSync,
-  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -16,11 +15,20 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
+import type {
+  ClipDoc,
+  PluginDoc,
+  ProjectDoc,
+} from "@studio/engine-protocol/project";
+import { confineTo } from "@studio/song/confine";
 import { withModuleStamp } from "@studio/song/loader";
+import { modelsRoot } from "@studio/song/modelCache";
 import { compileWithAutoFreezes } from "@studio/song/nodeProject";
+import { accountLibraryHome } from "@studio/song/sharedFolders";
 import { studioHome } from "@studio/song/studioHome";
 import { projectSurfaces } from "@studio/song/surfaces";
 import { LIBRARY_PINS_FILE } from "@studio/song-schema/libraryVersions";
+import { AUTO_RENDERS_HOME_DIR } from "@studio/song-schema/moduleTypes";
 import {
   type CheckpointFiles,
   SHARE_ROOT,
@@ -71,21 +79,76 @@ function materialize(root: string, files: CheckpointFiles): void {
   }
 }
 
-/** `doc` with every string passed through `visit` — how its paths are renamed into the share's folder. */
-function rehome<T>(doc: T, visit: (s: string) => string): T {
-  const walk = (v: unknown): unknown => {
-    if (typeof v === "string") return visit(v);
-    if (Array.isArray(v)) return v.map(walk);
-    if (v && typeof v === "object")
-      return Object.fromEntries(
-        Object.entries(v as Record<string, unknown>).map(([k, x]) => [
-          k,
-          walk(x),
-        ]),
-      );
-    return v;
+/** How a path field is renamed: a FILE may be copied into the share, a folder only renamed when it is the project's. */
+type Visit = (path: string, kind: "file" | "dir") => string;
+
+/** `p` with its file fields passed through `visit` — only these, and only typed ones (docs/share.md). */
+function rehomePlugin(p: PluginDoc, visit: Visit): PluginDoc {
+  const f = (s: string | undefined) => (s ? visit(s, "file") : s);
+  return {
+    ...p,
+    path: f(p.path) ?? "",
+    presetSave: f(p.presetSave) ?? "",
+    ...(p.irFile ? { irFile: f(p.irFile) } : {}),
+    ...(p.namFile ? { namFile: f(p.namFile) } : {}),
+    ...(p.surgePatch ? { surgePatch: f(p.surgePatch) } : {}),
+    ...(p.deckFile ? { deckFile: f(p.deckFile) } : {}),
+    ...(p.faustFiles
+      ? {
+          faustFiles: Object.fromEntries(
+            Object.entries(p.faustFiles).map(([k, v]) => [k, visit(v, "file")]),
+          ),
+        }
+      : {}),
+    ...(p.patternBanks
+      ? { patternBanks: p.patternBanks.map((b) => visit(b, "dir")) }
+      : {}),
+    ...(p.rack
+      ? { rack: p.rack.map((r) => ({ ...r, clip: visit(r.clip, "file") })) }
+      : {}),
   };
-  return walk(doc) as T;
+}
+
+/** `doc` with every typed path field passed through `visit` — how its paths are renamed into the share's folder. */
+export function rehome(doc: ProjectDoc, visit: Visit): ProjectDoc {
+  const clip = (c: ClipDoc): ClipDoc =>
+    c.source ? { ...c, source: visit(c.source, "file") } : c;
+  return {
+    ...doc,
+    recordDir: doc.recordDir ? visit(doc.recordDir, "dir") : doc.recordDir,
+    masterPlugins: doc.masterPlugins.map((p) => rehomePlugin(p, visit)),
+    tracks: doc.tracks.map((t) => ({
+      ...t,
+      clips: t.clips.map(clip),
+      ...(t.frozenMaterial
+        ? { frozenMaterial: t.frozenMaterial.map(clip) }
+        : {}),
+      plugins: t.plugins.map((p) => rehomePlugin(p, visit)),
+    })),
+  };
+}
+
+/** The visit a share makes: the checkpoint's copy renamed, a FILE of the account's own stores copied in, the rest left. */
+export function shareVisit(src: string, dir: string): Visit {
+  const home = studioHome();
+  // What of the account's folder a share may carry: its library, its renders, its models — never another workspace.
+  const stores = [
+    accountLibraryHome(),
+    join(home, AUTO_RENDERS_HOME_DIR),
+    modelsRoot(),
+  ];
+  return (s, kind) => {
+    if (s === src || s.startsWith(`${src}${sep}`))
+      return `${SHARE_ROOT}src/${slash(relative(src, s))}`;
+    if (kind !== "file" || !s.startsWith(`${home}${sep}`)) return s;
+    const from = confineTo(stores, s);
+    if (!from || !existsSync(from) || !statSync(from).isFile()) return s;
+    const rel = slash(relative(home, from));
+    const to = join(dir, "home", rel);
+    mkdirSync(dirname(to), { recursive: true });
+    copyFileSync(from, to);
+    return `${SHARE_ROOT}home/${rel}`;
+  };
 }
 
 /** Every file under `dir`, relative and slash-separated, with its size. */
@@ -136,18 +199,7 @@ export function buildShareSnapshot(
       "surfaces.json": projectSurfaces(project),
     }));
     // The account's own files the engine reads (renders, models, its library) are copied in, since they move on.
-    const home = studioHome();
-    const engineDoc = rehome(doc, (s) => {
-      if (s === src || s.startsWith(`${src}${sep}`))
-        return `${SHARE_ROOT}src/${slash(relative(src, s))}`;
-      if (!s.startsWith(`${home}${sep}`) || !existsSync(s)) return s;
-      const rel = slash(relative(home, s));
-      const to = join(dir, "home", rel);
-      mkdirSync(dirname(to), { recursive: true });
-      if (statSync(s).isDirectory()) cpSync(s, to, { recursive: true });
-      else copyFileSync(s, to);
-      return `${SHARE_ROOT}home/${rel}`;
-    });
+    const engineDoc = rehome(doc, shareVisit(src, dir));
     const docNames = [...Object.keys(docs), "engine-doc.json"];
     for (const [name, value] of Object.entries(docs))
       writeFileSync(join(dir, name), JSON.stringify(value));

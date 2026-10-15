@@ -3,7 +3,7 @@
 // layer names). Its own file rather than a section of nodeProject.ts because the two are two
 // compiles of one folder, and only this one's output ever draws. See docs/picture.md.
 
-import { resolve } from "node:path";
+import { confineToProject } from "@studio/song/confine";
 import type {
   RawClip,
   RawVideoPlacement,
@@ -74,12 +74,20 @@ export function videoPlacementToClip(
     warnings?.push(
       `${lane ? `${lane}: ` : ""}'${ref}' names no clip — add clips/${ref}.yaml, or this shot draws nothing`,
     );
+  // A source outside the project's roots is no file at all (@studio/song docs/confine.md).
+  const source = clipsMap[ref]?.source
+    ? confineToProject(dir, String(clipsMap[ref].source))
+    : "";
+  if (source === null)
+    warnings?.push(
+      `${lane ? `${lane}: ` : ""}'${ref}' names a file outside the project — this shot draws nothing`,
+    );
   const fadeIn = readFade(p.fade_in);
   const fadeOut = readFade(p.fade_out);
   return {
     id: ref,
     name: ref,
-    source: clipsMap[ref] ? resolve(dir, String(clipsMap[ref].source)) : "",
+    source: source ?? "",
     start: Number(p.start ?? 0),
     length: Number(p.length ?? 0),
     sourceFrom: Number(p.source_from ?? 0),

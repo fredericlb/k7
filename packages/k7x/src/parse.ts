@@ -36,8 +36,12 @@ const ESCAPES: Record<string, string> = {
   "'": "'",
 };
 
+/** How deep values may nest: far past any real file, and short of the stack a hostile one would exhaust. */
+export const MAX_DEPTH = 256;
+
 class Parser {
   pos = 0;
+  depth = 0;
   constructor(readonly src: string) {}
 
   fail(message: string, at = this.pos): never {
@@ -164,6 +168,16 @@ class Parser {
   }
 
   value(): K7Node {
+    if (this.depth >= MAX_DEPTH) this.fail(`nested deeper than ${MAX_DEPTH}`);
+    this.depth++;
+    try {
+      return this.valueAt();
+    } finally {
+      this.depth--;
+    }
+  }
+
+  valueAt(): K7Node {
     const start = this.pos;
     const c = this.src[start];
     if (c === "[") return this.list();
