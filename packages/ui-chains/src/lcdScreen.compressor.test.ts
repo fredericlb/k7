@@ -1,9 +1,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { compileWidgetsScript, LCD_COLORS, type LcdFrame } from "./lcdScreen";
+import { LCD_COLORS } from "./lcdScreen";
+import {
+  type DrawData,
+  type SandboxReply,
+  widgetRuntime,
+} from "./widgetRuntime";
 
-// The demo compressor's screen, run the way the widget runs it, against a canvas that records.
+// The demo compressor's screen, run the way the sandbox runs it, against a canvas that records.
 const SOURCE = readFileSync(
   join(__dirname, "../../../demos/_modules/audio/compressor/widgets.js"),
   "utf8",
@@ -35,29 +40,65 @@ function recorder() {
   return { ctx, texts, rects };
 }
 
+type Frame = DrawData & { ctx: CanvasRenderingContext2D };
 const frame = (
   ctx: CanvasRenderingContext2D,
   input: number[],
   output: number[],
-): LcdFrame => ({
+): Frame => ({
   ctx,
   width: 210,
   height: 102,
+  scale: 1,
   params: { Threshold: 0.25, Ratio: 0.25, "Output gain": 0 },
   input,
   output,
-  state: {},
-  sound: () => null,
   color: LCD_COLORS,
   now: 0,
 });
 
+// The sandbox's runtime, driven as the page drives it, with a recording canvas for its OffscreenCanvas.
+function sandboxed(source: string) {
+  const replies: SandboxReply[] = [];
+  let current: CanvasRenderingContext2D | null = null;
+  const make = (width: number, height: number) =>
+    ({
+      width,
+      height,
+      getContext: () => current,
+      transferToImageBitmap: () => ({}),
+    }) as unknown as OffscreenCanvas;
+  const handle = widgetRuntime((r) => replies.push(r), make);
+  handle({ t: "script", script: 1, source });
+  handle({ t: "describe", req: 1, script: 1 });
+  const info = replies.pop()?.info;
+  let n = 1;
+  // Each call is a fresh screen, so each recorder sees one draw.
+  const screen = ({ ctx, ...data }: Frame): void => {
+    current = ctx;
+    const id = ++n;
+    handle({ t: "attach", screen: id });
+    handle({
+      t: "draw",
+      req: id,
+      screen: id,
+      script: 1,
+      id: "screen",
+      frame: data,
+    });
+    const err = replies.pop()?.error;
+    if (err) throw new Error(err);
+  };
+  return { draws: info?.draws ?? [], error: info?.error, screen };
+}
+
 describe("the compressor's lcdscreen", () => {
-  const { draws, error } = compileWidgetsScript(SOURCE);
+  const { draws: names, error, screen } = sandboxed(SOURCE);
+  const draws = { screen };
 
   it("compiles, and draws `screen`", () => {
     expect(error).toBeUndefined();
-    expect(Object.keys(draws)).toEqual(["screen"]);
+    expect(names).toEqual(["screen"]);
   });
 
   it("reads the gain reduction off the two taps", () => {

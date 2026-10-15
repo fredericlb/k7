@@ -94,7 +94,7 @@ function pagesOf(
   ]);
 }
 
-/** The screen ids a widgets.js draws, run as the renderer runs it (ui-chains' lcdScreen.ts): `export default` becomes a return. */
+/** The screen ids a widgets.js draws, compiled as the widget sandbox compiles it (ui-chains' widgetRuntime.ts): `export default` becomes a return. */
 function screensOf(source: string): Set<string> {
   if (!source.trim()) return new Set();
   try {
