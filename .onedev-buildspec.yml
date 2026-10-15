@@ -199,8 +199,9 @@ jobs:
 # then a DESKTOP job packaging apps/k7-standalone around that archive, compiling nothing; beside them the APK;
 # and "release", which the triggers name and which gathers every file into one build.
 # The engine and the APK wait for "lint and test": a release must not ship what the tests refuse.
-# The phone: engine/k7-android's debug-signed APK — the engine as libk7runtime.so, built by its android-arm64
-# preset, with the supervisor and the Capacitor page (web/) — as GitHub's android job builds it. Gradle builds the
+# The phone: engine/k7-android's release APK, signed with the key in the android-* job secrets — the engine as
+# libk7runtime.so, built by its android-arm64 preset, with the supervisor and the Capacitor page (web/) — as
+# GitHub's android job builds it. Gradle builds the
 # engine itself with the SDK's pinned NDK (engine/k7-runtime/docs/android.md). The SDK is fetched and pinned like
 # every other dependency, in a cache keyed by its versions, so a bump of any of them is a new key.
 - name: android
@@ -246,14 +247,6 @@ jobs:
     key: fetch-android
     paths:
     - /root/.cache/k7-fetch
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
-  - type: SetupCacheStep
-    name: set up debug signing key
-    key: android-debug-keystore
-    paths:
-    - /root/.android-user
     uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
@@ -310,13 +303,38 @@ jobs:
         # which settings.gradle.kts includes, is one of its packages: both come from the root install.
         npm ci
 
+        # The release key from the job secrets, read through quoted heredocs so no character of them reaches the shell.
+        trap 'rm -rf /tmp/k7-signing; find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/k7-runtime/faust-src/build/lib' EXIT
+        umask 077
+        mkdir -p /tmp/k7-signing
+        cat > /tmp/k7-signing/keystore.b64 <<'K7_SECRET'
+        @secret:android-keystore-b64@
+        K7_SECRET
+        base64 -d /tmp/k7-signing/keystore.b64 > /tmp/k7-signing/release.jks
+        export K7_ANDROID_KEYSTORE_FILE=/tmp/k7-signing/release.jks
+        export K7_ANDROID_KEYSTORE_PASSWORD="$(cat <<'K7_SECRET'
+        @secret:android-keystore-password@
+        K7_SECRET
+        )"
+        export K7_ANDROID_KEY_ALIAS="$(cat <<'K7_SECRET'
+        @secret:android-key-alias@
+        K7_SECRET
+        )"
+        export K7_ANDROID_KEY_PASSWORD="$(cat <<'K7_SECRET'
+        @secret:android-key-password@
+        K7_SECRET
+        )"
+        umask 022
+
         cd engine/k7-android
-        # One debug key across runs (the cache above): Android refuses an update signed by another.
-        export ANDROID_USER_HOME=/root/.android-user
-        mkdir -p "$ANDROID_USER_HOME"
-        ./gradlew --no-daemon assembleDebug
+        ./gradlew --no-daemon assembleRelease
+        APK=app/build/outputs/apk/release/app-release.apk
+        # Refuses an unsigned or debuggable APK before it can reach the release.
+        "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK"
+        BADGING=$("$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK")
+        if printf '%s\n' "$BADGING" | grep -q application-debuggable; then echo "the release APK is debuggable"; exit 1; fi
         mkdir -p ../../dist/release
-        cp app/build/outputs/apk/debug/app-debug.apk "../../dist/release/k7-android_${STAMP}_arm64.apk"
+        cp "$APK" "../../dist/release/k7-android_${STAMP}_arm64.apk"
         ccache --show-stats
     runAs: 0:0
     useTTY: true
@@ -361,7 +379,14 @@ jobs:
         for /d %%P in ("%STUDIO_FETCHCONTENT_DIR%\*") do for /d %%B in ("%%P\*-build") do rmdir /s /q "%%B"
         if exist "%STUDIO_FETCHCONTENT_DIR%\k7-runtime\faust-src\build\lib" rmdir /s /q "%STUDIO_FETCHCONTENT_DIR%\k7-runtime\faust-src\build\lib"
         git config core.longpaths true || exit /b 1
-        git -c "http.extraHeader=OneDevAuthorization: Bearer @secret:submodule-token@" submodule update --init commons || exit /b 1
+        rem The token in the environment, not on the command line, where any process listing would show it.
+        set "GIT_CONFIG_COUNT=1"
+        set "GIT_CONFIG_KEY_0=http.extraHeader"
+        set "GIT_CONFIG_VALUE_0=OneDevAuthorization: Bearer @secret:submodule-token@"
+        git submodule update --init commons || exit /b 1
+        set "GIT_CONFIG_COUNT="
+        set "GIT_CONFIG_KEY_0="
+        set "GIT_CONFIG_VALUE_0="
         call npm ci || exit /b 1
         git describe --tags --exact-match --match "v*" > build_version 2>nul || (for /f %%H in ('git rev-parse --short HEAD') do echo snapshot-%%H> build_version)
         set /p STUDIO_RELEASE_STAMP=<build_version
@@ -400,7 +425,14 @@ jobs:
       type: DefaultInterpreter
       commands: |
         git config core.longpaths true || exit /b 1
-        git -c "http.extraHeader=OneDevAuthorization: Bearer @secret:submodule-token@" submodule update --init commons || exit /b 1
+        rem The token in the environment, not on the command line, where any process listing would show it.
+        set "GIT_CONFIG_COUNT=1"
+        set "GIT_CONFIG_KEY_0=http.extraHeader"
+        set "GIT_CONFIG_VALUE_0=OneDevAuthorization: Bearer @secret:submodule-token@"
+        git submodule update --init commons || exit /b 1
+        set "GIT_CONFIG_COUNT="
+        set "GIT_CONFIG_KEY_0="
+        set "GIT_CONFIG_VALUE_0="
         call npm ci || exit /b 1
         git describe --tags --exact-match --match "v*" > build_version 2>nul || (for /f %%H in ('git rev-parse --short HEAD') do echo snapshot-%%H> build_version)
         set /p STUDIO_RELEASE_STAMP=<build_version
@@ -432,6 +464,22 @@ jobs:
 # a push that touched only docs builds nothing (docs/desktop-release.md).
 - name: release
   steps:
+  # One SHA256SUMS over every file, published beside them: `sha256sum -c SHA256SUMS` in the download folder.
+  - type: CommandStep
+    name: checksums
+    runInContainer: true
+    image: alpine:3
+    interpreter:
+      type: DefaultInterpreter
+      commands: |
+        set -e
+        cd dist/release
+        sha256sum -- * > /tmp/SHA256SUMS
+        mv /tmp/SHA256SUMS SHA256SUMS
+        cat SHA256SUMS
+    useTTY: false
+    condition: SUCCESSFUL
+    optional: false
   - type: PublishArtifactStep
     name: publish every file
     artifacts: dist/release/*

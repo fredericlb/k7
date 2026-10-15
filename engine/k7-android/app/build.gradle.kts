@@ -12,6 +12,12 @@ plugins {
 // The table the desktop app starts its backend with too (apps/k7/backend/docs/standalone.md): its port is a constant here.
 val standalone = groovy.json.JsonSlurper().parse(rootDir.resolve("../../apps/k7/backend/standalone.json")) as Map<*, *>
 
+// The release key comes from the environment only, never from a file in the tree (docs/desktop-release.md).
+val releaseKeystore = System.getenv("K7_ANDROID_KEYSTORE_FILE")?.takeIf { it.isNotBlank() }
+
+fun releaseSecret(name: String): String =
+    System.getenv(name)?.takeIf { it.isNotEmpty() } ?: throw GradleException("K7_ANDROID_KEYSTORE_FILE is set but $name is not")
+
 android {
     namespace = "se.frediver.k7"
     compileSdk = 36
@@ -28,6 +34,28 @@ android {
     }
 
     buildFeatures { buildConfig = true }
+
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = releaseSecret("K7_ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = releaseSecret("K7_ANDROID_KEY_ALIAS")
+                keyPassword = releaseSecret("K7_ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
+    // Without the key's environment, assembleRelease leaves app-release-unsigned.apk, which nothing publishes.
+    buildTypes {
+        getByName("release") {
+            isDebuggable = false
+            // No R8: Capacitor's bridge and the JNI entry points are reached by reflection, and no keep rules cover them.
+            isMinifyEnabled = false
+            isShrinkResources = false
+            signingConfig = signingConfigs.findByName("release")
+        }
+    }
 
     // 21: Capacitor's runtime is built for it, and the app's own Java and Kotlin must agree with each other.
     compileOptions {
@@ -140,7 +168,7 @@ val termuxJni = layout.buildDirectory.dir("termux-jni")
 val termuxAssets = layout.buildDirectory.dir("termux-assets")
 
 val stageTermuxTools by tasks.registering(Exec::class) {
-    inputs.file(rootDir.resolve("scripts/termux-tools.mjs"))
+    inputs.files(rootDir.resolve("scripts/termux-tools.mjs"), rootDir.resolve("scripts/termux-packages.json"))
     outputs.dirs(termuxJni, termuxAssets)
     environment("ANDROID_NDK_HOME", android.ndkDirectory.absolutePath)
     commandLine(
