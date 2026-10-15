@@ -60,6 +60,8 @@ export function mountFileHub(
       isAdmin((req as { user?: SessionUser }).user, adminGroups()),
     // Set by `npm run dev` only: this process's own watch cannot see the ones it spawns.
     watchSources: process.env.STUDIO_FILES_WATCH === "1",
+    // The desktop and the phone pair with an origin; the origin itself never follows another (docs/fileHub.md).
+    remotePairing: process.env.STUDIO_LOCAL_USER === "1",
     // Stable across restarts, so an open page keeps its ticket through a deploy.
     ticketKey: process.env.SESSION_SECRET
       ? `${process.env.SESSION_SECRET}:files`

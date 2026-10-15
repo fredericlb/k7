@@ -104,6 +104,7 @@ describe("the file hub", () => {
         rendersEnabled: () => false,
       },
       selfPort: () => 4242,
+      remotePairing: true,
       log: () => {},
     });
     app.get("/api/files-hub", hub.helloHandler());

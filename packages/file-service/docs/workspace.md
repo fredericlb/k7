@@ -367,6 +367,12 @@ so every path this API hands out for a library file is a `_libraries/<name>/…`
 folder, and `_libraries` itself, cannot be renamed, moved or deleted from a workspace: which
 libraries the origin has is its admins' business.
 
+Below `_libraries/`, only a library's name (`isLibraryName`) or `account` resolves; any other
+segment is refused, to read and to write. The libraries' home also holds the relay's rooms
+(`.sync-relay/`) and the replicas' state (`.sync-replica/`, `.sync-follow/`), which the hub replays
+INTO the libraries: a path there would let any account write a library without being an admin,
+since `assertLibraryWritable` only knows a path that lies in one.
+
 A library write is refused unless this account is an admin's (`assertLibraryWritable`,
 `isLibraryEditable`): the hub's folder is every account's. For an admin it is a plain write into
 that folder, from any project, and the write is the publication. A deletion inside a library moves

@@ -107,6 +107,13 @@ two copies would compile a song two ways.
   does not list library rooms, so a library the origin adds reaches a machine only once that
   machine lists it. The first paired account found is the one whose token is used: every pairing
   names the same origin.
+- **Only a desktop or a phone pairs.** The hub reads a pairing only with `remotePairing`, which k7's
+  backend sets from `STUDIO_LOCAL_USER=1` — the standalone bundle's mark
+  (`apps/k7/backend/standalone.json`). Since the libraries follow the FIRST paired account found, a
+  pairing on the origin would let any signed-in user point every account's libraries at a server of
+  their choosing. So on the origin `PUT`, `POST /main` and `DELETE /api/sync/remote` answer 403,
+  `GET` answers unpaired, and a `.sync-remote.json` found on disk is ignored: no service dials it,
+  and the libraries always relay locally.
 - **Pairing is noticed by polling**, every 30 s: pairing restarts only the account's own service,
   and the libraries are the hub's. An unpaired hub — the origin, a desktop never paired — relays
   its folders to its own relay as above, with a head of its own (`.sync-replica/`, beside
