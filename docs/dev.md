@@ -67,6 +67,14 @@ the way out. Extra args are handed to `tilt up`, so a resource-name list runs a
 subset. The native side is a resource in that list like any other — see below for what
 it takes to make it one.
 
+## Signing in is real OIDC, as in production
+
+`env.yaml` gives the dev session the same provider production has, under `common`, and a
+`SESSION_SECRET` of at least 32 characters, so k7's backend starts exactly as it does hosted. A
+machine with no OIDC client of its own sets `STUDIO_DEV_AUTH: "1"` in the `k7-backend` section
+instead, which runs the "Dev User" stub; without either, the backend refuses to start
+(`apps/k7/backend/docs/hardening.md`). Neither the `Tiltfile` nor any script sets that flag.
+
 ## The task list
 
 `scripts/tilt-tasks.mjs` exists for one reason: to derive the resource list (as JSON,

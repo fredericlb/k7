@@ -24,8 +24,9 @@ x-shared-auth: &shared-auth
   SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET — see .env.example}
   COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
   TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
-  OIDC_ISSUER: ${OIDC_ISSUER:-}
-  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+  # Required: unset, k7 refuses to start rather than sign every visitor in as one dev user.
+  OIDC_ISSUER: ${OIDC_ISSUER:?set OIDC_ISSUER — see .env.example}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?set OIDC_CLIENT_ID — see .env.example}
   OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
   OIDC_SCOPES: ${OIDC_SCOPES:-}
 
@@ -79,18 +80,17 @@ services:
   # k7.db (packages/rehearsal-server/docs/store.md). Once k7's log says "rehearsal: imported …",
   # remove this service, its volume and k7's POCKETBASE_* above.
   pocketbase:
-    image: ghcr.io/muchobien/pocketbase:latest
+    # Pinned: a PocketBase upgrade migrates pb_data on start, which an import source must not do.
+    image: ghcr.io/muchobien/pocketbase:0.40.5
     restart: unless-stopped
     volumes:
       - pocketbase-data:/pb_data
     networks:
       - traefik
     ports:
-      # One port for both: the admin web UI is at /_/, the REST API at /api/*.
-      # Published straight on the host, not through Traefik — there is no
-      # auth in front of this beyond PocketBase's own login, so bind it to a
-      # trusted interface/VPN or firewall it off in a real deployment.
-      - "${POCKETBASE_PORT:-8090}:8090"
+      # The admin UI (/_/) and the API on the host's loopback only: reach it through an SSH tunnel.
+      # k7 imports over the container network and needs no published port.
+      - "127.0.0.1:${POCKETBASE_PORT:-8090}:8090"
 
   # The server's own engine — engine/docker/Dockerfile. Not routed through Traefik: it publishes no
   # port, and browsers reach it through k7's relay like any machine's (docs/server-engine.md).
