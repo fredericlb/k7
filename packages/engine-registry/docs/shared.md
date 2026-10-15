@@ -20,9 +20,9 @@ each — and the heartbeat count would grow with every service. One registry mak
 connected to that studio" one fact.
 
 The case against a central registry is that one backend would become a request-time dependency of
-another. That coupling does not arise here: no BACKEND asks another. The pages on k7's origin call
-it same-origin, and z0's editor calls it across the origin (the backend answers every origin's
-credentialed request — `apps/k7/backend/docs/media/cors.md`), the relay included.
+another. That coupling does not arise here: no BACKEND asks another. Every page that calls it —
+k7's own and z0's editor, served at `/z0` on k7's hostname — calls it same-origin, the relay
+included; a credentialed call from any other origin is refused (`apps/k7/backend/docs/media/cors.md`).
 
 ## Saying what it is
 
