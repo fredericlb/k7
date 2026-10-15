@@ -20,8 +20,8 @@ inline const std::string kTokenHeader = "x-studio-engine-token";
 inline const std::string kRenderKeyHeader = "x-studio-render-key";
 /** File chunks are cut to this, so one large take never holds the socket for long. */
 constexpr size_t kChunkBytes = 256 * 1024;
-/** Past this many unsent bytes an upload waits. */
-constexpr size_t kHighWaterBytes = 8 * 1024 * 1024;
+/** Past this many unsent bytes an upload waits; small, since every other channel's frames queue behind it (packages/engine-tunnel/docs/tunnel.md). */
+constexpr size_t kHighWaterBytes = 1024 * 1024;
 
 /** A binary frame: the header, then the payload. */
 std::string encodeBinary(const nlohmann::json& header, const std::string& payload);

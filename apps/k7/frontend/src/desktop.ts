@@ -3,7 +3,7 @@
 // The detection is a PROBE, not a build flag: `/desktop/state` exists only where the app
 // serves k7 itself, and a hosted backend answers 404. So the same bundle is shipped to both
 // and the settings screen is simply absent on the web — nothing to keep in step, and no user
-// agent to sniff. See apps/k7-desktop/docs/settings.md.
+// agent to sniff.
 
 /** Mirrors `DesktopState` on the app's side; type-only, so the web build carries none of it. */
 export interface DesktopState {

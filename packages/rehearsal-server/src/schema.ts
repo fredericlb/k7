@@ -84,6 +84,8 @@ export const SCHEMA: CollectionSchema = {
     { name: "ReleaseUids", type: "text" },
     // JSON { releaseUid: versionUid }: the version a page plays instead of the default.
     { name: "VersionChoices", type: "text" },
+    // "public" | "authenticated" | "private"; empty, on a row older than the field, reads as public — ../docs/pages.md.
+    { name: "Visibility", type: "text" },
     { name: "CreatedAt", type: "text" },
   ],
   SingingExercises: [

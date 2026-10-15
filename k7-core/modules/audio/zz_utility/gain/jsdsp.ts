@@ -2,7 +2,7 @@
 // folder has no node_modules and should never need one (the `import type` is erased; see dspRunner.mjs).
 //
 // One line of arithmetic, and the only thing worth reading is `fromdb`: the parameter is in DECIBELS,
-// so it has to be converted before it can multiply samples. See packages/dsp/src/gain.test.ts.
+// so it has to be converted before it can multiply samples.
 
 import type { GraphBuilder } from "@studio/dsp";
 

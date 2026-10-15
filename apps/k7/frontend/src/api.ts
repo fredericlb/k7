@@ -314,9 +314,9 @@ export const mediatek = {
     return ((await res.json()) as FamilyListing).entries;
   },
 
-  /** One file's bytes, as an address rather than a fetch — this is what a row plays. */
+  /** One file, as an address rather than a fetch — a FLAC as the MP3 beside it, since a browser plays this (backend/docs/media/derivedMp3.md). */
   songUrl: (path: string) =>
-    `${PL8}/api/mediatek/file?path=${encodeURIComponent(path)}`,
+    `${PL8}/api/mediatek/stream?path=${encodeURIComponent(path)}`,
 
   /** Separate one song of the library — the backend's, since it holds the master (apps/k7/backend/docs/media/stems.md); `engineId` names whose model is borrowed. */
   prepareStems: async (song: string, engineId: string): Promise<StemsReply> => {

@@ -1,7 +1,7 @@
 // remoteUrl.ts — the same address, on a base a SECOND DEVICE can open. Every href this page
 // builds comes from `window.location.origin` (api.ts), which in the desktop window is
 // 127.0.0.1: right for the window, and unreachable from the phone reading a QR code off it.
-// The app knows the addresses that ARE reachable (`lanUrls`, apps/k7-desktop/docs/externals.md).
+// The app knows the addresses that ARE reachable (`lanUrls`, apps/k7/frontend/docs/shell.md).
 // See ../../docs/projects.md.
 
 /** Loopback in the four spellings a browser puts in an origin; `.localhost` is reserved for it too. */

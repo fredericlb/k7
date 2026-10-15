@@ -74,7 +74,8 @@ disk, which is the whole point of the section above.
 médiathèque cache — exactly the files the decks open and the engine decodes — and a truncated
 master installed there is worse than a missing one: nothing says it is short, it plays until it
 stops. The rename is atomic on one filesystem, so what appears under the real name always
-arrived whole; a failure leaves nothing at all.
+arrived whole; a failure leaves nothing at all. On Windows that rename can be refused while the
+engine holds the destination open; `rename.md` is how that is answered.
 
 ## `terminated` says nothing, and the format is at fault
 

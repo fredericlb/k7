@@ -1,7 +1,10 @@
 # Who sees what
 
 Everything the rehearsal pages save belongs to the person who saved it, and nobody else can see it: sessions and
-their takes, moments and their clips, markers, releases and their versions, pages. There is no sharing feature yet; when one exists, it is the only way past this rule.
+their takes, moments and their clips, markers, releases and their versions, pages. **A page's
+nametag is the one way past this rule**, graded by the page's own visibility: public, anyone signed
+in, or its owner alone ([pages.md](pages.md)). The releases it lists are heard through it, and
+only through it.
 
 Two things are shared instead: the **songbook** — all of it but the songs added as private — and
 the **singing exercises**.

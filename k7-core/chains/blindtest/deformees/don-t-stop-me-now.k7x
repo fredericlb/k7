@@ -1,6 +1,5 @@
 // Déformées — Don't stop me now — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
-// variante ; l'ordre des modules et la correspondance des valeurs sont dans
-// apps/z0/docs/effects.md du dépôt studio.
+// variante.
 
 steps([
   id("cf9fe94d-66b0-41b2-9cd6-faf8df4371ca")

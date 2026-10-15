@@ -1,6 +1,5 @@
 // Déformées — Boys don't cry — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
-// variante ; l'ordre des modules et la correspondance des valeurs sont dans
-// apps/z0/docs/effects.md du dépôt studio.
+// variante.
 
 steps([
   id("25ba2b1f-b6c6-4283-af27-73a86967d5d9")

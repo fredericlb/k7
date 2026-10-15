@@ -1,6 +1,5 @@
 // Déformées — Dance Monkey — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
-// variante ; l'ordre des modules et la correspondance des valeurs sont dans
-// apps/z0/docs/effects.md du dépôt studio.
+// variante.
 
 steps([
   id("a49cf939-fa6a-481e-824b-48078f28b4cd")

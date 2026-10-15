@@ -5,7 +5,7 @@
 // course dont le repos est en haut ; celui-ci décrit un écart, et un écart se lit depuis un centre.
 //
 // `min`/`max` sont la plage que le pupitre reprend telle quelle pour son propre contrôle — voir
-// packages/ui-turntables/docs/controls.md.
+// packages/k7-plugins/docs/turntables/controls.md.
 cols(3)
 rows(3)
 widgets({

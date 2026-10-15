@@ -179,6 +179,19 @@ Only `loaded` is compared, never *which* project: the wire carries a display nam
 (`"LEMO - DANSE"`) and this side holds a path, so comparing the two would invent mismatches.
 Switching projects is `startEngineForActive`'s job.
 
+### A project still loading is not a deaf link
+
+The reconcile does not ask, re-send or re-dial while a document is held back by its copy
+(`engineSync.md`), nor while the project's load is `applying` or `warming` (`engineLoad.md`). The
+engine answers `list-sessions` on its message thread, after the document it is building, so a
+song whose plugins take longer than `SESSIONS_TIMEOUT_MS` to load reads as a zombie; and a machine
+too old to know `sync` downloads the files on the engine's own channel, where the question waits
+behind minutes of audio. A re-dial then sends the document again onto a link already busy taking
+it in, and the song never arrives. The load already asks the engine itself and has its own
+ceiling, `APPLY_TIMEOUT_MS`; once it ends, the reconcile questions the link as above, so a
+genuinely deaf socket is still repaired. The guard sits after `ensureEngine`, so a switch of
+engine is still dialled by the poll while the load waits on the new link.
+
 And the compile-and-send itself does not fail silently. `sendActiveProject` swallows a
 malformed project rather than failing the request — `/project-doc` and `/graph` are what
 surface that to the browser — but it says so on the console, because it is the one path

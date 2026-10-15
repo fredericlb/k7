@@ -1,6 +1,5 @@
 // Déformées — Royal — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
-// variante ; l'ordre des modules et la correspondance des valeurs sont dans
-// apps/z0/docs/effects.md du dépôt studio.
+// variante.
 
 steps([
   id("819468a9-553d-4400-a2f1-58e6da4093c3")

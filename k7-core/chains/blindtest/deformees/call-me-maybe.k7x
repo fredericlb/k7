@@ -1,6 +1,5 @@
 // Déformées — Call me maybe — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
-// variante ; l'ordre des modules et la correspondance des valeurs sont dans
-// apps/z0/docs/effects.md du dépôt studio.
+// variante.
 
 steps([
   id("1a0caaeb-9da2-4886-9e73-9d856b6c5a09")

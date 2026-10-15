@@ -1478,7 +1478,7 @@ export default function App({
   );
 
   /** A PROJECT setting off a card — today the RENDER node's frame shape. A verb, since what it
-   *  writes is project.yaml and the node has no file (packages/song/docs/picture.md). */
+   *  writes is project.yaml and the node has no file (packages/song-video/docs/picture.md). */
   const onProjectField = useCallback(
     (field: string, value: string) =>
       void runCommandRef.current(`project ${field} ${value}`),

@@ -49,9 +49,11 @@ import {
 import express, { Router } from "express";
 import { analyseShared, ensureAnalysedShared } from "../analysisGate.ts";
 import { sweepState } from "../analysisSweep.ts";
+import { mp3SweepState } from "../mp3Sweep.ts";
 import {
-  ensureStreamable,
+  ensureMp3,
   NoFfmpegError as NoTranscoderError,
+  SourceChangedError,
 } from "../transcode.ts";
 import { rawToDisk, uploadOf } from "../upload.ts";
 
@@ -130,11 +132,7 @@ libraryRouter.get(
   }),
 );
 
-/**
- * Like `/file`, except a FLAC is served as its transcoded MP3 — made once, cached under
- * `.cache/stream/`, and reused after. Any other format passes straight through. See
- * ../../../docs/media/streaming.md.
- */
+/** Like `/file`, except a FLAC is served as the MP3 beside it, made now if need be — ../../../docs/media/streaming.md. */
 libraryRouter.get(
   "/stream",
   wrap(async (req, res) => {
@@ -158,7 +156,10 @@ libraryRouter.get(
 
     let mp3: string;
     try {
-      mp3 = await ensureStreamable(rel, abs);
+      // Replaced while it was being transcoded: once more, from the new bytes.
+      mp3 = await ensureMp3(abs).catch((e) =>
+        e instanceof SourceChangedError ? ensureMp3(abs) : Promise.reject(e),
+      );
     } catch (e) {
       if (e instanceof NoTranscoderError)
         return res.status(503).json({ error: e.message });
@@ -296,6 +297,11 @@ libraryRouter.get(
     res.json(sweepState());
   }),
 );
+
+/** What the MP3 sweep is doing — ../../../docs/media/derivedMp3.md. */
+libraryRouter.get("/mp3", (_req, res) => {
+  res.json(mp3SweepState());
+});
 
 /**
  * Measure one file HERE and write its `.cache` sidecar beside it. This service holds the bytes

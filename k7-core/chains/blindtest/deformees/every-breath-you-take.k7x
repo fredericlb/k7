@@ -1,6 +1,5 @@
 // Déformées — Every Breath You Take — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
-// variante ; l'ordre des modules et la correspondance des valeurs sont dans
-// apps/z0/docs/effects.md du dépôt studio.
+// variante.
 
 steps([
   id("def13cdd-00ba-4567-9ac8-4fa2dd05accf")

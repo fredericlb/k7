@@ -3,12 +3,13 @@
 // supplies one without a server and the sync never knows the difference.
 
 import { randomUUID } from "node:crypto";
-import { createWriteStream, mkdirSync, renameSync, rmSync } from "node:fs";
+import { createWriteStream, mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { Manifest } from "./manifest.ts";
-import type { Family, FamilyListing } from "./types.ts";
+import { placeFile } from "./place.ts";
+import type { Family } from "./types.ts";
 
 /** What a cache needs from whatever owns the library; `download` takes a destination so a video never sits in memory. */
 export interface LibrarySource {
@@ -95,7 +96,8 @@ export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
       try {
         // Streamed to disk: a video must never be held whole in memory on the way through.
         await pipeline(Readable.fromWeb(res.body), createWriteStream(part));
-        renameSync(part, dest);
+        // `dest` may be the master the engine is playing — docs/rename.md.
+        await placeFile(part, dest);
       } catch (e) {
         rmSync(part, { force: true }); // never leave half a file to be mistaken for a whole one
         // `terminated` alone says only "the body stopped"; the cause says which of six things it was.

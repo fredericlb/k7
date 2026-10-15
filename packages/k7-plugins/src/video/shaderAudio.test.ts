@@ -1,5 +1,5 @@
 // The engine's levels turned into a shader's `uAudio`: the dB window, the lookup that needs the
-// track ORDER, and the asymmetric smoothing. See packages/song/docs/shaders.md.
+// track ORDER, and the asymmetric smoothing. See packages/song-video/docs/shaders.md.
 
 import type { WebVideoProject } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";

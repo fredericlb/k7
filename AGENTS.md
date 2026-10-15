@@ -141,7 +141,7 @@ read it before deleting anything that merely *looks* unused. Its TOOL is
 
 Two other checks guard what no test would: `npm run lint:bytes` refuses a NUL byte in a tracked
 source file (ripgrep skips such a file whole, so it stops existing for every sweep), and
-**`npm run lint:docs` refuses a `.md` that names a source file which is not there**. That second
+**`npm run lint:docs` refuses a `.md` or a source comment that names a file which is not there**. That second
 one exists because the method of this repo is that the WHY lives in the prose — a page pointing at
 a file two renames ago sends the reader into a wall.
 [audit-moteur.md](docs/audit-moteur.md) is the standing audit of everything that links a

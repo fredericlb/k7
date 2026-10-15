@@ -20,6 +20,8 @@ interface Props {
   onRetry: () => void;
   /** Clears the stored failure without retrying. */
   onDismiss: () => void;
+  /** Being taken from the library on its own: progress replaces the choice. */
+  fromLibrary: boolean;
 }
 
 export function SongFetchInsert({
@@ -29,6 +31,7 @@ export function SongFetchInsert({
   onIgnore,
   onRetry,
   onDismiss,
+  fromLibrary,
 }: Props) {
   const file = useRef<HTMLInputElement>(null);
   const { phase, error } = song.fetchStatus;
@@ -80,6 +83,16 @@ export function SongFetchInsert({
   }
 
   if (running) return <FetchStepper {...song.fetchStatus} />;
+  // Copying a library song is the download step: nothing was hunted, nothing to choose.
+  if (fromLibrary)
+    return (
+      <FetchStepper
+        {...song.fetchStatus}
+        phase="downloading"
+        progress={null}
+        doing={m["fetch.fromLibrary"]()}
+      />
+    );
 
   // Dismissed on purpose, and nothing is running: stay out of the way for good.
   if (song.fetchIgnored) return null;

@@ -1,6 +1,5 @@
 // Déformées — Tik tok — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
-// variante ; l'ordre des modules et la correspondance des valeurs sont dans
-// apps/z0/docs/effects.md du dépôt studio.
+// variante.
 
 steps([
   id("e26104e7-6d5e-42b5-a625-54509d224911")

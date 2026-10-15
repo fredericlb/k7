@@ -17,6 +17,7 @@ import { isLoopbackReturn } from "@studio/web-protocol/pairing";
 import type { Express, Request, RequestHandler } from "express";
 import { startAnalysisSweep } from "./analysisSweep.ts";
 import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
+import { startMp3Sweep } from "./mp3Sweep.ts";
 import { engineLocalRouter } from "./routes/engineLocal.ts";
 import { huntRouter } from "./routes/hunt.ts";
 import { libraryRouter } from "./routes/library.ts";
@@ -192,6 +193,8 @@ export function mountMedia(
         startRevisionRefresh();
         // …and the waveforms nobody has asked for yet, one at a time — ../../docs/media/analysis.md.
         startAnalysisSweep();
+        // …and every FLAC's MP3 beside it, for a browser to stream — ../../docs/media/derivedMp3.md.
+        startMp3Sweep();
       } catch (e) {
         console.error(
           `   library UNAVAILABLE at ${mediatekDir()}: ${(e as Error).message}`,

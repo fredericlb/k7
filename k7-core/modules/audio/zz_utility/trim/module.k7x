@@ -4,7 +4,7 @@
 // la PLAGE, et la plage est ce qu'un contrôle du pupitre reprend telle quelle. Un seul module à
 // −60…+6 dessinerait un potard de trim dont le repos tombe aux trois quarts de la course, et un
 // trim dont le neutre n'est pas au milieu se lit de travers à chaque coup d'œil — même règle que
-// les gains de l'EQ (packages/ui-turntables/docs/eq.md).
+// les gains de l'EQ (packages/k7-plugins/docs/turntables/eq.md).
 //
 // Ce qu'il sert : deux morceaux gravés à dix ans d'écart n'arrivent pas au même niveau, et rien
 // ici ne normalise la loudness. Le trim est ce qui les met d'accord AVANT l'EQ, pour que le fader

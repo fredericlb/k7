@@ -1,6 +1,5 @@
 // Déformées — Quand la musique est bonne — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
-// variante ; l'ordre des modules et la correspondance des valeurs sont dans
-// apps/z0/docs/effects.md du dépôt studio.
+// variante.
 
 steps([
   id("b42d5397-9ae0-43ca-b4b5-3f3637a4c22b")

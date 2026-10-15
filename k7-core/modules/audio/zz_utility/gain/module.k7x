@@ -6,7 +6,7 @@
 // niveau, et un niveau se lit en décibels.
 //
 // Le bas de la course est le SILENCE et non −∞ : un fader a un bas, et −60 dB est déjà inaudible
-// sous n'importe quelle musique. Voir packages/ui-turntables/docs/mix.md.
+// sous n'importe quelle musique. Voir packages/k7-plugins/docs/turntables/mix.md.
 //
 // Sa DSP est décrite dans jsdsp.ts à côté, pas compilée dans le moteur.
 plugin({ type: "jsdsp", name: "Gain" })

@@ -1,6 +1,5 @@
 // Déformées — Houdini — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
-// variante ; l'ordre des modules et la correspondance des valeurs sont dans
-// apps/z0/docs/effects.md du dépôt studio.
+// variante.
 
 steps([
   id("ac5625d2-0fbc-4b74-b72b-9ceb5c6ecfa8")

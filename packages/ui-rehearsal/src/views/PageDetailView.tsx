@@ -12,9 +12,13 @@ import { useState } from "react";
 import { BackButton } from "../components/BackButton";
 import { PageNametagForm } from "../components/PageNametagForm";
 import { TrackCard } from "../components/TrackCard";
+import {
+  VisibilityPicker,
+  visibilityHint,
+} from "../components/VisibilityPicker";
 import { isOne } from "../i18n";
 import { m } from "../paraglide/messages.js";
-import type { Page, Release, SongEnvelope } from "../types";
+import type { Page, PageVisibility, Release, SongEnvelope } from "../types";
 
 interface Props {
   page: Page;
@@ -27,6 +31,7 @@ interface Props {
   onDelete: () => Promise<void>;
   /** "Edit": the nametag, which is the public link too. */
   onRename: (nametag: string) => Promise<void>;
+  onVisibilityChange: (visibility: PageVisibility) => Promise<void>;
   versionAudioUrl: (releaseId: string, versionId: string) => string;
   versionDownloadUrl: (releaseId: string, versionId: string) => string;
   versionEnvelope: (
@@ -46,6 +51,7 @@ export function PageDetailView({
   onChooseVersion,
   onDelete,
   onRename,
+  onVisibilityChange,
   versionAudioUrl,
   versionDownloadUrl,
   versionEnvelope,
@@ -88,23 +94,25 @@ export function PageDetailView({
               ? m["page.releaseCount.one"]({ n: releases.length })
               : m["page.releaseCount.other"]({ n: releases.length })}
           </span>
-          {/* The address itself stays off the page; this is how it is handed out. */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ds-button shrink-0"
-            onClick={copyLink}
-          >
-            {copied ? (
-              <>
-                <Check className="size-4" /> {m["common.copied"]()}
-              </>
-            ) : (
-              <>
-                <Copy className="size-4" /> {m["page.copyLink"]()}
-              </>
-            )}
-          </Button>
+          {/* The address itself stays off the page; this is how it is handed out, once it opens for someone else. */}
+          {page.visibility !== "private" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ds-button shrink-0"
+              onClick={copyLink}
+            >
+              {copied ? (
+                <>
+                  <Check className="size-4" /> {m["common.copied"]()}
+                </>
+              ) : (
+                <>
+                  <Copy className="size-4" /> {m["page.copyLink"]()}
+                </>
+              )}
+            </Button>
+          )}
           {/* The page's verbs in one ⋮, like a release's. */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -132,6 +140,14 @@ export function PageDetailView({
           </DropdownMenu>
         </div>
       )}
+
+      <div className="mb-3.5">
+        <VisibilityPicker
+          value={page.visibility}
+          onChange={(v) => void onVisibilityChange(v)}
+        />
+        <p className="muted small">{visibilityHint(page.visibility)}</p>
+      </div>
 
       <h3>{m["page.releases"]()}</h3>
       {releases.length === 0 && (

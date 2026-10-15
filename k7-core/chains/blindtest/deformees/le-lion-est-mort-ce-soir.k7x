@@ -1,6 +1,5 @@
 // Déformées — Le lion est mort ce soir — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
-// variante ; l'ordre des modules et la correspondance des valeurs sont dans
-// apps/z0/docs/effects.md du dépôt studio.
+// variante.
 
 steps([
   id("2eba9259-1eb1-41e5-a6da-a9ddfa34c32d")

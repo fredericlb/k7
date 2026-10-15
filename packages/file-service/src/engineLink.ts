@@ -744,6 +744,8 @@ async function reconcileEngine(
     const c = ensureEngine(ws);
     // A link still dialling re-sends from its own `open`; asking now would time out on the wait, not the engine.
     if (!c || !isReady(ws)) return;
+    // A load in flight asks the engine itself and owns the verdict: a project still building is busy, not deaf.
+    if (loadPhase(session) === "applying" || isWarming(session)) return;
     const held = await awaitSessions(c);
     if (held === undefined) {
       console.error(`   ✗ engine link unresponsive — re-dialling ${session}`);

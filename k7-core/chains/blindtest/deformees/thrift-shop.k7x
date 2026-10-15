@@ -1,6 +1,5 @@
 // Déformées — Thrift Shop — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
-// variante ; l'ordre des modules et la correspondance des valeurs sont dans
-// apps/z0/docs/effects.md du dépôt studio.
+// variante.
 
 steps([
   id("70a1e00c-61f9-4e98-9e08-1fb8f38ec445")

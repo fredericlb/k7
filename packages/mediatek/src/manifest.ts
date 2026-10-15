@@ -5,6 +5,7 @@
 import { type Dirent, readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { familyDir, mediatekDir } from "./layout.ts";
+import { withoutDerived } from "./media.ts";
 import type { Family } from "./types.ts";
 
 /** One file, as the side that owns it describes it. */
@@ -25,7 +26,8 @@ function walk(dir: string, out: Manifest): void {
   } catch {
     return; // unreadable corner — fewer entries, never a throw
   }
-  for (const e of entries) {
+  // A FLAC's derived MP3 never syncs: a machine's mirror plays the FLAC (docs/derivedMp3.md).
+  for (const e of withoutDerived(entries)) {
     if (e.name.startsWith(".")) continue; // .cache and friends are derived
     const abs = join(dir, e.name);
     if (e.isDirectory()) {
