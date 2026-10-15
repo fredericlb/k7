@@ -118,12 +118,16 @@ Result heartbeat(const std::vector<std::string>& urls, const EngineIdentity& id,
     nlohmann::json body = presence;
     body["id"] = id.id;
     body["token"] = id.token;
+    // Only to an address `probe` proved is a registry; the registry binds the id to it (packages/engine-registry/docs/token.md).
+    if (!id.tunnelSecret.empty()) body["tunnelSecret"] = id.tunnelSecret;
     return all(urls, "/api/registry/heartbeat", body);
 }
 
 Result deregister(const std::vector<std::string>& urls, const EngineIdentity& id)
 {
-    return all(urls, "/api/registry/deregister", {{"id", id.id}, {"token", id.token}});
+    nlohmann::json body{{"id", id.id}, {"token", id.token}};
+    if (!id.tunnelSecret.empty()) body["tunnelSecret"] = id.tunnelSecret;
+    return all(urls, "/api/registry/deregister", body);
 }
 
 }  // namespace k7::registry

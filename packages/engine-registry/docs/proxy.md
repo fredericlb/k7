@@ -37,10 +37,12 @@ page's own origin — and the backend composes towards the engine:
 browser ──wss://priv.st0.app/api/engine/<id>/ws──▶ k7 backend ──tunnel, or ws://<address>:8765──▶ engine
 ```
 
-The backend is not a secure context: it calls whom it likes. It tries loopback then each LAN
-address, in order (`hostsFor`), sequentially — the list is two or three entries, loopback wins as
-soon as the backend shares the engine's machine, and a race would leave half-open sockets against
-an audio process.
+The backend is not a secure context: it calls whom it likes, which is why it calls only one place
+(`hostsFor`): the address the engine's **heartbeat came from** — loopback when the engine shares the
+backend's machine, its LAN address when it shares its network. Never an address the heartbeat
+NAMES: the heartbeat is open, and dialling what it names would let anyone aim this server at any
+host it can reach. An engine whose heartbeat arrives over IPv6 or through a NAT is reached through
+its tunnel alone.
 
 No mixed content, no local network permission, no port to open in a firewall.
 
@@ -75,8 +77,32 @@ it**: nothing to share between machines, no secret to wire into each backend. A 
 invalidates those in flight, which costs the browser a reload of a list it polls anyway.
 
 The engine's `id` is **in the path**, and the ticket is verified against it: a ticket cannot be
-replayed against another engine. And the target always comes from the **registry**, never from the
-request — a `?host=&port=` would make every backend an open relay towards everything it can reach.
+replayed against another engine. The ticket also carries the **account** it was minted for, so the
+relay knows whose claim to ask about. And the target always comes from the **registry**, never from
+the request — a `?host=&port=` would make every backend an open relay towards everything it can
+reach.
+
+## Before a claim, the probe and nothing else
+
+The engine trusts the relay's socket as it trusts its own machine (`token.md`): whatever crosses it
+can load a document, drop a session, approve a pairing. So a ticket is not enough to drive.
+`relayGate.ts` asks, on every frame, whether the ticket's account holds a live claim on the engine
+(`claim.md`):
+
+| | without a claim | with one |
+|---|---|---|
+| browser → engine | `whoami`, `pair`, `list-plugins` — what `probe.ts` and `compat.ts` send to pick | everything |
+| engine → browser | `whoami`, `plugins`, `error` | everything |
+
+Anything else the browser sends is **held**, in order, rather than dropped: a page opens its driving
+socket and claims the engine at the same moment, and the claim may land a few hundred milliseconds
+after the socket's first `hello`. Held frames go through the moment the claim exists; after 10 s
+without one (`CLAIM_GRACE_MS`), or past a bound on what is held, the socket closes with 4403. A
+claim taken over by another account stops the loser at its next frame, without a reconnect.
+
+What this gate does not cover: a browser that reaches the engine DIRECTLY — loopback on its own
+machine, or a LAN address once paired — talks to the engine with nobody in between; the engine's
+own origin check and pairing are what guard that path (`engine/k7-runtime/docs/pairing.md`).
 
 ## What the probe does with it
 

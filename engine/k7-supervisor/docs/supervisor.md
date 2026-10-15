@@ -35,6 +35,15 @@ audio and nothing else, and everything that can fail slowly or loudly lives here
 It is its own CMake project, not a target of k7-runtime's: building it must never mean building
 Tracktion, JUCE and Faust.
 
+## The identity, and the one secret the engine never holds
+
+`engine-id.json` (`src/Identity.cpp`) holds the id, the token and the **tunnel secret**. The engine
+gets the id and the token, and echoes the token on `whoami` to whoever it trusts; the tunnel secret
+goes only into the heartbeat body and the tunnel's upgrade header, which is what lets a registry bind
+the id to this machine (`packages/engine-registry/docs/token.md`). A file from before the secret
+keeps its id and token and gains one on the next start. The file is 0600, and its folder 0700 when
+the supervisor creates it, since it is the machine's credential.
+
 ## An app learns we died from our stdout, so no child may hold it
 
 An app watches one thing to know we are gone: our stdout closing. That EOF is what it reaps on,

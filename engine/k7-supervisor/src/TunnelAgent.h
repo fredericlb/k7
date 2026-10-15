@@ -37,6 +37,8 @@ struct AgentOptions {
     std::string registryUrl;
     std::string id;
     std::string token;
+    /** The machine's tunnel secret (Identity.h), sent in a header; empty, the hub takes this as a legacy tunnel. */
+    std::string tunnelSecret;
     /** The server's render key, sent when set: this machine then renders for the server (packages/engine-tunnel/docs/jobs.md). */
     std::string renderKey;
     int enginePort = 8765;

@@ -14,14 +14,15 @@ import {
   MAX_FRAME_BYTES,
   TUNNEL_PATH,
   TUNNEL_RENDER_KEY_HEADER,
+  TUNNEL_SECRET_HEADER,
   TUNNEL_TOKEN_HEADER,
   type TunnelRoot,
 } from "./frames.ts";
 import { HubTunnel } from "./hubTunnel.ts";
 
 export interface TunnelHubOptions {
-  /** Whether `id` is an engine this server lists, and `token` its secret. */
-  verify(id: string, token: string): boolean;
+  /** Whether `id` is an engine this server lists, `token` its token and `secret` the tunnel secret it is bound to. */
+  verify(id: string, token: string, secret?: string): boolean;
   /** The key a tunnel presents to be the server's render machine; unset, no tunnel is one — docs/jobs.md. */
   renderKey?: string;
   /** Keepalive period; a tunnel silent for two of these is dropped. */
@@ -218,7 +219,9 @@ export class TunnelHub {
   ): void {
     const id = url.searchParams.get("id") ?? "";
     const token = String(req.headers[TUNNEL_TOKEN_HEADER] ?? "");
-    if (!id || !token || !this.opts.verify(id, token)) {
+    const secret = String(req.headers[TUNNEL_SECRET_HEADER] ?? "") || undefined;
+    // Checked BEFORE the incumbent is touched: a refused newcomer leaves the live tunnel where it is.
+    if (!id || !token || !this.opts.verify(id, token, secret)) {
       deny(socket, "403 Forbidden");
       return;
     }
@@ -230,7 +233,7 @@ export class TunnelHub {
       return;
     }
     this.wss.handleUpgrade(req, socket, head, (ws) => {
-      // One tunnel per engine: a reconnect replaces the socket it outlived.
+      // One tunnel per engine: a reconnect, verified above, replaces the socket it outlived.
       this.tunnels.get(id)?.ws.terminate();
       const t = new HubTunnel(id, ws, this.log);
       this.tunnels.set(id, t);

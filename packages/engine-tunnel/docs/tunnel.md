@@ -8,16 +8,19 @@ file service — reaches it that way, however far apart the two are.
 
 ## Who may hold a tunnel
 
-Only an engine the registry lists, presenting that engine's token in `x-studio-engine-token`. A
-header and never the query string, so no access log keeps the secret. One tunnel per engine: a
-reconnect replaces the socket it outlived rather than adding a second.
+Only an engine the registry lists, presenting that engine's token in `x-studio-engine-token` and,
+once the id is bound to one, its machine's tunnel secret in `x-studio-tunnel-secret`
+(`packages/engine-registry/docs/token.md`). Headers and never the query string, so no access log
+keeps them. One tunnel per engine: a reconnect that passes that check replaces the socket it
+outlived rather than adding a second; one that fails it is refused before the live tunnel is
+touched, so nobody holding the token alone can take an engine's channels over.
 
 Both ends ping every 20 s and drop a peer that missed one. A tunnel that died without a FIN would
 otherwise look alive for ever, and its channels with it.
 
 ## Nothing on a tunnel is trusted for shape
 
-Holding a tunnel needs an engine's token and no account, and the heartbeat that mints one is open:
+Holding a tunnel needs no account, and the heartbeat that lists an engine is open:
 whoever runs a supervisor can send the hub anything. A throw inside a socket listener is an
 uncaught exception, and k7's backend exits on those. So:
 

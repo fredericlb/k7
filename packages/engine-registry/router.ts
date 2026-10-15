@@ -15,6 +15,8 @@ import type { EngineRegistry } from "./registry.ts";
 const deregisterBody = z.object({
   id: z.string().min(1),
   token: z.string().min(1),
+  // A bound id's own secret: without it, the token every relay user can read would unlist the engine.
+  tunnelSecret: z.string().max(256).optional(),
 });
 
 // Select CLAIMS the engine for a project after verifying the token; the backend never connects to an engine — see docs/claim.md.
@@ -42,6 +44,20 @@ const releaseBody = z.object({
   id: z.string().min(1),
   secret: z.string().min(1),
 });
+
+/** Each way a heartbeat is refused, as its status and the sentence both logs carry. */
+const REFUSALS = {
+  secret: [
+    403,
+    "this id is bound to another machine's tunnel secret — a copied engine-id.json, or somebody else's id",
+  ],
+  token: [
+    409,
+    "id/token mismatch — this id is registered with another token; it is freed 15 s after that one's last heartbeat",
+  ],
+  full: [503, "the registry lists as many engines as it takes"],
+  rate: [429, "too many new engines from this address in the last minute"],
+} as const;
 
 /** The account a claim is held under, from the session — the one name every claim check compares against. */
 export function claimHolder(req: {
@@ -93,9 +109,10 @@ export function engineRegistryRouter(
           `${b.id}|cleaned|${b.cleaned.join("|")}`,
           `took a heartbeat from ${who(b.id, b.hostname, req.ip)} with fields cleaned: ${b.cleaned.join("; ")}`,
         );
-      const ok = reg.upsert({
+      const up = reg.upsert({
         id: b.id,
         token: b.token,
+        tunnelSecret: b.tunnelSecret,
         hostname: b.hostname,
         machineFingerprint: b.machineFingerprint,
         addresses: b.addresses,
@@ -103,15 +120,13 @@ export function engineRegistryRouter(
         libraryLevel: b.libraryLevel,
         publicIpHint: req.ip,
       });
-      if (!ok) {
+      if (!up.ok) {
+        const [status, error] = REFUSALS[up.why];
         complain(
-          `${b.id}|mismatch`,
-          `refused a heartbeat from ${who(b.id, b.hostname, req.ip)}: its token is not the one this id registered with`,
+          `${b.id}|${up.why}`,
+          `refused a heartbeat from ${who(b.id, b.hostname, req.ip)}: ${error}`,
         );
-        return res.status(409).json({
-          error:
-            "id/token mismatch — this id is registered with another token; it is freed 15 s after that one's last heartbeat",
-        });
+        return res.status(status).json({ error });
       }
       res.json({
         ok: true,
@@ -124,21 +139,24 @@ export function engineRegistryRouter(
     "/registry/deregister",
     validate(deregisterBody),
     wrap((req, res) => {
-      const { id, token } = req.body as z.infer<typeof deregisterBody>;
-      if (!reg.remove(id, token))
+      const { id, token, tunnelSecret } = req.body as z.infer<
+        typeof deregisterBody
+      >;
+      if (!reg.remove(id, token, tunnelSecret))
         return res.status(403).json({ error: "id/token mismatch" });
       res.json({ ok: true });
     }),
   );
 
-  // The pick list, token stripped, each entry carrying a fresh RELAY TICKET minted here rather than per engine — see docs/proxy.md.
+  // The pick list, token stripped, each entry carrying a fresh RELAY TICKET bound to this account — see docs/proxy.md.
   router.get(
     "/engines",
     wrap((req, res) => {
+      const viewer = claimHolder(req);
       res.json(
-        reg.list(req.ip).map((e) => ({
+        reg.list(req.ip, viewer).map((e) => ({
           ...e,
-          proxyTicket: issueEngineTicket(e.id),
+          proxyTicket: issueEngineTicket(e.id, viewer),
           // A tunnel is what carries a WebRTC offer, so it is what makes one worth trying.
           rtc: tunnels?.has(e.id) || undefined,
           // Proved by the render key, so a browser may take it unasked — packages/engine-browser/docs/access.md.
@@ -155,8 +173,14 @@ export function engineRegistryRouter(
     wrap(async (req, res) => {
       const { sdp } = req.body as z.infer<typeof rtcBody>;
       if (!tunnels) return res.status(404).json({ error: "no tunnels here" });
+      const id = String(req.params.id);
+      // A data channel reaches the engine as its own machine would, so only a claim holder gets one — docs/proxy.md.
+      if (!reg.holds(id, claimHolder(req)))
+        return res
+          .status(403)
+          .json({ error: "claim this engine before opening a direct link" });
       try {
-        res.json({ sdp: await tunnels.signal(String(req.params.id), sdp) });
+        res.json({ sdp: await tunnels.signal(id, sdp) });
       } catch (e) {
         // 503 and not 500: the engine is simply not reachable this way, and the relay still is.
         res.status(503).json({ error: (e as Error).message });

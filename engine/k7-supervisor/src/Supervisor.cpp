@@ -562,6 +562,7 @@ struct Supervisor::Impl {
             o.registryUrl = u;
             o.id = identity.id;
             o.token = identity.token;
+            o.tunnelSecret = identity.tunnelSecret;
             // Set on the server's own engine only, whose one registry is the server that shares the key.
             if (const char* key = std::getenv("STUDIO_RENDER_KEY"); key && *key) o.renderKey = key;
             o.enginePort = settings.port;

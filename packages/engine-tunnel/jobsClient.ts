@@ -14,6 +14,18 @@ export interface JobSocket {
   once(ev: "open", fn: () => void): unknown;
   off(ev: "message", fn: (data: Buffer | string) => void): unknown;
   off(ev: "close", fn: () => void): unknown;
+  /** Ends the channel when a job runs out of time; both kinds of socket have it. */
+  close?(): void;
+}
+
+/** A job is given up after this long in all, whatever it says on the way. */
+export const JOB_TIMEOUT_MS = 60 * 60_000;
+/** …or after this long without a reply: a render says `rendering` once and then nothing until done. */
+export const JOB_IDLE_MS = 15 * 60_000;
+
+export interface JobTimeouts {
+  totalMs?: number;
+  idleMs?: number;
 }
 
 export type JobReply = Record<string, unknown> & { type: string; id?: string };
@@ -27,13 +39,45 @@ export function requestJob(
   body: Record<string, unknown> & { type: string },
   isLast: (reply: JobReply) => boolean,
   onReply?: (reply: JobReply) => void,
+  { totalMs = JOB_TIMEOUT_MS, idleMs = JOB_IDLE_MS }: JobTimeouts = {},
 ): Promise<JobReply> {
   const id = randomBytes(8).toString("hex");
   return new Promise((resolve, reject) => {
+    let idle: NodeJS.Timeout | undefined;
     const done = (): void => {
+      clearTimeout(total);
+      clearTimeout(idle);
       sock.off("message", onMessage);
       sock.off("close", onClose);
     };
+    // Timed out, the channel is closed too: a machine still working would otherwise answer into nothing.
+    const expire = (why: string): void => {
+      done();
+      try {
+        sock.close?.();
+      } catch {
+        /* already closing */
+      }
+      reject(new JobError(why));
+    };
+    const total = setTimeout(
+      () =>
+        expire(
+          `the engine's machine did not finish within ${totalMs / 60_000} min`,
+        ),
+      totalMs,
+    );
+    const quiet = (): void => {
+      clearTimeout(idle);
+      idle = setTimeout(
+        () =>
+          expire(
+            `the engine's machine said nothing for ${idleMs / 60_000} min`,
+          ),
+        idleMs,
+      );
+    };
+    quiet();
     const onMessage = (data: Buffer | string): void => {
       let reply: JobReply;
       try {
@@ -44,6 +88,7 @@ export function requestJob(
       // The machine's word is not trusted for shape: `null` or a number is no reply.
       if (typeof reply !== "object" || reply === null || reply.id !== id)
         return;
+      quiet();
       if (reply.type === "error") {
         done();
         reject(

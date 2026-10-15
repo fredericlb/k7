@@ -2,6 +2,11 @@
 // by pl8 alone, and consulted by k7 and z0 across the origin. See docs/shared.md.
 
 export {
+  BINDINGS_FILE,
+  createBindings,
+  type SecretBindings,
+} from "./bindings.ts";
+export {
   ENGINE_BODY_LIMIT,
   type EngineMount,
   engineErrorHandler,
@@ -20,5 +25,6 @@ export {
   type EngineRegistry,
   type HeartbeatInput,
   REGISTRY_TTL_MS,
+  type UpsertResult,
 } from "./registry.ts";
 export { claimHolder, engineRegistryRouter } from "./router.ts";

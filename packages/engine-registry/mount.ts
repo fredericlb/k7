@@ -3,6 +3,7 @@
 // hand-written copy per service, since those drift. See docs/shared.md.
 
 import type { Server } from "node:http";
+import { join } from "node:path";
 import { TunnelHub } from "@studio/engine-tunnel/hub";
 import type {
   Express,
@@ -12,6 +13,8 @@ import type {
   Response,
 } from "express";
 import { advertiseRegistry } from "./advertise.ts";
+import { BINDINGS_FILE, createBindings } from "./bindings.ts";
+import { throttledLog } from "./heartbeat.ts";
 import { attachEngineProxy } from "./proxy.ts";
 import { createRegistry, type EngineRegistry } from "./registry.ts";
 import { engineRegistryRouter } from "./router.ts";
@@ -38,17 +41,30 @@ export function mountEngineRegistry(
     alsoGuard?: string[];
     /** False when the host closes gracefully itself and calls the returned goodbye; default true. */
     exitOnSignal?: boolean;
+    /** Where the engines' secret bindings are kept across restarts; in memory alone when absent — docs/token.md. */
+    stateDir?: string;
   },
 ): EngineMount {
   app.use(
     ["/api/engines", "/api/engine", ...(opts.alsoGuard ?? [])],
     opts.requireAuth,
   );
-  const registry = createRegistry();
-  // Only an engine this registry lists may hold a tunnel, and only with its own token.
+  const registry = createRegistry({
+    bindings: createBindings(
+      opts.stateDir ? join(opts.stateDir, BINDINGS_FILE) : undefined,
+    ),
+  });
+  const complain = throttledLog((l) => console.warn(`[registry] ${l}`));
+  // Only an engine this registry lists may hold a tunnel: its token, and its secret once the id is bound to one.
   const tunnels = new TunnelHub({
-    verify: (id, token) =>
-      !!registry.get(id) && registry.verifyToken(id, token),
+    verify: (id, token, secret) => {
+      if (registry.verifyTunnel(id, token, secret)) return true;
+      complain(
+        `${id}|tunnel`,
+        `refused a tunnel for engine ${id}: not listed, or the wrong token or secret`,
+      );
+      return false;
+    },
     // The deployment's render machine, which renders for a server with no engine binary (docs/server-engine.md).
     renderKey: process.env.STUDIO_RENDER_KEY?.trim() || undefined,
   });

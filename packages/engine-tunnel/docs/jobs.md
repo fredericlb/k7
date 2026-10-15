@@ -14,6 +14,11 @@ the same `id` as it has news, and the caller decides which one is the last (`req
 machine and **not awaited**: a separation takes minutes, and the next request on the channel must
 not wait behind it.
 
+A caller waits for a bounded time: 15 minutes without a reply (`JOB_IDLE_MS`), or an hour in all
+(`JOB_TIMEOUT_MS`), each overridable per call. Either ends the request with a `JobError` and closes
+the channel, so a machine that went quiet holds no server-side promise, and no channel, for ever. The
+idle bound is long because a `render` says `rendering` once and nothing more until its files are up.
+
 What a machine does is registered by type; the supervisor's list is
 `engine/k7-supervisor/src/MachineJobs.cpp` (`TunnelAgentOptions.jobs` for the TypeScript reference
 agent the server's tests run on). A type it does not know is refused by name.
