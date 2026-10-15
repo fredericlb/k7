@@ -742,8 +742,10 @@ export class Workspace {
           "libraries",
         );
       }
+      // Anything else below `_libraries/` (the relay's `.sync-relay/` above all) is no library's, so nobody's to read or write.
+      if (segs.length > 1) throw new Error(`names no library: ${rel}`);
       const home = librariesHome();
-      return confined(resolve(home, ...segs.slice(1)), home, rel, "libraries");
+      return confined(home, home, rel, "libraries");
     }
     return confined(
       rel === "." ? this.root : resolve(this.root, rel),

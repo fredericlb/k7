@@ -311,9 +311,14 @@ export class RelayLink {
       for (const name of this.linked.keys()) this.hello(name);
       this.onOpen();
     });
-    ws.on("message", (data) =>
-      this.receive(JSON.parse(data.toString()) as FromRelay),
-    );
+    // A frame that does not parse, or names a path outside the workspace, is logged rather than let kill the service.
+    ws.on("message", (data) => {
+      try {
+        this.receive(JSON.parse(data.toString()) as FromRelay);
+      } catch (e) {
+        this.log(`relay: frame refused — ${(e as Error).message}`);
+      }
+    });
     ws.on("error", (e) => this.log(`relay: ${e.message}`));
     ws.on("close", () => {
       this.ws = null;

@@ -75,7 +75,9 @@ nothing else.
 
 **A shared module is edited by an admin, from any project, and by nobody else.** In a workspace's
 file API a library answers at the VIRTUAL folder `_libraries/<name>/…` — confined to that library's
-root, never on the workspace's disk (`packages/file-service/docs/workspace.md`). The hub's folder is
+root, never on the workspace's disk (`packages/file-service/docs/workspace.md`). `libraryOf` answers
+null for a path under `librariesHome()` whose first segment is no library — the relay's `.sync-relay/`
+lies there — so the file service refuses such a path before it asks. The hub's folder is
 every account's, so only an admin may write it. A library is OVERLAID to say so
 (`setLibraryOverlays`): an admin's account overlays each onto its own folder, and everything that
 asks `libraryRoot(name)` — the compile, the file tree, the engine's paths — reads the overlay's

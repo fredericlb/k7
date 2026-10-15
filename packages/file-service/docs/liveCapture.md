@@ -74,6 +74,12 @@ change it finds. That batch reaches the replica, as pending, before the entry do
 
 When an entry rewrites a file of the open project, the project goes to the engine, as an undo does.
 
+Every path another replica names is resolved through `../src/livePath.ts` before it is read or
+written, in the workspace and in the confirmed mirror alike: one that is not a sync path
+(`../../live-sync/docs/ops.md`) or resolves outside the folder throws. The relay refuses such a path
+too, but a desktop's relay is a server it does not control. A frame that throws is logged and
+dropped, never let stop the service.
+
 ## Conflicts
 
 `GET /sync/conflicts` lists what the relay set aside in this workspace, each with the value kept in

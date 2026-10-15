@@ -69,6 +69,24 @@ describe("refreshLibraries", () => {
     }
   });
 
+  it("answers no path below _libraries/ that names no library, to read or to write", () => {
+    mkdirSync(join(home, ".sync-relay", "k7-core"), { recursive: true });
+    const ws = new Workspace(mkdtempSync(join(tmpdir(), "ws-")));
+    for (const rel of [
+      "_libraries/.sync-relay/k7-core/entries.jsonl",
+      "_libraries/.sync-replica/x",
+      "_libraries/../x",
+      "_libraries/Not A Name/x",
+    ]) {
+      expect(() => ws.read(rel), rel).toThrow(/names no library/);
+      expect(() => ws.write(rel, "{}"), rel).toThrow(/names no library/);
+    }
+    expect(ws.mediaPath("_libraries")).toBe(home);
+    expect(ws.mediaPath("_libraries/k7-core/x")).toBe(
+      join(home, "k7-core", "x"),
+    );
+  });
+
   it("leaves them read-only to anyone else", async () => {
     await refreshLibraries(true);
     await refreshLibraries(false);

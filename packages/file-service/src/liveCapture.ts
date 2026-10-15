@@ -30,6 +30,7 @@ import {
   TEXT_CEILING,
 } from "./liveLedger.ts";
 import type { Batch } from "./liveLog.ts";
+import { confinedPath } from "./livePath.ts";
 import { filesUnder } from "./workspaceFilter.ts";
 
 export interface CaptureOptions {
@@ -486,9 +487,9 @@ export class LiveCapture {
     return filesUnder(this.o.root, scope, this.o.skip);
   }
 
-  /** The workspace file's absolute path. */
+  /** The workspace file's absolute path; throws for a path that would leave the workspace (livePath.ts). */
   pathOf(rel: string): string {
-    return rel ? join(this.o.root, ...rel.split("/")) : this.o.root;
+    return rel ? confinedPath(this.o.root, rel) : this.o.root;
   }
 
   private closeWatcher(): void {

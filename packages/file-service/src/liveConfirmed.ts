@@ -12,12 +12,13 @@ import {
 } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import type { ConfirmedStore } from "@studio/live-sync/replica";
+import { confinedPath } from "./livePath.ts";
 
 export class ConfirmedDir implements ConfirmedStore {
   constructor(private readonly root: string) {}
 
   private abs(file: string): string {
-    return join(this.root, ...file.split("/"));
+    return confinedPath(this.root, file);
   }
 
   get(file: string): string | null {

@@ -13,6 +13,7 @@
     "./conflicts": "./src/conflicts.ts",
     "./replica": "./src/replica.ts",
     "./protocol": "./src/protocol.ts",
+    "./path": "./src/path.ts",
     "./blob": "./src/blob.ts"
   },
   "scripts": {
