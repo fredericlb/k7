@@ -6,6 +6,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, Server } from "node:http";
 import type { Socket } from "node:net";
 import type { TunnelChannel } from "@studio/engine-tunnel/channel";
+import { MAX_FRAME_BYTES } from "@studio/engine-tunnel/frames";
 import type { TunnelHub } from "@studio/engine-tunnel/hub";
 import {
   ENGINE_DIAL_TIMEOUT_MS,
@@ -134,14 +135,20 @@ function pipe(client: WebSocket, upstream: Upstream): void {
       /* already closing */
     }
   };
-  client.on("message", (d, isBinary) => {
-    if (upstream.readyState === WebSocket.OPEN)
-      upstream.send(d, { binary: isBinary });
-  });
-  upstream.on("message", (d: WebSocket.RawData, isBinary: boolean) => {
-    if (client.readyState === WebSocket.OPEN)
-      client.send(d, { binary: isBinary });
-  });
+  // Guarded: a throw inside a socket listener escapes to the process, so it ends both sockets instead.
+  const forward = (to: Upstream, from: Upstream, d: unknown, bin: boolean) => {
+    try {
+      if (to.readyState === WebSocket.OPEN)
+        to.send(d as Buffer, { binary: bin });
+    } catch {
+      shut(to);
+      shut(from);
+    }
+  };
+  client.on("message", (d, isBinary) => forward(upstream, client, d, isBinary));
+  upstream.on("message", (d: WebSocket.RawData, isBinary: boolean) =>
+    forward(client, upstream, d, isBinary),
+  );
   client.on("close", () => shut(upstream));
   upstream.on("close", () => shut(client));
   client.on("error", () => shut(upstream));
@@ -159,14 +166,29 @@ export function attachEngineProxy(
   reg: EngineRegistry,
   tunnels?: TunnelHub,
 ): void {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({
+    noServer: true,
+    maxPayload: MAX_FRAME_BYTES,
+  });
 
   /** Hand an upgrade we do not serve to whoever else might, or close it — Node cleans up an unclaimed socket only when NO listener exists. */
   const notOurs = (socket: Socket): void => {
     if (server.listenerCount("upgrade") <= 1) socket.destroy();
   };
 
+  // A throw here is an uncaught exception that ends the process, so every one is caught, said and the socket dropped.
   server.on("upgrade", (req: IncomingMessage, socket: Socket, head: Buffer) => {
+    try {
+      onUpgrade(req, socket, head);
+    } catch (e) {
+      console.warn(
+        `[engine-proxy] upgrade ${req.url}: ${(e as Error).message}`,
+      );
+      socket.destroy();
+    }
+  });
+
+  const onUpgrade = (req: IncomingMessage, socket: Socket, head: Buffer) => {
     if (tunnels?.handle(req, socket, head)) return;
     let url: URL;
     try {
@@ -177,7 +199,12 @@ export function attachEngineProxy(
     const m = WS_ROUTE.exec(url.pathname);
     if (!m) return notOurs(socket);
 
-    const id = decodeURIComponent(m[1]);
+    let id: string;
+    try {
+      id = decodeURIComponent(m[1]);
+    } catch {
+      return deny(socket, "400 Bad Request"); // a malformed escape, `%E0`
+    }
     if (verifyEngineTicket(url.searchParams.get("ticket") || "") !== id)
       return deny(socket, "401 Unauthorized");
     const engine = reg.get(id);
@@ -189,22 +216,29 @@ export function attachEngineProxy(
       const hold = (data: WebSocket.RawData, binary: boolean) =>
         pending.push({ data, binary });
       client.on("message", hold);
+      // Listened to from the start: an `error` with no listener (a frame over `maxPayload`) is thrown, and ends the process.
+      client.on("error", () => client.terminate());
 
-      void dial(engine, tunnels).then((upstream) => {
-        if (!upstream) {
-          client.close(1011, "engine unreachable from the server");
-          return;
-        }
-        if (client.readyState !== WebSocket.OPEN) {
-          upstream.close();
-          return;
-        }
-        client.off("message", hold);
-        for (const p of pending) upstream.send(p.data, { binary: p.binary });
-        pipe(client, upstream);
-      });
+      void dial(engine, tunnels)
+        .then((upstream) => {
+          if (!upstream) {
+            client.close(1011, "engine unreachable from the server");
+            return;
+          }
+          if (client.readyState !== WebSocket.OPEN) {
+            upstream.close();
+            return;
+          }
+          client.off("message", hold);
+          for (const p of pending) upstream.send(p.data, { binary: p.binary });
+          pipe(client, upstream);
+        })
+        .catch((e: Error) => {
+          console.warn(`[engine-proxy] ${id}: ${e.message}`);
+          client.terminate();
+        });
     });
-  });
+  };
 }
 
 /** What a body parser in FRONT of a relaying route already swallowed, ready to send again, or null when the stream is still ours — the file hub's. */

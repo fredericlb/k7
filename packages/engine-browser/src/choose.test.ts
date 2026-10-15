@@ -5,14 +5,18 @@
 import type { PublicEngine } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
 import { bestEngine, chooseEngine } from "./choose.ts";
-import type { RankedEngine } from "./probe.ts";
+import { type RankedEngine, reachedDirectly } from "./probe.ts";
 
 const engine = (id: string, ms: number | null): RankedEngine<PublicEngine> =>
   ({
     engine: {
       id,
       hostname: id,
-      addresses: {},
+      addresses: {
+        loopback: "127.0.0.1",
+        lanIps: ["192.168.1.20"],
+        port: 8765,
+      },
       assigned: false,
       sameSourceIp: false,
     },
@@ -20,7 +24,7 @@ const engine = (id: string, ms: number | null): RankedEngine<PublicEngine> =>
       ms === null
         ? null
         : { networkMs: ms, audioMs: 0, totalMs: ms, quality: "Q1" },
-    wsUrl: ms === null ? null : `ws://${id}:8765`,
+    wsUrl: ms === null ? null : "ws://192.168.1.20:8765",
     fileBase: ms === null ? null : `http://${id}:8770`,
     token: ms === null ? null : "t",
   }) as unknown as RankedEngine<PublicEngine>;
@@ -218,5 +222,68 @@ describe("bestEngine", () => {
       compat: (id) => (id === "mac" ? 60 : 100),
     });
     expect(r?.engine.id).toBe("studio-pc");
+  });
+});
+
+/** The same engine, reached through the origin's relay rather than on its own address. */
+const relayed = (r: RankedEngine<PublicEngine>): RankedEngine<PublicEngine> =>
+  ({
+    ...r,
+    wsUrl: `wss://st0.app/api/engine/${r.engine.id}/ws?ticket=x`,
+  }) as RankedEngine<PublicEngine>;
+
+// Anyone may register an engine: one met only through the relay is a stranger's until somebody clicks it.
+describe("who is taken unasked", () => {
+  it("never auto-picks an engine reached only through the relay", () => {
+    expect(bestEngine([relayed(rated("evil", 2, "Q1", 99999))])).toBeNull();
+    expect(chooseEngine([relayed(engine("evil", 2))], undefined).engine).toBe(
+      null,
+    );
+  });
+
+  it("prefers a slower direct engine over a faster relayed stranger", () => {
+    const r = bestEngine([
+      relayed(rated("evil", 1, "Q1", 99999)),
+      rated("lan", 30, "Q2", 500),
+    ]);
+    expect(r?.engine.id).toBe("lan");
+  });
+
+  it("takes a relayed engine the account remembered", () => {
+    const r = bestEngine([relayed(rated("mine", 9, "Q1"))], {
+      remembered: "mine",
+    });
+    expect(r?.engine.id).toBe("mine");
+    expect(chooseEngine([relayed(engine("mine", 9))], "mine").engine).not.toBe(
+      null,
+    );
+  });
+
+  it("takes the server's own engine, flagged by the registry", () => {
+    const own = relayed(rated("render", 9, "Q1"));
+    const server = {
+      ...own,
+      engine: { ...own.engine, server: true },
+    } as RankedEngine<PublicEngine>;
+    expect(bestEngine([server])?.engine.id).toBe("render");
+  });
+
+  // A lookalike may advertise any address: only one of its own private addresses, dialled directly, counts.
+  it("does not count a public address as direct", () => {
+    const pub = rated("pub", 2, "Q1");
+    const at = {
+      ...pub,
+      engine: {
+        ...pub.engine,
+        addresses: {
+          loopback: "127.0.0.1",
+          lanIps: ["203.0.113.9"],
+          port: 8765,
+        },
+      },
+      wsUrl: "ws://203.0.113.9:8765",
+    } as RankedEngine<PublicEngine>;
+    expect(reachedDirectly(at)).toBe(false);
+    expect(reachedDirectly(rated("lan", 2, "Q1"))).toBe(true);
   });
 });

@@ -41,7 +41,9 @@ export function requestJob(
       } catch {
         return;
       }
-      if (reply.id !== id) return;
+      // The machine's word is not trusted for shape: `null` or a number is no reply.
+      if (typeof reply !== "object" || reply === null || reply.id !== id)
+        return;
       if (reply.type === "error") {
         done();
         reject(
@@ -49,8 +51,14 @@ export function requestJob(
         );
         return;
       }
-      onReply?.(reply);
-      if (!isLast(reply)) return;
+      try {
+        onReply?.(reply);
+        if (!isLast(reply)) return;
+      } catch (e) {
+        done();
+        reject(e);
+        return;
+      }
       done();
       resolve(reply);
     };

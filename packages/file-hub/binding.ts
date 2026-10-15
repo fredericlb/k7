@@ -151,6 +151,7 @@ export function bindEngine(
   id: string,
 ): Promise<void> {
   const run = inst.binding.then(async () => {
+    // Anyone may register an engine, so only one this account has CLAIMED ever sees its files.
     if (inst.engineId === id || !holdsClaim(deps.registry, id, inst.user))
       return;
     const roots = rootsFor(inst, deps.mediatekRoot);

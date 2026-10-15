@@ -43,9 +43,15 @@ describe("a song's path on an engine's machine", () => {
     hub = new TunnelHub({ verify: () => true, log: () => {} });
     const app = express();
     app.use(express.json());
+    app.use((req, _res, next) => {
+      (req as { user?: { email: string } }).user = { email: "a@x.org" };
+      next();
+    });
     const engines = {
       registry: {
-        get: (id: string) => (id === "e1" || id === "e2" ? {} : undefined),
+        get: (id: string) => (["e1", "e2", "e3"].includes(id) ? {} : undefined),
+        // e3 is listed and nobody here holds it: a stranger's engine.
+        holds: (id: string, who: string) => id !== "e3" && who === "a@x.org",
       },
       tunnels: hub,
     } as unknown as EngineMount;
@@ -110,5 +116,9 @@ describe("a song's path on an engine's machine", () => {
   it("answers 503 for an engine with no tunnel, 409 for one nobody registered", async () => {
     expect((await ask("e2", "songs/a.mp3")).status).toBe(503);
     expect((await ask("zz", "songs/a.mp3")).status).toBe(409);
+  });
+
+  it("answers 403 for an engine the caller holds no claim on", async () => {
+    expect((await ask("e3", "songs/a.mp3")).status).toBe(403);
   });
 });

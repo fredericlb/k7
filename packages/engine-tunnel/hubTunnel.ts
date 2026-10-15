@@ -6,13 +6,13 @@ import { WebSocket } from "ws";
 import { type ChannelSink, TunnelChannel } from "./channel.ts";
 import { drained } from "./drain.ts";
 import {
-  type AgentMessage,
   asBuffer,
   type BinaryHeader,
   type ChannelKind,
   decodeBinary,
   encodeBinary,
   type HubMessage,
+  parseAgentMessage,
   type TunnelRoot,
 } from "./frames.ts";
 import { readFileChunks, statPaths, Upload } from "./hubFiles.ts";
@@ -39,9 +39,15 @@ export class HubTunnel implements ChannelSink {
     readonly ws: WebSocket,
     private readonly log: (msg: string) => void,
   ) {
+    // A throw in a socket listener ends the server, and a tunnel needs no account: anything odd drops this tunnel alone.
     ws.on("message", (data, isBinary) => {
-      if (isBinary) this.onBinary(asBuffer(data as Buffer));
-      else this.onText(asBuffer(data as Buffer).toString("utf8"));
+      try {
+        if (isBinary) this.onBinary(asBuffer(data as Buffer));
+        else this.onText(asBuffer(data as Buffer).toString("utf8"));
+      } catch (e) {
+        this.log(`${engineId} bad frame: ${(e as Error).message}`);
+        ws.terminate();
+      }
     });
     ws.on("pong", () => {
       this.alive = true;
@@ -111,13 +117,10 @@ export class HubTunnel implements ChannelSink {
     this.uploads.clear();
   }
 
-  private onText(text: string): void {
-    let m: AgentMessage;
-    try {
-      m = JSON.parse(text);
-    } catch {
-      return;
-    }
+  /** One text frame from the agent, checked for shape before anything reads it; a malformed one is ignored. */
+  onText(text: string): void {
+    const m = parseAgentMessage(text);
+    if (!m) return;
     const carried = "ch" in m ? this.channels.get(m.ch) : undefined;
     switch (m.t) {
       case "opened":
@@ -133,9 +136,14 @@ export class HubTunnel implements ChannelSink {
         carried?.channel.deliver(m.text, false);
         return;
       case "stat":
-        void statPaths(carried?.roots ?? [], m.paths).then((entries) =>
-          this.tell({ t: "stat-reply", req: m.req, entries }),
-        );
+        void statPaths(carried?.roots ?? [], m.paths)
+          .then((entries) =>
+            this.tell({ t: "stat-reply", req: m.req, entries }),
+          )
+          .catch((e: Error) => {
+            this.log(`${this.engineId} stat: ${e.message}`);
+            this.tell({ t: "stat-reply", req: m.req, entries: [] });
+          });
         return;
       case "get":
         void this.serveGet(m.req, carried?.roots ?? [], m.path);
@@ -166,7 +174,8 @@ export class HubTunnel implements ChannelSink {
     }
   }
 
-  private onBinary(frame: Buffer): void {
+  /** One binary frame from the agent; a header of the wrong shape is ignored, as `decodeBinary` answers null for it. */
+  onBinary(frame: Buffer): void {
     const decoded = decodeBinary(frame);
     if (!decoded) return;
     const { header, payload } = decoded;

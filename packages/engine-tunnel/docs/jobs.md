@@ -48,6 +48,11 @@ every account's renders. The render key is never sent to a browser. A tunnel tha
 key is refused outright rather than treated as an ordinary engine, so a misconfigured render
 machine says so in its log instead of silently rendering nothing.
 
+The registry's engine list marks that machine `server` (`TunnelHub.isRenderer`), and it is the one
+engine reached only through the server that a browser may take without a click: the render key is
+a proof no stranger's heartbeat can make (`packages/engine-browser/docs/access.md`, "Who is taken
+unasked").
+
 `prefetch` and `send-up` are how the machine KEEPS an undo's audio (`packages/file-service/docs/history.md`):
 `prefetch` names files the channel brings down before it answers, with how many are there; `send-up`
 names one the server no longer has, and the machine answers `{ type: "sent", file }` naming its own

@@ -34,7 +34,9 @@ instrumental: each is a sentence with a remedy, reported verbatim.
 Named by the caller (`engineId`), because it is the engine that browser is already on: this backend
 has no opinion about which machine is yours. It is reached through **its tunnel** — a jobs channel
 (`packages/engine-tunnel/docs/jobs.md`) — so a cut works wherever the engine is, not only on this
-server's network. An engine with no tunnel here is refused by name. A registry **miss** is a 409
+server's network. The caller must hold a claim on that engine, or the cut is a **403**: anyone may register an
+engine, and a cut shares the song and the account's models with its machine
+(`packages/engine-registry/docs/claim.md`). An engine with no tunnel here is refused by name. A registry **miss** is a 409
 rather than a 404: the engine existed when the browser picked it, and the remedy is to bring the
 machine back up.
 

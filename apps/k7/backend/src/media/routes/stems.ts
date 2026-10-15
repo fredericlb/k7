@@ -3,7 +3,7 @@
 // engine's machine lends its model and its CPU, over the tunnel. See ../../../docs/media/stems.md.
 
 import { validate, wrap } from "@frediverse/http/route";
-import type { EngineMount } from "@studio/engine-registry";
+import { claimHolder, type EngineMount } from "@studio/engine-registry";
 import { PathEscapesError } from "@studio/mediatek/layout";
 import { INSTRUMENTAL } from "@studio/song-schema/stems";
 import type { SeparateJob, StemsReply } from "@studio/web-protocol";
@@ -67,6 +67,11 @@ export function stemsRouter(
       if (!engine)
         return res.status(409).json({
           error: `no engine '${engineId}' is registered — is its machine running?`,
+        });
+      // Anyone may register an engine, so the caller must be driving it: a cut shares the account's files with that machine.
+      if (!engines.registry.holds(engine.id, claimHolder(req)))
+        return res.status(403).json({
+          error: `you hold no claim on engine '${engineId}' — open it first`,
         });
 
       const id = jobIdFor(userEmail, song, `${chain ?? ""}\0${asked}`);

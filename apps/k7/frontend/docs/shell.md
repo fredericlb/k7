@@ -5,8 +5,11 @@
 The gates, outermost first: **AuthGate** (you must be signed in — hosted backend OIDC),
 **EngineGate** (pick which registered engine to drive, without asking: the one most COMPATIBLE
 with the project — it has the plugins the project uses, `engineCompat.ts` — then the best latency
-class, then the strongest machine by performance score; the picker shows only when no engine
-is usable, or when you ask to change — `@studio/engine-browser/docs/access.md`), and **ProjectGate** (rendered by
+class, then the strongest machine by performance score, among TRUSTED engines only — the one the
+account chose before, one this browser reached on its own machine or network, or the server's own;
+anyone may register an engine, so any other one waits in the picker for a click. The picker shows
+when no trusted engine is usable, or when you ask to change —
+`@studio/engine-browser/docs/access.md`, "Who is taken unasked"), and **ProjectGate** (rendered by
 EngineGate: resolve the workspace this editor was opened on into a folder on that engine's
 machine, then mount the editor). Several tabs may open
 one project at once; there is no single-tab lease.

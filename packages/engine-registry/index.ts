@@ -21,4 +21,4 @@ export {
   type HeartbeatInput,
   REGISTRY_TTL_MS,
 } from "./registry.ts";
-export { engineRegistryRouter } from "./router.ts";
+export { claimHolder, engineRegistryRouter } from "./router.ts";

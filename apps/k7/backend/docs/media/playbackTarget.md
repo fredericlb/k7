@@ -24,7 +24,9 @@ and answers with the machine's own path, in the machine's own spelling — so th
 path to nothing. A song is on a machine because it was asked for there, and stays for the next time.
 
 Each way it can fail is its own answer, because each is fixed differently: no engine with a tunnel
-here, a path that is not in the médiathèque, anything else in the machine's own words.
+here, a path that is not in the médiathèque, anything else in the machine's own words. An engine
+the caller holds no claim on is a 403 before any of them: anyone may register an engine, and a
+song is sent only to the one this account is driving (`packages/engine-registry/docs/claim.md`).
 
 ## The host's own speakers: mpv
 
