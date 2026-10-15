@@ -22,6 +22,7 @@ import {
   writablePath,
 } from "./layout.ts";
 import { isAudio } from "./media.ts";
+import { placeFileSync } from "./place.ts";
 import { bumped } from "./revision.ts";
 import { SONG_FILE } from "./scan.ts";
 import {
@@ -73,9 +74,15 @@ export function putFile(rel: string, body: FileBody): string {
   // A random suffix: two writers targeting the same path (separate processes sharing this
   // volume) must never share one temp name.
   const tmp = `${abs}.${randomUUID()}.part`;
-  if (isOnDisk(body)) moveFile(body.file, tmp);
-  else writeFileSync(tmp, body);
-  renameSync(tmp, abs);
+  try {
+    if (isOnDisk(body)) moveFile(body.file, tmp);
+    else writeFileSync(tmp, body);
+    // A master replaced while the engine plays it is refused on Windows — docs/rename.md.
+    placeFileSync(tmp, abs);
+  } catch (e) {
+    rmSync(tmp, { force: true });
+    throw e;
+  }
   bump(abs);
   return abs;
 }
