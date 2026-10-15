@@ -1,32 +1,49 @@
-# CORS is open, on purpose
+# CORS answers a list, and a cross-site write is refused
 
-`openCors` (`apps/k7/backend/src/media/cors.ts`) answers every origin's credentialed request
-rather than checking one against a list, and `server.ts` applies it to the whole process before
-anything else runs. k7's own pages are same-origin and never need it; the callers that do are the
-other studio pages reaching the library from another origin — z0's editor among them — and those
-are exactly the ones an allowlist breaks in ordinary ways this deployment hits: a dev server reached
-on its own port, a new subdomain, a machine reached by IP during setup.
-Every one of those is a legitimate caller a list would not yet know about, and the failure mode is a
-CORS error with no server-side log to explain it.
+`studioCors` (`apps/k7/backend/src/media/cors.ts`) runs before anything else in `server.ts`. It
+decides two things for every request: whether the page that sent it may **read** the answer with
+the session cookie, and whether a write from another site reaches a route at all.
 
-## What that costs
+## Why it cannot be open
 
-A response cannot carry both `Access-Control-Allow-Origin: *` and credentials — the browser
-itself refuses the combination — so answering every origin means **reflecting** whichever one
-asked (`res.setHeader("Access-Control-Allow-Origin", origin)`), not a wildcard. Any page a
-signed-in user's browser visits can make a credentialed request here and read the response,
-which is the CSRF-shaped surface an allowlist exists to close.
+Wherever `COOKIE_DOMAIN` is set — production, and the dev session behind the LAN proxy — the session
+cookie `studio.sid` is `SameSite=None` (`commons/packages/oidc/index.ts`), so the browser attaches it
+to a request from ANY site. CORS is then the only thing that stops a page elsewhere from reading what
+that cookie unlocks: an API token minted at `/api/token`, a file hub ticket, a workspace's files.
+Reflecting every origin with `Access-Control-Allow-Credentials` would hand all of it to whatever
+page a signed-in user happens to visit.
 
-Two things keep that surface narrow rather than closing it:
+## Who is on the list
 
-- Every mutating route already sits behind `bearerOrSession(requireAuth)` or `requireAuth`
-  (`mount.ts`, `server.ts`) — a page on another origin can *ride* the session cookie, but it was
-  already going to need one, and the library holds media rather than money or credentials.
-- The bearer scheme ([gate.md](gate.md)) is what a headless caller uses anyway; the cookie path
-  this opens up is the one a browser was always going to present regardless of what CORS says, on
-  a plain `<img>` or a form post — CORS governs whether the *response* can be **read**, not whether
-  the request can be **sent**. Opening it stops hiding a read that a same-site trick could already
-  get most of, and buys back the debugging cost an allowlist charges.
+`isAllowedOrigin` is a pure function, tested beside it:
+
+| origin | why |
+|---|---|
+| the request's own host (`X-Forwarded-Host` first, as `publicOrigin` reads it) | a page calling its own origin, through the dev proxy too, where `Host` is rewritten |
+| `https://` on `COOKIE_DOMAIN` or any subdomain of it | the `play.` and `k7.` aliases calling k7's root, and any sibling app sharing the cookie |
+| each entry of `TRUSTED_ORIGINS`, exactly | another origin a deployment names on purpose — the same list its login bounces back to |
+| `http://127.0.0.1:*`, `localhost`, `[::1]` | only where there is no `COOKIE_DOMAIN`, or with `STUDIO_LOCAL_USER=1`: a dev run on bare ports, or the desktop and phone backends; never on a hosted origin, where a loopback page is whatever runs on the visitor's machine |
+
+Every other origin gets no CORS header at all, and a preflight from it is answered `204` empty, which
+the browser reads as a refusal. Reading `COOKIE_DOMAIN` and `TRUSTED_ORIGINS` from the same
+environment `setupAuth` reads keeps the cookie's reach and the list in one place: an origin that
+shares the cookie is an origin that may read with it.
+
+No route is open to every origin without credentials: a share is played on k7's own origin
+(`sharePlayer.md`), and z0 is a path on it, so nothing outside the list needs a CORS answer.
+
+## A write from another site is refused
+
+CORS decides what a page may **read**, not what it may **send**: a form post or a plain `fetch`
+with no preflight reaches the route and runs, cookie attached, whatever CORS says afterwards. So a
+request other than `GET`, `HEAD` or `OPTIONS` is answered `403` when:
+
+- its `Origin` header is present and not on the list (an opaque `null` origin included), or
+- it has no `Origin` and `Sec-Fetch-Site` says `cross-site`.
+
+A request with neither header passes: that is a native client — the supervisor, the desktop's main
+process, a script with a bearer token — which carries no browser cookie for a page to ride. `GET`
+routes stay unguarded, so a route that changes state on `GET` is a hole this guard does not close.
 
 ## The headers are a list
 

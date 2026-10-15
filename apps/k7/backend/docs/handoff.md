@@ -36,4 +36,6 @@ the app's now. The phone does not, and the browser stays signed in to the studio
 ## The local user
 
 `/auth/local` keeps any session it finds and otherwise signs in a user with no groups, which can
-never be an admin. It is the desktop's signed-out state, and a hosted deployment does not mount it.
+never be an admin. It is the desktop's signed-out state, and a hosted deployment does not mount it. It answers
+a request from this machine, addressed to this machine by name, and refuses every other with `403`
+(`standalone.md`).
