@@ -41,6 +41,7 @@ import {
 } from "@studio/song/assemblies";
 import type { AutoFreeze } from "@studio/song/autoFreeze";
 import { moduleBaseChoices } from "@studio/song/basePreset";
+import { confineToProject } from "@studio/song/confine";
 import {
   CONSOLE_ID,
   type ConsoleSystem,
@@ -2077,6 +2078,12 @@ export class Workspace {
     length: number;
   } {
     const dir = this.requireActive();
+    // A clip's source is text a file holds: inside the project's roots or nothing (@studio/song docs/confine.md).
+    const confinedSource = (source: string): string => {
+      const abs = confineToProject(dir, source);
+      if (!abs) throw new Error("audio path is outside the project");
+      return abs;
+    };
     // A clip id / media path / absolute audio path -> an absolute file within the root.
     const resolveSource = (spec: string): string => {
       if (!spec) throw new Error("preview: empty source");
@@ -2095,7 +2102,7 @@ export class Workspace {
       } catch {
         clip = undefined; // not a clip id — try it as a plain path below
       }
-      if (clip && clip.type === "audio") return clip.source;
+      if (clip && clip.type === "audio") return confinedSource(clip.source);
       const abs = resolve(dir, spec);
       // …or in a library's shared SOUNDS, where a rack tap's sample and a cabinet IR live (@studio/song's libraryFiles.md).
       if (!this.withinRoot(abs) && !inLibrarySounds(abs))
@@ -2122,7 +2129,7 @@ export class Workspace {
       const start = Math.max(0, clip.sourceFrom ?? 0);
       const to = clip.sourceTo ?? 0;
       return {
-        file: clip.source,
+        file: confinedSource(clip.source),
         start,
         length: to > start ? to - start : 0,
       };

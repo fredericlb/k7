@@ -7,16 +7,95 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
+import {
+  clipDoc,
+  emptyDoc,
+  pluginDoc,
+  trackDoc,
+} from "@studio/engine-protocol/build";
 import { scaffold } from "@studio/song/scaffold";
 import type { CheckpointFiles } from "@studio/web-protocol";
 import { SHARE_ROOT, SHARE_SCHEMA } from "@studio/web-protocol";
 import { afterAll, describe, expect, it } from "vitest";
-import { buildShareSnapshot, checkpointPrefixes } from "./shareSnapshot.ts";
+import {
+  buildShareSnapshot,
+  checkpointPrefixes,
+  rehome,
+  shareVisit,
+} from "./shareSnapshot.ts";
+
+describe("what a share copies of the account's folder", () => {
+  it("copies only FILES named by a typed path field, from the account's own stores", () => {
+    const home = mkdtempSync(join(tmpdir(), "share-home-"));
+    const saved = process.env.STUDIO_HOME;
+    process.env.STUDIO_HOME = home;
+    const out = mkdtempSync(join(tmpdir(), "share-out-"));
+    try {
+      const render = join(home, ".renders", "bus-abc.wav");
+      const ir = join(home, "library", "irs", "room.wav");
+      const otherWs = join(home, "workspace", "private", "song.k7");
+      for (const f of [render, ir, join(otherWs, "take.wav")]) {
+        mkdirSync(join(f, ".."), { recursive: true });
+        writeFileSync(f, "RIFF");
+      }
+      const doc = emptyDoc({
+        name: otherWs,
+        tracks: [
+          trackDoc("bus", {
+            name: join(home, ".renders"),
+            clips: [
+              clipDoc({ id: "r", type: "audio", source: render }),
+              clipDoc({
+                id: "w",
+                type: "audio",
+                source: join(otherWs, "take.wav"),
+              }),
+            ],
+            plugins: [
+              pluginDoc({ id: "bus:ir", irFile: ir }),
+              pluginDoc({ id: "bus:dir", namFile: join(home, "library") }),
+            ],
+          }),
+        ],
+      });
+      const shared = rehome(doc, shareVisit(join(out, "src"), out));
+      const [bus] = shared.tracks;
+      expect(bus.clips[0].source).toBe(
+        `${SHARE_ROOT}home/.renders/bus-abc.wav`,
+      );
+      expect(bus.plugins[0].irFile).toBe(
+        `${SHARE_ROOT}home/library/irs/room.wav`,
+      );
+      // Another workspace's file, a folder, and an untyped string are never copied.
+      expect(bus.clips[1].source).toBe(join(otherWs, "take.wav"));
+      expect(bus.plugins[1].namFile).toBe(join(home, "library"));
+      expect(shared.name).toBe(otherWs);
+      expect(bus.name).toBe(join(home, ".renders"));
+      const copied: string[] = [];
+      const walk = (d: string) => {
+        for (const e of readdirSync(d, { withFileTypes: true }))
+          if (e.isDirectory()) walk(join(d, e.name));
+          else copied.push(relative(out, join(d, e.name)).split(sep).join("/"));
+      };
+      walk(out);
+      expect(copied.sort()).toEqual([
+        "home/.renders/bus-abc.wav",
+        "home/library/irs/room.wav",
+      ]);
+    } finally {
+      if (saved === undefined) delete process.env.STUDIO_HOME;
+      else process.env.STUDIO_HOME = saved;
+      rmSync(home, { recursive: true, force: true });
+      rmSync(out, { recursive: true, force: true });
+    }
+  });
+});
 
 const cleanups: (() => void)[] = [];
 afterAll(() => {

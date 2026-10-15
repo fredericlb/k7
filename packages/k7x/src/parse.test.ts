@@ -5,6 +5,22 @@ import { parse } from "./edit.ts";
 import { K7SyntaxError } from "./parse.ts";
 import { stringify } from "./print.ts";
 
+describe("nesting", () => {
+  it("refuses a file nested past MAX_DEPTH as a syntax error, not a stack overflow", () => {
+    const deep = `a(${"[".repeat(100_000)}${"]".repeat(100_000)})`;
+    expect(() => parse(deep)).toThrow(K7SyntaxError);
+    expect(() => parse(deep)).toThrow(/nested deeper than 256/);
+    const objects = `a(${"{ b: ".repeat(300)}1${" }".repeat(300)})`;
+    expect(() => parse(objects)).toThrow(K7SyntaxError);
+  });
+
+  it("still reads a value nested within the limit", () => {
+    expect(parse(`a(${"[".repeat(200)}${"]".repeat(200)})`)).toHaveProperty(
+      "a",
+    );
+  });
+});
+
 describe("k7x grammar", () => {
   it("reads statements, chains, objects and lists as one map", () => {
     const text = `// a comment

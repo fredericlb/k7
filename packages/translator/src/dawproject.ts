@@ -4,7 +4,7 @@
 // k7 can't represent something yet (plugin state, automation). See docs/import.md.
 
 import { XMLParser } from "fast-xml-parser";
-import { unzipSync } from "fflate";
+import { boundedUnzip } from "./inflate";
 import type {
   ClipOut,
   NoteOut,
@@ -64,7 +64,7 @@ export function parseDawproject(
   zipBytes: Uint8Array,
   fallbackName: string,
 ): Translation {
-  const entries = unzipSync(zipBytes);
+  const entries = boundedUnzip(zipBytes);
 
   const projectXml = entries["project.xml"];
   if (!projectXml)

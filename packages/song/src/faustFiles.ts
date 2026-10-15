@@ -3,7 +3,7 @@
 // is always a number, so a string can only be a file. `@<library>/…` reads a library's `wavetables/`,
 // then its `samples/`; anything else is a path under the project. See docs/faustFiles.md.
 
-import { isAbsolute, resolve, sep } from "node:path";
+import { confineToProject } from "./confine";
 import { libraryFile } from "./libraryFiles";
 import { wsExists } from "./yaml/workspaceFile";
 
@@ -15,21 +15,22 @@ export function faustFilesOf(
   const out: Record<string, string> = {};
   for (const [slot, ref] of Object.entries(params ?? {})) {
     if (typeof ref !== "string" || !ref) continue;
-    out[slot] = resolveSoundRef(ref, projectDir);
+    const file = resolveSoundRef(ref, projectDir);
+    if (file !== null) out[slot] = file;
   }
   return Object.keys(out).length ? out : undefined;
 }
 
-/** A sound ref as a path; one that resolves nowhere is passed through, so the engine names it in its warning. */
-function resolveSoundRef(ref: string, projectDir: string): string {
+/** A sound ref as a path; one that resolves nowhere is passed through for the engine's warning, one that escapes is null. */
+function resolveSoundRef(ref: string, projectDir: string): string | null {
   if (ref.startsWith("@"))
     return (
       libraryFile("wavetables", ref, projectDir) ??
       libraryFile("samples", ref, projectDir) ??
       ref
     );
-  if (isAbsolute(ref)) return ref;
-  const abs = resolve(projectDir, ref);
-  // Inside the project only: a ref is text a file holds, and `..` must not walk out of it.
-  return abs.startsWith(projectDir + sep) && wsExists(abs) ? abs : ref;
+  // A ref is text a file holds, so an absolute path or a `..` must not reach past the project's roots (docs/confine.md).
+  const abs = confineToProject(projectDir, ref);
+  if (!abs) return null;
+  return wsExists(abs) ? abs : ref;
 }

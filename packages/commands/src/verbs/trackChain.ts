@@ -11,6 +11,7 @@ import {
   newNodeId,
   readChainProject,
 } from "@studio/song/chainProject";
+import { confineTo } from "@studio/song/confine";
 import { wsExists, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { instanceName } from "@studio/song-schema/instanceName";
 import { formatChain, parseChain } from "@studio/song-schema/yaml/chainFile";
@@ -102,9 +103,13 @@ export function duplicateLaneChain(
       // A preset another item names too is shared on purpose, and the copy shares it.
       if (named && (users.get(named) ?? 0) > 1) return i;
       const file = named ?? `${old.id}.vstpreset`;
-      const abs = join(dir, VSTPRESETS_DIR, file);
+      // A name the chain file holds, so it may only read from the project's own presets folder.
+      const abs = confineTo(
+        [join(dir, VSTPRESETS_DIR)],
+        join(dir, VSTPRESETS_DIR, file),
+      );
       const own = `${i.id}.vstpreset`;
-      if (wsExists(abs)) {
+      if (abs && wsExists(abs)) {
         copyFileSync(abs, join(dir, VSTPRESETS_DIR, own));
         written.push(`${VSTPRESETS_DIR}/${own}`);
       }

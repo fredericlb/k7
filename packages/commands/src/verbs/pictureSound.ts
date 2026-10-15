@@ -8,6 +8,11 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { extractSound } from "@studio/audio-analysis/extract";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
+import {
+  confineTo,
+  confineToProject,
+  workspaceDirOf,
+} from "@studio/song/confine";
 import { loadGraph } from "@studio/song/graph";
 import { createTrackFile, readYamlEntities } from "@studio/song/loader";
 import type { RawClip } from "@studio/song/rawDoc";
@@ -42,11 +47,18 @@ async function soundClip(
   if (!clip || !VIDEO_SOURCE.test(source))
     return silent(`${ref}: not a video clip — nothing to hear`);
   const want = clip.sound || soundPathOf(source);
-  const abs = resolve(h.songPath, want);
+  // Both are text a clip file holds: read from the project's roots, written only in its workspace (packages/song/docs/confine.md).
+  const video = confineToProject(h.songPath, source);
+  const abs = confineTo(
+    [h.songPath, workspaceDirOf(h.songPath)],
+    resolve(h.songPath, want),
+  );
+  if (!video || !abs)
+    return silent(`${ref}: ${!video ? source : want} is outside the project`);
   let made = "";
   if (!existsSync(abs)) {
     try {
-      const facts = await extractSound(resolve(h.songPath, source), abs, {
+      const facts = await extractSound(video, abs, {
         engineBin,
       });
       if (!facts)
