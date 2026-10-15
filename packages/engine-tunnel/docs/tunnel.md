@@ -38,6 +38,13 @@ opens it; the agent rewrites every JSON string under a root as frames cross:
 One queue per direction per channel: a frame waiting on a download is never overtaken by the one
 after it, which is what keeps a `transport play` behind the document it plays.
 
+Every channel shares one socket, so file bytes — a download, an upload, a `sync` copy — are also
+what every OTHER channel's frames wait behind: a relayed probe, a transport command. The senders
+stop at **1 MB** unsent (`HIGH_WATER_BYTES` in `drain.ts`, `kHighWaterBytes` in
+`engine/k7-supervisor/src/TunnelFrames.h`) rather than several: on a home uplink a few megabytes
+ahead of a `whoami` is seconds, longer than a probe waits before calling the engine unreachable.
+The kernel's own socket buffer keeps the pipe full past that.
+
 **A file is served only from INSIDE its root**, by real path (`stillInside`, `hubFiles.ts`), so a
 link cannot aim the engine's machine at anything else on the server. The two library roots are
 `perChild`: each top-level folder there is one library's clone, and containment is checked against
