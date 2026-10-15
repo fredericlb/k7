@@ -18,6 +18,8 @@ export interface VideoClipDoc {
   fadeOut?: VideoFadeDoc;
   /** How the shot moves inside its lane's frame: each property's keys, sorted, seconds from the shot's start (docs/animation.md). */
   animate?: Partial<Record<AnimatedProp, Key[]>>;
+  /** How fast the source runs under the shot, signed; absent is 1 — docs/speed.md. */
+  speed?: number;
 }
 
 /** A transition ON a placement: how long, and which kind. The kind's GLSL is on the PROJECT, once per name. */

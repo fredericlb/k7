@@ -457,6 +457,8 @@ export interface WebVideoClip {
   fadeOut?: WebVideoFade;
   /** How the shot moves in its lane's frame: each property's keys, sorted, in seconds from its start (song-video/docs/animation.md). */
   animate?: WebVideoAnimate;
+  /** How fast the source runs under the shot, signed; absent is 1 (song-video/docs/speed.md). */
+  speed?: number;
 }
 /** One keyframe as the compile normalised it; `ease` shapes the segment LEAVING it. */
 export interface WebVideoKey {

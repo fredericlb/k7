@@ -79,6 +79,17 @@ map (`packages/song-video/docs/picture.md`). The conversion happens in the compi
 re-typing `tempo:` leaves the sound under its shot. A sounding clip carries no warp map: the
 material answers to the clock, not to the tempo.
 
+## A retimed shot is resampled, and a reversed one is silent
+
+A shot's `speed` ([../../song-video/docs/speed.md](../../song-video/docs/speed.md)) reaches its sound
+as a two-marker `varispeed` warp: one second of song spends `speed` seconds of sound, RESAMPLED, so
+the pitch follows the speed as a tape's would. The engine's pitch-keeping stretch serves a clip
+whose beats follow the tempo, and a shot answers to the clock instead.
+
+The engine has no reverse playback: a warp map only runs forwards, and nothing in it reverses a
+clip. A reversed shot is therefore silent, and so is a freeze, which has no sound to hold. Both
+stay in the picture's covering rule, so the sound under them is still cut where they start.
+
 ## One lane per picture lane, and hidden is not muted
 
 A sounding lane follows a whole picture lane, not one shot, so a cut on that lane never has to

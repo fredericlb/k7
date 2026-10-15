@@ -81,6 +81,7 @@ export interface RawVideoPlacement {
   fade_in?: unknown;
   fade_out?: unknown;
   animate?: unknown; // the shot's keyframes (song-video docs/animation.md)
+  speed?: unknown; // how fast its source runs, signed (song-video docs/speed.md)
 }
 
 /** A video track file's struct (video_tracks/<id>.yaml). */

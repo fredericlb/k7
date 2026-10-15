@@ -20,6 +20,8 @@ export interface VideoPlacement {
   start: number;
   length: number;
   sourceFrom: number;
+  /** How fast its source runs, signed — present only when the file states one (song-video docs/speed.md). */
+  speed?: number;
 }
 
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
@@ -55,6 +57,9 @@ export function listVideoPlacements(text: string): VideoPlacement[] {
       start: num(doc.getIn(["events", i, "start"])),
       length: num(doc.getIn(["events", i, "length"])),
       sourceFrom: num(doc.getIn(["events", i, "source_from"])),
+      ...(doc.getIn(["events", i, "speed"]) != null
+        ? { speed: num(doc.getIn(["events", i, "speed"]), 1) }
+        : {}),
     });
   });
   return out;
@@ -135,6 +140,25 @@ export function setVideoPlacementFieldAt(
   return doc.toString({ lineWidth: 0 });
 }
 
+/** Set the placement's `speed:`, signed — or drop the key at 1, which is what absent already means. */
+export function setVideoSpeedAt(
+  text: string,
+  index: number,
+  speed: number,
+): string {
+  let doc: ReturnType<typeof parseDocument>;
+  try {
+    doc = parseDocument(text, OPTS);
+  } catch {
+    return text;
+  }
+  const events = doc.getIn(["events"]);
+  if (!isSeq(events) || index < 0 || index >= events.items.length) return text;
+  if (Math.abs(speed - 1) < 1e-9) doc.deleteIn(["events", index, "speed"]);
+  else doc.setIn(["events", index, "speed"], Math.round(speed * 10000) / 10000);
+  return doc.toString({ lineWidth: 0 });
+}
+
 /** Drop the placement at `index`, or the text unchanged when there is none there. */
 export function removeVideoPlacementAt(text: string, index: number): string {
   let doc: ReturnType<typeof parseDocument>;
@@ -207,7 +231,8 @@ export function splitVideoPlacementAt(
   if (typeof at(index, "ref") === "string")
     doc.setIn(
       ["events", index + 1, "source_from"],
-      ms(num(at(index, "source_from")) + head),
+      // The source runs at the shot's SPEED, so the head consumed head × speed of it (song-video docs/speed.md).
+      ms(num(at(index, "source_from")) + head * num(at(index, "speed"), 1)),
     );
   return doc.toString({ lineWidth: 0 });
 }

@@ -1573,6 +1573,21 @@
       { name: prop, values: [x, y, scale, opacity, rotate] },
       { name: when, hint: "the timeline time of the key — seconds or m:ss" },
     ]
+# A shot's SPEED, signed: the place and the length on the timeline stay, the source spent changes —
+# packages/song-video/docs/speed.md.
+- command: "picture speed"
+  sid: picture.speed
+  readable:
+    en: "Change a shot's speed"
+    fr: "Changer la vitesse d'un plan"
+  help: "retime a shot (e.g. picture speed main 4 0.5) — 2 double, 0.5 slow motion, 0 a freeze, -1 backwards, 1 its own pace"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: at, hint: "where the shot starts — seconds or m:ss" },
+      { name: factor, hint: "2 double, 0.5 half, 0 freeze, -1 backwards, 1 its own pace" },
+    ]
 - command: "picture sound"
   sid: picture.sound
   readable:

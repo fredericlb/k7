@@ -58,6 +58,15 @@ describe("activesAt", () => {
     const l = layer([{ ...clip(4, 4), sourceFrom: 2.5 }]);
     expect(activesAt(l, 5)[0].sourceTime).toBe(3.5);
   });
+
+  it("…times the speed, signed: faster, frozen, or backwards from the in-point", () => {
+    const at = (speed: number) =>
+      activesAt(layer([{ ...clip(4, 4), sourceFrom: 2.5, speed }]), 5)[0]
+        .sourceTime;
+    expect(at(2)).toBe(4.5);
+    expect(at(0)).toBe(2.5);
+    expect(at(-1)).toBe(1.5);
+  });
 });
 
 describe("activeAt picks the LAST active, not the first", () => {

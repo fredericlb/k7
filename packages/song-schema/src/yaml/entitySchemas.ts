@@ -248,16 +248,27 @@ export const VideoPlacementSchema = z
     fade_out: TransitionSchema.optional(),
     // How the shot MOVES inside its lane's frame, in seconds from its own start — song-video docs/animation.md.
     animate: AnimateSchema.optional(),
+    // How fast the SOURCE runs under the shot: 2 is double, 0 a freeze, -1 backwards from `source_from` — song-video docs/speed.md.
+    speed: z.number().finite().optional(),
   })
   .strict()
   // Three keys that need a source, on an event that has none: each would be read by nothing.
   .superRefine((p, ctx) => {
+    // Backwards from `source_from` reaches the source's first frame after source_from/|speed| seconds.
+    const speed = p.speed ?? 1;
+    if (p.ref && speed < 0 && (p.length ?? 0) > 0)
+      if ((p.source_from ?? 0) + (p.length ?? 0) * speed < -5e-4)
+        ctx.addIssue({
+          code: "custom",
+          message: `backwards at ${-speed}× from ${p.source_from ?? 0}s, this shot runs out of source after ${((p.source_from ?? 0) / -speed).toFixed(3)}s — shorten it, or start it later in its source`,
+          path: ["length"],
+        });
     if (p.ref) return;
-    for (const key of ["source_from", "fade_in", "fade_out"] as const)
+    for (const key of ["source_from", "fade_in", "fade_out", "speed"] as const)
       if (p[key] != null)
         ctx.addIssue({
           code: "custom",
-          message: `an event with no \`ref\` is an ACTIVATION — it says WHEN this lane is on, and has no source to ${key === "source_from" ? "trim" : "fade"}`,
+          message: `an event with no \`ref\` is an ACTIVATION — it says WHEN this lane is on, and has no source to ${key === "source_from" ? "trim" : key === "speed" ? "run" : "fade"}`,
           path: [key],
         });
   });

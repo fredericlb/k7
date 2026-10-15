@@ -331,8 +331,11 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     const delta = to - shot.start;
     if (Math.abs(delta) < SAME)
       return h.log([`${t.rel}: ${shot.ref} unchanged`]);
+    // The in-point moves by the delta AT THE SHOT'S SPEED, which is what keeps the frame under the edge.
+    const speed = shot.speed ?? 1;
+    const from = shot.sourceFrom + delta * speed;
     // The head cannot walk back past the source's own first frame.
-    if (shot.sourceFrom + delta < -SAME) {
+    if (from < -SAME) {
       h.refuse([
         `${shot.ref} starts ${shot.sourceFrom}s into its source, so the head cannot move back more than that`,
       ]);
@@ -347,12 +350,7 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     }
     // Three fields, together: source_from follows the head or the frame changes, and length the other way or the TAIL slides.
     let next = setVideoPlacementFieldAt(t.text, t.index, "start", to);
-    next = setVideoPlacementFieldAt(
-      next,
-      t.index,
-      "source_from",
-      shot.sourceFrom + delta,
-    );
+    next = setVideoPlacementFieldAt(next, t.index, "source_from", from);
     if (shot.length > 0)
       next = setVideoPlacementFieldAt(
         next,

@@ -83,6 +83,24 @@ the same frames.
 From the command bar, `picture key main 4 scale 10 1.2 inout` sets a key on the shot starting at
 4 s, at 10 s on the timeline. `picture unkey main 4 scale 10` removes it.
 
+## Speed, freeze and reverse
+
+```yaml schema=VideoTrack
+events:
+  - { ref: run,   start: 0, length: 4, speed: 0.5 }                 # slow motion
+  - { ref: face,  start: 4, length: 3, speed: 0 }                   # held on its first frame
+  - { ref: glass, start: 7, length: 2, source_from: 5, speed: -1 }  # backwards from 5 s
+```
+
+`speed` is how fast the source runs under the shot: `2` is double, `0.5` half, `0` freezes on
+`source_from`, and a negative speed runs **backwards from** `source_from`. The shot keeps its place
+and its length; what changes is how much of the source it uses. The timeline labels a retimed
+shot `×0.5`, or `freeze`. From the command bar: `picture speed main 0 0.5`.
+
+Its sound follows at the same speed, with the pitch moving like a tape's. A reversed or frozen
+shot is silent. The preview steps a reversed shot frame by frame, so it plays choppier there than
+in the export.
+
 ## A shot's sound
 
 The picture lane plays no sound. The **engine** plays it, from an ordinary audio lane that names

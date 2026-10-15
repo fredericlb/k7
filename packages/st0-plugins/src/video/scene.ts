@@ -57,6 +57,7 @@ export function sceneOf(
         ...(c.fadeIn ? { fadeIn: { ...c.fadeIn } } : {}),
         ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
         ...(c.animate ? { animate: c.animate } : {}),
+        ...(c.speed !== undefined ? { speed: c.speed } : {}),
       })),
       // A shape carries no media — the compositor rasterizes it, and its id is the module node that drew it.
       shapes: t.shapes.map((s) => ({ ...s })),

@@ -76,6 +76,8 @@ export function videoPlacementToClip(
     );
   const fadeIn = readFade(p.fade_in);
   const fadeOut = readFade(p.fade_out);
+  // Absent stays absent: a shot at its source's own pace says nothing about speed.
+  const speed = Number(p.speed ?? 1);
   return {
     id: ref,
     name: ref,
@@ -87,6 +89,7 @@ export function videoPlacementToClip(
     ...(fadeIn ? { fadeIn } : {}),
     ...(fadeOut ? { fadeOut } : {}),
     ...(animate ? { animate } : {}),
+    ...(Number.isFinite(speed) && speed !== 1 ? { speed } : {}),
   };
 }
 

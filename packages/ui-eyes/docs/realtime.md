@@ -30,6 +30,15 @@ The element is muted (a shot's sound is the ENGINE's, on an audio lane —
 `packages/song/docs/videoSound.md` — and muted is also what lets it autoplay), parked 1px and invisible but NOT `display:none` — a `display:none` element
 is allowed to skip decoding.
 
+## A retimed shot: the rate is the shot's, or the element is stepped
+
+A shot running at `speed` plays its element at that `playbackRate`, and the drift nudge below
+works around it rather than around 1. A browser plays forwards only, and only between 1/16 and
+16. So a freeze, a reverse, or anything outside that range is shown by PARKING the element and
+seeking it whenever it is half a frame off. Every frame is the right one, but a reverse previews
+choppier than export renders it (`packages/song-video/docs/speed.md`). A reverse reaching its
+source's first frame is parked like a shot past its last.
+
 ## Two-speed drift correction
 
 The engine and each `<video>` keep independent clocks, so they drift continuously.

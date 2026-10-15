@@ -53,7 +53,8 @@ export function activesAt(layer: VideoLayer, t: number): Active[] {
     if (t < end)
       out.push({
         clip: c,
-        sourceTime: c.sourceFrom + (t - c.start),
+        // The one mapping speed has: signed, so a freeze holds `sourceFrom` and a reverse runs back from it.
+        sourceTime: c.sourceFrom + (t - c.start) * (c.speed ?? 1),
         end,
         index: i,
       });
