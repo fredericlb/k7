@@ -277,6 +277,14 @@ export function ProjectsPane({
             }
             reloadSync();
           }}
+          onCopyWorkspace={async (w, to) => {
+            try {
+              await accountFiles.copyWorkspace(chosen(), w.name, to);
+            } catch (e) {
+              setError((e as Error).message);
+            }
+            reloadSync();
+          }}
         />
       )}
     </div>

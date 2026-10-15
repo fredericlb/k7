@@ -429,9 +429,10 @@ simply here.
 
 **A desktop paired with several servers** lists the workspaces of all of them: each row names its
 server's host beside the icon, a workspace only on a server downloads from that one, and the row's ⋮
-offers **Move to** every other server (`WorkspaceMenu.tsx`), confirmed with what it does — sent whole
-to the target, then emptied from the one it left, whose history keeps it
-(`packages/file-service/docs/liveCapture.md`, "Several servers"). A move runs on its own and the row
+offers **Copy to** and **Move to** every other server (`WorkspaceMenu.tsx`), each confirmed with what
+it does. Both send it whole to the target; a move then empties it from the one it left, whose history
+keeps it, while a copy leaves it synced where it was and the target holding a workspace of its own
+(`packages/file-service/docs/liveCapture.md`, "Several servers"). Either runs on its own and the row
 says so until it ends, or says why it failed. Which servers, and which is the main one, are the home
 page's account bar (`SyncServers.tsx`, `apps/k7-standalone/docs/sync.md`).
 

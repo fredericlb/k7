@@ -208,8 +208,8 @@ export interface WorkspaceSyncStatus {
     state: "synced" | "local" | "server";
     server?: string;
     room?: string;
-    /** A move under way to `to`, or the reason it failed (`error`). */
-    moving?: { to: string; error?: string };
+    /** A move under way to `to` — a copy when `copy`, which leaves it where it is — or the reason it failed (`error`). */
+    moving?: { to: string; error?: string; copy?: boolean };
   }[];
 }
 

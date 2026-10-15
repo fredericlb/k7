@@ -49,7 +49,7 @@ import {
 } from "./engineLink.ts";
 import { hubRouter, hubSecretOk, requireHubSecret } from "./hosted.ts";
 import { ensureLibraryPins } from "./libraryPins.ts";
-import { startMove } from "./liveMove.ts";
+import { startCopy, startMove } from "./liveMove.ts";
 import {
   downloadWorkspace,
   joinServerRooms,
@@ -281,6 +281,22 @@ app.post(
     try {
       // The refusals answered now; the move itself runs on, and `/workspaces/sync` says how it went.
       await startMove(workspaceRoot(name), to);
+      res.status(202).json({ ok: true });
+    } catch (e) {
+      res.status(409).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+/** Copy a workspace to another server this account is paired with: there whole, and still synced where it was. */
+app.post(
+  "/workspaces/sync/copy",
+  validate(moveBody),
+  wrap(async (req, res) => {
+    const { name, to } = req.body as z.infer<typeof moveBody>;
+    try {
+      // Answered like a move: the refusals now, the copy running on, and `/workspaces/sync` says how it went.
+      await startCopy(workspaceRoot(name), to);
       res.status(202).json({ ok: true });
     } catch (e) {
       res.status(409).json({ error: (e as Error).message });

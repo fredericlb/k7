@@ -89,8 +89,10 @@ function onOpen(_server: SyncServer): void {
   roomsTimer.unref?.();
 }
 
-/** The move a workspace is under, told by liveMove.ts — set there so this module does not import it back. */
-let moving: (root: string) => { to: string; error?: string } | undefined = () =>
+/** The move or copy a workspace is under, told by liveMove.ts — set there so this module does not import it back. */
+let moving: (
+  root: string,
+) => { to: string; error?: string; copy?: boolean } | undefined = () =>
   undefined;
 export const reportMoves = (f: typeof moving): void => {
   moving = f;
