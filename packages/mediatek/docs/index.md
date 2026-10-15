@@ -187,7 +187,7 @@ nothing asks for a re-walk and the stale answer outlives the fix.
 Bump it whenever what the scan PRODUCES changes — a new field, a different rule about what
 counts as an entry. A dropped index costs one walk, which is what the next section is about.
 
-## Confinement, and the two paths a caller may not write
+## Confinement, and what a caller may not write or read
 
 `safePath` (layout.ts) turns a mediatek-relative path into an absolute one inside the root.
 A local library does not need it: the file service's own `safePath` confines to the workspace,
@@ -204,11 +204,36 @@ the backslashed path `resolve` produces, so every nested path is reported as esc
 is plainly inside. `relative` normalises both sides and answers the question actually being
 asked — is this under that.
 
-`writablePath` adds the second half. Inside the root is not enough: two things are the library's
-own and not content — `mediatek.yaml`, which says what the folder *is*, and `.cache/`, which is
-derived. Writing there would let a caller poison an index or forge a cache's bookkeeping.
-Everything else is allowed, **including paths in no family**: a library that refused unfamiliar
-folders could never grow a third one.
+Inside means a relative path that neither climbs (`..`) nor is itself **absolute**: on Windows,
+`relative` answers a path on another drive or a UNC share with that absolute path rather than
+with one starting `..`, and only `isAbsolute` catches it. A NUL byte is refused as well, as a 400
+rather than the 500 the filesystem call would throw.
+
+`writablePath` adds the second half. Inside the root is not enough: some things are the library's
+own and not content:
+
+- **the root itself and every folder `ensureLayout` makes** — `songs/`, `samples/` and its kinds,
+  `recordings/`, `playlists/`, `library/` and its `ir/` and `nam/`. `.` and `songs/..` resolve to
+  the root, and one `DELETE /folder` on it would remove the whole volume. A song, an artist, a day
+  of recordings are the targets; the folders that hold them are not.
+- `mediatek.yaml`, which says what the folder *is*;
+- **every dot-folder**: `.cache/` is derived, and k7's backend keeps its own state beside it —
+  `.shares/`, `.settings/`, `.projects/`, `.hunts/`. Writing there would let a caller poison an
+  index, forge a share or rewrite an account's identity.
+
+The comparison follows the filesystem rather than the spelling: case is folded on macOS and
+Windows, and Windows' trailing dots and spaces are dropped, so `Songs` and `songs.` are `songs`.
+On Windows a segment shaped like an 8.3 short name (`PROJEC~1`) counts as a dot-folder, since it
+may be one. Everything else is allowed, **including paths in no family**: a library that refused
+unfamiliar folders could never grow a third one.
+
+`readablePath` is what a route that takes a CLIENT's path reads through (`/file`, `/stream`,
+`/envelope`, `/analyse` in k7's backend). It refuses every dot-folder, with no exception: what a
+client legitimately reads is content and what the library derives *beside* it — a
+`{file}.cache` analysis sidecar and a FLAC's derived MP3 sit next to their source, under no dot
+segment. The dot-folders hold the server's own state — the email-to-account map, other users'
+share tokens, credentials — which no client has a reason to read. `safePath` alone stays for the
+server's own walks, which reach those folders on purpose.
 
 ## Moving an entry is one syscall, and revs both ends
 
