@@ -20,6 +20,10 @@ describe("derived module fields", () => {
       // …and which primitive a shape module draws, and the family a `text` one is set in.
       "shape",
       "font",
+      // …and how a text shape's lines are set — packages/song-video/docs/titles.md.
+      "align",
+      "background",
+      "shadow",
       "params",
       "rack",
       // An SFZ drum kit's pads, name → note, drawn as a rack's taps — packages/song/docs/racks.md.

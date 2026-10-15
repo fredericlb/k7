@@ -34,6 +34,7 @@ export {
   type VideoFormat,
 } from "./exportSupport";
 
+import { CaptionFrames } from "./captionFrames";
 import type { ExportQuality } from "./exportQuality";
 import { type Motion, slotMotions } from "./motion";
 import type { VideoScene } from "./scene";
@@ -199,6 +200,8 @@ export async function exportScene(
     }
     return hit.sink;
   };
+  // …each caption cue, set once at the viewport's size…
+  const captions = new CaptionFrames(vw, vh);
   // …and each still's bitmap, by src, closed with the sinks when the render ends.
   const stills = new Map<string, ImageBitmap>();
   const stillFor = async (src: string): Promise<ImageBitmap> => {
@@ -279,6 +282,19 @@ export async function exportScene(
         let from = false;
         let to = false;
         for (const w of wanted) {
+          // A CAPTION is the cue at its source time, set once; between cues the slot carries nothing.
+          if (w.active.clip.captions) {
+            const cue = captions.frame(
+              w.active.clip.src,
+              w.active.clip.captions,
+              w.active.sourceTime,
+            );
+            if (!cue) continue;
+            comp.upload(layer.id, cue, w.slot);
+            if (w.slot === 0) from = true;
+            else to = true;
+            continue;
+          }
           // A STILL is one bitmap, decoded once, uploaded for every frame it is on.
           if (w.active.clip.still) {
             comp.upload(layer.id, await stillFor(w.active.clip.src), w.slot);

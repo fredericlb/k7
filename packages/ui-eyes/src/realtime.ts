@@ -9,6 +9,7 @@ import { type LensOpener, localLens } from "./camera";
 import type { SeekingClock } from "./clock";
 import type { LayerBlend } from "./compositor";
 import { Compositor } from "./compositor";
+import { StaticMedia } from "./media";
 import { type Motion, slotMotions } from "./motion";
 import type { VideoLayer, VideoScene } from "./scene";
 import {
@@ -94,8 +95,8 @@ async function openCamera(
 export class RealtimeDriver {
   private comp: Compositor;
   private lanes: Lane[];
-  // Every STILL the scene places, by src: one decode each, however often it is placed.
-  private images = new Map<string, HTMLImageElement>();
+  // The pictures drawn with no element — stills and captions — one decode or one draw each (media.ts).
+  private media: StaticMedia;
   private raf = 0;
   private disposed = false;
   private debug: LaneDebug[] = [];
@@ -104,9 +105,11 @@ export class RealtimeDriver {
     comp: Compositor,
     lanes: Lane[],
     private readonly clock: SeekingClock,
+    viewport: [number, number],
   ) {
     this.comp = comp;
     this.lanes = lanes;
+    this.media = new StaticMedia(viewport[0], viewport[1]);
     // A seek/loop/transport edge: land every element on its exact frame at once.
     clock.onSeek = () => this.reseekAll();
   }
@@ -153,23 +156,10 @@ export class RealtimeDriver {
         settleUntil: els.map(() => 0),
       };
     });
-    driver = new RealtimeDriver(comp, lanes, clock);
+    driver = new RealtimeDriver(comp, lanes, clock, scene.viewport);
     driver.watchSight(host);
     driver.loop();
     return driver;
-  }
-
-  /** A still's image, loaded once per src; null until it has decoded, so the lane shows nothing rather than a blank. */
-  private image(src: string): HTMLImageElement | null {
-    let img = this.images.get(src);
-    if (!img) {
-      img = new Image();
-      img.crossOrigin = "anonymous";
-      img.decoding = "async";
-      img.src = src;
-      this.images.set(src, img);
-    }
-    return img.complete && img.naturalWidth > 0 ? img : null;
   }
 
   /** Which element should carry `active`: the one already holding that clip, else any free one. */
@@ -360,11 +350,11 @@ export class RealtimeDriver {
       let from = false;
       let to = false;
       for (const w of wanted) {
-        // A STILL takes no element: its image is decoded once and uploaded as any frame is.
-        if (w.active.clip.still) {
-          const img = this.image(w.active.clip.src);
-          if (!img) continue;
-          this.comp.upload(lane.layer.id, img, w.slot);
+        // A STILL or a CAPTION takes no element: its picture is made once and uploaded as any frame is.
+        if (StaticMedia.owns(w.active.clip)) {
+          const pic = this.media.picture(w.active.clip, w.active.sourceTime);
+          if (!pic) continue;
+          this.comp.upload(lane.layer.id, pic, w.slot);
           if (w.slot === 0) from = true;
           else to = true;
           continue;

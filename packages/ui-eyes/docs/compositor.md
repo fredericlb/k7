@@ -89,7 +89,7 @@ The conventions, declared in `scene.ts`:
 | `color` | any colour the 2D canvas can read |
 | `x, y` of a square or of text | its **top-left** corner |
 | `x, y` of a circle | its **centre** |
-| `w` of text | a **maximum** width: the canvas condenses glyphs to fit, it does not wrap (single-line text) |
+| `w` of text | the width its lines **wrap** in; a word wider than it is condensed to fit (`src/text.ts`) |
 
 Each shape carries its own geometry, so the layer's rect is ignored: a layer of shapes covers the
 whole viewport. A shape carries no time of its own; its layer's ACTIVATION spans do

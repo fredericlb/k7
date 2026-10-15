@@ -2193,6 +2193,7 @@ export class Workspace {
         ...(c.animate ? { animate: c.animate } : {}),
         ...(c.speed !== undefined ? { speed: c.speed } : {}),
         ...(c.effect ? { effect: c.effect } : {}),
+        ...(c.captions ? { captions: c.captions } : {}),
       })),
       // Shapes carry no media path — each variant's fields, `id` included, pass straight through.
       shapes: t.shapes.map((s) => ({ ...s })),

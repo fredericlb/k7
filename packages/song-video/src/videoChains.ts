@@ -87,9 +87,14 @@ function compileShape(node: string, module: Module): ShapeDoc {
         fontSize: p("font_size", 24),
         x,
         y,
-        // A width is a MAXIMUM the glyphs condense into, so 0 has to stay absent rather than mean it.
+        // A width is what the lines WRAP in, so 0 has to stay absent rather than mean a column of one glyph.
         ...(p("w") > 0 ? { w: p("w") } : {}),
         color,
+        ...(module.align ? { align: module.align } : {}),
+        ...(module.background ? { background: module.background } : {}),
+        ...(module.shadow ? { shadow: true } : {}),
+        ...(p("line_height") > 0 ? { lineHeight: p("line_height") } : {}),
+        ...(p("padding") > 0 ? { padding: p("padding") } : {}),
       };
     default:
       return { id: node, type: "square", x, y, w: p("w"), h: p("h"), color };

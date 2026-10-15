@@ -162,6 +162,10 @@ export interface LoadedModule {
   // shapes only — which primitive it draws, and the family a `text` one is set in (song-video's docs/shapes.md).
   shape?: unknown;
   font?: unknown;
+  // …and how a `text` shape's lines are set (song-video's docs/titles.md).
+  align?: unknown;
+  background?: unknown;
+  shadow?: unknown;
   ui?: unknown; // the widget grid — normalized downstream (effectiveUI)
   // The module's MIDI map from its folder's `controller.yaml`, stamped on beside `ui` and by the same rule.
   cc?: unknown;

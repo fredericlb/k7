@@ -241,3 +241,46 @@ events:
 
 A lane stating no event at all shows its shapes throughout. `source_from` and the two fades are
 refused here — there is no source to trim and no picture to cross into.
+
+### Titles: several lines, a box, a shadow
+
+A text's `content` keeps its line breaks, and with a `w` its words wrap inside that width.
+`align` sets each line left, centred or right in it; `background` puts a box behind the lines and
+`padding` the room around them; `shadow: true` lifts the text off a busy picture. That is a lower
+third:
+
+```yaml schema=Module
+# modules/shapes/lower_third/module.yaml
+type: shape
+shape: text
+content: "Ada Lovelace\nAnalyst"
+align: left
+background: "rgba(0, 0, 0, 0.6)"
+shadow: true
+params: { x: 80, y: 560, w: 520, font_size: 40, line_height: 1.2, padding: 14 }
+```
+
+To fade it in, give its activation an `animate:` with `opacity` keys (see Moving a shot).
+
+### Subtitles: an `.srt` or `.vtt` file is a clip
+
+Drop a subtitle file on a picture lane of its own and its cues show at their times, from where you
+placed it. Its look is set on its clip file:
+
+```yaml schema=Clip
+# clips/subs.yaml
+source: clips/subs.srt
+font: sans-serif
+font_size: 36
+color: "#ffffff"
+background: "rgba(0, 0, 0, 0.6)"
+align: center
+position: bottom   # bottom, top or middle
+margin: 40         # px from that edge
+```
+
+Everything but `source` is optional: unsaid, captions are white, centred near the bottom, with a
+shadow instead of a box. Move the placement to slide every cue together, as you would a shot. A
+cue the file gets wrong is named in the picture's warnings rather than skipped quietly. Captions
+are drawn into the picture, so an export carries them, and they are left out of a cut handed to
+another editor, since the `.srt` itself is what that editor takes.

@@ -47,8 +47,8 @@ export function flattenLane(
   lane: VideoTrackDoc,
   naturalSeconds: (c: VideoClipDoc) => number | undefined = () => undefined,
 ): FlatLane {
-  // An ACTIVATION is no material to hand over: a lane of shapes has nothing another editor can open.
-  const clips = lane.clips.filter((c) => c.id !== "");
+  // An ACTIVATION is no material to hand over, and captions have no track OTIO or an EDL agree on.
+  const clips = lane.clips.filter((c) => c.id !== "" && !c.captions);
   const skipped: string[] = [];
   const spans: { clip: VideoClipDoc; start: number; end: number }[] = [];
   clips.forEach((c, i) => {

@@ -467,6 +467,19 @@ export interface WebVideoClip {
   speed?: number;
   /** The run this shot alone goes through, by head node — a key of `stretches` (song-video/docs/effects.md). */
   effect?: string;
+  /** A subtitle clip's cues and style (mirrors CaptionsDoc, song-video/docs/titles.md). */
+  captions?: {
+    cues: { start: number; end: number; text: string }[];
+    style: {
+      font?: string;
+      fontSize?: number;
+      color?: string;
+      background?: string;
+      align?: "left" | "center" | "right";
+      position?: "bottom" | "top" | "middle";
+      margin?: number;
+    };
+  };
 }
 /** One keyframe as the compile normalised it; `ease` shapes the segment LEAVING it. */
 export interface WebVideoKey {
@@ -522,6 +535,11 @@ export type WebShape =
       y: number;
       w?: number;
       color: string;
+      align?: "left" | "center" | "right"; // how its lines sit in `w`, or about `x` with none
+      background?: string; // a box behind the lines, any CSS colour
+      shadow?: boolean; // a soft shadow under the glyphs, for text over a picture
+      lineHeight?: number; // a multiple of the font size; 1.2 unsaid
+      padding?: number; // px between the lines and their box
     };
 /** One pass over the picture (mirrors VideoPluginDoc); its GLSL rides inline and `audioFrom` names a lane — see docs/document.md. */
 export interface WebVideoPlugin {

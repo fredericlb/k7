@@ -233,6 +233,10 @@ export interface Module {
   color?: string;
   // A `text` shape's CSS font family; its string is `content:`, the key a doc note already uses.
   font?: string;
+  // …and how a `text` shape's lines are set — packages/song-video/docs/titles.md.
+  align?: "left" | "center" | "right";
+  background?: string;
+  shadow?: boolean;
   ui?: ModuleUI;
   // What this module LOADS when it is a rack, `extends` already merged in; absent for a plugin.
   rack?: Rack;
@@ -577,6 +581,15 @@ export function buildGraph(
     shape: typeof b?.shape === "string" && b.shape ? b.shape : undefined,
     color: typeof b?.color === "string" && b.color ? b.color : undefined,
     font: typeof b?.font === "string" && b.font ? b.font : undefined,
+    align:
+      b?.align === "left" || b?.align === "center" || b?.align === "right"
+        ? b.align
+        : undefined,
+    background:
+      typeof b?.background === "string" && b.background
+        ? b.background
+        : undefined,
+    shadow: b?.shadow === true ? true : undefined,
     ui: resolvedUI(b),
     // Stamped on by the loader; re-validated here because a map read off a cached doc has not been through the schema.
     cc: resolvedCc(b),

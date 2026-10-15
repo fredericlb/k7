@@ -4,6 +4,21 @@
 // everything the C++ engine is handed. Full rationale: docs/picture.md.
 
 import type { AnimatedProp, Key } from "@studio/song-schema/keyframes";
+import type { CueDoc } from "./captions";
+
+/** A subtitle clip as the picture draws it: its cues, read at compile time, and its authored style. */
+export interface CaptionsDoc {
+  cues: CueDoc[];
+  style: {
+    font?: string;
+    fontSize?: number;
+    color?: string;
+    background?: string;
+    align?: "left" | "center" | "right";
+    position?: "bottom" | "top" | "middle";
+    margin?: number;
+  };
+}
 
 // A placed shot; `source` is ABSOLUTE, since whoever renders knows nothing about the project folder.
 export interface VideoClipDoc {
@@ -28,6 +43,8 @@ export interface VideoClipDoc {
   speed?: number;
   /** The run this shot goes through for as long as it is on, by head node — a key of `VideoProjectDoc.stretches` (docs/effects.md). */
   effect?: string;
+  /** A SUBTITLE file's cues, in seconds of the file, and how they are set — docs/titles.md. */
+  captions?: CaptionsDoc;
 }
 
 /** A transition ON a placement: how long, and which kind. The kind's GLSL is on the PROJECT, once per name. */
@@ -75,8 +92,13 @@ export type ShapeDoc =
       fontSize: number;
       x: number;
       y: number;
-      w?: number; // optional max width (text condenses to fit)
+      w?: number; // the width its lines wrap in; a word longer than it is condensed to fit
       color: string;
+      align?: "left" | "center" | "right"; // how its lines sit in `w`, or about `x` with none
+      background?: string; // a box behind the lines, any CSS colour
+      shadow?: boolean; // a soft shadow under the glyphs, for text over a picture
+      lineHeight?: number; // a multiple of the font size; 1.2 unsaid
+      padding?: number; // px between the lines and their box
     };
 
 /** A shader's two stages, read off `shaders/<name>/` and carried INLINE — see docs/shaders.md. */

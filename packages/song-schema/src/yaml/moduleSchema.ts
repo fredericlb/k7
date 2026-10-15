@@ -340,6 +340,10 @@ const MODULE_FIELDS = {
   shape: z.enum(SHAPE_KINDS).optional(),
   // …and, on a `text` shape, the CSS family its glyphs are set in; its string is `content:`, a doc note's key.
   font: z.string().optional(),
+  // …how its lines sit in `w`, a box behind them, and a shadow under them — song-video docs/titles.md.
+  align: z.enum(["left", "center", "right"]).optional(),
+  background: z.string().optional(),
+  shadow: z.boolean().optional(),
   // A param is a NUMBER, except the few the plugin steers with a file it loads — see docs/moduleAssets.md.
   params: z.record(z.string(), z.union([z.number(), z.string()])).optional(),
   // An empty `rack:` or `symbols:` is a kit stating no pads of its own — packages/song/docs/racks.md.

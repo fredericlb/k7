@@ -23,6 +23,12 @@ export const VIDEO_SOURCE = /\.(mp4|mov|m4v|webm|mkv)$/i;
 /** …and a STILL when it ends in one of these: a picture with no time of its own (song-video docs/media.md). */
 export const IMAGE_SOURCE = /\.(png|jpe?g|webp|gif|avif)$/i;
 
+/** …and CAPTIONS when it is a subtitle file: timed text, drawn on a picture lane (song-video docs/titles.md). */
+export const CAPTION_SOURCE = /\.(srt|vtt)$/i;
+
+/** How text is set — the words a text shape and a captions clip share. */
+export const TEXT_ALIGNS = ["left", "center", "right"] as const;
+
 /** Either kind of picture source, which is what tells a picture clip from an audio one. */
 export const isPictureSource = (s: string): boolean =>
   VIDEO_SOURCE.test(s) || IMAGE_SOURCE.test(s);
@@ -74,8 +80,28 @@ export const VideoClipSchema = z
   })
   .strict();
 
-// Audio or video, told apart by the source's EXTENSION, which lets a clip file say only `source:`.
-export const ClipSchema = z.union([VideoClipSchema, AudioClipSchema]);
+/** A subtitle file placed on a picture lane, and how its cues are set — every field optional, the defaults a broadcast's. */
+export const CaptionClipSchema = z
+  .object({
+    source: z.string().regex(CAPTION_SOURCE),
+    font: z.string().optional(), // a CSS family
+    font_size: z.number().positive().optional(), // px of the viewport
+    color: z.string().optional(),
+    // A box behind each cue, any CSS colour; absent, the text carries a shadow instead.
+    background: z.string().optional(),
+    align: z.enum(TEXT_ALIGNS).optional(),
+    // Where the block sits, and how far from that edge, in px.
+    position: z.enum(["bottom", "top", "middle"]).optional(),
+    margin: z.number().min(0).optional(),
+  })
+  .strict();
+
+// Audio, video or captions, told apart by the source's EXTENSION, which lets a clip file say only `source:`.
+export const ClipSchema = z.union([
+  VideoClipSchema,
+  CaptionClipSchema,
+  AudioClipSchema,
+]);
 
 /** One note — and, on a step sequencer, one PAD, which is why two effects live here (docs/padEffects.md). */
 export const NoteSchema = z
