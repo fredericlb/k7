@@ -315,6 +315,22 @@ export const accountFiles = {
     );
   },
 
+  /** Start copying a workspace to another server this account is paired with; it stays synced where it was. */
+  copyWorkspace: async (
+    m: AccountFiles,
+    name: string,
+    to: string,
+  ): Promise<void> => {
+    await json(
+      await fetch(`${m.fileBase}/workspaces/sync/copy`, {
+        method: "POST",
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
+        body: JSON.stringify({ name, to }),
+      }),
+      "copy",
+    );
+  },
+
   /** The same disk, asked what could be put on a SECOND DEVICE — its own route, the home page drawing no surfaces (../../docs/external.md). */
   surfacedProjects: async (m: AccountFiles): Promise<SurfacedProject[]> => {
     const { projects } = await json<SurfacedProjectList>(

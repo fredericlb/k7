@@ -94,6 +94,7 @@ export function RepoList({
   sync = null,
   onDownload,
   onMove,
+  onCopyWorkspace,
 }: {
   workspaces: AccountWorkspace[];
   busy: boolean;
@@ -155,6 +156,8 @@ export function RepoList({
   onDownload?: (name: string, server?: string) => Promise<void>;
   /** Move a workspace to another server this account syncs with. */
   onMove?: (ws: AccountWorkspace, to: string) => Promise<void>;
+  /** Copy a workspace to another server this account syncs with, keeping it where it is. */
+  onCopyWorkspace?: (ws: AccountWorkspace, to: string) => Promise<void>;
 }) {
   // Several servers: each row names its own, and a workspace may move between them.
   const servers = sync?.servers ?? [];
@@ -295,6 +298,7 @@ export function RepoList({
                     }
                     from={syncEntryOf(sync, w.name)?.server ?? ""}
                     onMove={(to) => onMove?.(w, to) ?? Promise.resolve()}
+                    onCopy={onCopyWorkspace && ((to) => onCopyWorkspace(w, to))}
                   />
                 </div>
               </div>
@@ -419,18 +423,25 @@ export function RepoList({
   );
 }
 
-/** A move under way, or the reason the last one failed, beside the workspace's name. */
-function MoveNote({ move }: { move?: { to: string; error?: string } }) {
+/** A move or copy under way, or the reason the last one failed, beside the workspace's name. */
+function MoveNote({
+  move,
+}: {
+  move?: { to: string; error?: string; copy?: boolean };
+}) {
   if (!move) return null;
   const server = hostLabel(move.to);
   return move.error ? (
     <span className="truncate text-amber-500 text-xs" title={move.error}>
-      {m["wsync.moveFailed"]({ server, error: move.error })}
+      {(move.copy ? m["wsync.copyFailed"] : m["wsync.moveFailed"])({
+        server,
+        error: move.error,
+      })}
     </span>
   ) : (
     <span className="flex items-center gap-1 text-muted-foreground text-xs">
       <Loader2 className="size-3 animate-spin" />
-      {m["wsync.moving"]({ server })}
+      {(move.copy ? m["wsync.copying"] : m["wsync.moving"])({ server })}
     </span>
   );
 }
