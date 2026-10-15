@@ -128,6 +128,7 @@ object SupervisorHost {
                 frame.getString("token"),
                 frame.getInt("port"),
                 frame.optString("host", "0.0.0.0"),
+                frame.optString("origins"),
             ) { code ->
                 synchronized(this) { engineExit = code }
                 listeners.forEach { it.onEngineExit(code) }

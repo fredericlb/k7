@@ -49,8 +49,8 @@ parse as an origin. What is left to trust is what the machine itself serves on l
 the machine already.
 
 On a phone the engine is started by the app rather than spawned, and the supervisor's start frame
-carries the same list as `origins`. `EngineBridge.kt` does not export it, so on a phone a page reaches
-the engine from st0.app and from the app's own views only, not from a self-hosted studio.
+carries the same list as `origins`, which `EngineBridge.kt` exports as `STUDIO_ENGINE_ALLOWED_ORIGINS`
+before it starts the engine.
 
 ## What an unpaired LAN peer may say
 
