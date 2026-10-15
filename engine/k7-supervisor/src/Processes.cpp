@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <initializer_list>
 #include <thread>
 
 #ifdef _WIN32
@@ -55,6 +56,27 @@ private:
     std::function<void(const std::string&)> emit_;
     std::string rest_;
 };
+
+#ifndef _WIN32
+// A pipe neither end of which a child spawned on ANOTHER thread inherits: a stray write end would hold off our EOF.
+bool cloexecPipe(int fds[2])
+{
+#if defined(__linux__) || defined(__ANDROID__) || defined(__FreeBSD__)
+    return pipe2(fds, O_CLOEXEC) == 0;
+#else
+    // No pipe2 on macOS: the window between the two calls is the one left, and it is two instructions wide.
+    if (pipe(fds) != 0) return false;
+    fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+    fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+    return true;
+#endif
+}
+
+void closeAll(std::initializer_list<int> fds)
+{
+    for (const int fd : fds) close(fd);
+}
+#endif
 
 }  // namespace
 
@@ -391,14 +413,11 @@ void killTree(int pid)
 Spawned spawn(const SpawnOptions& opts)
 {
     int out[2], err[2];
-    if (pipe(out) != 0) return {0, "pipe failed"};
-    if (pipe(err) != 0) {
-        close(out[0]);
-        close(out[1]);
+    if (!cloexecPipe(out)) return {0, "pipe failed"};
+    if (!cloexecPipe(err)) {
+        closeAll({out[0], out[1]});
         return {0, "pipe failed"};
     }
-    fcntl(out[0], F_SETFD, FD_CLOEXEC);
-    fcntl(err[0], F_SETFD, FD_CLOEXEC);
 
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
@@ -444,7 +463,7 @@ Spawned spawn(const SpawnOptions& opts)
 bool runCapture(const std::filesystem::path& program, const std::vector<std::string>& args, std::string& out)
 {
     int fds[2];
-    if (pipe(fds) != 0) return false;
+    if (!cloexecPipe(fds)) return false;
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
     posix_spawn_file_actions_adddup2(&actions, fds[1], 1);
@@ -481,9 +500,15 @@ RunResult run(const std::filesystem::path& program, const std::vector<std::strin
 {
     RunResult r;
     int in[2], out[2], err[2];
-    if (pipe(in) != 0) return r;
-    if (pipe(out) != 0) return r;
-    if (pipe(err) != 0) return r;
+    if (!cloexecPipe(in)) return r;
+    if (!cloexecPipe(out)) {
+        closeAll({in[0], in[1]});
+        return r;
+    }
+    if (!cloexecPipe(err)) {
+        closeAll({in[0], in[1], out[0], out[1]});
+        return r;
+    }
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
     posix_spawn_file_actions_adddup2(&actions, in[0], 0);

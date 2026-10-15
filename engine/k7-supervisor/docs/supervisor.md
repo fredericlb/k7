@@ -51,6 +51,11 @@ read forever, through a crash and through a rebuild alike. On Windows the three 
 it runs, so two overlapping spawns can still cross handles — a bounded cost, since of our children
 only the engine outlives us.
 
+On POSIX every pipe is close-on-exec from its creation (`cloexecPipe`: `pipe2(O_CLOEXEC)`, or on macOS,
+which has no `pipe2`, `fcntl` on both ends at once), and a child gets its ends by `dup2`, which clears
+the flag on the copy alone. A pipe made on one thread is then never inherited by a child spawned on
+another, where its write end would hold off the EOF the first spawn waits for.
+
 ## An engine is adopted by its PORT, and a probe that cannot ask says nothing
 
 Whether the engine is up is asked of its port (`isServing`), and the answer has three values, not
@@ -91,8 +96,10 @@ and `relativeUnder`, cases in `tests/PathMap_test.cpp`):
 - **down**: the server's path below its root is split on `/`, and a segment is refused when it is
   empty, only dots and spaces (`.`, `..`, and `.. `, which Windows trims to `..`), or holds a `/`,
   `\`, `:`, NUL or control character — on Windows a `\` would be a separator and `C:\` or `\x` would
-  replace the whole path. A server file with such a name is the same refusal on every machine, a
-  Mac's included. The joined path must then still lie under the root once lexically normalised;
+  replace the whole path — or is a Windows device name (`CON`, `PRN`, `AUX`, `NUL`, `COM0`–`9`,
+  `LPT0`–`9`, the console names, any case, with or without an extension), which Windows opens as the
+  device rather than as a file. A server file with such a name is the same refusal on every machine,
+  a Mac's included. The joined path must then still lie under the root once lexically normalised;
 - **up**: a local path maps only when every element below the root passes the same rule, so
   `<root>/./../..` maps to nothing rather than to the server.
 
@@ -100,6 +107,17 @@ The jobs that WRITE — `render`'s `out` or `outDir` and every stem in its manif
 `outDir` — and `send-up`, which stamps a file so the channel uploads it, accept only a path the map
 places in a root the server marked writable (`JobContext::writable`), and are refused with an error
 reply otherwise.
+
+The jobs that READ a path the server names — `local`, `prefetch`, `separate`'s `source` and `model` —
+accept only one under this machine's copies of the servers' roots, `<state>/remote`, by spelling and
+again once links are resolved. `local` refuses in the words it uses for an absent file and `prefetch`
+does not count it, so neither tells a server whether some other path exists on this disk. `separate`
+hands its source to ffmpeg and ffprobe as `file:<path>` under `-protocol_whitelist file`: a name can
+then neither be read as an option nor reach a network protocol, a playlist's included.
+
+`render` works in a folder of its own under the temp directory, created by the job itself with a
+random name and owner-only (`freshScratch`): a name that can be predicted is a folder another user
+of the machine can make first, or point elsewhere with a link.
 
 The engine opens its socket to web pages only from the studios it should serve: the supervisor
 starts it with `STUDIO_ENGINE_ALLOWED_ORIGINS` set to the origins of the studios this machine is
@@ -179,6 +197,10 @@ on top. A studio behind a private CA works because that CA is in the OS store, a
 state needs no lock. Anything that blocks — an HTTP call, spawning the engine, measuring the disk —
 runs in `Loop::work` and posts its result back. A task that blocked the loop would freeze every
 timer, including the one that keeps the host lock fresh.
+
+A signal reaches the loop through a flag: the handler only stores to a lock-free atomic, and a timer
+on the loop reads it every 100 ms. Posting from the handler would take the queue's mutex, which a
+signal may interrupt while the loop holds it.
 
 The tunnel never blocks a socket's own thread: a frame that must wait for a download waits on its
 channel's queue (`SerialQueue`), one per direction, which also keeps frames in order. A job runs on

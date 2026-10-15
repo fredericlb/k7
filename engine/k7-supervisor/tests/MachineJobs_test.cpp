@@ -1,7 +1,8 @@
 // MachineJobs_test.cpp — the jobs that only answer, called as the agent calls them: the log seeded
 // by its tail and continued by offset, a local path handed back under `raw`, a set list counted,
 // the providers going through the one accessor rather than the file, an undo's audio sent back,
-// and the month after which this machine stops keeping it; a write outside the channel's roots refused.
+// and the month after which this machine stops keeping it; a write outside the channel's roots refused,
+// and a read outside this machine's copies of them answered as if the file were absent.
 
 #include "MachineJobs.h"
 #include "Paths.h"
@@ -76,9 +77,18 @@ void anAbsentLogIsEmpty()
     CHECK(r[0]["raw"]["lines"].empty());
 }
 
+// Where the channel keeps its copy of a server's root, as the agent spells it: `<state>/remote/<server>/<root>`.
+fs::path copies()
+{
+    const auto dir = k7::paths::studioDir() / "remote" / "server" / "mediatek";
+    fs::create_directories(dir);
+    return dir;
+}
+
 void aLocalPathComesBackRaw()
 {
-    const auto dir = scratch();
+    scratch();
+    const auto dir = copies();
     const auto song = dir / "song.flac";
     std::ofstream(song) << "x";
     std::vector<std::string> held;
@@ -96,7 +106,8 @@ void aLocalPathComesBackRaw()
 
 void aSetListIsCounted()
 {
-    const auto dir = scratch();
+    scratch();
+    const auto dir = copies();
     std::ofstream(dir / "one.flac") << "x";
     std::vector<std::string> held;
     auto jobs = k7::machineJobs(fakeAccess(held));
@@ -169,6 +180,46 @@ void writesOutsideTheRootsAreRefused()
     CHECK(refused(jobs, {{"type", "separate"}, {"source", "a.wav"}, {"model", "m.onnx"}, {"outDir", k7::paths::utf8(dir)}}));
 }
 
+// A file that is no copy of a server's answers as an absent one: a probe learns nothing of the rest of the disk.
+void readsOutsideTheCopiesRevealNothing()
+{
+    const auto state = scratch();
+    const auto outside = state / "secret.flac";
+    std::ofstream(outside) << "x";
+    const auto inside = copies();
+    std::vector<std::string> held;
+    auto jobs = k7::machineJobs(fakeAccess(held));
+    bool threw = false;
+    try {
+        ask(jobs, {{"type", "local"}, {"path", k7::paths::utf8(outside)}});
+    } catch (const std::exception& e) {
+        threw = std::string(e.what()) == "not in the médiathèque";
+    }
+    CHECK(threw);
+    const auto climbing = k7::paths::utf8(inside) + "/../../../secret.flac";
+    auto r = ask(jobs, {{"type", "prefetch"}, {"files", {k7::paths::utf8(outside), climbing}}});
+    CHECK(r[0]["count"] == 0);
+    const auto anywhere = [](const std::string&) { return true; };
+    bool refusedSource = false;
+    try {
+        ask(jobs, {{"type", "separate"}, {"source", k7::paths::utf8(outside)}, {"model", k7::paths::utf8(inside / "m.onnx")},
+                   {"outDir", k7::paths::utf8(inside)}},
+            anywhere);
+    } catch (const std::exception& e) {
+        refusedSource = std::string(e.what()).find("refused") != std::string::npos;
+    }
+    CHECK(refusedSource);
+    std::error_code ec;
+    fs::create_directory_symlink(state, inside / "link", ec);
+    // A platform that refuses to make the link has nothing more to test here.
+    if (ec) return;
+    try {
+        ask(jobs, {{"type", "local"}, {"path", k7::paths::utf8(inside / "link" / "secret.flac")}});
+        CHECK(false);
+    } catch (const std::exception&) {
+    }
+}
+
 void keptHistoryGoesAfterAMonth()
 {
     const auto remote = scratch() / "remote";
@@ -200,5 +251,6 @@ void runMachineJobsTests()
     RUN(providersGoThroughTheAccessor);
     RUN(keptAudioIsSentBackUp);
     RUN(writesOutsideTheRootsAreRefused);
+    RUN(readsOutsideTheCopiesRevealNothing);
     RUN(keptHistoryGoesAfterAMonth);
 }

@@ -4,6 +4,7 @@
 #include "ServeContext.h"
 #include "DocJson.h"
 
+#include "../engine/PathRoots.h"
 #include "../engine/Warnings.h"
 
 #include <nlohmann/json.hpp>
@@ -197,6 +198,11 @@ void addProjectHandlers(HandlerTable& t) {
         const std::string file = j.value("file", std::string{});
         const double start = j.value("start", 0.0);
         const double length = j.value("length", 0.0);
+        // A file named outside any document, held to the same read roots as one inside (docs/pathRoots.md).
+        if (! file.empty() && ! studio::readAllowed(file)) {
+            std::cerr << "[preview] refused " << file << ": outside the folders this engine reads\n";
+            return;
+        }
         if (! file.empty())
             host.post([session, &host, file, start, length] {
                 std::cerr << "[preview] " << file << " [" << start << ", "

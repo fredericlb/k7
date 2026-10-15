@@ -29,6 +29,15 @@ void segmentsThatCouldClimbAreRefused()
     CHECK(!safeSegment(std::string("a\0b", 3)));
 }
 
+void windowsDeviceNamesAreRefusedEverywhere()
+{
+    for (const char* bad : {"CON", "con", "Prn.txt", "aux.wav", "NUL", "nul.tar.gz", "COM1", "com9.log", "LPT3", "lpt0", "CONIN$", "COM\xC2\xB9", "AUX .wav"})
+        CHECK(!safeSegment(bad));
+    for (const char* ok : {"CONSOLE", "console.wav", "COM10", "LPT", "comic.wav", "nullable", "aux1.wav", "my-con.wav"})
+        CHECK(safeSegment(ok));
+    CHECK(!joinUnder(kRoot, "songs/nul.wav"));
+}
+
 void aServerPathStaysUnderItsRoot()
 {
     CHECK(joinUnder(kRoot, "songs/clip.wav") == under("songs/clip.wav"));
@@ -64,6 +73,7 @@ void theMapRefusesBothWays()
 void runPathMapTests()
 {
     RUN(segmentsThatCouldClimbAreRefused);
+    RUN(windowsDeviceNamesAreRefusedEverywhere);
     RUN(aServerPathStaysUnderItsRoot);
     RUN(aLocalPathIsSentOnlyFromUnderItsRoot);
     RUN(theMapRefusesBothWays);

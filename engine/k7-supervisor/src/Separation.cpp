@@ -101,7 +101,9 @@ void finish(Job& job, const json& patch)
 Channels decode(const std::string& source)
 {
     const auto ff = process::findTool("ffmpeg");
-    const auto r = process::run(ff, {"-hide_banner", "-loglevel", "error", "-i", source, "-f", "f32le", "-acodec", "pcm_f32le", "-ar",
+    // Local files only, and named by the `file:` protocol so a name cannot pick another one.
+    const auto r = process::run(ff, {"-hide_banner", "-loglevel", "error", "-protocol_whitelist", "file", "-i", "file:" + source, "-f",
+                                     "f32le", "-acodec", "pcm_f32le", "-ar",
                                      std::to_string(kSampleRate), "-ac", std::to_string(kChannels), "-"});
     if (r.code < 0)
         throw std::runtime_error("ffmpeg is not installed — stem separation decodes its input with it, and unlike a transcode "
@@ -116,7 +118,8 @@ Channels decode(const std::string& source)
 std::optional<int> probeRate(const std::string& source)
 {
     const auto r = process::run(process::findTool("ffprobe"),
-                                {"-v", "error", "-select_streams", "a:0", "-show_entries", "stream=sample_rate", "-of", "csv=p=0", source});
+                                {"-v", "error", "-protocol_whitelist", "file", "-select_streams", "a:0", "-show_entries",
+                                 "stream=sample_rate", "-of", "csv=p=0", "-i", "file:" + source});
     try {
         const int n = std::stoi(r.out);
         return n > 0 ? std::optional<int>(n) : std::nullopt;

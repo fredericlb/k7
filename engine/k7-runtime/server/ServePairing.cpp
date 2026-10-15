@@ -18,6 +18,9 @@ namespace {
 const std::unordered_set<std::string> kLocalOnly = {"pair-approve", "pair-deny", "list-pair-requests",
                                                     "list-paired-devices", "unpair-device"};
 
+// The largest frame a socket not yet trusted may send: a pairing request or a probe is well under a kilobyte.
+constexpr size_t kMaxUntrustedBytes = 16 * 1024;
+
 json requestsJson(Pairing& p) {
     json arr = json::array();
     for (const auto& r : p.pending())
@@ -70,6 +73,12 @@ bool screenOrigin(ServeContext& ctx, ix::WebSocket& ws, const ix::WebSocketMessa
     return ctx.refused.count(&ws) != 0;
 }
 
+bool screenFrameSize(ServeContext& ctx, ix::WebSocket& ws, const std::string& peerIp, size_t bytes) {
+    if (bytes <= kMaxUntrustedBytes || isLoopbackAddress(peerIp) || ctx.isTrusted(&ws)) return false;
+    refuse(ws, "unpaired", "this frame is too large for a device that is not paired");
+    return true;
+}
+
 bool screenMessage(ServeContext& ctx, ix::WebSocket& ws, const std::string& peerIp, const json& j,
                    const std::string& type) {
     auto& pairing = *ctx.pairing;
@@ -96,7 +105,7 @@ bool screenMessage(ServeContext& ctx, ix::WebSocket& ws, const std::string& peer
     if (type == "pair") {
         const auto key = j.value("key", std::string{});
         // The engine's own token pairs too: it is what the server holds, for a relay dialling us over the LAN.
-        if (!key.empty() && key == ctx.engineToken) {
+        if (!key.empty() && sameKey(key, ctx.engineToken)) {
             trust(ctx, &ws, false);
             ws.send(json{{"type", "paired"}}.dump());
             return true;

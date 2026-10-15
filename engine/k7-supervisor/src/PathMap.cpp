@@ -90,8 +90,22 @@ bool lexicallyInside(const fs::path& root, const fs::path& p)
 
 }  // namespace
 
+bool reservedDeviceName(const std::string& seg)
+{
+    // Windows opens a DEVICE for these whatever follows the first dot, and a copy made on Linux reaches Windows.
+    std::string base = seg.substr(0, seg.find('.'));
+    while (!base.empty() && base.back() == ' ') base.pop_back();
+    for (char& c : base)
+        if (c >= 'a' && c <= 'z') c = static_cast<char>(c - 'a' + 'A');
+    if (base == "CON" || base == "PRN" || base == "AUX" || base == "NUL" || base == "CONIN$" || base == "CONOUT$") return true;
+    if (base.rfind("COM", 0) != 0 && base.rfind("LPT", 0) != 0) return false;
+    const std::string n = base.substr(3);
+    return (n.size() == 1 && n[0] >= '0' && n[0] <= '9') || n == "\xC2\xB9" || n == "\xC2\xB2" || n == "\xC2\xB3";
+}
+
 bool safeSegment(const std::string& seg)
 {
+    if (reservedDeviceName(seg)) return false;
     // Dots and spaces alone are refused whole: Windows trims `.. ` to `..`, and `...` names nothing anywhere.
     if (seg.find_first_not_of(". ") == std::string::npos) return false;
     for (const unsigned char c : seg)

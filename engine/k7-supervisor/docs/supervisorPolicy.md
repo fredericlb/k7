@@ -216,6 +216,13 @@ The refresh also **reads before it writes**. A lock that has come to name somebo
 from us, which is the one thing this file exists to make impossible, so it is reported rather than
 silently overwritten.
 
+Taking the lock is an **exclusive create on every attempt**, the pid written through the same handle,
+and never a plain write after a stale lock was cleared: between our removing a stale file and writing
+ours, another supervisor can have created its own, and a plain write would leave two holders. A file
+created and not yet written is fresh and names nobody; it counts as held (`-1`), not as stale. What
+remains is the window between reading a stale lock and removing it, in which another supervisor may
+have replaced it — two supervisors racing past the same stale lock within microseconds.
+
 ## `EngineQueries.cpp` — request/reply over one connection
 
 The polls run at 10 s / 2 s / 3 s, so a fresh WebSocket per call would be roughly one TCP handshake
