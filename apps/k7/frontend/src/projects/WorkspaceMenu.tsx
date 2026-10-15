@@ -1,5 +1,5 @@
-// WorkspaceMenu.tsx — the ⋮ at the end of a workspace's row: move it to another server, or delete it.
-// Both are confirmed through `askConfirm`, which says what each one changes. See ../../docs/projects.md.
+// WorkspaceMenu.tsx — the ⋮ at the end of a workspace's row: copy or move it to another server, or delete it.
+// Each is confirmed through `askConfirm`, which says what it changes. See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -10,6 +10,7 @@ import {
 } from "@frediverse/ui/dropdown-menu";
 import {
   CloudUpload,
+  Copy,
   Loader2,
   MoreVertical,
   Trash2,
@@ -26,16 +27,18 @@ export function WorkspaceMenu({
   moveTargets = [],
   from = "",
   onMove,
+  onCopy,
 }: {
   workspace: string;
   /** Why nothing here can run — no file service, or one busy. Empty when it can. */
   blocked: string;
   onRemove: () => Promise<void>;
-  /** The other servers it may move to, as origins; none draws no entry. */
+  /** The other servers it may be copied or moved to, as origins; none draws no entry. */
   moveTargets?: string[];
   /** The server it syncs with now, for the confirmation. */
   from?: string;
   onMove?: (to: string) => Promise<void>;
+  onCopy?: (to: string) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -76,6 +79,19 @@ export function WorkspaceMenu({
       () => onMove?.(to) ?? Promise.resolve(),
     );
 
+  const copy = (to: string) =>
+    confirmThen(
+      {
+        title: m["ws.copyTitle"]({ workspace, server: hostLabel(to) }),
+        body: m["ws.copyBody"]({
+          server: hostLabel(to),
+          from: hostLabel(from),
+        }),
+        confirmLabel: m["ws.copy"](),
+      },
+      () => onCopy?.(to) ?? Promise.resolve(),
+    );
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -95,6 +111,17 @@ export function WorkspaceMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
+        {onCopy &&
+          moveTargets.map((to) => (
+            <DropdownMenuItem
+              key={`copy-${to}`}
+              className="gap-2 text-xs"
+              onSelect={() => void copy(to)}
+            >
+              <Copy className="h-3.5 w-3.5" />
+              {m["ws.copyTo"]({ server: hostLabel(to) })}
+            </DropdownMenuItem>
+          ))}
         {moveTargets.map((to) => (
           <DropdownMenuItem
             key={to}
