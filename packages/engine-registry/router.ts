@@ -43,6 +43,13 @@ const releaseBody = z.object({
   secret: z.string().min(1),
 });
 
+/** The account a claim is held under, from the session — the one name every claim check compares against. */
+export function claimHolder(req: {
+  user?: { email?: string | null; sub?: string | null };
+}): string {
+  return req.user?.email || req.user?.sub || "";
+}
+
 /** The routes over the one registry, pl8's — see docs/shared.md. */
 export function engineRegistryRouter(
   reg: EngineRegistry,
@@ -134,6 +141,8 @@ export function engineRegistryRouter(
           proxyTicket: issueEngineTicket(e.id),
           // A tunnel is what carries a WebRTC offer, so it is what makes one worth trying.
           rtc: tunnels?.has(e.id) || undefined,
+          // Proved by the render key, so a browser may take it unasked — packages/engine-browser/docs/access.md.
+          server: tunnels?.isRenderer(e.id) || undefined,
         })),
       );
     }),
@@ -185,7 +194,7 @@ export function engineRegistryRouter(
       }
 
       // WHO comes from the session, never from the body: a claim you can sign with someone else's name is not a claim.
-      const holder = req.user?.email || req.user?.sub || "";
+      const holder = claimHolder(req);
       const result = reg.claim(id, {
         project: project ?? null,
         holder,

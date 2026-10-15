@@ -15,6 +15,22 @@ reconnect replaces the socket it outlived rather than adding a second.
 Both ends ping every 20 s and drop a peer that missed one. A tunnel that died without a FIN would
 otherwise look alive for ever, and its channels with it.
 
+## Nothing on a tunnel is trusted for shape
+
+Holding a tunnel needs an engine's token and no account, and the heartbeat that mints one is open:
+whoever runs a supervisor can send the hub anything. A throw inside a socket listener is an
+uncaught exception, and k7's backend exits on those. So:
+
+- every agent text frame goes through `parseAgentMessage` and every binary header through
+  `asBinaryHeader` (`frames.ts`) — a non-null object, a known `t`, integer `ch`/`req`, `paths` an
+  array of strings — and a frame of any other shape is ignored, never read;
+- every upgrade and message listener on the hub, the relay and the agent catches what is thrown,
+  says it and drops that socket alone; the async handlers (`stat`, `get`, `put`) end in a `catch`;
+- the hub and the relay accept frames up to `MAX_FRAME_BYTES` (16 MiB). The largest legitimate
+  frame is a file chunk, `CHUNK_BYTES` plus its header, or an engine frame passed through — a
+  document or a plugin list — which stays well under it; the `ws` default would let one frame
+  hold 100 MiB of the server's memory.
+
 ## A channel looks like a WebSocket
 
 `TunnelChannel` is shaped like the slice of a `ws` socket the relay and the file service's

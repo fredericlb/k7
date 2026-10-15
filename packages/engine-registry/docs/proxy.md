@@ -56,6 +56,11 @@ engine's network.
 and why there is a **ticket**. There is no file half: files are the server's own
 (`packages/file-hub/docs/fileHub.md`), so nothing plain-HTTP crosses to the engine's machine here.
 
+The upgrade listener runs before any session check, for anyone who sends one. It never throws:
+an engine id that is not valid percent-encoding is a 400, and anything else that throws is
+logged and destroys that socket, because an uncaught exception there ends the process
+(`packages/engine-tunnel/docs/tunnel.md`, "Nothing on a tunnel is trusted for shape").
+
 k7's backend calls `attachEngineProxy(server, registry)` after its `app.listen`, being the one service
 that holds a registry (see [shared.md](shared.md)); every page of the origin relays through it.
 

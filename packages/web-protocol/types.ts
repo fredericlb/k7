@@ -1039,6 +1039,8 @@ export interface PublicEngine {
   proxyTicket?: string;
   /** Its supervisor holds a tunnel, so a WebRTC offer can reach it — packages/engine-tunnel/docs/rtc.md. */
   rtc?: boolean;
+  /** The server's own engine: its tunnel presented the render key — packages/engine-tunnel/docs/jobs.md. */
+  server?: boolean;
 }
 
 // How good a link is — Q1/Q2/Q3, off a measured latency — lives in ./quality; see docs/quality.md.

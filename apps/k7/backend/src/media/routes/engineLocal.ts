@@ -5,7 +5,7 @@
 
 import { relative, sep } from "node:path";
 import { validate, wrap } from "@frediverse/http/route";
-import type { EngineMount } from "@studio/engine-registry";
+import { claimHolder, type EngineMount } from "@studio/engine-registry";
 import { JobError, requestJob } from "@studio/engine-tunnel/jobs-client";
 import {
   mediatekDir,
@@ -43,6 +43,11 @@ export function engineLocalRouter(engines: EngineMount): Router {
         return res
           .status(409)
           .json({ error: `no engine '${engineId}' is registered` });
+      // Anyone may register an engine, so the caller must be driving it before a song is sent its way.
+      if (!engines.registry.holds(engineId, claimHolder(req)))
+        return res
+          .status(403)
+          .json({ error: `you hold no claim on engine '${engineId}'` });
       const root = mediatekDir();
       const ch = await engines.tunnels.openReady(
         engineId,

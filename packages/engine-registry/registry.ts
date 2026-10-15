@@ -88,6 +88,8 @@ export interface EngineRegistry {
   remove(id: string, token: string): boolean;
   claim(id: string, req: ClaimRequest): ClaimResult;
   release(id: string, secret: string): void;
+  /** Whether account `holder` holds a live claim on engine `id` — what lets a server route reach that engine for it. */
+  holds(id: string, holder: string): boolean;
   /** Which engine is driving this project right now, or undefined. */
   engineForProject(project: string): string | undefined;
   list(requesterIp?: string): PublicEngine[];
@@ -253,6 +255,11 @@ export function createRegistry(): EngineRegistry {
     /** Let go, carrying the SECRET rather than the engine token, so a goodbye drops only the hold it actually has. */
     release(id, secret) {
       get(id)?.holders.delete(secret);
+    },
+
+    holds(id, holder) {
+      const e = get(id);
+      return !!e && !!holder && holdersOf(e).some((h) => h.holder === holder);
     },
 
     engineForProject(project) {

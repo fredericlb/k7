@@ -134,6 +134,22 @@ and rule 1 would hold for neither. It is `<repo>/<projet>` — the repository's 
 folder inside it — and never a workspace path, since the same repository is cloned somewhere
 different on every machine.
 
+## The claim is what lets the server reach an engine for an account
+
+Anyone may register an engine, so being LISTED proves nothing about whose machine it is. Every
+server route that reaches an engine on an account's behalf therefore asks `holds(id, holder)`
+first, with the holder read from the session by `claimHolder` — the same name `select` writes:
+
+- the file hub binds an account's workspaces to an engine only while the account holds a claim on
+  it (`holdsClaim`, `packages/file-hub/binding.ts`), and lets go once the claim moves on;
+- a stem cut (`POST /api/stems`) and a song brought down for the player (`POST /api/engine-local`)
+  answer **403** for an engine the caller holds no claim on, since both share the account's files
+  with that machine.
+
+The browser takes a claim only on an engine it chose or was allowed to take unasked
+(`packages/engine-browser/docs/access.md`, "Who is taken unasked"), so these checks are the second
+of two locks, not the only one.
+
 ## What this does NOT solve
 
 The engine can still be driven by a client that never asks the registry at all. The claim is a

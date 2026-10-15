@@ -2,16 +2,33 @@
 // policy alone, with no React and no fetching: the account's choice first, an obvious
 // answer second, and the picker only when there IS a question.
 //
-// Shared because it is the same question in every service — k7's gate and the médiathèque's
-// module preview want it verbatim.
+// The one thing a reader would get wrong: anyone may register an engine, so only a TRUSTED
+// engine (`mayAutoPick`) is ever taken without a click — docs/access.md, "Who is taken unasked".
 
-import { onThisMachine, type ProbeTarget, type RankedEngine } from "./probe.ts";
+import {
+  onThisMachine,
+  type ProbeTarget,
+  type RankedEngine,
+  reachedDirectly,
+} from "./probe.ts";
 
 export interface Choice<E extends ProbeTarget> {
   /** The engine to use, or null when the user has to be asked (or there is none). */
   engine: RankedEngine<E> | null;
   /** True when several were reachable and none was remembered — a single reachable engine is not a choice, it is the answer. */
   ambiguous: boolean;
+}
+
+/** Whether this engine may be taken with nobody clicking: the account's own pick, one reached directly, or the server's own. */
+export function mayAutoPick<E extends ProbeTarget>(
+  r: RankedEngine<E>,
+  remembered: string | undefined,
+): boolean {
+  return (
+    (remembered !== undefined && r.engine.id === remembered) ||
+    reachedDirectly(r) ||
+    r.engine.server === true
+  );
 }
 
 /** Pick from what the registry offered: UNREACHABLE engines are excluded, and a remembered one being away does NOT clear the preference. */
@@ -26,8 +43,10 @@ export function chooseEngine<E extends ProbeTarget>(
     : undefined;
   if (remembered) return { engine: remembered, ambiguous: false };
 
-  // Nothing remembered, or it is not here; one reachable engine is not a question, and asking would put a dialog in front of the only answer.
-  if (reachable.length === 1) return { engine: reachable[0], ambiguous: false };
+  // One reachable engine is the answer only when it may be taken unasked; a stranger's engine is a question.
+  const only = reachable.length === 1 ? reachable[0] : undefined;
+  if (only && mayAutoPick(only, rememberedId))
+    return { engine: only, ambiguous: false };
 
   return { engine: null, ambiguous: reachable.length > 1 };
 }
@@ -50,8 +69,8 @@ export interface BestEngineOptions {
  * The engine to take when nobody has to be asked: COMPATIBILITY with the project first — an engine
  * missing a plugin plays the song wrong — then the engine this account last CHOSE, then the one on
  * THIS machine (its sound comes out where you sit), then the latency class, the machine's
- * performance and the latency in ms. Only what a picker would offer is a candidate: reachable, with
- * a token, and not in use. Null when there is none. See docs/access.md.
+ * performance and the latency in ms. Only a TRUSTED engine (`mayAutoPick`) that is reachable, with
+ * a token, and not in use is a candidate. Null when there is none. See docs/access.md.
  */
 export function bestEngine<E extends RatedTarget>(
   ranked: RankedEngine<E>[],
@@ -60,7 +79,11 @@ export function bestEngine<E extends RatedTarget>(
   const compat = (r: RankedEngine<E>): number =>
     opts.compat?.(r.engine.id) ?? -1;
   const candidates = ranked.flatMap((r) =>
-    r.latency && r.wsUrl && r.token && !r.engine.assigned
+    r.latency &&
+    r.wsUrl &&
+    r.token &&
+    !r.engine.assigned &&
+    mayAutoPick(r, opts.remembered)
       ? [{ r, latency: r.latency }]
       : [],
   );

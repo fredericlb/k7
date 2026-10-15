@@ -223,6 +223,18 @@ describe("the engine claim", () => {
     expect(reg.engineForProject("p")).toBeUndefined();
   });
 
+  // What a server route asks before reaching an engine for an account: a listed engine is not a held one.
+  it("says whether an account holds a claim, and forgets it once released", () => {
+    expect(reg.holds("e1", "alice")).toBe(false);
+    const alice = grant(reg.claim("e1", { project: null, holder: "alice" }));
+    expect(reg.holds("e1", "alice")).toBe(true);
+    expect(reg.holds("e1", "bob")).toBe(false);
+    expect(reg.holds("e1", "")).toBe(false);
+    expect(reg.holds("e2", "alice")).toBe(false);
+    reg.release("e1", alice.secret);
+    expect(reg.holds("e1", "alice")).toBe(false);
+  });
+
   it("names the holder and the project in the list, so a picker can say which", () => {
     grant(reg.claim("e1", { project: "band/winter.k7", holder: "alice" }));
     const row = reg.list().find((e) => e.id === "e1");

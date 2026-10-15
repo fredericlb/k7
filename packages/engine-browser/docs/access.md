@@ -31,6 +31,32 @@ not answer, which a picker needs and a start does not.
 `preferId` takes precedence over the stored preference: the same value, but already current when
 somebody changes engine from a neighbouring header.
 
+## Who is taken unasked
+
+Registration is open — a machine enrols with no account (`packages/engine-registry/docs/heartbeat.md`)
+— so the list is not a list of the user's machines: anyone can heartbeat an engine and claim any
+performance score. Taking one without a click would bind the account's workspaces to a stranger's
+tunnel. So `chooseEngine` and `bestEngine` only ever take an engine that passes `mayAutoPick`
+(`choose.ts`), and offer every other one in the picker:
+
+1. the engine the account **remembered** — an explicit pick, saved by the picker or the header's
+   engine menu;
+2. an engine reached **directly** (`reachedDirectly`, `probe.ts`): the probe's winning socket is
+   one of the engine's own loopback or private addresses, dialled from this browser, and its
+   `whoami` answered there with the id and a token. That engine is on the user's machine or the
+   user's network. A public address, the relay or WebRTC do not count, since what answers there
+   is whatever the stranger registered;
+3. the **server's own** engine, which the registry marks `server` because its tunnel presented the
+   deployment's render key (`packages/engine-tunnel/docs/jobs.md`) — a secret no stranger holds.
+
+The bench's rule in k7 (`accountEngine`) is not an exception: it takes the engine the account
+already holds a claim on, and a claim is named by the session, never by the engine.
+
+A first open from an HTTPS page on a machine with no local engine therefore lands on the picker
+until the user clicks one, which remembers it. The server repeats the check on its side: a route
+that reaches an engine for an account requires that account to hold a claim on it
+(`packages/engine-registry/docs/claim.md`).
+
 **A silent registry is not an error.** `find()` swallows both requests' failure and answers an
 empty list — the honest state, and a screen, where a rejected promise inside a gate's effect is
 an eternal spinner.
@@ -96,9 +122,10 @@ engine a document itself, which the server's files would name in paths the engin
   **travels with the address that answered**. A relayed socket beside a direct `http://` rebuilds
   the mixed-content wall on the other half (`@studio/engine-registry/docs/proxy.md`).
 - **The picker's policy**: the media library leaves an editor open with no engine, k7's gate does not. A
-  product difference, not a plumbing one. k7 never asks: every open takes `bestEngine`
-  (`choose.ts`) afresh, and does not store what it took as the preference. The order, each step
-  only among the equals of the one before:
+  product difference, not a plumbing one. k7 asks only when no TRUSTED engine is usable (see
+  "Who is taken unasked" above): every open takes `bestEngine` (`choose.ts`) afresh among those,
+  and does not store what it took as the preference. The order, each step only among the equals
+  of the one before:
   1. **compatibility** with the project (`compat.ts`): the share of the plugins the project
      needs its engine to host — internal and VST alike — that the engine's catalogue has,
      `available / required × 100`, floored so only a full house reads 100. An engine whose
