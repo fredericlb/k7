@@ -23,7 +23,11 @@ out themselves, since the browser is what fetches them.
 
 ## Two addresses are read before k7's sign-in gate
 
-- **A public page**, `/rehearsal/@<nametag>`, which nobody signs in to see. A React Router path
+- **A public page**, `/rehearsal/@<nametag>`, which a visitor may open without signing in. Whether
+  they may is the page's visibility (`packages/rehearsal-server/docs/pages.md`): a page open to
+  anyone signed in answers 401 to nobody, and the screen offers a sign-in link that comes back to
+  the same address, rather than the gate's redirect, so a page that turns out to be someone else's
+  does not loop through the login. A React Router path
   cannot put a parameter after a literal `@` in the same segment, so `/@:nametag` never matches;
   `publicPageAt` (`src/addresses.ts`) reads the address by hand, and k7 checks it BEFORE its
   `AuthGate` mounts (`apps/k7/frontend/src/appMain.tsx`). The gate sends a visitor who is not

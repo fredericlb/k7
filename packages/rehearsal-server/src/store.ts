@@ -15,6 +15,10 @@ import type {
   Release,
   SongEnvelope,
 } from "@studio/rehearsal-shared";
+import {
+  PAGE_VISIBILITIES,
+  type PageVisibility,
+} from "@studio/rehearsal-shared/pageVisibility";
 import { cachedFile, once, sweepRowCaches, trimDiskCache } from "./cache.ts";
 import * as db from "./db.ts";
 import { env } from "./env.ts";
@@ -1386,8 +1390,17 @@ function publicPage(rec) {
       .map((s) => s.trim())
       .filter(Boolean),
     versionIds: versionChoicesOf(rec),
+    visibility: visibilityOf(f.Visibility),
     createdAt: f.CreatedAt || "",
   };
+}
+
+// Empty is a row from before the field, which was served to anyone: it stays public — ../docs/pages.md.
+function visibilityOf(raw: unknown): PageVisibility {
+  if (raw === "" || raw === undefined || raw === null) return "public";
+  return PAGE_VISIBILITIES.includes(raw as PageVisibility)
+    ? (raw as PageVisibility)
+    : "private";
 }
 
 // VersionChoices is a JSON object { releaseUid: versionUid }; anything else reads as "no choice".
@@ -1442,7 +1455,7 @@ export async function getPage(uid) {
   return { ...page, releases };
 }
 
-export async function createPage(ownerId, { nametag, releaseIds }) {
+export async function createPage(ownerId, { nametag, releaseIds, visibility }) {
   const uid = randomUUID();
   const createdAt = new Date().toISOString();
   await db.addRecords("Pages", [
@@ -1451,6 +1464,7 @@ export async function createPage(ownerId, { nametag, releaseIds }) {
       OwnerId: ownerId,
       Nametag: nametag,
       ReleaseUids: (releaseIds || []).join(","),
+      Visibility: visibility || "private",
       CreatedAt: createdAt,
     },
   ]);
@@ -1466,6 +1480,7 @@ export async function updatePage(uid, patch) {
     fields.ReleaseUids = patch.releaseIds.join(",");
   if (patch.versionIds !== undefined)
     fields.VersionChoices = JSON.stringify(patch.versionIds);
+  if (patch.visibility !== undefined) fields.Visibility = patch.visibility;
   await db.patchRecord("Pages", rec.id, fields);
   return getPage(uid);
 }

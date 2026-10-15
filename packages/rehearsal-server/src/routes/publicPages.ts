@@ -1,18 +1,51 @@
-/* Public pages: the nametag is the whole address, no session needed — ../../docs/ownership.md. */
+/* Public pages: the nametag is the whole address, mounted with no requireAuth — ../../docs/ownership.md.
+ * What reads wrong: the page's own visibility still gates every route here, against whatever
+ * session the request carries, since requireAuth never ran to copy it onto `req.user`. */
 
 import { streamFile, wrap } from "@frediverse/http";
 import { pageChoices, pageVersion } from "@studio/rehearsal-shared/pageVersion";
-import { Router } from "express";
+import type { PageVisibility } from "@studio/rehearsal-shared/pageVisibility";
+import { type Request, type Response, Router } from "express";
 import * as store from "../store.ts";
 
 export const publicPagesRouter = Router();
+
+type Viewer = { sub?: string } | undefined;
+
+/** Who is asking: the device's person (publications.ts), else the browser's session, else nobody. */
+function viewerOf(req: Request): string | null {
+  const user = (req as { user?: Viewer }).user;
+  const session = (req as { session?: { user?: Viewer } | null }).session;
+  return user?.sub ?? session?.user?.sub ?? null;
+}
+
+/** The status refusing `viewer` this page, or null to let them through — 404 hides that it exists. */
+export function refusal(
+  page: { visibility: PageVisibility; ownerId: string },
+  viewer: string | null,
+): 401 | 404 | null {
+  if (page.visibility === "public") return null;
+  if (page.visibility === "authenticated") return viewer ? null : 401;
+  return viewer !== null && viewer === page.ownerId ? null : 404;
+}
+
+/** The page if this request may open it; otherwise it has answered and gives null. */
+async function opened(req: Request, res: Response, nametag: string) {
+  const page = await store.getPageByNametag(nametag);
+  const status = page ? refusal(page, viewerOf(req)) : 404;
+  if (status === null) return page;
+  res
+    .status(status)
+    .json({ error: status === 401 ? "unauthenticated" : "not found" });
+  return null;
+}
 
 // Each release carries the versions a visitor may pick, the page's own pick as its default.
 publicPagesRouter.get(
   "/:nametag",
   wrap(async (req, res) => {
-    const page = await store.getPageByNametag(req.params.nametag);
-    if (!page) return res.status(404).json({ error: "not found" });
+    const page = await opened(req, res, req.params.nametag);
+    if (!page) return;
     const { ownerId, versionIds, releases, ...pub } = page;
     res.json({
       ...pub,
@@ -31,23 +64,28 @@ publicPagesRouter.get(
   }),
 );
 
-/** The release and version if this page offers them, null otherwise: a page names its audio. */
-async function offered(nametag: string, rid: string, vid: string) {
-  const page = await store.getPageByNametag(nametag);
-  const release = page?.releases.find((r) => r.id === rid);
-  if (!page || !release) return null;
-  const version = pageChoices(page, release).find((v) => v.id === vid);
-  return version ? { release, version } : null;
+/** The release and version if this page opens and offers them; otherwise it has answered. */
+async function offered(req: Request, res: Response) {
+  const { nametag, rid, vid } = req.params;
+  const page = await opened(req, res, nametag);
+  if (!page) return null;
+  const release = page.releases.find((r) => r.id === rid);
+  const version =
+    release && pageChoices(page, release).find((v) => v.id === vid);
+  if (release && version) return { release, version };
+  res.status(404).json({ error: "not found" });
+  return null;
 }
 
 // Scoped through the page, so pulling a release off a page also pulls its audio — ../../docs/pages.md.
 publicPagesRouter.get(
   "/:nametag/releases/:rid/versions/:vid/audio",
   wrap(async (req, res) => {
-    const { nametag, rid, vid } = req.params;
-    if (!(await offered(nametag, rid, vid)))
-      return res.status(404).json({ error: "not found" });
-    const info = await store.ensureVersionAudioCached(rid, vid);
+    if (!(await offered(req, res))) return;
+    const info = await store.ensureVersionAudioCached(
+      req.params.rid,
+      req.params.vid,
+    );
     if (!info) return res.status(404).json({ error: "no audio" });
     streamFile(req, res, info.filePath, info.mime);
   }),
@@ -56,10 +94,11 @@ publicPagesRouter.get(
 publicPagesRouter.get(
   "/:nametag/releases/:rid/versions/:vid/envelope",
   wrap(async (req, res) => {
-    const { nametag, rid, vid } = req.params;
-    if (!(await offered(nametag, rid, vid)))
-      return res.status(404).json({ error: "not found" });
-    const envelope = await store.versionEnvelope(rid, vid);
+    if (!(await offered(req, res))) return;
+    const envelope = await store.versionEnvelope(
+      req.params.rid,
+      req.params.vid,
+    );
     if (!envelope) return res.status(404).json({ error: "no audio" });
     res.json(envelope);
   }),
@@ -69,10 +108,11 @@ publicPagesRouter.get(
 publicPagesRouter.get(
   "/:nametag/releases/:rid/versions/:vid/download",
   wrap(async (req, res) => {
-    const { nametag, rid, vid } = req.params;
-    const found = await offered(nametag, rid, vid);
-    if (!found?.release.canDownload)
+    const found = await offered(req, res);
+    if (!found) return;
+    if (!found.release.canDownload)
       return res.status(404).json({ error: "not found" });
+    const { rid, vid } = req.params;
     const info = await store.ensureVersionAudioCached(rid, vid);
     if (!info) return res.status(404).json({ error: "no audio" });
     res.attachment(

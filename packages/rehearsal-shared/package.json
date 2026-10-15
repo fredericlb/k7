@@ -9,6 +9,7 @@
     "./epub": "./epub.ts",
     "./naming": "./naming.ts",
     "./pageVersion": "./pageVersion.ts",
+    "./pageVisibility": "./pageVisibility.ts",
     "./sheetKind": "./sheetKind.ts",
     "./youtube": "./youtube.ts"
   },

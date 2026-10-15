@@ -2,6 +2,10 @@
 // (API consumers). This is the single source of truth for the API contract;
 // the frontend re-exports these from its own types module.
 
+import type { PageVisibility } from "./pageVisibility.ts";
+
+export type { PageVisibility } from "./pageVisibility.ts";
+
 export interface User {
   sub: string;
   name: string;
@@ -56,6 +60,8 @@ export interface Page {
   releaseIds: string[];
   // The version each release plays on this page; a release absent here plays its default.
   versionIds: Record<string, string>;
+  // Who opens it by its nametag — ../rehearsal-server/docs/pages.md.
+  visibility: PageVisibility;
   createdAt: string;
   releases?: Release[]; // resolved on the detail endpoint
 }
