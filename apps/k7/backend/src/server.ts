@@ -21,7 +21,8 @@ import express from "express";
 import { z } from "zod";
 import { aiOrganizeBody, aiOrganizeRouter } from "./aiOrganize";
 import { mountHandoff } from "./handoff.ts";
-import { openCors } from "./media/cors.ts";
+import { loopbackOnly } from "./loopback.ts";
+import { originPolicyFromEnv, studioCors } from "./media/cors.ts";
 import { mediaTokens, mountMedia } from "./media/mount.ts";
 
 // A stray rejection is logged and survived; an uncaught exception leaves, and the container restarts it.
@@ -37,10 +38,15 @@ process.on("uncaughtException", (err) => {
 Object.assign(process.env, loadServiceEnv("k7-backend"));
 
 const PORT = Number(process.env.PORT || 8789);
+// Unset, every interface; the desktop and the phone set 127.0.0.1 (../docs/standalone.md).
+const LISTEN_HOST = process.env.STUDIO_LISTEN_HOST || undefined;
+const LOCAL_USER = process.env.STUDIO_LOCAL_USER === "1";
 const app = express();
 
-// Every origin's preflight is answered before anything else runs — ../docs/media/cors.md.
-app.use(openCors);
+// A backend that signs anyone in as the local user answers its own machine, by address and by name.
+if (LOCAL_USER) app.use(loopbackOnly);
+// Listed origins only, and no cross-site write, before anything else runs — ../docs/media/cors.md.
+app.use(studioCors(originPolicyFromEnv()));
 // The module builder's AI organize takes a whole module, so it parses first, with its own limit.
 app.use("/api/ai", aiOrganizeBody);
 // The relay pipes bodies to an engine's file service, so the limit is that service's opinion.
@@ -62,7 +68,7 @@ const { requireAuth } = await setupAuth(app, {
 // An app's system-browser sign-in, and the desktop's signed-out local user (../docs/handoff.md).
 mountHandoff(app, {
   secret: process.env.SESSION_SECRET || "dev-insecure-secret-change-me",
-  localUser: process.env.STUDIO_LOCAL_USER === "1",
+  localUser: LOCAL_USER,
 });
 
 // The library's tokens first, so the rehearsal server, mounted ahead of it, can call it with one.
@@ -158,15 +164,18 @@ app.get(/^(?!\/api|\/auth|\/assets\/)/, (_req, res) => {
 // Mounted LAST: three routes read a 512 MB body, so a caller hanging up is an everyday event.
 app.use(engineErrorHandler);
 
+const onListening = () => {
+  const url = `http://${LISTEN_HOST ?? "localhost"}:${PORT}`;
+  // "auth" and not "verifies auth": this backend MINTS the session (../../AGENTS.md).
+  console.log(`🎛  k7 backend on ${url}  (auth + media library + rehearsal)`);
+  media.serve(server, url);
+  // After the library's serve: the rehearsal signaling sits in front of the registry's upgrade listener.
+  rehearsal.serve(server);
+};
 const server = behindProxy(
-  app.listen(PORT, () => {
-    const url = `http://localhost:${PORT}`;
-    // "auth" and not "verifies auth": this backend MINTS the session (../../AGENTS.md).
-    console.log(`🎛  k7 backend on ${url}  (auth + media library + rehearsal)`);
-    media.serve(server, url);
-    // After the library's serve: the rehearsal signaling sits in front of the registry's upgrade listener.
-    rehearsal.serve(server);
-  }),
+  LISTEN_HOST
+    ? app.listen(PORT, LISTEN_HOST, onListening)
+    : app.listen(PORT, onListening),
 );
 // Node's default cuts a request at 5 minutes, and a 512 MB upload over a slow link takes longer.
 server.requestTimeout = 30 * 60_000;
