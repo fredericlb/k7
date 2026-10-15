@@ -1,6 +1,8 @@
-// Identity.h — the engine's stable local identity, `<state>/engine-id.json`: a persistent id and a
-// secret token, handed to the C++ engine and echoed on `whoami`, so a lookalike listener cannot
-// produce the real token and the registry can refuse it. A per-engine secret, not a user's.
+// Identity.h — the engine's stable local identity, `<state>/engine-id.json`: a persistent id, a
+// token handed to the C++ engine and echoed on `whoami`, and a TUNNEL SECRET only this supervisor
+// ever sends — to the registries it heartbeats and tunnels to, never to the engine nor a browser.
+// The registry binds the id to the first secret it sees (packages/engine-registry/docs/token.md).
+// The file is the owner's alone: 0600, in a 0700 folder when this creates it.
 
 #pragma once
 
@@ -11,6 +13,8 @@ namespace k7 {
 struct EngineIdentity {
     std::string id;
     std::string token;
+    /** Never logged, never echoed, never handed to the engine process. */
+    std::string tunnelSecret;
     std::string createdAt;
 };
 

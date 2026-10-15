@@ -108,13 +108,15 @@ oldest sent first, and `ENGINE_OUTBOX_TTL_MS` drops what nobody is waiting for a
 `EngineAddresses`. The browser MEASURES them all at once (`packages/engine-browser/src/probe.ts`)
 and picks the fastest of the unassigned ones.
 
-`PublicEngine` never carries the secret token. It does carry `heldBy`/`heldProject`, because
-"busy" and "busy with Fred's winter.k7" are not the same screen: an engine that reads simply
-unavailable is one people retry, and taking a project over is a thing you should only do knowing
-whose it is. `proxyTicket` is a short-lived pass for the relay at `<base>/api/engine/<id>/ws`,
-which is how a browser reaches an engine it may not dial directly (an HTTPS page and a `ws://` LAN
-address); it is optional because the REGISTRY does not mint it — the `/engines` route does, being
-the authenticated one. See `packages/engine-registry/proxy.ts`.
+`PublicEngine` never carries the engine token nor the tunnel secret. It carries
+`heldBy`/`heldProject`/`heldProjects` to the account that holds the claim, and to that account
+only: anyone else reads `assigned` — "in use" — and learns no email and no project name, since the
+list goes to every signed-in account. It does carry the LAN addresses, which a browser needs to
+probe its own machines directly. `legacy` marks an engine whose supervisor sends no tunnel secret
+(`packages/engine-registry/docs/token.md`). `proxyTicket` is a short-lived pass for the relay at
+`<base>/api/engine/<id>/ws`, bound to the account it was minted for, which is how a browser reaches
+an engine it may not dial directly (an HTTPS page and a `ws://` LAN address); it is optional because
+the REGISTRY does not mint it — the `/engines` route does, being the authenticated one. See `packages/engine-registry/proxy.ts`.
 
 How good a link is — Q1/Q2/Q3, off a measured latency — is `./quality.md`. Measured, and not a
 locality tier, which would rank a gigabit LAN below a laptop running at 2048 frames. How capable

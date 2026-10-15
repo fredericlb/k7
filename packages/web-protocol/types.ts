@@ -1028,11 +1028,13 @@ export interface PublicEngine {
   /** The library level its machine runs — docs/library-versions-plan.md; absent from an older supervisor, which runs level 1. */
   libraryLevel?: number;
   assigned: boolean; // already selected by someone; hidden from the pick list
-  /** Who holds it and what they opened, undefined when free — "busy" alone is a screen people retry; docs/machine.md. */
+  /** Who holds it and what they opened — named only to that same account, anyone else sees `assigned` alone; docs/machine.md. */
   heldBy?: string;
   heldProject?: string;
-  /** EVERY project claimed on it and by whom — an account's bench sits beside its song, docs/claim.md. */
+  /** The ASKING account's claims on it — its bench sits beside its song, docs/claim.md; another account's are never listed. */
   heldProjects?: { holder: string; project: string }[];
+  /** Its supervisor sends no tunnel secret, so nothing stops another machine taking its id — packages/engine-registry/docs/token.md. */
+  legacy?: boolean;
   // This engine's heartbeat arrived from the browser's own public IP — a same-LAN hint, not authoritative.
   sameSourceIp: boolean;
   /** A short-lived pass for the relay, minted by `/engines` and not by the registry — packages/engine-registry/proxy.ts. */

@@ -95,7 +95,9 @@ device it exists for (`apps/k7/frontend/docs/external.md`).
 HTTPS — and the relay. LAN addresses stay listed over plain HTTP, where they work. An engine whose
 supervisor holds a tunnel adds a fourth, `rtc:`, a WebRTC data channel straight to its machine
 (`packages/engine-tunnel/docs/rtc.md`); `openSocket` makes it a WebSocket to everything above it,
-and it is raced like the others rather than preferred.
+and it is raced like the others rather than preferred. The server answers a WebRTC offer only for an
+account holding a claim on the engine, so before the claim that candidate simply loses; the relay,
+before the claim, carries the probe and nothing else (`packages/engine-registry/docs/proxy.md`).
 
 ## Hosted files are opt-in, per app
 

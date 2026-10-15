@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cstdio>
 #include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -68,6 +69,14 @@ std::string isoNow()
     return out;
 }
 
+/** Read and write for the owner alone; best effort, since a filesystem without modes (FAT, Windows) has nothing to set. */
+void ownerOnly(const std::filesystem::path& p)
+{
+    std::error_code ec;
+    std::filesystem::permissions(p, std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+                                 std::filesystem::perm_options::replace, ec);
+}
+
 }  // namespace
 
 std::string randomHex(size_t n)
@@ -88,18 +97,46 @@ std::string randomUuid()
 EngineIdentity ensureEngineIdentity()
 {
     const auto path = paths::engineId();
+    EngineIdentity id;
     if (std::ifstream in{path, std::ios::binary}) {
         std::stringstream buf;
         buf << in.rdbuf();
         auto v = nlohmann::json::parse(buf.str(), nullptr, false);
-        if (v.is_object() && v.value("id", nlohmann::json()).is_string() && v.value("token", nlohmann::json()).is_string())
-            return {v["id"].get<std::string>(), v["token"].get<std::string>(), v.value("createdAt", std::string())};
+        if (v.is_object() && v.value("id", nlohmann::json()).is_string() && v.value("token", nlohmann::json()).is_string()) {
+            id = {v["id"].get<std::string>(), v["token"].get<std::string>(), v.value("tunnelSecret", std::string()),
+                  v.value("createdAt", std::string())};
+            // An identity from before the secret keeps its id and token and gains one, so the registry can bind it.
+            if (id.tunnelSecret.size() >= 32) {
+                ownerOnly(path);
+                return id;
+            }
+        }
     }
-    EngineIdentity id{randomUuid(), randomHex(24), isoNow()};
+    if (id.id.empty()) id = {randomUuid(), randomHex(24), "", isoNow()};
+    id.tunnelSecret = randomHex(32);
     std::error_code ec;
-    std::filesystem::create_directories(path.parent_path(), ec);
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    out << nlohmann::json{{"id", id.id}, {"token", id.token}, {"createdAt", id.createdAt}}.dump(2) << "\n";
+    if (!std::filesystem::exists(path.parent_path(), ec)) {
+        std::filesystem::create_directories(path.parent_path(), ec);
+        std::filesystem::permissions(path.parent_path(), std::filesystem::perms::owner_all,
+                                     std::filesystem::perm_options::replace, ec);
+    }
+    const std::string body =
+        nlohmann::json{{"id", id.id}, {"token", id.token}, {"tunnelSecret", id.tunnelSecret}, {"createdAt", id.createdAt}}.dump(2) +
+        "\n";
+    const auto write = [&](const std::filesystem::path& p) {
+        std::ofstream out(p, std::ios::binary | std::ios::trunc);
+        ownerOnly(p);
+        out << body;
+        out.flush();
+        return out.good();
+    };
+    const auto tmp = path.parent_path() / (path.filename().string() + ".tmp");
+    // A secret that is not on disk is one the next start replaces, and the registry then refuses that id.
+    if (!write(tmp) || (std::filesystem::rename(tmp, path, ec), ec)) {
+        std::filesystem::remove(tmp, ec);
+        write(path);
+    }
+    ownerOnly(path);
     return id;
 }
 

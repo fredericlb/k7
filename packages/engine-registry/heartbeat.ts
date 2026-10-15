@@ -24,10 +24,19 @@ const performanceSchema = z.object({
   memoryGB: z.number().min(0).max(1_000_000),
 });
 
+/** An engine id as a path segment and a log line can carry it: short, and nothing to escape. */
+export const ENGINE_ID = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9._-]+$/, "an id is letters, digits, '.', '_' or '-'");
+
 /** The part without which there is no entry at all: who it is, and where it answers. */
 const coreSchema = z.object({
-  id: z.string().min(1),
-  token: z.string().min(1),
+  id: ENGINE_ID,
+  token: z.string().min(1).max(256),
+  // Optional for a supervisor older than it, never CLEANED: a malformed secret is refused, not demoted to none.
+  tunnelSecret: z.string().min(32).max(256).optional(),
   addresses: z.object({ port: z.number().int().min(1).max(65535) }),
 });
 
@@ -35,6 +44,8 @@ const coreSchema = z.object({
 export interface ReadHeartbeat {
   id: string;
   token: string;
+  /** The supervisor's tunnel secret, absent from one older than it. */
+  tunnelSecret?: string;
   hostname: string;
   machineFingerprint: string;
   addresses: EngineAddresses;
@@ -106,6 +117,9 @@ export function readHeartbeat(
     beat: {
       id: core.data.id,
       token: core.data.token,
+      ...(core.data.tunnelSecret
+        ? { tunnelSecret: core.data.tunnelSecret }
+        : {}),
       hostname: text("hostname"),
       machineFingerprint: text("machineFingerprint"),
       addresses: { loopback, lanIps, port: core.data.addresses.port },

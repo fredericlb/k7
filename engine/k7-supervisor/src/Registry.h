@@ -39,7 +39,7 @@ struct Result {
     bool ok() const;
 };
 
-/** Announce to every registry in parallel. Never throws: a payload that will not serialise is an outcome too. */
+/** Announce to every registry in parallel, with the id's token and tunnel secret. Never throws: a payload that will not serialise is an outcome too. */
 Result heartbeat(const std::vector<std::string>& urls, const EngineIdentity& id, const nlohmann::json& presence);
 
 /** Leave every registry, in parallel; bounded, since it runs while somebody waits to quit. */

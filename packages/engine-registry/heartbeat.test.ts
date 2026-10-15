@@ -180,7 +180,7 @@ describe("the routes", () => {
     const r = await post("/registry/heartbeat", { ...good(), token: "other" });
     expect(r.status).toBe(409);
     expect(String(r.body.error)).toMatch(/freed 15 s after/);
-    expect(logged.join("\n")).toMatch(/not the one this id registered with/);
+    expect(logged.join("\n")).toMatch(/registered with another token/);
   });
 
   it("tells a LAPSED engine from a wrong token on select", async () => {

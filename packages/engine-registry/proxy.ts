@@ -14,6 +14,7 @@ import {
 } from "@studio/web-protocol";
 import { WebSocket, WebSocketServer } from "ws";
 import type { EngineEntry, EngineRegistry } from "./registry.ts";
+import { type Frame, RelayGate } from "./relayGate.ts";
 
 /** Per PROCESS and deliberately not configured: nothing to share between machines — see docs/proxy.md. */
 const SECRET = randomBytes(32);
@@ -33,40 +34,47 @@ const b64url = (buf: Buffer): string =>
 const sign = (payload: string): string =>
   b64url(createHmac("sha256", SECRET).update(payload).digest());
 
-/** Mint a ticket binding a relayed connection to one engine for ~a minute. */
-export function issueEngineTicket(id: string): string {
+/** Mint a ticket binding a relayed connection to one engine AND one account for ~a minute. */
+export function issueEngineTicket(id: string, holder: string): string {
   const payload = b64url(
-    Buffer.from(JSON.stringify({ id, exp: Date.now() + TICKET_TTL_MS })),
+    Buffer.from(
+      JSON.stringify({ id, h: holder, exp: Date.now() + TICKET_TTL_MS }),
+    ),
   );
   return `${payload}.${sign(payload)}`;
 }
 
-/** The engine id a ticket is good for, or null when it is forged, expired or malformed. */
-export function verifyEngineTicket(ticket: string): string | null {
+/** The engine and the account a ticket is good for, or null when it is forged, expired or malformed. */
+export function verifyEngineTicket(
+  ticket: string,
+): { id: string; holder: string } | null {
   const [payload, sig] = String(ticket).split(".");
   if (!payload || !sig) return null;
   const a = Buffer.from(sig);
   const b = Buffer.from(sign(payload));
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   try {
-    const { id, exp } = JSON.parse(
+    const { id, h, exp } = JSON.parse(
       Buffer.from(
         payload.replace(/-/g, "+").replace(/_/g, "/"),
         "base64",
       ).toString(),
     );
     if (!id || typeof exp !== "number" || exp < Date.now()) return null;
-    return String(id);
+    return { id: String(id), holder: typeof h === "string" ? h : "" };
   } catch {
     return null;
   }
 }
 
-/** Every address the SERVER may reach this engine on, nearest first — tried here because here it is not a secure context. */
-const hostsFor = (e: EngineEntry): string[] => [
-  e.addresses.loopback,
-  ...e.addresses.lanIps,
-];
+const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+
+/** Where the SERVER may dial this engine: the address its heartbeat came FROM, never one it names — see docs/proxy.md. */
+export function hostsFor(e: Pick<EngineEntry, "publicIpHint">): string[] {
+  const ip = (e.publicIpHint ?? "").replace(/^::ffff:/, "");
+  if (ip === "::1" || ip.startsWith("127.")) return ["127.0.0.1"];
+  return IPV4.test(ip) ? [ip] : [];
+}
 
 /** What the relay pipes to: a socket it dialled, or a channel through the engine's own tunnel. */
 type Upstream = WebSocket | TunnelChannel;
@@ -126,29 +134,31 @@ async function dialDirect(e: EngineEntry): Promise<WebSocket | null> {
   return null;
 }
 
-// Frames each way, either close ending both; the relay reads nothing, since what travels is the browser's business.
-function pipe(client: WebSocket, upstream: Upstream): void {
-  const shut = (ws: Upstream) => {
-    try {
-      ws.close();
-    } catch {
-      /* already closing */
-    }
-  };
-  // Guarded: a throw inside a socket listener escapes to the process, so it ends both sockets instead.
-  const forward = (to: Upstream, from: Upstream, d: unknown, bin: boolean) => {
-    try {
-      if (to.readyState === WebSocket.OPEN)
-        to.send(d as Buffer, { binary: bin });
-    } catch {
-      shut(to);
-      shut(from);
-    }
-  };
-  client.on("message", (d, isBinary) => forward(upstream, client, d, isBinary));
-  upstream.on("message", (d: WebSocket.RawData, isBinary: boolean) =>
-    forward(client, upstream, d, isBinary),
-  );
+/** Send one frame, ending both sockets if the send throws: a throw inside a socket listener escapes to the process. */
+function forward(to: Upstream, from: Upstream, f: Frame): void {
+  try {
+    if (to.readyState === WebSocket.OPEN)
+      to.send(f.data as Buffer, { binary: f.binary });
+  } catch {
+    shut(to);
+    shut(from);
+  }
+}
+
+function shut(ws: Upstream): void {
+  try {
+    ws.close();
+  } catch {
+    /* already closing */
+  }
+}
+
+// The engine's frames to the browser through the gate, either close ending both; the browser's go through the gate where it listens.
+function pipe(client: WebSocket, upstream: Upstream, gate: RelayGate): void {
+  upstream.on("message", (data: WebSocket.RawData, binary: boolean) => {
+    const f = { data, binary };
+    if (gate.fromEngine(f)) forward(client, upstream, f);
+  });
   client.on("close", () => shut(upstream));
   upstream.on("close", () => shut(client));
   client.on("error", () => shut(upstream));
@@ -205,33 +215,42 @@ export function attachEngineProxy(
     } catch {
       return deny(socket, "400 Bad Request"); // a malformed escape, `%E0`
     }
-    if (verifyEngineTicket(url.searchParams.get("ticket") || "") !== id)
-      return deny(socket, "401 Unauthorized");
+    const ticket = verifyEngineTicket(url.searchParams.get("ticket") || "");
+    if (!ticket || ticket.id !== id) return deny(socket, "401 Unauthorized");
     const engine = reg.get(id);
     if (!engine) return deny(socket, "404 Not Found");
 
     wss.handleUpgrade(req, socket, head, (client) => {
+      let upstream: Upstream | null = null;
       // Buffered, because the browser sends `whoami` before the upstream socket is dialled — see docs/proxy.md.
-      const pending: { data: WebSocket.RawData; binary: boolean }[] = [];
-      const hold = (data: WebSocket.RawData, binary: boolean) =>
-        pending.push({ data, binary });
-      client.on("message", hold);
+      const pending: Frame[] = [];
+      const gate = new RelayGate({
+        holds: () => reg.holds(id, ticket.holder),
+        toEngine: (f) =>
+          upstream ? forward(upstream, client, f) : pending.push(f),
+        close: (code, reason) => {
+          client.close(code, reason);
+          if (upstream) shut(upstream);
+        },
+      });
+      client.on("message", (data, binary) => gate.fromClient({ data, binary }));
+      client.on("close", () => gate.dispose());
       // Listened to from the start: an `error` with no listener (a frame over `maxPayload`) is thrown, and ends the process.
       client.on("error", () => client.terminate());
 
       void dial(engine, tunnels)
-        .then((upstream) => {
-          if (!upstream) {
+        .then((up) => {
+          if (!up) {
             client.close(1011, "engine unreachable from the server");
             return;
           }
           if (client.readyState !== WebSocket.OPEN) {
-            upstream.close();
+            up.close();
             return;
           }
-          client.off("message", hold);
-          for (const p of pending) upstream.send(p.data, { binary: p.binary });
-          pipe(client, upstream);
+          upstream = up;
+          for (const f of pending.splice(0)) forward(up, client, f);
+          pipe(client, up, gate);
         })
         .catch((e: Error) => {
           console.warn(`[engine-proxy] ${id}: ${e.message}`);
