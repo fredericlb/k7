@@ -10,7 +10,12 @@ import { useCallback, useState } from "react";
 import { api } from "../api";
 import { downloadBlob as download } from "../downloadBlob";
 
-import type { MixFormat, VideoFormat } from "../exportArgs";
+import type {
+  MixFormat,
+  TimelineFormat,
+  VideoFormat,
+  VideoSettings,
+} from "../exportArgs";
 import { m } from "../paraglide/messages.js";
 
 export interface Share {
@@ -24,6 +29,15 @@ export interface Share {
     format: VideoFormat,
     audio: MixFormat | null,
     name: string,
+    settings?: VideoSettings,
+  ) => Promise<void>;
+  /** …and the CUT, for another editor: `picture interchange` writes it, then it is downloaded (song-video docs/interchange.md). */
+  exportTimeline: (
+    project: string,
+    format: TimelineFormat,
+    lane: string | undefined,
+    name: string,
+    run: (line: string) => Promise<unknown>,
   ) => Promise<void>;
   shareK7: () => Promise<void>;
   shareLink: () => Promise<void>;
@@ -55,6 +69,7 @@ export function useShare(onStatus: (s: string) => void): Share {
       format: VideoFormat,
       audio: MixFormat | null,
       name: string,
+      settings: VideoSettings = {},
     ) => {
       if (!scene) {
         onStatus("this project draws no picture — nothing to render");
@@ -75,13 +90,32 @@ export function useShare(onStatus: (s: string) => void): Share {
             void ctx.close();
           }
         }
-        const total = Math.max(1, Math.round(scene.durationSec * scene.fps));
+        // The range, defaulting to the whole song; the size, a height alone taking the viewport's aspect.
+        const from = settings.from ?? 0;
+        const to = settings.to ?? scene.durationSec;
+        const total = Math.max(1, Math.round((to - from) * scene.fps));
+        const [vw, vh] = scene.viewport;
+        const size: [number, number] | undefined = !settings.size
+          ? undefined
+          : "width" in settings.size
+            ? [settings.size.width, settings.size.height]
+            : [
+                Math.round((settings.size.height * vw) / vh),
+                settings.size.height,
+              ];
         onStatus(`rendering ${total} frames…`);
         // Loaded here, on the export: the muxer behind it is the heaviest thing the editor could ship and the rarest it runs.
         const { exportScene } = await import("@studio/ui-eyes/export");
         const file = await exportScene(
           scene,
-          { format, ...(track ? { audio: track } : {}) },
+          {
+            format,
+            from,
+            frameCount: total,
+            ...(size ? { size } : {}),
+            ...(settings.quality ? { quality: settings.quality } : {}),
+            ...(track ? { audio: track } : {}),
+          },
           // A frame count, not a percentage: a viewport export is slow and "1200 / 4500" is the
           // only progress that says how slow.
           (p) => onStatus(`rendering ${p.frame} / ${p.total} frames…`),
@@ -177,5 +211,35 @@ export function useShare(onStatus: (s: string) => void): Share {
     }
   }, [onStatus]);
 
-  return { busy, exportMix, exportVideo, shareK7, shareLink };
+  const exportTimeline = useCallback(
+    async (
+      project: string,
+      format: TimelineFormat,
+      lane: string | undefined,
+      name: string,
+      run: (line: string) => Promise<unknown>,
+    ) => {
+      setBusy(true);
+      try {
+        await run(`picture interchange ${format}${lane ? ` ${lane}` : ""}`);
+        // The verb writes to one FIXED path, so nothing it said has to be parsed to find the file.
+        const path = `${project === "." ? "" : `${project}/`}exports/cut.${format}`;
+        const { content } = await api.read(path);
+        download(
+          new Blob([content], {
+            type: format === "otio" ? "application/json" : "text/plain",
+          }),
+          `${name || "cut"}.${format}`,
+        );
+        onStatus(`exported ${name || "cut"}.${format}`);
+      } catch (e) {
+        onStatus(`export failed: ${(e as Error).message}`);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onStatus],
+  );
+
+  return { busy, exportMix, exportVideo, exportTimeline, shareK7, shareLink };
 }

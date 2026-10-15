@@ -1598,6 +1598,20 @@
   help: "make each shot's video playable (e.g. picture prepare main) — an optimized copy for codecs a browser cannot decode, a proxy for footage above 1080p"
   surfaces: [cli, timeline]
   args: [{ name: lane, complete: pictureLanes }]
+# The CUT for another editor — every lane as OpenTimelineIO, or one as a CMX 3600 EDL — written
+# into exports/ — packages/song-video/docs/interchange.md.
+- command: "picture interchange"
+  sid: picture.interchange
+  readable:
+    en: "Hand the cut to another editor"
+    fr: "Transmettre le montage à un autre logiciel"
+  help: "write the picture's cut for another editor (e.g. picture interchange otio) — otio carries every lane, edl one: the bottom lane unless named"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: format, values: [otio, edl] },
+      { name: lane, optional: true, complete: pictureLanes },
+    ]
 - command: "picture sound"
   sid: picture.sound
   readable:

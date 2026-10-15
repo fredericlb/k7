@@ -251,6 +251,7 @@ import { EVENT_TAKE_VERBS } from "./verbs/eventTakes.ts";
 import { LIBRARY_VERBS } from "./verbs/library.ts";
 import { NODE_STACK_VERBS } from "./verbs/nodeStack.ts";
 import { PICTURE_VERBS } from "./verbs/picture.ts";
+import { PICTURE_INTERCHANGE_VERBS } from "./verbs/pictureInterchange.ts";
 import { PICTURE_KEY_VERBS } from "./verbs/pictureKeys.ts";
 import { PICTURE_MEDIA_VERBS } from "./verbs/pictureMedia.ts";
 import { PICTURE_SOUND_VERBS } from "./verbs/pictureSound.ts";
@@ -3277,6 +3278,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   ...PICTURE_KEY_VERBS,
   ...PICTURE_SPEED_VERBS,
   ...PICTURE_MEDIA_VERBS,
+  ...PICTURE_INTERCHANGE_VERBS,
   // …and the lane's DUPLICATE verbs, which copy a chain where `track new` makes one from scratch.
   ...TRACK_VERBS,
   ...NODE_STACK_VERBS,

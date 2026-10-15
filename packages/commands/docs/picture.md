@@ -32,6 +32,7 @@ in the frame; before them, both took a text editor.
 | `picture sound <lane> [track]` | each clip's `sound:`, and a lane saying `video_source:` | run by the timeline after a video drop |
 | `picture speed <lane> <at> <factor>` | `speed` — dropped again at 1 | (none — a retime has no gesture yet) |
 | `picture prepare <lane>` | each clip's `optimized:` / `proxy:`, once its copy is written | run by the timeline after a video drop, beside `picture sound` |
+| `picture interchange <otio\|edl> [lane]` | `exports/cut.<ext>` — the cut, for another editor | `project export timeline`, which downloads it |
 | `picture key` / `picture unkey <lane> <at> <prop> <when> …` | one key of `animate:` | (none — keys are set at the playhead) |
 
 `picture split` is VIRTUAL where `event split` renders: two placements of one clip, the head

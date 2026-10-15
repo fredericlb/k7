@@ -35,6 +35,7 @@ describe("project export video", () => {
       kind: "video",
       format: "webm",
       audio: DEFAULT_VIDEO_AUDIO,
+      settings: {},
     });
   });
 
@@ -50,6 +51,7 @@ describe("project export video", () => {
       kind: "video",
       format: "mp4",
       audio: "mp3",
+      settings: {},
     });
   });
 
@@ -58,6 +60,7 @@ describe("project export video", () => {
       kind: "video",
       format: "webm",
       audio: null,
+      settings: {},
     });
   });
 
@@ -85,6 +88,43 @@ describe("reading the line", () => {
       kind: "video",
       format: "mp4",
       audio: "mp3",
+      settings: {},
     });
+  });
+});
+
+describe("project export video — the render's settings", () => {
+  it("reads a size, a quality and a range, after the sound or without it", () => {
+    expect(
+      parseExportAsk("video mp4 mp3 size=720p quality=max from=1:30 to=1:45.5"),
+    ).toMatchObject({
+      audio: "mp3",
+      settings: { size: { height: 720 }, quality: "max", from: 90, to: 105.5 },
+    });
+    expect(parseExportAsk("video webm size=1280x720")).toMatchObject({
+      audio: DEFAULT_VIDEO_AUDIO,
+      settings: { size: { width: 1280, height: 720 } },
+    });
+  });
+
+  it("refuses a setting it does not know, and a range that runs backwards", () => {
+    expect(parseExportAsk("video mp4 quality=ultra")).toBeNull();
+    expect(parseExportAsk("video mp4 fps=60")).toBeNull();
+    expect(parseExportAsk("video mp4 from=10 to=5")).toBeNull();
+  });
+});
+
+describe("project export timeline", () => {
+  it("names the format, and for an EDL the lane", () => {
+    expect(parseExportAsk("timeline otio")).toEqual({
+      kind: "timeline",
+      format: "otio",
+    });
+    expect(parseExportAsk("timeline edl broll")).toEqual({
+      kind: "timeline",
+      format: "edl",
+      lane: "broll",
+    });
+    expect(parseExportAsk("timeline aaf")).toBeNull();
   });
 });

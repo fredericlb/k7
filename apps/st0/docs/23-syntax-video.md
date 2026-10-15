@@ -121,6 +121,19 @@ Its sound follows at the same speed, with the pitch moving like a tape's. A reve
 shot is silent. The preview steps a reversed shot frame by frame, so it plays choppier there than
 in the export.
 
+## Exporting
+
+`project export video mp4` renders the picture with the song's sound. Add words to change the
+render: `size=720p` (or `size=1280x720`), `quality=low`, `medium`, `high` or `max`, and a range,
+`from=1:30 to=2:00`. A range gives a file that starts at that moment.
+
+`project export timeline otio` hands the **cut** to another editor instead: every picture lane as
+an OpenTimelineIO timeline, which DaVinci Resolve opens and `otioconvert` turns into Final Cut,
+Premiere or Avid formats. `project export timeline edl main` writes one lane as an EDL, which
+every editor reads. Both name your original camera files, and both carry the shots, the gaps,
+the dissolves and the speeds. Moves, picture-in-picture positions, shaders and the shots' sound
+stay here.
+
 ## A shot's sound
 
 The picture lane plays no sound. The **engine** plays it, from an ordinary audio lane that names

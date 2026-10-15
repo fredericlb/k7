@@ -13,6 +13,9 @@ import {
   Mp4OutputFormat,
   Output,
   QUALITY_HIGH,
+  QUALITY_LOW,
+  QUALITY_MEDIUM,
+  QUALITY_VERY_HIGH,
   UrlSource,
   VideoSampleSink,
   WebMOutputFormat,
@@ -31,6 +34,7 @@ export {
   type VideoFormat,
 } from "./exportSupport";
 
+import type { ExportQuality } from "./exportQuality";
 import { type Motion, slotMotions } from "./motion";
 import type { VideoScene } from "./scene";
 import { type Active, layerFrameAt, shapesVisibleAt } from "./timeline";
@@ -45,7 +49,13 @@ export interface ExportOptions {
   frameCount?: number;
   // Keyframe interval in seconds: frequent keyframes help seeking in the output, at the cost of size.
   keyIntervalSec?: number;
-  bitrate?: number; // bits/s; omit for QUALITY_HIGH
+  bitrate?: number; // bits/s; omit for the `quality` preset
+  /** mediabunny's presets, scaled to the codec and the size; `high` when neither this nor `bitrate` is said. */
+  quality?: ExportQuality;
+  /** The file's frame size, when it is not the viewport's: the frame is composited at the viewport's and scaled (apps/st0/frontend/docs/picture.md). */
+  size?: [number, number];
+  /** Where on the timeline the file starts, in seconds; `frameCount` frames are taken from there, and the sound with them. */
+  from?: number;
   /**
    * The song's sound, DECODED, to marry into the container. Absent makes a silent film.
    *
@@ -54,6 +64,37 @@ export interface ExportOptions {
    * every format question on the caller's side of this seam.
    */
   audio?: AudioBuffer;
+}
+
+const QUALITY = {
+  low: QUALITY_LOW,
+  medium: QUALITY_MEDIUM,
+  high: QUALITY_HIGH,
+  max: QUALITY_VERY_HIGH,
+} as const;
+
+/** `buf` from `from` seconds for `seconds` — the sound of the range an export renders. */
+export function sliceAudio(
+  buf: AudioBuffer,
+  from: number,
+  seconds: number,
+): AudioBuffer {
+  const start = Math.max(0, Math.round(from * buf.sampleRate));
+  const length = Math.max(
+    1,
+    Math.min(buf.length - start, Math.round(seconds * buf.sampleRate)),
+  );
+  const out = new AudioBuffer({
+    length,
+    numberOfChannels: buf.numberOfChannels,
+    sampleRate: buf.sampleRate,
+  });
+  for (let ch = 0; ch < buf.numberOfChannels; ch++)
+    out.copyToChannel(
+      buf.getChannelData(ch).subarray(start, start + length),
+      ch,
+    );
+  return out;
 }
 
 export interface ExportProgress {
@@ -99,26 +140,37 @@ export async function exportScene(
   onProgress?: (p: ExportProgress) => void,
 ): Promise<ExportResult> {
   const [vw, vh] = scene.viewport;
+  // The FILE's size: the viewport's unless asked, even numbers since every encoder wants them.
+  const [ow, oh] = (opts.size ?? [vw, vh]).map((v) =>
+    Math.max(2, Math.round(v / 2) * 2),
+  );
   const format = opts.format ?? "webm";
   // ASKED, not assumed: `"VideoEncoder" in window` is true in every Chromium and always true
   // in Electron, and says nothing about the platform encoder behind it. Without this the
   // failure is a NotSupportedError at frame 0, after the progress bar has drawn.
   const can = await probeExportSupport(
     format,
-    vw,
-    vh,
+    ow,
+    oh,
     opts.audio !== undefined,
   );
   if (!can.ok) throw new Error(`eyes: ${can.detail}`);
   // …and every SOURCE asked whether it decodes here, before frame 0 rather than at its first shot.
   await assertDecodable(scene);
   const fps = scene.fps;
+  const from = Math.max(0, opts.from ?? 0);
+  // Unasked, the range runs from `from` to the song's end.
   const total =
-    opts.frameCount ?? Math.max(1, Math.round(scene.durationSec * fps));
+    opts.frameCount ??
+    Math.max(1, Math.round((scene.durationSec - from) * fps));
 
   // Offscreen render target, shared by the compositor (writes) and the encoder (reads).
   const canvas = new OffscreenCanvas(vw, vh);
   const comp = Compositor.create(canvas, scene);
+  // A second canvas only when the file is another size: the frame is SCALED, its geometry stays the project's.
+  const out = ow === vw && oh === vh ? null : new OffscreenCanvas(ow, oh);
+  const scaled = out?.getContext("2d") ?? null;
+  if (scaled) scaled.imageSmoothingQuality = "high";
 
   // Open (Input, sink) lazily per distinct src and cache it, so a cut reuses a source and a shared clip decodes once.
   // Keyed by src AND SLOT: a shot dissolving into itself would otherwise ask one sink for two
@@ -159,9 +211,9 @@ export async function exportScene(
   const container =
     format === "mp4" ? new Mp4OutputFormat() : new WebMOutputFormat();
   const output = new Output({ format: container, target });
-  const canvasSource = new CanvasSource(canvas, {
+  const canvasSource = new CanvasSource(out ?? canvas, {
     codec: can.video,
-    bitrate: opts.bitrate ?? QUALITY_HIGH,
+    bitrate: opts.bitrate ?? QUALITY[opts.quality ?? "high"],
     ...(opts.keyIntervalSec ? { keyFrameInterval: opts.keyIntervalSec } : {}),
   });
   output.addVideoTrack(canvasSource);
@@ -174,11 +226,18 @@ export async function exportScene(
   await output.start();
   // …and fed in one go: an AudioBuffer is the whole song, and the muxer interleaves it against
   // the frames itself. Awaited here rather than at the end so a failure lands before the render.
-  if (audioSource && opts.audio) await audioSource.add(opts.audio);
+  // Only the RANGE's sound, so a file starting at 0:42 starts with the sound of 0:42.
+  if (audioSource && opts.audio)
+    await audioSource.add(
+      from > 0 || opts.frameCount !== undefined
+        ? sliceAudio(opts.audio, from, total / fps)
+        : opts.audio,
+    );
 
   try {
     for (let n = 0; n < total; n++) {
-      const t = n / fps;
+      // The song's time at this frame; the FILE's is n / fps, since a range starts the file at 0.
+      const t = from + n / fps;
       const visible = new Set<string>();
       const blends = new Map<string, LayerBlend>();
       const motions = new Map<string, [Motion | null, Motion | null]>();
@@ -238,7 +297,8 @@ export async function exportScene(
       }
       comp.draw(visible, blends, motions);
       // Encode the canvas as this frame; mediabunny bounds its own queue, so awaiting here is the backpressure.
-      await canvasSource.add(t, 1 / fps);
+      if (out && scaled) scaled.drawImage(canvas, 0, 0, ow, oh);
+      await canvasSource.add(n / fps, 1 / fps);
       onProgress?.({ frame: n + 1, total });
     }
     await output.finalize();

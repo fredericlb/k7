@@ -9,7 +9,10 @@
     "./videoTracks": "./src/videoTracks.ts",
     "./videoProject": "./src/videoProject.ts",
     "./shaders": "./src/shaders.ts",
-    "./videoTransitions": "./src/videoTransitions.ts"
+    "./videoTransitions": "./src/videoTransitions.ts",
+    "./interchange/flatten": "./src/interchange/flatten.ts",
+    "./interchange/otio": "./src/interchange/otio.ts",
+    "./interchange/edl": "./src/interchange/edl.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

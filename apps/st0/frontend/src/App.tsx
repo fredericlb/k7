@@ -2535,12 +2535,21 @@ export default function App({
         const ask = parseExportAsk(s.slice("project export".length));
         if (!ask) setStatus(EXPORT_USAGE);
         else if (ask.kind === "audio") void share.exportMix(ask.format);
+        else if (ask.kind === "timeline")
+          void share.exportTimeline(
+            ws?.activeProject ?? ".",
+            ask.format,
+            ask.lane,
+            projectDoc?.name ?? "cut",
+            runCommand,
+          );
         else
           void share.exportVideo(
             videoDoc ? videoSceneOf(videoDoc, null, "export") : null,
             ask.format,
             ask.audio,
             projectDoc?.name ?? "video",
+            ask.settings,
           );
         return true;
       }
