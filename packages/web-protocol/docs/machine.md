@@ -10,9 +10,9 @@ names.
 **The machine** — the account's file service — answers what is INSIDE a workspace:
 `AccountWorkspace`, from the folders it actually holds. Nothing else does: a second answer from
 another service would be a copy of what the folders already say, and a worse one. No service keeps
-a register of workspaces either (`apps/st0/backend/docs/media/projects.md`). A workspace is
+a register of workspaces either (`apps/k7/backend/docs/media/projects.md`). A workspace is
 addressed by its folder name, under `@local` (`packages/web-protocol/docs/addresses.md`). See
-`apps/st0/frontend/docs/projects.md`.
+`apps/k7/frontend/docs/projects.md`.
 
 ## `active` is not the same as `served`
 
@@ -24,7 +24,7 @@ lives in is a detail of the address. `path` is workspace-relative, `.` for a wor
 `active` is the workspace's active-project marker — the project this workspace currently has
 open. One per workspace at a time, which is why it is a flag and not a filter: a caller that wants
 only the live ones can say so, and one showing a menu wants to know which row is already up. See
-`apps/st0/frontend/docs/external.md`.
+`apps/k7/frontend/docs/external.md`.
 
 `ServedProject` (GET `/engine/served`) answers a different question, and the difference is the
 point. `active` is a per-workspace marker written by whoever opened last; this is the file
@@ -52,9 +52,9 @@ that is instantly done would hand the caller an id nobody can poll.
 
 ## Shares are the author's view
 
-`ShareSummary` is one frozen snapshot a person has shared, as their own Projets section lists
+`ShareSummary` is one project a person has shared at a checkpoint, as their own Projets section lists
 them. The AUTHOR's view and nobody else's: `origin` names a repository and a folder on the machine
-it came from, and the public routes serve none of this — they serve the snapshot's manifest.
+it came from, and the public routes serve none of this — they serve the share's manifest, its file list and engine document left out.
 
 `token` rides along in the clear because it IS the copy-link button. It is blanked on revocation, so a
 revoked row cannot be copied back out of the screen it is still drawn on, and the row SURVIVES
@@ -109,7 +109,7 @@ oldest sent first, and `ENGINE_OUTBOX_TTL_MS` drops what nobody is waiting for a
 and picks the fastest of the unassigned ones.
 
 `PublicEngine` never carries the secret token. It does carry `heldBy`/`heldProject`, because
-"busy" and "busy with Fred's winter.st0" are not the same screen: an engine that reads simply
+"busy" and "busy with Fred's winter.k7" are not the same screen: an engine that reads simply
 unavailable is one people retry, and taking a project over is a thing you should only do knowing
 whose it is. `proxyTicket` is a short-lived pass for the relay at `<base>/api/engine/<id>/ws`,
 which is how a browser reaches an engine it may not dial directly (an HTTPS page and a `ws://` LAN

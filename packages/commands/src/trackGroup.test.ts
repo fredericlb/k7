@@ -32,7 +32,7 @@ const run = async (line: string) => {
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "track-group-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
   for (const lane of ["kick", "snare", "bass"]) {
     put(`tracks/${lane}.yaml`, 'extends: "@meta/track"\nevents: []\n');

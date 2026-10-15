@@ -33,7 +33,12 @@ import {
 } from "../engineLink.ts";
 import { refreshLibraries } from "../libraries.ts";
 import { ensureLibraryPins, libraryVersionsAt } from "../libraryPins.ts";
-import { liveConflicts, liveLogTail, resolveConflict } from "../liveSync.ts";
+import {
+  liveConflicts,
+  liveLogTail,
+  projectSyncState,
+  resolveConflict,
+} from "../liveSync.ts";
 import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
@@ -178,7 +183,7 @@ filesRouter.post(
   }),
 );
 
-/** The chains the library repository holds — what st0's chains builder lists. */
+/** The chains the library repository holds — what k7's chains builder lists. */
 filesRouter.get(
   "/library-chains",
   wrap((req, res) => {
@@ -252,6 +257,12 @@ filesRouter.post(
       const want = path === "." ? req.ws!.defaultProject() : path;
       // A workspace with no project at all opens as a tree; there is nothing to start.
       if (want) {
+        // Not before the relay has brought it all: half a project compiles to "file missing" (docs/liveCapture.md).
+        const sync = projectSyncState(req.ws!, want);
+        if (!sync.ready) {
+          res.status(409).json({ error: `'${want}' is still syncing`, sync });
+          return;
+        }
         req.ws!.setActiveProject(want);
         startEngineForActive(req.ws!);
       }
@@ -459,7 +470,7 @@ filesRouter.post(
   }),
 );
 
-// Scaffold a project at the workspace root and return its path — the same scaffold `st0 create` runs.
+// Scaffold a project at the workspace root and return its path — the same scaffold `k7 create` runs.
 const createProjectBody = z.object({
   /** The ARCHETYPE — `arrangement`, `mix`, `video` or `live`, the last declaring no surface at all. */
   shape: z.enum(PROJECT_SHAPES),
@@ -663,15 +674,19 @@ filesRouter.post(
   }),
 );
 
-/** Freeze this project and send it to pl8; no body, and slow because it is a full render (docs/shareBundle.md). */
+/** Start sharing the open project at a checkpoint; the editor polls GET for where it is (docs/share.md). */
 filesRouter.post(
   "/share/link",
   wrap(async (req, res) => {
-    try {
-      res.json({ ok: true, ...(await req.ws!.shareLink(req.userEmail!)) });
-    } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
-    }
+    req.ws!.startShareLink(req.userEmail!);
+    res.status(202).json(req.ws!.shareLinkProgress());
+  }),
+);
+
+filesRouter.get(
+  "/share/link",
+  wrap(async (req, res) => {
+    res.json(req.ws!.shareLinkProgress());
   }),
 );
 
@@ -755,6 +770,15 @@ filesRouter.get(
     else res.json({ batches });
   }),
 );
+// Whether a project is up to date with the relay — what the gate waits on before `/open` (docs/liveCapture.md).
+filesRouter.get(
+  "/sync/project",
+  wrap((req, res) => {
+    const path = String(req.query.path ?? "");
+    if (!path) res.status(400).json({ error: "path required" });
+    else res.json(projectSyncState(req.ws!, path));
+  }),
+);
 // Edits the relay set aside because the value had moved meanwhile, each with the value kept (docs/liveCapture.md).
 filesRouter.get(
   "/sync/conflicts",
@@ -784,7 +808,7 @@ filesRouter.get(
   "/tree",
   wrap((req, res) => res.json(req.ws!.tree())),
 );
-// The whole workspace, not the open project — st0's home page looking inside a repository (docs/fileRoutes.md).
+// The whole workspace, not the open project — k7's home page looking inside a repository (docs/fileRoutes.md).
 filesRouter.get(
   "/workspace-tree",
   wrap((req, res) => res.json(req.ws!.workspaceTree())),

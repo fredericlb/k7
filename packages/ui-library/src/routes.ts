@@ -1,5 +1,5 @@
 // routes.ts — the URL <-> screen mapping, in one place. The address is what you are looking at,
-// BELOW the host's prefix (`/media` in st0): the section is the first segment (which is also the
+// BELOW the host's prefix (`/media` in k7): the section is the first segment (which is also the
 // family folder's name), and the rest is the file the screen has open, if any.
 // Pure functions, so both directions can be tested as a sequence; the hook is useLibraryRoute.
 

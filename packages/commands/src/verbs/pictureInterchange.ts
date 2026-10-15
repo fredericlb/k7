@@ -56,7 +56,7 @@ export const PICTURE_INTERCHANGE_VERBS: Record<string, SidHandler> = {
     const named = loadProjectRoot(h.songPath, false).project?.name;
     const name =
       (typeof named === "string" && named) ||
-      basename(h.songPath).replace(/\.st0$/, "") ||
+      basename(h.songPath).replace(/\.k7$/, "") ||
       "song";
     const rel = interchangePath(format);
     const abs = join(h.songPath, rel);

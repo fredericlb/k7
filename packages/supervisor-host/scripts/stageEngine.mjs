@@ -38,7 +38,7 @@ function newestBuild(repo, project, name) {
 
 /** The Faust `.lib` files the engine's CMake fetched, as the newest preset's CMakeCache names them. */
 function faustLibs(repo) {
-  const build = join(repo, "engine", "st0-engine", "build");
+  const build = join(repo, "engine", "k7-runtime", "build");
   const found = readdirSync(build)
     .map((preset) => join(build, preset, "CMakeCache.txt"))
     .filter((cache) => existsSync(cache))
@@ -51,7 +51,7 @@ function faustLibs(repo) {
   found.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
   if (!found[0])
     throw new Error(
-      "no Faust libraries named by any engine/st0-engine/build/*/CMakeCache.txt",
+      "no Faust libraries named by any engine/k7-runtime/build/*/CMakeCache.txt",
     );
   return found[0];
 }
@@ -61,17 +61,17 @@ export function stageEngine({ repo, bin }) {
   mkdirSync(bin, { recursive: true });
   const prebuilt = process.env.STUDIO_PREBUILT_BIN;
   if (prebuilt) {
-    if (!existsSync(join(prebuilt, exe("st0-supervisor"))))
-      throw new Error(`no st0-supervisor in STUDIO_PREBUILT_BIN=${prebuilt}`);
+    if (!existsSync(join(prebuilt, exe("k7-supervisor"))))
+      throw new Error(`no k7-supervisor in STUDIO_PREBUILT_BIN=${prebuilt}`);
     cpSync(prebuilt, bin, { recursive: true, verbatimSymlinks: true });
     return;
   }
-  const supervisor = newestBuild(repo, "st0-supervisor", "st0-supervisor");
+  const supervisor = newestBuild(repo, "k7-supervisor", "k7-supervisor");
   copyFileSync(
-    newestBuild(repo, "st0-engine", "st0-engine"),
-    join(bin, exe("st0-engine")),
+    newestBuild(repo, "k7-runtime", "k7-runtime"),
+    join(bin, exe("k7-runtime")),
   );
-  copyFileSync(supervisor, join(bin, exe("st0-supervisor")));
+  copyFileSync(supervisor, join(bin, exe("k7-supervisor")));
   const ort = readdirSync(dirname(supervisor)).filter((f) =>
     /^(libonnxruntime.*\.(dylib|so.*)|onnxruntime.*\.dll|DirectML\.dll)$/.test(
       f,

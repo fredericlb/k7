@@ -30,7 +30,7 @@ const here = dirname(
   new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"),
 );
 // Three, not four: `song-edit/src` → the package → `packages/` → the repo root.
-const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.k7");
 const DEMO_MODULES = join(here, "..", "..", "..", "demos", "_modules");
 // A module lives at `@workspace` now, in `_modules` BESIDE the project — not `dir` itself.
 const SYNTH = ["..", "_modules", "instruments", "synth"];
@@ -39,7 +39,7 @@ let root: string;
 let dir: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-yaml-"));
-  dir = join(root, "synth-demo.st0");
+  dir = join(root, "synth-demo.k7");
   copyAsYaml(SONG, dir, { recursive: true });
   copyAsYaml(DEMO_MODULES, join(root, "_modules"), { recursive: true });
 });

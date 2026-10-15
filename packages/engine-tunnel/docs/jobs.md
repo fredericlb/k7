@@ -15,10 +15,10 @@ machine and **not awaited**: a separation takes minutes, and the next request on
 not wait behind it.
 
 What a machine does is registered by type; the supervisor's list is
-`engine/st0-supervisor/src/MachineJobs.cpp` (`TunnelAgentOptions.jobs` for the TypeScript reference
+`engine/k7-supervisor/src/MachineJobs.cpp` (`TunnelAgentOptions.jobs` for the TypeScript reference
 agent the server's tests run on). A type it does not know is refused by name.
 
-`render` bounces a whole ProjectDoc, sent inline, with the machine's own `st0-engine --render`. Its
+`render` bounces a whole ProjectDoc, sent inline, with the machine's own `k7-runtime --render`. Its
 clip paths are strings under a shared root like any other, so they are downloaded before the handler
 runs. It comes in two shapes:
 
@@ -33,7 +33,7 @@ In both, the paths answered are under a writable root, so naming them is what up
 
 ## The server's render machine
 
-A hosted st0 keeps no engine binary, so it needs a machine that renders when nobody's engine is
+A hosted k7 keeps no engine binary, so it needs a machine that renders when nobody's engine is
 bound: its own `engine` service (`docs/server-engine.md` at the repo root). That machine is told
 apart by a **render key**, a secret the deployment gives both sides (`STUDIO_RENDER_KEY`). The
 supervisor sends it in a header beside its token when it dials the tunnel, and the hub marks that

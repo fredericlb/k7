@@ -107,7 +107,7 @@ are `Reverb`, `Filter`, `Envelope`…
 
 Where the engine offers `@mix` — on every effect — `@mix` IS the blend, and the plugin's own dry,
 wet or mix is left out altogether: the engine holds those at full wet
-(`engine/st0-engine/docs/mix.md`), so a knob on one would do nothing. What follows is the rule for a
+(`engine/k7-runtime/docs/mix.md`), so a knob on one would do nothing. What follows is the rule for a
 module the engine offers no `@mix` on.
 
 A bare `Mix`, `Dry/Wet`, `Dry` or `Wet` is placed **last on its own page**, after everything

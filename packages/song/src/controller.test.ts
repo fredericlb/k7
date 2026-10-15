@@ -23,7 +23,7 @@ import { loadGraph } from "./graph";
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
 const DEMOS = join(here, "..", "..", "..", "demos");
-const SONG = join(DEMOS, "synth-demo.st0");
+const SONG = join(DEMOS, "synth-demo.k7");
 const REF = "@workspace/instruments/synth";
 
 // A module's MIDI map is the fourth sibling in its folder, and must never read as a node of it.
@@ -62,7 +62,7 @@ describe("a module's MIDI map (synth-demo)", () => {
   let dir: string;
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-controller-"));
-    dir = join(ws, "synth-demo.st0");
+    dir = join(ws, "synth-demo.k7");
     cpSync(SONG, dir, { recursive: true });
     // The Examples workspace's own shared library, beside every demo project.
     const shared = join(DEMOS, "_modules");

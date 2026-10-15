@@ -1,5 +1,5 @@
 // mediatek.ts — the media library as THIS MACHINE holds it. The library itself is hosted
-// now (see apps/st0/backend/src/media); what lives here is a cache the moteur plays from, so
+// now (see apps/k7/backend/src/media); what lives here is a cache the moteur plays from, so
 // these routes report what is cached and pull down what is missing. Mounted BEFORE
 // resolveWorkspace: a cache is per machine, like /workspaces is per user.
 

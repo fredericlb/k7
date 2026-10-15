@@ -24,14 +24,14 @@ import { buildGraphDoc } from "./graphDoc";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEMOS = join(here, "..", "..", "..", "demos");
-const SONG = join(DEMOS, "synth-demo.st0");
+const SONG = join(DEMOS, "synth-demo.k7");
 
 let root: string;
 let dir: string;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "fs-offline-"));
-  dir = join(root, "synth-demo.st0");
+  dir = join(root, "synth-demo.k7");
   copyAsYaml(SONG, dir, { recursive: true });
   // The demo's own "synth" lives at `@workspace`, its sibling in the Examples workspace.
   const demoModules = join(DEMOS, "_modules");

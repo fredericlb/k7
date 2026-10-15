@@ -22,9 +22,9 @@ the workspace, the same root the walk starts from.
 What the wider tree costs, and how each is paid:
 
 - **A file may belong to a project that is not playing.** `projectPaths.ts`'s rules match on
-  `(^|/)`, so `other.st0/clips/a.yaml` is a clip by every test there is — and looking its id up
+  `(^|/)`, so `other.k7/clips/a.yaml` is a clip by every test there is — and looking its id up
   in the ACTIVE project's compiled doc answers with the wrong thing or with nothing.
-  `inActiveProject()` is the predicate that stops it, and st0's editor gates its minimap item
+  `inActiveProject()` is the predicate that stops it, and k7's editor gates its minimap item
   and its clip/sequence panel on it. Opening such a file gives you its TEXT, which is right: it
   is a file in this repository and you may read and edit it.
 - **The shared `_modules` library is visible**, and ordinarily editable — a write there
@@ -39,7 +39,7 @@ home page has not opened, which is a different question with the same answer.
 
 ## Opening a project that is not there
 
-`isProjectDir` is a rule about a **name** — `mysong.st0`, `party.z0` — because the same
+`isProjectDir` is a rule about a **name** — `mysong.k7`, `party.z0` — because the same
 question is answered in places where no file can be opened at all
 (`packages/web-protocol/projects.ts`). The trap is that a name rule says "yes" about a folder
 that does not exist.
@@ -51,12 +51,12 @@ at exactly the wrong second.
 
 Without an existence check the sequence is:
 
-1. `POST /open {path: "01_danse.st0"}` — accepted, because the *name* claims st0;
+1. `POST /open {path: "01_danse.k7"}` — accepted, because the *name* claims k7;
 2. `activeProject` set to a path with nothing at it, and the active-project marker written,
    so a reload arrives broken too;
 3. the first thing to compile it — `/project-doc` — reaches `@studio/song`'s `loadProject`,
    which finds no directory, falls through to "not a folder project", finds no `.yaml` either,
-   and reports **`unsupported song '01_danse.st0' — use a .yaml file or a folder project`**.
+   and reports **`unsupported song '01_danse.k7' — use a .yaml file or a folder project`**.
 
 Every word of that is true and none of it is the problem. So `setActiveProject` checks
 existence **before** the name rule and says what actually happened, and `isProjectDir` itself
@@ -105,8 +105,8 @@ opened.
 ### What is legitimately global
 
 `selectedEngineUrl`, and that one is simply true: an account's files drive one engine at a time,
-which is why st0 opens the bench on the engine the account's song is already on
-(`apps/st0/frontend/src/engineSession.ts`).
+which is why k7 opens the bench on the engine the account's song is already on
+(`apps/k7/frontend/src/engineSession.ts`).
 
 ## The engine may have forgotten, and only it knows
 
@@ -117,7 +117,7 @@ a project. A poll that trusts the note re-sends nothing, so the browser shows a 
 engine has never heard of, and the transport does nothing, for ever, until an explicit
 `/open`.
 
-The signature is the file service reporting `activeProject: 01.danse.st0` while the engine
+The signature is the file service reporting `activeProject: 01.danse.k7` while the engine
 reports `loaded=false, tracks=0`, and going on reporting it a minute after a respawn with the
 2 s `/workspace` poll running throughout. One `POST /open` brings every track back.
 
@@ -161,7 +161,7 @@ is.
 The two cures above assume the answer tells you which one you are in. It does not, and the case
 that slips between them is the expensive one: a link that **answers `list-sessions` perfectly**
 while every project sent over it lands nowhere. Measured once as **569 consecutive re-sends** —
-`⚠ engine is not holding mymix.st0 — re-sending it`, five seconds apart, for the better part of
+`⚠ engine is not holding mymix.k7 — re-sending it`, five seconds apart, for the better part of
 an hour, with the engine's own log showing not one `[client] connected` in that time. The first
 cure kept firing because the session was genuinely not held; the second never fired because the
 socket was answering. Nothing escalated, and nothing said so.
@@ -179,6 +179,19 @@ Only `loaded` is compared, never *which* project: the wire carries a display nam
 (`"LEMO - DANSE"`) and this side holds a path, so comparing the two would invent mismatches.
 Switching projects is `startEngineForActive`'s job.
 
+### A project still loading is not a deaf link
+
+The reconcile does not ask, re-send or re-dial while a document is held back by its copy
+(`engineSync.md`), nor while the project's load is `applying` or `warming` (`engineLoad.md`). The
+engine answers `list-sessions` on its message thread, after the document it is building, so a
+song whose plugins take longer than `SESSIONS_TIMEOUT_MS` to load reads as a zombie; and a machine
+too old to know `sync` downloads the files on the engine's own channel, where the question waits
+behind minutes of audio. A re-dial then sends the document again onto a link already busy taking
+it in, and the song never arrives. The load already asks the engine itself and has its own
+ceiling, `APPLY_TIMEOUT_MS`; once it ends, the reconcile questions the link as above, so a
+genuinely deaf socket is still repaired. The guard sits after `ensureEngine`, so a switch of
+engine is still dialled by the poll while the load waits on the new link.
+
 And the compile-and-send itself does not fail silently. `sendActiveProject` swallows a
 malformed project rather than failing the request — `/project-doc` and `/graph` are what
 surface that to the browser — but it says so on the console, because it is the one path
@@ -194,7 +207,7 @@ own outbox and its own reconnect, and the alternative is a shared queue where on
 delays another's transport.
 
 It is deliberately **not a driver**. The engine counts sockets that declare `role: "driver"` on hello
-and frees a project 45 s after the last one goes (`engine/st0-engine/docs/sessions.md`). This link is
+and frees a project 45 s after the last one goes (`engine/k7-runtime/docs/sessions.md`). This link is
 held for as long as the machine is up, so counting it would mean no project ever looked abandoned —
 which is the whole point of the count. Saying nothing is what keeps it out; there is no flag to pass.
 
@@ -320,14 +333,14 @@ window, and it draws where the plugin is loaded.
 BEFORE `resolveWorkspace`, because the user is the whole question and no workspace is open when they
 are asked.
 
-`/workspaces/projects` is every workspace on this machine and the projects in it — st0's home page in
+`/workspaces/projects` is every workspace on this machine and the projects in it — k7's home page in
 one call. A LIST route rather than one call per workspace, because the page draws them all and N round
 trips over the LAN would be N waits for one screen. It is the machine answering "what projects exist",
 and the only place that answer can come from: the projects are folders on this disk
-(`apps/st0/frontend/docs/projects.md`).
+(`apps/k7/frontend/docs/projects.md`).
 
 `/workspaces/surfaces` is the same list narrowed to what a SECOND DEVICE could open — every project
-that declares a surface, flat, with those surfaces and which one the workspace has open. That is st0's
+that declares a surface, flat, with those surfaces and which one the workspace has open. That is k7's
 `/external` page in one call, and for the same reason: the page is a menu on a tablet, and a round trip
 per project would be a menu that fills in row by row.
 
@@ -345,8 +358,8 @@ segment under the workspaces root, since there is no per-user level beneath it
 (`packages/engine-client/docs/paths.md`); a workspace this machine cannot name in an address answers
 null, because a row nobody could follow is worse than no row.
 
-`/workspaces/by-repo` is the one that pairs with them: st0's home page names a repo by its URI and knows nothing about
-this machine's folders, so this is the question st0 asks before deciding whether anything needs cloning at
+`/workspaces/by-repo` is the one that pairs with them: k7's home page names a repo by its URI and knows nothing about
+this machine's folders, so this is the question k7 asks before deciding whether anything needs cloning at
 all. `POST /workspaces` is the ONE place a workspace is created on request — `getWorkspace` deliberately
 refuses to, Examples aside.
 
@@ -366,7 +379,7 @@ file would be dropped before its kind is known.
 
 It re-sends the document only for a file a pattern LANE plays (`patternFiles`): a lane's pattern travels
 IN the document, so a save is a recompile, and the engine applies the new source in place
-(`engine/st0-engine/docs/patternPlugin.md`).
+(`engine/k7-runtime/docs/patternPlugin.md`).
 
 Narrowing it is the kind of change that fails SILENTLY: a pattern edit simply stops reaching the engine, and
 nothing says why. So the predicate is tested rather than trusted, and a watcher that dies says so on the console —
@@ -445,7 +458,7 @@ after `recordChange` has closed — inside ONE `withModuleStamp` scope that also
 reply carries, under the `after` token the route used to seed the graph with on its own. A writing
 command is exactly the case the module cache cannot keep: its write moved the stamp less than two
 seconds ago, so each derivation that reads the vocabulary rebuilds it, and the compile and the graph
-used to be two. On `01.danse.st0` a kit preset through the route went from 1.21 s to 0.95 s of server
+used to be two. On `01.danse.k7` a kit preset through the route went from 1.21 s to 0.95 s of server
 time, and every reloading verb pays the same toll.
 
 The scope must open after the last write, never before: verbs write with `fs` beside the service, and
@@ -465,7 +478,7 @@ answers.
 The verbs that need no active project — the rig preferences, the workspace's set lists and its library pins — are matched by one regular expression, and it is a copy of names that live in `commands.yaml`.
 Check the catalogue before adding to it.
 
-It falls out of step silently, and is invisible from st0's command bar, which always has a project
+It falls out of step silently, and is invisible from k7's command bar, which always has a project
 open: a verb missing from it is met by a caller that creates a project it never opens. A rig verb
 listed under a head it no longer carries (`channel` or `audio`, where the verb is `system channel …`) is
 refused from a workspace with no project open, which is the one place a rig setting is most likely to be

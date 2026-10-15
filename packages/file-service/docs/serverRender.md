@@ -20,7 +20,7 @@ has either.
 
 ## playwright-core, and the system's Chromium
 
-`playwright-core` is the driver only: it downloads no browser. The st0 image is Alpine, where
+`playwright-core` is the driver only: it downloads no browser. The k7 image is Alpine, where
 Playwright's own Chromium build does not run, so the image installs Alpine's `chromium` and names
 it in `STUDIO_CHROMIUM`. Without that variable, the usual install paths of Linux and macOS are
 tried, and a machine with none refuses the command with the variable's name in the message.
@@ -39,7 +39,7 @@ The page fetches everything it needs — the scene, the mixdown, the media — f
 that lives for one render, on `127.0.0.1`, under a random path. The scene names its media by
 project path, so the page needs no account, no cookie and no route of the file service's own;
 nothing outside the machine can reach it, and nothing outside that path is served.
-`sceneFrom` (`@studio/st0-plugins/video/sceneFrom`) is the browser-free half of the viewport's
+`sceneFrom` (`@studio/k7-plugins/video/sceneFrom`) is the browser-free half of the viewport's
 scene builder, taking the URL scheme as a parameter, so both sides build the same scene.
 
 The sound is the engine's own mixdown (`exportMix`), decoded in the page, as the browser export

@@ -39,7 +39,7 @@ export const NO_FACE: Readonly<Record<string, string>> = {
   insert:
     "sends to hardware chosen in its state, not params — a module cannot pick the device",
   "freeze-point":
-    "marks a spot for Tracktion's own freeze, which st0 does not use — freeze a module with `node freeze`",
+    "marks a spot for Tracktion's own freeze, which k7 does not use — freeze a module with `node freeze`",
   "level-meter":
     "measures what nothing reads — the engine meters every track and the master itself",
   "aux-send":

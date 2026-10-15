@@ -2,14 +2,14 @@
 
 ```bash
 npm run dev                        # every app + the engine, under Tilt
-npm run dev -- native st0-frontend # only the named Tilt resources
+npm run dev -- native k7-frontend # only the named Tilt resources
 npm run dev:native                 # only the engine, no Tilt
 npm run vscode                     # the browser editor at /dev, on its own
 ```
 
 ## Where it answers
 
-**Three hosts** — `priv.st0.app` (st0 with its media library and its rehearsal pages), and `play.priv.st0.app` and `k7.priv.st0.app`, aliases of st0 as `play.st0.app` and
+**Three hosts** — `priv.st0.app` (k7 with its media library and its rehearsal pages), and `play.priv.st0.app` and `k7.priv.st0.app`, aliases of k7 as `play.st0.app` and
 `k7.st0.app` are in production — `scripts/dev-hosts.mjs` names all three (`DEV_HOST`,
 `ALIAS_DEV_HOST`, `K7_ALIAS_DEV_HOST`). The same shape production has under `st0.app` / `play.st0.app` /
 `k7.st0.app`, which is the point: the two differ by their domain and nothing else.
@@ -19,20 +19,20 @@ npm run vscode                     # the browser editor at /dev, on its own
 >
 > | host | goes to | |
 > |---|---|---|
-> | `priv.st0.app` | **5223** | st0's dev server |
-> | `play.priv.st0.app` | **5223** | st0's dev server, which answers the alias as the hosted st0 does |
-> | `k7.priv.st0.app` | **5223** | st0's dev server, the same way |
+> | `priv.st0.app` | **5223** | k7's dev server |
+> | `play.priv.st0.app` | **5223** | k7's dev server, which answers the alias as the hosted k7 does |
+> | `k7.priv.st0.app` | **5223** | k7's dev server, the same way |
 >
-> That is the WHOLE table for st0: its vite dev server already proxies
+> That is the WHOLE table for k7: its vite dev server already proxies
 > `/api`, `/auth` and `/rtc` (the rehearsal pages' phone microphone) to its backend port internally
 > (`commons/dev/vite-config/src/index.ts`'s `defineAppConfig` — `backendPort` +
 > `proxyPaths`/`wsPaths`), so the LAN proxy only has to get a request to the right HOST. `/z0` on
 > `priv.st0.app` belongs to z0's own repository, whose dev servers `npm run dev` here does not start;
 > its per-path rules are that repository's to document.
 >
-> **`/auth/*` follows st0**, wherever the request lands: the registered `redirect_uri` is
+> **`/auth/*` follows k7**, wherever the request lands: the registered `redirect_uri` is
 > `<origin>/auth/callback` with no prefix, so the flow belongs to whichever service answers a
-> bare origin root — st0.
+> bare origin root — k7.
 >
 > Sending `/auth` to a backend that mounts no auth routes fails silently, and it is worth
 > knowing what that looks like: Express answers its own **404, `Cannot GET /auth/login`**, which
@@ -82,8 +82,8 @@ kinds, each for a reason:
 
 The root `build` and `test` scripts stay outside this list — Tilt only owns the dev session.
 
-The **file service** is not a row: st0's backend's file hub starts one per account on first use
-(`packages/file-hub/docs/fileHub.md`). `st0-backend`'s dev script sets `STUDIO_FILES_WATCH=1`,
+The **file service** is not a row: k7's backend's file hub starts one per account on first use
+(`packages/file-hub/docs/fileHub.md`). `k7-backend`'s dev script sets `STUDIO_FILES_WATCH=1`,
 and the hub then watches the file service and every `@studio/*` package it runs: an edit stops
 the account processes and the next request starts them on the new code.
 
@@ -121,7 +121,7 @@ port over the network; the LAN is the trust boundary.
 To put auth back, swap `--without-connection-token` for `--connection-token-file <path>`.
 `serve-web` then answers `403` to a bare `code.priv.frediver.se` and expects the `?tkn=…` URL it prints
 once; it trades that for a `vscode-tkn` cookie good for seven days. The stronger option, if
-this ever leaves a dev machine, is a forward-auth rule on the LAN proxy pointed at st0's
+this ever leaves a dev machine, is a forward-auth rule on the LAN proxy pointed at k7's
 backend (which owns `/auth`) so the studio session gates it.
 
 The first run downloads a server build (~100 MB) and answers `202` with a self-reloading
@@ -162,7 +162,7 @@ subpath's file needs none of this: it is the exports MAP being new that the cach
 
 ## One port every config names that is not its own
 
-`scripts/dev-hosts.mjs` exports `AUTH_PORT` — st0's backend, which serves `/auth/*` for the WHOLE
+`scripts/dev-hosts.mjs` exports `AUTH_PORT` — k7's backend, which serves `/auth/*` for the WHOLE
 origin. It lives there rather than in each vite config because it is the one port a config names
 that is **not** its own backend: every SPA on this origin carries one session minted by one
 service, and in dev each dev server has to forward `/auth` there itself when it is visited directly
@@ -172,15 +172,15 @@ the caller's `backendPort`, which is right for `/api` and wrong for exactly this
 Hence one export: a port hand-copied into three vite configs is three places to find the day it
 changes.
 
-st0 owns the flow because it is the service with NO path prefix: `redirectUriFor` builds
+k7 owns the flow because it is the service with NO path prefix: `redirectUriFor` builds
 `<origin>/auth/callback`, and that is the single `redirect_uri` the IdP has registered. See
 `packages/web-protocol/services.ts`.
 
 ## The native task — `scripts/dev-native.mjs`
 
-It is `engine/st0-engine`'s `dev` script, which is what gives it a pane in the TUI beside the
+It is `engine/k7-runtime`'s `dev` script, which is what gives it a pane in the TUI beside the
 servers. It builds the engine and the supervisor, and runs the supervisor as the command-line engine
-— `st0-supervisor --config <state>/engine-host.json` (`engine/scripts/devEngine.mjs`), the settings
+— `k7-supervisor --config <state>/engine-host.json` (`engine/scripts/devEngine.mjs`), the settings
 file a desktop install keeps, created as `{}` when absent so the studio comes from
 `$STUDIO_REGISTRY_URL`. Edit that file to point the dev engine elsewhere; the supervisor never writes
 it back.
@@ -192,22 +192,22 @@ the sources, rebuild, restart.
 
 | target | watched | rebuilt with |
 |---|---|---|
-| `st0-engine` | `engine/`, `server/`, `CMakeLists.txt`, `CMakePresets.json` | `npm run build:win` / `build:mac --workspace st0-engine` |
-| `st0-supervisor` | `src/`, `CMakeLists.txt`, `CMakePresets.json` | `supervisorBuild.mjs` |
+| `k7-runtime` | `engine/`, `server/`, `CMakeLists.txt`, `CMakePresets.json` | `npm run build:win` / `build:mac --workspace k7-runtime` |
+| `k7-supervisor` | `src/`, `CMakeLists.txt`, `CMakePresets.json` | `supervisorBuild.mjs` |
 
 A failed build of either half leaves the engine down, and says so — `✖ … the engine is stopped, fix
 and save again`. The cycle stops the supervisor and the engine BEFORE building, since a running image
 cannot be relinked, and starts the supervisor again only once every dirty target has built. The
 target that failed stays dirty, so the next save retries it instead of looping on it.
 
-`engine/st0-engine/tests/` is deliberately not watched: it links a binary of its own, and
+`engine/k7-runtime/tests/` is deliberately not watched: it links a binary of its own, and
 rebuilding it would double the wait for something the session never runs.
 
 ### Why one process owns both watches
 
 **A running image cannot be relinked.** On Windows the file is held open for write, so
 a relink against a live binary fails with a confusing linker error, and the engine's
-does the same while the supervisor has `st0-engine.exe` running. The order is
+does the same while the supervisor has `k7-runtime.exe` running. The order is
 therefore stop → build → start.
 
 And the processes that must be stopped are *the same* for both targets: the supervisor holds the
@@ -231,13 +231,13 @@ down. It is **not** retried on a timer: a broken build retried every 500 ms is a
 a signal. Save again and it tries again.
 
 At startup the monitor rebuilds the engine only if there is no binary, or if the sources are newer
-than the one in `engine/st0-engine/build`, and the supervisor likewise; then it starts the supervisor
+than the one in `engine/k7-runtime/build`, and the supervisor likewise; then it starts the supervisor
 whatever was rebuilt. A session should not pay a cmake run to be told there is nothing to do, and
 should not silently run the engine you had before a `git pull`.
 
 ### A build that succeeds without replacing the image
 
-MSBuild prints `st0-engine.vcxproj -> …exe` and exits **0** when a running engine holds the
+MSBuild prints `k7-runtime.vcxproj -> …exe` and exits **0** when a running engine holds the
 file, so the session would go on running the code you just changed away from. `buildEngine`
 therefore checks the binary's mtime afterwards.
 

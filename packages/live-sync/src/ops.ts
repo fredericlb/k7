@@ -49,6 +49,8 @@ export interface Batch {
   ops: FileOp[];
   /** Conflicts this batch settles: taking an alternative is its op plus its id here, dismissing one is the id alone. */
   resolves?: string[];
+  /** The workspace ENDS with this batch — deleted, or moved to another server: a replica receiving it lets its copy go. */
+  ends?: true;
 }
 
 /** An op the room set aside because the value it replaced had changed meanwhile: an alternative until resolved. */

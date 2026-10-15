@@ -10,7 +10,7 @@ import { Workspace } from "./workspace.ts";
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/file-service/src
 const DEMOS = join(here, "..", "..", "..", "demos");
-const SONG = join(DEMOS, "synth-demo.st0");
+const SONG = join(DEMOS, "synth-demo.k7");
 
 let root: string;
 let proj: string;
@@ -18,14 +18,14 @@ let ws: Workspace;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-reopen-"));
-  proj = join(root, "song.st0");
+  proj = join(root, "song.k7");
   copyAsYaml(SONG, proj, { recursive: true });
   // The demo's own modules live at `@workspace`, its sibling in the Examples workspace.
   const demoModules = join(DEMOS, "_modules");
   if (existsSync(demoModules))
     copyAsYaml(demoModules, join(root, "_modules"), { recursive: true });
   ws = new Workspace(root);
-  ws.setActiveProject("song.st0");
+  ws.setActiveProject("song.k7");
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -56,7 +56,7 @@ describe("a project changed underneath the Workspace", () => {
   it("picks up an out-of-band edit when the project is reopened", () => {
     // Reopening is still A signal: `/open` must not serve something older than what it just opened.
     setColor("#123456");
-    ws.setActiveProject("song.st0");
+    ws.setActiveProject("song.k7");
     expect(colour()).toBe("#123456");
   });
 

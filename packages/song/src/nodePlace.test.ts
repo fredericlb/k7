@@ -17,23 +17,23 @@ function chainProject(chain: string): string {
 
 const GTR =
   "start: true\nsteps:\n  - { id: l1, track: gtr }\n" +
-  '  - { id: w1, extends: "@st0/audio/auto-wah" }\n' +
-  '  - [ { id: c1, extends: "@st0/audio/comp" }, { id: c2, plugin: { type: internal, name: Chorus } } ]\n' +
+  '  - { id: w1, extends: "@k7-core/audio/auto-wah" }\n' +
+  '  - [ { id: c1, extends: "@k7-core/audio/comp" }, { id: c2, plugin: { type: internal, name: Chorus } } ]\n' +
   "  - to: [ { chain: MIX } ]\n";
 
 describe("nodePlaces", () => {
   it("places each unnamed node by chain and step, a side-by-side one by its item too", () => {
     expect(nodePlaces(chainProject(GTR))).toEqual({
-      w1: { place: "gtr · step 2", uses: "@st0/audio/auto-wah" },
-      c1: { place: "gtr · step 3.1", uses: "@st0/audio/comp" },
+      w1: { place: "gtr · step 2", uses: "@k7-core/audio/auto-wah" },
+      c1: { place: "gtr · step 3.1", uses: "@k7-core/audio/comp" },
       c2: { place: "gtr · step 3.2" },
     });
   });
 
   it("captions a node by its module, then its place", () => {
     expect(
-      nodeCaption({ place: "gtr · step 2", uses: "@st0/audio/auto-wah" }),
-    ).toBe("@st0/audio/auto-wah · gtr · step 2");
+      nodeCaption({ place: "gtr · step 2", uses: "@k7-core/audio/auto-wah" }),
+    ).toBe("@k7-core/audio/auto-wah · gtr · step 2");
     expect(nodeCaption({ place: "gtr · step 3.2" })).toBe("gtr · step 3.2");
   });
 

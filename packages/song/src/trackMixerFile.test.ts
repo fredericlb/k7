@@ -48,7 +48,7 @@ beforeEach(() => {
   // A project in a WORKSPACE, because a strip is a use of the LIBRARY's mixer and that is where
   // the library is mounted — see docs/trackMixer.md.
   ws = mkdtempSync(join(tmpdir(), "td-strip-"));
-  dir = join(ws, "song.st0");
+  dir = join(ws, "song.k7");
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
@@ -132,7 +132,7 @@ describe("addTrackMixer", () => {
       "# the graph\nmodules:\n  pad: [ synth-pad ]\n  synth-pad: [ MIX ]\n  MIX: [ OUT ]\n",
     );
     const files = addTrackMixer(dir, "pad", loadGraph(dir));
-    // A NODE on st0's own mixer, not a project copy of it (docs/trackMixer.md, docs/metaModules.md).
+    // A NODE on k7's own mixer, not a project copy of it (docs/trackMixer.md, docs/metaModules.md).
     expect(files).toEqual(["nodes/mix-pad.yaml", "graph.yaml"]);
     expect(readFileSync(join(dir, "nodes/mix-pad.yaml"), "utf8")).toContain(
       `extends: "${SHARED_STRIP}"`,

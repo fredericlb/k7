@@ -14,7 +14,7 @@ kinds of wire are not the same quantity, so each is measured its own way ([flow.
 | wire | measure | why that one |
 |---|---|---|
 | **audio** | the level in dB, `-80` still to `0` full | linear in DECIBELS, because that is what a level is: a fader's markings are evenly spaced in dB, and mapping the amplitude instead leaves everything under -20 dB indistinguishable from silence |
-| **midi** | the velocities SOUNDING now, against the busiest that lane ever gets | the same rule the timeline paints a sequence block with (st0's `activity.ts`) — four notes at 0.25 put the same load on the wire as one at full, which is the point of multiplying by velocity rather than counting |
+| **midi** | the velocities SOUNDING now, against the busiest that lane ever gets | the same rule the timeline paints a sequence block with (k7's `activity.ts`) — four notes at 0.25 put the same load on the wire as one at full, which is the point of multiplying by velocity rather than counting |
 | **video** | binary | nothing meters a frame, and "how much picture" is not a quantity. A dark shot is still a shot |
 
 `-80 dB` is a hair above nothing rather than nothing itself: a wire at the noise floor should look
@@ -43,7 +43,7 @@ where the cost is worth counting. This page is the record of that count.
 
 ## What SVG costs, measured
 
-A Firefox profile of st0 during playback, ~23 s on a 149 Hz screen, 15.6 s of CPU on the
+A Firefox profile of k7 during playback, ~23 s on a 149 Hz screen, 15.6 s of CPU on the
 content process's main thread:
 
 | | |

@@ -5,7 +5,13 @@ import type { HuntRecord } from "@studio/web-protocol/hunt";
 import { describe, expect, it, vi } from "vitest";
 import type { Song } from "../types";
 import type { Pl8Client } from "./pl8";
-import { fetchSong, makeInstrumental, runPipeline, syncLyrics } from "./run";
+import {
+  fetchSong,
+  heldInLibrary,
+  makeInstrumental,
+  runPipeline,
+  syncLyrics,
+} from "./run";
 
 const entry = (artist: string, title: string): MediatekEntry =>
   ({
@@ -725,5 +731,24 @@ describe("syncLyrics", () => {
       "{{00:11.95}} Slip inside the eye of your mind",
     );
     expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "matched" });
+  });
+});
+
+describe("heldInLibrary", () => {
+  it("says yes for a song the library holds, no otherwise", async () => {
+    const held = fakePl8({
+      listSongs: async () => [entry("Nina Simone", "Sinnerman")],
+    });
+    expect(await heldInLibrary(held, song())).toBe(true);
+    expect(await heldInLibrary(fakePl8(), song())).toBe(false);
+  });
+
+  it("finds it through a typo, as the fetch would", async () => {
+    const held = fakePl8({
+      listSongs: async () => [entry("Nina Simone", "Sinnerman")],
+    });
+    expect(await heldInLibrary(held, song({ artist: "Nina Simon" }))).toBe(
+      true,
+    );
   });
 });

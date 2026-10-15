@@ -35,9 +35,9 @@ A library carries a third family ([sharedFolders.md](sharedFolders.md)), and a t
 by its library like everything else in it:
 
 ```
-<libraries>/st0/modules/       @st0/audio/utility/trim
-<libraries>/st0/chains/        @st0/process/normalize
-<libraries>/st0/assemblies/    @st0/turntable
+<libraries>/k7/modules/       @k7-core/audio/utility/trim
+<libraries>/k7/chains/        @k7-core/process/normalize
+<libraries>/k7/assemblies/    @k7-core/turntable
 ```
 
 A template is a FOLDER laid out as a project's graph is — `graph.yaml` and `nodes/` — plus one
@@ -59,15 +59,15 @@ A plug is `PortSchema` plus the member it stands for. `port` is written only whe
 declares several ([ports.md](ports.md)). Two plugs of one name on one side are refused: a plug name
 is what a cable names.
 
-The ref is spelled like a chain's — `@st0/turntable`, the level plus the path under the family
+The ref is spelled like a chain's — `@k7-core/turntable`, the level plus the path under the family
 folder. The one this repo ships is `packages/dsp/assemblies/turntable/`, a **place to copy from and
 never a seed**: nothing in this build puts files in somebody's library repository.
 
 ### The instance — a flat entity folder in the project
 
 ```yaml
-# <project>.st0/assemblies/turntableA.yaml
-uses: "@st0/turntable"
+# <project>.k7/assemblies/turntableA.yaml
+uses: "@k7-core/turntable"
 members:
   deck: deckA
   trim: trimA
@@ -106,7 +106,7 @@ The same three questions a group's membership is asked, over any node rather tha
 - one node in two assemblies — a card cannot be in two boxes;
 - a box named after a node or a module, which is the flat key space ([nodes.md](nodes.md)).
 
-A `uses:` that resolves to nothing is a **warning**, not an error, exactly as an unresolved `@st0/…`
+A `uses:` that resolves to nothing is a **warning**, not an error, exactly as an unresolved `@k7-core/…`
 module ref is: a new library is empty. Such a box still draws, from `members:` alone, with no plugs
 and no knobs — which is the honest reading of a template nobody has published yet.
 
@@ -164,7 +164,7 @@ No new route, and the same road the chains builder takes.
 
 A promotion lives on the **template**, so two turntables cannot drift apart. A save writes into a
 library, which only an admin may do and only their push publishes, so it is a button and never a
-timer — the rule a shared module already follows (`apps/st0/frontend/docs/sharedModules.md`).
+timer — the rule a shared module already follows (`apps/k7/frontend/docs/sharedModules.md`).
 
 ## Not covered
 
@@ -184,7 +184,7 @@ the cards keep their spacing.
 
 None of it is written down, and that is what gives the position back: closing the box stops the
 push. The one way to break that is to record a shoved position, so a moved card carries `pushed` —
-where it belongs — and st0's session memory and its auto-pin both read that instead of where the
+where it belongs — and k7's session memory and its auto-pin both read that instead of where the
 card is drawn. See `packages/ui-chains/docs/graphBuild.md`.
 
 ## Its own cables, and the traffic crossing it

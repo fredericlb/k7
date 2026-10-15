@@ -37,7 +37,7 @@ another song in the same repository.
 
 `REFERENCE_EXTS` is not "audio files" in general: it is the set an `<audio>` element has any
 chance with, because the browser is what plays a reference — see
-`apps/st0/frontend/docs/references.md` for why. A codec the browser refuses still fails, and
+`apps/k7/frontend/docs/references.md` for why. A codec the browser refuses still fails, and
 fails out loud on the element; the list only keeps the obvious non-audio out of the listing.
 
 So a `.md` or a cover image beside the tracks is not one, and gets no row. A folder is somebody's

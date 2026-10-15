@@ -8,7 +8,7 @@ through a content-addressed store beside the relay, `/api/sync/blobs` (`../blobS
 
 ## The ref IS the file's text
 
-A binary file is a whole-text op whose text is its ref: a NUL byte, `st0fs-blob`, the sha256 of the
+A binary file is a whole-text op whose text is its ref: a NUL byte, `k7fs-blob`, the sha256 of the
 bytes and their length. Nothing that orders, settles or keeps ops had to learn a second kind of file.
 The room holds the ref as the file's canonical text, a snapshot and a replica's confirmed text carry
 it, and `was` is the `textHash` of the ref it replaced, so two machines replacing one take is a
@@ -55,7 +55,7 @@ A take is gigabytes and a phone's connection drops, so no transfer starts again 
 
 - **An upload** streams into a PARTIAL kept per hash (`partial/<hash>`). A body cut short leaves the
   bytes that arrived there, a HEAD of a blob the store lacks says how many
-  (`x-st0fs-partial-length`), and the next PUT sends the rest with `?offset=N`. The whole is hashed
+  (`x-k7fs-partial-length`), and the next PUT sends the rest with `?offset=N`. The whole is hashed
   before it is kept, prefix included, so a resumed blob is verified exactly as a whole one. An
   offset past what is kept is refused with the length to resume from; one short of it drops the
   bytes past it. One upload of a hash runs at a time.

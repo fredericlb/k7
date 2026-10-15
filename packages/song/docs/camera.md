@@ -131,7 +131,7 @@ one paragraph up, applied to a lane that is simply not being watched.
 ## Recording it is the browser's too
 
 Arming a picture lane and rolling the transport captures a lens into a clip on that lane —
-`MediaRecorder`, in `apps/st0/frontend/docs/picture.md`. It follows from the line above rather than
+`MediaRecorder`, in `apps/k7/frontend/docs/picture.md`. It follows from the line above rather than
 adding anything to this model: the engine has no camera to record, so the half that holds one is
 the half that records it. The label is matched by `matchCamera`, so a take records the lens the
 lane names and falls back the same way.
@@ -166,7 +166,7 @@ clear — any right to open one, `getUserMedia` being absent outside a secure co
 
 So the opener is **injected**. `RealtimeDriver.create` takes a `LensOpener`, whose default is this
 browser's own camera; a surface on a second device is handed one that asks the machine instead and
-receives the stream over a peer connection. `apps/st0/frontend/docs/external.md` is that page.
+receives the stream over a peer connection. `apps/k7/frontend/docs/external.md` is that page.
 
 What matters here is that the file keeps meaning what it says: the label is matched where it was
 written, so `"Logitech BRIO"` names the machine's lens whichever screen is drawing it.

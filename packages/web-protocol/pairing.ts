@@ -1,7 +1,7 @@
 // pairing.ts — how a desktop app asks a server for a token and gets it back on its own
 // loopback port. Both halves are here because they are ONE rule seen from two sides: the app
-// builds the return address, st0's backend validates it, and a second spelling of "is this loopback"
-// would be a hole rather than a drift. See apps/st0/backend/docs/handoff.md.
+// builds the return address, k7's backend validates it, and a second spelling of "is this loopback"
+// would be a hole rather than a drift. See apps/k7/backend/docs/handoff.md.
 //
 // The shape is RFC 8252's for native apps — the system browser, a loopback redirect, any port,
 // bound to a state nonce — applied to the studio session rather than to the IdP itself.
@@ -9,7 +9,7 @@
 /** Where the desktop listens for its token. One path, so the server's rule and the app's agree. */
 export const PAIR_RETURN_PATH = "/desktop/pair";
 
-/** The route on st0's backend that hands a token back. */
+/** The route on k7's backend that hands a token back. */
 export const PAIR_ROUTE = "/api/token/pair";
 
 /**
@@ -73,7 +73,7 @@ export function syncPairUrl(
   return u.toString();
 }
 
-/** The st0 server a person typed, as an origin (`https://st0.app`), or null when it cannot be one: no scheme means https. */
+/** The k7 server a person typed, as an origin (`https://st0.app`), or null when it cannot be one: no scheme means https. */
 export function normalizeServer(input: string): string | null {
   const raw = input.trim();
   if (!raw) return null;

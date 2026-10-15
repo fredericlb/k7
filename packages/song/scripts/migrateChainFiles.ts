@@ -1,7 +1,7 @@
 // One-shot: rewrite node projects (`graph.yaml` + `nodes/`) as chain projects (`chains/` + `tracks/`).
 // Dry run unless `--write`; a project it cannot carry over is reported and left alone. docs/chainFiles.md.
 //
-//   npx tsx packages/song/scripts/migrateChainFiles.ts <project.st0> [more…] [--write]
+//   npx tsx packages/song/scripts/migrateChainFiles.ts <project.k7> [more…] [--write]
 
 import {
   migrateToChainFiles,
@@ -12,7 +12,7 @@ const args = process.argv.slice(2);
 const write = args.includes("--write");
 const dirs = args.filter((a) => a !== "--write");
 if (!dirs.length) {
-  console.error("usage: migrateChainFiles <project.st0> [more…] [--write]");
+  console.error("usage: migrateChainFiles <project.k7> [more…] [--write]");
   process.exit(2);
 }
 let failed = 0;

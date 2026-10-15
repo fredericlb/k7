@@ -56,7 +56,7 @@ describe("toDb", () => {
   });
 });
 
-// A stand-in for `st0-engine --decode`: writes the stream in deliberately awkward pieces.
+// A stand-in for `k7-runtime --decode`: writes the stream in deliberately awkward pieces.
 describe.skipIf(process.platform === "win32")("the --decode stream", () => {
   const dir = mkdtempSync(join(tmpdir(), "decode-test-"));
   afterAll(() => rmSync(dir, { recursive: true, force: true }));

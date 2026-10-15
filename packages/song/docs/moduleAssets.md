@@ -33,7 +33,7 @@ widget that offers them is described.
 `extends`. Looking at the entity's OWN folder and nowhere else is right only for a module that both
 owns the assets and stores them itself, and wrong for the two shapes that actually carry material:
 
-- the shared module itself — `@workspace/audio/guitar` (or `@st0/…`) has the fourteen NAM profiles;
+- the shared module itself — `@workspace/audio/guitar` (or `@k7-core/…`) has the fourteen NAM profiles;
 - a NODE that exists only to override one param of it, which is what `extends` on a `nodes/<x>.yaml`
   produces and is the normal way a song points at a shared amp.
 
@@ -113,7 +113,7 @@ cache is consulted only for a name that already passed. Pinned in `moduleAssets.
 ### `model_url` — where the machine can fetch it
 
 A model that lives outside the repository has to get onto each machine somehow, and "put it in
-`~/.st0/models`" was the whole of the answer: nothing said where the 166 MB came from. A module
+`~/.k7/models`" was the whole of the answer: nothing said where the 166 MB came from. A module
 may now say so, beside the name it already gives:
 
 ```yaml
@@ -133,7 +133,7 @@ Two surfaces offer the download, and neither sends a URL:
 - a node's right-click in the graph — **Download model**, first in its menu. The file service marks
   the step (`modelDownload` on the graph document, `graphDoc.ts`) and `POST /models/download` takes
   the NODE NAME, resolving it as the graph did;
-- st0's settings, *Separation chains* — a link under a chosen cold chain that cannot run for want of
+- k7's settings, *Separation chains* — a link under a chosen cold chain that cannot run for want of
   a model (`coldChains`' `downloads`), `POST /account/cold-chains/download` taking the CHAIN REF.
 
 **The URL is only ever read off the module.** A page names what it clicked, and the server finds

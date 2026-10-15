@@ -24,7 +24,7 @@ let reloaded = 0;
 /** A lane through one compressor node, the compressor holding two engines in `@workspace`. */
 function song(node: string): void {
   root = mkdtempSync(join(tmpdir(), "td-engine-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),

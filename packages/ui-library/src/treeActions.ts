@@ -9,6 +9,7 @@ import { library } from "./api";
 import type { LibraryLabels } from "./labels";
 import { entryAt, isSongFolder } from "./libraryTree";
 import { folderOf } from "./routes";
+import { missingUnder } from "./serverSets";
 
 type Actions = TreeAction<TreeNode>[];
 
@@ -20,13 +21,26 @@ export function songActions(d: {
   openFile: (rel: string | null) => void;
   pickVariant: (song: string) => void;
   enqueue: (entries: MediatekEntry[]) => void;
+  /** The paired server's songs this machine lacks; empty when unpaired. */
+  serverOnly: MediatekEntry[];
+  download: (paths: string[]) => Promise<void>;
   refresh: () => void;
   setError: (message: string) => void;
   labels: LibraryLabels;
 }): Actions {
   const { section, entries, file } = d;
   const l = d.labels.tree;
+  const missing = (t: TreeNode) =>
+    missingUnder(d.serverOnly, `${section}/${t.path}`);
   return [
+    {
+      key: "download-missing",
+      // An album or an artist half here: what the server holds under it, and only that (../../mediatek/docs/serverCopy.md).
+      label: (t) => d.labels.contents.downloadMissing(missing(t).length),
+      // A folder half here, or one song only the server holds: the same download.
+      when: (t) => !t.root && missing(t).length > 0,
+      run: (t) => void d.download(missing(t)),
+    },
     {
       key: "add-variant",
       // The same gesture as the drop onto this row, said in words — a drag is not discoverable.

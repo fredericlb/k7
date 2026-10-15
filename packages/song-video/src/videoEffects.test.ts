@@ -12,13 +12,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadVideoProject } from "./videoProject";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const LIBRARY = join(here, "..", "..", "..", "st0-library");
+const LIBRARY = join(here, "..", "..", "..", "k7-core");
 
 let root: string;
 let dir: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "video-effects-"));
-  dir = join(root, "film.st0");
+  dir = join(root, "film.k7");
   mkdirSync(join(dir, "clips"), { recursive: true });
   mkdirSync(join(dir, "video_tracks"), { recursive: true });
   mkdirSync(join(dir, "nodes"), { recursive: true });
@@ -32,13 +32,13 @@ beforeEach(() => {
   // The library's grade, through a node of the song's own — the shape every library module is used in.
   writeFileSync(
     join(dir, "nodes", "warm.yaml"),
-    'extends: "@st0/shaders/grade"\nparams: { P4: 0.8 }\n',
+    'extends: "@k7-core/shaders/grade"\nparams: { P4: 0.8 }\n',
   );
   writeFileSync(
     join(dir, "graph.yaml"),
     "modules:\n  warm: [ main ]\n  RENDER: [ VIDEO_OUT ]\n",
   );
-  setLibraryOverlays([{ name: "st0", root: LIBRARY }]);
+  setLibraryOverlays([{ name: "k7-core", root: LIBRARY }]);
 });
 afterEach(() => {
   setLibraryOverlays([]);
@@ -72,7 +72,7 @@ describe("a shot's effect", () => {
   it("carries a look's LUT as an absolute path, from the node that names it", () => {
     writeFileSync(
       join(dir, "nodes", "film.yaml"),
-      'extends: "@st0/shaders/look"\nlut: looks/film.cube\n',
+      'extends: "@k7-core/shaders/look"\nlut: looks/film.cube\n',
     );
     writeFileSync(
       join(dir, "graph.yaml"),

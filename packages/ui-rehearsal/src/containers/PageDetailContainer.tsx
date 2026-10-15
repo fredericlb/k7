@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { m } from "../paraglide/messages.js";
-import type { Page, Release } from "../types";
+import type { Page, PageVisibility, Release } from "../types";
 import { PageDetailView } from "../views/PageDetailView";
 
 interface Props {
@@ -55,6 +55,11 @@ export function PageDetailContainer({
     onChange();
   };
 
+  const handleVisibilityChange = async (visibility: PageVisibility) => {
+    setPage(await api.updatePage(pageId, { visibility }));
+    onChange();
+  };
+
   const handleDelete = async () => {
     await api.deletePage(pageId);
     onDeleted();
@@ -72,6 +77,7 @@ export function PageDetailContainer({
       onChooseVersion={handleChooseVersion}
       onDelete={handleDelete}
       onRename={handleRename}
+      onVisibilityChange={handleVisibilityChange}
       onBack={onBack}
       versionAudioUrl={api.versionAudioUrl}
       versionDownloadUrl={api.versionDownloadUrl}

@@ -20,14 +20,14 @@ const MODULE_DIR = "_modules/instruments/synth";
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-inst-"));
-  const proj = join(root, "song.st0");
+  const proj = join(root, "song.k7");
   mkdirSync(proj, { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
   writeYaml(join(root, MODULE_DIR, "module.yaml"), {
     plugin: { type: "internal", name: "4osc" },
   });
   ws = new Workspace(root);
-  ws.setActiveProject("song.st0");
+  ws.setActiveProject("song.k7");
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -36,7 +36,7 @@ describe("Workspace.createNode", () => {
   it("puts the file in the project's flat nodes/, not under the module", () => {
     const { path } = ws.createNode(MODULE_DIR, "lead");
     expect(path).toBe("nodes/lead.yaml");
-    expect(existsSync(join(root, "song.st0", path))).toBe(true);
+    expect(existsSync(join(root, "song.k7", path))).toBe(true);
     // The module is untouched — the node names it, it doesn't rewrite it.
     expect(existsSync(join(root, MODULE_DIR, "module.yaml"))).toBe(true);
   });
@@ -62,8 +62,8 @@ describe("Workspace.createNode", () => {
   });
 
   it("refuses a folder that isn't a module", () => {
-    mkdirSync(join(root, "song.st0", "clips"), { recursive: true });
-    expect(() => ws.createNode("song.st0/clips", "lead")).toThrow(
+    mkdirSync(join(root, "song.k7", "clips"), { recursive: true });
+    expect(() => ws.createNode("song.k7/clips", "lead")).toThrow(
       /unknown module category/,
     );
   });

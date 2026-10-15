@@ -186,7 +186,7 @@ describe("newModuleAlternative, through the real loader", () => {
   let dir: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), "td-lane-alt-"));
-    dir = join(root, "song.st0");
+    dir = join(root, "song.k7");
     mkdirSync(dir, { recursive: true });
     // A module lives at `@workspace` now, beside the project.
     mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });

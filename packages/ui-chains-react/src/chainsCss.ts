@@ -106,7 +106,7 @@ const CSS = `
 /* A lane's row reads as one strip: its cards keep only the borders they share, at the sides. */
 .dgx-node.across { border-top-width:0; border-bottom-width:0; }
 .dgx-node.sel { box-shadow:0 0 0 2px ${RING}, 0 12px 30px -10px rgba(0,0,0,.66); }
-/* Lit by the host (st0's History panel): amber, so it never reads as the selection's violet. */
+/* Lit by the host (k7's History panel): amber, so it never reads as the selection's violet. */
 .dgx-node.marked { box-shadow:0 0 0 3px ${MARK}, 0 0 18px 2px color-mix(in srgb, ${MARK} 45%, transparent); }
 .dgx-marquee { position:absolute; z-index:30; pointer-events:none; border:1px dashed ${RING}; background:color-mix(in srgb, ${RING} 12%, transparent); border-radius:2px; }
 .dgx-node.tappable { cursor:pointer; }

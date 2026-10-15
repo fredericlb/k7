@@ -7,10 +7,10 @@ way round: a false security claim is worse than no claim, because people build o
 
 The engine answers `whoami` with its id, its token and its audio timing — to the machine's own
 sockets, to the server's relay, and to a LAN device once it is PAIRED. An unpaired LAN peer gets the id
-and `needsPairing` and never the token (`engine/st0-engine/docs/pairing.md`):
+and `needsPairing` and never the token (`engine/k7-runtime/docs/pairing.md`):
 
 ```
-// engine/st0-engine/server/Serve.cpp, the `whoami` / `hello` branch
+// engine/k7-runtime/server/Serve.cpp, the `whoami` / `hello` branch
 ws.send(json{{"type", "whoami"}, {"id", engineId}, {"token", engineToken}, …}.dump());
 ```
 
@@ -41,7 +41,7 @@ What the audio axis assumes, stated plainly:
   the machine of the person playing.
 - **The local network is not**: a device on it drives once the musician has paired it, which is what
   lets a phone drive the transport from the stage without letting the whole room do so.
-- **The real authentication is elsewhere**: the session cookie st0 mints, which z0 only
+- **The real authentication is elsewhere**: the session cookie k7 mints, which z0 only
   verifies.
 
 None of that is absurd for a stage tool. What would be absurd is writing it backwards in the file

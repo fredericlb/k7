@@ -3,8 +3,8 @@
 ```yaml
 # graph.yaml — runs nothing feeds, each landing on the lane its shots are on
 modules:
-  warm: [ main ]                 # nodes/warm.yaml  extends "@st0/shaders/grade"
-  film: [ main ]                 # nodes/film.yaml  extends "@st0/shaders/look", lut: looks/film.cube
+  warm: [ main ]                 # nodes/warm.yaml  extends "@k7-core/shaders/grade"
+  film: [ main ]                 # nodes/film.yaml  extends "@k7-core/shaders/look", lut: looks/film.cube
 
 # video_tracks/main.yaml
 events:
@@ -46,7 +46,7 @@ activation refuses an `effect:`, since it carries no picture to grade.
 
 ## `grade`: four knobs, neutral at their middle
 
-`@st0/shaders/grade` is exposure (±2 stops), contrast, saturation and temperature, each 0.5 at
+`@k7-core/shaders/grade` is exposure (±2 stops), contrast, saturation and temperature, each 0.5 at
 rest. A fresh grade node changes NOTHING until a knob moves: a correction that altered the picture
 the moment it was added would make every shot look wrong at the moment it is wired. Exposure and
 temperature act on linear light, since a stop is a multiplication and only means one there.
@@ -55,7 +55,7 @@ knobs because a shader has four (`uP1`..`uP4`); a finer grade is two nodes in a 
 
 ## `look`: a `.cube` LUT, named by the node
 
-`@st0/shaders/look` lays a 3D LUT over the picture, `P1` its strength. The FILE is named by the
+`@k7-core/shaders/look` lays a 3D LUT over the picture, `P1` its strength. The FILE is named by the
 node (`lut:`, project-relative) and not by the module, so one look module serves every LUT a song
 uses, and a LUT a colourist sends is dropped into the project without touching the library. Only
 3D LUTs are read, and a malformed file is refused by name (`packages/ui-eyes/docs/luts.md`). Until

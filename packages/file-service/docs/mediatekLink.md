@@ -5,14 +5,14 @@ depends on: the `/mediatek/*` routes, saving a take into the médiathèque, and 
 
 ## The hub hands them in, and nothing else does
 
-The file hub starts one service per account (`packages/file-hub/docs/fileHub.md`), and st0's backend is
+The file hub starts one service per account (`packages/file-hub/docs/fileHub.md`), and k7's backend is
 the process running the hub. So it gives each service its own loopback address and a bearer minted
-**for that account** (`apps/st0/backend/src/media/fileHub.ts`). No file on disk is read as a fallback:
+**for that account** (`apps/k7/backend/src/media/fileHub.ts`). No file on disk is read as a fallback:
 the only thing that ever started this service is the hub, and a value found anywhere else would be
 some other process's.
 
 Loopback rather than the public origin: the call never leaves the machine, and it does not depend
-on the proxy in front of st0 being configured for it.
+on the proxy in front of k7 being configured for it.
 
 ## The token's subject is the account
 

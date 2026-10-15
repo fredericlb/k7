@@ -25,7 +25,7 @@ balance is the wrong way round.
   copied by hand keeps the original's `ref:` and its panel silently lands on the module it was copied from.
 - **Two places to look.** "Where is this module's face" has no answer you can reach by looking at the module.
 - **Two writers for one save.** A module's four files are edited together and saved together
-  (`apps/st0/frontend/docs/sharedModules.md`); a parallel tree would split that write across two
+  (`apps/k7/frontend/docs/sharedModules.md`); a parallel tree would split that write across two
   roots, and a crash between them leaves a panel that answers to nothing, or a module with none.
 
 Beside the module, the **folder is the key**. Nothing inside `ui.yaml` says which module it draws, because
@@ -66,10 +66,10 @@ guessing at a root: a panel filed under a module that isn't there is a save that
 nothing.
 
 **This writes into shared libraries, and that is the intent.** A `@workspace` module takes the write directly,
-the same as any other file st0 saves; drawing a knob for a plugin every song in the workspace reaches for
+the same as any other file k7 saves; drawing a knob for a plugin every song in the workspace reaches for
 changes the panel every one of them sees, which is exactly "authored once for the plugin" rather than a
-mistake to guard against. `@st0` is the one level still gated — behind the Edit-then-publish confirmation in
-the builder (`apps/st0/frontend/docs/sharedModules.md`), not by anything in this file.
+mistake to guard against. `@k7-core` is the one level still gated — behind the Edit-then-publish confirmation in
+the builder (`apps/k7/frontend/docs/sharedModules.md`), not by anything in this file.
 
 The consequence is real and worth stating: editing a panel from one project changes what every project sees.
 That is the same trade `module populate` makes, and it is what "authored once for the plugin" means.
@@ -85,7 +85,7 @@ lives.
 `moduleRootFor` throws rather than guessing, since a panel written under the wrong root draws a module that
 isn't there. Two refs need saying:
 
-- A BARE ref (`audio/reverb`, no `@`) names no library at all — a module lives at `@workspace` or `@st0` now,
+- A BARE ref (`audio/reverb`, no `@`) names no library at all — a module lives at `@workspace` or `@k7-core` now,
   always spelt with the level, so a bare ref would match no root and is refused before it is even split.
 - `@engine/<slug>` deliberately has NO answer: an engine module is a scanned plugin with no folder in any
   library, and a panel needs a folder to sit in. Better a refusal that says so than a file written under `io/`,

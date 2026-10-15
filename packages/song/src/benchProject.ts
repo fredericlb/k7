@@ -54,8 +54,8 @@ export function benchProjectFiles(size: BenchSize): Record<string, string> {
 
 /** …to its OWN `mkdtemp` and nothing outside it, with every mtime aged (docs/benchSettle.md). */
 export function writeBenchProject(size: BenchSize): string {
-  // The `.st0` suffix is load-bearing: without it the folder is invisible to `Workspace`.
-  const dir = join(mkdtempSync(join(tmpdir(), "studio-bench-")), "bench.st0");
+  // The `.k7` suffix is load-bearing: without it the folder is invisible to `Workspace`.
+  const dir = join(mkdtempSync(join(tmpdir(), "studio-bench-")), "bench.k7");
   const files = benchProjectFiles(size);
   writeProjectFiles(dir, files);
   // An hour back, or the fixture sits inside `yamlCache`'s 2 s SETTLE_MS and cannot be cached.

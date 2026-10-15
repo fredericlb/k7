@@ -42,7 +42,7 @@ the IndexedDB backup, a source that ends, a hidden tab — are its page
   best-effort. The reason is Retry: a save that failed AFTER the take was stored would offer to
   send it again, and an appended take sent twice is a session with the same audio in it twice.
 - **Leaving asks first.** While a take is recording, paused, uploading or refused, closing or
-  reloading the tab raises the browser's confirmation. Moving between st0's home pages is not
+  reloading the tab raises the browser's confirmation. Moving between k7's home pages is not
   leaving: the take is held above their routes ([audio.md](audio.md)).
 
 The server gives a single request 30 minutes rather than Node's 5, and never holds a take whole in

@@ -59,7 +59,7 @@ async function until(f: () => boolean, ms = 10_000): Promise<void> {
   }
 }
 
-/** The relay and the blob store on one HTTP server, as st0's backend mounts them. */
+/** The relay and the blob store on one HTTP server, as k7's backend mounts them. */
 async function hub() {
   const dataRoot = mkdtempSync(join(tmpdir(), "blobsync-data-"));
   const tokens = new DeviceTokens(Buffer.from("test-key"), (slug) =>
@@ -146,7 +146,7 @@ function device(
 const same = (root: string, rel: string, want: Buffer) => () =>
   bytesAt(root, rel)?.equals(want) ?? false;
 
-describe("binary files over st0fs", () => {
+describe("binary files over k7fs", () => {
   it("brings a take written on one machine to another, then its replacement", async () => {
     const { url } = await hub();
     const a = device(url, { secret: "secret-a" }, { "mix.yaml": MIX });
@@ -155,15 +155,13 @@ describe("binary files over st0fs", () => {
     await until(() => bytesAt(b.root, "mix.yaml")?.toString() === MIX);
 
     const take = randomBytes(200_000);
-    put(a.root, "song.st0/takes/take.wav", take);
-    await until(same(b.root, "song.st0/takes/take.wav", take));
+    put(a.root, "song.k7/takes/take.wav", take);
+    await until(same(b.root, "song.k7/takes/take.wav", take));
 
     const again = randomBytes(150_000);
-    put(a.root, "song.st0/takes/take.wav", again);
-    await until(same(b.root, "song.st0/takes/take.wav", again));
-    expect(bytesAt(a.root, "song.st0/takes/take.wav")?.equals(again)).toBe(
-      true,
-    );
+    put(a.root, "song.k7/takes/take.wav", again);
+    await until(same(b.root, "song.k7/takes/take.wav", again));
+    expect(bytesAt(a.root, "song.k7/takes/take.wav")?.equals(again)).toBe(true);
   }, 30_000);
 
   it("seeds a room with audio, and a newcomer gets the bytes", async () => {

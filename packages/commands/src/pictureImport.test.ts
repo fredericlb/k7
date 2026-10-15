@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const DEMO = join(here, "..", "..", "..", "demos", "video-demo.st0");
+const DEMO = join(here, "..", "..", "..", "demos", "video-demo.k7");
 const FIXTURE = join(
   here,
   "..",
@@ -48,7 +48,7 @@ const host = () =>
 beforeEach(() => {
   logs.length = 0;
   refusals.length = 0;
-  song = join(mkdtempSync(join(tmpdir(), "td-pimport-")), "video-demo.st0");
+  song = join(mkdtempSync(join(tmpdir(), "td-pimport-")), "video-demo.k7");
   cpSync(DEMO, song, { recursive: true });
 });
 afterEach(() => rmSync(dirname(song), { recursive: true, force: true }));
@@ -89,7 +89,7 @@ describe("picture import", () => {
   });
 
   it("gives a song with no picture a frame at the cut's rate", async () => {
-    const bare = join(dirname(song), "bare.st0");
+    const bare = join(dirname(song), "bare.k7");
     mkdirSync(join(bare, "imports"), { recursive: true });
     writeFileSync(
       join(bare, "project.yaml"),

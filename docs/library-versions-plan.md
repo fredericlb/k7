@@ -1,4 +1,4 @@
-# Library versions: upgrade a library without reinstalling st0
+# Library versions: upgrade a library without reinstalling k7
 
 The decisions of the library-versions work, in one place. What is built is described by
 `../packages/song/docs/sharedFolders.md` and `../packages/file-hub/docs/fileHub.md`; this page
@@ -6,9 +6,9 @@ says the whole design and which lots remain.
 
 ## The goal
 
-- A new install has the default `st0` library, with no network.
-- A user upgrades a library without installing st0 again.
-- A library may need a newer st0 than the one running; that upgrade is then refused, with the reason.
+- A new install has the default `k7-core` library, with no network.
+- A user upgrades a library without installing k7 again.
+- A library may need a newer k7 than the one running; that upgrade is then refused, with the reason.
 - Nobody but an admin edits a library. A user who wants a module different FORKS it into their own
   account library.
 - The server opens every song: one pinned to the latest library, one pinned to an old one, one whose
@@ -17,7 +17,7 @@ says the whole design and which lots remain.
 ## What forces versions
 
 The origin holds one folder per library and a song hears it as an admin last left it. That cannot
-meet the last goal: a desktop whose st0 is too old for the newest library keeps playing an older
+meet the last goal: a desktop whose k7 is too old for the newest library keeps playing an older
 one, and the server must open that song as the desktop hears it. So **a library is a series of
 published versions, frozen, and every workspace names the version it uses.**
 
@@ -29,20 +29,20 @@ upgrades. That is the price of a song sounding the same on every replica.
 - An admin edits `libraries/<name>/draft/`, live, exactly as a library is edited today.
 - **Publish** freezes the draft as `libraries/<name>/<n>/`, `n` an integer counting up from 1.
   A published version never changes; a fix is a new version.
-- Every library of the origin is versioned, `st0` and any other alike: one mechanism, no exception.
+- Every library of the origin is versioned, `k7` and any other alike: one mechanism, no exception.
 - The origin keeps every version a workspace of any account pins. Binaries are in the blob store,
   so an old version costs its text and nothing else.
 - Each version carries `library.yaml`: `name`, `version`, `requires`, and the publish notes.
 
 ## `requires` is a LEVEL, not an app version
 
-st0 has several version schemes: the image stamp (`26.08031412`), the desktop's snapshot and
-`vX.Y.Z` tags, the phone's build. None compares with the others. So st0 declares one integer,
+k7 has several version schemes: the image stamp (`26.08031412`), the desktop's snapshot and
+`vX.Y.Z` tags, the phone's build. None compares with the others. So k7 declares one integer,
 `LIBRARY_LEVEL`, and a library declares `requires: <level>`.
 
 - The level rises when the compiler or the engine gains something a library can use: a module type,
   a parameter kind, a bundled plugin, a field of `module.yaml`.
-- **An st0 at level N runs every library whose `requires` is at most N.** That is the compatibility
+- **An k7 at level N runs every library whose `requires` is at most N.** That is the compatibility
   promise, and what lets the server open an old pin: the server is always at the highest level.
 - Publish refuses a draft whose `requires` exceeds the origin's own level. Unsaid, `requires` is
   the previous version's, so a publish never raises the floor by accident.
@@ -58,7 +58,7 @@ st0 has several version schemes: the image stamp (`26.08031412`), the desktop's 
 `_library-pins.yaml` at the workspace root, beside `_modules/` and `_playlists/`:
 
 ```yaml
-st0: 7
+k7: 7
 drums: 2
 ```
 
@@ -68,15 +68,15 @@ drums: 2
   `_modules`.
 - A library the file does not name resolves to the version that was current when versions arrived,
   and the first open WRITES that pin, so no song changes sound unasked.
-- A new workspace pins the newest version its st0 can run.
+- A new workspace pins the newest version its k7 can run.
 - An admin's workspace pins `draft`, new or not: an admin authors the library from their own
   workspaces, and a frozen version refuses the write.
 
 ## Upgrade
 
-- **The source is the server.** `/api/public/libraries` lists the versions of `st0` with `requires`
+- **The source is the server.** `/api/public/libraries` lists the versions of `k7` with `requires`
   and notes, each version's files with their digests, and each file. It is readable without signing
-  in, so an unpaired desktop can upgrade too; only `st0`, the library every install starts from,
+  in, so an unpaired desktop can upgrade too; only `k7`, the library every install starts from,
   since any other reaches a machine through a paired account. A version comes down FILE by file
   rather than as one archive: most files do not change between two versions, and one whose digest
   the machine already holds is copied instead of downloaded. A frozen version caches forever.
@@ -84,23 +84,23 @@ drums: 2
   phone table). A hosted origin never does: it IS one, and the private instance asking `st0.app`
   would mix two origins' libraries.
 - **First run is the installer's copy.** The desktop and the phone bundle the newest published
-  version of `st0` the build runs, `library.yaml` included, and install it under that number on first
+  version of `k7` the build runs, `library.yaml` included, and install it under that number on first
   run, with no network. A folder rather than an archive: the bundle is files already, and the hub
   copies a folder. An app update carrying a newer version adds it as one more frozen version and
-  moves no pin. A build that cannot reach the origin bundles the repo's `st0-library` and says so:
+  moves no pin. A build that cannot reach the origin bundles the repo's `k7-core` and says so:
   that one installs as version 1, which is what it is on an origin seeded from it.
 - **Upgrade is a per-workspace action**, the verb `library upgrade <library> [version]` and the
   strip above the editor's file tree: it fetches the version if the machine lacks it, then rewrites
   the pin and recompiles the song. It lists the forks whose base changed between the two versions —
   `_modules` today, the account library once it exists — so the user listens to them again.
 - **Too old is refused.** A version whose `requires` exceeds the running level is shown disabled with
-  "needs st0 level N — update st0", and the newest version the app can run is offered instead.
+  "needs k7 level N — update k7", and the newest version the app can run is offered instead.
 - A paired machine no longer follows a library live: it fetches the versions its workspaces pin,
   which is also what it needs on its disk before a gig.
 
 ## Overrides are forks into the ACCOUNT library
 
-A ref keeps naming exactly one folder: nothing shadows `@st0/x` in place. Overriding is forking, as
+A ref keeps naming exactly one folder: nothing shadows `@k7-core/x` in place. Overriding is forking, as
 `_modules` forks today, into a library the account owns.
 
 - **The account library** is `<account>/library/` on the server, beside `workspace/`, refs
@@ -109,13 +109,13 @@ A ref keeps naming exactly one folder: nothing shadows `@st0/x` in place. Overri
 - It is the account's own, not versioned and not pinned: it is edited live like `_modules`, and
   reaches every replica by live sync, in the account's room `_account` — a name no workspace can
   take, since a workspace name starts with a letter or a digit. It is no origin library: it neither
-  counts for "st0 opens no project without a library" nor takes a pin.
+  counts for "k7 opens no project without a library" nor takes a pin.
 - **Fork** (`module fork <ref>`, also on a node's menu) makes `@account/audio/foo` a module that
-  `extends: "@st0/audio/foo"`, carrying the base's panel, then repoints the open project's refs.
+  `extends: "@k7-core/audio/foo"`, carrying the base's panel, then repoints the open project's refs.
   Nothing else is copied: the fork keeps inheriting whatever it does not change. Forking again
   keeps what the fork already holds.
 - What it extends resolves against the pin of the workspace that opens it, so one fork may sit on
-  `st0` 7 in one workspace and 9 in another. That is why upgrade lists the forks whose base moved.
+  `k7` 7 in one workspace and 9 in another. That is why upgrade lists the forks whose base moved.
 - Resolution order: the project, `@workspace`, `@account`, the pinned libraries. Each still keys
   under its own name, so the order decides lookup and never which module a ref means.
 
@@ -140,7 +140,7 @@ library and every workspace, and runs at the highest level, so latest, old and f
    (`../packages/file-hub/publicLibraries.ts`, `libraryFetch.ts`). **Remains:** a paired machine still
    follows each library whole through the relay, every version and the draft included; fetching
    only what its workspaces pin is a disk saving, not a correctness one.
-5. **Built.** `apps/st0/backend/scripts/libraryArchive.mjs` bundles the published version; the hub
+5. **Built.** `apps/k7/backend/scripts/libraryArchive.mjs` bundles the published version; the hub
    seeds a published seed under its number and adds a newer one on an app update.
 6. **Built.** `@account` (`accountLibraryHome` in `../packages/song/src/sharedFolders.ts`), its room
    (`attachAccountLibrary`, `../packages/file-service/src/workspaces.ts`), `module fork`

@@ -5,7 +5,7 @@ and cannot exec anything itself.
 
 ## Why a process and not a message
 
-`--render` is a **one-shot CLI mode** — `st0-engine --render - --out <dir>` — and it
+`--render` is a **one-shot CLI mode** — `k7-runtime --render - --out <dir>` — and it
 stays one. The live engine holds an ASIO device, and the cost of a second `te::Engine`
 appearing beside it is known:
 
@@ -38,7 +38,7 @@ write audio (freeze, split, consolidate, process) — goes through ONE choice, `
 1. **this machine's engine binary**, when there is one: a desktop, a dev checkout;
 2. **the bound engine's machine**, over its jobs path: the account's own engine, its own plugins;
 3. **the server's render machine**, over the jobs path the hub binds for the deployment's render
-   key (`docs/server-engine.md` at the repo root). A hosted st0 keeps no engine binary, so this is
+   key (`docs/server-engine.md` at the repo root). A hosted k7 keeps no engine binary, so this is
    what renders when nobody is playing.
 
 A machine that fails hands the render to the next one: a musician's supervisor may predate the

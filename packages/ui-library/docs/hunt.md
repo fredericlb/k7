@@ -2,13 +2,13 @@
 
 `src/FindSongs.tsx` is the screen of "Find songs": what is typed, what is asked of MusicBrainz and
 slskd, how a peer is chosen and how the bytes come back are the server's, in
-[apps/st0/backend/docs/media/hunt.md](../../../apps/st0/backend/docs/media/hunt.md). This page is
+[apps/k7/backend/docs/media/hunt.md](../../../apps/k7/backend/docs/media/hunt.md). This page is
 only why the screen is the shape it is.
 
 ## A page, not a dialog
 
 `find` is a **section** in `routes.ts`'s sense, and the host draws it as an entry of its own nav —
-in st0, the home sidebar, beside the families. It has no tree and nothing on the volume, so it
+in k7, the home sidebar, beside the families. It has no tree and nothing on the volume, so it
 draws edge to edge.
 
 A dialog would have been the reflex — it is what adding a song does — and it would be the wrong

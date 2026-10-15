@@ -151,6 +151,48 @@ export class AutoFreezer {
     return done;
   }
 
+  /** Every missing render of `dir` now, transport or not; answers the ones no connected machine can make (docs/share.md). */
+  async renderAllNow(
+    dir: string,
+    onProgress: (done: number, total: number, module: string) => void,
+  ): Promise<{ module: string; plugins: string[] }[]> {
+    const s = this.stateOf(dir);
+    // The timer's pass on this project finishes first: two renders of one freeze would race for one file.
+    while (s.running) await new Promise((r) => setTimeout(r, 200));
+    s.running = true;
+    try {
+      const { freezes } = this.deps.compile(dir);
+      const missing = freezes.filter((f) => !f.ready);
+      const impossible = missing
+        .filter((f) => !f.hosted)
+        .map((f) => ({
+          module: f.module,
+          plugins: f.plugins.map((p) => p.name),
+        }));
+      const renderable = missing.filter((f) => f.hosted);
+      for (const [i, f] of renderable.entries()) {
+        onProgress(i, renderable.length, f.module);
+        mkdirSync(dirname(f.render), { recursive: true });
+        try {
+          await this.deps.render(f, f.render);
+        } catch (e) {
+          this.deps.log(
+            `   ✗ auto-freeze ${f.module}: ${(e as Error).message}`,
+          );
+        }
+        if (!existsSync(f.render))
+          impossible.push({
+            module: f.module,
+            plugins: f.plugins.map((p) => p.name),
+          });
+      }
+      onProgress(renderable.length, renderable.length, "");
+      return impossible;
+    } finally {
+      s.running = false;
+    }
+  }
+
   /** Reload when the renders the compile plays changed (an engine bound with another catalogue): now if stopped, at the stop otherwise. */
   private reloadIfApplied(
     t: FreezeTarget,
@@ -189,7 +231,7 @@ async function renderOnEngineMachine(
     return;
   }
   const bin = findEngineBinary();
-  if (!bin) throw new Error("no st0-engine binary on this machine");
+  if (!bin) throw new Error("no k7-runtime binary on this machine");
   await renderToWav(localRenderer(bin), f.cut, outAbs);
 }
 

@@ -205,6 +205,8 @@ export function autoFreezes(
   dir: string,
   g: GraphDoc,
   live: ProjectDoc,
+  /** Judge for an engine with no VST at all, whatever the account's scan says. */
+  noVsts = false,
 ): AutoFreeze[] {
   const isLane = (n: string) => n in g.tracks;
   const manual = activeFreezePlans(g.chains, g.modules, isLane, (r) =>
@@ -234,7 +236,7 @@ export function autoFreezes(
       cut,
       plugins,
       ready: wsExists(render),
-      hosted: scanHostsAll(plugins),
+      hosted: !noVsts && scanHostsAll(plugins),
     };
     if (playsRender(f)) markUsed(render);
     out.push(f);

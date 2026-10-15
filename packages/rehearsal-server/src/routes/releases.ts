@@ -87,7 +87,7 @@ releasesRouter.post(
   }),
 );
 
-// --- CLI import (st0 export): create-or-version by song UUID -----------
+// --- CLI import (k7 export): create-or-version by song UUID -----------
 
 // A known songUuid adds a version; an unknown one creates a release, needing title + artist.
 releasesRouter.get(

@@ -1,6 +1,6 @@
 # turntable — the platter's four numbers. Only `Rate` is a continuous gesture, hence the fader.
 #
-# The ranges are the PLUGIN's own (engine/st0-engine/engine/TurntablePlugin.cpp): a desk binding
+# The ranges are the PLUGIN's own (engine/k7-runtime/engine/TurntablePlugin.cpp): a desk binding
 # must not be able to ask for a speed this panel refuses to draw. `Rate` is SIGNED and rests at 0,
 # which is the STOP: a platter has no neutral position, it has a stop, and the record's speed is 1.
 # The record is not here and cannot be: it is the document's `deckFile`, filled at run time.

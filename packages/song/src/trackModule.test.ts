@@ -17,7 +17,7 @@ let dir: string;
 
 /** A project whose lanes are `lanes`, each `[name, extends]`, all wired straight to OUT. */
 function project(lanes: [string, string, string?][], chains?: string): string {
-  const p = join(dir, "song.st0");
+  const p = join(dir, "song.k7");
   mkdirSync(join(p, "nodes"), { recursive: true });
   mkdirSync(join(p, "modules", "io", "OUT"), { recursive: true });
   writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');

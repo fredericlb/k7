@@ -1,5 +1,5 @@
-// types.ts — the API contract between st0/web's backend and frontend.
-// The backend serves the files of one st0 project directory; the frontend
+// types.ts — the API contract between k7/web's backend and frontend.
+// The backend serves the files of one k7 project directory; the frontend
 // renders a tree, edits text files, and autocompletes from schema-aware hints.
 
 import type { EnginePerformance } from "./performance.ts";
@@ -12,7 +12,7 @@ export interface FileNode {
   dir: boolean;
   kind?: "text" | "binary"; // files only
   project?: boolean; // dirs only — the folder is a project someone can open
-  app?: ProjectApp; // dirs only — WHICH app opens it, from the `.st0`/`.z0` suffix
+  app?: ProjectApp; // dirs only — WHICH app opens it, from the `.k7`/`.z0` suffix
   children?: FileNode[]; // dirs only
 }
 
@@ -130,7 +130,7 @@ export interface Hints {
   // Each module's own assets/ walked, keyed by chain `use` ref: a module carries what it loads, there is no shared library.
   moduleAssets: Record<string, string[]>;
   paramsByBase: Record<string, string[]>; // base ref -> known param names
-  // …and their ranges, for st0's built-in plugins: without one a widget draws 0..1, wrong for a -60..+6 dB fader.
+  // …and their ranges, for k7's built-in plugins: without one a widget draws 0..1, wrong for a -60..+6 dB fader.
   paramMetaByBase: Record<
     string,
     Record<string, { min: number; max: number; def?: number }>
@@ -145,7 +145,7 @@ export interface Hints {
     }
   >;
   keywords: string[]; // words YAML gives meaning to (true/false/null, …)
-  // Scanned plugin names by format, lowercased key — from the engine's scan cache (~/.st0/exts.json).
+  // Scanned plugin names by format, lowercased key — from the engine's scan cache (~/.k7/exts.json).
   pluginNames: Record<string, string[]>;
   // "kind:name" -> the project-relative file defining it (module|base|sink|track|clip|sequence|chain).
   paths: Record<string, string>;
@@ -198,9 +198,29 @@ export interface ModelDownloadJob {
 export interface WorkspaceSyncStatus {
   /** False on the server itself and on a machine never paired: every workspace is simply here. */
   paired: boolean;
-  /** The server this machine syncs with, as an origin. */
+  /** The MAIN server this machine syncs with, as an origin — its libraries, and where a new workspace goes. */
   server: string | null;
-  workspaces: { name: string; state: "synced" | "local" | "server" }[];
+  /** Every server it syncs with, as origins, the main one first. */
+  servers?: { origin: string; main: boolean }[];
+  /** Each workspace, here or on a server: `server` is the origin it syncs with, `room` its name there when that differs. */
+  workspaces: {
+    name: string;
+    state: "synced" | "local" | "server";
+    server?: string;
+    room?: string;
+    /** A move under way to `to`, or the reason it failed (`error`). */
+    moving?: { to: string; error?: string };
+  }[];
+}
+
+/** `GET /sync/project` — whether a project is up to date with the relay, which is what `/open` waits for (file-service docs/liveCapture.md). */
+export interface ProjectSyncState {
+  /** Where the copy here stands against the relay; each state is spelled out in file-service docs/liveCapture.md. */
+  state: "ready" | "offline" | "connecting" | "catching-up" | "downloading";
+  /** Whether the project may be opened: up to date, or offline with every file it names on disk. */
+  ready: boolean;
+  /** Files of the project still waiting for their bytes. */
+  pending: number;
 }
 
 /** One of the origin's libraries: the name its refs use (`@<name>/…`), and whether the server holds its folder. */
@@ -445,7 +465,7 @@ export interface WebGroup {
   mute: boolean;
   solo: boolean;
 }
-// A video clip: every time here is SECONDS, picture being cut against the wall clock — apps/st0/frontend/docs/picture.md.
+// A video clip: every time here is SECONDS, picture being cut against the wall clock — apps/k7/frontend/docs/picture.md.
 export interface WebVideoClip {
   id: string;
   name: string;
@@ -623,7 +643,7 @@ export type ArgProvider =
 export interface CommandArg {
   name: string;
   kind: ArgClass;
-  // What this argument NAMES off the project — what st0's contextMenu.ts matches a right-click on.
+  // What this argument NAMES off the project — what k7's contextMenu.ts matches a right-click on.
   provider?: ArgProvider;
   // One line on what this argument accepts; empty when there is nothing to promise, and the palette shows no clue.
   hint: string;
@@ -660,7 +680,7 @@ export interface CommandInfo {
   // One sentence per language on what the command DOES; the NAME is never translated — see docs/document.md.
   readable?: { en: string; fr: string };
   args: CommandArg[];
-  // Where a right-click may offer it. Absent ⇒ wherever its leading arguments fit — st0's frontend/docs/contextMenu.md.
+  // Where a right-click may offer it. Absent ⇒ wherever its leading arguments fit — k7's frontend/docs/contextMenu.md.
   menu?: MenuEntity[];
   // The menu asks before running it — the one exception to "nothing here asks twice", same page.
   confirm?: boolean;
@@ -739,7 +759,7 @@ export interface ProjectErrors {
 
 // --- Chains: the routing graph --------------------------------------------------
 
-// Moved to @studio/graph-model, since three apps draw chains and only st0 wants the rest of this file.
+// Moved to @studio/graph-model, since three apps draw chains and only k7 wants the rest of this file.
 
 // ── Engine-side file service headers ─────────────────────────────────────────
 
@@ -747,7 +767,7 @@ export interface ProjectErrors {
 
 /** The authenticated user's email — the file service slugifies it to pick the root. */
 export const USER_HEADER = "x-studio-user";
-/** The chosen workspace name under ~/.st0/root/<slug>/. */
+/** The chosen workspace name under ~/.k7/root/<slug>/. */
 export const WORKSPACE_HEADER = "x-studio-workspace";
 /** The engine's token (from the whoami probe) — the file service's light LAN gate. */
 export const ENGINE_TOKEN_HEADER = "x-studio-engine-token";
@@ -826,7 +846,7 @@ export interface EngineAddresses {
   port: number; // the engine's WebSocket port (same on every address)
 }
 
-/** A workspace under ~/.st0/root/<slug>/, as the picker lists them. */
+/** A workspace under ~/.k7/root/<slug>/, as the picker lists them. */
 export interface WorkspaceSummary {
   name: string; // the folder name (== the workspace name the user picks)
   projectCount: number; // project folders inside, at any depth (0 for empty)
@@ -905,13 +925,13 @@ export interface StemsReply {
 export interface RepoProject {
   path: string;
   app: ProjectApp;
-  /** `project.tags` of an st0 project's project.yaml; absent when it has none. */
+  /** `project.tags` of an k7 project's project.yaml; absent when it has none. */
   tags?: string[];
 }
 
 /** One module LIBRARY a project can reach, nearest first; `exists: false` is a state, not an absence — docs/machine.md. */
 export interface ModuleLibrary {
-  /** The `@`-prefixed level a chain writes: `workspace`, `st0`, `engine`. */
+  /** The `@`-prefixed level a chain writes: `workspace`, `k7`, `engine`. */
   ns: string;
   /** Workspace-relative, so every other route takes it as-is; EMPTY for `@engine`, which has no folder. */
   path: string;
@@ -926,11 +946,11 @@ export interface ModuleLibrary {
   wavetables?: FileNode[];
   /** …and its shared amp MODELS, what an amp's `model` may pick besides its own assets. */
   models?: FileNode[];
-  /** For one of the origin's libraries: the version this workspace plays, and the newest this st0 could move to. */
+  /** For one of the origin's libraries: the version this workspace plays, and the newest this k7 could move to. */
   version?: { pinned: number | "draft"; requires?: number; upgrade?: number };
 }
 
-/** One frozen snapshot a person shared — the AUTHOR's view, which no public route serves; see docs/machine.md. */
+/** One project a person shared, at a checkpoint — the AUTHOR's view, which no public route serves; see docs/machine.md. */
 export interface ShareSummary {
   /** `sha256(token)` — the directory's name on the volume, and the `:key` in every route. */
   key: string;
@@ -941,16 +961,70 @@ export interface ShareSummary {
   /** Where it came from. For the author alone: it says what is on their disk. */
   origin: { repo: string; project: string };
   createdAt: string;
-  /** Everything the snapshot weighs on the volume — the number that makes the cost visible. */
+  /** Everything the share weighs on the volume — the number that makes the cost visible. */
   bytes: number;
-  stems: number;
+  /** The point of the workspace's history it plays, as the history lists it. */
+  checkpoint: { seq: number; name: string };
   /** Set once revoked. The row SURVIVES dated: a share that vanished would leave a doubt. */
   revokedAt?: string;
   /** How many comments sit in each state — COUNTED on the way out, never stored on the row. */
   comments?: CommentCounts;
 }
 
-/** What an author does with a comment. `active` is where every one lands; see apps/st0/backend/docs/media/comments.md. */
+/** The version of `ShareManifest` this code writes and reads; any other is a share it cannot open. */
+export const SHARE_SCHEMA = 2;
+
+/** Where a share's own files sit, in the document the engine plays: the server puts its folder there. */
+export const SHARE_ROOT = "k7-share:";
+
+/** A share as the media library holds it (`snapshot.json`); apps/k7/backend/docs/media/shares.md. */
+export interface ShareManifest {
+  schema: number;
+  name: string;
+  createdAt: string;
+  /** The checkpoint it was made at: the version shared, which later edits do not reach. */
+  checkpoint: { workspace: string; seq: number; name: string };
+  /** The documents a browser draws it from, by filename — what the viewer may ask for, and nothing else. */
+  docs: string[];
+  /** The document the server's engine plays, its own files named under `SHARE_ROOT`. */
+  engineDoc: string;
+  /** Every file the share carries, relative to its folder. */
+  files: { path: string; bytes: number }[];
+  bytes: number;
+}
+
+/** One stage of making a share, as the author's progress bar draws it — packages/file-service/docs/share.md. */
+export type ShareStep =
+  | "sync"
+  | "freeze"
+  | "checkpoint"
+  | "pack"
+  | "upload"
+  | "done"
+  | "failed";
+
+/** Where a share being made is: `done`/`total` count the step's own units (renders, bytes). */
+export interface ShareProgress {
+  step: ShareStep;
+  done: number;
+  total: number;
+  /** What the step is on: a module being rendered, a file being sent. */
+  detail?: string;
+  /** Set on `failed`: the sentence the author reads. */
+  error?: string;
+  /** Set on `done`. */
+  token?: string;
+  bytes?: number;
+}
+
+/** A workspace's files at one checkpoint, from the hub: texts verbatim, binaries as the path of their bytes there. */
+export interface CheckpointFiles {
+  seq: number;
+  texts: Record<string, string>;
+  blobs: Record<string, { path: string; size: number }>;
+}
+
+/** What an author does with a comment. `active` is where every one lands; see apps/k7/backend/docs/media/comments.md. */
 export type CommentState = "active" | "resolved" | "ignored";
 
 /** One block of text a visitor left on a frozen snapshot — public, so it carries no identity beyond a chosen name. */

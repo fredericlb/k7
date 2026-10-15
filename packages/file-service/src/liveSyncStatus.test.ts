@@ -49,10 +49,12 @@ describe("workspaceSyncStatus", () => {
     expect(s.paired).toBe(true);
     expect(s.server).toBe(`http://127.0.0.1:${port}`);
     // Neither is captured in this test, so neither has joined its room yet: here only, until it has.
+    const server = `http://127.0.0.1:${port}`;
+    expect(s.servers).toEqual([{ origin: server, main: true }]);
     expect(s.workspaces).toEqual([
-      { name: "band", state: "local" },
-      { name: "solo", state: "local" },
-      { name: "gig", state: "server" },
+      { name: "band", state: "local", server },
+      { name: "solo", state: "local", server },
+      { name: "gig", state: "server", server },
     ]);
   });
 });

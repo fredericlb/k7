@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "st0's routing-graph engine — compiles a project graph to a dagre layout the web app draws as HTML nodes + SVG cables. Framework-agnostic; consumed as source.",
+  "description": "k7's routing-graph engine — compiles a project graph to a dagre layout the web app draws as HTML nodes + SVG cables. Framework-agnostic; consumed as source.",
   "exports": {
     "./anchorRight": "./src/anchorRight.ts",
     "./assembly": "./src/assembly.ts",

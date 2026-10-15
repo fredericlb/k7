@@ -5,7 +5,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import { FileTree, type TreeNode } from "@frediverse/ui/file-tree";
-import { Disc3, FolderTree, Search } from "@frediverse/ui/icons";
+import { Cloud, Disc3, FolderTree, Search } from "@frediverse/ui/icons";
 import { AUDIO_ACCEPT, isAudio } from "@studio/mediatek/media";
 import { RECORDINGS_DIR, SONG_FILE } from "@studio/mediatek/types";
 import { sortNodes } from "@studio/web-protocol/tree";
@@ -22,13 +22,14 @@ import {
   isSong,
   isSongFolder,
   relative,
+  remoteRows,
   TOP_LEVEL,
   treeOf,
 } from "./libraryTree";
 import { Playlists } from "./Playlists";
 import { usePlayback } from "./playback/PlaybackProvider";
 import { DEFAULT_SECTION, folderOf, type SectionId } from "./routes";
-import { useServerCopy } from "./ServerCopy";
+import { RemoteDownload, useServerCopy } from "./ServerCopy";
 import { SongEditor } from "./SongEditor";
 import { assetActions, songActions } from "./treeActions";
 import { useLibraryData } from "./useLibraryData";
@@ -85,6 +86,15 @@ export function MediaLibrary({
   // The drawer closes with the section it was opened on.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the trigger is the section changing
   useEffect(() => setTreeOpen(false), [section]);
+  // The paired server's entries this machine lacks, filed in the same tree rather than listed apart (../docs/library.md).
+  const remote = useMemo(
+    () => serverCopy.placement?.serverOnly ?? [],
+    [serverCopy.placement],
+  );
+  const remoteAt = useMemo(
+    () => remoteRows(entries, remote),
+    [entries, remote],
+  );
   // Derived, never stored, and it synthesises the zone's own root row (../docs/library.md).
   const tree = useMemo<TreeNode[]>(
     () => [
@@ -94,11 +104,11 @@ export function MediaLibrary({
         dir: true,
         // Alphabetical all the way down: a listing arrives in scan order, which nobody can look something up in.
         children: sortNodes(
-          isZone ? dayNodes(recordings) : treeOf(entries, unlisted),
+          isZone ? dayNodes(recordings) : treeOf(entries, unlisted, remote),
         ),
       },
     ],
-    [entries, isZone, recordings, section, unlisted],
+    [entries, isZone, recordings, section, unlisted, remote],
   );
   // DERIVED from the route rather than held beside it, so a deep link needs no replay — see ../docs/routing.md.
   const editingSong = useMemo(() => {
@@ -189,6 +199,8 @@ export function MediaLibrary({
             openFile,
             pickVariant,
             enqueue: playback.enqueue,
+            serverOnly: serverCopy.placement?.serverOnly ?? [],
+            download: serverCopy.download,
             refresh,
             setError,
             labels,
@@ -199,6 +211,8 @@ export function MediaLibrary({
       openFile,
       pickVariant,
       playback.enqueue,
+      serverCopy.placement,
+      serverCopy.download,
       refresh,
       section,
       setError,
@@ -302,13 +316,32 @@ export function MediaLibrary({
               const entry = entryAt(entries, n.path);
               if (entry && isSong(entry)) openFile(`${n.path}/${SONG_FILE}`);
             }}
-            // A song wears the glyph of its own tab.
+            // A song wears the glyph of its own tab; one only on the server, a cloud.
             icon={(n) => {
+              if (remoteAt.entries.has(n.path))
+                return <Cloud className="h-4 w-4 shrink-0" />;
               const e = entryAt(entries, n.path);
               return e && isSong(e) ? (
                 <Disc3 className="h-4 w-4 shrink-0" />
               ) : null;
             }}
+            // Muted and not openable until it is here — still right-clickable, for its download.
+            isDisabled={(n) => remoteAt.entries.has(n.path)}
+            // A folder holding only the server's entries says so beside its name.
+            nameEnd={(n) =>
+              remoteAt.folders.has(n.path) ? (
+                <Cloud className="ml-1 inline size-3 shrink-0 text-muted-foreground" />
+              ) : null
+            }
+            // …and an entry of the server's alone brings itself down in one click.
+            rowEnd={(n) =>
+              remoteAt.entries.has(n.path) ? (
+                <RemoteDownload
+                  path={`${section}/${n.path}`}
+                  onDownload={serverCopy.download}
+                />
+              ) : null
+            }
             // Undefined rather than a no-op where nothing may be dropped, and a tree drop for songs (../docs/library.md).
             onDropTree={
               editable

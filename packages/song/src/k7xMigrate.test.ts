@@ -29,43 +29,43 @@ const put = (rel: string, text: string) => {
 describe("migrateToK7x", () => {
   it("converts, keeps the original in the backup, and leaves what it may not touch", () => {
     put(
-      "song.st0/project.yaml",
+      "song.k7/project.yaml",
       "# the song\nproject:\n  name: demo\n  tempo: 120\n",
     );
-    put("song.st0/nodes/a.yaml", "anchor: &x 1\nagain: *x\n");
-    put("song.st0/graph.yaml", "modules: {}\n");
-    put("song.st0/graph.k7x", "modules({})\n");
+    put("song.k7/nodes/a.yaml", "anchor: &x 1\nagain: *x\n");
+    put("song.k7/graph.yaml", "modules: {}\n");
+    put("song.k7/graph.k7x", "modules({})\n");
     put(".hidden/x.yaml", "a: 1\n");
     const backup = join(root, "..", `${root.split("/").pop()}-backup`);
     const report = migrateToK7x(root, { backup });
-    expect(report.converted).toEqual(["song.st0/project.yaml"]);
-    expect(report.shadowed).toEqual(["song.st0/graph.yaml"]);
+    expect(report.converted).toEqual(["song.k7/project.yaml"]);
+    expect(report.shadowed).toEqual(["song.k7/graph.yaml"]);
     expect(report.refused).toEqual([
       {
-        file: "song.st0/nodes/a.yaml",
+        file: "song.k7/nodes/a.yaml",
         reason: "k7x: YAML anchors have no k7x form",
       },
     ]);
-    expect(readFileSync(join(root, "song.st0/project.k7x"), "utf8")).toBe(
+    expect(readFileSync(join(root, "song.k7/project.k7x"), "utf8")).toBe(
       '// the song\nproject({ name: "demo", tempo: 120 })\n',
     );
-    expect(existsSync(join(root, "song.st0/project.yaml"))).toBe(false);
-    expect(existsSync(join(backup, "song.st0/project.yaml"))).toBe(true);
+    expect(existsSync(join(root, "song.k7/project.yaml"))).toBe(false);
+    expect(existsSync(join(backup, "song.k7/project.yaml"))).toBe(true);
     expect(existsSync(join(root, ".hidden/x.yaml"))).toBe(true);
     rmSync(backup, { recursive: true, force: true });
   });
 
   it("writes nothing on a dry run", () => {
-    put("song.st0/project.yaml", "project:\n  name: demo\n");
+    put("song.k7/project.yaml", "project:\n  name: demo\n");
     const report = migrateToK7x(root, { backup: null, dryRun: true });
-    expect(report.converted).toEqual(["song.st0/project.yaml"]);
-    expect(existsSync(join(root, "song.st0/project.k7x"))).toBe(false);
+    expect(report.converted).toEqual(["song.k7/project.yaml"]);
+    expect(existsSync(join(root, "song.k7/project.k7x"))).toBe(false);
   });
 
   it("leaves every demo compiling to the same document", () => {
     const demos = join(import.meta.dirname, "..", "..", "..", "demos");
     cpSync(demos, root, { recursive: true });
-    const names = ["synth-demo.st0", "node-demo.st0", "rack-demo.st0"];
+    const names = ["synth-demo.k7", "node-demo.k7", "rack-demo.k7"];
     const before = names.map((n) => JSON.stringify(loadProject(join(root, n))));
     const report = migrateToK7x(root, { backup: null });
     expect(report.refused).toEqual([]);

@@ -81,7 +81,7 @@ it. See `docs/moduleAssets.md` for the whole of it.
   feed the engine (`loadGraph`, `compileNodeProject`) turn it on. It is a judgement on what
   was READ, which is why the two flavours share one cache entry — see below.
 - **The read is memoised**, here and in `loadModuleRefs`, on a stamp of the folders they walk.
-  This is the expensive half of every compile and the half that changes least; a command in st0
+  This is the expensive half of every compile and the half that changes least; a command in k7
   asks for it four to six times over. `docs/moduleCache.md` has the measurement, what the stamp
   covers, the two rules a caller has to keep — and the tempting variant that is wrong.
 

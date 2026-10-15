@@ -22,5 +22,5 @@ env.yaml
 # binaries for its own Linux. All are gitignored, so CI's fresh checkout never has them; this is what stops a LOCAL
 # image build from shipping ~30GB of CMake output and Electron packages to the daemon as build
 # context.
-engine/st0-engine/build
-engine/st0-supervisor/build
+engine/k7-runtime/build
+engine/k7-supervisor/build

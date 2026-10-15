@@ -14,9 +14,10 @@ import {
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadGraph, validate } from "./graph";
+import { carriesCamera, loadGraph, validate } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 import { MIXER_PLUGIN, RECORDER_PLUGIN, trackMixer } from "./project";
+import { writeProjectFiles } from "./scaffold";
 import {
   LIVE_CAMERA,
   LIVE_FADER,
@@ -71,7 +72,7 @@ const made = (write: (dir: string, name: string) => unknown): string => {
       `plugin:\n  type: internal\n  name: ${plugin}\n`,
     );
   }
-  const dir = join(ws, "rig.st0");
+  const dir = join(ws, "rig.k7");
   mkdirSync(dir);
   write(dir, "rig");
   return dir;
@@ -91,12 +92,13 @@ const onShape = (
   }
 };
 
-/** …the audio rig, which most of this file is about. */
-const on = (f: (dir: string) => void): void => onShape(scaffoldLive, f);
+/** …the audio rig as its FILE MAP writes it — a graph, the form the bench keeps — which most of this file is about. */
+const on = (f: (dir: string) => void): void =>
+  onShape((d, n) => scaffoldLive(d, n, "graph"), f);
 
-/** …and the same rig with a lens. */
+/** …and the same rig with a lens, its file map written as it is. */
 const onVideo = (f: (dir: string) => void): void =>
-  onShape(scaffoldLiveVideo, f);
+  onShape((d, n) => writeProjectFiles(d, liveVideoProjectFiles(n)), f);
 
 /** The keys of `graph.yaml`'s `modules:` map, in file order. */
 const graphKeys = (dir: string): string[] =>
@@ -176,10 +178,10 @@ describe("the graph it writes", () => {
     }));
 
   it("declares that borrowing, so an empty library is said at CREATION", () => {
-    // A library repository is attached rather than seeded, and an unresolved `@st0/…` ref does
+    // A library repository is attached rather than seeded, and an unresolved `@k7-core/…` ref does
     // not warn — it refuses the whole project. `neededRefs` reads the ref off the scaffolded
     // text, which is how the new-project screen owes it before anything is written.
-    // The strip and the recorder are st0's own `@meta` modules, so a rig owes a library nothing (docs/metaModules.md).
+    // The strip and the recorder are k7's own `@meta` modules, so a rig owes a library nothing (docs/metaModules.md).
     expect(neededRefs(liveProjectFiles("rig"))).toEqual([]);
   });
 });
@@ -325,5 +327,45 @@ describe("the live-video archetype", () => {
       expect(validate(loadGraph(dir))).toEqual([
         "input 'IN': no channel — it feeds nothing",
       ]);
+    }));
+});
+
+// A new rig is born as CHAIN files, the main layout: the same rig, its nodes named by id. What has to
+// survive the conversion is what it plays and what it says — docs/liveProject.md, docs/chainFiles.md.
+describe("born as chain files", () => {
+  it("holds chain files, and neither the graph nor a node file", () =>
+    onShape(scaffoldLive, (dir) => {
+      const t = tree(dir);
+      expect(t).toContain("chains");
+      expect(t).not.toContain("graph.yaml");
+      expect(t).not.toContain("nodes");
+    }));
+
+  it("plays as the graph form does: one track for the input, its fader the app's strip", () =>
+    onShape(scaffoldLive, (dir) => {
+      const doc = compileNodeProject(dir);
+      expect(doc.tracks).toHaveLength(1);
+      // Keyed by the input's id now, but LABELLED by its chain, so the strip still reads `IN`.
+      expect(doc.tracks[0].name).toBe(LIVE_INPUT);
+      expect(doc.tracks[0].monitor).toBe("on");
+      expect(trackMixer(doc.tracks[0])?.type).toBe(MIXER_PLUGIN);
+      expect(doc.masterPlugins.map((p) => p.type)).toEqual([RECORDER_PLUGIN]);
+    }));
+
+  it("says the one thing a fresh rig says: pick a channel", () =>
+    onShape(scaffoldLive, (dir) => {
+      expect(validate(loadGraph(dir))).toEqual([
+        expect.stringMatching(/^input '.+': no channel — it feeds nothing$/),
+      ]);
+    }));
+
+  it("keeps the lens of `live-video` wired to RENDER, saying nothing about it", () =>
+    onShape(scaffoldLiveVideo, (dir) => {
+      expect(hasPicture(dir)).toBe(true);
+      const g = loadGraph(dir);
+      expect(validate(g)).toHaveLength(1);
+      const lens = Object.values(g.chains).filter((c) => carriesCamera(g, c));
+      expect(lens.map((c) => c.out.map((o) => o.to))).toEqual([["RENDER"]]);
+      expect(compileNodeProject(dir).tracks).toHaveLength(1);
     }));
 });

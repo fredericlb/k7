@@ -19,7 +19,7 @@ import {
 } from "./testSupport";
 import { loadUiLibrary } from "./uiLibrary";
 
-const COMP = "@st0/audio/dynamics/compressor";
+const COMP = "@k7-core/audio/dynamics/compressor";
 const PANEL = (bind: string) => ({
   cols: 1,
   rows: 1,
@@ -137,11 +137,11 @@ describe("running as an engine", () => {
     writeFileSync(ir, "", "utf8");
     writeNode(dir, "vox", {
       extends: COMP,
-      engines: { tracktion: { params: { ir: "@st0/room.wav" } } },
+      engines: { tracktion: { params: { ir: "@k7-core/room.wav" } } },
     });
     const m = resolved("vox");
     expect(m.ir).toBe(ir);
-    expect(m.assets).toMatchObject({ ir: "@st0/room.wav" });
+    expect(m.assets).toMatchObject({ ir: "@k7-core/room.wav" });
   });
 
   it("falls back to the default for an engine the module has not got", () => {
@@ -167,8 +167,10 @@ describe("running as an engine", () => {
 });
 
 describe("a rack whose engines are its kits", () => {
-  const RACK = "@st0/instruments/drums";
-  const TAPS = { symbols: { BD: { note: 36, sample: "@st0/kit/kick.wav" } } };
+  const RACK = "@k7-core/instruments/drums";
+  const TAPS = {
+    symbols: { BD: { note: 36, sample: "@k7-core/kit/kick.wav" } },
+  };
   beforeEach(() => {
     const at = join(lib, "modules", "instruments", "drums");
     writeYaml(join(at, "module.yaml"), { engine: "acoustic" });

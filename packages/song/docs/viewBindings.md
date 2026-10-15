@@ -47,7 +47,7 @@ for key and can be read side by side.
 
 `@studio/song` does not know what a `crossfade` is. The schema therefore accepts any key and
 **does not validate the ids**: whoever draws the panel checks them, against the list it
-actually has (the desk's is `packages/st0-plugins/src/turntables/controls.ts`, listed in that package's
+actually has (the desk's is `packages/k7-plugins/src/turntables/controls.ts`, listed in that package's
 `docs/controls.md`).
 A schema that guessed the vocabulary would go stale the day a control is added, and would have
 to be edited in a package that has no business knowing.
@@ -68,7 +68,7 @@ Only the third is allowed to come up empty. Without a widget there is no min/max
 cannot be scaled — but the target exists, and calling that broken would be wrong; the control's
 own units go through untouched.
 
-This is deliberately stricter than st0's MIDI join, which skips what it cannot apply in silence.
+This is deliberately stricter than k7's MIDI join, which skips what it cannot apply in silence.
 It can afford to: a module's map travels into projects that draw it differently, so a binding
 that does not apply is normal there. Here the file names **this** set's own nodes, so a
 line that does not resolve is a typo somebody made about their own project.
@@ -76,13 +76,13 @@ line that does not resolve is a typo somebody made about their own project.
 ## Scaling
 
 The control is normalised to 0..1 by its OWN range and expanded by the widget's `min`/`max` —
-the journey a MIDI CC's 0..127 already makes in st0's `useMidiControl`. That is why a control
+the journey a MIDI CC's 0..127 already makes in k7's `useMidiControl`. That is why a control
 declares a range at all: without one, every consumer would have to invent a scale, and a fader
 would sweep one nobody chose.
 
 ## Wired
 
-The desk plays the COMPILED project (`packages/st0-plugins/docs/turntables/mix.md`), so the plugins a
+The desk plays the COMPILED project (`packages/k7-plugins/docs/turntables/mix.md`), so the plugins a
 binding names are the ones the engine has loaded. Moving the crossfader is one call —
 `setPluginParam(pluginId, param, valueFor(binding, position))` — and the module the library ships
 does the fade. The hardcoded path is only the stand-in for the seconds before the compile arrives.

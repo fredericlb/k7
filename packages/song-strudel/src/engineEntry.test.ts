@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import "./engineEntry";
 import type { LaneEvent } from "./engineEntry";
 
-const api = (globalThis as Record<string, unknown>).st0Strudel as {
+const api = (globalThis as Record<string, unknown>).k7Strudel as {
   load(code: string): Promise<boolean>;
   laneEvents(
     from: number,

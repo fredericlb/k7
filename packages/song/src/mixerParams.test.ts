@@ -2,7 +2,7 @@
 //
 // The bind list is the only place a widget can pick a name up from, so a module whose params are invisible here
 // cannot be given a panel at all. Three sources feed it and two of them are LEARNED — the base's own `params:`
-// and whatever extends it — so a plugin st0 defines, with no param authored on it in any project, offers
+// and whatever extends it — so a plugin k7 defines, with no param authored on it in any project, offers
 // an empty list until something supplements it.
 
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -172,8 +172,8 @@ describe("the generated built-in table", () => {
   });
 
   it("resolves ONLY the engine namespace — every other ref names a file", () => {
-    // A `@st0/…` or project-local ref has to be read; this seam is for when there is no file.
-    expect(builtinPluginForRef("@st0/instruments/4osc")).toBeUndefined();
+    // A `@k7-core/…` or project-local ref has to be read; this seam is for when there is no file.
+    expect(builtinPluginForRef("@k7-core/instruments/4osc")).toBeUndefined();
     expect(builtinPluginForRef("instruments/fourosc")).toBeUndefined();
     expect(builtinPluginForRef("@engine/nope")).toBeUndefined();
     expect(builtinPluginForRef(null)).toBeUndefined();

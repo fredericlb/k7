@@ -1,7 +1,7 @@
 # The catalogue screen: the tree, and what a row means
 
 `src/MediaLibrary.tsx` is the médiathèque's catalogue: the current section's files as a tree down
-the side, its contents in the middle. The sections themselves are the host's nav — st0's home
+the side, its contents in the middle. The sections themselves are the host's nav — k7's home
 sidebar ([host.md](host.md)). It draws; four modules beside it
 hold the rest, one concern each — what it shows of the volume and the poll that reloads it
 (`useLibraryData.ts`), the rows built from a listing (`libraryTree.ts`, pure and tested alone), the
@@ -127,6 +127,30 @@ lands. The variant picker is a second input, because that one names a directory 
 one audio file. Both reset `value` before opening, or picking the same thing twice fires no
 `change`.
 
+## The server's entries are in the same tree
+
+On a machine paired with a server, the entries only the server holds are filed in the family's tree
+among those here (`treeOf`'s `remote`, `remoteRows`), under the same artist and album folders, rather
+than listed apart: a library is looked up by artist and album, and a separate flat list of a few
+hundred songs is not something anyone finds a song in. Such a row wears a cloud, is muted and does not
+open — there is nothing here to open — and keeps its right-click; a cloud button at its end brings it
+down. A folder holding only the server's entries says so with a cloud beside its name. A song held on
+both sides is one row, the local one. What a download takes, and why never a folder whole, is
+`../../mediatek/docs/serverCopy.md`.
+
+## Adding songs
+
+**Add a song** takes one audio file or several (`src/AddSong.tsx`). Each file's tags are read in the
+browser and its folder — artist, album, title — is shown BEFORE anything is sent, since that tree and
+not the file's name is what files it; every field stays editable, per song.
+
+Several are sent **one after another**, never at once: each is a whole audio file, and a dozen
+uploads in parallel would share the line and finish together late, rather than one at a time early.
+A song that went leaves the list. One whose folder is already taken stays, with a **Replace** of its
+own — replacing is a decision made per song, never for a batch — and one that failed stays with its
+reason, sent again with the rest. Editing a song's fields drops a pending Replace, because it now aims
+at another folder. Cancel cuts the upload in flight and stops the queue; what was sent is filed.
+
 ## Filing variants
 
 Audio dropped on a song's row is uploaded ONE REQUEST AT A TIME, because each one writes a line in
@@ -148,7 +172,7 @@ dropped a file is looking straight at it.
 
 - **No `modules` or `chains` family.** A module is what a plugin is, and only a LOADED plugin can
   say what its parameters are called; the médiathèque has no project to load one into. Modules and
-  chains are authored in st0, against a project where the plugin is really there.
+  chains are authored in k7, against a project where the plugin is really there.
 - **No pass that GENERATES a module's `ui.yaml`** from a plugin's parameter list, anywhere. A
   generated panel can only ever be knobs and dropdowns — `fader`, `meter`, `filepicker`, a rowSpan,
   an arrangement that means something are all things a person puts there and a parameter list

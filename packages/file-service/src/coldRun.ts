@@ -41,7 +41,7 @@ export function resolveColdRun(want: string, chainRef: string): ColdRun {
       ok: false,
       status: 409,
       error:
-        "this machine has cloned none of the account's libraries yet — add one on st0's home page, or open a project once",
+        "this machine has cloned none of the account's libraries yet — add one on k7's home page, or open a project once",
     };
   let resolved: ReturnType<typeof resolveChain>;
   try {

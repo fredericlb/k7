@@ -28,7 +28,7 @@ const yaml = (rel: string) => parseYaml(read(rel), { version: "1.2" });
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-rename-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });
   writeFileSync(
     join(root, "_modules", "audio", "amp", "module.yaml"),

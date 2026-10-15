@@ -21,7 +21,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { setTrackPlacementFade } from "./trackMix";
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONG = join(here, "..", "..", "..", "demos", "node-demo.st0");
+const SONG = join(here, "..", "..", "..", "demos", "node-demo.k7");
 
 const NUM = 4;
 const DEN = 4;

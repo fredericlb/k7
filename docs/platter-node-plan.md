@@ -10,7 +10,7 @@ the desk's `withDecks` invents no plugin. What that buys:
   visible thing is the tempo, and nothing draws what makes the sound;
 - **the censor can become a binding.** It is `Rate = −1` on a plugin — exactly the shape of a
   binding — and you cannot bind a parameter of a plugin the project does not declare
-  ([fx.md](../packages/st0-plugins/docs/turntables/fx.md));
+  ([fx.md](../packages/k7-plugins/docs/turntables/fx.md));
 - **`deckDoc` loses a reason to exist.** It is a second set of tracks built in code, with no trim,
   no level, no echo, no cue and no stems.
 
@@ -19,7 +19,7 @@ the desk's `withDecks` invents no plugin. What that buys:
 | | where | what it gives |
 |---|---|---|
 | `PluginDoc.deckFile` | `packages/engine-protocol/project.ts` | already a first-class field, commented "TURNTABLE modules only — the record the platter OWNS" |
-| loading the record | `engine/st0-engine/engine/EditBuilder.cpp` | `dynamic_cast<studio::TurntablePlugin*>` on whatever the plugin is — generic, like `namFile` and `irFile` just above |
+| loading the record | `engine/k7-runtime/engine/EditBuilder.cpp` | `dynamic_cast<studio::TurntablePlugin*>` on whatever the plugin is — generic, like `namFile` and `irFile` just above |
 | naming a built-in | `packages/song/src/nodeProject.ts` | `plugin: { type: internal, name: … }` is already how the EQ's `tracktion` engine names Tracktion's equaliser |
 
 The engine does not ask where the plugin came from. It builds one from `p.type`, and if it happens
@@ -28,7 +28,7 @@ path as an injected one.
 
 ## Three things measured, and what they settled
 
-`engine/st0-engine/scripts/platter-node-probe.ts` replays the last two against a running engine; the
+`engine/k7-runtime/scripts/platter-node-probe.ts` replays the last two against a running engine; the
 first is read in the source.
 
 **`role: ""` has no consequence.** `deck.ts` sets `role: "instrument"`; `nodeProject.ts`'s generic
@@ -63,7 +63,7 @@ and C++ for 1 % of the gesture: no.
 ## What it does not solve
 
 **Five platters per deck.** A separated record plays through its four parts, which share a
-position, a `Rate` and a `Key` ([stems.md](../packages/st0-plugins/docs/turntables/stems.md)). That is **ten
+position, a `Rate` and a `Key` ([stems.md](../packages/k7-plugins/docs/turntables/stems.md)). That is **ten
 nodes** for a two-deck set, and a desk control drives **at most one** parameter, so "deck A's five
 platters" is not expressible as a binding. `plattersOf()` — the code deriving the five identifiers
 — stays.
@@ -72,7 +72,7 @@ The metronome stays too: a whole track built in code, and another subject.
 
 ## The nodes
 
-The `@meta/audio/turntable` module, shipped with st0 (`packages/song/docs/metaModules.md`) — `module.yaml` and `ui.yaml`, no jsdsp: the engine
+The `@meta/audio/turntable` module, shipped with k7 (`packages/song/docs/metaModules.md`) — `module.yaml` and `ui.yaml`, no jsdsp: the engine
 already hosts the platter, and `type: internal` names it the way the EQ's `tracktion` engine names the equaliser. The
 ranges come from `TurntablePlugin.cpp`:
 
@@ -133,13 +133,13 @@ Identifiers changed: `plattersOf` addresses `deckA:platterA` and `stemBassA:plat
 desk injected `deckA:platter`. An unmigrated set has nothing to patch — it plays silence.
 
 ```bash
-npx tsx packages/song/scripts/migrateSetPlatter.ts <projet.st0> --write
+npx tsx packages/song/scripts/migrateSetPlatter.ts <projet.k7> --write
 ```
 
 Dry by default, idempotent, and its test holds a migrated set **byte for byte** against what the
 scaffold writes — the same contract as `migrateSetCue` and `migrateSetStrip`.
 
-The nodes it writes name `@meta/audio/turntable`, which ships with st0, so no library has to be
+The nodes it writes name `@meta/audio/turntable`, which ships with k7, so no library has to be
 prepared first.
 
 ## What is left
@@ -153,7 +153,7 @@ prepared first.
 A running engine, then:
 
 ```bash
-npx tsx engine/st0-engine/scripts/platter-node-probe.ts   # [ws://127.0.0.1:8765]
+npx tsx engine/k7-runtime/scripts/platter-node-probe.ts   # [ws://127.0.0.1:8765]
 ```
 
 Its own session, `Rate: 0` everywhere: it makes no noise and does not touch the loaded project.

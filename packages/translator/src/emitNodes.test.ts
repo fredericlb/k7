@@ -51,7 +51,7 @@ beforeEach(() => {
   // A project lives in a WORKSPACE, and the workspace is where the library is mounted — the strip
   // every lane's fader is a use of resolves through it (`SHARED_STRIP`).
   ws = mkdtempSync(join(tmpdir(), "td-emit-"));
-  dir = join(ws, "song.st0");
+  dir = join(ws, "song.k7");
   mkdirSync(dir, { recursive: true });
   const mixer = join(
     librariesFixture(ws),
@@ -162,7 +162,7 @@ describe("import: the sum is where a lane ends", () => {
   it("runs every lane into MIX, and MIX into OUT", () => {
     emitFolder(dir, song([track("vox", [fx("Reverb")])]), {});
     const chains = read("graph.yaml");
-    // The st0 notation: the strip reaches the sum, and the sum goes out — docs/masterChain.md.
+    // The k7 notation: the strip reaches the sum, and the sum goes out — docs/masterChain.md.
     expect(chains).toContain("mix-vox: [ MIX ]");
     expect(chains).toContain("MIX: [ OUT ]");
     expect(chains).not.toContain("mix-vox: [ OUT ]");
@@ -562,10 +562,10 @@ describe("a MIDI lane whose instrument stayed behind", () => {
     expect(g).toContain("drums: [ drums-instrument ]");
     expect(
       readFileSync(join(dir, "nodes/keys-instrument.yaml"), "utf8"),
-    ).toContain('extends: "@st0/instruments/synth/surge-xt"');
+    ).toContain('extends: "@k7-core/instruments/synth/surge-xt"');
     expect(
       readFileSync(join(dir, "nodes/drums-instrument.yaml"), "utf8"),
-    ).toContain('extends: "@st0/instruments/st0-rack"');
+    ).toContain('extends: "@k7-core/instruments/k7-rack"');
   });
 
   it("gets none when an instrument crossed over, nor on an audio lane", () => {

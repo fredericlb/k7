@@ -1,5 +1,5 @@
 // A RACK instrument: a note -> audio sampler (type: "rack"), not a plugin. This module is the
 // sampler and nothing more: the sounds — each a TAP, a MIDI note and the sample it fires — are
-// written on the NODE that uses it (see rack-demo.st0/nodes/kit.yaml), so every node of this
+// written on the NODE that uses it (see rack-demo.k7/nodes/kit.yaml), so every node of this
 // module can be a different kit. Samples live in a library's samples/ or a project's own.
 type("rack")

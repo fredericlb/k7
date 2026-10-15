@@ -37,46 +37,46 @@ import {
 
 describe("projectApp", () => {
   it("reads the suffix", () => {
-    expect(projectApp("mysong.st0")).toBe("st0");
+    expect(projectApp("mysong.k7")).toBe("k7");
     expect(projectApp("session-2304.z0")).toBe("z0");
   });
 
-  it("does not know `.v1` or `.m9` — both are shapes of an st0 project", () => {
-    // Neither names a folder kind: both are shapes inside `.st0` — see @studio/song's PROJECT_SHAPES.
+  it("does not know `.v1` or `.m9` — both are shapes of an k7 project", () => {
+    // Neither names a folder kind: both are shapes inside `.k7` — see @studio/song's PROJECT_SHAPES.
     expect(projectApp("le clip.v1")).toBe(null);
     expect(projectApp("prise v1.v1")).toBe(null);
     expect(projectApp("myset.m9")).toBe(null);
   });
 
   it("is null for a folder claiming no app", () => {
-    for (const name of ["mysong", "songs", "mysong.st0.bak", "st0", "m9"])
+    for (const name of ["mysong", "songs", "mysong.k7.bak", "k7", "m9"])
       expect(projectApp(name), name).toBe(null);
   });
 
-  it("refuses a bare suffix — `.st0` is a dotfolder, not a nameless project", () => {
-    expect(projectApp(".st0")).toBe(null);
+  it("refuses a bare suffix — `.k7` is a dotfolder, not a nameless project", () => {
+    expect(projectApp(".k7")).toBe(null);
     expect(projectApp(".z0")).toBe(null);
   });
 
   it("reads a suffix only at the END, never as part of a name", () => {
     expect(projectApp("prise v1")).toBe(null);
-    expect(projectApp("prise v1.st0")).toBe("st0");
+    expect(projectApp("prise v1.k7")).toBe("k7");
   });
 
   it("does not match another service's name", () => {
-    // k7 owns no projects; a folder named for it is just a folder.
-    expect(projectApp("show.k7")).toBe(null);
+    // pl8 owns no projects; a folder named for it is just a folder.
+    expect(projectApp("show.pl8")).toBe(null);
   });
 
   it("is case-sensitive, like the folder names it reads", () => {
-    expect(projectApp("mysong.ST0")).toBe(null);
+    expect(projectApp("mysong.K7")).toBe(null);
   });
 });
 
 describe("projectLabel", () => {
   it("takes the suffix off, which is what a project is called", () => {
-    expect(projectLabel("mysong.st0")).toBe("mysong");
-    expect(projectLabel("live set.st0")).toBe("live set");
+    expect(projectLabel("mysong.k7")).toBe("mysong");
+    expect(projectLabel("live set.k7")).toBe("live set");
   });
 
   it("leaves a name that claims no app alone", () => {
@@ -84,35 +84,30 @@ describe("projectLabel", () => {
   });
 
   it("keeps a dot that is part of the name", () => {
-    expect(projectLabel("v1.2.st0")).toBe("v1.2");
+    expect(projectLabel("v1.2.k7")).toBe("v1.2");
   });
 });
 
 describe("launchUrl", () => {
   it("sends each app to its own service, under one origin", () => {
     const o = "https://st0.priv.frediver.se";
-    // st0 answers the origin so its projects have no prefix; the asymmetry is the table's, not this function's.
-    expect(launchUrl(o, "band", "winter.st0", "st0")).toBe(
-      "https://st0.priv.frediver.se/band/winter.st0",
+    // k7 answers the origin so its projects have no prefix; the asymmetry is the table's, not this function's.
+    expect(launchUrl(o, "band", "winter.k7", "k7")).toBe(
+      "https://st0.priv.frediver.se/band/winter.k7",
     );
     expect(launchUrl(o, "band", "partie.z0", "z0")).toBe(
       "https://st0.priv.frediver.se/z0/editor/band/partie.z0",
     );
-    expect(launchUrl(o, "band", "le clip.st0", "st0")).toBe(
-      "https://st0.priv.frediver.se/band/le%20clip.st0",
+    expect(launchUrl(o, "band", "le clip.k7", "k7")).toBe(
+      "https://st0.priv.frediver.se/band/le%20clip.k7",
     );
   });
 
   it("keeps only the origin of whatever URL it is handed", () => {
     // Callers pass `window.location.href`, which carries a path of its own.
     expect(
-      launchUrl(
-        "https://st0.priv.frediver.se/projects?x=1",
-        "b",
-        "c.st0",
-        "st0",
-      ),
-    ).toBe("https://st0.priv.frediver.se/b/c.st0");
+      launchUrl("https://st0.priv.frediver.se/projects?x=1", "b", "c.k7", "k7"),
+    ).toBe("https://st0.priv.frediver.se/b/c.k7");
   });
 });
 
@@ -122,69 +117,69 @@ describe("a surface's external address", () => {
 
   it("hangs off the project, and names the surface", () => {
     expect(
-      externalUrl(O, { repo: "band", project: "winter.st0" }, "desk", "st0"),
-    ).toBe("https://st0.priv.frediver.se/band/winter.st0/@external/desk");
+      externalUrl(O, { repo: "band", project: "winter.k7" }, "desk", "k7"),
+    ).toBe("https://st0.priv.frediver.se/band/winter.k7/@external/desk");
   });
 
   it("leaves the PROJECT parsing exactly as it was", () => {
     // Why this shape: a route below the project is already the app's, so nothing above it moves.
-    const p = "/band/winter.st0/@external/desk";
-    expect(parseLaunch(p, "st0", "/")).toEqual({
+    const p = "/band/winter.k7/@external/desk";
+    expect(parseLaunch(p, "k7", "/")).toEqual({
       repo: "band",
-      project: "winter.st0",
+      project: "winter.k7",
     });
-    expect(projectBasename(p, "st0", "/")).toBe("/band/winter.st0");
+    expect(projectBasename(p, "k7", "/")).toBe("/band/winter.k7");
   });
 
   it("reads the surface back out", () => {
-    expect(parseExternal("/band/winter.st0/@external/desk", "st0", "/")).toBe(
+    expect(parseExternal("/band/winter.k7/@external/desk", "k7", "/")).toBe(
       "desk",
     );
     // A project at a depth and one that IS its repository: the segment is found by name, not by counting.
     expect(
-      parseExternal("/band/songs/winter.st0/@external/desk", "st0", "/"),
+      parseExternal("/band/songs/winter.k7/@external/desk", "k7", "/"),
     ).toBe("desk");
-    expect(parseExternal("/band/@external/desk", "st0", "/")).toBe("desk");
+    expect(parseExternal("/band/@external/desk", "k7", "/")).toBe("desk");
   });
 
   it("is null for the editor's own addresses", () => {
     for (const p of [
-      "/band/winter.st0",
-      "/band/winter.st0/timeline",
-      "/band/winter.st0/chains-builder/process/normalize",
+      "/band/winter.k7",
+      "/band/winter.k7/timeline",
+      "/band/winter.k7/chains-builder/process/normalize",
     ])
-      expect(parseExternal(p, "st0", "/"), p).toBeNull();
+      expect(parseExternal(p, "k7", "/"), p).toBeNull();
   });
 
   it("is null for a truncated one, rather than 'some surface'", () => {
-    expect(parseExternal("/band/winter.st0/@external", "st0", "/")).toBeNull();
-    expect(parseExternal("/band/winter.st0/@external/", "st0", "/")).toBeNull();
+    expect(parseExternal("/band/winter.k7/@external", "k7", "/")).toBeNull();
+    expect(parseExternal("/band/winter.k7/@external/", "k7", "/")).toBeNull();
   });
 
   it("round-trips a name that needs encoding", () => {
     const url = externalUrl(
       O,
-      { repo: "band", project: "winter.st0" },
+      { repo: "band", project: "winter.k7" },
       "le desk",
-      "st0",
+      "k7",
     );
     expect(url).toContain("/@external/le%20desk");
-    expect(parseExternal(new URL(url).pathname, "st0", "/")).toBe("le desk");
+    expect(parseExternal(new URL(url).pathname, "k7", "/")).toBe("le desk");
   });
 
   it("keeps `@` literal, as every other sentinel here does", () => {
     // RFC 3986 allows `@` literally, so encoding it would not match the address on screen.
     expect(
-      externalUrl(O, { repo: "band", project: "w.st0" }, "desk", "st0"),
+      externalUrl(O, { repo: "band", project: "w.k7" }, "desk", "k7"),
     ).toContain(`/${EXTERNAL_SEGMENT}/`);
     expect(
-      externalUrl(O, { repo: "band", project: "w.st0" }, "desk", "st0"),
+      externalUrl(O, { repo: "band", project: "w.k7" }, "desk", "k7"),
     ).not.toContain("%40");
   });
 
   it("is null outside the app's mount", () => {
     // Same gate `parseLaunch` applies: an address that is not this app's names nothing here.
-    expect(parseExternal("/pl8/band/w.st0/@external/desk", "st0", "/z0/")).toBe(
+    expect(parseExternal("/pl8/band/w.k7/@external/desk", "k7", "/z0/")).toBe(
       null,
     );
   });
@@ -194,7 +189,7 @@ describe("the menu of those addresses", () => {
   const O = "https://st0.priv.frediver.se";
 
   it("sits at the app's mount, with no project in it", () => {
-    expect(externalIndexUrl(O, "st0")).toBe(
+    expect(externalIndexUrl(O, "k7")).toBe(
       "https://st0.priv.frediver.se/external",
     );
     expect(isExternalIndex("/external", "/")).toBe(true);
@@ -211,7 +206,7 @@ describe("the menu of those addresses", () => {
   });
 
   it("is exactly one segment, so nothing under it is mistaken for it", () => {
-    for (const p of ["/", "/band", "/band/winter.st0", "/external/winter.st0"])
+    for (const p of ["/", "/band", "/band/winter.k7", "/external/winter.k7"])
       expect(isExternalIndex(p, "/"), p).toBe(false);
   });
 
@@ -219,18 +214,18 @@ describe("the menu of those addresses", () => {
     // The cost of a plain word instead of an `@` sentinel: `/external` is this page, not that clone.
     expect(isExternalIndex(`/${EXTERNAL_INDEX}`, "/")).toBe(true);
     // Every project INSIDE such a repository is untouched: two segments, so the menu does not claim it.
-    expect(parseLaunch("/external/winter.st0", "st0", "/")).toEqual({
+    expect(parseLaunch("/external/winter.k7", "k7", "/")).toEqual({
       repo: "external",
-      project: "winter.st0",
+      project: "winter.k7",
     });
-    expect(isExternalIndex("/external/winter.st0", "/")).toBe(false);
+    expect(isExternalIndex("/external/winter.k7", "/")).toBe(false);
   });
 });
 
 describe("which apps can be CREATED", () => {
   it("is not the same set as the apps that own a folder kind", () => {
-    // z0 owns `.z0` and has no scaffold. Offering it built a `.z0` holding an st0 song.
-    expect(SCAFFOLDED_APPS).toEqual(["st0"]);
+    // z0 owns `.z0` and has no scaffold. Offering it built a `.z0` holding an k7 song.
+    expect(SCAFFOLDED_APPS).toEqual(["k7"]);
     expect(HAS_SCAFFOLD.z0).toBe(false);
   });
 
@@ -257,8 +252,8 @@ describe("the bench's address", () => {
   it("names one project, and it is not a chain of the library", () => {
     expect(isBenchProject(BENCH_PROJECT)).toBe(true);
     // Everything else under `@banc` names nothing: a chain is opened from a project, not here.
-    expect(isBenchProject("chains/bass/amp.st0")).toBe(false);
-    expect(isBenchProject("modules.st0")).toBe(false);
+    expect(isBenchProject("chains/bass/amp.k7")).toBe(false);
+    expect(isBenchProject("modules.k7")).toBe(false);
     expect(isBenchProject("live")).toBe(false);
   });
 
@@ -269,28 +264,28 @@ describe("the bench's address", () => {
     // A traversal, an empty segment or a project in the middle is no chain ref.
     expect(benchChainOf(`../x/${BENCH_PROJECT}`)).toBeUndefined();
     expect(benchChainOf(`a//b/${BENCH_PROJECT}`)).toBeUndefined();
-    expect(benchChainOf(`song.st0/${BENCH_PROJECT}`)).toBeUndefined();
+    expect(benchChainOf(`song.k7/${BENCH_PROJECT}`)).toBeUndefined();
     expect(benchChainOf(`/${BENCH_PROJECT}`)).toBeUndefined();
     // …and it survives the address k7 builds for it.
     const url = launchUrl(
       "https://studio.example",
       BENCH_REPO,
       benchProject("vocals/warm"),
-      "st0",
+      "k7",
     );
-    const at = parseLaunch(new URL(url).pathname, "st0", "/");
+    const at = parseLaunch(new URL(url).pathname, "k7", "/");
     expect(benchChainOf(at?.project ?? "")).toBe("vocals/warm");
   });
 
-  it("survives the round trip st0's home page makes it take", () => {
-    // The bench card builds an address; the file service takes it apart again — apps/st0/backend/docs/media/banc.md.
+  it("survives the round trip k7's home page makes it take", () => {
+    // The bench card builds an address; the file service takes it apart again — apps/k7/backend/docs/media/banc.md.
     const url = launchUrl(
       "https://studio.example",
       BENCH_REPO,
       BENCH_PROJECT,
-      "st0",
+      "k7",
     );
-    const at = parseLaunch(new URL(url).pathname, "st0", "/");
+    const at = parseLaunch(new URL(url).pathname, "k7", "/");
     expect(at?.repo).toBe(BENCH_REPO);
     expect(isBenchProject(at?.project ?? "")).toBe(true);
   });
@@ -309,8 +304,8 @@ describe("a shared snapshot's address", () => {
 
   it("parses back through the ORDINARY reader, with nothing taught to it", () => {
     const url = shareUrl("https://studio.frediver.se", TOKEN);
-    const at = parseLaunch(new URL(url).pathname, "st0", "/");
-    expect(at).toEqual({ repo: SHARE_REPO, project: `${TOKEN}.st0` });
+    const at = parseLaunch(new URL(url).pathname, "k7", "/");
+    expect(at).toEqual({ repo: SHARE_REPO, project: `${TOKEN}.k7` });
     if (!at)
       throw new Error("unreachable — the expect above would have failed");
     expect(isShare(at.repo)).toBe(true);
@@ -320,41 +315,41 @@ describe("a shared snapshot's address", () => {
   /** The bug this pins rendered a blank page: `/%40shares/…` did not prefix `/@shares/…` — docs/addresses.md. */
   it("writes a link with a literal @, and takes a basename off the path unchanged", () => {
     const url = shareUrl("https://studio.frediver.se", TOKEN);
-    expect(url).toBe(`https://studio.frediver.se/@shares/${TOKEN}.st0`);
+    expect(url).toBe(`https://studio.frediver.se/@shares/${TOKEN}.k7`);
     const path = new URL(url).pathname;
-    expect(projectBasename(path, "st0", "/")).toBe(path);
+    expect(projectBasename(path, "k7", "/")).toBe(path);
   });
 
   it("takes the OTHER spelling of the same address just as happily", () => {
     // An old bookmark may hold either spelling; the basename is a SLICE, so both prefix their own location.
-    const escaped = `/%40shares/${TOKEN}.st0`;
-    expect(parseLaunch(escaped, "st0", "/")).toEqual({
+    const escaped = `/%40shares/${TOKEN}.k7`;
+    expect(parseLaunch(escaped, "k7", "/")).toEqual({
       repo: SHARE_REPO,
-      project: `${TOKEN}.st0`,
+      project: `${TOKEN}.k7`,
     });
-    expect(projectBasename(escaped, "st0", "/")).toBe(escaped);
+    expect(projectBasename(escaped, "k7", "/")).toBe(escaped);
   });
 
   it("keeps the app's own route BELOW the basename", () => {
     // What the basename is for: everything after the project belongs to routes.ts.
-    const path = `/@shares/${TOKEN}.st0/timeline`;
-    expect(projectBasename(path, "st0", "/")).toBe(`/@shares/${TOKEN}.st0`);
+    const path = `/@shares/${TOKEN}.k7/timeline`;
+    expect(projectBasename(path, "k7", "/")).toBe(`/@shares/${TOKEN}.k7`);
   });
 
   it("refuses a project part that is not a token", () => {
     // The address is typed by anyone and then put into a URL, so it is checked here rather than later.
-    expect(shareToken("winter.st0")).toBeNull(); // too short to be a secret
+    expect(shareToken("winter.k7")).toBeNull(); // too short to be a secret
     expect(shareToken(`${TOKEN}`)).toBeNull(); // no suffix: not a project at all
-    expect(shareToken("../../etc/passwd.st0")).toBeNull();
-    expect(shareToken("a/b.st0")).toBeNull();
-    expect(shareToken(".st0")).toBeNull();
+    expect(shareToken("../../etc/passwd.k7")).toBeNull();
+    expect(shareToken("a/b.k7")).toBeNull();
+    expect(shareToken(".k7")).toBeNull();
   });
 
   it("takes the base64url alphabet, which is what mints a token", () => {
     // `randomBytes(32).toString("base64url")` — letters, digits, `-` and `_`, never `+/=`.
-    expect(shareToken(`${"-_".repeat(11)}.st0`)).toBe("-_".repeat(11));
-    expect(shareToken(`${"a".repeat(30)}+.st0`)).toBeNull();
-    expect(shareToken(`${"a".repeat(30)}=.st0`)).toBeNull();
+    expect(shareToken(`${"-_".repeat(11)}.k7`)).toBe("-_".repeat(11));
+    expect(shareToken(`${"a".repeat(30)}+.k7`)).toBeNull();
+    expect(shareToken(`${"a".repeat(30)}=.k7`)).toBeNull();
   });
 
   /** Two APIs on two machines meeting only as a directory name, so a disagreement would 404 every link ever minted. */
@@ -368,9 +363,9 @@ describe("a shared snapshot's address", () => {
   });
 
   it("addresses the share on the family root, on the one unauthenticated route", async () => {
-    // The page and the route are both st0's origin now: serviceUrl gives pl8 the family root.
+    // The page and the route are both k7's origin now: serviceUrl gives pl8 the family root.
     const key = await shareKey(TOKEN);
-    expect(shareApiBase(`https://st0.app/@shares/x.st0`, key)).toBe(
+    expect(shareApiBase(`https://st0.app/@shares/x.k7`, key)).toBe(
       `https://st0.app/api/public/share/${key}`,
     );
     expect(shareApiBase("https://priv.st0.app", key)).toBe(
@@ -384,54 +379,54 @@ describe("a project in a workspace with no repository", () => {
 
   it("reads back through parseLaunch with nothing added to it", () => {
     // `@local` sits where a repository goes, and the project part ends by the ordinary rule, unchanged.
-    expect(parseLaunch("/@local/Examples/synth-demo.st0", "st0", "/")).toEqual({
+    expect(parseLaunch("/@local/Examples/synth-demo.k7", "k7", "/")).toEqual({
       repo: "@local",
-      project: "Examples/synth-demo.st0",
+      project: "Examples/synth-demo.k7",
     });
     expect(isLocal("@local")).toBe(true);
     expect(isLocal("songs")).toBe(false);
   });
 
   it("splits the workspace off the front of what parseLaunch answered", () => {
-    expect(localTarget("Examples/synth-demo.st0")).toEqual({
+    expect(localTarget("Examples/synth-demo.k7")).toEqual({
       workspace: "Examples",
-      project: "synth-demo.st0",
+      project: "synth-demo.k7",
     });
     // A workspace that IS a project: `.` is what parseLaunch already answers when a repository is one.
-    expect(localTarget("hiver.st0")).toEqual({
-      workspace: "hiver.st0",
+    expect(localTarget("hiver.k7")).toEqual({
+      workspace: "hiver.k7",
       project: ".",
     });
-    expect(localTarget("Examples/albums/hiver.st0")).toEqual({
+    expect(localTarget("Examples/albums/hiver.k7")).toEqual({
       workspace: "Examples",
-      project: "albums/hiver.st0",
+      project: "albums/hiver.k7",
     });
   });
 
   it("refuses a workspace name that is not one", () => {
     // Checked and not trusted, exactly as shareToken is: it is joined onto the user's root.
-    expect(localTarget("../elsewhere/x.st0")).toBe(null);
-    expect(localTarget("./x.st0")).toBe(null);
+    expect(localTarget("../elsewhere/x.k7")).toBe(null);
+    expect(localTarget("./x.k7")).toBe(null);
     expect(localTarget("")).toBe(null);
   });
 
   it("builds the address the row links to, round-tripping its own encoding", () => {
-    const url = localProjectUrl(ORIGIN, "mes projets", "hiver.st0", "st0");
-    expect(url).toBe(`${ORIGIN}/@local/mes%20projets/hiver.st0`);
-    const back = parseLaunch(new URL(url).pathname, "st0", "/");
+    const url = localProjectUrl(ORIGIN, "mes projets", "hiver.k7", "k7");
+    expect(url).toBe(`${ORIGIN}/@local/mes%20projets/hiver.k7`);
+    const back = parseLaunch(new URL(url).pathname, "k7", "/");
     expect(back && localTarget(back.project)).toEqual({
       workspace: "mes projets",
-      project: "hiver.st0",
+      project: "hiver.k7",
     });
   });
 
   it("puts a single-project workspace's name where the project goes, once", () => {
     // The workspace folder IS the project, so the address names it once and `localTarget` reads back the pair.
-    const url = localProjectUrl(ORIGIN, "hiver.st0", ".", "st0");
-    expect(url).toBe(`${ORIGIN}/@local/hiver.st0`);
-    const back = parseLaunch(new URL(url).pathname, "st0", "/");
+    const url = localProjectUrl(ORIGIN, "hiver.k7", ".", "k7");
+    expect(url).toBe(`${ORIGIN}/@local/hiver.k7`);
+    const back = parseLaunch(new URL(url).pathname, "k7", "/");
     expect(back && localTarget(back.project)).toEqual({
-      workspace: "hiver.st0",
+      workspace: "hiver.k7",
       project: ".",
     });
   });
@@ -445,18 +440,18 @@ describe("a project in a workspace with no repository", () => {
 });
 
 // Two sides ask this and would drift: the main process, to know what a second window opens on,
-// and the tab strip, to know which tabs wear a note (apps/st0-desktop/docs/window.md).
+// and the tab strip, to know which tabs wear a note (apps/k7-standalone/docs/tabs.md).
 describe("which addresses open a project", () => {
   const O = "http://127.0.0.1:8780";
 
   it("says yes to a project, however it is addressed", () => {
     for (const p of [
-      "/songs/first.st0",
-      "/band/albums/winter.st0",
-      "/songs/first.st0/timeline",
-      "/@local/lemo_mante/mymix.st0",
-      "/@shares/a7f3.st0",
-      "/songs/first.st0/@external/desk",
+      "/songs/first.k7",
+      "/band/albums/winter.k7",
+      "/songs/first.k7/timeline",
+      "/@local/lemo_mante/mymix.k7",
+      "/@shares/a7f3.k7",
+      "/songs/first.k7/@external/desk",
     ])
       expect(isProjectAddress(O + p), p).toBe(true);
   });
@@ -482,8 +477,8 @@ describe("which addresses open a project", () => {
     expect(isHomePage("/libraries", "/")).toBe(true);
     expect(isHomePage("/settings/", "/")).toBe(true);
     expect(isHomePage("/tasks", "/")).toBe(true);
-    expect(isHomePage("/st0/settings", "/st0/")).toBe(true);
-    expect(isHomePage("/settings/x.st0", "/")).toBe(false);
+    expect(isHomePage("/k7/settings", "/k7/")).toBe(true);
+    expect(isHomePage("/settings/x.k7", "/")).toBe(false);
     expect(isHomePage("/external", "/")).toBe(false);
     expect(isHomePage("/", "/")).toBe(false);
   });
@@ -492,7 +487,7 @@ describe("which addresses open a project", () => {
     expect(isHomePage("/media", "/")).toBe(true);
     expect(isHomePage("/media/songs", "/")).toBe(true);
     expect(isHomePage("/media/songs/Miles/So-What/song.yaml", "/")).toBe(true);
-    expect(isHomePage("/st0/media/find", "/st0/")).toBe(true);
+    expect(isHomePage("/k7/media/find", "/k7/")).toBe(true);
     // Only the head: a workspace may hold a project of that name.
     expect(isHomePage("/songs/media", "/")).toBe(false);
   });
@@ -501,7 +496,7 @@ describe("which addresses open a project", () => {
     expect(isHomePage("/rehearsal", "/")).toBe(true);
     expect(isHomePage("/rehearsal/sessions/abc", "/")).toBe(true);
     expect(isHomePage("/rehearsal/@lemo", "/")).toBe(true);
-    expect(isHomePage("/st0/rehearsal/songs", "/st0/")).toBe(true);
+    expect(isHomePage("/k7/rehearsal/songs", "/k7/")).toBe(true);
     expect(isHomePage("/songs/rehearsal", "/")).toBe(false);
   });
 

@@ -120,7 +120,19 @@ in a stretch, whose nodes ARE wired and take `#audio` like any shader.
 ## A STRETCH — a transition made of nodes
 
 ```yaml
-# graph.yaml
+# chains/main.yaml — a chain project
+start: true
+steps:
+  - { id: 7d14…, video_track: main }
+  - to: [ { chain: RENDER } ]
+subchains:
+  - id: iris                                    # `fade_in: { over: 1, chain: iris }`
+    steps:
+      - { id: 8a82…, extends: "@workspace/shaders/iris" }
+```
+
+```yaml
+# graph.yaml — a graph project, the same stretch
 modules:
   "@workspace/shaders/iris": [ main ]                         # fed by nothing, lands on the lane
   "@workspace/shaders/zoom": [ "@workspace/shaders/dim" ]
@@ -133,11 +145,16 @@ shot runs through it before it is blended. It is the same run a lane's own chain
 stretch is drawn on the graph as cards with knobs, can be bypassed step by step, and needs no new
 kind of file.
 
-Why a run of the graph and not a subchain: a picture project is a GRAPH project, and subchains exist
-only in the `chains/` layout (`packages/song/docs/chainFiles.md`). The graph's own equivalent of "a
-run scoped to one owner" is a run whose only edge is the one into that owner, which is what this is.
-The cable INTO the lane is what scopes it: a fade on another lane naming it is refused (below), as
-is a stretch something else feeds — that is then a lane's run, and the head would have two signals.
+In a CHAIN project — the main layout — a stretch is a **subchain of the lane's chain file**, and a
+fade names it by its id: `chain: iris` (`packages/song/docs/chainFiles.md`). The file is the scope,
+so a fade can reach only its own lane's stretches. Read into segments, that subchain IS the cable
+from its last node into the lane, so everything downstream sees the same graph either way, and the
+compile turns the id into the node the run starts at.
+
+In a GRAPH project there are no subchains, and the equivalent of "a run scoped to one owner" is a
+run whose only edge is the one into that owner, named by its head node. The cable INTO the lane is
+what scopes it: a fade on another lane naming it is refused (below), as is a stretch something else
+feeds — that is then a lane's run, and the head would have two signals.
 
 ### `uPresence` — one number for both directions
 
@@ -272,7 +289,7 @@ to **the layer below**.
 | compiled | `src/videoTracks.ts` -> `VideoClipDoc.fadeIn`, and `src/videoProject.ts` -> `VideoProjectDoc.transitions` and `.stretches`, the GLSL **inline** |
 | on the wire | `packages/web-protocol/types.ts` — `WebVideoFade`, `WebVideoTransition`, `WebVideoProject.stretches` |
 | served | `packages/file-service/src/workspace.ts` — `toWebVideoTracks`, `videoProjectDoc` |
-| adapted | `packages/st0-plugins/src/video/scene.ts` -> `packages/ui-eyes/src/scene.ts` |
+| adapted | `packages/k7-plugins/src/video/scene.ts` -> `packages/ui-eyes/src/scene.ts` |
 | decided | `packages/ui-eyes/src/timeline.ts` — `layerFrameAt`, the only rule |
 | decoded | `packages/ui-eyes/src/realtime.ts` and `packages/ui-eyes/src/export.ts` |
 | drawn | `packages/ui-eyes/src/compositor.ts` + `packages/ui-eyes/src/passes.ts` + `packages/ui-eyes/src/stretches.ts`, the built-in `dissolve` and `over` in `packages/ui-eyes/src/transitions.ts` |
@@ -296,5 +313,5 @@ blend reads a STRETCHED picture rather than its slot, and what is allocated.
 
 **None of them proves a pixel changed**: there is no WebGL2 in the runner, and
 `compositor.test.ts` says so itself. The remaining check is done with the eyes — open
-`demos/video-demo.st0`, overlap two shots, give the second a `fade_in`, and watch the cut become a
+`demos/video-demo.k7`, overlap two shots, give the second a `fade_in`, and watch the cut become a
 fade. The demo's second shot on `main` already arrives through the `iris` stretch.

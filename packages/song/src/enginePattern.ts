@@ -1,6 +1,6 @@
 // enginePattern.ts — a strudel lane compiled for the ENGINE, which plays it: the plugin(s) heading the lane's halves.
 // The pattern's text, its sample banks and how it shares a file with other lanes all travel in the document, since
-// the engine parses no files — engine/st0-engine/docs/patternPlugin.md.
+// the engine parses no files — engine/k7-runtime/docs/patternPlugin.md.
 
 import { join, resolve } from "node:path";
 import { loadLanes } from "./loader";

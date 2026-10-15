@@ -19,8 +19,8 @@ that differ only in where the bytes come from and who names the folder:
 
 | | reads | folder name | leaves behind |
 |---|---|---|---|
-| `importProjectInto` | a file already IN the workspace, clicked in st0's tree | the file's stem, uniquified | the source file, where it was |
-| `importProjectBytes` | bytes handed over — a file DROPPED on a workspace row on st0's home page | what the popin asked for, refused if taken | nothing but the project |
+| `importProjectInto` | a file already IN the workspace, clicked in k7's tree | the file's stem, uniquified | the source file, where it was |
+| `importProjectBytes` | bytes handed over — a file DROPPED on a workspace row on k7's home page | what the popin asked for, refused if taken | nothing but the project |
 
 The second exists because a drop has no file in the workspace to point at, and because the person
 doing it is looking at a list of projects: the folder is what they will look for afterwards, so it
@@ -65,7 +65,7 @@ in it:
 
 Live measures a warped clip's `LoopStart` on the clip's own warp grid, and that grid's beat 0 is not
 the file's second 0: the first `WarpMarker` says which beat second 0 sits on, and a recording Live
-lined up late puts it at beat 4 or 0.6 rather than 0. st0's window counts beats into the FILE — its
+lined up late puts it at beat 4 or 0.6 rather than 0. k7's window counts beats into the FILE — its
 `from` is source seconds at the project tempo. So `mapAudioClip` reads the in-point THROUGH the
 markers (`sourceSecondAt`, extending the end segments' rate past them) instead of copying it. Copied
 straight, every such clip played the file that many beats late — 3.7 s on one real export's solo —
@@ -109,11 +109,11 @@ itself — the contract holds either way.
 
 A `.dawproject` is a ZIP of `project.xml` (the song), `metadata.xml`, plus `audio/*` and
 `plugins/*` assets. This module unzips the bytes in memory, parses `project.xml`, and
-projects it onto st0's song schema — the same shape `project.ts` reads back. It
+projects it onto k7's song schema — the same shape `project.ts` reads back. It
 performs NO disk I/O: it returns the song object plus every asset entry for the caller
 to write out.
 
-The mapping is deliberately lossy where st0 can't yet represent something (warps /
+The mapping is deliberately lossy where k7 can't yet represent something (warps /
 time-stretch, plugin state, automation): those are dropped, while the structural
 essentials (tracks, params, audio clips, MIDI notes, plugin refs, sends) are carried so
 a later phase can wire them.
@@ -239,12 +239,12 @@ A `.vstpreset` is an opaque blob; text params are diffable and live in the chain
 module asks the engine to enumerate a plugin's parameters as `paramID -> value`, so
 `emit.ts` can write chain params instead of a preset:
 
-- **built-ins**: `st0-engine --dump-params <type>`
-- **externals**: `st0-engine --dump-params-ext <format> <id> <statefile>`
+- **built-ins**: `k7-runtime --dump-params <type>`
+- **externals**: `k7-runtime --dump-params-ext <format> <id> <statefile>`
   (instantiate the plugin, restore its `.vstpreset`, dump params)
 
 The engine reports whether the params fully reproduce the state ("complete"); only then
-is the opaque preset dropped. An external plugin is located in the st0 cache
+is the opaque preset dropped. An external plugin is located in the k7 cache
 (`<state>/exts.json`) by name to get its format + identifier, and its state bytes
 (from the archive) are written to a temp file for the engine.
 
@@ -274,13 +274,13 @@ It is the default a DAW writes: a track called after the device on it. So the fo
 
 ## Every lane ends on a fader
 
-An st0 lane has a strip of its own, last in its run — a node on the library's mixer, and the
+An k7 lane has a strip of its own, last in its run — a node on the library's mixer, and the
 gutter fader, the card and the Mixer view are three drawings of it
 (`packages/song/docs/trackMixer.md`). A lane without one plays at unity with nowhere to put a
 level.
 
 So each emitted lane gets `nodes/mix-<lane>.yaml`, a last step naming it, and nothing else: the node
-extends **`@meta/audio/mixer`** — `SHARED_STRIP`, st0's own module that every mixer node in every
+extends **`@meta/audio/mixer`** — `SHARED_STRIP`, k7's own module that every mixer node in every
 project is a use of (`packages/song/docs/metaModules.md`).
 
 **No project module is written for it**, and that is the point rather than a saving. A project-owned
@@ -293,7 +293,7 @@ A return bus and the master chain get none: neither is a lane, and a strip on th
 second level in the path with nothing drawing it.
 
 The strip runs into **`MIX`**, and `MIX` into the master run — or straight to `OUT` when the source
-project's master track carries no plugins. That is the notation every st0 project uses
+project's master track carries no plugins. That is the notation every k7 project uses
 (`packages/song/docs/masterChain.md`): not an audible difference, since every track feeds the
 master bus whatever it names, but the shape the rest of the app reads. A lane that ended at `OUT`
 is one `planTrackMixer` refuses to touch — "does not run into MIX, wire its strip by hand" — so an
@@ -342,7 +342,7 @@ These are the choices `src/emit.ts` makes that a reader would otherwise have to 
 
 **Every timing field is a `#Timecode` STRING, never a bare number.** A bare `4` parses as BARS
 and lands the clip at beat 12. And a timecode is written QUOTED: bare, `25:1` is a YAML 1.1
-sexagesimal. The shape decisions in the emitters match what st0 itself writes — a placement, a
+sexagesimal. The shape decisions in the emitters match what k7 itself writes — a placement, a
 chain node or a note stays on ONE line.
 
 **A placement does not carry the clip's extent.** That belongs to the material, as a `from`/`to`
@@ -382,7 +382,7 @@ sole use that stayed in `module.yaml`.
 node on `@meta/not-supported`, the built-in placeholder, carrying the plugin's real name as
 `plugin.name` and the params the export held. The chain routes through it and the graph draws it amber.
 `packages/song/docs/notSupported.md` argues the shape — chiefly why a stub MODULE per unloadable
-plugin was the wrong answer, and why the ref is `@meta` rather than `@st0`.
+plugin was the wrong answer, and why the ref is `@meta` rather than `@k7-core`.
 
 The scan it checks against is read through `scannedPlugins()` and never by opening a path of its
 own. That is the whole of the rule, and the failure it prevents is silent: a hand-rolled read

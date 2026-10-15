@@ -2,8 +2,8 @@
 // A plugin contributes one at composition time (file-service boot, or the shell's browser mount);
 // nothing here imports plugin code, so song-schema stays the data-only tier everything may import.
 // The Zod schema and the `SurfaceType` union stay the BUILTINS' for now — widening the parsed
-// shape is the day a registered type actually ships (docs/st0-sdk/sdk.md).
-// Full rationale: packages/st0-sdk/docs/sdk.md.
+// shape is the day a registered type actually ships (docs/k7-sdk/sdk.md).
+// Full rationale: packages/k7-sdk/docs/sdk.md.
 
 import {
   SURFACE_LAYOUTS_BY_TYPE,

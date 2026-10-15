@@ -1,7 +1,7 @@
 # commands.yaml — declarative command definitions (see commandSpec.ts).
 #
 # Each entry maps a command STRING (what you type in the web editor's command bar or
-# after `st0 cmd`) to a feature SID (implemented in commands.ts), plus:
+# after `k7 cmd`) to a feature SID (implemented in commands.ts), plus:
 #   readable  ONE sentence saying what the command does, `en` and `fr`. This is what the
 #             web palette LISTS and fuzzy-matches on — a person looking for a feature knows
 #             what they want done, not what it is called. Kept apart from `help` rather than
@@ -21,9 +21,9 @@
 #             them. This is the entity under the POINTER, not the one the command acts on:
 #             `event add` names a track and belongs on a TRACK's menu, while `event remove`
 #             belongs on the event's. Absent = every menu whose click answers the command's
-#             leading arguments, which is the derivation st0's right-click is built on — so
+#             leading arguments, which is the derivation k7's right-click is built on — so
 #             write one only to NARROW it. An unknown word is reported at load and dropped.
-#             See apps/st0/frontend/docs/contextMenu.md.
+#             See apps/k7/frontend/docs/contextMenu.md.
 #   args      trailing user args. Each may carry EITHER `complete:` — a named provider
 #             in commandSpec.ts PROVIDERS, whose values come from the live project —
 #             OR `values: [...]`, a closed set fixed by the command itself. An unknown
@@ -103,8 +103,8 @@
       { name: track, complete: tracks },
       { name: position, hint: "1-based, counting lanes from the top" },
     ]
-# `track transcribe` moved to the transcription plugin (@studio/st0-plugins) —
-# its catalogue row is the plugin's declaration now (packages/st0-plugins/src/transcription).
+# `track transcribe` moved to the transcription plugin (@studio/k7-plugins) —
+# its catalogue row is the plugin's declaration now (packages/k7-plugins/src/transcription).
 # Two ways to make one lane into two, both copying its chain; the difference is the events.
 - command: "track duplicate"
   sid: track.duplicate
@@ -304,7 +304,7 @@
     ]
 # The FRAME's shape, written as `project.viewport` — a pixel size, which is what every consumer
 # reads; the ratio is the short name a person picks. The export fps, when the file states one as a
-# third element, is kept. Two names for now: 16:9 and 9:16. See packages/song/docs/picture.md.
+# third element, is kept. Two names for now: 16:9 and 9:16. See packages/song-video/docs/picture.md.
 - command: "project aspect"
   sid: project.aspect
   readable:
@@ -455,7 +455,7 @@
   readable:
     en: "Bounce a track through a chain, for good"
     fr: "Traiter une piste dans une chaîne, définitivement"
-  help: "bounce every file a track's clips play through a chain and keep the result (e.g. track process gtr @st0/amp-room)"
+  help: "bounce every file a track's clips play through a chain and keep the result (e.g. track process gtr @k7-core/amp-room)"
   surfaces: [cli]
   menu: [track]
   args: [{ name: track, complete: tracks }, { name: chain, complete: chains }]
@@ -464,7 +464,7 @@
   readable:
     en: "Bounce a clip through a chain, for good"
     fr: "Traiter un clip dans une chaîne, définitivement"
-  help: "bounce one clip's file through a chain and keep the result (e.g. clip process riff @st0/amp-room)"
+  help: "bounce one clip's file through a chain and keep the result (e.g. clip process riff @k7-core/amp-room)"
   surfaces: [cli]
   args:
     [
@@ -547,7 +547,7 @@
 
 # --- a clip's onsets ---
 # Corrections to what the engine detected, in SECONDS into the source file. Kept as a difference, so
-# they survive re-detecting at another sensitivity — see packages/song/src/onsets.ts. A time within
+# they survive re-detecting at another sensitivity — see packages/song-edit/src/onsets.ts. A time within
 # 25 ms of an existing onset means that one, so an approximate second is enough.
 - command: "clip onset add"
   sid: clip.onset.add
@@ -1007,7 +1007,7 @@
   readable:
     en: "Choose the mix's console"
     fr: "Choisir la console du mix"
-  help: "run the whole mix through a summing console (e.g. project console @st0/console/console-6), or none; with no name, list them"
+  help: "run the whole mix through a summing console (e.g. project console @k7-core/console/console-6), or none; with no name, list them"
   surfaces: [cli]
   args: [{ name: system, optional: true, hint: "@<library>/console/<system>, or none" }]
 
@@ -1100,7 +1100,7 @@
 # --- channel labels (global user preferences) ---
 # Choosing the audio INTERFACE is not here on purpose: it's a one-off rig decision, not a
 # per-song edit, so it lives in the médiathèque's « État du moteur » — the one screen that
-# reaches both the engine and its machine, which a pick needs (engine/st0-engine/docs/audioDevice.md).
+# reaches both the engine and its machine, which a pick needs (engine/k7-runtime/docs/audioDevice.md).
 # These labels just annotate that rig, so they stay on every surface.
 - command: "system channel list"
   sid: system.channel.list
@@ -1162,19 +1162,19 @@
 #
 # It is a `system` verb rather than a project one because the answer does not vary by project:
 # which module separates and which model it wants is a fact about the library and about this
-# machine's ~/.st0/models. Every surface that could start a separation reads it — the playlist
+# machine's ~/.k7/models. Every surface that could start a separation reads it — the playlist
 # panel's button, a desk catching up on an unprepared record — which is precisely why none of them
 # asks for a chain. Naming one in three places would be three places to get it wrong.
 #
 # The chain is CHECKED here, against the open project, and refused if it does not separate: this is
 # the cheap moment to find that out, rather than thirty songs into a set list. With no project open
-# it is stored unchecked and says so — a `@st0/…` ref has nothing to resolve against.
+# it is stored unchecked and says so — a `@k7-core/…` ref has nothing to resolve against.
 - command: "system stems"
   sid: system.stems
   readable:
     en: "Set the chain that separates a record into stems"
     fr: "Choisir la chaîne qui sépare un morceau en stems"
-  help: "remember which chain separates (e.g. system stems @st0/stems) — an empty ref clears it"
+  help: "remember which chain separates (e.g. system stems @k7-core/stems) — an empty ref clears it"
   surfaces: [cli]
   args:
     [
@@ -1199,7 +1199,7 @@
   readable:
     en: "Set the chain that gives a record without its voice"
     fr: "Choisir la chaîne qui donne un morceau sans sa voix"
-  help: "remember which chain makes the instrumental (e.g. system instrumental @st0/instrumental) — an empty ref clears it"
+  help: "remember which chain makes the instrumental (e.g. system instrumental @k7-core/instrumental) — an empty ref clears it"
   surfaces: [cli]
   args:
     [
@@ -1270,7 +1270,7 @@
   readable:
     en: "Move this workspace to another library version"
     fr: "Passer cet espace à une autre version de bibliothèque"
-  help: "move the pin (e.g. library upgrade st0, or library upgrade st0 3) — unsaid, the newest version this st0 runs; a version that needs a newer st0 is refused"
+  help: "move the pin (e.g. library upgrade k7, or library upgrade k7 3) — unsaid, the newest version this k7 runs; a version that needs a newer k7 is refused"
   surfaces: [cli]
   args:
     [
@@ -1278,7 +1278,7 @@
       {
         name: version,
         optional: true,
-        hint: "a version number, or draft — unsaid, the newest this st0 runs",
+        hint: "a version number, or draft — unsaid, the newest this k7 runs",
       },
     ]
 
@@ -1371,7 +1371,7 @@
       { name: to, hint: "where it lands, counting from 1" },
     ]
 
-# --- the song's PICTURE (see apps/st0/frontend/docs/picture.md) ---
+# --- the song's PICTURE (see apps/k7/frontend/docs/picture.md) ---
 # A shot is addressed by the lane and by WHERE IT STARTS, in the wall-clock dialect the lane file
 # itself speaks — seconds (12.5) or m:ss (1:30.5), never bar:beat:tick. The file is in seconds and
 # there is one tempo, so a musical spelling would be a second dialect for the same number.
@@ -1411,7 +1411,7 @@
     ]
 # WHERE in the frame a lane draws, in viewport px — the one picture verb about geometry rather
 # than about time. A lane stating no rect fills the frame, so this is what a viewport drag writes
-# the moment you move or resize one. See apps/st0/frontend/docs/picture.md.
+# the moment you move or resize one. See apps/k7/frontend/docs/picture.md.
 # A lane's two mixer words, spelled for PICTURE. `mute` is HIDDEN — there is no sound on a lane —
 # and lives in the lane's own file. `solo` is `soloed:` at project.yaml's root, the SAME list audio
 # uses: each compile filters it to its own lanes, so soloing a shot silences nothing.
@@ -1728,7 +1728,7 @@
 # Deletes a TRACK: its lane and the chain that lane starts — input, instrument, effects, strip —
 # which is what "delete track" means in a DAW; `node delete` on the lane alone would leave its
 # instrument wired to nothing. Clips and sequences stay on disk, as `event remove` leaves them.
-# `confirm:` makes the right-click ask first (st0's frontend/docs/contextMenu.md).
+# `confirm:` makes the right-click ask first (k7's frontend/docs/contextMenu.md).
 - command: "track delete"
   sid: track.delete
   readable:
@@ -1748,7 +1748,7 @@
   readable:
     en: "Put a templated box of nodes in the graph"
     fr: "Poser une boîte de nœuds templatée dans le graphe"
-  help: "instance an assembly template from the library, nodes and wiring and all (e.g. assembly new @st0/turntable turntableA)"
+  help: "instance an assembly template from the library, nodes and wiring and all (e.g. assembly new @k7-core/turntable turntableA)"
   surfaces: [cli]
   args:
     - { name: "ref", complete: assemblyTemplates }
@@ -1797,7 +1797,7 @@
   readable:
     en: "Fork a library module into my own library"
     fr: "Copier un module de bibliothèque dans la mienne"
-  help: "make a library module yours (e.g. module fork @st0/audio/reverb) — @account/audio/reverb extends it, and this project plays the fork"
+  help: "make a library module yours (e.g. module fork @k7-core/audio/reverb) — @account/audio/reverb extends it, and this project plays the fork"
   surfaces: [cli]
   menu: [node]
   args: [{ name: "ref", complete: baseModules }]
@@ -1978,7 +1978,7 @@
   readable:
     en: "Save a node's settings as a new preset"
     fr: "Enregistrer les réglages d'un nœud comme preset"
-  help: 'keep a node''s current values as a new preset of its module (e.g. node preset save lead "warm pad" st0); the scope defaults to workspace'
+  help: 'keep a node''s current values as a new preset of its module (e.g. node preset save lead "warm pad" k7); the scope defaults to workspace'
   surfaces: [cli]
   menu: [node]
   args:
@@ -2024,7 +2024,7 @@
   readable:
     en: "Set the sample a rack tap plays"
     fr: "Choisir l'échantillon d'un pad de rack"
-  help: "set the library sample a rack node's tap plays, or none (e.g. node tap sample kit BD \"@st0/kicks/808.wav\")"
+  help: "set the library sample a rack node's tap plays, or none (e.g. node tap sample kit BD \"@k7-core/kicks/808.wav\")"
   surfaces: [cli]
   menu: [tap]
   args:
@@ -2125,7 +2125,7 @@
   readable:
     en: "Add a module to a tap's chain"
     fr: "Ajouter un module a la chaine d'un pad"
-  help: "add a module at the end of a tap's own chain, making the chain and routing the tap the first time (e.g. node tap chain add kit Snare @st0/audio/verb)"
+  help: "add a module at the end of a tap's own chain, making the chain and routing the tap the first time (e.g. node tap chain add kit Snare @k7-core/audio/verb)"
   surfaces: [cli]
   menu: [tap]
   args:
@@ -2689,7 +2689,7 @@
 # `selection copy` and `selection paste` are the shell's own and live beside it in the palette:
 # what they share is not a material but the region a gesture aimed at. It stays HERE in the file
 # rather than moving to a section of its own — catalogue order is what orders a right-click menu,
-# and split's inverse belongs next to split. See apps/st0/frontend/docs/clipEditors.md.
+# and split's inverse belongs next to split. See apps/k7/frontend/docs/clipEditors.md.
 #
 # The rectangle exactly as `events move` takes it, and ONE lane: what would a consolidation across
 # two lanes even be — one file, or one per lane? Refused rather than guessed.
@@ -2717,7 +2717,7 @@
   readable:
     en: "Bounce this event through a chain"
     fr: "Traiter cet événement dans une chaîne"
-  help: "bounce one event's file through a chain, leaving every other event on that material alone (e.g. event process gtr 5:1 @st0/amp-room)"
+  help: "bounce one event's file through a chain, leaving every other event on that material alone (e.g. event process gtr 5:1 @k7-core/amp-room)"
   surfaces: [cli]
   menu: [event]
   args:

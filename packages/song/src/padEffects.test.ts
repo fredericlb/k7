@@ -19,7 +19,7 @@ let dir = "";
 
 /** One lane playing `pat` once, over a sequence whose single note says whatever is asked. */
 function project(name: string, note: Record<string, unknown>): string {
-  const p = join(dir, `${name}.st0`);
+  const p = join(dir, `${name}.k7`);
   writeYaml(join(p, "project.yaml"), { project: { name, tempo: 120 } });
   writeModule(p, "io", "OUT", { io: "out" });
   writeLane(p, "drums", "track", { events: [{ ref: "pat", start: "1:1:1" }] });

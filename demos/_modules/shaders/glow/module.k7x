@@ -6,7 +6,7 @@
 //
 // `P1`..`P4` are the four knobs every shader gets, 0..1, reaching the fragment as `uP1`..`uP4`.
 // What each one means is the shader's business — read the comments in its fragment.glsl.
-// See packages/song/docs/shaders.md.
+// See packages/song-video/docs/shaders.md.
 type("shader")
 shader("pulse")
 params({

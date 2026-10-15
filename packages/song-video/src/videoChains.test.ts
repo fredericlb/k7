@@ -14,7 +14,7 @@ let root: string;
 let dir: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "video-chains-"));
-  dir = join(root, "film.st0");
+  dir = join(root, "film.k7");
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),

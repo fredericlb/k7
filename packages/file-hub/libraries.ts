@@ -2,7 +2,7 @@
 // and one FOLDER per library under `<dataRoot>/libraries/<name>`: its frozen versions `1/`, `2/`…
 // and the `draft/` only admins write. A listed library missing on disk is copied from the seed
 // (`$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…`) as its version 1, or made empty.
-// Its edits reach other replicas through st0fs (libraryRelay.ts). See docs/fileHub.md and
+// Its edits reach other replicas through k7fs (libraryRelay.ts). See docs/fileHub.md and
 // ../../docs/library-versions-plan.md.
 
 import {
@@ -27,7 +27,11 @@ import {
   UNPINNED_VERSION,
   versionOfDir,
 } from "@studio/song-schema/libraryVersions";
-import { isLibraryName } from "@studio/song-schema/moduleTypes";
+import {
+  DEFAULT_LIBRARY,
+  isLibraryName,
+  LEGACY_DEFAULT_LIBRARY,
+} from "@studio/song-schema/moduleTypes";
 import type { AccountLibrariesReply, LibraryNote } from "@studio/web-protocol";
 
 /** One library of the origin: the name its refs use (`@<name>/…`), which is also its folder's. */
@@ -109,6 +113,32 @@ export class LibraryStore {
     this.home = join(dataRoot, "libraries");
     this.listFile = join(dataRoot, "libraries.json");
     this.seed = parseSeed(seed);
+  }
+
+  /** A deployment from before k7 named its default library `st0`: it becomes `k7-core`, folder and sync state with it. */
+  // Once, at start, and idempotent: a list that names k7-core already, or no st0 at all, is left as it is.
+  renameLegacyDefault(): boolean {
+    const list = this.settings();
+    if (
+      !list.some((l) => l.name === LEGACY_DEFAULT_LIBRARY) ||
+      list.some((l) => l.name === DEFAULT_LIBRARY)
+    )
+      return false;
+    // The folder and each replica's and relay's state, unless one under the new name is there already.
+    for (const sub of ["", ".sync-relay", ".sync-replica", ".sync-follow"]) {
+      const from = join(this.home, sub, LEGACY_DEFAULT_LIBRARY);
+      const to = join(this.home, sub, DEFAULT_LIBRARY);
+      if (existsSync(from) && !existsSync(to)) renameSync(from, to);
+    }
+    if (existsSync(this.listFile))
+      this.write(
+        list.map((l) =>
+          l.name === LEGACY_DEFAULT_LIBRARY
+            ? { ...l, name: DEFAULT_LIBRARY }
+            : l,
+        ),
+      );
+    return true;
   }
 
   /** The list; with none written yet, the libraries already on disk, else the seed's. */
@@ -199,7 +229,7 @@ export class LibraryStore {
     const requires = opts.requires ?? this.versions(name).at(-1)?.requires ?? 1;
     if (!Number.isInteger(requires) || requires < 1 || requires > LIBRARY_LEVEL)
       return {
-        error: `'${name}' cannot require level ${requires}: this st0 runs level ${LIBRARY_LEVEL}`,
+        error: `'${name}' cannot require level ${requires}: this k7 runs level ${LIBRARY_LEVEL}`,
       };
     const version = Math.max(0, ...versionNumbers(at)) + 1;
     const manifest: LibraryManifest = { name, version, requires };

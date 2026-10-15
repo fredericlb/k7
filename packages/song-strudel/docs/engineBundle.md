@@ -1,8 +1,8 @@
 # What this package is for
 
-The ENGINE plays every strudel lane (`engine/st0-engine/docs/patternPlugin.md`). What it runs of
-Strudel is a single script, `engine/st0-engine/engine/strudel/strudel.bundle.js`, built from
-`src/engineEntry.ts` by `npm run gen:strudel-bundle --workspace st0-engine` and committed. This
+The ENGINE plays every strudel lane (`engine/k7-runtime/docs/patternPlugin.md`). What it runs of
+Strudel is a single script, `engine/k7-runtime/engine/strudel/strudel.bundle.js`, built from
+`src/engineEntry.ts` by `npm run gen:strudel-bundle --workspace k7-runtime` and committed. This
 package is that script's SOURCE, and the place it is tested under Node before QuickJS ever sees it.
 Nothing imports it at run time.
 

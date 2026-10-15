@@ -9,6 +9,7 @@ import type {
   Moment,
   MomentPlacement,
   Page,
+  PageVisibility,
   PublicationsStatus,
   Release,
   ReleasePatch,
@@ -27,6 +28,9 @@ const json = async (res: Response) => {
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
   return res.status === 204 ? null : res.json();
 };
+
+/** A page open to anyone signed in, asked for without a session: signing in may still open it. */
+export class UnauthenticatedError extends Error {}
 
 export const api = {
   // --- Sessions ---
@@ -306,7 +310,7 @@ export const api = {
   versionTrackUrl: (id: string, versionId: string, trackId: string) =>
     `${apiBase()}/api/releases/${id}/versions/${versionId}/tracks/${trackId}`,
 
-  // Mint a personal access token for the st0 CLI (Settings UI).
+  // Mint a personal access token for the k7 CLI (Settings UI).
   getApiToken: (): Promise<{ token: string }> => f("/api/token").then(json),
 
   // --- Pages ---
@@ -317,6 +321,7 @@ export const api = {
   createPage: (data: {
     nametag: string;
     releaseIds: string[];
+    visibility: PageVisibility;
   }): Promise<Page> =>
     f("/api/pages", {
       method: "POST",
@@ -330,6 +335,7 @@ export const api = {
       nametag?: string;
       releaseIds?: string[];
       versionIds?: Record<string, string>;
+      visibility?: PageVisibility;
     },
   ): Promise<Page> =>
     f(`/api/pages/${id}`, {
@@ -345,9 +351,18 @@ export const api = {
   pagePublicUrl: (nametag: string): string =>
     `${window.location.origin}${pagesPrefix()}/@${nametag}`,
 
-  // No session on this one: the nametag is the whole address — ../../rehearsal-server/docs/ownership.md.
-  getPublicPage: (nametag: string): Promise<Page> =>
-    fetch(`${apiBase()}/api/public/pages/${nametag}`).then(json),
+  // No session needed, but one is sent: the page's visibility is graded against it — ../../rehearsal-server/docs/pages.md.
+  getPublicPage: async (nametag: string): Promise<Page> => {
+    const res = await f(`/api/public/pages/${nametag}`);
+    if (res.status === 401) throw new UnauthenticatedError();
+    return json(res);
+  },
+
+  /** Signing in, then coming back to the address this tab is on; `return_to` is what the OIDC flow reads. */
+  get loginUrl(): string {
+    const here = window.location.pathname + window.location.search;
+    return `${apiBase()}/auth/login?return_to=${encodeURIComponent(here)}`;
+  },
 
   publicVersionAudioUrl: (
     nametag: string,

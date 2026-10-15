@@ -10,7 +10,7 @@ the ruler; the other costs you a glance.
 ## Why the candidates are the caller's
 
 Because the two READINGS of a ruler do not subdivide the same way, and this is the seam that
-lets one function serve both. st0's timeline offers both from one header button: a song is
+lets one function serve both. k7's timeline offers both from one header button: a song is
 placed in bars and its picture is cut in seconds, and they share a grid.
 
 **The musical reading.** A bar halves into beats, beats halve into sixteenths; the ladder is

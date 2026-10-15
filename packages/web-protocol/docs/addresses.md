@@ -2,44 +2,44 @@
 
 `projects.ts` states two contracts: which studio app owns a folder, decided by the folder's NAME,
 and the address that names one, `/@local/<workspace>/<project>`. Both sit between the side that
-WRITES an address — st0's home page — and the apps that read one back, which is why they are stated
-once, browser-safe, and nowhere else. See `apps/st0/frontend/docs/projects.md` and
+WRITES an address — k7's home page — and the apps that read one back, which is why they are stated
+once, browser-safe, and nowhere else. See `apps/k7/frontend/docs/projects.md` and
 `packages/project-shell/docs/launch.md`.
 
 ## Where each service answers
 
-`services.ts` states where every service is, derived from ONE origin, st0's:
+`services.ts` states where every service is, derived from ONE origin, k7's:
 
 | service | where | dev | production |
 |---|---|---|---|
-| st0 | the origin itself | `priv.st0.app` | `st0.app` |
-| z0 | a path under st0's origin, `SERVICE_PATHS.z0` | `priv.st0.app/z0` | `st0.app/z0` |
-| pl8 | the media library, served BY st0 — st0's origin, its screens under `/media` | `priv.st0.app/media` | `st0.app/media` |
-| k7 | the rehearsal recorder, served BY st0 — st0's origin, its screens under `/rehearsal` | `priv.st0.app/rehearsal` | `st0.app/rehearsal` |
+| k7 | the origin itself | `priv.st0.app` | `st0.app` |
+| z0 | a path under k7's origin, `SERVICE_PATHS.z0` | `priv.st0.app/z0` | `st0.app/z0` |
+| pl8 | the media library, served BY k7 — k7's origin, its screens under `/media` | `priv.st0.app/media` | `st0.app/media` |
+| k7 | the rehearsal recorder, served BY k7 — k7's origin, its screens under `/rehearsal` | `priv.st0.app/rehearsal` | `st0.app/rehearsal` |
 
-`serviceUrl(origin, service)` answers from any studio URL — st0's or a sibling's, whose label it
+`serviceUrl(origin, service)` answers from any studio URL — k7's or a sibling's, whose label it
 strips first — so a page never spells a host, and a deployment on a domain of its own needs nothing
 configured. On a bare loopback host (`localhost`, a dev run) services are told apart by PORT instead.
 
 z0 is DEPLOYED on this origin and developed elsewhere: its code is in its own repository, which
 reads this table through the published package (`docs/publishing.md`). Its row stays here because
-the origin is st0's, and so is the list of paths no other app may claim.
+the origin is k7's, and so is the list of paths no other app may claim.
 
 **One session across them** is the shared `COOKIE_DOMAIN`: every `setupAuth` sets the cookie on the
 parent domain and trusts the sibling origins (`TRUSTED_ORIGINS`), both from the same environment
 (`docker/docker-compose.yml`).
 
-What you land on is your own WORK: the editor's home page, at st0's origin, lists the workspaces,
+What you land on is your own WORK: the editor's home page, at k7's origin, lists the workspaces,
 the projects, the libraries and the shares. The catalogue is what a project draws ON, so it is the
 media library, a group of entries in that page's sidebar; the rehearsal recorder is another. The
-shares, `/api/mediatek` and the rehearsal routes are st0's backend's; the workspaces, the libraries and the deploy key are the file service's.
+shares, `/api/mediatek` and the rehearsal routes are k7's backend's; the workspaces, the libraries and the deploy key are the file service's.
 
 ### `play.` and `k7.` are aliases, and permanent ones
 
-`pl8` and `k7` are service ids with st0's address, not hosts: `serviceUrl(origin, "pl8")`,
-`serviceUrl(origin, "k7")` and `engineRegistryUrl` answer st0's origin, and so does the
-supervisor's `Url.cpp`. The `play.` and `k7.` labels in front of st0's host are still routed to
-st0's container and stripped like a sibling's (`ALIAS_LABELS`), because things outside this repo's
+`pl8` and `k7` are service ids with k7's address, not hosts: `serviceUrl(origin, "pl8")`,
+`serviceUrl(origin, "k7")` and `engineRegistryUrl` answer k7's origin, and so does the
+supervisor's `Url.cpp`. The `play.` and `k7.` labels in front of k7's host are still routed to
+k7's container and stripped like a sibling's (`ALIAS_LABELS`), because things outside this repo's
 reach name them and cannot be rewritten:
 
 - every installed supervisor has `https://play.st0.app` saved as its registry URL;
@@ -47,17 +47,17 @@ reach name them and cannot be rewritten:
 - every k7 publish URL and token saved in a workspace's `.settings.json` names `k7.`;
 - every public page link sent to an audience, and every PWA installed from `k7.`, does too.
 
-So on those hosts st0's backend answers `/api/*`, `/auth/*` and `/rtc` as on its own, and sends
-every other path to the same path under `/media` (for `play.`) or `/rehearsal` (for `k7.`) at st0's
-origin with a 301 (`apps/st0/backend/src/server.ts`). Dropping an alias is a breakage of those, not
+So on those hosts k7's backend answers `/api/*`, `/auth/*` and `/rtc` as on its own, and sends
+every other path to the same path under `/media` (for `play.`) or `/rehearsal` (for `k7.`) at k7's
+origin with a 301 (`apps/k7/backend/src/server.ts`). Dropping an alias is a breakage of those, not
 a cleanup.
 
-### `/auth/*` belongs to st0
+### `/auth/*` belongs to k7
 
-`redirectUriFor` builds `<st0 origin>/auth/callback`, and that is the single `redirect_uri` the IdP
-has registered, so the flow can only be served by st0. Every other service passes
+`redirectUriFor` builds `<k7 origin>/auth/callback`, and that is the single `redirect_uri` the IdP
+has registered, so the flow can only be served by k7. Every other service passes
 `mountRoutes: []` and verifies the cookie — z0 included. A page on a sibling subdomain sends the
-browser to `authOrigin(origin)`, which is st0's origin: its own `/auth/login` would look the same
+browser to `authOrigin(origin)`, which is k7's origin: its own `/auth/login` would look the same
 and be wrong. Nothing is registered at the IdP per service.
 
 ### The ports are the other half of the same table
@@ -68,15 +68,15 @@ does not trust, so `https://priv.st0.app` fails with `UNABLE_TO_GET_ISSUER_CERT`
 a backend while working perfectly in the browser beside it.
 
 On a loopback host the same table is what a PAGE uses too, and a host may move it:
-`STUDIO_PORTS=st0=18789` in the environment for node — and for the supervisor, whose
+`STUDIO_PORTS=k7=18789` in the environment for node — and for the supervisor, whose
 `Url.cpp` reads the same variable — or `globalThis.__STUDIO_PORTS__` for a page, set before its
-scripts run (`servicePorts`). `pl8` and `k7` have no port of their own: they are st0's. The desktop app does, so it runs beside a dev session
-(`apps/st0-standalone/docs/standalone.md`). Unset, the table is `SERVICE_PORTS`.
+scripts run (`servicePorts`). `pl8` and `k7` have no port of their own: they are k7's. The desktop app does, so it runs beside a dev session
+(`apps/k7-standalone/docs/standalone.md`). Unset, the table is `SERVICE_PORTS`.
 
 ## Owning a suffix is not the same as being creatable
 
-`PROJECT_SUFFIXES` has two entries, because two apps open a project. Everything an st0 project can
-BE is a shape *inside* `.st0` rather than a folder kind of its own: a song carries `video_tracks/`
+`PROJECT_SUFFIXES` has two entries, because two apps open a project. Everything an k7 project can
+BE is a shape *inside* `.k7` rather than a folder kind of its own: a song carries `video_tracks/`
 and a `viewport` surface, a set carries `songs.yaml` and a `turntables` surface (`PROJECT_SHAPES`
 in `@studio/song`). See `packages/song-video/docs/picture.md` and
 `packages/song/docs/setProject.md`.
@@ -84,7 +84,7 @@ in `@studio/song`). See `packages/song-video/docs/picture.md` and
 `HAS_SCAFFOLD` is a different set. Owning a folder kind is a naming rule; creating one needs a
 **scaffold** — a file map the file service can write (`createProjectIn`, and `@studio/song`'s
 three `scaffold*` modules). z0 owns `.z0` and has none: offered in a "new project" menu, it would
-produce a folder whose suffix says z0 and whose contents say st0, and nothing would complain until
+produce a folder whose suffix says z0 and whose contents say k7, and nothing would complain until
 the app that opened it found nothing it could read.
 
 It is a `Record<ProjectApp, boolean>` rather than a list, so adding an app to `ProjectApp` fails to
@@ -97,7 +97,7 @@ COMPILE, and `@studio/song` asks that question its own way, on the machine's own
 
 ## Where an app is mounted
 
-`PROJECT_MOUNTS` is empty for st0, which IS its service: `priv.st0.app/@local/<workspace>/<project>`.
+`PROJECT_MOUNTS` is empty for k7, which IS its service: `priv.st0.app/@local/<workspace>/<project>`.
 z0 is six SPAs behind one prefix and only one of them opens a project, so its address has to name
 the SPA too — `priv.st0.app/z0/editor/@local/<workspace>/<project.z0>`.
 
@@ -111,14 +111,14 @@ name, no overlap. z0's own repository documents the editor's side of it.
 
 ## Parsing one back
 
-st0 is mounted at the ORIGIN ROOT, so its `base` is `/` and the sentinel is the FIRST path segment.
-`/z0` is claimed by z0 on the same origin, and `/api`, `/auth` by st0's backend; none of them can
+k7 is mounted at the ORIGIN ROOT, so its `base` is `/` and the sentinel is the FIRST path segment.
+`/z0` is claimed by z0 on the same origin, and `/api`, `/auth` by k7's backend; none of them can
 be a sentinel, since each starts with `@`, so nothing collides.
 
 **Where the project ends** is decided by the folder's own name, the same rule as `projectApp`: the
 project is everything up to and including the LAST segment claiming THIS app. That is what lets a
-project sit at a depth (`songs/winter.st0`), lets the app's own route follow it
-(`…/winter.st0/timeline`), and lets a nested set be addressed by its own app without st0's suffix
+project sit at a depth (`songs/winter.k7`), lets the app's own route follow it
+(`…/winter.k7/timeline`), and lets a nested set be addressed by its own app without k7's suffix
 winning. With no such segment the workspace itself is the project (`"."`) and everything after it
 is the app's route — a view segment never ends in a project suffix, so the two cannot be confused.
 
@@ -132,7 +132,7 @@ writes BELOW its basename, so the project cannot be rewritten away by an app's o
 which is the single thing such a memory would be for. A reload re-reads the same path, a bookmark
 works, and a wrong project is fixed by editing the address instead of by clearing storage nobody
 can see. It falls back to `base` when the address names no project, which leaves the app mounted
-where it is and lets its gate send you to st0's home page.
+where it is and lets its gate send you to k7's home page.
 
 React Router compares the string against `window.location.pathname` **verbatim** and renders
 NOTHING when it does not prefix it. So any re-encoding here is a chance to disagree with the
@@ -152,19 +152,19 @@ collide with a workspace. Three sentinels use it, and they are the only addresse
 
 ### `@local` — a project in a workspace on this machine
 
-`/@local/<workspace>/<projet>.st0` names a folder the machine already holds: nothing to look up and
-nothing to clone. Every project on st0's home page is linked this way — `Examples`, seeded with the
+`/@local/<workspace>/<projet>.k7` names a folder the machine already holds: nothing to look up and
+nothing to clone. Every project on k7's home page is linked this way — `Examples`, seeded with the
 demos the first time a person is seen, a workspace made there with no repository, and a clone
 brought in with **Importer** alike.
 
-`parseLaunch` needs nothing added. `/@local/Examples/synth-demo.st0` reads as repo `@local`, project
-`Examples/synth-demo.st0`: the project part ends at the last segment claiming the app, exactly as
+`parseLaunch` needs nothing added. `/@local/Examples/synth-demo.k7` reads as repo `@local`, project
+`Examples/synth-demo.k7`: the project part ends at the last segment claiming the app, exactly as
 everywhere else. `localTarget` is what splits the workspace off the front of it — a workspace that
 IS a project has nothing after its name and the project is `"."`.
 
 The price, stated where it is paid: this address names a machine's folder, so it is **not
 portable** — a link pasted to somebody names a folder in yours. What it buys is that no service has
-to answer before a project opens (`apps/st0/backend/docs/media/projects.md`).
+to answer before a project opens (`apps/k7/backend/docs/media/projects.md`).
 
 ### `@banc` — the bench
 
@@ -173,25 +173,25 @@ whenever it is opened, so putting it under version control would version somethi
 of one session. `ProjectGate` does no lookup and no clone: one call to the machine, which makes the
 folder.
 
-It answers **one** project, `live.st0`, preceded by the library chain's ref the bench is ON —
-`/@banc/vocals/warm/live.st0` (or `/@banc/@st0/vocals/warm/live.st0`) seeds the rig with a copy of
-that chain, what the rehearsal recorder records through (`packages/ui-rehearsal/docs/chainSource.md`). The bare `/@banc/live.st0` and
-a bare library ref, `/@banc/@st0/live.st0`, are refused by the service: a library is not edited on
+It answers **one** project, `live.k7`, preceded by the library chain's ref the bench is ON —
+`/@banc/vocals/warm/live.k7` (or `/@banc/@k7-core/vocals/warm/live.k7`) seeds the rig with a copy of
+that chain, what the rehearsal recorder records through (`packages/ui-rehearsal/docs/chainSource.md`). The bare `/@banc/live.k7` and
+a bare library ref, `/@banc/@k7-core/live.k7`, are refused by the service: a library is not edited on
 a bench but by an admin from any project. `benchChainOf` is the whole rule — spelled
 once, in this package, so the browser that builds the link and the service that reads it cannot
 drift. Anything else under `@banc` names nothing and is a 404 whose sentence says where a chain and
-a module are edited instead (`apps/st0/frontend/docs/sharedModules.md`).
+a module are edited instead (`apps/k7/frontend/docs/sharedModules.md`).
 
 The project part is safe to join onto a root, because it never is: the folder is the constant
-`live.st0` whatever the address says, and the chain ref is only ever MATCHED against the chains the
-library holds. A ref is folder names — no empty, dotted or `.st0` segment — so a traversal is not
+`live.k7` whatever the address says, and the chain ref is only ever MATCHED against the chains the
+library holds. A ref is folder names — no empty, dotted or `.k7` segment — so a traversal is not
 even a candidate.
 
-### `@shares` — a frozen snapshot
+### `@shares` — a project at a checkpoint
 
-`/@shares/<token>.st0` opens a snapshot the media library holds: no clone, no engine, no account.
+`/@shares/<token>.k7` opens a share the media library holds: no clone and no account, played by the server's engine in a session of the visitor's own.
 
-The `.st0` on the end is not decoration. `parseLaunch` ends a project at the last segment claiming
+The `.k7` on the end is not decoration. `parseLaunch` ends a project at the last segment claiming
 the app's suffix, so spelling the token this way makes it the PROJECT part of an ordinary address —
 which means `parseLaunch`, `projectBasename` and every route below them need no special case, the
 token lands inside the router's basename, and a reload or a pasted link simply re-reads it.
@@ -265,9 +265,9 @@ which is why it sits at the app's mount rather than under one. `isExternalIndex`
 exactly one segment, `external`, after the mount — and `main.tsx` reads it before `parseLaunch`.
 Since every project address starts with a sentinel, the plain word collides with nothing.
 
-`/libraries` and `/settings` are two more such pages — st0's list of the origin's libraries, and
+`/libraries` and `/settings` are two more such pages — k7's list of the origin's libraries, and
 its settings — reserved for the same reason: neither opens a project. `isHomePage` matches both,
 and it is read BEFORE `parseLaunch`, which would otherwise take the word for a workspace and the
-router would mount under it. Once loaded they are ROUTES of st0's home, the router's basename
+router would mount under it. Once loaded they are ROUTES of k7's home, the router's basename
 being the mount, so going between the home and either one reloads nothing. `/external` stays a
 branch because it swaps the page's manifest before anything mounts.

@@ -2,7 +2,7 @@
 // goes on the wire. Types only, like the state frames beside it, so the C++ mirror in
 // engine/ProjectDoc.h has one TypeScript counterpart and no more.
 //
-// This is NOT "a st0 song". It is the OUTPUT of a compiler, and any app that can build
+// This is NOT "a k7 song". It is the OUTPUT of a compiler, and any app that can build
 // one can drive the engine — pl8's module preview is a one-track doc, a DJ deck
 // is two. That is why it lives here and not in @studio/song, which would drag the whole
 // YAML compiler in behind it. `@studio/song` re-exports these and owns the code that
@@ -41,7 +41,7 @@ export interface WarpDoc {
   markers: [number, number][]; // [timeline beat, source second]
 }
 
-/** A placement's OWN words as AUTHORED, unmerged, for the surface that writes them back out — see apps/st0/frontend/docs/clipEditors.md. */
+/** A placement's OWN words as AUTHORED, unmerged, for the surface that writes them back out — see apps/k7/frontend/docs/clipEditors.md. */
 export interface EventDoc {
   from?: number | string; // seconds into a clip's file, or a timecode into a sequence's notes
   to?: number | string;
@@ -164,7 +164,7 @@ export interface TrackDoc {
   /** Highlighted from the mixer: its strip plays 10 dB up — already in its params; the flag is for the button. */
   highlight?: boolean;
   disabled: boolean;
-  inputChannels: number[]; // 1-based physical channels; a label is resolved against ~/.st0 first, so the engine only ever sees numbers
+  inputChannels: number[]; // 1-based physical channels; a label is resolved against ~/.k7 first, so the engine only ever sees numbers
   // Where this track LEAVES by. Empty is the mixer's sum, which is every track but a CUE bus — packages/song/docs/cue.md.
   outputChannels: number[]; // 1-based physical channels, resolved the same way and for the same reason
   monitor: string; // Tracktion's "off" | "auto" (armed) | "on"; ignored when inputChannels is empty
@@ -188,10 +188,10 @@ export interface GroupDoc {
   solo: boolean;
 }
 
-// PICTURE IS NOT HERE: it is a SECOND compile of the same song folder, which keeps the frame off this wire — packages/song/docs/picture.md.
+// PICTURE IS NOT HERE: it is a SECOND compile of the same song folder, which keeps the frame off this wire — packages/song-video/docs/picture.md.
 
 export interface ProjectDoc {
-  uuid?: string; // stable song id, generated on first `st0 export`; absent until then
+  uuid?: string; // stable song id, generated on first `k7 export`; absent until then
   name: string;
   tempo: number;
   sampleRate: number;

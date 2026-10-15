@@ -13,7 +13,7 @@ song cost no re-upload.
 ## Loading is asynchronous, drawing is not
 
 A LUT is a fetch away, and a frame cannot wait for one. A pass whose LUT has not arrived is handed
-`uLutSize` 0, which a LUT shader reads as "let the picture through" (`@st0/shaders/look` does).
+`uLutSize` 0, which a LUT shader reads as "let the picture through" (`@k7-core/shaders/look` does).
 So the preview shows the ungraded picture for the moment the file takes, instead of a black frame
 or a stall. An EXPORT awaits `Compositor.ready()` before frame 0, since a render whose first frames
 were ungraded is a wrong render. A LUT that cannot be read is said once on the console, and its

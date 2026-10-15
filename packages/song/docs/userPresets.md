@@ -16,7 +16,7 @@ One FILE per preset, in a presets tree beside the modules rather than in a modul
 Two coordinates, and they answer different questions. The **tree** is where the preset is KEPT —
 its scope, `workspace` or a library's name — and so who sees it and which repository a save
 commits to. The **path** is which module it is FOR: the ref the node extends, without its `@`
-(`@st0/audio/reverb` → `st0/audio/reverb`). A workspace may keep presets for a library module, and
+(`@k7-core/audio/reverb` → `k7/audio/reverb`). A workspace may keep presets for a library module, and
 a library may keep presets for another library's module; neither has to own the module.
 
 Why not in the module's folder: a library module is shared, and a preset is often one person's or
@@ -32,7 +32,7 @@ it never loads as a node.
 ## The file
 
 ```yaml
-# preset for @st0/audio/dynamics/compressor
+# preset for @k7-core/audio/dynamics/compressor
 engine: vari-mu
 params:
   Intensty: 0.6
@@ -52,9 +52,9 @@ A rack node has no knobs worth naming; its sound is its KIT, the `rack: symbols:
 (`racks.md`). So a preset also keeps `rack:`, one pad per line, a note and a sample:
 
 ```yaml
-# preset for @st0/instruments/drums
+# preset for @k7-core/instruments/drums
 rack:
-  BD: { note: 36, sample: "@st0/kicks/808.wav" }
+  BD: { note: 36, sample: "@k7-core/kicks/808.wav" }
   SN: { note: 38 }
 ```
 
@@ -76,7 +76,7 @@ is reported and the values land on the current one.
 
 ## Keyed by the node's module
 
-A preset belongs to the module a node `extends`, so every node of `@st0/instruments/synth` offers
+A preset belongs to the module a node `extends`, so every node of `@k7-core/instruments/synth` offers
 the same list. That is the module the node PLAYS as: when its attribute set on names another module
 (`docs/alternatives.md`), the shelf is that module's, and a base a preset sets goes into that set,
 since a set that swaps the module reads its own fields and not the node's first ones. A node that extends nothing, or `@meta`'s built-ins, has none: there is no module
@@ -108,7 +108,7 @@ missing engine is, and the values land on the base that is on.
 old state means nothing over the new one, and a cutoff kept from the last patch would follow the
 musician from patch to patch. So a preset that is ONLY a base (`base:` and no `params:`) is that
 base exactly, which is what a factory preset is: the Surge XT module's library shelf holds one per
-patch, written by `engine/st0-engine/scripts/gen-surge-panel.mjs`.
+patch, written by `engine/k7-runtime/scripts/gen-surge-panel.mjs`.
 
 The dropdown shows which preset was last loaded on each node. That is the shell's SESSION state:
 a node file says what its values are, not where they came from, and after a knob moves the two
@@ -163,14 +163,14 @@ directory would be two rules over one namespace.
 state its parameters do not hold. A base may sit in a subfolder and is then named by its path,
 `base: Pads/Bell Pad`, because six hundred patches in one flat list is no choice at all; a name that
 would climb out of `base/` resolves to nothing. The compile sends an `.fxp` to the synth as its patch
-rather than as a `.vstpreset` (`engine/st0-engine/docs/surgePlugin.md`).
+rather than as a `.vstpreset` (`engine/k7-runtime/docs/surgePlugin.md`).
 
 ## Choosing one — `base:`, and what it may not disturb
 
 A module or a node names the base it starts from:
 
 ```yaml
-extends: "@st0/instruments/wurli"
+extends: "@k7-core/instruments/wurli"
 base: warm            # base/warm.vstpreset, here or in an ancestor's folder
 params: { Volume: 0.7 }
 ```

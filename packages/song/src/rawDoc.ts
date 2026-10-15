@@ -148,7 +148,7 @@ export interface LoadedModule {
   tap_outs?: Record<string, string>;
   // Needs the WHOLE input before producing any of it, and is inherited — see docs/coldModules.md.
   cold?: boolean;
-  // The engine's dry/wet around the effect, 0..1, inherited like any field — engine/st0-engine/docs/mix.md.
+  // The engine's dry/wet around the effect, 0..1, inherited like any field — engine/k7-runtime/docs/mix.md.
   mix?: number;
   // …and its levels on the same stage, in dB.
   input_volume?: number;

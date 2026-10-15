@@ -1,0 +1,4 @@
+// The PICTURE's run: RENDER is where the lanes composite and VIDEO_OUT is the frame that leaves.
+// Neither carries a param — a frame has no level. See packages/song/docs/videoOutputs.md.
+start("RENDER")
+steps([to([chain("VIDEO_OUT")])])

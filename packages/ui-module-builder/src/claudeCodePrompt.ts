@@ -58,7 +58,7 @@ export function claudeCodePrompt(
     `- every \`bind\` and every \`pair\` is one of: ${binds.map((b) => `\`${b}\``).join(", ") || "(none — this module has no parameters)"};`,
     "- every group frames two or more widgets — none around a single one;",
     "- an EQ or tone band (Low, Mid, High, Bass, Treble, Presence, a shelf's or a peak's gain) is a fader, never a knob;",
-    "- no knob, slider, fader or number on an `@` param — st0 draws the engine's stage in the card's header — and none on the plugin's own input/output level, mix, dry or wet;",
+    "- no knob, slider, fader or number on an `@` param — k7 draws the engine's stage in the card's header — and none on the plugin's own input/output level, mix, dry or wet;",
     "- every lcdscreen has a draw function, and `widgets.js` compiles;",
     "- no screen has a `pointer` handler unless the author's direction above explicitly asks for an interactive screen.",
     "",

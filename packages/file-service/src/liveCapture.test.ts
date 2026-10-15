@@ -24,7 +24,7 @@ import type { Batch } from "./liveLog.ts";
 import { isBinary, skip } from "./workspace.ts";
 
 const MIX = "plugin: mixer\nparams:\n  gain: 0.5\n  pan: 0\n";
-const FILE = "song.st0/nodes/mix.yaml";
+const FILE = "song.k7/nodes/mix.yaml";
 
 interface Cap {
   root: string;
@@ -47,7 +47,7 @@ const read = (root: string, rel: string): string =>
 
 function replica(
   name: string,
-  files: Record<string, string> = { "song.st0/nodes/mix.yaml": MIX },
+  files: Record<string, string> = { "song.k7/nodes/mix.yaml": MIX },
   more: Partial<CaptureOptions> = {},
 ): Cap {
   const root = mkdtempSync(join(tmpdir(), `live-${name}-`));
@@ -90,12 +90,12 @@ describe("LiveCapture", () => {
 
   it("captures a value edit as one path op", async () => {
     const a = replica("value");
-    put(a.root, "song.st0/nodes/mix.yaml", MIX.replace("0.5", "0.8"));
+    put(a.root, "song.k7/nodes/mix.yaml", MIX.replace("0.5", "0.8"));
     const [b] = await batches(a, 1);
     expect(b.ops).toEqual([
       {
         kind: "yaml",
-        file: "song.st0/nodes/mix.yaml",
+        file: "song.k7/nodes/mix.yaml",
         ops: [
           { op: "set", path: ["params", "gain"], yaml: "0.8\n", was: "0.5\n" },
         ],
@@ -105,13 +105,13 @@ describe("LiveCapture", () => {
 
   it("captures a .k7x value edit as one k7x path op", async () => {
     const K7X = 'plugin("mixer")\nparams({ gain: 0.5, pan: 0 }) // kept\n';
-    const a = replica("k7x", { "song.st0/nodes/mix.k7x": K7X });
-    put(a.root, "song.st0/nodes/mix.k7x", K7X.replace("0.5", "0.8"));
+    const a = replica("k7x", { "song.k7/nodes/mix.k7x": K7X });
+    put(a.root, "song.k7/nodes/mix.k7x", K7X.replace("0.5", "0.8"));
     const [b] = await batches(a, 1);
     expect(b.ops).toEqual([
       {
         kind: "k7x",
-        file: "song.st0/nodes/mix.k7x",
+        file: "song.k7/nodes/mix.k7x",
         ops: [{ op: "set", path: ["params", "gain"], k7x: "0.8", was: "0.5" }],
       },
     ]);
@@ -119,30 +119,30 @@ describe("LiveCapture", () => {
 
   it("captures a new file as text and a deleted one as a removal", async () => {
     const a = replica("create");
-    put(a.root, "song.st0/TODOS.md", "- mix\n");
+    put(a.root, "song.k7/TODOS.md", "- mix\n");
     await batches(a, 1);
-    rmSync(join(a.root, "song.st0/nodes/mix.yaml"));
+    rmSync(join(a.root, "song.k7/nodes/mix.yaml"));
     const all = await batches(a, 2);
     expect(all[0].ops).toEqual([
-      { kind: "text", file: "song.st0/TODOS.md", text: "- mix\n", was: null },
+      { kind: "text", file: "song.k7/TODOS.md", text: "- mix\n", was: null },
     ]);
     expect(all[1].ops).toEqual([
-      { kind: "remove", file: "song.st0/nodes/mix.yaml", was: textHash(MIX) },
+      { kind: "remove", file: "song.k7/nodes/mix.yaml", was: textHash(MIX) },
     ]);
   });
 
   it("captures a folder renamed whole as removals and creations", async () => {
     const a = replica("rename");
-    renameSync(join(a.root, "song.st0"), join(a.root, "tune.st0"));
+    renameSync(join(a.root, "song.k7"), join(a.root, "tune.k7"));
     const [b] = await batches(a, 1);
     expect(b.ops).toContainEqual({
       kind: "remove",
-      file: "song.st0/nodes/mix.yaml",
+      file: "song.k7/nodes/mix.yaml",
       was: textHash(MIX),
     });
     expect(b.ops).toContainEqual({
       kind: "text",
-      file: "tune.st0/nodes/mix.yaml",
+      file: "tune.k7/nodes/mix.yaml",
       text: MIX,
       was: null,
     });
@@ -151,7 +151,7 @@ describe("LiveCapture", () => {
   it("ignores what the workspace hides", async () => {
     const a = replica("hidden");
     put(a.root, ".git/HEAD", "ref: x\n");
-    put(a.root, "song.st0/clips/take.wav.cache", "x");
+    put(a.root, "song.k7/clips/take.wav.cache", "x");
     put(a.root, "_recycle_bin/old.yaml", "a: 1\n");
     await settle();
     expect(a.batches).toEqual([]);
@@ -160,19 +160,19 @@ describe("LiveCapture", () => {
   it("never sends a binary as text, whatever its extension: it travels as its blob ref", async () => {
     const a = replica("fxp");
     const bytes = Buffer.from([0x43, 0x63, 0x6e, 0x4b, 0, 0, 1, 2]);
-    writeFileSync(join(a.root, "song.st0/preset.fxp"), bytes);
+    writeFileSync(join(a.root, "song.k7/preset.fxp"), bytes);
     const [b] = await batches(a, 1);
     const ref = refOf(bytes);
     expect(b.ops).toEqual([
-      { kind: "text", file: "song.st0/preset.fxp", text: ref, was: null },
+      { kind: "text", file: "song.k7/preset.fxp", text: ref, was: null },
     ]);
-    expect(a.capture.read("song.st0/preset.fxp")).toBe(ref);
+    expect(a.capture.read("song.k7/preset.fxp")).toBe(ref);
   });
 
   it("sends nothing for a text file rewritten with the same content", async () => {
-    const a = replica("touch", { "song.st0/TODOS.md": "- mix\n" });
+    const a = replica("touch", { "song.k7/TODOS.md": "- mix\n" });
     await new Promise((r) => setTimeout(r, 1200));
-    writeFileSync(join(a.root, "song.st0/TODOS.md"), "- mix\n");
+    writeFileSync(join(a.root, "song.k7/TODOS.md"), "- mix\n");
     await settle();
     expect(a.batches).toEqual([]);
   });
@@ -180,27 +180,27 @@ describe("LiveCapture", () => {
   it("makes ONE labelled batch of a mutation window", async () => {
     const a = replica("window");
     a.capture.hold();
-    put(a.root, "song.st0/nodes/mix.yaml", MIX.replace("0.5", "0.6"));
-    put(a.root, "song.st0/nodes/new.yaml", "plugin: eq\n");
+    put(a.root, "song.k7/nodes/mix.yaml", MIX.replace("0.5", "0.6"));
+    put(a.root, "song.k7/nodes/new.yaml", "plugin: eq\n");
     await settle();
     expect(a.batches).toEqual([]);
     a.capture.release("track mix");
     const [b] = await batches(a, 1);
     expect(b.label).toBe("track mix");
     expect(b.ops.map((o) => o.file).sort()).toEqual([
-      "song.st0/nodes/mix.yaml",
-      "song.st0/nodes/new.yaml",
+      "song.k7/nodes/mix.yaml",
+      "song.k7/nodes/new.yaml",
     ]);
   });
 
   it("re-scans everything when asked, for the events a watcher dropped", async () => {
     const a = replica("sweep");
     a.capture.stop();
-    put(a.root, "song.st0/nodes/mix.yaml", MIX.replace("pan: 0", "pan: 1"));
+    put(a.root, "song.k7/nodes/mix.yaml", MIX.replace("pan: 0", "pan: 1"));
     const b = a.capture.flushNow({ full: true });
     expect(b?.ops[0]).toMatchObject({
       kind: "yaml",
-      file: "song.st0/nodes/mix.yaml",
+      file: "song.k7/nodes/mix.yaml",
     });
   });
 });
@@ -462,7 +462,7 @@ describe("two replicas through a room", () => {
   });
 });
 
-const K7X_FILE = "song.st0/nodes/mix.k7x";
+const K7X_FILE = "song.k7/nodes/mix.k7x";
 const K7X_MIX =
   'plugin("mixer")\n// the strip\nparams({ gain: 0.5, pan: 0 })\n';
 

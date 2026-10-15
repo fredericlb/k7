@@ -438,7 +438,7 @@ interface ModulesRead {
 }
 
 // Read a project's own USES into a { name: module } map — see docs/loader.md. A module itself lives
-// at `@workspace` or `@st0` now; a project keeps only its `nodes/`, one use of some base per file.
+// at `@workspace` or `@k7-core` now; a project keeps only its `nodes/`, one use of some base per file.
 function readModules(dir: string): ModulesRead {
   const out: Record<string, LoadedModule> = {};
   const raw: { rel: string; module: Record<string, unknown> }[] = []; // AS AUTHORED, for validatePlugins below
@@ -550,6 +550,8 @@ function loadChainNodes(
   yamlIssues.push(...cp.issues);
   const presets = join(dir, VSTPRESETS_DIR);
   for (const n of Object.values(cp.nodes)) {
+    // A PICTURE lane is no module, as in a graph project: its placements are video_tracks/, read by the picture compile.
+    if (n.picture) continue;
     let value: Record<string, unknown> | null;
     let rel: string;
     if (n.track) {
@@ -913,7 +915,7 @@ function readModuleRefs(
   };
 
   // The shared roots, found by LOCATION rather than declared, so a missing folder is simply not a root (docs/sharedFolders.md).
-  // …and st0's own `@meta` modules last, which no library can shadow since none may be named `meta`.
+  // …and k7's own `@meta` modules last, which no library can shadow since none may be named `meta`.
   for (const root of [...moduleLibraryDirs(dir), META_MODULES_ROOT]) {
     // The level comes from WHERE the root is, not from anything it declares — see moduleNamespaceOf.
     const ns = moduleNamespaceOf(root);
@@ -1147,7 +1149,7 @@ export function createModuleFile(
       );
     }
   }
-  // A PROJECT writes into the WORKSPACE's shared library — a module lives at `@workspace` or `@st0`
+  // A PROJECT writes into the WORKSPACE's shared library — a module lives at `@workspace` or `@k7-core`
   // now, never in a project. A template being edited with `at` (no project.yaml) keeps bundling its
   // own `modules/`, a different, older mechanism this change does not touch.
   const isProject = isProjectFolder(dir);
@@ -1166,7 +1168,7 @@ export function createModuleFile(
     ? `# ${module}: extends module "${extendsRef}".\n` +
       `extends: ${JSON.stringify(extendsRef)}\n`
     : `# ${module}: a bare module. Give it a plugin inline, or extend another module, e.g.\n` +
-      `#   extends: "@st0/instruments/fourosc"\n`;
+      `#   extends: "@k7-core/instruments/fourosc"\n`;
   wsWrite(join(moduleDir, "module.yaml"), body);
   return rel;
 }

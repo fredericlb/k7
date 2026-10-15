@@ -35,6 +35,8 @@ import { useLabels } from "./host";
 import { PlaylistRows, rowPath } from "./PlaylistRows";
 import { usePlayback } from "./playback/PlaybackProvider";
 import { SaveState } from "./SaveState";
+import { useServerCopy } from "./ServerCopy";
+import { playlistMissing } from "./serverSets";
 
 /** A playlist is a FILE, so the zone's listing becomes a tree the same way a family's does. */
 function playlistTree(list: PlaylistSummary[] | null): TreeNode[] {
@@ -127,17 +129,24 @@ export function Playlists({
     void reload();
   }, [reload]);
 
+  const loadSongs = useCallback(
+    (alive: () => boolean = () => true) =>
+      library
+        .list("songs")
+        .then((l) => alive() && setSongs(l.entries))
+        // Null stands: "not yet loaded" and "no such song" are different sentences on a row.
+        .catch(() => {}),
+    [],
+  );
   useEffect(() => {
     let alive = true;
-    void library
-      .list("songs")
-      .then((l) => alive && setSongs(l.entries))
-      // Null stands: "not yet loaded" and "no such song" are different sentences on a row.
-      .catch(() => {});
+    void loadSongs(() => alive);
     return () => {
       alive = false;
     };
-  }, []);
+  }, [loadSongs]);
+  // What the paired server holds and this machine lacks — what a line that resolves to nothing may still find.
+  const serverCopy = useServerCopy("songs", songs, setError);
 
   useEffect(() => {
     if (!path) {
@@ -194,6 +203,10 @@ export function Playlists({
   const rows: ResolvedItem[] = useMemo(
     () => resolveItems(doc?.items ?? [], songs),
     [doc, songs],
+  );
+  const missing = useMemo(
+    () => playlistMissing(rows, serverCopy.placement?.serverOnly ?? []),
+    [rows, serverCopy.placement],
   );
 
   /** An edit the TEXT cannot take — an inline `items: [a, b]` — disables the buttons and says why. */
@@ -327,6 +340,11 @@ export function Playlists({
                 <PlaylistRows
                   rows={rows}
                   songs={songs}
+                  missing={missing.length}
+                  // The rows resolve against the local catalogue, so it is read again once they land.
+                  onDownloadMissing={() =>
+                    serverCopy.download(missing).then(() => loadSongs())
+                  }
                   frozen={frozen}
                   onAdd={(song, variant) =>
                     edit(

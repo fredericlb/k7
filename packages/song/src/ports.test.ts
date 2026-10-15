@@ -48,8 +48,8 @@ describe("a port ref", () => {
   it("splits on the LAST separator, leaving every other one alone", () => {
     // `#`, because `:` and `/` are spoken for by the namespace and the node.
     expect(splitPort("crossfade#b")).toEqual({ node: "crossfade", port: "b" });
-    expect(splitPort("@st0/audio/crossfade:live#b")).toEqual({
-      node: "@st0/audio/crossfade:live",
+    expect(splitPort("@k7-core/audio/crossfade:live#b")).toEqual({
+      node: "@k7-core/audio/crossfade:live",
       port: "b",
     });
     expect(splitPort("crossfade")).toEqual({ node: "crossfade" });
@@ -80,7 +80,7 @@ describe("a module's own ports", () => {
 
   it("leave a module that declares none with its type's", () => {
     // The overwhelming case — a module declaring no ports at all — which must not move. A type
-    // folder's defaults are read at `@workspace`/`@st0` now, so this one lives there.
+    // folder's defaults are read at `@workspace`/`@k7-core` now, so this one lives there.
     const ws = mkdtempSync(join(tmpdir(), "td-ports-type-"));
     try {
       const song = join(ws, "song");
@@ -245,7 +245,7 @@ describe("the crossfade-demo song", () => {
     "..",
     "..",
     "demos",
-    "crossfade-demo.st0",
+    "crossfade-demo.k7",
   );
 
   it("opens clean", () => {

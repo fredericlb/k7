@@ -2,8 +2,8 @@
 
 **No key is detected.** KEY holds the pitch without saying which one, so there is no harmonic
 mixing and no Camelot wheel. The other two points of the desk audit are done — the playlist
-pre-warms ([prewarm.md](../packages/st0-plugins/docs/turntables/prewarm.md)) and the grid is correctable
-([grid.md](../packages/st0-plugins/docs/turntables/grid.md)). This one is different in kind: it is not a
+pre-warms ([prewarm.md](../packages/k7-plugins/docs/turntables/prewarm.md)) and the grid is correctable
+([grid.md](../packages/k7-plugins/docs/turntables/grid.md)). This one is different in kind: it is not a
 missing button, it is a **measurement**, and it belongs to the analysis pass.
 
 ## Where it would live

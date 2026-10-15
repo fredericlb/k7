@@ -37,13 +37,13 @@ const run = async (line: string) => {
   return h;
 };
 
-const AMP = '"@st0/audio/amp"';
+const AMP = '"@k7-core/audio/amp"';
 // The bus is fed by gtr alone: once gtr is hidden, nothing the graph shows reaches it.
 const BUS = `steps:\n  - { id: bus-1, extends: ${AMP} }\n  - { id: bus-2, extends: ${AMP} }\n  - to: [ { chain: MIX } ]\n`;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "track-hide-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   put("project.yaml", "project:\n  name: t\n  tempo: 120\nsoloed: [gtr]\n");
   put("tracks/gtr.yaml", 'extends: "@meta/track"\nevents: []\n');
   put("tracks/bass.yaml", 'extends: "@meta/track"\nevents: []\n');

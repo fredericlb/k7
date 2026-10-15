@@ -33,7 +33,7 @@ through; a level belongs to what LEAVES.
 
 > The Fix button and this fader are the same act on the same number, which is why the level is a
 > param of a node rather than a field beside the tempo with no presence in the graph at all. See
-> [masterMeter.md](../../../apps/st0/frontend/docs/masterMeter.md).
+> [masterMeter.md](../../../apps/k7/frontend/docs/masterMeter.md).
 
 ## It belongs to the SONG, not to the machine
 
@@ -51,7 +51,7 @@ render back onto the material, would drift a little further every pass.
 > `populateEdit` and nothing else, so a gain created by `EngineHost::buildLevelMeters` — the LIVE
 > path only — would leave `--render`, a freeze and `clip process` bouncing at unity however this
 > field read, with nothing to report it. The live path takes hold of that one gain through
-> `masterGainOf` rather than making a second. `engine/st0-engine/scripts/master-chain.ts` is what
+> `masterGainOf` rather than making a second. `engine/k7-runtime/scripts/master-chain.ts` is what
 > measures it: a render at `-20` comes back 20 dB below the same render at unity, which is the only
 > proof there is — no C++ test builds an Edit, and no TypeScript test renders.
 
@@ -115,7 +115,7 @@ around -20 dB — which is ordinary for a mix built with headroom — then the m
 **twelve of those twenty**, and only by pushing the whole sum toward the ceiling it was left below.
 The rest of the headroom is in the strips, and reclaiming it means moving them — which this fader
 cannot do for you and the Fix button does not try to
-(`apps/st0/frontend/docs/masterMeter.md`).
+(`apps/k7/frontend/docs/masterMeter.md`).
 
 And some of the gap is not headroom at all. A raw mix without mastering sits near -20 LUFS where
 streaming services normalise to about -14, so it will read quieter than they do no matter where
@@ -141,7 +141,7 @@ master put back to unity would never come back down.
 | authored | `project.yaml`'s `project.masterVolume` — `ProjectSettingsSchema` |
 | compiled | `ProjectDoc.masterVolume` — `nodeProject.ts`, `project.ts`, defaulted to 0 |
 | the wire | `@studio/engine-protocol`'s `ProjectDoc` |
-| decoded | `docFromJson` in `engine/st0-engine/server/DocJson.cpp` |
+| decoded | `docFromJson` in `engine/k7-runtime/server/DocJson.cpp` |
 | applied | `MasterGainPlugin`, put on the master list by `populateMasterChain` after the song's chain and before the meter — so playback and an offline render both get it — and re-set in `EngineHost.cpp` on diff |
-| drawn | the fader under the header meter, the Fix button beside it (`apps/st0/frontend/docs/masterMeter.md`), and the OUT card's own fader in the chains graph (`MAIN_OUT_UI`) |
+| drawn | the fader under the header meter, the Fix button beside it (`apps/k7/frontend/docs/masterMeter.md`), and the OUT card's own fader in the chains graph (`MAIN_OUT_UI`) |
 | written | `node param "OUT" Volume <dB>`, or `project master <dB>` — one implementation, `writeMasterVolume` |

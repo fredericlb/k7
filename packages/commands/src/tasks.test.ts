@@ -16,7 +16,7 @@ import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
 
 let root: string;
-const song = () => join(root, "05.paradoxe.st0");
+const song = () => join(root, "05.paradoxe.k7");
 const todos = () => readFileSync(join(root, "TODOS.md"), "utf8");
 const run = async (line: string, noWorkspace = false) => {
   const h = testHost({
@@ -44,13 +44,13 @@ describe("task verbs", () => {
     await run("task add bounce the bass");
     await run("task mark 49:1 fix the snare");
     expect(todos()).toBe(
-      "# Tasks\n\n- [ ] bounce the bass\n- [ ] fix the snare `05.paradoxe.st0 @ 49:1`\n",
+      "# Tasks\n\n- [ ] bounce the bass\n- [ ] fix the snare `05.paradoxe.k7 @ 49:1`\n",
     );
     await run("task done 2");
     expect(todos()).toContain("- [x] fix the snare");
     await run("task remove 1");
     expect(todos()).toBe(
-      "# Tasks\n\n- [x] fix the snare `05.paradoxe.st0 @ 49:1`\n",
+      "# Tasks\n\n- [x] fix the snare `05.paradoxe.k7 @ 49:1`\n",
     );
   });
 

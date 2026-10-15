@@ -34,7 +34,7 @@ come back as a window and not a point.
 `-Infinity > gate` is false, but so is `NaN`, and one of those is a bug waiting to happen.
 
 That −100 is the same floor `peakPass.ts` declares as `PEAK_FLOOR_DB`, and it is deliberately not
-imported from there: this file is browser-safe and st0's clip panel imports it, while `peakPass`
+imported from there: this file is browser-safe and k7's clip panel imports it, while `peakPass`
 reaches for `node:child_process`. Sharing the constant would drag a process spawner into the
 browser to save one number. The duplication is structural — see `docs/inventaire.md`.
 

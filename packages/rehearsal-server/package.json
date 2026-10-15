@@ -1,7 +1,7 @@
 {
   "name": "@studio/rehearsal-server",
   "version": "1.0.0",
-  "description": "The rehearsal recorder's server half, mounted inside st0's backend: sessions, releases, public pages, songbook, phone-mic signaling",
+  "description": "The rehearsal recorder's server half, mounted inside k7's backend: sessions, releases, public pages, songbook, phone-mic signaling",
   "type": "module",
   "exports": {
     ".": {

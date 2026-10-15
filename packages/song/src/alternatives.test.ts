@@ -204,7 +204,7 @@ describe("through the real loader", () => {
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
   const project = (node: string): string => {
-    const p = join(dir, "song.st0");
+    const p = join(dir, "song.k7");
     mkdirSync(join(p, "nodes"), { recursive: true });
     mkdirSync(join(dir, "_modules", "audio", "amp"), { recursive: true });
     writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
@@ -269,7 +269,7 @@ describe("a set that names ANOTHER module", () => {
 
   // Two modules to be, a strip to be a fader, and a lane: the node under test is written by each case.
   const project = (nodes: Record<string, string>): string => {
-    const p = join(dir, "song.st0");
+    const p = join(dir, "song.k7");
     mkdirSync(join(p, "nodes"), { recursive: true });
     writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
     const lib = (path: string, text: string) => {

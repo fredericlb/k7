@@ -1,0 +1,6 @@
+// The drums lane: into the mix, and into `glow`'s audio port — see glow.yaml.
+start(true)
+steps([
+  id("32ed90b2-df56-4d98-9d9d-d8087c5e2e86").track("drums"),
+  to([chain("MIX").level(1), chain("glow").port("audio").level(1)]),
+])

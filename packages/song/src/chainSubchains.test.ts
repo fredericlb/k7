@@ -24,7 +24,7 @@ import { spliceChainItem } from "./chainItemEdit";
 import { readChainProject, readLayout, toSegments } from "./chainProject";
 import { placeOf } from "./nodePlace";
 
-const AMP = '"@st0/audio/amp"';
+const AMP = '"@k7-core/audio/amp"';
 const GTR = [
   "start: true",
   "steps:",
@@ -154,8 +154,8 @@ describe("a project with subchains", () => {
       {
         id: "wet",
         steps: [
-          { id: "verb-1", extends: "@st0/audio/amp" },
-          { id: "eq-1", extends: "@st0/audio/amp" },
+          { id: "verb-1", extends: "@k7-core/audio/amp" },
+          { id: "eq-1", extends: "@k7-core/audio/amp" },
           { to: [{ chain: "MIX" }] },
         ],
       },
@@ -167,7 +167,7 @@ describe("a project with subchains", () => {
 
   it("keeps a node put at the subchain's head inside it", () => {
     editChainGraph(dir, (t) => insertBetween(t, "amp-1", "verb-1", "pre-1"), {
-      add: { "pre-1": { id: "pre-1", extends: "@st0/audio/amp" } as never },
+      add: { "pre-1": { id: "pre-1", extends: "@k7-core/audio/amp" } as never },
     });
     const sub = chain("gtr").subchains?.[0];
     expect(sub?.id).toBe("wet");

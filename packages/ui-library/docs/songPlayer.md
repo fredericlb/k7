@@ -44,7 +44,7 @@ Three reasons not to decode here:
 
 ## Most songs are measured before anyone opens them
 
-The backlog is swept in the background — `analysisSweep.ts`, [analysis.md](../../../apps/st0/backend/docs/media/analysis.md) — so the
+The backlog is swept in the background — `analysisSweep.ts`, [analysis.md](../../../apps/k7/backend/docs/media/analysis.md) — so the
 path below is the exception rather than the rule: a song uploaded a moment ago, one the sweep has
 not reached yet, or one whose sidecar no longer matches its bytes, which the sweep deliberately
 leaves alone.
@@ -57,7 +57,7 @@ the cache computes it. This panel **is** that surface. So it calls `library.anal
 and re-reads the sidecar, once, on open.
 
 With no engine chosen it says so and stops. The song plays anyway: an `<audio>` on
-`library.fileUrl(master)` needs nobody, and the route serves Range, so seeking works too. What is
+`library.streamUrl(master)` needs nobody, and the route serves Range, so seeking works too. What is
 missing is the drawing, not the sound — exactly the right order of importance.
 
 It is also why the engine stays held whatever the playback destination: it is what **analyses** the

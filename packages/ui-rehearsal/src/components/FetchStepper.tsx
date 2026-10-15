@@ -20,7 +20,12 @@ const DOING: Record<RunningPhase, () => string> = {
   "matching-lyrics": m["fetch.lyrics"],
 };
 
-export function FetchStepper({ phase, progress }: FetchStatus) {
+interface Props extends FetchStatus {
+  /** What the label says instead of the phase's own words. */
+  doing?: string;
+}
+
+export function FetchStepper({ phase, progress, doing }: Props) {
   if (phase === "" || phase === "failed") return null;
   const current = STEPS.findIndex((s) => s.phase === phase);
   const percent =
@@ -28,9 +33,10 @@ export function FetchStepper({ phase, progress }: FetchStatus) {
   return (
     <div className="song-fetch-status">
       <span className="muted small">
-        {percent === null
-          ? DOING[phase]()
-          : m["fetch.stemmingPercent"]({ percent })}
+        {doing ??
+          (percent === null
+            ? DOING[phase]()
+            : m["fetch.stemmingPercent"]({ percent }))}
       </span>
       <ol
         className="song-fetch-stepper"
@@ -38,7 +44,7 @@ export function FetchStepper({ phase, progress }: FetchStatus) {
         aria-valuemin={1}
         aria-valuemax={STEPS.length}
         aria-valuenow={current + 1}
-        aria-valuetext={DOING[phase]()}
+        aria-valuetext={doing ?? DOING[phase]()}
       >
         {STEPS.map((step, i) => {
           const state =

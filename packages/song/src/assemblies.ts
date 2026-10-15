@@ -63,7 +63,7 @@ export function projectAssemblies(dir: string): ProjectAssemblies {
   return { assemblies, diagnostics };
 }
 
-/** The folder a ref names, or null — `@st0/turntable` is the `st0` library's `assemblies/turntable`. */
+/** The folder a ref names, or null — `@k7-core/turntable` is the `k7-core` library's `assemblies/turntable`. */
 export function assemblyFolder(dir: string, ref: string): string | null {
   const parts = libraryRefParts(ref);
   if (!parts) return null;

@@ -304,7 +304,7 @@ export function eqBandIssues(widgets: readonly [string, Widget][]): string[] {
     );
 }
 
-/** No control on an `@` param: st0 draws the engine's stage in the card's footer, a lane's on its strip — docs/aiOrganize.md. */
+/** No control on an `@` param: k7 draws the engine's stage in the card's footer, a lane's on its strip — docs/aiOrganize.md. */
 export function atControlIssues(
   widgets: readonly [string, Widget][],
 ): string[] {
@@ -320,7 +320,7 @@ export function atControlIssues(
     )
     .map(
       ([id, w]) =>
-        `\`${id}\` puts a ${w.type} on \`${w.bind}\`: st0 draws that in the card's footer — leave \`@\` params off the panel`,
+        `\`${id}\` puts a ${w.type} on \`${w.bind}\`: k7 draws that in the card's footer — leave \`@\` params off the panel`,
     );
 }
 

@@ -7,8 +7,8 @@ recorder's (`packages/recorder/docs/recorder.md`).
 
 ## Where a new take opens
 
-The take is held by `RehearsalRecording`, which st0 wraps around its home routes
-(`apps/st0/frontend/src/appMain.tsx`), so a take survives going from a rehearsal page to the media
+The take is held by `RehearsalRecording`, which k7 wraps around its home routes
+(`apps/k7/frontend/src/appMain.tsx`), so a take survives going from a rehearsal page to the media
 library, the projects or the settings and back. It has no route of its own: it is drawn either in a
 **pop-in** over the page, or collapsed to a bar at the bottom of the content column. It holds
 nothing until a take starts — no microphone, no engine — so wrapping every home page costs them
@@ -19,14 +19,14 @@ running. The pop-in is two wrapper classes swapped around the recorder, not a di
 portal or a conditional wrapper would re-parent `RecorderView`, and React would remount it —
 ending the take it holds.
 
-A take starts from the red dot st0 draws as the rehearsal pages' action (`NewSessionButton`), or
+A take starts from the red dot k7 draws as the rehearsal pages' action (`NewSessionButton`), or
 from resuming a session. It opens in the pop-in, except on one song's page, where it begins
 collapsed and the page stays readable: you record against a song in order to READ it while you
 play, and covering the tablature the instant the tape rolls is the one thing that use has no answer
 to. The bar reopens the pop-in for the controls the collapsed form cannot carry.
 
 The pop-in and the bar stay inside the content column, offset by `--rehearsal-inset-left`, never
-over st0's sidebar: the sidebar is how you move between pages while the take runs.
+over k7's sidebar: the sidebar is how you move between pages while the take runs.
 
 ## Drawing must not eat the audio
 
@@ -43,7 +43,7 @@ relative to the new take.
 
 ## Three sources, one recorder
 
-This device's microphone, a remote device (below), or a chain of st0's library played on st0's
+This device's microphone, a remote device (below), or a chain of k7's library played on k7's
 bench ([chainSource.md](chainSource.md)). Each reaches the recorder as a `MediaStream`, so the
 waveform, the moments and the upload are the same whatever the source.
 
@@ -98,7 +98,7 @@ time**: starting one pauses the one before, because two masters at once is never
 
 ## A songbook song's reference track
 
-The track is a song of the media library, streamed from `/api/mediatek/stream` on st0's own
+The track is a song of the media library, streamed from `/api/mediatek/stream` on k7's own
 origin with the person's session, with Range; a FLAC master comes as the library's cached MP3.
 
 ### A waveform, not the browser's transport
@@ -112,7 +112,7 @@ The element draws no native `<audio controls>` bar; it stays, hidden, because it
 and the timed lyrics follow it.
 
 **Onsets are not drawn.** The stored shape carries them, but the player leaves `ui-waveform`'s
-`onsets` prop empty: those rules are for placing stretch points in st0, and in a player nothing
+`onsets` prop empty: those rules are for placing stretch points in k7, and in a player nothing
 acts on them — they read as noise over the shape.
 
 **The instrumental wears the track's shape.** It is the same performance at the same timing, so the
@@ -212,7 +212,7 @@ often than a track to play along to, so it is asked for rather than ridden along
   track… » only to a song that has none.
 - **Relinking never deletes a file.** A new link, or a dropped instrumental, only forgets the old
   path: every path a song holds is the library's.
-- **Any engine online makes it.** Separation needs a machine running an engine that st0's backend
+- **Any engine online makes it.** Separation needs a machine running an engine that k7's backend
   can reach; the hosted image carries neither the model nor its runtime. When none is online, "Make
   instrumental" says so and changes nothing, so pressing it again once one is up is the whole retry.
 - **The library song is found by artist and title** (`src/fetchSong/match.ts`): equal once accents,
@@ -233,10 +233,16 @@ often than a track to play along to, so it is asked for rather than ridden along
 - **The sum happens where the parts are.** The engine's chain writes `instrumental.wav` beside the
   song, having added the stems while they were still in memory, and that file is what the song
   links. It streams as WAV — twice a FLAC's size, the price of keeping no transcoded copy anywhere.
-- **Which chain does it is the engine machine's answer**, set in st0's settings (*Separation
+- **Which chain does it is the engine machine's answer**, set in k7's settings (*Separation
   chains*) or with `system instrumental <chain>`, exactly as `system stems` answers for the four
   parts. The page names no chain: it asks for an instrumental and the machine that can make one
   says how.
+- **A song the médiathèque already holds offers no choice.** Opening a song with no track looks it
+  up in the library first (`heldInLibrary`); when it is there, the page copies it and goes straight
+  on to the lyrics and the instrumental, showing their progress — "Download / Upload / Ignore" is
+  only for a song the library lacks, since fetching it costs nothing and nobody would answer
+  otherwise. A song whose insert was ignored stays ignored, and a library out of reach leaves the
+  choice as it was.
 - **Every step checks what is already done**, so pressing again resumes: the médiathèque goes on
   hunting and separating if the page is closed, and a second press finds the song filed and the
   stems held.

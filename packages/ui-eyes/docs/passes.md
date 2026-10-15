@@ -160,7 +160,7 @@ there (a layer's chain clearing the composite, blending inside a chain) are sequ
 needs a pixel to be caught.
 
 What it does not prove is that a shader draws the right picture. That check is done with the eyes:
-open `demos/video-demo.st0` and look.
+open `demos/video-demo.k7` and look.
 
 ## What the export is written in
 

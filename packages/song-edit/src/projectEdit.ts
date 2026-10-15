@@ -70,7 +70,7 @@ function rewriteModule(
 const readModuleText = (at: ModuleText): string =>
   at.item && at.dir ? chainItemText(at.dir, at.item) : wsRead(at.path);
 
-// Where a module's file is — a node's own file in the flat `nodes/`, or a shared one at `@workspace`/`@st0`.
+// Where a module's file is — a node's own file in the flat `nodes/`, or a shared one at `@workspace`/`@k7-core`.
 function moduleFileOf(dir: string, module: string): ModuleText {
   const modules = loadModules(dir) as Record<
     string,
@@ -274,7 +274,7 @@ export function setModuleInputGain(
   return editModuleValue(dir, module, ["gain"], db);
 }
 
-/** Set an effect's `mix`, the engine's dry/wet around it; 1 (all wet) is no line at all — engine/st0-engine/docs/mix.md. */
+/** Set an effect's `mix`, the engine's dry/wet around it; 1 (all wet) is no line at all — engine/k7-runtime/docs/mix.md. */
 export function setModuleMix(dir: string, module: string, mix: number): string {
   if (!Number.isFinite(mix) || mix < 0 || mix > 1)
     throw new Error("a mix is a number from 0 (all dry) to 1 (all wet)");

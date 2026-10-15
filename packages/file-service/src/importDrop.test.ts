@@ -64,13 +64,13 @@ describe("a project dropped on a workspace", () => {
       host(),
       "Winter Sketch.dawproject",
       dawproject(),
-      "hiver.st0",
+      "hiver.k7",
     );
-    expect(project).toBe("hiver.st0");
-    expect(existsSync(join(root, "hiver.st0", "project.yaml"))).toBe(true);
+    expect(project).toBe("hiver.k7");
+    expect(existsSync(join(root, "hiver.k7", "project.yaml"))).toBe(true);
     // …and the log names what it read, which is a FILE here and not a path in the workspace.
     expect(log[0]).toBe("read Winter Sketch.dawproject");
-    expect(log.at(-1)).toBe("wrote hiver.st0");
+    expect(log.at(-1)).toBe("wrote hiver.k7");
   });
 
   it("translates a ZIPPED Ableton project, its set past Live's backups and its sample inside", () => {
@@ -113,15 +113,15 @@ describe("a project dropped on a workspace", () => {
       host(),
       "Hiver Project.zip",
       zip,
-      "hiver.st0",
+      "hiver.k7",
     );
-    expect(project).toBe("hiver.st0");
+    expect(project).toBe("hiver.k7");
     expect(log[1]).toContain("97 bpm");
     expect(log.join(" ")).not.toContain("sample not imported");
   });
 
   it("leaves the dropped file nowhere: the project is all that lands", () => {
-    importProjectBytes(host(), "winter.dawproject", dawproject(), "hiver.st0");
+    importProjectBytes(host(), "winter.dawproject", dawproject(), "hiver.k7");
     expect(existsSync(join(root, "winter.dawproject"))).toBe(false);
   });
 
@@ -130,7 +130,7 @@ describe("a project dropped on a workspace", () => {
       host(),
       "winter.dawproject",
       dawproject("Hiver", 92),
-      "hiver.st0",
+      "hiver.k7",
     );
     // The title comes from metadata.xml and beats the filename; the tempo and signature from Transport.
     expect(log[1]).toContain('project "Hiver"');
@@ -140,20 +140,20 @@ describe("a project dropped on a workspace", () => {
 
   it("refuses a name already taken, rather than quietly picking another", () => {
     const bytes = dawproject();
-    importProjectBytes(host(), "winter.dawproject", bytes, "hiver.st0");
+    importProjectBytes(host(), "winter.dawproject", bytes, "hiver.k7");
     // A name somebody TYPED is never changed under them — `project new` refuses the same way.
     expect(() =>
-      importProjectBytes(host(), "winter.dawproject", bytes, "hiver.st0"),
+      importProjectBytes(host(), "winter.dawproject", bytes, "hiver.k7"),
     ).toThrow(/already exists/);
   });
 
   it("refuses a format that cannot travel alone, and says where to import it", () => {
     // A `.als` names its samples by path: dropped on its own it would import a silent project.
     expect(() =>
-      importProjectBytes(host(), "winter.als", dawproject(), "hiver.st0"),
+      importProjectBytes(host(), "winter.als", dawproject(), "hiver.k7"),
     ).toThrow(/\.dawproject/);
     expect(() =>
-      importProjectBytes(host(), "winter.als", dawproject(), "hiver.st0"),
+      importProjectBytes(host(), "winter.als", dawproject(), "hiver.k7"),
     ).toThrow(/from the tree/);
     // …while a zipped Ableton project carries its samples, so it may be dropped.
     expect(DROPPABLE).toEqual([".dawproject", ".zip"]);
@@ -165,23 +165,18 @@ describe("a project dropped on a workspace", () => {
         host(),
         "winter.dawproject",
         new TextEncoder().encode("not a zip"),
-        "hiver.st0",
+        "hiver.k7",
       ),
     ).toThrow();
     // …and writes nothing on the way out: a failed import leaves no half-folder behind.
-    expect(existsSync(join(root, "hiver.st0"))).toBe(false);
+    expect(existsSync(join(root, "hiver.k7"))).toBe(false);
   });
 
   it("writes into a folder that is there and EMPTY, which is not 'in use'", () => {
-    mkdirSync(join(root, "hiver.st0"), { recursive: true });
+    mkdirSync(join(root, "hiver.k7"), { recursive: true });
     // An EMPTY folder is not "in use": the import writes into it, exactly as a scaffold would.
     expect(() =>
-      importProjectBytes(
-        host(),
-        "winter.dawproject",
-        dawproject(),
-        "hiver.st0",
-      ),
+      importProjectBytes(host(), "winter.dawproject", dawproject(), "hiver.k7"),
     ).not.toThrow();
   });
 });

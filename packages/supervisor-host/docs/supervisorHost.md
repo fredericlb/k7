@@ -1,8 +1,8 @@
 # The supervisor host
 
-`engine/st0-supervisor` as the child of an Electron app: `apps/st0-standalone`
-(`apps/st0-standalone/docs/standalone.md`). The Android app drives the same supervisor the same way,
-from Kotlin (`engine/st0-engine/docs/android.md`). Everything else an Electron app needs — its servers, its window,
+`engine/k7-supervisor` as the child of an Electron app: `apps/k7-standalone`
+(`apps/k7-standalone/docs/standalone.md`). The Android app drives the same supervisor the same way,
+from Kotlin (`engine/k7-runtime/docs/android.md`). Everything else an Electron app needs — its servers, its window,
 its quit, its build — is `@frediverse/electron-shell`'s (`commons/packages/electron-shell/docs/shell.md`),
 which is shared with phare and knows nothing about an engine.
 
@@ -14,8 +14,8 @@ which is shared with phare and knows nothing about an engine.
 
 ## Not a server
 
-`engine/st0-supervisor` is native and speaks NDJSON on stdio
-(`engine/st0-supervisor/docs/hostProtocol.md`), so it gets no guard and no tsx: `SupervisorHost`
+`engine/k7-supervisor` is native and speaks NDJSON on stdio
+(`engine/k7-supervisor/docs/hostProtocol.md`), so it gets no guard and no tsx: `SupervisorHost`
 spawns it directly and keeps it running. Three choices:
 
 - **Death is read from the process, never the pipe.** The engine outlives a supervisor crash by

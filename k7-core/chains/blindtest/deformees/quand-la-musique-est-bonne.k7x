@@ -1,0 +1,19 @@
+// Déformées — Quand la musique est bonne — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
+// variante.
+
+steps([
+  id("b42d5397-9ae0-43ca-b4b5-3f3637a4c22b")
+    .extends("@k7-core/audio/bitcrush")
+    .engine("de-rez")
+    .engines({ de-rez: { params: { Rez: 0.337, Rate: 1 } } }),
+  id("5d8a73be-1552-49d0-a6ef-b609066b7fdd")
+    .extends("@k7-core/audio/lowpass")
+    .engine("one-knob")
+    .engines({ one-knob: { params: { Amount: 67 } } }),
+  id("2a9d70db-d9b5-4f9a-9e34-459840d6c27a")
+    .extends("@k7-core/audio/chorus")
+    // The one-knob chorus the blind test was tuned on, not the module's default.
+    .engine("one-knob")
+    .engines({ one-knob: { params: { Amount: 100 } } }),
+  to([chain("@out")]),
+])

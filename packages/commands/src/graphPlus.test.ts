@@ -42,7 +42,7 @@ const make = async (target: string, node: string) => {
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-place-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),

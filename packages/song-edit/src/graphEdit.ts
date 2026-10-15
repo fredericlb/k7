@@ -109,7 +109,7 @@ export function laneOfNode(dir: string, node: string): string | null {
 }
 
 /**
- * Is `name` on the graph without a file of its own — a MODULE used directly as a node? st0 writes
+ * Is `name` on the graph without a file of its own — a MODULE used directly as a node? k7 writes
  * that shape itself (a lane's `mix-<lane>` strip), and an import writes it for a plugin used once,
  * so the node verbs have to know it rather than answering "no such node". See docs/projectEdit.md.
  */

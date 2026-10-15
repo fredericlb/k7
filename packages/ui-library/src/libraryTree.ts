@@ -35,10 +35,11 @@ export const isSongFolder = (
   return !!e && isSong(e);
 };
 
-/** The family's entries as a folder tree, from their paths alone (../docs/library.md). */
+/** The family's entries as a folder tree, from their paths alone — and the paired server's `remote` ones, filed among them (../docs/library.md). */
 export function treeOf(
   entries: MediatekEntry[] | null,
   unlisted: string[],
+  remote: MediatekEntry[] = [],
 ): TreeNode[] {
   const roots: TreeNode[] = [];
   // What no entry accounts for goes in FIRST, so an entry arriving later finds its folder already there.
@@ -50,7 +51,8 @@ export function treeOf(
       into.push({ name: rel.slice(cut + 1), path: rel });
     } else folderAt(roots, rel);
   }
-  for (const e of entries ?? []) {
+  // Here first, then the server's: the same path is the same row, and one here is the one that opens.
+  for (const e of [...(entries ?? []), ...remote]) {
     // The family segment leads every path and is what the tabs already name.
     const parts = e.path.split("/").filter(Boolean).slice(1);
     let level = roots;
@@ -71,6 +73,26 @@ export function treeOf(
     });
   }
   return roots;
+}
+
+/** Which rows are the server's alone: its entries this machine lacks, and every folder holding nothing else. */
+export function remoteRows(
+  entries: MediatekEntry[] | null,
+  remote: MediatekEntry[],
+): { entries: Set<string>; folders: Set<string> } {
+  const ancestors = (rel: string): string[] => {
+    const parts = rel.split("/");
+    return parts.slice(0, -1).map((_, i) => parts.slice(0, i + 1).join("/"));
+  };
+  const here = new Set((entries ?? []).map((e) => relative(e.path)));
+  const localFolders = new Set([...here].flatMap(ancestors));
+  const there = remote.map((e) => relative(e.path)).filter((r) => !here.has(r));
+  return {
+    entries: new Set(there),
+    folders: new Set(
+      there.flatMap(ancestors).filter((f) => !localFolders.has(f)),
+    ),
+  };
 }
 
 /** The capture zone as tree rows: one folder per day, one row per capture (../docs/library.md). */

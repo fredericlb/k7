@@ -66,6 +66,8 @@ interface Props {
   onRename: (artist: string, title: string) => Promise<void>;
   /** Clears a stored pipeline failure without retrying. */
   onDismissFailure: () => void;
+  /** The song is being taken from the library on its own: the insert shows that, not a choice. */
+  fromLibrary: boolean;
   onBack: () => void;
 }
 
@@ -88,6 +90,7 @@ export function SongDetailView({
   onResyncLyrics,
   onRename,
   onDismissFailure,
+  fromLibrary,
   onBack,
 }: Props) {
   // A tab asked for by the address but still empty is one being added: it opens on its editor.
@@ -263,6 +266,7 @@ export function SongDetailView({
           onIgnore={onIgnore}
           onRetry={onRerun}
           onDismiss={onDismissFailure}
+          fromLibrary={fromLibrary}
         />
       )}
 

@@ -34,7 +34,7 @@ const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
 
 function song(): { root: string; dir: string } {
   const r = mkdtempSync(join(tmpdir(), "td-modpos-"));
-  const d = join(r, "song.st0");
+  const d = join(r, "song.k7");
   mkdirSync(d, { recursive: true });
   writeFileSync(
     join(d, "project.yaml"),

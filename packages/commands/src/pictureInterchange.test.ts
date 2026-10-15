@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const DEMO = join(here, "..", "..", "..", "demos", "video-demo.st0");
+const DEMO = join(here, "..", "..", "..", "demos", "video-demo.k7");
 
 let song: string;
 const logs: string[] = [];
@@ -27,7 +27,7 @@ const host = () =>
 beforeEach(() => {
   logs.length = 0;
   refusals.length = 0;
-  song = join(mkdtempSync(join(tmpdir(), "td-pinter-")), "video-demo.st0");
+  song = join(mkdtempSync(join(tmpdir(), "td-pinter-")), "video-demo.k7");
   cpSync(DEMO, song, { recursive: true });
 });
 afterEach(() => rmSync(dirname(song), { recursive: true, force: true }));

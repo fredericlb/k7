@@ -4,7 +4,7 @@
 // Here rather than beside the graph that draws the dropdown: it is a value in project.yaml, and
 // @studio/ui-chains cannot see this package. The card's options are the two names spelled again
 // there, and `aspectSize` REFUSES a name it does not know — so a drift is a refusal, not a silent
-// wrong size. See packages/song/docs/picture.md.
+// wrong size. See packages/song-video/docs/picture.md.
 
 /** One frame shape: what it is called, and the pixels it means. */
 export interface Aspect {

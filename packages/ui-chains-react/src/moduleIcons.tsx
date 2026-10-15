@@ -2,10 +2,10 @@
 // what each node IS before you read its name: a keyboard makes sound, a MIDI plug
 // transforms notes, a waveform processes audio, arrows are the way in or out. Video
 // modules fall back to none rather than borrowing one that would read as audio.
-// Same icon set and reasons as st0' trackIcons.tsx, but keyed by CATEGORY rather than a
+// Same icon set and reasons as k7' trackIcons.tsx, but keyed by CATEGORY rather than a
 import type { WebModuleCategory } from "@studio/graph-model";
 
-/** An inline SVG, as a viewBox and a body — declared here rather than in st0, docs/hosting.md. */
+/** An inline SVG, as a viewBox and a body — declared here rather than in k7, docs/hosting.md. */
 export interface Glyph {
   vb: string;
   body: string;

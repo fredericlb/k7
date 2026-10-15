@@ -75,7 +75,7 @@ would have no way to know. So a variant is settled by the dirents already in han
 
 ## Analysis, and when it runs
 
-A song's master is analysed **at upload**: st0's backend receives the bytes, then asks the chosen
+A song's master is analysed **at upload**: k7's backend receives the bytes, then asks the chosen
 machine to compute the waveform envelope, the transient onsets and the tempo, because it has
 no engine and cannot decode audio. The `.cache` sidecar is pushed back beside the audio and the
 tempo seeds `song.yaml` — see `packages/file-service/src/routes/mediatek.ts` and

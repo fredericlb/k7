@@ -1,7 +1,7 @@
 # The rehearsal pages' addresses
 
-The pages live under `/rehearsal/*` on st0's origin, and nowhere else. Their own paths — `/songs`,
-`/settings`, `/@<name>` — would collide with st0's at the root, so the prefix is not optional.
+The pages live under `/rehearsal/*` on k7's origin, and nowhere else. Their own paths — `/songs`,
+`/settings`, `/@<name>` — would collide with k7's at the root, so the prefix is not optional.
 
 ## The prefix is the host's
 
@@ -13,20 +13,24 @@ context cannot reach them. Every navigation goes through `useRehearsalNav`, and 
 
 ## No API origin to configure
 
-The API answers on the same origin as the pages — `/api/*` and `/rtc`, served by st0's backend
-(`packages/rehearsal-server`) — so every call is relative to `apiBase`, which st0 sets to its own
+The API answers on the same origin as the pages — `/api/*` and `/rtc`, served by k7's backend
+(`packages/rehearsal-server`) — so every call is relative to `apiBase`, which k7 sets to its own
 `BASE`. Every request carries the session cookie (`credentials: "include"`). Signing in and out is
-st0's, on the same origin; the pages draw no login screen of their own.
+k7's, on the same origin; the pages draw no login screen of their own.
 
 URLs handed to the browser — an `<audio src>`, an `<img src>`, a download link — spell `apiBase`
 out themselves, since the browser is what fetches them.
 
-## Two addresses are read before st0's sign-in gate
+## Two addresses are read before k7's sign-in gate
 
-- **A public page**, `/rehearsal/@<nametag>`, which nobody signs in to see. A React Router path
+- **A public page**, `/rehearsal/@<nametag>`, which a visitor may open without signing in. Whether
+  they may is the page's visibility (`packages/rehearsal-server/docs/pages.md`): a page open to
+  anyone signed in answers 401 to nobody, and the screen offers a sign-in link that comes back to
+  the same address, rather than the gate's redirect, so a page that turns out to be someone else's
+  does not loop through the login. A React Router path
   cannot put a parameter after a literal `@` in the same segment, so `/@:nametag` never matches;
-  `publicPageAt` (`src/addresses.ts`) reads the address by hand, and st0 checks it BEFORE its
-  `AuthGate` mounts (`apps/st0/frontend/src/appMain.tsx`). The gate sends a visitor who is not
+  `publicPageAt` (`src/addresses.ts`) reads the address by hand, and k7 checks it BEFORE its
+  `AuthGate` mounts (`apps/k7/frontend/src/appMain.tsx`). The gate sends a visitor who is not
   signed in to the login page, and a public page must never go through it.
 - **The phone's microphone**, `/rehearsal/remote`. It is behind the gate — it records into the
   signed-in person's session — but outside the home's frame: a phone held as a microphone needs
@@ -37,15 +41,15 @@ before any lazy chunk has loaded.
 
 ## The `k7.` host is a permanent alias
 
-`k7.st0.app` (`k7.priv.st0.app` in dev) answers from st0's container: `/api/*`, `/auth/*` and
+`k7.st0.app` (`k7.priv.st0.app` in dev) answers from k7's container: `/api/*`, `/auth/*` and
 `/rtc` as on the root origin, and anything else is a 301 to `/rehearsal` + the same path at the
-root (`apps/st0/backend/src/server.ts`). It stays because of what was handed out under that name and
+root (`apps/k7/backend/src/server.ts`). It stays because of what was handed out under that name and
 cannot be recalled: publish URLs and tokens saved in workspaces' `.settings.json`, public page
-links sent to an audience, and installed PWAs. Why `k7` resolves to st0's origin is
+links sent to an audience, and installed PWAs. Why `k7` resolves to k7's origin is
 `packages/web-protocol/docs/addresses.md`.
 
 ## The signalling socket
 
 `src/rtc.ts` opens `${apiBase}/rtc` on the same host; the server takes upgrades on `/rtc` alone
 and leaves every other one to the engine registry (`packages/rehearsal-server/docs/audio.md`). In
-dev, st0's Vite server proxies `/rtc` as a WebSocket path (`apps/st0/frontend/vite.config.ts`).
+dev, k7's Vite server proxies `/rtc` as a WebSocket path (`apps/k7/frontend/vite.config.ts`).

@@ -10,8 +10,8 @@ times a second.
 `subscribe` wakes on **any** plugin. `subscribeTo(id, …)` wakes only on one.
 
 The whole-map channel is the honest one for a reader that genuinely needs the whole map —
-st0's `MidiFeedback`, which pushes every value back out to a control surface, and the DJ desk's
-`useDeckSet` (`packages/st0-plugins/src/turntables/useDeckSet.ts`). Those draw nothing, so a re-render
+k7's `MidiFeedback`, which pushes every value back out to a control surface, and the DJ desk's
+`useDeckSet` (`packages/k7-plugins/src/turntables/useDeckSet.ts`). Those draw nothing, so a re-render
 costs a function call.
 
 It is the wrong channel for anything that *draws*. A single whole-map subscription at the root

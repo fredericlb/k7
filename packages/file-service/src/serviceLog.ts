@@ -1,4 +1,4 @@
-// serviceLog.ts — this file service's OWN log, kept for st0's Logs panel. Everything the process
+// serviceLog.ts — this file service's OWN log, kept for k7's Logs panel. Everything the process
 // writes through `console` is still written where it always was (the hub's output, Tilt's pane),
 // and ALSO kept here, the last few hundred lines, numbered, so the panel can ask "what since N".
 //

@@ -1,0 +1,26 @@
+// Déformées — Blue Monday — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
+// variante.
+
+steps([
+  id("a93b1632-183e-4ee2-be4c-60f22cef0155")
+    .extends("@k7-core/audio/zz_utility/pitch-shift")
+    .params({ "semitones up": 5 }),
+  id("d3fa45e7-bafa-4705-814e-54fe4dc4c610")
+    .extends("@k7-core/audio/vibrato")
+    .engine("wobble")
+    .engines({ wobble: { params: { Amount: 8 } } }),
+  id("08a46585-c068-493f-aaa1-c96142c3257f")
+    .extends("@k7-core/audio/highpass")
+    .engine("one-knob")
+    .engines({ one-knob: { params: { Amount: 64 } } }),
+  id("b05928c6-a099-468d-a808-b13b3865c882")
+    .extends("@k7-core/audio/chorus")
+    // The one-knob chorus the blind test was tuned on, not the module's default.
+    .engine("one-knob")
+    .engines({ one-knob: { params: { Amount: 48 } } }),
+  id("c818f337-dcb6-432c-8329-114a7f642798")
+    .extends("@k7-core/audio/overdrive")
+    .engine("one-knob")
+    .engines({ one-knob: { params: { Amount: 6 } } }),
+  to([chain("@out")]),
+])

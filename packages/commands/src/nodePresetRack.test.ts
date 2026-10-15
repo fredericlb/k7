@@ -41,10 +41,10 @@ beforeEach(() => {
   logs.length = 0;
   reloaded = 0;
   root = mkdtempSync(join(tmpdir(), "td-preset-rack-"));
-  const lib = librariesFixture(root, "st0");
+  const lib = librariesFixture(root, "k7-core");
   mkdirSync(join(lib, "samples", "kicks"), { recursive: true });
   writeFileSync(join(lib, "samples", "kicks", "808.wav"), "");
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
   mkdirSync(join(root, "_modules", "instruments", "drums"), {
@@ -56,7 +56,7 @@ beforeEach(() => {
   );
   writeFileSync(
     join(dir, "nodes", "kit.yaml"),
-    'extends: "@workspace/instruments/drums"\ntype: rack\nrack:\n  symbols:\n    BD: { note: 36, sample: "@st0/kicks/808.wav" }\n    SN: { note: 38 }\n',
+    'extends: "@workspace/instruments/drums"\ntype: rack\nrack:\n  symbols:\n    BD: { note: 36, sample: "@k7-core/kicks/808.wav" }\n    SN: { note: 38 }\n',
   );
   writeFileSync(
     join(dir, "nodes", "other.yaml"),
@@ -75,10 +75,12 @@ afterEach(() => {
 it("keeps a kit of library samples as a preset, one pad per line", async () => {
   await runCommand("node preset save kit house", host(), "cli");
   const text = readFileSync(kept("house"), "utf8");
-  expect(text).toContain('  BD: { note: 36, sample: "@st0/kicks/808.wav" }\n');
+  expect(text).toContain(
+    '  BD: { note: 36, sample: "@k7-core/kicks/808.wav" }\n',
+  );
   expect(parse(text)).toEqual({
     rack: {
-      BD: { note: 36, sample: "@st0/kicks/808.wav" },
+      BD: { note: 36, sample: "@k7-core/kicks/808.wav" },
       SN: { note: 38 },
     },
   });
@@ -88,7 +90,7 @@ it("loads a kit onto another node IN PLACE of its own, and reloads", async () =>
   await runCommand("node preset save kit house", host(), "cli");
   await runCommand("node preset apply other workspace house", host(), "cli");
   expect(node("other").rack.symbols).toEqual({
-    BD: { note: 36, sample: "@st0/kicks/808.wav" },
+    BD: { note: 36, sample: "@k7-core/kicks/808.wav" },
     SN: { note: 38 },
   });
   expect(reloaded).toBe(1);
@@ -102,7 +104,7 @@ it("loads a kit onto a node that states no pads of its own", async () => {
   await runCommand("node preset save kit house", host(), "cli");
   await runCommand("node preset apply other workspace house", host(), "cli");
   expect(node("other").rack.symbols).toEqual({
-    BD: { note: 36, sample: "@st0/kicks/808.wav" },
+    BD: { note: 36, sample: "@k7-core/kicks/808.wav" },
     SN: { note: 38 },
   });
 });

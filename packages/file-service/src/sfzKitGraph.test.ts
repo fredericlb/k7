@@ -23,8 +23,8 @@ let dir: string;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "fs-sfzkit-"));
-  dir = join(root, "synth-demo.st0");
-  copyAsYaml(join(DEMOS, "synth-demo.st0"), dir, { recursive: true });
+  dir = join(root, "synth-demo.k7");
+  copyAsYaml(join(DEMOS, "synth-demo.k7"), dir, { recursive: true });
   const demoModules = join(DEMOS, "_modules");
   if (existsSync(demoModules))
     copyAsYaml(demoModules, join(root, "_modules"), { recursive: true });

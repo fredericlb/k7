@@ -1,6 +1,6 @@
 # Picture — a song's other half
 
-An `.st0` folder holds sound **and image**. Same folder, same loader, read twice:
+An `.k7` folder holds sound **and image**. Same folder, same loader, read twice:
 
 | file | read by the SONG compile | read by the PICTURE compile |
 |---|---|---|
@@ -30,7 +30,7 @@ seconds depends on the tempo, which the author is free to change. A placement's 
 **wall-clock**: `start: 4` is four seconds, and no setting anywhere moves it.
 
 Both are drawn on the one timeline, and its ruler reads either — bars, or minutes and seconds
-(`apps/st0/frontend/docs/picture.md`). The conversion is exact and reversible in both directions
+(`apps/k7/frontend/docs/picture.md`). The conversion is exact and reversible in both directions
 because there is **one `tempo:` and no tempo map**: a shot at 4.5s sits at beat 9 at 120 bpm,
 which is a fact about the drawing rather than about the file.
 
@@ -76,12 +76,12 @@ picture will not compile" stay two different answers.
 ### Making a lane is therefore TWO writes
 
 `createVideoTrackFile` (`packages/song/src/loader.ts`) writes `video_tracks/<id>.yaml` **and**
-appends `<id>` to `project.layers`, and the verb behind it — `picture lane new` — is what st0's
+appends `<id>` to `project.layers`, and the verb behind it — `picture lane new` — is what k7's
 timeline calls. It looks the project file up *before* either write: the half-done state is the one
 above, a lane that compiles perfectly and never appears, and it would have to be repaired by hand.
 
 The new lane is appended, so it draws **last** — on top, and at the TOP of the timeline's picture
-rows, which are listed front-first (`apps/st0/frontend/docs/picture.md`). It states **no**
+rows, which are listed front-first (`apps/k7/frontend/docs/picture.md`). It states **no**
 `x`/`y`/`w`/`h`, which is the whole frame — see the lane section below for why that had to be made
 true first.
 
@@ -101,7 +101,7 @@ a map names a kind. Overlapping two shots and fading the later one in is a cross
 its own start — [animation.md](animation.md).
 
 The rect is also what the VIEWPORT drags: selecting a layer there and moving or resizing it runs
-`picture rect`, which writes these four keys (`apps/st0/frontend/docs/picture.md`).
+`picture rect`, which writes these four keys (`apps/k7/frontend/docs/picture.md`).
 
 **A lane stating no `x`/`y`/`w`/`h` fills the frame.** The compile reads an absent `w`/`h` as the
 viewport's, exactly as it already did for a camera layer. It read them as `0` until the first lane
@@ -123,7 +123,7 @@ the alternative is a second word for the one gesture every lane in every app has
 Each compile filters it to its own lanes, so soloing a shot silences nothing and soloing a guitar
 hides nothing; any picture solo hides every un-soloed picture lane, which is the mixer-wide rule
 audio already keeps. The fold is the browser's, since the browser is what composites
-(`packages/st0-plugins/src/video/pictureMix.ts`) — the engine resolves the audio half and is told about no
+(`packages/k7-plugins/src/video/pictureMix.ts`) — the engine resolves the audio half and is told about no
 lane of picture at all.
 
 One list means one collision: a project that names an audio lane and a picture lane alike — which

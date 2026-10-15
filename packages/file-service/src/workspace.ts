@@ -27,7 +27,6 @@ import {
   resolve,
   sep,
 } from "node:path";
-import type { ShareBundle } from "@studio/commands/share-bundle";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import {
   scannedPluginNames,
@@ -167,6 +166,7 @@ import type {
   ModuleLibrary,
   PreviewReq,
   ProjectInfo,
+  ShareProgress,
   WaveformStatus,
   WebMixer,
   WebProject,
@@ -214,14 +214,9 @@ import {
   importProjectBytes,
   importProjectInto,
 } from "./projectLifecycle.ts";
-// The four export acts, behind a host of six members — see shareOps.ts.
-import {
-  buildShare,
-  exportMix,
-  type ShareHost,
-  shareK7,
-  shareLink,
-} from "./shareOps.ts";
+import { shareProgress, startShareLink } from "./shareLink.ts";
+// The export acts, behind a host of a few members — see shareOps.ts.
+import { exportMix, type ShareHost, shareK7 } from "./shareOps.ts";
 import {
   AUDIO_EXT,
   DEFAULT_WF_BUCKETS,
@@ -229,6 +224,7 @@ import {
   WaveformOps,
 } from "./waveformOps.ts";
 import { foldComps } from "./webComp.ts";
+import { webProjectOf } from "./webProject.ts";
 import { isBinary, RECYCLE_DIR, skip } from "./workspaceFilter.ts";
 
 export { DEFAULT_WF_BUCKETS } from "./waveformOps.ts";
@@ -906,7 +902,7 @@ export class Workspace {
         `not a project (the folder must end in ${Object.values(PROJECT_SUFFIXES).join(", ")}): ${rel}`,
       );
     const clean = basename(newName).replace(/[\\/]/g, "").trim();
-    // The SUFFIX is the app: renaming a `.st0` into a `.z0` would hand the folder to another editor.
+    // The SUFFIX is the app: renaming a `.k7` into a `.z0` would hand the folder to another editor.
     if (projectApp(clean) !== projectApp(basename(abs)))
       throw new Error(
         `a project keeps the suffix that says which app opens it — '${clean}' should end in '${PROJECT_SUFFIXES[projectApp(basename(abs)) as ProjectApp]}'`,
@@ -2035,15 +2031,12 @@ export class Workspace {
 
   // --- export / share -------------------------------------------------------
 
-  // The four acts live in `shareOps.ts` and reach the workspace only through the host below.
+  // The export acts live in `shareOps.ts` and reach the workspace only through the host below.
   private shareHost(): ShareHost {
     return {
       root: this.root,
       requireActive: () => this.requireActive(),
       cachedProjectDoc: (dir) => this.cachedProjectDoc(dir),
-      projectDoc: () => this.projectDoc(),
-      graphDoc: () => this.graphDoc(),
-      surfaces: () => this.surfaces(),
     };
   }
 
@@ -2057,16 +2050,17 @@ export class Workspace {
     return exportMix(this.shareHost(), format);
   }
 
-  /** The frozen snapshot `project share link` sends to pl8 — what it carries is shareOps.ts. */
-  buildShare(): Promise<ShareBundle> {
-    return buildShare(this.shareHost());
+  /** Start `project share link`: a share at a checkpoint, made as a job — shareLink.ts. */
+  startShareLink(userEmail: string): void {
+    startShareLink(
+      { root: this.root, requireActive: () => this.requireActive() },
+      userEmail,
+    );
   }
 
-  /** Render the snapshot and send it to pl8 on the machine's own bearer — see docs/mediatekLink.md. */
-  async shareLink(
-    userEmail: string,
-  ): Promise<{ token: string; bytes: number }> {
-    return shareLink(this.shareHost(), userEmail);
+  /** Where that job is, for the progress bar; null when none was asked for. */
+  shareLinkProgress(): ShareProgress | null {
+    return shareProgress(this.root);
   }
 
   /** Publish to k7; an unknown song throws NEEDS_META, which the route turns into a prompt. */
@@ -2260,30 +2254,7 @@ export class Workspace {
       const { rev } = this.revision();
       const hit = this.webDocCache;
       if (hit && hit.dir === dir && hit.rev === rev) return hit.doc;
-      const p = this.cachedProjectDoc(dir);
-      const doc: WebProject = {
-        name: p.name,
-        tempo: p.tempo,
-        timeSigNumerator: p.timeSigNumerator,
-        timeSigDenominator: p.timeSigDenominator,
-        tracks: toWebTracks(p.tracks, p.tempo),
-        groups: p.groups.map((g) => ({
-          id: g.id,
-          name: g.name,
-          color: g.color,
-          mute: g.mute,
-          solo: g.solo,
-        })),
-        masterVolume: p.masterVolume,
-        metronome: p.settings.metronome,
-        metronomeLevel: p.settings.metronomeLevel,
-        countIn: p.settings.countIn,
-        markers: p.markers.map((m) => ({
-          beat: m.beat,
-          name: m.name,
-          tc: m.tc,
-        })),
-      };
+      const doc = webProjectOf(this.cachedProjectDoc(dir));
       this.webDocCache = { dir, rev, doc };
       return doc;
     });

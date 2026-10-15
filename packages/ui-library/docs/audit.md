@@ -1,8 +1,8 @@
 # Audit — stability and speed of the library's screens
 
-A standing audit of `packages/ui-library/src`, the médiathèque's screens as st0 mounts them under
+A standing audit of `packages/ui-library/src`, the médiathèque's screens as k7 mounts them under
 `/media`. The routes' half is
-[apps/st0/backend/docs/media/audit.md](../../../apps/st0/backend/docs/media/audit.md). Findings are
+[apps/k7/backend/docs/media/audit.md](../../../apps/k7/backend/docs/media/audit.md). Findings are
 either an invariant this package holds — written down so it is not broken again — or a numbered lot
 still open, and why.
 
@@ -43,4 +43,4 @@ middle pane `LibraryContents.tsx` ([library.md](library.md)). The transport and 
 cd packages/ui-library && npx tsc --noEmit -p . && npx vitest run
 ```
 
-Nothing here mounts a component: open `/media` in st0 against a live backend for anything drawn.
+Nothing here mounts a component: open `/media` in k7 against a live backend for anything drawn.

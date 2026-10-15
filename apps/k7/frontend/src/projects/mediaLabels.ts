@@ -1,0 +1,248 @@
+// mediaLabels.ts — the media library's `LibraryLabels`, filled from this app's catalogues. Built
+// per render of a page that mounts it, so a locale switch re-words every screen at once.
+// See packages/ui-library/docs/host.md.
+
+import type { LibraryLabels, SectionId } from "@studio/ui-library";
+import { m } from "../paraglide/messages.js";
+
+/** One or many, the two catalogues spelling each form whole. */
+const plural =
+  (
+    one: (p: { count: number }) => string,
+    many: (p: { count: number }) => string,
+  ) =>
+  (count: number): string =>
+    count === 1 ? one({ count }) : many({ count });
+
+export function mediaLabels(): LibraryLabels {
+  return {
+    sections: {
+      songs: m["media.section.songs"](),
+      samples: m["media.section.samples"](),
+      recordings: m["media.section.recordings"](),
+      playlists: m["media.section.playlists"](),
+      find: m["media.section.find"](),
+    },
+    common: {
+      loading: m["media.loading"](),
+      cancel: m["media.cancel"](),
+      back: m["media.back"](),
+      moveUp: m["media.moveUp"](),
+      moveDown: m["media.moveDown"](),
+      remove: m["media.remove"](),
+      play: m["media.play"](),
+      pause: m["media.pause"](),
+      units: {
+        b: m["media.unit.b"](),
+        kb: m["media.unit.kb"](),
+        mb: m["media.unit.mb"](),
+      },
+    },
+    tree: {
+      open: m["media.tree.open"](),
+      close: m["media.tree.close"](),
+      findSongs: m["media.tree.findSongs"](),
+      dropOnSong: m["media.tree.dropOnSong"](),
+      notAudio: (name) => m["media.tree.notAudio"]({ name }),
+      addVariant: m["media.tree.addVariant"](),
+      queue: m["media.tree.queue"](),
+      delete: (name) => m["media.tree.delete"]({ name }),
+      deleteFolder: (name) => m["media.tree.deleteFolder"]({ name }),
+      deleteFolderConfirm: (name) =>
+        m["media.tree.deleteFolderConfirm"]({ name }),
+      deleteSubmit: m["media.tree.deleteSubmit"](),
+      uploadFolder: m["media.tree.uploadFolder"](),
+      newFolder: m["media.tree.newFolder"](),
+      newFolderPlaceholder: m["media.tree.newFolderPlaceholder"](),
+      newFile: m["media.tree.newFile"](),
+      newFilePlaceholder: m["media.tree.newFilePlaceholder"](),
+      create: m["media.tree.create"](),
+      rename: m["media.tree.rename"](),
+      renamePlaceholder: m["media.tree.renamePlaceholder"](),
+      renameSubmit: m["media.tree.renameSubmit"](),
+    },
+    contents: {
+      emptyLibrary: m["media.contents.emptyLibrary"](),
+      emptyFamily: m["media.contents.emptyFamily"](),
+      notCatalogued: m["media.contents.notCatalogued"](),
+      noRecordings: m["media.contents.noRecordings"](),
+      synced: (server) => m["wsync.synced"]({ server }),
+      localOnly: m["wsync.local"](),
+      download: m["wsync.download"](),
+      downloadMissing: plural(
+        m["wsync.downloadMissingOne"],
+        m["wsync.downloadMissingMany"],
+      ),
+    },
+    addRecording: {
+      add: m["media.addRecording.add"](),
+      sending: m["media.addRecording.sending"](),
+      cancel: m["media.addRecording.cancel"](),
+    },
+    addSong: {
+      button: m["media.addSong.button"](),
+      readingTags: m["media.addSong.readingTags"](),
+      hint: m["media.addSong.hint"](),
+      artist: m["media.addSong.artist"](),
+      artistPlaceholder: m["media.addSong.artistPlaceholder"](),
+      album: m["media.addSong.album"](),
+      albumPlaceholder: m["media.addSong.albumPlaceholder"](),
+      title: m["media.addSong.title"](),
+      titlePlaceholder: m["media.addSong.titlePlaceholder"](),
+      notAudio: (name) => m["media.addSong.notAudio"]({ name }),
+      occupied: m["media.addSong.occupied"](),
+      cancelUpload: m["media.addSong.cancelUpload"](),
+      replace: m["media.addSong.replace"](),
+      send: m["media.addSong.send"](),
+      many: (count) => m["media.addSong.many"]({ count: String(count) }),
+      sendMany: (count) =>
+        m["media.addSong.sendMany"]({ count: String(count) }),
+      drop: m["media.addSong.drop"](),
+    },
+    save: {
+      clean: m["media.save.clean"](),
+      pending: m["media.save.pending"](),
+      saving: m["media.save.saving"](),
+      held: m["media.save.held"](),
+      error: m["media.save.error"](),
+    },
+    song: {
+      heading: (name) => m["media.song.heading"]({ name }),
+      noSidecar: m["media.song.noSidecar"](),
+      saved: (path) => m["media.song.saved"]({ path }),
+      variants: m["media.song.variants"](),
+      variantMissing: m["media.song.variantMissing"](),
+      variantRemoved: (name) => m["media.song.variantRemoved"]({ name }),
+      alreadyAsked: m["media.song.alreadyAsked"](),
+      analysedNoCache: m["media.song.analysedNoCache"](),
+      analyseFailed: (message) => m["media.song.analyseFailed"]({ message }),
+      noMaster: m["media.song.noMaster"](),
+      fileNotInLibrary: m["media.song.fileNotInLibrary"](),
+      notAnswering: (target) => m["media.song.notAnswering"]({ target }),
+      fallback: m["media.song.fallback"](),
+      fileMissing: m["media.song.fileMissing"](),
+      noMasterShort: m["media.song.noMasterShort"](),
+      analysing: m["media.song.analysing"](),
+      analyse: m["media.song.analyse"](),
+    },
+    playlists: {
+      unreadable: m["media.playlists.unreadable"](),
+      inline: m["media.playlists.inline"](),
+      none: m["media.playlists.none"](),
+      newPlaylist: m["media.playlists.new"](),
+      namePlaceholder: m["media.playlists.namePlaceholder"](),
+      choose: m["media.playlists.choose"](),
+      showYaml: m["media.playlists.showYaml"](),
+      behind: m["media.playlists.behind"](),
+      search: m["media.playlists.search"](),
+      queueAll: m["media.playlists.queueAll"](),
+      queueAllTitle: m["media.playlists.queueAllTitle"](),
+      songCount: plural(
+        m["media.playlists.songOne"],
+        m["media.playlists.songMany"],
+      ),
+      searchPlaceholder: m["media.playlists.searchPlaceholder"](),
+      noMatch: m["media.playlists.noMatch"](),
+      empty: m["media.playlists.empty"](),
+    },
+    find: {
+      failed: m["media.find.failed"](),
+      searching: m["media.find.searching"](),
+      youtubeDownloading: m["media.find.youtubeDownloading"](),
+      atPeer: (peer) => m["media.find.atPeer"]({ peer }),
+      waitingPeer: m["media.find.waitingPeer"](),
+      peerTry: (n) => m["media.find.peerTry"]({ n }),
+      filed: m["media.find.filed"](),
+      youtubeTitle: m["media.find.youtubeTitle"](),
+      noYtdlp: m["media.find.noYtdlp"](),
+      youtubeButton: m["media.find.youtubeButton"](),
+      abandon: m["media.find.abandon"](),
+      forget: m["media.find.forget"](),
+      placeholder: m["media.find.placeholder"](),
+      search: m["media.find.search"](),
+      settings: m["media.find.settings"](),
+      empty: m["media.find.empty"](),
+    },
+    playback: {
+      targets: {
+        browser: {
+          label: m["media.target.browser"](),
+          hint: m["media.target.browserHint"](),
+        },
+        library: {
+          label: m["media.target.library"](),
+          hint: m["media.target.libraryHint"](),
+        },
+        engine: {
+          label: m["media.target.engine"](),
+          hint: m["media.target.engineHint"](),
+        },
+      },
+      title: m["media.playback.title"](),
+      picker: (target) => m["media.playback.picker"]({ target }),
+      noEngine: m["media.playback.noEngine"](),
+      notInLibrary: m["media.playback.notInLibrary"](),
+      engineSaid: (message) => m["media.playback.engineSaid"]({ message }),
+      masterFailed: m["media.playback.masterFailed"](),
+      done: m["media.playback.done"](),
+      bar: {
+        region: m["media.playback.region"](),
+        play: m["media.play"](),
+        pause: m["media.pause"](),
+        position: m["media.playback.position"](),
+        close: m["media.playback.close"](),
+      },
+      queueRegion: m["media.playback.queue"](),
+      queueWaiting: plural(
+        m["media.playback.waitingOne"],
+        m["media.playback.waitingMany"],
+      ),
+      queueButton: plural(
+        m["media.playback.queueOne"],
+        m["media.playback.queueMany"],
+      ),
+      upNext: m["media.playback.upNext"](),
+      queueEmpty: m["media.playback.queueEmpty"](),
+    },
+    engines: {
+      title: m["media.engines.title"](),
+      hint: m["media.engines.hint"](),
+      refresh: m["media.engines.refresh"](),
+      looking: m["media.engines.looking"](),
+      none: (origin) => m["media.engines.none"]({ origin }),
+      chosen: m["media.engines.chosen"](),
+      unreachable: m["media.engines.unreachable"](),
+      sameNetwork: m["media.engines.sameNetwork"](),
+      someone: m["media.engines.someone"](),
+      heldBy: (who) => m["media.engines.heldBy"]({ who }),
+    },
+    slskd: {
+      hint: m["media.slskd.hint"](),
+      address: m["media.slskd.address"](),
+      apiKey: m["media.slskd.apiKey"](),
+      sftpHost: m["media.slskd.sftpHost"](),
+      port: m["media.slskd.port"](),
+      user: m["media.slskd.user"](),
+      downloadsDir: m["media.slskd.downloadsDir"](),
+      sshKey: m["media.slskd.sshKey"](),
+      passphrase: m["media.slskd.passphrase"](),
+      password: m["media.slskd.password"](),
+      onFile: m["media.slskd.onFile"](),
+      forget: m["media.slskd.forget"](),
+      save: m["media.slskd.save"](),
+      test: m["media.slskd.test"](),
+    },
+  };
+}
+
+/** A section's name alone, for the sidebar of every home page — no need to build the rest. */
+export function mediaSectionLabel(id: SectionId): string {
+  const names: Record<SectionId, () => string> = {
+    songs: m["media.section.songs"],
+    samples: m["media.section.samples"],
+    recordings: m["media.section.recordings"],
+    playlists: m["media.section.playlists"],
+    find: m["media.section.find"],
+  };
+  return names[id]();
+}

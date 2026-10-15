@@ -5,9 +5,9 @@ Two files, and the line between them is which MACHINE answers.
 | | who answers | where |
 |---|---|---|
 | `src/fileApi.ts` + `src/files.ts` + `src/project.ts` | the **file service**, on the engine's machine, cross-origin and header-authenticated | `base` from the engine probe |
-| `src/repoLookup.ts` | **the media library**, st0's backend, at a fixed path on the page's own origin, with the session cookie | `serviceUrl(origin, "pl8")` |
+| `src/repoLookup.ts` | **the media library**, k7's backend, at a fixed path on the page's own origin, with the session cookie | `serviceUrl(origin, "pl8")` |
 
-`apps/st0/AGENTS.md` lists the three servers a project app talks to and which is which.
+`apps/k7/AGENTS.md` lists the three servers a project app talks to and which is which.
 
 ## The transport
 
@@ -16,7 +16,7 @@ everything in `project.ts` is built from two verbs, `fget` and `fsend`. `engineI
 config beside the token because it comes from the same probe; it is **not** used to reach the file
 service, which is addressed by `base`. It is what a call to ANOTHER service must name when it is
 about to borrow this machine — the media library's `/api/stems` is the first, holding the master and asking an
-engine to cut it (`apps/st0/backend/docs/media/stems.md`) — and it is the only way the desk can say which
+engine to cut it (`apps/k7/backend/docs/media/stems.md`) — and it is the only way the desk can say which
 machine it is on.
 
 `mediaUrl` is the exception that proves the header rule: an `<audio>`/`<video>` element GET cannot
@@ -27,7 +27,7 @@ send headers, so everything including the token rides in the query.
 `fget` is **not a cache** — nothing is kept once a request settles, so two calls a second apart are
 two requests. What it collapses is the burst. The derived views are asked for by several components
 at once, every one of them on the same reload key, and each answer costs the service a real compile
-or a real walk: in st0, four components re-fetch `/graph` on a reload and five `/project-doc`,
+or a real walk: in k7, four components re-fetch `/graph` on a reload and five `/project-doc`,
 whichever are mounted. Without this the service answers each separately, with the same bytes, out
 of a memo they all hit — and the revision walk in front of that memo is ~5 ms every time.
 
@@ -83,7 +83,7 @@ every hook that asks for one would draw an error banner about a service that is 
 absent by design. The values are JSON **text** and not objects, for `fget`'s reason above: several
 components parse the same body and must not be handed one object to alias. A canned answer
 short-circuits before the request and is parsed per caller exactly as a real body is, so a
-component cannot tell which kind it got. See `apps/st0/backend/docs/media/shares.md`.
+component cannot tell which kind it got. See `apps/k7/backend/docs/media/shares.md`.
 
 ### Blocked or unreachable
 
@@ -106,7 +106,7 @@ status also means the service answered, so the gate runs the origin probe above 
 none: a 401 or a 503 is not a refused origin, and saying so sends the reader to the wrong fix.
 
 **A hub ticket lives twelve hours, and a session can outlive it.** With `renewTicket` configured —
-st0 passes its access's `freshTicket` when the files are hosted — a 401 asks for a new ticket once,
+k7 passes its access's `freshTicket` when the files are hosted — a 401 asks for a new ticket once,
 for every request that met it together, and the request is sent again. A write is safe to resend: a
 401 is the hub refusing before the service saw anything.
 
@@ -121,12 +121,12 @@ verbs and the undo journal, whose types live in `@studio/song-schema`, `@studio/
 imports `./project` brings them, and an app that does not — z0, consuming this package from outside
 the repository — installs none of them.
 
-`project.ts` is the shared client. st0 spreads it into its own and adds what only it has — timeline,
+`project.ts` is the shared client. k7 spreads it into its own and adds what only it has — timeline,
 waveforms, video; z0's editor uses it as it stands.
 
 - **`openBench`**: `@banc` in the address routes here. It can be slow the first time — a library
   that is not yet on disk — which is why it has a progress screen rather than being asked for silently
-  (`apps/st0/backend/docs/media/banc.md`). It is handed the project part of the address verbatim, because the
+  (`apps/k7/backend/docs/media/banc.md`). It is handed the project part of the address verbatim, because the
   MACHINE is what builds the bench and therefore what decides which address it answers; the
   libraries are the machine's already.
 - **`open`** takes the project and nothing else: the server keeps the origin's libraries and
@@ -136,7 +136,7 @@ waveforms, video; z0's editor uses it as it stands.
   caller, exactly as a module library's does.
 - **`sendEngineProject`** plays a document this browser built — the turntables surface's decks
   filled into the project's own compile. It goes through the file service rather than out of the
-  app's socket so that ONE thing writes to the engine: the service already loads st0's project
+  app's socket so that ONE thing writes to the engine: the service already loads k7's project
   itself, and a second writer meant whichever pushed last would win
   (`packages/song/docs/surfaces.md`).
 - **The derived views** — `projectDoc`, `engineDoc`, `videoDoc`, `graph`, `surfaces`,
@@ -161,7 +161,7 @@ the next expensive document to arrive is a member rather than a second flag besi
 
 `graph` comes back ONLY when the command changed the project AND the caller asked for it — the
 service builds it once inside that request rather than making the caller fetch it. Building it is
-~62 ms on a real song, on the one thread the service has, and st0 runs mute/solo/faders through a
+~62 ms on a real song, on the one thread the service has, and k7 runs mute/solo/faders through a
 path that never refetches the graph, so that whole class of gesture would otherwise pay for a
 document nobody reads. Omit the option and the graph comes back anyway; pass `want: []` to say no.
 
@@ -184,7 +184,7 @@ is always a path the caller was GIVEN, by `libraryChains`, and never one it buil
 - **Cutting stems** is the media library's: the library holds the masters, so it owns the cut and keeps the
   results, and the engine only lends its model over `/process`. This client speaks to ONE machine
   and the media library is not it, so those calls live where the library's other routes do — `mediatek` in
-  `apps/st0/frontend/src/api.ts`. See `apps/st0/backend/docs/media/stems.md`.
+  `apps/k7/frontend/src/api.ts`. See `apps/k7/backend/docs/media/stems.md`.
 - **Grouping two interface inputs into one stereo device** is a verb, not a route:
   `system channel type <channel> <mono|stereo>` writes the preference and tells the engine both,
   so it goes down `/command` with every other act

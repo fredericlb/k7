@@ -1,12 +1,12 @@
 // scaffoldNeeds.ts — which SHARED modules a scaffolded project will not be able to resolve.
 //
-// A fresh libraries repository is empty on purpose (apps/st0/frontend/docs/projects.md), and a
-// `mix` scaffold writes nodes extending `@st0/…`. Both are right; together they make a brand-new
+// A fresh libraries repository is empty on purpose (apps/k7/frontend/docs/projects.md), and a
+// `mix` scaffold writes nodes extending `@k7-core/…`. Both are right; together they make a brand-new
 // account's first set open with every module missing, which reads as a broken song rather than as
 // a setup nobody finished. Nothing here SEEDS anything — it only says what is owed, and early.
 
-/** The LIBRARIES namespace, and only it — the other four need no repository (apps/st0/frontend/docs/projects.md). */
-const LIBRARY = /^@st0\//;
+/** The LIBRARIES namespace, and only it — the other four need no repository (apps/k7/frontend/docs/projects.md). */
+const LIBRARY = /^@k7-core\//;
 
 /** Every `extends:` a set of scaffolded FILES names — read off the text, so there is no second list to drift. */
 export function neededRefs(files: Record<string, string>): string[] {
@@ -37,5 +37,5 @@ export function missingRefsReport(missing: readonly string[]): string | null {
     missing.length === 1
       ? "1 shared module this project uses is not in your libraries repository yet"
       : `${missing.length} shared modules this project uses are not in your libraries repository yet`;
-  return `${head}: ${missing.join(", ")} — author them in st0 and save; nothing copies a catalogue in for you.`;
+  return `${head}: ${missing.join(", ")} — author them in k7 and save; nothing copies a catalogue in for you.`;
 }

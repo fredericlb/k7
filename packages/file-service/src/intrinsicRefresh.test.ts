@@ -17,7 +17,7 @@ let ws: Workspace;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-intrinsic-"));
-  proj = join(root, "rig.st0");
+  proj = join(root, "rig.k7");
   mkdirSync(join(proj, "nodes"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "rig" } });
   writeFileSync(
@@ -37,7 +37,7 @@ beforeEach(() => {
     "utf8",
   );
   ws = new Workspace(root);
-  ws.setActiveProject("rig.st0");
+  ws.setActiveProject("rig.k7");
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));

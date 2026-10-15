@@ -28,7 +28,7 @@ import { DeviceTokens } from "./deviceTokens.ts";
 import { attachSyncRelay, SYNC_PATH } from "./syncRelay.ts";
 
 const MIX = "plugin: mixer\nparams:\n  gain: 0.5\n  pan: 0\n";
-const FILE = "song.st0/nodes/mix.yaml";
+const FILE = "song.k7/nodes/mix.yaml";
 const SECRETS = new Set(["secret-a", "secret-b"]);
 
 const cleanup: (() => void)[] = [];
@@ -214,10 +214,10 @@ describe("the sync relay", () => {
     const laptop = device(
       relay.url,
       { token },
-      { [FILE]: mine, "song.st0/notes.md": "- mine\n" },
+      { [FILE]: mine, "song.k7/notes.md": "- mine\n" },
     );
 
-    await until(() => read(server.root, "song.st0/notes.md") === "- mine\n");
+    await until(() => read(server.root, "song.k7/notes.md") === "- mine\n");
     await until(() => read(laptop.root, FILE) === MIX);
     const displaced = join(laptop.logDir, "displaced");
     expect(existsSync(displaced)).toBe(true);

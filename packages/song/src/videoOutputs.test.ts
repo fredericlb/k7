@@ -13,6 +13,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readChainProject } from "./chainProject";
 import { deriveChains } from "./chainsGraph";
 import { loadGraph, validate } from "./graph";
 import { compileNodeProject } from "./nodeProject";
@@ -29,7 +30,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 /** A project folder with a graph, and optionally a viewport surface. */
 function project(graph: string, viewport = true): string {
-  const dir = join(root, "song.st0");
+  const dir = join(root, "song.k7");
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
@@ -84,7 +85,7 @@ describe("the run itself", () => {
 
   it("compiles to NOTHING, and changes no audio document", () => {
     // Nothing bakes VideoPluginDoc yet, so the run has no owner and its steps drop.
-    const dir = join(root, "compiled.st0");
+    const dir = join(root, "compiled.k7");
     mkdirSync(dir, { recursive: true });
     writeFileSync(
       join(dir, "project.yaml"),
@@ -158,7 +159,7 @@ describe("ensureVideoRun", () => {
   });
 
   it("says false for a project with no graph at all", () => {
-    const dir = join(root, "bare.st0");
+    const dir = join(root, "bare.k7");
     mkdirSync(dir, { recursive: true });
     expect(ensureVideoRun(dir)).toBe(false);
   });
@@ -179,22 +180,28 @@ describe("where it is added from", () => {
   });
 
   it("the `video` archetype is born with it, and `arrangement` is not", () => {
-    const vid = join(root, "vid.st0");
+    const vid = join(root, "vid.k7");
     mkdirSync(vid, { recursive: true });
     scaffold(vid, "vid", "video");
-    expect(read(vid)).toContain("  RENDER: [ VIDEO_OUT ]");
-    // …and the note above the map, since the splice writes a line and not a reason.
-    expect(read(vid)).toContain("videoOutputs.md");
+    // Born as chain files: the picture's run is a chain starting at RENDER (docs/chainFiles.md).
+    const starts = (d: string) =>
+      Object.values(readChainProject(d).chains).map((c) => c.start);
+    expect(starts(vid)).toContain("RENDER");
+    expect(
+      Object.values(readChainProject(vid).chains).find(
+        (c) => c.start === "RENDER",
+      )?.steps,
+    ).toEqual([{ to: [{ chain: "VIDEO_OUT" }] }]);
 
-    const arr = join(root, "arr.st0");
+    const arr = join(root, "arr.k7");
     mkdirSync(arr, { recursive: true });
     scaffold(arr, "arr");
-    expect(read(arr)).not.toContain("RENDER");
+    expect(starts(arr)).not.toContain("RENDER");
   });
 
   it("the scaffolded video graph still parses, and still declares the audio run", () => {
     // The archetype ADDS to the song's map, so the sound's run must survive the picture's splice.
-    const vid = join(root, "both.st0");
+    const vid = join(root, "both.k7");
     mkdirSync(vid, { recursive: true });
     scaffold(vid, "both", "video");
     const g = loadGraph(vid);

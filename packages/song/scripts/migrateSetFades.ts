@@ -1,6 +1,6 @@
 // migrateSetFades.ts — turn a SET's one crossfade module into the two fades that can be heard.
 //
-//   npx tsx packages/song/scripts/migrateSetFades.ts <projet.st0> [more…] [--write]
+//   npx tsx packages/song/scripts/migrateSetFades.ts <projet.k7> [more…] [--write]
 //
 // A crossfade's second input is a sidechain, and a sidechain reads a track only while that track
 // also reaches an audible output — so deck B was heard beside the fader, never through it. Two
@@ -29,7 +29,7 @@ const write = args.includes("--write");
 const roots = args.filter((a) => !a.startsWith("--"));
 if (!roots.length) {
   console.error(
-    "usage: migrateSetFades <projet.st0> [more…] [--write]   (dry run without --write)",
+    "usage: migrateSetFades <projet.k7> [more…] [--write]   (dry run without --write)",
   );
   process.exit(2);
 }
@@ -179,6 +179,6 @@ for (const dir of roots) {
 
 console.log(
   `${changed}/${seen} set(s) ${write ? "migrated" : "would change"}. ` +
-    "`@st0/audio/utility/fade` must be in the library the project reads — " +
+    "`@k7-core/audio/utility/fade` must be in the library the project reads — " +
     "add it there if it is missing (docs/sharedFolders.md).",
 );

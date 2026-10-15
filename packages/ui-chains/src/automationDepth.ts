@@ -1,7 +1,7 @@
 // automationDepth.ts — how far a curve moves the control it drives, as the stretch of the control's
 // 0..1 travel it sweeps: what a knob draws as its purple gauge. The engine's mapping is the rule —
 // a unipolar curve spans 0..amplitude, a bipolar one rides ±amplitude/2 around the knob's set value
-// (engine/st0-engine/engine/EditBuilder.cpp), and a cut keeps one side of that. See docs/graphBuild.md.
+// (engine/k7-runtime/engine/EditBuilder.cpp), and a cut keeps one side of that. See docs/graphBuild.md.
 
 import type { CurveCut, WebCurve } from "@studio/graph-model";
 

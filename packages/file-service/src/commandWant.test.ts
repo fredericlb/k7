@@ -1,6 +1,6 @@
 // `POST /command` builds the graph only when the caller will draw it.
 //
-// The cost never shows up in an answer: st0 runs mute, solo and every fader through a path that
+// The cost never shows up in an answer: k7 runs mute, solo and every fader through a path that
 // never refetches `/graph`, so an unconditional picture — 62 ms on the reference song, on the
 // service's one thread — is built and dropped. A test reading only the reply passes either way,
 // so this COUNTS the builds instead; an integer does not fluctuate (docs/audit-perf-web.md).
@@ -25,7 +25,7 @@ let base: string;
 
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), "fs-want-"));
-  const proj = join(root, "song.st0");
+  const proj = join(root, "song.k7");
   mkdirSync(join(proj, "nodes"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
   writeFileSync(
@@ -42,7 +42,7 @@ beforeEach(async () => {
     plugin: { type: "internal", name: "Chorus" },
   });
   ws = new Workspace(root);
-  ws.setActiveProject("song.st0");
+  ws.setActiveProject("song.k7");
 
   const app = express();
   app.use(express.json());

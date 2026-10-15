@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { segment, sidecarFor } from "@studio/mediatek/song";
+import { K7_ARTIST } from "@studio/mediatek/types";
 import type {
   Annotation,
   Envelope,
@@ -14,6 +15,10 @@ import type {
   Release,
   SongEnvelope,
 } from "@studio/rehearsal-shared";
+import {
+  PAGE_VISIBILITIES,
+  type PageVisibility,
+} from "@studio/rehearsal-shared/pageVisibility";
 import { cachedFile, once, sweepRowCaches, trimDiskCache } from "./cache.ts";
 import * as db from "./db.ts";
 import { env } from "./env.ts";
@@ -1019,7 +1024,7 @@ export async function updateRelease(uid, patch) {
           `${dirOf(v.fields.AudioPath)}/song.yaml`,
           sidecarFor({
             title: String(v.fields.Name || "Version"),
-            artist: mediatek.ARTIST,
+            artist: K7_ARTIST,
             album: patch.title,
             source: "k7",
           }),
@@ -1032,7 +1037,7 @@ export async function updateRelease(uid, patch) {
   return getRelease(uid);
 }
 
-// The release for a st0 song id, owner-scoped so two users' ids cannot collide.
+// The release for a k7 song id, owner-scoped so two users' ids cannot collide.
 export async function getReleaseBySongUuid(ownerId, songUuid) {
   if (!songUuid) return null;
   const recs = await db.listRecords("Releases", {
@@ -1227,7 +1232,7 @@ export async function renameVersion(releaseUid, versionUid, name) {
         `${dirOf(v.fields.AudioPath)}/song.yaml`,
         sidecarFor({
           title: String(name),
-          artist: mediatek.ARTIST,
+          artist: K7_ARTIST,
           album: release?.fields.Title || "",
           source: "k7",
         }),
@@ -1385,8 +1390,17 @@ function publicPage(rec) {
       .map((s) => s.trim())
       .filter(Boolean),
     versionIds: versionChoicesOf(rec),
+    visibility: visibilityOf(f.Visibility),
     createdAt: f.CreatedAt || "",
   };
+}
+
+// Empty is a row from before the field, which was served to anyone: it stays public — ../docs/pages.md.
+function visibilityOf(raw: unknown): PageVisibility {
+  if (raw === "" || raw === undefined || raw === null) return "public";
+  return PAGE_VISIBILITIES.includes(raw as PageVisibility)
+    ? (raw as PageVisibility)
+    : "private";
 }
 
 // VersionChoices is a JSON object { releaseUid: versionUid }; anything else reads as "no choice".
@@ -1441,7 +1455,7 @@ export async function getPage(uid) {
   return { ...page, releases };
 }
 
-export async function createPage(ownerId, { nametag, releaseIds }) {
+export async function createPage(ownerId, { nametag, releaseIds, visibility }) {
   const uid = randomUUID();
   const createdAt = new Date().toISOString();
   await db.addRecords("Pages", [
@@ -1450,6 +1464,7 @@ export async function createPage(ownerId, { nametag, releaseIds }) {
       OwnerId: ownerId,
       Nametag: nametag,
       ReleaseUids: (releaseIds || []).join(","),
+      Visibility: visibility || "private",
       CreatedAt: createdAt,
     },
   ]);
@@ -1465,6 +1480,7 @@ export async function updatePage(uid, patch) {
     fields.ReleaseUids = patch.releaseIds.join(",");
   if (patch.versionIds !== undefined)
     fields.VersionChoices = JSON.stringify(patch.versionIds);
+  if (patch.visibility !== undefined) fields.Visibility = patch.visibility;
   await db.patchRecord("Pages", rec.id, fields);
   return getPage(uid);
 }

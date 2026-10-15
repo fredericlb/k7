@@ -113,7 +113,7 @@ already repaints the canvas every frame, and already stops itself when nothing i
 **Nowhere — no host passes the prop.** It survives because the REASON does: a host that rebuilds
 its layout on every keystroke wants `motion={false}`, since a node is identified by its name and
 typing `reverb` is six nodes arriving and five leaving, a picture never still long enough to
-read. What is worth animating is a redraw per *command*, which is what st0's graph — the only
+read. What is worth animating is a redraw per *command*, which is what k7's graph — the only
 host — does.
 
 `prefers-reduced-motion: reduce` overrules the prop. Nothing here is load-bearing, so the

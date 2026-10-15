@@ -8,11 +8,7 @@ import type { RecordingDay } from "@studio/mediatek/recordings";
 import { type MediatekEntry, SONG_FILE } from "@studio/mediatek/types";
 import { useLabels } from "./host";
 import { bytes, isSong, relative } from "./libraryTree";
-import {
-  PlacementIcon,
-  ServerOnlyEntries,
-  type useServerCopy,
-} from "./ServerCopy";
+import { PlacementIcon, type useServerCopy } from "./ServerCopy";
 
 export function LibraryContents({
   notice,
@@ -99,12 +95,6 @@ export function LibraryContents({
           ))}
         </ul>
       )}
-      {!error && !isZone ? (
-        <ServerOnlyEntries
-          placement={serverCopy.placement}
-          onDownload={serverCopy.download}
-        />
-      ) : null}
     </main>
   );
 }

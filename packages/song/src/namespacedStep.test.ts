@@ -22,7 +22,7 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
 const DEMOS = join(here, "..", "..", "..", "demos");
-const SONG = join(DEMOS, "synth-demo.st0");
+const SONG = join(DEMOS, "synth-demo.k7");
 const REF = "@workspace/audio/shared-delay";
 
 describe("a chain step naming an inherited module by ref", () => {

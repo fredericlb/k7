@@ -1,8 +1,8 @@
 # A track's strip
 
 Every audio lane has a **strip of its own**, last in its run, just before the mixer's sum: a NODE
-on st0's own `@meta/audio/mixer` — `SHARED_STRIP`, the one every mixer node in every
-project is a use of. It ships with st0 rather than with a library, since no lane may be left
+on k7's own `@meta/audio/mixer` — `SHARED_STRIP`, the one every mixer node in every
+project is a use of. It ships with k7 rather than with a library, since no lane may be left
 without one ([metaModules.md](metaModules.md)). That node is the lane's level: `Volume` in dB, `Pan` from −1 to +1, and three
 bands, over the engine's own internal plugin (`MixerPlugin.cpp`), so nothing has to be installed
 for a song to have faders.
@@ -77,11 +77,11 @@ the next `track new`.
 - **`scripts/migrateTrackMixer.ts`** gives one to every lane that predates the rule. Dry by
   default, idempotent, and through the yaml Document API, so `graph.yaml` keeps its comments.
 - **The importer** writes one per lane it emits (`packages/translator/docs/import.md`), as a NODE
-  on st0's own `@meta/audio/mixer` — it does not go through this file, a foreign
+  on k7's own `@meta/audio/mixer` — it does not go through this file, a foreign
   project's chain being built from scratch with nothing to splice into.
 
 ```
-npx tsx packages/song/scripts/migrateTrackMixer.ts <projet.st0> [more…] [--write]
+npx tsx packages/song/scripts/migrateTrackMixer.ts <projet.k7> [more…] [--write]
 ```
 
 The decision and the writes are split — `planTrackMixer` then `applyTrackMixer` — so the dry run

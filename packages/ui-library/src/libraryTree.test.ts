@@ -1,6 +1,12 @@
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
-import { bytes, entryAt, isSongFolder, treeOf } from "./libraryTree";
+import {
+  bytes,
+  entryAt,
+  isSongFolder,
+  remoteRows,
+  treeOf,
+} from "./libraryTree";
 
 const entry = (family: string, path: string): MediatekEntry =>
   ({ id: path, family, path, name: path.split("/").pop() }) as MediatekEntry;
@@ -65,4 +71,44 @@ it("prints sizes the way the rows do", () => {
     bytes(2048),
     bytes(3 * 1024 * 1024),
   ]).toEqual(["", "900 B", "2 kB", "3.0 MB"]);
+});
+
+// On a paired machine the server's songs are filed in the SAME tree, among those here (../docs/library.md).
+describe("the server's entries in the tree", () => {
+  const here = [entry("songs", "songs/AC-DC/Highway/Highway to Hell")];
+  const there = [
+    entry("songs", "songs/AC-DC/Back in Black/Hells Bells"),
+    entry("songs", "songs/Nirvana/Nevermind/Lithium"),
+  ];
+
+  it("files them under the artist folders this machine already has", () => {
+    const [acdc, nirvana] = treeOf(here, [], there);
+    expect(acdc.name).toBe("AC-DC");
+    expect(acdc.children?.map((n) => n.name)).toEqual([
+      "Highway",
+      "Back in Black",
+    ]);
+    expect(nirvana.children?.[0].children?.[0].path).toBe(
+      "Nirvana/Nevermind/Lithium",
+    );
+  });
+
+  it("draws a song held both here and there once", () => {
+    const tree = treeOf(here, [], [here[0]]);
+    expect(tree[0].children).toHaveLength(1);
+  });
+
+  it("says which rows are the server's alone: its songs, and the folders holding nothing else", () => {
+    const rows = remoteRows(here, there);
+    expect([...rows.entries].sort()).toEqual([
+      "AC-DC/Back in Black/Hells Bells",
+      "Nirvana/Nevermind/Lithium",
+    ]);
+    // AC-DC holds a song here, so it is not the server's alone; Back in Black is.
+    expect([...rows.folders].sort()).toEqual([
+      "AC-DC/Back in Black",
+      "Nirvana",
+      "Nirvana/Nevermind",
+    ]);
+  });
 });

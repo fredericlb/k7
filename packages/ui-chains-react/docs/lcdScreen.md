@@ -30,9 +30,9 @@ oldest first, ending now), a `state` object kept between draws, the screen's pal
 `lcd.sound(slot)` is the one thing a screen asks for rather than receives: the FILE a slot of the
 module names — a Faust table — decoded mono at its own length, or `null` until it has loaded (or
 with a host that loads none). The host decodes (`LcdSounds`, handed to `DomChains` as `sounds`, or provided once ABOVE every
-graph through `LcdSoundsContext` — st0 does the latter, since it mounts graphs in five places and a
+graph through `LcdSoundsContext` — k7 does the latter, since it mounts graphs in five places and a
 host passing it to four leaves the fifth's screens loading for ever);
-st0's reads the WAV itself (`apps/st0/frontend/src/lcdSounds.ts`), because the browser's
+k7's reads the WAV itself (`apps/k7/frontend/src/lcdSounds.ts`), because the browser's
 `decodeAudioData` resamples to the context's rate and a 2048-sample frame would stop being one. A
 file landing repaints every screen, so a draw only has to handle the `null` it starts with. The
 library's wavetable instrument draws its table with it.
@@ -56,7 +56,7 @@ export default {
 
 `LcdPointerFrame` and `LcdPointerEvent` in `lcdScreen.ts` are that contract: the frame the draw
 gets, without `ctx` and with `set(name, value)`, and a pointer in the draw's own pixels. The
-Parametric EQ in the st0 library (`modules/audio/eq/eq/engines/parametric`) is the worked example.
+Parametric EQ in the k7-core library (`modules/audio/eq/eq/engines/parametric`) is the worked example.
 
 ## Hiding widgets: `visible`
 
@@ -144,5 +144,5 @@ client counts subscriptions so the first to unmount does not remove it from the 
 
 A panel that draws a screen earns a `widgets.js` tab beside the others, through the store's
 `widgetsScript` call (`packages/ui-module-builder/docs/store.md`), saved with the rest by Save.
-The preview card draws the script as typed. It has no live plugin behind it in st0, so its taps
+The preview card draws the script as typed. It has no live plugin behind it in k7, so its taps
 are empty and it draws from params alone.

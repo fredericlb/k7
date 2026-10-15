@@ -21,10 +21,10 @@ beforeEach(() => {
     ["2", 1],
     ["3", 99],
   ] as const) {
-    mkdirSync(join(home, "st0", v), { recursive: true });
+    mkdirSync(join(home, "k7-core", v), { recursive: true });
     writeFileSync(
-      join(home, "st0", v, "library.yaml"),
-      `name: st0\nversion: ${v}\nrequires: ${requires}\n`,
+      join(home, "k7-core", v, "library.yaml"),
+      `name: k7-core\nversion: ${v}\nrequires: ${requires}\n`,
     );
   }
   process.env.STUDIO_LIBRARIES_HOME = home;
@@ -39,22 +39,22 @@ const pinsText = () => readFileSync(join(ws, "_library-pins.yaml"), "utf8");
 describe("ensureLibraryPins", () => {
   it("pins an existing workspace at version 1, what it already hears", () => {
     expect(ensureLibraryPins(ws, { fresh: false, admin: false })).toEqual({
-      st0: 1,
+      "k7-core": 1,
     });
-    expect(pinsText()).toBe("st0: 1\n");
+    expect(pinsText()).toBe("k7-core: 1\n");
   });
 
-  it("pins a new workspace at the newest version this st0 runs, skipping one that needs a higher level", () => {
+  it("pins a new workspace at the newest version this k7 runs, skipping one that needs a higher level", () => {
     expect(ensureLibraryPins(ws, { fresh: true, admin: false })).toEqual({
-      st0: 2,
+      "k7-core": 2,
     });
   });
 
   it("pins an admin's workspace at the draft, and never rewrites pins it already has", () => {
     expect(ensureLibraryPins(ws, { fresh: false, admin: true })).toEqual({
-      st0: "draft",
+      "k7-core": "draft",
     });
     expect(ensureLibraryPins(ws, { fresh: true, admin: false })).toBeNull();
-    expect(pinsText()).toBe("st0: draft\n");
+    expect(pinsText()).toBe("k7-core: draft\n");
   });
 });

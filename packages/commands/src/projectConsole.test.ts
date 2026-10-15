@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 
-const SYS = "@st0/console/console-6";
+const SYS = "@k7-core/console/console-6";
 let root: string;
 let dir: string;
 const logs: string[] = [];
@@ -25,7 +25,7 @@ beforeEach(() => {
   logs.length = 0;
   reloaded = 0;
   root = mkdtempSync(join(tmpdir(), "td-pconsole-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "project.yaml"), "project:\n  name: t\n", "utf8");
   const lib = librariesFixture(root);
@@ -70,8 +70,8 @@ describe("project console", () => {
   });
 
   it("refuses a system no library holds, and writes nothing", async () => {
-    await runCommand("project console @st0/console/nope", host(), "cli");
-    expect(logs[0]).toMatch(/no console '@st0\/console\/nope'.*console-6/);
+    await runCommand("project console @k7-core/console/nope", host(), "cli");
+    expect(logs[0]).toMatch(/no console '@k7-core\/console\/nope'.*console-6/);
     expect(project().console).toBeUndefined();
     expect(reloaded).toBe(0);
   });

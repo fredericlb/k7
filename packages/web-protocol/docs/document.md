@@ -13,7 +13,7 @@ the clip file's own window in seconds (absent meaning the file's start, or its e
 
 They are on the wire because the browser **caches** a clip's envelope. Without them, a trim moves
 the window while the picture stays: same id, so the cached envelope is reused and the block goes
-on showing material the clip does not play. `apps/st0/frontend/src/clipEnvelope.ts` is the only
+on showing material the clip does not play. `apps/k7/frontend/src/clipEnvelope.ts` is the only
 thing that reads them.
 
 All three are optional, including `offset` — which is required on `ClipDoc` and cannot be here.
@@ -36,7 +36,7 @@ is over in `loopStart`/`loopEnd`, and the repeat count is multiplied into `lengt
 can DRAW an event from the rest of the object and cannot WRITE one back — without `event` a
 copy/paste on the timeline drops the trim, the fades and the passes.
 
-`apps/st0/frontend/src/clipboard.ts` reads it, and nothing else does. It is deliberately *beside*
+`apps/k7/frontend/src/clipboard.ts` reads it, and nothing else does. It is deliberately *beside*
 the resolved numbers rather than instead of them: those stay the drawing's single source.
 
 ## The fades
@@ -96,7 +96,7 @@ it costs nothing.
 
 What it is FOR is the reload behind a command: a client that knows a marker moved inside one clip
 file can skip the routes that answer about files and names, which cannot have changed. See
-`apps/st0/frontend/src/reloadScope.ts`.
+`apps/k7/frontend/src/reloadScope.ts`.
 
 Its paths are PROJECT-relative (`clips/x.yaml`) — the vocabulary `Hints.paths` speaks, and the one
 an anchored test can trust. The journal's own `files` stay workspace-relative.
@@ -132,7 +132,7 @@ memoised per revision and this route is not.
 `WebVideoProject` is a separate document and not a section of `WebProject`. Nothing on it is a
 beat — a shot is cut against the wall clock — and keeping it apart is what keeps the frame out of
 what the C++ engine is handed, without anything having to strip it on the way. One timeline draws
-both and its ruler reads either; see `apps/st0/frontend/docs/picture.md` and
+both and its ruler reads either; see `apps/k7/frontend/docs/picture.md` and
 `packages/song-video/docs/picture.md`.
 
 `WebVideoPlugin` is one pass over the picture, a video chain's step compiled. A `shader` carries

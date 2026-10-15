@@ -174,16 +174,16 @@ describe("the cold/ folder", () => {
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   it("loads a cold module under @<library>/cold/, audio in and out", () => {
-    const m = loadModuleRefs(song)["@st0/cold/normalize"];
+    const m = loadModuleRefs(song)["@k7-core/cold/normalize"];
     expect(m?.category).toBe("cold");
     expect(m?.inputs.map((p) => p.type)).toEqual(["audio"]);
   });
 
   it("never suggests one: not in the picker, not in the chain completions", () => {
     const offered = baseModuleRefs(loadModuleRefs(song));
-    expect(offered.filter((r) => r.startsWith("@st0/"))).toEqual([
-      "@st0/audio/utility/gain",
+    expect(offered.filter((r) => r.startsWith("@k7-core/"))).toEqual([
+      "@k7-core/audio/utility/gain",
     ]);
-    expect(projectHints(song).modules).not.toContain("@st0/cold/normalize");
+    expect(projectHints(song).modules).not.toContain("@k7-core/cold/normalize");
   });
 });

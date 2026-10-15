@@ -1,6 +1,6 @@
 // library.ts — the `library …` verbs: which version of each library the WORKSPACE plays, and moving
 // that pin. They act on `repoDir`, since `_library-pins.yaml` is the workspace's, and need no project.
-// A version this st0 cannot run is refused by name; one this machine lacks is asked of the host.
+// A version this k7 cannot run is refused by name; one this machine lacks is asked of the host.
 // See ../../../../docs/library-versions-plan.md.
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -65,7 +65,7 @@ export const LIBRARY_VERBS: Record<string, SidHandler> = {
     h.log(lines.length ? lines : ["no library on this machine"]);
   },
 
-  /** `library upgrade <library> [version]` — move the pin; unsaid, to the newest version this st0 runs. */
+  /** `library upgrade <library> [version]` — move the pin; unsaid, to the newest version this k7 runs. */
   "library.upgrade": async (a, h) => {
     const read = readPins(h);
     if (!read) return h.refuse(["library upgrade: no workspace is open"]);
@@ -91,13 +91,13 @@ export const LIBRARY_VERBS: Record<string, SidHandler> = {
     if (to === from) return h.log([`@${name} already plays ${from}`]);
     // A version this machine lacks is the host's to bring down; the verb has no network.
     if (typeof to === "number" && !libraryVersions(name).includes(to)) {
-      // Refused before any download when the origin already says it needs a newer st0.
+      // Refused before any download when the origin already says it needs a newer k7.
       const announced = (await h.remoteLibraryVersions?.(name))?.find(
         (r) => r.version === to,
       );
       if (announced && announced.requires > LIBRARY_LEVEL)
         return h.refuse([
-          `@${name} ${to} needs st0 level ${announced.requires}; this st0 runs level ${LIBRARY_LEVEL} — update st0 first`,
+          `@${name} ${to} needs k7 level ${announced.requires}; this k7 runs level ${LIBRARY_LEVEL} — update k7 first`,
         ]);
       if (!h.fetchLibraryVersion)
         return h.refuse([`@${name} ${to} is not on this machine`]);
@@ -106,7 +106,7 @@ export const LIBRARY_VERBS: Record<string, SidHandler> = {
     }
     if (typeof to === "number" && requiresOf(name, to) > LIBRARY_LEVEL)
       return h.refuse([
-        `@${name} ${to} needs st0 level ${requiresOf(name, to)}; this st0 runs level ${LIBRARY_LEVEL} — update st0 first`,
+        `@${name} ${to} needs k7 level ${requiresOf(name, to)}; this k7 runs level ${LIBRARY_LEVEL} — update k7 first`,
       ]);
     try {
       h.snapshot?.(read.abs);

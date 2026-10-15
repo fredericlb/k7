@@ -34,7 +34,7 @@ unless it is looping — so the position past the end is turned back into 0 expl
 ## The ROW belongs to `@studio/ui-mini-player`
 
 The bar's layout — play/pause, the title line, the scrubber between two clocks, the close top
-right — is the shared component st0 mounts for its reference tracks
+right — is the shared component k7 mounts for its reference tracks
 (`packages/ui-mini-player/docs/miniPlayer.md`). It owns no transport, which is what makes it
 shareable: the library plays over three destinations and the editor plays a file in the browser beside a
 running engine, and neither of those fits in a bar.
@@ -77,7 +77,7 @@ The two words look alike; the two things have nothing to do with each other:
 
 So it never goes to the server, and it disappears on reload — like any player's queue. What you want
 to keep goes into a playlist — the Playlists tab writes one on this volume ([playlists.md](playlists.md)),
-st0 writes one into a workspace (`packages/song/docs/playlists.md`).
+k7 writes one into a workspace (`packages/song/docs/playlists.md`).
 
 The two meet in one direction only: **"Play all" fills the queue from a playlist**, never the
 reverse. A queue is an order you are trying out; promoting it to a document would file every
@@ -124,7 +124,7 @@ with nowhere to see it.
 
 A song with no master is **skipped**: the queue carries on. A machine with no cache **stops** —
 the fault belongs to the destination and not to the row, and emptying the queue for that would
-erase what someone has just put in it. st0's playlist pane makes the same split, for the same
+erase what someone has just put in it. k7's playlist pane makes the same split, for the same
 reason.
 
 Finally, `enqueue` refuses duplicates and `moveTo` takes the INTENDED index in the final list —

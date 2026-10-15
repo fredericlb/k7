@@ -1,0 +1,83 @@
+# Audit — stability and speed of k7
+
+A standing audit of `apps/k7`: the backend that mints the origin's session, and the SPA. The audio
+axis as a whole — the engine, the file service and the costed web routes — is `docs/constat.md`'s
+and `docs/audit-perf-web.md`'s, and this page does not repeat them. Findings are either an
+invariant this app holds, written down so it is not broken again, or a numbered lot still open, and
+why. Every entry was read in the code, not reported second hand.
+
+## A read of the file service has a budget
+
+`fget` (`@studio/project-shell/fileApi`) joins a GET already in flight, so a request that never
+answers is never answered for ANY caller waiting on it — and the revision poller, which never
+stacks a second ask, would stop noticing changes for the rest of the session. Nothing on the way
+bounds it: the images carry no nginx, and a half-open connection after a laptop sleeps can hang
+for minutes. A read is dropped after two minutes with a sentence, freeing the route for the
+next caller; a write is not, since a write that timed out may have landed (`fileApi.md`).
+
+## The editor does not ask for the project per keystroke
+
+`EditorTab`'s effect that docks a clip's or a slice rack's waveform runs on every change of `file`,
+and every keystroke replaces `file`. A `/project-doc` per run would be a round trip, a main-thread
+parse of the whole compiled project, and a fresh object for the clip panel to re-render on. The
+document moves when a file is WRITTEN, which moves the change token, so it is fetched once per
+token (`hooks/useDocPerRevision.ts`), and the effect re-runs once when a save lands.
+
+## A camera take is never thrown away
+
+A video take lives only in the tab until `fileClip` stores it, and a camera cannot play the same
+take twice. When the store fails, the take is saved to the person's downloads under its own name
+and the status line says so — dropping that file on the lane files and places it as any dropped
+video is. A MIDI take needs no such door: its whole `sequence note add` line is written to the log
+before it is sent.
+
+## The backend
+
+- **The process** logs a stray rejection and survives; an uncaught exception is logged and exits,
+  the container restarting it. The AI organize route catches its own failures and stops the Claude
+  call when the tab closes.
+- **The session is a signed cookie** (`cookie-session`), held by no server memory: a restart
+  signs nobody out, and there is no store to grow.
+- **A preference file is written beside and renamed** (`@studio/user-prefs`): a crash mid-write
+  would read back as "no preferences", costing a person their command layout and their Claude key.
+
+## AI organize keeps a kit's pads
+
+A `tap` binds a rack sound, not a parameter. The answer check accepts the sounds the module's own
+`rack:` declares, on taps and only there, and the prompt lists them — a kit's panel comes back with
+its pads (`packages/ui-module-builder/docs/aiOrganize.md`). Both ends check the same list: the
+builder and this app's backend call the same `bindableNames`.
+
+## Already sound — do not re-suspect
+
+- **The polls do not stack.** One refcounted `/revision` poller answers every consumer and skips a
+  tick while its last ask is in the air.
+- **The playhead does not render the shell.** Engine state lives in an external store read by
+  slice, the arrangement's playhead is drawn per animation frame without a render
+  (`usePlayheadFrames`), and no selector builds a fresh object per frame.
+- **Everything started is stopped**: every `ResizeObserver` disconnects, every object URL is
+  revoked, the camera relay's socket backs off and closes when the tab steps back, and the few
+  listeners never removed are installed once per page on purpose.
+- **Unsaved text asks before the tab closes** (`@studio/ui-editor/unsaved`).
+
+## Left as lots
+
+1. **Two clip waveforms redraw at the playhead's rate.** `ClipWaveform` (`WaveformView.tsx`) and
+   the clip panel's player read `s.playhead` through a selector, so their canvas is redrawn on
+   every frame. The playhead also moves the purple "played" fill, so a one-pixel overlay is not
+   the whole answer — `docs/constat.md` holds this as a design lot.
+2. **`App.tsx` is 4 260 lines and re-renders its hidden panels.** `docs/constat.md` asks for a
+   profile before any change, and none has been taken since lots C and D. `TimelineTab.tsx`
+   (3 340), `EditorTab.tsx` (1 480), `PianoRoll.tsx` (1 160) and six more are over this repo's
+   500-line bar too; splitting them is the same work as memoising them, and wants that profile.
+3. **Writes to the file service have no budget.** Deliberately, for the reason above; a hung write
+   still holds its caller until the connection dies.
+
+## What a change here should be verified with
+
+```
+cd apps/k7/frontend && npx tsc --noEmit -p . && npx vitest run
+cd apps/k7/backend && npx tsc --noEmit -p .
+cd packages/project-shell && npx vitest run
+cd packages/user-prefs && npx vitest run
+```

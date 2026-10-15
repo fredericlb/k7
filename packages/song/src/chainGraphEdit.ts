@@ -6,15 +6,19 @@
 
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { isIoSource } from "@studio/song-schema/moduleTypes";
+import {
+  isIoSource,
+  isPicturePass,
+  SHAPE_CATEGORY,
+} from "@studio/song-schema/moduleTypes";
 import { formatChain } from "@studio/song-schema/yaml/chainFile";
 import {
   CHAIN_SINKS,
   CHAINS_DIR,
   type ChainFile,
   type Item,
-  isTrackItem,
   itemsOf,
+  laneOfItem,
   stepLists,
   TRACKS_DIR,
   VSTPRESETS_DIR,
@@ -61,7 +65,7 @@ export function chainNodeName(
   const items = c ? c.steps.flatMap(itemsOf) : [];
   if (items.length !== 1) return name;
   const port = name.includes("#") ? name.slice(name.indexOf("#")) : "";
-  return `${isTrackItem(items[0]) ? items[0].track : items[0].id}${port}`;
+  return `${laneOfItem(items[0]) ?? items[0].id}${port}`;
 }
 
 export interface ChainGraphEdit {
@@ -77,7 +81,7 @@ export interface ChainGraphEdit {
 function sourceTest(dir: string, cp: ChainProject, items: (n: string) => Item) {
   let resolved: ((n: string) => unknown) | null = null;
   return (n: string): boolean => {
-    if (isTrackItem(items(n))) return true;
+    if (laneOfItem(items(n))) return true;
     const was = cp.nodes[n];
     if (
       was &&
@@ -90,9 +94,25 @@ function sourceTest(dir: string, cp: ChainProject, items: (n: string) => Item) {
       const mods = loadModules(dir);
       const refs = loadModuleRefs(dir);
       return (x: string) =>
-        mods[x] ? resolveModule(mods[x], refs).io : undefined;
+        mods[x] ? resolveModule(mods[x], refs) : undefined;
     })();
-    return isIoSource(resolved(n));
+    const m = resolved(n) as { io?: unknown; category?: unknown } | undefined;
+    // A SHAPE is a picture source too, drawn rather than filmed (song-video/docs/shapes.md).
+    return isIoSource(m?.io) || m?.category === SHAPE_CATEGORY;
+  };
+}
+
+// Whether a node is a picture pass, resolved once and only if asked — what a fade's stretch is made of.
+function passTest(dir: string) {
+  let resolved: ((n: string) => unknown) | null = null;
+  return (n: string): boolean => {
+    resolved ??= (() => {
+      const mods = loadModules(dir);
+      const refs = loadModuleRefs(dir);
+      return (x: string) =>
+        mods[x] ? resolveModule(mods[x], refs).category : undefined;
+    })();
+    return isPicturePass(resolved(n) as string | undefined);
   };
 }
 
@@ -106,7 +126,7 @@ function nameForOf(items: (n: string) => Item) {
       it = undefined;
     }
     const ext =
-      it && !isTrackItem(it)
+      it && !laneOfItem(it)
         ? (it as Record<string, unknown>).extends
         : undefined;
     const base =
@@ -191,7 +211,11 @@ export function editChainGraph(
       add[n] ??
       (was && {
         ...(raw.get(was.id) ?? was.value),
-        ...(r && n === r.to ? { track: r.to } : {}),
+        ...(r && n === r.to
+          ? was.picture
+            ? { video_track: r.to }
+            : { track: r.to }
+          : {}),
       });
     if (!it) throw new Error(`'${n}' is not a node of this project`);
     return it;
@@ -228,6 +252,7 @@ export function editChainGraph(
   const chains = fromSegments(result, {
     itemOf,
     isSource: sourceTest(dir, cp, itemOf),
+    isPicturePass: passTest(dir),
     prev: cp,
     levels: lv,
     loose,

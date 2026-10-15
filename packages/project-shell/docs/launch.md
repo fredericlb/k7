@@ -1,14 +1,14 @@
 # An app is opened ON a project — it does not choose one
 
-The level above a project is a screen of its own, and exactly one screen: **st0's home page**,
+The level above a project is a screen of its own, and exactly one screen: **k7's home page**,
 the address that names no project. It lists the account's workspaces on the machine and the
 projects inside them, and it links to one with an **address**:
 
 ```
-/@local/Examples/synth-demo.st0
-/@local/band/albums/winter.st0             a project at a depth
+/@local/Examples/synth-demo.k7
+/@local/band/albums/winter.k7             a project at a depth
 /z0/editor/@local/songs/party.z0
-/z0/editor/@local/band/winter.st0/live.z0  a .z0 session living inside a .st0 song
+/z0/editor/@local/band/winter.k7/live.z0  a .z0 session living inside a .k7 song
 ```
 
 | | |
@@ -17,7 +17,7 @@ projects inside them, and it links to one with an **address**:
 | for `@local`, the next one | the **workspace**: a folder on the machine holding the working copies |
 | the rest | the project folder **inside** that workspace, or nothing at all when the workspace *is* the project |
 
-Which of the two apps gets the link is decided by the folder's **name**: `.st0` or `.z0`
+Which of the two apps gets the link is decided by the folder's **name**: `.k7` or `.z0`
 (`@studio/web-protocol/projects`). Resolving the address to a folder is this package's job.
 
 ## Why a path, and why a folder rather than a repository
@@ -40,20 +40,20 @@ to clear.
 nothing has to answer before a project can open, and a machine with no server is not a degraded
 one: an imported repository and a project made locally are the same thing, a folder with an
 `origin` if it has one. What that gives up is portability between accounts — a link pasted to
-somebody names a folder in yours (`apps/st0/frontend/docs/projects.md`).
+somebody names a folder in yours (`apps/k7/frontend/docs/projects.md`).
 
 ## Where the project ends, and the app's route begins
 
 One rule: the project is everything up to and including the **last segment whose name claims
-this app**. `…/winter.st0/timeline` is the project `winter.st0`
-plus the app's own `/timeline`; a view segment never ends in `.st0` or `.z0`, so the two cannot
+this app**. `…/winter.k7/timeline` is the project `winter.k7`
+plus the app's own `/timeline`; a view segment never ends in `.k7` or `.z0`, so the two cannot
 be confused. Each app reads its OWN suffix, which is what lets z0's editor open
-`winter.st0/live.z0` without st0's suffix winning the match.
+`winter.k7/live.z0` without k7's suffix winning the match.
 
 With no such segment at all, the project part is `"."` — and that means two different things,
 which the MACHINE settles rather than the address:
 
-- the workspace's own folder is a project (`hiver.st0/` cloned as itself), so `.` names it;
+- the workspace's own folder is a project (`hiver.k7/` cloned as itself), so `.` names it;
 - it is not, and the workspace holds several projects. Then `.` names none of them, and
   `POST /open` resolves it: the active-project marker first, then the first project on disk,
   then nothing at all — see `packages/file-service/docs/workspaces.md`.
@@ -70,12 +70,12 @@ is where you ARRIVE, not a running account of where you are.
 (`packages/file-service/docs/workspaces.md`), so this is the first thing a new one does. The gate
 has a phase of its own for it and hands it to the host app through **`renderEmpty`**, because
 what a first project IS — which archetypes exist, which suffix ends it — is the app's vocabulary
-and not the gate's. st0 draws its wizard there; an app that passes nothing gets a sentence and
+and not the gate's. k7 draws its wizard there; an app that passes nothing gets a sentence and
 the way back.
 
 An account with **no library** is the same case one level up, and goes the same way:
 **`renderNoLibraries`** draws the app's form for adding one under the refusal, and its `onAdded`
-re-runs the resolve. A refusal that sends you to another page to fix it is a dead end; st0 puts its
+re-runs the resolve. A refusal that sends you to another page to fix it is a dead end; k7 puts its
 Libraries page there, which an admin can add to and anyone else reads, being told to ask one.
 
 `onCreated` re-runs the whole resolve rather than being told what was made. The wizard therefore
@@ -90,8 +90,8 @@ a folder name git would give a clone, so none can collide with a workspace.
 | address | what it opens | the road |
 |---|---|---|
 | `/@local/<espace>/<projet>` | a project in a workspace on this machine | `POST /open` on it — no lookup, no clone, **no libraries check** |
-| `/@banc/<chain>/live.st0` | the bench: one live rig, generated, seeded with a copy of a library chain, for anyone. The bare `/@banc/live.st0` and a bare library (`/@banc/@st0/live.st0`) are refused — a library is edited by an admin from any project | the libraries check, then the machine writes the rig again and opens it |
-| `/@shares/<token>.st0` | a frozen snapshot the media library holds | none of it: no account, no engine, no working copy |
+| `/@banc/<chain>/live.k7` | the bench: one live rig, generated, seeded with a copy of a library chain, for anyone. The bare `/@banc/live.k7` and a bare library (`/@banc/@k7-core/live.k7`) are refused — a library is edited by an admin from any project | the libraries check, then the machine writes the rig again and opens it |
+| `/@shares/<token>.k7` | a project at a checkpoint the media library holds | no account and no working copy; the server's engine, through the share's player |
 
 **Anything else is refused** with the "missing" screen, which says a project opens from the home
 page and what its address will be: guessing which folder a repository name meant would open the
@@ -102,7 +102,7 @@ there — never through the gate.
 (the file hub answers it): every `@<library>/…` ref resolves against one of them, so without
 any the rig opens with every shared module missing, which reads as a broken rig rather than as an
 account nobody finished setting up — hence a screen of its own and no Retry, the answer staying the
-answer until an admin sets it in st0's Libraries page (`apps/st0/frontend/docs/projects.md`). A workspace
+answer until an admin sets it in k7's Libraries page (`apps/k7/frontend/docs/projects.md`). A workspace
 on this machine is what a NEW account has — `Examples`, seeded with the demos — and a new account
 has no library: refusing it would put the demos behind the one piece of setup they exist to
 precede, and a song that needs a library says so itself, as an unresolved reference.
@@ -112,7 +112,7 @@ only for one not cloned yet — brings an admin's own clones of them to their re
 (`packages/file-service/docs/libraries.md`). Nothing about the libraries rides on the request:
 they are the server's, and it knows them.
 
-The bench is matched on the **app** as well as the name. It is a `.st0` project, so
+The bench is matched on the **app** as well as the name. It is a `.k7` project, so
 `/z0/editor/@banc/…` names nothing and is refused like any other unknown address. Its wait is
 reported as `cloning` because from here it is the same thing: a visible wait while the server
 brings the libraries up to date, and the first one is the slow one. The project part of the address rides
@@ -120,7 +120,7 @@ along with it, since the machine is the side that says which address the bench a
 
 **`parseLaunch` knows about none of them.** All three are ordinary addresses whose first part
 happens to start with `@`: the project part still ends at the last segment claiming the app's
-suffix, which is why `@shares` spells its token `<token>.st0` and why `@local` puts the workspace
+suffix, which is why `@shares` spells its token `<token>.k7` and why `@local` puts the workspace
 name in front of an ordinary project path. The only rule any of them adds is a reader —
 `shareToken`, `isBenchProject`, `localTarget` — and all three live in
 `packages/web-protocol/projects.ts`, beside the address they read.
@@ -133,26 +133,39 @@ gives the worst screen in the app — "this page isn't allowed to reach the engi
 with the real message in a code block underneath — because the probe reaches a service that is
 plainly up and therefore always reports `blocked`.
 
-Arriving with **no** project in the address is not a failure to redirect away from — for st0 it
+Arriving with **no** project in the address is not a failure to redirect away from — for k7 it
 IS the home page, `main.tsx` branching on `parseLaunch` before any gate is mounted (see
-`apps/st0/frontend/docs/projects.md`). For every OTHER app that mounts this gate, it is a
+`apps/k7/frontend/docs/projects.md`). For every OTHER app that mounts this gate, it is a
 redirect there, through `projectsUrl`.
 
 There is deliberately no *second* picker: one list, in one app, is the whole point. z0's editor
-comes back to st0's home rather than growing one of its own, because that list already holds
+comes back to k7's home rather than growing one of its own, because that list already holds
 `.z0` folders and a second one would be the second thing to keep in step with the first.
 
-> **The screen is st0's, and so is the list.** The catalogue (the médiathèque) is what a project draws ON,
+> **The screen is k7's, and so is the list.** The catalogue (the médiathèque) is what a project draws ON,
 > while "which projects do I have" is the first question of the app that opens one, and the
-> machine that scaffolds a project is st0's side of the wire. The workspaces and the libraries
+> machine that scaffolds a project is k7's side of the wire. The workspaces and the libraries
 > are the machine's, asked of the file service.
 >
-> st0 answers the ORIGIN, so this page is `<origin>/`, and `projectsUrl` asks `serviceUrl` for
-> st0's origin rather than spelling it, so where the editor answers stays a fact of one table.
+> k7 answers the ORIGIN, so this page is `<origin>/`, and `projectsUrl` asks `serviceUrl` for
+> k7's origin rather than spelling it, so where the editor answers stays a fact of one table.
 
 `projectsUrl` ends in a slash on purpose — that is `BASE_URL`'s own spelling, so a tab lands on the
 app's mount rather than on a redirect to it. And `serviceUrl` is what keeps the prefix a fact read
 from one table rather than a slash somebody has to remember.
+
+## Waiting for sync
+
+On a machine that syncs with a relay, the gate asks `/sync/project` before `/open` and shows the
+SYNC screen until the answer is ready (`src/syncWait.tsx`): reaching the server, the latest edits
+arriving, or N files still downloading. Asking first matters on a first download, where the project
+folder may not even exist yet and `/open` would answer "no such project".
+
+The machine is the rule and the gate the courtesy: `/open` refuses with 409 while the project is
+still syncing (`packages/file-service/docs/liveCapture.md`, "Up to date"), so a ▶ on a project row
+cannot open half a project either, and a gate that hears 409 because the project fell behind between
+its two questions waits again. A service without the route answers 404, which reads as nothing to
+wait for: an older machine, or a share, has nothing on its way.
 
 ## What the gate takes, and what it refuses to know
 
@@ -175,9 +188,10 @@ the prefix cannot change without a navigation that remounts the gate anyway.
 
 ### Strings that are optional, and why that is honest
 
-`ProjectGateStrings` is mostly required, and two groups are not: the **bench**'s wait
-(`benchWorkspace`, `benchFetching`) and the **idle** screen (`idleTitle`, `idleBody`, `resume`).
-Both are screens an app may be structurally unable to reach — the bench is a `.st0` project, so
+`ProjectGateStrings` is mostly required, and some groups are not: the **bench**'s wait
+(`benchWorkspace`, `benchFetching`), the **idle** screen (`idleTitle`, `idleBody`, `resume`), and the
+**sync** wait (`syncing`), which a machine linked to no relay never shows.
+Both are screens an app may be structurally unable to reach — the bench is a `.k7` project, so
 z0's editor can never open one, and an app that passes no `idleTimeoutMs` never leaves the
 running phase. Required, they would each be made to translate a card nobody can see. The gate
 falls back to plain English rather than to an empty one.
@@ -204,15 +218,15 @@ disagree open a project in one editor and refuse it in the other, which does not
 drift when you meet it.
 
 The address vocabulary itself lives one level lower still, in
-`@studio/web-protocol/projects`, beside the suffix rule it depends on: st0's home page
+`@studio/web-protocol/projects`, beside the suffix rule it depends on: k7's home page
 **writes** these addresses and both editors **read** them back, which makes it a wire contract
 rather than an app's habit. Neither end of the contract is where the vocabulary lives, and that
-is the point. `launch.ts` here is what the apps import — st0 from this tree, z0's editor from its
+is the point. `launch.ts` here is what the apps import — k7 from this tree, z0's editor from its
 own repository through the published package (`docs/publishing.md`), which is why a change to an
 export here is a versioned change.
 
-Each app keeps what is genuinely its own: st0 adds waveforms, video, export, the timeline's
-tracks; z0's editor adds nothing at all. The wording is each app's too — st0 has paraglide,
+Each app keeps what is genuinely its own: k7 adds waveforms, video, export, the timeline's
+tracks; z0's editor adds nothing at all. The wording is each app's too — k7 has paraglide,
 z0's editor is French in place — which is why the gate takes a `strings` object instead of
 owning a catalogue.
 
@@ -222,12 +236,12 @@ The suites here run in node and mount nothing, so `launch.test.ts` covers the ad
 which is most of it, the launch being the address rather than state. These are the ones a green
 test run says nothing about:
 
-- open a project from st0's home page → the address reads `/@local/<workspace>/<project>` and
+- open a project from k7's home page → the address reads `/@local/<workspace>/<project>` and
   stays that way as you move around the app;
 - **reload**, and use back/forward → still the same project, not the home page;
 - copy the URL into another tab → the same project opens there too;
-- open a `.z0` folder and a `.st0` folder from the same workspace → two apps, one working copy;
+- open a `.z0` folder and a `.k7` folder from the same workspace → two apps, one working copy;
 - rename the project folder on the machine and reload → the "not in the workspace" screen, not the
-  CORS one, and its button lands you back on st0's home;
+  CORS one, and its button lands you back on k7's home;
 - replace `@local` in the address with a repository name → the same screen, saying a project opens
   from the home page and giving its address.

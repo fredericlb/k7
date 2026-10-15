@@ -104,7 +104,7 @@ const names = (dir: string): string[] =>
 
 const yamlRoot = copyDemos(false);
 const k7xRoot = copyDemos(true);
-const demos = readdirSync(DEMOS).filter((d) => d.endsWith(".st0"));
+const demos = readdirSync(DEMOS).filter((d) => d.endsWith(".k7"));
 
 describe("a workspace converted to .k7x", () => {
   it.each(demos)("%s compiles to the same document", (name) => {
@@ -148,7 +148,7 @@ describe("a workspace converted to .k7x", () => {
   });
 
   it("reads the short forms as the data they stand for, and writes a changed note list in full", async () => {
-    const name = "synth-demo.st0";
+    const name = "synth-demo.k7";
     // Fresh copies: the shared ones above have taken other edits already.
     const plain = copyDemos(false);
     const short = copyDemos(true);
@@ -176,7 +176,7 @@ describe("a workspace converted to .k7x", () => {
   });
 
   it("works on k7x alone once YAML is retired, and leaves a stray YAML file out", async () => {
-    const name = "synth-demo.st0";
+    const name = "synth-demo.k7";
     const plain = copyDemos(false);
     const only = copyDemos(true);
     writeFileSync(
@@ -201,7 +201,7 @@ describe("a workspace converted to .k7x", () => {
   });
 
   it("creates a new node as .k7x once k7x is everywhere, compiling as the YAML one does", async () => {
-    const name = "synth-demo.st0";
+    const name = "synth-demo.k7";
     const line = "node new @workspace/audio/compressor squash";
     const a = await run(yamlRoot, name, line);
     process.env.STUDIO_K7X = "1";

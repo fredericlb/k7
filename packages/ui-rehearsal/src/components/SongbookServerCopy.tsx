@@ -1,5 +1,5 @@
 // SongbookServerCopy.tsx — on a machine paired with a server: where each song lives (here, both) and the
-// server's songs this machine lacks, each with a download. The same icons as st0's workspaces and médiathèque.
+// server's songs this machine lacks, each with a download. The same icons as k7's workspaces and médiathèque.
 // Nothing at all on an unpaired machine or on the server itself. See ../../../rehearsal-server/docs/songbookCopy.md.
 
 import { Button } from "@frediverse/ui/button";

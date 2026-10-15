@@ -55,6 +55,6 @@ file. The autosave the screen runs on is built on the pair that exists.
 ## Resolving a line is somebody else's job
 
 `parsePlaylist` keeps `song` verbatim, so a line means nothing until it is held against the songs
-catalogue. That resolution is `playlistItems.ts` — pure, tested on its own, and **shared with st0**,
+catalogue. That resolution is `playlistItems.ts` — pure, tested on its own, and **shared with k7**,
 which resolves the same references against the same catalogue. Two copies of "path first, name
 second" would diverge at the first case learned on one side only.

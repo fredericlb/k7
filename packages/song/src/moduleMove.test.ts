@@ -30,7 +30,7 @@ const write = (file: string, text: string) => {
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-move-"));
-  lib = { name: "st0", root: join(root, "st0") };
+  lib = { name: "k7-core", root: join(root, "k7-core") };
   write(join(mod("audio", "delay", "echo"), "module.yaml"), "# Echo\n");
   write(
     join(mod("audio", "delay", "echo", "engines", "x"), "module.yaml"),
@@ -46,8 +46,8 @@ describe("where a module may go", () => {
     expect(
       planModuleMove(lib, mod("audio", "delay", "echo"), mod("audio", "time")),
     ).toEqual({
-      from: "@st0/audio/delay/echo",
-      to: "@st0/audio/time/echo",
+      from: "@k7-core/audio/delay/echo",
+      to: "@k7-core/audio/time/echo",
       dest: mod("audio", "time", "echo"),
     });
   });
@@ -55,7 +55,7 @@ describe("where a module may go", () => {
   it("may land in the type folder itself", () => {
     expect(
       planModuleMove(lib, mod("audio", "delay", "echo"), mod("audio")).to,
-    ).toBe("@st0/audio/echo");
+    ).toBe("@k7-core/audio/echo");
   });
 
   it.each([
@@ -105,43 +105,47 @@ describe("repointing the refs", () => {
     write(
       song,
       [
-        'extends: "@st0/audio/delay/echo"',
+        'extends: "@k7-core/audio/delay/echo"',
         "alternatives:",
-        "  - extends: @st0/audio/delay/echo",
-        '  - extends: "@st0/audio/delay/echo-2"',
+        "  - extends: @k7-core/audio/delay/echo",
+        '  - extends: "@k7-core/audio/delay/echo-2"',
         "",
       ].join("\n"),
     );
     const graph = join(root, "song", "graph.yaml");
     write(
       graph,
-      "modules:\n  gtr: [ @st0/audio/delay/echo:slap, @st0/audio/delay/echo#b ]\n",
+      "modules:\n  gtr: [ @k7-core/audio/delay/echo:slap, @k7-core/audio/delay/echo#b ]\n",
     );
     const changed = repointRefs(
       [root],
-      "@st0/audio/delay/echo",
-      "@st0/audio/time/echo",
+      "@k7-core/audio/delay/echo",
+      "@k7-core/audio/time/echo",
     );
     expect(changed.sort()).toEqual([graph, song].sort());
     expect(readFileSync(song, "utf8")).toBe(
       [
-        'extends: "@st0/audio/time/echo"',
+        'extends: "@k7-core/audio/time/echo"',
         "alternatives:",
-        "  - extends: @st0/audio/time/echo",
-        '  - extends: "@st0/audio/delay/echo-2"',
+        "  - extends: @k7-core/audio/time/echo",
+        '  - extends: "@k7-core/audio/delay/echo-2"',
         "",
       ].join("\n"),
     );
     expect(readFileSync(graph, "utf8")).toContain(
-      "[ @st0/audio/time/echo:slap, @st0/audio/time/echo#b ]",
+      "[ @k7-core/audio/time/echo:slap, @k7-core/audio/time/echo#b ]",
     );
   });
 
   it("never walks a song's history or the recycle bin", () => {
     const old = join(root, "song", "_history", "x.yaml");
-    write(old, 'extends: "@st0/audio/delay/echo"\n');
+    write(old, 'extends: "@k7-core/audio/delay/echo"\n');
     expect(
-      repointRefs([root], "@st0/audio/delay/echo", "@st0/audio/time/echo"),
+      repointRefs(
+        [root],
+        "@k7-core/audio/delay/echo",
+        "@k7-core/audio/time/echo",
+      ),
     ).toEqual([]);
   });
 });
@@ -149,9 +153,9 @@ describe("repointing the refs", () => {
 describe("renaming inside a library", () => {
   it("names the ref a path stands for — a module's, or a folder's prefix", () => {
     expect(refAt(lib, mod("audio", "delay", "echo"))).toBe(
-      "@st0/audio/delay/echo",
+      "@k7-core/audio/delay/echo",
     );
-    expect(refAt(lib, mod("audio", "delay"))).toBe("@st0/audio/delay");
+    expect(refAt(lib, mod("audio", "delay"))).toBe("@k7-core/audio/delay");
     expect(refAt(lib, join(lib.root, "chains"))).toBeNull();
   });
 
@@ -159,11 +163,11 @@ describe("renaming inside a library", () => {
     const song = join(root, "song", "nodes", "a.yaml");
     write(
       song,
-      'extends: "@st0/audio/delay/echo"\n# @st0/audio/delayed/x\nb: @st0/audio/delay\n',
+      'extends: "@k7-core/audio/delay/echo"\n# @k7-core/audio/delayed/x\nb: @k7-core/audio/delay\n',
     );
-    repointRefs([root], "@st0/audio/delay", "@st0/audio/time", true);
+    repointRefs([root], "@k7-core/audio/delay", "@k7-core/audio/time", true);
     expect(readFileSync(song, "utf8")).toBe(
-      'extends: "@st0/audio/time/echo"\n# @st0/audio/delayed/x\nb: @st0/audio/time\n',
+      'extends: "@k7-core/audio/time/echo"\n# @k7-core/audio/delayed/x\nb: @k7-core/audio/time\n',
     );
   });
 

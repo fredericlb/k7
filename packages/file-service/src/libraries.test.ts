@@ -21,7 +21,7 @@ let home: string;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "libs-"));
-  mkdirSync(join(home, "st0"));
+  mkdirSync(join(home, "k7-core"));
   mkdirSync(join(home, ".sync-replica"));
   process.env.STUDIO_LIBRARIES_HOME = home;
   delete process.env.STUDIO_HUB_URL;
@@ -36,21 +36,21 @@ afterEach(() => {
 describe("refreshLibraries", () => {
   it("opens every library on disk for writing, in place, to an admin", async () => {
     await refreshLibraries(true);
-    expect(isLibraryEditable("st0")).toBe(true);
-    expect(libraryRoot("st0")).toBe(join(home, "st0"));
+    expect(isLibraryEditable("k7-core")).toBe(true);
+    expect(libraryRoot("k7-core")).toBe(join(home, "k7-core"));
   });
 
   it("opens a versioned library's DRAFT to an admin, and never one of its versions", async () => {
-    mkdirSync(join(home, "st0", "1"));
-    mkdirSync(join(home, "st0", "draft"));
+    mkdirSync(join(home, "k7-core", "1"));
+    mkdirSync(join(home, "k7-core", "draft"));
     await refreshLibraries(true);
-    expect(libraryRoot("st0")).toBe(join(home, "st0", "draft"));
+    expect(libraryRoot("k7-core")).toBe(join(home, "k7-core", "draft"));
     const ws = new Workspace(mkdtempSync(join(tmpdir(), "ws-")));
     expect(() =>
-      ws.assertLibraryWritable(join(home, "st0", "1", "modules", "x")),
+      ws.assertLibraryWritable(join(home, "k7-core", "1", "modules", "x")),
     ).toThrow(/published version never changes/);
     expect(() =>
-      ws.assertLibraryWritable(join(home, "st0", "draft", "modules", "x")),
+      ws.assertLibraryWritable(join(home, "k7-core", "draft", "modules", "x")),
     ).not.toThrow();
   });
 
@@ -72,7 +72,7 @@ describe("refreshLibraries", () => {
   it("leaves them read-only to anyone else", async () => {
     await refreshLibraries(true);
     await refreshLibraries(false);
-    expect(isLibraryEditable("st0")).toBe(false);
-    expect(libraryRoot("st0")).toBe(join(home, "st0"));
+    expect(isLibraryEditable("k7-core")).toBe(false);
+    expect(libraryRoot("k7-core")).toBe(join(home, "k7-core"));
   });
 });

@@ -1,6 +1,6 @@
 // renderSettings.ts — the words that set a picture render, read in ONE place: the browser's
 // `project export video` and the server's `picture render` take the same line, so they must read
-// it alike. Pure and muxer-free, so the command line can load it. See apps/st0/frontend/docs/picture.md.
+// it alike. Pure and muxer-free, so the command line can load it. See apps/k7/frontend/docs/picture.md.
 
 import { EXPORT_QUALITIES, type ExportQuality } from "./exportQuality";
 

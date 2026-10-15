@@ -67,7 +67,7 @@ export function useSongEngine(connected: boolean): SongEngine {
     if (!connected || !chosenId || !found) return;
     // `project: null`: pl8 opens no project, so it must not compete for one.
     lease.current = engines().hold(found, { project: null });
-    // Per SERVICE and per PERSON — two people may choose one machine, and st0 must keep its slot.
+    // Per SERVICE and per PERSON — two people may choose one machine, and k7 must keep its slot.
     const c = new EngineClient(
       // Re-measured before every reconnect: a relayed URL's ticket outlives nothing.
       engines().linkUrl(found),

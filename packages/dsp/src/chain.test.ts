@@ -64,7 +64,7 @@ describe("chaining", () => {
 const ROOT = join(import.meta.dirname, "..", "..", "..");
 const MODULES = [
   "demos/_modules/audio/crossfade",
-  "st0-library/modules/audio/eq/engines/parametric",
+  "k7-core/modules/audio/eq/engines/parametric",
 ].filter((d) => existsSync(join(ROOT, d, "jsdsp.ts")));
 
 describe("the modules written with chains", () => {

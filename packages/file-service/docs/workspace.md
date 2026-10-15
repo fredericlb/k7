@@ -66,7 +66,7 @@ makes our own write visible inside a single timestamp tick.
 The token describes the ACTIVE project. Both caches take a `dir` because building takes
 one, not because a second project can sit in them.
 
-`hints()` is the third, for the same reason: it is a pure read of the folder, and st0 asks for it
+`hints()` is the third, for the same reason: it is a pure read of the folder, and k7 asks for it
 after EVERY command — the editor pane is mounted in every layout and refreshes its tree and its
 completion vocabulary together, so a command that never touched a file the editor is showing
 would still rebuild the tracks, the clips, the per-plugin params and the path map. 150 ms on a
@@ -173,7 +173,7 @@ folder yields no projects rather than a throw — raising would fail a whole pol
 nobody could have opened anyway.
 
 **A project inside a project is descended into and reported.** Nesting one is not the ordinary
-arrangement, but an `.st0` set living inside another `.st0` song is a real one, and picking an
+arrangement, but an `.k7` set living inside another `.k7` song is a real one, and picking an
 outermost winner would hide the inner one with nothing on screen to say so.
 
 ### The five-second window on `workspaceInfo().projects`
@@ -303,8 +303,8 @@ own answer: none of them can be read out of that tree.
 - **`libraryChains()`** — every library's chains, walked by `@studio/song`'s `libraryChainDirs`,
   the one walk `processChain` and the account's own listings use too: a chain is a folder holding a
   `graph.yaml`, at any depth under a library's `chains/`, and nothing inside one is another. `ref` is
-  what the chain is CALLED, whole (`@st0/process/normalize`), `path` where it is in this API
-  (`_libraries/st0/chains/…`), because that is the only address a browser may hand back. No
+  what the chain is CALLED, whole (`@k7-core/process/normalize`), `path` where it is in this API
+  (`_libraries/k7/chains/…`), because that is the only address a browser may hand back. No
   library, or one with no `chains/`, is an empty list, never a throw.
 - **`playlists()`** — `_playlists/**/*.yaml`, rooted at the workspace ROOT and not beside the
   project where the two module libraries live. A set list belongs to the repository rather than to
@@ -338,8 +338,8 @@ again every time it is opened: there is nothing in it worth keeping past one ses
 `@banc`, in place of the `POST /open` a `@local` address gets. `isBenchProject` is the one
 place either end spells which address the bench answers; anything else under `@banc` names nothing
 and is a 404 saying where a chain and a module are edited instead. A bench names the library
-chain it is ON (`@banc/<chain ref>/live.st0`); the bare `@banc/live.st0` and a bare library ref
-(`@banc/@st0/live.st0`) are refused — a library is edited by an admin from any project, not on a
+chain it is ON (`@banc/<chain ref>/live.k7`); the bare `@banc/live.k7` and a bare library ref
+(`@banc/@k7-core/live.k7`) are refused — a library is edited by an admin from any project, not on a
 bench.
 
 At least one library is required: every module the rig can name is in one, and without one there
@@ -350,7 +350,7 @@ is nothing to try.
 The rig is scaffolded fresh on every open, so a write into the project folder survives exactly as
 long as the session: no translation, no promotion, no path out of it. What an admin writes into a
 LIBRARY from the rig — `_libraries/<name>/…`, an ordinary path here as it is in every other
-workspace — lands where a library write from any project lands (`apps/st0/backend/docs/media/banc.md`,
+workspace — lands where a library write from any project lands (`apps/k7/backend/docs/media/banc.md`,
 `libraries.md`).
 
 That workspace holds the rig and nothing else: a `chains/` folder in it is swept on open, because a

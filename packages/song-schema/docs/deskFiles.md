@@ -36,7 +36,7 @@ The ref vocabulary itself is `songRef.ts` — a leaf, so a browser can hold it w
 
 ### Reading and writing it
 
-A bare sequence at the root — `- "@st0/songs/…"` with no `cues:` key — is named precisely rather than
+A bare sequence at the root — `- "@k7-core/songs/…"` with no `cues:` key — is named precisely rather than
 reported as "expected object": it is the first thing anyone writes, and the fix is one line.
 
 `cueRefs` sorts, because the list is unordered and something has to decide what a reader sees first.

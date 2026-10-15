@@ -1,13 +1,13 @@
-# The st0 image — why its Dockerfile is staged the way it is
+# The k7 image — why its Dockerfile is staged the way it is
 
-The OneDev job `build studio images` builds one image, st0 — the editor, the media library and the
+The OneDev job `build studio images` builds one image, k7 — the editor, the media library and the
 rehearsal recorder — in a single `BuildImageStep` (`.onedev-buildspec.yml`). Its Dockerfile builds
-from the repo root (`apps/st0/docker/Dockerfile`) and pays for two expensive things: an `npm ci`
+from the repo root (`apps/k7/docker/Dockerfile`) and pays for two expensive things: an `npm ci`
 over the workspace, and the C toolchain `ssh2` builds its optional crypto binding with. z0 is
 deployed beside it but built by its own repository, which keeps the same stage layout by
 convention only: nothing here checks the two against each other.
 
-The server's engine is a second image built here, `st0-engine`, in a job of its own because it
+The server's engine is a second image built here, `k7-runtime`, in a job of its own because it
 compiles C++: `docs/server-engine.md`.
 
 ## An install depends on the manifests, never on the sources
@@ -37,7 +37,7 @@ between builds, so `npm ci` reinstalls from the local cache instead of the regis
 
 ## The layers are kept in the registry, not only in the builder
 
-The `BuildImageStep` exports its cache to `studio/cache:st0` (`mode=max`, so the install
+The `BuildImageStep` exports its cache to `k7/cache:k7-webapp` (`mode=max`, so the install
 stages are in it, not only the final image) and imports it on the next run. A builder that
 starts empty, or one whose cache was pruned, still finds the installs. `image-manifest=true`
 stores the cache as an ordinary OCI image, which a registry that refuses BuildKit's own cache

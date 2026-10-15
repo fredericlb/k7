@@ -27,7 +27,7 @@ export function audioFlow(db: number): number {
 
 /**
  * A MIDI cable's load → 0..1: the velocities SOUNDING now against the busiest moment that track
- * ever has. The same shape the timeline paints a sequence block with (apps/st0's activity.ts),
+ * ever has. The same shape the timeline paints a sequence block with (apps/k7's activity.ts),
  * and for the same reason — a part's own peak is what should reach full strength, since "loud
  * for this part" is the only reading a listener has.
  */

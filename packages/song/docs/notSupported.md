@@ -19,9 +19,9 @@ The node carries what is actually specific: the plugin's real name as `plugin.na
 values the export carried. Nothing is lost, and the project has one file per USE rather than one
 folder per plugin plus one file per use.
 
-## Why `@meta` and not `@st0`
+## Why `@meta` and not `@k7-core`
 
-`@st0` is the **médiathèque** — the account's library, which lives on a volume this machine may
+`@k7-core` is the **médiathèque** — the account's library, which lives on a volume this machine may
 not have mounted and which a fresh clone certainly does not. A ref there is one an import can
 write and then fail to resolve, and an unresolvable `extends` is a project that will not open at
 all: a worse failure than the one this is fixing.

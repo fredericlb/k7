@@ -3,7 +3,7 @@
 A desktop paired with a server has a médiathèque of its own: a folder on its disk, seeded on first
 run, that its own backend serves. The server has another. Each song and sample can therefore be on
 the machine only, on the server only, or on both. The library screen says which, with the same
-three icons st0's home page uses for a workspace, and offers a **Download** for what the server
+three icons k7's home page uses for a workspace, and offers a **Download** for what the server
 alone holds (`../../ui-library/src/ServerCopy.tsx`).
 
 ## Matched by path
@@ -15,7 +15,7 @@ the trade `sync.md` already refuses for the cache.
 
 ## The machine's backend asks, not the browser
 
-The browser talks to its own backend (`../../../apps/st0/backend/src/media/routes/serverCopy.ts`), which
+The browser talks to its own backend (`../../../apps/k7/backend/src/media/routes/serverCopy.ts`), which
 asks the server. The device token the pairing brought back (`../../file-hub/docs/syncRelay.md`) is
 held by that backend and never reaches a page. The server answers a device on
 `/api/sync/mediatek`: its ordinary library routes, gated by the device token instead of a session,
@@ -29,8 +29,28 @@ larger than a laptop's disk. A download copies every file the server's manifest 
 the entry's path (a song is a folder, a sample a file) into the local library, and the local
 listing picks it up on its next poll. Uploading the other way is not offered here.
 
+## An album, or a playlist, in one gesture
+
+A set list or an album is what someone wants on the laptop before a gig, and one click per song is
+not a way to get it. So the download takes a LIST of paths, read against one manifest, and two
+places hand it one: the songs tree's right-click on any row holding something only the server has —
+an artist, an album, one song — and the playlist screen's button for the lines that resolve to
+nothing here and to a song on the server (`../../ui-library/src/serverSets.ts`). One entry alone
+comes down from the cloud button at the end of its own tree row.
+
+Each names the server-only SONGS, never the folder. Copying the album's folder whole would also
+copy, over the local one, every song already here, and a song edited on this machine would lose its
+edits to the server's copy without a word: matching by path cannot tell the two apart. A path in the
+list the server lacks is named back in `missing` rather than failing the rest.
+
 ## Silent when there is nothing to say
 
 An unpaired machine, and the server itself, answer `paired: false`, and the screen draws no icon.
-A server that is unreachable draws none either, not a wrong one, and the page stays usable on what
-is local.
+A server that has never answered draws none either, not a wrong one, and the page stays usable on
+what is local.
+
+**A server that answered once is not forgotten for being slow.** A few hundred songs from a busy
+origin take seconds to list, so the backend waits up to twenty, and when the server does not answer
+it serves the last listing it had of that family; the page, likewise, keeps the last placement it
+was given rather than clearing it: cleared, every server-only song would vanish from the page each
+time the server is slow, and come back thirty seconds later.

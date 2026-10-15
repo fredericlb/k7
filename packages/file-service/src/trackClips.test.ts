@@ -12,7 +12,7 @@ let dir: string;
 
 /** A one-lane project whose track holds `clips`, at the given time signature. */
 function project(clips: string, sig = "4/4"): string {
-  const p = join(dir, "song.st0");
+  const p = join(dir, "song.k7");
   mkdirSync(join(p, "nodes"), { recursive: true });
   mkdirSync(join(p, "clips"), { recursive: true });
   mkdirSync(join(p, "modules", "io", "OUT"), { recursive: true });
@@ -103,7 +103,7 @@ describe("a clip's LENGTH, for the mini timeline", () => {
   });
 
   it("substitutes the timeline's own stand-in for a length of 0", () => {
-    // A compiled 0 means "the source's natural length", so the stand-in matches st0's timeline.
+    // A compiled 0 means "the source's natural length", so the stand-in matches k7's timeline.
     const p = project('  - { ref: verse, start: "1:1:1" }\n');
     const clips = buildGraphDoc(p, extents([{ start: 0, length: 0 }]))
       .trackClips?.gtr;

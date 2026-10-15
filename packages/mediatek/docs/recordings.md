@@ -95,7 +95,7 @@ always **the same song** twice; here, two files on the same second are **two fil
 ## The API is the main road
 
 The route sits behind the same `bearerOrSession` as the rest of the library (see
-`apps/st0/backend/src/server.ts`), so a recorder with no browser has nothing special to do: it
+`apps/k7/backend/src/server.ts`), so a recorder with no browser has nothing special to do: it
 presents an API token — the one `POST /api/token` issues — and pushes raw bytes.
 
 ```bash

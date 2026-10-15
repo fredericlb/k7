@@ -66,8 +66,8 @@ export async function stopAll() {
     child.kill("SIGTERM");
     child = null;
   }
-  await stopNamed("st0-supervisor"); // first: it deregisters while its engine still answers
-  await stopNamed("st0-engine");
+  await stopNamed("k7-supervisor"); // first: it deregisters while its engine still answers
+  await stopNamed("k7-runtime");
 }
 
 /** The config the dev engine runs from: the settings file a desktop install keeps, created empty if absent. */

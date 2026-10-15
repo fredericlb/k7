@@ -1,0 +1,17 @@
+// Déformées — Dance Monkey — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
+// variante.
+
+steps([
+  id("a49cf939-fa6a-481e-824b-48078f28b4cd")
+    .extends("@k7-core/audio/zz_utility/pitch-shift")
+    .params({ "semitones up": 8 }),
+  id("63f7b73b-6fc2-42e7-a423-47e030c1781b")
+    .extends("@k7-core/audio/vibrato")
+    .engine("wobble")
+    .engines({ wobble: { params: { Amount: 9 } } }),
+  id("9d4de05e-2d50-427b-a33b-51200fc43557")
+    .extends("@k7-core/audio/bitcrush")
+    .engine("de-rez")
+    .engines({ de-rez: { params: { Rez: 0.193, Rate: 1 } } }),
+  to([chain("@out")]),
+])

@@ -2,7 +2,7 @@
 // policy alone, with no React and no fetching: the account's choice first, an obvious
 // answer second, and the picker only when there IS a question.
 //
-// Shared because it is the same question in every service — st0's gate and the médiathèque's
+// Shared because it is the same question in every service — k7's gate and the médiathèque's
 // module preview want it verbatim.
 
 import { onThisMachine, type ProbeTarget, type RankedEngine } from "./probe.ts";

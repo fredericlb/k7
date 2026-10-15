@@ -1,6 +1,6 @@
-# A SET — an st0 project with decks instead of an arrangement
+# A SET — an k7 project with decks instead of an arrangement
 
-An `.st0` folder like any other, read by the same loader out of the same `@studio/song`. Not a
+An `.k7` folder like any other, read by the same loader out of the same `@studio/song`. Not a
 dialect: the node project you already know, with one entity fewer and two files more.
 
 > **The archetype that writes one is called `mix`.** That pair of names is deliberate and is the
@@ -20,7 +20,7 @@ dialect: the node project you already know, with one entity fewer and two files 
 ## Two files are what make it a set
 
 A `turntables` surface, and the **playlist** it names. Neither needs a folder suffix to be found
-and neither needs an app of its own: st0 draws the desk from its declaration exactly as it draws
+and neither needs an app of its own: k7 draws the desk from its declaration exactly as it draws
 a timeline or a viewport from theirs.
 
 ```yaml
@@ -43,7 +43,7 @@ a screen and it is shareable. The CUE sheet is a separate document, `mix.yaml`
 ([mixFile.md](mixFile.md)).
 
 The surface carries its own `mapping:` ([surfaces.md](surfaces.md)), so the declaration and the
-wiring are one file. The desk itself is `@studio/ui-turntables`, and st0 has an engine before it
+wiring are one file. The desk itself is `@studio/ui-turntables`, and k7 has an engine before it
 has a surface — which is the whole of what a host owes it.
 
 No `clips/`, no `sequences/`, no `curves/`: a set holds no material of its own. What it plays
@@ -56,7 +56,7 @@ use:
 
 ```yaml
 # nodes/crossfade.yaml
-extends: "@st0/audio/utility/crossfade"
+extends: "@k7-core/audio/utility/crossfade"
 params:
   Mix: 0.5
 ```
@@ -80,15 +80,15 @@ So what is `type:` for? The case the suffix cannot cover: **a repository can BE 
 is also what a reader sees first, and what a loader handed an absolute path with no name to read
 has to go on.
 
-`projectTypeOf` states the order in three lines: suffix, then declaration, then `st0`, which is
+`projectTypeOf` states the order in three lines: suffix, then declaration, then `k7`, which is
 what a folder saying nothing is.
 
-A folder named `.z0` that declares `type: st0` is not resolved silently. It compiles either way,
+A folder named `.z0` that declares `type: k7` is not resolved silently. It compiles either way,
 because the two signals feed different readers, and that is exactly why it is **reported** —
 `projectTypeIssues`, surfaced beside `deadProjectFields`. A field that is accepted and ignored is
 worse than one that is refused.
 
-The values are `st0` and `z0`. A set declares nothing at the root: it is an `.st0`, and what says
+The values are `k7` and `z0`. A set declares nothing at the root: it is an `.k7`, and what says
 what it is is the pair above — a `turntables` surface and the playlist it names. There is no
 `project_type: live` beside it: a folder saying it has no arrangement while its `surfaces/` says
 otherwise is a contradiction nothing can resolve.
@@ -106,7 +106,7 @@ different one in four minutes — so it authors no `events:` at all.
 The file still exists, deliberately. Inferring the decks from `graph.yaml`'s keys costs three
 things:
 
-- st0 keeps a useful error for a chain naming a node that has no file, and inference would have
+- k7 keeps a useful error for a chain naming a node that has no file, and inference would have
   to make that error conditional on the project's type;
 - the file tree, the editor and the loader all work unchanged with a file there;
 - the deck's **settings** need somewhere to live. Trim, cue, key-lock, which deck holds the
@@ -146,8 +146,8 @@ the desk writes only the record and the two live numbers onto each. See
 sets that predate them.
 
 Three of the others are the **channel strip** rather than the crossfade, and they have their own
-page in the desk that draws them: [mix.md](../../../packages/st0-plugins/docs/turntables/mix.md) for the trim and the
-channel fader, [fx.md](../../../packages/st0-plugins/docs/turntables/fx.md) for the echo. The two rules worth knowing
+page in the desk that draws them: [mix.md](../../../packages/k7-plugins/docs/turntables/mix.md) for the trim and the
+channel fader, [fx.md](../../../packages/k7-plugins/docs/turntables/fx.md) for the echo. The two rules worth knowing
 here are that the trim is FIRST because a deck is five lanes and only the bus head reaches all of
 them, and that the echo is LAST because an echo-out cuts a delay's input and not its output.
 
@@ -160,7 +160,7 @@ only while that track also reaches an audible output. So a deck feeding nothing 
 is heard **beside** it, raw, at full level, with the fader unable to take it away — and every way
 of removing it from the master removes it from the crossfade too (five mechanisms, five
 measurements, one result:
-[engine/st0-engine/docs/sidechain.md](../../../engine/st0-engine/docs/sidechain.md)).
+[engine/k7-runtime/docs/sidechain.md](../../../engine/k7-runtime/docs/sidechain.md)).
 
 So each deck keeps its own fade, its own track and its own ordinary output, and the blend happens
 where sums belong — at the mixer. Nothing has to be hidden from the master, which is what makes
@@ -183,9 +183,9 @@ The arithmetic lives there rather than in the modules because a panel a reader h
 through a second parameter will be misread: one `Level` sent unchanged to both, with a `Side` on
 each module deciding which way its gain runs, sounds identical and makes `fadeA` read `Level 100`
 while deck A is silent. It is `Level` and not `Mix` because it is a gain: a name holding *mix* would
-be read as a dry/wet and held at full by the engine (`engine/st0-engine/docs/mix.md`).
+be read as a dry/wet and held at full by the engine (`engine/k7-runtime/docs/mix.md`).
 
-`@st0/audio/utility/crossfade` is not wrong: on a chain where both its inputs already live on one
+`@k7-core/audio/utility/crossfade` is not wrong: on a chain where both its inputs already live on one
 track, it is the right module. It is a desk, where they do not, that it cannot serve.
 
 **The tempo comes before the fade**, and the order is the signal path: a deck whose tempo were
@@ -217,7 +217,7 @@ would add its inverted copy straight to the master.
 **What `bypassed:` means for such a lane is not a mute.** A muted track processes nothing at all,
 so lanes feeding their bus with silence give a set no sound. The engine reads "muted, and exactly
 one send" as **route the track's output to that bus** — off the master by having somewhere else
-to go, rather than by being silenced. The measurement is in `engine/st0-engine/docs/editBuilder.md`;
+to go, rather than by being silenced. The measurement is in `engine/k7-runtime/docs/editBuilder.md`;
 the word in this file still says the right thing to a reader of the graph: this lane is heard
 through its bus only.
 
@@ -230,7 +230,7 @@ heard only there.
 
 The four files come from `playlist stems` (`@studio/commands`) — or, for a record put on
 unprepared, from the desk itself, which is what `surfaces/desk.yaml`'s `stems:` line is for. What
-the desk does with them either way is `packages/st0-plugins/docs/turntables/stems.md`.
+the desk does with them either way is `packages/k7-plugins/docs/turntables/stems.md`.
 
 **A set with one lane a deck** draws no stem column at all — the designed answer to an unwired
 mapping, not a fault. `scripts/migrateSetStems.ts` gives it the eight lanes, the sixteen nodes,
@@ -238,7 +238,7 @@ the eight bypasses and the eight mapping lines, through the YAML Document API so
 the files survives. Dry by default:
 
 ```bash
-npx tsx packages/song/scripts/migrateSetStems.ts <projet>.st0 --write
+npx tsx packages/song/scripts/migrateSetStems.ts <projet>.k7 --write
 ```
 
 The part it is easy to get wrong by hand is the DECK's own lane: one feeder makes the EQ a step
@@ -255,7 +255,7 @@ parameterised by the decks for that one caller beyond the scaffold.
 
 ### The tempo module is COLD
 
-`@st0/cold/tempo` is `cold: true` and `plugin: {type: offline}` — a tempo change is a
+`@k7-core/cold/tempo` is `cold: true` and `plugin: {type: offline}` — a tempo change is a
 time stretch, a stretch has to know where the file ends, and there is no engine plugin that
 stretches time (the engine hosts a Pitch Shifter and nothing else of that kind; Tracktion warps a
 CLIP instead). So it is the offline shape: a pass writes the stretched audio before the render.
@@ -294,13 +294,13 @@ strip are one appliance called a **turntable**. On the graph that is one card wi
 **It changes nothing here.** No node is renamed, no arrow moved, and `graph.yaml` is not touched:
 a set with those two files compiles to the `ProjectDoc` it compiled to without them, which is
 what `assemblyCompile`'s case in `assemblies.test.ts` pins. The plugs and the knobs come from the
-template the files name, `@st0/turntable`, which lives in the account's library —
+template the files name, `@k7-core/turntable`, which lives in the account's library —
 `packages/dsp/assemblies/turntable/` is the copy this repo ships to copy FROM.
 
 A set without those two files gets them from a migration that writes nothing else:
 
 ```bash
-npx tsx packages/song/scripts/migrateSetAssemblies.ts <projet>.st0 --write
+npx tsx packages/song/scripts/migrateSetAssemblies.ts <projet>.k7 --write
 ```
 
 An unpublished template is not a fault: the box still draws, from its members alone, with no
@@ -318,7 +318,7 @@ exactly so a live choice can fill them without writing to the folder: a set list
 what is on a deck right now is not.
 
 **One thing still cannot be a module.** The tempo is `offline`, so it compiles to no plugin —
-`example.st0` compiles to deckA carrying the crossfade and nothing else. The stretch stays a warp
+`example.k7` compiles to deckA carrying the crossfade and nothing else. The stretch stays a warp
 on the clip the desk fills in, which is the only thing that stretches live. Making it a module in
 fact means writing the cold pass, and that is a separate piece of work from this one.
 

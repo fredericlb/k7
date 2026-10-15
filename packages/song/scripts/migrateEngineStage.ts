@@ -1,4 +1,4 @@
-// migrateEngineStage.ts — hand a module's blend and levels to the engine's own stage (engine/st0-engine/docs/mix.md).
+// migrateEngineStage.ts — hand a module's blend and levels to the engine's own stage (engine/k7-runtime/docs/mix.md).
 //
 //   npx tsx packages/song/scripts/migrateEngineStage.ts <dir> [more dirs…] [--write]
 //
@@ -87,7 +87,7 @@ interface Shape {
 
 function refTarget(ref: string, from: string): string | undefined {
   if (ref.startsWith("@engine/")) return undefined;
-  // `@st0/audio/x`, `@workspace/audio/x`, `audio/x`: the path under a level.
+  // `@k7-core/audio/x`, `@workspace/audio/x`, `audio/x`: the path under a level.
   const tail = ref.replace(/^@[^/]+\//, "");
   const hit = moduleFolders.get(tail);
   if (hit) return hit;

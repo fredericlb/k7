@@ -59,7 +59,7 @@ export const PortSchema = z
   .strict();
 
 /** What a waveform widget draws: the live signal either side of the module, or the recorder
- *  node's own TAKE — its whole picture, growing (engine/st0-engine/docs/recorder.md). */
+ *  node's own TAKE — its whole picture, growing (engine/k7-runtime/docs/recorder.md). */
 export const WAVEFORM_SOURCES = ["input", "output", "take"] as const;
 
 /** Every `io:` a module may declare. Named for WAVEFORM_SOURCES' reason: `fields.ts` offers it. */
@@ -404,7 +404,7 @@ const MODULE_FIELDS = {
   monitor: z.union([z.boolean(), z.enum(["off", "auto", "on"])]).optional(),
   // Input trim in dB, applied at the interface before anything else sees the signal — see docs/moduleFile.md.
   gain: z.number().optional(),
-  // The ENGINE's dry/wet around this effect, 0 all dry .. 1 all wet; absent is all wet (engine/st0-engine/docs/mix.md).
+  // The ENGINE's dry/wet around this effect, 0 all dry .. 1 all wet; absent is all wet (engine/k7-runtime/docs/mix.md).
   mix: z.number().min(0).max(1).optional(),
   // …and the engine's level into the module (an audio one) and out of it (anything with audio out), in dB.
   input_volume: z.number().min(-60).max(12).optional(),

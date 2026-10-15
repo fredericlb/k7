@@ -150,7 +150,7 @@ export function withMarkers(
   }));
 }
 
-/** The médiathèque ids the sheet names — the refs with their `@st0/` taken off. */
+/** The médiathèque ids the sheet names — the refs with their `@k7-core/` taken off. */
 export function cueIds(file: MixFile | null | undefined): string[] {
   return cueRefs(file)
     .map(songIdOf)

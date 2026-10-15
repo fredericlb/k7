@@ -2,6 +2,10 @@
 // (API consumers). This is the single source of truth for the API contract;
 // the frontend re-exports these from its own types module.
 
+import type { PageVisibility } from "./pageVisibility.ts";
+
+export type { PageVisibility } from "./pageVisibility.ts";
+
 export interface User {
   sub: string;
   name: string;
@@ -35,7 +39,7 @@ export interface Release {
   description: string;
   canDownload: boolean;
   createdAt: string;
-  // Stable id of the originating st0 song (set when uploaded via the CLI).
+  // Stable id of the originating k7 song (set when uploaded via the CLI).
   songUuid?: string | null;
   // Present on the detail endpoint, not on the list endpoint.
   versions?: ReleaseVersion[];
@@ -56,6 +60,8 @@ export interface Page {
   releaseIds: string[];
   // The version each release plays on this page; a release absent here plays its default.
   versionIds: Record<string, string>;
+  // Who opens it by its nametag — ../rehearsal-server/docs/pages.md.
+  visibility: PageVisibility;
   createdAt: string;
   releases?: Release[]; // resolved on the detail endpoint
 }

@@ -56,8 +56,8 @@ describe("moduleShaderChoices", () => {
     expect(
       moduleShaderChoices(
         root,
-        { folderAbs: local, extends: "@st0/shaders/glow" },
-        { "@st0/shaders/glow": { folderAbs: shared } },
+        { folderAbs: local, extends: "@k7-core/shaders/glow" },
+        { "@k7-core/shaders/glow": { folderAbs: shared } },
       ),
     ).toEqual(["ripple"]);
   });
@@ -65,8 +65,8 @@ describe("moduleShaderChoices", () => {
   it("shadows an inherited shader with a local one of the same name", () => {
     const shared = shaderModule("lib", { pulse: "both", ripple: "both" });
     const local = shaderModule("local", { pulse: "both" });
-    const refs = { "@st0/shaders/glow": { folderAbs: shared } };
-    const module = { folderAbs: local, extends: "@st0/shaders/glow" };
+    const refs = { "@k7-core/shaders/glow": { folderAbs: shared } };
+    const module = { folderAbs: local, extends: "@k7-core/shaders/glow" };
     expect(moduleShaderChoices(root, module, refs)).toEqual([
       "pulse",
       "ripple",

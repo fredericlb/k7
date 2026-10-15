@@ -3,7 +3,7 @@
 This is a **mockup, not a design**: it exists to measure end-to-end latency, the CPU cost on
 the audio thread, and what happens when a listener drops. Everything below is the browser half
 and the reasoning behind every number in it. The engine half is
-`engine/st0-engine/docs/broadcast.md`.
+`engine/k7-runtime/docs/broadcast.md`.
 
 ## Who listens
 
@@ -128,7 +128,7 @@ only appears with time.
 
 ## What the measurements say
 
-`node engine/st0-engine/scripts/listen-headless.mjs ws://HOST:PORT [seconds]` bundles *these*
+`node engine/k7-runtime/scripts/listen-headless.mjs ws://HOST:PORT [seconds]` bundles *these*
 modules with esbuild, serves them, and drives headless Chrome over CDP — so the worklet
 below really renders, with nobody in the room. Against a live engine on loopback:
 
@@ -151,7 +151,7 @@ number being measured is the *listener's main thread*, which also runs everythin
 does.
 
 That is the whole shape of the lesson: a cushion is not sized against the network, it is
-sized against the worst stall of the machine playing it back. Expect a real st0 tab, with
+sized against the worst stall of the machine playing it back. Expect a real k7 tab, with
 a React tree and a canvas, to be worse than this one.
 
 **Drift, by contrast, is a non-event** — −0.17 ms/min here, −0.46 ms/min measured from

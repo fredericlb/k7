@@ -24,7 +24,7 @@ let ws = "";
 let dir = "";
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "strip-mig-"));
-  dir = join(ws, "set.st0");
+  dir = join(ws, "set.k7");
 });
 afterEach(() => {
   rmSync(ws, { recursive: true, force: true });
@@ -87,8 +87,8 @@ const migrate = (root: string) =>
 
 describe("migrateSetStrip", () => {
   it("turns a strip-less set into exactly what the scaffold writes today", () => {
-    const before = join(dir, "before.st0");
-    const after = join(dir, "after.st0");
+    const before = join(dir, "before.k7");
+    const after = join(dir, "after.k7");
     scaffoldSet(before, "hiver");
     unStrip(before);
 
@@ -106,7 +106,7 @@ describe("migrateSetStrip", () => {
   });
 
   it("is idempotent — a second run changes nothing", () => {
-    const root = join(dir, "twice.st0");
+    const root = join(dir, "twice.k7");
     scaffoldSet(root, "hiver");
     unStrip(root);
     migrate(root);
@@ -117,7 +117,7 @@ describe("migrateSetStrip", () => {
   });
 
   it("leaves the headphone tap PRE-fader, which is the point of tapping the filter", () => {
-    const root = join(dir, "cue.st0");
+    const root = join(dir, "cue.k7");
     scaffoldSet(root, "hiver");
     unStrip(root);
     migrate(root);
@@ -128,7 +128,7 @@ describe("migrateSetStrip", () => {
   });
 
   it("moves `bus_only` onto the TRIM, since the chain's head moved there", () => {
-    const root = join(dir, "bus.st0");
+    const root = join(dir, "bus.k7");
     scaffoldSet(root, "hiver");
     unStrip(root);
     migrate(root);

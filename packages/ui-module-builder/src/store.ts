@@ -1,5 +1,5 @@
 // store.ts — the five calls the builder needs from whatever is serving the files. This is the
-// ONLY thing the two apps don't share: st0 talks to a file service over workspace-relative
+// ONLY thing the two apps don't share: k7 talks to a file service over workspace-relative
 // paths, the médiathèque to its own backend over library-relative ones. Rationale: docs/store.md.
 
 import type {

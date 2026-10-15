@@ -1,9 +1,9 @@
-# serviceLog.ts — the file service's own lines, for st0's Logs panel
+# serviceLog.ts — the file service's own lines, for k7's Logs panel
 
 The Logs panel has two halves. One is the engine machine's `.studio.log` — the supervisor's and the
 engine's lines — fetched over the tunnel (`machineLog.ts`). The other is THIS process: what the file
 service writes through `console`, which on its own reaches only the hub's output (and Tilt's pane in
-development), where nobody using st0 would look.
+development), where nobody using k7 would look.
 
 `installServiceLog()`, first thing in `server.ts`, tees `console.log/info/warn/error`: the original
 output is written exactly as before, and each call is also kept as one numbered line, with its level,

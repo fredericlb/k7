@@ -1,6 +1,6 @@
 // project.ts — every file-service route a project app needs: files.ts's, plus the compiled views
 // the engine and the graph are drawn from, the modules, the CLI's verbs and the undo journal.
-// st0 spreads this into its own client and adds what only it has (timeline, waveforms, video).
+// k7 spreads this into its own client and adds what only it has (timeline, waveforms, video).
 
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";

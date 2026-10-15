@@ -62,11 +62,21 @@ vi.mock("@studio/engine-client/engineClient", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   EngineClient: FakeClient,
 }));
+/** The load phase a test pins; null leaves the real one, which the no-op dry run below never moves past `copying`. */
+let pinnedPhase: string | null = null;
 // The dry run sends and asks on its own, which is engineLoad.test.ts's business, not the count pinned here.
-vi.mock("./engineLoad.ts", async (orig) => ({
-  ...(await orig<Record<string, unknown>>()),
-  warmUp: async () => {},
-}));
+vi.mock("./engineLoad.ts", async (orig) => {
+  const real = await orig<Record<string, unknown>>();
+  return {
+    ...real,
+    warmUp: async () => {},
+    loadPhase: (s: string) =>
+      pinnedPhase ?? (real.loadPhase as (s: string) => unknown)(s),
+    isWarming: (s: string) =>
+      pinnedPhase === "warming" ||
+      (real.isWarming as (s: string) => boolean)(s),
+  };
+});
 
 const {
   RECONCILE_EVERY_MS,
@@ -107,6 +117,7 @@ const later = (): number => (clock += RECONCILE_EVERY_MS * 2);
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), "td-reconcile-"));
   built.length = 0;
+  pinnedPhase = null;
   FakeClient.answer = [];
   setSelectedEngine(`ws://127.0.0.1:1/${later()}`);
   // Forget the previous test's project; `null` names the bare session every case here lands on.
@@ -117,13 +128,13 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 describe("awaitSessions", () => {
   // Widened like awaitArm's spy: the fake takes any event, the parameter type wants one.
   const spy = () =>
-    new FakeClient("ws://x", "st0") as unknown as FakeClient &
+    new FakeClient("ws://x", "k7") as unknown as FakeClient &
       Parameters<typeof awaitSessions>[0];
 
   it("asks, and resolves with what the engine holds", async () => {
     const c = spy();
-    FakeClient.answer = [{ id: "st0", loaded: true }];
-    expect(await awaitSessions(c, 50)).toEqual([{ id: "st0", loaded: true }]);
+    FakeClient.answer = [{ id: "k7", loaded: true }];
+    expect(await awaitSessions(c, 50)).toEqual([{ id: "k7", loaded: true }]);
     expect(c.asked).toBe(1);
   });
 
@@ -201,6 +212,33 @@ describe("the poll's engine upkeep", () => {
       expect(namesSince(n)).toEqual([]);
     } finally {
       rmSync(other, { recursive: true, force: true });
+    }
+  });
+
+  it("leaves a link alone while its project is still loading, and questions it once the load ends", async () => {
+    // A song still building answers late; a re-dial then re-sends onto a link busy taking it in.
+    vi.useFakeTimers();
+    try {
+      const ws = wsWith(root, "song");
+      startEngineForActive(ws);
+      const link = live();
+      FakeClient.answer = null;
+      for (const phase of ["applying", "warming"]) {
+        pinnedPhase = phase;
+        const n = link.sent.length;
+        prewarmEngineForActive(ws, later());
+        await vi.advanceTimersByTimeAsync(SESSIONS_TIMEOUT_MS + 1);
+        expect(link.asked).toBe(0);
+        expect(link.closed).toBe(false);
+        expect(link.sent.length).toBe(n);
+      }
+      pinnedPhase = null;
+      prewarmEngineForActive(ws, later());
+      await vi.advanceTimersByTimeAsync(SESSIONS_TIMEOUT_MS + 1);
+      expect(link.asked).toBe(1);
+      expect(link.closed).toBe(true);
+    } finally {
+      vi.useRealTimers();
     }
   });
 

@@ -9,7 +9,9 @@ import { presetFile } from "./presets";
 
 describe("presetModulePath", () => {
   it("is the ref without its @, one folder per segment", () => {
-    expect(presetModulePath("@st0/audio/reverb")).toBe("st0/audio/reverb");
+    expect(presetModulePath("@k7-core/audio/reverb")).toBe(
+      "k7-core/audio/reverb",
+    );
     expect(presetModulePath("@workspace/audio/amps/nam")).toBe(
       "workspace/audio/amps/nam",
     );
@@ -17,21 +19,23 @@ describe("presetModulePath", () => {
 
   it("refuses a bare ref, a lone namespace and a segment that climbs", () => {
     expect(presetModulePath("audio/reverb")).toBeNull();
-    expect(presetModulePath("@st0")).toBeNull();
-    expect(presetModulePath("@st0/../etc")).toBeNull();
-    expect(presetModulePath("@st0//x")).toBeNull();
+    expect(presetModulePath("@k7-core")).toBeNull();
+    expect(presetModulePath("@k7-core/../etc")).toBeNull();
+    expect(presetModulePath("@k7-core//x")).toBeNull();
   });
 });
 
 describe("presetFile", () => {
-  const song = resolve("/ws/song.st0");
+  const song = resolve("/ws/song.k7");
 
   it("lands in the workspace's _presets, under the module's path", () => {
-    expect(presetFile(song, "workspace", "@st0/audio/reverb", "big hall")).toBe(
+    expect(
+      presetFile(song, "workspace", "@k7-core/audio/reverb", "big hall"),
+    ).toBe(
       join(
         resolve("/ws"),
         "_presets",
-        "st0",
+        "k7-core",
         "audio",
         "reverb",
         "big hall.yaml",
@@ -42,13 +46,13 @@ describe("presetFile", () => {
   it("refuses a name that is not a plain file name", () => {
     for (const bad of ["../x", "a/b", "", " lead", "x.yaml"])
       expect(() =>
-        presetFile(song, "workspace", "@st0/audio/reverb", bad),
+        presetFile(song, "workspace", "@k7-core/audio/reverb", bad),
       ).toThrow(/invalid preset name/);
   });
 
   it("refuses a scope that is no library of this machine", () => {
     expect(() =>
-      presetFile(song, "nope-lib", "@st0/audio/reverb", "x"),
+      presetFile(song, "nope-lib", "@k7-core/audio/reverb", "x"),
     ).toThrow(/no library/);
   });
 });
@@ -59,7 +63,7 @@ describe("presetFileText", () => {
       engine: "vari-mu",
       params: { "Output Level": 0.8, on: 1, Mix: 0.25 },
     };
-    const text = presetFileText("@st0/audio/comp", preset);
+    const text = presetFileText("@k7-core/audio/comp", preset);
     expect(text).toContain("  Output Level: 0.8\n");
     expect(text).toContain('  "on": 1\n');
     expect(parse(text)).toEqual(preset);
@@ -70,7 +74,7 @@ describe("presetFileText", () => {
       base: "Pads/Bell Pad",
       params: { "A Filter 1 Cutoff": 0.3 },
     };
-    const text = presetFileText("@st0/instruments/synth/surge-xt", preset);
+    const text = presetFileText("@k7-core/instruments/synth/surge-xt", preset);
     expect(text).toContain('base: "Pads/Bell Pad"\n');
     expect(parse(text)).toEqual(preset);
   });

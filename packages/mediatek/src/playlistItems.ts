@@ -1,12 +1,12 @@
 // playlistItems.ts — a playlist's lines against the songs this library holds: which morceau each
 // names, which version, and why a line cannot play. Pure, so it is testable without a screen.
 //
-// HERE because TWO surfaces must agree — st0's playlist screen edits the lines, the DJ desk
+// HERE because TWO surfaces must agree — k7's playlist screen edits the lines, the DJ desk
 // loads one onto a deck — and two copies of "path first, then name" would diverge the first time
 // one learned a case. The import direction settled the side: everything but the `PlaylistItem`
 // type is already this package's.
 //
-// See @studio/song/docs/playlists.md and packages/st0-plugins/docs/turntables/songBrowser.md.
+// See @studio/song/docs/playlists.md and packages/k7-plugins/docs/turntables/songBrowser.md.
 
 import type { PlaylistItem } from "@studio/song-schema/playlist";
 import { type Take, takesOf } from "./takes.ts";
@@ -38,7 +38,7 @@ export function songMatches(entry: MediatekEntry, query: string): boolean {
   return words.every((w) => hay.includes(w));
 }
 
-// --- dragging a line onto a deck: the vocabulary BOTH listings speak (packages/st0-plugins/docs/turntables/setList.md) ---
+// --- dragging a line onto a deck: the vocabulary BOTH listings speak (packages/k7-plugins/docs/turntables/setList.md) ---
 
 /** Our own MIME, so a deck accepts a playlist row and refuses every other thing a browser can drop. */
 export const SONG_DRAG_TYPE = "application/x-studio-song";

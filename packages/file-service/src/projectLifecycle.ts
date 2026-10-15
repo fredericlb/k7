@@ -1,5 +1,5 @@
 // projectLifecycle.ts — creating a project in a workspace: from scratch (the same
-// scaffold `st0 create` runs), by translating a foreign project (.dawproject, .als, an Ableton .zip), or by
+// scaffold `k7 create` runs), by translating a foreign project (.dawproject, .als, an Ableton .zip), or by
 // copying one that exists. Extracted from workspace.ts; all three re-root the output INSIDE
 // the workspace and guard the path through the host's safePath. See docs/import.md.
 
@@ -95,7 +95,7 @@ export function importProjectInto(
 
 /**
  * …and the same from BYTES a caller holds, into a folder it NAMES: a project dropped onto a
- * workspace on st0's home page, which never lands in the workspace as a file. Only the
+ * workspace on k7's home page, which never lands in the workspace as a file. Only the
  * self-contained formats, for the reason `DROPPABLE` gives. See docs/import.md.
  */
 export function importProjectBytes(
@@ -215,7 +215,7 @@ const FILES_FOR_SHAPE: Record<
   "live-video": (name) => liveVideoProjectFiles(projectLabel(name)),
 };
 
-/** Scaffold a NEW `.st0` folder at the workspace root, its ARCHETYPE picking the file map. */
+/** Scaffold a NEW `.k7` folder at the workspace root, its ARCHETYPE picking the file map. */
 export function createProjectIn(
   host: LifecycleHost,
   shape: ProjectShape,

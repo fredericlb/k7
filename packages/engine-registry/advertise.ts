@@ -1,5 +1,5 @@
 // advertise.ts — how a hosted service says "I am running here" on this machine.
-// One file per service under ~/.st0/web-endpoints/, written on boot and removed on
+// One file per service under ~/.k7/web-endpoints/, written on boot and removed on
 // shutdown. The file service reads pl8's to find the médiathèque; the supervisor does NOT
 // heartbeat to these — an engine joins an instance only when the user adds it. See docs/shared.md.
 
@@ -11,7 +11,7 @@ import { webEndpointsDir } from "@studio/engine-client/paths";
 const clean = (s: string): string =>
   s.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "") || "service";
 
-/** Advertise this service's registry and return the goodbye; failure is swallowed, since an unwritable `~/.st0` must not stop a boot. See docs/shared.md. */
+/** Advertise this service's registry and return the goodbye; failure is swallowed, since an unwritable `~/.k7` must not stop a boot. See docs/shared.md. */
 export function advertiseRegistry(service: string, url: string): () => void {
   const path = join(webEndpointsDir(), `${clean(service)}.json`);
   try {

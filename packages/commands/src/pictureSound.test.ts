@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SONG = join(here, "..", "..", "..", "demos", "node-demo.st0");
+const SONG = join(here, "..", "..", "..", "demos", "node-demo.k7");
 
 let song: string;
 const logs: string[] = [];

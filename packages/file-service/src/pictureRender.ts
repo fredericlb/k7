@@ -19,7 +19,7 @@ import {
 } from "node:http";
 import type { AddressInfo } from "node:net";
 import { basename, join } from "node:path";
-import { sceneFrom } from "@studio/st0-plugins/video/sceneFrom";
+import { sceneFrom } from "@studio/k7-plugins/video/sceneFrom";
 import type { Workspace } from "./workspace.ts";
 
 /** What a server render is asked for: the export's own words. */
@@ -253,7 +253,7 @@ export async function renderPicture(
     await page.goto(`http://127.0.0.1:${port}/${token}/`);
     const { bytes, type } = await finished;
     const ext = type.includes("mp4") ? "mp4" : "webm";
-    const name = basename(project).replace(/\.st0$/, "") || "picture";
+    const name = basename(project).replace(/\.k7$/, "") || "picture";
     mkdirSync(join(project, "exports"), { recursive: true });
     const rel = `exports/${name}.${ext}`;
     writeFileSync(join(project, rel), bytes);

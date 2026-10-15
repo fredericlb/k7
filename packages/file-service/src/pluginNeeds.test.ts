@@ -11,7 +11,7 @@ let root = "";
 let dir = "";
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "needs-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "n"\n');
 });

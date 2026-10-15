@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// tokens.mjs — `npm run tokens`: give st0's backend its own API_TOKEN_SECRET in env.yaml, so the
+// tokens.mjs — `npm run tokens`: give k7's backend its own API_TOKEN_SECRET in env.yaml, so the
 // tokens it signs do not hang off SESSION_SECRET. No service-to-service token is minted any more:
 // every caller that needed one is now mounted in the same process. See docs/tokens.md.
 
@@ -18,8 +18,8 @@ const at = args.indexOf("--env");
 const ENV_FILE =
   at >= 0 && args[at + 1] ? args[at + 1] : join(repo, "env.yaml");
 
-// The service that VERIFIES the tokens holds the secret: st0's backend, which serves the library.
-const PATH = ["st0-backend", "API_TOKEN_SECRET"];
+// The service that VERIFIES the tokens holds the secret: k7's backend, which serves the library.
+const PATH = ["k7-backend", "API_TOKEN_SECRET"];
 
 if (!existsSync(ENV_FILE)) {
   console.error(`no ${ENV_FILE} — copy env.example.yaml first`);
@@ -44,5 +44,5 @@ if (dryRun) {
 }
 writeFileSync(ENV_FILE, doc.toString({ lineWidth: 0 }), "utf8");
 console.log(
-  `  ${PATH.join(".")}: generated\n\n  ${ENV_FILE} updated — restart st0's backend; every token signed with the old secret is now void`,
+  `  ${PATH.join(".")}: generated\n\n  ${ENV_FILE} updated — restart k7's backend; every token signed with the old secret is now void`,
 );

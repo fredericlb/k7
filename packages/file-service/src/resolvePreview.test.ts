@@ -13,9 +13,9 @@ let ws: Workspace;
 beforeEach(() => {
   base = mkdtempSync(join(tmpdir(), "td-preview-"));
   // The workspace root IS the project here, so its folder carries the suffix that makes it one.
-  root = join(base, "song.st0");
+  root = join(base, "song.k7");
   mkdirSync(join(root, "clips"), { recursive: true });
-  writeFileSync(join(root, "project.yaml"), "package st0\n");
+  writeFileSync(join(root, "project.yaml"), "package k7\n");
   writeFileSync(join(root, "clips", "kick.wav"), "RIFF"); // presence is enough
   writeFileSync(join(root, "clips", "loop.wav"), "RIFF");
   ws = new Workspace(root);
@@ -62,7 +62,7 @@ describe("Workspace.resolvePreview", () => {
 describe("Workspace.resolvePreview on a clip", () => {
   const clipProject = (clip: Record<string, unknown>) => {
     const dir = mkdtempSync(join(tmpdir(), "td-prevclip-"));
-    const p = join(dir, "song.st0");
+    const p = join(dir, "song.k7");
     writeYaml(join(p, "project.yaml"), {
       project: { name: "s", tempo: 110, timeSignature: "4/4" },
     });

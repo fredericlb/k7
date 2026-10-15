@@ -38,7 +38,7 @@ stream copy into mp4 rather than a re-encode: seconds rather than minutes, and n
 | an export | `optimized`, else `source` — never `proxy` |
 | a shot's sound | `source`, through its own extraction |
 
-The choice is made where the scene is built (`sceneOf` in `packages/st0-plugins/src/video/scene.ts`),
+The choice is made where the scene is built (`sceneOf` in `packages/k7-plugins/src/video/scene.ts`),
 so nothing downstream knows that copies exist. The clip names its copies, rather than a naming
 convention implying them, for the reason `sound:` is named: a copy replaced by hand is one line to
 change, and a clip that names none simply reads its source.

@@ -1,4 +1,4 @@
-// libraryRelay.ts — the libraries as st0fs workspaces. On the origin the hub is the server's replica of
+// libraryRelay.ts — the libraries as k7fs workspaces. On the origin the hub is the server's replica of
 // each, watching its folder and relaying every change to the room `<name>` of LIBRARIES_ACCOUNT.
 // On a PAIRED machine it follows the origin's rooms instead, read-only, as `@lib/<name>`: a local edit is undone.
 // Only the origin's hub holds that account's secret, so no replica writes a library. See docs/fileHub.md.

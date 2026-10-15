@@ -58,7 +58,7 @@ export interface ExportOptions {
   bitrate?: number; // bits/s; omit for the `quality` preset
   /** mediabunny's presets, scaled to the codec and the size; `high` when neither this nor `bitrate` is said. */
   quality?: ExportQuality;
-  /** The file's frame size, when it is not the viewport's: the frame is composited at the viewport's and scaled (apps/st0/frontend/docs/picture.md). */
+  /** The file's frame size, when it is not the viewport's: the frame is composited at the viewport's and scaled (apps/k7/frontend/docs/picture.md). */
   size?: [number, number];
   /** Where on the timeline the file starts, in seconds; `frameCount` frames are taken from there, and the sound with them. */
   from?: number;

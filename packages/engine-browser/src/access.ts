@@ -57,7 +57,7 @@ export interface HostedFiles {
   admin: boolean;
 }
 
-/** Where an app keeps its preferences, when that is not where the registry is — st0, whose registry is pl8's. */
+/** Where an app keeps its preferences, when that is not where the registry is — k7, whose registry is pl8's. */
 export interface EngineAccessOptions {
   prefsBase?: string;
   /** Reach the SERVER's files when it hosts them, rather than the engine machine's — see docs/access.md. */

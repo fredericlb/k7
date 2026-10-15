@@ -99,7 +99,7 @@ export function toOtio(
         },
         effects: warp(s.clip.speed ?? 1),
         markers: [],
-        metadata: s.clip.still ? { st0: { still: true } } : {},
+        metadata: s.clip.still ? { k7: { still: true } } : {},
       });
       at = s.end;
     });
@@ -128,7 +128,7 @@ export function toOtio(
       markers: [],
       metadata: {},
     },
-    metadata: { st0: { viewport: doc.viewport, fps: doc.fps } },
+    metadata: { k7: { viewport: doc.viewport, fps: doc.fps } },
   };
   return { json: `${JSON.stringify(timeline, null, 2)}\n`, skipped };
 }

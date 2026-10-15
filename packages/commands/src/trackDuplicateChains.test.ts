@@ -44,7 +44,7 @@ const ORIGINAL_IDS = [
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-chains-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });
   writeFileSync(
     join(root, "_modules", "audio", "amp", "module.yaml"),

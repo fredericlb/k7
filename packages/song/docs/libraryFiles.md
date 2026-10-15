@@ -16,7 +16,7 @@ Deluxe Reverb cabinet goes after a Two-Rock and after a Super Reverb, and an IR 
 module that might use it is the same file in five places, drifting. So IRs, and samples for the same
 reason, live once per library and are reached from anywhere.
 
-This is what retired `@st0/audio/amps/guitar`: a module that existed only to carry files — the models
+This is what retired `@k7-core/audio/amps/guitar`: a module that existed only to carry files — the models
 now sit in the NAM module's own `assets/`, the IRs in the library's `irs/`, and the pickers on the
 NAM module's panel reach both.
 
@@ -37,7 +37,7 @@ libraries'. Only samples, today: an IR is the libraries'.
 
 ## Named `@<library>/<path>`
 
-A file is named the way a module is: `@st0/fender deluxe verb/DELUXE REVERB OXFORD - BIG.wav`, the
+A file is named the way a module is: `@k7-core/fender deluxe verb/DELUXE REVERB OXFORD - BIG.wav`, the
 path under that library's `irs/`. The library's name is in it because two libraries may each have a
 `fender deluxe verb/`, and because a song moves between machines: the name says where to look on
 the next one, where an absolute path would say nothing. `libraryFile` refuses a path that climbs out
@@ -49,7 +49,7 @@ of the folder, since a ref is text a hand-edited file holds.
 it) maps a param to its family: today `ir` → `irs`. `SHARED_FILE_PARAMS` maps the params that take a
 library's file OR the module's own, by the `@` — today `model` → `models`; `resolveFileParamIn` is
 that choice, made once for the loader and for an inherited ref alike. Such a param is set like any file-valued one —
-`node param <node> ir "@st0/…"`, what the panel's picker runs — and is checked against
+`node param <node> ir "@k7-core/…"`, what the panel's picker runs — and is checked against
 `libraryFiles`, the list the picker was shown. The loader resolves it to an absolute path on the
 module (`ir`) while keeping the name it was written with (`assets.ir`), exactly as it does a `model`.
 

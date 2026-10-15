@@ -1,7 +1,7 @@
 // migrateTrackMixer.ts — give every audio lane the channel strip it lacks: a node on the library's
 // mixer, wired at the end of its run, just before the mixer's sum.
 //
-//   npx tsx packages/song/scripts/migrateTrackMixer.ts <projet.st0> [more…] [--write]
+//   npx tsx packages/song/scripts/migrateTrackMixer.ts <projet.k7> [more…] [--write]
 //
 // A lane with no strip has faders that write nowhere: the gutter's, the card's, the Mixer view's.
 // Idempotent (a lane whose run already ends on a mixer is skipped), dry by default, and through the
@@ -16,7 +16,7 @@ const write = args.includes("--write");
 const roots = args.filter((a) => !a.startsWith("--"));
 if (!roots.length) {
   console.error(
-    "usage: migrateTrackMixer <projet.st0> [more…] [--write]   (dry run without --write)",
+    "usage: migrateTrackMixer <projet.k7> [more…] [--write]   (dry run without --write)",
   );
   process.exit(2);
 }

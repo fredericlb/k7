@@ -10,7 +10,7 @@ const asked: unknown[] = [];
 let queued: (() => Promise<string>)[] = [];
 const host = (opts: { render?: boolean; background?: boolean } = {}) =>
   ({
-    songPath: "/song.st0",
+    songPath: "/song.k7",
     project: () => ({ tracks: [], groups: [] }),
     baseModules: [],
     log: (l: string[]) => logs.push(...l),

@@ -1,6 +1,6 @@
 // migrateStemParts.ts — move a SET's stem knobs from "how much to REMOVE" to "how much to PLAY".
 //
-//   npx tsx packages/song/scripts/migrateStemParts.ts <projet.st0> [more…] [--write]
+//   npx tsx packages/song/scripts/migrateStemParts.ts <projet.k7> [more…] [--write]
 //
 // `Level` ran −1..1 against a deck that subtracted from the record; it now runs 0..2 against one
 // that plays the four PARTS, so the same sound is one higher — −0.6 removed 60% of the drums, 0.4
@@ -24,7 +24,7 @@ const write = args.includes("--write");
 const roots = args.filter((a) => !a.startsWith("--"));
 if (!roots.length) {
   console.error(
-    "usage: migrateStemParts <projet.st0> [more…] [--write]   (dry run without --write)",
+    "usage: migrateStemParts <projet.k7> [more…] [--write]   (dry run without --write)",
   );
   process.exit(2);
 }

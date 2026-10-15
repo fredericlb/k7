@@ -51,13 +51,12 @@ beforeEach(() => {
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("a new node", () => {
-  const REFS = { "@st0/audio/delay": { kind: "plugin" } } as unknown as Record<
-    string,
-    LoadedModule
-  >;
+  const REFS = {
+    "@k7-core/audio/delay": { kind: "plugin" },
+  } as unknown as Record<string, LoadedModule>;
 
   it("is the one item of a chain named as asked, known by its id, hidden until placed", () => {
-    const id = createNodeOn(dir, "@st0/audio/delay", "echo", REFS);
+    const id = createNodeOn(dir, "@k7-core/audio/delay", "echo", REFS);
     expect(id).toMatch(/^[0-9a-f-]{36}$/);
     expect(read("chains/echo.yaml")).toContain(`id: ${id}`);
     expect(readChainProject(dir).nodes[id]?.chain).toBe("echo");
@@ -67,11 +66,11 @@ describe("a new node", () => {
   });
 
   it("refuses a name a chain already has, and the name counts as taken", () => {
-    createNodeOn(dir, "@st0/audio/delay", "echo", REFS);
+    createNodeOn(dir, "@k7-core/audio/delay", "echo", REFS);
     expect(nodeNameTaken(dir)("echo")).toBe(true);
-    expect(() => createNodeOn(dir, "@st0/audio/delay", "echo", REFS)).toThrow(
-      /already exists/,
-    );
+    expect(() =>
+      createNodeOn(dir, "@k7-core/audio/delay", "echo", REFS),
+    ).toThrow(/already exists/);
   });
 
   it("an input starts its chain once wired, keeping its role's comments", () => {
@@ -139,7 +138,7 @@ describe("what a chain project refuses or repoints", () => {
 
 describe("spliceChainItem", () => {
   const CHAIN =
-    'steps:\n  # kept\n  - { id: a, extends: "@st0/x", bypass: true }\n  - id: b\n    extends: "@st0/y"\n';
+    'steps:\n  # kept\n  - { id: a, extends: "@k7-core/x", bypass: true }\n  - id: b\n    extends: "@k7-core/y"\n';
 
   it("edits one item as a node file, block style, and puts the use's keys back", () => {
     const out = spliceChainItem(CHAIN, "a", (t) =>
@@ -147,9 +146,9 @@ describe("spliceChainItem", () => {
     );
     expect(out).toContain("# kept");
     expect(out).toMatch(
-      /id: a\n\s+extends: "@st0\/x"\n\s+bypass: true\n\s+mix: 0.5/,
+      /id: a\n\s+extends: "@k7-core\/x"\n\s+bypass: true\n\s+mix: 0.5/,
     );
-    expect(out).toContain('  - id: b\n    extends: "@st0/y"\n');
+    expect(out).toContain('  - id: b\n    extends: "@k7-core/y"\n');
   });
 
   it("refuses an edit that leaves the chain unreadable", () => {

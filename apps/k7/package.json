@@ -1,0 +1,10 @@
+{
+  "name": "k7",
+  "version": "1.0.0",
+  "description": "A **text-based DAW**. Your song is a folder of CUE files; the terminal (or a web editor) is your studio.",
+  "license": "ISC",
+  "author": "",
+  "scripts": {
+    "dev": "concurrently -n frontend,backend -c auto \"npm run dev --workspace=k7-frontend\" \"npm run dev --workspace=k7-backend\""
+  }
+}

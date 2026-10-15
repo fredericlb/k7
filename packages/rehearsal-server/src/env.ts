@@ -1,5 +1,5 @@
-// env.ts — the rehearsal server's configuration, read from st0-backend's section of env.yaml.
-// It loads that section itself: st0's server.ts layers it into process.env only AFTER its imports ran.
+// env.ts — the rehearsal server's configuration, read from k7-backend's section of env.yaml.
+// It loads that section itself: k7's server.ts layers it into process.env only AFTER its imports ran.
 // The media library is not configured here: the host hands its address and token to mountRehearsal.
 
 import { homedir } from "node:os";
@@ -12,7 +12,7 @@ const DEV_SECRET = "dev-insecure-secret-change-me";
 const raw = defineEnv(
   {
     SESSION_SECRET: z.string().default(DEV_SECRET),
-    // k7's own token secret, NOT st0's API_TOKEN_SECRET: the tokens saved in users' settings must keep verifying.
+    // k7's own token secret, NOT k7's API_TOKEN_SECRET: the tokens saved in users' settings must keep verifying.
     K7_API_TOKEN_SECRET: z.string().optional(),
     // Set, and the store still empty: the rows are copied out of that PocketBase once at boot — ../docs/store.md.
     POCKETBASE_URL: z.string().optional(),
@@ -26,7 +26,7 @@ const raw = defineEnv(
     // The OIDC groups whose members delete a public song, comma-separated; empty, nobody does.
     AUTH_ADMIN_GROUPS: z.string().default(""),
   },
-  { service: "st0-backend" },
+  { service: "k7-backend" },
 );
 
 // RTC tickets and API tokens both derive from this secret, and setupAuth does not refuse the default.
@@ -53,7 +53,7 @@ export const env = {
       : null,
   // The local audio cache holds copies the médiathèque can refill, trimmed oldest-first past this (../docs/audit.md).
   cacheMaxBytes: (Number(raw.CACHE_MAX_GB) || 20) * 1024 ** 3,
-  // Read as st0 and z0 read the same variable — ../docs/ownership.md.
+  // Read as k7 and z0 read the same variable — ../docs/ownership.md.
   adminGroups: raw.AUTH_ADMIN_GROUPS.split(",")
     .map((g) => g.trim())
     .filter(Boolean),

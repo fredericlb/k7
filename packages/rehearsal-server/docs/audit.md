@@ -1,7 +1,7 @@
 # Audit — stability and speed of the rehearsal pages
 
-A standing audit of the rehearsal recorder: this package's routes over its SQLite store, mounted in st0's
-backend; the pages of `packages/ui-rehearsal`, mounted in st0's SPA; and `packages/recorder`.
+A standing audit of the rehearsal recorder: this package's routes over its SQLite store, mounted in k7's
+backend; the pages of `packages/ui-rehearsal`, mounted in k7's SPA; and `packages/recorder`.
 Findings are either an invariant they hold — written down so it is not broken again —
 or a numbered lot still open, and why. Every entry below was read in the code, not reported second
 hand; the measured ones say what was measured.
@@ -31,9 +31,9 @@ requests leave no descriptor open (61 before, 56 after).
   an unhandled rejection.
 - **A final error middleware** on this package's router (`src/mount.ts`) answers what reaches `next(err)` — malformed JSON 400, an upload past
   its ceiling 413, the rest 500 — as JSON, never Express's development page with its stack.
-- **The process** is st0's backend, and its own rules hold: a stray rejection is logged and survived,
+- **The process** is k7's backend, and its own rules hold: a stray rejection is logged and survived,
   an uncaught exception is logged and exits, the container restarting it, and a SIGTERM lets
-  in-flight requests finish (`apps/st0/backend/src/server.ts`).
+  in-flight requests finish (`apps/k7/backend/src/server.ts`).
 
 ## An id from a URL reaches no other file
 
@@ -49,7 +49,7 @@ A session list projects seven fields instead of every envelope, which passes 100
 
 `packages/ui-rehearsal/docs/recordings.md`: the stopped take is kept with Retry and Download, a save cannot fail once the
 upload answered (so Retry never sends a take twice), and leaving the tab asks first while a take is
-at risk. st0's server gives one request 30 minutes, where Node's default cuts an hours-long upload at 5.
+at risk. k7's server gives one request 30 minutes, where Node's default cuts an hours-long upload at 5.
 
 ## The recorder's frame costs the window, not the take
 

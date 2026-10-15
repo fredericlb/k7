@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { hasMalformedUiFile, readUiFile, writeUiFile } from "./moduleUi";
 
 /** A library `tempo` panel, verbatim — block mappings, a meter, quoted binds. */
-const TEMPO = `# panel for @st0/cold/tempo
+const TEMPO = `# panel for @k7-core/cold/tempo
 cols: 2
 rows: 2
 widgets:
