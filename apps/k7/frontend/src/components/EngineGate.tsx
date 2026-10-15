@@ -143,7 +143,7 @@ export function EngineGate({
       const { ranked: r, chosen, rememberedId } = await engines.find();
       if (cancelled) return;
       setRanked(r);
-      // Compatibility, then latency class, then performance — compatibility left out where it could not be told. Not remembered, so every open ranks afresh.
+      // Compatibility, then latency class, then performance — compatibility left out where it could not be told.
       const compat = await compatByEngine(r);
       if (cancelled) return;
       // The BENCH plays beside the account's song, on its engine: the account's files drive one at a time.
