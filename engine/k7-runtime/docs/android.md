@@ -21,7 +21,7 @@ elsewhere is something it can ADD, never something it needs. `BackendHost.kt` is
 | the desktop's port, environment and folders, read from `apps/k7/backend/standalone.json` | one table for both, whose values `apps/k7/backend/docs/standalone.md` explains; the port is a `BuildConfig` constant, since the views compare origins before anything is unpacked |
 | the local user when signed out | a view opens on `/auth/local`, and falls back to it whenever `/auth/me` says nobody — the cookie watch the desktop does, with the signal the views already had |
 | the phone's own studio pinned FIRST in the supervisor's list, before it starts | the supervisor's saved list overrides `$STUDIO_REGISTRY_URL`, so a phone that already listed a studio would never see its own otherwise |
-| Termux's arm64 node, as `lib*.so` (`engine/k7-android/scripts/termux-tools.mjs`) | no other build of node runs as an Android app; the native library directory is the only place an app may execute a file, and only `lib*.so` names reach it. Library names and the Termux prefix are patched in place, same length, so nothing is relinked. Each `.deb` is checked against the digest in Termux's index, which keeps only current versions, so the build takes whatever is current and records it in `termux-versions.json` |
+| Termux's arm64 node, as `lib*.so` (`engine/k7-android/scripts/termux-tools.mjs`) | no other build of node runs as an Android app; the native library directory is the only place an app may execute a file, and only `lib*.so` names reach it. Library names and the Termux prefix are patched in place, same length, so nothing is relinked. Each `.deb` is the one pinned, by file and SHA-256, in `engine/k7-android/scripts/termux-packages.json`, and a download that does not match fails the build: Termux's index is unsigned as the script reads it, so it is never trusted at build time. Termux keeps only current versions, so a pinned one disappears with the next upgrade and the build fails on a 404; `node engine/k7-android/scripts/termux-tools.mjs --pin` rewrites the table from the current index, a diff to review and commit. The versions shipped are recorded in `termux-versions.json` |
 | the backend BUNDLED (`apps/k7/backend/scripts/bundle.mjs`), the packaged desktop's bundle | tsx needs esbuild's native binary, which Termux's node cannot load (`apps/k7/backend/docs/standalone.md`) |
 | one `backend.zip` asset, unpacked once per install | node reads files, not assets; the APK's `lastUpdateTime` marks the copy, as for Faust's libraries |
 | cleartext allowed for `127.0.0.1` only (`engine/k7-android/app/src/main/res/xml/network_security_config.xml`) | the local studio is plain http, as on desktop, and every other host stays https |
@@ -303,8 +303,10 @@ this platform does not have.
 ## In CI
 
 OneDev's **android** job builds the APK for every release, beside the desktops, from a cold SDK install
-pinned by version and checksum (`.onedev-buildspec.yml`). It is DEBUG-signed: there is no release
-key, and a sideloaded debug APK is what a phone on the bench needs.
+pinned by version and checksum (`.onedev-buildspec.yml`), and GitHub's `android` job does the same.
+Both build the RELEASE type, not debuggable, signed with the release key from their secrets
+(`docs/desktop-release.md`); a debug build is for a developer's own phone, and replacing one with the
+other needs the app uninstalled first.
 
 ## Logs
 

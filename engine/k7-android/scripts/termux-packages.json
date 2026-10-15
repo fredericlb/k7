@@ -1,0 +1,47 @@
+{
+  "nodejs": {
+    "version": "26.4.0-1",
+    "file": "pool/main/n/nodejs/nodejs_26.4.0-1_aarch64.deb",
+    "sha256": "eaf3ed8a6e4b72ebaa8c2cb3bad778c577cdf9ea87ca91761213d8a3940fc090"
+  },
+  "libc++": {
+    "version": "30",
+    "file": "pool/main/libc/libc++/libc++_30_aarch64.deb",
+    "sha256": "53d0b84a7ba7459024257cb94d5b136fe13ef858567f65a8064b35950799f2ca"
+  },
+  "openssl": {
+    "version": "1:3.6.5",
+    "file": "pool/main/o/openssl/openssl_1:3.6.5_aarch64.deb",
+    "sha256": "a2fb7856875e63ef6b90442752e05974813372c3ca86d2513a78ea43c67a0f8b"
+  },
+  "c-ares": {
+    "version": "1.34.8",
+    "file": "pool/main/c/c-ares/c-ares_1.34.8_aarch64.deb",
+    "sha256": "7681fc23e822d7988ba8b2adf3468f93ae68f724dda365cff1385096a9fa87e6"
+  },
+  "libicu": {
+    "version": "78.3",
+    "file": "pool/main/libi/libicu/libicu_78.3_aarch64.deb",
+    "sha256": "f536403f65a08fe0df6e7304184e902d54def77d5c3bd5edfd9109d57601d276"
+  },
+  "libsqlite": {
+    "version": "3.54.0",
+    "file": "pool/main/libs/libsqlite/libsqlite_3.54.0_aarch64.deb",
+    "sha256": "9adf91e118fcf4d449f0fb9668485d895916c4f76c2407da17ba114406f43a58"
+  },
+  "zlib": {
+    "version": "1.3.2",
+    "file": "pool/main/z/zlib/zlib_1.3.2_aarch64.deb",
+    "sha256": "75e7d0af17fcc3b40004309fdc00a1ddb9ae08346dce5e269902c34ac3966ac9"
+  },
+  "libffi": {
+    "version": "3.8.0",
+    "file": "pool/main/libf/libffi/libffi_3.8.0_aarch64.deb",
+    "sha256": "4f255badf74cd31f6a2801c17fa1444199c84c834b517b7c843e2fe9ebe91d77"
+  },
+  "ca-certificates": {
+    "version": "1:2026.09.25",
+    "file": "pool/main/c/ca-certificates/ca-certificates_1:2026.09.25_all.deb",
+    "sha256": "57fab24bf4561bfdd35afe71bc1929914e51c35458cfd1fca2b15e54bc8df7af"
+  }
+}

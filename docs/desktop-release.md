@@ -105,21 +105,75 @@ reach, and the build then runs uncached — the launcher is set only when the st
 
 ## The phone, beside the desktops
 
-The `android` job builds `engine/k7-android`'s APK, debug-signed, and the release carries it as
-`k7-android_<stamp>_arm64.apk`. It is a job of its own rather than a fourth platform of the two
+The `android` job builds `engine/k7-android`'s **release** APK, signed with the project's release key,
+and the release carries it as `k7-android_<stamp>_arm64.apk`. It is a job of its own rather than a fourth platform of the two
 stages: the phone's engine is an arm64 LIBRARY that Gradle compiles inside the app's build
 (`engine/k7-runtime/docs/android.md`), so there is no command-line archive for it to share. It runs as
 OneDev's `android` job does — the image's Android SDK, the platform, build tools and NDK that
 `app/build.gradle.kts` names, JDK 21 — with its own compiler and sources caches, since the same sources
 compile to arm64 there. Like the desktops, a red APK holds the release back.
 
-There is no release key, so the APK is signed with a debug key and installs by sideloading. Android
-refuses an update signed by another key, and a fresh runner makes a new debug key each time, so the
-job keeps one in the Actions cache, under an `ANDROID_USER_HOME` it pins so the file it restores is the
-file the build signs with: every snapshot is signed alike, and one built anywhere else (a
-developer's machine, OneDev) needs the installed app removed first. The cache is not a vault — an
-entry unused for a week is evicted and the next run signs with a new key; a keystore kept as a
-repository secret is what a release key would need.
+### The release key
+
+A published APK is never a debug build: a debuggable app lets `adb shell run-as` read everything it
+stores, and a debug key kept in a build cache is a key anyone who can write that cache can sign an
+update with. So the job runs `assembleRelease`, whose build type is not debuggable, and
+`app/build.gradle.kts` signs it only from four environment variables — `K7_ANDROID_KEYSTORE_FILE`,
+`K7_ANDROID_KEYSTORE_PASSWORD`, `K7_ANDROID_KEY_ALIAS`, `K7_ANDROID_KEY_PASSWORD`. Without them
+the build leaves an unsigned `app-release-unsigned.apk`, which nothing publishes. The job then checks
+the APK with `apksigner verify` and refuses one `aapt2` reports as debuggable.
+
+R8 stays off for the release build: Capacitor's bridge and the JNI entry points are reached by
+reflection, and no keep rules cover them.
+
+The key is the app's identity for as long as it ships: Android refuses an update signed by another,
+so a lost key means every user uninstalls, and a leaked one means anyone can ship an update. An APK
+signed with any other key — a developer's debug build — needs the installed app removed first.
+
+**Without the secrets**, a tag fails in `decide`, before any build, since a release without its APK
+is incomplete; a snapshot (a `main` push, a dispatch) builds and publishes the desktops and no APK,
+with a warning on the run. A fork has no secrets, so its snapshots carry no APK.
+
+Create the key once, on a trusted machine, and keep the `.jks` and its passwords offline as well:
+
+```bash
+keytool -genkeypair -v -keystore k7-release.jks -storetype PKCS12 \
+  -alias k7 -keyalg RSA -keysize 4096 -validity 10000 \
+  -dname "CN=k7, O=frediverse"
+base64 -w0 k7-release.jks > k7-release.jks.b64   # macOS: base64 -i k7-release.jks -o k7-release.jks.b64
+```
+
+PKCS12 holds one password for the store and the key, so the two password secrets are the same value.
+
+| GitHub repository secret | OneDev job secret | value |
+|---|---|---|
+| `ANDROID_KEYSTORE_B64` | `android-keystore-b64` | the content of `k7-release.jks.b64` |
+| `ANDROID_KEYSTORE_PASSWORD` | `android-keystore-password` | the store password |
+| `ANDROID_KEY_ALIAS` | `android-key-alias` | `k7`, the `-alias` above |
+| `ANDROID_KEY_PASSWORD` | `android-key-password` | the key password |
+
+On OneDev, restrict the four to the branch releases are built from, `main`, so a build of any other
+branch cannot read them.
+
+## Checksums
+
+Every release carries `SHA256SUMS`, one line per file — the engine archives, the installers, the
+APK — written by the publish job (GitHub) or the `release` job (OneDev) over exactly the files it
+publishes. `sha256sum -c SHA256SUMS` in the download folder checks them. It proves a download matches
+what CI published, not who published it: nothing is signed with a key of ours, since keyless signing
+would only bind the files to this repository's CI identity and no client checks it.
+
+## What a workflow may do
+
+`desktop.yml` and `k7.yml` grant `contents: read` at the top; the publish job alone gets
+`contents: write`. The reusable `desktop-platform.yml` receives `COMMONS_TOKEN` by name, never
+`secrets: inherit`, since its jobs run third-party actions. Every action is pinned to a full commit
+SHA with its version in a comment: a tag can be moved under a run, a commit cannot. A bump is a new
+SHA, resolved with `gh api repos/<owner>/<repo>/commits/<tag> -q .sha`.
+
+The release stamp — the tag, or `snapshot-<commit>` — reaches commands through the environment and is
+checked in `decide` against `vX.Y.Z` or `snapshot-<hex>`: a tag name is chosen by whoever pushes it,
+and anything else stops the run.
 
 ## The installer each platform gets
 
@@ -132,7 +186,7 @@ has failed with `EAGAIN` out of `CUDIFFileAccess::updateHeader`, intermittently 
 too; a red macOS desktop leg that names `hdiutil` is that, and `hdiutil create -srcfolder` is the path
 that works around it.
 
-## Nothing is signed
+## The desktops are not signed
 
 The macOS `.dmg` and engine archive are unsigned and unnotarised, and the Windows installer and
 binaries unsigned, so they warn on first launch, macOS needs the right-click-Open path, and an engine
@@ -179,8 +233,9 @@ its slower tests out.
 cache and the dependency SOURCES between runs in OneDev caches — the last through
 `$STUDIO_FETCHCONTENT_DIR`, which both CMake projects fetch into when it is set. That cache
 holds sources only: what CMake builds inside it depends on the preset, and the job deletes it on its
-way out, failed or not. The APK keeps its debug keystore in a cache too, under the `ANDROID_USER_HOME`
-it pins, for the reason the GitHub job does.
+way out, failed or not. Its release key comes from the four `android-*` job secrets above, read
+through quoted heredocs into a folder the job deletes on exit. OneDev runs on an instance with no
+forks, so the job has no unsigned path: without the secrets it fails, on a snapshot as on a tag.
 
 **The Windows jobs run on a Windows agent through a Remote Shell Executor**, so nothing is installed
 per run: Node, Git, CMake, Ninja and the Visual Studio Build Tools are the agent's, under the account
@@ -189,7 +244,9 @@ which is heavier than the machine it would run on. The dependency sources stay o
 `$STUDIO_FETCHCONTENT_DIR` (`%LOCALAPPDATA%\k7-ci\fetch` unless the agent names another): the machine
 already keeps them, so nothing crosses the network. `cmd` has no exit trap, so what the last run built
 there is deleted before a run instead of after it. They fetch `commons` themselves — the checkout takes
-no submodule — with the same `submodule-token` secret the checkout uses. They override no preset, so
+no submodule — with the same `submodule-token` secret the checkout uses, handed to git through
+`GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0`/`GIT_CONFIG_VALUE_0` rather than `-c`, which would put the
+token in the process's command line, readable by anything listing the agent's processes. They override no preset, so
 the agent builds with the host default, `windows-msvc` (Visual Studio 2026, its own generator), exactly
 as the machine does by hand, and with no compiler cache: that generator ignores a launcher.
 
