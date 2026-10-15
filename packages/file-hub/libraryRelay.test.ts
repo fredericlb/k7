@@ -69,7 +69,8 @@ describe("the libraries' relay", () => {
         : 0;
     await until(() => entries() >= 1);
     writeFileSync(join(home, "k7-core", "modules", "mix.yaml"), "gain: 0.9\n");
-    await until(() => readFileSync(roomFile, "utf8").includes("0.9"));
+    // Past one 5 s re-scan: a watcher (Linux's recursive one) may miss the rewrite, and the re-scan is the net.
+    await until(() => readFileSync(roomFile, "utf8").includes("0.9"), 12_000);
     expect(accounts.every((a) => a === LIBRARIES_ACCOUNT)).toBe(true);
 
     // Any replica follows it as `@lib/k7-core`, and is refused a write.
@@ -114,7 +115,7 @@ describe("the libraries' relay", () => {
       /followed, never written/,
     );
     ws.close();
-  });
+  }, 20_000);
 
   it("follows the origin's library read-only on a paired machine: a local edit is undone, nothing is sent", async () => {
     const tmp = mkdtempSync(join(tmpdir(), "lib-follow-"));
