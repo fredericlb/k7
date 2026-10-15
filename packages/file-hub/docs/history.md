@@ -45,6 +45,13 @@ the point. Named by a person, it records their email. The relay also takes one, 
 room has been edited and then left alone for ten minutes, at most one per quiet period, so a session
 of work has a point to come back to without anyone thinking of naming it.
 
+A **share** names one too, `share: <project>`, at the seq its author's edits reached
+(`shareHistory.ts`, `packages/file-service/docs/share.md`). The file service asks the hub for it on
+its own secret, rather than writing `checkpoints.json` itself: the hub is that file's one writer, and
+it has no lock. The same route answers the files at that seq, each binary as the path of its bytes
+in the blob store. A share is therefore built from the history and never from the disk, and since
+nothing here deletes a segment, a snapshot or a checkpoint, its point stays rebuildable.
+
 ## A restore is an ordinary batch
 
 Restoring rebuilds the files at a point and submits ONE batch to the live room the relay holds:

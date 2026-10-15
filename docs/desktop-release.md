@@ -166,18 +166,18 @@ through, and it must be minutes rather than hours.
 
 ## On OneDev
 
-`.onedev-buildspec.yml` names jobs by what they make — `engine linux`, `desktop linux`, `engine windows`,
-`desktop windows`, `android` — and only **`release`** carries triggers: a push to `main` touching
+`.onedev-buildspec.yml` names jobs by what they make — `engine windows`, `desktop windows`, `android` —
+and builds no Linux leg: that one is GitHub's alone, and OneDev's container runs would only duplicate it. Only **`release`** carries triggers: a push to `main` touching
 `engine/`, `apps/`, `packages/`, `commons` or the lock, and a `v*` tag, GitHub's gate expressed as the
 trigger's paths. Its dependencies run the rest, each desktop job retrieving its engine job's archive,
 and it gathers every file into its own build: that build's artifacts are the release. The file names
-are GitHub's — the tag, or `snapshot-<commit>`. The engine jobs and the APK wait for `lint and test`: they
-share its machine, and with three C++ compiles beside it its slower tests time out — and a release
-should not ship what the tests refuse anyway.
+are GitHub's — the tag, or `snapshot-<commit>`. The engine job and the APK wait for `lint and test`: a release
+should not ship what the tests refuse, and the APK shares its machine, where a C++ compile beside it times
+its slower tests out.
 
-**The Linux jobs and the APK run in containers** and install their toolchain on every run. They keep
-a ccache, Electron's downloads and the dependency SOURCES between runs in OneDev caches — the last
-through `$STUDIO_FETCHCONTENT_DIR`, which both CMake projects fetch into when it is set. That cache
+**The APK runs in a container** and installs its toolchain on every run. It keeps a ccache, Gradle's
+cache and the dependency SOURCES between runs in OneDev caches — the last through
+`$STUDIO_FETCHCONTENT_DIR`, which both CMake projects fetch into when it is set. That cache
 holds sources only: what CMake builds inside it depends on the preset, and the job deletes it on its
 way out, failed or not. The APK keeps its debug keystore in a cache too, under the `ANDROID_USER_HOME`
 it pins, for the reason the GitHub job does.

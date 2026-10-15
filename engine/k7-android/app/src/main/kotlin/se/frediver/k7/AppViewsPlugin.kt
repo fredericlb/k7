@@ -1,5 +1,5 @@
 // AppViewsPlugin.kt — the studio apps, each in a full-screen WebView of its own over the shell page (web/src/App.tsx,
-// AppViews), under a status-bar strip and an account bar (AccountBar.kt) painted the colour of the app's own header. They load from
+// AppViews), under a status-bar strip painted the colour of the app's own header; who is signed in is k7's home page's. They load from
 // the connected studio rather than from this APK: each app is same-origin with its backend (`/api`, `/auth`, cookie
 // sessions), so a bundled copy would be an app with no server. A view is made the first time it is shown and then
 // only hidden, so an app keeps its state — a rehearsal take, a track playing in k7's media library — while another is on screen.
@@ -49,9 +49,6 @@ class AppViewsPlugin : Plugin() {
     private lateinit var frame: FrameLayout
     // Under the status bar, in the visible app's top colour.
     private lateinit var strip: View
-    // Under the strip: the studio, who is signed in, and the button that signs in or out.
-    private lateinit var bar: AccountBar
-    private var barPx = 0
     private var studio: String? = null
     private lateinit var appBridge: StudioBridge
     private val colors = mutableMapOf<String, Int>()
@@ -70,6 +67,8 @@ class AppViewsPlugin : Plugin() {
     private lateinit var pickFiles: ActivityResultLauncher<Intent>
     private var chooser: ValueCallback<Array<Uri>>? = null
     private var localSignInAt = 0L
+    // A sign-in the browser answered before k7's view existed — the process was killed behind it: the view's first load.
+    private var pendingRedeem: String? = null
 
     override fun load() {
         // Over the page's WebView, in the same layout, the whole screen: the shell page is only seen with no studio.
@@ -80,9 +79,6 @@ class AppViewsPlugin : Plugin() {
         )
         strip = View(context)
         frame.addView(strip, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, 0))
-        barPx = (AccountBar.HEIGHT_DP * context.resources.displayMetrics.density).toInt()
-        bar = AccountBar(context, onSignIn = ::signIn, onSignOut = ::signOut)
-        frame.addView(bar, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, barPx))
         // The views start below the status bar and the cutout, and stop short of the navigation bar and the keyboard.
         ViewCompat.setOnApplyWindowInsetsListener(frame) { _, insets ->
             topPx = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()).top
@@ -113,6 +109,9 @@ class AppViewsPlugin : Plugin() {
             }
         }
         activity.onBackPressedDispatcher.addCallback(activity, back)
+
+        // Launched BY the browser's answer: no new intent will carry it.
+        activity.intent?.data?.let { answer -> AuthHandoff.redeemUrl(context, answer, "/")?.let { pendingRedeem = it } }
 
         pickFiles = activity.activityResultRegistry.register("k7-app-files", ActivityResultContracts.StartActivityForResult()) {
             chooser?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(it.resultCode, it.data))
@@ -149,10 +148,12 @@ class AppViewsPlugin : Plugin() {
         // On the phone's own studio a view opens as the local user, as the desktop window does.
         val home = if (studio == BackendHost.ORIGIN && id == "k7") BackendHost.LOCAL_HOME else address
         appBridge.setStudio(studio)
-        if (studio != this.studio) bar.setStudio(studio?.let { if (it == BackendHost.ORIGIN) "this phone" else Uri.parse(it).host })
         this.studio = studio
         val view = views.getOrPut(id) { create(id) }
+        val redeem = pendingRedeem.takeIf { id == "k7" }
+        pendingRedeem = null
         when {
+            redeem != null -> view.loadUrl(redeem)
             url != null -> view.loadUrl(url)
             loaded[id] != home -> view.loadUrl(home)
         }
@@ -194,7 +195,9 @@ class AppViewsPlugin : Plugin() {
         // Back where k7 was: the sign-in is carried into its view, which stays on the page it showed.
         val returnTo = views["k7"]?.url?.let(Uri::parse)?.let { u -> (u.path ?: "/") + (u.query?.let { "?$it" } ?: "") } ?: "/"
         val redeem = AuthHandoff.redeemUrl(context, answer, returnTo) ?: return
-        navigate("k7", Uri.parse(redeem))
+        // Straight into the view: a `navigate` to the app already shown changes nothing on the page, and loads nothing.
+        val view = views["k7"]
+        if (view == null) pendingRedeem = redeem else bridge.executeOnMainThread { view.loadUrl(redeem) }
     }
 
     /** In the system browser, never in a view: identity providers refuse WebViews (RFC 8252 §8.12). */
@@ -204,7 +207,6 @@ class AppViewsPlugin : Plugin() {
 
     /** Who the studio says is signed in; on the phone's own studio nobody means back to the local user, as on desktop, and an account pairs. */
     private fun onAccount(name: String?) {
-        bar.show(name)
         // A real account on the phone's own studio is paired with the origin, once (SyncPairing.kt).
         if (name != null && studio == BackendHost.ORIGIN) SyncPairing.pairIfNeeded(context, CookieManager.getInstance().getCookie(BackendHost.ORIGIN))
         if (name != null || studio != BackendHost.ORIGIN) return
@@ -215,19 +217,9 @@ class AppViewsPlugin : Plugin() {
         views["k7"]?.loadUrl(BackendHost.LOCAL_HOME)
     }
 
-    /** The studio's own logout, from the view in front; the reload lands on its sign-in screen. */
-    private fun signOut() {
-        views[visible]?.evaluateJavascript(
-            "fetch('/auth/logout',{method:'POST'}).finally(()=>location.reload())",
-            null,
-        )
-        bar.show(null)
-    }
-
     private fun place() {
         strip.layoutParams = strip.layoutParams.apply { height = topPx }
-        bar.layoutParams = (bar.layoutParams as FrameLayout.LayoutParams).apply { topMargin = topPx }
-        views.values.forEach { v -> v.layoutParams = (v.layoutParams as FrameLayout.LayoutParams).apply { topMargin = topPx + barPx } }
+        views.values.forEach { v -> v.layoutParams = (v.layoutParams as FrameLayout.LayoutParams).apply { topMargin = topPx } }
         frame.setPadding(0, 0, 0, bottomPx)
     }
 
@@ -235,7 +227,6 @@ class AppViewsPlugin : Plugin() {
     private fun paint() {
         val color = colors[visible] ?: Color.TRANSPARENT
         strip.setBackgroundColor(color)
-        bar.paint(color)
         if (color != Color.TRANSPARENT) barIcons().isAppearanceLightStatusBars = ColorUtils.calculateLuminance(color) > 0.5
     }
 
@@ -267,7 +258,7 @@ class AppViewsPlugin : Plugin() {
         }
         frame.addView(
             this,
-            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT).apply { topMargin = topPx + barPx },
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT).apply { topMargin = topPx },
         )
     }
 

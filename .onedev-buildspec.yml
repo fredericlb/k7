@@ -166,7 +166,7 @@ jobs:
   retryDelay: 30
   timeout: 1800
 # Manual-only (no triggers): a cheap, fast stand-in for the desktop build's real archive —
-# run this from the OneDev UI BEFORE the first "engine linux" to find a too-low upload limit
+# run this from the OneDev UI BEFORE the first "release" to find a too-low upload limit
 # in seconds rather than after a 30+ minute compile. Raise PROBE_MB and re-run if it passes
 # at 250 but the real archive turns out bigger; check both OneDev's own Administration ->
 # Performance Settings and any reverse proxy in front of it (nginx's client_max_body_size)
@@ -194,163 +194,11 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 600
-# The release graph, as .github/workflows/desktop.yml draws it (docs/desktop-release.md): per platform an
-# ENGINE job — engine/k7-runtime and engine/k7-supervisor compiled and archived as the command-line
-# engine — then a DESKTOP job packaging apps/k7-standalone around that archive, compiling nothing, and
-# run only when its own engine built; beside them the APK; and "release", which the triggers name and
-# which gathers every file into one build. A failed platform skips its own desktop job and nothing else. The
-# engines and the APK wait for "lint and test": they share its machine, and three C++ compiles beside it time it out.
-- name: engine linux
-  steps:
-  - type: CheckoutStep
-    name: checkout
-    cloneCredential:
-      type: HttpCredential
-      accessTokenSecret: submodule-token
-    withLfs: false
-    withSubmodules: true
-    condition: SUCCESSFUL
-    optional: false
-  - type: SetupCacheStep
-    name: set up npm cache
-    key: npm-cache
-    paths:
-    - /root/.npm
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
-  # Every C/C++ object (JUCE, Tracktion, Faust, NAM, the supervisor's TLS and WebRTC stacks) through ccache.
-  - type: SetupCacheStep
-    name: set up ccache
-    key: ccache-linux
-    paths:
-    - /root/.ccache
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
-  # The dependency SOURCES, kept in STUDIO_FETCHCONTENT_DIR so a run clones nothing; what gets built there is deleted at exit.
-  - type: SetupCacheStep
-    name: set up dependency sources cache
-    key: fetch-linux
-    paths:
-    - /root/.cache/k7-fetch
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
-  - type: CommandStep
-    name: build the engine
-    runInContainer: true
-    image: node:22-bookworm
-    interpreter:
-      type: DefaultInterpreter
-      commands: |
-        # Any failing command fails the step: sh otherwise answers with the LAST command's status.
-        set -e
-        git config --global --add safe.directory '*'
-        # JUCE's ALSA/JACK/X11 set, and the toolchain a bare node image carries none of.
-        export DEBIAN_FRONTEND=noninteractive
-        apt-get update
-        apt-get install -y --no-install-recommends \
-          build-essential cmake ninja-build ccache git curl ca-certificates pkg-config python3 \
-          libssl-dev \
-          libasound2-dev libjack-jackd2-dev libfreetype6-dev libfontconfig1-dev \
-          libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev \
-          libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev \
-          libcurl4-openssl-dev ladspa-sdk
-
-        # The presets read the launcher from STUDIO_COMPILER_LAUNCHER (docs/desktop-release.md).
-        export STUDIO_COMPILER_LAUNCHER=ccache
-        export STUDIO_FETCHCONTENT_DIR=/root/.cache/k7-fetch
-        trap 'find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/k7-runtime/faust-src/build/lib' EXIT
-        # BASEDIR and NOHASHDIR keep a hit from depending on where the workspace is.
-        export CCACHE_DIR=/root/.ccache CCACHE_BASEDIR="$PWD" CCACHE_NOHASHDIR=true CCACHE_MAXSIZE=4G
-        ccache --zero-stats
-        npm ci
-        # The release's name, as GitHub's names it: the tag on a tag, snapshot-<commit> on main.
-        STAMP=$(git describe --tags --exact-match --match 'v*' 2>/dev/null || echo "snapshot-$(git rev-parse --short HEAD)")
-        STUDIO_ENGINE_PRESET=release-gcc STUDIO_SUPERVISOR_PRESET=release-gcc node engine/scripts/build-engine.mjs
-        node engine/scripts/package-release.mjs --kind engine --stamp "$STAMP"
-        ccache --show-stats
-    runAs: 0:0
-    useTTY: true
-    condition: SUCCESSFUL
-    optional: false
-  - type: PublishArtifactStep
-    name: publish the engine archive
-    artifacts: dist/release/k7-runtime_*
-    condition: SUCCESSFUL
-    optional: false
-  jobDependencies:
-  - jobName: lint and test
-    requireSuccessful: true
-  retryCondition: never
-  maxRetries: 3
-  retryDelay: 30
-  timeout: 5400
-- name: desktop linux
-  steps:
-  - type: CheckoutStep
-    name: checkout
-    cloneCredential:
-      type: HttpCredential
-      accessTokenSecret: submodule-token
-    withLfs: false
-    withSubmodules: true
-    condition: SUCCESSFUL
-    optional: false
-  - type: SetupCacheStep
-    name: set up npm cache
-    key: npm-cache
-    paths:
-    - /root/.npm
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
-  # The Electron runtime and electron-builder's tools (appimagetool), which the packaging downloads.
-  - type: SetupCacheStep
-    name: set up electron cache
-    key: electron-linux
-    paths:
-    - /root/.cache/electron
-    - /root/.cache/electron-builder
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
-  - type: CommandStep
-    name: package the desktop app
-    runInContainer: true
-    image: node:22-bookworm
-    interpreter:
-      type: DefaultInterpreter
-      commands: |
-        set -e
-        git config --global --add safe.directory '*'
-        npm ci
-        # The engine job's archive, retrieved by the dependency below, unpacked where stageEngine takes it from.
-        mkdir -p /tmp/engine
-        tar -xzf dist/release/k7-runtime_*.tar.gz -C /tmp/engine
-        export STUDIO_PREBUILT_BIN=/tmp/engine/k7-runtime
-        # The release's name, as GitHub's names it: the tag on a tag, snapshot-<commit> on main.
-        STAMP=$(git describe --tags --exact-match --match 'v*' 2>/dev/null || echo "snapshot-$(git rev-parse --short HEAD)")
-        npm run package --workspace k7-standalone
-        node engine/scripts/package-release.mjs --kind desktop --stamp "$STAMP"
-    runAs: 0:0
-    useTTY: true
-    condition: SUCCESSFUL
-    optional: false
-  - type: PublishArtifactStep
-    name: publish the AppImage
-    artifacts: dist/release/*.AppImage
-    condition: SUCCESSFUL
-    optional: false
-  jobDependencies:
-  - jobName: engine linux
-    requireSuccessful: true
-    artifacts: dist/release/k7-runtime_*
-  retryCondition: never
-  maxRetries: 3
-  retryDelay: 30
-  timeout: 3600
+# The release graph, GitHub's (.github/workflows/desktop.yml) minus Linux, which only GitHub builds (docs/desktop-release.md):
+# an ENGINE job — engine/k7-runtime and engine/k7-supervisor compiled and archived as the command-line engine —
+# then a DESKTOP job packaging apps/k7-standalone around that archive, compiling nothing; beside them the APK;
+# and "release", which the triggers name and which gathers every file into one build.
+# The engine and the APK wait for "lint and test": a release must not ship what the tests refuse.
 # The phone: engine/k7-android's debug-signed APK — the engine as libk7runtime.so, built by its android-arm64
 # preset, with the supervisor and the Capacitor page (web/) — as GitHub's android job builds it. Gradle builds the
 # engine itself with the SDK's pinned NDK (engine/k7-runtime/docs/android.md). The SDK is fetched and pinned like
@@ -382,7 +230,7 @@ jobs:
     uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
-  # Its own key, never the linux job's: the same sources compile to arm64 objects here.
+  # Its own key: these sources compile to arm64 objects, which no other preset may reuse.
   - type: SetupCacheStep
     name: set up ccache
     key: ccache-android
@@ -579,7 +427,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 3600
-# What a push or a tag starts: every platform's two jobs and the APK, run through the dependencies below, and their
+# What a push or a tag starts: Windows's two jobs and the APK, run through the dependencies below, and their
 # files gathered into this one build — OneDev's release page. Red when any of them is. The paths are GitHub's gate:
 # a push that touched only docs builds nothing (docs/desktop-release.md).
 - name: release
@@ -597,12 +445,6 @@ jobs:
   - type: TagCreateTrigger
     tags: v*
   jobDependencies:
-  - jobName: engine linux
-    requireSuccessful: true
-    artifacts: dist/release/*
-  - jobName: desktop linux
-    requireSuccessful: true
-    artifacts: dist/release/*
   - jobName: engine windows
     requireSuccessful: true
     artifacts: dist/release/*

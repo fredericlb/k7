@@ -311,6 +311,27 @@ async function endedRemotely(a: Attached): Promise<void> {
   await dropEndedWorkspace(a.name);
 }
 
+/** Send every edit made here and wait for the server to order it: answers the seq that holds them all (docs/share.md). */
+export async function settledSeq(
+  root: string,
+  timeoutMs = 30_000,
+): Promise<{ room: string; seq: number }> {
+  const a = attached.get(root);
+  if (!a?.link || !a.replica)
+    throw new Error("this workspace does not sync with a server");
+  if (a.held) throw new Error("this workspace is moving to another server");
+  a.capture.flushNow({ full: true });
+  const end = Date.now() + timeoutMs;
+  const settled = () =>
+    !a.replica?.unconfirmed().length && a.link?.textState(a.room) === "current";
+  while (!settled()) {
+    if (Date.now() > end)
+      throw new Error("the server has not taken this workspace's last edits");
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return { room: a.room, seq: a.replica.head };
+}
+
 /** The room the workspace at `root` syncs as, when it is linked to one. */
 export const roomAt = (root: string): string | undefined =>
   attached.get(root)?.room ?? readLinkRecord(liveLogFor(root))?.room;

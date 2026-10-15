@@ -91,7 +91,7 @@ a folder name git would give a clone, so none can collide with a workspace.
 |---|---|---|
 | `/@local/<espace>/<projet>` | a project in a workspace on this machine | `POST /open` on it — no lookup, no clone, **no libraries check** |
 | `/@banc/<chain>/live.k7` | the bench: one live rig, generated, seeded with a copy of a library chain, for anyone. The bare `/@banc/live.k7` and a bare library (`/@banc/@k7-core/live.k7`) are refused — a library is edited by an admin from any project | the libraries check, then the machine writes the rig again and opens it |
-| `/@shares/<token>.k7` | a frozen snapshot the media library holds | none of it: no account, no engine, no working copy |
+| `/@shares/<token>.k7` | a project at a checkpoint the media library holds | no account and no working copy; the server's engine, through the share's player |
 
 **Anything else is refused** with the "missing" screen, which says a project opens from the home
 page and what its address will be: guessing which folder a repository name meant would open the
@@ -165,7 +165,7 @@ The machine is the rule and the gate the courtesy: `/open` refuses with 409 whil
 still syncing (`packages/file-service/docs/liveCapture.md`, "Up to date"), so a ▶ on a project row
 cannot open half a project either, and a gate that hears 409 because the project fell behind between
 its two questions waits again. A service without the route answers 404, which reads as nothing to
-wait for: an older machine, or a frozen share, has nothing on its way.
+wait for: an older machine, or a share, has nothing on its way.
 
 ## What the gate takes, and what it refuses to know
 

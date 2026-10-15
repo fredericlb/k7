@@ -1,4 +1,4 @@
-# Shares — the library hosts a frozen copy of a project
+# Shares — the library hosts a project at a checkpoint
 
 ## A share is not a copy of a repository
 
@@ -9,26 +9,26 @@ is a different object:
 |  | what the library holds of a repository | a share |
 |---|---|---|
 | what it is | nothing | **the original**, and the only one |
-| who can remake it | — | nobody — the render happened once |
-| what is written to it | nothing | nothing either: frozen the second it lands |
+| who can remake it | — | its author, from the checkpoint it names, as a NEW share |
+| what is written to it | nothing | nothing either: fixed the second it lands |
 | when it goes | when the repository leaves its list | when its author removes it, and never before |
 
 A share is **published content**, like a rehearsal release or a track in the media library — things this
 service already hosts and is already the only copy of. What `projects.md` refuses is the library becoming
 **the writer of everyone's repositories**, a change of security posture rather than a feature, and
-serving frozen bytes someone sent touches none of it: the library pushes into no repository, holds no
+serving fixed bytes someone sent touches none of it: the library pushes into no repository, holds no
 working copy, and a deleted share loses only itself. The real price is not posture, it is
 **disk**, and it is measured below.
 
 ## What a share is
 
-A **frozen** version of a project, with no engine behind it. Everything audible is rendered in
-advance: the mixdown, plus one file per audible track. The visitor opens k7 read-only, listens,
-looks at the chains and the module parameters, and can break nothing because no process is waiting
-behind to execute anything.
+A project **at a checkpoint**, played live by the server's engine. The visitor opens k7 read-only,
+listens, mutes and solos for themselves, looks at the chains and the module parameters, and changes
+nothing: their session holds a copy of the document, and the player lets through only the transport
+and their mix ([sharePlayer.md](sharePlayer.md)).
 
-How the bundle is built and why it holds what it holds is opposite, in
-[`packages/commands/docs/shareBundle.md`](../../../../../packages/commands/docs/shareBundle.md). This
+How a share is made and why it holds what it holds is in
+[`packages/file-service/docs/share.md`](../../../../../packages/file-service/docs/share.md). This
 page is only what the library does with it.
 
 ## Two identifiers, and only one touches a path
@@ -43,8 +43,7 @@ The token is **never** a path segment. A path segment ends up in every access lo
 useless to anyone who did not obtain it by hashing a token they already held.
 
 The secondary benefit is speed: a bad token names a folder that does not exist, so the comparison
-is an `ENOENT`, O(1), with no index to load. That counts because it is the path of **every Range
-request** an `<audio>` emits while seeking through a track.
+is an `ENOENT`, O(1), with no index to load.
 
 `isKey` (`/^[0-9a-f]{64}$/`) is checked **before** any join. `safePath` stays the second wall and
 not the first: it confines to the media library root, so `../../songs/private.wav` from `.shares/`
@@ -58,9 +57,10 @@ would pass it without a murmur.
   comments.db               what visitors wrote — the one database here (comments.md)
   blobs/<key>/
     pending.json            present = the draft is unfinished, so nothing answers
-    snapshot.json           the manifest — present = the link is live
-    project-doc.json  graph.json  surfaces.json
-    audio/mix.wav  audio/s0.mp3 …
+    snapshot.json           the manifest (`ShareManifest`) — present = the link is live
+    project-doc.json  graph.json  surfaces.json     what a browser draws
+    engine-doc.json         what the engine plays — never served to a visitor
+    src/…  home/…           the checkpoint's files, and the account's the engine needs
 ```
 
 A **dot folder**, invisible for free: `writablePath` refuses any segment starting with `.` and
@@ -97,7 +97,8 @@ mounted **before** it, each guarded explicitly:
 | `POST /api/shares` (draft), `PUT /:key/file`, `POST /:key/finish` | `bearerOrSession(requireAuth)` |
 | `GET /api/shares`, `GET /revision`, `DELETE /:key` | the same — session in practice |
 | `GET /:key/comments`, `PATCH /:key/comments/:id` | the same, and the share must be YOURS |
-| `GET /api/public/share/:key/*`, `POST /:key/comments` | **none** |
+| `GET /api/shares/player` | the same — whether a share made now would play |
+| `GET /api/public/share/:key/*`, `POST /:key/comments`, the `/:key/play` socket | **none** |
 
 The direction of failure is the right one: a badly mounted share becomes *unreachable*, not
 *public*. `routes/shares.test.ts` mounts the routers **the way `mount.ts` mounts them**, barrier
@@ -126,9 +127,10 @@ must not travel as a `Referer` towards whatever the page loads), `no-store` on t
 revocation must be felt at the next load — and `immutable` on the bytes, a snapshot being
 unchanging by definition.
 
-The manifest is also the **allow-list**: `/doc/:name` and `/audio/:file` do not look for a file,
-they look for a name **in the manifest** and serve what it designates. No request ever reaches a
-path it composed itself.
+The manifest is also the **allow-list**: `/doc/:name` does not look for a file, it looks for a name
+**in the manifest's `docs`** and serves what it designates. No request ever reaches a path it
+composed itself. The engine's document and the file list are left out of what a visitor is shown:
+they name this server's own paths.
 
 The extension there is **optional**, and that is what lets the reader be k7 unchanged: `fget`
 asks for `/project-doc` because that is the file service's route, and the snapshot calls the same
@@ -149,14 +151,15 @@ The library does no multipart: `PUT /api/mediatek/file`, `POST /song`, `POST /re
 `express.raw({type:"*/*", limit:"512mb"})` — *a 400 MB master has no business inside a form
 parse* — and the global `express.json` is at 8 MB. Hence:
 
-1. **draft** — `POST /api/shares`, the manifest as JSON: mints the secret, creates the folder,
-   writes `pending.json` with the list of what is expected;
+1. **draft** — `POST /api/shares`, the manifest as JSON: refused with a 503 when this server has no
+   engine to play it, then mints the secret, creates the folder, writes `pending.json` with the
+   list of what is expected;
 2. **one raw `PUT` per file**, whose `?path=` is **matched** against that list, never sanitised:
-   the draft said what it would send, and everything else is not part of this snapshot. The list
-   itself IS checked, when the draft opens: media are `audio/<name>` and documents a bare
-   `<name>`, one segment of `[A-Za-z0-9._-]` that is neither `pending.json` nor `snapshot.json`.
-   Every name is joined onto the share's folder, by this PUT and by the public reads, so a `../`
-   in a manifest would be a write anywhere on the volume and a read of another person's index;
+   the draft said what it would send, and everything else is not part of this share. The list
+   itself IS checked, when the draft opens: a document is one segment, a file a relative path with
+   no empty, `.` or `..` segment, no backslash and no leading slash, and neither is `pending.json`
+   nor `snapshot.json`. Every name is joined onto the share's folder, by this PUT and by the player,
+   so a `../` in a manifest would be a write anywhere on the volume;
 3. **`finish`** — writes `snapshot.json`, deletes `pending.json`, and **re-measures the sizes on
    disk** instead of believing the draft. What the link serves is what arrived.
 
@@ -173,7 +176,7 @@ ignores; only a `service:` token, which has no person of its own, is read throug
 
 In k7, on its home page, **on the row of the project it came from**: a "Shares" button opening
 that project's popin (`apps/k7/frontend/src/projects/ProjectShares.tsx`, the split being
-`sharesForProject.ts`). Both ends of a share are k7 — it renders the bundle and sends it here,
+`sharesForProject.ts`). Both ends of a share are k7 — it builds the share and sends it here,
 and it takes it back.
 
 **The bytes go first, the index is marked after.** That order is everything: deleting the folder
@@ -191,14 +194,19 @@ the point, but republishing gives a *new* link. The address itself is drawn as a
 a button, because opening it is the only way to check what the others see;
 `rel="noopener noreferrer"`, the page opposite being public.
 
+## A share of another schema is dropped
+
+A share whose `snapshot.json` is of another schema, or whose row names no checkpoint, holds no
+document an engine could play. At boot `dropLegacyShares` revokes each one, as its author would: the
+folder goes, and the row stays, dated, with its comments. The link then answers "not found", the
+same as a revoked one. A second player kept for such shares would be a second way to play one, kept
+alive for links that only get older.
+
 ## The risk with no ceiling
 
-A bundle built on a real song — twelve tracks, `01.danse.k7` — weighs **484 MB** in wav. With no
-expiry, on the volume that also carries everyone's media library. At that rate the failure is not
-"shares stop working": it is "the studio goes read-only".
-
-Settled by measurement: **the stems are mp3**, the mixdown stays wav because it is the only file
-one downloads. About thirty times smaller, and a phone stops pulling 37 MB back to unmute a track.
+A share carries the project's own audio, its clips and its VST renders, once per share, with no
+expiry, on the volume that also carries everyone's media library. Nothing is rendered for it, so it
+weighs what the project weighs, and a song shared five times is on the volume five times.
 
 Two defences are deliberately **not** taken:
 
@@ -211,6 +219,6 @@ Two defences are deliberately **not** taken:
 
 ## What only a deployment measures
 
-Public streaming of real audio files behind the proxy. The edge must stream rather than spool for
-the whole library ([deploy.md](deploy.md)), but a shared link is that path's only
-**unauthenticated** use, and that cannot be checked from a development machine.
+A share played by the server's engine over the internet: the broadcast is uncompressed
+(`docs/server-engine.md`), and a share is that path's only **unauthenticated** use. Neither can be
+checked from a development machine.

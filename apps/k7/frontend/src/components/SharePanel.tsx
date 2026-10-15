@@ -1,5 +1,5 @@
 // SharePanel.tsx — render the project through the engine (MP3/WAV download, or publish to k7
-// with per-track stems), and publish a frozen link. A PANEL anchored at the right, docked beside
+// with per-track stems), and share a link to it at a checkpoint. A PANEL anchored at the right, docked beside
 // the panes, a dropdown being the wrong shape for a surface that reports — an export takes a
 // minute and says where the file went. See ../docs/shell.md.
 // Every entry is a COMMAND LINE the shell dispatches (`project export`, `project share k7`,
@@ -14,8 +14,10 @@ import {
   Share2,
   X,
 } from "@frediverse/ui/icons";
+import type { ShareProgress } from "@studio/web-protocol";
 import { DEFAULT_VIDEO_FORMAT } from "../exportArgs";
 import { m } from "../paraglide/messages.js";
+import { ShareLinkProgress } from "./ShareLinkProgress";
 import { SurfaceQr } from "./SurfaceQr";
 
 /** One surface's address, ready to hand over — computed by `App`, which holds both the launch parameters and the surface list. */
@@ -23,6 +25,7 @@ export type SurfaceLink = { id: string; type: string; url: string };
 
 export function SharePanel({
   busy,
+  progress,
   externals,
   lanUrls,
   hasPicture,
@@ -31,6 +34,8 @@ export function SharePanel({
 }: {
   /** A render is already running — the rows grey out rather than starting a second. */
   busy: boolean;
+  /** Where the link being made is — its bar sits under the row that started it. */
+  progress?: ShareProgress | null;
   /** Every surface this project declares — empty is a project that declares none, and the section is then absent rather than empty. */
   externals: readonly SurfaceLink[];
   /** Where a second device reaches this app; empty leaves each code saying there is nowhere to send it. */
@@ -106,7 +111,7 @@ export function SharePanel({
         ) : null}
 
         <div className="my-1 border-t border-border" />
-        {/* The two that PUBLISH different things: k7 gets a release, a link gets a frozen copy (packages/commands/docs/shareBundle.md). */}
+        {/* The two that PUBLISH different things: k7 gets a release, a link gets the project at a checkpoint (packages/file-service/docs/share.md). */}
         <div className={head}>{m["share.publishHead"]()}</div>
         <button
           type="button"
@@ -117,6 +122,7 @@ export function SharePanel({
           <Link2 className="h-4 w-4 text-muted-foreground" />
           {m["share.shareLink"]()}
         </button>
+        {progress ? <ShareLinkProgress progress={progress} /> : null}
         <button
           type="button"
           className={row}

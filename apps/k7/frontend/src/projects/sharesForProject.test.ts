@@ -14,7 +14,7 @@ const share = (
   origin: { repo, project },
   createdAt: "2026-01-01T00:00:00.000Z",
   bytes: 1024,
-  stems: 2,
+  checkpoint: { seq: 7, name: "share: x.k7" },
   ...(revoked ? { revokedAt: "2026-02-01T00:00:00.000Z" } : {}),
 });
 

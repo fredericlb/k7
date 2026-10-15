@@ -135,12 +135,18 @@ holds. The verifier is kept on disk: the process may be killed while the browser
 The studio's own OIDC client is the one used, with its registered `redirect_uri`: nothing new to
 register at the identity provider for the phone.
 
-**A bar over the views** (`AccountBar.kt`) is where a desktop window has its title: the studio's
-host, the name of whoever is signed in, and one button — lucide's log-in or log-out, the icons the
-desktop draws. Who is signed in is the page's answer to `/auth/me` (`assets/account.js`), asked on
-every load and whenever the page comes back to the front, so a logout in k7's own user menu shows
-in the bar without the bar knowing about it. Sign out is the studio's logout, run from the view in
-front. The bar takes the app's top colour, like the status bar above it.
+**The account is on k7's home page**, as on the desktop (`apps/k7/frontend/src/projects/AccountBar.tsx`):
+not in a native bar over the views, because an account is chosen where its workspaces are listed, and
+a bar over every page is height taken from all of them. The page tells it is in the app by
+`window.k7Android`; its Sign in only goes to `/auth/login`, which the plugin catches as above, and its
+Sign out reloads, so the plugin hears nobody and falls back to the local user. Who is signed in still
+reaches the native half (`assets/account.js`), asked on every load and whenever the page comes back
+to the front: that is what pairs an account and restores the local user.
+
+**The code is loaded straight into k7's view**, never through the shell page: k7 is the one app
+shown, and a page switch to the app already shown loads nothing. When Android killed the process
+while the browser was in front, the answer is the intent that launches the next one, and it is the
+view's first load.
 
 ## Pairing with the origin, as the desktop does
 
@@ -325,7 +331,7 @@ also catches the GL driver's chatter, which is noise.
   and has not been compiled or driven; the browser reaching the app's loopback port while the app
   is behind it is the part to check first.
 - **The app views have not been driven through a real sign-in on a phone yet.** The routing rules,
-  the browser handoff, the account bar, the status-bar colour and k7's engine section above are
+  the browser handoff, the home page's account control, the status-bar colour and k7's engine section above are
   the design; each needs checking against a live studio.
 
 ## What was measured

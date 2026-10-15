@@ -1,13 +1,12 @@
-// publicShare.ts — the ONE unauthenticated surface of this service: a frozen snapshot, read by
-// whoever holds its link, and the ONE write it accepts — leaving a comment. Mounted ABOVE
+// publicShare.ts — the ONE unauthenticated surface of this service: a share's documents, read by whoever holds
+// its link, and the ONE write it accepts — leaving a comment. Its playing is player.ts, a socket of its own. Mounted ABOVE
 // `../mount.ts`'s `/api` guard, which is the whole of what makes it public; what bounds the write is
 // commentGate.ts. See ../../../docs/media/shares.md and ../../../docs/media/comments.md.
 
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { streamFile } from "@frediverse/http";
 import { wrap } from "@frediverse/http/route";
-import { mimeFor } from "@studio/mediatek/media";
+import { SHARE_SCHEMA, type ShareManifest } from "@studio/web-protocol";
 import express, { Router, type Router as RouterT } from "express";
 import {
   allow,
@@ -23,18 +22,8 @@ import {
 } from "../shares/comments.ts";
 import { blobDir, isKey } from "../shares/store.ts";
 
-/** The snapshot's manifest, as `@studio/commands/share-bundle` wrote it. */
-interface Snapshot {
-  name: string;
-  media: {
-    mix: { file: string };
-    stems: { id: string; file: string }[];
-  };
-  docs: string[];
-}
-
-/** Read one snapshot, or null — an unknown key and a half-uploaded one are the same 404. */
-function snapshotOf(key: string): Snapshot | null {
+/** Read one share's manifest, or null — an unknown key, a half-uploaded one and one of another schema are the same 404. */
+export function snapshotOf(key: string): ShareManifest | null {
   if (!isKey(key)) return null;
   const dir = blobDir(key);
   try {
@@ -45,7 +34,10 @@ function snapshotOf(key: string): Snapshot | null {
     /* not pending — the ordinary case */
   }
   try {
-    return JSON.parse(readFileSync(join(dir, "snapshot.json"), "utf8"));
+    const m = JSON.parse(
+      readFileSync(join(dir, "snapshot.json"), "utf8"),
+    ) as ShareManifest;
+    return m.schema === SHARE_SCHEMA ? m : null;
   } catch {
     return null;
   }
@@ -66,14 +58,16 @@ export function publicShareRouter(): RouterT {
   const gone = (res: import("express").Response) =>
     res.status(404).json({ error: "no such share" });
 
-  /** What the viewer asks for first: the project's name and where its audio is. */
+  /** What the viewer asks for first: the project's name, its checkpoint, and which documents it may read. */
   router.get(
     "/:key/manifest",
     wrap((req, res) => {
       const snap = snapshotOf(req.params.key);
       if (!snap) return gone(res);
       res.set("Cache-Control", "no-store");
-      res.json(snap);
+      // The file list and the engine's document name server paths: the player's, never a visitor's.
+      const { files: _files, engineDoc: _engine, ...visible } = snap;
+      res.json(visible);
     }),
   );
 
@@ -88,39 +82,6 @@ export function publicShareRouter(): RouterT {
       res.set("Cache-Control", "public, max-age=31536000, immutable");
       res.type("application/json");
       res.send(readFileSync(join(blobDir(req.params.key), file)));
-    }),
-  );
-
-  /** The audio, with Range and no credential of any kind — an `<audio>` element sends none. */
-  router.get(
-    "/:key/audio/:file",
-    wrap((req, res) => {
-      const snap = snapshotOf(req.params.key);
-      const want = `audio/${req.params.file}`;
-      const known =
-        snap &&
-        (snap.media.mix.file === want ||
-          snap.media.stems.some((s) => s.file === want));
-      if (!snap || !known) return gone(res);
-      const abs = join(blobDir(req.params.key), want);
-      res.set("Cache-Control", "public, max-age=31536000, immutable");
-      streamFile(req, res, abs, mimeFor(abs));
-    }),
-  );
-
-  /** The mixdown as a download — its own route rather than a flag on the one above. */
-  router.get(
-    "/:key/download",
-    wrap((req, res) => {
-      const snap = snapshotOf(req.params.key);
-      if (!snap) return gone(res);
-      const abs = join(blobDir(req.params.key), snap.media.mix.file);
-      const name = (snap.name || "mixdown").replace(/[\\/:*?"<>|]+/g, "_");
-      res.set(
-        "Content-Disposition",
-        `attachment; filename="${name}${snap.media.mix.file.slice(snap.media.mix.file.lastIndexOf("."))}"`,
-      );
-      streamFile(req, res, abs, mimeFor(abs));
     }),
   );
 

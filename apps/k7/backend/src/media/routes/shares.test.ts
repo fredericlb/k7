@@ -1,4 +1,5 @@
 import {
+  existsSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -9,10 +10,18 @@ import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureLayout } from "@studio/mediatek/layout";
+import { SHARE_SCHEMA } from "@studio/web-protocol";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { closeComments } from "../shares/comments.ts";
-import { blobDir, isKey, keyOf } from "../shares/store.ts";
+import { allowed } from "../shares/player.ts";
+import {
+  blobDir,
+  dropLegacyShares,
+  isKey,
+  keyOf,
+  listShares,
+} from "../shares/store.ts";
 import { publicShareRouter } from "./publicShare.ts";
 import { sharesRouter } from "./shares.ts";
 
@@ -21,6 +30,7 @@ let root: string;
 let server: Server;
 let base: string;
 let who = "alice";
+let playerUp = true;
 
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), "shares-http-"));
@@ -35,7 +45,11 @@ beforeEach(async () => {
       (req as { user?: unknown }).user = { sub: who, email: `${who}@x.test` };
       next();
     },
-    sharesRouter(),
+    sharesRouter(() =>
+      playerUp
+        ? { available: true }
+        : { available: false, why: "no engine here" },
+    ),
   );
   // The fence, in its real position: everything below it needs a session.
   app.use("/api", (_req, res) =>
@@ -54,20 +68,17 @@ afterEach(async () => {
   delete process.env.STUDIO_MEDIATEK;
   rmSync(root, { recursive: true, force: true });
   who = "alice";
+  playerUp = true;
 });
 
 const MANIFEST = {
-  schema: 1,
+  schema: SHARE_SCHEMA,
   name: "Danse",
-  mode: "arrangement",
-  media: {
-    mix: { file: "audio/mix.wav", bytes: 0 },
-    stems: [
-      { id: "s0", track: "t1", name: "Basse", file: "audio/s0.mp3", bytes: 0 },
-    ],
-    video: false,
-  },
+  createdAt: "2026-10-15T00:00:00.000Z",
+  checkpoint: { workspace: "band", seq: 42, name: "share: danse.k7" },
   docs: ["project-doc.json"],
+  engineDoc: "engine-doc.json",
+  files: [{ path: "src/danse.k7/audio/bass.wav", bytes: 0 }],
   bytes: 0,
 };
 
@@ -137,8 +148,12 @@ describe("uploading one", () => {
     for (const bad of [
       { docs: ["../index/alice.json"] },
       { docs: ["pending.json"] },
-      { media: { ...MANIFEST.media, mix: { file: "audio/../../x.wav" } } },
-      { media: { ...MANIFEST.media, mix: { file: "mix.wav" } } },
+      { docs: ["src/project-doc.json"] },
+      { engineDoc: "../engine.json" },
+      { files: [{ path: "src/../../x.wav", bytes: 0 }] },
+      { files: [{ path: "/etc/passwd", bytes: 0 }] },
+      { files: [{ path: "a//b", bytes: 0 }] },
+      { schema: 1 },
     ]) {
       const r = await fetch(`${base}/api/shares`, {
         method: "POST",
@@ -167,8 +182,21 @@ describe("uploading one", () => {
     const { key } = await share();
     const snap = JSON.parse(
       readFileSync(join(blobDir(key), "snapshot.json"), "utf8"),
-    ) as { media: { mix: { bytes: number } } };
-    expect(snap.media.mix.bytes).toBe("bytes of audio/mix.wav".length);
+    ) as { files: { path: string; bytes: number }[] };
+    expect(snap.files[0].bytes).toBe(
+      "bytes of src/danse.k7/audio/bass.wav".length,
+    );
+  });
+
+  it("refuses a share this server has no engine to play", async () => {
+    playerUp = false;
+    const r = await fetch(`${base}/api/shares`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ manifest: MANIFEST }),
+    });
+    expect(r.status).toBe(503);
+    expect((await body<{ error: string }>(r)).error).toBe("no engine here");
   });
 });
 
@@ -178,14 +206,11 @@ describe("reading one with no session at all", () => {
     const { key } = await share();
     const r = await fetch(`${base}/api/public/share/${key}/manifest`);
     expect(r.status).toBe(200);
-    expect((await body<{ name: string }>(r)).name).toBe("Danse");
-  });
-
-  it("answers the audio, and says it can be seeked in", async () => {
-    const { key } = await share();
-    const r = await fetch(`${base}/api/public/share/${key}/audio/s0.mp3`);
-    expect(r.status).toBe(200);
-    expect(r.headers.get("accept-ranges")).toBe("bytes");
+    const m = await body<Record<string, unknown>>(r);
+    expect(m.name).toBe("Danse");
+    // The file list and the engine's document name server paths: never a visitor's.
+    expect(m.files).toBeUndefined();
+    expect(m.engineDoc).toBeUndefined();
   });
 
   it("answers a document the snapshot lists", async () => {
@@ -227,11 +252,11 @@ describe("what the public half refuses", () => {
     expect(isKey("a".repeat(64))).toBe(true);
   });
 
-  it("a file the manifest does not list, even when it is really there", async () => {
+  it("the engine's document, which names this server's paths", async () => {
     const { key } = await share();
-    writeFileSync(join(blobDir(key), "audio", "secret.wav"), "x", "utf8");
     expect(
-      (await fetch(`${base}/api/public/share/${key}/audio/secret.wav`)).status,
+      (await fetch(`${base}/api/public/share/${key}/doc/engine-doc.json`))
+        .status,
     ).toBe(404);
   });
 
@@ -428,5 +453,86 @@ describe("commenting on one", () => {
       await fetch(`${base}/api/shares/revision`),
     );
     expect(after.revision).not.toBe(before.revision);
+  });
+});
+
+describe("a share made before shares were checkpoints", () => {
+  it("is dropped at boot: its folder goes, its row is dated and its link dies", async () => {
+    const { key } = await share();
+    const legacy = join(blobDir(key), "snapshot.json");
+    writeFileSync(legacy, JSON.stringify({ schema: 1, name: "old" }), "utf8");
+    expect(dropLegacyShares()).toBe(1);
+    expect(existsSync(blobDir(key))).toBe(false);
+    const [row] = listShares(who);
+    expect(row.revokedAt).toBeTruthy();
+    expect(row.token).toBe("");
+    // A second boot finds nothing more to do.
+    expect(dropLegacyShares()).toBe(0);
+  });
+
+  it("leaves a current one alone", async () => {
+    const { key } = await share();
+    expect(dropLegacyShares()).toBe(0);
+    expect(existsSync(blobDir(key))).toBe(true);
+  });
+});
+
+/** What a visitor's socket may make the engine do — the whole of the protection, since the engine refuses nothing. */
+describe("the player's allowlist", () => {
+  const doc = () => ({
+    tracks: [
+      { id: "bass", mute: false, solo: false, plugins: [] },
+      { id: "drums", mute: false, solo: false, plugins: [] },
+    ],
+  });
+
+  it("lets the transport through, and nothing else of it", () => {
+    expect(allowed({ type: "transport", action: "play" }, doc())).toEqual({
+      type: "transport",
+      action: "play",
+    });
+    expect(
+      allowed({ type: "transport", action: "seek", position: 12.5 }, doc()),
+    ).toEqual({ type: "transport", action: "seek", position: 12.5 });
+    expect(
+      allowed({ type: "transport", action: "seek", position: -1 }, doc()),
+    ).toBeNull();
+    expect(allowed({ type: "transport", action: "record" }, doc())).toBeNull();
+  });
+
+  it("refuses every verb that loads, records, auditions or reaches a plugin", () => {
+    for (const type of [
+      "project",
+      "tracks",
+      "drop-session",
+      "preview",
+      "set-plugin-param",
+      "record-enable",
+      "broadcast",
+      "whoami",
+      "pair-approve",
+    ])
+      expect(allowed({ type, session: "k7:alice" }, doc()), type).toBeNull();
+  });
+
+  it("turns a mute or a solo into whole tracks of the visitor's own copy, and ignores an unknown one", () => {
+    const d = doc();
+    const out = allowed(
+      {
+        type: "track-mix",
+        tracks: [
+          { id: "bass", mute: true, solo: false },
+          { id: "nope", mute: true },
+        ],
+      },
+      d,
+    );
+    expect(out).toEqual({
+      type: "tracks",
+      tracks: [{ id: "bass", mute: true, solo: false, plugins: [] }],
+    });
+    expect(
+      allowed({ type: "track-mix", tracks: [{ id: "nope" }] }, d),
+    ).toBeNull();
   });
 });

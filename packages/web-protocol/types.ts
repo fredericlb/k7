@@ -920,7 +920,7 @@ export interface ModuleLibrary {
   version?: { pinned: number | "draft"; requires?: number; upgrade?: number };
 }
 
-/** One frozen snapshot a person shared — the AUTHOR's view, which no public route serves; see docs/machine.md. */
+/** One project a person shared, at a checkpoint — the AUTHOR's view, which no public route serves; see docs/machine.md. */
 export interface ShareSummary {
   /** `sha256(token)` — the directory's name on the volume, and the `:key` in every route. */
   key: string;
@@ -931,13 +931,67 @@ export interface ShareSummary {
   /** Where it came from. For the author alone: it says what is on their disk. */
   origin: { repo: string; project: string };
   createdAt: string;
-  /** Everything the snapshot weighs on the volume — the number that makes the cost visible. */
+  /** Everything the share weighs on the volume — the number that makes the cost visible. */
   bytes: number;
-  stems: number;
+  /** The point of the workspace's history it plays, as the history lists it. */
+  checkpoint: { seq: number; name: string };
   /** Set once revoked. The row SURVIVES dated: a share that vanished would leave a doubt. */
   revokedAt?: string;
   /** How many comments sit in each state — COUNTED on the way out, never stored on the row. */
   comments?: CommentCounts;
+}
+
+/** The version of `ShareManifest` this code writes and reads; any other is a share it cannot open. */
+export const SHARE_SCHEMA = 2;
+
+/** Where a share's own files sit, in the document the engine plays: the server puts its folder there. */
+export const SHARE_ROOT = "k7-share:";
+
+/** A share as the media library holds it (`snapshot.json`); apps/k7/backend/docs/media/shares.md. */
+export interface ShareManifest {
+  schema: number;
+  name: string;
+  createdAt: string;
+  /** The checkpoint it was made at: the version shared, which later edits do not reach. */
+  checkpoint: { workspace: string; seq: number; name: string };
+  /** The documents a browser draws it from, by filename — what the viewer may ask for, and nothing else. */
+  docs: string[];
+  /** The document the server's engine plays, its own files named under `SHARE_ROOT`. */
+  engineDoc: string;
+  /** Every file the share carries, relative to its folder. */
+  files: { path: string; bytes: number }[];
+  bytes: number;
+}
+
+/** One stage of making a share, as the author's progress bar draws it — packages/file-service/docs/share.md. */
+export type ShareStep =
+  | "sync"
+  | "freeze"
+  | "checkpoint"
+  | "pack"
+  | "upload"
+  | "done"
+  | "failed";
+
+/** Where a share being made is: `done`/`total` count the step's own units (renders, bytes). */
+export interface ShareProgress {
+  step: ShareStep;
+  done: number;
+  total: number;
+  /** What the step is on: a module being rendered, a file being sent. */
+  detail?: string;
+  /** Set on `failed`: the sentence the author reads. */
+  error?: string;
+  /** Set on `done`. */
+  token?: string;
+  bytes?: number;
+}
+
+/** A workspace's files at one checkpoint, from the hub: texts verbatim, binaries as the path of their bytes there. */
+export interface CheckpointFiles {
+  seq: number;
+  texts: Record<string, string>;
+  blobs: Record<string, { path: string; size: number }>;
 }
 
 /** What an author does with a comment. `active` is where every one lands; see apps/k7/backend/docs/media/comments.md. */

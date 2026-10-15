@@ -576,15 +576,14 @@ it again is opening the project — the gesture that starts one anywhere else.
 
 ## Shares, on the row of the project they came out of
 
-A **"Shares"** button on each project row, beside the ⋮, opens a popin listing the frozen
-snapshots **that project** has published, and it is the only place one is withdrawn. **Both ends
-are k7**: `project share link` makes the bundle here, on the machine that has an engine and can
-therefore render sound, and sends it to the media library — which holds the only copy and serves it to people
-with no account. What the bundle contains is
-[packages/commands/docs/shareBundle.md](../../../../packages/commands/docs/shareBundle.md); what
-the library does with it, including why hosting that does not contradict "the library never makes
-a working copy",
-is [apps/k7/backend/docs/media/shares.md](../../backend/docs/media/shares.md).
+A **"Shares"** button on each project row, beside the ⋮, opens a popin listing the shares **that
+project** has made, each at a checkpoint of its history, and it is the only place one is withdrawn.
+**Both ends are k7**: `project share link` builds the share from the checkpoint on the server and
+sends it to the media library, which holds the only copy, and the server's engine plays it to people
+with no account. How it is made is
+[packages/file-service/docs/share.md](../../../../packages/file-service/docs/share.md); what the
+library does with it, including why hosting that does not contradict "the library never makes a
+working copy", is [apps/k7/backend/docs/media/shares.md](../../backend/docs/media/shares.md).
 
 **On the row, and not in a card for the whole account.** A share COMES OUT of a project, and the
 question you ask is "what have I published of that song", never "give me the account's twenty
@@ -610,10 +609,10 @@ with state is not looked for in the right place.
 ### Comments, behind the row rather than beside the link
 
 Every row carries a **"Commentaires"** button opening `ShareComments.tsx`, a second popin over the
-first: what the people you gave the link to wrote on **that** snapshot. This is the only screen
+first: what the people you gave the link to wrote on **that** share. This is the only screen
 that can move a comment between the three states — `Actifs`, `Résolus`, `Ignorés`, three tabs in
 the order a comment travels, since every one lands in the first and leaves for one of the others.
-The frozen viewer draws the same comments with a chip and no tabs
+The shared viewer draws the same comments with a chip and no tabs
 ([shared.md](shared.md)); the media library's half is [apps/k7/backend/docs/media/comments.md](../../backend/docs/media/comments.md).
 
 **Nothing deletes**, and the popin says so: `Résolu` and `Ignoré` are two ways out of the active

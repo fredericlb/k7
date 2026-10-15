@@ -94,7 +94,7 @@ matches before changing it:
 | `moduleBuilder.md` | the shared builder — and why its parameter list comes from the OPEN project |
 | `sharedModules.md` | the file tree's Libraries tab: editing a `@k7-core` module in place |
 | `conflicts.md` | the sync relay's change notices, the `/revision` fallback, and the open conflicts settled from the footer |
-| `shared.md` | the OTHER shared: `/@shares/<token>.k7` — this app opened on a frozen snapshot, with no account, no engine and no source |
+| `shared.md` | the OTHER shared: `/@shares/<token>.k7` — this app opened on a project at a checkpoint, played by the server's engine in the visitor's own session, with no account and no source |
 | `external.md` | `/@external/<surface>` — one surface alone on a second device, and `/external`, the menu it starts from |
 | `pairing.md` | a LAN device asking an engine to trust it — the card on the device, the prompt and the settings section on the machine |
 | `contextMenu.md` | the right-click menu, derived from the command catalogue |

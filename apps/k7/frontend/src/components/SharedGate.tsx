@@ -1,41 +1,33 @@
-// SharedGate.tsx — the gate a SHARED link goes through, instead of AuthGate → EngineGate →
-// ProjectGate. No account, no engine, no working copy: it hashes the token out of the address,
-// asks pl8 for the snapshot's manifest, and points the file transport at it, frozen.
+// SharedGate.tsx — the gate a SHARED link goes through, instead of AuthGate → EngineGate → ProjectGate. No account
+// and no working copy: it hashes the token out of the address, asks the media library for the share's manifest,
+// points the file transport at its documents, read-only, and hands the shell the share's player as its engine.
 // See docs/shared.md.
 
-import { Button } from "@frediverse/ui/button";
-import { Download, Loader2, Lock } from "@frediverse/ui/icons";
+import { Loader2, Lock } from "@frediverse/ui/icons";
 import { configureFileApi } from "@studio/project-shell/fileApi";
-import type {
-  Hints,
-  HistoryState,
-  ProjectErrors,
-  ProjectInfo,
-  WebPreferences,
-  WorkspaceInfo,
+import {
+  type ShareManifest as FullManifest,
+  type Hints,
+  type HistoryState,
+  type ProjectErrors,
+  type ProjectInfo,
+  SHARE_SCHEMA,
+  type WebPreferences,
+  type WorkspaceInfo,
 } from "@studio/web-protocol";
 import { shareApiBase, shareKey } from "@studio/web-protocol/projects";
 import { useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
 
-/** What a snapshot says about itself — `ShareManifest` in @studio/commands, as served. */
-export interface ShareManifest {
-  schema: number;
-  name: string;
-  createdAt: string;
-  media: {
-    mix: { file: string; bytes: number };
-    stems: { id: string; track: string; name: string; file: string }[];
-    video: boolean;
-  };
-  docs: string[];
-  bytes: number;
-}
+/** What a share says about itself to a visitor: its manifest without the server's own file list. */
+export type ShareManifest = Omit<FullManifest, "files" | "engineDoc">;
 
 export interface OpenShare {
   manifest: ShareManifest;
-  /** `<origin>/api/public/share/<key>` — where the audio and the download hang off. */
+  /** `<origin>/api/public/share/<key>` — where the documents and the comments hang off. */
   base: string;
+  /** The visitor's own session on the server's engine (the backend's player.ts), as the shell's engine address. */
+  player: string;
 }
 
 type Phase =
@@ -130,10 +122,10 @@ export function SharedGate({
         const manifest = (await res.json()) as ShareManifest;
         if (stop) return;
         // A schema this build cannot read is a FAULT and not a 404: this viewer is the one that is out of date.
-        if (manifest.schema > 1)
+        if (manifest.schema !== SHARE_SCHEMA)
           return setPhase({
             k: "fault",
-            why: `this snapshot was made by a newer version (schema ${manifest.schema})`,
+            why: `this share was made by another version of k7 (schema ${manifest.schema})`,
           });
         // `/doc` is where the three documents answer; the identity fields are empty on purpose, a share having no user, workspace or engine.
         configureFileApi({
@@ -141,10 +133,10 @@ export function SharedGate({
           userEmail: "",
           workspace: "",
           engineToken: "",
-          // …and no engine either, which is the same emptiness: a snapshot borrows no machine and writes nothing anywhere.
+          // …and no engine of its own: the server's plays the share, through the player and not the registry.
           engineId: "",
           frozen: {
-            why: "this is a shared copy — it is frozen, and nothing here can be changed",
+            why: "this is a shared version — read only, except what you mute and solo",
             canned: Object.fromEntries(
               Object.entries(cannedFor(manifest)).map(([k, v]) => [
                 k,
@@ -153,7 +145,9 @@ export function SharedGate({
             ),
           },
         });
-        setPhase({ k: "open", share: { manifest, base } });
+        // Same origin as the documents, as a socket: the visitor's session on the server's engine.
+        const player = `${base.replace(/^http/, "ws")}/play`;
+        setPhase({ k: "open", share: { manifest, base, player } });
       } catch (e) {
         if (!stop) setPhase({ k: "fault", why: (e as Error).message });
       }
@@ -188,22 +182,5 @@ export function SharedGate({
         </p>
       </div>
     </div>
-  );
-}
-
-/** The one thing a visitor may take away, as a plain link — a download is a navigation, and fetch would only buy a blob URL. */
-export function ShareDownload({ base }: { base: string }) {
-  return (
-    // 24 px like every other control in the bar: the header's height is whatever its tallest child is.
-    <Button
-      asChild
-      variant="secondary"
-      size="sm"
-      className="h-6 gap-1 px-2 text-xs"
-    >
-      <a href={`${base}/download`} download>
-        <Download className="h-3.5 w-3.5" /> {m["share.download"]()}
-      </a>
-    </Button>
   );
 }

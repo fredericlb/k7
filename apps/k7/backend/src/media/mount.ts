@@ -25,7 +25,8 @@ import { mountServerCopy, serverOf } from "./routes/serverCopy.ts";
 import { settingsRouter } from "./routes/settings.ts";
 import { sharesRouter } from "./routes/shares.ts";
 import { stemsRouter } from "./routes/stems.ts";
-import { sharesDir } from "./shares/store.ts";
+import { SharePlayer } from "./shares/player.ts";
+import { dropLegacyShares, sharesDir } from "./shares/store.ts";
 import { clearUploads, libraryUploads } from "./upload.ts";
 
 /** The library's bearer scheme, created on its own so a mount BEFORE this one can be handed a token. */
@@ -70,8 +71,12 @@ export function mountMedia(
   /** THE ONE PUBLIC SURFACE: unguarded, and mounted ABOVE the `/api` guard — ../../docs/media/shares.md. */
   app.use("/api/public/share", publicShareRouter());
 
-  // The author's half of the same thing: uploading a snapshot, listing them, taking one back.
-  app.use("/api/shares", bearerOrSession(requireAuth), sharesRouter());
+  // The author's half of the same thing: uploading a share, listing them, taking one back.
+  app.use(
+    "/api/shares",
+    bearerOrSession(requireAuth),
+    sharesRouter(() => player.check()),
+  );
 
   // Finding songs on Soulseek. SESSION ONLY: it spends somebody's account — ../../docs/media/hunt.md.
   app.use("/api/hunt", requireAuth, huntRouter);
@@ -84,6 +89,13 @@ export function mountMedia(
     service: "pl8",
     requireAuth,
     exitOnSignal: false,
+  });
+
+  // A share is played by the server's engine, one session per visitor — ../../docs/media/sharePlayer.md.
+  const player = new SharePlayer({
+    tunnels: engine.tunnels,
+    librariesHome: () => fileHub.libraries.home,
+    mediatekDir,
   });
 
   // The accounts' workspaces, which live here and nowhere else — packages/file-hub/docs/fileHub.md.
@@ -161,6 +173,7 @@ export function mountMedia(
     return stopping;
   };
   let bye: (() => void) | undefined;
+  let stopPlayer: (() => void) | undefined;
 
   return {
     issueApiToken,
@@ -171,6 +184,10 @@ export function mountMedia(
         console.log(`   library: ${ensureLayout()}`);
         clearUploads(libraryUploads());
         clearUploads(join(sharesDir(), "uploads"));
+        // Shares made before they were checkpoints cannot play: their links go — ../../docs/media/shares.md.
+        const dropped = dropLegacyShares();
+        if (dropped)
+          console.log(`   shares: dropped ${dropped} frozen share(s)`);
         // A poll costs a map lookup from here on, and the walk that fills it runs off the loop.
         startRevisionRefresh();
         // …and the waveforms nobody has asked for yet, one at a time — ../../docs/media/analysis.md.
@@ -182,10 +199,12 @@ export function mountMedia(
       }
       // Advertised so this machine's file service finds the library; an engine joins only once its settings name this studio.
       bye = engine.serve(server, url, () => void stopHub());
+      stopPlayer = player.attach(server);
       // Live sync's relay, which the account file services dial (packages/file-hub/docs/syncRelay.md).
       fileHub.serveSync(server);
     },
     async stop() {
+      stopPlayer?.();
       bye?.();
       await stopHub();
     },

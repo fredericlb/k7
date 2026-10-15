@@ -130,6 +130,15 @@ The edit changes the fingerprint, so the old render stops applying anyway. Once 
 stopped for `THAW_IDLE_MS` with no further change, the thaw ends and the module is frozen again —
 from its existing render if nothing changed, by a new one otherwise.
 
+## For an engine with no VST at all
+
+`compileWithAutoFreezes(dir, { vsts: "none" })` judges every freeze as not hosted, whatever the
+account's scan says. A share is played by the server's engine, which hosts no VST, and the account's
+`exts.json` names whichever engine was bound last. Compiled that way, every VST track with a render
+plays the render, and one without a render is what a share refuses to go out with
+(`packages/file-service/docs/share.md`). `AutoFreezer.renderAllNow` is how it gets them: every missing
+render made at once, transport running or not, and those no connected machine can make named back.
+
 ## On screen
 
 `WebGraph.autoFrozen` maps every node an automatic render bakes — one that plays, on this engine —

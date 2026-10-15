@@ -561,6 +561,10 @@ export class EngineClient {
   transport(action: TransportAction): void {
     this.send({ type: "transport", action });
   }
+  // A share visitor's mute and solo, which a share's player turns into its own session's tracks; an engine refuses it as unknown.
+  trackMix(tracks: { id: string; mute: boolean; solo: boolean }[]): void {
+    this.send({ type: "track-mix", tracks });
+  }
   // Global record enable, held by the engine and echoed in the state frame, so every surface shows one light.
   setRecordEnabled(on: boolean): void {
     this.send({ type: "record-enable", enabled: on });

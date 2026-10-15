@@ -1,5 +1,5 @@
-// shares.ts — the author's half of a share: uploading one, listing what you have shared, and
-// taking one back. Behind the same guard as the repositories; the PUBLIC half is publicShare.ts
+// shares.ts — the author's half of a share: uploading one (a checkpoint, compiled), listing what you have shared,
+// and taking one back. Behind the same guard as the repositories; the PUBLIC half is publicShare.ts
 // and shares nothing with this but the store. See ../../../docs/media/shares.md.
 
 import {
@@ -9,9 +9,10 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { wrap } from "@frediverse/http/route";
 import { moveFile } from "@studio/mediatek/write";
+import { SHARE_SCHEMA, type ShareManifest } from "@studio/web-protocol";
 import { type Request, Router, type Router as RouterT } from "express";
 import { rememberIdentity, subFor } from "../projects/identities.ts";
 import {
@@ -44,11 +45,14 @@ function subOf(req: Request): string {
 /** The two files the store writes itself, which no upload may name. */
 const RESERVED = new Set(["pending.json", "snapshot.json"]);
 
-/** A name the manifest may list: `audio/<name>` for the media, a bare name for a doc — never a path that climbs. */
-export function shareFileOk(rel: string, audio: boolean): boolean {
-  const name = audio ? rel.replace(/^audio\//, "") : rel;
-  if (audio && name === rel) return false;
-  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) && !RESERVED.has(name);
+/** A path the manifest may list: relative, slash-separated, never climbing, never one of the store's own files. */
+export function shareFileOk(rel: unknown): rel is string {
+  if (typeof rel !== "string" || !rel || rel.length > 1024) return false;
+  if (rel.includes("\\") || rel.includes("\u0000") || rel.startsWith("/"))
+    return false;
+  const segs = rel.split("/");
+  if (segs.some((s) => !s || s === "." || s === "..")) return false;
+  return !RESERVED.has(rel);
 }
 
 /** A file the uploader may PUT: one of the names the draft's own manifest listed. */
@@ -58,7 +62,8 @@ const expected = (pending: { expects: string[] }, path: string): boolean =>
 function pendingOf(key: string): {
   owner: string;
   expects: string[];
-  manifest: Record<string, unknown>;
+  manifest: ShareManifest;
+  origin?: { repo: string; project: string } | null;
 } | null {
   try {
     return JSON.parse(readFileSync(join(blobDir(key), "pending.json"), "utf8"));
@@ -67,7 +72,10 @@ function pendingOf(key: string): {
   }
 }
 
-export function sharesRouter(): RouterT {
+/** Whether this server can play a share now — its engine, as the player finds it (player.ts). */
+export type PlayerCheck = () => { available: boolean; why?: string };
+
+export function sharesRouter(player: PlayerCheck): RouterT {
   const router: RouterT = Router();
 
   router.use((req, res, next) => {
@@ -117,6 +125,14 @@ export function sharesRouter(): RouterT {
     }),
   );
 
+  /** Whether a share made now would play: the file service asks before it does any work. */
+  router.get(
+    "/player",
+    wrap((_req, res) => {
+      res.json(player());
+    }),
+  );
+
   /** Open a draft: the manifest only, and nothing is reachable while `pending.json` is there. */
   router.post(
     "/",
@@ -126,36 +142,34 @@ export function sharesRouter(): RouterT {
         return res.status(400).json({
           error: "a service token must say whose share this is (?user=)",
         });
+      const can = player();
+      if (!can.available)
+        return res.status(503).json({
+          error: can.why ?? "this server has no engine to play shares on",
+        });
       const body = req.body as {
-        manifest?: {
-          media?: { mix?: { file?: string }; stems?: { file: string }[] };
-          docs?: string[];
-          name?: string;
-        };
+        manifest?: Partial<ShareManifest>;
         origin?: { repo: string; project: string };
       };
       const m = body?.manifest;
-      if (!m?.media?.mix?.file)
+      if (m?.schema !== SHARE_SCHEMA || !m.checkpoint || !m.engineDoc)
         return res
           .status(400)
-          .json({ error: "a share needs a manifest with a mixdown" });
-      const media = [
-        m.media.mix.file,
-        ...(m.media.stems ?? []).map((s) => s.file),
-      ];
-      const docs = m.docs ?? [];
+          .json({ error: `a share needs a schema-${SHARE_SCHEMA} manifest` });
+      const docs = [...(m.docs ?? []), m.engineDoc];
+      const files = (m.files ?? []).map((f) => f?.path);
       // Every name is joined onto the share's folder by the PUT and the public reads, so each is checked here.
       const bad = [
-        ...media.filter((f) => typeof f !== "string" || !shareFileOk(f, true)),
-        ...docs.filter((f) => typeof f !== "string" || !shareFileOk(f, false)),
+        ...docs.filter((f) => !shareFileOk(f) || f.includes("/")),
+        ...files.filter((f) => !shareFileOk(f)),
       ];
       if (bad.length)
         return res
           .status(400)
           .json({ error: `not a share file name: ${bad.join(", ")}` });
-      const expects = [...media, ...docs];
+      const expects = [...docs, ...files] as string[];
       const { token, key } = mintToken();
-      mkdirSync(join(blobDir(key), "audio"), { recursive: true });
+      mkdirSync(blobDir(key), { recursive: true });
       writeFileSync(
         join(blobDir(key), "pending.json"),
         JSON.stringify({
@@ -186,7 +200,9 @@ export function sharesRouter(): RouterT {
         return res
           .status(400)
           .json({ error: `'${path}' is not part of this share` });
-      moveFile(uploadOf(req).file, join(blobDir(key), path));
+      const to = join(blobDir(key), path);
+      mkdirSync(dirname(to), { recursive: true });
+      moveFile(uploadOf(req).file, to);
       res.json({ ok: true });
     }),
   );
@@ -210,16 +226,10 @@ export function sharesRouter(): RouterT {
           return res.status(400).json({ error: `'${rel}' never arrived` });
         }
       }
-      const m = pending.manifest as {
-        name?: string;
-        media: {
-          mix: { file: string; bytes: number };
-          stems: { file: string; bytes: number }[];
-        };
-      };
-      m.media.mix.bytes = sizes.get(m.media.mix.file) ?? 0;
-      for (const s of m.media.stems) s.bytes = sizes.get(s.file) ?? 0;
+      const m = pending.manifest;
+      m.files = m.files.map((f) => ({ ...f, bytes: sizes.get(f.path) ?? 0 }));
       const bytes = [...sizes.values()].reduce((n, b) => n + b, 0);
+      m.bytes = bytes;
       writeFileSync(join(dir, "snapshot.json"), JSON.stringify(m), "utf8");
       rmSync(join(dir, "pending.json"), { force: true });
       const token = String((req.body as { token?: string })?.token ?? "");
@@ -227,14 +237,10 @@ export function sharesRouter(): RouterT {
         key,
         token,
         name: m.name ?? "",
-        origin: (pending as { origin?: { repo: string; project: string } })
-          .origin ?? {
-          repo: "",
-          project: "",
-        },
+        origin: pending.origin ?? { repo: "", project: "" },
         createdAt: new Date().toISOString(),
         bytes,
-        stems: m.media.stems.length,
+        checkpoint: { seq: m.checkpoint.seq, name: m.checkpoint.name },
       });
       res.json({ ok: true, key, bytes });
     }),

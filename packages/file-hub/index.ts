@@ -41,6 +41,11 @@ import {
 import { fetchLibraryVersion, remoteVersions } from "./libraryFetch.ts";
 import { LIBRARIES_ACCOUNT, LibraryRelay } from "./libraryRelay.ts";
 import { PublicLibraries } from "./publicLibraries.ts";
+import {
+  ShareHistoryError,
+  shareCheckpoint,
+  shareFilesAt,
+} from "./shareHistory.ts";
 import { fileServiceSourceDirs, watchSources } from "./sourceWatch.ts";
 import {
   CACHE_SWEEP_EVERY_MS,
@@ -260,6 +265,39 @@ export class FileHub {
             .status(401)
             .json({ error: "not one of this hub's file services" });
           return;
+        }
+        // A share's checkpoint and the files at it, for this account's own workspaces — shareHistory.ts.
+        if (req.method === "POST" && req.path.startsWith("/share/")) {
+          const body = (await jsonBody(req)) as {
+            workspace?: unknown;
+            seq?: unknown;
+            name?: unknown;
+            prefixes?: unknown;
+          };
+          const workspace = String(body.workspace ?? "");
+          const seq = Number(body.seq);
+          const account = this.sync.accountDir(inst.slug);
+          try {
+            if (req.path === "/share/checkpoint") {
+              const name = String(body.name ?? "").slice(0, 120) || "share";
+              const live = this.stopSync?.room(inst.slug, workspace) ?? null;
+              res.json(
+                shareCheckpoint(account, live, workspace, seq, name, inst.user),
+              );
+              return;
+            }
+            if (req.path === "/share/files") {
+              const prefixes = Array.isArray(body.prefixes)
+                ? body.prefixes.map(String)
+                : [];
+              res.json(shareFilesAt(account, workspace, seq, prefixes));
+              return;
+            }
+          } catch (e) {
+            const status = e instanceof ShareHistoryError ? e.status : 500;
+            res.status(status).json({ error: (e as Error).message });
+            return;
+          }
         }
         // What the origin publishes of one library, for an unpaired machine choosing an upgrade.
         if (req.method === "POST" && req.path === "/libraries/remote") {

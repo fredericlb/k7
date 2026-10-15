@@ -56,7 +56,7 @@ export interface BlobStoreOptions {
 export const blobsDir = (accountDir: string): string =>
   join(accountDir, ".sync-blobs");
 
-const blobFile = (dir: string, hash: string): string =>
+export const blobFile = (dir: string, hash: string): string =>
   join(dir, hash.slice(0, 2), hash);
 
 const partialFile = (dir: string, hash: string): string =>

@@ -184,8 +184,8 @@ ReactDOM.createRoot(document.getElementById("root")!, {
               {(share) => (
                 <App
                   snapshot={share}
-                  // No engine to reach, ever — and `null` is the ONE answer EngineClient already understands as that, so it backs off.
-                  engineUrl={() => null}
+                  // The visitor's own session on the server's engine, through the share's player — docs/shared.md.
+                  engineUrl={share.player}
                   engineLatency={null}
                   userEmail=""
                   onQuitWorkspace={() => {}}

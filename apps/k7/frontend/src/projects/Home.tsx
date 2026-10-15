@@ -238,7 +238,7 @@ export function Home() {
       {/* Where the page's passing notices are drawn. */}
       <Toaster />
 
-      {/* The desktop app's account, at the top of the page rather than in the title bar (projects/AccountBar.tsx). */}
+      {/* The desktop and Android apps' account, at the top of the page rather than in a title or native bar (projects/AccountBar.tsx). */}
       <AccountBar />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">

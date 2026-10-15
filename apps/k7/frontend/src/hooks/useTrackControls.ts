@@ -21,7 +21,7 @@ export function useTrackControls(opts: {
   bumpReload: () => void;
   /** The reload scoped to those files; without it, or without a list, the reload is the unscoped one. */
   reloadWith?: (changed: ChangedFile[]) => void;
-  /** Mute and solo are the VIEWER's, not the document's — a shared snapshot has nothing to write to, so they mean which stem sounds. */
+  /** Mute and solo are the VIEWER's, not the document's — a share has nothing to write to, so they reach only the visitor's session. */
   local?: boolean;
 }): {
   trackControls: Record<string, TrackControlValues>;

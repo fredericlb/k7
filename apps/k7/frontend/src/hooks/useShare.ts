@@ -5,6 +5,7 @@
 
 import { askConfirm, askText } from "@studio/project-shell/ask";
 import type { VideoScene } from "@studio/ui-eyes/scene";
+import type { ShareProgress } from "@studio/web-protocol";
 import { shareUrl } from "@studio/web-protocol/projects";
 import { useCallback, useState } from "react";
 import { api } from "../api";
@@ -12,6 +13,7 @@ import { downloadBlob as download } from "../downloadBlob";
 
 import type { MixFormat, VideoFormat } from "../exportArgs";
 import { m } from "../paraglide/messages.js";
+import { shareProgressLine } from "../shareProgress";
 
 export interface Share {
   /** A render is running: the menu greys itself out rather than starting a second one. */
@@ -27,10 +29,16 @@ export interface Share {
   ) => Promise<void>;
   shareK7: () => Promise<void>;
   shareLink: () => Promise<void>;
+  /** Where the share being made is, for the panel's bar; null when none runs. */
+  progress: ShareProgress | null;
 }
+
+/** How often the job is asked where it is: the renders take minutes, and the bar should not look stuck. */
+const POLL_MS = 700;
 
 export function useShare(onStatus: (s: string) => void): Share {
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<ShareProgress | null>(null);
 
   const exportMix = useCallback(
     async (format: MixFormat) => {
@@ -149,7 +157,7 @@ export function useShare(onStatus: (s: string) => void): Share {
     }
   }, [onStatus]);
 
-  /** Freeze this project and put its link on the clipboard — it ASKS first, naming what leaves, and the address is built in the browser. */
+  /** Share this project at a checkpoint and put its link on the clipboard — it ASKS first, naming what leaves (docs/shared.md). */
   const shareLink = useCallback(async () => {
     const agreed = await askConfirm({
       title: m["share.confirmTitle"](),
@@ -158,11 +166,20 @@ export function useShare(onStatus: (s: string) => void): Share {
     });
     if (!agreed) return;
     setBusy(true);
-    onStatus(m["share.rendering"]());
     try {
-      const { token, bytes } = await api.shareLink();
-      const url = shareUrl(window.location.origin, token);
-      const mb = Math.round(bytes / 1048576);
+      let p = await api.shareLinkStart();
+      // The job runs on the file service; this only watches it, so a closed panel loses nothing but the bar.
+      while (p && p.step !== "done" && p.step !== "failed") {
+        setProgress(p);
+        onStatus(shareProgressLine(p));
+        await new Promise((r) => setTimeout(r, POLL_MS));
+        p = await api.shareLinkProgress();
+      }
+      if (!p) throw new Error("the share was lost — try again");
+      if (p.step === "failed") throw new Error(p.error ?? "");
+      const url = shareUrl(window.location.origin, p.token ?? "");
+      const mb = Math.round((p.bytes ?? 0) / 1048576);
+      setProgress(null);
       try {
         await navigator.clipboard.writeText(url);
         onStatus(m["share.copied"]({ mb, url }));
@@ -171,11 +188,13 @@ export function useShare(onStatus: (s: string) => void): Share {
         onStatus(m["share.done"]({ mb, url }));
       }
     } catch (e) {
-      onStatus(m["share.failed"]({ error: (e as Error).message }));
+      const error = (e as Error).message;
+      setProgress({ step: "failed", done: 0, total: 0, error });
+      onStatus(m["share.failed"]({ error }));
     } finally {
       setBusy(false);
     }
   }, [onStatus]);
 
-  return { busy, exportMix, exportVideo, shareK7, shareLink };
+  return { busy, exportMix, exportVideo, shareK7, shareLink, progress };
 }

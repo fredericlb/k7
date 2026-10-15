@@ -52,9 +52,9 @@ that is instantly done would hand the caller an id nobody can poll.
 
 ## Shares are the author's view
 
-`ShareSummary` is one frozen snapshot a person has shared, as their own Projets section lists
+`ShareSummary` is one project a person has shared at a checkpoint, as their own Projets section lists
 them. The AUTHOR's view and nobody else's: `origin` names a repository and a folder on the machine
-it came from, and the public routes serve none of this — they serve the snapshot's manifest.
+it came from, and the public routes serve none of this — they serve the share's manifest, its file list and engine document left out.
 
 `token` rides along in the clear because it IS the copy-link button. It is blanked on revocation, so a
 revoked row cannot be copied back out of the screen it is still drawn on, and the row SURVIVES

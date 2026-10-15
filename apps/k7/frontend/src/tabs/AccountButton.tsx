@@ -1,11 +1,12 @@
 // AccountButton.tsx — the desktop app's account control, at the top of the home page: who is signed in, and the one button that signs in or out.
 // Signing in asks which k7 server to sync with, inline, beside the button that asked.
-// Signing in happens in the system browser, through the main process; signing out is the origin's own logout. See apps/k7-standalone/docs/signIn.md.
+// Signing in happens in the system browser — the desktop's main process, or the phone app catching `/auth/login`; signing out is the origin's own logout.
+// See apps/k7-standalone/docs/signIn.md and engine/k7-runtime/docs/android.md.
 
 import { LogIn, LogOut, X } from "@frediverse/ui/icons";
 import { normalizeServer } from "@studio/web-protocol/pairing";
 import { useEffect, useState } from "react";
-import { tabsBridge } from "./bridge";
+import { inAndroidApp, tabsBridge } from "./bridge";
 
 export interface Me {
   name?: string;
@@ -13,6 +14,12 @@ export interface Me {
   /** The desktop's signed-out user, minted by its own backend. */
   local?: boolean;
 }
+
+/** The phone app opens the system browser on any navigation to `/auth/login`, so the page only has to go there. */
+const androidSignIn = () =>
+  location.assign(
+    `/auth/login?return_to=${encodeURIComponent(location.pathname + location.search)}`,
+  );
 
 async function whoami(): Promise<Me | null> {
   try {
@@ -115,9 +122,11 @@ export function AccountButton({
         type="button"
         className={button}
         onClick={() =>
-          tabsBridge()?.server
-            ? setServer(current.replace(/^https:\/\//, ""))
-            : tabsBridge()?.signIn()
+          inAndroidApp()
+            ? androidSignIn()
+            : tabsBridge()?.server
+              ? setServer(current.replace(/^https:\/\//, ""))
+              : tabsBridge()?.signIn()
         }
         title="Sign in with your k7 account"
         aria-label="Sign in"
@@ -135,14 +144,16 @@ export function AccountButton({
       >
         {name}
       </span>
-      {/* The cookie going is what the main process watches: it falls back to the local user. */}
+      {/* The desktop's main process watches the cookie go; the phone hears it from the page's reload, and falls back to the local user. */}
       <button
         type="button"
         className={button}
         onClick={() =>
           void fetch("/auth/logout", { method: "POST" })
             .catch(() => {})
-            .then(() => setAsked((n) => n + 1))
+            .then(() =>
+              inAndroidApp() ? location.reload() : setAsked((n) => n + 1),
+            )
         }
         title="Sign out"
         aria-label="Sign out"

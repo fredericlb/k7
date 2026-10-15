@@ -26,6 +26,7 @@ import type { ModuleStore } from "@studio/ui-module-builder/store";
 import type {
   ModelDownloadJob,
   SeparateJob,
+  ShareProgress,
   StemsReply,
 } from "@studio/web-protocol";
 import { serviceUrl } from "@studio/web-protocol/services";
@@ -250,13 +251,9 @@ export const api = {
       title?: string;
       stems?: number;
     }>("POST", "/share/k7", meta ?? {}),
-  /** Freeze this project and send it to pl8 — it answers the SECRET, the link being built in the browser (`shareUrl`). */
-  shareLink: () =>
-    fsend<{ ok: true; token: string; bytes: number }>(
-      "POST",
-      "/share/link",
-      {},
-    ),
+  /** Start sharing the open project at a checkpoint; `shareLinkProgress` says where it is, and answers the SECRET at the end. */
+  shareLinkStart: () => fsend<ShareProgress | null>("POST", "/share/link", {}),
+  shareLinkProgress: () => fget<ShareProgress | null>("/share/link"),
   prewarmWaveforms: () =>
     fsend<WaveformStatus>("POST", "/waveforms/prewarm", {}),
   waveformStatus: () => fget<WaveformStatus>("/waveforms/status"),

@@ -401,7 +401,11 @@ export function compileNodeProject(dir: string): ProjectDoc {
  * freeze whose render is on disk standing in for its modules. Also answers the freezes themselves,
  * ready or not, for whoever schedules the missing renders.
  */
-export function compileWithAutoFreezes(dir: string): {
+export function compileWithAutoFreezes(
+  dir: string,
+  /** `vsts: "none"` compiles for an engine that hosts no VST — a share's, the server's (docs/autoFreeze.md). */
+  opts: { vsts?: "scan" | "none" } = {},
+): {
   doc: ProjectDoc;
   freezes: AutoFreeze[];
 } {
@@ -409,7 +413,7 @@ export function compileWithAutoFreezes(dir: string): {
     const live = compileNodeProjectIn(dir);
     let freezes: AutoFreeze[];
     try {
-      freezes = autoFreezes(dir, loadGraph(dir), live);
+      freezes = autoFreezes(dir, loadGraph(dir), live, opts.vsts === "none");
     } catch {
       // The compile read the song; a graph that will not load here is no reason to stop playing it live.
       return { doc: live, freezes: [] };

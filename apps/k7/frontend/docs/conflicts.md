@@ -17,7 +17,7 @@ way a change reaches a view.
 - **A stream that cannot open is given up for the page.** An answer that is not a stream — a 401, k7
   served without the file hub — closes the EventSource, and three failures before it ever opened do
   the same: the browser would otherwise retry every few seconds for the life of the tab.
-- **A share opens nothing.** A frozen snapshot has no workspace (`shared.md`), and the feed opens only
+- **A share opens nothing.** A share has no workspace (`shared.md`), and the feed opens only
   for a page with a live one.
 
 ## Conflicts are shown where they are settled, and named where the value is edited

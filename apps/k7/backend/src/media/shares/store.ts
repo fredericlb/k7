@@ -1,11 +1,12 @@
-// store.ts — the frozen snapshots one person has shared: one small JSON per OIDC subject listing
-// them, and one directory of bytes each. No database, the same arrangement `../projects/store.ts`
+// store.ts — the shares one person has made: one small JSON per OIDC subject listing them, and one
+// directory each holding the checkpoint as the server's engine plays it. No database, the same arrangement `../projects/store.ts`
 // uses and for the same reasons — what visitors WRITE has many authors and is `comments.ts`.
 // See ../../../docs/media/shares.md.
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   mkdirSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -15,7 +16,7 @@ import {
 import { join } from "node:path";
 import { mediatekDir } from "@studio/mediatek/layout";
 import { fileFor } from "@studio/user-prefs";
-import type { ShareSummary } from "@studio/web-protocol";
+import { SHARE_SCHEMA, type ShareSummary } from "@studio/web-protocol";
 
 /** The WIRE's shape, since a row goes to the browser verbatim — one declaration, no drift. */
 export type ShareRecord = ShareSummary;
@@ -105,4 +106,62 @@ export function revision(sub: string): string {
     /* no file yet — 0 is a fine token for "nothing" */
   }
   return `${mutations}:${stamp}:${listShares(sub).length}`;
+}
+
+/** A share whose folder holds another schema than this code plays: one made before shares were checkpoints. */
+function isLegacy(key: string): boolean {
+  try {
+    const m = JSON.parse(
+      readFileSync(join(blobDir(key), "snapshot.json"), "utf8"),
+    ) as { schema?: number };
+    return m.schema !== SHARE_SCHEMA;
+  } catch {
+    return false; // a draft, or nothing: not this sweep's to judge
+  }
+}
+
+/** Revoke every share this code cannot play, at boot: their links answer "not found" (../../../docs/media/shares.md). */
+export function dropLegacyShares(): number {
+  let dropped = 0;
+  let files: string[] = [];
+  try {
+    files = readdirSync(join(sharesDir(), "index"));
+  } catch {
+    return 0;
+  }
+  for (const file of files) {
+    if (!file.endsWith(".json")) continue;
+    let shares: ShareRecord[];
+    try {
+      shares =
+        (
+          JSON.parse(
+            readFileSync(join(sharesDir(), "index", file), "utf8"),
+          ) as { shares?: ShareRecord[] }
+        ).shares ?? [];
+    } catch {
+      continue;
+    }
+    const legacy = shares.filter(
+      (s) => !s.revokedAt && (!s.checkpoint || isLegacy(s.key)),
+    );
+    if (!legacy.length) continue;
+    for (const s of legacy)
+      rmSync(blobDir(s.key), { recursive: true, force: true });
+    const at = new Date().toISOString();
+    const gone = new Set(legacy.map((s) => s.key));
+    const kept = shares.map((s) =>
+      gone.has(s.key) ? { ...s, token: "", revokedAt: at } : s,
+    );
+    const tmp = join(sharesDir(), "index", `${file}.${randomUUID()}.part`);
+    writeFileSync(
+      tmp,
+      `${JSON.stringify({ shares: kept }, null, 2)}\n`,
+      "utf8",
+    );
+    renameSync(tmp, join(sharesDir(), "index", file));
+    mutations++;
+    dropped += legacy.length;
+  }
+  return dropped;
 }

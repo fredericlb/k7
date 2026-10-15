@@ -187,9 +187,9 @@ The project part is safe to join onto a root, because it never is: the folder is
 library holds. A ref is folder names — no empty, dotted or `.k7` segment — so a traversal is not
 even a candidate.
 
-### `@shares` — a frozen snapshot
+### `@shares` — a project at a checkpoint
 
-`/@shares/<token>.k7` opens a snapshot the media library holds: no clone, no engine, no account.
+`/@shares/<token>.k7` opens a share the media library holds: no clone and no account, played by the server's engine in a session of the visitor's own.
 
 The `.k7` on the end is not decoration. `parseLaunch` ends a project at the last segment claiming
 the app's suffix, so spelling the token this way makes it the PROJECT part of an ordinary address —

@@ -143,7 +143,7 @@ import {
   SettingsPanel,
   type SettingsTab,
 } from "./components/SettingsPanel";
-import { type OpenShare, ShareDownload } from "./components/SharedGate";
+import type { OpenShare } from "./components/SharedGate";
 import { SharePanel } from "./components/SharePanel";
 import { SurfaceTab } from "./components/SurfaceTab";
 import type { PanelTakes } from "./components/TakesView";
@@ -189,7 +189,6 @@ import {
   useRevision,
 } from "./hooks/useRevision";
 import { useShare } from "./hooks/useShare";
-import { useSnapshotPlayer } from "./hooks/useSnapshotPlayer";
 import { useSurfaces } from "./hooks/useSurfaces";
 import { useTakeRecording } from "./hooks/useTakeRecording";
 import { useTimelineDrop } from "./hooks/useTimelineDrop";
@@ -205,7 +204,6 @@ import {
   effectiveKeys,
   keyForCommand,
 } from "./keys";
-import { laneGains } from "./laneGains";
 import {
   refreshLcdSounds,
   setLcdSoundsProject,
@@ -924,14 +922,9 @@ export default function App({
     pushLog,
   );
 
-  /** On a snapshot the transport is a browser clock over rendered audio, substituted at the two verbs and nowhere else. */
-  const player = useSnapshotPlayer(snapshot, store);
-  const transport = snapshot ? player.transport : engineTransport;
-  const seek = snapshot ? player.seek : engineSeek;
-  // Into the status line rather than a dialog: a refused autoplay is something to READ, the rest of the screen still works.
-  useEffect(() => {
-    if (player.fault) setStatus(player.fault, "error");
-  }, [player.fault]);
+  // A share plays on the server's engine through its player, so the two verbs are the engine's there too.
+  const transport = engineTransport;
+  const seek = engineSeek;
 
   // Where playback LAST STARTED, in seconds — read off the store's frames, so a start from anywhere counts.
   const replayAtRef = useRef(0);
@@ -1541,26 +1534,30 @@ export default function App({
     quietCommand: quietCommandFiles,
     bumpReload,
     reloadWith,
-    // On a snapshot these two are the LISTENER's, not the document's — which stem sounds.
+    // On a share these two are the LISTENER's, not the document's: they reach only the visitor's own session.
     local: frozen,
   });
 
-  /** …and on a snapshot that is what reaches the audio: mute and solo resolved to one gain per lane by `laneGains` (docs/shared.md). */
-  const setLaneGains = player.setLaneGains;
+  /** …and on a share that is what the visitor's session plays: their mute and solo, as the player takes them (docs/shared.md). */
+  const sentMixRef = useRef("");
   useEffect(() => {
     if (!frozen) return;
-    setLaneGains(
-      laneGains(trackControls),
-      laneGains(
-        Object.fromEntries(
-          docTracks.map((t) => [
-            t.id,
-            { mute: t.mute ? 1 : 0, solo: t.solo ? 1 : 0 },
-          ]),
-        ),
-      ),
-    );
-  }, [frozen, trackControls, docTracks, setLaneGains]);
+    // A new socket is a new session, which holds the document's own mix until told again.
+    if (!connected) {
+      sentMixRef.current = "";
+      return;
+    }
+    const mix = docTracks.map((t) => ({
+      id: t.id,
+      mute: trackControls[t.id]?.mute === 1,
+      solo: trackControls[t.id]?.solo === 1,
+    }));
+    // Sent on a CHANGE only: the controls are rebuilt on every armed-set frame, and the player keeps a rate.
+    const key = JSON.stringify(mix);
+    if (key === sentMixRef.current) return;
+    sentMixRef.current = key;
+    engineRef.current?.trackMix(mix);
+  }, [frozen, connected, trackControls, docTracks, engineRef]);
 
   // Web MIDI capture, driven by the MIDI record + play + a MIDI-armed track; it also holds
   // the device picker's data, which the transport's dropdown beside the MIDI record reads.
@@ -3374,7 +3371,6 @@ export default function App({
       >
         <MessageSquare className="h-4 w-4" />
       </FooterTab>
-      <ShareDownload base={snapshot.base} />
     </>
   ) : (
     <>
@@ -4392,6 +4388,7 @@ export default function App({
                   {rightPanel === "share" && (
                     <SharePanel
                       busy={share.busy}
+                      progress={share.progress}
                       externals={externals}
                       lanUrls={lanUrls}
                       hasPicture={!!videoDoc}

@@ -674,15 +674,19 @@ filesRouter.post(
   }),
 );
 
-/** Freeze this project and send it to pl8; no body, and slow because it is a full render (docs/shareBundle.md). */
+/** Start sharing the open project at a checkpoint; the editor polls GET for where it is (docs/share.md). */
 filesRouter.post(
   "/share/link",
   wrap(async (req, res) => {
-    try {
-      res.json({ ok: true, ...(await req.ws!.shareLink(req.userEmail!)) });
-    } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
-    }
+    req.ws!.startShareLink(req.userEmail!);
+    res.status(202).json(req.ws!.shareLinkProgress());
+  }),
+);
+
+filesRouter.get(
+  "/share/link",
+  wrap(async (req, res) => {
+    res.json(req.ws!.shareLinkProgress());
   }),
 );
 
