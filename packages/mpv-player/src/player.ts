@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { connect, type Socket } from "node:net";
 import { isAbsolute, join, normalize, relative, sep } from "node:path";
+import { isAudio } from "@studio/mediatek/media";
 
 /** What a host must tell this package before anything can play. */
 export interface MpvHost {
@@ -149,6 +150,9 @@ function spawnMpv(p: Player): void {
       `--ao=${AO}`,
       // No user config or scripts: this process is an organ of the service, not somebody's mpv.
       "--no-config",
+      // A file is played as itself: no playlist it names is followed, no URL handed to youtube-dl.
+      "--load-unsafe-playlists=no",
+      "--ytdl=no",
       `--input-ipc-server=${p.socketPath}`,
     ],
     { stdio: "ignore", detached: false },
@@ -229,6 +233,8 @@ export async function play(
   rel: string,
   from = 0,
 ): Promise<void> {
+  // An audio extension only: a playlist or a container mpv would open as one is refused before it loads.
+  if (!isAudio(rel)) throw new Error(`${rel} n'est pas un fichier audio`);
   const abs = resolveInMediatek(rel);
   const p = playerFor(userEmail);
   // `replace`, not `append`: one thing comes out of the speakers, and the queue lives in the tab.

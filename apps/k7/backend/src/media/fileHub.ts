@@ -3,7 +3,7 @@
 // a workspace lives, so a backend without it refuses to start rather than serve an origin where no
 // project can open. See packages/file-hub/docs/fileHub.md.
 
-import { isAdmin, type SessionUser } from "@frediverse/oidc";
+import type { SessionUser } from "@frediverse/oidc";
 import type { EngineMount } from "@studio/engine-registry";
 import {
   FILE_HUB_HELLO,
@@ -15,6 +15,7 @@ import {
 import { mediatekDir } from "@studio/mediatek/layout";
 import { SYNC_PAIR_ROUTE } from "@studio/web-protocol/pairing";
 import type { Express, RequestHandler } from "express";
+import { isAdminRequest } from "./admin.ts";
 
 /** `$STUDIO_FILES_ROOT`, or the process exits with what to set — called before anything listens. */
 export function requireFilesRoot(): string {
@@ -26,13 +27,6 @@ export function requireFilesRoot(): string {
   );
   process.exit(1);
 }
-
-/** `$AUTH_ADMIN_GROUPS`, comma-separated — the same variable, and the same reading, as z0's. */
-const adminGroups = (): string[] =>
-  (process.env.AUTH_ADMIN_GROUPS ?? "")
-    .split(",")
-    .map((g) => g.trim())
-    .filter(Boolean);
 
 export function mountFileHub(
   app: Express,
@@ -56,8 +50,7 @@ export function mountFileHub(
     userOf: (req) => req.user?.email ?? "",
     subjectOf: (req) => req.user?.sub ?? "",
     // Who may edit the origin's libraries: the `groups` claim against this list, which empty admits nobody.
-    isAdmin: (req) =>
-      isAdmin((req as { user?: SessionUser }).user, adminGroups()),
+    isAdmin: isAdminRequest,
     // Set by `npm run dev` only: this process's own watch cannot see the ones it spawns.
     watchSources: process.env.STUDIO_FILES_WATCH === "1",
     // The desktop and the phone pair with an origin; the origin itself never follows another (docs/fileHub.md).

@@ -29,6 +29,18 @@ export interface PlayerDeps {
   log?: (msg: string) => void;
 }
 
+/** The visitor's address as `req.ip` reads it under `trust proxy` 1: the last hop the edge appended, else the socket. */
+export function visitorAddress(req: IncomingMessage): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  const list = (
+    Array.isArray(forwarded) ? forwarded.join(",") : (forwarded ?? "")
+  )
+    .split(",")
+    .map((a) => a.trim())
+    .filter(Boolean);
+  return list.at(-1) ?? req.socket.remoteAddress ?? "?";
+}
+
 /** Transport actions a visitor may send, and nothing that records, auditions or reaches a plugin. */
 const ACTIONS = new Set(["play", "stop", "toggle", "rewind", "panic"]);
 /** Engine frames a visitor is shown: what drives the transport bar and the meters, never an error's server paths. */
@@ -87,7 +99,7 @@ export class SharePlayer {
       const m = PLAYER_ROUTE.exec(path);
       if (!m) return;
       this.wss.handleUpgrade(req, socket, head, (ws) =>
-        this.visit(ws, m[1], req.socket.remoteAddress ?? "?"),
+        this.visit(ws, m[1], visitorAddress(req)),
       );
     };
     server.on("upgrade", onUpgrade);

@@ -10,6 +10,7 @@ import { sidecarPresent } from "@studio/audio-analysis/sidecar";
 import { listFamily } from "@studio/mediatek/catalogue";
 import { exists, mediatekDir } from "@studio/mediatek/layout";
 import { analyseShared, gateLoad } from "./analysisGate.ts";
+import { markedFailed } from "./analysisMarks.ts";
 
 /** Between two files. The decode is a subprocess, but the envelope is ~200 ms of SYNCHRONOUS arithmetic. */
 const GAP_MS = 250;
@@ -70,7 +71,9 @@ function missing(): string[] {
   for (const entry of listFamily("songs").entries) {
     const rel = masterOf(entry);
     if (!rel || failed.has(rel)) continue;
-    if (!sidecarPresent(join(mediatekDir(), rel))) out.push(rel);
+    const abs = join(mediatekDir(), rel);
+    // A mark on the volume outlives a restart, where `failed` does not.
+    if (!sidecarPresent(abs) && !markedFailed(abs)) out.push(rel);
   }
   return out;
 }

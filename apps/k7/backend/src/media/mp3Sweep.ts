@@ -19,6 +19,7 @@ import {
   mp3IsFresh,
   NoFfmpegError,
   SourceChangedError,
+  TranscodeBusyError,
 } from "./transcode.ts";
 
 /** Between two files: ffmpeg is a subprocess, but a pass should not saturate the CPU either. */
@@ -106,7 +107,10 @@ export async function pass(): Promise<void> {
           return;
         }
         // A FLAC that moved under ffmpeg is fine: the next pass finds it where it went.
-        if (!(e instanceof SourceChangedError)) failed.add(abs);
+        if (
+          !(e instanceof SourceChangedError || e instanceof TranscodeBusyError)
+        )
+          failed.add(abs);
       }
       state.pending--;
       state.current = null;

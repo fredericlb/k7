@@ -60,6 +60,9 @@ so `STUDIO_PLAYER_AO=pipewire` and a lingering session.
 `--idle=yes` makes it wait for a `loadfile` instead of exiting: relaunching per song would cost a
 process start for nothing. `--no-config` too, because this process is an organ of this service
 and not somebody's mpv session — a `~/.config/mpv` full of scripts has no business here.
+`--load-unsafe-playlists=no` and `--ytdl=no` likewise, and `play` refuses any name that is not an
+audio extension (`isAudio`, `@studio/mediatek/media`): a playlist on the volume names URLs and
+other files, and mpv would follow them.
 
 Control goes over its [JSON IPC](https://mpv.io/manual/master/) on a unix socket, one line per
 message. That IPC has **neither authentication nor encryption**: acceptable because it is purely

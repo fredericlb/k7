@@ -17,7 +17,7 @@ import {
   startYoutube,
   stopHunt,
 } from "../hunt/hunt.ts";
-import { reconcile, removeHunt } from "../hunt/store.ts";
+import { listHunts, reconcile, removeHunt } from "../hunt/store.ts";
 import { youtubeAvailable } from "../hunt/youtube.ts";
 import { missing } from "../settings/store.ts";
 
@@ -143,8 +143,10 @@ huntRouter.delete(
   "/:id",
   wrap((req, res) => {
     const id = req.params.id;
-    const stopped = stopHunt(id);
-    const removed = removeHunt(subOf(req) as string, id);
+    const sub = subOf(req) as string;
+    // Only one of the caller's own: a hunt id is not a capability, and another's would stop for anyone.
+    const stopped = listHunts(sub).some((h) => h.id === id) && stopHunt(id);
+    const removed = removeHunt(sub, id);
     if (!stopped && !removed)
       return res.status(404).json({ error: "recherche inconnue" });
     res.json({ ok: true, stopped });

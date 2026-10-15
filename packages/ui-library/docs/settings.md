@@ -27,6 +27,9 @@ that, with the address to type. Nothing here can register, drop or pick an engin
 secrets are sealed and what the test checks is
 [apps/k7/backend/docs/media/settings.md](../../../apps/k7/backend/docs/media/settings.md).
 
+The card is an admin's: anyone else is answered 403 and the card draws nothing, rather than a
+form that could only fail.
+
 A secret on file is never shown, only said to be there. The field stays empty; typing replaces the
 secret, "Forget" clears it, and leaving it alone keeps it — the three answers the route tells apart.
 

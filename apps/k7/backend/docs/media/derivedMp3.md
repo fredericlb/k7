@@ -37,7 +37,12 @@ sweep does not count either as a failure; `/stream` asks once more.
 
 ## How it stops
 
-One file at a time, with a 250 ms gap, so ffmpeg never takes the whole machine. A FLAC that fails
+One file at a time, with a 250 ms gap, so ffmpeg never takes the whole machine. Every transcode —
+the sweep's and `/stream`'s — also passes one gate in `src/media/transcode.ts`: two at once and
+eight waiting, past which `/stream` answers 503 rather than start one more ffmpeg, and the sweep
+leaves the FLAC for its next pass. A listener flipping through FLACs nobody has swept would
+otherwise start a process per click. ffmpeg runs with `-protocol_whitelist file,pipe`, so a crafted
+file cannot make it open a URL. A FLAC that fails
 is not retried in this process. No ffmpeg stops the sweep for good and says so once in the log.
 `GET /api/mediatek/mp3` reports what it is on, what is left and what failed.
 

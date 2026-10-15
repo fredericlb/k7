@@ -77,6 +77,22 @@ describe("settings store", () => {
     expect(sftpOf()?.privateKey).toBeUndefined();
   });
 
+  it("drops a kept secret when the target it was typed for moves", () => {
+    saveSettings({ ...FULL, sftpPassword: "PW" });
+    const { apiKey: _a, sftpKey: _k, ...plain } = FULL;
+    saveSettings({ ...plain, url: "https://evil.test", sftpHost: "evil.test" });
+    expect(slskdOf()).toBeNull();
+    expect(readSettings().hasApiKey).toBe(false);
+    expect(sftpOf()?.password).toBeUndefined();
+    expect(sftpOf()?.privateKey).toBe("SECRET-KEY-MATERIAL");
+  });
+
+  it("keeps a secret typed together with its new target", () => {
+    saveSettings(FULL);
+    saveSettings({ ...FULL, url: "https://other.lan", apiKey: "NEW" });
+    expect(slskdOf()).toEqual({ url: "https://other.lan", key: "NEW" });
+  });
+
   it("tient un secret qui ne s'ouvre plus pour absent", () => {
     saveSettings(FULL);
     process.env.SESSION_SECRET = "rotated";

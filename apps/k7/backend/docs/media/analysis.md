@@ -42,7 +42,10 @@ analysed by the surface that made it.
 The sweep, `/analyse` and `/envelope` all decode through `apps/k7/backend/src/media/analysisGate.ts`: one decode
 per file at a time, shared by whoever asks during it, and at most two at once. A decode holds the
 file's whole mono signal — about 1.4 GB for two hours at 48 kHz — and a listener flipping through
-songs asks for one per song, so an ungated route is a memory ceiling the users set. A sidecar that
+songs asks for one per song, so an ungated route is a memory ceiling the users set. The same
+holding is why one decode stops at two hours at 48 kHz (`MAX_DECODE_FRAMES`,
+`packages/audio-analysis/docs/analysis.md`): a few kilobytes of crafted file can claim a length
+that would take the process down. A sidecar that
 still matches its file is answered without queueing: only real decodes wait. `/analysis` reports
 the gate's `active` and `waiting` beside the sweep's own state.
 
@@ -51,8 +54,13 @@ the gate's `active` and `waiting` beside the sweep's own state.
 - **No decoder.** A `NoFfmpegError` ends the sweep for good and says so once on the log: every
   other file would fail the same way, and a deployment without ffmpeg is not something a retry
   loop fixes.
-- **A file that throws** goes into `failed` and is not tried again in this process. One
-  undecodable file must not cost the whole backlog.
+- **A file that throws** is marked on the volume, in `.analysis/marks.json`
+  (`apps/k7/backend/src/media/analysisMarks.ts`), and neither the sweep nor `/analyse` nor
+  `/envelope` decodes it again while its fingerprint is the same: replaced bytes are a new file. One
+  undecodable file must not cost the whole backlog, and it must not cost it again after a restart.
+  A mark is written as `running` BEFORE the decode starts, so a decode the process dies in — an
+  out-of-memory kill leaves no chance to write anything after — is refused at the next boot rather
+  than retried in a loop.
 - **No library at all** — `exists()` is false and there is nothing to sweep.
 
 `GET /api/mediatek/analysis` reports the state: what it is on, how many are left, what failed, and

@@ -16,6 +16,41 @@ const TRANSCODE_MS = 10 * 60_000;
 /** One ffmpeg per FLAC: the sweep and the Range requests of an `<audio>` element all wait on the same one. */
 const inflight = new Map<string, Promise<string>>();
 
+/** ffmpegs at once across `/stream` and the sweep, and how many more may wait for one. */
+export const MAX_TRANSCODES = 2;
+export const MAX_WAITING = 8;
+
+let active = 0;
+const waiting: (() => void)[] = [];
+
+/** Every slot taken and the queue full: answered 503 rather than one more process. */
+export class TranscodeBusyError extends Error {
+  constructor() {
+    super("too many FLACs are being converted right now — try again shortly");
+    this.name = "TranscodeBusyError";
+  }
+}
+
+async function slot<T>(fn: () => Promise<T>): Promise<T> {
+  if (active >= MAX_TRANSCODES) {
+    if (waiting.length >= MAX_WAITING) throw new TranscodeBusyError();
+    await new Promise<void>((go) => waiting.push(go));
+  }
+  active++;
+  try {
+    return await fn();
+  } finally {
+    active--;
+    waiting.shift()?.();
+  }
+}
+
+/** How many transcodes run and wait — for the tests. */
+export const transcodeLoad = (): { active: number; waiting: number } => ({
+  active,
+  waiting: waiting.length,
+});
+
 export class NoFfmpegError extends Error {
   constructor() {
     super(
@@ -51,7 +86,9 @@ export function ensureMp3(abs: string): Promise<string> {
   if (mp3IsFresh(abs)) return Promise.resolve(dest);
   const running = inflight.get(abs);
   if (running) return running;
-  const p = transcode(abs, dest).finally(() => inflight.delete(abs));
+  const p = slot(() => transcode(abs, dest)).finally(() =>
+    inflight.delete(abs),
+  );
   inflight.set(abs, p);
   return p;
 }
@@ -92,6 +129,9 @@ function run(source: string, dest: string): Promise<void> {
       "-hide_banner",
       "-loglevel",
       "error",
+      // Only local files: a crafted FLAC must not make ffmpeg open a URL.
+      "-protocol_whitelist",
+      "file,pipe",
       "-i",
       source,
       "-codec:a",
