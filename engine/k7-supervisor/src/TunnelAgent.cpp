@@ -435,6 +435,11 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
         std::thread([handler, req, emit, c, type, log] {
             JobContext ctx;
             ctx.fetch = [c](const std::string& local) { return c->map ? c->map->ensureLocal(local) : false; };
+            ctx.writable = [c](const std::string& local) {
+                if (!c->map) return false;
+                const auto m = c->map->toRemote(local);
+                return m.has_value() && m->second->writable;
+            };
             try {
                 handler(req, emit, ctx);
             } catch (const std::exception& e) {

@@ -147,7 +147,9 @@ struct Supervisor::Impl {
         starting = true;
         auto id = identity;
         const int port = settings.port;
-        loop.work<engine::StartResult>([id, port] { return engine::start(id, port); },
+        // The studios it is listed at may open it from their pages; one added later counts from the next start.
+        const std::string origins = engine::allowedOrigins(registryUrls);
+        loop.work<engine::StartResult>([id, port, origins] { return engine::start(id, port, origins); },
                                        [this, done](engine::StartResult r) {
                                            starting = false;
                                            switch (r.kind) {

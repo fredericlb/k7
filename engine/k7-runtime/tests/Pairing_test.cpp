@@ -37,6 +37,24 @@ void loopback_is_the_machine_and_nothing_else() {
     CHECK(!isLoopbackAddress(""));
 }
 
+// A page the user merely visits must not drive the engine: only the studio's own origins, and native clients.
+void only_the_studio_origins_open_a_socket() {
+    const std::vector<std::string> none;
+    for (const char* ok : {"http://127.0.0.1:18789", "http://localhost:5173", "http://[::1]:8080", "https://localhost",
+                           "https://st0.app", "https://priv.st0.app", "HTTPS://ST0.APP/", "ws://127.0.0.1:8765",
+                           "wss://192.168.1.5:8765"})
+        CHECK(studio::originAllowed(ok, none));
+    for (const char* bad : {"https://evil.example", "https://st0.app.evil.example", "https://evilst0.app",
+                            "http://st0.app", "https://st0.app:8443", "https://user@st0.app", "null", "",
+                            "file://", "http://127.0.0.1.evil.example", "http://localhost:abc", "http://[::1]x"})
+        CHECK(!studio::originAllowed(bad, none));
+    const auto extra = studio::parseOrigins(" https://studio.example.org/ ,http://studio.lan:8080,, ");
+    CHECK(extra.size() == 2);
+    CHECK(studio::originAllowed("https://studio.example.org", extra));
+    CHECK(studio::originAllowed("http://studio.lan:8080", extra));
+    CHECK(!studio::originAllowed("http://studio.lan:8081", extra));
+}
+
 void an_approved_request_yields_a_key_that_verifies() {
     Pairing p(tempStore());
     const auto r = p.request("iPhone · Safari", "192.168.1.20", phone);
@@ -119,6 +137,7 @@ void an_unreadable_store_pairs_nobody() {
 
 int main() {
     RUN(loopback_is_the_machine_and_nothing_else);
+    RUN(only_the_studio_origins_open_a_socket);
     RUN(an_approved_request_yields_a_key_that_verifies);
     RUN(a_denied_request_is_gone);
     RUN(asking_again_replaces_the_request);

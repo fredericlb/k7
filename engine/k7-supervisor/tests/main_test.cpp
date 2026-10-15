@@ -15,6 +15,7 @@ void runHostLockTests();
 void runRegistryTests();
 void runTlsTests();
 void runInstrumentsTests();
+void runPathMapTests();
 
 int main()
 {
@@ -30,5 +31,6 @@ int main()
     runRegistryTests();
     runTlsTests();
     runInstrumentsTests();
+    runPathMapTests();
     TEST_MAIN_END();
 }

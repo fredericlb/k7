@@ -1,7 +1,7 @@
 // MachineJobs_test.cpp — the jobs that only answer, called as the agent calls them: the log seeded
 // by its tail and continued by offset, a local path handed back under `raw`, a set list counted,
 // the providers going through the one accessor rather than the file, an undo's audio sent back,
-// and the month after which this machine stops keeping it.
+// and the month after which this machine stops keeping it; a write outside the channel's roots refused.
 
 #include "MachineJobs.h"
 #include "Paths.h"
@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 
 namespace fs = std::filesystem;
 using nlohmann::json;
@@ -30,10 +31,11 @@ fs::path scratch()
     return dir;
 }
 
-std::vector<ordered_json> ask(k7::tunnel::Jobs& jobs, const json& req)
+std::vector<ordered_json> ask(k7::tunnel::Jobs& jobs, const json& req, std::function<bool(const std::string&)> writable = {})
 {
     std::vector<ordered_json> replies;
     k7::tunnel::JobContext ctx;
+    ctx.writable = std::move(writable);
     jobs.at(req["type"].get<std::string>())(req, [&](const ordered_json& r) { replies.push_back(r); }, ctx);
     return replies;
 }
@@ -126,17 +128,45 @@ void keptAudioIsSentBackUp()
     fs::last_write_time(blob, before);
     std::vector<std::string> held;
     auto jobs = k7::machineJobs(fakeAccess(held));
-    auto r = ask(jobs, {{"type", "send-up"}, {"file", k7::paths::utf8(blob)}});
+    const auto anywhere = [](const std::string&) { return true; };
+    auto r = ask(jobs, {{"type", "send-up"}, {"file", k7::paths::utf8(blob)}}, anywhere);
     CHECK(r[0]["type"] == "sent");
     CHECK(r[0]["file"] == k7::paths::utf8(blob));
     CHECK(fs::last_write_time(blob) > before);
     bool threw = false;
     try {
-        ask(jobs, {{"type", "send-up"}, {"file", k7::paths::utf8(dir / "gone")}});
+        ask(jobs, {{"type", "send-up"}, {"file", k7::paths::utf8(dir / "gone")}}, anywhere);
     } catch (const std::exception&) {
         threw = true;
     }
     CHECK(threw);
+}
+
+bool refused(k7::tunnel::Jobs& jobs, const json& req)
+{
+    try {
+        ask(jobs, req, [](const std::string&) { return false; });
+    } catch (const std::exception& e) {
+        return std::string(e.what()).find("refused") != std::string::npos;
+    }
+    return false;
+}
+
+// A path outside the channel's writable roots is refused before anything is written or stamped.
+void writesOutsideTheRootsAreRefused()
+{
+    const auto dir = scratch();
+    const auto blob = dir / "secret";
+    std::ofstream(blob) << "x";
+    const auto before = fs::file_time_type::clock::now() - std::chrono::hours(48);
+    fs::last_write_time(blob, before);
+    std::vector<std::string> held;
+    auto jobs = k7::machineJobs(fakeAccess(held));
+    CHECK(refused(jobs, {{"type", "send-up"}, {"file", k7::paths::utf8(blob)}}));
+    CHECK(fs::last_write_time(blob) == before);
+    CHECK(refused(jobs, {{"type", "render"}, {"doc", json::object()}, {"out", k7::paths::utf8(dir / "mix.wav")}}));
+    CHECK(refused(jobs, {{"type", "render"}, {"doc", json::object()}, {"outDir", k7::paths::utf8(dir)}}));
+    CHECK(refused(jobs, {{"type", "separate"}, {"source", "a.wav"}, {"model", "m.onnx"}, {"outDir", k7::paths::utf8(dir)}}));
 }
 
 void keptHistoryGoesAfterAMonth()
@@ -169,5 +199,6 @@ void runMachineJobsTests()
     RUN(aSetListIsCounted);
     RUN(providersGoThroughTheAccessor);
     RUN(keptAudioIsSentBackUp);
+    RUN(writesOutsideTheRootsAreRefused);
     RUN(keptHistoryGoesAfterAMonth);
 }

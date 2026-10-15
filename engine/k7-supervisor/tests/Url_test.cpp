@@ -1,6 +1,7 @@
 // Url_test.cpp — the cases of packages/web-protocol/services.test.ts, replayed: the supervisor and
 // the web apps must derive the same registry from the same text.
 
+#include "EngineProcess.h"
 #include "Url.h"
 
 #include "test_harness.h"
@@ -100,6 +101,14 @@ void loopbackHosts()
     CHECK(!isLoopbackHost("128.0.0.1"));
 }
 
+// The engine lets in the pages of the studios it is listed at: their origins, once each, nothing else.
+void engineOriginsAreTheStudios()
+{
+    CHECK(k7::engine::allowedOrigins({"https://studio.example.org/", "http://studio.lan:8080", "https://studio.example.org",
+                                      "not a url", "ftp://x.example"}) == "https://studio.example.org,http://studio.lan:8080");
+    CHECK(k7::engine::allowedOrigins({}).empty());
+}
+
 }  // namespace
 
 void runUrlTests()
@@ -113,4 +122,5 @@ void runUrlTests()
     RUN(userOriginIsStrict);
     RUN(cacheKeyIsTheHost);
     RUN(loopbackHosts);
+    RUN(engineOriginsAreTheStudios);
 }

@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace k7::engine {
 
@@ -31,8 +32,11 @@ struct StartResult {
     std::string message;
 };
 
-/** Bring an engine up, or adopt the one already serving; blocking, so call it off the loop. */
-StartResult start(const EngineIdentity& identity, int port);
+/** The origins of the studios this machine is listed at, comma-separated: the engine's `STUDIO_ENGINE_ALLOWED_ORIGINS`. */
+std::string allowedOrigins(const std::vector<std::string>& registryUrls);
+
+/** Bring an engine up, or adopt the one already serving, letting pages from `origins` in; blocking, so call it off the loop. */
+StartResult start(const EngineIdentity& identity, int port, const std::string& origins);
 
 /** Stop the engine the pidfile names, its whole process tree, and clear the pidfile. */
 void stop();
