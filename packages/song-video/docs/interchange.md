@@ -39,6 +39,38 @@ end of its source, so the verb probes that file's length, and only that one. A s
 length cannot be learned is left out and listed as left out, rather than given a length nobody
 measured.
 
+## A cut comes BACK the same two ways
+
+`picture import <file> [prefix]` reads an `.otio` or an `.edl` that sits in the project and
+writes each video track as a NEW picture lane (`import-1`, `import-2`… bottom first), on top of
+whatever the song already has. It never rewrites a lane the song already has: a cut from
+elsewhere is something to compare and take from, not a replacement for the one here
+(`packages/commands/src/verbs/pictureImport.ts`, readers in `src/interchange/fromOtio.ts` and
+`fromEdl.ts`).
+
+**A transition is turned into this app's.** Another editor's dissolve straddles its cut, half
+before and half after. Here the incoming shot carries the fade from its own START. So the incoming
+shot starts at the first half, its source in-point moved back by the same amount at its speed, and
+the outgoing shot runs on through the second half. The picture is the same, and both readers share
+the one conversion (`imported.ts`).
+
+**Media is found the way a conform finds it:** first by the path the file gives, relative to the
+file; then by its name in `clips/`; and a clip already on that file is reused rather than declared
+twice. What cannot be found is still PLACED, on a clip naming `clips/<name>`, and listed in one
+line to copy into place. Placing it keeps the cut whole: dropping the shots would close the gaps
+between the ones that remain, and a cut whose timing moved is a different cut.
+
+An EDL states no frame rate, so it is read at the project's, or at 25. A song with no picture yet
+is given a 1920×1080 frame at the cut's rate, since a lane cannot compile without one. Audio
+tracks are left out and said to be: a shot's sound here is its own lane's
+([../../song/docs/videoSound.md](../../song/docs/videoSound.md)), and `picture sound` makes that
+lane from the shots just imported. Nested stacks and wipes are read as nothing and as cuts, each
+named.
+
+Both directions are pinned by round trips through this app's own writers, and the OTIO reader by
+a file the OpenTimelineIO library itself wrote (`src/interchange/fixtures/otio-0.18.otio`),
+which uses the newer `Clip.2` media map that this writer does not produce.
+
 ## What is handed over, and what is not
 
 | here | handed over |

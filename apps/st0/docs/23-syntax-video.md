@@ -134,6 +134,13 @@ every editor reads. Both name your original camera files, and both carry the sho
 the dissolves and the speeds. Moves, picture-in-picture positions, shaders and the shots' sound
 stay here.
 
+A cut can come back the same way. Put the `.otio` or `.edl` in the project (an `imports/` folder
+is a good home) and run `picture import imports/cut.otio`: each video track becomes a new picture
+lane, `import-1`, `import-2` and so on, laid over the lanes you already have. Its media is
+found by the path the file gives, then by name in `clips/`. Anything missing is still placed, and
+the command lists what to copy into `clips/`. Dissolves come back as fades, and speeds as speeds.
+Audio tracks are left out: run `picture sound import-1` to get each shot's own sound.
+
 ## Grading a shot, and LUTs
 
 Two shaders come with every workspace: `@st0/shaders/grade` (exposure, contrast, saturation,

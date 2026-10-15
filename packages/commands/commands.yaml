@@ -1612,6 +1612,20 @@
       { name: format, values: [otio, edl] },
       { name: lane, optional: true, complete: pictureLanes },
     ]
+# …and a cut BACK from another editor: each video track of an .otio, or an .edl, as a new picture
+# lane, its media found by path then by name in clips/ — packages/song-video/docs/interchange.md.
+- command: "picture import"
+  sid: picture.import
+  readable:
+    en: "Bring in a cut from another editor"
+    fr: "Importer un montage d'un autre logiciel"
+  help: "read an .otio or an .edl into new picture lanes (e.g. picture import imports/cut.otio) — media found by path, then by name in clips/"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: file, hint: "an .otio or .edl inside the project, named from its folder" },
+      { name: prefix, optional: true, hint: "what the new lanes are called — import-1, import-2… unless said" },
+    ]
 - command: "picture sound"
   sid: picture.sound
   readable:
