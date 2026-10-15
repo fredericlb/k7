@@ -170,7 +170,7 @@ int main(int argc, char** argv) {
     // Decode mode: the file's frames on stdout for @studio/audio-analysis, which builds the waveform sidecar and measures a true peak from them.
     if (argc >= 3 && std::string(argv[1]) == "--decode") return studio::decodeToStdout(argv[2]);
 
-    // No `--normalize` mode: normalising is a treatment, and a treatment is a chain the brain bounces material through with `--render` (packages/commands/docs/processChain.md).
+    // No `--normalize` mode: normalising is a treatment, and a treatment is a chain the brain bounces material through with `--render` (packages/audio-passes/docs/processChain.md).
 
     return studio::serve(argc > 1 ? std::atoi(argv[1]) : 8765);
 }

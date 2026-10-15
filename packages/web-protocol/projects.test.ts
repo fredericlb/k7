@@ -440,7 +440,7 @@ describe("a project in a workspace with no repository", () => {
 });
 
 // Two sides ask this and would drift: the main process, to know what a second window opens on,
-// and the tab strip, to know which tabs wear a note (apps/k7-desktop/docs/window.md).
+// and the tab strip, to know which tabs wear a note (apps/k7-standalone/docs/tabs.md).
 describe("which addresses open a project", () => {
   const O = "http://127.0.0.1:8780";
 

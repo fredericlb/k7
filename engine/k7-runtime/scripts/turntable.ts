@@ -3,7 +3,7 @@
 //   npx tsx engine/k7-runtime/scripts/turntable.ts [ws://127.0.0.1:8765] [--still]
 //
 // The clip-moving answer was measured and refused: a third of a beat of error, worse the faster it
-// was driven (packages/ui-turntables/docs/scratch.md). This asks the same question of the platter.
+// was driven (packages/k7-plugins/docs/turntables/scratch.md). This asks the same question of the platter.
 //
 // It does NOT use that bench's source, and the reason is the whole method here. There, position was
 // encoded as FREQUENCY, which is readable only because `elastique` preserves pitch. A platter is a

@@ -12,6 +12,7 @@ import { familyDir, SAMPLE_KINDS, toRel } from "./layout.ts";
 import { isAudio, isVideo } from "./media.ts";
 import {
   type Family,
+  K7_ARTIST,
   type MediatekEntry,
   SONG_FILE,
   type SongVariant,
@@ -116,9 +117,6 @@ function readVariants(
   }
   return out;
 }
-
-/** k7's own artist folder — must match `packages/rehearsal-server/src/mediatek.ts`'s `ARTIST` (docs/songs.md). */
-const K7_ARTIST = "K7";
 
 /** Songs: any folder under `songs/` holding a `song.yaml` or, dropped by hand, any audio — see docs/songs.md. */
 function scanSongs(): MediatekEntry[] {

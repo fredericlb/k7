@@ -188,7 +188,7 @@ export interface GroupDoc {
   solo: boolean;
 }
 
-// PICTURE IS NOT HERE: it is a SECOND compile of the same song folder, which keeps the frame off this wire — packages/song/docs/picture.md.
+// PICTURE IS NOT HERE: it is a SECOND compile of the same song folder, which keeps the frame off this wire — packages/song-video/docs/picture.md.
 
 export interface ProjectDoc {
   uuid?: string; // stable song id, generated on first `k7 export`; absent until then

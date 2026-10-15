@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { segment, sidecarFor } from "@studio/mediatek/song";
+import { K7_ARTIST } from "@studio/mediatek/types";
 import type {
   Annotation,
   Envelope,
@@ -1019,7 +1020,7 @@ export async function updateRelease(uid, patch) {
           `${dirOf(v.fields.AudioPath)}/song.yaml`,
           sidecarFor({
             title: String(v.fields.Name || "Version"),
-            artist: mediatek.ARTIST,
+            artist: K7_ARTIST,
             album: patch.title,
             source: "k7",
           }),
@@ -1227,7 +1228,7 @@ export async function renameVersion(releaseUid, versionUid, name) {
         `${dirOf(v.fields.AudioPath)}/song.yaml`,
         sidecarFor({
           title: String(name),
-          artist: mediatek.ARTIST,
+          artist: K7_ARTIST,
           album: release?.fields.Title || "",
           source: "k7",
         }),

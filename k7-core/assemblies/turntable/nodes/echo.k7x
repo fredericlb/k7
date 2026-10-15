@@ -1,5 +1,5 @@
 // The one effect past the filter, AFTER the fader so a cut leaves its tail ringing — an echo-out
-// cuts a delay's input and not its output. See packages/ui-turntables/docs/fx.md.
+// cuts a delay's input and not its output. See packages/k7-plugins/docs/turntables/fx.md.
 // The delay's ECHO engine: the one of them whose Time is in milliseconds.
 extends("@k7-core/audio/delay")
 engine("echo")

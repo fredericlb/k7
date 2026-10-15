@@ -14,6 +14,7 @@ import {
   remoteLibrary,
   remoteWriter,
 } from "@studio/mediatek/remote";
+import { K7_ARTIST } from "@studio/mediatek/types";
 
 // Handed in by the host at mount time: the library is served by the same process, over loopback.
 let link: RemoteConfig | undefined;
@@ -76,7 +77,7 @@ export async function pushVersion(
   const { master } = await pushSong(cfg(), {
     filename: `mixdown.${zoneExt(ext)}`,
     bytes,
-    artist: ARTIST,
+    artist: K7_ARTIST,
     album: tags.album,
     title: tags.title,
     source: "k7",
@@ -84,9 +85,6 @@ export async function pushVersion(
   });
   return master;
 }
-
-/** The one artist k7 publishes under; who actually played is release metadata. */
-export const ARTIST = "K7";
 
 // The album an uploaded songbook track is filed under: its own folder, so it never collides with a catalogue song.
 const UPLOAD_ALBUM = "k7";

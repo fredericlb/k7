@@ -4531,7 +4531,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
   /** `project aspect <ratio>` — the FRAME's shape, written as `project.viewport`'s pixel size.
    *  A ratio and not a size: a person picks 16:9, and 1920×1080 is what that means here. See
-   *  packages/song/docs/picture.md. */
+   *  packages/song-video/docs/picture.md. */
   "project.aspect": async (a, h) => {
     const want = aspectSize(a.trim());
     if (!want) {

@@ -96,7 +96,7 @@ function main(): void {
     .filter((a) => !a.startsWith("-"));
   if (!projectArg) {
     console.error(
-      "usage: npx tsx packages/commands/src/timeline.ts <project> [trackname]",
+      "usage: npx tsx packages/take-render/src/timeline.ts <project> [trackname]",
     );
     process.exit(2);
   }

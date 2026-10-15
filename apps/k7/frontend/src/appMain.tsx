@@ -143,7 +143,7 @@ const external = parseExternal(
 );
 
 /** What is on screen while a split-out screen arrives. The window is already painted in the
- *  app's colour by then (apps/k7-desktop/docs/window.md), so this only has to say "coming". */
+ *  app's colour by then (apps/k7/frontend/docs/shell.md), so this only has to say "coming". */
 function Booting() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">

@@ -304,7 +304,7 @@
     ]
 # The FRAME's shape, written as `project.viewport` — a pixel size, which is what every consumer
 # reads; the ratio is the short name a person picks. The export fps, when the file states one as a
-# third element, is kept. Two names for now: 16:9 and 9:16. See packages/song/docs/picture.md.
+# third element, is kept. Two names for now: 16:9 and 9:16. See packages/song-video/docs/picture.md.
 - command: "project aspect"
   sid: project.aspect
   readable:
@@ -547,7 +547,7 @@
 
 # --- a clip's onsets ---
 # Corrections to what the engine detected, in SECONDS into the source file. Kept as a difference, so
-# they survive re-detecting at another sensitivity — see packages/song/src/onsets.ts. A time within
+# they survive re-detecting at another sensitivity — see packages/song-edit/src/onsets.ts. A time within
 # 25 ms of an existing onset means that one, so an approximate second is enough.
 - command: "clip onset add"
   sid: clip.onset.add

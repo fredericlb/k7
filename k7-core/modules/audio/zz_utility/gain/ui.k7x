@@ -4,7 +4,7 @@
 // la seule commande qu'on tient à pleine main, et sa COURSE est ce qu'on lit d'un coup d'œil.
 //
 // `min`/`max` sont la plage que le pupitre reprend telle quelle pour son propre contrôle
-// (packages/ui-turntables/docs/controls.md) : une liaison ne doit pas pouvoir demander un niveau
+// (packages/k7-plugins/docs/turntables/controls.md) : une liaison ne doit pas pouvoir demander un niveau
 // que ce panneau refuserait de dessiner.
 cols(3)
 rows(2)

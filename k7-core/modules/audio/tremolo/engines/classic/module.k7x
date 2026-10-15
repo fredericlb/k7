@@ -9,7 +9,7 @@
 //
 // CE QU'IL N'EST PAS : il ne suit pas le tempo du projet. `Rate` est en hertz, posé à la main,
 // pour la raison qui vaut pour l'écho — la liaison n'existe pas encore. Voir
-// packages/ui-turntables/docs/fx.md.
+// packages/k7-plugins/docs/turntables/fx.md.
 //
 // Sa DSP est décrite dans jsdsp.ts à côté, pas compilée dans le moteur.
 plugin({ type: "jsdsp", name: "Tremolo" })

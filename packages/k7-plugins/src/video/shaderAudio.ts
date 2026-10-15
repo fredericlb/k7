@@ -1,7 +1,7 @@
 // shaderAudio.ts — the engine's per-track levels turned into the `uAudio` a shader is driven by:
 // which lane feeds which pass, -60..0 dB mapped to 0..1, and the smoothing that makes a 20 Hz
 // report look like a moving value at 60 fps. The mapping lives HERE and not in @studio/ui-eyes,
-// which knows nothing about engines. See packages/song/docs/shaders.md.
+// which knows nothing about engines. See packages/song-video/docs/shaders.md.
 
 import type { WebVideoPlugin, WebVideoProject } from "@studio/web-protocol";
 

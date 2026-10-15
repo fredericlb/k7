@@ -2,7 +2,7 @@
 // a position the desk drives, forwards, backwards or stopped.
 //
 // A clip on a timeline plays at the transport's rate and can only be re-placed, which is why a
-// scratch measured as a stutter (packages/ui-turntables/docs/scratch.md). Here the position is the
+// scratch measured as a stutter (packages/k7-plugins/docs/turntables/scratch.md). Here the position is the
 // plugin's own, so nothing about it goes through the transport. See docs/turntable.md.
 
 #pragma once

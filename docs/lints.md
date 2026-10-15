@@ -6,7 +6,7 @@ report a debt. Each guards a property the ordinary tooling has no opinion about.
 | script | npm | blocks? | refuses |
 |---|---|---|---|
 | `scripts/check-source-bytes.mjs` | `lint:bytes` | yes | a NUL byte in a tracked source file |
-| `scripts/check-doc-links.mjs` | `lint:docs` | yes | a `.md` naming a source file that is not there |
+| `scripts/check-doc-links.mjs` | `lint:docs` | yes | a page or a source comment naming a repo file that is not there |
 | `scripts/check-comments.mjs` | `lint:comments` | no | long headers, multi-line body comments, French where English is expected |
 | knip | `lint:dead` | no | dead and duplicated code on the audio axis |
 
@@ -19,7 +19,11 @@ The method of this repo is that the WHY lives in the prose: a comment points at 
 the page points back at the code it is about. A pointer to a file that has been renamed or deleted
 sends the reader into a wall, and nothing else notices.
 
-It reads only what git tracks, and only paths that look like ours.
+**Both directions are read**: the pages, and the source whose comments point at them — TypeScript
+and JavaScript, C++, Kotlin, `.k7x`, GLSL, YAML, shell and Python (`SCANNED`). It reads what git
+tracks and what it merely knows about, never what is ignored and never a build or install output
+(`dist/`, `node_modules/`, `build/`…), and only paths that look like ours. `commons/` is not
+scanned: the submodule brings its own docs and its own truth about them.
 
 **What counts as "a path into this repo"** is anchored on the four TOP folders — `packages`,
 `apps`, `engine`, `commons` — and deliberately NOT on `docs/` or `scripts/`. Those two are written
@@ -35,9 +39,10 @@ resolves. (Spelling a whole example path here would make this sentence a broken 
 
 **Two lists soften it, and both are meant to stay short.** `ALLOW` covers paths a page may
 legitimately name although this checkout has not got them: a page inside `engine/k7-runtime` writes
-`engine/EditBuilder.cpp` relative to its own app, and a page may name a file of `@frediverse/*`,
-which is the commons submodule and may not be checked out. A growing list there is the check going
-soft.
+`engine/EditBuilder.cpp` relative to its own app — a path under one of `engine/`'s real folders is
+still checked — a page may name a file of `@frediverse/*`, which is the commons submodule and may
+not be checked out, and a path under `dist/` names a build output a checkout has only once built.
+A growing list there is the check going soft.
 
 `TOMBSTONES` is the other one, and it is empty: a path listed there is exempted because the
 sentence around it is about a file deliberately absent from the tree, and it is spelled out by hand

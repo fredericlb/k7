@@ -1,5 +1,5 @@
 // androidEngine.ts — the phone's engine, when k7 runs inside the Android app: `window.k7Android`,
-// which that app puts in its views (engine/k7-android/.../StudioBridge.kt) and answers for k7's
+// which that app puts in its views (engine/k7-android/app/src/main/kotlin/se/frediver/k7/StudioBridge.kt) and answers for k7's
 // origin only. Absent in a browser, so everything here is null there and the section is not drawn.
 // See engine/k7-runtime/docs/android.md.
 

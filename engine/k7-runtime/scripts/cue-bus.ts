@@ -2,7 +2,7 @@
 //
 // 1. Does a MUTED bus still feed its aux sends? What is measured elsewhere is that a mute lets
 //    CLIPS through to sends; a bus has no clips, it has an AuxReturn. The answer decides where a
-//    desk's headphone tap can be taken from — see packages/ui-turntables/docs/cue.md.
+//    desk's headphone tap can be taken from — see packages/k7-plugins/docs/turntables/cue.md.
 // 2. Does `outputChannels` really take a track OFF the mixer's sum? An offline render opens no
 //    interface, so a cue bus must come out SILENT rather than folded into the master.
 //   npx tsx engine/k7-runtime/scripts/cue-bus.ts
