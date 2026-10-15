@@ -18,6 +18,8 @@
 
 #include <ixwebsocket/IXNetSystem.h>
 
+#include <atomic>
+#include <chrono>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
@@ -36,13 +38,16 @@
 
 namespace {
 
-k7::Loop* gLoop = nullptr;
-k7::Supervisor* gSupervisor = nullptr;
+// Set by the signal handler and read by a timer on the loop: a lock-free store is all a handler may safely do.
+std::atomic<bool> gSignalled{false};
+static_assert(std::atomic<bool>::is_always_lock_free);
+
+// How often the loop looks at that flag; a quit within this is soon enough for Ctrl-C.
+constexpr std::chrono::milliseconds kSignalPoll{100};
 
 extern "C" void onSignal(int)
 {
-    // A handler may do almost nothing; posting is a lock and a push, run from the loop afterwards.
-    if (gLoop && gSupervisor) gLoop->post([] { gSupervisor->shutdown(); });
+    gSignalled.store(true, std::memory_order_relaxed);
 }
 
 /** `--config <file>`: read it, put its environment keys in place, and make it the settings; false with a message on failure. */
@@ -151,8 +156,9 @@ int main(int argc, char** argv)
     k7::Loop loop;
     int code = 0;
     k7::Supervisor supervisor(loop, [&] { loop.stop(); });
-    gLoop = &loop;
-    gSupervisor = &supervisor;
+    loop.every(kSignalPoll, [&supervisor] {
+        if (gSignalled.exchange(false, std::memory_order_relaxed)) supervisor.shutdown();
+    });
     std::signal(SIGINT, onSignal);
     std::signal(SIGTERM, onSignal);
 #ifdef SIGHUP

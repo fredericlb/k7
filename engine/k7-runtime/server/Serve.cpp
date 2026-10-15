@@ -8,6 +8,7 @@
 #include "Outbox.h"
 #include "ServeContext.h"
 
+#include "../engine/PathRoots.h"
 #include "../engine/Warnings.h"
 
 #include <ixwebsocket/IXNetSystem.h>
@@ -40,8 +41,7 @@ constexpr int kSendTimeoutSecs = 5;
 
 // A ceiling on a session id, not a shape: naming one creates it, so only a length that attacks the map is worth refusing — real ids are tens of bytes.
 constexpr size_t kMaxSessionIdBytes = 256;
-// How many sessions one engine holds at most: each carries a broadcast ring and is walked by the state tick 20 times a second.
-constexpr size_t kMaxSessions = 64;
+constexpr size_t kMaxSessions = studio::EngineHost::kMaxSessions;
 
 studio::EngineHost* g_host = nullptr;   // for requestQuit
 
@@ -93,6 +93,8 @@ int serve(int port) {
 
     // Before anything loads: a plugin or a model the last engine died loading is struck now, and refused at the second strike (docs/crashes.md).
     studio::enableLoadGuards();
+    // Every file a document names is held to these from here on: the state folder and $STUDIO_ENGINE_ROOTS, plus temp for reads (docs/pathRoots.md).
+    studio::setPathRoots(studio::defaultPathRoots(studio::studioStatePath()));
 
     // Constructing the host builds the Tracktion engine and opens NO audio device — that is queued below so the port binds first, since opening one takes seconds and a refused connection reads as an absent engine.
     studio::EngineHost host;
@@ -242,6 +244,7 @@ int serve(int port) {
             if (msg->type != ix::WebSocketMessageType::Message)
                 return;
 
+            if (screenFrameSize(ctx, ws, conn->getRemoteIp(), msg->str.size())) return;
             json j;
             try {
                 j = json::parse(msg->str);
@@ -263,7 +266,8 @@ int serve(int port) {
                 return;
             }
             // …and a ceiling on HOW MANY, which the length does not bound: a NEW one past it is refused, an existing one always answered.
-            if (!session.empty() && probeQueries.count(type) == 0 && !host.hasSession(session) &&
+            const bool creates = probeQueries.count(type) == 0 || j.value("role", std::string{}) == "driver";
+            if (!session.empty() && creates && !host.hasSession(session) &&
                 host.sessionIds().size() >= kMaxSessions) {
                 ws.send(json{{"type", "error"}, {"message", "this engine holds too many sessions"}}.dump());
                 return;

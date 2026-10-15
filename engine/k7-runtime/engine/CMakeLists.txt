@@ -21,6 +21,7 @@ add_library(studio_engine STATIC
     MultiEditTest.cpp
     Decode.cpp
     LoadGuard.cpp
+    PathRoots.cpp
     WaveformTapPlugin.cpp
     BroadcastTapPlugin.cpp
     RecorderPlugin.cpp

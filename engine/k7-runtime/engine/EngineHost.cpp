@@ -906,6 +906,8 @@ size_t EngineHost::reapEmptySessions(double ttlMs) {
 
 // Creating, like the other verbs a client declares with: a socket saying "I am driving X" is the moment X starts existing as far as this engine is concerned.
 void EngineHost::addDriver(const std::string& session) {
+    // The cap the socket enforces on every other verb, here too: a driver's `whoami` is a probe there, and would create past it.
+    if (impl_->find(session) == nullptr && impl_->ids().size() >= kMaxSessions) return;
     auto& s = impl_->session(session);
     ++s.drivers;
     s.noDriverSinceMs = 0.0;   // somebody is here; the clock stops

@@ -23,6 +23,7 @@ add_test(NAME studio_engine_tests COMMAND studio_engine_tests)
 # The wire's bounds, in their own fast binary: DocJson.cpp is JUCE-free and needs only nlohmann.
 add_executable(studio_docjson_tests
     DocJson_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine/PathRoots.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../server/DocJson.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine/ProjectDoc.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine/Warnings.cpp)
@@ -187,10 +188,18 @@ target_include_directories(studio_pattern_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
 add_test(NAME studio_pattern_tests COMMAND studio_pattern_tests)
 
-add_executable(studio_samplebanks_tests SampleBanks_test.cpp)
+add_executable(studio_samplebanks_tests SampleBanks_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine/PathRoots.cpp)
 target_include_directories(studio_samplebanks_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
 add_test(NAME studio_samplebanks_tests COMMAND studio_samplebanks_tests)
+
+# Which paths a document may make the engine read or write: PathRoots.cpp is JUCE-free (docs/pathRoots.md).
+add_executable(studio_pathroots_tests PathRoots_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine/PathRoots.cpp)
+target_include_directories(studio_pathroots_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_pathroots_tests COMMAND studio_pathroots_tests)
 
 add_executable(studio_strudel_tests StrudelHost_test.cpp)
 target_link_libraries(studio_strudel_tests PRIVATE studio_strudel)

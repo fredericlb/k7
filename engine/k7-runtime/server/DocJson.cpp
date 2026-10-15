@@ -3,6 +3,7 @@
 
 #include "DocJson.h"
 
+#include "../engine/PathRoots.h"
 #include "../engine/Warnings.h"
 
 #include <algorithm>
@@ -22,6 +23,40 @@ namespace {
 constexpr int kMaxPadRepeat = 64;
 
 int clampInt(int v, int lo, int hi) { return std::min(std::max(v, lo), hi); }
+
+// The output pairs a sampler or a routed tap can address: 0..31, the sampler's own bound.
+constexpr int kMaxPair = 31;
+
+// A file the document names for READING, kept only when the engine may open it, else "" and a warning (docs/pathRoots.md).
+std::string readable(std::string path, const char* what) {
+    if (path.empty() || readAllowed(path)) return path;
+    warn(std::string(what) + " '" + path + "' is outside the folders this engine reads — ignored");
+    return {};
+}
+
+// …and the one it WRITES a plugin's state to: a `.vstpreset` under the write roots, nothing else.
+std::string presetTarget(std::string path) {
+    if (path.empty() || (hasExtensionCi(path, ".vstpreset") && writeAllowed(path))) return path;
+    warn("preset save path '" + path + "' is not a .vstpreset under the folders this engine writes — not saved");
+    return {};
+}
+
+// An `@instruments/` reference resolves under the state directory, so no segment of it may be `..`.
+std::string instrumentRef(std::string ref) {
+    static const std::string kRef = "@instruments/";
+    if (ref.rfind(kRef, 0) != 0) return readable(std::move(ref), "sfz instrument");
+    size_t from = kRef.size();
+    while (true) {
+        const size_t to = ref.find_first_of("/\\", from);
+        const std::string seg = ref.substr(from, to == std::string::npos ? std::string::npos : to - from);
+        if (seg == "..") {
+            warn("sfz instrument '" + ref + "' climbs out of the instruments folder — ignored");
+            return {};
+        }
+        if (to == std::string::npos) return ref;
+        from = to + 1;
+    }
+}
 
 // A time signature Tracktion can divide by: a numerator of 1..64 over a power of two up to 32, else 4/4 and a warning.
 void sanitiseTimeSig(ProjectDoc& doc) {
@@ -71,29 +106,33 @@ studio::PluginDoc pluginFromJson(const json& p) {
     pl.id = p.value("id", std::string{});
     pl.type = p.value("type", std::string{});
     pl.name = p.value("name", std::string{});
-    pl.path = p.value("path", std::string{});
-    pl.presetSave = p.value("presetSave", std::string{});
+    pl.path = readable(p.value("path", std::string{}), "preset");
+    pl.presetSave = presetTarget(p.value("presetSave", std::string{}));
     pl.role = p.value("role", std::string{});
     pl.enabled = p.value("enabled", true);
-    pl.namFile = p.value("namFile", std::string{});
-    pl.irFile = p.value("irFile", std::string{});
-    pl.deckFile = p.value("deckFile", std::string{});
-    pl.sfzFile = p.value("sfzFile", std::string{});
-    pl.surgePatch = p.value("surgePatch", std::string{});
+    pl.namFile = readable(p.value("namFile", std::string{}), "amp model");
+    pl.irFile = readable(p.value("irFile", std::string{}), "impulse response");
+    pl.deckFile = readable(p.value("deckFile", std::string{}), "record");
+    pl.sfzFile = instrumentRef(p.value("sfzFile", std::string{}));
+    pl.surgePatch = readable(p.value("surgePatch", std::string{}), "surge patch");
     pl.dspGraph = p.value("dspGraph", std::string{});
     pl.faustDsp = p.value("faustDsp", std::string{});
-    pl.faustFiles = p.value("faustFiles", std::map<std::string, std::string>{});
+    // A Faust sound file travels as one `label<TAB>path` line, so neither half may hold a tab or a newline.
+    for (auto& [label, path] : p.value("faustFiles", std::map<std::string, std::string>{}))
+        if (label.find_first_of("\t\r\n") == std::string::npos && path.find_first_of("\t\r\n") == std::string::npos)
+            if (auto file = readable(path, "faust sound file"); !file.empty()) pl.faustFiles[label] = std::move(file);
     pl.patternSource = p.value("patternSource", std::string{});
     pl.patternLabel = p.value("patternLabel", std::string{});
     pl.patternCatchAll = p.value("patternCatchAll", false);
     pl.patternClaimed = p.value("patternClaimed", std::vector<std::string>{});
     pl.patternPlays = p.value("patternPlays", std::string{});
     pl.patternOnly = p.value("patternOnly", true);
-    pl.patternBanks = p.value("patternBanks", std::vector<std::string>{});
+    for (auto& bank : p.value("patternBanks", std::vector<std::string>{}))
+        if (auto dir = readable(bank, "sample bank"); !dir.empty()) pl.patternBanks.push_back(std::move(dir));
     pl.sidechainFrom = p.value("sidechainFrom", std::string{});
     if (p.contains("tapOuts") && p.at("tapOuts").is_array())
         for (const auto& o : p.at("tapOuts"))
-            pl.tapOuts.push_back({o.value("note", 0), o.value("pair", 0)});
+            pl.tapOuts.push_back({clampInt(o.value("note", 0), 0, 127), clampInt(o.value("pair", 0), 0, kMaxPair)});
     if (p.contains("params"))
         for (const auto& [k, v] : p.at("params").items())
             pl.params[k] = v.get<double>();
@@ -103,7 +142,7 @@ studio::PluginDoc pluginFromJson(const json& p) {
             studio::RackEntry re;
             re.symbol = e.value("symbol", std::string{});
             re.note = clampInt(e.value("note", 0), 0, 127);
-            re.clip = e.value("clip", std::string{});
+            re.clip = readable(e.value("clip", std::string{}), "rack sample");
             re.start = e.value("start", 0.0);
             re.length = e.value("length", 0.0);
             pl.rack.push_back(std::move(re));
@@ -128,7 +167,12 @@ studio::ProjectDoc docFromJson(const json& j) {
     if (j.contains("masterPlugins") && j.at("masterPlugins").is_array())
         for (const auto& p : j.at("masterPlugins"))
             doc.masterPlugins.push_back(pluginFromJson(p));
+    // The folder takes are WRITTEN to: outside the write roots it is dropped, and the project cannot record.
     doc.recordDir = j.value("recordDir", std::string{});
+    if (!doc.recordDir.empty() && !writeAllowed(doc.recordDir)) {
+        warn("record folder '" + doc.recordDir + "' is outside the folders this engine writes — recording is off");
+        doc.recordDir.clear();
+    }
     doc.recordMute = j.value("recordMute", true);
     // Project settings ride in a nested `settings` object; the engine reads only what it plays, and absent means the defaults.
     if (j.contains("settings") && j.at("settings").is_object()) {
@@ -174,7 +218,7 @@ studio::TrackDoc trackFromJson(const json& t) {
                           ? studio::ClipType::Midi
                           : studio::ClipType::Audio;
             cl.name = c.value("name", std::string{});
-            cl.source = c.value("source", std::string{});  // absolute path from Node
+            cl.source = readable(c.value("source", std::string{}), "clip");  // absolute path from Node
             cl.start = c.value("start", 0.0);
             cl.length = c.value("length", 0.0);
             cl.offset = c.value("offset", 0.0);
@@ -230,7 +274,7 @@ studio::TrackDoc trackFromJson(const json& t) {
 
     if (t.contains("inputFrom") && t.at("inputFrom").is_object()) {
         tr.inputFromPlugin = t.at("inputFrom").value("plugin", std::string{});
-        tr.inputFromPair = t.at("inputFrom").value("pair", 0);
+        tr.inputFromPair = clampInt(t.at("inputFrom").value("pair", 0), 0, kMaxPair);
     }
 
     if (t.contains("automation"))

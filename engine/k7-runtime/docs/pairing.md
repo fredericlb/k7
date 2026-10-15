@@ -64,6 +64,11 @@ Three things, and every other message is answered `{type:"error", code:"unpaired
 Machine-wide broadcasts skip untrusted sockets too: an unpaired peer hears its own refusals and
 nothing else.
 
+None of the three is more than a few hundred bytes, so a frame over **16 KB** from a socket not yet
+trusted is refused before it is parsed (`screenFrameSize`). The socket accepts frames far larger
+than that for a paired client's documents, and parsing one is the costly part, so without the cap
+anyone on the room's Wi-Fi could make the engine parse megabytes of JSON per message for nothing.
+
 ## The flow, and why the code is shown on both sides
 
 The device sends `pair-request` with a name ("iPhone · Safari"); the engine answers with a six-digit
@@ -91,7 +96,8 @@ keep driving until it happens to reconnect. The device forgets a key the engine 
 "pair this device" again rather than failing in a loop.
 
 **The engine's token pairs too.** The registry holds it, and its relay may dial the engine over the
-LAN when the server is not on the engine's machine; it shows the token as its key. A paired device
+LAN when the server is not on the engine's machine; it shows the token as its key, compared in
+constant time like a device's (`sameKey`). A paired device
 also learns the token, from `whoami` — it could pair with it as well, which grants nothing it does not
 already have.
 

@@ -186,7 +186,7 @@ GraphDspPlugin::GraphDspPlugin(te::PluginCreationInfo info)
                                   ? state.getProperty("graph").toString()
                                   : juce::String(defaultGraphJson());
     juce::String error;
-    graph_ = DspGraph::build(juce::JSON::parse(json), error);
+    graph_ = DspGraph::fromJson(json, error);
     if (graph_ == nullptr) {
         // A broken description passes audio through, and SAYS why: otherwise it looks fine and does nothing.
         warn("dsp graph unusable: " + error.toStdString());

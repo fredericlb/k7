@@ -108,6 +108,8 @@ struct ServeContext {
 
 // Before even that, the handshake's Origin: true when the socket is a refused page's and the message goes nowhere.
 bool screenOrigin(ServeContext&, ix::WebSocket&, const ix::WebSocketMessagePtr&);
+// …and before the parse: true when a peer not yet trusted sent a frame larger than any of its verbs, refused unread.
+bool screenFrameSize(ServeContext&, ix::WebSocket&, const std::string& peerIp, size_t bytes);
 // Every message passes here first: true when it was answered — a pairing verb, or a refusal — and must go no further (docs/pairing.md).
 bool screenMessage(ServeContext&, ix::WebSocket&, const std::string& peerIp, const nlohmann::json&,
                    const std::string& type);

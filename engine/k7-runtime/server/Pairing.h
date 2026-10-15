@@ -21,6 +21,9 @@ namespace studio {
 /** A peer address the machine itself owns: 127.0.0.0/8, ::1, and the v4-mapped form of either. */
 bool isLoopbackAddress(const std::string& ip);
 
+/** Two secrets compared in a time that does not depend on where they first differ. */
+bool sameKey(const std::string& a, const std::string& b);
+
 /** Whether a socket whose handshake carries `Origin: origin` may be served: loopback, st0.app, or one of `extra` — docs/pairing.md. */
 bool originAllowed(const std::string& origin, const std::vector<std::string>& extra);
 

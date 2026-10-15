@@ -7,6 +7,7 @@
 
 #include "EngineTypes.h"       // Tracktion/JUCE + the te/tt/fs aliases
 #include "EngineHostImpl.h"    // struct EngineHost::Impl
+#include "PathRoots.h"         // the record folder is a WRITE, held to the write roots
 #include "RecorderPlugin.h"
 #include "Warnings.h"          // a refused record has to reach the client, not just stderr
 
@@ -210,6 +211,8 @@ EngineHost::RecorderResult EngineHost::setRecorderRecording(const std::string& s
 
     if (s->current.recordDir.empty())
         return { false, "no record directory — this project cannot record" };
+    if (!writeAllowed(s->current.recordDir))
+        return { false, "the record directory is outside the folders this engine writes" };
     const double rate = node.ring.sampleRate();
     if (rate <= 0.0)
         return { false, "\"" + id + "\" has not carried audio yet — play something through it first" };

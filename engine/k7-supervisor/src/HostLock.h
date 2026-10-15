@@ -7,10 +7,10 @@
 
 namespace k7::hostlock {
 
-/** Who holds the lock, or 0; a stale or foreign-dead lock is removed on the way. */
+/** Who holds the lock (-1 for a fresh one naming nobody yet), or 0; a stale or foreign-dead lock is removed on the way. */
 int heldBy();
 
-/** Take it, or return the pid that has it; 0 means it is ours now. */
+/** Take it by exclusive create, or return the pid that has it (-1 when unknown); 0 means it is ours now. */
 int acquire();
 
 /** Rewrite our pid, which is what keeps the lock fresh — called on the loop every two seconds. */

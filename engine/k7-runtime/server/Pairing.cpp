@@ -47,6 +47,8 @@ std::string randomCode() {
     return buf;
 }
 
+}  // namespace
+
 // Equal without returning early on the first difference, so a guess learns nothing from the time it took.
 bool sameKey(const std::string& a, const std::string& b) {
     if (a.size() != b.size()) return false;
@@ -54,8 +56,6 @@ bool sameKey(const std::string& a, const std::string& b) {
     for (size_t i = 0; i < a.size(); ++i) diff |= static_cast<unsigned char>(a[i] ^ b[i]);
     return diff == 0;
 }
-
-}  // namespace
 
 bool isLoopbackAddress(const std::string& ip) {
     std::string v = ip;

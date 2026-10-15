@@ -4,13 +4,16 @@
 #include "MachineJobs.h"
 
 #include "EngineProcess.h"
+#include "PathMap.h"
 #include "Paths.h"
 #include "Processes.h"
 #include "Separation.h"
 #include "Settings.h"
 
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <random>
 #include <sstream>
 
 namespace k7 {
@@ -48,6 +51,42 @@ std::string readAll(const fs::path& p)
 void requireWritable(const tunnel::JobContext& ctx, const std::string& path, const char* what)
 {
     if (!ctx.writable || !ctx.writable(path)) throw std::runtime_error(std::string(what) + ": refused a path outside this server's writable folders");
+}
+
+/** Whether a LOCAL path is inside this machine's copies of the servers' roots, by spelling and once links are resolved. */
+bool mapped(const std::string& path)
+{
+    const fs::path root = paths::studioDir() / "remote";
+    if (!tunnel::relativeUnder(paths::utf8(root), path)) return false;
+    std::error_code ec, rootEc;
+    const fs::path real = fs::weakly_canonical(paths::fromUtf8(path), ec);
+    const fs::path realRoot = fs::weakly_canonical(root, rootEc);
+    return !ec && !rootEc && tunnel::relativeUnder(paths::utf8(realRoot), paths::utf8(real)).has_value();
+}
+
+/** Refuse a job whose input is not a copy of a server's file, before anything says whether it exists. */
+void requireMapped(const std::string& path, const char* what)
+{
+    if (!mapped(path)) throw std::runtime_error(std::string(what) + ": refused a path outside this machine's copies of the server's folders");
+}
+
+/** A folder under the temp directory that THIS call created, owner-only: never one another process prepared or linked. */
+fs::path freshScratch(const std::string& prefix)
+{
+    std::random_device rd;
+    std::error_code ec;
+    const fs::path base = fs::temp_directory_path(ec);
+    if (ec) throw std::runtime_error("no temporary folder to work in: " + ec.message());
+    for (int attempt = 0; attempt < 16; ++attempt) {
+        char name[20];
+        std::snprintf(name, sizeof name, "%08x%08x", rd(), rd());
+        const fs::path dir = base / (prefix + name);
+        // False when the name is taken, by a folder, a file or a link alike: only a folder made here is used.
+        if (!fs::create_directory(dir, ec) || ec) continue;
+        fs::permissions(dir, fs::perms::owner_all, fs::perm_options::replace, ec);
+        return dir;
+    }
+    throw std::runtime_error("could not make a temporary folder to work in");
 }
 
 }  // namespace
@@ -113,7 +152,8 @@ tunnel::Jobs machineJobs(const MachineAccess& access)
     jobs["local"] = [](const json& req, const tunnel::Emit& emit, tunnel::JobContext&) {
         const std::string path = req.value("path", "");
         std::error_code ec;
-        if (path.empty() || !fs::exists(paths::fromUtf8(path), ec)) throw std::runtime_error("not in the médiathèque");
+        // Refused in the words of an absent file, so the answer says nothing about the rest of the disk.
+        if (path.empty() || !mapped(path) || !fs::exists(paths::fromUtf8(path), ec)) throw std::runtime_error("not in the médiathèque");
         emit({{"type", "local"}, {"raw", {{"path", path}}}});
     };
 
@@ -122,7 +162,7 @@ tunnel::Jobs machineJobs(const MachineAccess& access)
         int count = 0;
         std::error_code ec;
         for (const auto& f : req.value("files", json::array()))
-            if (f.is_string() && fs::exists(paths::fromUtf8(f.get<std::string>()), ec)) ++count;
+            if (f.is_string() && mapped(f.get<std::string>()) && fs::exists(paths::fromUtf8(f.get<std::string>()), ec)) ++count;
         emit({{"type", "prefetched"}, {"count", count}});
     };
 
@@ -162,6 +202,8 @@ tunnel::Jobs machineJobs(const MachineAccess& access)
         r.model = req.value("model", "");
         r.outDir = req.value("outDir", "");
         requireWritable(ctx, r.outDir, "separate");
+        requireMapped(r.source, "separate");
+        requireMapped(r.model, "separate");
         for (const auto& o : req.value("outputs", json::array()))
             if (o.is_string()) r.outputs.push_back(o.get<std::string>());
         r.providers = access.onnxProviders(std::nullopt);
@@ -182,9 +224,7 @@ tunnel::Jobs machineJobs(const MachineAccess& access)
         if (!exe) throw std::runtime_error("no k7-runtime binary on this machine to render with");
 
         std::error_code ec;
-        const fs::path tmp = fs::temp_directory_path(ec) / ("k7-render-" + std::to_string(process::currentPid()) + "-" +
-                                                             std::to_string(std::hash<std::string>{}(out + outDir)));
-        fs::create_directories(tmp, ec);
+        const fs::path tmp = freshScratch("k7-render-");
         const auto cleanup = [&] { fs::remove_all(tmp, ec); };
         emit({{"type", "rendering"}});
         std::vector<std::string> args = {"--render", "-", "--out", paths::utf8(tmp)};

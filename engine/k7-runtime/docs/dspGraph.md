@@ -115,7 +115,8 @@ sample-phase node therefore puts its wires in `in` and its scalars in `k`.
 **It does not allocate and it does not block.** Three places carry that:
 
 - Delay lines are sized at `prepare()`. That is the only thing in this interpreter big enough to be
-  heard growing during a render. `maxMs` is a **ceiling**, not a suggestion.
+  heard growing during a render. `maxMs` is a **ceiling**, not a suggestion — and is itself held to
+  1..60 000 ms, sized in 64-bit, since a graph arrives off the wire and a larger one is gigabytes.
 - A block larger than the one announced at `prepare()` really does arrive — an offline render, a
   rack's render context, a device buffer that got ahead of a re-init. A `setSize` on the dry
   snapshot would then allocate on the audio thread, so `process()` **splits the block**: the control
@@ -169,7 +170,12 @@ The dry snapshot is taken **before** any audio node, for the same reason. Whethe
 ## The input ports
 
 `ain` names a **module port** (`packages/song/docs/ports.md`). Port n is the stereo pair of channels
-2n / 2n+1: the chain's stream is 0/1, the first side input 2/3. Absent, the port is the first.
+2n / 2n+1: the chain's stream is 0/1, the first side input 2/3. Absent, the port is the first; a
+port past the fourth is read as the fourth, since the sample phase indexes eight channels at most.
+
+The description itself is TEXT off the wire, so `DspGraph::fromJson` refuses one over 1 MiB or
+nested deeper than 32 levels before the JSON parser sees it; a real graph is a few hundred bytes,
+four levels deep.
 
 `DspGraph::inputs()` returns one more than the highest `port` named, and that is what tells the
 plugin how many channels to ask for (`GraphDspPlugin::getChannelNames`), hence whether the module is
