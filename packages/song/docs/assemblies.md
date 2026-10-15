@@ -35,7 +35,7 @@ A library carries a third family ([sharedFolders.md](sharedFolders.md)), and a t
 by its library like everything else in it:
 
 ```
-<libraries>/k7/modules/       @k7-core/audio/utility/trim
+<libraries>/k7/modules/       @k7-core/audio/zz_utility/trim
 <libraries>/k7/chains/        @k7-core/process/normalize
 <libraries>/k7/assemblies/    @k7-core/turntable
 ```

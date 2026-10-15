@@ -23,7 +23,7 @@ Everything here runs on the engine alone, or on a WAV or an MP4 committed beside
 | `mute-solo.k7` | a bypassed lane, a soloed lane, a highlighted lane | the mute and solo buttons' pressed state |
 | `mixer-strip.k7` | an `@meta/audio/mixer` strip at the end of a lane | "Mix panel" is enabled |
 | `master-chain.k7` | a module between `MIX` and `OUT` | the lane, then play |
-| `mastering.k7` | the `mastering` surface over one quick-master node | the strip draws — **known to fail** |
+| `mastering.k7` | the `mastering` surface over one quick-master node | the strip draws |
 | `library-module.k7` | a node extending an `@k7-core` library module | the lane, then play |
 | `video-lane.k7` | a video lane under an audio lane, and the viewport surface | the Viewport window |
 | `markers-settings.k7` | markers, tags, 3/4 at 96 bpm, the metronome on | the tempo and metronome |

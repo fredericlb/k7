@@ -1,4 +1,4 @@
-// NewProject.tsx — "Nouveau projet" inside a workspace's block: the archetype, the name, and the
+// NewProject.tsx — "New project" inside a workspace's block: the archetype, the name, and the
 // derived folder shown BEFORE creating — as AddSong shows the tree before uploading, because here
 // too the name decides everything. See ../../docs/projects.md.
 
@@ -68,7 +68,7 @@ export function NewProject({
         title={blocked || m["project.newHint"]()}
         onClick={() => setOpen(true)}
       >
-        <FolderPlus className="mr-1 h-3.5 w-3.5" /> Nouveau projet
+        <FolderPlus className="mr-1 h-3.5 w-3.5" /> {m["project.newTitle"]()}
       </Button>
 
       <Dialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>

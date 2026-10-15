@@ -85,7 +85,7 @@ export function describeConflict(c: SyncConflict): ConflictView {
 }
 
 export const conflictsApi = {
-  /** The open conflicts; none where the workspace is not linked to a relay (404). */
+  /** The open conflicts; none where the workspace is not linked to a relay (an empty list, or a 404 from an older service). */
   list: async (): Promise<SyncConflict[]> => {
     try {
       return (await fget<{ conflicts: SyncConflict[] }>("/sync/conflicts"))

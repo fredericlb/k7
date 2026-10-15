@@ -84,11 +84,11 @@ export function MasteringTab({
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-6 text-sm">
         <p className="text-muted-foreground">
-          Cette surface est le portrait d'UN module quick-master, et{" "}
+          {m["mst.portrait"]()}{" "}
           {missing.length === 1
             ? m["mst.oneUnmapped"]()
             : m["mst.someUnmapped"]({ n: missing.length })}{" "}
-          — voir <code className="font-mono">{surface.file}</code>.
+          — {m["mst.see"]()} <code className="font-mono">{surface.file}</code>.
         </p>
         <ul className="list-inside list-disc text-muted-foreground">
           {missing.map((c) => (
@@ -106,14 +106,14 @@ export function MasteringTab({
       <p className="shrink-0 text-xs text-muted-foreground">
         {modules.length === 1 ? (
           <>
-            Module <code className="font-mono">{modules[0]}</code>
+            {m["mst.module"]()} <code className="font-mono">{modules[0]}</code>
           </>
         ) : (
           <>
-            Cette surface pilote {modules.length} modules :{" "}
-            {modules.map((m) => (
-              <code className="mr-1 font-mono" key={m}>
-                {m}
+            {m["mst.drives"]({ n: modules.length })}{" "}
+            {modules.map((mod) => (
+              <code className="mr-1 font-mono" key={mod}>
+                {mod}
               </code>
             ))}
             {m["mst.severalModules"]()}

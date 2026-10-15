@@ -8,7 +8,7 @@ const WS = FIXTURES_WORKSPACE;
 // A fixture named broken-* must refuse to compile, with this text in the compiler's message.
 const EXPECTED_ERROR: Record<string, RegExp> = {
   "broken-unresolved.k7": /does-not-exist/,
-  "broken-sequence.k7": /melody/,
+  "broken-sequence.k7": /sequence 'melody' failed to load/,
 };
 
 async function errorsOf(
@@ -36,11 +36,9 @@ for (const project of fixtureProjects()) {
 test("a sequence that fails its schema is reported by the schema's error", async ({
   request,
 }) => {
-  test.fail(
-    true,
-    "today the file is reported as 'clip/sequence not found', hiding the out-of-range velocity",
-  );
   const files = await FileService.connect(request);
   const errors = await errorsOf(files, "broken-sequence.k7");
-  expect(errors.join("\n")).toMatch(/velocity|\bv\b|less than or equal to 1/i);
+  expect(errors.join("\n")).toMatch(
+    /sequence 'melody' failed to load .*sequences\/melody\.k7x/,
+  );
 });

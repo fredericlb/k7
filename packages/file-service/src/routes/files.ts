@@ -780,8 +780,8 @@ filesRouter.get(
   "/sync/conflicts",
   wrap((req, res) => {
     const conflicts = liveConflicts(req.ws!);
-    if (!conflicts) res.status(404).json({ error: "not linked to a relay" });
-    else res.json({ conflicts });
+    // Unlinked is an ordinary state polled on every notice, so it answers an empty list rather than an error.
+    res.json({ conflicts: conflicts ?? [], linked: conflicts !== null });
   }),
 );
 // Settle one: `take: true` writes the alternative over the value in place; either way it closes everywhere.

@@ -198,8 +198,8 @@ export function ExternalIndex() {
           <Empty icon={<Disc3 className="h-8 w-8" />}>
             <p className="text-sm">{m["ext.noSurfaces"]()}</p>
             <p className="max-w-xs text-center text-xs opacity-70">
-              Un projet déclare ses écrans dans son dossier{" "}
-              <code>surfaces/</code>. Celui qui est ouvert n'en déclare aucun.
+              {m["ext.surfacesWhere"]()} <code>surfaces/</code>.{" "}
+              {m["ext.surfacesNone"]()}
             </p>
           </Empty>
         ) : (

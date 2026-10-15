@@ -2565,7 +2565,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
     try {
       const path = setChainNodePositions(h.songPath, at);
-      h.log([`pinned ${Object.keys(at).length} node(s) (${path})`]);
+      h.log([
+        `pinned ${Object.keys(at).length} node(s) (${relative(h.songPath, path)})`,
+      ]);
     } catch (e) {
       h.refuse([`graph pin: ${(e as Error).message}`]);
     }

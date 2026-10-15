@@ -93,6 +93,14 @@ describe("fromLocation", () => {
     expect(fromLocation("/turntables", "", { turntables: true })).toEqual(s);
   });
 
+  it("round-trips the master strip only once the project declares it", () => {
+    // The flag is what App.tsx must hand useViewRoute; without it `/mastering` falls back to the timeline.
+    expect(fromLocation("/mastering", "", { mastering: true })).toEqual(
+      st({ full: "mastering" }),
+    );
+    expect(fromLocation("/mastering", "")).toEqual(st());
+  });
+
   it("falls back to the layout on a path it doesn't know", () => {
     // The URL bar is user-editable; a typo should land somewhere usable rather than leaving the shell with no screen at all.
     expect(fromLocation("/nonsense", "")).toEqual(st());

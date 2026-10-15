@@ -64,7 +64,6 @@ const FEATURES: Record<string, { check: Check; play?: boolean; bug?: string }> =
     },
     "master-chain.k7": { check: lane("drums") },
     "mastering.k7": {
-      bug: "the URL moves to /mastering but the timeline stays on screen and the strip never draws",
       check: async (page) => {
         await button(page, "Mastering").click();
         await expect(page.getByText("Limiter", { exact: true })).toBeVisible();

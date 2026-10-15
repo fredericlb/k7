@@ -41,8 +41,8 @@ export const REHEARSAL_SECTIONS: readonly RehearsalSection[] = [
     label: () => m["nav.songbook"](),
   },
   {
-    id: "exercices",
-    path: "/exercices",
+    id: "exercises",
+    path: "/exercises",
     icon: Target,
     label: () => m["nav.exercices"](),
   },
@@ -58,7 +58,8 @@ export function rehearsalSectionAt(
   const seg = rest.split("/")[1] ?? "";
   if (seg === "releases" || seg === "pages") return "publications";
   if (seg === "songs") return "songbook";
-  if (seg === "exercices") return "exercices";
+  // `exercices` is the French spelling an older address may still carry; RehearsalRoutes redirects it.
+  if (seg === "exercises" || seg === "exercices") return "exercises";
   // sessions, moments and the bare prefix all land on Recordings.
   return "recordings";
 }

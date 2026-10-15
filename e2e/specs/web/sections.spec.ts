@@ -8,7 +8,7 @@ test("every sidebar section opens cleanly", async ({ page }) => {
   const entries = page
     .getByRole("complementary")
     .getByRole("navigation")
-    .getByRole("button");
+    .getByRole("link");
   await expect(entries.first()).toBeVisible();
   const names = await entries.allInnerTexts();
   expect(names.length).toBeGreaterThan(5);

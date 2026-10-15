@@ -229,22 +229,32 @@ export function RehearsalRoutes() {
             />
 
             <Route
-              path="exercices"
+              path="exercises"
               element={
-                <ExercisesView onOpen={(id) => go(`/exercices/${id}`)} />
+                <ExercisesView onOpen={(id) => go(`/exercises/${id}`)} />
               }
             />
             <Route
-              path="exercices/singing"
-              element={<SingingExercisesView onBack={() => go("/exercices")} />}
+              path="exercises/singing"
+              element={<SingingExercisesView onBack={() => go("/exercises")} />}
             />
             <Route
-              path="exercices/random-chords"
-              element={<RandomChordsExercise onBack={() => go("/exercices")} />}
+              path="exercises/random-chords"
+              element={<RandomChordsExercise onBack={() => go("/exercises")} />}
             />
             <Route
-              path="exercices/tuner"
-              element={<GuitarTuner onBack={() => go("/exercices")} />}
+              path="exercises/tuner"
+              element={<GuitarTuner onBack={() => go("/exercises")} />}
+            />
+            {/* Saved links and installed apps carry the French spelling; it lands on the same page. */}
+            <Route
+              path="exercices/*"
+              element={
+                <Navigate
+                  to={path(pathname.replace(/^.*\/exercices/, "/exercises"))}
+                  replace
+                />
+              }
             />
 
             {/* The settings are a section of the host's own page now. */}

@@ -13,7 +13,7 @@ starts a take — sits where k7 puts a page's controls (`apps/k7/frontend/src/pr
 | Recordings | `/rehearsal/sessions` | sessions and their moments, one timeline ([recordings.md](recordings.md)) |
 | Publications | `/rehearsal/releases` | releases, grouped by the pages that list them |
 | Songbook | `/rehearsal/songs` | the shared songbook |
-| Exercises | `/rehearsal/exercices` | singing exercises, random chords, the tuner |
+| Exercises | `/rehearsal/exercises` (`/rehearsal/exercices` redirects there) | singing exercises, random chords, the tuner |
 
 Fewer entries is the choice: a moment is a stretch of a session, so it hangs under it rather than
 being an entry of its own, and a page is a selection of releases, so the releases are listed under
