@@ -79,6 +79,33 @@ program's `tunnel_harness` when it is built. CI builds it and runs them.
 `agent.ts` stays as that reference and as the stand-in machine the server's own tests run their
 jobs on. It runs in production nowhere.
 
+## A server reaches this disk only under its roots
+
+A server names files by its own paths, and the map turns them into this machine's — a download
+lands there, an upload is read from there. So a server that could spell its way out of a root
+could write any file on the machine with bytes it chose, or read any file back up.
+
+Each direction is held element by element, never as a string prefix (`PathMap.cpp`'s `joinUnder`
+and `relativeUnder`, cases in `tests/PathMap_test.cpp`):
+
+- **down**: the server's path below its root is split on `/`, and a segment is refused when it is
+  empty, only dots and spaces (`.`, `..`, and `.. `, which Windows trims to `..`), or holds a `/`,
+  `\`, `:`, NUL or control character — on Windows a `\` would be a separator and `C:\` or `\x` would
+  replace the whole path. A server file with such a name is the same refusal on every machine, a
+  Mac's included. The joined path must then still lie under the root once lexically normalised;
+- **up**: a local path maps only when every element below the root passes the same rule, so
+  `<root>/./../..` maps to nothing rather than to the server.
+
+The jobs that WRITE — `render`'s `out` or `outDir` and every stem in its manifest, `separate`'s
+`outDir` — and `send-up`, which stamps a file so the channel uploads it, accept only a path the map
+places in a root the server marked writable (`JobContext::writable`), and are refused with an error
+reply otherwise.
+
+The engine opens its socket to web pages only from the studios it should serve: the supervisor
+starts it with `STUDIO_ENGINE_ALLOWED_ORIGINS` set to the origins of the studios this machine is
+listed at (`engine::allowedOrigins`), the rest of that rule being the engine's
+([pairing.md](../../k7-runtime/docs/pairing.md)).
+
 ## The libraries, and why each
 
 | | what for | why this one |

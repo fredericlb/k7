@@ -246,7 +246,8 @@ add_executable(k7_supervisor_tests
     tests/HostLock_test.cpp
     tests/Registry_test.cpp
     tests/Tls_test.cpp
-    tests/Instruments_test.cpp)
+    tests/Instruments_test.cpp
+    tests/PathMap_test.cpp)
 target_include_directories(k7_supervisor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../k7-runtime/tests)
 target_link_libraries(k7_supervisor_tests PRIVATE k7_supervisor_core)
 k7_beside_runtime(k7_supervisor_tests)

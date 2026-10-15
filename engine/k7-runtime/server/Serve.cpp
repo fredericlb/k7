@@ -130,6 +130,7 @@ int serve(int port) {
     const std::string bootId = std::to_string(
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
     ServeContext ctx{host, g_work, engineId, engineToken, bootId};
+    if (const char* v = std::getenv("STUDIO_ENGINE_ALLOWED_ORIGINS")) ctx.allowedOrigins = parseOrigins(v);
     // The server's engine plays into a null sink, so its listeners are told to hear it through the broadcast.
     if (const char* v = std::getenv("STUDIO_AUDIO_TO_BROWSER"); v && std::string(v) == "1") ctx.audioToBrowser = true;
     // The LAN devices allowed to drive, and the requests waiting for the musician (docs/pairing.md).
@@ -191,7 +192,8 @@ int serve(int port) {
          &subscribers](std::shared_ptr<ix::ConnectionState> conn, ix::WebSocket& ws,
                        const ix::WebSocketMessagePtr& msg) {
             // Who is talking to us — an arrival or a drop explains most of what follows, since a reconnect re-sends the whole project; the line is deferred to the first real message so probes never print one.
-            if (msg->type == ix::WebSocketMessageType::Open)
+            // A page from a site not allowed is closed at its handshake and heard no further (docs/pairing.md).
+            if (screenOrigin(ctx, ws, msg) || msg->type == ix::WebSocketMessageType::Open)
                 return;
             if (msg->type == ix::WebSocketMessageType::Close) {
                 // Drop the listener FIRST, and take the tap off when it was the last: a closed tab never sends {"broadcast": false}, so the engine would encode 200 frames a second for nobody forever.

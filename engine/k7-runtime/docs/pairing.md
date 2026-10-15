@@ -17,8 +17,40 @@ path — also arrives from loopback, because the supervisor dials the engine on 
 it. That is right: the server authenticated the browser before relaying it (a session, then an engine
 ticket), so pairing it again would be asking twice.
 
-The consequence to keep in mind: "local" is decided by the peer address alone. Anything that proxies
+The consequence to keep in mind: "local" is decided by the peer address alone, once the page
+check below has let the socket in. Anything that proxies
 LAN traffic into the engine over loopback makes that traffic local, and must authenticate it first.
+
+## A page from another site is closed at the handshake
+
+Loopback trust is about the PEER, and every web page the musician has open is a loopback peer: any
+site can run `new WebSocket("ws://127.0.0.1:8765")` from the browser on this machine. So before
+pairing is even asked, the handshake's `Origin` header is checked (`screenOrigin`, with the rule in
+`Pairing.cpp`'s `originAllowed`), and a socket whose origin is not allowed is closed with code 1008
+and never trusted — every message it sends before the close is dropped.
+
+Allowed:
+
+- **no `Origin` header** — a native client: the supervisor, a Node process, the desktop app's main
+  process. A browser always sends one, so a page cannot pass for one of these;
+- a `ws://` or `wss://` origin, which a browser never sends: it is IXWebSocket's default for a native
+  client, the supervisor's included;
+- loopback pages, any port or none, on `http` or `https`: `127.0.0.1`, `localhost`, `[::1]` — the
+  desktop app's window, a dev server, the phone app's shell page (`https://localhost`) and its studio
+  views (`http://127.0.0.1:<port>`);
+- `https://st0.app` and `https://<sub>.st0.app`, on the default port only;
+- every origin listed in `STUDIO_ENGINE_ALLOWED_ORIGINS`, comma-separated and matched exactly
+  (scheme, host and port). The supervisor sets it to the origins of the studios this machine is
+  listed at, so a self-hosted studio's pages reach its engine; a studio added after the engine
+  started counts from the engine's next start.
+
+Not allowed: every other site, `null` (a sandboxed frame, a `file:` page) and anything that does not
+parse as an origin. What is left to trust is what the machine itself serves on loopback, which is
+the machine already.
+
+On a phone the engine is started by the app rather than spawned, and the supervisor's start frame
+carries the same list as `origins`. `EngineBridge.kt` does not export it, so on a phone a page reaches
+the engine from st0.app and from the app's own views only, not from a self-hosted studio.
 
 ## What an unpaired LAN peer may say
 

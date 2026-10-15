@@ -20,6 +20,8 @@ namespace k7::tunnel {
 struct JobContext {
     /** Bring one file down by its LOCAL path, when a request names too many to fetch before it starts. */
     std::function<bool(const std::string& local)> fetch;
+    /** Whether a LOCAL path lies inside a root this channel sends back to the server; unset answers no. */
+    std::function<bool(const std::string& local)> writable;
 };
 
 /** Send one reply; any path in it goes back through the channel's map. */

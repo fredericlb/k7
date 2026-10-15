@@ -44,6 +44,12 @@ std::string readAll(const fs::path& p)
     return buf.str();
 }
 
+/** Refuse a job whose `path` would write, or stamp, a file outside a root the server takes back. */
+void requireWritable(const tunnel::JobContext& ctx, const std::string& path, const char* what)
+{
+    if (!ctx.writable || !ctx.writable(path)) throw std::runtime_error(std::string(what) + ": refused a path outside this server's writable folders");
+}
+
 }  // namespace
 
 std::size_t purgeKeptHistory(const fs::path& remoteRoot, std::chrono::hours ttl)
@@ -121,8 +127,9 @@ tunnel::Jobs machineJobs(const MachineAccess& access)
     };
 
     // Send this machine's copy of a file BACK up: an undo's audio, which only this machine keeps (packages/file-service/docs/history.md).
-    jobs["send-up"] = [](const json& req, const tunnel::Emit& emit, tunnel::JobContext&) {
+    jobs["send-up"] = [](const json& req, const tunnel::Emit& emit, tunnel::JobContext& ctx) {
         const std::string file = req.value("file", "");
+        requireWritable(ctx, file, "send-up");
         std::error_code ec;
         const fs::path p = paths::fromUtf8(file);
         if (file.empty() || !fs::is_regular_file(p, ec)) throw std::runtime_error("not kept on this machine");
@@ -148,12 +155,13 @@ tunnel::Jobs machineJobs(const MachineAccess& access)
     };
 
     // Split a mix with a model, both already on this disk; one reply per change, the last `separated`.
-    jobs["separate"] = [access](const json& req, const tunnel::Emit& emit, tunnel::JobContext&) {
+    jobs["separate"] = [access](const json& req, const tunnel::Emit& emit, tunnel::JobContext& ctx) {
         separation::Request r;
         r.user = req.value("user", "");
         r.source = req.value("source", "");
         r.model = req.value("model", "");
         r.outDir = req.value("outDir", "");
+        requireWritable(ctx, r.outDir, "separate");
         for (const auto& o : req.value("outputs", json::array()))
             if (o.is_string()) r.outputs.push_back(o.get<std::string>());
         r.providers = access.onnxProviders(std::nullopt);
@@ -163,12 +171,13 @@ tunnel::Jobs machineJobs(const MachineAccess& access)
     };
 
     // Bounce a ProjectDoc through THIS machine's engine binary: `out` takes the mix alone, `outDir` the whole manifest (packages/engine-tunnel/docs/jobs.md).
-    jobs["render"] = [](const json& req, const tunnel::Emit& emit, tunnel::JobContext&) {
+    jobs["render"] = [](const json& req, const tunnel::Emit& emit, tunnel::JobContext& ctx) {
         const std::string out = req.value("out", "");
         const std::string outDir = req.value("outDir", "");
         const auto doc = req.find("doc");
         if ((out.empty() && outDir.empty()) || doc == req.end() || !doc->is_object())
             throw std::runtime_error("render: a doc and an out path or folder are required");
+        requireWritable(ctx, out.empty() ? outDir : out, "render");
         const auto exe = engine::findBinary();
         if (!exe) throw std::runtime_error("no k7-runtime binary on this machine to render with");
 
@@ -198,6 +207,11 @@ tunnel::Jobs machineJobs(const MachineAccess& access)
             throw std::runtime_error("could not read the engine's render manifest");
         }
         const auto copyOut = [&](const std::string& file, const fs::path& dest) {
+            // The engine names the stems, so each one is held to the same folders as the job.
+            if (!ctx.writable(paths::utf8(dest))) {
+                cleanup();
+                throw std::runtime_error("render: refused a stem path outside this server's writable folders");
+            }
             fs::create_directories(dest.parent_path(), ec);
             fs::copy_file(tmp / paths::fromUtf8(file), dest, fs::copy_options::overwrite_existing, ec);
             if (ec) {

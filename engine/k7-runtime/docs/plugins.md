@@ -23,9 +23,9 @@ instance" with a sentence about the plugin — `ERROR! - This plugin couldn't be
 reads as a licence or a bad install, a fact about the machine that no code could fix. It is
 neither.
 
-Two sites carry the one-liner today, `EditBuilder::makeExternalPlugin` and `ParamDump`'s
-`describeExternal`. A third creation site needs it too. `describeExternal` takes the engine as a
-parameter rather than leaving the caller to remember, which is the point: a caller that forgets
+Three sites carry the one-liner, `EditBuilder::makeExternalPlugin` and `ParamDump`'s
+`describeCached` and `describeExternal`. Any other creation site needs it too. The two `describe`s
+take the engine as a parameter rather than leaving the caller to remember, which is the point: a caller that forgets
 registers nothing, and every plugin it asks about answers empty.
 
 It is *not* an async problem. `VST3PluginFormat::requiresUnblockedMessageThreadDuringCreation`
@@ -157,6 +157,16 @@ of loading.
 
 `nullopt` from `pluginParamsOf` means "no answer about this plugin" — cannot find, cannot create,
 cannot load — and never "this plugin has no parameters".
+
+## A socket names a plugin the scan found, never a file
+
+`list-plugin-params` and `show-native-plugin-ui-of` carry a format and an id, and loading a plugin
+runs its binary in this process. So both resolve the id against the scan cache only
+(`describeCached`): a format and identifier the cache lists, described from its stored XML, and
+refused otherwise — exactly what `makeExternalPlugin` accepts from a document. Opening the binary at
+a path the asker chose, a UNC path included, would let anything that reaches the socket run code it
+put on a share. The `--dump-params-ext` CLI still describes the file it is given (`describeExternal`):
+its path is typed by whoever runs the engine, on the machine itself.
 
 ## Built on the message thread
 
