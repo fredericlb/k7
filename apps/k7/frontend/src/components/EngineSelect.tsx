@@ -123,9 +123,12 @@ export function EngineSelect({
                         <Badge variant="amber">in use</Badge>
                       )}
                     </div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {r.wsUrl ?? "not reachable from this browser"}
-                    </div>
+                    {/* The socket URL is never shown: it can carry a signed ticket, and the latency badge already says the link works. */}
+                    {!r.wsUrl && (
+                      <div className="truncate text-xs text-muted-foreground">
+                        not reachable from this browser
+                      </div>
+                    )}
                   </div>
                   <Button
                     size="sm"
