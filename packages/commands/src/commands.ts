@@ -252,6 +252,7 @@ import { LIBRARY_VERBS } from "./verbs/library.ts";
 import { NODE_STACK_VERBS } from "./verbs/nodeStack.ts";
 import { PICTURE_VERBS } from "./verbs/picture.ts";
 import { PICTURE_KEY_VERBS } from "./verbs/pictureKeys.ts";
+import { PICTURE_MEDIA_VERBS } from "./verbs/pictureMedia.ts";
 import { PICTURE_SOUND_VERBS } from "./verbs/pictureSound.ts";
 import { PICTURE_SPEED_VERBS } from "./verbs/pictureSpeed.ts";
 import { PLAYLIST_VERBS } from "./verbs/playlist.ts";
@@ -331,6 +332,8 @@ export interface CommandHost {
   ): Promise<{ version: number; requires: number }[]>;
   /** Who bounces a render, handed in by a host with no engine binary — packages/file-service/docs/render.md. */
   renderer?: Renderer;
+  /** Run `work` after the command returns, once per tag; false when that tag is already running. Absent, a verb waits for it. */
+  background?(tag: string, work: () => Promise<string>): boolean;
 }
 
 /** The host's renderer, else this machine's engine binary; null when neither can render. */
@@ -3273,6 +3276,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   ...PICTURE_SOUND_VERBS,
   ...PICTURE_KEY_VERBS,
   ...PICTURE_SPEED_VERBS,
+  ...PICTURE_MEDIA_VERBS,
   // …and the lane's DUPLICATE verbs, which copy a chain where `track new` makes one from scratch.
   ...TRACK_VERBS,
   ...NODE_STACK_VERBS,

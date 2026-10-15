@@ -83,6 +83,26 @@ the same frames.
 From the command bar, `picture key main 4 scale 10 1.2 inout` sets a key on the shot starting at
 4 s, at 10 s on the timeline. `picture unkey main 4 scale 10` removes it.
 
+## Footage a browser cannot play, and stills
+
+Phones and cameras write video a browser cannot always play: HEVC, ProRes, 10-bit footage. 4K plays,
+but slowly enough to hold a lane behind the music. `picture prepare main` looks at each shot on the
+lane and, in the background, makes what it needs:
+
+```yaml schema=Clip
+# clips/interview.yaml
+source: clips/interview.mov                 # what the camera wrote
+optimized: clips/interview.optimized.mp4    # full size, playable — the preview and the export use it
+proxy: clips/interview.proxy.mp4            # small — the preview only
+```
+
+The copies appear on their own once they are written. Dropping footage on a picture lane runs it
+for you. An export never uses a proxy, so the file you render keeps the source's resolution. If it
+meets a file the browser cannot read, it says which one, before it starts.
+
+An image (`png`, `jpg`, `webp`…) is a shot too: drop it on a picture lane and it is placed for
+five seconds, held still. Give it `scale` and `x` keys for a slow push across a photograph.
+
 ## Speed, freeze and reverse
 
 ```yaml schema=VideoTrack

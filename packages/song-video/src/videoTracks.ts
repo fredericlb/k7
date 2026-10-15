@@ -17,6 +17,7 @@ import {
   keysOf,
 } from "@studio/song-schema/keyframes";
 import { DISSOLVE, OVER } from "@studio/song-schema/moduleTypes";
+import { IMAGE_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
 import type { VideoClipDoc, VideoFadeDoc, VideoTrackDoc } from "./videoDoc";
 
 /** A placement's fade in the ONE shape everything downstream copies — the scalar's sugar is undone HERE. */
@@ -82,6 +83,15 @@ export function videoPlacementToClip(
     id: ref,
     name: ref,
     source: clipsMap[ref] ? resolve(dir, String(clipsMap[ref].source)) : "",
+    ...(clipsMap[ref]?.optimized
+      ? { optimized: resolve(dir, String(clipsMap[ref].optimized)) }
+      : {}),
+    ...(clipsMap[ref]?.proxy
+      ? { proxy: resolve(dir, String(clipsMap[ref].proxy)) }
+      : {}),
+    ...(IMAGE_SOURCE.test(String(clipsMap[ref]?.source ?? ""))
+      ? { still: true as const }
+      : {}),
     start: Number(p.start ?? 0),
     length: Number(p.length ?? 0),
     sourceFrom: Number(p.source_from ?? 0),

@@ -43,6 +43,7 @@ import {
 import chokidar from "chokidar";
 import { autoFreezer } from "./autoFreezeJobs.ts";
 import { guard } from "./background.ts";
+import { runInBackground } from "./backgroundJobs.ts";
 import { BENCH_WORKSPACE } from "./bench.ts";
 import { askBoundMachine } from "./boundMachine.ts";
 import {
@@ -1038,6 +1039,9 @@ function makeHost(
         });
         c.listPlugins(filter);
       }),
+    // Work a verb starts and does not wait for, one run per tag — a transcode (docs/background.md).
+    background: (tag: string, work: () => Promise<string>) =>
+      runInBackground(tag, work),
     // A clip's source envelope for `event trim` — the WHOLE file, from THIS workspace's waveform machinery.
     clipEnvelope: async (clip: string) => {
       try {

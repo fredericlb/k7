@@ -2537,7 +2537,7 @@ export default function App({
         else if (ask.kind === "audio") void share.exportMix(ask.format);
         else
           void share.exportVideo(
-            videoDoc ? videoSceneOf(videoDoc) : null,
+            videoDoc ? videoSceneOf(videoDoc, null, "export") : null,
             ask.format,
             ask.audio,
             projectDoc?.name ?? "video",

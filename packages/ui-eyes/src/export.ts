@@ -69,6 +69,29 @@ export interface ExportResult {
   extension: string;
 }
 
+/** Refuse a scene whose sources this browser cannot decode, NAMING the file — a ProRes or HEVC shot fails at its first frame otherwise. */
+export async function assertDecodable(scene: VideoScene): Promise<void> {
+  const seen = new Map<string, string>();
+  for (const l of scene.layers)
+    for (const c of l.clips)
+      if (c.src && !c.still && !seen.has(c.src)) seen.set(c.src, l.id);
+  for (const [src, lane] of seen) {
+    const input = new Input({
+      source: new UrlSource(src),
+      formats: ALL_FORMATS,
+    });
+    try {
+      const track = await input.getPrimaryVideoTrack();
+      if (track && !(await track.canDecode()))
+        throw new Error(
+          `eyes: ${decodeURIComponent(src.replace(/^.*[?&]path=/, ""))} cannot be decoded in this browser — run \`picture prepare ${lane}\` to make a copy it can`,
+        );
+    } finally {
+      input.dispose?.();
+    }
+  }
+}
+
 // Render `scene` to a video file, calling `onProgress` per frame. Throws if this build cannot encode it.
 export async function exportScene(
   scene: VideoScene,
@@ -87,6 +110,8 @@ export async function exportScene(
     opts.audio !== undefined,
   );
   if (!can.ok) throw new Error(`eyes: ${can.detail}`);
+  // …and every SOURCE asked whether it decodes here, before frame 0 rather than at its first shot.
+  await assertDecodable(scene);
   const fps = scene.fps;
   const total =
     opts.frameCount ?? Math.max(1, Math.round(scene.durationSec * fps));
@@ -114,6 +139,19 @@ export async function exportScene(
       cache.set(key, hit);
     }
     return hit.sink;
+  };
+  // …and each still's bitmap, by src, closed with the sinks when the render ends.
+  const stills = new Map<string, ImageBitmap>();
+  const stillFor = async (src: string): Promise<ImageBitmap> => {
+    let bmp = stills.get(src);
+    if (!bmp) {
+      const res = await fetch(src);
+      if (!res.ok)
+        throw new Error(`eyes: ${src} could not be read (${res.status})`);
+      bmp = await createImageBitmap(await res.blob());
+      stills.set(src, bmp);
+    }
+    return bmp;
   };
 
   // Encoder + muxer: the container into an in-memory buffer, one video track fed from the canvas.
@@ -174,6 +212,13 @@ export async function exportScene(
         let from = false;
         let to = false;
         for (const w of wanted) {
+          // A STILL is one bitmap, decoded once, uploaded for every frame it is on.
+          if (w.active.clip.still) {
+            comp.upload(layer.id, await stillFor(w.active.clip.src), w.slot);
+            if (w.slot === 0) from = true;
+            else to = true;
+            continue;
+          }
           const sink = await sinkFor(w.active.clip.src, w.slot);
           const sample = await sink.getSample(w.active.sourceTime);
           if (!sample) continue;
@@ -199,6 +244,7 @@ export async function exportScene(
     await output.finalize();
   } finally {
     for (const { input } of cache.values()) input.dispose?.();
+    for (const bmp of stills.values()) bmp.close();
     comp.destroy();
   }
 

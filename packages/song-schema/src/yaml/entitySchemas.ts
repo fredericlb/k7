@@ -20,6 +20,13 @@ export const WarpSchema = z
 /** A clip is PICTURE when its source ends in one of these — the whole reason a clip file can say only `source:`. */
 export const VIDEO_SOURCE = /\.(mp4|mov|m4v|webm|mkv)$/i;
 
+/** …and a STILL when it ends in one of these: a picture with no time of its own (song-video docs/media.md). */
+export const IMAGE_SOURCE = /\.(png|jpe?g|webp|gif|avif)$/i;
+
+/** Either kind of picture source, which is what tells a picture clip from an audio one. */
+export const isPictureSource = (s: string): boolean =>
+  VIDEO_SOURCE.test(s) || IMAGE_SOURCE.test(s);
+
 /** `from`/`to` window the SOURCE FILE, in seconds or as a timecode — see docs/entityFiles.md. */
 const WindowEdge = z.union([
   z.number().min(0), // seconds
@@ -52,12 +59,18 @@ export const AudioClipSchema = z
 
 export const VideoClipSchema = z
   .object({
-    source: z.string().regex(VIDEO_SOURCE),
+    source: z
+      .string()
+      .refine(isPictureSource, "expected a video or an image file"),
     // The file's sound, extracted once into an audio file the engine reads on every platform (packages/song/docs/videoSound.md).
     sound: z
       .string()
       .refine((s) => !VIDEO_SOURCE.test(s), "a sound is an audio file")
       .optional(),
+    // A full-resolution copy every browser DECODES, made when the source is not — preview AND export read it (song-video docs/media.md).
+    optimized: z.string().optional(),
+    // …and a small one to PREVIEW, made when the source is heavier than a lane can decode in time; export never reads it.
+    proxy: z.string().optional(),
   })
   .strict();
 

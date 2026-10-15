@@ -25,6 +25,18 @@ Surviving both is a trap: an uncaught exception leaves invariants broken, and a 
 goes on answering *wrongly* is worse than one that is absent. What the net adds is not survival
 — it is the line that says which of the two happened.
 
+## Work a command starts and does not wait for
+
+`runInBackground` (`src/backgroundJobs.ts`) is what a verb's `background` hook runs on. A video
+transcode is the first user: minutes long, so a `/command` request held open for it would freeze
+the command bar. One job per TAG at a time, so running the verb twice joins the first run instead
+of encoding one file twice. The job goes through `guard` like any other unawaited promise.
+
+There is no progress route. A job reports through what it WRITES, the copy and the clip field
+naming it, which moves the revision token every view already follows, and through one line in the
+log when it ends. A registry the browser polled would be a second account of state the files
+already hold.
+
 ## Not covered
 
 `engine/st0-engine` has one `try`/`catch` in its whole library (`NamPlugin.cpp`), no `try` at

@@ -130,6 +130,10 @@ export const VIDEO_EXT = [".mp4", ".mov", ".m4v", ".webm", ".mkv"];
 export const isVideoSource = (source: string): boolean =>
   VIDEO_EXT.some((e) => source.toLowerCase().endsWith(e));
 
+/** A clip the PICTURE reads — a video or a still — rather than an audio one (song-video docs/media.md). */
+export const isPictureSource = (source: string): boolean =>
+  isVideoSource(source) || /\.(png|jpe?g|webp|gif|avif)$/i.test(source);
+
 // The entities in a subdirectory, keyed by id ({} if the subdir doesn't exist).
 export const exportSub = (dir: string, sub: string): any =>
   readYamlEntities(dir, sub).values;

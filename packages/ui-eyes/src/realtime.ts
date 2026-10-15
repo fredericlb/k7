@@ -89,6 +89,8 @@ async function openCamera(
 export class RealtimeDriver {
   private comp: Compositor;
   private lanes: Lane[];
+  // Every STILL the scene places, by src: one decode each, however often it is placed.
+  private images = new Map<string, HTMLImageElement>();
   private raf = 0;
   private disposed = false;
   private debug: LaneDebug[] = [];
@@ -150,6 +152,19 @@ export class RealtimeDriver {
     driver.watchSight(host);
     driver.loop();
     return driver;
+  }
+
+  /** A still's image, loaded once per src; null until it has decoded, so the lane shows nothing rather than a blank. */
+  private image(src: string): HTMLImageElement | null {
+    let img = this.images.get(src);
+    if (!img) {
+      img = new Image();
+      img.crossOrigin = "anonymous";
+      img.decoding = "async";
+      img.src = src;
+      this.images.set(src, img);
+    }
+    return img.complete && img.naturalWidth > 0 ? img : null;
   }
 
   /** Which element should carry `active`: the one already holding that clip, else any free one. */
@@ -339,6 +354,15 @@ export class RealtimeDriver {
       let from = false;
       let to = false;
       for (const w of wanted) {
+        // A STILL takes no element: its image is decoded once and uploaded as any frame is.
+        if (w.active.clip.still) {
+          const img = this.image(w.active.clip.src);
+          if (!img) continue;
+          this.comp.upload(lane.layer.id, img, w.slot);
+          if (w.slot === 0) from = true;
+          else to = true;
+          continue;
+        }
         const e = this.claim(lane, w.active, used);
         if (e === null) continue;
         if (!this.steer(lane, e, w.active, playing)) continue;

@@ -1588,6 +1588,16 @@
       { name: at, hint: "where the shot starts — seconds or m:ss" },
       { name: factor, hint: "2 double, 0.5 half, 0 freeze, -1 backwards, 1 its own pace" },
     ]
+# The files a browser cannot play, or cannot play fast enough, get copies it can: probed now,
+# transcoded in the background — packages/song-video/docs/media.md.
+- command: "picture prepare"
+  sid: picture.prepare
+  readable:
+    en: "Prepare a lane's footage"
+    fr: "Préparer les rushes d'une piste"
+  help: "make each shot's video playable (e.g. picture prepare main) — an optimized copy for codecs a browser cannot decode, a proxy for footage above 1080p"
+  surfaces: [cli, timeline]
+  args: [{ name: lane, complete: pictureLanes }]
 - command: "picture sound"
   sid: picture.sound
   readable:

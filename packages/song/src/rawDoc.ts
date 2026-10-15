@@ -50,6 +50,9 @@ export interface RawClip {
   source?: string;
   // A VIDEO clip's sound, extracted into an audio file (docs/videoSound.md).
   sound?: string;
+  // …and the copies the picture reads instead of it, when it has to (song-video docs/media.md).
+  optimized?: string;
+  proxy?: string;
   name?: unknown;
   gain?: unknown;
   // The window into the source; `unknown` because the SPELLING is the unit (see AudioClipSchema).

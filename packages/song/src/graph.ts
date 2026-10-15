@@ -33,7 +33,7 @@ import { bypassedOf, deriveChains, isParked } from "./chainsGraph";
 import { applyLinkLevels, unplayedLevels } from "./linkLevels";
 import {
   exportSub,
-  isVideoSource,
+  isPictureSource,
   loadChains,
   loadModuleRefs,
   loadModules,
@@ -368,7 +368,7 @@ function sourceType(
 ): "audio" | "midi" | "video" | undefined {
   if (seqs?.[id]) return "midi";
   if (clips?.[id])
-    return isVideoSource(String(clips[id]?.source ?? "")) ? "video" : "audio";
+    return isPictureSource(String(clips[id]?.source ?? "")) ? "video" : "audio";
   const { node, port } = splitPort(id);
   if (lanes?.[node]) return trackType(lanes[node], port, clips, seqs);
   if (videoTracks?.[node]) return "video";

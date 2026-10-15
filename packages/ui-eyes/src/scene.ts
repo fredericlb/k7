@@ -14,6 +14,7 @@ export interface SceneClip {
   fadeOut?: SceneFade; // over its own end
   animate?: SceneAnimate; // how it moves in its lane's frame; absent costs nothing — docs/motion.md
   speed?: number; // how fast the source runs under it, signed; absent is 1 — song-video/docs/speed.md
+  still?: true; // `src` is an IMAGE: decoded once and held while the shot is on — docs/realtime.md
 }
 
 /** A shot's animated properties, each its sorted keys in seconds from the shot's start; `ease` shapes the segment leaving a key. */
@@ -132,6 +133,7 @@ export interface SceneLayerInput {
     fadeOut?: SceneFade;
     animate?: SceneAnimate;
     speed?: number;
+    still?: true;
   }[];
   shapes?: SceneShape[];
   passes?: ScenePass[];
@@ -172,6 +174,7 @@ export function buildScene(
         ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
         ...(c.animate ? { animate: c.animate } : {}),
         ...(c.speed !== undefined ? { speed: c.speed } : {}),
+        ...(c.still ? { still: true as const } : {}),
       })),
       // Shapes carry no time, so they don't extend durationSec — a shapes-only song has no natural end to render.
       ...(l.shapes?.length ? { shapes: l.shapes.map((s) => ({ ...s })) } : {}),

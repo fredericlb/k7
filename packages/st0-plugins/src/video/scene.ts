@@ -32,6 +32,8 @@ export function sceneOf(
   proj: WebVideoProject,
   /** The armed picture lane, which is what `monitor: auto` opens a lens for (pictureMix.ts). */
   armed: string | null = null,
+  /** Who reads the scene: an EXPORT renders from the optimized copy or the source, never from a proxy (song-video/docs/media.md). */
+  use: "preview" | "export" = "preview",
 ): VideoScene {
   return buildScene(
     proj.viewport,
@@ -50,7 +52,9 @@ export function sceneOf(
       h: t.h,
       clips: t.clips.map((c) => ({
         id: c.id,
-        src: mediaUrl(c.src),
+        src: mediaUrl(
+          (use === "preview" ? c.proxy : undefined) ?? c.optimized ?? c.src,
+        ),
         start: c.start,
         length: c.length,
         sourceFrom: c.sourceFrom,
@@ -58,6 +62,7 @@ export function sceneOf(
         ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
         ...(c.animate ? { animate: c.animate } : {}),
         ...(c.speed !== undefined ? { speed: c.speed } : {}),
+        ...(c.still ? { still: true as const } : {}),
       })),
       // A shape carries no media — the compositor rasterizes it, and its id is the module node that drew it.
       shapes: t.shapes.map((s) => ({ ...s })),

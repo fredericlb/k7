@@ -450,6 +450,12 @@ export interface WebVideoClip {
   id: string;
   name: string;
   src: string; // workspace-relative media path
+  /** A browser-decodable copy at full resolution, read instead of `src` by preview and export (song-video/docs/media.md). */
+  optimized?: string;
+  /** …and a small one for the preview alone. */
+  proxy?: string;
+  /** An IMAGE, held while the shot is on (song-video/docs/media.md). */
+  still?: true;
   start: number; // seconds
   length: number; // seconds (0 == natural)
   sourceFrom: number; // seconds into the source

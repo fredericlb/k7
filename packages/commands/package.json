@@ -30,6 +30,7 @@
     "@studio/song-schema": "*",
     "@studio/song-video": "*",
     "@studio/take-render": "*",
+    "@studio/video-prep": "*",
     "yaml": "^2.5.0"
   },
   "devDependencies": {

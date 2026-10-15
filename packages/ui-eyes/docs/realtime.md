@@ -30,6 +30,14 @@ The element is muted (a shot's sound is the ENGINE's, on an audio lane —
 `packages/song/docs/videoSound.md` — and muted is also what lets it autoplay), parked 1px and invisible but NOT `display:none` — a `display:none` element
 is allowed to skip decoding.
 
+## A still takes no element
+
+A shot whose clip is an IMAGE is decoded once per source into an `<img>` and uploaded into its slot
+as any frame is. It claims no `<video>` and has no clock to chase, so a lane of stills costs no
+decoder. Until the image has decoded the slot carries nothing, which shows the lane beneath rather
+than a blank. Export decodes the same file once into an `ImageBitmap`
+(`packages/song-video/docs/media.md`).
+
 ## A retimed shot: the rate is the shot's, or the element is stepped
 
 A shot running at `speed` plays its element at that `playbackRate`, and the drift nudge below

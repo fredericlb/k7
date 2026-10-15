@@ -10,6 +10,12 @@ export interface VideoClipDoc {
   id: string;
   name: string;
   source: string; // absolute path
+  /** A browser-decodable copy at full resolution, absolute; read instead of `source` by preview and export (docs/media.md). */
+  optimized?: string;
+  /** …and a small copy the PREVIEW reads; an export never does. */
+  proxy?: string;
+  /** The source is an IMAGE: one picture, held for as long as the shot is on (docs/media.md). */
+  still?: true;
   start: number; // seconds on the timeline
   length: number; // seconds; 0 == the source's natural length
   sourceFrom: number; // seconds, the in-point INTO the source
