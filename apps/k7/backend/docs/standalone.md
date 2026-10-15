@@ -20,6 +20,7 @@ service's entry.
 | `K7_INSTANCE=local` | releases and pages live on the server alone: this backend forwards them to the paired server, and has none without it (`packages/rehearsal-server/docs/publications.md`) |
 | `STUDIO_LIBRARY_ORIGIN` `https://st0.app` | where a machine never paired finds newer versions of the `k7-core` library and fetches them (`packages/file-hub/libraryFetch.ts`); a hosted origin never sets it, since it IS one, and asking another would mix two origins' libraries |
 | `COOKIE_DOMAIN` empty | a domain would make the session cookie `Secure`, and the origin is plain http on loopback |
+| `STUDIO_MP3_SWEEP=0` | no background MP3 beside every FLAC: the window plays a FLAC as it is, the engine shares the CPU, and the phone has no ffmpeg (`media/derivedMp3.md`) |
 | `dirs` | the folders under the host's state root, named once so a backup or a support answer reads the same on both; `K7_DATA_DIR` holds the rehearsal recorder's store, as on the server (`packages/rehearsal-server/docs/store.md`) |
 | `library` | the `k7-core` folder the bundle carries, handed to the hub as its seed (`STUDIO_LIBRARY_SEED`): the local user is never an admin and could not add one. `bundle.mjs` fills it with the newest version the origin published that this build runs, so a new install starts on a real version number (`../scripts/libraryArchive.mjs`) |
 

@@ -5,7 +5,7 @@
 import { randomUUID } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { writablePath } from "@studio/mediatek/layout";
-import { extOf } from "@studio/mediatek/media";
+import { extOf, withoutDerived } from "@studio/mediatek/media";
 import { MASTER_STEM, type SongTags, songFolder } from "@studio/mediatek/song";
 import { addSong } from "@studio/mediatek/write";
 import { missing, sftpOf, slskdOf } from "../settings/store.ts";
@@ -85,10 +85,12 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 function alreadyFiled(tags: SongTags): string | null {
   const folder = songFolder(tags);
   try {
-    const hit = readdirSync(writablePath(folder)).find((f) =>
-      f.startsWith(`${MASTER_STEM}.`),
+    // Never the master's derived MP3 — ../../../docs/media/derivedMp3.md.
+    const names = readdirSync(writablePath(folder)).map((name) => ({ name }));
+    const hit = withoutDerived(names).find((f) =>
+      f.name.startsWith(`${MASTER_STEM}.`),
     );
-    return hit ? `${folder}/${hit}` : null;
+    return hit ? `${folder}/${hit.name}` : null;
   } catch {
     return null;
   }

@@ -57,7 +57,7 @@ the cache computes it. This panel **is** that surface. So it calls `library.anal
 and re-reads the sidecar, once, on open.
 
 With no engine chosen it says so and stops. The song plays anyway: an `<audio>` on
-`library.fileUrl(master)` needs nobody, and the route serves Range, so seeking works too. What is
+`library.streamUrl(master)` needs nobody, and the route serves Range, so seeking works too. What is
 missing is the drawing, not the sound — exactly the right order of importance.
 
 It is also why the engine stays held whatever the playback destination: it is what **analyses** the

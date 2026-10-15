@@ -35,9 +35,9 @@ sidecar is answered without queueing.
 ## A FLAC is transcoded once, however many ask
 
 A browser's `<audio>` element opens several Range requests on a file it has not got yet, and each
-started its own ffmpeg. They now share one run (`streaming.md`). A failed run leaves no `.part` in
-the cache, and one past ten minutes is killed. Measured with a counting stand-in for ffmpeg: five
-concurrent requests, one run; a failing run, nothing left in `.cache/stream/`.
+started its own ffmpeg. They now share one run (`streaming.md`). A failed run leaves no `.part`
+behind, and one past ten minutes is killed. Measured with a counting stand-in for ffmpeg: five
+concurrent requests, one run; a failing run, nothing left beside the FLAC.
 
 ## The sweep asks whether a sidecar exists without reading it
 

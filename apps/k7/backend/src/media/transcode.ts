@@ -1,67 +1,88 @@
-// transcode.ts — a FLAC's playable MP3 sibling, made once and cached under .cache/stream/.
-// Exists because FLAC playback in a browser is inconsistent; every other format already
-// streams as it is. See ../../docs/media/streaming.md.
+// transcode.ts — a FLAC's MP3, written BESIDE it under the same name, which is what a browser
+// plays through `/stream`. Derived, never content: every walk of the library hides it, and the
+// engine and a machine's mirror keep reading the FLAC. See ../../docs/media/derivedMp3.md.
 
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, renameSync, rmSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { cacheDir } from "@studio/mediatek/layout";
+import { existsSync, renameSync, rmSync, statSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
+import { derivedMp3Of } from "@studio/mediatek/media";
 
 const FFMPEG = process.env.FFMPEG_BIN || "ffmpeg";
 
 /** A transcode past this is stuck, not slow: a two-hour FLAC takes well under a minute. */
 const TRANSCODE_MS = 10 * 60_000;
 
-/** One ffmpeg per FLAC: an `<audio>` element opens several Range requests on a file it has not got yet. */
+/** One ffmpeg per FLAC: the sweep and the Range requests of an `<audio>` element all wait on the same one. */
 const inflight = new Map<string, Promise<string>>();
 
 export class NoFfmpegError extends Error {
   constructor() {
     super(
-      `${FFMPEG} is not installed — streaming a FLAC transcodes it with ffmpeg. Install it, or upload in a format browsers already play (mp3, m4a, ogg).`,
+      `${FFMPEG} is not installed — a FLAC's MP3 is transcoded with ffmpeg. Install it, or upload in a format browsers already play (mp3, m4a, ogg).`,
     );
     this.name = "NoFfmpegError";
   }
 }
 
-function cachedMp3Path(rel: string): string {
-  return join(cacheDir(), "stream", rel.replace(/\.flac$/i, ".mp3"));
+/** The FLAC changed or went away while ffmpeg read it: nothing is wrong with the file, so ask again. */
+export class SourceChangedError extends Error {
+  constructor(abs: string) {
+    super(`${abs} changed during its transcode`);
+    this.name = "SourceChangedError";
+  }
 }
 
-/**
- * The FLAC at `abs` (médiathèque-relative `rel`), transcoded to MP3 and cached beside the
- * index; returns the MP3's absolute path. A cached copy newer than the source is reused as is.
- */
-export async function ensureStreamable(
-  rel: string,
-  abs: string,
-): Promise<string> {
-  const dest = cachedMp3Path(rel);
+/** Is the MP3 beside this FLAC there, and at least as new as it? A replaced FLAC answers false. */
+export function mp3IsFresh(flac: string): boolean {
+  const mp3 = derivedMp3Of(flac);
+  if (!mp3) return false;
   try {
-    if (statSync(dest).mtimeMs >= statSync(abs).mtimeMs) return dest;
+    return statSync(mp3).mtimeMs >= statSync(flac).mtimeMs;
   } catch {
-    // no cached copy yet, or the source moved — fall through to (re)transcode
+    return false;
   }
-  const running = inflight.get(dest);
+}
+
+/** The MP3 beside the FLAC at `abs`, made if it is missing or older; returns its absolute path. */
+export function ensureMp3(abs: string): Promise<string> {
+  const dest = derivedMp3Of(abs);
+  if (!dest) return Promise.reject(new Error(`${abs} is not a FLAC`));
+  if (mp3IsFresh(abs)) return Promise.resolve(dest);
+  const running = inflight.get(abs);
   if (running) return running;
-  const p = transcode(abs, dest).finally(() => inflight.delete(dest));
-  inflight.set(dest, p);
+  const p = transcode(abs, dest).finally(() => inflight.delete(abs));
+  inflight.set(abs, p);
   return p;
 }
 
 async function transcode(abs: string, dest: string): Promise<string> {
-  mkdirSync(dirname(dest), { recursive: true });
-  // A random suffix, not just `.part`: another PROCESS on this volume may be making the same file.
-  const tmp = `${dest}.${randomUUID()}.part`;
+  // Dot-prefixed, so no walk counts the half-written file, and random, since another PROCESS may be making it.
+  const tmp = join(dirname(dest), `.${basename(dest)}.${randomUUID()}.part`);
+  const before = statSync(abs).mtimeMs;
   try {
     await run(abs, tmp);
+    // A FLAC replaced while ffmpeg read it: this MP3 is of the old take, and newer than the new one.
+    if (mtimeOf(abs) !== before) throw new SourceChangedError(abs);
     renameSync(tmp, dest);
   } catch (e) {
     rmSync(tmp, { force: true });
     throw e;
   }
+  // The FLAC removed or moved while ffmpeg ran: without it beside, the MP3 would list as a file of its own.
+  if (!existsSync(abs)) {
+    rmSync(dest, { force: true });
+    throw new SourceChangedError(abs);
+  }
   return dest;
+}
+
+function mtimeOf(abs: string): number | null {
+  try {
+    return statSync(abs).mtimeMs;
+  } catch {
+    return null;
+  }
 }
 
 function run(source: string, dest: string): Promise<void> {
@@ -87,6 +108,7 @@ function run(source: string, dest: string): Promise<void> {
       err = (err + d.toString()).slice(-2000);
     });
     ff.on("error", (e) => {
+      clearTimeout(stuck);
       reject(
         (e as NodeJS.ErrnoException).code === "ENOENT"
           ? new NoFfmpegError()

@@ -380,7 +380,7 @@ export function PlaybackProvider({
         // biome-ignore lint/a11y/useMediaCaption: a song master has no caption track
         <audio
           ref={audioRef}
-          src={library.fileUrl(now.path)}
+          src={library.streamUrl(now.path)}
           preload="metadata"
           onPlay={() => setLocalPlaying(true)}
           onPause={() => setLocalPlaying(false)}

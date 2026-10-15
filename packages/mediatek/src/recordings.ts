@@ -5,7 +5,7 @@
 import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { RECORDINGS_DIR, recordingsDir } from "./layout.ts";
-import { extOf, isAudio } from "./media.ts";
+import { extOf, isAudio, withoutDerived } from "./media.ts";
 import { NotAudioError, segment } from "./song.ts";
 import { type OnDisk, putFile } from "./write.ts";
 
@@ -105,7 +105,9 @@ export function listRecordings(): RecordingDay[] {
       continue;
     }
     const files: RecordingFile[] = [];
-    for (const name of names(abs)) {
+    // A FLAC's derived MP3 is no capture (docs/derivedMp3.md); `taken` above still sees it, so no capture lands on it.
+    const listed = withoutDerived(names(abs).map((name) => ({ name })));
+    for (const { name } of listed) {
       if (!isAudio(name)) continue;
       try {
         const s = statSync(join(abs, name));

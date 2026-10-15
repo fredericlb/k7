@@ -9,7 +9,7 @@ import { basename, join } from "node:path";
 import { STEMS_DIR, stemsComplete } from "@studio/song-schema/stems";
 import { parse as parseYaml } from "yaml";
 import { familyDir, SAMPLE_KINDS, toRel } from "./layout.ts";
-import { isAudio, isVideo } from "./media.ts";
+import { isAudio, isVideo, withoutDerived } from "./media.ts";
 import {
   type Family,
   K7_ARTIST,
@@ -32,8 +32,11 @@ export { SONG_FILE };
 
 function dirents(abs: string): Dirent[] {
   try {
-    return readdirSync(abs, { withFileTypes: true }).filter(
-      (e) => !e.name.startsWith("."),
+    // A FLAC's derived MP3 is no entry, no master and no loose file — docs/derivedMp3.md.
+    return withoutDerived(
+      readdirSync(abs, { withFileTypes: true }).filter(
+        (e) => !e.name.startsWith("."),
+      ),
     );
   } catch {
     return [];
