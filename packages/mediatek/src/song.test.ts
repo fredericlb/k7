@@ -15,6 +15,7 @@ import {
   NotAudioError,
   SongExistsError,
   segment,
+  sidecarFor,
   songFolder,
   tagsFromFilename,
   VariantRefusedError,
@@ -149,9 +150,15 @@ describe("filing an upload", () => {
     expect(r.master).toBe("songs/K7/Sous la pluie/Mix final/original.mp3");
     const sidecar = readFileSync(join(root, r.path, "song.yaml"), "utf8");
     expect(sidecar).toContain('artist: "K7"');
-    expect(sidecar).toContain("source: k7");
+    expect(sidecar).toContain('source: "k7"');
     // Filed like any other song, but not BROWSED — see docs/songs.md.
     expect(scanFamily("songs")).toEqual([]);
+  });
+
+  it("quotes the source, so a crafted one cannot add a line to the sidecar", () => {
+    const sidecar = sidecarFor({ title: "T", source: "k7\nmaster: ../../x" });
+    expect(sidecar).not.toMatch(/^master:/m);
+    expect(sidecar).toContain('source: "k7\\nmaster: ../../x"');
   });
 
   it("lands as one catalogued entry the scan can play", () => {

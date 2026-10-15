@@ -75,7 +75,7 @@ export function readSettings(): SlskdSettings {
   };
 }
 
-/** The plain fields replace what is there; a secret left out is kept, an empty one forgotten. */
+/** The plain fields replace what is there; a secret left out is kept unless its target moved, an empty one forgotten. */
 export function saveSettings(input: SlskdSettingsInput): void {
   const prev = read();
   const next: Stored = {
@@ -85,9 +85,17 @@ export function saveSettings(input: SlskdSettingsInput): void {
     sftpUser: input.sftpUser.trim(),
     downloadsDir: input.downloadsDir.trim().replace(/(.)\/+$/, "$1"),
   };
+  // A kept secret is only ever sent where it was typed for: a new target drops it (../../../docs/media/settings.md).
+  const moved: Partial<Record<(typeof SECRETS)[number], boolean>> = {
+    apiKey: next.url !== (prev.url ?? ""),
+    sftpPassword:
+      next.sftpHost !== (prev.sftpHost ?? "") ||
+      next.sftpUser !== (prev.sftpUser ?? "") ||
+      next.sftpPort !== (prev.sftpPort ?? 22),
+  };
   for (const k of SECRETS) {
     const typed = input[k];
-    if (typed === undefined) next[k] = prev[k];
+    if (typed === undefined) next[k] = moved[k] ? undefined : prev[k];
     else if (typed) next[k] = seal(typed);
   }
   mkdirSync(settingsDir(), { recursive: true });

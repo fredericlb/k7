@@ -54,6 +54,7 @@ import {
   ensureMp3,
   NoFfmpegError as NoTranscoderError,
   SourceChangedError,
+  TranscodeBusyError,
 } from "../transcode.ts";
 import { rawToDisk, uploadOf } from "../upload.ts";
 
@@ -161,7 +162,7 @@ libraryRouter.get(
         e instanceof SourceChangedError ? ensureMp3(abs) : Promise.reject(e),
       );
     } catch (e) {
-      if (e instanceof NoTranscoderError)
+      if (e instanceof NoTranscoderError || e instanceof TranscodeBusyError)
         return res.status(503).json({ error: e.message });
       throw e;
     }

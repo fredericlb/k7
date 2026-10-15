@@ -9,7 +9,9 @@ Two people on one link hear their own transport and their own mute and solo. A s
 would be a listening party where one visitor's pause is everyone's, and a link is sent to people who
 do not know each other. The engine holds up to 64 sessions, shared with every account playing on it,
 so the player caps what it takes: 8 visitors at once across every share and 2 from one address
-(`PlayerDeps`). Past the cap, the socket is refused with a sentence. A visit holds its session for 3
+(`PlayerDeps`). The address is the one the edge appended to `X-Forwarded-For`, read as `req.ip`
+reads it under `trust proxy` 1 (`visitorAddress`): behind Traefik the socket's own address is the
+proxy's, which would make every visitor one address. Past the cap, the socket is refused with a sentence. A visit holds its session for 3
 hours at most, so a forgotten tab does not keep a slot.
 
 The session is `share:<random>`, never anything a visitor chose. It is dropped (`drop-session`) when

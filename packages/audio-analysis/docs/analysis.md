@@ -41,6 +41,19 @@ containers round. The mono signal is therefore accumulated in chunks and measure
 costs one float per frame — about 57 MB for five minutes — and is what keeps the geometry exact.
 It is also why the file service decodes only a few files at once.
 
+And why a decode for the envelope is **capped**: `MAX_DECODE_FRAMES`, two hours at 48 kHz, about
+1.4 GB. The cap is in frames rather than seconds because frames are what is held. It is checked
+three times, since none alone suffices: against the length ffprobe claims before ffmpeg starts,
+against the `frames` of the engine's header, and against the frames actually counted, which is the
+one a lying header cannot get past. Past it the decode is killed with a `TooLongError`. The
+true-peak measurement and the extraction stream what they read, hold nothing, and are not capped.
+
+## ffmpeg opens files, not URLs
+
+Every ffmpeg and ffprobe here runs with `-protocol_whitelist file,pipe`, before `-i`. A playlist or
+a crafted container can name another resource, and the decoder of an uploaded file must never be
+the thing that fetches one.
+
 ## The version is a gate
 
 `CACHE_VERSION` is REQUIRED on read: an older sidecar has a matching fingerprint and would otherwise
