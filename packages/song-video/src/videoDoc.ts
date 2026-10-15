@@ -26,6 +26,8 @@ export interface VideoClipDoc {
   animate?: Partial<Record<AnimatedProp, Key[]>>;
   /** How fast the source runs under the shot, signed; absent is 1 — docs/speed.md. */
   speed?: number;
+  /** The run this shot goes through for as long as it is on, by head node — a key of `VideoProjectDoc.stretches` (docs/effects.md). */
+  effect?: string;
 }
 
 /** A transition ON a placement: how long, and which kind. The kind's GLSL is on the PROJECT, once per name. */
@@ -96,6 +98,8 @@ export interface VideoPluginDoc {
   shader?: ShaderSourceDoc;
   /** The LANE whose live level drives this shader's `uAudio` — a NAME, not a number; docs/shaders.md. */
   audioFrom?: string;
+  /** The `.cube` LUT a shader reads as `uLut`, absolute — docs/effects.md. */
+  lut?: string;
 }
 
 // A lane: it places picture at (x,y,w,h), in layer draw order, and what fills it is its placements,

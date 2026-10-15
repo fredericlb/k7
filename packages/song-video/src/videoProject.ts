@@ -95,8 +95,8 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
   const stretches: VideoProjectDoc["stretches"] = {};
   for (const t of fading)
     for (const c of t.clips)
-      for (const fade of [c.fadeIn, c.fadeOut])
-        if (fade?.chain) stretches[fade.chain] = chains.stretches[fade.chain];
+      for (const name of [c.fadeIn?.chain, c.fadeOut?.chain, c.effect])
+        if (name) stretches[name] = chains.stretches[name];
 
   // The lanes with their run, their lens and their shapes folded on — done here, and not in the
   // lane compile, because all three come off `graph.yaml` (docs/shapes.md).

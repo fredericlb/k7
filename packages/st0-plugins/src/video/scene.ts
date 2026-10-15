@@ -22,6 +22,7 @@ function passOf(p: WebVideoPlugin): ScenePass | null {
     enabled: p.enabled,
     params: p.params,
     audio: 0,
+    ...(p.lut ? { lut: mediaUrl(p.lut) } : {}),
   };
 }
 
@@ -63,6 +64,7 @@ export function sceneOf(
         ...(c.animate ? { animate: c.animate } : {}),
         ...(c.speed !== undefined ? { speed: c.speed } : {}),
         ...(c.still ? { still: true as const } : {}),
+        ...(c.effect ? { effect: c.effect } : {}),
       })),
       // A shape carries no media — the compositor rasterizes it, and its id is the module node that drew it.
       shapes: t.shapes.map((s) => ({ ...s })),

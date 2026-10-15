@@ -52,6 +52,15 @@ what you see when there is no layer left.
 `LayerBlend` says **which slots carry a picture this frame**, instead of deducing it from
 `hasFrame`: that never goes back down, so it cannot answer "now".
 
+### A side's journey: effect, motion, stretch
+
+Before a blend reads a slot, its picture goes through up to three steps, in this order: the shot's
+own EFFECT, its MOTION, then the fade's STRETCH (`src/slots.ts`). Each lands in a target of that
+slot's own, allocated only for a scene in which some shot takes that step. They live outside this
+file because each is the same shape, a run or a draw into a slot's own target, and they are about
+one slot, not about where a layer is placed. A shot with an effect takes the scratch path even on a
+plain cut, since its run needs the scratch ([../../song-video/docs/effects.md](../../song-video/docs/effects.md)).
+
 ### A side that runs a stretch
 
 A shot inside its fade's **stretch** goes through that run BEFORE the blend reads it

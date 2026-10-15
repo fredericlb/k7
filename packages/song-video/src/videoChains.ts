@@ -4,6 +4,7 @@
 // arrive with their GLSL already read, because the browser cannot open a folder.
 // Full rationale: docs/shaders.md, docs/shapes.md, docs/transitions.md, and docs/videoOutputs.md.
 
+import { resolve } from "node:path";
 import {
   type Chain,
   type GraphDoc,
@@ -139,6 +140,8 @@ function stepDoc(
       params: shaderParams(module),
       ...(src ? { shader: src } : {}),
       ...(audioSourceOf(step) ? { audioFrom: audioSourceOf(step) } : {}),
+      // Project-relative, like every file a node names; a missing file is the renderer's to say, it draws the picture as it is.
+      ...(module.lut ? { lut: resolve(dir, module.lut) } : {}),
     };
   }
   // Not `video_transitions`: one is NAMED by a cut and never wired, so it falls through to the

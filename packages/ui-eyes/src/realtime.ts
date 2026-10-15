@@ -11,7 +11,12 @@ import type { LayerBlend } from "./compositor";
 import { Compositor } from "./compositor";
 import { type Motion, slotMotions } from "./motion";
 import type { VideoLayer, VideoScene } from "./scene";
-import { type Active, layerFrameAt, shapesVisibleAt } from "./timeline";
+import {
+  type Active,
+  layerFrameAt,
+  shapesVisibleAt,
+  slotEffects,
+} from "./timeline";
 
 const HARD_SEEK = 0.25; // s of error that forces a seek rather than a nudge
 const SOFT_EPS = 0.008; // ≈ a quarter-frame at 30fps; below this, nudging chases quantization
@@ -293,6 +298,7 @@ export class RealtimeDriver {
     const visible = new Set<string>();
     const blends = new Map<string, LayerBlend>();
     const motions = new Map<string, [Motion | null, Motion | null]>();
+    const effects = new Map<string, [string | null, string | null]>();
     this.debug = [];
 
     for (const lane of this.lanes) {
@@ -385,6 +391,7 @@ export class RealtimeDriver {
       }
       visible.add(lane.layer.id);
       motions.set(lane.layer.id, slotMotions(frame, t));
+      effects.set(lane.layer.id, slotEffects(frame));
       // Held at 0 while the incoming side has no frame yet, rather than blending against black.
       if (frame.blend)
         blends.set(lane.layer.id, {
@@ -398,7 +405,7 @@ export class RealtimeDriver {
 
     // The live half of a shader's uniforms, refreshed per frame rather than per document — see docs/passes.md.
     this.comp.setLive(t, this.audio);
-    this.comp.draw(visible, blends, motions);
+    this.comp.draw(visible, blends, motions, effects);
   }
 
   /** The audio level each pass is driven by, 0..1 by pass id — PUSHED by the host, and held here since the rates differ. */

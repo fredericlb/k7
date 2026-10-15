@@ -225,6 +225,8 @@ export interface Module {
   base?: string;
   // Which SHADER a shader node runs, absent when nothing is chosen — see packages/song-video/docs/shaders.md.
   shader?: string;
+  // …and the 3D LUT it reads, project-relative — packages/song-video/docs/effects.md.
+  lut?: string;
   // …and which PRIMITIVE a shape module draws, its geometry being `params:` — see song-video/docs/shapes.md.
   shape?: string;
   // What a shape is FILLED with, and on a lane module its colour in the timeline — one key, read by category.
@@ -570,6 +572,7 @@ export function buildGraph(
         : undefined,
     // Which SHADER a shader node runs, inherited like `plugin` — see packages/song-video/docs/shaders.md.
     shader: typeof b?.shader === "string" && b.shader ? b.shader : undefined,
+    lut: typeof b?.lut === "string" && b.lut ? b.lut : undefined,
     // The shape a `shapes` module draws, and how it is painted — inherited like `plugin` (docs/shapes.md).
     shape: typeof b?.shape === "string" && b.shape ? b.shape : undefined,
     color: typeof b?.color === "string" && b.color ? b.color : undefined,

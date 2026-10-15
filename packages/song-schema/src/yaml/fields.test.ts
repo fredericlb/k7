@@ -57,6 +57,8 @@ describe("derived module fields", () => {
       "strudel",
       // The PICTURE lane a lane plays the sound of — packages/song/docs/videoSound.md.
       "video_source",
+      // A shader's 3D LUT — packages/song-video/docs/effects.md.
+      "lut",
       // FROZEN at this module: the render standing in for everything upstream of it — see docs/freeze.md.
       "frozen",
       "engine",

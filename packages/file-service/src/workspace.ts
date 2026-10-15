@@ -2192,12 +2192,13 @@ export class Workspace {
         ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
         ...(c.animate ? { animate: c.animate } : {}),
         ...(c.speed !== undefined ? { speed: c.speed } : {}),
+        ...(c.effect ? { effect: c.effect } : {}),
       })),
       // Shapes carry no media path — each variant's fields, `id` included, pass straight through.
       shapes: t.shapes.map((s) => ({ ...s })),
       // …and this lane's own video run — a shader's GLSL travels INLINE, so there is no path here.
       ...(t.plugins?.length
-        ? { plugins: t.plugins.map((p) => ({ ...p })) }
+        ? { plugins: t.plugins.map((p) => this.webPlugin(p)) }
         : {}),
     }));
   }
@@ -2325,7 +2326,7 @@ export class Workspace {
       duration: videoDuration(p.videoTracks),
       markers: p.markers.map((m) => ({ sec: m.sec, name: m.name, tc: m.tc })),
       videoTracks,
-      framePlugins: p.framePlugins.map((pl) => ({ ...pl })),
+      framePlugins: p.framePlugins.map((pl) => this.webPlugin(pl)),
       transitions: Object.fromEntries(
         Object.entries(p.transitions).map(([k, t]) => [
           k,
@@ -2335,10 +2336,15 @@ export class Workspace {
       stretches: Object.fromEntries(
         Object.entries(p.stretches).map(([k, run]) => [
           k,
-          run.map((pl) => ({ ...pl })),
+          run.map((pl) => this.webPlugin(pl)),
         ]),
       ),
     };
+  }
+
+  /** A picture plugin for the browser: its LUT made workspace-relative, as every path the browser fetches back is. */
+  private webPlugin<P extends { lut?: string }>(p: P): P {
+    return { ...p, ...(p.lut ? { lut: this.toRel(p.lut) } : {}) };
   }
 
   /** Everything wrong with a song's PICTURE — the compile's own throw, same shape as projectErrors. */

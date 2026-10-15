@@ -263,6 +263,8 @@ export const VideoPlacementSchema = z
     animate: AnimateSchema.optional(),
     // How fast the SOURCE runs under the shot: 2 is double, 0 a freeze, -1 backwards from `source_from` — song-video docs/speed.md.
     speed: z.number().finite().optional(),
+    // The head node of a run fed by nothing landing on this lane, run on THIS shot for as long as it is on — song-video docs/effects.md.
+    effect: z.string().min(1).optional(),
   })
   .strict()
   // Three keys that need a source, on an event that has none: each would be read by nothing.
@@ -277,11 +279,17 @@ export const VideoPlacementSchema = z
           path: ["length"],
         });
     if (p.ref) return;
-    for (const key of ["source_from", "fade_in", "fade_out", "speed"] as const)
+    for (const key of [
+      "source_from",
+      "fade_in",
+      "fade_out",
+      "speed",
+      "effect",
+    ] as const)
       if (p[key] != null)
         ctx.addIssue({
           code: "custom",
-          message: `an event with no \`ref\` is an ACTIVATION — it says WHEN this lane is on, and has no source to ${key === "source_from" ? "trim" : key === "speed" ? "run" : "fade"}`,
+          message: `an event with no \`ref\` is an ACTIVATION — it says WHEN this lane is on, and has no source to ${key === "source_from" ? "trim" : key === "speed" ? "run" : key === "effect" ? "grade" : "fade"}`,
           path: [key],
         });
   });

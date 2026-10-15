@@ -465,6 +465,8 @@ export interface WebVideoClip {
   animate?: WebVideoAnimate;
   /** How fast the source runs under the shot, signed; absent is 1 (song-video/docs/speed.md). */
   speed?: number;
+  /** The run this shot alone goes through, by head node — a key of `stretches` (song-video/docs/effects.md). */
+  effect?: string;
 }
 /** One keyframe as the compile normalised it; `ease` shapes the segment LEAVING it. */
 export interface WebVideoKey {
@@ -531,6 +533,8 @@ export interface WebVideoPlugin {
   params: Record<string, number>;
   shader?: { name: string; vertex: string; fragment: string };
   audioFrom?: string;
+  /** The `.cube` LUT the shader reads, workspace-relative (song-video/docs/effects.md). */
+  lut?: string;
 }
 // A video-mode lane (mirrors VideoTrackDoc): places picture, shows a lens, or draws the `shapes`
 // wired to it. In draw order (bottom first).

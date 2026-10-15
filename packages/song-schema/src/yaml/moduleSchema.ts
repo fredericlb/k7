@@ -429,6 +429,11 @@ const MODULE_FIELDS = {
     .optional(),
   // A lane that PLAYS a picture lane's sound, its events derived from that lane's shots — packages/song/docs/videoSound.md.
   video_source: z.string().min(1).optional(),
+  // A shader's 3D LUT, a `.cube` file, project-relative — the look a `uLut` pass reads (song-video docs/effects.md).
+  lut: z
+    .string()
+    .regex(/\.cube$/i, "a LUT is a .cube file")
+    .optional(),
   // FROZEN at this module: the render standing in for everything UPSTREAM of it — see docs/freeze.md.
   frozen: z.string().min(1).optional(),
 

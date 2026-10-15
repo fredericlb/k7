@@ -85,6 +85,7 @@ export interface RawVideoPlacement {
   fade_out?: unknown;
   animate?: unknown; // the shot's keyframes (song-video docs/animation.md)
   speed?: unknown; // how fast its source runs, signed (song-video docs/speed.md)
+  effect?: unknown; // the run this shot alone goes through (song-video docs/effects.md)
 }
 
 /** A video track file's struct (video_tracks/<id>.yaml). */
@@ -156,6 +157,8 @@ export interface LoadedModule {
   model_url?: string;
   // shaders only — which folder under the module's `shaders/` this node runs (song-video's docs/shaders.md).
   shader?: unknown;
+  // …and the `.cube` LUT it reads, project-relative (song-video's docs/effects.md).
+  lut?: unknown;
   // shapes only — which primitive it draws, and the family a `text` one is set in (song-video's docs/shapes.md).
   shape?: unknown;
   font?: unknown;

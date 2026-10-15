@@ -134,6 +134,41 @@ every editor reads. Both name your original camera files, and both carry the sho
 the dissolves and the speeds. Moves, picture-in-picture positions, shaders and the shots' sound
 stay here.
 
+## Grading a shot, and LUTs
+
+Two shaders come with every workspace: `@st0/shaders/grade` (exposure, contrast, saturation,
+temperature, each neutral at its middle) and `@st0/shaders/look` (a `.cube` LUT, with a strength
+knob). Wire one onto a lane and it grades the whole lane. To grade a single shot, give it a node of
+its own that nothing feeds, landing on the lane, and name that node on the shot:
+
+```yaml schema=Module
+# nodes/warm.yaml
+extends: "@st0/shaders/grade"
+params: { P4: 0.7 }                # a touch warmer
+```
+
+```yaml schema=Module
+# nodes/film.yaml
+extends: "@st0/shaders/look"
+lut: looks/film.cube               # a LUT from your colourist, in the project
+```
+
+```yaml schema=GraphFile
+modules:
+  warm: [main]
+  film: [main]
+```
+
+```yaml schema=VideoTrack
+events:
+  - { ref: interview, start: 0, length: 6, effect: warm }
+  - { ref: street, start: 6, length: 4, effect: film }
+```
+
+A shot's effect is applied to the picture as it was filmed, before it moves or crosses into the
+next shot. Several shots naming the same node share its settings, so a scene graded together stays
+together.
+
 ## A shot's sound
 
 The picture lane plays no sound. The **engine** plays it, from an ordinary audio lane that names

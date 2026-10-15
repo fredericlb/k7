@@ -100,6 +100,7 @@ export function videoPlacementToClip(
     ...(fadeOut ? { fadeOut } : {}),
     ...(animate ? { animate } : {}),
     ...(Number.isFinite(speed) && speed !== 1 ? { speed } : {}),
+    ...(typeof p.effect === "string" && p.effect ? { effect: p.effect } : {}),
   };
 }
 

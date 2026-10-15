@@ -37,7 +37,12 @@ export {
 import type { ExportQuality } from "./exportQuality";
 import { type Motion, slotMotions } from "./motion";
 import type { VideoScene } from "./scene";
-import { type Active, layerFrameAt, shapesVisibleAt } from "./timeline";
+import {
+  type Active,
+  layerFrameAt,
+  shapesVisibleAt,
+  slotEffects,
+} from "./timeline";
 
 export interface ExportOptions {
   /**
@@ -167,6 +172,8 @@ export async function exportScene(
   // Offscreen render target, shared by the compositor (writes) and the encoder (reads).
   const canvas = new OffscreenCanvas(vw, vh);
   const comp = Compositor.create(canvas, scene);
+  // A LUT still loading would grade the first frames differently from the rest.
+  await comp.ready();
   // A second canvas only when the file is another size: the frame is SCALED, its geometry stays the project's.
   const out = ow === vw && oh === vh ? null : new OffscreenCanvas(ow, oh);
   const scaled = out?.getContext("2d") ?? null;
@@ -241,6 +248,7 @@ export async function exportScene(
       const visible = new Set<string>();
       const blends = new Map<string, LayerBlend>();
       const motions = new Map<string, [Motion | null, Motion | null]>();
+      const effects = new Map<string, [string | null, string | null]>();
       for (const layer of scene.layers) {
         if (layer.hidden) continue;
         // A shape layer has no media to sample: its ACTIVATION spans say when it is on, and draw()
@@ -293,9 +301,10 @@ export async function exportScene(
         if (!from && !to) continue;
         visible.add(layer.id);
         motions.set(layer.id, slotMotions(frame, t));
+        effects.set(layer.id, slotEffects(frame));
         if (frame.blend) blends.set(layer.id, { ...frame.blend, from, to });
       }
-      comp.draw(visible, blends, motions);
+      comp.draw(visible, blends, motions, effects);
       // Encode the canvas as this frame; mediabunny bounds its own queue, so awaiting here is the backpressure.
       if (out && scaled) scaled.drawImage(canvas, 0, 0, ow, oh);
       await canvasSource.add(n / fps, 1 / fps);

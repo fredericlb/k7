@@ -15,6 +15,7 @@ export interface SceneClip {
   animate?: SceneAnimate; // how it moves in its lane's frame; absent costs nothing — docs/motion.md
   speed?: number; // how fast the source runs under it, signed; absent is 1 — song-video/docs/speed.md
   still?: true; // `src` is an IMAGE: decoded once and held while the shot is on — docs/realtime.md
+  effect?: string; // the run this shot alone goes through, a key of `VideoScene.stretches` — docs/effects.md
 }
 
 /** A shot's animated properties, each its sorted keys in seconds from the shot's start; `ease` shapes the segment leaving a key. */
@@ -80,6 +81,7 @@ export interface ScenePass {
   enabled: boolean;
   params: Record<string, number>; // uP1..uP4, each 0..1
   audio: number; // uAudio, 0..1 — replaced every frame by the host
+  lut?: string; // a `.cube` file's URL, read as `uLut` — fetched and uploaded once (docs/luts.md)
 }
 
 // A layer in the draw stack: a VIDEO lane (a rect plus clips), a SHAPE lane, or a CAMERA — the
@@ -134,6 +136,7 @@ export interface SceneLayerInput {
     animate?: SceneAnimate;
     speed?: number;
     still?: true;
+    effect?: string;
   }[];
   shapes?: SceneShape[];
   passes?: ScenePass[];
@@ -175,6 +178,7 @@ export function buildScene(
         ...(c.animate ? { animate: c.animate } : {}),
         ...(c.speed !== undefined ? { speed: c.speed } : {}),
         ...(c.still ? { still: true as const } : {}),
+        ...(c.effect ? { effect: c.effect } : {}),
       })),
       // Shapes carry no time, so they don't extend durationSec — a shapes-only song has no natural end to render.
       ...(l.shapes?.length ? { shapes: l.shapes.map((s) => ({ ...s })) } : {}),
