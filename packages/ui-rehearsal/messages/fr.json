@@ -98,6 +98,7 @@
   "fetch.dismiss": "Masquer",
   "fetch.download": "Télécharger le morceau",
   "fetch.downloading": "Téléchargement depuis Soulseek…",
+  "fetch.fromLibrary": "Récupération du morceau dans la médiathèque…",
   "fetch.huntRemoved": "La recherche Soulseek a été retirée avant d'aboutir.",
   "fetch.ignore": "Ignorer",
   "fetch.library": "Recherche dans la médiathèque…",

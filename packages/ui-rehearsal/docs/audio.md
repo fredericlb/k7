@@ -237,6 +237,12 @@ often than a track to play along to, so it is asked for rather than ridden along
   chains*) or with `system instrumental <chain>`, exactly as `system stems` answers for the four
   parts. The page names no chain: it asks for an instrumental and the machine that can make one
   says how.
+- **A song the médiathèque already holds offers no choice.** Opening a song with no track looks it
+  up in the library first (`heldInLibrary`); when it is there, the page copies it and goes straight
+  on to the lyrics and the instrumental, showing their progress — "Download / Upload / Ignore" is
+  only for a song the library lacks, since fetching it costs nothing and nobody would answer
+  otherwise. A song whose insert was ignored stays ignored, and a library out of reach leaves the
+  choice as it was.
 - **Every step checks what is already done**, so pressing again resumes: the médiathèque goes on
   hunting and separating if the page is closed, and a second press finds the song filed and the
   stems held.

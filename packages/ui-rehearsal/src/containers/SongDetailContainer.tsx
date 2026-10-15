@@ -4,6 +4,7 @@ import { api } from "../api";
 import { UploadTrackDialog } from "../components/UploadTrackDialog";
 import { pl8 } from "../fetchSong/pl8";
 import {
+  heldInLibrary,
   type PipelineMode,
   type PipelineOptions,
   type PipelineSteps,
@@ -34,6 +35,10 @@ export function SongDetailContainer({
   onBack,
 }: Props) {
   const [song, setSong] = useState<Song | null>(null);
+  // True while a song with no track is looked up in the library and copied in: the insert shows progress, not a choice.
+  const [fromLibrary, setFromLibrary] = useState(false);
+  // The song the library lookup already ran for: `load` runs again whenever its callbacks change.
+  const probed = useRef("");
   // The uploaded file the popin is asking about, and where its answer goes; null when it is closed.
   const [asking, setAsking] = useState<{
     file: File;
@@ -164,6 +169,16 @@ export function SongDetailContainer({
 
   const load = useCallback(async () => {
     const fetched = await api.getSong(songId);
+    const probe =
+      !!fetched &&
+      probed.current !== songId &&
+      !fetched.audio &&
+      !fetched.fetchIgnored &&
+      fetched.fetchStatus.phase === "";
+    if (probe) {
+      probed.current = songId;
+      setFromLibrary(true); // batched with setSong below, so the insert's choice never flashes
+    }
     setSong(fetched);
     // A hunt or a stem cut still running when the page loads is one this tab never started —
     // pick it back up rather than showing an empty choice again.
@@ -173,6 +188,16 @@ export function SongDetailContainer({
       fetched.fetchStatus.phase !== "failed"
     ) {
       void runFetch(fetched, "continue");
+    } else if (probe) {
+      // Already in the library: nothing to choose, the pipeline copies it then times lyrics and stems.
+      try {
+        if (await heldInLibrary(pl8, fetched))
+          await runFetch(fetched, "download");
+      } catch {
+        // The library unreachable: the insert offers the choice as before.
+      } finally {
+        setFromLibrary(false);
+      }
     }
   }, [songId, runFetch]);
 
@@ -346,6 +371,7 @@ export function SongDetailContainer({
         onResyncLyrics={handleResyncLyrics}
         onRename={handleRename}
         onDismissFailure={handleDismissFailure}
+        fromLibrary={fromLibrary}
       />
       <UploadTrackDialog
         file={asking?.file ?? null}
