@@ -24,7 +24,9 @@ import * as db from "./db.ts";
 import { env } from "./env.ts";
 import { serialized } from "./lock.ts";
 import * as mediatek from "./mediatek.ts";
+import { audioMimeOf } from "./serve.ts";
 import { envelopeOf } from "./songEnvelope.ts";
+import { SAFE_ID } from "./sqlite.ts";
 
 // Under K7_DATA_DIR, never inside the sources: a checkout and an image hold it in the same place.
 const CACHE_DIR = path.join(env.dataDir, "cache");
@@ -393,13 +395,15 @@ async function appendRecordingUnlocked(
 export async function ensureRecordingCached(uid) {
   const rec = await getSessionRecord(uid);
   if (!rec?.fields.RecordingPath) return null;
-  const mime = rec.fields.RecordingMime || "audio/webm";
-  const filePath = path.join(CACHE_DIR, `${uid}.${extFor(mime)}`);
+  const filePath = path.join(
+    CACHE_DIR,
+    `${uid}.${extFor(rec.fields.RecordingMime || "audio/webm")}`,
+  );
   if (!cachedFile(filePath))
     await once(fetching, filePath, () =>
       mediatek.download(String(rec.fields.RecordingPath), filePath),
     );
-  return { filePath, mime };
+  return { filePath, mime: audioMimeOf(filePath) };
 }
 
 export async function getEnvelope(uid) {
@@ -802,6 +806,9 @@ export function dropClipCache(momentId) {
 }
 
 function clipCachePath(momentId) {
+  // The id names a file: one plain segment, or nothing reaches the disk.
+  if (!SAFE_ID.test(String(momentId)))
+    throw new Error(`bad moment id ${momentId}`);
   return path.join(CACHE_DIR, `clip-${momentId}.webm`);
 }
 
@@ -1105,6 +1112,8 @@ export async function addVersion(
     {
       album: release?.fields.Title || "",
       title: versionName,
+      releaseUid,
+      versionUid: uid,
     },
   );
 
@@ -1158,10 +1167,38 @@ export async function addVersion(
   };
 }
 
-/** The whole song folder out of the médiathèque, since the folder IS the version; never fatal. */
+/** Whether a library folder is this version's own, named with its uid — ../docs/audio.md. */
+export function ownsVersionFolder(folder: string, versionUid: string): boolean {
+  return folder.endsWith(mediatek.uidTag(versionUid));
+}
+
+/** What this version put in the médiathèque, and nothing another version shares; never fatal. */
 async function forgetVersionFolder(v) {
-  if (!v?.fields.AudioPath) return;
-  await mediatek.removeTree(dirOf(v.fields.AudioPath)).catch(() => {});
+  const master = String(v?.fields.AudioPath || "");
+  if (!master) return;
+  const folder = dirOf(master);
+  if (ownsVersionFolder(folder, String(v.fields.Uid))) {
+    await mediatek.removeTree(folder).catch(() => {});
+    return;
+  }
+  // A folder named by title alone may hold another version's bytes: only files no other row names go.
+  const named = await pathsOfOtherVersions(String(v.fields.Uid));
+  for (const p of [master, ...tracksOf(v).map((t) => String(t.path || ""))])
+    if (p && !named.has(p)) await safeRemote(p);
+}
+
+/** Every library path a version other than `versionUid` points at. */
+async function pathsOfOtherVersions(versionUid: string): Promise<Set<string>> {
+  const recs = await db.listRecords("Versions", undefined, {
+    fields: ["Uid", "AudioPath", "TrackMeta"],
+  });
+  const paths = new Set<string>();
+  for (const r of recs) {
+    if (r.fields.Uid === versionUid) continue;
+    paths.add(String(r.fields.AudioPath || ""));
+    for (const t of tracksOf(r)) paths.add(String(t.path || ""));
+  }
+  return paths;
 }
 
 /** Swap a version's mixdown for another file, keeping its name, its stems and its place. */
@@ -1172,13 +1209,15 @@ export async function replaceVersionAudio(releaseUid, versionUid, mixdown) {
   const release = await getReleaseRecord(releaseUid);
   const previous = String(rec.fields.AudioPath || "");
 
-  // The same album and title, so the bytes land in the folder this version already owns.
+  // The same tagged album and title, so the bytes land in the folder this version owns; a legacy one moves there.
   const master = await mediatek.pushVersion(
     await fs.openAsBlob(mixdown.file),
     versionExt(mixdown.mime),
     {
       album: release?.fields.Title || "",
       title: String(rec.fields.Name || "Version"),
+      releaseUid,
+      versionUid,
     },
   );
   await db.patchRecord("Versions", rec.id, {
@@ -1227,13 +1266,18 @@ export async function renameVersion(releaseUid, versionUid, name) {
   // The folder keeps its name and only the sidecar is rewritten — ../docs/audio.md.
   if (v.fields.AudioPath) {
     const release = await getReleaseRecord(releaseUid);
+    const folder = dirOf(v.fields.AudioPath);
+    const own = ownsVersionFolder(folder, versionUid);
+    const album = String(release?.fields.Title || "");
     await mediatek
       .putFile(
-        `${dirOf(v.fields.AudioPath)}/song.yaml`,
+        `${folder}/song.yaml`,
         sidecarFor({
-          title: String(name),
+          title: own
+            ? mediatek.tagged(String(name), versionUid, "Version")
+            : String(name),
           artist: K7_ARTIST,
-          album: release?.fields.Title || "",
+          album: own ? mediatek.tagged(album, releaseUid, "Release") : album,
           source: "k7",
         }),
       )
@@ -1299,10 +1343,7 @@ export async function ensureVersionAudioCached(releaseUid, versionUid) {
   const rec = versions.find((v) => v.fields.Uid === versionUid);
   if (!rec?.fields.AudioPath) return null;
   const remote = String(rec.fields.AudioPath);
-  const mime = mediatek.streamedMime(
-    remote,
-    rec.fields.AudioMime || "audio/mpeg",
-  );
+  const mime = mediatek.streamedMime(remote);
   const filePath = versionCachePath(versionUid);
   if (!cachedFile(filePath))
     await once(fetching, filePath, () =>
@@ -1368,7 +1409,7 @@ export async function ensureVersionTrackCached(
   if (!rec) return null;
   const entry = tracksOf(rec).find((t) => t.id === trackId);
   if (!entry?.path) return null;
-  const mime = mediatek.streamedMime(entry.path, entry.mime);
+  const mime = mediatek.streamedMime(entry.path);
   const filePath = versionTrackCachePath(versionUid, { ...entry, mime });
   if (!cachedFile(filePath))
     await once(fetching, filePath, () =>
@@ -1425,14 +1466,23 @@ export async function getPageOwner(uid) {
   return rec ? rec.fields.OwnerId : null;
 }
 
+/** The pages answering to a nametag, whatever its case: `Band` and `band` are one address — ../docs/pages.md. */
+async function pagesNamed(nametag) {
+  const wanted = String(nametag).toLowerCase();
+  const recs = await db.listRecords("Pages", undefined, {
+    fields: ["Uid", "Nametag"],
+  });
+  return recs.filter((r) => String(r.fields.Nametag).toLowerCase() === wanted);
+}
+
 export async function nametagExists(nametag, exceptUid?) {
-  const recs = await db.listRecords("Pages", { Nametag: [nametag] });
+  const recs = await pagesNamed(nametag);
   return recs.some((r) => r.fields.Uid !== exceptUid);
 }
 
 // The nametag is the whole address of a public page — see routes/publicPages.ts.
 export async function getPageByNametag(nametag) {
-  const recs = await db.listRecords("Pages", { Nametag: [nametag] });
+  const recs = await pagesNamed(nametag);
   return recs[0] ? getPage(recs[0].fields.Uid) : null;
 }
 
@@ -1778,8 +1828,11 @@ async function writeSheets(rec, sheets) {
   });
 }
 
-// Upload { buffer, mime, name } files onto a song's sheet, after the existing ones.
-async function addSheetFilesUnlocked(uid, files) {
+// Upload { file, mime, name } files — each a path on disk, copied in — onto a song's sheet, after the existing ones.
+async function addSheetFilesUnlocked(
+  uid,
+  files: { file: string; mime: string; name: string }[],
+) {
   const rec = await getSongRecord(uid);
   if (!rec) return null;
   const existing = sheetsOf(rec);
@@ -1792,7 +1845,7 @@ async function addSheetFilesUnlocked(uid, files) {
   for (const file of files) {
     const name = file.name || "sheet";
     const attachmentId = await db.uploadAttachment(
-      file.buffer,
+      { file: file.file },
       file.mime,
       name,
       rec.id,
@@ -1855,15 +1908,16 @@ export async function linkSongAudio(uid, { path: master, mime, name }) {
 }
 
 /** An uploaded track goes INTO the library, as this song, and the song links to it. */
-export async function setSongAudio(uid, { buffer, mime, name }) {
+export async function setSongAudio(uid, { file, mime, name }) {
   const rec = await getSongRecord(uid);
   if (!rec) return null;
   const artist = String(rec.fields.Artist || "");
   const title = String(rec.fields.Title || "");
-  const master = await mediatek.pushSongTrack(buffer, {
+  const master = await mediatek.pushSongTrack(await fs.openAsBlob(file), {
     filename: `${artist} - ${title}.${songAudioExt(mime, name)}`,
     artist,
     title,
+    songUid: uid,
   });
   return linkSongAudio(uid, { path: master, mime, name });
 }

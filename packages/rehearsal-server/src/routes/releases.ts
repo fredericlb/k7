@@ -1,31 +1,15 @@
 /* Releases: standalone finished songs, each with one or more audio versions. */
 
-import { ownerGuard, streamFile, sub, validate, wrap } from "@frediverse/http";
+import { ownerGuard, sub, validate, wrap } from "@frediverse/http";
 import { diskUpload } from "@frediverse/http/upload";
 import { Router } from "express";
 import { z } from "zod";
+import { isAudioMime, streamAudio } from "../serve.ts";
 import * as store from "../store.ts";
+import { keepingUploads } from "../uploads.ts";
 
 // Mixdowns and stems arrive on DISK — sixty-four stems of a gigabyte must not sit in RAM (../../docs/audit.md).
 const upload = diskUpload(store.UPLOAD_DIR);
-
-// Every file a request carried, so what the store did not keep can be removed.
-const uploadsOf = (req): { path?: string }[] => [
-  ...(req.file ? [req.file] : []),
-  ...(Array.isArray(req.files)
-    ? req.files
-    : Object.values(req.files ?? {}).flat()),
-];
-
-// The handler, then the leftovers removed whatever it answered.
-const keepingUploads = (fn) =>
-  wrap(async (req, res) => {
-    try {
-      await fn(req, res);
-    } finally {
-      store.discardUploads(uploadsOf(req));
-    }
-  });
 
 const versionPatch = z.object({
   isDefault: z.boolean().optional(),
@@ -41,7 +25,18 @@ const releasePatch = z.object({
   canDownload: z.boolean().optional(),
 });
 
-const AUDIO_MIME = /^audio\//;
+/** The one uploaded audio file, or null once a 400 has answered — the type is served back, so only audio passes. */
+function audioPart(req, res): { file: string; mime: string } | null {
+  if (!req.file?.size) {
+    res.status(400).json({ error: "missing audio file" });
+    return null;
+  }
+  if (!isAudioMime(req.file.mimetype)) {
+    res.status(400).json({ error: `not an audio file: ${req.file.mimetype}` });
+    return null;
+  }
+  return { file: req.file.path, mime: req.file.mimetype };
+}
 
 export const releasesRouter = Router();
 
@@ -62,8 +57,8 @@ releasesRouter.post(
     const artist = String(req.body.artist || "").trim();
     if (!title || !artist)
       return res.status(400).json({ error: "title and artist are required" });
-    if (!req.file?.size)
-      return res.status(400).json({ error: "missing audio file" });
+    const mixdown = audioPart(req, res);
+    if (!mixdown) return;
 
     const release = await store.createRelease(
       sub(req),
@@ -76,10 +71,7 @@ releasesRouter.post(
       },
       {
         name: String(req.body.versionName || "").trim() || "Version 1",
-        mixdown: {
-          file: req.file.path,
-          mime: req.file.mimetype || "audio/mpeg",
-        },
+        mixdown,
         tracks: [],
       },
     );
@@ -118,7 +110,7 @@ releasesRouter.post(
     if (!mix?.size)
       return res.status(400).json({ error: "missing mixdown file" });
     const stems = files?.tracks || [];
-    const bad = [mix, ...stems].find((f) => !AUDIO_MIME.test(f.mimetype));
+    const bad = [mix, ...stems].find((f) => !isAudioMime(f.mimetype));
     if (bad)
       return res
         .status(400)
@@ -201,15 +193,15 @@ releasesRouter.post(
   "/:rid/versions",
   upload.single("audio"),
   keepingUploads(async (req, res) => {
-    if (!req.file?.size)
-      return res.status(400).json({ error: "missing audio file" });
+    const mixdown = audioPart(req, res);
+    if (!mixdown) return;
     const version = await store.addVersion(
       req.params.rid,
       {
         name: String(req.body.name || "").trim() || "Version",
         isDefault: req.body.isDefault === "true",
       },
-      { file: req.file.path, mime: req.file.mimetype || "audio/mpeg" },
+      mixdown,
       [],
     );
     res.status(201).json(version);
@@ -252,12 +244,12 @@ releasesRouter.put(
   "/:rid/versions/:vid/audio",
   upload.single("audio"),
   keepingUploads(async (req, res) => {
-    if (!req.file?.size)
-      return res.status(400).json({ error: "missing audio file" });
+    const mixdown = audioPart(req, res);
+    if (!mixdown) return;
     const release = await store.replaceVersionAudio(
       req.params.rid,
       req.params.vid,
-      { file: req.file.path, mime: req.file.mimetype || "audio/mpeg" },
+      mixdown,
     );
     if (!release) return res.status(404).json({ error: "not found" });
     res.json(release);
@@ -281,7 +273,7 @@ releasesRouter.get(
       req.params.vid,
     );
     if (!info) return res.status(404).json({ error: "no audio" });
-    streamFile(req, res, info.filePath, info.mime);
+    streamAudio(req, res, info.filePath, info.mime);
   }),
 );
 
@@ -298,7 +290,7 @@ releasesRouter.get(
     if (!release || !version || !info)
       return res.status(404).json({ error: "no audio" });
     res.attachment(store.versionFileName(release, version, info.mime));
-    streamFile(req, res, info.filePath, info.mime);
+    streamAudio(req, res, info.filePath, info.mime);
   }),
 );
 
@@ -312,6 +304,6 @@ releasesRouter.get(
       req.params.tid,
     );
     if (!info) return res.status(404).json({ error: "not found" });
-    streamFile(req, res, info.filePath, info.mime);
+    streamAudio(req, res, info.filePath, info.mime);
   }),
 );

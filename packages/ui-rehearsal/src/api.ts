@@ -353,7 +353,7 @@ export const api = {
 
   // No session needed, but one is sent: the page's visibility is graded against it — ../../rehearsal-server/docs/pages.md.
   getPublicPage: async (nametag: string): Promise<Page> => {
-    const res = await f(`/api/public/pages/${nametag}`);
+    const res = await f(`/api/public/pages/${encodeURIComponent(nametag)}`);
     if (res.status === 401) throw new UnauthenticatedError();
     return json(res);
   },
@@ -369,7 +369,7 @@ export const api = {
     releaseId: string,
     versionId: string,
   ) =>
-    `${apiBase()}/api/public/pages/${nametag}/releases/${releaseId}/versions/${versionId}/audio`,
+    `${apiBase()}/api/public/pages/${encodeURIComponent(nametag)}/releases/${releaseId}/versions/${versionId}/audio`,
 
   // Answers 404 unless the release allows downloads.
   publicVersionDownloadUrl: (
@@ -377,7 +377,7 @@ export const api = {
     releaseId: string,
     versionId: string,
   ) =>
-    `${apiBase()}/api/public/pages/${nametag}/releases/${releaseId}/versions/${versionId}/download`,
+    `${apiBase()}/api/public/pages/${encodeURIComponent(nametag)}/releases/${releaseId}/versions/${versionId}/download`,
 
   getPublicVersionEnvelope: (
     nametag: string,
@@ -385,7 +385,7 @@ export const api = {
     versionId: string,
   ): Promise<SongEnvelope> =>
     fetch(
-      `${apiBase()}/api/public/pages/${nametag}/releases/${releaseId}/versions/${versionId}/envelope`,
+      `${apiBase()}/api/public/pages/${encodeURIComponent(nametag)}/releases/${releaseId}/versions/${versionId}/envelope`,
     ).then(json),
 
   // --- Singing exercises (a personal practice book) ---

@@ -138,6 +138,13 @@ describe("the owner's routes", () => {
     expect((await get("fresh")).status).toBe(200);
   });
 
+  it("treats a nametag in another case as the same address", async () => {
+    expect((await send("POST", "", { nametag: "Open" })).status).toBe(409);
+    const res = await get("OPEN");
+    expect(res.status).toBe(200);
+    expect((await read(res)).nametag).toBe("open");
+  });
+
   it("refuses a visibility it does not know", async () => {
     const page = await read(await send("POST", "", { nametag: "odd" }));
     const res = await send("PATCH", `/${page.id}`, { visibility: "friends" });

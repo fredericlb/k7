@@ -2,12 +2,13 @@
    loudness envelope, detected events, annotations, markers and moment clips.
 */
 
-import { ownerGuard, streamFile, sub, validate, wrap } from "@frediverse/http";
+import { ownerGuard, sub, validate, wrap } from "@frediverse/http";
 import { diskUpload } from "@frediverse/http/upload";
 import type { Envelope } from "@studio/rehearsal-shared";
 import { Router } from "express";
 import { z } from "zod";
 import { detectEvents } from "../detect.ts";
+import { isAudioMime, streamAudio } from "../serve.ts";
 import * as store from "../store.ts";
 
 const annotationCreate = z.object({
@@ -98,6 +99,10 @@ async function receiveTake(req, res) {
     return res
       .status(400)
       .json({ error: "empty recording — nothing captured" });
+  if (!isAudioMime(req.file.mimetype))
+    return res
+      .status(400)
+      .json({ error: `not an audio file: ${req.file.mimetype}` });
 
   let envelope: Envelope;
   try {
@@ -106,7 +111,7 @@ async function receiveTake(req, res) {
     return res.status(400).json({ error: "invalid envelope" });
   }
 
-  const mime = req.file.mimetype || "audio/webm";
+  const mime = req.file.mimetype;
   const ext = mime.includes("ogg")
     ? "ogg"
     : mime.includes("mp4")
@@ -140,7 +145,7 @@ sessionsRouter.get(
   wrap(async (req, res) => {
     const info = await store.ensureRecordingCached(req.params.id);
     if (!info) return res.status(404).json({ error: "no recording" });
-    streamFile(req, res, info.filePath, info.mime);
+    streamAudio(req, res, info.filePath, info.mime);
   }),
 );
 
@@ -255,6 +260,6 @@ sessionsRouter.get(
   wrap(async (req, res) => {
     const info = await store.ensureClipCached(req.params.id, req.params.annId);
     if (!info) return res.status(404).json({ error: "no clip" });
-    streamFile(req, res, info.filePath, info.mime);
+    streamAudio(req, res, info.filePath, info.mime);
   }),
 );

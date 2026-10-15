@@ -9,6 +9,12 @@ type HttpError = Error & {
   code?: string;
 };
 
+/** An upload past one of multer's limits is the client's: too big or too many is 413, a stray file field 400. */
+function uploadStatus(err: HttpError): number | undefined {
+  if (err.name !== "MulterError" && err.code !== "LIMIT_FILE_SIZE") return;
+  return err.code === "LIMIT_UNEXPECTED_FILE" ? 400 : 413;
+}
+
 /** Answered as JSON, never Express's HTML page; an error-mode request that is not ours never reaches it. */
 export function jsonErrors(
   err: HttpError,
@@ -16,10 +22,7 @@ export function jsonErrors(
   res: express.Response,
   _next: express.NextFunction,
 ): void {
-  const status =
-    err.status ??
-    err.statusCode ??
-    (err.code === "LIMIT_FILE_SIZE" ? 413 : 500);
+  const status = err.status ?? err.statusCode ?? uploadStatus(err) ?? 500;
   if (status >= 500) console.error(err);
   if (res.headersSent) {
     res.destroy();

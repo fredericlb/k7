@@ -14,7 +14,9 @@ import {
   remoteLibrary,
   remoteWriter,
 } from "@studio/mediatek/remote";
+import { segment } from "@studio/mediatek/song";
 import { K7_ARTIST } from "@studio/mediatek/types";
+import { audioMimeOf } from "./serve.ts";
 
 // Handed in by the host at mount time: the library is served by the same process, over loopback.
 let link: RemoteConfig | undefined;
@@ -67,19 +69,31 @@ export async function pushMoment(
   return path;
 }
 
-/** Push a PUBLISHED version into the songs, under the `K7` artist — ../docs/audio.md. */
+/** The suffix that makes a folder this row's alone: a uid's first eight characters. */
+export const uidTag = (uid: string): string => ` (${String(uid).slice(0, 8)})`;
+
+/** A readable name carrying its row's tag, cut short enough that the library's 80-character cap keeps the tag. */
+export const tagged = (name: string, uid: string, fallback: string): string =>
+  `${segment(name, fallback).slice(0, 60)}${uidTag(uid)}`;
+
+/** Push a PUBLISHED version into the songs, under the `K7` artist, in a folder its uids make its own — ../docs/audio.md. */
 export async function pushVersion(
   bytes: Uint8Array | Blob,
   ext: string,
-  tags: { album: string; title: string },
+  tags: {
+    album: string;
+    title: string;
+    releaseUid: string;
+    versionUid: string;
+  },
 ): Promise<string> {
   // The MASTER's path, not the folder's: the folder is one `dirname` away when stems need it.
   const { master } = await pushSong(cfg(), {
     filename: `mixdown.${zoneExt(ext)}`,
     bytes,
     artist: K7_ARTIST,
-    album: tags.album,
-    title: tags.title,
+    album: tagged(tags.album, tags.releaseUid, "Release"),
+    title: tagged(tags.title, tags.versionUid, "Version"),
     source: "k7",
     replace: true,
   });
@@ -92,16 +106,16 @@ const UPLOAD_ALBUM = "k7";
 /** File an uploaded songbook track in the library as this song; its master's path is what the song links to. */
 export async function pushSongTrack(
   bytes: Uint8Array | Blob,
-  tags: { filename: string; artist: string; title: string },
+  tags: { filename: string; artist: string; title: string; songUid: string },
 ): Promise<string> {
   const { master } = await pushSong(cfg(), {
     filename: tags.filename,
     bytes,
     artist: tags.artist,
     album: UPLOAD_ALBUM,
-    title: tags.title,
+    title: tagged(tags.title, tags.songUid, "Untitled"),
     source: "k7",
-    // Only k7's own upload folder is ever replaced, never a catalogue song's.
+    // Only this song's own upload folder is ever replaced, never a catalogue song's nor another song's.
     replace: true,
   });
   return master;
@@ -170,9 +184,11 @@ export async function downloadStreamable(
   }
 }
 
-/** What a médiathèque path will actually stream as — pl8 transcodes only a FLAC source. */
-export function streamedMime(remotePath: string, storedMime: string): string {
-  return remotePath.toLowerCase().endsWith(".flac") ? "audio/mpeg" : storedMime;
+/** What a médiathèque path will actually stream as, read off the path the server filed — pl8 transcodes only a FLAC source. */
+export function streamedMime(remotePath: string): string {
+  return remotePath.toLowerCase().endsWith(".flac")
+    ? "audio/mpeg"
+    : audioMimeOf(remotePath);
 }
 
 export interface RemoteEnvelope {

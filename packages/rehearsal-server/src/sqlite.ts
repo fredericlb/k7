@@ -4,6 +4,7 @@
 
 import { randomBytes, randomUUID } from "node:crypto";
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   renameSync,
@@ -53,9 +54,12 @@ function fieldPath(key: string): string {
   return `$.${key}`;
 }
 
+/** What any id must look like: one plain segment, since ids name files. */
+export const SAFE_ID = /^[\w-]+$/;
+
 /** An id names a file, so it must be one plain segment. */
 function safeId(id: string): string {
-  if (!/^[\w-]+$/.test(id)) throw new DbError(400, `bad id ${id}`);
+  if (!SAFE_ID.test(id)) throw new DbError(400, `bad id ${id}`);
   return id;
 }
 
@@ -134,10 +138,13 @@ export function createSqlite(dir: string) {
     const insert = open().prepare(
       "INSERT INTO records (coll, id, fields) VALUES (?, ?, ?)",
     );
-    return fieldsList.map(({ id: given, ...fields }) => {
-      const id = given ?? newId();
-      insert.run(table, id, JSON.stringify(fields));
-      return { id };
+    // Every given id checked before the first row is written, so a bad one writes none.
+    const ids = fieldsList.map(({ id }) =>
+      id === undefined ? newId() : safeId(String(id)),
+    );
+    return fieldsList.map(({ id: _, ...fields }, i) => {
+      insert.run(table, ids[i], JSON.stringify(fields));
+      return { id: ids[i] };
     });
   };
 
@@ -176,9 +183,9 @@ export function createSqlite(dir: string) {
     }
   };
 
-  /** Keep one sheet's bytes for `songId`, the file first: a row never names a file that is not there. */
+  /** Keep one sheet's bytes — a buffer, or a file on disk copied — for `songId`, the file first: a row never names a file that is not there. */
   const uploadAttachment = async (
-    buffer: Buffer,
+    bytes: Buffer | { file: string },
     mime: string,
     filename: string,
     songId: string,
@@ -187,7 +194,8 @@ export function createSqlite(dir: string) {
     const at = attachmentPath(id);
     open();
     const tmp = `${at}.${randomUUID()}.part`;
-    writeFileSync(tmp, buffer);
+    if (Buffer.isBuffer(bytes)) writeFileSync(tmp, bytes);
+    else copyFileSync(bytes.file, tmp);
     renameSync(tmp, at);
     open()
       // REPLACE: an import that failed halfway writes the same ids again.
