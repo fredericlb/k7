@@ -189,8 +189,7 @@ interface ModulesRead {
   yamlIssues: string[];
 }
 
-// Read a project's own USES into a { name: module } map — see docs/loader.md. A module itself lives
-// at `@workspace` or `@k7-core` now; a project keeps only its `nodes/`, one use of some base per file.
+// Read a project's `nodes/`, one use of a library module per file, into a { name: module } map — docs/loader.md.
 function readModules(dir: string): ModulesRead {
   const out: Record<string, LoadedModule> = {};
   const raw: { rel: string; module: Record<string, unknown> }[] = []; // AS AUTHORED, for validatePlugins below
@@ -253,8 +252,7 @@ function loadNodes(
     yamlIssues.push(...read.issues);
     const value = read.value;
     if (!value || typeof value !== "object") continue;
-    // A node file WINS a name a module folder also has — a lane called after the instrument it
-    // feeds is what every DAW writes, and a module is named by its ref anyway (docs/trackModules.md).
+    // A node file wins a name a module also has, since a module is named by its ref (docs/trackModules.md).
     raw.push({ rel: file.rel, module: value });
     // A node picks its base like anything else it overrides, which is what makes the choice PER INSTANCE.
     const preset = presetFor(folder, node, node, value.base);
@@ -265,11 +263,7 @@ function loadNodes(
       node,
       file: node,
       home: NODES_DIR, // where its .vstpreset is saved — see nodeProject's presetSave
-      // `kind` has no folder to derive it from here, and it is OWN-ONLY — never inherited — so a
-      // SELF-CONTAINED node (no `extends`, nothing ancestry can hand it one from) states it
-      // directly: an io node by its `io:` field, and everything else defaults to "plugin", the
-      // same default `resolvedType` already applies (a rack included — see docs/moduleTypes.md).
-      // A node that DOES `extends` gets its `kind` from what it inherits, so this never overrides that.
+      // A node without `extends` has no folder to take `kind` from: io by its `io:`, else "plugin" (song-schema/docs/moduleTypes.md).
       ...(typeof value.io === "string"
         ? { kind: "io" }
         : typeof value.extends !== "string"

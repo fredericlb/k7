@@ -37,9 +37,7 @@ export function createTrackFile(dir: string, id: string): string[] {
   const rel = `nodes/${id}.yaml`;
   if (!written && wsExists(join(dir, rel)))
     throw new Error(`track '${id}' already exists (${rel})`);
-  // A module of that name is NOT in the way: the lane takes the bare name and the module keeps its
-  // ref, which is the only way a node names one anyway (docs/trackModules.md). `freeNodeName`
-  // proposes past both, so nothing shadows anything by accident.
+  // A module of that name is not in the way: the lane takes the bare name, the module keeps its ref (docs/trackModules.md).
 
   if (!written) {
     mkdirSync(join(dir, "nodes"), { recursive: true });
@@ -157,9 +155,7 @@ export function createModuleFile(
       );
     }
   }
-  // A PROJECT writes into the WORKSPACE's shared library — a module lives at `@workspace` or `@k7-core`
-  // now, never in a project. A template being edited with `at` (no project.yaml) keeps bundling its
-  // own `modules/`, a different, older mechanism this change does not touch.
+  // A project writes into the workspace's library; a template edited with `at` bundles its own `modules/`.
   const isProject = isProjectFolder(dir);
   const moduleDir = isProject
     ? resolve(dir, SHARED_MODULES_PATH, category, module)
@@ -294,9 +290,7 @@ export function createNode(
     throw new Error(
       `invalid node name '${node}' — letters, digits, '_' and '-' only`,
     );
-  // io — the node IS the whole of it, made directly in `nodes/`, since an io module is nothing
-  // but its role (docs/moduleTypes.md). `module` names the role (canonical: IN, CAM, FILE);
-  // `node` names the thing — so a second input is `node new io/IN IN2`.
+  // An io module is only its role, so the node is made directly: `node new io/IN IN2` (song-schema/docs/moduleTypes.md).
   if (category === "io") {
     const role = IO_MODULES[module]?.io;
     if (!role)
@@ -313,9 +307,7 @@ export function createNode(
       );
     return createIoModuleFile(dir, node, role);
   }
-  // A PROJECT looks at the workspace beside it; a template being edited with `at` (no project.yaml
-  // of its own — the chain/assembly builder's "+" runs here) still bundles its own `modules/`,
-  // which is a different, older mechanism this change does not touch.
+  // A project looks at its workspace; a template edited with `at` (the builder's "+") bundles its own `modules/`.
   const isProject = isProjectFolder(dir);
   const localRel = isProject
     ? `${SHARED_MODULES_PATH}/${category}/${module}`
@@ -333,8 +325,7 @@ export function createNode(
       `module '${category}/${module}' is neither in ${isProject ? "the workspace" : "this template"} nor one the engine offers — ` +
         `create it first, or name one of the engine's`,
     );
-  // Free among the NODES, which is what the file check below asks. A module of that name is not in
-  // the way: the node takes the bare name and the module keeps its ref (docs/trackModules.md).
+  // Free among the nodes only: a module of that name keeps its ref, the node the bare name (docs/trackModules.md).
   const rel = `${NODES_DIR}/${node}.yaml`;
   const chains = isChainProject(dir);
   if (!chains && wsExists(join(dir, rel)))
@@ -384,8 +375,7 @@ export function cloneModuleFile(
     );
   if (name === newName)
     throw new Error("source and destination names are the same");
-  // A PROJECT clones within the WORKSPACE's `_modules`; a template being edited with `at` (no
-  // project.yaml) keeps bundling its own `modules/`, a different, older mechanism this leaves alone.
+  // A project clones within the workspace's `_modules`; a template edited with `at` bundles its own `modules/`.
   const isProject = isProjectFolder(dir);
   const localDir = (n: string) =>
     isProject

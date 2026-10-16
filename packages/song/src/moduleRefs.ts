@@ -78,8 +78,7 @@ function readModuleRefs(
     ...catalogue,
   };
 
-  // The shared roots, found by LOCATION rather than declared, so a missing folder is simply not a root (docs/sharedFolders.md).
-  // …and k7's own `@meta` modules last, which no library can shadow since none may be named `meta`.
+  // The shared roots, found by location (docs/sharedFolders.md), then `@meta` last, which no library may be named.
   for (const root of [...moduleLibraryDirs(dir), META_MODULES_ROOT]) {
     // The level comes from WHERE the root is, not from anything it declares — see moduleNamespaceOf.
     const ns = moduleNamespaceOf(root);
@@ -111,8 +110,7 @@ export function baseModuleRefs(
 ): string[] {
   return (
     Object.entries(byRef)
-      // An engine is picked INSIDE its module (docs/engines.md), a console half by the project (docs/console.md),
-      // and a cold module is placed by what needs a whole file — a set's scaffold, a chain template (docs/coldModules.md).
+      // Engines, console halves and cold modules are placed elsewhere (docs/engines.md, docs/console.md, docs/coldModules.md).
       .filter(
         ([, m]) =>
           m?.kind === "plugin" &&

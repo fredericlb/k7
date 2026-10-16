@@ -232,8 +232,7 @@ export function fromSegments(
     return { mids: ds, join };
   };
 
-  // A node that sat in a subchain names the scoped key, so its run is written back into that parent.
-  // …but one RUN in place is a stretch of its parent's run, so it names the parent (regroupCalls).
+  // A node from a subchain names the scoped key, but a run in place names its parent's run (regroupCalls).
   const prevChainOf = (n: string) => {
     const was = o.prev?.nodes[n];
     const parent = was && o.prev?.chains[was.chain];

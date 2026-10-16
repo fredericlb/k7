@@ -28,10 +28,7 @@ export const DECKS = ["deckA", "deckB"] as const;
 /** Deck A's letter from `deckA`; the node names are built from it, so a third deck is one entry above. */
 export const letterOf = (deck: string) => deck.replace(/^deck/, "");
 
-/** One `assemblies/turntable<L>.yaml` per deck: the box its eighteen nodes are drawn as.
- *
- * It writes NO graph change and no node, which is the whole point — an assembly is a drawing, so a
- * set with these files and one without compile to the same `ProjectDoc`. */
+/** One `assemblies/turntable<L>.yaml` per deck, a drawing only: it changes no node, so the `ProjectDoc` is the same. */
 export function assemblyFiles(
   decks: readonly string[] = DECKS,
 ): Record<string, string> {
@@ -66,11 +63,7 @@ export function stemNodeFiles(
   return out;
 }
 
-/** Every PLATTER: one per lane that plays a file — the deck's record, and one per stem.
- *
- * One reader per file, and that is the whole rule. A platter reads ONE record, so five files need
- * five of them; they are generated here for the same reason the stem lanes above are, rather than
- * being ten hand-written files that differ by a letter. See docs/platter-node-plan.md. */
+/** One generated PLATTER per lane that plays a file — the record and each stem (docs/platter-node-plan.md). */
 export function platterNodeFiles(
   decks: readonly string[] = DECKS,
 ): Record<string, string> {
@@ -90,10 +83,7 @@ export function platterNodeFiles(
   return out;
 }
 
-/** One platter — a NODE of the médiathèque's turntable, whose record arrives at play time.
- *
- * `stem` names the part when this platter reads one, which is what makes its `Gain` a bound
- * control rather than a level nobody touches — see packages/song-schema/docs/stems.md. */
+/** One platter node, whose record arrives at play time; `stem` makes its `Gain` a bound control (song-schema/docs/stems.md). */
 function platterNode(letter: string, what: string, stem?: Stem): string {
   return (
     `# Le plateau de la platine ${letter} — ${what}.\n` +
@@ -128,11 +118,7 @@ function stemLaneNode(deck: string, stem: Stem): string {
   );
 }
 
-/** How loud one part plays — declared ON its platter, which is the node that reads its file.
- *
- * There used to be a `stemcut` module here doing `gain(Level)`, one multiply, immediately after a
- * node that already had a linear `Gain` of the same range and the same rest.
- * See packages/song-schema/docs/stems.md. */
+/** How loud one part plays, declared on the platter that reads its file — packages/song-schema/docs/stems.md. */
 const stemGain = (stem: Stem): string =>
   `params:\n` +
   `  # 0 drops the instrument, 1 is as it was cut, 2 doubles it. The desk's ${stem} knob\n` +

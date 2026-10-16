@@ -48,12 +48,7 @@ export function chainOwnership(inp: CompileInputs) {
       )
         busChains.add(to);
 
-  /** A run carrying a LIVE INPUT and landing on no lane owns its own track.
-   *
-   * The engine assigns an input to a TRACK and to nothing else, so a rig with no lane authored —
-   * `IN -> fader -> OUT` — would otherwise hand its input nowhere and play silence. It is the same
-   * materialisation a BUS gets, for the same reason: the document names a run, and the engine's
-   * model needs a strip. See docs/liveProject.md. */
+  /** A laneless run carrying a LIVE INPUT owns a track, since the engine assigns inputs only to tracks — docs/liveProject.md. */
   const carriesLiveInput = (c: Chain): boolean =>
     c.use.some((s) => modulesMap[s?.module]?.io === "in");
   const inputChains = new Set<string>();
@@ -84,8 +79,7 @@ export function chainOwnership(inp: CompileInputs) {
           `node '${node}': tap '${tap}' is routed to '${sub}', which is not a subchain of its chain file`,
         );
   }
-  // The track id a chain contributes to: its source track, its own bus track, its own INPUT
-  // track, or the track a tap feeds — all four being the chain's own NAME.
+  // The track a chain feeds: its source, its bus, its input track or a tap's target — all named after the chain.
   const ownerOf = (name: string, c: Chain): string =>
     isMasterChain(c)
       ? MASTER_OWNER

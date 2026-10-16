@@ -37,6 +37,7 @@ import type {
 } from "./rawDoc";
 import type { Lane } from "./trackModule";
 
+// Every chain must feed each module the input ports its type declares; a non-empty result is FATAL (docs/graphModel.md).
 export function checkChainInputs(
   // Already parsed and keyed by resolved name (see parseChains) — not the raw export.
   parsed: Record<string, Chain>,
@@ -186,8 +187,7 @@ export function validate(g: GraphDoc): string[] {
         w.push(
           `chain '${name}': module '${s.module}' extends unknown module '${module.extends}'`,
         );
-      // A transition is NAMED by a cut, not wired: said by name, since the ports cannot say it —
-      // an empty `inputs` means UNCONSTRAINED here. See song-video/docs/transitions.md.
+      // A transition is named by a cut, never wired; its empty `inputs` means unconstrained — song-video/docs/transitions.md.
       else if (module.category === TRANSITION_CATEGORY)
         w.push(
           `chain '${name}': '${s.module}' is a transition, and a transition is not wired — a cut names it (\`fade_in: { over: 1, with: ${s.module} }\` on a placement in video_tracks/<lane>.yaml)`,
@@ -212,8 +212,7 @@ export function validate(g: GraphDoc): string[] {
         w.push(
           `chain '${name}': out '${o.to}' is a MIDI device — notes come FROM it, not to it`,
         );
-      // A PICTURE lane takes three things: a camera, a shape and a fade's stretch. Everything else
-      // aimed at one is discarded silently — see docs/camera.md and song-video/docs/transitions.md.
+      // A picture lane takes only a camera, a shape or a fade's stretch; anything else is dropped — docs/camera.md.
       else if (g.videoTracks[to]) {
         if (!carriesCamera(g, c) && !carriesShape(g, c) && !isStretch(g, c))
           w.push(
@@ -228,8 +227,7 @@ export function validate(g: GraphDoc): string[] {
             `chain '${name}': out '${o.to}' is a track — only a live input's or a MIDI device's signal lands on a lane`,
           );
       }
-      // A camera is exempt from the last test: landing on no picture lane is not a fault, since it
-      // draws a LAYER of its own and the document authors none — see docs/camera.md.
+      // A camera may land on no picture lane, since it draws a layer of its own — docs/camera.md.
       else if (!isNode(g, o.to) && !carriesCamera(g, c))
         w.push(`chain '${name}': out '${o.to}' is not a chain or io sink`);
       if (o.gain < 0)
@@ -275,9 +273,7 @@ export function validate(g: GraphDoc): string[] {
         c,
         (id) => !!g.tracks[id] || disabled.has(id),
       );
-      // No lane is no longer a fault: a run carrying an input and landing on none MATERIALISES its
-      // own track, which is what a rig you play through is made of (docs/liveProject.md). There is
-      // nothing further to check about a lane that does not exist, so the walk stops here.
+      // No lane is no fault: an input run materialises its own track, so there is nothing to check (docs/liveProject.md).
       if (!track) continue;
       const target = g.tracks[track];
       if (!target)

@@ -277,11 +277,7 @@ export const isSink = (g: GraphDoc, id: string): boolean => {
 // The other io edge: a LIVE interface source (io: "in"), deliberately narrower than "is a source" (docs/graphModel.md).
 export const isInputModule = (_g: GraphDoc, b: Module): boolean =>
   b.kind === "io" && b.io === "in";
-/** …and the CAMERA, the one io source whose signal is a picture. See docs/camera.md.
- *
- * Kept apart from `isInputModule` for the reason that one is narrow: everything it gates — a
- * channel, monitoring, a trim, the tuner — is about a physical AUDIO input, and none of it means
- * anything for a lens. What a camera shares with it is only that signal comes FROM it. */
+/** The CAMERA, an io source of picture, kept out of `isInputModule` whose gates are audio-only — docs/camera.md. */
 export const isCameraModule = (b: Module): boolean =>
   b.kind === "io" && b.io === CAMERA_IO;
 
@@ -468,7 +464,6 @@ export function sourceType(
   return undefined;
 }
 
-// Check that every chain feeds each module the input ports its type folder declares; a non-empty result is FATAL (docs/graphModel.md).
 // An SFZ kit's pads as the module states them, name → note; anything else is no kit.
 export function kitOf(v: unknown): Record<string, number> | undefined {
   if (!v || typeof v !== "object") return undefined;

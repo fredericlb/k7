@@ -28,9 +28,7 @@ export function resolveRackAudio(
   projectDir?: string,
 ): RawRack | undefined {
   if (!rack || typeof rack !== "object") return rack;
-  // `sources/` first, then `assets/`, then loose beside module.yaml — a rack files its audio under
-  // `sources/` (docs/moduleAssets.md) and every older layout still loads.
-  // An absolute ref or a `..` that leaves every root the project may read is no file at all (docs/confine.md).
+  // Searched `sources/`, `assets/`, then beside module.yaml; a ref escaping every root is no file (docs/moduleAssets.md, docs/confine.md).
   const roots = [
     folderAbs,
     ...(projectDir ? projectRoots(projectDir) : libraryReadRoots()),

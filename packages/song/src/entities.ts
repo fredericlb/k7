@@ -89,8 +89,7 @@ export function loadLanes(dir: string, validate = false): Record<string, Lane> {
   );
 }
 
-// Video lanes, still an ENTITY of their own (video_tracks/<id>.yaml): picture shares nothing with a song's lanes.
-// Through readYamlEntities like clips/, so VideoTrackSchema actually gates the compile — docs/loader.md.
+// Video lanes are entities of their own, read like clips/ so VideoTrackSchema gates the compile — docs/loader.md.
 export function loadVideoTracks(
   dir: string,
   validate = false,
