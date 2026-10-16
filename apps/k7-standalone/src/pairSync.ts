@@ -6,6 +6,7 @@
 import { randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import { hostname } from "node:os";
+import { openExternalSafely } from "@frediverse/electron-shell/external";
 import { line } from "@frediverse/electron-shell/log";
 import {
   normalizeServer,
@@ -13,7 +14,7 @@ import {
   SYNC_RELAY_PATH,
   syncPairUrl,
 } from "@studio/web-protocol/pairing";
-import { session, shell } from "electron";
+import { session } from "electron";
 import { chosenServer } from "./server.ts";
 
 /** A pairing left unfinished in the browser stops listening after this. */
@@ -156,7 +157,7 @@ function pair(k7: string, email: string, origin: string, main: boolean): void {
     const address = server.address();
     if (!address || typeof address === "string") return;
     const back = `http://127.0.0.1:${address.port}${SYNC_PAIR_RETURN_PATH}`;
-    void shell.openExternal(syncPairUrl(origin, back, state, hostname()));
+    openExternalSafely(syncPairUrl(origin, back, state, hostname()));
   });
   setTimeout(() => {
     if (pending === server) {

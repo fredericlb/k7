@@ -62,6 +62,44 @@ export const BACKOFF_MIN_MS = 1_000;
 export const BACKOFF_MAX_MS = 60_000;
 /** A service that ran this long before it exited starts its backoff over. */
 export const HEALTHY_MS = 60_000;
+/** A service asked to stop gets this long before it is killed: past its own 5 s grace (packages/file-service/docs/shutdown.md). */
+export const STOP_GRACE_MS = 6_000;
+/** Read by the file service: the end of its stdin is its stop, the only graceful one Windows has. */
+const STDIN_STOP_ENV = "ELECTRON_SHELL_STDIN_STOP";
+
+/** The part of a child process a stop touches, so a test can hand a fake one. */
+export type Stoppable = Pick<
+  ChildProcess,
+  "exitCode" | "signalCode" | "pid" | "stdin" | "kill" | "once"
+>;
+
+/** Ask `child` to stop — stdin closed, and SIGTERM where there is one — and kill it if it is still there after `graceMs`. */
+export function stopChild(
+  child: Stoppable,
+  graceMs = STOP_GRACE_MS,
+  win = process.platform === "win32",
+): Promise<void> {
+  if (
+    child.pid === undefined ||
+    child.exitCode !== null ||
+    child.signalCode !== null
+  )
+    return Promise.resolve();
+  return new Promise((res) => {
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      // An exit that never comes must not hold the caller's own stop.
+      setTimeout(res, 1_000);
+    }, graceMs);
+    child.once("exit", () => {
+      clearTimeout(timer);
+      res();
+    });
+    child.stdin?.end();
+    // On Windows a kill is TerminateProcess: only the stdin pipe asks.
+    if (!win) child.kill("SIGTERM");
+  });
+}
 
 export interface InstancesOptions {
   /** Every account's state lives under here, one folder per account. */
@@ -86,6 +124,8 @@ export interface InstancesOptions {
   backoffMinMs?: number;
   backoffMaxMs?: number;
   healthyMs?: number;
+  /** How long a child asked to stop gets before it is killed; default STOP_GRACE_MS. */
+  stopGraceMs?: number;
   /** Tests only: the port a new child is handed, to force the free-port race. */
   pickPort?: () => Promise<number>;
 }
@@ -247,15 +287,15 @@ export class Instances {
     }
     if (!lru) return false;
     this.log(`[${lru.slug}] stopped to make room`);
-    this.stop(lru);
+    void this.stop(lru);
     return true;
   }
 
   /** Stop an instance on the hub's own account and forget it at once, so the cap counts it gone. */
-  private stop(inst: Instance): void {
+  private stop(inst: Instance): Promise<void> {
     inst.stopping = true;
     this.forget(inst);
-    inst.child.kill();
+    return stopChild(inst.child, this.opts.stopGraceMs);
   }
 
   /** `live` holds an instance only while `byUser` holds its start, so both go together. */
@@ -300,6 +340,7 @@ export class Instances {
     const { cmd, args, cwd } = (this.opts.command ?? defaultCommand)();
     const env: NodeJS.ProcessEnv = {
       ...process.env,
+      [STDIN_STOP_ENV]: "1",
       STUDIO_HOME: home,
       STUDIO_FILE_PORT: String(port),
       STUDIO_HUB_SECRET: secret,
@@ -315,9 +356,12 @@ export class Instances {
     const child = spawn(cmd, args, {
       cwd,
       env,
-      stdio: ["ignore", "pipe", "pipe"],
+      // stdin is the stop pipe: closed by `stopChild`, or by the OS when this process dies.
+      stdio: ["pipe", "pipe", "pipe"],
     });
     adopt(child);
+    // A child that already exited closed its end first.
+    child.stdin?.on("error", () => {});
     const relay = (chunk: Buffer) => {
       for (const l of chunk.toString("utf8").split(/\r?\n/))
         if (l.trim()) this.log(`[${slug}] ${l}`);
@@ -381,7 +425,7 @@ export class Instances {
         now - inst.lastUsed >= idleMs &&
         !this.opts.keep?.(inst.slug)
       )
-        this.stop(inst);
+        void this.stop(inst);
   }
 
   /** Stop the account's instance and start it again, so it reads a changed environment. */
@@ -393,20 +437,19 @@ export class Instances {
       // Forgotten here and not through `stop`, which would drop a start a concurrent `get` made meanwhile.
       if (this.live.get(user) === old) this.live.delete(user);
       old.stopping = true;
-      if (old.child.exitCode === null) {
-        const gone = new Promise((r) => old.child.once("exit", r));
-        old.child.kill();
-        await gone;
-      }
+      await stopChild(old.child, this.opts.stopGraceMs);
     }
     this.crashes.delete(user);
     return this.get(user);
   }
 
+  /** Ask every instance to stop, all at once, and resolve when each has exited or been killed. */
   async stopAll(): Promise<void> {
-    for (const p of [...this.byUser.values()]) {
-      const inst = await p.catch(() => null);
-      if (inst) this.stop(inst);
-    }
+    const all = await Promise.all(
+      [...this.byUser.values()].map((p) => p.catch(() => null)),
+    );
+    await Promise.all(
+      all.filter((i): i is Instance => i !== null).map((i) => this.stop(i)),
+    );
   }
 }

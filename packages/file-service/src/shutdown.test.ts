@@ -1,11 +1,12 @@
-// shutdown.test.ts — a signal stops the listener and exits 0, once, and is installed for SIGTERM and SIGINT.
+// shutdown.test.ts — a signal stops the listener and exits 0, once, and is installed for SIGTERM and SIGINT; stdin's end too, when asked.
 
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { exitOnSignals } from "./shutdown.ts";
+import { exitOnSignals, exitOnStdinEnd, STDIN_STOP_ENV } from "./shutdown.ts";
 
-const installed: ((s: NodeJS.Signals) => void)[] = [];
+const installed: ((s: string) => void)[] = [];
 afterEach(() => {
   for (const f of installed.splice(0)) {
     process.off("SIGTERM", f);
@@ -46,5 +47,25 @@ describe("exitOnSignals", () => {
     await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
     server.closeAllConnections();
     await pending;
+  });
+});
+
+describe("exitOnStdinEnd", () => {
+  it("stops on the end of stdin when asked, and drops the variable", () => {
+    const env: NodeJS.ProcessEnv = { [STDIN_STOP_ENV]: "1" };
+    const stdin = new PassThrough();
+    const stop = vi.fn();
+    expect(exitOnStdinEnd(stop, env, stdin)).toBe(true);
+    expect(env[STDIN_STOP_ENV]).toBeUndefined();
+    stdin.end();
+    return vi.waitFor(() => expect(stop).toHaveBeenCalledWith("stdin closed"));
+  });
+
+  it("ignores stdin when the spawner did not ask", () => {
+    const stdin = new PassThrough();
+    const stop = vi.fn();
+    expect(exitOnStdinEnd(stop, {}, stdin)).toBe(false);
+    stdin.end();
+    expect(stop).not.toHaveBeenCalled();
   });
 });
