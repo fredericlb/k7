@@ -2,16 +2,9 @@
 //
 //   npx tsx engine/k7-runtime/scripts/turntable-latency.ts [ws://127.0.0.1:8765] [--n=12]
 //
-// The platter follows a hand accurately (docs/turntable.md); this asks the other question, which is
-// whether it follows SOON. It steps the rate at a known moment and finds where the tone changed.
-//
-// The tap carries its own buffering, so the stream's origin is estimated by keeping the LEAST
-// DELAYED frame of the run — the technique `@studio/engine-browser/playhead-clock` uses for the same
-// reason, and for the same reason it converges on the minimum rather than the mean.
-//
-// WHAT IT INCLUDES: the socket, the engine's message queue, the block boundary, and the plugin's
-// 6 ms glide. WHAT IT EXCLUDES: the audio device's own output buffer, which the tap sits before —
-// add `2 x buffer / rate` from `whoami` for what a speaker does. See docs/turntable.md.
+// It steps the rate at a known moment and finds where the tone changed. It includes the socket, the
+// queue, the block boundary and the 6 ms glide, and excludes the device's own output buffer; the
+// stream's origin is the LEAST delayed frame. Why, and the numbers: docs/turntable.md.
 
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -216,8 +209,7 @@ function finish() {
       `le socket, pas le glissement. Ici ${spread.toFixed(1)} ms d'étendue pour ${block.toFixed(1)} ms de bloc,\n` +
       `médiane ${at50.toFixed(1)} ms pour ${(block / 2).toFixed(1)} attendue.`,
   );
-  // Said rather than hidden: the origin is the LEAST delayed guess, so it leans early and some
-  // readings fall below zero. Those are dropped, which is why the count is not the number of steps.
+  // Said rather than hidden: the origin leans early, so readings below zero are dropped and counted here.
   console.log(
     `\n${steps.length - found.length} pas écartés : l'origine du flux est estimée sur la trame la MOINS\n` +
       `retardée, donc elle penche tôt et pousse quelques lectures sous zéro. Le chiffre est un\n` +

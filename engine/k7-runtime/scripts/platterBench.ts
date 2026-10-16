@@ -144,11 +144,7 @@ export function streamResampler(to: number): (mono: Float32Array, from: number) 
   };
 }
 
-/** The master stream, one mono chunk per frame — `LSTR`, and anything else is not for us.
- *
- * Returns the least-delayed estimate of when sample 0 was produced, which is how a sample index
- * becomes a wall clock. It converges on the MINIMUM rather than the mean because the tap carries its
- * own buffering — the same reason `@studio/engine-browser/playhead-clock` does. */
+/** The master stream (`LSTR`) one mono chunk per frame; answers the LEAST-delayed origin of sample 0 (docs/turntable.md). */
 export function onBroadcast(
   ws: WebSocket,
   rate: number,

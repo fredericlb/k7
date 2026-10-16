@@ -202,12 +202,7 @@ interface Referenced {
   node: any;
 }
 
-/**
- * Every element carrying an `id`, by that id. DAWproject writes one clip's content ONCE and places
- * it several times — a drum groove dropped at eight bars is eight `<Clip reference="idN"/>` and one
- * `<Notes id="idN">`. Without this index those clips carry nothing and are dropped; the notes are
- * in the file, we simply did not follow the pointer. See docs/import.md.
- */
+/** Every element carrying an `id`, by that id: a clip's content is written ONCE and referenced — docs/import.md. */
 function indexById(
   node: unknown,
   out: Map<string, Referenced>,
@@ -229,11 +224,7 @@ function indexById(
 /** The three tags a clip's content can be — anything else referenced is not content, and says so. */
 const CONTENT_TAGS = new Set(["Notes", "Audio", "Clips"]);
 
-/**
- * A clip with its referenced content read in, or the clip itself. The placement's own attributes
- * are untouched: `time`, `duration` and the loop are THIS placement's, and only the content is
- * shared — which is why the notes are copied per clip rather than pointed at.
- */
+/** A clip with its referenced content copied in, its own time, duration and loop untouched; or the clip itself. */
 function withReferenced(clip: any, ctx: CollectCtx): any {
   if (clip.Notes || clip.Clips || findAudio(clip)) return clip;
   const ref = str(clip["@_reference"]);
@@ -276,9 +267,7 @@ function collectClips(
       end = Math.min(end, bounds.end);
     }
     const length = round(Math.max(0, end - start));
-    // Clamped to nothing: this clip lies outside the window its container plays, so this placement
-    // does not play it. Emitting it anyway put a pile of zero-length clips on the lane, reading as
-    // overlaps the source project never had — 48 of 124 on one real export. See docs/import.md.
+    // Clamped to nothing: outside the window its container plays, so dropped, never emitted at zero length (docs/import.md).
     if (length <= 0) continue;
     // An unwarped leaf counts its in-point in SECONDS; this model counts beats — see docs/import.md.
     const playStart =
@@ -347,8 +336,7 @@ function collectClips(
       const label = str(clip["@_name"]) ?? "(unnamed)";
       const ref = str(clip["@_reference"]);
       const target = ref ? ctx.byId.get(ref) : undefined;
-      // Three different faults, and only the last is ours: a dangling id, an id that is not
-      // content, and a clip that genuinely holds nothing.
+      // Three faults, only the last ours: a dangling id, an id that is not content, a clip holding nothing.
       const why = !ref
         ? `no audio/notes/nested clips (children: ${kids.length ? kids.join(", ") : "none"})`
         : target

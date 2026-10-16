@@ -25,10 +25,7 @@ const base = {
   groups: [],
 };
 
-/** A lane holding two seconds of a loud note, muted and sending into each of `to` — every case starts here.
- *
- * `key` matters: two sources playing the SAME note sum by phase, and a 4osc's start phase is not fixed
- * across renders, so their peak swung by 7 dB run to run and no threshold on it meant anything. */
+/** Two seconds of a loud note, muted and sending into each of `to`; two sources play DIFFERENT keys (docs/cueOutput.md). */
 const source = (id: string, key: number, ...to: string[]) => ({
   id,
   name: id,
@@ -100,6 +97,7 @@ async function main() {
     await peakDb(bin, (await renderProject({ ...base, tracks })).files[0]);
 
   // --- 1. how many destinations a source may have and still be heard only through them ---
+
   // ONE send from a muted track is ROUTED (`feedsBusOnly`), not sent: this measures routing, the two below sends.
   const oneRouted = await render([source("t1", 45, "busM"), bus("busM")]);
   const twoMuted = await render([
@@ -114,8 +112,8 @@ async function main() {
   ]);
 
   // --- 2. a bus that leaves by its own pair, against the same bus on the mix ---
-  // A normal bus stays beside it in every render, so "the cue is gone" is never read off a silent file:
-  // an empty mixdown is what a broken render looks like too. Different NOTES, for the reason in `source`.
+
+  // A normal bus stays beside it in every render, since an empty mixdown is what a broken render looks like too.
   const pair = (cueBus: ReturnType<typeof bus>) => [
     source("onMix", 45, "busMix"),
     source("onCue", 64, "busCue"),
@@ -142,8 +140,7 @@ async function main() {
   );
   // The mix is still there in all three — so a silent file would be a broken render, not a working cue.
   const cueIsAudibleOnMix = cueOnMix > -40 && cueRouted > -40 && cueAbsent > -40;
-  // IDENTITY rather than "quieter": routed away must be indistinguishable from never having been there.
-  // A threshold on the summed peak would be measuring how two notes happen to line up, which is not the question.
+  // IDENTITY rather than "quieter": routed away must equal never having been there (docs/cueOutput.md).
   const cueStaysOffTheMix =
     Math.abs(cueRouted - cueAbsent) < 0.2 && cueOnMix - cueRouted > 1;
 

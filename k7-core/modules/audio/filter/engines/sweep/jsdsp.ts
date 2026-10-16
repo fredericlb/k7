@@ -21,8 +21,7 @@ export default (g: GraphBuilder) => {
   const lowQ = g.lerp(0.707, 6, down);
   const highQ = g.lerp(0.707, 6, up);
 
-  // `glide` on both corners: a biquad recomputes per BLOCK, and this is a knob people throw.
-  // ASCENDING pair, journey inverted — never `geolerp(20000, 30, down)`; packages/dsp/docs/sweep.md.
+  // Glided (a biquad recomputes per BLOCK), and an ASCENDING pair, journey inverted — packages/dsp/docs/sweep.md.
   const lowHz = g.glide(g.geolerp(30, 20000, g.sub(1, down)));
   const highHz = g.glide(g.geolerp(20, 10000, up));
 
