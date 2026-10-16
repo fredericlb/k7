@@ -135,7 +135,7 @@ export function remoteLibrary(cfg: RemoteConfig): RemoteLibrary {
 }
 
 /** Where a library's content is PUT — separate from `LibrarySource`, because a cache only ever reads. */
-export interface LibrarySink {
+interface LibrarySink {
   put(path: string, body: Uint8Array | Blob | string): Promise<void>;
   remove(path: string): Promise<void>;
   /** A whole subtree — its own method, so removing a folder is never done while meaning one entry. */
@@ -266,24 +266,4 @@ export async function pushRecording(
       `mediatek recording: ${res.status} ${res.statusText}`,
     );
   return (await res.json()) as { path: string; day: string; name: string };
-}
-
-/** Tell the library a song's detected tempo, one way and never overwriting — see docs/songs.md. */
-export async function pushSongBpm(
-  cfg: RemoteConfig,
-  folder: string,
-  bpm: number,
-): Promise<{ set: boolean }> {
-  const res = await fetch(`${cfg.base.replace(/\/+$/, "")}/api/mediatek/bpm`, {
-    method: "POST",
-    headers: {
-      ...(cfg.token ? { authorization: `Bearer ${cfg.token}` } : {}),
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({ path: folder, bpm }),
-    signal: AbortSignal.timeout(30_000),
-  });
-  if (!res.ok)
-    throw new RemoteError(`mediatek bpm: ${res.status} ${res.statusText}`);
-  return (await res.json()) as { set: boolean };
 }

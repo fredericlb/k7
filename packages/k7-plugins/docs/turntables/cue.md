@@ -41,7 +41,7 @@ The button is off and disabled in two cases with different remedies, and it says
 
 | what is missing | what the button says |
 |---|---|
-| the PROJECT wires no tap (`cueWired`) | "migrate the set (`migrateSetCue`), or wire `deckA.cue` in `surfaces/`" |
+| the PROJECT wires no tap (`cueWired`) | "wire `deckA.cue` in `surfaces/`" |
 | the MACHINE has named no pair (`cueLive`) | "name it with `system cue 3+4`, or the cue plays nowhere" |
 
 The second is the one that gets forgotten, and without it the button **would light up and do

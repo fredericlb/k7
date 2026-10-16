@@ -237,9 +237,9 @@ file cannot: it holds nothing until the transport rolls, so `pad#midi: [ synth ]
 place "these events are notes for the synth" is written down. An authored lane says it by holding
 events.
 
-`LEGACY_TRACK_REFS` in `metaRefs.ts` (song-schema) keeps the four retired spellings as NAMES, so a diagnostic
-can say which one a file means. Nothing resolves them — the same call
-[moduleNamespaces.md](moduleNamespaces.md) makes for `@mediatek/…`.
+Nothing resolves the retired spellings: a file naming one names a module that does not exist,
+which the loader reports as such — the same call [moduleNamespaces.md](moduleNamespaces.md) makes
+for `@mediatek/…`.
 
 And for a project whose lanes are still files in `tracks/`:
 

@@ -6,13 +6,13 @@ import { ipcMain } from "electron";
 import { fromApp } from "./engineBridge.ts";
 
 /** Mirrored by `DesktopState` in apps/k7/frontend/src/desktop.ts. */
-export interface DesktopState {
+interface DesktopState {
   server: string | null;
   lanUrls: string[];
 }
 
 /** What a page is told: no LAN address, since this app's backend answers its own machine only (apps/k7/backend/docs/standalone.md). */
-export const desktopState = (server: string | null): DesktopState => ({
+const desktopState = (server: string | null): DesktopState => ({
   server,
   lanUrls: [],
 });

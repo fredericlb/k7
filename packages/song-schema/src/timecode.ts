@@ -34,16 +34,11 @@ function fields(tc: string): { f: number[]; ticks: number } {
 /** The most colon fields the current notation uses: MESURE:NOIRE:CROCHE:DOUBLECROCHE. */
 const MAX_FIELDS = 4;
 
-/** What one colon field is worth in quarter notes — the chain halves, or divides by four when `legacy` (docs/timecode.md). */
-function levelBeats(
-  k: number,
-  q: number,
-  bar: number,
-  legacy: boolean,
-): number {
+/** What one colon field is worth in quarter notes — the chain halves, or divides by four when `deep` (docs/timecode.md). */
+function levelBeats(k: number, q: number, bar: number, deep: boolean): number {
   if (k === 0) return bar;
   if (k === 1) return q;
-  return legacy ? q / 4 ** (k - 1) : q / 2 ** (k - 1);
+  return deep ? q / 4 ** (k - 1) : q / 2 ** (k - 1);
 }
 
 // A timecode as an offset in beats; `oneBased` shifts every field by -1 for a position.
@@ -52,12 +47,11 @@ function toBeats(
   num: number,
   den: number,
   oneBased: boolean,
-  legacy = false,
 ): number {
   const { f, ticks } = fields(tc);
   const { q, bar } = units(num, den);
   const d = oneBased ? 1 : 0;
-  const deep = legacy || f.length > MAX_FIELDS;
+  const deep = f.length > MAX_FIELDS;
   let beats = 0;
   for (let k = 0; k < f.length; k++)
     beats += (f[k] - d) * levelBeats(k, q, bar, deep);
@@ -107,21 +101,6 @@ export function parseDuration(tc: string, num: number, den: number): number {
   return toBeats(tc, num, den, false);
 }
 
-/** The same two forcing the deep notation's ÷4 rule — only the timecode migration may call them (docs/timecode.md). */
-export function parseLegacyPosition(
-  tc: string,
-  num: number,
-  den: number,
-): number {
-  return toBeats(tc, num, den, true, true);
-}
-export function parseLegacyDuration(
-  tc: string,
-  num: number,
-  den: number,
-): number {
-  return toBeats(tc, num, den, false, true);
-}
 export function beatsToPosition(
   beats: number,
   num: number,

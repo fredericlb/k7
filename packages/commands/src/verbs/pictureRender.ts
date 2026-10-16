@@ -3,7 +3,7 @@
 // as the song or longer, and into `exports/`. The words are the browser export's own, read by the
 // one parser both use. See packages/file-service/docs/serverRender.md.
 
-import { parseVideoSettings } from "@studio/ui-eyes/renderSettings";
+import { parseVideoSettings } from "@studio/song-schema/renderSettings";
 import type { SidHandler } from "../commands.ts";
 import { splitWords } from "./shared.ts";
 

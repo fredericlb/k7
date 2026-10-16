@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { run } from "./buildTools.mjs";
 
 /** The supervisor's CMake preset for this host; `$STUDIO_SUPERVISOR_PRESET` for a runner's older toolchain. */
-export function supervisorPreset() {
+function supervisorPreset() {
   return (
     process.env.STUDIO_SUPERVISOR_PRESET ||
     ({ darwin: "macos-clang", win32: "windows-msvc" }[process.platform] ??

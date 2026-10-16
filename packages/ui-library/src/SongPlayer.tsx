@@ -16,6 +16,7 @@ import {
 } from "@frediverse/ui/icons";
 import { ORIGINAL, type Take, takesOf } from "@studio/mediatek/takes";
 import type { MediatekEntry } from "@studio/mediatek/types";
+import { clock } from "@studio/ui-mini-player";
 import { Waveform } from "@studio/ui-waveform";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { library } from "./api";
@@ -32,14 +33,6 @@ import { readSongShape, type SongShape } from "./songWaveform";
 /** The glyph a version wears — the same three the tree draws, so a row and a tab read alike. */
 const takeIcon = (kind: Take["kind"]) =>
   kind === "master" ? Disc3 : kind === "file" ? AudioLines : FileQuestion;
-
-/** mm:ss — the only format a transport needs, and the one the tree's captures already use. */
-function clock(sec: number): string {
-  if (!Number.isFinite(sec) || sec < 0) return "0:00";
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
 
 export function SongPlayer({
   entry,

@@ -18,6 +18,7 @@
     "./playlist": "./src/playlist.ts",
     "./presets": "./src/presets.ts",
     "./reference": "./src/reference.ts",
+    "./renderSettings": "./src/renderSettings.ts",
     "./tasks": "./src/tasks.ts",
     "./projectTags": "./src/projectTags.ts",
     "./seqWindow": "./src/seqWindow.ts",

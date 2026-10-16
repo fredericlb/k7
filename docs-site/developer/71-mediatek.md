@@ -96,7 +96,7 @@ The backend makes them (see [Media backend routes](./72-media-backend.md)).
 ## Reading another library
 
 `manifest.ts` describes a family as `(path, size, mtime)`, as its owner reports it; `remote.ts` is
-the HTTP client (`LibrarySource`, `LibrarySink`, `pushSong`, `pushRecording`, `pushSongBpm`),
+the HTTP client (`LibrarySource`, `remoteWriter`, `pushSong`, `pushRecording`),
 written as a port so tests supply a source without a server.
 
 ## Uploading a whole tree

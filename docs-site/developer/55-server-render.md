@@ -20,7 +20,7 @@ a server has no GPU, so WebGL runs on SwiftShader (`--use-angle=swiftshader
 | `packages/file-service/src/pictureRender.ts` | `renderPicture(ws, opts, onProgress)`, `findChromium` |
 | `packages/k7-plugins/src/video/sceneFrom.ts` | builds the scene, `use: "export"`, with the job's own media URLs |
 | `packages/ui-eyes/src/renderPage.ts` | the page Chromium loads: fetches the job, decodes the mixdown, calls `exportScene`, posts the result |
-| `packages/ui-eyes/src/renderSettings.ts` | the one parser of `size=`, `quality=`, `from=`, `to=`, shared with `project export video` |
+| `packages/song-schema/src/renderSettings.ts` | the one parser of `size=`, `quality=`, `from=`, `to=`, shared with `project export video` |
 | `apps/k7/docker/Dockerfile` | installs Alpine's `chromium` with `font-noto` and `ttf-freefont`, sets `STUDIO_CHROMIUM` |
 
 ## The job

@@ -6,13 +6,7 @@ import type { Server } from "node:http";
 import { join } from "node:path";
 import { TunnelHub } from "@studio/engine-tunnel/hub";
 import { ENGINE_PROXY_PATH } from "@studio/web-protocol";
-import type {
-  Express,
-  NextFunction,
-  Request,
-  RequestHandler,
-  Response,
-} from "express";
+import type { Express, Request, RequestHandler } from "express";
 import { advertiseRegistry } from "./advertise.ts";
 import { BINDINGS_FILE, createBindings } from "./bindings.ts";
 import { throttledLog } from "./heartbeat.ts";
@@ -20,9 +14,6 @@ import { createOwners, OWNERS_FILE } from "./owners.ts";
 import { attachEngineProxy } from "./proxy.ts";
 import { createRegistry, type EngineRegistry } from "./registry.ts";
 import { engineRegistryRouter } from "./router.ts";
-
-/** How large a body may be on the way to an engine's file service — ONE number, matching what the file service accepts. See docs/shared.md. */
-export const ENGINE_BODY_LIMIT = "8mb";
 
 export interface EngineMount {
   /** This service's own registry — see docs/shared.md for why it is not shared. */
@@ -123,22 +114,4 @@ export function mountEngineRegistry(
       return bye;
     },
   };
-}
-
-/** The last word on an error, for the caller that HANGS UP mid-body; MOUNT IT LAST, and keep the unused `_next` — see docs/shared.md. */
-export function engineErrorHandler(
-  err: Error & { type?: string; code?: string; status?: number },
-  req: Request,
-  res: Response,
-  _next: NextFunction,
-): void {
-  // A disconnect and nothing else: `entity.too.large` is deliberately not one, since that caller is still there and wants its 413.
-  const gone =
-    err.type === "request.aborted" ||
-    err.code === "ECONNABORTED" ||
-    err.code === "ECONNRESET";
-  if (gone) console.warn(`↯ ${req.method} ${req.originalUrl}: ${err.message}`);
-  else console.error(`✗ ${req.method} ${req.originalUrl}:`, err);
-  if (res.headersSent) return void res.end();
-  res.status(err.status ?? 500).json({ error: err.message || "server error" });
 }

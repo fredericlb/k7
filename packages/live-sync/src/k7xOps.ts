@@ -12,7 +12,7 @@ const fragment = (text: string, node: K7Node): string =>
   node.start === node.end ? "true" : text.slice(node.start, node.end);
 
 /** The plain value of a fragment: read as a call's arguments, so a bare `a, b` list reads too. */
-export function plainValue(source: string): unknown {
+function plainValue(source: string): unknown {
   const root = parseTree(`v(${source})`);
   return toJS(root.entries[0].value);
 }
@@ -48,7 +48,7 @@ export function itemSegments(
 }
 
 /** Where a key path leads: the index path the k7x document takes, as far as it resolves — listKeys.ts's `locate`. */
-export function locate(root: K7Node, path: KeyPath) {
+function locate(root: K7Node, path: KeyPath) {
   const at: (string | number)[] = [];
   let node: K7Node | undefined = root;
   for (let i = 0; i < path.length; i++) {

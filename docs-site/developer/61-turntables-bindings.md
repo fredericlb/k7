@@ -65,13 +65,13 @@ MIX: [ OUT ]
 Choices it encodes:
 
 - **Five lanes per deck meet at the trim**, which makes the trim a bus head and the strip a chain of its own. The trim is first so it reaches stems and record alike.
-- **Every source lane is `bypassed`** and each strip is `bus_only`: the lanes are heard through the bus only, otherwise a part would reach the master twice. `BUS_ONLY_NOTE` is shared with the cue migration.
+- **Every source lane is `bypassed`** and each strip is `bus_only`: the lanes are heard through the bus only, otherwise a part would reach the master twice. The scaffold writes the reason above the key (`BUS_ONLY_NOTE`).
 - **The crossfade is two `fade` modules**, one inverted by the mapping, because a module's second port is a sidechain and a deck feeding only a crossfade would also be heard raw.
 - **The cue tap is after the filter and before the level** (pre-fade listen); **the echo is after the level** (echo-out).
 - **Stem levels are the platter's own `Gain`** (`STEM_PARAM`), not a separate gain module.
 - `assemblyFiles` writes `assemblies/turntable{A,B}.yaml` using `TURNTABLE_REF = "@k7-core/turntable"`; they draw a deck's nodes as one box and change nothing in the compiled document.
 
-Node and control names are spelled once in `packages/song-schema/src/stems.ts` (`stemLane`, `stemPlatter`, `deckPlatter`, `stemControl`, `turntableMembers`), because the scaffold, migrations and the desk must agree and the desk cannot import a scaffold.
+Node and control names are spelled once in `packages/song-schema/src/stems.ts` (`stemLane`, `stemPlatter`, `deckPlatter`, `stemControl`, `turntableMembers`), because the scaffold and the desk must agree and the desk cannot import a scaffold.
 
 ## Adding a control, end to end
 

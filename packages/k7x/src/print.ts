@@ -33,7 +33,7 @@ const IDENT_KEY = /^[A-Za-z_$][A-Za-z0-9_$-]*$/;
 export const printKey = (key: string): string =>
   IDENT_KEY.test(key) ? key : JSON.stringify(key);
 
-export function printScalar(value: K7Scalar): string {
+function printScalar(value: K7Scalar): string {
   if (typeof value === "number") {
     if (!Number.isFinite(value)) throw new Error(`k7x has no ${value}`);
     return Object.is(value, -0) ? "0" : String(value);

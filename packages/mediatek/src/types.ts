@@ -52,10 +52,6 @@ export interface MediatekEntry {
   bytes?: number;
   /** Newest mtime under the entry, ms since epoch. What a surface sorts "recent" by. */
   mtime: number;
-  /** The entry's OWN files by name, when it is a folder — exactly what is there, see docs/index.md. */
-  files?: string[];
-  /** What the entry's own `assets/` folder holds — nested `assets/`-relative paths, see docs/index.md. */
-  assets?: string[];
   /** A SONG's alternative versions, as its sidecar declares them — `meta` holds only scalars (docs/variants.md). */
   variants?: SongVariant[];
   /** Family-specific extras, all optional: artist/master/bpm for a song, the pack for a sample. */

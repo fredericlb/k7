@@ -112,7 +112,7 @@ function hashPitch(s: string): number {
 }
 
 // A hap's explicit pitch -> MIDI note: `note` wins, else `n` as a semitone offset from middle C, else null.
-export function hapPitch(note?: number | string, n?: number): number | null {
+function hapPitch(note?: number | string, n?: number): number | null {
   if (typeof note === "number") return Math.round(note);
   if (typeof note === "string") {
     const m = noteToMidi(note);
@@ -123,7 +123,7 @@ export function hapPitch(note?: number | string, n?: number): number | null {
 }
 
 // A deterministic pitch for a sound name with no explicit pitch (drum map, else hash).
-export function fallbackPitch(name: string): number {
+function fallbackPitch(name: string): number {
   return DRUM[name] ?? hashPitch(name);
 }
 

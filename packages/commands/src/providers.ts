@@ -25,7 +25,7 @@ import { allSurfaceTypes } from "@studio/song-schema/yaml/surfaceRegistry";
 import { type CommandHost, collectPluginModules } from "./commands";
 
 /** Each module's `status:`, off the ref map, for the providers that rank by it — docs/completions.md. */
-export function moduleStatuses(h: CommandHost): (name: string) => ModuleStatus {
+function moduleStatuses(h: CommandHost): (name: string) => ModuleStatus {
   let refs: Record<string, unknown> = {};
   try {
     if (h.songPath) refs = loadModuleRefs(h.songPath);

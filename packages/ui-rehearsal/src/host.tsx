@@ -35,7 +35,7 @@ export function useRehearsalHost(): RehearsalHost {
 }
 
 /** A page's own path ("/sessions/x") under the host's prefix. */
-export const underPrefix = (prefix: string, path: string): string =>
+const underPrefix = (prefix: string, path: string): string =>
   `${prefix}${path}`;
 
 /** The page's path with the prefix taken off, or null when the address is not under it. */

@@ -22,15 +22,6 @@ import {
   type SongVariant,
 } from "./types.ts";
 
-/** The file that makes a folder a module — the same name a project's `modules/` uses. */
-export const MODULE_FILE = "module.yaml";
-
-/** Its sibling: the module's PANEL — see `@studio/song`'s docs/uiLibrary.md. */
-export const UI_FILE = "ui.yaml";
-
-/** Where a module keeps what it LOADS rather than what it IS — `@studio/song`'s MODULE_ASSETS_DIR. */
-export const ASSETS_DIR = "assets";
-
 // That word lives in types.ts, which a browser may import; re-exported where importers look.
 export { SONG_FILE };
 

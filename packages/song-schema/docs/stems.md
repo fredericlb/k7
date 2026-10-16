@@ -34,9 +34,6 @@ are here rather than in `scaffoldSet` because the desk has to recognise the lane
 `stemLaneOf` is the reverse of `stemLane`, and the desk's way in: it is handed a compiled document
 and has to tell a stem lane from the record's without knowing how the graph was written.
 
-`stemCut` is exported and nothing writes one: it names a node older sets carry, and removing one is
-the only way a migration script can name it — see below.
-
 ## How loud a part plays: the PLATTER's own gain
 
 ```

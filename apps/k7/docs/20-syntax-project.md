@@ -141,7 +141,7 @@ stems: true
 # « Le composant deckA.eqLow de cette vue n'est pas mappé à un module ».
 #
 # Required: `crossfade`, and per deck `tempo`, `eqLow`, `eqMid`, `eqHigh` and
-# `filter`. Not `transport`, `sync` or `listen` — those are actions, not params.
+# `filter`. Not `transport` or `sync` — those are actions, not params.
 #
 # Offered but not required, per deck: `stemDrums`, `stemBass`, `stemOther` and
 # `stemVocals` — the four instruments you can take out of a record. A desk that

@@ -32,7 +32,7 @@ export function stemsComplete(names: readonly string[]): boolean {
   return STEMS.every((s) => have.has(stemFile(s)));
 }
 
-/** The param a desk knob drives — the PLATTER's own gain, named by the scaffold, the migration and the desk (docs/stems.md). */
+/** The param a desk knob drives — the PLATTER's own gain, named by the scaffold and the desk (docs/stems.md). */
 export const STEM_PARAM = "Gain";
 
 /** Its travel: 0 is the part gone, 1 is as recorded, 2 is twice as much — a LEVEL, since the lane IS the part. */
@@ -50,10 +50,6 @@ const Cap = (s: string): string => `${s[0].toUpperCase()}${s.slice(1)}`;
 /** The lane one stem plays on: `stemBassA`. */
 export const stemLane = (deck: string, stem: Stem): string =>
   `stem${Cap(stem)}${letterOf(deck)}`;
-
-/** …the retired `cutBassA` node, named so a migration can remove it; nothing writes one (docs/stems.md). */
-export const stemCut = (deck: string, stem: Stem): string =>
-  `cut${Cap(stem)}${letterOf(deck)}`;
 
 /** …and the PLATTER that reads its file: `platterBassA`. One reader per file — docs/platter-node-plan.md. */
 export const stemPlatter = (deck: string, stem: Stem): string =>

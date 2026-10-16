@@ -23,7 +23,6 @@ a third deck cannot be silently impossible to bind.
 | `deckA.stemDrums`, `deckB.stemDrums` | the drums you REMOVE from the record | 0..1 |
 | `deckA.stemBass`, … | bass, other, vocals — one control each | 0..1 |
 | `transport` | play / stop | 0..1 |
-| `listen` | listen in this tab | 0..1 |
 
 The four stems are **offered without being required**, and so are cue and echo
 ([fx.md](fx.md)) — a desk that wires none of them is a complete desk. A track may never have been

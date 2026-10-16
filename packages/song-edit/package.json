@@ -19,7 +19,6 @@
     "./eventLoop": "./src/eventLoop.ts",
     "./takeEdit": "./src/takeEdit.ts",
     "./trackMix": "./src/trackMix.ts",
-    "./windowDescend": "./src/windowDescend.ts",
     "./onsets": "./src/onsets.ts",
     "./presets": "./src/presets.ts"
   },

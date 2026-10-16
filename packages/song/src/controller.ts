@@ -18,9 +18,9 @@ import { CONTROLLER_BASE, moduleFileFor } from "./yaml/moduleIO";
 import { wsRead, wsWrite } from "./yaml/workspaceFile";
 
 /** The map file a module folder holds, as it is written. `.yml` is read too (moduleFileFor probes both). */
-export const CONTROLLER_FILE = `${CONTROLLER_BASE}.yaml`;
+const CONTROLLER_FILE = `${CONTROLLER_BASE}.yaml`;
 
-export interface ControllerEntry {
+interface ControllerEntry {
   ref: string;
   /** By the widget's `bind` string, verbatim — see setCcBinding. */
   cc: ControllerFile;

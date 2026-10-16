@@ -22,18 +22,15 @@ remainder, and a remainder is a number rather than another level of nesting: six
 place value nobody could read. Ticks are absolute (1/960 of a quarter), so `1:2.120` needs no zero
 levels to be unambiguous.
 
-## Where `legacy` comes from
+## A deep chain reads by the ÷4 rule
 
-`levelBeats` divides by four instead of halving when the chain is the old deep one. A chain LONGER
-than four fields cannot be the current notation, so its length is what decides. That is enough
-because every old chain that is short is also at its own level's ORIGIN (`"1:1:1"`, `"2:1:1"`), and
-an origin is 0 under either rule; the handful that were not were rewritten by
-`scripts/migrateTimecodes.ts`, which reads them with `legacy` on. `parseLegacyPosition` and
-`parseLegacyDuration` force that rule, and only that migration has any business calling them:
-everything else must read what is on disk today.
+`levelBeats` divides by four instead of halving when the chain is the deep notation. A chain LONGER
+than four fields cannot be the current notation, so its length is what decides. A SHORT chain is
+always read by the halving rule: there is no flag to force the other one, since everything must
+read what is on disk today.
 
 The PARSER still accepts a chain deeper than four fields, and always will — refusing it would make
-an un-migrated song unreadable. Only the WRITER stops at the double-croche.
+such a song unreadable. Only the WRITER stops at the double-croche.
 
 ## Ticks are never shifted
 

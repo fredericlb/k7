@@ -94,8 +94,6 @@ const safeEqual = (a: string, b: string): boolean => {
   return x.length === y.length && timingSafeEqual(x, y);
 };
 
-export { claimHolder } from "./owners.ts";
-
 /** What the host tells the routes about an account beyond its name. */
 export interface RouterOptions {
   /** Whether the request's account administers this origin: it may reset an engine's owner. */

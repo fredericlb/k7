@@ -1,7 +1,7 @@
 // The collections the rehearsal store holds and the fields of each: what a row reads as when a field
 // was never set, and what the PocketBase import copies. A field is added here and nowhere else.
 
-export interface FieldSpec {
+interface FieldSpec {
   name: string;
   type: "text" | "number" | "bool";
 }

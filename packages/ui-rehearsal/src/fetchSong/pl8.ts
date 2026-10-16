@@ -61,7 +61,7 @@ export interface Pl8Client {
 }
 
 /** What a cut is asked for: the four parts, or the record without its voice. */
-export type CutWant = "stems" | "instrumental";
+type CutWant = "stems" | "instrumental";
 
 export const pl8: Pl8Client = {
   listSongs: async () =>

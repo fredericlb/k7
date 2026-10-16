@@ -8,7 +8,7 @@ import { stat } from "node:fs/promises";
 import { cachePath } from "@studio/audio-analysis/sidecar";
 
 /** How many answers are held at once, oldest dropped first — a few hundred KB each. */
-export const ENVELOPE_MEMO_MAX = 16;
+const ENVELOPE_MEMO_MAX = 16;
 
 /** Bumped when the answer's SHAPE changes, so a browser's copy from an older build never matches. */
 const SHAPE = "e1";
@@ -61,9 +61,4 @@ export async function envelopeOf(
   while (held.size > ENVELOPE_MEMO_MAX)
     held.delete(held.keys().next().value as string);
   return next;
-}
-
-/** Forget every held answer — for tests. */
-export function resetEnvelopeMemo(): void {
-  held.clear();
 }
