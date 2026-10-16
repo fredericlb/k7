@@ -25,7 +25,7 @@ const performanceSchema = z.object({
 });
 
 /** An engine id as a path segment and a log line can carry it: short, and nothing to escape. */
-export const ENGINE_ID = z
+const ENGINE_ID = z
   .string()
   .min(1)
   .max(128)
@@ -131,7 +131,7 @@ export function readHeartbeat(
 }
 
 /** How often the same complaint about the same engine is logged again — a heartbeat comes every 5 s. */
-export const COMPLAINT_EVERY_MS = 60_000;
+const COMPLAINT_EVERY_MS = 60_000;
 
 /** A logger that says each (engine, complaint) once a minute at most, rather than every heartbeat. */
 export function throttledLog(

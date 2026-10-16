@@ -13,7 +13,7 @@ export interface BeatGrid {
 }
 
 /** p ≈ 0.01 for the Rayleigh statistic `n·R²` — see `BeatGrid.confident`. */
-export const RAYLEIGH_Z = 4.6;
+const RAYLEIGH_Z = 4.6;
 
 /** Nothing to go on: a grid at zero, and saying so. */
 export const NO_GRID: BeatGrid = { phase: 0, strength: 0, confident: false };

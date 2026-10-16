@@ -15,9 +15,6 @@ import type { Collection, FieldsOf } from "../schema.ts";
 export const CACHE_DIR = path.join(env.dataDir, "cache");
 fs.mkdirSync(CACHE_DIR, { recursive: true });
 
-// Where uploads land while they arrive: the cache's own folder, so keeping one is a rename, never a copy across filesystems.
-export const UPLOAD_DIR = CACHE_DIR;
-
 /** Remove the uploads a request did not keep — the store MOVES the ones it keeps, so what is left is refused or failed. */
 export function discardUploads(files: { path?: string }[]): void {
   for (const f of files) if (f.path) safeUnlink(f.path);

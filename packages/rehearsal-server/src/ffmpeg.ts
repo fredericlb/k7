@@ -47,7 +47,7 @@ export function createLimiter(max: number): Limiter {
 }
 
 /** The one limiter every ffmpeg of this package goes through, `K7_FFMPEG_CONCURRENCY` wide. */
-export const ffmpegSlots = createLimiter(env.ffmpegConcurrency);
+const ffmpegSlots = createLimiter(env.ffmpegConcurrency);
 
 /** Run `cmd args` under `limiter`, resolving on exit 0; past `timeoutMs` the child is SIGKILLed and the call rejects. */
 export async function runTool(

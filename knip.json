@@ -24,6 +24,7 @@
   "ignoreWorkspaces": ["commons/**"],
   "workspaces": {
     ".": {
+      "ignoreDependencies": ["node-pty", "@xterm/xterm", "@xterm/addon-fit"],
       "entry": [
         "scripts/*.mjs",
         "scripts/**/*.mjs",
@@ -44,16 +45,17 @@
       "entry": ["scripts/bundle.mjs"]
     },
     "apps/k7-standalone": {
-      "entry": ["electron-builder.cjs", "src/main.ts"]
+      "entry": ["electron-builder.cjs", "src/main.ts", "src/preload.ts"],
+      "ignoreBinaries": ["vite"]
+    },
+    "engine/k7-android/web": {
+      "ignoreDependencies": ["@capacitor/android"]
     },
     "packages/rehearsal-server": {
       "ignoreDependencies": ["@types/multer"]
     },
     "packages/song": {
       "entry": ["src/dspRunner.mjs", "src/benchProject.ts", "scripts/*.ts"]
-    },
-    "packages/song-edit": {
-      "entry": ["scripts/*.ts"]
     },
     "packages/audio-probe": {
       "entry": ["scripts/*.ts"]

@@ -7,7 +7,7 @@ import { isNewerTag, parseStamp } from "./release.ts";
 export const RELEASES_REPO = "fredericlb/k7";
 
 /** How often an automatic check runs at most. */
-export const CHECK_EVERY_MS = 24 * 3600_000;
+const CHECK_EVERY_MS = 24 * 3600_000;
 
 /** The fields of GitHub's release object read here. */
 export interface GithubRelease {

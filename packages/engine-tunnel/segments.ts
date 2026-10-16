@@ -5,7 +5,7 @@
 import { isPlainSegment } from "@studio/web-protocol/paths";
 
 /** Windows opens a DEVICE for these whatever follows the first dot, and a copy made on Linux reaches Windows. */
-export function reservedDeviceName(seg: string): boolean {
+function reservedDeviceName(seg: string): boolean {
   const dot = seg.indexOf(".");
   const base = (dot < 0 ? seg : seg.slice(0, dot))
     .replace(/ +$/, "")
