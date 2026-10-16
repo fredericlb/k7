@@ -264,7 +264,7 @@ export interface WebChain {
   out: WebOut[];
 }
 /** Per-module metadata off the signal path: one field, a DOC module's note text — see docs/graph.md. */
-export interface WebModuleMeta {
+interface WebModuleMeta {
   content?: string;
 }
 /** How a routing graph names a PORT: `crossfade#b`, a third separator for a third axis — docs/graph.md. */
@@ -303,7 +303,7 @@ export interface WebTrackClip {
 }
 
 /** One PLUG on an assembly's box: a port, plus the member node whose own port it stands for. */
-export interface WebPlug {
+interface WebPlug {
   name: string;
   type: WebSignal;
   node: string;

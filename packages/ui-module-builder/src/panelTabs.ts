@@ -15,8 +15,7 @@ const NEW_TAB = "Tab";
 const FIRST_TAB = "Main";
 
 /** Where the grid writes when nothing was chosen: the first tab of a tabbed panel, else the panel. */
-export const defaultPage = (ui: ModuleUI): PageRef =>
-  ui.tabs?.length ? 0 : null;
+const defaultPage = (ui: ModuleUI): PageRef => (ui.tabs?.length ? 0 : null);
 
 /** `at` checked against the document: nothing chosen, or a tab that has gone, sends the grid to the default. */
 export function pageIn(ui: ModuleUI, at: PageRef | undefined): PageRef {
@@ -53,8 +52,7 @@ export function panelIds(ui: ModuleUI): Set<string> {
 }
 
 /** A tab name as it may be written: trimmed and cut to TAB_NAME_MAX. */
-export const tabName = (raw: string): string =>
-  raw.trim().slice(0, TAB_NAME_MAX);
+const tabName = (raw: string): string => raw.trim().slice(0, TAB_NAME_MAX);
 
 function freeName(ui: ModuleUI, base: string): string {
   const taken = new Set((ui.tabs ?? []).map((t) => t.name));

@@ -108,7 +108,7 @@ const FAMILIES: {
 ];
 
 /** Where a name goes when nothing claims it — a page, not the floor: a guess never loses a name. */
-export const OTHER_PAGE = "Other";
+const OTHER_PAGE = "Other";
 
 /** The families the proposal leaves out entirely — the plugin's plumbing, not its sound. */
 const DROPPED = new Set(FAMILIES.filter((f) => f.drop).map((f) => f.page));
@@ -198,7 +198,7 @@ const HORIZONTAL_SLOT_ROWS = LAYOUT_MAX / KNOB_SPAN;
 const VERTICAL_PER_ROW = LAYOUT_MAX / KNOB_SPAN;
 
 /** The widest a horizontal page runs before it is wrapped — six knobs, twelve cells, as a hardware strip. */
-export const AUTO_PER_ROW = 6;
+const AUTO_PER_ROW = 6;
 
 /** One shape of the panel: every page placed `perRow` to a row, numbered across the whole panel. */
 function shape(
