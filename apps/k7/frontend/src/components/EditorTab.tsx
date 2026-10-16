@@ -1258,7 +1258,7 @@ export function EditorTab({
         {popin && isSeq && (
           <div
             role="tablist"
-            aria-label="sequence views"
+            aria-label={m["seq.views"]()}
             className="flex items-center gap-0.5 rounded-md border border-border p-0.5"
           >
             {SEQ_TABS.map((t) => (
@@ -1287,7 +1287,7 @@ export function EditorTab({
           <Button
             size="sm"
             variant="secondary"
-            title="open this module in the builder — its panel, its params"
+            title={m["editor.openInBuilder"]()}
             onClick={() =>
               onOpenBuilder(
                 moduleFileOf(file.path),
@@ -1307,7 +1307,7 @@ export function EditorTab({
                 size="sm"
                 variant="secondary"
                 disabled={processing}
-                title="run a library chain over this clip — the render lands beside the source"
+                title={m["editor.runChain"]()}
               >
                 {processing ? (
                   <Loader2 className="mr-1 h-4 w-4 animate-spin" />

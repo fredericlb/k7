@@ -6,6 +6,7 @@
 import { LogIn, LogOut, X } from "@frediverse/ui/icons";
 import { normalizeServer } from "@studio/web-protocol/pairing";
 import { useEffect, useState } from "react";
+import { m } from "../paraglide/messages.js";
 import { inAndroidApp, tabsBridge } from "./bridge";
 
 export interface Me {
@@ -92,16 +93,16 @@ export function AccountButton({
           onChange={(e) => setServer(e.target.value)}
           onKeyDown={(e) => e.key === "Escape" && setServer(null)}
           placeholder="st0.app"
-          aria-label="k7 server"
-          title="The k7 server this machine syncs your workspaces with"
+          aria-label={m["account.serverLabel"]()}
+          title={m["account.serverHint"]()}
           spellCheck={false}
         />
         <button
           type="submit"
           className={button}
           disabled={!valid}
-          title="Sign in, and sync with this server"
-          aria-label="Sign in"
+          title={m["account.signInSync"]()}
+          aria-label={m["auth.signIn"]()}
         >
           <LogIn className="size-3.5" />
         </button>
@@ -109,8 +110,8 @@ export function AccountButton({
           type="button"
           className={button}
           onClick={() => setServer(null)}
-          title="Cancel"
-          aria-label="Cancel"
+          title={m["common.cancel"]()}
+          aria-label={m["common.cancel"]()}
         >
           <X className="size-3.5" />
         </button>
@@ -128,8 +129,8 @@ export function AccountButton({
               ? setServer(current.replace(/^https:\/\//, ""))
               : tabsBridge()?.signIn()
         }
-        title="Sign in with your k7 account"
-        aria-label="Sign in"
+        title={m["account.signInAccount"]()}
+        aria-label={m["auth.signIn"]()}
       >
         <LogIn className="size-3.5" />
       </button>
@@ -155,8 +156,8 @@ export function AccountButton({
               inAndroidApp() ? location.reload() : setAsked((n) => n + 1),
             )
         }
-        title="Sign out"
-        aria-label="Sign out"
+        title={m["account.signOut"]()}
+        aria-label={m["account.signOut"]()}
       >
         <LogOut className="size-3.5" />
       </button>

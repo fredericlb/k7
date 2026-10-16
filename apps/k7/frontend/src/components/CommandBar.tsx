@@ -35,6 +35,7 @@ import {
   rankOptions,
   toOptions,
 } from "../palette";
+import { m } from "../paraglide/messages.js";
 import { recentCommands } from "../recentCommands";
 import type { ArgClass, MenuEntity } from "../types";
 import { CommandParams } from "./CommandParams";
@@ -461,7 +462,7 @@ export const CommandBar = forwardRef<
               onClose?.();
             }
           }}
-          placeholder="what do you want to do?"
+          placeholder={m["cmds.placeholder"]()}
           spellCheck={false}
           autoComplete="off"
           className="min-w-0 flex-1 bg-transparent font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground/60"

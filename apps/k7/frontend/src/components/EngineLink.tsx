@@ -24,7 +24,9 @@ export function EngineLink({
     <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground text-xs">
       <Circle
         className={`h-2.5 w-2.5 shrink-0 ${connected ? "fill-emerald-500 text-emerald-500" : "fill-red-500 text-red-500"}`}
-        aria-label={connected ? "engine connected" : "engine disconnected"}
+        aria-label={
+          connected ? m["engines.connected"]() : m["engines.disconnected"]()
+        }
       />
       {!compact && (
         <>

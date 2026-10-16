@@ -727,8 +727,8 @@ export function AudioClipPanel({
                 size="sm"
                 variant="outline"
                 onClick={onDiscard}
-                title="discard this recording — its event leaves the lane"
-                aria-label="discard this recording"
+                title={m["clip.discardHint"]()}
+                aria-label={m["clip.discard"]()}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>

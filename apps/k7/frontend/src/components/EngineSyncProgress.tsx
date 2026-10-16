@@ -3,6 +3,7 @@
 // mid-set. Counts only what had to be copied. See packages/file-service/docs/engineSync.md.
 
 import type { EngineSyncState } from "@studio/web-protocol";
+import { m } from "../paraglide/messages.js";
 import { formatBytes } from "./UploadProgress";
 
 /** Whether `s` is a copy still running, as opposed to the report of one that went wrong. */
@@ -19,7 +20,7 @@ export function EngineSyncProgress({ sync }: { sync: EngineSyncState }) {
   return (
     <span
       className="flex shrink-0 items-center gap-2 whitespace-nowrap text-amber-500"
-      title="copying the project's files to the engine's machine — it plays once they are all there"
+      title={m["engine.syncingHint"]()}
     >
       copying to the engine {sync.filesDone}/{sync.files} ·{" "}
       {formatBytes(sync.bytesDone)} / {formatBytes(sync.bytes)}

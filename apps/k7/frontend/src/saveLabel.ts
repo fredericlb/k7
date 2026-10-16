@@ -4,13 +4,15 @@
 // being written. See @studio/ui-editor's docs/autosave.md for the rule itself.
 
 import type { AutosaveStatus } from "@studio/ui-editor/autosave";
+import { m } from "./paraglide/messages.js";
 
-const SAVE_LABEL: Record<AutosaveStatus, string> = {
-  clean: "",
-  pending: "edited",
-  saving: "saving…",
-  held: "not saved",
-  error: "save failed",
+// Functions, not strings: the message is read in the locale of the moment it is drawn.
+const SAVE_LABEL: Record<AutosaveStatus, () => string> = {
+  clean: () => "",
+  pending: m["save.pending"],
+  saving: m["save.saving"],
+  held: m["save.held"],
+  error: m["save.error"],
 };
 
 /** Is this a state the person has to do something about? The two that need the reason spelt out. */
@@ -22,6 +24,6 @@ export function saveLabel(
   status: AutosaveStatus,
   reason: string | null,
 ): string {
-  const head = SAVE_LABEL[status];
+  const head = SAVE_LABEL[status]();
   return needsAttention(status) && reason ? `${head} — ${reason}` : head;
 }
