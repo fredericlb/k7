@@ -30,6 +30,7 @@ import { needsAttention, saveLabel } from "../saveLabel";
 import type { SeqView } from "../sequenceEdit";
 import type { FileContent, FileNode } from "../types";
 import { Breadcrumb } from "./Breadcrumb";
+import { ChainOpsList } from "./ChainOpsList";
 
 // The popin's three views of a sequence, in the order they read: the file, then its notes twice.
 const SEQ_TABS = [
@@ -164,31 +165,12 @@ export function EditorToolbar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64 p-1">
-            <input
-              value={opSearch}
-              onChange={(e) => onOpSearch(e.target.value)}
-              placeholder={m["clip.searchChain"]()}
-              // Not autofocused, as in the waveform panel: the menu takes the focus, and stealing it back breaks the arrow keys.
-              className="mb-1 w-full rounded border bg-transparent px-2 py-1 text-xs outline-none"
+            <ChainOpsList
+              search={opSearch}
+              onSearch={onOpSearch}
+              ops={clipOps}
+              onPick={onProcess}
             />
-            <div className="max-h-64 overflow-auto">
-              {clipOps.length === 0 ? (
-                <p className="px-2 py-1 text-xs text-muted-foreground">
-                  {m["clip.noChain"]()}
-                </p>
-              ) : (
-                clipOps.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => onProcess(c)}
-                    className="block w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-muted"
-                  >
-                    {c}
-                  </button>
-                ))
-              )}
-            </div>
           </DropdownMenuContent>
         </DropdownMenu>
       )}
