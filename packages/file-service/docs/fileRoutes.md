@@ -1,5 +1,8 @@
 # routes/files.ts — the project file API, and why each route is shaped that way
 
+`files.ts` mounts one router per domain (`workspaceRoutes.ts`, `entryRoutes.ts`, `commandRoutes.ts`,
+`docRoutes.ts`, `mediaRoutes.ts`, `fileRoutes.ts`) in the order the routes are registered in.
+
 The project file API, rooted per workspace: mounted after `resolveWorkspace`, so `req.ws` is
 always a `Workspace`, every file call is a method on that workspace, and the command layer
 takes it explicitly.
