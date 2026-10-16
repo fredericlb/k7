@@ -3,16 +3,14 @@
 A destination that makes sound where the FILES are: the host plays one through `mpv`, on its own
 outputs. No engine is involved, and this package does not know that engines exist.
 
-## Two hosts, one driver
+## The host injects where the media is
 
-The file service and k7's backend both mount it, and they differ in exactly one thing — where the media
-is. The file service plays from its **cache** of the médiathèque; k7's backend plays from the médiathèque
-**itself**, which it serves. So the root is injected (`configureMpv`) rather than read here, and
-so is the answer to "who is asking", which one host takes from a header and the other from a
-session.
+k7's backend mounts it (`apps/k7/backend/src/media/mount.ts`) and plays from the médiathèque
+**itself**, which it serves. The root is injected (`configureMpv`) rather than read here, and so is
+the answer to "who is asking", which k7 takes from the session: the driver knows how to play a
+path, never where a library lives.
 
-Nothing else varies, which is why the HTTP surface is in this package too rather than written
-twice.
+The HTTP surface is in this package too, so the routes and the player they drive change together.
 
 ## Why not the engine
 
