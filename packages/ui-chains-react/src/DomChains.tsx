@@ -520,16 +520,14 @@ export function DomChains({
   // --- what carries signal: refs, not state, so a crossing re-renders nothing (docs/liveCables.md) ---
   const hostStore = useEngineStoreOrNull();
   const liveRef = useRef<Map<string, number>>(EMPTY_LIVE);
-  // What each lane is PUTTING OUT, per kind of wire — the seed the walk seeds from, and the
-  // reason a cable's ripple says how loud rather than merely whether. See docs/liveCables.md.
+  // What each lane is PUTTING OUT, per kind of wire: the seed of the walk, so a ripple says how loud — docs/liveCables.md.
   const seedRef = useRef<Map<string, NodeFlow>>(EMPTY_SEEDS);
   const cableDrawsRef = useRef<CableDraw[]>([]);
   const rebuildCables = useRef<() => void>(NOOP);
   const applyLive = useRef<() => void>(NOOP);
   // …and its cheap half, for the frames where only the LEVELS moved.
   const applyFlow = useRef<() => void>(NOOP);
-  // Assigned every render like `applyLive`, so the walk always sees the CURRENT edges: the meter
-  // effect below mounts once and would otherwise close over the graph as it was then.
+  // Assigned every render like `applyLive`: the meter effect mounts once and must still walk the CURRENT edges.
   const applyMeter = useRef<(seeds: Map<string, NodeFlow>) => void>(NOOP1);
   // Set by the ripple effect below; poked whenever liveness changes, to start a stopped loop.
   const rippleRef = useRef<() => void>(NOOP);
@@ -605,8 +603,7 @@ export function DomChains({
     }
     swayKick.current();
   };
-  /** A meter frame moves the NUMBERS and nothing else: rebuilding would re-excite every spring
-   *  twenty times a second, and reallocate the array with it. See docs/liveCables.md. */
+  /** A meter frame moves the NUMBERS only: a rebuild would re-excite every spring at 20 Hz — docs/liveCables.md. */
   applyFlow.current = () => {
     const live = liveRef.current;
     let moved = false;
@@ -1138,8 +1135,7 @@ export function DomChains({
                       onLandAutomation={onAutomate ? landAutomation : undefined}
                       onStartEvent={onAutomate ? startEvent : undefined}
                       onLandEvent={onAutomate ? landEvent : undefined}
-                      // EVERY node can be pinned, all by jackRef's answer; the ROW refuses, and so does a
-                      // member of an OPEN box — its place is its FRAME's, not the graph's.
+                      // EVERY node can be pinned, except on a ROW or inside an OPEN box — docs/hosting.md.
                       onHeaderDrag={
                         onMoveNode && !row && !n.assembly
                           ? beginNodeDrag

@@ -27,8 +27,7 @@ export function WaveformWidget({
   onWatch?: (pluginId: string, side: "input" | "output", on: boolean) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // A recorder node draws its TAKE, not a live tap: the whole of it, growing, off the state
-  // frame's `recorders` rather than `waveform` — see engine/k7-runtime/docs/recorder.md.
+  // A recorder node draws its TAKE, whole and growing, not a live tap — engine/k7-runtime/docs/recorder.md.
   const isTake = w.source === "take";
   // Where to listen: this node's own plugin, or the tap it names — docs/waveformWidget.md.
   const tap = n.tap ?? (n.pluginId ? { id: n.pluginId, side: w.source } : null);
@@ -68,9 +67,7 @@ export function WaveformWidget({
     return store.subscribe(read);
   }, [store, key]);
 
-  // …and the take's, which the STORE accumulates rather than this card: the whole picture arrives
-  // in ONE frame when the socket connects, a second before this exists (engine-browser's
-  // takeEnvelope.ts). Folding it here would miss that frame every time.
+  // …and the take's, which the STORE accumulates, since it may all arrive before this card exists — docs/waveformWidget.md.
   const takeRef = useRef<unknown>(null);
   useEffect(() => {
     if (!store || !takeKey) return;
@@ -87,8 +84,7 @@ export function WaveformWidget({
     return store.subscribe(read);
   }, [store, takeKey]);
 
-  // The tap costs the ENGINE a plugin, so it is placed and removed with this widget —
-  // docs/waveformWidget.md. A take needs none: the recorder is already in the chain.
+  // The tap costs the ENGINE a plugin, so it lives with this widget; a take needs none — docs/waveformWidget.md.
   const id = isTake ? undefined : tap?.id;
   const side = tap?.side === "input" ? "input" : "output";
   useEffect(() => {
@@ -127,11 +123,9 @@ export function WaveformWidget({
         appliedDpr = dpr;
       }
       ctx.clearRect(0, 0, W, H);
-      // Nothing to show and the card SAYS so — an empty waveform beside those words would read
-      // as a broken meter rather than as an idle machine (takeClock.ts).
+      // Nothing to show and the card SAYS so: an empty waveform there would read as a broken meter.
       if (blankRef.current) return;
-      // A take is thousands of points against a card's ~120: decimated keeping the EXTREMES,
-      // since averaging them away draws a quiet take (decimate.ts).
+      // A take is decimated to the card's width keeping the EXTREMES, or it draws quiet (decimate.ts).
       const env = isTake
         ? folded.of(envelopeRef.current, Math.max(1, Math.round(W)))
         : envelopeRef.current;
@@ -207,8 +201,7 @@ export function WaveformWidget({
       if (raf) cancelAnimationFrame(raf);
       wakeRef.current = NOOP;
     };
-    // `isTake` is read in the draw and is a property of the WIDGET, which does not change under
-    // a mounted canvas — the empty list is the loop's own, as docs/waveformWidget.md describes.
+    // `isTake` is the WIDGET's, fixed under a mounted canvas; the list is the loop's — docs/waveformWidget.md.
   }, [isTake]);
 
   // The canvas is painted off refs, so the message appearing has to ask for a frame itself.

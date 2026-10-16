@@ -78,8 +78,7 @@ export function widgetTarget(
   offline = false,
 ): WidgetTarget | null {
   if (!w.bind) return null;
-  // A PROMOTED param is a shortcut and nothing else: it resolves to the member's own param, and is
-  // then read, written and committed by exactly the arms below. See packages/song/docs/assemblies.md.
+  // A PROMOTED param resolves to the member's own, then takes the arms below — packages/song/docs/assemblies.md.
   const promoted = n.assemblyOf?.params?.[w.bind];
   if (promoted)
     return promoted.pluginId
@@ -89,15 +88,13 @@ export function widgetTarget(
   const symbol = rackBindSymbol(w.bind);
   if (symbol)
     return n.module ? { kind: "rack", module: n.module, symbol } : null;
-  // …and a recorder's, for the same reason and with the same urgency: reaching the arm below,
-  // `@rec:record` would resolve to a FIELD called "rec:record" and the button would write it.
+  // …and a recorder's, before the `@` arm would make `@rec:record` a FIELD to write — docs/widgets.md.
   const verb = recBindVerb(w.bind);
   if (verb)
     return n.module
       ? { kind: "recorder", module: n.module, verb, pluginId: n.pluginId }
       : null;
-  // …and a PROJECT setting, before the general `@` arm for the reason the two above are: what it
-  // sets lives in project.yaml, and `@project:aspect` would become a FIELD called "project:aspect".
+  // …and a PROJECT setting, which lives in project.yaml, before the `@` arm for the same reason.
   const setting = projectBindField(w.bind);
   if (setting) return { kind: "project", field: setting };
   // A STRIP's highlight is its LANE's, like the lane card's mute and solo — not a field of the mixer module.

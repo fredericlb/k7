@@ -103,8 +103,7 @@ export interface Channels {
   trackWritable: boolean;
   // …and for a RACK pad, which asks for a sound rather than a value: can this host make one?
   rackTriggerable: boolean;
-  // …and whether one can drive a RECORDER: a card with no engine behind it draws inert buttons
-  // rather than buttons that do nothing — engine/k7-runtime/docs/recorder.md.
+  // …and whether one can drive a RECORDER: with no engine behind it the buttons draw inert (docs/widgets.md).
   recorderWired: boolean;
   projectWritable: boolean;
   // Is this graph a REHEARSAL — there is nowhere to send a value and none is needed.
@@ -162,9 +161,7 @@ export function useRackLit(
   return useSyncExternalStore(subscribe, read, read);
 }
 
-/** One recorder node's state off the store — subscribed HERE rather than passed as a prop, for
- *  the reason liveCables.md gives: a 20 Hz frame must not re-render three thousand lines of hooks
- *  to move one light. Null module is "nothing to watch", so the hook stays unconditional. */
+/** One recorder's state, subscribed here so a 20 Hz frame moves one light (docs/liveCables.md); null watches nothing. */
 export function useRecorderState(
   store: EngineStore | null,
   node: string | null,
@@ -202,8 +199,7 @@ export function usePluginLoadBadge(
 
 const NO_READOUT: TakeReadout = {};
 
-/** What a recorder card draws over (or instead of) its waveform. Subscribed as its own slice and
- *  compared on the TEXT, so a 20 Hz frame re-renders the card only when the clock ticks over. */
+/** What a recorder card draws over its waveform, compared on the TEXT so only a clock tick re-renders. */
 export function useTakeReadout(
   store: EngineStore | null,
   node: string | null,

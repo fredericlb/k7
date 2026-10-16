@@ -64,11 +64,7 @@ export interface ChainsIcons {
     className?: string;
     style?: React.CSSProperties;
   }) => React.ReactNode;
-  /**
-   * A track's name WITHOUT the instrument code its glyph was picked from — `ge.rythm-machine` reads
-   * `rythm-machine`, the prefix being said by the icon already. The host's, like the glyphs: which
-   * codes exist is `@studio/song-schema`'s table, and drawing a graph must not drag that in.
-   */
+  /** A track's name WITHOUT the instrument code its glyph already says — the host's, like the glyphs (docs/hosting.md). */
   trackLabel?: (name: string) => string;
 }
 
