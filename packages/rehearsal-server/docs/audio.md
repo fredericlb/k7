@@ -93,6 +93,10 @@ the queue — past which the child is killed with `SIGKILL` and the call fails w
 says so. A re-encode of hours of audio takes minutes; one still running at the deadline is stuck,
 and a stuck encoder holding a slot would hold every later one behind it.
 
+Every file a splice or a cut reads is an upload, so each input is opened under
+`-protocol_whitelist file,pipe` (`packages/ffmpeg/docs/ffmpeg.md`) — once per `-i`, since a splice
+has two: a crafted recording must not make the server fetch a URL.
+
 The splice keeps re-encoding through the `concat` filter. A stream copy would be cheaper, but two
 takes from two devices do not share codec parameters, and the copy is only safe when they do.
 

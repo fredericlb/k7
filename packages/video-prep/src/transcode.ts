@@ -4,9 +4,8 @@
 // See docs/videoPrep.md.
 
 import { renameSync, rmSync } from "node:fs";
-import { run } from "./probe";
-
-const FFMPEG = process.env.FFMPEG_BIN || "ffmpeg";
+import { ffmpegBin, input, run } from "@studio/ffmpeg";
+import { WHY } from "./probe";
 
 /** What to make: the optimized copy (a stream copy, or a full re-encode) or the preview proxy. */
 export type CopyKind = "remux" | "transcode" | "proxy";
@@ -20,7 +19,7 @@ export function copyArgs(
   source: string,
   dest: string,
 ): string[] {
-  const head = ["-v", "error", "-y", "-i", source, "-map", "0:v:0", "-an"];
+  const head = ["-v", "error", "-y", ...input(source), "-map", "0:v:0", "-an"];
   // A keyframe every second, so a scrub lands on a frame without decoding back to a distant one.
   const scrubbable = ["-g", "30", "-keyint_min", "30", "-sc_threshold", "0"];
   // 8-bit 4:2:0 H.264 is the one stream every browser decodes; +faststart lets it play before it is all read.
@@ -83,7 +82,7 @@ export async function makeCopy(
 ): Promise<void> {
   const part = `${dest}.part`;
   try {
-    await run(FFMPEG, copyArgs(kind, source, part));
+    await run(ffmpegBin(), copyArgs(kind, source, part), { why: WHY });
     renameSync(part, dest);
   } catch (e) {
     rmSync(part, { force: true });

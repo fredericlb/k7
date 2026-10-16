@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import { ffmpegBin, input } from "@studio/ffmpeg";
 import { freezeCut } from "@studio/song/freeze";
 import { loadProject, type ProjectDoc } from "@studio/song/project";
 import { setFileValue } from "@studio/song/yaml/edit";
@@ -38,14 +39,13 @@ export function transcode(
 ): boolean {
   try {
     const r = spawnSync(
-      "ffmpeg",
+      ffmpegBin(),
       [
         "-y",
         "-hide_banner",
         "-loglevel",
         "error",
-        "-i",
-        inputWav,
+        ...input(inputWav),
         ...codec,
         outPath,
       ],

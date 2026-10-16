@@ -4,19 +4,20 @@
 // header, because a bucket boundary is arithmetic on it. See docs/analysis.md.
 
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import {
+  ffmpegBin,
+  ffprobeBin,
+  input,
+  NoFfmpegError,
+  run,
+  spawnError,
+} from "@studio/ffmpeg";
 
-const FFMPEG = process.env.FFMPEG_BIN || "ffmpeg";
-const FFPROBE = process.env.FFPROBE_BIN || "ffprobe";
+export { NoFfmpegError };
 
 /** ffmpeg is optional everywhere else in this repo; here it is the decoder when no engine is. */
-export class NoFfmpegError extends Error {
-  constructor(bin: string) {
-    super(
-      `${bin} is not installed — analysing audio without an engine decodes it with ffmpeg. Install it, or let the engine's machine do the analysis.`,
-    );
-    this.name = "NoFfmpegError";
-  }
-}
+const WHY =
+  "analysing audio without an engine decodes it with ffmpeg. Install it, or let the engine's machine do the analysis.";
 
 /** What one decode may hold: two hours at 48 kHz, about 1.4 GB of mono floats (docs/analysis.md). */
 export const MAX_DECODE_FRAMES = 2 * 3600 * 48_000;
@@ -59,26 +60,38 @@ type OnFrames = (
   frames: number,
 ) => void;
 
-/** Only local files and pipes: a playlist or a crafted container must not make ffmpeg open a URL. */
-export const PROTOCOLS = ["-protocol_whitelist", "file,pipe"];
+/** ffprobe's arguments for the facts of `source`'s first audio stream, pure so the whitelist is testable. */
+export const probeArgs = (source: string): string[] => [
+  "-v",
+  "error",
+  "-select_streams",
+  "a:0",
+  "-show_entries",
+  "stream=sample_rate,channels,duration:format=duration",
+  "-of",
+  "json",
+  ...input(source),
+];
+
+/** ffmpeg's arguments for every channel of `source` at its own rate, as f32le on stdout. */
+export const decodeArgs = (source: string): string[] => [
+  "-v",
+  "error",
+  ...input(source),
+  "-map",
+  "0:a:0",
+  "-f",
+  "f32le",
+  "-acodec",
+  "pcm_f32le",
+  "-",
+];
 
 /** The stream's rate, channel count and CLAIMED length — ffmpeg's frames carry no header, so ffprobe is asked first. */
 async function probe(
   source: string,
 ): Promise<Omit<StreamFacts, "frames"> & { claimed: number }> {
-  const out = await run(FFPROBE, [
-    "-v",
-    "error",
-    ...PROTOCOLS,
-    "-select_streams",
-    "a:0",
-    "-show_entries",
-    "stream=sample_rate,channels,duration:format=duration",
-    "-of",
-    "json",
-    "-i",
-    source,
-  ]);
+  const out = await run(ffprobeBin(), probeArgs(source), { why: WHY });
   const parsed = JSON.parse(out) as {
     streams?: { sample_rate?: string; channels?: number; duration?: string }[];
     format?: { duration?: string };
@@ -92,28 +105,6 @@ async function probe(
     channels: stream.channels || 1,
     claimed: Math.ceil(seconds * sampleRate),
   };
-}
-
-function run(bin: string, args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(bin, args);
-    let out = "";
-    let err = "";
-    child.stdout.on("data", (c: Buffer) => {
-      out += c.toString();
-    });
-    child.stderr.on("data", (c: Buffer) => {
-      err += c.toString();
-    });
-    child.on("error", (e: NodeJS.ErrnoException) =>
-      reject(e.code === "ENOENT" ? new NoFfmpegError(bin) : e),
-    );
-    child.on("close", (code) =>
-      code === 0
-        ? resolve(out)
-        : reject(new Error(err.trim() || `${bin} failed (${code})`)),
-    );
-  });
 }
 
 /** The engine's header line: `{"sampleRate":…,"channels":…,"frames":…}`. */
@@ -198,9 +189,7 @@ function pump(
     });
     child.on("error", (e: NodeJS.ErrnoException) => {
       signal?.removeEventListener("abort", onAbort);
-      reject(
-        e.code === "ENOENT" && bin === FFMPEG ? new NoFfmpegError(FFMPEG) : e,
-      );
+      reject(bin === ffmpegBin() ? spawnError(e, bin, WHY) : e);
     });
     child.on("close", (code) => {
       signal?.removeEventListener("abort", onAbort);
@@ -239,21 +228,9 @@ export async function decodeFrames(
   const { claimed, ...facts } = await probe(source);
   if (claimed > maxFrames) throw new TooLongError(source, claimed, maxFrames);
   // No `-ar` and no `-ac`: resampling moves every onset, and ffmpeg's downmix weights a centre channel.
-  const child = spawn(FFMPEG, [
-    "-v",
-    "error",
-    ...PROTOCOLS,
-    "-i",
-    source,
-    "-map",
-    "0:a:0",
-    "-f",
-    "f32le",
-    "-acodec",
-    "pcm_f32le",
-    "-",
-  ]);
-  return pump(child, FFMPEG, source, facts, onFrames, signal, maxFrames);
+  const ffmpeg = ffmpegBin();
+  const child = spawn(ffmpeg, decodeArgs(source));
+  return pump(child, ffmpeg, source, facts, onFrames, signal, maxFrames);
 }
 
 /** JUCE's mono sum over interleaved frames: the first one or two channels averaged, never a downmix. */

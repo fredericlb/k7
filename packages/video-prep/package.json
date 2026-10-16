@@ -18,6 +18,9 @@
   "engines": {
     "node": ">=18"
   },
+  "dependencies": {
+    "@studio/ffmpeg": "*"
+  },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "typescript": "^7.0.2",

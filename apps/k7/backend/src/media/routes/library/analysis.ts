@@ -3,7 +3,7 @@
 
 import { DEFAULT_CACHE_CONTROL, notModified } from "@frediverse/http";
 import { wrap } from "@frediverse/http/route";
-import { NoFfmpegError } from "@studio/audio-analysis/decode";
+import { NoFfmpegError } from "@studio/ffmpeg";
 import { setSongBpm, setSongKey } from "@studio/mediatek/write";
 import express, { Router } from "express";
 import { analyseShared, ensureAnalysedShared } from "../../analysisGate.ts";

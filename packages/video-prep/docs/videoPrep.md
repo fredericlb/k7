@@ -11,6 +11,10 @@ fallback: the engine decodes audio only. Without ffmpeg there is nothing to make
 so rather than guessing. The hosted image has ffmpeg (`docs/images.md`). A desktop needs it
 installed.
 
+The file probed and copied is an upload, so both open it under `-protocol_whitelist file,pipe`
+through `@studio/ffmpeg`'s `input()` (`packages/ffmpeg/docs/ffmpeg.md`): a crafted container must
+not make the file service fetch a URL.
+
 ## The plan is pure
 
 `planVideo` reads only the probed facts, so the rule is pinned by tests that need no file. The rule
