@@ -9,32 +9,42 @@
   },
   "ignoreDependencies": [
     "tsx",
-    "concurrently",
-    "@inlang/paraglide-js",
     "@vitejs/plugin-react",
     "@tailwindcss/vite",
-    "esbuild",
-    "yaml"
+    "esbuild"
   ],
   "ignoreBinaries": [
     "cmake",
     "ctest",
     "ffmpeg",
     "tilt",
-    "where.exe",
-    "osascript"
+    "where.exe"
   ],
-  "ignore": ["scripts/dev-hosts.d.mts"],
+  "ignore": ["scripts/dev-hosts.d.mts", "engine/**/build/**"],
   "ignoreWorkspaces": ["commons/**"],
   "workspaces": {
     ".": {
-      "entry": ["scripts/*.mjs", "scripts/**/*.mjs", "demos/**/jsdsp.ts"]
+      "entry": [
+        "scripts/*.mjs",
+        "scripts/**/*.mjs",
+        "demos/**/jsdsp.ts",
+        "demos/_modules/**/widgets.js",
+        "k7-core/modules/**/{jsdsp.ts,widgets.js}",
+        "engine/k7-android/scripts/termux-tools.mjs",
+        "engine/k7-android/app/src/main/assets/*.js"
+      ]
     },
     "engine/k7-runtime": {
-      "entry": ["scripts/*.{ts,mjs}"]
+      "entry": ["scripts/*.{ts,mjs}", "engine/strudel/strudel.bundle.js"]
     },
     "apps/k7/frontend": {
       "entry": ["src/docs/examples.ts"]
+    },
+    "apps/k7/backend": {
+      "entry": ["scripts/bundle.mjs"]
+    },
+    "apps/k7-standalone": {
+      "entry": ["electron-builder.cjs", "src/main.ts"]
     },
     "packages/rehearsal-server": {
       "ignoreDependencies": ["@types/multer"]
@@ -50,9 +60,6 @@
     },
     "packages/song-schema": {
       "entry": ["src/builtinParams.generated.ts"]
-    },
-    "packages/dsp": {
-      "entry": ["modules/**/jsdsp.ts"]
     },
     "packages/file-service": {
       "entry": ["src/render.ts"]
