@@ -19,6 +19,7 @@ import type { Sequenced } from "@studio/live-sync/ops";
 import { MemoryConfirmed, Replica } from "@studio/live-sync/replica";
 import { Room } from "@studio/live-sync/room";
 import { atomicTempFor, writeFileAtomic } from "@studio/song/atomicWrite";
+import { SETTLE_MS } from "@studio/song/moduleCache";
 import { afterEach, describe, expect, it } from "vitest";
 import { sha256Buffer } from "./liveBlobs.ts";
 import { type CaptureOptions, LiveCapture } from "./liveCapture.ts";
@@ -224,6 +225,32 @@ describe("LiveCapture", () => {
       kind: "yaml",
       file: "song.k7/nodes/mix.yaml",
     });
+  });
+
+  it("re-scans a same-size rewrite that kept its mtime, as a coarse-mtime disk does, once that mtime has settled", async () => {
+    const root = mkdtempSync(join(tmpdir(), "live-tick-"));
+    put(root, FILE, MIX);
+    const abs = join(root, FILE);
+    // Read at start while still unsettled, and settled 200 ms later.
+    const at = new Date(Date.now() - SETTLE_MS + 200);
+    utimesSync(abs, at, at);
+    const batches: Batch[] = [];
+    const capture = new LiveCapture({
+      root,
+      replica: "tick",
+      skip,
+      isBinary,
+      onBatch: (b) => batches.push(b),
+      reconcileMs: 0,
+    });
+    capture.start();
+    open.push(capture);
+    capture.stop();
+    writeFileSync(abs, MIX.replace("gain: 0.5", "gain: 0.9"));
+    utimesSync(abs, at, at);
+    await new Promise((res) => setTimeout(res, 400));
+    const b = capture.flushNow({ full: true });
+    expect(b?.ops[0]).toMatchObject({ kind: "yaml", file: FILE });
   });
 });
 

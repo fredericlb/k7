@@ -68,7 +68,10 @@ them; one that only counts (the module one) does not need to. With live sync off
 there is no capture, and each subscriber falls back to a recursive `fs.watch` of its own.
 
 A file whose mtime has not SETTLED is re-read even when its stamp matches. A same-size rewrite inside
-one timestamp tick keeps the stamp, the hazard `history.md` describes for the undo journal.
+one timestamp tick keeps the stamp, the hazard `history.md` describes for the undo journal. For the
+same reason a text file READ while unsettled is recorded with no stamp at all: its stamp would
+otherwise be trusted once settled, and a rewrite that reused it — one the watcher dropped, on a
+disk whose mtime counts whole seconds — would pass every later sweep unseen.
 
 ## A mutation window is one batch
 
