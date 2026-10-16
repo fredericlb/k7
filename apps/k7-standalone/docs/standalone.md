@@ -166,7 +166,10 @@ on macOS): `workspaces/` (`$STUDIO_FILES_ROOT`), `mediatek/`, `prefs/`, `server-
 
 `scripts/stage.mjs` builds `staging/` — the frontend, then the backend bundle, then the engine and
 the supervisor — which the shell's builder config copies into Resources. The build is unsigned:
-partially signed, Gatekeeper kills the unsigned children.
+partially signed, Gatekeeper kills the unsigned children. Linux gets an `.AppImage` and a `.deb`
+beside it. No file type is associated with the app: a `.dawproject` is imported from inside a
+workspace (`packages/translator/docs/import.md`), and a file handed over by the OS belongs to none.
+The build's release stamp, and the menu that shows it, are `docs/menu.md`.
 
 External tools stay external, as in k7's image: `ffmpeg`, `yt-dlp`, `mpv` — found on `PATH` or
 through their `*_BIN` variables.

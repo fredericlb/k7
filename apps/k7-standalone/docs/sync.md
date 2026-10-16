@@ -20,6 +20,8 @@ listens on, the way sign-in does (`docs/signIn.md`).
 - **The browser must be signed in as the same account.** The origin says whose token it minted
   (`identity`), and a different email is refused: that account's workspaces would otherwise sync
   into this one.
+- **Announced before the browser opens.** It is the second trip right after the sign-in's, so a
+  native dialog says why first, and the account bar shows it waiting, with Cancel (`docs/notices.md`).
 - **Once per account and server per run.** A pairing the person closes is not reopened at every session change;
   the next start asks again.
 - **The local user never pairs.** It has no account at the origin.
