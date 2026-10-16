@@ -111,6 +111,7 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
                             and the gain per key a kit's pad is set louder with (docs/sfzPlugin.md), and the
                             output per key a routed pad leaves by (docs/tapOutputs.md)
   patches/surge-fetch.cmake Surge XT at one commit, sparse and with only the submodules its core builds from
+  patches/archive-fetch.cmake a source assembled from pinned archives, its submodules' included — Tracktion with JUCE, Faust with its libraries
   patches/surge.cmake       …and the four fixes being a subproject needs
     <Name>Plugin.{h,cpp}      named mu-<module>: MacroOscillator2 = mu-plaits, MacroOscillator =
                               mu-braids, Resonator = mu-rings, ModalSynthesizer = mu-elements,
@@ -456,8 +457,8 @@ bottleneck here is one project's 30 files rather than several projects. `/MP` al
 Build gotchas:
 - The macOS deployment target must be re-asserted **after** Tracktion's
   `FetchContent_MakeAvailable` forces 10.13.
-- Tracktion pins JUCE as an SSH submodule — the top-level `CMakeLists.txt` rewrites to
-  HTTPS via `GIT_CONFIG_*` env vars.
+- Dependencies arrive as archives pinned by hash, with no `.git` (docs/build.md). Tracktion and
+  JUCE are two archives of one fetch: a Tracktion bump moves JUCE's line too, to the commit it pins.
 - The ASIO SDK is fetched at configure time and is REQUIRED on Windows.
 - Presets pin `"targets": ["k7-runtime"]` — don't switch to all-targets.
 - `<windows.h>` must precede `<shellapi.h>` with `NOMINMAX` + `WIN32_LEAN_AND_MEAN`.

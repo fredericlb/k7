@@ -1,0 +1,56 @@
+# The repository's Actions caches, kept to their newest generation.
+#
+# A cache entry is never overwritten: sccache's is saved under a new timestamped key on every run,
+# and the exact-key ones (sources, node_modules, Gradle) under a new hash whenever their inputs move.
+# The old generations are read by nobody, and they sit in the 10 GB until least-recently-used
+# eviction reaches them — usually by pushing out an entry still in use. This keeps the newest
+# entry per ref and FAMILY (the key minus its trailing timestamp or hash) and deletes the rest.
+# See docs/desktop-release.md.
+
+name: caches
+
+on:
+  workflow_run:
+    workflows: [desktop, k7]
+    types: [completed]
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+# Two prunes at once would race each other's deletes.
+concurrency:
+  group: caches
+  cancel-in-progress: false
+
+permissions:
+  actions: write # list and delete the caches; nothing else
+
+jobs:
+  prune:
+    name: prune old generations
+    runs-on: ubuntu-latest
+    steps:
+      - name: keep the newest entry per ref and family
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Newest first, every page listed before anything is deleted, so no page shifts under the walk.
+          gh api --paginate "repos/$GH_REPO/actions/caches?per_page=100&sort=created_at&direction=desc" \
+            --jq '.actions_caches[] | [.id, .ref, .key, .size_in_bytes] | @tsv' > "$RUNNER_TEMP/caches.tsv"
+          declare -A seen
+          kept=0; freed=0
+          while IFS=$'\t' read -r id ref key size; do
+            family=$(sed -E 's/-([0-9a-f]{64}|[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z)$//' <<< "$key")
+            if [ -z "${seen["$ref $family"]:-}" ]; then
+              seen["$ref $family"]=1; kept=$((kept + 1))
+              continue
+            fi
+            echo "delete $ref $key ($((size / 1048576)) MB)"
+            # A cache another run deleted or evicted meanwhile is not an error.
+            gh api -X DELETE "repos/$GH_REPO/actions/caches/$id" > /dev/null || true
+            freed=$((freed + size))
+          done < "$RUNNER_TEMP/caches.tsv"
+          echo "kept $kept entries, freed $((freed / 1048576)) MB"

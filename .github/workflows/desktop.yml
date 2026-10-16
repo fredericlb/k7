@@ -152,12 +152,21 @@ jobs:
       # The app's page is a workspace, and Capacitor's Android runtime, which settings.gradle.kts includes, is a package.
       - uses: ./.github/actions/node
 
-      # JDK 21, which AGP runs on and the app's Java and Kotlin target; Gradle's downloads cached by setup-java.
+      # JDK 21, which AGP runs on and the app's Java and Kotlin target.
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: temurin
           java-version: "21"
-          cache: gradle
+
+      # Gradle's downloads, restored here and saved from main alone, which setup-java's own cache cannot be told to do.
+      - name: gradle cache
+        id: gradle
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('engine/k7-android/**/*.gradle*', 'engine/k7-android/**/gradle-wrapper.properties', 'engine/k7-android/gradle/*.toml') }}
 
       # The HOST half of the build: JUCE compiles juceaide, its GUI module included, for the runner itself.
       - name: build deps
@@ -175,7 +184,8 @@ jobs:
 
       # Their own keys, never the desktop legs': the same sources compile to arm64 here.
       - name: dependency sources
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        id: fetch
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ runner.temp }}/k7-fetch
           key: fetch-android-${{ hashFiles('engine/k7-runtime/CMakeLists.txt', 'engine/k7-supervisor/CMakeLists.txt', 'engine/k7-runtime/engine/patches/**', 'engine/k7-runtime/engine/eurorack/patches/**', 'engine/k7-supervisor/cmake/**') }}
@@ -186,7 +196,8 @@ jobs:
         with:
           variant: sccache
           key: engine-android-arm64
-          max-size: 2G
+          max-size: 1G
+          save: ${{ github.ref == 'refs/heads/main' }}
 
       # The release key, decoded from its secret into the runner's temp folder and deleted at the end of the job.
       - name: release signing key
@@ -230,6 +241,7 @@ jobs:
         shell: bash
         run: rm -f "$RUNNER_TEMP/k7-release.jks"
 
+      # The downloaded archives go too: their stamps stay, so a restored tree is not fetched again.
       - name: sources only in the fetch cache
         if: always()
         shell: bash
@@ -238,6 +250,23 @@ jobs:
           [ -d "$d" ] || exit 0
           find "$d" -mindepth 2 -maxdepth 2 -type d -name '*-build' -exec rm -rf {} +
           rm -rf "$d/k7-runtime/faust-src/build/lib"
+          find "$d" -path '*-populate-prefix/src/*' -type f \( -name '*.tar.*' -o -name '*.tgz' -o -name '*.zip' -o -name '*.nupkg' \) -delete
+
+      # After a build that succeeded, from main alone: a branch's copy would only push main's out of the 10 GB.
+      - name: save dependency sources
+        if: success() && steps.fetch.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/k7-fetch
+          key: ${{ steps.fetch.outputs.cache-primary-key }}
+      - name: save gradle cache
+        if: success() && steps.gradle.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ steps.gradle.outputs.cache-primary-key }}
 
       - name: compiler cache stats
         if: always()

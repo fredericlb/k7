@@ -45,11 +45,10 @@ endif()
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patch_ixwebsocket.cmake" STUDIO_PATCH_SUM)
 
 # --- nlohmann/json : every frame and every settings file, the same tag as the engine's --------
+# Upstream's release archive for FetchContent: the headers and the CMake files, 0.1 MB against a clone's 186.
 FetchContent_Declare(nlohmann_json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_PROGRESS   ON
-    GIT_TAG        v3.11.3
-    GIT_SHALLOW    ON)
+    URL      https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+    URL_HASH SHA256=d6c65aca6b1ed68e7a182f4757257b107ae403032760ed6ef121c9d55e81757d)
 set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
 
 # --- mbedTLS : the one TLS stack, statically linked on all three platforms (docs/supervisor.md) ---

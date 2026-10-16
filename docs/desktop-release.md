@@ -60,7 +60,7 @@ the dev machine's compiler, Visual Studio 2026, which `windows-latest` carries
 The engine is about 1,070 translation units — JUCE, Tracktion, Surge, Faust, sfizz — and a runner
 starts with none of them: 11 minutes on macOS, over 20 on Linux, over 30 on Windows, for a push that
 changed one file. `sccache`, through `hendrikmuhs/ccache-action`, keeps the objects in the Actions
-cache, one per platform and capped at 2 GB. The presets read it from `STUDIO_COMPILER_LAUNCHER` into
+cache, one per platform and capped at 1 GB, above the 0.7 GB the largest leg fills. The presets read it from `STUDIO_COMPILER_LAUNCHER` into
 `CMAKE_<LANG>_COMPILER_LAUNCHER`, empty on a developer's machine.
 
 | choice | why |
@@ -80,9 +80,10 @@ the workspace, the cache and the compilers excluded, real-time scanning off — 
 file `cl.exe` opens; the runner is discarded after the job, and a refusal leaves the build as it was.
 
 **The dependencies' sources are kept too, on the Windows leg and the APK**, under
-`$STUDIO_FETCHCONTENT_DIR`, which both CMake projects fetch into when it is set: cloning JUCE,
-Tracktion, Surge, Faust and the rest is three to six minutes before a single compile. The cache holds
-sources only — what CMake builds inside the folder is deleted before it is saved, as on OneDev — and
+`$STUDIO_FETCHCONTENT_DIR`, which both CMake projects fetch into when it is set: JUCE, Tracktion,
+Surge, Faust and the rest all arrive before a single compile. The cache holds sources only — what
+CMake builds inside the folder is deleted before it is saved, as on OneDev, and so are the archives
+FetchContent downloaded, whose stamps stay so a restored tree is not fetched again — and
 its key is the exact hash of both `CMakeLists.txt` and the fetch-time patch scripts, with no fallback
 to an older one, so a changed dependency or patch costs one cold fetch rather than a tree half of one
 and half of the other. A restored tree would take a changed patch anyway — each patch command carries
@@ -90,18 +91,36 @@ its script's checksum (`engine/k7-runtime/docs/build.md`) — which is what OneD
 rely on.
 
 Only those two, because of the budget. The repository's caches share 10 GB, evicted
-least-recently-used, and a platform's sources are 2 to 2.7 GB with their git history — which stays,
-since sfizz and Surge run `git` while they configure. All four would not fit beside the compiled
-objects (up to 0.7 GB a platform), `node_modules` and Gradle's caches, and every run would evict what
-the next one needs. Windows and the APK are the legs a release waits on; macOS and Linux finish well
-before them, so their clone delays nothing. Their sources still go to the same folder, whose path is in
-every compile command, so their compiled objects keep hitting. setup-node's npm download cache is left
-off for the same reason — `node_modules` is restored whole, so it was only ever read when the lock
-changed.
+least-recently-used. A platform's sources are about 1.3 GB on disk and 0.5 GB in the cache, since every
+dependency arrives without its git history, which is most of a clone's size
+(`engine/k7-runtime/docs/build.md`). Windows and the APK are the legs a release waits on; macOS and
+Linux finish well before them, so their download delays nothing, and the room their sources would
+take is better left to the compiled objects (up to 0.7 GB a platform), `node_modules` and Gradle's
+caches. Their sources still go to the same folder, whose path is in every compile command, so their
+compiled objects keep hitting. setup-node's npm download cache is left off for the same reason —
+`node_modules` is restored whole, so it was only ever read when the lock changed.
 
 `sccache --show-stats` closes each leg: the hit rate is what says whether the cache is working. The
 cache step is not fatal: the action downloads sccache from github.com, which a runner sometimes cannot
 reach, and the build then runs uncached — the launcher is set only when the step succeeded.
+
+## Only main writes a cache, and only its newest generation stays
+
+**A branch, a pull request or a tag restores main's caches and saves none.** Every cache step is a
+restore, with a save that runs on `refs/heads/main` alone — `actions/cache/restore` and
+`actions/cache/save`, and the compiler cache's own `save` input. A run reads the caches of its own ref
+and of the default branch, so a branch's entry would serve that branch only while it counts against
+the same 10 GB and pushes main's out; a tag's entry would serve no later run at all. Gradle's
+downloads go through `actions/cache` for the same reason: `setup-java`'s `cache: gradle` saves from
+every ref, with no way to say otherwise.
+
+**No entry is ever overwritten**, so the old ones are deleted on purpose. The compiler cache saves
+under a new timestamped key on every run, and the exact-key caches (sources, `node_modules`, Gradle)
+under a new hash whenever their inputs move; nothing reads an older generation again, and left alone
+it stays until eviction, which takes the least recently used entry, often one still needed.
+`.github/workflows/caches.yml` runs after every `desktop` and `k7` run, and daily: it keeps the newest
+entry per ref and family — the key without its trailing timestamp or hash — and deletes the rest.
+`gh cache list --sort size_in_bytes` shows what the 10 GB holds.
 
 ## The phone, beside the desktops
 

@@ -1,7 +1,7 @@
 # The workspace's Node and node_modules for a job: Node from .nvmrc, then node_modules RESTORED whole
 # from a cache keyed on the lock file, and `npm ci` only when the lock (or Node) changed. No setup-node
 # `cache: npm` beside it: a download cache is only read on a miss, and its gigabyte of the repo's cache budget is better spent.
-# Needs the repository and commons checked out first. See docs/desktop-release.md.
+# Needs the repository and commons checked out first. Only main SAVES the tree, a branch or a PR reads it. See docs/desktop-release.md.
 name: node
 description: Node from .nvmrc, and node_modules from cache or npm ci.
 runs:
@@ -12,7 +12,7 @@ runs:
         node-version-file: .nvmrc
     # Every folder npm puts a node_modules in: the root, and each workspace that keeps its own.
     - id: modules
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: |
           node_modules
@@ -28,3 +28,17 @@ runs:
     - if: steps.modules.outputs.cache-hit != 'true'
       shell: bash
       run: npm ci
+    # Saved at once, the tree being complete here, and from main alone: the repository's caches share 10 GB. Same list as above.
+    - if: steps.modules.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          node_modules
+          apps/*/node_modules
+          apps/k7/*/node_modules
+          packages/*/node_modules
+          engine/*/node_modules
+          engine/k7-android/*/node_modules
+          commons/packages/*/node_modules
+          commons/dev/*/node_modules
+        key: ${{ steps.modules.outputs.cache-primary-key }}
