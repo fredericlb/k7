@@ -1,7 +1,7 @@
 # The layers of a node project
 
-A node project routes sources through a graph. `graph.ts` loads and inspects one
-(`k7 graph <project>`).
+A node project routes sources through a graph. `graph.ts` loads one, and
+`scripts/graph.ts` prints it (`k7 graph <project>`).
 
 | layer | what it holds |
 |---|---|

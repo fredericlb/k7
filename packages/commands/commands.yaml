@@ -2247,7 +2247,7 @@
 # The routing as text is a READER rather than a palette row: `describeGraph` has its own CLI
 # entry, and nothing here offers it.
 #
-#   npx tsx packages/song/src/graph.ts <project> [track]
+#   npx tsx packages/song/scripts/graph.ts <project> [track]
 #
 # Moves one placement (a clip/sequence) on a track from its current timecode to a new one.
 # The event is found by its start position; only that placement's `start:` is rewritten.

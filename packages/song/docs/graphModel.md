@@ -237,13 +237,11 @@ module's ref with `:node` — and the two spellings look identical to anyone rea
 disk. `nodeHint` is worth a hint rather than a second guess at the docs: "is not a module" is true
 and useless, and the whole difference is one character. See `moduleNamespaces.md`.
 
-## The CLI entry guard
+## The CLI is a script
 
-`graph.ts` runs `main()` only when this FILE is the entry point. The
-`import.meta.url === argv[1]` test alone is not enough: bundlers rewrite `import.meta.url` to the
-bundle's own URL, so when this module is bundled as a library into another entry (the packaged
-file service) both sides match and the CLI would hijack startup. Requiring our own filename keeps
-that from happening.
+`k7 graph <project>` is `scripts/graph.ts`, not a `main()` inside `graph.ts`: a library module that
+guards its own entry point has to out-guess every bundler that rewrites `import.meta.url`, and the
+packaged file service bundles this one as a library.
 
 ## Compiling a placement into a clip
 
