@@ -30,6 +30,8 @@ export function useLibraryData(section: SectionId) {
   const polls = section !== "find";
   const [present, setPresent] = useState<boolean | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  // Whether removals and folder moves are this account's; false until the service says so.
+  const [manage, setManage] = useState(false);
   const [entries, setEntries] = useState<MediatekEntry[] | null>(null);
   // What no entry accounts for — an empty folder, a loose file — which the service lists separately.
   const [unlisted, setUnlisted] = useState<string[]>([]);
@@ -61,6 +63,7 @@ export function useLibraryData(section: SectionId) {
       .then((s) => {
         setPresent(s.present);
         setCounts(s.counts);
+        setManage(s.manage === true);
       })
       .catch((e: Error) => setError(e.message));
   }, []);
@@ -129,6 +132,7 @@ export function useLibraryData(section: SectionId) {
 
   return {
     present,
+    manage,
     counts,
     entries,
     unlisted,

@@ -106,6 +106,11 @@ and there is no trash here, so a wrong click has no path back. `confirm` rather 
 because there is no name to echo back as the answer: the row IS the thing being confirmed, not a
 value to type again.
 
+**Every removal, and every folder rename or drag, is an admin's**, because the library is one
+folder every account shares (`apps/k7/backend/docs/media/gate.md`). The service says so as `manage`
+in its summary, and the menu entries and the folder drag are simply absent when it is false — an
+entry that would only answer 403 is a promise the screen cannot keep.
+
 That same early return is why every target needs at least one action whose `when` passes: an empty
 menu does not open, it simply never appears. Folders and the root would otherwise have none.
 

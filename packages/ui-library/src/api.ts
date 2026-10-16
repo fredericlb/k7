@@ -223,7 +223,11 @@ export const settings = {
 
 export const library = {
   summary: () =>
-    get<{ present: boolean; counts: Record<string, number> }>("", "mediatek"),
+    get<{
+      present: boolean;
+      counts: Record<string, number>;
+      manage?: boolean;
+    }>("", "mediatek"),
 
   revisions: () =>
     get<{ present: boolean; revisions: Record<string, string> }>(

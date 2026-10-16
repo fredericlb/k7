@@ -26,6 +26,7 @@ export function SongEditor({
   playbackTarget,
   onBack,
   onSaved,
+  manage,
 }: {
   entry: MediatekEntry;
   vimMode: boolean;
@@ -34,6 +35,8 @@ export function SongEditor({
   playbackTarget: PlaybackTarget;
   onBack: () => void;
   onSaved: () => void;
+  /** Whether this account may remove a variant — apps/k7/backend/docs/media/gate.md. */
+  manage: boolean;
 }) {
   const labels = useLabels();
   const l = labels.song;
@@ -144,7 +147,10 @@ export function SongEditor({
           </div>
           {entry.variants?.length ? (
             <div className="max-h-[45%] shrink-0 overflow-auto border-t p-3">
-              <SongVariants entry={entry} onRemove={removeVariant} />
+              <SongVariants
+                entry={entry}
+                onRemove={manage ? removeVariant : undefined}
+              />
             </div>
           ) : null}
         </div>

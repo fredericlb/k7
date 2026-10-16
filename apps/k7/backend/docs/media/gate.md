@@ -43,3 +43,31 @@ behind `requireAuth`: each guards every `/api` route mounted AFTER it. So `mount
 the preferences, and the public share router is mounted above everything else in it — a route
 mounted in the wrong place becomes unreachable rather than public, which is the right direction for
 that mistake to fail ([shares.md](shares.md)).
+
+## Taking something out is an admin's
+
+The library is ONE folder that every account of the origin reads and files into, so a removal is
+never only the remover's: an artist folder deleted by one account is every account's songs gone,
+and there is no trash to bring them back from. So everything that takes bytes out of it or
+reshapes it answers 403 unless the caller is an admin (`AUTH_ADMIN_GROUPS`, `../../src/media/admin.ts`):
+
+| route | why it is gated |
+|---|---|
+| `DELETE /folder` | a subtree — and a song is a folder, so removing ONE song is a subtree too |
+| `DELETE /file`, `DELETE /variant` | one file, and nothing on disk says which account filed it, so there is no owner to let through |
+| `POST /move` of a folder, or onto a file that exists | a folder move empties every path under it; a move onto a file replaces it |
+
+Adding stays open to every account — an upload, a hunt's find, a new folder, a recording, a file
+renamed to a free name — since none of those can take anything away from anybody else. Ownership
+would be the narrower rule for a single file, and it is not available: `source:` in `song.yaml`
+names the tool that filed a song (`packages/mediatek/docs/songs.md`), not the account.
+
+A bearer token is no admin: it carries no groups, and none of its callers removes anything.
+
+The desktop and the phone are the exception. Their backend runs with `STUDIO_LOCAL_USER=1`, answers
+loopback only, and holds that machine's own library, so whoever reaches it may manage it — and the
+local user is never an admin ([../standalone.md](../standalone.md)).
+
+`GET /api/mediatek` answers `manage` with the same decision, and the médiathèque hides the
+removals, the folder renames and the folder drags when it is false
+(`packages/ui-library/docs/library.md`). The rule is `../../src/media/libraryGate.ts`.

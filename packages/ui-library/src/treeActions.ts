@@ -27,6 +27,8 @@ export function songActions(d: {
   refresh: () => void;
   setError: (message: string) => void;
   labels: LibraryLabels;
+  /** Whether removals are this account's — apps/k7/backend/docs/media/gate.md. */
+  manage: boolean;
 }): Actions {
   const { section, entries, file } = d;
   const l = d.labels.tree;
@@ -66,7 +68,7 @@ export function songActions(d: {
       key: "delete-song",
       // Named as a folder: what goes is the master and its sidecar, not just the row. No confirmation.
       label: (t) => l.delete(t.name),
-      when: (t) => isSongFolder(entries, t.path),
+      when: (t) => d.manage && isSongFolder(entries, t.path),
       danger: true,
       run: (t) =>
         void library
@@ -82,7 +84,8 @@ export function songActions(d: {
       key: "delete-folder",
       // An ARTIST or ALBUM grouping: a real folder, neither the root nor a song's own.
       label: (t) => l.deleteFolder(t.name),
-      when: (t) => t.dir && !t.root && !isSongFolder(entries, t.path),
+      when: (t) =>
+        d.manage && t.dir && !t.root && !isSongFolder(entries, t.path),
       danger: true,
       // Asked rather than one click: this can take every song underneath — ../docs/library.md.
       confirm: {
@@ -113,6 +116,8 @@ export function assetActions(d: {
   refresh: () => void;
   setError: (message: string) => void;
   labels: LibraryLabels;
+  /** Whether removals and folder moves are this account's — apps/k7/backend/docs/media/gate.md. */
+  manage: boolean;
 }): Actions {
   const { section, entries } = d;
   const l = d.labels.tree;
@@ -151,7 +156,8 @@ export function assetActions(d: {
     {
       key: "rename",
       label: l.rename,
-      when: (t) => !t.root,
+      // Renaming a folder moves everything under it, so it is a manager's like a removal.
+      when: (t) => !t.root && (d.manage || !t.dir),
       prompt: {
         placeholder: l.renamePlaceholder,
         initial: (t) => t.name,
@@ -169,7 +175,7 @@ export function assetActions(d: {
     {
       key: "delete",
       label: (t) => l.delete(t.name),
-      when: (t) => !t.root,
+      when: (t) => !t.root && d.manage,
       danger: true,
       // `t.dir` alone would delete a song with the single-file route and leave its folder.
       run: (t) =>

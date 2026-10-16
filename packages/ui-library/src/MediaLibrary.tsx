@@ -70,6 +70,7 @@ export function MediaLibrary({
   const editable = section !== "songs" && !isZone;
   const {
     present,
+    manage,
     counts,
     entries,
     unlisted,
@@ -204,8 +205,10 @@ export function MediaLibrary({
             refresh,
             setError,
             labels,
+            manage,
           }),
     [
+      manage,
       entries,
       file,
       openFile,
@@ -361,6 +364,8 @@ export function MediaLibrary({
                   : undefined
             }
             // Present, so rows are draggable — folders included, since `moveEntry` renames a directory too.
+            // A folder moved is an admin's; the service refuses it otherwise (apps/k7/backend/docs/media/gate.md).
+            canMove={(n) => manage || !n.dir}
             onMove={
               editable
                 ? (from, toDir) =>
@@ -387,6 +392,7 @@ export function MediaLibrary({
                     refresh,
                     setError,
                     labels,
+                    manage,
                   })
             }
           />
@@ -420,6 +426,7 @@ export function MediaLibrary({
             playbackTarget={playback.target}
             onBack={() => openFile(null)}
             onSaved={refresh}
+            manage={manage}
           />
         </main>
       ) : (
