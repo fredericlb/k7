@@ -68,6 +68,7 @@ import {
 } from "./loader";
 import { withModuleStamp } from "./moduleCache";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
+import { monitorMode } from "./monitorMode";
 import {
   heldParams,
   ownsBlend,
@@ -313,7 +314,7 @@ function numericParams(
 // A module's DSP graph, from the JS/TS source it declares with `jsdsp:`, run in a child process — see docs/graphModel.md.
 function readJsDspGraph(source: string): string | undefined {
   if (!wsExists(source)) return undefined;
-  const built = source.replace(/\.[tj]sx?$/, "") + ".json";
+  const built = `${source.replace(/\.[tj]sx?$/, "")}.json`;
   const fresh =
     wsExists(built) && statSync(built).mtimeMs >= statSync(source).mtimeMs;
   if (fresh) {
@@ -380,12 +381,6 @@ function frozenClip(id: string, source: string): ClipDoc {
     loopEnd: 0,
     notes: [],
   };
-}
-
-// The engine's monitor vocabulary; anything else (including absent) is "auto", and a boolean maps onto the ends.
-function normMonitor(v: unknown): string {
-  if (typeof v === "boolean") return v ? "on" : "off";
-  return v === "off" || v === "on" ? v : "auto";
 }
 
 // Input trim in dB. Non-finite (or absent) is unity — a gain the file can't state is not a reason to change one.
@@ -976,7 +971,8 @@ function compileNodeProjectIn(
       // The seam cast: `channel` passed the module schema (a label or channel list).
       channels: resolveInput(b.channel as string | number[] | undefined, prefs)
         .channels,
-      monitor: normMonitor(b.monitor),
+      // The engine's vocabulary has no "absent": a file that says nothing monitors "auto".
+      monitor: monitorMode(b.monitor) ?? "auto",
       gain: normGain(b.gain),
     };
   }

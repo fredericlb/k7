@@ -231,6 +231,16 @@ describe("an input's monitoring and gain", () => {
     expect(node("channel: [1]\nmonitor: false\n")?.monitor).toBe("off");
   });
 
+  it("reads a boolean the same way in the graph the UI draws", () => {
+    const graphMonitor = (body: string) => {
+      node(body);
+      return loadGraph(dir).moduleRefs[IN]?.monitor;
+    };
+    expect(graphMonitor("channel: [1]\nmonitor: true\n")).toBe("on");
+    expect(graphMonitor("channel: [1]\nmonitor: false\n")).toBe("off");
+    expect(graphMonitor("channel: [1]\n")).toBeUndefined();
+  });
+
   it("still takes the tri-state — only it can say 'auto'", () => {
     // "auto" is audible once ARMED, so a boolean-only spelling would drop the default.
     expect(node("channel: [1]\nmonitor: auto\n")?.monitor).toBe("auto");

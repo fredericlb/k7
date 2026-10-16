@@ -53,6 +53,7 @@ import {
   resolveModule,
   resolveModuleMap,
 } from "./moduleResolve";
+import { monitorMode } from "./monitorMode";
 import { loadPreferences, type Preferences, resolveInput } from "./preferences";
 import type {
   LoadedModule,
@@ -511,10 +512,6 @@ function normInput(v: unknown): string | number[] | undefined {
   return s ? s : undefined;
 }
 
-function normMonitor(v: unknown): "off" | "auto" | "on" | undefined {
-  return v === "off" || v === "auto" || v === "on" ? v : undefined;
-}
-
 // A module's `automations` list, coerced: an entry missing a param or a curve is dropped rather than carried half-bound.
 function normAutomations(v: unknown): Automation[] | undefined {
   if (!Array.isArray(v)) return undefined;
@@ -608,7 +605,7 @@ export function buildGraph(
       typeof b?.model_url === "string" && b.model_url ? b.model_url : undefined,
     source: typeof b?.source === "string" && b.source ? b.source : undefined,
     channel: normInput(b?.channel),
-    monitor: normMonitor(b?.monitor),
+    monitor: monitorMode(b?.monitor),
     // A NOTE's text, on a doc module, drawn on the node itself — see docs/docModules.md.
     content: typeof b?.content === "string" ? b.content : undefined,
     // The RACK this module is, if it is one, `extends` already folded in by `resolvedRack`.
@@ -1392,9 +1389,9 @@ function main(): void {
       process.exit(1);
     }
     console.log(`  chains for track '${id}':`);
-    for (const line of describeTrackGraph(g, id)) console.log("  " + line);
+    for (const line of describeTrackGraph(g, id)) console.log(`  ${line}`);
   } else {
-    for (const line of describeGraph(g)) console.log("  " + line);
+    for (const line of describeGraph(g)) console.log(`  ${line}`);
   }
 
   if (g.warnings.length) {
