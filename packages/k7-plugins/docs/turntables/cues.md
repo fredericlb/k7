@@ -20,8 +20,9 @@ the cue a second late, every time — a cue to fix rather than a cue to use.
 So the position is captured on `pointerdown` and only **used** if the press lasts. The timer
 decides which of the two gestures happened; it never decides where.
 
-The position read is also **extrapolated**: the engine pushes its playhead ~20 times a second, so
-the last number received can be 50 ms stale — which, on a downbeat, is audible.
+The position read is the deck's **raw** needle, the last number the engine sent, and not the drawn
+one the band scrolls with ([needleClock.md](needleClock.md)). The drawn needle is an estimate tuned
+to move evenly; a cue is a value WRITTEN DOWN, and what is stored is what the engine said.
 
 A short press on an **empty** button does nothing, rather than jumping to zero.
 

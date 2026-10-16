@@ -34,8 +34,14 @@ path's `d` attribute. A prop would re-render the whole component — two decks, 
 cues — to move one edge, several times a second. Same arrangement the waveform uses, for the same
 reason.
 
-It is also **extrapolated** between engine pushes (~20 per second): a 60 fps render off a value
-that jumps 20 times a second reads as stutter.
+It reads the deck's **drawn** needle, steered between engine pushes ([needleClock.md](needleClock.md)):
+a 60 fps render off a value that jumps 20 times a second reads as stutter.
+
+A frame writes only what changed — the path when the wedge moved, the rotation when the angle
+did. And the loop **parks** once the record is stopped and has coasted down, with no hand on it:
+nothing turns, so nothing is scheduled. A parked record still looks at its needle a few times a
+second, because a cue dropped on a stopped deck moves the wedge without anything else changing;
+a new rate or a hand on the grooves wakes the frame loop again.
 
 ## The FILE's clock, on both sides
 

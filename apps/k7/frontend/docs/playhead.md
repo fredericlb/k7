@@ -180,20 +180,16 @@ decks' `docs/hosting.md` holds the same paragraph, where `CueButtons` raises the
 question.
 
 **The decks are on it too**, which is why the clock lives in
-`@studio/engine-browser/playhead-clock`: both k7 and the turntables plugin (`@studio/k7-plugins`) depend on that
-package, and it is where the frames arrive.
+`@studio/engine-browser/playhead-clock`: both k7 and the turntables plugin (`@studio/k7-plugins`)
+depend on that package, and it is where the frames arrive.
 
-The clock takes no RATE, and a turntable's pitch fader is not an argument for one: the fader sets a
-platter's `Rate`, which the platter reports through its own needle, while the transport still
-advances at one second per second — *"there is one transport and two decks, so moving it to hold
-one deck still would throw the other"*.
-
-What the decks do need is the split above, a second time. `Deck` asks for both — a raw `playhead`
-ref and a steered `drawNow` — because its two callers want different things: the record's wedge is
-looked at, while `CueButtons`' `began.current = now()` is the position a cue is STORED at.
-`docs/hosting.md` says which is for what. The deck's waveform keeps no copy of the extrapolation,
-and so no `playing` test of its own: the clock holds still while stopped by itself, so the two
-cannot disagree about what "stopped" means.
+A deck's clock is not the transport but its platter's needle, which runs at the platter's own
+`Rate` — so the clock takes a RATE, 1 by default. Everything above holds at any known rate: the
+frames still understate (overstate, running backwards) by their transit, so the least-delayed one
+is still the best. A new rate re-bases the offset so the drawn position does not move
+(`retimePlayhead`). How the desk feeds it — the rate it knows, the loops it folds, the stalls it
+refuses to extrapolate — is `packages/k7-plugins/docs/turntables/needleClock.md`. What the desk
+STORES, a cue, stays the raw needle.
 
 `ui-eyes`' two clocks read `performance.now()` rather than `Date.now()`. The wall clock can step
 backwards under a running transport (an NTP correction), and every reader subtracts two readings,

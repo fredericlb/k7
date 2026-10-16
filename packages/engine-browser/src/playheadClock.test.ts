@@ -4,7 +4,9 @@ import {
   feedPlayhead,
   newPlayheadClock,
   playheadAt,
+  retimePlayhead,
   SEEK_EPS,
+  shiftPlayhead,
   WINDOW_MS,
 } from "./playheadClock";
 
@@ -128,5 +130,96 @@ describe("playheadClock", () => {
     c = feedPlayhead(c, true, 1.05, 1255);
     expect(c.window.length).toBeGreaterThan(before - 1);
     expect(0.2).toBeLessThan(SEEK_EPS);
+  });
+});
+
+describe("playheadClock at a KNOWN rate other than one", () => {
+  /** Play at `rate` for `ms`, with the same transit times, from `start`. */
+  function playAt(rate: number, ms: number, start = 10) {
+    let c = newPlayheadClock(start, true, 0, rate);
+    const rows: { drawn: number; truth: number }[] = [];
+    let next = 50;
+    let i = 0;
+    for (let now = 0; now <= ms; now += FRAME) {
+      while (next + LAT[i % LAT.length] <= now) {
+        const sampled = start + (rate * next) / 1000;
+        c = feedPlayhead(c, true, sampled, next + LAT[i % LAT.length]);
+        i++;
+        next += 50;
+      }
+      c = advancePlayhead(c, now);
+      rows.push({
+        drawn: playheadAt(c, now),
+        truth: start + (rate * now) / 1000,
+      });
+    }
+    return rows;
+  }
+
+  it("draws a straight line at that rate", () => {
+    const rows = playAt(1.25, 4000).slice(60);
+    for (let i = 1; i < rows.length; i++)
+      expect(rows[i].drawn - rows[i - 1].drawn).toBeCloseTo(
+        (1.25 * FRAME) / 1000,
+        9,
+      );
+  });
+
+  it("sits the best transit behind, scaled by the rate", () => {
+    const rows = playAt(0.8, 6000).slice(120);
+    for (const r of rows)
+      expect((r.truth - r.drawn) * 1000).toBeCloseTo(0.8 * MIN_LAT, 1);
+  });
+
+  it("runs backwards, keeping the least delayed frame of that direction", () => {
+    const rows = playAt(-1, 4000, 20).slice(120);
+    for (let i = 1; i < rows.length; i++)
+      expect(rows[i].drawn).toBeLessThanOrEqual(rows[i - 1].drawn);
+    for (const r of rows)
+      expect((r.drawn - r.truth) * 1000).toBeCloseTo(MIN_LAT, 1);
+  });
+
+  it("keeps the drawn position continuous across a new rate", () => {
+    let c = newPlayheadClock(0, true, 0);
+    for (let t = 50; t <= 1000; t += 50)
+      c = feedPlayhead(c, true, t / 1000, t + 5);
+    c = advancePlayhead(c, 1000);
+    const before = playheadAt(c, 1000);
+    c = retimePlayhead(c, 1.5, 1000);
+    expect(playheadAt(c, 1000)).toBeCloseTo(before, 9);
+    c = advancePlayhead(c, 1100);
+    expect(playheadAt(c, 1100)).toBeCloseTo(before + 0.15, 6);
+    // The evidence is kept, rebased onto the new rate.
+    expect(c.window.length).toBeGreaterThan(1);
+  });
+
+  it("drops its evidence on a reversal, which pointed the other way", () => {
+    let c = newPlayheadClock(0, true, 0);
+    for (let t = 50; t <= 500; t += 50)
+      c = feedPlayhead(c, true, t / 1000, t + 5);
+    c = retimePlayhead(c, -1, 500);
+    expect(c.window).toHaveLength(0);
+  });
+
+  it("is unchanged by the rate it already has", () => {
+    const c = newPlayheadClock(3, true, 100, 2);
+    expect(retimePlayhead(c, 2, 500)).toBe(c);
+  });
+
+  it("slides under a shift without the drawn position moving relative to it", () => {
+    let c = newPlayheadClock(0, true, 0);
+    c = feedPlayhead(c, true, 0.5, 505);
+    c = advancePlayhead(c, 600);
+    const before = playheadAt(c, 600);
+    c = shiftPlayhead(c, -0.25);
+    expect(playheadAt(c, 600)).toBeCloseTo(before - 0.25, 9);
+  });
+
+  it("takes a tighter seek threshold when asked", () => {
+    let c = newPlayheadClock(0, true, 0);
+    for (let t = 50; t <= 1000; t += 50)
+      c = feedPlayhead(c, true, t / 1000, t + 5);
+    c = feedPlayhead(c, true, 1.2, 1055, 0.1);
+    expect(c.window).toHaveLength(1);
   });
 });
