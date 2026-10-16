@@ -21,13 +21,12 @@ import { trackDoc } from "@studio/engine-protocol/build";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { STEMS, stemLane } from "@studio/song-schema/stems";
 import WebSocket from "ws";
+import { deckDoc, withDecks } from "../../src/turntables/deck";
 import {
   DECKS,
   type DeckLoads,
-  deckDoc,
   NO_LOADS,
-  withDecks,
-} from "../src/deck";
+} from "../../src/turntables/deckVocabulary";
 
 const url =
   process.argv.find((a) => a.startsWith("ws://")) ?? "ws://127.0.0.1:8765";

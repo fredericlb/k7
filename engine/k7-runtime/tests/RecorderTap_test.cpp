@@ -150,7 +150,7 @@ void the_two_threads_do_not_tear() {
     }
     audio.join();
     CHECK(got + lost == (size_t)kBlocks * kBlock);
-    // A reader that keeps up loses NOTHING — the ring holds 1.4 s and this is 2 ms of audio.
+    // A reader that keeps up loses NOTHING — the ring holds seconds and this is 2 ms of audio.
     CHECK(lost == 0);
     CHECK(tap.lostFrames() == 0);
 }

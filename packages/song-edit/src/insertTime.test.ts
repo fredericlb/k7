@@ -151,3 +151,13 @@ describe("the round trip", () => {
     expect(snapshot()).toEqual(before);
   });
 });
+
+describe("a splice that fails partway", () => {
+  it("writes nothing: the lanes before the broken file are not left shifted", () => {
+    // A lane is transformed before the video, so a throw on the video would otherwise leave it moved alone.
+    write("video_tracks/cam.yaml", "events: [ { ref: shot, start: 8\n");
+    const before = snapshot();
+    expect(() => spliceProjectTime(dir, BAR, BAR, "insert")).toThrow();
+    expect(snapshot()).toEqual(before);
+  });
+});

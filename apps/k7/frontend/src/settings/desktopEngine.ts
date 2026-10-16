@@ -50,7 +50,9 @@ export interface InstrumentRow {
 }
 
 /** Every instrument the engine can play, each with its download's phase when one is queued or running. */
-export function instrumentRows(s: DesktopEngineSnapshot): InstrumentRow[] {
+export function instrumentRows(
+  s: Pick<DesktopEngineSnapshot, "instruments" | "downloads">,
+): InstrumentRow[] {
   const downloads = s.downloads ?? [];
   return (s.instruments ?? []).map((i) => {
     const d = downloads.find((x) => x.name === i.name);

@@ -29,6 +29,10 @@ There is no Enter to confirm, and none is owed: arming a learn changes nothing u
 and the next paragraph is why moving one is safe. The rule a confirmation would be protecting is
 kept the other way — the gesture is a COMMAND, typeable and logged, not a menu action of its own.
 
+A learn waits for a control OR the next command, whichever comes first: `runCommand` cancels it
+before dispatching anything, and `Esc` reaches it first on its ladder. A learn left armed would
+silently capture the next knob turned minutes later, which is the surprise the status line warns of.
+
 The message that teaches it is **swallowed**, not also actuated. The knob you wiggle is usually
 already mapped to something else, and moving that something while assigning is a surprise you
 cannot undo.

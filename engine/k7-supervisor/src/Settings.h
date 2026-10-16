@@ -8,6 +8,7 @@
 #include <nlohmann/json.hpp>
 
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <utility>
@@ -26,6 +27,8 @@ struct Settings {
     std::vector<std::string> onnxProviders;
     /** The instruments this machine keeps, by name; absent until a first boot settles it (docs/instruments.md). */
     std::optional<std::vector<std::string>> instruments;
+    /** The device token each studio paired this machine with, by registry URL: what a studio that lists paired machines only asks. */
+    std::map<std::string, std::string> deviceTokens;
 };
 
 /** Parse a settings document leniently; anything missing or malformed falls back to its default. */

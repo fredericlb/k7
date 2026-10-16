@@ -3,6 +3,7 @@
 
 #include "TunnelAgent.h"
 
+#include "Backpressure.h"
 #include "PathMap.h"
 #include "Paths.h"
 #include "SerialQueue.h"
@@ -42,6 +43,8 @@ struct Channel {
     std::shared_ptr<ix::WebSocket> engine;
     std::shared_ptr<SerialQueue> toEngine = SerialQueue::create();
     std::shared_ptr<SerialQueue> toHub = SerialQueue::create();
+    /** Read and written only by `toHub`'s thread. */
+    FrameShedder shed;
     std::mutex mutex;
     std::condition_variable cv;
     bool engineOpen = false;
@@ -404,6 +407,10 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
         auto self = shared_from_this();
         c->toHub->push([self, c, data, binary] {
             try {
+                // An engine channel's meters and audio wait for no one: behind a slow uplink they are dropped (Backpressure.h).
+                if (!c->jobs && !c->shed.admit(data, binary, self->buffered())) return;
+                if (const auto n = c->shed.takeShed())
+                    self->opts.log("ch" + std::to_string(c->ch) + " → server: dropped " + std::to_string(n) + " meter/audio frame(s) the uplink could not carry");
                 if (binary) {
                     self->sendBinary(encodeBinary({{"t", "data"}, {"ch", c->ch}}, data));
                     return;

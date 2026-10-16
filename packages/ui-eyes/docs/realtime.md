@@ -80,6 +80,32 @@ and parking the whole lane for it would drop the lane's entire composite for the
 fade. One element going quiet leaves the other's picture — and the blend says which slots carry
 one, so a side that has nothing this frame is simply the transparent texel.
 
+## An unchanged frame is neither uploaded nor drawn
+
+`texImage2D` of a full-frame picture is the dearest call a tick makes, and most ticks would repeat
+it for nothing: a still, a caption, a paused shot, the whole picture with the transport stopped.
+So each slot remembers the picture it was last handed (`src/frameGate.ts`) and an upload goes
+through only when that changed:
+
+| source | what says it changed |
+|---|---|
+| a `<video>` | its `currentSrc`, its `currentTime`, whether it has a frame yet — and a seek in flight always uploads, since the element still holds the old frame |
+| a still, a caption | the object itself: one per decoded image, one per cue |
+| a camera | nothing can tell, so it uploads every tick while its stream runs |
+
+A change is followed by ONE more upload, because a decoder may present the frame a tick after its
+position moved; a stamp is not proof of the pixels.
+
+The draw is skipped as well when nothing was uploaded, the transport is stopped, and nothing the
+frame reads moved: the playhead (motions, blend progress and `uTime` all follow from it), which
+lanes show which slots, the audio levels the passes read, and a LUT landing. Coming back into
+sight forgets all of it and draws anew.
+
+A playing `<video>` still uploads on every animation frame — `currentTime` moves on each — so a
+30 fps shot on a 60 Hz screen pays twice. `requestVideoFrameCallback` would say when a frame is
+truly new, but whether it fires for an element parked invisible is the browser's call, and a
+missed callback would freeze the picture.
+
 ## Out of sight, nothing is drawn
 
 The viewport is a pane, hidden rather than unmounted, and a hidden pane that composites at 60 fps

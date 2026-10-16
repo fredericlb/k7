@@ -1,4 +1,5 @@
-node_modules/
+# No slash: a symlinked node_modules (a worktree borrowing an install) is a file, not a folder.
+node_modules
 .turbo/
 dist/
 # One-shot codemods written during a change and kept only until it lands. Excluded from
@@ -51,3 +52,5 @@ tilt.local.yaml
 .design-sync/
 .ds-sync/
 ds-bundle/
+# The server image's bundle (apps/k7/backend/scripts/bundle.mjs --in-tree).
+server-dist/

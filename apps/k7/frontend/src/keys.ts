@@ -40,8 +40,9 @@ export const KEYS: Record<string, Binding> = {
   // , and . step the playhead one drawn tick, the grid a drag lands on — a frame once zoomed in on a picture.
   ",": "transport step prev",
   ".": "transport step next",
-  // Esc backs out ONE layer, outermost first: a popin, the graph slot, the tool in hand, a page other than home, the panel. First match wins.
+  // Esc backs out ONE layer, outermost first: a pending MIDI learn, a popin, the graph slot, the tool in hand, a page other than home, the panel.
   esc: [
+    { if: "midi_learning", command: "ui midi learn cancel" },
     { if: "popin", command: "ui popin close" },
     { if: "graph_slot", command: "ui slot close" },
     { if: "roll_armed", command: "ui roll select" },
@@ -61,9 +62,9 @@ export const KEYS: Record<string, Binding> = {
     { if: "caret_track", command: "track solo {caret_track}" },
     { if: "caret_picture", command: "picture solo {caret_picture}" },
   ],
-  // r arms the row under the caret — two verbs, the two arms being held in two places (docs/timeline.md).
+  // r arms the row under the caret as its A button does — `rec` picks the browser's arm or the engine's (docs/timeline.md).
   r: [
-    { if: "caret_track", command: "transport arm {caret_track}" },
+    { if: "caret_track", command: "rec {caret_track}" },
     { if: "caret_picture", command: "ui picture arm {caret_picture}" },
   ],
   // Shift+R toggles the GLOBAL record enable — what play DOES with the armed set, not what is armed.
@@ -208,17 +209,20 @@ export function resolveToken(
     : resolveBinding(b, cond);
 }
 
+/** Every plain command's key, inverted once — the first token binding it wins, as a scan of the table would find. */
+export function commandKeyMap(prefs?: CommandPrefs): Map<string, string> {
+  const table: Record<string, Binding> = prefs ? effectiveKeys(prefs) : KEYS;
+  const out = new Map<string, string>();
+  for (const [token, b] of Object.entries(table))
+    if (typeof b === "string" && !out.has(b)) out.set(b, token);
+  return out;
+}
+
 /** The key bound to a plain command, for tooltips — read off the effective table, so a hint cannot advertise a key nothing binds. */
 export const keyForCommand = (
   command: string,
   prefs?: CommandPrefs,
-): string | undefined => {
-  if (prefs) {
-    const eff = effectiveKeys(prefs);
-    return Object.keys(eff).find((k) => eff[k] === command);
-  }
-  return Object.keys(KEYS).find((k) => KEYS[k] === command);
-};
+): string | undefined => commandKeyMap(prefs).get(command);
 
 /** A readable label for a key token — the raw tokens are terse ("esc", "Z", "?"). */
 export function keyLabel(token: string): string {

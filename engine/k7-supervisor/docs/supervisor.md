@@ -14,7 +14,7 @@ are in [supervisorPolicy.md](supervisorPolicy.md).
 | **the command-line engine** | `k7-supervisor --config <file>`, a terminal, a service, the server's container | the file, read once and never written | nothing | SIGINT or SIGTERM |
 
 The config file has the settings' schema (`registryUrls`, `port`, `audioPriority`, `onnxProviders`,
-`instruments`), plus the three keys that otherwise come from the environment — `machineName`,
+`instruments`, `deviceTokens`), plus a single `deviceToken` for every studio the file names, and the three keys that otherwise come from the environment — `machineName`,
 `extraCaCerts`, `renderKey` — and `"instruments": ["all"]` for `$STUDIO_INSTRUMENTS=all`. A key the
 file names wins over the environment; one it leaves out falls back to it, so `{}` is a valid config.
 `engine.example.json` beside this folder is the one the release archive carries.
@@ -64,6 +64,10 @@ On POSIX every pipe is close-on-exec from its creation (`cloexecPipe`: `pipe2(O_
 which has no `pipe2`, `fcntl` on both ends at once), and a child gets its ends by `dup2`, which clears
 the flag on the copy alone. A pipe made on one thread is then never inherited by a child spawned on
 another, where its write end would hold off the EOF the first spawn waits for.
+
+An app that dies closes our stdout, and the next frame we write would raise SIGPIPE, whose default
+action ends the process before the stdin EOF reaches the shutdown — no deregister, and an engine
+nobody watches. So SIGPIPE is ignored as the first thing `main` does, and that write fails as a write.
 
 ## An engine is adopted by its PORT, and a probe that cannot ask says nothing
 
@@ -224,6 +228,20 @@ channel's queue (`SerialQueue`), one per direction, which also keeps frames in o
 a thread of its own. What a job changes in the settings goes through the loop, the settings'
 single writer — a job writing the file beside the loop's own copy would be undone by the next save
 of that copy.
+
+## One stem cut at a time
+
+A cut holds the whole decoded song, per channel, and the overlap-add buffers of all four stems: past
+a gigabyte for a ten-minute song. A set list sent for cutting asks for every song at once, on a
+machine whose engine may be playing live — so the machine runs `$STUDIO_SEPARATIONS_AT_ONCE` cuts at
+a time (1 when unset), read once per run, and the others wait in the order they asked
+(`src/JobSlots.h`). A waiting job reports the phase `queued` with a line saying how many are ahead
+of it, so a server shows a queue rather than a cut that never moves. The hour a cut is allowed
+counts from its start, not from its request: the last song of a long set list waits longer than
+that.
+
+The decode holds ffmpeg's bytes and the per-channel copy, and no interleaved float copy between
+them.
 
 ## ONNX Runtime is loaded, never linked
 

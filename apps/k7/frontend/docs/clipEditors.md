@@ -322,6 +322,13 @@ the timeline the line is one `events remove` naming each event the rectangle hol
 and a cleared rectangle is one Ctrl+Z. The pane answers with a command **line** rather than
 running one, which is what keeps a gesture worth exactly one Ctrl+Z; the shell runs it.
 
+The roll and the step sequencer answer the same two lines: one note is `sequence note remove`,
+several are one `sequence notes remove` over the rectangle. A sequencer row is a rack SOUND, in the
+rack's order, so the key range from a rectangle's lowest row to its highest can cross rows outside
+it. When that range would take a note on such a row, the delete is REFUSED (`planSelectionDelete`
+in `stepGrid.ts`): splitting it into one line per row would cost a Ctrl+Z per row, and taking the
+stray note would delete something the rectangle does not show as selected.
+
 Right-click on a note offers the same removal and, when the caret sits strictly inside it,
 `sequence note split`. Both were verbs with no gesture. The menu is derived from the catalogue
 like every other (`contextMenu.md`); a split on either edge is not offered at all, since a cut
@@ -896,8 +903,8 @@ substance is: it reads the compiled `sourceFrom`/`sourceTo`, with the project's 
 **timecode** edge resolves the way it does everywhere else. Answering `{start: 0, length: 0}` for a
 clip is the whole file end to end, so a take trimmed down to one bar of a five-minute pass plays
 the five minutes and the ▶ says nothing about the clip you are looking at. An absent `to` does stay
-a length of 0, which the engine reads as "to the end of the file" — the only honest answer about an
-extent nobody here has opened the wav to measure.
+a length of 0, which the engine reads as "to the end of the file", capped at 30 s — the only honest
+answer about an extent nobody here has opened the wav to measure.
 
 One shot, and no Stop button. The engine fires a voice through a preview sampler independent of the
 transport (`EngineHost::previewSample`); there is no state to poll and nothing to stop, so a toggle

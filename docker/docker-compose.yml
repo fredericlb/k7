@@ -30,10 +30,21 @@ x-shared-auth: &shared-auth
   OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
   OIDC_SCOPES: ${OIDC_SCOPES:-}
 
+# Docker's json-file logs grow without end unless capped; every service takes this.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: ${LOG_MAX_SIZE:-10m}
+    max-file: ${LOG_MAX_FILE:-3}
+
 services:
   k7:
     image: dev.frediver.se/frediverse/k7/k7-webapp:${APP_VERSION:-latest}
     restart: unless-stopped
+    logging: *logging
+    # The backend, every account's file service and their ffmpeg children share this; the engine has its own below.
+    mem_limit: ${K7_MEM_LIMIT:-6g}
+    # The image's HEALTHCHECK asks /api/health; the engine below waits for it.
     environment:
       <<: *shared-auth
       # Signs the media library's bearer tokens — see docs/tokens.md.
@@ -55,10 +66,14 @@ services:
       STUDIO_MEDIATEK: /library
       # The accounts' workspaces, and the only place they live — engines hold copies, never workspaces.
       STUDIO_FILES_ROOT: /workspaces
+      # One account's file service gets this heap at most, so a leak in one ends that one, not the box.
+      STUDIO_FILE_SERVICE_HEAP_MB: ${FILE_SERVICE_HEAP_MB:-1024}
       # Who edits the libraries every account shares and deletes a public song — z0's admins too.
       AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:-}
       # Recognises the engine service as the render machine, since this image has no engine binary.
       STUDIO_RENDER_KEY: ${RENDER_KEY:-}
+      # 1: list only machines paired with an account, or the render machine (packages/engine-registry/docs/heartbeat.md).
+      STUDIO_REGISTRY_REQUIRE_DEVICE: ${REGISTRY_REQUIRE_DEVICE:-0}
     volumes:
       - data:/data
       # The media library IS this volume — apps/k7/docker/Dockerfile.
@@ -83,6 +98,7 @@ services:
     # Pinned: a PocketBase upgrade migrates pb_data on start, which an import source must not do.
     image: ghcr.io/muchobien/pocketbase:0.40.5
     restart: unless-stopped
+    logging: *logging
     volumes:
       - pocketbase-data:/pb_data
     networks:
@@ -97,8 +113,12 @@ services:
   engine:
     image: dev.frediver.se/frediverse/k7/k7-runtime:${APP_VERSION:-latest}
     restart: unless-stopped
+    logging: *logging
+    # Kept apart from k7's: a render or an import there must not take the server's engine down with it.
+    mem_limit: ${ENGINE_MEM_LIMIT:-4g}
     depends_on:
-      - k7
+      k7:
+        condition: service_healthy
     environment:
       # k7's registry on the container network; the supervisor dials its tunnel from the same address.
       STUDIO_REGISTRY_URL: ${ENGINE_REGISTRY_URL:-http://k7:8789}
@@ -118,6 +138,7 @@ services:
   z0:
     image: dev.frediver.se/frediverse/z0:${Z0_VERSION:-latest}
     restart: unless-stopped
+    logging: *logging
     environment:
       <<: *shared-auth
       # z0's backend only; unset is none — e.g. "--latest".

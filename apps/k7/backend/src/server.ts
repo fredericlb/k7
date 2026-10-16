@@ -67,6 +67,10 @@ app.use(securityHeaders);
 if (LOCAL_USER) app.use(loopbackOnly);
 // Listed origins only, and no cross-site write, before anything else runs — ../docs/media/cors.md.
 app.use(studioCors(originPolicyFromEnv()));
+// What the container's healthcheck asks: no session, no disk, only that the loop answers.
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true });
+});
 // The module builder's AI organize takes a whole module, so it parses first, with its own limit.
 app.use("/api/ai", aiOrganizeBody);
 // The relay pipes bodies to an engine's file service, so the limit is that service's opinion.

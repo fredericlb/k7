@@ -77,6 +77,12 @@ Settings settingsFrom(const nlohmann::json& raw)
     s.onnxProviders = normaliseProviders(raw.value("onnxProviders", nlohmann::json()));
     // An array, even an empty one, is a choice; anything else is "never chosen", which a boot settles.
     if (auto it = raw.find("instruments"); it != raw.end() && it->is_array()) s.instruments = uniqueStrings(*it);
+    if (auto it = raw.find("deviceTokens"); it != raw.end() && it->is_object())
+        for (const auto& [k, v] : it->items())
+            if (v.is_string() && !trim(v.get<std::string>()).empty()) s.deviceTokens[k] = trim(v.get<std::string>());
+    // A config file's one `deviceToken` is the token of the studios that same file names.
+    if (auto one = trim(str(raw, "deviceToken")); !one.empty())
+        for (const auto& u : s.registryUrls) s.deviceTokens.emplace(u, one);
     return s;
 }
 
@@ -89,6 +95,7 @@ nlohmann::json settingsJson(const Settings& s)
         {"onnxProviders", s.onnxProviders},
     };
     if (s.instruments) j["instruments"] = *s.instruments;
+    if (!s.deviceTokens.empty()) j["deviceTokens"] = s.deviceTokens;
     return j;
 }
 
@@ -124,8 +131,22 @@ void saveSettings(const Settings& s)
     if (!gConfigFile.empty()) return;
     std::error_code ec;
     std::filesystem::create_directories(paths::studioDir(), ec);
-    std::ofstream out(paths::settings(), std::ios::binary | std::ios::trunc);
-    if (out) out << settingsJson(s).dump(2) << "\n";
+    const std::filesystem::path path = paths::settings();
+    const auto tmp = path.parent_path() / (path.filename().string() + ".tmp");
+    // Written beside, then renamed over: a crash mid-write must not leave a torn file that loads as defaults.
+    {
+        std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+        if (!out) return;
+        out << settingsJson(s).dump(2) << "\n";
+        out.flush();
+        if (!out.good()) {
+            out.close();
+            std::filesystem::remove(tmp, ec);
+            return;
+        }
+    }
+    std::filesystem::rename(tmp, path, ec);
+    if (ec) std::filesystem::remove(tmp, ec);
 }
 
 }  // namespace k7

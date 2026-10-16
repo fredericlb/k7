@@ -26,7 +26,7 @@ truth that can come to disagree with the three it reads. That is the rule
 |---|---|
 | `normal` | `hjkl` walk the caret; every other key is a command |
 | `select` | `hjkl` walk the rectangle's HEAD instead |
-| `move` | the four that carry a clip, and it swallows every other key HARD — a nudge must not also scroll the pane |
+| `move` | h/l and the arrows nudge the clip a beat, enter drops it, esc cancels; it swallows every other key HARD — a nudge must not also scroll the pane |
 
 A move that is **pending** — released, written, waiting for the reload — is not being carried, so
 it is not the mode: the pane must not go deaf for a round trip.
@@ -820,9 +820,9 @@ lane for its own camera, and record + play then captures onto it
 actually rolling — armed and recording are two states, and only one of them is holding a device.
 
 `r` reaches it from the keyboard, the same key that arms an audio lane. The binding is TWO entries
-tried in order, on `caret_track` and on `caret_picture`, because the two arms live in two places:
-an audio lane's in the engine (`transport arm`), a picture lane's in this browser
-(`ui picture arm`). A picture row reports no `caret_track` — it never has — so the first condition
+tried in order, on `caret_track` and on `caret_picture`, because the arms live in two verbs:
+a sound lane's is `rec`, the A button's own toggle (MIDI in this browser, audio in the engine), a
+picture lane's is `ui picture arm`. A picture row reports no `caret_track` — it never has — so the first condition
 simply does not match, which is what an ordered keymap is for.
 
 A **shape** lane gets no button: it has no input to record.

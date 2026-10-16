@@ -49,6 +49,11 @@ import {
 import express, { Router } from "express";
 import { analyseShared, ensureAnalysedShared } from "../analysisGate.ts";
 import { sweepState } from "../analysisSweep.ts";
+import {
+  allowManage,
+  mayManageLibrary,
+  moveNeedsManager,
+} from "../libraryGate.ts";
 import { mp3SweepState } from "../mp3Sweep.ts";
 import {
   ensureMp3,
@@ -66,10 +71,11 @@ const badFamily = { error: FAMILY_ERROR };
 /** Is there a library on this volume, and how much is in it. */
 libraryRouter.get(
   "/",
-  wrap((_req, res) => {
+  wrap((req, res) => {
     // The root is a server path and stays one — a client is never told where the disk is.
     const { present, counts } = summary();
-    res.json({ present, counts });
+    // `manage`: whether the removals and folder moves are this caller's — ../libraryGate.ts.
+    res.json({ present, counts, manage: mayManageLibrary(req) });
   }),
 );
 
@@ -279,6 +285,7 @@ libraryRouter.delete(
     const name = String(req.query.name ?? "");
     if (!path) return res.status(400).json({ error: "path required" });
     if (!name) return res.status(400).json({ error: "name required" });
+    if (!allowManage(req, res)) return;
     try {
       removeSongVariant(path, name);
     } catch (e) {
@@ -527,6 +534,8 @@ libraryRouter.post(
     if (!from || !to)
       return res.status(400).json({ error: "from and to required" });
     try {
+      // A file renamed to a free name is anyone's; a folder, or a file replaced, is not.
+      if (moveNeedsManager(from, to) && !allowManage(req, res)) return;
       moveEntry(from, to);
     } catch (e) {
       if (writeError(e, res)) return;
@@ -553,12 +562,13 @@ libraryRouter.post(
   }),
 );
 
-/** A whole subtree — separate from DELETE /file, so it is never done while meaning one entry. */
+/** A whole subtree — separate from DELETE /file, so it is never done while meaning one entry. Admin only. */
 libraryRouter.delete(
   "/folder",
   wrap((req, res) => {
     const rel = String(req.query.path ?? "");
     if (!rel) return res.status(400).json({ error: "path required" });
+    if (!allowManage(req, res)) return;
     try {
       removeTree(rel);
     } catch (e) {
@@ -569,12 +579,13 @@ libraryRouter.delete(
   }),
 );
 
-/** Take one out. Absent is success — the caller wanted it gone. */
+/** Take one out, admin only: no file records which account filed it. Absent is success. */
 libraryRouter.delete(
   "/file",
   wrap((req, res) => {
     const rel = String(req.query.path ?? "");
     if (!rel) return res.status(400).json({ error: "path required" });
+    if (!allowManage(req, res)) return;
     try {
       removeFile(rel);
     } catch (e) {

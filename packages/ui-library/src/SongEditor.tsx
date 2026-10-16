@@ -7,10 +7,10 @@ import { Button } from "@frediverse/ui/button";
 import { ArrowLeft, Disc3, Loader2 } from "@frediverse/ui/icons";
 import { type MediatekEntry, SONG_FILE } from "@studio/mediatek/types";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
-import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { library } from "./api";
 import { useLabels } from "./host";
+import { YamlPane } from "./LazyYamlPane";
 import type { PlaybackTarget } from "./playback/targets";
 import { SaveState } from "./SaveState";
 import { SongPlayer } from "./SongPlayer";
@@ -26,6 +26,7 @@ export function SongEditor({
   playbackTarget,
   onBack,
   onSaved,
+  manage,
 }: {
   entry: MediatekEntry;
   vimMode: boolean;
@@ -34,6 +35,8 @@ export function SongEditor({
   playbackTarget: PlaybackTarget;
   onBack: () => void;
   onSaved: () => void;
+  /** Whether this account may remove a variant — apps/k7/backend/docs/media/gate.md. */
+  manage: boolean;
 }) {
   const labels = useLabels();
   const l = labels.song;
@@ -144,7 +147,10 @@ export function SongEditor({
           </div>
           {entry.variants?.length ? (
             <div className="max-h-[45%] shrink-0 overflow-auto border-t p-3">
-              <SongVariants entry={entry} onRemove={removeVariant} />
+              <SongVariants
+                entry={entry}
+                onRemove={manage ? removeVariant : undefined}
+              />
             </div>
           ) : null}
         </div>

@@ -223,7 +223,12 @@ void addPluginHandlers(HandlerTable& t) {
         const std::string id = j.value("id", std::string{});
         const std::string name = j.value("name", std::string{});
         const double value = j.value("value", 0.0);
-        host.post([session, &host, id, name, value] { host.setPluginParam(session, id, name, value); });
+        // Only the newest value of a parameter still queued is worth setting (docs/supersede.md).
+        ctx.supersede.postParam(session, id, name, [&](SupersedeLedger::Ticket ticket) {
+            host.post([session, &host, id, name, value, ticket] {
+                if (!SupersedeLedger::superseded(ticket)) host.setPluginParam(session, id, name, value);
+            });
+        });
     });
 
     t.add({"get-plugin-params"}, [](ServeContext& ctx, ix::WebSocket&, const json& j, const std::string& session, const std::string&) {

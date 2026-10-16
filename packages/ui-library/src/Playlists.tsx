@@ -27,11 +27,11 @@ import {
 } from "@studio/song-schema/playlist";
 import type { Validity } from "@studio/song-schema/yaml/validate";
 import { useAutosave } from "@studio/ui-editor/autosave";
-import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
 import { sortNodes } from "@studio/web-protocol/tree";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { library } from "./api";
 import { useLabels } from "./host";
+import { YamlPane } from "./LazyYamlPane";
 import { PlaylistRows, rowPath } from "./PlaylistRows";
 import { usePlayback } from "./playback/PlaybackProvider";
 import { SaveState } from "./SaveState";

@@ -32,6 +32,8 @@ ARG APP_VERSION=dev
 ENV VITE_APP_VERSION=$APP_VERSION
 # vite alone: the lint job typechecks every workspace (docs/images.md).
 RUN npm exec --workspace k7-frontend -- vite build
+# The backend and the file service as plain JS, reading the checkout around them: no tsx at run time (docs/images.md).
+RUN node apps/k7/backend/scripts/bundle.mjs server-dist --in-tree
 
 # ---- backend prod deps: k7-backend's closure only, no devDependencies -------
 FROM toolchain AS backend-deps
@@ -55,6 +57,9 @@ COPY --from=backend-deps /app ./
 COPY . .
 # The built SPA — apps/k7/backend/src/server.ts serves this directly.
 COPY --from=frontend-build /app/apps/k7/frontend/dist ./apps/k7/frontend/dist
+COPY --from=frontend-build /app/server-dist ./server-dist
+# Each account's file service is started from the bundle too, not from source under tsx.
+ENV STUDIO_FILE_SERVICE_ENTRY=/app/server-dist/file-service.mjs
 
 # k7's per-person preferences (packages/user-prefs/docs/store.md).
 ENV STUDIO_PREFS_DIR=/data/prefs
@@ -75,5 +80,7 @@ EXPOSE 8789
 WORKDIR /app/apps/k7/backend
 # Not root: the code under /app is root's and read-only to it; only the volumes above are its own.
 USER node
-# tsx to import the brain's TS source directly — see src/server.ts's own header.
-CMD ["/app/node_modules/.bin/tsx", "src/server.ts"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:8789/api/health || exit 1
+# The bundle, under plain node: no transpiler and no esbuild child per process (docs/images.md).
+CMD ["node", "/app/server-dist/backend.mjs"]

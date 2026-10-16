@@ -1,7 +1,13 @@
 // supervisor.ts — the app's supervisor: @studio/supervisor-host's SupervisorHost over a home and an engine port of its own.
 // Not the command-line engine's ~/.k7 and 8765, so the two coexist on one machine (docs/standalone.md).
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { line } from "@frediverse/electron-shell/log";
 import type { Snapshot } from "@studio/supervisor-host/hostProtocol";
@@ -21,16 +27,23 @@ export function startSupervisor(
 ): SupervisorHost {
   mkdirSync(home, { recursive: true });
   const settings = join(home, "engine-host.json");
-  // First run only: after that the file is the supervisor's, edited through its own commands.
-  if (!existsSync(settings))
-    writeFileSync(
-      settings,
-      JSON.stringify(
-        { registryUrls: [registryUrl], port: ENGINE_PORT },
-        null,
-        2,
-      ),
-    );
+  // The rest of the file is the supervisor's; its studios are not: this engine is reached from the LAN only (docs/engine.md).
+  let kept: Record<string, unknown> = { port: ENGINE_PORT };
+  try {
+    if (existsSync(settings))
+      kept = JSON.parse(readFileSync(settings, "utf8")) as Record<
+        string,
+        unknown
+      >;
+  } catch {
+    // Unreadable: the supervisor would read it as its defaults, and so do we.
+  }
+  const pinned = { ...kept, registryUrls: [registryUrl] };
+  if (JSON.stringify(kept) !== JSON.stringify(pinned)) {
+    const tmp = `${settings}.tmp`;
+    writeFileSync(tmp, JSON.stringify(pinned, null, 2));
+    renameSync(tmp, settings);
+  }
   let lastStatus = "";
   const host = new SupervisorHost({
     bin,

@@ -220,26 +220,27 @@ bool install(const Instrument& i, const std::function<void(const Progress&)>& re
     // A big archive over a slow line: bounded, but in the scale of a download and not of a heartbeat.
     req.timeoutSeconds = 3600;
     req.followRedirects = true;
+    // A `.part` left by a cut download is resumed rather than fetched again (docs/instruments.md).
+    const bool resumed = fs::is_regular_file(part, ec);
     // The total is the PINNED size: on a chunked response the client's own "total" is only the current chunk's.
     const auto res = http::download(req, part, [&](std::uint64_t received) {
         report({std::min(received, i.bytes), i.bytes, "downloading"});
     });
+    // Kept on failure: what arrived is a prefix the next try resumes from.
     if (!res.ok()) {
-        fs::remove(part, ec);
         error = res.status ? i.url + " answered " + std::to_string(res.status) : res.error;
         return false;
     }
     const auto hash = sha256Of(part);
     if (hash != i.sha256) {
         fs::remove(part, ec);
-        error = "the archive changed upstream (sha256 " + hash + "), refused";
+        error = resumed ? "the resumed archive does not match its pin (sha256 " + hash + "); the next try downloads it whole"
+                        : "the archive changed upstream (sha256 " + hash + "), refused";
         return false;
     }
     report({i.bytes, i.bytes, "unpacking"});
-    if (!unpackZip(part, folder, error)) {
-        fs::remove(part, ec);
-        return false;
-    }
+    // A verified archive is kept when it cannot be unpacked: the next try finds it whole and downloads nothing.
+    if (!unpackZip(part, folder, error)) return false;
     fs::remove(part, ec);
     std::ofstream(folder / kMarker) << i.sha256 << "\n";
     return true;

@@ -62,6 +62,7 @@ public:
 
     /** Set BEFORE the plugin is inserted, so the audio thread never sees it without one. */
     void setLink(std::shared_ptr<MixLink> link) { link_ = std::move(link); }
+    const std::shared_ptr<MixLink>& link() const { return link_; }
 
 private:
     std::shared_ptr<MixLink> link_;
@@ -89,24 +90,31 @@ public:
     bool producesAudioWhenNoAudioInput() override { return false; }
     int getNumOutputChannelsGivenInputs(int n) override { return juce::jmin(n, 2); }
     void initialise(const tracktion::engine::PluginInitialisationInfo&) override;
+    // A rebuild at the same rate and block size comes here, not to `initialise`: the module's latency may have moved.
+    void initialiseWithoutStopping(const tracktion::engine::PluginInitialisationInfo&) override;
     void deinitialise() override {}
     void restorePluginStateFromValueTree(const juce::ValueTree&) override {}
     void applyToBuffer(const tracktion::engine::PluginRenderContext&) override;
 
     void setLink(std::shared_ptr<MixLink> link, tracktion::engine::Plugin::Ptr module);
     const std::shared_ptr<MixLink>& link() const { return link_; }
+    /** The module this blend belongs to: how it is found, wherever it sits. */
+    const tracktion::engine::Plugin* module() const { return module_.get(); }
+    /** Read the module's latency again: a reload that changes it (a NAM model, a cabinet) calls this. MESSAGE thread. */
+    void refreshLatency();
 
 private:
     std::shared_ptr<MixLink> link_;
     // The module it blends around: its latency, and whether it is bypassed.
     tracktion::engine::Plugin::Ptr module_;
     std::atomic<int> latency_{0};
+    std::atomic<double> sampleRate_{0.0};
     // The gains the last block ENDED on, so a turn of the knob ramps instead of stepping.
     float lastWet_ = -1.0f, lastDry_ = 0.0f;
     float lastOut_ = -1.0f;
 };
 
-/** The blend after `module`, or null when the module has no `@mix`. */
+/** The blend of `module`, found by the module it names rather than by position, or null when it has no `@mix`. */
 MixBlendPlugin* mixBlendOf(tracktion::engine::Plugin& module);
 
 /** Set `module`'s blend, putting the pair around it the first time. MESSAGE thread. */
@@ -119,8 +127,11 @@ void setModuleOutputDb(tracktion::engine::Plugin& module, double db);
 /** A stage's three values as a UI reads them: `@mix`, `@input-volume`, `@output-volume`. */
 std::vector<std::pair<std::string, double>> stageParams(tracktion::engine::Plugin& module);
 
-/** Where the NEXT module goes in `list`: past `module` and its blend. */
+/** Where the NEXT module goes in `list`: past `module` and its blend, and past anything between them. */
 int indexAfterModule(tracktion::engine::PluginList& list, tracktion::engine::Plugin* module);
+
+/** Where something that comes BEFORE `module` goes: before its split, so the module's input trim stays its own. */
+int indexBeforeModule(tracktion::engine::PluginList& list, tracktion::engine::Plugin* module);
 
 /** Which way a plugin's OWN blend param is held once the engine owns the blend: +1 all wet, -1 no dry, 0 not one. */
 int ownMixSide(const std::string& paramName);

@@ -5,7 +5,8 @@
 //
 // A synth plays into a Volume & Pan at 0: all wet is silence, so the level that comes out is the
 // dry signal alone. Measured with no @mix, then at 0 (all dry), 0.5 (-3 dB) and 1 applied LIVE, as a
-// knob sends them, then at 0.5 through the document and with it removed again (docs/mix.md).
+// knob sends them, then at 0.5 through the document and with it removed again. Between, waveform
+// taps are opened on the module, which must not come between it and its pair (docs/mix.md).
 
 import WebSocket from "ws";
 
@@ -144,6 +145,16 @@ ws.on("open", async () => {
   const dry = await measure();
   set(0.5);
   const half = await measure();
+  // A client opens the module's waveform, both sides: the knob must still drive the SAME pair.
+  for (const side of ["output", "input"])
+    send({ type: "subscribe-waveform", id: "lane:vol", side });
+  await wait(300);
+  set(0);
+  const tappedDry = await measure();
+  set(0.5);
+  const tappedHalf = await measure();
+  for (const side of ["output", "input"])
+    send({ type: "unsubscribe-waveform", id: "lane:vol", side });
   set(1);
   const wet = await measure();
   // The same through the DOCUMENT, as a `mix:` edit in the module file reaches it: set, then removed.
@@ -159,6 +170,8 @@ ws.on("open", async () => {
   console.log(`no @mix   ${fmt(none)}`);
   console.log(`@mix 0    ${fmt(dry)}`);
   console.log(`@mix 0.5  ${fmt(half)}`);
+  console.log(`tapped 0  ${fmt(tappedDry)}`);
+  console.log(`tapped .5 ${fmt(tappedHalf)}`);
   console.log(`@mix 1    ${fmt(wet)}`);
   console.log(`doc 0.5   ${fmt(fromDoc)}`);
   console.log(`doc none  ${fmt(removed)}`);
@@ -168,6 +181,8 @@ ws.on("open", async () => {
     wet < dry - 30 &&
     dry > -40 &&
     Math.abs(half - (dry - 3)) < 1 &&
+    Math.abs(tappedDry - dry) < 1 &&
+    Math.abs(tappedHalf - (dry - 3)) < 1 &&
     Math.abs(fromDoc - (dry - 3)) < 1 &&
     removed < dry - 30;
   console.log(ok ? "OK — the engine blends the dry signal back in" : "ECHEC");

@@ -3,5 +3,6 @@
   "port": 8765,
   "audioPriority": [],
   "instruments": ["all"],
-  "machineName": ""
+  "machineName": "",
+  "deviceToken": ""
 }

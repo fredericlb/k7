@@ -22,10 +22,6 @@ for (const p of builtinBrowserPlugins()) {
     // is the mount, so the narrowing is here and nowhere else — docs/sdk.md. ONE drawer serves
     // both mounts today: the ring slot and a device hand it overlapping ctx, and the drawer
     // takes the subset it needs. Distinct per-mount drawers are a phase-4 fork of this loop.
-    // The SDK's contribution takes `never` (a drawer typed where it is MOUNTED); this registry
-    // is the mount, so the narrowing is here and nowhere else — docs/sdk.md. ONE drawer serves
-    // both mounts today: the ring slot and a device hand it overlapping ctx, and the drawer
-    // takes the subset it needs. Distinct per-mount drawers are a phase-4 fork of this loop.
     const contribution = pane as unknown as PaneDrawerContribution;
     registerSurfacePane({
       type: contribution.type,

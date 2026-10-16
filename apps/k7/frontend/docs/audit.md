@@ -23,6 +23,23 @@ parse of the whole compiled project, and a fresh object for the clip panel to re
 document moves when a file is WRITTEN, which moves the change token, so it is fetched once per
 token (`hooks/useDocPerRevision.ts`), and the effect re-runs once when a save lands.
 
+## The shell keeps still while you type or drag
+
+`App` is one 5 000-line component, so each of its renders reconciles every mounted pane. Three
+things a pane says at the rate of input are kept out of its state, or bail when unchanged:
+
+- **The editor names an open sequence by path.** Its text is re-sent on every keystroke, and the
+  shell reads only the path (the `hover_midi_sequence` condition); carrying the text made each
+  keystroke a new target. `EditFocus` (`src/shellEquality.ts`) has no text field, so it cannot come back.
+- **The status line is a store, not state** (`src/statusLine.ts`, read by `StatusText.tsx`): a move,
+  a resize or a selection re-states it per snapped cell, and only the line's span re-renders.
+- **The timeline's view and the waveform prewarm bail when unchanged** (`keepIfEqual`): the first
+  is re-sent as a fresh object on every caret move, the second polled every 350 ms. The prewarm's
+  loop also stops when the shell unmounts, rather than setting state on a dead hook.
+
+The tooltips' shortcuts read one inverted map per change of the person's keys (`commandKeyMap`),
+and the minimap is memoised, since none of the shell's other reasons to render moves its props.
+
 ## A camera take is never thrown away
 
 A video take lives only in the tab until `fileClip` stores it, and a camera cannot play the same
@@ -30,6 +47,18 @@ take twice. When the store fails, the take is saved to the person's downloads un
 and the status line says so — dropping that file on the lane files and places it as any dropped
 video is. A MIDI take needs no such door: its whole `sequence note add` line is written to the log
 before it is sent.
+
+## The first screen carries no editor
+
+The home page, the sign-in and the public rehearsal page share one entry chunk, and every static import
+from it is paid before the first row is drawn. What lives behind a click is therefore behind a dynamic
+import: the home's other pages (`appMain.tsx`), CodeMirror in the médiathèque
+(`packages/ui-library/docs/audit.md`), the desk and the viewport in the editor
+(`packages/k7-plugins/docs/plugins.md`), and the icon set, which the context menu asks for only when one of
+its rows carries a picked icon (`docs/shell.md`). A module reached through a package's barrel is pulled
+into the entry whenever the bundler cannot prove it inert — a top-level `lazy()` call is enough — so
+`@studio/ui-library` declares itself free of side effects. The chunks to read after such a change are
+`appMain-*` and `App-*`; `vite build --sourcemap` lists what is in each.
 
 ## The backend
 
@@ -66,8 +95,10 @@ builder and this app's backend call the same `bindableNames`.
    the clip panel's player read `s.playhead` through a selector, so their canvas is redrawn on
    every frame. The playhead also moves the purple "played" fill, so a one-pixel overlay is not
    the whole answer — `docs/constat.md` holds this as a design lot.
-2. **`App.tsx` is 4 260 lines and re-renders its hidden panels.** `docs/constat.md` asks for a
-   profile before any change, and none has been taken since lots C and D. `TimelineTab.tsx`
+2. **`App.tsx` is 5 300 lines and re-renders its hidden panels.** The input-rate renders are gone
+   (above); what remains is a render per real change of shell state, which still reconciles every
+   pane. `docs/constat.md` asks for a profile before memoising the panes themselves, and none has
+   been taken since lots C and D. `TimelineTab.tsx`
    (3 340), `EditorTab.tsx` (1 480), `PianoRoll.tsx` (1 160) and six more are over this repo's
    500-line bar too; splitting them is the same work as memoising them, and wants that profile.
 3. **Writes to the file service have no budget.** Deliberately, for the reason above; a hung write

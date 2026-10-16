@@ -60,8 +60,8 @@ declares several ([ports.md](ports.md)). Two plugs of one name on one side are r
 is what a cable names.
 
 The ref is spelled like a chain's — `@k7-core/turntable`, the level plus the path under the family
-folder. The one this repo ships is `packages/dsp/assemblies/turntable/`, a **place to copy from and
-never a seed**: nothing in this build puts files in somebody's library repository.
+folder. The one this repo ships is `k7-core/assemblies/turntable/`, in the seed a library is
+copied from.
 
 ### The instance — a flat entity folder in the project
 

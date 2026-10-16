@@ -19,6 +19,8 @@ const raw = defineEnv(
     POCKETBASE_EMAIL: z.string().optional(),
     POCKETBASE_PASSWORD: z.string().optional(),
     CACHE_MAX_GB: z.string().optional(),
+    // How many ffmpeg run at once across every account; the others queue — ../docs/audio.md.
+    K7_FFMPEG_CONCURRENCY: z.string().optional(),
     // The local audio cache and the uploads in flight; under the home directory so a dev run needs no volume.
     K7_DATA_DIR: z.string().optional(),
     // `local` on a desktop or a phone: releases and pages are the paired server's, forwarded there — ../docs/publications.md.
@@ -53,6 +55,10 @@ export const env = {
       : null,
   // The local audio cache holds copies the médiathèque can refill, trimmed oldest-first past this (../docs/audit.md).
   cacheMaxBytes: (Number(raw.CACHE_MAX_GB) || 20) * 1024 ** 3,
+  ffmpegConcurrency: Math.max(
+    1,
+    Math.floor(Number(raw.K7_FFMPEG_CONCURRENCY)) || 2,
+  ),
   // Read as k7 and z0 read the same variable — ../docs/ownership.md.
   adminGroups: raw.AUTH_ADMIN_GROUPS.split(",")
     .map((g) => g.trim())

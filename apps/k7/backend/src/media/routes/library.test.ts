@@ -15,18 +15,24 @@ import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { libraryRouter } from "./library.ts";
 
-// The router alone, no auth: this covers the upload's contract, not who may call it.
+// The router alone, with a session user stubbed in: an admin unless a test says otherwise.
 let root: string;
 let server: Server;
 let base: string;
+let groups: string[] = ["admins"];
 
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), "mediatek-http-"));
   process.env.STUDIO_MEDIATEK = root;
+  process.env.AUTH_ADMIN_GROUPS = "admins";
   ensureLayout();
   const app = express();
   // Mounted as server.ts does, json included: a global json() ahead of raw() can eat a body.
   app.use(express.json({ limit: "1mb" }));
+  app.use((req, _res, next) => {
+    (req as { user?: unknown }).user = { sub: "u", groups };
+    next();
+  });
   app.use("/api/mediatek", libraryRouter);
   server = await new Promise<Server>((ok) => {
     const s = app.listen(0, () => ok(s));
@@ -37,6 +43,9 @@ beforeEach(async () => {
 afterEach(async () => {
   await new Promise((ok) => server.close(ok));
   delete process.env.STUDIO_MEDIATEK;
+  delete process.env.AUTH_ADMIN_GROUPS;
+  delete process.env.STUDIO_LOCAL_USER;
+  groups = ["admins"];
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -363,5 +372,84 @@ describe("GET /search and /list", () => {
     const r = await fetch(`${base}/api/mediatek/list?family=bogus`);
     expect(r.status).toBe(400);
     expect(((await r.json()) as { error: string }).error).toBe(FAMILY_ERROR);
+  });
+});
+
+// One library for every account: what removes or reshapes it is an admin's (../../../docs/media/gate.md).
+describe("who may remove or move", () => {
+  const del = (route: string, q: Record<string, string>) =>
+    fetch(`${base}/api/mediatek/${route}?${new URLSearchParams(q)}`, {
+      method: "DELETE",
+    });
+  const move = (from: string, to: string) =>
+    fetch(`${base}/api/mediatek/move`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ from, to }),
+    });
+  const song = "songs/Miles Davis/Kind of Blue/So What";
+
+  it("refuses a non-admin every removal with a 403, and removes nothing", async () => {
+    await post(tags, "ID3");
+    writeFileSync(join(root, "samples/loose.wav"), "RIFF");
+    groups = [];
+    for (const res of [
+      await del("folder", { path: "songs/Miles Davis" }),
+      await del("file", { path: "samples/loose.wav" }),
+      await del("variant", { path: song, name: "x" }),
+    ]) {
+      expect(res.status).toBe(403);
+      expect(((await res.json()) as { error: string }).error).toMatch(/admin/);
+    }
+    expect(existsSync(folder())).toBe(true);
+    expect(existsSync(join(root, "samples/loose.wav"))).toBe(true);
+  });
+
+  it("refuses a non-admin a folder move and a move that would replace a file", async () => {
+    await post(tags, "ID3");
+    writeFileSync(join(root, "samples/a.wav"), "A");
+    writeFileSync(join(root, "samples/b.wav"), "B");
+    groups = [];
+    expect((await move("songs/Miles Davis", "songs/Someone")).status).toBe(403);
+    expect((await move("samples/a.wav", "samples/b.wav")).status).toBe(403);
+    expect(readFileSync(join(root, "samples/b.wav"), "utf8")).toBe("B");
+    expect(existsSync(folder())).toBe(true);
+  });
+
+  it("lets a non-admin rename a file to a free name", async () => {
+    writeFileSync(join(root, "samples/a.wav"), "A");
+    groups = [];
+    expect((await move("samples/a.wav", "samples/c.wav")).status).toBe(200);
+    expect(existsSync(join(root, "samples/c.wav"))).toBe(true);
+  });
+
+  it("lets an admin remove and move", async () => {
+    await post(tags, "ID3");
+    writeFileSync(join(root, "samples/loose.wav"), "RIFF");
+    expect((await move("songs/Miles Davis", "songs/Someone")).status).toBe(200);
+    expect((await del("folder", { path: "songs/Someone" })).status).toBe(200);
+    expect((await del("file", { path: "samples/loose.wav" })).status).toBe(200);
+    expect(existsSync(join(root, "songs/Someone"))).toBe(false);
+  });
+
+  it("lets a device's own local user manage its library", async () => {
+    await post(tags, "ID3");
+    groups = [];
+    process.env.STUDIO_LOCAL_USER = "1";
+    expect((await del("folder", { path: "songs/Miles Davis" })).status).toBe(
+      200,
+    );
+  });
+
+  it("tells the UI whether the caller may manage", async () => {
+    const manage = async () =>
+      (
+        (await (await fetch(`${base}/api/mediatek`)).json()) as {
+          manage: boolean;
+        }
+      ).manage;
+    expect(await manage()).toBe(true);
+    groups = [];
+    expect(await manage()).toBe(false);
   });
 });

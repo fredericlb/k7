@@ -123,6 +123,11 @@ export class FileHub {
   private readonly key: Buffer;
   /** The origin's libraries: the list and the one folder of each. */
   readonly libraries: LibraryStore;
+
+  /** The account a device token was minted for, or null: what the engine registry asks of a heartbeat. */
+  deviceAccount(token: string): string | null {
+    return this.devices.verify(token)?.slug ?? null;
+  }
   /** The live-sync routes beside the relay: devices, pairing, rooms, blobs, history — syncRoutes.ts. */
   readonly sync: SyncRoutes;
 

@@ -21,7 +21,9 @@ Inside the Android app (`engine/k7-runtime/docs/android.md`) the line above move
 reason it was drawn: the process on the machine is the app k7 is running in, and the phone has no
 config file to hand its user. So the page's first sections are **this phone's engine** —
 `settings/AndroidEngineSection.tsx`: the engine's state and Quit, the studios it is listed at and
-which one the apps open, the private CA. The hint that sends a browser to the engine's machine is not drawn there, since
+which one the apps open, the instruments it downloads, the private CA. The Downloads section is the
+desktop page's own (`settings/InstrumentsSection.tsx`), since what a phone keeps is chosen the same
+way (`engine/k7-supervisor/docs/instruments.md`). The hint that sends a browser to the engine's machine is not drawn there, since
 that machine is this one.
 
 They are drawn only when `window.k7Android` is there (`settings/androidEngine.ts`), which the app

@@ -40,6 +40,12 @@ target_include_directories(studio_pairing_tests PRIVATE ${CMAKE_CURRENT_SOURCE_D
 target_link_libraries(studio_pairing_tests PRIVATE nlohmann_json::nlohmann_json)
 add_test(NAME studio_pairing_tests COMMAND studio_pairing_tests)
 
+# --- Supersede tests ----------------------------------------------------------
+# Which queued project, tracks and parameter jobs a newer message skips: Supersede.h is header-only and JUCE-free.
+add_executable(studio_supersede_tests Supersede_test.cpp)
+target_include_directories(studio_supersede_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../server)
+add_test(NAME studio_supersede_tests COMMAND studio_supersede_tests)
+
 # --- Session registry tests ---------------------------------------------------
 # A THIRD fast binary, kept apart only because each test file owns a main(). SessionRegistry.h is
 # header-only and JUCE-free, so this links nothing and shares the "builds in seconds" property.

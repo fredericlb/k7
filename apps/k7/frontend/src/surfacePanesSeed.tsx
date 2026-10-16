@@ -35,6 +35,7 @@ export function seedSurfacePanes(): void {
         paramsStore={ctx.paramsStore}
         setPluginParam={ctx.setPluginParam}
         watchPluginParams={ctx.watchPluginParams}
+        command={ctx.commands.quietCommand}
       />
     ),
   });

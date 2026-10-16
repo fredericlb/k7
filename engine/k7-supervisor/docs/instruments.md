@@ -7,7 +7,8 @@ and a module names one as `@instruments/<name>/<file>.sfz`.
 ## The machine keeps what its musician chose
 
 **Nothing is downloaded until it is asked for**, on the desktop app's Engine page
-(`apps/k7-standalone/docs/engine.md`), or in `instruments` in the command-line engine's config file —
+(`apps/k7-standalone/docs/engine.md`), in the Downloads section of k7's settings inside the Android
+app (`engine/k7-runtime/docs/android.md`), or in `instruments` in the command-line engine's config file —
 `["all"]` keeps every one (`docs/supervisor.md`). The list runs to gigabytes — the piano alone is 750 MB, the drum
 kits more — and a machine that never plays a piano should not pay for one. What is chosen is
 remembered in `engine-host.json` as `instruments`, the names this machine keeps:
@@ -17,9 +18,9 @@ remembered in `engine-host.json` as `instruments`, the names this machine keeps:
 - **Absent is not empty.** A home that has never chosen is settled on its first boot to the
   instruments already installed there, so an update keeps what an older supervisor fetched and
   downloads nothing new. An empty list is a choice to keep nothing, and stays one.
-- **A host with nowhere to choose keeps them all**: the phone starts the supervisor with
-  `STUDIO_INSTRUMENTS=all`, which outranks the setting. They have nowhere to
-  choose, and a module that stays silent with no way to fix it is worse than the download.
+- **`STUDIO_INSTRUMENTS=all` keeps them all** and outranks the setting, for a host with nowhere to
+  choose. No app sets it: each has a Downloads section, and a phone is the host that can least
+  afford gigabytes it did not ask for, often over a metered network.
 
 **One at a time, in the order asked.** The queue runs on a thread of its own; the engine plays
 while it runs, and a song that names an instrument still missing loads it the moment it lands.
@@ -51,10 +52,34 @@ the list is updated.
 
 The archive is downloaded beside the folder (`<name>.zip.part`), unpacked into a sibling, renamed
 into place, and the marker `.k7-archive` — the hash it came from — written last. `installed` reads
-that marker: a download cut short leaves no marker and is started over at the next supervisor start,
-and a list that pins a NEW archive replaces an older install. A name in the archive that would land
-outside the folder is refused. One folder and nothing else at the top — what GitHub serves — is
-dropped, so `<file>.sfz` sits directly under `<name>/`.
+that marker: a download cut short leaves no marker, only its `.part`, and is taken up again at the
+next supervisor start; a list that pins a NEW archive replaces an older install. A name in the
+archive that would land outside the folder is refused. One folder and nothing else at the top — what
+GitHub serves — is dropped, so `<file>.sfz` sits directly under `<name>/`.
+
+## A cut download is resumed, and the hash still judges the whole
+
+The largest archive is over a gigabyte, and the machine that fetches it is often a phone, killed in
+the background or moved between networks. Started over each time, it might never land. So a `.part`
+left behind is RESUMED: `http::download` asks for the bytes past its length with a `Range` header.
+
+- **206 starting at that length** — the answer is appended to the `.part`.
+- **200** — the server cannot resume (GitHub's generated zips, the piano among them), and the
+  answer replaces the `.part` whole.
+- **416 naming the `.part`'s own length as the size** — it is already whole: nothing is fetched,
+  and the hash decides.
+- **416 otherwise, or a 206 starting elsewhere** — what is there is no prefix to trust: dropped, and
+  the download starts from zero in the same call.
+
+The answer goes to a file beside the `.part` until its status says which of these it is, since the
+HTTP client hands over the body before it hands over the status. A transfer cut short keeps what it
+brought, and an error page never lands in the `.part`.
+
+Nothing in a resume is trusted beyond what the hash proves: the WHOLE `.part` is hashed before it is
+unpacked, as it would be after one uninterrupted download. A resumed archive that does not match is
+deleted and the error says the next try downloads it whole, since a mismatch there can be a bad
+prefix rather than an upstream change. A verified archive that fails to unpack is kept, so the next
+try finds it whole and fetches nothing.
 
 ## What an app shows
 

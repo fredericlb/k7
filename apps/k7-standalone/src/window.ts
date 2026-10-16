@@ -1,5 +1,6 @@
 // window.ts — the app's one window: the tab strip IS its title bar, and below it the tab in front. See docs/tabs.md.
 // The strip is k7's own `/@tabs` page in a view of its own; the window frame is hidden on every platform.
+// It opens before the backend answers, on a splash: `start` is what loads the strip and k7's home.
 
 import { line } from "@frediverse/electron-shell/log";
 import { tabsUrl } from "@studio/web-protocol/projects";
@@ -26,8 +27,10 @@ const SYMBOLS = "#92929e";
 export interface TabbedWindowSpec {
   /** The app's origin; the strip is served from it. */
   origin: string;
-  /** The home tab's first page — a sign-in that comes back home. */
+  /** The home tab's first k7 page — a sign-in that comes back home — loaded by `start`. */
   homeUrl: string;
+  /** What the home tab shows until `start`: a page that needs no server. */
+  splashUrl: string;
   webPreferences: WebPreferences;
   icon?: string;
   /** The strip's button, or a page's own Sign in: the sign-in runs in the system browser; `server` is the one typed, if any. */
@@ -41,6 +44,10 @@ export interface TabbedWindowSpec {
 export interface TabbedWindow {
   win: BaseWindow;
   focus: () => void;
+  /** The backend answers: the strip and the home page load. */
+  start: () => void;
+  /** The start failed: the home tab shows `url`, a page that needs no server. */
+  fail: (url: string) => void;
   /** Another account: the project tabs close and home loads `url`. */
   reset: (url: string) => void;
 }
@@ -72,6 +79,8 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
   });
 
   const strip = new WebContentsView({ webPreferences: spec.webPreferences });
+  // Empty until `start`, and the same colour as the frame rather than a white bar.
+  strip.setBackgroundColor(BACKGROUND);
   win.contentView.addChildView(strip);
   const tabs = new TabSet({
     parent: win.contentView,
@@ -115,9 +124,6 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
 
   // The insets ride in the address because the page is the same build on every platform.
   const stripUrl = `${tabsUrl(spec.origin)}?inset=${mac ? MAC_INSET : 0}&right=${mac ? 0 : CAPTION_INSET}`;
-  strip.webContents.loadURL(stripUrl).catch((e: unknown) => {
-    line("app", `the tab strip could not load: ${String(e)}`);
-  });
   // Fullscreen hides macOS's traffic lights: the room kept for them would be a dark gap left of the tabs.
   const tellFullscreen = () => {
     if (!strip.webContents.isDestroyed())
@@ -152,7 +158,7 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
   // Simple fullscreen is a resize, and says nothing else: the strip is re-told on every one.
   win.on("resize", tellFullscreen);
 
-  tabs.openHome(spec.homeUrl);
+  tabs.openHome(spec.splashUrl);
 
   win.on("closed", () => {
     ipcMain.off("studio:tabs:select", onSelect);
@@ -172,5 +178,12 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
       win.focus();
     },
     reset: (url) => tabs.reset(url),
+    start: () => {
+      strip.webContents.loadURL(stripUrl).catch((e: unknown) => {
+        line("app", `the tab strip could not load: ${String(e)}`);
+      });
+      tabs.reset(spec.homeUrl);
+    },
+    fail: (url) => tabs.reset(url),
   };
 }

@@ -10,7 +10,7 @@ import { useRelook } from "@studio/engine-browser/relook";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import type { PublicEngine } from "@studio/web-protocol";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { engines } from "../api";
 import { useLibraryHost } from "../host";
 
@@ -19,9 +19,8 @@ export interface SongEngine {
   available: boolean;
   /** Which engine answered: what the server is asked about when a song must reach its machine. */
   engineId: string | null;
-  /** Whether the engine says it is playing, and where its playhead is. */
+  /** Whether the engine says it is playing; its playhead goes to `onFrame`, not into React state. */
   playing: boolean;
-  playhead: number;
   /** The last thing it complained about, which is the only account of silence. */
   warning: EngineWarning | null;
   /** Send a document and start the transport; leaving `fromSeconds` out plays silence. */
@@ -33,11 +32,19 @@ export interface SongEngine {
   seek: (seconds: number) => void;
 }
 
+/** Every state frame's transport, ~20 Hz: handed out rather than held, so it re-renders nothing by itself. */
+export type EngineFrame = (playing: boolean, playhead: number) => void;
+
 /** @param connected whether the account's destination IS the engine — see ../../docs/playbackTarget.md. */
-export function useSongEngine(connected: boolean): SongEngine {
+export function useSongEngine(
+  connected: boolean,
+  onFrame?: EngineFrame,
+): SongEngine {
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
-  const [playhead, setPlayhead] = useState(0);
+  // In a ref: the socket's subscription must call the latest one without being reopened.
+  const frame = useRef(onFrame);
+  frame.current = onFrame;
   const [warning, setWarning] = useState<EngineWarning | null>(null);
   const relook = useRelook();
   const { user } = useLibraryHost();
@@ -78,7 +85,7 @@ export function useSongEngine(connected: boolean): SongEngine {
     // The transport as the engine reports it: a session can already be rolling when this tab opens.
     c.onState((s) => {
       setPlaying(s.playing);
-      setPlayhead(s.playhead);
+      frame.current?.(s.playing, s.playhead);
     });
     // Kept rather than dropped: this is how the engine says a clip could not be opened.
     c.onWarning(setWarning);
@@ -93,7 +100,6 @@ export function useSongEngine(connected: boolean): SongEngine {
       c.dispose();
       client.current = undefined;
       setPlaying(false);
-      setPlayhead(0);
     };
   }, [connected, chosenId, user]);
 
@@ -105,31 +111,30 @@ export function useSongEngine(connected: boolean): SongEngine {
     setWarning(null);
     c.sendProject(doc);
     // Between the document and the verb: after `play` it would be heard as a jump.
-    if (fromSeconds !== undefined) {
-      c.seek(fromSeconds);
-      setPlayhead(Math.max(0, fromSeconds));
-    }
+    if (fromSeconds !== undefined) c.seek(fromSeconds);
     c.transport("play");
   }, []);
 
   const stop = useCallback(() => client.current?.transport("stop"), []);
   const reset = useCallback(() => client.current?.dropSession(), []);
 
-  // Moved LOCALLY as well as sent, since the ~20 Hz frame lags a drag on the waveform.
+  // The caller moves its own cursor optimistically; the next frame is the engine's word.
   const seek = useCallback((seconds: number) => {
     client.current?.seek(seconds);
-    setPlayhead(Math.max(0, seconds));
   }, []);
 
-  return {
-    available: !!chosenId,
-    engineId: chosenId,
-    playing,
-    playhead,
-    warning,
-    play,
-    reset,
-    stop,
-    seek,
-  };
+  // One object per change that matters, so a consumer's callbacks stay put between frames.
+  return useMemo(
+    () => ({
+      available: !!chosenId,
+      engineId: chosenId,
+      playing,
+      warning,
+      play,
+      reset,
+      stop,
+      seek,
+    }),
+    [chosenId, playing, warning, play, reset, stop, seek],
+  );
 }

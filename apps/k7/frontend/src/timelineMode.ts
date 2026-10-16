@@ -16,6 +16,14 @@ export const timelineMode = (
   sel: unknown,
 ): TimelineMode => (move && !move.pending ? "move" : sel ? "select" : "normal");
 
+/** The beat step a key nudges a clip in hand by: h/l and the arrows, like the caret; j/k are rows and nudge nothing. */
+export const moveNudge = (key: string): -1 | 0 | 1 =>
+  key === "ArrowLeft" || key === "h"
+    ? -1
+    : key === "ArrowRight" || key === "l"
+      ? 1
+      : 0;
+
 /** The condition name a binding reads — `{ if: "tl_select", … }`, which is the truthiness test keys.ts already does. */
 export const modeCondition = (mode: TimelineMode): string => `tl_${mode}`;
 

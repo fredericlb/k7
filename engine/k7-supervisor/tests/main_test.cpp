@@ -17,6 +17,10 @@ void runTlsTests();
 void runInstrumentsTests();
 void runPathMapTests();
 void runPidFileTests();
+void runJobSlotsTests();
+void runLogTests();
+void runBackpressureTests();
+void runHttpTests();
 
 int main()
 {
@@ -34,5 +38,9 @@ int main()
     runInstrumentsTests();
     runPathMapTests();
     runPidFileTests();
+    runJobSlotsTests();
+    runLogTests();
+    runBackpressureTests();
+    runHttpTests();
     TEST_MAIN_END();
 }

@@ -86,13 +86,13 @@ object SyncPairing {
                 } catch (_: SocketTimeoutException) {
                     return
                 }
-                if (socket.use { answer(it, state, email, cookie) }) return
+                if (socket.use { answer(context, it, state, email, cookie) }) return
             }
         }
     }
 
     /** One request on the listener; true once the pairing is settled either way, false for a stray request. */
-    private fun answer(socket: Socket, state: String, email: String, cookie: String): Boolean {
+    private fun answer(context: Context, socket: Socket, state: String, email: String, cookie: String): Boolean {
         socket.soTimeout = 10_000
         val line = try {
             socket.getInputStream().bufferedReader().readLine()
@@ -114,9 +114,19 @@ object SyncPairing {
         val url = u.getQueryParameter("url").orEmpty()
         val token = u.getQueryParameter("token").orEmpty()
         val stored = local("PUT", "/api/sync/remote", cookie, JSONObject().put("url", url).put("token", token))
+        // The same token lists this phone's engine at that studio, which may admit paired machines only.
+        if (stored != null) SupervisorHost.rememberDeviceToken(context, originOf(url), token)
         reply(socket, if (stored != null) 200 else 500, if (stored != null) "This phone now syncs your workspaces. You can go back to k7." else "The pairing could not be stored on this phone.")
         Log.i(TAG, if (stored != null) "sync paired with $SYNC_ORIGIN" else "sync pairing could not be stored")
         return true
+    }
+
+    /** `wss://host/api/sync` as the studio's origin, `https://host`: the key the supervisor's registry list uses. */
+    private fun originOf(relay: String): String {
+        val u = runCatching { Uri.parse(relay) }.getOrNull() ?: return ""
+        val scheme = if (u.scheme == "ws") "http" else "https"
+        val host = u.host ?: return ""
+        return if (u.port > 0) "$scheme://$host:${u.port}" else "$scheme://$host"
     }
 
     private fun reply(socket: Socket, status: Int, said: String) {

@@ -121,6 +121,15 @@ back ten times a second and moves any parameter the synth moved and nobody touch
 keeps a knob from showing the old type's value. The writes skip the undo manager: they are the
 patch's, not an edit.
 
+**The timer never reads the synth.** The audio thread owns it while it renders — a type change
+rewrites a slot's range and value mid-block — so a message-thread read can see half of one, and a
+value read half-written would be pushed back as a parameter. Taking the lock instead is no option:
+the audio thread only tries it, and every tick that held it would be a silent block. So the timer
+ASKS, and the audio thread, holding the lock after its block, publishes the synth's values beside
+the `agreed` value of each; the next tick reads that copy. A parameter is moved only when the
+synth's value left the one agreed at that snapshot and nothing was pushed or touched since, so a
+snapshot up to a tick old cannot undo a knob turned meanwhile.
+
 **The panel is GENERATED** (`scripts/gen-surge-panel.mjs`, `npm run gen:surge-panel`) from
 `k7-runtime --dump-surge-layout`: the parameters with their ranges and choices, and what every
 oscillator and effect type calls its slots. Seven hundred binds typed by hand would drift from the

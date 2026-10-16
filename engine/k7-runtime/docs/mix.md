@@ -58,17 +58,23 @@ On a LANE, `@output-volume` is the mixer fader rather than this stage. On a modu
 are drawn by k7 on the second line of the card's header, never on the panel
 (`packages/ui-chains-react/docs/nodeCard.md`).
 
-## A split and a blend, found by adjacency
+## A split and a blend, found in the plugin list by what they name
 
-The first `@mix` below 1 puts two plugins of ours around the module: `MixSplitPlugin` right
-BEFORE it, which copies the input into a ring, and `MixBlendPlugin` right AFTER it, which mixes
-that dry signal back into the module's output. They share a `MixLink`; nothing else knows them.
+The first `@mix` below 1 puts two plugins of ours around the module: `MixSplitPlugin` BEFORE it,
+which copies the input into a ring, and `MixBlendPlugin` AFTER it, which mixes that dry signal back
+into the module's output. They share a `MixLink`; nothing else knows them.
 
-They are found by POSITION — the split is the module's left neighbour, the blend its right one —
-rather than kept in a map of the session's. So every place that places or removes a module has
-to step over them, and does: `indexAfterModule` for a module added after another (a full build,
-the master chain, a module added by the diff), `removeMixPair` for a module taken out. A map would
-be a second record of what the plugin list already says, and the one to go stale.
+They are found in the plugin list itself, rather than kept in a map of the session's: the blend is
+the one whose module is this module, the split the one sharing the blend's link. A map would be a
+second record of what the plugin list already says, and the one to go stale. They are NOT found by
+position: a waveform tap opened on the module, or anything else placed beside it later, would sit
+between the module and its blend, and a lookup by neighbour would then miss the pair and put a
+second one in, applying the input trim twice and adding the dry signal twice.
+
+Every place that places or removes a module still steps over them: `indexAfterModule` for a module
+added after another (a full build, the master chain, a module added by the diff) and for an OUTPUT
+tap, `indexBeforeModule` for an INPUT tap, which sees the signal before the trim, and
+`removeMixPair` for a module taken out.
 
 The pair appears on the first mix below 1, and stays: a mix set back to 1 leaves it in place,
 passing the output through untouched, so a knob swept to the end and back never rebuilds a chain.
@@ -76,8 +82,10 @@ A module that never had a mix never has a pair.
 
 ## The dry signal waits for the wet one
 
-The dry copy is read back delayed by the module's own latency, read in the blend's `initialise`,
-which Tracktion calls again whenever a latency change rebuilds the graph. Without it, a plugin
+The dry copy is read back delayed by the module's own latency. The blend reads it in `initialise`
+and in `initialiseWithoutStopping`, which is what Tracktion calls on a rebuild at the same rate and
+block size, and again when the diff RELOADS the module in place (a NAM model or a cabinet IR, whose
+latency moves with it), since no rebuild follows a reload. Without it, a plugin
 with lookahead would be blended against a dry signal ahead of it, a comb filter at every setting
 in between. Tracktion's own dry/wet does not do this.
 

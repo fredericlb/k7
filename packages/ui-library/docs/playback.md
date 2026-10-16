@@ -158,3 +158,17 @@ A document the session never held needs a `reset` before being sent: an apply is
 diff cannot remove a plugin the engine's stored document never mentioned. `lastSent` is what makes
 that "never held" precise — a pause and a resume of the same file must not rebuild the edit under
 the transport.
+
+## The position is not in the context
+
+`usePlayback()` carries what plays and how to drive it; WHERE the transport is lives in a store of
+its own (`src/playback/position.ts`), read with `usePlaybackPosition()`. The position moves up to
+60 times a second, and a value in the context re-renders every consumer of it — the library with
+its tree, the playlists, the queue, the destination picker — none of which draws a playhead. Only
+the bar and the open song's waveform read the store, and the waveform reads it only while its own
+version is the one playing.
+
+Every source writes into that store and none into React state: the browser's animation-frame loop,
+mpv's poll, and the engine's frames, which `useSongEngine` hands to a callback instead of holding —
+a playhead in its state would re-render the provider twenty times a second for nothing. The store
+drops a write that changes nothing, so a poll repeating the same duration notifies nobody.

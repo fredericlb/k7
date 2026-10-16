@@ -10,11 +10,11 @@
 #include "Separation.h"
 #include "Settings.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <random>
-#include <sstream>
 
 namespace k7 {
 
@@ -39,12 +39,16 @@ std::vector<std::string> splitLines(const std::string& s)
     return out;
 }
 
-std::string readAll(const fs::path& p)
+/** `count` bytes of `p` from `from`, fewer where the file ends first. */
+std::string readRange(const fs::path& p, std::uint64_t from, std::uint64_t count)
 {
     std::ifstream in(p, std::ios::binary);
-    std::stringstream buf;
-    buf << in.rdbuf();
-    return buf.str();
+    if (!in) return {};
+    in.seekg(static_cast<std::streamoff>(from));
+    std::string buf(static_cast<size_t>(count), '\0');
+    in.read(buf.data(), static_cast<std::streamsize>(count));
+    buf.resize(static_cast<size_t>(std::max<std::streamsize>(0, in.gcount())));
+    return buf;
 }
 
 /** Refuse a job whose `path` would write, or stamp, a file outside a root the server takes back. */
@@ -129,15 +133,25 @@ json readLog(std::optional<std::uint64_t> offset, std::optional<int> tail)
             break;
         }
     if (file.empty()) return {{"offset", 0}, {"lines", json::array()}};
-    const std::string buf = readAll(file);
-    const std::uint64_t size = buf.size();
+    const std::uint64_t size = fs::file_size(file, ec);
+    if (ec) return {{"offset", 0}, {"lines", json::array()}};
     if (offset && *offset <= size) {
+        // At most the cap per poll: a reader far behind catches up over several.
+        const std::uint64_t count = std::min(size - *offset, kLogReadCap);
+        const std::string buf = readRange(file, *offset, count);
         const size_t lastNl = buf.rfind('\n');
-        // Nothing complete since the offset yet.
-        if (lastNl == std::string::npos || lastNl < *offset) return {{"offset", *offset}, {"lines", json::array()}};
-        const std::uint64_t end = lastNl + 1;
-        return {{"offset", end}, {"lines", splitLines(buf.substr(*offset, end - *offset))}};
+        if (lastNl == std::string::npos) {
+            // A line longer than the cap would hold the reader in place forever, so it is skipped.
+            const std::uint64_t to = count == kLogReadCap ? *offset + count : *offset;
+            return {{"offset", to}, {"lines", json::array()}};
+        }
+        return {{"offset", *offset + lastNl + 1}, {"lines", splitLines(buf.substr(0, lastNl + 1))}};
     }
+    // Seeded from the tail, and again when a rotation left the reader's offset past the end.
+    const std::uint64_t count = std::min(size, kLogReadCap);
+    std::string buf = readRange(file, size - count, count);
+    // Started mid-file: the first line is a fragment.
+    if (count < size) buf.erase(0, std::min(buf.size(), buf.find('\n') + 1));
     auto all = splitLines(buf);
     const size_t n = static_cast<size_t>(std::max(1, tail.value_or(300)));
     if (all.size() > n) all.erase(all.begin(), all.end() - static_cast<long>(n));

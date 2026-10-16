@@ -2,7 +2,6 @@
 // A recording's BYTES live in the médiathèque, the store keeping its path; cached on disk for Range (../docs/audio.md).
 // What reads wrong: a short in-memory cache of rows stands between the routes and the store.
 
-import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -22,6 +21,7 @@ import {
 import { cachedFile, once, sweepRowCaches, trimDiskCache } from "./cache.ts";
 import * as db from "./db.ts";
 import { env } from "./env.ts";
+import { runTool } from "./ffmpeg.ts";
 import { serialized } from "./lock.ts";
 import * as mediatek from "./mediatek.ts";
 import { audioMimeOf } from "./serve.ts";
@@ -467,10 +467,7 @@ export async function addAnnotation(
     },
   ]);
   // Extract now so a saved moment plays on its own; best-effort, a failure leaves it be.
-  const validated = await extractMomentClip(uid, {
-    id,
-    fields: { StartSec: ann.startSec, EndSec: ann.endSec },
-  }).catch((e) => {
+  const validated = await extractMomentClip(uid, String(id)).catch((e) => {
     console.error("moment auto-extract failed:", e.message);
     return false;
   });
@@ -499,10 +496,9 @@ export async function updateAnnotation(uid, annId, patch) {
       fields.EndSec !== Number(before.fields.EndSec));
   if (rangeChanged) {
     safeUnlink(clipCachePath(annId));
-    await extractMomentClip(uid, {
-      id: annId,
-      fields: { ...before.fields, ...fields },
-    }).catch((e) => console.error("moment auto re-extract failed:", e.message));
+    await extractMomentClip(uid, annId).catch((e) =>
+      console.error("moment auto re-extract failed:", e.message),
+    );
   }
 
   const recs = await db.listRecords("Comments", { SessionUid: [uid] });
@@ -714,26 +710,50 @@ export async function deleteMomentMarker(ownerId, momentId, markerId) {
 
 // --- Moment validation (extract a standalone clip) --------------------------
 
+// One cut per moment at a time, each reading the row afresh: two quick drags end on the clip of the LAST span — ../docs/audio.md.
+function extractMomentClip(sessionUid, momentId): Promise<boolean> {
+  return serialized(`clip:${momentId}`, async () => {
+    const recs = await db.listRecords("Comments", { SessionUid: [sessionUid] });
+    const rec = recs.find((r) => r.id === momentId);
+    if (!rec) return false;
+    return extractMomentClipUnlocked(sessionUid, rec);
+  });
+}
+
 // A moment's timespan cut out of the session recording into its own clip — ../docs/audio.md.
-async function extractMomentClip(sessionUid, rec) {
+async function extractMomentClipUnlocked(sessionUid, rec) {
   const info = await ensureRecordingCached(sessionUid);
   if (!info) return false;
 
   const start = Number(rec.fields.StartSec);
   const end = Number(rec.fields.EndSec);
   const clip = await extractClip(info.filePath, start, end);
+  try {
+    await publishMomentClip(sessionUid, rec, clip, start, end);
+  } catch (e) {
+    safeUnlink(clip);
+    throw e;
+  }
+  return true;
+}
 
+// The cut file pushed from disk, then RENAMED into the cache: never whole in memory, never half-written where it is served.
+async function publishMomentClip(sessionUid, rec, clip: string, start, end) {
   // The moment's own envelope, so its view still draws a waveform once the session is gone.
   const sessionEnv = await getEnvelope(sessionUid);
   const sliced = sessionEnv ? sliceEnvelope(sessionEnv, start, end) : null;
 
   // Re-extracting replaces: the span or the name may have moved, so the old name is a lie.
   const previous = rec.fields.ClipPath;
-  const clipPath = await mediatek.pushMoment(clip, "webm", {
-    at: momentPlayedAt(await getSessionRecord(sessionUid), start),
-    durationSec: end - start,
-    label: rec.fields.Text,
-  });
+  const clipPath = await mediatek.pushMoment(
+    await fs.openAsBlob(clip),
+    "webm",
+    {
+      at: momentPlayedAt(await getSessionRecord(sessionUid), start),
+      durationSec: end - start,
+      label: rec.fields.Text,
+    },
+  );
   if (previous && previous !== clipPath) await mediatek.remove(previous);
 
   await db.patchRecord("Comments", rec.id, {
@@ -741,8 +761,9 @@ async function extractMomentClip(sessionUid, rec) {
     ClipPath: clipPath,
     Envelope: sliced ? JSON.stringify(sliced) : "",
   });
-  fs.writeFileSync(clipCachePath(rec.id), clip);
-  return true;
+  // A download of the previous clip still in flight would land over this one once it finished.
+  await fetching.get(clipCachePath(rec.id))?.catch(() => {});
+  fs.renameSync(clip, clipCachePath(rec.id));
 }
 
 /** When a moment was PLAYED: session start plus offset, not the annotation's CreatedAt. */
@@ -772,7 +793,7 @@ export async function validateMoment(sessionUid, momentId) {
   });
   const rec = moments.find((m) => m.id === momentId);
   if (!rec) return null;
-  const ok = await extractMomentClip(sessionUid, rec);
+  const ok = await extractMomentClip(sessionUid, rec.id);
   if (!ok) throw new Error("session has no recording to clip");
   return mapComment({ id: rec.id, fields: { ...rec.fields, Validated: true } });
 }
@@ -812,104 +833,82 @@ function clipCachePath(momentId) {
   return path.join(CACHE_DIR, `clip-${momentId}.webm`);
 }
 
+// A re-encode of hours of audio is minutes of CPU at most: past these, the child is stuck and is killed.
+const CONCAT_TIMEOUT_MS = 30 * 60_000;
+const CLIP_TIMEOUT_MS = 10 * 60_000;
+
 // Several audio files into one webm/opus FILE, through ffmpeg's concat filter; the caller owns the path it resolves.
-function concatRecordings(paths): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    const outPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.webm`);
-    const args = ["-y", "-hide_banner", "-loglevel", "error"];
-    for (const p of paths) args.push("-i", p);
-    // The concat filter needs identical parameters, so each input is coerced to one format.
-    const fmt =
-      "aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo";
-    const pre = paths.map((_, i) => `[${i}:a]${fmt}[a${i}]`).join(";");
-    const labels = paths.map((_, i) => `[a${i}]`).join("");
-    args.push(
-      "-filter_complex",
-      `${pre};${labels}concat=n=${paths.length}:v=0:a=1[a]`,
-      "-map",
-      "[a]",
-      "-c:a",
-      "libopus",
-      "-b:a",
-      "128k",
-      "-f",
-      "webm",
-      outPath,
-    );
-    const ff = spawn("ffmpeg", args);
-    let err = "";
-    ff.stderr.on("data", (d) => (err += d.toString()));
-    ff.on("error", (e) =>
-      reject(
-        new Error(
-          (e as NodeJS.ErrnoException).code === "ENOENT"
-            ? "ffmpeg is not installed (run: brew install ffmpeg)"
-            : e.message,
-        ),
-      ),
-    );
-    ff.on("close", (code) => {
-      if (code !== 0) {
-        safeUnlink(outPath);
-        return reject(new Error("ffmpeg concat failed: " + err.slice(-300)));
-      }
-      resolve(outPath);
+async function concatRecordings(paths): Promise<string> {
+  const outPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.webm`);
+  const args = ["-y", "-hide_banner", "-loglevel", "error"];
+  for (const p of paths) args.push("-i", p);
+  // The concat filter needs identical parameters, so each input is coerced to one format.
+  const fmt =
+    "aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo";
+  const pre = paths.map((_, i) => `[${i}:a]${fmt}[a${i}]`).join(";");
+  const labels = paths.map((_, i) => `[a${i}]`).join("");
+  args.push(
+    "-filter_complex",
+    `${pre};${labels}concat=n=${paths.length}:v=0:a=1[a]`,
+    "-map",
+    "[a]",
+    "-c:a",
+    "libopus",
+    "-b:a",
+    "128k",
+    "-f",
+    "webm",
+    outPath,
+  );
+  try {
+    await runTool("ffmpeg", args, {
+      timeoutMs: CONCAT_TIMEOUT_MS,
+      what: "ffmpeg concat",
     });
-  });
+  } catch (e) {
+    safeUnlink(outPath);
+    throw e;
+  }
+  return outPath;
 }
 
-// Cut [start, end] out of a source file into a webm/opus buffer using ffmpeg.
-function extractClip(srcPath, start, end) {
-  return new Promise<Buffer>((resolve, reject) => {
-    const duration = Math.max(0.05, end - start);
-    const outPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.webm`);
-    const args = [
-      "-y",
-      "-hide_banner",
-      "-loglevel",
-      "error",
-      "-ss",
-      String(start),
-      "-i",
-      srcPath,
-      "-t",
-      String(duration),
-      "-vn",
-      // EBU R128 normalization, so a standalone clip sits at -14 LUFS, true peak -1 dBTP.
-      "-af",
-      "loudnorm=I=-14:TP=-1.0:LRA=11",
-      "-c:a",
-      "libopus",
-      "-b:a",
-      "128k",
-      "-f",
-      "webm",
-      outPath,
-    ];
-    const ff = spawn("ffmpeg", args);
-    let err = "";
-    ff.stderr.on("data", (d) => (err += d.toString()));
-    ff.on("error", (e) =>
-      reject(
-        new Error(
-          (e as NodeJS.ErrnoException).code === "ENOENT"
-            ? "ffmpeg is not installed (run: brew install ffmpeg)"
-            : e.message,
-        ),
-      ),
-    );
-    ff.on("close", (code) => {
-      if (code !== 0)
-        return reject(new Error("ffmpeg failed: " + err.slice(-300)));
-      try {
-        const buf = fs.readFileSync(outPath);
-        fs.unlinkSync(outPath);
-        resolve(buf);
-      } catch (e) {
-        reject(e);
-      }
+// Cut [start, end] out of a source file into a temporary webm/opus FILE; the caller owns the path it resolves.
+async function extractClip(srcPath, start, end): Promise<string> {
+  const duration = Math.max(0.05, end - start);
+  const outPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.webm`);
+  const args = [
+    "-y",
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-ss",
+    String(start),
+    "-i",
+    srcPath,
+    "-t",
+    String(duration),
+    "-vn",
+    // EBU R128 normalization, so a standalone clip sits at -14 LUFS, true peak -1 dBTP.
+    "-af",
+    "loudnorm=I=-14:TP=-1.0:LRA=11",
+    "-c:a",
+    "libopus",
+    "-b:a",
+    "128k",
+    "-f",
+    "webm",
+    outPath,
+  ];
+  try {
+    await runTool("ffmpeg", args, {
+      timeoutMs: CLIP_TIMEOUT_MS,
+      what: "ffmpeg clip",
     });
-  });
+  } catch (e) {
+    safeUnlink(outPath);
+    throw e;
+  }
+  return outPath;
 }
 
 // --- Releases (standalone songs, unrelated to sessions/moments) -------------

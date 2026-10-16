@@ -79,8 +79,19 @@ kept whole under `snapshots/`. Loading a room is the saved state plus `entries.j
 segments, the snapshots and `checkpoints.json` are the workspace's history (`history.md`), never
 read to catch up.
 
+A room nobody is joined to, untouched for ten minutes and with its automatic checkpoint taken, is
+saved and dropped from memory; the next hello loads it as a restart would. Without that, every
+workspace ever opened stayed resident with its texts, its 2,000-entry log and its text bases, for
+the life of the process. The entries stay appended synchronously: on disk before relayed is what
+the paragraph above promises, and an append is cheap beside the whole-state save every 200.
+
 A restore from the history is submitted to the same live room the sockets feed, through the same
 path as a replica's batch, so it is on disk before it is relayed like any other entry.
+
+A replica's link reconnects after a jittered, doubling wait, and pings the relay itself: the relay's
+own ping ends sockets it no longer hears, but only the replica can tell that its socket went
+half-open — a laptop that slept, a Wi-Fi that changed — while it would otherwise go on sending into
+nothing and read as current.
 
 The order matters because of what a replica does on reconnecting. It says hello at the last `seq` it
 applied. A room that forgot entries it had already relayed would be BEHIND that replica, and would

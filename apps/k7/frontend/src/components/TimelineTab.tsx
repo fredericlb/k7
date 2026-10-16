@@ -101,10 +101,11 @@ import {
   rowTarget,
   stepRow,
 } from "../rows";
+import type { EditFocus } from "../shellEquality";
 import { freeSnap, moveOffset, snapMode, snapPosition, snapTo } from "../snap";
 import { recordingFrom } from "../takeCounter";
 import type { DropLane, DropUpload, TimelineDropEvent } from "../timelineDrop";
-import { type TimelineMode, timelineMode } from "../timelineMode";
+import { moveNudge, type TimelineMode, timelineMode } from "../timelineMode";
 import {
   CROSSFADE_BEATS,
   crossfadePair,
@@ -623,7 +624,7 @@ export function TimelineTab({
   /** …and how far that upload has got, drawn at the foot of the pane — the file tree's bar, over here. */
   dropUpload?: DropUpload | null;
   setStatus: (s: string) => void;
-  onEditTarget: (t: EditTarget | null) => void; // the clip under the caret, for the Editor panel
+  onEditTarget: (t: EditFocus | null) => void; // the clip under the caret, for the shell
   // A clip was CLICKED — a press that never moved; the caret-driven `onEditTarget` above is a different question.
   onOpenClip?: (t: EditTarget) => void;
   // The bare lane was clicked — the counterpart of `onOpenClip`: the shell puts the graph back.
@@ -1811,9 +1812,9 @@ export function TimelineTab({
         return;
       // One block per MODE, and the mode is derived from the state this used to read directly (timelineMode.ts).
       if (modeRef.current === "move") {
-        // Move swallows keys HARD, the four it answers and every other: a nudge must not also scroll the pane.
-        if (e.key === "ArrowLeft" || e.key === "j") nudgeMove(-1);
-        else if (e.key === "ArrowRight" || e.key === "m") nudgeMove(1);
+        // Move swallows keys HARD, the ones it answers and every other: a nudge must not also scroll the pane.
+        const d = moveNudge(e.key);
+        if (d) nudgeMove(d);
         else if (e.key === "Enter") commitMove();
         else if (e.key === "Escape") {
           setMove(null);

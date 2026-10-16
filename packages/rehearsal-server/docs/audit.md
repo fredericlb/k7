@@ -68,7 +68,8 @@ or tab resets it; new content alone refreshes the draft only while nobody is edi
 
 A recording, a mixdown and its stems, a song's sheets and its reference track arrive on DISK (`@frediverse/http/upload`'s `diskUpload`, with the limits in [serving.md](serving.md)), are
 pushed to the médiathèque as file-backed Blobs (`fs.openAsBlob`, streamed by `fetch`), and are MOVED
-into the cache; an appended take is concatenated by ffmpeg file to file. Only memory the size of a
+into the cache; an appended take is concatenated, and a moment cut, by ffmpeg file to file, a few at
+a time across the process and each killed past its deadline ([audio.md](audio.md)). Only memory the size of a
 chunk is ever held. Measured: a 5 MB upload lands on disk with no buffer, and nothing is left once the
 request is done; a 20 MB file-backed Blob arrives byte-identical. Saves and appends to one session,
 sheet uploads to one song, a favourite and a nametag each run one at a time per key (`lock.ts`) — a

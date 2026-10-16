@@ -44,6 +44,8 @@ export function mountEngineRegistry(
     exitOnSignal?: boolean;
     /** Where the engines' secret bindings and owners are kept across restarts; in memory alone when absent — docs/token.md. */
     stateDir?: string;
+    /** The account a device token belongs to: given, a heartbeat may prove a paired machine — docs/heartbeat.md. */
+    deviceOf?: (token: string) => string | null;
     /** Whether a request's account administers the origin, and so may reset an engine's owner — docs/ownership.md. */
     isAdmin?: (req: unknown) => boolean;
   },
@@ -61,6 +63,7 @@ export function mountEngineRegistry(
     ),
   });
   const complain = throttledLog((l) => console.warn(`[registry] ${l}`));
+  const renderKey = process.env.STUDIO_RENDER_KEY?.trim() || undefined;
   // Only an engine this registry lists may hold a tunnel: its token, and its secret once the id is bound to one.
   const tunnels = new TunnelHub({
     verify: (id, token, secret) => {
@@ -72,12 +75,20 @@ export function mountEngineRegistry(
       return false;
     },
     // The deployment's render machine, which renders for a server with no engine binary (docs/server-engine.md).
-    renderKey: process.env.STUDIO_RENDER_KEY?.trim() || undefined,
+    renderKey,
   });
+  const deviceOf = opts.deviceOf;
   app.use(
     "/api",
     engineRegistryRouter(registry, tunnels, undefined, {
       isAdmin: opts.isAdmin,
+      heartbeat: deviceOf
+        ? {
+            requireDevice: process.env.STUDIO_REGISTRY_REQUIRE_DEVICE === "1",
+            deviceOf,
+            renderKey,
+          }
+        : undefined,
     }),
   );
 

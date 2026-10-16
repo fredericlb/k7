@@ -25,7 +25,10 @@ struct MachineAccess {
 /** Every job this machine answers, by request type. */
 tunnel::Jobs machineJobs(const MachineAccess& access);
 
-/** A slice of the merged log: with `offset`, the new whole lines since it; without, the last `tail`. */
+/** The most of the log one `log` job reads, whatever the file has grown to. */
+constexpr std::uint64_t kLogReadCap = 1024 * 1024;
+
+/** A slice of the merged log: with `offset`, the new whole lines since it; without, or past the end, the last `tail`. */
 nlohmann::json readLog(std::optional<std::uint64_t> offset, std::optional<int> tail);
 
 /** How long this machine keeps an undo's audio after it was last kept or sent back. */

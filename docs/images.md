@@ -30,6 +30,30 @@ The production install (`backend-deps`) is separate, because the runtime image s
 backend's closure (see `commons/scripts/check-image-closure.cjs` for what that closure must
 hold). It still sees only the manifests, so it is cached across deploys like the others.
 
+## The server runs a bundle, not source under tsx
+
+The `frontend-build` stage also bundles the backend and the file service
+(`apps/k7/backend/scripts/bundle.mjs server-dist --in-tree`), and the image runs
+`node /app/server-dist/backend.mjs`, each account's file service starting from
+`STUDIO_FILE_SERVICE_ENTRY` the same way. Under tsx, every process transpiled the whole package
+graph on start and kept an esbuild child beside it, and the hub starts one file service per
+account: that cost was paid per account, at every first request and every deploy.
+
+`--in-tree` writes only the two entries, into a folder of the checkout, so each source's
+`import.meta` points at the files the image already copies (`frontend/dist`, `song/meta`,
+`commands.yaml`). The checkout stays in the image for that reason, and for the DSP runner, which
+still compiles a user's TypeScript DSP with tsx. Its target is node 22, the image's; the desktop
+and phone bundles target 24, Electron's.
+
+## A healthcheck, memory limits and capped logs
+
+`HEALTHCHECK` asks `/api/health`, which needs no session and touches no disk, so it fails only
+when the event loop stops answering. The server's engine waits for it (`service_healthy`) rather
+than dialling a k7 still starting. `docker/docker-compose.yml` caps k7 and the engine with
+separate `mem_limit`s, so a render or an import on k7 cannot starve the engine's null sink, and
+every account's file service with `STUDIO_FILE_SERVICE_HEAP_MB`, so one account's leak ends that
+account's process. Every service's json-file log is rotated (`LOG_MAX_SIZE`, `LOG_MAX_FILE`).
+
 ## `--mount=type=cache` keeps the npm cache when a manifest does change
 
 A lockfile change invalidates the install layers, but the `/root/.npm` cache mount survives

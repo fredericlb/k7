@@ -23,6 +23,15 @@ app's own origin, and only `engine.start`, `engine.stop`, `engine.restart`, `aud
 the studios it is listed at, LAN pairing, plugin windows — is not reachable from a page: the app
 chooses the studio itself (its own k7), and LAN pairing has its section in k7's settings.
 
+## Reached from the LAN only
+
+This engine is listed at the app's own backend and nowhere else: every start sets `registryUrls`
+in its `engine-host.json` back to that one loopback registry, whatever an older build or a hand
+edit left there. Listed at a hosted studio, it would hold a tunnel to it, and anyone the studio
+lets drive it could reach the machine from anywhere. A device on the same network drives it on its
+own port once paired (`engine/k7-runtime/docs/pairing.md`); the phone and the command-line engine
+are the ones that join a hosted studio.
+
 ## What the page sets
 
 - **The engine:** running or why not, start, stop, restart.

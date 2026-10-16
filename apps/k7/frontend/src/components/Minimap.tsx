@@ -3,7 +3,7 @@
 // the timeline caret. Clicking (or dragging across) scrubs the playhead to that
 // position — the whole song is always mapped to the full width, so it never scrolls.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { m } from "../paraglide/messages.js";
@@ -20,7 +20,8 @@ export interface MinimapItem {
   id: string;
 }
 
-export function Minimap({
+// Memoised: it sits under the shell, which re-renders for reasons that move none of its props.
+export const Minimap = memo(function Minimap({
   reloadKey,
   automation,
   caret,
@@ -190,7 +191,7 @@ export function Minimap({
       <MinimapPlayhead totalBeats={totalBeats} tempo={proj.tempo} />
     </div>
   );
-}
+});
 
 /** The live playhead, and the ONLY thing here that knows the transport — a leaf, and translated as the element's LEFT EDGE (docs/timeline.md). */
 function MinimapPlayhead({

@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { library } from "./api";
 import { useLabels } from "./host";
 import { usePlayback } from "./playback/PlaybackProvider";
+import { usePlaybackPosition } from "./playback/position";
 import {
   effectiveTarget,
   type PlaybackTarget,
@@ -84,6 +85,8 @@ export function SongPlayer({
 
   /** Whether the song on screen is the song PLAYING; `path` is the identity, since names repeat. */
   const isCurrent = !!path && playback.now?.path === path;
+  // Followed only while THIS version plays: another song's playhead must not re-render this pane.
+  const transport = usePlaybackPosition(isCurrent);
   // Where the cursor sits before this song is the one playing, and where pressing play starts from.
   const [cursor, setCursor] = useState(0);
   // biome-ignore lint/correctness/useExhaustiveDependencies: the trigger is the song changing
@@ -131,7 +134,7 @@ export function SongPlayer({
 
   // The two readings of one transport: identical while this version plays, at rest otherwise.
   const playing = isCurrent && playback.playing;
-  const current = isCurrent ? playback.position : cursor;
+  const current = isCurrent ? transport.position : cursor;
 
   /** Start this version, or work the transport it is already on — see ../docs/songPlayer.md. */
   const toggle = useCallback(() => {
@@ -188,7 +191,7 @@ export function SongPlayer({
   const EmptyIcon = takeIcon(take?.kind ?? "master");
 
   // The sidecar's duration when there is one: it comes from the decode, and the element's covers the wait.
-  const total = shape?.duration || (isCurrent ? playback.duration : 0);
+  const total = shape?.duration || (isCurrent ? transport.duration : 0);
   const where = playbackTargetInfo(actual);
   const WhereIcon = where.icon;
   const fellBack = actual !== target;

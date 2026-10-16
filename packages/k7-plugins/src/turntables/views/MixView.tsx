@@ -1,6 +1,6 @@
 // MixView.tsx — the desk: two decks facing each other, each with its tempo on the outer edge
 // and its channel strip on the inner one, and the crossfader in the gap between them. What
-// plays comes from the project's `songs.yaml`, chosen at the record itself. See ../../docs/mix.md.
+// plays comes from the playlist the desk's surface names, chosen at the record itself. See ../../docs/mix.md.
 //
 // A deck's own column is `DeckSide.tsx` and its buttons `DeckButtons.tsx`; what is left here is
 // what SITS BETWEEN two decks. Still over 500 lines: the remainder is one component holding the

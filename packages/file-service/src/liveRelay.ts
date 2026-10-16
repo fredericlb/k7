@@ -16,7 +16,7 @@ import { writeFileAtomic } from "@studio/song/atomicWrite";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import { WebSocket } from "ws";
 import { cloneFile } from "./liveBlobs.ts";
-import { BlobTransfer, blobsUrl } from "./liveBlobTransfer.ts";
+import { BlobTransfer, blobsUrl, isPermanent } from "./liveBlobTransfer.ts";
 import type { LiveCapture } from "./liveCapture.ts";
 
 /** One workspace's side of the link. */
@@ -41,6 +41,8 @@ const RETRY_MAX_MS = 30_000;
 const FETCH_AT_ONCE = 3;
 /** How long a link that has never connected reads as still connecting rather than offline. */
 const CONNECT_GRACE_MS = 8000;
+/** The link pings the relay this often, and a socket that has not answered the last ping is dropped. */
+const PING_MS = 25_000;
 
 /** Where a workspace's TEXT stands against the relay — docs/liveCapture.md, "Up to date". */
 export type TextState = "current" | "offline" | "connecting" | "catching-up";
@@ -52,6 +54,9 @@ export const authHeaders = (auth: RelayAuth): Record<string, string> =>
     : { [HUB_SECRET_HEADER]: auth.secret };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms).unref());
+
+/** Between half and all of `ms`: a server restart must not bring every replica back in the same instant. */
+const jittered = (ms: number): number => ms / 2 + Math.random() * (ms / 2);
 
 /** The last seq a workspace applied, kept beside its log so a restart says hello where it left off. */
 export function loadHead(logDir: string): number {
@@ -90,6 +95,8 @@ export class RelayLink {
     private readonly onOpen: () => void = () => {},
     /** Read-only: adopt the room's state, never seed, join or send a batch. */
     private readonly following = false,
+    /** Tests only: the ping period. */
+    private readonly pingMs = PING_MS,
   ) {
     this.store = new BlobTransfer(blobsUrl(url), authHeaders(auth));
   }
@@ -211,7 +218,14 @@ export class RelayLink {
         false);
     try {
       for (const id of blobsOf(batch.ops))
-        await this.retrying(live, () => this.upload(name, id.hash));
+        try {
+          await this.retrying(live, () => this.upload(name, id.hash));
+        } catch (e) {
+          // Refused for good (too big, a revoked device): the text goes on without these bytes rather than hold every later edit.
+          this.log(
+            `${name}: blob ${id.hash} refused by the store (${(e as Error).message}); sent without it`,
+          );
+        }
     } finally {
       this.queued.delete(batch.id);
     }
@@ -267,17 +281,33 @@ export class RelayLink {
   private async fetchLoop(name: string, hash: string): Promise<void> {
     const wanted = () =>
       !this.closed && (this.linked.get(name)?.capture.pendingOn(hash) ?? false);
+    try {
+      // A slot is held per ATTEMPT, never across the wait between two: a blob that never arrives cannot starve the others.
+      await this.retrying(wanted, () =>
+        this.withSlot(() => this.bring(name, hash)),
+      );
+    } catch (e) {
+      this.log(
+        `${name}: blob ${hash} refused by the store: ${(e as Error).message}`,
+      );
+    }
+  }
+
+  private async bring(name: string, hash: string): Promise<void> {
+    const l = this.linked.get(name);
+    const cache = l?.capture.blobs;
+    if (!l || !cache) return;
+    await this.store.get(hash, cache, name);
+    const placed = l.capture.fetched(hash);
+    if (placed.length) l.onRemote(placed);
+  }
+
+  /** Run `f` in one of the link's download slots. */
+  private async withSlot(f: () => Promise<void>): Promise<void> {
     if (this.fetchSlots > 0) this.fetchSlots--;
     else await new Promise<void>((r) => this.fetchWaiting.push(r));
     try {
-      await this.retrying(wanted, async () => {
-        const l = this.linked.get(name);
-        const cache = l?.capture.blobs;
-        if (!l || !cache) return;
-        await this.store.get(hash, cache, name);
-        const placed = l.capture.fetched(hash);
-        if (placed.length) l.onRemote(placed);
-      });
+      await f();
     } finally {
       // A slot freed goes straight to the oldest waiter, so no newcomer slips in between.
       const next = this.fetchWaiting.shift();
@@ -286,7 +316,7 @@ export class RelayLink {
     }
   }
 
-  /** Run `f` until it succeeds, waiting longer after each failure, for as long as `wanted` holds. */
+  /** Run `f` until it succeeds, waiting longer after each failure, for as long as `wanted` holds; a permanent refusal is thrown. */
   private async retrying(
     wanted: () => boolean,
     f: () => Promise<void>,
@@ -297,8 +327,9 @@ export class RelayLink {
         await f();
         return;
       } catch (e) {
+        if (isPermanent(e)) throw e;
         this.log(`blob store: ${(e as Error).message}; retrying`);
-        await sleep(wait);
+        await sleep(jittered(wait));
         wait = Math.min(wait * 2, RETRY_MAX_MS);
       }
   }
@@ -306,6 +337,18 @@ export class RelayLink {
   private connect(): void {
     const ws = new WebSocket(this.url, { headers: authHeaders(this.auth) });
     this.ws = ws;
+    // The relay pings too, but only this side can tell its own socket went half-open (a laptop slept, the Wi-Fi moved).
+    let answered = true;
+    ws.on("pong", () => {
+      answered = true;
+    });
+    const beat = setInterval(() => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      if (!answered) return void ws.terminate();
+      answered = false;
+      ws.ping();
+    }, this.pingMs);
+    beat.unref();
     ws.on("open", () => {
       this.retryMs = RETRY_MIN_MS;
       this.everOpen = true;
@@ -322,11 +365,12 @@ export class RelayLink {
     });
     ws.on("error", (e) => this.log(`relay: ${e.message}`));
     ws.on("close", () => {
+      clearInterval(beat);
       this.ws = null;
       // A new socket is a new hello: what the last welcome promised says nothing about what was missed since.
       this.target.clear();
       if (this.closed) return;
-      setTimeout(() => this.connect(), this.retryMs).unref();
+      setTimeout(() => this.connect(), jittered(this.retryMs)).unref();
       this.retryMs = Math.min(this.retryMs * 2, RETRY_MAX_MS);
     });
   }

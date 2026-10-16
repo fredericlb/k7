@@ -16,6 +16,8 @@ export class Luts {
   private gl: WebGL2RenderingContext;
   private loaded = new Map<string, LutTexture>();
   private pending: Promise<void> = Promise.resolve();
+  // Bumped when a LUT lands, so a loop that skips unchanged frames knows the picture changed under it.
+  private landed = 0;
 
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
@@ -44,6 +46,11 @@ export class Luts {
   /** Settles once every LUT of the scene is uploaded or has failed — what an export awaits before frame 0. */
   ready(): Promise<void> {
     return this.pending;
+  }
+
+  /** How many LUTs have landed so far — a still frame must be drawn again when this moves. */
+  get revision(): number {
+    return this.landed;
   }
 
   /** The LUT for `url`, or null while it loads or after it failed. */
@@ -79,6 +86,7 @@ export class Luts {
         gl.texParameteri(gl.TEXTURE_3D, p, gl.CLAMP_TO_EDGE);
       gl.bindTexture(gl.TEXTURE_3D, null);
       this.loaded.set(url, { tex, size: lut.size });
+      this.landed++;
     } catch (e) {
       console.warn(
         `eyes: LUT ${url} could not be read — ${(e as Error).message}; the picture goes through ungraded`,

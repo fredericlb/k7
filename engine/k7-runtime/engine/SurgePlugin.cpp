@@ -39,6 +39,8 @@ SurgePlugin::SurgePlugin(tracktion::engine::PluginCreationInfo info)
     core_ = std::make_unique<surge::SurgeCore>(sampleRate_);
     const auto& list = surge::SurgeCore::params();
     agreed_ = std::make_unique<std::atomic<float>[]>(list.size());
+    heard_ = std::make_unique<std::atomic<float>[]>(list.size());
+    heardAgreed_ = std::make_unique<std::atomic<float>[]>(list.size());
     for (size_t i = 0; i < list.size(); ++i) {
         const auto& p = list[i];
         auto value = std::make_unique<juce::CachedValue<float>>();
@@ -131,6 +133,8 @@ void SurgePlugin::swapIn(std::unique_ptr<surge::SurgeCore> fresh)
         std::swap(core_, fresh);
         for (size_t i = 0; i < n; ++i) agreed_[i] = patch[i];
         pos_ = surge::SurgeCore::block();
+        // A snapshot of the previous synth must not be read back onto the new one's parameters.
+        readBack_.store(kIdle, std::memory_order_release);
     }
     for (size_t i = 0; i < n; ++i) params_[i]->setParameter(patch[i], juce::sendNotification);
     // The previous synth dies here, on the message thread, never on the audio one.
@@ -138,17 +142,21 @@ void SurgePlugin::swapIn(std::unique_ptr<surge::SurgeCore> fresh)
 
 void SurgePlugin::timerCallback()
 {
-    // Read on the message thread, where the synth is swapped, so `core_` cannot change under this loop.
-    if (core_ == nullptr) return;
-    for (size_t i = 0; i < params_.size(); ++i) {
-        const float synth = core_->get((int)i);
-        // The synth moved by itself — a patch's type change resetting slots — and the parameter has not been touched.
-        if (std::abs(synth - agreed_[i].load()) > AGREE
-            && std::abs(params_[i]->getCurrentValue() - agreed_[i].load()) <= AGREE) {
-            agreed_[i] = synth;
-            params_[i]->setParameter(synth, juce::sendNotification);
+    // The synth is the audio thread's while it renders, so the timer reads only what that thread published.
+    if (readBack_.load(std::memory_order_acquire) == kPublished) {
+        for (size_t i = 0; i < params_.size(); ++i) {
+            const float synth = heard_[i].load(std::memory_order_relaxed);
+            const float then = heardAgreed_[i].load(std::memory_order_relaxed);
+            const float now = agreed_[i].load();
+            // The synth moved by itself — a type change resetting slots — and neither a push nor a touch came since.
+            if (std::abs(synth - then) > AGREE && std::abs(now - then) <= AGREE
+                && std::abs(params_[i]->getCurrentValue() - now) <= AGREE) {
+                agreed_[i] = synth;
+                params_[i]->setParameter(synth, juce::sendNotification);
+            }
         }
     }
+    readBack_.store(kAsked, std::memory_order_release);
 }
 
 void SurgePlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
@@ -216,6 +224,15 @@ void SurgePlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ct
     }
     // What falls after this buffer's last block boundary is played by the next block, never dropped.
     dispatch(n);
+
+    // Asked for by the timer, at most READ_BACK_HZ times a second: the synth's values, read where it is safe to.
+    if (readBack_.load(std::memory_order_acquire) == kAsked) {
+        for (size_t i = 0; i < params_.size(); ++i) {
+            heard_[i].store(core.get((int)i), std::memory_order_relaxed);
+            heardAgreed_[i].store(agreed_[i].load(std::memory_order_relaxed), std::memory_order_relaxed);
+        }
+        readBack_.store(kPublished, std::memory_order_release);
+    }
 }
 
 }  // namespace studio

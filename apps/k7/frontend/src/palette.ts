@@ -28,6 +28,8 @@ export {
 export const LOCAL_COMMANDS = [
   "ui file", // open a file in the editor by fuzzy name (completes against the project)
   "ui assembly", // open an assembly TEMPLATE in the builder, by the ref a box names
+  "ui chains builder", // show or hide the library chains builder
+  "ui model", // download a node's model from its module's `model_url`
   "ui global", // the home page — the timeline, or the first pane a project without one declares
   ...PANES.map((p) => `ui ${p}`), // fullscreen one pane
   "ui viewport", // show or hide the picture's floating window
@@ -44,10 +46,12 @@ export const LOCAL_COMMANDS = [
   "ui midi learn",
   // …and arm a PICTURE lane, for the same reason: the camera is the browser's and the engine never hears about it.
   "ui picture arm",
+  // Arm a sound lane as its A button does: an instrument lane in the browser, an audio lane in the engine (`r`).
+  "rec",
   // The timeline's selection, zoom, loop and move: the state lives in TimelineTab and these reach it via its handle.
   "ui tool", // what a PRESS means on the active surface — pointer · cut · erase · mute · crossfade
-  "ui wave", // …and on an audio clip's waveform, where the view IS the gesture — standard · onsets · warp
-  "ui roll", // …and on the piano roll — select · create · remove
+  "ui wave", // …and on an audio clip's waveform, where the view IS the gesture — standard · onsets · warp · takes
+  "ui roll", // …and on the piano roll — select · create · remove · takes
   "ui select", // caret <-> selection rectangle
   "ui zoom", // frame the selection
   "ui zoom out", // back to the enclosing view
@@ -131,6 +135,14 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     en: "Open an assembly template in the builder",
     fr: "Ouvrir un modèle d'assemblage dans le constructeur",
   },
+  "ui chains builder": {
+    en: "Show or hide the library chains builder",
+    fr: "Afficher ou masquer le constructeur de chaînes",
+  },
+  "ui model": {
+    en: "Download the model a node's module needs",
+    fr: "Télécharger le modèle dont le module d'un nœud a besoin",
+  },
   "ui global": {
     en: "Back to the project's home page",
     fr: "Revenir à la page d'accueil du projet",
@@ -186,6 +198,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui midi learn": {
     en: "Learn a MIDI control for a module's parameter",
     fr: "Apprendre un contrôle MIDI pour un paramètre de module",
+  },
+  rec: {
+    en: "Arm or disarm a lane, as its A button does",
+    fr: "Armer ou désarmer une piste, comme son bouton A",
   },
   "ui picture arm": {
     en: "Arm a picture lane to record its camera",
@@ -418,8 +434,8 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     fr: "Rétablir la modification annulée",
   },
   "project master fix": {
-    en: "Lower every strip until the last pass fits",
-    fr: "Baisser les tranches pour rentrer le dernier passage",
+    en: "Lower the output until the last pass fits",
+    fr: "Baisser la sortie pour rentrer le dernier passage",
   },
   "project export": {
     en: "Download the mixdown, the picture, or the cut",
@@ -478,6 +494,9 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   "ui edit sequence": [
     { name: "name", kind: "file", hint: "a sequence of this project" },
   ],
+  "ui model": [
+    { name: "node", kind: "module", hint: "a node whose module names a model" },
+  ],
   "ui midi learn": [
     { name: "module", kind: "module", hint: "a module of this project" },
     { name: "param", kind: "text", hint: "the name its widget binds" },
@@ -493,6 +512,7 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   "ui picture arm": [
     { name: "lane", kind: "text", hint: "a picture lane — bare, it disarms" },
   ],
+  rec: [{ name: "track", kind: "track", hint: "a sound lane of this project" }],
   "ui edit clip": [
     { name: "name", kind: "file", hint: "a clip of this project" },
   ],
@@ -512,10 +532,10 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
     },
   ],
   "ui wave": [
-    { name: "view", kind: "choice", hint: "standard · onsets · warp" },
+    { name: "view", kind: "choice", hint: "standard · onsets · warp · takes" },
   ],
   "ui roll": [
-    { name: "mode", kind: "choice", hint: "select · create · remove" },
+    { name: "mode", kind: "choice", hint: "select · create · remove · takes" },
   ],
   "ui surface": [
     { name: "surface", kind: "choice", hint: "a surface of this project" },

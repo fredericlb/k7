@@ -29,6 +29,10 @@ flight (a forwarded request is counted until its answer closes, a long download 
 kept for a remote pairing is never chosen. When nothing can go, the request answers **503 with
 `Retry-After`** instead of forking past the cap. The idle reaper spares an instance in flight too.
 
+`STUDIO_FILE_SERVICE_HEAP_MB` gives each service a heap ceiling (`--max-old-space-size`), so one
+account's runaway ends that account's process, which the backoff below then holds off, rather than
+the container.
+
 A service that dies on its own is not started again on the very next request: the account waits
 1 s, then 2, 4… up to 60 s, answered 503 with `Retry-After` meanwhile, and a service that ran a
 healthy minute starts that count over. A crash loop would otherwise fork a process per request.
