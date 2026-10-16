@@ -22,7 +22,7 @@ std::filesystem::path executablePath();
 /** Whether `pid` names a live process — ours or not; a pid is not an identity, so callers ask more. */
 bool pidAlive(int pid);
 
-/** Kill `pid` and its descendants: its process group on POSIX, `taskkill /T /F` on Windows. */
+/** Kill `pid` and its descendants: its process group when it leads one on POSIX, `taskkill /T /F` on Windows. Callers prove the pid is theirs first. */
 void killTree(int pid);
 
 /** A started child; its two output streams are drained into `onLine` on threads of their own. */
@@ -38,6 +38,8 @@ struct SpawnOptions {
     std::map<std::string, std::string> env;
     /** One call per complete output line, from a pump thread; `true` for stderr. */
     std::function<void(const std::string& line, bool isErr)> onLine;
+    /** Called once with the pid when the child has exited, from the thread that reaped it: the one liveness a reused pid cannot fake. */
+    std::function<void(int pid)> onExit;
 };
 
 /** Start a detached child in its own process group; `pid` 0 and `error` set when it could not. */
@@ -59,7 +61,7 @@ RunResult run(const std::filesystem::path& program, const std::vector<std::strin
 /** Windows: when `$STUDIO_HOST_PID` names our host, join a kill-on-close job only the host holds; elsewhere a no-op. Returns why it failed, empty on success. */
 std::string joinHostJob();
 
-/** A tool by name: on PATH, then where a package manager puts it — an app's PATH is not a shell's. */
+/** A tool by name: on PATH, then where a package manager puts it — an app's PATH is not a shell's; empty when it is nowhere. */
 std::filesystem::path findTool(const std::string& name);
 
 }  // namespace k7::process

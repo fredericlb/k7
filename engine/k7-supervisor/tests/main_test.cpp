@@ -16,6 +16,7 @@ void runRegistryTests();
 void runTlsTests();
 void runInstrumentsTests();
 void runPathMapTests();
+void runPidFileTests();
 
 int main()
 {
@@ -32,5 +33,6 @@ int main()
     runTlsTests();
     runInstrumentsTests();
     runPathMapTests();
+    runPidFileTests();
     TEST_MAIN_END();
 }

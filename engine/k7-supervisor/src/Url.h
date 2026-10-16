@@ -39,6 +39,12 @@ std::string studioFamily(const std::string& url);
 /** The ONE engine registry — the family root — for any URL of a family; "" for a non-URL or a non-web scheme. */
 std::string engineRegistryUrl(const std::string& url);
 
+/** Why `url` may not carry this engine's token, or "": http/ws only to loopback or to a host `allowlist` names. */
+std::string plaintextRefusal(const std::string& url, const std::string& allowlist);
+
+/** `plaintextRefusal` against `$STUDIO_INSECURE_REGISTRIES`: comma-separated hostnames or `host:port`s. */
+std::string plaintextRefusal(const std::string& url);
+
 /** What the user typed, reduced to a bare origin, strictly; a bare host gets `https://`. */
 std::optional<std::string> normaliseUserOrigin(const std::string& input);
 

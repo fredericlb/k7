@@ -14,6 +14,21 @@ namespace k7::tunnel {
 
 namespace fs = std::filesystem;
 
+namespace {
+
+/** How long a stat or an upload's verdict may take: generous, since a hub can be slow, but never forever. */
+constexpr auto kReplyBound = std::chrono::minutes(5);
+/** How long a download may go without a chunk before it is given up. */
+constexpr std::int64_t kDownloadIdleMs = 2 * 60 * 1000;
+
+std::int64_t steadyMs()
+{
+    using namespace std::chrono;
+    return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
+}
+
+}  // namespace
+
 RemoteStat remoteStatFrom(const nlohmann::json& j)
 {
     RemoteStat s;
@@ -47,6 +62,11 @@ std::vector<RemoteStat> FileRequests::stat(int ch, const std::vector<std::string
         stats_.erase(req);
         throw std::runtime_error("tunnel is down");
     }
+    if (reply.wait_for(kReplyBound) == std::future_status::timeout) {
+        std::lock_guard lock(mutex_);
+        stats_.erase(req);
+        throw std::runtime_error("stat unanswered");
+    }
     return reply.get();
 }
 
@@ -65,17 +85,21 @@ void FileRequests::download(int ch, const RemoteStat& remote, const fs::path& lo
         tmp += ".part-" + std::to_string(req);
         d->out.open(tmp, std::ios::binary | std::ios::trunc);
         if (!d->out) throw std::runtime_error("cannot write " + paths::utf8(tmp));
+        d->lastChunkMs = steadyMs();
         gets_[req] = d;
     }
     try {
         if (!link_.sendText(nlohmann::json{{"t", "get"}, {"req", req}, {"ch", ch}, {"path", remote.path}}.dump()))
             throw std::runtime_error("tunnel is down");
+        while (done.wait_for(std::chrono::seconds(5)) == std::future_status::timeout)
+            if (steadyMs() - d->lastChunkMs > kDownloadIdleMs) throw std::runtime_error("download stalled");
         done.get();
     } catch (...) {
         {
             std::lock_guard lock(mutex_);
             gets_.erase(req);
         }
+        std::lock_guard lock(d->mutex);
         d->out.close();
         fs::remove(tmp, ec);
         throw;
@@ -130,6 +154,11 @@ RemoteStat FileRequests::upload(int ch, const fs::path& local, const std::string
         puts_.erase(req);
         throw;
     }
+    if (reply.wait_for(kReplyBound) == std::future_status::timeout) {
+        std::lock_guard lock(mutex_);
+        puts_.erase(req);
+        throw std::runtime_error("upload unanswered");
+    }
     return reply.get();
 }
 
@@ -180,6 +209,9 @@ void FileRequests::onChunk(int req, bool last, const std::string& payload)
         d = it->second;
         if (last) gets_.erase(it);
     }
+    d->lastChunkMs = steadyMs();
+    std::lock_guard write(d->mutex);
+    if (!d->out.is_open()) return;
     d->out.write(payload.data(), static_cast<std::streamsize>(payload.size()));
     if (!last) return;
     d->out.close();

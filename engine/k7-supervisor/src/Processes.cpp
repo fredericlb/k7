@@ -175,8 +175,12 @@ bool pidAlive(int pid)
 
 void killTree(int pid)
 {
+    // By its full path in System32: a bare name goes through CreateProcess's search, the working directory first.
+    wchar_t system[MAX_PATH] = {};
+    const UINT n = GetSystemDirectoryW(system, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH) return;
     std::string out;
-    runCapture("taskkill", {"/PID", std::to_string(pid), "/T", "/F"}, out);
+    runCapture(std::filesystem::path(system) / L"taskkill.exe", {"/PID", std::to_string(pid), "/T", "/F"}, out);
 }
 
 Spawned spawn(const SpawnOptions& opts)
@@ -209,7 +213,12 @@ Spawned spawn(const SpawnOptions& opts)
         return {0, "CreateProcess failed with " + std::to_string(GetLastError())};
     }
     CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
+    // The handle is held until the child ends, so its pid cannot be handed to another process before `onExit` says so.
+    std::thread([h = pi.hProcess, pid = static_cast<int>(pi.dwProcessId), onExit = opts.onExit] {
+        WaitForSingleObject(h, INFINITE);
+        CloseHandle(h);
+        if (onExit) onExit(pid);
+    }).detach();
     pump(outR, false, opts.onLine);
     pump(errR, true, opts.onLine);
     return {static_cast<int>(pi.dwProcessId), ""};
@@ -217,6 +226,7 @@ Spawned spawn(const SpawnOptions& opts)
 
 bool runCapture(const std::filesystem::path& program, const std::vector<std::string>& args, std::string& out)
 {
+    if (program.empty()) return false;
     SECURITY_ATTRIBUTES sa{sizeof sa, nullptr, TRUE};
     HANDLE r, w;
     if (!CreatePipe(&r, &w, &sa, 0)) return false;
@@ -248,6 +258,7 @@ bool runCapture(const std::filesystem::path& program, const std::vector<std::str
 RunResult run(const std::filesystem::path& program, const std::vector<std::string>& args, const std::string& input)
 {
     RunResult r;
+    if (program.empty()) return r;
     SECURITY_ATTRIBUTES sa{sizeof sa, nullptr, TRUE};
     HANDLE inR, inW, outR, outW, errR, errW;
     if (!CreatePipe(&inR, &inW, &sa, 0)) return r;
@@ -355,11 +366,12 @@ void pump(int fd, bool isErr, std::function<void(const std::string&, bool)> onLi
 }
 
 /** A reaper per child: a dead child that nobody waits for stays a zombie, and a zombie reads as alive. */
-void reap(pid_t pid)
+void reap(pid_t pid, std::function<void(int)> onExit)
 {
-    std::thread([pid]() {
+    std::thread([pid, onExit]() {
         int status = 0;
         while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
+        if (onExit) onExit(static_cast<int>(pid));
     }).detach();
 }
 
@@ -407,7 +419,10 @@ bool pidAlive(int pid)
 
 void killTree(int pid)
 {
-    if (kill(-pid, SIGTERM) != 0) kill(pid, SIGTERM);
+    if (pid <= 1) return;
+    // The group only when the pid leads it: a negative pid names whichever group bears that number.
+    if (getpgid(pid) == pid && kill(-pid, SIGTERM) == 0) return;
+    kill(pid, SIGTERM);
 }
 
 Spawned spawn(const SpawnOptions& opts)
@@ -454,7 +469,7 @@ Spawned spawn(const SpawnOptions& opts)
         close(err[0]);
         return {0, std::string("posix_spawn failed: ") + std::strerror(rc)};
     }
-    reap(pid);
+    reap(pid, opts.onExit);
     pump(out[0], false, opts.onLine);
     pump(err[0], true, opts.onLine);
     return {static_cast<int>(pid), ""};
@@ -463,7 +478,7 @@ Spawned spawn(const SpawnOptions& opts)
 bool runCapture(const std::filesystem::path& program, const std::vector<std::string>& args, std::string& out)
 {
     int fds[2];
-    if (!cloexecPipe(fds)) return false;
+    if (program.empty() || !cloexecPipe(fds)) return false;
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
     posix_spawn_file_actions_adddup2(&actions, fds[1], 1);
@@ -500,7 +515,7 @@ RunResult run(const std::filesystem::path& program, const std::vector<std::strin
 {
     RunResult r;
     int in[2], out[2], err[2];
-    if (!cloexecPipe(in)) return r;
+    if (program.empty() || !cloexecPipe(in)) return r;
     if (!cloexecPipe(out)) {
         closeAll({in[0], in[1]});
         return r;
@@ -593,9 +608,10 @@ std::filesystem::path findTool(const std::string& name)
     for (const char* extra : {"/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"}) dirs.emplace_back(extra);
 #endif
     std::error_code ec;
+    // Absolute directories only, and no bare name when none has it: either would leave the pick to the working directory.
     for (const auto& d : dirs)
-        if (!d.empty() && fs::is_regular_file(d / exe, ec)) return d / exe;
-    return fs::path(exe);
+        if (d.is_absolute() && fs::is_regular_file(d / exe, ec)) return d / exe;
+    return {};
 }
 
 }  // namespace k7::process

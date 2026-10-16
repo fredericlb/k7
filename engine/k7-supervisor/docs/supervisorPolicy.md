@@ -95,6 +95,15 @@ does (`packages/web-protocol/docs/addresses.md`). The registry is mounted by k7'
 (`packages/engine-registry/docs/shared.md`), so a supervisor that saved `https://play.st0.app` still
 heartbeats the right place. The answer is a **list**, one per studio this engine is connected to, deduped.
 
+**Plain http reaches loopback and nothing else.** A heartbeat carries the engine's token and the
+tunnel secret, and the tunnel's handshake carries them again, so a registry on `http://` past
+loopback would hand both to anyone on the path. `url::plaintextRefusal` is asked where they leave:
+`resolve` drops such a registry with a log line, `probe` refuses to add one, every POST checks
+again, and the tunnel agent does not dial it. A network where plain http is the deliberate choice —
+the compose network the server's own engine reaches k7 on, `http://k7:8789` — names the host in
+`$STUDIO_INSECURE_REGISTRIES` (comma-separated hostnames or `host:port`s), and
+`docker/docker-compose.yml` sets it to `k7` for that container alone.
+
 The heartbeat is **all-or-nothing**: an app shows one light, so "ok" has to mean every studio
 can offer this engine. A registry that is down is simply absent from that studio's picker, which
 is correct — it genuinely cannot be driven right now.
@@ -174,17 +183,28 @@ lines rather than tearing.
 A pidfile is what makes a supervisor crash survivable: the engine outlives us, and the next
 supervisor ADOPTS it rather than finding the port held by a process nobody owns.
 
-What it is not is an identity. `engine::running()` asks the operating system whether that NUMBER is a
-live process — nothing more — and a pid is reused. Trusting it alone is silent in every direction:
-the engine dies, the OS hands its pid to an unrelated process, and the next supervisor reads the
-pidfile, finds the pid alive, logs *adopting the engine already on the pidfile* and spawns nothing.
-The crash watch asks the same question, so it never relaunches either; the heartbeat asks it too,
-so every registry goes on being told an engine is there, and every app lists a machine that answers
-nothing.
+A bare pid is not an identity: the OS reuses it. Trusted alone it is silent in every direction —
+the engine dies, its pid goes to an unrelated process, the next supervisor adopts that process, the
+crash watch never relaunches, every registry is told an engine is there — and a stop sends SIGTERM
+to whatever now holds the number, or to the process GROUP that bears it.
 
-So the port is asked as well: adopt only if something is actually serving on it, and otherwise
-treat the pidfile as stale, clear it and start a fresh engine. The dead pid's process is left alone
-— it belongs to somebody else now.
+So the pidfile (`PidFile.h`) holds the pid, the process's start time as the OS reports it and the
+executable's path, and three rules follow:
+
+- **Our own child's liveness comes from its reaper**, never from the pid: the thread that waits for
+  it says when it has exited, and until then the unreaped pid cannot be anyone else's.
+- **Any other pid is the engine only when the OS confirms it**: the same start time, and an
+  executable named `k7-runtime`. Otherwise it is stale, and is neither adopted nor killed.
+- **What cannot be confirmed is never killed.** A pidfile holding a bare pid — what
+  `packages/engine-client/src/engineDaemon.ts` writes — or a process the OS will not describe is adopted on its port alone and
+  left running at a stop. Adopted and found to be the engine, the file is rewritten whole.
+
+A port that answers with no pidfile naming its owner is asked of `lsof`; that owner is recorded and
+adopted only when it is not some other program, and some other program is an error, never a kill.
+`packages/supervisor-host` reads the same file before its own backstop kill, by the same rules.
+
+The port is asked as well: adopt only if something is actually serving on it, and otherwise treat
+the pidfile as stale, clear it and start a fresh engine.
 
 **Why here and not in the crash watch.** The same check there would be the complete fix, and it
 carries a risk this one does not: a probe that answers wrongly under load would relaunch an engine
