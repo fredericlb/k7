@@ -87,29 +87,6 @@ The cascading consequence: `filterA` has two destinations, so the `eqA` chain no
 and both `fadeA` and `cueA` become separate buses. Which forces the **dry** path off the strip track
 — what `bus_only:` says, for a name-collision reason kept in [busOnly.md](busOnly.md).
 
-## Migrating a set that has none
-
-```bash
-npx tsx packages/song/scripts/migrateSetCue.ts <project.k7> [others…]
-npx tsx packages/song/scripts/migrateSetCue.ts <project.k7> --write
-```
-
-Dry by default, idempotent, and through the `yaml` package's `Document` API — the scaffold's comments
-and key order come back byte for byte.
-
-Per deck: a second destination on its filter, a `cue<X>: [ CUE ]` line, a node file, a mapping line,
-and its **strip** in `bus_only:`. That last is the only non-obvious point, and forgetting it breaks
-nothing visible — it just makes every crossfader position sound the same.
-
-Everything is read off the project rather than assumed: the tap point from `<deck>.filter`, the strip
-from `<deck>.eqLow`. A deck whose mapping names neither is **refused by name** rather than half-wired
-— inventing a node name would write a send nobody asked for. And `<state>` is untouched: the
-headphone pair belongs to a machine, so `system cue` stays to be done, once per machine.
-
-A test freezes the property that would rot in silence — a migrated set is **exactly** the set the
-scaffold writes today (`src/migrateSetCue.test.ts`), the "before" derived by stripping the cue out of
-a fresh scaffold, so the fixture cannot drift from the template.
-
 ## The layers crossed
 
 | | |

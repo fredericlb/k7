@@ -49,7 +49,7 @@ export interface VideoChainDocs {
 }
 
 /** A camera drawn as its own layer — no `video_tracks/` file behind it, and none needed. */
-export interface CameraLayer {
+interface CameraLayer {
   /** The node's name, which is the layer's id. */
   node: string;
   label: string;
@@ -60,7 +60,7 @@ export interface CameraLayer {
 }
 
 /** A node's `monitor:` — a boolean maps onto the ends, and absent is `on`, not audio's `auto` (docs/camera.md). */
-export function readMonitor(raw: unknown): CameraMonitor {
+function readMonitor(raw: unknown): CameraMonitor {
   if (raw === false || raw === "off") return "off";
   if (raw === "auto") return "auto";
   return "on";

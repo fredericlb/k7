@@ -119,15 +119,6 @@ A level needs a gain that reaches exact silence, and the mixer's does not:
 is exact silence, with the range and the rest a level wants. A separate gain module after the platter
 would be two linear gains in series, and eight compiled DSP graphs per set for nothing.
 
-### Migrating a set that still has the module
-
-`npx tsx packages/song/scripts/migrateStemGain.ts <projet.k7> --write` — it carries each cut's
-`Level` onto its platter's `Gain`, repoints the binding, and removes the node. Older sets walk the
-whole chain in order: `migrateSetStems` → `migrateSetPlatter` → `migrateStemGain`.
-
-Each of those handles ONE shape, so each spells its param out instead of importing `STEM_PARAM`: a
-migration that follows a constant which has since moved silently skips the steps between.
-
 ## What the assembly still requires
 
 - **The four parts must be laid down together.** Same `start`, same warp, same `slip`: four parts a

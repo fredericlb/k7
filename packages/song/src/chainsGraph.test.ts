@@ -140,9 +140,8 @@ describe("nodes at the edges", () => {
 });
 
 describe("what it refuses", () => {
-  it("names the old list format, and the SCRIPT that converts it", () => {
-    // This message is the only place anyone meets the script, so it has to name it in full.
-    expect(() => chains({ chains: [] })).toThrow(/migrateChains\.ts/);
+  it("names the list format rather than failing the schema", () => {
+    expect(() => chains({ chains: [] })).toThrow(/chain LIST/);
   });
 
   it("no longer has a track/module collision to refuse", () => {

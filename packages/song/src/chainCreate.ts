@@ -6,7 +6,7 @@
 // See docs/chainFiles.md.
 
 import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { parseChain } from "@studio/song-schema/yaml/chainFile";
 import { CHAINS_DIR, TRACKS_DIR } from "@studio/song-schema/yaml/chainSchema";
 import {
@@ -17,7 +17,7 @@ import {
   type YAMLMap,
   YAMLSeq,
 } from "yaml";
-import { newNodeId, readChainProject } from "./chainProject";
+import { chainFilePath, newNodeId, readChainProject } from "./chainProject";
 import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 const OPTS = { version: "1.2" as const, strict: false };
@@ -90,8 +90,7 @@ export function insertChainInput(
     throw new Error(
       `'${lane}' sits inside a subchain or a parallel step — wire its input by hand`,
     );
-  const yml = join(dir, CHAINS_DIR, `${at.chain}.yaml`);
-  const path = wsExists(yml) ? yml : join(dir, CHAINS_DIR, `${at.chain}.yml`);
+  const path = chainFilePath(dir, at.chain);
   const doc = parseDocument(wsRead(path), OPTS);
   const steps = doc.get("steps");
   if (!isSeq(steps)) throw new Error(`${at.chain} has no steps`);
@@ -109,5 +108,5 @@ export function insertChainInput(
       `the input would make ${at.chain} unreadable — ${parsed.issues[0]?.message ?? ""}`.trim(),
     );
   wsWrite(path, out);
-  return { id, rel: `${CHAINS_DIR}/${at.chain}.yaml` };
+  return { id, rel: relative(dir, path) };
 }

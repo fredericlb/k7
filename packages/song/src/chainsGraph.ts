@@ -33,11 +33,11 @@ export function deriveChains(
   isLane?: IsLane,
 ): Record<string, Chain> {
   if (raw == null) return {};
-  // The old format, named precisely: a project still in it needs the migration, not a schema error.
+  // The chain-list format, named precisely: a file in it needs rewriting, not a schema error.
   if (Array.isArray(raw) || Array.isArray((raw as { chains?: unknown }).chains))
     throw new Error(
-      "graph.yaml: `chains:` is the old chain-list format — chains are now derived " +
-        "from `modules:` segments. Run: npx tsx packages/song/scripts/migrateChains.ts <project>",
+      "graph.yaml: `chains:` is a chain LIST, which is not read — a graph holds " +
+        "`modules:` segments, who feeds whom (packages/song/docs/graphFile.md)",
     );
   const parsed = GraphFileSchema.safeParse(raw);
   if (!parsed.success)

@@ -1,10 +1,11 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Item } from "@studio/song-schema/yaml/chainSchema";
 import type { GraphFile } from "@studio/song-schema/yaml/graphSchema";
 import { describe, expect, it } from "vitest";
 import {
+  chainFilePath,
   fromSegments,
   readChainProject,
   toSegments,
@@ -157,5 +158,43 @@ describe("reading order", () => {
         `start: true\nsteps:\n  - { id: ${n}, track: ${n} }\n`,
       );
     expect(Object.keys(readChainProject(dir).chains)).toEqual(["a", "a-copy"]);
+  });
+});
+
+describe("a chain's file", () => {
+  const folder = () => {
+    const dir = mkdtempSync(join(tmpdir(), "chain-file-"));
+    mkdirSync(join(dir, "chains"));
+    return dir;
+  };
+  const touch = (dir: string, f: string) =>
+    writeFileSync(join(dir, "chains", f), "steps: []\n");
+
+  it("is .yaml for a new chain", () => {
+    const dir = folder();
+    expect(chainFilePath(dir, "a")).toBe(join(dir, "chains", "a.yaml"));
+  });
+
+  it("takes .k7x over .yaml over .yml", () => {
+    const dir = folder();
+    touch(dir, "a.yml");
+    expect(chainFilePath(dir, "a")).toBe(join(dir, "chains", "a.yml"));
+    touch(dir, "a.yaml");
+    expect(chainFilePath(dir, "a")).toBe(join(dir, "chains", "a.yaml"));
+    touch(dir, "a.k7x");
+    expect(chainFilePath(dir, "a")).toBe(join(dir, "chains", "a.k7x"));
+  });
+
+  it("stays .yml when a .yml chain is read and written back", () => {
+    const dir = folder();
+    writeFileSync(
+      join(dir, "chains", "a.yml"),
+      "start: true\nsteps:\n  - { id: a, track: a }\n",
+    );
+    const cp = readChainProject(dir);
+    expect(Object.keys(cp.chains)).toEqual(["a"]);
+    writeChainProject(dir, { a: { ...cp.chains.a, hidden: true } }, cp.texts);
+    expect(existsSync(join(dir, "chains", "a.yaml"))).toBe(false);
+    expect(readChainProject(dir).hidden?.a).toBeDefined();
   });
 });

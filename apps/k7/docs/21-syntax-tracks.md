@@ -223,15 +223,9 @@ becomes:
 An audio lane and a sequence lane kept side by side for one part are one lane — and if the two
 halves need different chains, that is what `#audio:` / `#midi:` is for.
 
-Such a project opens with a refusal naming every lane. One command rewrites them:
-
-```bash
-npx tsx packages/song/scripts/migrateTracks.ts <your-project.k7> --write
-```
-
-Leave off `--write` first to see what it would touch. It lists any **streaming** lane separately:
-that is the one it cannot finish for you, because only `graph.yaml` can say whether a pattern's
-events are notes or samples (`pad#midi: [ synth ]`).
+Such a project opens with a refusal naming every lane. A **streaming** lane is the one that needs
+more than the new name: only `graph.yaml` can say whether a pattern's events are notes or samples
+(`pad#midi: [ synth ]`).
 
 A lane's **alternatives** and its **freeze** belong to every module rather than to lanes alone:
 `alternatives:` holds other sets of attributes (for a lane, one of those attributes is its

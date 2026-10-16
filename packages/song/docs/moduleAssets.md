@@ -159,8 +159,7 @@ sound at all, and silence with no explanation is the failure mode worth spending
 ## A rack's samples in `sources/` — the older layout
 
 A rack's taps name samples in a library's or the project's `samples/` (`racks.md`,
-`libraryFiles.md`), and nothing writes the layout below; the loader still reads it, and
-`scripts/migrateRacks.ts` moves a rack off it.
+`libraryFiles.md`), and nothing writes the layout below; the loader still reads it.
 
 In that layout a rack keeps its audio in **`sources/`**, its own reserved subfolder (`MODULE_SOURCES_DIR`, in
 song-schema so a browser knows the word too). It is not `assets/` because the two are chosen by
@@ -200,37 +199,8 @@ and refusing the key would turn a working project into one that will not open.
 
 The médiathèque is where a module is authored, so it is where assets are dropped: a module row in
 its tree draws its `assets/` as children, and dropping a file on that row uploads into the folder
-(`packages/ui-library/src/MediaLibrary.tsx`, `assetsTarget`). The scan reports them as the entry's
-`assets` — its own field, separate from `files`, because `files` is the module's definition and
-these are its material.
+(`packages/ui-library/src/MediaLibrary.tsx`, `assetsTarget`).
 
 Nothing offers to *create* an asset. They arrive as bytes — a **folder** of them as readily as
 one, since the tree reads a drop through `webkitGetAsEntry` rather than `dataTransfer.files`
 (commons's `lib/droppedEntries.ts`) and `uploadTree` PUTs each file at its own nested path.
-
-### The listing nests too
-
-A drop that lands the bytes while the screen says nothing is there is the worst shape a bug
-takes, and it is what a scan filtering to `isFile()` at one level produces:
-`modules/audio/amps/guitar/assets` holds one folder per amp, twenty-two files across four of
-them, and such a scan reports `assets: []`.
-
-So `scan.ts`'s `assetsOf` walks, and `MediatekEntry.assets` carries `assets/`-relative POSIX
-paths — the **same shape** `listModuleAssets` returns, so a path the tree shows is a path a
-`params:` may name. Two things differ, both deliberate:
-
-- **No extension filter.** `listModuleAssets` keeps what a file-valued param accepts; a tree that
-  hid the `.wav` cabinet IR beside the `.nam` would be lying about the folder.
-- **A folder holding nothing is reported with a trailing `/`.** Nothing else would ever mention
-  it — a folder with children is implied by their paths — and the médiathèque states the same
-  rule one level up (`scanUnlisted`): a "Nouveau dossier…" that answers 200 and appears nowhere
-  reads as the call having done nothing at all.
-
-`packages/ui-library/src/assetTree.ts` turns those paths back into rows. The `assets` segment
-itself is never drawn — a module's children ARE its assets, and a fixed row between them and it
-would be a level with nothing to choose in — but it stays in every row's `path`, so a drop, a
-move, a rename and a delete all address the file that is actually there.
-
-The size of that listing is not capped. A module carrying a five-thousand-sample pack would make
-the modules listing heavy, and the listing is polled; nothing observed has come close, and a cap
-would have to choose which files to hide, which is the failure this section is about.

@@ -653,7 +653,7 @@ On the graph, a rack node draws one **tap** per sound: a pad that plays its samp
 
 From the command bar: `node tap add <node> [name]`, `node tap note <node> <tap> <0-127>`, `node tap sample <node> <tap> "@<library>/<path>"` (or `none`), `node tap remove <node> <tap>`.
 
-A tap may still name a `clip:` in its module's own folder, or a `rack_type: slice` rack cut windows out of one `source` — that is how racks were written before, and it still plays. `packages/song/scripts/migrateRacks.ts` moves such a rack into a library and its kit into the nodes that use it, cutting a slice rack into one file per sound.
+A tap may still name a `clip:` in its module's own folder, or a `rack_type: slice` rack cut windows out of one `source` — that is how racks were written before, and it still plays.
 
 ## _modules/<type>/<name>/ui.yaml — a module's panel
 

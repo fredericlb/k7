@@ -22,7 +22,7 @@ export interface SiblingFile {
 }
 
 /** Every `<base>.yaml` under one library, at the TWO depths the loaders' own walk uses. */
-export function siblingsIn(
+function siblingsIn(
   root: string,
   ns: string | null,
   base: string,

@@ -41,8 +41,7 @@ list. A track wired to `OUT` therefore passes through it like the others. The tw
 
 A real bypass needs a track routed off the master bus, onto a separate output device. That
 mechanism exists — `TrackDoc.outputChannels`, which [cue.md](cue.md) uses — but it is not wired to
-`OUT`: only `CUE` names it. `OUT` at the end of a track chain therefore means the same as `MIX`,
-and the migration script below makes them agree.
+`OUT`: only `CUE` names it. `OUT` at the end of a track chain therefore means the same as `MIX`.
 
 Wiring it to `OUT` would be a decision about **every** project in the repository, not a notation to
 correct — the same family as "make `out` serial", posed in [ports.md](ports.md).
@@ -112,25 +111,6 @@ is also what the bench opens on (`apps/k7/backend/docs/media/banc.md`).
 One detail `validate()` has to carry: `from: MIX` is accepted. The sum is neither a track nor a
 chain, it is where all of them arrive, and refusing it warns **every** project at once about the
 one line that is always right.
-
-## Migrating a song where `OUT` means "the sum"
-
-`OUT` names the interface; a file may name it where it means the sum. The script does both steps —
-rewrite the destinations, then add the run if it is missing:
-
-```bash
-npx tsx packages/song/scripts/migrateMixOut.ts <project.k7>   # or a folder of projects
-npx tsx packages/song/scripts/migrateMixOut.ts <project.k7> --dry
-```
-
-The two steps are **independent**: a project already naming `MIX` passes the first guard and still
-gets the second. Re-running on an up-to-date project does nothing.
-
-It rewrites **the text** and not re-read, re-emitted YAML, for the usual reason here: a `graph.yaml`
-is commented and hand-edited, and re-serialising would reformat the whole file to change one word.
-
-Since the two names are equivalent at the end of a track chain (above), this migration changes **no
-sound**. It brings the file back in line with what the words mean, before a real distinction exists.
 
 ## The layers crossed
 

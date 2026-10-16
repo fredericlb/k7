@@ -4,9 +4,7 @@
   "private": true,
   "type": "module",
   "description": "The Strudel side of a pattern lane: the hap -> event mapping and the API the ENGINE runs, bundled into engine/k7-runtime/engine/strudel/strudel.bundle.js by the engine's gen-strudel-bundle script and tested here under Node. Nothing imports it at run time — the engine plays every pattern lane (engine/k7-runtime/docs/patternPlugin.md). Consumed as source.",
-  "exports": {
-    "./events": "./src/events.ts"
-  },
+  "exports": {},
   "scripts": {
     "build": "tsc --noEmit",
     "dev": "tsc --noEmit --watch --preserveWatchOutput",

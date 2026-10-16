@@ -319,7 +319,7 @@ need most of `App`, and the mastering strip needs the **engine link** — `setPl
 `watchPluginParams` and the params store — which `SurfaceTab` has not got and should not grow. Its
 switch keeps an arm for each of them all the same, so the file says which road every type takes
 rather than falling off the end. Malformed files are reported through the same array as
-`projectTypeIssues` and the dead-field warnings, so a surface that will not parse is a squiggle in
+the dead-field warnings (`deadProjectFields`), so a surface that will not parse is a squiggle in
 the editor rather than a blank screen, and one bad surface does not take the good ones down with it.
 
 ## In k7's shell: every `split` surface is a pane

@@ -9,14 +9,8 @@ import {
 } from "@studio/song-schema/moduleTypes";
 import type { LoadedModule } from "./rawDoc";
 
-export {
-  isNotSupportedRef,
-  NOT_SUPPORTED_CATEGORY,
-  NOT_SUPPORTED_REF,
-} from "@studio/song-schema/moduleTypes";
-
 /** The built-in as the ref map holds it — see docs/notSupported.md for every field's reason. */
-export function notSupportedModule(): LoadedModule {
+function notSupportedModule(): LoadedModule {
   return {
     kind: "plugin",
     // Unconstrained on purpose: it stands where a plugin was, and nothing knows what that plugin took.

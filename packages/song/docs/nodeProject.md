@@ -1,6 +1,9 @@
 # nodeProject.ts — extended notes
 
-Compiles a chains/modules node project into the flat `ProjectDoc` the engine plays.
+Compiles a chains/modules node project into the flat `ProjectDoc` the engine plays. Its stages
+are files of `src/compile/`, each reading the inputs loaded once: what it reads and checks
+(`inputs.ts`), which track each chain lands on (`ownership.ts`), the frozen points (`freeze.ts`),
+the plugins and their automation (`plugins.ts`), and one placement's clip (`clips.ts`).
 
 A node project (`project.yaml` + `graph.yaml` + `modules/` + tracks/clips/sequences)
 is a graph: chains route a track `from` through modules (`use`) to the OUT sink. A

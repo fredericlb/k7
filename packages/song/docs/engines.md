@@ -82,21 +82,3 @@ node.
 `node engine` writes `engine:` on the set that is on and reloads, and never takes the values-only
 fast path that `node alternative select` can. Another engine is another plugin, so there is no
 diff of values to push.
-
-## Turning modules into engines
-
-When modules become engines of another, their uses are repointed by
-`scripts/migrateToEngines.ts`, given a map of old ref → module and engine:
-
-```bash
-npx tsx packages/song/scripts/migrateToEngines.ts map.json <dirs…>          # dry
-npx tsx packages/song/scripts/migrateToEngines.ts map.json <dirs…> --write
-```
-
-Every use gets an explicit `engine:`, even when it is the default, so a later change of default
-moves no existing node. A use is a file's own `extends:` or an ALTERNATIVE naming its own module
-([alternatives.md](alternatives.md)): a set that swaps a Wurlitzer for Plaits is repointed like a
-node. Its params, its own and every alternative's, move under that engine,
-because a module with engines reads no other. A use that kept the same ref still needs this when it
-set params, or when the module's default is not the DSP it was tuned on: the blind test's one-knob
-filters are pinned to `one-knob` for that reason.

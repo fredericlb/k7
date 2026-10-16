@@ -19,8 +19,7 @@ characters that can follow it, so moving `echo` never touches `echo-2`. A song's
 recycle bin and a stale `_libraries/` clone are not walked: none of them is something that plays.
 
 **What it cannot reach** is any other workspace, and any other account using the library. They
-keep the old ref until someone repoints them; `scripts/migrateToEngines.ts` takes a map of old ref
-to new and can do it in bulk.
+keep the old ref until someone repoints them.
 
 ## Where a module may go
 

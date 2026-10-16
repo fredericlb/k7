@@ -5,7 +5,7 @@
 // `mapping` are the USE's — whatever it does to them is undone. See docs/chainFiles.md.
 
 import { readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { parseChain, stepSeqs } from "@studio/song-schema/yaml/chainFile";
 import {
   CHAINS_DIR,
@@ -23,9 +23,13 @@ import {
   type YAMLMap,
   type YAMLSeq,
 } from "yaml";
-import { isChainProject, readChainProject } from "./chainProject";
+import {
+  chainFilePath,
+  isChainProject,
+  readChainProject,
+} from "./chainProject";
 import { entityFileFor, type ModuleFile } from "./yaml/moduleIO";
-import { isDocName, wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
+import { isDocName, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 const OPTS = { version: "1.2" as const, strict: false };
 const OUT = { lineWidth: 0 };
@@ -52,9 +56,7 @@ export function chainItemOf(dir: string, name: string): ChainItemRef | null {
   if (!isChainProject(dir)) return null;
   const n = readChainProject(dir).nodes[name];
   if (!n || n.track) return null;
-  const path = join(dir, CHAINS_DIR, `${n.chain}.yaml`);
-  const alt = join(dir, CHAINS_DIR, `${n.chain}.yml`);
-  return { chain: n.chain, path: wsExists(path) ? path : alt, id: n.id };
+  return { chain: n.chain, path: chainFilePath(dir, n.chain), id: n.id };
 }
 
 /** The item's map node inside a parsed chain file, found by its `id`. */
@@ -102,7 +104,7 @@ export function chainItemText(dir: string, name: string): string {
   const doc = parseDocument(wsRead(ref.path), OPTS);
   const node = itemNode(doc, ref.id);
   if (!node)
-    throw new Error(`${CHAINS_DIR}/${ref.chain}.yaml holds no item ${ref.id}`);
+    throw new Error(`${relative(dir, ref.path)} holds no item ${ref.id}`);
   return standalone(node);
 }
 

@@ -9,10 +9,8 @@ import {
 } from "@studio/song-schema/moduleTypes";
 import type { LoadedModule } from "./rawDoc";
 
-export { DOC_CATEGORY, DOC_REF } from "@studio/song-schema/moduleTypes";
-
 /** The built-in as the ref map holds it, carrying no `content` of its own — see docs/docModules.md. */
-export function docModule(): LoadedModule {
+function docModule(): LoadedModule {
   const meta = MODULE_TYPES[DOC_CATEGORY];
   return {
     kind: meta.kind,

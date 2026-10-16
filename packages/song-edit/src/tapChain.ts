@@ -3,18 +3,18 @@
 // the main output, since a tap-fed subchain with no node feeds nothing. Written straight into the node's chain file,
 // one write per edit, never through a graph rewrite. See packages/song/docs/racks.md.
 
-import { join } from "node:path";
+import { relative } from "node:path";
 import {
+  chainFilePath,
   nameOfItem,
   newNodeId,
   readChainProject,
 } from "@studio/song/chainProject";
 import { loadModuleRefs } from "@studio/song/loader";
-import { wsExists, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsWrite } from "@studio/song/yaml/workspaceFile";
 import { formatChain, parseChain } from "@studio/song-schema/yaml/chainFile";
 import {
   CHAIN_SINKS,
-  CHAINS_DIR,
   type ChainFile,
   type Item,
   isEndStep,
@@ -65,9 +65,9 @@ function write(
     throw new Error(
       `the edit would make ${chain} unreadable — ${read.issues[0]?.message ?? ""}`,
     );
-  const yml = join(dir, CHAINS_DIR, `${chain}.yml`);
-  wsWrite(wsExists(yml) ? yml : join(dir, CHAINS_DIR, `${chain}.yaml`), text);
-  return `${CHAINS_DIR}/${chain}.yaml`;
+  const path = chainFilePath(dir, chain);
+  wsWrite(path, text);
+  return relative(dir, path);
 }
 
 /** The node steps of a subchain, its trailing `to:` left out. */
