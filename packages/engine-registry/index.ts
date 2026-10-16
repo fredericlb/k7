@@ -1,40 +1,7 @@
 // index.ts — the engine registry as a mountable pair: a store and the routes over it. Mounted
-// by pl8 alone, and consulted by k7 and z0 across the origin. See docs/shared.md.
+// by k7's backend, and consulted across the origin. See docs/shared.md.
 
-export {
-  BINDINGS_FILE,
-  createBindings,
-  type SecretBindings,
-} from "./bindings.ts";
-export {
-  ENGINE_BODY_LIMIT,
-  type EngineMount,
-  engineErrorHandler,
-  mountEngineRegistry,
-} from "./mount.ts";
-export {
-  claimHolder,
-  cleanShares,
-  createOwners,
-  type EngineOwners,
-  type EngineRole,
-  mayUse,
-  OWNERS_FILE,
-  type Ownership,
-  roleOf,
-} from "./owners.ts";
-export {
-  attachEngineProxy,
-  issueEngineTicket,
-  replayBody,
-  verifyEngineTicket,
-} from "./proxy.ts";
-export {
-  createRegistry,
-  type EngineEntry,
-  type EngineRegistry,
-  type HeartbeatInput,
-  REGISTRY_TTL_MS,
-  type UpsertResult,
-} from "./registry.ts";
-export { engineRegistryRouter, type RouterOptions } from "./router.ts";
+export { type EngineMount, mountEngineRegistry } from "./mount.ts";
+export { claimHolder } from "./owners.ts";
+export { replayBody } from "./proxy.ts";
+export type { EngineRegistry } from "./registry.ts";
