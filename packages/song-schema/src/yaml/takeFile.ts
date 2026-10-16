@@ -8,9 +8,7 @@ import { type CompSpan, setCompSpan } from "../takes";
 import { beatsToPosition, parsePosition } from "../timecode";
 import { quoteTimecodes } from "./moduleFile";
 import { eventsToEdit } from "./trackFile";
-
-const OPTS = { version: "1.2" as const, lineWidth: 0 };
-const OUT = { lineWidth: 0 };
+import { YAML_READ, YAML_WRITE } from "./yamlText";
 
 /** The take entries and comp spans of the placement at `index`, comp in BEATS for the comp arithmetic. */
 function takesOf(
@@ -78,7 +76,7 @@ export function setCompAt(
   num: number,
   den: number,
 ): string {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const path = eventsToEdit(doc);
   const { ref, start, takes, comp } = takesOf(doc, path, index, num, den);
   if (span.take !== ref && !takes.some((t) => t.ref === span.take))
@@ -95,7 +93,7 @@ export function setCompAt(
     den,
   );
   quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** Add a take to the placement at `index` and comp it in over `span` — what a recorded take writes; null adds it unheard. */
@@ -107,7 +105,7 @@ export function addTakeAt(
   num: number,
   den: number,
 ): string {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const path = eventsToEdit(doc);
   const at = [...path, index];
   const list = doc.getIn([...at, "takes"]);
@@ -118,9 +116,9 @@ export function addTakeAt(
   const placed = isMap(doc.getIn(at)) ? doc.getIn(at) : null;
   if (placed && isMap(placed)) placed.flow = false;
   quoteTimecodes(doc);
-  if (!span) return doc.toString(OUT);
+  if (!span) return doc.toString(YAML_WRITE);
   return setCompAt(
-    doc.toString(OUT),
+    doc.toString(YAML_WRITE),
     index,
     { take: take.ref, ...span },
     num,
@@ -136,7 +134,7 @@ export function removeTakeAt(
   num: number,
   den: number,
 ): string {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const path = eventsToEdit(doc);
   const at = [...path, index];
   const { takes, comp } = takesOf(doc, path, index, num, den);
@@ -156,7 +154,7 @@ export function removeTakeAt(
     den,
   );
   quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** A placement's plain values with its takes, comp and crossfades moved by `delta` beats — what a move carries along. */
@@ -212,7 +210,7 @@ export function shiftTakesAt(
   num: number,
   den: number,
 ): string {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const at = [...eventsToEdit(doc), index];
   const p =
     ((doc.getIn(at) as { toJSON?: () => unknown })?.toJSON?.() as
@@ -224,7 +222,7 @@ export function shiftTakesAt(
     if (Array.isArray(moved[key]))
       writeList(doc, at, key, moved[key] as unknown[]);
   quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** Set the crossfade at the seam `at` (a song position) of the placement at `index`; a null length removes it. */
@@ -236,7 +234,7 @@ export function setCrossfadeAt(
   num: number,
   den: number,
 ): string {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const path = [...eventsToEdit(doc), index];
   const p =
     ((doc.getIn(path) as { toJSON?: () => unknown })?.toJSON?.() as
@@ -255,5 +253,5 @@ export function setCrossfadeAt(
   );
   writeList(doc, path, "crossfades", list);
   quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }

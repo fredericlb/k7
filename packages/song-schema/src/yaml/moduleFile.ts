@@ -14,6 +14,9 @@ import {
 import { currentAlternative } from "../alternatives";
 import { type Module, ModuleSchema } from "./moduleSchema";
 import { TIMECODE, TIMECODE_KEYS } from "./placementSchema";
+import { YAML_READ_LENIENT } from "./yamlText";
+
+// Printed with String(doc), the default width of 80 and not YAML_WRITE: unfolding would churn files (docs/yamlText.md).
 
 /** A problem in a module file, with where it is — line/column when the file says so. */
 export interface ModuleIssue {
@@ -28,9 +31,6 @@ export interface ParsedModule {
   value: Module | null;
   issues: ModuleIssue[];
 }
-
-// YAML 1.2, forced: a file may declare 1.1, whose sexagesimals and true-like scalars are this app's vocabulary.
-const PARSE_OPTIONS = { version: "1.2" as const, strict: false };
 
 /** Where `path` sits in the document, for an error that points at the line — validate.ts asks it too. */
 export function locate(
@@ -57,7 +57,7 @@ export function locate(
 /** Parse + validate one module file. */
 export function parseModule(text: string): ParsedModule {
   const lines = new LineCounter(); // turns a byte offset into a line/column, so a parse error isn't one you have to hunt for
-  const doc = parseDocument(text, { ...PARSE_OPTIONS, lineCounter: lines });
+  const doc = parseDocument(text, { ...YAML_READ_LENIENT, lineCounter: lines });
   const issues: ModuleIssue[] = [];
   for (const e of doc.errors) {
     const pos = lines.linePos(e.pos[0]);
@@ -155,7 +155,7 @@ export function setModuleList(
   values: number[],
 ): string {
   if (!path.length) throw new Error("setModuleList: empty path");
-  const doc = parseDocument(text, PARSE_OPTIONS);
+  const doc = parseDocument(text, YAML_READ_LENIENT);
   const node = doc.createNode(values);
   // On the NODE, not at stringify time: only this sequence should be inline.
   (node as { flow?: boolean }).flow = true;
@@ -170,7 +170,7 @@ export function setModuleAutomation(
   curve: string | null,
   trigger?: string,
 ): string {
-  const doc = parseDocument(text, PARSE_OPTIONS);
+  const doc = parseDocument(text, YAML_READ_LENIENT);
   const base = automationsHome(doc);
   const key = [...base, "automations"];
   const list = doc.getIn(key) as
@@ -222,7 +222,7 @@ export function setModuleValue(
   value: unknown,
 ): string {
   if (!path.length) throw new Error("setModuleValue: empty path");
-  const doc = parseDocument(text, PARSE_OPTIONS);
+  const doc = parseDocument(text, YAML_READ_LENIENT);
   if (value === null) doc.deleteIn(path);
   else doc.setIn(path, quoteIfKeyword(doc, value));
   quoteTimecodes(doc);

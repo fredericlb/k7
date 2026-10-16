@@ -5,6 +5,7 @@
 
 import { parse as parseYaml } from "yaml";
 import { isDocFile } from "./docExt";
+import { YAML_READ } from "./yaml/yamlText";
 
 /** The folder a workspace keeps its playlists in, beside `_modules` — see docs/playlistFile.md. */
 export const PLAYLISTS_DIR = "_playlists";
@@ -43,7 +44,7 @@ const str = (v: unknown): string | undefined =>
 export function parsePlaylist(text: string): Playlist | null {
   let doc: unknown;
   try {
-    doc = parseYaml(text, { version: "1.2" });
+    doc = parseYaml(text, YAML_READ);
   } catch {
     return null;
   }

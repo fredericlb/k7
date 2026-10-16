@@ -57,7 +57,8 @@
     "./yaml/sugar": "./src/yaml/sugar.ts",
     "./yaml/videoTrackFile": "./src/yaml/videoTrackFile.ts",
     "./keyframes": "./src/keyframes.ts",
-    "./yaml/videoKeys": "./src/yaml/videoKeys.ts"
+    "./yaml/videoKeys": "./src/yaml/videoKeys.ts",
+    "./yaml/yamlText": "./src/yaml/yamlText.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
