@@ -104,7 +104,7 @@ export function CueButton({
       title={
         // The reason, not the rule — and WHICH of the two is missing, since the fixes are different.
         !wired
-          ? `this deck has no headphone send — migrate the set (migrateSetCue) or connect \`deck${side}.cue\` in surfaces/`
+          ? `this deck has no headphone send — connect \`deck${side}.cue\` in surfaces/`
           : !live
             ? "this machine has no headphone pair — name one with `system cue 3+4`, or the cue plays nowhere"
             : on

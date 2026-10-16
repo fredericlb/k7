@@ -243,12 +243,11 @@ describe("sync hands one deck's tempo to the other", () => {
   });
 });
 
-/** A platter as the PROJECT declares one — what the scaffold writes and the migration adds.
+/** A platter as the PROJECT declares one — what the scaffold writes.
  *
- * Every fixture below carries these because `withDecks` no longer invents them: it patches the
+ * Every fixture below carries these because `withDecks` does not invent them: it patches the
  * record and the two live numbers onto a plugin the COMPILER emitted. A set that declares none
- * plays nothing at all, which is what `migrateSetPlatter` exists to prevent.
- * See ../../../docs/platter-node-plan.md. */
+ * plays nothing at all. See ../../../docs/platter-node-plan.md. */
 const declaring = (track: TrackDoc, module: string): TrackDoc => ({
   ...track,
   plugins: [
