@@ -32,6 +32,7 @@ import android.widget.FrameLayout
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -56,6 +57,9 @@ class AppViewsPlugin : Plugin() {
     private lateinit var topColorJs: String
     private lateinit var accountJs: String
     private lateinit var mediaSessionJs: String
+    private lateinit var backJs: String
+    private lateinit var downloads: DownloadRoutes
+    private val onBackend: (BackendHost.Status) -> Unit = { s -> bridge.executeOnMainThread { notifyListeners("backend", statusJs(s)) } }
     private val views = mutableMapOf<String, WebView>()
     // The address each view was last pointed at by `apps`: a changed studio reloads it, a tab switch does not.
     private val loaded = mutableMapOf<String, String>()
@@ -63,6 +67,8 @@ class AppViewsPlugin : Plugin() {
     private var visible: String? = null
     private var topPx = 0
     private var bottomPx = 0
+    private var leftPx = 0
+    private var rightPx = 0
     private lateinit var back: OnBackPressedCallback
     private lateinit var pickFiles: ActivityResultLauncher<Intent>
     private var chooser: ValueCallback<Array<Uri>>? = null
@@ -79,9 +85,12 @@ class AppViewsPlugin : Plugin() {
         )
         strip = View(context)
         frame.addView(strip, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, 0))
-        // The views start below the status bar and the cutout, and stop short of the navigation bar and the keyboard.
+        // The views start below the status bar and the cutout, stop short of the navigation bar and the keyboard, and in landscape clear both sides.
         ViewCompat.setOnApplyWindowInsetsListener(frame) { _, insets ->
-            topPx = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()).top
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            topPx = bars.top
+            leftPx = bars.left
+            rightPx = bars.right
             bottomPx = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime()).bottom
             place()
             insets
@@ -90,6 +99,8 @@ class AppViewsPlugin : Plugin() {
         topColorJs = context.assets.open("top-color.js").bufferedReader().use { it.readText() }
         accountJs = context.assets.open("account.js").bufferedReader().use { it.readText() }
         mediaSessionJs = context.assets.open("media-session.js").bufferedReader().use { it.readText() }
+        downloads = DownloadRoutes(context.assets.open("download.js").bufferedReader().use { it.readText() }, ::appOf, ::openOutside)
+        backJs = context.assets.open("back.js").bufferedReader().use { it.readText() }
         appBridge = StudioBridge(
             activity,
             ::appOf,
@@ -101,14 +112,22 @@ class AppViewsPlugin : Plugin() {
             onChooseStudio = { notifyListeners("studio", JSObject().put("origin", it)) },
         )
 
-        // Back walks the visible app's history first; with none left, the activity's own back — which quits, as before.
+        // Back is the page's first (back.js), then the view's history, then the system's: the task moves back on 12+, the activity finishes on 10 and 11.
         back = object : OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
-                views[visible]?.takeIf { it.canGoBack() }?.goBack()
-                syncBack()
+                val view = views[visible] ?: return passBack()
+                view.evaluateJavascript(backJs) { used ->
+                    when {
+                        used == "true" -> Unit
+                        view.canGoBack() -> view.goBack()
+                        else -> passBack()
+                    }
+                    syncBack()
+                }
             }
         }
         activity.onBackPressedDispatcher.addCallback(activity, back)
+        BackendHost.watch(onBackend)
 
         // Launched BY the browser's answer: no new intent will carry it.
         activity.intent?.data?.let { answer -> AuthHandoff.redeemUrl(context, answer, "/")?.let { pendingRedeem = it } }
@@ -125,6 +144,7 @@ class AppViewsPlugin : Plugin() {
     }
 
     override fun handleOnDestroy() {
+        BackendHost.unwatch(onBackend)
         appBridge.destroy()
         pickFiles.unregister()
         views.values.forEach { it.destroy() }
@@ -137,9 +157,34 @@ class AppViewsPlugin : Plugin() {
         val given = call.getObject("apps") ?: return call.reject("no apps")
         val url = call.getString("url")
         val studio = call.getString("studio")
-        // The phone's own studio is not up yet on a first run, which is still unpacking: wait rather than fail.
-        if (studio == BackendHost.ORIGIN) BackendHost.whenReady { bridge.executeOnMainThread { show(call, id, given, url, studio) } }
+        // The phone's own studio is not up yet on a first run, which is still unpacking: wait, and a start that failed is a load that failed.
+        if (studio == BackendHost.ORIGIN) BackendHost.whenReady { error ->
+            bridge.executeOnMainThread {
+                if (error == null) return@executeOnMainThread show(call, id, given, url, studio)
+                loadFailed(id, "k7 could not start: $error")
+                call.reject(error)
+            }
+        }
         else bridge.executeOnMainThread { show(call, id, given, url, studio) }
+    }
+
+    /** Where the phone's own backend is: `starting` (with `step`, `progress`), `ready` or `failed` (with `message`); then `backend` events. */
+    @PluginMethod
+    fun backend(call: PluginCall) = call.resolve(statusJs(BackendHost.current()))
+
+    private fun statusJs(s: BackendHost.Status): JSObject {
+        val out = JSObject().put("state", s.state)
+        s.step?.let { out.put("step", it) }
+        s.progress?.let { out.put("progress", it) }
+        s.message?.let { out.put("message", it) }
+        return out
+    }
+
+    /** Start the phone's own backend again after it failed; the `backend` events say how it goes. */
+    @PluginMethod
+    fun restartBackend(call: PluginCall) {
+        Thread({ BackendHost.retry(context) }, "k7-backend-retry").start()
+        call.resolve()
     }
 
     private fun show(call: PluginCall, id: String, given: JSObject, url: String?, studio: String?) {
@@ -150,6 +195,7 @@ class AppViewsPlugin : Plugin() {
         appBridge.setStudio(studio)
         this.studio = studio
         val view = views.getOrPut(id) { create(id) }
+        downloads.inject(id, view, Uri.parse(address))
         val redeem = pendingRedeem.takeIf { id == "k7" }
         pendingRedeem = null
         when {
@@ -202,7 +248,14 @@ class AppViewsPlugin : Plugin() {
 
     /** In the system browser, never in a view: identity providers refuse WebViews (RFC 8252 §8.12). */
     private fun signIn() {
-        studio?.let { AuthHandoff.start(activity, it) }
+        val at = studio ?: return
+        if (AuthHandoff.start(activity, at) || activity.isFinishing) return
+        // Not even a plain browser: said in a native dialog, since the page that asked is the one that cannot go on.
+        AlertDialog.Builder(activity)
+            .setTitle("k7")
+            .setMessage("No web browser to sign in with. Install or enable one, then sign in again.")
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     /** Who the studio says is signed in; on the phone's own studio nobody means back to the local user, as on desktop, and an account pairs. */
@@ -219,7 +272,13 @@ class AppViewsPlugin : Plugin() {
 
     private fun place() {
         strip.layoutParams = strip.layoutParams.apply { height = topPx }
-        views.values.forEach { v -> v.layoutParams = (v.layoutParams as FrameLayout.LayoutParams).apply { topMargin = topPx } }
+        views.values.forEach { v ->
+            v.layoutParams = (v.layoutParams as FrameLayout.LayoutParams).apply {
+                topMargin = topPx
+                leftMargin = leftPx
+                rightMargin = rightPx
+            }
+        }
         frame.setPadding(0, 0, 0, bottomPx)
     }
 
@@ -232,8 +291,16 @@ class AppViewsPlugin : Plugin() {
 
     private fun barIcons() = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
 
+    // Taken whenever an app is on screen, since only the page knows whether it has something open to close.
     private fun syncBack() {
-        back.isEnabled = views[visible]?.canGoBack() == true
+        back.isEnabled = views[visible] != null
+    }
+
+    /** The Back nobody here used, handed to the activity with this callback out of the way. */
+    private fun passBack() {
+        back.isEnabled = false
+        activity.onBackPressedDispatcher.onBackPressed()
+        syncBack()
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -248,7 +315,7 @@ class AppViewsPlugin : Plugin() {
         settings.userAgentString = "${settings.userAgentString} k7-android"
         webViewClient = AppClient(id)
         webChromeClient = AppChrome()
-        setDownloadListener { url, _, _, _, _ -> openOutside(Uri.parse(url)) }
+        setDownloadListener { url, _, disposition, mime, _ -> downloads.fromListener(this, id, Uri.parse(url), disposition, mime) }
         appBridge.attach(this, id)
         // The phone's own studio is a loopback one, whose pages derive each service's address from this table, as the desktop's preload gives it.
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
@@ -258,7 +325,11 @@ class AppViewsPlugin : Plugin() {
         }
         frame.addView(
             this,
-            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT).apply { topMargin = topPx },
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT).apply {
+                topMargin = topPx
+                leftMargin = leftPx
+                rightMargin = rightPx
+            },
         )
     }
 

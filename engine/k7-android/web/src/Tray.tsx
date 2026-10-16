@@ -1,21 +1,26 @@
 // Tray.tsx — this page's one screen, seen while no studio app covers it: the supervisor's snapshot
 // and the few commands a phone needs — connect a studio, disconnect one, pair a LAN device, trust a private CA, quit.
 // With a studio open, k7's settings draw the same (apps/k7/frontend/src/settings/AndroidEngineSection.tsx).
+// The forms are collapsed: the phone's own studio needs none of them, and the first screen is the engine's state.
 
 import { Button } from "@frediverse/ui/button";
+import { ChevronDown, ChevronRight } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { K7Runtime, type SupervisorState } from "./native";
 import { Pairing } from "./Pairing";
 
 export interface TrayProps {
   state: SupervisorState | null;
   engineExit: number | null;
+  /** The open studio's certificate was refused: the private CA is the likely fix, so it opens. */
+  certFailed: boolean;
 }
 
-export function Tray({ state, engineExit }: TrayProps) {
+export function Tray({ state, engineExit, certFailed }: TrayProps) {
   const [address, setAddress] = useState("");
   const [lan, setLan] = useState<string | null>(null);
+  const [studiosOpen, setStudiosOpen] = useState(false);
 
   useEffect(() => {
     K7Runtime.lanAddress().then(({ address }) => setLan(address ?? null));
@@ -42,13 +47,19 @@ export function Tray({ state, engineExit }: TrayProps) {
         ) : null}
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="font-medium">Studios</h2>
-        {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            none connected — connect one to open k7 here
-          </p>
-        ) : null}
+      <Disclosure
+        label="Connect to another studio"
+        open={
+          studiosOpen ||
+          check?.state === "checking" ||
+          check?.state === "refused"
+        }
+        onToggle={() => setStudiosOpen(!studiosOpen)}
+      >
+        <p className="text-sm text-muted-foreground">
+          This phone runs its own k7. A studio on a server is optional: its
+          address adds it here, and k7's settings pick which one opens.
+        </p>
         {rows.map((row) => (
           <div key={row.url} className="flex items-center gap-2">
             <span className="min-w-0 flex-1 truncate text-sm">{row.url}</span>
@@ -89,14 +100,14 @@ export function Tray({ state, engineExit }: TrayProps) {
         {check?.state === "refused" ? (
           <p className="text-sm text-destructive">{check.message}</p>
         ) : null}
-      </section>
+      </Disclosure>
 
       <Pairing
         requests={state?.pairRequests ?? []}
         devices={state?.pairedDevices ?? []}
       />
 
-      <PrivateCa />
+      <PrivateCa certFailed={certFailed} />
 
       <Button variant="outline" onClick={() => K7Runtime.quit()}>
         Quit
@@ -118,8 +129,37 @@ function engineLine(
   return `engine ${state.status ?? "starting…"}`;
 }
 
-// Collapsed unless one is already trusted: a studio with a public certificate, the usual case, needs nothing here.
-function PrivateCa() {
+// A heading that shows its section only once asked, so the tray's first screen is the state and not the forms.
+function Disclosure({
+  label,
+  open,
+  onToggle,
+  children,
+}: {
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  const Chevron = open ? ChevronDown : ChevronRight;
+  return (
+    <section className="flex flex-col gap-2">
+      <Button
+        variant="ghost"
+        className="justify-start px-0 text-muted-foreground"
+        aria-expanded={open}
+        onClick={onToggle}
+      >
+        <Chevron className="size-4" />
+        {label}
+      </Button>
+      {open ? children : null}
+    </section>
+  );
+}
+
+// Collapsed unless one is already trusted or the studio's certificate was just refused: a public certificate, the usual case, needs nothing here.
+function PrivateCa({ certFailed }: { certFailed: boolean }) {
   const [count, setCount] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [said, setSaid] = useState<string | null>(null);
@@ -128,9 +168,13 @@ function PrivateCa() {
   useEffect(() => {
     K7Runtime.casInfo().then(({ count }) => {
       setCount(count);
-      setOpen(count > 0);
+      setOpen((was) => was || count > 0);
     });
   }, []);
+
+  useEffect(() => {
+    if (certFailed) setOpen(true);
+  }, [certFailed]);
 
   // The supervisor reads its roots once, at start: each change restarts it, and it adopts the running engine.
   const run = async (
@@ -156,53 +200,52 @@ function PrivateCa() {
       : `Android's CAs and ${count} of yours`;
 
   return (
-    <section className="flex flex-col gap-2">
-      <Button
-        variant="ghost"
-        className="justify-start px-0"
-        onClick={() => setOpen(!open)}
-      >
-        Private CA (optional) {open ? "▾" : "▸"}
-      </Button>
-      {open ? (
-        <>
-          <p className="text-sm text-muted-foreground">
-            Only needed when your studio's HTTPS certificate is signed by a
-            certificate authority of your own — a home server or a company
-            network running its own CA. Studios with a public certificate, such
-            as Let's Encrypt, connect without anything here.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Android does not let apps use the CAs installed in Settings, so a
-            private one is added here instead: pick its certificate file (.pem,
-            .crt or .der). It is trusted by the engine's connection to the
-            studio and by k7 alike.
-          </p>
-          <p className="text-sm">{base}</p>
-          {said ? <p className="text-sm">{said}</p> : null}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() => run(() => K7Runtime.importCa(), "adding")}
-            >
-              Trust a CA certificate…
-            </Button>
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() =>
-                run(async () => {
-                  const done = await K7Runtime.forgetCas();
-                  return { ...done, said: "trusting Android's CAs only" };
-                }, "forgetting")
-              }
-            >
-              Forget trusted CAs
-            </Button>
-          </div>
-        </>
+    <Disclosure
+      label="Private CA (optional)"
+      open={open}
+      onToggle={() => setOpen(!open)}
+    >
+      {certFailed ? (
+        <p className="text-sm text-destructive">
+          The studio's certificate is not trusted. If it is signed by a CA of
+          your own, add that CA below.
+        </p>
       ) : null}
-    </section>
+      <p className="text-sm text-muted-foreground">
+        Only needed when your studio's HTTPS certificate is signed by a
+        certificate authority of your own — a home server or a company network
+        running its own CA. Studios with a public certificate, such as Let's
+        Encrypt, connect without anything here.
+      </p>
+      <p className="text-sm text-muted-foreground">
+        Android does not let apps use the CAs installed in Settings, so a
+        private one is added here instead: pick its certificate file (.pem, .crt
+        or .der). It is trusted by the engine's connection to the studio and by
+        k7 alike.
+      </p>
+      <p className="text-sm">{base}</p>
+      {said ? <p className="text-sm">{said}</p> : null}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          disabled={busy}
+          onClick={() => run(() => K7Runtime.importCa(), "adding")}
+        >
+          Trust a CA certificate…
+        </Button>
+        <Button
+          variant="outline"
+          disabled={busy}
+          onClick={() =>
+            run(async () => {
+              const done = await K7Runtime.forgetCas();
+              return { ...done, said: "trusting Android's CAs only" };
+            }, "forgetting")
+          }
+        >
+          Forget trusted CAs
+        </Button>
+      </div>
+    </Disclosure>
   );
 }

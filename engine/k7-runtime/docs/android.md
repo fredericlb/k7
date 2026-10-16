@@ -28,6 +28,10 @@ elsewhere is something it can ADD, never something it needs. `BackendHost.kt` is
 | one `backend.zip` asset, unpacked once per install | node reads files, not assets; the APK's `lastUpdateTime` marks the copy, as for Faust's libraries |
 | cleartext allowed for `127.0.0.1` only (`engine/k7-android/app/src/main/res/xml/network_security_config.xml`) | the local studio is plain http, as on desktop, and every other host stays https |
 | the views wait for the backend before loading it | a first run spends a few seconds unpacking, and a load that fails then would put the error screen up for nothing |
+| the shell page shows the start — "Starting k7…", with the unpack's percentage — and a failed one says why, with a Retry (`web/src/Backend.tsx`) | the phone's own studio is the one a first launch opens, so a start that never ends must not be a blank screen; the percentage is the bytes of `backend.zip` read, which is stored uncompressed in the APK, so its length is known before the unpack |
+| Retry restarts the start from the unpack, killing whatever half started | a launch generation keeps the waiter of the killed backend from relaunching it over the new one |
+| the zip streamed straight out of the APK's assets, never copied to disk first | the extracted tree is the only copy the phone keeps, so there is nothing to delete after it |
+| native libraries extracted at install (`useLegacyPackaging`), and no R8 | node and the supervisor are EXECUTED, which needs real files; R8 would need keep rules for Capacitor's reflective bridge and the JNI entry points that nobody has written, and a release that breaks at run time costs more than the megabytes |
 
 A crashed backend is relaunched once after two seconds; a dead origin under the views is otherwise
 only fixed by restarting the app.
@@ -49,8 +53,17 @@ it again when the route or the theme changes. The status bar's icons follow its 
 **This phone's engine is set in k7's settings** (the home page's cog), because on the phone
 k7 is the only screen there is: the studios the engine is listed at, which one the apps open, the private CA,
 Quit (`apps/k7/frontend/docs/settings.md`). The page bundled in the APK, `engine/k7-android/web`,
-is only seen while there is **no studio to open**, or while the open one **fails to load** — then
-no app is on screen to reach settings in, so it draws the same tray with a Retry.
+is only seen while there is **no studio to open**, while the phone's own k7 is **still starting or
+failed to**, or while the open one **fails to load** — then no app is on screen to reach settings in,
+so it draws the same tray with a Retry. Its forms — another studio's address, the private CA — are
+collapsed, since the phone's own studio needs neither; a studio refused for its certificate opens the
+private CA section, the likely fix.
+
+The activity keeps Capacitor's `AppTheme.NoActionBar`, a dark theme, rather than a DayNight one. Every
+studio page is dark-only (`@frediverse/ui/theme.css`, and k7's `color-scheme: dark`), so the
+`prefers-color-scheme` a light theme would give the views changes nothing in them; what it would
+change is the window behind a loading page and the native dialogs, a white flash and white boxes
+over a dark app.
 
 Two ways from the page to the native half:
 
@@ -102,8 +115,26 @@ What the app views do that a browser would do on its own:
   the page's host in its subjectAltName (a DNS name, one leftmost `*` label at most, or the IP);
   a wrong name, an expired or not-yet-valid date, or any fault besides the unknown issuer is never
   forgiven.
-- **Back** walks the visible app's history. With none left it does what it always did: it finishes
-  the activity, which quits.
+- **A download is saved to the phone's Downloads.** The WebView's own download hands a URL to
+  a listener that can neither read a `blob:` URL nor send the session's cookie, and the exports are
+  blobs (`apps/k7/frontend/src/downloadBlob.ts`, the songbook's zip, a release's files). So the
+  PAGE fetches the file: `assets/download.js`, a document-start script for the app's origin only,
+  takes an `<a download>` click on a `blob:`, `data:` or same-origin URL — before the page revokes
+  the blob, which `downloadBlob` does a second later — and the download listener runs the same
+  script for anything it still catches. The bytes go to `Downloads.kt` over `k7Android` as base64
+  chunks of 512 KiB, each acknowledged before the next, so a large file never sits whole in a
+  string or a queue; it is written through `MediaStore.Downloads`, which API 29+ grants without a
+  storage permission, and a toast names the file as MediaStore saved it. Any other URL still opens
+  outside. The script is injected per origin, not everywhere, because the bridge drops a message
+  from another origin: a click taken there would vanish.
+- **Back** goes to the page first: `assets/back.js` lets a page take it (a cancelled `k7:back` event),
+  then closes an open Radix dialog, sheet, popover or menu with the Escape it already answers to,
+  since none of them pushes history. Only when the page used nothing does Back walk the view's
+  history, and with none left it goes to the activity, where Android 12+ moves the task to the back
+  and 10 and 11 finish it, which quits.
+- **Insets on every side.** Android 15 draws every app edge to edge, so the views are inset by the
+  system bars and the cutout on the left and right too — a landscape phone's navigation bar and
+  notch are on a side — and the status-bar strip still spans the whole width.
 
 **No `cap sync`.** Gradle stages the page the way it stages the engine: `stageShell` runs the
 workspace's `npm run build` and lays `dist/` out as `cap copy` would (`public/`,
@@ -153,6 +184,13 @@ the sign-in opens in the system browser instead, through the studio's handoff
 one-use code, `MainActivity` (`singleTask`, so the intent reaches the running one) hands it to the
 plugin, and `AuthHandoff.kt` turns it into a session in k7's view with the verifier only this app
 holds. The verifier is kept on disk: the process may be killed while the browser is in front.
+
+The browser is a **Custom Tab** (`androidx.browser`), launched in the app's own task: the answer
+reaching the `singleTask` activity clears it off the top, so the user lands back in k7 rather than in
+a browser left open behind it. It is still the system browser, with its cookies and its password
+manager, as RFC 8252 asks. A phone whose browser has no Custom Tabs gets a plain view intent, and one
+with no browser at all gets a native dialog saying so — the Sign in a page cannot complete must not
+just do nothing.
 
 The studio's own OIDC client is the one used, with its registered `redirect_uri`: nothing new to
 register at the identity provider for the phone.
@@ -357,6 +395,9 @@ also catches the GL driver's chatter, which is noise.
 - **The app views have not been driven through a real sign-in on a phone yet.** The routing rules,
   the browser handoff, the home page's account control, the status-bar colour and k7's engine section above are
   the design; each needs checking against a live studio.
+- **Downloads, Back and the start screen are compiled, not driven.** The in-page fetch of a revoked
+  blob, a file of hundreds of megabytes through the chunks, Back closing a Radix sheet, the
+  landscape insets and a failed start's Retry each need a phone.
 
 ## What was measured
 
