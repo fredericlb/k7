@@ -403,6 +403,9 @@ The same pass is what gives a recorder added in place its ring.
 lapped while it reads, and the frames that fell behind are zeroed and counted, which is the one
 thing `damaged` promises (`docs/recorder.md`).
 
+The ring holds ~21.8 s at 48 kHz, because the message thread is what drains it and an apply that
+instantiates plugins or compiles Faust stalls it for seconds (`docs/recorder.md`).
+
 ## What the audio thread reads, and what it never lets through
 
 - **Tempo and time signature** come from `tempoSequence.getInternalSequence()`, the one view
