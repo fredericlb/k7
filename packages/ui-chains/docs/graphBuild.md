@@ -4,8 +4,15 @@ Turns the compiled `WebGraph` into positioned nodes and edges, mirroring the rea
 chain's input and output map to its first and last module (or to a pass-through node when the chain
 has no modules), and that is what `from`/`out` connect to.
 
-The file is deliberately **renderer-agnostic** — plain numbers, no Pixi, no DOM — the seam that lets
+The code is deliberately **renderer-agnostic** — plain numbers, no Pixi, no DOM — the seam that lets
 dagre own layout and lets the same geometry serve the hit areas and the drawing by construction.
+
+`graph.ts` is the one import site; behind it each stage has a file. `graphNode.ts` holds the shapes,
+`geometry.ts` the measurements, `nodeUIs.ts` the built-in cards' panels and `widgetValue.ts` a
+widget's value maths. `buildGraph.ts` runs the build: a `Build` (`buildContext.ts`) holds the run's
+maps and writers, the steps that add cards are `buildChains.ts`, and the socket and rank passes
+close it. `graphLayout.ts` and `moduleRow.ts` place the result. Hosts import `./graph` alone, so
+the split stays internal.
 
 ## What a node carries from its step
 

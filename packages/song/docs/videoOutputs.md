@@ -117,7 +117,7 @@ must not lose its card in the meantime.
 
 ```bash
 npx vitest run packages/song/src/videoOutputs.test.ts
-npx vitest run packages/ui-chains/src/graph.test.ts
+npx vitest run packages/ui-chains/src/buildSums.test.ts
 ```
 
 And by hand, the real test of the automatic add: take a project with a `viewport` and without the

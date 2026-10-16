@@ -22,7 +22,7 @@ page.
 
 Because it is the **graph** half of the join, and reading a graph is this package's job.
 `widgetDenorm` — the other half, which unrolls a 0..1 into a widget's range — is already in
-`graph.ts`, next door. Both consumers depend on it already, so nothing new enters a
+`widgetValue.ts`, next door. Both consumers depend on it already, so nothing new enters a
 `package.json`.
 
 The input type is **structural** (`SurfaceMapping`) rather than imported from
