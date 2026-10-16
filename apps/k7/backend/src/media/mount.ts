@@ -15,6 +15,7 @@ import { configureMpv } from "@studio/mpv-player/player";
 import { createPlayerRouter } from "@studio/mpv-player/router";
 import type { Express, Request, RequestHandler } from "express";
 import { authDir } from "../authState.ts";
+import { emailOf, subOf } from "../who.ts";
 import { isAdminRequest } from "./admin.ts";
 import { startAnalysisSweep } from "./analysisSweep.ts";
 import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
@@ -52,22 +53,19 @@ export interface MediaMount {
   pairedServer(req: Request): { base: string; token: string } | null;
 }
 
-type Who = { user?: { sub?: string; email?: string } };
-
 /** Mount every media route on `app`; call it after setupAuth and before the SPA fallback. */
 export function mountMedia(
   app: Express,
   opts: {
     requireAuth: RequestHandler;
     port: number;
-    tokens?: ReturnType<typeof mediaTokens>;
+    tokens: ReturnType<typeof mediaTokens>;
   },
 ): MediaMount {
-  const { requireAuth, port } = opts;
+  const { requireAuth, port, tokens } = opts;
   // Before anything listens: without it no project can open anywhere — packages/file-hub/docs/fileHub.md.
   const filesRoot = requireFilesRoot();
 
-  const tokens = opts.tokens ?? mediaTokens();
   const { issueApiToken, bearerOrSession } = tokens;
 
   // Everything is behind one of the two: a library is somebody's work, not a public bucket.
@@ -89,10 +87,10 @@ export function mountMedia(
   app.use("/api/settings", requireAuth, settingsRouter);
 
   // The studio's ONE engine registry; "pl8" is only its file name under ~/.k7/web-endpoints — ../../docs/media/engine.md.
-  // server.ts owns the signals, so the goodbye runs before its graceful close.
   const engine = mountEngineRegistry(app, {
     service: "pl8",
     requireAuth,
+    // server.ts owns the signals, so the goodbye runs before its graceful close.
     exitOnSignal: false,
     // On the volume, so an engine's id stays bound to its tunnel secret across a redeploy — packages/engine-registry/docs/token.md.
     stateDir: process.env.STUDIO_ENGINES_DIR || join(mediatekDir(), ".engines"),
@@ -132,10 +130,8 @@ export function mountMedia(
   app.use(
     "/api",
     bearerOrSession(requireAuth),
-    createPlayerRouter((req) => {
-      const who = (req as Who).user;
-      return who?.email ?? who?.sub ?? "";
-    }),
+    // Email first: mpv-player names each listener's socket directory after it.
+    createPlayerRouter((req) => emailOf(req) ?? subOf(req) ?? ""),
   );
 
   // Cutting a song into stems, driven from HERE because the bytes are here — ../../docs/media/stems.md.

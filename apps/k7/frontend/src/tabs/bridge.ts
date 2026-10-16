@@ -2,18 +2,13 @@
 // hosted build, and that absence IS the probe: a browser tab is never behind another tab of
 // ours. See apps/k7-standalone/docs/tabs.md.
 
-export interface TabRow {
-  id: number;
-  url: string;
-  title: string;
-  active: boolean;
-  /** The one that cannot be closed and draws as an icon — see apps/k7-standalone/docs/tabs.md. */
-  home: boolean;
-}
+import type { TabRow, TabState } from "@studio/web-protocol/desktop";
+
+export type { TabRow };
 
 interface TabBridge {
-  state: () => { active: boolean };
-  subscribe: (cb: (s: { active: boolean }) => void) => () => void;
+  state: () => TabState;
+  subscribe: (cb: (s: TabState) => void) => () => void;
 }
 
 interface TabsBridge {

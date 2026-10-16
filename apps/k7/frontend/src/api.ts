@@ -21,6 +21,7 @@ import type {
   AiOrganizeEvent,
   AiOrganizeRequest,
   AiOrganizeResult,
+  AiSettingsView,
 } from "@studio/ui-module-builder/ai-organize";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import type {
@@ -450,12 +451,7 @@ export const moduleStore: ModuleStore = {
   },
 };
 
-/** The account's Claude settings as the browser may see them: the key only as a hint (backend/src/aiSettings.ts). */
-export interface AiSettingsView {
-  model: string | null;
-  defaultModel: string;
-  keyHint: string | null;
-}
+export type { AiSettingsView };
 
 /** The module builder's "AI organize", on THIS backend — the one holding the account's key (backend/src/aiOrganize.ts). */
 export const aiOrganize = {

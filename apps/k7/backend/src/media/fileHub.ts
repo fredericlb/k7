@@ -15,6 +15,7 @@ import {
 import { mediatekDir } from "@studio/mediatek/layout";
 import { SYNC_PAIR_ROUTE } from "@studio/web-protocol/pairing";
 import type { Express, RequestHandler } from "express";
+import { emailOf, subOf } from "../who.ts";
 import { isAdminRequest } from "./admin.ts";
 
 /** `$STUDIO_FILES_ROOT`, or the process exits with what to set — called before anything listens. */
@@ -47,8 +48,8 @@ export function mountFileHub(
     registry: engine.registry,
     tunnels: engine.tunnels,
     selfPort: () => port,
-    userOf: (req) => req.user?.email ?? "",
-    subjectOf: (req) => req.user?.sub ?? "",
+    userOf: (req) => emailOf(req) ?? "",
+    subjectOf: (req) => subOf(req) ?? "",
     // Who may edit the origin's libraries: the `groups` claim against this list, which empty admits nobody.
     isAdmin: isAdminRequest,
     // Set by `npm run dev` only: this process's own watch cannot see the ones it spawns.
@@ -63,8 +64,7 @@ export function mountFileHub(
   app.get(FILE_HUB_HELLO, requireAuth, hub.helloHandler());
   // The published versions of the seed's library, for a desktop never paired: no session, read-only.
   app.use(PUBLIC_LIBRARIES_PATH, hub.publicLibrariesHandler());
-  // The machines that sync this account's workspaces: a device token is minted here, behind the session.
-  // A desktop pairing with this origin: its browser lands here, signs in if it must, and is sent home with a device token.
+  // A desktop pairing with this origin: its browser lands here, signs in if it must, and leaves with a device token.
   app.get(
     SYNC_PAIR_ROUTE,
     (req, res, next) => {

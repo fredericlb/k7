@@ -14,6 +14,7 @@ import { wrap } from "@frediverse/http/route";
 import { moveFile } from "@studio/mediatek/write";
 import { SHARE_SCHEMA, type ShareManifest } from "@studio/web-protocol";
 import { type Request, Router, type Router as RouterT } from "express";
+import { emailOf, subOf } from "../../who.ts";
 import { rememberIdentity, subFor } from "../projects/identities.ts";
 import {
   commentsStamp,
@@ -38,15 +39,11 @@ import { rawToDisk, uploadOf } from "../upload.ts";
 /** What `scripts/tokens.mjs` prefixes a machine-to-service token's subject with — see projects.ts. */
 const SERVICE_SUB_PREFIX = "service:";
 
-function subOf(req: Request): string {
-  return (req as { user?: { sub?: string } }).user?.sub ?? "";
-}
-
 /** The two files the store writes itself, which no upload may name. */
 const RESERVED = new Set(["pending.json", "snapshot.json"]);
 
 /** A path the manifest may list: relative, slash-separated, never climbing, never one of the store's own files. */
-export function shareFileOk(rel: unknown): rel is string {
+function shareFileOk(rel: unknown): rel is string {
   if (typeof rel !== "string" || !rel || rel.length > 1024) return false;
   if (rel.includes("\\") || rel.includes("\u0000") || rel.startsWith("/"))
     return false;
@@ -81,10 +78,7 @@ export function sharesRouter(player: PlayerCheck): RouterT {
   router.use((req, res, next) => {
     const sub = subOf(req);
     if (!sub) return res.status(401).json({ error: "no user on the session" });
-    rememberIdentity(
-      sub,
-      (req as { user?: { email?: string } }).user?.email ?? null,
-    );
+    rememberIdentity(sub, emailOf(req));
     next();
   });
 
@@ -104,7 +98,7 @@ export function sharesRouter(player: PlayerCheck): RouterT {
 
   /** WHOSE shares: a SERVICE token has no person and must NAME one — ../../../docs/media/sshKeyForService.md. */
   function owner(req: Request): string {
-    const sub = subOf(req);
+    const sub = subOf(req) ?? "";
     const asked = typeof req.query.user === "string" ? req.query.user : "";
     return sub.startsWith(SERVICE_SUB_PREFIX) && asked ? subFor(asked) : sub;
   }

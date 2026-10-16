@@ -118,7 +118,7 @@ anything is force-killed.
 
 The session answers every permission through the shell's handlers
 (`commons/packages/electron-shell/docs/shell.md`, "Permissions"), with k7's origin as the app's.
-Its defaults are widened for what k7 uses, and nothing else is granted:
+Its defaults are widened for what k7 uses (`K7_GRANTS`, `apps/k7-standalone/src/grants.ts`), and nothing else is granted:
 
 | permission | to | what needs it |
 |---|---|---|

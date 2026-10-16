@@ -4,7 +4,7 @@
 import { isAdmin, type SessionUser } from "@frediverse/oidc";
 
 /** `$AUTH_ADMIN_GROUPS`, comma-separated, read per call so a test can set it. */
-export const adminGroups = (): string[] =>
+const adminGroups = (): string[] =>
   (process.env.AUTH_ADMIN_GROUPS ?? "")
     .split(",")
     .map((g) => g.trim())

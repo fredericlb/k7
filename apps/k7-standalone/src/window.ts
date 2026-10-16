@@ -3,6 +3,7 @@
 // It opens before the backend answers, on a splash: `start` is what loads the strip and k7's home.
 
 import { line } from "@frediverse/electron-shell/log";
+import { DESKTOP_IPC } from "@studio/web-protocol/desktop";
 import { tabsUrl } from "@studio/web-protocol/projects";
 import {
   BaseWindow,
@@ -90,7 +91,7 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
     // Pushed rather than polled: the picture changes on navigation, not on a clock.
     onChanged: () => {
       if (!strip.webContents.isDestroyed())
-        strip.webContents.send("studio:tabs", tabs.list());
+        strip.webContents.send(DESKTOP_IPC.tabs, tabs.list());
     },
     onSignIn: spec.onSignIn,
   });
@@ -110,13 +111,13 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
     if (fromChrome(e))
       spec.onSignIn(typeof server === "string" ? server : undefined);
   };
-  ipcMain.on("studio:tabs:select", onSelect);
-  ipcMain.on("studio:tabs:close", onClose);
-  ipcMain.on("studio:auth:signIn", onSignIn);
-  ipcMain.handle("studio:auth:server", (e) =>
+  ipcMain.on(DESKTOP_IPC.tabsSelect, onSelect);
+  ipcMain.on(DESKTOP_IPC.tabsClose, onClose);
+  ipcMain.on(DESKTOP_IPC.signIn, onSignIn);
+  ipcMain.handle(DESKTOP_IPC.server, (e) =>
     fromChrome(e) ? spec.server() : null,
   );
-  ipcMain.handle("studio:sync:addServer", (e, server: unknown) =>
+  ipcMain.handle(DESKTOP_IPC.addServer, (e, server: unknown) =>
     fromChrome(e) && typeof server === "string"
       ? spec.onAddServer(server)
       : false,
@@ -128,7 +129,7 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
   const tellFullscreen = () => {
     if (!strip.webContents.isDestroyed())
       strip.webContents.send(
-        "studio:fullscreen",
+        DESKTOP_IPC.fullscreen,
         win.isFullScreen() || win.isSimpleFullScreen(),
       );
   };
@@ -136,7 +137,7 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
   win.on("leave-full-screen", tellFullscreen);
   // On every load, not the first: a strip that reloaded would otherwise come back empty.
   strip.webContents.on("did-finish-load", () => {
-    strip.webContents.send("studio:tabs", tabs.list());
+    strip.webContents.send(DESKTOP_IPC.tabs, tabs.list());
     tellFullscreen();
   });
   // The strip never navigates and opens nothing.
@@ -161,11 +162,11 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
   tabs.openHome(spec.splashUrl);
 
   win.on("closed", () => {
-    ipcMain.off("studio:tabs:select", onSelect);
-    ipcMain.off("studio:tabs:close", onClose);
-    ipcMain.off("studio:auth:signIn", onSignIn);
-    ipcMain.removeHandler("studio:auth:server");
-    ipcMain.removeHandler("studio:sync:addServer");
+    ipcMain.off(DESKTOP_IPC.tabsSelect, onSelect);
+    ipcMain.off(DESKTOP_IPC.tabsClose, onClose);
+    ipcMain.off(DESKTOP_IPC.signIn, onSignIn);
+    ipcMain.removeHandler(DESKTOP_IPC.server);
+    ipcMain.removeHandler(DESKTOP_IPC.addServer);
     tabs.destroy();
     strip.webContents.close();
   });
