@@ -20,6 +20,7 @@ import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import { type HistoryMark, nodePredicate } from "../historyMarks";
+import { usePendingBypass } from "../hooks/usePendingBypass";
 import { useRackTrigger } from "../hooks/useRackTrigger";
 import { laneHasInput } from "../laneInput";
 import { midiActivity } from "../midiActivity";
@@ -257,38 +258,13 @@ export function TrackModulesPane({
   laidRef.current = laid;
   const triggerRack = useRackTrigger(laidRef, onPreviewNote, rackLit.flash);
 
-  // Bypasses clicked but not yet in `graph`: a bypass bumps no reloadKey, which is all this row refetches on (docs/shell.md).
-  const [pendingBypass, setPendingBypass] = useState<Record<string, boolean>>(
-    {},
+  // Bypasses clicked but not yet in `graph`, painted on after layout (usePendingBypass.ts).
+  const { bypassModule, laidShown } = usePendingBypass(
+    laid,
+    laidRef,
+    graph,
+    onBypassModule,
   );
-  useEffect(() => setPendingBypass({}), [graph]);
-
-  const bypassModule = useCallback(
-    (module: string) => {
-      setPendingBypass((prev) => {
-        const node = laidRef.current?.nodes.find(
-          (n) => n.kind === "module" && n.module === module,
-        );
-        const now = prev[module] ?? !!node?.bypassed;
-        return { ...prev, [module]: !now };
-      });
-      onBypassModule?.(module);
-    },
-    [onBypassModule],
-  );
-
-  // The optimistic flag painted on after layout: it changes how a node READS, never where it sits.
-  const laidShown = useMemo(() => {
-    if (!laid || !Object.keys(pendingBypass).length) return laid;
-    return {
-      ...laid,
-      nodes: laid.nodes.map((n) => {
-        if (n.kind !== "module" || !n.module) return n;
-        const b = pendingBypass[n.module];
-        return b === undefined ? n : { ...n, bypassed: b, dim: b };
-      }),
-    };
-  }, [laid, pendingBypass]);
 
   /** The row's coordinates are its OWN, so a pick gets no `at`: where a new node goes is the graph's to decide. */
   const edgeInsert = useMemo(
