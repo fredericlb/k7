@@ -27,6 +27,15 @@ tag, and only those moments show under it; an orphan stays when it has the tag i
 calendar then marks only the days with a match, and choosing a tag jumps to the newest one — a
 filter that leaves you on an emptied day looks like it found nothing.
 
+## Moments are found in the browser
+
+A session's page detects its moments itself, with `@studio/recorder`'s `detectEvents` over the
+envelope it fetches anyway to draw the waveform; the server has no detector and stores no detected
+span. The floor and the silence length are sliders, and each move re-runs the detection: in the
+browser that is arithmetic over an array already in memory, where a server round trip per move
+needed a debounce and still lagged. Over the stored envelope means the whole timeline, an appended
+take included, never the segment just uploaded.
+
 ## A take exists nowhere but the tab until it is saved
 
 The recorder keeps its chunks in memory and uploads the whole take in one request when it stops, so

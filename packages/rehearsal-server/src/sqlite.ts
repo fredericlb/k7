@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
-import { SCHEMA } from "./schema.ts";
+import { RETIRED_COLLECTIONS, SCHEMA } from "./schema.ts";
 
 /** A store error with the HTTP status it means; the routes' error handler answers with it. */
 class DbError extends Error {
@@ -132,6 +132,8 @@ export function createSqlite(dir: string) {
       next.exec(
         `CREATE INDEX IF NOT EXISTS records_by_${f} ON records (coll, ${fieldExpr(f)})`,
       );
+    for (const coll of RETIRED_COLLECTIONS)
+      next.prepare("DELETE FROM records WHERE coll = ?").run(coll);
     db = next;
     return next;
   };

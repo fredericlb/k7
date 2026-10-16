@@ -43,12 +43,9 @@ describe("the store's lookups and writes", () => {
     );
   });
 
-  it("deletes a session with its markers and highlights, its moments kept", async () => {
+  it("deletes a session with its markers, its moments kept", async () => {
     const session = await store.createSession("me");
     await store.addMarker(session.id, { atSec: 1, comment: "" }, "me");
-    await store.replaceHighlights(session.id, [
-      { startSec: 0, endSec: 1, durationSec: 1, avg: 0, peak: 0 },
-    ]);
     const [{ id: moment }] = db.addRecords("Comments", [
       { OwnerId: "me", SessionUid: session.id },
     ]);
@@ -56,7 +53,6 @@ describe("the store's lookups and writes", () => {
     const of = (coll: string) =>
       db.listRecords(coll, { SessionUid: [session.id] });
     expect(of("Markers")).toEqual([]);
-    expect(of("Highlights")).toEqual([]);
     expect(db.getRecord("Comments", moment)).not.toBeNull();
   });
 

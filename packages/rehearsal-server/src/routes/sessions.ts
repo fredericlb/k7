@@ -1,5 +1,5 @@
 /* Recording sessions and everything hung off them: the recording blob, its
-   loudness envelope, detected events, annotations, markers and moment clips.
+   loudness envelope, annotations, markers and moment clips.
 */
 
 import { ownerGuard, sub, validate, wrap } from "@frediverse/http";
@@ -7,7 +7,6 @@ import { diskUpload } from "@frediverse/http/upload";
 import type { Envelope } from "@studio/rehearsal-shared";
 import { Router } from "express";
 import { z } from "zod";
-import { detectEvents } from "../detect.ts";
 import { isAudioMime, streamAudio } from "../serve.ts";
 import * as store from "../store.ts";
 
@@ -132,11 +131,6 @@ async function receiveTake(req, res) {
     gain,
   );
 
-  // Re-detect over the STORED envelope, which is the whole timeline after an append.
-  const stored = (await store.getEnvelope(req.params.id)) || envelope;
-  const { events } = detectEvents(stored, {});
-  await store.replaceHighlights(req.params.id, events);
-
   res.json(updated);
 }
 
@@ -155,22 +149,6 @@ sessionsRouter.get(
     const env = await store.getEnvelope(req.params.id);
     if (!env) return res.status(404).json({ error: "no envelope" });
     res.json(env);
-  }),
-);
-
-// --- Event detection ------------------------------------------------------
-
-sessionsRouter.get(
-  "/:id/events",
-  wrap(async (req, res) => {
-    const env = await store.getEnvelope(req.params.id);
-    if (!env) return res.status(404).json({ error: "no envelope" });
-    res.json(
-      detectEvents(env, {
-        threshold: req.query.threshold as string | undefined,
-        minSilenceSec: req.query.minSilenceSec as string | undefined,
-      }),
-    );
   }),
 );
 

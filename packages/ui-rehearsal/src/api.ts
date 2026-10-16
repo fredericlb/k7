@@ -3,7 +3,6 @@ import { m } from "./paraglide/messages.js";
 import type {
   Annotation,
   Envelope,
-  EventsResult,
   FetchStatus,
   LrcCandidate,
   Marker,
@@ -112,18 +111,6 @@ export const api = {
 
   getEnvelope: (id: string): Promise<Envelope> =>
     f(`/api/sessions/${id}/envelope`).then(json),
-
-  getEvents: (
-    id: string,
-    threshold?: number,
-    minSilenceSec?: number,
-  ): Promise<EventsResult> => {
-    const params = new URLSearchParams();
-    if (threshold != null) params.set("threshold", String(threshold));
-    if (minSilenceSec != null)
-      params.set("minSilenceSec", String(minSilenceSec));
-    return f(`/api/sessions/${id}/events?${params}`).then(json);
-  },
 
   // Every *Url helper below spells the base out, because the BROWSER fetches it — ../docs/routing.md.
   recordingUrl: (id: string) => `${apiBase()}/api/sessions/${id}/recording`,

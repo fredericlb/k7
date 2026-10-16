@@ -23,6 +23,8 @@ Each row is one JSON document, keyed by its collection and id. A field added to 
 therefore needs no migration: old rows simply lack it. Such a field reads as its type's zero value
 (`""`, `0`, `false`), taken from `schema.ts`, because `store.ts` relies on getting a value rather
 than nothing. A filter is an IN-list per field, matched with `json_extract`.
+A collection the store stops holding is named in `RETIRED_COLLECTIONS` (`schema.ts`), and its rows
+are deleted when the file opens: an older file would otherwise carry them forever, read by nothing.
 
 The connection is synchronous, so a lookup that scans a whole collection blocks every other
 request for as long as it takes. The fields the store looks rows up by (`INDEXED_FIELDS` in
@@ -43,8 +45,8 @@ key and its owner or session checked afterwards, never found by scanning its own
 `node:sqlite` is synchronous, and so is the store's API: nothing awaits between two statements, so
 `inTransaction` takes a synchronous function and refuses one that returns a promise. An `await`
 inside an open transaction would let another request's writes join it, and its rollback undo them.
-Every write that spans several rows (an insert of many, a session's deletion with its markers and
-highlights, a release's with its versions, a new default version) runs in one transaction, so it
+Every write that spans several rows (an insert of many, a session's deletion with its markers, a
+release's with its versions, a new default version) runs in one transaction, so it
 lands whole or not at all, and pays one sync to disk instead of one per row. A transaction opened
 inside another joins it. Work that must await (a file pushed to or removed from the médiathèque)
 happens before or after the transaction, never inside it.

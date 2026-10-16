@@ -147,4 +147,12 @@ describe("the SQLite store", () => {
     const two = db.planOf("Markers", { SessionUid: ["s"], MomentId: ["m"] });
     expect(two.join("\n")).toMatch(/USING INDEX records_by_/);
   });
+
+  it("drops a retired collection's rows when an older file opens", () => {
+    db.addRecords("Highlights", [{ SessionUid: "s" }]);
+    db.addRecords("Markers", [{ SessionUid: "s" }]);
+    const reopened = createSqlite(dir);
+    expect(reopened.listRecords("Highlights")).toEqual([]);
+    expect(reopened.listRecords("Markers")).toHaveLength(1);
+  });
 });

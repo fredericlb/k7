@@ -238,15 +238,14 @@ export async function deleteSession(uid) {
     await mediatek.remove(rec.fields.RecordingPath).catch(() => {
       // A library that is down must not block a deletion; the orphan stays visible.
     });
-  // Moments (Comments) survive on their own clips; markers and highlights are the session's and go with it.
+  // Moments (Comments) survive on their own clips; markers are the session's and go with it.
   db.inTransaction(() => {
-    for (const coll of ["Highlights", "Markers"])
-      db.deleteRecords(
-        coll,
-        db
-          .listRecords(coll, { SessionUid: [uid] }, { fields: [] })
-          .map((r) => r.id),
-      );
+    db.deleteRecords(
+      "Markers",
+      db
+        .listRecords("Markers", { SessionUid: [uid] }, { fields: [] })
+        .map((r) => r.id),
+    );
     if (rec) db.deleteRecords("Sessions", [rec.id]);
   });
   invalidate(uid);
@@ -420,34 +419,6 @@ export async function getEnvelope(uid) {
   } catch {
     return null;
   }
-}
-
-// --- Highlights -------------------------------------------------------------
-
-export async function replaceHighlights(uid, events) {
-  db.inTransaction(() => {
-    const existing = db.listRecords(
-      "Highlights",
-      { SessionUid: [uid] },
-      { fields: [] },
-    );
-    db.deleteRecords(
-      "Highlights",
-      existing.map((h) => h.id),
-    );
-    if (events.length)
-      db.addRecords(
-        "Highlights",
-        events.map((e) => ({
-          SessionUid: uid,
-          StartSec: e.startSec,
-          EndSec: e.endSec,
-          DurationSec: e.durationSec,
-          Avg: e.avg,
-          Peak: e.peak,
-        })),
-      );
-  });
 }
 
 // --- Comments (annotations) -------------------------------------------------

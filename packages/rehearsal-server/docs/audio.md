@@ -165,13 +165,6 @@ heap. Cuts of one moment run one at a time (`lock.ts`), each reading the row whe
 two quick drags of a span would otherwise run two ffmpeg on one cache file, and the one that
 finished last — not the one dragged last — would win.
 
-## Detecting moments
-
-The same detector exists twice: `src/detect.ts` here, over the stored envelope, and
-`packages/recorder/src/detect.ts` in the browser, to surface moments live during a take. The model
-is the recorder's page (`packages/recorder/docs/recorder.md`). After a splice, re-detection runs
-on the **stored** envelope — the whole timeline — and not on the segment just uploaded.
-
 ## Published versions are songs
 
 A published version is not a recording: it is a mixdown somebody decided was finished. So it goes

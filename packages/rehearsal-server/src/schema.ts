@@ -8,6 +8,9 @@ export interface FieldSpec {
 
 export type CollectionSchema = Record<string, FieldSpec[]>;
 
+// Collections the store no longer holds: their rows, left in an older file, are dropped when it opens.
+export const RETIRED_COLLECTIONS = ["Highlights"];
+
 export const SCHEMA: CollectionSchema = {
   Sessions: [
     { name: "Uid", type: "text" },
@@ -19,14 +22,6 @@ export const SCHEMA: CollectionSchema = {
     { name: "RecordingPath", type: "text" },
     { name: "Envelope", type: "text" },
     { name: "Gain", type: "number" },
-  ],
-  Highlights: [
-    { name: "SessionUid", type: "text" },
-    { name: "StartSec", type: "number" },
-    { name: "EndSec", type: "number" },
-    { name: "DurationSec", type: "number" },
-    { name: "Avg", type: "number" },
-    { name: "Peak", type: "number" },
   ],
   Comments: [
     { name: "SessionUid", type: "text" },
