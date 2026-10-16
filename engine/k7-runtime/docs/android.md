@@ -8,8 +8,8 @@ WebSocket protocol on port 8765, bound to every interface.
 **It lives as long as `MainActivity`**, and leaving it deregisters the engine, stops it and ends the
 process. That teardown runs on a thread of its own, never the UI thread, since its stops wait for
 seconds and a blocked main thread is an ANR; the backend gets longer than its own 8 s stop, so its
-file services are not killed mid-teardown. The one service, `MediaPlaybackService`, keeps that process in front while a page plays
-(below), and starts nothing of its own.
+file services are not killed mid-teardown. Its two services, `MediaPlaybackService` and `EngineService`, keep that process in
+front while a page plays or the engine is at work (below), and start nothing of their own.
 
 ## Standalone: the phone runs its own studio
 
@@ -91,7 +91,7 @@ What the app views do that a browser would do on its own:
   `mailto` and `tel` are handed to another app; any other scheme a page names is dropped, since a
   `file:` or `intent:` URI handed out exposes or launches what it should not.
 - **The microphone** goes to the studio's apps only (the rehearsal recorder's remote mic), and only once the app holds
-  RECORD_AUDIO, which it asks for at start for the engine.
+  RECORD_AUDIO, asked for when a page first wants it (below).
 - **The private CA** covers the app views too: a certificate the WebView refuses only for its unknown issuer
   is accepted when `TrustedCas` holds that certificate or its issuer. The WebView hands over the leaf
   alone, so a studio whose certificate hangs off an intermediate needs the intermediate imported.
@@ -143,6 +143,38 @@ the foreground before anything else — a placeholder notification when nothing 
 start that only stops it: a `startForegroundService` left without its `startForeground` crashes
 the app. So the service is stopped through a start that says so, never by `stopService`.
 
+## Busy: the engine at work holds the process and the screen
+
+Android freezes a process whose activity is behind, and cuts its microphone: a take, a live rig or a song playing
+would stop the moment the phone locks or another app comes up. So `EngineService` is in the foreground, with a
+notification, for as long as the app is **busy**, and the screen is kept on for the same while (`Busy.kt`).
+
+| choice | why |
+|---|---|
+| a session PLAYING, read off the supervisor's snapshot (`sessions[].playing`) | it is the engine's own word, true whoever drives it — a browser on the LAN included; it holds the service and not the screen, since nobody is looking at the phone |
+| armed, recording and a rig sounding come from k7's page (`apps/k7/frontend/src/androidBusy.ts`, a `busy` message) | the engine reports none of them to the supervisor; the page has them on every frame. A rig counts as live for 30 s after its meters last moved, so a pause between songs does not drop it |
+| a microphone and a wake lock the page holds, from `assets/media-session.js` | `getUserMedia` and `navigator.wakeLock` are watched where every page runs, so the rehearsal recorder and the `/external` surfaces need no code for the app |
+| the Wake Lock API stood in for when the WebView has none | `useStayAwake` asks for it first; the stand-in has its shape, is released on every hide as a browser's is, and keeps the window flag on |
+| the screen on while a page reports anything, never for the whole activity | an idle app left open must let the phone sleep |
+| `mediaPlayback\|microphone`, the microphone only with RECORD_AUDIO and while the engine's inputs or a page's microphone are open | Android 14 grants the microphone type only to a start made in front; a start refused it falls back to `mediaPlayback`, so the process stays up and only the inputs are cut |
+| its own service beside the media one, not that one widened | the media service leaves the foreground on every pause by design; the engine's must not |
+| POST_NOTIFICATIONS asked the first time the app is busy, in front, once per run | without it Android 13+ hides the notification and still runs the service |
+
+A page that goes away reports nothing (`pagehide`), and what it last said is cleared, so nothing here outlives it.
+
+## The microphone is asked when first needed
+
+The engine starts **without waiting for RECORD_AUDIO**, and is not asked for it at start: without it the engine opens
+its device output only. `MicAccess.kt` asks when something first needs it — a page's `getUserMedia`
+(`onPermissionRequest`), or a track armed on the engine — with a short explanation when Android says one is due.
+A permission the user has blocked is not asked again: the request is denied, the page gets a `k7:mic-denied`
+event, and a dialog offers the app's settings.
+
+The engine opens its inputs once, with its device, and a stopped engine cannot be started again in the same
+process (below). So a grant that comes after the engine started reaches it at the **next start**: the app says so,
+and offers to quit when nothing is busy. Quitting is the one restart there is; relaunching on the user's behalf
+would be an activity start from the background, which Android refuses.
+
 ## Signing in happens in the browser
 
 An identity provider refuses a WebView, and RFC 8252 §8.12 says it should: a page inside an app
@@ -177,7 +209,9 @@ The phone runs the desktop's backend and hub, so it is a live-sync replica the s
 step with the origin's, and the phone's libraries follow the origin's read-only
 (`packages/file-hub/docs/fileHub.md`). `SyncPairing.kt` is `pairSync.ts` in Kotlin, with the same
 rules — once per account per run, never for the local user, refused when the browser is signed in
-to the origin as someone else.
+to the origin as someone else. It **asks first**, in a dialog over the app ("Sync this phone's workspaces with
+st0.app?"), since the browser coming up on its own reads as a bug, and says how it ended — paired, not stored,
+not finished — in a toast. A browser signed in as another account gets a dialog naming both accounts and a Try again.
 
 - **The token comes back on loopback, not through the app's scheme.** The origin hands a device
   token only to an http loopback return (`isLoopbackReturn`, `packages/web-protocol/pairing.ts`), so
@@ -187,9 +221,10 @@ to the origin as someone else.
   studio, and the backend says that account is unpaired (`GET /api/sync/remote`). The pairing is
   stored with the view's session cookie, read from the `CookieManager`, so the backend knows which
   account it is for. The device is named after the phone's maker and model.
-- **The listener lives in the app's process.** Android may freeze or kill a process whose activity
-  is behind the browser: frozen, the browser's redirect waits until the app is back in front;
-  killed, the answer is lost, and the next start asks again since the account is still unpaired.
+- **The listener lives in the app's process, and what it waits for is on disk.** Android may freeze or kill a
+  process whose activity is behind the browser: frozen, the browser's redirect waits until the app is back in
+  front; killed, the next start listens again on the same port with the same state, for as long as the pairing had
+  left, and the browser's page reloaded delivers the answer. The token itself is never written down.
 - **The origin is `st0.app`**, web-protocol's `STUDIO_ORIGIN`: a phone connected to another studio
   uses that studio's own session and has nothing to pair.
 
@@ -347,8 +382,9 @@ also catches the GL driver's chatter, which is noise.
 - **The tunnel and WebRTC are untested on a phone.** They are the desktop code, built unchanged; no
   studio has driven a phone through them yet.
 - **No external plugins, no plugin scan, no offline render or freeze.**
-- **No foreground service of its own**, so the screen is kept on and the engine stops with the activity.
-  The media one runs only while a page plays.
+- **The busy service and the microphone flow have not been driven on a phone yet**: a take with the screen off,
+  the microphone type refused from behind on Android 14, the notification permission and the blocked-microphone
+  dialog are each still to check.
 - **The media session has not been driven on a phone yet**: background playback in a hidden view,
   the notification on Android 12 and 13+, and a headset's buttons are each still to check.
 - **Pairing has not been run on a phone.** `SyncPairing.kt` was written against the desktop's flow

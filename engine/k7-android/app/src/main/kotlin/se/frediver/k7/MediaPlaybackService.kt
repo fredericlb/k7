@@ -1,4 +1,4 @@
-// MediaPlaybackService.kt — the one service the app has: in the foreground while a page PLAYS, so the screen can go off
+// MediaPlaybackService.kt — the media player's service (EngineService is the other): in the foreground while a page PLAYS, so the screen can go off
 // and the app go behind another without Android freezing the process the sound comes from. It shows MediaPlayback's
 // notification and does nothing else; paused, it leaves the foreground and the notification stays. See docs/android.md.
 

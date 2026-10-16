@@ -338,15 +338,19 @@ class AppViewsPlugin : Plugin() {
     }
 
     private inner class AppChrome : WebChromeClient() {
-        // The microphone, for the rehearsal recorder's remote mic and calls: granted to the studio's own apps only, and only
-        // once the app holds RECORD_AUDIO itself (asked at start, for the engine).
+        // The microphone, to the studio's own apps only, once the app holds RECORD_AUDIO, asked here on first need (MicAccess.kt).
         override fun onPermissionRequest(request: PermissionRequest) {
-            val mic = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-            val grant = request.resources.filter {
-                it == PermissionRequest.RESOURCE_AUDIO_CAPTURE && mic && appOf(request.origin) != null
-            }
+            val wanted = PermissionRequest.RESOURCE_AUDIO_CAPTURE in request.resources && appOf(request.origin) != null
             activity.runOnUiThread {
-                if (grant.isEmpty()) request.deny() else request.grant(grant.toTypedArray())
+                val mic = (activity as? MainActivity)?.mic
+                if (!wanted || mic == null) return@runOnUiThread request.deny()
+                mic.request { answer ->
+                    if (answer == MicAccess.Answer.GRANTED) return@request request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+                    request.deny()
+                    // Blocked for good: the page hears why its getUserMedia failed, beside the native dialog.
+                    if (answer == MicAccess.Answer.BLOCKED)
+                        views.values.forEach { it.evaluateJavascript("dispatchEvent(new CustomEvent('k7:mic-denied'))", null) }
+                }
             }
         }
 

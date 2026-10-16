@@ -1,7 +1,7 @@
 // StudioBridge.kt — what the studio apps in AppViewsPlugin's views may ask of this app, over one
 // WebMessageListener (`window.k7Android`). Every app reports the colour at the top of its page
 // (assets/top-color.js), which paints the status bar above it, who is signed in (assets/account.js), and what it plays
-// (assets/media-session.js, to MediaPlayback); ONLY k7, checked by origin, reaches
+// (assets/media-session.js, to MediaPlayback), and what keeps it busy (`busy`, to Busy); ONLY k7, checked by origin, reaches
 // the engine: its settings panel is this phone's tray (apps/k7/frontend/src/settings/androidEngine.ts).
 // The object is offered to every origin, since the studio can change; each message is checked instead.
 // k7's origin may be a remote studio, so it gets a short list of commands, and a new studio needs the user's yes.
@@ -71,6 +71,7 @@ class StudioBridge(
                 "color" -> runCatching { Color.parseColor(msg.getString("value")) }.onSuccess { onColor(id, it) }
                 "account" -> onAccount(if (msg.isNull("name")) null else msg.optString("name"))
                 "media" -> MediaPlayback.update(activity, msg, reply)
+                "busy" -> Busy.report(id, msg)
                 "listen" -> if (id == "k7") {
                     k7 = reply
                     push()

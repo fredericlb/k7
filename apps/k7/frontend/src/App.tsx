@@ -81,6 +81,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useAndroidBusy } from "./androidBusy";
 import { aiOrganize, api, engines, moduleStore, PL8_API } from "./api";
 import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";
 import type { MaybeClipboard } from "./clipboard";
@@ -938,6 +939,9 @@ export default function App({
       wasPlaying = s.playing;
     });
   }, [store]);
+
+  // The Android app holds its foreground service and the screen while this engine is busy (androidBusy.ts).
+  useAndroidBusy(store);
 
   /** A session making SOUND is active — a playing song, and a live rig played with the transport stopped — @studio/project-shell/docs/idle.md. */
   useEffect(() => {
