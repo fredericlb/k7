@@ -693,6 +693,8 @@ double EngineHost::playheadSeconds(const std::string& session) const {
 namespace {
 constexpr int kPreviewNote = 72;   // the sampler's default keyNote — plays at native pitch
 const juce::String kPreviewTrackName = "__studio_preview__";
+// An audition with no length stops here: the sampler decodes the whole excerpt on the message thread first (docs/engineHost.md).
+constexpr double kAuditionCapSeconds = 30.0;
 
 void removePreviewLane(te::Edit& edit) {
     for (auto* t : te::getAudioTracks(edit))
@@ -732,8 +734,8 @@ void EngineHost::previewSample(const std::string& session, const std::string& fi
     if (sampler == nullptr) return;
     sampler->allNotesOff();
     for (int i = sampler->getNumSounds(); --i >= 0;) sampler->removeSound(i);
-    if (! addRackSound(edit, *sampler, file, "preview", kPreviewNote, startSeconds,
-                       lengthSeconds))
+    const double length = lengthSeconds > 0.0 ? lengthSeconds : kAuditionCapSeconds;
+    if (! addRackSound(edit, *sampler, file, "preview", kPreviewNote, startSeconds, length))
         return;
     // addSound loads asynchronously, so fire the note on the NEXT message-thread turn; the ref-counted handle keeps the plugin alive if the edit goes meanwhile.
     te::Plugin::Ptr keepAlive{sampler};

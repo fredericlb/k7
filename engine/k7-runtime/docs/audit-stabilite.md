@@ -439,6 +439,8 @@ thing `damaged` promises (`docs/recorder.md`).
 - **A queued `project`, `tracks` or `set-plugin-param` a newer one overtook is skipped**, so the
   documents and knob writes that pile up behind a slow apply are not each run after it; every other
   verb fences them, so order between verbs holds (`docs/supersede.md`).
+- **An audition with no length decodes at most 30 s**, since the sampler decodes its excerpt whole on
+  the message thread before the note fires (`docs/engineHost.md`).
 
 ## Smaller hazards, and what closes each
 

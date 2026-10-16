@@ -207,7 +207,7 @@ void addProjectHandlers(HandlerTable& t) {
 
     t.add({"preview"}, [](ServeContext& ctx, ix::WebSocket&, const json& j, const std::string& session, const std::string&) {
         auto& host = ctx.host;
-        // Audition one sample over [start, start+length) seconds, length <= 0 being the whole file — independent of the transport, so it works while stopped.
+        // Audition one sample over [start, start+length) seconds, length <= 0 being up to 30 s of it — independent of the transport, so it works while stopped.
         const std::string file = j.value("file", std::string{});
         const double start = j.value("start", 0.0);
         const double length = j.value("length", 0.0);

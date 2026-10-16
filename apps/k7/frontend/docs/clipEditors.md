@@ -903,8 +903,8 @@ substance is: it reads the compiled `sourceFrom`/`sourceTo`, with the project's 
 **timecode** edge resolves the way it does everywhere else. Answering `{start: 0, length: 0}` for a
 clip is the whole file end to end, so a take trimmed down to one bar of a five-minute pass plays
 the five minutes and the ▶ says nothing about the clip you are looking at. An absent `to` does stay
-a length of 0, which the engine reads as "to the end of the file" — the only honest answer about an
-extent nobody here has opened the wav to measure.
+a length of 0, which the engine reads as "to the end of the file", capped at 30 s — the only honest
+answer about an extent nobody here has opened the wav to measure.
 
 One shot, and no Stop button. The engine fires a voice through a preview sampler independent of the
 transport (`EngineHost::previewSample`); there is no state to poll and nothing to stop, so a toggle

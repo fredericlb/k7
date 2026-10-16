@@ -420,6 +420,14 @@ other side.
 time**: with no output there is no audio callback to advance the playhead, so the transport
 reports playing while nothing moves. Callers say so out loud, because nothing else will.
 
+## An audition stops at 30 seconds unless it names its length
+
+`preview` loads the file into a hidden `SamplerPlugin`, and the sampler decodes the whole excerpt
+into memory, as floats, on the message thread, before the note can fire. A request with no length
+means "to the end of the file", and for a ten-minute song that is about 230 MB and seconds during
+which no other job of any session runs. So a length of 0 is read as 30 s (`kAuditionCapSeconds`):
+an audition is for hearing what a sound is, and a caller that wants a longer window states it.
+
 ## Recording hand-off
 
 The `onRecorded` sink fires once a take has finished and its file is closed and renamed,
