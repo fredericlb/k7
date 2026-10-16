@@ -14,6 +14,7 @@ import { INPUT_VU_MAX_DB, INPUT_VU_MIN_DB } from "@studio/engine-browser/store";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import type { IoPort } from "../types";
+import { pollWhileVisible } from "../visiblePoll";
 
 const POLL_MS = 100; // ~10 Hz: a meter reads as live, and each frame enables devices engine-side
 
@@ -270,10 +271,13 @@ export function IoPanel({
             : l.devices,
         );
     });
-    const id = setInterval(() => engine.ioLevels(setsRef.current), POLL_MS);
+    const stop = pollWhileVisible(
+      () => engine.ioLevels(setsRef.current),
+      POLL_MS,
+    );
     engine.ioLevels(setsRef.current); // …and one straight away, so the panel isn't blank on open
     return () => {
-      clearInterval(id);
+      stop();
       off();
     };
   }, [engine, ports]);

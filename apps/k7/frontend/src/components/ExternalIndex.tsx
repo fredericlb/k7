@@ -91,7 +91,7 @@ export function ExternalIndex() {
       return;
     }
     void load(fileService);
-    return pollWhileVisible(() => void load(fileService), POLL_MS);
+    return pollWhileVisible(() => load(fileService), POLL_MS);
   }, [fileService, load]);
 
   /** The row the engine is holding, if the disk still has it — one project, by construction. */

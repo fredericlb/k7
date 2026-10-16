@@ -80,10 +80,7 @@ export function createRevisionPoller(
   const startTimer = () => {
     timer?.();
     // Paused while the tab is hidden, and asked once on its return (visiblePoll.ts).
-    timer = pollWhileVisible(
-      () => void pull(),
-      pushLive ? fallbackMs : intervalMs,
-    );
+    timer = pollWhileVisible(pull, pushLive ? fallbackMs : intervalMs);
   };
   const onNotice = () => {
     if (inFlight) again = true;
