@@ -78,6 +78,7 @@ import { useDocument } from "../hooks/useDocument";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { blurOnClick } from "../keys";
 import { cursorOf, ModeStrip, stripButton } from "../modeIcons";
+import { usePaneVisible } from "../paneVisible";
 import { m } from "../paraglide/messages.js";
 import {
   type PendingEdit,
@@ -307,9 +308,15 @@ const vuFill = (db: number | undefined) =>
 
 /** One lane's meters — the output level across the header, the input level when armed; the dB is rounded first, so a bar nobody can see costs no re-render. */
 function LaneMeter({ index, armed }: { index: number; armed: boolean }) {
-  const out = useEngineState((s) => Math.round(s.levels[index] ?? -Infinity));
+  // Hidden, the selectors answer a constant, so the meter-rate frames render nothing behind another pane.
+  const visible = usePaneVisible();
+  const out = useEngineState((s) =>
+    visible ? Math.round(s.levels[index] ?? -Infinity) : -Infinity,
+  );
   const input = useEngineState((s) =>
-    armed ? Math.round(s.inputLevels[index] ?? -Infinity) : -Infinity,
+    visible && armed
+      ? Math.round(s.inputLevels[index] ?? -Infinity)
+      : -Infinity,
   );
   return (
     <>

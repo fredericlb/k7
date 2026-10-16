@@ -37,14 +37,11 @@ import {
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import type { LintItem } from "@studio/ui-editor/lint";
 import { InputChannelBar } from "@studio/ui-module-builder/input-channels";
-import {
-  channelOf,
-  ioOf,
-  setChannelIn,
-} from "@studio/ui-module-builder/module-ui";
+import { setChannelIn } from "@studio/ui-module-builder/module-ui";
 import type { ModuleLibrary } from "@studio/web-protocol";
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
@@ -53,6 +50,7 @@ import {
   useState,
 } from "react";
 import { api } from "../api";
+import { NO_READS, readBuffer } from "../bufferReads";
 import { chainOps, filterOps, processLine } from "../clipOps";
 import { clipWindowBand, setClipWindowText } from "../clipWindowText";
 import { useDiskSync } from "../hooks/useDiskSync";
@@ -77,8 +75,8 @@ import {
 import { movedTheTree, movedTheVocabulary, type Reload } from "../reloadScope";
 import { needsAttention, saveLabel } from "../saveLabel";
 import type { SeqView } from "../sequenceEdit";
-import type { EditFocus } from "../shellEquality";
-import { rackSliceRanges, scanSlices, setSliceWindow } from "../sliceSymbols";
+import { type EditFocus, keepIfSame } from "../shellEquality";
+import { rackSliceRanges, setSliceWindow } from "../sliceSymbols";
 import type {
   Diagnostic,
   FileContent,
@@ -677,8 +675,9 @@ export function EditorTab({
           want.tree ? api.tree() : null,
           want.hints ? api.hints() : null,
         ]);
-        if (t) setTree(t);
-        if (h) setHints(h);
+        // An unchanged answer keeps its object: a new `hints` rebuilds every CodeMirror extension that reads it.
+        if (t) setTree(keepIfSame(t));
+        if (h) setHints(keepIfSame(h));
       } catch (e) {
         setStatus(`load error: ${(e as Error).message}`, "error");
       }
@@ -1161,22 +1160,33 @@ export function EditorTab({
     [fileDiagnostics, autosave.issues],
   );
 
-  // Is the open file an INPUT? Read off the buffer, so a node just pointed at `@meta/IN` grows its channel strip as you type.
-  const inputIo = useMemo(
-    () => (!file || file.binary ? null : ioOf(file.content ?? "", file.path)),
-    [file],
+  // The buffer's derived reads (slices, input, channels) trail the keystroke: deferred, one parse, gated by what the text can hold.
+  const readFile = useDeferredValue(file);
+  const reads = useMemo(
+    () =>
+      !readFile || readFile.binary
+        ? NO_READS
+        : readBuffer(readFile.content, readFile.path),
+    [readFile],
   );
+  // Is the open file an INPUT? Read off the buffer, so a node just pointed at `@meta/IN` grows its channel strip as you type.
+  const inputIo = reads.io;
 
   const readers = useMemo<VideoReader[]>(() => {
-    if (!strip || !file || file.binary || !isVideoTrackFile(file.path))
+    if (
+      !strip ||
+      !readFile ||
+      readFile.binary ||
+      !isVideoTrackFile(readFile.path)
+    )
       return [];
-    return listVideoPlacements(file.content).flatMap((p) => {
+    return listVideoPlacements(readFile.content).flatMap((p) => {
       const src = videoSources[p.ref];
       return src
         ? [{ ref: p.ref, src, sourceFrom: p.sourceFrom, length: p.length }]
         : [];
     });
-  }, [strip, file, videoSources]);
+  }, [strip, readFile, videoSources]);
 
   // A reader's button edits the same buffer a keystroke does, so autosave writes it the same way.
   const setPlacement = useCallback(
@@ -1205,10 +1215,7 @@ export function EditorTab({
       : null;
 
   // Whether the docked slicer's drags have anything of THIS buffer's to write: the symbols must live in the open file.
-  const canSliceEdit = useMemo(
-    () => !!file && !file.binary && scanSlices(file.content) != null,
-    [file],
-  );
+  const canSliceEdit = editable && reads.slices;
 
   /** The library's chains as `clip process` names them, filtered by what is typed. */
   const clipOps = useMemo(
@@ -1561,7 +1568,7 @@ export function EditorTab({
             <InputChannelBar
               key={file.path}
               devices={inputDevices}
-              channels={channelOf(file.content)}
+              channels={reads.channels}
               readOnly={false}
               onPick={(chs) =>
                 setFile({ ...file, content: setChannelIn(file.content, chs) })

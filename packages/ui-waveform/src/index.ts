@@ -34,4 +34,4 @@ export type {
   Selection,
   WaveformGrid,
 } from "./types";
-export { Waveform } from "./Waveform";
+export { Waveform, type WaveformHandle } from "./Waveform";

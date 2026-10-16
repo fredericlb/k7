@@ -11,10 +11,13 @@ import {
 } from "@studio/engine-browser/playhead-clock";
 import { useEngineStore } from "@studio/engine-browser/store";
 import { useCallback, useEffect, useRef } from "react";
+import { usePaneVisible } from "../paneVisible";
 
 /** Call `onFrame(seconds)` per animation frame while the transport rolls — it never re-renders the caller, which is the point (docs/playhead.md). */
 export function usePlayheadFrames(onFrame: (seconds: number) => void): void {
   const store = useEngineStore();
+  // A hidden pane subscribes to nothing and schedules no frame; showing it again re-reads the store and draws at once.
+  const visible = usePaneVisible();
   const clock = useRef<PlayheadClock | null>(null);
   const cb = useRef(onFrame);
   cb.current = onFrame;
@@ -30,6 +33,7 @@ export function usePlayheadFrames(onFrame: (seconds: number) => void): void {
   }, []);
 
   useEffect(() => {
+    if (!visible) return;
     const s0 = store.getSnapshot();
     clock.current = newPlayheadClock(
       s0.playhead,
@@ -64,7 +68,7 @@ export function usePlayheadFrames(onFrame: (seconds: number) => void): void {
       unsubscribe();
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [store, draw]);
+  }, [store, draw, visible]);
 
   // Geometry moved under us — a zoom, a scroll, a resize: while rolling the next frame fixes it, while STOPPED nothing would.
 
