@@ -229,10 +229,11 @@ async function rank<E extends ProbeTarget>(
   const hits = results.flatMap((r) =>
     r.reply ? [{ c: r.c, reply: r.reply }] : [],
   );
-  // An address this device may USE beats a faster one it would first have to pair on.
+  // An address this device may USE beats a faster one it would first have to pair on, or one that withheld the token.
   hits.sort(
     (a, b) =>
       Number(a.reply.needsPairing) - Number(b.reply.needsPairing) ||
+      Number(!a.reply.token) - Number(!b.reply.token) ||
       a.reply.rttMs - b.reply.rttMs,
   );
   if (!hits.length)
@@ -254,8 +255,8 @@ async function rank<E extends ProbeTarget>(
     wsUrl: best.c.url,
     // The files are the server's hub's, set by `engineAccess` when it hosts them — never the engine machine's.
     fileBase: null,
-    // No token until paired: every chooser filters on it, so an engine to pair is never picked by itself.
-    token: best.reply.needsPairing ? null : best.reply.token,
+    // No token until paired, nor through a relay that withheld it (engine-registry docs/ownership.md): every chooser filters on it.
+    token: best.reply.needsPairing ? null : best.reply.token || null,
     needsPairing: best.reply.needsPairing,
   };
 }

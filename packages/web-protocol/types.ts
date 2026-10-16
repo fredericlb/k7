@@ -1073,7 +1073,14 @@ export interface PublicEngine {
   rtc?: boolean;
   /** The server's own engine: its tunnel presented the render key — packages/engine-tunnel/docs/jobs.md. */
   server?: boolean;
+  /** What the asking account is to it — packages/engine-registry/docs/ownership.md; absent from an older registry. */
+  access?: EngineAccessRole;
+  /** For `shared`: the account that shared it. */
+  ownedBy?: string;
 }
+
+/** `owner` enrolled it, `shared` was given it, `server` is the deployment's own, `unowned` waits for its first direct open. */
+export type EngineAccessRole = "owner" | "shared" | "server" | "unowned";
 
 // How good a link is — Q1/Q2/Q3, off a measured latency — lives in ./quality; see docs/quality.md.
 // How capable the machine behind it is — one integer, 1000 the reference — lives in ./performance.

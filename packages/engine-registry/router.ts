@@ -5,10 +5,13 @@
 
 import { validate, wrap } from "@frediverse/http/route";
 import type { TunnelHub } from "@studio/engine-tunnel/hub";
+import type { PublicEngine } from "@studio/web-protocol";
 import { REGISTRY_SERVICE } from "@studio/web-protocol/services";
 import { Router } from "express";
 import { z } from "zod";
 import { readHeartbeat, throttledLog } from "./heartbeat.ts";
+import { claimHolder, type EngineRole, mayUse, roleOf } from "./owners.ts";
+import { ownershipRouter } from "./ownershipRoutes.ts";
 import { issueEngineTicket } from "./proxy.ts";
 import type { EngineRegistry } from "./registry.ts";
 
@@ -59,11 +62,12 @@ const REFUSALS = {
   rate: [429, "too many new engines from this address in the last minute"],
 } as const;
 
-/** The account a claim is held under, from the session — the one name every claim check compares against. */
-export function claimHolder(req: {
-  user?: { email?: string | null; sub?: string | null };
-}): string {
-  return req.user?.email || req.user?.sub || "";
+export { claimHolder } from "./owners.ts";
+
+/** What the host tells the routes about an account beyond its name. */
+export interface RouterOptions {
+  /** Whether the request's account administers this origin: it may reset an engine's owner. */
+  isAdmin?: (req: unknown) => boolean;
 }
 
 /** The routes over the one registry, pl8's — see docs/shared.md. */
@@ -72,8 +76,12 @@ export function engineRegistryRouter(
   tunnels?: TunnelHub,
   // Where a refused heartbeat or select is said — the server's own log; injected for the tests.
   log: (line: string) => void = (l) => console.warn(`[registry] ${l}`),
+  opts: RouterOptions = {},
 ): Router {
   const router = Router();
+  /** What the request's account is to engine `id` — docs/ownership.md. */
+  const roleFor = (id: string, holder: string): EngineRole =>
+    roleOf(reg.owners.get(id), holder, !!tunnels?.isRenderer(id));
   // Once a minute per (engine, complaint): a machine refused every 5 s is one line, not twelve.
   const complain = throttledLog(log);
   /** Who a refusal is about, as the log should name it. */
@@ -148,23 +156,47 @@ export function engineRegistryRouter(
     }),
   );
 
-  // The pick list, token stripped, each entry carrying a fresh RELAY TICKET bound to this account — see docs/proxy.md.
+  // The pick list, token stripped, filtered by ownership, each usable entry with a RELAY TICKET for this account — docs/ownership.md.
   router.get(
     "/engines",
     wrap((req, res) => {
       const viewer = claimHolder(req);
       res.json(
-        reg.list(req.ip, viewer).map((e) => ({
-          ...e,
-          proxyTicket: issueEngineTicket(e.id, viewer),
-          // A tunnel is what carries a WebRTC offer, so it is what makes one worth trying.
-          rtc: tunnels?.has(e.id) || undefined,
-          // Proved by the render key, so a browser may take it unasked — packages/engine-browser/docs/access.md.
-          server: tunnels?.isRenderer(e.id) || undefined,
-        })),
+        reg.list(req.ip, viewer).flatMap((e): PublicEngine[] => {
+          const access = roleFor(e.id, viewer);
+          if (access === "none") return [];
+          // Unowned: probed from this browser alone, and its LAN addresses only to its own network.
+          if (access === "unowned")
+            return [
+              {
+                ...e,
+                addresses: {
+                  ...e.addresses,
+                  lanIps: e.sameSourceIp ? e.addresses.lanIps : [],
+                },
+                access,
+              },
+            ];
+          return [
+            {
+              ...e,
+              access,
+              ...(access === "shared"
+                ? { ownedBy: reg.owners.get(e.id)?.owner }
+                : {}),
+              proxyTicket: issueEngineTicket(e.id, viewer),
+              // A tunnel is what carries a WebRTC offer, so it is what makes one worth trying.
+              rtc: tunnels?.has(e.id) || undefined,
+              // Proved by the render key, so a browser may take it unasked — packages/engine-browser/docs/access.md.
+              server: access === "server" || undefined,
+            },
+          ];
+        }),
       );
     }),
   );
+
+  router.use(ownershipRouter(reg, opts.isAdmin ?? (() => false)));
 
   // A browser's WebRTC offer, answered by the engine's supervisor through its tunnel — packages/engine-tunnel/docs/rtc.md.
   router.post(
@@ -219,12 +251,30 @@ export function engineRegistryRouter(
 
       // WHO comes from the session, never from the body: a claim you can sign with someone else's name is not a claim.
       const holder = claimHolder(req);
+      // Ownership before the claim rules: those only arbitrate between accounts that may use it — docs/ownership.md.
+      const access = roleFor(id, holder);
+      if (!mayUse(access) && !(access === "unowned" && holder)) {
+        complain(
+          `${id}|select-owner|${holder}`,
+          `select of ${who(id)} refused: ${holder || "an anonymous session"} neither owns it nor was shared it`,
+        );
+        return res.status(403).json({
+          error: "not-yours",
+          message:
+            "this engine belongs to another account, which has not shared it with you",
+        });
+      }
       const result = reg.claim(id, {
         project: project ?? null,
         holder,
         secret,
       });
       // 409 and not 403: nothing is wrong with the request, the project moved on, and the client's job is to let go and say so.
+      // An OPEN with the token of an unowned engine is the first direct use: this account becomes its owner.
+      if (result.ok && access === "unowned" && secret === undefined) {
+        reg.owners.enrol(id, holder);
+        reg.evict(id, (h) => h === holder);
+      }
       if (!result.ok)
         return res.status(409).json({
           error: "project taken",

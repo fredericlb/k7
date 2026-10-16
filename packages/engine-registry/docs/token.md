@@ -2,8 +2,9 @@
 
 An engine's supervisor holds three things in `<state>/engine-id.json`
 (`engine/k7-supervisor/src/Identity.cpp`): an **id**, a **token** and a **tunnel secret**. They
-are not three spellings of one credential. The token is readable by anyone who can reach the
-engine; the tunnel secret is read by nothing but the supervisor and the registries it dials. The
+are not three spellings of one credential. The token is readable by whoever reaches the engine
+directly, and through the relay by the accounts that may use it; the tunnel secret is read by
+nothing but the supervisor and the registries it dials. The
 file is the owner's alone — 0600, in a 0700 folder when the supervisor creates it.
 
 ## The token is not a secret
@@ -17,11 +18,14 @@ id and `needsPairing` and never the token (`engine/k7-runtime/docs/pairing.md`):
 ws.send(json{{"type", "whoami"}, {"id", engineId}, {"token", engineToken}, …}.dump());
 ```
 
-The relay forwards a `whoami` for any signed-in account, before it holds a claim (`proxy.md`), and
-the browser keeps the token: it is what `select` takes to claim that engine
-(`packages/engine-browser/src/probe.ts`). So **every account that can list an engine can read its
-token.** What it proves is narrow: that a browser met this engine's process before selecting it.
-It is an unguessable identifier, not an authentication.
+The relay forwards a `whoami` for any account holding a ticket, before it holds a claim
+(`proxy.md`), but strips the token from it for an account that may not use the engine — every
+account, while the engine has no owner ([ownership.md](ownership.md)). The browser keeps the token:
+it is what `select` takes to claim that engine (`packages/engine-browser/src/probe.ts`). So the
+token is held by the owner, the accounts it is shared with, every account for the server's own
+engine, and whoever reached the engine directly. It is an unguessable identifier, not an
+authentication; for an unowned engine it is the proof that this browser reached it directly, which
+is what enrols an owner.
 
 ## The tunnel secret is the machine's proof
 
@@ -58,17 +62,19 @@ take an id already bound to a secret: a heartbeat or a tunnel without one is ref
 whatever token it carries.
 
 An unbound, legacy id is protected the way every id once was: the first token seen pins it while it
-is listed, and is freed 15 s after its last heartbeat. Since the token is readable through the
-relay, **a legacy engine can be impersonated** by an account that read its token — its tunnel taken
-over, or its id bound to somebody else's secret once its listing lapses. Updating the supervisor is
+is listed, and is freed 15 s after its last heartbeat. So **a legacy engine can be impersonated** by
+an account that holds its token — its tunnel taken over, or its id bound to somebody else's secret
+once its listing lapses. Updating the supervisor is
 what closes that: its first heartbeat with a secret binds the id, using the token the id already
 holds. The server's own engine is built from this tree and sends a secret like any other.
 
 ## What the token still gates
 
-`select` checks it, so a claim names an engine the browser actually reached. The relay's server-side
-dial shows it to the engine as the pairing key of a socket the server opened (`proxy.md`). Neither is
-a defence against an account that can read it; the claim rules (`claim.md`) and the relay's gate are.
+`select` checks it, so a claim names an engine the browser actually reached, and an open of an
+unowned engine with it enrols the caller ([ownership.md](ownership.md)). The relay's server-side dial
+shows it to the engine as the pairing key of a socket the server opened (`proxy.md`). Neither is a
+defence against an account that holds it; ownership, the claim rules (`claim.md`) and the relay's
+gate are.
 
 ## The trust model, stated plainly
 
@@ -76,7 +82,8 @@ a defence against an account that can read it; the claim rules (`claim.md`) and 
 - **The local network is not**: a device on it drives once the musician has paired it, and the LAN
   path is unencrypted `ws://`, so a device that can sniff it sees a key or the token go by.
 - **The server trusts a machine by its tunnel secret**, bound on first use.
-- **A browser is trusted by its session**, the cookie k7 mints; through the relay it probes any
-  listed engine and drives only one its account holds a claim on (`proxy.md`, `claim.md`).
+- **A browser is trusted by its session**, the cookie k7 mints; through the relay it probes the
+  engines its account may use and drives only one it holds a claim on (`proxy.md`, `claim.md`,
+  `ownership.md`).
 
 See `docs/constat.md` for where this sits in the whole.

@@ -2,7 +2,8 @@
 // probe a picker needs (whoami, this device's key, the plugin list) and their answers, nothing
 // else. Anything more is HELD while a claim may still be landing — a page opens its socket and
 // claims at the same moment — and the socket is closed when none comes. The claim is asked again
-// on every frame, so a takeover stops the loser at its next one. See docs/proxy.md.
+// on every frame, so a takeover stops the loser at its next one. A `whoami` loses its token for an
+// account that may not use the engine (docs/ownership.md). See docs/proxy.md.
 
 import type { RawData } from "ws";
 
@@ -36,6 +37,8 @@ export interface Frame {
 export interface GateSinks {
   /** Whether the ticket's account holds a live claim on this engine now. */
   holds(): boolean;
+  /** Whether the ticket's account may use this engine, and so read its token. */
+  mayReadToken(): boolean;
   toEngine(f: Frame): void;
   close(code: number, reason: string): void;
 }
@@ -45,19 +48,35 @@ const bytesOf = (d: RawData): number =>
     ? d.reduce((n, b) => n + b.length, 0)
     : (d as Buffer | ArrayBuffer).byteLength;
 
-/** A text frame's `type`, or null for a binary frame, a large one, or one that is not a JSON object. */
-export function frameType(f: Frame): string | null {
+/** A small text frame as a JSON object, or null for a binary frame, a large one, or anything else. */
+function parsed(f: Frame): Record<string, unknown> | null {
   if (f.binary || bytesOf(f.data) > MAX_PARSED_BYTES) return null;
   const d = f.data;
   const text = Array.isArray(d)
     ? Buffer.concat(d).toString("utf8")
     : Buffer.from(d as ArrayBuffer).toString("utf8");
   try {
-    const m = JSON.parse(text) as { type?: unknown };
-    return typeof m?.type === "string" ? m.type : null;
+    const m = JSON.parse(text) as unknown;
+    return m && typeof m === "object" && !Array.isArray(m)
+      ? (m as Record<string, unknown>)
+      : null;
   } catch {
     return null;
   }
+}
+
+/** A text frame's `type`, or null for a binary frame, a large one, or one that is not a JSON object. */
+export function frameType(f: Frame): string | null {
+  const m = parsed(f);
+  return typeof m?.type === "string" ? m.type : null;
+}
+
+/** The frame without the engine token a `whoami` carries; any other frame as it came. */
+export function withoutToken(f: Frame): Frame {
+  const m = parsed(f);
+  if (m?.type !== "whoami" || !("token" in m)) return f;
+  const { token: _token, ...rest } = m;
+  return { data: Buffer.from(JSON.stringify(rest)), binary: false };
 }
 
 export class RelayGate {
@@ -89,10 +108,12 @@ export class RelayGate {
     this.hold(f);
   }
 
-  /** Whether a frame from the engine may reach the browser. */
-  fromEngine(f: Frame): boolean {
-    if (this.closed) return false;
-    return this.sinks.holds() || PROBE_ANSWERS.has(frameType(f) ?? "");
+  /** The frame from the engine as it may reach the browser, or null when it may not. */
+  fromEngine(f: Frame): Frame | null {
+    if (this.closed) return null;
+    const pass = this.sinks.holds() || PROBE_ANSWERS.has(frameType(f) ?? "");
+    if (!pass) return null;
+    return this.sinks.mayReadToken() ? f : withoutToken(f);
   }
 
   dispose(): void {

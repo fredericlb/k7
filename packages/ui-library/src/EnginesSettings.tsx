@@ -1,6 +1,7 @@
-// EnginesSettings.tsx — the settings screen's Engines card: every engine registered with this
-// origin, which holds THE registry — k7 and z0 list theirs from here too. Read-only: an engine
-// is connected from its own machine, never from here. See ../docs/settings.md.
+// EnginesSettings.tsx — the settings screen's Engines card: the engines registered with this
+// origin that this ACCOUNT may use — its own, those shared with it, the server's — and the unowned
+// ones this browser might enrol. An engine is connected from its own machine, never from here; its
+// owner shares it or gives it up here. See ../docs/settings.md.
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
@@ -15,6 +16,8 @@ import {
 import { formatLatency } from "@studio/web-protocol/quality";
 import { useCallback, useEffect, useState } from "react";
 import { engines } from "./api";
+import { EngineShareEditor } from "./EngineShareEditor";
+import { accessLabel } from "./engineShares";
 import { useLabels } from "./host";
 import type { LibraryLabels } from "./labels";
 
@@ -33,13 +36,16 @@ function heldLine(e: PublicEngine, l: LibraryLabels["engines"]): string | null {
 function EngineRow({
   r,
   remembered,
+  onChanged,
 }: {
   r: RankedEngine<PublicEngine>;
   remembered: boolean;
+  onChanged: () => void;
 }) {
   const l = useLabels().engines;
   const e = r.engine;
   const held = heldLine(e, l);
+  const access = accessLabel(e, l);
   return (
     <li className="flex items-start gap-3 rounded-md border px-3 py-2">
       <Server className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -49,6 +55,14 @@ function EngineRow({
           <span className="font-mono text-xs text-muted-foreground">
             {e.id.slice(0, 8)}
           </span>
+          {access && (
+            <Badge
+              variant={e.access === "unowned" ? "amber" : "default"}
+              title={e.access === "unowned" ? l.unownedHint : undefined}
+            >
+              {access}
+            </Badge>
+          )}
           {remembered && <Badge>{l.chosen}</Badge>}
         </div>
         <div className="text-xs text-muted-foreground">
@@ -66,6 +80,9 @@ function EngineRow({
           {e.sameSourceIp && ` · ${l.sameNetwork}`}
           {held && ` · ${held}`}
         </div>
+        {e.access === "owner" && (
+          <EngineShareEditor id={e.id} onGivenUp={onChanged} />
+        )}
       </div>
     </li>
   );
@@ -128,6 +145,7 @@ export function EnginesSettings() {
               key={r.engine.id}
               r={r}
               remembered={r.engine.id === looked.rememberedId}
+              onChanged={() => void look()}
             />
           ))}
         </ul>

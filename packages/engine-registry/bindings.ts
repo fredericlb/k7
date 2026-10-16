@@ -4,14 +4,7 @@
 // expiry and a restart. The secret is not the engine token: the browser never sees it — docs/token.md.
 
 import { createHash, timingSafeEqual } from "node:crypto";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from "node:fs";
-import { dirname } from "node:path";
+import { loadJson, saveJson } from "./stateFile.ts";
 
 /** The file's name under a host's state dir. */
 export const BINDINGS_FILE = "engine-bindings.json";
@@ -56,17 +49,8 @@ export function createBindings(
 
   const save = (): void => {
     if (!file) return;
-    try {
-      mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
-      const tmp = `${file}.tmp`;
-      const engines = Object.fromEntries(map);
-      writeFileSync(tmp, `${JSON.stringify({ version: 1, engines })}\n`, {
-        mode: 0o600,
-      });
-      renameSync(tmp, file);
-    } catch (e) {
-      log(`could not save the engine bindings: ${(e as Error).message}`);
-    }
+    const engines = Object.fromEntries(map);
+    saveJson(file, { version: 1, engines }, "engine bindings", log);
   };
 
   return {
@@ -96,28 +80,14 @@ export function createBindings(
 
 /** The bindings on disk; an unreadable file is set aside rather than overwritten, and said. */
 function load(file: string, log: (line: string) => void): [string, Binding][] {
-  if (!existsSync(file)) return [];
-  try {
-    const raw = JSON.parse(readFileSync(file, "utf8")) as {
-      engines?: Record<string, unknown>;
-    };
-    const out: [string, Binding][] = [];
-    for (const [id, v] of Object.entries(raw.engines ?? {})) {
-      const b = v as Partial<Binding>;
-      if (typeof b?.h === "string" && typeof b.at === "number")
-        out.push([id, { h: b.h, at: b.at }]);
-    }
-    return out;
-  } catch (e) {
-    const aside = `${file}.unreadable-${Date.now()}`;
-    try {
-      renameSync(file, aside);
-    } catch {
-      /* left where it is; the next save replaces it */
-    }
-    log(
-      `engine bindings unreadable (${(e as Error).message}), set aside as ${aside}`,
-    );
-    return [];
+  const raw = loadJson(file, "engine bindings", log) as
+    | { engines?: Record<string, unknown> }
+    | undefined;
+  const out: [string, Binding][] = [];
+  for (const [id, v] of Object.entries(raw?.engines ?? {})) {
+    const b = v as Partial<Binding>;
+    if (typeof b?.h === "string" && typeof b.at === "number")
+      out.push([id, { h: b.h, at: b.at }]);
   }
+  return out;
 }

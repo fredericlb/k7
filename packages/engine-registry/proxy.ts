@@ -19,6 +19,7 @@ import {
   ENGINE_REACH_BUDGET_MS,
 } from "@studio/web-protocol";
 import { WebSocket, WebSocketServer } from "ws";
+import { mayUse, roleOf } from "./owners.ts";
 import type { EngineEntry, EngineRegistry } from "./registry.ts";
 import { type Frame, RelayGate } from "./relayGate.ts";
 
@@ -176,7 +177,8 @@ function shut(ws: Upstream): void {
 function pipe(client: WebSocket, upstream: Upstream, gate: RelayGate): void {
   upstream.on("message", (data: WebSocket.RawData, binary: boolean) => {
     const f = { data, binary };
-    if (gate.fromEngine(f)) forward(client, upstream, f);
+    const out = gate.fromEngine(f);
+    if (out) forward(client, upstream, out);
   });
   client.on("close", () => shut(upstream));
   upstream.on("close", () => shut(client));
@@ -245,6 +247,15 @@ export function attachEngineProxy(
       const pending = new HeldFrames<WebSocket.RawData>();
       const gate = new RelayGate({
         holds: () => reg.holds(id, ticket.holder),
+        // Asked per frame: a share withdrawn mid-socket stops the token at once — docs/ownership.md.
+        mayReadToken: () =>
+          mayUse(
+            roleOf(
+              reg.owners.get(id),
+              ticket.holder,
+              !!tunnels?.isRenderer(id),
+            ),
+          ),
         toEngine: (f) => {
           if (upstream) forward(upstream, client, f);
           else if (!pending.push(f.data, f.binary)) overloaded(client);
