@@ -16,7 +16,7 @@ implemented in `packages/commands/src/verbs/`, spread into the handler table of
 | `verbs/pictureInterchange.ts` | `picture.interchange` (writes `exports/cut.<otio\|edl>`, a fixed path so the shell fetches it unprompted) |
 | `verbs/pictureImport.ts` | `picture.import` |
 | `verbs/pictureRender.ts` | `picture.render` |
-| `commands.ts` | `project.aspect` (rotates the frame keeping its long edge and its export fps) |
+| `verbs/project.ts` | `project.aspect` (rotates the frame keeping its long edge and its export fps) |
 
 Rules every picture verb shares (`verbs/picture.ts`):
 

@@ -7,7 +7,7 @@
 export const ENGINES_DIR = "engines";
 
 /** The engine a module runs when it names none and has one called this — the Tracktion built-in. */
-export const DEFAULT_ENGINE = "tracktion";
+const DEFAULT_ENGINE = "tracktion";
 
 /** An engine's name is a folder name, and a word in a ref. */
 export const ENGINE_NAME = /^[A-Za-z0-9_-]+$/;

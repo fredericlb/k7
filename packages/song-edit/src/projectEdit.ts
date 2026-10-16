@@ -137,8 +137,7 @@ export function setModuleParam(
   name: string,
   value: number,
 ): string {
-  // A module with engines keeps its knobs PER engine, so the one that is on is asked first (docs/engines.md).
-  // The reads before the write share one stamp walk; the scope closes BEFORE the write (packages/song/docs/moduleCache.md).
+  // Knobs are kept PER engine, so the one that is on is read first, in one stamp walk closed before the write (packages/song/docs/moduleCache.md).
   const { engine, at } = withModuleStamp(dir, () => ({
     engine: engineOn(dir, module),
     at: moduleFileOf(dir, module),
@@ -149,7 +148,7 @@ export function setModuleParam(
 }
 
 /** The engine a module runs as, resolved like the compile resolves it — undefined for a module with none. */
-export function engineOn(dir: string, module: string): string | undefined {
+function engineOn(dir: string, module: string): string | undefined {
   const node = loadModules(dir)[module];
   return node
     ? currentEngine(resolveModule(node, loadModuleRefs(dir)))
@@ -177,8 +176,7 @@ export function newModuleAlternative(
   name?: string,
   opts: { copy?: boolean } = {},
 ): { path: string; name: string } {
-  // RESOLVED and not as loaded, because `kind: "track"` lives on the built-in it extends.
-  // One stamp walk for the reads, closed before the write, as in setModuleParam.
+  // RESOLVED, since `kind: "track"` lives on the built-in; one stamp walk closed before the write, as in setModuleParam.
   const { blankEvents, file } = withModuleStamp(dir, () => {
     const node = loadModules(dir)[module];
     return {
@@ -228,11 +226,7 @@ export function setModuleShader(
   return editModuleValue(dir, module, ["shader"], clean || null);
 }
 
-/** Which CAMERA a live picture node opens, by the LABEL a person reads; empty means the default one.
- *
- * A label and not a deviceId, and the schema's comment says why: an id is salted per browser and
- * per origin, so one written into a committed file names nothing on the next machine. The browser
- * matches this against what it enumerates — see packages/song/docs/camera.md. */
+/** Which CAMERA a live picture node opens, by its LABEL, never a per-browser deviceId; empty is the default — packages/song/docs/camera.md. */
 export function setModuleCamera(
   dir: string,
   module: string,

@@ -13,11 +13,6 @@ export const STEMS_DIR = "stems";
 /** The one output a separation can name that is not a stem: the record without the voice (docs/stems.md). */
 export const INSTRUMENTAL = "instrumental";
 
-/** What it sums — every stem the voice is not, in the model's own order. */
-export const INSTRUMENTAL_STEMS: readonly Stem[] = STEMS.filter(
-  (s) => s !== "vocals",
-);
-
 /** What a separating module may declare as an output, and therefore what a pass may be asked to write. */
 export type SeparationOutput = Stem | typeof INSTRUMENTAL;
 
@@ -37,9 +32,7 @@ export function stemsComplete(names: readonly string[]): boolean {
   return STEMS.every((s) => have.has(stemFile(s)));
 }
 
-/** The param a desk knob drives — the PLATTER's own gain, spelled once because the scaffold, the
- *  migration and the desk all name it. It was a `stemcut` module's `Level` until that module turned
- *  out to be a second gain in series with this one (docs/stems.md). */
+/** The param a desk knob drives — the PLATTER's own gain, named by the scaffold, the migration and the desk (docs/stems.md). */
 export const STEM_PARAM = "Gain";
 
 /** Its travel: 0 is the part gone, 1 is as recorded, 2 is twice as much — a LEVEL, since the lane IS the part. */
@@ -58,8 +51,7 @@ const Cap = (s: string): string => `${s[0].toUpperCase()}${s.slice(1)}`;
 export const stemLane = (deck: string, stem: Stem): string =>
   `stem${Cap(stem)}${letterOf(deck)}`;
 
-/** …the node a set USED to dose it with: `cutBassA`. Kept because removing one is the only way a
- *  migration can name it — nothing writes one any more (docs/stems.md). */
+/** …the retired `cutBassA` node, named so a migration can remove it; nothing writes one (docs/stems.md). */
 export const stemCut = (deck: string, stem: Stem): string =>
   `cut${Cap(stem)}${letterOf(deck)}`;
 
@@ -70,9 +62,7 @@ export const stemPlatter = (deck: string, stem: Stem): string =>
 /** The platter a deck's own RECORD plays on: `platterA`. Its lane is the deck itself. */
 export const deckPlatter = (deck: string): string => `platter${letterOf(deck)}`;
 
-/** The BOX a deck's eighteen nodes are drawn as, and the template behind it — see
- *  packages/song/docs/assemblies.md. Spelled here beside the other names a set is made of, so the
- *  scaffold, the migration and the desk cannot come to disagree about what a turntable is called. */
+/** The BOX a deck's nodes are drawn as, and its template, beside the set's other names — packages/song/docs/assemblies.md. */
 export const TURNTABLE_REF = "@k7-core/turntable";
 export const turntableBox = (deck: string): string =>
   `turntable${letterOf(deck)}`;

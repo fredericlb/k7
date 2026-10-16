@@ -65,7 +65,7 @@ gesture and could fail half-way.
 
 `@studio/commands` maps the line to a SID through `commands.yaml` (longest prefix wins) and runs the
 handler with a `CommandHost`. Handlers follow a shape you will see everywhere in
-`packages/commands/src/commands.ts`:
+`packages/commands/src/verbs/`:
 
 1. Parse the arguments; on a bad shape, `h.refuse(["usage: …"])`.
 2. Resolve against the **compiled** project (`h.project()`): the track, the event at that start,

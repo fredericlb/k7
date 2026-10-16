@@ -18,6 +18,7 @@ import {
   stepLists,
 } from "@studio/song-schema/yaml/chainSchema";
 import type { CommandHost, SidHandler } from "../commands.ts";
+import { splitWords } from "./shared.ts";
 
 export const TRACK_HIDE_VERBS: Record<string, SidHandler> = {
   "track.hide": (a, h) => hideTrack(a, h, true),
@@ -36,7 +37,7 @@ async function hideTrack(
   hide: boolean,
 ): Promise<void> {
   const verb = hide ? "track hide" : "track unhide";
-  const idArg = arg.trim().split(/\s+/).filter(Boolean)[0];
+  const idArg = splitWords(arg)[0];
   if (!idArg) {
     h.refuse([`usage: ${verb} <track>`]);
     return;

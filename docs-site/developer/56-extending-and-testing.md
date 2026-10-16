@@ -26,7 +26,7 @@ Declare it in `packages/commands/commands.yaml` in the picture section: `command
 `surfaces: [cli, timeline]`, `args` with `complete: pictureLanes` for a lane, and `menu: [shot]`
 if a shot's right-click should offer it. Implement the handler in `packages/commands/src/verbs/`,
 reusing `target`, `laneFile`, `seconds` and `put` from `verbs/picture.ts` (they give addressing,
-containment, refusals and the undo snapshot), and spread its table into the handler map in
+containment, refusals and the undo snapshot), and list its table in `VERB_TABLES` in
 `packages/commands/src/commands.ts`. Long-running work goes through `h.background(tag, work)`.
 
 ### A new uniform for shaders

@@ -30,10 +30,10 @@ Test it the house way, asserting the file differs by exactly the line you meant 
    on every event's menu by itself. Add `confirm: true` for a verb that destroys more than Ctrl+Z is
    trusted with.
 3. **Implement the handler** in `packages/commands/src/verbs/<topic>.ts`, exported as a
-   `Record<string, SidHandler>` and spread into the registry in `packages/commands/src/commands.ts`
+   `Record<string, SidHandler>` and listed in `VERB_TABLES` in `packages/commands/src/commands.ts`
    (as `CROSSFADE_VERBS` is). Parse, resolve against `h.project()`, `h.refuse([...])` with a sentence
    naming what is wrong before writing anything, call the writer, `h.log([...])`, `await h.reload()`.
-   A verb that renders audio takes `rendererOf(h)` and refuses when it is null.
+   A verb that renders audio takes `rendererOf(h)` (`verbs/shared.ts`) and refuses when it is null.
 4. **Test it** against `packages/commands/src/testHost.ts`.
 
 If a gesture would need the verb N times, write the bulk verb instead (`events add`,

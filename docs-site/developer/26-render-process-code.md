@@ -21,7 +21,7 @@ Which renderer a verb gets is the file service's decision, in `serviceRenderer`
 3. otherwise a render job service named by `STUDIO_RENDER_JOBS_URL`, whose results are staged and
    copied in.
 
-A verb asks for it through the command host (`rendererOf(h)` in `packages/commands/src/commands.ts`)
+A verb asks for it through the command host (`rendererOf(h)` in `packages/commands/src/verbs/shared.ts`)
 and refuses by name when there is none ("no engine to render with — …"). That is why an audio
 `event split` or `selection consolidate` needs an engine while the sequence versions do not.
 

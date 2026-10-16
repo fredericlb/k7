@@ -146,14 +146,6 @@ export function renameAssemblyMember(
   return touched ? doc.toString(OUT) : text;
 }
 
-/** Which of this instance's members is that node, if any — the inverse the rename above walks. */
-export function memberNamed(
-  file: AssemblyFile,
-  node: string,
-): string | undefined {
-  return Object.entries(file.members).find(([, n]) => n === node)?.[0];
-}
-
 /** Promote a member's param onto the box's face, or replace what that name already promoted. */
 export function setAssemblyParam(
   text: string,

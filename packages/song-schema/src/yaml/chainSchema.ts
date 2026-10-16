@@ -34,12 +34,12 @@ export const NODE_ITEM_KEYS = ["id", "bypass", "vstpreset", "mapping"] as const;
 const Id = z.string().min(1);
 
 /** A lane in the chain: its events live in `tracks/<track>.yaml`, and its bypass is its mute. */
-export const TrackItemSchema = z
+const TrackItemSchema = z
   .object({ id: Id, track: z.string().min(1), bypass: z.boolean().optional() })
   .strict();
 
 /** A PICTURE lane: its placements live in `video_tracks/<video_track>.yaml`, and it holds no module. */
-export const VideoTrackItemSchema = z
+const VideoTrackItemSchema = z
   .object({
     id: Id,
     video_track: z.string().min(1),
@@ -48,7 +48,7 @@ export const VideoTrackItemSchema = z
   .strict();
 
 /** A node: a module's fields, plus the four a use adds — the rest is checked by parseModule. */
-export const NodeItemSchema = z
+const NodeItemSchema = z
   .object({
     id: Id,
     bypass: z.boolean().optional(),
@@ -57,7 +57,7 @@ export const NodeItemSchema = z
   })
   .passthrough();
 
-export const ItemSchema = z.union([
+const ItemSchema = z.union([
   TrackItemSchema,
   VideoTrackItemSchema,
   NodeItemSchema,
@@ -73,7 +73,7 @@ export const LinkSchema = z
   .strict();
 
 /** The LAST step: links only, never mixed with nodes. Several links each carry a level. */
-export const EndStepSchema = z
+const EndStepSchema = z
   .object({ to: z.array(LinkSchema).min(1) })
   .strict()
   .refine((s) => s.to.length < 2 || s.to.every((l) => l.level !== undefined), {
@@ -81,9 +81,9 @@ export const EndStepSchema = z
   });
 
 /** A step that RUNS one of the file's subchains in series, right there, its output returning to the next step. */
-export const CallStepSchema = z.object({ sub: Id }).strict();
+const CallStepSchema = z.object({ sub: Id }).strict();
 
-export const StepSchema = z.union([
+const StepSchema = z.union([
   EndStepSchema,
   CallStepSchema,
   z.array(ItemSchema).min(2),

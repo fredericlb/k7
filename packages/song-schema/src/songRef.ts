@@ -14,7 +14,7 @@ export const SONG_REF = new RegExp(
 );
 
 /** True for a well-formed song ref — the shape, never whether the médiathèque has it. */
-export const isSongRef = (v: unknown): v is string =>
+const isSongRef = (v: unknown): v is string =>
   typeof v === "string" && SONG_REF.test(v);
 
 /** The médiathèque id a ref names (`songs/artist/album/title`), or null when it isn't one. */

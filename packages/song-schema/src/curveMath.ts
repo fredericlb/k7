@@ -23,7 +23,7 @@ export const LFO_SHAPES: readonly LfoShape[] = [
 export const ADSR_DEFAULT_LEVEL = 0.5;
 
 /** An oscillator's unit value `cycles` into its run, 0..1. */
-export function lfoWave(shape: LfoShape, cycles: number): number {
+function lfoWave(shape: LfoShape, cycles: number): number {
   const f = cycles - Math.floor(cycles); // position within the cycle, 0..1
   switch (shape) {
     case "triangle":
@@ -57,7 +57,7 @@ export function adsrUnit(c: Adsr, ms: number): number {
 }
 
 /** Points at beats, linearly interpolated; flat before the first and after the last. */
-export function pointsUnit(
+function pointsUnit(
   pts: readonly { beat: number; value: number }[],
   beat: number,
 ): number {
@@ -79,7 +79,7 @@ export function pointsUnit(
 }
 
 /** Points at beats, HELD: each one's value until the next, the first's before it — an on/off curve's stepping. */
-export function heldUnit(
+function heldUnit(
   pts: readonly { beat: number; value: number }[],
   beat: number,
 ): number {
@@ -104,7 +104,7 @@ export function pointBeats(
 }
 
 /** What leaves the curve: the unit value scaled by `amplitude`, unipolar 0..amp or bipolar -amp..amp, then `cut`. */
-export function curveOutput(
+function curveOutput(
   unit: number,
   polarity: CurvePolarity,
   amplitude: number,
@@ -149,7 +149,7 @@ export function sampleSpec(
 }
 
 /** How much of the next cycle an endless oscillator's picture shows, faded. */
-export const NEXT_CYCLE = 0.25;
+const NEXT_CYCLE = 0.25;
 
 /** What a curve's picture spans in beats, and how much of it is solid — a drawn curve its bars, an endless oscillator a cycle and a bit. */
 export function previewSpan(

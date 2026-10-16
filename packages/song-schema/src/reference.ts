@@ -7,7 +7,7 @@
 export const REFERENCES_DIR = "_references";
 
 /** The extensions offered as reference tracks — what a browser's `<audio>` can be asked to decode. */
-export const REFERENCE_EXTS = [
+const REFERENCE_EXTS = [
   ".wav",
   ".flac",
   ".mp3",

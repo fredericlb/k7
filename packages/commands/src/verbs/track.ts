@@ -55,6 +55,7 @@ import {
 } from "@studio/song-schema/yaml/trackFile";
 import { parseDocument } from "yaml";
 import type { CommandHost, SidHandler } from "../commands.ts";
+import { splitWords } from "./shared.ts";
 import { duplicateLaneChain } from "./trackChain.ts";
 
 export const TRACK_VERBS: Record<string, SidHandler> = {
@@ -141,8 +142,7 @@ function duplicateChain(
   const cloneName = (node: string): string => {
     if (isStrip(node)) return claim(mixerNameFor(newLane, taken));
     const m = g.modules[node];
-    // A step naming a SHARED module directly is the qualified ref itself (`@workspace/audio/amp`);
-    // the instance is named after its last segment, same as inheriting one through `extends`.
+    // A step naming a SHARED module by its ref (`@workspace/audio/amp`) is named after its last segment.
     const leaf = m?.extends
       ? (String(m.extends).split("/").pop() ?? node)
       : node.startsWith("@")
@@ -213,7 +213,7 @@ async function duplicateTrack(
   h: CommandHost,
   copyEvents: boolean,
 ): Promise<void> {
-  const idArg = arg.trim().split(/\s+/).filter(Boolean)[0];
+  const idArg = splitWords(arg)[0];
   if (!idArg) {
     h.refuse([`usage: track duplicate${copyEvents ? "" : " empty"} <track>`]);
     return;
@@ -321,7 +321,7 @@ export function laneMixer(g: GraphDoc, lane: string): string | null {
 
 /** `track rename <track> <new name>` — the file, the graph, the boxes, the order, the solo and the strip follow. */
 async function renameTrack(arg: string, h: CommandHost): Promise<void> {
-  const [idArg, to] = arg.trim().split(/\s+/).filter(Boolean);
+  const [idArg, to] = splitWords(arg);
   if (!idArg || !to) {
     h.refuse([
       "usage: track rename <track> <new name> (the whole name, prefix included — e.g. track rename ge.lead vo.lead)",

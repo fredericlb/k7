@@ -32,7 +32,7 @@ First decide **where it runs**:
 
    Pick the first word for the entity the command acts on: the settings page groups by it, and the right-click menu matches on the **leading arguments** (here a `tracks` value, so it appears on a track's menu). Use `menu:` only to narrow that. Add `confirm: true` if the menu should ask first. Give every free-text argument a `hint`.
 
-2. **Write the handler**, in a family file under `packages/commands/src/verbs/` (or a new one exported as `XXX_VERBS` and spread into `SID_HANDLERS` in `packages/commands/src/commands.ts`):
+2. **Write the handler**, in a family file under `packages/commands/src/verbs/` (or a new one exported as `XXX_VERBS` and listed in `VERB_TABLES` in `packages/commands/src/commands.ts`):
 
    ```ts
    "track.colour": async (args, h) => {
@@ -55,7 +55,7 @@ Nothing else is needed: the file service's `/commands` serves it to the palette 
 
 ### A new completion provider
 
-Add it to `PROVIDERS` in `packages/commands/src/commandSpec.ts`, then give it a class in `PROVIDER_CLASS` and a hint in `PROVIDER_HINT` (both are exhaustive records, so the build tells you). The provider and class names are mirrored on the wire as the `ArgProvider` and `ArgClass` unions in `packages/web-protocol/types.ts`, which `commandSpec.test.ts` holds against the package; add the new name there too.
+Add it to `PROVIDERS` in `packages/commands/src/providers.ts`, then give it a class in `PROVIDER_CLASS` and a hint in `PROVIDER_HINT` (both are exhaustive records, so the build tells you). The provider and class names are mirrored on the wire as the `ArgProvider` and `ArgClass` unions in `packages/web-protocol/types.ts`, which `commandSpec.test.ts` holds against the package; add the new name there too.
 
 ## A `ui` command
 
