@@ -1,6 +1,5 @@
-// ProjectGate.tsx — resolve the repository this app was opened on into a folder on the
-// engine's machine, cloning it if that machine has never seen it, then open the project and
-// render the app. No app picks anything here: a project is chosen on k7's home page, and
+// ProjectGate.tsx — resolve the address this app was opened on into a project on the engine's
+// machine — an `@local` folder, or the bench — then open the project and render the app. No app picks anything here: a project is chosen on k7's home page, and
 // arriving with no target sends you back there. See docs/launch.md.
 
 import {
@@ -48,11 +47,10 @@ import { parseLaunch, projectsUrl } from "./launch.ts";
 import { accountLibraries } from "./repoLookup.ts";
 import { SyncScreen, type SyncWaitStrings, waitForSync } from "./syncWait.tsx";
 
-/** How often the clone is asked how far it has got. Fast: it is the only thing on screen. */
-
 type Phase =
   | { k: "resolving" }
-  | { k: "cloning"; workspace: string; phase: string; percent: number | null }
+  // A wait with no measure: the bench's catalogue being fetched.
+  | { k: "cloning"; workspace: string; phase: string }
   | { k: "error"; message: string; fault?: FileServiceFault; lines?: string[] }
   // The machine answered and has no such folder — its own screen, see docs/launch.md.
   | { k: "missing"; message: string }
@@ -304,7 +302,7 @@ export function ProjectGate({
             return setPhase({
               k: "missing",
               message:
-                "@local opens a project in a workspace on this machine — `/@local/<workspace>/<projet>`.",
+                "@local opens a project in a workspace on this machine — `/@local/<workspace>/<project>`.",
             });
           configure(userEmail, local.workspace);
           // No library is not a refusal here: a song started on this machine may extend nothing
@@ -354,7 +352,6 @@ export function ProjectGate({
             k: "cloning",
             workspace: strings.benchWorkspace ?? "",
             phase: strings.benchFetching ?? "",
-            percent: null,
           });
           // The project part goes with it: the machine is the side that says which address it answers.
           let bench: { workspace: string; project: string };
@@ -381,16 +378,13 @@ export function ProjectGate({
           });
         }
 
-        // Everything else is an address from BEFORE: `/<dépôt>/<projet>`, which read a short
-        // name against pl8's register. There is no register — a project is a folder on the
-        // machine that holds it — so this refuses rather than guessing which folder was meant.
-        // See apps/k7/frontend/docs/projects.md.
+        // A bare repository name names no folder, so this refuses rather than guesses — apps/k7/frontend/docs/projects.md.
         return setPhase({
           k: "missing",
           message:
-            `« ${repoName} » is a repository name, and this studio no longer keeps a register ` +
+            `"${repoName}" is a repository name, and this studio keeps no register ` +
             "of those: a project is a folder on this machine. Open it from the home page — " +
-            "its address will be `/@local/<espace de travail>/<projet>`.",
+            "its address will be `/@local/<workspace>/<project>`.",
         });
       } catch (e) {
         if (cancelled) return;
@@ -449,20 +443,9 @@ export function ProjectGate({
             {strings.cloning(phase.workspace)}
           </h1>
           <p className="text-sm text-muted-foreground">{phase.phase}</p>
-          {/* A bar only when git can measure; a counter it cannot fill is worse than none. */}
+          {/* No measure to fill, so the bar only says that something is moving. */}
           <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
-            <div
-              className={
-                phase.percent === null
-                  ? "h-full w-1/3 animate-pulse bg-primary"
-                  : "h-full bg-primary transition-all"
-              }
-              style={
-                phase.percent === null
-                  ? undefined
-                  : { width: `${phase.percent}%` }
-              }
-            />
+            <div className="h-full w-1/3 animate-pulse bg-primary" />
           </div>
         </div>
       </div>
