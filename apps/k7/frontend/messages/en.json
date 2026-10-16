@@ -73,7 +73,7 @@
   "common.on": "On",
   "common.off": "Off",
   "engine.crashed": "The engine crashed and was restarted. The project is being sent to it again; anything playing stopped.",
-  "engine.instrumentMissing": "This module needs the sampled instrument “{instrument}”, which is not on the engine's machine. Download it from the desktop app: Settings → Engine → Downloads, or list it under “instruments” in the command-line engine's config file.",
+  "engine.instrumentMissing": "This module needs the sampled instrument “{instrument}”, which is not on the engine's machine. Download it from the app the engine runs in: Settings → Engine → Downloads on the desktop, the Downloads section of Settings on the phone; or list it under “instruments” in the command-line engine's config file.",
   "engineLoad.copyingTitle": "Copying the project to the engine",
   "engineLoad.copyingBody": "Its audio files are copied to the machine the engine runs on before the project opens, so nothing is downloaded while it plays.",
   "engineLoad.applyingTitle": "Loading the project on the engine",
