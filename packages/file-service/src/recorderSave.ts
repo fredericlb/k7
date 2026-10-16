@@ -6,17 +6,14 @@
 // anything is opened. Rationale: packages/song/docs/recorderNode.md.
 
 import { readFileSync, statSync } from "node:fs";
-import { basename, resolve, sep } from "node:path";
+import { basename, resolve } from "node:path";
 import { pushRecording } from "@studio/mediatek/remote";
+import { isWithin } from "@studio/web-protocol/paths";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 
 /** Is `file` inside `dir`? Resolved on both sides, so `..` cannot walk out of it. */
 export function insideDir(dir: string, file: string): boolean {
-  if (!dir) return false;
-  const root = resolve(dir);
-  const at = resolve(file);
-  // The separator matters: `/takes-old/x.wav` must not pass for being inside `/takes`.
-  return at === root || at.startsWith(root.endsWith(sep) ? root : root + sep);
+  return !!dir && isWithin(resolve(dir), resolve(file));
 }
 
 export interface SaveTakeResult {

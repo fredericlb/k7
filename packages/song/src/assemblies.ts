@@ -19,6 +19,7 @@ import type {
   AssemblyPlug,
   AssemblyTemplate,
 } from "@studio/song-schema/yaml/assemblySchema";
+import { plainSegments } from "@studio/web-protocol/paths";
 import type { Diagnostic } from "./loader";
 import { libraryFamilyRoot, libraryFamilyRoots } from "./sharedFolders";
 import { entityFiles } from "./yaml/moduleIO";
@@ -70,8 +71,8 @@ export function assemblyFolder(dir: string, ref: string): string | null {
   const root = libraryFamilyRoot(parts.library, ASSEMBLIES_DIR, dir);
   if (!root) return null;
   // A ref is a path under the family folder, so a `..` in it would reach out of the library.
-  const segs = parts.rest.split(/[\\/]+/);
-  if (segs.some((s) => !s || s === "." || s === "..")) return null;
+  const segs = plainSegments(parts.rest, /[\\/]+/);
+  if (!segs) return null;
   const folder = join(root, ...segs);
   return wsExists(join(folder, ASSEMBLY_FILE)) ? folder : null;
 }

@@ -4,7 +4,7 @@
 // walks anyway now and then so a missed event heals itself. Full rationale: docs/moduleWatch.md.
 
 import { type FSWatcher, watch } from "node:fs";
-import { isAbsolute, join, relative, sep } from "node:path";
+import { join, relative, sep } from "node:path";
 import { setFoldersStill } from "@studio/song/moduleCache";
 import { modulePanelRoots } from "@studio/song/sharedFolders";
 import {
@@ -12,6 +12,7 @@ import {
   TRACKS_DIR,
   VSTPRESETS_DIR,
 } from "@studio/song-schema/yaml/chainSchema";
+import { climbsOut } from "@studio/web-protocol/paths";
 import type { ChangeFeed } from "./liveCapture.ts";
 
 /** A ceiling, not a cache interval: it makes a MISSED event a delay — see docs/moduleWatch.md. */
@@ -42,7 +43,7 @@ const watches = new Map<string, Watch>();
 /** `abs` as a slash-separated path under `root`, "" for the root itself, or null when outside it. */
 function inside(root: string, abs: string): string | null {
   const rel = relative(root, abs);
-  if (rel.startsWith("..") || isAbsolute(rel)) return null;
+  if (climbsOut(rel)) return null;
   return rel.split(sep).join("/");
 }
 

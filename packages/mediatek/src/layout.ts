@@ -3,8 +3,9 @@
 // for the same reason: a wrong path here does not throw, it reads as an empty library.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { mediatekDir } from "@studio/engine-client/paths";
+import { isWithin } from "@studio/web-protocol/paths";
 import { type Family, PLAYLISTS_DIR, RECORDINGS_DIR } from "./types.ts";
 
 export { mediatekDir };
@@ -169,11 +170,9 @@ export function readablePath(rel: string): string {
 /** A mediatek-relative path as an absolute one, confined to the root lexically — see docs/index.md. */
 export function safePath(rel: string): string {
   if (rel.includes("\0")) throw new PathEscapesError("path holds a NUL byte");
-  const root = mediatekDir();
+  const root = resolve(mediatekDir());
   const abs = resolve(root, rel);
-  const inside = relative(root, abs);
-  // Another drive or a UNC share: `relative` answers with an absolute path, not one climbing out.
-  if (inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside))
+  if (!isWithin(root, abs))
     throw new PathEscapesError(`path escapes the mediatek: ${rel}`);
   return abs;
 }

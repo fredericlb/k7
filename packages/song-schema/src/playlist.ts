@@ -3,6 +3,7 @@
 // and adding, dropping or reordering a line AS TEXT. No `node:fs`, so the file service and the
 // browser go by exactly the same rules. See docs/playlists.md.
 
+import { plainSegments } from "@studio/web-protocol/paths";
 import { parse as parseYaml } from "yaml";
 
 /** The folder a workspace keeps its playlists in, beside `_modules` — see docs/playlistFile.md. */
@@ -15,8 +16,8 @@ export const PLAYLIST_EXT = ".yaml";
 export function playlistPathOf(name: string): string | null {
   const clean = name.trim().replace(/^\/+|\/+$/g, "");
   if (!clean) return null;
-  const segs = clean.split("/");
-  if (segs.some((s) => !s || s === "." || s === "..")) return null;
+  const segs = plainSegments(clean);
+  if (!segs) return null;
   const rel = segs.join("/");
   return `${PLAYLISTS_DIR}/${/\.(ya?ml|k7x)$/i.test(rel) ? rel : `${rel}${PLAYLIST_EXT}`}`;
 }

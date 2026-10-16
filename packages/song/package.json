@@ -84,6 +84,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@studio/web-protocol": "*",
     "yaml": "^2.5.0",
     "zod": "^4.4.3",
     "@studio/dsp": "*",

@@ -4,7 +4,7 @@
 // The one singleton is the document a browser hands over — see docs/activeProject.md.
 
 import { watch } from "node:fs";
-import { basename, isAbsolute, relative, resolve, sep } from "node:path";
+import { basename, relative, resolve, sep } from "node:path";
 import {
   argClass,
   argHint,
@@ -31,6 +31,7 @@ import type {
   EngineLoadPhase,
   EngineSyncState,
 } from "@studio/web-protocol";
+import { climbsOut } from "@studio/web-protocol/paths";
 import { autoFreezer } from "./autoFreezeJobs.ts";
 import { guard } from "./background.ts";
 import { engineQueries, serviceMembers } from "./commandHost.ts";
@@ -336,7 +337,7 @@ function watchStrudel(ws: Workspace, dir: string | null): void {
   // Live sync's capture already hears every path in the workspace: no second watcher on the project.
   const feed = ws.liveCapture;
   const under = feed ? relative(feed.root, dir).split(sep).join("/") : null;
-  if (feed && under !== null && !under.startsWith("..") && !isAbsolute(under)) {
+  if (feed && under !== null && !climbsOut(under)) {
     const prefix = under ? `${under}/` : "";
     const unsubscribe = feed.onChange((rel) => {
       if (rel.startsWith(prefix)) onChange(rel.slice(prefix.length));

@@ -5,8 +5,9 @@
 // Full rationale: docs/sharedFolders.md.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { climbsOut } from "@studio/web-protocol/paths";
 import { studioHome } from "./studioHome";
 
 /** Where the shared modules folder sits, relative to a project (see module.populate). */
@@ -221,15 +222,14 @@ export function libraryFamilyRoots(
 export function libraryOf(path: string): AccountLibrary | null {
   const abs = resolve(path);
   const inAccount = relative(accountLibraryHome(), abs);
-  if (!inAccount.startsWith("..") && !isAbsolute(inAccount))
+  if (!climbsOut(inAccount))
     return { name: ACCOUNT_LIBRARY, root: accountLibraryHome() };
   for (const [name, root] of overlays) {
     const inEdits = relative(root, abs);
-    if (!inEdits.startsWith("..") && !isAbsolute(inEdits))
-      return { name, root };
+    if (!climbsOut(inEdits)) return { name, root };
   }
   const rel = relative(librariesHome(), abs);
-  if (!rel || rel.startsWith("..") || isAbsolute(rel)) return null;
+  if (!rel || climbsOut(rel)) return null;
   const [name, second] = rel.split(/[\\/]+/);
   if (!isLibraryName(name)) return null;
   const home = libraryHomeOf(name);

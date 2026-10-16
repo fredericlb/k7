@@ -19,6 +19,7 @@ import {
   type LibraryManifest,
   versionOfDir,
 } from "@studio/song-schema/libraryVersions";
+import { assertPlainSegments } from "@studio/web-protocol/paths";
 import { type VersionFile, versionFiles } from "./publicLibraries.ts";
 
 /** Where this machine asks for versions: `$STUDIO_LIBRARY_ORIGIN`, which a hosted origin never sets — it IS one. */
@@ -79,9 +80,7 @@ export async function fetchLibraryVersion(
   const partial = join(home, `.fetching-${Date.now()}-${process.pid}`);
   try {
     for (const f of files) {
-      const dest = join(partial, ...f.path.split("/"));
-      if (f.path.split("/").some((s) => !s || s === "." || s === ".."))
-        throw new Error(`refusing the path ${f.path}`);
+      const dest = join(partial, ...assertPlainSegments(f.path));
       mkdirSync(dirname(dest), { recursive: true });
       const same = held.get(f.sha256);
       if (same) {

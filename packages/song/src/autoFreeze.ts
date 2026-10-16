@@ -9,13 +9,14 @@
 
 import { createHash } from "node:crypto";
 import { readFileSync, statSync, utimesSync } from "node:fs";
-import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, join, relative, resolve, sep } from "node:path";
 import { EXTERNAL_PLUGIN_FORMATS } from "@studio/engine-protocol/build";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import {
   AUTO_RENDERS_HOME_DIR,
   hostsPlugin,
 } from "@studio/song-schema/moduleTypes";
+import { climbsOut } from "@studio/web-protocol/paths";
 import { scanHostsAll } from "./engineCatalogue";
 import {
   activeFreezePlans,
@@ -120,9 +121,7 @@ function fileToken(abs: string, dir: string): string {
   const rel = relative(dir, abs);
   // Inside the project: its path there. Outside (a médiathèque, a library): its name — both portable.
   const name =
-    rel && !rel.startsWith("..") && !isAbsolute(rel)
-      ? rel.split(sep).join("/")
-      : `~/${basename(abs)}`;
+    rel && !climbsOut(rel) ? rel.split(sep).join("/") : `~/${basename(abs)}`;
   let st: { size: number; mtimeMs: number };
   try {
     st = statSync(abs);

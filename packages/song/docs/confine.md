@@ -12,6 +12,8 @@ copies, decodes or deletes it does so for Alice. So every such path goes through
 
 - The path is resolved to an absolute one; a NUL byte refuses it outright.
 - It must be a root itself or lie under one, by whole segment (`/a/song-evil` is not under `/a/song`).
+  That lexical test is `isWithin`, shared with every other confinement in the tree
+  (`packages/web-protocol/docs/paths.md`).
 - The nearest part of it that exists on disk is followed through its symlinks, and its real path
   must again lie under a root. A link planted inside the project that points out of it is refused,
   and so is a dangling link, since a write would follow it out. A link from one allowed root into

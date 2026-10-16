@@ -3,7 +3,7 @@
 // rename while Windows lets go of a handle. Workspace keeps the public methods. See docs/workspace.md.
 
 import { existsSync, mkdirSync, renameSync, statSync } from "node:fs";
-import { basename, dirname, join, sep } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { writeFileAtomic } from "@studio/song/atomicWrite";
 import {
   assertNotEngine,
@@ -18,6 +18,11 @@ import {
   librariesHome,
   libraryOf,
 } from "@studio/song/sharedFolders";
+import {
+  isDotSegment,
+  isPlainSegment,
+  isWithin,
+} from "@studio/web-protocol/paths";
 import { RECYCLE_DIR } from "./workspaceFilter.ts";
 
 /** The members of the workspace the mutations read. */
@@ -66,7 +71,7 @@ export function uploadFileIn(
     .split(/[\\/]+/)
     .map((s) => s.trim())
     .filter(Boolean);
-  if (!segs.length || segs.some((s) => s === "." || s === ".."))
+  if (!segs.length || segs.some(isDotSegment))
     throw new Error(`invalid filename: ${name}`);
   const clean = segs.join("/");
   const base = dir && dir !== "." ? dir.replace(/\/+$/, "") : "";
@@ -91,8 +96,7 @@ export function createFolderIn(
   name: string,
 ): { path: string } {
   const clean = basename(name).replace(/[\\/]/g, "").trim();
-  if (!clean || clean === "." || clean === "..")
-    throw new Error(`invalid folder name: ${name}`);
+  if (!isPlainSegment(clean)) throw new Error(`invalid folder name: ${name}`);
   const base = dir && dir !== "." ? dir.replace(/\/+$/, "") : "";
   const rel = base ? `${base}/${clean}` : clean;
   const abs = h.safePath(rel);
@@ -152,7 +156,7 @@ function guardMutable(h: EntriesHost, abs: string, verb: string): void {
   if (h.isRecycled(abs))
     throw new Error(`'${h.toRel(abs)}' is already in the recycle bin`);
   const active = h.activeProject();
-  if (active && (abs === active || active.startsWith(abs + sep)))
+  if (active && isWithin(abs, active))
     throw new Error(
       `can't ${verb} the active project's folder — stop it first, then ${verb} it`,
     );
@@ -172,8 +176,7 @@ export async function renameEntryIn(
   if (library && oldRef) assertNotEngine(library, abs);
   // A single path segment — no separators or traversal (the new name stays in place).
   const clean = basename(newName).replace(/[\\/]/g, "").trim();
-  if (!clean || clean === "." || clean === "..")
-    throw new Error(`invalid name: ${newName}`);
+  if (!isPlainSegment(clean)) throw new Error(`invalid name: ${newName}`);
   const destAbs = h.safePath(h.toRel(join(dirname(abs), clean)));
   if (destAbs === abs) return { path: h.toRel(abs) }; // no-op rename to the same name
   if (existsSync(destAbs)) {
@@ -217,7 +220,7 @@ export async function moveEntryIn(
       "can't move something into the recycle bin — delete it instead",
     );
   if (destDir === dirname(abs)) return { path: h.toRel(abs) }; // already there
-  if (destDir === abs || destDir.startsWith(abs + sep))
+  if (isWithin(abs, destDir))
     throw new Error(`can't move '${basename(abs)}' into itself`);
   const destAbs = join(destDir, basename(abs));
   if (existsSync(destAbs)) {
