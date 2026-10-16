@@ -139,6 +139,7 @@ export function DeckSide({
   loopSpan,
   onShove,
   needle,
+  drawnNeedle,
   running,
   onToggleDeck,
   onScratch,
@@ -203,8 +204,10 @@ export function DeckSide({
   loopSpan: { start: number; end: number } | null;
   /** Push this deck's record by `seconds`, signed — the waveform's drag and the nudge buttons both. */
   onShove: (seconds: number) => void;
-  /** Where this deck's needle is in its RECORD — its platter's clock, or the transport through the stretch. */
+  /** Where this deck's needle is in its RECORD — the platter's raw word, what a cue is written at. */
   needle: () => number;
+  /** …and the same needle steered between frames, for what is drawn at 60 fps (docs/turntables/needleClock.md). */
+  drawnNeedle: () => number;
   /** Is THIS deck turning? On a platter that is its own answer, not the transport's. */
   running: boolean;
   /** Start or stop it alone — absent on a separated deck, which has no platter to start. */
@@ -309,8 +312,8 @@ export function DeckSide({
                   : 1
               }
               onPick={onPick}
-              // The deck's own needle — a platter's clock, or the transport through the stretch.
-              at={needle}
+              // The deck's own needle, steered — the wedge is looked at, never written down.
+              at={drawnNeedle}
               length={tempo?.seconds ?? 0}
               markers={cues}
               size={layout.vinyl}
@@ -326,8 +329,8 @@ export function DeckSide({
           {/* Under the record, and ALWAYS drawn even with nothing loaded — ../../docs/deskLayout.md. */}
           <Waveform
             envelope={wave?.k === "ready" ? wave.env : null}
-            // The same clock the record above reads — one needle per deck, whichever way it plays.
-            needle={needle}
+            // The same steered needle the record above reads.
+            needle={drawnNeedle}
             loop={loopSpan}
             tempo={tempo}
             analysing={wave?.k === "loading"}

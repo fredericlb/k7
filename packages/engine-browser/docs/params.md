@@ -10,9 +10,24 @@ times a second.
 `subscribe` wakes on **any** plugin. `subscribeTo(id, …)` wakes only on one.
 
 The whole-map channel is the honest one for a reader that genuinely needs the whole map —
-k7's `MidiFeedback`, which pushes every value back out to a control surface, and the DJ desk's
-`useDeckSet` (`packages/k7-plugins/src/turntables/useDeckSet.ts`). Those draw nothing, so a re-render
-costs a function call.
+k7's `MidiFeedback`, which pushes every value back out to a control surface. It draws nothing, so
+a re-render costs a function call.
+
+## A frame that repeats itself is not news
+
+`set` compares the incoming values with the ones held for that plugin and does nothing when they
+are the same names with the same numbers: no new map, no subscriber woken. The engine resends a
+watched plugin's whole set ~20 times a second whether or not a knob moved, so without this every
+reader of every channel is woken 20·N times a second for nothing.
+
+## A reader of a FEW params subscribes to those
+
+`usePluginParamsOf(store, keys)` returns a map shaped like the whole one but holding only `keys`,
+subscribed through the per-plugin channel and re-rendering only when one of those values moves
+(`pickParams` hands back the previous object otherwise). The DJ desk's `useDeckSet`
+(`packages/k7-plugins/src/turntables/useDeckSet.ts`) reads its bound controls through it: it is the
+root of the whole desk, and a whole-map subscription would re-render both decks, the mixer and the
+waveforms' parents on any watched plugin's frame.
 
 It is the wrong channel for anything that *draws*. A single whole-map subscription at the root
 of a tree of N nodes turns 20·N notifications into 20·N full-tree renders, each rendering N
