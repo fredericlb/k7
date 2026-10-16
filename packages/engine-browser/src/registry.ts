@@ -92,6 +92,8 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
         credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id, token, latencyMs, project, secret }),
+        // The same deadline as the list: a claim that never answers would hold the gate, and a renewal, forever.
+        signal: AbortSignal.timeout(ENGINE_CONNECT_DEADLINE_MS),
       });
       // 409 is not a fault: the request was fine and the project moved, so it gets its own type rather than reading as a network error.
       if (res.status === 409) {
@@ -131,6 +133,7 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
       json<P>(
         await fetch(`${prefsBase}/api/preferences`, {
           credentials: "include",
+          signal: AbortSignal.timeout(ENGINE_CONNECT_DEADLINE_MS),
         }),
         "preferences",
       ),
@@ -142,6 +145,7 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
           credentials: "include",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(p),
+          signal: AbortSignal.timeout(ENGINE_CONNECT_DEADLINE_MS),
         }),
         "preferences",
       ),

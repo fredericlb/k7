@@ -131,8 +131,8 @@ export interface PairedDevice {
   created: number;
   lastSeen: number;
 }
-/** One binary audio frame, exactly as it arrived. See @studio/engine-protocol/stream. */
-type StreamCb = (frame: ArrayBuffer) => void;
+/** One binary audio frame, exactly as it arrived; `owned` when no other listener reads it, so it may be transferred. */
+type StreamCb = (frame: ArrayBuffer, owned: boolean) => void;
 
 // Every field any engine push carries, as one shape rather than a union: the dispatch reads `type` first and the rest is optional.
 interface EngineMessage {
@@ -339,7 +339,8 @@ export class EngineClient {
       this.pingSentAt = 0;
       // Binary is audio and never goes near the JSON path — it arrives at ~100 Hz.
       if (ev.data instanceof ArrayBuffer) {
-        for (const cb of this.streamCbs) cb(ev.data);
+        const owned = this.streamCbs.size === 1;
+        for (const cb of this.streamCbs) cb(ev.data, owned);
         return;
       }
       // The clock starts BEFORE the parse: the type is not known until after it, so a span cannot

@@ -41,6 +41,22 @@ export function decideAutosave(p: {
   return p.baselineOk ? { act: "hold", reason } : { act: "write", reason };
 }
 
+/** A pane's judge of the on-disk text, remembered while that text is the same string: it is asked on every fire otherwise. */
+// Keyed on path and text alone: a pane's `validate` is its file kind's fixed rule, and a host may hand a fresh closure each render.
+export function baselineMemo(): (
+  validate: (path: string, text: string) => Validity,
+  path: string,
+  saved: string,
+) => boolean {
+  let last: { path: string; saved: string; ok: boolean } | null = null;
+  return (validate, path, saved) => {
+    if (last?.path === path && last.saved === saved) return last.ok;
+    const ok = validate(path, saved).ok;
+    last = { path, saved, ok };
+    return ok;
+  };
+}
+
 // Text that could not be written, by path, held OUTSIDE React so it survives the pane unmounting.
 const held = new Map<string, string>();
 
@@ -145,6 +161,8 @@ export function useAutosave({
   const previous = useRef<Live>(live.current);
 
   const busy = useRef(false);
+  const baseline = useRef<ReturnType<typeof baselineMemo> | null>(null);
+  baseline.current ??= baselineMemo();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const disarm = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -190,10 +208,14 @@ export function useAutosave({
       }
       const validity = s.validate(s.path, s.text);
       if (showing()) setIssues(validity.issues);
+      // Only a buffer that parses and fails its schema asks about the disk — and the disk's answer is kept until it changes.
       const decision = decideAutosave({
         dirty: true,
         validity,
-        baselineOk: s.validate(s.path, s.saved).ok,
+        baselineOk:
+          validity.ok ||
+          validity.malformed ||
+          !!baseline.current?.(s.validate, s.path, s.saved),
       });
       if (decision.act !== "write") {
         keepBuffer(s.path, s.text);

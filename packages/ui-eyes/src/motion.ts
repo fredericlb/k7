@@ -49,15 +49,16 @@ export function motionAt(clip: SceneClip, t: number): Motion | null {
 }
 
 /** Each picture slot's motion this frame — slot 0 the outgoing side of a blend or the only picture of a cut, slot 1 the incoming. */
+// `out` lets the realtime loop refill one tuple per lane instead of allocating one per frame.
 export function slotMotions(
   frame: LayerFrame,
   t: number,
+  out: [Motion | null, Motion | null] = [null, null],
 ): [Motion | null, Motion | null] {
-  if (!frame.blend) return [frame.to ? motionAt(frame.to.clip, t) : null, null];
-  return [
-    frame.from ? motionAt(frame.from.clip, t) : null,
-    frame.to ? motionAt(frame.to.clip, t) : null,
-  ];
+  const a = frame.blend ? frame.from : frame.to;
+  out[0] = a ? motionAt(a.clip, t) : null;
+  out[1] = frame.blend && frame.to ? motionAt(frame.to.clip, t) : null;
+  return out;
 }
 
 /** The clip-space affine moving a quad drawn at `rect` (px, top-left origin) by `m`, in a target `fw`×`fh` px. */
