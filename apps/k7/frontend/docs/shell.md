@@ -66,7 +66,7 @@ rather than to draw belongs behind it too.
 
 **Firefox implements no Long Tasks API**, so `observe({entryTypes: ["longtask"]})` is a silent no-op
 there and an empty ring reads exactly like a quiet thread; the Profiler being off by default empties the
-commit ring for a second, unrelated reason. Only `activity()` breadcrumbs really report — and a stall
+commit ring for a second, unrelated reason. Only `beginActivity()` breadcrumbs really report — and a stall
 report concluding *"nothing on the main thread"* from that silence tells the reader to stop looking in
 the app. So the watchdog **asks whether it can see** (`PerformanceObserver.supportedEntryTypes`) and says so
 once at startup when it cannot.

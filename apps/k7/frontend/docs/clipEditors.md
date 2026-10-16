@@ -481,7 +481,7 @@ under one head and would come back under one of two others, across a namespace l
 The routing that a plural would buy is a **fact the clipboard already carries**: it was copied as
 events or as notes, so notes land in the open roll or sequencer and events on the timeline's caret
 whatever else is on screen (a clip pane holds notes and could not place a placement). Read off the
-held rectangle in `App`'s `runLocalCommand`, which is not a guess. The paste is one binding, and a
+held rectangle by `selection paste` (`src/ui/commands/timeline.ts`), which is not a guess. The paste is one binding, and a
 plain one: what the clipboard holds is read by the handler, so no key has to ask.
 
 **Four tokens, two bindings.** Ctrl+C and Ctrl+V are the *only* modifier chords this shell takes
