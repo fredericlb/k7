@@ -51,6 +51,10 @@ export function useEngineLink(
 ): EngineLink {
   const engineRef = useRef<EngineClient | undefined>(undefined);
   const engineBusyRef = useRef(false);
+  // The link's state and the status sink as refs, so `transport` can refuse aloud without being re-created.
+  const connectedRef = useRef(false);
+  const onStatusRef = useRef(onStatus);
+  onStatusRef.current = onStatus;
   const [connected, setConnected] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
   const [engineBusy, setEngineBusy] = useState(false);
@@ -122,6 +126,7 @@ export function useEngineLink(
       });
     });
     const offConn = engine.onConnected((c) => {
+      connectedRef.current = c;
       setConnected(c);
       // …and re-open the latch above, or a reconnected engine would never read ready again.
       if (!c) {
@@ -165,6 +170,11 @@ export function useEngineLink(
     (a: Parameters<EngineClient["transport"]>[0]) => {
       // Dropped, not queued: a Play sent while the engine is applying fires seconds later with every other click made meanwhile.
       if (engineBusyRef.current) return;
+      // …and so is one sent down a dead link, said aloud: the outbox would otherwise play it up to 30 s late.
+      if (!connectedRef.current) {
+        onStatusRef.current(m["engine.notPlayed"]());
+        return;
+      }
       const step = throughPanicRule(a, Date.now(), lastStopAt.current);
       lastStopAt.current = step.lastStopAt;
       engineRef.current?.transport(step.send);

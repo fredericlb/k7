@@ -107,6 +107,7 @@ import { ContextMenu } from "./components/ContextMenu";
 import { CurveEditor } from "./components/CurveEditor";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EngineLink } from "./components/EngineLink";
+import { EngineLostStrip } from "./components/EngineLostStrip";
 import { EngineSwitch } from "./components/EngineSwitch";
 import { EngineSyncFailedDialog } from "./components/EngineSyncFailedDialog";
 import {
@@ -3791,6 +3792,10 @@ export default function App({
                 )}
               </div>
             </AppHeader>
+            <EngineLostStrip
+              connected={connected}
+              onRetry={() => engineRef.current?.connect()}
+            />
             {/* main: the panes on top, an optional bottom split panel below */}
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex min-h-0 flex-1">

@@ -532,6 +532,8 @@ const CSS = `
 /* While playing: where the transport is on the picture, and a dot on the value the curve has there. */
 .dgx-curvehead { position:absolute; top:4%; bottom:4%; width:1px; margin-left:-0.5px; background:#e7e6ea; opacity:.7; pointer-events:none; }
 .dgx-curvedot { position:absolute; width:6px; height:6px; margin:-3px 0 0 -3px; border-radius:50%; background:var(--mauve); box-shadow:0 0 0 1.5px #0d0d0f; pointer-events:none; }
+/* Keyboard focus is always drawn, in the selection's violet: a host's own ring may not reach this injected sheet's markup. */
+.dgx :where(button, [role="button"], [role="option"], [tabindex]:not([tabindex="-1"])):focus-visible { outline:2px solid ${RING}; outline-offset:2px; }
 `;
 
 export function useCss(): void {
