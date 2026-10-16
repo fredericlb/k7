@@ -1,4 +1,4 @@
-// mediatekRefs.ts — which `@st0/…` modules a project actually names. The machine caches
+// mediatekRefs.ts — which `@k7-core/…` modules a project actually names. The machine caches
 // what its songs reach for rather than mirroring a whole catalogue, so something has to answer
 // "which ones are those" — and it has to answer from the FILES, before the loader can resolve
 // them, since a ref that resolves to nothing is exactly the one worth fetching.
@@ -28,7 +28,7 @@ function mediatekModule(ref: unknown): string | null {
   return module.length > PREFIX.length ? module : null;
 }
 
-/** Every `@st0/…` module this project names, read off the YAML — see docs/sharedFolders.md. */
+/** Every `@k7-core/…` module this project names, read off the YAML — see docs/sharedFolders.md. */
 export function mediatekRefs(dir: string): string[] {
   const out = new Set<string>();
 
@@ -100,7 +100,7 @@ export function mediatekSongRefs(dir: string, workspace: string): string[] {
   return [...out].sort();
 }
 
-/** The library-relative FOLDER a `@st0/…` ref lives in, since a module is its folder — docs/sharedFolders.md. */
+/** The library-relative FOLDER a `@k7-core/…` ref lives in, since a module is its folder — docs/sharedFolders.md. */
 export function mediatekPathPrefix(ref: string): string {
   return `modules/${ref.slice(PREFIX.length)}/`;
 }

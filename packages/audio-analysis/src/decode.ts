@@ -18,9 +18,24 @@ export class NoFfmpegError extends Error {
   }
 }
 
+/** What one decode may hold: two hours at 48 kHz, about 1.4 GB of mono floats (docs/analysis.md). */
+export const MAX_DECODE_FRAMES = 2 * 3600 * 48_000;
+
+/** A file longer than a decode may hold, told apart so a caller can remember it and not retry. */
+export class TooLongError extends Error {
+  constructor(source: string, frames: number, max: number) {
+    super(
+      `${source} is too long to analyse: ${frames} frames, past the ${max} one decode may hold`,
+    );
+    this.name = "TooLongError";
+  }
+}
+
 /** Where a decode comes from: the engine binary when there is one, ffmpeg when `engineBin` is null. */
 export interface DecodeOptions {
   engineBin?: string | null;
+  /** Refuse past this many frames, before decoding when the header says so and while decoding otherwise. */
+  maxFrames?: number;
   /** Kills the decoder, so it lets go of the file — Windows cannot rename a folder a reader holds open. */
   signal?: AbortSignal;
 }
@@ -44,28 +59,38 @@ type OnFrames = (
   frames: number,
 ) => void;
 
-/** The stream's own rate and channel count — ffmpeg's frames carry no header, so ffprobe is asked first. */
-async function probe(source: string): Promise<Omit<StreamFacts, "frames">> {
+/** Only local files and pipes: a playlist or a crafted container must not make ffmpeg open a URL. */
+export const PROTOCOLS = ["-protocol_whitelist", "file,pipe"];
+
+/** The stream's rate, channel count and CLAIMED length — ffmpeg's frames carry no header, so ffprobe is asked first. */
+async function probe(
+  source: string,
+): Promise<Omit<StreamFacts, "frames"> & { claimed: number }> {
   const out = await run(FFPROBE, [
     "-v",
     "error",
+    ...PROTOCOLS,
     "-select_streams",
     "a:0",
     "-show_entries",
-    "stream=sample_rate,channels",
+    "stream=sample_rate,channels,duration:format=duration",
     "-of",
     "json",
+    "-i",
     source,
   ]);
-  const stream = (
-    JSON.parse(out) as {
-      streams?: { sample_rate?: string; channels?: number }[];
-    }
-  ).streams?.[0];
+  const parsed = JSON.parse(out) as {
+    streams?: { sample_rate?: string; channels?: number; duration?: string }[];
+    format?: { duration?: string };
+  };
+  const stream = parsed.streams?.[0];
   if (!stream) throw new Error(`no audio stream in ${source}`);
+  const sampleRate = Number(stream.sample_rate) || 48000;
+  const seconds = Number(stream.duration ?? parsed.format?.duration) || 0;
   return {
-    sampleRate: Number(stream.sample_rate) || 48000,
+    sampleRate,
     channels: stream.channels || 1,
+    claimed: Math.ceil(seconds * sampleRate),
   };
 }
 
@@ -119,6 +144,7 @@ function pump(
   known: Omit<StreamFacts, "frames"> | null,
   onFrames: OnFrames,
   signal: AbortSignal | undefined,
+  maxFrames: number,
 ): Promise<StreamFacts> {
   return new Promise((resolve, reject) => {
     let head = known;
@@ -143,7 +169,12 @@ function pump(
             carry = Buffer.from(buf);
             return;
           }
-          head = parseHeader(buf.subarray(0, nl).toString("utf8"));
+          const line = buf.subarray(0, nl).toString("utf8");
+          head = parseHeader(line);
+          const said = Number(
+            (JSON.parse(line) as { frames?: unknown }).frames,
+          );
+          if (said > maxFrames) throw new TooLongError(source, said, maxFrames);
           buf = buf.subarray(nl + 1);
         }
         // A frame is `channels` floats and a chunk boundary falls anywhere, so a partial one waits here.
@@ -152,6 +183,9 @@ function pump(
         // Copied, not sliced: the leftover must outlive a chunk Node is free to reuse.
         carry = Buffer.from(buf.subarray(whole * frameBytes));
         if (!whole) return;
+        // Counted as they arrive, since a header can lie about a length the decode then honours.
+        if (frames + whole > maxFrames)
+          throw new TooLongError(source, frames + whole, maxFrames);
         onFrames(floats(buf, whole * head.channels), head.channels, whole);
         frames += whole;
       } catch (e) {
@@ -186,7 +220,11 @@ function pump(
 export async function decodeFrames(
   source: string,
   onFrames: OnFrames,
-  { engineBin = null, signal }: DecodeOptions = {},
+  {
+    engineBin = null,
+    signal,
+    maxFrames = Number.POSITIVE_INFINITY,
+  }: DecodeOptions = {},
 ): Promise<StreamFacts> {
   if (engineBin)
     return pump(
@@ -196,12 +234,15 @@ export async function decodeFrames(
       null,
       onFrames,
       signal,
+      maxFrames,
     );
-  const facts = await probe(source);
+  const { claimed, ...facts } = await probe(source);
+  if (claimed > maxFrames) throw new TooLongError(source, claimed, maxFrames);
   // No `-ar` and no `-ac`: resampling moves every onset, and ffmpeg's downmix weights a centre channel.
   const child = spawn(FFMPEG, [
     "-v",
     "error",
+    ...PROTOCOLS,
     "-i",
     source,
     "-map",
@@ -212,7 +253,7 @@ export async function decodeFrames(
     "pcm_f32le",
     "-",
   ]);
-  return pump(child, FFMPEG, source, facts, onFrames, signal);
+  return pump(child, FFMPEG, source, facts, onFrames, signal, maxFrames);
 }
 
 /** JUCE's mono sum over interleaved frames: the first one or two channels averaged, never a downmix. */
@@ -231,7 +272,7 @@ export function monoFromInterleaved(
   return block;
 }
 
-/** The whole file as mono chunks, which is what the envelope is built from. */
+/** The whole file as mono chunks, which is what the envelope is built from — capped, since it is all held. */
 export async function decodeMono(
   source: string,
   options: DecodeOptions = {},
@@ -241,7 +282,7 @@ export async function decodeMono(
     source,
     (samples, channels, frames) =>
       mono.push(monoFromInterleaved(samples, channels, frames)),
-    options,
+    { maxFrames: MAX_DECODE_FRAMES, ...options },
   );
   return { ...facts, mono };
 }

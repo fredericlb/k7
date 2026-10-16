@@ -9,6 +9,7 @@ import { type LensOpener, localLens } from "./camera";
 import type { SeekingClock } from "./clock";
 import type { LayerBlend } from "./compositor";
 import { Compositor } from "./compositor";
+import { type Motion, slotMotions } from "./motion";
 import type { VideoLayer, VideoScene } from "./scene";
 import { type Active, layerFrameAt, shapesVisibleAt } from "./timeline";
 
@@ -260,6 +261,7 @@ export class RealtimeDriver {
     const playing = this.clock.isPlaying();
     const visible = new Set<string>();
     const blends = new Map<string, LayerBlend>();
+    const motions = new Map<string, [Motion | null, Motion | null]>();
     this.debug = [];
 
     for (const lane of this.lanes) {
@@ -290,6 +292,12 @@ export class RealtimeDriver {
       if (!lane.els.length) {
         const on = shapesVisibleAt(lane.layer, t);
         if (on) visible.add(lane.layer.id);
+        // An activation may animate too, which moves the whole lane of shapes (docs/motion.md).
+        if (on && lane.layer.clips.length)
+          motions.set(
+            lane.layer.id,
+            slotMotions(layerFrameAt(lane.layer, t), t),
+          );
         this.debug.push({ id: lane.layer.id, active: on, errMs: 0, rate: 1 });
         continue;
       }
@@ -336,6 +344,7 @@ export class RealtimeDriver {
         continue;
       }
       visible.add(lane.layer.id);
+      motions.set(lane.layer.id, slotMotions(frame, t));
       // Held at 0 while the incoming side has no frame yet, rather than blending against black.
       if (frame.blend)
         blends.set(lane.layer.id, {
@@ -343,12 +352,13 @@ export class RealtimeDriver {
           progress: to || !frame.to ? frame.blend.progress : 0,
           from,
           to,
+          ...(frame.blend.stretch ? { stretch: frame.blend.stretch } : {}),
         });
     }
 
     // The live half of a shader's uniforms, refreshed per frame rather than per document — see docs/passes.md.
     this.comp.setLive(t, this.audio);
-    this.comp.draw(visible, blends);
+    this.comp.draw(visible, blends, motions);
   }
 
   /** The audio level each pass is driven by, 0..1 by pass id — PUSHED by the host, and held here since the rates differ. */

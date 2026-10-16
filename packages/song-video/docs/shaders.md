@@ -81,6 +81,7 @@ searches in the same order: the list you choose from and the source you get must
 | `uAudio` | `float` 0..1 — the live level of the track wired to the audio port, 0 if there is none |
 | `uTime` | `float` seconds — the **transport** position, not a render-engine clock |
 | `uResolution` | `vec2` px — the viewport |
+| `uPresence` | `float` 0..1 — how much of the shot is on screen: rises over a fade's stretch in, falls over one out, **1 everywhere else** ([transitions.md](transitions.md)) |
 | `uP1`..`uP4` | `float` 0..1 — the four knobs |
 
 Written down because nothing else will tell anyone: GL returns a null location for an unknown
@@ -105,7 +106,7 @@ the list of compiled tracks.
 
 ```
 EngineState.levels[i]          the engine, ~20 Hz
- -> levelsForPasses()          packages/st0-plugins/src/video/shaderAudio.ts — the index comes from trackOrder
+ -> levelsForPasses()          packages/k7-plugins/src/video/shaderAudio.ts — the index comes from trackOrder
  -> levelToUnit()              -60..0 dB -> 0..1
  -> smoothLevels()             fast attack, slow release
  -> RealtimeDriver.setAudio()  @studio/ui-eyes
@@ -212,11 +213,11 @@ more route would mean the picture can draw before its programs have arrived.
 ```bash
 npx vitest run packages/song-video/src/shaders.test.ts packages/song-video/src/videoChains.test.ts
 npx vitest run packages/ui-eyes/src/passes.test.ts
-npx vitest run packages/st0-plugins/src/video/shaderAudio.test.ts
+npx vitest run packages/k7-plugins/src/video/shaderAudio.test.ts
 ```
 
 These prove the document, the pass order and the level conversion. **None proves a pixel changed** —
 there is no WebGL2 in the runner, and `passes.test.ts` states itself what a fake context can
-establish. The rest is done with the eyes: open `demos/video-demo.st0`, start playback, and watch
+establish. The rest is done with the eyes: open `demos/video-demo.k7`, start playback, and watch
 the picture breathe with the drums. Switching the menu from `pulse` to `ripple` must change the
 effect without touching the wiring.

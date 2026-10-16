@@ -4,7 +4,8 @@
 // all) and none of those needs one. See song-video/docs/transitions.md.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Compositor, coverUV, sourceAR } from "./compositor";
+import { Compositor } from "./compositor";
+import { coverUV, sourceAR } from "./geometry";
 import type { SceneClip, SceneTransition, VideoScene } from "./scene";
 
 type Log = string[];
@@ -68,8 +69,12 @@ function fakeTarget() {
       uniforms.set(l.name, [v]);
       log.push(`uniform1f(${l.name},${v})`);
     },
-    uniform2f: () => {},
+    uniform2f: (l: { name: string }, a: number, b: number) =>
+      uniforms.set(l.name, [a, b]),
     uniform4fv: () => log.push("uniform4fv(uRect)"),
+    uniformMatrix3fv: (l: { name: string }, _t: boolean, m: Float32Array) =>
+      uniforms.set(l.name, [...m]),
+    scissor: () => log.push("scissor"),
     createTexture: () => {
       const t = next("texture");
       textures.push(t);
@@ -287,6 +292,75 @@ describe("drawing a blend", () => {
   });
 });
 
+describe("a fade's STRETCH", () => {
+  const iris = {
+    id: "iris:0",
+    name: "iris",
+    vertex: "// v",
+    fragment: "// f",
+    enabled: true,
+    params: { P1: 0, P2: 0, P3: 0, P4: 0 },
+    audio: 0,
+  };
+  const stretching = () =>
+    make({
+      ...scene([clip({ fadeIn: { over: 1, with: "over", chain: "iris" } })]),
+      stretches: { iris: [iris] },
+    });
+  const blend = (stretch?: { to: { chain: string; presence: number } }) =>
+    new Map([
+      [
+        "main",
+        {
+          name: "over",
+          progress: 0.25,
+          from: true,
+          to: true,
+          ...(stretch ? { stretch } : {}),
+        },
+      ],
+    ]);
+
+  it("allocates a target per picture slot beside the scratch, and only when a fade names one", () => {
+    expect(fbos(stretching().log)).toBe(4);
+  });
+
+  it("hands the run its shot's PRESENCE", () => {
+    const { comp, uniforms } = stretching();
+    comp.draw(
+      new Set(["main"]),
+      blend({ to: { chain: "iris", presence: 0.25 } }),
+    );
+    expect(uniforms.get("uPresence")).toEqual([0.25]);
+  });
+
+  it("blends the STRETCHED picture, not the slot it was uploaded into", () => {
+    const { comp, log, textures } = stretching();
+    // The layer's two slots are the last textures a scene makes.
+    const tex2 = textures[textures.length - 1].id;
+    log.length = 0;
+    comp.draw(
+      new Set(["main"]),
+      blend({ to: { chain: "iris", presence: 0.5 } }),
+    );
+    const at1 = log.lastIndexOf("activeTexture(1)");
+    expect(log[at1 + 1]).not.toBe(`bindTexture(${tex2})`);
+    // …and with no stretch this frame, the slot itself is what the blend reads.
+    log.length = 0;
+    comp.draw(new Set(["main"]), blend());
+    expect(log[log.lastIndexOf("activeTexture(1)") + 1]).toBe(
+      `bindTexture(${tex2})`,
+    );
+  });
+
+  it("owns `over` as it owns the dissolve — no fallback, no warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { comp } = stretching();
+    comp.draw(new Set(["main"]), blend());
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
 // A camera is 4:3 or 16:9 and the frame it lands in is whatever the project says. Sampling the
 // whole texture over the whole rect stretches one into the other, which is what these remove.
 describe("keeping a picture's shape", () => {
@@ -343,5 +417,66 @@ describe("keeping a picture's shape", () => {
     // A <video> before metadata reports 0×0, and 0 is what says "not yet".
     expect(sourceAR({ videoWidth: 0, videoHeight: 0 } as never)).toBe(0);
     expect(sourceAR({} as never)).toBe(0);
+  });
+});
+
+describe("drawing a moved shot", () => {
+  const moving = clip({
+    animate: { opacity: [{ t: 0, v: 0.5, ease: "linear" }] },
+  });
+  const half = { x: 0, y: 0, scale: 1, opacity: 0.5, rotate: 0 };
+
+  it("gives a scene that animates one target per picture slot, for the blend to read", () => {
+    expect(fbos(make(scene([moving])).log)).toBe(2);
+  });
+
+  it("crops a moved shot to its lane on the plain path, and fades it straight", () => {
+    const { comp, log, uniforms } = make(scene([moving]));
+    comp.upload("main", {} as TexImageSource, 0);
+    log.length = 0;
+    comp.draw(new Set(["main"]), undefined, new Map([["main", [half, null]]]));
+    expect(log).toContain("scissor");
+    expect(uniforms.get("uAlpha")).toEqual([0.5, 0]);
+  });
+
+  it("draws a shot at rest exactly as before: no scissor, the identity, full opacity", () => {
+    const { comp, log, uniforms } = make(scene([clip()]));
+    comp.upload("main", {} as TexImageSource, 0);
+    log.length = 0;
+    comp.draw(new Set(["main"]));
+    expect(log).not.toContain("scissor");
+    expect(uniforms.get("uXf")).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+    expect(uniforms.get("uAlpha")).toEqual([1, 0]);
+  });
+
+  it("moves a blend's side into its own target, premultiplied, before the blend reads it", () => {
+    const { comp, log } = make(
+      scene([
+        moving,
+        clip({ id: "b", start: 3, fadeIn: { over: 1, with: "dissolve" } }),
+      ]),
+    );
+    comp.upload("main", {} as TexImageSource, 0);
+    comp.upload("main", {} as TexImageSource, 1);
+    const alphas: number[][] = [];
+    const gl = (
+      comp as unknown as { gl: { uniform2f: (...a: unknown[]) => void } }
+    ).gl;
+    const orig = gl.uniform2f;
+    gl.uniform2f = (l: unknown, a: unknown, b: unknown) => {
+      alphas.push([a as number, b as number]);
+      orig(l, a, b);
+    };
+    log.length = 0;
+    comp.draw(
+      new Set(["main"]),
+      new Map([
+        ["main", { name: "dissolve", progress: 0.5, from: true, to: true }],
+      ]),
+      new Map([["main", [half, null]]]),
+    );
+    // The moved side first, premultiplied at half opacity; the lane's own blit last, untouched.
+    expect(alphas[0]).toEqual([0.5, 1]);
+    expect(alphas.at(-1)).toEqual([1, 0]);
   });
 });

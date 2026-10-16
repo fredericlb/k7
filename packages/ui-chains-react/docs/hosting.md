@@ -13,7 +13,7 @@ requires. See `@studio/ui-chains`' `docs/wobble.md` for why the cables are not D
 
 What stays in each app is the **shell**: fetching `/graph`, the reload polling, the chain
 list beside the canvas, the parked camera (a graph unmounts with its pane, so the camera
-has to live above it), and optimistic state like a pending bypass. st0' `ChainsTab` is
+has to live above it), and optimistic state like a pending bypass. k7' `ChainsTab` is
 ~560 lines of that against ~2500 shared here.
 
 There is deliberately no `ChainsShell` yet. Promote one when two apps have written the
@@ -26,7 +26,7 @@ near-identical comment over it. A shape is not a sidebar; it is worth naming ear
 ## What a host must supply
 
 **`icons` — required, and the compiler enforces it.** The glyphs are the app's vocabulary,
-not the graph's: st0 draws the same track icons in its mixer and its timeline, so they
+not the graph's: k7 draws the same track icons in its mixer and its timeline, so they
 cannot live here without those two importing a chains package. They reach the nested node
 components through a context, but the PROVIDER is not a caller's job — the component takes
 `icons` as a required prop and provides it itself. There is no arrangement in which a host
@@ -45,7 +45,7 @@ member: a host that supplies none gets full names, which is merely plainer, neve
 The MODULE glyph is the exception, and `moduleIcons.tsx` ships it: it is keyed on
 `WebModuleCategory`, which is the graph's own vocabulary, and its only consumer anywhere was the
 chains icon table. `Glyph` — a viewBox and a body — is declared there rather than imported from
-st0's `trackIcons` where it started, because that file stayed in the app for the reason above.
+k7's `trackIcons` where it started, because that file stayed in the app for the reason above.
 Two fields is a cheaper duplication than the coupling.
 
 **`runCommand`** (the `command` prop) — a `@studio/commands` SID line. Every app that can
@@ -107,7 +107,7 @@ host's undo and reloads the host's project. The badges exist only when the callb
 the command bar and the edge inserts.
 
 `onTriggerRack` is the same shape: the graph says WHICH sound was asked for and stops there. How
-one is made audible is the host's — st0 auditions the sample through the file service, the
+one is made audible is the host's — k7 auditions the sample through the file service, the
 médiathèque could preview it from its own catalogue — and a host that offers nothing leaves the
 pads drawn but silent, which is the right degradation for a surface with no engine behind it.
 
@@ -127,13 +127,13 @@ host knows since nothing about it is written to the project. The button is drawn
 
 ### `row` — a graph read across
 
-st0's mix panel. It changes what the navigation MEANS rather than what it looks like: the wheel
+k7's mix panel. It changes what the navigation MEANS rather than what it looks like: the wheel
 walks along the row instead of zooming, and nothing pans vertically, because there is one line of
 cards and everything above or below it is empty. The cards, the cables and the zoom are untouched.
 
 ### The right-click vocabulary — `GraphMenuCtx`
 
-The union is the graph's OWN vocabulary, not the shell's. st0's `MenuCtx` is a superset covering
+The union is the graph's OWN vocabulary, not the shell's. k7's `MenuCtx` is a superset covering
 timeline things (markers, clip placements) this has no way to produce; declaring the narrow union
 here is what lets the component say what it emits instead of importing an app's idea of a menu,
 and a host whose own type is wider accepts a handler for it unchanged.
@@ -144,7 +144,7 @@ param, and the module menu has nothing to say about which one you were pointing 
 ### The sink's play button — `SinkPlay`
 
 Opt-in and absent by default. It sits on the OUTPUT and not on the input, because what you want
-to hear is the signal after everything in the chain has had it. st0 has a transport of its own
+to hear is the signal after everything in the chain has had it. k7 has a transport of its own
 and the desk has a deck, so neither wants a second play button inside the graph; a host with
 neither is why the prop exists.
 
@@ -152,15 +152,15 @@ neither is why the prop exists.
 
 A curve card reads the song's tempo and time signature from a context, `SongClockProvider`, not from a
 prop: every card draws its bar lines in the song's metre and, while the transport plays, a playhead
-— and a host mounts several graphs (st0 has four), so one provider around all of them beats the same
+— and a host mounts several graphs (k7 has four), so one provider around all of them beats the same
 three numbers threaded through each. Without it a card reads its curve in 4/4 and draws no playhead,
-having no tempo to turn the engine's seconds into beats. st0's shell sets it, from the compiled doc.
+having no tempo to turn the engine's seconds into beats. k7's shell sets it, from the compiled doc.
 
 ### The parked camera — `CamStore`
 
 Named so it is one thing, rather than a `useRef<{x,y,k}|null>(null)` per surface with a
 near-identical comment above each. The graph is torn down with its pane, so the pan and zoom have
-to be held by something that outlives it (`apps/st0/frontend/docs/chainsGraph.md`). A host that
+to be held by something that outlives it (`apps/k7/frontend/docs/chainsGraph.md`). A host that
 omits it gets a fresh frame on every reopen, which is a choice, but rarely the intended one.
 `Cam` itself lives in `camera.ts` with everything else that moves it, and is re-exported from
 `DomChains.tsx` because a host imports it from the package entry.
@@ -174,7 +174,7 @@ object or lambda in the host's JSX is enough to re-render every card on every fr
 
 Everything the host passes as a *callback* is already safe — the renderer reads those through
 a ref and binds its own handlers once, precisely so a host is free to pass inline lambdas
-(st0's `App` does). It is the non-callback props above that have no such shelter.
+(k7's `App` does). It is the non-callback props above that have no such shelter.
 
 Why this is load-bearing: the plugin-param subscription sits on each individual widget rather
 than at the root of the graph, so a frame is meant to redraw one control. A churning prop puts
@@ -211,13 +211,13 @@ read-only — drawn from a value it cannot change, rather than a knob that turns
 nothing. That distinction is the whole point of the pair; a single prop would bring back the
 lie the missing `pluginId` avoids.
 
-A host that passes neither is unaffected: it draws those widgets inert. st0 is the only host
+A host that passes neither is unaffected: it draws those widgets inert. k7 is the only host
 that draws a graph.
 
 ## What it emits
 
 `onContextMenu(ctx, x, y)` carries a `GraphMenuCtx` — four kinds, the ones a node can be:
-`track`, `module`, `chain`, `sink`. That is the graph's own vocabulary. st0' `MenuCtx` is
+`track`, `module`, `chain`, `sink`. That is the graph's own vocabulary. k7' `MenuCtx` is
 a superset covering timeline things (markers, clip placements) this cannot produce, and a
 host whose type is wider accepts the handler unchanged.
 
@@ -264,10 +264,10 @@ is in hand does the host div listen to pointermove at all.
 **A host that draws the same cards owes them the same callbacks.** Nothing here can enforce it: a
 control whose callback is missing draws anyway — greyed where the widget knows (`actuable`), inert
 where it does not (a `filepicker`'s button is enabled whenever the node has a module, since what it
-opens is the host's popup and only the host knows whether it has one). st0 draws a graph in three
+opens is the host's popup and only the host knows whether it has one). k7 draws a graph in three
 places — the chains pane, the editor column's panel and a lane's own row — and each one is a separate
 prop list; a callback added to one and not the others is a card that works in one view and not in the
-next, which reads as a broken app rather than as a view that offers less. `apps/st0/frontend/docs/shell.md`
+next, which reads as a broken app rather than as a view that offers less. `apps/k7/frontend/docs/shell.md`
 lists what a lane's row deliberately leaves out, and why those are not the same kind of omission.
 
 `onEdgeInsert` follows the same rule as the sockets below it: **no handler, no `+`**. The

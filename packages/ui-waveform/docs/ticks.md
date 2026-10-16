@@ -18,7 +18,7 @@ every 2nd, then every 4th, every 8th — so the survivors are always the round o
 is handed a bar/beat list by the file service (`beatGrid`) and the sub-beat times are simply not
 in it, so when a column opens past `MAX_COLUMN_PX` the only thing left is to SPLIT what arrived —
 same halving, same threshold, so the wave and the ruler stacked over it reach the same density at
-the same zoom. Without it, zooming st0's audio clip panel in subdivides the ruler to sixteenths
+the same zoom. Without it, zooming k7's audio clip panel in subdivides the ruler to sixteenths
 while the wave underneath stays ruled in whole beats, and the pair reads as two grids.
 
 It splits **per pair**, not once for the list: a warped clip's beats are not evenly spaced on

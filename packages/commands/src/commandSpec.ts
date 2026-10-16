@@ -33,6 +33,7 @@ import {
   SID_HANDLERS,
   type SidHandler,
 } from "./commands";
+import { soundingLaneRefusal } from "./verbs/pictureSound";
 
 // One surface — the web backend dispatches under "cli" too — but it stays a type.
 export type Surface = "cli";
@@ -194,7 +195,7 @@ const PROVIDERS = {
     ),
     ...PROVIDERS.audioFiles(h),
   ],
-  // The chains a bounce can run: this project's, then the médiathèque's `@st0/` ones, in one list.
+  // The chains a bounce can run: this project's, then the médiathèque's `@k7-core/` ones, in one list.
   chains: (h) => chainNames(h.songPath, h.project()),
   // The project's curves, by id — read off disk, not off the document. See docs/completions.md.
   curves: (h) => {
@@ -205,7 +206,7 @@ const PROVIDERS = {
     }
   },
   // The kinds of surface, from the OPEN registry rather than the schema's frozen enum — a
-  // plugin's contribution completes like a builtin's. See packages/st0-sdk/docs/sdk.md.
+  // plugin's contribution completes like a builtin's. See packages/k7-sdk/docs/sdk.md.
   surfaceTypes: () => [...allSurfaceTypes()],
   // Sequence FILE ids, read off disk: a file id can differ from the midi-clip name it reports.
   sequenceFiles: (h) => {
@@ -397,7 +398,7 @@ export const ARG_CLASSES = [
 ] as const;
 export type ArgClass = (typeof ARG_CLASSES)[number];
 
-// Where a right-click may offer a command, mirrored on the wire — apps/st0/frontend/docs/contextMenu.md.
+// Where a right-click may offer a command, mirrored on the wire — apps/k7/frontend/docs/contextMenu.md.
 export const MENU_ENTITIES = [
   "track",
   "group",
@@ -467,13 +468,14 @@ const PROVIDER_HINT: Record<ProviderName, string> = {
   tracks: "a track of this project",
   clipTargets:
     "a clip of this project, or one audio file (e.g. clips/kick.wav)",
-  chains: "a chain of this project, or one the médiathèque holds (@st0/<path>)",
+  chains:
+    "a chain of this project, or one the médiathèque holds (@k7-core/<path>)",
   curves: "an automation curve of this project (curves/<id>.yaml)",
   modules: "a module of this project",
   nodes: "a node of this project — one of its uses of a module",
   assemblies: "a box this project declares (assemblies/<name>.yaml)",
   assemblyTemplates:
-    "an assembly template the library holds (@st0/<path>) — its nodes and wiring are copied in",
+    "an assembly template the library holds (@k7-core/<path>) — its nodes and wiring are copied in",
   baseModules:
     "the module to inherit from — this project's and the account's libraries",
   engineModules:
@@ -660,6 +662,12 @@ export async function runCommand(
   const bad = validateArgs(spec, userArgs);
   if (bad) {
     host.refuse([`${spec.command}: ${bad}`]);
+    return;
+  }
+  // Once here rather than in every event verb, each of which finds its clip its own way.
+  const sounding = soundingLaneRefusal(spec, userArgs, host.songPath);
+  if (sounding) {
+    host.refuse([sounding]);
     return;
   }
   await handler(userArgs, host);

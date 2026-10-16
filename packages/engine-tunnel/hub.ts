@@ -8,23 +8,34 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, Server } from "node:http";
 import type { Socket } from "node:net";
 import { type RawData, WebSocket, WebSocketServer } from "ws";
+import {
+  HeldFrames,
+  OVERLOAD_CLOSE,
+  type Payload,
+  sendBounded,
+} from "./backpressure.ts";
 import { OPEN, type TunnelChannel } from "./channel.ts";
 import {
   type ChannelKind,
+  MAX_FRAME_BYTES,
   TUNNEL_PATH,
   TUNNEL_RENDER_KEY_HEADER,
+  TUNNEL_SECRET_HEADER,
   TUNNEL_TOKEN_HEADER,
   type TunnelRoot,
 } from "./frames.ts";
+import type { UploadLimits } from "./hubFiles.ts";
 import { HubTunnel } from "./hubTunnel.ts";
 
 export interface TunnelHubOptions {
-  /** Whether `id` is an engine this server lists, and `token` its secret. */
-  verify(id: string, token: string): boolean;
+  /** Whether `id` is an engine this server lists, `token` its token and `secret` the tunnel secret it is bound to. */
+  verify(id: string, token: string, secret?: string): boolean;
   /** The key a tunnel presents to be the server's render machine; unset, no tunnel is one — docs/jobs.md. */
   renderKey?: string;
   /** Keepalive period; a tunnel silent for two of these is dropped. */
   pingMs?: number;
+  /** What one tunnel may upload; the defaults are `uploadLimits` in hubFiles.ts. */
+  uploads?: Partial<UploadLimits>;
   log?: (msg: string) => void;
 }
 
@@ -58,7 +69,10 @@ export class TunnelHub {
   private readonly locals = new Map<string, LocalBinding>();
   /** The engines whose tunnel presented the render key, most recent last. */
   private readonly renderers = new Set<string>();
-  private readonly wss = new WebSocketServer({ noServer: true });
+  private readonly wss = new WebSocketServer({
+    noServer: true,
+    maxPayload: MAX_FRAME_BYTES,
+  });
   private readonly log: (msg: string) => void;
   private pinger?: NodeJS.Timeout;
 
@@ -137,6 +151,11 @@ export class TunnelHub {
     return last;
   }
 
+  /** Whether engine `id` has a tunnel up that presented the render key: the server's own engine. */
+  isRenderer(id: string): boolean {
+    return this.renderers.has(id) && this.tunnels.has(id);
+  }
+
   /** A loopback jobs path to the render machine, resolved when a client connects, so it outlives the machine's restarts. */
   bindRenderer(roots: TunnelRoot[]): string {
     const key = randomBytes(24).toString("base64url");
@@ -164,13 +183,16 @@ export class TunnelHub {
     }
     this.pinger ??= setInterval(() => this.ping(), this.opts.pingMs ?? 20_000);
     this.pinger.unref();
-    if (url.pathname === TUNNEL_PATH) {
-      this.acceptTunnel(req, socket, head, url);
-      return true;
-    }
     const local = LOCAL_ROUTE.exec(url.pathname);
-    if (!local) return false;
-    this.acceptLocal(req, socket, head, local[1]);
+    if (url.pathname !== TUNNEL_PATH && !local) return false;
+    // Claimed either way: a throw while accepting is said and drops this socket, never the process.
+    try {
+      if (local) this.acceptLocal(req, socket, head, local[1]);
+      else this.acceptTunnel(req, socket, head, url);
+    } catch (e) {
+      this.log(`upgrade ${url.pathname}: ${(e as Error).message}`);
+      socket.destroy();
+    }
     return true;
   }
 
@@ -179,11 +201,16 @@ export class TunnelHub {
     server.on(
       "upgrade",
       (req: IncomingMessage, socket: Socket, head: Buffer) => {
-        if (
-          !this.handle(req, socket, head) &&
-          server.listenerCount("upgrade") <= 1
-        )
+        try {
+          if (
+            !this.handle(req, socket, head) &&
+            server.listenerCount("upgrade") <= 1
+          )
+            socket.destroy();
+        } catch (e) {
+          this.log(`upgrade ${req.url}: ${(e as Error).message}`);
           socket.destroy();
+        }
       },
     );
   }
@@ -201,7 +228,9 @@ export class TunnelHub {
   ): void {
     const id = url.searchParams.get("id") ?? "";
     const token = String(req.headers[TUNNEL_TOKEN_HEADER] ?? "");
-    if (!id || !token || !this.opts.verify(id, token)) {
+    const secret = String(req.headers[TUNNEL_SECRET_HEADER] ?? "") || undefined;
+    // Checked BEFORE the incumbent is touched: a refused newcomer leaves the live tunnel where it is.
+    if (!id || !token || !this.opts.verify(id, token, secret)) {
       deny(socket, "403 Forbidden");
       return;
     }
@@ -213,9 +242,9 @@ export class TunnelHub {
       return;
     }
     this.wss.handleUpgrade(req, socket, head, (ws) => {
-      // One tunnel per engine: a reconnect replaces the socket it outlived.
+      // One tunnel per engine: a reconnect, verified above, replaces the socket it outlived.
       this.tunnels.get(id)?.ws.terminate();
-      const t = new HubTunnel(id, ws, this.log);
+      const t = new HubTunnel(id, ws, this.log, this.opts.uploads);
       this.tunnels.set(id, t);
       // Re-added, so the newest render machine is the one a render reaches.
       this.renderers.delete(id);
@@ -272,24 +301,49 @@ export class TunnelHub {
   }
 }
 
-/** A local client and a channel, frames both ways; what the client sends before the engine answers is held. */
+/** A local client and a channel, frames both ways and bounded; what the client sends before the engine answers is held. */
 function pipe(client: WebSocket, channel: TunnelChannel): void {
-  const held: { data: RawData; binary: boolean }[] = [];
-  client.on("message", (data, binary) => {
-    if (channel.readyState === OPEN)
-      channel.send(binary ? (data as Buffer) : data.toString(), { binary });
-    else held.push({ data, binary });
-  });
-  channel.once("open", () => {
-    for (const h of held.splice(0))
-      channel.send(h.binary ? (h.data as Buffer) : h.data.toString(), {
-        binary: h.binary,
-      });
-  });
-  channel.on("message", (data: Buffer, binary: boolean) => {
-    if (client.readyState === WebSocket.OPEN)
-      client.send(binary ? data : data.toString("utf8"), { binary });
-  });
+  const held = new HeldFrames();
+  // A peer that stopped reading is closed rather than queued for without end — backpressure.ts.
+  const overrun = (): void => {
+    channel.close();
+    client.close(OVERLOAD_CLOSE, "peer too slow");
+  };
+  // Guarded: a throw inside a socket listener escapes to the process, so it ends this pair instead.
+  const safely = (fn: () => void): void => {
+    try {
+      fn();
+    } catch {
+      channel.close();
+      client.terminate();
+    }
+  };
+  const toChannel = (data: Payload, binary: boolean): void => {
+    sendBounded(channel, data, binary, overrun);
+  };
+  client.on("message", (data: RawData, binary) =>
+    safely(() => {
+      const payload = binary ? (data as Buffer) : data.toString();
+      if (channel.readyState === OPEN) toChannel(payload, binary);
+      else if (!held.push(payload, binary)) overrun();
+    }),
+  );
+  channel.once("open", () =>
+    safely(() => {
+      for (const h of held.drain()) toChannel(h.data, h.binary);
+    }),
+  );
+  channel.on("message", (data: Buffer, binary: boolean) =>
+    safely(() => {
+      if (client.readyState === WebSocket.OPEN)
+        sendBounded(
+          client,
+          binary ? data : data.toString("utf8"),
+          binary,
+          overrun,
+        );
+    }),
+  );
   channel.on("close", () => client.close());
   client.on("close", () => channel.close());
   client.on("error", () => channel.close());

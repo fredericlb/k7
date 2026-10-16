@@ -14,7 +14,7 @@ let ws: string;
 let dir: string;
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-pic-"));
-  dir = join(ws, "song.st0");
+  dir = join(ws, "song.k7");
   mkdirSync(dir, { recursive: true });
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));

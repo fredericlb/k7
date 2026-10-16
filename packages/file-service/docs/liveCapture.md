@@ -74,6 +74,12 @@ change it finds. That batch reaches the replica, as pending, before the entry do
 
 When an entry rewrites a file of the open project, the project goes to the engine, as an undo does.
 
+Every path another replica names is resolved through `../src/livePath.ts` before it is read or
+written, in the workspace and in the confirmed mirror alike: one that is not a sync path
+(`../../live-sync/docs/ops.md`) or resolves outside the folder throws. The relay refuses such a path
+too, but a desktop's relay is a server it does not control. A frame that throws is logged and
+dropped, never let stop the service.
+
 ## Conflicts
 
 `GET /sync/conflicts` lists what the relay set aside in this workspace, each with the value kept in
@@ -95,6 +101,68 @@ An opaque file's op is a whole text whose text is its ref, and `read` answers th
 treats it as any other file. The bytes go through the blob store before the batch does, and a ref
 written for another replica waits, PENDING, until its bytes are here (`../../file-hub/docs/blobs.md`).
 The cache of bytes in flight is `<log folder>/blobs/`, beside the confirmed texts.
+
+## Up to date
+
+A project is not OPENED until the copy here is the room's (`projectSyncState` in `../src/liveSync.ts`,
+`GET /sync/project`), and `/open` refuses with 409 until then. Opened earlier, a project compiles
+against what has arrived so far, which on a first download is text naming audio whose bytes are not
+here yet: "audio clip … file missing" on every lane, and an error that is gone a minute later.
+
+Two things have to be true, and they arrive apart:
+
+- **The text is current** (`RelayLink.textState`): the workspace was welcomed on the socket now open,
+  and its head has reached what that welcome promised. A new socket forgets the promise, since what
+  was missed in between is exactly what it does not know. A link that has never connected reads as
+  connecting for a few seconds rather than offline, or a service just started would open every
+  project on stale text.
+- **No file of the project waits for bytes**: the files PENDING in the blob cache's `pending.json`,
+  counted under the project's folder only, so a take downloading in another song holds nothing up.
+
+**Offline** — the relay unreachable, with a history here — opens on what is here, since the alternative
+is a machine that cannot work without the server. Except when a file of the project never got its
+bytes: that would open broken, so it waits, and says why.
+
+A workspace linked to no relay has nothing on its way and is always ready. The wait itself, and its
+screen, are the shell's (`packages/project-shell/docs/launch.md`, "Waiting for sync").
+
+## Several servers
+
+An account may sync with several servers (`../../file-hub/docs/syncRelay.md`): one link per server
+(`../src/liveServers.ts`), and each workspace on ONE of them. Which one is the workspace's own, kept
+in its log folder (`server.json`: the server's origin and the room's name there); with none recorded
+it is the main server's under its own name, which is what every workspace synced before secondaries
+is, and a new workspace goes there too. A workspace whose server is no longer paired stays captured
+here and syncs nowhere until it is paired again.
+
+Two servers may each hold a workspace of the same name, and a machine has one folder per name: the
+second brought down lands as `<room>.<host>` (`localNameFor`) — `@` would read better, and the
+workspace-name rule refuses it — and syncs with its room under its real name. It takes that name
+back once nothing here holds it — after a move, and at every start (`restoreRoomName`): the folder,
+its sync history and its active marker are renamed together, sync letting go first so the rename is
+not captured as every file removed and added again.
+
+**A move** (`../src/liveMove.ts`, `POST /workspaces/sync/move`) is refused unless the workspace is up
+to date here (above) with nothing of its own unconfirmed, and unless the target holds no workspace of
+that name. It then runs on its own, the list saying so (`moving`):
+
+1. The target's room is seeded from a fresh replica: everything here, the bytes put on the target's
+   store before the batch is sent. A room left empty by an earlier move answers with its empty state,
+   and the replica sends every file as only its own — the same end.
+2. Only once the target has confirmed all of it is the old room emptied: one batch removing every
+   file. Off that server's list, and every device synced with it removes it too; its history keeps it.
+3. The target's history becomes the workspace's, its record names the target, and it is linked there.
+
+Edits made during a move are held and sent to wherever it is linked at the end — the target, or the
+server it stayed on when the move failed. A failed move leaves the target with what it got: the next
+attempt is refused by the name until that room is emptied there, which is a choice for the person.
+
+**A copy** (`POST /workspaces/sync/copy`) is a move's step 1 alone, under the same refusals, and the
+list says so the same way (`moving`, with `copy`). Nothing is held: the workspace stays linked where
+it was, its edits go on to that server, and the target's room starts from what was here when the copy
+began. From then on they are two workspaces of the same name on two servers, which never hear of each
+other; bringing the copy down here lands it as `<room>.<host>`, as above. One move or copy at a time
+per workspace, since both seed the target under the room's name.
 
 ## A binary's hash outlives the process
 

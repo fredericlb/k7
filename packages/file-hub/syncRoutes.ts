@@ -18,7 +18,9 @@ import { SYNC_PATH } from "./syncRelay.ts";
 import {
   forgetRemote,
   readRemote,
+  readRemotes,
   type SyncRemote,
+  setMainRemote,
   writeRemote,
 } from "./syncRemote.ts";
 
@@ -42,6 +44,8 @@ export interface SyncContext {
   subjectOf: (req: Request) => string;
   /** The running relay, once `serveSync` has attached it. */
   relay: () => ReturnType<typeof attachSyncRelay> | null;
+  /** Whether an account here may be paired with a remote origin: the desktop and the phone, never the origin itself. */
+  remotePairing: boolean;
 }
 
 /** The host a browser reached this origin at: a proxy in front rewrites Host, and says the original in x-forwarded-host. */
@@ -154,7 +158,7 @@ export class SyncRoutes {
     };
   }
 
-  /** This account's pairing with a remote origin, behind the LOCAL session: PUT pairs and restarts its service, DELETE unpairs. */
+  /** This account's pairings with remote servers, behind the LOCAL session: PUT pairs one, POST /main picks the main one, DELETE unpairs. */
   remoteRouter(): Router {
     const r = Router();
     r.use(express.json());
@@ -162,12 +166,21 @@ export class SyncRoutes {
       const user = this.c.userOf(req);
       return user ? { user, home: this.accountDir(accountKey(user)) } : null;
     };
+    // Where pairing is off, nothing here may change: the origin's libraries follow the first paired account (docs/fileHub.md).
+    r.use((req, res, next) => {
+      if (this.c.remotePairing || req.method === "GET") return next();
+      res.status(403).json({ error: "this server is not paired with another" });
+    });
     r.get("/", (req, res) => {
       const w = who(req);
       if (!w)
         return void res.status(401).json({ error: "no user on the session" });
-      const remote = readRemote(w.home);
-      res.json({ paired: remote !== null, url: remote?.url ?? null });
+      const servers = this.c.remotePairing ? readRemotes(w.home) : [];
+      res.json({
+        paired: servers.length > 0,
+        url: servers[0]?.url ?? null,
+        servers: servers.map((r) => ({ url: r.url, main: r.main })),
+      });
     });
     r.put("/", (req, res) => {
       const w = who(req);
@@ -181,9 +194,29 @@ export class SyncRoutes {
           .status(400)
           .json({ error: "expected { url: ws(s)://…, token }" });
       mkdirSync(w.home, { recursive: true });
-      writeRemote(w.home, { url, token, user: w.user });
+      // Main unless said otherwise: a pairing made at sign-in is the main one, a server added beside it is not.
+      writeRemote(w.home, {
+        url,
+        token,
+        user: w.user,
+        main: req.body?.main !== false,
+      });
       void this.c.instances.restart(w.user).then(
         () => res.json({ paired: true, url }),
+        (e: Error) => res.status(500).json({ error: e.message }),
+      );
+    });
+    r.post("/main", (req, res) => {
+      const w = who(req);
+      const url = typeof req.body?.url === "string" ? req.body.url : "";
+      if (!w)
+        return void res.status(401).json({ error: "no user on the session" });
+      if (!setMainRemote(w.home, url))
+        return void res
+          .status(404)
+          .json({ error: "no pairing with that server" });
+      void this.c.instances.restart(w.user).then(
+        () => res.json({ ok: true }),
         (e: Error) => res.status(500).json({ error: e.message }),
       );
     });
@@ -191,7 +224,9 @@ export class SyncRoutes {
       const w = who(req);
       if (!w)
         return void res.status(401).json({ error: "no user on the session" });
-      const was = forgetRemote(w.home);
+      // One server by `?url=`, else every one.
+      const url = typeof req.query.url === "string" ? req.query.url : undefined;
+      const was = forgetRemote(w.home, url);
       void this.c.instances.restart(w.user).then(
         () => res.json({ paired: false, was }),
         (e: Error) => res.status(500).json({ error: e.message }),
@@ -203,7 +238,8 @@ export class SyncRoutes {
   /** The remote origin the session's account is paired with, or null: what a local surface compares itself against. */
   remoteOf(req: Request): SyncRemote | null {
     const user = this.c.userOf(req);
-    return user ? readRemote(this.accountDir(accountKey(user))) : null;
+    if (!user || !this.c.remotePairing) return null;
+    return readRemote(this.accountDir(accountKey(user)));
   }
 
   /** Let through a caller that proves an account by device token or hub secret; `res.locals.syncCaller` says who. */

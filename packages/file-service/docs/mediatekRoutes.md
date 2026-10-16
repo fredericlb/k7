@@ -1,12 +1,12 @@
 # routes/mediatek.ts — the media library as THIS MACHINE holds it
 
-The library itself is hosted (`apps/st0/backend/src/media/`); what lives here is a cache the moteur plays
+The library itself is hosted (`apps/k7/backend/src/media/`); what lives here is a cache the moteur plays
 from, so these routes report what is cached and pull down what is missing. Mounted BEFORE
 `resolveWorkspace`: a cache is per machine, the way `/workspaces` is per user.
 
 ## `POST /mediatek/analyse` — because the hosted library has no engine
 
-st0's image holds no engine, and the engine is what owns decoding — so the
+k7's image holds no engine, and the engine is what owns decoding — so the
 hosted library holds the bytes and this machine, which has one, does the work and hands the
 result back.
 
@@ -64,9 +64,9 @@ that lists the cache or hands the moteur a path, but a browser that has to read 
 writing to the cache is what a sync is for, and a route that let a caller edit it would produce
 files the next sync silently deletes.
 
-`safePath` confines every path to the cache root, lexically and via realpath — the same guard the
-hosted service uses, this one being reachable from a second app. A path that escapes is
-the caller's mistake: 400, never 500.
+`readablePath` confines every path to the cache root, lexically and via realpath, and refuses a dot
+segment — the same guard the hosted service uses, this one being reachable from a second app. A
+path that escapes is the caller's mistake: 400, never 500.
 
 The mime is REQUIRED: `streamFile` sets it unconditionally, so an `undefined` throws inside
 `res.setHeader` and the route answers 500 for every file it is asked for. A cache

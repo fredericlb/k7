@@ -44,7 +44,7 @@ const ORIGINAL_IDS = [
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-chains-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });
   writeFileSync(
     join(root, "_modules", "audio", "amp", "module.yaml"),
@@ -158,6 +158,23 @@ describe("track duplicate, in a chain project", () => {
     const ids = items.map((i: { id: string }) => i.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const id of ids) expect(ORIGINAL_IDS).not.toContain(id);
+  });
+
+  it("copies no preset a chain file names outside the project's presets folder", async () => {
+    writeFileSync(join(root, "secret.vstpreset"), "SECRET", "utf8");
+    put(
+      "chains/gtr.yaml",
+      read("chains/gtr.yaml").replace(
+        "gtr-drive.vstpreset",
+        "../../secret.vstpreset",
+      ),
+    );
+    const h = await run("track duplicate gtr");
+    expect(h.lines.refuse).toEqual([]);
+    const drv = chain("gtr-copy").steps[4];
+    expect(existsSync(join(dir, "vstpresets", `${drv.id}.vstpreset`))).toBe(
+      false,
+    );
   });
 
   it("copies an own preset to the copy's id and keeps a shared one shared", async () => {

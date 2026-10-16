@@ -4,8 +4,8 @@
 // the rest. The one thing a reader would get wrong: Live keeps old saves under `Backup/`, each a
 // `.als` too, and those are never the project. See docs/import.md.
 
-import { unzipSync } from "fflate";
 import { parseAls, type SampleRef } from "./ableton";
+import { boundedUnzip } from "./inflate";
 import type { Translation } from "./model";
 
 /** Entries no project is made of: Live's own backups, and the resource forks a Mac zip carries. */
@@ -53,7 +53,7 @@ export function parseAlsZip(
   // A zip starts PK\x03\x04 — said plainly rather than left to fflate's "invalid zip data".
   if (bytes.length < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4b)
     throw new Error("this is not a zip file");
-  const entries = unzipSync(bytes);
+  const entries = boundedUnzip(bytes);
   const set = pickSet(Object.keys(entries));
   const base = dirOf(set);
   const byName = new Map<string, string[]>();

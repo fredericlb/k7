@@ -107,7 +107,7 @@ describe("jacksFor", () => {
 });
 
 describe("the sockets a built graph puts on its nodes", () => {
-  // deckA flows into the crossfade, deckB lands on its `b` — demos/crossfade-demo.st0.
+  // deckA flows into the crossfade, deckB lands on its `b` — demos/crossfade-demo.k7.
   const wired: WebGraph = {
     chains: {
       deckA: {

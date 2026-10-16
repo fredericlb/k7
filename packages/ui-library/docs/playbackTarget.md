@@ -3,7 +3,7 @@
 "Play this" has more than one possible answer — this browser, the host that serves the files, or
 the engine on the musician's own machine — and which one is a CHOICE, not something the app picks
 for you in silence: `PlaybackPicker`, an icon button holding a menu of destinations, which the
-host draws in its own chrome — st0 puts it in the home sidebar's actions, above the user menu.
+host draws in its own chrome — k7 puts it in the home sidebar's actions, above the user menu.
 
 ## Why a menu and not a switch
 
@@ -21,8 +21,8 @@ So `src/playback/targets.ts` is a list, and everything else reads it:
 
 Adding a destination is an entry in that list plus a branch in whatever plays. It is deliberately
 **not** a backend change: the preference is stored as a plain string (see `prefsSchema` in
-`apps/st0/backend/src/server.ts`, and
-[apps/st0/backend/docs/media/playbackTarget.md](../../../apps/st0/backend/docs/media/playbackTarget.md)
+`apps/k7/backend/src/server.ts`, and
+[apps/k7/backend/docs/media/playbackTarget.md](../../../apps/k7/backend/docs/media/playbackTarget.md)
 for the server's half), because a `z.enum` would make the vocabulary something the backend and
 every build of the screens have to agree on before either can move. The price is `asPlaybackTarget`: an id this build has
 never heard of — written by a newer one, in another tab — reads as the default rather than as a
@@ -71,8 +71,8 @@ optimistic: the handle follows the finger and the next poll tells the truth.
 
 ## The third: the moteur
 
-`engine` plays through `engine/st0-engine` on the machine the account chose — the same instrument
-st0 drives, on its own audio interface. It is the destination for somebody sitting at their rig:
+`engine` plays through `engine/k7-runtime` on the machine the account chose — the same instrument
+k7 drives, on its own audio interface. It is the destination for somebody sitting at their rig:
 the sound comes out of the monitors, not out of a laptop speaker.
 
 An engine nobody can hear — the server's own, playing into a null sink — says so in `whoami`, and

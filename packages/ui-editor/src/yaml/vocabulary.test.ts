@@ -92,11 +92,11 @@ describe("the chains vocabulary", () => {
 
   it("offers a scanned `@engine` plugin to a library's module and never to a project's node", () => {
     // A node reaches a plugin through the library module that gives it a face, or it gets no panel.
-    expect(at("song.st0/nodes/lead.yaml", [], "extends", HINTS)).toEqual([
+    expect(at("song.k7/nodes/lead.yaml", [], "extends", HINTS)).toEqual([
       "@meta/audio/mixer",
     ]);
     expect(
-      at("_libraries/st0/modules/audio/verb/module.yaml", [], "extends", HINTS),
+      at("_libraries/k7/modules/audio/verb/module.yaml", [], "extends", HINTS),
     ).toContain("@engine/de-rez");
   });
 
@@ -120,17 +120,17 @@ describe("the chains vocabulary", () => {
 
 describe("a chain project's files", () => {
   it("offers a chain item what a node may extend, and the lanes a lane item names", () => {
-    expect(at("song.st0/chains/gtr.yaml", ["steps"], "extends", HINTS)).toEqual(
-      ["@meta/audio/mixer"],
-    );
-    expect(at("song.st0/chains/gtr.yaml", ["steps"], "track", HINTS)).toEqual([
+    expect(at("song.k7/chains/gtr.yaml", ["steps"], "extends", HINTS)).toEqual([
+      "@meta/audio/mixer",
+    ]);
+    expect(at("song.k7/chains/gtr.yaml", ["steps"], "track", HINTS)).toEqual([
       "melody",
       "pad",
     ]);
   });
 
   it("reads a lane's tracks/ file as a project's node", () => {
-    expect(at("song.st0/tracks/melody.yaml", [], "extends", HINTS)).toEqual([
+    expect(at("song.k7/tracks/melody.yaml", [], "extends", HINTS)).toEqual([
       "@meta/audio/mixer",
     ]);
   });

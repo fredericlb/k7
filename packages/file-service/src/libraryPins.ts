@@ -1,6 +1,6 @@
 // libraryPins.ts — a workspace's `_library-pins.yaml`, written ONCE, the first time it is opened or
 // when it is made, naming the version of each library it already hears: version 1 for a workspace
-// from before versions, the newest this st0 runs for a new one, the draft for an admin's. After
+// from before versions, the newest this k7 runs for a new one, the draft for an admin's. After
 // that only an upgrade rewrites it. See ../../../docs/library-versions-plan.md.
 
 import { existsSync, renameSync, writeFileSync } from "node:fs";
@@ -22,7 +22,7 @@ import {
 } from "@studio/song-schema/libraryVersions";
 import { askHubRemote } from "./libraries.ts";
 
-/** Each library's version as the workspace at `dir` plays it, and the newest this st0 could move to — here or at the origin. */
+/** Each library's version as the workspace at `dir` plays it, and the newest this k7 could move to — here or at the origin. */
 export async function libraryVersionsAt(
   dir: string,
 ): Promise<Map<string, LibraryVersionRow>> {
@@ -43,7 +43,7 @@ export async function libraryVersionsAt(
   return out;
 }
 
-/** One library's row: the version played, what it needs, and the newest this st0 could move to. */
+/** One library's row: the version played, what it needs, and the newest this k7 could move to. */
 type LibraryVersionRow = {
   pinned: LibraryVersion;
   requires?: number;

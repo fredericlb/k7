@@ -57,8 +57,8 @@ describe("readTransition", () => {
     const parent = transitionModule("shared-wipe", "both");
     const folderAbs = transitionModule("wipe", "none");
     const refs = {
-      ...ref("wipe", { folderAbs, extends: "@st0/video_transitions/wipe" }),
-      "@st0/video_transitions/wipe": { folderAbs: parent },
+      ...ref("wipe", { folderAbs, extends: "@k7-core/video_transitions/wipe" }),
+      "@k7-core/video_transitions/wipe": { folderAbs: parent },
     };
     expect(readTransition(root, "wipe", refs)?.vertex).toContain(
       "shared-wipe vert",
@@ -69,8 +69,8 @@ describe("readTransition", () => {
     const parent = transitionModule("shared-wipe", "both");
     const folderAbs = transitionModule("wipe", "both");
     const refs = {
-      ...ref("wipe", { folderAbs, extends: "@st0/video_transitions/wipe" }),
-      "@st0/video_transitions/wipe": { folderAbs: parent },
+      ...ref("wipe", { folderAbs, extends: "@k7-core/video_transitions/wipe" }),
+      "@k7-core/video_transitions/wipe": { folderAbs: parent },
     };
     expect(readTransition(root, "wipe", refs)?.vertex).toContain("wipe vert");
   });

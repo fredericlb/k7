@@ -1,4 +1,0 @@
-// samples — the engine of st0-rack that plays library SAMPLES: a note→audio sampler with no sounds of its own,
-// the kit being the node's `rack:` taps, each a sample under a library's samples/ (studio: packages/song/docs/racks.md).
-type("rack")
-// A rack whose pads are samples you choose, each fired on its note — the kit is the node's own.

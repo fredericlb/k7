@@ -1,0 +1,7 @@
+.gradle/
+# the Kotlin Gradle plugin's session and cache folder, written on every build
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml

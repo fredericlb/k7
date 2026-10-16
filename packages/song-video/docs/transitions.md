@@ -1,7 +1,8 @@
 # Transitions — what a shot does arriving and leaving
 
-Sister page to [shaders.md](shaders.md): the same GLSL over the picture, but chosen by a **cut**
-rather than by a cable.
+Sister page to [shaders.md](shaders.md): the same GLSL over the picture, chosen by a **cut** —
+either one program that reads both shots (`with:`), or a run of ordinary shader nodes each shot
+goes through on its own (`chain:`, a **stretch**).
 
 ```yaml
 # video_tracks/main.yaml
@@ -10,12 +11,17 @@ events:
   - { ref: plan_b, start: 4,  length: 5, fade_in: 1 }                        # 1 s dissolve over plan_a
   - { ref: plan_c, start: 9,  length: 5, fade_in: { over: 1.5, with: wipe } }
   - { ref: plan_d, start: 14, length: 5, fade_out: 2 }                       # leaves towards whatever is below
+  - { ref: plan_e, start: 18, length: 5, fade_in: { over: 1, chain: iris } } # through the `iris` stretch
 ```
 
 ## A bare number, or a map
 
 `fade_in: 1` **is** `fade_in: { over: 1, with: dissolve }`. The `dissolve` is built into the
 renderer, so an ordinary fade needs no file: a song with no `modules/` folder can fade.
+
+A map naming a `chain:` and no `with:` is `with: over` — the second kind the renderer owns, which
+lays the shot over what is under it by the alpha its stretch left (below). A map naming both runs
+the stretch first and then blends with the named program.
 
 It is **not a union** but a widening (`z.preprocess`), and the reason is measurable: on a union a
 mistyped key surfaces as `Invalid input` with the real errors buried in the branches, so
@@ -29,7 +35,12 @@ govern the same overlap, two programs would want the same pair and nothing would
 
 > In an overlap, the incoming shot's `fade_in` IS the transition.
 
-A `fade_out` is therefore exactly the case where there is no incoming shot: the picture leaves
+That is a rule about the **blend**, the one program that reads both shots. A stretch is not one:
+it runs on a single shot, so the outgoing shot's `fade_out: { chain: … }` still runs under an
+overlap — over its own window, measured back from its own end — while the incoming shot's
+`fade_in` decides how the two are mixed. Only the outgoing shot's `with:` goes unread there.
+
+A `fade_out`'s blend is therefore exactly the case where there is no incoming shot: the picture leaves
 towards nothing, and what appears is the **layer below** (or the viewport's background for the
 bottom layer). Cross-dissolve and fade-to-black are one code path; all that differs is whether a
 second shot is active.
@@ -103,12 +114,89 @@ sampling nothing.
 
 **`uAudio` is deliberately absent**, and its absence is the next section's argument: it is the one
 shader uniform that requires a **cable**. A transition has no node, so no `#audio` side input, so
-no track whose level it could read. A picture moving with the sound is a shader on the layer, not a
-transition.
+no track whose level it could read. A picture moving with the sound is a shader on the layer, or
+in a stretch, whose nodes ARE wired and take `#audio` like any shader.
+
+## A STRETCH — a transition made of nodes
+
+```yaml
+# chains/main.yaml — a chain project
+start: true
+steps:
+  - { id: 7d14…, video_track: main }
+  - to: [ { chain: RENDER } ]
+subchains:
+  - id: iris                                    # `fade_in: { over: 1, chain: iris }`
+    steps:
+      - { id: 8a82…, extends: "@workspace/shaders/iris" }
+```
+
+```yaml
+# graph.yaml — a graph project, the same stretch
+modules:
+  "@workspace/shaders/iris": [ main ]                         # fed by nothing, lands on the lane
+  "@workspace/shaders/zoom": [ "@workspace/shaders/dim" ]
+  "@workspace/shaders/dim":  [ main ]
+```
+
+A **stretch** is a run of picture passes (`shaders`, `video_effects`) that **nothing feeds** and that
+**lands on a picture lane**. A fade's `chain:` names it by its **head node**, and over the fade the
+shot runs through it before it is blended. It is the same run a lane's own chain is made of, so a
+stretch is drawn on the graph as cards with knobs, can be bypassed step by step, and needs no new
+kind of file.
+
+In a CHAIN project — the main layout — a stretch is a **subchain of the lane's chain file**, and a
+fade names it by its id: `chain: iris` (`packages/song/docs/chainFiles.md`). The file is the scope,
+so a fade can reach only its own lane's stretches. Read into segments, that subchain IS the cable
+from its last node into the lane, so everything downstream sees the same graph either way, and the
+compile turns the id into the node the run starts at.
+
+In a GRAPH project there are no subchains, and the equivalent of "a run scoped to one owner" is a
+run whose only edge is the one into that owner, named by its head node. The cable INTO the lane is
+what scopes it: a fade on another lane naming it is refused (below), as is a stretch something else
+feeds — that is then a lane's run, and the head would have two signals.
+
+### `uPresence` — one number for both directions
+
+A pass in a stretch is handed **`uPresence`**: how much of the shot is on screen. It rises 0 → 1 over
+a `fade_in` and falls 1 → 0 over a `fade_out`, and it is **1 everywhere else** — so a stretch's
+module, wired as an ordinary lane effect, is the identity. One number rather than a progress and a
+direction is what lets the same `iris` open a shot in and close one out: `alpha *= step(d, uPresence)`
+is right both ways.
+
+It is a uniform and not an automation curve. A curve is a function of SONG time, baked in beats for
+the engine; a fade is a function of the placement, in seconds, and drawn by the browser.
+
+### What a stretch can say, and what it cannot
+
+A per-shot pass sees one picture. That covers every transition whose result is, per pixel, a mix of
+the two shots by a weight that depends on position and progress: a dissolve (`alpha *= p`), every
+wipe, iris and clock (`alpha *= step(edge(x), p)`), a luma wipe off a mask, a dip to black, a
+slide or push (translate by `p`), and cross-zoom, blur-through or glitch-through (each shot
+distorted by its own presence, then mixed).
+
+It cannot say a transition that needs **both shots in one fragment**: B displaced by A's content,
+A's brightness used as the matte that reveals B, a morph. Those stay programs, named by `with:`.
+
+### `over`, and straight alpha
+
+A stretch's output is **straight** alpha, as every pass's is. The built-in `over` reads both sides
+that way and writes the PREMULTIPLIED result the blended layer is composited with
+([compositor.md](../../ui-eyes/docs/compositor.md)), so a stretch that only writes alpha mixes the
+two shots correctly without the premultiplied trick a `mix()` needs. A named program reads a stretched
+side as it is; a program that assumes opaque inputs, the dissolve included, is exact only where the
+stretch left the alpha at 1.
+
+### A `chain:` that runs nothing
+
+A fade naming no stretch landing on ITS lane — a typo, a stretch wired to another lane, an
+unreadable `graph.yaml` — compiles as a **dissolve** of the same length (a named `with:` is kept),
+and says so in the picture's `warnings`. The reason is the one below for a missing program: dropping
+the fade would move the cut.
 
 ## Named, not cabled
 
-A transition **never** appears in `graph.yaml`. It is named by a placement, as `clips/<ref>.yaml`
+A transition PROGRAM **never** appears in `graph.yaml`; a stretch, above, is the cabled way. It is named by a placement, as `clips/<ref>.yaml`
 is: material, not a station on the signal's route. Three reasons:
 
 - **There is no station.** A chain runs from a source to a sink; a transition happens *between two
@@ -185,41 +273,45 @@ to **the layer below**.
   renderable, and the top two win.
 - **A `fade_out` revealing the shot below on the SAME track.** A reveal belongs to the incoming
   shot, and its `fade_in` is at its own `start`.
-- **Per-placement parameters.** `P1..P4` belong to the module: two wipe directions are two modules,
-  one of which `extends` the other.
+- **Per-placement parameters.** `P1..P4` belong to the module, and a stretch's knobs to its nodes:
+  two placements naming one stretch share its knobs. Two wipe directions are two modules, one of
+  which `extends` the other, or two stretches.
 
 ## The layers crossed
 
 | | |
 |---|---|
-| written | `fade_in:` / `fade_out:` on an event of `video_tracks/<lane>.yaml`, and `modules/video_transitions/<name>/` |
-| declared | `packages/song-schema/src/moduleTypes.ts` — `TRANSITION_CATEGORY`, `DISSOLVE` |
+| written | `fade_in:` / `fade_out:` on an event of `video_tracks/<lane>.yaml`, `modules/video_transitions/<name>/`, and a stretch's run in `graph.yaml` |
+| declared | `packages/song-schema/src/moduleTypes.ts` — `TRANSITION_CATEGORY`, `DISSOLVE`, `OVER`, `isPicturePass` |
 | validated | `packages/song-schema/src/yaml/entitySchemas.ts` — the widening, and the refusal of an endless `fade_out` |
-| guarded | `packages/song/src/loader.ts` — `loadVideoTracks` goes through the schema |
-| read | `src/videoTransitions.ts` — the ancestry from `src/shaders.ts` |
-| compiled | `src/videoTracks.ts` -> `VideoClipDoc.fadeIn`, and `src/videoProject.ts` -> `VideoProjectDoc.transitions`, the GLSL **inline** |
-| on the wire | `packages/web-protocol/types.ts` — `WebVideoFade`, `WebVideoTransition` |
+| guarded | `packages/song/src/loader.ts` — `loadVideoTracks` goes through the schema; `packages/song/src/graph.ts` — `isStretch`, and a stretch's head counted as fed in `checkChainInputs` |
+| read | `src/videoTransitions.ts` — the ancestry from `src/shaders.ts`, and `resolveStretches`; `src/videoChains.ts` — the stretches |
+| compiled | `src/videoTracks.ts` -> `VideoClipDoc.fadeIn`, and `src/videoProject.ts` -> `VideoProjectDoc.transitions` and `.stretches`, the GLSL **inline** |
+| on the wire | `packages/web-protocol/types.ts` — `WebVideoFade`, `WebVideoTransition`, `WebVideoProject.stretches` |
 | served | `packages/file-service/src/workspace.ts` — `toWebVideoTracks`, `videoProjectDoc` |
-| adapted | `packages/st0-plugins/src/video/scene.ts` -> `packages/ui-eyes/src/scene.ts` |
+| adapted | `packages/k7-plugins/src/video/scene.ts` -> `packages/ui-eyes/src/scene.ts` |
 | decided | `packages/ui-eyes/src/timeline.ts` — `layerFrameAt`, the only rule |
 | decoded | `packages/ui-eyes/src/realtime.ts` and `packages/ui-eyes/src/export.ts` |
-| drawn | `packages/ui-eyes/src/compositor.ts` + `packages/ui-eyes/src/passes.ts`, the built-in fade in `packages/ui-eyes/src/transitions.ts` |
+| drawn | `packages/ui-eyes/src/compositor.ts` + `packages/ui-eyes/src/passes.ts` + `packages/ui-eyes/src/stretches.ts`, the built-in `dissolve` and `over` in `packages/ui-eyes/src/transitions.ts` |
 | completed | `packages/song-schema/src/yaml/fields.ts` — the two words of a fade's map |
 
 ## Checking it
 
 ```bash
-npx vitest run packages/song-video/src/videoTransitions.test.ts
+npx vitest run packages/song-video/src/videoTransitions.test.ts packages/song-video/src/videoStretches.test.ts
 npx vitest run packages/song-schema/src/yaml/videoTrackYaml.test.ts
 npx vitest run packages/ui-eyes/src/timeline.test.ts packages/ui-eyes/src/compositor.test.ts
 ```
 
-The first proves the folder read, the ancestry, the two refusals and the knob clamping; the second,
+The first proves the folder read, the ancestry, the two refusals and the knob clamping, then that the
+graph takes a stretch, that the sound's compile ignores it, which stretches the picture carries and
+how a fade naming nothing falls back; the second,
 the two spellings of a fade, the **located** error of a mistyped key, and the refusal of an endless
-`fade_out`; the third, the frame rule and the order of GL calls — which blend function is in force
-for which draw, which texture on which unit, and what is allocated.
+`fade_out`; the third, the frame rule — each side's stretch and presence included — and the order
+of GL calls: which blend function is in force for which draw, which texture on which unit, that the
+blend reads a STRETCHED picture rather than its slot, and what is allocated.
 
 **None of them proves a pixel changed**: there is no WebGL2 in the runner, and
 `compositor.test.ts` says so itself. The remaining check is done with the eyes — open
-`demos/video-demo.st0`, overlap two shots, give the second a `fade_in`, and watch the cut become a
-fade.
+`demos/video-demo.k7`, overlap two shots, give the second a `fade_in`, and watch the cut become a
+fade. The demo's second shot on `main` already arrives through the `iris` stretch.

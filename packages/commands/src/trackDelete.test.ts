@@ -22,7 +22,7 @@ const put = (rel: string, text: string): void => {
   mkdirSync(join(dir, rel, ".."), { recursive: true });
   writeFileSync(join(dir, rel), text, "utf8");
 };
-const AMP = '"@st0/audio/amp"';
+const AMP = '"@k7-core/audio/amp"';
 const host = () =>
   testHost({
     songPath: dir,
@@ -38,7 +38,7 @@ const host = () =>
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "track-delete-"));
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   put(
     "project.yaml",
     "project:\n  name: t\n  tempo: 120\nsoloed: [gtr]\nhighlighted: [gtr, bass]\n",

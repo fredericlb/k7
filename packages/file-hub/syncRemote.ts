@@ -1,54 +1,114 @@
-// syncRemote.ts — an account on THIS hub paired with a remote origin: its file service syncs with that
-// origin's relay, with the device token the origin minted, instead of with this hub's own relay.
-// Per account, because a desktop's hub also serves its local user, whose workspaces are not the account's.
-// See docs/syncRelay.md.
+// syncRemote.ts — an account on THIS hub paired with remote servers: its file service syncs each workspace
+// with the relay of the server it belongs to, with the device token that server minted. One server is the
+// MAIN: the account's libraries, the remote surfaces and new workspaces are its. Per account, because a
+// desktop's hub also serves its local user, whose workspaces are not the account's. See docs/syncRelay.md.
 
-import {
-  existsSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-/** What a pairing holds: the remote relay's socket URL, the device token, and the account's email. */
+/** One pairing: the remote relay's socket URL, the device token, the account's email, and whether it is the main one. */
 export interface SyncRemote {
   url: string;
   token: string;
   user: string;
+  main: boolean;
 }
 
 const FILE = ".sync-remote.json";
 
-/** The pairing of the account folder `home`, or null when it syncs with this hub's own relay. */
-export function readRemote(home: string): SyncRemote | null {
+/** The relay's host, which is what makes two pairings the same server. */
+export const serverHost = (url: string): string => {
   try {
-    const v = JSON.parse(
-      readFileSync(join(home, FILE), "utf8"),
-    ) as Partial<SyncRemote>;
-    return v.url && v.token && v.user
-      ? { url: v.url, token: v.token, user: v.user }
-      : null;
+    return new URL(url).host;
   } catch {
-    return null;
+    return url;
   }
+};
+
+/** Exactly one main among `list`: the one marked, else the first. */
+function oneMain(list: SyncRemote[]): SyncRemote[] {
+  const at = Math.max(
+    0,
+    list.findIndex((r) => r.main),
+  );
+  return list.map((r, i) => ({ ...r, main: i === at }));
 }
 
-export function writeRemote(home: string, remote: SyncRemote): void {
-  writeFileSync(join(home, FILE), `${JSON.stringify(remote, null, 2)}\n`, {
-    mode: 0o600,
-  });
+/** Every pairing of the account folder `home`, the main one first; empty when it syncs with this hub's own relay. */
+export function readRemotes(home: string): SyncRemote[] {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(join(home, FILE), "utf8"));
+  } catch {
+    return [];
+  }
+  // A file from before secondaries is one pairing, and it is the main one.
+  const items = Array.isArray((raw as { servers?: unknown })?.servers)
+    ? ((raw as { servers: unknown[] }).servers as Partial<SyncRemote>[])
+    : [{ ...(raw as Partial<SyncRemote>), main: true }];
+  const list = items.flatMap((v) =>
+    v?.url && v.token && v.user
+      ? [{ url: v.url, token: v.token, user: v.user, main: v.main === true }]
+      : [],
+  );
+  return oneMain(list).sort((a, b) => Number(b.main) - Number(a.main));
 }
 
-export function forgetRemote(home: string): boolean {
+/** The MAIN pairing of `home`, or null when it syncs with this hub's own relay. */
+export function readRemote(home: string): SyncRemote | null {
+  return readRemotes(home)[0] ?? null;
+}
+
+function save(home: string, list: SyncRemote[]): void {
   const at = join(home, FILE);
-  if (!existsSync(at)) return false;
-  rmSync(at, { force: true });
+  if (!list.length) {
+    rmSync(at, { force: true });
+    return;
+  }
+  writeFileSync(
+    at,
+    `${JSON.stringify({ servers: oneMain(list) }, null, 2)}\n`,
+    {
+      mode: 0o600,
+    },
+  );
+}
+
+/** Add or replace the pairing with `remote`'s server; `main` makes it the main one, and the first pairing always is. */
+export function writeRemote(home: string, remote: SyncRemote): void {
+  const others = readRemotes(home).filter(
+    (r) => serverHost(r.url) !== serverHost(remote.url),
+  );
+  const main = remote.main || !others.length;
+  save(home, [
+    ...others.map((r) => ({ ...r, main: main ? false : r.main })),
+    { ...remote, main },
+  ]);
+}
+
+/** Make the pairing with `url`'s server the main one; false when there is none. */
+export function setMainRemote(home: string, url: string): boolean {
+  const list = readRemotes(home);
+  if (!list.some((r) => serverHost(r.url) === serverHost(url))) return false;
+  save(
+    home,
+    list.map((r) => ({ ...r, main: serverHost(r.url) === serverHost(url) })),
+  );
   return true;
 }
 
-/** Every paired account under `dataRoot`: what the hub starts at once and never stops for idleness. */
+/** Forget the pairing with `url`'s server, or every one without `url`; true when one went. */
+export function forgetRemote(home: string, url?: string): boolean {
+  const list = readRemotes(home);
+  const kept = url
+    ? list.filter((r) => serverHost(r.url) !== serverHost(url))
+    : [];
+  if (kept.length === list.length) return false;
+  save(home, kept);
+  return true;
+}
+
+/** Every paired account under `dataRoot`, by its main pairing: what the hub starts at once and never stops for idleness. */
 export function pairedAccounts(dataRoot: string): SyncRemote[] {
   let names: string[] = [];
   try {

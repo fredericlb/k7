@@ -20,7 +20,7 @@ function chainProject(): string {
   mkdirSync(join(dir, "chains"));
   writeFileSync(
     join(dir, "chains", "gtr.yaml"),
-    `start: true\nsteps:\n  - { id: l1, track: gtr }\n  - { id: ${ID}, extends: "@st0/audio/auto-wah" }\n  - to: [ { chain: MIX } ]\n`,
+    `start: true\nsteps:\n  - { id: l1, track: gtr }\n  - { id: ${ID}, extends: "@k7-core/audio/auto-wah" }\n  - to: [ { chain: MIX } ]\n`,
   );
   return dir;
 }
@@ -31,7 +31,7 @@ describe("the nodes provider", () => {
     expect(completionItems("node bypass ", h, "cli")).toEqual([
       {
         line: `node bypass ${ID}`,
-        label: "@st0/audio/auto-wah · gtr · step 2",
+        label: "@k7-core/audio/auto-wah · gtr · step 2",
       },
     ]);
     expect(completions("node bypass ", h, "cli")).toEqual([

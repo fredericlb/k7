@@ -1,17 +1,17 @@
 # The desktop release — the half of the repo the hosted image never carries.
 #
 # `docker/` ships the hosted apps; these ship to a musician's machine, in two stages per desktop
-# (desktop-platform.yml): `engine` compiles engine/st0-engine and engine/st0-supervisor (C++, CMake) and
-# publishes them as the command-line engine; `desktop` then packages apps/st0-standalone around THOSE
+# (desktop-platform.yml): `engine` compiles engine/k7-runtime and engine/k7-supervisor (C++, CMake) and
+# publishes them as the command-line engine; `desktop` then packages apps/k7-standalone around THOSE
 # binaries, compiling nothing, and only when that platform's engine built. Beside them, `android`
 # builds the phone's APK, whose arm64 engine and supervisor Gradle compiles itself.
 #
-# It is the only workflow here that compiles the C++ engine. st0.yml deliberately does not: a cold
+# It is the only workflow here that compiles the C++ engine. k7.yml deliberately does not: a cold
 # build is tens of minutes per platform, a cached one several. Hence the `decide` gate below — a main
 # push that touched only docs/ does not pay for three native builds.
 #
-# What it does NOT do is SIGN anything. The macOS .dmg is unsigned and unnotarised, the
-# Windows installer unsigned; both warn on first launch. See docs/desktop-release.md.
+# The desktops are NOT signed: the .dmg is unsigned and unnotarised, the Windows installer unsigned. The APK is
+# signed with the release key held in secrets, and every release carries SHA256SUMS. See docs/desktop-release.md.
 
 name: desktop
 
@@ -26,8 +26,9 @@ concurrency:
   group: desktop-${{ github.ref }}
   cancel-in-progress: true
 
+# Read only; the publish job alone may write the release.
 permissions:
-  contents: write # the release and its assets
+  contents: read
 
 jobs:
   decide:
@@ -39,8 +40,9 @@ jobs:
       channel: ${{ steps.plan.outputs.channel }}
       tag: ${{ steps.plan.outputs.tag }}
       stamp: ${{ steps.plan.outputs.stamp }}
+      android: ${{ steps.plan.outputs.android }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0 # the push's `before` commit, to diff against
 
@@ -51,6 +53,8 @@ jobs:
         shell: bash
         env:
           BEFORE: ${{ github.event.before }}
+          # Only whether the four signing secrets exist leaves this step, never their values.
+          HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_B64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
         run: |
           set -euo pipefail
           case "$GITHUB_REF" in
@@ -61,11 +65,28 @@ jobs:
               stamp="snapshot-$(git rev-parse --short HEAD)" ;;
           esac
 
+          # The stamp names files and reaches shell commands downstream: only these two shapes pass.
+          if ! [[ "$stamp" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ || "$stamp" =~ ^snapshot-[0-9a-f]{7,40}$ ]]; then
+            echo "::error::refusing release stamp '$stamp': expected vX.Y.Z or snapshot-<commit>"
+            exit 1
+          fi
+
+          # No release key: a tag fails here, before any build; a snapshot ships without an APK.
+          android=yes
+          if [ "$HAS_KEYSTORE" != true ]; then
+            if [ "$channel" = release ]; then
+              echo "::error::the Android release key secrets are missing (docs/desktop-release.md)"
+              exit 1
+            fi
+            android=no
+            echo "::warning::no Android release key: this snapshot carries no APK"
+          fi
+
           build=yes
           if [ "$channel" = snapshot ] && [ "$GITHUB_EVENT_NAME" = push ] \
              && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
             git diff --name-only "$BEFORE" HEAD > changed.txt
-            # apps/ and packages/ in full: the desktop app bundles st0 and most of that tier; commons, for its Electron shell.
+            # apps/ and packages/ in full: the desktop app bundles k7 and most of that tier; commons, for its Electron shell.
             grep -qE '^(engine/|apps/|packages/|commons$|package-lock\.json|\.github/workflows/desktop(-platform)?\.yml)' \
               changed.txt || build=no
           fi
@@ -77,7 +98,7 @@ jobs:
           fi
 
           printf '%s\n' "build=$build" "publish=$publish" "channel=$channel" \
-                        "tag=$tag" "stamp=$stamp" | tee -a "$GITHUB_OUTPUT"
+                        "tag=$tag" "stamp=$stamp" "android=$android" | tee -a "$GITHUB_OUTPUT"
 
   build:
     name: ${{ matrix.label }}
@@ -101,26 +122,27 @@ jobs:
             label: linux-x64
             preset: release-gcc
     uses: ./.github/workflows/desktop-platform.yml
-    secrets: inherit
+    secrets:
+      COMMONS_TOKEN: ${{ secrets.COMMONS_TOKEN }}
     with:
       os: ${{ matrix.os }}
       label: ${{ matrix.label }}
       preset: ${{ matrix.preset }}
       stamp: ${{ needs.decide.outputs.stamp }}
 
-  # The phone: engine/st0-android's debug-signed APK, its own arm64 engine and supervisor built by Gradle,
-  # as OneDev's nightly job builds it (engine/st0-engine/docs/android.md).
+  # The phone: engine/k7-android's release APK, signed with the key in secrets, its own arm64 engine and supervisor
+  # built by Gradle, as OneDev's job builds it (engine/k7-runtime/docs/android.md). No key, no job: `decide` says.
   android:
     name: android
     needs: decide
-    if: needs.decide.outputs.build == 'yes'
+    if: needs.decide.outputs.build == 'yes' && needs.decide.outputs.android == 'yes'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - id: commons
         shell: bash
         run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: fredericlb/commons
           ref: ${{ steps.commons.outputs.sha }}
@@ -131,7 +153,7 @@ jobs:
       - uses: ./.github/actions/node
 
       # JDK 21, which AGP runs on and the app's Java and Kotlin target; Gradle's downloads cached by setup-java.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: temurin
           java-version: "21"
@@ -153,90 +175,127 @@ jobs:
 
       # Their own keys, never the desktop legs': the same sources compile to arm64 here.
       - name: dependency sources
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          path: ${{ runner.temp }}/st0-fetch
-          key: fetch-android-${{ hashFiles('engine/st0-engine/CMakeLists.txt', 'engine/st0-supervisor/CMakeLists.txt', 'engine/st0-engine/engine/patches/**', 'engine/st0-engine/engine/eurorack/patches/**', 'engine/st0-supervisor/cmake/**') }}
+          path: ${{ runner.temp }}/k7-fetch
+          key: fetch-android-${{ hashFiles('engine/k7-runtime/CMakeLists.txt', 'engine/k7-supervisor/CMakeLists.txt', 'engine/k7-runtime/engine/patches/**', 'engine/k7-runtime/engine/eurorack/patches/**', 'engine/k7-supervisor/cmake/**') }}
       - name: compiler cache
         id: cache
         continue-on-error: true
-        uses: hendrikmuhs/ccache-action@v1.2
+        uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
         with:
           variant: sccache
           key: engine-android-arm64
           max-size: 2G
 
-      # One debug key across runs: a fresh runner makes a new one, and Android refuses an update signed by another.
-      # ANDROID_USER_HOME pins where the build creates it, so the cache saves the file it restores.
-      - name: debug signing key
-        uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/android-user
-          key: android-debug-keystore
+      # The release key, decoded from its secret into the runner's temp folder and deleted at the end of the job.
+      - name: release signing key
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/k7-release.jks"
+          echo "K7_ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/k7-release.jks" >> "$GITHUB_ENV"
 
       # Gradle hands its environment to both CMake projects, whose presets read the launcher (docs/desktop-release.md).
       - name: apk
+        shell: bash
         env:
           STUDIO_COMPILER_LAUNCHER: ${{ steps.cache.outcome == 'success' && 'sccache' || '' }}
-          STUDIO_FETCHCONTENT_DIR: ${{ runner.temp }}/st0-fetch
-          ANDROID_USER_HOME: ${{ runner.temp }}/android-user
+          STUDIO_FETCHCONTENT_DIR: ${{ runner.temp }}/k7-fetch
+          STAMP: ${{ needs.decide.outputs.stamp }}
+          K7_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          K7_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          K7_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          set -euo pipefail
           # Every core: the engine's build script leaves two free for a developer's machine.
           export CMAKE_BUILD_PARALLEL_LEVEL=$(getconf _NPROCESSORS_ONLN)
-          mkdir -p "$ANDROID_USER_HOME"
-          cd engine/st0-android
-          ./gradlew --no-daemon assembleDebug
+          cd engine/k7-android
+          ./gradlew --no-daemon assembleRelease
+          apk=app/build/outputs/apk/release/app-release.apk
+          # Refuses an unsigned or debuggable APK before it can reach the release.
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk"
+          badging=$("$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$apk")
+          if grep -q "application-debuggable" <<< "$badging"; then
+            echo "::error::the release APK is debuggable"; exit 1
+          fi
           mkdir -p ../../dist/release
-          cp app/build/outputs/apk/debug/app-debug.apk "../../dist/release/st0-android_${{ needs.decide.outputs.stamp }}_arm64.apk"
+          cp "$apk" "../../dist/release/k7-android_${STAMP}_arm64.apk"
+
+      - name: forget the signing key
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/k7-release.jks"
 
       - name: sources only in the fetch cache
         if: always()
         shell: bash
         run: |
-          d="$RUNNER_TEMP/st0-fetch"
+          d="$RUNNER_TEMP/k7-fetch"
           [ -d "$d" ] || exit 0
           find "$d" -mindepth 2 -maxdepth 2 -type d -name '*-build' -exec rm -rf {} +
-          rm -rf "$d/st0-engine/faust-src/build/lib"
+          rm -rf "$d/k7-runtime/faust-src/build/lib"
 
       - name: compiler cache stats
         if: always()
         run: sccache --show-stats 2>/dev/null || echo 'no compiler cache this run'
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: st0-android-arm64
+          name: k7-android-arm64
           path: dist/release/*.apk
           if-no-files-found: error
 
   publish:
     name: publish
     needs: [decide, build, android]
-    if: needs.decide.outputs.publish == 'yes'
+    # The APK may be skipped only when `decide` skipped it, on a snapshot with no release key.
+    if: >-
+      !cancelled() && needs.decide.outputs.publish == 'yes' && needs.build.result == 'success'
+      && (needs.android.result == 'success'
+          || (needs.android.result == 'skipped' && needs.decide.outputs.android == 'no'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # the release and its assets
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: dist
           merge-multiple: true # one flat directory: three engine archives, three installers, the APK
 
+      # One SHA256SUMS over every asset, attached beside them: `sha256sum -c SHA256SUMS` in the download folder.
+      - name: checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum -- * > "$RUNNER_TEMP/SHA256SUMS"
+          mv "$RUNNER_TEMP/SHA256SUMS" SHA256SUMS
+          cat SHA256SUMS
+
       # `gh` rather than an action: no checkout is needed and nothing third-party signs off
       # on what reaches the release page.
       - name: release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.decide.outputs.tag }}
           STAMP: ${{ needs.decide.outputs.stamp }}
+          CHANNEL: ${{ needs.decide.outputs.channel }}
         run: |
           set -euo pipefail
           ls -l dist
-          if [ '${{ needs.decide.outputs.channel }}' = snapshot ]; then
+          if [ "$CHANNEL" = snapshot ]; then
             # Deleted and recreated rather than edited: `snapshot` is a MOVING tag, and an
             # existing release keeps its own commit however its assets are replaced.
             gh release delete "$TAG" --yes --cleanup-tag || true
             gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
               --title "snapshot $STAMP" \
-              --notes "Unsigned build of master ($GITHUB_SHA). Replaced by the next one." \
+              --notes "Build of main ($GITHUB_SHA); desktops unsigned, files listed in SHA256SUMS. Replaced by the next one." \
               dist/*
           else
             gh release create "$TAG" --title "$TAG" --generate-notes dist/*

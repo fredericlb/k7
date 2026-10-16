@@ -12,12 +12,22 @@ export interface SceneClip {
   sourceFrom: number; // the in-point INTO the source
   fadeIn?: SceneFade; // over its own start; absent is a hard cut
   fadeOut?: SceneFade; // over its own end
+  animate?: SceneAnimate; // how it moves in its lane's frame; absent costs nothing — docs/motion.md
 }
+
+/** A shot's animated properties, each its sorted keys in seconds from the shot's start; `ease` shapes the segment leaving a key. */
+export type SceneAnimate = Partial<
+  Record<
+    "x" | "y" | "scale" | "opacity" | "rotate",
+    readonly { t: number; v: number; ease: string }[]
+  >
+>;
 
 /** How a shot arrives or leaves: how long, and which program draws it — `with` keys `VideoScene.transitions`. */
 export interface SceneFade {
   over: number; // seconds
-  with: string; // a transition name, or "dissolve" — the one this renderer owns
+  with: string; // a transition name, or "dissolve" / "over" — the two this renderer owns
+  chain?: string; // the stretch this shot runs through over the fade — keys `VideoScene.stretches`
 }
 
 /** A transition's two stages, shared by every cut that names it — one program per name, not per cut. */
@@ -99,6 +109,8 @@ export interface VideoScene {
   framePasses?: ScenePass[];
   // Every named transition in the scene, by name — SCENE-level, since one program serves every lane and cut.
   transitions?: Record<string, SceneTransition>;
+  // …and every STRETCH a fade names, by head node: the passes a shot runs through on its way in or out.
+  stretches?: Record<string, ScenePass[]>;
 }
 
 // The structural shape of a brain VideoTrackDoc minus the absolute path, declared here so eyes stays brain-free.
@@ -117,6 +129,7 @@ export interface SceneLayerInput {
     sourceFrom: number;
     fadeIn?: SceneFade;
     fadeOut?: SceneFade;
+    animate?: SceneAnimate;
   }[];
   shapes?: SceneShape[];
   passes?: ScenePass[];
@@ -131,6 +144,7 @@ export function buildScene(
   layers: SceneLayerInput[],
   framePasses: ScenePass[] = [],
   transitions: Record<string, SceneTransition> = {},
+  stretches: Record<string, ScenePass[]> = {},
 ): VideoScene {
   let durationSec = 0;
   const built: VideoLayer[] = layers.map((l) => {
@@ -154,6 +168,7 @@ export function buildScene(
         // Never dropped the way a bypassed pass is: a fade has no `enabled`, so absent means absent.
         ...(c.fadeIn ? { fadeIn: { ...c.fadeIn } } : {}),
         ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
+        ...(c.animate ? { animate: c.animate } : {}),
       })),
       // Shapes carry no time, so they don't extend durationSec — a shapes-only song has no natural end to render.
       ...(l.shapes?.length ? { shapes: l.shapes.map((s) => ({ ...s })) } : {}),
@@ -165,6 +180,11 @@ export function buildScene(
   });
   const frame = framePasses.filter((p) => p.enabled);
   const named = Object.entries(transitions);
+  // A bypassed step is dropped as a lane's is; a stretch left with none still runs, as the identity.
+  const runs = Object.entries(stretches).map(
+    ([k, run]) =>
+      [k, run.filter((p) => p.enabled).map((p) => ({ ...p }))] as const,
+  );
   return {
     viewport,
     fps,
@@ -178,5 +198,6 @@ export function buildScene(
           ),
         }
       : {}),
+    ...(runs.length ? { stretches: Object.fromEntries(runs) } : {}),
   };
 }

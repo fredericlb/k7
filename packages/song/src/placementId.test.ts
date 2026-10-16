@@ -75,6 +75,8 @@ describe("materialRefOf", () => {
   it("keeps an `@` that is not a start", () => {
     // Nothing forbids one in an entity name, and only a NUMBER after the last `@` is a start.
     expect(materialRefOf("bass@live")).toBe("bass@live");
-    expect(materialRefOf("@st0/audio/reverb")).toBe("@st0/audio/reverb");
+    expect(materialRefOf("@k7-core/audio/reverb")).toBe(
+      "@k7-core/audio/reverb",
+    );
   });
 });

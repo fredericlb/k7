@@ -40,37 +40,37 @@ describe("library versions", () => {
     writeFileSync(join(ws, "_library-pins.yaml"), text);
 
   it("reads an unpinned workspace at version 1, and a pinned one at its pin", () => {
-    expect(libraryVersions("st0")).toEqual([1, 2]);
-    expect(libraryRoot("st0", project)).toBe(join(lib, "1"));
-    pin("st0: 2\n");
-    expect(libraryRoot("st0", project)).toBe(join(lib, "2"));
+    expect(libraryVersions("k7-core")).toEqual([1, 2]);
+    expect(libraryRoot("k7-core", project)).toBe(join(lib, "1"));
+    pin("k7-core: 2\n");
+    expect(libraryRoot("k7-core", project)).toBe(join(lib, "2"));
     expect(moduleLibraryDirs(project)).toEqual([join(lib, "2", "modules")]);
-    pin("st0: draft\n");
-    expect(libraryRoot("st0", project)).toBe(join(lib, "draft"));
+    pin("k7-core: draft\n");
+    expect(libraryRoot("k7-core", project)).toBe(join(lib, "draft"));
   });
 
   it("names a version folder's library by its path, and keeps a module inside the version it was loaded from", () => {
     const mod = join(lib, "2", "modules");
-    expect(libraryOf(mod)).toEqual({ name: "st0", root: join(lib, "2") });
-    expect(moduleNamespaceOf(mod)).toBe("st0");
+    expect(libraryOf(mod)).toEqual({ name: "k7-core", root: join(lib, "2") });
+    expect(moduleNamespaceOf(mod)).toBe("k7-core");
     mkdirSync(join(lib, "2", "irs"));
-    expect(libraryFamilyRoot("st0", "irs", join(mod, "amp"))).toBe(
+    expect(libraryFamilyRoot("k7-core", "irs", join(mod, "amp"))).toBe(
       join(lib, "2", "irs"),
     );
   });
 
   it("lets an admin write the draft and never a published version", () => {
-    setLibraryOverlays([{ name: "st0", root: join(lib, "draft") }]);
-    expect(libraryRoot("st0", project)).toBe(join(lib, "draft"));
+    setLibraryOverlays([{ name: "k7-core", root: join(lib, "draft") }]);
+    expect(libraryRoot("k7-core", project)).toBe(join(lib, "draft"));
     const editable = (path: string) => {
       const at = libraryOf(path);
       return at !== null && isLibraryRootEditable(at);
     };
     expect(editable(join(lib, "draft", "x"))).toBe(true);
     expect(editable(join(lib, "2", "x"))).toBe(false);
-    pin("st0: 2\n");
+    pin("k7-core: 2\n");
     // A pin outranks the overlay: the admin hears what the workspace pinned.
-    expect(libraryRoot("st0", project)).toBe(join(lib, "2"));
+    expect(libraryRoot("k7-core", project)).toBe(join(lib, "2"));
   });
 
   it("reads a library still in one folder as every version of itself", () => {

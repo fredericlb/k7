@@ -5,6 +5,7 @@
 import { ConflictSet } from "./conflicts.ts";
 import { applyFileOp, settleFileOp } from "./fileOp.ts";
 import type { Batch, Conflict, FileOp, Sequenced } from "./ops.ts";
+import { assertSyncPath } from "./path.ts";
 import { TextBases } from "./textMerge.ts";
 
 /** How many sequenced batches a room keeps for catch-up; a replica further behind gets the whole state. */
@@ -59,8 +60,9 @@ export class Room {
     };
   }
 
-  /** Order `batch`, applying it to the canonical files; a batch seen before answers its first ordering. */
+  /** Order `batch`, applying it to the canonical files; a batch seen before answers its first ordering, one naming a path outside the workspace throws. */
   submit(batch: Batch): { entry: Sequenced; fresh: boolean } {
+    for (const op of batch.ops) assertSyncPath(op.file);
     const known = this.log.find((e) => e.batch.id === batch.id);
     if (known) return { entry: known, fresh: false };
     const seq = this.head + 1;

@@ -12,34 +12,34 @@ describe("neededRefs", () => {
   it("finds the shared modules a SET extends", () => {
     const refs = neededRefs(setProjectFiles("ete"));
     // The fade is the one every set has — twice, one per deck; the rest travel with the lanes.
-    expect(refs).toContain("@st0/audio/utility/fade");
+    expect(refs).toContain("@k7-core/audio/utility/fade");
     expect(refs.length).toBeGreaterThan(1);
     expect(refs.every((r) => r.startsWith("@"))).toBe(true);
   });
 
   /** Only the LIBRARIES namespace is owed. The others resolve without anyone setting up a repository. */
-  it("ignores every namespace but @st0", () => {
+  it("ignores every namespace but @k7-core", () => {
     expect(
       neededRefs({
         workspace: 'extends: "@workspace/instruments/synth"\n',
         builtin: 'extends: "@meta/track"\n',
         engine: 'extends: "@engine/audio/delay/adt"\n',
-        library: 'extends: "@st0/audio/utility/crossfade"\n',
+        library: 'extends: "@k7-core/audio/utility/crossfade"\n',
       }),
-    ).toEqual(["@st0/audio/utility/crossfade"]);
+    ).toEqual(["@k7-core/audio/utility/crossfade"]);
   });
 
   it("reads a ref quoted or bare, and drops a trailing comment", () => {
     expect(
       neededRefs({
-        a: 'extends: "@st0/cold/tempo"\n',
-        b: "extends: @st0/audio/filter/eq3\n",
-        c: "extends: @st0/audio/filter/sweep   # the one on the desk\n",
+        a: 'extends: "@k7-core/cold/tempo"\n',
+        b: "extends: @k7-core/audio/filter/eq3\n",
+        c: "extends: @k7-core/audio/filter/sweep   # the one on the desk\n",
       }),
     ).toEqual([
-      "@st0/audio/filter/eq3",
-      "@st0/audio/filter/sweep",
-      "@st0/cold/tempo",
+      "@k7-core/audio/filter/eq3",
+      "@k7-core/audio/filter/sweep",
+      "@k7-core/cold/tempo",
     ]);
   });
 
@@ -52,7 +52,10 @@ describe("neededRefs", () => {
 });
 
 describe("missingRefs", () => {
-  const needed = ["@st0/audio/filter/eq3", "@st0/audio/utility/crossfade"];
+  const needed = [
+    "@k7-core/audio/filter/eq3",
+    "@k7-core/audio/utility/crossfade",
+  ];
 
   it("is empty when the library resolves them all", () => {
     const known = Object.fromEntries(needed.map((r) => [r, {}]));
@@ -70,14 +73,14 @@ describe("missingRefsReport", () => {
   });
 
   it("counts, names them, and says nothing will fetch them", () => {
-    const said = missingRefsReport(["@st0/a", "@st0/b"]) ?? "";
+    const said = missingRefsReport(["@k7-core/a", "@k7-core/b"]) ?? "";
     expect(said).toMatch(/2 shared modules/);
-    expect(said).toContain("@st0/a, @st0/b");
+    expect(said).toContain("@k7-core/a, @k7-core/b");
     // The no-seed rule is the point: the sentence must not promise a catalogue is coming.
     expect(said).toMatch(/nothing copies a catalogue in for you/);
   });
 
   it("counts one in the singular", () => {
-    expect(missingRefsReport(["@st0/a"])).toMatch(/^1 shared module this/);
+    expect(missingRefsReport(["@k7-core/a"])).toMatch(/^1 shared module this/);
   });
 });

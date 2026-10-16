@@ -1,4 +1,4 @@
-// nodeOnRef.ts — a node made straight over a module REF (`@st0/instruments/st0-rack`), with no
+// nodeOnRef.ts — a node made straight over a module REF (`@k7-core/instruments/k7-rack`), with no
 // `@workspace` module scaffolded in between. `createNode` takes `<category>/<name>` and so only reaches
 // the workspace's own modules and the engine's; a library module reached that way would get a local
 // shim extending it, a second file standing for the same thing (packages/song/docs/nodes.md).

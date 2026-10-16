@@ -10,6 +10,9 @@ import {
   scannedPluginNames,
   scannedPlugins,
 } from "@studio/engine-client/pluginCache";
+// k7's plugin contributions — commands and surface types — before anything reads a catalogue
+// or compiles a song. The LIST is the plugins package's; this process only calls the install.
+import { installBuiltinPlugins } from "@studio/k7-plugins/server";
 import { ensureLayout } from "@studio/mediatek/layout";
 import {
   loadPreferences,
@@ -17,9 +20,6 @@ import {
   setStemsChain,
 } from "@studio/song/preferences";
 import { accountLibraries } from "@studio/song/sharedFolders";
-// st0's plugin contributions — commands and surface types — before anything reads a catalogue
-// or compiles a song. The LIST is the plugins package's; this process only calls the install.
-import { installBuiltinPlugins } from "@studio/st0-plugins/server";
 import {
   type AccountLibrariesReply,
   type AccountWorkspaceList,
@@ -49,7 +49,12 @@ import {
 } from "./engineLink.ts";
 import { hubRouter, hubSecretOk, requireHubSecret } from "./hosted.ts";
 import { ensureLibraryPins } from "./libraryPins.ts";
-import { downloadWorkspace, workspaceSyncStatus } from "./liveSync.ts";
+import { startCopy, startMove } from "./liveMove.ts";
+import {
+  downloadWorkspace,
+  joinServerRooms,
+  workspaceSyncStatus,
+} from "./liveSync.ts";
 import { startPrefetch } from "./mediatekPrefetch.ts";
 import { modelDownload, startModelDownload } from "./modelDownloads.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
@@ -59,6 +64,7 @@ import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
 import { renderRouter } from "./routes/render.ts";
 import { installServiceLog } from "./serviceLog.ts";
+import { exitOnSignals } from "./shutdown.ts";
 import { rootDir, workspaceRoot } from "./slug.ts";
 import {
   attachAllWorkspaces,
@@ -135,7 +141,9 @@ app.use(["/workspaces", "/engine/served", "/account"], workspaceGate);
 // Registered BEFORE resolveWorkspace, and typed by the envelope web-protocol already declares for it.
 app.get(
   "/workspaces",
-  wrap((req, res) => {
+  wrap(async (req, res) => {
+    // On a server, a workspace a device created or moved here is joined before it is listed (docs/workspaces.md).
+    await joinServerRooms();
     const reply: WorkspaceList = { workspaces: listWorkspaces(req.userEmail!) };
     res.json(reply);
   }),
@@ -145,8 +153,7 @@ app.get(
  * project extends resolves through one, and a workspace made without any opens onto references
  * that resolve to nothing — see docs/libraries.md.
  */
-const NO_LIBRARIES =
-  "no libraries — an admin adds them in st0's Libraries page";
+const NO_LIBRARIES = "no libraries — an admin adds them in k7's Libraries page";
 const hasLibraries = (res: Response): boolean => {
   if (accountLibraries().length) return true;
   res.status(400).json({ error: NO_LIBRARIES });
@@ -163,7 +170,7 @@ app.post(
     // The ONE place a workspace is created on request — getWorkspace deliberately refuses to (Examples aside).
     try {
       const created = await createWorkspace(req.userEmail!, name);
-      // A new workspace pins the newest version of each library this st0 runs.
+      // A new workspace pins the newest version of each library this k7 runs.
       if (created)
         ensureLibraryPins(workspaceRoot(name), {
           fresh: true,
@@ -221,10 +228,11 @@ app.post(
   }),
 );
 
-/** Every workspace on this machine and the projects in it — st0's home page, in one call. See docs/activeProject.md. */
+/** Every workspace on this machine and the projects in it — k7's home page, in one call. See docs/activeProject.md. */
 app.get(
   "/workspaces/projects",
   wrap(async (req, res) => {
+    await joinServerRooms();
     const reply: AccountWorkspaceList = {
       workspaces: await listMachineWorkspaces(req.userEmail!),
     };
@@ -240,20 +248,64 @@ app.get(
   }),
 );
 
-/** Bring a workspace that exists only on the server down here; it stays synced from then on. */
-const downloadBody = z.object({ name: z.string().min(1) });
+/** Bring a workspace that exists only on a server down here — the main one unless `server` says — and keep it synced. */
+const downloadBody = z.object({
+  name: z.string().min(1),
+  server: z.string().min(1).optional(),
+});
 app.post(
   "/workspaces/sync/download",
   validate(downloadBody),
   wrap(async (req, res) => {
-    const { name } = req.body as z.infer<typeof downloadBody>;
-    if (await downloadWorkspace(name)) res.json({ ok: true });
+    const { name, server } = req.body as z.infer<typeof downloadBody>;
+    const here = new Set(workspaceNames(rootDir()));
+    // A name another server's workspace already has here lands as `name.host` (docs/liveCapture.md, "Several servers").
+    const local = await downloadWorkspace(name, server, (n) => here.has(n));
+    if (local) res.json({ ok: true, name: local });
     else
-      res.status(404).json({ error: `the server has no workspace '${name}'` });
+      res.status(404).json({
+        error: `${server ?? "the server"} has no workspace '${name}'`,
+      });
   }),
 );
 
-/** …the same list narrowed to what a SECOND DEVICE could open — st0's `/external`, in one call. */
+/** Move a workspace to another server this account is paired with: there whole, then off the one it left. */
+const moveBody = z.object({
+  name: z.string().min(1),
+  to: z.string().min(1),
+});
+app.post(
+  "/workspaces/sync/move",
+  validate(moveBody),
+  wrap(async (req, res) => {
+    const { name, to } = req.body as z.infer<typeof moveBody>;
+    try {
+      // The refusals answered now; the move itself runs on, and `/workspaces/sync` says how it went.
+      await startMove(workspaceRoot(name), to);
+      res.status(202).json({ ok: true });
+    } catch (e) {
+      res.status(409).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+/** Copy a workspace to another server this account is paired with: there whole, and still synced where it was. */
+app.post(
+  "/workspaces/sync/copy",
+  validate(moveBody),
+  wrap(async (req, res) => {
+    const { name, to } = req.body as z.infer<typeof moveBody>;
+    try {
+      // Answered like a move: the refusals now, the copy running on, and `/workspaces/sync` says how it went.
+      await startCopy(workspaceRoot(name), to);
+      res.status(202).json({ ok: true });
+    } catch (e) {
+      res.status(409).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+/** …the same list narrowed to what a SECOND DEVICE could open — k7's `/external`, in one call. */
 app.get(
   "/workspaces/surfaces",
   wrap(async (req, res) => {
@@ -369,7 +421,7 @@ app.get(
 
 /**
  * WHICH chains this machine separates a record with and makes an instrumental with — standing
- * answers for the machine, so they are st0's GLOBAL settings and answered before
+ * answers for the machine, so they are k7's GLOBAL settings and answered before
  * `resolveWorkspace`, like the libraries: no project is open when they are set. The choice is
  * from the libraries' COLD chains (`coldChains`). See docs/libraries.md.
  */
@@ -465,8 +517,8 @@ app.use(workspaceGate, resolveWorkspace, filesRouter);
 
 // Loopback: its only caller is the hub beside it.
 const HOST = "127.0.0.1";
-app.listen(FILE_PORT, HOST, () => {
-  mkdirSync(rootDir(), { recursive: true }); // ensure ~/.st0/root exists
+const server = app.listen(FILE_PORT, HOST, () => {
+  mkdirSync(rootDir(), { recursive: true }); // ensure ~/.k7/root exists
   // The engine session is the recorded owner's from the first frame, not from the first request.
   adoptRecordedOwner();
   // Only a long-lived process may skip `@studio/song`'s module-stamp walk — see moduleWatch.ts.
@@ -477,9 +529,9 @@ app.listen(FILE_PORT, HOST, () => {
   } catch (e) {
     console.warn(`   mediatek unavailable: ${(e as Error).message}`);
   }
-  console.log(`📁 st0 file service on http://${HOST}:${FILE_PORT}`);
+  console.log(`📁 k7 file service on http://${HOST}:${FILE_PORT}`);
   console.log(`   root: ${rootDir()}`);
-  // Examples stocked with this build's demos: a new account's first sight of st0, an old one's fixes.
+  // Examples stocked with this build's demos: a new account's first sight of k7, an old one's fixes.
   syncExamples();
   // Every workspace is a replica from the start, so one never opened here still sends and receives.
   attachAllWorkspaces();
@@ -491,3 +543,5 @@ app.listen(FILE_PORT, HOST, () => {
       console.log(`   engine link idle, dropped: ${s}`);
   }, 60_000).unref();
 });
+// A quit or a redeploy stops this process by signal: it stops accepting and exits 0 (docs/shutdown.md).
+exitOnSignals(server);

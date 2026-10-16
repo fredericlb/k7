@@ -4,7 +4,7 @@
 
 ## Why they exist
 
-`apps/st0/frontend/docs/picture.md` had a section called **"Not a command, and why"**, and it was
+`apps/k7/frontend/docs/picture.md` had a section called **"Not a command, and why"**, and it was
 an accurate description of a gap rather than an argument for one. Every audio edit in the shell is
 a verb; a picture placement was dragged, and `App.applyVideoEdit` wrote the lane directly. The page
 listed what that cost:
@@ -25,9 +25,25 @@ in the frame; before them, both took a text editor.
 | `picture length <lane> <at> <seconds>` | `length` | the right-edge drag |
 | `picture head <lane> <at> <to>` | `start`, `source_from` **and** `length` | the left-edge drag |
 | `picture delete <lane> <at>` | — | (none — the drag has no delete) |
-| `picture add <lane> <ref> <at> …` | a new entry | dropping a video file on a picture lane (`apps/st0/frontend/docs/timeline.md`) |
+| `picture add <lane> <ref> <at> …` | a new entry | dropping a video file on a picture lane (`apps/k7/frontend/docs/timeline.md`) |
 | `picture lane new [name]` | a new LANE, and `project.layers` | the timeline's `＋ piste` menu |
 | `picture rect <lane> <x> <y> <w> <h>` | `x`, `y`, `w`, `h` | selecting a layer in the VIEWPORT and dragging it |
+| `picture split <lane> <at> <where>` | a second placement of the same clip, right after the first | the cut tool on a shot, and `Ctrl+B` at the playhead |
+| `picture sound <lane> [track]` | each clip's `sound:`, and a lane saying `video_source:` | run by the timeline after a video drop |
+
+`picture split` is VIRTUAL where `event split` renders: two placements of one clip, the head
+ending at the cut and the tail starting there with `source_from` moved on by the head's length,
+so the frames played do not change (`packages/song/docs/materialCut.md` says why audio is the
+other way). The tail is inserted RIGHT AFTER the head and not appended, because file order
+decides which shot covers which (`packages/song-video/docs/transitions.md`), and an appended tail
+would cover every shot placed between the two. The head keeps the `fade_in` and the tail takes
+the `fade_out`, so a shot still arrives and leaves the way it did, with a plain cut between the
+halves.
+
+`picture sound` is the one that is not a gesture's twin: it makes the shots audible through the
+engine, extracting what is missing and reusing the lane that already plays them, so running it
+twice changes nothing (`packages/song/docs/videoSound.md`). It lives in `src/verbs/pictureSound.ts`,
+beside the verbs it borrows `laneFile` from.
 
 ## A shot is addressed by WHERE IT STARTS
 
@@ -79,7 +95,7 @@ only the compiler can measure, so pinning a number here would invent one.
 
 Every other one is about time — where a shot starts, how long it runs, which lane draws first. This
 one says where in the frame a lane draws, in viewport px, and it is what the viewport's selection
-box writes on release (`apps/st0/frontend/docs/picture.md`).
+box writes on release (`apps/k7/frontend/docs/picture.md`).
 
 It writes **all four** keys, always. A lane stating three of them and inheriting the fourth is a
 rect nobody can read, and the fourth would come from the viewport default that exists precisely so
@@ -96,7 +112,7 @@ verb that counted the other way would disagree with the list it writes.
 
 The timeline lists its picture rows the other way round (front layer at the top), so its drag never
 sends a number: it names the lane whose place is being taken, and this verb does the counting.
-`apps/st0/frontend/docs/picture.md` has the reason that reversal exists.
+`apps/k7/frontend/docs/picture.md` has the reason that reversal exists.
 
 ## `picture lane new` writes TWO files, and looks the second up first
 

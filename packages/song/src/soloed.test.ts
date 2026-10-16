@@ -17,7 +17,7 @@ import { compileNodeProject } from "./nodeProject";
 import { copyAsYaml } from "./testSupport";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SONG = join(here, "..", "..", "..", "demos", "node-demo.st0");
+const SONG = join(here, "..", "..", "..", "demos", "node-demo.k7");
 
 let dir: string;
 const solo = (ids: string[]) =>

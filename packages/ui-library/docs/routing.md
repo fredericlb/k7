@@ -6,7 +6,7 @@ editor over the top of it. Both live in the address rather than in component sta
 editor, and a reload dropping you at Songs.
 
 The address carries both, and reads exactly like the path on disk. The host mounts the screens
-under a prefix — `/media` in st0 — and hands it over as `prefix` ([host.md](host.md)), so below
+under a prefix — `/media` in k7 — and hands it over as `prefix` ([host.md](host.md)), so below
 that prefix:
 
 ```
@@ -32,7 +32,7 @@ shows through until then.
 
 ## The loop, and the two nulls
 
-`useLibraryRoute` is st0' `useViewRoute` with a different state, deliberately: the hazard
+`useLibraryRoute` is k7' `useViewRoute` with a different state, deliberately: the hazard
 is identical. Two passive effects, one writing the URL from the state and one the state from
 the URL, will ping-pong unless each can say "nothing to do here".
 
@@ -54,8 +54,8 @@ at a time.
 
 ## Serving it, and the prefix
 
-Deep links need the server to hand `index.html` to a path that is not a file: st0's backend does it
-for every path but `/api`, `/auth` and `/assets/` (`apps/st0/backend/src/server.ts`), and vite's dev
+Deep links need the server to hand `index.html` to a path that is not a file: k7's backend does it
+for every path but `/api`, `/auth` and `/assets/` (`apps/k7/backend/src/server.ts`), and vite's dev
 server does by default. The alias host, `play.`, sends every page to the same path under
 `/media` with a 301, so an address saved there still lands on its section
 (`packages/web-protocol/docs/addresses.md`).
@@ -63,14 +63,14 @@ server does by default. The alias host, `play.`, sends every page to the same pa
 The router is the HOST's, with its own basename; this package does not own one. `routes.ts` takes
 the prefix as an argument in both directions — `toPath(state, prefix)` and
 `fromLocation(pathname, prefix)` — and a path that is not under it reads as the default section.
-The host, for its part, must reserve the prefix as a whole: st0 does it in
+The host, for its part, must reserve the prefix as a whole: k7 does it in
 `packages/web-protocol/projects.ts` (`MEDIA_PAGE`, a reserved PREFIX), since a first segment is
 otherwise read as a workspace's name.
 
 ## Every section is an entry of the host's nav
 
 The five sections — the two families, the two root zones and `find` — are drawn by the host, from
-`LIBRARY_SECTIONS` (`src/sections.ts`); in st0 they are entries of the home sidebar. Settings are
+`LIBRARY_SECTIONS` (`src/sections.ts`); in k7 they are entries of the home sidebar. Settings are
 not a section: their two cards are sections of the host's own settings page
 ([settings.md](settings.md)).
 
@@ -121,7 +121,7 @@ between `toPath` and `fromLocation`, one function earlier. Hence the round-trip 
 opens something and is missing from `CARRIES` fails there, at the point where the two
 directions stop being inverses.
 
-st0's router sits **outside** its auth gate, so a deep link survives signing in.
+k7's router sits **outside** its auth gate, so a deep link survives signing in.
 
 ## Percent-encoding, per segment
 
@@ -139,7 +139,7 @@ should do.
 ## The default section is the songs
 
 What the library holds is the catalogue, and the catalogue's first family is the songs. The bare
-prefix opens it. The front door for one's own work is st0's home page, the origin root.
+prefix opens it. The front door for one's own work is k7's home page, the origin root.
 
 ## What is not here, and the backend that is
 
@@ -147,15 +147,15 @@ prefix opens it. The front door for one's own work is st0's home page, the origi
   where the plugin it names is actually LOADED, and written into a library folder by an
   admin, from any project open in the editor. That is the editor's job, not a catalogue's.
 - **The level above a project** — the workspaces, the libraries and the
-  shares — belongs to the editor that opens one, so it is the other pages of st0's home.
+  shares — belongs to the editor that opens one, so it is the other pages of k7's home.
 
 **Playlists**, on the other hand, ARE here — `playlists/` on the volume, its own section, beside
 the songs a line names ([playlists.md](playlists.md)). A workspace keeps its own under
 `_playlists/`, same format and a different job: those are versioned with the project and are what
 a `turntables` surface can name.
 
-The shares and the whole of `/api/mediatek` are the same backend's routes, and st0's other pages
-call them on the same origin; the workspaces, the libraries and the key are the file service's ([projects.md](../../../apps/st0/backend/docs/media/projects.md)). An address under the
+The shares and the whole of `/api/mediatek` are the same backend's routes, and k7's other pages
+call them on the same origin; the workspaces, the libraries and the key are the file service's ([projects.md](../../../apps/k7/backend/docs/media/projects.md)). An address under the
 media prefix naming any of those falls through to the default section like any other unknown path. See
-[apps/st0/frontend/docs/projects.md](../../../apps/st0/frontend/docs/projects.md) and
-[apps/st0/frontend/docs/playlists.md](../../../apps/st0/frontend/docs/playlists.md).
+[apps/k7/frontend/docs/projects.md](../../../apps/k7/frontend/docs/projects.md) and
+[apps/k7/frontend/docs/playlists.md](../../../apps/k7/frontend/docs/playlists.md).

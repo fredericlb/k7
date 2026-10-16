@@ -26,8 +26,8 @@ the dissolve B stays where it is and the next transition loads C on the element 
 `onSeek` re-seeks **both**: scrubbing into the middle of a dissolve has to land the pair, or the
 first frame after the scrub blends the right shot with a stale one.
 
-The element is muted (the file's audio is dropped by design, and muted is also what lets
-it autoplay), parked 1px and invisible but NOT `display:none` — a `display:none` element
+The element is muted (a shot's sound is the ENGINE's, on an audio lane —
+`packages/song/docs/videoSound.md` — and muted is also what lets it autoplay), parked 1px and invisible but NOT `display:none` — a `display:none` element
 is allowed to skip decoding.
 
 ## Two-speed drift correction
@@ -92,7 +92,7 @@ the latter is the WALL clock, which an NTP correction or a daylight step can mov
 running transport, and every reader here subtracts two readings, so a backwards step reads as the
 picture jumping. It is also coarser. Monotonic is the whole requirement.
 
-`TransportClock` is **unused in this repo** — st0 hosts the renderer and has an engine, so the
+`TransportClock` is **unused in this repo** — k7 hosts the renderer and has an engine, so the
 picture follows `EngineClock`. It is kept because the seam is the point: for a host with no device
 whose sample position the picture must agree with, inventing an engine to keep time would be a whole
 process running to hold a number. It has no drift to correct (there is no audio clock to drift

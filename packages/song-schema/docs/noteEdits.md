@@ -79,7 +79,7 @@ then undo a fifth of the way back, which is worse than either doing it or refusi
 document pass also means one parse and one serialise, where N calls re-read the file N times.
 
 A note is in when it **starts** inside, the rule the roll's rectangle already copies by
-(`apps/st0/frontend/src/clipboard.ts`). Taking them by overlap would put the same note in two
+(`apps/k7/frontend/src/clipboard.ts`). Taking them by overlap would put the same note in two
 adjacent boxes. `repeat` and `skip` are never touched, so a pad crossed by a transposition keeps
 its effects, and a line the parse cannot read as a note is left alone rather than rewritten.
 
@@ -100,7 +100,7 @@ source, and a start before the sequence. Nothing is written when any of it refus
 
 ## Twice as long, playing twice
 
-`doubleSequence` is the ×2 in a note grid's header (`apps/st0/frontend/docs/clipEditors.md`), and
+`doubleSequence` is the ×2 in a note grid's header (`apps/k7/frontend/docs/clipEditors.md`), and
 almost all of it is one question: **what a sequence's LENGTH is**. It is the WINDOW, and a sequence
 states one in either of two ways — a `from`/`to` pair of timecodes, or nothing at all, in which
 case the length is the notes' extent **rounded up to the bar**. That second rule is the compiler's
@@ -138,7 +138,7 @@ nothing, which is the one failure this codebase says everywhere else it will not
   difference is that a paste is new material and a transpose is notes that exist: losing one
   silently would leave the rest moved and no way to say what went. The engine's own `transpose`
   node clamps for a harder reason still — a dropped note leaves its note-off behind and hangs the
-  voice (`engine/st0-engine/engine/DspGraph.cpp`).
+  voice (`engine/k7-runtime/engine/DspGraph.cpp`).
 - **velocity is absolute, and 1 clears the field**, exactly as the singular verb does: a region set
   to full leaves a file that never mentions velocity, which is what an untouched sequence looks
   like. A relative factor would be a fifth verb, not a flag on this one.

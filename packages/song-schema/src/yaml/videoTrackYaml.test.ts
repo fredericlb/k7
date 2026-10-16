@@ -29,6 +29,24 @@ describe("a fade on a placement", () => {
     expect(r.data?.events?.[0].fade_in).toEqual({ over: 1.5, with: "wipe" });
   });
 
+  it("takes a `chain` — the stretch the shot runs through — with or without a kind", () => {
+    const r = lane([
+      { ref: "a", start: 0, length: 5, fade_out: { over: 1, chain: "iris" } },
+    ]);
+    expect(r.success).toBe(true);
+    expect(r.data?.events?.[0].fade_out).toEqual({ over: 1, chain: "iris" });
+    const bad = issuesOf(
+      lane([
+        { ref: "a", start: 0, length: 5, fade_in: { over: 1, chian: "iris" } },
+      ]),
+    );
+    expect(bad.find((i) => i.code === "unrecognized_keys")?.path).toEqual([
+      "events",
+      0,
+      "fade_in",
+    ]);
+  });
+
   it("reports a typo'd key AT the key, so the editor can find the line", () => {
     // The reason this is a preprocess and not a union: a union answers "Invalid input" with no path.
     const bad = issuesOf(

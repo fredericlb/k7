@@ -3,6 +3,7 @@
 // `id:` — the name is the id), which also rules out one file declaring several ids.
 
 import { z } from "zod";
+import { AnimateSchema } from "../keyframes";
 import { TIMECODE } from "./placementSchema";
 
 /** A stretch map from the DAW a clip was imported from. */
@@ -50,7 +51,14 @@ export const AudioClipSchema = z
   );
 
 export const VideoClipSchema = z
-  .object({ source: z.string().regex(VIDEO_SOURCE) })
+  .object({
+    source: z.string().regex(VIDEO_SOURCE),
+    // The file's sound, extracted once into an audio file the engine reads on every platform (packages/song/docs/videoSound.md).
+    sound: z
+      .string()
+      .refine((s) => !VIDEO_SOURCE.test(s), "a sound is an audio file")
+      .optional(),
+  })
   .strict();
 
 // Audio or video, told apart by the source's EXTENSION, which lets a clip file say only `source:`.
@@ -213,8 +221,10 @@ const Px = z.number();
 export const FadeSchema = z
   .object({
     over: z.number().min(0), // seconds
-    // A module in modules/video_transitions/, by its bare name; absent is the built-in dissolve.
+    // A module in modules/video_transitions/, by its bare name; absent is the built-in dissolve, or `over` beside a `chain`.
     with: z.string().min(1).optional(),
+    // The head node of a run fed by nothing that lands on this lane: it runs on THIS shot over the fade.
+    chain: z.string().min(1).optional(),
   })
   .strict();
 
@@ -236,6 +246,8 @@ export const VideoPlacementSchema = z
     // Seconds, and a DURATION rather than a position — the audio placement's fadeIn in this file's dialect.
     fade_in: TransitionSchema.optional(),
     fade_out: TransitionSchema.optional(),
+    // How the shot MOVES inside its lane's frame, in seconds from its own start — song-video docs/animation.md.
+    animate: AnimateSchema.optional(),
   })
   .strict()
   // Three keys that need a source, on an event that has none: each would be read by nothing.

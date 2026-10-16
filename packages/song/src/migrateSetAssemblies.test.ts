@@ -30,7 +30,7 @@ let ws = "";
 let dir = "";
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "asm-mig-"));
-  dir = join(ws, "set.st0");
+  dir = join(ws, "set.k7");
   mkdirSync(dir, { recursive: true });
 });
 afterEach(() => {

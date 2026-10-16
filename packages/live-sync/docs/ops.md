@@ -18,7 +18,7 @@ it sends the whole text. A comment that changed, keys that moved, or a file a wr
 first touch all travel as text. That costs bandwidth, never correctness: a replica holding the same
 `before` always ends up with the same file.
 
-Measured over every scalar of every YAML file in `demos/` and `st0-library` that is already in writer
+Measured over every scalar of every YAML file in `demos/` and `k7-core` that is already in writer
 format (11,777 edits made the way song's writers make them): no fallback and no wrong replay. Over
 their keyed lists (16 of them, the first five items each edited, removed, and followed by an added
 one: 90 edits), every edit travels as item ops and replays exactly (`src/corpus.test.ts`).
@@ -75,6 +75,16 @@ op made against a value that has moved since, and set it aside rather than overw
 (`sync.md`). A hash is enough for a whole file, since nothing shows its old text; a path op carries
 the value itself because that is what a conflict shows next to the alternative. An op without `was`
 is applied unchecked: a seed, a first join.
+
+## A file is a path that cannot leave the workspace
+
+An op's `file` comes from another replica, and the server is one replica among others: whoever
+writes it treats it as hostile. `src/path.ts` is the one rule: a relative POSIX path, no empty, `.`
+or `..` segment, no backslash, no drive letter, no control character. The relay's parser
+(`parseToRelay`, which also checks every op's shape, kind by kind) and `Room.submit` refuse a batch
+that breaks it, so a room never holds such a path. Each replica checks again where it writes, against
+the resolved path (`packages/file-service/src/livePath.ts`), since a hostile server is exactly the
+case where the relay's check did not run. The rule has no `node:` in it, so a browser may use it too.
 
 ## A value travels as its own YAML source
 

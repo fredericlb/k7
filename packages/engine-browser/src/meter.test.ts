@@ -5,7 +5,7 @@
 // the part that would be wrong silently: a scale that reads the floor as full, a light that clears on
 // the wrong event, and a peak that clears on a different one from the light.
 //
-// It lives here rather than beside st0's header meter because the DJ desk draws the same bar off the
+// It lives here rather than beside k7's header meter because the DJ desk draws the same bar off the
 // same frames, and these are the functions both of them read.
 
 import { describe, expect, it } from "vitest";

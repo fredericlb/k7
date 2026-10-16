@@ -7,9 +7,9 @@ note and morphed by a knob.
 ## The slot is filled by a STRING param of the same name
 
 ```yaml
-extends: "@st0/instruments/synth/wavetable"
+extends: "@k7-core/instruments/synth/wavetable"
 params:
-  Table: "@st0/basic.wav"
+  Table: "@k7-core/basic.wav"
   Position: 0.4
 ```
 
@@ -21,7 +21,8 @@ compile sends the map as `faustFiles`; `numericParams` already keeps strings off
 A ref resolves the way a library file does (`docs/libraryFiles.md`): `@<library>/…` in that library's
 `wavetables/`, then its `samples/`; `@project/…` in the project's own `wavetables/` or `samples/`;
 anything else is a path under the project. One that resolves nowhere is passed through unchanged, so
-the engine's warning names exactly what the node said.
+the engine's warning names exactly what the node said. One that leaves the project's roots — an
+absolute path elsewhere, a `..` out — fills no slot at all (`confine.md`).
 
 ## `wavetables/`, a library family of its own
 
@@ -35,5 +36,5 @@ not a known param, so the family has to be said. The picker filters its list by 
 
 ## Setting one by hand
 
-`node param <node> Table "@st0/basic.wav"` — on a Faust node a non-numeric value IS a sound file, and
+`node param <node> Table "@k7-core/basic.wav"` — on a Faust node a non-numeric value IS a sound file, and
 a library ref is checked against what the picker would offer (`packages/commands/docs/verbs.md`).

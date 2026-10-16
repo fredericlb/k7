@@ -4,6 +4,7 @@
 
 import { randomBytes, randomUUID } from "node:crypto";
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   renameSync,
@@ -47,15 +48,29 @@ function zeroes(table: string): Record<string, unknown> {
   );
 }
 
-/** A filter key goes into a JSON path, so it must be a plain field name. */
-function fieldPath(key: string): string {
+/** A filter key is written INTO the SQL, so an index on the same expression matches: a plain field name only. */
+function fieldExpr(key: string): string {
   if (!/^\w+$/.test(key)) throw new DbError(400, `bad field ${key}`);
-  return `$.${key}`;
+  return `json_extract(fields, '$.${key}')`;
 }
+
+/** The fields the store looks rows up by; each has an expression index, so a lookup scans no collection. */
+export const INDEXED_FIELDS = [
+  "Uid",
+  "OwnerId",
+  "SessionUid",
+  "ReleaseUid",
+  "MomentId",
+  "SongUid",
+  "SongUuid",
+] as const;
+
+/** What any id must look like: one plain segment, since ids name files. */
+export const SAFE_ID = /^[\w-]+$/;
 
 /** An id names a file, so it must be one plain segment. */
 function safeId(id: string): string {
-  if (!/^[\w-]+$/.test(id)) throw new DbError(400, `bad id ${id}`);
+  if (!SAFE_ID.test(id)) throw new DbError(400, `bad id ${id}`);
   return id;
 }
 
@@ -89,6 +104,10 @@ export function createSqlite(dir: string) {
       );
       CREATE INDEX IF NOT EXISTS sheets_by_song ON sheets (song);
     `);
+    for (const f of INDEXED_FIELDS)
+      next.exec(
+        `CREATE INDEX IF NOT EXISTS records_by_${f} ON records (coll, ${fieldExpr(f)})`,
+      );
     db = next;
     return next;
   };
@@ -96,26 +115,44 @@ export function createSqlite(dir: string) {
   /** Where a sheet's bytes are; the file exists once its row does. */
   const attachmentPath = (id: string): string => join(sheetsDir, safeId(id));
 
+  /** The SELECT a filter makes, or null when an empty value list matches nothing. */
+  const selectFor = (
+    table: string,
+    filter?: Record<string, unknown>,
+  ): { sql: string; args: (string | number | null)[] } | null => {
+    const where = ["coll = ?"];
+    const args: (string | number | null)[] = [table];
+    for (const [key, v] of Object.entries(filter ?? {})) {
+      const values = Array.isArray(v) ? v : [v];
+      if (!values.length) return null;
+      where.push(`${fieldExpr(key)} IN (${values.map(() => "?").join(",")})`);
+      args.push(...values.map(bindable));
+    }
+    const sql = `SELECT id, fields FROM records WHERE ${where.join(" AND ")} ORDER BY rowid`;
+    return { sql, args };
+  };
+
+  /** SQLite's plan for `listRecords(table, filter)`: how a test sees an index used. */
+  const planOf = (table: string, filter: Record<string, unknown>): string[] => {
+    const q = selectFor(table, filter);
+    if (!q) return [];
+    return (
+      open()
+        .prepare(`EXPLAIN QUERY PLAN ${q.sql}`)
+        .all(...q.args) as { detail: string }[]
+    ).map((r) => r.detail);
+  };
+
   const listRecords = async <T = Record<string, unknown>>(
     table: string,
     filter?: Record<string, unknown>,
     opts: { fields?: string[] } = {},
   ): Promise<DbRecord<T>[]> => {
-    const where = ["coll = ?"];
-    const args: (string | number | null)[] = [table];
-    for (const [key, v] of Object.entries(filter ?? {})) {
-      const values = Array.isArray(v) ? v : [v];
-      if (!values.length) return [];
-      where.push(
-        `json_extract(fields, ?) IN (${values.map(() => "?").join(",")})`,
-      );
-      args.push(fieldPath(key), ...values.map(bindable));
-    }
+    const q = selectFor(table, filter);
+    if (!q) return [];
     const rows = open()
-      .prepare(
-        `SELECT id, fields FROM records WHERE ${where.join(" AND ")} ORDER BY rowid`,
-      )
-      .all(...args) as { id: string; fields: string }[];
+      .prepare(q.sql)
+      .all(...q.args) as { id: string; fields: string }[];
     const zero = zeroes(table);
     return rows.map(({ id, fields }) => {
       const all = { ...zero, ...JSON.parse(fields) };
@@ -134,10 +171,13 @@ export function createSqlite(dir: string) {
     const insert = open().prepare(
       "INSERT INTO records (coll, id, fields) VALUES (?, ?, ?)",
     );
-    return fieldsList.map(({ id: given, ...fields }) => {
-      const id = given ?? newId();
-      insert.run(table, id, JSON.stringify(fields));
-      return { id };
+    // Every given id checked before the first row is written, so a bad one writes none.
+    const ids = fieldsList.map(({ id }) =>
+      id === undefined ? newId() : safeId(String(id)),
+    );
+    return fieldsList.map(({ id: _, ...fields }, i) => {
+      insert.run(table, ids[i], JSON.stringify(fields));
+      return { id: ids[i] };
     });
   };
 
@@ -176,9 +216,9 @@ export function createSqlite(dir: string) {
     }
   };
 
-  /** Keep one sheet's bytes for `songId`, the file first: a row never names a file that is not there. */
+  /** Keep one sheet's bytes — a buffer, or a file on disk copied — for `songId`, the file first: a row never names a file that is not there. */
   const uploadAttachment = async (
-    buffer: Buffer,
+    bytes: Buffer | { file: string },
     mime: string,
     filename: string,
     songId: string,
@@ -187,7 +227,8 @@ export function createSqlite(dir: string) {
     const at = attachmentPath(id);
     open();
     const tmp = `${at}.${randomUUID()}.part`;
-    writeFileSync(tmp, buffer);
+    if (Buffer.isBuffer(bytes)) writeFileSync(tmp, bytes);
+    else copyFileSync(bytes.file, tmp);
     renameSync(tmp, at);
     open()
       // REPLACE: an import that failed halfway writes the same ids again.
@@ -225,6 +266,7 @@ export function createSqlite(dir: string) {
     !open().prepare("SELECT 1 FROM records LIMIT 1").get();
 
   return {
+    planOf,
     listRecords,
     addRecords,
     patchRecord,

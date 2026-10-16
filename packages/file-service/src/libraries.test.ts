@@ -21,7 +21,7 @@ let home: string;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "libs-"));
-  mkdirSync(join(home, "st0"));
+  mkdirSync(join(home, "k7-core"));
   mkdirSync(join(home, ".sync-replica"));
   process.env.STUDIO_LIBRARIES_HOME = home;
   delete process.env.STUDIO_HUB_URL;
@@ -36,21 +36,21 @@ afterEach(() => {
 describe("refreshLibraries", () => {
   it("opens every library on disk for writing, in place, to an admin", async () => {
     await refreshLibraries(true);
-    expect(isLibraryEditable("st0")).toBe(true);
-    expect(libraryRoot("st0")).toBe(join(home, "st0"));
+    expect(isLibraryEditable("k7-core")).toBe(true);
+    expect(libraryRoot("k7-core")).toBe(join(home, "k7-core"));
   });
 
   it("opens a versioned library's DRAFT to an admin, and never one of its versions", async () => {
-    mkdirSync(join(home, "st0", "1"));
-    mkdirSync(join(home, "st0", "draft"));
+    mkdirSync(join(home, "k7-core", "1"));
+    mkdirSync(join(home, "k7-core", "draft"));
     await refreshLibraries(true);
-    expect(libraryRoot("st0")).toBe(join(home, "st0", "draft"));
+    expect(libraryRoot("k7-core")).toBe(join(home, "k7-core", "draft"));
     const ws = new Workspace(mkdtempSync(join(tmpdir(), "ws-")));
     expect(() =>
-      ws.assertLibraryWritable(join(home, "st0", "1", "modules", "x")),
+      ws.assertLibraryWritable(join(home, "k7-core", "1", "modules", "x")),
     ).toThrow(/published version never changes/);
     expect(() =>
-      ws.assertLibraryWritable(join(home, "st0", "draft", "modules", "x")),
+      ws.assertLibraryWritable(join(home, "k7-core", "draft", "modules", "x")),
     ).not.toThrow();
   });
 
@@ -69,10 +69,28 @@ describe("refreshLibraries", () => {
     }
   });
 
+  it("answers no path below _libraries/ that names no library, to read or to write", () => {
+    mkdirSync(join(home, ".sync-relay", "k7-core"), { recursive: true });
+    const ws = new Workspace(mkdtempSync(join(tmpdir(), "ws-")));
+    for (const rel of [
+      "_libraries/.sync-relay/k7-core/entries.jsonl",
+      "_libraries/.sync-replica/x",
+      "_libraries/../x",
+      "_libraries/Not A Name/x",
+    ]) {
+      expect(() => ws.read(rel), rel).toThrow(/names no library/);
+      expect(() => ws.write(rel, "{}"), rel).toThrow(/names no library/);
+    }
+    expect(ws.mediaPath("_libraries")).toBe(home);
+    expect(ws.mediaPath("_libraries/k7-core/x")).toBe(
+      join(home, "k7-core", "x"),
+    );
+  });
+
   it("leaves them read-only to anyone else", async () => {
     await refreshLibraries(true);
     await refreshLibraries(false);
-    expect(isLibraryEditable("st0")).toBe(false);
-    expect(libraryRoot("st0")).toBe(join(home, "st0"));
+    expect(isLibraryEditable("k7-core")).toBe(false);
+    expect(libraryRoot("k7-core")).toBe(join(home, "k7-core"));
   });
 });

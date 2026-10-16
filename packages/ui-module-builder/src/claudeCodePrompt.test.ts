@@ -27,25 +27,25 @@ describe("where a file is, for somebody in a checkout", () => {
   });
 
   it("names the LIBRARY repository, and the path inside it, for a library module", () => {
-    expect(whereIs("_libraries/st0/modules/audio/lp/ui.yaml")).toBe(
-      "`modules/audio/lp/ui.yaml` in the `st0` library repository",
+    expect(whereIs("_libraries/k7-core/modules/audio/lp/ui.yaml")).toBe(
+      "`modules/audio/lp/ui.yaml` in the `k7-core` library repository",
     );
   });
 });
 
 describe("the prompt", () => {
   const files = {
-    ui: "_libraries/st0/modules/audio/lp/ui.yaml",
-    script: "_libraries/st0/modules/audio/lp/widgets.js",
+    ui: "_libraries/k7-core/modules/audio/lp/ui.yaml",
+    script: "_libraries/k7-core/modules/audio/lp/widgets.js",
   };
 
   it("says which files to write, and to write them directly", () => {
     const text = claudeCodePrompt(req("update", "bigger cutoff"), files);
     expect(text).toContain(
-      "`modules/audio/lp/ui.yaml` in the `st0` library repository",
+      "`modules/audio/lp/ui.yaml` in the `k7-core` library repository",
     );
     expect(text).toContain(
-      "`modules/audio/lp/widgets.js` in the `st0` library repository",
+      "`modules/audio/lp/widgets.js` in the `k7-core` library repository",
     );
     expect(text).toContain("Write the panel DIRECTLY into its file");
     expect(text).toContain("Touch no other file");

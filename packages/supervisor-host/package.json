@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "engine/st0-supervisor as the child of an Electron app: spawned, kept running, its NDJSON frames, and its binaries staged into the app. Built on @frediverse/electron-shell. See docs/supervisorHost.md.",
+  "description": "engine/k7-supervisor as the child of an Electron app: spawned, kept running, its NDJSON frames, and its binaries staged into the app. Built on @frediverse/electron-shell. See docs/supervisorHost.md.",
   "exports": {
     "./supervisorHost": "./src/supervisorHost.ts",
     "./hostProtocol": "./src/hostProtocol.ts",

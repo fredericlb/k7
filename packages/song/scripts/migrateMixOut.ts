@@ -3,7 +3,7 @@
 // `OUT` names the DEVICE and `MIX` is the mixer's sum, so a song wiring its lanes straight to OUT
 // says something it does not mean. Every project a scaffold writes declares `MIX: [ OUT ]` — the
 // master chain's place, empty — and this adds it to a song that lacks it.
-//   npx tsx packages/song/scripts/migrateMixOut.ts <project.st0> [--dry]
+//   npx tsx packages/song/scripts/migrateMixOut.ts <project.k7> [--dry]
 // See ../docs/masterChain.md.
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -13,7 +13,7 @@ const args = process.argv.slice(2).filter((a) => a !== "--dry");
 const dry = process.argv.includes("--dry");
 if (args.length === 0) {
   console.error(
-    "usage: migrateMixOut.ts <project.st0> [more…] [--dry]\n" +
+    "usage: migrateMixOut.ts <project.k7> [more…] [--dry]\n" +
       "  rewrites each graph.yaml so lanes end at MIX rather than OUT,\n" +
       "  and adds the `MIX: [ OUT ]` run if it has none",
   );

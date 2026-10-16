@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "st0's shared command layer — the SID → handler mapping and the command specs, dispatched through by the CLI and the web alike. The work a verb does now lives beside it: @studio/song-edit changes a project, @studio/take-render writes audio, @studio/audio-passes runs the offline chains. Consumed as source.",
+  "description": "k7's shared command layer — the SID → handler mapping and the command specs, dispatched through by the CLI and the web alike. The work a verb does now lives beside it: @studio/song-edit changes a project, @studio/take-render writes audio, @studio/audio-passes runs the offline chains. Consumed as source.",
   "exports": {
     "./commands": "./src/commands.ts",
     "./commandSpec": "./src/commandSpec.ts",
@@ -19,6 +19,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@studio/audio-analysis": "*",
     "@studio/audio-passes": "*",
     "@studio/audio-probe": "*",
     "@studio/engine-client": "*",

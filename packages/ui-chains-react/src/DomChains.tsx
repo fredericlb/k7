@@ -120,11 +120,7 @@ import {
   newSway,
   stepSway,
 } from "@studio/ui-chains/hang";
-import {
-  compileWidgetsScript,
-  hiddenWidgets,
-  type LcdSounds,
-} from "@studio/ui-chains/lcdScreen";
+import type { LcdSounds } from "@studio/ui-chains/lcdScreen";
 import {
   linkedNodes,
   linkedValue,
@@ -199,6 +195,7 @@ import { type NodeEngines, PresetButton } from "./PresetButton";
 import { Seams } from "./Seams";
 import { type TapAction, TapWidget } from "./TapWidget";
 import { ValueEditor } from "./ValueEditor";
+import { useHiddenWidgets } from "./widgetScript";
 
 /** A play button on the SINK node, opt-in and absent by default — docs/hosting.md. */
 export interface SinkPlay {
@@ -307,7 +304,7 @@ type WidgetTarget =
   | { kind: "offline"; module: string; name: string }
   // A RACK's pad — the one target that SETS nothing, docs/widgets.md.
   | { kind: "rack"; module: string; symbol: string }
-  // …and a RECORDER's button, the second of that family — engine/st0-engine/docs/recorder.md.
+  // …and a RECORDER's button, the second of that family — engine/k7-runtime/docs/recorder.md.
   | { kind: "recorder"; module: string; verb: RecVerb; pluginId?: string }
   // …and a PROJECT setting: read off the card like a field, WRITTEN by a verb (docs/widgets.md).
   | { kind: "project"; field: string };
@@ -529,7 +526,7 @@ interface Channels {
   // …and for a RACK pad, which asks for a sound rather than a value: can this host make one?
   rackTriggerable: boolean;
   // …and whether one can drive a RECORDER: a card with no engine behind it draws inert buttons
-  // rather than buttons that do nothing — engine/st0-engine/docs/recorder.md.
+  // rather than buttons that do nothing — engine/k7-runtime/docs/recorder.md.
   recorderWired: boolean;
   projectWritable: boolean;
   // Is this graph a REHEARSAL — there is nowhere to send a value and none is needed.
@@ -988,7 +985,7 @@ function WaveformWidget({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // A recorder node draws its TAKE, not a live tap: the whole of it, growing, off the state
-  // frame's `recorders` rather than `waveform` — see engine/st0-engine/docs/recorder.md.
+  // frame's `recorders` rather than `waveform` — see engine/k7-runtime/docs/recorder.md.
   const isTake = w.source === "take";
   // Where to listen: this node's own plugin, or the tap it names — docs/waveformWidget.md.
   const tap = n.tap ?? (n.pluginId ? { id: n.pluginId, side: w.source } : null);
@@ -1962,7 +1959,7 @@ function NodeInner({
   selected: string | null;
   /** In the Shift+click selection, beside the host's one — multiSelect.ts. */
   inSelection?: boolean;
-  /** Lit by the host for a reason of its own — st0's History panel, what a step touched. */
+  /** Lit by the host for a reason of its own — k7's History panel, what a step touched. */
   marked?: boolean;
   /** The params a curve drives on this node, newline-joined — a STRING, so the memoised card sees a change only when there is one. */
   automated?: string;
@@ -2193,13 +2190,11 @@ function NodeInner({
   const tabs = n.ui?.tabs ?? [];
   const openTab = tabs.length ? Math.min(tabAt, tabs.length - 1) : -1;
   // What the grid draws: the widgets every tab shows, then the open tab's, less those widgets.js's `visible` hides.
-  const hidden = n.ui?.script
-    ? hiddenWidgets(compileWidgetsScript(n.ui.script), {
-        params: n.params ?? {},
-        assets: n.assets ?? {},
-        ampModel: n.ampModel,
-      })
-    : null;
+  const hidden = useHiddenWidgets(n.ui?.script, {
+    params: n.params ?? {},
+    assets: n.assets ?? {},
+    ampModel: n.ampModel,
+  });
   const shownWidgets = n.ui
     ? Object.fromEntries(
         Object.entries({
@@ -3309,7 +3304,7 @@ export function DomChains({
   onTriggerRack?: (module: string, symbol: string) => void;
   /** A RECORDER's button was pressed. `pluginId` is what the ENGINE keys a node by; `module` is
    *  what a VERB names. The host needs both — record and clear go down the socket, save is a
-   *  command. See engine/st0-engine/docs/recorder.md. */
+   *  command. See engine/k7-runtime/docs/recorder.md. */
   /** Set a PROJECT setting — `project <field> <value>`. Absent means the dropdown reads only. */
   onProjectField?: (field: string, value: string) => void;
   onRecorder?: (
@@ -3320,7 +3315,7 @@ export function DomChains({
   rackLit?: RackLitStore;
   /** Which MIDI devices just sent something: a midi-in card's LED. See `MidiActivityStore`. */
   midiActivity?: MidiActivityStore;
-  /** The nodes the host wants lit — st0's History panel, what a step touched; read per node at draw. */
+  /** The nodes the host wants lit — k7's History panel, what a step touched; read per node at draw. */
   marked?: (n: GraphNode) => boolean;
   // Set a file-valued param on a module: `param` is the key ("model"), `file` assets-relative or "none".
   onSetModuleAsset?: (module: string, kind: string, file: string) => void;

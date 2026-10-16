@@ -86,16 +86,16 @@ jobs:
     artifacts: build_version
     condition: SUCCESSFUL
     optional: false
-  # One image: st0, the media library and the rehearsal recorder included. It keeps its layers in
-  # the registry (cache:st0), so a fresh builder still finds the installs — docs/images.md.
+  # One image: k7, the media library and the rehearsal recorder included. It keeps its layers in
+  # the registry (cache:k7-webapp), so a fresh builder still finds the installs — docs/images.md.
   - type: BuildImageStep
-    name: build and push st0 image
+    name: build and push k7-webapp image
     buildPath: .
-    dockerfile: apps/st0/docker/Dockerfile
+    dockerfile: apps/k7/docker/Dockerfile
     output:
       type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/st0:@commit_hash@
-    moreOptions: --build-arg APP_VERSION=@build_version@ --cache-from type=registry,ref=dev.frediver.se/frediverse/studio/cache:st0 --cache-to type=registry,ref=dev.frediver.se/frediverse/studio/cache:st0,mode=max,image-manifest=true,oci-mediatypes=true
+      tags: dev.frediver.se/frediverse/k7/k7-webapp:@commit_hash@
+    moreOptions: --build-arg APP_VERSION=@build_version@ --cache-from type=registry,ref=dev.frediver.se/frediverse/k7/cache:k7-webapp --cache-to type=registry,ref=dev.frediver.se/frediverse/k7/cache:k7-webapp,mode=max,image-manifest=true,oci-mediatypes=true
     condition: SUCCESSFUL
     optional: false
   retryCondition: never
@@ -103,7 +103,7 @@ jobs:
   retryDelay: 30
   timeout: 3600
 # The server's engine (engine/docker/Dockerfile): a job of its own, because a cold build compiles
-# Tracktion, JUCE and Faust and outlasts the st0 image's hour. Its layers are kept in cache:st0-engine,
+# Tracktion, JUCE and Faust and outlasts the k7-webapp image's hour. Its layers are kept in cache:k7-runtime,
 # so a push that touches no native source finds the compile in the cache — docs/server-engine.md.
 - name: build engine image
   steps:
@@ -117,20 +117,20 @@ jobs:
     condition: SUCCESSFUL
     optional: false
   - type: BuildImageStep
-    name: build and push st0-engine image
+    name: build and push k7-runtime image
     buildPath: .
     dockerfile: engine/docker/Dockerfile
     output:
       type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/st0-engine:@commit_hash@
-    moreOptions: --cache-from type=registry,ref=dev.frediver.se/frediverse/studio/cache:st0-engine --cache-to type=registry,ref=dev.frediver.se/frediverse/studio/cache:st0-engine,mode=max,image-manifest=true,oci-mediatypes=true
+      tags: dev.frediver.se/frediverse/k7/k7-runtime:@commit_hash@
+    moreOptions: --cache-from type=registry,ref=dev.frediver.se/frediverse/k7/cache:k7-runtime --cache-to type=registry,ref=dev.frediver.se/frediverse/k7/cache:k7-runtime,mode=max,image-manifest=true,oci-mediatypes=true
     condition: SUCCESSFUL
     optional: false
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
   timeout: 10800
-# What a deployment pulls: the commit's st0 and engine images, tagged :latest and with its stamp once
+# What a deployment pulls: the commit's k7 and engine images, tagged :latest and with its stamp once
 # the tests pass. imagetools copies a manifest within the registry, so nothing is built or pulled here.
 - name: publish studio images
   steps:
@@ -140,13 +140,13 @@ jobs:
     condition: SUCCESSFUL
     optional: false
   - type: RunImagetoolsStep
-    name: tag st0 image
-    arguments: create -t dev.frediver.se/frediverse/studio/st0:latest -t dev.frediver.se/frediverse/studio/st0:@build_version@ dev.frediver.se/frediverse/studio/st0:@commit_hash@
+    name: tag k7-webapp image
+    arguments: create -t dev.frediver.se/frediverse/k7/k7-webapp:latest -t dev.frediver.se/frediverse/k7/k7-webapp:@build_version@ dev.frediver.se/frediverse/k7/k7-webapp:@commit_hash@
     condition: SUCCESSFUL
     optional: false
   - type: RunImagetoolsStep
-    name: tag st0-engine image
-    arguments: create -t dev.frediver.se/frediverse/studio/st0-engine:latest -t dev.frediver.se/frediverse/studio/st0-engine:@build_version@ dev.frediver.se/frediverse/studio/st0-engine:@commit_hash@
+    name: tag k7-runtime image
+    arguments: create -t dev.frediver.se/frediverse/k7/k7-runtime:latest -t dev.frediver.se/frediverse/k7/k7-runtime:@build_version@ dev.frediver.se/frediverse/k7/k7-runtime:@commit_hash@
     condition: SUCCESSFUL
     optional: false
   triggers:
@@ -166,7 +166,7 @@ jobs:
   retryDelay: 30
   timeout: 1800
 # Manual-only (no triggers): a cheap, fast stand-in for the desktop build's real archive —
-# run this from the OneDev UI BEFORE the first "build linux desktop" to find a too-low upload limit
+# run this from the OneDev UI BEFORE the first "release" to find a too-low upload limit
 # in seconds rather than after a 30+ minute compile. Raise PROBE_MB and re-run if it passes
 # at 250 but the real archive turns out bigger; check both OneDev's own Administration ->
 # Performance Settings and any reverse proxy in front of it (nginx's client_max_body_size)
@@ -194,145 +194,17 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 600
-# NIGHTLY, at 02:00 server time: mirrors .github/workflows/desktop.yml's linux-x64 leg — same
-# presets, same apt list, same engine/scripts — but publishes as OneDev build artifacts instead of a
-# GitHub release: the command-line engine's archive, then the desktop app's AppImage built around
-# those binaries, as GitHub's engines and desktop jobs do. Not on BranchUpdateTrigger like the two jobs above: a cold configure
-# fetches JUCE, Tracktion, Faust, Eigen and NAM and then compiles them, tens of minutes. OneDev
-# makes a new build at EVERY firing, so the first command skips the night when main took no
-# commit in the last 24 hours. Run "check artifact upload size" first if you have not already
-# confirmed the limit.
-- name: build linux desktop (engine, then the desktop app)
-  steps:
-  - type: CheckoutStep
-    name: checkout
-    cloneCredential:
-      type: HttpCredential
-      accessTokenSecret: submodule-token
-    withLfs: false
-    withSubmodules: true
-    condition: SUCCESSFUL
-    optional: false
-  - type: SetupCacheStep
-    name: set up npm cache
-    key: npm-cache
-    paths:
-    - /root/.npm
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
-  # What makes a push minutes rather than tens of them: every C/C++ object (JUCE, Tracktion,
-  # Faust, NAM, the supervisor's TLS and WebRTC stacks) through ccache, which does not change
-  # from one push to the next.
-  - type: SetupCacheStep
-    name: set up ccache
-    key: ccache-linux
-    paths:
-    - /root/.ccache
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
-  # The dependency SOURCES — Tracktion and JUCE, Faust, Eigen, NAM, QuickJS, the supervisor's stacks —
-  # kept in STUDIO_FETCHCONTENT_DIR, so a run clones nothing; what gets built there is deleted at exit.
-  - type: SetupCacheStep
-    name: set up dependency sources cache
-    key: fetch-linux
-    paths:
-    - /root/.cache/st0-fetch
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
-  # The Electron runtime and electron-builder's tools (appimagetool), which the desktop app's packaging downloads.
-  - type: SetupCacheStep
-    name: set up electron cache
-    key: electron-linux
-    paths:
-    - /root/.cache/electron
-    - /root/.cache/electron-builder
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
-  - type: CommandStep
-    name: build and package
-    runInContainer: true
-    image: node:22-bookworm
-    interpreter:
-      type: DefaultInterpreter
-      commands: |
-        # A quiet day builds nothing; a git that cannot answer (no repo, dubious ownership) builds anyway.
-        git config --global --add safe.directory '*'
-        if LAST=$(git log -1 --since='24 hours ago' --format=%H) && [ -z "$LAST" ]; then
-          echo "no commit on this branch in the last 24 hours — nothing to build"
-          exit 0
-        fi
-
-        # From here any failing command fails the step: sh otherwise answers with the LAST command's
-        # status, and a build that broke would publish nothing under a green step.
-        set -e
-
-        # JUCE's ALSA/JACK/X11 set for the engine, as in the GitHub workflow — plus the ordinary
-        # toolchain (cmake/ninja/build-essential/git/python3) a bare node image carries none of.
-        export DEBIAN_FRONTEND=noninteractive
-        apt-get update
-        apt-get install -y --no-install-recommends \
-          build-essential cmake ninja-build ccache git curl ca-certificates pkg-config python3 \
-          libssl-dev \
-          libasound2-dev libjack-jackd2-dev libfreetype6-dev libfontconfig1-dev \
-          libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev \
-          libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev \
-          libcurl4-openssl-dev ladspa-sdk
-
-        # The presets read the launcher from STUDIO_COMPILER_LAUNCHER (docs/desktop-release.md).
-        # BASEDIR and NOHASHDIR keep a hit from depending on where the workspace is.
-        export STUDIO_COMPILER_LAUNCHER=ccache
-        # The fetch cache keeps SOURCES only, however the build ends: what CMake built inside it is per preset.
-        export STUDIO_FETCHCONTENT_DIR=/root/.cache/st0-fetch
-        trap 'find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/st0-engine/faust-src/build/lib' EXIT
-        export CCACHE_DIR=/root/.ccache CCACHE_BASEDIR="$PWD" CCACHE_NOHASHDIR=true CCACHE_MAXSIZE=4G
-        ccache --zero-stats
-
-        npm ci
-
-        # Same YY.MMDDHHmm stamp as "compute build version" above, computed inline here
-        # since this job has no image tag needing the buildspec's own build version. (No
-        # at-sign placeholders in this text, comments included: OneDev substitutes them all.)
-        STAMP=$(node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))")
-
-        # Release presets for both native programs, as the GitHub leg names them: the supervisor
-        # otherwise takes its host default, dev-gcc.
-        STUDIO_ENGINE_PRESET=release-gcc STUDIO_SUPERVISOR_PRESET=release-gcc \
-          node engine/scripts/build-engine.mjs
-        node engine/scripts/package-release.mjs --kind engine --stamp "$STAMP"
-        # Then the desktop app, around the binaries just built.
-        npm run package --workspace st0-standalone
-        node engine/scripts/package-release.mjs --kind desktop --stamp "$STAMP"
-        ccache --show-stats
-    runAs: 0:0
-    useTTY: true
-    condition: SUCCESSFUL
-    optional: false
-  - type: PublishArtifactStep
-    name: publish linux engine and desktop app
-    artifacts: dist/release/*.tar.gz dist/release/*.AppImage
-    condition: SUCCESSFUL
-    optional: false
-  triggers:
-  - type: ScheduleTrigger
-    cronExpression: 0 0 2 * * ?
-  jobDependencies:
-  - jobName: lint and test
-    requireSuccessful: true
-  retryCondition: never
-  maxRetries: 3
-  retryDelay: 30
-  timeout: 5400
-# NIGHTLY, at 02:00 like the desktops, and skipped the same way on a day without commits: the
-# Android app, engine/st0-android — the engine as libst0engine.so, built by its android-arm64 preset,
-# with the supervisor and the Capacitor page (web/), inside a DEBUG-signed APK (there is no release key). Gradle builds the
-# engine itself through scripts/build.mjs with the SDK's pinned NDK; engine/st0-engine/docs/android.md.
-# The SDK is fetched and pinned like every other dependency and kept in a cache keyed by its
-# versions, so a bump of any of them is a new key rather than a stale SDK.
-- name: build android app
+# The release graph, GitHub's (.github/workflows/desktop.yml) minus Linux, which only GitHub builds (docs/desktop-release.md):
+# an ENGINE job — engine/k7-runtime and engine/k7-supervisor compiled and archived as the command-line engine —
+# then a DESKTOP job packaging apps/k7-standalone around that archive, compiling nothing; beside them the APK;
+# and "release", which the triggers name and which gathers every file into one build.
+# The engine and the APK wait for "lint and test": a release must not ship what the tests refuse.
+# The phone: engine/k7-android's release APK, signed with the key in the android-* job secrets — the engine as
+# libk7runtime.so, built by its android-arm64 preset, with the supervisor and the Capacitor page (web/) — as
+# GitHub's android job builds it. Gradle builds the
+# engine itself with the SDK's pinned NDK (engine/k7-runtime/docs/android.md). The SDK is fetched and pinned like
+# every other dependency, in a cache keyed by its versions, so a bump of any of them is a new key.
+- name: android
   steps:
   - type: CheckoutStep
     name: checkout
@@ -359,7 +231,7 @@ jobs:
     uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
-  # Its own key, never the linux job's: the same sources compile to arm64 objects here.
+  # Its own key: these sources compile to arm64 objects, which no other preset may reuse.
   - type: SetupCacheStep
     name: set up ccache
     key: ccache-android
@@ -374,7 +246,7 @@ jobs:
     name: set up dependency sources cache
     key: fetch-android
     paths:
-    - /root/.cache/st0-fetch
+    - /root/.cache/k7-fetch
     uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
@@ -386,12 +258,7 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        # A quiet day builds nothing; a git that cannot answer (no repo, dubious ownership) builds anyway.
         git config --global --add safe.directory '*'
-        if LAST=$(git log -1 --since='24 hours ago' --format=%H) && [ -z "$LAST" ]; then
-          echo "no commit on this branch in the last 24 hours — nothing to build"
-          exit 0
-        fi
 
         set -e
         export DEBIAN_FRONTEND=noninteractive
@@ -407,11 +274,13 @@ jobs:
         # Gradle hands its environment to the engine's CMake, whose presets read this, so it reaches the NDK's clang too.
         export STUDIO_COMPILER_LAUNCHER=ccache
         # The fetch cache keeps SOURCES only, however the build ends: what CMake built inside it is per preset.
-        export STUDIO_FETCHCONTENT_DIR=/root/.cache/st0-fetch
-        trap 'find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/st0-engine/faust-src/build/lib' EXIT
+        export STUDIO_FETCHCONTENT_DIR=/root/.cache/k7-fetch
+        trap 'find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/k7-runtime/faust-src/build/lib' EXIT
         export CCACHE_DIR=/root/.ccache CCACHE_BASEDIR="$PWD" CCACHE_NOHASHDIR=true CCACHE_MAXSIZE=3G
         ccache --zero-stats
 
+        # A UTF-8 locale for the JVM: without one Gradle reads file names as ASCII and loses k7-core's µcomputer.fxp.
+        export LANG=C.UTF-8 LC_ALL=C.UTF-8
         export ANDROID_HOME=/opt/android-sdk
         SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
         if [ ! -x "$SDKMANAGER" ]; then
@@ -424,20 +293,48 @@ jobs:
           mv /tmp/cmdline-tools/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
         fi
         yes | "$SDKMANAGER" --licenses > /dev/null
-        # The versions engine/st0-android/app/build.gradle.kts names: compileSdk and ndkVersion.
+        # The versions engine/k7-android/app/build.gradle.kts names: compileSdk and ndkVersion.
         "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865"
 
-        # Same YY.MMDDHHmm stamp as the linux desktop archive, so the night's artifacts match.
-        STAMP=$(node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))")
+        # The release's name, as GitHub's names it: the tag on a tag, snapshot-<commit> on main.
+        STAMP=$(git describe --tags --exact-match --match 'v*' 2>/dev/null || echo "snapshot-$(git rev-parse --short HEAD)")
 
-        # The app's page (engine/st0-android/web) is a workspace, and Capacitor's Android runtime,
+        # The app's page (engine/k7-android/web) is a workspace, and Capacitor's Android runtime,
         # which settings.gradle.kts includes, is one of its packages: both come from the root install.
         npm ci
 
-        cd engine/st0-android
-        ./gradlew --no-daemon assembleDebug
+        # The release key from the job secrets, read through quoted heredocs so no character of them reaches the shell.
+        trap 'rm -rf /tmp/k7-signing; find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/k7-runtime/faust-src/build/lib' EXIT
+        umask 077
+        mkdir -p /tmp/k7-signing
+        cat > /tmp/k7-signing/keystore.b64 <<'K7_SECRET'
+        @secret:android-keystore-b64@
+        K7_SECRET
+        base64 -d /tmp/k7-signing/keystore.b64 > /tmp/k7-signing/release.jks
+        export K7_ANDROID_KEYSTORE_FILE=/tmp/k7-signing/release.jks
+        export K7_ANDROID_KEYSTORE_PASSWORD="$(cat <<'K7_SECRET'
+        @secret:android-keystore-password@
+        K7_SECRET
+        )"
+        export K7_ANDROID_KEY_ALIAS="$(cat <<'K7_SECRET'
+        @secret:android-key-alias@
+        K7_SECRET
+        )"
+        export K7_ANDROID_KEY_PASSWORD="$(cat <<'K7_SECRET'
+        @secret:android-key-password@
+        K7_SECRET
+        )"
+        umask 022
+
+        cd engine/k7-android
+        ./gradlew --no-daemon assembleRelease
+        APK=app/build/outputs/apk/release/app-release.apk
+        # Refuses an unsigned or debuggable APK before it can reach the release.
+        "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK"
+        BADGING=$("$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK")
+        if printf '%s\n' "$BADGING" | grep -q application-debuggable; then echo "the release APK is debuggable"; exit 1; fi
         mkdir -p ../../dist/release
-        cp app/build/outputs/apk/debug/app-debug.apk "../../dist/release/st0-android_${STAMP}_arm64.apk"
+        cp "$APK" "../../dist/release/k7-android_${STAMP}_arm64.apk"
         ccache --show-stats
     runAs: 0:0
     useTTY: true
@@ -448,9 +345,6 @@ jobs:
     artifacts: dist/release/*.apk
     condition: SUCCESSFUL
     optional: false
-  triggers:
-  - type: ScheduleTrigger
-    cronExpression: 0 0 2 * * ?
   jobDependencies:
   - jobName: lint and test
     requireSuccessful: true
@@ -458,25 +352,12 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 5400
-# The Windows leg of .github/workflows/desktop.yml, on the Windows AGENT — a Remote Shell Executor,
-# so no container: the steps run in cmd on the machine itself, with whatever it has installed
-# (Node, Git, CMake, Ninja, Visual Studio Build Tools). Nightly at 02:00 and
-# skipped on a day without commits, like the Linux build above. It names no executor: the Remote Shell Executor whose JOB MATCH takes this job
-# runs it, on an agent its AGENT SELECTOR picks by OS — docs/desktop-release.md.
-#
-# No preset override: the agent builds with the host default, windows-msvc (Visual Studio 2026), as
-# a developer does and as GitHub's runner does.
-#
-# cmd does not stop on a failing line, so every command carries its own `|| exit /b 1`, and npm
-# is `call`ed because it is npm.cmd: without `call` a batch file never comes back from it.
-#
-# commons by hand, as GitHub's leg does: the checkout takes no submodule, and commons is the one there is.
-#
-# The dependency SOURCES stay on the agent's own disk, in STUDIO_FETCHCONTENT_DIR — %LOCALAPPDATA%\st0-ci\fetch
-# unless the agent's environment names another — so a night clones nothing. No OneDev cache: the
-# machine keeps them, and nothing crosses the network. cmd has no trap, so what the last run BUILT
-# there is deleted before this one starts rather than on its way out.
-- name: build windows desktop (engine, then the desktop app)
+# The Windows pair, on the Windows AGENT — a Remote Shell Executor, so no container: the steps run in cmd on the
+# machine itself, with what it has installed (Node, Git, CMake, Ninja, Visual Studio Build Tools). Neither job names
+# an executor: the shell executor whose JOB MATCH takes them runs them, on an agent its AGENT SELECTOR picks by OS
+# (docs/desktop-release.md). cmd does not stop on a failing line, so every command carries its own `|| exit /b 1`,
+# and npm is `call`ed because it is npm.cmd. commons by hand: the checkout takes no submodule.
+- name: engine windows
   steps:
   - type: CheckoutStep
     name: checkout
@@ -488,36 +369,37 @@ jobs:
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
-    name: build and package
+    name: build the engine
     runInContainer: false
     interpreter:
       type: DefaultInterpreter
       commands: |
-        git log -1 --since="24 hours ago" --oneline > last_commit || echo unknown> last_commit
-        findstr . last_commit >nul || (echo no commit on this branch in the last 24 hours - nothing to build & exit /b 0)
-        git config core.longpaths true || exit /b 1
-        git -c "http.extraHeader=OneDevAuthorization: Bearer @secret:submodule-token@" submodule update --init commons || exit /b 1
-        if not defined STUDIO_FETCHCONTENT_DIR set "STUDIO_FETCHCONTENT_DIR=%LOCALAPPDATA%\st0-ci\fetch"
+        rem The dependency SOURCES stay on the agent's disk; what the last run BUILT there goes first, cmd having no trap.
+        if not defined STUDIO_FETCHCONTENT_DIR set "STUDIO_FETCHCONTENT_DIR=%LOCALAPPDATA%\k7-ci\fetch"
         for /d %%P in ("%STUDIO_FETCHCONTENT_DIR%\*") do for /d %%B in ("%%P\*-build") do rmdir /s /q "%%B"
-        if exist "%STUDIO_FETCHCONTENT_DIR%\st0-engine\faust-src\build\lib" rmdir /s /q "%STUDIO_FETCHCONTENT_DIR%\st0-engine\faust-src\build\lib"
+        if exist "%STUDIO_FETCHCONTENT_DIR%\k7-runtime\faust-src\build\lib" rmdir /s /q "%STUDIO_FETCHCONTENT_DIR%\k7-runtime\faust-src\build\lib"
+        git config core.longpaths true || exit /b 1
+        rem The token in the environment, not on the command line, where any process listing would show it.
+        set "GIT_CONFIG_COUNT=1"
+        set "GIT_CONFIG_KEY_0=http.extraHeader"
+        set "GIT_CONFIG_VALUE_0=OneDevAuthorization: Bearer @secret:submodule-token@"
+        git submodule update --init commons || exit /b 1
+        set "GIT_CONFIG_COUNT="
+        set "GIT_CONFIG_KEY_0="
+        set "GIT_CONFIG_VALUE_0="
         call npm ci || exit /b 1
-        node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))" > build_version || exit /b 1
+        git describe --tags --exact-match --match "v*" > build_version 2>nul || (for /f %%H in ('git rev-parse --short HEAD') do echo snapshot-%%H> build_version)
         set /p STUDIO_RELEASE_STAMP=<build_version
         node engine/scripts/build-engine.mjs || exit /b 1
         node engine/scripts/package-release.mjs --kind engine || exit /b 1
-        call npm run package --workspace st0-standalone || exit /b 1
-        node engine/scripts/package-release.mjs --kind desktop || exit /b 1
     useTTY: false
     condition: SUCCESSFUL
     optional: false
   - type: PublishArtifactStep
-    name: publish windows engine and desktop app
-    artifacts: dist/release/*.zip dist/release/*.exe
+    name: publish the engine archive
+    artifacts: dist/release/k7-runtime_*
     condition: SUCCESSFUL
     optional: false
-  triggers:
-  - type: ScheduleTrigger
-    cronExpression: 0 0 2 * * ?
   jobDependencies:
   - jobName: lint and test
     requireSuccessful: true
@@ -525,3 +407,102 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 7200
+- name: desktop windows
+  steps:
+  - type: CheckoutStep
+    name: checkout
+    cloneCredential:
+      type: HttpCredential
+      accessTokenSecret: submodule-token
+    withLfs: false
+    withSubmodules: false
+    condition: SUCCESSFUL
+    optional: false
+  - type: CommandStep
+    name: package the desktop app
+    runInContainer: false
+    interpreter:
+      type: DefaultInterpreter
+      commands: |
+        git config core.longpaths true || exit /b 1
+        rem The token in the environment, not on the command line, where any process listing would show it.
+        set "GIT_CONFIG_COUNT=1"
+        set "GIT_CONFIG_KEY_0=http.extraHeader"
+        set "GIT_CONFIG_VALUE_0=OneDevAuthorization: Bearer @secret:submodule-token@"
+        git submodule update --init commons || exit /b 1
+        set "GIT_CONFIG_COUNT="
+        set "GIT_CONFIG_KEY_0="
+        set "GIT_CONFIG_VALUE_0="
+        call npm ci || exit /b 1
+        git describe --tags --exact-match --match "v*" > build_version 2>nul || (for /f %%H in ('git rev-parse --short HEAD') do echo snapshot-%%H> build_version)
+        set /p STUDIO_RELEASE_STAMP=<build_version
+        rem The engine job's archive, retrieved by the dependency below; System32's tar reads a .zip.
+        if exist "%TEMP%\k7-runtime-bin" rmdir /s /q "%TEMP%\k7-runtime-bin"
+        mkdir "%TEMP%\k7-runtime-bin" || exit /b 1
+        for %%A in (dist\release\k7-runtime_*.zip) do "%SystemRoot%\System32\tar.exe" -xf "%%A" -C "%TEMP%\k7-runtime-bin" || exit /b 1
+        set "STUDIO_PREBUILT_BIN=%TEMP%\k7-runtime-bin\k7-runtime"
+        call npm run package --workspace k7-standalone || exit /b 1
+        node engine/scripts/package-release.mjs --kind desktop || exit /b 1
+    useTTY: false
+    condition: SUCCESSFUL
+    optional: false
+  - type: PublishArtifactStep
+    name: publish the installer
+    artifacts: dist/release/*.exe
+    condition: SUCCESSFUL
+    optional: false
+  jobDependencies:
+  - jobName: engine windows
+    requireSuccessful: true
+    artifacts: dist/release/k7-runtime_*
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 3600
+# What a push or a tag starts: Windows's two jobs and the APK, run through the dependencies below, and their
+# files gathered into this one build — OneDev's release page. Red when any of them is. The paths are GitHub's gate:
+# a push that touched only docs builds nothing (docs/desktop-release.md).
+- name: release
+  steps:
+  # One SHA256SUMS over every file, published beside them: `sha256sum -c SHA256SUMS` in the download folder.
+  - type: CommandStep
+    name: checksums
+    runInContainer: true
+    image: alpine:3
+    interpreter:
+      type: DefaultInterpreter
+      commands: |
+        set -e
+        cd dist/release
+        sha256sum -- * > /tmp/SHA256SUMS
+        mv /tmp/SHA256SUMS SHA256SUMS
+        cat SHA256SUMS
+    useTTY: false
+    condition: SUCCESSFUL
+    optional: false
+  - type: PublishArtifactStep
+    name: publish every file
+    artifacts: dist/release/*
+    condition: SUCCESSFUL
+    optional: false
+  triggers:
+  - type: BranchUpdateTrigger
+    branches: main
+    paths: engine/** apps/** packages/** commons package-lock.json .onedev-buildspec.yml
+    userMatch: anyone
+  - type: TagCreateTrigger
+    tags: v*
+  jobDependencies:
+  - jobName: engine windows
+    requireSuccessful: true
+    artifacts: dist/release/*
+  - jobName: desktop windows
+    requireSuccessful: true
+    artifacts: dist/release/*
+  - jobName: android
+    requireSuccessful: true
+    artifacts: dist/release/*
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 600

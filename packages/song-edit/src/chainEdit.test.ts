@@ -33,7 +33,7 @@ beforeEach(() => {
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
     join(dir, "nodes", "comp.yaml"),
-    'extends: "@st0/audio/comp"\n',
+    'extends: "@k7-core/audio/comp"\n',
     "utf8",
   );
 });

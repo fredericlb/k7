@@ -90,17 +90,19 @@ describe("validateFile", () => {
   it("reads a preset tree's files as presets, in the workspace and in a library", () => {
     const preset = "engine: tracktion\nparams:\n  Ratio: 4\n";
     for (const at of [
-      "_presets/st0/audio/compressor/soft.yaml",
-      "_libraries/st0/presets/st0/audio/compressor/soft.yaml",
-      "/home/u/.st0/libraries/st0/presets/workspace/modules/x/soft.yaml",
+      "_presets/k7-core/audio/compressor/soft.yaml",
+      "_libraries/k7-core/presets/k7-core/audio/compressor/soft.yaml",
+      "/home/u/.k7/libraries/k7-core/presets/workspace/modules/x/soft.yaml",
     ]) {
       expect(validateFile(at, preset).ok).toBe(true);
       expect(validateFile(at, "params:\n  Ratio: loud\n").ok).toBe(false);
     }
     // A preset is not a module: `extends` is refused there.
     expect(
-      validateFile("_presets/st0/audio/compressor/soft.yaml", "extends: x\n")
-        .ok,
+      validateFile(
+        "_presets/k7-core/audio/compressor/soft.yaml",
+        "extends: x\n",
+      ).ok,
     ).toBe(false);
   });
 

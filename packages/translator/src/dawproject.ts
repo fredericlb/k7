@@ -1,10 +1,10 @@
-// dawproject.ts — the DAWproject -> st0 song mapper: unzip in memory, parse
+// dawproject.ts — the DAWproject -> k7 song mapper: unzip in memory, parse
 // project.xml, project it onto the neutral shape in model.ts. NO disk I/O — it returns
 // the song plus every asset entry for the caller to write. Deliberately lossy where
-// st0 can't represent something yet (plugin state, automation). See docs/import.md.
+// k7 can't represent something yet (plugin state, automation). See docs/import.md.
 
 import { XMLParser } from "fast-xml-parser";
-import { unzipSync } from "fflate";
+import { boundedUnzip } from "./inflate";
 import type {
   ClipOut,
   NoteOut,
@@ -64,7 +64,7 @@ export function parseDawproject(
   zipBytes: Uint8Array,
   fallbackName: string,
 ): Translation {
-  const entries = unzipSync(zipBytes);
+  const entries = boundedUnzip(zipBytes);
 
   const projectXml = entries["project.xml"];
   if (!projectXml)

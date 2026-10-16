@@ -23,12 +23,12 @@ import { isSeq, parseDocument } from "yaml";
 import type { ClipOut, PluginOut, Song, TrackOut } from "./model.js";
 
 /** What a MIDI lane plays when its own instrument could not cross over — a drum rack, and the rest. */
-const STAND_IN_KIT = "@st0/instruments/st0-rack";
-const STAND_IN_SYNTH = "@st0/instruments/synth/surge-xt";
+const STAND_IN_KIT = "@k7-core/instruments/k7-rack";
+const STAND_IN_SYNTH = "@k7-core/instruments/synth/surge-xt";
 
 // --- YAML emitters -----------------------------------------------------------
 
-// The SHAPE decisions, matching what st0 itself writes — see docs/import.md.
+// The SHAPE decisions, matching what k7 itself writes — see docs/import.md.
 
 /** A YAML document with `flow` set on `flowPaths`' items and on `selfPaths`' own node. */
 function yamlDoc(
@@ -60,10 +60,12 @@ function yamlText(
   note?: string,
   selfPaths: (string | number)[][] = [],
 ): string {
+  // A note carries names from the imported file: a `\r` or another control character would end the comment early.
   const head = note
     ? `${note
-        .split("\n")
-        .map((l) => `# ${l}`)
+        .split(/\r\n|[\r\n\u0085\u2028\u2029]/)
+        // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
+        .map((l) => `# ${l.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "")}`)
         .join("\n")}\n`
     : "";
   return head + yamlDoc(value, flowPaths, selfPaths).toString({ lineWidth: 0 });
@@ -262,7 +264,7 @@ export interface EmitStats {
   nodeFiles: number;
   modulePresetFiles: number; // .vstpreset files, beside the node or module whose state they are
   missingAudio: string[];
-  missingPlugins: string[]; // referenced but not in the st0 cache -> stubbed
+  missingPlugins: string[]; // referenced but not in the k7 cache -> stubbed
   standIns: number; // MIDI lanes given a library instrument in place of one that did not cross over
   // Tracks given both audio and MIDI: they import as "sequences", and their audio won't load until split by hand.
 }
@@ -345,7 +347,7 @@ export function emitFolder(
   const master = song.tracks.find((t) => t.role === "master");
   const masterPlugins = orderPlugins(master?.plugins ?? []);
   /**
-   * Where a lane ends: the mixer's SUM, like every st0 project — a level belongs to what goes out,
+   * Where a lane ends: the mixer's SUM, like every k7 project — a level belongs to what goes out,
    * and the run between `MIX` and `OUT` is the master chain (packages/song/docs/masterChain.md).
    * Not an audible difference — every track feeds the master bus whatever it names — but the
    * notation the rest of the app reads: a strip is spliced into the arrow into `MIX`.
@@ -733,9 +735,9 @@ export function emitFolder(
               ...(params ? { params } : {}),
             },
             [],
-            `MISSING PLUGIN: "${b.pluginName}" (${b.pluginType}) is not in the st0 plugin cache.\n` +
+            `MISSING PLUGIN: "${b.pluginName}" (${b.pluginType}) is not in the k7 plugin cache.\n` +
               `This node stands where it was: routing only, and bypassed. Install and scan it\n` +
-              `('st0 engine scan') and re-import, or point this node's \`extends\` at a real module.\n` +
+              `('k7 engine scan') and re-import, or point this node's \`extends\` at a real module.\n` +
               `The params below are the ones the export carried, kept so nothing is lost.`,
           ),
         );

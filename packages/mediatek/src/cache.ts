@@ -1,18 +1,13 @@
-// cache.ts — ~/.st0/mediatek as a MIRROR of the hosted library: what this machine holds,
+// cache.ts — ~/.k7/mediatek as a MIRROR of the hosted library: what this machine holds,
 // what it should fetch, and the manifest it remembers to tell the two apart. Exists because
 // the moteur plays from file paths and cannot open a URL. See docs/sync.md.
 
 import { randomUUID } from "node:crypto";
-import {
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { cacheDir, ensureLayout, safePath } from "./layout.ts";
 import { diff, type Manifest } from "./manifest.ts";
+import { placeFile } from "./place.ts";
 import type { LibrarySource } from "./remote.ts";
 import { bumped } from "./revision.ts";
 import type { Family } from "./types.ts";
@@ -79,7 +74,8 @@ export async function syncFamily(
     const tmp = `${dest}.${randomUUID()}.part`;
     try {
       await source.download(entry.path, tmp);
-      renameSync(tmp, dest);
+      // The engine may hold `dest` open, and Windows then refuses the rename — docs/rename.md.
+      await placeFile(tmp, dest);
       landed.set(entry.path, entry);
       report.fetched.push(entry.path);
     } catch (e) {

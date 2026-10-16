@@ -12,8 +12,8 @@ import { roomDir } from "./syncRelay.ts";
 /** An unnamed blob younger than this may belong to a batch still on its way: it stays. */
 export const ORPHAN_AGE_MS = 7 * 24 * 60 * 60_000;
 
-/** A ref as any file of a room spells it, JSON-escaped NUL or not: `st0fs-blob <sha256>`. */
-const REF = /st0fs-blob ([0-9a-f]{64})/g;
+/** A ref as any file of a room spells it, JSON-escaped NUL or not: `k7fs-blob <sha256>`. */
+const REF = /k7fs-blob ([0-9a-f]{64})/g;
 
 async function filesBelow(dir: string): Promise<string[]> {
   const out: string[] = [];

@@ -1,6 +1,6 @@
 # Overall findings — the audio axis
 
-Scope: `apps/st0`, `engine/st0-engine`, `engine/st0-supervisor`, `apps/st0-standalone` and the packages they drive. Out of
+Scope: `apps/k7`, `engine/k7-runtime`, `engine/k7-supervisor`, `apps/k7-standalone` and the packages they drive. Out of
 scope: z0 (its own repository) and the rehearsal recorder (`packages/rehearsal-server`, `packages/ui-rehearsal`).
 
 This page is **self-contained** — it carries its evidence rather than pointing at it — which means
@@ -12,7 +12,7 @@ The five specialised pages keep what only they hold:
 [audit-moteur.md](audit-moteur.md) (what links a surface to the engine),
 [inventaire.md](inventaire.md) (dead code),
 [tests.md](tests.md) (what the suite covers, and the two times it lied) and
-[engine/st0-engine/docs/audit-stabilite.md](../engine/st0-engine/docs/audit-stabilite.md) (the C++).
+[engine/k7-runtime/docs/audit-stabilite.md](../engine/k7-runtime/docs/audit-stabilite.md) (the C++).
 
 ---
 
@@ -27,7 +27,7 @@ where it hurts, and the symmetrical thing — which has not hurt yet — stays n
 |---|---|
 | The web is benched, figures published | No C++ bench, no browser bench |
 | An `unhandledRejection` / `uncaughtException` net at both TypeScript entry points | Neither a `try` at `main()` level nor `set_terminate` in C++ |
-| st0's gate: lease, re-look, full predicate | z0's: no lease, no re-look, reachability that ignores the token (out of scope) |
+| k7's gate: lease, re-look, full predicate | z0's: no lease, no re-look, reachability that ignores the token (out of scope) |
 
 And the consequence holding all three axes together: **there is no automatic guard on
 performance.** No non-regression gate. What is not tooled is checked by hand, and so slips.
@@ -61,7 +61,7 @@ Three readings:
    from 34 to 51 ms between passes. The 8-track means are stable, so this is not a code regression:
    **the bench has stopped being an instrument** at that size. Probable and undemonstrated cause: the
    big fixtures draw only 10 to 22 samples, so a single scheduling stall dominates — and this machine
-   had Tilt and a live `st0-engine.exe` during the measurement. **Practical consequence: conclude
+   had Tilt and a live `k7-runtime.exe` during the measurement. **Practical consequence: conclude
    nothing from a gap of less than 15 % at 64 tracks** without first stopping the dev session and
    repeating the pass.
 2. **The two benches measure different things.** Cold-cache they are both dominated by the same YAML
@@ -109,7 +109,7 @@ Two limits, said rather than hidden:
   That is the bargain "Many browsers at once" already takes everywhere else.
 - A clip's `source` also decides whether it is listed as an audio or a video clip. A command
   re-pointing an EXISTING clip from a wav to an mp4 would leave that one split stale until the next
-  full reload. The predicates and their tests are in `apps/st0/frontend/src/reloadScope.ts`.
+  full reload. The predicates and their tests are in `apps/k7/frontend/src/reloadScope.ts`.
 
 The same reasoning holds for gestures: `quietCommand` (`want: []`, no bump) carries its own
 measurement — "62 ms per mute, per solo, per knob turn, built and dropped". Warp gestures borrow it,
@@ -168,15 +168,15 @@ Three things to keep from it:
   a driver defect with no lever on this side. Under ASIO the driver CALLS us; there is no instruction
   queue towards the card. What can fault a driver is a late or blocking callback, and the control path
   never touches the audio thread. The real candidates are in
-  `engine/st0-engine/docs/audit-stabilite.md`, "Real-time safety".
+  `engine/k7-runtime/docs/audit-stabilite.md`, "Real-time safety".
 
-Replay with `engine/st0-engine/scripts/param-cost.mjs` against an engine that has a project loaded —
+Replay with `engine/k7-runtime/scripts/param-cost.mjs` against an engine that has a project loaded —
 without one, the `set` stops at the map miss and measures the control on both sides.
 
 ### The audio callback is at 5 % of its deadline, gesture included
 
 Tracktion already measures every block (`DeviceManager::getCPUStatistics`, mean/min/**max**); the
-`audio-cost` verb exposes it, and `engine/st0-engine/scripts/callback-cost.ts` drives the scratch and
+`audio-cost` verb exposes it, and `engine/k7-runtime/scripts/callback-cost.ts` drives the scratch and
 reads it either side.
 
 At buffer 512 / 48 kHz — a **10.67 ms deadline per block**:
@@ -212,7 +212,7 @@ would cost.
 The callback does not suffer (max 0.278 ms during a burst against 0.356 without), so it is not a
 real-time problem; it is the only repeated solicitation imposed on a single-client driver while it is
 streaming. `DEVICES_POLL_MS` is at 10 s — 360 scans an hour instead of 1800; a near-zero-cost
-experiment, not a proven fix: `engine/st0-supervisor/docs/supervisorPolicy.md`.
+experiment, not a proven fix: `engine/k7-supervisor/docs/supervisorPolicy.md`.
 
 **What this closes.** The engine never approaches its deadline: a factor of twenty of margin on the
 worst block observed, in every condition tried. The "we send the card too many instructions" theory
@@ -247,7 +247,7 @@ file-service side, where `wrap()` can see nothing: it only catches what the hand
 **The C++ nets its threads, not its `main()`.** Every job posted to the message thread runs inside
 one `try` (`EngineHost::post`), the socket dispatch inside another, the pattern worker inside a
 third, and the detached threads a message starts are counted and waited for at shutdown
-(`engine/st0-engine/docs/audit-stabilite.md`). A throw from a thread nothing wraps — JUCE's own, or a plugin's —
+(`engine/k7-runtime/docs/audit-stabilite.md`). A throw from a thread nothing wraps — JUCE's own, or a plugin's —
 still ends the process, but no longer without a word: `serve()` installs a `set_terminate` that
 logs what was thrown before it aborts.
 
@@ -283,13 +283,13 @@ code itself calls "the quietest failure in this repo": sending to an empty sessi
 ### The tool, and what it does not see
 
 Biome sees only intra-file — an `export` nobody imports is invisible to it **by construction** — and
-`biome.json` excludes `engine/st0-engine`. `npm run lint:dead` (knip, `knip.json`) does three of
+`biome.json` excludes `engine/k7-runtime`. `npm run lint:dead` (knip, `knip.json`) does three of
 `inventaire.md`'s four passes in thirty seconds. **Non-blocking**: a false positive is read, it must
 not block a merge.
 
 Its exception list is the inventory's §0 translated into configuration, without which it kills live
 code: `dspRunner.mjs`, `emit.ts`, the `jsdsp.ts`
-files, the harnesses in `engine/st0-engine/scripts/`.
+files, the harnesses in `engine/k7-runtime/scripts/`.
 
 Output: **1 file, 1 undeclared dependency, 2 undeclared binaries, 120 exports, 45 types** — 169
 findings, each to be examined. A rising count is not readable on its own: shrinking a published
@@ -336,7 +336,7 @@ npm run test                               # no cache anywhere in this chain —
 npm run typecheck
 ```
 
-**Stop the dev session before the benches.** Tilt and a live `st0-engine.exe` are enough to take the
+**Stop the dev session before the benches.** Tilt and a live `k7-runtime.exe` are enough to take the
 64-track variance from ±1 % to ±15 %, which invalidates any comparison made on a loaded machine. And
 **three passes, not one**: at that size the bench draws ten to twenty samples, enough for a single
 pass to lie without looking like it.
@@ -349,10 +349,10 @@ To check this page's claims one by one:
 git grep -n "unhandledRejection\|uncaughtException\|set_terminate" -- . ':!commons'
 
 # the token goes out on any socket
-git grep -n "engineToken" -- engine/st0-engine/server/
+git grep -n "engineToken" -- engine/k7-runtime/server/
 
 # one catch in the library, and main() is unguarded
-for f in $(git ls-files 'engine/st0-engine/engine/*.cpp' 'engine/st0-engine/engine/*.h'); do
+for f in $(git ls-files 'engine/k7-runtime/engine/*.cpp' 'engine/k7-runtime/engine/*.h'); do
   n=$(grep -cE 'catch\s*\(' "$f"); [ "$n" -gt 0 ] && echo "$n $f"
 done
 ```

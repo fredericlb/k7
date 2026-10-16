@@ -1,58 +1,82 @@
-# The per-engine token: what it proves, and what it does not protect
+# The engine's credentials: the token, the tunnel secret, and what each one proves
 
-**The per-engine token does not stay server-side.** That sentence must not be written the other
-way round: a false security claim is worse than no claim, because people build on it.
+An engine's supervisor holds three things in `<state>/engine-id.json`
+(`engine/k7-supervisor/src/Identity.cpp`): an **id**, a **token** and a **tunnel secret**. They
+are not three spellings of one credential. The token is readable by anyone who can reach the
+engine; the tunnel secret is read by nothing but the supervisor and the registries it dials. The
+file is the owner's alone — 0600, in a 0700 folder when the supervisor creates it.
 
-## What actually happens
+## The token is not a secret
 
 The engine answers `whoami` with its id, its token and its audio timing — to the machine's own
-sockets, to the server's relay, and to a LAN device once it is PAIRED. An unpaired LAN peer gets the id
-and `needsPairing` and never the token (`engine/st0-engine/docs/pairing.md`):
+sockets, to the server's relay, and to a LAN device once it is PAIRED. An unpaired LAN peer gets the
+id and `needsPairing` and never the token (`engine/k7-runtime/docs/pairing.md`):
 
 ```
-// engine/st0-engine/server/Serve.cpp, the `whoami` / `hello` branch
+// engine/k7-runtime/server/Serve.cpp, the `whoami` / `hello` branch
 ws.send(json{{"type", "whoami"}, {"id", engineId}, {"token", engineToken}, …}.dump());
 ```
 
-The browser reads it and keeps it: `packages/engine-browser/src/probe.ts` stores it in
-`RankedEngine.token`, because that is what it must present to the registry to select that engine.
+The relay forwards a `whoami` for any signed-in account, before it holds a claim (`proxy.md`), and
+the browser keeps the token: it is what `select` takes to claim that engine
+(`packages/engine-browser/src/probe.ts`). So **every account that can list an engine can read its
+token.** What it proves is narrow: that a browser met this engine's process before selecting it.
+It is an unguessable identifier, not an authentication.
 
-So the token is readable by whoever the engine already lets drive: the machine, the relay, and the
-devices the musician paired. The port listens on the LAN — the supervisor starts the engine with
-`STUDIO_ENGINE_HOST` set to `0.0.0.0`, where the binary's own default is `127.0.0.1` — but on a
-rehearsal network or a venue's wifi, an unpaired device learns only that an engine is there. The LAN
-path is unencrypted `ws://`, so a device that can sniff the network still sees a key or the token go by.
+## The tunnel secret is the machine's proof
 
-## What the token does prove
+The supervisor mints 32 random bytes once and keeps them beside the id. It sends them in two
+places and nowhere else: the heartbeat's body (`tunnelSecret`), to a registry whose `hello` it has
+checked first, and the `x-studio-tunnel-secret` header of the tunnel it dials. It never gives them
+to the engine process, never logs them, and no engine message carries them, so no browser ever
+sees them.
 
-It is not useless, and removing it would be a regression. It answers one precise question:
-**"is this engine, presenting itself under this id, the one that registered?"**
+The registry binds an id to the **first** secret a heartbeat carries for it — trust on first use —
+and keeps that binding on disk as `id → sha256(secret)` (`bindings.ts`, `engine-bindings.json` in
+the state dir its host passes; k7's is `<mediatek>/.engines`). The binding outlives the 15 s expiry
+of a listing and a restart of the backend, because those are exactly the gaps a lookalike would use.
+From then on, for that id:
 
-`verifyToken` stops a look-alike from passing for an already-known engine — a second process
-announcing the same id cannot produce the token the first deposited with the registry. The token
-is an **unguessable identifier**, not a secret: anti-confusion, not anti-intrusion. It protects
-against collision and against mistake, not against somebody already on the network.
+| arrives | answered |
+|---|---|
+| a heartbeat with the bound secret | listed — even with a new token, the secret being the proof |
+| a heartbeat with another secret, or none | `403`, logged; the id stays unlisted until its own machine beats again |
+| a tunnel with the bound secret | accepted; a live tunnel for the id is REPLACED (a reconnect) |
+| a tunnel with another secret, or none | `403`, logged; a live tunnel for the id stays where it is |
+| a deregister without the bound secret | `403`; the token alone does not unlist an engine |
 
-## The real trust model
+The bindings are capped (`MAX_BINDINGS`), the least recently seen going first: an evicted id that
+comes back is bound again on its next heartbeat. Copying `engine-id.json` to a second machine copies
+the secret with it, and the two then fight over one id exactly as one machine would; give the copy a
+fresh file instead.
 
-What the audio axis assumes, stated plainly:
+## Legacy supervisors
 
-- **The musician's machine is trusted.** The engine, the supervisor and the file service run on
-  the machine of the person playing.
-- **The local network is not**: a device on it drives once the musician has paired it, which is what
-  lets a phone drive the transport from the stage without letting the whole room do so.
-- **The real authentication is elsewhere**: the session cookie st0 mints, which z0 only
-  verifies.
+A supervisor older than the secret sends none. Its heartbeat is still taken, its tunnel still opened
+on the token, and the id is listed with `legacy: true` (`PublicEngine.legacy`). What it cannot do is
+take an id already bound to a secret: a heartbeat or a tunnel without one is refused for a bound id,
+whatever token it carries.
 
-None of that is absurd for a stage tool. What would be absurd is writing it backwards in the file
-somebody reads before adding a surface.
+An unbound, legacy id is protected the way every id once was: the first token seen pins it while it
+is listed, and is freed 15 s after its last heartbeat. Since the token is readable through the
+relay, **a legacy engine can be impersonated** by an account that read its token — its tunnel taken
+over, or its id bound to somebody else's secret once its listing lapses. Updating the supervisor is
+what closes that: its first heartbeat with a secret binds the id, using the token the id already
+holds. The server's own engine is built from this tree and sends a secret like any other.
 
-## What it would take for the token to become a real secret
+## What the token still gates
 
-Half of it is done: `whoami` gives the token only to a socket the engine already trusts — the
-machine, the relay, a paired device. What is left is that a paired device still receives it, and
-that the LAN path carries it unencrypted. Taking the token out of `whoami` altogether would need the
-browser to present a registry ticket instead (`issueEngineTicket` / `verifyEngineTicket` in
-`proxy.ts`, the relay's machinery), and the file service to stop taking the token as its gate.
+`select` checks it, so a claim names an engine the browser actually reached. The relay's server-side
+dial shows it to the engine as the pairing key of a socket the server opened (`proxy.md`). Neither is
+a defence against an account that can read it; the claim rules (`claim.md`) and the relay's gate are.
+
+## The trust model, stated plainly
+
+- **The musician's machine is trusted.** The engine, the supervisor and its files run there.
+- **The local network is not**: a device on it drives once the musician has paired it, and the LAN
+  path is unencrypted `ws://`, so a device that can sniff it sees a key or the token go by.
+- **The server trusts a machine by its tunnel secret**, bound on first use.
+- **A browser is trusted by its session**, the cookie k7 mints; through the relay it probes any
+  listed engine and drives only one its account holds a claim on (`proxy.md`, `claim.md`).
 
 See `docs/constat.md` for where this sits in the whole.

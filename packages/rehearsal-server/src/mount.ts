@@ -1,4 +1,4 @@
-// mount.ts — the rehearsal recorder's routes, mounted inside st0's backend: sessions and moments,
+// mount.ts — the rehearsal recorder's routes, mounted inside k7's backend: sessions and moments,
 // releases and their public pages, the songbook, the singing exercises, the phone-mic signaling.
 // It mounts no auth, no body parser and no CORS: the host applies them to the whole process first.
 // What reads wrong: it must be mounted BEFORE the media library, whose catch-all `/api` guard is
@@ -84,7 +84,7 @@ export const mountRehearsal: typeof Declared.mountRehearsal = (app, opts) => {
   api.use("/songs", requireAuth, songsRouter);
   api.use("/singing", requireAuth, singingRouter);
   api.use("/rtc", requireAuth, rtcRouter);
-  // GET only: st0's own `POST /api/token` and `GET /api/token/pair` fall through to the media library.
+  // `/token/publish` only: the rest of `/api/token` falls through to the media library.
   api.use("/token", requireAuth, tokenRouter);
   api.use(jsonErrors);
   app.use("/api", api);

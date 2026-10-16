@@ -14,7 +14,6 @@ import {
   renameSync,
   rmSync,
   statSync,
-  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import {
@@ -27,7 +26,6 @@ import {
   resolve,
   sep,
 } from "node:path";
-import type { ShareBundle } from "@studio/commands/share-bundle";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import {
   scannedPluginNames,
@@ -40,8 +38,10 @@ import {
   assemblyIssues,
   libraryAssemblies,
 } from "@studio/song/assemblies";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
 import type { AutoFreeze } from "@studio/song/autoFreeze";
 import { moduleBaseChoices } from "@studio/song/basePreset";
+import { confineToProject } from "@studio/song/confine";
 import {
   CONSOLE_ID,
   type ConsoleSystem,
@@ -167,6 +167,7 @@ import type {
   ModuleLibrary,
   PreviewReq,
   ProjectInfo,
+  ShareProgress,
   WaveformStatus,
   WebMixer,
   WebProject,
@@ -214,14 +215,9 @@ import {
   importProjectBytes,
   importProjectInto,
 } from "./projectLifecycle.ts";
-// The four export acts, behind a host of six members — see shareOps.ts.
-import {
-  buildShare,
-  exportMix,
-  type ShareHost,
-  shareK7,
-  shareLink,
-} from "./shareOps.ts";
+import { shareProgress, startShareLink } from "./shareLink.ts";
+// The export acts, behind a host of a few members — see shareOps.ts.
+import { exportMix, type ShareHost, shareK7 } from "./shareOps.ts";
 import {
   AUDIO_EXT,
   DEFAULT_WF_BUCKETS,
@@ -229,6 +225,7 @@ import {
   WaveformOps,
 } from "./waveformOps.ts";
 import { foldComps } from "./webComp.ts";
+import { webProjectOf } from "./webProject.ts";
 import { isBinary, RECYCLE_DIR, skip } from "./workspaceFilter.ts";
 
 export { DEFAULT_WF_BUCKETS } from "./waveformOps.ts";
@@ -519,7 +516,7 @@ export function readActiveMarker(root: string): string | null {
 export function writeActiveMarker(root: string, rel: string): void {
   const at = activeMarkerOf(root);
   mkdirSync(dirname(at), { recursive: true });
-  writeFileSync(at, rel ? `${rel}\n` : "", "utf8");
+  writeFileAtomic(at, rel ? `${rel}\n` : "");
 }
 
 /** Read an in-workspace marker once, write it beside the workspace and delete it from the workspace. */
@@ -746,8 +743,10 @@ export class Workspace {
           "libraries",
         );
       }
+      // Anything else below `_libraries/` (the relay's `.sync-relay/` above all) is no library's, so nobody's to read or write.
+      if (segs.length > 1) throw new Error(`names no library: ${rel}`);
       const home = librariesHome();
-      return confined(resolve(home, ...segs.slice(1)), home, rel, "libraries");
+      return confined(home, home, rel, "libraries");
     }
     return confined(
       rel === "." ? this.root : resolve(this.root, rel),
@@ -906,7 +905,7 @@ export class Workspace {
         `not a project (the folder must end in ${Object.values(PROJECT_SUFFIXES).join(", ")}): ${rel}`,
       );
     const clean = basename(newName).replace(/[\\/]/g, "").trim();
-    // The SUFFIX is the app: renaming a `.st0` into a `.z0` would hand the folder to another editor.
+    // The SUFFIX is the app: renaming a `.k7` into a `.z0` would hand the folder to another editor.
     if (projectApp(clean) !== projectApp(basename(abs)))
       throw new Error(
         `a project keeps the suffix that says which app opens it — '${clean}' should end in '${PROJECT_SUFFIXES[projectApp(basename(abs)) as ProjectApp]}'`,
@@ -1609,7 +1608,7 @@ export class Workspace {
     this.assertLibraryWritable(abs, "write");
     if (isBinary(basename(abs))) throw new Error("cannot edit a binary file");
     mkdirSync(dirname(abs), { recursive: true });
-    if (isK7xPath(abs)) writeFileSync(abs, content, "utf8");
+    if (isK7xPath(abs)) writeFileAtomic(abs, content);
     else wsWrite(abs, content);
     this.invalidateProjectDoc();
     return {};
@@ -1634,7 +1633,7 @@ export class Workspace {
       throw err;
     }
     mkdirSync(dirname(abs), { recursive: true });
-    writeFileSync(abs, bytes);
+    writeFileAtomic(abs, bytes);
     this.invalidateProjectDoc();
     return { path: this.toRel(abs) };
   }
@@ -2035,15 +2034,12 @@ export class Workspace {
 
   // --- export / share -------------------------------------------------------
 
-  // The four acts live in `shareOps.ts` and reach the workspace only through the host below.
+  // The export acts live in `shareOps.ts` and reach the workspace only through the host below.
   private shareHost(): ShareHost {
     return {
       root: this.root,
       requireActive: () => this.requireActive(),
       cachedProjectDoc: (dir) => this.cachedProjectDoc(dir),
-      projectDoc: () => this.projectDoc(),
-      graphDoc: () => this.graphDoc(),
-      surfaces: () => this.surfaces(),
     };
   }
 
@@ -2057,16 +2053,17 @@ export class Workspace {
     return exportMix(this.shareHost(), format);
   }
 
-  /** The frozen snapshot `project share link` sends to pl8 — what it carries is shareOps.ts. */
-  buildShare(): Promise<ShareBundle> {
-    return buildShare(this.shareHost());
+  /** Start `project share link`: a share at a checkpoint, made as a job — shareLink.ts. */
+  startShareLink(userEmail: string): void {
+    startShareLink(
+      { root: this.root, requireActive: () => this.requireActive() },
+      userEmail,
+    );
   }
 
-  /** Render the snapshot and send it to pl8 on the machine's own bearer — see docs/mediatekLink.md. */
-  async shareLink(
-    userEmail: string,
-  ): Promise<{ token: string; bytes: number }> {
-    return shareLink(this.shareHost(), userEmail);
+  /** Where that job is, for the progress bar; null when none was asked for. */
+  shareLinkProgress(): ShareProgress | null {
+    return shareProgress(this.root);
   }
 
   /** Publish to k7; an unknown song throws NEEDS_META, which the route turns into a prompt. */
@@ -2081,6 +2078,12 @@ export class Workspace {
     length: number;
   } {
     const dir = this.requireActive();
+    // A clip's source is text a file holds: inside the project's roots or nothing (@studio/song docs/confine.md).
+    const confinedSource = (source: string): string => {
+      const abs = confineToProject(dir, source);
+      if (!abs) throw new Error("audio path is outside the project");
+      return abs;
+    };
     // A clip id / media path / absolute audio path -> an absolute file within the root.
     const resolveSource = (spec: string): string => {
       if (!spec) throw new Error("preview: empty source");
@@ -2099,7 +2102,7 @@ export class Workspace {
       } catch {
         clip = undefined; // not a clip id — try it as a plain path below
       }
-      if (clip && clip.type === "audio") return clip.source;
+      if (clip && clip.type === "audio") return confinedSource(clip.source);
       const abs = resolve(dir, spec);
       // …or in a library's shared SOUNDS, where a rack tap's sample and a cabinet IR live (@studio/song's libraryFiles.md).
       if (!this.withinRoot(abs) && !inLibrarySounds(abs))
@@ -2126,7 +2129,7 @@ export class Workspace {
       const start = Math.max(0, clip.sourceFrom ?? 0);
       const to = clip.sourceTo ?? 0;
       return {
-        file: clip.source,
+        file: confinedSource(clip.source),
         start,
         length: to > start ? to - start : 0,
       };
@@ -2187,6 +2190,7 @@ export class Workspace {
         // A fade names its kind; the kind's GLSL rides on the project, once per name.
         ...(c.fadeIn ? { fadeIn: { ...c.fadeIn } } : {}),
         ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
+        ...(c.animate ? { animate: c.animate } : {}),
       })),
       // Shapes carry no media path — each variant's fields, `id` included, pass straight through.
       shapes: t.shapes.map((s) => ({ ...s })),
@@ -2253,30 +2257,7 @@ export class Workspace {
       const { rev } = this.revision();
       const hit = this.webDocCache;
       if (hit && hit.dir === dir && hit.rev === rev) return hit.doc;
-      const p = this.cachedProjectDoc(dir);
-      const doc: WebProject = {
-        name: p.name,
-        tempo: p.tempo,
-        timeSigNumerator: p.timeSigNumerator,
-        timeSigDenominator: p.timeSigDenominator,
-        tracks: toWebTracks(p.tracks, p.tempo),
-        groups: p.groups.map((g) => ({
-          id: g.id,
-          name: g.name,
-          color: g.color,
-          mute: g.mute,
-          solo: g.solo,
-        })),
-        masterVolume: p.masterVolume,
-        metronome: p.settings.metronome,
-        metronomeLevel: p.settings.metronomeLevel,
-        countIn: p.settings.countIn,
-        markers: p.markers.map((m) => ({
-          beat: m.beat,
-          name: m.name,
-          tc: m.tc,
-        })),
-      };
+      const doc = webProjectOf(this.cachedProjectDoc(dir));
       this.webDocCache = { dir, rev, doc };
       return doc;
     });
@@ -2309,6 +2290,7 @@ export class Workspace {
         videoTracks: [],
         framePlugins: [],
         transitions: {},
+        stretches: {},
       };
     const p = this.cachedVideoDoc(dir);
     const videoTracks = this.toWebVideoTracks(p.videoTracks);
@@ -2324,6 +2306,12 @@ export class Workspace {
         Object.entries(p.transitions).map(([k, t]) => [
           k,
           { ...t, params: { ...t.params } },
+        ]),
+      ),
+      stretches: Object.fromEntries(
+        Object.entries(p.stretches).map(([k, run]) => [
+          k,
+          run.map((pl) => ({ ...pl })),
         ]),
       ),
     };

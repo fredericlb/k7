@@ -3,7 +3,7 @@
 // for the same reason: a wrong path here does not throw, it reads as an empty library.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { mediatekDir } from "@studio/engine-client/paths";
 import { type Family, PLAYLISTS_DIR, RECORDINGS_DIR } from "./types.ts";
 
@@ -88,7 +88,7 @@ export function ensureLayout(): string {
       "utf8",
     );
 
-  // No namespace file is written: the `@st0` prefix is parsed in code rather than declared.
+  // No namespace file is written: the `@k7-core` prefix is parsed in code rather than declared.
 
   return root;
 }
@@ -116,23 +116,64 @@ export class PathEscapesError extends Error {}
 /** Thrown by `writablePath` for a path inside the library that is nonetheless not one to write. */
 export class NotWritableError extends Error {}
 
-/** A path a caller may WRITE, or a refusal — the marker and `.cache/` are the library's own; docs/index.md. */
+/** The folders `ensureLayout` makes, the root included: never written, moved or removed — docs/index.md. */
+const LAYOUT_DIRS: ReadonlySet<string> = new Set([
+  "",
+  ...Object.values(FAMILY_DIRS),
+  RECORDINGS_DIR,
+  PLAYLISTS_DIR,
+  ...SAMPLE_KINDS.map((k) => `${FAMILY_DIRS.samples}/${k}`),
+  "library",
+  "library/ir",
+  "library/nam",
+]);
+
+const WINDOWS = process.platform === "win32";
+const CASE_BLIND = WINDOWS || process.platform === "darwin";
+
+/** A segment as the filesystem may resolve it: Windows drops trailing dots and spaces, macOS and Windows fold case. */
+const folded = (p: string): string => {
+  const q = WINDOWS ? p.replace(/[. ]+$/, "") : p;
+  return CASE_BLIND ? q.toLowerCase() : q;
+};
+
+/** A segment that is, or may be, a dot-folder — on Windows an 8.3 short name like `PROJEC~1` may be one. */
+const hidden = (p: string): boolean =>
+  p.startsWith(".") || (WINDOWS && /~\d/.test(p));
+
+/** The path as root-relative segments, `[""]` for the root itself. */
+const segmentsOf = (abs: string): string[] =>
+  relative(mediatekDir(), abs).split(sep);
+
+/** A path a caller may WRITE, or a refusal — the root, the layout, the marker and dot-folders are the library's own; docs/index.md. */
 export function writablePath(rel: string): string {
   const abs = safePath(rel);
-  const parts = relative(mediatekDir(), abs).split(sep);
-  if (parts[0] === MARKER)
+  const parts = segmentsOf(abs);
+  if (LAYOUT_DIRS.has(parts.map(folded).join("/")))
+    throw new NotWritableError(`${rel || "."}: the library's own folder`);
+  if (folded(parts[0]) === MARKER)
     throw new NotWritableError(`${MARKER} is the library's own, not content`);
-  if (parts.some((p) => p.startsWith(".")))
+  if (parts.some(hidden))
     throw new NotWritableError(`${rel}: derived state is not writable`);
+  return abs;
+}
+
+/** A path a CLIENT may read: inside the root and under no dot-folder, where server state lives — docs/index.md. */
+export function readablePath(rel: string): string {
+  const abs = safePath(rel);
+  if (segmentsOf(abs).some(hidden))
+    throw new PathEscapesError(`${rel}: not a library path`);
   return abs;
 }
 
 /** A mediatek-relative path as an absolute one, confined to the root lexically — see docs/index.md. */
 export function safePath(rel: string): string {
+  if (rel.includes("\0")) throw new PathEscapesError("path holds a NUL byte");
   const root = mediatekDir();
   const abs = resolve(root, rel);
   const inside = relative(root, abs);
-  if (inside === ".." || inside.startsWith(`..${sep}`))
+  // Another drive or a UNC share: `relative` answers with an absolute path, not one climbing out.
+  if (inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside))
     throw new PathEscapesError(`path escapes the mediatek: ${rel}`);
   return abs;
 }

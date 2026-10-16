@@ -44,7 +44,7 @@ choose. The type folder already says which a module is; making the author say it
 answer, and `nodeProject.ts` is where it is asked.
 
 The same holds for `faust`, whose host is `Faust` either way: a Faust program that takes MIDI is a
-polyphonic INSTRUMENT, not a note effect, and `engine/st0-engine/docs/faust.md` says how the
+polyphonic INSTRUMENT, not a note effect, and `engine/k7-runtime/docs/faust.md` says how the
 program itself declares that.
 
 ## The scan cache — engineCatalogue.ts

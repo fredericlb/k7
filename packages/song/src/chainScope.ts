@@ -11,8 +11,8 @@ import {
   type EndStep,
   type Item,
   isEndStep,
-  isTrackItem,
   itemsOf,
+  laneOfItem,
   type Step,
   type Subchain,
 } from "@studio/song-schema/yaml/chainSchema";
@@ -167,7 +167,7 @@ export interface PrevPlaces {
   chains: Record<string, ChainFile>;
 }
 
-const nameOf = (i: Item): string => (isTrackItem(i) ? i.track : i.id);
+const nameOf = (i: Item): string => laneOfItem(i) ?? i.id;
 
 /** Each stretch of a run whose nodes sat in a subchain RUN in place goes back into it, as a `{ sub }` step. */
 export function regroupCalls(

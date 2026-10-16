@@ -15,7 +15,7 @@ import { librariesFixture } from "./testSupport";
 
 let root: string;
 let project: string;
-/** The `@st0` library, mounted in the workspace beside the project — `<ws>/_libraries/modules`. */
+/** The `@k7-core` library, mounted in the workspace beside the project — `<ws>/_libraries/modules`. */
 let libraries: string;
 
 // A module folder with a module.yaml (which is what makes it findable by ref) and some assets.
@@ -44,7 +44,7 @@ const mkNode = (name: string, yaml: string, assets: string[] = []) => {
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "assets-"));
-  project = join(root, "ws", "song.st0");
+  project = join(root, "ws", "song.k7");
   libraries = join(librariesFixture(join(root, "ws")), "modules");
   mkdirSync(project, { recursive: true });
 });
@@ -66,13 +66,13 @@ describe("moduleAssetChoices", () => {
   });
 
   it("INHERITS the assets of what it extends, wherever that library is", () => {
-    // The guitar case: the project's module is a shell and the `@st0` one carries the profiles.
+    // The guitar case: the project's module is a shell and the `@k7-core` one carries the profiles.
     mkModule(
       join(libraries, "audio", "amps", "guitar"),
       "plugin: { type: internal, name: NAM }\n",
       ["roland/bright.nam", "fender/clean.nam"],
     );
-    mkNode("guitar", 'extends: "@st0/audio/amps/guitar"\n');
+    mkNode("guitar", 'extends: "@k7-core/audio/amps/guitar"\n');
     // Through the real loaders, since they stamp the FOLDER each module lives in.
     const refs = loadModuleRefs(project, {}, []);
     const mod = loadModules(project).guitar;
@@ -89,10 +89,10 @@ describe("moduleAssetChoices", () => {
     );
     mkModule(
       join(libraries, "audio", "amps", "mid"),
-      'extends: "@st0/audio/amps/base"\n',
+      'extends: "@k7-core/audio/amps/base"\n',
       ["mid.nam"],
     );
-    mkNode("top", 'extends: "@st0/audio/amps/mid"\n');
+    mkNode("top", 'extends: "@k7-core/audio/amps/mid"\n');
     const refs = loadModuleRefs(project, {}, []);
     const choices = moduleAssetChoices(project, loadModules(project).top, refs);
     // Nearest first: `mid`'s own, then what IT inherits, two links up.
@@ -107,7 +107,7 @@ describe("moduleAssetChoices", () => {
     );
     mkModule(
       join(project, "modules", "audio", "local"),
-      'extends: "@st0/audio/amps/shared"\n',
+      'extends: "@k7-core/audio/amps/shared"\n',
       ["clean.nam"],
     );
     expect(
@@ -116,7 +116,7 @@ describe("moduleAssetChoices", () => {
         {
           category: "audio",
           file: "local",
-          extends: "@st0/audio/amps/shared",
+          extends: "@k7-core/audio/amps/shared",
         },
         {},
       ),
@@ -134,12 +134,12 @@ describe("moduleAssetChoices", () => {
   it("cannot loop forever on a cyclic `extends`", () => {
     // Refused upstream; this is the backstop, and it must return rather than hang a UI request.
     const refs = {
-      "@st0/a": { extends: "@st0/b" },
-      "@st0/b": { extends: "@st0/a" },
+      "@k7-core/a": { extends: "@k7-core/b" },
+      "@k7-core/b": { extends: "@k7-core/a" },
     };
-    expect(moduleAssetChoices(project, { extends: "@st0/a" }, refs)).toEqual(
-      [],
-    );
+    expect(
+      moduleAssetChoices(project, { extends: "@k7-core/a" }, refs),
+    ).toEqual([]);
   });
 });
 
@@ -153,7 +153,7 @@ describe("a file the module INHERITS", () => {
     );
     mkNode(
       "guitar",
-      'extends: "@st0/audio/amps/guitar"\nparams:\n  model: roland/bright.nam\n',
+      'extends: "@k7-core/audio/amps/guitar"\nparams:\n  model: roland/bright.nam\n',
     );
     const refs = loadModuleRefs(project, {}, []);
     const resolved = resolveModuleMap(loadModules(project), refs);
@@ -170,7 +170,7 @@ describe("a file the module INHERITS", () => {
     );
     mkNode(
       "local",
-      'extends: "@st0/audio/amps/shared"\nparams:\n  model: clean.nam\n',
+      'extends: "@k7-core/audio/amps/shared"\nparams:\n  model: clean.nam\n',
       ["clean.nam"],
     );
     const refs = loadModuleRefs(project, {}, []);
@@ -188,7 +188,7 @@ describe("a file the module INHERITS", () => {
     );
     mkNode(
       "sneaky",
-      'extends: "@st0/audio/amps/shared"\nparams:\n  model: ../../../../secret.nam\n',
+      'extends: "@k7-core/audio/amps/shared"\nparams:\n  model: ../../../../secret.nam\n',
     );
     const refs = loadModuleRefs(project, {}, []);
     const resolved = resolveModuleMap(loadModules(project), refs);
@@ -214,12 +214,16 @@ describe("the extension a param takes", () => {
   });
 
   it("filters by the FAMILY a panel names, for a slot whose name says nothing — a Faust table", () => {
-    const files = ["@st0/akwf/fmsynth.wav", "@st0/basic.WAV", "notes.txt"];
+    const files = [
+      "@k7-core/akwf/fmsynth.wav",
+      "@k7-core/basic.WAV",
+      "notes.txt",
+    ];
     // By its name alone, `Table` would ask for `.table` files and find none.
     expect(assetsForParam(files, "Table")).toEqual([]);
     expect(assetsForParam(files, "Table", "wavetables")).toEqual([
-      "@st0/akwf/fmsynth.wav",
-      "@st0/basic.WAV",
+      "@k7-core/akwf/fmsynth.wav",
+      "@k7-core/basic.WAV",
     ]);
   });
 });

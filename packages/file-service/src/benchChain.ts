@@ -3,7 +3,7 @@
 //
 // The one thing a reader would get wrong: the chain is COPIED into the bench, never referenced, and
 // as the bench's own segments and node files whichever layout the library keeps it in — a copy dies
-// with the bench, so an edit made while auditioning reaches nothing shared. See apps/st0/backend/docs/media/banc.md.
+// with the bench, so an edit made while auditioning reaches nothing shared. See apps/k7/backend/docs/media/banc.md.
 
 import { copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -141,7 +141,7 @@ export function spliceChain(benchDir: string, ref: string): void {
         ],
       },
       `# The bench, with the library chain "${ref}" COPIED between the input and the fader.\n` +
-        `# Nothing here is saved: edit the chain in st0's chains builder. See apps/st0/backend/docs/media/banc.md.`,
+        `# Nothing here is saved: edit the chain in k7's chains builder. See apps/k7/backend/docs/media/banc.md.`,
     ),
   );
 }

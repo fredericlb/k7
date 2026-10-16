@@ -6,8 +6,11 @@ listed a moment ago stays in a browser's cached list, whose next `select` then f
 
 ## Only three fields can refuse one
 
-`readHeartbeat` requires what there is no entry without: the **id**, the **token**, and
-**`addresses.port`**, where the engine answers. A heartbeat missing one is refused with a 400 whose
+`readHeartbeat` requires what there is no entry without: the **id** (at most 128 characters of
+`[A-Za-z0-9._-]`, since it travels in paths and log lines), the **token** (at most 256), and
+**`addresses.port`**, where the engine answers. `tunnelSecret` is optional, for a supervisor older
+than it, but a malformed one refuses the heartbeat rather than being cleaned away: dropping it would
+turn a bound engine into a legacy one (`token.md`). A heartbeat missing one is refused with a 400 whose
 body names the field (`heartbeat refused — token: …`), and the supervisor writes that body into its
 `.studio.log`.
 
@@ -37,8 +40,12 @@ bad token" with nothing in either log to say why.
 
 - a heartbeat refused, and why;
 - a heartbeat taken with fields cleaned, and which;
-- a token mismatch (409) — another process registered this id with another token; the id is freed
-  15 s after that one's last heartbeat;
+- a token mismatch (409) — another process registered this unbound id with another token; the id
+  is freed 15 s after that one's last heartbeat;
+- a secret mismatch (403) — the id is bound to another machine's tunnel secret (`token.md`);
+- a tunnel refused for the same reasons;
+- the list full (503, `MAX_ENGINES`), or too many ids NEW to it from one address in a minute (429,
+  `NEW_IDS_PER_IP_PER_MINUTE`): the route is open, so what it may grow is bounded.
 - a `select` refused.
 
 ## `select` tells its two refusals apart

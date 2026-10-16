@@ -26,8 +26,8 @@ check still skips a file its cache already holds (`packages/engine-tunnel/docs/t
 - The document is held, and the latest one asked for is the one sent when the copy ends — after
   passing the gate again, since it may name a file this copy did not carry.
 - `GET /workspace` carries `engineSync` (`EngineSyncState`, `@studio/web-protocol`): counts of what
-  the machine actually had to copy, not of what was asked. st0's footer draws it
-  (`apps/st0/frontend/src/components/EngineSyncProgress.tsx`) and Play waits for it.
+  the machine actually had to copy, not of what was asked. k7's footer draws it
+  (`apps/k7/frontend/src/components/EngineSyncProgress.tsx`) and Play waits for it.
 - The engine-health reconcile skips a session whose copy is running: the engine not holding the
   project yet is not the engine's fault.
 
@@ -38,8 +38,8 @@ going wrong in front of people is worse than one that does not start, so:
 
 - **A file did not arrive**, or **the copy failed outright** (the tunnel dropped): nothing is sent.
   Every later document of that session is dropped too, and the engine-health reconcile leaves the
-  session alone, so nothing retries behind the person's back. st0 shows a dialog that cannot be
-  dismissed (`apps/st0/frontend/src/components/EngineSyncFailedDialog.tsx`) naming each file and
+  session alone, so nothing retries behind the person's back. k7 shows a dialog that cannot be
+  dismissed (`apps/k7/frontend/src/components/EngineSyncFailedDialog.tsx`) naming each file and
   why; its one button, **Reload project**, is `POST /engine/sync/retry`, which forgets the failure
   and recompiles, so the copy starts over with the files that did not arrive.
 - **A file the engine holds open** is not a failure. Windows refuses to replace a file another

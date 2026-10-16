@@ -41,7 +41,7 @@ describe("the sidecar", () => {
     expect(readSidecar(src)).toEqual(ENV);
   });
 
-  it("writes the version and the fixed precision engine/st0-engine writes", () => {
+  it("writes the version and the fixed precision engine/k7-runtime writes", () => {
     const s = serialiseSidecar(ENV);
     expect(s.startsWith('{"v":4,"fingerprint":"12-00000000000000ff"')).toBe(
       true,

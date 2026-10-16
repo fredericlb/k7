@@ -22,7 +22,7 @@ interface Props {
   onClose: () => void;
 }
 
-// Asked when a session starts: this device's microphone, the one at the remote page, or a chain of st0's library.
+// Asked when a session starts: this device's microphone, the one at the remote page, or a chain of k7's library.
 export function SessionSourceDialog({
   open,
   remoteAvailable,

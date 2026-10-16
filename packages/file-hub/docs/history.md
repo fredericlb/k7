@@ -6,7 +6,7 @@ plan `../../../docs/live-sync-plan.md`.
 
 ## The relay's log is the history
 
-st0 has no git. Every edit made on any replica already reaches the relay as a batch, and the relay
+k7 has no git. Every edit made on any replica already reaches the relay as a batch, and the relay
 already gives it a place in one order. That ordered log is therefore the only complete account of
 what happened to a workspace, and it is kept whole rather than a second record being built beside
 it. It is this repository's own code on every platform, which a git binary is not.
@@ -44,6 +44,13 @@ A checkpoint is a named `seq` in `checkpoints.json`: nothing is copied, since th
 the point. Named by a person, it records their email. The relay also takes one, named `auto`, when a
 room has been edited and then left alone for ten minutes, at most one per quiet period, so a session
 of work has a point to come back to without anyone thinking of naming it.
+
+A **share** names one too, `share: <project>`, at the seq its author's edits reached
+(`shareHistory.ts`, `packages/file-service/docs/share.md`). The file service asks the hub for it on
+its own secret, rather than writing `checkpoints.json` itself: the hub is that file's one writer, and
+it has no lock. The same route answers the files at that seq, each binary as the path of its bytes
+in the blob store. A share is therefore built from the history and never from the disk, and since
+nothing here deletes a segment, a snapshot or a checkpoint, its point stays rebuildable.
 
 ## A restore is an ordinary batch
 

@@ -3,6 +3,8 @@
 // Its own document rather than a section of ProjectDoc, which is what keeps the frame out of
 // everything the C++ engine is handed. Full rationale: docs/picture.md.
 
+import type { AnimatedProp, Key } from "@studio/song-schema/keyframes";
+
 // A placed shot; `source` is ABSOLUTE, since whoever renders knows nothing about the project folder.
 export interface VideoClipDoc {
   id: string;
@@ -14,12 +16,16 @@ export interface VideoClipDoc {
   // How this shot arrives and leaves; absent is a hard cut — see docs/transitions.md.
   fadeIn?: VideoFadeDoc;
   fadeOut?: VideoFadeDoc;
+  /** How the shot moves inside its lane's frame: each property's keys, sorted, seconds from the shot's start (docs/animation.md). */
+  animate?: Partial<Record<AnimatedProp, Key[]>>;
 }
 
 /** A transition ON a placement: how long, and which kind. The kind's GLSL is on the PROJECT, once per name. */
 export interface VideoFadeDoc {
   over: number; // seconds
-  with: string; // a modules/video_transitions/ name, or DISSOLVE
+  with: string; // a modules/video_transitions/ name, DISSOLVE, or OVER
+  /** The STRETCH this shot runs through over the fade, by its head node — a key of `VideoProjectDoc.stretches`. */
+  chain?: string;
 }
 
 /** A transition's two stages, read off `modules/video_transitions/<name>/` and carried INLINE. */
@@ -72,7 +78,7 @@ export interface ShaderSourceDoc {
 
 // A video chain's step, folded onto its lane so the renderer applies it per placement; VIDEO_OUT is the sink.
 export interface VideoPluginDoc {
-  id: string; // "<trackId>:<stepIndex>" — the renderer's per-instance key
+  id: string; // "<owner>:<stepIndex>", the owner a lane, RENDER or a stretch's head — the renderer's per-instance key
   // Mirrors the module's `type`, minus `video_transition`: one is never a chain step, docs/transitions.md.
   type: "video_effect" | "shader";
   name: string; // the module NODE's name — what the graph calls this card
@@ -131,6 +137,8 @@ export interface VideoProjectDoc {
   framePlugins: VideoPluginDoc[];
   /** Every transition a placement NAMES, by name; the built-in dissolve is absent — the renderer owns it. */
   transitions: Record<string, VideoTransitionDoc>;
+  /** Every stretch a fade NAMES, by its head node: the passes a shot runs through on its way in or out. */
+  stretches: Record<string, VideoPluginDoc[]>;
   /** What compiled but is not right — a shot naming no clip, say. A THROW is for a picture that
    *  cannot be built at all; this is for the ones that build and then draw nothing (docs/picture.md). */
   warnings: string[];

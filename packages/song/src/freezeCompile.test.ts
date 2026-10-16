@@ -14,7 +14,7 @@ let dir = "";
 
 /** Both shapes of freeze in one project: a point inside a lane's run, and a bus lanes meet at. */
 function project(name: string): string {
-  const p = join(dir, `${name}.st0`);
+  const p = join(dir, `${name}.k7`);
   writeYaml(join(p, "project.yaml"), { project: { name } });
   // OUT needs no file at all — a built-in sink name (docs/moduleTypes.md).
   for (const m of ["amp", "cab", "verb", "plate"])

@@ -1,0 +1,7 @@
+// The shader the main lane runs through. Its `audio` port is a SIDE input: the drums lane feeds it
+// as well as the mix, and `uAudio` is that lane's live level, so the picture moves with the kit.
+ports(["audio"])
+steps([
+  id("078a9886-bfac-42a4-9a04-1bf1dfdb7378").extends("@workspace/shaders/glow"),
+  to([chain("RENDER")]),
+])

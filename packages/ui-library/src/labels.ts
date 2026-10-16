@@ -54,8 +54,9 @@ export interface LibraryLabels {
     /** Placement on a machine paired with a server, `host` being the server's. */
     synced: (host: string) => string;
     localOnly: string;
-    serverOnly: (host: string) => string;
     download: string;
+    /** The songs an album or a playlist names that only the server holds. */
+    downloadMissing: (count: number) => string;
   };
   addRecording: { add: string; sending: string; cancel: string };
   addSong: {
@@ -73,6 +74,12 @@ export interface LibraryLabels {
     cancelUpload: string;
     replace: string;
     send: string;
+    /** The title when several were picked. */
+    many: (count: number) => string;
+    /** …and the button that sends them, one after another. */
+    sendMany: (count: number) => string;
+    /** Take one song off the list before sending. */
+    drop: string;
   };
   save: {
     clean: string;

@@ -19,7 +19,7 @@ describe("blob refs", () => {
     expect(isBlobRef("plugin: mixer\n")).toBe(false);
     expect(isBlobRef(null)).toBe(false);
     expect(parseBlobRef(`${ref}x`)).toBeNull();
-    expect(parseBlobRef(`\u0000st0fs-blob ${"g".repeat(64)} 1\n`)).toBeNull();
+    expect(parseBlobRef(`\u0000k7fs-blob ${"g".repeat(64)} 1\n`)).toBeNull();
     expect(() => blobRef("abc", 1)).toThrow();
   });
 

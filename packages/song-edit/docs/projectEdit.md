@@ -22,9 +22,9 @@ Two cases, and `moduleFileOf` picks between them:
 That second case is `sharedModuleFileOf`, and it returns null for anything that is not a
 namespaced ref. Writing there changes the module for every project beside it, which is right
 for what lives on ONE desk rather than in one song — an input's `channel:` describes the rig,
-and so does whether that input is audible. `@st0` is the one exception the file service still
+and so does whether that input is audible. `@k7-core` is the one exception the file service still
 gates behind an explicit Edit confirmation before it takes a write at all
-(`apps/st0/frontend/docs/sharedModules.md`); `@workspace` takes this write directly, the same
+(`apps/k7/frontend/docs/sharedModules.md`); `@workspace` takes this write directly, the same
 as any other file.
 
 ## Attribute sets (alternatives)
@@ -63,7 +63,7 @@ something, which is why the caller reloads instead of patching.
 `channel` is one number for mono, two for a stereo pair, and the two-element form only ever
 means a pair the interface actually groups: `findWaveInput` matches a device on its exact
 channel list, so a set the rig does not offer resolves to nothing and plays as silence (see
-`engine/st0-engine/docs/audioDevice.md`). Whether such a pair exists is the ENGINE's business and
+`engine/k7-runtime/docs/audioDevice.md`). Whether such a pair exists is the ENGINE's business and
 not checkable from here — the writer writes what it is told, and the surface offering the
 choice is the one that only offers real ones. `gain` is unclamped for the same reason:
 Tracktion does not clamp it either, and what is USEFUL (±24 dB, the range the builder's binds
@@ -152,7 +152,7 @@ halfway, and a rename touches a file, a preset and every chain step that spells 
 
 Two shapes answer to a name on the graph: a NODE — `nodes/<name>.yaml`, one use of a module — and a
 MODULE used directly, whose `module.yaml` is the only file there is. The second is not an import's
-oddity: st0 writes it itself for every lane's strip (`mix-<lane>`,
+oddity: k7 writes it itself for every lane's strip (`mix-<lane>`,
 `packages/song/docs/trackMixer.md`), and the importer writes it for a plugin used once. So the
 verbs have to know it, rather than answering "no node 'x'" about something plainly on the graph.
 
@@ -164,7 +164,7 @@ verbs have to know it, rather than answering "no node 'x'" about something plain
 - **replace** repoints the MODULE, which is the paragraph above and stays right: that shape means
   the module is used once — collapsing an insert is what produces it — so repointing it is
   repointing the node, and its position, panel and alternatives survive. A module two chains DO
-  name is one plugin shared on purpose (`apps/st0/docs/24-syntax-chains.md`), and changing it
+  name is one plugin shared on purpose (`apps/k7/docs/24-syntax-chains.md`), and changing it
   changes the thing they share.
 
 `unlinkChainNode` takes a node out of the SIGNAL PATH, joining what fed it to what it fed, and

@@ -26,11 +26,11 @@ Range reads and fills from the médiathèque, so a cached session makes no round
 
 ## The library is reached over loopback, with a service token
 
-The médiathèque runs in the same process — st0's backend mounts both — yet this package calls it
+The médiathèque runs in the same process — k7's backend mounts both — yet this package calls it
 over HTTP, through `@studio/mediatek/remote` (`remoteLibrary`, `remoteWriter`, `pushRecording`,
 `pushSong`); `src/mediatek.ts` is a façade over that one client. The host hands the link in at
 mount: `http://127.0.0.1:<port>` and a `service:k7` token that `mediaTokens()` mints in the same
-process (`apps/st0/backend/src/server.ts`). Nothing is configured: no URL and no token in
+process (`apps/k7/backend/src/server.ts`). Nothing is configured: no URL and no token in
 `env.yaml`.
 
 HTTP rather than an in-process call, because the library's routes are where its rules live — the
@@ -121,7 +121,8 @@ A row is a JSON document ([store.md](store.md)), so a field no longer declared s
 that have it. Emptying it is a manual and deliberate operation.
 
 **Sheet music** is a file of the store's `sheets/` folder, linked to its song: not a recording, and
-`uploadAttachment` / `attachmentFile` serve only that.
+`uploadAttachment` / `attachmentFile` serve only that. What type any of these is served under is
+[serving.md](serving.md).
 
 ## Moments go in the same family
 
@@ -153,13 +154,20 @@ A published version is not a recording: it is a mixdown somebody decided was fin
 into the **SONGS** (`songs/`), under the artist `K7`:
 
 ```
-songs/K7/<release title>/<version name>/
+songs/K7/<release title> (<release uid>)/<version name> (<version uid>)/
     original.mp3        ← the mixdown
     song.yaml           ← title, artist: K7, album, source: k7
     stems/guitare.wav   ← the separated tracks, when the import brings them
 ```
 
-Four decisions in there:
+The uids are each one's first eight characters (`uidTag`, `src/mediatek.ts`). Five decisions in
+there:
+
+- **The folder is the version's alone.** The `K7` artist is shared by every user, and every first
+  version is called "Version" or "Version 1": a folder named by titles alone would let one user's
+  publish replace another's mixdown, and a delete remove it. The uids keep the name readable and
+  make it unique; the title is cut to 60 characters first so the library's 80-character cap never
+  eats the tag.
 
 - **`recorded`, not `imported`.** The studio produced it; the distinction says what can be
   re-made and what is somebody else's master.
@@ -170,14 +178,19 @@ Four decisions in there:
   as the master and does not descend: a track laid beside it could be played instead of the
   mixdown.
 - **Republishing replaces.** The médiathèque's 409 protects a person sending the same song twice,
-  not a service republishing knowingly.
+  not a service republishing knowingly — and the folder it replaces is this version's own.
 
 Renaming a version **does not move the folder**; only the sidecar is rewritten: a folder path is
 an entry's identifier and a cache manifest's key, so moving it would cost every machine a
 re-download of bytes that have not changed.
 
-**Replacing a version's file** writes into that same folder — the push is keyed by the release's
-album and the version's name, which have not changed — and keeps the name, the stems and the place
+**Deleting a version removes only what is its own.** A folder carrying the version's uid goes
+whole. A folder named by titles alone — rows keep the `AudioPath` they were filed under, and older
+ones have no uid in it — may hold another version's bytes, so only the files of this row that no
+other version row names are removed (`forgetVersionFolder`, `src/store.ts`).
+
+**Replacing a version's file** writes into the folder its uids name — so a version filed under
+titles alone moves into one of its own — and keeps the name, the stems and the place
 in the release. What it must not leave behind is the previous master under another extension: the
 scan takes a folder's FIRST audio file as the master, so an `original.mp3` sitting beside a new
 `original.flac` is a version that plays the file nobody chose. The old path is removed whenever it
@@ -198,7 +211,8 @@ package keeps no copy.
   the store, bytes in the médiathèque. A sheet is a page; this is a whole track.
 - **An upload is filed under the album `k7`**, never under the catalogue's albums: writing
   under the REAL album, where a song of that name may already be, would replace it. No upload
-  here may overwrite a catalogued song; replacing an upload only overwrites that folder.
+  here may overwrite a catalogued song; replacing an upload only overwrites that folder, whose
+  title carries the song's uid (`<title> (<uid>)`), so two songbook songs of one name never share it.
 - **Only a library file is a track.** A path outside the library's `songs/` family is read as no
   track at all (`libraryPath`, `src/store.ts`): the rehearsal server stores, copies and plays no
   songbook file of its own, so such a song shows the fetch insert like any song without one.
@@ -246,13 +260,15 @@ are relayed as they are, without the server looking at them.
 
 ## Configuration
 
-Read from st0's backend section of `env.yaml` (`src/env.ts`): `K7_DATA_DIR` — the store
+Read from k7's backend section of `env.yaml` (`src/env.ts`): `K7_DATA_DIR` — the store
 ([store.md](store.md)), the local audio cache and the uploads in flight,
 `~/.studio/k7` by default so a dev run needs no volume, `/rehearsal-data` on the `k7-data` volume
 in the image — and `CACHE_MAX_GB`, past which that cache is trimmed ([audit.md](audit.md)).
 
-`K7_API_TOKEN_SECRET` signs the personal tokens a user mints from st0's settings and saves in a
-workspace's `.settings.json` to publish to these pages. It is NOT st0's `API_TOKEN_SECRET`: it
-defaults to `${SESSION_SECRET}:api-token`, the derivation the tokens already in circulation were
-signed with, so every one of them keeps verifying. `GET /api/token` mints one; st0's own
-`POST /api/token` and `GET /api/token/pair` are the media library's, and differ by method.
+`K7_API_TOKEN_SECRET` signs the personal tokens a user mints from k7's settings and saves in a
+workspace's `.settings.json` to publish to these pages. It is NOT k7's `API_TOKEN_SECRET`: it
+defaults to `${SESSION_SECRET}:api-token`. A token is valid only while listed in `api-tokens.json`
+under `K7_DATA_DIR`, so its owner can revoke it from the settings page. `POST /api/token/publish`
+mints one (never a GET, which a link could trigger), `GET` lists them and
+`DELETE /api/token/publish/:id` revokes one; the rest of `/api/token` is the media library's
+(`apps/k7/backend/docs/sessions.md`).

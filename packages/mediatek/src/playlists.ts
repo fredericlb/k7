@@ -1,6 +1,6 @@
 // playlists.ts — the set lists this volume holds: `playlists/<name>.yaml`, a root zone beside
 // the families. Listing them, naming one, creating one. The FORMAT is not ours — it is
-// @studio/song-schema/playlist, the same one st0 writes — and neither is resolving a line, which
+// @studio/song-schema/playlist, the same one k7 writes — and neither is resolving a line, which
 // needs the songs listing (playlistItems.ts). See docs/playlists.md.
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";

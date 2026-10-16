@@ -821,7 +821,7 @@ export {
 
 /** The bind prefix a RECORDER's controls carry: `@rec:record` fires, it does not set. The second
  *  member of the rack pad's family, and named apart from `@record` deliberately — a bare `@field`
- *  is a module field the general case would try to WRITE. See engine/st0-engine/docs/recorder.md. */
+ *  is a module field the general case would try to WRITE. See engine/k7-runtime/docs/recorder.md. */
 export const REC_BIND = "@rec:";
 
 /** What a recorder node can be told to do. `save` is the file service's; the other two the engine's. */
@@ -860,7 +860,7 @@ export const PADS_UP = 3;
 /** The rack's first note with nothing on it yet — song-edit's rackTaps.ts starts there too. */
 const FIRST_RACK_NOTE = 36;
 
-/** An SFZ kit's level, the SFZ player's own trim, and its range in dB — engine/st0-engine/engine/SfzPlugin.cpp. */
+/** An SFZ kit's level, the SFZ player's own trim, and its range in dB — engine/k7-runtime/engine/SfzPlugin.cpp. */
 const KIT_VOLUME = { bind: "Volume", min: -40, max: 12 } as const;
 /** …and one pad's, the player's gain on that pad's KEY, in whole dB — the same file. */
 const KIT_PAD_GAIN = { min: -24, max: 12, step: 1 } as const;

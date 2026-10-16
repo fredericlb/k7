@@ -1,4 +1,4 @@
-// The st0 engine wire protocol — the payload SHAPES shared by the two WebSocket
+// The k7 engine wire protocol — the payload SHAPES shared by the two WebSocket
 // clients of the C++ engine (the Node one and the browser one), so they can't silently
 // drift. Types only: the message-type strings stay in each client, since every surface
 // implements its own subset and the engine itself is the authority on the full contract.
@@ -81,7 +81,7 @@ export interface WaveformEnvelope {
 
 // The bare transport verbs both clients send. A positioned "seek" carries a field, so it goes as its own message.
 // `panic` is a transport verb because it is what a STOP that did not work asks for next — see
-// engine/st0-engine/docs/panic.md.
+// engine/k7-runtime/docs/panic.md.
 export type TransportAction = "play" | "stop" | "toggle" | "rewind" | "panic";
 
 // A live plugin's parameters by display name; `plugin-params` is the state to PERSIST and `plugin-params-live` the display feed, never written.

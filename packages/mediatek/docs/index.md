@@ -10,7 +10,7 @@ would cost more than it buys.
   would be a second truth to keep in step with the tree the engine actually reads.
 - **A database is chosen where the data is rows, not where it is bytes.** The rehearsal recorder's store
   holds rows with one consumer, in SQLite (`packages/rehearsal-server/docs/store.md`); the shares' comments are in SQLite
-  because anonymous visitors write them concurrently (`apps/st0/backend/docs/media/comments.md`). Neither
+  because anonymous visitors write them concurrently (`apps/k7/backend/docs/media/comments.md`). Neither
   reason applies to a volume of audio files and their YAML sidecars.
 - **An index would be a dependency for something a walk already does.** A separator earns a
   166 MB model and a per-platform shared library because there is no other way to do the thing at
@@ -44,7 +44,7 @@ dropped with two of its own, and read as having been flattened on the way in.
 
 ## What this volume does NOT hold, and why — two different reasons
 
-**Modules and chains** live *with their families*. A module and a chain are authored in st0,
+**Modules and chains** live *with their families*. A module and a chain are authored in k7,
 against a project where the plugin the module names is actually loaded, and committed to the
 account's **library repository** — a git repository somebody owns, not a folder on this volume.
 See `packages/song/docs/sharedFolders.md`.
@@ -166,10 +166,12 @@ decision, not an assumption nobody revisited.
 `@studio/audio-analysis` writes beside an audio file. It is derived from a file the walk already
 counts, so counting it too says the library changed when only its measurements did.
 
-That rule is load-bearing rather than tidy. st0's backend sweeps the library in the background writing the
-sidecars nobody has asked for yet (`apps/st0/backend/docs/media/analysis.md`), one every quarter second. Were a
+That rule is load-bearing rather than tidy. k7's backend sweeps the library in the background writing the
+sidecars nobody has asked for yet (`apps/k7/backend/docs/media/analysis.md`), one every quarter second. Were a
 sidecar to move the token, each of those writes would invalidate the listing the sweep is walking:
 a full rescan per file, for hours, over a library nobody touched.
+
+A FLAC's derived MP3 is dropped for the same reason, by its own rule ([derivedMp3.md](derivedMp3.md)).
 
 ## The index is versioned, because the token cannot see a code change
 
@@ -185,7 +187,7 @@ nothing asks for a re-walk and the stale answer outlives the fix.
 Bump it whenever what the scan PRODUCES changes — a new field, a different rule about what
 counts as an entry. A dropped index costs one walk, which is what the next section is about.
 
-## Confinement, and the two paths a caller may not write
+## Confinement, and what a caller may not write or read
 
 `safePath` (layout.ts) turns a mediatek-relative path into an absolute one inside the root.
 A local library does not need it: the file service's own `safePath` confines to the workspace,
@@ -202,11 +204,36 @@ the backslashed path `resolve` produces, so every nested path is reported as esc
 is plainly inside. `relative` normalises both sides and answers the question actually being
 asked — is this under that.
 
-`writablePath` adds the second half. Inside the root is not enough: two things are the library's
-own and not content — `mediatek.yaml`, which says what the folder *is*, and `.cache/`, which is
-derived. Writing there would let a caller poison an index or forge a cache's bookkeeping.
-Everything else is allowed, **including paths in no family**: a library that refused unfamiliar
-folders could never grow a third one.
+Inside means a relative path that neither climbs (`..`) nor is itself **absolute**: on Windows,
+`relative` answers a path on another drive or a UNC share with that absolute path rather than
+with one starting `..`, and only `isAbsolute` catches it. A NUL byte is refused as well, as a 400
+rather than the 500 the filesystem call would throw.
+
+`writablePath` adds the second half. Inside the root is not enough: some things are the library's
+own and not content:
+
+- **the root itself and every folder `ensureLayout` makes** — `songs/`, `samples/` and its kinds,
+  `recordings/`, `playlists/`, `library/` and its `ir/` and `nam/`. `.` and `songs/..` resolve to
+  the root, and one `DELETE /folder` on it would remove the whole volume. A song, an artist, a day
+  of recordings are the targets; the folders that hold them are not.
+- `mediatek.yaml`, which says what the folder *is*;
+- **every dot-folder**: `.cache/` is derived, and k7's backend keeps its own state beside it —
+  `.shares/`, `.settings/`, `.projects/`, `.hunts/`. Writing there would let a caller poison an
+  index, forge a share or rewrite an account's identity.
+
+The comparison follows the filesystem rather than the spelling: case is folded on macOS and
+Windows, and Windows' trailing dots and spaces are dropped, so `Songs` and `songs.` are `songs`.
+On Windows a segment shaped like an 8.3 short name (`PROJEC~1`) counts as a dot-folder, since it
+may be one. Everything else is allowed, **including paths in no family**: a library that refused
+unfamiliar folders could never grow a third one.
+
+`readablePath` is what a route that takes a CLIENT's path reads through (`/file`, `/stream`,
+`/envelope`, `/analyse` in k7's backend). It refuses every dot-folder, with no exception: what a
+client legitimately reads is content and what the library derives *beside* it — a
+`{file}.cache` analysis sidecar and a FLAC's derived MP3 sit next to their source, under no dot
+segment. The dot-folders hold the server's own state — the email-to-account map, other users'
+share tokens, credentials — which no client has a reason to read. `safePath` alone stays for the
+server's own walks, which reach those folders on purpose.
 
 ## Moving an entry is one syscall, and revs both ends
 
@@ -226,7 +253,7 @@ project that will not compile.
 
 A write takes its body as bytes or as `{ file }` — an upload a server already streamed to disk,
 which `putFile` MOVES into place (copying only across devices) and which is gone afterwards. That
-is how st0's backend files a 512 MB upload without ever holding it in memory (`apps/st0/backend/docs/media/audit.md`).
+is how k7's backend files a 512 MB upload without ever holding it in memory (`apps/k7/backend/docs/media/audit.md`).
 
 ## The cache is never load-bearing
 

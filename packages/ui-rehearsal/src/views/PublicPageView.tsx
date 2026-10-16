@@ -1,3 +1,4 @@
+import { Button } from "@frediverse/ui/button";
 import { PublicReleaseCard } from "../components/PublicReleaseCard";
 import { isOne } from "../i18n";
 import { m } from "../paraglide/messages.js";
@@ -6,6 +7,8 @@ import type { Page, SongEnvelope } from "../types";
 interface Props {
   page: Page | null;
   nametag: string;
+  /** Set when signing in may open the page: it is open to anyone signed in. */
+  loginUrl: string | null;
   audioUrl: (releaseId: string, versionId: string) => string;
   downloadUrl: (releaseId: string, versionId: string) => string;
   envelope: (releaseId: string, versionId: string) => Promise<SongEnvelope>;
@@ -14,10 +17,21 @@ interface Props {
 export function PublicPageView({
   page,
   nametag,
+  loginUrl,
   audioUrl,
   downloadUrl,
   envelope,
 }: Props) {
+  if (!page && loginUrl) {
+    return (
+      <div className="login-screen">
+        <p className="muted">{m["public.signInToSee"]({ nametag })}</p>
+        <Button asChild>
+          <a href={loginUrl}>{m["public.signIn"]()}</a>
+        </Button>
+      </div>
+    );
+  }
   if (!page) {
     return (
       <div className="login-screen">

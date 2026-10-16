@@ -16,7 +16,7 @@ project, and never a value of any module. A lane split into an audio and a MIDI 
 The fader cannot carry it: the engine's strip stops at +6 dB, as Tracktion's fader does, so +10 on a
 fader near unity would be clipped, and writing it there would change the value the person set. The
 boost goes on the strip's **output stage** instead — the engine's `@output-volume` around any plugin,
-which reaches +12 dB (`engine/st0-engine/docs/mix.md`). The compile adds it to the lane's last mixer,
+which reaches +12 dB (`engine/k7-runtime/docs/mix.md`). The compile adds it to the lane's last mixer,
 on top of whatever level that stage already had, and only in the document the engine is sent
 (`highlight.ts`); the mixer's own params on disk are untouched, so switching it off returns the mix
 exactly as it was. The compiled track carries `highlight: true` for the button to light.

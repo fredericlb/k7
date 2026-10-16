@@ -602,7 +602,7 @@ export function ModuleScreen({
   );
 
   const params = paramRef ? (hints?.paramsByBase[paramRef] ?? []) : [];
-  // Ranges for a built-in st0 defines; the engine's live report is better, so this only fills what it has not.
+  // Ranges for a built-in k7 defines; the engine's live report is better, so this only fills what it has not.
   const baseMeta = paramRef ? (hints?.paramMetaByBase[paramRef] ?? {}) : {};
 
   /** …and the built-in the file itself names, the source that needs NO project — see docs/builder.md. */
@@ -1191,7 +1191,7 @@ const stageFor = (path: string, io: string | null): string[] =>
 const isEffectPath = (path: string): boolean =>
   /(^|\/)_?modules\/audio\//.test(path);
 
-// The engine's blend around the effect: 0 all dry, 1 all wet — see engine/st0-engine/docs/mix.md.
+// The engine's blend around the effect: 0 all dry, 1 all wet — see engine/k7-runtime/docs/mix.md.
 const MIX_BIND: { name: string; meta: ParamMeta } = {
   name: "@mix",
   meta: { min: 0, max: 1, def: 1 },

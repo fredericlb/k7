@@ -22,7 +22,7 @@ does not have, so this is a question of who calls, not of whether it works.
 
 ## Where a host puts them
 
-This package renders a grid; it decides nothing about where. In st0 there are four homes,
+This package renders a grid; it decides nothing about where. In k7 there are four homes,
 and the split is deliberate:
 
 | where | what persists an edit |
@@ -42,10 +42,10 @@ cell edit. Never under a hand, though: not while a write is in flight, and not w
 an edit. And its writes go one at a time, since two whole-file writes in flight can land the older
 one last. What is NOT shared is the
 frame — `SeqGridPane` draws the sequence's own bar, the clip pane draws its view switch. See
-`apps/st0/frontend/docs/clipEditors.md`.
+`apps/k7/frontend/docs/clipEditors.md`.
 
 The fullscreen editor pane has neither, on purpose: it is the text editor, and a grid
-wants the room the main view has. See `apps/st0/frontend/docs/shell.md`.
+wants the room the main view has. See `apps/k7/frontend/docs/shell.md`.
 
 ## `TrackerGrid.ts` — the tracker view
 

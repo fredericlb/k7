@@ -6,9 +6,11 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
+import { migrateNamespaceIn } from "@studio/song/namespaceMigrate";
 import { accountLibraryHome } from "@studio/song/sharedFolders";
 import { projectSurfaces } from "@studio/song/surfaces";
 import { wsRead } from "@studio/song/yaml/workspaceFile";
@@ -20,10 +22,16 @@ import type {
 } from "@studio/web-protocol";
 import { projectApp } from "@studio/web-protocol/projects";
 import { BENCH_WORKSPACE } from "./bench.ts";
+import { EXAMPLES_WORKSPACE } from "./demos.ts";
+import { liveLogFor } from "./liveLog.ts";
+import { loadHead } from "./liveRelay.ts";
+import { isPaired } from "./liveServers.ts";
 import {
   ACCOUNT_LIBRARY_ROOM,
   attachLiveCapture,
   detachLiveCapture,
+  endWorkspace,
+  roomAt,
 } from "./liveSync.ts";
 import { closeModuleWatchesUnder } from "./moduleWatch.ts";
 import { rootOwner } from "./owner.ts";
@@ -88,8 +96,66 @@ export function joinWorkspace(name: string): void {
 
 /** Sync every workspace on this machine from the start, not only those a request opens: a replica holds them all. */
 export function attachAllWorkspaces(): void {
+  // Before joining: a server's sync then carries the rewrite to every device as an ordinary edit.
+  migrateLegacyNamespaces();
   for (const name of workspaceNames(rootDir())) joinWorkspace(name);
   attachAccountLibrary();
+  // A workspace kept as `room.host` while its name was taken here gets it back once it is free.
+  for (const name of workspaceNames(rootDir())) void restoreRoomName(name);
+}
+
+/** `@st0/…` and the modules k7-core renamed, rewritten in each workspace whose replica this is to do it (docs/workspaces.md). */
+function migrateLegacyNamespaces(): void {
+  const paired = isPaired();
+  for (const name of workspaceNames(rootDir())) {
+    if (name === EXAMPLES_WORKSPACE) continue;
+    const root = workspaceRoot(name);
+    // A paired device leaves a synced workspace to its server, so one rewrite reaches every replica rather than several racing.
+    if (paired && loadHead(liveLogFor(root)) > 0) continue;
+    const changed = migrateNamespaceIn(root, true);
+    if (changed.length)
+      console.log(
+        `library | ${name}: ${changed.length} file(s) rewritten from @st0 to @k7-core`,
+      );
+  }
+  if (!paired) migrateNamespaceIn(accountLibraryHome(), true);
+}
+
+/** Rename workspace folder `from` to `to` with everything filed by its path: its sync history, its active marker. */
+async function renameWorkspaceFolder(from: string, to: string): Promise<void> {
+  const fromRoot = workspaceRoot(from);
+  const toRoot = workspaceRoot(to);
+  closeModuleWatchesUnder(fromRoot);
+  // Imported late: engineLink reaches back into this registry.
+  const { unloadEngineIfServing } = await import("./engineLink.ts");
+  await unloadEngineIfServing(fromRoot);
+  // Sync lets go first, so the move is not captured as every file removed and added again.
+  detachLiveCapture(fromRoot);
+  for (const [key, ws] of live) if (ws.root === fromRoot) live.delete(key);
+  renameSync(fromRoot, toRoot);
+  if (existsSync(liveLogFor(fromRoot)))
+    renameSync(liveLogFor(fromRoot), liveLogFor(toRoot));
+  if (existsSync(activeMarkerOf(fromRoot)))
+    renameSync(activeMarkerOf(fromRoot), activeMarkerOf(toRoot));
+  const owner = rootOwner();
+  if (owner) forgetListing(slugify(owner));
+  joinWorkspace(to);
+}
+
+/** The workspace `name`, renamed to its room's name when it differs and nothing here holds that name; answers its name now. */
+export async function restoreRoomName(name: string): Promise<string> {
+  const room = roomAt(workspaceRoot(name));
+  if (!room || room === name) return name;
+  try {
+    if (existsSync(workspaceRoot(room))) return name;
+    await renameWorkspaceFolder(name, room);
+    return room;
+  } catch (e) {
+    console.warn(
+      `sync | '${name}' could not take back its name '${room}': ${(e as Error).message}`,
+    );
+    return name;
+  }
 }
 
 let accountLibrary: Workspace | null = null;
@@ -140,10 +206,52 @@ export async function removeWorkspace(
   // EPERM half-way through a removal — the same reason `deleteProject` lets go (docs/moduleWatch.md).
   closeModuleWatchesUnder(root);
   await unload?.(root);
+  // Sync FIRST: emptied on its server and told it ends, or it comes back, empty, on the next join (docs/workspaces.md).
+  await endWorkspace(root);
   rmSync(root, { recursive: true, force: true });
   // Its marker is beside it, not in it: a workspace made again under the name must not reopen a ghost.
   rmSync(activeMarkerOf(root), { force: true });
   forgetListing(slugify(userEmail));
+}
+
+/** The files under `dir` that are no folder, counted to a bound: whether anything is left worth keeping. */
+function filesUnder(dir: string, bound = 1): number {
+  let n = 0;
+  const walk = (d: string) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (n >= bound) return;
+      if (e.isDirectory()) walk(join(d, e.name));
+      else n++;
+    }
+  };
+  try {
+    walk(dir);
+  } catch {
+    return 0;
+  }
+  return n;
+}
+
+/** Another replica ENDED workspace `name` — deleted it, or moved it away: its folder goes, unless something never synced is left in it. */
+export async function dropEndedWorkspace(name: string): Promise<void> {
+  const root = workspaceRoot(name);
+  if (!existsSync(root)) return;
+  // What sync knew is removed already; a file still here is one it never held — a backup, a local-only file.
+  if (filesUnder(root)) {
+    console.warn(
+      `sync | '${name}' was ended elsewhere; kept here, since it holds files that never synced`,
+    );
+    return;
+  }
+  closeModuleWatchesUnder(root);
+  // Imported late: engineLink reaches back into this registry.
+  const { unloadEngineIfServing } = await import("./engineLink.ts");
+  await unloadEngineIfServing(root);
+  rmSync(root, { recursive: true, force: true });
+  rmSync(activeMarkerOf(root), { force: true });
+  for (const [key, ws] of live) if (ws.root === root) live.delete(key);
+  const owner = rootOwner();
+  if (owner) forgetListing(slugify(owner));
 }
 
 // Every workspace folder under the user's root; Examples is already there, put by the service's startup (demos.ts).
@@ -179,7 +287,7 @@ export function workspaceNames(dir: string): string[] {
   }
 }
 
-/** Every workspace on this machine, with its projects — what st0's home page draws (docs/workspaces.md). */
+/** Every workspace on this machine, with its projects — what k7's home page draws (docs/workspaces.md). */
 export async function listMachineWorkspaces(
   userEmail: string,
 ): Promise<AccountWorkspace[]> {
@@ -198,7 +306,7 @@ export async function listMachineWorkspaces(
         // `.` names the workspace folder itself; either way the NAME decides, the one rule both ends use.
         const app = projectApp(path === "." ? name : path.split("/").pop()!);
         if (!app) return [];
-        const tags = app === "st0" ? tagsOf(join(abs, path)) : [];
+        const tags = app === "k7" ? tagsOf(join(abs, path)) : [];
         return [tags.length ? { path, app, tags } : { path, app }];
       }),
     };
@@ -207,7 +315,7 @@ export async function listMachineWorkspaces(
   return rows;
 }
 
-/** An st0 project's tags, read from its project.yaml; none when there is no such file. */
+/** An k7 project's tags, read from its project.yaml; none when there is no such file. */
 function tagsOf(projectDir: string): string[] {
   try {
     return projectTagsOf(wsRead(join(projectDir, "project.yaml")));
@@ -225,7 +333,7 @@ export const forgetListing = (slug: string) => {
   surfaced.delete(slug);
 };
 
-/** Every project that DECLARES a surface, flat — what st0's `/external` page draws (docs/workspaces.md). */
+/** Every project that DECLARES a surface, flat — what k7's `/external` page draws (docs/workspaces.md). */
 export async function listSurfacedProjects(
   userEmail: string,
 ): Promise<SurfacedProject[]> {

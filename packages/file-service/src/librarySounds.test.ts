@@ -21,16 +21,16 @@ let ws: Workspace;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-libsnd-"));
-  lib = librariesFixture(root, "st0");
+  lib = librariesFixture(root, "k7-core");
   mkdirSync(join(lib, "modules"), { recursive: true });
   mkdirSync(join(lib, "samples"), { recursive: true });
-  const proj = join(root, "song.st0");
+  const proj = join(root, "song.k7");
   mkdirSync(proj, { recursive: true });
   writeFileSync(join(proj, "project.yaml"), 'project:\n  name: "song"\n');
   ws = new Workspace(root);
-  ws.setActiveProject("song.st0");
-  // An admin's own clone of `st0`: the one state in which a file may land in a library.
-  setLibraryOverlays([{ name: "st0", root: lib }]);
+  ws.setActiveProject("song.k7");
+  // An admin's own clone of `k7`: the one state in which a file may land in a library.
+  setLibraryOverlays([{ name: "k7-core", root: lib }]);
 });
 afterEach(() => {
   setLibraryOverlays([]);
@@ -39,7 +39,11 @@ afterEach(() => {
 });
 
 it("lands a sample dropped on a library's samples/ in that library's clone", () => {
-  ws.uploadFile("_libraries/st0/samples", "kicks/808.wav", Buffer.from("RIFF"));
+  ws.uploadFile(
+    "_libraries/k7-core/samples",
+    "kicks/808.wav",
+    Buffer.from("RIFF"),
+  );
   expect(existsSync(join(lib, "samples", "kicks", "808.wav"))).toBe(true);
   expect(existsSync(join(root, "_libraries"))).toBe(false);
 });
@@ -47,8 +51,8 @@ it("lands a sample dropped on a library's samples/ in that library's clone", () 
 it("lists the library's samples beside its modules, for the tab to draw and take drops on", () => {
   mkdirSync(join(lib, "samples", "kicks"), { recursive: true });
   writeFileSync(join(lib, "samples", "kicks", "808.wav"), "");
-  const st0 = ws.moduleLibraries().find((l) => l.ns === "st0");
-  const flat = JSON.stringify(st0?.samples);
-  expect(flat).toContain("_libraries/st0/samples/kicks/808.wav");
-  expect(st0?.irs).toEqual([]);
+  const k7 = ws.moduleLibraries().find((l) => l.ns === "k7-core");
+  const flat = JSON.stringify(k7?.samples);
+  expect(flat).toContain("_libraries/k7-core/samples/kicks/808.wav");
+  expect(k7?.irs).toEqual([]);
 });

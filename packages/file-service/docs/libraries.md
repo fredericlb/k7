@@ -1,6 +1,6 @@
 # libraries.ts — the origin's libraries, as one account's service sees them
 
-The origin has ONE list of libraries, each a FOLDER with a NAME: `st0`, `drums`. The file hub holds
+The origin has ONE list of libraries, each a FOLDER with a NAME: `k7`, `drums`. The file hub holds
 the list and the folders, and their choices are in `packages/file-hub/docs/fileHub.md`. This service
 reads those folders (`$STUDIO_LIBRARIES_HOME`), and `@<name>/<type>/<module>` resolves against them
 from every workspace of the account. No workspace holds a copy. The layout and why nothing declares
@@ -35,11 +35,11 @@ a chain edited from the Libraries tab alike, from any project.
 
 The write reaches the draft only: a workspace hears it once it pins `draft`, or once the draft is
 published as a version and the workspace pins that (`docs/library-versions-plan.md`). The hub relays
-every change to the library's st0fs room, whose log is its history. An unresolved
+every change to the library's k7fs room, whose log is its history. An unresolved
 `@<name>/…` ref is still not a compile error (`packages/song/docs/sharedFolders.md`), so a library
 that starts empty breaks nothing.
 
-A chain's bench (`/@banc/<chain>/live.st0`) edits no library and changes no overlay.
+A chain's bench (`/@banc/<chain>/live.k7`) edits no library and changes no overlay.
 
 `_libraries/account/…` is the account's OWN library, written by its account like `_modules`, never
 refused. It syncs as one more room of the account, `_account`, attached at start beside the

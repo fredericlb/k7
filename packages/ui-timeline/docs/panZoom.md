@@ -81,7 +81,7 @@ it is the one people MEET: past it the wheel simply stops, with nothing on scree
 Derived, the ceiling is about 13 000× on a laptop pane, which is one 64th of a beat filling the
 screen on a five-minute song. Nobody meets that either; what they meet is the material.
 
-The tick layers window themselves to the pane (`apps/st0/frontend/src/components/Ruler.tsx`'s
+The tick layers window themselves to the pane (`apps/k7/frontend/src/components/Ruler.tsx`'s
 `useVisibleBeats`), which is what makes this number the only ceiling left: a whole-song list
 saturates at 64 nodes per beat, and that would be the real one.
 
@@ -100,7 +100,7 @@ offsets the scroll, with the gutter — which does not scale — subtracted and 
 new `scrollLeft` is stored and applied in a layout effect AFTER the width change renders: computed
 on the old width, correct on the new.
 
-It is exposed because the wheel is not the only gesture that zooms: st0's ruler zooms on a vertical
+It is exposed because the wheel is not the only gesture that zooms: k7's ruler zooms on a vertical
 drag and calls this same function rather than copying the arithmetic. Applied straight away instead
 of deferred, the new `scrollLeft` is clamped by the old `scrollWidth`, so an anchored zoom drifts.
 One implementation, both gestures.

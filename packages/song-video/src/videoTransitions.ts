@@ -7,13 +7,26 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  isChainProject,
+  nameOfItem,
+  pictureLaneOf,
+  readChainProject,
+} from "@studio/song/chainProject";
+import {
+  DISSOLVE,
+  OVER,
   SHADER_FRAGMENT,
   SHADER_PARAMS,
   SHADER_VERTEX,
   TRANSITION_CATEGORY,
 } from "@studio/song-schema/moduleTypes";
+import { itemsOf } from "@studio/song-schema/yaml/chainSchema";
 import { ownerFolders, type ShaderOwner } from "./shaders";
-import type { VideoTrackDoc, VideoTransitionDoc } from "./videoDoc";
+import type {
+  VideoFadeDoc,
+  VideoTrackDoc,
+  VideoTransitionDoc,
+} from "./videoDoc";
 
 /** The four knobs, clamped to 0..1 because the value leaves TypeScript for GLSL — docs/shaders.md. */
 function transitionParams(module: ShaderOwner): Record<string, number> {
@@ -77,6 +90,71 @@ export function collectTransitions(
         if (src) out[fade.with] = src;
       }
   return out;
+}
+
+/** A fade whose `chain:` lands on no stretch of ITS lane, dropped to what it would be without one, and said. */
+// Kept as a fade rather than cut, for the reason a missing `with:` falls back: a cut would move the arrangement.
+function checkFade(
+  fade: VideoFadeDoc | undefined,
+  lane: string,
+  clip: string,
+  lanesOf: Readonly<Record<string, readonly string[]>>,
+  warnings: string[],
+  headOf: StretchHead,
+): VideoFadeDoc | undefined {
+  if (!fade?.chain) return fade;
+  // The name as WRITTEN becomes the node the run starts at, which is what the stretches are keyed by.
+  const head = headOf(lane, fade.chain);
+  if (lanesOf[head]?.includes(lane)) return { ...fade, chain: head };
+  warnings.push(
+    `${lane}: '${clip}' names chain '${fade.chain}', which is no run of shaders landing on this lane — it fades as a dissolve`,
+  );
+  return { over: fade.over, with: fade.with === OVER ? DISSOLVE : fade.with };
+}
+
+/** Which node a fade's `chain:` names on `lane`: itself in a graph project, a subchain's head in a chain project. */
+export type StretchHead = (lane: string, name: string) => string;
+
+/** In a CHAIN project a fade names a subchain of its lane's chain file, by id; the run starts at its first node. */
+export function chainStretchHead(dir: string): StretchHead {
+  const cp = isChainProject(dir) ? readChainProject(dir) : null;
+  return (lane, name) => {
+    const file = cp
+      ? Object.values(cp.chains).find((c) => pictureLaneOf(c) === lane)
+      : undefined;
+    const sub = file?.subchains?.find((sc) => sc.id === name);
+    const first = sub?.steps.flatMap(itemsOf)[0];
+    return first ? nameOfItem(first) : name;
+  };
+}
+
+/** Every fade's `chain:` checked against the stretches landing on its lane — see docs/transitions.md. */
+export function resolveStretches(
+  tracks: VideoTrackDoc[],
+  lanesOf: Readonly<Record<string, readonly string[]>>,
+  warnings: string[],
+  headOf: StretchHead = (_lane, name) => name,
+): VideoTrackDoc[] {
+  return tracks.map((t) => ({
+    ...t,
+    clips: t.clips.map((c) => {
+      const fadeIn = checkFade(c.fadeIn, t.id, c.id, lanesOf, warnings, headOf);
+      const fadeOut = checkFade(
+        c.fadeOut,
+        t.id,
+        c.id,
+        lanesOf,
+        warnings,
+        headOf,
+      );
+      const { fadeIn: _i, fadeOut: _o, ...rest } = c;
+      return {
+        ...rest,
+        ...(fadeIn ? { fadeIn } : {}),
+        ...(fadeOut ? { fadeOut } : {}),
+      };
+    }),
+  }));
 }
 
 /** The transitions this project offers, for a verb's completion — DISCOVERED on disk, not declared. */

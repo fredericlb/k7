@@ -1,0 +1,14 @@
+// Déformées — Houdini — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
+// variante.
+
+steps([
+  id("ac5625d2-0fbc-4b74-b72b-9ceb5c6ecfa8")
+    .extends("@k7-core/audio/vibrato")
+    .engine("wobble")
+    .engines({ wobble: { params: { Amount: 38 } } }),
+  id("0d4bf329-df86-46ef-a360-548a03d45c74")
+    .extends("@k7-core/audio/bitcrush")
+    .engine("de-rez")
+    .engines({ de-rez: { params: { Rez: 0.77, Rate: 1 } } }),
+  to([chain("@out")]),
+])

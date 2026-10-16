@@ -218,7 +218,7 @@ function mediatekChain(
 
 /** A library chain that SEPARATES, for the settings that pick which one this machine uses. */
 export interface ColdChain {
-  /** `@st0/<path>`, what `system stems` and the preferences store. */
+  /** `@k7-core/<path>`, what `system stems` and the preferences store. */
   ref: string;
   /** One of its offline steps declares an `instrumental` output — what `system instrumental` insists on. */
   instrumental: boolean;
@@ -560,7 +560,7 @@ export async function processWithChain(
   const renderer = render ?? (engine ? localRenderer(engine) : null);
   if (!renderer)
     return {
-      lines: [`${verb} failed: st0-engine binary not found (build the engine)`],
+      lines: [`${verb} failed: k7-runtime binary not found (build the engine)`],
       changed: false,
     };
 

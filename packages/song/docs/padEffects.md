@@ -88,11 +88,11 @@ or the change is silent.
 
 ## Verifying it
 
-`engine/st0-engine/scripts/pad-effects.ts` is the proof, and it is a **render measured**, not a unit
+`engine/k7-runtime/scripts/pad-effects.ts` is the proof, and it is a **render measured**, not a unit
 test — whether a ratchet happened is not something TypeScript can see.
 
 ```
-npx tsx engine/st0-engine/scripts/pad-effects.ts
+npx tsx engine/k7-runtime/scripts/pad-effects.ts
 ```
 
 It renders a one-bar pattern of four pads over four passes and counts hits per pass:
@@ -118,4 +118,4 @@ change that envelope, expect to be tuning a detector instead.
 ## Copying a pad
 
 `repeat`/`skip` travel with a note that is copied and pasted, through `NoteIn` and `appendNotes` —
-the same rule an event's own attributes follow (`apps/st0/frontend/docs/clipEditors.md`).
+the same rule an event's own attributes follow (`apps/k7/frontend/docs/clipEditors.md`).

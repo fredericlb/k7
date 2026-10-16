@@ -4,9 +4,9 @@ A project finds the modules it can extend **by where they are**:
 
 ```
 ws/_modules/                  the workspace's own  → @workspace/<type>/<name>
-<libraries>/st0/modules/      a library, `st0`     → @st0/<type>/<name>
-<libraries>/st0/chains/       …its chains          → @st0/<path>
-<libraries>/st0/presets/      …its presets         → <ns>/<module path>/<name>.yaml
+<libraries>/k7/modules/      a library, `k7`     → @k7-core/<type>/<name>
+<libraries>/k7/chains/       …its chains          → @k7-core/<path>
+<libraries>/k7/presets/      …its presets         → <ns>/<module path>/<name>.yaml
 ws/_presets/                  the workspace's presets, the same shape
 <libraries>/drums/…           another, `drums`     → @drums/…
 ws/song/                      a project
@@ -16,7 +16,7 @@ ws/song/                      a project
 — its ONE folder of each library, shared by every account — else `<studioHome>/libraries`.
 
 A preset tree is keyed by the MODULE a preset is for, namespace included, and kept wherever the
-person chose: a workspace may hold presets for an `@st0` module, and a library for an `@engine` one.
+person chose: a workspace may hold presets for an `@k7-core` module, and a library for an `@engine` one.
 So `presets/` is a library family like `chains/`, and `_presets/` sits beside `_modules/` for the
 `@workspace` level (`userPresets.md`).
 
@@ -26,19 +26,19 @@ modules under its own name.
 
 ## Libraries are the ORIGIN's, and the file hub keeps them
 
-The origin has one list of named libraries, edited by its admins from st0's Libraries panel. The
+The origin has one list of named libraries, edited by its admins from k7's Libraries panel. The
 file hub keeps ONE folder of each (`packages/file-hub/docs/fileHub.md`). **Every workspace of every
 account sees every library; none holds a copy.** A copy mounted INTO each workspace would make the
 workspace the wrong owner: each copy drifting from the others with nothing to reconcile them, a song
 carrying somebody else's catalogue, and one library per account, since a fixed folder name is what
-makes `@st0` mean it.
+makes `@k7-core` mean it.
 
 **A library is a series of frozen VERSIONS, and the workspace pins one.** `<name>/1/`, `<name>/2/`…
 are published and never written again; `<name>/draft/` is the one its admins edit. A workspace
 names the version of each library it uses in `_library-pins.yaml` at its root, and every function
 here that turns a name into a folder takes the path it resolves FROM (`libraryRoot(name, from)`),
 walks up to that file, and answers the pinned version's folder. Unpinned is version 1. What forced
-it: a desktop whose st0 is too old for the newest version keeps playing an older one, and the
+it: a desktop whose k7 is too old for the newest version keeps playing an older one, and the
 server must open that song as the desktop hears it. A path already inside a version of a library
 resolves that library at that version, so a module reads its own library's files where it was
 loaded. A library still in one folder, with no version folder in it, is every version of itself.
@@ -56,10 +56,10 @@ never read half-way.
 so no library collides with the synthesised catalogue or the fixed levels; the name is lowercase
 letters, digits and dashes, because it is a ref segment and a folder name at once.
 
-**The origin's first library is named `st0`.** That is what every `@st0/…` written before
+**The origin's first library is named `k7-core`.** That is what every `@k7-core/…` written before
 libraries had names meant — songs, chains, the four refs a scaffolded set writes for its decks — so
 none of them needs a line changed. `DEFAULT_LIBRARY` is that name, and a BARE chain ref (`bass/di`,
-as a bench address or a machine setting written earlier may hold one) is read as `@st0/bass/di`.
+as a bench address or a machine setting written earlier may hold one) is read as `@k7-core/bass/di`.
 
 **Nothing is put IN a library, and this repo ships no modules to put.** The library is the
 reference: what is in it is what its projects inherit. Modules written with `@studio/dsp` are
@@ -75,13 +75,15 @@ nothing else.
 
 **A shared module is edited by an admin, from any project, and by nobody else.** In a workspace's
 file API a library answers at the VIRTUAL folder `_libraries/<name>/…` — confined to that library's
-root, never on the workspace's disk (`packages/file-service/docs/workspace.md`). The hub's folder is
+root, never on the workspace's disk (`packages/file-service/docs/workspace.md`). `libraryOf` answers
+null for a path under `librariesHome()` whose first segment is no library — the relay's `.sync-relay/`
+lies there — so the file service refuses such a path before it asks. The hub's folder is
 every account's, so only an admin may write it. A library is OVERLAID to say so
 (`setLibraryOverlays`): an admin's account overlays each onto its own folder, and everything that
 asks `libraryRoot(name)` — the compile, the file tree, the engine's paths — reads the overlay's
 root. `isLibraryEditable(name)` is true for an overlaid library and only for one; writes are refused
 anywhere else, and the write is what publishes (`packages/file-service/docs/libraries.md`,
-`apps/st0/frontend/docs/sharedModules.md`). For a versioned library the overlay is its `draft/`:
+`apps/k7/frontend/docs/sharedModules.md`). For a versioned library the overlay is its `draft/`:
 `isLibraryRootEditable(lib)` asks whether the folder a path lies in IS the overlay, so a published
 version refuses every write, an admin's included. A pin outranks the overlay, so an admin hears the
 draft only in a workspace that pins `draft` or pins nothing.
@@ -116,7 +118,7 @@ one link it makes.
 ```yaml
 # <library>/chains/process/normalize.yaml
 steps:
-  - { id: 0706883d-…, extends: "@st0/cold/normalize", params: { Target: -1 } }
+  - { id: 0706883d-…, extends: "@k7-core/cold/normalize", params: { Target: -1 } }
   - to: [ { chain: "@out" } ]
 ```
 
@@ -171,7 +173,7 @@ and a chain step naming it outright. `graph.yaml` declares SEGMENTS, so a librar
 `modules:` KEY (a node that exists before anything is wired to it), a destination, or a name in
 `bypassed:` — read as the file is shaped rather than through the derived chains, which would need
 the whole graph model to answer a question about names. A chain may name a NODE of a library module
-(`@st0/audio/x:warm`); the folder to fetch is the module's, and the node travels inside it.
+(`@k7-core/audio/x:warm`); the folder to fetch is the module's, and the node travels inside it.
 
 Then what those modules extend in turn, since inheritance is how the library builds on itself —
 only as far as what is already on disk can say. A module fetched this round reveals its own parent
@@ -229,7 +231,7 @@ string an author chose inside the library: a workspace library could call itself
 collide head-on with the synthesised catalogue, and nothing would tie the name to where the folder
 sits. A library's name is the one the ORIGIN's list gave it, which is its folder's, which is its refs'.
 
-**Why the default library is spelled `@st0`.** It names a library, not the app `apps/st0` its
+**Why the default library is spelled `@k7-core`.** It names a library, not the app `apps/k7` its
 spelling suggests. It stays on purpose — a level is
 written into user files, and moving it would cost every repository a rewrite for a name nobody
 types. `packages/song/scripts/migrateNamespace.ts` is what such a rewrite takes.

@@ -1,0 +1,25 @@
+{
+  "name": "k7-standalone",
+  "version": "0.1.0",
+  "private": true,
+  "description": "k7 in one desktop app: its backend (the media library included), the file services it starts, the supervisor and the engine, all on this machine. See docs/standalone.md.",
+  "author": "F <fred@parapluie.org>",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build:main": "node scripts/build-main.mjs",
+    "build:frontends": "npm exec --workspace k7-frontend -- vite build",
+    "start": "node scripts/build-main.mjs && node scripts/start.mjs",
+    "stage": "node scripts/stage.mjs",
+    "package": "node scripts/build-main.mjs && node scripts/stage.mjs && electron-builder --config electron-builder.cjs --publish never",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@frediverse/electron-shell": "*",
+    "@studio/supervisor-host": "*",
+    "electron": "44.7.0",
+    "electron-builder": "^26.0.12",
+    "esbuild": "*",
+    "vitest": "^4.1.10"
+  }
+}

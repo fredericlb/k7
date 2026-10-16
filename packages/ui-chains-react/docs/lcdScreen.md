@@ -27,12 +27,16 @@ file is a module to an editor and a function body to the page.
 pixels, the module's params by name, the peak history of both audio taps (`input`, `output`,
 oldest first, ending now), a `state` object kept between draws, the screen's palette, and the time.
 
+The context is an `OffscreenCanvasRenderingContext2D`, and the script runs in a worker of the
+widget sandbox (below): it has no `window`, no `document`, no storage and no network. What it
+draws with is the frame it is handed, and nothing else.
+
 `lcd.sound(slot)` is the one thing a screen asks for rather than receives: the FILE a slot of the
 module names — a Faust table — decoded mono at its own length, or `null` until it has loaded (or
 with a host that loads none). The host decodes (`LcdSounds`, handed to `DomChains` as `sounds`, or provided once ABOVE every
-graph through `LcdSoundsContext` — st0 does the latter, since it mounts graphs in five places and a
+graph through `LcdSoundsContext` — k7 does the latter, since it mounts graphs in five places and a
 host passing it to four leaves the fifth's screens loading for ever);
-st0's reads the WAV itself (`apps/st0/frontend/src/lcdSounds.ts`), because the browser's
+k7's reads the WAV itself (`apps/k7/frontend/src/lcdSounds.ts`), because the browser's
 `decodeAudioData` resamples to the context's rate and a 2048-sample frame would stop being one. A
 file landing repaints every screen, so a draw only has to handle the `null` it starts with. The
 library's wavetable instrument draws its table with it.
@@ -56,7 +60,7 @@ export default {
 
 `LcdPointerFrame` and `LcdPointerEvent` in `lcdScreen.ts` are that contract: the frame the draw
 gets, without `ctx` and with `set(name, value)`, and a pointer in the draw's own pixels. The
-Parametric EQ in the st0 library (`modules/audio/eq/eq/engines/parametric`) is the worked example.
+Parametric EQ in the k7-core library (`modules/audio/eq/eq/engines/parametric`) is the worked example.
 
 ## Hiding widgets: `visible`
 
@@ -112,9 +116,8 @@ mean a string of JavaScript inside YAML that no editor highlights. It is found l
 same folder, same precedence — and it rides on the panel as `ui.script` through every hop to the
 browser, so it needs no route of its own and a node inherits it with its panel.
 
-**The browser runs it with `new Function`.** It is the module author's code, trusted the way a
-jsdsp module's DSP already is by the engine. A library you add is code you run. It is compiled
-once per text, whatever the number of screens.
+**It never runs in the page** (*Where the script runs*, below). It is compiled once per text,
+whatever the number of screens.
 
 **Both taps, always.** What a dynamics module DOES is the difference between what enters and
 what leaves, so a screen gets both rather than choosing one like a waveform widget. The engine
@@ -140,9 +143,59 @@ again until the script text changes: a throw per frame is a frozen tab.
 client counts subscriptions so the first to unmount does not remove it from the other
 (`packages/engine-browser/src/engine.ts`).
 
+## Where the script runs
+
+Every `widgets.js` — its draws, its pointer handlers, its `visible` rule — runs in ONE hidden
+`<iframe sandbox="allow-scripts" srcdoc=…>` per page, in a worker that iframe starts, and nowhere
+else. The page half is `packages/ui-chains/src/widgetSandbox.ts`, the half inside is
+`packages/ui-chains/src/widgetRuntime.ts`, and `src/widgetScript.ts` here is React's reading of it.
+
+**Why not the page.** A library is ORIGIN-WIDE: every account reads it, and an admin edits it live
+(`packages/song/docs/sharedFolders.md`); AI organize writes these scripts too. Code run in the page
+runs with the page's session: it can call every API as the user and read the engine pairing kept in
+`localStorage`. One compromised admin, or one untrusted seed, would be code in every user's
+session. In the sandbox the script has an opaque origin: no cookie, no storage, no reach into the
+page.
+
+**No network either.** The iframe's document carries its own CSP, `default-src 'none'` with only
+inline and `blob:` scripts and `eval` allowed, which the worker inherits. An opaque origin alone
+would still let a script send requests, and the hosted session cookie is `SameSite=None`.
+
+**A worker, so a hang is not the editor's.** An iframe often shares the page's thread, and a
+`while (true)` in a draw would freeze both. Every request has a deadline
+(`SANDBOX_TIMEOUT_MS`); the first one missed throws the iframe away with its worker, builds a new
+one, and that script TEXT is never sent again in this page — its screens say it was stopped, its
+`visible` hides nothing. The request blamed is the oldest unanswered one, which is the one the
+sandbox is stuck in, since it answers in order. Where a worker cannot start, the runtime runs in
+the iframe itself and still works, but a hang is then contained only if the browser gives the
+iframe a process of its own.
+
+**A draw answers with a bitmap.** The sandbox draws on an `OffscreenCanvas` of its own and
+TRANSFERS `transferToImageBitmap()` back; the page shows it through a `bitmaprenderer` context.
+Handing the page's canvas over with `transferControlToOffscreen` is the cheaper-looking path and is
+not taken: a canvas transferred into a cross-origin frame stops answering after its first frame in
+Chrome (measured, headless and with a worker or without), and it could never be transferred again
+after a rebuild. Serialised draw commands were not needed for any path: a `measureText` must answer
+synchronously, which a command list cannot. The cost is one bitmap per frame, moved and not copied.
+
+**Everything is asynchronous, and nothing waits.** A card shows every widget until the `visible`
+answer lands, then re-renders once to hide; asked again with other params, it keeps the last answer
+until the new one lands. Answers are cached by script and panel, so a card mounted again has its
+answer on its first render. A screen keeps one draw in flight and coalesces the rest. A pointer
+handler's `set` calls come back with its answer and are applied then, in order; the gesture is
+written when the answer to its `up` has landed.
+
+**Sounds cross once.** A screen sends a slot's samples only after its script has asked for that
+slot, and only when they changed; the sandbox keeps them per screen.
+
+**Messages are checked at both ends.** The page takes a message only from its iframe's window
+(`MessageEvent.source`); the iframe takes one only from its `parent`. The page posts with
+target `"*"` because an opaque origin has no name to target, which is acceptable because what
+goes in is params, taps and sounds, never a secret.
+
 ## In the builder
 
 A panel that draws a screen earns a `widgets.js` tab beside the others, through the store's
 `widgetsScript` call (`packages/ui-module-builder/docs/store.md`), saved with the rest by Save.
-The preview card draws the script as typed. It has no live plugin behind it in st0, so its taps
+The preview card draws the script as typed. It has no live plugin behind it in k7, so its taps
 are empty and it draws from params alone.

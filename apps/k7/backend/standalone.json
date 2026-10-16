@@ -1,0 +1,23 @@
+{
+  "port": 18789,
+  "env": {
+    "OIDC_ISSUER": "https://login.frediver.se",
+    "OIDC_CLIENT_ID": "st0-desktop",
+    "OIDC_CLIENT_SECRET": "",
+    "OIDC_SCOPES": "openid profile email groups",
+    "STUDIO_LOCAL_USER": "1",
+    "STUDIO_LISTEN_HOST": "127.0.0.1",
+    "K7_INSTANCE": "local",
+    "STUDIO_LIBRARY_ORIGIN": "https://st0.app",
+    "COOKIE_DOMAIN": "",
+    "STUDIO_MP3_SWEEP": "0"
+  },
+  "dirs": {
+    "STUDIO_FILES_ROOT": "workspaces",
+    "STUDIO_MEDIATEK": "mediatek",
+    "STUDIO_PREFS_DIR": "prefs/k7",
+    "STUDIO_HOME": "server-home",
+    "K7_DATA_DIR": "k7"
+  },
+  "library": "k7-core"
+}

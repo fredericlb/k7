@@ -82,6 +82,8 @@ export function SlskdSettings() {
   const [busy, setBusy] = useState<"save" | "check" | null>(null);
   const [check, setCheck] = useState<SlskdCheck | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The instance's credentials are an admin's: anyone else gets a 403 and no card at all.
+  const [denied, setDenied] = useState(false);
 
   // Stable, so the load below runs once and not on every render.
   const apply = useCallback((s: Saved) => {
@@ -101,7 +103,9 @@ export function SlskdSettings() {
     settings
       .slskd()
       .then(apply)
-      .catch((e: Error) => setError(e.message));
+      .catch((e: Error & { status?: number }) =>
+        e.status === 403 ? setDenied(true) : setError(e.message),
+      );
   }, [apply]);
 
   const runCheck = async () => {
@@ -169,6 +173,7 @@ export function SlskdSettings() {
       </button>
     ) : null;
 
+  if (denied) return null;
   if (!saved && !error)
     return (
       <Card className="p-6 text-sm text-muted-foreground">

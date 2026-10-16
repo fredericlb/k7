@@ -22,7 +22,7 @@ import { readChainProject, readLayout, toSegments } from "./chainProject";
 import { stackChainNode } from "./chainStack";
 import { nodeStacks } from "./nodePlace";
 
-const AMP = '"@st0/audio/amp"';
+const AMP = '"@k7-core/audio/amp"';
 const GTR = [
   "start: true",
   "steps:",
@@ -112,7 +112,8 @@ describe("a project running a subchain in place", () => {
   });
 
   it("keeps a node inserted between two members inside the stretch, and one inserted after it outside", () => {
-    const item = (id: string) => ({ id, extends: "@st0/audio/amp" }) as never;
+    const item = (id: string) =>
+      ({ id, extends: "@k7-core/audio/amp" }) as never;
     editChainGraph(dir, (t) => insertBetween(t, "amp-1", "eq-1", "mid-1"), {
       add: { "mid-1": item("mid-1") },
     });
@@ -139,7 +140,7 @@ describe("stackChainNode", () => {
     );
     put(
       "chains/eq.yaml",
-      `steps:\n  - { id: eq-1, extends: "@st0/audio/eq" }\n`,
+      `steps:\n  - { id: eq-1, extends: "@k7-core/audio/eq" }\n`,
     );
     put("layout.yaml", "positions:\n  eq-1: { x: 10, y: 20 }\n");
   });
@@ -152,8 +153,8 @@ describe("stackChainNode", () => {
       {
         id: "amp",
         steps: [
-          { id: "amp-1", extends: "@st0/audio/amp" },
-          { id: "eq-1", extends: "@st0/audio/eq" },
+          { id: "amp-1", extends: "@k7-core/audio/amp" },
+          { id: "eq-1", extends: "@k7-core/audio/eq" },
         ],
       },
     ]);
@@ -166,7 +167,7 @@ describe("stackChainNode", () => {
     stackChainNode(dir, "amp-1", "eq-1");
     put(
       "chains/gate.yaml",
-      `steps:\n  - { id: gate-1, extends: "@st0/audio/gate" }\n`,
+      `steps:\n  - { id: gate-1, extends: "@k7-core/audio/gate" }\n`,
     );
     stackChainNode(dir, "amp-1", "gate-1");
     const gtr = chain("gtr");

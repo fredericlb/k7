@@ -153,7 +153,7 @@ export function engines(): Engines {
   return access.engines;
 }
 
-// `/api/projects` and `/api/shares` are this service's routes, called from st0 (../docs/api.md).
+// `/api/projects` and `/api/shares` are this service's routes, called from k7 (../docs/api.md).
 
 /** `/api/hunt`, its own prefix: what answers is a daemon on another machine, not this volume. */
 const hget = async <T>(path: string, what: string): Promise<T> =>
@@ -243,15 +243,15 @@ export const library = {
       "placement",
     ),
 
-  /** Bring one server-only entry down to this machine; unbounded, since a song's master is long. */
-  download: async (family: string, path: string): Promise<void> => {
+  /** Bring server-only entries down to this machine — one, an album, a playlist's; unbounded, since a song's master is long. */
+  download: async (family: string, paths: string[]): Promise<void> => {
     await json(
       await request(
         `${apiBase()}/api/sync/library/download`,
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ family, path }),
+          body: JSON.stringify({ family, paths }),
         },
         null,
       ),
@@ -262,6 +262,10 @@ export const library = {
   /** A file's bytes, for an <audio>/<video> src. Served with Range, so seeking works. */
   fileUrl: (path: string) =>
     `${apiBase()}/api/mediatek/file?path=${encodeURIComponent(path)}`,
+
+  /** The same, but a FLAC comes as the MP3 beside it — what a browser plays (apps/k7/backend/docs/media/derivedMp3.md). */
+  streamUrl: (path: string) =>
+    `${apiBase()}/api/mediatek/stream?path=${encodeURIComponent(path)}`,
 
   /** Does the library hold this file? One BYTE, not the file, and a refusal reads as absent (../docs/api.md). */
   exists: async (path: string): Promise<boolean> => {

@@ -37,8 +37,8 @@ any browser with the session, with no machine up and no repository, and not vers
 It is the one you build while listening.
 
 **The songs themselves stay put either way.** That is the point of the split and not a half-measure:
-the file that names may be ours, the bytes named remain the médiathèque's. st0's playlist screen searches that catalogue
-and deposits into it — see `apps/st0/frontend/docs/playlists.md`.
+the file that names may be ours, the bytes named remain the médiathèque's. k7's playlist screen searches that catalogue
+and deposits into it — see `apps/k7/frontend/docs/playlists.md`.
 
 ## `_playlists`, beside `_modules`
 
@@ -85,8 +85,8 @@ and because a file holding both spellings would have neither.
 and this file opens nothing — not even `node:fs`: that is what lets the file service and the
 browser go by exactly the same rules.
 
-So it is the job of whoever holds both lists — st0's screen
-(`apps/st0/frontend/docs/playlists.md`) and the médiathèque's tab (`packages/ui-library/docs/playlists.md`), each with the
+So it is the job of whoever holds both lists — k7's screen
+(`apps/k7/frontend/docs/playlists.md`) and the médiathèque's tab (`packages/ui-library/docs/playlists.md`), each with the
 playlist on one side and the médiathèque on the other. They share the resolution itself rather than
 each having a copy: `@studio/mediatek/playlistItems`, where "path first, name second" is written
 once, since two copies would diverge at the first case learned on one side only.

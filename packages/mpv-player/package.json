@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@frediverse/http": "*",
+    "@studio/mediatek": "*",
     "express": "^4.19.2",
     "zod": "^4.1.13"
   },

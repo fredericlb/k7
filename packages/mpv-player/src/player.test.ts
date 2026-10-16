@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { configureMpv, resolveInMediatek } from "./player.ts";
+import { configureMpv, play, resolveInMediatek } from "./player.ts";
 
 let root: string;
 
@@ -59,6 +59,15 @@ describe("resolveInMediatek", () => {
     // mpv would fail anyway, but later and in its own words rather than "not on this machine".
     expect(() => resolveInMediatek("songs/absent/original.flac")).toThrow(
       /n'est pas sur cette machine/,
+    );
+  });
+});
+
+describe("play", () => {
+  it("refuses a playlist before mpv is ever asked to open it", async () => {
+    writeFileSync(join(root, "songs", "list.m3u"), "http://evil.test/x\n");
+    await expect(play("a@x.test", "songs/list.m3u")).rejects.toThrow(
+      /pas un fichier audio/,
     );
   });
 });

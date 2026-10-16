@@ -71,9 +71,9 @@
     padding-block: 6px;
   }
 
-  /* ---- Chain source: st0's bench in a frame ------------------------------- */
+  /* ---- Chain source: k7's bench in a frame ------------------------------- */
 
-  /* Hidden during a take rather than unmounted: the frame is st0's open bench, ../../docs/chainSource.md. */
+  /* Hidden during a take rather than unmounted: the frame is k7's open bench, ../../docs/chainSource.md. */
   .chain-panel-backdrop {
     position: fixed;
     inset: 0 0 0 var(--rehearsal-inset-left);

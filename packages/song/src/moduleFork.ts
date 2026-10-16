@@ -1,6 +1,6 @@
 // moduleFork.ts — taking ownership of a module the ENGINE merely reports: it has no folder at
 // all, so wanting a face or presets for one materialises it into the workspace's `_modules` here.
-// A `@workspace` or `@st0` module that already HAS a folder is simply edited in place — there is
+// A `@workspace` or `@k7-core` module that already HAS a folder is simply edited in place — there is
 // no project-local copy to fork into instead. Rationale: docs/moduleFork.md.
 
 import { mkdirSync } from "node:fs";

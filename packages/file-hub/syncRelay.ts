@@ -3,20 +3,15 @@
 // Each entry is on disk BEFORE it is relayed, so a crash cannot leave a replica ahead of the room.
 // See docs/syncRelay.md.
 
-import {
-  appendFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import type { IncomingMessage, Server } from "node:http";
 import type { Socket } from "node:net";
 import { join } from "node:path";
 import type { Batch, Sequenced } from "@studio/live-sync/ops";
 import { type FromRelay, parseToRelay } from "@studio/live-sync/protocol";
 import { Room, type RoomState } from "@studio/live-sync/room";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
+import { isLibraryName } from "@studio/song-schema/moduleTypes";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import { SYNC_RELAY_PATH } from "@studio/web-protocol/pairing";
 import { WebSocket, WebSocketServer } from "ws";
@@ -84,9 +79,40 @@ interface Live {
 /** The prefix that names a room of the shared account (the libraries) rather than one of the caller's. */
 export const SHARED_PREFIX = "@lib/";
 
+/** A workspace name as a single folder name: nothing that could climb out of `.sync-relay`. */
+export const isWorkspaceName = (w: string): boolean =>
+  w.length > 0 &&
+  w.length <= 255 &&
+  w !== "." &&
+  w !== ".." &&
+  !/[/\\]/.test(w) &&
+  !w.includes("\u0000");
+
 /** A room's folder; the workspace name is a single folder name already (workspaceRoot refuses anything else). */
 export const roomDir = (account: string, workspace: string): string =>
   join(account, ".sync-relay", encodeURIComponent(workspace));
+
+/** One line of the entries log, or null for one a crash cut short: it was never relayed (see the header). */
+function parseEntry(line: string): Sequenced | null {
+  try {
+    return JSON.parse(line) as Sequenced;
+  } catch {
+    return null;
+  }
+}
+
+/** Why a `hello` or `batch` cannot name this room, or null: a name that could climb out of `.sync-relay` is refused. */
+function roomNameError(
+  workspace: string,
+  sharedAccount: string | undefined,
+): string | null {
+  if (!workspace.startsWith(SHARED_PREFIX))
+    return isWorkspaceName(workspace) ? null : "not a workspace name";
+  if (!sharedAccount) return "no library is followed here";
+  return isLibraryName(workspace.slice(SHARED_PREFIX.length))
+    ? null
+    : "not a library name";
+}
 
 function load(dir: string): Room {
   const file = join(dir, "room.json");
@@ -96,17 +122,21 @@ function load(dir: string): Room {
   adoptLegacy(dir, state);
   const room = state ? Room.from(state) : new Room();
   const entries = join(dir, ENTRIES);
-  if (existsSync(entries))
-    for (const line of readFileSync(entries, "utf8").split("\n"))
-      if (line) room.replay(JSON.parse(line) as Sequenced);
+  if (existsSync(entries)) {
+    const text = readFileSync(entries, "utf8");
+    // A torn last line is closed off, so the next append starts a line of its own instead of joining it.
+    if (text && !text.endsWith("\n")) appendFileSync(entries, "\n");
+    for (const line of text.split("\n")) {
+      const entry = line ? parseEntry(line) : null;
+      if (entry) room.replay(entry);
+    }
+  }
   return room;
 }
 
 function snapshot(live: Live, historyEvery: number): void {
-  const tmp = join(live.dir, "room.json.tmp");
   const state = live.room.state();
-  writeFileSync(tmp, JSON.stringify(state));
-  renameSync(tmp, join(live.dir, "room.json"));
+  writeFileAtomic(join(live.dir, "room.json"), JSON.stringify(state));
   rollLog(live.dir, state.head, state.files, historyEvery);
   live.sinceSnapshot = 0;
 }
@@ -179,8 +209,18 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
   const serve = (ws: WebSocket, slug: string): void => {
     const joined = new Set<string>();
     ws.on("message", (data) => {
-      const msg = parseToRelay(data.toString());
+      try {
+        receive(data.toString());
+      } catch (e) {
+        send(ws, { t: "error", error: (e as Error).message });
+      }
+    });
+    const receive = (raw: string) => {
+      const msg = parseToRelay(raw);
       if (!msg) return send(ws, { t: "error", error: "not a sync message" });
+      const bad = roomNameError(msg.workspace, opts.sharedAccount);
+      if (bad)
+        return send(ws, { t: "error", workspace: msg.workspace, error: bad });
       // `@lib/<name>` is the shared account's room, followed read-only by any replica; anything else is the caller's own.
       const shared =
         msg.workspace.startsWith(SHARED_PREFIX) && opts.sharedAccount;
@@ -235,7 +275,7 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
       // A batch seen before is answered to its sender alone.
       if (entry.seq <= head)
         send(ws, { t: "seq", workspace: msg.workspace, entry });
-    });
+    };
     ws.on("close", () => {
       for (const l of rooms.values()) l.sockets.delete(ws);
     });
@@ -259,8 +299,13 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
     socket: Socket,
     head: Buffer,
   ): boolean => {
-    if (new URL(req.url || "", "http://localhost").pathname !== SYNC_PATH)
+    let path: string;
+    try {
+      path = new URL(req.url || "", "http://localhost").pathname;
+    } catch {
       return false;
+    }
+    if (path !== SYNC_PATH) return false;
     const bearer = /^Bearer (.+)$/.exec(
       String(req.headers.authorization ?? ""),
     )?.[1];
@@ -268,18 +313,24 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
     const account = bearer
       ? Promise.resolve(opts.deviceOf?.(bearer) ?? null)
       : opts.accountOf(secret);
-    void account.then((slug) => {
-      if (!slug) {
-        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+    account
+      .then((slug) => {
+        if (!slug) {
+          socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+          socket.destroy();
+          return;
+        }
+        wss.handleUpgrade(req, socket, head, (ws) => {
+          alive.set(ws, true);
+          ws.on("pong", () => alive.set(ws, true));
+          serve(ws, slug);
+        });
+      })
+      .catch((e: Error) => {
+        log(`upgrade refused: ${e.message}`);
+        socket.write("HTTP/1.1 500 Internal Server Error\r\n\r\n");
         socket.destroy();
-        return;
-      }
-      wss.handleUpgrade(req, socket, head, (ws) => {
-        alive.set(ws, true);
-        ws.on("pong", () => alive.set(ws, true));
-        serve(ws, slug);
       });
-    });
     return true;
   };
 

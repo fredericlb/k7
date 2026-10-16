@@ -2,7 +2,8 @@
 
 `compositor.ts` is the **placement**: one texture per layer, one textured quad each, composed
 bottom upwards. What the GLSL does in between is [passes.md](passes.md); how the picture follows
-playback is [realtime.md](realtime.md). The video document's vocabulary is
+playback is [realtime.md](realtime.md), and how a shot that MOVES is drawn on each path is
+[motion.md](motion.md). The video document's vocabulary is
 `packages/song-video/docs/picture.md`.
 
 It is the **single renderer** both drivers share, because `texImage2D` takes an
@@ -50,6 +51,16 @@ what you see when there is no layer left.
 
 `LayerBlend` says **which slots carry a picture this frame**, instead of deducing it from
 `hasFrame`: that never goes back down, so it cannot answer "now".
+
+### A side that runs a stretch
+
+A shot inside its fade's **stretch** goes through that run BEFORE the blend reads it
+(`src/stretches.ts`). The run passes through the same ping-pong as everything else, and its result
+is copied into a target of that slot's own: the blend reads both pictures at once, so neither may
+still be sitting in the scratch the other one is about to use. Two targets, allocated only when a
+fade in the scene names a stretch. The blend that follows is unchanged, and `over` — the kind a
+stretch with no `with:` blends by — is a built-in program beside the dissolve
+([transitions.md](../../song-video/docs/transitions.md)).
 
 `draw` goes through a single `bindComposite` closure rather than two branches per layer: a layer
 with its own chain has to **return** to that target after going through the scratch, and both

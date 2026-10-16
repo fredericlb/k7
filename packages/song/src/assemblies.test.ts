@@ -36,7 +36,7 @@ params:
   Fade: { node: fade, param: Level }
 `;
 
-const INSTANCE = `uses: "@st0/turntable"
+const INSTANCE = `uses: "@k7-core/turntable"
 members:
   level: levelA
   fade: fadeA
@@ -45,7 +45,7 @@ members:
 
 /** A workspace holding one library template and one project that uses it. */
 function workspace(instance: string, template = TEMPLATE): string {
-  const dir = join(root, "song.st0");
+  const dir = join(root, "song.k7");
   const lib = join(librariesFixture(root), "assemblies", "turntable");
   mkdirSync(lib, { recursive: true });
   writeFileSync(join(lib, "assembly.yaml"), template);
@@ -82,7 +82,7 @@ describe("the two files", () => {
   it("reads an instance's template ref and members", () => {
     const { value, issues } = parseAssembly(INSTANCE);
     expect(issues).toEqual([]);
-    expect(value?.uses).toBe("@st0/turntable");
+    expect(value?.uses).toBe("@k7-core/turntable");
     expect(value?.members.fade).toBe("fadeA");
   });
 
@@ -107,7 +107,7 @@ describe("resolving one against its template", () => {
 
   it("drops a plug whose member this instance does not map, and keeps the rest", () => {
     const a = resolveAssemblies(
-      workspace('uses: "@st0/turntable"\nmembers:\n  fade: fadeA\n'),
+      workspace('uses: "@k7-core/turntable"\nmembers:\n  fade: fadeA\n'),
     ).turntableA;
     expect(a.outputs.map((o) => o.name)).toEqual(["mix"]);
     expect(a.params.Fade).toEqual({ node: "fadeA", param: "Level" });
@@ -125,12 +125,12 @@ describe("resolving one against its template", () => {
     // A WARNING and not an error: a new library is empty, and the project still opens.
     const issue = assemblyIssues(dir)[0];
     expect(issue.severity).toBe("warning");
-    expect(issue.message).toContain("@st0/turntable");
+    expect(issue.message).toContain("@k7-core/turntable");
   });
 
   it("lists what the library holds, by ref", () => {
     expect(libraryAssemblies(workspace(INSTANCE)).map((a) => a.ref)).toEqual([
-      "@st0/turntable",
+      "@k7-core/turntable",
     ]);
   });
 
@@ -145,7 +145,7 @@ describe("resolving one against its template", () => {
 
 /** A project whose graph is real, so `validate` has modules to check the members against. */
 function wired(members: string): string {
-  const dir = workspace(`uses: "@st0/turntable"\nmembers:\n${members}`);
+  const dir = workspace(`uses: "@k7-core/turntable"\nmembers:\n${members}`);
   writeFileSync(
     join(dir, "graph.yaml"),
     "modules:\n  levelA: [ fadeA ]\n  fadeA: [ MIX ]\n  MIX: [ OUT ]\n",
@@ -175,7 +175,7 @@ describe("what validate() says about one", () => {
     const dir = wired("  level: levelA\n  fade: fadeA\n");
     writeFileSync(
       join(dir, "assemblies", "turntableB.yaml"),
-      'uses: "@st0/turntable"\nmembers:\n  fade: fadeA\n',
+      'uses: "@k7-core/turntable"\nmembers:\n  fade: fadeA\n',
     );
     expect(validate(loadGraph(dir))).toContain(
       "node 'fadeA': in two assemblies ('turntableA', 'turntableB')",
@@ -186,7 +186,7 @@ describe("what validate() says about one", () => {
     const dir = wired("  level: levelA\n  fade: fadeA\n");
     writeFileSync(
       join(dir, "assemblies", "fadeA.yaml"),
-      'uses: "@st0/turntable"\nmembers: {}\n',
+      'uses: "@k7-core/turntable"\nmembers: {}\n',
     );
     expect(validate(loadGraph(dir))).toContain(
       "assembly 'fadeA': a node of this project is already called that",

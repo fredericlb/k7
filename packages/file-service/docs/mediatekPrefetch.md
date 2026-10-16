@@ -25,7 +25,7 @@ Songs only. Modules and chains are in the origin's libraries, which the file hub
 The server sends one `prefetch` job naming the files by their server paths. The paths are under the
 médiathèque root the binding shares, so the tunnel's `PathMap` brings each one down **before** the
 handler runs, and skips one whose size and mtime already match. The handler on the machine only
-counts what landed (`engine/st0-supervisor/src/MachineJobs.cpp`). No second copy mechanism: the rule
+counts what landed (`engine/k7-supervisor/src/MachineJobs.cpp`). No second copy mechanism: the rule
 that decides "is this file current" is the one every other file obeys.
 
 ## When it asks

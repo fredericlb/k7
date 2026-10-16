@@ -1,0 +1,50 @@
+{
+  "name": "@studio/k7-plugins",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "k7's builtin plugins and the two composition lists: the server half the file-service installs at boot, and the browser half the shell registers into its pane ring. A plugin is declared with @studio/k7-sdk's definePlugin — see packages/k7-sdk/docs/sdk.md. Consumed as source.",
+  "exports": {
+    "./server": "./src/server.ts",
+    "./browser": "./src/browser.ts",
+    "./video": "./src/video/index.ts",
+    "./video/camera/relay": "./src/video/camera/relay.ts",
+    "./turntables/engine": "./src/turntables/engine.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@frediverse/ui": "*",
+    "@studio/audio-probe": "*",
+    "@studio/commands": "*",
+    "@studio/engine-browser": "*",
+    "@studio/engine-protocol": "*",
+    "@studio/graph-model": "*",
+    "@studio/mediatek": "*",
+    "@studio/project-shell": "*",
+    "@studio/song": "*",
+    "@studio/song-schema": "*",
+    "@studio/song-video": "*",
+    "@studio/k7-sdk": "*",
+    "@studio/ui-chains": "*",
+    "@studio/ui-eyes": "*",
+    "@studio/ui-timeline": "*",
+    "@studio/ui-waveform": "*",
+    "@studio/web-protocol": "*",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.17",
+    "@types/ws": "^8.5.13",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
+    "ws": "^8.18.0"
+  }
+}

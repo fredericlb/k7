@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { applyFileOp } from "@studio/live-sync/file-op";
 import type { Sequenced } from "@studio/live-sync/ops";
 import type { RoomState } from "@studio/live-sync/room";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
 
 export const ENTRIES = "entries.jsonl";
 const SEGMENTS = "log";
@@ -52,14 +53,15 @@ export const snapshotSeqs = (dir: string) =>
 function readLines(file: string): Sequenced[] {
   if (!existsSync(file)) return [];
   const out: Sequenced[] = [];
-  for (const line of readFileSync(file, "utf8").split("\n"))
-    if (line) out.push(JSON.parse(line) as Sequenced);
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    if (!line) continue;
+    try {
+      out.push(JSON.parse(line) as Sequenced);
+    } catch {
+      // a line a crash cut short was never relayed: skipped, as the relay skips it on load
+    }
+  }
   return out;
-}
-
-function writeAtomic(file: string, text: string): void {
-  writeFileSync(`${file}.tmp`, text);
-  renameSync(`${file}.tmp`, file);
 }
 
 /** Give a room saved before it had segments its log as one, and its saved files as a snapshot; a no-op otherwise. */
@@ -70,7 +72,7 @@ export function adoptLegacy(dir: string, state: RoomState | null): void {
   if (!state || state.head === 0) return;
   const kept = state.log.filter((e) => e.seq <= state.head);
   if (kept.length)
-    writeFileSync(
+    writeFileAtomic(
       join(dir, SEGMENTS, `${kept[0].seq}.jsonl`),
       kept.map((e) => `${JSON.stringify(e)}\n`).join(""),
     );
@@ -83,7 +85,7 @@ function writeSnapshot(
   files: Record<string, string>,
 ): void {
   mkdirSync(join(dir, SNAPSHOTS), { recursive: true });
-  writeAtomic(join(dir, SNAPSHOTS, `${seq}.json`), JSON.stringify(files));
+  writeFileAtomic(join(dir, SNAPSHOTS, `${seq}.json`), JSON.stringify(files));
 }
 
 /** After the room's state is saved: move `entries.jsonl` into a segment, and snapshot the files when `every` entries passed since the last. */
@@ -144,7 +146,7 @@ export function segmentIndex(dir: string): SegmentInfo[] {
     out.push(info);
   }
   if (changed || Object.keys(saved).length !== out.length)
-    writeAtomic(
+    writeFileAtomic(
       join(logDir, SEGMENT_INDEX),
       JSON.stringify(Object.fromEntries(out.map((i) => [i.start, i]))),
     );
@@ -241,6 +243,6 @@ export function readCheckpoints(dir: string): Checkpoint[] {
 
 export function addCheckpoint(dir: string, cp: Checkpoint): Checkpoint {
   const all = [...readCheckpoints(dir), cp].sort((a, b) => a.seq - b.seq);
-  writeAtomic(join(dir, CHECKPOINTS), JSON.stringify(all, null, 1));
+  writeFileAtomic(join(dir, CHECKPOINTS), JSON.stringify(all, null, 1));
   return cp;
 }

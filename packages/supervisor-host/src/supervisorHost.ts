@@ -1,4 +1,4 @@
-// supervisorHost.ts — engine/st0-supervisor as a child over NDJSON on stdio, kept running: relaunched on 1s→30s backoff.
+// supervisorHost.ts — engine/k7-supervisor as a child over NDJSON on stdio, kept running: relaunched on 1s→30s backoff.
 // Its stdin closing is what stops it, so the pipe stays open for the host's whole life. See docs/shell.md.
 
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";

@@ -70,7 +70,7 @@ holds no entries for it, and a line resolves against `songs` whichever tab you a
 
 A line resolving to nothing **stays on screen**. The file is edited by hand, one click away — a row
 that vanished silently would be a typo you cannot see, and a row saying "song not found" is one
-you fix. The sentences are `itemProblem`'s, shared with st0.
+you fix. The sentences are `itemProblem`'s, shared with k7.
 
 ## Playing, and the queue
 
@@ -121,5 +121,5 @@ What differs is **where it is filed and what that costs**:
 
 The consequence worth knowing before you build one: a set list a **`turntables` surface** names is
 resolved in the workspace, so a DJ desk's browser and the pre-fetch that fills the machine's disk
-read `_playlists/`, not this folder ([../../../packages/st0-plugins/docs/turntables/setList.md](../../st0-plugins/docs/turntables/setList.md)).
+read `_playlists/`, not this folder ([../../../packages/k7-plugins/docs/turntables/setList.md](../../k7-plugins/docs/turntables/setList.md)).
 A set list built here is one you read, sort and listen to on this volume.

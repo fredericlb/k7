@@ -1,10 +1,16 @@
 // videoChains.ts — the path graph.yaml -> the renderer: a video lane's run becomes that lane's
 // plugins, the RENDER -> VIDEO_OUT run becomes the whole frame's, and what is wired INTO a lane
-// becomes what it draws — a lens or a shape. Shaders arrive with their GLSL already read,
-// because the browser cannot open a folder.
-// Full rationale: docs/shaders.md, docs/shapes.md, and docs/videoOutputs.md for the two sums.
+// becomes what it draws — a lens, a shape, or a STRETCH a fade runs its shot through. Shaders
+// arrive with their GLSL already read, because the browser cannot open a folder.
+// Full rationale: docs/shaders.md, docs/shapes.md, docs/transitions.md, and docs/videoOutputs.md.
 
-import type { Chain, GraphDoc, Module, Step } from "@studio/song/graph";
+import {
+  type Chain,
+  type GraphDoc,
+  isStretch,
+  type Module,
+  type Step,
+} from "@studio/song/graph";
 import {
   CAMERA_IO,
   RENDER_NODE,
@@ -33,6 +39,10 @@ export interface VideoChainDocs {
   cameras: CameraLayer[];
   /** The SHAPES each lane draws, by lane id and in graph order — a lane wired none is absent (docs/shapes.md). */
   shapesByLane: Record<string, ShapeDoc[]>;
+  /** Every STRETCH — picture passes nothing feeds, landing on a lane — by its head node (docs/transitions.md). */
+  stretches: Record<string, VideoPluginDoc[]>;
+  /** …and the lanes each one lands on, which are the lanes whose fades may name it. */
+  stretchLanes: Record<string, string[]>;
   /** What compiled and will draw NOTHING — a shape aimed at no lane, say; the picture's own warnings. */
   warnings: string[];
 }
@@ -169,6 +179,8 @@ export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
   const cameras: CameraLayer[] = [];
   const shapesByLane: Record<string, ShapeDoc[]> = {};
   const warnings: string[] = [];
+  const stretches: Record<string, VideoPluginDoc[]> = {};
+  const stretchLanes: Record<string, string[]> = {};
   let frame: VideoPluginDoc[] = [];
   // A CAMERA is a source rather than a pass: its run lands ON a picture lane, and what the lane
   // gets from it is which lens to open. The first one wins, and `validate()` reports the second.
@@ -228,6 +240,15 @@ export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
   }
   for (const [, c] of Object.entries(g.chains)) {
     if (c.enabled === false) continue;
+    // A STRETCH has no source: the shot a fade names it from is what it runs on.
+    if (isStretch(g, c)) {
+      const head = c.use[0].module;
+      stretches[head] = runDocs(dir, g, head, c);
+      stretchLanes[head] = c.out
+        .map((o) => splitPort(o.to).node)
+        .filter((lane) => g.videoTracks[lane]);
+      continue;
+    }
     if (!c.from) continue;
     if (c.from === RENDER_NODE) {
       // Only the run that actually LEAVES for the device is the frame's chain.
@@ -246,6 +267,8 @@ export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
     cameraMonitorByLane,
     cameras,
     shapesByLane,
+    stretches,
+    stretchLanes,
     warnings,
   };
 }

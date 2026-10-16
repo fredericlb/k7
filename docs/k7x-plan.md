@@ -22,7 +22,7 @@ reason:
 - 81 source files import `yaml` outside tests; `parseDocument` is called 236 times and
   `getIn`/`setIn`/`deleteIn`/`hasIn` about 270 — the line-preserving Document API is the contract
   the writers depend on, not `parse`/`stringify`.
-- 1,259 YAML files in `demos/` and `st0-library/`, plus every workspace stored on a server or a
+- 1,259 YAML files in `demos/` and `k7-core/`, plus every workspace stored on a server or a
   device.
 - No C++ or Kotlin reads YAML: the engine receives a compiled `ProjectDoc`. The change is
   TypeScript-only.
@@ -49,7 +49,7 @@ reason:
    completion from the same zod-derived vocabulary as YAML (`packages/ui-editor/docs/completion.md`),
    and the same check before autosave, its findings placed on the k7x text's own lines — in the
    browser and in the loader's messages alike. Done.
-6. **Conversion** — `demos/` and `st0-library/` are `.k7x`, each converted in a commit of its own by
+6. **Conversion** — `demos/` and `k7-core/` are `.k7x`, each converted in a commit of its own by
    `packages/song/scripts/migrateK7x.ts`, every file checked to read back to the same data. Stored
    workspaces convert through the file service's `POST /migrate-k7x`, one account at a time, the
    originals kept in the workspace's hidden `.k7x-backup/` (`packages/song/docs/k7xFiles.md`). That

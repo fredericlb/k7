@@ -5,13 +5,14 @@
 // See docs/liveCapture.md, ../../file-hub/docs/syncRelay.md and ../../file-hub/docs/blobs.md.
 
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { type BlobId, blobsOf, parseBlobRef } from "@studio/live-sync/blob";
 import { applyFileOp, fileOpFor } from "@studio/live-sync/file-op";
 import type { Batch, Sequenced } from "@studio/live-sync/ops";
 import type { FromRelay, ToRelay } from "@studio/live-sync/protocol";
 import type { Replica } from "@studio/live-sync/replica";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import { WebSocket } from "ws";
 import { cloneFile } from "./liveBlobs.ts";
@@ -27,6 +28,8 @@ export interface Linked {
   written: string[];
   /** Told which files another replica's batch (or a rebase) rewrote. */
   onRemote: (files: string[]) => void;
+  /** Told when another replica's batch ENDS the workspace — deleted, or moved to another server. */
+  onEnded?: () => void;
 }
 
 /** How a link proves its account: the hub's secret for a service it started, a device token for a machine. */
@@ -36,6 +39,11 @@ const RETRY_MIN_MS = 1000;
 const RETRY_MAX_MS = 30_000;
 /** Downloads running at once, per link. */
 const FETCH_AT_ONCE = 3;
+/** How long a link that has never connected reads as still connecting rather than offline. */
+const CONNECT_GRACE_MS = 8000;
+
+/** Where a workspace's TEXT stands against the relay — docs/liveCapture.md, "Up to date". */
+export type TextState = "current" | "offline" | "connecting" | "catching-up";
 
 /** The headers that prove a link's account, on its socket and on the blob store alike. */
 export const authHeaders = (auth: RelayAuth): Record<string, string> =>
@@ -53,7 +61,7 @@ export function loadHead(logDir: string): number {
 
 function saveHead(logDir: string, head: number): void {
   mkdirSync(logDir, { recursive: true });
-  writeFileSync(join(logDir, "head"), String(head));
+  writeFileAtomic(join(logDir, "head"), String(head));
 }
 
 export class RelayLink {
@@ -68,6 +76,10 @@ export class RelayLink {
   private readonly fetching = new Set<string>();
   private fetchSlots = FETCH_AT_ONCE;
   private readonly fetchWaiting: (() => void)[] = [];
+  /** The head each workspace's welcome promised since the socket opened; absent until it is welcomed. */
+  private readonly target = new Map<string, number>();
+  private readonly born = Date.now();
+  private everOpen = false;
 
   constructor(
     private readonly url: string,
@@ -91,6 +103,22 @@ export class RelayLink {
 
   remove(name: string): void {
     this.linked.delete(name);
+    this.target.delete(name);
+  }
+
+  /** Whether workspace `name`'s text is the room's: welcomed on the open socket, and every entry since applied. */
+  textState(name: string): TextState {
+    const l = this.linked.get(name);
+    if (!l) return "connecting";
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      // At start the socket is still opening: that is no reason to call the relay away.
+      const starting =
+        !this.everOpen && Date.now() - this.born < CONNECT_GRACE_MS;
+      return !starting && l.replica.head > 0 ? "offline" : "connecting";
+    }
+    const target = this.target.get(name);
+    if (target === undefined) return "connecting";
+    return l.replica.head < target ? "catching-up" : "current";
   }
 
   /** A batch the workspace's capture emitted: given to its replica, then sent. */
@@ -280,15 +308,23 @@ export class RelayLink {
     this.ws = ws;
     ws.on("open", () => {
       this.retryMs = RETRY_MIN_MS;
+      this.everOpen = true;
       for (const name of this.linked.keys()) this.hello(name);
       this.onOpen();
     });
-    ws.on("message", (data) =>
-      this.receive(JSON.parse(data.toString()) as FromRelay),
-    );
+    // A frame that does not parse, or names a path outside the workspace, is logged rather than let kill the service.
+    ws.on("message", (data) => {
+      try {
+        this.receive(JSON.parse(data.toString()) as FromRelay);
+      } catch (e) {
+        this.log(`relay: frame refused — ${(e as Error).message}`);
+      }
+    });
     ws.on("error", (e) => this.log(`relay: ${e.message}`));
     ws.on("close", () => {
       this.ws = null;
+      // A new socket is a new hello: what the last welcome promised says nothing about what was missed since.
+      this.target.clear();
       if (this.closed) return;
       setTimeout(() => this.connect(), this.retryMs).unref();
       this.retryMs = Math.min(this.retryMs * 2, RETRY_MAX_MS);
@@ -321,6 +357,8 @@ export class RelayLink {
       this.sequenced(l, msg.entry);
       return;
     }
+    // What this welcome promises: an empty room has nothing to send, the others everything up to their head.
+    this.target.set(l.name, msg.mode === "seed" ? 0 : msg.head);
     // An empty room followed is left empty: a follower has nothing to give it.
     if (msg.mode === "seed") {
       if (!this.following) this.seed(l);
@@ -396,7 +434,7 @@ export class RelayLink {
       // A binary's text is its ref: what is kept aside is its bytes.
       if (parseBlobRef(mine)) {
         if (existsSync(abs)) cloneFile(abs, to);
-      } else writeFileSync(to, mine);
+      } else writeFileAtomic(to, mine);
       displaced++;
     }
     if (ops.length)
@@ -423,6 +461,11 @@ export class RelayLink {
     });
     saveHead(l.logDir, l.replica.head);
     if (written.length) l.onRemote(written);
+    // Its own end is the replica that sent it, which lets the workspace go itself.
+    if (entry.batch.ends && entry.batch.replica !== l.replica.id) {
+      l.onEnded?.();
+      return;
+    }
     if (failed.length) {
       // This replica's text is not the room's: fetch the room's whole state.
       this.log(

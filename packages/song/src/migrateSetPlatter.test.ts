@@ -29,7 +29,7 @@ let ws = "";
 let dir = "";
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "platter-mig-"));
-  dir = join(ws, "set.st0");
+  dir = join(ws, "set.k7");
 });
 afterEach(() => {
   rmSync(ws, { recursive: true, force: true });
@@ -74,8 +74,8 @@ const migrate = (root: string) =>
 
 describe("migrateSetPlatter", () => {
   it("turns a platter-less set into exactly what the scaffold writes today", () => {
-    const before = join(dir, "before.st0");
-    const after = join(dir, "after.st0");
+    const before = join(dir, "before.k7");
+    const after = join(dir, "after.k7");
     scaffoldSet(before, "hiver");
     unPlatter(before);
 
@@ -93,7 +93,7 @@ describe("migrateSetPlatter", () => {
   });
 
   it("is idempotent — a second run changes nothing", () => {
-    const root = join(dir, "twice.st0");
+    const root = join(dir, "twice.k7");
     scaffoldSet(root, "hiver");
     unPlatter(root);
     migrate(root);
@@ -103,7 +103,7 @@ describe("migrateSetPlatter", () => {
   });
 
   it("leaves the strip alone — it inserts a source, it does not re-plumb", () => {
-    const root = join(dir, "strip.st0");
+    const root = join(dir, "strip.k7");
     scaffoldSet(root, "hiver");
     unPlatter(root);
     migrate(root);

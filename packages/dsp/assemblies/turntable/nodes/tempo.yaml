@@ -1,6 +1,6 @@
 # The deck's tempo. COLD and offline: a tempo change is a time stretch, a stretch has to know
 # where the file ends, and no engine plugin stretches time — packages/song/docs/coldModules.md.
-extends: "@st0/audio/utility/tempo"
+extends: "@k7-core/audio/utility/tempo"
 params:
   # Measured by the pass that reads the file.
   Source BPM: 0

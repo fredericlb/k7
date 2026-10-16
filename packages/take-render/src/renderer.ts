@@ -82,7 +82,7 @@ export async function renderToWav(
   doc: ProjectDoc,
   outWav: string,
 ): Promise<void> {
-  const tmp = mkdtempSync(join(tmpdir(), "st0-render-"));
+  const tmp = mkdtempSync(join(tmpdir(), "k7-render-"));
   try {
     const manifest = await render(doc, tmp);
     copyFileSync(join(tmp, manifest.mix), outWav);

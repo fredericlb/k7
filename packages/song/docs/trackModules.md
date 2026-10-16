@@ -266,7 +266,7 @@ And for a project whose lanes are still files in `tracks/`:
 | `solo: true` | the name in project.yaml's root `soloed:` list |
 | the `tracks:` entry in `graph.yaml` | the same line, under `modules:` |
 
-`st0 migrate chains` handles the chain-list → segments step and reports the lanes it saw
+`k7 migrate chains` handles the chain-list → segments step and reports the lanes it saw
 (`ChainsMigration.tracks`) — the `{ track: … }` heads are the last place that fact is written down,
 and a caller that threw it away could not derive the chains it had just written.
 
@@ -277,12 +277,11 @@ and a caller that threw it away could not derive the chains it had just written.
 - [alternatives.md](alternatives.md) — a module's other sets of attributes, not a lane's other clip
   lists. The timeline gutter names the set a lane is playing, and clicking it opens a menu of the
   lane node's sets — the same `node alternative` verbs the graph's badges run
-  (`apps/st0/frontend/docs/timeline.md`).
+  (`apps/k7/frontend/docs/timeline.md`).
 - [freeze.md](freeze.md) — a render standing in for everything UPSTREAM of a module, that module
   included, rather than for one lane and its own modules. It needs no neutralisation pass: gain and
   pan are a module, so where they sit relative to the freeze point already says whether they bake
   in.
 
-There is no `video_source` field. A song carries picture
-([picture.md](../../song-video/docs/picture.md)), and a lane holding a second word for it would
-have nothing to decide.
+A lane may say `video_source:` instead of `events:`: it then plays a picture lane's shots, its
+clips derived from them at compile time ([videoSound.md](videoSound.md)).

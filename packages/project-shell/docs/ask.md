@@ -48,7 +48,7 @@ without its host threading a callback down to it.
 **No external UI library**, for the reason this whole package has none: it draws the gates that run
 before an app is set up, and `toast.tsx` already hand-rolls its `cx` rather than import one. The
 classes are Tailwind's over the design system's variables, which are global — so anything mounting
-this needs `packages/project-shell/src` in its `@source` list, and st0 already has it.
+this needs `packages/project-shell/src` in its `@source` list, and k7 already has it.
 
 ## Two rules worth keeping
 

@@ -25,7 +25,7 @@ let dir: string;
 /** A song with one lane through a 4OSC. Only the FILES matter; the project is faked below. */
 function song(): { root: string; dir: string } {
   const r = mkdtempSync(join(tmpdir(), "td-trkauto-"));
-  const d = join(r, "song.st0");
+  const d = join(r, "song.k7");
   mkdirSync(d, { recursive: true });
   writeFileSync(
     join(d, "project.yaml"),

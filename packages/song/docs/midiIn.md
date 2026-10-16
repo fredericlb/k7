@@ -20,17 +20,17 @@ modules:
 ## The cable is what says which lane records it
 
 Recording MIDI is the BROWSER's job — it is where the keyboard is plugged in, and the engine's
-machine may be elsewhere (`apps/st0/frontend/src/webmidi.ts`). The lane a take lands on is the armed
+machine may be elsewhere (`apps/k7/frontend/src/webmidi.ts`). The lane a take lands on is the armed
 one; the DEVICE it listens to is the one named by the midi-in node wired to that lane
 (`midiInDeviceFor`). So a rig with two keyboards records each into its own lane by drawing two
 cables, and a choice made once in the graph does not have to be made again at the transport.
 
 **An armed lane is PLAYED as well as recorded.** Each channel message from its keyboard goes to the
-engine as it arrives (`midi-live`, engine/st0-engine/docs/protocol.md), so the lane's instrument
+engine as it arrives (`midi-live`, engine/k7-runtime/docs/protocol.md), so the lane's instrument
 sounds under the fingers whether or not a take is rolling. Only the armed lane hears it: a rig of
 two keyboards on two lanes does not play both instruments from either. The card's LED, by contrast,
 lights for ANY channel message from its device, armed or not, since what it answers is "is this
-keyboard reaching the browser at all" (`apps/st0/frontend/src/midiActivity.ts`).
+keyboard reaching the browser at all" (`apps/k7/frontend/src/midiActivity.ts`).
 
 **The cable is also what makes a lane armable for MIDI.** A lane a midi-in node feeds arms in the
 browser even while it holds no sequence, since an empty lane is exactly where a first take goes.

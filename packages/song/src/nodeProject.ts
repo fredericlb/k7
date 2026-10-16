@@ -26,9 +26,14 @@ import { orderTracks, trackCategory } from "@studio/song-schema/trackKind";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { type AutoFreeze, autoFreezes, playsRender } from "./autoFreeze";
 import { isSurgePatch } from "./basePreset";
-import { loadLinkLevels } from "./chainProject";
+import {
+  isChainProject,
+  loadLinkLevels,
+  readChainProject,
+} from "./chainProject";
 import { busOnlyOf, bypassedOf } from "./chainsGraph";
 import { compClips, markCrossfades } from "./compClips";
+import { confineTo, projectRoots } from "./confine";
 import { withConsole } from "./console";
 import { envelopeFires } from "./curveConditions";
 import { bakeAdsr, bakeCurve, loadCurves } from "./curves";
@@ -57,6 +62,7 @@ import {
   loadModules,
   loadProjectRoot,
   loadSettings,
+  loadVideoTracks,
   readYamlEntities,
   withChainModuleRefs,
 } from "./loader";
@@ -98,6 +104,7 @@ import {
 import type { RawClip, RawPlacement, RawSequence } from "./rawDoc";
 import { tapFeedsOf, tapOutsFor, tapPairs } from "./tapOuts";
 import { lanesOf, type Material } from "./trackModule";
+import { videoSoundLanes } from "./videoSound";
 import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 // Re-exported from @studio/song-schema, and imported too because `export … from` binds no local name (docs/graphModel.md).
@@ -112,6 +119,7 @@ function placementToClip(
   num: number,
   den: number,
   tempo: number,
+  roots: readonly string[],
 ): ClipDoc {
   const ref = String(p.ref ?? "");
   const pos = (tc: unknown) =>
@@ -214,7 +222,8 @@ function placementToClip(
     return {
       ...base,
       type: "audio",
-      source: resolve(dir, String(cm.source)),
+      // A source outside the project's roots plays nothing; the compile has already named it (docs/confine.md).
+      source: confineTo(roots, resolve(dir, String(cm.source))) ?? "",
       ...(winBeats > 0 ? { length: winBeats * loops } : {}),
       ...(gain ? { gainDb: gain } : {}),
       ...(loops > 1 && winBeats > 0
@@ -395,7 +404,11 @@ export function compileNodeProject(dir: string): ProjectDoc {
  * freeze whose render is on disk standing in for its modules. Also answers the freezes themselves,
  * ready or not, for whoever schedules the missing renders.
  */
-export function compileWithAutoFreezes(dir: string): {
+export function compileWithAutoFreezes(
+  dir: string,
+  /** `vsts: "none"` compiles for an engine that hosts no VST — a share's, the server's (docs/autoFreeze.md). */
+  opts: { vsts?: "scan" | "none" } = {},
+): {
   doc: ProjectDoc;
   freezes: AutoFreeze[];
 } {
@@ -403,7 +416,7 @@ export function compileWithAutoFreezes(dir: string): {
     const live = compileNodeProjectIn(dir);
     let freezes: AutoFreeze[];
     try {
-      freezes = autoFreezes(dir, loadGraph(dir), live);
+      freezes = autoFreezes(dir, loadGraph(dir), live, opts.vsts === "none");
     } catch {
       // The compile read the song; a graph that will not load here is no reason to stop playing it live.
       return { doc: live, freezes: [] };
@@ -434,6 +447,8 @@ function compileNodeProjectIn(
     prefs = defaultPreferences();
   }
   const root = loadProjectRoot(dir, true); // the root file -> project, markers
+  // What a path in this project's files may reach — docs/confine.md.
+  const roots = projectRoots(dir);
   const rawChains = loadChains(dir, root, true);
   const localModules = loadModules(dir, true); // validated as read — this doc feeds the engine
   // Read WITH their issues: a rejected library module is dropped, and without its complaint the symptom is "extends unknown module".
@@ -441,9 +456,11 @@ function compileNodeProjectIn(
   const moduleRefs = loadModuleRefs(dir, undefined, refIssues); // the `extends` vocabulary
   // The LANES, before the chains, folded from the local modules alone — see docs/graphModel.md.
   const lanesMap = lanesOf(resolveModuleMap(localModules, moduleRefs));
+  // The PICTURE lanes, read unvalidated and for their NAMES only: they are lanes in the derivation, as buildGraph has them.
+  const videoLanes = loadVideoTracks(dir);
   const chains: Record<string, Chain> = parseChains(
     rawChains,
-    (n) => n in lanesMap,
+    (n) => n in lanesMap || n in videoLanes,
   ); // keyed by each head's resolved name
   // A chain project's link levels, which segments cannot carry: a send to a bus plays at its level (docs/chainFiles.md).
   applyLinkLevels(chains, loadLinkLevels(dir));
@@ -499,6 +516,13 @@ function compileNodeProjectIn(
             : `track '${trackId}': clip/sequence '${ref}' not found`,
         );
       } else if (
+        clip?.source &&
+        !confineTo(roots, resolve(dir, String(clip.source)))
+      )
+        refErrs.push(
+          `track '${trackId}': audio clip '${ref}' names a file outside the project (${clip.source})`,
+        );
+      else if (
         clip &&
         !(clip.source && wsExists(resolve(dir, String(clip.source))))
       )
@@ -538,7 +562,8 @@ function compileNodeProjectIn(
     lanesMap,
     clipsMap,
     seqMap,
-    {},
+    // …which is also what feeds a fade's stretch (song-video/docs/transitions.md).
+    videoLanes,
     new Set(tapFeedsOf(rawChains).map((f) => f.to)),
   );
   if (inputErrs.length)
@@ -564,9 +589,15 @@ function compileNodeProjectIn(
 
   // Non-sink targets naming a chain that isn't track-fed: routing into a track's input is inexpressible, so they drop.
   const busChains = new Set<string>();
+  // A PICTURE lane is never a bus, though a fade's stretch routes into its run (song-video/docs/transitions.md).
   for (const c of Object.values(chains))
     for (const { to } of outTargets(c))
-      if (!isSink(to) && chains[to] && !isTrackFed(chains[to]))
+      if (
+        !isSink(to) &&
+        chains[to] &&
+        !isTrackFed(chains[to]) &&
+        !(to in videoLanes)
+      )
         busChains.add(to);
 
   /** A run carrying a LIVE INPUT and landing on no lane owns its own track.
@@ -637,7 +668,10 @@ function compileNodeProjectIn(
     chains,
     withAutoFrozen,
     (n) => n in lanesMap,
-    (r) => wsExists(resolve(dir, r)),
+    (r) => {
+      const at = confineTo(roots, resolve(dir, r));
+      return !!at && wsExists(at);
+    },
   );
   const frozenLanes = new Set(plans.flatMap((p) => [...p.lanes]));
   const frozenPlugins = new Set(plans.flatMap((p) => [...p.modules]));
@@ -647,7 +681,8 @@ function compileNodeProjectIn(
     for (const [name, c] of Object.entries(chains))
       if (c.use.some((s) => s.module === p.at)) {
         const owner = ownerOf(name, c);
-        if (owner) renderOn.set(owner, resolve(dir, p.render));
+        const at = confineTo(roots, resolve(dir, p.render));
+        if (owner && at) renderOn.set(owner, at);
       }
 
   // The TRACK a step's side input comes from, put through the same ownership rule the plugins are (docs/ports.md).
@@ -703,9 +738,11 @@ function compileNodeProjectIn(
       // A rack compiles to a SamplerPlugin, checked BEFORE plugin.type since a rack module carries no `plugin`.
       if (resolvedType(module) === "rack") {
         const rack = resolvedRack(module);
-        // Already absolute from resolveRackAudio; the guard covers any residual relative path.
+        // Already absolute from resolveRackAudio; one outside the project's roots is no sound at all.
         const toAbs = (p: string | undefined): string =>
-          p ? (isAbsolute(p) ? p : resolve(dir, p)) : "";
+          p
+            ? (confineTo(roots, isAbsolute(p) ? p : resolve(dir, p)) ?? "")
+            : "";
         const sourceAbs = rack.rackType === "slice" ? toAbs(rack.source) : "";
         const sounds: RackSoundDoc[] = [];
         for (const [symbol, e] of Object.entries(rack.symbols)) {
@@ -961,6 +998,15 @@ function compileNodeProjectIn(
 
   // One entry per HALF, ordered over the LANES so both halves stay adjacent — see docs/trackKind.md.
   const laneErrs: string[] = [];
+  // The lanes that play a PICTURE lane's sound, their clips derived from its shots (docs/videoSound.md).
+  const videoSounds = videoSoundLanes(
+    dir,
+    lanesMap,
+    loadVideoTracks(dir),
+    clipsMap,
+    tempo,
+    laneErrs,
+  );
   // How the pattern lanes share their files, and where their samples are looked for — once per compile.
   const shares = patternShares(dir, lanesMap);
   const banks = sampleBanks(dir);
@@ -1005,7 +1051,7 @@ function compileNodeProjectIn(
       const placed = (p: RawPlacement): ClipDoc[] =>
         compClips(
           p,
-          placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
+          placementToClip(dir, p, clipsMap, seqMap, num, den, tempo, roots),
           (ref, start) =>
             placementToClip(
               dir,
@@ -1015,6 +1061,7 @@ function compileNodeProjectIn(
               num,
               den,
               tempo,
+              roots,
             ),
           num,
           den,
@@ -1054,8 +1101,13 @@ function compileNodeProjectIn(
           ? [frozenClip(id, renderOn.get(id) as string)]
           : frozenLanes.has(lane)
             ? []
-            : // The lane's authored `events:` become the engine's `clips` — this line IS the boundary between the two words.
-              markCrossfades(events.flatMap(placed)),
+            : videoSounds.has(lane)
+              ? // A sounding lane's clips are its picture lane's shots, on the half that takes audio.
+                halfFor(halves, "audio") === half
+                ? markCrossfades(videoSounds.get(lane) ?? [])
+                : []
+              : // The lane's authored `events:` become the engine's `clips` — this line IS the boundary between the two words.
+                markCrossfades(events.flatMap(placed)),
         // …and what the render replaced, kept for the browser to draw over it and open (docs/freeze.md).
         ...(frozenLanes.has(lane) && events.length
           ? {
@@ -1078,13 +1130,17 @@ function compileNodeProjectIn(
       `lane wiring invalid:\n  - ${[...new Set(laneErrs)].join("\n  - ")}`,
     );
 
+  // A chain project keys a run by its head's id; its strip is LABELLED by the chain file holding it (docs/chainFiles.md).
+  const chainNodes = isChainProject(dir) ? readChainProject(dir).nodes : {};
+  const labelOf = (key: string): string => chainNodes[key]?.chain ?? key;
+
   // A channel per lane-less INPUT run: what a rig you play through is made of. No clips — what is
   // heard is what is plugged in — and `regular` rather than `effect`, since it is not a return.
   for (const name of inputChains) {
     const inp = inputOf[name];
     tracks.push({
       id: name,
-      name,
+      name: labelOf(name),
       role: "regular",
       contentType: "audio",
       group: "",
@@ -1112,7 +1168,7 @@ function compileNodeProjectIn(
   ])
     tracks.push({
       id: name,
-      name,
+      name: labelOf(name),
       role: "effect",
       contentType: "audio",
       group: "",

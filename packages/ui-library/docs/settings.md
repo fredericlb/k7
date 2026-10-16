@@ -1,6 +1,6 @@
 # The two settings cards
 
-The package exports two cards from `@studio/ui-library/settings`, and st0's `/settings` page carries
+The package exports two cards from `@studio/ui-library/settings`, and k7's `/settings` page carries
 them as sections of its own, beside the account's other settings: **Engines** — the engines
 registered with this origin — and **slskd** — what "Find songs" ([hunt.md](hunt.md)) spends. The
 library has no settings page of its own: one account, one page.
@@ -25,7 +25,10 @@ that, with the address to type. Nothing here can register, drop or pick an engin
 
 `src/SlskdSettings.tsx` edits the instance's slskd and SFTP access. What the server stores, how the
 secrets are sealed and what the test checks is
-[apps/st0/backend/docs/media/settings.md](../../../apps/st0/backend/docs/media/settings.md).
+[apps/k7/backend/docs/media/settings.md](../../../apps/k7/backend/docs/media/settings.md).
+
+The card is an admin's: anyone else is answered 403 and the card draws nothing, rather than a
+form that could only fail.
 
 A secret on file is never shown, only said to be there. The field stays empty; typing replaces the
 secret, "Forget" clears it, and leaving it alone keeps it — the three answers the route tells apart.

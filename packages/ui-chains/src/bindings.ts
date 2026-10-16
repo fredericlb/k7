@@ -1,6 +1,6 @@
 // bindings.ts — joining a surface's `mapping:` to the compiled chains: which control moves which
 // param, on which plugin, and which widget states its range. The half BOTH mapped surfaces share —
-// the DJ desk and st0's mastering strip — so "is this module in the graph" has one answer.
+// the DJ desk and k7's mastering strip — so "is this module in the graph" has one answer.
 //
 // Here rather than in either of them because it is the GRAPH half of the join, and this package is
 // what reads a graph: `widgetDenorm` beside it is the other half. See ../docs/bindings.md.

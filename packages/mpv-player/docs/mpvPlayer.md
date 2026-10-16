@@ -5,8 +5,8 @@ outputs. No engine is involved, and this package does not know that engines exis
 
 ## Two hosts, one driver
 
-The file service and st0's backend both mount it, and they differ in exactly one thing — where the media
-is. The file service plays from its **cache** of the médiathèque; st0's backend plays from the médiathèque
+The file service and k7's backend both mount it, and they differ in exactly one thing — where the media
+is. The file service plays from its **cache** of the médiathèque; k7's backend plays from the médiathèque
 **itself**, which it serves. So the root is injected (`configureMpv`) rather than read here, and
 so is the answer to "who is asking", which one host takes from a header and the other from a
 session.
@@ -18,8 +18,8 @@ twice.
 
 The engine plays a file perfectly well — but it plays **a project in a session**, and that
 session is shared with everything else auditioning. Using it to listen to music takes the
-transport away from whatever st0 was doing with it. Nothing is asked of it here, so one can
-listen while the engine serves st0 — which is exactly the use of a machine that is a player and
+transport away from whatever k7 was doing with it. Nothing is asked of it here, so one can
+listen while the engine serves k7 — which is exactly the use of a machine that is a player and
 not an instrument.
 
 ## Why nothing crosses the network
@@ -60,6 +60,9 @@ so `STUDIO_PLAYER_AO=pipewire` and a lingering session.
 `--idle=yes` makes it wait for a `loadfile` instead of exiting: relaunching per song would cost a
 process start for nothing. `--no-config` too, because this process is an organ of this service
 and not somebody's mpv session — a `~/.config/mpv` full of scripts has no business here.
+`--load-unsafe-playlists=no` and `--ytdl=no` likewise, and `play` refuses any name that is not an
+audio extension (`isAudio`, `@studio/mediatek/media`): a playlist on the volume names URLs and
+other files, and mpv would follow them.
 
 Control goes over its [JSON IPC](https://mpv.io/manual/master/) on a unix socket, one line per
 message. That IPC has **neither authentication nor encryption**: acceptable because it is purely

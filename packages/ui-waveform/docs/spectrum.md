@@ -2,7 +2,7 @@
 
 `<Waveform look="spectrum">` draws the DJ desk's waveform: one column per pixel, mirrored about
 the middle, as tall as its **linear peak** and coloured by **what is in it**: red for bass, green
-for mids, blue for highs. **It is the look st0 uses everywhere**: the clip editor, the audio clip
+for mids, blue for highs. **It is the look k7 uses everywhere**: the clip editor, the audio clip
 panel, the blocks on the timeline and the desk's scrolling band. The médiathèque and the rehearsal pages keep the default
 `contour`, the dB curve [envelopes.md](envelopes.md) argues for: there the question is how loud a
 take is, and a dB axis answers it.

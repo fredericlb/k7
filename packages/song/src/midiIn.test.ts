@@ -34,7 +34,7 @@ describe("a MIDI device wired to a lane", () => {
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-midiin-"));
     dir = join(ws, "song");
-    copyAsYaml(join(DEMOS, "synth-demo.st0"), dir, { recursive: true });
+    copyAsYaml(join(DEMOS, "synth-demo.k7"), dir, { recursive: true });
     copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
       recursive: true,
     });

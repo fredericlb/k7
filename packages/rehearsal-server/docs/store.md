@@ -8,11 +8,11 @@ rehearsal feature behaves the same wherever it runs.
 
 ## Why SQLite, in this process
 
-The store has one client, this package, inside st0's backend, which runs as one process. A database
+The store has one client, this package, inside k7's backend, which runs as one process. A database
 server would bring a container, a superuser, credentials, a network hop with its timeouts and a
 schema to reconcile, and buy nothing a single in-process client needs. `node:sqlite` is part of
-Node, so there is no package to install and nothing to start. st0's backend already keeps the shares'
-comments in SQLite for the same reasons (`../../../apps/st0/backend/docs/media/comments.md`).
+Node, so there is no package to install and nothing to start. k7's backend already keeps the shares'
+comments in SQLite for the same reasons (`../../../apps/k7/backend/docs/media/comments.md`).
 
 The cost is the single writer. A second backend process on the same volume would need the store to
 move out again.
@@ -23,6 +23,14 @@ Each row is one JSON document, keyed by its collection and id. A field added to 
 therefore needs no migration: old rows simply lack it. Such a field reads as its type's zero value
 (`""`, `0`, `false`), taken from `schema.ts`, because `store.ts` relies on getting a value rather
 than nothing. A filter is an IN-list per field, matched with `json_extract`.
+
+The connection is synchronous, so a lookup that scans a whole collection blocks every other
+request for as long as it takes. The fields the store looks rows up by (`INDEXED_FIELDS` in
+`../src/sqlite.ts`: the uids and owner ids) each carry an **expression index** on
+`(coll, json_extract(fields, '$.<field>'))`, created when the store opens. SQLite uses such an index
+only when the query spells the same expression, so the field path is written into the SQL rather
+than bound as a parameter; the field name is checked as a plain word first. A field added to the
+lookups is added to that list, and `sqlite.test.ts` checks the query plan of each.
 
 An id is a random 15-character string. Rows imported from PocketBase keep their PocketBase ids,
 which is what keeps the references between rows intact (a sheet's song, a song's `SheetMeta`).
@@ -40,7 +48,7 @@ ordinary tools.
 ## Backups
 
 `k7.db` runs in WAL mode, so copying the file while the backend writes it can capture half a
-transaction. Back it up with `sqlite3 k7.db "VACUUM INTO 'backup.db'"`, or stop st0 first. The
+transaction. Back it up with `sqlite3 k7.db "VACUUM INTO 'backup.db'"`, or stop k7 first. The
 `sheets/` folder is ordinary files and can be copied as it is.
 
 ## The one-time import from PocketBase
@@ -51,7 +59,7 @@ collection `schema.ts` names, plus every sheet with its bytes, keeping the ids. 
 PocketBase.
 
 - **Routes wait for it.** Every rehearsal route waits until the import is done, so nothing is
-  written into a store that is only half filled. Only the rehearsal paths wait: st0's other `/api`
+  written into a store that is only half filled. Only the rehearsal paths wait: k7's other `/api`
   routes share the process and never do.
 - **All rows or none.** The sheets are written first, then every row in one transaction. A
   PocketBase that fails partway leaves no row behind, the routes answer 503 saying why, and the
@@ -59,5 +67,5 @@ PocketBase.
 - **Only the fields `schema.ts` names.** PocketBase's own columns (`created`, `collectionId`…) and
   any field abandoned since are left behind.
 
-Once st0 has logged `rehearsal: imported …`, the `pocketbase` service, its volume and the three
+Once k7 has logged `rehearsal: imported …`, the `pocketbase` service, its volume and the three
 variables can be removed (`../../../docker/docker-compose.yml`).

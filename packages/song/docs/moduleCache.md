@@ -17,7 +17,7 @@ médiathèque mounted as a shared library:
 | **`loadModuleRefs` total** | | **295 ms** |
 | the stamp that replaces it | 391 `stat`, 318 `readdir` | **20 ms** |
 
-That 295 ms is paid four to six times behind ONE command in st0: `loadProject` wants the
+That 295 ms is paid four to six times behind ONE command in k7: `loadProject` wants the
 vocabulary, `loadGraph` wants it again, and so do `projectErrors` and `hints` — each of which
 the browser fetches as soon as the command returns. Uncached, switching a track's alternative —
 one line rewritten in one YAML file — costs about 2.6 s of file service, almost all of it
@@ -74,7 +74,7 @@ walk is 20 ms; pay it per call.
 
 Per call is one walk too many all the same, and it shows in a profile. A compile asks the cache
 twice — `loadModules`, then `loadModuleRefs` a few lines later — and stamping per call stamps
-twice. On the `01.danse.st0` song (15 tracks, 57 clips, 31 plugins, the médiathèque mounted) one
+twice. On the `01.danse.k7` song (15 tracks, 57 clips, 31 plugins, the médiathèque mounted) one
 walk is 328 `readdir` + 418 `stat` and **28 ms**, against a 140 ms compile: the second walk is
 19% of `compileNodeProject` and of `loadGraph` alike, spent proving nothing has changed since the
 previous line.
@@ -172,7 +172,7 @@ not existing.
 That layer below is `settledParse`, and the vocabulary's three readers sit on it: `readModuleFile`
 (every `module.yaml` and node file), `loadUiLibrary` (every `ui.yaml`) and the `widgets.js` beside
 a panel. Without it, those two seconds re-read every library the project can see, and they are
-exactly the two seconds a command and the browser's follow-up fetches land in. On `01.danse.st0`
+exactly the two seconds a command and the browser's follow-up fetches land in. On `01.danse.k7`
 — 15 tracks, 53 plugins, three module libraries — one node edit had the next compile read 740
 files (1,107 reads, `ui.yaml` twice) in 910 ms, and the graph build the same again in 873 ms;
 through the per-file layer each reads only the edited file and costs ~330 ms, the rest being the
@@ -214,7 +214,7 @@ And a `build()` handed to `cachedForModules` outside a scope runs inside one hol
 was just asked under, so the reads nested in it do not walk again. That is safe for the reason a
 scope is: both builds, `readModules` and `readModuleRefs`, only read.
 
-On `01.danse.st0`, inside the window: `loadModuleRefs` 180 → 112 ms, `loadModules` 100 → 38 ms,
+On `01.danse.k7`, inside the window: `loadModuleRefs` 180 → 112 ms, `loadModules` 100 → 38 ms,
 a compile 310 → 170 ms, a graph build 275 → 150 ms. Settled, nothing changes (~27 ms each).
 
 ### Reading is the syscall, not the byte

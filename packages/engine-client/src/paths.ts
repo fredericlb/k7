@@ -9,7 +9,7 @@ import { EXTS_PATH } from "@studio/song/engineCatalogue";
 import { mediatekRoot } from "@studio/song/mediatekRoot";
 import { studioHome } from "@studio/song/studioHome";
 
-/** The state dir — `<library>/st0`, or `$STUDIO_HOME` when set. */
+/** The state dir — `<library>/k7`, or `$STUDIO_HOME` when set. */
 export function studioDir(): string {
   return studioHome();
 }

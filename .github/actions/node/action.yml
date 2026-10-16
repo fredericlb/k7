@@ -7,20 +7,20 @@ description: Node from .nvmrc, and node_modules from cache or npm ci.
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
         node-version-file: .nvmrc
     # Every folder npm puts a node_modules in: the root, and each workspace that keeps its own.
     - id: modules
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: |
           node_modules
           apps/*/node_modules
-          apps/st0/*/node_modules
+          apps/k7/*/node_modules
           packages/*/node_modules
           engine/*/node_modules
-          engine/st0-android/*/node_modules
+          engine/k7-android/*/node_modules
           commons/packages/*/node_modules
           commons/dev/*/node_modules
         # Exact key only: a tree restored from an older lock would be wrong in ways npm ci never checks.

@@ -1,6 +1,6 @@
 // libraries.ts — the LIBRARIES as this account's service sees them: the hub's one folder of each
 // (`$STUDIO_LIBRARIES_HOME`), which the hub gives every listed library. An admin writes that folder
-// IN PLACE, and the hub relays what changed (st0fs); anyone else reads it only.
+// IN PLACE, and the hub relays what changed (k7fs); anyone else reads it only.
 // Rationale: packages/song/docs/sharedFolders.md, mechanics: docs/libraries.md.
 
 import { readdirSync } from "node:fs";

@@ -80,7 +80,7 @@ Orange then blue, left to right, on every lane in the graph.
 
 `PORT_SEP` is `#` because the other two are taken and mean something else: `:` joins a module to
 its node, `/` joins a namespace to a category to a name. A port is a third axis, so it needed a
-third character rather than an overload of one of those — `@st0/audio/crossfade:live#b` has to
+third character rather than an overload of one of those — `@k7-core/audio/crossfade:live#b` has to
 stay readable as three separate facts. Only the LAST `#` is the port, so every other separator in
 the ref is left alone.
 
@@ -229,6 +229,6 @@ stand-in the timeline draws for it.
 looks a control up by its bind goes through `panelWidgets` (`panel.ts`), which walks the shared map
 and every tab's: a knob on a closed tab is still the module's, and a lookup over `widgets` alone would
 answer "no widget" for it. The walk lives here rather than in a renderer because the file service,
-the chains view and st0's MIDI control all need the same answer, and this is the one package all
+the chains view and k7's MIDI control all need the same answer, and this is the one package all
 three already import. `hasTabs` is the other half: a single tab is no tab, so the column is drawn
 only for two or more.

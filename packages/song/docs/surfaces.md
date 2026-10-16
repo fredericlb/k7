@@ -1,6 +1,6 @@
 # `surfaces/` — a special view the project asks for
 
-An st0 project carries a `surfaces/` folder. One file, one surface:
+An k7 project carries a `surfaces/` folder. One file, one surface:
 
 ```yaml
 # surfaces/timeline.yaml — the arrangement
@@ -226,7 +226,7 @@ A viewport surface draws the composited picture and nothing else. Where the pict
 *placed* is the timeline's business — the same timeline the song's audio lanes are on, whose ruler
 reads bars or seconds. There is deliberately no second arrangement surface for picture: one grid
 that can be read in two units beats two grids that must be kept in step. See
-[picture.md](../../song-video/docs/picture.md) and `apps/st0/frontend/docs/picture.md`.
+[picture.md](../../song-video/docs/picture.md) and `apps/k7/frontend/docs/picture.md`.
 
 ### `split` is not `view` drawn smaller
 
@@ -234,12 +234,12 @@ A surface's DOCUMENT is not its screen. A desk holds the loaded songs, the cross
 knobs and a compiled project; a set does not stop existing because you went to look at the graph.
 Hold the document in the screen and a round trip re-centres the crossfader and flattens the EQ while
 the sound stays where you put it. See
-[../../../packages/st0-plugins/docs/turntables/deckSet.md](../../../packages/st0-plugins/docs/turntables/deckSet.md).
+[../../../packages/k7-plugins/docs/turntables/deckSet.md](../../../packages/k7-plugins/docs/turntables/deckSet.md).
 
 A `split` surface does not raise the question: **a pane is mounted once and never unmounted**,
 `hidden` takes it off screen, and that one invariant covers it. The timeline holds a caret and a
 zoom stack, the viewport a GL context and a `<video>` per layer, the desk its document — all cheap
-to keep, all maddening to rebuild (`apps/st0/frontend/docs/shell.md`).
+to keep, all maddening to rebuild (`apps/k7/frontend/docs/shell.md`).
 
 ## `mapping` is `views/mix.yaml`'s binding, reused
 
@@ -266,12 +266,12 @@ different people.
 
 The check is a **gate** rather than a per-knob badge: the components required are the ones that make
 a desk a desk — a crossfade, three EQ bands and a filter per deck. A desk missing its crossfade is
-not a desk with one feature off. `unmappedControls` in `packages/st0-plugins/src/turntables/mapping.ts` owns
+not a desk with one feature off. `unmappedControls` in `packages/k7-plugins/src/turntables/mapping.ts` owns
 the list, because which components a type needs is the surface's own business and `@studio/song`
 does not know what a `crossfade` is. It is internal to the desk — the package publishes four
 subpaths, and this is not one of them.
 
-The mastering strip has its own `unmappedControls`, in `apps/st0/frontend/src/mastering/`, and it
+The mastering strip has its own `unmappedControls`, in `apps/k7/frontend/src/mastering/`, and it
 requires **all ten**. That is not a stricter mood; it is what the surface is. A desk with no stem
 cuts is a complete desk, so those are offered and not required — there is no smaller mastering
 strip, because every control on it names one node, and a missing line is the same strip with a dead
@@ -306,7 +306,7 @@ surfaces/<id>.yaml
   → SurfaceSchema          packages/song-schema/src/yaml/surfaceSchema.ts   (browser-safe)
   → projectSurfaces(dir)   packages/song/src/surfaces.ts             (the disk walk)
   → GET /surfaces          a derived view, like /graph beside it
-  → useSurfaces            apps/st0/frontend/src/hooks/useSurfaces.ts
+  → useSurfaces            apps/k7/frontend/src/hooks/useSurfaces.ts
   → the layout             App.tsx: `timelineSurface` / `viewportSurface` /
                            `turntablesSurface` / `masteringSurface` decide the panes,
                            `viewPanes({…})` the ring
@@ -322,7 +322,7 @@ rather than falling off the end. Malformed files are reported through the same a
 `projectTypeIssues` and the dead-field warnings, so a surface that will not parse is a squiggle in
 the editor rather than a blank screen, and one bad surface does not take the good ones down with it.
 
-## In st0's shell: every `split` surface is a pane
+## In k7's shell: every `split` surface is a pane
 
 Each `split` surface is a member of `Pane` — `timeline`, `turntables`, `mastering` — beside the
 `editor` and `chains` the shell owns outright. So a surface is reached the way any pane is: its
@@ -370,7 +370,7 @@ PROJECT is: its lanes, its picture, its decks. This one draws a single module's 
 needs a mapping for the same reason the desk does — the node's *name* is the project's to choose, so
 nothing but the file can say which of them this is.
 
-The vocabulary is `apps/st0/frontend/src/mastering/controls.ts`, ten ids in three groups (`comp.*`,
+The vocabulary is `apps/k7/frontend/src/mastering/controls.ts`, ten ids in three groups (`comp.*`,
 `spread.*`, `limiter.*`), and `SURFACE_MAPPING_SKELETON.mastering` is the scaffold's copy of it under
 the same duplication rule as the desk's — held to it by `mastering/controls.test.ts` over there.
 
@@ -387,14 +387,14 @@ surface, unlike the timeline's and the viewport's. Those two exist because mater
 nowhere without them; a node with no surface is drawn perfectly well — its panel is on the graph,
 where every other module's is. The strip is a convenience, not a missing half.
 
-See `apps/st0/frontend/docs/mastering.md` for the screen, and
-`engine/st0-engine/docs/quickMaster.md` for what the node actually does to the sound.
+See `apps/k7/frontend/docs/mastering.md` for the screen, and
+`engine/k7-runtime/docs/quickMaster.md` for what the node actually does to the sound.
 
 ## `turntables`
 
-The DJ desk, drawn by `@studio/ui-turntables`. Its one seam is the engine (`./engine`), which st0
+The DJ desk, drawn by `@studio/ui-turntables`. Its one seam is the engine (`./engine`), which k7
 satisfies from the link its shell already holds; see that package's
-[docs/hosting.md](../../../packages/st0-plugins/docs/turntables/hosting.md).
+[docs/hosting.md](../../../packages/k7-plugins/docs/turntables/hosting.md).
 
 A turntables surface plays a **set**, and it says which one: `playlist:`, a name under the
 workspace's `_playlists/` ([playlists.md](playlists.md)). That is what the desk's song browser lists
@@ -418,22 +418,22 @@ It is a BOOLEAN. Which module separates and which model it wants is one answer f
 `system stems`, kept in `<state>/preferences.yaml` — and asking a project for it would make three
 surfaces spell the same thing. What a set decides is whether an hour of arithmetic may start because
 somebody put a record on, which is worth deciding per set: a rehearsal rig and a stage rig answer it
-differently. See [packages/st0-plugins/docs/turntables/stems.md](../../../packages/st0-plugins/docs/turntables/stems.md).
+differently. See [packages/k7-plugins/docs/turntables/stems.md](../../../packages/k7-plugins/docs/turntables/stems.md).
 
 A playlist is not desk-specific and is not the project's either — it is a document in the
-repository, shared by every project in the workspace and written in st0 under the cog. So an `.st0`
+repository, shared by every project in the workspace and written in k7 under the cog. So an `.k7`
 folder whose `surfaces/` names a playlist is a set ([setProject.md](setProject.md)), with no set-list
-concept invented for st0.
+concept invented for k7.
 
 ### One writer for one engine
 
 The desk drives the engine by **sending a whole `ProjectDoc`**: `sendDecks` takes the compiled
 project (`GET /engine-doc`), fills the decks' clips into it (`withDecks`) and plays the result.
 
-**The file service is the only writer**, because it is what loads st0's project into the engine in
+**The file service is the only writer**, because it is what loads k7's project into the engine in
 the first place. Two writers for one engine means whichever wrote last wins: a save during a set
 drops the decks' clips, a deck gesture undoes a change the service just applied. `Deck.sendProject`
-is the seam that keeps it to one — st0 posts to `POST /engine/project`, which the service forwards on
+is the seam that keeps it to one — k7 posts to `POST /engine/project`, which the service forwards on
 its own link. Taking a `Deck` rather than an `EngineClient` is what makes this a parameter rather
 than a fork: `sendDecks` knows nothing about a socket.
 

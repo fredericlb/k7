@@ -1,4 +1,4 @@
-// hostProtocol.ts — the TypeScript mirror of engine/st0-supervisor/src/HostProtocol.h, by hand.
+// hostProtocol.ts — the TypeScript mirror of engine/k7-supervisor/src/HostProtocol.h, by hand.
 // PARTIAL on purpose: a field is added here when a host first reads it.
 // A frame may leave an empty list out, so a host reads one through `snapshotOf`, never raw.
 

@@ -1,0 +1,46 @@
+// loopback.ts — is a request this machine talking to itself? The desktop's and the phone's backend
+// answer nobody else (../docs/standalone.md). The Host header counts as much as the peer address:
+// a page on a rebound DNS name reaches 127.0.0.1 from the user's own browser, with a foreign Host.
+
+import { isLoopbackHost as isLoopbackHostname } from "@studio/web-protocol/services";
+import type { NextFunction, Request, Response } from "express";
+
+export { isLoopbackHostname };
+
+/** A `Host` header, port included, naming this machine; absent or unparsable is not loopback. */
+export function isLoopbackHost(host: string | undefined): boolean {
+  if (!host) return false;
+  try {
+    return isLoopbackHostname(new URL(`http://${host}`).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** A socket peer on this machine, IPv4-mapped spelling included. */
+export function isLoopbackAddress(address: string | undefined): boolean {
+  if (!address) return false;
+  const a = address.replace(/^::ffff:/i, "");
+  return a === "::1" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(a);
+}
+
+/** Both halves: the peer is this machine, and the page asked for this machine by name. */
+export function isLoopbackRequest(req: Request): boolean {
+  return (
+    isLoopbackAddress(req.socket.remoteAddress) &&
+    isLoopbackHost(req.headers.host)
+  );
+}
+
+/** Refuses every request that is not loopback on both halves. */
+export function loopbackOnly(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (isLoopbackRequest(req)) {
+    next();
+    return;
+  }
+  res.status(403).send("This server answers its own machine only.");
+}

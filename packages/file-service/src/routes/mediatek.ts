@@ -1,5 +1,5 @@
 // mediatek.ts — the media library as THIS MACHINE holds it. The library itself is hosted
-// now (see apps/st0/backend/src/media); what lives here is a cache the moteur plays from, so
+// now (see apps/k7/backend/src/media); what lives here is a cache the moteur plays from, so
 // these routes report what is cached and pull down what is missing. Mounted BEFORE
 // resolveWorkspace: a cache is per machine, like /workspaces is per user.
 
@@ -19,6 +19,7 @@ import {
   exists,
   mediatekDir,
   PathEscapesError,
+  readablePath,
   safePath,
 } from "@studio/mediatek/layout";
 import { mimeFor } from "@studio/mediatek/media";
@@ -196,7 +197,7 @@ mediatekRouter.post(
   }),
 );
 
-/** One cached file's BYTES, read-only and confined by `safePath` — see docs/mediatekRoutes.md. */
+/** One cached file's BYTES, read-only and confined by `readablePath` — see docs/mediatekRoutes.md. */
 mediatekRouter.get(
   "/mediatek/file",
   wrap((req, res) => {
@@ -204,7 +205,7 @@ mediatekRouter.get(
     if (!rel) return res.status(400).json({ error: "path is required" });
     try {
       // The mime is REQUIRED: `streamFile` sets it unconditionally and `undefined` threw a 500.
-      return streamFile(req, res, safePath(rel), mimeFor(rel));
+      return streamFile(req, res, readablePath(rel), mimeFor(rel));
     } catch (e) {
       // A path that escapes is the caller's mistake, not ours: 400, never 500.
       if (e instanceof PathEscapesError)
@@ -222,7 +223,7 @@ mediatekRouter.get(
     if (!rel) return res.status(400).json({ error: "path is required" });
     let abs: string;
     try {
-      abs = safePath(rel); // the same confinement /mediatek/file uses
+      abs = readablePath(rel); // the same confinement /mediatek/file uses
     } catch (e) {
       if (e instanceof PathEscapesError)
         return res.status(400).json({ error: e.message });

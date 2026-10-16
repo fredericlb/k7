@@ -48,7 +48,7 @@ another step length and `.v(0.8)` a velocity for every note.
 
 That is the subset a sequence needs. Strudel's alternation (`<a b>`), polymeters and randomness
 describe patterns that change from one cycle to the next; a pattern lane already plays those, from a
-`.strudel` file (`engine/st0-engine/docs/patternPlugin.md`).
+`.strudel` file (`engine/k7-runtime/docs/patternPlugin.md`).
 
 ## A short form that does not read
 

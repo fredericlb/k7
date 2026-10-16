@@ -64,6 +64,17 @@ async function inLibrary(
   return findLibrarySong(await steps.pl8.listSongs(), song.artist, song.title);
 }
 
+/** Does the library already hold this song? Then there is nothing to ask: the page just fetches it. */
+export async function heldInLibrary(
+  pl8: Pl8Client,
+  song: Song,
+): Promise<boolean> {
+  return (
+    findLibrarySong(await pl8.listSongs(), song.artist, song.title) !==
+    undefined
+  );
+}
+
 /** Poll the hunt list until this hunt ends; pl8 has no route for one hunt. */
 async function huntEnd(steps: Common, id: string): Promise<HuntRecord> {
   const sleep = steps.sleep ?? wait;

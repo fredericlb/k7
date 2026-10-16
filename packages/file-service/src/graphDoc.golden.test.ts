@@ -18,11 +18,11 @@ function normalize(doc: unknown): unknown {
   );
 }
 
-// The name is the SNAPSHOT KEY and the folder is that plus `.st0`, kept apart so a rename rewrites nothing.
+// The name is the SNAPSHOT KEY and the folder is that plus `.k7`, kept apart so a rename rewrites nothing.
 describe.each(["synth-demo", "rack-demo"])("golden WebGraph: %s", (song) => {
   it("builds a stable WebGraph (run `vitest -u` to update after an intended change)", () => {
     expect(
-      normalize(buildGraphDoc(join(SONGS, `${song}.st0`))),
+      normalize(buildGraphDoc(join(SONGS, `${song}.k7`))),
     ).toMatchSnapshot();
   });
 });

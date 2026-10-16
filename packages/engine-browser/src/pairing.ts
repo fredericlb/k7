@@ -4,7 +4,7 @@
 
 import { openSocket } from "./rtcSocket.ts";
 
-const PREFIX = "st0.engine-pair.";
+const PREFIX = "k7.engine-pair.";
 /** How long a request waits for the musician: the engine forgets it after two minutes too. */
 const REQUEST_TIMEOUT_MS = 2 * 60 * 1000;
 

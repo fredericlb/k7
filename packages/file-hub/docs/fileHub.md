@@ -1,8 +1,8 @@
 # The file hub — workspaces on the server
 
 A workspace belongs to its account, not to whichever engine happens to be running. So the
-server keeps it: `$STUDIO_FILES_ROOT/<account>/workspace/…`, served at `/api/files` by st0's backend
-(`apps/st0/backend/src/media/fileHub.ts`), and
+server keeps it: `$STUDIO_FILES_ROOT/<account>/workspace/…`, served at `/api/files` by k7's backend
+(`apps/k7/backend/src/media/fileHub.ts`), and
 an engine only ever plays a **copy** it fetched through its tunnel
 (`packages/engine-tunnel/docs/tunnel.md`). The server is the ONLY place a workspace lives: an
 engine's machine is shared by whichever accounts play on it and holds none
@@ -18,6 +18,31 @@ person's state in module globals — the owner, the watchers, the document a
 browser built — and a process boundary is the one isolation nobody can forget to thread through.
 The price is a Node process per **active** account; an instance nobody called for 30 minutes is
 stopped and starts again, in well under a second, on the next request.
+
+### Bounded, and held off when it crashes
+
+A Node process per account is the one cost of this design that grows with the user count, so it is
+**capped**: `STUDIO_MAX_FILE_SERVICES`, 50 by default — about what a small server's memory holds,
+and far above the accounts one origin has active at once. At the cap, a new account's start stops
+the least recently used instance that has been idle for two minutes; one with a request still in
+flight (a forwarded request is counted until its answer closes, a long download included) or one
+kept for a remote pairing is never chosen. When nothing can go, the request answers **503 with
+`Retry-After`** instead of forking past the cap. The idle reaper spares an instance in flight too.
+
+A service that dies on its own is not started again on the very next request: the account waits
+1 s, then 2, 4… up to 60 s, answered 503 with `Retry-After` meanwhile, and a service that ran a
+healthy minute starts that count over. A crash loop would otherwise fork a process per request.
+A stop the hub makes itself — idle, eviction, restart, source change — is no crash.
+
+The children are killed by **one** exit hook of the hub, whatever their number: a listener per child
+trips Node's MaxListeners warning past ten accounts.
+
+A child is ready when it answers a **gated** probe carrying its own secret. Its port is picked free
+by the hub and released before the child binds it, so another account's child starting at the same
+moment may hold it; that one answers 401 to a secret not its own, and the start fails rather than
+forwarding one account's requests to another's process. The accounts paired with a remote (a
+desktop or a phone only) start with the hub and are never reaped: they are replicas that must keep
+syncing.
 
 An account's folder is `accountKey(email)`: the readable slug **and** a hash of the exact email,
 since a slug alone folds `a.b@` and `a_b@` into one folder. The same key names its copy on an
@@ -35,7 +60,7 @@ dial to a local engine at boot.
 The backend's `tsx watch` restarts it on an edit to what it IMPORTS, and a spawned process is not an
 import: an account's file service would keep running yesterday's `commands` or `song` until
 somebody restarted the backend by hand. So with `watchSources` (`STUDIO_FILES_WATCH=1`, set by
-`st0-backend`'s dev script and never by the image) the hub watches `@studio/file-service` and every `@studio/*`
+`k7-backend`'s dev script and never by the image) the hub watches `@studio/file-service` and every `@studio/*`
 package it depends on, transitively, and stops all its instances on a change.
 
 Stopping, not a `tsx watch` child. A child that restarts itself keeps its process, so the hub
@@ -57,7 +82,7 @@ reads, which spares every call a cookie across origins; `/api/files` itself has 
 guard, the ticket being its gate, with the session as a fallback for a same-origin caller.
 Twelve hours, and the browser asks again after six.
 
-**Whether the caller is an admin rides the same way.** The host passes `isAdmin(req)`. st0's backend checks
+**Whether the caller is an admin rides the same way.** The host passes `isAdmin(req)`. k7's backend checks
 the session's OIDC `groups` against `AUTH_ADMIN_GROUPS`, and an empty list admits nobody. The hello
 answers `admin`, the ticket signs it, and the hub stamps `x-studio-admin: 1` on what it forwards,
 having dropped any copy the client sent. The file service trusts that header for the same reason
@@ -75,20 +100,23 @@ folder per library, `<dataRoot>/libraries/<name>`, which every account's file se
 two copies would compile a song two ways.
 
 - **The folder IS the library**: its published versions `1/`, `2/`… each with a `library.yaml`
-  saying what level of st0 it `requires`, and the `draft/` an admin's file service writes. The draft
+  saying what level of k7 it `requires`, and the `draft/` an admin's file service writes. The draft
   is made, from the newest version, only when an admin's service asks (`/libraries/sync` with
   `draft: true`), so a machine with no admin carries no second copy. `publish` freezes the draft as
   the next version. A folder from before versions is moved whole into `1/` on the next `ensure`.
+  A list from before k7 names its default library `st0`: at start the hub renames it `k7-core`
+  (`renameLegacyDefault`) — the list's entry, the folder, and the relay's and replicas' state under
+  `.sync-*`, so a device following it keeps its history. Once, and never over a `k7-core` already there.
   Dropping a library from the list keeps its folder, unlisted: it is the only copy.
 - **A listed library with no folder gets one**, copied from the seed when the seed holds it, else
   an empty version 1. A seed carrying a `library.yaml` is a PUBLISHED version — what the desktop and
   the phone bundle — and installs under its own number; a bare folder is version 1. A machine that
   already has the library and is handed a newer published seed (an app update) gets it as one more
   frozen version. The seed is `$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…` — the desktop
-  and the phone name the `st0-library` they bundle. It is copied into a dot-named sibling and renamed
+  and the phone name the `k7-core` they bundle. It is copied into a dot-named sibling and renamed
   into place, so no reader sees half a library, and without any `.git` it carries.
 - **With no list written yet**, the list is the library folders already on disk, else the seed's.
-- **The libraries are st0fs workspaces** (`../libraryRelay.ts`). The hub is the server's replica of
+- **The libraries are k7fs workspaces** (`../libraryRelay.ts`). The hub is the server's replica of
   each: it watches the folder and relays every change to the room `<name>` of the account
   `_libraries`, kept beside the folders in `libraries/.sync-relay/`. Only the hub holds that
   account's secret, so no replica can write a library through the relay: a write reaches a library
@@ -100,10 +128,17 @@ two copies would compile a song two ways.
   is written into `libraries/<name>`, binaries come from the origin's store, a file only here goes,
   and a local edit is put back to the room's text and never sent. A library must be written on the
   origin, by an admin: a write anywhere else would be a fork nobody else sees.
-- **The machine follows the names on ITS list**, which the seed provides (`st0`): the origin's relay
+- **The machine follows the names on ITS list**, which the seed provides (`k7`): the origin's relay
   does not list library rooms, so a library the origin adds reaches a machine only once that
   machine lists it. The first paired account found is the one whose token is used: every pairing
   names the same origin.
+- **Only a desktop or a phone pairs.** The hub reads a pairing only with `remotePairing`, which k7's
+  backend sets from `STUDIO_LOCAL_USER=1` — the standalone bundle's mark
+  (`apps/k7/backend/standalone.json`). Since the libraries follow the FIRST paired account found, a
+  pairing on the origin would let any signed-in user point every account's libraries at a server of
+  their choosing. So on the origin `PUT`, `POST /main` and `DELETE /api/sync/remote` answer 403,
+  `GET` answers unpaired, and a `.sync-remote.json` found on disk is ignored: no service dials it,
+  and the libraries always relay locally.
 - **Pairing is noticed by polling**, every 30 s: pairing restarts only the account's own service,
   and the libraries are the hub's. An unpaired hub — the origin, a desktop never paired — relays
   its folders to its own relay as above, with a head of its own (`.sync-replica/`, beside
@@ -121,7 +156,7 @@ that version brought down from the origin (`../libraryFetch.ts`); and `POST /lib
 versions the origin publishes, which only a hub naming `$STUDIO_LIBRARY_ORIGIN` asks for.
 
 `/api/public/libraries` (`../publicLibraries.ts`) is the origin's side of that: the published
-versions of `st0`, their files and digests, with no session, never the draft. Its gate is the hub secret
+versions of `k7`, their files and digests, with no session, never the draft. Its gate is the hub secret
 of one of the hub's own instances — the secret that already proves the other direction.
 
 ## An engine is bound by a CLAIM

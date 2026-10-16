@@ -1,6 +1,6 @@
 // ProjectGate.tsx — resolve the repository this app was opened on into a folder on the
 // engine's machine, cloning it if that machine has never seen it, then open the project and
-// render the app. No app picks anything here: a project is chosen on st0's home page, and
+// render the app. No app picks anything here: a project is chosen on k7's home page, and
 // arriving with no target sends you back there. See docs/launch.md.
 
 import {
@@ -13,6 +13,7 @@ import {
   ShieldAlert,
   UserRoundX,
 } from "@frediverse/ui/icons";
+import type { ProjectSyncState } from "@studio/web-protocol";
 import {
   isBench,
   isLocal,
@@ -45,6 +46,7 @@ import {
 } from "./idle.ts";
 import { parseLaunch, projectsUrl } from "./launch.ts";
 import { accountLibraries } from "./repoLookup.ts";
+import { SyncScreen, type SyncWaitStrings, waitForSync } from "./syncWait.tsx";
 
 /** How often the clone is asked how far it has got. Fast: it is the only thing on screen. */
 
@@ -61,6 +63,8 @@ type Phase =
   // Nobody has touched this tab for a long time; the one button reopens it — see docs/idle.md.
   /** `why` decides whether waking is automatic: a tab put behind another wakes itself. */
   | { k: "idle"; why: "timeout" | "hidden" }
+  // Still arriving from the relay; nothing opens before it is all here — see syncWait.tsx.
+  | { k: "syncing"; workspace: string; sync: ProjectSyncState | null }
   // Opened, and on its way to the engine — copied, applied, dry-run; see EngineLoadScreen.tsx.
   | { k: "loading"; workspace: string; project: string }
   | { k: "open"; workspace: string; project: string };
@@ -103,6 +107,8 @@ export interface ProjectGateStrings {
   resume?: string;
   /** The wait for the engine after the project opened; English when an app passes none. */
   loading?: EngineLoadStrings;
+  /** The wait for sync before it opens; English when an app passes none. */
+  syncing?: SyncWaitStrings;
 }
 
 /**
@@ -163,7 +169,7 @@ export function ProjectGate({
   app: ProjectApp;
   /** Where this app is mounted — vite's `import.meta.env.BASE_URL`, handed over, docs/launch.md. */
   base: string;
-  /** Each app owns its own wording (st0 has paraglide, z0's editor is French in place). */
+  /** Each app owns its own wording (k7 has paraglide, z0's editor is French in place). */
   strings: ProjectGateStrings;
   /** Rendered once the project is open — the app itself. */
   children: (ctx: {
@@ -173,7 +179,7 @@ export function ProjectGate({
     quit: () => void;
   }) => ReactNode;
   /**
-   * What to draw for a workspace holding NO project — st0 puts its first-project wizard here.
+   * What to draw for a workspace holding NO project — k7 puts its first-project wizard here.
    * `onCreated` re-runs the whole resolve, so the gate opens whatever was just made rather than
    * being told about it. Without it, a sentence and the way back. See docs/launch.md.
    */
@@ -181,13 +187,13 @@ export function ProjectGate({
     workspace: string;
     onCreated: () => void;
   }) => ReactNode;
-  /** What to draw when the account has NO library — st0 puts the card that adds one here; `onAdded` re-runs the resolve. */
+  /** What to draw when the account has NO library — k7 puts the card that adds one here; `onAdded` re-runs the resolve. */
   renderNoLibraries?: (ctx: { onAdded: () => void }) => ReactNode;
   /** Close the session after this long untouched; `0` — the default — is off. See docs/idle.md. */
   idleTimeoutMs?: number;
   /** The project is out of sight — a tab behind another. Same closing, and it reopens by itself. */
   asleep?: boolean;
-  /** Whatever the APP holds and the gate cannot see — st0's engine lease. See docs/idle.md. */
+  /** Whatever the APP holds and the gate cannot see — k7's engine lease. See docs/idle.md. */
   onIdle?: () => void;
   /** Taking it back. Called before the reopen starts, so the app can retake what it released. */
   onResume?: () => void;
@@ -268,7 +274,7 @@ export function ProjectGate({
     });
   }, [phase.k]);
 
-  // No target at all: go to st0's home page rather than grow a second picker — docs/launch.md.
+  // No target at all: go to k7's home page rather than grow a second picker — docs/launch.md.
   useEffect(() => {
     if (!target) window.location.replace(projectsUrl(window.location.href));
   }, [target]);
@@ -303,15 +309,31 @@ export function ProjectGate({
           configure(userEmail, local.workspace);
           // No library is not a refusal here: a song started on this machine may extend nothing
           // shared, and the project's own "unresolved reference" is the better complaint.
-          try {
-            await fileRoutes.open(local.project);
-          } catch (e) {
-            if (cancelled) return;
-            const status = (e as { status?: number }).status;
-            // 404 is the workspace or the folder, and the service's sentence IS the explanation.
-            if (status === 400 || status === 404)
-              return setPhase({ k: "missing", message: (e as Error).message });
-            throw e;
+          for (;;) {
+            // The relay first: half a project compiles to "file missing" (syncWait.tsx).
+            const synced = await waitForSync(
+              local.project,
+              (sync) =>
+                setPhase({ k: "syncing", workspace: local.workspace, sync }),
+              () => cancelled,
+            );
+            if (!synced) return;
+            try {
+              await fileRoutes.open(local.project);
+              break;
+            } catch (e) {
+              if (cancelled) return;
+              const status = (e as { status?: number }).status;
+              // 409: it fell behind between the two questions — wait again.
+              if (status === 409) continue;
+              // 404 is the workspace or the folder, and the service's sentence IS the explanation.
+              if (status === 400 || status === 404)
+                return setPhase({
+                  k: "missing",
+                  message: (e as Error).message,
+                });
+              throw e;
+            }
           }
           if (cancelled) return;
           return setPhase({
@@ -326,8 +348,8 @@ export function ProjectGate({
         if (cancelled) return;
         if (!libraries.length) return setPhase({ k: "no-libraries" });
 
-        // The BENCH has no repository, and it is a `.st0` one — hence `app`, see docs/launch.md.
-        if (app === "st0" && isBench(repoName)) {
+        // The BENCH has no repository, and it is a `.k7` one — hence `app`, see docs/launch.md.
+        if (app === "k7" && isBench(repoName)) {
           setPhase({
             k: "cloning",
             workspace: strings.benchWorkspace ?? "",
@@ -362,7 +384,7 @@ export function ProjectGate({
         // Everything else is an address from BEFORE: `/<dépôt>/<projet>`, which read a short
         // name against pl8's register. There is no register — a project is a folder on the
         // machine that holds it — so this refuses rather than guessing which folder was meant.
-        // See apps/st0/frontend/docs/projects.md.
+        // See apps/k7/frontend/docs/projects.md.
         return setPhase({
           k: "missing",
           message:
@@ -396,6 +418,15 @@ export function ProjectGate({
       />
     );
   }
+
+  if (phase.k === "syncing")
+    return (
+      <SyncScreen
+        workspace={phase.workspace}
+        sync={phase.sync}
+        strings={strings.syncing}
+      />
+    );
 
   if (phase.k === "open")
     return (

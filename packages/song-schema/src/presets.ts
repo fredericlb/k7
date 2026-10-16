@@ -37,7 +37,7 @@ export const PRESET_NAME = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$/;
 
 const SEGMENT = /^[A-Za-z0-9_][A-Za-z0-9_.+-]*$/;
 
-/** `@st0/instruments/synth` → `st0/instruments/synth`, the folder its presets sit in; null for a ref that has no such path. */
+/** `@k7-core/instruments/synth` → `k7-core/instruments/synth`, the folder its presets sit in; null for a ref that has no such path. */
 export function presetModulePath(ref: string): string | null {
   const m = /^@(.+)$/.exec(ref);
   if (!m) return null;

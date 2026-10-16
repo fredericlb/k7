@@ -20,7 +20,7 @@ const touch = (path: string) => {
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-libfiles-"));
-  lib = librariesFixture(root, "st0");
+  lib = librariesFixture(root, "k7-core");
   touch(join(lib, "irs", "fender deluxe", "big.wav"));
   touch(join(lib, "irs", "fender deluxe", "notes.txt"));
   touch(join(lib, "samples", "kicks", "808.wav"));
@@ -32,22 +32,22 @@ afterEach(() => {
 
 describe("libraryFiles", () => {
   it("lists a family's SOUND files as @<library>/<path>, and nothing else", () => {
-    expect(libraryFiles("irs")).toEqual(["@st0/fender deluxe/big.wav"]);
-    expect(libraryFiles("samples")).toEqual(["@st0/kicks/808.wav"]);
+    expect(libraryFiles("irs")).toEqual(["@k7-core/fender deluxe/big.wav"]);
+    expect(libraryFiles("samples")).toEqual(["@k7-core/kicks/808.wav"]);
   });
 
   it("resolves a ref back to the file, in that family's folder only", () => {
-    expect(libraryFile("irs", "@st0/fender deluxe/big.wav")).toBe(
+    expect(libraryFile("irs", "@k7-core/fender deluxe/big.wav")).toBe(
       join(lib, "irs", "fender deluxe", "big.wav"),
     );
     // The same path under the OTHER family is not this file.
-    expect(libraryFile("samples", "@st0/fender deluxe/big.wav")).toBe(
+    expect(libraryFile("samples", "@k7-core/fender deluxe/big.wav")).toBe(
       join(lib, "samples", "fender deluxe", "big.wav"),
     );
   });
 
   it("refuses a ref that climbs out of the folder, or names no library", () => {
-    expect(libraryFile("irs", "@st0/../modules/x.yaml")).toBeUndefined();
+    expect(libraryFile("irs", "@k7-core/../modules/x.yaml")).toBeUndefined();
     expect(libraryFile("irs", "@nope/big.wav")).toBeUndefined();
     expect(libraryFile("irs", "fender deluxe/big.wav")).toBeUndefined();
   });
@@ -55,7 +55,7 @@ describe("libraryFiles", () => {
 
 describe("a module's `ir` param", () => {
   const song = () => {
-    const p = join(root, "song.st0");
+    const p = join(root, "song.k7");
     mkdirSync(join(p, "nodes"), { recursive: true });
     writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
     mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });
@@ -69,7 +69,7 @@ describe("a module's `ir` param", () => {
     );
     writeFileSync(
       join(p, "nodes", "amp.yaml"),
-      'extends: "@workspace/audio/amp"\nparams:\n  ir: "@st0/fender deluxe/big.wav"\n',
+      'extends: "@workspace/audio/amp"\nparams:\n  ir: "@k7-core/fender deluxe/big.wav"\n',
     );
     writeFileSync(
       join(p, "graph.yaml"),
@@ -82,7 +82,7 @@ describe("a module's `ir` param", () => {
     const p = song();
     const amp = resolveModule(loadModules(p).amp, loadModuleRefs(p));
     expect(amp.ir).toBe(join(lib, "irs", "fender deluxe", "big.wav"));
-    expect(amp.assets?.ir).toBe("@st0/fender deluxe/big.wav");
+    expect(amp.assets?.ir).toBe("@k7-core/fender deluxe/big.wav");
   });
 
   it("reaches the engine's document as the plugin's irFile", () => {
@@ -96,7 +96,7 @@ describe("a module's `ir` param", () => {
 
 describe("a module's `model` param, from a library's models/", () => {
   const song = (model: string) => {
-    const p = join(root, "song.st0");
+    const p = join(root, "song.k7");
     mkdirSync(join(p, "nodes"), { recursive: true });
     writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
     touch(join(root, "_modules", "audio", "amp", "assets", "own.nam"));
@@ -131,13 +131,13 @@ describe("a module's `model` param, from a library's models/", () => {
 
   it("lists a library's models — .nam and .json, nothing else", () => {
     expect(libraryFiles("models")).toEqual([
-      "@st0/amp.nam",
-      "@st0/proteus/ts9.json",
+      "@k7-core/amp.nam",
+      "@k7-core/proteus/ts9.json",
     ]);
   });
 
   it("reaches the engine as the library's file when the ref says @<library>/", () => {
-    expect(engineFile(song("@st0/proteus/ts9.json"))).toBe(
+    expect(engineFile(song("@k7-core/proteus/ts9.json"))).toBe(
       join(lib, "models", "proteus", "ts9.json"),
     );
   });
@@ -151,7 +151,7 @@ describe("a module's `model` param, from a library's models/", () => {
 
 describe("a rack tap's `sample`", () => {
   it("reaches the engine as the sound's file, the kit written on the NODE", () => {
-    const p = join(root, "kit.st0");
+    const p = join(root, "kit.k7");
     mkdirSync(join(p, "nodes"), { recursive: true });
     writeFileSync(join(p, "project.yaml"), 'project:\n  name: "kit"\n');
     mkdirSync(join(root, "_modules", "instruments", "drums"), {
@@ -168,7 +168,7 @@ describe("a rack tap's `sample`", () => {
     writeFileSync(
       join(p, "nodes", "kit.yaml"),
       'extends: "@workspace/instruments/drums"\ntype: rack\nrack:\n  symbols:\n' +
-        '    BD: { note: 36, sample: "@st0/kicks/808.wav" }\n',
+        '    BD: { note: 36, sample: "@k7-core/kicks/808.wav" }\n',
     );
     writeFileSync(
       join(p, "graph.yaml"),
@@ -189,7 +189,7 @@ describe("a rack tap's `sample`", () => {
 
 describe("a tap's sample inside an ALTERNATIVE", () => {
   it("still reaches the engine when that set is the one selected", () => {
-    const p = join(root, "demo.st0");
+    const p = join(root, "demo.k7");
     touch(join(p, "samples", "kick.wav"));
     touch(join(p, "samples", "snare.wav"));
     mkdirSync(join(p, "nodes"), { recursive: true });
@@ -226,11 +226,11 @@ describe("a tap's sample inside an ALTERNATIVE", () => {
 
 describe("a PROJECT's own samples, as @project/…", () => {
   it("lists them before the libraries', and resolves them in that project only", () => {
-    const p = join(root, "demo.st0");
+    const p = join(root, "demo.k7");
     touch(join(p, "samples", "kick.wav"));
     expect(libraryFiles("samples", p)).toEqual([
       "@project/kick.wav",
-      "@st0/kicks/808.wav",
+      "@k7-core/kicks/808.wav",
     ]);
     expect(libraryFile("samples", "@project/kick.wav", p)).toBe(
       join(p, "samples", "kick.wav"),
@@ -240,7 +240,7 @@ describe("a PROJECT's own samples, as @project/…", () => {
   });
 
   it("reaches the engine from a tap on a node", () => {
-    const p = join(root, "demo.st0");
+    const p = join(root, "demo.k7");
     touch(join(p, "samples", "kick.wav"));
     mkdirSync(join(p, "nodes"), { recursive: true });
     writeFileSync(join(p, "project.yaml"), 'project:\n  name: "demo"\n');

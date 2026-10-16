@@ -13,12 +13,12 @@ import {
   rmSync,
   statSync,
   watch,
-  writeFileSync,
 } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { type BlobId, blobRef, parseBlobRef } from "@studio/live-sync/blob";
 import { fileOpFor, textHash } from "@studio/live-sync/file-op";
 import type { FileOp } from "@studio/live-sync/ops";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
 import { SETTLE_MS } from "@studio/song/moduleCache";
 import { BlobCache, cloneFile, sha256Buffer, sha256File } from "./liveBlobs.ts";
 import {
@@ -30,6 +30,7 @@ import {
   TEXT_CEILING,
 } from "./liveLedger.ts";
 import type { Batch } from "./liveLog.ts";
+import { confinedPath } from "./livePath.ts";
 import { filesUnder } from "./workspaceFilter.ts";
 
 export interface CaptureOptions {
@@ -162,7 +163,7 @@ export class LiveCapture {
     if (text === null) rmSync(abs, { force: true });
     else {
       mkdirSync(dirname(abs), { recursive: true });
-      writeFileSync(abs, text);
+      writeFileAtomic(abs, text);
     }
     this.learn(file);
     if (waited) this.savePending();
@@ -486,9 +487,9 @@ export class LiveCapture {
     return filesUnder(this.o.root, scope, this.o.skip);
   }
 
-  /** The workspace file's absolute path. */
+  /** The workspace file's absolute path; throws for a path that would leave the workspace (livePath.ts). */
   pathOf(rel: string): string {
-    return rel ? join(this.o.root, ...rel.split("/")) : this.o.root;
+    return rel ? confinedPath(this.o.root, rel) : this.o.root;
   }
 
   private closeWatcher(): void {

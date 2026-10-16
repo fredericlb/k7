@@ -4,17 +4,23 @@ import { Field } from "@frediverse/ui/field";
 import { Input } from "@frediverse/ui/input";
 import { useState } from "react";
 import { SwitchField } from "../components/SwitchField";
+import { VisibilityPicker } from "../components/VisibilityPicker";
 import { m } from "../paraglide/messages.js";
-import type { Page, Release } from "../types";
+import type { Page, PageVisibility, Release } from "../types";
 
 interface Props {
   releases: Release[];
-  onSave: (data: { nametag: string; releaseIds: string[] }) => Promise<Page>;
+  onSave: (data: {
+    nametag: string;
+    releaseIds: string[];
+    visibility: PageVisibility;
+  }) => Promise<Page>;
   onCancel: () => void;
 }
 
 export function PageFormView({ releases, onSave, onCancel }: Props) {
   const [nametag, setNametag] = useState("");
+  const [visibility, setVisibility] = useState<PageVisibility>("private");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +41,7 @@ export function PageFormView({ releases, onSave, onCancel }: Props) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ nametag, releaseIds: [...selected] });
+      await onSave({ nametag, releaseIds: [...selected], visibility });
     } catch (e) {
       setError((e as Error).message);
       setSaving(false);
@@ -52,6 +58,10 @@ export function PageFormView({ releases, onSave, onCancel }: Props) {
           placeholder={m["page.nametagPlaceholder"]()}
           onChange={(e) => setNametag(e.target.value)}
         />
+      </Field>
+
+      <Field label={m["page.visibility.label"]()}>
+        <VisibilityPicker value={visibility} onChange={setVisibility} />
       </Field>
 
       <div className="mb-3.5">

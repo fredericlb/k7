@@ -10,6 +10,7 @@ import { join } from "node:path";
 // make the sweep that fills them invalidate the listing it walks (docs/index.md).
 import { CACHE_EXT } from "@studio/audio-analysis/sidecar";
 import { familyDir, RECORDINGS_DIR, recordingsDir } from "./layout.ts";
+import { withoutDerived } from "./media.ts";
 import { FAMILIES, type Family } from "./types.ts";
 
 /** What can carry a token: the families, plus the raw capture zone — see docs/recordings.md. */
@@ -41,8 +42,9 @@ async function walkAsync(
         readdir(d, { withFileTypes: true }).catch((): Dirent[] => []),
       ),
     );
+    // A FLAC's derived MP3 is skipped like a `.cache`: writing one must not move the token.
     for (const entries of listings)
-      for (const e of entries) {
+      for (const e of withoutDerived(entries)) {
         if (skip(e.name)) continue;
         const p = join(e.parentPath, e.name);
         if (e.isDirectory()) dirs.push(p);
@@ -77,7 +79,7 @@ function walk(dir: string): { count: number; newest: number } {
     } catch {
       return;
     }
-    for (const e of entries) {
+    for (const e of withoutDerived(entries)) {
       if (skip(e.name)) continue;
       const p = join(abs, e.name);
       if (e.isDirectory()) {

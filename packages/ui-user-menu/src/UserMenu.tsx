@@ -1,5 +1,5 @@
 // UserMenu.tsx — studio's user menu: @frediverse/ui's, with one link per OTHER studio app of the
-// origin. `serviceUrl` resolves each one's address — st0's own origin or z0's path under it;
+// origin. `serviceUrl` resolves each one's address — k7's own origin or z0's path under it;
 // `origin` makes those links resolve against the paired SERVER instead of this tab's origin,
 // which is the desktop app's case. See ../docs/userMenu.md.
 
@@ -17,10 +17,10 @@ const APPS: {
   hint: string;
   icon: LucideIcon;
 }[] = [
-  // st0 FIRST, and it IS the reference origin every other row resolves from (../docs/userMenu.md).
+  // k7 FIRST, and it IS the reference origin every other row resolves from (../docs/userMenu.md).
   {
-    id: "st0",
-    label: "st0",
+    id: "k7",
+    label: "k7",
     hint: "your projects, the media library, the rehearsals, the shares",
     icon: FolderGit2,
   },

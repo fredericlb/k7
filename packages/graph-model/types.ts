@@ -119,7 +119,7 @@ export interface WebChainStep {
   shader?: string;
   shaders?: string[];
   stub?: boolean; // a plugin module that resolved to no plugin (missing on import)
-  notSupported?: boolean; // plugin.type is "not_supported" — st0 can't load it; bypassed
+  notSupported?: boolean; // plugin.type is "not_supported" — k7 can't load it; bypassed
   unknownPlugin?: boolean; // plugin.type is an UNKNOWN format (typo / unimported) — bypassed
   hasNativePluginUI?: boolean; // an external plugin with a native editor the engine can open
   /** A lane's STRIP (the internal `Mixer`): it cannot be bypassed and has no alternatives — packages/song/docs/trackMixer.md. */
@@ -317,7 +317,7 @@ export interface WebPlug {
  * renderer that may one day touch wasm is a name nobody would suspect. See
  * packages/song/docs/assemblies.md. */
 export interface WebNodeAssembly {
-  uses: string; // the template ref (`@st0/turntable`)
+  uses: string; // the template ref (`@k7-core/turntable`)
   label: string; // the template's `label:`, else the instance's own name
   members: string[]; // this project's node names, in the template's declaration order
   inputs?: WebPlug[];

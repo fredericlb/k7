@@ -42,9 +42,9 @@ const tasks = workspacePackages()
     const rel = relative(repo, dir).replaceAll("\\", "/");
     return {
       name,
-      // Tilt resource names allow only [A-Za-z0-9_-]; `st0-engine` is the native monitor.
+      // Tilt resource names allow only [A-Za-z0-9_-]; `k7-runtime` is the native monitor.
       label:
-        name === "st0-engine"
+        name === "k7-runtime"
           ? "native"
           : name.replace(/^@/, "").replace(/[^A-Za-z0-9_-]+/g, "-"),
       dir: rel,

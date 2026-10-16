@@ -1,7 +1,7 @@
 // deadAutomations.ts — the curves the engine will refuse, said where a person can see them: a lane bound
 // to a built-in's plain-state control (its value is settable, no curve reaches it), or to a name the
 // plugin does not have. The engine only logs those; this turns each into a project warning.
-// See engine/st0-engine/docs/builtinParams.md.
+// See engine/k7-runtime/docs/builtinParams.md.
 
 import { join } from "node:path";
 import type { ProjectDoc } from "@studio/engine-protocol/project";

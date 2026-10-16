@@ -1,6 +1,6 @@
-// shareOps.ts — getting a project off this machine: the mixdown, the frozen snapshot sent to pl8,
-// and the publish to k7. Four acts with one thing in common, and that is what makes them a module:
-// each RENDERS first, then hands the result to somebody else.
+// shareOps.ts — getting a project off this machine as audio: the mixdown, and the publish to k7. Two acts with one
+// thing in common, and that is what makes them a module: each RENDERS first, then hands the result to somebody else.
+// A share LINK renders nothing and lives in shareLink.ts.
 //
 // It takes a HOST of a few `Workspace` members rather than the whole class, the seam
 // `projectLifecycle.ts` uses, so `safePath` and the rest do not become public API.
@@ -8,14 +8,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import {
-  buildShareBundle,
-  type ShareBundle,
-  uploadShare,
-} from "@studio/commands/share-bundle";
-import type { WebGraph } from "@studio/graph-model";
 import type { ProjectDoc } from "@studio/song/project";
-import type { projectSurfaces } from "@studio/song/surfaces";
 import {
   type K7Result,
   MP3_CODEC,
@@ -24,8 +17,6 @@ import {
   shareToK7,
   transcode,
 } from "@studio/take-render/render";
-import type { WebProject } from "@studio/web-protocol";
-import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { serviceRenderer } from "./renderers.ts";
 
 /** Who renders, or a named failure: "render failed" alone reads as a broken project. */
@@ -36,7 +27,7 @@ function requireRenderer(what: string): Renderer {
   return r;
 }
 
-/** What an export needs of the workspace: six members instead of a class, so `safePath` stays private. */
+/** What an export needs of the workspace: three members instead of a class, so `safePath` stays private. */
 export interface ShareHost {
   /** The workspace root. Named in a share's origin. */
   root: string;
@@ -44,10 +35,6 @@ export interface ShareHost {
   requireActive(): string;
   /** The compiled document the engine takes, memoised by the workspace. */
   cachedProjectDoc(dir: string): ProjectDoc;
-  /** The three documents a BROWSER draws a project from. */
-  projectDoc(): WebProject;
-  graphDoc(): WebGraph;
-  surfaces(): ReturnType<typeof projectSurfaces>;
 }
 
 /** Render the mixdown; the caller streams `path` then calls `cleanup`, whether or not it worked. */
@@ -89,55 +76,6 @@ export async function exportMix(
   } catch (e) {
     cleanup();
     throw e;
-  }
-}
-
-/** The frozen snapshot `project share link` sends to pl8 — the three documents, and the three left out, in docs/share.md. */
-export function buildShare(host: ShareHost): Promise<ShareBundle> {
-  const dir = host.requireActive();
-  const render = requireRenderer("share");
-  const web = host.projectDoc();
-  return buildShareBundle(
-    render,
-    host.cachedProjectDoc(dir),
-    {
-      "project-doc.json": web,
-      "graph.json": host.graphDoc(),
-      "surfaces.json": host.surfaces(),
-    },
-    { name: web.name || basename(dir) },
-  );
-}
-
-/** Render the snapshot, send it to pl8, and answer the secret the link is built from — docs/share.md. */
-export async function shareLink(
-  host: ShareHost,
-  userEmail: string,
-): Promise<{ token: string; bytes: number }> {
-  const base = mediatekBase();
-  const token = mediatekToken();
-  if (!base)
-    throw new Error(
-      "no médiathèque to share to — the file hub gave this service no MEDIATEK_URL",
-    );
-  if (!token)
-    throw new Error(
-      "no médiathèque token — the file hub gave this service no MEDIATEK_TOKEN",
-    );
-  const dir = host.requireActive();
-  const bundle = await buildShare(host);
-  try {
-    const link = await uploadShare(bundle, {
-      base,
-      token,
-      user: userEmail,
-      // Where it came from, for the author's own list. Never served publicly.
-      origin: { repo: basename(host.root), project: basename(dir) },
-    });
-    return { token: link.token, bytes: link.bytes };
-  } finally {
-    // The upload streams from these files, so they go only now — half a gigabyte of temp for a long song.
-    bundle.cleanup();
   }
 }
 

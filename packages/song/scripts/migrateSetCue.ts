@@ -1,13 +1,13 @@
 // migrateSetCue.ts — give a SET the headphone send per deck it lacks.
 //
-//   npx tsx packages/song/scripts/migrateSetCue.ts <projet.st0> [more…] [--write]
+//   npx tsx packages/song/scripts/migrateSetCue.ts <projet.k7> [more…] [--write]
 //
 // Per deck: a second destination on its filter, a `cue<X>: [ CUE ]` line, one node file, one
 // mapping line — and its STRIP into `bus_only:`, without which the strip's dry path reaches the
 // master unfaded and every crossfader position sounds the same. See packages/song/docs/cue.md.
 //
 // Idempotent, dry by default, and through the yaml Document API so comments and key order come back
-// byte-identical. It does NOT touch ~/.st0: which pair the headphones are on is a fact about a
+// byte-identical. It does NOT touch ~/.k7: which pair the headphones are on is a fact about a
 // MACHINE, set once with `system cue`, and a project that travels must not carry one.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -26,7 +26,7 @@ const write = args.includes("--write");
 const roots = args.filter((a) => !a.startsWith("--"));
 if (!roots.length) {
   console.error(
-    "usage: migrateSetCue <projet.st0> [more…] [--write]   (dry run without --write)",
+    "usage: migrateSetCue <projet.k7> [more…] [--write]   (dry run without --write)",
   );
   process.exit(2);
 }

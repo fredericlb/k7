@@ -10,7 +10,7 @@ import { LIBRARY_LEVEL } from "./libraryVersions";
 
 const supervisor = join(
   dirname(fileURLToPath(import.meta.url)),
-  "../../../engine/st0-supervisor/src/Supervisor.cpp",
+  "../../../engine/k7-supervisor/src/Supervisor.cpp",
 );
 
 describe("LIBRARY_LEVEL", () => {

@@ -1,7 +1,10 @@
 # Who sees what
 
 Everything the rehearsal pages save belongs to the person who saved it, and nobody else can see it: sessions and
-their takes, moments and their clips, markers, releases and their versions, pages. There is no sharing feature yet; when one exists, it is the only way past this rule.
+their takes, moments and their clips, markers, releases and their versions, pages. **A page's
+nametag is the one way past this rule**, graded by the page's own visibility: public, anyone signed
+in, or its owner alone ([pages.md](pages.md)). The releases it lists are heard through it, and
+only through it.
 
 Two things are shared instead: the **songbook** — all of it but the songs added as private — and
 the **singing exercises**.
@@ -25,8 +28,8 @@ Songs are the band's common book, so every logged-in user lists, reads and **edi
 song — lyrics, tablature, sheets, the reference track. Only an **admin** can **delete** one: editing
 is how a shared book grows, while deleting a song wipes everyone's work on it at once, its creator's
 included, so it belongs to whoever looks after the book rather than to whoever added the song. An
-admin is a member of one of the OIDC groups in `AUTH_ADMIN_GROUPS` — read from st0's backend
-section, the same variable and the same `groups` claim that make an admin of st0's libraries and of
+admin is a member of one of the OIDC groups in `AUTH_ADMIN_GROUPS` — read from k7's backend
+section, the same variable and the same `groups` claim that make an admin of k7's libraries and of
 z0; left empty, no public song can be deleted.
 
 **A private song** is the exception inside the shared book. Adding a song asks whether it is public

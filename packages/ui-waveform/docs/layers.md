@@ -4,7 +4,7 @@
 detected events, annotations, the envelope, the threshold, the selection, the edit handles, the
 markers, the playhead, and the labels on top. One effect, one draw order, easy to read.
 
-**`currentTime` is in that effect's dependency list**, and in st0 the playhead comes off the
+**`currentTime` is in that effect's dependency list**, and in k7 the playhead comes off the
 engine's 20 Hz state frame — so a clip editor open during playback runs the effect twenty times a
 second. Its two most expensive pieces are the two that never change while the transport moves:
 
@@ -61,7 +61,7 @@ three `setLineDash` calls restores `[]`. A style set and not restored leaks into
 
 ## Still open: the playhead re-renders the host
 
-`ClipWaveform` (st0's `WaveformView.tsx`) reads the transport with
+`ClipWaveform` (k7's `WaveformView.tsx`) reads the transport with
 `useEngineState((s) => s.playhead)` — a SELECTOR hook, so the component renders at the frame
 rate and the draw effect runs with it. `usePlayheadFrames` is this repo's answer to exactly
 that, and its own header says why: *"a selector hook here would put a render on the component at
@@ -84,7 +84,7 @@ That is a design lot, not a patch. It is named in `docs/constat.md`.
 - the `events` / `annotations` / `markers` / `gridLines` defaults are **module-level constants**,
   not `= []` in the parameter list — a fresh array per render is a new identity, and fires the
   draw effect on every render of the host whether or not the transport moved;
-- a host must not build `envelope={{ intervalMs, samples }}` inline. st0's `WaveformView` holds
+- a host must not build `envelope={{ intervalMs, samples }}` inline. k7's `WaveformView` holds
   it in a `useMemo` keyed on the decoded waveform, and passes `currentTime` from a small leaf
   component (`ClipWaveform`) so the slice windows, transient markers and warp marks around the
   canvas do not re-render with the transport.

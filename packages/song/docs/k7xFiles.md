@@ -12,7 +12,7 @@ on disk may be either. The plan this belongs to is [k7x-plan.md](../../../docs/k
 Every other path goes straight through, unchanged.
 
 That is what spared rewriting the readers: some 350 reads, writes and existence checks across
-song, song-edit, commands, take-render, audio-passes and st0-plugins, and some 290 `.yaml`
+song, song-edit, commands, take-render, audio-passes and k7-plugins, and some 290 `.yaml`
 literals that build paths, all keep working by going through this one module. It also means a
 writer cannot tell which format it wrote, which is the point: a k7x file stays a k7x file, with its
 comments and its layout, through every command.
@@ -68,7 +68,7 @@ as edits.
 - **A YAML file beside a `.k7x` one is left alone**: the `.k7x` already wins, so touching the YAML
   could only lose something.
 - **An original is moved, never deleted**: to the backup a caller names, under its own relative
-  path. Only a folder in git (`demos/`, `st0-library/`) passes no backup, its history being one.
+  path. Only a folder in git (`demos/`, `k7-core/`) passes no backup, its history being one.
 
 Two callers: `scripts/migrateK7x.ts` for the repository's folders, dry by default; and the file
 service's `POST /migrate-k7x` for an account's workspace, which keeps the originals in the

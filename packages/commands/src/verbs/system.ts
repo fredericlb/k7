@@ -92,7 +92,7 @@ export const SYSTEM_VERBS: Record<string, SidHandler> = {
     const ref = a.trim();
     if (!ref)
       return h.refuse([
-        "usage: system stems <chaîne>   e.g. system stems @st0/stems",
+        "usage: system stems <chaîne>   e.g. system stems @k7-core/stems",
         h.stemsChain
           ? `currently: ${h.stemsChain} — pass "" to clear it`
           : "nothing is set, so nothing on this machine will separate a record",
@@ -128,7 +128,7 @@ export const SYSTEM_VERBS: Record<string, SidHandler> = {
     const ref = a.trim();
     if (!ref)
       return h.refuse([
-        "usage: system instrumental <chaîne>   e.g. system instrumental @st0/instrumental",
+        "usage: system instrumental <chaîne>   e.g. system instrumental @k7-core/instrumental",
         h.instrumentalChain
           ? `currently: ${h.instrumentalChain} — pass "" to clear it`
           : "nothing is set, so nothing on this machine will make an instrumental",

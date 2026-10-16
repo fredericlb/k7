@@ -128,8 +128,8 @@ image — would otherwise compile it from C++ for a console that runs on this Wi
 
 ## The name, and the one accepted beside it
 
-`scripts/dev-hosts.mjs` holds all three. `priv.st0.app` is st0's own origin, whose `/z0` path
-belongs to z0's own repository and is not served by this one's dev session; `play.priv.st0.app` and `k7.priv.st0.app` are st0's alias hosts, which its dev
+`scripts/dev-hosts.mjs` holds all three. `priv.st0.app` is k7's own origin, whose `/z0` path
+belongs to z0's own repository and is not served by this one's dev session; `play.priv.st0.app` and `k7.priv.st0.app` are k7's alias hosts, which its dev
 server answers like the origin, exactly as production is under `st0.app` / `play.st0.app` /
 `k7.st0.app`. Each resolves to the LAN server, which reverse-proxies to the matching dev server on
 the workstation — see `docs/dev.md`'s table. A hostname lives in a router and in everyone's
@@ -147,7 +147,7 @@ an open-source repo, acceptable because nothing here is reachable from outside t
 The trust boundary IS the LAN: the proxy (traefik) lives on another machine, so the
 console and the editor bind `0.0.0.0` — their ports answer any LAN peer, proxied or
 not. A loopback bind answers the proxy "connection refused". The day any of it leaves
-the dev network, the remedy is a forward-auth rule on the proxy pointed at st0's
+the dev network, the remedy is a forward-auth rule on the proxy pointed at k7's
 backend, which owns `/auth` for the origin.
 
 Anyone who reaches the editor gets a shell on the dev machine, which is what makes this a

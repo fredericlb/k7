@@ -1,7 +1,7 @@
 // bench.ts — the BENCH: one live rig, in a workspace of its own, thrown away and scaffolded again
 // on every open: the bare rig, or one seeded with a library CHAIN, which anyone plays and nobody
 // edits through. A library is not edited here: an admin edits it from any project
-// (libraries.ts). Rationale: apps/st0/backend/docs/media/banc.md.
+// (libraries.ts). Rationale: apps/k7/backend/docs/media/banc.md.
 
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
@@ -44,7 +44,8 @@ export async function ensureBench(
   const dir = benchDir();
   rmSync(dir, { recursive: true, force: true });
   // Named after the workspace and not after the folder: what the app says everywhere is "the bench".
-  scaffoldLive(dir, BENCH_WORKSPACE);
+  // A GRAPH, not chain files: spliceChain wires the library chain between nodes it names (`IN`, `fader`).
+  scaffoldLive(dir, BENCH_WORKSPACE, "graph");
   spliceChain(dir, chain);
 
   return { workspace: BENCH_WORKSPACE, project: BENCH_PROJECT };

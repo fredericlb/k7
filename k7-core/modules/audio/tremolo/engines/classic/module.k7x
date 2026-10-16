@@ -1,0 +1,26 @@
+// Trémolo  [audioEffect] — le volume qui va et vient, à la vitesse qu'on choisit.
+//
+// L'oscillateur tourne au rythme de l'ÉCHANTILLON, pas du bloc : un gain qui ne change que cinq
+// fois par seconde n'est pas un trémolo, c'est un hachoir. C'est le seul choix du module et il est
+// dans jsdsp.ts, ligne par ligne.
+//
+// `Depth` à 0 est un vrai bypass — le plancher du gain vaut `1 - Depth`. C'est ce qui permet de
+// laisser le module dans une chaîne sans l'entendre, plutôt que de le retirer et le remettre.
+//
+// CE QU'IL N'EST PAS : il ne suit pas le tempo du projet. `Rate` est en hertz, posé à la main,
+// pour la raison qui vaut pour l'écho — la liaison n'existe pas encore. Voir
+// packages/k7-plugins/docs/turntables/fx.md.
+//
+// Sa DSP est décrite dans jsdsp.ts à côté, pas compilée dans le moteur.
+plugin({ type: "jsdsp", name: "Tremolo" })
+params({
+  // 5 Hz : la pulsation qu'on entend comme un trémolo et pas comme un fondu. Plus lent devient un
+  // mouvement d'arrangement, plus rapide devient une couleur.
+  Rate: 5,
+  // À moitié. Assez pour s'entendre en le posant, assez peu pour que le morceau ne disparaisse pas.
+  Depth: 0.5,
+})
+// En un paragraphe : fait monter et descendre le volume, en boucle. `Rate` est la vitesse en hertz,
+// `Depth` l'ampleur — à 0 le module ne fait rien du tout, à 1 le son coupe à chaque creux.
+//
+// (La description d'un module est son en-tête, ici — voir packages/song/docs/docModules.md.)

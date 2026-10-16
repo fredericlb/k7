@@ -1,16 +1,16 @@
-# The hosted half only: st0 (the editor, the media library AND the rehearsal recorder) in its OWN
-# image and container — no nginx, see apps/st0/docker/Dockerfile. z0, the blind-test game, is
-# built and tagged by its own repository and only DEPLOYED here, on st0's own hostname. The
+# The hosted half only: k7 (the editor, the media library AND the rehearsal recorder) in its OWN
+# image and container — no nginx, see apps/k7/docker/Dockerfile. z0, the blind-test game, is
+# built and tagged by its own repository and only DEPLOYED here, on k7's own hostname. The
 # musicians' engines run on their own machines, and reach this stack through the tunnel their
 # supervisor dials (packages/engine-tunnel/docs/tunnel.md); the `engine` service is one more of
-# those, the server's own, which dials st0 over the container network (docs/server-engine.md).
-# The accounts' WORKSPACES live here, in st0, one file service per account
+# those, the server's own, which dials k7 over the container network (docs/server-engine.md).
+# The accounts' WORKSPACES live here, in k7, one file service per account
 # (packages/file-hub/docs/fileHub.md).
 #
-# FOUR containers: Traefik routes st0 by Host() straight to its own backend port (no nginx to
-# hand off to) and z0 by a PathPrefix(`/z0`) rule layered on st0's own hostname — st0 answers
+# FOUR containers: Traefik routes k7 by Host() straight to its own backend port (no nginx to
+# hand off to) and z0 by a PathPrefix(`/z0`) rule layered on k7's own hostname — k7 answers
 # everything else there; the engine is reached on the container network only, and so is pocketbase,
-# the rehearsal recorder's former store, until st0 has imported it. st0 also answers the `play.` and `k7.` hosts, aliases kept for the share links, registry
+# the rehearsal recorder's former store, until k7 has imported it. k7 also answers the `play.` and `k7.` hosts, aliases kept for the share links, registry
 # URLs, publish URLs and public pages saved against them. That's the topology env.yaml's
 # COOKIE_DOMAIN/TRUSTED_ORIGINS document.
 #
@@ -24,14 +24,15 @@ x-shared-auth: &shared-auth
   SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET — see .env.example}
   COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
   TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
-  OIDC_ISSUER: ${OIDC_ISSUER:-}
-  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+  # Required: unset, k7 refuses to start rather than sign every visitor in as one dev user.
+  OIDC_ISSUER: ${OIDC_ISSUER:?set OIDC_ISSUER — see .env.example}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?set OIDC_CLIENT_ID — see .env.example}
   OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
   OIDC_SCOPES: ${OIDC_SCOPES:-}
 
 services:
-  st0:
-    image: dev.frediver.se/frediverse/studio/st0:${APP_VERSION:-latest}
+  k7:
+    image: dev.frediver.se/frediverse/k7/k7-webapp:${APP_VERSION:-latest}
     restart: unless-stopped
     environment:
       <<: *shared-auth
@@ -50,7 +51,7 @@ services:
       # The rehearsal recorder's store (k7.db and its sheets), its audio cache and uploads in flight: the volume below.
       K7_DATA_DIR: /rehearsal-data
       # Without this, @studio/mediatek defaults to a per-machine state dir
-      # (~/.st0/mediatek) instead of the volume below, and the library is empty.
+      # (~/.k7/mediatek) instead of the volume below, and the library is empty.
       STUDIO_MEDIATEK: /library
       # The accounts' workspaces, and the only place they live — engines hold copies, never workspaces.
       STUDIO_FILES_ROOT: /workspaces
@@ -60,7 +61,7 @@ services:
       STUDIO_RENDER_KEY: ${RENDER_KEY:-}
     volumes:
       - data:/data
-      # The media library IS this volume — apps/st0/docker/Dockerfile.
+      # The media library IS this volume — apps/k7/docker/Dockerfile.
       - library:/library
       - workspaces:/workspaces
       # The volume k7's own container used, under its old name, so the cached audio is kept.
@@ -70,43 +71,42 @@ services:
     labels:
       - traefik.enable=true
       # The play. and k7. hosts are permanent aliases: saved share links, registries, publish URLs and public pages name them.
-      - traefik.http.routers.st0.rule=Host(`${ST0_DOMAIN:-st0.app}`) || Host(`${PL8_DOMAIN:-play.st0.app}`) || Host(`${K7_DOMAIN:-k7.st0.app}`)
-      - traefik.http.routers.st0.entrypoints=websecure
-      - traefik.http.routers.st0.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
-      - traefik.http.services.st0.loadbalancer.server.port=8789
+      - traefik.http.routers.k7.rule=Host(`${K7_DOMAIN:-st0.app}`) || Host(`${PL8_DOMAIN:-play.st0.app}`) || Host(`${K7_ALIAS_DOMAIN:-k7.st0.app}`)
+      - traefik.http.routers.k7.entrypoints=websecure
+      - traefik.http.routers.k7.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      - traefik.http.services.k7.loadbalancer.server.port=8789
 
-  # The rehearsal recorder's FORMER store, kept only as the source of st0's one-time import into
-  # k7.db (packages/rehearsal-server/docs/store.md). Once st0's log says "rehearsal: imported …",
-  # remove this service, its volume and st0's POCKETBASE_* above.
+  # The rehearsal recorder's FORMER store, kept only as the source of k7's one-time import into
+  # k7.db (packages/rehearsal-server/docs/store.md). Once k7's log says "rehearsal: imported …",
+  # remove this service, its volume and k7's POCKETBASE_* above.
   pocketbase:
-    image: ghcr.io/muchobien/pocketbase:latest
+    # Pinned: a PocketBase upgrade migrates pb_data on start, which an import source must not do.
+    image: ghcr.io/muchobien/pocketbase:0.40.5
     restart: unless-stopped
     volumes:
       - pocketbase-data:/pb_data
     networks:
       - traefik
     ports:
-      # One port for both: the admin web UI is at /_/, the REST API at /api/*.
-      # Published straight on the host, not through Traefik — there is no
-      # auth in front of this beyond PocketBase's own login, so bind it to a
-      # trusted interface/VPN or firewall it off in a real deployment.
-      - "${POCKETBASE_PORT:-8090}:8090"
+      # The admin UI (/_/) and the API on the host's loopback only: reach it through an SSH tunnel.
+      # k7 imports over the container network and needs no published port.
+      - "127.0.0.1:${POCKETBASE_PORT:-8090}:8090"
 
   # The server's own engine — engine/docker/Dockerfile. Not routed through Traefik: it publishes no
-  # port, and browsers reach it through st0's relay like any machine's (docs/server-engine.md).
+  # port, and browsers reach it through k7's relay like any machine's (docs/server-engine.md).
   engine:
-    image: dev.frediver.se/frediverse/studio/st0-engine:${APP_VERSION:-latest}
+    image: dev.frediver.se/frediverse/k7/k7-runtime:${APP_VERSION:-latest}
     restart: unless-stopped
     depends_on:
-      - st0
+      - k7
     environment:
-      # st0's registry on the container network; the supervisor dials its tunnel from the same address.
-      STUDIO_REGISTRY_URL: ${ENGINE_REGISTRY_URL:-http://st0:8789}
+      # k7's registry on the container network; the supervisor dials its tunnel from the same address.
+      STUDIO_REGISTRY_URL: ${ENGINE_REGISTRY_URL:-http://k7:8789}
       # The name the engine pickers show.
-      STUDIO_MACHINE_NAME: ${ENGINE_NAME:-st0 server}
+      STUDIO_MACHINE_NAME: ${ENGINE_NAME:-k7 server}
       # Every sampled instrument, since this machine has no Downloads tab to choose them in.
       STUDIO_INSTRUMENTS: ${ENGINE_INSTRUMENTS:-all}
-      # The same key as st0's: presented on the tunnel, it makes this engine st0's render machine.
+      # The same key as k7's: presented on the tunnel, it makes this engine k7's render machine.
       STUDIO_RENDER_KEY: ${RENDER_KEY:-}
     volumes:
       - engine-home:/engine-home
@@ -128,10 +128,10 @@ services:
       - traefik
     labels:
       - traefik.enable=true
-      # More specific than st0's bare Host() rule, so it wins for /z0 on the same
+      # More specific than k7's bare Host() rule, so it wins for /z0 on the same
       # hostname — an explicit priority, not left to rule-length inference, since a
-      # mistake here means the game silently loses its own container to st0's.
-      - traefik.http.routers.z0.rule=Host(`${ST0_DOMAIN:-st0.app}`) && PathPrefix(`/z0`)
+      # mistake here means the game silently loses its own container to k7's.
+      - traefik.http.routers.z0.rule=Host(`${K7_DOMAIN:-st0.app}`) && PathPrefix(`/z0`)
       - traefik.http.routers.z0.priority=10
       - traefik.http.routers.z0.entrypoints=websecure
       - traefik.http.routers.z0.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}

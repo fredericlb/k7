@@ -1,6 +1,7 @@
 /* Pages: named, shareable collections of releases. */
 
 import { ownerGuard, sub, validate, wrap } from "@frediverse/http";
+import { PAGE_VISIBILITIES } from "@studio/rehearsal-shared/pageVisibility";
 import { Router } from "express";
 import { z } from "zod";
 import { serialized } from "../lock.ts";
@@ -12,15 +13,20 @@ const nametag = z
   .trim()
   .regex(NAMETAG, "nametag must be alphanumeric with no spaces");
 
+const visibility = z.enum(PAGE_VISIBILITIES);
+
+// A new page is private until its owner opens it up — ../../docs/pages.md.
 const createSchema = z.object({
   nametag,
   releaseIds: z.array(z.string()).optional().default([]),
+  visibility: visibility.optional().default("private"),
 });
 
 const patchSchema = z.object({
   nametag: nametag.optional(),
   releaseIds: z.array(z.string()).optional(),
   versionIds: z.record(z.string(), z.string()).optional(),
+  visibility: visibility.optional(),
 });
 
 export const pagesRouter = Router();
@@ -38,8 +44,9 @@ pagesRouter.post(
   "/",
   validate(createSchema),
   wrap(async (req, res) => {
-    // Checked and taken under one key, or two pages created together could share a nametag.
-    const page = await serialized(`nametag:${req.body.nametag}`, async () => {
+    // Checked and taken under one key, case folded, or two pages created together could share a nametag.
+    const key = `nametag:${req.body.nametag.toLowerCase()}`;
+    const page = await serialized(key, async () => {
       if (await store.nametagExists(req.body.nametag)) return null;
       return store.createPage(sub(req), req.body);
     });
@@ -61,10 +68,10 @@ pagesRouter.patch(
   "/:pid",
   validate(patchSchema),
   wrap(async (req, res) => {
-    const { nametag, releaseIds, versionIds } = req.body;
+    const { nametag, releaseIds, versionIds, visibility } = req.body;
     const taken = Symbol("taken");
     const page = await serialized(
-      `nametag:${nametag ?? req.params.pid}`,
+      `nametag:${nametag?.toLowerCase() ?? req.params.pid}`,
       async () => {
         if (
           nametag !== undefined &&
@@ -75,6 +82,7 @@ pagesRouter.patch(
           nametag,
           releaseIds,
           versionIds,
+          visibility,
         });
       },
     );

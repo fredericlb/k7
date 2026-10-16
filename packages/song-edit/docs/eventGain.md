@@ -28,5 +28,5 @@ than ignoring it.
 ## A change re-inserts the clip
 
 The engine diffs documents, and a clip's gain is set when the clip is built, like its fades: a new
-value re-inserts that one clip (`engine/st0-engine/engine/ProjectDiff.cpp`'s `clipMoved`). The
+value re-inserts that one clip (`engine/k7-runtime/engine/ProjectDiff.cpp`'s `clipMoved`). The
 slider therefore commits once, on release, rather than streaming every value it passes through.

@@ -1,6 +1,6 @@
 // migrateSetPlatter.ts — give a SET the platters it never declared.
 //
-//   npx tsx packages/song/scripts/migrateSetPlatter.ts <projet.st0> [more…] [--write]
+//   npx tsx packages/song/scripts/migrateSetPlatter.ts <projet.k7> [more…] [--write]
 //
 // Until now the desk INJECTED a `studio_turntable` plugin into the document on its way out, so a
 // set's source was drawn by nothing: the chains view started at the tempo. One platter per lane
@@ -9,7 +9,7 @@
 // THIS ONE IS NOT OPTIONAL. The desk no longer invents the plugin; it patches the record onto one
 // the compiler emitted. A set left un-migrated has nothing to patch, and plays silence.
 //
-// The nodes it writes name `@meta/audio/turntable`, which ships with st0 (docs/metaModules.md):
+// The nodes it writes name `@meta/audio/turntable`, which ships with k7 (docs/metaModules.md):
 // no library has to hold it first.
 //
 // Idempotent, dry by default, and through the yaml Document API so comments and key order come back
@@ -36,7 +36,7 @@ const write = args.includes("--write");
 const roots = args.filter((a) => !a.startsWith("--"));
 if (!roots.length) {
   console.error(
-    "usage: migrateSetPlatter <projet.st0> [more…] [--write]   (dry run without --write)",
+    "usage: migrateSetPlatter <projet.k7> [more…] [--write]   (dry run without --write)",
   );
   process.exit(2);
 }

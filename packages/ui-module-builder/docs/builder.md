@@ -39,7 +39,7 @@ nothing.
 
 ### Only the module file can be redirected
 
-st0 copies a shared module into the project rather than writing into the library, so the module
+k7 copies a shared module into the project rather than writing into the library, so the module
 file's save may land elsewhere; the host is told and reopens. Following the new path from here
 would leave the engine link and the title pointing at the module that was *not* edited. A sidecar
 saves in place wherever it is, shared library included — nothing redirects it.
@@ -96,7 +96,7 @@ props because they are questions only a MACHINE can answer, over a socket:
   `io: in` module's channel picker. Which sets exist is known only to the machine holding the sound
   card. Absent, the picker offers only the grouping that already exists: the médiathèque draws this
   builder with no engine link, and an option that quietly did nothing would be worse than none.
-- **the `extends` refs** — which plugins a machine has scanned. st0's backend reads the same cache
+- **the `extends` refs** — which plugins a machine has scanned. k7's backend reads the same cache
   off disk and puts it in `hints`; the médiathèque's has no such disk.
 - **`renderPreview`** — the module drawn as the graph node it will be in a chain. This component
   owns the box and its height; the host owns what goes in it, because the graph renderer needs the
@@ -123,7 +123,7 @@ of the module. The NOTE matters as much as the names, because two of the three a
 rows and without a sentence they are indistinguishable from a button that did nothing at all.
 
 The plugin to ask about is what the module EXTENDS, and only an `@engine/…` ref names one a machine
-can load — a jsdsp module or a rack has no binary behind it, and a `@st0/…` ref names another
+can load — a jsdsp module or a rack has no binary behind it, and a `@k7-core/…` ref names another
 module. `onOpenNativeUi` takes a NARROWER base than the scan does: `scanBase` is any `@engine/…`
 ref and Tracktion's own built-ins are addressed that way too, but they wrap no `AudioProcessor` and
 draw nothing, so offering the button on one would be a control that can only fail.
@@ -342,7 +342,7 @@ the alpha, which only the text beside it sets.
 
 ## Smaller decisions worth not rediscovering
 
-- **The engine's stage is offered by what the module can take** (`engine/st0-engine/docs/mix.md`):
+- **The engine's stage is offered by what the module can take** (`engine/k7-runtime/docs/mix.md`):
   `@mix` and `@input-volume` on an EFFECT only — a module filed under `audio/` — since an instrument
   or a MIDI module has no audio input to blend or trim; `@output-volume` on every module, being a
   lane's fader as well as the level out of anything with audio out. Both volumes range −60..+12 dB.
@@ -359,7 +359,7 @@ the alpha, which only the text beside it sets.
   handle alone made growing a widget up or left a move followed by a resize. A handle dragged past
   its anchor flips the box rather than collapsing it (`boxBetween`).
 
-- **`BuilderPane` is named for the BUILDER**, not just `Pane`: st0 has panes of its own and a
+- **`BuilderPane` is named for the BUILDER**, not just `Pane`: k7 has panes of its own and a
   shared package must not squat the word.
 - **`status:` is read off the BUFFER**, not off the disk — the dropdown has to show the edit you
   just made, saved or not, exactly as the text pane does. It is the one field on this screen that
@@ -392,10 +392,10 @@ the alpha, which only the text beside it sets.
   the store's list and the host's live-engine list answer for different halves of what `extends:`
   may name. Deduped, since a project that has already scanned holds some of the same refs.
 - **The generated built-in table is the source that needs no project.** `paramsByBase` is keyed by a
-  base ref of the OPEN song, and st0 passes `paramRef={null}` when it opens a module from the file
+  base ref of the OPEN song, and k7 passes `paramRef={null}` when it opens a module from the file
   tree — so a module in a library had nothing at all: not a base of this project, not
   instantiated, no engine behind the overlay. That is
-  `_libraries/st0/modules/instruments/4osc/module.yaml`, where a shared module is authored, which makes
+  `_libraries/k7/modules/instruments/4osc/module.yaml`, where a shared module is authored, which makes
   it the case that mattered most. There are TWO ways a file names a built-in, and the second is the
   one that file actually uses:
 
@@ -455,4 +455,4 @@ wears one by that word: the key IS the knob, so two of them would be one knob wr
 **The Save button, for the reason the module builder has one**: a template is in a library, so a
 save writes files somebody will publish together. `useAutosave`'s `manual` mode keeps the validation and the
 held-back buffer and turns the timer off. It opens read-only behind the same confirmation a shared
-module opens behind (`apps/st0/frontend/docs/sharedModules.md`).
+module opens behind (`apps/k7/frontend/docs/sharedModules.md`).

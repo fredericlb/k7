@@ -29,7 +29,9 @@ const graph: GraphFile = {
 };
 const lanes = new Set(["gtr", "kick"]);
 const itemOf = (n: string): Item =>
-  lanes.has(n) ? { id: `id-${n}`, track: n } : { id: n, extends: `@st0/${n}` };
+  lanes.has(n)
+    ? { id: `id-${n}`, track: n }
+    : { id: n, extends: `@k7-core/${n}` };
 const isSource = (n: string) => lanes.has(n) || n === "gtr-in";
 
 describe("fromSegments", () => {
@@ -89,7 +91,7 @@ describe("a chain nothing links", () => {
     mkdirSync(join(dir, "chains"));
     writeFileSync(
       join(dir, "chains", "loose.yaml"),
-      'steps:\n  - { id: d1, extends: "@st0/delay" }\n',
+      'steps:\n  - { id: d1, extends: "@k7-core/delay" }\n',
     );
     const cp = readChainProject(dir);
     expect(toSegments(cp).graph.modules).toEqual({});
@@ -104,11 +106,11 @@ describe("writeChainProject", () => {
     const dir = mkdtempSync(join(tmpdir(), "chains-"));
     mkdirSync(join(dir, "chains"));
     const text =
-      'start: true\nsteps:\n  - { id: l, track: lane }\n  # the touch wah\n  - id: w\n    extends: "@st0/wah"\n';
+      'start: true\nsteps:\n  - { id: l, track: lane }\n  # the touch wah\n  - id: w\n    extends: "@k7-core/wah"\n';
     writeFileSync(join(dir, "chains", "lane.yaml"), text);
     const cp = readChainProject(dir);
     const c = cp.chains.lane;
-    c.steps.push({ id: "x", extends: "@st0/eq" });
+    c.steps.push({ id: "x", extends: "@k7-core/eq" });
     writeChainProject(dir, cp.chains, cp.texts);
     const again = readChainProject(dir);
     expect(again.texts.lane).toContain("# the touch wah");

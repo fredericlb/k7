@@ -166,6 +166,6 @@ their brand-new input feeds no track is an answer to a question they haven't ask
 and a drawing does not: the graph shows the segments as they branch, while playing or bouncing one is a single
 track carrying a plugin per step. Derived from the same parse the drawing uses, so the chain that is seen and
 the chain that is heard cannot be two different chains — which is why it lives beside the derivation rather than
-in whichever surface plays it. The médiathèque draws a variant with it; st0's `track process` and `clip process`
+in whichever surface plays it. The médiathèque draws a variant with it; k7's `track process` and `clip process`
 bounce one with it. `@in` and `@out` are dropped, being the ends rather than treatments, and unreadable text is
 an empty list rather than a throw — the pane showing the file is what reports why.

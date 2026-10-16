@@ -29,16 +29,16 @@ let home: string;
 const benchRoot = (): string => join(rootDir(), BENCH_WORKSPACE);
 const benchDir = (): string => join(benchRoot(), BENCH_PROJECT);
 /** The server's clone, read-only — under `$STUDIO_HOME/libraries` when no hub names another. */
-const libraryDir = (): string => join(home, "libraries", "st0");
+const libraryDir = (): string => join(home, "libraries", "k7-core");
 const libraryChain = (): string => join(libraryDir(), "chains/live/vocals");
-/** An admin's own clone of `st0`, the one a library write may reach. */
-const editClone = (): string => join(home, "library-edits", "st0");
+/** An admin's own clone of `k7`, the one a library write may reach. */
+const editClone = (): string => join(home, "library-edits", "k7-core");
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "td-bench-home-"));
   // Off the real machine: this test writes library checkouts, and the user's own are not fixtures.
   process.env.STUDIO_HOME = home;
-  // The `st0` library, laid out by hand where the hub would have cloned it.
+  // The `k7-core` library, laid out by hand where the hub would have cloned it.
   mkdirSync(join(libraryChain(), "nodes"), { recursive: true });
   mkdirSync(join(libraryDir(), "modules/audio/comp"), { recursive: true });
   writeFileSync(
@@ -52,7 +52,7 @@ beforeEach(() => {
   );
   writeFileSync(
     join(libraryChain(), "nodes", "comp.yaml"),
-    'extends: "@st0/audio/comp"\n',
+    'extends: "@k7-core/audio/comp"\n',
   );
   mkdirSync(join(editClone(), "modules"), { recursive: true });
 });
@@ -97,13 +97,13 @@ describe("the bench", () => {
 
   it("is refused for a bare rig, and for a library — which is edited from any project", async () => {
     await expect(ensureBench(EMAIL, BENCH_PROJECT)).rejects.toThrow(/chain/);
-    await expect(ensureBench(EMAIL, benchProject("@st0"))).rejects.toThrow(
+    await expect(ensureBench(EMAIL, benchProject("@k7-core"))).rejects.toThrow(
       /any project/,
     );
   });
 
   it("clears the per-chain benches an older address left behind", async () => {
-    const stale = join(benchRoot(), "chains", "live", "vocals.st0");
+    const stale = join(benchRoot(), "chains", "live", "vocals.k7");
     mkdirSync(stale, { recursive: true });
     writeFileSync(join(stale, "project.yaml"), "project:\n  name: x\n", "utf8");
     await openChainBench();
@@ -119,9 +119,9 @@ describe("a write into a library", () => {
   };
 
   it("lands in an admin's own clone, never the server's, from any workspace", () => {
-    setLibraryOverlays([{ name: "st0", root: editClone() }]);
+    setLibraryOverlays([{ name: "k7-core", root: editClone() }]);
     const ws = songs();
-    const rel = "_libraries/st0/modules/audio/limit/module.yaml";
+    const rel = "_libraries/k7-core/modules/audio/limit/module.yaml";
     expect(ws.write(rel, "plugin:\n  type: internal\n")).toEqual({});
     expect(
       readFileSync(
@@ -136,15 +136,15 @@ describe("a write into a library", () => {
   it("is refused to an account that holds no clone of it — anyone but an admin", () => {
     const ws = songs();
     expect(() =>
-      ws.write("_libraries/st0/modules/amp.yaml", "gain: 2\n"),
+      ws.write("_libraries/k7-core/modules/amp.yaml", "gain: 2\n"),
     ).toThrow(/admins/);
     expect(existsSync(join(libraryDir(), "modules/amp.yaml"))).toBe(false);
   });
 
   it("refuses a path that climbs out of the library through the virtual folder", () => {
-    setLibraryOverlays([{ name: "st0", root: editClone() }]);
+    setLibraryOverlays([{ name: "k7-core", root: editClone() }]);
     expect(() =>
-      songs().write("_libraries/st0/../../escape.yaml", "x: 1\n"),
+      songs().write("_libraries/k7-core/../../escape.yaml", "x: 1\n"),
     ).toThrow(/escapes/);
   });
 });

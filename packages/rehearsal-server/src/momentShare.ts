@@ -15,6 +15,7 @@ import { z } from "zod";
 import * as db from "./db.ts";
 import type * as Declared from "./index.d.ts";
 import * as mediatek from "./mediatek.ts";
+import { SAFE_ID } from "./sqlite.ts";
 import * as store from "./store.ts";
 
 /** What a machine sends of a moment; the clip travels beside it as a file. */
@@ -34,6 +35,15 @@ const sharedMoment = z.object({
 });
 
 type SharedMoment = z.infer<typeof sharedMoment>;
+
+/** Malformed JSON reads as nothing, which the schema then refuses with a 400. */
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
 
 /** The person who paired the device, as `deviceGate` left them; null for an older token that names nobody. */
 const personOf = (res: ExpressResponse): string | null =>
@@ -88,15 +98,18 @@ export const momentDeviceRouter: typeof Declared.momentDeviceRouter = (
             error:
               "this machine was paired before tokens named a person: pair it again",
           });
+        const id = req.params.id;
+        // The id becomes a row id and a cache file's name: one plain segment.
+        if (!SAFE_ID.test(id))
+          return res.status(400).json({ error: "bad moment id" });
         if (!clip)
           return res.status(400).json({ error: "the clip is missing" });
         const parsed = sharedMoment.safeParse(
-          JSON.parse(String(req.body?.moment ?? "null")),
+          parseJson(String(req.body?.moment ?? "null")),
         );
         if (!parsed.success)
           return res.status(400).json({ error: parsed.error.message });
         const m = parsed.data;
-        const id = req.params.id;
         const [existing] = (
           await db.listRecords("Comments", undefined, {
             fields: ["OwnerId", "ClipPath"],

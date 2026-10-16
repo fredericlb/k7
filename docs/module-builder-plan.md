@@ -14,7 +14,7 @@ modules/<type>/<name>/ui.yaml        what it looks like
 Its named settings are NOT here: a preset is a file of the presets tree, keyed by the module's ref
 and kept in the workspace or a library (`packages/song/docs/userPresets.md`).
 
-In the media library, clicking any of them opens the same builder as st0.
+In the media library, clicking any of them opens the same builder as k7.
 
 ## The rules
 
@@ -76,19 +76,19 @@ the builder's Preset menu holds the plugin's factory banks only (`packages/song/
 the builder never builds a path — it only hands back the ones it was given. The two path spaces
 resemble each other too closely for it to construct one. Full rationale in
 `packages/ui-module-builder/docs/store.md`, including the one asymmetry: `write` may answer "it
-landed elsewhere", because st0 redirects a save aimed at `_modules` to a local copy. The builder
+landed elsewhere", because k7 redirects a save aimed at `_modules` to a local copy. The builder
 surfaces that through `onRelocated` and does not follow the path itself.
 
 Two files live further out than the builder:
 
 - `yamlVocabulary.ts` is in **`@studio/ui-editor/yaml/vocabulary`**: three editors want the same
-  answers (st0's `EditorPane`, the media library's, the builder's), and "what completes where" is a
+  answers (k7's `EditorPane`, the media library's, the builder's), and "what completes where" is a
   matter of *language*, not of view. `@studio/song/yaml/fields` is pure Zod, so `ui-editor` stays
   navigable.
-- `paramDrag.ts` is exported by the builder (`/param-drag`): st0's `fileDrop.ts` reads the MIME to
+- `paramDrag.ts` is exported by the builder (`/param-drag`): k7's `fileDrop.ts` reads the MIME to
   ignore the drag, and two copies of a protocol are not a protocol.
 
-**In st0**, a *Builder* button in the editor bar when the open file is a module, and a full-screen
+**In k7**, a *Builder* button in the editor bar when the open file is a module, and a full-screen
 overlay above the shell. A **button** and not a hijacked click: opening `module.yaml` must go on
 opening its text, because that is the path by which a shared module is forked. The overlay offers
 neither presets nor live plugin parameters — those are the engine's business and this overlay has
@@ -102,14 +102,14 @@ created in the builder, which offers them anyway — it is the entrance, not the
 ## What is left
 
 - **Nothing is exercised in a browser.** Both apps typecheck, build, and the dev server serves the
-  modules through the workspace alias; the frontend shell has no tests (see `apps/st0/AGENTS.md`).
-  The st0 overlay and the media library tree want a real click.
+  modules through the workspace alias; the frontend shell has no tests (see `apps/k7/AGENTS.md`).
+  The k7 overlay and the media library tree want a real click.
 
 ## The media library chrome
 
-The media library carries st0's chrome: families as tabs, the shared `FileTree` in the sidebar with
+The media library carries k7's chrome: families as tabs, the shared `FileTree` in the sidebar with
 context menus and drag and drop, a cog for the engine and for signing out. The backend has
-`POST /move`, `POST /folder` and `DELETE /folder` (`apps/st0/backend/src/media/routes/library.ts`, backed
+`POST /move`, `POST /folder` and `DELETE /folder` (`apps/k7/backend/src/media/routes/library.ts`, backed
 by `@studio/mediatek/write`).
 
 Trap in the shared `FileTree`: the context menu **does not open at all** if no action passes its

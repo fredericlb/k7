@@ -42,7 +42,7 @@ const modDir = (name: string) => join(root, "_modules", "audio", name);
 
 function song(): { root: string; dir: string } {
   const r = mkdtempSync(join(tmpdir(), "td-moddel-"));
-  const d = join(r, "song.st0");
+  const d = join(r, "song.k7");
   mkdirSync(d, { recursive: true });
   writeFileSync(
     join(d, "project.yaml"),

@@ -38,8 +38,8 @@ describe("the libraries' relay", () => {
   it("relays a write to a library folder into the library's room, as LIBRARIES_ACCOUNT", async () => {
     const tmp = mkdtempSync(join(tmpdir(), "lib-relay-"));
     const home = join(tmp, "libraries");
-    mkdirSync(join(home, "st0", "modules"), { recursive: true });
-    writeFileSync(join(home, "st0", "modules", "mix.yaml"), "gain: 0.5\n");
+    mkdirSync(join(home, "k7-core", "modules"), { recursive: true });
+    writeFileSync(join(home, "k7-core", "modules", "mix.yaml"), "gain: 0.5\n");
     const server = createServer();
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
     const url = `ws://127.0.0.1:${(server.address() as AddressInfo).port}${SYNC_PATH}`;
@@ -61,18 +61,18 @@ describe("the libraries' relay", () => {
       server.close();
       server.closeAllConnections();
     });
-    relay.follow([{ name: "st0" }]);
-    const roomFile = join(home, ".sync-relay", "st0", "entries.jsonl");
+    relay.follow([{ name: "k7-core" }]);
+    const roomFile = join(home, ".sync-relay", "k7-core", "entries.jsonl");
     const entries = () =>
       existsSync(roomFile)
         ? readFileSync(roomFile, "utf8").split("\n").filter(Boolean).length
         : 0;
     await until(() => entries() >= 1);
-    writeFileSync(join(home, "st0", "modules", "mix.yaml"), "gain: 0.9\n");
+    writeFileSync(join(home, "k7-core", "modules", "mix.yaml"), "gain: 0.9\n");
     await until(() => readFileSync(roomFile, "utf8").includes("0.9"));
     expect(accounts.every((a) => a === LIBRARIES_ACCOUNT)).toBe(true);
 
-    // Any replica follows it as `@lib/st0`, and is refused a write.
+    // Any replica follows it as `@lib/k7-core`, and is refused a write.
     const ws = new WebSocket(url, {
       headers: { authorization: "Bearer device" },
     });
@@ -85,15 +85,20 @@ describe("the libraries' relay", () => {
     }[] = [];
     ws.on("message", (d) => got.push(JSON.parse(d.toString())));
     await new Promise((r) => ws.on("open", r));
-    ws.send(JSON.stringify({ t: "hello", workspace: "@lib/st0", since: 0 }));
+    ws.send(
+      JSON.stringify({ t: "hello", workspace: "@lib/k7-core", since: 0 }),
+    );
     await until(() => got.some((m) => m.t === "welcome"));
     const welcome = got.find((m) => m.t === "welcome");
-    expect(welcome).toMatchObject({ workspace: "@lib/st0", mode: "snapshot" });
+    expect(welcome).toMatchObject({
+      workspace: "@lib/k7-core",
+      mode: "snapshot",
+    });
     expect(welcome?.files?.["modules/mix.yaml"]).toContain("0.9");
     ws.send(
       JSON.stringify({
         t: "batch",
-        workspace: "@lib/st0",
+        workspace: "@lib/k7-core",
         batch: {
           id: "x",
           replica: "d",
@@ -114,15 +119,15 @@ describe("the libraries' relay", () => {
   it("follows the origin's library read-only on a paired machine: a local edit is undone, nothing is sent", async () => {
     const tmp = mkdtempSync(join(tmpdir(), "lib-follow-"));
     const originHome = join(tmp, "origin", "libraries");
-    mkdirSync(join(originHome, "st0", "modules"), { recursive: true });
-    mkdirSync(join(originHome, "st0", "samples"), { recursive: true });
+    mkdirSync(join(originHome, "k7-core", "modules"), { recursive: true });
+    mkdirSync(join(originHome, "k7-core", "samples"), { recursive: true });
     writeFileSync(
-      join(originHome, "st0", "modules", "mix.yaml"),
+      join(originHome, "k7-core", "modules", "mix.yaml"),
       "gain: 0.5\n",
     );
     // A library binary: it reaches the machine from the libraries' blob store, read with the device's token.
     const kick = randomBytes(64 * 1024);
-    writeFileSync(join(originHome, "st0", "samples", "kick.wav"), kick);
+    writeFileSync(join(originHome, "k7-core", "samples", "kick.wav"), kick);
     const app = express();
     const server = createServer(app);
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
@@ -157,9 +162,9 @@ describe("the libraries' relay", () => {
     });
     // The machine's bundled copy is stale, and holds a file the origin does not.
     const home = join(tmp, "machine", "libraries");
-    mkdirSync(join(home, "st0", "modules"), { recursive: true });
-    writeFileSync(join(home, "st0", "modules", "mix.yaml"), "gain: 0.1\n");
-    writeFileSync(join(home, "st0", "modules", "old.yaml"), "x: 1\n");
+    mkdirSync(join(home, "k7-core", "modules"), { recursive: true });
+    writeFileSync(join(home, "k7-core", "modules", "mix.yaml"), "gain: 0.1\n");
+    writeFileSync(join(home, "k7-core", "modules", "old.yaml"), "x: 1\n");
     const machine = new LibraryRelay(home, "ws://unused", "other", () => {});
     cleanup.push(() => {
       machine.stop();
@@ -168,19 +173,26 @@ describe("the libraries' relay", () => {
       server.close();
       server.closeAllConnections();
     });
-    origin.follow([{ name: "st0" }]);
-    const roomFile = join(originHome, ".sync-relay", "st0", "entries.jsonl");
+    origin.follow([{ name: "k7-core" }]);
+    const roomFile = join(
+      originHome,
+      ".sync-relay",
+      "k7-core",
+      "entries.jsonl",
+    );
     const room = () =>
       existsSync(roomFile) ? readFileSync(roomFile, "utf8") : "";
     await until(() => room().includes("0.5"));
 
     machine.followRemote(url, "device");
-    machine.follow([{ name: "st0" }]);
-    const mix = join(home, "st0", "modules", "mix.yaml");
+    machine.follow([{ name: "k7-core" }]);
+    const mix = join(home, "k7-core", "modules", "mix.yaml");
     const text = () => (existsSync(mix) ? readFileSync(mix, "utf8") : "");
     await until(() => text() === "gain: 0.5\n");
-    expect(existsSync(join(home, "st0", "modules", "old.yaml"))).toBe(false);
-    const machineKick = join(home, "st0", "samples", "kick.wav");
+    expect(existsSync(join(home, "k7-core", "modules", "old.yaml"))).toBe(
+      false,
+    );
+    const machineKick = join(home, "k7-core", "samples", "kick.wav");
     await until(
       () => existsSync(machineKick) && readFileSync(machineKick).equals(kick),
       10_000,
@@ -188,7 +200,7 @@ describe("the libraries' relay", () => {
 
     // The origin's edit reaches the machine.
     writeFileSync(
-      join(originHome, "st0", "modules", "mix.yaml"),
+      join(originHome, "k7-core", "modules", "mix.yaml"),
       "gain: 0.7\n",
     );
     await until(() => text() === "gain: 0.7\n");

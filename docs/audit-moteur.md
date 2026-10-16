@@ -1,18 +1,18 @@
 # Audit — the services and the engine
 
-Everything that links a surface to `engine/st0-engine`: what is shared, what is copied, and where the
+Everything that links a surface to `engine/k7-runtime`: what is shared, what is copied, and where the
 reliability of the connections gives way. Written to be executed in batches — the plan is at the
 end of the page.
 
 > **The other half is elsewhere.** This page stops at the socket. What happens once the message
 > has arrived — the threads, the audio callback, the cost of loading a project, and the first-play
 > freeze — is in
-> [engine/st0-engine/docs/audit-stabilite.md](../engine/st0-engine/docs/audit-stabilite.md).
+> [engine/k7-runtime/docs/audit-stabilite.md](../engine/k7-runtime/docs/audit-stabilite.md).
 
 ## Scope
 
-Two services really talk to the engine: **st0's editor** and its **media library** (the `pl8` session), each by its two halves (browser +
-backend), plus the **supervisor** (`engine/st0-supervisor`), which announces it to the registries. At the
+Two services really talk to the engine: **k7's editor** and its **media library** (the `pl8` session), each by its two halves (browser +
+backend), plus the **supervisor** (`engine/k7-supervisor`), which announces it to the registries. At the
 margin: **z0**, in its own repository, links to it at one point only, a 74-line offline render
 in its backend that goes through the file service over HTTP and never the
 socket; the **rehearsal pages** only listen, subscribing to the bench's master broadcast to record
@@ -20,7 +20,7 @@ a chain (`packages/ui-rehearsal/docs/chainSource.md`).
 
 Volume: ~7,400 lines of TypeScript in the five engine packages (`engine-protocol` 959,
 `engine-client` 684, `engine-browser` 1,944, `engine-host` 3,029 — the TypeScript supervisor
-`engine/st0-supervisor` now replaces —, `engine-registry` 793), 52 C++ files, and 35 app files that
+`engine/k7-supervisor` now replaces —, `engine-registry` 793), 52 C++ files, and 35 app files that
 import `@studio/engine-*`. The most churned files were the supervisor's loop and
 `engine-browser/src/engine.ts` — reliability is decided there.
 
@@ -44,7 +44,7 @@ stays local to the surface that suffered** as long as no package carries it.
 
 ## B. Security — to be decided, not mechanically corrected
 
-**Settled for the LAN by pairing** (`engine/st0-engine/docs/pairing.md`): a LAN peer drives, and
+**Settled for the LAN by pairing** (`engine/k7-runtime/docs/pairing.md`): a LAN peer drives, and
 reads the token, only once the musician has paired it; the machine and the server's relay need
 nothing. What follows is the situation pairing answered, kept for the reasoning.
 
@@ -88,9 +88,9 @@ when the batch is taken.
    until a reload, precisely what `relook.ts` exists to kill.
 3. **z0 never takes the lease**, where `lease.md:20-27` records two apps shipping that bug
    independently. z0 drives no project, but it drives an engine, so the rule holds.
-4. **`assigned` ignored by 2 gates out of 3**: only st0 hides an engine already taken.
-5. **`select` before entering: st0 alone.** The other two enter on a token unverified server-side.
-6. **"Search again" destroys the list** in z0 (`setPhase({k:"looking"})`), not in st0 or pl8.
+4. **`assigned` ignored by 2 gates out of 3**: only k7 hides an engine already taken.
+5. **`select` before entering: k7 alone.** The other two enter on a token unverified server-side.
+6. **"Search again" destroys the list** in z0 (`setPhase({k:"looking"})`), not in k7 or pl8.
 
 ### C4 — the shapes of the wire, declared twice
 

@@ -1,6 +1,6 @@
 // The shapes the Waveform canvas reads. Deliberately structural and
 // app-neutral — each host passes its own richer domain objects straight
-// through (k7's annotations/markers, st0's clip grid).
+// through (k7's annotations/markers, k7's clip grid).
 
 /** A level envelope: linear RMS samples (1.0 == full scale) every intervalMs. */
 export interface Envelope {

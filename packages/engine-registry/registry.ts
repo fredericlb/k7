@@ -1,8 +1,8 @@
 // registry.ts — the in-memory engine registry, so a hosted web UI can list what's
 // available, and the CLAIMS that say which project an engine is driving and for whom.
 // Engines announce themselves with a periodic heartbeat and drop out after REGISTRY_TTL_MS of
-// silence. list() is token-stripped and verifyToken stops a lookalike claiming a real engine's
-// id — but the token is NOT a secret from the browser: docs/token.md.
+// silence. An id is bound to the first TUNNEL SECRET it registered with (bindings.ts); the token
+// is NOT a secret from the browser, and proves nothing on its own — docs/token.md.
 // The claim's rules — one project per engine and session, one engine per project, newcomer wins — and why
 // they are three rules and not one, are in docs/claim.md.
 
@@ -14,9 +14,14 @@ import {
 } from "@studio/web-protocol";
 import type { EnginePerformance } from "@studio/web-protocol/performance";
 import { claimSlot } from "@studio/web-protocol/projects";
+import { createBindings, type SecretBindings } from "./bindings.ts";
 
 /** No heartbeat for this long ⇒ the engine is presumed gone. (Beats every ~5s.) */
 export const REGISTRY_TTL_MS = 15000;
+/** At most this many engines listed at once: the heartbeat is open, so the list must not be. */
+export const MAX_ENGINES = 1000;
+/** At most this many ids NEW to the list from one source address in a minute. */
+export const NEW_IDS_PER_IP_PER_MINUTE = 30;
 
 /** One tab holding one engine; its `secret` is what makes takeover work rather than ping-pong — see docs/claim.md. */
 export interface EngineHolder {
@@ -38,6 +43,8 @@ export interface EngineEntry {
   /** The library level its machine runs — absent from an older supervisor. */
   libraryLevel?: number;
   publicIpHint?: string; // the source IP the heartbeat arrived from
+  /** Its supervisor sends no tunnel secret: listed and tunnelled on its token alone — docs/token.md. */
+  legacy: boolean;
   // Live holders by their secret, expiring on their own because a holder is a browser tab that may never say goodbye.
   holders: Map<string, EngineHolder>;
   seen: number; // epoch ms of the last heartbeat
@@ -52,6 +59,20 @@ export interface HeartbeatInput {
   performance?: EnginePerformance;
   libraryLevel?: number;
   publicIpHint?: string;
+  /** The supervisor's tunnel secret; absent from a supervisor older than it. Never stored, only its digest. */
+  tunnelSecret?: string;
+}
+
+/** Why a heartbeat was refused: `token` — another token holds the id; `secret` — the id is bound to another secret; `full`/`rate` — admission. */
+export type UpsertResult =
+  | { ok: true }
+  | { ok: false; why: "token" | "secret" | "full" | "rate" };
+
+export interface RegistryOptions {
+  /** Where the id → secret bindings live; in memory alone when absent. */
+  bindings?: SecretBindings;
+  maxEngines?: number;
+  newIdsPerIpPerMinute?: number;
 }
 
 /** What a browser asks for when it opens a project, or renews having opened one. */
@@ -82,20 +103,46 @@ export type ClaimResult =
     };
 
 export interface EngineRegistry {
-  upsert(input: HeartbeatInput): boolean;
+  upsert(input: HeartbeatInput): UpsertResult;
   get(id: string): EngineEntry | undefined;
   verifyToken(id: string, token: string): boolean;
-  remove(id: string, token: string): boolean;
+  /** Whether a TUNNEL for `id` may open: its token, and its secret when the id is bound to one. */
+  verifyTunnel(id: string, token: string, secret: string | undefined): boolean;
+  /** Deregister; a bound id needs its secret too, so the token alone cannot unlist it. */
+  remove(id: string, token: string, secret?: string): boolean;
   claim(id: string, req: ClaimRequest): ClaimResult;
   release(id: string, secret: string): void;
+  /** Whether account `holder` holds a live claim on engine `id` — what lets a server route reach that engine for it. */
+  holds(id: string, holder: string): boolean;
   /** Which engine is driving this project right now, or undefined. */
   engineForProject(project: string): string | undefined;
-  list(requesterIp?: string): PublicEngine[];
+  /** The browser's list; `viewer` is the asking account, the only one whose claims it names. */
+  list(requesterIp?: string, viewer?: string): PublicEngine[];
 }
 
 /** A registry instance — a FACTORY rather than a module-level Map, since module state in a shared package is one instance per importer. */
-export function createRegistry(): EngineRegistry {
+export function createRegistry(opts: RegistryOptions = {}): EngineRegistry {
   const engines = new Map<string, EngineEntry>();
+  const bindings = opts.bindings ?? createBindings();
+  const maxEngines = opts.maxEngines ?? MAX_ENGINES;
+  const perIp = opts.newIdsPerIpPerMinute ?? NEW_IDS_PER_IP_PER_MINUTE;
+  /** New ids per source address in the current minute. */
+  const arrivals = new Map<string, { since: number; n: number }>();
+
+  /** Whether `ip` may add one more id now; counts it when so. */
+  const admit = (ip: string | undefined, now: number): boolean => {
+    const key = ip ?? "?";
+    let a = arrivals.get(key);
+    if (!a || now - a.since >= 60_000) {
+      // Pruned whole when it grows: a minute-old window is worth nothing.
+      if (arrivals.size > 10_000) arrivals.clear();
+      a = { since: now, n: 0 };
+      arrivals.set(key, a);
+    }
+    if (a.n >= perIp) return false;
+    a.n++;
+    return true;
+  };
 
   /** Forget the holders whose renewal has lapsed, and answer with the rest. */
   const holdersOf = (e: EngineEntry, now = Date.now()): EngineHolder[] => {
@@ -142,10 +189,20 @@ export function createRegistry(): EngineRegistry {
     [...engines.values()].filter((e) => now - e.seen < REGISTRY_TTL_MS);
 
   return {
-    /** Record a heartbeat, pinning an id's token on first sight so a second process cannot hijack the entry; false on a mismatch. */
+    /** Record a heartbeat under the bindings' rule, pinning an unbound id's token on first sight — docs/token.md. */
     upsert(input) {
-      const existing = engines.get(input.id);
-      if (existing && existing.token !== input.token) return false;
+      const existing = get(input.id);
+      const now = Date.now();
+      const verdict = bindings.check(input.id, input.tunnelSecret);
+      if (verdict === "refused") return { ok: false, why: "secret" };
+      // The secret proves the machine, so its token may change; without one, the token first seen holds the id.
+      if (verdict !== "bound" && existing && existing.token !== input.token)
+        return { ok: false, why: "token" };
+      if (!existing) {
+        if (live().length >= maxEngines) return { ok: false, why: "full" };
+        if (!admit(input.publicIpHint, now)) return { ok: false, why: "rate" };
+      }
+      if (input.tunnelSecret) bindings.bind(input.id, input.tunnelSecret);
       engines.set(input.id, {
         id: input.id,
         token: input.token,
@@ -155,10 +212,11 @@ export function createRegistry(): EngineRegistry {
         performance: input.performance,
         libraryLevel: input.libraryLevel,
         publicIpHint: input.publicIpHint,
+        legacy: !input.tunnelSecret,
         holders: existing?.holders ?? new Map(),
-        seen: Date.now(),
+        seen: now,
       });
-      return true;
+      return { ok: true };
     },
 
     get,
@@ -169,10 +227,18 @@ export function createRegistry(): EngineRegistry {
       return !!e && e.token === token;
     },
 
-    remove(id, token) {
+    verifyTunnel(id, token, secret) {
+      const e = get(id);
+      if (!e || e.token !== token) return false;
+      // A bound id takes its own secret only; an unbound one is a legacy supervisor's, on its token.
+      return bindings.check(id, secret || undefined) !== "refused";
+    },
+
+    remove(id, token, secret) {
       const e = engines.get(id);
       if (!e) return true; // already gone — deregister is idempotent
       if (e.token !== token) return false;
+      if (bindings.check(id, secret || undefined) === "refused") return false;
       engines.delete(id);
       return true;
     },
@@ -255,6 +321,11 @@ export function createRegistry(): EngineRegistry {
       get(id)?.holders.delete(secret);
     },
 
+    holds(id, holder) {
+      const e = get(id);
+      return !!e && !!holder && holdersOf(e).some((h) => h.holder === holder);
+    },
+
     engineForProject(project) {
       const now = Date.now();
       for (const e of liveEngines(now))
@@ -262,17 +333,19 @@ export function createRegistry(): EngineRegistry {
       return undefined;
     },
 
-    /** The browser-facing list: live engines, token stripped, tagged with a LAN hint. */
-    list(requesterIp) {
+    /** The browser-facing list: live engines, token stripped, tagged with a LAN hint; another account's claims read as "in use" alone. */
+    list(requesterIp, viewer) {
       const now = Date.now();
       return live().map((e) => {
         const holders = holdersOf(e, now);
         // Whoever has a PROJECT on it is the interesting one to name — a song before a bench; a null holder is pl8 looking at its catalogue.
         const claimed = holders.filter((h) => h.project !== null);
-        const owner =
+        const mine = (h: EngineHolder) => !!viewer && h.holder === viewer;
+        const first =
           claimed.find((h) => claimSlot(h.project ?? "") === "project") ??
           claimed[0] ??
           holders[0];
+        const owner = first && mine(first) ? first : undefined;
         return {
           id: e.id,
           hostname: e.hostname,
@@ -280,13 +353,14 @@ export function createRegistry(): EngineRegistry {
           performance: e.performance,
           ...(e.libraryLevel ? { libraryLevel: e.libraryLevel } : {}),
           assigned: holders.length > 0,
-          // Who and what, so a picker can say "busy with X's winter.st0" rather than just "busy".
+          // Who and what, named to that account alone: anyone else reads "in use" and learns no email.
           heldBy: owner?.holder,
           heldProject: owner?.project ?? undefined,
-          heldProjects: claimed.map((h) => ({
+          heldProjects: claimed.filter(mine).map((h) => ({
             holder: h.holder,
             project: h.project ?? "",
           })),
+          ...(e.legacy ? { legacy: true } : {}),
           sameSourceIp:
             !!requesterIp && !!e.publicIpHint && e.publicIpHint === requesterIp,
         };

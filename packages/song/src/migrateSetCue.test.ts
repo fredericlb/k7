@@ -25,7 +25,7 @@ let ws = "";
 let dir = "";
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "cue-mig-"));
-  dir = join(ws, "set.st0");
+  dir = join(ws, "set.k7");
 });
 afterEach(() => {
   rmSync(ws, { recursive: true, force: true });
@@ -77,8 +77,8 @@ const migrate = (root: string) =>
 
 describe("migrateSetCue", () => {
   it("turns a pre-cue set into exactly what the scaffold writes today", () => {
-    const before = join(dir, "before.st0");
-    const after = join(dir, "after.st0");
+    const before = join(dir, "before.k7");
+    const after = join(dir, "after.k7");
     scaffoldSet(before, "hiver");
     cpSync(before, after, { recursive: true }); // the reference, untouched
     unCue(before);
@@ -92,7 +92,7 @@ describe("migrateSetCue", () => {
   }, 60_000);
 
   it("changes nothing on a set that already has it", () => {
-    const root = join(dir, "deja.st0");
+    const root = join(dir, "deja.k7");
     scaffoldSet(root, "hiver");
     const untouched = tree(root);
     const out = migrate(root);

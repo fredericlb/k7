@@ -13,7 +13,7 @@ import { baseModuleRefs, loadModuleRefs } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 import { writeLibraries, writeLibrary } from "./testSupport";
 
-const SYS = "@st0/console/console-6";
+const SYS = "@k7-core/console/console-6";
 let root: string;
 let dir: string;
 
@@ -104,8 +104,8 @@ describe("placing the halves", () => {
 
   it("stops the compile on a system with a half missing, saying which", () => {
     expect(() =>
-      withConsole(doc(), "@st0/console/broken", loadModuleRefs(dir)),
-    ).toThrow(/project\.console '@st0\/console\/broken': no buss module/);
+      withConsole(doc(), "@k7-core/console/broken", loadModuleRefs(dir)),
+    ).toThrow(/project\.console '@k7-core\/console\/broken': no buss module/);
   });
 
   it("is read off project.yaml by the compile itself", () => {

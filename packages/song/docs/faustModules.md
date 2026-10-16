@@ -10,7 +10,7 @@ page holds the difference between the two — plus the exact state of what is wi
 through untouched*, saying so once on the warnings channel. Everything above it is finished: the
 module loads, draws in the graph with the right colour, edits in the builder, and reaches the
 compiled document and the engine. That order is deliberate — the seam is visible and exercised before
-anyone decides what a compiler costs. See `engine/st0-engine/docs/faust.md` for what is missing and the
+anyone decides what a compiler costs. See `engine/k7-runtime/docs/faust.md` for what is missing and the
 three ways to fill it.
 
 ## The folder

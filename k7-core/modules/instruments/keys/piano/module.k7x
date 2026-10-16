@@ -1,0 +1,10 @@
+// piano — a sampled concert grand: the Salamander Grand Piano V3 (a Yamaha C5, 48 kHz / 24-bit, 16 velocity
+// layers) by Alexander Holm, as packaged in SFZ by sfzinstruments — CC BY 3.0, so it is credited here and on
+// the panel. Played by the engine's own SFZ player (sfizz), no plugin to install.
+//
+// The samples (~715 MB) are not in the library: `sfz:` names an instrument the engine's machine keeps itself.
+// Its supervisor fetches the ones chosen in the tray's Downloads tab, pinned by hash, into <state>/instruments
+// (engine/k7-supervisor/docs/instruments.md); a song opened before that is done plays it once it lands.
+extends("@engine/sfz-player")
+params({ sfz: "@instruments/salamander-grand-piano/Salamander Grand Piano V3.sfz" })
+// A sampled Yamaha C5 concert grand, sixteen velocity layers with real release and pedal noise — the Salamander Grand Piano by Alexander Holm (CC BY 3.0). Its samples, about 715 MB, download from the k7 tray's Downloads tab.

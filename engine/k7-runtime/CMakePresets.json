@@ -1,0 +1,113 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_C_COMPILER_LAUNCHER": "$env{STUDIO_COMPILER_LAUNCHER}",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "$env{STUDIO_COMPILER_LAUNCHER}"
+      }
+    },
+    {
+      "name": "dev-gcc",
+      "displayName": "Dev (GCC) — default",
+      "description": "Default dev build. Pins BOTH C and C++ to gcc/g++ so the toolchain can't drift into the gcc/clang mix that breaks JUCE's warning flags. The most trodden JUCE-on-Linux path. RelWithDebInfo and NOT Debug: this is the preset AGENTS.md calls the default, and at -O0 the DSP path — NAM's Eigen inference, the DspGraph interpreter, 186 AirWindows effects — runs several times slower than it ever will in production, so an engine judged 'slow' on it was being judged on the flags. Keep the symbols, lose the -O0.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "dev-clang",
+      "displayName": "Dev (Clang)",
+      "description": "Optional Clang build (better diagnostics). Pins BOTH C and C++ to clang. Requires the clang package. RelWithDebInfo for the same reason as dev-gcc.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "asan",
+      "displayName": "Sanitizers (GCC ASan+UBSan)",
+      "description": "GCC with AddressSanitizer + UndefinedBehaviorSanitizer for the model/diff logic. Debug on purpose, unlike the dev presets it inherits from: a sanitiser run is about the report, not the speed. For ThreadSanitizer on the audio/message-thread boundary, switch inherits to dev-clang (TSan is stronger under Clang).",
+      "inherits": "dev-gcc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer -g",
+        "CMAKE_C_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer -g",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
+      "name": "release-gcc",
+      "displayName": "Release (GCC)",
+      "inherits": "dev-gcc",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows (MSVC 2026)",
+      "description": "Native Windows build for real low-latency audio (WASAPI/ASIO). Targets Visual Studio 2026 (v18, toolset v145) — needs CMake >= 4.2 (when the VS 18 2026 generator was added). For VS 2022 use generator 'Visual Studio 17 2022'. Run from a Windows shell, not WSL.",
+      "inherits": "base",
+      "generator": "Visual Studio 18 2026",
+      "architecture": "x64",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+    },
+    {
+      "name": "windows-msvc-ninja",
+      "displayName": "Windows (MSVC, Ninja) — CI",
+      "description": "The same compiler as windows-msvc under Ninja, for CI's compiler cache: the Visual Studio generator ignores a compiler launcher. Run from a developer environment (vcvars), which is where cl.exe and ninja come from. Debug info is embedded in each object (/Z7) rather than shared in one .pdb, which a cached object cannot write into. docs/desktop-release.md.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_C_COMPILER": "cl",
+        "CMAKE_CXX_COMPILER": "cl",
+        "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "Embedded",
+        "CMAKE_POLICY_DEFAULT_CMP0141": "NEW"
+      }
+    },
+    {
+      "name": "macos-clang",
+      "displayName": "macOS (AppleClang)",
+      "description": "Native macOS build for real low-latency audio (CoreAudio). Unlike the dev presets this does NOT pin a compiler: on Darwin, CMake already resolves cc/c++ to Xcode's AppleClang, whereas hard-pinning bare 'clang' would grab a Homebrew LLVM if one shadows it on PATH — the opposite of the drift the pinning elsewhere prevents. Inherits base's Ninja generator rather than the Xcode one, which needs a full Xcode.app and not just the Command Line Tools. Needs: brew install cmake ninja. ASIO is Windows-only, so none of that SDK wiring applies here.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "11.0"
+      }
+    },
+    {
+      "name": "android-arm64",
+      "displayName": "Android (NDK, arm64-v8a)",
+      "description": "Cross-compiles the engine as a SHARED library for the Android app (engine/k7-android): JUCE's Oboe backend reaches Java, so on Android the engine is loaded into an app process rather than spawned. Needs ANDROID_NDK_HOME pointing at an NDK r28+ (16 KB page alignment). API 29 is the floor: JUCE's Android font code calls AFontMatcher, which is 29+. No VST3/LADSPA hosting, and no tests — they are host programs. docs/android.md.",
+      "inherits": "base",
+      "toolchainFile": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "ANDROID_ABI": "arm64-v8a",
+        "ANDROID_PLATFORM": "android-29",
+        "STUDIO_BUILD_TESTS": "OFF",
+        "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "dev-gcc",       "configurePreset": "dev-gcc",       "targets": ["k7-runtime"] },
+    { "name": "dev-clang",     "configurePreset": "dev-clang",     "targets": ["k7-runtime"] },
+    { "name": "asan",          "configurePreset": "asan",          "targets": ["k7-runtime"] },
+    { "name": "release-gcc",   "configurePreset": "release-gcc",   "targets": ["k7-runtime"] },
+    { "name": "windows-msvc",  "configurePreset": "windows-msvc",  "targets": ["k7-runtime"], "configuration": "RelWithDebInfo" },
+    { "name": "windows-msvc-ninja", "configurePreset": "windows-msvc-ninja", "targets": ["k7-runtime"] },
+    { "name": "macos-clang",   "configurePreset": "macos-clang",   "targets": ["k7-runtime"] },
+    { "name": "android-arm64", "configurePreset": "android-arm64", "targets": ["k7-runtime"] }
+  ]
+}

@@ -318,7 +318,7 @@ export function buildGraphDoc(
         const fmt = plugin?.type ? String(plugin.type).toLowerCase() : "";
         // A stub is a plugin slot with no plugin — not a rack, which legitimately carries a sampler instead.
         const stub = slot && type !== "rack" && !plugin;
-        // A plugin st0 can't load: "not_supported" (amber) or unknown to the engine (red). See docs/graphFlags.md.
+        // A plugin k7 can't load: "not_supported" (amber) or unknown to the engine (red). See docs/graphFlags.md.
         const known =
           fmt === "internal" ||
           fmt === JSDSP_TYPE ||

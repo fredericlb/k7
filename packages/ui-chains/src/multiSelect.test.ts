@@ -15,7 +15,7 @@ const node = (module: string, over: Partial<GraphNode> = {}): GraphNode =>
     label: module,
     kind: "module",
     module,
-    uses: "@st0/audio/amp",
+    uses: "@k7-core/audio/amp",
     x: 0,
     y: 0,
     w: 100,
@@ -44,7 +44,7 @@ describe("linkedNodes", () => {
   });
 
   it("links nothing for a mixed selection — another ref, another engine", () => {
-    const other = node("amp_3", { uses: "@st0/audio/drive" });
+    const other = node("amp_3", { uses: "@k7-core/audio/drive" });
     expect(linkedNodes([a, b, other], sel, a)).toEqual([]);
     const engine = node("amp_3", { engine: "fast" });
     expect(linkedNodes([a, b, engine], sel, a)).toEqual([]);

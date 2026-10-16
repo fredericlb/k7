@@ -12,9 +12,9 @@ them.
 
 ## The sections are the host's nav
 
-The section list is the host's to draw ([host.md](host.md)). In st0 it is the home sidebar, which
+The section list is the host's to draw ([host.md](host.md)). In k7 it is the home sidebar, which
 folds to an icon rail below `sm` with the counts dropped and the names kept as the entries' labels
-(`apps/st0/frontend/docs/projects.md`). The count goes beside a label, never into it: the label is
+(`apps/k7/frontend/docs/projects.md`). The count goes beside a label, never into it: the label is
 what `aria-current` announces, and a number folded into it reads as part of the page's name and
 changes whenever the catalogue does.
 

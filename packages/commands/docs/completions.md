@@ -54,7 +54,7 @@ with the module and the place (`packages/song/docs/chainFiles.md`). `completionI
 
 The file service's `/complete` answers a list of bare lines, and only that, unless the caller adds
 `labels=1`. Then a LABELLED candidate comes as `{ line, label }` and every other one stays a bare
-string, in the same list and the same order. Two choices, both forced by a st0 page already open in a
+string, in the same list and the same order. Two choices, both forced by a k7 page already open in a
 browser outliving the file service it was built against, or the reverse:
 
 - **Opt-in, not a new default.** An older frontend reads every entry as a string; handed an object,
@@ -64,7 +64,7 @@ browser outliving the file service it was built against, or the reverse:
   `labels=1` — reads the same list, since it already takes a bare string as an item with no label.
 
 `projectApi.complete` (`packages/project-shell/src/project.ts`) asks with `labels=1` and hands
-back items. st0's command bar LISTS a labelled value by its label, matches what is typed against
+back items. k7's command bar LISTS a labelled value by its label, matches what is typed against
 the label as well as the value (`auto-wah` finds the node), and INSERTS the value: the field holds
 the uuid, and names the label beside it.
 
@@ -84,7 +84,7 @@ the uuid, and names the label beside it.
   reject. It is the one provider with an explicit return annotation,
   because it reaches into `PROVIDERS` for `audioFiles`: inferring it would need the map's own
   type, which is what is being inferred.
-- **`chains`** puts the project's own and the médiathèque's `@st0/` ones in one list, because the
+- **`chains`** puts the project's own and the médiathèque's `@k7-core/` ones in one list, because the
   command takes either (`packages/audio-passes/docs/processChain.md`).
 - **`curves`** reads off disk rather than off the compiled project: a curve nothing binds yet is
   exactly the one you are about to bind, and the document only carries the bound ones' baked
@@ -146,7 +146,7 @@ and types nothing at all.
 
 ## The palette fills one field at a time
 
-`completions()` is asked for a whole line and answers whole runnable lines. st0's command bar wants
+`completions()` is asked for a whole line and answers whole runnable lines. k7's command bar wants
 the values of ONE argument, so it slices the shared prefix back off — and the two ends have to
 agree about where that prefix ends.
 
@@ -170,7 +170,7 @@ cannot import this module — it reads `commands.yaml` off disk. A test compares
 sources here, because the two failures are silent:
 
 - a **class** added here and not there ships a kind the palette has no colour for;
-- a **provider** added here and not there is one st0's right-click menu can never see. A class says
+- a **provider** added here and not there is one k7's right-click menu can never see. A class says
   what colour a field is; a provider says what the argument actually NAMES, and that is what the
   menu matches on to offer a track its own commands and not a sequence's.
 

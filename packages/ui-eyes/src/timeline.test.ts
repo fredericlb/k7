@@ -159,6 +159,59 @@ describe("layerFrameAt", () => {
   });
 });
 
+describe("a fade's STRETCH", () => {
+  const over = (chain: string, s = 1): SceneFade => ({
+    over: s,
+    with: "over",
+    chain,
+  });
+
+  it("runs the incoming shot through it, its presence rising 0 to 1", () => {
+    const l = layer([clip(0, 4), clip(3, 4, "c3", { fadeIn: over("iris") })]);
+    expect(layerFrameAt(l, 3.25).blend).toEqual({
+      name: "over",
+      progress: 0.25,
+      stretch: { to: { chain: "iris", presence: 0.25 } },
+    });
+  });
+
+  it("runs the leaving shot through ITS fade-out's, presence falling 1 to 0", () => {
+    const l = layer([clip(0, 4, "c0", { fadeOut: over("zoom", 2) })]);
+    expect(layerFrameAt(l, 3.5).blend?.stretch).toEqual({
+      from: { chain: "zoom", presence: 0.25 },
+    });
+  });
+
+  it("runs BOTH under an overlap: the incoming blends, the outgoing still leaves its own way", () => {
+    const l = layer([
+      clip(0, 4, "c0", { fadeOut: over("zoom") }),
+      clip(3, 4, "c3", { fadeIn: over("iris") }),
+    ]);
+    expect(layerFrameAt(l, 3.5).blend?.stretch).toEqual({
+      from: { chain: "zoom", presence: 0.5 },
+      to: { chain: "iris", presence: 0.5 },
+    });
+  });
+
+  it("leaves the outgoing shot alone before its own fade-out window opens", () => {
+    const l = layer([
+      clip(0, 4, "c0", { fadeOut: over("zoom", 0.5) }),
+      clip(3, 4, "c3", { fadeIn: over("iris") }),
+    ]);
+    expect(layerFrameAt(l, 3.25).blend?.stretch).toEqual({
+      to: { chain: "iris", presence: 0.25 },
+    });
+  });
+
+  it("carries no stretch at all on a plain dissolve — the ordinary case stays as it was", () => {
+    const l = layer([clip(0, 4), clip(3, 4, "c3", { fadeIn: dissolve(1) })]);
+    expect(layerFrameAt(l, 3.5).blend).toEqual({
+      name: "dissolve",
+      progress: 0.5,
+    });
+  });
+});
+
 describe("a layer of SHAPES, whose clips are ACTIVATION spans", () => {
   // An activation carries no picture, so it has no src and no in-point — only when the lane is on.
   const on = (start: number, length: number): SceneClip => ({

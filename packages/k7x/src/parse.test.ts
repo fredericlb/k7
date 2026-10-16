@@ -5,19 +5,35 @@ import { parse } from "./edit.ts";
 import { K7SyntaxError } from "./parse.ts";
 import { stringify } from "./print.ts";
 
+describe("nesting", () => {
+  it("refuses a file nested past MAX_DEPTH as a syntax error, not a stack overflow", () => {
+    const deep = `a(${"[".repeat(100_000)}${"]".repeat(100_000)})`;
+    expect(() => parse(deep)).toThrow(K7SyntaxError);
+    expect(() => parse(deep)).toThrow(/nested deeper than 256/);
+    const objects = `a(${"{ b: ".repeat(300)}1${" }".repeat(300)})`;
+    expect(() => parse(objects)).toThrow(K7SyntaxError);
+  });
+
+  it("still reads a value nested within the limit", () => {
+    expect(parse(`a(${"[".repeat(200)}${"]".repeat(200)})`)).toHaveProperty(
+      "a",
+    );
+  });
+});
+
 describe("k7x grammar", () => {
   it("reads statements, chains, objects and lists as one map", () => {
     const text = `// a comment
 project({ name: "demo", tempo: 120, video: false })
 steps([
-  extends("@st0/audio/compressor").engine('tracktion'),
+  extends("@k7-core/audio/compressor").engine('tracktion'),
   to([chain("@out")]), /* trailing comma */
 ])
 markers({})`;
     expect(parse(text)).toEqual({
       project: { name: "demo", tempo: 120, video: false },
       steps: [
-        { extends: "@st0/audio/compressor", engine: "tracktion" },
+        { extends: "@k7-core/audio/compressor", engine: "tracktion" },
         { to: [{ chain: "@out" }] },
       ],
       markers: {},
@@ -110,7 +126,7 @@ describe("stringify", () => {
     content: "two\nlines with a ` and a \\",
     steps: [
       {
-        extends: "@st0/audio/compressor",
+        extends: "@k7-core/audio/compressor",
         engine: "tracktion",
         engines: {
           tracktion: {
@@ -148,7 +164,7 @@ describe("stringify", () => {
       content(\`two
       lines with a \\\` and a \\\\\`)
       steps([
-        extends("@st0/audio/compressor")
+        extends("@k7-core/audio/compressor")
           .engine("tracktion")
           .engines({
             tracktion: { params: { Ratio: 0.125, Attack: 12, Release: 140, Knee: 3, Makeup: 0 } },

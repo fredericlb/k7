@@ -84,7 +84,7 @@ async function processEventCommand(a: string, h: CommandHost): Promise<void> {
   const chain = rest.join(" ");
   if (!trackArg || !atTc || !chain) {
     h.refuse([
-      "usage: event process <track> <timecode> <chain>  (e.g. event process gtr 5:1 @st0/amp-room)",
+      "usage: event process <track> <timecode> <chain>  (e.g. event process gtr 5:1 @k7-core/amp-room)",
     ]);
     return;
   }

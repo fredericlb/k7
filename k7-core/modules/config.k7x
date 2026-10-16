@@ -1,0 +1,3 @@
+// What chains name this library's modules by: @k7-core/<type>/<name>.
+// Changing it renames every module for every project that inherits them.
+namespace("k7-core")

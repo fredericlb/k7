@@ -19,6 +19,9 @@ export const RECORDINGS_DIR = "recordings";
 /** The set lists this volume holds, `playlists/<name>.yaml` — a root zone, not a family; see docs/playlists.md. */
 export const PLAYLISTS_DIR = "playlists";
 
+/** The one artist every rehearsal release is published under, `songs/K7/` — the scan keeps it out of the listing; see docs/songs.md. */
+export const K7_ARTIST = "K7";
+
 /** The sidecar that makes a folder a SONG and carries its title, provenance and variants. */
 export const SONG_FILE = "song.yaml";
 

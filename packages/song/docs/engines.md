@@ -4,14 +4,14 @@ A module can hold **engines**: the other modules it can run as. The compressor i
 Tracktion compressor, a vari-mu and a bus compressor are its engines, and a node picks one.
 
 ```
-@st0/audio/dynamics/compressor/
+@k7-core/audio/dynamics/compressor/
   module.yaml               engine: tracktion
   engines/<name>/           module.yaml, ui.yaml, widgets.js — a whole module
 ```
 
 ## Why engines exist
 
-The `@st0` library grew one module per plugin, so a picker offered nine compressors and four
+The `@k7-core` library grew one module per plugin, so a picker offered nine compressors and four
 choruses, branded by whoever wrote the DSP. That is the wrong question to ask first. You want *a
 compressor*, and then which one. An engine puts the function in the picker and the brand inside
 the node.
@@ -44,8 +44,8 @@ mix and levels, automations, alternatives — and takes everything else from the
 params, panel, ports. The list is `KEPT` in `engines.ts`. A field on that list is a
 question of where the node SITS; a field off it is a question of what the DSP IS.
 
-`extends` is on it: a node running the `echo` engine of `@st0/audio/delay` is still a use of
-`@st0/audio/delay`. Off the list, the engine's own `extends` (often none) would take its place, and
+`extends` is on it: a node running the `echo` engine of `@k7-core/audio/delay` is still a use of
+`@k7-core/audio/delay`. Off the list, the engine's own `extends` (often none) would take its place, and
 every card running an engine would lose its module's name — falling back to its place, `chain · step
 n` — and its presets, which are its module's.
 

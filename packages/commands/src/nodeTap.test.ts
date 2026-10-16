@@ -40,10 +40,10 @@ const kit = () =>
 beforeEach(() => {
   logs.length = 0;
   root = mkdtempSync(join(tmpdir(), "td-tap-"));
-  const lib = librariesFixture(root, "st0");
+  const lib = librariesFixture(root, "k7-core");
   mkdirSync(join(lib, "samples", "kicks"), { recursive: true });
   writeFileSync(join(lib, "samples", "kicks", "808 deep.wav"), "");
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
   mkdirSync(join(root, "_modules", "instruments", "drums"), {
@@ -80,14 +80,14 @@ it("adds a tap on a GIVEN note — an empty pad of the octave grid — and refus
 it("sets a tap's sample by its library name — spaces and all — and its note", async () => {
   await runCommand("node tap add kit BD", host(), "cli");
   await runCommand(
-    'node tap sample kit BD "@st0/kicks/808 deep.wav"',
+    'node tap sample kit BD "@k7-core/kicks/808 deep.wav"',
     host(),
     "cli",
   );
   await runCommand("node tap note kit BD 35", host(), "cli");
   expect(kit().rack?.symbols?.BD).toEqual({
     note: 35,
-    sample: "@st0/kicks/808 deep.wav",
+    sample: "@k7-core/kicks/808 deep.wav",
   });
 });
 
@@ -95,11 +95,11 @@ it("refuses a sample no library holds, and writes nothing", async () => {
   await runCommand("node tap add kit BD", host(), "cli");
   const before = kit();
   await runCommand(
-    'node tap sample kit BD "@st0/kicks/missing.wav"',
+    'node tap sample kit BD "@k7-core/kicks/missing.wav"',
     host(),
     "cli",
   );
-  expect(logs.join(" ")).toContain("no '@st0/kicks/missing.wav'");
+  expect(logs.join(" ")).toContain("no '@k7-core/kicks/missing.wav'");
   expect(kit()).toEqual(before);
 });
 
@@ -177,7 +177,7 @@ it("renames a tap in place, its note and sample kept, and refuses a taken name",
   await runCommand("node tap add kit BD", host(), "cli");
   await runCommand("node tap add kit SN", host(), "cli");
   await runCommand(
-    'node tap sample kit BD "@st0/kicks/808 deep.wav"',
+    'node tap sample kit BD "@k7-core/kicks/808 deep.wav"',
     host(),
     "cli",
   );
@@ -185,7 +185,7 @@ it("renames a tap in place, its note and sample kept, and refuses a taken name",
   expect(Object.keys(kit().rack?.symbols ?? {})).toEqual(["KICK", "SN"]);
   expect(kit().rack?.symbols?.KICK).toEqual({
     note: 36,
-    sample: "@st0/kicks/808 deep.wav",
+    sample: "@k7-core/kicks/808 deep.wav",
   });
   await runCommand("node tap rename kit KICK SN", host(), "cli");
   expect(logs.join(" ")).toContain("already has a tap 'SN'");

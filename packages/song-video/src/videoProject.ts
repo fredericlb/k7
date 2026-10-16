@@ -15,7 +15,11 @@ import type { RawClip } from "@studio/song/rawDoc";
 import { compileVideoChains, type VideoChainDocs } from "./videoChains";
 import type { VideoMarker, VideoProjectDoc, VideoTrackDoc } from "./videoDoc";
 import { compileVideoTracks, readViewport } from "./videoTracks";
-import { collectTransitions } from "./videoTransitions";
+import {
+  chainStretchHead,
+  collectTransitions,
+  resolveStretches,
+} from "./videoTransitions";
 
 /** A wall-clock position -> seconds; minutes and seconds only, since `1:30:00` would read as `bar:beat:tick`. */
 export function parseWallClock(tc: string): number | null {
@@ -79,6 +83,8 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
         cameraMonitorByLane: {},
         cameras: [],
         shapesByLane: {},
+        stretches: {},
+        stretchLanes: {},
         warnings: [],
       } satisfies VideoChainDocs;
     }
@@ -86,12 +92,24 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
   // A shape wired to no lane draws nothing, which is what this channel is for (docs/picture.md).
   warnings.push(...chains.warnings);
 
+  // A fade's `chain:` is checked against the graph's stretches BEFORE the programs are collected, since a miss changes its `with`.
+  const fading = resolveStretches(
+    tracks,
+    chains.stretchLanes,
+    warnings,
+    chainStretchHead(abs),
+  );
   // Off the REF MAP and not the graph, so an unreadable `graph.yaml` cannot delete every wipe — docs/transitions.md.
-  const transitions = collectTransitions(abs, tracks, loadModuleRefs(abs));
+  const transitions = collectTransitions(abs, fading, loadModuleRefs(abs));
+  const stretches: VideoProjectDoc["stretches"] = {};
+  for (const t of fading)
+    for (const c of t.clips)
+      for (const fade of [c.fadeIn, c.fadeOut])
+        if (fade?.chain) stretches[fade.chain] = chains.stretches[fade.chain];
 
   // The lanes with their run, their lens and their shapes folded on — done here, and not in the
   // lane compile, because all three come off `graph.yaml` (docs/shapes.md).
-  const drawn = tracks.map((t) => {
+  const drawn = fading.map((t) => {
     const shapes = chains.shapesByLane[t.id];
     // A shape takes the lane over, so a shot on the same lane is a shot nobody will ever see.
     if (shapes && t.clips.some((c) => c.id))
@@ -146,6 +164,7 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     markers: parseVideoMarkers(root.markers),
     framePlugins: chains.frame,
     transitions,
+    stretches,
     warnings,
   };
 }

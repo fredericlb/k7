@@ -1,23 +1,23 @@
 // projects.ts — which studio app owns a project folder, decided by the folder's NAME
-// (`mysong.st0` in st0, `party.z0` in z0's editor), and the ADDRESS that names one:
-// `/<repo>/<project>`. Both are contracts between the side that WRITES an address — st0's home
+// (`mysong.k7` in k7, `party.z0` in z0's editor), and the ADDRESS that names one:
+// `/<repo>/<project>`. Both are contracts between the side that WRITES an address — k7's home
 // page — and the apps that read one back, so they are stated here, browser-safe, and nowhere
-// else. See apps/st0/frontend/docs/projects.md and packages/project-shell/docs/launch.md.
+// else. See apps/k7/frontend/docs/projects.md and packages/project-shell/docs/launch.md.
 
 import { type StudioService, serviceUrl } from "./services.ts";
 
 /** The apps a project folder can belong to. A subset of the services: k7 owns no projects. */
-export type ProjectApp = Extract<StudioService, "st0" | "z0">;
+export type ProjectApp = Extract<StudioService, "k7" | "z0">;
 
-/** The suffix each app claims — two, because everything an st0 project can BE is a shape INSIDE `.st0`. */
+/** The suffix each app claims — two, because everything an k7 project can BE is a shape INSIDE `.k7`. */
 export const PROJECT_SUFFIXES: Record<ProjectApp, string> = {
-  st0: ".st0",
+  k7: ".k7",
   z0: ".z0",
 };
 
 /** The apps a project can be CREATED for, which owning a suffix does not make it — see docs/addresses.md. */
 export const HAS_SCAFFOLD: Record<ProjectApp, boolean> = {
-  st0: true,
+  k7: true,
   z0: false,
 };
 
@@ -26,9 +26,9 @@ export const SCAFFOLDED_APPS: ProjectApp[] = (
   Object.keys(PROJECT_SUFFIXES) as ProjectApp[]
 ).filter((a) => HAS_SCAFFOLD[a]);
 
-/** Where inside its service each app is mounted — empty for st0, which IS its service; see docs/addresses.md. */
+/** Where inside its service each app is mounted — empty for k7, which IS its service; see docs/addresses.md. */
 export const PROJECT_MOUNTS: Record<ProjectApp, string> = {
-  st0: "",
+  k7: "",
   z0: "/editor",
 };
 
@@ -145,12 +145,12 @@ export function isBench(repo: string): boolean {
   return repo === BENCH_REPO;
 }
 
-const ST0 = PROJECT_SUFFIXES.st0;
+const K7 = PROJECT_SUFFIXES.k7;
 
-/** The bench's ONE project — a live rig thrown away and rebuilt on every open, apps/st0/backend/docs/media/banc.md. */
-export const BENCH_PROJECT = `live${ST0}`;
+/** The bench's ONE project — a live rig thrown away and rebuilt on every open, apps/k7/backend/docs/media/banc.md. */
+export const BENCH_PROJECT = `live${K7}`;
 
-/** The library chain a `@banc` address seeds the rig with (`<ref>/live.st0`), `null` for the bare rig, `undefined` for no bench — docs/addresses.md. */
+/** The library chain a `@banc` address seeds the rig with (`<ref>/live.k7`), `null` for the bare rig, `undefined` for no bench — docs/addresses.md. */
 export function benchChainOf(project: string): string | null | undefined {
   if (project === BENCH_PROJECT) return null;
   const tail = `/${BENCH_PROJECT}`;
@@ -158,7 +158,7 @@ export function benchChainOf(project: string): string | null | undefined {
   const ref = project.slice(0, -tail.length);
   const segments = ref.split("/");
   // Folder names only: an empty or dotted segment, or one claiming a project, is not a chain ref.
-  return segments.every((s) => s && s !== "." && s !== ".." && !s.endsWith(ST0))
+  return segments.every((s) => s && s !== "." && s !== ".." && !s.endsWith(K7))
     ? ref
     : undefined;
 }
@@ -178,7 +178,7 @@ export function benchProject(chain?: string | null): string {
   return chain ? `${chain}/${BENCH_PROJECT}` : BENCH_PROJECT;
 }
 
-/** A SHARED project, `/@shares/<token>.st0` — the `.st0` is what makes it parse ordinarily; docs/addresses.md. */
+/** A SHARED project, `/@shares/<token>.k7` — the `.k7` is what makes it parse ordinarily; docs/addresses.md. */
 export const SHARE_REPO = "@shares";
 
 /** Whether an address names a shared snapshot rather than a repository. */
@@ -188,15 +188,15 @@ export function isShare(repo: string): boolean {
 
 /** The secret out of a share address: one segment, base64url and nothing else, checked not trusted. */
 export function shareToken(project: string): string | null {
-  if (!project.endsWith(ST0)) return null;
-  const token = project.slice(0, -ST0.length);
+  if (!project.endsWith(K7)) return null;
+  const token = project.slice(0, -K7.length);
   return /^[A-Za-z0-9_-]{22,}$/.test(token) ? token : null;
 }
 
 /** The link itself, built from the origin the TAB is on because no other side knows which it is. */
 export function shareUrl(origin: string, token: string): string {
   // Through `launchUrl`: a second builder is a second place for the encoding to differ.
-  return launchUrl(origin, SHARE_REPO, `${token}${ST0}`, "st0");
+  return launchUrl(origin, SHARE_REPO, `${token}${K7}`, "k7");
 }
 
 /** `sha256(token)` in hex, so the SECRET is never a path segment — and why https is required; docs/addresses.md. */
@@ -262,7 +262,7 @@ export function localProjectUrl(
   );
 }
 
-/** The desktop app's TAB STRIP: a sentinel, and chrome rather than a screen — apps/st0-standalone/docs/tabs.md. */
+/** The desktop app's TAB STRIP: a sentinel, and chrome rather than a screen — apps/k7-standalone/docs/tabs.md. */
 export const TABS_REPO = "@tabs";
 
 export function isTabs(repo: string): boolean {
@@ -271,7 +271,7 @@ export function isTabs(repo: string): boolean {
 
 /** Where the strip is, on whatever origin the app is serving from. */
 export function tabsUrl(origin: string): string {
-  return `${serviceUrl(origin, "st0")}/${TABS_REPO}`;
+  return `${serviceUrl(origin, "k7")}/${TABS_REPO}`;
 }
 
 /** How a project is NAMED in an engine claim — the one spelling "one engine per project" rests on; docs/addresses.md. */
@@ -336,7 +336,7 @@ export function externalOf(projectUrl: string, surface: string): string {
 /** The MENU of those addresses, `/external` — a RESERVED repository short name; see docs/addresses.md. */
 export const EXTERNAL_INDEX = "external";
 
-/** The LIBRARIES page, `/libraries` — the origin's list, and where an admin edits it; reserved like `external`, and a ROUTE of st0's home. */
+/** The LIBRARIES page, `/libraries` — the origin's list, and where an admin edits it; reserved like `external`, and a ROUTE of k7's home. */
 export const LIBRARIES_PAGE = "libraries";
 
 /** The SETTINGS page, `/settings` — what a browser may change; reserved and routed like the libraries. */
@@ -374,7 +374,7 @@ function isReservedPrefix(
   return belowMount(pathname, base)?.[0] === word;
 }
 
-/** Is this address one of the pages that hang off st0's home — `/libraries`, `/settings`, `/tasks`, `/media/…`, `/rehearsal/…`? Read before `parseLaunch`, which would take the word for a workspace. */
+/** Is this address one of the pages that hang off k7's home — `/libraries`, `/settings`, `/tasks`, `/media/…`, `/rehearsal/…`? Read before `parseLaunch`, which would take the word for a workspace. */
 export function isHomePage(pathname: string, base: string): boolean {
   return (
     isReservedPage(pathname, base, LIBRARIES_PAGE) ||

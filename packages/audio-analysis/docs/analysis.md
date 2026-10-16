@@ -11,7 +11,7 @@ The arithmetic lives here once. What varies is where the samples come from:
 - **The engine's `--decode`** on a machine that has an engine — the musician's, the standalone app.
   It decodes any format JUCE reads, it is already installed, and the musician's machine has no
   ffmpeg to rely on.
-- **ffmpeg** where there is no engine — st0's backend, which is hosted. The engine is never in that image and
+- **ffmpeg** where there is no engine — k7's backend, which is hosted. The engine is never in that image and
   never will be: it is an instrument on a musician's machine. But it holds the médiathèque's bytes, so the
   analysis of a freshly uploaded song has to happen where the bytes are. ffmpeg is already in the
   image for the rehearsal recorder's takes and z0's audio.
@@ -40,6 +40,19 @@ A bucket boundary is arithmetic on the total frame count, and ffprobe reports a 
 containers round. The mono signal is therefore accumulated in chunks and measured after, which
 costs one float per frame — about 57 MB for five minutes — and is what keeps the geometry exact.
 It is also why the file service decodes only a few files at once.
+
+And why a decode for the envelope is **capped**: `MAX_DECODE_FRAMES`, two hours at 48 kHz, about
+1.4 GB. The cap is in frames rather than seconds because frames are what is held. It is checked
+three times, since none alone suffices: against the length ffprobe claims before ffmpeg starts,
+against the `frames` of the engine's header, and against the frames actually counted, which is the
+one a lying header cannot get past. Past it the decode is killed with a `TooLongError`. The
+true-peak measurement and the extraction stream what they read, hold nothing, and are not capped.
+
+## ffmpeg opens files, not URLs
+
+Every ffmpeg and ffprobe here runs with `-protocol_whitelist file,pipe`, before `-i`. A playlist or
+a crafted container can name another resource, and the decoder of an uploaded file must never be
+the thing that fetches one.
 
 ## The version is a gate
 
@@ -120,8 +133,21 @@ Silence reports `PEAK_FLOOR_DB`, the same floor the `Peak` param declares, rathe
 infinity. A float file over full scale is reported as measured: rounding here would be a policy
 that belongs to the module.
 
+## A video's sound, written out — and here the decoders swap order
+
+`extractSound` (`src/extract.ts`) writes a file's first audio stream to a 32-bit float WAV at its
+own rate and channel count, for the engine to play a shot's sound from
+(`packages/song/docs/videoSound.md`). It is the one reader here that asks **ffmpeg first** and
+the engine second, because what it reads is video: the engine opens a container only through the
+platform's decoder, which reads no WebM on any platform and nothing at all on Linux. The engine is
+the fallback for a desktop with no ffmpeg, and there it reads an `.mp4` or a `.mov`.
+
+A file with no audio stream answers `null` rather than throwing: a silent film is not a fault.
+The WAV is written to `<dest>.part` and renamed when the decode finished, so an interrupted
+extraction leaves nothing a compile would take for a sound.
+
 ## No `node:` in @studio/audio-probe, and that is why this package exists
 
 `audio-probe` MEASURES audio a caller already decoded, which is why a browser may import it. This
-package spawns processes and writes files. Keeping them apart is what stops st0's clip panel from
+package spawns processes and writes files. Keeping them apart is what stops k7's clip panel from
 pulling a decoder into the bundle.

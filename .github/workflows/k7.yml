@@ -1,0 +1,152 @@
+# k7 CI.
+#
+# Scoped to the k7 side of the repo deliberately — apps/k7 plus the native halves it
+# owns, engine/k7-runtime (C++), engine/k7-supervisor (C++) and their build scripts in engine/scripts. `npm run test`
+# across the whole repo is 62 tasks over eight apps; this is 14. A CI that is red on
+# arrival for reasons nobody on this change caused is a CI people learn to ignore — so
+# it starts narrow and green. Widening it is one filter per job.
+#
+# The file name and the two gating job `name:` fields are load-bearing: they are what branch
+# protection matches on. Renaming them is its own change, made with that setting.
+#
+# Three jobs, and only two of them can fail the build:
+#
+#   js         — the vitest tests plus typechecking. The reason this file exists.
+#   supervisor — the native supervisor built, its unit tests, and engine-tunnel's suites run
+#                again with its agent in them: the wire it shares with the TypeScript hub.
+#   lint  — informational. Biome reports a pre-existing backlog of warnings here; gating
+#           on it would block every PR on work nobody on the change caused. It runs so the
+#           number is visible and can be driven down. Flip `continue-on-error` at zero.
+#
+# Not included, on purpose: any job that builds the C++ engine — that belongs in a release
+# workflow, not on every push.
+
+name: k7
+
+# The two path lists are duplicated rather than shared with a YAML anchor: GitHub
+# Actions does not support anchors/aliases in workflow files.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/k7/**"
+      - "engine/k7-runtime/**"
+      - "engine/k7-supervisor/**"
+      - "engine/scripts/**"
+      - "packages/**"
+      - "package-lock.json"
+      - ".github/workflows/k7.yml"
+  pull_request:
+    paths:
+      - "apps/k7/**"
+      - "engine/k7-runtime/**"
+      - "engine/k7-supervisor/**"
+      - "engine/scripts/**"
+      - "packages/**"
+      - "package-lock.json"
+      - ".github/workflows/k7.yml"
+  workflow_dispatch:
+
+# A second push to the same branch makes the first run pointless.
+concurrency:
+  group: k7-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  js:
+    name: tests + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
+      - id: commons
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
+
+      - uses: ./.github/actions/node
+
+
+      # `engine/k7-runtime` declares no `build`/`test` script at all, so nothing below
+      # ever tries to compile C++.
+      - name: test
+        run: npm run test --workspace=apps/k7 --workspace=packages --if-present
+
+      # `build` is `tsc --noEmit` for every package; for web/frontend it is a real
+      # `vite build && tsc --noEmit`, which is a stronger gate and worth the minute.
+      - name: typecheck + build
+        run: npm run build --workspace=apps/k7 --workspace=packages --if-present
+
+      # the backend has only a `typecheck` script — no `build` — so neither step above
+      # covers it. Run it directly rather than adding a script to its package.json
+      # purely to satisfy CI.
+      - name: typecheck the k7 backend
+        working-directory: apps/k7/backend
+        run: npx tsc --noEmit
+
+      # The rehearsal server mounted by that backend has its own, laxer tsconfig and only a `typecheck` script too.
+      - name: typecheck the rehearsal server
+        working-directory: packages/rehearsal-server
+        run: npx tsc --noEmit
+
+  supervisor:
+    name: supervisor (native)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
+      - id: commons
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
+
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: build
+        working-directory: engine/k7-supervisor
+        run: |
+          cmake --preset dev-gcc
+          cmake --build --preset dev-gcc
+
+      - name: unit tests
+        run: engine/k7-supervisor/build/dev-gcc/k7_supervisor_tests
+
+      - uses: ./.github/actions/node
+
+      # The suites find the built `tunnel_harness` and run every case against it as well as the Node agent.
+      - name: tunnel conformance
+        working-directory: packages/engine-tunnel
+        run: npx vitest run
+
+  lint:
+    name: biome (informational)
+    runs-on: ubuntu-latest
+    # See the header: 157 pre-existing errors. This reports, it does not gate.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
+      - id: commons
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
+      - uses: ./.github/actions/node
+      - run: npx biome check apps/k7 engine/scripts packages

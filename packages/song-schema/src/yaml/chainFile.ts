@@ -17,7 +17,7 @@ import {
   type Item,
   isCallStep,
   isEndStep,
-  isTrackItem,
+  isLaneItem,
   itemsOf,
   NODE_ITEM_KEYS,
   type Step,
@@ -72,7 +72,7 @@ export function parseChain(text: string): ParsedChain {
     steps.forEach((step, s) => {
       const items = itemsOf(step);
       items.forEach((item, k) => {
-        if (isTrackItem(item)) return;
+        if (isLaneItem(item)) return;
         const at: (string | number)[] = Array.isArray(step)
           ? [...base, s, k]
           : [...base, s];
@@ -129,7 +129,7 @@ function itemNode(
   if (prev && sameValue(prev.toJSON(), item)) return prev;
   const fresh = doc.createNode(item) as YAMLMap;
   // A lane item is two keys: one line reads better than three.
-  if (isTrackItem(item)) fresh.flow = true;
+  if (isLaneItem(item)) fresh.flow = true;
   if (prev?.commentBefore) fresh.commentBefore = prev.commentBefore;
   return fresh;
 }

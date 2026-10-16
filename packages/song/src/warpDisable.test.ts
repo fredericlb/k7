@@ -15,7 +15,7 @@ let dir = "";
 
 /** One lane playing `riff` twice, over a clip whose warp is `disable`d or not. */
 function project(name: string, warp: Record<string, unknown>): string {
-  const p = join(dir, `${name}.st0`);
+  const p = join(dir, `${name}.k7`);
   writeYaml(join(p, "project.yaml"), { project: { name } });
   writeModule(p, "io", "OUT", { io: "out" });
   writeLane(p, "gtr", "track", {

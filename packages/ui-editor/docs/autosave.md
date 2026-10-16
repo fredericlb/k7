@@ -11,7 +11,7 @@ sentence has to mean for it to be safe.
 
 A plain debounced autosave writes whatever is in the buffer, which for YAML means writing a
 half-typed line several times a minute. Every one of those writes is seen: the file service
-bumps `/revision`, st0 re-vets the project, the graph rebuilds, other tabs adopt the new text,
+bumps `/revision`, k7 re-vets the project, the graph rebuilds, other tabs adopt the new text,
 and the engine is handed a document that does not compile. The editor would spend most of its
 life publishing broken states.
 
@@ -82,7 +82,7 @@ It guards `pending` and `saving` too, not just `held`. A reload 200 ms after a k
 exactly as lossy as one over an unparseable buffer, and the timer being about to fire is not the
 same as the write having landed.
 
-The two screens with a real Save button — the module builder and st0's commands settings — claim
+The two screens with a real Save button — the module builder and k7's commands settings — claim
 the same guard by hand, since their draft is React state rather than a held buffer.
 
 ## Two pairings that must never be confused
@@ -118,7 +118,7 @@ front of everybody.
 
 **One caller: the module builder** (`@studio/ui-module-builder`). A module is four files
 describing one thing, and on a shared one a save is a *publish* — see
-`apps/st0/frontend/docs/sharedModules.md` for why that earns a button.
+`apps/k7/frontend/docs/sharedModules.md` for why that earns a button.
 
 ## Paused, and flushed for someone else
 
@@ -141,10 +141,10 @@ overrule the rule. Whoever asked does not change whether the document compiles.
 
 | pane | file(s) |
 |---|---|
-| st0 `EditorTab` | the open project file — plus its findings drawn in the gutter beside the server's |
-| st0 `ChainsBuilder`, `ModuleSidePane` | `chains.yaml`, and a module's own file from the side pane |
+| k7 `EditorTab` | the open project file — plus its findings drawn in the gutter beside the server's |
+| k7 `ChainsBuilder`, `ModuleSidePane` | `chains.yaml`, and a module's own file from the side pane |
 | `@studio/ui-library` `SongEditor` | the médiathèque's `song.yaml` |
-| st0 `PlaylistEditor` | a playlist in `_playlists/` — not a project file, so it hands the hook its own `validate` |
+| k7 `PlaylistEditor` | a playlist in `_playlists/` — not a project file, so it hands the hook its own `validate` |
 | `@studio/ui-module-builder` | **four** at once: `module.yaml`, `ui.yaml`, `presets.yaml`, `jsdsp.ts` |
 
 The builder is the one worth reading twice. Four files, four autosaves, deliberately not one
@@ -154,13 +154,13 @@ widget in the panel must not stop the module file reaching disk. Its header show
 
 ## The files that have no file yet
 
-The médiathèque's song sidecar and st0's playlists open on a **stub** when nothing is on disk. The stub is
+The médiathèque's song sidecar and k7's playlists open on a **stub** when nothing is on disk. The stub is
 loaded as `saved` as well as as the buffer — so opening a song files nothing, and the first thing
 you actually type creates it. Looking at something must not write it.
 
 ## What a write drags behind it
 
-In st0 a write is not only a write: it re-reads the tree and the hints, and tells the shell the
+In k7 a write is not only a write: it re-reads the tree and the hints, and tells the shell the
 project changed, so the arrangement and the graph recompile. That is why the delay is a whole
 second rather than the 300 ms a text editor would use — the cost of a write here is the cost of
 a compile.
@@ -172,4 +172,4 @@ larger; nothing coalesces them yet.
 
 An edit has to be UNDONE, since not saving is not a way to discard it. The module builder's preset
 shelf is where that shows: trying four presets in a row writes four times, and the way back is
-Ctrl+Z in the code pane — plus, in st0, the journal every write is recorded in.
+Ctrl+Z in the code pane — plus, in k7, the journal every write is recorded in.

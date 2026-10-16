@@ -25,13 +25,13 @@ const logs: string[] = [];
 let reloaded = 0;
 const homeBefore = process.env.STUDIO_HOME;
 
-/** A lane through one compressor node, the compressor holding two engines in `@workspace`; one library `st0`. */
+/** A lane through one compressor node, the compressor holding two engines in `@workspace`; one library `k7-core`. */
 function song(node: string): void {
   root = mkdtempSync(join(tmpdir(), "td-preset-"));
   home = join(root, "home");
-  mkdirSync(join(home, "libraries", "st0", "modules"), { recursive: true });
+  mkdirSync(join(home, "libraries", "k7-core", "modules"), { recursive: true });
   process.env.STUDIO_HOME = home;
-  dir = join(root, "song.st0");
+  dir = join(root, "song.k7");
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
@@ -123,16 +123,18 @@ describe("node preset", () => {
   });
 
   it("keeps a preset in a library only for an admin, who edits it", async () => {
-    await runCommand("node preset save comp b-lib st0", host(), "cli");
+    await runCommand("node preset save comp b-lib k7-core", host(), "cli");
     expect(
-      existsSync(join(home, "libraries", "st0", "presets", "workspace")),
+      existsSync(join(home, "libraries", "k7-core", "presets", "workspace")),
     ).toBe(false);
   });
 
   it("keeps a preset in a library, and lists every scope, workspace first", async () => {
-    // An admin's own clone of `st0`, the one place its presets are written.
-    setLibraryOverlays([{ name: "st0", root: join(home, "libraries", "st0") }]);
-    await runCommand("node preset save comp b-lib st0", host(), "cli");
+    // An admin's own clone of `k7`, the one place its presets are written.
+    setLibraryOverlays([
+      { name: "k7-core", root: join(home, "libraries", "k7-core") },
+    ]);
+    await runCommand("node preset save comp b-lib k7-core", host(), "cli");
     setLibraryOverlays([]);
     await runCommand("node preset save comp a-ws", host(), "cli");
     expect(
@@ -140,7 +142,7 @@ describe("node preset", () => {
         join(
           home,
           "libraries",
-          "st0",
+          "k7-core",
           "presets",
           "workspace",
           "audio",
@@ -153,9 +155,9 @@ describe("node preset", () => {
       ref: "@workspace/audio/compressor",
       presets: [
         { scope: "workspace", name: "a-ws" },
-        { scope: "st0", name: "b-lib" },
+        { scope: "k7-core", name: "b-lib" },
       ],
-      scopes: ["workspace", "account", "st0"],
+      scopes: ["workspace", "account", "k7-core"],
     });
   });
 

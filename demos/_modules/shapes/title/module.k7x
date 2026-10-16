@@ -2,7 +2,7 @@
 // a knob having nothing to say about a string. `font_size` is a param like the position.
 type("shape")
 shape("text")
-content("st0")
+content("k7")
 font("sans-serif")
 color("#ffffff")
 params({ x: 40, y: 560, font_size: 72 })

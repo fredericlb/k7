@@ -537,7 +537,7 @@ describe("the engine's levels", () => {
 
   it("are the card's footer, never a control on the panel", () => {
     expect(atControlIssues([["in", knob("@input-volume")]])).toEqual([
-      "`in` puts a knob on `@input-volume`: st0 draws that in the card's footer — leave `@` params off the panel",
+      "`in` puts a knob on `@input-volume`: k7 draws that in the card's footer — leave `@` params off the panel",
     ]);
     // A dropdown on `@base` is not a level: it picks the preset the plugin is built from.
     expect(

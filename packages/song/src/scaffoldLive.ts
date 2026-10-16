@@ -7,7 +7,7 @@
 import { CAMERA_NODE, RENDER_NODE } from "@studio/song-schema/moduleTypes";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { DEFAULT_COUNT_IN } from "./project";
-import { writeProjectFiles } from "./scaffold";
+import { asChainProject, writeProjectFiles } from "./scaffold";
 import { addVideoRun } from "./videoOutputs";
 
 const q = (s: string) => JSON.stringify(s);
@@ -136,11 +136,15 @@ export function liveProjectFiles(name: string): Record<string, string> {
   };
 }
 
-/** Write a new `live` project. No sample to copy and no surface to declare — just the files. */
-export function scaffoldLive(dir: string, name: string): string[] {
+/** Write a new `live` project: chain files, or the GRAPH the bench splices into by node name (docs/liveProject.md). */
+export function scaffoldLive(
+  dir: string,
+  name: string,
+  layout: "chains" | "graph" = "chains",
+): string[] {
   const files = liveProjectFiles(name);
   writeProjectFiles(dir, files);
-  return Object.keys(files);
+  return layout === "graph" ? Object.keys(files) : asChainProject(dir);
 }
 
 /**
@@ -213,7 +217,6 @@ export function liveVideoProjectFiles(name: string): Record<string, string> {
 
 /** Write a new `live-video` project: the same rig, plus a lens and the frame it draws into. */
 export function scaffoldLiveVideo(dir: string, name: string): string[] {
-  const files = liveVideoProjectFiles(name);
-  writeProjectFiles(dir, files);
-  return Object.keys(files);
+  writeProjectFiles(dir, liveVideoProjectFiles(name));
+  return asChainProject(dir);
 }

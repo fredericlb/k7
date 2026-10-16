@@ -3,13 +3,20 @@
 // layer names). Its own file rather than a section of nodeProject.ts because the two are two
 // compiles of one folder, and only this one's output ever draws. See docs/picture.md.
 
-import { resolve } from "node:path";
+import { confineToProject } from "@studio/song/confine";
 import type {
   RawClip,
   RawVideoPlacement,
   RawVideoTrack,
 } from "@studio/song/rawDoc";
-import { DISSOLVE } from "@studio/song-schema/moduleTypes";
+import {
+  ANIMATED_PROPS,
+  type AnimatedProp,
+  AnimateSchema,
+  type Key,
+  keysOf,
+} from "@studio/song-schema/keyframes";
+import { DISSOLVE, OVER } from "@studio/song-schema/moduleTypes";
 import type { VideoClipDoc, VideoFadeDoc, VideoTrackDoc } from "./videoDoc";
 
 /** A placement's fade in the ONE shape everything downstream copies — the scalar's sugar is undone HERE. */
@@ -18,9 +25,27 @@ export function readFade(raw: unknown): VideoFadeDoc | undefined {
   if (typeof raw === "number")
     return raw > 0 ? { over: raw, with: DISSOLVE } : undefined;
   if (!raw || typeof raw !== "object") return undefined;
-  const over = Number((raw as { over?: unknown }).over ?? 0);
+  const map = raw as { over?: unknown; with?: unknown; chain?: unknown };
+  const over = Number(map.over ?? 0);
   if (!(over > 0)) return undefined; // a zero-length fade is a cut, which is the absence of one
-  return { over, with: String((raw as { with?: unknown }).with ?? DISSOLVE) };
+  const chain = typeof map.chain === "string" && map.chain ? map.chain : "";
+  // A stretch with no `with` mixes by its OWN alpha, so the blend is `over` rather than a dissolve.
+  const kind = map.with ?? (chain ? OVER : DISSOLVE);
+  return { over, with: String(kind), ...(chain ? { chain } : {}) };
+}
+
+/** A placement's `animate:` as sorted keys per property, or undefined; a malformed map is the schema's to report, on its line. */
+export function readAnimate(
+  raw: unknown,
+): Partial<Record<AnimatedProp, Key[]>> | undefined {
+  const parsed = AnimateSchema.safeParse(raw);
+  if (raw == null || !parsed.success) return undefined;
+  const out: Partial<Record<AnimatedProp, Key[]>> = {};
+  for (const p of ANIMATED_PROPS) {
+    const a = parsed.data[p];
+    if (a !== undefined) out[p] = keysOf(a);
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 // A placement -> a VideoClipDoc, in plain DECIMAL SECONDS: no tempo map ever reaches picture.
@@ -33,6 +58,7 @@ export function videoPlacementToClip(
   lane?: string,
 ): VideoClipDoc {
   const ref = String(p.ref ?? "");
+  const animate = readAnimate(p.animate);
   // No ref is an ACTIVATION: a span with no picture in it, saying the lane is on — docs/shapes.md.
   if (!ref)
     return {
@@ -42,23 +68,33 @@ export function videoPlacementToClip(
       start: Number(p.start ?? 0),
       length: Number(p.length ?? 0),
       sourceFrom: 0,
+      ...(animate ? { animate } : {}),
     };
   if (!clipsMap[ref])
     warnings?.push(
       `${lane ? `${lane}: ` : ""}'${ref}' names no clip — add clips/${ref}.yaml, or this shot draws nothing`,
+    );
+  // A source outside the project's roots is no file at all (@studio/song docs/confine.md).
+  const source = clipsMap[ref]?.source
+    ? confineToProject(dir, String(clipsMap[ref].source))
+    : "";
+  if (source === null)
+    warnings?.push(
+      `${lane ? `${lane}: ` : ""}'${ref}' names a file outside the project — this shot draws nothing`,
     );
   const fadeIn = readFade(p.fade_in);
   const fadeOut = readFade(p.fade_out);
   return {
     id: ref,
     name: ref,
-    source: clipsMap[ref] ? resolve(dir, String(clipsMap[ref].source)) : "",
+    source: source ?? "",
     start: Number(p.start ?? 0),
     length: Number(p.length ?? 0),
     sourceFrom: Number(p.source_from ?? 0),
     // Absent stays absent, the way a lane with no chain carries no `plugins`.
     ...(fadeIn ? { fadeIn } : {}),
     ...(fadeOut ? { fadeOut } : {}),
+    ...(animate ? { animate } : {}),
   };
 }
 

@@ -4,6 +4,9 @@
 // It OWNS its canvas (a React-owned one races two GL contexts). A layer may carry GLSL passes
 // and so may the finished frame: passes.ts runs those, docs/passes.md is the page.
 
+import { coverUV, sourceAR, UV_FILL } from "./geometry";
+import { buildLayer, emptyTexel, type LayerGL } from "./layerGL";
+import { animates, type Motion, motionAffine, scissorBox } from "./motion";
 import {
   compilePass,
   compileTransition,
@@ -14,8 +17,11 @@ import {
   RenderTarget,
   type TransitionProgram,
 } from "./passes";
-import type { ScenePass, SceneShape, VideoScene } from "./scene";
-import { builtinDissolve, DISSOLVE } from "./transitions";
+import { PlainProgram, type QuadLook } from "./plain";
+import type { ScenePass, VideoScene } from "./scene";
+import { Stretches } from "./stretches";
+import type { SlotStretch } from "./timeline";
+import { builtinDissolve, builtinOver, DISSOLVE } from "./transitions";
 
 /** What a layer is blending this frame: which program, how far, and which of the two slots carry a picture. */
 // The slots are stated rather than inferred: `hasFrame` never resets, so it cannot answer "this frame".
@@ -24,143 +30,8 @@ export interface LayerBlend {
   progress: number;
   from: boolean; // slot 0 holds the outgoing picture
   to: boolean; // slot 1 holds the incoming one
-}
-
-const VERT = `#version 300 es
-in vec2 aUnit;                 // a unit quad, (0,0)..(1,1)
-uniform vec4 uRect;            // target rect in clip space: (x0, y0, x1, y1)
-out vec2 vUV;
-void main() {
-  vUV = vec2(aUnit.x, aUnit.y);
-  vec2 p = mix(uRect.xy, uRect.zw, aUnit);
-  gl_Position = vec4(p, 0.0, 1.0);
-}`;
-
-const FRAG = `#version 300 es
-precision mediump float;
-in vec2 vUV;
-uniform sampler2D uTex;
-uniform vec4 uUV;              // (scaleX, scaleY, offsetX, offsetY) — see coverUV
-out vec4 outColor;
-void main() { outColor = texture(uTex, vUV * uUV.xy + uUV.zw); }`;
-
-/** No transform: sample the texture over its whole face, which is what a rect-shaped one wants. */
-export const UV_FILL: readonly [number, number, number, number] = [1, 1, 0, 0];
-
-/**
- * The UV transform that fills a `dstAR` rect with a `srcAR` picture WITHOUT distorting it: the
- * overflow is cropped, evenly on both sides. A webcam is 4:3 or 16:9 and the frame it lands in is
- * whatever the project says — sampling the whole texture over the whole rect stretches one into
- * the other, which is the distortion this exists to remove.
- *
- * COVER rather than contain: a lane fills its rect. Letterboxing inside a layer would put bars in
- * the middle of a composite, where nothing can paint over them; the FRAME's own bars are the
- * viewport's business, not a layer's.
- *
- * Identity when either aspect is unknown — a source that has not said its size yet must draw
- * undistorted-or-not rather than not at all.
- */
-export function coverUV(
-  srcAR: number,
-  dstAR: number,
-): [number, number, number, number] {
-  if (!(srcAR > 0) || !(dstAR > 0) || srcAR === dstAR) return [1, 1, 0, 0];
-  const wide = srcAR > dstAR;
-  const sx = wide ? dstAR / srcAR : 1;
-  const sy = wide ? 1 : srcAR / dstAR;
-  return [sx, sy, (1 - sx) / 2, (1 - sy) / 2];
-}
-
-/** What a frame source is shaped like, or 0 when it will not say — see `upload`. */
-export function sourceAR(src: TexImageSource): number {
-  const v = src as Partial<HTMLVideoElement> &
-    Partial<VideoFrame> & { width?: number; height?: number };
-  const w = v.videoWidth || v.displayWidth || v.width || 0;
-  const h = v.videoHeight || v.displayHeight || v.height || 0;
-  return w > 0 && h > 0 ? w / h : 0;
-}
-
-interface LayerGL {
-  id: string;
-  tex: WebGLTexture;
-  // The SECOND picture, only on a lane that dissolves: a lane that never does allocates nothing.
-  tex2: WebGLTexture | null;
-  rect: [number, number, number, number]; // clip space, precomputed from the viewport
-  /** The rect's own aspect in PIXELS, and the SOURCE's as the last upload reported it (0 = not
-   *  said yet). The two together are the UV transform that keeps a picture from stretching. */
-  dstAR: number;
-  srcAR: number;
-  hasFrame: boolean; // nothing uploaded yet -> don't draw (avoids a black or garbage quad)
-  // This layer's passes and their programs, index for index; a null program did not build and is stepped over.
-  passes: ScenePass[];
-  programs: (PassProgram | null)[];
-}
-
-/** Does this lane ever need two pictures at once? Only a `fade_in` does — a fade_out goes to nothing. */
-const dissolves = (clips: readonly { fadeIn?: unknown }[]): boolean =>
-  clips.some((c) => c.fadeIn);
-
-function compile(gl: WebGL2RenderingContext, type: number, src: string) {
-  const sh = gl.createShader(type)!;
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS))
-    throw new Error(`eyes: shader compile failed: ${gl.getShaderInfoLog(sh)}`);
-  return sh;
-}
-
-// The viewport has a top-left origin, clip space is bottom-left: map a viewport-px rect to clip space, flipping y.
-function rectToClip(
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  vw: number,
-  vh: number,
-): [number, number, number, number] {
-  const x0 = (x / vw) * 2 - 1;
-  const x1 = ((x + w) / vw) * 2 - 1;
-  const y0 = 1 - (y / vh) * 2; // top edge
-  const y1 = 1 - ((y + h) / vh) * 2; // bottom edge
-  return [x0, y1, x1, y0]; // (x0,y0)=bottom-left, (x1,y1)=top-right for the unit-quad lerp
-}
-
-// One picture slot: a texture with the filtering every layer's uploads share, allocated lazily on first upload.
-function makeSlot(gl: WebGL2RenderingContext): WebGLTexture {
-  const tex = gl.createTexture()!;
-  gl.bindTexture(gl.TEXTURE_2D, tex);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  return tex;
-}
-
-// Rasterize a shape layer to a 2D canvas at viewport resolution, once per scene — see docs/compositor.md.
-function rasterizeShapes(
-  shapes: SceneShape[],
-  vw: number,
-  vh: number,
-): OffscreenCanvas {
-  const canvas = new OffscreenCanvas(vw, vh);
-  const ctx = canvas.getContext("2d")!;
-  for (const s of shapes) {
-    ctx.fillStyle = s.color;
-    if (s.type === "square") {
-      ctx.fillRect(s.x, s.y, s.w, s.h);
-    } else if (s.type === "circle") {
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      ctx.font = `${s.fontSize}px ${s.font}`;
-      ctx.textBaseline = "top";
-      // `w` is a MAX width: Canvas condenses the glyphs to fit rather than wrapping (single-line text for v1).
-      if (s.w != null) ctx.fillText(s.content, s.x, s.y, s.w);
-      else ctx.fillText(s.content, s.x, s.y);
-    }
-  }
-  return canvas;
+  // Each side's STRETCH this frame, run on its picture before the blend reads it — timeline.ts says which.
+  stretch?: { from?: SlotStretch; to?: SlotStretch };
 }
 
 function readClearColor(el: HTMLElement): [number, number, number] {
@@ -172,9 +43,9 @@ function readClearColor(el: HTMLElement): [number, number, number] {
 
 export class Compositor {
   private gl: WebGL2RenderingContext;
-  private prog: WebGLProgram;
-  private uRect: WebGLUniformLocation;
-  private uUV: WebGLUniformLocation;
+  private plain: PlainProgram;
+  // Where a MOVED shot is drawn before a blend reads it, one per slot; allocated only when a shot animates — docs/motion.md.
+  private moved: [RenderTarget, RenderTarget] | null = null;
   private layers: LayerGL[] = [];
   private clear: [number, number, number];
   readonly canvas: HTMLCanvasElement | OffscreenCanvas;
@@ -185,6 +56,8 @@ export class Compositor {
   private framePrograms: (PassProgram | null)[] = [];
   // One program per NAMED transition, plus the built-in dissolve; a name with no program falls back to it.
   private transitions = new Map<string, TransitionProgram | null>();
+  // The runs a fade puts a shot through, and the two targets their results wait in — stretches.ts.
+  private stretches: Stretches;
   // A 1×1 transparent texel: what a fade goes TO when nothing follows, so GLSL needs no branch.
   private empty: WebGLTexture;
   private warned = new Set<string>();
@@ -199,31 +72,10 @@ export class Compositor {
     this.canvas = canvas;
     this.gl = gl;
     this.clear = clear;
+    this.stretches = new Stretches(gl);
 
-    const prog = gl.createProgram()!;
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG));
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
-      throw new Error(
-        `eyes: program link failed: ${gl.getProgramInfoLog(prog)}`,
-      );
-    this.prog = prog;
-    this.uRect = gl.getUniformLocation(prog, "uRect")!;
-    this.uUV = gl.getUniformLocation(prog, "uUV")!;
-
-    // One unit quad, shared by every layer (the per-layer rect is a uniform).
-    const vbo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    // two triangles over (0,0)..(1,1)
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]),
-      gl.STATIC_DRAW,
-    );
-    const aUnit = gl.getAttribLocation(prog, "aUnit");
-    gl.enableVertexAttribArray(aUnit);
-    gl.vertexAttribPointer(aUnit, 2, gl.FLOAT, false, 0, 0);
+    // The plain program, and the one unit quad every layer is drawn with (the per-layer rect is a uniform).
+    this.plain = new PlainProgram(gl);
 
     // Video frames arrive top-down; GL textures are bottom-up. Flip on upload so the texcoords stay the obvious 0..1.
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
@@ -233,23 +85,7 @@ export class Compositor {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    this.empty = gl.createTexture()!;
-    gl.bindTexture(gl.TEXTURE_2D, this.empty);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      1,
-      1,
-      0,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      new Uint8Array([0, 0, 0, 0]),
-    );
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.empty = emptyTexel(gl);
   }
 
   // The compositor makes its own canvas, except for export which hands it one; the backing store is always the viewport's pixel size.
@@ -305,9 +141,15 @@ export class Compositor {
     this.warned.clear();
     for (const t of [
       builtinDissolve(),
+      builtinOver(),
       ...Object.values(scene.transitions ?? {}),
     ])
       this.transitions.set(t.name, compileTransition(gl, t));
+    this.stretches.setScene(scene);
+    for (const t of this.moved ?? []) t.destroy();
+    this.moved = animates(scene.layers)
+      ? [new RenderTarget(gl, vw, vh), new RenderTarget(gl, vw, vh)]
+      : null;
 
     // The offscreen targets: rebuilt only when the viewport changed, dropped when nothing needs them — see docs/passes.md.
     this.framePasses = scene.framePasses ?? [];
@@ -337,43 +179,7 @@ export class Compositor {
 
     this.framePrograms = this.framePasses.map((p) => compilePass(gl, p));
 
-    this.layers = scene.layers.map((l) => {
-      const tex = makeSlot(gl);
-      // A SHAPE layer rasterizes and uploads now; a video layer's texture stays empty, and skipped, until its first frame.
-      if (l.shapes?.length) {
-        gl.texImage2D(
-          gl.TEXTURE_2D,
-          0,
-          gl.RGBA,
-          gl.RGBA,
-          gl.UNSIGNED_BYTE,
-          rasterizeShapes(l.shapes, vw, vh),
-        );
-        return {
-          id: l.id,
-          tex,
-          tex2: null, // a shape lane holds no clips, so it never dissolves
-          rect: rectToClip(0, 0, vw, vh, vw, vh),
-          dstAR: vh > 0 ? vw / vh : 0,
-          // A shape lane is RASTERISED at viewport size, so it already fits: nothing to correct.
-          srcAR: vh > 0 ? vw / vh : 0,
-          hasFrame: true,
-          passes: l.passes ?? [],
-          programs: (l.passes ?? []).map((p) => compilePass(gl, p)),
-        };
-      }
-      return {
-        id: l.id,
-        tex,
-        tex2: dissolves(l.clips) ? makeSlot(gl) : null,
-        rect: rectToClip(l.x, l.y, l.w, l.h, vw, vh),
-        dstAR: l.h > 0 ? l.w / l.h : 0,
-        srcAR: 0, // said by the first upload, not by the document
-        hasFrame: false,
-        passes: l.passes ?? [],
-        programs: (l.passes ?? []).map((p) => compilePass(gl, p)),
-      };
-    });
+    this.layers = scene.layers.map((l) => buildLayer(gl, l, vw, vh));
   }
 
   /** The live values a pass is handed, keyed on the pass id and refreshed between frames — see docs/passes.md. */
@@ -388,7 +194,7 @@ export class Compositor {
         const v = audioByPass[p.id];
         if (v !== undefined) p.audio = v;
       }
-    for (const p of this.framePasses) {
+    for (const p of [...this.framePasses, ...this.stretches.passes()]) {
       const v = audioByPass[p.id];
       if (v !== undefined) p.audio = v;
     }
@@ -398,6 +204,7 @@ export class Compositor {
   private runPasses(
     passes: readonly ScenePass[],
     programs: readonly (PassProgram | null)[],
+    presence = 1,
   ): void {
     const pp = this.pingpong;
     if (!pp) return;
@@ -411,7 +218,7 @@ export class Compositor {
       gl.bindTexture(gl.TEXTURE_2D, pp.frontTexture());
       // Blending OFF inside a chain: a pass REPLACES the picture it was handed — see docs/passes.md.
       gl.disable(gl.BLEND);
-      drawPass(gl, prog, passes[i], res, this.timeSec);
+      drawPass(gl, prog, passes[i], res, this.timeSec, presence);
       gl.enable(gl.BLEND);
       pp.swap();
     }
@@ -420,17 +227,17 @@ export class Compositor {
 
   /** Run a transition into the bound target: two pictures in, one out, full-target like any pass. */
   // A side with no picture is the 1×1 transparent texel, which is what makes fade-to-nothing the same path.
-  private seedBlend(layer: LayerGL, blend: LayerBlend): void {
+  private seedBlend(
+    blend: LayerBlend,
+    sides: [WebGLTexture, WebGLTexture],
+  ): void {
     const gl = this.gl;
     const prog = this.transitionFor(blend.name);
     if (!prog) return;
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, blend.from ? layer.tex : this.empty);
+    gl.bindTexture(gl.TEXTURE_2D, sides[0]);
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(
-      gl.TEXTURE_2D,
-      blend.to && layer.tex2 ? layer.tex2 : this.empty,
-    );
+    gl.bindTexture(gl.TEXTURE_2D, sides[1]);
     gl.activeTexture(gl.TEXTURE0);
     drawTransition(
       gl,
@@ -441,21 +248,89 @@ export class Compositor {
     );
   }
 
+  /** The two pictures a blend reads: each slot's texture, through its stretch when it runs one, else the transparent texel. */
+  private blendSides(
+    layer: LayerGL,
+    blend: LayerBlend,
+    motion: readonly [Motion | null, Motion | null] | undefined,
+  ): [WebGLTexture, WebGLTexture] {
+    // Moved FIRST, then stretched: the motion is the shot's own, the stretch what the fade does to it.
+    return [
+      blend.from
+        ? this.stretched(
+            0,
+            this.movedSide(0, layer.tex, layer, motion?.[0] ?? null),
+            blend.stretch?.from,
+          )
+        : this.empty,
+      blend.to && layer.tex2
+        ? this.stretched(
+            1,
+            this.movedSide(1, layer.tex2, layer, motion?.[1] ?? null),
+            blend.stretch?.to,
+          )
+        : this.empty,
+    ];
+  }
+
+  /** Run one slot's picture through its stretch into that slot's target, or hand it back untouched. */
+  private stretched(
+    slot: 0 | 1,
+    tex: WebGLTexture,
+    s: SlotStretch | undefined,
+  ): WebGLTexture {
+    const run = s ? this.stretches.run(s.chain) : undefined;
+    const target = this.stretches.target(slot);
+    const pp = this.pingpong;
+    if (!s || !run || !target || !pp) return tex;
+    const gl = this.gl;
+    // Seeded full-target with UV_FILL, as the blend samples a slot — the two must agree on where the picture is.
+    pp.bindBack();
+    gl.disable(gl.BLEND);
+    this.blit(tex, [-1, -1, 1, 1]);
+    gl.enable(gl.BLEND);
+    pp.swap();
+    this.runPasses(run.passes, run.programs, s.presence);
+    // Copied OUT of the scratch, since the other slot's run and the blend itself both need it next.
+    target.bind(true);
+    gl.disable(gl.BLEND);
+    this.blit(pp.frontTexture(), [-1, -1, 1, 1]);
+    gl.enable(gl.BLEND);
+    return target.texture;
+  }
+
   /** Draw one textured quad of `tex` with the plain program, onto whatever is bound now. */
   private blit(
     tex: WebGLTexture,
     rect: [number, number, number, number],
     /** How to sample the texture — `UV_FILL` for one already shaped like the rect. */
     uv: readonly [number, number, number, number] = UV_FILL,
+    look?: QuadLook,
   ): void {
+    this.plain.draw(tex, rect, uv, look);
+  }
+
+  /** A slot's picture MOVED inside the lane's frame, into that slot's own target, premultiplied for the blend that reads it. */
+  private movedSide(
+    slot: 0 | 1,
+    tex: WebGLTexture,
+    layer: LayerGL,
+    m: Motion | null,
+  ): WebGLTexture {
+    const target = this.moved?.[slot];
+    if (!m || !target) return tex;
     const gl = this.gl;
-    // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook — the rule misfires on the `use` prefix.
-    gl.useProgram(this.prog);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.uniform4fv(this.uRect, rect);
-    gl.uniform4f(this.uUV, uv[0], uv[1], uv[2], uv[3]);
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    // The target IS the lane's frame, so the move is measured in the lane's own px: the final blit puts it on the rect.
+    const frame = { x: 0, y: 0, w: layer.px.w, h: layer.px.h };
+    target.bind(true);
+    gl.disable(gl.BLEND);
+    this.blit(tex, [-1, -1, 1, 1], UV_FILL, {
+      xf: motionAffine(frame, m, frame.w, frame.h),
+      alpha: m.opacity,
+      premultiplied: true,
+    });
+    gl.enable(gl.BLEND);
+    return target.texture;
   }
 
   // Upload a frame from a <video> or a VideoFrame; cheap per rAF, and skippable when no new frame was produced.
@@ -491,7 +366,12 @@ export class Compositor {
 
   /** Draw every visible layer bottom-first, skipping one with no frame yet; three shapes, see docs/passes.md. */
   // `blends` says which layers are mid-transition this frame — absent is every frame that is a cut.
-  draw(visible: Set<string>, blends?: ReadonlyMap<string, LayerBlend>): void {
+  // `motions` says where each slot's shot has MOVED to this frame — absent, or null in a slot, is a shot at rest.
+  draw(
+    visible: Set<string>,
+    blends?: ReadonlyMap<string, LayerBlend>,
+    motions?: ReadonlyMap<string, readonly [Motion | null, Motion | null]>,
+  ): void {
     const gl = this.gl;
     const pp = this.pingpong;
     const target = this.framePasses.length ? this.frameTarget : null;
@@ -516,20 +396,38 @@ export class Compositor {
     for (const layer of this.layers) {
       if (!visible.has(layer.id)) continue;
       const blend = blends?.get(layer.id);
+      const motion = motions?.get(layer.id);
+      // A cut's only picture is slot 0's, so that is the motion every non-blending path reads.
+      const still = motion?.[0] ?? null;
       // A blending layer needs no `hasFrame`: the blend says which slots carry a picture THIS frame.
       if (!blend && !layer.hasFrame) continue;
 
       if (pp && (blend || layer.passes.length)) {
+        // Each side's stretch runs FIRST, through the same scratch the blend is about to be seeded into.
+        const sides = blend ? this.blendSides(layer, blend, motion) : null;
         // The layer's frame seeds the chain full-viewport, so a pass sampling its neighbourhood has the whole picture.
         pp.bindBack();
         gl.disable(gl.BLEND);
-        if (blend) this.seedBlend(layer, blend);
-        else
+        if (blend && sides) this.seedBlend(blend, sides);
+        else {
+          // A moved shot leaves the rest of the lane's frame transparent, so the seed starts from nothing.
+          if (still) {
+            gl.clearColor(0, 0, 0, 0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+          }
+          const frame = { x: 0, y: 0, w: layer.px.w, h: layer.px.h };
           this.blit(
             layer.tex,
             [-1, -1, 1, 1],
             coverUV(layer.srcAR, layer.dstAR),
+            still
+              ? {
+                  xf: motionAffine(frame, still, frame.w, frame.h),
+                  alpha: still.opacity,
+                }
+              : undefined,
           );
+        }
         gl.enable(gl.BLEND);
         pp.swap();
         // The transition runs BEFORE the lane's own chain: an effect characterises the lane, so it
@@ -543,7 +441,19 @@ export class Compositor {
         continue;
       }
       bindComposite();
-      this.blit(layer.tex, layer.rect, coverUV(layer.srcAR, layer.dstAR));
+      if (!still) {
+        this.blit(layer.tex, layer.rect, coverUV(layer.srcAR, layer.dstAR));
+        continue;
+      }
+      // A moved shot is cropped to its lane's rect, as it is on the two paths that draw through the lane's frame.
+      const [vw, vh] = [this.canvas.width, this.canvas.height];
+      gl.enable(gl.SCISSOR_TEST);
+      gl.scissor(...scissorBox(layer.px, vh));
+      this.blit(layer.tex, layer.rect, coverUV(layer.srcAR, layer.dstAR), {
+        xf: motionAffine(layer.px, still, vw, vh),
+        alpha: still.opacity,
+      });
+      gl.disable(gl.SCISSOR_TEST);
     }
 
     if (!target || !pp) return;
@@ -581,12 +491,15 @@ export class Compositor {
     this.framePrograms = [];
     for (const t of this.transitions.values()) if (t) gl.deleteProgram(t.prog);
     this.transitions.clear();
+    this.stretches.release();
     gl.deleteTexture(this.empty);
     this.pingpong?.destroy();
     this.pingpong = null;
     this.frameTarget?.destroy();
     this.frameTarget = null;
-    gl.deleteProgram(this.prog);
+    for (const t of this.moved ?? []) t.destroy();
+    this.moved = null;
+    gl.deleteProgram(this.plain.prog);
     // Handed back NOW rather than at garbage collection: a browser keeps ~16 live contexts and drops the oldest past that.
     gl.getExtension("WEBGL_lose_context")?.loseContext();
     if (this.canvas instanceof HTMLCanvasElement) this.canvas.remove();

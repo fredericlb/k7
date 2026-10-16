@@ -82,7 +82,7 @@ export function sidecarFor(tags: SongTags): string {
     `title: ${JSON.stringify(tags.title || UNTITLED)}`,
     `artist: ${JSON.stringify(tags.artist || "")}`,
     `album: ${JSON.stringify(tags.album || "")}`,
-    `source: ${tags.source || "upload"}`,
+    `source: ${JSON.stringify(tags.source || "upload")}`,
   ].join("\n")}\n`;
 }
 

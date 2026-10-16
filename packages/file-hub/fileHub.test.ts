@@ -104,6 +104,7 @@ describe("the file hub", () => {
         rendersEnabled: () => false,
       },
       selfPort: () => 4242,
+      remotePairing: true,
       log: () => {},
     });
     app.get("/api/files-hub", hub.helloHandler());
@@ -435,6 +436,7 @@ describe("the file hub", () => {
       expect(await (await remote("GET", "fred@example.com")).json()).toEqual({
         paired: true,
         url: "wss://origin.test/api/sync",
+        servers: [{ url: "wss://origin.test/api/sync", main: true }],
       });
       const fred = await call("/x", { session: "fred@example.com" });
       expect(fred.echo.sync).toEqual(["wss://origin.test/api/sync", "tok"]);

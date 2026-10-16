@@ -4,13 +4,18 @@
 
 /** Where the hub listens for supervisors, under the registry's own `/api`. */
 export const TUNNEL_PATH = "/api/engine-tunnel";
-/** The engine's secret rides in a header, never the query, so no access log keeps it. */
+/** The engine's token rides in a header, never the query, so no access log keeps it. */
 export const TUNNEL_TOKEN_HEADER = "x-studio-engine-token";
+/** The supervisor's tunnel secret, the one credential no browser ever sees — packages/engine-registry/docs/token.md. */
+export const TUNNEL_SECRET_HEADER = "x-studio-tunnel-secret";
 
 /** The server's render machine proves itself with this header: a key the deployment shares, never the engine's token — docs/jobs.md. */
 export const TUNNEL_RENDER_KEY_HEADER = "x-studio-render-key";
 /** File chunks are cut to this, so one large take never holds the socket for long. */
 export const CHUNK_BYTES = 256 * 1024;
+
+/** The largest frame the hub and the relay accept — far above a chunk, below what would starve the server; docs/tunnel.md. */
+export const MAX_FRAME_BYTES = 16 * 1024 * 1024;
 
 /** A directory tree the server shares with a channel, and what the engine's machine calls it. */
 export interface TunnelRoot {
@@ -88,11 +93,77 @@ export function decodeBinary(
   const len = frame.readUInt32BE(0);
   if (4 + len > frame.length) return null;
   try {
-    const header = JSON.parse(frame.subarray(4, 4 + len).toString("utf8"));
-    return { header, payload: frame.subarray(4 + len) };
+    const header = asBinaryHeader(
+      JSON.parse(frame.subarray(4, 4 + len).toString("utf8")),
+    );
+    return header ? { header, payload: frame.subarray(4 + len) } : null;
   } catch {
     return null;
   }
+}
+
+type Fields = Record<string, unknown>;
+const isObj = (v: unknown): v is Fields =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+const isInt = (v: unknown): v is number => Number.isSafeInteger(v);
+const isStr = (v: unknown): v is string => typeof v === "string";
+const optStr = (v: unknown): boolean => v === undefined || isStr(v);
+
+/** A binary header of the right shape, or null: the frame comes off the network, so nothing is assumed. */
+export function asBinaryHeader(h: unknown): BinaryHeader | null {
+  if (!isObj(h)) return null;
+  switch (h.t) {
+    case "data":
+      return isInt(h.ch) ? (h as BinaryHeader) : null;
+    case "chunk":
+      return isInt(h.req) && typeof h.last === "boolean"
+        ? (h as BinaryHeader)
+        : null;
+    case "put":
+      return isInt(h.req) &&
+        isInt(h.ch) &&
+        isStr(h.path) &&
+        typeof h.last === "boolean"
+        ? (h as BinaryHeader)
+        : null;
+    default:
+      return null;
+  }
+}
+
+/** An agent's text frame parsed and checked, or null when it is not JSON or not one of the shapes — docs/tunnel.md. */
+export function parseAgentMessage(text: string): AgentMessage | null {
+  let m: unknown;
+  try {
+    m = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!isObj(m)) return null;
+  const ok = ((): boolean => {
+    switch (m.t) {
+      case "opened":
+        return isInt(m.ch);
+      case "close":
+        return isInt(m.ch) && optStr(m.reason);
+      case "data":
+        return isInt(m.ch) && isStr(m.text);
+      case "stat":
+        return (
+          isInt(m.req) &&
+          isInt(m.ch) &&
+          Array.isArray(m.paths) &&
+          m.paths.every(isStr)
+        );
+      case "get":
+        return isInt(m.req) && isInt(m.ch) && isStr(m.path);
+      case "rtc-answer":
+        return isInt(m.req) && optStr(m.sdp) && optStr(m.error);
+      default:
+        return false;
+    }
+  })();
+  return ok ? (m as AgentMessage) : null;
 }
 
 /** A `ws` message as one Buffer, whichever of its three shapes it arrived in. */

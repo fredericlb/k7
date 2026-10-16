@@ -31,6 +31,7 @@ import {
   type Instance,
   Instances,
   type InstancesOptions,
+  Unavailable,
 } from "./instances.ts";
 import { LibraryStore } from "./libraries.ts";
 import {
@@ -41,6 +42,11 @@ import {
 import { fetchLibraryVersion, remoteVersions } from "./libraryFetch.ts";
 import { LIBRARIES_ACCOUNT, LibraryRelay } from "./libraryRelay.ts";
 import { PublicLibraries } from "./publicLibraries.ts";
+import {
+  ShareHistoryError,
+  shareCheckpoint,
+  shareFilesAt,
+} from "./shareHistory.ts";
 import { fileServiceSourceDirs, watchSources } from "./sourceWatch.ts";
 import {
   CACHE_SWEEP_EVERY_MS,
@@ -49,7 +55,7 @@ import {
 } from "./staleCaches.ts";
 import { publishSyncEvent } from "./syncEvents.ts";
 import { attachSyncRelay, SYNC_PATH } from "./syncRelay.ts";
-import { pairedAccounts, readRemote, type SyncRemote } from "./syncRemote.ts";
+import { pairedAccounts, readRemotes, type SyncRemote } from "./syncRemote.ts";
 import { SyncRoutes } from "./syncRoutes.ts";
 import { mintTicket, readTicket } from "./ticket.ts";
 
@@ -79,6 +85,8 @@ export interface FileHubOptions
   ticketKey?: string;
   /** An instance nobody used for this long is stopped. */
   idleMs?: number;
+  /** An account may be paired with a remote origin: the desktop and the phone only, since the libraries follow that pairing. */
+  remotePairing?: boolean;
   /** DEV: stop every instance when the file service's source changes — sourceWatch.ts. */
   watchSources?: boolean;
   log?: (msg: string) => void;
@@ -128,6 +136,9 @@ export class FileHub {
     const log = opts.log ?? ((m: string) => console.log(`files | ${m}`));
     this.deps = { ...opts, log };
     this.libraries = new LibraryStore(resolve(opts.dataRoot));
+    // A deployment from before k7 lists `st0`: renamed before anything reads the list (docs/fileHub.md).
+    if (this.libraries.renameLegacyDefault())
+      log("libraries | the default library st0 is now k7-core");
     this.instances = new Instances({
       ...opts,
       log,
@@ -137,10 +148,10 @@ export class FileHub {
         STUDIO_LIBRARIES_HOME: this.libraries.home,
         STUDIO_HUB_URL: `http://127.0.0.1:${opts.selfPort()}${FILE_HUB_INTERNAL}`,
         // Live sync's relay, which every service dials unless STUDIO_LIVE_SYNC=0 (docs/syncRelay.md).
-        ...syncTarget(opts.selfPort(), readRemote(this.sync.accountDir(slug))),
+        ...syncTarget(opts.selfPort(), this.remotesOf(slug)),
         ...this.renderTarget(slug),
       }),
-      keep: (slug) => readRemote(this.sync.accountDir(slug)) !== null,
+      keep: (slug) => this.remotesOf(slug).length > 0,
     });
     this.sync = new SyncRoutes({
       dataRoot: resolve(opts.dataRoot),
@@ -151,9 +162,10 @@ export class FileHub {
       userOf: opts.userOf,
       subjectOf: (req) => opts.subjectOf?.(req) ?? "",
       relay: () => this.stopSync,
+      remotePairing: opts.remotePairing === true,
     });
     // A paired account syncs whether or not anyone opens it, so its service starts with the hub.
-    for (const r of pairedAccounts(resolve(opts.dataRoot)))
+    for (const r of this.pairedAccounts())
       void this.instances
         .get(r.user)
         .catch((e: Error) => log(`paired ${r.user}: ${e.message}`));
@@ -231,11 +243,12 @@ export class FileHub {
       }
       const engineId = req.get(ENGINE_ID_HEADER) ?? ticket?.engineId ?? null;
       void this.forward(user, admin, engineId, req, res).catch((e: Error) => {
-        if (res.headersSent) res.end();
-        else
-          res
-            .status(503)
-            .json({ error: `file service unavailable: ${e.message}` });
+        if (res.headersSent) return void res.end();
+        if (e instanceof Unavailable)
+          res.setHeader("retry-after", String(e.retryAfterS));
+        res
+          .status(503)
+          .json({ error: `file service unavailable: ${e.message}` });
       });
     };
   }
@@ -252,6 +265,39 @@ export class FileHub {
             .status(401)
             .json({ error: "not one of this hub's file services" });
           return;
+        }
+        // A share's checkpoint and the files at it, for this account's own workspaces — shareHistory.ts.
+        if (req.method === "POST" && req.path.startsWith("/share/")) {
+          const body = (await jsonBody(req)) as {
+            workspace?: unknown;
+            seq?: unknown;
+            name?: unknown;
+            prefixes?: unknown;
+          };
+          const workspace = String(body.workspace ?? "");
+          const seq = Number(body.seq);
+          const account = this.sync.accountDir(inst.slug);
+          try {
+            if (req.path === "/share/checkpoint") {
+              const name = String(body.name ?? "").slice(0, 120) || "share";
+              const live = this.stopSync?.room(inst.slug, workspace) ?? null;
+              res.json(
+                shareCheckpoint(account, live, workspace, seq, name, inst.user),
+              );
+              return;
+            }
+            if (req.path === "/share/files") {
+              const prefixes = Array.isArray(body.prefixes)
+                ? body.prefixes.map(String)
+                : [];
+              res.json(shareFilesAt(account, workspace, seq, prefixes));
+              return;
+            }
+          } catch (e) {
+            const status = e instanceof ShareHistoryError ? e.status : 500;
+            res.status(status).json({ error: (e as Error).message });
+            return;
+          }
         }
         // What the origin publishes of one library, for an unpaired machine choosing an upgrade.
         if (req.method === "POST" && req.path === "/libraries/remote") {
@@ -305,7 +351,10 @@ export class FileHub {
     req: Request,
     res: Response,
   ): Promise<void> {
-    const inst = await this.instances.get(user);
+    const { inst, release } = await this.instances.hold(user);
+    // Counted in flight until the answer is done, so neither the reaper nor the cap stops it mid-request.
+    if (res.closed) release();
+    else res.once("close", release);
     // An engine is one account's at a time: whoever claimed it since, this account's link goes first.
     await releaseIfUnclaimed(this.deps, inst).catch((e: Error) =>
       this.deps.log(
@@ -356,6 +405,20 @@ export class FileHub {
     };
   }
 
+  /** The servers account `slug` is paired with: none where pairing is off, whatever its folder holds. */
+  private remotesOf(slug: string): SyncRemote[] {
+    return this.opts.remotePairing
+      ? readRemotes(this.sync.accountDir(slug))
+      : [];
+  }
+
+  /** The accounts paired with a remote origin: none where pairing is off. */
+  private pairedAccounts(): ReturnType<typeof pairedAccounts> {
+    return this.opts.remotePairing
+      ? pairedAccounts(resolve(this.opts.dataRoot))
+      : [];
+  }
+
   /** Live sync's relay on the shared HTTP server; its rooms are saved on `stop`. */
   serveSync(server: Server): void {
     const relay = new LibraryRelay(
@@ -376,7 +439,7 @@ export class FileHub {
     this.libraries.ensure();
     // A pairing comes and goes through syncRoutes.ts, which restarts the account's service alone: the libraries look for themselves.
     const source = () => {
-      const r = pairedAccounts(resolve(this.opts.dataRoot))[0];
+      const r = this.pairedAccounts()[0];
       if (r) relay.followRemote(r.url, r.token);
       else relay.followLocal();
     };
@@ -413,14 +476,21 @@ export class FileHub {
   }
 }
 
-/** Where an account's service syncs: the remote origin it is paired with, by its device token, else this hub's own relay. */
+/** Where an account's service syncs: its MAIN server by its device token, the others beside it, else this hub's own relay. */
 function syncTarget(
   port: number,
-  remote: SyncRemote | null = null,
+  remotes: SyncRemote[] = [],
 ): Record<string, string> {
-  if (remote)
-    return { STUDIO_SYNC_URL: remote.url, STUDIO_SYNC_TOKEN: remote.token };
-  return { STUDIO_SYNC_URL: `ws://127.0.0.1:${port}${SYNC_PATH}` };
+  const [main] = remotes;
+  if (!main) return { STUDIO_SYNC_URL: `ws://127.0.0.1:${port}${SYNC_PATH}` };
+  return {
+    STUDIO_SYNC_URL: main.url,
+    STUDIO_SYNC_TOKEN: main.token,
+    // Every pairing, main included, for the workspaces each server holds (file-service docs/liveCapture.md).
+    STUDIO_SYNC_SERVERS: JSON.stringify(
+      remotes.map((r) => ({ url: r.url, token: r.token, main: r.main })),
+    ),
+  };
 }
 
 /** One request to the instance, the session's user, its admin flag and the hub's secret stamped on it. */

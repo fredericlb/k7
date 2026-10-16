@@ -1,5 +1,5 @@
 // separateJobs.ts — a separation takes minutes, so it is started and then POLLED. The work itself
-// runs on an engine's MACHINE (the native supervisor, engine/st0-supervisor), never in this process:
+// runs on an engine's MACHINE (the native supervisor, engine/k7-supervisor), never in this process:
 // what is here is the seam a server hands it through, and the id that keys a job by its work.
 // See docs/stemSplit.md.
 

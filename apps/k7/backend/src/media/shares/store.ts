@@ -1,0 +1,167 @@
+// store.ts — the shares one person has made: one small JSON per OIDC subject listing them, and one
+// directory each holding the checkpoint as the server's engine plays it. No database, the same arrangement `../projects/store.ts`
+// uses and for the same reasons — what visitors WRITE has many authors and is `comments.ts`.
+// See ../../../docs/media/shares.md.
+
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { join } from "node:path";
+import { mediatekDir } from "@studio/mediatek/layout";
+import { fileFor } from "@studio/user-prefs";
+import { SHARE_SCHEMA, type ShareSummary } from "@studio/web-protocol";
+
+/** The WIRE's shape, since a row goes to the browser verbatim — one declaration, no drift. */
+export type ShareRecord = ShareSummary;
+
+/** A dot-directory, so `writablePath` refuses it and no family scan ever walks it. */
+export function sharesDir(): string {
+  return process.env.STUDIO_SHARES_DIR || join(mediatekDir(), ".shares");
+}
+
+/** One file per user, named exactly as their prefs and their repositories are. */
+function listPath(sub: string): string {
+  return join(sharesDir(), "index", fileFor(sub));
+}
+
+/** Keyed by the HASH of the token, never the token: a path segment reaches every access log. */
+export function blobDir(key: string): string {
+  return join(sharesDir(), "blobs", key);
+}
+
+/** A key is a sha256 in hex, and nothing else is. Checked BEFORE any join. */
+export const isKey = (s: string): boolean => /^[0-9a-f]{64}$/.test(s);
+
+/** A fresh secret, and the key it hashes to. 256 bits: the link is the whole of the protection. */
+export function mintToken(): { token: string; key: string } {
+  const token = randomBytes(32).toString("base64url");
+  return { token, key: keyOf(token) };
+}
+
+export const keyOf = (token: string): string =>
+  createHash("sha256").update(token).digest("hex");
+
+/** Bumped on every write — two writes inside one filesystem tick are otherwise invisible below. */
+let mutations = 0;
+
+/** Reads never throw: an absent file is "none yet", which is a real state and not a fault. */
+export function listShares(sub: string): ShareRecord[] {
+  try {
+    const raw = JSON.parse(readFileSync(listPath(sub), "utf8")) as {
+      shares?: ShareRecord[];
+    };
+    return Array.isArray(raw.shares) ? raw.shares : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Writes THROW: a 200 for an unfiled share is a public link this service cannot revoke. */
+function save(sub: string, shares: ShareRecord[]): void {
+  mkdirSync(join(sharesDir(), "index"), { recursive: true });
+  // Beside then renamed: a crash mid-write must never empty the list, which is every link's only revoke.
+  const tmp = `${listPath(sub)}.${randomUUID()}.part`;
+  writeFileSync(tmp, `${JSON.stringify({ shares }, null, 2)}\n`, "utf8");
+  renameSync(tmp, listPath(sub));
+  mutations++;
+}
+
+export function addShare(sub: string, rec: ShareRecord): void {
+  save(sub, [rec, ...listShares(sub)]);
+}
+
+export function findShare(sub: string, key: string): ShareRecord | null {
+  return listShares(sub).find((s) => s.key === key) ?? null;
+}
+
+/** Revoke: the BYTES go first, then the row is dated rather than removed — ../../../docs/media/shares.md. */
+export function revokeShare(sub: string, key: string): boolean {
+  const shares = listShares(sub);
+  const at = shares.findIndex((s) => s.key === key);
+  if (at < 0) return false;
+  rmSync(blobDir(key), { recursive: true, force: true });
+  if (!shares[at].revokedAt)
+    save(
+      sub,
+      shares.map((s, i) =>
+        i === at ? { ...s, token: "", revokedAt: new Date().toISOString() } : s,
+      ),
+    );
+  return true;
+}
+
+/** This user's change token, for the Projets poll — no second timer of its own. */
+export function revision(sub: string): string {
+  let stamp = 0;
+  try {
+    stamp = Math.floor(statSync(listPath(sub)).mtimeMs);
+  } catch {
+    /* no file yet — 0 is a fine token for "nothing" */
+  }
+  return `${mutations}:${stamp}:${listShares(sub).length}`;
+}
+
+/** A share whose folder holds another schema than this code plays: one made before shares were checkpoints. */
+function isLegacy(key: string): boolean {
+  try {
+    const m = JSON.parse(
+      readFileSync(join(blobDir(key), "snapshot.json"), "utf8"),
+    ) as { schema?: number };
+    return m.schema !== SHARE_SCHEMA;
+  } catch {
+    return false; // a draft, or nothing: not this sweep's to judge
+  }
+}
+
+/** Revoke every share this code cannot play, at boot: their links answer "not found" (../../../docs/media/shares.md). */
+export function dropLegacyShares(): number {
+  let dropped = 0;
+  let files: string[] = [];
+  try {
+    files = readdirSync(join(sharesDir(), "index"));
+  } catch {
+    return 0;
+  }
+  for (const file of files) {
+    if (!file.endsWith(".json")) continue;
+    let shares: ShareRecord[];
+    try {
+      shares =
+        (
+          JSON.parse(
+            readFileSync(join(sharesDir(), "index", file), "utf8"),
+          ) as { shares?: ShareRecord[] }
+        ).shares ?? [];
+    } catch {
+      continue;
+    }
+    const legacy = shares.filter(
+      (s) => !s.revokedAt && (!s.checkpoint || isLegacy(s.key)),
+    );
+    if (!legacy.length) continue;
+    for (const s of legacy)
+      rmSync(blobDir(s.key), { recursive: true, force: true });
+    const at = new Date().toISOString();
+    const gone = new Set(legacy.map((s) => s.key));
+    const kept = shares.map((s) =>
+      gone.has(s.key) ? { ...s, token: "", revokedAt: at } : s,
+    );
+    const tmp = join(sharesDir(), "index", `${file}.${randomUUID()}.part`);
+    writeFileSync(
+      tmp,
+      `${JSON.stringify({ shares: kept }, null, 2)}\n`,
+      "utf8",
+    );
+    renameSync(tmp, join(sharesDir(), "index", file));
+    mutations++;
+    dropped += legacy.length;
+  }
+  return dropped;
+}
