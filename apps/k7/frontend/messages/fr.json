@@ -158,6 +158,7 @@
   "shape.liveVideo": "live vidéo",
   "shape.liveVideoWhat": "le même rig, plus une webcam et le viewport qu'elle remplit",
   "project.newHint": "Créer un projet dans cet espace de travail",
+  "project.new": "Nouveau projet",
   "project.newTitle": "Nouveau projet",
   "project.newBody": "Le projet est créé avec les réglages par défaut.",
   "project.namePlaceholder": "nom du projet — « hiver »",
