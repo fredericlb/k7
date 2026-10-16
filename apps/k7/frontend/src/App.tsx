@@ -2143,8 +2143,8 @@ export default function App({
     return () => watchPluginParams(pluginId, false);
   }, [builderPlugin, requestPluginParams, watchPluginParams, listPresets]);
 
-  // What every graph host draws the song with — the chains page and the bottom panel's graph and mix alike.
-  const chainsHostProps = useMemo(
+  // What every module card is drawn with, whichever host holds it — the chains page, the bottom panel, a lane's or a tap's cards.
+  const cardProps = useMemo(
     () => ({
       mark: historyMark,
       onPreviewNote: previewNote,
@@ -2152,11 +2152,7 @@ export default function App({
       inputDevices,
       midiDevices,
       reloadKey,
-      organizeKey,
       trackOrder,
-      videoSpans: videoLaneSpans,
-      noteLanes,
-      viewport: videoDoc?.viewport,
       project: projectDoc,
       command: quietCommand,
       onBypassModule: (mod: string) => void bypassModule(mod),
@@ -2173,8 +2169,6 @@ export default function App({
       setPluginParam,
       moduleParams: offlineParams,
       trackControls,
-      onTrackToggle: onLaneToggle,
-      onTrackSet,
     }),
     [
       historyMark,
@@ -2183,11 +2177,7 @@ export default function App({
       inputDevices,
       midiDevices,
       reloadKey,
-      organizeKey,
       trackOrder,
-      videoLaneSpans,
-      noteLanes,
-      videoDoc?.viewport,
       projectDoc,
       quietCommand,
       bypassModule,
@@ -2204,8 +2194,48 @@ export default function App({
       setPluginParam,
       offlineParams,
       trackControls,
+    ],
+  );
+  // …plus what a WHOLE graph draws: its lanes' spans and notes, the picture's viewport, the lane buttons.
+  const graphHostProps = useMemo(
+    () => ({
+      ...cardProps,
+      organizeKey,
+      videoSpans: videoLaneSpans,
+      noteLanes,
+      viewport: videoDoc?.viewport,
+      onTrackToggle: onLaneToggle,
+      onTrackSet,
+    }),
+    [
+      cardProps,
+      organizeKey,
+      videoLaneSpans,
+      noteLanes,
+      videoDoc?.viewport,
       onLaneToggle,
       onTrackSet,
+    ],
+  );
+  // …or what a card needs of the LIVE engine: its plugin's params, its engine and its presets.
+  const liveCardProps = useMemo(
+    () => ({
+      ...cardProps,
+      requestPluginParams,
+      watchPluginParams,
+      onEngine: runEngine,
+      onPresets: openPresets,
+      onPresetStep: stepPreset,
+      presetNames,
+    }),
+    [
+      cardProps,
+      requestPluginParams,
+      watchPluginParams,
+      runEngine,
+      openPresets,
+      stepPreset,
+      presetNames,
     ],
   );
   // What the caret is currently over, for the conditional bindings (keys.ts).
@@ -3279,17 +3309,14 @@ export default function App({
                           onError={paneError}
                         >
                           <ChainsTab
-                            {...chainsHostProps}
+                            {...graphHostProps}
+                            {...liveCardProps}
                             active={!chainsOffScreen}
                             // A SET's lanes are DECKS and wear the record the header wears; the choice is the project's — see chainsIcons.tsx.
                             icons={hasTurntables ? DECK_ICONS : STUDIO_ICONS}
                             // The sidebar is fullscreen chrome, and the graph is only ever on screen as a whole page.
                             showList
                             onOrganize={() => void runCommand("graph organize")}
-                            onEngine={runEngine}
-                            onPresets={openPresets}
-                            onPresetStep={stepPreset}
-                            presetNames={presetNames}
                             onSetModuleAsset={(mod, kind, f) =>
                               void runCommand(`module ${kind} ${mod} ${f}`)
                             }
@@ -3346,8 +3373,6 @@ export default function App({
                             showDocs={showDocs}
                             onDocCount={setDocCount}
                             onLaneNodes={setLaneNodes}
-                            requestPluginParams={requestPluginParams}
-                            watchPluginParams={watchPluginParams}
                             focus={graphFocus}
                             onFocused={reportFramed}
                             stack={stackView}
@@ -3485,7 +3510,7 @@ export default function App({
                       onError={paneError}
                     >
                       <GraphPanel
-                        {...chainsHostProps}
+                        {...graphHostProps}
                         trackId={
                           panel === "graph" ? (caret?.trackId ?? null) : null
                         }
@@ -3602,39 +3627,11 @@ export default function App({
                           onError={paneError}
                         >
                           <TrackModulesPane
-                            mark={historyMark}
-                            project={projectDoc}
-                            onPreviewNote={previewNote}
-                            cameras={cameras}
-                            inputDevices={inputDevices}
-                            midiDevices={midiDevices}
+                            {...liveCardProps}
                             trackId={graphSlot.trackId}
-                            reloadKey={reloadKey}
-                            command={quietCommand}
-                            onModuleField={runCommand}
-                            onRecorder={onRecorder}
-                            onProjectField={onProjectField}
-                            trackOrder={trackOrder}
-                            pluginParamsStore={pluginParamsStore}
-                            requestPluginParams={requestPluginParams}
-                            watchPluginParams={watchPluginParams}
-                            setPluginParam={setPluginParam}
-                            moduleParams={offlineParams}
-                            trackControls={trackControls}
-                            onContextMenu={openContextMenu}
-                            onBypassModule={(mod) => void bypassModule(mod)}
-                            onAlternative={runAlternative}
-                            onEngine={runEngine}
-                            onPresets={openPresets}
-                            onPresetStep={stepPreset}
-                            presetNames={presetNames}
-                            onAssetBrowse={browseAssets}
-                            onTapEdit={editTap}
-                            onWatchWaveform={watchWaveform}
                             onTrackToggle={onLaneToggle}
                             onTrackSet={onTrackSet}
                             onEdgeInsert={frozen ? undefined : insertIntoChain}
-                            engineWarnings={nodeWarnings}
                             showCurves={trackCurves}
                             onToggleCurves={() => void runCommand("ui curves")}
                             onTrackInput={(kind) =>
@@ -4061,39 +4058,11 @@ export default function App({
                 }
                 renderCards={(nodes) => (
                   <TrackModulesPane
-                    mark={historyMark}
-                    project={projectDoc}
-                    onPreviewNote={previewNote}
-                    cameras={cameras}
-                    inputDevices={inputDevices}
-                    midiDevices={midiDevices}
+                    {...liveCardProps}
                     trackId=""
                     nodes={nodes}
                     // The chain's start, as a node that says so and does nothing: the sound arrives from there.
                     lead={TAP_CHAIN_INPUT}
-                    reloadKey={reloadKey}
-                    command={quietCommand}
-                    onModuleField={runCommand}
-                    onRecorder={onRecorder}
-                    onProjectField={onProjectField}
-                    trackOrder={trackOrder}
-                    pluginParamsStore={pluginParamsStore}
-                    requestPluginParams={requestPluginParams}
-                    watchPluginParams={watchPluginParams}
-                    setPluginParam={setPluginParam}
-                    moduleParams={offlineParams}
-                    trackControls={trackControls}
-                    onContextMenu={openContextMenu}
-                    onBypassModule={(mod) => void bypassModule(mod)}
-                    onAlternative={runAlternative}
-                    onEngine={runEngine}
-                    onPresets={openPresets}
-                    onPresetStep={stepPreset}
-                    presetNames={presetNames}
-                    onAssetBrowse={browseAssets}
-                    onTapEdit={editTap}
-                    onWatchWaveform={watchWaveform}
-                    engineWarnings={nodeWarnings}
                   />
                 )}
                 onClose={() => setTapChain(null)}
