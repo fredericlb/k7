@@ -37,3 +37,8 @@ plugin asks for it.
 
 A plugin that needs the shell's internals in its browser half is the boundary to watch: the
 shell may hold plugin drawers, but a plugin must never import the shell.
+
+## Their words
+
+The browser half's sentences are this package's own catalogue, in k7's language, read from the
+key k7 stores it under rather than handed in through the SDK — `i18n.md`.

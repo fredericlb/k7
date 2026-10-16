@@ -6,6 +6,7 @@
 
 import { cfg } from "@studio/project-shell/fileApi";
 import type { Lens, LensOpener } from "@studio/ui-eyes/camera";
+import { m } from "../../paraglide/messages.js";
 import { type Frame, ICE, readFrame, relayUrl, sendFrame } from "./relay";
 
 /** Long enough for a permission prompt on the machine, short enough that a lane says something. */
@@ -38,7 +39,7 @@ export const remoteLens: LensOpener = (label) =>
       resolve(l.stream ? { ...l, close } : l);
     };
     const timer = window.setTimeout(
-      () => done({ stream: null, problem: "the machine did not answer" }),
+      () => done({ stream: null, problem: m["lens.noAnswer"]() }),
       WAIT_MS,
     );
 
@@ -87,14 +88,15 @@ export const remoteLens: LensOpener = (label) =>
       // A negotiation that throws leaves a lane with no picture, which is a sentence and not a crash.
       if (f)
         void handle(f).catch((err: Error) =>
-          done({ stream: null, problem: `camera link failed: ${err.message}` }),
+          done({
+            stream: null,
+            problem: m["lens.failed"]({ error: err.message }),
+          }),
         );
     };
     // A socket that closes before a track arrived is a lane that will never draw; say so.
-    sock.onclose = () =>
-      done({ stream: null, problem: "the link to the machine closed" });
-    sock.onerror = () =>
-      done({ stream: null, problem: "no camera relay on this machine" });
+    sock.onclose = () => done({ stream: null, problem: m["lens.closed"]() });
+    sock.onerror = () => done({ stream: null, problem: m["lens.noRelay"]() });
     // The socket stays open for the connection's life: ICE trickles after the first frame.
     peer.onconnectionstatechange = () => {
       if (

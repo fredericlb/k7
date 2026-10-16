@@ -17,6 +17,7 @@ import {
   useStoreState,
 } from "@studio/engine-browser/store";
 import { useEffect, useRef, useState } from "react";
+import { m } from "../../paraglide/messages.js";
 import { type DeckId, LEVEL_DB, MIX_CENTRE } from "../deckVocabulary";
 import { type DeskLayout, underWave } from "../deskLayout";
 import { useInSight } from "./inSight";
@@ -59,7 +60,7 @@ function Meter({ db }: { db: number }) {
   return (
     <div
       className="relative w-1.5 shrink-0 overflow-hidden rounded-full bg-foreground/15"
-      title={`niveau ${db <= FLOOR_DB ? "silence" : `${db.toFixed(1)} dB`}`}
+      title={m["meter.level"]({ value: dbText(db) })}
     >
       {/* Scaled and not resized: a height would reflow this column every frame the engine speaks. */}
       <div
@@ -70,6 +71,11 @@ function Meter({ db }: { db: number }) {
       />
     </div>
   );
+}
+
+/** A meter's reading in words: silence at the floor, dB above it. */
+function dbText(db: number): string {
+  return db <= FLOOR_DB ? m["meter.silence"]() : `${db.toFixed(1)} dB`;
 }
 
 /** The MASTER, for the footer: one horizontal bar and a clip light that survives the pass.
@@ -96,10 +102,9 @@ export function MasterMeter() {
   return (
     <div
       className="flex shrink-0 items-center gap-1.5"
-      title={
-        `sortie ${db <= FLOOR_DB ? "silence" : `${db.toFixed(1)} dB`}` +
-        (clipped ? " — it clipped since playback started" : "")
-      }
+      title={m[clipped ? "meter.outClipped" : "meter.out"]({
+        value: dbText(db),
+      })}
     >
       <div className="relative h-1.5 w-20 overflow-hidden rounded-full bg-foreground/15">
         <div
@@ -111,7 +116,7 @@ export function MasterMeter() {
       </div>
       {/* Always drawn, dark when nothing clipped: a light only there when it is on cannot be checked. */}
       <span
-        aria-label={clipped ? "it clipped" : "no clipping"}
+        aria-label={clipped ? m["meter.clipped"]() : m["meter.noClip"]()}
         className={`h-1.5 w-1.5 shrink-0 rounded-full ${
           clipped
             ? "bg-red-500 shadow-[0_0_4px_1px] shadow-red-500/60"
@@ -152,11 +157,14 @@ function ChannelFader({
           step={0.5}
           value={level}
           disabled={!live}
-          aria-label={`deck ${side}'s level`}
+          aria-label={m["fader.aria"]({ side })}
           title={
             live
-              ? `deck ${side}'s level — ${level > 0 ? "+" : ""}${level.toFixed(1)} dB, double-click to go back to unity`
-              : `this deck has no channel fader wired — connect \`deck${side}.level\` in surfaces/`
+              ? m["fader.title"]({
+                  side,
+                  db: `${level > 0 ? "+" : ""}${level.toFixed(1)}`,
+                })
+              : m["fader.unwired"]({ side })
           }
           onChange={(e) => onChange(Number(e.target.value))}
           onDoubleClick={() => live && onChange(0)}
@@ -263,7 +271,7 @@ export function MixerColumn({
               onChange={(e) => onChange(Number(e.target.value))}
               disabled={!ready}
               className="min-w-0 flex-1 accent-foreground"
-              aria-label="crossfade between deck A and deck B"
+              aria-label={m["xfade.aria"]()}
             />
             <span className="w-3 shrink-0 text-center font-semibold text-xs">
               B
@@ -279,11 +287,7 @@ export function MixerColumn({
           <button
             type="button"
             onClick={onQuantise}
-            title={
-              quantise
-                ? "quantise: the loops and the jumps land on the beat"
-                : "quantise off: they land where the hand puts them"
-            }
+            title={quantise ? m["quantise.on"]() : m["quantise.off"]()}
             className={`h-6 w-8 rounded border font-mono text-[10px] ${
               quantise
                 ? "border-amber-500 bg-amber-500 text-white"
@@ -297,7 +301,7 @@ export function MixerColumn({
             <button
               type="button"
               onDoubleClick={() => onChange(MIX_CENTRE)}
-              title="double-clic : recentrer"
+              title={m["xfade.recentre"]()}
               className="font-mono text-muted-foreground text-xs tabular-nums"
             >
               {Math.round(mix * 100)}%

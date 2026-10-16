@@ -4,6 +4,8 @@
 
 import { Unplug } from "@frediverse/ui/icons";
 import type { MixView as Mapping } from "@studio/song-schema/yaml/mixViewSchema";
+import { CodeText } from "../../CodeText";
+import { m } from "../../paraglide/messages.js";
 import type { Deck } from "../engine";
 import { unmappedControls } from "../mapping";
 import type { DeckSet } from "../useDeckSet";
@@ -44,15 +46,15 @@ export function Turntables({
               key={c.id}
               className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
             >
-              Le composant {c.id} de cette vue n'est pas mappé à un module
+              {m["gate.unmapped"]({ id: c.id })}
             </li>
           ))}
         </ul>
         {/* The fix, not just the fault: a line somebody can copy, in the file it goes in. */}
         <p className="max-w-xl text-center text-xs text-muted-foreground">
-          Add them under <code>mapping:</code> in <code>{file}</code> — one line
-          per component, <code>{"{ module: …, param: … }"}</code>, where{" "}
-          <code>module</code> is the name <code>chains.yaml</code> gives it.
+          <CodeText
+            text={m["gate.fix"]({ file, shape: "{ module: …, param: … }" })}
+          />
         </p>
       </div>
     );

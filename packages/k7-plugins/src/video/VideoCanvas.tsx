@@ -10,6 +10,7 @@ import { EngineClock } from "@studio/ui-eyes/clock";
 import { type LaneDebug, RealtimeDriver } from "@studio/ui-eyes/realtime";
 import type { VideoScene } from "@studio/ui-eyes/scene";
 import { useEffect, useRef, useState } from "react";
+import { m } from "../paraglide/messages.js";
 import { canAskForLens, remoteLens } from "./camera/remoteLens";
 import { levelsForPasses, smoothLevels } from "./shaderAudio";
 
@@ -163,7 +164,7 @@ export function VideoCanvas({
     >
       {failed ? (
         <div className="max-w-sm p-4 text-center text-muted-foreground text-sm">
-          The picture cannot be drawn in this browser: {failed}
+          {m["video.cannotDraw"]({ why: failed })}
         </div>
       ) : (
         children

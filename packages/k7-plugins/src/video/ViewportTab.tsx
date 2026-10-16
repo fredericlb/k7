@@ -12,6 +12,8 @@ import {
 import type { LaneDebug } from "@studio/ui-eyes/realtime";
 import type { WebVideoProject } from "@studio/web-protocol";
 import { useEffect, useMemo, useState } from "react";
+import { CodeText } from "../CodeText";
+import { m } from "../paraglide/messages.js";
 import { sceneOf } from "./scene";
 import { audioSources } from "./shaderAudio";
 import { VideoCanvas } from "./VideoCanvas";
@@ -79,11 +81,9 @@ export function ViewportTab({
   if (!scene)
     return (
       <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
-        {/* English in the package, the same rule the desk's views follow —
-            the app's paraglide layer is for the app's own chrome. */}
-        This project has no picture yet. Add
-        <code className="mx-1">video_tracks/&lt;name&gt;.yaml</code> and a
-        <code className="mx-1">viewport</code> in project.yaml.
+        <span>
+          <CodeText text={m["video.noPicture"]()} />
+        </span>
       </div>
     );
 

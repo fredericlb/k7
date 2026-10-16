@@ -4,6 +4,7 @@
 
 import { Pencil } from "@frediverse/ui/icons";
 import { camelot, PITCH_CLASSES } from "@studio/audio-probe/key";
+import { m } from "../../paraglide/messages.js";
 import { BPM_RANGE, PITCH_RANGE } from "../deckVocabulary";
 
 /** PL8 stores `C# minor`; the wheel wants `12A`. Parsed here rather than stored, so the mode's
@@ -104,13 +105,13 @@ export function BpmFader({
               onCommit();
             }
           }}
-          aria-label="this deck's tempo, in BPM"
+          aria-label={m["bpm.aria"]()}
           title={
             !has
-              ? "the engine found no tempo for this song"
+              ? m["bpm.none"]()
               : driven
-                ? "driven by the other deck — moving it cancels the sync"
-                : "tempo — double-click to go back to the song's own"
+                ? m["bpm.driven"]()
+                : m["bpm.fader"]()
           }
         />
       </div>
@@ -124,7 +125,7 @@ export function BpmFader({
         }`}
         title={
           has && Math.abs(target - natural) > natural * PITCH_RANGE
-            ? "past a deck's range — the stretch is audible"
+            ? m["bpm.pastRange"]()
             : undefined
         }
       >
@@ -138,8 +139,8 @@ export function BpmFader({
       <div className="flex w-full shrink-0 gap-1">
         {(
           [
-            ["÷2", onHalve, "half: the detected tempo is twice the real one"],
-            ["×2", onDouble, "double: the detected tempo is half the real one"],
+            ["÷2", onHalve, m["bpm.halve"]()],
+            ["×2", onDouble, m["bpm.double"]()],
           ] as const
         ).map(([label, act, why]) => (
           <button
@@ -152,7 +153,7 @@ export function BpmFader({
                 ? "bg-muted text-muted-foreground hover:bg-accent"
                 : "bg-muted/40 text-muted-foreground/40"
             }`}
-            title={act ? why : "no tempo measured on this deck"}
+            title={act ? why : m["bpm.noTempo"]()}
           >
             {label}
           </button>
@@ -162,7 +163,7 @@ export function BpmFader({
       {corrected ? (
         <span
           className="shrink-0 font-mono text-[8px] text-primary leading-none"
-          title="the media library carries a corrected tempo for this song — it follows the record into every project"
+          title={m["bpm.corrected"]()}
         >
           BPM <Pencil className="size-2" />
         </span>
@@ -172,7 +173,7 @@ export function BpmFader({
       {songKey ? (
         <span
           className="shrink-0 font-mono text-[9px] text-muted-foreground leading-none"
-          title={`the song's key: ${songKey} — typed into the media library, it follows the record`}
+          title={m["bpm.key"]({ key: songKey })}
         >
           {camelotOf(songKey)}
         </span>
@@ -188,11 +189,7 @@ export function BpmFader({
             ? "bg-primary/80 text-primary-foreground"
             : "bg-muted text-muted-foreground hover:bg-accent"
         }`}
-        title={
-          keylock
-            ? "pitch held: the song keeps its key, but the stems no longer sum cleanly"
-            : "pitch free: the song rises with the tempo, like a record"
-        }
+        title={keylock ? m["bpm.keylockOn"]() : m["bpm.keylockOff"]()}
       >
         KEY
       </button>

@@ -13,6 +13,7 @@ import {
 } from "@studio/mediatek/playlistItems";
 import type { Stem } from "@studio/song-schema/stems";
 import { useState } from "react";
+import { m } from "../../paraglide/messages.js";
 import type { DeckId, DeckLoads, DeckTempo } from "../deckVocabulary";
 import type { DeskLayout } from "../deskLayout";
 import type { DeckSet } from "../useDeckSet";
@@ -50,10 +51,10 @@ function DeckPlay({
       disabled={!onToggle}
       title={
         !onToggle
-          ? `deck ${side} is empty — nothing to start`
+          ? m["deck.empty"]({ side })
           : running
-            ? `stop deck ${side} — the other one carries on`
-            : `start deck ${side} on its own`
+            ? m["deck.stop"]({ side })
+            : m["deck.start"]({ side })
       }
       onClick={onToggle}
       aria-pressed={running}
@@ -362,7 +363,7 @@ export function DeckSide({
           {/* What is loaded, in words: it earns its line only where the record's label is absent. */}
           {layout.title ? (
             <div className="w-full truncate text-center text-xs text-muted-foreground">
-              {load ? load.title : "nothing loaded"}
+              {load ? load.title : m["deck.nothingLoaded"]()}
             </div>
           ) : null}
         </div>
