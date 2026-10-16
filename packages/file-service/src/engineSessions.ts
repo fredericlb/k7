@@ -9,7 +9,7 @@ import {
 } from "@studio/engine-client/engineClient";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { loadPreferences } from "@studio/song/preferences";
-import { ENGINE_RECONNECT_MIN_MS } from "@studio/web-protocol";
+import { backoffMs } from "@studio/web-protocol";
 import { BENCH_WORKSPACE } from "./bench.ts";
 import { rootDir, slugify } from "./slug.ts";
 import type { Workspace } from "./workspace.ts";
@@ -136,10 +136,7 @@ function wireEngine(session: string, e: EngineClient): void {
   e.on("close", () => {
     const l = links.get(session);
     if (l) l.ready = false;
-    const step = Math.min(
-      LOCAL_RECONNECT_MAX_MS,
-      ENGINE_RECONNECT_MIN_MS * 2 ** (l?.attempt ?? 0),
-    );
+    const step = backoffMs(l?.attempt ?? 0, LOCAL_RECONNECT_MAX_MS);
     if (l) l.attempt++;
     setTimeout(
       () => {
