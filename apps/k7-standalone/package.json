@@ -17,6 +17,7 @@
   "devDependencies": {
     "@frediverse/electron-shell": "*",
     "@studio/supervisor-host": "*",
+    "@studio/web-protocol": "*",
     "electron": "44.7.0",
     "electron-builder": "^26.0.12",
     "esbuild": "*",

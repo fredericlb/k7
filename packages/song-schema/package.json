@@ -70,6 +70,7 @@
   "dependencies": {
     "yaml": "^2.5.0",
     "zod": "^4.4.3",
+    "@studio/graph-model": "*",
     "@studio/engine-protocol": "*",
     "@studio/k7x": "*",
     "@studio/web-protocol": "*"

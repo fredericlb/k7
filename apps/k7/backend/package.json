@@ -31,7 +31,6 @@
     "express": "^4.21.2",
     "ssh2-sftp-client": "^12.1.1",
     "tsx": "^4.16.0",
-    "yaml": "^2.5.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -39,6 +38,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^22.10.0",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "yaml": "^2.5.0"
   }
 }

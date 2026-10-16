@@ -18,6 +18,7 @@
   "dependencies": {
     "@frediverse/ui": "*",
     "@studio/engine-browser": "*",
+    "@studio/engine-protocol": "*",
     "@studio/graph-model": "*",
     "@studio/song-schema": "*",
     "@studio/ui-chains": "*",
