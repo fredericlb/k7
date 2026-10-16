@@ -21,7 +21,8 @@
     "./hunt": "./hunt.ts",
     "./pairing": "./pairing.ts",
     "./settings": "./settings.ts",
-    "./handoff": "./handoff.ts"
+    "./handoff": "./handoff.ts",
+    "./desktop": "./desktop.ts"
   },
   "scripts": {
     "test": "vitest run",

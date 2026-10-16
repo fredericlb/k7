@@ -3,6 +3,7 @@
 
 import { openExternalSafely } from "@frediverse/electron-shell/external";
 import { line } from "@frediverse/electron-shell/log";
+import { DESKTOP_IPC, type TabRow } from "@studio/web-protocol/desktop";
 import {
   type Rectangle,
   type View,
@@ -10,7 +11,6 @@ import {
   WebContentsView,
   type WebPreferences,
 } from "electron";
-import type { TabRow } from "./preload.ts";
 import { type Destination, destination, projectKey } from "./routing.ts";
 
 interface Tab {
@@ -260,7 +260,7 @@ export class TabSet {
 
   private tell(id: number, active: boolean): void {
     const t = this.tabs.find((x) => x.id === id);
-    t?.view.webContents.send("studio:tab", { active });
+    t?.view.webContents.send(DESKTOP_IPC.tab, { active });
   }
 
   /** Only the tab in front is laid out; the rest are hidden rather than moved off-screen. */

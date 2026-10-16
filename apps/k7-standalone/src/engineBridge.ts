@@ -6,6 +6,7 @@
 import { line } from "@frediverse/electron-shell/log";
 import type { Snapshot } from "@studio/supervisor-host/hostProtocol";
 import type { SupervisorHost } from "@studio/supervisor-host/supervisorHost";
+import { DESKTOP_IPC } from "@studio/web-protocol/desktop";
 import {
   type IpcMainEvent,
   type IpcMainInvokeEvent,
@@ -48,7 +49,7 @@ function push(origin: string): void {
     if (wc.isDestroyed()) continue;
     try {
       if (new URL(wc.getURL()).origin === origin)
-        wc.send("studio:engine", state());
+        wc.send(DESKTOP_IPC.engine, state());
     } catch {
       // A page with no URL yet hears the next push, or asks.
     }
@@ -73,10 +74,10 @@ export function installEngineBridge(
   origin: string,
   host: () => SupervisorHost | null,
 ): void {
-  ipcMain.handle("studio:engine:state", (e) =>
+  ipcMain.handle(DESKTOP_IPC.engineState, (e) =>
     fromApp(e, origin) ? state() : null,
   );
-  ipcMain.on("studio:engine:cmd", (e, cmd: unknown, arg: unknown) => {
+  ipcMain.on(DESKTOP_IPC.engineCmd, (e, cmd: unknown, arg: unknown) => {
     if (!fromApp(e, origin) || typeof cmd !== "string" || !ALLOWED.has(cmd))
       return;
     const h = host();
