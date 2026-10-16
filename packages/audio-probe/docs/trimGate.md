@@ -33,9 +33,9 @@ come back as a window and not a point.
 `ampToDb` puts a zero bucket at −100 dB rather than at −Infinity, so comparisons are TOTAL:
 `-Infinity > gate` is false, but so is `NaN`, and one of those is a bug waiting to happen.
 
-That −100 is the same floor `peakPass.ts` declares as `PEAK_FLOOR_DB`, and it is deliberately not
-imported from there: this file is browser-safe and k7's clip panel imports it, while `peakPass`
-reaches for `node:child_process`. Sharing the constant would drag a process spawner into the
+That −100 is the same floor `@studio/audio-analysis`'s `peak.ts` declares as `PEAK_FLOOR_DB`, and
+it is deliberately not imported from there: this file is browser-safe and k7's clip panel imports
+it, while `peak.ts` spawns a decoder. Sharing the constant would drag a process spawner into the
 browser to save one number. The duplication is structural — see `docs/inventaire.md`.
 
 The default gate is −40 dBFS: below a room's noise floor on any usable take, above true digital
