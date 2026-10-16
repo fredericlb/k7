@@ -238,8 +238,7 @@ executable's path, and three rules follow:
   it says when it has exited, and until then the unreaped pid cannot be anyone else's.
 - **Any other pid is the engine only when the OS confirms it**: the same start time, and an
   executable named `k7-runtime`. Otherwise it is stale, and is neither adopted nor killed.
-- **What cannot be confirmed is never killed.** A pidfile holding a bare pid — what
-  `packages/engine-client/src/engineDaemon.ts` writes — or a process the OS will not describe is adopted on its port alone and
+- **What cannot be confirmed is never killed.** A pidfile holding a bare pid, with no start time to confirm it, or a process the OS will not describe is adopted on its port alone and
   left running at a stop. Adopted and found to be the engine, the file is rewritten whole.
 
 A port that answers with no pidfile naming its owner is asked of `lsof`; that owner is recorded and

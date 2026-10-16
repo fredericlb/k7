@@ -2,8 +2,8 @@
 
 One directory holds everything k7 keeps on a musician's machine: the engine's identity, the
 supervisor's settings, the plugin scan cache, the media library, the SSH keys, the merged log
-and the **workspaces**. `packages/engine-client/src/paths.ts` is the single definition of what
-is in it; `packages/song/src/studioHome.ts` is where it is.
+and the **workspaces**. `packages/engine-client/src/paths.ts` is the TypeScript definition of what
+is in it, for the entries a TypeScript process reads; `packages/song/src/studioHome.ts` is where it is.
 
 Throughout the docs it is written `<state>`.
 
@@ -52,7 +52,7 @@ misses `%APPDATA%` and `$XDG_CONFIG_HOME` entirely.
 ## The settings file has one name
 
 `<state>/engine-host.json`, pairing with `engine-host.pid`, written by the supervisor
-(`engine/k7-supervisor/src/Settings.h`). `existingSettingsPath` reads that name and no other: a
+(`engine/k7-supervisor/src/Settings.h`), which reads that name and no other: a
 second name carried for ever costs a branch in every reader plus a test that has to keep asserting
 it. A settings file under any other name is not read, so the machine starts from defaults — ports
 8765/8770, an empty audio priority, no paired server. That is a deliberate trade: the file is small,
