@@ -8,15 +8,22 @@
 // step; they diverged anyway. Any app that drives the engine from a browser uses this.
 
 import type {
-  EngineLoad,
   EngineState,
   ParamMeta,
   PluginParams,
   PresetInfo,
-  RecorderState,
   TransportAction,
-  WaveformEnvelope,
 } from "@studio/engine-protocol";
+import {
+  decodeIoLevels,
+  decodeState,
+  type IoLevels,
+  type IoLevelsFrame,
+  Outbox,
+  type PluginInfo,
+  type PluginParamInfo,
+  type StateFrame,
+} from "@studio/engine-protocol/decode";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import {
   DEFAULT_SESSION,
@@ -46,6 +53,12 @@ export type {
   TransportAction,
   WaveformEnvelope,
 } from "@studio/engine-protocol";
+export type {
+  EngineInputDevice,
+  IoLevels,
+  PluginInfo,
+  PluginParamInfo,
+} from "@studio/engine-protocol/decode";
 
 /** Marks a stretch of work for a host that watches for stalls, returning its end callback — see docs/reliability.md. */
 export type BeginActivity = (name: string) => () => void;
@@ -58,15 +71,8 @@ const noTally: Tally = () => {};
 /** Where to connect, asked again before every attempt; null means "none right now" — see docs/reliability.md. */
 export type EngineUrl = string | (() => string | null | Promise<string | null>);
 
-// The control-query shapes, mirroring engineControl.ts in @studio/engine-client, which a browser cannot import (it opens `ws`).
-
-/** One plugin the engine's scan knows about — the installed catalogue, not an instance. */
-export interface EnginePluginInfo {
-  name: string;
-  format: string;
-  manufacturer: string;
-  id: string;
-}
+/** One plugin the engine's scan knows about — the name this package has always given `PluginInfo`. */
+export type EnginePluginInfo = PluginInfo;
 
 type StateCb = (s: EngineState) => void;
 type ConnCb = (connected: boolean) => void;
@@ -74,14 +80,8 @@ type ParamsCb = (p: PluginParams) => void;
 type PresetsCb = (module: string, presets: PresetInfo[]) => void;
 type BusyCb = (busy: boolean) => void;
 type PluginListCb = (plugins: EnginePluginInfo[]) => void;
-/** One parameter of an installed plugin TYPE, in `@studio/song`'s `BuiltinParam` shape so one panel generator serves both. */
-export interface EnginePluginParam {
-  name: string;
-  min: number;
-  max: number;
-  def?: number;
-  states?: { label: string; value: number }[];
-}
+/** One parameter of an installed plugin TYPE — the name this package has always given `PluginParamInfo`. */
+export type EnginePluginParam = PluginParamInfo;
 type PluginParamListCb = (p: {
   format: string;
   id: string;
@@ -97,23 +97,6 @@ export interface EngineWarning {
   code?: string;
 }
 type WarningCb = (w: EngineWarning) => void;
-/** One wave input the engine can route a track FROM; `channels` is 1-based and matched EXACTLY — see docs/meters.md. */
-export interface EngineInputDevice {
-  name: string;
-  channels: number[];
-  enabled: boolean;
-}
-/** Peak dB per channel set asked for, in order, plus the master output. See EngineClient.ioLevels. */
-export interface IoLevels {
-  inputs: number[];
-  master: number;
-  /** The tuner's reading per input, in the same order: Hz, or 0 when nothing convincing was heard. */
-  pitches: number[];
-  /** How periodic each window was, 0..1 — an uncertain note is shown faded rather than hidden. */
-  clarity: number[];
-  /** The interface's own grouping — the one thing that explains a channel that exists and meters nothing. */
-  devices: EngineInputDevice[];
-}
 type IoLevelsCb = (l: IoLevels) => void;
 /** A LAN device waiting for the musician, as the engine lists them to the machine's own clients — docs/pairing.md. */
 export interface PairRequest {
@@ -135,23 +118,9 @@ export interface PairedDevice {
 type StreamCb = (frame: ArrayBuffer, owned: boolean) => void;
 
 // Every field any engine push carries, as one shape rather than a union: the dispatch reads `type` first and the rest is optional.
-interface EngineMessage {
+interface EngineMessage extends StateFrame, IoLevelsFrame {
   type?: string;
   session?: string; // which project the engine is talking about; absent = engine-global
-  playing?: boolean;
-  playhead?: number;
-  loop?: { on?: boolean; start?: number; end?: number }; // `state` only: the transport loop, in seconds
-  levels?: number[];
-  // `master` is the same number on `state` and on `io-levels`, so it is declared once, below, with io-levels' own fields.
-  masterClipped?: boolean; // …`state` only: did it overload since the last frame
-  inputLevels?: number[];
-  armed?: string[];
-  recordEnabled?: boolean;
-  waveform?: Record<string, WaveformEnvelope[]>;
-  platters?: Record<string, number>; // `state` only: each platter's own needle — docs/turntable.md
-  // …and `state` only too: each recorder node's light, takes and envelope — docs/recorder.md.
-  recorders?: Record<string, RecorderState>;
-  load?: EngineLoad; // `state` only, one frame in four — engine docs/load.md
   id?: string;
   // Two replies carry `params`, told apart by `type`: `plugin-param-list` (a TYPE's list) is an array, the live feeds are name -> value.
   params?: Record<string, number> | EnginePluginParam[];
@@ -163,11 +132,6 @@ interface EngineMessage {
   subject?: string;
   message?: string;
   code?: string; // `error` only: why it was refused
-  inputs?: number[]; // io-levels: one peak per channel set asked for
-  master?: number; // …and the level leaving the master — see the note beside `levels`
-  pitches?: number[]; // …the tuner's Hz per input (0 = no confident note)
-  clarity?: number[]; // …and how periodic each window was
-  devices?: EngineInputDevice[]; // io-levels: how the open interface groups its inputs
   plugins?: unknown[]; // 'plugins': the catalogue
   // 'plugin-params': which plugin was asked about, echoed back beside the `id` above so a late reply can be matched.
   format?: string;
@@ -189,7 +153,7 @@ export function endsANote(data: readonly number[]): boolean {
 export class EngineClient {
   private ws?: WebSocket;
   // Held with the time it was queued, so a stale transport verb is dropped rather than replayed — see docs/reliability.md.
-  private outbox: { at: number; s: string }[] = [];
+  private outbox = new Outbox(ENGINE_OUTBOX_MAX, ENGINE_OUTBOX_TTL_MS);
   private stateCbs = new Set<StateCb>();
   private connCbs = new Set<ConnCb>();
   private paramsCbs = new Set<ParamsCb>();
@@ -419,14 +383,10 @@ export class EngineClient {
 
   /** Replay what is still worth replaying, oldest first, and drop the rest. */
   private flushOutbox(): void {
-    const fresh = this.outbox.filter(
-      (e) => Date.now() - e.at < ENGINE_OUTBOX_TTL_MS,
-    );
-    this.outbox = [];
-    for (const e of fresh)
+    for (const s of this.outbox.drain())
       if (this.ws?.readyState === WebSocket.OPEN)
         try {
-          this.ws.send(e.s);
+          this.ws.send(s);
         } catch {
           // The link went again mid-replay: the rest is lost with it, as a blink's would be.
           break;
@@ -436,32 +396,7 @@ export class EngineClient {
   private dispatch(m: EngineMessage): void {
     // Another project's news, dropped here rather than per handler so a frame type that grows a session later is covered.
     if (!forSession(m, this.session)) return;
-    if (m.type === "state")
-      this.emitState({
-        playing: !!m.playing,
-        playhead: Number(m.playhead ?? 0),
-        ...(m.loop
-          ? {
-              loop: {
-                on: !!m.loop.on,
-                start: Number(m.loop.start ?? 0),
-                end: Number(m.loop.end ?? 0),
-              },
-            }
-          : {}),
-        levels: (m.levels ?? []) as number[],
-        inputLevels: (m.inputLevels ?? []) as number[],
-        armed: (m.armed ?? []) as string[],
-        recordEnabled: !!m.recordEnabled,
-        master: Number(m.master ?? -100),
-        masterClipped: !!m.masterClipped,
-        waveform: (m.waveform ?? {}) as Record<string, WaveformEnvelope[]>,
-        platters: (m.platters ?? {}) as Record<string, number>,
-        // Dropped here, a recorder never lights, never draws and never saves — packages/song/docs/recorderNode.md.
-        recorders: (m.recorders ?? {}) as Record<string, RecorderState>,
-        // Left absent when the frame carries none: the store keeps the last one.
-        ...(m.load ? { load: m.load } : {}),
-      });
+    if (m.type === "state") this.emitState(decodeState(m));
     else if (m.type === "plugin-params" && m.id)
       for (const cb of this.paramsCbs)
         cb({
@@ -490,14 +425,7 @@ export class EngineClient {
     }
     // `error` is handled at the bottom beside `engine-warning`: dropped here, a refused command would vanish without trace.
     else if (m.type === "io-levels")
-      for (const cb of this.ioLevelsCbs)
-        cb({
-          inputs: (m.inputs ?? []) as number[],
-          master: Number(m.master ?? -100),
-          pitches: (m.pitches ?? []) as number[],
-          clarity: (m.clarity ?? []) as number[],
-          devices: (m.devices ?? []) as EngineInputDevice[],
-        });
+      for (const cb of this.ioLevelsCbs) cb(decodeIoLevels(m));
     else if (m.type === "plugins")
       for (const cb of this.pluginListCbs)
         cb((m.plugins ?? []) as EnginePluginInfo[]);
@@ -805,9 +733,7 @@ export class EngineClient {
         return;
       } catch {}
     }
-    this.outbox.push({ at: Date.now(), s });
-    // Bounded, and the oldest goes: the newest command is the one that still describes what the person wants.
-    if (this.outbox.length > ENGINE_OUTBOX_MAX) this.outbox.shift();
+    this.outbox.push(s);
   }
 
   /** Send or drop — for what only means something on THIS socket, and must never be queued. */
