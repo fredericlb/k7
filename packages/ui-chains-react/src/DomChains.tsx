@@ -20,13 +20,7 @@ import {
   useTrackLevel,
 } from "@studio/engine-browser/store";
 import type { RecorderState } from "@studio/engine-protocol";
-import type {
-  CurveSpec,
-  WebCc,
-  WebModuleCategory,
-  WebSignal,
-  WebWidget,
-} from "@studio/graph-model";
+import type { CurveSpec, WebSignal, WebWidget } from "@studio/graph-model";
 import { hasTabs } from "@studio/graph-model/panel";
 import {
   previewBeats,
@@ -172,6 +166,14 @@ import {
   useCss,
 } from "./chainsCss";
 import {
+  type CamStore,
+  type ChainsIcons,
+  type GraphMenuCtx,
+  IconsContext,
+  type SinkPlay,
+  useIcons,
+} from "./chainsTypes";
+import {
   LcdScreenWidget,
   type LcdSet,
   LcdSetContext,
@@ -196,85 +198,8 @@ import { type TapAction, TapWidget } from "./TapWidget";
 import { ValueEditor } from "./ValueEditor";
 import { useHiddenWidgets } from "./widgetScript";
 
-/** A play button on the SINK node, opt-in and absent by default — docs/hosting.md. */
-export interface SinkPlay {
-  playing: boolean;
-  /** No engine, or nothing to play. `title` is what says which. */
-  disabled?: boolean;
-  title?: string;
-  onToggle: () => void;
-}
-
-export type GraphMenuCtx =
-  | { kind: "track"; id: string }
-  | {
-      kind: "module";
-      id: string;
-      missing?: boolean;
-      model?: boolean;
-      native?: boolean;
-    }
-  | { kind: "chain"; id: string }
-  | { kind: "sink"; id: string }
-  // A BOX right-clicked: the instance, and the template behind it — a host may offer either.
-  | { kind: "assembly"; id: string; uses: string }
-  // A rack PAD right-clicked: the node whose kit it is, and the sound — what every `node tap …` verb takes.
-  | { kind: "tap"; id: string; symbol: string }
-  // A CURVE CARD right-clicked: the curve, and the param it drives when the card is a binding rather than a free curve.
-  | { kind: "curve-card"; curve: string; module?: string; param?: string }
-  // One WIDGET right-clicked: the param it drives, and the CC already mapped to it.
-  | {
-      kind: "param";
-      /** The module the widget is drawn on. */
-      id: string;
-      /** The widget's `bind`, verbatim — `Cutoff`, or `@monitor` for a module field. */
-      param: string;
-      /** Its label, for a menu that reads as the knob does. */
-      label: string;
-      /** The CC bound to it today, if any (the module's `controller.yaml`). */
-      cc?: WebCc;
-      /** A curve drives it today — what makes removing the automation an entry. */
-      automated?: boolean;
-    };
-
-/** The glyphs a node draws itself with, supplied by the host — docs/hosting.md. */
-export interface ChainsIcons {
-  ModuleIcon: (props: {
-    category?: WebModuleCategory;
-    missing?: boolean;
-    className?: string;
-    style?: React.CSSProperties;
-  }) => React.ReactNode;
-  /** Whether a category HAS a glyph, so a node knows to leave room for one. */
-  moduleGlyph: (category?: WebModuleCategory, missing?: boolean) => unknown;
-  TrackIcon: (props: {
-    name: string;
-    video?: boolean;
-    color?: string;
-    className?: string;
-    style?: React.CSSProperties;
-  }) => React.ReactNode;
-  /**
-   * A track's name WITHOUT the instrument code its glyph was picked from — `ge.rythm-machine` reads
-   * `rythm-machine`, the prefix being said by the icon already. The host's, like the glyphs: which
-   * codes exist is `@studio/song-schema`'s table, and drawing a graph must not drag that in.
-   */
-  trackLabel?: (name: string) => string;
-}
-
-// Carried by context, not by props, and provided by DomChains itself — docs/hosting.md.
-const IconsContext = createContext<ChainsIcons | null>(null);
-
-function useIcons(): ChainsIcons {
-  const v = useContext(IconsContext);
-  if (!v) throw new Error("DomChains rendered without its icons");
-  return v;
-}
-
 // A shared, never-updated store for a graph without live params, so the hook stays unconditional.
 const EMPTY_PARAMS_STORE = new PluginParamsStore();
-
-// The PALETTE lives in `chainsCss.ts` with the stylesheet, and is re-imported here for the canvas.
 
 // A stable empty track order: a fresh `[]` per render would change every Node's props each frame.
 const EMPTY_ORDER: string[] = [];
@@ -503,7 +428,6 @@ function targetKey(t: WidgetTarget): string {
 /** Where a host parks the camera between mounts — `Cam` itself lives in camera.ts, docs/hosting.md. */
 /** A rack tap's edit, as the host receives it — packages/song/docs/racks.md. */
 export type { Cam, NodeEngines, TapAction };
-export type CamStore = React.MutableRefObject<Cam | null>;
 
 interface Channels {
   // The STORE, not its map, so one plugin's frame re-renders one control — engine-browser's docs/params.md.
@@ -5661,5 +5585,11 @@ export function DomChains({
   );
 }
 
+export type {
+  CamStore,
+  ChainsIcons,
+  GraphMenuCtx,
+  SinkPlay,
+} from "./chainsTypes";
 // Exported so a host can provide one decoder for every graph it mounts — docs/lcdScreen.md.
 export { LcdSoundsContext };
