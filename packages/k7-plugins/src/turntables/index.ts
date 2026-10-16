@@ -2,9 +2,14 @@
 // `turntables` surface, in the shell's pane ring and on a device (the same component serves
 // both). The surface TYPE is a builtin of the schema, so there is nothing to register there;
 // what is the plugin's is the drawing of it. No server half — the desk contributes no command.
+// The drawer is LAZY: a project with no desk never downloads it (../lazyDrawer.tsx).
 
 import { definePlugin, type K7Plugin } from "@studio/k7-sdk/plugin";
-import { TurntablesPane } from "./browser";
+import { lazyDrawer } from "../lazyDrawer";
+
+const TurntablesPane = lazyDrawer(() =>
+  import("./browser").then((m) => m.TurntablesPane),
+);
 
 export const turntablesPlugin: K7Plugin = definePlugin({
   id: "turntables",

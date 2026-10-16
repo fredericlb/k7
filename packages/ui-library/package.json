@@ -5,6 +5,7 @@
   "type": "module",
   "description": "The médiathèque as React — songs, samples, recordings, playlists and the hunt — mounted by k7 under /media. The host configures the API base and hands in the labels. See docs/host.md.",
   "types": "./src/index.ts",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
     "./settings": "./src/settings.ts"

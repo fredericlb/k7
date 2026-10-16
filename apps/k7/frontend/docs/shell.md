@@ -1400,7 +1400,8 @@ The icons are **lucide**, already this app's icon set. What this page adds is re
 cannot be tree-shaken: everywhere else imports the icons it draws, while "whatever the person chose" is not
 known at build time. `lucideIcons.ts` loads the set with `import("@frediverse/ui/icons/all")` and caches it.
 A menu opened before that lands draws its labels and no icons — the honest degradation, since the label is
-what an entry MEANS.
+what an entry MEANS. A menu none of whose rows carries a picked icon does not ask for the set at all: the
+first right-click of someone who never chose one costs nothing.
 
 **The set is reached through its own module, and that is what makes the split real.** `icons/all` is lucide's
 per-icon index, a module the static imports never touch, so the bundle puts all ~1850 components in a chunk
@@ -1417,21 +1418,26 @@ opening the app at `/` parsed and executed the entire editor — CodeMirror, dag
 `@studio/ui-turntables` — before drawing a single workspace row. The symptom is a window that opens and
 stays blank for seconds, which reads as the app hanging rather than as a bundle being parsed.
 
-The four screens that are not the home page are therefore `lazy()`: `App`, `EngineGate`, `ExternalIndex`,
-`SharedGate` and `Settings`. One address is ever taken, so one of them is ever fetched. `ProjectGate` loads
+The screens that are not the home page are therefore `lazy()`: `App`, `EngineGate`, `ExternalIndex`,
+`SharedGate`, the public rehearsal page, and the home's own other pages — the médiathèque, the libraries,
+the tasks and both settings pages. One address is ever taken, so one of them is ever fetched. The home's
+pages suspend INSIDE the take's holder, so a page arriving never hides a take in progress. `ProjectGate` loads
 `App` the same way and starts its download as it mounts, so the engine picker and the project gate draw while
 the editor arrives; an `import App` there would make every gate wait for the whole editor.
 
 Inside the editor, what opens on demand loads on demand: the module and assembly builders, the video export
-(its muxer is the largest dependency there is), and the icon set (above). Measured on a production build, in
-gzip:
+(its muxer is the largest dependency there is), the icon set (above), and the drawers of the DJ desk and of
+the viewport, which only a project declaring that surface fetches (`packages/k7-plugins/docs/plugins.md`).
+The médiathèque fetches CodeMirror only when a song or a playlist is opened as text
+(`packages/ui-library/docs/audit.md`). Measured on a production build, in gzip, each page with every chunk it
+imports statically:
 
 | what | loads |
 |---|---|
-| **home page** | **~220 KB** |
-| the engine picker | ~245 KB, the editor downloading beside it |
-| opening a project | ~850 KB in all |
-| on demand | icons ~150 KB, video export ~135 KB, builders ~45 KB |
+| **home page, sign-in, public rehearsal page** | **~235 KB** |
+| the médiathèque | ~320 KB |
+| opening a project | ~900 KB in all |
+| on demand | CodeMirror ~220 KB (shared with the editor), icons ~150 KB, video export ~135 KB, builders ~45 KB, the desk ~25 KB |
 
 What stays eager is what the home page actually draws: the gates, `Home`, and the shared vendor chunks.
 `Booting` is the one thing on screen while a split-out screen arrives — the window is already painted in
