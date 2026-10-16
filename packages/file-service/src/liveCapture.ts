@@ -53,13 +53,16 @@ export interface CaptureOptions {
   quietMs?: number;
   /** Full re-scan every so often, the safety net for events a watcher dropped; 0 disables it. */
   reconcileMs?: number;
-  /** The same net while the watcher is up, which reports nearly everything: a whole walk per workspace every 5 s is real disk work. */
-  watchedReconcileMs?: number;
+  /** The same net for a workspace idle for `activeMs`: a whole walk of every account's every workspace each 5 s is real disk work. */
+  idleReconcileMs?: number;
+  /** How long after its last change, write or start a workspace counts as active, and keeps the fast net. */
+  activeMs?: number;
 }
 
-/** The re-scan while no watcher runs, and while one does. */
+/** The re-scan of an active workspace, of an idle one, and what active means — docs/liveCapture.md. */
 const RECONCILE_MS = 5000;
-const WATCHED_RECONCILE_MS = 60_000;
+const IDLE_RECONCILE_MS = 60_000;
+const ACTIVE_MS = 2 * 60_000;
 
 export class LiveCapture {
   private readonly ledger = new Map<string, Known>();
@@ -69,8 +72,10 @@ export class LiveCapture {
   private sweep: NodeJS.Timeout | null = null;
   private startup: NodeJS.Timeout | null = null;
   private holds = 0;
-  /** When the whole tree was last diffed, which the watched re-scan counts from. */
+  /** When the whole tree was last diffed, which the idle re-scan counts from. */
   private lastFull = 0;
+  /** When the workspace last changed, was written, or started: what keeps it on the fast re-scan. */
+  private lastActive = Date.now();
   /** A window closed since the last flush: the next one sweeps everything rather than trust the watcher. */
   private windowClosed = false;
   private labels: string[] = [];
@@ -173,6 +178,7 @@ export class LiveCapture {
       mkdirSync(dirname(abs), { recursive: true });
       writeFileAtomic(abs, text);
     }
+    this.lastActive = Date.now();
     this.learn(file);
     if (waited) this.savePending();
   }
@@ -249,6 +255,7 @@ export class LiveCapture {
     for (const scope of scopes) this.diffScope(scope, ops, seen);
     this.recheckYoung();
     if (!ops.length) return null;
+    this.lastActive = Date.now();
     this.index?.save(this.ledger);
     return this.emit(ops);
   }
@@ -346,13 +353,17 @@ export class LiveCapture {
   /** A sweep inside a mutation window would emit half of it; the window's own release covers it. */
   private sweepUnlessHeld(force = false): void {
     if (this.holds !== 0) return;
-    const spacing = this.o.watchedReconcileMs ?? WATCHED_RECONCILE_MS;
-    if (!force && this.watcher && Date.now() - this.lastFull < spacing) return;
+    const now = Date.now();
+    // A watcher can miss a rewrite (Linux's recursive one does), so an ACTIVE workspace keeps the fast net.
+    const idle = now - this.lastActive >= (this.o.activeMs ?? ACTIVE_MS);
+    const spacing = this.o.idleReconcileMs ?? IDLE_RECONCILE_MS;
+    if (!force && idle && now - this.lastFull < spacing) return;
     this.flushNow({ full: true });
   }
 
   private touch(rel: string): void {
     if (rel.split("/").some((s) => this.o.skip(s))) return;
+    this.lastActive = Date.now();
     this.dirty.add(rel);
     this.schedule();
   }

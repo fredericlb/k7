@@ -44,12 +44,15 @@ A watcher can lose events. One started beside another missed a write made in its
 (measured on macOS, in the test that now covers it). So:
 
 - a full sweep runs one second after a capture starts;
-- another runs every five seconds while no watcher runs, and every sixty while one does.
+- another runs every five seconds while the workspace is ACTIVE — changed, written or started in
+  the last two minutes — and every sixty once it is idle.
 
 A sweep compares stamps and reads only files that moved, so it costs a walk. On a server every
 workspace of every account is captured at once, so a walk each five seconds per workspace is disk
-work proportional to everything stored, active or not; a running watcher reports nearly every
-change, and the sweep is only its net.
+work proportional to everything stored, active or not. An active one keeps the fast net, because
+the watcher it backs up does miss: Linux's recursive one can lose a rewrite, and five seconds is
+how long such an edit then waits. A write through the file service needs no sweep at all, since
+its mutation window closing sweeps on its own.
 
 A file whose mtime has not SETTLED is re-read even when its stamp matches. A same-size rewrite inside
 one timestamp tick keeps the stamp, the hazard `history.md` describes for the undo journal.
