@@ -44,9 +44,8 @@ import {
   EngineStoreProvider,
   useStoreState,
 } from "@studio/engine-browser/store";
-import type { PresetInfo, TransportAction } from "@studio/engine-protocol";
-import type { CurveSpec } from "@studio/graph-model";
-import { ViewportTab, sceneOf as videoSceneOf } from "@studio/k7-plugins/video";
+import type { PresetInfo } from "@studio/engine-protocol";
+import { ViewportTab } from "@studio/k7-plugins/video";
 import { AskHost, askConfirm } from "@studio/project-shell/ask";
 import { markActive } from "@studio/project-shell/idle";
 // The address of ONE surface, for another device to open — the same module the launch uses, so both spell a project alike (docs/external.md).
@@ -91,7 +90,7 @@ import { AudioClipPanel } from "./components/AudioClipPanel";
 import { BottomPanel } from "./components/BottomPanel";
 import { ChainsBuilder } from "./components/ChainsBuilder";
 import { ChainsTab } from "./components/ChainsTab";
-import { ClipView, type EditTarget } from "./components/ClipView";
+import { ClipView } from "./components/ClipView";
 import {
   barTint,
   CommandBar,
@@ -138,7 +137,6 @@ import { ReferencesPanel } from "./components/ReferencesPanel";
 import { RightPanel } from "./components/RightPanel";
 import { SeqGridPane } from "./components/SeqGridPane";
 import {
-  isSettingsTab,
   SETTINGS_TABS,
   SettingsPanel,
   type SettingsTab,
@@ -160,9 +158,7 @@ import {
   nodeMenu,
   withAmbient,
 } from "./contextMenu";
-import { newCurveName, type ParamKind } from "./curveDraft";
 import { desktop } from "./desktop";
-import { EXPORT_USAGE, parseExportAsk } from "./exportArgs";
 import { fixedMaster, TARGET_DB, trimFor } from "./gainTrim";
 import type { ClipGridHandle } from "./gridCaret";
 import type { HistoryMark } from "./historyMarks";
@@ -212,16 +208,8 @@ import {
   touchesSounds,
 } from "./lcdSounds";
 import { isLibraryPath, libraryModuleRef } from "./libraryTree";
-import {
-  BARE_TRANSPORT,
-  isUiLine,
-  namesLine,
-  uiVerdict,
-} from "./localCommands";
-import { headTokens, resolveEntry, resolveModuleFile } from "./localTargets";
 import { confirmMenuItem } from "./menuConfirm";
 import { midiInDeviceFor, midiInLanes } from "./midiIn";
-import { describeDownload, followDownload } from "./modelDownload";
 import {
   chainRefFromCreate,
   createForGraphCommand,
@@ -250,7 +238,7 @@ import { type FloatState, loadFloat, saveFloat } from "./floatingRect";
 import { latestAnswer } from "./latestAnswer";
 import { guardSwipeBack } from "./noSwipeBack";
 import { PaneBoundary } from "./PaneBoundary";
-import { closeTopPopin, useAnyPopin, usePopin } from "./popins";
+import { useAnyPopin, usePopin } from "./popins";
 import { entityFile, fileStem } from "./projectPaths";
 import { rememberCommand } from "./recentCommands";
 import {
@@ -261,33 +249,19 @@ import {
   UNKNOWN_RELOAD,
   useScopedKey,
 } from "./reloadScope";
-import {
-  isRollMode,
-  ROLL_MODES,
-  ROLL_PRESS,
-  type RollMode,
-  rollCondition,
-} from "./rollMode";
+import { type RollMode, rollCondition } from "./rollMode";
 import { type Pane, type Panel, viewPanes } from "./routes";
-import {
-  pictureRowId,
-  placementOf,
-  type RowKey,
-  type RowTarget,
-  trackPlacing,
-} from "./rows";
-import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
+import { pictureRowId, placementOf, type RowKey, type RowTarget } from "./rows";
 import {
   MiniTransport,
   PANE_META,
   PANEL_META,
-  PANES,
   TransportClock,
   VIEWPORT_META,
 } from "./shellMeta";
 import { tabBridge } from "./tabs/bridge";
 import { modeCondition, type TimelineMode } from "./timelineMode";
-import { isTool, TOOLS, type Tool } from "./timelineTools";
+import type { Tool } from "./timelineTools";
 import type {
   ChangedFile,
   CommandInfo,
@@ -299,15 +273,18 @@ import type {
   WebVideoTrack,
   WorkspaceInfo,
 } from "./types";
+import type {
+  CurveEdit,
+  GraphSlot,
+  LocalCtx,
+  RightPanelId,
+} from "./ui/commands/context";
+import { runLocal } from "./ui/commands/dispatch";
+import { NO_ARM_HINT } from "./ui/commands/transport";
 import { useIsMobile } from "./useIsMobile";
 import { useViewRoute } from "./useViewRoute";
 import { videoSpans } from "./videoSpans";
-import {
-  isWaveMode,
-  WAVE_MODES,
-  type WaveMode,
-  waveCondition,
-} from "./waveMode";
+import { type WaveMode, waveCondition } from "./waveMode";
 
 /** One frozen empty list, so a builder with no live plugin does not get a new array per render. */
 const EMPTY_PRESETS: PresetInfo[] = [];
@@ -316,10 +293,6 @@ const EMPTY_PRESETS: PresetInfo[] = [];
 const EMPTY_VIDEO_TRACKS: WebVideoTrack[] = [];
 // One key for every song: where the picture's window sits is a habit of this screen (floatingRect.ts).
 const VIEWPORT_FLOAT_KEY = "k7.viewportWindow";
-
-/** Why Play is refused in record mode with nothing armed — said on the button and on the status line. */
-const NO_ARM_HINT =
-  "record is on and no track is armed — arm a track, or turn record off";
 
 // The two builders open on demand, and carry an editor and a language of their own: loaded then, not with the shell.
 const ModuleBuilder = lazy(() =>
@@ -417,17 +390,7 @@ export default function App({
     node: string;
     tap: string;
   } | null>(null);
-  const [curveEdit, setCurveEdit] = useState<{
-    name: string;
-    isNew: boolean;
-    spec?: CurveSpec;
-    /** The events of the node it automates — the condition's dropdown; absent when no node is in view (`ui curve`). */
-    events?: string[];
-    /** The control a NEW curve is bound to once created (`ui automate`). */
-    bind?: { node: string; param: string };
-    /** What kind of param it drives — what shapes it may follow; absent from `ui curve`. */
-    kind?: ParamKind;
-  } | null>(null);
+  const [curveEdit, setCurveEdit] = useState<CurveEdit | null>(null);
   // The CHAINS BUILDER: a library chain being edited by its ref, `""` for the list, null closed — docs/chainsBuilder.md.
   const [openBuilder, setOpenBuilder] = useState<string | null>(null);
   /** The NODE of that chain to land on — its file name, or null for the chain itself. Not in the URL. */
@@ -664,17 +627,7 @@ export default function App({
     [],
   );
   /** Which panel has the RIGHT COLUMN, or null — one state because there is one column (docs/shell.md). */
-  const [rightPanel, setRightPanel] = useState<
-    | "settings"
-    | "playlists"
-    | "references"
-    | "tasks"
-    | "history"
-    | "share"
-    | "comments"
-    | "conflicts"
-    | null
-  >(null);
+  const [rightPanel, setRightPanel] = useState<RightPanelId | null>(null);
   /** What the History panel's hovered row touched — lit on the graph and the timeline (historyMarks.ts). */
   const [historyMark, setHistoryMark] = useState<HistoryMark | null>(null);
   /** The reference track the bar has loaded, or null for no bar — it outlives every tab, being nothing this project owns (docs/references.md). */
@@ -688,17 +641,8 @@ export default function App({
   const [commandsPage, setCommandsPage] = useState(false);
   /** Open `which`, or close it when it is already the one showing — every panel button toggles. */
   const toggleRight = useCallback(
-    (
-      which:
-        | "settings"
-        | "playlists"
-        | "references"
-        | "tasks"
-        | "history"
-        | "share"
-        | "comments"
-        | "conflicts",
-    ) => setRightPanel((cur) => (cur === which ? null : which)),
+    (which: RightPanelId) =>
+      setRightPanel((cur) => (cur === which ? null : which)),
     [],
   );
   // A conflict banner over the editor opens the conflicts panel (components/ConflictsPanel.tsx).
@@ -750,16 +694,7 @@ export default function App({
   /** What the chains slot shows INSTEAD of the graph, or null — three occupants, one state (docs/shell.md). */
   // Whether the per-track view draws its curve cards — a view toggle, writing nothing (`ui curves`).
   const [trackCurves, setTrackCurves] = useState(false);
-  const [graphSlot, setGraphSlot] = useState<
-    | { kind: "grid"; path: string; view: SeqView }
-    | { kind: "clip"; target: EditTarget }
-    | { kind: "recording" }
-    // A MIDI take rolling: its notes drawn as they are played (MidiTakeRoll.tsx).
-    | { kind: "midiTake" }
-    // One track's modules side by side, opened by a double-click on the lane's header — see docs/shell.md.
-    | { kind: "trackModules"; trackId: string }
-    | null
-  >(null);
+  const [graphSlot, setGraphSlot] = useState<GraphSlot | null>(null);
   // The STACK view: a column per lane, the MIX's last — exclusive with the mixer row.
   const [stackView, setStackView] = useState(false);
 
@@ -1807,813 +1742,90 @@ export default function App({
     [pushLog],
   );
 
-  // The shell's view commands; returns false when the line isn't one, so the caller falls through to the backend.
-  const runLocalCommand = useCallback(
-    (s: string): boolean => {
-      // View commands live under `ui`, and the pairing is enforced both ways. See docs/shell.md.
-      const prefixed = /^ui\s+/i.test(s);
-      if (prefixed) s = s.replace(/^ui\s+/i, "");
-      const line = s.toLowerCase();
-      // WHICH lines are `ui`'s is a table of its own (localCommands.ts), so a test can hold it against the palette's catalogue.
-      const isUi = isUiLine(line);
-      // The server's catalogue decides a line that shares a word with a `ui` head: `curve set` is not `ui curve set`.
-      const verdict = uiVerdict(line, prefixed, (l) => {
-        const name = commandNameOf(l, paletteRef.current);
-        return !!name && !name.startsWith("ui ");
-      });
-      if (verdict === "refuse") {
-        // Handled (true) rather than passed down: the backend has no such command either, and would say less.
-        setStatus(
-          isUi
-            ? `"${line}" is a ui command — type: ui ${line}`
-            : `"${line}" is not a ui command — type it without the ui prefix`,
-        );
-        return true;
-      }
-      // …and goes to the server, past every `ui` handler below, which would otherwise take it by its first word.
-      if (!prefixed && isUi) return false;
-      // `ui tap chain <node> <tap>` — the popin on that tap's own chain; names with a space arrive quoted.
-      if (line.startsWith("tap chain ")) {
-        const [node, tap] = [
-          ...line
-            .slice("tap chain ".length)
-            .matchAll(/"((?:[^"\\]|\\.)*)"|(\S+)/g),
-        ].map((w) => (w[1] !== undefined ? JSON.parse(`"${w[1]}"`) : w[2]));
-        if (!node || !tap) setStatus("usage: ui tap chain <node> <tap>");
-        else setTapChain({ node, tap });
-        return true;
-      }
-      // `ui curve` opens the editor on a NEW curve; `ui curve <name>` on that one, read off the graph's own curves.
-      if (line === "curve") {
-        setCurveEdit({ name: newCurveName(), isNew: true });
-        return true;
-      }
-      if (line.startsWith("curve ")) {
-        const name = s.slice("curve ".length).trim();
-        void api
-          .graph()
-          .then((g) => {
-            const spec = g.curves?.[name]?.spec;
-            if (spec) setCurveEdit({ name, isNew: false, spec });
-            else setStatus(`no curve "${name}" in this project`);
-          })
-          .catch((e) =>
-            setStatus(`ui curve: ${(e as Error).message}`, "error"),
-          );
-        return true;
-      }
-      // `ui automate <node> <param>` — the editor on the curve that control is bound to, or on a new one to bind.
-      if (line.startsWith("automate ")) {
-        const m = /^(\S+)\s+(?:"([^"]*)"|(.+))$/.exec(
-          s.slice("automate ".length).trim(),
-        );
-        if (!m) {
-          setStatus(
-            'usage: ui automate <node> <param>  (e.g. ui automate synth "Filter Freq")',
-          );
-          return true;
-        }
-        const node = m[1];
-        const param = (m[2] ?? m[3] ?? "").trim();
-        void api
-          .graph()
-          .then((g) => {
-            const step = Object.values(g.chains)
-              .flatMap((c) => c.use)
-              .find((u) => u.module === node);
-            const events = step?.events ?? [];
-            const bound = step?.automations?.find((a) => a.param === param);
-            const spec = bound ? g.curves?.[bound.curve]?.spec : undefined;
-            // A toggle or a button drives a BOOLEAN, which follows an on/off curve; any other control a number.
-            const widget = Object.values(step?.ui?.widgets ?? {}).find(
-              (w) => w.bind === param,
-            );
-            const kind: ParamKind =
-              widget?.type === "toggle" ||
-              widget?.type === "button" ||
-              spec?.type === "onoff"
-                ? "boolean"
-                : "number";
-            setCurveEdit(
-              bound && spec
-                ? { name: bound.curve, isNew: false, spec, events, kind }
-                : {
-                    name: newCurveName(),
-                    isNew: true,
-                    events,
-                    kind,
-                    bind: { node, param },
-                  },
-            );
-          })
-          .catch((e) =>
-            setStatus(`ui automate: ${(e as Error).message}`, "error"),
-          );
-        return true;
-      }
-      if (line === "global") {
-        // Back to the project's home page — there is no split to return to — closing the panel as any page change does.
-        if (full !== homePane) setPanel(null);
-        setFull(null);
-        return true;
-      }
-      // The frame is a WINDOW over the layout, so its command shows or hides it rather than fullscreening anything.
-      if (line === "viewport") {
-        if (!hasViewport)
-          setStatus(
-            "this project declares no viewport surface, so there is no picture to show.",
-          );
-        else setViewportWindow((cur) => ({ open: !cur.open }));
-        return true;
-      }
-      if ((PANES as string[]).includes(line)) {
-        // …and likewise for a pane this layout cannot fullscreen — `fullscreen` decides, as it does for the buttons and the number keys.
-        fullscreen(line as Pane);
-        return true;
-      }
-      // One page on screen, so walking the keys' owner IS walking the pages.
-      if (line === "focus next") {
-        const i = ringPanes.indexOf(full);
-        fullscreen(ringPanes[(i + 1) % ringPanes.length]);
-        return true;
-      }
-      if (line === "close") {
-        setPanel(null);
-        return true;
-      }
-      // Close the topmost overlay, whoever registered it; with nothing open the line asks for what is already true.
-      if (line === "popin close") {
-        closeTopPopin();
-        return true;
-      }
-      // Let the event go and close its panel. Escape and the footer's panel button do exactly this.
-      if (line === "slot close") {
-        closeEvent();
-        return true;
-      }
-      // The rack builder popin — the building is the browser's, so the command only OPENS it.
-      if (line === "module create rack") {
-        setRackBuilder(true);
-        return true;
-      }
-      // No `project new` or `project delete` here: making and unmaking a project is the home page's, not this shell's — packages/project-shell/docs/launch.md.
-      if (line.startsWith("file ")) {
-        openInEditor(s.slice(5).trim());
-        return true;
-      }
-      // A node's model, fetched from its module's `model_url` — the right-click's "Download model". Followed on the
-      // status line, and the graph re-read at the end, which is what takes the entry off the node's menu.
-      if (line.startsWith("model ")) {
-        const node = s.slice("model ".length).trim();
-        void api
-          .downloadModel(node)
-          .then(async ({ job }) => {
-            if (!job) {
-              setStatus(`${node}'s model is already on this machine`);
-              return;
-            }
-            const end = await followDownload(job, api.modelDownload, (j) =>
-              setStatus(describeDownload(j)),
-            );
-            if (!end.error) bumpReload();
-          })
-          .catch((e: Error) => setStatus(e.message, "error"));
-        return true;
-      }
-      if (line === "help") {
-        if (window.location.hash === "#help") closeHelp();
-        else openHelp();
-        return true;
-      }
-      // The chains builder. `""` is the LIST — the state `/chains-builder` parses to; typing it again closes.
-      if (line === "chains builder") {
-        setOpenBuilder((cur) => (cur === null ? "" : null));
-        return true;
-      }
-      /** The selection, the loop and `t` belong to whichever grid is ON SCREEN — `selection copy` excepted, at its own branch. */
-      const clipGrid = shownSlot?.kind === "clip" ? clipGridRef.current : null;
-      if (line === "select") {
-        if (clipGrid) clipGrid.toggleSelect();
-        else timelineRef.current?.toggleSelect();
-        return true;
-      }
-      if (line === "zoom") {
-        timelineRef.current?.zoomIn();
-        return true;
-      }
-      if (line === "zoom out") {
-        timelineRef.current?.zoomOut();
-        return true;
-      }
-      if (line === "zoom reset") {
-        timelineRef.current?.zoomReset();
-        return true;
-      }
-      /** `ui roll <mode>` — where a press on the piano roll goes: select, create, remove (rollMode.ts). */
-      if (namesLine(line, "roll")) {
-        const want = line.slice("roll".length).trim();
-        if (!isRollMode(want)) {
-          setStatus(`unknown mode "${want}" — ${ROLL_MODES.join(" · ")}`);
-          return true;
-        }
-        if (!rollRef.current) {
-          setStatus("no piano roll open — click a MIDI event first");
-          return true;
-        }
-        rollRef.current.setMode(want);
-        setStatus(`${want} — ${ROLL_PRESS[want]()}`);
-        return true;
-      }
-      /** `ui wave <mode>` — the waveform's picture and its gestures are ONE thing, so one verb sets both (waveMode.ts). */
-      if (namesLine(line, "wave")) {
-        const want = line.slice("wave".length).trim();
-        if (!isWaveMode(want)) {
-          setStatus(`unknown view "${want}" — ${WAVE_MODES.join(" · ")}`);
-          return true;
-        }
-        if (!waveRef.current) {
-          setStatus("no audio clip open — click one on the timeline first");
-          return true;
-        }
-        waveRef.current.setView(want);
-        return true;
-      }
-      /** `ui tool <name>` — the tool belongs to the SURFACE, so it is routed like every other pane verb. */
-      if (namesLine(line, "tool")) {
-        const want = line.slice("tool".length).trim();
-        if (!isTool(want)) {
-          setStatus(`unknown tool "${want}" — ${TOOLS.join(" · ")}`);
-          return true;
-        }
-        // Only the timeline holds tools today; the graph gets its own once it has a keyboard (docs/timeline.md).
-        timelineRef.current?.setTool(want);
-        setStatus(want === "pointer" ? "pointer" : `tool: ${want}`);
-        return true;
-      }
-      if (line === "transport locate") {
-        if (clipGrid) clipGrid.seekToCaret();
-        else timelineRef.current?.seekToCaret();
-        return true;
-      }
-      if (line === "transport loop") {
-        // The clip pane's only when IT holds the selection, as Shift+L's conditions say: a timeline range looped from
-        // the ruler's menu must not land on the clip pane open below it.
-        if (clipGrid && clipSel) clipGrid.toggleLoop();
-        else timelineRef.current?.toggleLoop();
-        return true;
-      }
-      /** `selection copy` / `selection paste` — one pair of verbs over events and notes, routed by what the clipboard holds (docs/clipEditors.md). */
-      if (line === "selection copy") {
-        /** The clip pane first, and the timeline WHEN IT HAS NOTHING — the one verb of the four that falls through (docs/clipEditors.md). */
-        const got = clipGrid?.copy() ?? timelineRef.current?.copy() ?? null;
-        if (!got) {
-          // The caret is a rectangle too, so reaching here means it was parked on nothing — and both ways of pointing are named.
-          setStatus(
-            "nothing to copy — put the caret on a clip or a note, or draw a rectangle with v",
-          );
-          return true;
-        }
-        setClipboard(got);
-        setStatus(
-          got.kind === "notes"
-            ? `copied ${got.notes.length} note(s)`
-            : `copied ${got.events.length} event(s)`,
-        );
-        return true;
-      }
-      /** `selection paste` — the CLIPBOARD says which surface, having been copied as events or as notes (clipboard.ts). */
-      if (line === "selection paste") {
-        const held = clipboardRef.current;
-        if (!held) {
-          setStatus(
-            "nothing on the clipboard — `selection copy` (Ctrl+C) something first",
-          );
-          return true;
-        }
-        const notes = held.kind === "notes";
-        const pane = notes ? clipGridRef.current : timelineRef.current;
-        if (!pane) {
-          setStatus(
-            notes
-              ? "no clip open — click a MIDI event to paste notes into it"
-              : "no timeline here",
-          );
-          return true;
-        }
-        const out = pane.pasteLine(held);
-        if (out.line) void runCommand(out.line);
-        setStatus(out.note);
-        return true;
-      }
-      /** `selection delete` — whichever surface holds a RECTANGLE, the clip grid first; with none, the open grid's caret, else the timeline's. */
-      if (line === "selection delete") {
-        const grid = clipGrid?.deleteLine ? clipGrid : null;
-        // The timeline stays mounted off screen: only the one in FRONT may lose an event to a key.
-        const timeline = activePane === "timeline" ? timelineRef.current : null;
-        const pane =
-          grid && clipSel
-            ? grid
-            : timeline && tlView.selecting
-              ? timeline
-              : (grid ?? timeline);
-        const out = pane?.deleteLine?.();
-        if (!out) {
-          setStatus("nothing to delete here");
-          return true;
-        }
-        if (out.line) void runCommand(out.line);
-        setStatus(out.note);
-        return true;
-      }
-      // The blade at the PLAYHEAD, on the caret's lane — the same line the cut tool makes, audio or picture (docs/timeline.md).
-      if (line === "selection split") {
-        const out = timelineRef.current?.splitLine(
-          store.getSnapshot().playhead,
-        );
-        if (out?.line) void runCommand(out.line);
-        setStatus(out?.note ?? "nothing to split here");
-        return true;
-      }
-      // Toggle record over the wire. Reading the live snapshot keeps this out of the deps and always flips current.
-      if (line === "transport record") {
-        engineRef.current?.setRecordEnabled(!store.getSnapshot().recordEnabled);
-        return true;
-      }
-      // One snap position either way, the ticks the timeline draws: a FRAME once it is zoomed in on a picture (docs/timeline.md).
-      if (line === "transport step next" || line === "transport step prev") {
-        const to = timelineRef.current?.stepTarget(
-          store.getSnapshot().playhead,
-          line.endsWith("next") ? 1 : -1,
-        );
-        if (to !== null && to !== undefined) seek(to);
-        return true;
-      }
-      // Replay: back to where playback last started (`replayAtRef`), then rolls again — `play` is not a toggle.
-      if (line === "transport replay") {
-        if (recordWithoutArmRef.current && !store.getSnapshot().playing) {
-          setRefusal(NO_ARM_HINT);
-          return true;
-        }
-        seek(replayAtRef.current);
-        // Deliberately the BARE verb: the seek above has already chosen a position.
-        transport("play");
-        return true;
-      }
-      /** …and so do the four bare verbs, for LATENCY — falling through to the service only when the socket cannot answer (docs/shell.md). */
-      if (BARE_TRANSPORT.includes(line)) {
-        // Play in record mode with nothing armed records nothing: refused, with the two ways out.
-        if (
-          (line === "transport play" || line === "transport replay") &&
-          recordWithoutArmRef.current &&
-          !store.getSnapshot().playing
-        ) {
-          setRefusal(NO_ARM_HINT);
-          return true;
-        }
-        // On a snapshot there IS no slow path: `transport` is already the browser player, so it always answers.
-        if (!frozen && (!connected || engineBusyRef.current)) return false;
-        transport(line.slice("transport ".length) as TransportAction);
-        return true;
-      }
-      // `rec <track>`: exactly the lane's A button — an instrument track arms in the browser, an audio track in the engine.
-      if (line === "rec" || line.startsWith("rec ")) {
-        const id = s.slice(3).trim();
-        if (!id) setStatus("usage: rec <track>");
-        else onTrackToggle(id, "arm");
-        return true;
-      }
-      // Bare `event move` opens the timeline's move mode; the backend command takes three args, so it still falls through.
-      if (line === "event move") {
-        timelineRef.current?.startMove();
-        return true;
-      }
-      // `sequence edit roll|tracker <sequence>` — bare-named, not under `ui`, since it writes to the sequence it names.
-      const seq = parseSeqEdit(s);
-      if (seq) {
-        const path = resolveSequence(
-          seq.name,
-          editorRef.current?.files() ?? [],
-        );
-        if (!seq.name) setStatus(`usage: sequence edit ${seq.view} <sequence>`);
-        else if (!path) setStatus(`no sequence "${seq.name}" in this project`);
-        else {
-          openEvent({ kind: "grid", path, view: seq.view });
-        }
-        return true;
-      }
-      // e on a clip opens its own definition — the name fuzzy-resolves to sequences/<id>.yaml or clips/<id>.yaml.
-      if (line.startsWith("edit sequence ")) {
-        openInEditor(s.slice("edit sequence ".length).trim());
-        return true;
-      }
-      if (line.startsWith("edit clip ")) {
-        openInEditor(s.slice("edit clip ".length).trim());
-        return true;
-      }
-      /** `ui review <clip>` — reopen the take review on a clip; the lane is looked up rather than asked for (docs/clipEditors.md). */
-      if (line.startsWith("review ")) {
-        const clip = s.slice("review ".length).trim();
-        if (!clip) {
-          setStatus("usage: ui review <clip>");
-          return true;
-        }
-        setReviewOn({ clip, track: trackPlacing(projectDoc, clip) });
-        // …and put the clip panel on screen: it is the ONE place a clip is drawn now.
-        openEvent({ kind: "recording" });
-        return true;
-      }
-      // Esc's rung: `runCommand` has already cancelled the pending learn, so there is nothing left to do here.
-      if (line === "midi learn cancel") return true;
-      // `ui midi learn <module> <param>` — arm the browser's Web MIDI; the BINDING is written by `module cc`.
-      if (line.startsWith("midi learn ")) {
-        armMidiLearn(s.slice("midi learn ".length).trim());
-        return true;
-      }
-      // `ui picture arm [lane]` — nothing is written: the camera is the browser's, so the arm is too.
-      if (line === "picture arm" || line.startsWith("picture arm ")) {
-        const lane = s.slice("picture arm".length).trim();
-        setVideoArmed((cur) => (!lane || cur === lane ? null : lane));
-        setStatus(
-          lane && videoArmed !== lane
-            ? `${lane} armed — record + play captures its camera onto it`
-            : "picture disarmed",
-        );
-        return true;
-      }
-
-      // --- what the footer and the timeline header draw ------------------------
-      if (line === "mixer") {
-        toggleMixer();
-        return true;
-      }
-      if (line === "stack") {
-        toggleStack();
-        return true;
-      }
-      if (line === "notes") {
-        toggleDocs();
-        return true;
-      }
-      if (line === "logs clear") {
-        clearLogs();
-        return true;
-      }
-      if (line === "ruler") {
-        timelineRef.current?.toggleRuler();
-        return true;
-      }
-      if (line === "lanes") {
-        timelineRef.current?.toggleLanes();
-        return true;
-      }
-      if (line === "automation") {
-        timelineRef.current?.toggleAutomation();
-        return true;
-      }
-      if (line === "curves") {
-        setTrackCurves((v) => !v);
-        return true;
-      }
-      // `ui panel <event|graph|mix|logs>`: the footer buttons' own toggle — naming the panel already up closes it.
-      if (line.startsWith("panel ")) {
-        const want = line.slice("panel ".length).trim();
-        const names = Object.keys(PANEL_META) as Panel[];
-        if (!names.includes(want as Panel))
-          setStatus(`usage: ui panel <${names.join("|")}>`);
-        else togglePanel(want as Panel);
-        return true;
-      }
-      // `ui surface <id>` names nothing — every surface is a PANE — and this arm exists only to say so to anyone who read the verb in the docs.
-      if (line.startsWith("surface ")) {
-        setStatus(
-          "a surface is a pane now — use `ui turntables` (or its number key). See surfaces/.",
-        );
-        return true;
-      }
-      /** `ui external <surface>` — the link that opens ONE surface on another device; it COPIES rather than navigating (docs/external.md). */
-      if (line.startsWith("external ")) {
-        const want = s.slice("external ".length).trim();
-        const hit = surfaces.find((x) => x.id === want);
-        if (!hit) {
-          setStatus(
-            surfaces.length
-              ? `no surface "${want}" — this project declares ${surfaces.map((x) => x.id).join(", ")}`
-              : "this project declares no surface — see surfaces/",
-          );
-          return true;
-        }
-        const at = parseLaunch(
-          window.location.pathname,
-          "k7",
-          import.meta.env.BASE_URL,
-        );
-        if (!at) return false; // no project in the address; nothing to hang a surface off
-        const url = externalUrl(window.location.href, at, hit.id, "k7");
-        void navigator.clipboard?.writeText(url).catch(() => {});
-        setStatus(url);
-        return true;
-      }
-      // `ui builder <module>`: the shared builder over the shell, on the MODULE file of the trio.
-      if (line.startsWith("builder ")) {
-        const arg = s.slice("builder ".length).trim();
-        const path = resolveModuleFile(arg, editorRef.current?.files() ?? []);
-        if (!path) setStatus(`no module "${arg}" in this project`);
-        else void openModuleBuilder(path, "module");
-        return true;
-      }
-      // An assembly TEMPLATE, by its ref. The PATH is the file service's to give — never one built here.
-      if (line.startsWith("assembly ")) {
-        const ref = s.slice("assembly ".length).trim();
-        void api
-          .libraryAssemblies()
-          .then(({ assemblies }) => {
-            const hit = assemblies.find((a) => a.ref === ref);
-            if (!hit) {
-              setStatus(`no assembly template "${ref}" in the library`);
-              return;
-            }
-            setAssemblyBuilder({ file: hit.file, folder: hit.path });
-          })
-          .catch((e: Error) => setStatus(e.message, "error"));
-        return true;
-      }
-
-      // --- the right-hand panels, and the one page left --------------------
-
-      // The bare lines TOGGLE, as their buttons do; naming a settings TAB always opens, never closes.
-      if (line === "settings") {
-        toggleRight("settings");
-        return true;
-      }
-      if (line === "playlists") {
-        toggleRight("playlists");
-        return true;
-      }
-      if (line === "references") {
-        toggleRight("references");
-        return true;
-      }
-      if (line === "tasks") {
-        toggleRight("tasks");
-        return true;
-      }
-      if (line === "history") {
-        toggleRight("history");
-        return true;
-      }
-      if (line === "share") {
-        toggleRight("share");
-        return true;
-      }
-      if (line === "settings commands") {
-        setCommandsPage(true);
-        return true;
-      }
-      if (line.startsWith("settings ")) {
-        const which = line.slice("settings ".length);
-        if (isSettingsTab(which)) {
-          setSettingsTab(which);
-          setRightPanel("settings");
-          return true;
-        }
-      }
-      // The one control ON the editor settings screen — a global preference, which is why it is `ui` and not a project verb.
-      if (line === "vim") {
-        void toggleVim();
-        return true;
-      }
-      if (line === "engine") {
-        onChangeEngine();
-        return true;
-      }
-      if (line === "workspace quit") {
-        onQuitWorkspace();
-        return true;
-      }
-      // Reload after logout: AuthGate is outermost, so a fresh load lands on sign-in.
-      if (line === "logout") {
-        void api.logout().then(() => window.location.reload());
-        return true;
-      }
-      if (line.startsWith("language ")) {
-        const want = line.slice("language ".length).trim();
-        if (!(locales as readonly string[]).includes(want))
-          setStatus(`usage: ui language <${locales.join("|")}>`);
-        else setLocale(want as typeof locale);
-        return true;
-      }
-      // `ui copy path <path>` — the tree's own entry: what it copies is the workspace-relative path every route takes.
-      if (line.startsWith("copy path ")) {
-        const arg = s.slice("copy path ".length).trim();
-        const path = resolveEntry(arg, editorRef.current?.entries() ?? []);
-        if (!path) setStatus(`no entry "${arg}" in this workspace`);
-        else {
-          void navigator.clipboard?.writeText(path);
-          setStatus(`copied ${path}`);
-        }
-        return true;
-      }
-      // `ui pin <path>` — to the top of the tree, or off it when it is already there.
-      if (line.startsWith("pin ")) {
-        const arg = s.slice("pin ".length).trim();
-        const path = resolveEntry(arg, editorRef.current?.entries() ?? []);
-        const pinned = path ? editorRef.current?.togglePin(path) : null;
-        if (!path) setStatus(`no file "${arg}" in this workspace`);
-        else if (pinned == null)
-          setStatus("the file tree is not on screen — the pins live in it");
-        else setStatus(`${pinned ? "pinned" : "unpinned"} ${path}`);
-        return true;
-      }
-
-      // --- the file tree's right-click menu, as commands ------------------------
-
-      // Each of these calls the SAME callback the menu item runs (see EditorHandle), including the confirm a delete asks for.
-      if (namesLine(line, "fs file new") || namesLine(line, "fs folder new")) {
-        const folder = line.startsWith("folder ");
-        const head = folder ? "fs folder new" : "fs file new";
-        const [dirArg, name] = headTokens(s.slice(head.length), 2);
-        const dir = dirArg
-          ? resolveEntry(dirArg, editorRef.current?.entries() ?? [])
-          : null;
-        if (!dirArg || !name) setStatus(`usage: ${head} <folder> <name>`);
-        else if (!dir || !editorRef.current?.isDir(dir))
-          setStatus(`no folder "${dirArg}" in this workspace`);
-        else if (folder) editorRef.current?.createFolder(dir, name);
-        else editorRef.current?.createFile(dir, name);
-        return true;
-      }
-      // The NAME, not a path: a rename leaves the entry where it is.
-      if (namesLine(line, "fs file rename")) {
-        const [pathArg, name] = headTokens(s.slice("fs file rename".length), 2);
-        const path = pathArg
-          ? resolveEntry(pathArg, editorRef.current?.entries() ?? [])
-          : null;
-        if (!pathArg || !name)
-          setStatus("usage: fs file rename <path> <new name>");
-        else if (!path) setStatus(`no entry "${pathArg}" in this workspace`);
-        else editorRef.current?.rename(path, name);
-        return true;
-      }
-      // What dragging a row onto a folder does.
-      if (namesLine(line, "fs file move")) {
-        const [pathArg, dirArg] = headTokens(s.slice("fs file move".length), 2);
-        const entries = editorRef.current?.entries() ?? [];
-        const path = pathArg ? resolveEntry(pathArg, entries) : null;
-        const dir = dirArg ? resolveEntry(dirArg, entries) : null;
-        if (!pathArg || !dirArg)
-          setStatus("usage: fs file move <path> <folder>");
-        else if (!path) setStatus(`no entry "${pathArg}" in this workspace`);
-        else if (!dir || !editorRef.current?.isDir(dir))
-          setStatus(`no folder "${dirArg}" in this workspace`);
-        else editorRef.current?.move(path, dir);
-        return true;
-      }
-      // Recycled, not erased — and confirmed, because the menu's is.
-      if (namesLine(line, "fs file delete")) {
-        const arg = s.slice("fs file delete".length).trim();
-        const path = resolveEntry(arg, editorRef.current?.entries() ?? []);
-        if (!arg) setStatus("usage: fs file delete <path>");
-        else if (!path) setStatus(`no entry "${arg}" in this workspace`);
-        else editorRef.current?.remove(path, editorRef.current.isDir(path));
-        return true;
-      }
-      // Opens the OS picker; `folder` asks for a whole directory, which a browser draws differently — see FileTree.
-      if (namesLine(line, "fs file upload")) {
-        const [dirArg, what] = headTokens(s.slice("fs file upload".length), 2);
-        const dir = dirArg
-          ? resolveEntry(dirArg, editorRef.current?.entries() ?? [])
-          : null;
-        if (!dir || !editorRef.current?.isDir(dir))
-          setStatus("usage: fs file upload <folder> [files|folder]");
-        else if (
-          !editorRef.current.pickUpload(
-            dir,
-            (what ?? "").toLowerCase() === "folder",
-          )
-        )
-          setStatus("the file tree is not on screen — the picker lives in it");
-        return true;
-      }
-
-      // --- the project ---------------------------------------------------------
-
-      // Ctrl+Z / Ctrl+Y as commands: the project-wide journal (@studio/project-shell/undo), the editor's own buffer history staying with the keys.
-      if (line === "project undo" || line === "project redo") {
-        void (line === "project redo"
-          ? runRedo(historyDeps)
-          : runUndo(historyDeps));
-        return true;
-      }
-      /** `project master fix [peak-db]` — the Fix button as a verb; local, because the trim comes from a peak only this browser saw (docs/masterMeter.md). */
-      if (namesLine(line, "project master fix")) {
-        const arg = s.slice("project master fix".length).trim();
-        const given = arg ? Number(arg) : null;
-        if (given !== null && !Number.isFinite(given)) {
-          setStatus(m["master.notADb"]({ arg }));
-          return true;
-        }
-        const pass = masterMeterRef.current?.pass();
-        if (given === null && !pass?.offered) {
-          setStatus(pass ? m["master.nothingToFix"]() : m["master.noMeter"]());
-          return true;
-        }
-        masterMeterRef.current?.take();
-        void fixClipping(given ?? (pass?.peak as number));
-        return true;
-      }
-      if (line.startsWith("project export")) {
-        // Which HALF of the project leaves is the first word now — see exportArgs.ts.
-        const ask = parseExportAsk(s.slice("project export".length));
-        if (!ask) setStatus(EXPORT_USAGE);
-        else if (ask.kind === "audio") void share.exportMix(ask.format);
-        else if (ask.kind === "timeline")
-          void share.exportTimeline(
-            ws?.activeProject ?? ".",
-            ask.format,
-            ask.lane,
-            projectDoc?.name ?? "cut",
-            runCommand,
-          );
-        else
-          void share.exportVideo(
-            videoDoc ? videoSceneOf(videoDoc, null, "export") : null,
-            ask.format,
-            ask.audio,
-            projectDoc?.name ?? "video",
-            ask.settings,
-          );
-        return true;
-      }
-      if (line === "project share k7") {
-        void share.shareK7();
-        return true;
-      }
-      if (line === "project share link") {
-        void share.shareLink();
-        return true;
-      }
-      // The dialog reports what the translation did and then offers to open the result.
-      if (line.startsWith("project import")) {
-        const arg = s.slice("project import".length).trim();
-        const path = arg
-          ? resolveEntry(arg, editorRef.current?.entries() ?? [])
-          : null;
-        if (!path)
-          setStatus(
-            "usage: project import <a .dawproject, .als or Ableton .zip of this workspace>",
-          );
-        else imp.askImport(path);
-        return true;
-      }
-      return false;
+  // What the shell's own commands may reach, rebuilt every render and read through a ref (ui/commands/context.ts).
+  const localCtx = useRef<LocalCtx | null>(null);
+  localCtx.current = {
+    setStatus,
+    setRefusal,
+    runCommand: (l) => runCommandRef.current(l),
+    isServerCommand: (l) => {
+      const name = commandNameOf(l, paletteRef.current);
+      return !!name && !name.startsWith("ui ");
     },
-    [
-      fullscreen,
-      full,
-      openEvent,
-      closeEvent,
-      shownSlot,
-      // `selection delete` goes to whichever surface holds a rectangle, and to the timeline only when it is in front.
-      clipSel,
-      tlView.selecting,
-      activePane,
-      // `ui global` closes the bottom panel only when it really changes the page.
-      homePane,
-      openInEditor,
-      armMidiLearn,
-      onTrackToggle,
-      ringPanes,
-      ws,
-      openHelp,
-      closeHelp,
-      imp,
-      engineRef,
-      store,
-      seek,
-      transport,
-      engineBusyRef,
-      // …and whether that socket is up, which decides whether the bare transport verbs are answered here or handed to the service.
-      connected,
-      frozen,
-      setFull,
-      toggleMixer,
-      toggleStack,
-      toggleDocs,
-      clearLogs,
-      togglePanel,
-      onChangeEngine,
-      onQuitWorkspace,
-      toggleVim,
-      locales,
-      setLocale,
-      historyDeps,
-      share,
-      fixClipping,
-      openModuleBuilder,
-      setRefusal,
-      hasViewport,
-      setViewportWindow,
-    ],
+    full,
+    homePane,
+    ringPanes,
+    activePane,
+    setFull,
+    fullscreen,
+    setPanel,
+    togglePanel,
+    shownSlot,
+    openEvent,
+    closeEvent,
+    hasViewport,
+    setViewportWindow,
+    openHelp,
+    closeHelp,
+    toggleRight,
+    setRightPanel,
+    setSettingsTab,
+    setCommandsPage,
+    toggleMixer,
+    toggleStack,
+    toggleDocs,
+    clearLogs,
+    setTrackCurves,
+    editorRef,
+    openInEditor: (arg) => openInEditor(arg),
+    setTapChain,
+    setCurveEdit,
+    setOpenBuilder,
+    openModuleBuilder,
+    setAssemblyBuilder,
+    setRackBuilder,
+    setReviewOn,
+    projectDoc,
+    surfaces,
+    bumpReload,
+    timelineRef,
+    clipGridRef,
+    waveRef,
+    rollRef,
+    clipSel,
+    timelineSelecting: tlView.selecting,
+    clipboardRef,
+    setClipboard,
+    store,
+    engineRef,
+    engineBusyRef,
+    connected,
+    frozen,
+    transport,
+    seek,
+    replayAtRef,
+    recordWithoutArmRef,
+    onTrackToggle,
+    armMidiLearn,
+    videoArmed,
+    setVideoArmed,
+    toggleVim,
+    onChangeEngine,
+    onQuitWorkspace,
+    locales,
+    setLocale: (l) => setLocale(l as typeof locale),
+    ws,
+    historyDeps,
+    masterMeterRef,
+    fixClipping,
+    share,
+    videoDoc,
+    imp,
+  };
+  // The shell's own commands; false when the line isn't one, so the caller falls through to the backend.
+  const runLocalCommand = useCallback(
+    (s: string): boolean => runLocal(localCtx.current as LocalCtx, s),
+    [],
   );
 
   // The arrow a module is being created on while the command RUNS — the narrower window the canvas draws a placeholder for.

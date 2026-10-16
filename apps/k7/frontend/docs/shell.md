@@ -788,7 +788,7 @@ The key listener draws a line between two groups rather than standing aside for 
 mouse click, which the listener lets a focused control keep.
 
 Space takes the **direct route when it can**. `transport play|stop|toggle|rewind` (`BARE_TRANSPORT` in
-`localCommands.ts`) are answered by the shell over the engine WebSocket — the same socket the header's
+`src/ui/commands/transport.ts`) are answered by the shell over the engine WebSocket — the same socket the header's
 play button uses. The file service route is a real cost, not a theoretical one: it sends this very
 message, but only after an HTTP round trip, after the undo journal has walked the whole project twice to
 find that a transport verb changed no file (**62 ms warm, 215 ms cold**, on a real song), and behind
@@ -1445,9 +1445,18 @@ the browser's own by then, so it only has to say "coming".
 
 ## The `ui` namespace
 
-The shell's own view commands (`LOCAL_COMMANDS` in `palette.ts`) live under a `ui` prefix, stripped in one
-place rather than by renaming every branch. Which lines are `ui`'s is a table of its own —
-`localCommands.ts` — so a test can hold it against the palette's catalogue. The pairing is **enforced both
+The shell's own commands are **one registry**, `src/ui/commands/`: each entry is a palette row — its name,
+its sentence in each language, its arguments — and the handler that runs it, grouped by what they act on.
+The palette's catalogue (`LOCAL_COMMANDS`, `LOCAL_READABLE`, `LOCAL_ARGS`) and the `ui` gate's two lists
+(`localCommands.ts`) are derived from it, and `App`'s `runLocalCommand` is a lookup in it. A command
+described in three places drifts in three ways — listed and not dispatched, dispatched and not listed,
+classified on the wrong side of the gate — and one table makes each of those unwritable; the test that
+remains (`localCommands.test.ts`) holds the table against itself. A handler reaches App only through an
+explicit context (`src/ui/commands/context.ts`), rebuilt every render and read through a ref, so the
+dispatcher never changes identity and no handler sees a stale value.
+
+The view commands live under a `ui` prefix, stripped in one place rather than by renaming every entry.
+The pairing is **enforced both
 ways**: a `ui` command typed bare is refused, and so is a non-`ui` command typed with the prefix. `ui`
 promises "touches nothing of the project, does not move the transport", and a `ui locate` that quietly
 moved the playhead would be a worse lie than having no namespace at all.
@@ -1685,6 +1694,7 @@ be revisited when the edge's path table moves is a manifest written wrong.
 |---|---|
 | the pane/view/panel tables, transport clock | `src/shellMeta.tsx` |
 | the palette catalogue and argument completion | `src/palette.ts` |
+| the shell's own commands — row and handler, one entry each | `src/ui/commands/` |
 | self-contained slices of state | `src/hooks/` — engine link, project doc, track controls, polls, logs, MIDI recording, dialogs |
 
 ## The one seam is the bottom panel's
