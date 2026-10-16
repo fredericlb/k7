@@ -16,7 +16,7 @@ import { arrayEq, useEngineState } from "@studio/engine-browser/store";
 import { projectApi } from "@studio/project-shell/project";
 import { followPointer } from "@studio/ui-timeline/drag";
 import { wheelFactor } from "@studio/ui-timeline/panZoom";
-import { Waveform } from "@studio/ui-waveform";
+import { Waveform, type WaveformHandle } from "@studio/ui-waveform";
 import {
   type ComponentProps,
   type RefObject,
@@ -34,7 +34,12 @@ import { chainOps, filterOps, processLine } from "../clipOps";
 import { clipPlayhead } from "../clipPlayhead";
 import { warpLine } from "../clipWarp";
 import type { MenuCtx } from "../contextMenu";
-import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
+import {
+  type LiveTake,
+  useLiveEnvelope,
+  useLiveSamples,
+} from "../hooks/useLiveEnvelope";
+import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { cursorOf, ModeStrip } from "../modeIcons";
 import { m } from "../paraglide/messages.js";
 import { barBeat, takeCounter } from "../takeCounter";
@@ -265,7 +270,7 @@ export function AudioClipPanel({
   useEffect(() => {
     if (wf) setBridging(false);
   }, [wf]);
-  const bridge = bridging && !rolling && live.samples.length > 0;
+  const bridge = bridging && !rolling && live.length() > 0;
   // No 'how long it ran' kept once it stops: the panel switches to the FILE, whose own length is the honest answer.
   const at = barBeat(count.beats, beatsPerBar);
 
@@ -322,7 +327,6 @@ export function AudioClipPanel({
     () => (gateOpen && wf ? trimWindow(wf.rms, wf.seconds, gate, act) : null),
     [gateOpen, wf, gate, act],
   );
-  const seconds = (live.samples.length * live.intervalMs) / 1000;
   // The window on the FILE: `asked.bars` bars from `asked.start` — the maths and its edges live in barWindow.ts.
   const win = barWindow(reach, asked.bars, tempo, beatsPerBar, asked.start);
   /** Frame the event, with a bar of context either side — what the panel opens on. */
@@ -504,7 +508,7 @@ export function AudioClipPanel({
                 : m["clip.noArmedTrack"]()}
             </span>
             <span className="font-mono tabular-nums">
-              {seconds.toFixed(1)} s
+              <LiveSeconds live={live} />
             </span>
             <Button
               size="sm"
@@ -853,13 +857,7 @@ export function AudioClipPanel({
                 {m["clip.countingIn"]()}
               </p>
             ) : rolling || (bridge && !error) ? (
-              <Waveform
-                look="spectrum"
-                envelope={live}
-                duration={seconds}
-                height={waveH}
-                currentTime={seconds}
-              />
+              <LiveTakeWave live={live} height={waveH} />
             ) : error ? (
               <p className="py-6 text-center text-sm text-red-500">{error}</p>
             ) : !clip ? (
@@ -1041,14 +1039,48 @@ function LiveWaveform({
   act,
   tempo,
   ...rest
-}: Omit<ComponentProps<typeof Waveform>, "currentTime"> & {
+}: Omit<ComponentProps<typeof Waveform>, "currentTime" | "ref"> & {
   /** The beat this event's window starts playing at, or null for a clip nothing places. */
   placedAt: number | null;
   /** The slice of the file the event plays, in file seconds. */
   act: { from: number; to: number };
   tempo: number;
 }) {
-  const playhead = useEngineState((s) => s.playhead);
-  const at = clipPlayhead(playhead, placedAt, act, tempo);
-  return <Waveform {...rest} currentTime={at ?? act.from} />;
+  const wave = useRef<WaveformHandle>(null);
+  // Steered per animation frame through the handle: the canvas is not redrawn, only its played clip and line move (docs/playhead.md).
+  usePlayheadFrames(
+    useCallback(
+      (playhead: number) => {
+        const at = clipPlayhead(playhead, placedAt, act, tempo);
+        wave.current?.setTime(at ?? act.from);
+      },
+      [placedAt, act, tempo],
+    ),
+  );
+  return <Waveform ref={wave} {...rest} />;
+}
+
+/** How long the growing take runs, a leaf re-rendering at the take's published rate and nothing around it. */
+function LiveSeconds({ live }: { live: LiveTake }) {
+  const samples = useLiveSamples(live);
+  return <>{((samples.length * live.intervalMs) / 1000).toFixed(1)} s</>;
+}
+
+/** The growing take, drawn in a LEAF: the panel does not render for its samples, only this does. */
+function LiveTakeWave({ live, height }: { live: LiveTake; height: number }) {
+  const samples = useLiveSamples(live);
+  const envelope = useMemo(
+    () => ({ intervalMs: live.intervalMs, samples }),
+    [live.intervalMs, samples],
+  );
+  const seconds = (samples.length * live.intervalMs) / 1000;
+  return (
+    <Waveform
+      look="spectrum"
+      envelope={envelope}
+      duration={seconds}
+      height={height}
+      currentTime={seconds}
+    />
+  );
 }

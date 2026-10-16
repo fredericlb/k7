@@ -115,6 +115,11 @@ Two consequences of writing the DOM rather than rendering:
 - The rAF loop runs only while the transport does, so a stopped project schedules nothing. A
   hidden tab stops rAF too; the store keeps feeding the anchor, so the first frame after the tab
   comes back is past `SEEK_EPS` and snaps. Correct by construction rather than by a special case.
+- A **hidden pane** subscribes to nothing. Panes are hidden with CSS and never unmounted, so the
+  shell says which one is drawn through `PaneVisible` (`src/paneVisible.ts`), and the hook skips
+  its subscription and its loop while it is false. Showing the pane again re-reads the store and
+  draws at once — the same path as a fresh mount. The lane meters read the same flag and select a
+  constant while hidden, so the meter-rate frames render nothing behind another pane.
 
 ## Who is on it
 
@@ -125,6 +130,8 @@ Two consequences of writing the DOM rather than rendering:
 | `PianoRoll` | `RollPlayhead` |
 | `SequencerPanel` | `StepPlayhead` — a transform and not `left`: `left` is layout, and it would relay out the grid of buttons twenty times a second |
 | `AudioClipPanel` | `LiveWaveform` — the clip panel's own line, on the FILE's axis; see below |
+| `WaveformView` | `ClipWaveform` — through `Waveform`'s `setTime` handle, which moves a CSS clip and a line and redraws no canvas (`packages/ui-waveform/docs/layers.md`) |
+| `TakesView` | `TakesPlayhead`, one per row — the view itself renders on gestures only |
 
 ### The clip panel converts before it draws
 
@@ -145,7 +152,8 @@ A warped clip is a known approximation, the same one the panel's ruler already s
 map bends time INSIDE the clip, and this reads the placement's grid — the frame, not the warp.
 
 `LiveWaveform` is a **leaf**, and that is the same rule as the beat counter beside it taken the
-other way round. The counter subscribes at whole-beat granularity *because* re-rendering on every
+other way round. It steers `Waveform` through the same handle as `ClipWaveform`, so even the leaf
+does not render per frame. The counter subscribes at whole-beat granularity *because* re-rendering on every
 frame would redraw the waveform; the mark that must move every frame is therefore put where its
 re-render reaches nothing else — not the sidebar, not the ruler, not the trim menu.
 
@@ -160,14 +168,6 @@ It is not a React reader either. The frames reach the clock through a raw
 `store.subscribe`, so no component re-renders on one: feeding a clock is not drawing, and a
 selector hook on the pane would commit its whole subtree 20 times a second to do it. See
 `picture.md`.
-
-**`WaveformView`'s line lives inside a canvas.** `currentTime` reaches
-`@studio/ui-waveform`'s `Waveform`, whose draw effect repaints the WHOLE canvas — grid, labels,
-annotations, the two pre-rasterised layer blits — on every change, and `currentTime` also picks
-the clip region for the played/unplayed progress fill. Feeding it 60 times a second would be
-three times the canvas work for a smoother line: a pessimisation, not a fix. Doing it properly
-means splitting the playhead out of that canvas onto a cheap overlay, in a package with several
-consumers. Left alone on purpose.
 
 **`useMidiRecording`'s `beatNow()` is raw, and not for a timing reason.** Folding it onto this
 clock would not degrade recorded timing: raw `anchor + elapsed` lags by whatever the last frame's

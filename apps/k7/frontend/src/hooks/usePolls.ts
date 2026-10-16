@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { isAnswer } from "../readFailure";
-import { keepIfEqual } from "../shellEquality";
+import { keepIfEqual, keepIfSame } from "../shellEquality";
 import type {
   Diagnostic,
   EngineSyncState,
@@ -31,13 +31,14 @@ export function useProjectErrors(reloadKey: number): {
       .then((r) => {
         if (!alive) return;
         setErrorCount(r.errors.length);
-        setDiagnostics(r.diagnostics);
+        // Every revision answers a fresh array, and the editor's gutter re-lints on a new one; the same findings keep the old.
+        setDiagnostics(keepIfSame(r.diagnostics));
       })
       // A blip keeps the last count: zero would tell someone a broken project is fine.
       .catch((e) => {
         if (!alive || !isAnswer(e)) return;
         setErrorCount(0);
-        setDiagnostics([]);
+        setDiagnostics(keepIfSame<Diagnostic[]>([]));
       });
     return () => {
       alive = false;

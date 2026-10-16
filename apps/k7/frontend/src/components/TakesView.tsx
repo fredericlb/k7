@@ -6,11 +6,11 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Check, Circle, Square, Trash2, X } from "@frediverse/ui/icons";
-import { useEngineState } from "@studio/engine-browser/store";
 import { setCompSpan } from "@studio/song-schema/takes";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { ModeIcon } from "../modeIcons";
 import {
   compFadeLine,
@@ -100,7 +100,20 @@ export function TakesView({
       to: Math.max(ev.to, ...ends) + PAD,
     };
   }, [ev, lengths]);
-  const playheadBeat = useEngineState((s) => (s.playhead * tempo) / 60);
+  // Each row's heard spans, kept per event and lengths so a memoised row sees the same array across a drag's renders.
+  const heardOf = useMemo(() => {
+    const out = new Map<string, { from: number; to: number }[]>();
+    for (const r of ev.rows)
+      out.set(
+        r.ref,
+        heardSpans(
+          ev,
+          r,
+          r.start + (lengths[r.ref] ?? Math.max(0, ev.to - r.start)),
+        ),
+      );
+    return out;
+  }, [ev, lengths]);
   const [sel, setSel] = useState<{ from: number; to: number } | null>(null);
   // Notes are not swept between takes: a MIDI event plays one take whole, which keeps its roll one sequence.
   const wholeOnly = ev.kind === "midi";
@@ -293,7 +306,7 @@ export function TakesView({
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto">
         {ev.rows.map((r, i) => {
-          const heard = heardSpans(ev, r, rowEnd(r));
+          const heard = heardOf.get(r.ref) ?? [];
           const label = r.own ? "event" : `take ${i + 1}`;
           return (
             <div key={r.ref} className="flex min-h-10 flex-1 basis-0">
@@ -411,15 +424,40 @@ export function TakesView({
                       style={{ left: pct(sm) }}
                     />
                   ))}
-                <div
-                  className="pointer-events-none absolute inset-y-0 w-px bg-red-500"
-                  style={{ left: pct(playheadBeat) }}
-                />
+                <TakesPlayhead view={view} tempo={tempo} />
               </div>
             </div>
           );
         })}
       </div>
     </div>
+  );
+}
+
+/** The transport line over one row, written per animation frame onto its node, so the view never renders at the engine's rate (docs/playhead.md). */
+function TakesPlayhead({
+  view,
+  tempo,
+}: {
+  view: { from: number; to: number };
+  tempo: number;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  usePlayheadFrames(
+    useCallback(
+      (seconds: number) => {
+        const el = ref.current;
+        if (!el) return;
+        const beat = (seconds * tempo) / 60;
+        el.style.left = `${((beat - view.from) / (view.to - view.from)) * 100}%`;
+      },
+      [tempo, view],
+    ),
+  );
+  return (
+    <div
+      ref={ref}
+      className="pointer-events-none absolute inset-y-0 w-px bg-red-500"
+    />
   );
 }

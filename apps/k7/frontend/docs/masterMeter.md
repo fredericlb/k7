@@ -9,6 +9,11 @@ have peaked at **-6 dB**.
 which is what the store is for: the frame arrives at 20 Hz, and reading the level in `App` would
 re-render the whole tree twenty times a second to move a bar eight pixels.
 
+The bar is **scaled, not resized**: a full-width fill with `transform: scaleX(level)` from its left
+edge, the way each lane's meter is drawn. A `width` at 20 Hz is a layout per frame, and its
+transition a layout per animation frame; a transform is neither. The fill carries no rounding of
+its own — the track's `overflow-hidden` rounds both ends, where a scaled radius would squash.
+
 ## Three things are held across a pass, not a frame
 
 The engine reports per frame; a person reads afterwards. So the meter latches:

@@ -4,10 +4,10 @@
 // MIDI its notes; both are fetched here, since a take is not in the compiled project until comped.
 
 import { parsePosition } from "@studio/song-schema/timecode";
-import { useEffect, useId, useState } from "react";
+import { memo, useEffect, useId, useMemo, useState } from "react";
 import { parse } from "yaml";
 import { api } from "../api";
-import type { TakeRow as Row } from "../takes";
+import { envelopePath, type TakeRow as Row } from "../takes";
 
 /** How many times, and how far apart, a row asks again for a take it could not read yet. */
 const RETRIES = 6;
@@ -86,7 +86,8 @@ function useMaterial(
   return mat;
 }
 
-export function TakeRow({
+/** One row, memoised: the view re-renders on every pointer move of a drag, and a row's paths do not move with it. */
+export const TakeRow = memo(function TakeRow({
   row,
   kind,
   label,
@@ -124,21 +125,16 @@ export function TakeRow({
     if (mat) onLength?.(row.ref, mat.length);
   }, [mat, row.ref, onLength]);
   const span = view.to - view.from;
+  // The envelope's path, built once per material and row start rather than per render.
+  const envelope = useMemo(
+    () =>
+      mat?.kind === "audio" ? envelopePath(mat.rms, mat.length, row.start) : "",
+    [mat, row.start],
+  );
   if (span <= 0) return null;
   const body = (() => {
     if (!mat) return null;
-    if (mat.kind === "audio") {
-      const step = mat.length / Math.max(1, mat.rms.length);
-      const peak = Math.max(1e-6, ...mat.rms);
-      // One bar per bucket, mirrored about the middle: the envelope as the waveform panel draws it.
-      const d = mat.rms
-        .map((v, i) => {
-          const h = Math.min(1, v / peak) * 0.45;
-          return `M${row.start + i * step} ${0.5 - h}h${step}v${2 * h}h${-step}Z`;
-        })
-        .join("");
-      return <path d={d} fill="currentColor" />;
-    }
+    if (mat.kind === "audio") return <path d={envelope} fill="currentColor" />;
     const keys = mat.notes.map((n) => n.k);
     const lo = Math.min(...keys, 60) - 1;
     const hi = Math.max(...keys, 72) + 1;
@@ -193,4 +189,4 @@ export function TakeRow({
       </svg>
     </div>
   );
-}
+});
