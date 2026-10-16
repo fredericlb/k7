@@ -12,7 +12,7 @@ The engine's supervisor tells a studio about the engine every five seconds. You 
 | Android app | **Settings → Studios**, or the tray: type the address and click **Connect** ([The Android app](./83-android-app.md)). |
 | Desktop app | The app's engine is listed at the app's own built-in studio. To offer a desktop computer to a remote studio, run the command-line engine on it instead. |
 
-Any address of a studio works: k7 reduces it to the studio's main address, so `play.st0.app` and `st0.app` are the same studio. Before adding it, the supervisor asks the address whether it is a k7 studio, since the heartbeat carries the engine's secret token. If it is not, nothing is added and the reason is shown, for example *https://example.org is not an k7 instance* or *… did not answer (it redirects)*. The command-line engine can run the same check on its own: `k7-supervisor --probe <address>`.
+Any address of a studio works: k7 reduces it to the studio's main address, so `docs.k7.rocks`, `app.k7.rocks` and the former `play.st0.app` and `st0.app` are the same studio. Before adding it, the supervisor asks the address whether it is a k7 studio, since the heartbeat carries the engine's secret token. If it is not, nothing is added and the reason is shown, for example *https://example.org is not an k7 instance* or *… did not answer (it redirects)*. The command-line engine can run the same check on its own: `k7-supervisor --probe <address>`.
 
 An engine can be listed at several studios at once. Removing a studio tells it at once, so the engine leaves that studio's picker immediately rather than fifteen seconds later.
 
@@ -31,7 +31,7 @@ You do not choose a path; k7 shows you the result as one latency figure. Through
 
 ### Which web pages may connect directly
 
-The engine only accepts a direct connection from a page served by a site it knows: a page on this same computer (`127.0.0.1` or `localhost`), `https://st0.app` and its subdomains, and the studios in the engine's own list. Pages from any other website are refused at once, so a site you happen to visit cannot drive your engine. A studio you add to the list counts from the engine's next start. Programs that are not browsers, such as the supervisor itself, are not affected. An `https://` page on the same network as the engine therefore usually plays over the direct peer-to-peer path, and a browser far away plays through the studio's relay.
+The engine only accepts a direct connection from a page served by a site it knows: a page on this same computer (`127.0.0.1` or `localhost`), `https://k7.rocks` and its subdomains, and the studios in the engine's own list. Pages from any other website are refused at once, so a site you happen to visit cannot drive your engine. A studio you add to the list counts from the engine's next start. Programs that are not browsers, such as the supervisor itself, are not affected. An `https://` page on the same network as the engine therefore usually plays over the direct peer-to-peer path, and a browser far away plays through the studio's relay.
 
 ### The tunnel
 

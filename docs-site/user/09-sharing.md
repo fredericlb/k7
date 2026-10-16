@@ -40,7 +40,7 @@ leave comments. You manage your links, and read the comments, from the home page
 
 Closing the panel during the steps does not stop them; only the progress bar goes away.
 
-The link looks like `https://st0.app/@shares/<token>.k7`. It only works over https.
+The link looks like `https://app.k7.rocks/@shares/<token>.k7`. It only works over https.
 
 ## What the visitor sees
 

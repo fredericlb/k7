@@ -1,6 +1,6 @@
 # The home page
 
-The home page is the site's root address with no project in it, for example `https://st0.app/`.
+The home page is the site's root address with no project in it, for example `https://app.k7.rocks/`.
 It lists your workspaces and the projects in them. Every project is opened from here, and the back
 arrow at the top left of the editor brings you back here.
 

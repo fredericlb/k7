@@ -24,7 +24,7 @@ Common heartbeat refusals:
 
 ## The engine refuses the page
 
-The engine log says `[client] refused a page from '<site>'`. The engine only accepts direct connections from pages on this computer, on `st0.app`, and on the studios in its list. If you self-host a studio, add it to the engine's studios (for the command-line engine, `registryUrls`) and restart the engine.
+The engine log says `[client] refused a page from '<site>'`. The engine only accepts direct connections from pages on this computer, on `k7.rocks` and its subdomains, and on the studios in its list. If you self-host a studio, add it to the engine's studios (for the command-line engine, `registryUrls`) and restart the engine.
 
 ## The engine is listed but marked unreachable
 

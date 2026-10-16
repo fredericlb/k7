@@ -24,7 +24,7 @@ One machine runs one supervisor. If you start a second one, it stops with `an en
 
 ## Studios and engines
 
-A **studio** is a k7 server, for example `https://st0.app` or your own. A studio keeps a list of the engines connected to it. Each engine sends a heartbeat to the studio every five seconds. If the studio hears nothing for fifteen seconds, it removes the engine from the list.
+A **studio** is a k7 server, for example `https://app.k7.rocks` or your own. A studio keeps a list of the engines connected to it. Each engine sends a heartbeat to the studio every five seconds. If the studio hears nothing for fifteen seconds, it removes the engine from the list.
 
 An engine joins a studio only when you add that studio on the engine's machine: in the desktop app this happens automatically for its own built-in studio, on the phone from its Studios list, and on the command line with the `registryUrls` key. A browser cannot add an engine to a studio. [Connecting a machine to a studio](./85-connecting-machines.md) explains how the browser then reaches the engine.
 

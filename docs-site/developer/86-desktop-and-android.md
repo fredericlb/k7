@@ -37,7 +37,7 @@ It depends on `@frediverse/electron-shell` (from the `commons/` submodule) for l
 | `preload.ts` | Exposes `__STUDIO_PORTS__` (synchronously, since pages derive service URLs at import time), `studioEngine`, `studioTab`, `studioTabs` |
 | `window.ts`, `tabs.ts`, `routing.ts` | One frameless window whose title bar is k7's `/@tabs` page; a `WebContentsView` per tab (a pinned home tab and one per project); `routing.ts` decides, purely, whether a navigation goes home, to a project tab, in place, to sign-in or to the system browser |
 | `signIn.ts` | Sign-in in the system browser (RFC 8252): a loopback listener receives a one-use code, useless without the PKCE-style verifier the main process keeps |
-| `pairSync.ts`, `server.ts` | Pair the signed-in account with a server's sync relay through the system browser; the chosen server (default `https://st0.app`, overridable with `K7_SYNC_ORIGIN`) is kept in `server.json` |
+| `pairSync.ts`, `server.ts` | Pair the signed-in account with a server's sync relay through the system browser; the chosen server (default `https://app.k7.rocks`, overridable with `K7_SYNC_ORIGIN`) is kept in `server.json` |
 
 `main.ts` sets `STUDIO_PORTS=k7=18789` in its own environment so the backend, its file services and the supervisor all derive the same loopback addresses. It clears and blocks service workers on the local origin, and treats any removal of the `studio.sid` cookie (other than an overwrite) as a sign-out, returning the window to the local user.
 
