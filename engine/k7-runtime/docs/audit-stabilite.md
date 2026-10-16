@@ -330,7 +330,7 @@ IXWebSocket's server sockets send **blocking**: `send()` spins until the peer ha
 was given, and gives up only on a socket error or a timeout — and both of its timeouts, the send
 one and the ping, default to *never*. A peer that stops reading without closing — a laptop lid, a
 stalled tunnel — is therefore a thread parked for as long as the peer stays. If that thread is the
-message thread, every apply, transport command, recorder drain and watchdog stops for every session
+message thread, every apply, transport command, recorder report and watchdog stops for every session
 while the audio plays on, which looks exactly like a hang.
 
 Two things hold it off. `Serve.cpp` builds the server with a ping (`kPingIntervalSecs`) and a send
@@ -403,8 +403,9 @@ The same pass is what gives a recorder added in place its ring.
 lapped while it reads, and the frames that fell behind are zeroed and counted, which is the one
 thing `damaged` promises (`docs/recorder.md`).
 
-The ring holds ~21.8 s at 48 kHz, because the message thread is what drains it and an apply that
-instantiates plugins or compiles Faust stalls it for seconds (`docs/recorder.md`).
+A take is written by a thread of its own, `RecorderWriter`, so an apply that instantiates plugins or
+compiles Faust neither damages it nor waits on its disk; the ring holds ~21.8 s at 48 kHz against a
+disk that stalls (`docs/recorder.md`).
 
 ## What the audio thread reads, and what it never lets through
 

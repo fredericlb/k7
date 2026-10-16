@@ -2,6 +2,9 @@
 // ring onto a wav, popping the last one, and reporting all of it for the state frame. An
 // EngineHost member file for Recording.cpp's reason: these read impl_->session(...), which lives
 // on EngineHost. Full rationale: docs/recorder.md.
+//
+// The drain runs on the writer thread (RecorderWriter.h) while a take records; the message thread
+// only starts, stops and reads. A node is touched by its owner only once remove() has returned.
 
 #include "EngineHost.h"
 
@@ -22,8 +25,7 @@ namespace studio {
 
 namespace {
 
-// How many frames one drain moves at most: ~0.5 s at 48 kHz, comfortably more than a 20 Hz tick
-// needs, so a late tick catches up in one pass instead of falling further behind every time.
+// How many frames one drain moves at most, ~0.5 s at 48 kHz: a pump repeats it until the ring is empty, so this only bounds the scratch.
 constexpr size_t kDrainChunk = 24000;
 
 // How long a node whose plugin left keeps its ring, in ms: far longer than Tracktion takes to swap in the graph without it.
@@ -66,12 +68,15 @@ void RecorderNode::openTake(const juce::File& file, double sampleRate) {
         return;
     }
     path_ = file;
-    frames_ = 0;
+    frames_.store(0, std::memory_order_relaxed);
     flushedAt_ = 0;
-    writeFailed_ = false;
+    writeFailed_.store(false, std::memory_order_release);
     rate_ = sampleRate;
-    envelope_.clear();
-    sent_ = 0;
+    {
+        std::lock_guard<std::mutex> lock(envMx_);
+        envelope_.clear();
+        sent_ = 0;
+    }
     bucketFrames_ = 0;
     ring.skipToLive();   // the take begins at the press, not at whatever is still in the ring
 }
@@ -82,49 +87,57 @@ void RecorderNode::closeTake() {
     writer_.reset();   // the stream is the writer's; closing it is what makes the file playable
 }
 
-/** Move whatever the ring holds onto disk, and grow the take's picture with it. */
+/** Move whatever the ring holds onto disk, and grow the take's picture with it — until the ring is empty. */
 void RecorderNode::pump() {
-    if (writer_ == nullptr) return;
-    auto d = ring.drain(scratch_, kDrainChunk);
-    if (d.lostFrames > 0) damaged = true;
-    if (d.frames == 0) return;
+    while (writer_ != nullptr) {
+        auto d = ring.drain(scratch_, kDrainChunk);
+        if (d.lostFrames > 0) damaged.store(true, std::memory_order_relaxed);
+        if (d.frames == 0) return;
 
-    // Deinterleaved for the writer, which takes one pointer per channel.
-    float* chans[RecorderTap::CHANNELS] = {};
-    for (int c = 0; c < RecorderTap::CHANNELS; ++c) {
-        planes_[(size_t)c].resize(d.frames);
-        for (size_t i = 0; i < d.frames; ++i)
-            planes_[(size_t)c][i] = scratch_[i * RecorderTap::CHANNELS + (size_t)c];
-        chans[c] = planes_[(size_t)c].data();
-    }
-    // A refused write is a full disk or a vanished directory, and JUCE refuses every later one too: the take ends here, damaged.
-    if (!writer_->writeFromFloatArrays(chans, RecorderTap::CHANNELS, (int)d.frames)) {
-        damaged = true;
-        writeFailed_ = true;
-        warn("recording to " + path_.getFullPathName().toStdString() +
-                 " failed — the disk is full or the folder is gone; the take keeps what was written",
-             "rec");
-        closeTake();
-        return;
-    }
-    frames_ += d.frames;
-    if ((double)(frames_ - flushedAt_) >= kFlushSeconds * rate_) {
-        writer_->flush();
-        flushedAt_ = frames_;
-    }
-
-    // …and the same samples again as min/max buckets: the card draws THIS, not the file.
-    for (size_t i = 0; i < d.frames; ++i) {
-        const float l = scratch_[i * RecorderTap::CHANNELS];
-        const float r = scratch_[i * RecorderTap::CHANNELS + 1];
-        const float lo = l < r ? l : r;
-        const float hi = l < r ? r : l;
-        if (bucketFrames_ == 0) { curMin_ = lo; curMax_ = hi; }
-        else { if (lo < curMin_) curMin_ = lo; if (hi > curMax_) curMax_ = hi; }
-        if (++bucketFrames_ >= kTakeBucket) {
-            envelope_.push_back({ curMin_, curMax_ });
-            bucketFrames_ = 0;
+        // Deinterleaved for the writer, which takes one pointer per channel.
+        float* chans[RecorderTap::CHANNELS] = {};
+        for (int c = 0; c < RecorderTap::CHANNELS; ++c) {
+            planes_[(size_t)c].resize(d.frames);
+            for (size_t i = 0; i < d.frames; ++i)
+                planes_[(size_t)c][i] = scratch_[i * RecorderTap::CHANNELS + (size_t)c];
+            chans[c] = planes_[(size_t)c].data();
         }
+        // A refused write is a full disk or a vanished directory, and JUCE refuses every later one too: the take ends here, damaged.
+        if (!writer_->writeFromFloatArrays(chans, RecorderTap::CHANNELS, (int)d.frames)) {
+            damaged.store(true, std::memory_order_relaxed);
+            warn("recording to " + path_.getFullPathName().toStdString() +
+                     " failed — the disk is full or the folder is gone; the take keeps what was written",
+                 "rec");
+            closeTake();
+            writeFailed_.store(true, std::memory_order_release);
+            return;
+        }
+        const size_t frames = frames_.load(std::memory_order_relaxed) + d.frames;
+        frames_.store(frames, std::memory_order_relaxed);
+        if ((double)(frames - flushedAt_) >= kFlushSeconds * rate_) {
+            writer_->flush();
+            flushedAt_ = frames;
+        }
+
+        // …and the same samples again as min/max buckets: the card draws THIS, not the file.
+        fresh_.clear();
+        for (size_t i = 0; i < d.frames; ++i) {
+            const float l = scratch_[i * RecorderTap::CHANNELS];
+            const float r = scratch_[i * RecorderTap::CHANNELS + 1];
+            const float lo = l < r ? l : r;
+            const float hi = l < r ? r : l;
+            if (bucketFrames_ == 0) { curMin_ = lo; curMax_ = hi; }
+            else { if (lo < curMin_) curMin_ = lo; if (hi > curMax_) curMax_ = hi; }
+            if (++bucketFrames_ >= kTakeBucket) {
+                fresh_.push_back({ curMin_, curMax_ });
+                bucketFrames_ = 0;
+            }
+        }
+        if (!fresh_.empty()) {
+            std::lock_guard<std::mutex> lock(envMx_);
+            envelope_.insert(envelope_.end(), fresh_.begin(), fresh_.end());
+        }
+        if (d.frames < kDrainChunk) return;
     }
 }
 
@@ -132,6 +145,7 @@ void RecorderNode::pump() {
  *  itself is KEPT: `rewindEnvelope` hands it out whole again for a client that has none of it. */
 RecorderNode::EnvelopeSlice RecorderNode::drainEnvelope() {
     EnvelopeSlice out;
+    std::lock_guard<std::mutex> lock(envMx_);
     out.from = sent_;
     if (sent_ < envelope_.size())
         out.points.assign(envelope_.begin() + (std::ptrdiff_t)sent_, envelope_.end());
@@ -140,7 +154,7 @@ RecorderNode::EnvelopeSlice RecorderNode::drainEnvelope() {
 }
 
 double RecorderNode::seconds() const {
-    return rate_ > 0.0 ? (double)frames_ / rate_ : 0.0;
+    return rate_ > 0.0 ? (double)frames_.load(std::memory_order_relaxed) / rate_ : 0.0;
 }
 
 // --- the host ----------------------------------------------------------------
@@ -151,7 +165,7 @@ RecorderNode& EngineHost::recorderNode(const std::string& session, const std::st
     auto& map = impl_->session(session).recorders;
     auto it = map.find(id);
     if (it == map.end())
-        it = map.emplace(id, std::make_unique<RecorderNode>()).first;
+        it = map.emplace(id, std::make_shared<RecorderNode>()).first;
     return *it->second;
 }
 
@@ -197,11 +211,12 @@ EngineHost::RecorderResult EngineHost::setRecorderRecording(const std::string& s
                            : RecorderResult{ false, "no recorder node \"" + id + "\" in this project" };
         auto& node = *held->second;
         if (!node.recording) return { true, "" };   // idempotent: two clients, one light
+        impl_->recorderWriter.remove(&node);   // the node is this thread's again once this returns
         node.pump();          // whatever is still in the ring belongs to this take
         node.closeTake();
         node.recording = false;
         node.takes.push_back({ node.path().getFullPathName().toStdString(), node.seconds(),
-                               node.damaged });
+                               node.damaged.load(std::memory_order_relaxed) });
         return { true, "" };
     }
 
@@ -225,6 +240,8 @@ EngineHost::RecorderResult EngineHost::setRecorderRecording(const std::string& s
     node.openTake(dir.getChildFile(name).getNonexistentSibling(false), rate);
     if (!node.writing()) return { false, "could not open a file for \"" + id + "\"" };
     node.recording = true;
+    // From here the writer thread drains the ring; the state tick only reads what it reports.
+    impl_->recorderWriter.add(s->recorders.at(id));
     return { true, "" };
 }
 
@@ -291,7 +308,6 @@ std::map<std::string, EngineHost::RecorderReport> EngineHost::pumpRecorders(
     const double now = juce::Time::getMillisecondCounterHiRes();
     std::erase_if(s->retiredRecorders, [now](const auto& r) { return now - r.first > kRetiredRingMs; });
     for (auto& [id, node] : s->recorders) {
-        if (node->recording && node->writing()) node->pump();
         // A take the disk refused is filed as it stands, damaged, rather than left lit with a clock that stopped.
         if (node->recording && node->writeFailed()) setRecorderRecording(session, id, false);
         RecorderReport r;
