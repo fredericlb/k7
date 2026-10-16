@@ -24,6 +24,7 @@
     "commons:sync": "git submodule update --remote --merge commons",
     "build": "npm run build --workspaces --if-present",
     "test": "node scripts/workspaces.mjs test",
+    "test:console": "node --test \"scripts/console/*.test.mjs\"",
     "typecheck": "node scripts/workspaces.mjs typecheck",
     "images": "bash commons/scripts/build-images.sh",
     "check-images": "node commons/scripts/check-image-closure.cjs",

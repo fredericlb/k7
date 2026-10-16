@@ -160,18 +160,21 @@ Every other package inherits the root `vitest.config.ts`, because vitest walks u
 package directory when it finds no config of its own. That is also why the root file's `exclude`
 list is load-bearing for packages that never read it.
 
-## The root config excludes two trees, for one reason
+## The root config excludes three trees
 
 Running `vitest run` from the repository root is the obvious thing to do, and without a guard it
-walks into other people's code:
+walks into code that is not a vitest suite:
 
 - `engine/k7-runtime/build/**` — CMake vendors Tracktion and JUCE there, and JUCE ships React demo
   apps whose `App.test.js` get collected as ours;
 - `.claude/worktrees/**` — every branch ever worked on is checked out here. A bare root run once
-  reported 667 failures that belonged to other branches.
+  reported 667 failures that belonged to other branches;
+- `scripts/console/**` — the console is outside the workspace and has no vitest: its tests are
+  `node:test` files, which vitest collects and reports as a failed suite with no tests. They run
+  with `npm run test:console` (`node --test`, no install needed).
 
-Both are excluded alongside `defaultExclude`, never instead of it: dropping `**/node_modules/**`
-would be a worse problem than either.
+All three are excluded alongside `defaultExclude`, never instead of it: dropping `**/node_modules/**`
+would be a worse problem than any of them.
 
 ## What this page does not claim
 

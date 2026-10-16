@@ -1,4 +1,4 @@
-// origin.test.mjs — the console's Origin allowlist; run with `node --test scripts/console/`.
+// origin.test.mjs — the console's Origin allowlist; run with `npm run test:console`.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";

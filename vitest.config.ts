@@ -15,6 +15,8 @@ export default defineConfig({
       "engine/k7-runtime/build-*/**",
       // Every branch ever worked on is checked out under here — see docs/tests.md.
       ".claude/worktrees/**",
+      // node:test files, run by `npm run test:console` — vitest finds no suite in them and fails.
+      "scripts/console/**",
     ],
     // Most tests here touch a real disk, and turbo runs them 30-wide — docs/tests.md.
     testTimeout: 30_000,
