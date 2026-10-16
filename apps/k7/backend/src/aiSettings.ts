@@ -4,6 +4,7 @@
 // field of the preferences document the browser reads whole and writes back whole.
 // Rationale: packages/ui-module-builder/docs/aiOrganize.md.
 
+import type { AiSettingsView } from "@studio/panel-rules/ai-organize";
 import type { PrefsStore } from "@studio/user-prefs";
 import express, { type RequestHandler } from "express";
 import { z } from "zod";
@@ -16,13 +17,6 @@ export const DEFAULT_AI_MODEL = "claude-opus-5";
 export interface AiSettings {
   apiKey?: string;
   model?: string;
-}
-
-/** What the browser may see: the model, and only enough of the key to recognise it. */
-export interface AiSettingsView {
-  model: string | null;
-  defaultModel: string;
-  keyHint: string | null;
 }
 
 /** `sk-ant-…wxyz`: enough to tell two keys apart, not enough to use one. */
