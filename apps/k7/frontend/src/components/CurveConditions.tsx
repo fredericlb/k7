@@ -16,11 +16,11 @@ import {
 import { m } from "../paraglide/messages.js";
 
 /** What each condition reads as in its select. */
-const WHEN_LABEL: Record<DraftWhen, string> = {
-  start: "start at",
-  end: "end at",
-  between: "between",
-  event: "event triggered",
+const WHEN_LABEL: Record<DraftWhen, () => string> = {
+  start: () => m["curve.whenStart"](),
+  end: () => m["curve.whenEnd"](),
+  between: () => m["curve.whenBetween"](),
+  event: () => m["curve.whenEvent"](),
 };
 
 const FIELD = "flex items-center gap-3";
@@ -43,11 +43,11 @@ export function CurveConditions({
   return (
     <div className="flex flex-col gap-2 rounded border border-border p-2">
       <div className={FIELD}>
-        <span className={LABEL}>conditions</span>
+        <span className={LABEL}>{m["curve.conditions"]()}</span>
         <span className="flex-1 text-xs text-muted-foreground">
           {conditions.length
-            ? "runs while ANY of these holds"
-            : "none — the curve always runs"}
+            ? m["curve.conditionsAny"]()
+            : m["curve.conditionsNone"]()}
         </span>
         <Button
           variant="ghost"
@@ -56,7 +56,7 @@ export function CurveConditions({
             onChange([...conditions, newCondition(events?.[0] ?? "Note On")])
           }
         >
-          <Plus className="size-3.5" /> condition
+          <Plus className="size-3.5" /> {m["curve.addCondition"]()}
         </Button>
       </div>
       {conditions.map((c, i) => (
@@ -91,7 +91,7 @@ function ConditionRow({
   const problem =
     conditionProblem(c) ??
     (c.when === "event" && events && !events.length
-      ? "this node announces no event"
+      ? m["curve.noEvent"]()
       : null);
   return (
     <div className="flex flex-col gap-2 border-t border-border pt-2">
@@ -103,7 +103,7 @@ function ConditionRow({
         >
           {DRAFT_WHENS.map((w) => (
             <option key={w} value={w}>
-              {WHEN_LABEL[w]}
+              {WHEN_LABEL[w]()}
             </option>
           ))}
         </select>
@@ -119,7 +119,7 @@ function ConditionRow({
       {opens && (
         <label className={FIELD} htmlFor={`${uid}-start`}>
           <span className={LABEL}>
-            {c.when === "between" ? "from" : "start at"}
+            {c.when === "between" ? m["curve.from"]() : m["curve.whenStart"]()}
           </span>
           <Input
             id={`${uid}-start`}
@@ -134,7 +134,7 @@ function ConditionRow({
       {closes && (
         <label className={FIELD} htmlFor={`${uid}-end`}>
           <span className={LABEL}>
-            {c.when === "between" ? "to" : "end at"}
+            {c.when === "between" ? m["curve.to"]() : m["curve.whenEnd"]()}
           </span>
           <Input
             id={`${uid}-end`}
@@ -148,7 +148,7 @@ function ConditionRow({
       )}
       {c.when === "event" && (
         <label className={FIELD} htmlFor={`${uid}-event`}>
-          <span className={LABEL}>event</span>
+          <span className={LABEL}>{m["curve.event"]()}</span>
           {events ? (
             // From a node: what it announces, and nothing it does not.
             <select
@@ -172,20 +172,20 @@ function ConditionRow({
               placeholder="Note On"
               spellCheck={false}
               className="flex-1 text-xs"
-              title="what the node the curve is plugged into announces — Note On, for now"
+              title={m["curve.eventHint"]()}
             />
           )}
         </label>
       )}
       <label className={FIELD}>
-        <span className={LABEL}>retrigger</span>
+        <span className={LABEL}>{m["curve.retrigger"]()}</span>
         <input
           type="checkbox"
           checked={c.retrigger}
           onChange={(e) => onPatch({ retrigger: e.target.checked })}
         />
         <span className="text-xs text-muted-foreground">
-          restart the curve each time this condition comes true
+          {m["curve.retriggerHint"]()}
         </span>
       </label>
       {problem && <p className="text-xs text-red-500">{problem}</p>}

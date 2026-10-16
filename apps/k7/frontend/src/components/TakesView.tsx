@@ -233,12 +233,15 @@ export function TakesView({
           }
           title={
             host.recording
-              ? "stop the take"
+              ? m["takes.stop"]()
               : sel
-                ? `record a take punched into ${pos(sel.from)} → ${pos(sel.to)}`
-                : "record a take from the event's start, the event kept as it is"
+                ? m["takes.recordPunchHint"]({
+                    from: pos(sel.from),
+                    to: pos(sel.to),
+                  })
+                : m["takes.recordHint"]()
           }
-          aria-label={host.recording ? "stop the take" : "record a take"}
+          aria-label={host.recording ? m["takes.stop"]() : m["takes.record"]()}
         >
           {host.recording ? (
             <Square className="h-3.5 w-3.5" />
@@ -247,7 +250,9 @@ export function TakesView({
           )}
         </Button>
         <span className="font-mono">
-          {sel ? `${pos(sel.from)} → ${pos(sel.to)}` : `from ${pos(ev.start)}`}
+          {sel
+            ? `${pos(sel.from)} → ${pos(sel.to)}`
+            : m["takes.fromPosition"]({ position: pos(ev.start) })}
         </span>
         {sel && (
           <Button
@@ -276,13 +281,13 @@ export function TakesView({
         <span className="ml-auto">
           {xfTool
             ? seams.length
-              ? "press near a seam and drag to size its crossfade"
-              : "no seam yet — comp a take in first"
+              ? m["takes.hintSeam"]()
+              : m["takes.hintNoSeam"]()
             : wholeOnly
-              ? "click a take to play it in place of the others"
+              ? m["takes.hintWhole"]()
               : sel
-                ? "click a take to play it over the span"
-                : "drag across the takes to choose a span"}
+                ? m["takes.hintSpan"]()
+                : m["takes.hintDrag"]()}
         </span>
       </div>
       {/* The song's bars, which a click seeks to — the one ruler of this view. */}
@@ -308,7 +313,9 @@ export function TakesView({
       <div className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto">
         {ev.rows.map((r, i) => {
           const heard = heardOf.get(r.ref) ?? [];
-          const label = r.own ? "event" : `take ${i + 1}`;
+          const label = r.own
+            ? m["takes.eventRow"]()
+            : m["takes.takeRow"]({ n: i + 1 });
           return (
             <div key={r.ref} className="flex min-h-10 flex-1 basis-0">
               <div className="flex w-24 shrink-0 items-center gap-1 px-1 text-xs">
@@ -324,12 +331,8 @@ export function TakesView({
                   variant="ghost"
                   className="ml-auto h-6 w-6 p-0"
                   onClick={() => pick(r.ref, { from: r.start, to: rowEnd(r) })}
-                  title={
-                    sel
-                      ? "play this take over the span"
-                      : "play this take wherever it was recorded"
-                  }
-                  aria-label={`use ${label}`}
+                  title={sel ? m["takes.useOverSpan"]() : m["takes.useWhole"]()}
+                  aria-label={m["takes.use"]({ label })}
                 >
                   <Check className="h-3.5 w-3.5" />
                 </Button>

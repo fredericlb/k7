@@ -55,7 +55,7 @@ type Phase =
   | { k: "cloning"; workspace: string; phase: string; percent: number | null }
   | { k: "error"; message: string; fault?: FileServiceFault; lines?: string[] }
   // The machine answered and has no such folder — its own screen, see docs/launch.md.
-  | { k: "missing"; message: string }
+  | { k: "missing"; hint?: string; detail?: string }
   // The account has no library repository, so nothing resolves and nothing retries — docs/launch.md.
   | { k: "no-libraries" }
   // The workspace opened and holds no project at all — the host app's wizard, see docs/launch.md.
@@ -109,6 +109,12 @@ export interface ProjectGateStrings {
   loading?: EngineLoadStrings;
   /** The wait for sync before it opens; English when an app passes none. */
   syncing?: SyncWaitStrings;
+  /** `@local` with no project after it — what such an address looks like; English when absent. */
+  localUsage?: string;
+  /** An address from before `@local` (a repository name) — where to open it instead; English when absent. */
+  retiredAddress?: (name: string) => string;
+  /** The label over the raw technical detail, which stays collapsed; English when absent. */
+  details?: string;
 }
 
 /**
@@ -116,7 +122,23 @@ export interface ProjectGateStrings {
  * workspace opened, and there is nothing in it yet — the home page is where one is added.
  */
 const EMPTY_WORKSPACE =
-  "this workspace holds no project yet — add one from the projects page";
+  "This workspace holds no project yet — add one from the projects page.";
+const LOCAL_USAGE =
+  "This address names no project. A project on this machine opens at /@local/<workspace>/<project> — open it from the projects page.";
+const RETIRED_ADDRESS = (name: string) =>
+  `“${name}” is an older kind of address that no longer opens anything. Open the project from the projects page instead.`;
+
+/** The raw message behind a screen, folded away: the sentence above it is what to do, this is what to report. */
+function Detail({ label, text }: { label: string; text: string }) {
+  return (
+    <details className="w-full max-w-full text-left text-xs text-muted-foreground">
+      <summary className="cursor-pointer select-none">{label}</summary>
+      <code className="mt-1 block max-w-full overflow-x-auto whitespace-pre-wrap rounded bg-muted px-2 py-1">
+        {text}
+      </code>
+    </details>
+  );
+}
 
 /** "Somebody else opened this project" — one screen, and no Retry. See docs/launch.md. */
 export function ProjectTakenOver({
@@ -263,6 +285,9 @@ export function ProjectGate({
   // By ref, and load-bearing: an inline `onIdle` would re-fire the effect below every render.
   const idleCallback = useRef(onIdle);
   idleCallback.current = onIdle;
+  // The wording by ref too: a host's inline `strings` object would otherwise re-run the resolve every render.
+  const wording = useRef(strings);
+  wording.current = strings;
   /** In an EFFECT so the flush lands after `children` has unmounted — see docs/idle.md. */
   useEffect(() => {
     if (phase.k !== "idle") return;
@@ -303,8 +328,7 @@ export function ProjectGate({
           if (!local)
             return setPhase({
               k: "missing",
-              message:
-                "@local opens a project in a workspace on this machine — `/@local/<workspace>/<projet>`.",
+              hint: wording.current.localUsage ?? LOCAL_USAGE,
             });
           configure(userEmail, local.workspace);
           // No library is not a refusal here: a song started on this machine may extend nothing
@@ -330,7 +354,7 @@ export function ProjectGate({
               if (status === 400 || status === 404)
                 return setPhase({
                   k: "missing",
-                  message: (e as Error).message,
+                  detail: (e as Error).message,
                 });
               throw e;
             }
@@ -352,8 +376,8 @@ export function ProjectGate({
         if (app === "k7" && isBench(repoName)) {
           setPhase({
             k: "cloning",
-            workspace: strings.benchWorkspace ?? "",
-            phase: strings.benchFetching ?? "",
+            workspace: wording.current.benchWorkspace ?? "",
+            phase: wording.current.benchFetching ?? "",
             percent: null,
           });
           // The project part goes with it: the machine is the side that says which address it answers.
@@ -365,7 +389,7 @@ export function ProjectGate({
             // 404 is an address under `@banc` that names nothing; 409 a library that will not mount.
             const status = (e as { status?: number }).status;
             if (status === 404 || status === 409) {
-              setPhase({ k: "missing", message: (e as Error).message });
+              setPhase({ k: "missing", detail: (e as Error).message });
               return;
             }
             throw e;
@@ -387,10 +411,7 @@ export function ProjectGate({
         // See apps/k7/frontend/docs/projects.md.
         return setPhase({
           k: "missing",
-          message:
-            `« ${repoName} » is a repository name, and this studio no longer keeps a register ` +
-            "of those: a project is a folder on this machine. Open it from the home page — " +
-            "its address will be `/@local/<espace de travail>/<projet>`.",
+          hint: (wording.current.retiredAddress ?? RETIRED_ADDRESS)(repoName),
         });
       } catch (e) {
         if (cancelled) return;
@@ -475,10 +496,12 @@ export function ProjectGate({
         <div className="flex max-w-md flex-col items-center gap-4 text-center">
           <FolderSearch className="h-10 w-10 text-amber-500" />
           <h1 className="text-lg font-semibold">{strings.missingTitle}</h1>
-          <p className="text-sm text-muted-foreground">{strings.missingBody}</p>
-          <code className="max-w-full overflow-x-auto whitespace-pre-wrap rounded bg-muted px-2 py-1 text-left text-xs">
-            {phase.message}
-          </code>
+          <p className="text-sm text-muted-foreground">
+            {phase.hint ?? strings.missingBody}
+          </p>
+          {phase.detail && (
+            <Detail label={strings.details ?? "Details"} text={phase.detail} />
+          )}
           <button
             type="button"
             className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
@@ -599,9 +622,10 @@ export function ProjectGate({
                 : // The probe didn't run (a clone failed, not the service): the message says it.
                   strings.bothBody}
           </p>
-          <code className="max-w-full overflow-x-auto whitespace-pre-wrap rounded bg-muted px-2 py-1 text-left text-xs">
-            {phase.lines?.length ? phase.lines.join("\n") : phase.message}
-          </code>
+          <Detail
+            label={strings.details ?? "Details"}
+            text={phase.lines?.length ? phase.lines.join("\n") : phase.message}
+          />
           <div className="flex items-center gap-2">
             <button
               type="button"

@@ -288,7 +288,7 @@ export function PlaylistPane({
           title={cannotAdd}
           onClick={() => setSearching((s) => !s)}
         >
-          <Search className="mr-1 h-4 w-4" /> Chercher un morceau
+          <Search className="mr-1 h-4 w-4" /> {m["media.playlists.search"]()}
         </Button>
         {/* The night-before job, here rather than on the desk because it is about the SET LIST and not about one record. */}
         <Button
@@ -428,7 +428,8 @@ export function PlaylistPane({
                 title={cannotAdd}
                 onClick={() => setSearching(true)}
               >
-                <Search className="mr-1 h-4 w-4" /> Chercher un morceau
+                <Search className="mr-1 h-4 w-4" />{" "}
+                {m["media.playlists.search"]()}
               </Button>
             )}
           </div>

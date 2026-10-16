@@ -93,7 +93,7 @@ function ReaderCard({
           onClick={() => onSetFrom(reader.ref, ref.current?.currentTime ?? 0)}
           title={m["video.setFromHint"]()}
         >
-          Set From
+          {m["video.setFrom"]()}
         </Button>
         <Button
           size="sm"
@@ -102,7 +102,7 @@ function ReaderCard({
           onClick={() => onSetTo(reader.ref, ref.current?.currentTime ?? 0)}
           title={m["video.setToHint"]()}
         >
-          Set To
+          {m["video.setTo"]()}
         </Button>
       </div>
     </div>
@@ -124,9 +124,7 @@ export function VideoReadersStrip({
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center justify-between border-b border-border px-2 py-1 text-xs text-muted-foreground">
-        <span>
-          clip readers · Set From / Set To write the placement under the cursor
-        </span>
+        <span>{m["video.readersHeader"]()}</span>
         <button
           type="button"
           className="rounded px-1 text-muted-foreground hover:text-foreground"

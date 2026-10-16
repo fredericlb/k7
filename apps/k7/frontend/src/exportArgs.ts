@@ -51,7 +51,7 @@ const isVideo = (s: string): s is VideoFormat =>
   (VIDEO_FORMATS as readonly string[]).includes(s);
 
 /** The usage line, built from the vocabularies above so it cannot drift from them. */
-export const EXPORT_USAGE = `usage: project export audio <${MIX_FORMATS.join("|")}> · project export video <${VIDEO_FORMATS.join("|")}> [<${MIX_FORMATS.join("|")}>|none] [size=720p|1280x720] [quality=${EXPORT_QUALITIES.join("|")}] [from=<t>] [to=<t>] · project export timeline <${TIMELINE_FORMATS.join("|")}> [lane]`;
+export const EXPORT_USAGE = `project export audio <${MIX_FORMATS.join("|")}> · project export video <${VIDEO_FORMATS.join("|")}> [<${MIX_FORMATS.join("|")}>|none] [size=720p|1280x720] [quality=${EXPORT_QUALITIES.join("|")}] [from=<t>] [to=<t>] · project export timeline <${TIMELINE_FORMATS.join("|")}> [lane]`;
 
 /**
  * Read the rest of a `project export` line, or null when it says nothing this understands.
