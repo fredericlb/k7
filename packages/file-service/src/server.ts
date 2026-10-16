@@ -64,7 +64,7 @@ import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
 import { renderRouter } from "./routes/render.ts";
 import { installServiceLog } from "./serviceLog.ts";
-import { exitOnSignals } from "./shutdown.ts";
+import { exitOnSignals, exitOnStdinEnd } from "./shutdown.ts";
 import { rootDir, workspaceRoot } from "./slug.ts";
 import {
   attachAllWorkspaces,
@@ -543,5 +543,5 @@ const server = app.listen(FILE_PORT, HOST, () => {
       console.log(`   engine link idle, dropped: ${s}`);
   }, 60_000).unref();
 });
-// A quit or a redeploy stops this process by signal: it stops accepting and exits 0 (docs/shutdown.md).
-exitOnSignals(server);
+// A quit or a redeploy stops this process by signal, or by its stdin closing: it stops accepting and exits 0 (docs/shutdown.md).
+exitOnStdinEnd(exitOnSignals(server));

@@ -39,7 +39,11 @@ link in the same tab. `src/routing.ts` is the whole table, tested in `src/routin
 
 A server REDIRECT to another origin is caught too (`will-redirect`), since it never passes
 `will-navigate`. Another origin goes to the browser because a tab has no address bar, and a sign-in must not happen
-in one (RFC 8252 §8.12). A project is keyed by its address up to the project folder, so a second
+in one (RFC 8252 §8.12). "The browser" means `openExternalSafely`
+(`commons/packages/electron-shell/docs/shell.md`): only an `http:`, `https:` or `mailto:` URL
+leaves, and any other scheme a page links to is dropped. A window a page opened — an `@external`
+surface — is held to the same table: it keeps surfaces and the server's paths, and a link to the
+home page, a project or another origin goes where it would from a tab. A project is keyed by its address up to the project folder, so a second
 link to a project, or a different view of it, selects the tab that holds it.
 
 The home tab has no close button, and `TabSet.close` refuses it as well: it is where every other

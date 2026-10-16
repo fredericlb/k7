@@ -1,11 +1,18 @@
 // instances.test.ts — the cap, the eviction, the crash backoff and the gated health probe, over
 // FAKE file services: a script that answers its own secret only, and one that dies once up.
 
+import { EventEmitter } from "node:events";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { Instances, Unavailable } from "./instances.ts";
+import { PassThrough } from "node:stream";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  Instances,
+  type Stoppable,
+  stopChild,
+  Unavailable,
+} from "./instances.ts";
 
 const GATED = `
 import { createServer } from "node:http";
@@ -109,6 +116,15 @@ describe("Instances", () => {
     expect((await inst.get("a@x")).child.pid).not.toBe(a.child.pid);
   });
 
+  it("stopAll closes each child's stdin and waits for it to exit", async () => {
+    const STDIN = `${GATED}\nprocess.stdin.on("end", () => setTimeout(() => process.exit(0), 200));\nprocess.stdin.resume();\nprocess.on("SIGTERM", () => {});`;
+    writeFileSync(join(dir, "stdin.mjs"), STDIN);
+    const inst = make({ command: run("stdin.mjs"), stopGraceMs: 10_000 });
+    const a = await inst.get("a@x");
+    await inst.stopAll();
+    expect(a.child.exitCode).toBe(0);
+  });
+
   it("does not take a port answered under another secret for its own", async () => {
     const owner = make({});
     const a = await owner.get("a@x");
@@ -121,5 +137,59 @@ describe("Instances", () => {
       pickPort: async () => a.port,
     });
     await expect(thief.get("b@x")).rejects.toThrow(/another secret/);
+  });
+});
+
+/** A child that exits on its stdin's end when `obeys`, and on SIGKILL always. */
+function fakeChild(obeys: boolean) {
+  const ee = new EventEmitter();
+  const stdin = new PassThrough();
+  const kill = vi.fn((sig?: string) => {
+    if (sig === "SIGKILL") queueMicrotask(() => ee.emit("exit", null, sig));
+    return true;
+  });
+  if (obeys) stdin.on("finish", () => ee.emit("exit", 0, null));
+  const child = {
+    pid: 1,
+    exitCode: null,
+    signalCode: null,
+    stdin,
+    kill,
+    once: ee.once.bind(ee),
+  } as unknown as Stoppable;
+  return { child, kill };
+}
+
+describe("stopChild", () => {
+  it("asks through stdin and SIGTERM, and kills nothing that obeys", async () => {
+    const { child, kill } = fakeChild(true);
+    await stopChild(child, 1_000, false);
+    expect(kill).toHaveBeenCalledWith("SIGTERM");
+    expect(kill).not.toHaveBeenCalledWith("SIGKILL");
+  });
+
+  it("sends no signal on Windows, where a kill is not a request", async () => {
+    const { child, kill } = fakeChild(true);
+    await stopChild(child, 1_000, true);
+    expect(kill).not.toHaveBeenCalled();
+  });
+
+  it("waits the grace, then kills a child that does not stop", async () => {
+    vi.useFakeTimers();
+    try {
+      const { child, kill } = fakeChild(false);
+      let done = false;
+      const p = stopChild(child, 5_000, true).then(() => {
+        done = true;
+      });
+      await vi.advanceTimersByTimeAsync(4_900);
+      expect(done).toBe(false);
+      expect(kill).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(200);
+      await p;
+      expect(kill).toHaveBeenCalledWith("SIGKILL");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
