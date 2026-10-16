@@ -43,11 +43,12 @@ export function formatSecondTick(
 /** `m:ss`, plus decimals only when the STEP needs them — a 30s ruler does not say "1:30.0". */
 export function formatClock(sec: number, step = 1): string {
   const neg = sec < 0;
-  const s = Math.abs(sec);
-  const m = Math.floor(s / 60);
-  const rest = s - m * 60;
   // Two decimals below a tenth of a second, one below a second, none at or above it.
   const digits = step < 0.1 ? 2 : step < 1 ? 1 : 0;
+  // Rounded BEFORE the split, so 59.7 reads 1:00 and never 0:60.
+  const s = Math.round(Math.abs(sec) * 10 ** digits) / 10 ** digits;
+  const m = Math.floor(s / 60);
+  const rest = s - m * 60;
   const ss = rest.toFixed(digits).padStart(digits ? 3 + digits : 2, "0");
   return `${neg ? "-" : ""}${m}:${ss}`;
 }

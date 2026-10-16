@@ -7,15 +7,13 @@
 import { Button } from "@frediverse/ui/button";
 import type { LucideIcon } from "@frediverse/ui/icons";
 import { Pause, Play, X } from "@frediverse/ui/icons";
+import { formatClock } from "@studio/ui-timeline/ticks";
 import type { ReactNode } from "react";
 import { useMediaSession } from "./mediaSession";
 
 /** mm:ss — one clock, so two readings of one transport never disagree by a rounding. */
 export function clock(sec: number): string {
-  if (!Number.isFinite(sec) || sec < 0) return "0:00";
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
+  return formatClock(Number.isFinite(sec) && sec > 0 ? Math.floor(sec) : 0);
 }
 
 /** Every string on the bar, since the two hosts translate through different catalogues. */

@@ -51,6 +51,12 @@ describe("formatClock", () => {
     expect(formatClock(90.25, 0.04)).toBe("1:30.25");
     expect(formatClock(5, 1)).toBe("0:05");
   });
+
+  it("carries a rounded-up second into the minute", () => {
+    expect(formatClock(59.7)).toBe("1:00");
+    expect(formatClock(59.97, 0.5)).toBe("1:00.0");
+    expect(formatClock(-59.7)).toBe("-1:00");
+  });
 });
 
 describe("nearestTick", () => {

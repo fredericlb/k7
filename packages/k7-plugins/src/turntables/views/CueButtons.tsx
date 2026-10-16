@@ -1,6 +1,7 @@
 // CueButtons.tsx — a deck's eight hot cues. A short press JUMPS to one, a long press SETS it
 // at the moment the finger landed. See ../../docs/cues.md.
 
+import { formatClock } from "@studio/ui-timeline/ticks";
 import { useEffect, useRef, useState } from "react";
 import { CUE_COLOURS } from "../deckVocabulary";
 
@@ -84,18 +85,12 @@ function Cue({
           ? `cue ${slot + 1} — this deck needs a song`
           : at === null
             ? `cue ${slot + 1} — press and hold to put it here`
-            : `cue ${slot + 1} at ${mmss(at)} — tap to go there, hold to set it again`
+            : `cue ${slot + 1} at ${formatClock(Math.max(0, at))} — tap to go there, hold to set it again`
       }
     >
       {slot + 1}
     </button>
   );
-}
-
-/** `m:ss`, the way a deck reads a position. */
-function mmss(seconds: number): string {
-  const s = Math.max(0, Math.round(seconds));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 /** A deck's eight cues, drawn on an EMPTY deck too — greyed says "not yet". See ../../docs/cues.md. */

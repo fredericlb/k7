@@ -3,6 +3,7 @@
 // the parts that decide what you SEE are testable. See docs/waveform.md.
 
 import type { FileEnvelope } from "@studio/audio-probe/waveform";
+import { formatClock } from "@studio/ui-timeline/ticks";
 import { BEATS_PER_BAR, beatPhase, firstBeatAfter } from "./beats";
 
 /** What the file service hands back for one cached song, less the cache's own fingerprint. */
@@ -81,10 +82,8 @@ function gridIn(
 
 /** Seconds as `m:ss`, and `-m:ss` for what is left — what makes the playhead's MOVEMENT visible. */
 export function mmss(seconds: number): string {
-  const sign = seconds < 0 ? "-" : "";
-  const whole = Math.floor(Math.abs(seconds));
-  const m = Math.floor(whole / 60);
-  return `${sign}${m}:${String(whole % 60).padStart(2, "0")}`;
+  // Floored on the magnitude, so the last fraction of a track still reads -0:00.
+  return `${seconds < 0 ? "-" : ""}${formatClock(Math.floor(Math.abs(seconds)))}`;
 }
 
 /** The transients inside `[from, to]` — a plain filter, they are already sorted and in file seconds. */
