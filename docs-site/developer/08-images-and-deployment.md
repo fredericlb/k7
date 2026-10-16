@@ -25,12 +25,12 @@ The stages:
 
 | Stage | Base | Does |
 |---|---|---|
-| `manifests` | `node:22-alpine` | Copies the repository and extracts only every `package.json`, `package-lock.json` and `.npmrc`, so the install layers depend on manifests alone. |
-| `toolchain` | `node:22-alpine` | Adds `python3`, `make`, `g++` (for `ssh2`'s optional native crypto binding) and the manifests. |
+| `manifests` | `node:24-alpine` | Copies the repository and extracts only every `package.json`, `package-lock.json` and `.npmrc`, so the install layers depend on manifests alone. |
+| `toolchain` | `node:24-alpine` | Adds `python3`, `make`, `g++` (for `ssh2`'s optional native crypto binding) and the manifests. |
 | `deps` | `toolchain` | `npm ci` of the whole workspace, with an npm cache mount. |
 | `frontend-build` | `deps` | Copies the sources, sets `VITE_APP_VERSION` from the `APP_VERSION` build argument, runs `vite build` for `k7-frontend`. No typecheck here: CI typechecks separately. |
 | `backend-deps` | `toolchain` | `npm ci --workspace k7-backend --omit=dev`: the backend's production dependency closure only. |
-| `runtime` | `node:22-alpine` | Adds `yt-dlp`, `ffmpeg` and `mpv`; copies the backend's `node_modules`, **the whole repository**, and the built frontend into `apps/k7/frontend/dist`. |
+| `runtime` | `node:24-alpine` | Adds `yt-dlp`, `ffmpeg` and `mpv`; copies the backend's `node_modules`, **the whole repository**, and the built frontend into `apps/k7/frontend/dist`. |
 
 The whole repository is copied because the `@studio/*` and `@frediverse/*` entries in
 `node_modules` are symlinks to workspace source folders, consumed as TypeScript: a package left out
@@ -42,7 +42,6 @@ Runtime settings:
 |---|---|
 | Command | `tsx src/server.ts` in `apps/k7/backend` |
 | `PORT` | `8789` (exposed) |
-| `NODE_OPTIONS` | `--experimental-sqlite` |
 | Volumes | `/data` (`STUDIO_PREFS_DIR=/data/prefs`), `/library` (`STUDIO_MEDIATEK`), `/workspaces`, `/rehearsal-data` (`K7_DATA_DIR`) |
 
 The image does not start from the `commons` base runtime image and has no nginx: the backend serves
@@ -52,7 +51,7 @@ the SPA itself.
 
 `engine/docker/Dockerfile`:
 
-- **`build`** (`node:22-bookworm`): installs the C++ toolchain, Ninja, ccache and the JUCE Linux
+- **`build`** (`node:24-bookworm`): installs the C++ toolchain, Ninja, ccache and the JUCE Linux
   dependencies; copies only `engine/k7-runtime`, `engine/k7-supervisor` and
   `packages/supervisor-host/scripts`; builds both with the `release-gcc` preset (engine tests off,
   supervisor target only) in one `RUN` with cache mounts for both build folders and ccache; stages the

@@ -10,6 +10,14 @@ convention only: nothing here checks the two against each other.
 The server's engine is a second image built here, `k7-runtime`, in a job of its own because it
 compiles C++: `docs/server-engine.md`.
 
+## One Node version: 24
+
+The image's stages, OneDev's jobs, GitHub's (through `.nvmrc`) and the bundles' esbuild target all
+name Node 24, the active LTS: a test run on one version and a server on another is a bug found in
+production. Its `node:sqlite`, the shares' comments store, needs no `--experimental-sqlite`, and
+it has an alpine image. A move to the next LTS changes every `node:24-*` image tag, `.nvmrc`, the
+root `engines` and `bundle.mjs`'s `target` in the same commit.
+
 ## An install depends on the manifests, never on the sources
 
 The stage that runs `npm ci` sees the lockfile, `.npmrc` and every `package.json`, and nothing
@@ -42,8 +50,8 @@ account: that cost was paid per account, at every first request and every deploy
 `--in-tree` writes only the two entries, into a folder of the checkout, so each source's
 `import.meta` points at the files the image already copies (`frontend/dist`, `song/meta`,
 `commands.yaml`). The checkout stays in the image for that reason, and for the DSP runner, which
-still compiles a user's TypeScript DSP with tsx. Its target is node 22, the image's; the desktop
-and phone bundles target 24, Electron's.
+still compiles a user's TypeScript DSP with tsx. Its target is node 24, like the desktop and phone
+bundles.
 
 ## A healthcheck, memory limits and capped logs
 

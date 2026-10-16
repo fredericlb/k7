@@ -21,9 +21,8 @@ over `comments.json` loses one of two comments that land in the same tick, and l
 person who left a note and cannot find it will not write a second one.
 
 SQLite is `node:sqlite` — **no dependency at all**, and no native build in an image that has none
-to spare. It is still behind `--experimental-sqlite` on Node 22, this image's runtime, so
-`apps/k7/docker/Dockerfile` sets it as the process's own `NODE_OPTIONS`, and `apps/k7/backend/scripts/with-env.mjs` in dev and test; the flag is accepted
-as a no-op from Node 24, so the day the image moves nothing here has to.
+to spare. It needs no flag on Node 24, the version the image, CI and
+the desktop all run (`docs/images.md`).
 
 The file is `<media library>/.shares/comments.db`, inside the dot-folder `writablePath` already
 refuses and `revision.ts` already does not walk — the same free invisibility the blobs get. WAL,

@@ -8,7 +8,7 @@
 # Build from the repo root: docker build -f engine/docker/Dockerfile .
 
 # ---- build: the two CMake projects and the script that stages them, nothing else of the repo ----
-FROM node:22-bookworm AS build
+FROM node:24-bookworm AS build
 # The same set as the desktop job's Linux leg (.onedev-buildspec.yml), plus ccache.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential cmake ninja-build ccache git ca-certificates pkg-config python3 \

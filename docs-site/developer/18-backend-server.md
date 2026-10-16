@@ -1,6 +1,6 @@
 # The k7 backend server
 
-`apps/k7/backend/src/server.ts` is one Express process (run under `tsx`, Node with `--experimental-sqlite`). It is the studio's hosted backend: it **mints** the session every studio app verifies, stores each account's preferences and AI settings, mounts the rehearsal recorder and the media library (which itself mounts the engine registry, the shares and the file hub that starts each account's file service), and serves the built frontend — the image ships no nginx. Dev port 8789 (`PORT`).
+`apps/k7/backend/src/server.ts` is one Express process (run under `tsx` in dev, as a bundle under Node 24 in the image). It is the studio's hosted backend: it **mints** the session every studio app verifies, stores each account's preferences and AI settings, mounts the rehearsal recorder and the media library (which itself mounts the engine registry, the shares and the file hub that starts each account's file service), and serves the built frontend — the image ships no nginx. Dev port 8789 (`PORT`).
 
 It has **no file routes**. Every file and project operation belongs to the account's file service (`packages/file-service`), which the browser reaches through the hub; see [Frontend and backend boundary](./19-frontend-backend-boundary.md).
 

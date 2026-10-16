@@ -27,7 +27,7 @@ Root files worth knowing:
 | File | Role |
 |---|---|
 | `package.json` | The workspace list, every root script, the shared dev dependencies, `engines.node >= 22.12.0`. |
-| `.nvmrc` | The Node major used by CI (`26`). |
+| `.nvmrc` | The Node major CI, the image and the bundles share (`24`, `docs/images.md`). |
 | `Tiltfile` | The dev session (see [Dev setup](./03-dev-setup.md)). |
 | `biome.json` | Lint and format configuration, extending the base config in `commons`. |
 | `knip.json` | Dead-code detection configuration. |
