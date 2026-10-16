@@ -1,10 +1,10 @@
-import type { SessionUser } from "@frediverse/oidc";
+// express.d.ts — `req.user` is @frediverse/http's AuthUser, which owns the Express augmentation;
+// this adds the session's `groups` claim to it, since a second `Request.user` declaration would conflict.
 
-// setupAuth's requireAuth attaches the logged-in user — the same augmentation the other frediverse backends carry.
-declare global {
-  namespace Express {
-    interface Request {
-      user?: SessionUser;
-    }
+import "@frediverse/http";
+
+declare module "@frediverse/http" {
+  interface AuthUser {
+    groups?: string[];
   }
 }

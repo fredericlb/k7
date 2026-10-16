@@ -16,7 +16,7 @@ const sharesBody = z.object({
 /** The owner's and the admin's routes over `reg.owners`. */
 export function ownershipRouter(
   reg: EngineRegistry,
-  isAdmin: (req: unknown) => boolean,
+  isAdmin: (req: Request) => boolean,
 ): Router {
   const router = Router();
   const owners = reg.owners;

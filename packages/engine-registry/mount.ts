@@ -48,7 +48,7 @@ export function mountEngineRegistry(
     /** The account a device token belongs to: given, a heartbeat may prove a paired machine — docs/heartbeat.md. */
     deviceOf?: (token: string) => string | null;
     /** Whether a request's account administers the origin, and so may reset an engine's owner — docs/ownership.md. */
-    isAdmin?: (req: unknown) => boolean;
+    isAdmin?: (req: Request) => boolean;
   },
 ): EngineMount {
   app.use(
