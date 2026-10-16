@@ -38,6 +38,8 @@ int foreignLivePid()
 void scratch()
 {
     const auto dir = fs::temp_directory_path() / ("k7-lock-" + std::to_string(std::rand()));
+    // rand() is unseeded, so a later run gets the same names: start from an empty folder.
+    fs::remove_all(dir);
     fs::create_directories(dir);
 #ifdef _WIN32
     _putenv_s("STUDIO_HOME", dir.string().c_str());
