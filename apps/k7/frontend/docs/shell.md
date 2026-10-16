@@ -1695,6 +1695,8 @@ be revisited when the edge's path table moves is a manifest written wrong.
 | the pane/view/panel tables, transport clock | `src/shellMeta.tsx` |
 | the palette catalogue and argument completion | `src/palette.ts` |
 | the shell's own commands — row and handler, one entry each | `src/ui/commands/` |
+| every popin, dialog and menu drawn over the panes | `src/shell/ShellOverlays.tsx` |
+| what the graph's gestures run — the module picker, the asset browser, a tap's edit | `src/shell/useGraphActions.ts` |
 | self-contained slices of state | `src/hooks/` — engine link, project doc, track controls, polls, logs, MIDI recording, dialogs |
 
 ## The one seam is the bottom panel's

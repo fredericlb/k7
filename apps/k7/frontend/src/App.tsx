@@ -7,14 +7,6 @@
 import { AppHeader } from "@frediverse/ui/app-header";
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@frediverse/ui/dialog";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import {
   ArrowLeft,
@@ -46,7 +38,7 @@ import {
 } from "@studio/engine-browser/store";
 import type { PresetInfo } from "@studio/engine-protocol";
 import { ViewportTab } from "@studio/k7-plugins/video";
-import { AskHost, askConfirm } from "@studio/project-shell/ask";
+import { askConfirm } from "@studio/project-shell/ask";
 import { markActive } from "@studio/project-shell/idle";
 // The address of ONE surface, for another device to open — the same module the launch uses, so both spell a project alike (docs/external.md).
 import {
@@ -55,7 +47,7 @@ import {
   parseLaunch,
   projectsUrl,
 } from "@studio/project-shell/launch";
-import { onToast, showToast, Toaster } from "@studio/project-shell/toast";
+import { onToast, showToast } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the loader in.
 import { moduleKeyFromPath } from "@studio/song-schema/moduleTypes";
@@ -80,7 +72,6 @@ import { aiOrganize, api, engines, moduleStore, PL8_API } from "./api";
 import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";
 import type { MaybeClipboard } from "./clipboard";
 import { type CommandPrefs, labelOf, orderCommands } from "./commandPrefs";
-import { AssetPicker } from "./components/AssetPicker";
 import type { AudioClipHandle } from "./components/AudioClipPanel";
 import { AudioClipPanel } from "./components/AudioClipPanel";
 import { BottomPanel } from "./components/BottomPanel";
@@ -94,15 +85,11 @@ import {
   type CommandPending,
   type PaletteCommand,
 } from "./components/CommandBar";
-import { CommandsSettings } from "./components/CommandsSettings";
 import { CommentsPanel } from "./components/CommentsPanel";
 import { ConflictsPanel, ConflictsTab } from "./components/ConflictsPanel";
-import { ContextMenu } from "./components/ContextMenu";
-import { CurveEditor } from "./components/CurveEditor";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EngineLink } from "./components/EngineLink";
 import { EngineSwitch } from "./components/EngineSwitch";
-import { EngineSyncFailedDialog } from "./components/EngineSyncFailedDialog";
 import {
   EngineSyncProgress,
   syncRunning,
@@ -110,9 +97,7 @@ import {
 import { FloatingWindow } from "./components/FloatingWindow";
 import { FooterTab, FooterTabs } from "./components/FooterTab";
 import { GraphPanel } from "./components/GraphPanel";
-import { HelpPage } from "./components/HelpPage";
 import { HistoryPanel } from "./components/HistoryPanel";
-import { ImportDialog } from "./components/ImportDialog";
 import { LogsPanel } from "./components/LogsPanel";
 import { MasteringTab } from "./components/MasteringTab";
 import { MasterMeter, type MasterMeterHandle } from "./components/MasterMeter";
@@ -120,7 +105,6 @@ import { MetronomeButton } from "./components/MetronomeButton";
 import { MidiTakeRoll } from "./components/MidiTakeRoll";
 import { Minimap, type MinimapItem } from "./components/Minimap";
 import { MobileMenu, MobileMenuItem } from "./components/MobileChrome";
-import { ModulePicker } from "./components/ModulePicker";
 import type { RollHandle } from "./components/PianoRoll";
 import { PlaylistsPanel } from "./components/PlaylistsPanel";
 import { RackBuilder } from "./components/RackBuilder";
@@ -138,7 +122,6 @@ import { SharePanel } from "./components/SharePanel";
 import { StatusText } from "./components/StatusText";
 import { SurfaceTab } from "./components/SurfaceTab";
 import type { PanelTakes } from "./components/TakesView";
-import { TapChainEditor } from "./components/TapChainEditor";
 import { TasksPanel } from "./components/TasksPanel";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
 import { TrackModulesPane } from "./components/TrackModulesPane";
@@ -199,13 +182,12 @@ import {
   shellSounds,
   touchesSounds,
 } from "./lcdSounds";
-import { isLibraryPath, libraryModuleRef } from "./libraryTree";
+import { libraryModuleRef } from "./libraryTree";
 import { confirmMenuItem } from "./menuConfirm";
 import { midiInDeviceFor, midiInLanes } from "./midiIn";
 import { chainRefFromCreate, wireCommand } from "./nodeInsert";
 import { noteSpans } from "./noteSpans";
 import { resolveEditorFile } from "./openInEditor";
-import { PairRequestsPrompt } from "./pairing/PairRequestsPrompt";
 import { buildPaletteCommands, commandNameOf, makeListArg } from "./palette";
 import { PaneVisible } from "./paneVisible";
 import { m } from "./paraglide/messages.js";
@@ -238,6 +220,11 @@ import {
 import { type RollMode, rollCondition } from "./rollMode";
 import { type Pane, type Panel, viewPanes } from "./routes";
 import { pictureRowId, placementOf, type RowKey, type RowTarget } from "./rows";
+import {
+  type MenuState,
+  ShellOverlays,
+  type UndoConfirm,
+} from "./shell/ShellOverlays";
 import { type PendingWire, useGraphActions } from "./shell/useGraphActions";
 import {
   MiniTransport,
@@ -287,11 +274,6 @@ const ModuleBuilder = lazy(() =>
     default: mod.ModuleBuilder,
   })),
 );
-const AssemblyBuilder = lazy(() =>
-  import("@studio/ui-module-builder/assembly").then((mod) => ({
-    default: mod.AssemblyBuilder,
-  })),
-);
 
 /** The timeline caret's fields, the selection's included — what decides whether a new caret is a move at all. */
 interface CaretFields {
@@ -325,16 +307,6 @@ function sameCaret(a: CaretFields, b: CaretFields): boolean {
 /** The tap-chain popin's first node: where the signal its modules process comes in, named and nothing more. */
 // In the desktop app's tab, whose strip already shows the way home and the song's name (apps/k7-standalone/docs/tabs.md).
 const inDesktopTab = !!tabBridge();
-
-const TAP_CHAIN_INPUT = {
-  id: "tap-chain-input",
-  get label() {
-    return m["tapChain.input"]();
-  },
-  get sub() {
-    return m["tapChain.inputSub"]();
-  },
-};
 
 export default function App({
   engineUrl,
@@ -747,11 +719,7 @@ export default function App({
   const editorRef = useRef<EditorHandle>(null);
 
   // Undo/redo: a process step (restoring a bounced file) is gated behind this confirm dialog.
-  const [undoConfirm, setUndoConfirm] = useState<{
-    files: string[];
-    label: string;
-    resolve: (ok: boolean) => void;
-  } | null>(null);
+  const [undoConfirm, setUndoConfirm] = useState<UndoConfirm | null>(null);
   // Registered like the other dialogs; refusing IS an answer here, so the closer resolves the promise.
   usePopin(!!undoConfirm, () => {
     if (!undoConfirm) return;
@@ -2020,11 +1988,7 @@ export default function App({
   }, []);
 
   // The right-click context menu (timeline + graph).
-  const [menu, setMenu] = useState<{
-    items: MenuItem[];
-    x: number;
-    y: number;
-  } | null>(null);
+  const [menu, setMenu] = useState<MenuState | null>(null);
   // What the entry under the pointer DOES, borrowing the status line while the menu is open — see ContextMenu.tsx's `onHint`.
   const setMenuHint = statusStore.hint;
   const prewriteCommand = useCallback(
@@ -4021,244 +3985,50 @@ export default function App({
               </div>
             )}
 
-            {/* right-click context menu — opened by the timeline and the chains graph */}
-            {menu && (
-              <ContextMenu
-                items={menu.items}
-                // The icons and names this person chose, from `ui settings commands`.
-                prefs={commandPrefs}
-                x={menu.x}
-                y={menu.y}
-                onPick={pickMenuItem}
-                // What the row under the pointer does, into the status line — stable, because the menu also calls it from an unmount cleanup.
-                onHint={setMenuHint}
-                onClose={() => setMenu(null)}
-              />
-            )}
-
-            {/* "which file?" — a module widget's library browser, the same popup as the `+`: both are a nested catalogue. */}
-            {presetPicker}
-            {tapChain && (
-              <TapChainEditor
-                node={tapChain.node}
-                tap={tapChain.tap}
-                reloadKey={reloadKey}
-                command={runCommand}
-                onAddModule={(x, y) =>
-                  setModulePicker({
-                    info: null,
-                    x,
-                    y,
-                    nameFor: (n) => n,
-                    onRef: (ref) =>
-                      void runCommand(
-                        `node tap chain add ${JSON.stringify(tapChain.node)} ${JSON.stringify(tapChain.tap)} ${ref}`,
-                      ),
-                  })
-                }
-                renderCards={(nodes) => (
-                  <TrackModulesPane
-                    {...liveCardProps}
-                    trackId=""
-                    nodes={nodes}
-                    // The chain's start, as a node that says so and does nothing: the sound arrives from there.
-                    lead={TAP_CHAIN_INPUT}
-                  />
-                )}
-                onClose={() => setTapChain(null)}
-              />
-            )}
-            {curveEdit && (
-              <CurveEditor
-                name={curveEdit.name}
-                isNew={curveEdit.isNew}
-                spec={curveEdit.spec}
-                num={projectDoc?.timeSigNumerator ?? 4}
-                den={projectDoc?.timeSigDenominator ?? 4}
-                events={curveEdit.events}
-                kind={curveEdit.kind}
-                // An update writes the curve and nothing else; a new one is created, THEN bound — in that order.
-                onSave={async (name, fields) => {
-                  const written = { ok: false };
-                  await runCommand(
-                    `curve set ${name} ${JSON.stringify(fields)}`,
-                    written,
-                  );
-                  const bind = curveEdit.bind;
-                  // Bound only once the curve EXISTS: a binding to a curve that was refused is dropped by the compile.
-                  if (bind && written.ok)
-                    await runCommand(
-                      `node automate ${bind.node} ${bind.param} ${name}`,
-                    );
-                }}
-                onClose={() => setCurveEdit(null)}
-              />
-            )}
-            {assetPicker && (
-              <AssetPicker
-                x={assetPicker.x}
-                y={assetPicker.y}
-                param={assetPicker.param}
-                files={assetPicker.files}
-                family={assetPicker.family}
-                onPick={(file) => {
-                  const { module, param, commit } = assetPicker;
-                  setAssetPicker(null);
-                  if (commit) return void runCommand(commit(file));
-                  // A file-valued param is a param — `node param <node> model <file>`, all three QUOTED, with `none` left bare (docs/moduleBuilder.md).
-                  void runCommand(
-                    file
-                      ? `node param "${module}" "${param}" "${file}"`
-                      : `node param "${module}" "${param}" none`,
-                  );
-                }}
-                onClose={() => setAssetPicker(null)}
-              />
-            )}
-
-            {/* "which module?" — opened by the `+` on a graph arrow, before any command */}
-            {modulePicker && (
-              <ModulePicker
-                x={modulePicker.x}
-                y={modulePicker.y}
-                baseModules={baseModules}
-                onPick={onModulePick}
-                onClose={() => setModulePicker(null)}
-              />
-            )}
-
-            {/* The documentation at #help — a PAGE, not a popin, so the reference reads as one ctrl-F-able document. */}
-            {showHelp && (
-              <div className="fixed inset-0 z-50 bg-background">
-                <HelpPage onBack={closeHelp} prefs={commandPrefs} />
-              </div>
-            )}
-
-            {/* The SCREEN surfaces were mounted here; they are panes in the column above now — packages/song/docs/surfaces.md. */}
-
-            {/* The project's files did not all reach the engine's machine: fatal until reloaded (engineSync.md). */}
-            <EngineSyncFailedDialog
-              sync={
-                !frozen && engineSync && !syncRunning(engineSync)
-                  ? engineSync
-                  : null
-              }
-              onReload={async () => {
-                await api.retryEngineSync();
-              }}
-            />
-
-            {/* "import this .dawproject?" — clicking one in the tree lands here */}
-            <ImportDialog
-              path={imp.importPath}
-              busy={imp.importing}
-              error={imp.importError}
-              log={imp.importLog}
-              onConfirm={() => void imp.confirmImport()}
-              onOpen={() => void imp.openImported()}
-              onCancel={imp.cancelImport}
-            />
-
-            {/* COMMANDS is the one settings screen still drawn as a page: a catalogue does not fit a 24rem column (docs/shell.md). */}
-            {commandsPage && (
-              <div className="absolute inset-0 z-40 bg-background">
-                <CommandsSettings
-                  // The whole catalogue, both halves: a page that arranged only one would order a menu it does not draw.
-                  commands={allCommands}
-                  prefs={commandPrefs}
-                  onSave={saveCommandPrefs}
-                  onBack={() => setCommandsPage(false)}
-                />
-              </div>
-            )}
-
-            {/* The shared module builder over the whole shell; it holds no engine link, so no factory banks and no live params (docs/moduleBuilder.md). */}
-            {assemblyBuilder && (
-              <div className="absolute inset-0 z-30 bg-background">
-                <Suspense fallback={null}>
-                  <PaneBoundary
-                    name="assembly builder"
-                    resetKey={reloadKey}
-                    onError={paneError}
-                  >
-                    <AssemblyBuilder
-                      store={moduleStore}
-                      path={assemblyBuilder.file}
-                      graph={assemblyGraph}
-                      vimMode={vimMode}
-                      // A template lives in the library, so it opens the way a shared module does: locked.
-                      readOnly={
-                        isLibraryPath(assemblyBuilder.file) && !assemblyUnlocked
-                      }
-                      onRequestEdit={
-                        isLibraryPath(assemblyBuilder.file) && !assemblyUnlocked
-                          ? () => setAssemblyUnlocked(true)
-                          : undefined
-                      }
-                      onClose={() => {
-                        setAssemblyBuilder(null);
-                        setAssemblyUnlocked(false);
-                        bumpReload();
-                      }}
-                    />
-                  </PaneBoundary>
-                </Suspense>
-              </div>
-            )}
-
-            {/* Confirm before undoing a process step — it restores a bounced audio file. */}
-            <Dialog
-              open={!!undoConfirm}
-              onOpenChange={(o) => {
-                if (!o && undoConfirm) {
-                  undoConfirm.resolve(false);
-                  setUndoConfirm(null);
-                }
-              }}
-            >
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>{m["undo.processTitle"]()}</DialogTitle>
-                  <DialogDescription>
-                    {undoConfirm
-                      ? m["undo.processBody"]({
-                          files:
-                            undoConfirm.files.join(", ") || undoConfirm.label,
-                        })
-                      : ""}
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      undoConfirm?.resolve(false);
-                      setUndoConfirm(null);
-                    }}
-                  >
-                    {m["common.cancel"]()}
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      undoConfirm?.resolve(true);
-                      setUndoConfirm(null);
-                    }}
-                  >
-                    {m["common.confirm"]()}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            {/* Global toast notifications — positioned bottom-right, above everything */}
-            <Toaster />
-            {/* A LAN device asking to pair, answered here when this page runs on the engine's machine — docs/pairing.md. */}
-            <PairRequestsPrompt
-              engine={engineRef.current}
+            {/* Every popin, dialog and menu over the shell (shell/ShellOverlays.tsx). */}
+            <ShellOverlays
+              menu={menu}
+              setMenu={setMenu}
+              commandPrefs={commandPrefs}
+              pickMenuItem={pickMenuItem}
+              setMenuHint={setMenuHint}
+              presetPicker={presetPicker}
+              tapChain={tapChain}
+              setTapChain={setTapChain}
+              liveCardProps={liveCardProps}
+              reloadKey={reloadKey}
+              runCommand={runCommand}
+              modulePicker={modulePicker}
+              setModulePicker={setModulePicker}
+              baseModules={baseModules}
+              onModulePick={onModulePick}
+              curveEdit={curveEdit}
+              setCurveEdit={setCurveEdit}
+              projectDoc={projectDoc}
+              assetPicker={assetPicker}
+              setAssetPicker={setAssetPicker}
+              showHelp={showHelp}
+              closeHelp={closeHelp}
+              frozen={frozen}
+              engineSync={engineSync}
+              imp={imp}
+              commandsPage={commandsPage}
+              setCommandsPage={setCommandsPage}
+              allCommands={allCommands}
+              saveCommandPrefs={saveCommandPrefs}
+              assemblyBuilder={assemblyBuilder}
+              setAssemblyBuilder={setAssemblyBuilder}
+              assemblyGraph={assemblyGraph}
+              assemblyUnlocked={assemblyUnlocked}
+              setAssemblyUnlocked={setAssemblyUnlocked}
+              vimMode={vimMode}
+              paneError={paneError}
+              bumpReload={bumpReload}
+              undoConfirm={undoConfirm}
+              setUndoConfirm={setUndoConfirm}
+              engineRef={engineRef}
               connected={connected}
             />
-            {/* The app's own confirm/prompt, in place of the OS box that ignored the Escape ladder. */}
-            <AskHost />
           </div>
         </LcdSoundsContext.Provider>
       </SongClockProvider>
