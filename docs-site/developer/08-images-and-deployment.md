@@ -25,12 +25,12 @@ The stages:
 
 | Stage | Base | Does |
 |---|---|---|
-| `manifests` | `node:22-alpine` | Copies the repository and extracts only every `package.json`, `package-lock.json` and `.npmrc`, so the install layers depend on manifests alone. |
-| `toolchain` | `node:22-alpine` | Adds `python3`, `make`, `g++` (for `ssh2`'s optional native crypto binding) and the manifests. |
+| `manifests` | `node:24-alpine` | Copies the repository and extracts only every `package.json`, `package-lock.json` and `.npmrc`, so the install layers depend on manifests alone. |
+| `toolchain` | `node:24-alpine` | Adds `python3`, `make`, `g++` (for `ssh2`'s optional native crypto binding) and the manifests. |
 | `deps` | `toolchain` | `npm ci` of the whole workspace, with an npm cache mount. |
 | `frontend-build` | `deps` | Copies the sources, sets `VITE_APP_VERSION` from the `APP_VERSION` build argument, runs `vite build` for `k7-frontend`. No typecheck here: CI typechecks separately. |
 | `backend-deps` | `toolchain` | `npm ci --workspace k7-backend --omit=dev`: the backend's production dependency closure only. |
-| `runtime` | `node:22-alpine` | Adds `yt-dlp`, `ffmpeg` and `mpv`; copies the backend's `node_modules`, **the whole repository**, and the built frontend into `apps/k7/frontend/dist`. |
+| `runtime` | `node:24-alpine` | Adds `yt-dlp` and `ffmpeg` (no `mpv`: a container has no speakers); copies the backend's `node_modules`, **the whole repository**, and the built frontend into `apps/k7/frontend/dist`. |
 
 The whole repository is copied because the `@studio/*` and `@frediverse/*` entries in
 `node_modules` are symlinks to workspace source folders, consumed as TypeScript: a package left out
@@ -42,7 +42,6 @@ Runtime settings:
 |---|---|
 | Command | `tsx src/server.ts` in `apps/k7/backend` |
 | `PORT` | `8789` (exposed) |
-| `NODE_OPTIONS` | `--experimental-sqlite` |
 | Volumes | `/data` (`STUDIO_PREFS_DIR=/data/prefs`), `/library` (`STUDIO_MEDIATEK`), `/workspaces`, `/rehearsal-data` (`K7_DATA_DIR`) |
 
 The image does not start from the `commons` base runtime image and has no nginx: the backend serves
@@ -52,7 +51,7 @@ the SPA itself.
 
 `engine/docker/Dockerfile`:
 
-- **`build`** (`node:22-bookworm`): installs the C++ toolchain, Ninja, ccache and the JUCE Linux
+- **`build`** (`node:24-bookworm`): installs the C++ toolchain, Ninja, ccache and the JUCE Linux
   dependencies; copies only `engine/k7-runtime`, `engine/k7-supervisor` and
   `packages/supervisor-host/scripts`; builds both with the `release-gcc` preset (engine tests off,
   supervisor target only) in one `RUN` with cache mounts for both build folders and ccache; stages the
@@ -73,8 +72,8 @@ routes ALSA to PulseAudio.
 
 | Service | Image | Notes |
 |---|---|---|
-| `k7` | `k7-webapp:${APP_VERSION:-latest}` | Routed by Traefik for `Host(K7_DOMAIN)`, `Host(DOCS_DOMAIN)`, `Host(LEGACY_DOMAIN)`, `Host(PL8_DOMAIN)` and `Host(K7_ALIAS_DOMAIN)` (defaults `app.k7.rocks`, `docs.k7.rocks`, and the former hosts `st0.app`, `play.st0.app`, `k7.st0.app`) on port 8789, TLS through `TRAEFIK_CERTRESOLVER`. Volumes `data`, `library`, `workspaces`, `k7-data`. |
-| `engine` | `k7-runtime:${APP_VERSION:-latest}` | No published port and no Traefik route. Registers at `http://k7:8789` over the compose network (`STUDIO_REGISTRY_URL`), named `ENGINE_NAME`, with every sampled instrument (`STUDIO_INSTRUMENTS=all`). Volume `engine-home`. |
+| `k7` | `k7-webapp:${APP_VERSION}` (required) | Routed by Traefik for `Host(K7_DOMAIN)`, `Host(DOCS_DOMAIN)`, `Host(LEGACY_DOMAIN)`, `Host(PL8_DOMAIN)` and `Host(K7_ALIAS_DOMAIN)` (defaults `app.k7.rocks`, `docs.k7.rocks`, and the former hosts `st0.app`, `play.st0.app`, `k7.st0.app`) on port 8789, TLS through `TRAEFIK_CERTRESOLVER`. Volumes `data`, `library`, `workspaces`, `k7-data`. |
+| `engine` | `k7-runtime:${APP_VERSION}` (required) | No published port and no Traefik route. Registers at `http://k7:8789` over the compose network (`STUDIO_REGISTRY_URL`), named `ENGINE_NAME`, with every sampled instrument (`STUDIO_INSTRUMENTS=all`). Volume `engine-home`. |
 | `pocketbase` | `ghcr.io/muchobien/pocketbase` | Only the source of the rehearsal recorder's one-time import into its SQLite store. Publishes `POCKETBASE_PORT` directly on the host, without Traefik: firewall it. Remove it, its volume and the `POCKETBASE_*` variables once k7 has logged the import. |
 | `z0` | `dev.frediver.se/frediverse/z0:${Z0_VERSION:-latest}` | The blind-test game, built by its own repository. Routed for `Host(K7_DOMAIN) && PathPrefix(/z0)` with priority 10, so it wins over k7's host rule. |
 
@@ -109,8 +108,9 @@ OneDev's `build studio images` job computes the stamp as `YY.MMDDHHmm` in the Eu
 
 Images are first pushed under the commit hash only. `:latest` and `:<stamp>` are added after
 `lint and test` and both image builds succeed, so nothing deployable points at an untested commit.
-To deploy a specific build, set `APP_VERSION` in `docker/.env` to a stamp or a commit hash; it
-applies to both the web and the engine image. `Z0_VERSION` is pinned separately.
+A deploy sets `APP_VERSION` in `docker/.env` to a stamp or a commit hash — compose refuses to start
+without it — and it applies to both the web and the engine image. `Z0_VERSION` is pinned
+separately and defaults to `latest`.
 
 The backend serves the frontend shell with `Cache-Control: no-cache` and the hashed files under
 `assets/` as `public, max-age=31536000, immutable`, so a new deployment is picked up on the next page

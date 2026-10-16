@@ -16,6 +16,7 @@ import type {
 import { apiBase, libraryConfig } from "./config";
 // Type only, so the cycle with prefs.ts never reaches the bundle — see ../docs/api.md.
 import type { Pl8Prefs } from "./prefs";
+import { upload } from "./upload";
 
 /** The folder a song would land in already holds one — its own type so the dialogue can offer to replace. */
 export class SongExists extends Error {}
@@ -85,6 +86,13 @@ export interface MachinePlayerState {
  * The library is right there, so a relative path is all that crosses — packages/mpv-player/docs/mpvPlayer.md.
  */
 export const player = {
+  /** False only when the host has no player routes, i.e. no mpv; any other failure says nothing. */
+  available: async (): Promise<boolean> =>
+    request(`${apiBase()}/api/player`, {}, PLAYER_MS).then(
+      (res) => res.status !== 404,
+      () => true,
+    ),
+
   state: async (): Promise<MachinePlayerState> =>
     json(await request(`${apiBase()}/api/player`, {}, PLAYER_MS), "player"),
 
@@ -385,20 +393,22 @@ export const library = {
   addSong: async (
     file: File,
     tags: { artist: string; album: string; title: string },
-    opts: { replace?: boolean; signal?: AbortSignal } = {},
+    opts: {
+      replace?: boolean;
+      signal?: AbortSignal;
+      onProgress?: (fraction: number) => void;
+    } = {},
   ): Promise<{ path: string; master: string; replaced: boolean }> => {
     const q = new URLSearchParams({ filename: file.name, ...tags });
     if (opts.replace) q.set("replace", "1");
-    const res = await request(
-      `${apiBase()}/api/mediatek/song?${q}`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/octet-stream" },
-        body: file,
-        signal: opts.signal,
-      },
-      null,
-    );
+    // No time budget, as for every upload: a slow link makes it long and only the user may cut it.
+    const res = await upload(`${apiBase()}/api/mediatek/song?${q}`, {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream" },
+      body: file,
+      signal: opts.signal,
+      onProgress: opts.onProgress,
+    });
     if (!res.ok) {
       const detail = (await res.json().catch(() => ({}))) as {
         error?: string;

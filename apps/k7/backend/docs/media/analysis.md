@@ -49,6 +49,18 @@ that would take the process down. A sidecar that
 still matches its file is answered without queueing: only real decodes wait. `/analysis` reports
 the gate's `active` and `waiting` beside the sweep's own state.
 
+## `/envelope` answers from memory, and with a validator
+
+A waveform is drawn on every open of a song, and its answer is read out of a sidecar of some
+350 kB: parsing it and fingerprinting the file are synchronous work that every other request waits
+behind. `src/media/envelopeMemo.ts` holds the serialised answer per file, keyed by a VERSION — the
+file's size and time beside its sidecar's — so a re-analysis, which rewrites only the sidecar, is a
+new answer. Sixteen are held, the least recently used dropped first.
+
+The answer carries a weak `ETag` derived from that version and `Cache-Control: private, no-cache`,
+the same as the files themselves (`commons/packages/http/docs/stream.md`): a browser drawing the
+same song again gets a 304 decided on two `stat`s, before anything is read or computed.
+
 ## Three ways it stops
 
 - **No decoder.** A `NoFfmpegError` ends the sweep for good and says so once on the log: every

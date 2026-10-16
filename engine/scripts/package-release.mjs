@@ -67,7 +67,7 @@ if (kind === "engine") {
   const out = join(repo, "apps", "k7-standalone", "out");
   // electron-builder's top level holds the installers beside blockmaps, update manifests and its own debug file.
   const installers = existsSync(out)
-    ? readdirSync(out).filter((f) => /\.(dmg|exe|appimage)$/i.test(f))
+    ? readdirSync(out).filter((f) => /\.(dmg|exe|appimage|deb)$/i.test(f))
     : [];
   if (!installers.length)
     fail(

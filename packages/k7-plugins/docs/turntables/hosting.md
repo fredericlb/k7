@@ -14,35 +14,17 @@ So a host supplies a `Deck` and the desk asks nothing else. k7 does it with an a
 link its shell already holds, since it has an engine before it has a surface
 (`apps/k7/frontend/src/hooks/useTurntableDeck.ts`).
 
-### The transport is TWO readers, and a host owes both
+### A deck's position is its platter's needle, handed over RAW
 
-`Deck` asks for the position twice, and the split is not redundancy — the two callers want
-opposite things:
+What the desk draws and stores is each deck's needle, and a host owes it as the engine said it:
+`platters`, a ref of every platter's last reported position in seconds of its record. A host
+smooths nothing there. The steering a 60 fps picture needs is the desk's own
+([needleClock.md](needleClock.md)), because only the desk knows the rate each platter was told to
+run at — a host sees frames, not tempo faders.
 
-| field | shape | for |
-|---|---|---|
-| `playhead` | a ref, `{ seconds, at }` — the last frame, unprocessed, and when it landed | a cue drop, which stores where the finger fell |
-| `drawNow` | `() => number` | the record's wedge and the waveform, redrawn at 60 fps |
-
-The engine speaks every 50 ms and not on a regular beat. Extrapolating from the raw anchor
-re-anchors on every frame and copies that arrival jitter into the picture — 60 fps of stutter
-instead of 20. The transport's rate is KNOWN — one second per second, pitch fader included,
-since that stretches the clip rather than the transport — so `drawNow` predicts from local time
-and estimates only the OFFSET, taking the least-delayed frame of a recent window. The drawn
-position is then a straight line, and a real seek rolls the window back.
-
-**Worth reading before you choose between them.** `drawNow` is not the less accurate of the
-two: the clock converges on the *minimum* transit latency rather than the mean, so continuity
-costs nothing in accuracy. Measured over a realistic feed, the raw anchor lags by whatever the
-last frame's transit was (4 to 55 ms, mean ~14) while `drawNow` sits flat at the best one.
-
-Which leaves the split narrow: `playhead` is what the engine literally said, and `drawNow` is
-an estimate of the same thing. Moving the cue path onto
-`drawNow` would probably be an improvement and would change where cues land by a few
-milliseconds — a musician-facing change, and so a decision rather than a tidy-up. Until then a
-host owes both, and must not implement one by calling the other.
-`@studio/engine-browser/playhead-clock` is the clock; k7's adapter feeds it the same frames it
-writes into the ref, a few lines apart.
+`playhead` and `drawNow` are the TRANSPORT's position, raw and steered
+(`apps/k7/frontend/docs/playhead.md`). The transport is no deck's clock, and the desk reads
+neither.
 
 ### `sendProject` is part of the seam, and it is not optional
 

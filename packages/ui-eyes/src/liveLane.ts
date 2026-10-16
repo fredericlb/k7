@@ -11,6 +11,8 @@ export interface LiveLane {
   problem: string | null;
   /** The lens's own release, beyond stopping its tracks. */
   close?: () => void;
+  /** Set once the lane is closed, so a lens still opening releases itself. */
+  dropped?: boolean;
 }
 
 /** The parked, decodable element a lane draws from — the same 1px trick a clip's uses. */

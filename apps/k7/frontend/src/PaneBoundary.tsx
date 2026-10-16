@@ -4,6 +4,7 @@
 // See docs/shell.md, "A fault stays in its pane".
 
 import { Component, type ReactNode } from "react";
+import { m } from "./paraglide/messages.js";
 
 interface Props {
   /** What the card and the log call this pane. */
@@ -49,17 +50,21 @@ export class PaneBoundary extends Component<Props, State> {
       <div className="flex h-full min-h-0 w-full items-center justify-center p-4">
         <div className="max-w-md rounded border border-destructive/40 bg-destructive/10 p-3 text-sm">
           <div className="font-medium text-destructive">
-            {this.props.name} failed
+            {m["pane.failed"]({ name: this.props.name })}
           </div>
-          <div className="mt-1 break-words text-muted-foreground text-xs">
-            {error.message}
-          </div>
+          {/* The raw message is for a bug report, so it stays folded until asked for. */}
+          <details className="mt-1 text-muted-foreground text-xs">
+            <summary className="cursor-pointer select-none">
+              {m["pane.details"]()}
+            </summary>
+            <div className="mt-1 break-words font-mono">{error.message}</div>
+          </details>
           <button
             type="button"
             className="mt-2 rounded border border-border px-2 py-0.5 text-xs hover:bg-accent"
             onClick={() => this.setState({ error: null })}
           >
-            Retry
+            {m["pane.retry"]()}
           </button>
         </div>
       </div>

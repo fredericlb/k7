@@ -33,4 +33,5 @@ song is sent only to the one this account is driving (`packages/engine-registry/
 The `library` destination plays through `mpv` on the host that serves the files
 (`packages/mpv-player/docs/mpvPlayer.md`), mounted by `mountMedia` under `/api/player/*`. A path is
 resolved against the library's root, which is also the guard: a client can name only what that
-root holds. mpv missing on the host is a 503 with the sentence, on the one route that needs it.
+root holds. Without mpv on the host — the hosted image has none — those routes are not there at all and
+the destination is not offered (`packages/mpv-player/docs/mpvPlayer.md`).

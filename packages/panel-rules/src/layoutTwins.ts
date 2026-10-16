@@ -1,7 +1,7 @@
 // layoutTwins.ts — a panel in its two shapes: the panel itself HORIZONTAL (at most 4 rows, a card read
 // across) and `vertical` (at most 4 columns, a card read down). The rule a reader would miss: the two are one
 // panel, so each page must offer the same controls in both — a knob missing from one shape is a control that
-// vanishes when the screen turns. Geometry is checked as the builder checks it. See docs/layouts.md.
+// vanishes when the screen turns. Geometry is checked as the builder checks it. See packages/ui-module-builder/docs/layouts.md.
 
 import type { ModuleUI, Widget } from "@studio/song-schema/yaml/moduleSchema";
 import { clash } from "./groupGeometry";

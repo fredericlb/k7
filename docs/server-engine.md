@@ -98,7 +98,7 @@ only `engine/k7-runtime`, `engine/k7-supervisor` and the staging script, so a pu
 of them finds the compile in the registry cache (`cache:k7-runtime`, as `docs/images.md` describes
 for k7). A cold build is long enough to have its own OneDev job, `build engine image`, with a
 three-hour timeout. `publish studio images` waits for it and tags both images with the same stamp,
-which is why the compose file names both images by `APP_VERSION`.
+which is why the compose file names both images by `APP_VERSION`, and requires it.
 
 ## It is k7's render machine
 

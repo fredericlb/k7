@@ -43,6 +43,12 @@ import {
   JSDSP_FILE,
   JSDSP_TYPE,
 } from "@studio/engine-protocol/build";
+import {
+  alignTabs,
+  LAYOUT_MAX,
+  reflowNarrow,
+  twinIssues,
+} from "@studio/panel-rules/layout-twins";
 import { askConfirm, askText } from "@studio/project-shell/ask";
 import {
   builtinPluginFor,
@@ -54,6 +60,7 @@ import {
   type ModuleStatus,
 } from "@studio/song-schema/moduleTypes";
 import {
+  type AutosaveStatus,
   dropBuffer,
   loudest,
   recallBuffer,
@@ -74,7 +81,6 @@ import {
   useState,
 } from "react";
 import { InputChannelBar } from "./InputChannelBar";
-import { alignTabs, LAYOUT_MAX, reflowNarrow, twinIssues } from "./layoutTwins";
 import {
   channelOf,
   extendsRefOf,
@@ -134,14 +140,18 @@ const baseName = (p: string | undefined): string | undefined =>
 // What the panel is called before it has been read, so a tab is never blank.
 const UI_BASENAME = "ui.yaml";
 
-// What the header says BESIDE the Save button; "clean" and "pending" say nothing — see docs/builder.md.
-const SAVE_LABEL: Record<string, string> = {
+// The English fallback for what the header says beside Save, when the host hands in no `saveLabel`.
+const SAVE_LABEL: Record<AutosaveStatus, string> = {
   clean: "",
   pending: "",
   saving: "saving…",
   held: "not saved",
   error: "save failed",
 };
+const englishSaveLabel = (status: AutosaveStatus, reason: string | null) =>
+  (status === "held" || status === "error") && reason
+    ? `${SAVE_LABEL[status]} — ${reason}`
+    : SAVE_LABEL[status];
 
 // The preset menu's sections in display order, each with the icon for its source: program bank, OS file.
 const PRESET_GROUPS: {
@@ -180,6 +190,7 @@ export function ModuleScreen({
   onRelocated,
   renderPreview,
   onAiOrganize,
+  saveLabel = englishSaveLabel,
 }: {
   // Everything file-shaped. The one thing the two apps don't share — see store.ts.
   store: ModuleStore;
@@ -236,6 +247,8 @@ export function ModuleScreen({
   }) => ReactNode;
   /** Ask Claude for the panel; the HOST holds the key and the model, so absent means no button — docs/aiOrganize.md. */
   onAiOrganize?: AiOrganizeCall;
+  /** The state beside Save, in the host's language; "clean" and "pending" are never asked — docs/builder.md. */
+  saveLabel?: (status: AutosaveStatus, reason: string | null) => string;
 }) {
   const [content, setContent] = useState<string | null>(null);
   /** The module's `status:` off the BUFFER, so the dropdown shows the edit you just made — docs/builder.md. */
@@ -965,11 +978,9 @@ export function ModuleScreen({
               <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
             )}
             <span className="truncate">
-              {SAVE_LABEL[saveState.status]}
-              {(saveState.status === "held" || saveState.status === "error") &&
-              saveState.reason
-                ? ` — ${saveState.reason}`
-                : ""}
+              {saveState.status === "clean" || saveState.status === "pending"
+                ? ""
+                : saveLabel(saveState.status, saveState.reason)}
             </span>
           </span>
         </div>

@@ -22,6 +22,7 @@ import {
   listLiveChains,
   openChainSource,
 } from "../chainSource";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 import { m } from "../paraglide/messages.js";
 
 interface Props {
@@ -53,6 +54,8 @@ export function ChainSourcePanel({
   const [recordError, setRecordError] = useState<string | null>(null);
   const [level, setLevel] = useState(0);
   const source = useRef<ChainSource | null>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+  useFocusTrap(shown, dialog);
 
   useEffect(() => {
     let alive = true;
@@ -134,6 +137,7 @@ export function ChainSourcePanel({
       aria-hidden={!shown || undefined}
     >
       <div
+        ref={dialog}
         className="chain-panel"
         role="dialog"
         aria-modal={shown || undefined}

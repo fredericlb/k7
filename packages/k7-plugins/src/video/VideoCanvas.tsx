@@ -1,8 +1,9 @@
 // VideoCanvas.tsx — the React host for the eyes realtime renderer. The imperative-WebGL
 // host pattern, deliberately: the `alive` unmount guard, the refs that keep the driver
 // reading fresh callbacks without tearing down its GL context, and a ResizeObserver on the
-// HOST (not the window) are each a bug already paid for once. eyes knows nothing about the
-// engine — this component owns the EngineClock and feeds it the reported playhead.
+// HOST (not the window) are each a bug already paid for once. A scene change is a setScene on
+// the live driver, never a rebuild. eyes knows nothing about the engine — this component owns
+// the EngineClock and feeds it the reported playhead.
 
 import { useEngineStore } from "@studio/engine-browser/store";
 import { localLens } from "@studio/ui-eyes/camera";
@@ -10,6 +11,7 @@ import { EngineClock } from "@studio/ui-eyes/clock";
 import { type LaneDebug, RealtimeDriver } from "@studio/ui-eyes/realtime";
 import type { VideoScene } from "@studio/ui-eyes/scene";
 import { useEffect, useRef, useState } from "react";
+import { m } from "../paraglide/messages.js";
 import { canAskForLens, remoteLens } from "./camera/remoteLens";
 import { levelsForPasses, smoothLevels } from "./shaderAudio";
 
@@ -69,6 +71,9 @@ export function VideoCanvas({
   sourcesRef.current = audioSources;
   const trackIdsRef = useRef(trackIds);
   trackIdsRef.current = trackIds;
+  // The driver is built off the scene of its first render; every later one reaches it by setScene.
+  const sceneRef = useRef(scene);
+  sceneRef.current = scene;
   // The smoothed levels, held across reports — a ref, since nothing React draws depends on them.
   const levelsRef = useRef<Record<string, number>>({});
   // The store itself, not a slice of it: the playhead is fed to a clock, and feeding a clock is not drawing.
@@ -78,7 +83,7 @@ export function VideoCanvas({
   // Bumped when the browser gives a lost GL context back: the driver is built again on a fresh one.
   const [rebuild, setRebuild] = useState(0);
 
-  // Rebuild the driver on a scene change (useVideoDoc keeps an unchanged picture the same object), and after a lost context.
+  // The driver lives as long as its GL context: built once, and again only after a lost context comes back.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `rebuild` is a trigger, not a value the body reads.
   useEffect(() => {
     let alive = true;
@@ -88,7 +93,12 @@ export function VideoCanvas({
     clockRef.current = clock;
     let driver: RealtimeDriver;
     try {
-      driver = RealtimeDriver.create(host, scene, clock, lensOpener());
+      driver = RealtimeDriver.create(
+        host,
+        sceneRef.current,
+        clock,
+        lensOpener(),
+      );
     } catch (e) {
       // No WebGL2 (a blocklisted GPU, an old tablet, contexts refused): said here, not a blank app.
       setFailed((e as Error).message);
@@ -106,7 +116,7 @@ export function VideoCanvas({
     const onRestored = () => setRebuild((n) => n + 1);
     canvas?.addEventListener("webglcontextlost", onLost);
     canvas?.addEventListener("webglcontextrestored", onRestored);
-    onFitRef.current?.(letterbox(driver, host, scene));
+    onFitRef.current?.(letterbox(driver, host, sceneRef.current));
     // Where the transport is RIGHT NOW: a fresh clock knows nothing, and with the transport stopped the next frame can be 250 ms away.
     const now = store.getSnapshot();
     clock.feed(now.playing, now.playhead);
@@ -125,7 +135,23 @@ export function VideoCanvas({
       driverRef.current = null;
       clockRef.current = null;
     };
-  }, [scene, store, rebuild]);
+  }, [store, rebuild]);
+
+  // A document edit (useVideoDoc keeps an unchanged picture the same object) is handed to the SAME driver: no new context, no new decoders.
+  useEffect(() => {
+    const driver = driverRef.current;
+    const host = hostRef.current;
+    if (!driver || !host || driver.current === scene) return;
+    try {
+      driver.setScene(scene);
+    } catch (e) {
+      // A scene the live context could not take: start again on a fresh driver rather than leave a half-built one.
+      console.error("[viewport] setScene failed, rebuilding", e);
+      setRebuild((n) => n + 1);
+      return;
+    }
+    onFitRef.current?.(letterbox(driver, host, scene));
+  }, [scene]);
 
   /** Feed the clock every engine state frame, off a RAW subscription that renders nothing — here the right leaf is no component at all. */
   useEffect(() => {
@@ -149,11 +175,11 @@ export function VideoCanvas({
     if (!host) return;
     const ro = new ResizeObserver(() => {
       const d = driverRef.current;
-      if (d) onFitRef.current?.(letterbox(d, host, scene));
+      if (d) onFitRef.current?.(letterbox(d, host, sceneRef.current));
     });
     ro.observe(host);
     return () => ro.disconnect();
-  }, [scene]);
+  }, []);
 
   // The driver appends its own canvas and parked <video>s; `children` is the overlay, sitting on it.
   return (
@@ -163,7 +189,7 @@ export function VideoCanvas({
     >
       {failed ? (
         <div className="max-w-sm p-4 text-center text-muted-foreground text-sm">
-          The picture cannot be drawn in this browser: {failed}
+          {m["video.cannotDraw"]({ why: failed })}
         </div>
       ) : (
         children

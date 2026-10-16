@@ -94,7 +94,7 @@ a folder name git would give a clone, so none can collide with a workspace.
 | `/@shares/<token>.k7` | a project at a checkpoint the media library holds | no account and no working copy; the server's engine, through the share's player |
 
 **Anything else is refused** with the "missing" screen, which says a project opens from the home
-page and what its address will be: guessing which folder a repository name meant would open the
+page: guessing which folder a repository name meant would open the
 wrong one silently. A repository reaches a workspace on the home page — **Importer** clones it
 there — never through the gate.
 
@@ -190,7 +190,9 @@ the prefix cannot change without a navigation that remounts the gate anyway.
 
 `ProjectGateStrings` is mostly required, and some groups are not: the **bench**'s wait
 (`benchWorkspace`, `benchFetching`), the **idle** screen (`idleTitle`, `idleBody`, `resume`), and the
-**sync** wait (`syncing`), which a machine linked to no relay never shows.
+**sync** wait (`syncing`), which a machine linked to no relay never shows. The missing screen's two
+address hints (`localUsage`, `retiredAddress`) and the `details` label over the raw message are optional
+too: they were added after z0 pinned the package, and an addition must not break it.
 Both are screens an app may be structurally unable to reach — the bench is a `.k7` project, so
 z0's editor can never open one, and an app that passes no `idleTimeoutMs` never leaves the
 running phase. Required, they would each be made to translate a card nobody can see. The gate

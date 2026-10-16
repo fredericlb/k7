@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { line } from "@frediverse/electron-shell/log";
 import type { Snapshot } from "@studio/supervisor-host/hostProtocol";
 import { SupervisorHost } from "@studio/supervisor-host/supervisorHost";
+import { noticeDown, noticeFrame, noticeSnapshot } from "./notices.ts";
 
 /** Not the command-line engine's 8765: the supervisor adopts whatever engine already listens on its port. */
 export const ENGINE_PORT = 8766;
@@ -56,10 +57,17 @@ export function startSupervisor(
       const status = s.error ? `${s.status}: ${s.error}` : s.status;
       if (status !== lastStatus) line("supervisor", `status ${status}`);
       lastStatus = status;
+      noticeSnapshot(s);
       watch.onSnapshot?.(s);
     },
-    onDown: (why) => watch.onDown?.(why),
-    onNotify: (n) => line("supervisor", `${n.title}: ${n.body}`),
+    onDown: (why) => {
+      noticeDown(why);
+      watch.onDown?.(why);
+    },
+    onNotify: (n) => {
+      line("supervisor", `${n.title}: ${n.body}`);
+      noticeFrame(n);
+    },
   });
   host.start();
   return host;

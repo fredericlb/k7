@@ -15,16 +15,19 @@ import { useLabels } from "../host";
 import { usePlayback } from "./PlaybackProvider";
 import {
   effectiveTarget,
+  offered,
   PLAYBACK_TARGETS,
   playbackTargetInfo,
 } from "./targets";
 
 /** Must sit INSIDE `MediaPlayback`: the destination and the engine's answer are both its. */
 export function PlaybackPicker() {
-  const { engineAvailable, target, choose } = usePlayback();
+  const { engineAvailable, hostPlayerAvailable, target, choose } =
+    usePlayback();
+  const ready = { engine: engineAvailable, hostPlayer: hostPlayerAvailable };
   const l = useLabels().playback;
   // The TRIGGER shows what will ACTUALLY play: it is all there is when the menu is shut.
-  const actual = effectiveTarget(target, engineAvailable);
+  const actual = effectiveTarget(target, ready);
   const { icon: Icon } = playbackTargetInfo(actual);
   const label = l.targets[actual].label;
   const fellBack = actual !== target;
@@ -45,7 +48,7 @@ export function PlaybackPicker() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
         <DropdownMenuLabel>{l.title}</DropdownMenuLabel>
-        {PLAYBACK_TARGETS.map((t) => {
+        {PLAYBACK_TARGETS.filter((t) => offered(t, ready)).map((t) => {
           const RowIcon = t.icon;
           // Not disabled: the choice is remembered, and an unclickable row explains nothing.
           const unreachable = t.needsEngine && !engineAvailable;

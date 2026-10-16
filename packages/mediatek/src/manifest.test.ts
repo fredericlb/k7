@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ensureLayout, PathEscapesError, safePath } from "./layout.ts";
-import { diff, manifest } from "./manifest.ts";
+import { diff, manifest, manifestAt } from "./manifest.ts";
+import { bumped } from "./revision.ts";
 
 let root: string;
 
@@ -24,10 +25,10 @@ const write = (rel: string, body = "x"): void => {
 };
 
 describe("the manifest", () => {
-  it("lists a family's files with their size, sorted", () => {
+  it("lists a family's files with their size, sorted", async () => {
     write("samples/audio/kicks/bd01.wav", "1234");
     write("samples/audio/kicks/aa.wav", "1");
-    const m = manifest("samples");
+    const m = await manifest("samples");
     expect(m.map((e) => e.path)).toEqual([
       "samples/audio/kicks/aa.wav",
       "samples/audio/kicks/bd01.wav",
@@ -35,22 +36,41 @@ describe("the manifest", () => {
     expect(m[1].bytes).toBe(4);
   });
 
-  it("skips the derived cache", () => {
+  it("skips the derived cache", async () => {
     write("samples/.cache/x.json", "{}");
     write("samples/audio/a.wav");
-    expect(manifest("samples").map((e) => e.path)).toEqual([
+    expect((await manifest("samples")).map((e) => e.path)).toEqual([
       "samples/audio/a.wav",
     ]);
   });
 
-  it("stays within its family", () => {
+  it("stays within its family", async () => {
     write("samples/audio/a.wav");
     write("songs/Nirvana/Nevermind/Lithium/original.wav");
-    expect(manifest("samples").map((e) => e.path)).toEqual([
+    expect((await manifest("samples")).map((e) => e.path)).toEqual([
       "samples/audio/a.wav",
     ]);
-    expect(manifest("songs").map((e) => e.path)).toEqual([
+    expect((await manifest("songs")).map((e) => e.path)).toEqual([
       "songs/Nirvana/Nevermind/Lithium/original.wav",
+    ]);
+  });
+});
+
+describe("the held manifest", () => {
+  it("walks once per revision and again once the family moves", async () => {
+    write("samples/audio/a.wav");
+    const first = manifestAt("samples");
+    expect(manifestAt("samples").files).toBe(first.files);
+    expect((await first.files).map((e) => e.path)).toEqual([
+      "samples/audio/a.wav",
+    ]);
+    write("samples/audio/b.wav");
+    bumped("samples");
+    const second = manifestAt("samples");
+    expect(second.rev).not.toBe(first.rev);
+    expect((await second.files).map((e) => e.path)).toEqual([
+      "samples/audio/a.wav",
+      "samples/audio/b.wav",
     ]);
   });
 });

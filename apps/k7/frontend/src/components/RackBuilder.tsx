@@ -357,7 +357,7 @@ export function RackBuilder({
                         <button
                           type="button"
                           title={m["rb.clearPad"]({ name: pad.file.name })}
-                          aria-label="enlever ce sample"
+                          aria-label={m["rb.clearPad"]({ name: pad.file.name })}
                           onClick={() => clearPad(row, col)}
                           className="rounded p-0.5 hover:bg-destructive/20 hover:text-destructive"
                         >

@@ -9,6 +9,7 @@ import {
 } from "@studio/mediatek/playlistItems";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { parsePlaylist } from "@studio/song-schema/playlist";
+import { m } from "../paraglide/messages.js";
 
 /** One line of the set list: what the playlist named, and what this machine can play of it. */
 export interface SetEntry {
@@ -99,7 +100,7 @@ export function resolveSet(
     return {
       entries: [],
       absent: false,
-      issues: ["the playlist this surface names cannot be found"],
+      issues: [m["set.notFound"]()],
     };
 
   const parsed = parsePlaylist(text);
@@ -107,7 +108,7 @@ export function resolveSet(
     return {
       entries: [],
       absent: false,
-      issues: ["this file does not read as a playlist"],
+      issues: [m["set.unreadable"]()],
     };
 
   const seen = new Set<string>();

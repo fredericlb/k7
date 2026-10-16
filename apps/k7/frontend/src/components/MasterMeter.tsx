@@ -111,12 +111,13 @@ export function MasterMeter({
       {/* ONE lane: the meter is the fader's track, and the handle rides on the reading it sets (docs/masterMeter.md). */}
       <div className="relative h-1.5 w-24" title={reading}>
         <div className="absolute inset-0 overflow-hidden rounded-full bg-foreground/15">
+          {/* SCALED from the left, not resized: a width is layout at the meter's rate, a transform is not (docs/masterMeter.md). */}
           <div
             className={cn(
-              "absolute inset-y-0 left-0 rounded-full transition-[width] duration-75",
+              "absolute inset-0 origin-left transition-transform duration-75",
               db >= HOT_DB ? "bg-amber-400" : "bg-emerald-400",
             )}
-            style={{ width: `${w * 100}%` }}
+            style={{ transform: `scaleX(${w})` }}
           />
         </div>
         {/* UNITY — the one point of the travel worth finding without reading the number, and the handle covers it when it is there. */}

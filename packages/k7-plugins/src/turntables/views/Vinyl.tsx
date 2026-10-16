@@ -4,6 +4,7 @@
 
 import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { useEffect, useRef } from "react";
+import { m } from "../../paraglide/messages.js";
 import { CUE_COLOURS } from "../deckVocabulary";
 import { CENTRE, pointOnDial, progressOf, wedgePath } from "../dial";
 import { useInSight } from "./inSight";
@@ -22,6 +23,12 @@ const COAST_MS = 900;
 
 /** How fast a hand may drive the record. The plugin's own ceiling — past it nothing is a pitch. */
 const MAX_RATE = 4;
+
+/** Under this speed, a record with nothing asked of it has stopped coasting — the loop parks. */
+const PARKED_SPEED = 0.002;
+
+/** How often a PARKED record still looks at its needle: a cue dropped on a stopped deck must reach the wedge. */
+const PARKED_POLL_MS = 100;
 
 /** The angle of a pointer around the record's centre, in radians. */
 function angleAt(box: DOMRect, x: number, y: number): number {
@@ -74,6 +81,7 @@ export function Vinyl({
   onScratch?: (rate: number | null) => void;
 }) {
   const loaded = !!title;
+  const name = loaded ? `${artist ?? ""} ${title}` : m["vinyl.deck"]({ side });
   const wedge = useRef<SVGPathElement>(null);
   const disc = useRef<SVGSVGElement>(null);
   // Read by the frame loop, which must not be restarted by a pitch fader moving — hence refs, not deps.
@@ -85,6 +93,10 @@ export function Vinyl({
   // Read by the frame loop: hidden, the record keeps its angle but nothing is written to a page nobody sees.
   const seen = useRef(true);
   seen.current = useInSight();
+  /** Wakes a parked frame loop — a new rate or a hand on the record is something to draw again. */
+  const wake = useRef<() => void>(() => {});
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the wish moved, which is exactly what wakes the loop.
+  useEffect(() => wake.current(), [spinning, ratio]);
 
   /** Take hold of the record: the rate becomes the hand's, and the drawing sticks to the pointer. */
   const grab = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -94,6 +106,7 @@ export function Vinyl({
     let was = angleAt(box, e.clientX, e.clientY);
     let at = performance.now();
     held.current = 0;
+    wake.current();
     onScratch(0);
     const move = (ev: PointerEvent) => {
       const now = performance.now();
@@ -119,17 +132,41 @@ export function Vinyl({
   // The progress AND the rotation, per frame and never through React — `length` changes what a position MEANS.
   useEffect(() => {
     let frame = 0;
+    let poll = 0;
     let angle = 0;
     let speed = 0;
     let last = performance.now();
+    // What is on the page, so a frame that would write the same thing writes nothing.
+    let path = "";
+    let turned = "";
     // A CSS keyframe cannot do either half of this: it cannot take a live rate, and it stops dead.
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const drawWedge = () => {
+      const el = wedge.current;
+      if (!el || !seen.current) return;
+      const d = wedgePath(progressOf(at(), length), FILL_R);
+      if (d === path) return;
+      path = d;
+      el.setAttribute("d", d);
+    };
+    const run = () => {
+      if (frame) return;
+      window.clearInterval(poll);
+      poll = 0;
+      last = performance.now();
+      frame = requestAnimationFrame(tick);
+    };
+    // Parked: no frame loop, only a slow look at the needle in case a seek moved it.
+    const park = () => {
+      frame = 0;
+      speed = 0;
+      poll = window.setInterval(drawWedge, PARKED_POLL_MS);
+    };
+    wake.current = run;
     const tick = (now: number) => {
       const dt = Math.min(now - last, 100); // a backgrounded tab must not spin the record a full turn
       last = now;
-      const el = wedge.current;
-      if (el && seen.current)
-        el.setAttribute("d", wedgePath(progressOf(at(), length), FILL_R));
+      drawWedge();
       if (!still) {
         // A HELD record follows the finger outright; nothing is eased, because nothing is coasting.
         if (held.current !== null) {
@@ -141,13 +178,25 @@ export function Vinyl({
           speed += (wanted.current - speed) * k;
           angle = (angle + (360 * (dt / 1000) * speed) / TURN_SECONDS) % 360;
         }
-        if (disc.current && seen.current)
-          disc.current.style.transform = `rotate(${angle.toFixed(2)}deg)`;
+        const t = `rotate(${angle.toFixed(2)}deg)`;
+        if (disc.current && seen.current && t !== turned) {
+          turned = t;
+          disc.current.style.transform = t;
+        }
       }
-      frame = requestAnimationFrame(tick);
+      const idle =
+        held.current === null &&
+        wanted.current === 0 &&
+        (still || Math.abs(speed) < PARKED_SPEED);
+      if (idle) park();
+      else frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearInterval(poll);
+      wake.current = () => {};
+    };
   }, [at, length]);
   return (
     <div
@@ -164,10 +213,7 @@ export function Vinyl({
         aria-hidden="true"
       >
         {/* One title, not two: it names the record AND says what the hand may do with it. */}
-        <title>
-          {loaded ? `${artist ?? ""} ${title}` : `deck ${side}`}
-          {onScratch ? " — turn the record by hand" : ""}
-        </title>
+        <title>{onScratch ? m["vinyl.scratch"]({ name }) : name}</title>
         <defs>
           {/* Not flat black: a record reads as one because the light moves across it. */}
           <radialGradient id={`vinyl-${side}`} cx="50%" cy="50%" r="50%">
@@ -233,7 +279,7 @@ export function Vinyl({
         <button
           type="button"
           onClick={onPick}
-          title={loaded ? "change this deck's song" : "choose a song"}
+          title={loaded ? m["vinyl.change"]() : m["vinyl.choose"]()}
           className={`pointer-events-auto flex aspect-square w-[46%] cursor-pointer flex-col items-center justify-center rounded-full px-3 text-center transition-shadow hover:ring-2 hover:ring-foreground/30 ${
             loaded
               ? "bg-accent text-accent-foreground"
@@ -252,7 +298,7 @@ export function Vinyl({
               </span>
             </>
           ) : (
-            <span className="text-xs">platine {side}</span>
+            <span className="text-xs">{m["vinyl.deck"]({ side })}</span>
           )}
           {/* The spindle hole — the one detail that makes the ring read as a label. */}
           <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-background" />

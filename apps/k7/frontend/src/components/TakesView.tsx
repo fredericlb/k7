@@ -6,12 +6,13 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Check, Circle, Square, Trash2, X } from "@frediverse/ui/icons";
-import { useEngineState } from "@studio/engine-browser/store";
 import { setCompSpan } from "@studio/song-schema/takes";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { ModeIcon } from "../modeIcons";
+import { m } from "../paraglide/messages.js";
 import {
   compFadeLine,
   compLine,
@@ -100,7 +101,20 @@ export function TakesView({
       to: Math.max(ev.to, ...ends) + PAD,
     };
   }, [ev, lengths]);
-  const playheadBeat = useEngineState((s) => (s.playhead * tempo) / 60);
+  // Each row's heard spans, kept per event and lengths so a memoised row sees the same array across a drag's renders.
+  const heardOf = useMemo(() => {
+    const out = new Map<string, { from: number; to: number }[]>();
+    for (const r of ev.rows)
+      out.set(
+        r.ref,
+        heardSpans(
+          ev,
+          r,
+          r.start + (lengths[r.ref] ?? Math.max(0, ev.to - r.start)),
+        ),
+      );
+    return out;
+  }, [ev, lengths]);
   const [sel, setSel] = useState<{ from: number; to: number } | null>(null);
   // Notes are not swept between takes: a MIDI event plays one take whole, which keeps its roll one sequence.
   const wholeOnly = ev.kind === "midi";
@@ -219,12 +233,15 @@ export function TakesView({
           }
           title={
             host.recording
-              ? "stop the take"
+              ? m["takes.stop"]()
               : sel
-                ? `record a take punched into ${pos(sel.from)} → ${pos(sel.to)}`
-                : "record a take from the event's start, the event kept as it is"
+                ? m["takes.recordPunchHint"]({
+                    from: pos(sel.from),
+                    to: pos(sel.to),
+                  })
+                : m["takes.recordHint"]()
           }
-          aria-label={host.recording ? "stop the take" : "record a take"}
+          aria-label={host.recording ? m["takes.stop"]() : m["takes.record"]()}
         >
           {host.recording ? (
             <Square className="h-3.5 w-3.5" />
@@ -233,15 +250,17 @@ export function TakesView({
           )}
         </Button>
         <span className="font-mono">
-          {sel ? `${pos(sel.from)} → ${pos(sel.to)}` : `from ${pos(ev.start)}`}
+          {sel
+            ? `${pos(sel.from)} → ${pos(sel.to)}`
+            : m["takes.fromPosition"]({ position: pos(ev.start) })}
         </span>
         {sel && (
           <Button
             size="sm"
             variant="ghost"
             onClick={() => setSel(null)}
-            title="clear the span (Esc)"
-            aria-label="clear the span"
+            title={m["takes.clearSpanHint"]()}
+            aria-label={m["takes.clearSpan"]()}
           >
             <X className="h-3.5 w-3.5" />
           </Button>
@@ -253,8 +272,8 @@ export function TakesView({
             variant={xfTool ? "default" : "ghost"}
             onClick={() => setXfTool((v) => !v)}
             aria-pressed={xfTool}
-            title="crossfade — press near where two takes meet, drag to size it, Alt removes it"
-            aria-label="crossfade tool"
+            title={m["takes.crossfadeHint"]()}
+            aria-label={m["takes.crossfadeTool"]()}
           >
             <ModeIcon mode="crossfade" />
           </Button>
@@ -262,13 +281,13 @@ export function TakesView({
         <span className="ml-auto">
           {xfTool
             ? seams.length
-              ? "press near a seam and drag to size its crossfade"
-              : "no seam yet — comp a take in first"
+              ? m["takes.hintSeam"]()
+              : m["takes.hintNoSeam"]()
             : wholeOnly
-              ? "click a take to play it in place of the others"
+              ? m["takes.hintWhole"]()
               : sel
-                ? "click a take to play it over the span"
-                : "drag across the takes to choose a span"}
+                ? m["takes.hintSpan"]()
+                : m["takes.hintDrag"]()}
         </span>
       </div>
       {/* The song's bars, which a click seeks to — the one ruler of this view. */}
@@ -276,7 +295,7 @@ export function TakesView({
         <div className="w-24 shrink-0" />
         <button
           type="button"
-          aria-label="move the playhead"
+          aria-label={m["takes.seek"]()}
           className="relative block h-4 min-w-0 flex-1 cursor-pointer border-b border-border/50 text-left font-mono text-[10px] text-muted-foreground"
           onClick={(e) => onSeek?.((beatAt(e.clientX) * 60) / tempo)}
         >
@@ -293,8 +312,10 @@ export function TakesView({
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto">
         {ev.rows.map((r, i) => {
-          const heard = heardSpans(ev, r, rowEnd(r));
-          const label = r.own ? "event" : `take ${i + 1}`;
+          const heard = heardOf.get(r.ref) ?? [];
+          const label = r.own
+            ? m["takes.eventRow"]()
+            : m["takes.takeRow"]({ n: i + 1 });
           return (
             <div key={r.ref} className="flex min-h-10 flex-1 basis-0">
               <div className="flex w-24 shrink-0 items-center gap-1 px-1 text-xs">
@@ -310,12 +331,8 @@ export function TakesView({
                   variant="ghost"
                   className="ml-auto h-6 w-6 p-0"
                   onClick={() => pick(r.ref, { from: r.start, to: rowEnd(r) })}
-                  title={
-                    sel
-                      ? "play this take over the span"
-                      : "play this take wherever it was recorded"
-                  }
-                  aria-label={`use ${label}`}
+                  title={sel ? m["takes.useOverSpan"]() : m["takes.useWhole"]()}
+                  aria-label={m["takes.use"]({ label })}
                 >
                   <Check className="h-3.5 w-3.5" />
                 </Button>
@@ -335,8 +352,8 @@ export function TakesView({
                         `event take remove ${ev.track} ${ev.at} ${r.ref}`,
                       );
                     }}
-                    title="remove this take — its file stays on disk"
-                    aria-label={`remove ${label}`}
+                    title={m["takes.removeHint"]()}
+                    aria-label={m["takes.remove"]({ label })}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -392,7 +409,7 @@ export function TakesView({
                     viewBox="0 0 1 1"
                     preserveAspectRatio="none"
                     role="img"
-                    aria-label="crossfade"
+                    aria-label={m["takes.crossfade"]()}
                   >
                     <path
                       d="M0 1 L1 0 M0 0 L1 1"
@@ -411,15 +428,40 @@ export function TakesView({
                       style={{ left: pct(sm) }}
                     />
                   ))}
-                <div
-                  className="pointer-events-none absolute inset-y-0 w-px bg-red-500"
-                  style={{ left: pct(playheadBeat) }}
-                />
+                <TakesPlayhead view={view} tempo={tempo} />
               </div>
             </div>
           );
         })}
       </div>
     </div>
+  );
+}
+
+/** The transport line over one row, written per animation frame onto its node, so the view never renders at the engine's rate (docs/playhead.md). */
+function TakesPlayhead({
+  view,
+  tempo,
+}: {
+  view: { from: number; to: number };
+  tempo: number;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  usePlayheadFrames(
+    useCallback(
+      (seconds: number) => {
+        const el = ref.current;
+        if (!el) return;
+        const beat = (seconds * tempo) / 60;
+        el.style.left = `${((beat - view.from) / (view.to - view.from)) * 100}%`;
+      },
+      [tempo, view],
+    ),
+  );
+  return (
+    <div
+      ref={ref}
+      className="pointer-events-none absolute inset-y-0 w-px bg-red-500"
+    />
   );
 }

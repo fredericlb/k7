@@ -122,7 +122,9 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   RecorderTap.h + RecorderPlugin.{h,cpp}        a NODE's capture — the same shape, except that an
                                                 overrun is COUNTED rather than forgiven, since a
                                                 take that is silently short is a take you trust
-                                                (docs/recorder.md); RecorderNode.h is one node's state
+                                                (docs/recorder.md); RecorderNode.h is one node's state,
+                                                RecorderWriter.h the thread that writes every take —
+                                                JUCE-free, so tests/ has it in the FAST binary
   WaveformTap.h + WaveformTapPlugin.{h,cpp}     peak data while playing
   InputTuner.{h,cpp}                            pitch detection on inputs (docs/inputTuner.md)
 
@@ -143,6 +145,8 @@ scripts/               Node harnesses that drive a running engine, not build ste
   two-sessions.ts        two sessions on one engine stay separate
   track-delta.ts         `tracks` amends the document a session holds, and refuses the rest
   supersede-probe.ts     a burst of knob writes or of documents ends on the LAST one, and a fence keeps its place (docs/supersede.md)
+  recorder-probe.ts      a recorder node's take stays WHOLE while documents rebuild the graph around it — undamaged,
+                         and its wav as long as the clock said (docs/recorder.md)
   list-sessions.ts       an engine's sessions, and drop-session, over the control socket
   broadcast-sessions.mjs per-session streaming
   gen-strudel-bundle.mjs bundle @studio/song-strudel's engineEntry.ts into engine/strudel/strudel.bundle.js,

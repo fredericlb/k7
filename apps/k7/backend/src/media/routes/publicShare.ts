@@ -100,7 +100,7 @@ export function publicShareRouter(): RouterT {
   /** The one write. Bounded by commentGate.ts, and by a ceiling per snapshot that is not disk. */
   router.post(
     "/:key/comments",
-    // 64 kb, and not the 8 MB the service's global parser takes: nothing here is a file.
+    // 64 kb, the same as the shared parser gives this path (../../bodyLimits.ts): nothing here is a file.
     express.json({ limit: "64kb" }),
     wrap((req, res) => {
       const snap = snapshotOf(req.params.key);

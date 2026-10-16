@@ -67,4 +67,12 @@ paper is a job the export does not take on.
 The plugin copies the Bravura font and the SONiVOX soundfont into the build, and the viewer asks
 for them under the app's base (`/font/`, `/soundfont/` on k7's origin), which k7's backend serves
 like any other static file. The soundfont is not in the PWA's precache list, so playback needs the network the
-first time a score is opened.
+first time a score is played.
+
+## The player loads on the first Play
+
+A score opens with alphaTab's player disabled, and the first press of Play turns it on: only then
+are the synth worker started and the 1.3 MB soundfont fetched, and playback starts once they are
+ready. Most scores are opened to be read, not heard, and a page that loads the soundfont on every
+mount pays for it on every song of the songbook. While the player loads, Play is greyed out
+(`ScoreState.loading`).

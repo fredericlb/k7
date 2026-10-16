@@ -66,9 +66,9 @@ function masterOf(entry: {
 }
 
 /** Every catalogued song whose master has no sidecar at all, in listing order. */
-function missing(): string[] {
+async function missing(): Promise<string[]> {
   const out: string[] = [];
-  for (const entry of listFamily("songs").entries) {
+  for (const entry of (await listFamily("songs")).entries) {
     const rel = masterOf(entry);
     if (!rel || failed.has(rel)) continue;
     const abs = join(mediatekDir(), rel);
@@ -82,7 +82,7 @@ async function pass(): Promise<void> {
   if (!state.decoder || state.running || !exists()) return;
   state.running = true;
   try {
-    const todo = missing();
+    const todo = await missing();
     state.pending = todo.length;
     for (const rel of todo) {
       state.current = rel;

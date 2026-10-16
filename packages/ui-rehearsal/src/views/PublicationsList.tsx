@@ -56,12 +56,18 @@ export function PublicationsList({
     });
 
   const releaseRow = (r: Release) => (
-    <li key={r.id} className="session-item" onClick={() => onOpenRelease(r)}>
-      <div className="session-name">{r.title}</div>
-      <div className="session-meta">
-        <span>{r.artist}</span>
-        {r.canDownload && <Download className="size-3" />}
-      </div>
+    <li key={r.id}>
+      <button
+        type="button"
+        className="session-item"
+        onClick={() => onOpenRelease(r)}
+      >
+        <div className="session-name">{r.title}</div>
+        <div className="session-meta">
+          <span>{r.artist}</span>
+          {r.canDownload && <Download className="size-3" />}
+        </div>
+      </button>
     </li>
   );
 

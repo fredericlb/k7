@@ -1,12 +1,15 @@
 import { Flag } from "@frediverse/ui/icons";
 import {
   memo,
+  type Ref,
   useEffect,
+  useImperativeHandle,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { playheadPlacement } from "./playhead";
 import { columnsOf, mirroredYs, spectrumLayer } from "./spectrum";
 import {
   labelled,
@@ -56,7 +59,9 @@ interface Props {
   sourceWindow?: { from: number; to: number } | null;
   gridLines?: WaveformGrid[]; // optional bar/beat overlay
   height?: number; // canvas height in px; defaults to DEFAULT_HEIGHT
-  currentTime: number;
+  /** Where the transport is, seconds; a host on the engine's frames omits it and steers `ref.setTime` instead — see docs/layers.md. */
+  currentTime?: number;
+  ref?: Ref<WaveformHandle>;
   selection?: Selection | null;
   onSeek?: (sec: number) => void;
   onSelect?: (sel: Selection) => void;
@@ -86,6 +91,20 @@ const ENV_PLAYED = "139, 92, 246"; // accent purple — left of the playhead
 const PEAK_ALPHA = 0.45;
 /** What is left of a spectrum column once the playhead has passed it — the played part dims. */
 const PLAYED_ALPHA = 0.4;
+
+/** The layers under the interactive canvas: stacked at its origin, and never a target for the pointer. */
+const UNDER = {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  pointerEvents: "none",
+} as const;
+/** The playhead, as the canvas stroked it: 2px of near-white, moved by a transform rather than a redraw. */
+const LINE = {
+  width: 2,
+  background: "rgba(235,235,242,0.9)",
+  willChange: "transform",
+} as const;
 
 // Stable defaults: a fresh `[]` per render is a new identity, which fired the draw effect on every host render.
 const NO_EVENTS: DetectedEvent[] = [];
@@ -209,6 +228,11 @@ function envelopeLayer(
   return cv;
 }
 
+/** The transport, steered without a render: the played fill and the line move, and no canvas is redrawn. */
+export interface WaveformHandle {
+  setTime: (seconds: number) => void;
+}
+
 function WaveformInner({
   envelope,
   look = "contour",
@@ -228,6 +252,7 @@ function WaveformInner({
   gridLines = NO_GRID,
   height = DEFAULT_HEIGHT,
   currentTime,
+  ref,
   selection = null,
   onSeek,
   onSelect,
@@ -238,6 +263,10 @@ function WaveformInner({
   onEditRange,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Under the interactive canvas: the ground with the whole material, the same ground PLAYED, and the line.
+  const baseRef = useRef<HTMLCanvasElement>(null);
+  const playedRef = useRef<HTMLCanvasElement>(null);
+  const lineRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
   const drag = useRef<{ startX: number; moved: boolean } | null>(null);
@@ -369,135 +398,126 @@ function WaveformInner({
   const dbAxis = cols ? [] : DB_GRID;
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvasRef.current || !baseRef.current || !playedRef.current) return;
     const dpr = window.devicePixelRatio || 1;
-    // Only when it actually changed: assigning `width` reallocates the backing store — see docs/layers.md.
-    const w = Math.round(width * dpr);
-    const h = Math.round(HEIGHT * dpr);
-    if (canvas.width !== w) canvas.width = w;
-    if (canvas.height !== h) canvas.height = h;
-    const ctx = canvas.getContext("2d")!;
-    // Nothing resets the context for free, so it is asserted: transform here, every style set before use, `[]` restored.
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, width, HEIGHT);
+    const open = (canvas: HTMLCanvasElement): CanvasRenderingContext2D => {
+      // Only when it actually changed: assigning `width` reallocates the backing store — see docs/layers.md.
+      const w = Math.round(width * dpr);
+      const h = Math.round(HEIGHT * dpr);
+      if (canvas.width !== w) canvas.width = w;
+      if (canvas.height !== h) canvas.height = h;
+      const c = canvas.getContext("2d")!;
+      // Nothing resets the context for free, so it is asserted: transform here, every style set before use, `[]` restored.
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      c.clearRect(0, 0, width, HEIGHT);
+      return c;
+    };
+    const baseCtx = open(baseRef.current);
+    const playedCtx = open(playedRef.current);
+    // The ground is drawn twice, once under each side of the playhead, so the played canvas covers the whole one exactly.
+    const ground = (ctx: CanvasRenderingContext2D) => {
+      // Background
+      ctx.fillStyle = "#1b1c22";
+      ctx.fillRect(0, 0, width, HEIGHT);
 
-    // Background
-    ctx.fillStyle = "#1b1c22";
-    ctx.fillRect(0, 0, width, HEIGHT);
-
-    // dB grid lines (labels drawn last, on top)
-    ctx.lineWidth = 1;
-    for (const db of dbAxis) {
-      const y = Math.round(dbToY(db)) + 0.5;
-      ctx.strokeStyle = "rgba(255,255,255,0.07)";
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
-
-    // Bar/beat gridlines behind everything else: bars brighter, beats fainter, both DASHED — see docs/marks.md.
-    ctx.setLineDash(GRID_DASH);
-
-    // The subdivisions first, so a beat's own line wins where the two round to one pixel.
-    ctx.strokeStyle = "rgba(255,255,255,0.05)";
-    ctx.lineWidth = 1;
-    for (const t of subGrid) {
-      const sx = Math.round(timeToX(t)) + 0.5;
-      ctx.beginPath();
-      ctx.moveTo(sx, 0);
-      ctx.lineTo(sx, HEIGHT);
-      ctx.stroke();
-    }
-    for (const g of gridLines) {
-      const gx = Math.round(timeToX(g.t)) + 0.5;
-      ctx.strokeStyle = g.bar
-        ? "rgba(120,180,255,0.45)"
-        : "rgba(255,255,255,0.10)";
+      // dB grid lines (labels drawn last, on top)
       ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(gx, 0);
-      ctx.lineTo(gx, HEIGHT);
-      ctx.stroke();
-    }
-    ctx.setLineDash([]);
-
-    // The material's window as GROUND, lit under everything else and deliberately colourless — see docs/marks.md.
-
-    // The dragged pair while an edge is held: the band has to follow the hand, not the write.
-    const shown = winDrag ?? sourceWindow;
-    if (shown && shown.to > shown.from) {
-      const wx0 = timeToX(shown.from);
-      const wx1 = timeToX(shown.to);
-      ctx.fillStyle = "rgba(255,255,255,0.1)";
-      ctx.fillRect(wx0, 0, Math.max(1, wx1 - wx0), HEIGHT);
-      // The EDGES carry it, not the wash, since the envelope's own fill is drawn on top of it.
-      ctx.strokeStyle = "rgba(226,232,240,0.8)";
-      ctx.lineWidth = 1.5;
-      for (const ex of [wx0, wx1]) {
-        const x = Math.round(ex) + 0.5;
+      for (const db of dbAxis) {
+        const y = Math.round(dbToY(db)) + 0.5;
+        ctx.strokeStyle = "rgba(255,255,255,0.07)";
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, HEIGHT);
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
         ctx.stroke();
       }
-    }
 
-    // Detected event regions (behind the bars)
-    ctx.fillStyle = "rgba(80, 200, 120, 0.2)";
-    for (const ev of events) {
-      const x0 = timeToX(ev.startSec);
-      const x1 = timeToX(ev.endSec);
-      ctx.fillRect(x0, 0, Math.max(1, x1 - x0), HEIGHT);
-    }
+      // Bar/beat gridlines behind everything else: bars brighter, beats fainter, both DASHED — see docs/marks.md.
+      ctx.setLineDash(GRID_DASH);
 
-    // Annotation regions
-    ctx.fillStyle = "rgba(240, 180, 60, 0.24)";
-    for (const a of annotations) {
-      const x0 = timeToX(a.startSec);
-      const x1 = timeToX(a.endSec);
-      ctx.fillRect(x0, 0, Math.max(2, x1 - x0), HEIGHT);
-    }
-
-    // Unplayed grey, played purple, all pre-rasterised so a frame costs blits — see docs/layers.md.
-
-    // The PEAK goes down first so the RMS sits inside it, both under the same playhead clip.
-    const playX = timeToX(currentTime);
-    const fill = (
-      whole: HTMLCanvasElement | null,
-      left: HTMLCanvasElement | null,
-    ) => {
-      if (!whole) return;
-      ctx.drawImage(whole, 0, 0, width, HEIGHT);
-      if (playX <= 0 || !left) return;
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, playX, HEIGHT);
-      ctx.clip();
-      ctx.drawImage(left, 0, 0, width, HEIGHT);
-      ctx.restore();
-    };
-    if (layers.spectrum) {
-      // Each side of the playhead gets ONE layer: the dim one over the bright would still read bright.
-      const side = (
-        layer: HTMLCanvasElement | null,
-        x0: number,
-        x1: number,
-      ) => {
-        if (!layer || x1 <= x0) return;
-        ctx.save();
+      // The subdivisions first, so a beat's own line wins where the two round to one pixel.
+      ctx.strokeStyle = "rgba(255,255,255,0.05)";
+      ctx.lineWidth = 1;
+      for (const t of subGrid) {
+        const sx = Math.round(timeToX(t)) + 0.5;
         ctx.beginPath();
-        ctx.rect(x0, 0, x1 - x0, HEIGHT);
-        ctx.clip();
-        ctx.drawImage(layer, 0, 0, width, HEIGHT);
-        ctx.restore();
-      };
-      side(layers.spectrum, Math.max(0, playX), width);
-      side(layers.spectrumPlayed, 0, Math.min(width, playX));
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, HEIGHT);
+        ctx.stroke();
+      }
+      for (const g of gridLines) {
+        const gx = Math.round(timeToX(g.t)) + 0.5;
+        ctx.strokeStyle = g.bar
+          ? "rgba(120,180,255,0.45)"
+          : "rgba(255,255,255,0.10)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(gx, 0);
+        ctx.lineTo(gx, HEIGHT);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      // The material's window as GROUND, lit under everything else and deliberately colourless — see docs/marks.md.
+
+      // The dragged pair while an edge is held: the band has to follow the hand, not the write.
+      const shown = winDrag ?? sourceWindow;
+      if (shown && shown.to > shown.from) {
+        const wx0 = timeToX(shown.from);
+        const wx1 = timeToX(shown.to);
+        ctx.fillStyle = "rgba(255,255,255,0.1)";
+        ctx.fillRect(wx0, 0, Math.max(1, wx1 - wx0), HEIGHT);
+        // The EDGES carry it, not the wash, since the envelope's own fill is drawn on top of it.
+        ctx.strokeStyle = "rgba(226,232,240,0.8)";
+        ctx.lineWidth = 1.5;
+        for (const ex of [wx0, wx1]) {
+          const x = Math.round(ex) + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, HEIGHT);
+          ctx.stroke();
+        }
+      }
+
+      // Detected event regions (behind the bars)
+      ctx.fillStyle = "rgba(80, 200, 120, 0.2)";
+      for (const ev of events) {
+        const x0 = timeToX(ev.startSec);
+        const x1 = timeToX(ev.endSec);
+        ctx.fillRect(x0, 0, Math.max(1, x1 - x0), HEIGHT);
+      }
+
+      // Annotation regions
+      ctx.fillStyle = "rgba(240, 180, 60, 0.24)";
+      for (const a of annotations) {
+        const x0 = timeToX(a.startSec);
+        const x1 = timeToX(a.endSec);
+        ctx.fillRect(x0, 0, Math.max(2, x1 - x0), HEIGHT);
+      }
+    };
+    ground(baseCtx);
+    ground(playedCtx);
+
+    // Unplayed grey, played purple, pre-rasterised and blitted; the PLAYED canvas is clipped by CSS per frame — see docs/layers.md.
+    const blit = (c: CanvasRenderingContext2D, l: HTMLCanvasElement | null) => {
+      if (l) c.drawImage(l, 0, 0, width, HEIGHT);
+    };
+    // Each side of the playhead gets ONE spectrum layer: the dim one over the bright would still read bright.
+    blit(baseCtx, layers.spectrum);
+    blit(playedCtx, layers.spectrumPlayed);
+    // The PEAK goes down first so the RMS sits inside it; the played side keeps the whole contour under its purple, as one canvas did.
+    blit(baseCtx, layers.peakUnplayed);
+    blit(baseCtx, layers.unplayed);
+    if (layers.peakUnplayed) {
+      blit(playedCtx, layers.peakUnplayed);
+      blit(playedCtx, layers.peakPlayed);
     }
-    fill(layers.peakUnplayed, layers.peakPlayed);
-    fill(layers.unplayed, layers.played);
+    if (layers.unplayed) {
+      blit(playedCtx, layers.unplayed);
+      blit(playedCtx, layers.played);
+    }
+
+    // Everything drawn over the envelope lives on the interactive canvas, transparent, above the played clip and the line.
+    const ctx = open(canvasRef.current);
 
     // Threshold line (horizontal, at its dB level) — only when a threshold is set.
     if (threshold != null) {
@@ -610,15 +630,6 @@ function WaveformInner({
       }
     }
 
-    // Playhead
-    const px = timeToX(currentTime);
-    ctx.strokeStyle = "rgba(235,235,242,0.9)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(px, 0);
-    ctx.lineTo(px, HEIGHT);
-    ctx.stroke();
-
     // dB axis labels (on top of everything)
     ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.textBaseline = "bottom";
@@ -682,7 +693,6 @@ function WaveformInner({
     markers,
     gridLines,
     subGrid,
-    currentTime,
     selection,
     dragSel,
     editing,
@@ -694,6 +704,33 @@ function WaveformInner({
     sourceWindow,
     winDrag,
   ]);
+
+  // The transport, held in a ref so a host steering it per frame never renders this component.
+  const timeRef = useRef(currentTime ?? 0);
+  if (currentTime !== undefined) timeRef.current = currentTime;
+  const place = (t: number) => {
+    const p = playheadPlacement(timeToX(t), width);
+    const played = playedRef.current;
+    if (played) {
+      played.style.clipPath = p.clipPath;
+      played.style.visibility = p.playedVisible ? "visible" : "hidden";
+    }
+    if (lineRef.current) lineRef.current.style.transform = p.lineTransform;
+  };
+  const placeRef = useRef(place);
+  placeRef.current = place;
+  // Every render: the geometry (`view`, `width`) may have moved under a transport that did not.
+  useLayoutEffect(() => placeRef.current(timeRef.current));
+  useImperativeHandle(
+    ref,
+    () => ({
+      setTime: (t: number) => {
+        timeRef.current = t;
+        placeRef.current(t);
+      },
+    }),
+    [],
+  );
 
   // The grid's times alone — what a click snaps to (see nearestTick), subdivisions included since they are drawn.
   const gridTimes = useMemo(
@@ -778,10 +815,26 @@ function WaveformInner({
 
   return (
     <div ref={wrapRef} className="waveform-wrap">
+      {/* The three layers under the interactive canvas, in paint order: whole, played (clipped per frame), the line — docs/layers.md. */}
+      <canvas ref={baseRef} style={{ ...UNDER, width, height: HEIGHT }} />
+      <canvas
+        ref={playedRef}
+        style={{ ...UNDER, width, height: HEIGHT, visibility: "hidden" }}
+      />
+      <div
+        ref={lineRef}
+        aria-hidden="true"
+        style={{ ...UNDER, ...LINE, height: HEIGHT }}
+      />
       <canvas
         ref={canvasRef}
         /** Sized in PIXELS, not `100%`, so the coordinate space and the box cannot drift — see docs/measuring.md. */
-        style={{ width, height: HEIGHT, cursor: "crosshair" }}
+        style={{
+          position: "relative",
+          width,
+          height: HEIGHT,
+          cursor: "crosshair",
+        }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

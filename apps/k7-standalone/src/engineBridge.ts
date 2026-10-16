@@ -28,7 +28,7 @@ let latest: Snapshot | null = null;
 let down: string | null = null;
 
 /** Whether a message comes from a page of the app's own origin. */
-function fromApp(
+export function fromApp(
   e: IpcMainEvent | IpcMainInvokeEvent,
   origin: string,
 ): boolean {

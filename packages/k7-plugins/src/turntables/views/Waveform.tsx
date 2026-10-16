@@ -3,8 +3,10 @@
 // animation frame off the deck's STEERED reader — never by React state. See ../../docs/waveform.md.
 
 import { usePointerFollow } from "@studio/ui-timeline/drag";
-import { interpolated, spectrumColumns } from "@studio/ui-waveform/spectrum";
+import { interpolated } from "@studio/ui-waveform/spectrum";
+import { SpectrumStrip } from "@studio/ui-waveform/spectrum-strip";
 import { useCallback, useEffect, useRef } from "react";
+import { m } from "../../paraglide/messages.js";
 import type { DeckTempo } from "../deckVocabulary";
 import { shuttleRate } from "../shuttle";
 import {
@@ -86,8 +88,6 @@ export function Waveform({
   envelope,
   needle,
   loop,
-  /** This deck's stretch, for the beat grid — the POSITION now comes from `needle`, docs/turntable.md. */
-  tempo,
   /** Said out loud while the engine computes a sidecar — an empty box would read as "no waveform". */
   analysing,
   /** Why there is none, when there will not be one — the strip cannot draw "failed" against "none". */
@@ -100,15 +100,22 @@ export function Waveform({
   needle: () => number;
   /** The running loop in SOURCE seconds, or null — drawn as a band, see ../../docs/loop.md. */
   loop?: { start: number; end: number } | null;
+  /** This deck's stretch — unread by the drawing, whose grid comes from the envelope and position from `needle`. */
   tempo: DeckTempo | undefined;
   analysing: boolean;
   problem: string | null;
-  /** How tall to draw, from `deskLayout` — `draw` reads `clientHeight` every frame, so nothing else follows it. */
+  /** How tall to draw, from `deskLayout` — the canvas's own observer picks the size up, so nothing else follows it. */
   height: number;
   /** Push the record by `seconds`, signed — absent, the band is not draggable. See ../../docs/waveform.md. */
   onShove?: (seconds: number) => void;
 }) {
   const canvas = useRef<HTMLCanvasElement | null>(null);
+  /** The track rasterised once per envelope and size — outside the effect, which a new loop restarts. */
+  const strip = useRef<{
+    key: string;
+    env: Envelope;
+    strip: SpectrumStrip;
+  } | null>(null);
   const follow = usePointerFollow();
   /** What the hand has run up while it is down — REFS, like the needle, so a shuttle at 60 fps
    *  re-renders nothing: the canvas reads them in its own loop (../../docs/waveform.md). */
@@ -135,13 +142,19 @@ export function Waveform({
     let frame = 0;
     // What the canvas shows now, as size and position: equal next frame, there is nothing to paint.
     let drawn = "";
+    // Sized by an observer, never read in the frame: `clientWidth` there forces a layout per deck per frame.
+    let w = el.clientWidth;
+    let h = el.clientHeight;
+    const sized = new ResizeObserver(([e]) => {
+      w = Math.round(e.contentRect.width);
+      h = Math.round(e.contentRect.height);
+    });
+    sized.observe(el);
 
     const draw = () => {
       frame = requestAnimationFrame(draw);
-      // Sized in CSS pixels, drawn in device pixels — done per frame, so a resize needs no observer.
+      // Sized in CSS pixels, drawn in device pixels.
       const ratio = globalThis.devicePixelRatio || 1;
-      const w = el.clientWidth;
-      const h = el.clientHeight;
       if (!w || !h) return;
       // Where we are NOW: a stopped deck's needle simply does not move, whichever clock it is on.
       // …unless a hand is on the band. A DRAG draws the live needle plus what the shuttle has run
@@ -159,9 +172,9 @@ export function Waveform({
         else at = held.at;
       }
       // A stopped deck draws the same picture every frame: drawn once, then left until something moves.
-      const key = `${w}|${h}|${ratio}|${at}`;
-      if (key === drawn) return;
-      drawn = key;
+      const shown = `${w}|${h}|${ratio}|${at}`;
+      if (shown === drawn) return;
+      drawn = shown;
       if (
         el.width !== Math.round(w * ratio) ||
         el.height !== Math.round(h * ratio)
@@ -182,16 +195,23 @@ export function Waveform({
       const [from, to] = viewWindow(at);
       const xPx = (s: number) => xOf(s, at) * w;
 
-      // --- the SPECTRUM look, painted by the same function as every k7 waveform (@studio/ui-waveform) ---
-      const perSecond =
-        envelope.seconds > 0 ? envelope.peak.length / envelope.seconds : 0;
-      const amps = { ...envelope, amps: envelope.peak };
-      spectrumColumns(ctx, w, h, (px) => {
-        const seconds = from + ((px + 0.5) / w) * WINDOW_SECONDS;
-        // Before the start or past the end: drawn as nothing.
-        if (bucketAt(envelope, seconds) === null) return null;
-        return interpolated(amps, seconds * perSecond - 0.5);
-      });
+      // --- the SPECTRUM look, rasterised once into tiles and slid under the head (@studio/ui-waveform) ---
+      const perPx = w / WINDOW_SECONDS;
+      const key = `${w}|${h}|${ratio}`;
+      if (strip.current?.key !== key || strip.current.env !== envelope) {
+        const perSecond =
+          envelope.seconds > 0 ? envelope.peak.length / envelope.seconds : 0;
+        const amps = { ...envelope, amps: envelope.peak };
+        const column = (g: number) => {
+          const seconds = (g + 0.5) / perPx;
+          // Before the start or past the end: drawn as nothing.
+          if (bucketAt(envelope, seconds) === null) return null;
+          return interpolated(amps, seconds * perSecond - 0.5);
+        };
+        const painter = new SpectrumStrip(column, h, ratio);
+        strip.current = { key, env: envelope, strip: painter };
+      }
+      strip.current.strip.draw(ctx, from * perPx, w);
 
       // --- the loop, UNDER the grid: it is a region and the beats have to stay readable on it ---
       if (loop) {
@@ -232,9 +252,12 @@ export function Waveform({
     };
 
     frame = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(frame);
-    // The loop restarts only when the envelope, the reader or the deck's stretch changes.
-  }, [envelope, needle, tempo, loop]);
+    return () => {
+      cancelAnimationFrame(frame);
+      sized.disconnect();
+    };
+    // The loop restarts only when the envelope, the reader or the loop changes — each kept stable by the caller.
+  }, [envelope, needle, loop]);
 
   return (
     <div
@@ -245,16 +268,12 @@ export function Waveform({
       onPointerDown={
         onShove ? (e) => shuttle(follow, e, onShove, preview, land) : undefined
       }
-      title={
-        onShove
-          ? "drag left to go forward, right to go back — further is faster"
-          : undefined
-      }
+      title={onShove ? m["wave.shuttle"]() : undefined}
     >
       <canvas ref={canvas} className="h-full w-full" />
       {analysing ? (
         <span className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-          analysing the song…
+          {m["wave.analysing"]()}
         </span>
       ) : null}
       {problem ? (
@@ -263,13 +282,13 @@ export function Waveform({
           className="absolute inset-x-2 top-1/2 -translate-y-1/2 truncate text-center text-[11px] text-destructive"
           title={problem}
         >
-          pas de forme d'onde : {problem}
+          {m["wave.none"]({ problem })}
         </span>
       ) : null}
       {envelope && !envelope.bpm ? (
         // No tempo means no grid, said out loud: missing yellow lines would otherwise read as a bug.
         <span className="absolute right-2 top-1 text-[10px] text-muted-foreground">
-          tempo inconnu
+          {m["wave.noTempo"]()}
         </span>
       ) : null}
       {envelope?.bpm ? (

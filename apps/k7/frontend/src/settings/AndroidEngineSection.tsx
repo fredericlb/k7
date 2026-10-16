@@ -5,6 +5,7 @@
 
 import { studioFamily } from "@studio/web-protocol/services";
 import { useEffect, useState } from "react";
+import { m } from "../paraglide/messages.js";
 import {
   type EngineSnapshot,
   engineCall,
@@ -38,30 +39,24 @@ export function AndroidEngineSection() {
 
   return (
     <>
-      <Section
-        title="This phone's engine"
-        hint="It runs inside this app, and only while the app is on screen: leaving the app stops it and unlists it."
-      >
+      <Section title={m["android.title"]()} hint={m["android.hint"]()}>
         <Row
           label={engineLine(snapshot, lan)}
           detail={
             rows.length > 0 && snapshot?.engineExit == null
               ? state?.lastHeartbeatOk
-                ? "Listed at every studio"
-                : "A studio is not answering"
+                ? m["android.listed"]()
+                : m["android.notAnswering"]()
               : undefined
           }
         >
           <Action danger onClick={() => void engineCall("quit")}>
-            Quit
+            {m["android.quit"]()}
           </Action>
         </Row>
       </Section>
 
-      <Section
-        title="Studios"
-        hint="Where this phone's engine is listed. k7 opens on the one marked open."
-      >
+      <Section title={m["android.studios"]()} hint={m["android.studiosHint"]()}>
         {rows.map((row) => {
           const family = studioFamily(row.url);
           const open = family === snapshot?.studio;
@@ -69,16 +64,16 @@ export function AndroidEngineSection() {
             <Row
               key={row.url}
               label={row.url}
-              detail={open ? "Open here" : undefined}
+              detail={open ? m["android.openHere"]() : undefined}
             >
               {!open && (
                 <Action
                   onClick={() =>
                     void engineCall("chooseStudio", { origin: family })
                   }
-                  title="Open k7 on this studio"
+                  title={m["android.openStudio"]()}
                 >
-                  Open
+                  {m["android.open"]()}
                 </Action>
               )}
               {row.removable && (
@@ -91,7 +86,7 @@ export function AndroidEngineSection() {
                     })
                   }
                 >
-                  Remove
+                  {m["ai.remove"]()}
                 </Action>
               )}
             </Row>
@@ -115,12 +110,12 @@ export function AndroidEngineSection() {
             className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-neutral-200 text-sm"
           />
           <Action onClick={connect} disabled={!address.trim()}>
-            Connect
+            {m["android.connect"]()}
           </Action>
         </form>
         {check?.state === "checking" && (
           <p className="px-4 py-2 text-neutral-500 text-xs">
-            Checking {check.url}…
+            {m["android.checking"]({ url: check.url ?? "" })}
           </p>
         )}
         {check?.state === "refused" && (
@@ -141,12 +136,16 @@ export function AndroidEngineSection() {
 function engineLine(snapshot: EngineSnapshot | null, lan: string | null) {
   const state = snapshot?.state;
   if (snapshot?.engineExit != null)
-    return `Engine stopped (${snapshot.engineExit})`;
-  if (!state) return "Starting…";
+    return m["android.engineStopped"]({ code: String(snapshot.engineExit) });
+  if (!state) return m["android.starting"]();
   if (state.status === "running")
-    return `Engine running on ws://${lan ?? "127.0.0.1"}:${state.enginePort}`;
-  if (state.status === "error") return `Engine: ${state.error}`;
-  return `Engine ${state.status ?? "starting…"}`;
+    return m["android.engineRunning"]({
+      address: `ws://${lan ?? "127.0.0.1"}:${state.enginePort}`,
+    });
+  if (state.status === "error")
+    return m["android.engineError"]({ message: String(state.error) });
+  if (!state.status) return m["android.starting"]();
+  return m["android.engineStatus"]({ status: state.status });
 }
 
 // The supervisor reads its roots once, at start: each change restarts it, and it adopts the running engine.
@@ -163,7 +162,7 @@ function PrivateCaSection() {
 
   const run = async (method: "importCa" | "forgetCas", doing: string) => {
     setBusy(true);
-    setSaid(`${doing} — reconnecting…`);
+    setSaid(m["android.reconnecting"]({ doing }));
     try {
       const done = await engineCall<{ count: number; said?: string }>(method);
       setCount(done.count);
@@ -176,27 +175,27 @@ function PrivateCaSection() {
   };
 
   return (
-    <Section
-      title="Private CA"
-      hint="Only for a studio whose HTTPS certificate is signed by a CA of your own. Android keeps the CAs installed in Settings out of an app's reach, so the certificate file (.pem, .crt or .der) is picked here; the engine and k7 both trust it."
-    >
+    <Section title={m["android.caTitle"]()} hint={m["android.caHint"]()}>
       <Row
         label={
           count == null || count === 0
-            ? "Android's CAs only"
-            : `Android's CAs and ${count} of yours`
+            ? m["android.caSystem"]()
+            : m["android.caYours"]({ count })
         }
         detail={said ?? undefined}
       >
-        <Action disabled={busy} onClick={() => void run("importCa", "Adding")}>
-          Trust a certificate…
+        <Action
+          disabled={busy}
+          onClick={() => void run("importCa", m["android.caAdding"]())}
+        >
+          {m["android.caTrust"]()}
         </Action>
         <Action
           danger
           disabled={busy || !count}
-          onClick={() => void run("forgetCas", "Forgetting")}
+          onClick={() => void run("forgetCas", m["android.caForgetting"]())}
         >
-          Forget
+          {m["android.caForget"]()}
         </Action>
       </Row>
     </Section>

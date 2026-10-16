@@ -43,7 +43,10 @@ segment, and a filter's field name must be a plain word before it enters a JSON 
 
 ## Lists read what they show
 
-A session list projects seven fields instead of every envelope, which passes 100 KB for a long take.
+A session list projects seven fields instead of every envelope, which passes 100 KB for a long take,
+and the projection happens in SQL, so the envelope is never parsed either. The songbook list carries
+no lyrics, tablature or envelope, and a song's edit patches its row rather than refetching the
+list ([store.md](store.md)).
 
 ## A take survives a failed upload, and a tab asks before it closes
 

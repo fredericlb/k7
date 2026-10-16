@@ -71,6 +71,8 @@
   "common.start": "Start",
   "common.stop": "Stop",
   "common.uploading": "Uploading…",
+  "common.uploadProgress": "Uploading… {percent}%",
+  "common.analyzing": "Analyzing…",
   "date.today": "Today",
   "date.yesterday": "Yesterday",
   "exercise.chords.count": "Chord #{n}",

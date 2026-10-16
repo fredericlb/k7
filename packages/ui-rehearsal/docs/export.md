@@ -8,10 +8,10 @@ read one song at a time: a single 200-page file is not what you carry to a rehea
 
 ## It runs in the browser
 
-`GET /api/songs` already answers with `lyrics` and `tablature` in full, so the page holds the
-whole songbook before either entry is chosen. A server route would re-read what the client
-has, hold every generated file in memory at once, and put two more dependencies in the hosted
-image for a job that needs no server-side half.
+`GET /api/songs` answers with rows and no texts ([store.md](../../rehearsal-server/docs/store.md)),
+so each favourite is fetched whole from its own `GET /api/songs/:sid` as its turn comes. A server
+route would hold every generated file in memory at once and put two more dependencies in the
+hosted image for a job that needs no server-side half.
 
 Both generators are behind `import()`. They are the two heaviest dependencies of these pages —
 pdf-lib ~420 kB, epub-gen-memory ~220 kB — and neither belongs in the chunk that draws a

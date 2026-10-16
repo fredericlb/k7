@@ -1,5 +1,5 @@
 // useWorkspaceSync.ts — where each workspace lives, on a machine paired with a remote server: synced,
-// here only, or there only. Read on open, when the list changes, and every half minute; nothing when unpaired.
+// here only, or there only. Read on open, when the list changes, and every half minute while the tab is visible; nothing when unpaired.
 // See ../../docs/projects.md.
 
 import type {
@@ -7,6 +7,8 @@ import type {
   WorkspaceSyncStatus,
 } from "@studio/web-protocol";
 import { useCallback, useEffect, useState } from "react";
+import { keepIfSame } from "../shellEquality";
+import { pollWhileVisible } from "../visiblePoll";
 import { accountFiles } from "./api";
 import type { AccountFiles } from "./workspaceOps";
 
@@ -29,7 +31,7 @@ export function useWorkspaceSync(
     let retry: ReturnType<typeof setTimeout> | undefined;
     void accountFiles
       .workspaceSync(fileService)
-      .then((s) => live && setSync(s.paired ? s : null))
+      .then((s) => live && setSync(keepIfSame(s.paired ? s : null)))
       // A service restarting (a pairing does that) answers nothing for a moment: ask again shortly, no icons meanwhile.
       .catch(() => {
         if (!live) return;
@@ -42,17 +44,14 @@ export function useWorkspaceSync(
     };
   }, [fileService, workspaces, tick]);
 
-  useEffect(() => {
-    const t = setInterval(reload, EVERY_MS);
-    return () => clearInterval(t);
-  }, [reload]);
+  // A hidden tab asks nothing: the answer is for a row on screen, and the return asks once at once.
+  useEffect(() => pollWhileVisible(reload, EVERY_MS), [reload]);
 
   // A move under way is watched closely: it ends on its own, and the row should say so when it does.
   const moving = sync?.workspaces.some((w) => w.moving && !w.moving.error);
   useEffect(() => {
     if (!moving) return;
-    const t = setInterval(reload, MOVING_MS);
-    return () => clearInterval(t);
+    return pollWhileVisible(reload, MOVING_MS);
   }, [moving, reload]);
 
   return { sync, reload };

@@ -117,18 +117,11 @@ which holds them at ~130 ms instead of ~465.
 
 ### What remains, in order of return
 
-1. **`ClipWaveform` re-renders its host at frame rate.** It reads the transport with
-   `useEngineState((s) => s.playhead)` — a SELECTOR hook — when the repo already has the answer:
-   `usePlayheadFrames`, which subscribes to the raw store, never renders, and writes to a DOM node at
-   60 Hz. Its header says exactly why. It cannot be substituted as is, because `Waveform` draws its
-   playhead *on the canvas*: a thin overlay layer is needed. That is the gesture `layers.md` rejects
-   for progress FILL, for a reason that does not apply here — a purple wash over the bar numbers
-   shows, a one-pixel line does not.
-2. **`App.tsx`: 4,200 lines, 51 `useState`, 11 `useMemo`, no memoised panel.** A layout panel is
+1. **`App.tsx`: 4,200 lines, 51 `useState`, 11 `useMemo`, no memoised panel.** A layout panel is
    mounted once and never unmounted (`hidden` takes it off screen), so any state change re-renders
    `TimelineTab`'s 3,513 lines **even hidden**. The only existing profile (`timeline.md`) predates
    lots C and D — re-measuring is the prerequisite, not the fix.
-3. **Engine side**: `Change`, a fat value type, copying the whole `PluginDoc` *per parameter*
+2. **Engine side**: `Change`, a fat value type, copying the whole `PluginDoc` *per parameter*
    during a knob drag; `diff()` rebuilding four `std::map`s with concatenated keys per apply; and the
    pattern clock path paying **two deep copies of the `ProjectDoc`** per tick, at 6.7 Hz.
 
@@ -314,7 +307,6 @@ illustrate it reintroduces the NUL into the page.
 Each is a design decision, which is why none is taken in passing.
 
 1. `Change`, a fat value type.
-2. `Waveform`'s overlay layer, to take the playhead out of the full redraw.
 3. `App.tsx` — **re-measure before touching**: the only profile predates lots C/D.
 4. The token handed to any socket, and `STUDIO_ENGINE_HOST` at `0.0.0.0` by default.
 5. The exception net on the C++ side.

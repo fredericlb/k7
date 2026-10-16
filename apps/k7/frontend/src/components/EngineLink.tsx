@@ -2,7 +2,7 @@
 // connection light, the link's latency and the engine process's memory (docs/shell.md).
 // The one thing a reader would get wrong: the latency is the SESSION's, not the engine's alone.
 
-import { Circle } from "@frediverse/ui/icons";
+import { Circle, Unplug } from "@frediverse/ui/icons";
 import {
   type EngineLatency,
   formatLatency,
@@ -22,10 +22,24 @@ export function EngineLink({
 }) {
   return (
     <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground text-xs">
-      <Circle
-        className={`h-2.5 w-2.5 shrink-0 ${connected ? "fill-emerald-500 text-emerald-500" : "fill-red-500 text-red-500"}`}
-        aria-label={connected ? "engine connected" : "engine disconnected"}
-      />
+      {/* A SHAPE as well as a colour: an unplugged plug reads without telling red from green. */}
+      {connected ? (
+        <span title={m["engine.linkUp"]()} className="flex shrink-0">
+          <Circle
+            className="h-2.5 w-2.5 fill-emerald-500 text-emerald-500"
+            role="img"
+            aria-label={m["engine.linkUp"]()}
+          />
+        </span>
+      ) : (
+        <span title={m["engine.linkDown"]()} className="flex shrink-0">
+          <Unplug
+            className="h-3 w-3 text-red-500"
+            role="img"
+            aria-label={m["engine.linkDown"]()}
+          />
+        </span>
+      )}
       {!compact && (
         <>
           {/* Q1/Q2/Q3 off the measured latency, a property of the SESSION (@studio/web-protocol/quality). */}

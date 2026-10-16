@@ -2,6 +2,7 @@
 // at the moment the finger landed. See ../../docs/cues.md.
 
 import { useEffect, useRef, useState } from "react";
+import { m } from "../../paraglide/messages.js";
 import { CUE_COLOURS } from "../deckVocabulary";
 
 /** How long a press has to last to mean "record this" rather than "go there". */
@@ -81,10 +82,10 @@ function Cue({
       onContextMenu={(e) => e.preventDefault()}
       title={
         disabled
-          ? `cue ${slot + 1} — this deck needs a song`
+          ? m["cue.noSong"]({ n: slot + 1 })
           : at === null
-            ? `cue ${slot + 1} — press and hold to put it here`
-            : `cue ${slot + 1} at ${mmss(at)} — tap to go there, hold to set it again`
+            ? m["cue.free"]({ n: slot + 1 })
+            : m["cue.set"]({ n: slot + 1, at: mmss(at) })
       }
     >
       {slot + 1}

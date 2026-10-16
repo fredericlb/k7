@@ -36,8 +36,11 @@ out themselves, since the browser is what fetches them.
   signed-in person's session — but outside the home's frame: a phone held as a microphone needs
   the input picker and nothing else.
 
-Both are exported from the package's entry, which is light on purpose: the host's entry imports it
-before any lazy chunk has loaded.
+Both are recognised by the package's entry, which is light on purpose: the host's entry imports it
+before any lazy chunk has loaded. Their screens are a lazy entry of their own, `./public`
+(`src/public.ts`), apart from `./pages`, which holds the signed-in routes: one module exporting both
+would be one chunk of both, and an anonymous visitor of a public page would download every
+signed-in screen — the songbook, the exercises, the editors — to read one page.
 
 ## The `k7.` host is a permanent former host
 

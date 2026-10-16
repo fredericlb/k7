@@ -75,6 +75,14 @@ today, whole, which is the one day it certainly does not belong to.
 is told apart from every other refusal because it is the one the UI can offer to resolve — hence
 `SongExists` as its own type, so the dialogue can offer to replace instead of showing a status code.
 
+`addSong` goes through `upload.ts` rather than `fetch`, because a song can weigh 500 MB and fetch
+reports nothing of a request body leaving: a dialogue that only spins for minutes reads as a hang.
+XMLHttpRequest's `upload.onprogress` is the one browser API that says how far the bytes are, so the
+dialogue shows a share, then that the server is filing the song once every byte has gone. The helper
+answers a `Response` and takes an `AbortSignal`, so the caller reads it as a fetch and Cancel still
+cuts it. ui-rehearsal holds the same thirty lines: the two packages share no dependency where a
+helper of this kind belongs, and a package for it alone would cost more than the copy.
+
 `addVariant` has its own route rather than being an `upload` into the folder. The chain renderer
 does the latter, and the difference matters: that one writes bytes the sidecar ALREADY names, and
 this one is what puts the name there. Dropping a file in without it declares nothing, because the

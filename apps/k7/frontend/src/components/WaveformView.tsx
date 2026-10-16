@@ -5,13 +5,17 @@
 // (peak and bands per column); the notes/grid come from the backend (/api/waveform).
 
 import { Play, Volume2, X } from "@frediverse/ui/icons";
-import { useEngineState } from "@studio/engine-browser/store";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
-import { type Envelope, Waveform } from "@studio/ui-waveform";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  type Envelope,
+  Waveform,
+  type WaveformHandle,
+} from "@studio/ui-waveform";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { clipEnvelopeKey } from "../clipEnvelope";
 import { clipLoop, visibleRepeats } from "../clipLoop";
+import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { m } from "../paraglide/messages.js";
 import type { WebClip, WebProject, WebWaveform } from "../types";
 
@@ -533,18 +537,29 @@ function ClipWaveform({
   clipStart: number;
   clipBeats: number;
 }) {
-  const playhead = useEngineState((s) => s.playhead);
-  // The arrangement playhead in the clip's local seconds (−1 → outside this clip).
-  const localBeat = (playhead * tempo) / 60 - clipStart;
-  const currentTime =
-    localBeat >= 0 && localBeat <= clipBeats ? (localBeat * 60) / tempo : -1;
+  const wave = useRef<WaveformHandle>(null);
+  // Steered per animation frame through the handle, so neither this nor the canvas renders at the engine's rate (docs/playhead.md).
+  usePlayheadFrames(
+    useCallback(
+      (playhead: number) => {
+        // The arrangement playhead in the clip's local seconds (−1 → outside this clip).
+        const localBeat = (playhead * tempo) / 60 - clipStart;
+        wave.current?.setTime(
+          localBeat >= 0 && localBeat <= clipBeats
+            ? (localBeat * 60) / tempo
+            : -1,
+        );
+      },
+      [tempo, clipStart, clipBeats],
+    ),
+  );
   return (
     <Waveform
+      ref={wave}
       look="spectrum"
       envelope={envelope}
       duration={duration}
       height={height}
-      currentTime={currentTime}
       gridLines={gridLines}
     />
   );

@@ -84,8 +84,8 @@ const common = {
   bundle: true,
   platform: "node",
   format: "esm",
-  // The server image runs node 22; the desktop and the phone run 24.
-  target: inTree ? "node22" : "node24",
+  // Node 24 everywhere: the server image and CI run it, and Electron embeds it (docs/images.md).
+  target: "node24",
   // ssh2's optional native helpers: absent, it falls back to JS, as in the desktop app.
   // playwright-core: imported lazily by the server's picture render, from node_modules; its own optional imports do not bundle.
   external: ["cpu-features", "*.node", "playwright-core"],

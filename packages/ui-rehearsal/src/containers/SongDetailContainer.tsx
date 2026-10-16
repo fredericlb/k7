@@ -19,7 +19,8 @@ import { SongDetailView } from "../views/SongDetailView";
 interface Props {
   songId: string;
   initialTab?: SongTab;
-  onChange: () => void;
+  /** The song as the server last answered it, for the songbook to patch its row. */
+  onChange: (song: Song) => void;
   onDeleted: () => void;
   onBack: () => void;
 }
@@ -145,8 +146,9 @@ export function SongDetailContainer({
         if (leaving.current.signal.aborted) return;
         if (start.fetchStatus.phase === "failed")
           void onStatus({ phase: "", error: "" });
-        adopt(await runPipeline(start, mode, pipelineSteps(), options));
-        onChangeRef.current();
+        onChangeRef.current(
+          adopt(await runPipeline(start, mode, pipelineSteps(), options)),
+        );
       } catch (err) {
         // The page went, not the job: nothing failed, and the next page to open this song picks it up.
         if (leaving.current.signal.aborted) return;
@@ -208,19 +210,19 @@ export function SongDetailContainer({
   const handleSave = async (field: "lyrics" | "tablature", value: string) => {
     const updated = await api.updateSong(songId, { [field]: value });
     setSong(updated);
-    onChange();
+    onChange(updated);
   };
 
   const handleUploadSheets = async (files: File[]) => {
     const updated = await api.uploadSheetFiles(songId, files);
     setSong(updated);
-    onChange();
+    onChange(updated);
   };
 
   const handleDeleteSheet = async (fileId: string) => {
     const updated = await api.deleteSheetFile(songId, fileId);
     setSong(updated);
-    onChange();
+    onChange(updated);
   };
 
   // Both ways in — the insert's upload and the ⋮ menu's "Add a track…" — ask first, then run what was kept.
@@ -231,7 +233,7 @@ export function SongDetailContainer({
     if (!options) return;
     const updated = await api.uploadSongAudio(songId, file);
     setSong(updated);
-    onChange();
+    onChange(updated);
     if (options.lyrics || options.instrumental)
       void runFetch(updated, "continue", options);
   };
@@ -245,14 +247,14 @@ export function SongDetailContainer({
     if (!song) return;
     const updated = await api.setSongFavorite(songId, !song.favorite);
     setSong(updated);
-    onChange();
+    onChange(updated);
   };
 
   // "Make instrumental" in the ⋮ menu — the no-engine-online retry, outside the pipeline.
   const handleMixInstrumental = async (folder: string) => {
     const updated = await api.mixInstrumental(songId, folder);
     setSong(updated);
-    onChange();
+    onChange(updated);
     return updated;
   };
 
@@ -319,9 +321,9 @@ export function SongDetailContainer({
           }),
         );
         void onStatus({ lyricsMatch: "", phase: "", error: "" });
-        adopt(await syncLyrics(cleared, pipelineSteps()));
+        const synced = adopt(await syncLyrics(cleared, pipelineSteps()));
         void onStatus({ phase: "" });
-        onChangeRef.current();
+        onChangeRef.current(synced);
       } catch (err) {
         void onStatus({ phase: "failed", error: (err as Error).message });
       } finally {
@@ -332,8 +334,7 @@ export function SongDetailContainer({
 
   // The ⋮ menu's popin: a failure is thrown back to it, where it is shown.
   const handleRename = async (artist: string, title: string) => {
-    adopt(await api.updateSong(songId, { artist, title }));
-    onChange();
+    onChange(adopt(await api.updateSong(songId, { artist, title })));
   };
 
   const handleDismissFailure = () => {

@@ -21,6 +21,8 @@ interface Reading {
 
 // A pluck is "in tune" once it's within this many cents of the note.
 const IN_TUNE_CENTS = 5;
+// The display follows the pitch at about 20 Hz: the eye reads no faster, and every update re-renders the tuner.
+const SHOW_EVERY_MS = 50;
 
 /** A live tuner: the mic, a pitch by autocorrelation, and the nearest string. */
 export function GuitarTuner({ onBack }: Props) {
@@ -70,16 +72,30 @@ export function GuitarTuner({ onBack }: Props) {
 
       // Hold the last confident reading, so the display does not blank between plucks.
       let lastPitchAt = 0;
+      // What the display shows, and when it last changed: it moves at most SHOW_EVERY_MS apart, and only when the text would.
+      let shown = "";
+      let shownAt = 0;
       const loop = () => {
         analyser.getFloatTimeDomainData(buf);
         const [freq, clarity] = detector.findPitch(buf, ctx.sampleRate);
         const now = performance.now();
         // Gate on clarity and the guitar's range, so noise and harmonics cannot jump the needle.
         if (clarity > 0.9 && freq > 60 && freq < 1400) {
-          const n = freqToNote(freq);
-          setReading({ freq, name: n.name, octave: n.octave, cents: n.cents });
           lastPitchAt = now;
-        } else if (now - lastPitchAt > 800) {
+          const n = freqToNote(freq);
+          const key = `${n.name}${n.octave}:${n.cents}:${freq.toFixed(1)}`;
+          if (key !== shown && now - shownAt >= SHOW_EVERY_MS) {
+            shown = key;
+            shownAt = now;
+            setReading({
+              freq,
+              name: n.name,
+              octave: n.octave,
+              cents: n.cents,
+            });
+          }
+        } else if (now - lastPitchAt > 800 && shown !== "") {
+          shown = "";
           setReading(null);
         }
         rafRef.current = requestAnimationFrame(loop);

@@ -73,7 +73,7 @@ export function ClipViewModes({
       <DropdownMenuTrigger
         className="flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
         title={m["mode.switchHint"]()}
-        aria-label="vue"
+        aria-label={m["clip.viewLabel"]()}
       >
         <current.Icon className="h-3.5 w-3.5 shrink-0" />
         <span>{current.label()}</span>

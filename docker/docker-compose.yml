@@ -39,7 +39,8 @@ x-logging: &logging
 
 services:
   k7:
-    image: dev.frediver.se/frediverse/k7/k7-webapp:${APP_VERSION:-latest}
+    # Required, so a deploy names the build it runs and the engine below runs the same one (docs/versioning.md).
+    image: dev.frediver.se/frediverse/k7/k7-webapp:${APP_VERSION:?set APP_VERSION to a build stamp or commit hash — see .env.example}
     restart: unless-stopped
     logging: *logging
     # The backend, every account's file service and their ffmpeg children share this; the engine has its own below.
@@ -111,7 +112,7 @@ services:
   # The server's own engine — engine/docker/Dockerfile. Not routed through Traefik: it publishes no
   # port, and browsers reach it through k7's relay like any machine's (docs/server-engine.md).
   engine:
-    image: dev.frediver.se/frediverse/k7/k7-runtime:${APP_VERSION:-latest}
+    image: dev.frediver.se/frediverse/k7/k7-runtime:${APP_VERSION:?set APP_VERSION to a build stamp or commit hash — see .env.example}
     restart: unless-stopped
     logging: *logging
     # Kept apart from k7's: a render or an import there must not take the server's engine down with it.
@@ -134,7 +135,8 @@ services:
     networks:
       - traefik
 
-  # Built by z0's own repository, so it ships on its own version rather than on APP_VERSION.
+  # Built by z0's own repository, so it ships on its own version rather than on APP_VERSION. Its
+  # default stays :latest because this repository has no stamp of z0's to require: pin it in .env.
   z0:
     image: dev.frediver.se/frediverse/z0:${Z0_VERSION:-latest}
     restart: unless-stopped

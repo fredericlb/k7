@@ -55,6 +55,9 @@ export const recorderLabels = (): RecorderLabels => ({
       ? m["recorder.tagsPending.one"]({ n })
       : m["recorder.tagsPending.other"]({ n }),
   uploading: m["recorder.uploading"](),
+  uploadProgress: (percent) =>
+    m["common.uploadProgress"]({ percent: String(percent) }),
+  analyzing: m["common.analyzing"](),
   removeTag: (tag) => m["recorder.removeTag"]({ tag }),
   mic: micErrors(),
 });

@@ -129,6 +129,7 @@ export function RemoteDownload({
       className="shrink-0 text-muted-foreground"
       title={l.contents.download}
       aria-label={l.contents.download}
+      aria-busy={busy}
       disabled={busy}
       onClick={(e) => {
         // The row behind it must not take the click as its own.

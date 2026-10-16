@@ -39,12 +39,12 @@ const SharedGate = lazy(() =>
   import("./components/SharedGate").then((m) => ({ default: m.SharedGate })),
 );
 const RehearsalPublicPage = lazy(() =>
-  import("@studio/ui-rehearsal/pages").then((m) => ({
+  import("@studio/ui-rehearsal/public").then((m) => ({
     default: m.RehearsalPublicPage,
   })),
 );
 const RehearsalRemote = lazy(() =>
-  import("@studio/ui-rehearsal/pages").then((m) => ({
+  import("@studio/ui-rehearsal/public").then((m) => ({
     default: m.RehearsalRemote,
   })),
 );
@@ -53,6 +53,7 @@ import { PROFILING } from "@studio/project-shell/profiling";
 import { publicPageAt, RehearsalRecording } from "@studio/ui-rehearsal";
 import { installFreezeWatchdog, reportCommit, tally } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
+import { installLongPress } from "./longPress";
 import { PaneBoundary } from "./PaneBoundary";
 import {
   ENGINE_SETTINGS_ROUTE,
@@ -98,6 +99,8 @@ installFreezeWatchdog({ commits: PROFILING });
 // …and let the file transport report into the same tally: parsing a response is the other thing
 // that runs on this thread while a project opens, and the engine link was the only one instrumented.
 setFileApiTally(tally);
+// A held finger or pen is a right-click on every surface, an iPad included (docs/contextMenu.md).
+installLongPress();
 
 // A desktop quit asks every page to write what its panes hold before the servers stop (commons/packages/electron-shell/docs/shell.md).
 (globalThis as { __beforeQuit?: () => Promise<unknown> }).__beforeQuit = () =>

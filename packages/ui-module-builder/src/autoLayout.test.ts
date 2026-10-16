@@ -2,6 +2,7 @@
 // The interesting cases are all collisions — a word two families want — and the family table's
 // order is what settles them, so most of this file is those pairs pinned in place.
 
+import { LAYOUT_MAX, twinIssues } from "@studio/panel-rules/layout-twins";
 import { UISchema } from "@studio/song-schema/yaml/moduleSchema";
 import { describe, expect, it } from "vitest";
 import {
@@ -13,7 +14,6 @@ import {
   isBlend,
   isPlumbing,
 } from "./autoLayout";
-import { LAYOUT_MAX, twinIssues } from "./layoutTwins";
 import type { ModuleUI, Widget } from "./moduleUi";
 
 /** Every page as name → widgets: the tabs, or the panel itself when one family made no tabs. */

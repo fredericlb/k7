@@ -1,7 +1,8 @@
 # The bar, and nothing else
 
-`MiniPlayer` is a **view**. It holds no `<audio>` element, no socket, no timer and no state:
-`playing`, `position` and `duration` are props, and the three buttons are callbacks. The two
+`MiniPlayer` is a **view**. It holds no `<audio>` element, no socket, no timer and no transport
+state: `playing`, `position` and `duration` are props, and the three buttons are callbacks. The one
+thing it keeps is where a scrubber being dragged is (below). The two
 screens that mount it play things that have nothing in common —
 
 | | the médiathèque | k7's references |
@@ -38,6 +39,19 @@ a bar that reads correctly with a title alone.
 Not a div with a click handler. Dragging, the keyboard and the accessible name all come with it,
 and a progress bar that cannot be scrubbed is one people try to scrub anyway. It is `disabled`
 until a duration exists, since a range with no maximum is a control that lies about where you are.
+
+**It seeks once, when it is let go** (`useScrub.ts`). A range fires `input` on every pixel of a
+drag, and a host that seeks on each sends a burst of seeks — to mpv on the host, or through the
+engine — that the far end works through long after the finger has stopped. So while it moves the
+bar shows the thumb's position locally, clock included, and `onSeek` is called on the release:
+the pointer let go (anywhere, not only over the range), the native `change`, a key released, or
+focus leaving. Each is the same idempotent commit, so a keyboard's arrows still seek, one step per
+press.
+
+**Its hit area is taller than its track.** The visible track is 4 px, drawn behind a range 20 px
+tall — 32 px on a device without hover — so a finger finds it without the bar growing. The close
+button grows to 40 px on such a device too, centred at the right with room made for it, while a
+mouse keeps the small corner button.
 
 ## The close is the only thing that takes the bar away
 

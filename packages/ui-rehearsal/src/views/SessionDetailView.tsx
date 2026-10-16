@@ -12,9 +12,10 @@ import {
   Trash2,
 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
-import { MomentPlayer, TagInput, Waveform } from "@studio/recorder";
+import { createLiveValue, MomentPlayer, TagInput } from "@studio/recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BackButton } from "../components/BackButton";
+import { PlaybackTime, PlayheadWaveform } from "../components/Playhead";
 import { fmtTime, sessionTitle } from "../format";
 import { m } from "../paraglide/messages.js";
 import type {
@@ -87,7 +88,8 @@ export function SessionDetailView({
   onDeleteMarker,
   momentClipUrl,
 }: Props) {
-  const [currentTime, setCurrentTime] = useState(0);
+  // The playhead moves every frame, so it lives in a store only the waveform and the clock read.
+  const [clock] = useState(() => createLiveValue(0));
   const [playing, setPlaying] = useState(false);
   // The range playRange last started, so its own button can read as Pause while it plays.
   const [playingRange, setPlayingRange] = useState<{
@@ -110,14 +112,14 @@ export function SessionDetailView({
 
   useEffect(() => {
     const loop = () => {
-      if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
+      if (audioRef.current) clock.set(audioRef.current.currentTime);
       rafRef.current = requestAnimationFrame(loop);
     };
     if (playing) rafRef.current = requestAnimationFrame(loop);
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [playing]);
+  }, [playing, clock]);
 
   useEffect(() => {
     if (seekTo == null) return;
@@ -127,8 +129,8 @@ export function SessionDetailView({
       a.currentTime = seekTo;
       seekApplied.current = true;
     }
-    setCurrentTime(seekTo);
-  }, [seekTo, session.id]);
+    clock.set(seekTo);
+  }, [seekTo, session.id, clock]);
 
   const ensurePlaybackGain = useCallback(() => {
     const a = audioRef.current;
@@ -161,7 +163,7 @@ export function SessionDetailView({
 
   const seek = (sec: number) => {
     if (audioRef.current) audioRef.current.currentTime = sec;
-    setCurrentTime(sec);
+    clock.set(sec);
   };
 
   // The one range listener live at a time: a range played after another must not be paused by the first one's.
@@ -371,11 +373,11 @@ export function SessionDetailView({
             style={{ display: "none" }}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
-            onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+            onTimeUpdate={(e) => clock.set(e.currentTarget.currentTime)}
             onLoadedMetadata={(e) => {
               if (seekTo != null && !seekApplied.current) {
                 e.currentTarget.currentTime = seekTo;
-                setCurrentTime(seekTo);
+                clock.set(seekTo);
                 seekApplied.current = true;
               }
             }}
@@ -383,14 +385,14 @@ export function SessionDetailView({
 
           {envelope && eventsResult && (
             <>
-              <Waveform
+              <PlayheadWaveform
+                clock={clock}
                 envelope={envelope}
                 duration={session.duration}
                 threshold={threshold ?? eventsResult.threshold}
                 events={eventsResult.events}
                 annotations={session.annotations}
                 markers={session.markers}
-                currentTime={currentTime}
                 selection={selection}
                 onSeek={seek}
                 onSelect={setSelection}
@@ -414,11 +416,11 @@ export function SessionDetailView({
                   )}
                 </Button>
                 <span className="muted small tabular">
-                  {fmtTime(currentTime)} / {fmtTime(session.duration)}
+                  <PlaybackTime clock={clock} /> / {fmtTime(session.duration)}
                 </span>
                 <Button
                   variant="outline"
-                  onClick={() => onAddMarker(currentTime)}
+                  onClick={() => onAddMarker(clock.get())}
                   title={m["marker.addTitle"]()}
                 >
                   <Flag className="size-4" /> {m["marker.add"]()}

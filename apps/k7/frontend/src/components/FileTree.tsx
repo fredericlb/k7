@@ -49,6 +49,7 @@ import {
   readOnlyPaths,
   rootOf,
 } from "../libraryTree";
+import { m } from "../paraglide/messages.js";
 import { isVideoTrackFile } from "../projectPaths";
 import { TrackIcon } from "../trackIcons";
 import type { FileNode } from "../types";
@@ -306,22 +307,22 @@ export function FileTree({
     return [
       {
         key: "new-library-folder",
-        label: "New folder…",
+        label: m["tree.newFolder"](),
         when: (t) => !!onCreateFolder && writableDir(t),
         prompt: {
           placeholder: "delay",
-          submit: "Create",
+          submit: m["common.create"](),
           hint: (t, value) => `${t.path}/${value.trim() || "…"}`,
         },
         run: (t, name) => onCreateFolder?.(t.path, name),
       },
       {
         key: "new-module",
-        label: "New module…",
+        label: m["tree.newModule"](),
         when: (t) => !!onCreateModule && writableDir(t),
         prompt: {
           placeholder: "audio/my-module",
-          submit: "Create",
+          submit: m["common.create"](),
           hint: (t, value) =>
             `${t.path}/${value.trim() || "<type>/<name>"}/module.yaml`,
         },
@@ -339,16 +340,16 @@ export function FileTree({
       },
       {
         key: "rename-library-entry",
-        label: "Rename…",
+        label: m["tree.rename"](),
         when: (t) => !!onRenameLibraryEntry && libraryEntry(t),
         prompt: {
           initial: (t) => t.name,
-          submit: "Rename",
+          submit: m["project.rename"](),
           // A module's name is its REF: say what the rename costs before it is made.
           hint: (t) =>
             lib?.modules.has(t.path)
-              ? "Chains naming this module by its old ref will no longer find it"
-              : "Published to the library at once",
+              ? m["tree.renameModuleHint"]()
+              : m["tree.renameLibraryHint"](),
         },
         run: (t, name) => {
           if (name !== t.name) onRenameLibraryEntry?.(t.path, name);
@@ -356,7 +357,7 @@ export function FileTree({
       },
       {
         key: "delete-library-entry",
-        label: "Delete",
+        label: m["project.delete"](),
         danger: true,
         when: (t) => !!onDeleteLibraryEntry && libraryEntry(t),
         // A module is a folder drawn as a leaf, as in the project tab.
@@ -388,37 +389,37 @@ export function FileTree({
   const actions: TreeAction<FileNode>[] = [
     {
       key: "upload",
-      label: "Upload files…",
+      label: m["tree.uploadFiles"](),
       when: (t) => isPlainDir(t) && !isShared(t.path),
       run: (t) => pickFiles(t.path),
     },
     {
       key: "upload-folder",
-      label: "Upload a folder…",
+      label: m["tree.uploadFolder"](),
       when: (t) => isPlainDir(t) && !isShared(t.path),
       run: (t) => pickFolder(t.path),
     },
     {
       key: "new-file",
-      label: "New file…",
+      label: m["tree.newFile"](),
       when: (t) =>
         isPlainDir(t) && !t.root && !isShared(t.path) && !!onCreateProjectFile,
       prompt: {
         placeholder: "filename.yaml",
         initial: () => "untitled.yaml",
-        submit: "Create",
+        submit: m["common.create"](),
       },
       run: (t, name) => onCreateProjectFile?.(t.path, name),
     },
     {
       key: "new-folder",
-      label: "New folder…",
+      label: m["tree.newFolder"](),
       // Same reach as 'New file…': inside a folder, never at the root, where a loose entry would sit among the projects.
       when: (t) =>
         isPlainDir(t) && !t.root && !isShared(t.path) && !!onCreateFolder,
       prompt: {
         placeholder: "folder-name",
-        submit: "Create",
+        submit: m["common.create"](),
         hint: (t, value) => `${t.path}/${value.trim() || "…"}`,
       },
       run: (t, name) => onCreateFolder?.(t.path, name),
@@ -426,47 +427,51 @@ export function FileTree({
     {
       // No prompt, and no ellipsis with it: a node is named `<module>_<n>` by the service (@studio/song's instanceName.ts).
       key: "new-node",
-      label: "New node",
+      label: m["tree.newNode"](),
       when: (t) => isLocalModuleTarget(t) && !!onCreateNode,
       run: (t) => onCreateNode?.(t.path),
     },
     {
       key: "clone-module",
-      label: "Clone module…",
+      label: m["tree.cloneModule"](),
       when: (t) => isLocalModuleTarget(t) && !!onCloneModule,
       prompt: {
         placeholder: "newName",
         initial: (t) => t.name,
-        submit: "Clone",
-        hint: (t) => `Clone as: ${t.path.split("/").slice(0, -1).join("/")}/`,
+        submit: m["tree.clone"](),
+        hint: (t) =>
+          m["tree.cloneAs"]({
+            dir: `${t.path.split("/").slice(0, -1).join("/")}/`,
+          }),
       },
       run: (t, name) => onCloneModule?.(t.path, name),
     },
     {
       key: "pin",
-      label: (t) => (isPinned(t.path) ? "Unpin" : "Pin to top"),
+      label: (t) =>
+        isPinned(t.path) ? m["tree.unpin"]() : m["tree.pinToTop"](),
       when: (t) => !t.dir && !!t.node && !isBinary(t.node),
       run: (t) => togglePin(t.path),
     },
     {
       key: "copy-path",
-      label: "Copy path",
+      label: m["tree.copyPath"](),
       run: (t) => {
         navigator.clipboard.writeText(t.path);
       },
     },
     {
       key: "rename",
-      label: "Rename…",
+      label: m["tree.rename"](),
       when: (t) => menuEnabled && !t.root && !isShared(t.path),
-      prompt: { initial: (t) => t.name, submit: "Rename" },
+      prompt: { initial: (t) => t.name, submit: m["project.rename"]() },
       run: (t, name) => {
         if (name !== t.name) onRename?.(t.path, name);
       },
     },
     {
       key: "delete",
-      label: "Delete",
+      label: m["project.delete"](),
       danger: true,
       when: (t) => menuEnabled && !t.root && !isShared(t.path),
       // A module is a DIRECTORY the tree draws as a leaf, so `t.dir` alone would leave the folder behind.
@@ -504,9 +509,9 @@ export function FileTree({
           <button
             type="button"
             onClick={() => togglePin(p)}
-            title="unpin"
-            aria-label={`unpin ${p.split("/").pop()}`}
-            className="shrink-0 rounded p-0.5 text-muted-foreground/50 opacity-0 hover:text-foreground group-hover:opacity-100"
+            title={m["tree.unpin"]()}
+            aria-label={m["tree.unpinFile"]({ name: p.split("/").pop() ?? p })}
+            className="shrink-0 rounded p-0.5 text-muted-foreground/50 opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -541,8 +546,8 @@ export function FileTree({
         <div className="mb-1 flex shrink-0 items-center gap-1 border-b border-border/60 pb-1">
           {(
             [
-              ["project", projectName ?? "Project", Folder],
-              ["libraries", "Libraries", Library],
+              ["project", projectName ?? m["tree.projectTab"](), Folder],
+              ["libraries", m["tree.librariesTab"](), Library],
             ] as const
           ).map(([id, label, Icon]) => (
             <button
@@ -568,7 +573,7 @@ export function FileTree({
         !lib ? (
           // Only reachable before the first answer has arrived: `@workspace` and `@engine` are always offered once it has.
           <p className="p-2 text-xs text-muted-foreground">
-            reading the module libraries…
+            {m["tree.readingLibraries"]()}
           </p>
         ) : (
           <Tree<FileNode>
@@ -593,8 +598,7 @@ export function FileTree({
               const family = fileFolderOf(dir);
               if (!family)
                 return void showToast({
-                  message:
-                    "drop files on a library's samples/, irs/ or models/ folder",
+                  message: m["tree.dropOnFamily"](),
                   variant: "error",
                 });
               const taken = files.filter((f) =>
@@ -602,7 +606,11 @@ export function FileTree({
               );
               if (taken.length < files.length)
                 showToast({
-                  message: `${files.length - taken.length} file(s) left out — a library's ${family}/ takes ${LIBRARY_FILE_FAMILIES[family].join(", ")}`,
+                  message: m["tree.filesLeftOut"]({
+                    count: files.length - taken.length,
+                    family,
+                    kinds: LIBRARY_FILE_FAMILIES[family].join(", "),
+                  }),
                   variant: "error",
                 });
               if (taken.length) onUpload(dir, taken);
@@ -689,8 +697,8 @@ export function FileTree({
                 type="button"
                 title={
                   activeProject === node.path
-                    ? "active project"
-                    : "open project — start the engine here"
+                    ? m["tree.activeProject"]()
+                    : m["tree.openProject"]()
                 }
                 onClick={() => onOpenProject(node.path)}
                 className={cn(

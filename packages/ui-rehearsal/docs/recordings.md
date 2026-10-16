@@ -47,3 +47,33 @@ the IndexedDB backup, a source that ends, a hidden tab — are its page
 
 The server gives a single request 30 minutes rather than Node's 5, and never holds a take whole in
 memory (`packages/rehearsal-server/docs/audit.md`).
+
+## Every upload says how far it is
+
+A take, a release and a release's version are each one request carrying a file, and a long take
+on a slow link is minutes of a request that `fetch` reports nothing about: a spinner that never
+moves reads as a hang, and a hang is what makes a musician reload the tab. So every upload goes
+through `src/upload.ts`, XMLHttpRequest's `upload.onprogress` being the one browser API that says
+how many bytes have left. It answers a `Response`, so `api.ts` reads it like any fetch and keeps
+`ApiError`'s sentence. `uploadLabel.ts` turns the share into what the button or the line says:
+a percentage, then **Analyzing…** once every byte is sent and the server is decoding and measuring
+the file. The media library holds the same thirty lines for its songs (`packages/ui-library/docs/api.md`):
+the two packages share no dependency where such a helper belongs.
+
+## The pop-in and the chain panel keep the keyboard inside
+
+The recorder's pop-in and the chain panel are modal, and are not the shared `Dialog` primitive:
+the pop-in becomes the bottom bar by a class swap rather than unmounting
+([audio.md](audio.md)), and the chain panel is hidden rather than unmounted during a take, since
+its frame is k7's open bench. A primitive that mounts its content in a portal on open would
+re-parent both. `src/hooks/useFocusTrap.ts` gives them what the primitive would: focus moves in
+when they show, Tab cycles inside, and focus returns where it was when they hide. Clicking outside
+the pop-in hides it to the bar; nothing about the trap ends a take.
+
+## Playing a session re-renders the playhead, not the page
+
+A session's page follows playback every frame, so the position is a store
+(`createLiveValue`, `packages/recorder`) rather than the page's state: the waveform and the
+`0:42 / 3:10` clock subscribe to it (`src/components/Playhead.tsx`), the clock only when the
+second changes. The page itself — the moments, their editors, the threshold controls — renders on
+what the user does, never on the frame clock.

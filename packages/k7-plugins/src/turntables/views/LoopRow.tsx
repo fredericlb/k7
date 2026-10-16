@@ -3,6 +3,7 @@
 
 import { ChevronLeft, ChevronRight, RotateCcw } from "@frediverse/ui/icons";
 import type { ReactNode } from "react";
+import { m } from "../../paraglide/messages.js";
 import { LOOP_BEATS } from "../loop";
 
 /** How a length reads on a button: `16`, and `1/2` rather than `0.5` once ÷2 has been past one. */
@@ -97,28 +98,26 @@ export function LoopRow({
     <div className="flex w-full gap-1">
       <Key
         label={<ChevronLeft className="size-3" />}
-        title={`reculer de ${jump} temps`}
+        title={m["loop.back"]({ beats: jump })}
         disabled={disabled}
         onClick={() => onJump(-step)}
       />
       <Key
         label={<ChevronRight className="size-3" />}
-        title={`avancer de ${jump} temps`}
+        title={m["loop.forward"]({ beats: jump })}
         disabled={disabled}
         onClick={() => onJump(step)}
       />
       <Key
         label="IN"
-        title="put the loop's start here"
+        title={m["loop.in"]()}
         on={pending}
         disabled={disabled}
         onClick={onIn}
       />
       <Key
         label="OUT"
-        title={
-          pending ? "close the loop here" : "an IN has to be put down first"
-        }
+        title={pending ? m["loop.out"]() : m["loop.outFirst"]()}
         disabled={disabled || !pending}
         onClick={onOut}
       />
@@ -126,7 +125,7 @@ export function LoopRow({
         <Key
           key={n}
           label={String(n)}
-          title={`loop ${n} beats — the same button closes it`}
+          title={m["loop.length"]({ beats: n })}
           // A ROLL lights nothing here: it is held, and its button is the one that says so.
           on={!rolling && beats === n}
           disabled={disabled}
@@ -135,7 +134,7 @@ export function LoopRow({
       ))}
       <Key
         label="÷2"
-        title="half as long"
+        title={m["loop.half"]()}
         disabled={disabled || beats === null}
         onClick={() => onResize(0.5)}
       />
@@ -143,8 +142,8 @@ export function LoopRow({
       <span
         title={
           beats === null
-            ? `prochaine longueur : ${jump} temps`
-            : `a ${lengthLabel(beats)}-beat loop`
+            ? m["loop.next"]({ beats: jump })
+            : m["loop.running"]({ beats: lengthLabel(beats) })
         }
         className={`flex h-6 min-w-0 flex-1 items-center justify-center rounded font-mono text-[10px] tabular-nums ${
           beats === null
@@ -156,13 +155,13 @@ export function LoopRow({
       </span>
       <Key
         label="×2"
-        title="twice as long"
+        title={m["loop.double"]()}
         disabled={disabled || beats === null}
         onClick={() => onResize(2)}
       />
       <Key
         label={<RotateCcw className="size-3" />}
-        title={`a ${jump}-beat roll — hold it; the record picks up where it would be`}
+        title={m["loop.roll"]({ beats: jump })}
         on={rolling}
         disabled={disabled}
         onHold={onRoll}

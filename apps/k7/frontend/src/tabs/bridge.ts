@@ -16,6 +16,13 @@ interface TabBridge {
   subscribe: (cb: (s: { active: boolean }) => void) => () => void;
 }
 
+/** Where a sign-in or a pairing stands; mirrored from apps/k7-standalone/src/accountStatus.ts. */
+export type AccountStatus =
+  | { state: "idle" }
+  | { state: "waiting"; what: "signIn" | "pair" }
+  | { state: "error"; code: string; detail?: string }
+  | { state: "done"; code: string; detail?: string };
+
 interface TabsBridge {
   list: () => TabRow[];
   subscribe: (cb: (rows: TabRow[]) => void) => () => void;
@@ -23,6 +30,10 @@ interface TabsBridge {
   close: (id: number) => void;
   /** Sign in through the system browser, syncing with `server` when given — apps/k7-standalone/docs/signIn.md. */
   signIn: (server?: string) => void;
+  /** Where the browser trip stands, and its Cancel — apps/k7-standalone/docs/notices.md. */
+  authStatus?: () => Promise<AccountStatus | null>;
+  onAuthStatus?: (cb: (s: AccountStatus) => void) => () => void;
+  cancelSignIn?: () => void;
   /** The k7 server the account syncs with: the last one chosen, app.k7.rocks until then. */
   server?: () => Promise<string | null>;
   /** Pair with another server beside the main one, in the system browser — docs/sync.md, "Several servers". */
@@ -36,6 +47,8 @@ declare global {
   interface Window {
     studioTab?: TabBridge;
     studioTabs?: TabsBridge;
+    /** The desktop app's release stamp — apps/k7-standalone/docs/menu.md. */
+    studioApp?: { version: string };
   }
 }
 

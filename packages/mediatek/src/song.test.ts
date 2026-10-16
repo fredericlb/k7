@@ -135,7 +135,7 @@ describe("filing an upload", () => {
     );
   });
 
-  it("files a published version beside every other song, saying who filed it", () => {
+  it("files a published version beside every other song, saying who filed it", async () => {
     // `source` is a line in the sidecar rather than a `recorded/` level in the path.
     const r = addSong({
       filename: "mixdown.mp3",
@@ -152,7 +152,7 @@ describe("filing an upload", () => {
     expect(sidecar).toContain('artist: "K7"');
     expect(sidecar).toContain('source: "k7"');
     // Filed like any other song, but not BROWSED — see docs/songs.md.
-    expect(scanFamily("songs")).toEqual([]);
+    expect(await scanFamily("songs")).toEqual([]);
   });
 
   it("quotes the source, so a crafted one cannot add a line to the sidecar", () => {
@@ -161,9 +161,9 @@ describe("filing an upload", () => {
     expect(sidecar).toContain('source: "k7\\nmaster: ../../x"');
   });
 
-  it("lands as one catalogued entry the scan can play", () => {
+  it("lands as one catalogued entry the scan can play", async () => {
     addSong({ filename: "x.mp3", bytes: Buffer.from("ID3"), tags });
-    const entries = scanFamily("songs");
+    const entries = await scanFamily("songs");
     expect(entries).toHaveLength(1);
     expect(entries[0].name).toBe("So What");
     // "" and not a borrowed word: this family has no subdivision. See MediatekEntry.kind.
@@ -227,7 +227,7 @@ describe("adding a variant to a song", () => {
   const add = (filename: string, body = "RIFF") =>
     addSongVariant({ folder: rel, filename, bytes: Buffer.from(body) });
 
-  it("writes the file beside the master and names it in the sidecar", () => {
+  it("writes the file beside the master and names it in the sidecar", async () => {
     song();
     const r = add("instrumental.wav");
     expect(r).toMatchObject({
@@ -240,7 +240,7 @@ describe("adding a variant to a song", () => {
       "RIFF",
     );
     // …and the scan reads it back as a FILE variant, matching `ref` among the folder's files.
-    expect(scanFamily("songs")[0].variants).toEqual([
+    expect((await scanFamily("songs"))[0].variants).toEqual([
       { name: "instrumental", ref: "instrumental.wav", kind: "file" },
     ]);
   });
@@ -253,11 +253,11 @@ describe("adding a variant to a song", () => {
     expect(sidecar()).toContain('title: "So What"');
   });
 
-  it("puts a second one under the same block", () => {
+  it("puts a second one under the same block", async () => {
     song();
     add("instrumental.wav");
     add("a cappella.flac");
-    expect(scanFamily("songs")[0].variants).toEqual([
+    expect((await scanFamily("songs"))[0].variants).toEqual([
       { name: "instrumental", ref: "instrumental.wav", kind: "file" },
       { name: "a cappella", ref: "a cappella.flac", kind: "file" },
     ]);
@@ -265,7 +265,7 @@ describe("adding a variant to a song", () => {
     expect(sidecar().match(/^variants:/gm)).toHaveLength(1);
   });
 
-  it("re-sending the same file replaces its bytes and declares nothing twice", () => {
+  it("re-sending the same file replaces its bytes and declares nothing twice", async () => {
     song();
     add("instrumental.wav", "first");
     const again = add("instrumental.wav", "second");
@@ -273,18 +273,18 @@ describe("adding a variant to a song", () => {
     expect(readFileSync(join(folder(), "instrumental.wav"), "utf8")).toBe(
       "second",
     );
-    expect(scanFamily("songs")[0].variants).toHaveLength(1);
+    expect((await scanFamily("songs"))[0].variants).toHaveLength(1);
   });
 
-  it("finds a free name rather than shadowing one", () => {
+  it("finds a free name rather than shadowing one", async () => {
     // Two formats of one stem: both are real variants, but the second KEY would replace the first.
     song();
     add("instrumental.wav");
     expect(add("instrumental.mp3").name).toBe("instrumental 2");
-    expect(scanFamily("songs")[0].variants).toHaveLength(2);
+    expect((await scanFamily("songs"))[0].variants).toHaveLength(2);
   });
 
-  it("files one into a folder nobody catalogued, sidecar and all", () => {
+  it("files one into a folder nobody catalogued, sidecar and all", async () => {
     // A song dropped by hand has no sidecar, and adding a version is the moment it gets one.
     putFile("songs/loose/whatever/original.mp3", "ID3");
     const r = addSongVariant({
@@ -293,7 +293,7 @@ describe("adding a variant to a song", () => {
       bytes: Buffer.from("RIFF"),
     });
     expect(r.declared).toBe(true);
-    expect(scanFamily("songs")[0].variants).toEqual([
+    expect((await scanFamily("songs"))[0].variants).toEqual([
       { name: "instrumental", ref: "instrumental.wav", kind: "file" },
     ]);
   });
@@ -363,7 +363,7 @@ describe("removing a variant from a song", () => {
   const song = () =>
     addSong({ filename: "x.mp3", bytes: Buffer.from("ID3"), tags });
 
-  it("removes the file and the sidecar's line, leaving the rest", () => {
+  it("removes the file and the sidecar's line, leaving the rest", async () => {
     song();
     addSongVariant({
       folder: rel,
@@ -373,13 +373,13 @@ describe("removing a variant from a song", () => {
     removeSongVariant(rel, "instrumental");
     expect(existsSync(join(folder(), "instrumental.wav"))).toBe(false);
     // Omitted rather than empty — the scan only sets the field when there is at least one.
-    expect(scanFamily("songs")[0].variants).toBeUndefined();
+    expect((await scanFamily("songs"))[0].variants).toBeUndefined();
     expect(readFileSync(join(folder(), SONG_FILE), "utf8")).toContain(
       'title: "So What"',
     );
   });
 
-  it("keeps a sibling variant's line untouched", () => {
+  it("keeps a sibling variant's line untouched", async () => {
     song();
     addSongVariant({
       folder: rel,
@@ -392,7 +392,7 @@ describe("removing a variant from a song", () => {
       bytes: Buffer.from("fLaC"),
     });
     removeSongVariant(rel, "instrumental");
-    expect(scanFamily("songs")[0].variants).toEqual([
+    expect((await scanFamily("songs"))[0].variants).toEqual([
       { name: "a cappella", ref: "a cappella.flac", kind: "file" },
     ]);
   });

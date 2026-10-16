@@ -10,8 +10,7 @@
 | Supervisor tunnel wire | Vitest, run against both the TypeScript agent and the native `tunnel_harness` | `packages/engine-tunnel` |
 | Engine behaviour that needs a running engine | Node harness scripts, run by hand | `engine/k7-runtime/scripts` |
 
-Every workspace that has tests declares `"test": "vitest run"` (the backend wraps it to set
-`--experimental-sqlite`). A few packages also declare `"bench": "vitest bench --run"`
+Every workspace that has tests declares `"test": "vitest run"`. A few packages also declare `"bench": "vitest bench --run"`
 (`@studio/song`, `@studio/file-service`, `@studio/ui-chains`).
 
 ## Running them

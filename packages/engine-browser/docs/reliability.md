@@ -89,6 +89,10 @@ way to an open socket has a deadline, `ENGINE_CONNECT_DEADLINE_MS`: the URL look
 request, and the socket itself, which is closed and counted as down when it is still CONNECTING
 after it. Without them the link reads "retrying" for good and nothing retries.
 
+The registry's calls carry the same deadline (`src/registry.ts`): the list, the claim and its
+renewal, the remembered preferences. A gate waits on each of them, and a registry that accepted
+and never answered would hold it on a spinner just as a dead socket would.
+
 ## The document, replayed
 
 Subscriptions (`watch-plugin-params`, `subscribe-waveform`, `broadcast`) live in the engine and

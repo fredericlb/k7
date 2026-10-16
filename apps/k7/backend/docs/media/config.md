@@ -53,9 +53,8 @@ no `env.yaml` — the images exclude it — and the Dockerfile sets `ENV STUDIO_
 - `STUDIO_FILES_WATCH=1` — set by `npm run dev` only: the account file services it starts restart
   on a source change, which this process's own watch cannot see.
 
-Both that one and the `NODE_OPTIONS=--experimental-sqlite` the comments store needs on Node 22 are
-set by `apps/k7/backend/scripts/with-env.mjs`, which `dev` and `test` go through: npm hands a script to
-`cmd.exe` on Windows, and a leading `VAR=1` is shell syntax it reads as the command name.
+That one is set by `apps/k7/backend/scripts/with-env.mjs`, which `dev` goes through: npm hands a
+script to `cmd.exe` on Windows, and a leading `VAR=1` is shell syntax it reads as the command name.
 
 ## One side effect
 

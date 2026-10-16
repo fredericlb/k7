@@ -74,6 +74,11 @@ allocation or a lock is a dropout; anything that can live outside it must. It al
 the interesting half testable — `StreamPlayer` takes a `StreamSink` interface and a clock,
 so every measurement above is pinned by a test that runs with no `AudioContext` at all.
 
+A frame reaches the worklet **transferred**, at ~100 Hz. When the client has a single stream
+listener, the message's own buffer is handed over — header included, the samples a view into it —
+and nothing is copied. With more than one listener the buffer is shared, so the sink copies the
+samples first: transferring it would leave every later listener reading an empty frame.
+
 ### Why the processor is a string
 
 `addModule` takes a URL. `new URL("./processor.js", import.meta.url)` needs a bundler

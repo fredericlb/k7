@@ -7,8 +7,8 @@ import {
   type AiOrganizeRequest,
   aiUserPrompt,
   bindableNames,
-} from "./aiOrganize";
-import { aiDesignBrief } from "./aiPrompt";
+} from "@studio/panel-rules/ai-organize";
+import { aiDesignBrief } from "@studio/panel-rules/ai-prompt";
 
 /** Where the builder reads a module's two files, workspace-relative as the file service answers them. */
 export interface PanelFiles {

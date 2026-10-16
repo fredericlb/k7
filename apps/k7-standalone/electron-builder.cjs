@@ -3,8 +3,12 @@
 
 const { baseConfig } = require("@frediverse/electron-shell/builder");
 
+// A tagged release is the bundle's version too, so the OS shows it; a snapshot keeps package.json's (docs/menu.md).
+const tag = /^v(\d+\.\d+\.\d+)$/.exec(process.env.STUDIO_RELEASE_STAMP ?? "");
+
 module.exports = {
   ...baseConfig({ appDir: __dirname }),
+  ...(tag ? { extraMetadata: { version: tag[1] } } : {}),
   // Frozen once shipped: macOS keys microphone grants and single-instance on it.
   appId: "org.parapluie.k7.standalone",
   productName: "k7",
@@ -22,5 +26,10 @@ module.exports = {
     },
   },
   win: { target: ["nsis"] },
-  linux: { category: "Audio", target: ["AppImage"] },
+  linux: {
+    category: "Audio",
+    target: ["AppImage", "deb"],
+    // A .deb refuses to build without a maintainer.
+    maintainer: "F <fred@parapluie.org>",
+  },
 };

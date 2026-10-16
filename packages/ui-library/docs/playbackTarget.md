@@ -46,8 +46,12 @@ the choice is remembered either way, and a row that vanishes leaves "why can I n
 machine" with no answer on screen. The trigger's glyph shows what will actually play, greyed, so a
 shut menu does not claim the moteur is doing it.
 
-`mpv` missing on the library host is the one remaining half-state, and it is answered where it
-happens — a 503 with the sentence, on the one route that needs it.
+The **library host's speakers** are the other condition, and a different kind: a host either has
+mpv or does not — the hosted image never does — and that is a fact about the deployment, not a
+machine somebody turns off. So the row is not listed at all where the host answers `/api/player`
+with a 404 (`player.available()`), and a stored `library` choice plays in the browser
+(`offered`, `effectiveTarget`). Until the host has answered, the row is assumed there, so the
+choice is not dropped for the length of one request.
 
 ## The first: this browser
 

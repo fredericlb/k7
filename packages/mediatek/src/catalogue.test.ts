@@ -10,7 +10,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  flushIndex,
   listFamily,
+  listFamilyFresh,
   parseQuery,
   reset,
   SEARCH_LIMIT_MAX,
@@ -24,7 +26,7 @@ import {
   refreshRevisions,
   stopRevisionRefresh,
 } from "./revision.ts";
-import { scanFamily, scanUnlisted } from "./scan.ts";
+import { scanFamily } from "./scan.ts";
 
 // The root is env-driven ($STUDIO_MEDIATEK), so each test gets its own library, not ~/.k7.
 let root: string;
@@ -35,7 +37,8 @@ beforeEach(() => {
   reset();
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await flushIndex();
   delete process.env.STUDIO_MEDIATEK;
   rmSync(root, { recursive: true, force: true });
   reset();
@@ -49,10 +52,10 @@ const write = (rel: string, body = "x"): string => {
 };
 
 describe("the layout", () => {
-  it("reports no library until one is created", () => {
+  it("reports no library until one is created", async () => {
     expect(exists()).toBe(false);
     // `present: false` is an answer, not an error — a surface shows "nothing here yet".
-    expect(summary()).toEqual({
+    expect(await summary()).toEqual({
       present: false,
       counts: {
         songs: 0,
@@ -79,13 +82,13 @@ describe("the layout", () => {
 describe("scanning songs", () => {
   beforeEach(() => ensureLayout());
 
-  it("reads title and artist from the sidecar", () => {
+  it("reads title and artist from the sidecar", async () => {
     write(
       "songs/2026/take-one/song.yaml",
       "title: Sous la pluie\nartist: K7\n",
     );
     write("songs/2026/take-one/master.wav", "RIFF");
-    const [e] = scanFamily("songs");
+    const [e] = await scanFamily("songs");
     expect(e.name).toBe("Sous la pluie");
     // No subdivision in this family, so no word to put here — see MediatekEntry.kind.
     expect(e.kind).toBe("");
@@ -94,7 +97,7 @@ describe("scanning songs", () => {
     expect(e.bytes).toBe(4);
   });
 
-  it("leaves out everything under the K7 artist folder, whatever its source", () => {
+  it("leaves out everything under the K7 artist folder, whatever its source", async () => {
     write(
       "songs/K7/2026/take-one/song.yaml",
       "title: Sous la pluie\nartist: K7\nsource: k7\n",
@@ -113,7 +116,7 @@ describe("scanning songs", () => {
       "title: Fetched\nartist: Video\nsource: youtube\n",
     );
     write("songs/Video/Album/Fetched/original.mp3", "ID3");
-    const entries = scanFamily("songs");
+    const entries = await scanFamily("songs");
     expect(entries.map((e) => e.name).sort()).toEqual([
       "Fetched",
       "Found",
@@ -121,51 +124,51 @@ describe("scanning songs", () => {
     ]);
   });
 
-  it("goes by the FOLDER, not the source line", () => {
+  it("goes by the FOLDER, not the source line", async () => {
     // A folder merely NAMED K7, nested under a real artist, is not k7's own — only the top level is.
     write(
       "songs/Some Artist/K7/A Song/song.yaml",
       "title: A Song\nartist: Some Artist\n",
     );
     write("songs/Some Artist/K7/A Song/original.mp3", "ID3");
-    const entries = scanFamily("songs");
+    const entries = await scanFamily("songs");
     expect(entries.map((e) => e.name)).toEqual(["A Song"]);
   });
 
-  it("still lists a folder dropped in by hand, flagged as not filed", () => {
+  it("still lists a folder dropped in by hand, flagged as not filed", async () => {
     // The whole point is seeing what you own — an uncatalogued file must not be invisible.
     write("songs/loose/whatever.mp3", "ID3");
-    const [e] = scanFamily("songs");
+    const [e] = await scanFamily("songs");
     expect(e.name).toBe("loose");
     expect(e.meta?.catalogued).toBe(false);
   });
 
-  it("survives an unparseable sidecar rather than losing the entry", () => {
+  it("survives an unparseable sidecar rather than losing the entry", async () => {
     write("songs/broken/song.yaml", "title: [unclosed\n");
-    const [e] = scanFamily("songs");
+    const [e] = await scanFamily("songs");
     expect(e.name).toBe("broken"); // falls back to the folder name
   });
 
-  it("treats an entry as a leaf and does not descend into it", () => {
+  it("treats an entry as a leaf and does not descend into it", async () => {
     write("songs/album/song.yaml", "title: Album\n");
     write("songs/album/stems/gtr.wav", "RIFF");
-    expect(scanFamily("songs")).toHaveLength(1);
+    expect(await scanFamily("songs")).toHaveLength(1);
   });
 });
 
 describe("a song's variants", () => {
   beforeEach(() => ensureLayout());
 
-  const withVariants = (yaml: string) => {
+  const withVariants = async (yaml: string) => {
     write(`songs/2026/song/song.yaml`, `title: T\n${yaml}`);
     write("songs/2026/song/original.wav", "RIFF");
-    return scanFamily("songs")[0];
+    return (await scanFamily("songs"))[0];
   };
 
-  it("tells a sibling file from one that is not there, by looking in the folder", () => {
+  it("tells a sibling file from one that is not there, by looking in the folder", async () => {
     // A name that is not a file in the song's folder reads as MISSING — see docs/variants.md.
     write("songs/2026/song/instrumental.wav", "RIFF");
-    const e = withVariants(
+    const e = await withVariants(
       "variants:\n  instru: instrumental.wav\n  sans-voix: vocal-strip\n",
     );
     expect(e.variants).toEqual([
@@ -174,33 +177,37 @@ describe("a song's variants", () => {
     ]);
   });
 
-  it("is absent, not empty, when the sidecar declares none", () => {
-    expect(withVariants("").variants).toBeUndefined();
+  it("is absent, not empty, when the sidecar declares none", async () => {
+    expect((await withVariants("")).variants).toBeUndefined();
   });
 
-  it("drops a value that is not a name, rather than inventing one", () => {
+  it("drops a value that is not a name, rather than inventing one", async () => {
     // `[object Object]` on screen is a row you cannot follow anywhere.
-    const e = withVariants("variants:\n  bad: [a, b]\n  ok: other\n");
+    const e = await withVariants("variants:\n  bad: [a, b]\n  ok: other\n");
     expect(e.variants).toEqual([{ name: "ok", ref: "other", kind: "missing" }]);
   });
 
-  it("survives `variants:` written as a list instead of a mapping", () => {
-    expect(withVariants("variants:\n  - a\n  - b\n").variants).toBeUndefined();
+  it("survives `variants:` written as a list instead of a mapping", async () => {
+    expect(
+      (await withVariants("variants:\n  - a\n  - b\n")).variants,
+    ).toBeUndefined();
   });
 });
 
 describe("scanning samples", () => {
   beforeEach(() => ensureLayout());
 
-  it("groups samples by pack and filters by media kind", () => {
+  it("groups samples by pack and filters by media kind", async () => {
     write("samples/audio/kicks/bd01.wav");
     write("samples/audio/kicks/notes.txt"); // not media — must not be listed
     write("samples/video/bumpers/intro.mp4");
-    const audio = scanFamily("samples").filter((e) => e.kind === "audio");
+    const audio = (await scanFamily("samples")).filter(
+      (e) => e.kind === "audio",
+    );
     expect(audio.map((e) => e.name)).toEqual(["bd01.wav"]);
     expect(audio[0].meta?.pack).toBe("kicks");
     expect(
-      scanFamily("samples").filter((e) => e.kind === "video"),
+      (await scanFamily("samples")).filter((e) => e.kind === "video"),
     ).toHaveLength(1);
   });
 });
@@ -272,31 +279,62 @@ describe("listing and search", () => {
     write("songs/AC-DC/Back in Black/Hells Bells/original.wav");
   });
 
-  it("serves the cached listing while the family is unchanged", () => {
-    const first = listFamily("samples");
-    expect(listFamily("samples")).toBe(first); // same object — no rescan
+  it("serves the cached listing while the family is unchanged", async () => {
+    const first = await listFamily("samples");
+    expect(await listFamily("samples")).toBe(first); // same object — no rescan
   });
 
-  it("rescans once the family moves", () => {
-    const first = listFamily("samples");
+  it("rescans once the family moves", async () => {
+    const first = await listFamily("samples");
     const f = write("samples/audio/kicks/hh01.wav");
     // A fresh file can land in the same mtime tick, so the file COUNT is what carries this case.
     utimesSync(f, new Date(), new Date());
-    const second = listFamily("samples");
+    const second = await listFamilyFresh("samples");
     expect(second).not.toBe(first);
     expect(second.entries).toHaveLength(3);
   });
 
-  it("filters by family, kind and substring", () => {
-    expect(search({ family: "samples" })).toHaveLength(2);
-    expect(search({ q: "bd" }).map((e) => e.name)).toEqual(["bd01.wav"]);
-    expect(search({ family: "songs" })).toHaveLength(1);
-    expect(search({ q: "nothing-matches" })).toEqual([]);
+  // Stale-while-revalidate: a moved family never holds a reader behind its walk — docs/index.md.
+  it("hands back the previous listing, with its own older rev, while the rescan runs", async () => {
+    const first = await listFamily("samples");
+    write("samples/audio/kicks/hh01.wav");
+    bumped("samples");
+    const stale = await listFamily("samples", 0);
+    expect(stale).toBe(first);
+    expect(stale.rev).not.toBe(familyRevision("samples"));
+    const fresh = await listFamilyFresh("samples");
+    expect(fresh.entries).toHaveLength(3);
+    expect(fresh.rev).toBe(familyRevision("samples"));
+    expect(await listFamily("samples", 0)).toBe(fresh);
   });
 
-  it("counts every family for the summary screen", () => {
+  it("runs one rescan per family, however many readers ask at once", async () => {
+    await listFamily("samples");
+    write("samples/audio/kicks/hh01.wav");
+    bumped("samples");
+    const [a, b] = await Promise.all([
+      listFamilyFresh("samples"),
+      listFamilyFresh("samples"),
+    ]);
+    expect(a).toBe(b);
+  });
+
+  it("waits for the first walk when there is nothing to serve yet", async () => {
+    expect((await listFamily("samples", 0)).entries).toHaveLength(2);
+  });
+
+  it("filters by family, kind and substring", async () => {
+    expect(await search({ family: "samples" })).toHaveLength(2);
+    expect((await search({ q: "bd" })).map((e) => e.name)).toEqual([
+      "bd01.wav",
+    ]);
+    expect(await search({ family: "songs" })).toHaveLength(1);
+    expect(await search({ q: "nothing-matches" })).toEqual([]);
+  });
+
+  it("counts every family for the summary screen", async () => {
     // Plus the two root zones, neither a family and both a tab — see docs/recordings.md.
-    expect(summary()).toEqual({
+    expect(await summary()).toEqual({
       present: true,
       counts: {
         songs: 1,
@@ -310,11 +348,11 @@ describe("listing and search", () => {
 
 // A tree draws itself from the entry paths, so what is not an entry appears nowhere — docs/index.md.
 describe("what the entries cannot stand for", () => {
-  it("reports a nested empty folder and the one above it", () => {
+  it("reports a nested empty folder and the one above it", async () => {
     mkdirSync(join(root, "samples", "audio", "packs", "kicks"), {
       recursive: true,
     });
-    expect(listFamily("samples").unlisted).toEqual([
+    expect((await listFamily("samples")).unlisted).toEqual([
       "audio",
       "audio/packs",
       "audio/packs/kicks",
@@ -326,9 +364,10 @@ describe("what the entries cannot stand for", () => {
 describe("the persisted index", () => {
   beforeEach(() => ensureLayout());
 
-  it("is dropped when it was written by another build", () => {
+  it("is dropped when it was written by another build", async () => {
     write("samples/audio/kicks/bd01.wav");
-    const fresh = listFamily("samples");
+    const fresh = await listFamily("samples");
+    await flushIndex();
     // What an older build leaves behind: the right token, the wrong answer.
     writeFileSync(
       join(root, ".cache", "index.json"),
@@ -355,22 +394,23 @@ describe("the persisted index", () => {
     );
     reset();
     // Unversioned, so it is not trusted at all -- the walk answers instead.
-    expect(listFamily("samples").entries.map((e) => e.name)).toEqual([
+    expect((await listFamily("samples")).entries.map((e) => e.name)).toEqual([
       "bd01.wav",
     ]);
   });
 
-  it("still warm-starts from one this build wrote", () => {
+  it("still warm-starts from one this build wrote", async () => {
     // Make the DISK disagree without moving the token: the cached answer proves no walk happened.
     write("samples/audio/kicks/bd01.wav");
-    listFamily("samples"); // persists
+    await listFamily("samples");
+    await flushIndex();
     reset();
     const raw = JSON.parse(
       readFileSync(join(root, ".cache", "index.json"), "utf8"),
     ) as { families: Record<string, { entries: { name: string }[] }> };
     raw.families.samples.entries[0].name = "from-the-index";
     writeFileSync(join(root, ".cache", "index.json"), JSON.stringify(raw));
-    expect(listFamily("samples").entries.map((e) => e.name)).toEqual([
+    expect((await listFamily("samples")).entries.map((e) => e.name)).toEqual([
       "from-the-index",
     ]);
   });

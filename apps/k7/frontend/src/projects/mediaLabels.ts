@@ -60,6 +60,7 @@ export function mediaLabels(): LibraryLabels {
       rename: m["media.tree.rename"](),
       renamePlaceholder: m["media.tree.renamePlaceholder"](),
       renameSubmit: m["media.tree.renameSubmit"](),
+      more: m["media.tree.more"](),
     },
     contents: {
       emptyLibrary: m["media.contents.emptyLibrary"](),
@@ -98,6 +99,9 @@ export function mediaLabels(): LibraryLabels {
       sendMany: (count) =>
         m["media.addSong.sendMany"]({ count: String(count) }),
       drop: m["media.addSong.drop"](),
+      uploading: (percent) =>
+        m["media.addSong.uploading"]({ percent: String(percent) }),
+      filing: m["media.addSong.filing"](),
     },
     save: {
       clean: m["media.save.clean"](),

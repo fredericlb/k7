@@ -26,17 +26,21 @@ const playBody = z.object({
 const pauseBody = z.object({ paused: z.boolean() });
 const seekBody = z.object({ to: z.number().min(0) });
 
+/** The routes exist only where mpv does: probed once at boot, absent they 404 like any unknown path. */
 export function createPlayerRouter(whoami: Whoami): Router {
   const playerRouter: Router = Router();
+  const present = playerAvailable();
+  void present.then((ok) => {
+    if (!ok) console.warn("mpv: not installed, so this host offers no player");
+  });
+  playerRouter.use("/player", (_req, _res, next) => {
+    present.then((ok) => next(ok ? undefined : "router"), next);
+  });
 
   /** The state, polled while playing: mpv cannot push its position to a browser. */
   playerRouter.get(
     "/player",
     wrap(async (req, res) => {
-      if (!(await playerAvailable()))
-        return res
-          .status(503)
-          .json({ error: "mpv n'est pas installé sur cette machine" });
       res.json(await state(whoami(req)));
     }),
   );

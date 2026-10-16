@@ -307,7 +307,7 @@ landing point, a folder-backed dropdown's options — reads the panel's top leve
 so a group holding its controls would hide them from all of it
 (`packages/song-schema/docs/moduleFile.md`).
 
-What the grid does about it, in `src/groupGeometry.ts` (the one rule, shared with AI organize's
+What the grid does about it, in `packages/panel-rules/src/groupGeometry.ts` (the one rule, shared with AI organize's
 check) and `src/WidgetGridEditor.tsx`:
 
 - **Moving a group carries what it framed when the drag started**, so a section moves as one
@@ -383,7 +383,9 @@ the alpha, which only the text beside it sets.
   drift.
 - **The header says nothing when everything is clean.** Four files on disk is the ordinary state of
   this screen and does not need announcing; "pending" says nothing either, because the button being
-  live already says it, in a place you can act on.
+  live already says it, in a place you can act on. The other three are the HOST's `saveLabel`, the
+  same sentence its other text panes print, so the builder never says "not saved" in a second wording
+  or a second language; without one it falls back to English.
 - **A missing file is a buffer, not an error** (`ModuleStore.read`) — the panel may not exist
   yet, and the store answers with the path the file WOULD take and blank content, so the
   first save creates it through the ordinary write route. But an edit that could never be written

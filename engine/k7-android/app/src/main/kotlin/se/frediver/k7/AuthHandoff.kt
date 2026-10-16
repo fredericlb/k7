@@ -3,11 +3,13 @@
 
 package se.frediver.k7
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Base64
+import androidx.browser.customtabs.CustomTabsIntent
 import java.security.MessageDigest
 import java.security.SecureRandom
 
@@ -24,8 +26,8 @@ object AuthHandoff {
 
     private fun random() = ByteArray(32).also { SecureRandom().nextBytes(it) }.let(::b64)
 
-    /** Open the browser on the studio's sign-in; its answer comes back as an intent to `MainActivity`. */
-    fun start(context: Context, studio: String) {
+    /** Open the browser on the studio's sign-in, false when there is none; its answer comes back as an intent to `MainActivity`. */
+    fun start(context: Context, studio: String): Boolean {
         val verifier = random()
         val state = random()
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
@@ -36,10 +38,20 @@ object AuthHandoff {
             .appendQueryParameter("challenge", challenge)
             .appendQueryParameter("state", state)
             .build()
+        // A Custom Tab in this task, so the answer reaching the singleTask activity closes it; outside an activity, a task of its own.
+        val tab = CustomTabsIntent.Builder().setShowTitle(true).build()
+        if (context !is Activity) tab.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
-            context.startActivity(Intent(Intent.ACTION_VIEW, url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            tab.launchUrl(context, url)
+            return true
         } catch (_: ActivityNotFoundException) {
-            // No browser at all: nothing to sign in with.
+            // No Custom Tabs browser handled it: a plain view intent, which any browser answers.
+        }
+        return try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            true
+        } catch (_: ActivityNotFoundException) {
+            false
         }
     }
 

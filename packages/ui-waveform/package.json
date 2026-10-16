@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./spectrum": "./src/spectrum.ts",
+    "./spectrum-strip": "./src/spectrumStrip.ts",
     "./styles.css": "./src/styles.css"
   },
   "peerDependencies": {

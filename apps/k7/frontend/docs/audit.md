@@ -23,6 +23,41 @@ parse of the whole compiled project, and a fresh object for the clip panel to re
 document moves when a file is WRITTEN, which moves the change token, so it is fetched once per
 token (`hooks/useDocPerRevision.ts`), and the effect re-runs once when a save lands.
 
+## A keystroke parses the buffer at most once, and late
+
+Beyond its text, the editor reads three things off the open buffer: whether it is a slice rack
+(the docked slicer's drags write into it), whether it is an input, and on which channels. Read
+one by one, each is a `parseDocument` of its own on every keystroke of every file.
+`src/bufferReads.ts` answers the three from ONE parse, and parses nothing when the text cannot hold
+the keys a read looks for (`rack_type`, the word `io`, `extends`) — gates that are exact, since a
+key the parser would find is spelled in the text. The reads run on a `useDeferredValue` of the open
+file, so they trail the keystroke rather than delay it; the picture lane's placements read the same
+deferred file, and only on a `video_tracks/` path. The slice colouring that runs inside CodeMirror
+on every project file takes the same `rack_type` gate (`sliceSymbols.ts`).
+
+A poll that answers what it answered before keeps the old object (`keepIfSame`,
+`src/shellEquality.ts`): the editor's `hints`, from which every CodeMirror extension is rebuilt, its
+tree, and the project's diagnostics, which the gutter re-lints on. The structural compare is cheaper
+than the rebuild it saves by orders of magnitude.
+
+## Nothing renders at the engine's frame rate that does not have to
+
+The rule is `docs/playhead.md`'s: a reader of the transport writes a DOM node per animation frame
+and renders nothing. What holds it here:
+
+- **The clip waveforms** steer `@studio/ui-waveform` through its `setTime` handle, which moves a CSS
+  clip over the played canvas and a line, and redraws no canvas
+  (`packages/ui-waveform/docs/layers.md`).
+- **The takes view** draws its line in a leaf per row, and its rows are memoised with their
+  envelope paths, so a drag across the takes rebuilds no path.
+- **A take being recorded** grows in a ring buffer outside React (`src/ringBuffer.ts`,
+  `hooks/useLiveEnvelope.ts`): an O(1) push per frame where `shift()` was O(n), published to the two
+  leaves that draw it at 10 Hz, so the clip panel around them does not render for it.
+- **The header meter** is scaled rather than resized (`masterMeter.md`).
+- **A hidden pane does no per-frame work**: the playhead loops and the lane meters read
+  `PaneVisible` (`src/paneVisible.ts`) and stand down while CSS hides their pane, which stays
+  mounted. The editor's pane is visible as a popin too.
+
 ## The shell keeps still while you type or drag
 
 `App` is one 5 000-line component, so each of its renders reconciles every mounted pane. Three
@@ -81,6 +116,8 @@ builder and this app's backend call the same `bindableNames`.
 
 - **The polls do not stack.** One refcounted `/revision` poller answers every consumer and skips a
   tick while its last ask is in the air.
+- **A hidden tab polls nothing it would show.** The timers go through `pollWhileVisible`
+  (`src/visiblePoll.ts`), the home page's workspace-sync check included.
 - **The playhead does not render the shell.** Engine state lives in an external store read by
   slice, the arrangement's playhead is drawn per animation frame without a render
   (`usePlayheadFrames`), and no selector builds a fresh object per frame.
@@ -91,15 +128,14 @@ builder and this app's backend call the same `bindableNames`.
 
 ## Left as lots
 
-1. **Two clip waveforms redraw at the playhead's rate.** `ClipWaveform` (`WaveformView.tsx`) and
-   the clip panel's player read `s.playhead` through a selector, so their canvas is redrawn on
-   every frame. The playhead also moves the purple "played" fill, so a one-pixel overlay is not
-   the whole answer — `docs/constat.md` holds this as a design lot.
-2. **`App.tsx` is 5 300 lines and re-renders its hidden panels.** The input-rate renders are gone
+1. **`ui-waveform`'s `Waveform.tsx` is past 1 000 lines.** The layer split added to it rather than
+   splitting it; the draw effect and the pointer handling are the two halves a split would take.
+2. **`App.tsx` is 5 300 lines and re-renders its hidden panels.** Their per-frame work stands down
+   while hidden (above), but a render of the shell still reconciles them. The input-rate renders are gone
    (above); what remains is a render per real change of shell state, which still reconciles every
    pane. `docs/constat.md` asks for a profile before memoising the panes themselves, and none has
    been taken since lots C and D. `TimelineTab.tsx`
-   (3 340), `EditorTab.tsx` (1 480), `PianoRoll.tsx` (1 160) and six more are over this repo's
+   (4 000), `EditorTab.tsx` (1 600), `PianoRoll.tsx` (1 160) and six more are over this repo's
    500-line bar too; splitting them is the same work as memoising them, and wants that profile.
 3. **Writes to the file service have no budget.** Deliberately, for the reason above; a hung write
    still holds its caller until the connection dies.
@@ -109,6 +145,7 @@ builder and this app's backend call the same `bindableNames`.
 ```
 cd apps/k7/frontend && npx tsc --noEmit -p . && npx vitest run
 cd apps/k7/backend && npx tsc --noEmit -p .
+cd packages/ui-waveform && npx vitest run
 cd packages/project-shell && npx vitest run
 cd packages/user-prefs && npx vitest run
 ```

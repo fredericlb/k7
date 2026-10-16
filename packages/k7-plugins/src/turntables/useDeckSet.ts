@@ -7,7 +7,10 @@
 // vocabulary. Splitting the rest means splitting state, and this file has no test to catch a
 // regression: write `useDeckSet.test.ts` first. docs/deckSet.md carries the seam list.
 
-import { usePluginParams } from "@studio/engine-browser/params";
+import {
+  type ParamKey,
+  usePluginParamsOf,
+} from "@studio/engine-browser/params";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";
 import { projectApi as api } from "@studio/project-shell/project";
@@ -19,6 +22,7 @@ import {
 } from "@studio/song-schema/yaml/mixFile";
 import type { MixView as MixViewFile } from "@studio/song-schema/yaml/mixViewSchema";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { m } from "../paraglide/messages.js";
 import { alignSeek } from "./beats";
 import {
   type DeckPlaying,
@@ -49,6 +53,7 @@ import {
 } from "./deckVocabulary";
 import type { Deck } from "./engine";
 import { corrected, type GridFix } from "./grid";
+import { loopSpan } from "./loop";
 import { metronomeDeck } from "./metronome";
 import {
   type BindingProblem,
@@ -72,6 +77,7 @@ import {
   writeMixText,
 } from "./mixView";
 import { type DeckLoops, useDeckLoops } from "./useDeckLoops";
+import { useDrawnNeedles } from "./useDrawnNeedles";
 
 /** How often a tempo may reach the engine while a control moves — a rate rides in the document, docs/bpm.md. */
 const LIVE_WARP_MS = 120;
@@ -204,6 +210,10 @@ export interface DeckSet extends DeckLoops {
   shove: (deck: DeckId, seconds: number) => void;
   /** Where this deck's needle is in its FILE right now — what a scrub draws while it drags. */
   sourceNow: (deck: DeckId) => number;
+  /** The same needle per deck, RAW and stable — what a cue is written at (docs/turntables/needleClock.md). */
+  rawNeedle: Record<DeckId, () => number>;
+  /** …and STEERED between frames, also stable — what the band and the wedge draw, never a value stored. */
+  drawnNeedle: Record<DeckId, () => number>;
   /** Is this deck turning? Its platter's own answer — the one transport speaks for none of them. */
   running: (deck: DeckId) => boolean;
   /** Start or stop THIS deck — its platter's `Rate`, which the one transport does not decide (docs/turntable.md). */
@@ -251,7 +261,6 @@ export function useDeckSet(
   const [playlistText, setPlaylistText] = useState<string | null | undefined>(
     undefined,
   );
-  const live = usePluginParams(deck.params);
 
   // The bindings and the compile, refetched when the project moves — each allowed to fail alone, in parallel.
   useEffect(() => {
@@ -293,6 +302,15 @@ export function useDeckSet(
   }, [project, rev, mapping, playlist]);
 
   const wiring = useMemo(() => resolveBindings(view, graph), [view, graph]);
+  // Only the params a control is bound to: a frame of any other watched plugin re-renders no desk.
+  const bound = useMemo(
+    () =>
+      wiring.bindings.flatMap((b): ParamKey[] =>
+        b.pluginId ? [{ id: b.pluginId, name: b.param }] : [],
+      ),
+    [wiring],
+  );
+  const live = usePluginParamsOf(deck.params, bound);
   // A DECK's switch, so it survives the record on it — `clearTempo` wipes the tempo and not this.
   const [keylocks, setKeylocks] = useState<Partial<Record<DeckId, boolean>>>(
     {},
@@ -443,6 +461,25 @@ export function useDeckSet(
   );
   const needleRef = useRef(needle);
   needleRef.current = needle;
+  const rawNeedle = useMemo(
+    () =>
+      Object.fromEntries(
+        DECKS.map((d) => [d, () => needleRef.current(d)]),
+      ) as Record<DeckId, () => number>,
+    [],
+  );
+  // Read through a ref: the loop section is built below, and a drawn read only ever happens after it.
+  const loopingRef = useRef<DeckLoops | null>(null);
+  const drawnNeedle = useDrawnNeedles({
+    raw: (d) => needleRef.current(d),
+    // Under a hand the rate is the hand's, changing faster than a frame reports it: draw the needle as it is.
+    rate: (d) =>
+      scratching.current[d]
+        ? 0
+        : platterRate(temposRef.current[d], !!runningRef.current[d]),
+    loop: (d) =>
+      loopSpan(loopingRef.current?.loopOf(d) ?? null, temposRef.current[d]),
+  });
 
   // The click is in the DOCUMENT, so it is a re-send; keyed on the deck it follows, not on the wish.
   const sentClick = useRef<DeckId | null>(null);
@@ -609,6 +646,7 @@ export function useDeckSet(
     needle: (deckId) => needleRef.current(deckId),
     place: (deckId, source) => placeRef.current(deckId, source),
   });
+  loopingRef.current = looping;
 
   return {
     ...looping,
@@ -704,9 +742,7 @@ export function useDeckSet(
       if (!load) return;
       // Never written from a sheet this desk has not read: the whole file would go with it.
       if (mixReadFor.current !== project) {
-        setDeskError(
-          `${MIX_FILE} could not be read yet — the cue was not written`,
-        );
+        setDeskError(m["desk.mixUnread"]({ file: MIX_FILE }));
         return;
       }
       const ref = `@k7-core/${load.id}`;
@@ -719,9 +755,7 @@ export function useDeckSet(
       setMixText(text);
       void writeMixText(project, text).catch((e: Error) =>
         // Said out loud: the button has already gone coloured, so a silent failure would lose the cue.
-        setDeskError(
-          `the cue could not be written into ${MIX_FILE}: ${e.message}`,
-        ),
+        setDeskError(m["desk.cueFailed"]({ file: MIX_FILE, error: e.message })),
       );
     },
 
@@ -730,6 +764,8 @@ export function useDeckSet(
     shove: (deckId, seconds) =>
       placeRef.current(deckId, needleRef.current(deckId) + seconds),
     sourceNow: (deckId) => needleRef.current(deckId),
+    rawNeedle,
+    drawnNeedle,
     running: (deckId) => !!running[deckId],
     canStartAlone: (deckId) => !!loadsRef.current[deckId],
     // Every record is on a platter now, so the only thing that cannot be scratched is an empty deck.
@@ -908,9 +944,7 @@ export function useDeckSet(
       // …and the stand-in, before the compile lands: no crossfade module, so the two decks' levels move.
       if (!compiled) return pushCrossfade(deck.engine, value);
       // Compiled but bound to no loaded plugin — the stand-in's levels are not in THIS document.
-      setDeskError(
-        `the crossfade is bound to no loaded plugin — check ${MIX_VIEW_FILE}`,
-      );
+      setDeskError(m["desk.xfadeUnbound"]({ file: MIX_VIEW_FILE }));
     },
     turnEq: (deckId, band, dB) => {
       const id = `${deckId}.${band}`;

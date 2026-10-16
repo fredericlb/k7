@@ -7,6 +7,7 @@ import {
   compFadeLine,
   compLine,
   compSeams,
+  envelopePath,
   eventIdOf,
   heardSpans,
   pieceEdgeLines,
@@ -153,5 +154,22 @@ describe("a piece's edges, dragged in the waveform", () => {
     expect(pieceEdgeLines(ev, own, 4, 5, 4, 4)).toEqual([
       "event comp keys 2:1 t2 2:2 2:3",
     ]);
+  });
+});
+
+describe("envelopePath — a take row's envelope", () => {
+  it("draws one mirrored bar per bucket, the loudest at full height", () => {
+    expect(envelopePath([0.5, 1], 2, 10)).toBe(
+      "M10 0.275h1v0.45h-1ZM11 0.04999999999999999h1v0.9h-1Z",
+    );
+  });
+
+  it("survives an envelope far longer than an argument list", () => {
+    const rms = Array.from({ length: 300_000 }, (_, i) => i % 7);
+    expect(envelopePath(rms, 1, 0).length).toBeGreaterThan(0);
+  });
+
+  it("draws nothing for no samples", () => {
+    expect(envelopePath([], 4, 0)).toBe("");
   });
 });

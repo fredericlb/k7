@@ -14,7 +14,7 @@ import type {
   Page,
   Release,
   Session,
-  Song,
+  SongListEntry,
   SongTab,
 } from "../types";
 import { PublicationsList } from "./PublicationsList";
@@ -24,7 +24,7 @@ interface Props {
   sessions: Session[];
   releases: Release[];
   pages: Page[];
-  songs: Song[];
+  songs: SongListEntry[];
   moments: Moment[];
   tab: HomeTab;
   onOpen: (s: Session) => void;
@@ -33,9 +33,9 @@ interface Props {
   onNewRelease: () => void;
   onOpenPage: (p: Page) => void;
   onNewPage: () => void;
-  onOpenSong: (s: Song, tab?: SongTab) => void;
+  onOpenSong: (s: SongListEntry, tab?: SongTab) => void;
   onNewSong: () => void;
-  onToggleSongFavorite: (s: Song) => void;
+  onToggleSongFavorite: (s: SongListEntry) => void;
   /** Called once a song came down from the paired server, to reload the list. */
   onSongsChanged: () => void;
   /** Called when the server holding releases and pages is found reachable, to load them. */

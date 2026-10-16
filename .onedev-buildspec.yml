@@ -23,7 +23,7 @@ jobs:
   - type: CommandStep
     name: lint and test
     runInContainer: true
-    image: node:22-alpine
+    image: node:24-alpine
     interpreter:
       type: DefaultInterpreter
       commands: |
@@ -64,7 +64,7 @@ jobs:
   - type: CommandStep
     name: compute build version
     runInContainer: true
-    image: node:22-alpine
+    image: node:24-alpine
     interpreter:
       type: DefaultInterpreter
       commands: |
@@ -254,7 +254,7 @@ jobs:
     name: build apk
     runInContainer: true
     # trixie, not bookworm: it carries JDK 21, which the command-line tools and AGP run on.
-    image: node:22-trixie
+    image: node:24-trixie
     interpreter:
       type: DefaultInterpreter
       commands: |

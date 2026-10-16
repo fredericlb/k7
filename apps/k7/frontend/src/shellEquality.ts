@@ -38,3 +38,22 @@ export function shallowEqual<T extends object>(a: T, b: T): boolean {
 export function keepIfEqual<T extends object>(next: T): (cur: T) => T {
   return (cur) => (shallowEqual(cur, next) ? cur : next);
 }
+
+/** Two JSON-shaped values (what a route answers) equal all the way down; key order does not count. */
+export function sameJson(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== "object" || typeof b !== "object" || !a || !b) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a) && Array.isArray(b))
+    return a.length === b.length && a.every((v, i) => sameJson(v, b[i]));
+  const ra = a as Record<string, unknown>;
+  const rb = b as Record<string, unknown>;
+  const ka = Object.keys(ra);
+  if (ka.length !== Object.keys(rb).length) return false;
+  return ka.every((k) => Object.hasOwn(rb, k) && sameJson(ra[k], rb[k]));
+}
+
+/** A state updater that keeps the current answer when a poll brings back the same one, so nothing downstream rebuilds. */
+export function keepIfSame<T>(next: T): (cur: T) => T {
+  return (cur) => (sameJson(cur, next) ? cur : next);
+}

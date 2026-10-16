@@ -14,8 +14,7 @@
 | `./input-channels` | `src/InputChannelBar.tsx` | The mono/stereo and channel picker for `io: in` modules. |
 | `./yaml-pane` | `src/YamlPane.tsx` | The CodeMirror pane, also reused by the media library's song and playlist editors. |
 | `./param-drag` | `src/paramDrag.ts` | The drag payload of a parameter (MIME `application/x-studio-param`). |
-| `./ai-organize`, `./ai-prompt` | `src/aiOrganize.ts`, `src/aiPrompt.ts` | AI organize's request format, checks and system prompt, shared with the backend. |
-| `./layout-twins` | `src/layoutTwins.ts` | The two-layout rules. |
+| `./ai-organize` | `src/aiOrganize.ts` | AI organize's request format and checks, re-exported from `@studio/panel-rules`. |
 
 `src/ModuleBuilder.tsx` holds `ModuleScreen` and is over the usual size limit: the screen owns
 the four buffers and their save, and splitting it would scatter one transaction across files.
@@ -61,13 +60,13 @@ project, a library module's parameters are best read from a project where its pl
 
 - `src/WidgetGridEditor.tsx`: the grid, the palette (`src/widgetKinds.ts`), drag, resize, drop
   binding, the right-click menu (`src/GridMenu.tsx`).
-- `src/groupGeometry.ts`: group membership is geometric (wholly inside the box), and the clash
+- `packages/panel-rules/src/groupGeometry.ts`: group membership is geometric (wholly inside the box), and the clash
   rule.
 - `src/WidgetInspector.tsx`: per-type fields; `retype` drops fields the new type lacks.
 - `src/TabsColumn.tsx` and `src/panelTabs.ts`: tabs; one tab is never written.
 - `src/widgetClipboard.ts`: an in-memory clipboard for the session, groups copied with what they
   frame, ids de-duplicated.
-- `src/layoutTwins.ts`: `LAYOUT_MAX = 4`; `twinIssues`, `gridIssues`, `reflowNarrow`,
+- `packages/panel-rules/src/layoutTwins.ts`: `LAYOUT_MAX = 4`; `twinIssues`, `gridIssues`, `reflowNarrow`,
   `alignTabs`.
 - `src/autoLayout.ts`: Auto organize, local and deterministic: parameters sorted into families by
   name, one tab per family.
@@ -77,7 +76,7 @@ project, a library module's parameters are best read from a project where its pl
 | Piece | Where |
 |---|---|
 | Builder side | `src/useAiOrganize.ts` (dialogs, Reset/Update, Copy for Claude Code via `src/claudeCodePrompt.ts`) |
-| Request, prompt, checks | `src/aiOrganize.ts`, `src/aiPrompt.ts` (`checkAiResult`, `AI_RESULT_SCHEMA`) |
+| Request, prompt, checks | `packages/panel-rules/src/aiOrganize.ts`, `packages/panel-rules/src/aiPrompt.ts` (`checkAiResult`, `AI_RESULT_SCHEMA`) |
 | Route | `apps/k7/backend/src/aiOrganize.ts`, mounted at `/api/ai`: `GET /api/ai/organize` says whether it is enabled and with which model, `POST` runs it |
 | Settings | `apps/k7/backend/src/aiSettings.ts` (`GET`/`PUT /api/ai/settings`), `apps/k7/frontend/src/settings/AiSection.tsx` |
 

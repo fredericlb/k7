@@ -7,6 +7,7 @@ import { Button } from "@frediverse/ui/button";
 import { X } from "@frediverse/ui/icons";
 import { useEffect, useRef, useState } from "react";
 import { mediaUrl } from "../api";
+import { m } from "../paraglide/messages.js";
 
 export interface VideoReader {
   ref: string;
@@ -90,18 +91,18 @@ function ReaderCard({
           variant="secondary"
           className="h-7 flex-1"
           onClick={() => onSetFrom(reader.ref, ref.current?.currentTime ?? 0)}
-          title="Set this placement's source_from to the video's current time"
+          title={m["video.setFromHint"]()}
         >
-          Set From
+          {m["video.setFrom"]()}
         </Button>
         <Button
           size="sm"
           variant="secondary"
           className="h-7 flex-1"
           onClick={() => onSetTo(reader.ref, ref.current?.currentTime ?? 0)}
-          title="Set this placement's length to (current time − source_from)"
+          title={m["video.setToHint"]()}
         >
-          Set To
+          {m["video.setTo"]()}
         </Button>
       </div>
     </div>
@@ -123,14 +124,12 @@ export function VideoReadersStrip({
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center justify-between border-b border-border px-2 py-1 text-xs text-muted-foreground">
-        <span>
-          clip readers · Set From / Set To write the placement under the cursor
-        </span>
+        <span>{m["video.readersHeader"]()}</span>
         <button
           type="button"
           className="rounded px-1 text-muted-foreground hover:text-foreground"
           onClick={onClose}
-          title="hide readers"
+          title={m["video.hideReaders"]()}
         >
           <X className="h-3.5 w-3.5" />
         </button>

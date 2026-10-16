@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
   type EditFocus,
   keepIfEqual,
+  keepIfSame,
   sameEditFocus,
+  sameJson,
   shallowEqual,
 } from "./shellEquality";
 import type { WebClip, WebProject } from "./types";
@@ -91,5 +93,39 @@ describe("shallowEqual / keepIfEqual", () => {
 
   it("compares by identity, not deeply", () => {
     expect(shallowEqual({ a: [1] }, { a: [1] })).toBe(false);
+  });
+});
+
+describe("sameJson / keepIfSame — a poll answering what it answered before", () => {
+  const hints = { paths: { "module:a": "m/a.yaml" }, racks: { k: [1, 2] } };
+
+  it("calls two answers with the same content equal, whatever the key order", () => {
+    expect(
+      sameJson(hints, {
+        racks: { k: [1, 2] },
+        paths: { "module:a": "m/a.yaml" },
+      }),
+    ).toBe(true);
+  });
+
+  it("tells a changed leaf, a longer list or a missing key apart", () => {
+    expect(sameJson(hints, { ...hints, racks: { k: [1, 3] } })).toBe(false);
+    expect(sameJson([1, 2], [1, 2, 3])).toBe(false);
+    expect(sameJson({ a: 1 }, { b: 1 })).toBe(false);
+    expect(sameJson({ a: undefined }, {})).toBe(false);
+    expect(sameJson([], {})).toBe(false);
+    expect(sameJson(null, {})).toBe(false);
+  });
+
+  it("keeps the current object when the next says the same", () => {
+    const next = JSON.parse(JSON.stringify(hints));
+    expect(keepIfSame(next)(hints)).toBe(hints);
+    const moved = { ...next, paths: {} };
+    expect(keepIfSame(moved)(hints)).toBe(moved);
+  });
+
+  it("keeps an empty findings list across revisions", () => {
+    const cur: unknown[] = [];
+    expect(keepIfSame<unknown[]>([])(cur)).toBe(cur);
   });
 });

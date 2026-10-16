@@ -57,6 +57,10 @@ export interface RecorderLabels {
   orHoldSpace: string;
   tagsPending: (n: number) => string;
   uploading: string;
+  /** The share of the take sent so far, 0 to 100. */
+  uploadProgress: (percent: number) => string;
+  /** Every byte sent, the server still measuring the take. */
+  analyzing: string;
   removeTag: (tag: string) => string;
   mic: MicErrorTexts;
 }
@@ -101,6 +105,8 @@ export const RECORDER_LABELS_EN: RecorderLabels = {
   orHoldSpace: "or hold space",
   tagsPending: (n) => `${plural(n, "tag", "tags")} pending`,
   uploading: "Uploading & analyzing…",
+  uploadProgress: (percent) => `Uploading… ${percent}%`,
+  analyzing: "Analyzing…",
   removeTag: (tag) => `Remove ${tag}`,
   mic: MIC_ERRORS_EN,
 };

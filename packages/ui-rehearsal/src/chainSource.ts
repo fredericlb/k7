@@ -22,13 +22,18 @@ import {
   launchUrl,
 } from "@studio/web-protocol/projects";
 import { isLoopbackHost } from "@studio/web-protocol/services";
+import { ApiError } from "./api";
 import { pl8Base } from "./fetchSong/pl8";
 import { m } from "./paraglide/messages.js";
 
-async function readJson<T>(res: Response, what: string): Promise<T> {
+// `_what` is the access contract's call name, kept out of a sentence a musician reads.
+async function readJson<T>(res: Response, _what: string): Promise<T> {
   if (!res.ok) {
     const said = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(said.error ?? `${what} ${res.status}`);
+    throw new ApiError(
+      said.error ?? m["common.requestFailed"]({ status: res.status }),
+      res.status,
+    );
   }
   return (await res.json()) as T;
 }
@@ -165,10 +170,10 @@ export function openChainSource(
     }
   };
 
-  const onFrame = (data: ArrayBuffer) => {
+  const onFrame = (data: ArrayBuffer, owned: boolean) => {
     if (closed) return;
     if (player) {
-      player.handle(data);
+      player.handle(data, owned);
       // A rate change would play at the wrong pitch, into a stream the recorder already holds.
       const f = player.snapshot().format;
       if (f && ctx && f.sampleRate !== ctx.sampleRate)

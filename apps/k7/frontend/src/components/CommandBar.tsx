@@ -6,12 +6,13 @@
 // each command's readable description AND its name, a field's list against that param's whole
 // vocabulary. Nothing here matches by prefix — "rythm" has to find `ge.rythm`, and "mute a
 // track" has to find `track mute`. Commands you have run lately are nudged up the list
-// (recentCommands.ts), and nothing is listed at all until a character is typed.
+// (recentCommands.ts). Empty, it offers a few recents and starters instead of the catalogue (emptyBar.ts).
 
-import { ChevronRight } from "@frediverse/ui/icons";
+import { ChevronRight, History, Lightbulb } from "@frediverse/ui/icons";
 import {
   forwardRef,
   useEffect,
+  useId,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -29,12 +30,14 @@ import {
   nextField,
   wantsKind,
 } from "../commandFill";
+import { emptyBarRows } from "../emptyBar";
 import {
   type ArgOption,
   rankCommands,
   rankOptions,
   toOptions,
 } from "../palette";
+import { m } from "../paraglide/messages.js";
 import { recentCommands } from "../recentCommands";
 import type { ArgClass, MenuEntity } from "../types";
 import { CommandParams } from "./CommandParams";
@@ -98,8 +101,8 @@ export interface CommandBarHandle {
 function splitArgs(s: string): string[] {
   const out: string[] = [];
   const re = /"([^"]*)"|(\S+)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(s)) !== null) out.push(m[1] ?? m[2]);
+  let hit: RegExpExecArray | null;
+  while ((hit = re.exec(s)) !== null) out.push(hit[1] ?? hit[2]);
   return out;
 }
 
@@ -158,11 +161,14 @@ export const CommandBar = forwardRef<
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null); // the command field
   const argRef = useRef<HTMLInputElement>(null); // the form's active field
-  const selRef = useRef<HTMLLIElement>(null); // the highlighted row, to keep it in view
+  const selRef = useRef<HTMLDivElement>(null); // the highlighted row, to keep it in view
   const latest = useRef(0); // guard against out-of-order async vocabularies
+  // On the EMPTY bar no row is highlighted until an arrow asks for one, so a bare Enter still runs nothing.
+  const [browsing, setBrowsing] = useState(false);
+  const listId = useId();
 
   const arg = command ? (command.args[active] ?? null) : null;
-  // NOTHING is listed until a character is typed: the catalogue is ninety rows, and a list you did not ask for is one you have to dismiss.
+  // The catalogue is never listed whole: ninety rows you did not ask for is a list you have to dismiss.
   const query = command ? "" : value.trim();
   // MEMOISED, because the bar is docked, always mounted and rendered twice — unmemoised, both ranked ninety rows on every state change.
   const matches = useMemo(
@@ -174,10 +180,20 @@ export const CommandBar = forwardRef<
     () => (command ? rankOptions(vocab, values[active] ?? "") : []),
     [command, vocab, values, active],
   );
-  const list: readonly unknown[] = command ? suggestions : matches;
+  // …so the empty bar offers a handful instead: recents, then starters (docs/commandBar.md).
+  const emptyRows = useMemo(
+    () =>
+      !command && focused && !query
+        ? emptyBarRows(commands, recentCommands())
+        : [],
+    [command, focused, query, commands],
+  );
+  const shown = query ? matches : emptyRows.map((r) => r.command);
+  const list: readonly unknown[] = command ? suggestions : shown;
   const selIdx = list.length
     ? ((sel % list.length) + list.length) % list.length
     : 0;
+  const highlighted = command || query || browsing ? selIdx : -1;
 
   const reset = () => {
     setCommand(null);
@@ -186,6 +202,7 @@ export const CommandBar = forwardRef<
     setValue("");
     setVocab([]);
     setSel(0);
+    setBrowsing(false);
   };
 
   // Enter the form: fresh answers, first field, and the focus follows the question.
@@ -329,6 +346,10 @@ export const CommandBar = forwardRef<
       pickCommand(matches[selIdx]);
       return;
     }
+    if (!query && browsing && shown.length) {
+      pickCommand(shown[selIdx]);
+      return;
+    }
     // Nothing matched: run the line as typed — the CLI road, and how a line with its arguments already on it dispatches.
     const typed = value.trim();
     if (!typed) return;
@@ -436,8 +457,10 @@ export const CommandBar = forwardRef<
           onChange={(e) => {
             setValue(e.target.value);
             setSel(0);
+            setBrowsing(false);
           }}
           onFocus={() => {
+            setBrowsing(false);
             setFocused(true);
             onFocusChange?.(true);
           }}
@@ -451,9 +474,13 @@ export const CommandBar = forwardRef<
               commitCommand();
             } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
               // The list renders bottom-first (it opens upward), so ↑ walks FORWARD through it.
-              if (matches.length) {
+              if (shown.length) {
                 e.preventDefault();
-                setSel((i) => (e.key === "ArrowUp" ? i + 1 : i - 1));
+                // The first arrow on the empty bar lands on the nearest row rather than stepping past it.
+                if (!query && !browsing) {
+                  setBrowsing(true);
+                  setSel(0);
+                } else setSel((i) => (e.key === "ArrowUp" ? i + 1 : i - 1));
               }
             } else if (e.key === "Escape") {
               e.preventDefault();
@@ -461,38 +488,73 @@ export const CommandBar = forwardRef<
               onClose?.();
             }
           }}
-          placeholder="what do you want to do?"
+          placeholder={m["cmds.placeholder"]()}
           spellCheck={false}
           autoComplete="off"
+          role="combobox"
+          aria-expanded={focused && shown.length > 0}
+          aria-controls={listId}
+          aria-activedescendant={
+            focused && highlighted >= 0 && shown.length
+              ? `${listId}-${highlighted}`
+              : undefined
+          }
           className="min-w-0 flex-1 bg-transparent font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground/60"
         />
       )}
 
-      {!command && focused && matches.length > 0 && (
+      {!command && focused && shown.length > 0 && (
         // Opens UPWARD and lists bottom-first, so the best match sits right above the input.
-        <ul className="absolute bottom-full left-0 right-0 z-30 mb-2 flex max-h-72 flex-col-reverse overflow-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md">
-          {matches.map((c, i) => (
-            <li
+        <div
+          id={listId}
+          role="listbox"
+          tabIndex={-1}
+          aria-label={m["commandBar.list"]()}
+          className="absolute bottom-full left-0 right-0 z-30 mb-2 flex max-h-72 flex-col-reverse overflow-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md"
+        >
+          {shown.map((c, i) => (
+            <div
               key={c.canonical}
-              ref={i === selIdx ? selRef : undefined}
+              id={`${listId}-${i}`}
+              role="option"
+              tabIndex={-1}
+              aria-selected={i === highlighted}
+              ref={i === highlighted ? selRef : undefined}
               onMouseDown={(e) => {
                 e.preventDefault(); // keep focus
                 pickCommand(c);
               }}
-              onMouseEnter={() => setSel(i)}
-              className={`flex shrink-0 cursor-pointer items-baseline justify-between gap-4 px-3 py-0.5 ${i === selIdx ? "bg-accent" : ""}`}
+              onMouseEnter={() => {
+                setBrowsing(true);
+                setSel(i);
+              }}
+              className={`flex shrink-0 cursor-pointer items-baseline justify-between gap-4 px-3 py-0.5 ${i === highlighted ? "bg-accent" : ""}`}
             >
+              {/* On the empty bar, a mark says why the row is offered: you ran it, or it is a place to start. */}
+              {!query && emptyRows[i] && (
+                <EmptyMark recent={emptyRows[i].recent} />
+              )}
               {/* The sentence leads, being what was searched for; the name follows in the corner, where a palette puts a keybinding. */}
-              <span className="min-w-0 truncate text-foreground">
+              <span className="min-w-0 flex-1 truncate text-foreground">
                 {c.readable}
               </span>
               <span className="shrink-0 font-mono text-xs text-muted-foreground">
                 {c.canonical}
               </span>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );
 });
+
+function EmptyMark({ recent }: { recent: boolean }) {
+  const label = recent ? m["commandBar.recent"]() : m["commandBar.starter"]();
+  const Icon = recent ? History : Lightbulb;
+  return (
+    <span title={label} className="shrink-0 self-center text-muted-foreground">
+      <Icon className="h-3 w-3" role="img" aria-label={label} />
+    </span>
+  );
+}

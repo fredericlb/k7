@@ -8,10 +8,11 @@ import {
   describeMicError,
   RecorderView,
 } from "@studio/recorder";
-import { type ComponentProps, useEffect, useState } from "react";
+import { type ComponentProps, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { ChainSourcePanel } from "../components/ChainSourcePanel";
 import { SessionSourceDialog } from "../components/SessionSourceDialog";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 import { useRehearsalHost } from "../host";
 import { m } from "../paraglide/messages.js";
 import { micErrors, recorderLabels } from "../recorderLabels";
@@ -133,6 +134,8 @@ export default function RecordingOverlay({
   };
 
   const minimized = recording != null && !recOpen;
+  const popin = useRef<HTMLDivElement>(null);
+  useFocusTrap(recording != null && recOpen, popin);
 
   return (
     <div className="rehearsal-root rehearsal-overlay">
@@ -145,6 +148,7 @@ export default function RecordingOverlay({
           }}
         >
           <div
+            ref={popin}
             className={recOpen ? "rec-popin" : "rec-dock"}
             role={recOpen ? "dialog" : undefined}
             aria-modal={recOpen || undefined}

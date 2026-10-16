@@ -5,6 +5,7 @@
 import { House, Music, X } from "@frediverse/ui/icons";
 import { isProjectAddress } from "@studio/web-protocol/projects";
 import { type CSSProperties, useEffect, useState } from "react";
+import { m } from "../paraglide/messages.js";
 import { type TabRow, tabsBridge } from "./bridge";
 
 // `-webkit-app-region` is Electron's, and React's CSSProperties has never carried it.
@@ -95,8 +96,8 @@ export function TabStrip() {
           {!row.home && (
             <button
               type="button"
-              aria-label="Close tab"
-              className="shrink-0 rounded p-0.5 opacity-0 hover:bg-secondary group-hover:opacity-100"
+              aria-label={m["tabs.close"]()}
+              className="shrink-0 rounded p-0.5 opacity-0 hover:bg-secondary focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
               onClick={() => bridge?.close(row.id)}
             >
               <X className="h-3 w-3" />

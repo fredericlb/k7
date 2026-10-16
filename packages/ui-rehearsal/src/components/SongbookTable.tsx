@@ -12,17 +12,17 @@ import {
 } from "@frediverse/ui/icons";
 import type { ReactNode } from "react";
 import { m } from "../paraglide/messages.js";
-import type { Song, SongTab } from "../types";
+import type { SongListEntry, SongTab } from "../types";
 import { SongPlacementIcon, type useSongbookCopy } from "./SongbookServerCopy";
 
 interface Props {
-  songs: Song[];
+  songs: SongListEntry[];
   /** Drawn at the right end of the header row — the songbook's ⋮ menu. */
   headerMenu?: ReactNode;
   /** Where each song lives on a machine paired with a server; absent, nothing is drawn. */
   copy?: ReturnType<typeof useSongbookCopy>;
-  onOpenSong: (s: Song, tab?: SongTab) => void;
-  onToggleSongFavorite: (s: Song) => void;
+  onOpenSong: (s: SongListEntry, tab?: SongTab) => void;
+  onToggleSongFavorite: (s: SongListEntry) => void;
 }
 
 const LINKS = [
@@ -129,16 +129,28 @@ export function SongbookTable({
               <td className="songbook-artist" title={s.artist}>
                 {s.artist}
               </td>
+              {/* The row's keyboard way in: a mouse clicks anywhere on the row, a keyboard reaches this. */}
               <td className="songbook-title" title={s.title}>
-                {s.title}
+                <button
+                  type="button"
+                  className="songbook-title-open"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenSong(s);
+                  }}
+                >
+                  {s.title}
+                </button>
               </td>
               <td className="songbook-links">
                 <div className="song-links">
                   {LINKS.map(([key, Icon, label, open, none]) => {
                     const filled =
                       key === "sheet"
-                        ? s.sheets.length > 0
-                        : s[key].trim() !== "";
+                        ? s.sheetCount > 0
+                        : key === "lyrics"
+                          ? s.hasLyrics
+                          : s.hasTablature;
                     return (
                       <Button
                         key={key}
