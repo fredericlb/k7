@@ -50,6 +50,9 @@ function(studio_patch_command out script)
     file(SHA256 "${script}" sum)
     file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/engine/eurorack/patches/studio_replace.cmake" shared)
     set(${out} ${CMAKE_COMMAND} -DSTUDIO_PATCH_SUM=${sum}-${shared} -P "${script}" PARENT_SCOPE)
+    # …and an edited script re-runs the configure, without which a kept build folder never sees the new checksum.
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${script}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/engine/eurorack/patches/studio_replace.cmake")
 endfunction()
 foreach(_patch faust sfizz surge ixwebsocket tracktion)
     studio_patch_command(STUDIO_PATCH_${_patch} "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/${_patch}.cmake")

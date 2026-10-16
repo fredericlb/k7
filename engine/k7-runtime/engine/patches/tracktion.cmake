@@ -87,6 +87,11 @@ studio_replace("${cpp}"
     "}\n\nvoid SamplerPlugin::applyToBuffer (const PluginRenderContext& fc)"
     "}\n\nvoid SamplerPlugin::getChannelNames (juce::StringArray* ins, juce::StringArray* outs)   // studio\n{\n    if (ins != nullptr) { ins->add (\"Left\"); ins->add (\"Right\"); }\n    if (outs != nullptr)\n        for (int c = 0, n = getNumOutputChannelsGivenInputs (2); c < n; ++c)\n            outs->add ((c % 2 == 0 ? \"Left \" : \"Right \") + juce::String (c / 2 + 1));\n}\n// studio: getChannelNames above\n\nvoid SamplerPlugin::applyToBuffer (const PluginRenderContext& fc)")
 
+# crill's armv8 spin-wait calls the ACLE __wfe(), which GCC 12 does not declare: a Linux arm64 build (the Pi image, docs/pi-engine.md) fails on it.
+studio_replace("modules/3rd_party/crill/impl/progressive_backoff_wait_impl.h"
+    "return;\n\n                __wfe();\n"
+    "return;\n\n               #if defined(__GNUC__)   // studio: GCC has no __wfe\n                __asm__ __volatile__ (\"wfe\");\n               #else\n                __wfe();\n               #endif\n")
+
 # JUCE builds juceaide in a nested CMake, in Debug with /Zi, and hands it the compiler launcher: under sccache those
 # objects share one .pdb and fail with C1041. On MSVC it builds uncached, a dozen files (docs/desktop-release.md).
 studio_replace("modules/juce/extras/Build/juceaide/CMakeLists.txt"
