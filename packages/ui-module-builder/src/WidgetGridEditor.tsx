@@ -11,8 +11,6 @@ import {
   ClipboardPaste,
   Copy,
   LoaderCircle,
-  Minus,
-  Plus,
   Power,
   Scissors,
   Sparkles,
@@ -25,6 +23,17 @@ import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { useCallback, useRef, useState } from "react";
 import { type AutoParam, autoOrganize } from "./autoLayout";
 import { GridMenu } from "./GridMenu";
+import {
+  boxBetween,
+  type Cell,
+  CORNERS,
+  type Corner,
+  cornerAnchor,
+  firstFree,
+  groupsFirst,
+  nextId,
+  span,
+} from "./gridCells";
 import type { ModuleUI, Widget, WidgetType } from "./moduleUi";
 import {
   type PageRef,
@@ -34,6 +43,7 @@ import {
   writeWidgetsAt,
 } from "./panelTabs";
 import { isParamDrag, type ParamDrag, readParamDrag } from "./paramDrag";
+import { Stepper } from "./Stepper";
 import { TabsColumn } from "./TabsColumn";
 import { WidgetInspector } from "./WidgetInspector";
 import {
@@ -44,6 +54,8 @@ import {
   pasteWidgets,
 } from "./widgetClipboard";
 import { bindable, GROUP_COLOR, ICON, ranged, TYPES } from "./widgetKinds";
+
+export { boxBetween, type Corner, cornerAnchor } from "./gridCells";
 
 // Row height in px (columns are elastic), in one place so the pointer→cell maths and the CSS grid agree.
 const ROW_PX = 64;
@@ -61,66 +73,12 @@ const hasOwnLabel = (w: Widget) =>
 
 // A parameter with named settings — what a dropdown is for.
 const isDiscrete = (p: ParamDrag) => !!p.meta?.states?.length;
-
-const span = (n?: number) => Math.max(1, n ?? 1);
-const covers = (w: Widget, c: number, r: number) =>
-  c >= w.col &&
-  c < w.col + span(w.colSpan) &&
-  r >= w.row &&
-  r < w.row + span(w.rowSpan);
-
-// The first cell in `box` no widget covers, row-major; a group frames cells rather than filling them.
-function firstFree(
-  widgets: Record<string, Widget>,
-  box: { col: number; row: number; cols: number; rows: number },
-): { col: number; row: number } {
-  const ws = Object.values(widgets).filter((w) => w.type !== "group");
-  for (let r = box.row; r < box.row + box.rows; r++)
-    for (let c = box.col; c < box.col + box.cols; c++)
-      if (!ws.some((w) => covers(w, c, r))) return { col: c, row: r };
-  return { col: box.col, row: box.row }; // full — stack on the corner, the user can move it
-}
-
-type Cell = { col: number; row: number };
-
-/** A resize handle, named by the corner it sits on. */
-export type Corner = "nw" | "ne" | "sw" | "se";
-const CORNERS: Corner[] = ["nw", "ne", "sw", "se"];
 const HANDLE_CLS: Record<Corner, string> = {
   nw: "left-0 top-0 cursor-nw-resize rounded-br",
   ne: "right-0 top-0 cursor-ne-resize rounded-bl",
   sw: "bottom-0 left-0 cursor-sw-resize rounded-tr",
   se: "bottom-0 right-0 cursor-se-resize rounded-tl",
 };
-
-/** The cell a corner's resize keeps still — the widget's OPPOSITE corner cell. */
-export function cornerAnchor(w: Widget, corner: Corner): Cell {
-  return {
-    col: corner.includes("w") ? w.col + span(w.colSpan) - 1 : w.col,
-    row: corner.includes("n") ? w.row + span(w.rowSpan) - 1 : w.row,
-  };
-}
-
-/** The box spanning two cells, whichever way round they are — so a handle dragged past the anchor flips. */
-export function boxBetween(a: Cell, b: Cell) {
-  return {
-    col: Math.min(a.col, b.col),
-    row: Math.min(a.row, b.row),
-    colSpan: Math.abs(a.col - b.col) + 1,
-    rowSpan: Math.abs(a.row - b.row) + 1,
-  };
-}
-
-// A group is drawn UNDER what it frames, so it comes first; the sort is stable for everything else.
-const groupsFirst = (ws: Record<string, Widget>): [string, Widget][] =>
-  Object.entries(ws).sort(
-    ([, a], [, b]) => +(b.type === "group") - +(a.type === "group"),
-  );
-
-// A stable, unused id across the WHOLE panel, every tab's included — ids are the override key and never renumber.
-function nextId(taken: Set<string>): string {
-  for (let i = 1; ; i++) if (!taken.has(`w${i}`)) return `w${i}`;
-}
 
 export function WidgetGridEditor({
   ui,
@@ -800,41 +758,6 @@ export function WidgetGridEditor({
           ]}
         />
       )}
-    </div>
-  );
-}
-
-function Stepper({
-  label,
-  value,
-  min,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  disabled?: boolean;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-      <span>{label}</span>
-      <button
-        className="grid h-6 w-6 place-items-center rounded border border-border hover:bg-accent disabled:opacity-40"
-        disabled={disabled || value <= min}
-        onClick={() => onChange(value - 1)}
-      >
-        <Minus className="h-3 w-3" />
-      </button>
-      <span className="w-4 text-center font-mono text-foreground">{value}</span>
-      <button
-        className="grid h-6 w-6 place-items-center rounded border border-border hover:bg-accent disabled:opacity-40"
-        disabled={disabled}
-        onClick={() => onChange(value + 1)}
-      >
-        <Plus className="h-3 w-3" />
-      </button>
     </div>
   );
 }
