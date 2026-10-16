@@ -8,7 +8,7 @@ import { RecoveredTakes } from "../components/RecoveredTakes";
 import { ServerOnly } from "../components/ServerOnly";
 import { useRehearsalHost, useRehearsalNav } from "../host";
 import { useRehearsalRecording } from "../recording/context";
-import type { HomeTab, Song, SongTab } from "../types";
+import type { HomeTab, SongListEntry, SongTab } from "../types";
 import { ExercisesView } from "../views/ExercisesView";
 import { GuitarTuner } from "../views/GuitarTuner";
 import { HomeView } from "../views/HomeView";
@@ -48,12 +48,11 @@ export function RehearsalRoutes() {
     if (pathname === path(`/sessions/${id}`)) go("/sessions");
   };
 
-  const openSong = (s: Song, tab?: SongTab) =>
+  const openSong = (s: SongListEntry, tab?: SongTab) =>
     go(`/songs/${s.id}${tab ? `?tab=${tab}` : ""}`);
 
-  const toggleSongFavorite = async (s: Song) => {
-    await api.setSongFavorite(s.id, !s.favorite);
-    void d.refreshSongs();
+  const toggleSongFavorite = async (s: SongListEntry) => {
+    d.patchSong(await api.setSongFavorite(s.id, !s.favorite));
   };
 
   const toSessions = <Navigate to={path("/sessions")} replace />;
@@ -187,7 +186,7 @@ export function RehearsalRoutes() {
                 <SongFormView
                   onSave={async (data) => {
                     const s = await api.createSong(data);
-                    await d.refreshSongs();
+                    d.patchSong(s);
                     go(`/songs/${s.id}`);
                     return s;
                   }}
@@ -200,9 +199,9 @@ export function RehearsalRoutes() {
               path="songs/:id"
               element={
                 <SongRoute
-                  onChange={() => void d.refreshSongs()}
-                  onDeleted={() => {
-                    void d.refreshSongs();
+                  onChange={d.patchSong}
+                  onDeleted={(id) => {
+                    d.dropSong(id);
                     go("/songs");
                   }}
                   onBack={() => go("/songs")}

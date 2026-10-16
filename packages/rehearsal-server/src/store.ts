@@ -2,7 +2,6 @@
 // A recording's BYTES live in the médiathèque, the store keeping its path; cached on disk for Range (../docs/audio.md).
 // What reads wrong: a short in-memory cache of rows stands between the routes and the store.
 
-import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -14,14 +13,17 @@ import type {
   Marker,
   Release,
   SongEnvelope,
+  SongListEntry,
 } from "@studio/rehearsal-shared";
 import {
   PAGE_VISIBILITIES,
   type PageVisibility,
 } from "@studio/rehearsal-shared/pageVisibility";
+import { compareSongEntries } from "@studio/rehearsal-shared/songList";
 import { cachedFile, once, sweepRowCaches, trimDiskCache } from "./cache.ts";
 import * as db from "./db.ts";
 import { env } from "./env.ts";
+import { runTool } from "./ffmpeg.ts";
 import { serialized } from "./lock.ts";
 import * as mediatek from "./mediatek.ts";
 import { audioMimeOf } from "./serve.ts";
@@ -130,6 +132,15 @@ export async function getOwner(uid) {
   return rec ? rec.fields.OwnerId : null;
 }
 
+/** A row by its primary key, or null unless each `scope` field matches: the key finds it, the scope guards it — ../docs/ownership.md. */
+function rowIn(coll, id, scope: Record<string, unknown>) {
+  const rec = db.getRecord(coll, String(id));
+  if (!rec) return null;
+  for (const [k, v] of Object.entries(scope))
+    if (rec.fields[k] !== v) return null;
+  return rec;
+}
+
 // --- Sessions ---------------------------------------------------------------
 
 // What a session CARD shows — never the envelope, which runs past 100 KB a session.
@@ -222,27 +233,22 @@ export async function createSession(ownerId) {
 
 export async function deleteSession(uid) {
   const rec = await getSessionRecord(uid);
-  const highlights = await db.listRecords("Highlights", {
-    SessionUid: [uid],
-  });
-  await db.deleteRecords(
-    "Highlights",
-    highlights.map((h) => h.id),
-  );
-  // Markers are session-scoped (unlike moments) — remove them with the session.
-  const markers = await db.listRecords("Markers", { SessionUid: [uid] });
-  await db.deleteRecords(
-    "Markers",
-    markers.map((m) => m.id),
-  );
-  // Moments (Comments) survive on their own clips; they only lose the link back here.
-
   // The bytes go BEFORE the row that holds their path — see ../docs/audio.md.
   if (rec?.fields.RecordingPath)
     await mediatek.remove(rec.fields.RecordingPath).catch(() => {
       // A library that is down must not block a deletion; the orphan stays visible.
     });
-  if (rec) await db.deleteRecords("Sessions", [rec.id]);
+  // Moments (Comments) survive on their own clips; markers and highlights are the session's and go with it.
+  db.inTransaction(() => {
+    for (const coll of ["Highlights", "Markers"])
+      db.deleteRecords(
+        coll,
+        db
+          .listRecords(coll, { SessionUid: [uid] }, { fields: [] })
+          .map((r) => r.id),
+      );
+    if (rec) db.deleteRecords("Sessions", [rec.id]);
+  });
   invalidate(uid);
   safeUnlink(cachePathFor(rec));
   return Boolean(rec);
@@ -419,24 +425,29 @@ export async function getEnvelope(uid) {
 // --- Highlights -------------------------------------------------------------
 
 export async function replaceHighlights(uid, events) {
-  const existing = await db.listRecords("Highlights", { SessionUid: [uid] });
-  await db.deleteRecords(
-    "Highlights",
-    existing.map((h) => h.id),
-  );
-  if (events.length) {
-    await db.addRecords(
+  db.inTransaction(() => {
+    const existing = db.listRecords(
       "Highlights",
-      events.map((e) => ({
-        SessionUid: uid,
-        StartSec: e.startSec,
-        EndSec: e.endSec,
-        DurationSec: e.durationSec,
-        Avg: e.avg,
-        Peak: e.peak,
-      })),
+      { SessionUid: [uid] },
+      { fields: [] },
     );
-  }
+    db.deleteRecords(
+      "Highlights",
+      existing.map((h) => h.id),
+    );
+    if (events.length)
+      db.addRecords(
+        "Highlights",
+        events.map((e) => ({
+          SessionUid: uid,
+          StartSec: e.startSec,
+          EndSec: e.endSec,
+          DurationSec: e.durationSec,
+          Avg: e.avg,
+          Peak: e.peak,
+        })),
+      );
+  });
 }
 
 // --- Comments (annotations) -------------------------------------------------
@@ -467,10 +478,7 @@ export async function addAnnotation(
     },
   ]);
   // Extract now so a saved moment plays on its own; best-effort, a failure leaves it be.
-  const validated = await extractMomentClip(uid, {
-    id,
-    fields: { StartSec: ann.startSec, EndSec: ann.endSec },
-  }).catch((e) => {
+  const validated = await extractMomentClip(uid, String(id)).catch((e) => {
     console.error("moment auto-extract failed:", e.message);
     return false;
   });
@@ -478,9 +486,7 @@ export async function addAnnotation(
 }
 
 export async function updateAnnotation(uid, annId, patch) {
-  const before = (await db.listRecords("Comments", { SessionUid: [uid] })).find(
-    (r) => r.id === annId,
-  );
+  const before = rowIn("Comments", annId, { SessionUid: uid });
   if (!before) return null;
 
   const fields: Record<string, unknown> = {};
@@ -499,21 +505,18 @@ export async function updateAnnotation(uid, annId, patch) {
       fields.EndSec !== Number(before.fields.EndSec));
   if (rangeChanged) {
     safeUnlink(clipCachePath(annId));
-    await extractMomentClip(uid, {
-      id: annId,
-      fields: { ...before.fields, ...fields },
-    }).catch((e) => console.error("moment auto re-extract failed:", e.message));
+    await extractMomentClip(uid, annId).catch((e) =>
+      console.error("moment auto re-extract failed:", e.message),
+    );
   }
 
-  const recs = await db.listRecords("Comments", { SessionUid: [uid] });
-  const rec = recs.find((r) => r.id === annId);
+  const rec = rowIn("Comments", annId, { SessionUid: uid });
   return rec ? mapComment(rec) : null;
 }
 
 export async function deleteAnnotation(uid, annId) {
-  const recs = await db.listRecords("Comments", { SessionUid: [uid] });
   // Only a moment of THIS session: the row id alone would reach anyone's — ../docs/ownership.md.
-  const rec = recs.find((r) => r.id === annId);
+  const rec = rowIn("Comments", annId, { SessionUid: uid });
   if (!rec) return false;
   await forgetClip(rec);
   await db.deleteRecords("Comments", [rec.id]);
@@ -544,8 +547,7 @@ export async function addMarker(uid, { atSec, comment }, ownerId) {
 
 export async function updateMarker(uid, markerId, patch) {
   // Found in THIS session before anything is written, or a row id would edit anyone's marker.
-  const recs = await db.listRecords("Markers", { SessionUid: [uid] });
-  const rec = recs.find((r) => r.id === markerId);
+  const rec = rowIn("Markers", markerId, { SessionUid: uid });
   if (!rec) return null;
   const fields: Record<string, unknown> = {};
   if (patch.atSec !== undefined) fields.AtSec = Number(patch.atSec);
@@ -555,8 +557,7 @@ export async function updateMarker(uid, markerId, patch) {
 }
 
 export async function deleteMarker(uid, markerId) {
-  const recs = await db.listRecords("Markers", { SessionUid: [uid] });
-  const rec = recs.find((r) => r.id === markerId);
+  const rec = rowIn("Markers", markerId, { SessionUid: uid });
   if (!rec) return false;
   await db.deleteRecords("Markers", [rec.id]);
   return true;
@@ -599,8 +600,7 @@ export async function listMoments(ownerId) {
 
 /** A moment by its own id, owner-scoped, with the envelope and markers its player needs. */
 export async function getMoment(ownerId, momentId) {
-  const recs = await db.listRecords("Comments", { OwnerId: [ownerId] });
-  const rec = recs.find((r) => r.id === momentId);
+  const rec = rowIn("Comments", momentId, { OwnerId: ownerId });
   if (!rec) return null;
   const createdAtByUid = await ownerSessionCreatedAt(ownerId);
   const base = publicMoment(rec, createdAtByUid);
@@ -625,8 +625,7 @@ export async function getMoment(ownerId, momentId) {
 }
 
 export async function deleteMoment(ownerId, momentId) {
-  const recs = await db.listRecords("Comments", { OwnerId: [ownerId] });
-  const rec = recs.find((r) => r.id === momentId);
+  const rec = rowIn("Comments", momentId, { OwnerId: ownerId });
   if (!rec) return false;
   await forgetClip(rec);
   await db.deleteRecords("Comments", [rec.id]);
@@ -643,8 +642,7 @@ async function forgetClip(rec) {
 /** Ensure a moment's clip is cached, looked up by owner + moment id alone. */
 export async function ensureMomentClipCached(ownerId, momentId) {
   // The owner is checked BEFORE the cache: a cached file must not answer for someone else's moment.
-  const recs = await db.listRecords("Comments", { OwnerId: [ownerId] });
-  const rec = recs.find((r) => r.id === momentId);
+  const rec = rowIn("Comments", momentId, { OwnerId: ownerId });
   if (!rec?.fields.ClipPath) return null;
   const filePath = clipCachePath(rec.id);
   if (cachedFile(filePath)) return { filePath, mime: "audio/webm" };
@@ -686,12 +684,10 @@ export async function addMomentMarker(ownerId, momentId, { atSec, comment }) {
 }
 
 export async function updateMomentMarker(ownerId, momentId, markerId, patch) {
-  const recs = await db.listRecords("Markers", {
-    MomentId: [String(momentId)],
+  const rec = rowIn("Markers", markerId, {
+    MomentId: String(momentId),
+    OwnerId: ownerId,
   });
-  const rec = recs.find(
-    (r) => r.id === markerId && r.fields.OwnerId === ownerId,
-  );
   if (!rec) return null;
   const fields: Record<string, unknown> = {};
   if (patch.atSec !== undefined) fields.AtSec = Number(patch.atSec);
@@ -701,12 +697,10 @@ export async function updateMomentMarker(ownerId, momentId, markerId, patch) {
 }
 
 export async function deleteMomentMarker(ownerId, momentId, markerId) {
-  const recs = await db.listRecords("Markers", {
-    MomentId: [String(momentId)],
+  const rec = rowIn("Markers", markerId, {
+    MomentId: String(momentId),
+    OwnerId: ownerId,
   });
-  const rec = recs.find(
-    (r) => r.id === markerId && r.fields.OwnerId === ownerId,
-  );
   if (!rec) return false;
   await db.deleteRecords("Markers", [rec.id]);
   return true;
@@ -714,26 +708,49 @@ export async function deleteMomentMarker(ownerId, momentId, markerId) {
 
 // --- Moment validation (extract a standalone clip) --------------------------
 
+// One cut per moment at a time, each reading the row afresh: two quick drags end on the clip of the LAST span — ../docs/audio.md.
+function extractMomentClip(sessionUid, momentId): Promise<boolean> {
+  return serialized(`clip:${momentId}`, async () => {
+    const rec = rowIn("Comments", momentId, { SessionUid: sessionUid });
+    if (!rec) return false;
+    return extractMomentClipUnlocked(sessionUid, rec);
+  });
+}
+
 // A moment's timespan cut out of the session recording into its own clip — ../docs/audio.md.
-async function extractMomentClip(sessionUid, rec) {
+async function extractMomentClipUnlocked(sessionUid, rec) {
   const info = await ensureRecordingCached(sessionUid);
   if (!info) return false;
 
   const start = Number(rec.fields.StartSec);
   const end = Number(rec.fields.EndSec);
   const clip = await extractClip(info.filePath, start, end);
+  try {
+    await publishMomentClip(sessionUid, rec, clip, start, end);
+  } catch (e) {
+    safeUnlink(clip);
+    throw e;
+  }
+  return true;
+}
 
+// The cut file pushed from disk, then RENAMED into the cache: never whole in memory, never half-written where it is served.
+async function publishMomentClip(sessionUid, rec, clip: string, start, end) {
   // The moment's own envelope, so its view still draws a waveform once the session is gone.
   const sessionEnv = await getEnvelope(sessionUid);
   const sliced = sessionEnv ? sliceEnvelope(sessionEnv, start, end) : null;
 
   // Re-extracting replaces: the span or the name may have moved, so the old name is a lie.
   const previous = rec.fields.ClipPath;
-  const clipPath = await mediatek.pushMoment(clip, "webm", {
-    at: momentPlayedAt(await getSessionRecord(sessionUid), start),
-    durationSec: end - start,
-    label: rec.fields.Text,
-  });
+  const clipPath = await mediatek.pushMoment(
+    await fs.openAsBlob(clip),
+    "webm",
+    {
+      at: momentPlayedAt(await getSessionRecord(sessionUid), start),
+      durationSec: end - start,
+      label: rec.fields.Text,
+    },
+  );
   if (previous && previous !== clipPath) await mediatek.remove(previous);
 
   await db.patchRecord("Comments", rec.id, {
@@ -741,8 +758,9 @@ async function extractMomentClip(sessionUid, rec) {
     ClipPath: clipPath,
     Envelope: sliced ? JSON.stringify(sliced) : "",
   });
-  fs.writeFileSync(clipCachePath(rec.id), clip);
-  return true;
+  // A download of the previous clip still in flight would land over this one once it finished.
+  await fetching.get(clipCachePath(rec.id))?.catch(() => {});
+  fs.renameSync(clip, clipCachePath(rec.id));
 }
 
 /** When a moment was PLAYED: session start plus offset, not the annotation's CreatedAt. */
@@ -767,12 +785,9 @@ function sliceEnvelope(env, startSec, endSec) {
 
 // Manual re-extract, for a moment whose automatic one could not run.
 export async function validateMoment(sessionUid, momentId) {
-  const moments = await db.listRecords("Comments", {
-    SessionUid: [sessionUid],
-  });
-  const rec = moments.find((m) => m.id === momentId);
+  const rec = rowIn("Comments", momentId, { SessionUid: sessionUid });
   if (!rec) return null;
-  const ok = await extractMomentClip(sessionUid, rec);
+  const ok = await extractMomentClip(sessionUid, rec.id);
   if (!ok) throw new Error("session has no recording to clip");
   return mapComment({ id: rec.id, fields: { ...rec.fields, Validated: true } });
 }
@@ -780,10 +795,7 @@ export async function validateMoment(sessionUid, momentId) {
 /** Ensure a validated moment's clip is on disk; returns { filePath, mime }. */
 export async function ensureClipCached(sessionUid, momentId) {
   // The moment must be THIS session's before the cache answers: a cached file has no owner of its own.
-  const moments = await db.listRecords("Comments", {
-    SessionUid: [sessionUid],
-  });
-  const rec = moments.find((m) => m.id === momentId);
+  const rec = rowIn("Comments", momentId, { SessionUid: sessionUid });
   if (!rec?.fields.ClipPath) return null;
   const filePath = clipCachePath(rec.id);
   if (cachedFile(filePath)) return { filePath, mime: "audio/webm" };
@@ -795,8 +807,7 @@ export async function ensureClipCached(sessionUid, momentId) {
 
 /** The machine an owner's moment was shared from, "" for one of this server's own — ../docs/momentShare.md. */
 export async function momentSharedFrom(ownerId, momentId): Promise<string> {
-  const recs = await db.listRecords("Comments", { OwnerId: [ownerId] });
-  const rec = recs.find((r) => r.id === momentId);
+  const rec = rowIn("Comments", momentId, { OwnerId: ownerId });
   return rec ? String(rec.fields.SharedFrom || "") : "";
 }
 
@@ -812,104 +823,82 @@ function clipCachePath(momentId) {
   return path.join(CACHE_DIR, `clip-${momentId}.webm`);
 }
 
+// A re-encode of hours of audio is minutes of CPU at most: past these, the child is stuck and is killed.
+const CONCAT_TIMEOUT_MS = 30 * 60_000;
+const CLIP_TIMEOUT_MS = 10 * 60_000;
+
 // Several audio files into one webm/opus FILE, through ffmpeg's concat filter; the caller owns the path it resolves.
-function concatRecordings(paths): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    const outPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.webm`);
-    const args = ["-y", "-hide_banner", "-loglevel", "error"];
-    for (const p of paths) args.push("-i", p);
-    // The concat filter needs identical parameters, so each input is coerced to one format.
-    const fmt =
-      "aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo";
-    const pre = paths.map((_, i) => `[${i}:a]${fmt}[a${i}]`).join(";");
-    const labels = paths.map((_, i) => `[a${i}]`).join("");
-    args.push(
-      "-filter_complex",
-      `${pre};${labels}concat=n=${paths.length}:v=0:a=1[a]`,
-      "-map",
-      "[a]",
-      "-c:a",
-      "libopus",
-      "-b:a",
-      "128k",
-      "-f",
-      "webm",
-      outPath,
-    );
-    const ff = spawn("ffmpeg", args);
-    let err = "";
-    ff.stderr.on("data", (d) => (err += d.toString()));
-    ff.on("error", (e) =>
-      reject(
-        new Error(
-          (e as NodeJS.ErrnoException).code === "ENOENT"
-            ? "ffmpeg is not installed (run: brew install ffmpeg)"
-            : e.message,
-        ),
-      ),
-    );
-    ff.on("close", (code) => {
-      if (code !== 0) {
-        safeUnlink(outPath);
-        return reject(new Error("ffmpeg concat failed: " + err.slice(-300)));
-      }
-      resolve(outPath);
+async function concatRecordings(paths): Promise<string> {
+  const outPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.webm`);
+  const args = ["-y", "-hide_banner", "-loglevel", "error"];
+  for (const p of paths) args.push("-i", p);
+  // The concat filter needs identical parameters, so each input is coerced to one format.
+  const fmt =
+    "aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo";
+  const pre = paths.map((_, i) => `[${i}:a]${fmt}[a${i}]`).join(";");
+  const labels = paths.map((_, i) => `[a${i}]`).join("");
+  args.push(
+    "-filter_complex",
+    `${pre};${labels}concat=n=${paths.length}:v=0:a=1[a]`,
+    "-map",
+    "[a]",
+    "-c:a",
+    "libopus",
+    "-b:a",
+    "128k",
+    "-f",
+    "webm",
+    outPath,
+  );
+  try {
+    await runTool("ffmpeg", args, {
+      timeoutMs: CONCAT_TIMEOUT_MS,
+      what: "ffmpeg concat",
     });
-  });
+  } catch (e) {
+    safeUnlink(outPath);
+    throw e;
+  }
+  return outPath;
 }
 
-// Cut [start, end] out of a source file into a webm/opus buffer using ffmpeg.
-function extractClip(srcPath, start, end) {
-  return new Promise<Buffer>((resolve, reject) => {
-    const duration = Math.max(0.05, end - start);
-    const outPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.webm`);
-    const args = [
-      "-y",
-      "-hide_banner",
-      "-loglevel",
-      "error",
-      "-ss",
-      String(start),
-      "-i",
-      srcPath,
-      "-t",
-      String(duration),
-      "-vn",
-      // EBU R128 normalization, so a standalone clip sits at -14 LUFS, true peak -1 dBTP.
-      "-af",
-      "loudnorm=I=-14:TP=-1.0:LRA=11",
-      "-c:a",
-      "libopus",
-      "-b:a",
-      "128k",
-      "-f",
-      "webm",
-      outPath,
-    ];
-    const ff = spawn("ffmpeg", args);
-    let err = "";
-    ff.stderr.on("data", (d) => (err += d.toString()));
-    ff.on("error", (e) =>
-      reject(
-        new Error(
-          (e as NodeJS.ErrnoException).code === "ENOENT"
-            ? "ffmpeg is not installed (run: brew install ffmpeg)"
-            : e.message,
-        ),
-      ),
-    );
-    ff.on("close", (code) => {
-      if (code !== 0)
-        return reject(new Error("ffmpeg failed: " + err.slice(-300)));
-      try {
-        const buf = fs.readFileSync(outPath);
-        fs.unlinkSync(outPath);
-        resolve(buf);
-      } catch (e) {
-        reject(e);
-      }
+// Cut [start, end] out of a source file into a temporary webm/opus FILE; the caller owns the path it resolves.
+async function extractClip(srcPath, start, end): Promise<string> {
+  const duration = Math.max(0.05, end - start);
+  const outPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.webm`);
+  const args = [
+    "-y",
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-ss",
+    String(start),
+    "-i",
+    srcPath,
+    "-t",
+    String(duration),
+    "-vn",
+    // EBU R128 normalization, so a standalone clip sits at -14 LUFS, true peak -1 dBTP.
+    "-af",
+    "loudnorm=I=-14:TP=-1.0:LRA=11",
+    "-c:a",
+    "libopus",
+    "-b:a",
+    "128k",
+    "-f",
+    "webm",
+    outPath,
+  ];
+  try {
+    await runTool("ffmpeg", args, {
+      timeoutMs: CLIP_TIMEOUT_MS,
+      what: "ffmpeg clip",
     });
-  });
+  } catch (e) {
+    safeUnlink(outPath);
+    throw e;
+  }
+  return outPath;
 }
 
 // --- Releases (standalone songs, unrelated to sessions/moments) -------------
@@ -1059,17 +1048,18 @@ export async function deleteRelease(uid) {
   if (!rec) return false;
   const versions = await getVersionRecords(uid);
   for (const v of versions) await forgetVersionFolder(v);
-  await db.deleteRecords(
-    "Versions",
-    versions.map((v) => v.id),
-  );
-  versions.forEach((v) => {
-    safeUnlink(versionCachePath(v.fields.Uid));
-    tracksOf(v).forEach((t) =>
-      safeUnlink(versionTrackCachePath(v.fields.Uid, t)),
+  db.inTransaction(() => {
+    db.deleteRecords(
+      "Versions",
+      versions.map((v) => v.id),
     );
+    db.deleteRecords("Releases", [rec.id]);
   });
-  await db.deleteRecords("Releases", [rec.id]);
+  for (const v of versions) {
+    safeUnlink(versionCachePath(v.fields.Uid));
+    for (const t of tracksOf(v))
+      safeUnlink(versionTrackCachePath(v.fields.Uid, t));
+  }
   invalidateRelease(uid);
   invalidateVersions(uid);
   return true;
@@ -1238,12 +1228,14 @@ export async function setDefaultVersion(releaseUid, versionUid) {
   const versions = await getVersionRecords(releaseUid);
   const target = versions.find((v) => v.fields.Uid === versionUid);
   if (!target) return null;
-  for (const v of versions) {
-    const shouldBe = v.fields.Uid === versionUid;
-    if (Boolean(v.fields.IsDefault) !== shouldBe) {
-      await db.patchRecord("Versions", v.id, { IsDefault: shouldBe });
+  // One default at a time: the flags all move in one transaction.
+  db.inTransaction(() => {
+    for (const v of versions) {
+      const shouldBe = v.fields.Uid === versionUid;
+      if (Boolean(v.fields.IsDefault) !== shouldBe)
+        db.patchRecord("Versions", v.id, { IsDefault: shouldBe });
     }
-  }
+  });
   invalidateVersions(releaseUid);
   return true;
 }
@@ -1723,21 +1715,51 @@ export async function songVisibleTo(uid, viewer) {
   return rec !== null && visibleTo(rec, viewer);
 }
 
-/** Every song `viewer` may see — the public book and their own private songs — favourites first. */
+// What a songbook ROW shows: never the texts nor the envelope, which a whole songbook multiplies.
+const SONG_LIST_FIELDS = [
+  "Uid",
+  "OwnerId",
+  "Artist",
+  "Title",
+  "SheetMeta",
+  "Private",
+  "Origin",
+  "CreatedAt",
+];
+
+/** Every song `viewer` may see as a songbook row — the public book and their own private songs — favourites first; a song's texts come from getSong. */
 export async function listSongs(viewer = "") {
-  const [recs, favorites] = await Promise.all([
-    db.listRecords("Songs"),
-    favoritesOf(viewer),
-  ]);
+  const recs = db.listRecords("Songs", undefined, {
+    fields: SONG_LIST_FIELDS,
+    filled: ["Lyrics", "Tablature"],
+  });
+  const favorites = await favoritesOf(viewer);
   return recs
     .filter((rec) => visibleTo(rec, viewer))
-    .map((rec) => publicSong(rec, viewer, favorites))
-    .sort(
-      (a, b) =>
-        Number(b.favorite) - Number(a.favorite) ||
-        a.artist.localeCompare(b.artist) ||
-        a.title.localeCompare(b.title),
-    );
+    .map((rec) => songListEntry(rec, viewer, favorites))
+    .sort(compareSongEntries);
+}
+
+/** A song as one songbook row: whether it has lyrics, a tablature, sheets, and never their content; the route adds canDelete. */
+function songListEntry(
+  rec,
+  viewer,
+  favorites: Set<string>,
+): Omit<SongListEntry, "canDelete"> {
+  const f = rec.fields;
+  return {
+    id: f.Uid,
+    mine: Boolean(viewer) && f.OwnerId === viewer,
+    artist: f.Artist || "",
+    title: f.Title || "",
+    hasLyrics: Boolean(f.Lyrics),
+    hasTablature: Boolean(f.Tablature),
+    sheetCount: sheetsOf(rec).length,
+    private: Boolean(f.Private),
+    origin: f.Origin || "",
+    favorite: favorites.has(f.Uid),
+    createdAt: f.CreatedAt || "",
+  };
 }
 
 export async function getSong(uid, viewer = "") {
@@ -1874,9 +1896,11 @@ async function deleteSheetFileUnlocked(uid, fileId) {
     rec,
     existing.filter((s) => s.id !== fileId),
   );
-  await db.deleteAttachment(gone.attachmentId).catch(() => {
+  try {
+    db.deleteAttachment(gone.attachmentId);
+  } catch {
     // The metadata row is what the songbook reads; a stray blob left behind is not fatal.
-  });
+  }
   invalidateSong(uid);
   return getSong(uid);
 }

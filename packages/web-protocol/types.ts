@@ -909,7 +909,7 @@ export interface SeparateJob {
   done: boolean;
   failed: boolean;
   error: string | null;
-  phase: string; // "decoding" | "loading model" | "separating" | "writing" | "done" | "failed"
+  phase: string; // "queued" | "decoding" | "loading model" | "separating" | "writing" | "done" | "failed"
   percent: number | null; // null while doing something with no measurable end
   lines: string[]; // notes worth reading — which execution provider won, and why a run failed
   files: string[]; // the stems written, absolute. Empty until `done`.

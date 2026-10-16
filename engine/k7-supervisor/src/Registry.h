@@ -9,6 +9,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -40,7 +41,18 @@ struct Result {
 };
 
 /** Announce to every registry in parallel, with the id's token and tunnel secret. Never throws: a payload that will not serialise is an outcome too. */
-Result heartbeat(const std::vector<std::string>& urls, const EngineIdentity& id, const nlohmann::json& presence);
+/** What proves this machine to a studio that lists paired machines only (packages/engine-registry/docs/heartbeat.md). */
+struct Credentials {
+    /** By registry URL, as the settings keep them. */
+    std::map<std::string, std::string> deviceTokens;
+    /** `$STUDIO_DEVICE_TOKEN`: sent only when the registries themselves come from the environment. */
+    std::string envToken;
+    /** `$STUDIO_RENDER_KEY`: the server's own engine, which no account paired. */
+    std::string renderKey;
+};
+
+Result heartbeat(const std::vector<std::string>& urls, const EngineIdentity& id, const nlohmann::json& presence,
+                 const Credentials& cred = {});
 
 /** Leave every registry, in parallel; bounded, since it runs while somebody waits to quit. */
 Result deregister(const std::vector<std::string>& urls, const EngineIdentity& id);

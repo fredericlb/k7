@@ -9,7 +9,7 @@ reads.
 It is NDJSON on stdio — one JSON object per line, supervisor→app on stdout, app→supervisor on
 stdin — and the rule that heads this page follows from that: *stdout IS the protocol, one stray
 line corrupts the frame stream*. Nothing but `protocol::emit` writes to stdout; diagnostics go to
-stderr, which the app files in the merged log. Run from a config file, the supervisor has no app:
+stderr, which the app files in its own log. Run from a config file, the supervisor has no app:
 it writes no frame and reads no command ([supervisor.md](supervisor.md)).
 
 ## Two rules, both load-bearing

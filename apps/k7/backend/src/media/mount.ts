@@ -96,6 +96,8 @@ export function mountMedia(
     exitOnSignal: false,
     // On the volume, so an engine's id stays bound to its tunnel secret across a redeploy — packages/engine-registry/docs/token.md.
     stateDir: process.env.STUDIO_ENGINES_DIR || join(mediatekDir(), ".engines"),
+    // Read when a heartbeat comes, by which time the hub below exists: a machine proves itself with its device token.
+    deviceOf: (token) => fileHub?.deviceAccount(token) ?? null,
     // An admin may reset an engine's owner — packages/engine-registry/docs/ownership.md.
     isAdmin: isAdminRequest,
   });

@@ -5,6 +5,7 @@
 #include "PluginParams.h"
 #include "Warnings.h"
 
+#include <algorithm>
 #include <cmath>
 #include <regex>
 
@@ -52,9 +53,17 @@ void MixBlendPlugin::setLink(std::shared_ptr<MixLink> link, te::Plugin::Ptr modu
 
 void MixBlendPlugin::initialise(const te::PluginInitialisationInfo& info)
 {
-    // Re-run whenever the graph is rebuilt, which is also what a change of the module's latency causes.
+    sampleRate_.store(info.sampleRate, std::memory_order_relaxed);
+    refreshLatency();
+}
+
+void MixBlendPlugin::initialiseWithoutStopping(const te::PluginInitialisationInfo& info) { initialise(info); }
+
+void MixBlendPlugin::refreshLatency()
+{
+    const double rate = sampleRate_.load(std::memory_order_relaxed);
     const double seconds = module_ != nullptr ? module_->getLatencySeconds() : 0.0;
-    const auto frames = (long long)std::llround(seconds * info.sampleRate);
+    const auto frames = (long long)std::llround(seconds * rate);
     latency_.store((int)juce::jlimit(0LL, (long long)(MixLink::CAPACITY / 2), frames), std::memory_order_relaxed);
 }
 
@@ -103,9 +112,18 @@ MixBlendPlugin* mixBlendOf(te::Plugin& module)
 {
     auto* list = module.getOwnerList();
     if (list == nullptr) return nullptr;
-    const int i = list->indexOf(&module);
-    if (i < 0 || i + 1 >= list->size()) return nullptr;
-    return dynamic_cast<MixBlendPlugin*>((*list)[i + 1]);
+    // By the module it names: a tap or anything else put between them must not make a second pair.
+    for (int i = 0; i < list->size(); ++i)
+        if (auto* b = dynamic_cast<MixBlendPlugin*>((*list)[i]); b != nullptr && b->module() == &module) return b;
+    return nullptr;
+}
+
+/** The split sharing `blend`'s link, wherever it sits. */
+static MixSplitPlugin* mixSplitOf(te::PluginList& list, const MixBlendPlugin& blend)
+{
+    for (int i = 0; i < list.size(); ++i)
+        if (auto* s = dynamic_cast<MixSplitPlugin*>(list[i]); s != nullptr && s->link() == blend.link()) return s;
+    return nullptr;
 }
 
 /** The module's stage, put around it the first time: a blend after, and a split before unless it is an instrument. */
@@ -240,20 +258,29 @@ int indexAfterModule(te::PluginList& list, te::Plugin* module)
 {
     const int i = list.indexOf(module);
     if (i < 0) return list.size();
-    return (i + 1 < list.size() && dynamic_cast<MixBlendPlugin*>(list[i + 1]) != nullptr) ? i + 2 : i + 1;
+    const auto* blend = module != nullptr ? mixBlendOf(*module) : nullptr;
+    return std::max(i, blend != nullptr ? list.indexOf(blend) : i) + 1;
+}
+
+int indexBeforeModule(te::PluginList& list, te::Plugin* module)
+{
+    const int i = list.indexOf(module);
+    if (i < 0) return list.size();
+    const auto* blend = module != nullptr ? mixBlendOf(*module) : nullptr;
+    const auto* split = blend != nullptr ? mixSplitOf(list, *blend) : nullptr;
+    return split != nullptr ? std::min(i, list.indexOf(split)) : i;
 }
 
 void removeMixPair(te::Plugin& module)
 {
     auto* list = module.getOwnerList();
     if (list == nullptr) return;
-    const int i = list->indexOf(&module);
-    if (i < 0) return;
-    // The blend first: removing it leaves the split's index where it was.
-    if (i + 1 < list->size())
-        if (auto* b = dynamic_cast<MixBlendPlugin*>((*list)[i + 1])) b->deleteFromParent();
-    if (i > 0)
-        if (auto* s = dynamic_cast<MixSplitPlugin*>((*list)[i - 1])) s->deleteFromParent();
+    auto* blend = mixBlendOf(module);
+    if (blend == nullptr) return;
+    // Both found before either goes: the split is known by the blend's link.
+    auto* split = mixSplitOf(*list, *blend);
+    blend->deleteFromParent();
+    if (split != nullptr) split->deleteFromParent();
 }
 
 }  // namespace studio

@@ -22,6 +22,7 @@ Three files, and each is the twin of one beside it:
 | `Recorder.cpp` | `Recording.cpp` | an `EngineHost` member file, for that file's reason |
 
 `RecorderNode.h` holds one node's state — its ring, the take being written, the takes finished.
+`RecorderWriter.h` is the thread that writes every node's take (below).
 
 ## An overrun is COUNTED, not forgiven
 
@@ -36,8 +37,11 @@ The take is then reported `damaged`. **A file that is silently short is a file y
 the failure is invisible by construction: nothing about the wav says frames are missing, and the
 only thing that ever knew is the ring that dropped them.
 
-The ring is four times the broadcast's — 65 536 frames, ~1.4 s at 48 kHz — because a disk write
-can stall far longer than a socket send.
+The ring is 2^20 frames — ~21.8 s at 48 kHz, ~10.9 s at 96 kHz, 8 MiB per recording node. What
+drains it is a thread of its own (below), so the ring is sized for that thread falling behind: a
+disk that stalls — a USB stick, a network folder, a phone's flash under load — or a machine so busy
+the writer is not scheduled. Ten seconds at the highest rate a device opens here is the margin; the
+cost is memory, a few megabytes per node, against a take lost to a slow disk.
 
 ### It keeps the MARGIN, and that is not the same decision
 
@@ -88,24 +92,38 @@ ring in the same message-thread job is a write into freed memory. So the node is
 blocks. The parked nodes are declared beside the live ones, before the Edit, so a session that dies
 frees them after the graph.
 
-## The state tick IS the writer thread
+## A take is written by a thread of its own
 
-There is no writer thread. `pumpRecorders` runs on the ~20 Hz state tick, drains each recording
-ring and writes it out — a few thousand frames per pass, on the message thread, which already
-does file work elsewhere.
+`RecorderWriter` is one thread per engine. While a take records, its node is REGISTERED with the
+writer, which drains every registered ring about fifty times a second, each until it is empty, and
+writes it to the take's wav. The message thread only starts and stops takes and reads what the
+state frame reports.
 
-The trade is stated rather than hidden: **a slow disk delays the state frame** instead of
-delaying a dedicated thread. The 1.4 s ring absorbs a hiccup, and a genuine stall becomes
-`lostFrames` — reported, which is what the design is for. A thread of its own would need the
-session map under a lock, and the lock would be the new hazard.
+It cannot share the message thread, because that thread stalls for whole seconds — a first
+`applyFull` instantiating plugins, a Faust compile — and a take drained there laps its ring during
+any stall longer than the ring, and adds a disk write to every state tick besides.
 
-### The idle short-circuit had to learn about it
+**The writer holds the nodes, never the session map.** A node is shared between its session and the
+writer, so nothing the writer touches can be freed under it, and no lock covers the sessions.
+Ownership is one rule: a node is the writer's while registered and its owner's once `remove()` has
+returned — `remove()` waits for a pump in progress and guarantees none starts after. So a stop
+removes the node, then drains what is left in the ring itself and closes the file, on the message
+thread, with nobody else touching it. A start opens the file first and registers the node after.
 
-`StateTimer` skips the whole pump when a session looks idle — not playing, not record-enabled,
+What both threads read is atomic — the frame count, `damaged`, a refused write — or the take's
+picture, under a mutex the writer takes only to append points, never across a disk write: a state
+tick never waits on the disk.
+
+A session that is dropped takes its nodes back from the writer first, so a take still recording
+there is closed with the session rather than outliving it; the writer is joined before the sessions
+are destroyed. `tests/RecorderWriter_test.cpp` checks the ownership rule and the shutdown.
+
+### The idle short-circuit knows about it
+
+`StateTimer` sends one frame in five when a session looks idle — not playing, not record-enabled,
 no armed track, every meter silent. **That is exactly what a rig capturing looks like**: free
--running means the transport is stopped and nothing is armed. Without `anyRecording()` in that
-test the ring is never drained, laps within a second and a half, and the take is lost while
-every light says it is recording.
+-running means the transport is stopped and nothing is armed. `anyRecording()` is in that test so
+a take's clock and picture keep their 20 Hz; the writing does not depend on the tick.
 
 ## What the wire carries
 
@@ -174,7 +192,7 @@ open writer never outlives the file it points at.
 
 A WAV header holds the length, and JUCE writes it only on `flush()` and when the writer closes. A
 take whose header was never rewritten reads as EMPTY after a crash, a kill by the supervisor or the
-fast exit at quit — however long it ran. So `pump` flushes about once a second: the header is
+fast exit at quit — however long it ran. So the writer flushes about once a second: the header is
 rewritten and the stream goes back to where it was, and a crash loses at most that last second.
 
 A write the disk refuses — full, or the folder gone — is refused for every later write too. The

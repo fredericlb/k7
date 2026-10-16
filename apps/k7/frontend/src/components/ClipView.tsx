@@ -10,7 +10,13 @@ import type { WebGraph } from "@studio/graph-model";
 import { seqWindowFromText, windowSpan } from "@studio/song-schema/seqWindow";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { findNotesArray, parseNotes } from "@studio/ui-editor/tracker/notes";
-import { type RefObject, useEffect, useMemo, useState } from "react";
+import {
+  type ComponentProps,
+  type RefObject,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { api } from "../api";
 import type { MenuCtx } from "../contextMenu";
 import type { ClipGridHandle, OnGridSelection } from "../gridCaret";
@@ -61,6 +67,8 @@ function SeqRoll({
   onMoveNote,
   onMoveNotes,
   onContextMenu,
+  onRemoveNote,
+  roll,
 }: {
   path: string;
   content: string;
@@ -98,6 +106,23 @@ function SeqRoll({
     moves: [number, number, number, number][],
   ) => void | Promise<void>;
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
+  /** Remove one note (`sequence note remove`) — the roll's `remove` mode and its context menu. */
+  onRemoveNote?: (
+    seqId: string,
+    key: number,
+    startBeat: number,
+  ) => void | Promise<void>;
+  /** The caret and the mode, wired as the clip's roll wires them — what `x`, `ui roll <mode>` and the mode strip reach. */
+  roll?: Pick<
+    ComponentProps<typeof PianoRoll>,
+    | "caretRef"
+    | "active"
+    | "setStatus"
+    | "onSelection"
+    | "onCommand"
+    | "modeRef"
+    | "onModeChange"
+  >;
 }) {
   const [project, setProject] = useState<WebProject | null>(null);
 
@@ -171,6 +196,10 @@ function SeqRoll({
           onMoveNotes ? (moves) => onMoveNotes(name, moves) : undefined
         }
         onContextMenu={onContextMenu}
+        onRemoveNote={
+          onRemoveNote ? (k, t) => onRemoveNote(name, k, t) : undefined
+        }
+        {...roll}
       />
     </div>
   );
@@ -395,6 +424,17 @@ export function ClipView({
           onMoveNote={onMoveNote}
           onMoveNotes={onMoveNotes}
           onContextMenu={onContextMenu}
+          onRemoveNote={onRemoveNote}
+          // No placement, so no seek and no event loop: the rest is the clip roll's wiring below.
+          roll={{
+            caretRef,
+            active: true,
+            setStatus,
+            onSelection,
+            onCommand: command,
+            modeRef: rollRef,
+            onModeChange: onRollMode,
+          }}
         />
       ) : clip?.type === "midi" ? (
         graph === undefined ? (

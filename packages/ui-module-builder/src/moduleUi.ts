@@ -17,7 +17,7 @@ import {
   UISchema,
   type Widget,
 } from "@studio/song-schema/yaml/moduleSchema";
-import { isMap, parseDocument } from "yaml";
+import { isMap, isNode, parseDocument } from "yaml";
 
 export type {
   ModuleUI,
@@ -40,7 +40,14 @@ export const EMPTY_UI: ModuleUI = { cols: 4, rows: 2, widgets: {} };
 export const KNOB_SPAN = 2;
 
 /** The document, or null when the text doesn't parse at all (mid-keystroke). */
-function docOf(fileText: string): ReturnType<typeof parseDocument> | null {
+export type ModuleDoc = ReturnType<typeof parseDocument>;
+
+/** The document, or null when the text doesn't parse at all (mid-keystroke); exported so a caller reading several fields parses once. */
+export function parseModuleDoc(fileText: string): ModuleDoc | null {
+  return docOf(fileText);
+}
+
+function docOf(fileText: string): ModuleDoc | null {
   try {
     const doc = parseDocument(fileText, OPTS);
     return doc.errors.length ? null : doc;
@@ -272,10 +279,16 @@ export function readPlugin(
 
 /** A module's `io:` direction, from THREE sources because a module rarely says it — see docs/builder.md. */
 export function ioOf(fileText: string, path?: string): string | null {
-  const io = docOf(fileText)?.get("io");
+  return ioOfDoc(docOf(fileText), path);
+}
+
+/** `ioOf` over a document already parsed (null when it does not parse), so one parse serves every read. */
+export function ioOfDoc(doc: ModuleDoc | null, path?: string): string | null {
+  const io = doc?.get("io");
   if (typeof io === "string" && io) return io;
 
-  const base = extendsRefOf(fileText);
+  const ref = doc?.get("extends");
+  const base = typeof ref === "string" && ref ? ref : null;
   const engine = base?.startsWith(`${META_NS}/`)
     ? IO_MODULES[base.slice(META_NS.length + 1)]
     : undefined;
@@ -291,10 +304,17 @@ export function ioOf(fileText: string, path?: string): string | null {
 
 /** The channels an `io: in` module declares, AS AUTHORED — two spellings; see docs/builder.md. */
 export function channelOf(fileText: string): number[] | string | null {
-  const ch = docOf(fileText)?.toJS?.()?.channel;
-  if (typeof ch === "string") return ch || null;
-  if (Array.isArray(ch)) {
-    const ns = ch.map(Number).filter((n) => Number.isInteger(n) && n > 0);
+  return channelOfDoc(docOf(fileText));
+}
+
+/** `channelOf` over a document already parsed. */
+export function channelOfDoc(doc: ModuleDoc | null): number[] | string | null {
+  const node = doc?.get("channel", true);
+  // Only the `channel` node goes through `toJS`, not the whole document — that is a parse's worth of work per keystroke.
+  const v = doc && isNode(node) ? node.toJS(doc) : node;
+  if (typeof v === "string") return v || null;
+  if (Array.isArray(v)) {
+    const ns = v.map(Number).filter((n) => Number.isInteger(n) && n > 0);
     return ns.length ? ns : null;
   }
   return null;

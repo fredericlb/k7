@@ -81,6 +81,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useAndroidBusy } from "./androidBusy";
 import { aiOrganize, api, engines, moduleStore, PL8_API } from "./api";
 import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";
 import type { MaybeClipboard } from "./clipboard";
@@ -145,6 +146,7 @@ import {
 } from "./components/SettingsPanel";
 import type { OpenShare } from "./components/SharedGate";
 import { SharePanel } from "./components/SharePanel";
+import { StatusText } from "./components/StatusText";
 import { SurfaceTab } from "./components/SurfaceTab";
 import type { PanelTakes } from "./components/TakesView";
 import { TapChainEditor } from "./components/TapChainEditor";
@@ -201,8 +203,8 @@ import { useLocale } from "./i18n";
 import {
   blurOnClick,
   type ConditionCtx,
+  commandKeyMap,
   effectiveKeys,
-  keyForCommand,
 } from "./keys";
 import {
   refreshLcdSounds,
@@ -232,16 +234,20 @@ import { noteSpans } from "./noteSpans";
 import { resolveEditorFile } from "./openInEditor";
 import { PairRequestsPrompt } from "./pairing/PairRequestsPrompt";
 import { buildPaletteCommands, commandNameOf, makeListArg } from "./palette";
+import { PaneVisible } from "./paneVisible";
 import { m } from "./paraglide/messages.js";
 import { type PendingEdit, pendingOf } from "./pendingEdits";
 import { type PendingNode, spawnBox } from "./pendingNode";
+import { type EditFocus, keepIfEqual, sameEditFocus } from "./shellEquality";
 import { soundingNow } from "./sounding";
+import { createStatusLine } from "./statusLine";
 import { onOpenConflictsPanel } from "./syncConflicts";
 import { eventIdOf, takesEventOf } from "./takes";
 // The shell's BROWSER composition point: k7's builtin plugins register their pane drawers
 // here, before the shell renders any surface — see packages/k7-sdk/docs/sdk.md.
 import "./plugins";
 import { PanelCloseFrame } from "./components/PanelClose";
+import { exposeBusy } from "./desktopBusy";
 import { type FloatState, loadFloat, saveFloat } from "./floatingRect";
 import { latestAnswer } from "./latestAnswer";
 import { guardSwipeBack } from "./noSwipeBack";
@@ -337,23 +343,6 @@ interface CaretFields {
   tc: string | null;
   eventTc: string | null;
   selection: { tracks: string; from: string; to: string } | null;
-}
-
-/** Two edit targets naming the same notes: the same sequence text, or the same clip, unchanged, on the same lane. */
-function sameEditTarget(a: EditTarget, b: EditTarget): boolean {
-  if (a.kind === "seq" && b.kind === "seq")
-    return a.path === b.path && a.content === b.content;
-  if (a.kind === "clip" && b.kind === "clip")
-    return (
-      a.track === b.track &&
-      // The roll draws on the project's grid, so a tempo or metre change is a new target.
-      a.project.tempo === b.project.tempo &&
-      a.project.timeSigNumerator === b.project.timeSigNumerator &&
-      a.project.timeSigDenominator === b.project.timeSigDenominator &&
-      a.clip.id === b.clip.id &&
-      JSON.stringify(a.clip) === JSON.stringify(b.clip)
-    );
-  return false;
 }
 
 /** Two carets that say the same thing, field by field. */
@@ -497,7 +486,7 @@ export default function App({
   // Null until the divider is dragged: the panel opens on half the main column.
   const [panelH, setPanelH] = useState<number | null>(null);
   const panelEl = useRef<HTMLDivElement>(null);
-  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [editTarget, setEditTarget] = useState<EditFocus | null>(null);
 
   // What the editor has open (a clip/track), for the minimap's highlight ring.
   const [openItem, setOpenItem] = useState<MinimapItem | null>(null);
@@ -515,9 +504,9 @@ export default function App({
     setCaret((cur) => (cur && next && sameCaret(cur, next) ? cur : next));
   }, []);
   // The editor re-sends its target on every keystroke; one that says the same thing keeps the shell still.
-  const setEditTargetIfOther = useCallback((next: EditTarget | null) => {
+  const setEditTargetIfOther = useCallback((next: EditFocus | null) => {
     setEditTarget((cur) =>
-      cur && next && sameEditTarget(cur, next) ? cur : next,
+      cur && next && sameEditFocus(cur, next) ? cur : next,
     );
   }, []);
   // …and the editor re-sends what it has open on every keystroke.
@@ -566,6 +555,8 @@ export default function App({
   } | null>(null);
   // The engine's live state as an EXTERNAL store, so a component re-renders only when its own slice changes.
   const store = useRef(new EngineStore()).current;
+  // The desktop app's quit asks this before it stops the engine (apps/k7-standalone/docs/standalone.md).
+  useEffect(() => exposeBusy(store), [store]);
   const playing = useStoreState(store, (s) => s.playing);
   // NOTE: App does NOT subscribe to `playhead` — at ~20 Hz that would re-render the whole tree every frame.
   const armed = useStoreState(store, (s) => s.armed, arrayEq);
@@ -589,22 +580,16 @@ export default function App({
     window.addEventListener("unhandledrejection", onRejection);
     return () => window.removeEventListener("unhandledrejection", onRejection);
   }, [pushLog]);
-  const [statusLine, setStatusLine] = useState<{
-    text: string;
-    refused: boolean;
-  }>({ text: "", refused: false });
-  const status = statusLine.text;
+  // An external store, not state: a drag re-states the line per snapped cell, and only its leaf should re-render.
+  const [statusStore] = useState(createStatusLine);
   /** Say something on the status line — and, by saying it this way, say it is NOT a refusal; only `runCommand` refuses. */
   const setStatus = useCallback<SetStatus>(
     (text, level) => {
-      // The same line again re-renders nothing: a drag re-states it on every pointermove.
-      setStatusLine((cur) =>
-        cur.text === text && !cur.refused ? cur : { text, refused: false },
-      );
+      statusStore.say(text, false);
       // The status line is overwritten by the next message, so an error is kept in the log as well.
       if (level === "error") pushLog("error", text);
     },
-    [pushLog],
+    [pushLog, statusStore],
   );
   // An error toast is dismissed and gone, so it is kept in the log as well.
   useEffect(
@@ -616,11 +601,8 @@ export default function App({
   );
   /** …and the other half: a command was understood and declined. `runCommand` is its one caller. */
   const setRefusal = useCallback(
-    (text: string) =>
-      setStatusLine((cur) =>
-        cur.text === text && cur.refused ? cur : { text, refused: true },
-      ),
-    [],
+    (text: string) => statusStore.say(text, true),
+    [statusStore],
   );
   /** 'Something changed — re-read what you draw', plus WHAT changed: `files`, which reloadScope.ts reads (null = re-ask). */
   const [reload, setReload] = useState<Reload>(UNKNOWN_RELOAD);
@@ -680,6 +662,11 @@ export default function App({
     loop: false,
     expanded: true,
   });
+  // The timeline re-sends its view as a fresh object on every caret move; an unchanged one keeps the shell still.
+  const setTlViewIfOther = useCallback(
+    (next: typeof tlView) => setTlView(keepIfEqual(next)),
+    [],
+  );
   /** Which panel has the RIGHT COLUMN, or null — one state because there is one column (docs/shell.md). */
   const [rightPanel, setRightPanel] = useState<
     | "settings"
@@ -837,6 +824,8 @@ export default function App({
   clipboardRef.current = clipboard;
   // The chains pane owns the MIDI runtime; the shell only reaches in to arm a learn — see docs/midi.md.
   const chainsMidiRef = useRef<MidiControlApi | null>(null);
+  // Mirrors whether a learn is pending, for Esc's first rung; the learn itself is the chains pane's.
+  const [midiLearning, setMidiLearning] = useState(false);
   const editorRef = useRef<EditorHandle>(null);
 
   // Undo/redo: a process step (restoring a bounced file) is gated behind this confirm dialog.
@@ -938,6 +927,9 @@ export default function App({
       wasPlaying = s.playing;
     });
   }, [store]);
+
+  // The Android app holds its foreground service and the screen while this engine is busy (androidBusy.ts).
+  useAndroidBusy(store);
 
   /** A session making SOUND is active — a playing song, and a live rig played with the transport stopped — @studio/project-shell/docs/idle.md. */
   useEffect(() => {
@@ -1774,46 +1766,53 @@ export default function App({
   }, [docCount]);
 
   /** Arm MIDI learn on one param: the capture is the browser's, the binding is a `module cc` — see docs/midi.md. */
-  const armMidiLearn = useCallback((rest: string) => {
-    const m = /^(\S+)\s+(?:"([^"]*)"|(.+))$/.exec(rest.trim());
-    if (!m) {
-      setStatus(
-        'usage: ui midi learn <module> <param>  (e.g. ui midi learn synth "Filter Freq")',
-      );
-      return;
-    }
-    const module = m[1];
-    const param = (m[2] ?? m[3] ?? "").trim();
-    const midi = chainsMidiRef.current;
-    if (!midi?.ready) {
-      setStatus(
-        "no MIDI here — this browser has no Web MIDI, or access was refused",
-      );
-      return;
-    }
-    setStatus(
-      `MIDI learn: ${module} ${param} — move a control on your controller`,
-    );
-    midi.learn(module, param, (learned) => {
-      if (!learned) {
-        setStatus(`MIDI learn cancelled — ${module} ${param} unchanged`);
+  const armMidiLearn = useCallback(
+    (rest: string) => {
+      const m = /^(\S+)\s+(?:"([^"]*)"|(.+))$/.exec(rest.trim());
+      if (!m) {
+        setStatus(
+          'usage: ui midi learn <module> <param>  (e.g. ui midi learn synth "Filter Freq")',
+        );
         return;
       }
-      const arg = /\s/.test(param) ? JSON.stringify(param) : param;
-      void runCommandRef
-        .current(`module cc ${module} ${arg} ${learned.ch} ${learned.cc}`)
-        .then(() => {
-          // Bidirectional when possible: possible means the device that just spoke also has an output port to answer on.
-          const both = midi.hasFeedback(module, param);
-          setStatus(
-            `${module} ${param} ← ${learned.device} ch${learned.ch} cc${learned.cc} — ` +
-              (both
-                ? "bidirectional (the control will follow the value)"
-                : "write only (this device has no MIDI output to answer on)"),
-          );
-        });
-    });
-  }, []);
+      const module = m[1];
+      const param = (m[2] ?? m[3] ?? "").trim();
+      const midi = chainsMidiRef.current;
+      if (!midi?.ready) {
+        setStatus(
+          "no MIDI here — this browser has no Web MIDI, or access was refused",
+        );
+        return;
+      }
+      setStatus(
+        `MIDI learn: ${module} ${param} — move a control, or press Esc or run any command to cancel`,
+      );
+      setMidiLearning(true);
+      midi.learn(module, param, (learned) => {
+        setMidiLearning(false);
+        if (!learned) {
+          const said = `MIDI learn cancelled — ${module} ${param} unchanged`;
+          setStatus(said);
+          pushLog("info", said);
+          return;
+        }
+        const arg = /\s/.test(param) ? JSON.stringify(param) : param;
+        void runCommandRef
+          .current(`module cc ${module} ${arg} ${learned.ch} ${learned.cc}`)
+          .then(() => {
+            // Bidirectional when possible: possible means the device that just spoke also has an output port to answer on.
+            const both = midi.hasFeedback(module, param);
+            setStatus(
+              `${module} ${param} ← ${learned.device} ch${learned.ch} cc${learned.cc} — ` +
+                (both
+                  ? "bidirectional (the control will follow the value)"
+                  : "write only (this device has no MIDI output to answer on)"),
+            );
+          });
+      });
+    },
+    [pushLog],
+  );
 
   // The shell's view commands; returns false when the line isn't one, so the caller falls through to the backend.
   const runLocalCommand = useCallback(
@@ -2183,14 +2182,12 @@ export default function App({
         transport(line.slice("transport ".length) as TransportAction);
         return true;
       }
-      // `rec <track>`: an instrument track arms in the browser, an audio track in the engine. See docs/shell.md.
-      if (line.startsWith("rec ")) {
-        const id = s.slice(4).trim();
-        if (midiSeqRef.current[id] || midiLanesRef.current.has(id)) {
-          setMidiArmed((cur) => (cur === id ? null : id));
-          return true;
-        }
-        return false;
+      // `rec <track>`: exactly the lane's A button — an instrument track arms in the browser, an audio track in the engine.
+      if (line === "rec" || line.startsWith("rec ")) {
+        const id = s.slice(3).trim();
+        if (!id) setStatus("usage: rec <track>");
+        else onTrackToggle(id, "arm");
+        return true;
       }
       // Bare `event move` opens the timeline's move mode; the backend command takes three args, so it still falls through.
       if (line === "event move") {
@@ -2232,6 +2229,8 @@ export default function App({
         openEvent({ kind: "recording" });
         return true;
       }
+      // Esc's rung: `runCommand` has already cancelled the pending learn, so there is nothing left to do here.
+      if (line === "midi learn cancel") return true;
       // `ui midi learn <module> <param>` — arm the browser's Web MIDI; the BINDING is written by `module cc`.
       if (line.startsWith("midi learn ")) {
         armMidiLearn(s.slice("midi learn ".length).trim());
@@ -2589,13 +2588,13 @@ export default function App({
       homePane,
       openInEditor,
       armMidiLearn,
+      onTrackToggle,
       ringPanes,
       ws,
       openHelp,
       closeHelp,
       imp,
       engineRef,
-      midiSeqRef,
       store,
       seek,
       transport,
@@ -2638,6 +2637,8 @@ export default function App({
   const runCommand = useCallback(
     async (line: string, outcome?: { ok: boolean }): Promise<void> => {
       if (!line.trim()) return;
+      // A pending MIDI learn waits for a control OR the next command, whichever comes first — see docs/midi.md.
+      if (chainsMidiRef.current?.learning) chainsMidiRef.current.cancelLearn();
       const typed = line.trim();
       const s = line.trim();
       // What was typed, and — when the catalogue rewrote it — what actually ran, so the transcript shows a line you could retype.
@@ -2835,7 +2836,7 @@ export default function App({
     y: number;
   } | null>(null);
   // What the entry under the pointer DOES, borrowing the status line while the menu is open — see ContextMenu.tsx's `onHint`.
-  const [menuHint, setMenuHint] = useState("");
+  const setMenuHint = statusStore.hint;
   const prewriteCommand = useCallback(
     (text: string) => {
       // Docked, the bar is already mounted: write into it; the deferral below exists only for the popin.
@@ -3157,6 +3158,7 @@ export default function App({
     cond.focus_pane = focusPane;
     // The two layers Esc backs out of before it touches the layout; `popin` counts every registered overlay — see popins.ts.
     if (anyPopin) cond.popin = "1";
+    if (midiLearning) cond.midi_learning = "1";
     if (shownSlot) cond.graph_slot = "1";
     // Away from the home page, Escape goes back to it; on it, the key falls through to the bottom panel.
     if (full !== homePane) cond.fullscreen = "1";
@@ -3206,6 +3208,7 @@ export default function App({
     return cond;
   }, [
     anyPopin,
+    midiLearning,
     caret,
     clipSel,
     editTarget,
@@ -3358,12 +3361,16 @@ export default function App({
   );
 
   // Whatever key reaches each panel, for the tooltips below — undefined when nothing is bound, and the tooltip then says only what the button does.
-  const playlistKey = keyForCommand("ui playlists", commandPrefs);
-  const referencesKey = keyForCommand("ui references", commandPrefs);
-  const tasksKey = keyForCommand("ui tasks", commandPrefs);
-  const historyKey = keyForCommand("ui history", commandPrefs);
-  const shareKey = keyForCommand("ui share", commandPrefs);
-  const settingsKey = keyForCommand("ui settings", commandPrefs);
+  const commandKeys = useMemo(
+    () => commandKeyMap(commandPrefs),
+    [commandPrefs],
+  );
+  const playlistKey = commandKeys.get("ui playlists");
+  const referencesKey = commandKeys.get("ui references");
+  const tasksKey = commandKeys.get("ui tasks");
+  const historyKey = commandKeys.get("ui history");
+  const shareKey = commandKeys.get("ui share");
+  const settingsKey = commandKeys.get("ui settings");
 
   /** The bar's height IS its tallest control (docs/shell.md), so the desktop one is 24 px; a phone keeps a thumb-sized button. */
   const toolSize = isMobile ? "icon" : "icon-xs";
@@ -3525,7 +3532,7 @@ export default function App({
           <nav className="flex items-center gap-1">
             {layout.fullscreen.map((p) => {
               const Icon = PANE_META[p].icon;
-              const key = keyForCommand(`ui ${p}`, commandPrefs);
+              const key = commandKeys.get(`ui ${p}`);
               return (
                 <Button
                   key={p}
@@ -3772,185 +3779,192 @@ export default function App({
                       <X className="h-4 w-4" />
                     </button>
                   )}
-                  <PaneBoundary
-                    name="editor"
-                    resetKey={reloadKey}
-                    onError={paneError}
+                  {/* Per-frame work under a pane stops while CSS hides it, the pane staying mounted (paneVisible.ts). */}
+                  <PaneVisible.Provider
+                    value={editorPopin || full === "editor"}
                   >
-                    <EditorTab
-                      ref={editorRef}
-                      active={activePane === "editor"}
-                      // Only when it owns the screen, and not in the popin: that is one file, opened by a command that already named it.
-                      showTree={full === "editor"}
-                      popin={editorPopin}
-                      // The whole token, not the counter: this pane holds the two routes that answer about files and about names.
-                      reload={reload}
-                      activeProject={ws?.activeProject ?? null}
-                      projectName={project?.name ?? null}
-                      // A supervisor older than the field reports none: it runs level 1.
-                      engineLevel={
-                        engine ? (engine.engine.libraryLevel ?? 1) : undefined
-                      }
-                      vimMode={vimMode}
-                      onOpenProject={openProject}
-                      onImportProject={imp.askImport}
-                      onChanged={bumpReload}
-                      // The clip file's Process menu runs `clip process` through here — journalled, one Ctrl+Z, and its reload brings the file back.
-                      command={runCommand}
-                      setStatus={setStatus}
-                      onEditTarget={setEditTargetIfOther}
-                      onOpenItem={setOpenItemIfOther}
-                      onOpenBuilder={openModuleBuilder}
-                      // The same builder for a library module — on the PANEL like a project module.
-                      onOpenLibraryModule={(path) =>
-                        void openModuleBuilder(path, "panel")
-                      }
-                      // The module builder takes the editor's place BESIDE the file tree, as the chains builder does (docs/moduleBuilder.md).
-                      moduleBuilder={
-                        builder ? (
-                          <Suspense fallback={null}>
+                    <PaneBoundary
+                      name="editor"
+                      resetKey={reloadKey}
+                      onError={paneError}
+                    >
+                      <EditorTab
+                        ref={editorRef}
+                        active={activePane === "editor"}
+                        // Only when it owns the screen, and not in the popin: that is one file, opened by a command that already named it.
+                        showTree={full === "editor"}
+                        popin={editorPopin}
+                        // The whole token, not the counter: this pane holds the two routes that answer about files and about names.
+                        reload={reload}
+                        activeProject={ws?.activeProject ?? null}
+                        projectName={project?.name ?? null}
+                        // A supervisor older than the field reports none: it runs level 1.
+                        engineLevel={
+                          engine ? (engine.engine.libraryLevel ?? 1) : undefined
+                        }
+                        vimMode={vimMode}
+                        onOpenProject={openProject}
+                        onImportProject={imp.askImport}
+                        onChanged={bumpReload}
+                        // The clip file's Process menu runs `clip process` through here — journalled, one Ctrl+Z, and its reload brings the file back.
+                        command={runCommand}
+                        setStatus={setStatus}
+                        onEditTarget={setEditTargetIfOther}
+                        onOpenItem={setOpenItemIfOther}
+                        onOpenBuilder={openModuleBuilder}
+                        // The same builder for a library module — on the PANEL like a project module.
+                        onOpenLibraryModule={(path) =>
+                          void openModuleBuilder(path, "panel")
+                        }
+                        // The module builder takes the editor's place BESIDE the file tree, as the chains builder does (docs/moduleBuilder.md).
+                        moduleBuilder={
+                          builder ? (
+                            <Suspense fallback={null}>
+                              <PaneBoundary
+                                name="module builder"
+                                resetKey={reloadKey}
+                                onError={paneError}
+                              >
+                                <ModuleBuilder
+                                  // One mount per module: a module opened from the tree beside it starts clean, not on the last one's state.
+                                  key={builder.path}
+                                  // ONE store: the account's libraries answer at `_libraries/<name>/…` in every workspace, so a shared module is an ordinary workspace path.
+                                  store={moduleStore}
+                                  path={builder.path}
+                                  kind="module"
+                                  moduleName={
+                                    builder.path.split("/").slice(-2)[0] ??
+                                    builder.path
+                                  }
+                                  paramRef={null}
+                                  vimMode={vimMode}
+                                  initialPane={builder.pane}
+                                  // A library module opens EDITABLE, like the project's own: its Save is the publish — docs/sharedModules.md.
+                                  onBack={closeModuleBuilder}
+                                  onDirtyChange={noteBuilderDirty}
+                                  onSaved={() => {
+                                    bumpReload();
+                                    // A library module saved here is live at once, so the Libraries tab is re-read.
+                                    editorRef.current?.refreshLibraries();
+                                  }}
+                                  setStatus={setStatus}
+                                  // What the plugin calls its parameters and what each spans, off `pluginParamMeta` — never the 20 Hz store, which render would read empty.
+                                  pluginParamNames={
+                                    builderPlugin
+                                      ? Object.keys(
+                                          pluginParamMeta[
+                                            builderPlugin.pluginId
+                                          ] ?? {},
+                                        )
+                                      : undefined
+                                  }
+                                  pluginParamMeta={
+                                    builderPlugin
+                                      ? pluginParamMeta[builderPlugin.pluginId]
+                                      : undefined
+                                  }
+                                  // Ask the MACHINE what this module's plugin has, by loading one on purpose — the way out for a module the project does not wire (api.ts).
+                                  onScanParams={api.scanPluginParams}
+                                  // …and the same ref, opened rather than read: only for a plugin this machine SCANNED, on an instance in no project.
+                                  onShowNativeUI={api.showPluginNativeUI}
+                                  // The sockets an `io: in` module can listen on — empty with no engine attached, which is the honest answer.
+                                  inputDevices={inputDevices}
+                                  // …and the one act that changes that list, offered only with an engine attached, which is what does it.
+                                  onRegroupInputs={
+                                    connected ? regroupInputs : undefined
+                                  }
+                                  presets={
+                                    (builderPlugin &&
+                                      presets[builderPlugin.module]) ||
+                                    EMPTY_PRESETS
+                                  }
+                                  onListPresets={() =>
+                                    builderPlugin &&
+                                    listPresets(builderPlugin.module)
+                                  }
+                                  // The engine resolves both ends to the same live plugin, so which name is sent does not matter — take the builder's.
+                                  onSetPreset={(module, sel) =>
+                                    setPreset(module, sel)
+                                  }
+                                  // A save into `_modules` forked: follow the copy, or the next save would fork again.
+                                  onRelocated={(next) => {
+                                    setBuilder({ path: next, pane: "module" });
+                                    editorRef.current?.open(next);
+                                  }}
+                                  // The module drawn as the card it will be in a chain — a slot, since the graph needs OUR glyphs and OUR command line.
+                                  // Claude draws the panel on THIS app's backend, which holds the key — absent when it holds none.
+                                  onAiOrganize={
+                                    aiEnabled ? aiOrganize.run : undefined
+                                  }
+                                  renderPreview={({
+                                    ui,
+                                    params,
+                                    bases,
+                                    script,
+                                    stage,
+                                  }) => (
+                                    <ModulePreview
+                                      icons={STUDIO_ICONS}
+                                      command={runCommand}
+                                      name={
+                                        builder.path.split("/").slice(-2)[0] ??
+                                        builder.path
+                                      }
+                                      path={builder.path}
+                                      ui={script ? { ...ui, script } : ui}
+                                      params={params}
+                                      bases={bases}
+                                      stage={stage}
+                                      paramsStore={
+                                        builderPlugin
+                                          ? pluginParamsStore
+                                          : undefined
+                                      }
+                                      onSetParam={
+                                        builderPlugin
+                                          ? setPluginParam
+                                          : undefined
+                                      }
+                                    />
+                                  )}
+                                />
+                              </PaneBoundary>
+                            </Suspense>
+                          ) : null
+                        }
+                        // A chain row opens the builder ON that chain, both coming out of the one library repository.
+                        chainsBuilder={
+                          openBuilder !== null ? (
                             <PaneBoundary
-                              name="module builder"
+                              name="chains builder"
                               resetKey={reloadKey}
                               onError={paneError}
                             >
-                              <ModuleBuilder
-                                // One mount per module: a module opened from the tree beside it starts clean, not on the last one's state.
-                                key={builder.path}
-                                // ONE store: the account's libraries answer at `_libraries/<name>/…` in every workspace, so a shared module is an ordinary workspace path.
-                                store={moduleStore}
-                                path={builder.path}
-                                kind="module"
-                                moduleName={
-                                  builder.path.split("/").slice(-2)[0] ??
-                                  builder.path
-                                }
-                                paramRef={null}
+                              <ChainsBuilder
+                                open={openBuilder}
+                                focusNode={builderNode}
                                 vimMode={vimMode}
-                                initialPane={builder.pane}
-                                // A library module opens EDITABLE, like the project's own: its Save is the publish — docs/sharedModules.md.
-                                onBack={closeModuleBuilder}
-                                onDirtyChange={noteBuilderDirty}
-                                onSaved={() => {
-                                  bumpReload();
-                                  // A library module saved here is live at once, so the Libraries tab is re-read.
-                                  editorRef.current?.refreshLibraries();
-                                }}
-                                setStatus={setStatus}
-                                // What the plugin calls its parameters and what each spans, off `pluginParamMeta` — never the 20 Hz store, which render would read empty.
-                                pluginParamNames={
-                                  builderPlugin
-                                    ? Object.keys(
-                                        pluginParamMeta[
-                                          builderPlugin.pluginId
-                                        ] ?? {},
-                                      )
-                                    : undefined
-                                }
-                                pluginParamMeta={
-                                  builderPlugin
-                                    ? pluginParamMeta[builderPlugin.pluginId]
-                                    : undefined
-                                }
-                                // Ask the MACHINE what this module's plugin has, by loading one on purpose — the way out for a module the project does not wire (api.ts).
-                                onScanParams={api.scanPluginParams}
-                                // …and the same ref, opened rather than read: only for a plugin this machine SCANNED, on an instance in no project.
-                                onShowNativeUI={api.showPluginNativeUI}
-                                // The sockets an `io: in` module can listen on — empty with no engine attached, which is the honest answer.
-                                inputDevices={inputDevices}
-                                // …and the one act that changes that list, offered only with an engine attached, which is what does it.
-                                onRegroupInputs={
-                                  connected ? regroupInputs : undefined
-                                }
-                                presets={
-                                  (builderPlugin &&
-                                    presets[builderPlugin.module]) ||
-                                  EMPTY_PRESETS
-                                }
-                                onListPresets={() =>
-                                  builderPlugin &&
-                                  listPresets(builderPlugin.module)
-                                }
-                                // The engine resolves both ends to the same live plugin, so which name is sent does not matter — take the builder's.
-                                onSetPreset={(module, sel) =>
-                                  setPreset(module, sel)
-                                }
-                                // A save into `_modules` forked: follow the copy, or the next save would fork again.
-                                onRelocated={(next) => {
-                                  setBuilder({ path: next, pane: "module" });
-                                  editorRef.current?.open(next);
-                                }}
-                                // The module drawn as the card it will be in a chain — a slot, since the graph needs OUR glyphs and OUR command line.
-                                // Claude draws the panel on THIS app's backend, which holds the key — absent when it holds none.
-                                onAiOrganize={
-                                  aiEnabled ? aiOrganize.run : undefined
-                                }
-                                renderPreview={({
-                                  ui,
-                                  params,
-                                  bases,
-                                  script,
-                                  stage,
-                                }) => (
-                                  <ModulePreview
-                                    icons={STUDIO_ICONS}
-                                    command={runCommand}
-                                    name={
-                                      builder.path.split("/").slice(-2)[0] ??
-                                      builder.path
-                                    }
-                                    path={builder.path}
-                                    ui={script ? { ...ui, script } : ui}
-                                    params={params}
-                                    bases={bases}
-                                    stage={stage}
-                                    paramsStore={
-                                      builderPlugin
-                                        ? pluginParamsStore
-                                        : undefined
-                                    }
-                                    onSetParam={
-                                      builderPlugin ? setPluginParam : undefined
-                                    }
-                                  />
-                                )}
+                                onLog={pushLog}
+                                onClose={() => setOpenBuilder(null)}
                               />
                             </PaneBoundary>
-                          </Suspense>
-                        ) : null
-                      }
-                      // A chain row opens the builder ON that chain, both coming out of the one library repository.
-                      chainsBuilder={
-                        openBuilder !== null ? (
-                          <PaneBoundary
-                            name="chains builder"
-                            resetKey={reloadKey}
-                            onError={paneError}
-                          >
-                            <ChainsBuilder
-                              open={openBuilder}
-                              focusNode={builderNode}
-                              vimMode={vimMode}
-                              onLog={pushLog}
-                              onClose={() => setOpenBuilder(null)}
-                            />
-                          </PaneBoundary>
-                        ) : null
-                      }
-                      onOpenAssembly={(file, folder) =>
-                        setAssemblyBuilder({ file, folder })
-                      }
-                      onOpenChain={(ref, node) => {
-                        setOpenBuilder(ref);
-                        setBuilderNode(node ?? null);
-                      }}
-                      diagnostics={diagnostics}
-                      videoSources={videoSources}
-                      // The channel strip an `io: in` file gets under its text — what actually opens when somebody clicks an IN node.
-                      inputDevices={inputDevices}
-                      onRegroupInputs={connected ? regroupInputs : undefined}
-                    />
-                  </PaneBoundary>
+                          ) : null
+                        }
+                        onOpenAssembly={(file, folder) =>
+                          setAssemblyBuilder({ file, folder })
+                        }
+                        onOpenChain={(ref, node) => {
+                          setOpenBuilder(ref);
+                          setBuilderNode(node ?? null);
+                        }}
+                        diagnostics={diagnostics}
+                        videoSources={videoSources}
+                        // The channel strip an `io: in` file gets under its text — what actually opens when somebody clicks an IN node.
+                        inputDevices={inputDevices}
+                        onRegroupInputs={connected ? regroupInputs : undefined}
+                      />
+                    </PaneBoundary>
+                  </PaneVisible.Provider>
                 </div>
 
                 <div
@@ -3970,158 +3984,175 @@ export default function App({
                           full === "timeline" ? "flex-1" : "hidden",
                         )}
                       >
-                        <PaneBoundary
-                          name="timeline"
-                          resetKey={reloadKey}
-                          onError={paneError}
-                        >
-                          <TimelineTab
-                            mark={historyMark}
-                            ref={timelineRef}
-                            // What one-shot commands are doing, on the lanes before the round trip (pendingEdits.ts).
-                            pendingEdits={pendingEdits}
-                            active={activePane === "timeline"}
-                            lanesLocked={panel !== null}
-                            reloadKey={reloadKey}
-                            // …so an armed lane draws the take as it is played, instead of showing nothing while you record.
-                            rolling={rolling}
-                            takeStartBeat={takeStart}
-                            // The pre-roll, in beats: the growing clip skips it — none for a take the engine's record did not start.
-                            takeCountInBeats={
-                              recordEnabled
-                                ? recInfo.countIn * recInfo.beatsPerBar
-                                : 0
-                            }
-                            // …and the MIDI take, drawn on its lane the same way, whichever record started it.
-                            // The open project's tasks, flagged in the ruler where they carry a timecode (docs/tasks.md).
-                            tasks={projectTasks}
-                            midiTake={
-                              liveTake
-                                ? { lane: liveTake.lane, from: liveTake.from }
-                                : null
-                            }
-                            videoTracks={videoTracks}
-                            // A song with no picture lane has no frame to land on, whatever its document defaults.
-                            fps={videoTracks.length ? videoDoc?.fps : undefined}
-                            // The picture drag guards on this handler's own presence, so a snapshot simply has none.
-                            onVideoEdit={frozen ? undefined : applyVideoEdit}
-                            // …and so does the file drop, for the same reason: a frozen song has nowhere to put the bytes.
-                            onDropFiles={frozen ? undefined : onDropOnTimeline}
-                            dropUpload={timelineUpload}
-                            readOnly={frozen}
-                            setStatus={setStatus}
-                            onEditTarget={setEditTargetIfOther}
-                            // A double-clicked clip shows its content in the event panel, under the timeline still on screen.
-                            onOpenClip={(t) =>
-                              openEvent({ kind: "clip", target: t })
-                            }
-                            // …and the bare lane lets it go: a click on nothing clears what was open, the panel staying up.
-                            onEmptyClick={() => setGraphSlot(null)}
-                            onCaret={setCaretIfMoved}
-                            onView={setTlView}
-                            onContextMenu={openContextMenu}
-                            onSeek={seek}
-                            onSetLoop={(start, end, enabled) =>
-                              engineRef.current?.loop(start, end, enabled)
-                            }
-                            onMoveEvent={(trackId, fromTc, toTc, toTrackId) =>
-                              void runCommand(
-                                `event move ${trackId} ${fromTc} ${toTc}${toTrackId ? ` ${toTrackId}` : ""}`,
-                              )
-                            }
-                            // A tool's press, already spelled by the module that is tested for it — journalled like anything else.
-                            onToolLine={(l) => void runCommand(l)}
-                            onResizeEvent={(trackId, fromTc, startTc, endTc) =>
-                              void runCommand(
-                                `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
-                              )
-                            }
-                            // `lenTc` is a LENGTH, and the verb's name is the end it applies to — see `event fadein` in commands.yaml.
-                            onFadeEvent={(trackId, fromTc, which, lenTc) =>
-                              void runCommand(
-                                `event ${which === "fadeIn" ? "fadein" : "fadeout"} ${trackId} ${fromTc} ${lenTc}`,
-                              )
-                            }
-                            // While the bar is filling a command whose open field wants a timecode, the ruler ANSWERS it instead of committing.
-                            feedTimecode={
-                              barPending?.kind === "timecode"
-                                ? (tc, live) =>
-                                    cmdRef.current?.offerValue(
-                                      "timecode",
-                                      tc,
-                                      live,
-                                    )
-                                : undefined
-                            }
-                            feedMove={
-                              barPending?.canonical === "event move"
-                                ? (trackId, fromTc, toTc, toTrackId, live) =>
-                                    cmdRef.current?.offer(
-                                      {
-                                        track: trackId,
-                                        timecode: fromTc,
-                                        newTimecode: toTc,
-                                        ...(toTrackId
-                                          ? { toTrack: toTrackId }
-                                          : {}),
-                                      },
-                                      live,
-                                    )
-                                : undefined
-                            }
-                            // …and the selection rectangle answers `events move` the same way, leaving only the delta to type.
-                            feedEventsMove={
-                              barPending?.canonical === "events move"
-                                ? (tracks, from, to) =>
-                                    cmdRef.current?.offer({ tracks, from, to })
-                                : undefined
-                            }
-                            onFocusRow={focusRowInPanes}
-                            // The corner button over the name column: `track new` with no name, off on a frozen song like every structural edit.
-                            onNewTrack={
-                              frozen
-                                ? undefined
-                                : () => void runCommand("track new")
-                            }
-                            // …and its PICTURE half, which makes that button a menu — only a song with a frame has two kinds of lane.
-                            onNewVideoTrack={
-                              frozen || !hasViewport
-                                ? undefined
-                                : () => void runCommand("picture lane new")
-                            }
-                            // The picture lane armed for its camera, and whether one is rolling (hooks/useVideoRecording.ts).
-                            videoArmed={videoArmed}
-                            videoRecording={videoRecording}
-                            onVideoArm={
-                              frozen
-                                ? undefined
-                                : (id) =>
-                                    void runCommand(`ui picture arm ${id}`)
-                            }
-                            onVideoToggle={
-                              frozen
-                                ? undefined
-                                : (id, control) =>
-                                    void runCommand(`picture ${control} ${id}`)
-                            }
-                            // A header dragged to another slot: two lists, one gesture (packages/song/docs/trackKind.md).
-                            onReorder={
-                              frozen
-                                ? undefined
-                                : (family, lane, target) =>
-                                    void runCommand(
-                                      family === "video"
-                                        ? `picture lane order ${lane} ${target}`
-                                        : `track order ${lane} ${target}`,
-                                    )
-                            }
-                            trackControls={trackControls}
-                            onTrackToggle={onTrackToggle}
-                            laneNodes={laneNodes}
-                            // The lane's ⋮ menu, from the gutter badge — the SAME one the chains pane opens on a lane's node.
-                            onNodeMenu={openNodeMenu}
-                          />
-                        </PaneBoundary>
+                        <PaneVisible.Provider value={full === "timeline"}>
+                          <PaneBoundary
+                            name="timeline"
+                            resetKey={reloadKey}
+                            onError={paneError}
+                          >
+                            <TimelineTab
+                              mark={historyMark}
+                              ref={timelineRef}
+                              // What one-shot commands are doing, on the lanes before the round trip (pendingEdits.ts).
+                              pendingEdits={pendingEdits}
+                              active={activePane === "timeline"}
+                              lanesLocked={panel !== null}
+                              reloadKey={reloadKey}
+                              // …so an armed lane draws the take as it is played, instead of showing nothing while you record.
+                              rolling={rolling}
+                              takeStartBeat={takeStart}
+                              // The pre-roll, in beats: the growing clip skips it — none for a take the engine's record did not start.
+                              takeCountInBeats={
+                                recordEnabled
+                                  ? recInfo.countIn * recInfo.beatsPerBar
+                                  : 0
+                              }
+                              // …and the MIDI take, drawn on its lane the same way, whichever record started it.
+                              // The open project's tasks, flagged in the ruler where they carry a timecode (docs/tasks.md).
+                              tasks={projectTasks}
+                              midiTake={
+                                liveTake
+                                  ? { lane: liveTake.lane, from: liveTake.from }
+                                  : null
+                              }
+                              videoTracks={videoTracks}
+                              // A song with no picture lane has no frame to land on, whatever its document defaults.
+                              fps={
+                                videoTracks.length ? videoDoc?.fps : undefined
+                              }
+                              // The picture drag guards on this handler's own presence, so a snapshot simply has none.
+                              onVideoEdit={frozen ? undefined : applyVideoEdit}
+                              // …and so does the file drop, for the same reason: a frozen song has nowhere to put the bytes.
+                              onDropFiles={
+                                frozen ? undefined : onDropOnTimeline
+                              }
+                              dropUpload={timelineUpload}
+                              readOnly={frozen}
+                              setStatus={setStatus}
+                              onEditTarget={setEditTargetIfOther}
+                              // A double-clicked clip shows its content in the event panel, under the timeline still on screen.
+                              onOpenClip={(t) =>
+                                openEvent({ kind: "clip", target: t })
+                              }
+                              // …and the bare lane lets it go: a click on nothing clears what was open, the panel staying up.
+                              onEmptyClick={() => setGraphSlot(null)}
+                              onCaret={setCaretIfMoved}
+                              onView={setTlViewIfOther}
+                              onContextMenu={openContextMenu}
+                              onSeek={seek}
+                              onSetLoop={(start, end, enabled) =>
+                                engineRef.current?.loop(start, end, enabled)
+                              }
+                              onMoveEvent={(trackId, fromTc, toTc, toTrackId) =>
+                                void runCommand(
+                                  `event move ${trackId} ${fromTc} ${toTc}${toTrackId ? ` ${toTrackId}` : ""}`,
+                                )
+                              }
+                              // A tool's press, already spelled by the module that is tested for it — journalled like anything else.
+                              onToolLine={(l) => void runCommand(l)}
+                              onResizeEvent={(
+                                trackId,
+                                fromTc,
+                                startTc,
+                                endTc,
+                              ) =>
+                                void runCommand(
+                                  `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
+                                )
+                              }
+                              // `lenTc` is a LENGTH, and the verb's name is the end it applies to — see `event fadein` in commands.yaml.
+                              onFadeEvent={(trackId, fromTc, which, lenTc) =>
+                                void runCommand(
+                                  `event ${which === "fadeIn" ? "fadein" : "fadeout"} ${trackId} ${fromTc} ${lenTc}`,
+                                )
+                              }
+                              // While the bar is filling a command whose open field wants a timecode, the ruler ANSWERS it instead of committing.
+                              feedTimecode={
+                                barPending?.kind === "timecode"
+                                  ? (tc, live) =>
+                                      cmdRef.current?.offerValue(
+                                        "timecode",
+                                        tc,
+                                        live,
+                                      )
+                                  : undefined
+                              }
+                              feedMove={
+                                barPending?.canonical === "event move"
+                                  ? (trackId, fromTc, toTc, toTrackId, live) =>
+                                      cmdRef.current?.offer(
+                                        {
+                                          track: trackId,
+                                          timecode: fromTc,
+                                          newTimecode: toTc,
+                                          ...(toTrackId
+                                            ? { toTrack: toTrackId }
+                                            : {}),
+                                        },
+                                        live,
+                                      )
+                                  : undefined
+                              }
+                              // …and the selection rectangle answers `events move` the same way, leaving only the delta to type.
+                              feedEventsMove={
+                                barPending?.canonical === "events move"
+                                  ? (tracks, from, to) =>
+                                      cmdRef.current?.offer({
+                                        tracks,
+                                        from,
+                                        to,
+                                      })
+                                  : undefined
+                              }
+                              onFocusRow={focusRowInPanes}
+                              // The corner button over the name column: `track new` with no name, off on a frozen song like every structural edit.
+                              onNewTrack={
+                                frozen
+                                  ? undefined
+                                  : () => void runCommand("track new")
+                              }
+                              // …and its PICTURE half, which makes that button a menu — only a song with a frame has two kinds of lane.
+                              onNewVideoTrack={
+                                frozen || !hasViewport
+                                  ? undefined
+                                  : () => void runCommand("picture lane new")
+                              }
+                              // The picture lane armed for its camera, and whether one is rolling (hooks/useVideoRecording.ts).
+                              videoArmed={videoArmed}
+                              videoRecording={videoRecording}
+                              onVideoArm={
+                                frozen
+                                  ? undefined
+                                  : (id) =>
+                                      void runCommand(`ui picture arm ${id}`)
+                              }
+                              onVideoToggle={
+                                frozen
+                                  ? undefined
+                                  : (id, control) =>
+                                      void runCommand(
+                                        `picture ${control} ${id}`,
+                                      )
+                              }
+                              // A header dragged to another slot: two lists, one gesture (packages/song/docs/trackKind.md).
+                              onReorder={
+                                frozen
+                                  ? undefined
+                                  : (family, lane, target) =>
+                                      void runCommand(
+                                        family === "video"
+                                          ? `picture lane order ${lane} ${target}`
+                                          : `track order ${lane} ${target}`,
+                                      )
+                              }
+                              trackControls={trackControls}
+                              onTrackToggle={onTrackToggle}
+                              laneNodes={laneNodes}
+                              // The lane's ⋮ menu, from the gutter badge — the SAME one the chains pane opens on a lane's node.
+                              onNodeMenu={openNodeMenu}
+                            />
+                          </PaneBoundary>
+                        </PaneVisible.Provider>
                       </div>
                     )}
                     {/* The DESK: a page mounted for as long as the project declares it, its document outliving its screen (docs/shell.md). */}
@@ -4172,6 +4203,7 @@ export default function App({
                             paramsStore={pluginParamsStore}
                             setPluginParam={setPluginParam}
                             watchPluginParams={watchPluginParams}
+                            command={quietCommand}
                           />
                         </PaneBoundary>
                       </div>
@@ -4790,21 +4822,7 @@ export default function App({
                     {tlView.tool !== "pointer" ? tlView.tool : tlView.mode}
                   </Badge>
                 ) : null}
-                {/* The open menu speaks FIRST and borrows the line rather than writing it, so closing gives back what the app last said. */}
-                <span
-                  // This line is the shell's whole error channel, so it is also its only live region.
-                  role="status"
-                  aria-live="polite"
-                  // Truncation is the layout's, not the message's: the full text has to stay reachable.
-                  title={menuHint || status || project?.root}
-                  className={cn(
-                    "truncate",
-                    // Only when the app's OWN last word was a refusal: a menu hint borrows this line and is nobody's verdict.
-                    !menuHint && statusLine.refused && "text-amber-400",
-                  )}
-                >
-                  {menuHint || status || project?.root}
-                </span>
+                <StatusText store={statusStore} fallback={project?.root} />
                 {/* The play button spins for this too; the line stays because it NAMES what is awaited, which a spinner cannot. */}
                 {copyingToEngine && engineSync ? (
                   <EngineSyncProgress sync={engineSync} />

@@ -112,7 +112,7 @@ public:
     bool isPlaying(const std::string& session) const;
     double playheadSeconds(const std::string& session) const;
 
-    // Audition `file` from `startSeconds` through a hidden one-shot SamplerPlugin voice, transport-independent; length <= 0 plays it whole. Message-thread only.
+    // Audition `file` from `startSeconds` through a hidden one-shot SamplerPlugin voice, transport-independent; length <= 0 plays up to 30 s of it. Message-thread only.
     void previewSample(const std::string& session, const std::string& file, double startSeconds, double lengthSeconds);
 
     // Audition one note on a TRACK'S OWN chain — what the piano roll's click plays; velocity 0..1, released after 100 ms. Message-thread only.
@@ -212,7 +212,7 @@ public:
         size_t envelopeFrom = 0;
     };
 
-    // Drain every recording node onto its file and report them all — the state tick's, message thread.
+    // Report every node, and file a take the disk refused — the state tick's; the writer thread does the writing.
     std::map<std::string, RecorderReport> pumpRecorders(const std::string& session);
 
     // Point every RecorderPlugin in the running edit at its session-owned ring; after each build.

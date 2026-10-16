@@ -1,6 +1,6 @@
 // MixView.tsx — the desk: two decks facing each other, each with its tempo on the outer edge
 // and its channel strip on the inner one, and the crossfader in the gap between them. What
-// plays comes from the project's `songs.yaml`, chosen at the record itself. See ../../docs/mix.md.
+// plays comes from the playlist the desk's surface names, chosen at the record itself. See ../../docs/mix.md.
 //
 // A deck's own column is `DeckSide.tsx` and its buttons `DeckButtons.tsx`; what is left here is
 // what SITS BETWEEN two decks. Still over 500 lines: the remainder is one component holding the
@@ -50,6 +50,16 @@ import { SongBrowser } from "./SongBrowser";
 /** How often a running separation is asked how it is going — it reports per WINDOW, a few seconds apart. */
 const PREP_POLL_MS = 2000;
 
+/** The previous span while start and end are unchanged — identity is what an effect compares. */
+function useSteadySpan(
+  span: { start: number; end: number } | null,
+): { start: number; end: number } | null {
+  const kept = useRef(span);
+  if (kept.current?.start !== span?.start || kept.current?.end !== span?.end)
+    kept.current = span;
+  return kept.current;
+}
+
 export function MixView({
   engine,
   library,
@@ -76,6 +86,13 @@ export function MixView({
 }) {
   // Derived, never typed and never stored: the file service is on the chosen engine's host.
   const link = useMemo(() => fileLink(engine), [engine]);
+  // Kept the same object while its edges hold: a fresh one per render would restart the waveform's loop.
+  const spanA = useSteadySpan(
+    loopSpan(decks.loopOf("deckA"), decks.tempos.deckA),
+  );
+  const spanB = useSteadySpan(
+    loopSpan(decks.loopOf("deckB"), decks.tempos.deckB),
+  );
   const [root, setRoot] = useState<string | null>(null);
   const [set, setSet] = useState<SetList | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -432,8 +449,9 @@ export function MixView({
             onCueSet={(slot, at) => decks.setCue("deckA", slot, at)}
             onShove={(seconds) => decks.shove("deckA", seconds)}
             loop={loopProps(decks, "deckA")}
-            loopSpan={loopSpan(decks.loopOf("deckA"), decks.tempos.deckA)}
-            needle={() => decks.sourceNow("deckA")}
+            loopSpan={spanA}
+            needle={decks.rawNeedle.deckA}
+            drawnNeedle={decks.drawnNeedle.deckA}
             running={decks.running("deckA")}
             onToggleDeck={
               decks.canStartAlone("deckA")
@@ -522,8 +540,9 @@ export function MixView({
             onCueSet={(slot, at) => decks.setCue("deckB", slot, at)}
             onShove={(seconds) => decks.shove("deckB", seconds)}
             loop={loopProps(decks, "deckB")}
-            loopSpan={loopSpan(decks.loopOf("deckB"), decks.tempos.deckB)}
-            needle={() => decks.sourceNow("deckB")}
+            loopSpan={spanB}
+            needle={decks.rawNeedle.deckB}
+            drawnNeedle={decks.drawnNeedle.deckB}
             running={decks.running("deckB")}
             onToggleDeck={
               decks.canStartAlone("deckB")

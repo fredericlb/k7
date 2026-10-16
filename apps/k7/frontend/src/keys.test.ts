@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type ConditionCtx,
+  commandKeyMap,
   effectiveKeys,
   KEY_NONE,
   KEYS,
@@ -39,6 +40,26 @@ describe("the Escape ladder", () => {
 
   it("falls back to the bottom panel", () => {
     expect(esc({})).toBe("ui close");
+  });
+
+  // A pending learn is the outermost layer: Esc cancels it and closes nothing behind it.
+  it("cancels a pending MIDI learn before anything else", () => {
+    expect(esc({ midi_learning: "1", popin: "1", fullscreen: "1" })).toBe(
+      "ui midi learn cancel",
+    );
+  });
+});
+
+describe("the r key", () => {
+  // `rec` is the A button's own toggle, so a MIDI lane arms in the browser rather than in the engine.
+  it("arms the caret's lane the way its A button does", () => {
+    expect(resolveBinding(KEYS.r, { caret_track: "bass" })).toBe("rec bass");
+  });
+
+  it("arms a picture lane with its own verb", () => {
+    expect(resolveBinding(KEYS.r, { caret_picture: "cam" })).toBe(
+      "ui picture arm cam",
+    );
   });
 });
 
@@ -137,7 +158,24 @@ describe("effectiveKeys / resolveToken", () => {
     ).toBe("p");
     expect(keyForCommand("transport toggle")).toBe("space");
   });
+
+  it("commandKeyMap answers every plain command as a per-command scan of the table would", () => {
+    const prefs = { "ui help": { key: "v" } };
+    const map = commandKeyMap(prefs);
+    for (const [, b] of Object.entries(KEYS))
+      if (typeof b === "string")
+        expect(map.get(b)).toBe(keyForCommandByScan(b, prefs));
+  });
 });
+
+/** The scan `commandKeyMap` replaced, kept here as its oracle. */
+function keyForCommandByScan(
+  command: string,
+  prefs: Parameters<typeof effectiveKeys>[0],
+): string | undefined {
+  const eff = effectiveKeys(prefs);
+  return Object.keys(eff).find((k) => eff[k] === command);
+}
 
 /** The tools: three keys and one rung of the ladder, all conditional on the timeline OWNING the keys. */
 describe("the timeline's tools", () => {

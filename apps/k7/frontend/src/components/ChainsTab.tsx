@@ -599,7 +599,7 @@ export function ChainsTab({
   useEffect(() => {
     if (!midi.learning) return;
     onMidiStatus?.(
-      `MIDI learn: ${midi.learning.module} ${midi.learning.param} — move a control, or run any command to cancel`,
+      `MIDI learn: ${midi.learning.module} ${midi.learning.param} — move a control, or press Esc or run any command to cancel`,
     );
   }, [midi.learning, onMidiStatus]);
   // A binding that cannot be played is still a binding somebody wrote: say so once per graph rather than dropping it.

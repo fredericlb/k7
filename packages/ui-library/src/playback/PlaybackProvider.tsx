@@ -17,9 +17,10 @@ import {
 } from "react";
 import { library, player } from "../api";
 import { localPathOn, songPreviewDoc } from "../engine/enginePlayback";
-import { useSongEngine } from "../engine/useSongEngine";
+import { type EngineFrame, useSongEngine } from "../engine/useSongEngine";
 import { useLabels } from "../host";
 import { poll } from "../poll";
+import { PositionContext, PositionStore } from "./position";
 import type { QueueItem } from "./queue";
 import { effectiveTarget, type PlaybackTarget } from "./targets";
 import type { PlaybackChoice } from "./usePlaybackTarget";
@@ -35,13 +36,10 @@ export interface NowPlaying {
   target: PlaybackTarget;
 }
 
+/** What plays and how to drive it; WHERE in it the transport is lives apart, in `usePlaybackPosition` (position.ts). */
 export interface Playback {
   now: NowPlaying | null;
   playing: boolean;
-  /** Seconds into the song. */
-  position: number;
-  /** Seconds, or 0 before the master's metadata has arrived. */
-  duration: number;
   /** Start something — replacing whatever was playing, since one tab makes one sound. */
   start: (what: NowPlaying, from?: number) => void;
   toggle: () => void;
@@ -54,6 +52,8 @@ export interface Playback {
   close: () => void;
   /** An engine ANSWERED: what makes the moteur an offerable destination — ../../docs/playbackTarget.md. */
   engineAvailable: boolean;
+  /** The host has mpv: what makes its speakers a destination at all — ../../docs/playbackTarget.md. */
+  hostPlayerAvailable: boolean;
   /** Where the account WANTS sound to come out, and changing it — the picker's two halves. */
   target: PlaybackTarget;
   choose: (t: PlaybackTarget) => void;
@@ -94,8 +94,19 @@ export function PlaybackProvider({
   const labels = useLabels().playback;
   const said = useRef(labels);
   said.current = labels;
+  // The position and the length, written by every source below and read only by what draws them.
+  const [clock] = useState(() => new PositionStore());
+  // Whether the engine's document is OURS, read by its frame callback, which outlives a render.
+  const oursRef = useRef(false);
+  // The engine's own playhead, taken only while OUR document is the one loaded on it.
+  const onEngineFrame = useCallback<EngineFrame>(
+    (rolling, playhead) => {
+      if (oursRef.current && rolling) clock.set({ position: playhead });
+    },
+    [clock],
+  );
   // Connected only while the moteur is the destination: looking costs nothing, holding one does.
-  const engine = useSongEngine(target === "engine");
+  const engine = useSongEngine(target === "engine", onEngineFrame);
   const audioRef = useRef<HTMLAudioElement>(null);
   // A stop we ASKED for looks exactly like a song ending, so it is remembered for one poll.
   const weStopped = useRef(false);
@@ -105,8 +116,6 @@ export function PlaybackProvider({
   const wantPlay = useRef(false);
   const [now, setNow] = useState<NowPlaying | null>(null);
   const [localPlaying, setLocalPlaying] = useState(false);
-  const [at, setAt] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [error, setError] = useState("");
   const [ended, setEnded] = useState(0);
   // The document the engine holds for US; null means it is not playing our song, whatever else it does.
@@ -115,12 +124,21 @@ export function PlaybackProvider({
   const lastSent = useRef<string | null>(null);
   // The song the engine branch is currently asking its two questions about — see ../../docs/playback.md.
   const asked = useRef<string | null>(null);
-  // Where the engine was ASKED to be, the only honest answer until its ~20 Hz frame lands.
-  const [engineAt, setEngineAt] = useState(0);
+
+  // Assumed there until the host says otherwise, so a stored choice is not dropped while it is asked.
+  const [hostPlayer, setHostPlayer] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    void player.available().then((ok) => alive && setHostPlayer(ok));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const viaHost = now?.target === "library";
   const viaEngine = now?.target === "engine";
   const ours = viaEngine && !!loadedEnginePath;
+  oursRef.current = ours;
 
   /** The host's transport, polled: enough that a bar does not stutter, little enough to be cheap. */
   useEffect(() => {
@@ -130,8 +148,7 @@ export function PlaybackProvider({
       try {
         const s = await player.state();
         if (stop) return;
-        setAt(s.position);
-        setDuration(s.duration);
+        clock.set({ position: s.position, duration: s.duration });
         setLocalPlaying(s.playing);
         // mpv goes idle at the end of a track, which is the clean signal the browser's onEnded is.
         if (s.idle && !weStopped.current) setEnded((n) => n + 1);
@@ -146,24 +163,20 @@ export function PlaybackProvider({
       stop = true;
       end();
     };
-  }, [viaHost, now]);
+  }, [viaHost, now, clock]);
 
   // Follow the playhead smoothly: `timeupdate` fires ~4×/s, which reads as a stutter.
   useEffect(() => {
     if (!localPlaying || viaHost || viaEngine) return;
     let raf = 0;
     const loop = () => {
-      if (audioRef.current) setAt(audioRef.current.currentTime);
+      if (audioRef.current)
+        clock.set({ position: audioRef.current.currentTime });
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [localPlaying, viaHost, viaEngine]);
-
-  // The engine's own playhead, read only while OUR document is the one loaded on it.
-  useEffect(() => {
-    if (ours && engine.playing) setEngineAt(engine.playhead);
-  }, [ours, engine.playing, engine.playhead]);
+  }, [localPlaying, viaHost, viaEngine, clock]);
 
   // The engine reaching the end, INFERRED: it reports a transport and not an event.
   const engineWasPlaying = useRef(false);
@@ -216,12 +229,14 @@ export function PlaybackProvider({
       // The fallback is decided HERE, once, so no caller has to know whether an engine answered.
       const loading = {
         ...what,
-        target: effectiveTarget(what.target, engine.available),
+        target: effectiveTarget(what.target, {
+          engine: engine.available,
+          hostPlayer,
+        }),
       };
       setError("");
-      setDuration(0);
-      setAt(from);
-      setEngineAt(from);
+      // Where the engine was ASKED to be is the only honest answer until its ~20 Hz frame lands.
+      clock.set({ position: from, duration: 0 });
       // Read by `onLoadedMetadata`: there is nothing to seek or play until the element has the file.
       pendingSeek.current = from;
       wantPlay.current = loading.target === "browser";
@@ -248,11 +263,10 @@ export function PlaybackProvider({
         .then((s) => setLocalPlaying(s.playing))
         .catch((e: Error) => setError(e.message));
     },
-    [engine, loadedEnginePath, startOnEngine],
+    [engine, hostPlayer, loadedEnginePath, startOnEngine, clock],
   );
 
   const playing = viaEngine ? ours && engine.playing : localPlaying;
-  const position = viaEngine ? engineAt : at;
 
   const toggle = useCallback(() => {
     if (viaEngine) {
@@ -262,8 +276,9 @@ export function PlaybackProvider({
         return engine.stop();
       }
       // Past the end a resume rolls over nothing: the engine does not rewind on play.
-      const from = duration && engineAt >= duration - 0.25 ? 0 : engineAt;
-      setEngineAt(from);
+      const { position, duration } = clock.get();
+      const from = duration && position >= duration - 0.25 ? 0 : position;
+      clock.set({ position: from });
       if (ours && lastSent.current)
         return engine.play(
           songPreviewDoc(lastSent.current, docNameOf(now)),
@@ -288,8 +303,7 @@ export function PlaybackProvider({
     now,
     ours,
     engine,
-    duration,
-    engineAt,
+    clock,
     localPlaying,
     startOnEngine,
   ]);
@@ -298,12 +312,11 @@ export function PlaybackProvider({
     (seconds: number) => {
       // Optimistic on all three: waiting for a round trip jumps the cursor back under the mouse.
       const to = Math.max(0, seconds);
+      clock.set({ position: to });
       if (viaEngine) {
-        setEngineAt(to);
         if (ours) engine.seek(to);
         return;
       }
-      setAt(to);
       if (viaHost) {
         void player.seek(to).catch((e: Error) => setError(e.message));
         return;
@@ -311,7 +324,7 @@ export function PlaybackProvider({
       const el = audioRef.current;
       if (el) el.currentTime = to;
     },
-    [viaEngine, viaHost, ours, engine],
+    [viaEngine, viaHost, ours, engine, clock],
   );
 
   const close = useCallback(() => {
@@ -328,18 +341,14 @@ export function PlaybackProvider({
     setNow(null);
     setLoadedEnginePath(null);
     setLocalPlaying(false);
-    setAt(0);
-    setEngineAt(0);
-    setDuration(0);
+    clock.set({ position: 0, duration: 0 });
     setError("");
-  }, [viaHost, ours, engine]);
+  }, [viaHost, ours, engine, clock]);
 
   const value = useMemo<Playback>(
     () => ({
       now,
       playing,
-      position,
-      duration,
       start,
       toggle,
       seek,
@@ -347,6 +356,7 @@ export function PlaybackProvider({
       ended,
       close,
       engineAvailable: engine.available,
+      hostPlayerAvailable: hostPlayer,
       target,
       choose,
       queue: playQueue.queue,
@@ -358,8 +368,6 @@ export function PlaybackProvider({
     [
       now,
       playing,
-      position,
-      duration,
       start,
       toggle,
       seek,
@@ -367,6 +375,7 @@ export function PlaybackProvider({
       ended,
       close,
       engine.available,
+      hostPlayer,
       target,
       choose,
       playQueue,
@@ -375,42 +384,46 @@ export function PlaybackProvider({
 
   return (
     <PlaybackContext.Provider value={value}>
-      {now && !viaHost ? (
-        // Mounted for the engine too, silent: it is what reports the duration of what plays there.
-        // biome-ignore lint/a11y/useMediaCaption: a song master has no caption track
-        <audio
-          ref={audioRef}
-          src={library.streamUrl(now.path)}
-          preload="metadata"
-          onPlay={() => setLocalPlaying(true)}
-          onPause={() => setLocalPlaying(false)}
-          // The exact signal: it fires for a song reaching its end and nothing else.
-          onEnded={() => {
-            setLocalPlaying(false);
-            setEnded((n) => n + 1);
-          }}
-          onLoadedMetadata={(e) => {
-            setDuration(e.currentTarget.duration);
-            // Whatever `start` asked for, now that there is something to ask it of.
-            if (pendingSeek.current) {
-              e.currentTarget.currentTime = pendingSeek.current;
-              pendingSeek.current = 0;
-            }
-            if (wantPlay.current) {
-              wantPlay.current = false;
-              void e.currentTarget.play().catch(() => {});
-            }
-          }}
-          onTimeUpdate={(e) => {
-            if (!localPlaying) setAt(e.currentTarget.currentTime);
-          }}
-          // A master that will not load is silence too, and the bar is the only thing left to say so.
-          onError={() => {
-            if (!viaEngine) setError(said.current.masterFailed);
-          }}
-        />
-      ) : null}
-      {children}
+      <PositionContext.Provider value={clock}>
+        {now && !viaHost ? (
+          // Mounted for the engine too, silent: it is what reports the duration of what plays there.
+          // biome-ignore lint/a11y/useMediaCaption: a song master has no caption track
+          <audio
+            ref={audioRef}
+            src={library.streamUrl(now.path)}
+            preload="metadata"
+            onPlay={() => setLocalPlaying(true)}
+            onPause={() => setLocalPlaying(false)}
+            // The exact signal: it fires for a song reaching its end and nothing else.
+            onEnded={() => {
+              setLocalPlaying(false);
+              setEnded((n) => n + 1);
+            }}
+            onLoadedMetadata={(e) => {
+              clock.set({ duration: e.currentTarget.duration });
+              // Whatever `start` asked for, now that there is something to ask it of.
+              if (pendingSeek.current) {
+                e.currentTarget.currentTime = pendingSeek.current;
+                pendingSeek.current = 0;
+              }
+              if (wantPlay.current) {
+                wantPlay.current = false;
+                void e.currentTarget.play().catch(() => {});
+              }
+            }}
+            // Silent under the engine, whose own frames say where it is.
+            onTimeUpdate={(e) => {
+              if (!localPlaying && !viaEngine)
+                clock.set({ position: e.currentTarget.currentTime });
+            }}
+            // A master that will not load is silence too, and the bar is the only thing left to say so.
+            onError={() => {
+              if (!viaEngine) setError(said.current.masterFailed);
+            }}
+          />
+        ) : null}
+        {children}
+      </PositionContext.Provider>
     </PlaybackContext.Provider>
   );
 }

@@ -1,4 +1,5 @@
 import { apiBase, pagesPrefix } from "./config";
+import { m } from "./paraglide/messages.js";
 import type {
   Annotation,
   Envelope,
@@ -18,6 +19,7 @@ import type {
   Song,
   SongbookPlacement,
   SongEnvelope,
+  SongListEntry,
 } from "./types";
 
 /** A publish token as its owner sees it: never the token itself. */
@@ -33,8 +35,24 @@ export interface ApiToken {
 const f = (path: string, init?: RequestInit) =>
   fetch(`${apiBase()}${path}`, { credentials: "include", ...init });
 
+/** A failed call: the server's own sentence when it sent one, and the status a caller tells 404 by. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
 const json = async (res: Response) => {
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new ApiError(
+      body.error ?? m["common.requestFailed"]({ status: res.status }),
+      res.status,
+    );
+  }
   return res.status === 204 ? null : res.json();
 };
 
@@ -439,7 +457,8 @@ export const api = {
     f(`/api/singing/${id}`, { method: "DELETE" }).then(json),
 
   // --- Songs (songbook) ---
-  listSongs: (): Promise<Song[]> => f("/api/songs").then(json),
+  /** The songbook's rows, without any song's texts: a song's own GET has them. */
+  listSongs: (): Promise<SongListEntry[]> => f("/api/songs").then(json),
   /** Whether releases and pages can be reached: they live on the server alone — ../../rehearsal-server/docs/publications.md. */
   publicationsStatus: (): Promise<PublicationsStatus> =>
     f("/api/publications").then(json),

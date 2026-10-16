@@ -32,6 +32,16 @@ rows built from a listing `libraryTree.ts` (pure, tested alone), the menus `tree
 middle pane `LibraryContents.tsx` ([library.md](library.md)). The transport and the bar are
 `MediaPlayback.tsx`'s, apart from the catalogue, so a host mounts playback only where it plays.
 
+## The editor stack is fetched when text is shown
+
+`YamlPane` is the module builder's, and CodeMirror with its vim mode weighs more than every other screen
+here together. The song editor and the playlists reach it through `src/LazyYamlPane.tsx`, so the
+catalogue draws without it and the pane arrives the first time a file is opened as text. The package
+declares `"sideEffects": false`: the host's sidebar imports the section list through the barrel, and
+without that declaration the bundler keeps every screen the barrel names — and what they import — in the
+host's first chunk ([apps/k7/frontend/docs/audit.md](../../../apps/k7/frontend/docs/audit.md)). A module
+here must therefore never rely on being imported for its effect.
+
 ## Left as lots
 
 1. **The registry's calls from the page are unbudgeted.** `@studio/engine-browser`'s access

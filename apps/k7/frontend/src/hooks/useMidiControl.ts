@@ -103,7 +103,7 @@ export interface MidiControlApi {
   ) => void;
   /** The param a learn is waiting on, for the status line. */
   learning: { module: string; param: string } | null;
-  /** Cancel an armed learn. */
+  /** Cancel an armed learn; its `onDone` hears null, so whoever armed it can say so. */
   cancelLearn: () => void;
   /** What this project's maps ask for and this graph cannot give — for the status line, not for playing. */
   dropped: DroppedBinding[];
@@ -128,6 +128,7 @@ export function useMidiControl({
     param: string;
   } | null>(null);
   const cancelRef = useRef<(() => void) | null>(null);
+  const doneRef = useRef<((l: LearnedCc | null) => void) | null>(null);
 
   const mapped = useMemo(() => mappedParams(graph), [graph]);
   const dropped = useMemo(() => droppedBindings(graph), [graph]);
@@ -187,9 +188,12 @@ export function useMidiControl({
   );
 
   const cancelLearn = useCallback(() => {
+    const done = doneRef.current;
     cancelRef.current?.();
     cancelRef.current = null;
+    doneRef.current = null;
     setLearning(null);
+    done?.(null);
   }, []);
 
   const learn = useCallback(
@@ -201,8 +205,10 @@ export function useMidiControl({
       }
       cancelRef.current?.(); // one learn at a time; a second arm replaces the first
       setLearning({ module, param });
+      doneRef.current = onDone;
       cancelRef.current = mc.learn((l) => {
         cancelRef.current = null;
+        doneRef.current = null;
         setLearning(null);
         onDone(l);
       });

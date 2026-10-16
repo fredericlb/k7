@@ -150,12 +150,15 @@ void the_two_threads_do_not_tear() {
     }
     audio.join();
     CHECK(got + lost == (size_t)kBlocks * kBlock);
-    // A reader that keeps up loses NOTHING — the ring holds 1.4 s and this is 2 ms of audio.
+    // A reader that keeps up loses NOTHING — the ring holds seconds and this is 2 ms of audio.
     CHECK(lost == 0);
     CHECK(tap.lostFrames() == 0);
 }
 
 }  // namespace
+
+// The writer thread's suite, in RecorderWriter_test.cpp: one binary, so the suite count stays the ring's.
+void runRecorderWriterTests();
 
 int main() {
     RUN(carries_every_frame_in_order);
@@ -164,5 +167,6 @@ int main() {
     RUN(an_overrun_is_COUNTED);
     RUN(a_take_starts_clean);
     RUN(the_two_threads_do_not_tear);
+    runRecorderWriterTests();
     TEST_MAIN_END();
 }

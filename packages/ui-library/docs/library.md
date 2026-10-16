@@ -29,6 +29,11 @@ which is true of the VOLUME and false of the screen, which now holds nothing. Wi
 the poll does not reload and the spinner spins forever. It hangs off `section` rather than off the
 nav's click, because Back and a deep link change section without going through it.
 
+A loaded section is marked with the token its LISTING carries, not the one the poll read. The
+server may answer `/list` with the previous listing while it rescans a family that moved
+(`packages/mediatek/docs/index.md`); that listing carries the older token, so the next poll still
+sees a difference and reloads.
+
 ## What a tree row stands for
 
 The tree is derived, never stored: it IS the entry list in another shape, so a second copy could
@@ -105,6 +110,11 @@ delete takes one song, a variant's takes one file, but an artist or an album can
 and there is no trash here, so a wrong click has no path back. `confirm` rather than `prompt`
 because there is no name to echo back as the answer: the row IS the thing being confirmed, not a
 value to type again.
+
+**Every removal, and every folder rename or drag, is an admin's**, because the library is one
+folder every account shares (`apps/k7/backend/docs/media/gate.md`). The service says so as `manage`
+in its summary, and the menu entries and the folder drag are simply absent when it is false — an
+entry that would only answer 403 is a promise the screen cannot keep.
 
 That same early return is why every target needs at least one action whose `when` passes: an empty
 menu does not open, it simply never appears. Folders and the root would otherwise have none.

@@ -303,7 +303,7 @@ export function ExternalSurface({
             ref={lineRef}
             value={line}
             onChange={(e) => setLine(e.target.value)}
-            placeholder="commande…"
+            placeholder={m["extsrf.commandPlaceholder"]()}
             spellCheck={false}
             autoCapitalize="off"
             autoCorrect="off"

@@ -64,9 +64,13 @@ export function activesAt(layer: VideoLayer, t: number): Active[] {
 }
 
 /** Each slot's shot's EFFECT this frame, by the slots `slotMotions` uses — 0 the outgoing or only picture, 1 the incoming. */
-export function slotEffects(frame: LayerFrame): [string | null, string | null] {
-  if (!frame.blend) return [frame.to?.clip.effect ?? null, null];
-  return [frame.from?.clip.effect ?? null, frame.to?.clip.effect ?? null];
+export function slotEffects(
+  frame: LayerFrame,
+  out: [string | null, string | null] = [null, null],
+): [string | null, string | null] {
+  out[0] = (frame.blend ? frame.from : frame.to)?.clip.effect ?? null;
+  out[1] = frame.blend ? (frame.to?.clip.effect ?? null) : null;
+  return out;
 }
 
 /** The clip on TOP at `t`, or null — the LAST active in file order, which is the one covering the rest. */

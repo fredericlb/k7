@@ -14,6 +14,11 @@ export class StaticMedia {
     this.captions = new CaptionFrames(vw, vh);
   }
 
+  /** A new scene: captions are drawn again, since their cues may have changed under the same src; stills stay decoded. */
+  reset(vw: number, vh: number): void {
+    this.captions = new CaptionFrames(vw, vh);
+  }
+
   /** Is this a clip drawn here, rather than decoded by an element? */
   static owns(clip: SceneClip): boolean {
     return !!clip.still || !!clip.captions;

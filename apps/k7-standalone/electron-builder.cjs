@@ -16,6 +16,9 @@ module.exports = {
     identity: null,
     extendInfo: {
       NSMicrophoneUsageDescription: "k7 records and monitors audio inputs.",
+      // A live-video project's webcam; without it macOS refuses the camera outright.
+      NSCameraUsageDescription:
+        "k7 shows and records your webcam in live-video projects.",
     },
   },
   win: { target: ["nsis"] },

@@ -6,12 +6,13 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Check, Circle, Square, Trash2, X } from "@frediverse/ui/icons";
-import { useEngineState } from "@studio/engine-browser/store";
 import { setCompSpan } from "@studio/song-schema/takes";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { ModeIcon } from "../modeIcons";
+import { m } from "../paraglide/messages.js";
 import {
   compFadeLine,
   compLine,
@@ -100,7 +101,20 @@ export function TakesView({
       to: Math.max(ev.to, ...ends) + PAD,
     };
   }, [ev, lengths]);
-  const playheadBeat = useEngineState((s) => (s.playhead * tempo) / 60);
+  // Each row's heard spans, kept per event and lengths so a memoised row sees the same array across a drag's renders.
+  const heardOf = useMemo(() => {
+    const out = new Map<string, { from: number; to: number }[]>();
+    for (const r of ev.rows)
+      out.set(
+        r.ref,
+        heardSpans(
+          ev,
+          r,
+          r.start + (lengths[r.ref] ?? Math.max(0, ev.to - r.start)),
+        ),
+      );
+    return out;
+  }, [ev, lengths]);
   const [sel, setSel] = useState<{ from: number; to: number } | null>(null);
   // Notes are not swept between takes: a MIDI event plays one take whole, which keeps its roll one sequence.
   const wholeOnly = ev.kind === "midi";
@@ -240,8 +254,8 @@ export function TakesView({
             size="sm"
             variant="ghost"
             onClick={() => setSel(null)}
-            title="clear the span (Esc)"
-            aria-label="clear the span"
+            title={m["takes.clearSpanHint"]()}
+            aria-label={m["takes.clearSpan"]()}
           >
             <X className="h-3.5 w-3.5" />
           </Button>
@@ -253,8 +267,8 @@ export function TakesView({
             variant={xfTool ? "default" : "ghost"}
             onClick={() => setXfTool((v) => !v)}
             aria-pressed={xfTool}
-            title="crossfade — press near where two takes meet, drag to size it, Alt removes it"
-            aria-label="crossfade tool"
+            title={m["takes.crossfadeHint"]()}
+            aria-label={m["takes.crossfadeTool"]()}
           >
             <ModeIcon mode="crossfade" />
           </Button>
@@ -276,7 +290,7 @@ export function TakesView({
         <div className="w-24 shrink-0" />
         <button
           type="button"
-          aria-label="move the playhead"
+          aria-label={m["takes.seek"]()}
           className="relative block h-4 min-w-0 flex-1 cursor-pointer border-b border-border/50 text-left font-mono text-[10px] text-muted-foreground"
           onClick={(e) => onSeek?.((beatAt(e.clientX) * 60) / tempo)}
         >
@@ -293,7 +307,7 @@ export function TakesView({
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto">
         {ev.rows.map((r, i) => {
-          const heard = heardSpans(ev, r, rowEnd(r));
+          const heard = heardOf.get(r.ref) ?? [];
           const label = r.own ? "event" : `take ${i + 1}`;
           return (
             <div key={r.ref} className="flex min-h-10 flex-1 basis-0">
@@ -335,8 +349,8 @@ export function TakesView({
                         `event take remove ${ev.track} ${ev.at} ${r.ref}`,
                       );
                     }}
-                    title="remove this take — its file stays on disk"
-                    aria-label={`remove ${label}`}
+                    title={m["takes.removeHint"]()}
+                    aria-label={m["takes.remove"]({ label })}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -392,7 +406,7 @@ export function TakesView({
                     viewBox="0 0 1 1"
                     preserveAspectRatio="none"
                     role="img"
-                    aria-label="crossfade"
+                    aria-label={m["takes.crossfade"]()}
                   >
                     <path
                       d="M0 1 L1 0 M0 0 L1 1"
@@ -411,15 +425,40 @@ export function TakesView({
                       style={{ left: pct(sm) }}
                     />
                   ))}
-                <div
-                  className="pointer-events-none absolute inset-y-0 w-px bg-red-500"
-                  style={{ left: pct(playheadBeat) }}
-                />
+                <TakesPlayhead view={view} tempo={tempo} />
               </div>
             </div>
           );
         })}
       </div>
     </div>
+  );
+}
+
+/** The transport line over one row, written per animation frame onto its node, so the view never renders at the engine's rate (docs/playhead.md). */
+function TakesPlayhead({
+  view,
+  tempo,
+}: {
+  view: { from: number; to: number };
+  tempo: number;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  usePlayheadFrames(
+    useCallback(
+      (seconds: number) => {
+        const el = ref.current;
+        if (!el) return;
+        const beat = (seconds * tempo) / 60;
+        el.style.left = `${((beat - view.from) / (view.to - view.from)) * 100}%`;
+      },
+      [tempo, view],
+    ),
+  );
+  return (
+    <div
+      ref={ref}
+      className="pointer-events-none absolute inset-y-0 w-px bg-red-500"
+    />
   );
 }

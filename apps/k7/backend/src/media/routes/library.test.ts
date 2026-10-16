@@ -9,24 +9,33 @@ import {
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DEFAULT_TRANSIENT_SENSITIVITY } from "@studio/audio-analysis/envelope";
+import { fileFingerprint } from "@studio/audio-analysis/fingerprint";
+import { writeSidecar } from "@studio/audio-analysis/sidecar";
 import { ensureLayout } from "@studio/mediatek/layout";
 import { FAMILY_ERROR } from "@studio/mediatek/types";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { libraryRouter } from "./library.ts";
 
-// The router alone, no auth: this covers the upload's contract, not who may call it.
+// The router alone, with a session user stubbed in: an admin unless a test says otherwise.
 let root: string;
 let server: Server;
 let base: string;
+let groups: string[] = ["admins"];
 
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), "mediatek-http-"));
   process.env.STUDIO_MEDIATEK = root;
+  process.env.AUTH_ADMIN_GROUPS = "admins";
   ensureLayout();
   const app = express();
   // Mounted as server.ts does, json included: a global json() ahead of raw() can eat a body.
   app.use(express.json({ limit: "1mb" }));
+  app.use((req, _res, next) => {
+    (req as { user?: unknown }).user = { sub: "u", groups };
+    next();
+  });
   app.use("/api/mediatek", libraryRouter);
   server = await new Promise<Server>((ok) => {
     const s = app.listen(0, () => ok(s));
@@ -37,6 +46,9 @@ beforeEach(async () => {
 afterEach(async () => {
   await new Promise((ok) => server.close(ok));
   delete process.env.STUDIO_MEDIATEK;
+  delete process.env.AUTH_ADMIN_GROUPS;
+  delete process.env.STUDIO_LOCAL_USER;
+  groups = ["admins"];
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -363,5 +375,145 @@ describe("GET /search and /list", () => {
     const r = await fetch(`${base}/api/mediatek/list?family=bogus`);
     expect(r.status).toBe(400);
     expect(((await r.json()) as { error: string }).error).toBe(FAMILY_ERROR);
+  });
+});
+
+// One library for every account: what removes or reshapes it is an admin's (../../../docs/media/gate.md).
+describe("who may remove or move", () => {
+  const del = (route: string, q: Record<string, string>) =>
+    fetch(`${base}/api/mediatek/${route}?${new URLSearchParams(q)}`, {
+      method: "DELETE",
+    });
+  const move = (from: string, to: string) =>
+    fetch(`${base}/api/mediatek/move`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ from, to }),
+    });
+  const song = "songs/Miles Davis/Kind of Blue/So What";
+
+  it("refuses a non-admin every removal with a 403, and removes nothing", async () => {
+    await post(tags, "ID3");
+    writeFileSync(join(root, "samples/loose.wav"), "RIFF");
+    groups = [];
+    for (const res of [
+      await del("folder", { path: "songs/Miles Davis" }),
+      await del("file", { path: "samples/loose.wav" }),
+      await del("variant", { path: song, name: "x" }),
+    ]) {
+      expect(res.status).toBe(403);
+      expect(((await res.json()) as { error: string }).error).toMatch(/admin/);
+    }
+    expect(existsSync(folder())).toBe(true);
+    expect(existsSync(join(root, "samples/loose.wav"))).toBe(true);
+  });
+
+  it("refuses a non-admin a folder move and a move that would replace a file", async () => {
+    await post(tags, "ID3");
+    writeFileSync(join(root, "samples/a.wav"), "A");
+    writeFileSync(join(root, "samples/b.wav"), "B");
+    groups = [];
+    expect((await move("songs/Miles Davis", "songs/Someone")).status).toBe(403);
+    expect((await move("samples/a.wav", "samples/b.wav")).status).toBe(403);
+    expect(readFileSync(join(root, "samples/b.wav"), "utf8")).toBe("B");
+    expect(existsSync(folder())).toBe(true);
+  });
+
+  it("lets a non-admin rename a file to a free name", async () => {
+    writeFileSync(join(root, "samples/a.wav"), "A");
+    groups = [];
+    expect((await move("samples/a.wav", "samples/c.wav")).status).toBe(200);
+    expect(existsSync(join(root, "samples/c.wav"))).toBe(true);
+  });
+
+  it("lets an admin remove and move", async () => {
+    await post(tags, "ID3");
+    writeFileSync(join(root, "samples/loose.wav"), "RIFF");
+    expect((await move("songs/Miles Davis", "songs/Someone")).status).toBe(200);
+    expect((await del("folder", { path: "songs/Someone" })).status).toBe(200);
+    expect((await del("file", { path: "samples/loose.wav" })).status).toBe(200);
+    expect(existsSync(join(root, "songs/Someone"))).toBe(false);
+  });
+
+  it("lets a device's own local user manage its library", async () => {
+    await post(tags, "ID3");
+    groups = [];
+    process.env.STUDIO_LOCAL_USER = "1";
+    expect((await del("folder", { path: "songs/Miles Davis" })).status).toBe(
+      200,
+    );
+  });
+
+  it("tells the UI whether the caller may manage", async () => {
+    const manage = async () =>
+      (
+        (await (await fetch(`${base}/api/mediatek`)).json()) as {
+          manage: boolean;
+        }
+      ).manage;
+    expect(await manage()).toBe(true);
+    groups = [];
+    expect(await manage()).toBe(false);
+  });
+});
+
+// Every replay of a song asks again; a validator makes that a 304 — commons/packages/http/docs/stream.md.
+describe("cache validators", () => {
+  const SONG = "songs/A/B/C/original.wav";
+
+  it("answers /file's replay with a 304 and honours If-Range", async () => {
+    mkdirSync(join(root, "songs/A/B/C"), { recursive: true });
+    writeFileSync(join(root, SONG), "0123456789");
+    const url = `${base}/api/mediatek/file?path=${encodeURIComponent(SONG)}`;
+    const first = await fetch(url);
+    const etag = first.headers.get("etag") as string;
+    expect(etag).toMatch(/^W\//);
+    expect(first.headers.get("cache-control")).toBe("private, no-cache");
+    expect(
+      (await fetch(url, { headers: { "if-none-match": etag } })).status,
+    ).toBe(304);
+    const piece = await fetch(url, {
+      headers: { range: "bytes=0-1", "if-range": etag },
+    });
+    expect(piece.status).toBe(206);
+    expect(await piece.text()).toBe("01");
+  });
+
+  it("serves /envelope from its sidecar, then a 304, then anew once the sidecar moves", async () => {
+    mkdirSync(join(root, "songs/A/B/C"), { recursive: true });
+    const abs = join(root, SONG);
+    writeFileSync(abs, "RIFF-not-really-audio");
+    const sidecar = (rms: number[]) =>
+      writeSidecar(abs, {
+        fingerprint: fileFingerprint(abs),
+        sampleRate: 48000,
+        channels: 2,
+        frames: 48000,
+        seconds: 1,
+        peak: rms,
+        rms,
+        transients: [0.5],
+        sensitivity: DEFAULT_TRANSIENT_SENSITIVITY,
+        bpm: 120,
+      });
+    sidecar([0.1, 0.2]);
+    const url = `${base}/api/mediatek/envelope?path=${encodeURIComponent(SONG)}`;
+    const first = await fetch(url);
+    expect(first.status).toBe(200);
+    expect(((await first.json()) as { rms: number[] }).rms).toEqual([0.1, 0.2]);
+    const etag = first.headers.get("etag") as string;
+    expect(etag).toBeTruthy();
+    expect(
+      (await fetch(url, { headers: { "if-none-match": etag } })).status,
+    ).toBe(304);
+    // A re-analysis rewrites the sidecar: a new version, a new answer, a new tag.
+    await new Promise((r) => setTimeout(r, 20));
+    sidecar([0.3, 0.4, 0.5]);
+    const again = await fetch(url, { headers: { "if-none-match": etag } });
+    expect(again.status).toBe(200);
+    expect(again.headers.get("etag")).not.toBe(etag);
+    expect(((await again.json()) as { rms: number[] }).rms).toEqual([
+      0.3, 0.4, 0.5,
+    ]);
   });
 });

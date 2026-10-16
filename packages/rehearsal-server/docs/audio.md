@@ -79,6 +79,23 @@ Three consequences in cascade:
 A session with no path has nothing to splice onto: the take becomes the first one rather than
 failing.
 
+## ffmpeg runs a few at a time, and never forever
+
+Every ffmpeg this package runs — a splice, a moment's cut — goes through one limiter
+(`src/ffmpeg.ts`), two at a time by default, `K7_FFMPEG_CONCURRENCY` to change it. The backend is one
+process shared by every account, and each re-encode takes a whole core: without a cap, ten people
+appending a take at once are ten encoders starving the requests around them. A call past the cap
+waits for a slot rather than failing, because an append or a cut is work the user asked for and
+will get, only later.
+
+Each run has a deadline — 30 minutes for a splice, 10 for a cut, counted from the spawn, not from
+the queue — past which the child is killed with `SIGKILL` and the call fails with a message that
+says so. A re-encode of hours of audio takes minutes; one still running at the deadline is stuck,
+and a stuck encoder holding a slot would hold every later one behind it.
+
+The splice keeps re-encoding through the `concat` filter. A stream copy would be cheaper, but two
+takes from two devices do not share codec parameters, and the copy is only safe when they do.
+
 ## Deleting: the bytes first
 
 Deleting a session or a moment removes the bytes from the family **before** the row,
@@ -140,6 +157,13 @@ was annotated, which may be three days later. The name is the moment's text when
 
 Re-extracting replaces: the bound or the name may have moved, so the file name already written is
 wrong. `Comments.ClipPath` carries the path.
+
+A moment's cut is never whole in memory: ffmpeg writes it to a temporary file of the cache, which
+is pushed to the médiathèque as a file-backed Blob and then renamed into the cache — so a reader
+never sees a half-written clip, and a three-hour moment costs disk, not 170 MB of the backend's
+heap. Cuts of one moment run one at a time (`lock.ts`), each reading the row when its turn comes:
+two quick drags of a span would otherwise run two ffmpeg on one cache file, and the one that
+finished last — not the one dragged last — would win.
 
 ## Detecting moments
 
@@ -263,7 +287,8 @@ are relayed as they are, without the server looking at them.
 Read from k7's backend section of `env.yaml` (`src/env.ts`): `K7_DATA_DIR` — the store
 ([store.md](store.md)), the local audio cache and the uploads in flight,
 `~/.studio/k7` by default so a dev run needs no volume, `/rehearsal-data` on the `k7-data` volume
-in the image — and `CACHE_MAX_GB`, past which that cache is trimmed ([audit.md](audit.md)).
+in the image — `CACHE_MAX_GB`, past which that cache is trimmed ([audit.md](audit.md)), and
+`K7_FFMPEG_CONCURRENCY`, how many ffmpeg run at once (2 by default).
 
 `K7_API_TOKEN_SECRET` signs the personal tokens a user mints from k7's settings and saves in a
 workspace's `.settings.json` to publish to these pages. It is NOT k7's `API_TOKEN_SECRET`: it

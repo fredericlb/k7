@@ -1,6 +1,6 @@
 // AndroidEngineSection.tsx — this phone's engine, drawn only inside the Android app: there the app IS the
 // engine's machine, so what the command-line engine keeps in its config file — the studios it is listed at,
-// a private CA — and quitting belong on this panel. The app shows its own tray only while no studio is open.
+// the instruments it downloads, a private CA — and quitting belong on this panel. The app shows its own tray only while no studio is open.
 // See ../../docs/settings.md and engine/k7-runtime/docs/android.md.
 
 import { studioFamily } from "@studio/web-protocol/services";
@@ -11,6 +11,7 @@ import {
   onAndroid,
   useEngineSnapshot,
 } from "./androidEngine";
+import { InstrumentsSection } from "./InstrumentsSection";
 import { Action, Row, Section } from "./Section";
 
 export function AndroidEngineSection() {
@@ -126,6 +127,11 @@ export function AndroidEngineSection() {
           <p className="px-4 py-2 text-red-300 text-xs">{check.message}</p>
         )}
       </Section>
+
+      <InstrumentsSection
+        snapshot={state ?? null}
+        send={(cmd, name) => void engineCall("command", { cmd, arg: name })}
+      />
 
       <PrivateCaSection />
     </>

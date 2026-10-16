@@ -11,6 +11,7 @@
 #include "BroadcastTap.h"
 #include "CallbackWatchdog.h"
 #include "RecorderNode.h"
+#include "RecorderWriter.h"
 #include "InputTuner.h"
 #include "SessionRegistry.h"
 #include "WaveformTap.h"
@@ -41,9 +42,10 @@ struct Session {
     BroadcastTap broadcastRing;
     // …and one ring per RECORDER node, by plugin id, for the same reason and one more: a rebuild
     // of the chain around a node must not end the take it is writing (docs/recorder.md).
-    std::map<std::string, std::unique_ptr<RecorderNode>> recorders;
+    // Shared with the writer thread, which holds a node while it records (docs/recorder.md).
+    std::map<std::string, std::shared_ptr<RecorderNode>> recorders;
     // …and the nodes whose plugin LEFT, kept until the old playback graph that still writes into their ring has been replaced (docs/recorder.md).
-    std::vector<std::pair<double, std::unique_ptr<RecorderNode>>> retiredRecorders;
+    std::vector<std::pair<double, std::shared_ptr<RecorderNode>>> retiredRecorders;
 
     std::unique_ptr<te::Edit> edit;
     ProjectDoc current;     // the diff baseline — what this session's engine state IS
@@ -178,8 +180,16 @@ struct EngineHost::Impl {
     // …or nullptr. For readers that must not conjure a session by asking about one.
     Session* find(const std::string& id) { return sessions.find(id); }
 
+    // The thread that writes every recorder's take, declared after `sessions` so it is joined before they die (docs/recorder.md).
+    RecorderWriter recorderWriter;
+
     // Forget a session entirely — its Edit, plugins, meters and taps: what `flush` means once it addresses one project.
-    void drop(const std::string& id) { sessions.erase(id); }
+    void drop(const std::string& id) {
+        // Taken back from the writer first, so a take recording in a dropped session closes with it rather than outliving it.
+        if (auto* s = find(id))
+            for (auto& [_, node] : s->recorders) recorderWriter.remove(node.get());
+        sessions.erase(id);
+    }
 
     // Which sessions exist, for the state timer: one frame per session, and one nobody sent a project to has nothing to report.
     std::vector<std::string> ids() const { return sessions.ids(); }

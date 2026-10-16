@@ -13,7 +13,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { m } from "../paraglide/messages.js";
-import type { Song, SongbookPlacement } from "../types";
+import type { SongbookPlacement, SongListEntry } from "../types";
 
 /** The server is asked again this often, for what another machine added there. */
 const PLACEMENT_MS = 30_000;
@@ -25,7 +25,7 @@ const hostOf = (p: SongbookPlacement | null): string =>
 
 /** The songbook's placement, re-asked whenever the local list reloads; null when there is nothing to say. */
 export function useSongbookCopy(
-  songs: Song[],
+  songs: SongListEntry[],
   onDownloaded: () => void,
   /** Asked only while the songbook is on screen. */
   active: boolean,

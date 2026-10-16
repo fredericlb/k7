@@ -12,14 +12,16 @@ element exactly when one of its clips declares a `fade_in`
 
 - it is `fade_in` and not "has a fade": a `fade_out` goes to a transparent texel, so it needs
   no second decoder — which halves the lanes that pay;
-- it is settled once, in `create`, off the scene. The driver is rebuilt whenever the document
-  changes, so a song that gains its first dissolve gets a new driver like any other edit;
+- it is settled per scene, off the layer's clips: a song that gains its first dissolve gets its
+  second element at the next `setScene`, like any other edit;
 - a song that never dissolves allocates exactly what it always did. Browsers cap concurrent
   hardware decoders, and a six-lane project with a picture-in-picture is already close.
 
-Elements are claimed by the clip's **INDEX in `layer.clips`**, never by its `src` or its id — a
+Elements are claimed by the clip's **INDEX in `layer.clips`** first, never by its id — a
 clip's id is its material REF, so a shot placed twice has one id, and a shot dissolving into
-itself would otherwise put both halves on one decoder. Index-claiming also ping-pongs for free:
+itself would otherwise put both halves on one decoder. Only when no element holds that index does
+the `src` an element already carries decide, so a free element that has the file buffered is
+preferred over one that would reload. Index-claiming also ping-pongs for free:
 during A→B the outgoing shot keeps its element and the incoming one takes the other, so after
 the dissolve B stays where it is and the next transition loads C on the element A vacated.
 
@@ -29,6 +31,26 @@ first frame after the scrub blends the right shot with a stale one.
 The element is muted (a shot's sound is the ENGINE's, on an audio lane —
 `packages/song/docs/videoSound.md` — and muted is also what lets it autoplay), parked 1px and invisible but NOT `display:none` — a `display:none` element
 is allowed to skip decoding.
+
+## An edit is a `setScene`, never a new driver
+
+A document edit — a title typed, a clip nudged — reaches the viewport as a new scene on every
+autosave. Rebuilding the driver for it would mean a new WebGL2 context, every shader compiled
+again, every `<video>` made, buffered and seeked from nothing: the picture flashes black and
+re-decodes on each keystroke's save. So the driver lives as long as its GL context, and only a
+lost-then-restored context builds a new one.
+
+`setScene` hands the scene to `Compositor.setScene`, which keeps the context and its render
+targets, and matches the elements it already has to the new layers (`src/lanes.ts`): by layer
+and a src the layer plays, then by src from any layer, then whatever is left over. Only the
+elements nobody takes are released, and only the shortfall is created. A camera lane is kept
+while it names the same lens, since reopening one is a permission prompt.
+
+Clip indices mean nothing across an edit, so a kept element forgets which clip it held and is
+claimed again by the src it carries — which is what makes a kept element cost no reload. The
+upload memo is forgotten, since the compositor's slots come back empty. With the transport
+stopped, nothing chases the clock, so an element further than a frame from where the edit moved
+its shot is seeked there; while playing, the drift control does that on its own.
 
 ## A still takes no element
 
@@ -79,6 +101,39 @@ tidy: a `fade_out` on a shot that runs to the end of its material is the commone
 and parking the whole lane for it would drop the lane's entire composite for the length of the
 fade. One element going quiet leaves the other's picture — and the blend says which slots carry
 one, so a side that has nothing this frame is simply the transparent texel.
+
+## An unchanged frame is neither uploaded nor drawn
+
+`texImage2D` of a full-frame picture is the dearest call a tick makes, and most ticks would repeat
+it for nothing: a still, a caption, a paused shot, the whole picture with the transport stopped.
+So each slot remembers the picture it was last handed (`src/frameGate.ts`) and an upload goes
+through only when that changed:
+
+| source | what says it changed |
+|---|---|
+| a `<video>` | its `currentSrc`, its `currentTime`, whether it has a frame yet — and a seek in flight always uploads, since the element still holds the old frame |
+| a still, a caption | the object itself: one per decoded image, one per cue |
+| a camera | nothing can tell, so it uploads every tick while its stream runs |
+
+A change is followed by ONE more upload, because a decoder may present the frame a tick after its
+position moved; a stamp is not proof of the pixels.
+
+The draw is skipped as well when nothing was uploaded, the transport is stopped, and nothing the
+frame reads moved: the playhead (motions, blend progress and `uTime` all follow from it), which
+lanes show which slots, the audio levels the passes read, and a LUT landing. Coming back into
+sight forgets all of it and draws anew.
+
+A playing `<video>` still uploads on every animation frame — `currentTime` moves on each — so a
+30 fps shot on a 60 Hz screen pays twice. `requestVideoFrameCallback` would say when a frame is
+truly new, but whether it fires for an element parked invisible is the browser's call, and a
+missed callback would freeze the picture.
+
+## A frame allocates nothing it can keep
+
+The loop runs at the display's rate, so a collection made per tick is garbage made sixty times a
+second. The visible set, the blend, motion and effect maps and each lane's slot tuples belong to
+the driver and are cleared and refilled. The drift readout is filled only once `debugState()` has
+been read: the pane polls it only while profiling.
 
 ## Out of sight, nothing is drawn
 

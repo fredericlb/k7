@@ -330,7 +330,7 @@ IXWebSocket's server sockets send **blocking**: `send()` spins until the peer ha
 was given, and gives up only on a socket error or a timeout — and both of its timeouts, the send
 one and the ping, default to *never*. A peer that stops reading without closing — a laptop lid, a
 stalled tunnel — is therefore a thread parked for as long as the peer stays. If that thread is the
-message thread, every apply, transport command, recorder drain and watchdog stops for every session
+message thread, every apply, transport command, recorder report and watchdog stops for every session
 while the audio plays on, which looks exactly like a hang.
 
 Two things hold it off. `Serve.cpp` builds the server with a ping (`kPingIntervalSecs`) and a send
@@ -403,6 +403,10 @@ The same pass is what gives a recorder added in place its ring.
 lapped while it reads, and the frames that fell behind are zeroed and counted, which is the one
 thing `damaged` promises (`docs/recorder.md`).
 
+A take is written by a thread of its own, `RecorderWriter`, so an apply that instantiates plugins or
+compiles Faust neither damages it nor waits on its disk; the ring holds ~21.8 s at 48 kHz against a
+disk that stalls (`docs/recorder.md`).
+
 ## What the audio thread reads, and what it never lets through
 
 - **Tempo and time signature** come from `tempoSequence.getInternalSequence()`, the one view
@@ -421,6 +425,9 @@ thing `damaged` promises (`docs/recorder.md`).
   the next biquad's state into NaN — a track, or the whole master, then silent until a reset. The
   fetch-time patch (`engine/patches/tracktion.cmake`) makes the test `isfinite`, which covers our
   own plugins, the master gain included, as much as anyone's.
+- **Surge's read-back timer never reads the synth**: the audio thread publishes a snapshot of it on
+  request, under the lock it already holds, and the timer compares that. A value's TEXT is read off a
+  message-side twin brought to that snapshot, never off the live synth (`docs/surgePlugin.md`).
 - **NAM prewarms a loaded model before swapping it in**, so the lock covers a pointer swap and the
   bridge's buffers rather than thousands of samples of inference (`docs/namPlugin.md`).
 
@@ -436,6 +443,11 @@ thing `damaged` promises (`docs/recorder.md`).
   loading a fresh one every five seconds (`docs/pluginEditors.md`).
 - **The audio sender asks the session registry for stale sequence counters once a second**, not on
   every 5 ms tick.
+- **A queued `project`, `tracks` or `set-plugin-param` a newer one overtook is skipped**, so the
+  documents and knob writes that pile up behind a slow apply are not each run after it; every other
+  verb fences them, so order between verbs holds (`docs/supersede.md`).
+- **An audition with no length decodes at most 30 s**, since the sampler decodes its excerpt whole on
+  the message thread before the note fires (`docs/engineHost.md`).
 
 ## Smaller hazards, and what closes each
 

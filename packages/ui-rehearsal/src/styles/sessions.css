@@ -448,10 +448,13 @@
     background: transparent;
   }
   .session-item:hover .session-del,
-  .timeline-item:hover .session-del {
+  .timeline-item:hover .session-del,
+  .session-item:focus-within .session-del,
+  .timeline-item:focus-within .session-del {
     opacity: 0.6;
   }
-  .session-del:hover {
+  .session-del:hover,
+  .session-del:focus-visible {
     opacity: 1 !important;
     background: transparent;
   }

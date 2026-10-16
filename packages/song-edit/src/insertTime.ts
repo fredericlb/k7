@@ -12,7 +12,7 @@ import {
 } from "@studio/song/chainItemEdit";
 import { loadProjectRoot } from "@studio/song/loader";
 import { parseMarkers } from "@studio/song/project";
-import { setQuotedKeyMap } from "@studio/song/yaml/edit";
+import { withQuotedKeyMap } from "@studio/song/yaml/edit";
 import {
   isDocName,
   wsExists,
@@ -44,24 +44,28 @@ function yamlIn(dir: string, sub: string): string[] {
   }
 }
 
-/** Read, transform, write — and record the file only when the text actually changed. */
+/** Every new text by absolute path, written only once all of them are made: a throw midway leaves the song as it was. */
+type Pending = Map<string, string>;
+
+/** Read, transform, hold — and record the file only when the text actually changed. */
 function edit(
   dir: string,
   rel: string,
   fn: (text: string) => { text: string; moved: number; removed: number },
   report: TimeSpliceReport,
+  pending: Pending,
 ): void {
   const path = join(dir, rel);
   let before: string;
   try {
-    before = wsRead(path);
+    before = pending.get(path) ?? wsRead(path);
   } catch {
     return;
   }
   const { text, moved, removed } = fn(before);
   if (text === before) return;
-  wsWrite(path, text);
-  report.files.push(rel);
+  pending.set(path, text);
+  if (!report.files.includes(rel)) report.files.push(rel);
   report.moved += moved;
   report.removed += removed;
 }
@@ -93,6 +97,7 @@ export function spliceProjectTime(
 ): TimeSpliceReport {
   const report: TimeSpliceReport = { files: [], moved: 0, removed: 0 };
   if (!(lenBeats > 0)) return report;
+  const pending: Pending = new Map();
   const root = loadProjectRoot(dir, true);
   const proj = (root.project ?? {}) as Record<string, unknown>;
   const ts = String(proj.timeSignature ?? "4/4");
@@ -116,10 +121,10 @@ export function spliceProjectTime(
   };
   const folder = laneFolder(dir);
   for (const f of yamlIn(dir, folder))
-    edit(dir, `${folder}/${f}`, lanes, report);
+    edit(dir, `${folder}/${f}`, lanes, report, pending);
   // …and in a chain project, any node item that holds events of its own (docs/chainFiles.md).
   for (const rel of chainFiles(dir))
-    edit(dir, rel, (text) => eachEventItem(text, lanes), report);
+    edit(dir, rel, (text) => eachEventItem(text, lanes), report, pending);
 
   // 2. The CURVES: only a `custom` one is positioned, an LFO being periodic and an ADSR per-trigger.
   for (const f of yamlIn(dir, "curves"))
@@ -128,6 +133,7 @@ export function spliceProjectTime(
       `curves/${f}`,
       (text) => spliceCurveTime(text, atBeats, lenBeats, mode, num, den),
       report,
+      pending,
     );
 
   // 3. The VIDEO lanes, in SECONDS, and exact because there is one tempo and no tempo map.
@@ -139,6 +145,7 @@ export function spliceProjectTime(
       `video_tracks/${f}`,
       (text) => spliceVideoTime(text, atSec, lenSec, mode),
       report,
+      pending,
     );
 
   // 4. The MARKERS, one map at project.yaml's root, rewritten whole as `project marker new` writes it.
@@ -160,12 +167,17 @@ export function spliceProjectTime(
       map[beatsToPosition(shifted, num, den)] = m.name;
     }
     if (touched) {
-      setQuotedKeyMap(join(dir, "project.yaml"), ["markers"], map);
-      report.files.push("project.yaml");
+      const at = join(dir, "project.yaml");
+      const was = pending.get(at) ?? (wsExists(at) ? wsRead(at) : "{}");
+      pending.set(at, withQuotedKeyMap(was, ["markers"], map));
+      if (!report.files.includes("project.yaml"))
+        report.files.push("project.yaml");
       report.moved += markers.length - (markers.length - kept.length);
       report.removed += markers.length - kept.length;
     }
   }
 
+  // Every text is made: only now does any reach the disk, each one whole (atomicWrite.ts).
+  for (const [path, text] of pending) wsWrite(path, text);
   return report;
 }

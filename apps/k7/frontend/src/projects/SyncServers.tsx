@@ -160,7 +160,7 @@ export function SyncServers() {
             type="button"
             className={button}
             onClick={() => setAdding(null)}
-            aria-label="Cancel"
+            aria-label={m["common.cancel"]()}
           >
             <X className="size-3.5" />
           </button>

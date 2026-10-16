@@ -41,10 +41,11 @@ export function loadIcons(): Promise<IconSet> {
 export const iconsNow = (): IconSet | null => cache;
 
 /** The icon set for a component that draws user-chosen icons — a menu opened before the chunk lands draws labels and no icons, which is honest. */
-export function useIcons(): IconSet | null {
+export function useIcons(wanted = true): IconSet | null {
   const [icons, setIcons] = useState<IconSet | null>(iconsNow);
   useEffect(() => {
-    if (icons) return;
+    // Nothing to draw, nothing to fetch: the whole set is a large chunk (docs/audit.md).
+    if (icons || !wanted) return;
     let live = true;
     // A failure draws labels without icons, as before the chunk lands; the next mount asks again.
     loadIcons().then(
@@ -56,6 +57,6 @@ export function useIcons(): IconSet | null {
     return () => {
       live = false;
     };
-  }, [icons]);
+  }, [icons, wanted]);
   return icons;
 }

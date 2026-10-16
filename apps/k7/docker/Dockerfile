@@ -3,19 +3,19 @@
 # k7 — the web editor, the media library and the rehearsal recorder, ONE process: the backend serves its own built
 # frontend, no nginx, and this image deliberately does NOT start from `frediverse-base` (commons/dev/docker-runtime).
 #
-# The first three stages are byte-identical in the two studio Dockerfiles, so the installs are
-# built once per lockfile and shared by both — docs/images.md. Keep them identical.
+# The first three stages see only the manifests, so the installs are cached across every push that
+# leaves them alone — docs/images.md. Node is 24, the one version production and CI share (same page).
 #
 # Build from the repo root: docker build -f apps/k7/docker/Dockerfile .
 
 # ---- manifests: the lockfile and every package.json, nothing else -----------
-FROM node:22-alpine AS manifests
+FROM node:24-alpine AS manifests
 WORKDIR /src
 COPY . .
 RUN mkdir /out && { find . -name package.json -not -path '*/node_modules/*'; echo ./package-lock.json; echo ./.npmrc; } | tar -cf - -T - | tar -xf - -C /out
 
 # ---- toolchain: ssh2 (k7's media sftp) builds its optional crypto binding
-FROM node:22-alpine AS toolchain
+FROM node:24-alpine AS toolchain
 RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY --from=manifests /out ./
@@ -32,15 +32,17 @@ ARG APP_VERSION=dev
 ENV VITE_APP_VERSION=$APP_VERSION
 # vite alone: the lint job typechecks every workspace (docs/images.md).
 RUN npm exec --workspace k7-frontend -- vite build
+# The backend and the file service as plain JS, reading the checkout around them: no tsx at run time (docs/images.md).
+RUN node apps/k7/backend/scripts/bundle.mjs server-dist --in-tree
 
 # ---- backend prod deps: k7-backend's closure only, no devDependencies -------
 FROM toolchain AS backend-deps
 RUN --mount=type=cache,target=/root/.npm npm ci --workspace k7-backend --omit=dev --no-audit --no-fund
 
 # ---- final image --------------------------------------------------------------
-FROM node:22-alpine AS runtime
-# yt-dlp/ffmpeg: media imports and a take's envelope and instrumental; mpv: packages/mpv-player/docs/mpvPlayer.md.
-RUN apk add --no-cache yt-dlp ffmpeg mpv
+FROM node:24-alpine AS runtime
+# Media imports and a take's envelope and instrumental; no mpv, since a container has no speakers (docs/images.md).
+RUN apk add --no-cache yt-dlp ffmpeg
 # chromium and its fonts: `picture render`, the picture drawn headless (packages/file-service/docs/serverRender.md).
 RUN apk add --no-cache chromium font-noto ttf-freefont
 ENV STUDIO_CHROMIUM=/usr/bin/chromium-browser
@@ -55,6 +57,9 @@ COPY --from=backend-deps /app ./
 COPY . .
 # The built SPA — apps/k7/backend/src/server.ts serves this directly.
 COPY --from=frontend-build /app/apps/k7/frontend/dist ./apps/k7/frontend/dist
+COPY --from=frontend-build /app/server-dist ./server-dist
+# Each account's file service is started from the bundle too, not from source under tsx.
+ENV STUDIO_FILE_SERVICE_ENTRY=/app/server-dist/file-service.mjs
 
 # k7's per-person preferences (packages/user-prefs/docs/store.md).
 ENV STUDIO_PREFS_DIR=/data/prefs
@@ -69,11 +74,11 @@ ENV K7_DATA_DIR=/rehearsal-data
 VOLUME ["/rehearsal-data"]
 
 ENV PORT=8789
-# `node:sqlite` (the shares' comments store) is still behind this flag on Node 22; a no-op on 24+.
-ENV NODE_OPTIONS=--experimental-sqlite
 EXPOSE 8789
 WORKDIR /app/apps/k7/backend
 # Not root: the code under /app is root's and read-only to it; only the volumes above are its own.
 USER node
-# tsx to import the brain's TS source directly — see src/server.ts's own header.
-CMD ["/app/node_modules/.bin/tsx", "src/server.ts"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:8789/api/health || exit 1
+# The bundle, under plain node: no transpiler and no esbuild child per process (docs/images.md).
+CMD ["node", "/app/server-dist/backend.mjs"]

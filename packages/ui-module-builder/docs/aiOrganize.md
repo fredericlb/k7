@@ -9,8 +9,8 @@ draws screens that show the sound's shape.
 
 | file | holds |
 |---|---|
-| `src/aiPrompt.ts` | the system prompt: the grid, every widget, the lcdscreen contract, the design brief |
-| `src/aiOrganize.ts` | the wire types, the per-module message, the check |
+| `packages/panel-rules/src/aiPrompt.ts` | the system prompt: the grid, every widget, the lcdscreen contract, the design brief |
+| `packages/panel-rules/src/aiOrganize.ts` | the wire types, the per-module message, the check — in `@studio/panel-rules`, which the backend imports without React (`packages/panel-rules/docs/panelRules.md`) |
 | `src/useAiOrganize.ts` | the builder's half: ask, send, land the answer in the buffers |
 | `apps/k7/backend/src/aiOrganize.ts` | the host's half: the call, one repair round |
 | `apps/k7/backend/src/aiSettings.ts` | the account's key and model, write-only from the browser |
@@ -141,7 +141,7 @@ refuses what would break the module:
 
 - the schema's own refusals, with their paths, since `UiFileSchema` is what the loader runs;
 - a widget outside the grid, or two on top of each other — a `group` excepted, which frames what
-  lies wholly inside it, so a widget straddling a group's edge is refused (`src/groupGeometry.ts`,
+  lies wholly inside it, so a widget straddling a group's edge is refused (`packages/panel-rules/src/groupGeometry.ts`,
   the rule the grid editor applies too); a page is checked **together with the
   panel-level widgets**, because those are drawn over every page;
 - an id used twice anywhere in the panel;

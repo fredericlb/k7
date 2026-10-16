@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, mediatek } from "../api";
 import { m } from "../paraglide/messages.js";
 import { playlistVocabulary } from "../playlistVocabulary";
+import { saveLabel } from "../saveLabel";
 import { pollWhileVisible } from "../visiblePoll";
 import { PlaylistPane } from "./PlaylistPane";
 
@@ -33,15 +34,6 @@ const playlistValidity = (text: string): Validity =>
         malformed: false,
       }
     : { ok: true, issues: [], depth: "schema", malformed: false };
-
-/** What the header says in place of a Save button — the same five words EditorTab uses, and 'clean' says nothing for the same reason. */
-const SAVE_LABEL: Record<string, string> = {
-  clean: "",
-  pending: "edited",
-  saving: "saving…",
-  held: "not saved",
-  error: "save failed",
-};
 
 /** How often the médiathèque's songs are re-read while a playlist is open — slower than pl8's own poll, this being a cross-app call. */
 const SONGS_POLL_MS = 10_000;
@@ -226,7 +218,7 @@ export function PlaylistEditor({
             {autosave.status === "saving" && (
               <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
             )}
-            <span className="truncate">{SAVE_LABEL[autosave.status]}</span>
+            <span className="truncate">{saveLabel(autosave.status, null)}</span>
           </span>
         </header>
       )}

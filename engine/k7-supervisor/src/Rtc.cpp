@@ -4,6 +4,7 @@
 
 #include "Rtc.h"
 
+#include "Backpressure.h"
 #include "RtcFrames.h"
 
 #include <ixwebsocket/IXWebSocket.h>
@@ -46,6 +47,8 @@ struct Pipe : std::enable_shared_from_this<Pipe> {
     bool ended = false;
     std::vector<rtcframes::Frame> held;
     std::function<void(const std::string&)> log;
+    /** Only the engine socket's callback thread touches it. */
+    FrameShedder shed;
 
     void start(int enginePort)
     {
@@ -112,6 +115,9 @@ struct Pipe : std::enable_shared_from_this<Pipe> {
             held.clear();
         } else if (m->type == ix::WebSocketMessageType::Message) {
             if (!dc->isOpen()) return;
+            // The same rule as the tunnel's: a browser behind a slow path loses meters and audio, never a reply.
+            if (!shed.admit(m->str, m->binary, dc->bufferedAmount())) return;
+            if (const auto n = shed.takeShed(); n && log) log("rtc pipe: dropped " + std::to_string(n) + " meter/audio frame(s) the path could not carry");
             for (const auto& frag : rtcframes::toFragments(m->str, m->binary)) {
                 ::rtc::binary b(frag.size());
                 std::memcpy(b.data(), frag.data(), frag.size());

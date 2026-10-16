@@ -32,6 +32,8 @@ const HISTORY_EVERY = 1000;
 /** A room edited and then left alone this long gets an automatic checkpoint. */
 const CHECKPOINT_IDLE_MS = 10 * 60_000;
 const HEARTBEAT_MS = 20_000;
+/** A room nobody is joined to and nobody touched this long is saved and dropped from memory: it loads again on the next hello. */
+const EVICT_IDLE_MS = 10 * 60_000;
 const MAX_FRAME = 64 * 1024 * 1024;
 
 /** Where one account's rooms are kept, and who a connecting file service is. */
@@ -51,6 +53,8 @@ export interface RelayOptions {
   snapshotEvery?: number;
   historyEvery?: number;
   checkpointIdleMs?: number;
+  /** Tests only: how long an empty room stays in memory. */
+  evictIdleMs?: number;
 }
 
 /** One live room as the history routes reach it: `submit` orders a batch exactly as a replica's is. */
@@ -74,6 +78,8 @@ interface Live {
   sinceSnapshot: number;
   /** When the room was last edited, or null once that edit has its automatic checkpoint. */
   editedAt: number | null;
+  /** When anything last reached the room: a hello, a batch, a history route. */
+  usedAt: number;
 }
 
 /** The prefix that names a room of the shared account (the libraries) rather than one of the caller's. */
@@ -151,6 +157,7 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
   const snapshotEvery = opts.snapshotEvery ?? SNAPSHOT_EVERY;
   const historyEvery = opts.historyEvery ?? HISTORY_EVERY;
   const idleMs = opts.checkpointIdleMs ?? CHECKPOINT_IDLE_MS;
+  const evictMs = opts.evictIdleMs ?? EVICT_IDLE_MS;
   const rooms = new Map<string, Live>();
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME });
 
@@ -167,9 +174,11 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
         sockets: new Map(),
         sinceSnapshot: 0,
         editedAt: null,
+        usedAt: Date.now(),
       };
       rooms.set(key, l);
     }
+    l.usedAt = Date.now();
     return l;
   };
 
@@ -190,19 +199,25 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
   const idleCheck = setInterval(
     () => {
       const now = Date.now();
-      for (const l of rooms.values()) {
-        if (l.editedAt === null || now - l.editedAt < idleMs) continue;
-        l.editedAt = null;
-        if (readCheckpoints(l.dir).at(-1)?.seq === l.room.head) continue;
-        addCheckpoint(l.dir, {
-          seq: l.room.head,
-          name: "auto",
-          ts: now,
-          by: "auto",
-        });
+      for (const [key, l] of rooms) {
+        if (l.editedAt !== null && now - l.editedAt >= idleMs) {
+          l.editedAt = null;
+          if (readCheckpoints(l.dir).at(-1)?.seq !== l.room.head)
+            addCheckpoint(l.dir, {
+              seq: l.room.head,
+              name: "auto",
+              ts: now,
+              by: "auto",
+            });
+        }
+        // An edit still waiting for its checkpoint keeps the room, so the checkpoint is not lost with it.
+        if (l.sockets.size || l.editedAt !== null || now - l.usedAt < evictMs)
+          continue;
+        if (l.sinceSnapshot) snapshot(l, historyEvery);
+        rooms.delete(key);
       }
     },
-    Math.max(10, Math.min(60_000, idleMs / 4)),
+    Math.max(10, Math.min(60_000, Math.min(idleMs, evictMs) / 4)),
   );
   idleCheck.unref();
 

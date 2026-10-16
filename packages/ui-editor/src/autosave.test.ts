@@ -1,6 +1,7 @@
 import { validateFile } from "@studio/song-schema/yaml/validate";
 import { describe, expect, it } from "vitest";
 import {
+  baselineMemo,
   decideAutosave,
   dropBuffer,
   keepBuffer,
@@ -80,5 +81,32 @@ describe("the held buffers", () => {
     expect(recallBuffer("tracks/lead.yaml")).toBe("type: singl\n");
     dropBuffer("tracks/lead.yaml");
     expect(recallBuffer("tracks/lead.yaml")).toBeNull();
+  });
+});
+
+describe("baselineMemo", () => {
+  it("judges the saved text once, however many times the timer fires", () => {
+    let calls = 0;
+    const judge = (path: string, text: string) => {
+      calls++;
+      return validateFile(path, text);
+    };
+    const baseline = baselineMemo();
+    expect(baseline(judge, MODULE, "extends: amp\n")).toBe(true);
+    expect(baseline(judge, MODULE, "extends: amp\n")).toBe(true);
+    expect(calls).toBe(1);
+  });
+
+  it("judges again when the disk text or the file changes", () => {
+    let calls = 0;
+    const judge = (path: string, text: string) => {
+      calls++;
+      return validateFile(path, text);
+    };
+    const baseline = baselineMemo();
+    baseline(judge, MODULE, "extends: amp\n");
+    expect(baseline(judge, MODULE, "extends: [\n")).toBe(false);
+    baseline(judge, "modules/audio/amp/module.yaml", "extends: [\n");
+    expect(calls).toBe(3);
   });
 });

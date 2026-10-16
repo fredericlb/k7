@@ -54,55 +54,62 @@ void addProjectHandlers(HandlerTable& t) {
             ws.send(json{{"type", "error"}, {"message", std::string("bad project: ") + e.what()}}.dump());
             return;
         }
-        // Apply on the engine thread; broadcast the resulting changeset.
-        host.post([session, &host, &broadcastTo, doc = std::move(doc)]() mutable {
-            // What we were asked to play: with the [applied] lines and [applyFull]'s timings, the log answers "what arrived", "what did the engine do" and "why so long".
-            std::cerr << "[project] '" << doc.name << "' " << doc.tempo << "bpm "
-                      << doc.tracks.size() << " track(s) " << countClips(doc)
-                      << " clip(s) " << countPlugins(doc) << " plugin(s)\n";
+        // Apply on the engine thread; broadcast the resulting changeset — unless a newer document overtook this one in the queue (docs/supersede.md).
+        ctx.supersede.postProject(session, [&](SupersedeLedger::Ticket ticket) {
+            host.post([session, &host, &broadcastTo, ticket, doc = std::move(doc)]() mutable {
+                // No `busy` and no `applied`: the document that overtook it answers for both.
+                if (SupersedeLedger::superseded(ticket)) {
+                    std::cerr << "[project] '" << doc.name << "' superseded before it ran — skipped\n";
+                    return;
+                }
+                // What we were asked to play: with the [applied] lines and [applyFull]'s timings, the log answers "what arrived", "what did the engine do" and "why so long".
+                std::cerr << "[project] '" << doc.name << "' " << doc.tempo << "bpm "
+                          << doc.tracks.size() << " track(s) " << countClips(doc)
+                          << " clip(s) " << countPlugins(doc) << " plugin(s)\n";
 
-            // Say that the engine is about to go deaf — a first apply instantiates every plugin, seconds long, on the thread that reads the transport; sent inside the lambda so it marks when the work starts.
-            broadcastTo(session, json{{"type", "busy"}, {"busy", true}});
+                // Say that the engine is about to go deaf — a first apply instantiates every plugin, seconds long, on the thread that reads the transport; sent inside the lambda so it marks when the work starts.
+                broadcastTo(session, json{{"type", "busy"}, {"busy", true}});
 
-            // Timed whichever path it takes: `[applyFull]` prints its own phases, but an INCREMENTAL apply — the common one — has only this number (std::chrono, this being the JUCE-free half).
-            const auto applyT0 = std::chrono::steady_clock::now();
-            studio::ProjectDiff changes;
-            try {
-                changes = host.apply(session, doc, "");   // paths are absolute
-            } catch (const std::exception& e) {
-                // Caught here rather than by post()'s net, so the client that saw busy:true also sees it end.
-                std::cerr << "[project] apply failed: " << e.what() << "\n";
-                broadcastTo(session, json{{"type", "error"}, {"message", std::string("apply failed: ") + e.what()}});
+                // Timed whichever path it takes: `[applyFull]` prints its own phases, but an INCREMENTAL apply — the common one — has only this number (std::chrono, this being the JUCE-free half).
+                const auto applyT0 = std::chrono::steady_clock::now();
+                studio::ProjectDiff changes;
+                try {
+                    changes = host.apply(session, doc, "");   // paths are absolute
+                } catch (const std::exception& e) {
+                    // Caught here rather than by post()'s net, so the client that saw busy:true also sees it end.
+                    std::cerr << "[project] apply failed: " << e.what() << "\n";
+                    broadcastTo(session, json{{"type", "error"}, {"message", std::string("apply failed: ") + e.what()}});
+                    broadcastTo(session, json{{"type", "busy"}, {"busy", false}});
+                    return;
+                }
+                const double applyMs =
+                    std::chrono::duration<double, std::milli>(
+                        std::chrono::steady_clock::now() - applyT0)
+                        .count();
+                json r{{"type", "applied"}, {"changes", json::array()}};
+                std::vector<std::string> described;
+                described.reserve(changes.size());
+                for (const auto& c : changes) {
+                    described.push_back(studio::describe(c));
+                    r["changes"].push_back(described.back());
+                }
+                broadcastTo(session, r);
+
+                // The diff the engine ran, in the LOG rather than only at whichever client is listening: a no-op re-send says so, and long changesets are capped so one apply cannot bury the rest.
+                if (described.empty()) {
+                    std::cerr << "[applied] no changes (project already current)\n";
+                } else {
+                    constexpr size_t kMaxLogged = 12;
+                    std::cerr << "[applied] " << described.size() << " change(s) in "
+                              << applyMs << "ms\n";
+                    for (size_t i = 0; i < described.size() && i < kMaxLogged; ++i)
+                        std::cerr << "    " << described[i] << "\n";
+                    if (described.size() > kMaxLogged)
+                        std::cerr << "    … and " << (described.size() - kMaxLogged)
+                                  << " more\n";
+                }
                 broadcastTo(session, json{{"type", "busy"}, {"busy", false}});
-                return;
-            }
-            const double applyMs =
-                std::chrono::duration<double, std::milli>(
-                    std::chrono::steady_clock::now() - applyT0)
-                    .count();
-            json r{{"type", "applied"}, {"changes", json::array()}};
-            std::vector<std::string> described;
-            described.reserve(changes.size());
-            for (const auto& c : changes) {
-                described.push_back(studio::describe(c));
-                r["changes"].push_back(described.back());
-            }
-            broadcastTo(session, r);
-
-            // The diff the engine ran, in the LOG rather than only at whichever client is listening: a no-op re-send says so, and long changesets are capped so one apply cannot bury the rest.
-            if (described.empty()) {
-                std::cerr << "[applied] no changes (project already current)\n";
-            } else {
-                constexpr size_t kMaxLogged = 12;
-                std::cerr << "[applied] " << described.size() << " change(s) in "
-                          << applyMs << "ms\n";
-                for (size_t i = 0; i < described.size() && i < kMaxLogged; ++i)
-                    std::cerr << "    " << described[i] << "\n";
-                if (described.size() > kMaxLogged)
-                    std::cerr << "    … and " << (described.size() - kMaxLogged)
-                              << " more\n";
-            }
-            broadcastTo(session, json{{"type", "busy"}, {"busy", false}});
+            });
         });
     });
 
@@ -120,36 +127,42 @@ void addProjectHandlers(HandlerTable& t) {
                         .dump());
             return;
         }
-        host.post([session, &host, &broadcastTo,
-                   tracks = std::move(tracks)]() mutable {
-            studio::ProjectDoc doc = host.current(session);
-            if (doc.tracks.empty()) {
-                broadcastTo(session,
-                            json{{"type", "error"},
-                                 {"message", "tracks: this session holds no project"}});
-                return;
-            }
-            size_t unknown = 0;
-            for (auto& t : tracks) {
-                const auto it = std::find_if(
-                    doc.tracks.begin(), doc.tracks.end(),
-                    [&](const studio::TrackDoc& x) { return x.id == t.id; });
-                if (it == doc.tracks.end()) {
-                    ++unknown;
-                    continue;
+        std::vector<std::string> ids;
+        ids.reserve(tracks.size());
+        for (const auto& tr : tracks) ids.push_back(tr.id);
+        ctx.supersede.postTracks(session, std::move(ids), [&](SupersedeLedger::Ticket ticket) {
+            host.post([session, &host, &broadcastTo, ticket,
+                       tracks = std::move(tracks)]() mutable {
+                if (SupersedeLedger::superseded(ticket)) return;
+                studio::ProjectDoc doc = host.current(session);
+                if (doc.tracks.empty()) {
+                    broadcastTo(session,
+                                json{{"type", "error"},
+                                     {"message", "tracks: this session holds no project"}});
+                    return;
                 }
-                *it = std::move(t);
-            }
-            if (unknown > 0) {
-                // Stamped, so the surface driving THIS project is the one told.
-                studio::WarningScope scoped(session);
-                studio::warn(std::to_string(unknown) +
-                                 " track(s) named in an update this project does not "
-                                 "hold — the whole document has to be re-sent",
-                             "tracks");
-            }
-            // No `busy` and no `applied`: this path is incremental by construction, and announcing six times a second would drown the changeset that matters.
-            host.apply(session, doc, "");
+                size_t unknown = 0;
+                for (auto& t : tracks) {
+                    const auto it = std::find_if(
+                        doc.tracks.begin(), doc.tracks.end(),
+                        [&](const studio::TrackDoc& x) { return x.id == t.id; });
+                    if (it == doc.tracks.end()) {
+                        ++unknown;
+                        continue;
+                    }
+                    *it = std::move(t);
+                }
+                if (unknown > 0) {
+                    // Stamped, so the surface driving THIS project is the one told.
+                    studio::WarningScope scoped(session);
+                    studio::warn(std::to_string(unknown) +
+                                     " track(s) named in an update this project does not "
+                                     "hold — the whole document has to be re-sent",
+                                 "tracks");
+                }
+                // No `busy` and no `applied`: this path is incremental by construction, and announcing six times a second would drown the changeset that matters.
+                host.apply(session, doc, "");
+            });
         });
     });
 
@@ -194,7 +207,7 @@ void addProjectHandlers(HandlerTable& t) {
 
     t.add({"preview"}, [](ServeContext& ctx, ix::WebSocket&, const json& j, const std::string& session, const std::string&) {
         auto& host = ctx.host;
-        // Audition one sample over [start, start+length) seconds, length <= 0 being the whole file — independent of the transport, so it works while stopped.
+        // Audition one sample over [start, start+length) seconds, length <= 0 being up to 30 s of it — independent of the transport, so it works while stopped.
         const std::string file = j.value("file", std::string{});
         const double start = j.value("start", 0.0);
         const double length = j.value("length", 0.0);

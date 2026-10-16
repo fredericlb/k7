@@ -245,7 +245,7 @@ export class EngineControl extends EventEmitter {
     this.send({ type: "transport", action });
   }
 
-  // Audition a sample over [start, start+length) seconds through a one-shot voice; `length` <= 0 means the file's natural length.
+  // Audition a sample over [start, start+length) seconds through a one-shot voice; `length` <= 0 means to the end of the file, capped by the engine at 30 s.
   preview(file: string, start: number, length: number): void {
     this.send({ type: "preview", file, start, length });
   }

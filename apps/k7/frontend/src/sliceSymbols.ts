@@ -44,12 +44,21 @@ const fmt = (v: number) => String(round(v));
 
 /** Each symbol's from/to and the doc positions of those NUMBERS — the positions are the parser's own node ranges, not re-derived. */
 export function scanSlices(doc: string): SliceSym[] | null {
+  // Every project file's keystroke reaches here through the colouring field; a text naming no `rack_type` cannot be a slice rack.
+  if (!doc.includes("rack_type")) return null;
   let parsed: ReturnType<typeof parseDocument>;
   try {
     parsed = parseDocument(doc, { version: "1.2" });
   } catch {
     return null;
   }
+  return scanSlicesDoc(parsed);
+}
+
+/** `scanSlices` over a document already parsed, so the editor's derived reads share one parse. */
+export function scanSlicesDoc(
+  parsed: ReturnType<typeof parseDocument>,
+): SliceSym[] | null {
   if (parsed.errors.length) return null; // mid-keystroke; keep the picture we have
   const rack = parsed.get("rack");
   if (!isMap(rack)) return null;

@@ -75,8 +75,7 @@ jobs:
       - uses: ./.github/actions/node
 
 
-      # `engine/k7-runtime` declares no `build`/`test` script at all, so nothing below
-      # ever tries to compile C++.
+      # Only apps/k7 and packages are named, so `engine/k7-runtime`'s C++ test script never runs here.
       - name: test
         run: npm run test --workspace=apps/k7 --workspace=packages --if-present
 

@@ -7,6 +7,7 @@ package se.frediver.k7
 
 import android.content.Context
 import android.os.Build
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import org.json.JSONObject
@@ -30,28 +31,64 @@ object SupervisorHost {
     private var lastState: JSONObject? = null
     private var engineExit: Int? = null
     private var restarting = false
+    private var stopping = false
+    private var relaunchMs = RELAUNCH_FIRST_MS
 
-    /** Start once per process; a later call only keeps the app context. */
+    /** Start once per process; a later call while one runs does nothing. */
     @Synchronized
     fun start(context: Context) {
         if (process != null) return
-        val app = context.applicationContext
+        stopping = false
+        launch(context.applicationContext)
+    }
+
+    @Synchronized
+    private fun launch(app: Context) {
         pinLocalStudio(EngineBridge.stateDir(app))
         // Packaged as a lib*.so so the installer extracts it, executable, beside the engine's library.
         val binary = File(app.applicationInfo.nativeLibraryDir, "libk7supervisor.so")
         val p = ProcessBuilder(binary.absolutePath).apply {
             environment()["STUDIO_HOME"] = EngineBridge.stateDir(app).absolutePath
             environment()["STUDIO_MACHINE_NAME"] = deviceName(app)
-            // No Downloads tab on the phone to choose in, so every instrument is fetched (k7-supervisor docs/instruments.md).
-            environment()["STUDIO_INSTRUMENTS"] = "all"
             // The local backend's port, which the supervisor reads to reach a loopback registry.
             environment()["STUDIO_PORTS"] = BackendHost.PORTS_SPEC
             TrustedCas.file(app).takeIf { it.isFile }?.let { environment()["STUDIO_EXTRA_CA_CERTS"] = it.absolutePath }
         }.start()
         process = p
         stdin = p.outputStream.bufferedWriter()
+        val since = SystemClock.elapsedRealtime()
         Thread({ p.inputStream.bufferedReader().forEachLine { onFrame(app, p, it) } }, "k7-supervisor-out").start()
         Thread({ p.errorStream.bufferedReader().forEachLine { Log.i(TAG, it) } }, "k7-supervisor-err").start()
+        Thread({ watch(app, p, since) }, "k7-supervisor-wait").start()
+    }
+
+    /** A supervisor that dies unasked is relaunched on a doubling delay, reset by a healthy run (docs/android.md). */
+    private fun watch(app: Context, p: Process, since: Long) {
+        val code = p.waitFor()
+        val delay = synchronized(this) {
+            // Replaced by restart(), or quit on purpose: nothing to bring back.
+            if (process !== p) return
+            process = null
+            stdin = null
+            if (stopping) return
+            if (SystemClock.elapsedRealtime() - since >= HEALTHY_MS) relaunchMs = RELAUNCH_FIRST_MS
+            relaunchMs.also { relaunchMs = minOf(it * 2, RELAUNCH_MAX_MS) }
+        }
+        Log.w(TAG, "supervisor exited ($code), relaunched in $delay ms")
+        down("the supervisor stopped ($code), restarting…")
+        Thread.sleep(delay)
+        synchronized(this) { if (!stopping && process == null) launch(app) }
+    }
+
+    /** The last snapshot, marked down, so a page shows why the engine's line went stale rather than its old status. */
+    private fun down(why: String) {
+        val frame = synchronized(this) {
+            JSONObject((lastState ?: JSONObject().put("t", "state")).toString())
+                .put("status", "error")
+                .put("error", why)
+                .also { lastState = it }
+        }
+        listeners.forEach { it.onState(frame) }
     }
 
     /** One more watcher, told at once what is already known. */
@@ -100,6 +137,7 @@ object SupervisorHost {
     /** Close stdin, which IS the supervisor's quit: it deregisters, asks the engine to stop, and exits. */
     fun stop(timeoutMs: Long) {
         val p = synchronized(this) {
+            stopping = true
             runCatching { stdin?.close() }
             stdin = null
             process
@@ -110,8 +148,8 @@ object SupervisorHost {
     private fun onFrame(context: Context, from: Process, line: String) {
         val frame = runCatching { JSONObject(line) }.getOrNull() ?: return
         when (frame.optString("t")) {
-            "state" -> {
-                synchronized(this) { lastState = frame }
+            // A dead supervisor's last frames would cover the line that says it is down.
+            "state" -> if (synchronized(this) { (from == process).also { if (it) lastState = frame } }) {
                 listeners.forEach { it.onState(frame) }
             }
             // Only the CURRENT supervisor's: a restarted one's last words — "stop the engine" — may still be in its pipe.
@@ -151,10 +189,30 @@ object SupervisorHost {
         file.writeText(settings.put("registryUrls", pinned).toString(2))
     }
 
+    /** The device token `origin` paired this phone with, for the supervisor's heartbeat there; read at its next start. */
+    fun rememberDeviceToken(context: Context, origin: String, token: String) {
+        if (origin.isEmpty() || token.isEmpty()) return
+        val home = EngineBridge.stateDir(context.applicationContext)
+        home.mkdirs()
+        val file = File(home, "engine-host.json")
+        synchronized(this) {
+            val settings = runCatching { JSONObject(file.readText()) }.getOrNull() ?: JSONObject()
+            val tokens = settings.optJSONObject("deviceTokens") ?: JSONObject()
+            // Beside, then renamed over: the supervisor reads this file, and must never find half of it.
+            val tmp = File(home, "engine-host.json.tmp")
+            tmp.writeText(settings.put("deviceTokens", tokens.put(origin, token)).toString(2))
+            if (!tmp.renameTo(file)) file.writeText(tmp.readText()).also { tmp.delete() }
+        }
+    }
+
     // What the picker shows for this engine: the name the user gave the phone, else its model.
     private fun deviceName(context: Context): String =
         Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME) ?: Build.MODEL
 
     private const val TAG = "k7-supervisor"
     private const val ENGINE_STOP_MS = 3000L
+    // The desktop host's bounds (packages/supervisor-host/src/supervisorHost.ts).
+    private const val RELAUNCH_FIRST_MS = 1_000L
+    private const val RELAUNCH_MAX_MS = 30_000L
+    private const val HEALTHY_MS = 20_000L
 }

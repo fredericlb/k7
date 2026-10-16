@@ -61,6 +61,10 @@ The handler is a **named** lambda, `onMessage`, for that reason alone: the regis
 
 ## client → server
 
+`project`, `tracks` and `set-plugin-param` may be skipped while still queued, when a newer one of the
+same session makes them pointless; every other verb fences them, so order between verbs holds —
+[supersede.md](supersede.md).
+
 | message | meaning |
 |---|---|
 | `{ type: "project", doc: {…ProjectDoc…} }` | set or update the song |
@@ -69,7 +73,7 @@ The handler is a **named** lambda, `onMessage`, for that reason alone: the regis
 | `{ type: "transport", action: "play" \| "stop" \| "toggle" \| "rewind" }` | bare transport verbs |
 | `{ type: "transport", action: "seek", position: 12.5 }` | seconds |
 | `{ type: "transport", action: "loop", start: 4, end: 8, enabled: true }` | loop region, in seconds |
-| `{ type: "preview", file: "/abs/kick.wav", start: 0, length: 0 }` | audition a sample |
+| `{ type: "preview", file: "/abs/kick.wav", start: 0, length: 0 }` | audition a sample; a `length` of 0 plays to the end of the file, at most 30 s ([engineHost.md](engineHost.md)) |
 | `{ type: "note-preview", track: "melody", key: 60, vel: 1 }` | audition ONE note through that track's own chain — the piano roll's click. Transport-independent like `preview`, but not the same thing: `preview` loads a FILE into a hidden sampler and bypasses every chain, while this plays a note into the track the loaded song already names, so what you hear is the instrument you are writing for. The engine releases it after 100 ms, which is why there is no note-off on the wire: a release that has to arrive is a hanging voice whenever it does not |
 | `{ type: "midi-live", track: "keys", data: [144, 60, 100] }` | a keyboard PLAYED into that track's own chain: one channel message (note on/off, pedal, bend, CC) injected as it arrives, on channel 1 whatever the keyboard sent on. Unlike `note-preview` the release DOES travel the wire, since a played note lasts as long as the key is held; the browser sends all-notes-off and sustain-up when the lane loses its arm, which is what keeps a lost note-off from hanging a voice for good. Sysex and system bytes are dropped |
 | `{ type: "watch-plugin-params", id: "chain:module", on: true }` | follow a plugin's values live |

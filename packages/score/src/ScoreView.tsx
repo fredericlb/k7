@@ -13,7 +13,10 @@ import {
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
 export interface ScoreState {
+  /** The score is drawn, so Play can be pressed; the player itself loads on that first press. */
   ready: boolean;
+  /** The player and its soundfont are loading, after the first Play. */
+  loading: boolean;
   playing: boolean;
 }
 
@@ -50,9 +53,26 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
   const latest = useRef({ transpose, scale, onState, onError });
   latest.current = { transpose, scale, onState, onError };
 
+  // Play pressed before the player was ready: honoured once it is, or dropped by a second press.
+  const playWhenReady = useRef(false);
+  const enablePlayer = useRef<() => void>(() => {});
+
   useImperativeHandle(ref, () => ({
-    playPause: () => api.current?.playPause(),
-    stop: () => api.current?.stop(),
+    playPause: () => {
+      const tab = api.current;
+      if (!tab) return;
+      if (tab.settings.player.playerMode !== PlayerMode.Disabled) {
+        if (tab.isReadyForPlayback) tab.playPause();
+        else playWhenReady.current = !playWhenReady.current;
+        return;
+      }
+      playWhenReady.current = true;
+      enablePlayer.current();
+    },
+    stop: () => {
+      playWhenReady.current = false;
+      api.current?.stop();
+    },
   }));
 
   useEffect(() => {
@@ -63,7 +83,8 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
       core: { fontDirectory: `${base}font/` },
       display: { scale: latest.current.scale, layoutMode: LayoutMode.Page },
       player: {
-        playerMode: PlayerMode.EnabledSynthesizer,
+        // The 1.3 MB soundfont and the synth worker load on the first Play, not on every score opened (../docs/score.md).
+        playerMode: PlayerMode.Disabled,
         soundFont: `${base}soundfont/sonivox.sf2`,
         enableCursor: true,
         enableUserInteraction: true,
@@ -75,7 +96,15 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
     api.current = tab;
     let playing = false;
     let ready = false;
-    const report = () => latest.current.onState?.({ ready, playing });
+    let loading = false;
+    const report = () => latest.current.onState?.({ ready, loading, playing });
+    playWhenReady.current = false;
+    enablePlayer.current = () => {
+      tab.settings.player.playerMode = PlayerMode.EnabledSynthesizer;
+      tab.updateSettings();
+      loading = true;
+      report();
+    };
 
     const offs = [
       tab.scoreLoaded.on((score) => {
@@ -84,10 +113,16 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
           latest.current.transpose,
         );
         tab.updateSettings();
-      }),
-      tab.playerReady.on(() => {
         ready = true;
         report();
+      }),
+      tab.playerReady.on(() => {
+        loading = false;
+        report();
+        if (playWhenReady.current) {
+          playWhenReady.current = false;
+          tab.play();
+        }
       }),
       tab.playerStateChanged.on((e) => {
         playing = e.state === 1;

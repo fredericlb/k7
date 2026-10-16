@@ -13,9 +13,7 @@
     "./input-channels": "./src/InputChannelBar.tsx",
     "./yaml-pane": "./src/YamlPane.tsx",
     "./param-drag": "./src/paramDrag.ts",
-    "./ai-organize": "./src/aiOrganize.ts",
-    "./ai-prompt": "./src/aiPrompt.ts",
-    "./layout-twins": "./src/layoutTwins.ts"
+    "./ai-organize": "./src/aiOrganize.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -30,9 +28,10 @@
     "@frediverse/ui": "*",
     "@replit/codemirror-vim": "^6.3.0",
     "@studio/engine-protocol": "*",
-    "@studio/project-shell": "*",
     "@studio/graph-model": "*",
     "@studio/k7x": "*",
+    "@studio/panel-rules": "*",
+    "@studio/project-shell": "*",
     "@studio/song-schema": "*",
     "@studio/ui-editor": "*",
     "@studio/web-protocol": "*",

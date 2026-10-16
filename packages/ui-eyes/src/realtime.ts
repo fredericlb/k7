@@ -2,16 +2,19 @@
 // transport of the host's own). One <video> per LAYER, and a SECOND one only on a lane that
 // dissolves: a lane shows one clip at a time except across a transition, so a per-clip element
 // would still mean N decoders for one picture. The clock and each <video> drift, corrected
-// two-speed: playbackRate for a small drift, a hard seek for a jump.
+// two-speed: playbackRate for a small drift, a hard seek for a jump. A document edit is a
+// setScene, never a new driver: elements are kept by the src they hold (lanes.ts).
 // Full rationale: docs/realtime.md, and song-video/docs/transitions.md.
 
 import { type LensOpener, localLens } from "./camera";
 import type { SeekingClock } from "./clock";
 import type { LayerBlend } from "./compositor";
 import { Compositor } from "./compositor";
+import { DrawGate, STILL_STAMP, UploadMemo, videoStamp } from "./frameGate";
+import { buildLanes, closeLive, type Lane, releaseVideo } from "./lanes";
 import { StaticMedia } from "./media";
 import { type Motion, slotMotions } from "./motion";
-import type { VideoLayer, VideoScene } from "./scene";
+import type { VideoScene } from "./scene";
 import {
   type Active,
   layerFrameAt,
@@ -27,24 +30,6 @@ const MIN_RATE = 0.0625; // the slowest playbackRate browsers play; below it, an
 const MAX_RATE = 16; // …and the fastest
 const STEP_EPS = 1 / 60; // a stepped element is re-seeked once it is half a frame off at 30 fps
 
-// Per-layer runtime state. `els` is empty for a SHAPE layer: no media to decode, no clock to chase.
-// The second element exists only where a `fade_in` needs two pictures at once.
-interface Lane {
-  layer: VideoLayer;
-  els: HTMLVideoElement[];
-  loaded: (number | null)[]; // which clip INDEX each element is loaded with
-  settleUntil: number[];
-  /** A LIVE lane: one element carrying a camera's stream. It chases no clock and holds no clip —
-   *  a lens has no timeline — so every seek and drift rule below skips it (docs/camera.md). */
-  live?: {
-    el: HTMLVideoElement;
-    stream: MediaStream | null;
-    problem: string | null;
-    /** The lens's own release, beyond stopping its tracks. */
-    close?: () => void;
-  };
-}
-
 // The frontend can read this to show a drift debug line (see the plan's verification).
 export interface LaneDebug {
   id: string;
@@ -56,60 +41,40 @@ export interface LaneDebug {
 const clamp = (v: number, lo: number, hi: number) =>
   v < lo ? lo : v > hi ? hi : v;
 
-/** The parked, decodable element a lane draws from — the same 1px trick a clip's uses. */
-function liveElement(host: HTMLElement): HTMLVideoElement {
-  const el = document.createElement("video");
-  el.muted = true;
-  el.playsInline = true;
-  el.style.cssText =
-    "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:0;top:0";
-  host.appendChild(el);
-  return el;
-}
-
-/** Open the lens a layer names and hand it to `live.el`. Fire and forget: the first frames arrive
- *  whenever the browser and the person granting permission agree, and the lane draws nothing until
- *  they do. Every failure is CARRIED rather than thrown — a refused camera must not take the whole
- *  viewport down with it, and the other layers have pictures to show. See docs/camera.md. */
-async function openCamera(
-  label: string,
-  live: NonNullable<Lane["live"]>,
-  open: LensOpener,
-  gone: () => boolean,
-) {
-  const lens = await open(label);
-  // The driver was destroyed while the lens opened (a permission prompt, a slow device): released here, or the lamp stays lit.
-  if (gone()) {
-    for (const track of lens.stream?.getTracks() ?? []) track.stop();
-    lens.close?.();
-    return;
-  }
-  live.close = lens.close;
-  live.problem = lens.problem;
-  if (!lens.stream) return;
-  live.stream = lens.stream;
-  live.el.srcObject = lens.stream;
-  await live.el.play().catch(() => undefined);
-}
-
 export class RealtimeDriver {
-  private comp: Compositor;
-  private lanes: Lane[];
+  private lanes: Lane[] = [];
+  private scene: VideoScene;
   // The pictures drawn with no element — stills and captions — one decode or one draw each (media.ts).
   private media: StaticMedia;
   private raf = 0;
   private disposed = false;
+  // Read by a lens still opening: it may land after the driver it was opened for is gone.
+  private gone = () => this.disposed;
+  // Filled only once somebody read it: the readout polls at 5 Hz, and only while profiling.
   private debug: LaneDebug[] = [];
+  private debugWanted = false;
+  // What each slot already holds and what the screen already shows, so an unchanged frame costs nothing (frameGate.ts).
+  private uploads = new UploadMemo();
+  private drawGate = new DrawGate();
+  private audioRev = 0;
+  // The frame's collections, cleared and refilled each tick rather than allocated anew.
+  private visible = new Set<string>();
+  private blends = new Map<string, LayerBlend>();
+  private motions = new Map<string, [Motion | null, Motion | null]>();
+  private effects = new Map<string, [string | null, string | null]>();
+  private used = new Set<number>();
+  private uploaded = false;
 
   private constructor(
-    comp: Compositor,
-    lanes: Lane[],
+    private readonly comp: Compositor,
+    private readonly host: HTMLElement,
     private readonly clock: SeekingClock,
-    viewport: [number, number],
+    private readonly openLens: LensOpener,
+    scene: VideoScene,
   ) {
-    this.comp = comp;
-    this.lanes = lanes;
-    this.media = new StaticMedia(viewport[0], viewport[1]);
+    this.scene = scene;
+    this.media = new StaticMedia(scene.viewport[0], scene.viewport[1]);
+    this.lanes = buildLanes([], scene, host, openLens, this.gone);
     // A seek/loop/transport edge: land every element on its exact frame at once.
     clock.onSeek = () => this.reseekAll();
   }
@@ -122,51 +87,48 @@ export class RealtimeDriver {
     openLens: LensOpener = localLens,
   ): RealtimeDriver {
     const comp = Compositor.create(host, scene);
-    // Read by a lens still opening: it may land after the driver it was opened for is gone.
-    let driver: RealtimeDriver | null = null;
-    const lanes: Lane[] = scene.layers.map((layer) => {
-      // A LIVE lane: one element, one stream, and nothing to decode or chase (docs/camera.md).
-      if (layer.camera !== undefined) {
-        const el = liveElement(host);
-        const live: Lane["live"] = { el, stream: null, problem: null };
-        openCamera(layer.camera, live, openLens, () => !!driver?.disposed);
-        return { layer, els: [], loaded: [], settleUntil: [], live };
-      }
-      // A shape layer has no media — the compositor draws its fills, so it needs no element and no drift control.
-      if (layer.shapes?.length)
-        return { layer, els: [], loaded: [], settleUntil: [] };
-      // Two decoders ONLY where a fade_in asks for two pictures; a fade_out goes to nothing.
-      const n = layer.clips.some((c) => c.fadeIn) ? 2 : 1;
-      const els = Array.from({ length: n }, () => {
-        const el = document.createElement("video");
-        el.muted = true;
-        el.playsInline = true;
-        el.preload = "auto";
-        el.crossOrigin = "anonymous";
-        // Parked but decodable: 1px + invisible, NOT display:none.
-        el.style.cssText =
-          "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:0;top:0";
-        host.appendChild(el);
-        return el;
-      });
-      return {
-        layer,
-        els,
-        loaded: els.map(() => null),
-        settleUntil: els.map(() => 0),
-      };
-    });
-    driver = new RealtimeDriver(comp, lanes, clock, scene.viewport);
+    const driver = new RealtimeDriver(comp, host, clock, openLens, scene);
     driver.watchSight(host);
     driver.loop();
     return driver;
   }
 
-  /** Which element should carry `active`: the one already holding that clip, else any free one. */
-  // By clip INDEX and never by src: a shot dissolving into itself has one src on two placements.
+  /** The scene being drawn — a host compares it to skip a setScene that would change nothing. */
+  get current(): VideoScene {
+    return this.scene;
+  }
+
+  /** Draw a new scene with the same context: elements still playing a src are kept, the rest made or released. */
+  setScene(scene: VideoScene): void {
+    if (scene === this.scene || this.disposed) return;
+    this.scene = scene;
+    this.comp.setScene(scene);
+    this.lanes = buildLanes(
+      this.lanes,
+      scene,
+      this.host,
+      this.openLens,
+      this.gone,
+    );
+    this.slots.clear();
+    this.media.reset(scene.viewport[0], scene.viewport[1]);
+    // The compositor's textures were rebuilt empty: every slot uploads again, and the frame is drawn.
+    this.uploads.forget();
+    this.drawGate.invalidate();
+    // Stopped, nothing chases the clock, so an edit that moved a shot is landed here; rolling, the drift control does it.
+    if (!this.clock.isPlaying()) this.reseekAll(STEP_EPS);
+  }
+
+  /** Which element should carry `active`: the one holding that clip, else one holding its src, else any free one. */
+  // INDEX first: a shot dissolving into itself has one src on two placements, and each keeps its own element.
   private claim(lane: Lane, active: Active, used: Set<number>): number | null {
     for (let e = 0; e < lane.els.length; e++)
       if (!used.has(e) && lane.loaded[e] === active.index) {
+        used.add(e);
+        return e;
+      }
+    for (let e = 0; e < lane.els.length; e++)
+      if (!used.has(e) && lane.srcs[e] === active.clip.src) {
         used.add(e);
         return e;
       }
@@ -176,6 +138,20 @@ export class RealtimeDriver {
         return e;
       }
     return null;
+  }
+
+  // One line of the debug readout, written only while somebody reads it.
+  private note(id: string, active: boolean, errMs: number, rate: number): void {
+    if (this.debugWanted) this.debug.push({ id, active, errMs, rate });
+  }
+
+  // Point element `e` at clip `active`, re-pointing its src only when the clip plays another file.
+  private point(lane: Lane, e: number, active: Active): void {
+    if (lane.srcs[e] !== active.clip.src) {
+      lane.els[e].src = active.clip.src;
+      lane.srcs[e] = active.clip.src;
+    }
+    lane.loaded[e] = active.index;
   }
 
   /** Point element `e` at `active`'s clip, correct its drift, and answer whether it has a frame to give. */
@@ -188,8 +164,7 @@ export class RealtimeDriver {
     const el = lane.els[e];
     // Switch source at a cut. A load resets currentTime, so seek and let the drift control settle it from there.
     if (lane.loaded[e] !== active.index) {
-      if (el.src !== active.clip.src) el.src = active.clip.src;
-      lane.loaded[e] = active.index;
+      this.point(lane, e, active);
       lane.settleUntil[e] = performance.now() + SETTLE_MS;
     }
 
@@ -206,12 +181,7 @@ export class RealtimeDriver {
     if (!(speed >= MIN_RATE && speed <= MAX_RATE)) {
       if (!el.paused) el.pause();
       if (Math.abs(err) > STEP_EPS && !el.seeking) this.seekEl(lane, e, want);
-      this.debug.push({
-        id: lane.layer.id,
-        active: true,
-        errMs: Math.round(err * 1000),
-        rate: 0,
-      });
+      this.note(lane.layer.id, true, Math.round(err * 1000), 0);
       return true;
     }
     if (Math.abs(err) > HARD_SEEK) {
@@ -232,12 +202,7 @@ export class RealtimeDriver {
     if (playing && el.paused) void el.play().catch(() => {});
     if (!playing && !el.paused) el.pause();
 
-    this.debug.push({
-      id: lane.layer.id,
-      active: true,
-      errMs: Math.round(err * 1000),
-      rate: el.playbackRate,
-    });
+    this.note(lane.layer.id, true, Math.round(err * 1000), el.playbackRate);
     return true;
   }
 
@@ -264,8 +229,12 @@ export class RealtimeDriver {
     if (typeof IntersectionObserver === "undefined") return;
     this.sight = new IntersectionObserver((entries) => {
       const seen = entries.some((e) => e.isIntersecting);
-      // Back in sight: every element lands on its frame at once, as after a seek.
-      if (seen && !this.onScreen) this.reseekAll();
+      // Back in sight: every element lands on its frame at once, as after a seek, and the frame is drawn anew.
+      if (seen && !this.onScreen) {
+        this.reseekAll();
+        this.uploads.forget();
+        this.drawGate.invalidate();
+      }
       this.onScreen = seen;
     });
     this.sight.observe(host);
@@ -276,7 +245,7 @@ export class RealtimeDriver {
     // Out of sight: the elements are paused once and nothing is drawn — the loop itself stays, to notice the return.
     if (!this.onScreen) {
       if (!this.parked) {
-        this.debug = [];
+        this.debug.length = 0;
         for (const lane of this.lanes) this.park(lane);
         this.parked = true;
       }
@@ -285,47 +254,48 @@ export class RealtimeDriver {
     this.parked = false;
     const t = this.clock.nowSec();
     const playing = this.clock.isPlaying();
-    const visible = new Set<string>();
-    const blends = new Map<string, LayerBlend>();
-    const motions = new Map<string, [Motion | null, Motion | null]>();
-    const effects = new Map<string, [string | null, string | null]>();
-    this.debug = [];
+    const visible = this.visible;
+    const blends = this.blends;
+    const motions = this.motions;
+    const effects = this.effects;
+    const used = this.used;
+    visible.clear();
+    blends.clear();
+    motions.clear();
+    effects.clear();
+    this.debug.length = 0;
+    this.uploaded = false;
 
     for (const lane of this.lanes) {
+      const id = lane.layer.id;
       // A hidden layer is omitted, exactly as export does — otherwise preview would show a track the render drops.
       if (lane.layer.hidden) {
         this.park(lane);
         continue;
       }
 
-      // A LIVE lane draws whatever the lens is showing: no clip, no seek, no drift — and it is
-      // drawn while the transport is STOPPED too, which is what "live" has to mean.
+      // A LIVE lane draws whatever the lens shows, with no clip, seek or drift — and while STOPPED too, which is what "live" means.
       if (lane.live) {
         if (lane.live.stream) {
-          visible.add(lane.layer.id);
-          this.comp.upload(lane.layer.id, lane.live.el, 0);
+          visible.add(id);
+          // A camera has no position to compare, so its every tick is a new picture.
+          this.upload(id, lane.live.el, 0, null);
         }
-        this.debug.push({
-          id: lane.layer.id,
-          active: !!lane.live.stream,
-          errMs: 0,
-          rate: 1,
-        });
+        this.note(id, !!lane.live.stream, 0, 1);
         continue;
       }
 
-      // A shape layer has nothing to decode or seek: its own ACTIVATION spans say when it draws,
-      // and a layer stating none draws throughout — the rule is timeline.ts's (docs/shapes.md).
+      // A shape layer has nothing to decode: its ACTIVATION spans say when it draws, a layer stating none draws throughout (docs/shapes.md).
       if (!lane.els.length) {
         const on = shapesVisibleAt(lane.layer, t);
-        if (on) visible.add(lane.layer.id);
+        if (on) visible.add(id);
         // An activation may animate too, which moves the whole lane of shapes (docs/motion.md).
         if (on && lane.layer.clips.length)
           motions.set(
-            lane.layer.id,
-            slotMotions(layerFrameAt(lane.layer, t), t),
+            id,
+            slotMotions(layerFrameAt(lane.layer, t), t, this.tuples(id).m),
           );
-        this.debug.push({ id: lane.layer.id, active: on, errMs: 0, rate: 1 });
+        this.note(id, on, 0, 1);
         continue;
       }
 
@@ -337,54 +307,27 @@ export class RealtimeDriver {
       }
 
       // Slot 0 is the outgoing picture and slot 1 the incoming one; a cut uses slot 0 alone.
-      const wanted: { active: Active; slot: 0 | 1 }[] = frame.blend
-        ? [
-            ...(frame.from ? [{ active: frame.from, slot: 0 as const }] : []),
-            ...(frame.to ? [{ active: frame.to, slot: 1 as const }] : []),
-          ]
-        : frame.to
-          ? [{ active: frame.to, slot: 0 as const }]
-          : [];
-
-      const used = new Set<number>();
-      let from = false;
-      let to = false;
-      for (const w of wanted) {
-        // A STILL or a CAPTION takes no element: its picture is made once and uploaded as any frame is.
-        if (StaticMedia.owns(w.active.clip)) {
-          const pic = this.media.picture(w.active.clip, w.active.sourceTime);
-          if (!pic) continue;
-          this.comp.upload(lane.layer.id, pic, w.slot);
-          if (w.slot === 0) from = true;
-          else to = true;
-          continue;
-        }
-        const e = this.claim(lane, w.active, used);
-        if (e === null) continue;
-        if (!this.steer(lane, e, w.active, playing)) continue;
-        this.comp.upload(lane.layer.id, lane.els[e], w.slot);
-        if (w.slot === 0) from = true;
-        else to = true;
-      }
+      used.clear();
+      const from = frame.blend
+        ? !!frame.from && this.show(lane, frame.from, 0, playing)
+        : !!frame.to && this.show(lane, frame.to, 0, playing);
+      const to =
+        !!frame.blend && !!frame.to && this.show(lane, frame.to, 1, playing);
       // Every element this lane did not need this tick: paused, so an idle decoder costs nothing.
       for (let e = 0; e < lane.els.length; e++)
         if (!used.has(e) && !lane.els[e].paused) lane.els[e].pause();
 
       if (!from && !to) {
-        this.debug.push({
-          id: lane.layer.id,
-          active: false,
-          errMs: 0,
-          rate: 1,
-        });
+        this.note(id, false, 0, 1);
         continue;
       }
-      visible.add(lane.layer.id);
-      motions.set(lane.layer.id, slotMotions(frame, t));
-      effects.set(lane.layer.id, slotEffects(frame));
+      visible.add(id);
+      const tuple = this.tuples(id);
+      motions.set(id, slotMotions(frame, t, tuple.m));
+      effects.set(id, slotEffects(frame, tuple.e));
       // Held at 0 while the incoming side has no frame yet, rather than blending against black.
       if (frame.blend)
-        blends.set(lane.layer.id, {
+        blends.set(id, {
           name: frame.blend.name,
           progress: to || !frame.to ? frame.blend.progress : 0,
           from,
@@ -393,21 +336,81 @@ export class RealtimeDriver {
         });
     }
 
+    // Motions, effects and blend progress all follow from `t`; what a lane SHOWS does not, so it is in the key too.
+    let shown = "";
+    for (const id of visible) {
+      const b = blends.get(id);
+      shown += b ? `${id}:${+b.from}${+b.to},` : `${id},`;
+    }
+    const key = `${t}|${shown}|${this.audioRev}|${this.comp.revision}`;
+    if (!this.drawGate.need(this.uploaded, playing, key)) return;
     // The live half of a shader's uniforms, refreshed per frame rather than per document — see docs/passes.md.
     this.comp.setLive(t, this.audio);
     this.comp.draw(visible, blends, motions, effects);
   }
 
+  // Put `active` into `slot`: a still or caption from its one picture, a shot from the element that carries it.
+  private show(
+    lane: Lane,
+    active: Active,
+    slot: 0 | 1,
+    playing: boolean,
+  ): boolean {
+    const id = lane.layer.id;
+    if (StaticMedia.owns(active.clip)) {
+      const pic = this.media.picture(active.clip, active.sourceTime);
+      if (!pic) return false;
+      this.upload(id, pic, slot, STILL_STAMP);
+      return true;
+    }
+    const e = this.claim(lane, active, this.used);
+    if (e === null || !this.steer(lane, e, active, playing)) return false;
+    this.upload(id, lane.els[e], slot, videoStamp(lane.els[e]));
+    return true;
+  }
+
+  // Every upload goes through the memo: a slot that already holds this picture is not handed it again.
+  private upload(
+    id: string,
+    src: TexImageSource,
+    slot: 0 | 1,
+    stamp: string | null,
+  ): void {
+    if (!this.uploads.need(id, slot, src, stamp)) return;
+    this.comp.upload(id, src, slot);
+    this.uploaded = true;
+  }
+
+  // The motion and effect tuples a lane refills each tick, so a frame allocates none.
+  private slots = new Map<
+    string,
+    { m: [Motion | null, Motion | null]; e: [string | null, string | null] }
+  >();
+  private tuples(id: string) {
+    let t = this.slots.get(id);
+    if (!t) {
+      t = { m: [null, null], e: [null, null] };
+      this.slots.set(id, t);
+    }
+    return t;
+  }
+
   /** The audio level each pass is driven by, 0..1 by pass id — PUSHED by the host, and held here since the rates differ. */
   private audio: Record<string, number> = {};
   setAudio(byPass: Readonly<Record<string, number>>): void {
+    const ids = Object.keys(byPass);
+    const same =
+      ids.length === Object.keys(this.audio).length &&
+      ids.every((id) => this.audio[id] === byPass[id]);
+    if (same) return;
     this.audio = { ...byPass };
+    this.audioRev++;
   }
 
   // Park a lane showing nothing this tick — off, hidden or past its source: pause it and leave it out of the composite.
   private park(lane: Lane): void {
     for (const el of lane.els) if (!el.paused) el.pause();
-    this.debug.push({ id: lane.layer.id, active: false, errMs: 0, rate: 1 });
+    this.note(lane.layer.id, false, 0, 1);
   }
 
   // Hard-seek: pause, jump to the exact frame, resume if rolling. Pausing first lands a stop on the right still.
@@ -434,7 +437,8 @@ export class RealtimeDriver {
 
   // Re-seek every lane to the current playhead — the clock's onSeek hook (a scrub, a loop, a play/stop edge).
   // BOTH elements: scrubbing into the middle of a dissolve must land the pair, not one and a stale frame.
-  private reseekAll(): void {
+  // A `tolerance` leaves an element already that close to its frame alone, so an edit costs no needless seek.
+  private reseekAll(tolerance = 0): void {
     const t = this.clock.nowSec();
     for (const lane of this.lanes) {
       if (!lane.els.length) continue; // shape layers: nothing to re-seek
@@ -452,11 +456,10 @@ export class RealtimeDriver {
       for (const active of actives) {
         const e = this.claim(lane, active, used);
         if (e === null) continue;
-        if (lane.loaded[e] !== active.index) {
-          if (lane.els[e].src !== active.clip.src)
-            lane.els[e].src = active.clip.src;
-          lane.loaded[e] = active.index;
-        }
+        const moved = lane.srcs[e] !== active.clip.src;
+        if (lane.loaded[e] !== active.index) this.point(lane, e, active);
+        const off = Math.abs(lane.els[e].currentTime - active.sourceTime);
+        if (tolerance > 0 && !moved && off <= tolerance) continue;
         this.seekEl(lane, e, active.sourceTime);
       }
       for (let e = 0; e < lane.els.length; e++)
@@ -466,7 +469,8 @@ export class RealtimeDriver {
 
   // The most recent per-lane drift snapshot, for a debug readout in the pane.
   debugState(): LaneDebug[] {
-    return this.debug;
+    this.debugWanted = true;
+    return this.debug.slice();
   }
 
   resize(cssW: number, cssH: number): void {
@@ -479,20 +483,8 @@ export class RealtimeDriver {
     this.sight?.disconnect();
     this.clock.onSeek = undefined;
     for (const lane of this.lanes) {
-      for (const el of lane.els) {
-        el.pause();
-        el.removeAttribute("src");
-        el.load();
-        el.remove();
-      }
-      // A camera left running is a lamp left on: the browser keeps the indicator lit and the
-      // device held until the tab closes, on a surface you merely navigated away from.
-      if (lane.live) {
-        for (const track of lane.live.stream?.getTracks() ?? []) track.stop();
-        lane.live.close?.();
-        lane.live.el.srcObject = null;
-        lane.live.el.remove();
-      }
+      for (const el of lane.els) releaseVideo(el);
+      if (lane.live) closeLive(lane.live);
     }
     this.comp.destroy();
   }

@@ -57,6 +57,17 @@ The image also carries `:latest` and `:@commit_hash@`. Three tags, three uses: t
 you deploy, the one you can `git show`, and the one you can read. Only the commit's is pushed
 before the tests pass; the other two follow once they have ([images.md](images.md)).
 
+## A deploy names its build
+
+`docker/docker-compose.yml` takes the k7 and engine tags from `APP_VERSION` and has no default for
+it: compose refuses to start without one. `:latest` moves with every publish, so a stack started on
+it runs whatever was newest when each container last pulled — the two halves can differ, and the
+answer to "which image is that?" is no longer in the deploy's own `.env`. One variable for both
+images keeps the web app and the server's engine on the same commit.
+
+`Z0_VERSION` keeps its `latest` default: z0's stamps are its own repository's, and nothing here
+could check a value required of it. Pinning it in `.env` is still what makes a deploy reproducible.
+
 ## Why `ENV` and not phare's `RUN VITE_APP_VERSION=… npm run build`
 
 **This is the one place studio deliberately does not copy phare.**

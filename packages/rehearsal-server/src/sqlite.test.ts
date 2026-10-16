@@ -51,9 +51,9 @@ describe("the SQLite store", () => {
     await db.patchRecord("Songs", id, { Lyrics: "la" });
     const [rec] = await db.listRecords("Songs");
     expect(rec.fields).toMatchObject({ Title: "x", Lyrics: "la" });
-    await expect(db.patchRecord("Songs", "nope", {})).rejects.toMatchObject({
-      status: 404,
-    });
+    expect(() => db.patchRecord("Songs", "nope", {})).toThrow(
+      expect.objectContaining({ status: 404 }),
+    );
   });
 
   it("keeps a sheet's bytes as a file, and a deleted song takes its sheets", async () => {
@@ -75,13 +75,67 @@ describe("the SQLite store", () => {
   it("keeps an id it is given, and writes all of a transaction or none", async () => {
     await db.addRecords("Songs", [{ id: "kept", Uid: "a" }]);
     expect((await db.listRecords("Songs"))[0].id).toBe("kept");
-    await expect(
-      db.inTransaction(async () => {
-        await db.addRecords("Songs", [{ Uid: "b" }]);
+    expect(() =>
+      db.inTransaction(() => {
+        db.addRecords("Songs", [{ Uid: "b" }]);
+        db.deleteRecords("Songs", ["kept"]);
         throw new Error("halfway");
       }),
-    ).rejects.toThrow("halfway");
-    expect(await db.listRecords("Songs")).toHaveLength(1);
+    ).toThrow("halfway");
+    expect(db.listRecords("Songs").map((r) => r.id)).toEqual(["kept"]);
+  });
+
+  it("refuses an async function as a transaction, and rolls back what it wrote", async () => {
+    expect(() =>
+      db.inTransaction(async () => {
+        db.addRecords("Songs", [{ Uid: "b" }]);
+      }),
+    ).toThrow(/synchronous/);
+    expect(db.listRecords("Songs")).toEqual([]);
+    // The connection is out of the failed transaction: the next write lands.
+    db.addRecords("Songs", [{ Uid: "c" }]);
+    expect(db.listRecords("Songs")).toHaveLength(1);
+  });
+
+  it("projects in SQL: zero values for missing fields, booleans back, filled texts as flags", () => {
+    db.addRecords("Songs", [
+      { Uid: "a", Private: true, Lyrics: "la", Tablature: " \n " },
+      { Uid: "b" },
+    ]);
+    const rows = db.listRecords("Songs", undefined, {
+      fields: ["Uid", "Private", "FetchProgress", "Title"],
+      filled: ["Lyrics", "Tablature"],
+    });
+    expect(rows.map((r) => r.fields)).toEqual([
+      {
+        Uid: "a",
+        Private: true,
+        FetchProgress: 0,
+        Title: "",
+        Lyrics: true,
+        Tablature: false,
+      },
+      {
+        Uid: "b",
+        Private: false,
+        FetchProgress: 0,
+        Title: "",
+        Lyrics: false,
+        Tablature: false,
+      },
+    ]);
+    expect(db.listRecords("Songs", undefined, { fields: [] })).toHaveLength(2);
+  });
+
+  it("reads one row by its primary key", () => {
+    const [{ id }] = db.addRecords("Comments", [{ OwnerId: "o", Text: "t" }]);
+    expect(db.getRecord("Comments", id)?.fields).toMatchObject({
+      OwnerId: "o",
+      Text: "t",
+      SessionUid: "",
+    });
+    expect(db.getRecord("Comments", "missing")).toBeNull();
+    expect(db.getRecord("Markers", id)).toBeNull();
   });
 
   it("looks a row up by an indexed field through its index, not a scan", async () => {

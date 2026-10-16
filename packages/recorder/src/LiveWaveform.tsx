@@ -1,15 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import type { DetectedEvent, Envelope, Metronome } from "./types";
 
+/** A clock and a feed read every frame, so a running take scrolls without re-rendering its host. */
+export interface LiveFeed {
+  /** The time "now" is drawn at, in seconds on the envelope's timeline. */
+  now(): number;
+  /** Brings `envelope.samples` up to date before a frame is drawn. */
+  pull?(): void;
+}
+
 interface Props {
   envelope: Envelope;
-  elapsed: number;
+  /** "Now", when the host re-renders with it; `live` replaces it at frame rate. */
+  elapsed?: number;
+  live?: LiveFeed;
   threshold: number;
   events: DetectedEvent[];
   metronome?: Metronome | null;
   paused?: boolean;
-  /** Playback position (sec) while listening back to a highlight — drawn as a playhead. */
-  playhead?: number | null;
+  /** Playback position (sec) while listening back to a highlight, read every frame and drawn as a playhead. */
+  playhead?: (() => number) | null;
   /** Time range (sec) framed while reviewing; cleared, the trailing window comes back. */
   focus?: { start: number; end: number } | null;
   /** Canvas height in px — smaller for the minimized recording bar. */
@@ -25,7 +35,8 @@ const BEAT_TICK_HEIGHT = 24; // light beat ticks are short; bar lines run full h
 /** An oscilloscope scrolling right to left, "now" pinned to the edge, WINDOW_SEC of history. */
 export function LiveWaveform({
   envelope,
-  elapsed,
+  elapsed = 0,
+  live,
   threshold,
   events,
   metronome = null,
@@ -36,14 +47,16 @@ export function LiveWaveform({
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const playheadRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
-  const [tick, setTick] = useState(0); // forces a redraw during the zoom animation
 
-  // Latest elapsed/focus, read fresh by the persistent animation loop.
-  const elapsedRef = useRef(elapsed);
-  elapsedRef.current = elapsed;
+  // Latest "now"/focus/playhead, read fresh by the animation loops.
+  const nowRef = useRef(() => elapsed);
+  nowRef.current = live ? () => live.now() : () => elapsed;
   const focusRef = useRef(focus);
   focusRef.current = focus;
+  const playheadClock = useRef(playhead);
+  playheadClock.current = playhead;
 
   // The range mapped across the canvas, eased toward the target so review zooms, not jumps.
   const viewRef = useRef({ start: elapsed - WINDOW_SEC, end: elapsed });
@@ -65,7 +78,7 @@ export function LiveWaveform({
       }
       return { start, end };
     }
-    const e = elapsedRef.current;
+    const e = nowRef.current();
     return { start: e - WINDOW_SEC, end: e };
   };
 
@@ -79,34 +92,25 @@ export function LiveWaveform({
     return () => ro.disconnect();
   }, []);
 
-  // Animate the view toward its target whenever review is entered or left.
-  const focusKey = focus ? `${focus.start}:${focus.end}` : "";
-  useEffect(() => {
-    animating.current = true;
-    const step = () => {
-      const tv = computeTarget();
-      const v = viewRef.current;
-      const k = 0.2; // easing factor per frame
-      const start = v.start + (tv.start - v.start) * k;
-      const end = v.end + (tv.end - v.end) * k;
-      viewRef.current = { start, end };
-      setTick((t) => t + 1);
-      if (Math.abs(start - tv.start) < 0.02 && Math.abs(end - tv.end) < 0.02) {
-        viewRef.current = tv;
-        animating.current = false;
-        return;
-      }
-      animRaf.current = requestAnimationFrame(step);
-    };
-    if (animRaf.current) cancelAnimationFrame(animRaf.current);
-    animRaf.current = requestAnimationFrame(step);
-    return () => {
-      if (animRaf.current) cancelAnimationFrame(animRaf.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusKey]);
+  // The playhead is a DOM overlay, not canvas: a 60fps redraw stuttered the audio.
+  const placeRef = useRef(() => {});
+  placeRef.current = () => {
+    const div = playheadRef.current;
+    if (!div) return;
+    const at = playheadClock.current?.();
+    if (at == null) {
+      div.style.display = "none";
+      return;
+    }
+    const v = viewRef.current;
+    const x = ((at - v.start) / Math.max(0.1, v.end - v.start)) * width;
+    div.style.display = "";
+    div.style.left = `${Math.max(0, Math.min(width, x))}px`;
+  };
 
-  useEffect(() => {
+  // Every draw reads the props of the latest render, so the loops below never draw stale ones.
+  const drawRef = useRef(() => {});
+  drawRef.current = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
@@ -252,7 +256,7 @@ export function LiveWaveform({
     ctx.stroke();
 
     // The "now" marker, at the right edge while recording and off-canvas once review zooms out.
-    const nowX = timeToX(elapsed);
+    const nowX = timeToX(nowRef.current());
     if (nowX >= 0 && nowX <= width) {
       ctx.strokeStyle = "rgba(235,235,242,0.9)";
       ctx.lineWidth = 2;
@@ -262,10 +266,16 @@ export function LiveWaveform({
       ctx.lineTo(x, height);
       ctx.stroke();
     }
+    placeRef.current();
+  };
 
-    // The playhead is a DOM overlay below, not canvas: a 60fps redraw stuttered the audio.
+  const scrolling = !!live && !paused;
+  const hasPlayhead = playhead != null;
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // A prop that changed redraws once; the loop below takes over while something moves.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: these are what the draw reads.
+  useEffect(() => {
+    drawRef.current();
   }, [
     width,
     height,
@@ -276,28 +286,61 @@ export function LiveWaveform({
     metronome,
     paused,
     focus,
-    tick,
+    hasPlayhead,
   ]);
 
-  // Its position in px: re-rendered on every preview tick, but it moves the overlay alone.
-  const pv = viewRef.current;
-  const playheadX =
-    playhead != null
-      ? Math.max(
-          0,
-          Math.min(
-            width,
-            ((playhead - pv.start) / Math.max(0.1, pv.end - pv.start)) * width,
-          ),
-        )
-      : null;
+  // A running take scrolls, and a preview moves its playhead, at frame rate without a render.
+  useEffect(() => {
+    if (!scrolling && !hasPlayhead) return;
+    let raf = 0;
+    const frame = () => {
+      if (scrolling) {
+        live?.pull?.();
+        drawRef.current();
+      } else placeRef.current();
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [scrolling, hasPlayhead, live]);
+
+  // Animate the view toward its target whenever review is entered or left.
+  const focusKey = focus ? `${focus.start}:${focus.end}` : "";
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the key stands for the focus it was made from.
+  useEffect(() => {
+    animating.current = true;
+    const step = () => {
+      const tv = computeTarget();
+      const v = viewRef.current;
+      const k = 0.2; // easing factor per frame
+      const start = v.start + (tv.start - v.start) * k;
+      const end = v.end + (tv.end - v.end) * k;
+      viewRef.current = { start, end };
+      const done =
+        Math.abs(start - tv.start) < 0.02 && Math.abs(end - tv.end) < 0.02;
+      if (done) viewRef.current = tv;
+      drawRef.current();
+      if (done) {
+        animating.current = false;
+        return;
+      }
+      animRaf.current = requestAnimationFrame(step);
+    };
+    if (animRaf.current) cancelAnimationFrame(animRaf.current);
+    animRaf.current = requestAnimationFrame(step);
+    return () => {
+      if (animRaf.current) cancelAnimationFrame(animRaf.current);
+    };
+  }, [focusKey]);
 
   return (
     <div ref={wrapRef} className="waveform-wrap">
       <canvas ref={canvasRef} style={{ width: "100%", height }} />
-      {playheadX != null && (
-        <div className="waveform-playhead" style={{ left: playheadX }} />
-      )}
+      <div
+        ref={playheadRef}
+        className="waveform-playhead"
+        style={{ display: "none" }}
+      />
     </div>
   );
 }

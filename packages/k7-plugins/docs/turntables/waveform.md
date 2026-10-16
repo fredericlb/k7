@@ -59,37 +59,32 @@ waiting to diverge. ~120 kB for five minutes, 8192 buckets.
 A bucket covers a duration that **depends on the track's length** — 8192 buckets whatever the
 file. `bucketAt` accounts for it; assuming a fixed rate draws one track at another's speed.
 
-## The playhead does not go through React
+## The position does not go through React
 
-The engine pushes `playhead` several times a second. In React state that would re-render the
-whole desk — two waveforms, the list, both decks — to move one line. `useEngine` writes it into a
+The engine pushes each platter's needle ~20 times a second. In React state that would re-render
+the whole desk — two waveforms, the list, both decks — to move one line. The needle lives in a
 **ref**, and the canvas reads it in its own `requestAnimationFrame` loop.
 
-Between pushes the position is **extrapolated**, but not from the last frame: frames land with
-different delays — engine timer, socket, parsing — so re-anchoring on each one **copies that
-jitter** into the scroll, 60 frames a second of judder instead of 20. The canvas reads
-`Deck.drawNow` instead. The transport's rate being KNOWN — one second per second, pitch fader
-included, since that stretches the clip and not the transport — the clock predicts from local
-time and estimates only the OFFSET, keeping the least delayed frame of a recent window
-(`@studio/engine-browser/playhead-clock`). The drawn position is a straight line, and a real seek
-moves the window back. It decides on its own when things are stopped, which is why this file
-never tests `playing`: the two cannot be allowed to disagree on what "stopped" means.
+It reads the deck's **drawn** needle, not the raw one: the raw needle moves on one frame in three
+and carries each frame's transit jitter into the scroll. The drawn one is steered between frames
+at the deck's known rate ([needleClock.md](needleClock.md)). A stopped deck's drawn needle is the
+raw one, so this file never tests `playing`: the clock and the band cannot disagree about what
+"stopped" means.
 
-`drawNow` is for what you WATCH. What gets written down — a cue point, remembering where the
-finger fell — reads `Deck.playhead`, the raw anchor, because smoothing trades accuracy for
-continuity. See `apps/k7/frontend/docs/playhead.md`.
+The position is the deck's own, in seconds of its RECORD: every deck plays off a platter, and the
+transport is no deck's clock.
 
-## One playhead for both decks, but two clocks
+## The track is painted once, then slid
 
-The engine has a single transport (see [mix.md](mix.md)), so the same ref serves both bands.
+The band scrolls under a fixed head, so from one frame to the next the picture is the same
+picture moved. The spectrum is therefore rasterised once per track and size into tiles
+(`SpectrumStrip`, `packages/ui-waveform/docs/spectrum.md`) and each frame blits the one or two
+tiles in view at an offset; only the grid, the loop, the head and the two times are drawn per
+frame. Painting every column every frame would cost an allocation, a colour string and a
+`fillStyle` parse per pixel column, per deck, 60 times a second.
 
-The transport's position is **not** the position within each track, because the two clips do not
-both start at 0: a stretched deck runs at its own rate, a synced deck is delayed to meet the
-other, and each clip starts a margin into the timeline ([bpm.md](bpm.md)). Drawing the raw head
-against the envelope gives the wrong place in the track, silently, and only once someone has
-touched the deck. The band therefore converts, through the `sourceAt` the record and every marker
-already use. One head, two file clocks; the day the decks get independent transports, it is the
-shared ref that goes, not the conversion.
+The canvas's size comes from a `ResizeObserver`, not from `clientWidth` in the frame loop: reading
+layout there forces it, per deck per frame.
 
 ## Bars, in thicker orange
 

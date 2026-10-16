@@ -32,6 +32,36 @@ only when the query spells the same expression, so the field path is written int
 than bound as a parameter; the field name is checked as a plain word first. A field added to the
 lookups is added to that list, and `sqlite.test.ts` checks the query plan of each.
 
+A listing that names its fields reads only those, each extracted with `json_extract` in the SQL:
+the rest of the row, a session's or a song's envelope among it, is never handed to JavaScript nor
+parsed. A text the list only needs to know is there (a song's lyrics, its tablature) is read as a
+`filled` flag, computed in SQL. A row asked for by id (a moment, a marker) is read by its primary
+key and its owner or session checked afterwards, never found by scanning its owner's rows.
+
+## Every call is synchronous, and a multi-row write is one transaction
+
+`node:sqlite` is synchronous, and so is the store's API: nothing awaits between two statements, so
+`inTransaction` takes a synchronous function and refuses one that returns a promise. An `await`
+inside an open transaction would let another request's writes join it, and its rollback undo them.
+Every write that spans several rows (an insert of many, a session's deletion with its markers and
+highlights, a release's with its versions, a new default version) runs in one transaction, so it
+lands whole or not at all, and pays one sync to disk instead of one per row. A transaction opened
+inside another joins it. Work that must await (a file pushed to or removed from the médiathèque)
+happens before or after the transaction, never inside it.
+
+The connection runs `synchronous = NORMAL`: under WAL a power cut can lose the last commits but
+never corrupts the file, and a commit no longer waits for its own fsync. Statements are prepared
+once per SQL text and kept for the life of the connection; the texts are few, since values are
+always bound.
+
+## The songbook list carries no texts
+
+`GET /api/songs` answers one row per song: its names, its flags, whether it has lyrics, a
+tablature and sheets, and nothing of their content. A song's texts come from `GET /api/songs/:sid`,
+and every route that changes a song answers the song whole, which is what the page patches its
+list from instead of fetching the songbook again. A songbook's texts and envelopes, multiplied by
+every song, are what the list would otherwise carry on each edit.
+
 An id is a random 15-character string. Rows imported from PocketBase keep their PocketBase ids,
 which is what keeps the references between rows intact (a sheet's song, a song's `SheetMeta`).
 

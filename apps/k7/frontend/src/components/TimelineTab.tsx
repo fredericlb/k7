@@ -78,6 +78,7 @@ import { useDocument } from "../hooks/useDocument";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { blurOnClick } from "../keys";
 import { cursorOf, ModeStrip, stripButton } from "../modeIcons";
+import { usePaneVisible } from "../paneVisible";
 import { m } from "../paraglide/messages.js";
 import {
   type PendingEdit,
@@ -101,10 +102,11 @@ import {
   rowTarget,
   stepRow,
 } from "../rows";
+import type { EditFocus } from "../shellEquality";
 import { freeSnap, moveOffset, snapMode, snapPosition, snapTo } from "../snap";
 import { recordingFrom } from "../takeCounter";
 import type { DropLane, DropUpload, TimelineDropEvent } from "../timelineDrop";
-import { type TimelineMode, timelineMode } from "../timelineMode";
+import { moveNudge, type TimelineMode, timelineMode } from "../timelineMode";
 import {
   CROSSFADE_BEATS,
   crossfadePair,
@@ -306,9 +308,15 @@ const vuFill = (db: number | undefined) =>
 
 /** One lane's meters — the output level across the header, the input level when armed; the dB is rounded first, so a bar nobody can see costs no re-render. */
 function LaneMeter({ index, armed }: { index: number; armed: boolean }) {
-  const out = useEngineState((s) => Math.round(s.levels[index] ?? -Infinity));
+  // Hidden, the selectors answer a constant, so the meter-rate frames render nothing behind another pane.
+  const visible = usePaneVisible();
+  const out = useEngineState((s) =>
+    visible ? Math.round(s.levels[index] ?? -Infinity) : -Infinity,
+  );
   const input = useEngineState((s) =>
-    armed ? Math.round(s.inputLevels[index] ?? -Infinity) : -Infinity,
+    visible && armed
+      ? Math.round(s.inputLevels[index] ?? -Infinity)
+      : -Infinity,
   );
   return (
     <>
@@ -623,7 +631,7 @@ export function TimelineTab({
   /** …and how far that upload has got, drawn at the foot of the pane — the file tree's bar, over here. */
   dropUpload?: DropUpload | null;
   setStatus: (s: string) => void;
-  onEditTarget: (t: EditTarget | null) => void; // the clip under the caret, for the Editor panel
+  onEditTarget: (t: EditFocus | null) => void; // the clip under the caret, for the shell
   // A clip was CLICKED — a press that never moved; the caret-driven `onEditTarget` above is a different question.
   onOpenClip?: (t: EditTarget) => void;
   // The bare lane was clicked — the counterpart of `onOpenClip`: the shell puts the graph back.
@@ -1811,9 +1819,9 @@ export function TimelineTab({
         return;
       // One block per MODE, and the mode is derived from the state this used to read directly (timelineMode.ts).
       if (modeRef.current === "move") {
-        // Move swallows keys HARD, the four it answers and every other: a nudge must not also scroll the pane.
-        if (e.key === "ArrowLeft" || e.key === "j") nudgeMove(-1);
-        else if (e.key === "ArrowRight" || e.key === "m") nudgeMove(1);
+        // Move swallows keys HARD, the ones it answers and every other: a nudge must not also scroll the pane.
+        const d = moveNudge(e.key);
+        if (d) nudgeMove(d);
         else if (e.key === "Enter") commitMove();
         else if (e.key === "Escape") {
           setMove(null);
@@ -3901,7 +3909,7 @@ export function TimelineTab({
                                   {/* The name on HOVER, faded rather than unmounted so the row keeps its height — and shown outright while the block is in hand. */}
                                   <span
                                     className={cn(
-                                      "truncate opacity-0 transition-opacity group-hover:opacity-100",
+                                      "truncate opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100",
                                       (moving || resizing) && "opacity-100",
                                     )}
                                   >

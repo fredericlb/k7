@@ -19,11 +19,11 @@ import {
   Wand2,
 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
+import { clash, framedBy, groupOf } from "@studio/panel-rules/group-geometry";
 import { askConfirm } from "@studio/project-shell/ask";
 import { useCallback, useRef, useState } from "react";
 import { type AutoParam, autoOrganize } from "./autoLayout";
 import { GridMenu } from "./GridMenu";
-import { clash, framedBy, groupOf } from "./groupGeometry";
 import type { ModuleUI, Widget, WidgetType } from "./moduleUi";
 import {
   type PageRef,

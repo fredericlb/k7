@@ -7,6 +7,7 @@ import { Disc3, ListVideo } from "@frediverse/ui/icons";
 import { MiniPlayer as Bar } from "@studio/ui-mini-player";
 import { useLabels } from "../host";
 import { usePlayback } from "./PlaybackProvider";
+import { usePlaybackPosition } from "./position";
 import { QueueButton } from "./QueueButton";
 import { playbackTargetInfo } from "./targets";
 import { useStartNext } from "./useQueueAdvance";
@@ -39,8 +40,6 @@ export function MiniPlayer() {
   const {
     now,
     playing,
-    position,
-    duration,
     error,
     toggle,
     seek,
@@ -48,6 +47,8 @@ export function MiniPlayer() {
     queue,
     target: wanted,
   } = usePlayback();
+  // The bar is what follows the playhead, so it alone re-renders with it.
+  const { position, duration } = usePlaybackPosition();
   const l = useLabels().playback;
   // The skip the queue's own advance takes, offered to the system's controls while there is a next.
   const startNext = useStartNext(wanted);

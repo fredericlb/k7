@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { MODE_EXIT, modeCondition, timelineMode } from "./timelineMode";
+import {
+  MODE_EXIT,
+  modeCondition,
+  moveNudge,
+  timelineMode,
+} from "./timelineMode";
 
 const sel = { anchor: 1, head: 2 };
 
@@ -36,6 +41,20 @@ describe("modeCondition", () => {
     expect(modeCondition("normal")).toBe("tl_normal");
     expect(modeCondition("select")).toBe("tl_select");
     expect(modeCondition("move")).toBe("tl_move");
+  });
+});
+
+describe("moveNudge", () => {
+  it("nudges with h/l and the arrows, the caret's horizontal keys", () => {
+    expect(moveNudge("h")).toBe(-1);
+    expect(moveNudge("ArrowLeft")).toBe(-1);
+    expect(moveNudge("l")).toBe(1);
+    expect(moveNudge("ArrowRight")).toBe(1);
+  });
+
+  it("leaves j/k to their vertical meaning, and m to nothing", () => {
+    for (const k of ["j", "k", "m", "ArrowUp", "ArrowDown"])
+      expect(moveNudge(k)).toBe(0);
   });
 });
 

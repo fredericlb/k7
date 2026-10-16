@@ -56,10 +56,10 @@ export function playEngineOutput(client: OutputClient): () => void {
     }
   };
 
-  const offFrame = client.onStreamFrame((data) => {
+  const offFrame = client.onStreamFrame((data, owned) => {
     if (!on) return;
     if (player) {
-      player.handle(data);
+      player.handle(data, owned);
       // The sink does not resample: a new rate needs a context of its own.
       const f = player.snapshot().format;
       if (f && ctx && f.sampleRate !== ctx.sampleRate) teardown();

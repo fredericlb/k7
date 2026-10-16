@@ -128,7 +128,8 @@ export class Compositor {
     const gl = canvas.getContext("webgl2", {
       alpha: false,
       premultipliedAlpha: false,
-      preserveDrawingBuffer: true, // export reads pixels back after draw
+      // Export reads the pixels back after the draw; the preview is only ever presented.
+      preserveDrawingBuffer: target instanceof OffscreenCanvas,
     }) as WebGL2RenderingContext | null;
     if (!gl) throw new Error("eyes: WebGL2 is not available");
     const comp = new Compositor(canvas, gl, clear);
@@ -146,8 +147,11 @@ export class Compositor {
     }
     for (const p of this.framePrograms) if (p) gl.deleteProgram(p.prog);
     for (const t of this.transitions.values()) if (t) gl.deleteProgram(t.prog);
-    this.canvas.width = scene.viewport[0];
-    this.canvas.height = scene.viewport[1];
+    // Assigning a canvas size clears it even when unchanged, which would flash black on every edit.
+    if (this.canvas.width !== scene.viewport[0])
+      this.canvas.width = scene.viewport[0];
+    if (this.canvas.height !== scene.viewport[1])
+      this.canvas.height = scene.viewport[1];
     const [vw, vh] = scene.viewport;
 
     // One program per name the cuts use, the built-in FIRST so a module of that name overrides it.
@@ -281,7 +285,7 @@ export class Compositor {
     this.plain.draw(tex, rect, uv, look);
   }
 
-  // Upload a frame from a <video> or a VideoFrame; cheap per rAF, and skippable when no new frame was produced.
+  // Upload a frame from a <video> or a VideoFrame; the realtime loop skips it when the slot already holds that frame (frameGate.ts).
   // Slot 1 is the SECOND picture of a dissolve, and only a lane that declares one has it.
   upload(layerId: string, src: TexImageSource, slot: 0 | 1 = 0): void {
     const layer = this.layers.find((l) => l.id === layerId);
@@ -427,6 +431,11 @@ export class Compositor {
     gl.clearColor(this.clear[0], this.clear[1], this.clear[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     this.blit(pp.frontTexture(), [-1, -1, 1, 1]);
+  }
+
+  /** Moves whenever something the next draw reads changed outside an upload — a LUT landing. */
+  get revision(): number {
+    return this.luts.revision;
   }
 
   /** Settles once every LUT the scene names is loaded or has failed — what an export awaits before frame 0. */

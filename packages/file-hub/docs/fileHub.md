@@ -29,6 +29,10 @@ flight (a forwarded request is counted until its answer closes, a long download 
 kept for a remote pairing is never chosen. When nothing can go, the request answers **503 with
 `Retry-After`** instead of forking past the cap. The idle reaper spares an instance in flight too.
 
+`STUDIO_FILE_SERVICE_HEAP_MB` gives each service a heap ceiling (`--max-old-space-size`), so one
+account's runaway ends that account's process, which the backoff below then holds off, rather than
+the container.
+
 A service that dies on its own is not started again on the very next request: the account waits
 1 s, then 2, 4… up to 60 s, answered 503 with `Retry-After` meanwhile, and a service that ran a
 healthy minute starts that count over. A crash loop would otherwise fork a process per request.
@@ -122,6 +126,15 @@ two copies would compile a song two ways.
   frozen version. The seed is `$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…` — the desktop
   and the phone name the `k7-core` they bundle. It is copied into a dot-named sibling and renamed
   into place, so no reader sees half a library, and without any `.git` it carries.
+- **Every copy is asynchronous, and they run one at a time.** A library is IR and amp-model
+  binaries, and the hub lives in the one process every account is served by: a synchronous copy of
+  one on a publish or a seed stops every request until it ends. Asynchronous, two copies could
+  decide on the same name at once — two seeds of one library, two publishes numbering the same
+  version — so `set`, `ensure` and `publish` queue behind each other inside the store. At start
+  the relay follows the libraries only once their folders are there.
+- **The hub's own routes read their body themselves**, since k7's backend parses nothing under the
+  hub's paths (`apps/k7/backend/docs/hardening.md`): `jsonBody` reads it, refusing past 8 MB — the
+  file service's own limit — with a 413.
 - **With no list written yet**, the list is the library folders already on disk, else the seed's.
 - **The libraries are k7fs workspaces** (`../libraryRelay.ts`). The hub is the server's replica of
   each: it watches the folder and relays every change to the room `<name>` of the account

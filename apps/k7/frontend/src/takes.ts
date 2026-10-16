@@ -245,3 +245,21 @@ export function pieceEdgeLines(
     lines.push(compLine(ev, take, { from, to }, num, den));
   return lines;
 }
+
+/** One bar per bucket, mirrored about the middle — the envelope as the waveform panel draws it, in beats from `start`. */
+export function envelopePath(
+  rms: number[],
+  length: number,
+  start: number,
+): string {
+  const step = length / Math.max(1, rms.length);
+  // A loop, not `Math.max(...rms)`: a spread of a long envelope is an argument list the engine may refuse.
+  let peak = 1e-6;
+  for (const v of rms) if (v > peak) peak = v;
+  let d = "";
+  for (let i = 0; i < rms.length; i++) {
+    const h = Math.min(1, rms[i] / peak) * 0.45;
+    d += `M${start + i * step} ${0.5 - h}h${step}v${2 * h}h${-step}Z`;
+  }
+  return d;
+}

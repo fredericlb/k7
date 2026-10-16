@@ -295,7 +295,7 @@ strip are one appliance called a **turntable**. On the graph that is one card wi
 a set with those two files compiles to the `ProjectDoc` it compiled to without them, which is
 what `assemblyCompile`'s case in `assemblies.test.ts` pins. The plugs and the knobs come from the
 template the files name, `@k7-core/turntable`, which lives in the account's library —
-`packages/dsp/assemblies/turntable/` is the copy this repo ships to copy FROM.
+`k7-core/assemblies/turntable/` is the copy this repo ships in the library seed.
 
 A set without those two files gets them from a migration that writes nothing else:
 

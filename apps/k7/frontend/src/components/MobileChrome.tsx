@@ -12,6 +12,7 @@ import { Button } from "@frediverse/ui/button";
 import { Menu, X } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { useEffect, useRef } from "react";
+import { m } from "../paraglide/messages.js";
 import { usePopin } from "../popins";
 
 export function MobileMenu({
@@ -54,8 +55,8 @@ export function MobileMenu({
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => onOpenChange(!open)}
-        title="Menu"
-        aria-label="Menu"
+        title={m["common.menu"]()}
+        aria-label={m["common.menu"]()}
       >
         {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
       </Button>

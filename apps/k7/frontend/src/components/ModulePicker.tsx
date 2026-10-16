@@ -6,6 +6,7 @@
 
 import { isEngineRef } from "@studio/song-schema/moduleTypes";
 import { fuzzyScore } from "../fuzzy";
+import { m as msg } from "../paraglide/messages.js";
 import type { PanelSize } from "../pendingNode";
 import { type TreeNode, TreePicker } from "./TreePicker";
 
@@ -284,8 +285,8 @@ export function ModulePicker({
       tree={[...buildTree(baseModules), INPUT_BRANCH, CURVE_BRANCH]}
       search={(q) => searchModules(baseModules, q)}
       searchLimit={SEARCH_LIMIT}
-      placeholder="search modules…"
-      emptyLabel="no module matches"
+      placeholder={msg["module.search"]()}
+      emptyLabel={msg["module.noMatch"]()}
       onPick={onPick}
       onClose={onClose}
     />

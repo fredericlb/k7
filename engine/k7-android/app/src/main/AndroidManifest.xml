@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The backend and the engine live exactly as long as MainActivity; the one service only keeps that process in front while a page plays (docs/android.md). -->
+<!-- The backend and the engine live exactly as long as MainActivity; the two services only keep that process in front while it is busy (docs/android.md). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- The engine's WebSocket server, which browsers on the LAN dial; and the studio apps, loaded from the studio — this phone's own, or another. -->
@@ -7,15 +7,21 @@
     <!-- The IPv4 the activity shows, so a browser knows what to dial. -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- The engine opens the device WITH its inputs (docs/engineHost.md); Oboe wants both below. -->
+    <!-- The engine opens the device WITH its inputs (docs/engineHost.md); Oboe wants both below. Asked on first need (MicAccess.kt). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-    <!-- MediaPlaybackService: the process kept in front while a page plays, screen off or app behind another. -->
+    <!-- MediaPlaybackService and EngineService: the process kept in front while busy, screen off or app behind another. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- EngineService while inputs or a page's microphone are open: Android cuts the microphone of an app behind without it. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- EngineService's notification, on Android 13+; asked the first time the app is busy (MainActivity.askNotifications). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:label="k7"
         android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/AppTheme.NoActionBar">
@@ -42,6 +48,11 @@
             android:name=".MediaPlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+        <!-- Holds the process in front while the engine plays, is armed or records, or a page holds the microphone (Busy.kt). -->
+        <service
+            android:name=".EngineService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback|microphone" />
         <!-- The media notification's own buttons, which Android 12 and older draw instead of the session's. -->
         <receiver
             android:name=".MediaPlayback$Buttons"

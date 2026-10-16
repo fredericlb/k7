@@ -40,7 +40,7 @@ back to 8789 and reach the dev backend.
 The port is fixed, not picked free at each launch: a page's storage is keyed on its ORIGIN, port
 included, so a moving port would empty it every time.
 
-**No service worker.** The app clears the stored ones before its window opens and refuses
+**No service worker.** The app clears the stored ones before its first k7 page and refuses
 `/sw.js` (`noServiceWorker` in `src/main.ts`). A worker stored by an earlier run hangs the
 window's first navigation for good — a blank window, with the backend answering instantly to
 anything else — and a local origin has nothing to gain from it: there is no network to survive,
@@ -52,6 +52,55 @@ the engine is reached on TCP directly.
 
 Plain http on loopback is enough: `127.0.0.1` is a secure context, and the session cookie is
 host-only and `Lax`. `COOKIE_DOMAIN` is therefore forced empty — set, it would make the cookie `Secure`.
+
+## The first window
+
+**The window opens at once, on a splash, and k7 loads into it once the backend answers.** A cold
+start — the backend under tsx, a first seed of the library — takes seconds, and a window held back
+until then leaves nothing on screen but a Dock icon. The splash is a data URL (`src/splash.ts`):
+it needs no server, holds no link, and is loaded by the main process, so the tabs' routing never
+sees it. The tab strip stays empty until then, since it is a k7 page too. A start that fails
+puts its reason and the log's path in that window, behind the shell's dialog — Retry, which
+relaunches the app, Open log, Quit (`commons/packages/electron-shell/docs/shell.md`, "When
+something fails"). The page holds no button of its own: it is a data URL with no link, and the
+one set of choices is the dialog's.
+
+**Port 18789 already taken is the failure to expect.** The single-instance lock is per user, so
+the case it cannot catch is k7 left running in another account on the same Mac or PC: the
+message names the holder when `lsof` or `netstat` can see it, and says so.
+
+**The window opens where it was left**, in `window-state.json` beside the other state, fitted
+onto a display that is there now (the shell's `windowState`); the first launch opens 1440×900.
+
+## A crash
+
+**The backend is restarted when it crashes**, on the shell's backoff (`src/backends.ts`, the
+shell's `keepAlive`). While it is down the pages see their requests fail, as they would of the
+hosted k7 restarting. Past the shell's limit the app asks Restart or Quit rather than restart a
+crash loop for ever. The supervisor has its own relaunch (below), and the engine is the
+supervisor's.
+
+## Quit
+
+**A quit while the engine plays or records asks first** (`src/confirmQuit.ts`). Every k7 page is
+asked `window.__k7Busy()` (`apps/k7/frontend/src/desktopBusy.ts`), half a second each, and one
+answering `recording` or `playing` gets a native confirm; a page that does not answer counts as
+idle, so a hung page cannot keep the app from quitting. Then the windows disappear at once, and
+the teardown below runs out of sight.
+
+## What a page is told of the app
+
+k7 knows it is in the app because the preload hands every page `window.studioDesktop`, whose
+`state()` the main process answers (`src/desktopBridge.ts`, read by
+`apps/k7/frontend/src/desktop.ts`). It answers only a page of the app's own origin, in any tab or
+window: unlike the account calls, which the strip and the home tab alone may make (`docs/tabs.md`),
+a project's playlist needs it too. An IPC call rather than an HTTP route, because a route on this
+backend is one more thing a page of another origin, or DNS rebinding, could probe.
+
+| field | value | what reads it |
+|---|---|---|
+| `server` | the server chosen at sign-in (`src/server.ts`), `https://st0.app` until one is | the playlist's *Add songs* link, opened on that server's médiathèque in the system browser; the user menu's list of apps |
+| `lanUrls` | always empty | the QR codes: this backend answers its own machine only (`apps/k7/backend/docs/standalone.md`), so a LAN address would scan to a page the device cannot load, and the share panel says there is no address instead |
 
 ## Sign-in
 

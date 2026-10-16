@@ -73,6 +73,11 @@ contextBridge.exposeInMainWorld("studioEngine", {
     ipcRenderer.send("studio:engine:cmd", cmd, arg),
 });
 
+// What k7's pages ask of the app itself, from any tab or window of its origin (desktopBridge.ts).
+contextBridge.exposeInMainWorld("studioDesktop", {
+  state: (): Promise<unknown> => ipcRenderer.invoke("studio:desktop:state"),
+});
+
 // Same preload for the strip: one file is one thing to bundle, and the main process ignores these from any other page.
 contextBridge.exposeInMainWorld("studioTabs", {
   list: (): TabRow[] => latest,

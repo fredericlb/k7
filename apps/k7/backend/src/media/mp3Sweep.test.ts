@@ -61,8 +61,10 @@ describe.skipIf(!hasFfmpeg)("the MP3 sweep", () => {
       readdirSync(join(root, "songs/A/B/C")).filter((f) => f.endsWith(".part")),
     ).toEqual([]);
     expect(mp3SweepState().made).toBeGreaterThanOrEqual(2);
-    expect(scanFamily("songs")[0]?.meta?.master).toBe("original.flac");
-    expect(scanFamily("samples").map((e) => e.name)).toEqual(["kick.flac"]);
+    expect((await scanFamily("songs"))[0]?.meta?.master).toBe("original.flac");
+    expect((await scanFamily("samples")).map((e) => e.name)).toEqual([
+      "kick.flac",
+    ]);
   });
 
   it("remakes the MP3 of a FLAC replaced since", async () => {

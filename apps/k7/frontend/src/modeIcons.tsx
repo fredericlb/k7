@@ -7,6 +7,7 @@
 import { X } from "@frediverse/ui/icons";
 import type { ReactNode } from "react";
 import { usePanelClose } from "./components/PanelClose";
+import { m as msg } from "./paraglide/messages.js";
 
 export interface ModeGlyph {
   vb: string;
@@ -171,15 +172,15 @@ export function ModeStrip<T extends string>({
     <div
       role="toolbar"
       aria-orientation="vertical"
-      aria-label="mode"
+      aria-label={msg["mode.label"]()}
       className={`flex w-8 shrink-0 flex-col items-center gap-0.5 border-r border-border bg-background/60 py-1 ${className ?? ""}`}
     >
       {closePanel && (
         <button
           type="button"
           onClick={closePanel}
-          title="close the panel (ui close)"
-          aria-label="close the panel"
+          title={msg["panel.closeHint"]()}
+          aria-label={msg["panel.close"]()}
           className={`${stripButton(false)} ${modes.length ? "mb-1 border-border border-b" : ""}`}
         >
           <X className="h-4 w-4" />

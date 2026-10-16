@@ -46,7 +46,7 @@ describe("naming one", () => {
 });
 
 describe("creating one", () => {
-  it("writes a stub that parses, and lists it", () => {
+  it("writes a stub that parses, and lists it", async () => {
     const made = createPlaylist("ete-2026");
     expect(made).toMatchObject({
       name: "ete-2026",
@@ -54,7 +54,7 @@ describe("creating one", () => {
       count: 0,
       ok: true,
     });
-    expect(listPlaylists()).toHaveLength(1);
+    expect(await listPlaylists()).toHaveLength(1);
   });
 
   it("refuses a name already taken rather than handing back the other one", () => {
@@ -66,7 +66,7 @@ describe("creating one", () => {
 });
 
 describe("the listing", () => {
-  it("reads the title and the count, and falls back to the name", () => {
+  it("reads the title and the count, and falls back to the name", async () => {
     putFile(
       "playlists/ete-2026.yaml",
       "title: Été 2026\nitems:\n  - AC-DC/Back in Black/Hells Bells\n  - song: Nirvana/Nevermind/Lithium\n    variant: instrumental\n",
@@ -75,7 +75,9 @@ describe("the listing", () => {
       "playlists/untitled.yaml",
       "items:\n  - Miles/Kind of Blue/So What\n",
     );
-    const by = Object.fromEntries(listPlaylists().map((p) => [p.name, p]));
+    const by = Object.fromEntries(
+      (await listPlaylists()).map((p) => [p.name, p]),
+    );
     expect(by["ete-2026"]).toMatchObject({
       title: "Été 2026",
       count: 2,
@@ -86,27 +88,29 @@ describe("the listing", () => {
     expect(by.untitled?.count).toBe(1);
   });
 
-  it("lists a file that does not parse, so the one needing repair is reachable", () => {
+  it("lists a file that does not parse, so the one needing repair is reachable", async () => {
     putFile("playlists/broken.yaml", "items: [unclosed\n");
-    const [only] = listPlaylists();
+    const [only] = await listPlaylists();
     expect(only).toMatchObject({ name: "broken", ok: false, count: 0 });
   });
 
-  it("finds one at any depth, and ignores what is not a yaml", () => {
+  it("finds one at any depth, and ignores what is not a yaml", async () => {
     createPlaylist("live/thursday");
     putFile("playlists/notes.txt", "not a playlist");
-    expect(listPlaylists().map((p) => p.name)).toEqual(["live/thursday"]);
+    expect((await listPlaylists()).map((p) => p.name)).toEqual([
+      "live/thursday",
+    ]);
   });
 
-  it("is empty rather than throwing on a volume with no zone", () => {
+  it("is empty rather than throwing on a volume with no zone", async () => {
     rmSync(join(root, "playlists"), { recursive: true, force: true });
-    expect(listPlaylists()).toEqual([]);
+    expect(await listPlaylists()).toEqual([]);
   });
 });
 
 describe("the zone is not a family", () => {
-  it("stays out of the songs scan, holding no bytes to catalogue", () => {
+  it("stays out of the songs scan, holding no bytes to catalogue", async () => {
     createPlaylist("ete-2026");
-    expect(scanFamily("songs")).toEqual([]);
+    expect(await scanFamily("songs")).toEqual([]);
   });
 });

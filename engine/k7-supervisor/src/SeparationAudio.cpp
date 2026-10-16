@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 
 namespace k7::separation {
 
@@ -58,6 +59,16 @@ Channels deinterleave(const std::vector<float>& pcm, int channels)
     Channels out(static_cast<size_t>(channels), std::vector<float>(frames));
     for (size_t i = 0; i < frames; ++i)
         for (int c = 0; c < channels; ++c) out[static_cast<size_t>(c)][i] = pcm[i * static_cast<size_t>(channels) + static_cast<size_t>(c)];
+    return out;
+}
+
+Channels deinterleaveBytes(const std::string& bytes, int channels)
+{
+    const size_t frames = bytes.size() / sizeof(float) / static_cast<size_t>(channels);
+    Channels out(static_cast<size_t>(channels), std::vector<float>(frames));
+    for (size_t i = 0; i < frames; ++i)
+        for (int c = 0; c < channels; ++c)
+            std::memcpy(&out[static_cast<size_t>(c)][i], bytes.data() + (i * static_cast<size_t>(channels) + static_cast<size_t>(c)) * sizeof(float), sizeof(float));
     return out;
 }
 

@@ -64,7 +64,9 @@ Three drifts the base removes by construction:
 
 - **The body limit.** The relay makes these backends a pipe to the file service, which accepts
   8 MB. Raised in one service and not the other, the same request passes or answers 413
-  depending on which origin the browser sends it from. It is `ENGINE_BODY_LIMIT`, one number.
+  depending on which origin the browser sends it from. It is `ENGINE_BODY_LIMIT`, one number. k7's
+  backend does not parse the file hub's paths at all and streams their bodies through, so the file
+  service applies that number itself (`apps/k7/backend/docs/hardening.md`).
 - **The error handler.** A body that stops arriving throws **inside** the parser, where no
   route's `try/catch` sees it, and every service relays the same bytes. It is
   `engineErrorHandler`, to be mounted LAST.

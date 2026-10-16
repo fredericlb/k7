@@ -33,6 +33,24 @@ one figure its first heartbeat did not carry (performance is measured after the 
 failed the schema on every heartbeat after, the entry lapsed, and a play answered "unknown engine or
 bad token" with nothing in either log to say why.
 
+## A paired machine, or the render machine
+
+The heartbeat is the one way onto every account's picker, and a user who picks an engine sends it
+their project and file roots. Left open, it lets anyone who can reach the origin list a machine
+of their own. So a heartbeat may PROVE who sent it, two ways:
+
+- **a device token** of an account (`Authorization: Bearer …`): the token a phone or a desktop gets
+  when it pairs with the server (`../../file-hub/docs/fileHub.md`), or one minted on the account's
+  devices page for a command-line engine (`$STUDIO_DEVICE_TOKEN`);
+- **the render key** (`x-studio-render-key`): the server's own engine, which no account pairs.
+
+`STUDIO_REGISTRY_REQUIRE_DEVICE=1` refuses a heartbeat that proves neither, with a `401` naming
+the way in. Unset, it is taken as before and the machine is logged as unpaired, once a minute: a
+supervisor older than the device token keeps working until the flag is turned on, and the log says
+which machines would drop off. Proving an account lists the machine; who may then see and drive it is
+ownership's (`ownership.md`). A desktop app's engine is listed at its own app only
+(`apps/k7-standalone/docs/engine.md`).
+
 ## What is logged here
 
 `[registry] …` on this server's output, at most once a minute per engine and per complaint

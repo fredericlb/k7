@@ -1,8 +1,8 @@
-// playheadClock.ts — a DRAWN playhead. The transport's rate is KNOWN (one second per second:
-// the protocol has play/stop/seek and no varispeed), so this predicts from local time and the
+// playheadClock.ts — a DRAWN playhead. The rate is KNOWN (one second per second for the
+// transport, the platter's own `Rate` for a deck), so this predicts from local time and the
 // only unknown it estimates is the OFFSET between the two clocks. A frame that disagrees is a
-// measurement, not a drift — except past SEEK_EPS, where it is a jump and the estimate is rolled
-// back. Pure: no React, no DOM, no clock of its own. See apps/k7/frontend/docs/playhead.md.
+// measurement, not a drift — except past the seek threshold, where it is a jump and the estimate
+// is rolled back. Pure: no React, no DOM, no clock of its own. See apps/k7/frontend/docs/playhead.md.
 
 /** A frame contradicting the estimate by more than this is a SEEK, not latency. */
 export const SEEK_EPS = 0.3; // seconds — the same figure ui-eyes' EngineClock uses
@@ -15,7 +15,7 @@ export const SLEW = 0.02;
 
 /** One frame, as evidence about the offset rather than as a position. */
 interface Sample {
-  /** `playhead − arrival`: what the local clock's zero maps to in transport seconds. */
+  /** `playhead − rate·arrival`: what the local clock's zero maps to in transport seconds. */
   offset: number;
   at: number;
 }
@@ -31,6 +31,8 @@ export interface PlayheadClock {
   /** Where the last frame said we were. The answer outright while stopped. */
   anchorSec: number;
   drawnAt: number;
+  /** Seconds of position per second of local time — 1 for the transport, signed for a platter. */
+  rate: number;
 }
 
 /** The window starts EMPTY: the estimate is built only from frames that actually arrived, never seeded from a snapshot. */
@@ -38,20 +40,23 @@ export const newPlayheadClock = (
   seconds = 0,
   playing = false,
   now = 0,
+  rate = 1,
 ): PlayheadClock => ({
   playing,
   window: [],
-  offset: seconds - now / 1000,
-  drawnOffset: seconds - now / 1000,
+  offset: seconds - (rate * now) / 1000,
+  drawnOffset: seconds - (rate * now) / 1000,
   anchorSec: seconds,
   drawnAt: now,
+  rate,
 });
 
-/** The best offset the window supports is the LARGEST sample: every one understates by its own transit time, so the max is the least delayed. */
-const estimateOf = (window: Sample[]): number => {
+/** The best offset is the least delayed sample: the LARGEST going forward, since every frame understates by its transit, and the smallest going back. */
+const estimateOf = (window: Sample[], rate: number): number => {
+  const sign = rate < 0 ? -1 : 1;
   let best = -Infinity;
-  for (const s of window) if (s.offset > best) best = s.offset;
-  return best;
+  for (const s of window) if (sign * s.offset > best) best = sign * s.offset;
+  return sign * best;
 };
 
 /** Take one engine frame; past `SEEK_EPS` the transport MOVED, so the window is thrown away rather than kept as stale evidence. */
@@ -60,16 +65,18 @@ export function feedPlayhead(
   playing: boolean,
   seconds: number,
   now: number,
+  seekEps = SEEK_EPS,
 ): PlayheadClock {
   if (!playing)
     return { ...c, playing, window: [], anchorSec: seconds, drawnAt: now };
-  const sample: Sample = { offset: seconds - now / 1000, at: now };
+  const sample: Sample = { offset: seconds - (c.rate * now) / 1000, at: now };
   // An empty window is a seed rather than a rollback, but it takes the same path: one sample, and the drawn offset set to it.
   const edge = !c.playing || c.window.length === 0;
   const jumped =
-    c.window.length > 0 && Math.abs(sample.offset - c.offset) > SEEK_EPS;
+    c.window.length > 0 && Math.abs(sample.offset - c.offset) > seekEps;
   if (edge || jumped)
     return {
+      ...c,
       playing: true,
       window: [sample],
       offset: sample.offset,
@@ -82,7 +89,7 @@ export function feedPlayhead(
     ...c,
     playing: true,
     window,
-    offset: estimateOf(window),
+    offset: estimateOf(window, c.rate),
     anchorSec: seconds,
   };
 }
@@ -98,4 +105,32 @@ export function advancePlayhead(c: PlayheadClock, now: number): PlayheadClock {
 
 /** The position to draw at `now`, in transport seconds. */
 export const playheadAt = (c: PlayheadClock, now: number): number =>
-  c.playing ? c.drawnOffset + now / 1000 : c.anchorSec;
+  c.playing ? c.drawnOffset + (c.rate * now) / 1000 : c.anchorSec;
+
+/** Move every offset by `delta` seconds — a change of axis that keeps the window's evidence. */
+const shifted = (c: PlayheadClock, delta: number): PlayheadClock => ({
+  ...c,
+  window: c.window.map((s) => ({ ...s, offset: s.offset + delta })),
+  offset: c.offset + delta,
+  drawnOffset: c.drawnOffset + delta,
+  anchorSec: c.anchorSec + delta,
+});
+
+/** A new KNOWN rate from `now` on, rebased so the drawn position stays continuous; a reversal empties the window, whose evidence pointed the other way. */
+export function retimePlayhead(
+  c: PlayheadClock,
+  rate: number,
+  now: number,
+): PlayheadClock {
+  if (rate === c.rate) return c;
+  const moved = shifted(c, ((c.rate - rate) * now) / 1000);
+  const anchorSec = c.anchorSec;
+  const reversed = Math.sign(rate) !== Math.sign(c.rate);
+  return { ...moved, rate, anchorSec, window: reversed ? [] : moved.window };
+}
+
+/** Slide the whole clock by `delta` seconds of position — a loop folded or unfolded under it, with nothing drawn moving. */
+export const shiftPlayhead = (
+  c: PlayheadClock,
+  delta: number,
+): PlayheadClock => (delta === 0 ? c : shifted(c, delta));

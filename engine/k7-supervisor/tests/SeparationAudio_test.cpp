@@ -77,6 +77,14 @@ void deinterleavesFfmpegFrames()
     CHECK((c[1] == std::vector<float>{-1, -2, -3}));
 }
 
+void deinterleavesRawBytesTheSame()
+{
+    const std::vector<float> pcm{1, -1, 2, -2, 3, -3};
+    const std::string bytes(reinterpret_cast<const char*>(pcm.data()), pcm.size() * sizeof(float));
+    CHECK(deinterleaveBytes(bytes, 2) == deinterleave(pcm, 2));
+    CHECK(deinterleaveBytes(bytes.substr(0, bytes.size() - 1), 2)[0].size() == 2);
+}
+
 void theWavIs24BitPcm()
 {
     const auto b = wavPcm24({{0, 0.5f, -0.5f}, {1, -1, 0}});
@@ -116,6 +124,7 @@ void runSeparationAudioTests()
     RUN(overlapAddReconstructs);
     RUN(eachStemKeepsItsOwn);
     RUN(deinterleavesFfmpegFrames);
+    RUN(deinterleavesRawBytesTheSame);
     RUN(theWavIs24BitPcm);
     RUN(anOvershootIsClamped);
     RUN(theInstrumentalIsEverythingButTheVoice);

@@ -66,7 +66,7 @@ import {
   smoothPath,
 } from "@studio/ui-chains/cables";
 import { withoutCurves } from "@studio/ui-chains/curvePlacement";
-import { decimate } from "@studio/ui-chains/decimate";
+import { GrowingDecimate } from "@studio/ui-chains/decimate";
 import {
   type LaneSource,
   type NodeFlow,
@@ -1067,6 +1067,8 @@ function WaveformWidget({
     let raf = 0;
     let last = 0;
     const minDt = 1000 / WOBBLE_FPS;
+    // A rolling take paints up to 30 times a second: only the points appended since the last paint are folded.
+    const folded = new GrowingDecimate();
 
     const paint = (): void => {
       const dpr = window.devicePixelRatio || 1;
@@ -1088,7 +1090,7 @@ function WaveformWidget({
       // A take is thousands of points against a card's ~120: decimated keeping the EXTREMES,
       // since averaging them away draws a quiet take (decimate.ts).
       const env = isTake
-        ? decimate(envelopeRef.current, Math.max(1, Math.round(W)))
+        ? folded.of(envelopeRef.current, Math.max(1, Math.round(W)))
         : envelopeRef.current;
       const mid = H / 2;
       if (env.length === 0) {

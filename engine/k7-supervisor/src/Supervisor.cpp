@@ -264,7 +264,7 @@ struct Supervisor::Impl {
 
     // --- instruments ----------------------------------------------------------------------------------
 
-    /** A host with no Downloads tab to choose in — the standalone app, the phone — keeps every instrument. */
+    /** `$STUDIO_INSTRUMENTS=all` keeps every instrument, for a host with no Downloads tab to choose in (docs/instruments.md). */
     static bool keepsAll()
     {
         const char* v = std::getenv("STUDIO_INSTRUMENTS");
@@ -328,7 +328,7 @@ struct Supervisor::Impl {
         queue.pop_front();
         fetching = i.name;
         onDownload(i.name, 0, i.bytes, "downloading", "");
-        // Detached: a download outlives no supervisor, and one cut short leaves only a .part to start over from.
+        // Detached: a download outlives no supervisor, and one cut short leaves only a .part the next try resumes.
         std::thread([this, i] {
             log::host("instrument " + i.name + ": downloading " + i.url);
             int lastPercent = -1;
@@ -622,7 +622,12 @@ struct Supervisor::Impl {
         beating = true;
         auto id = identity;
         auto presence = presenceNow();
-        loop.work<registry::Result>([urls, id, presence] { return registry::heartbeat(urls, id, presence); },
+        registry::Credentials cred;
+        cred.deviceTokens = settings.deviceTokens;
+        // The environment's token goes only to the environment's registries: a studio added by hand has its own.
+        if (const char* t = std::getenv("STUDIO_DEVICE_TOKEN"); t && *t && settings.registryUrls.empty()) cred.envToken = t;
+        if (const char* k = std::getenv("STUDIO_RENDER_KEY"); k && *k) cred.renderKey = k;
+        loop.work<registry::Result>([urls, id, presence, cred] { return registry::heartbeat(urls, id, presence, cred); },
                                     [this, then](registry::Result r) {
                                         beating = false;
                                         for (const auto& o : r.outcomes) noteBeat(o);

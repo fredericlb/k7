@@ -1,6 +1,6 @@
 # Ownership — whose engine it is, and who else may use it
 
-Registration is open: any machine heartbeats an engine with no account (`heartbeat.md`). A claim
+Registration is open unless the studio asks a heartbeat to prove a paired machine (`heartbeat.md`). A claim
 says which project an engine drives for whom (`claim.md`), and the tunnel secret says which
 machine an id is (`token.md`). Neither says whose engine it is. Ownership does.
 
@@ -40,8 +40,9 @@ nothing the probe does not already do (`packages/engine-browser/src/probe.ts`). 
 enrols, so an owner who gives the engine up from one tab is not made owner again by that tab's next
 renewal.
 
-The heartbeat carries no account: the supervisor holds no session and no library token, a desktop's
-sync pairing being the app's and not the supervisor's. So an engine is never owned at registration.
+A heartbeat may carry a device token, which proves the machine was paired by SOME account and so
+may be listed at all. It does not make that account the owner: a token sits in a settings file, and
+ownership is decided by who reaches the engine itself. So an engine is never owned at registration.
 
 On an HTTPS page only loopback is dialled directly (`packages/engine-browser/docs/access.md`). The
 first open of an engine is therefore made from a browser on its own machine, or over plain HTTP on

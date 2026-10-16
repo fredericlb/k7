@@ -50,6 +50,18 @@ than redeclared — one number for every ornament on this canvas. At a 20 Hz sou
 essentially never bites; it is there so that a faster engine cannot turn this back into a
 screen-rate loop by accident.
 
+## A take is folded as it grows
+
+A recorder's card draws the whole take, decimated to the card's width keeping the extremes. The
+take only grows — the store pushes onto one array and starts a new one for a new take — so the
+card folds each paint's NEW points into buckets it keeps (`GrowingDecimate`, in
+`packages/ui-chains/src/decimate.ts`) rather than decimating the whole take again: an hour of take
+is some forty thousand points, and a rolling take paints up to thirty times a second.
+
+The buckets have power-of-two widths with fixed edges, which is what lets an append touch only the
+last one; when they outnumber the pixels, pairs merge. So a long take draws between half the width
+and the width in points rather than exactly the width, and every extreme survives either way.
+
 ## The two labels are DOM, and they DO re-render
 
 Everything above is about keeping the envelope out of React. A recorder's card carries two things

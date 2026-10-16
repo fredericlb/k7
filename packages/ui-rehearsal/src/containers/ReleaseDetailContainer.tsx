@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
+import {
+  ActionFailure,
+  LoadFailure,
+  useDetailState,
+} from "../hooks/useDetailState";
 import { m } from "../paraglide/messages.js";
 import type { Release, ReleasePatch } from "../types";
 import { ReleaseDetailView } from "../views/ReleaseDetailView";
@@ -20,72 +25,88 @@ export function ReleaseDetailContainer({
 }: Props) {
   const [release, setRelease] = useState<Release | null>(null);
 
+  const { loadError, setLoadError, actionError, guard } = useDetailState();
+
   const load = useCallback(async () => {
-    setRelease(await api.getRelease(releaseId));
-  }, [releaseId]);
+    try {
+      setRelease(await api.getRelease(releaseId));
+      setLoadError(null);
+    } catch (e) {
+      setLoadError(e);
+    }
+  }, [releaseId, setLoadError]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const handleUpdate = async (patch: ReleasePatch) => {
+  const handleUpdate = guard(async (patch: ReleasePatch) => {
     setRelease(await api.updateRelease(releaseId, patch));
     onChange();
-  };
+  });
 
-  const handleAddVersion = async (data: {
-    name: string;
-    isDefault: boolean;
-    audio: File;
-  }) => {
-    await api.addVersion(releaseId, data);
-    await load();
-  };
+  const handleAddVersion = guard(
+    async (data: { name: string; isDefault: boolean; audio: File }) => {
+      await api.addVersion(releaseId, data);
+      await load();
+    },
+  );
 
-  const handleReplaceVersionAudio = async (versionId: string, audio: File) => {
-    await api.replaceVersionAudio(releaseId, versionId, audio);
-    await load();
-  };
+  const handleReplaceVersionAudio = guard(
+    async (versionId: string, audio: File) => {
+      await api.replaceVersionAudio(releaseId, versionId, audio);
+      await load();
+    },
+  );
 
-  const handleSetDefaultVersion = async (versionId: string) => {
+  const handleSetDefaultVersion = guard(async (versionId: string) => {
     await api.setDefaultVersion(releaseId, versionId);
     await load();
-  };
+  });
 
-  const handleSetVersionHidden = async (versionId: string, hidden: boolean) => {
-    setRelease(await api.setVersionHidden(releaseId, versionId, hidden));
-  };
+  const handleSetVersionHidden = guard(
+    async (versionId: string, hidden: boolean) => {
+      setRelease(await api.setVersionHidden(releaseId, versionId, hidden));
+    },
+  );
 
-  const handleDeleteVersion = async (versionId: string) => {
+  const handleDeleteVersion = guard(async (versionId: string) => {
     await api.deleteVersion(releaseId, versionId);
     await load();
-  };
+  });
 
-  const handleDelete = async () => {
+  const handleDelete = guard(async () => {
     await api.deleteRelease(releaseId);
     onDeleted();
-  };
+  });
 
+  if (!release && loadError != null)
+    return <LoadFailure error={loadError} onRetry={load} />;
   if (!release) return <p className="muted">{m["common.loading"]()}</p>;
 
   return (
-    <ReleaseDetailView
-      release={release}
-      onUpdate={handleUpdate}
-      onAddVersion={handleAddVersion}
-      onReplaceVersionAudio={handleReplaceVersionAudio}
-      onSetDefaultVersion={handleSetDefaultVersion}
-      onSetVersionHidden={handleSetVersionHidden}
-      onDeleteVersion={handleDeleteVersion}
-      onDelete={handleDelete}
-      onBack={onBack}
-      versionAudioUrl={(versionId) => api.versionAudioUrl(releaseId, versionId)}
-      versionEnvelope={(versionId) =>
-        api.getVersionEnvelope(releaseId, versionId)
-      }
-      versionTrackUrl={(versionId, trackId) =>
-        api.versionTrackUrl(releaseId, versionId, trackId)
-      }
-    />
+    <>
+      <ActionFailure message={actionError} />
+      <ReleaseDetailView
+        release={release}
+        onUpdate={handleUpdate}
+        onAddVersion={handleAddVersion}
+        onReplaceVersionAudio={handleReplaceVersionAudio}
+        onSetDefaultVersion={handleSetDefaultVersion}
+        onSetVersionHidden={handleSetVersionHidden}
+        onDeleteVersion={handleDeleteVersion}
+        onDelete={handleDelete}
+        onBack={onBack}
+        versionAudioUrl={(versionId) =>
+          api.versionAudioUrl(releaseId, versionId)
+        }
+        versionEnvelope={(versionId) =>
+          api.getVersionEnvelope(releaseId, versionId)
+        }
+        versionTrackUrl={(versionId, trackId) =>
+          api.versionTrackUrl(releaseId, versionId, trackId)
+        }
+      />
+    </>
   );
 }

@@ -458,6 +458,8 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                     for (const auto& p : t.plugins)
                         if (p.id == c.plugin->id) was = &p;
                 loadPluginFiles(edit, *it->second, *c.plugin, was);
+                // A model or a cabinet moves the module's latency, and no rebuild follows to tell its blend.
+                if (auto* blend = studio::mixBlendOf(*it->second)) blend->refreshLatency();
                 // A preset or a Surge patch sets every parameter it holds, so the document's text params go back on top, as at insert.
                 if (was == nullptr || was->path != c.plugin->path || was->surgePatch != c.plugin->surgePatch)
                     applyPluginParams(*it->second, c.plugin->params);
@@ -691,6 +693,8 @@ double EngineHost::playheadSeconds(const std::string& session) const {
 namespace {
 constexpr int kPreviewNote = 72;   // the sampler's default keyNote — plays at native pitch
 const juce::String kPreviewTrackName = "__studio_preview__";
+// An audition with no length stops here: the sampler decodes the whole excerpt on the message thread first (docs/engineHost.md).
+constexpr double kAuditionCapSeconds = 30.0;
 
 void removePreviewLane(te::Edit& edit) {
     for (auto* t : te::getAudioTracks(edit))
@@ -730,8 +734,8 @@ void EngineHost::previewSample(const std::string& session, const std::string& fi
     if (sampler == nullptr) return;
     sampler->allNotesOff();
     for (int i = sampler->getNumSounds(); --i >= 0;) sampler->removeSound(i);
-    if (! addRackSound(edit, *sampler, file, "preview", kPreviewNote, startSeconds,
-                       lengthSeconds))
+    const double length = lengthSeconds > 0.0 ? lengthSeconds : kAuditionCapSeconds;
+    if (! addRackSound(edit, *sampler, file, "preview", kPreviewNote, startSeconds, length))
         return;
     // addSound loads asynchronously, so fire the note on the NEXT message-thread turn; the ref-counted handle keeps the plugin alive if the edit goes meanwhile.
     te::Plugin::Ptr keepAlive{sampler};
@@ -795,19 +799,16 @@ void EngineHost::enableWaveformTap(const std::string& session, const std::string
     te::Plugin* target = found->second.get();
 
     te::AudioTrack* track = nullptr;
-    int at = -1;
-    for (auto* t : te::getAudioTracks(*impl_->session(session).edit)) {
-        const int i = t->pluginList.indexOf(target);
-        if (i >= 0) {
+    for (auto* t : te::getAudioTracks(*impl_->session(session).edit))
+        if (t->pluginList.indexOf(target) >= 0) {
             track = t;
-            at = i;
             break;
         }
-    }
     if (track == nullptr) return;   // in the doc but not in the graph — nothing to tap
 
-    // "input" taps BEFORE the module, "output" AFTER it.
-    const int insertIndex = (side == "input") ? at : at + 1;
+    // "input" taps BEFORE the module and its split, "output" AFTER it and its blend: never between a module and its @mix pair.
+    const int insertIndex = (side == "input") ? studio::indexBeforeModule(track->pluginList, target)
+                                              : studio::indexAfterModule(track->pluginList, target);
 
     // Created via the plugin cache, where registerBuiltInPlugins put its type.
     auto tapPlugin = impl_->session(session).edit->getPluginCache().createNewPlugin(
@@ -1051,9 +1052,7 @@ private:
 
         /** Nothing is happening here, so most of these frames are not sent; the levels are in the test because an AUDITION sounds with the transport stopped. docs/engineHost.md. */
         const bool idle = !s.playing && !s.recordEnabled && s.armedTracks.empty() &&
-                          // A recorder node is free-running: a rig capturing with the transport
-                          // stopped looks exactly like an idle session, and skipping its drain
-                          // would let the ring lap and lose the take (docs/recorder.md).
+                          // A recorder node is free-running: a rig capturing with the transport stopped looks idle, and its clock must keep moving (docs/recorder.md).
                           !host_.anyRecording(session) &&
                           !host_.sessionWatched(session) && allSilent(s.trackLevelsDb) &&
                           allSilent(s.trackInputLevelsDb);
@@ -1066,7 +1065,7 @@ private:
             idleTicks_[session] = 0;
 
         s.waveformEnvelopes = host_.drainAllWaveformTaps(session);
-        // …and the recorders, drained onto disk in the same breath: this tick IS the writer thread.
+        // …and the recorders' clocks and pictures; their writer thread is what puts the audio on disk.
         s.recorders = host_.pumpRecorders(session);
         // A platter carries its own clock, so `playheadSeconds` says nothing about it — docs/turntable.md.
         s.platterSeconds = host_.platterPositions(session);

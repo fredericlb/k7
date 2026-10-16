@@ -24,6 +24,23 @@ export const SHARED_STORE = "lib";
 /** The prefix a followed library's room is named by — the relay's SHARED_PREFIX (file-hub/syncRelay.ts). */
 const SHARED_ROOM = "@lib/";
 
+/** A store answer that is not a success, with its status: what tells a refusal from a passing failure. */
+export class BlobStoreError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+/** A refusal no retry will change: too big, forbidden, malformed. A timeout, a throttle and a missing blob may pass. */
+export const isPermanent = (e: unknown): boolean =>
+  e instanceof BlobStoreError &&
+  e.status >= 400 &&
+  e.status < 500 &&
+  ![404, 408, 425, 429].includes(e.status);
+
 /** The relay's HTTP twin for blobs: `ws(s)://host/api/sync` → `http(s)://host/api/sync/blobs`. */
 export const blobsUrl = (syncUrl: string): string =>
   `${syncUrl.replace(/^ws/, "http").replace(/\/+$/, "")}/blobs`;
@@ -57,7 +74,7 @@ export class BlobTransfer {
         has: false,
         partial: Number(r.headers.get(PARTIAL_LENGTH_HEADER) ?? 0) || 0,
       };
-    if (!r.ok) throw new Error(`HEAD ${r.status}`);
+    if (!r.ok) throw new BlobStoreError(`HEAD ${r.status}`, r.status);
     return { has: true, partial: 0 };
   }
 
@@ -80,7 +97,8 @@ export class BlobTransfer {
       ) as ReadableStream,
       duplex: "half",
     } as RequestInit);
-    if (!r.ok) throw new Error(`PUT ${r.status}: ${await r.text()}`);
+    if (!r.ok)
+      throw new BlobStoreError(`PUT ${r.status}: ${await r.text()}`, r.status);
   }
 
   /** Bring blob `hash` into `cache`, verified, resuming a partial download; pass the workspace so a followed library reads its own store. */
@@ -98,7 +116,7 @@ export class BlobTransfer {
       await hashFile(sha, part);
       return this.settle(sha, hash, part, cache);
     }
-    if (!r.ok || !r.body) throw new Error(`GET ${r.status}`);
+    if (!r.ok || !r.body) throw new BlobStoreError(`GET ${r.status}`, r.status);
     const append = r.status === 206 && have > 0;
     if (append) await hashFile(sha, part);
     const hashing = new Transform({

@@ -165,10 +165,10 @@ export function openChainSource(
     }
   };
 
-  const onFrame = (data: ArrayBuffer) => {
+  const onFrame = (data: ArrayBuffer, owned: boolean) => {
     if (closed) return;
     if (player) {
-      player.handle(data);
+      player.handle(data, owned);
       // A rate change would play at the wrong pitch, into a stream the recorder already holds.
       const f = player.snapshot().format;
       if (f && ctx && f.sampleRate !== ctx.sampleRate)

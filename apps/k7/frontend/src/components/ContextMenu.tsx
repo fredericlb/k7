@@ -73,8 +73,8 @@ export function ContextMenu({
   onHint?: (description: string) => void;
   onClose: () => void;
 }) {
-  // Null until the set lands: a menu opened first thing draws its labels and no icons, which is the honest degradation.
-  const icons = useIcons();
+  // Fetched only when some row carries a person's icon; null until it lands, so the first menu draws labels alone.
+  const icons = useIcons(items.some((it) => !!prefs[it.verb]?.icon));
   // A person's name for a command is per LANGUAGE, so picking one takes a locale — read here, exactly as `useIcons` is.
   const { locale } = useLocale();
   const ref = useRef<HTMLDivElement>(null);

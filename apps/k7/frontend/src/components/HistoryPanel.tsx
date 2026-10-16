@@ -270,7 +270,7 @@ function SyncHistorySection({ revision }: { revision: unknown }) {
         </button>
         <button
           type="button"
-          className="invisible shrink-0 text-muted-foreground hover:text-foreground group-hover:visible"
+          className="shrink-0 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
           title={m["synchist.restore"]()}
           onClick={() => void restore(seq, point)}
         >

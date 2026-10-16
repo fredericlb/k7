@@ -19,7 +19,10 @@ Either way the **buffer** is the viewport's size in pixels, i.e. the model's, an
 the display: `resize()` writes `style.width/height` and nothing else. Rendering is therefore
 independent of screen resolution, and an export capture is identical to what is on screen.
 
-`preserveDrawingBuffer: true` is there for export, which reads the pixels back after the draw.
+`preserveDrawingBuffer` is on for export only, which reads the pixels back after the draw. The
+preview is only ever presented — nothing reads its canvas back — and keeping its buffer would cost
+a copy on every frame the browser composites. A preview frame that is not redrawn stays on screen
+regardless: the browser presents the last buffer until the context draws again.
 
 ## Frames and blending
 

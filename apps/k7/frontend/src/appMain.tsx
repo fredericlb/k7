@@ -39,12 +39,12 @@ const SharedGate = lazy(() =>
   import("./components/SharedGate").then((m) => ({ default: m.SharedGate })),
 );
 const RehearsalPublicPage = lazy(() =>
-  import("@studio/ui-rehearsal/pages").then((m) => ({
+  import("@studio/ui-rehearsal/public").then((m) => ({
     default: m.RehearsalPublicPage,
   })),
 );
 const RehearsalRemote = lazy(() =>
-  import("@studio/ui-rehearsal/pages").then((m) => ({
+  import("@studio/ui-rehearsal/public").then((m) => ({
     default: m.RehearsalRemote,
   })),
 );
@@ -63,13 +63,31 @@ import {
   TASKS_ROUTE,
 } from "./projects/api";
 import { Home } from "./projects/Home";
-import { LibrariesPage } from "./projects/LibrariesPage";
-import { MediaPage } from "./projects/MediaPage";
 import { RehearsalHost } from "./projects/RehearsalHost";
 import { RehearsalPage } from "./projects/RehearsalPage";
-import { TasksPage } from "./projects/TasksPage";
-import { DesktopEnginePage } from "./settings/DesktopEnginePage";
-import { SettingsPage } from "./settings/SettingsPage";
+
+/** The home's other pages, fetched when visited: the médiathèque carries the editor stack the login and home pages must not wait for (docs/audit.md). */
+const LibrariesPage = lazy(() =>
+  import("./projects/LibrariesPage").then((m) => ({
+    default: m.LibrariesPage,
+  })),
+);
+const MediaPage = lazy(() =>
+  import("./projects/MediaPage").then((m) => ({ default: m.MediaPage })),
+);
+const TasksPage = lazy(() =>
+  import("./projects/TasksPage").then((m) => ({ default: m.TasksPage })),
+);
+const DesktopEnginePage = lazy(() =>
+  import("./settings/DesktopEnginePage").then((m) => ({
+    default: m.DesktopEnginePage,
+  })),
+);
+const SettingsPage = lazy(() =>
+  import("./settings/SettingsPage").then((m) => ({
+    default: m.SettingsPage,
+  })),
+);
 
 import "./index.css";
 /** The waveform's own wrapper and marker rules — a plain stylesheet, so the `@source` scan cannot produce it and it has to be imported. */
@@ -213,32 +231,38 @@ ReactDOM.createRoot(document.getElementById("root")!, {
                 // The pages with no project are ROUTES, so going between them reloads nothing; a take outlives them all.
                 <RehearsalHost>
                   <RehearsalRecording>
-                    <Routes>
-                      <Route
-                        path={LIBRARIES_ROUTE}
-                        element={<LibrariesPage />}
-                      />
-                      <Route path={SETTINGS_ROUTE} element={<SettingsPage />} />
-                      <Route
-                        path={ENGINE_SETTINGS_ROUTE}
-                        element={<DesktopEnginePage />}
-                      />
-                      <Route path={TASKS_ROUTE} element={<TasksPage />} />
-                      <Route
-                        path={`${MEDIA_ROUTE}/*`}
-                        element={<MediaPage />}
-                      />
-                      {/* The phone's microphone: a page of its own, outside the frame. */}
-                      <Route
-                        path={`${REHEARSAL_ROUTE}/remote`}
-                        element={<RehearsalRemote />}
-                      />
-                      <Route
-                        path={`${REHEARSAL_ROUTE}/*`}
-                        element={<RehearsalPage />}
-                      />
-                      <Route path="*" element={<Home />} />
-                    </Routes>
+                    {/* Inside the take's holder, so a page arriving never hides the take in progress. */}
+                    <Suspense fallback={<Booting />}>
+                      <Routes>
+                        <Route
+                          path={LIBRARIES_ROUTE}
+                          element={<LibrariesPage />}
+                        />
+                        <Route
+                          path={SETTINGS_ROUTE}
+                          element={<SettingsPage />}
+                        />
+                        <Route
+                          path={ENGINE_SETTINGS_ROUTE}
+                          element={<DesktopEnginePage />}
+                        />
+                        <Route path={TASKS_ROUTE} element={<TasksPage />} />
+                        <Route
+                          path={`${MEDIA_ROUTE}/*`}
+                          element={<MediaPage />}
+                        />
+                        {/* The phone's microphone: a page of its own, outside the frame. */}
+                        <Route
+                          path={`${REHEARSAL_ROUTE}/remote`}
+                          element={<RehearsalRemote />}
+                        />
+                        <Route
+                          path={`${REHEARSAL_ROUTE}/*`}
+                          element={<RehearsalPage />}
+                        />
+                        <Route path="*" element={<Home />} />
+                      </Routes>
+                    </Suspense>
                   </RehearsalRecording>
                 </RehearsalHost>
               ) : profiling ? (

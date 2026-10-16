@@ -7,11 +7,9 @@
 
 package se.frediver.k7
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
@@ -157,14 +155,12 @@ class AppViewsPlugin : Plugin() {
         val given = call.getObject("apps") ?: return call.reject("no apps")
         val url = call.getString("url")
         val studio = call.getString("studio")
-        // The phone's own studio is not up yet on a first run, which is still unpacking: wait, and a start that failed is a load that failed.
-        if (studio == BackendHost.ORIGIN) BackendHost.whenReady { error ->
-            bridge.executeOnMainThread {
-                if (error == null) return@executeOnMainThread show(call, id, given, url, studio)
-                loadFailed(id, "k7 could not start: $error")
-                call.reject(error)
-            }
-        }
+        // The phone's own studio is not up yet on a first run, which is still unpacking: wait rather than fail.
+        if (studio == BackendHost.ORIGIN) BackendHost.whenReady(
+            { bridge.executeOnMainThread { show(call, id, given, url, studio) } },
+            // Given up on (BackendHost.kt): the shell page's retry is what asks it to start again.
+            { why -> bridge.executeOnMainThread { loadFailed(id, "k7 could not start: $why"); call.resolve() } },
+        )
         else bridge.executeOnMainThread { show(call, id, given, url, studio) }
     }
 
@@ -180,10 +176,10 @@ class AppViewsPlugin : Plugin() {
         return out
     }
 
-    /** Start the phone's own backend again after it failed; the `backend` events say how it goes. */
+    /** The shell page's Retry: BackendHost's user retry, the same a view asking again makes; the `backend` events say how it goes. */
     @PluginMethod
     fun restartBackend(call: PluginCall) {
-        Thread({ BackendHost.retry(context) }, "k7-backend-retry").start()
+        BackendHost.retry()
         call.resolve()
     }
 
@@ -409,15 +405,19 @@ class AppViewsPlugin : Plugin() {
     }
 
     private inner class AppChrome : WebChromeClient() {
-        // The microphone, for the rehearsal recorder's remote mic and calls: granted to the studio's own apps only, and only
-        // once the app holds RECORD_AUDIO itself (asked at start, for the engine).
+        // The microphone, to the studio's own apps only, once the app holds RECORD_AUDIO, asked here on first need (MicAccess.kt).
         override fun onPermissionRequest(request: PermissionRequest) {
-            val mic = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-            val grant = request.resources.filter {
-                it == PermissionRequest.RESOURCE_AUDIO_CAPTURE && mic && appOf(request.origin) != null
-            }
+            val wanted = PermissionRequest.RESOURCE_AUDIO_CAPTURE in request.resources && appOf(request.origin) != null
             activity.runOnUiThread {
-                if (grant.isEmpty()) request.deny() else request.grant(grant.toTypedArray())
+                val mic = (activity as? MainActivity)?.mic
+                if (!wanted || mic == null) return@runOnUiThread request.deny()
+                mic.request { answer ->
+                    if (answer == MicAccess.Answer.GRANTED) return@request request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+                    request.deny()
+                    // Blocked for good: the page hears why its getUserMedia failed, beside the native dialog.
+                    if (answer == MicAccess.Answer.BLOCKED)
+                        views.values.forEach { it.evaluateJavascript("dispatchEvent(new CustomEvent('k7:mic-denied'))", null) }
+                }
             }
         }
 

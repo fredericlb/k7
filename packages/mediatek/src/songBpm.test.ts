@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { listFamily } from "./catalogue.ts";
+import { listFamilyFresh } from "./catalogue.ts";
 import { ensureLayout } from "./layout.ts";
 import { bumped } from "./revision.ts";
 import { setSongBpm, setSongKey } from "./write.ts";
@@ -85,20 +85,26 @@ describe("setSongBpm", () => {
 });
 
 describe("the catalogue surfaces it", () => {
-  it("reports a written tempo on the entry", () => {
+  it("reports a written tempo on the entry", async () => {
     setSongBpm(FOLDER, 128);
-    const e = listFamily("songs").entries.find((x) => x.path === FOLDER);
+    const e = (await listFamilyFresh("songs")).entries.find(
+      (x) => x.path === FOLDER,
+    );
     expect(e?.meta?.bpm).toBe(128);
   });
 
-  it("reads a quoted one too, since a person may write either", () => {
+  it("reads a quoted one too, since a person may write either", async () => {
     sidecar('title: T\nbpm: "92"\n');
-    const e = listFamily("songs").entries.find((x) => x.path === FOLDER);
+    const e = (await listFamilyFresh("songs")).entries.find(
+      (x) => x.path === FOLDER,
+    );
     expect(e?.meta?.bpm).toBe(92);
   });
 
-  it("carries no bpm at all when the sidecar has none", () => {
-    const e = listFamily("songs").entries.find((x) => x.path === FOLDER);
+  it("carries no bpm at all when the sidecar has none", async () => {
+    const e = (await listFamilyFresh("songs")).entries.find(
+      (x) => x.path === FOLDER,
+    );
     expect(e?.meta?.bpm).toBeUndefined();
   });
 });
@@ -112,10 +118,12 @@ describe("setSongKey", () => {
     expect(read()).toContain('key: "C# minor"');
   });
 
-  it("QUOTES it, or a sharp would start a YAML comment", () => {
+  it("QUOTES it, or a sharp would start a YAML comment", async () => {
     // `key: C# minor` parses as `C` — the rest is a comment, and the mode vanishes without a word.
     setSongKey(FOLDER, "C# minor");
-    expect(listFamily("songs").entries[0]?.meta?.key).toBe("C# minor");
+    expect((await listFamilyFresh("songs")).entries[0]?.meta?.key).toBe(
+      "C# minor",
+    );
   });
 
   it("does NOT overwrite by default — a correction survives a re-detection", () => {

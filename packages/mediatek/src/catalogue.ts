@@ -1,8 +1,10 @@
 // catalogue.ts — the queryable view over the library: listings held in memory, rebuilt
 // per family when that family's revision moves, warm-started from .cache/index.json so a
 // restart doesn't re-walk the disk. No database anywhere. See docs/index.md.
+// A moved family is rescanned in the background, one rescan at a time, and a reader waits for
+// it only FRESH_WAIT_MS before taking the previous listing — stamped with its own, older rev.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import {
   cacheDir,
   exists,
@@ -23,74 +25,140 @@ import {
 } from "./types.ts";
 
 const memory = new Map<Family, FamilyListing>();
-let warmed = false;
+const rescans = new Map<Family, Promise<FamilyListing>>();
+let warming: Promise<void> | null = null;
+// Bumped by reset(), so a rescan that outlives it cannot write into the next root's memory.
+let generation = 0;
 
 /** The shape of a persisted listing — **bump it whenever what the scan PRODUCES changes**, see docs/index.md. */
 const INDEX_VERSION = 5;
 
+/** How long a reader waits on a rescan before it is handed the previous listing instead. */
+export const FRESH_WAIT_MS = 250;
+
 /** Pull whatever the last process left behind; any problem at all just means a cold start. */
-function warm(): void {
-  if (warmed) return;
-  warmed = true;
-  try {
-    const raw = JSON.parse(readFileSync(indexPath(), "utf8")) as {
-      version?: number;
-      families?: Record<string, FamilyListing>;
-    };
-    if (raw.version !== INDEX_VERSION) return; // written by another build — walk instead
-    for (const f of FAMILIES) {
-      const l = raw.families?.[f];
-      if (l && typeof l.rev === "string" && Array.isArray(l.entries))
-        memory.set(f, {
-          family: f,
-          rev: l.rev,
-          entries: l.entries,
-          unlisted: Array.isArray(l.unlisted) ? l.unlisted : [],
-        });
+function warm(): Promise<void> {
+  warming ??= (async () => {
+    const gen = generation;
+    try {
+      const raw = JSON.parse(await readFile(indexPath(), "utf8")) as {
+        version?: number;
+        families?: Record<string, FamilyListing>;
+      };
+      if (raw.version !== INDEX_VERSION || gen !== generation) return; // written by another build — walk instead
+      for (const f of FAMILIES) {
+        const l = raw.families?.[f];
+        if (l && typeof l.rev === "string" && Array.isArray(l.entries))
+          memory.set(f, {
+            family: f,
+            rev: l.rev,
+            entries: l.entries,
+            unlisted: Array.isArray(l.unlisted) ? l.unlisted : [],
+          });
+      }
+    } catch {
+      /* cold start */
     }
-  } catch {
-    /* cold start */
-  }
+  })();
+  return warming;
 }
 
-/** Best-effort persist — a library on a full or read-only disk still works, it just walks again. */
+let persisting: Promise<void> | null = null;
+let persistAgain = false;
+
+/** Best-effort persist, one write at a time and the last state winning — the cache is never required. */
 function persist(): void {
+  if (persisting) {
+    persistAgain = true;
+    return;
+  }
+  persisting = (async () => {
+    do {
+      persistAgain = false;
+      try {
+        await mkdir(cacheDir(), { recursive: true });
+        const families = Object.fromEntries(memory.entries());
+        // Beside it then renamed, so a reader never meets half an index.
+        const tmp = `${indexPath()}.${process.pid}.tmp`;
+        await writeFile(
+          tmp,
+          JSON.stringify({ version: INDEX_VERSION, families }),
+          "utf8",
+        );
+        await rename(tmp, indexPath());
+      } catch {
+        /* cache is an optimisation, never a requirement */
+      }
+    } while (persistAgain);
+  })().finally(() => {
+    persisting = null;
+  });
+}
+
+/** Resolves once the index on disk holds what memory holds — for tests, and a clean shutdown. */
+export async function flushIndex(): Promise<void> {
+  while (persisting) await persisting;
+}
+
+/** One rescan per family in flight; a second reader joins it rather than starting another walk. */
+function rescan(family: Family): Promise<FamilyListing> {
+  const running = rescans.get(family);
+  if (running) return running;
+  const gen = generation;
+  const p = (async (): Promise<FamilyListing> => {
+    // Read BEFORE the walk: a write landing during it moves the token again and earns another rescan.
+    const rev = familyRevision(family);
+    const entries = await scanFamily(family);
+    const listing: FamilyListing = {
+      family,
+      rev,
+      entries,
+      unlisted: await scanUnlisted(family, entries),
+    };
+    if (gen === generation) {
+      memory.set(family, listing);
+      persist();
+    }
+    return listing;
+  })().finally(() => {
+    if (rescans.get(family) === p) rescans.delete(family);
+  });
+  rescans.set(family, p);
+  return p;
+}
+
+/** One family's listing, rescanned only when its revision moved — `waitMs` bounds how long a stale one is held back. */
+export async function listFamily(
+  family: Family,
+  waitMs: number = FRESH_WAIT_MS,
+): Promise<FamilyListing> {
+  await warm();
+  const cached = memory.get(family);
+  if (cached && cached.rev === familyRevision(family)) return cached;
+  const next = rescan(family);
+  if (!cached || waitMs === Number.POSITIVE_INFINITY) return next;
+  // The rescan goes on whoever stops waiting for it; its failure only means the old listing stays.
+  next.catch(() => {});
+  if (waitMs <= 0) return cached;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<FamilyListing>((done) => {
+    timer = setTimeout(() => done(cached), waitMs);
+  });
   try {
-    mkdirSync(cacheDir(), { recursive: true });
-    const families = Object.fromEntries(
-      [...memory.entries()].map(([f, l]) => [f, l]),
-    );
-    writeFileSync(
-      indexPath(),
-      JSON.stringify({ version: INDEX_VERSION, families }),
-      "utf8",
-    );
-  } catch {
-    /* cache is an optimisation, never a requirement */
+    return await Promise.race([next.catch(() => cached), late]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-/** One family's listing, rescanned only when its revision moved — the walk is what the token avoids. */
-export function listFamily(family: Family): FamilyListing {
-  warm();
-  const rev = familyRevision(family);
-  const cached = memory.get(family);
-  if (cached && cached.rev === rev) return cached;
-  const entries = scanFamily(family);
-  const listing: FamilyListing = {
-    family,
-    rev,
-    entries,
-    unlisted: scanUnlisted(family, entries),
-  };
-  memory.set(family, listing);
-  persist();
-  return listing;
+/** The listing as of now, however long the rescan takes — for a caller that acts on what is there. */
+export function listFamilyFresh(family: Family): Promise<FamilyListing> {
+  return listFamily(family, Number.POSITIVE_INFINITY);
 }
 
 /** Every family at once — what the catalogue screen opens with. */
-export function listAll(): FamilyListing[] {
-  return FAMILIES.map(listFamily);
+export function listAll(): Promise<FamilyListing[]> {
+  return Promise.all(FAMILIES.map((f) => listFamily(f)));
 }
 
 export interface Query {
@@ -120,12 +188,13 @@ export function parseQuery(q: Record<string, unknown>): Query {
 }
 
 /** Filter in memory — a scan over an array, not an index lookup, because there is no index. */
-export function search(query: Query = {}): MediatekEntry[] {
+export async function search(query: Query = {}): Promise<MediatekEntry[]> {
   const families = query.family ? [query.family] : FAMILIES;
   const needle = query.q?.trim().toLowerCase();
   const out: MediatekEntry[] = [];
-  for (const f of families)
-    for (const e of listFamily(f).entries) {
+  const listings = await Promise.all(families.map((f) => listFamily(f)));
+  for (const listing of listings)
+    for (const e of listing.entries) {
       if (query.kind && e.kind !== query.kind) continue;
       if (
         needle &&
@@ -140,10 +209,10 @@ export function search(query: Query = {}): MediatekEntry[] {
 }
 
 /** How many of each family plus the capture zone, and whether there is a library at all. */
-export function summary(): {
+export async function summary(): Promise<{
   present: boolean;
   counts: Record<string, number>;
-} {
+}> {
   if (!exists())
     return {
       present: false,
@@ -155,14 +224,14 @@ export function summary(): {
       },
     };
   const counts = Object.fromEntries(
-    FAMILIES.map((f) => [f, listFamily(f).entries.length]),
+    (await listAll()).map((l) => [l.family, l.entries.length]),
   ) as Record<string, number>;
   return {
     present: true,
     counts: {
       ...counts,
       [RECORDINGS_DIR]: countRecordings(),
-      [PLAYLISTS_DIR]: listPlaylists().length,
+      [PLAYLISTS_DIR]: (await listPlaylists()).length,
     },
   };
 }
@@ -170,5 +239,7 @@ export function summary(): {
 /** Drop the in-memory index. For tests, and for a root that changed under us. */
 export function reset(): void {
   memory.clear();
-  warmed = false;
+  rescans.clear();
+  warming = null;
+  generation++;
 }

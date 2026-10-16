@@ -1,7 +1,7 @@
 // bundle.mjs — k7's backend and the file service it starts as plain JS, what the desktop and phone apps run,
 // with the files they read at run time laid out at their repo paths. A source's `import.meta` is rewritten to
 // its ORIGINAL path under that tree, so a bundle reads `../meta` or `frontend/dist` as the source did.
-// Usage: node bundle.mjs <outDir>, after the frontend's build. See ../docs/standalone.md.
+// Usage: node bundle.mjs <outDir>, after the frontend's build; `--in-tree` for the server image. See ../docs/standalone.md.
 
 import {
   cpSync,
@@ -11,7 +11,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { bundleLibrary } from "./libraryArchive.mjs";
@@ -24,7 +24,9 @@ const repo = join(
   "..",
 );
 const out = process.argv[2];
-if (!out) throw new Error("usage: bundle.mjs <outDir>");
+if (!out) throw new Error("usage: bundle.mjs <outDir> [--in-tree] [--list]");
+// The server image: the two entries only, in a folder of the checkout, whose files they read where they lie.
+const inTree = process.argv.includes("--in-tree");
 
 // The bundles' own folder; `import.meta` of a source resolves against its parent, the staged tree.
 const BIN = "bin";
@@ -82,13 +84,35 @@ const common = {
   bundle: true,
   platform: "node",
   format: "esm",
+  // Node 24 everywhere: the server image and CI run it, and Electron embeds it (docs/images.md).
   target: "node24",
   // ssh2's optional native helpers: absent, it falls back to JS, as in the desktop app.
-  external: ["cpu-features", "*.node"],
+  // playwright-core: imported lazily by the server's picture render, from node_modules; its own optional imports do not bundle.
+  external: ["cpu-features", "*.node", "playwright-core"],
   plugins: [metaPlugin],
   logLevel: "warning",
   legalComments: "none",
 };
+
+if (inTree) {
+  if (relative(repo, dirname(resolve(out))) !== "")
+    throw new Error("--in-tree wants a folder directly in the checkout");
+  rmSync(out, { recursive: true, force: true });
+  await build({
+    ...common,
+    entryPoints: {
+      backend: "apps/k7/backend/src/server.ts",
+      "file-service": "packages/file-service/src/server.ts",
+    },
+    outdir: out,
+    outExtension: { ".js": ".mjs" },
+    banner: { js: banner("..") },
+  });
+  if (process.argv.includes("--list"))
+    console.log([...metaUsers].sort().join("\n"));
+  console.log(`backend bundled in ${out}, reading the checkout around it`);
+  process.exit(0);
+}
 
 rmSync(out, { recursive: true, force: true });
 mkdirSync(join(out, BIN), { recursive: true });

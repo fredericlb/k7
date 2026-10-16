@@ -3,6 +3,7 @@
 // and the BROWSER GETs /engines and POSTs /engine/select, token-checked. Mounting is the
 // host's job: the engine routes must stay open while the browser ones need a session.
 
+import { timingSafeEqual } from "node:crypto";
 import { validate, wrap } from "@frediverse/http/route";
 import type { TunnelHub } from "@studio/engine-tunnel/hub";
 import type { PublicEngine } from "@studio/web-protocol";
@@ -62,12 +63,45 @@ const REFUSALS = {
   rate: [429, "too many new engines from this address in the last minute"],
 } as const;
 
+/** Who may list an engine here: a device paired with an account, or the render machine — docs/heartbeat.md. */
+export interface HeartbeatGate {
+  /** On, a heartbeat proving neither is refused; off, it is taken as before and only counted. */
+  requireDevice: boolean;
+  /** The account a device token belongs to, or null. */
+  deviceOf: (token: string) => string | null;
+  /** The deployment's render key, which the server's own engine presents; unset, none. */
+  renderKey?: string;
+}
+
+const RENDER_KEY_HEADER = "x-studio-render-key";
+
+/** The account (or `render`) a heartbeat's credentials prove, or null. */
+function provenBy(
+  req: { get(name: string): string | undefined },
+  gate: HeartbeatGate,
+): string | null {
+  const bearer = /^Bearer (.+)$/.exec(req.get("authorization") ?? "")?.[1];
+  const account = bearer ? gate.deviceOf(bearer) : null;
+  if (account) return account;
+  const key = req.get(RENDER_KEY_HEADER);
+  if (gate.renderKey && key && safeEqual(key, gate.renderKey)) return "render";
+  return null;
+}
+
+const safeEqual = (a: string, b: string): boolean => {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+};
+
 export { claimHolder } from "./owners.ts";
 
 /** What the host tells the routes about an account beyond its name. */
 export interface RouterOptions {
   /** Whether the request's account administers this origin: it may reset an engine's owner. */
   isAdmin?: (req: unknown) => boolean;
+  /** Who may list an engine; absent, anyone, as before — docs/heartbeat.md. */
+  heartbeat?: HeartbeatGate;
 }
 
 /** The routes over the one registry, pl8's — see docs/shared.md. */
@@ -79,6 +113,7 @@ export function engineRegistryRouter(
   opts: RouterOptions = {},
 ): Router {
   const router = Router();
+  const gate = opts.heartbeat;
   /** What the request's account is to engine `id` — docs/ownership.md. */
   const roleFor = (id: string, holder: string): EngineRole =>
     roleOf(reg.owners.get(id), holder, !!tunnels?.isRenderer(id));
@@ -112,6 +147,18 @@ export function engineRegistryRouter(
           .json({ error: `heartbeat refused — ${read.error}` });
       }
       const b = read.beat;
+      // An open route would let anyone list a machine every account then sends its project to (docs/heartbeat.md).
+      if (gate && !provenBy(req, gate)) {
+        complain(
+          `${b.id}|unpaired`,
+          `${gate.requireDevice ? "refused" : "took"} a heartbeat from ${who(b.id, b.hostname, req.ip)} with no device token`,
+        );
+        if (gate.requireDevice)
+          return res.status(401).json({
+            error:
+              "this studio lists paired machines only — pair this machine, or set STUDIO_DEVICE_TOKEN to a device token of your account",
+          });
+      }
       if (b.cleaned.length)
         complain(
           `${b.id}|cleaned|${b.cleaned.join("|")}`,

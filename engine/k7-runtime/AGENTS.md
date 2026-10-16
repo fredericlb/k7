@@ -38,7 +38,7 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   HeldMemory.h             what one of OUR plugins says it holds, in bytes (docs/load.md)
   ProcessMemory.{h,cpp}    the engine process's memory, one system call per platform (docs/load.md)
   SeekRelease.{h,cpp}      a seek while playing: which plugins let go of their notes and tails (docs/panic.md)
-  MixBlend.{h,cpp}         a module's @mix: the split and blend put around it, found by adjacency (docs/mix.md)
+  MixBlend.{h,cpp}         a module's @mix: the split and blend put around it, found by what they name (docs/mix.md)
   PluginParams.{h,cpp}     plugin parameters as text
   PluginScan.{h,cpp}       discovery + cache
   AudioInputs.{h,cpp}      live-input device mapping
@@ -122,7 +122,9 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   RecorderTap.h + RecorderPlugin.{h,cpp}        a NODE's capture — the same shape, except that an
                                                 overrun is COUNTED rather than forgiven, since a
                                                 take that is silently short is a take you trust
-                                                (docs/recorder.md); RecorderNode.h is one node's state
+                                                (docs/recorder.md); RecorderNode.h is one node's state,
+                                                RecorderWriter.h the thread that writes every take —
+                                                JUCE-free, so tests/ has it in the FAST binary
   WaveformTap.h + WaveformTapPlugin.{h,cpp}     peak data while playing
   InputTuner.{h,cpp}                            pitch detection on inputs (docs/inputTuner.md)
 
@@ -134,6 +136,7 @@ server/
   ServePlugins.cpp       …about plugins: the catalogue and its scan, instances, windows, presets, watches
   ServeMachine.cpp       …about the machine: the audio stream, sessions, the interface, identity
   AudioSender.{h,cpp}    the audio broadcast's own thread and wire frame (docs/broadcast.md)
+  Supersede.h            which queued project, tracks and parameter jobs a newer message skips (docs/supersede.md)
   Outbox.h               every JSON push, sent from ONE writer thread so the message thread never waits on a peer
   DocJson.{h,cpp}        the ProjectDoc off the wire, shared by the server and the CLI
   android/EngineJni.cpp  the Android app's entry into serve() (docs/android.md)
@@ -141,6 +144,9 @@ server/
 scripts/               Node harnesses that drive a running engine, not build steps
   two-sessions.ts        two sessions on one engine stay separate
   track-delta.ts         `tracks` amends the document a session holds, and refuses the rest
+  supersede-probe.ts     a burst of knob writes or of documents ends on the LAST one, and a fence keeps its place (docs/supersede.md)
+  recorder-probe.ts      a recorder node's take stays WHOLE while documents rebuild the graph around it — undamaged,
+                         and its wav as long as the clock said (docs/recorder.md)
   list-sessions.ts       an engine's sessions, and drop-session, over the control socket
   broadcast-sessions.mjs per-session streaming
   gen-strudel-bundle.mjs bundle @studio/song-strudel's engineEntry.ts into engine/strudel/strudel.bundle.js,
@@ -211,6 +217,7 @@ Long-form rationale is in `docs/`: `design.md` (pipeline + threading), `engineHo
 `protocol.md` (the wire), `sessions.md` (this side: who may create one, what the registry's
 lock protects, when a session is reaped) with its TypeScript half in
 `packages/engine-protocol/docs/sessions.md`, `multiEdit.md`, `broadcast.md`, `cliModes.md`,
+`supersede.md` (which queued jobs a newer message skips, and what fences them),
 `audit-stabilite.md` (the standing audit of this engine's own stability and speed — read it
 before touching the audio callback, `applyFull`, or the build flags),
 `builtinParams.md`, `namPlugin.md`,
