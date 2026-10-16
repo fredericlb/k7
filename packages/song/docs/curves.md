@@ -187,7 +187,7 @@ breakpoints, so a clamped endpoint alone would make the cut start at the next po
 crossing — a drawn ramp from -1 to +1 would rise from its first point instead of from its middle.
 
 The arithmetic — an oscillator's wave, an envelope's shape, a drawn curve's interpolation, amplitude
-and polarity — is `@studio/song-schema`'s `curveMath.ts`, with no fs, and `curves.ts` bakes through it.
+and polarity — is `@studio/song-schema`'s `curveMath.ts`, with no fs, and `curveBake.ts` bakes through it.
 The browser's curve editor previews through it too, so what it draws is what the bake plays.
 
 ## On/off: a boolean param's curve
