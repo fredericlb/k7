@@ -30,7 +30,7 @@ const dissolves = (clips: readonly { fadeIn?: unknown }[]): boolean =>
   clips.some((c) => c.fadeIn);
 
 // One picture slot: a texture with the filtering every layer's uploads share, allocated lazily on first upload.
-export function makeSlot(gl: WebGL2RenderingContext): WebGLTexture {
+function makeSlot(gl: WebGL2RenderingContext): WebGLTexture {
   const tex = gl.createTexture()!;
   gl.bindTexture(gl.TEXTURE_2D, tex);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);

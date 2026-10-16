@@ -1,6 +1,6 @@
 // clock.ts — the playhead eyes draws against. It must NOT touch the audio engine (the
 // whole reason it's a separate package), so it takes a Clock: something that can say what
-// second the song is at and whether it's rolling. An EngineClock and a FrameClock both
+// second the song is at and whether it's rolling. An EngineClock and a TransportClock both
 // implement it, and the compositor can't tell which it has.
 
 export interface Clock {
@@ -44,21 +44,6 @@ export class EngineClock implements SeekingClock {
 
   isPlaying(): boolean {
     return this.playing;
-  }
-}
-
-// A deterministic clock for export — frame n / fps, always playing; no wall clock, so a render is reproducible.
-export class FrameClock implements Clock {
-  private frame = 0;
-  constructor(private readonly fps: number) {}
-  setFrame(n: number): void {
-    this.frame = n;
-  }
-  nowSec(): number {
-    return this.frame / this.fps;
-  }
-  isPlaying(): boolean {
-    return true;
   }
 }
 

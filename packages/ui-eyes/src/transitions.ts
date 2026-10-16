@@ -10,7 +10,7 @@ import type { SceneTransition } from "./scene";
 export const DISSOLVE = "dissolve";
 
 /** …and the one a stretch with no `with:` compiles to — mirrored in @studio/song-schema's `OVER`. */
-export const OVER = "over";
+const OVER = "over";
 
 // The vertex stage every full-target program wants, and the same one a shader module ships.
 const VERTEX = `#version 300 es
