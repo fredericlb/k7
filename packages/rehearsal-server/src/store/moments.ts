@@ -4,11 +4,12 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { ffmpegBin } from "@studio/ffmpeg";
 import type { Envelope, Marker } from "@studio/rehearsal-shared";
 import { cachedFile, once } from "../cache.ts";
 import type { Row } from "../db.ts";
 import * as db from "../db.ts";
-import { runTool } from "../ffmpeg.ts";
+import { clipArgs, runTool } from "../ffmpeg.ts";
 import { serialized } from "../lock.ts";
 import * as mediatek from "../mediatek.ts";
 import type { FieldsOf } from "../schema.ts";
@@ -445,31 +446,8 @@ async function extractClip(
 ): Promise<string> {
   const duration = Math.max(0.05, end - start);
   const outPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.webm`);
-  const args = [
-    "-y",
-    "-hide_banner",
-    "-loglevel",
-    "error",
-    "-ss",
-    String(start),
-    "-i",
-    srcPath,
-    "-t",
-    String(duration),
-    "-vn",
-    // EBU R128 normalization, so a standalone clip sits at -14 LUFS, true peak -1 dBTP.
-    "-af",
-    "loudnorm=I=-14:TP=-1.0:LRA=11",
-    "-c:a",
-    "libopus",
-    "-b:a",
-    "128k",
-    "-f",
-    "webm",
-    outPath,
-  ];
   try {
-    await runTool("ffmpeg", args, {
+    await runTool(ffmpegBin(), clipArgs(srcPath, start, duration, outPath), {
       timeoutMs: CLIP_TIMEOUT_MS,
       what: "ffmpeg clip",
     });

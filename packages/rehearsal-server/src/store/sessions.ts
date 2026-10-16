@@ -4,11 +4,12 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { ffmpegBin } from "@studio/ffmpeg";
 import type { Annotation, Envelope, Marker } from "@studio/rehearsal-shared";
 import { cachedFile, once } from "../cache.ts";
 import type { Row } from "../db.ts";
 import * as db from "../db.ts";
-import { runTool } from "../ffmpeg.ts";
+import { concatArgs, runTool } from "../ffmpeg.ts";
 import { serialized } from "../lock.ts";
 import * as mediatek from "../mediatek.ts";
 import type { FieldsOf } from "../schema.ts";
@@ -373,28 +374,8 @@ const CONCAT_TIMEOUT_MS = 30 * 60_000;
 // Several audio files into one webm/opus FILE, through ffmpeg's concat filter; the caller owns the path it resolves.
 async function concatRecordings(paths: string[]): Promise<string> {
   const outPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.webm`);
-  const args = ["-y", "-hide_banner", "-loglevel", "error"];
-  for (const p of paths) args.push("-i", p);
-  // The concat filter needs identical parameters, so each input is coerced to one format.
-  const fmt =
-    "aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo";
-  const pre = paths.map((_, i) => `[${i}:a]${fmt}[a${i}]`).join(";");
-  const labels = paths.map((_, i) => `[a${i}]`).join("");
-  args.push(
-    "-filter_complex",
-    `${pre};${labels}concat=n=${paths.length}:v=0:a=1[a]`,
-    "-map",
-    "[a]",
-    "-c:a",
-    "libopus",
-    "-b:a",
-    "128k",
-    "-f",
-    "webm",
-    outPath,
-  );
   try {
-    await runTool("ffmpeg", args, {
+    await runTool(ffmpegBin(), concatArgs(paths, outPath), {
       timeoutMs: CONCAT_TIMEOUT_MS,
       what: "ffmpeg concat",
     });
