@@ -44,14 +44,21 @@ function tunnel(limits: Partial<UploadLimits>) {
   return { put, replies };
 }
 
-const settle = (ms = 30) => new Promise((r) => setTimeout(r, ms));
+// A deadline rather than a fixed pause: a loaded CI machine lands a write later than 30 ms.
+async function until(f: () => boolean, ms = 5000): Promise<void> {
+  const end = Date.now() + ms;
+  while (!f()) {
+    if (Date.now() > end) throw new Error("timed out");
+    await new Promise((r) => setTimeout(r, 10));
+  }
+}
 
 describe("uploads through a tunnel", () => {
   it("lands a file whole, under its own name", async () => {
     const { put, replies } = tunnel({});
     put(1, "take.wav", 5, false);
     put(1, "take.wav", 5, true);
-    await settle();
+    await until(() => replies().length > 0);
     expect(replies()).toMatchObject([{ req: 1 }]);
     expect(replies()[0].error).toBeUndefined();
     expect(readFileSync(join(dir, "take.wav")).length).toBe(10);
@@ -63,7 +70,7 @@ describe("uploads through a tunnel", () => {
     put(1, "a", 1, false);
     put(2, "b", 1, false);
     put(3, "c", 1, false);
-    await settle();
+    await until(() => replies().length > 0);
     expect(replies()).toMatchObject([{ req: 3, error: expect.any(String) }]);
   });
 
@@ -72,17 +79,16 @@ describe("uploads through a tunnel", () => {
     put(1, "big", 8, false);
     put(1, "big", 8, false);
     put(1, "big", 8, true);
-    await settle();
+    await until(() => replies().length > 0 && readdirSync(dir).length === 0);
     expect(replies()).toMatchObject([{ req: 1, error: expect.any(String) }]);
     expect(readdirSync(dir)).toEqual([]);
   });
 
   it("aborts an upload that went quiet", async () => {
-    const { put, replies } = tunnel({ idleMs: 40 });
+    const { put, replies } = tunnel({ idleMs: 300 });
     put(1, "slow", 4, false);
-    await settle(10);
-    expect(readdirSync(dir).some((f) => f.endsWith(".part"))).toBe(true);
-    await settle(120);
+    await until(() => readdirSync(dir).some((f) => f.endsWith(".part")));
+    await until(() => replies().length > 0 && readdirSync(dir).length === 0);
     expect(replies()).toMatchObject([{ req: 1, error: expect.any(String) }]);
     expect(readdirSync(dir)).toEqual([]);
   });
@@ -91,7 +97,7 @@ describe("uploads through a tunnel", () => {
     const { put, replies } = tunnel({ bytesPerHour: 12 });
     put(1, "a", 8, true);
     put(2, "b", 8, true);
-    await settle();
+    await until(() => replies().length >= 2);
     expect(replies().find((r) => r.req === 2)?.error).toBeDefined();
     expect(replies().find((r) => r.req === 1)?.error).toBeUndefined();
   });

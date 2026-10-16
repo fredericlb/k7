@@ -1,7 +1,13 @@
 // enginePid.test.ts — the pidfile read as an identity, and a teardown that kills only what it proved is the engine.
 
 import { type ChildProcess, spawn } from "node:child_process";
-import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  linkSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -72,8 +78,8 @@ describe("checkPid", () => {
 });
 
 describe.skipIf(process.platform === "win32")("the teardown backstop", () => {
-  function sleeper(bin = "/bin/sleep"): ChildProcess {
-    const child = spawn(bin, ["30"], { detached: true, stdio: "ignore" });
+  function sleeper(bin = "/bin/sleep", args = ["30"]): ChildProcess {
+    const child = spawn(bin, args, { detached: true, stdio: "ignore" });
     children.push(child);
     return child;
   }
@@ -110,8 +116,13 @@ describe.skipIf(process.platform === "win32")("the teardown backstop", () => {
 
   it("kills the engine the pidfile proves", async () => {
     const bin = join(tempDir(), "k7-runtime");
-    copyFileSync("/bin/sleep", bin);
-    const child = sleeper(bin);
+    // Node under the engine's name: Alpine's /bin/sleep is BusyBox, which refuses to run as "k7-runtime".
+    try {
+      linkSync(process.execPath, bin);
+    } catch {
+      copyFileSync(process.execPath, bin);
+    }
+    const child = sleeper(bin, ["-e", "setTimeout(() => {}, 30000)"]);
     const pid = child.pid ?? 0;
     const exited = new Promise((r) => child.once("exit", r));
     const live = await waitFor(() => {
@@ -125,7 +136,8 @@ describe.skipIf(process.platform === "win32")("the teardown backstop", () => {
 });
 
 async function waitFor<T>(read: () => T | null): Promise<T> {
-  for (let i = 0; i < 50; i++) {
+  const end = Date.now() + 5000;
+  while (Date.now() < end) {
     const v = read();
     if (v) return v;
     await new Promise((r) => setTimeout(r, 20));

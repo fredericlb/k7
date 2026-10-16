@@ -22,7 +22,16 @@ createServer((req, res) => {
   res.end("{}");
 }).listen(Number(process.env.STUDIO_FILE_PORT), "127.0.0.1");
 `;
-const DIES = `${GATED}\nsetTimeout(() => process.exit(3), 150);`;
+// Dies once its first probe is answered, not on a clock: a slow start must still read as up, then crashed.
+const DIES = `
+import { createServer } from "node:http";
+let armed = false;
+createServer((req, res) => {
+  res.statusCode = req.headers["x-studio-hub-secret"] === process.env.STUDIO_HUB_SECRET ? 200 : 401;
+  res.end("{}");
+  if (!armed) { armed = true; setTimeout(() => process.exit(3), 150); }
+}).listen(Number(process.env.STUDIO_FILE_PORT), "127.0.0.1");
+`;
 
 const dir = mkdtempSync(join(tmpdir(), "instances-"));
 writeFileSync(join(dir, "gated.mjs"), GATED);
