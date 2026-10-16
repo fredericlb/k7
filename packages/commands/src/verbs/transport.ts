@@ -2,11 +2,12 @@
 // host's engine. See docs/verbs.md.
 
 import type { SidHandler } from "../commands.ts";
+import { splitWords } from "./shared.ts";
 
 export const TRANSPORT_VERBS: Record<string, SidHandler> = {
   // --- recording — the one lane edit that writes NO file, so it sits under `transport`, docs/verbs.md
   "transport.arm": async (a, h) => {
-    const id = a.trim().split(/\s+/).filter(Boolean)[0];
+    const id = splitWords(a)[0];
     if (!id) {
       h.refuse(["usage: transport arm <track>"]);
       return;

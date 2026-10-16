@@ -34,7 +34,7 @@ import { renamedInstance } from "@studio/song-schema/instanceName";
 import { freezeUpstreamRender } from "@studio/take-render/render";
 import type { CommandHost, SidHandler } from "../commands.ts";
 import { withModuleParams } from "../moduleValues";
-import { firstArg, rendererOf } from "./shared.ts";
+import { firstArg, rendererOf, splitWords } from "./shared.ts";
 
 // Where a freeze render lands: one folder for the lot, at the project root — docs/verbs.md.
 const FROZEN_DIR = "renders";
@@ -69,7 +69,7 @@ async function moduleAltAdd(
   copy: boolean,
 ): Promise<void> {
   const verb = copy ? "copy" : "create";
-  const [module, name] = a.trim().split(/\s+/).filter(Boolean);
+  const [module, name] = splitWords(a);
   if (!module) {
     h.refuse([`usage: node alternative ${verb} <node> [name]`]);
     return;
@@ -235,7 +235,7 @@ export const NODE_VERBS: Record<string, SidHandler> = {
 
   /** The three alternative verbs, one operation each on ONE module's file, all ending in a reload; docs/verbs.md. */
   "node.alt.select": async (a, h) => {
-    const [module, name] = a.trim().split(/\s+/).filter(Boolean);
+    const [module, name] = splitWords(a);
     if (!module) {
       h.refuse(["usage: node alternative select <node> [name]"]);
       return;
@@ -267,7 +267,7 @@ export const NODE_VERBS: Record<string, SidHandler> = {
   "node.alt.copy": (a, h) => moduleAltAdd(a, h, true),
   /** Freeze at a module — a TOGGLE; everything upstream is bounced to one wav, packages/song/docs/freeze.md. */
   "node.freeze": async (a, h) => {
-    const module = a.trim().split(/\s+/).filter(Boolean)[0];
+    const module = splitWords(a)[0];
     if (!module) {
       h.refuse(["usage: node freeze <node>"]);
       return;
@@ -346,7 +346,7 @@ export const NODE_VERBS: Record<string, SidHandler> = {
 
   /** node delete <node> — the node's file, its preset and its place in the graph; the module is untouched. */
   "node.delete": async (a, h) => {
-    const node = a.trim().split(/\s+/).filter(Boolean)[0];
+    const node = splitWords(a)[0];
     if (!node) {
       h.refuse(["usage: node delete <node>"]);
       return;
@@ -369,7 +369,7 @@ export const NODE_VERBS: Record<string, SidHandler> = {
   /** node replace <node> <extends-ref> — ONE edit to the node's `extends`, then its NAME follows; docs/verbs.md. */
   "node.replace": async (a, h) => {
     const usage = "usage: node replace <node> <extends-ref>";
-    const [key, ref] = a.trim().split(/\s+/).filter(Boolean);
+    const [key, ref] = splitWords(a);
     if (!key || !ref) {
       h.refuse([usage]);
       return;

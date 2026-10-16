@@ -41,7 +41,7 @@ import {
 } from "@studio/song-schema/moduleTypes";
 import type { GraphFile } from "@studio/song-schema/yaml/graphSchema";
 import type { SidHandler } from "../commands.ts";
-import { takeSpawnAt } from "./shared.ts";
+import { splitWords, takeSpawnAt } from "./shared.ts";
 
 const isMasterRun = (before: string, after: string): boolean =>
   (before === MIX_NODE && after === OUT_NODE) ||
@@ -164,10 +164,7 @@ export const NODE_NEW_VERBS: Record<string, SidHandler> = {
   /** module new <category>/<name> [extends-ref] — scaffold a module, and only that; docs/verbs.md. */
   "module.create": async (a, h) => {
     const usage = "usage: module new <category>/<name> [extends-ref]";
-    const [target, extendsRef, ...extra] = a
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
+    const [target, extendsRef, ...extra] = splitWords(a);
     if (!target || extra.length) {
       h.refuse([usage]);
       return;
@@ -191,7 +188,7 @@ export const NODE_NEW_VERBS: Record<string, SidHandler> = {
   "node.new": async (a, h) => {
     const usage =
       "usage: node new <category>/<name>|<@module-ref> [<node-name>] [<extends-ref>] [x,y]";
-    const parts = a.trim().split(/\s+/).filter(Boolean);
+    const parts = splitWords(a);
     // Born where the cursor was — the web sends the click, so a new node never asks the layout.
     const at = takeSpawnAt(parts);
     if (parts.length < 1 || parts.length > 3) {
@@ -256,7 +253,7 @@ export const NODE_NEW_VERBS: Record<string, SidHandler> = {
   },
   // module own <ref> — give an engine module a folder here, and repoint the chains at it (see moduleFork.ts).
   "module.own": async (a, h) => {
-    const ref = a.trim().split(/\s+/).filter(Boolean)[0];
+    const ref = splitWords(a)[0];
     if (!ref) {
       h.refuse(["usage: module own <@engine/…>"]);
       return;
@@ -274,7 +271,7 @@ export const NODE_NEW_VERBS: Record<string, SidHandler> = {
   },
   /** module fork <@library/path> — the library module made the account's own, the project pointed at it. */
   "module.fork": async (a, h) => {
-    const ref = a.trim().split(/\s+/).filter(Boolean)[0];
+    const ref = splitWords(a)[0];
     if (!ref) return h.refuse(["usage: module fork <@library/path>"]);
     try {
       const r = forkIntoAccount(h.songPath, ref);
@@ -317,7 +314,7 @@ export const NODE_NEW_VERBS: Record<string, SidHandler> = {
   "node.insert": async (a, h) => {
     const usage =
       "usage: node insert <before> <after> <node> [x,y] (the two ends of one graph arrow, then the node to splice between them)";
-    const parts = a.trim().split(/\s+/).filter(Boolean);
+    const parts = splitWords(a);
     const at = takeSpawnAt(parts);
     if (parts.length < 3) {
       h.refuse([usage]);

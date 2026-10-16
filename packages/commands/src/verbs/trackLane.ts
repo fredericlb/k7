@@ -119,7 +119,7 @@ async function setLaneBypass(
 
 /** Resolve a `track mute`/`track solo` argument to a lane or a group, or report why not. */
 function mixTarget(a: string, h: CommandHost, verb: string): MixTarget | null {
-  const id = a.trim().split(/\s+/).filter(Boolean)[0];
+  const id = splitWords(a)[0];
   if (!id) {
     h.refuse([`usage: ${verb} <track|group>`]);
     return null;

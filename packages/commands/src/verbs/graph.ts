@@ -21,7 +21,7 @@ import {
 } from "@studio/song-edit/projectEdit";
 import { isBuiltinOutput } from "@studio/song-schema/moduleTypes";
 import type { SidHandler } from "../commands.ts";
-import { runCarriesInput, takeSpawnAt } from "./shared.ts";
+import { runCarriesInput, splitWords, takeSpawnAt } from "./shared.ts";
 
 /** The pair the graph DRAWS whether or not graph.yaml states it: a sum straight to its device — packages/song/docs/masterChain.md. */
 /** Does this name a node of THIS graph? The five built-in outputs count — they simply have no folder. */
@@ -89,7 +89,7 @@ export const GRAPH_VERBS: Record<string, SidHandler> = {
   /** assembly new <ref> <name> [x,y] — a templated box of nodes, wiring and all; docs/assemblies.md. */
   "assembly.new": async (a, h) => {
     const usage = "usage: assembly new <template-ref> <name> [x,y]";
-    const parts = a.trim().split(/\s+/).filter(Boolean);
+    const parts = splitWords(a);
     const at = takeSpawnAt(parts);
     if (parts.length !== 2) {
       h.refuse([usage]);
@@ -113,7 +113,7 @@ export const GRAPH_VERBS: Record<string, SidHandler> = {
   },
   /** assembly delete <name> — the record AND every node it holds, each spliced out like `node delete`. */
   "assembly.delete": async (a, h) => {
-    const name = a.trim().split(/\s+/).filter(Boolean)[0];
+    const name = splitWords(a)[0];
     if (!name) {
       h.refuse(["usage: assembly delete <name>"]);
       return;
@@ -137,7 +137,7 @@ export const GRAPH_VERBS: Record<string, SidHandler> = {
   },
   /** assembly dissolve <name> — the record only; every node stays on the graph, wired as it was. */
   "assembly.dissolve": async (a, h) => {
-    const name = a.trim().split(/\s+/).filter(Boolean)[0];
+    const name = splitWords(a)[0];
     if (!name) {
       h.refuse(["usage: assembly dissolve <name>"]);
       return;
@@ -155,7 +155,7 @@ export const GRAPH_VERBS: Record<string, SidHandler> = {
   },
   // graph unlink <node> — out of the signal path, files untouched, so it goes back with `node insert`.
   "graph.unlink": async (a, h) => {
-    const node = a.trim().split(/\s+/).filter(Boolean)[0];
+    const node = splitWords(a)[0];
     if (!node) {
       h.refuse(["usage: graph unlink <node>"]);
       return;
@@ -190,7 +190,7 @@ export const GRAPH_VERBS: Record<string, SidHandler> = {
   "graph.move": async (a, h) => {
     const usage =
       "usage: graph move <node> <x> <y> (world px), or `graph move <node> auto`";
-    const parts = a.trim().split(/\s+/).filter(Boolean);
+    const parts = splitWords(a);
     if (parts.length < 2) {
       h.refuse([usage]);
       return;
@@ -249,7 +249,7 @@ export const GRAPH_VERBS: Record<string, SidHandler> = {
   "graph.chain.connect": async (a, h) => {
     const usage =
       "usage: graph chain connect <from> <to> — each a node, optionally name#port (e.g. graph chain connect gtr reverb)";
-    const parts = a.trim().split(/\s+/).filter(Boolean);
+    const parts = splitWords(a);
     if (parts.length !== 2) {
       h.refuse([usage]);
       return;
@@ -294,7 +294,7 @@ export const GRAPH_VERBS: Record<string, SidHandler> = {
   },
   /** graph chain disconnect <from> <to> — pull ONE cable out; no graph load, the file's own refusal IS the check. */
   "graph.chain.disconnect": async (a, h) => {
-    const parts = a.trim().split(/\s+/).filter(Boolean);
+    const parts = splitWords(a);
     if (parts.length !== 2) {
       h.refuse([
         "usage: graph chain disconnect <from> <to> — each a node, optionally name#port",
@@ -314,7 +314,7 @@ export const GRAPH_VERBS: Record<string, SidHandler> = {
   "graph.chain.replug": async (a, h) => {
     const usage =
       "usage: graph chain replug <from> <to> <newFrom> <newTo> — the arrow from→to becomes newFrom→newTo";
-    const parts = a.trim().split(/\s+/).filter(Boolean);
+    const parts = splitWords(a);
     if (parts.length !== 4) {
       h.refuse([usage]);
       return;

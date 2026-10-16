@@ -19,6 +19,7 @@ import {
   setWarpPoint,
 } from "@studio/song-schema/warpPoints";
 import type { CommandHost, SidHandler } from "../commands.ts";
+import { splitWords } from "./shared.ts";
 
 /** `clip onset add|remove|move <clip> <sec…>` — a correction to the detected onsets, in FILE seconds. */
 async function onsetCommand(
@@ -26,7 +27,7 @@ async function onsetCommand(
   h: CommandHost,
   op: "add" | "remove" | "move",
 ): Promise<void> {
-  const parts = arg.trim().split(/\s+/).filter(Boolean);
+  const parts = splitWords(arg);
   const [clip, ...times] = parts;
   const want = op === "move" ? 2 : 1;
   const secs = times.slice(0, want).map(Number);
@@ -67,7 +68,7 @@ async function processCommand(
   scope: Scope,
 ): Promise<void> {
   // The target is ONE token and the chain is the rest, so a médiathèque path keeps its slashes unquoted.
-  const [target, ...rest] = arg.trim().split(/\s+/).filter(Boolean);
+  const [target, ...rest] = splitWords(arg);
   const chain = rest.join(" ");
   if (!target || !chain) {
     h.refuse([
@@ -100,7 +101,7 @@ export const CLIP_VERBS: Record<string, SidHandler> = {
   "clip.process": (a, h) => processCommand(a, h, "clip"),
   /** clip warp <clip> <sec> <beat> — pin a moment of the source to a beat; one verb places and moves, docs/verbs.md. */
   "clip.warp": async (a, h) => {
-    const [clip, secStr, beatStr] = a.trim().split(/\s+/).filter(Boolean);
+    const [clip, secStr, beatStr] = splitWords(a);
     if (!clip || secStr === undefined || beatStr === undefined) {
       h.refuse([
         "usage: clip warp <clip> <sec> <beat>  (e.g. clip warp break 1.94 4)",
@@ -143,7 +144,7 @@ export const CLIP_VERBS: Record<string, SidHandler> = {
   },
   /** clip warp remove <clip> <sec> — drop one stretch point. Never below two: see removeWarpPoint. */
   "clip.warpRemove": async (a, h) => {
-    const [clip, secStr] = a.trim().split(/\s+/).filter(Boolean);
+    const [clip, secStr] = splitWords(a);
     if (!clip || secStr === undefined) {
       h.refuse(["usage: clip warp remove <clip> <sec>"]);
       return;

@@ -12,6 +12,7 @@ import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
 import { deleteChainNode } from "@studio/song-edit/projectEdit";
 import type { CommandHost, SidHandler } from "../commands.ts";
+import { splitWords } from "./shared.ts";
 import { laneMixer } from "./track.ts";
 
 export const TRACK_DELETE_VERBS: Record<string, SidHandler> = {
@@ -35,7 +36,7 @@ function laneOwnNodes(dir: string, lane: string): string[] {
 }
 
 async function trackDeleteCommand(a: string, h: CommandHost): Promise<void> {
-  const arg = a.trim().split(/\s+/).filter(Boolean)[0];
+  const arg = splitWords(a)[0];
   if (!arg) {
     h.refuse(["usage: track delete <track>"]);
     return;

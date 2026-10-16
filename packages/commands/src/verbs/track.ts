@@ -55,6 +55,7 @@ import {
 } from "@studio/song-schema/yaml/trackFile";
 import { parseDocument } from "yaml";
 import type { CommandHost, SidHandler } from "../commands.ts";
+import { splitWords } from "./shared.ts";
 import { duplicateLaneChain } from "./trackChain.ts";
 
 export const TRACK_VERBS: Record<string, SidHandler> = {
@@ -213,7 +214,7 @@ async function duplicateTrack(
   h: CommandHost,
   copyEvents: boolean,
 ): Promise<void> {
-  const idArg = arg.trim().split(/\s+/).filter(Boolean)[0];
+  const idArg = splitWords(arg)[0];
   if (!idArg) {
     h.refuse([`usage: track duplicate${copyEvents ? "" : " empty"} <track>`]);
     return;
@@ -321,7 +322,7 @@ export function laneMixer(g: GraphDoc, lane: string): string | null {
 
 /** `track rename <track> <new name>` — the file, the graph, the boxes, the order, the solo and the strip follow. */
 async function renameTrack(arg: string, h: CommandHost): Promise<void> {
-  const [idArg, to] = arg.trim().split(/\s+/).filter(Boolean);
+  const [idArg, to] = splitWords(arg);
   if (!idArg || !to) {
     h.refuse([
       "usage: track rename <track> <new name> (the whole name, prefix included — e.g. track rename ge.lead vo.lead)",
