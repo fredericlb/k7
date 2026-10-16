@@ -31,6 +31,18 @@ and the status line says so — dropping that file on the lane files and places 
 video is. A MIDI take needs no such door: its whole `sequence note add` line is written to the log
 before it is sent.
 
+## The first screen carries no editor
+
+The home page, the sign-in and the public rehearsal page share one entry chunk, and every static import
+from it is paid before the first row is drawn. What lives behind a click is therefore behind a dynamic
+import: the home's other pages (`appMain.tsx`), CodeMirror in the médiathèque
+(`packages/ui-library/docs/audit.md`), the desk and the viewport in the editor
+(`packages/k7-plugins/docs/plugins.md`), and the icon set, which the context menu asks for only when one of
+its rows carries a picked icon (`docs/shell.md`). A module reached through a package's barrel is pulled
+into the entry whenever the bundler cannot prove it inert — a top-level `lazy()` call is enough — so
+`@studio/ui-library` declares itself free of side effects. The chunks to read after such a change are
+`appMain-*` and `App-*`; `vite build --sourcemap` lists what is in each.
+
 ## The backend
 
 - **The process** logs a stray rejection and survives; an uncaught exception is logged and exits,

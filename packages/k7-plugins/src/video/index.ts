@@ -2,10 +2,18 @@
 // over @studio/ui-eyes, the scene compiler, the shader-audio levels, the lens transport and the
 // picture-mix arithmetic — and contributes the drawer that draws a `viewport` surface, in the
 // shell's floating window and on a device. `sceneOf` and `ViewportTab` are exported for the shell's
-// own panes (the export flow renders the scene too). See packages/k7-plugins/docs/plugins.md.
+// own panes (the export flow renders the scene too). Both drawers are LAZY, the compositor being
+// fetched only by a project that draws a picture (../lazyDrawer.tsx). See ../../docs/plugins.md.
 
 import { definePlugin, type K7Plugin } from "@studio/k7-sdk/plugin";
-import { ViewportPane } from "./ViewportPane";
+import { lazyDrawer } from "../lazyDrawer";
+
+export const ViewportPane = lazyDrawer(() =>
+  import("./ViewportPane").then((m) => m.ViewportPane),
+);
+export const ViewportTab = lazyDrawer(() =>
+  import("./ViewportTab").then((m) => m.ViewportTab),
+);
 
 export const videoPlugin: K7Plugin = definePlugin({
   id: "video",
@@ -13,4 +21,4 @@ export const videoPlugin: K7Plugin = definePlugin({
 });
 
 export { sceneOf } from "./scene";
-export { ViewportPane, ViewportTab } from "./ViewportPane";
+export type { ViewportTabProps } from "./ViewportTab";

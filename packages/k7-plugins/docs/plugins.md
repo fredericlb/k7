@@ -24,6 +24,16 @@ that every browser plugin carries a pane drawer, and that the server list instal
    injects what the shell holds (the compiled picture, its error, the track order, the share's
    readOnly, the armed lane, the library base, the revision token).
 
+## A drawer is fetched when it is first mounted
+
+The composition list is imported by the shell's editor chunk, so whatever a plugin imports at its top
+level is downloaded by every project. The plugin object stays eager — its id, its commands, which surface
+types it draws — and the drawer behind it is `lazyDrawer` (`src/lazyDrawer.tsx`): the desk and the
+compositor arrive only when a project declares a `turntables` or a `viewport` surface. The shell renders
+`ViewportTab` itself, and gets the lazy one too. The Suspense is the drawer's own, so a drawer arriving
+never hides the panes around it; once mounted it never suspends again, which keeps the pane invariant —
+mounted once, hidden, never unmounted (`apps/k7/AGENTS.md`).
+
 ## The one surface that stays core
 
 **The timeline is not a plugin yet, by decision.** Its drawer takes the shell's editor machinery
