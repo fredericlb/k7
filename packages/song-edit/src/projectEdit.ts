@@ -32,6 +32,7 @@ import {
   setModuleList,
   setModuleValue,
 } from "@studio/song-schema/yaml/moduleFile";
+import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { parseDocument, parse as parseYaml } from "yaml";
 import type { OnsetEdits } from "./onsets";
 
@@ -164,8 +165,7 @@ export function moduleAlternatives(
   const names = alternativeNames(text);
   return {
     names,
-    current:
-      names[currentAlternative(parseYaml(text, { version: "1.2" }) ?? {})],
+    current: names[currentAlternative(parseYaml(text, YAML_READ) ?? {})],
   };
 }
 
@@ -351,9 +351,9 @@ export function setClipOnsets(
 
 /** Read a clip's `[timelineBeat, sourceSecond]` pairs exactly as the file states them, or null — never an identity map. */
 export function clipWarpMarkers(dir: string, ref: string): WarpMarker[] | null {
-  const raw = parseYaml(wsRead(clipFilePath(dir, ref)), {
-    version: "1.2",
-  }) as { warp?: { markers?: unknown } } | null;
+  const raw = parseYaml(wsRead(clipFilePath(dir, ref)), YAML_READ) as {
+    warp?: { markers?: unknown };
+  } | null;
   const m = raw?.warp?.markers;
   if (!Array.isArray(m)) return null;
   const out = m
@@ -371,7 +371,7 @@ export function setClipWarp(
 ): string {
   const path = clipFilePath(dir, ref);
   const before = wsRead(path);
-  const doc = parseDocument(before, { version: "1.2" });
+  const doc = parseDocument(before, YAML_READ);
   if (!doc.getIn(["warp", "algorithm"]))
     doc.setIn(["warp", "algorithm"], algorithm);
   // One pair per line, inline — the shape the importer writes and the one a person can read.
@@ -379,6 +379,7 @@ export function setClipWarp(
   for (const item of (seq as { items?: { flow?: boolean }[] }).items ?? [])
     item.flow = true;
   doc.setIn(["warp", "markers"], seq);
+  // The default width, not YAML_WRITE: unfolding would churn clip files already written (docs/yamlText.md).
   const after = String(doc);
   if (after !== before) wsWrite(path, after);
   return path;
@@ -396,7 +397,7 @@ export function clipOnsets(dir: string, ref: string): OnsetEdits {
   const file = clipFileOf(dir, ref);
   if (!file) return {};
   try {
-    const raw = parseYaml(wsRead(file.path), { version: "1.2" });
+    const raw = parseYaml(wsRead(file.path), YAML_READ);
     const o = (raw as { onsets?: OnsetEdits } | null)?.onsets;
     return {
       ...(o?.added?.length ? { added: [...o.added] } : {}),
@@ -442,7 +443,7 @@ export function setModuleExtends(
   const dropped: string[] = [];
   let set: string | undefined;
   const path = editModuleFile(dir, module, (text) => {
-    const doc = parseDocument(text, { version: "1.2" });
+    const doc = parseDocument(text, YAML_READ);
     // On a set other than the first, the SET is repointed: it becomes another module, the node's own untouched.
     const at = currentAlternative(
       (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
@@ -458,7 +459,7 @@ export function setModuleExtends(
         doc.deleteIn([...base, k]);
         dropped.push(k);
       }
-    return doc.toString({ lineWidth: 0 });
+    return doc.toString(YAML_WRITE);
   });
   return {
     rel: relative(dir, path).split(sep).join("/"),

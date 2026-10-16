@@ -20,6 +20,7 @@ import {
   stepLists,
 } from "@studio/song-schema/yaml/chainSchema";
 import type { GraphFile } from "@studio/song-schema/yaml/graphSchema";
+import { YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { parse, stringify } from "yaml";
 import { toSegments } from "./chainSegments";
 import {
@@ -155,10 +156,7 @@ export function writeLayout(dir: string, positions: Positions): void {
     return;
   }
   const flow = Object.fromEntries(Object.entries(positions));
-  const text = stringify(
-    { positions: flow },
-    { lineWidth: 0, flowCollectionPadding: true },
-  )
+  const text = stringify({ positions: flow }, YAML_WRITE)
     // One card per line: a move is a one-line diff.
     .replace(
       /^ {2}(\S.*):\n {4}x: (.+)\n {4}y: (.+)$/gm,

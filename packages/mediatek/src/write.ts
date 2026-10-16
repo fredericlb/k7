@@ -14,6 +14,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { parse as parseYaml } from "yaml";
 import {
   ensureLayout,
@@ -180,10 +181,7 @@ export function addSong(opts: {
 function declaredVariants(text: string): Record<string, string> | null {
   let raw: unknown;
   try {
-    const doc = parseYaml(text, { version: "1.2" }) as Record<
-      string,
-      unknown
-    > | null;
+    const doc = parseYaml(text, YAML_READ) as Record<string, unknown> | null;
     raw = doc && typeof doc === "object" ? doc.variants : undefined;
   } catch {
     return {}; // unparseable already: nothing is declared, and the insert below is text-level

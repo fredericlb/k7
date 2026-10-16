@@ -4,6 +4,7 @@
 // the cursor. See docs/noteGrids.md.
 
 import { roundBeat } from "@studio/song-schema/timecode";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { isSeq, parseDocument } from "yaml";
 
 export interface Note {
@@ -31,7 +32,7 @@ export interface NotesSpan {
 export function findNotesArray(doc: string): NotesSpan | null {
   let parsed: ReturnType<typeof parseDocument>;
   try {
-    parsed = parseDocument(doc, { version: "1.2" });
+    parsed = parseDocument(doc, YAML_READ);
   } catch {
     return null;
   }
@@ -54,9 +55,9 @@ export function parseNotes(arrayText: string): Note[] {
   try {
     // Re-indented under a key so a bare block sequence parses, whatever indent the span's first line lost.
     value = (
-      parseDocument(`notes:\n${reindent(arrayText)}`, {
-        version: "1.2",
-      }).toJS() as { notes?: unknown } | null
+      parseDocument(`notes:\n${reindent(arrayText)}`, YAML_READ).toJS() as {
+        notes?: unknown;
+      } | null
     )?.notes;
   } catch {
     return [];

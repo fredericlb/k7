@@ -25,6 +25,7 @@ import {
 import { wsCopy, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { formatChains, parseGraph } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
+import { YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import type { LiveChain } from "@studio/web-protocol";
 import { stringify } from "yaml";
 
@@ -127,7 +128,7 @@ export function spliceChain(benchDir: string, ref: string): void {
     // A folder chain's node file is copied as written, its comments with it.
     if (chain.layout === "folder")
       wsCopy(join(chain.at, "nodes", `${s.name}.yaml`), `${at}.yaml`);
-    else wsWrite(`${at}.yaml`, stringify(s.module, { lineWidth: 0 }));
+    else wsWrite(`${at}.yaml`, stringify(s.module, YAML_WRITE));
     if (s.preset) copyFileSync(s.preset, `${at}.vstpreset`);
   });
   wsWrite(

@@ -4,6 +4,7 @@
 // where something rebuilds or clones it — see docs/moduleCache.md.
 
 import { statSync } from "node:fs";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { parse as parseYaml } from "yaml";
 // How old an mtime must be to be trusted as a key — this cache's whole correctness, and not only
 // this one's, which is why the window has one spelling. See docs/moduleCache.md.
@@ -61,7 +62,7 @@ export function settledParse<T>(
 
 /** `path` parsed as YAML 1.2, from the cache when it has SETTLED — see docs/moduleCache.md. */
 export function parsedYaml(path: string): unknown {
-  return settledParse(path, "yaml", (t) => parseYaml(t, { version: "1.2" }));
+  return settledParse(path, "yaml", (t) => parseYaml(t, YAML_READ));
 }
 
 /** `path`'s text, from the cache when it has SETTLED — a string, so sharing it is safe. */

@@ -25,6 +25,7 @@ import {
   CurveConditionSchema,
   CurveSchema,
 } from "@studio/song-schema/yaml/entitySchemas";
+import { YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { stringify } from "yaml";
 import { round6 } from "./curveBake";
 import { exportSub } from "./loader";
@@ -259,7 +260,7 @@ export function writeCurveFile(
   mkdirSync(join(dir, "curves"), { recursive: true });
   wsWrite(
     path,
-    stringify(ordered, { lineWidth: 0, flowCollectionPadding: true }).replace(
+    stringify(ordered, YAML_WRITE).replace(
       // One point a line, as `curve point` writes them: a moved point is a one-line diff.
       /^ {2}- time: "?([^"\n]+)"?\n {4}value: (.+)$/gm,
       '  - { time: "$1", value: $2 }',

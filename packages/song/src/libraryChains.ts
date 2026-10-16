@@ -22,6 +22,7 @@ import {
   VSTPRESETS_DIR,
 } from "@studio/song-schema/yaml/chainSchema";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { parse as parseYaml } from "yaml";
 import { bypassedOf, chainSteps } from "./chainsGraph";
 import { libraryFamilyRoots } from "./sharedFolders";
@@ -171,15 +172,16 @@ export function readTemplate(c: LibraryChainDir): TemplateRead {
 
 function readFolderTemplate(c: LibraryChainDir): TemplateRead {
   const text = wsRead(join(c.at, GRAPH_FILE));
-  const bypassed = bypassedOf(parseYaml(text, { version: "1.2" }));
+  const bypassed = bypassedOf(parseYaml(text, YAML_READ));
   const steps: TemplateStep[] = [];
   const missing: string[] = [];
   for (const name of chainSteps(text)) {
     let module: Record<string, unknown>;
     try {
-      module = (parseYaml(wsRead(join(c.at, NODES_DIR, `${name}.yaml`)), {
-        version: "1.2",
-      }) ?? {}) as Record<string, unknown>;
+      module = (parseYaml(
+        wsRead(join(c.at, NODES_DIR, `${name}.yaml`)),
+        YAML_READ,
+      ) ?? {}) as Record<string, unknown>;
     } catch {
       missing.push(`${name} (no ${NODES_DIR}/${name}.yaml)`);
       continue;

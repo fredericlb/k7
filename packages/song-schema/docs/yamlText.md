@@ -16,8 +16,8 @@ writer cannot drift from its neighbours by re-declaring them.
 ## The writers that keep the default width
 
 A few writers print with `String(doc)` — the library's default width of 80 — rather than
-`YAML_WRITE`: the module file (`moduleFile.ts`), the desk's mix file (`mixFile.ts`). They are not
-moved over. Every file they have already written is folded at 80, and printing those at no width
+`YAML_WRITE`: the module file (`moduleFile.ts`), the desk's mix file (`mixFile.ts`), and a clip's
+warp markers (`setClipWarp` in song-edit's `projectEdit.ts`). They are not moved over. Every file they have already written is folded at 80, and printing those at no width
 would unfold each folded scalar on the next edit — a diff on a line nobody touched. The rule for
 this module is that adopting it never changes a byte an existing writer would have written;
 `yamlText.test.ts` checks that over the whole `demos/` and `k7-core/` corpus.

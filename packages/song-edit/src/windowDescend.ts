@@ -7,10 +7,8 @@
 import { parsePosition } from "@studio/song-schema/timecode";
 import { quoteTimecodes } from "@studio/song-schema/yaml/moduleFile";
 import { everyEventList } from "@studio/song-schema/yaml/trackFile";
+import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { isMap, isSeq, parseDocument } from "yaml";
-
-const OPTS = { version: "1.2" as const, lineWidth: 0 };
-const OUT = { lineWidth: 0 };
 
 /** An edge as the file spells it: seconds (a number, clips only) or a timecode. */
 export type Edge = number | string;
@@ -52,7 +50,7 @@ export function materialWindow(
 ): MaterialWindow | null {
   let doc: ReturnType<typeof parseDocument>;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return null;
   }
@@ -68,13 +66,13 @@ export function materialWindow(
 
 /** The same file with its window gone — unchanged when it had none. */
 export function stripMaterialWindow(text: string): string {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   if (doc.errors.length) return text;
   if (doc.getIn(["from"]) === undefined && doc.getIn(["to"]) === undefined)
     return text;
   doc.deleteIn(["from"]);
   doc.deleteIn(["to"]);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** The window an event ends up with — the larger `from`, the smaller `to`; docs/windowDescend.md. */
@@ -121,7 +119,7 @@ export function descendWindows(
   windowOf: (ref: string) => MaterialWindow | undefined,
   g: Grid,
 ): Descent {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   if (doc.errors.length) return { text, wrote: 0, intersected: [] };
   let wrote = 0;
   // A file with nothing to do to it is answered UNCHANGED rather than re-serialised.
@@ -156,5 +154,5 @@ export function descendWindows(
   if (!changed) return { text, wrote, intersected };
   // The quoting trap, at the one choke point: `to: 3:1` unquoted loads as beat 181.
   quoteTimecodes(doc);
-  return { text: doc.toString(OUT), wrote, intersected };
+  return { text: doc.toString(YAML_WRITE), wrote, intersected };
 }

@@ -13,6 +13,7 @@ import {
   retimeWarpMarkers,
   type WarpMarker,
 } from "@studio/song-schema/warpPoints";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { fileStamp } from "@studio/take-render/recordTake";
 import {
   localRenderer,
@@ -73,9 +74,9 @@ export function resolveTargets(
     (e) => e.id === rel,
   );
   if (clip) {
-    const raw = (parseYaml(wsRead(clip.file.path), {
-      version: "1.2",
-    }) ?? {}) as { source?: unknown };
+    const raw = (parseYaml(wsRead(clip.file.path), YAML_READ) ?? {}) as {
+      source?: unknown;
+    };
     if (!raw.source)
       throw new Error(`clip '${rel}' names no source (${clip.file.rel})`);
     return {
@@ -153,7 +154,7 @@ export function repointClips(
     if (only && !only.includes(e.id)) continue;
     let raw: { source?: unknown; warp?: { markers?: unknown } };
     try {
-      raw = (parseYaml(wsRead(e.file.path), { version: "1.2" }) ?? {}) as {
+      raw = (parseYaml(wsRead(e.file.path), YAML_READ) ?? {}) as {
         source?: unknown;
         warp?: { markers?: unknown };
       };

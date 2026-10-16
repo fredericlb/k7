@@ -50,6 +50,7 @@ import {
   setAlternativeField,
   setAlternativeParam,
 } from "@studio/song-schema/yaml/alternativeFile";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { parse as parseYaml } from "yaml";
 import { selectModuleEngine } from "./engineSwitch";
 import { editModuleFile } from "./projectEdit";
@@ -147,7 +148,7 @@ function readPreset(
   if (!wsExists(found))
     throw new Error(`no preset '${name}' in ${scope} for ${ref}`);
   const r = PresetFileSchema.safeParse(
-    parseYaml(wsRead(found), { version: "1.2" }) ?? {},
+    parseYaml(wsRead(found), YAML_READ) ?? {},
   );
   if (!r.success)
     throw new Error(

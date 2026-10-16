@@ -3,6 +3,7 @@
 // library's `k7-rack` on its `samples` engine, carrying its own taps (packages/song/docs/racks.md).
 // Pure, because what lands in the project deserves a test; the popin is a grid drawn around these numbers.
 
+import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { Document } from "yaml";
 import { m } from "./paraglide/messages.js";
 import { projectDir } from "./projectPaths";
@@ -123,7 +124,7 @@ export function buildKitNodeYaml(
     };
   const doc = new Document(
     { extends: rackRef, engine: RACK_ENGINE, rack: { symbols } },
-    { version: "1.2" },
+    YAML_READ,
   );
   // `BD: { note: 36, sample: … }` — a kit is read down, the way a drum map is.
   const map = doc.getIn(["rack", "symbols"]) as {
@@ -132,6 +133,6 @@ export function buildKitNodeYaml(
   for (const it of map.items) it.value.flow = true;
   return (
     `# ${name} — a kit, built with the rack builder: each tap a note and the sample it fires.\n` +
-    doc.toString({ lineWidth: 0 })
+    doc.toString(YAML_WRITE)
   );
 }

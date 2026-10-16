@@ -12,10 +12,9 @@ import {
 } from "@studio/song/moduleResolve";
 import { currentAlternative } from "@studio/song-schema/alternatives";
 import { calledSubchains } from "@studio/song-schema/yaml/chainSchema";
+import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { isMap, isScalar, parseDocument, Scalar } from "yaml";
 import { editModuleFile } from "./projectEdit";
-
-const OPTS = { version: "1.2" as const };
 
 /** The first note a new tap takes when the kit has none: General MIDI's kick. */
 const FIRST_NOTE = 36;
@@ -33,7 +32,7 @@ export function kitOf(dir: string, node: string) {
 /** Where a tap is written in the node's file: its own `rack:`, or the selected set's. */
 function tapBase(text: string): (string | number)[] {
   const at = currentAlternative(
-    (parseDocument(text, OPTS).toJS() ?? {}) as {
+    (parseDocument(text, YAML_READ).toJS() ?? {}) as {
       alternatives?: unknown;
       alternative?: unknown;
     },
@@ -53,7 +52,7 @@ function editTaps(
   ) => void,
 ): string {
   return editModuleFile(dir, node, (text) => {
-    const doc = parseDocument(text, OPTS);
+    const doc = parseDocument(text, YAML_READ);
     const base = tapBase(text);
     // A node with no `rack:` of its own has nothing yaml's deleteIn/setIn can descend through.
     const parent = base.slice(0, -1);
@@ -67,7 +66,7 @@ function editTaps(
     if (isMap(symbols))
       for (const item of symbols.items)
         if (isMap(item.value)) item.value.flow = true;
-    return doc.toString({ lineWidth: 0 });
+    return doc.toString(YAML_WRITE);
   });
 }
 
@@ -263,7 +262,7 @@ export function setTapOut(
       );
   }
   return editModuleFile(dir, node, (text) => {
-    const doc = parseDocument(text, OPTS);
+    const doc = parseDocument(text, YAML_READ);
     if (subchain === null) {
       doc.deleteIn(["tap_outs", tap]);
       const left = doc.get("tap_outs");
@@ -274,6 +273,6 @@ export function setTapOut(
       const outs = doc.get("tap_outs");
       if (isMap(outs)) outs.flow = true;
     }
-    return doc.toString({ lineWidth: 0 });
+    return doc.toString(YAML_WRITE);
   });
 }

@@ -6,6 +6,7 @@ import { readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { setModuleValue } from "@studio/song-schema/yaml/moduleFile";
 import { type ModuleUI, UISchema } from "@studio/song-schema/yaml/moduleSchema";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { parse as parseYaml } from "yaml";
 import { MODULE_TYPES } from "./loader";
 import { moduleNamespaceOf } from "./sharedFolders";
@@ -121,6 +122,6 @@ export function migrateModuleUis(dir: string): UiMigration {
 
 /** The file's own `ui:` block, read SCHEMA-FREE so an otherwise invalid module's panel is still rescued. */
 function readInlineUi(text: string): unknown {
-  const doc = parseYaml(text, { version: "1.2" }) as { ui?: unknown } | null;
+  const doc = parseYaml(text, YAML_READ) as { ui?: unknown } | null;
   return doc?.ui ?? null;
 }

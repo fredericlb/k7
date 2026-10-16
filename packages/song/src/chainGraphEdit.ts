@@ -25,6 +25,7 @@ import {
 } from "@studio/song-schema/yaml/chainSchema";
 import { parseGraph } from "@studio/song-schema/yaml/graphFile";
 import type { GraphFile } from "@studio/song-schema/yaml/graphSchema";
+import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { parse, stringify } from "yaml";
 import {
   type ChainProject,
@@ -51,7 +52,7 @@ const bare = (d: string) => d.split("#")[0];
 /** The chain project as the segments text a `graph.yaml` would hold — what every graph transform reads. */
 export function chainGraphText(dir: string): string {
   const cp = readChainProject(dir);
-  return stringify(toSegments(cp, readLayout(dir)).graph, { lineWidth: 0 });
+  return stringify(toSegments(cp, readLayout(dir)).graph, YAML_WRITE);
 }
 
 /** A name a caller may use for a node: the node itself, or a chain holding that one node alone. */
@@ -183,7 +184,7 @@ export function editChainGraph(
     );
   const positions = readLayout(dir);
   const { graph, levels } = toSegments(read, positions);
-  const text = stringify(graph, { lineWidth: 0 });
+  const text = stringify(graph, YAML_WRITE);
   const next = transform(text);
   if (next === text) return [];
   const parsed = parseGraph(next);
@@ -273,7 +274,7 @@ export function editChainGraph(
 function rawItems(cp: ChainProject): Map<string, Item> {
   const out = new Map<string, Item>();
   for (const text of Object.values(cp.texts)) {
-    const file = parse(text, { version: "1.2" }) as {
+    const file = parse(text, YAML_READ) as {
       steps?: unknown[];
       subchains?: { steps?: unknown[] }[];
     } | null;

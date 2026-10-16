@@ -17,6 +17,7 @@ import {
   UISchema,
   type Widget,
 } from "@studio/song-schema/yaml/moduleSchema";
+import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { isMap, isNode, parseDocument } from "yaml";
 
 export type {
@@ -25,8 +26,6 @@ export type {
   WidgetType,
 } from "@studio/song-schema/yaml/moduleSchema";
 export { WIDGETS_SCRIPT } from "@studio/song-schema/yaml/moduleSchema";
-
-const OPTS = { version: "1.2" as const, lineWidth: 0 };
 
 /** Does the panel draw a screen anywhere, on any tab? That is what earns widgets.js a tab. */
 export function hasLcd(ui: ModuleUI | null): boolean {
@@ -49,7 +48,7 @@ export function parseModuleDoc(fileText: string): ModuleDoc | null {
 
 function docOf(fileText: string): ModuleDoc | null {
   try {
-    const doc = parseDocument(fileText, OPTS);
+    const doc = parseDocument(fileText, YAML_READ);
     return doc.errors.length ? null : doc;
   } catch {
     return null;
@@ -184,11 +183,11 @@ function uiToPlain(ui: ModuleUI): Record<string, unknown> {
 
 /** Rewrite the file's `ui:` block from the model, leaving every other line untouched. */
 export function writeUi(fileText: string, ui: ModuleUI): string {
-  const doc = parseDocument(fileText, OPTS);
+  const doc = parseDocument(fileText, YAML_READ);
   const node = doc.createNode(uiToPlain(ui));
   flowPanel(node);
   doc.setIn(["ui"], node);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** Put each widget on ONE flow line — what keeps moving a knob a one-line diff. */
@@ -245,7 +244,7 @@ export function hasMalformedUiFile(text: string): boolean {
 
 /** Rewrite a `ui.yaml`'s grid key by key, so its header comment survives — see docs/builder.md. */
 export function writeUiFile(text: string, ui: ModuleUI): string {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const plain = uiToPlain(ui);
   const widgets = doc.createNode(plain.widgets);
   flowWidgets(widgets);
@@ -263,7 +262,7 @@ export function writeUiFile(text: string, ui: ModuleUI): string {
     flowPanel(vertical);
     doc.setIn(["vertical"], vertical);
   } else doc.delete("vertical");
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** The `plugin:` block a module declares, off the FILE and SHALLOW on purpose — see docs/builder.md. */
@@ -322,12 +321,12 @@ export function channelOfDoc(doc: ModuleDoc | null): number[] | string | null {
 
 /** Point an `io: in` module at interface channels, written as a FLOW sequence — see docs/builder.md. */
 export function setChannelIn(fileText: string, channels: number[]): string {
-  const doc = parseDocument(fileText, OPTS);
+  const doc = parseDocument(fileText, YAML_READ);
   const node = doc.createNode(channels);
   // `flow` on the NODE, not at stringify time: a document-wide setting would reflow every other list.
   (node as { flow?: boolean }).flow = true;
   doc.setIn(["channel"], node);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** How this module asks the completions to treat it, read off the TEXT so an unsaved edit shows. */
@@ -337,10 +336,10 @@ export function statusOf(fileText: string): ModuleStatus {
 
 /** Set it, or CLEAR it — the DEFAULT is never written; see docs/builder.md. */
 export function setStatusIn(fileText: string, status: ModuleStatus): string {
-  const doc = parseDocument(fileText, OPTS);
+  const doc = parseDocument(fileText, YAML_READ);
   if (status === DEFAULT_MODULE_STATUS) doc.delete("status");
   else doc.setIn(["status"], status);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** A module file's `extends:` ref, for resolving the base's file; null when absent. */

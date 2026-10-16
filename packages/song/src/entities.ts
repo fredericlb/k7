@@ -22,6 +22,7 @@ import {
   ProjectFileSchema,
   SettingsSchema,
 } from "@studio/song-schema/yaml/projectSchema";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { parse as parseYaml } from "yaml";
 import type { ZodType } from "zod";
 import {
@@ -65,7 +66,7 @@ export function readYamlEntities(
     // Cached only when a schema will rebuild the result, since a cached object handed out raw is a shared object.
     const raw = schema
       ? parsedYaml(file.path)
-      : parseYaml(wsRead(file.path), { version: "1.2" });
+      : parseYaml(wsRead(file.path), YAML_READ);
     if (!schema) {
       values[id] = raw;
       continue;
@@ -107,7 +108,7 @@ export function loadSettings(
 ): Record<string, unknown> {
   const found = entityFileFor(dir, "", "settings");
   if (!found) return {};
-  const raw = parseYaml(wsRead(found.path), { version: "1.2" });
+  const raw = parseYaml(wsRead(found.path), YAML_READ);
   const r = SettingsSchema.safeParse(raw ?? {});
   if (!r.success && validate)
     throw new Error(
@@ -126,7 +127,7 @@ export function loadSettings(
 export function loadProjectRoot(dir: string, validate = false): RawProjectRoot {
   const file = entityFileFor(dir, "", "project");
   if (!file) return {};
-  const raw = parseYaml(wsRead(file.path), { version: "1.2" });
+  const raw = parseYaml(wsRead(file.path), YAML_READ);
   const r = ProjectFileSchema.safeParse(raw ?? {});
   if (!r.success) {
     if (validate)

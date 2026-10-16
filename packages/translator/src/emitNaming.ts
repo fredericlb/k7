@@ -7,6 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { SHARED_MODULES_PATH } from "@studio/song/sharedFolders";
 import { wsWrite } from "@studio/song/yaml/workspaceFile";
 import { quoteTimecodes } from "@studio/song-schema/yaml/moduleFile";
+import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { isSeq, parseDocument } from "yaml";
 import type { Song } from "./model.js";
 
@@ -20,7 +21,7 @@ function yamlDoc(
   flowPaths: (string | number)[][] = [],
   selfPaths: (string | number)[][] = [],
 ): ReturnType<typeof parseDocument> {
-  const doc = parseDocument("{}", { version: "1.2" });
+  const doc = parseDocument("{}", YAML_READ);
   doc.contents = doc.createNode(value) as typeof doc.contents;
   for (const path of flowPaths) {
     const node = doc.getIn(path);
@@ -52,7 +53,7 @@ export function yamlText(
         .map((l) => `# ${l.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "")}`)
         .join("\n")}\n`
     : "";
-  return head + yamlDoc(value, flowPaths, selfPaths).toString({ lineWidth: 0 });
+  return head + yamlDoc(value, flowPaths, selfPaths).toString(YAML_WRITE);
 }
 
 /** A param map, or undefined when there is nothing to write. */
