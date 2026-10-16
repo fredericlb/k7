@@ -15,10 +15,10 @@ import {
   readSync,
   renameSync,
   rmSync,
-  writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 import type { BlobId } from "@studio/live-sync/blob";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
 
 /** A copy that is a clone where the file system allows it, and a plain copy elsewhere. */
 export function cloneFile(from: string, to: string): void {
@@ -109,8 +109,6 @@ export class BlobCache {
 
   savePending(files: Record<string, string>): void {
     mkdirSync(this.dir, { recursive: true });
-    const tmp = join(this.dir, "pending.json.tmp");
-    writeFileSync(tmp, JSON.stringify(files));
-    renameSync(tmp, join(this.dir, "pending.json"));
+    writeFileAtomic(join(this.dir, "pending.json"), JSON.stringify(files));
   }
 }

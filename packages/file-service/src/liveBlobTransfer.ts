@@ -25,7 +25,7 @@ export const SHARED_STORE = "lib";
 const SHARED_ROOM = "@lib/";
 
 /** A store answer that is not a success, with its status: what tells a refusal from a passing failure. */
-export class BlobStoreError extends Error {
+class BlobStoreError extends Error {
   constructor(
     message: string,
     readonly status: number,

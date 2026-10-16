@@ -11,7 +11,7 @@ import type { Request, Response } from "express";
 import type { LibraryStore } from "./libraries.ts";
 
 /** The libraries anyone may read: the one a new install is seeded with. */
-export const PUBLIC_LIBRARIES: readonly string[] = [DEFAULT_LIBRARY];
+const PUBLIC_LIBRARIES: readonly string[] = [DEFAULT_LIBRARY];
 
 /** One file of a published version, as a machine fetching it checks it. */
 export interface VersionFile {

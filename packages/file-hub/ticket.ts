@@ -6,7 +6,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 /** Long enough for a working session; a page that outlives it asks for another. */
-export const TICKET_TTL_MS = 12 * 60 * 60_000;
+const TICKET_TTL_MS = 12 * 60 * 60_000;
 
 const sign = (key: Buffer, payload: string): string =>
   createHmac("sha256", key).update(payload).digest("base64url");

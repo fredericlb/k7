@@ -11,7 +11,7 @@ the history must reach a file the UI doesn't currently have open.
 Every mutation crosses one of two choke points, and both wrap it in
 `Workspace.recordChange(label, mutate)`:
 
-- **`PUT /file`** — an editor save (`routes/files.ts`).
+- **`PUT /file`** — an editor save (`routes/fileRoutes.ts`).
 - **`POST /command` → `runWebCommand`** — every UI action that dispatches a command,
   including `track process` / `clip process` (`engineLink.ts`).
 
@@ -53,7 +53,7 @@ an audio file.
 PATHS, never its contents, with `undone` past the cursor, and paths relative to the project.
 
 **An applied undo or redo pushes the project to the engine**, as `PUT /file` does after a write
-(`src/routes/files.ts`). A step rewrites the open project's files outside any verb, and a verb's
+(`src/routes/commandRoutes.ts`). A step rewrites the open project's files outside any verb, and a verb's
 reload is the only other thing that tells the engine: without the push, an event restored by
 Ctrl+Z is back on disk and on screen and stays silent until the next unrelated edit.
 

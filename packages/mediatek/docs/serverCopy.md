@@ -11,7 +11,7 @@ alone holds (`../../ui-library/src/ServerCopy.tsx`).
 An entry's id is its library-relative path, the same on both volumes, so "on both" means "the same
 path exists on both". Nothing compares bytes. A song edited on one side still reads as synced, and
 that is accepted: comparing content would mean hashing every master on every look at the page,
-the trade `sync.md` already refuses for the cache.
+the trade `sync.md` already refuses for a manifest.
 
 ## The machine's backend asks, not the browser
 

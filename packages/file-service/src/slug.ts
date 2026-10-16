@@ -11,7 +11,7 @@ export { rootDir, slugify };
 // One ordinary path segment, by ALLOWLIST: a denylist lets "." through, which IS the root.
 const WORKSPACE_NAME = /^[A-Za-z0-9][A-Za-z0-9._ -]*$/;
 
-export function assertWorkspaceName(name: string): void {
+function assertWorkspaceName(name: string): void {
   if (!name || !WORKSPACE_NAME.test(name) || /^\.+$/.test(name))
     throw new Error(`invalid workspace name: ${name}`);
 }

@@ -12,7 +12,7 @@ import { rootDir } from "./slug.ts";
 export const EXAMPLES_WORKSPACE = "Examples";
 
 /** Where the demo songs live: $STUDIO_DEMOS when a packaged app sets it, else walk up to `demos` (this file is bundled at a different depth than it sits in the repo). */
-export function demosDir(): string | null {
+function demosDir(): string | null {
   const env = process.env.STUDIO_DEMOS;
   if (env && existsSync(env)) return env;
 

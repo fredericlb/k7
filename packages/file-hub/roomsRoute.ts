@@ -33,7 +33,7 @@ export function syncCredential(req: Request): {
 }
 
 /** The workspace names an account has rooms for: each a folder under `.sync-relay`, named by encodeURIComponent. */
-export function roomNames(accountDir: string): string[] {
+function roomNames(accountDir: string): string[] {
   try {
     return readdirSync(join(accountDir, ".sync-relay"), { withFileTypes: true })
       .filter((d) => d.isDirectory())

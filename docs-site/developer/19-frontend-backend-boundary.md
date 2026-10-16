@@ -34,7 +34,7 @@ All in `packages/file-service/src/routes/files.ts`:
 | `GET /tree`, `GET/PUT /file`, `/folder`, `/rename`, `/move`, `/entry/delete` | The file tree and editor |
 | `GET /commands`, `GET /complete`, `POST /command` | The command layer ([the commands package](./12-commands-package.md)) |
 | `GET /revision` | The change token every view keys its reloads on |
-| `GET /preferences`, `PUT /preferences/vim`, `PUT /preferences/audio-device` | The **machine's** preferences |
+| `GET /preferences`, `PUT /preferences/vim` | The **machine's** preferences |
 | `GET /sync/conflicts`, `POST /sync/conflicts/:id` | Open sync conflicts, settle one |
 | `GET /sync/project` | Whether a project is fully arrived, which `/open` waits for |
 

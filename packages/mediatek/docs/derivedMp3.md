@@ -16,8 +16,8 @@ applies `withoutDerived` to a folder's listing before looking at it:
   could otherwise win over `original.flac`;
 - **the revision walk** (`src/revision.ts`) — so writing thousands of them moves no token, the same
   reason a `{file}.cache` is skipped ([index.md](index.md));
-- **the manifest** (`src/manifest.ts`) — so a machine's mirror never fetches one: the engine plays
-  the FLAC, and the mirror holds the master byte for byte ([sync.md](sync.md));
+- **the manifest** (`src/manifest.ts`) — so a library copying from this one never fetches one: it
+  holds the master byte for byte and derives its own ([sync.md](sync.md));
 - **the capture zone's listing** (`src/recordings.ts`). Choosing a new capture's name still sees
   the MP3, so a capture never lands on one.
 

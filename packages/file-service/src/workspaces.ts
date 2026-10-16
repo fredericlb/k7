@@ -5,7 +5,6 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
-  readFileSync,
   renameSync,
   rmSync,
 } from "node:fs";
@@ -21,6 +20,7 @@ import type {
   WorkspaceSummary,
 } from "@studio/web-protocol";
 import { projectApp } from "@studio/web-protocol/projects";
+import { activeMarkerOf, readActiveMarker } from "./activeMarker.ts";
 import { BENCH_WORKSPACE } from "./bench.ts";
 import { EXAMPLES_WORKSPACE } from "./demos.ts";
 import { liveLogFor } from "./liveLog.ts";
@@ -36,13 +36,7 @@ import {
 import { closeModuleWatchesUnder } from "./moduleWatch.ts";
 import { rootOwner } from "./owner.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
-import {
-  activeMarkerOf,
-  isProjectDir,
-  projectDirsUnder,
-  readActiveMarker,
-  Workspace,
-} from "./workspace.ts";
+import { isProjectDir, projectDirsUnder, Workspace } from "./workspace.ts";
 
 // Memoized so a workspace's caches (compiled doc, waveforms) persist across requests.
 const live = new Map<string, Workspace>();
@@ -161,7 +155,7 @@ export async function restoreRoomName(name: string): Promise<string> {
 let accountLibrary: Workspace | null = null;
 
 /** The account's own library, synced like a workspace in the room ACCOUNT_LIBRARY_ROOM — docs/library-versions-plan.md. */
-export function attachAccountLibrary(): void {
+function attachAccountLibrary(): void {
   if (accountLibrary || !rootOwner()) return;
   const root = accountLibraryHome();
   mkdirSync(root, { recursive: true });

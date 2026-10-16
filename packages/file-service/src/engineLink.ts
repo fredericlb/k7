@@ -3,8 +3,8 @@
 // service sent to each of them, so a re-send or a take resolves its workspace explicitly.
 // The one singleton is the document a browser hands over — see docs/activeProject.md.
 
-import type { Stats } from "node:fs";
-import { basename, relative, resolve } from "node:path";
+import { watch } from "node:fs";
+import { basename, isAbsolute, relative, resolve, sep } from "node:path";
 import {
   argClass,
   argHint,
@@ -14,38 +14,26 @@ import {
   runCommand,
 } from "@studio/commands/commandSpec";
 import type { CommandHost, TransportAction } from "@studio/commands/commands";
-import {
-  type AudioDeviceInfo,
+import type {
   EngineClient,
-  type PluginInfo,
-  type PluginParamInfo,
-  type RecordedTake,
+  PluginInfo,
+  RecordedTake,
 } from "@studio/engine-client/engineClient";
-import type { SessionInfo } from "@studio/engine-client/engineControl";
-import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import type { WebGraph } from "@studio/graph-model";
 import { patternFiles } from "@studio/song/enginePattern";
 import { listBaseModules, withModuleStamp } from "@studio/song/loader";
 import { loadPreferences } from "@studio/song/preferences";
 import type { ProjectDoc } from "@studio/song/project";
-import {
-  separateJob,
-  startSeparate,
-} from "@studio/stem-separation/separateJobs";
 import { addTakeToEvent, addTakeToTrack } from "@studio/take-render/recordTake";
-import {
-  type ChangedFile,
-  type CommandInfo,
-  ENGINE_RECONNECT_MIN_MS,
-  type EngineLoadPhase,
-  type EngineSyncState,
+import type {
+  ChangedFile,
+  CommandInfo,
+  EngineLoadPhase,
+  EngineSyncState,
 } from "@studio/web-protocol";
-import chokidar from "chokidar";
 import { autoFreezer } from "./autoFreezeJobs.ts";
 import { guard } from "./background.ts";
-import { runInBackground } from "./backgroundJobs.ts";
-import { BENCH_WORKSPACE } from "./bench.ts";
-import { askBoundMachine } from "./boundMachine.ts";
+import { engineQueries, serviceMembers } from "./commandHost.ts";
 import {
   beginLoad,
   endLoad,
@@ -54,237 +42,67 @@ import {
   type WarmDeps,
   warmUp,
 } from "./engineLoad.ts";
+import { awaitSessions, reconcileEngine } from "./engineReconcile.ts";
+import {
+  dropLink,
+  ensureEngine,
+  hasSelectedEngine,
+  isReady,
+  linkHooks,
+  links,
+  noteServed,
+  served,
+  sessionOf,
+} from "./engineSessions.ts";
 import {
   engineSyncState,
   forgetSyncFailure,
-  isHeldBack,
   sendWhenSynced,
 } from "./engineSync.ts";
-import { askHubRemote, askHubSync } from "./libraries.ts";
 import { namedSongFiles } from "./mediatekPrefetch.ts";
 import {
   closeModuleWatch,
   moduleFoldersMoved,
   watchModuleFolders,
 } from "./moduleWatch.ts";
-import { renderPicture } from "./pictureRender.ts";
 import { saveTake } from "./recorderSave.ts";
 import { serviceRenderer } from "./renderers.ts";
-import { rootDir, slugify } from "./slug.ts";
 import { setTakeArm, takeArmOf, withTakeHole } from "./takeArm.ts";
 import { skip, type Workspace } from "./workspace.ts";
+
+export {
+  awaitPluginParams,
+  NATIVE_UI_TIMEOUT_MS,
+  PLUGIN_BASE_TIMEOUT_MS,
+  PLUGIN_PARAMS_TIMEOUT_MS,
+  type PluginParamAnswer,
+  type PluginParamListingClient,
+  pluginParams,
+  showNativePluginUIOf,
+  snapshotPluginBase,
+} from "./enginePluginQueries.ts";
+export {
+  awaitSessions,
+  RECONCILE_EVERY_MS,
+  RESEND_LIMIT,
+  SESSIONS_TIMEOUT_MS,
+  type SessionListingClient,
+} from "./engineReconcile.ts";
+// The sessions, the plugin queries and the reconcile live beside this file; their public names stay importable here.
+export {
+  clearSelectedEngine,
+  ensureEngine,
+  noteOwner,
+  pruneIdleLinks,
+  servedProject,
+  sessionOf,
+  setSelectedEngine,
+} from "./engineSessions.ts";
 
 const SURFACE = "cli" as const; // the one surface the shared registry defines
 const NO_PROJECT =
   "no active project — select a project in the workspace first";
 const NO_ENGINE = "engine offline — is the C++ engine running on this machine?";
-
-/** How often a waiting `clip process` asks the separation registry — slow on purpose. */
-const COLD_POLL_MS = 1000;
-
-/** One socket per SESSION, all to the same engine. Keyed by session id. */
-interface Link {
-  client: EngineClient;
-  ready: boolean;
-  /** When something last asked for it, so an abandoned one can be reaped — see pruneIdleLinks. */
-  lastUsed: number;
-  /** Consecutive failed dials, reset by a socket that opened. Drives the reconnect backoff. */
-  attempt: number;
-  /** The transport, off the engine's state frames: an automatic freeze waits for it to stop. */
-  playing: boolean;
-  /** …and whether rolling records, which the dry run turns off for its half second (docs/engineLoad.md). */
-  recordEnabled: boolean;
-}
-const links = new Map<string, Link>();
-
-/** How long a link may go untouched before it is dropped. Minutes, not seconds. */
-const LINK_IDLE_MS = 5 * 60_000;
-
-/** The reconnect backoff's ceiling HERE, deliberately not the browser's — see docs/activeProject.md. */
-const LOCAL_RECONNECT_MAX_MS = 4000;
-let selectedEngineUrl: string | undefined;
-
-/** What this service last SENT to one session, keyed by session — see docs/activeProject.md. */
-interface Served {
-  ws: Workspace;
-  /** The project path we sent — what the ENGINE holds, which a take belongs to. */
-  project: string;
-  /** The reconcile throttle, per session: two of them must not starve each other. */
-  lastReconcile: number;
-  reconciling: boolean;
-  /** Consecutive re-sends the engine did not take — a live socket can still be deaf, docs/activeProject.md. */
-  resends: number;
-}
-const served = new Map<string, Served>();
-
-/** Note that `project` is what this session now holds, keeping any reconcile state in flight. */
-function noteServed(ws: Workspace, project: string): void {
-  const s = served.get(sessionOf(ws));
-  if (s) {
-    s.ws = ws;
-    s.project = project;
-    return;
-  }
-  served.set(sessionOf(ws), {
-    ws,
-    project,
-    lastReconcile: 0,
-    reconciling: false,
-    resends: 0,
-  });
-}
-
-/** Whose workspaces this machine holds. One root means one person — docs/activeProject.md. */
-let owner = "";
-
-/** Told by the request that carries it; the path no longer says, since the slug left the tree. */
-export function noteOwner(email: string): void {
-  if (email) owner = email;
-}
-
-/** Which session this machine's projects belong to — through `sessionFor`, so the browser's half cannot differ. */
-export function sessionOf(ws: { root: string } | null): string {
-  if (!ws || !owner) return SESSIONS.k7;
-  const rel = relative(rootDir(), ws.root);
-  // Outside the root is a workspace this service does not own — the bare session, as before.
-  if (!rel || rel.startsWith("..")) return SESSIONS.k7;
-  // The bench's workspace plays in a session of its own, beside the song — apps/k7/backend/docs/media/banc.md.
-  if (rel.split(/[\\/]/)[0] === BENCH_WORKSPACE)
-    return sessionFor(SESSIONS.bench, owner);
-  return sessionFor(SESSIONS.k7, owner);
-}
-
-/** The note above read from outside, in ADDRESSES rather than paths — see docs/activeProject.md. */
-export function servedProject(
-  userEmail: string,
-): { workspace: string; path: string } | null {
-  const slug = slugify(userEmail);
-  const s =
-    served.get(`${SESSIONS.k7}:${slug}`) ?? served.get(SESSIONS.k7) ?? null;
-  if (!s) return null;
-  const ws = relative(rootDir(), s.ws.root).split(/[\\/]/);
-  // Anything but a single `<workspace>` is one this machine cannot name in an address.
-  if (!ws[0] || ws[0].startsWith("..")) return null;
-  const rel = relative(s.ws.root, s.project).replace(/\\/g, "/");
-  // `.` for a lone-project workspace, which is how the surface listing spells it too.
-  return { workspace: ws[0], path: rel === "" ? "." : rel };
-}
-
-function wireEngine(session: string, e: EngineClient): void {
-  e.on("open", () => {
-    const l = links.get(session);
-    if (l) {
-      l.ready = true;
-      l.attempt = 0; // a socket that opened earns the next outage a fresh, short first wait
-    }
-    try {
-      const prefs = loadPreferences();
-      if (prefs.audioDevice)
-        e.setAudioDevice(prefs.audioDevice.name, prefs.audioDevice.type);
-      // …then how its inputs are GROUPED, and that order is load-bearing — docs/activeProject.md.
-      for (const first of prefs.inputPairs) e.setInputStereo(first, true);
-    } catch {
-      /* no/invalid preferences — keep the system default */
-    }
-    // Re-send the project THIS session was serving — a fresh socket may be a fresh ENGINE.
-    const s = served.get(session);
-    if (s) sendActiveProject(s.ws, s.project);
-  });
-  // Doubled and jittered, but capped SHORT — see docs/activeProject.md.
-  e.on("close", () => {
-    const l = links.get(session);
-    if (l) l.ready = false;
-    const step = Math.min(
-      LOCAL_RECONNECT_MAX_MS,
-      ENGINE_RECONNECT_MIN_MS * 2 ** (l?.attempt ?? 0),
-    );
-    if (l) l.attempt++;
-    setTimeout(
-      () => {
-        if (links.get(session)?.client === e) e.connect();
-      },
-      step / 2 + Math.random() * (step / 2),
-    );
-  });
-  // Not silent: with no trace of a refused dial, "off" and "wedged" look identical.
-  e.on("wserror", (err: Error) =>
-    console.error(`   ✗ engine socket ${session}: ${err.message}`),
-  );
-  // The session is carried by the SOCKET, not the frame, so it is what a take belongs to.
-  e.on("recorded", (take: RecordedTake) => onRecorded(session, take));
-  // Only the transport is kept: an automatic freeze swaps a track's contents, never under the playhead.
-  e.on("state", (st: { playing: boolean; recordEnabled: boolean }) => {
-    const l = links.get(session);
-    if (!l) return;
-    l.playing = st.playing;
-    l.recordEnabled = st.recordEnabled;
-  });
-}
-
-/** Take a link out of the map and close it, in that order — see docs/activeProject.md. */
-function dropLink(session: string, { tellEngine = false } = {}): void {
-  const l = links.get(session);
-  if (!l) return;
-  links.delete(session);
-  try {
-    if (tellEngine) l.client.dropSession(session);
-    l.client.close();
-  } catch {
-    /* already closed */
-  }
-}
-
-/** Close links nothing has used for LINK_IDLE_MS — see docs/activeProject.md. `now` is for the test. */
-export function pruneIdleLinks(now: number = Date.now()): string[] {
-  const dropped: string[] = [];
-  for (const [session, l] of links) {
-    // Never a session holding a project: it is idle between commands by nature.
-    if (served.has(session)) continue;
-    if (now - l.lastUsed < LINK_IDLE_MS) continue;
-    dropLink(session);
-    dropped.push(session);
-  }
-  return dropped;
-}
-
-// Dial the local engine; the sockets themselves open lazily, per session, on first use.
-export function setSelectedEngine(url: string): void {
-  if (url === selectedEngineUrl && links.size) return;
-  selectedEngineUrl = url;
-  // A different engine invalidates every session's socket, not just the current one.
-  for (const session of [...links.keys()]) dropLink(session);
-}
-
-/** Drive no engine at all — a hosted file service between two bindings, packages/file-hub/docs/fileHub.md. */
-export function clearSelectedEngine(): void {
-  selectedEngineUrl = undefined;
-  for (const session of [...links.keys()]) dropLink(session);
-}
-
-/** The socket for one session, opened on first use — the workspace is REQUIRED, docs/activeProject.md. */
-export function ensureEngine(ws: Workspace | null): EngineClient | undefined {
-  if (!selectedEngineUrl) return undefined;
-  const session = sessionOf(ws);
-  const existing = links.get(session);
-  if (existing) {
-    existing.lastUsed = Date.now(); // every use, so pruneIdleLinks only ever sees the abandoned
-    return existing.client;
-  }
-  // The other half of k7's session, and deliberately NOT a driver — see docs/activeProject.md.
-  const client = new EngineClient(selectedEngineUrl, session);
-  links.set(session, {
-    client,
-    ready: false,
-    lastUsed: Date.now(),
-    attempt: 0,
-    playing: false,
-    recordEnabled: false,
-  });
-  wireEngine(session, client);
-  client.connect();
-  startAutoFreeze();
-  return client;
-}
 
 /** How often each served project is looked at for a VST render to make — cheap when nothing moved. */
 const AUTO_FREEZE_EVERY_MS = 3_000;
@@ -321,11 +139,6 @@ export function thawAutoFreeze(
   if (!p) return;
   autoFreezer.thaw(p, module, on);
   reloadActiveProject(ws);
-}
-
-/** Whether this session's socket is open. A fresh one is not, and says so. */
-function isReady(ws: Workspace | null): boolean {
-  return links.get(sessionOf(ws))?.ready ?? false;
 }
 
 /** A document a BROWSER built, per session, in force until that session's project changes under it — docs/activeProject.md. */
@@ -371,7 +184,7 @@ function warmDeps(ws: Workspace, c: EngineClient): WarmDeps {
     engine: c,
     current: () => links.get(session)?.client === c,
     // An engine SELECTED, not a link open: right after a switch the link is dropped and redialled by the next poll.
-    hasEngine: () => selectedEngineUrl !== undefined,
+    hasEngine: hasSelectedEngine,
     sendProject: (d) => c.sendProject(d),
     play: () => {
       recordWasOn = links.get(session)?.recordEnabled ?? false;
@@ -458,128 +271,6 @@ function enginePlugins(
   });
 }
 
-/** How long the engine gets to LOAD a plugin and list its parameters — see docs/activeProject.md. */
-export const PLUGIN_PARAMS_TIMEOUT_MS = 20_000;
-
-/** The slice of EngineClient this needs, so the wait can be tested without a socket. */
-export interface PluginParamListingClient {
-  on(event: "pluginParamList", fn: (p: PluginParamFrame) => void): unknown;
-  off(event: "pluginParamList", fn: (p: PluginParamFrame) => void): unknown;
-  listPluginParams(format: string, id: string): void;
-}
-interface PluginParamFrame {
-  format: string;
-  id: string;
-  /** Whether the machine could LOAD it — see `PluginParamAnswer.found`. */
-  found?: boolean;
-  params: PluginParamInfo[];
-}
-
-/** What one plugin answered — THREE outcomes, not two. See docs/activeProject.md. */
-export interface PluginParamAnswer {
-  found: boolean;
-  params: PluginParamInfo[];
-}
-
-/** Ask what one plugin's parameters are, MATCHED ON THE ID — `undefined` = silence, docs/activeProject.md. */
-export function awaitPluginParams(
-  c: PluginParamListingClient,
-  format: string,
-  id: string,
-  timeoutMs: number = PLUGIN_PARAMS_TIMEOUT_MS,
-): Promise<PluginParamAnswer | undefined> {
-  return new Promise((res) => {
-    const done = (v?: PluginParamAnswer): void => {
-      clearTimeout(timer);
-      c.off("pluginParamList", onList);
-      res(v);
-    };
-    const onList = (p: PluginParamFrame): void => {
-      if (p.id !== id) return; // another surface's question, not the answer to this one
-      // An engine too old to send the flag loaded SOMETHING to answer at all, so absent reads as true.
-      done({ found: p.found !== false, params: p.params });
-    };
-    const timer = setTimeout(() => done(undefined), timeoutMs);
-    c.on("pluginParamList", onList);
-    c.listPluginParams(format, id);
-  });
-}
-
-/** …asked of THIS machine's engine, on the bare session — see docs/activeProject.md. */
-export async function pluginParams(
-  format: string,
-  id: string,
-): Promise<PluginParamAnswer | undefined> {
-  const c = ensureEngine(null);
-  // No `isReady` check here, deliberately: `send` buffers, and that is what makes the first click work.
-  if (!c) return undefined;
-  return awaitPluginParams(c, format, id);
-}
-
-/** How long the engine gets to open the window — generous, because a cold load is. See docs/activeProject.md. */
-export const NATIVE_UI_TIMEOUT_MS = 30_000;
-
-interface NativeUiFrame {
-  format: string;
-  id: string;
-  ok: boolean;
-}
-
-/** Open the plugin's own WINDOW on an orphan instance, and AWAIT the engine — docs/activeProject.md. */
-export async function showNativePluginUIOf(
-  format: string,
-  id: string,
-): Promise<{ ok: boolean } | undefined> {
-  const c = ensureEngine(null);
-  if (!c) return undefined;
-  return new Promise((res) => {
-    const done = (v?: { ok: boolean }): void => {
-      clearTimeout(timer);
-      c.off("nativePluginUiOpened", onOpened);
-      res(v);
-    };
-    const onOpened = (p: NativeUiFrame): void => {
-      if (p.id !== id) return; // another surface's window, not this one
-      done({ ok: p.ok });
-    };
-    const timer = setTimeout(() => done(undefined), NATIVE_UI_TIMEOUT_MS);
-    c.on("nativePluginUiOpened", onOpened);
-    c.showNativePluginUIOf(format, id);
-  });
-}
-
-/** How long the engine gets to write a base. Short: nothing is LOADED here, the instance is open. */
-export const PLUGIN_BASE_TIMEOUT_MS = 5_000;
-
-interface PluginBaseFrame {
-  path: string;
-  ok: boolean;
-}
-
-/** Snapshot the orphan's state into `absPath`, and wait to hear whether it landed — docs/activeProject.md. */
-export async function snapshotPluginBase(
-  format: string,
-  id: string,
-  absPath: string,
-): Promise<{ ok: boolean } | undefined> {
-  const c = ensureEngine(null);
-  if (!c) return undefined;
-  return new Promise((res) => {
-    const done = (v?: { ok: boolean }): void => {
-      clearTimeout(timer);
-      c.off("pluginBaseSaved", onSaved);
-      res(v);
-    };
-    const onSaved = (p: PluginBaseFrame): void => {
-      if (p.path !== absPath) return; // another surface's snapshot, not this one
-      done({ ok: p.ok });
-    };
-    const timer = setTimeout(() => done(undefined), PLUGIN_BASE_TIMEOUT_MS);
-    c.on("pluginBaseSaved", onSaved);
-    c.snapshotPluginBase(format, id, absPath);
-  });
-}
-
 function safeBaseModules(dir: string): string[] {
   try {
     return listBaseModules(dir);
@@ -603,61 +294,81 @@ function sendActiveProject(ws: Workspace, p: string): void {
   }
 }
 
-/** One pattern watcher per SESSION: the bench beside a song must not silence the song's — docs/activeProject.md. */
-const strudelWatchers = new Map<string, ReturnType<typeof chokidar.watch>>();
-// Close a session's strudel watcher and WAIT for the OS to release its handle — on Windows a rename needs it gone.
+/** One pattern watch per SESSION, as its close: the bench beside a song must not silence the song's — docs/activeProject.md. */
+const strudelWatchers = new Map<string, () => void>();
+/** How long a burst of events on one save is let settle into one recompile. */
+const PATTERN_SETTLE_MS = 50;
+// Close a session's pattern watch; a fallback `fs.watch` lets go of its handle here, before any rename.
 async function closeStrudelWatcher(session: string): Promise<void> {
-  const prev = strudelWatchers.get(session);
-  if (!prev) return;
+  const close = strudelWatchers.get(session);
+  if (!close) return;
   strudelWatchers.delete(session);
-  try {
-    await prev.close();
-  } catch {
-    /* already closing */
-  }
+  close();
 }
-/** What the watcher below refuses to carry: `skip()`ped folders and every non-pattern file. See docs/activeProject.md. */
-export function outsideTheWatch(
-  dir: string,
-  p: string,
-  stats?: Stats,
-): boolean {
-  if (p === dir) return false;
-  const name = basename(p);
-  if (skip(name)) return true;
-  return stats?.isFile() ? !name.endsWith(".strudel") : false;
+/** Whether a path under the project (slash-separated) is a pattern the watch carries — docs/activeProject.md. */
+export function carriesPattern(rel: string): boolean {
+  return rel.endsWith(".strudel") && !rel.split("/").some(skip);
 }
 
 function watchStrudel(ws: Workspace, dir: string | null): void {
   const session = sessionOf(ws);
-  // Switching projects: the old handle can close in the background.
+  // Switching projects: the old watch closes first.
   void closeStrudelWatcher(session);
   if (!dir) return;
-  const onChange = (p: string): void => {
+  let timer: NodeJS.Timeout | null = null;
+  const onChange = (rel: string): void => {
     // A lane's pattern is IN the document, so its save is a recompile; the engine applies it in place.
-    if (!p.endsWith(".strudel") || !patternFiles(dir).includes(resolve(p)))
-      return;
-    ws.invalidateProjectDoc();
-    guard(
-      "pattern save",
-      Promise.resolve().then(() => pushProject(ws, dir)),
-    );
+    if (!carriesPattern(rel) || timer) return;
+    if (!patternFiles(dir).includes(resolve(dir, ...rel.split("/")))) return;
+    timer = setTimeout(() => {
+      timer = null;
+      ws.invalidateProjectDoc();
+      guard(
+        "pattern save",
+        Promise.resolve().then(() => pushProject(ws, dir)),
+      );
+    }, PATTERN_SETTLE_MS);
   };
-  const watcher = chokidar
-    .watch(dir, {
-      ignoreInitial: true,
-      ignored: (p: string, stats?: Stats) => outsideTheWatch(dir, p, stats),
-    })
-    .on("add", onChange)
-    .on("change", onChange)
-    .on("unlink", onChange)
-    // A watcher that dies here stops feeding pattern edits for ever, and this line is all there is.
-    .on("error", (err: unknown) =>
+  const stopTimer = (): void => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  };
+  // Live sync's capture already hears every path in the workspace: no second watcher on the project.
+  const feed = ws.liveCapture;
+  const under = feed ? relative(feed.root, dir).split(sep).join("/") : null;
+  if (feed && under !== null && !under.startsWith("..") && !isAbsolute(under)) {
+    const prefix = under ? `${under}/` : "";
+    const unsubscribe = feed.onChange((rel) => {
+      if (rel.startsWith(prefix)) onChange(rel.slice(prefix.length));
+    });
+    strudelWatchers.set(session, () => {
+      unsubscribe();
+      stopTimer();
+    });
+    return;
+  }
+  // Live sync off: one recursive watch on the project, closed before anything renames it.
+  try {
+    const handle = watch(
+      dir,
+      { recursive: true, persistent: false },
+      (_e, name) => {
+        if (name) onChange(String(name).split(sep).join("/"));
+      },
+    );
+    // A watch that dies here stops feeding pattern edits for ever, and this line is all there is.
+    handle.on("error", (err: unknown) =>
       console.error(
         `   ✗ strudel watcher: ${err instanceof Error ? err.message : String(err)}`,
       ),
     );
-  strudelWatchers.set(session, watcher);
+    strudelWatchers.set(session, () => {
+      handle.close();
+      stopTimer();
+    });
+  } catch (e) {
+    console.error(`   ✗ strudel watcher: ${(e as Error).message}`);
+  }
 }
 
 // Point the engine at the active project and send it; switching to a DIFFERENT project flushes it first.
@@ -671,7 +382,7 @@ export function startEngineForActive(ws: Workspace): void {
   if (p !== before) beginLoad(sessionOf(ws));
   watchStrudel(ws, p);
   // …and the module folders, for a different consumer — see docs/activeProject.md.
-  watchModuleFolders(p);
+  watchModuleFolders(p, ws.liveCapture);
   if (switching) {
     ensureEngine(ws)?.flush();
     // A document built for the project we are LEAVING must not survive into this one.
@@ -696,88 +407,6 @@ export function reloadActiveProject(ws: Workspace): void {
   startEngineForActive(ws);
 }
 
-/** How often the /workspace poll may re-ask the engine what it holds. Polled every 2 s, per tab. */
-export const RECONCILE_EVERY_MS = 5_000;
-/** Re-sends the engine may ignore before the socket is presumed deaf — docs/activeProject.md. */
-export const RESEND_LIMIT = 3;
-/** How long the engine gets to answer that question before its link is treated as dead. */
-export const SESSIONS_TIMEOUT_MS = 2000;
-
-/** The slice of EngineClient a reconcile needs — so the wait can be tested without a socket. */
-export interface SessionListingClient {
-  on(event: "sessions", fn: (s: SessionInfo[]) => void): unknown;
-  off(event: "sessions", fn: (s: SessionInfo[]) => void): unknown;
-  listSessions(): void;
-}
-
-/** Ask the engine what it is holding; `undefined` = no answer at all. See docs/activeProject.md. */
-export function awaitSessions(
-  c: SessionListingClient,
-  timeoutMs: number = SESSIONS_TIMEOUT_MS,
-): Promise<SessionInfo[] | undefined> {
-  return new Promise((res) => {
-    const done = (v?: SessionInfo[]): void => {
-      clearTimeout(timer);
-      c.off("sessions", onSessions);
-      res(v);
-    };
-    const onSessions = (list: SessionInfo[]): void => done(list);
-    const timer = setTimeout(() => done(undefined), timeoutMs);
-    c.on("sessions", onSessions);
-    c.listSessions();
-  });
-}
-
-/** Ask whether the engine still holds what `served` claims, and put it back if not — docs/activeProject.md. */
-async function reconcileEngine(
-  ws: Workspace,
-  s: Served,
-  now: number,
-): Promise<void> {
-  // Throttled PER SESSION, so one person's poll cannot eat another's turn.
-  if (s.reconciling || now - s.lastReconcile < RECONCILE_EVERY_MS) return;
-  // A document held back by a copy, running or failed, is not on the engine, and that is no fault of the engine's.
-  if (isHeldBack(sessionOf(ws))) return;
-  const serving = s.project;
-  s.lastReconcile = now;
-  s.reconciling = true;
-  try {
-    const session = sessionOf(ws);
-    const c = ensureEngine(ws);
-    // A link still dialling re-sends from its own `open`; asking now would time out on the wait, not the engine.
-    if (!c || !isReady(ws)) return;
-    // A load in flight asks the engine itself and owns the verdict: a project still building is busy, not deaf.
-    if (loadPhase(session) === "applying" || isWarming(session)) return;
-    const held = await awaitSessions(c);
-    if (held === undefined) {
-      console.error(`   ✗ engine link unresponsive — re-dialling ${session}`);
-      dropLink(session);
-      ensureEngine(ws); // a fresh socket, whose `open` re-sends what this session was serving
-      return;
-    }
-    if (held.some((x) => x.id === session && x.loaded)) {
-      s.resends = 0;
-      return;
-    }
-    // A socket that answers but never takes the project is deaf, not busy — docs/activeProject.md.
-    if (++s.resends > RESEND_LIMIT) {
-      console.error(
-        `   ✗ engine took ${RESEND_LIMIT} re-sends without holding ${basename(serving)} — re-dialling ${session}`,
-      );
-      s.resends = 0;
-      dropLink(session);
-      ensureEngine(ws); // a fresh socket, whose `open` re-sends what this session was serving
-      return;
-    }
-    console.warn(
-      `   ⚠ engine is not holding ${basename(serving)} — re-sending it (${s.resends}/${RESEND_LIMIT})`,
-    );
-    sendActiveProject(ws, serving);
-  } finally {
-    s.reconciling = false;
-  }
-}
-
 /** The 2 s poll's engine upkeep, asked of THIS workspace's session — see docs/activeProject.md. */
 export function prewarmEngineForActive(
   ws: Workspace,
@@ -790,7 +419,7 @@ export function prewarmEngineForActive(
   }
   // Another project in the same workspace: reconciling would re-assert the one being left.
   if (ws.activeProjectPath() !== s.project) return;
-  void reconcileEngine(ws, s, now).catch((e: unknown) =>
+  void reconcileEngine(ws, s, now, sendActiveProject).catch((e: unknown) =>
     console.error(`   ✗ engine reconcile failed: ${(e as Error).message}`),
   );
 }
@@ -1028,48 +657,6 @@ function makeHost(
       flushPush(ws, out, held);
       return enginePlugins(ws, (c) => c.rescanPlugins(force), out, 60000, true);
     },
-    getPlugins: (filter) =>
-      new Promise<PluginInfo[]>((res) => {
-        const c = engine();
-        if (!c || !isReady(ws)) {
-          res([]);
-          return;
-        }
-        const t = setTimeout(() => res([]), 4000);
-        c.once("plugins", (plugins: PluginInfo[]) => {
-          clearTimeout(t);
-          res(plugins);
-        });
-        c.listPlugins(filter);
-      }),
-    // Work a verb starts and does not wait for, one run per tag — a transcode (docs/background.md).
-    background: (tag: string, work: () => Promise<string>) =>
-      runInBackground(tag, work),
-    // The picture rendered in headless Chromium, the progress said in the log every few seconds of song.
-    renderPicture: (opts) =>
-      renderPicture(ws, opts, (frame, total) => {
-        if (frame % 300 === 0)
-          console.log(`   … picture render ${frame}/${total}`);
-      }),
-    // A clip's source envelope for `event trim` — the WHOLE file, from THIS workspace's waveform machinery.
-    clipEnvelope: async (clip: string) => {
-      try {
-        const wf = await ws.waveform(clip, 2000, true);
-        return wf?.rms?.length ? { peak: wf.rms, seconds: wf.seconds } : null;
-      } catch {
-        return null; // no envelope yet, or a clip nothing can decode — the command says so
-      }
-    },
-    // What the bound machine separates on: its setting, read and written THERE — stem-separation/docs/stemSplit.md.
-    onnxProviders: async (set) => {
-      const reply = await askBoundMachine(
-        set
-          ? { type: "onnx-providers", set: [...set] }
-          : { type: "onnx-providers" },
-        "onnx-providers",
-      );
-      return reply ? ((reply.providers as string[] | undefined) ?? []) : null;
-    },
     // Which chain this machine separates with, read per request so `system stems` needs no telling.
     get stemsChain(): string | undefined {
       return loadPreferences().stemsChain;
@@ -1082,66 +669,14 @@ function makeHost(
     get renderer() {
       return serviceRenderer() ?? undefined;
     },
-    // `clip process` over a chain that SEPARATES, through the job registry — see docs/activeProject.md.
-    runColdStep: async ({ step, source, outDir }) => {
-      const started = startSeparate({
-        userEmail: userEmail ?? "unknown",
-        source,
-        model: step.model,
-        outputs: step.outputs,
-        outDir,
-      });
-      for (;;) {
-        const job = separateJob(started.id);
-        // Forgotten between two polls: said as itself, since the files may well be on disk.
-        if (!job)
-          throw new Error(
-            `the separation of ${source} was forgotten by this machine — look in ${outDir}`,
-          );
-        if (job.failed)
-          throw new Error(job.error || `separation of ${source} failed`);
-        if (job.done) return job.files;
-        await new Promise((r) => setTimeout(r, COLD_POLL_MS));
-      }
-    },
     // The takes view: where this session's next take goes, the document re-sent with its hole (takeArm.ts).
     takeArm: (arm) => {
       setTakeArm(sessionOf(ws), arm);
       resendServed(ws);
       return true;
     },
-    // `system channel type`: the engine makes the pair NOW, and answers WHETHER one heard it.
-    setInputStereo: (channel, stereo) => {
-      const c = engine();
-      if (!c || !isReady(ws)) return false;
-      c.setInputStereo(channel, stereo);
-      return true;
-    },
-    getAudioDevices: () =>
-      new Promise<AudioDeviceInfo[]>((res) => {
-        const c = engine();
-        if (!c || !isReady(ws)) {
-          res([]);
-          return;
-        }
-        const t = setTimeout(() => res([]), 4000);
-        c.once("audioDevices", (devices: AudioDeviceInfo[]) => {
-          clearTimeout(t);
-          res(devices);
-        });
-        c.listAudioDevices();
-      }),
-    // The workspace root, so the workspace-wide verbs work with no project open.
-    repoDir: ws.root,
-    // What the origin publishes, and a version this machine lacks brought down, both by the hub (../../file-hub/libraryFetch.ts).
-    remoteLibraryVersions: (name) => askHubRemote(name),
-    fetchLibraryVersion: async (name, version) => {
-      const notes = await askHubSync({ name, version }).catch((e: Error) => [
-        { name, state: "failed" as const, note: e.message },
-      ]);
-      const failed = notes.find((n) => n.state === "failed");
-      return failed ? failed.note : null;
-    },
+    ...engineQueries(ws, engine),
+    ...serviceMembers(ws, userEmail),
     // A process backs up each render here before overwriting it, feeding the recordChange journal.
     snapshot,
   };
@@ -1265,3 +800,8 @@ export function webCommandList(): CommandInfo[] {
         })) ?? [],
     }));
 }
+
+// The sessions call back into the project work here — engineSessions.ts.
+linkHooks.resend = sendActiveProject;
+linkHooks.recorded = onRecorded;
+linkHooks.dialled = startAutoFreeze;

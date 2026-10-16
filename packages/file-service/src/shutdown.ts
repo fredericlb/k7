@@ -6,7 +6,7 @@ import type { Server } from "node:http";
 import type { Readable } from "node:stream";
 
 /** How long the requests in flight get before the process leaves anyway. */
-export const SHUTDOWN_GRACE_MS = 5_000;
+const SHUTDOWN_GRACE_MS = 5_000;
 
 /** Set by a spawner that gave this process a stdin pipe: its end means "stop", the one graceful stop Windows has. */
 export const STDIN_STOP_ENV = "ELECTRON_SHELL_STDIN_STOP";

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ensureLayout, PathEscapesError, safePath } from "./layout.ts";
-import { diff, manifest, manifestAt } from "./manifest.ts";
+import { manifest, manifestAt } from "./manifest.ts";
 import { bumped } from "./revision.ts";
 
 let root: string;
@@ -72,42 +72,6 @@ describe("the held manifest", () => {
       "samples/audio/a.wav",
       "samples/audio/b.wav",
     ]);
-  });
-});
-
-describe("diffing a cache against the owner", () => {
-  // Both sides are the OWNER's description, never a local stat — see docs/sync.md.
-  const owner = [
-    { path: "samples/a.yaml", bytes: 10, mtime: 1000 },
-    { path: "samples/b.yaml", bytes: 20, mtime: 2000 },
-  ];
-
-  it("fetches what is missing", () => {
-    expect(diff([owner[0]], owner).fetch.map((e) => e.path)).toEqual([
-      "samples/b.yaml",
-    ]);
-  });
-
-  it("fetches what changed size or time", () => {
-    const stale = [owner[0], { ...owner[1], mtime: 1 }];
-    expect(diff(stale, owner).fetch.map((e) => e.path)).toEqual([
-      "samples/b.yaml",
-    ]);
-    const resized = [{ ...owner[0], bytes: 9 }, owner[1]];
-    expect(diff(resized, owner).fetch.map((e) => e.path)).toEqual([
-      "samples/a.yaml",
-    ]);
-  });
-
-  it("drops what the owner no longer has", () => {
-    const extra = [...owner, { path: "samples/gone.yaml", bytes: 1, mtime: 1 }];
-    const d = diff(extra, owner);
-    expect(d.fetch).toEqual([]);
-    expect(d.drop).toEqual(["samples/gone.yaml"]);
-  });
-
-  it("asks for nothing when the two agree", () => {
-    expect(diff(owner, owner)).toEqual({ fetch: [], drop: [] });
   });
 });
 

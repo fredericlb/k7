@@ -46,8 +46,15 @@ measured against.
 ## What it watches
 
 The roots the stamp walks: the module panel roots, `nodes/`, and a chain project's `chains/`,
-`tracks/` and `vstpresets/` (`packages/song/docs/chainFiles.md`). A root that does not exist is
-simply not watched, so an older project costs nothing for the newer format's folders.
+`tracks/` and `vstpresets/` (`packages/song/docs/chainFiles.md`).
+
+A root inside the workspace live sync captures is HEARD, not watched: the capture's change feed
+(`liveCapture.md`) already reports every path there, so the watch subscribes and filters by root.
+That covers a root created after the watch began, and holds no handle inside the project. A root
+outside it — a library's folder, `@meta` — gets its own recursive `fs.watch`, as does every root when
+live sync is off; such a root that does not exist is simply not watched, so an older project costs
+nothing for the newer format's folders. The workspace's capture can be replaced while a project is
+served, so asking again with a different feed re-subscribes rather than keeps the stopped one.
 `layout.yaml` is not watched: where a card sits feeds the segments, which are read fresh on every
 load, and none of the cached reads — the module map and the ref map — looks at it.
 
@@ -90,9 +97,6 @@ skipped.
 
 ## Why `fs.watch` and not chokidar
 
-The service uses chokidar for the strudel watcher, so it is the default choice here too. Two
-reasons not to.
-
 **Handles.** `fs.watch(root, { recursive: true })` is ONE handle per root — four for a project.
 Chokidar takes one per directory, which is ~150 for a médiathèque of modules. And on Windows a
 handle held on a directory is what makes *that* directory's parent refuse to be renamed: with the
@@ -109,9 +113,9 @@ recursive watching simply never gets a fast path, and nothing else changes.
 
 ## Closing it before a rename
 
-The roots sit inside the project folder, and recycling a project renames that folder. On Windows
-an open handle inside a directory is what makes the directory refuse. So `unloadEngine` closes
-this watch beside `closeStrudelWatcher()`, and the project being left is read from `served`
+A watched root sits inside the project folder when live sync is off, and recycling a project renames
+that folder. On Windows an open handle inside a directory is what makes the directory refuse. So
+`unloadEngine` closes this watch beside `closeStrudelWatcher()`, and the project being left is read from `served`
 **before** that map is cleared — it is the only record of which folder was being served.
 
 `startEngineForActive` closes it too, on a project SWITCH. Without that, every project ever

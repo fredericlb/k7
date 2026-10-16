@@ -148,9 +148,8 @@ The dialog turns that 409 into a question — replace, or change one of the thre
 elsewhere. A replacement in another format deletes the old master: two `original.*` in a folder, and
 the scan plays whichever `readdir` returns first.
 
-It is the inverse of `ingest.md`'s rule, where a PUT replaces without asking. The difference is the
-caller: pushing a workspace is a deliberate act aimed at a named folder, sending a file from a
-browser is not.
+It is the inverse of a raw PUT, which replaces without asking. The difference is the caller: a PUT
+names the exact path it means, sending a file from a browser does not.
 
 ## The sidecar is written last
 

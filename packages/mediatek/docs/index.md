@@ -5,7 +5,7 @@
 The catalogue has no database. That is not an omission to be corrected later, and reversing it
 would cost more than it buys.
 
-- **The folder is the truth, on both sides.** The machine's cache runs this same package over a
+- **The folder is the truth, on every volume.** The device's library runs this same package over a
   local folder, because the engine plays from file paths (`sync.md`). A database holding the rows
   would be a second truth to keep in step with the tree the engine actually reads.
 - **A database is chosen where the data is rows, not where it is bytes.** The rehearsal recorder's store
@@ -119,8 +119,8 @@ inside the same filesystem-timestamp tick, with no file added or removed. That i
 the shape of "import a library, then list it".
 
 So the token also carries a **mutation counter**, bumped by whatever did the writing —
-the same pair `workspace.ts` uses, and for the same reason. `ingest.ts` bumps it only when
-a file actually landed: an import that copied nothing changed nothing, and moving the
+the same pair `workspace.ts` uses, and for the same reason. A writer bumps it only when
+a file actually landed: a copy that wrote nothing changed nothing, and moving the
 token would make every surface refetch a listing that is identical.
 
 The counter is per process, which is the honest scope: it covers writes WE caused, and

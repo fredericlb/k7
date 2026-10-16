@@ -1,14 +1,13 @@
-import { once } from "node:events";
 import {
   existsSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
+  watch,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import chokidar from "chokidar";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   closeModuleWatch,
@@ -65,11 +64,11 @@ describe("Workspace.deleteProject", () => {
 
   it("deletes a project whose folder a file watcher is holding open", async () => {
     const proj = join(root, "deltest.k7");
-    const watcher = chokidar.watch(proj, { ignoreInitial: true });
-    await once(watcher, "ready"); // the OS directory handle is now actually open
+    // The OS directory handle is open once `watch` returns.
+    const watcher = watch(proj, { recursive: true });
 
     const { recycled } = await ws.deleteProject("deltest.k7", () => {
-      void watcher.close(); // fire-and-forget: the rename retry must cover the lingering handle
+      watcher.close(); // the rename retry must cover a handle the OS releases late
     });
 
     expect(recycled).toContain("_recycle_bin");

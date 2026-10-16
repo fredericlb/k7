@@ -7,11 +7,11 @@ import type { ProjectDoc } from "@studio/song/project";
 import type { EngineLoadPhase } from "@studio/web-protocol";
 
 /** How long the engine gets to apply the project, plugins included, before the gate lets go anyway. */
-export const APPLY_TIMEOUT_MS = 120_000;
+const APPLY_TIMEOUT_MS = 120_000;
 /** How often the engine is asked whether it holds the project yet. */
 const POLL_MS = 300;
 /** How long the dry run plays. */
-export const DRY_RUN_MS = 500;
+const DRY_RUN_MS = 500;
 /** Kept silent after the stop, so a reverb's or a delay's tail is not heard when the master comes back. */
 const TAIL_MS = 1500;
 /** -100 dB is exactly zero on the engine's master gain. */

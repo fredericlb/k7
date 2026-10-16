@@ -487,7 +487,7 @@ export const library = {
     if (!res.ok) throw await failed(res, "delete");
   },
 
-  /** Write one file back. The library replaces — there is no fork, see docs/ingest.md. */
+  /** Write one file back. The library replaces — there is no fork. */
   writeFile: async (path: string, content: string): Promise<void> => {
     const res = await request(
       `${apiBase()}/api/mediatek/file?path=${encodeURIComponent(path)}`,

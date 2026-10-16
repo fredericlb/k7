@@ -12,11 +12,13 @@ import {
 } from "@studio/song/loader";
 import { setFoldersStill } from "@studio/song/moduleCache";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ChangeFeed } from "./liveCapture.ts";
 import {
   closeModuleWatch,
   moduleFoldersMoved,
   moduleFoldersStill,
   WALK_ANYWAY_MS,
+  watchedProjects,
   watchModuleFolders,
 } from "./moduleWatch.ts";
 
@@ -145,6 +147,12 @@ describe("moduleFoldersStill", () => {
     expect(moduleFoldersStill(other)).toBe(true);
   });
 
+  it("forgets the project once closed", () => {
+    watchModuleFolders(dir);
+    closeModuleWatch(dir);
+    expect(watchedProjects()).toEqual([]);
+  });
+
   // The ceiling makes a MISSED event a delay rather than a permanent lie, hence a readable number.
   it("keeps a ceiling on how long it may be believed", () => {
     expect(WALK_ANYWAY_MS).toBeGreaterThan(0);
@@ -193,5 +201,69 @@ describe("the vocabulary the oracle governs", () => {
       return { before, after: workspaceAudioRefs(dir) };
     });
     expect(seen.after).toEqual(seen.before);
+  });
+});
+
+/** A feed rooted at the workspace, told by hand what moved — the capture's, without its watcher. */
+function fakeFeed(at: string): ChangeFeed & { say(rel: string): void } {
+  const fns = new Set<(rel: string, gen: number) => void>();
+  let generation = 0;
+  return {
+    root: at,
+    get generation() {
+      return generation;
+    },
+    onChange(fn) {
+      fns.add(fn);
+      return () => fns.delete(fn);
+    },
+    say(rel) {
+      generation++;
+      for (const fn of fns) fn(rel, generation);
+    },
+  };
+}
+
+// A root inside the capture's workspace is heard through its feed, and needs no handle of its own.
+describe("a watch heard through the capture's feed", () => {
+  it("moves on a path under one of its roots", () => {
+    const feed = fakeFeed(root);
+    watchModuleFolders(dir, feed);
+    moduleFoldersStill(dir);
+    expect(moduleFoldersStill(dir)).toBe(true);
+    feed.say("_modules/audio/reverb/module.yaml");
+    expect(moduleFoldersStill(dir)).toBe(false);
+    feed.say("song.k7/nodes/chorus.yaml");
+    expect(moduleFoldersStill(dir)).toBe(false);
+  });
+
+  it("moves when a folder holding a root moves whole", () => {
+    const feed = fakeFeed(root);
+    watchModuleFolders(dir, feed);
+    moduleFoldersStill(dir);
+    feed.say("song.k7");
+    expect(moduleFoldersStill(dir)).toBe(false);
+  });
+
+  it("ignores a path under none of its roots", () => {
+    const feed = fakeFeed(root);
+    watchModuleFolders(dir, feed);
+    moduleFoldersStill(dir);
+    feed.say("song.k7/media/take-01.wav");
+    feed.say("other.k7/nodes/x.yaml");
+    expect(moduleFoldersStill(dir)).toBe(true);
+  });
+
+  // The workspace's capture can be replaced; a watch kept on the stopped one would hear nothing.
+  it("follows a new feed, and lets go of the old one", () => {
+    const first = fakeFeed(root);
+    const second = fakeFeed(root);
+    watchModuleFolders(dir, first);
+    watchModuleFolders(dir, second);
+    moduleFoldersStill(dir);
+    first.say("_modules/audio/reverb/module.yaml");
+    expect(moduleFoldersStill(dir)).toBe(true);
+    second.say("_modules/audio/reverb/module.yaml");
+    expect(moduleFoldersStill(dir)).toBe(false);
   });
 });

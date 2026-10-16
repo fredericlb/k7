@@ -22,7 +22,8 @@ kept here so it can be tested under Node.
   project's `samples/`, then `$DIRT_SAMPLES`, then `$STRUDEL_SAMPLES` (`sampleBanks`).
 - **The pattern's text travels in the document.** The engine parses no project files, so the source
   of the `.strudel` file is a field of the plugin, and a save of the file is a new document. The file
-  service watches `*.strudel` files of the active project with chokidar for that reason.
+  service watches `*.strudel` files of the active project for that reason, through live sync's
+  change feed (or one `fs.watch` when live sync is off).
 - **A missing file is the compiler's error, an unknown label the engine's.** Whether a pattern
   contains a lane's label requires evaluating it, which only the engine does.
 

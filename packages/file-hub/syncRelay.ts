@@ -83,7 +83,7 @@ interface Live {
 }
 
 /** The prefix that names a room of the shared account (the libraries) rather than one of the caller's. */
-export const SHARED_PREFIX = "@lib/";
+const SHARED_PREFIX = "@lib/";
 
 /** A workspace name as a single folder name: nothing that could climb out of `.sync-relay`. */
 export const isWorkspaceName = (w: string): boolean =>
