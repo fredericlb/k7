@@ -1,0 +1,28 @@
+# The engine on a Raspberry Pi, as a musician's machine: engine/docker/Dockerfile.pi, docs/pi-engine.md.
+# On the Pi: docker compose -f docker-compose.pi.yml up -d
+services:
+  engine:
+    image: ${ENGINE_IMAGE:-k7-runtime-pi}
+    restart: unless-stopped
+    # The Pi's own addresses in the heartbeat, rather than a bridge network's no browser can reach.
+    network_mode: host
+    devices:
+      - /dev/snd:/dev/snd
+    # Lets the audio thread take real-time priority, which a container refuses by default; an A53 without it drops blocks.
+    ulimits:
+      rtprio: 95
+      memlock: -1
+    cap_add:
+      - SYS_NICE
+    environment:
+      # The k7 instance this Pi is listed at; its tunnel dials the same address.
+      STUDIO_REGISTRY_URL: ${ENGINE_REGISTRY_URL:-https://st0.app}
+      STUDIO_MACHINE_NAME: ${ENGINE_NAME:-raspberry pi}
+      # The card's id in /proc/asound/cards (e.g. CODEC); empty takes the first that is not the Pi's own.
+      K7_ALSA_CARD: ${ENGINE_ALSA_CARD:-}
+      STUDIO_DEVICE_TOKEN: ${ENGINE_DEVICE_TOKEN:-}
+    volumes:
+      - engine-home:/engine-home
+
+volumes:
+  engine-home:

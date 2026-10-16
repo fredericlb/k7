@@ -106,7 +106,8 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
     patches/stmlib.cmake      …and stmlib's: utils/dsp.h's GCC-only __attribute__, which MSVC rejects
   patches/faust.cmake       Faust's poly-dsp.h prints on the audio thread at every voice steal; silenced at fetch time
   patches/tracktion.cmake   Tracktion's SamplerPlugin re-decoded every rack sound on any edit, twice, once under the audio lock;
-                            and an output pair per sound, for a tap routed apart (docs/tapOutputs.md)
+                            and an output pair per sound, for a tap routed apart (docs/tapOutputs.md);
+                            and crill's __wfe(), which GCC on arm64 lacks (the Pi image, docs/pi-engine.md at the root)
   patches/sfizz.cmake       sfizz (archived) against today's compilers: its arm64 flag test, and an atomic_queue error clang 19 raises;
                             and the gain per key a kit's pad is set louder with (docs/sfzPlugin.md), and the
                             output per key a routed pad leaves by (docs/tapOutputs.md)
