@@ -65,37 +65,20 @@ params:
 second one optional, come from what it extends. That is the mechanism, not a shortcut; see
 [nodes.md](nodes.md). A use of a module you do not own needs no local folder for it.
 
-## `type:` earns its place, and does not win
+## `type:` is not read
 
-Two things can say what a project is, and it matters which one is believed.
+The folder's **suffix** says what a project is. `@studio/web-protocol/projects` answers "which app
+opens this" from the name alone, and the media library asks that question of a **bare blobless git
+mirror** — every path, no file bodies — so any rule that had to open a file could not run where the
+question is actually asked.
 
-The folder's **suffix** decides. `@studio/web-protocol/projects` already answers "which app opens
-this" from the name alone, and the media library asks that question of a **bare blobless git mirror** — every
-path, no file bodies — so any rule that had to open a file could not run where the question is
-actually asked. Making the file authoritative would put the app that opened a folder at odds with
-the loader reading it.
+A root `type:` is therefore accepted and ignored, and `deadProjectFields` reports it as a line to
+delete: a field that is accepted and ignored in silence is worse than one that is refused.
 
-So what is `type:` for? The case the suffix cannot cover: **a repository can BE the project**
-(`"."` — see `packages/project-shell/docs/launch.md`), and then there is no suffix anywhere. It
-is also what a reader sees first, and what a loader handed an absolute path with no name to read
-has to go on.
-
-`projectTypeOf` states the order in three lines: suffix, then declaration, then `k7`, which is
-what a folder saying nothing is.
-
-A folder named `.z0` that declares `type: k7` is not resolved silently. It compiles either way,
-because the two signals feed different readers, and that is exactly why it is **reported** —
-`projectTypeIssues`, surfaced beside `deadProjectFields`. A field that is accepted and ignored is
-worse than one that is refused.
-
-The values are `k7` and `z0`. A set declares nothing at the root: it is an `.k7`, and what says
-what it is is the pair above — a `turntables` surface and the playlist it names. There is no
-`project_type: live` beside it: a folder saying it has no arrangement while its `surfaces/` says
-otherwise is a contradiction nothing can resolve.
-
-`type` is a ROOT key, beside `trackOrder` and `markers`, and not a `project:` setting. The tier
-inside `project:` is the SONG's own settings — its tempo, its rate. This is a fact about the
-file's dialect, not a setting of the project.
+A set declares nothing at the root either: it is an `.k7`, and what says what it is is the pair
+above — a `turntables` surface and the playlist it names. There is no `project_type: live` beside
+it: a folder saying it has no arrangement while its `surfaces/` says otherwise is a contradiction
+nothing can resolve.
 
 ## A deck is a lane with no arrangement
 
@@ -286,8 +269,8 @@ strip are one appliance called a **turntable**. On the graph that is one card wi
 `mix` and `cue` — and eight knobs, and an open button that unfolds it in place.
 
 **It changes nothing here.** No node is renamed, no arrow moved, and `graph.yaml` is not touched:
-a set with those two files compiles to the `ProjectDoc` it compiled to without them, which is
-what `assemblyCompile`'s case in `assemblies.test.ts` pins. The plugs and the knobs come from the
+a set with those two files reads to the graph it read to without them, which is what
+`assemblies.test.ts`'s "an assembly is a DRAWING" case pins. The plugs and the knobs come from the
 template the files name, `@k7-core/turntable`, which lives in the account's library —
 `k7-core/assemblies/turntable/` is the copy this repo ships in the library seed.
 

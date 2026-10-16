@@ -1,7 +1,7 @@
-# withGroupMix / withoutVideo — what the engine is (and isn't) told
+# withGroupMix — what the engine is (and isn't) told
 
-Two transforms applied on the way out to the engine (see `engineClient.sendProject`),
-for opposite reasons.
+One transform applied on the way out to the engine (see `engineClient.sendProject`), and one
+concept it is never handed at all.
 
 ## `withGroupMix` — fold a concept the engine lacks
 
@@ -19,12 +19,10 @@ folds the same way, and the engine's mixer-wide rule does the rest (any solo any
 silences every un-soloed track), so soloing a group solos its members against the whole
 mixer.
 
-## `withoutVideo` — delete a concept the engine has no business having
+## No picture — a concept the engine has no business having
 
 A video track holds no sound — the file's own audio is dropped by design, and every
 sound in a song comes from Tracktion — so the engine has nothing to do with one and is
-told nothing about it.
-
-The engine would ignore these fields anyway (its `docFromJson` reads only the keys it
-knows), so this is the CONTRACT, stated at the one choke point every sender funnels
-through, rather than a crash it prevents.
+told nothing about it. That is a property of the document rather than a transform: a
+`ProjectDoc` has no picture field, and the picture compiles to its own `VideoProjectDoc`
+(`packages/song-video/docs/picture.md`).
