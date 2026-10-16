@@ -53,6 +53,9 @@ private:
 /** Interleaved f32, as ffmpeg writes it → one buffer per channel. */
 Channels deinterleave(const std::vector<float>& pcm, int channels = kChannels);
 
+/** The same, straight from ffmpeg's raw bytes, so a decode holds no interleaved float copy beside them. */
+Channels deinterleaveBytes(const std::string& bytes, int channels = kChannels);
+
 /** Interleaved again, for ffmpeg to resample. */
 std::vector<float> interleave(const Channels& chans);
 
