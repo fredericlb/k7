@@ -4,7 +4,7 @@
 // apps/k7/frontend/docs/clipEditors.md.
 
 /** One copied note. `t` is beats from the rectangle's left edge, `k` semitones below its top row. */
-export interface CopiedNote {
+interface CopiedNote {
   k: number;
   t: number;
   d: number;
@@ -15,7 +15,7 @@ export interface CopiedNote {
 }
 
 /** One copied event: `row` and `start` from the rectangle's corner, then the placement's OWN words, carried whole. */
-export interface CopiedEvent {
+interface CopiedEvent {
   row: number;
   ref: string;
   start: number;

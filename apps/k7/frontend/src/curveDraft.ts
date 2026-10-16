@@ -23,7 +23,7 @@ import { TIMECODE } from "@studio/song-schema/yaml/placementSchema";
 
 /** What the shape select offers: the four oscillators, the envelope, the drawn curve, and a boolean's on/off. */
 export type DraftShape = LfoShape | "adsr" | "custom" | "onoff";
-export const DRAFT_SHAPES: readonly DraftShape[] = [
+const DRAFT_SHAPES: readonly DraftShape[] = [
   ...LFO_SHAPES,
   "adsr",
   "custom",
@@ -140,7 +140,7 @@ export function draftOf(spec?: CurveSpec): CurveDraft {
 }
 
 /** The draft as the curve it describes — what the preview samples. */
-export function specOf(d: CurveDraft): CurveSpec {
+function specOf(d: CurveDraft): CurveSpec {
   const { polarity, amplitude } = d;
   // An on/off curve has no cut, being 0 or 1 already; `none` is the default and is left out.
   const cut = d.cut === "none" ? {} : { cut: d.cut };
@@ -216,7 +216,7 @@ export function fieldsOf(d: CurveDraft): Record<string, unknown> {
 }
 
 /** One draft condition as the file writes it; `retrigger` only when it is on. */
-export function conditionOf(d: DraftCondition): CurveCondition {
+function conditionOf(d: DraftCondition): CurveCondition {
   const again = d.retrigger ? { retrigger: true } : {};
   const t = (tc: string) => tc.trim();
   switch (d.when) {
@@ -270,7 +270,7 @@ export function spanBars(d: CurveDraft, num: number, den: number): number {
 }
 
 /** An oscillator's duration in beats, 0 for ever — and for a length that is not a timecode yet. */
-export function durationBeats(tc: string, num: number, den: number): number {
+function durationBeats(tc: string, num: number, den: number): number {
   const t = tc.trim();
   return TIMECODE.test(t) ? parseDuration(t, num, den) : 0;
 }

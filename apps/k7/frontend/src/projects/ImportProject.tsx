@@ -14,9 +14,9 @@ import {
   DialogTitle,
 } from "@frediverse/ui/dialog";
 import { Loader2 } from "@frediverse/ui/icons";
-import { Input } from "@frediverse/ui/input";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { NameField } from "./NameForm";
 import { droppedStem, projectFolderName } from "./projectName";
 
 /** What a drop hands over: the file itself, and the workspace it landed on. */
@@ -109,35 +109,19 @@ export function ImportProject({
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <Input
-              autoFocus
-              placeholder={droppedStem(dropped?.file.name ?? "")}
-              value={name}
-              disabled={busy}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit()}
-            />
             {/* The folder that will be created, before confirming — a refused name says so here. */}
-            <p className="font-mono text-xs text-muted-foreground">
-              {badName ? (
-                <span className="text-destructive">{badName}</span>
-              ) : (
-                folder
-              )}
-            </p>
-            {busy && (
-              <p className="text-xs text-muted-foreground">
-                <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
-                {m["importDrop.working"]()}
-              </p>
-            )}
+            <NameField
+              placeholder={droppedStem(dropped?.file.name ?? "")}
+              name={name}
+              onName={setName}
+              onSubmit={submit}
+              busy={busy}
+              step={busy ? m["importDrop.working"]() : ""}
+              error={error}
+              badName={badName}
+              preview={folder}
+            />
           </div>
-        )}
-
-        {error && (
-          <p className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            {error}
-          </p>
         )}
 
         <DialogFooter>

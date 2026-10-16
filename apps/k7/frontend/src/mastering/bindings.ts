@@ -13,7 +13,6 @@ import { type MasterControl, masterControl } from "./controls";
 
 // The graph half of the join is `@studio/ui-chains/bindings`, shared with the DJ desk. What stays
 // here is what is the STRIP's: `pluginId` being mandatory, and the range that refuses to normalise.
-export type { BindingProblem };
 
 /** A binding that resolved to something that can be moved. */
 export interface MasterBinding {

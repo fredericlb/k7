@@ -3,7 +3,7 @@
 // and each new text would otherwise re-render the whole shell (docs/audit.md).
 
 /** What the line shows: the app's last word, whether it was a refusal, and a menu hint borrowing the line. */
-export interface StatusLineState {
+interface StatusLineState {
   text: string;
   refused: boolean;
   hint: string;

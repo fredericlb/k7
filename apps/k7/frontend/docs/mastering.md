@@ -41,7 +41,7 @@ which are the ten sliders every quick-master has always had. Three more are OFFE
 required, so a surface written before they existed still draws: `comp.lowCut`, `limiter.hfLimit`
 and `limiter.output`, the low cut, HF limit and word length (`engine/k7-runtime/docs/quickMaster.md`).
 The word length is a dropdown, being a choice and not a range. The desk's gate
-filters a `REQUIRED_CONTROLS` subset in the same way. `@studio/ui-turntables` requires its faders and
+filters a `REQUIRED_CONTROLS` subset in the same way. The desk (`packages/k7-plugins/src/turntables`) requires its faders and
 merely offers its stem cuts, because a desk with no stem cuts is still a complete desk. There is
 no smaller mastering strip: every control names the same node, so a missing
 line is not a reduced strip, it is the same strip with a knob that does nothing. A knob that does

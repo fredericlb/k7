@@ -144,7 +144,7 @@ PAIR is validated:
 |---|---|---|
 | `timeline` | `split` | the arrangement — a pane, and the reason a song draws one at all |
 | `viewport` | `floating` | the frame: the song's video lanes composited by `@studio/ui-eyes`, in a window over the pages |
-| `turntables` | `split` | the DJ desk, from `@studio/ui-turntables` — what makes a project a SET |
+| `turntables` | `split` | the DJ desk, from `packages/k7-plugins/src/turntables` — what makes a project a SET |
 | `mastering` | `split` | the master strip: ONE `quick-master` node drawn as its three parts (`frontend/docs/mastering.md`) |
 
 **Every `split` surface is a PANE**, in the layout and in the pane ring. The viewport is the
@@ -404,7 +404,7 @@ file:
   exist, without warning. The app still builds and the design-system components render
   unstyled. A path that is simply MISSING from the list fails the same way, and worse: every
   class that package alone uses is dropped while the layout classes it shares with the app
-  (`flex`, `w-16`) are generated anyway. Leave out `packages/ui-turntables/src` and the desk's
+  (`flex`, `w-16`) are generated anyway. Leave out `packages/k7-plugins/src` and the desk's
   strip stands in the right place, correctly spaced, with `fill-muted` and `stroke-foreground`
   undefined — SVG knobs with no fill and no stroke. Present, positioned and invisible, which
   reads as "the control is gone" and sends you looking at the component. **Check the list

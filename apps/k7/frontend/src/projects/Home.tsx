@@ -127,7 +127,7 @@ export function Home() {
       if (!stop) await loadWorkspaces(fileService);
     };
     void tick();
-    const stopPoll = pollWhileVisible(() => void tick(), POLL_MS);
+    const stopPoll = pollWhileVisible(tick, POLL_MS);
     return () => {
       stop = true;
       stopPoll();
@@ -147,7 +147,7 @@ export function Home() {
       }
     };
     void tick();
-    const stopPoll = pollWhileVisible(() => void tick(), POLL_MS);
+    const stopPoll = pollWhileVisible(tick, POLL_MS);
     return () => {
       stop = true;
       stopPoll();

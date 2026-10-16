@@ -81,11 +81,7 @@ export function colSpan(sel: GridSelection): { from: number; to: number } {
 }
 
 /** A grid column as a beat of the SONG — the grid's own origin cancels, so a windowed clip needs no special case. */
-export function songBeatOfCol(
-  col: number,
-  unit: number,
-  clipStart: number,
-): number {
+function songBeatOfCol(col: number, unit: number, clipStart: number): number {
   return clipStart + col * unit;
 }
 

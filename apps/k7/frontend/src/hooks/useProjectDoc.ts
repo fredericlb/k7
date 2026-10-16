@@ -10,7 +10,7 @@ import { mixerModules } from "../mixerStrips";
 import { isAnswer } from "../readFailure";
 import type { WebProject } from "../types";
 
-export interface RecInfo {
+interface RecInfo {
   tempo: number;
   beatsPerBar: number;
   /** The signature's lower number — carried alongside `beatsPerBar` so the footer can print `4/4`. */

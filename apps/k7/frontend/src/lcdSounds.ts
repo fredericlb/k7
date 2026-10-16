@@ -68,7 +68,7 @@ export function soundPaths(ref: string, project: string | null): string[] {
 const RETRY_MS = 30_000;
 
 /** One decoder for the shell: each file fetched once, its result kept, every screen told when one lands. */
-export function createLcdSounds(
+function createLcdSounds(
   project: () => string | null,
 ): LcdSounds & { clear: () => void } {
   // Keyed by project AND ref: a ref resolves against the open project, so another one's same name is another sound.

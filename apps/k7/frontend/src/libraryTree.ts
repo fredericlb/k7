@@ -14,7 +14,7 @@ import {
 import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
 
 /** How a level is written wherever a person reads one: in a ref, and on a tree row. */
-export const nsLabel = (ns: string): string => `@${ns}`;
+const nsLabel = (ns: string): string => `@${ns}`;
 
 /** A library chain, as the tab lists it: `ref` is `@<library>/<path under chains/>`, `path` its file or a folder chain's folder. */
 export interface LibraryChainRow {

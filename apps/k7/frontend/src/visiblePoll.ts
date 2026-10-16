@@ -1,23 +1,41 @@
-// visiblePoll.ts — an interval that waits while the tab is hidden. A background tab asking the
-// server every two or three seconds, for an answer nobody is looking at, is load and battery for
-// nothing; on its return the tab asks once at once, so what it shows is never a full period stale.
+// visiblePoll.ts — a poll that rests while the tab is hidden and never overlaps itself. A background tab
+// asking the server every two or three seconds is load and battery for nothing; on its return the tab
+// asks once at once. The NEXT tick is scheduled when this one ENDS, so a slow server slows the poll down
+// instead of stacking requests behind it — the same rule as packages/ui-library/src/poll.ts.
 
 /** Whether the page is out of sight — false where there is no document (a test under Node). */
-export const tabHidden = (): boolean =>
+const tabHidden = (): boolean =>
   typeof document !== "undefined" && document.hidden;
 
-/** Run `fn` every `ms` while the tab is visible, and once on its return; the result stops both. */
-export function pollWhileVisible(fn: () => void, ms: number): () => void {
-  const id = setInterval(() => {
-    if (!tabHidden()) fn();
-  }, ms);
+/** Run `fn` `ms` after each run ends while the tab is visible, and once on its return; the result stops both. */
+export function pollWhileVisible(fn: () => unknown, ms: number): () => void {
+  let stopped = false;
+  let running = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  const run = async () => {
+    timer = undefined;
+    if (stopped || running || tabHidden()) return;
+    running = true;
+    try {
+      await fn();
+    } catch {
+      // A tick reports its own failure; the poll only keeps time.
+    } finally {
+      running = false;
+    }
+    if (!stopped && !tabHidden()) timer = setTimeout(run, ms);
+  };
+
   const onVisible = () => {
-    if (!tabHidden()) fn();
+    if (!tabHidden() && timer === undefined && !running) void run();
   };
   if (typeof document !== "undefined")
     document.addEventListener("visibilitychange", onVisible);
+  timer = setTimeout(run, ms);
   return () => {
-    clearInterval(id);
+    stopped = true;
+    clearTimeout(timer);
     if (typeof document !== "undefined")
       document.removeEventListener("visibilitychange", onVisible);
   };

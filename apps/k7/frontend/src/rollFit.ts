@@ -8,7 +8,7 @@ import type { ClipLoop } from "./clipLoop";
 import type { WebNote } from "./types";
 
 /** Breathing room around the fit, as a fraction of the content span. */
-export const MARGIN = 0.2;
+const MARGIN = 0.2;
 
 export interface RollFit {
   /** The pitch range the view frames, clamped to 0..127, and its row count. */

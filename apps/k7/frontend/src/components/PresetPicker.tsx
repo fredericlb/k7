@@ -20,7 +20,7 @@ const SEARCH_LIMIT = 40;
 const keyOf = (p: PresetEntry) => `${p.scope}:${p.name}`;
 
 /** The presets as one level, the scope as each row's hint — a branch per scope would hide the few there are. */
-export function presetTree(presets: PresetEntry[]): TreeNode<PresetEntry>[] {
+function presetTree(presets: PresetEntry[]): TreeNode<PresetEntry>[] {
   return presets.map((p) => ({
     key: keyOf(p),
     label: p.name,
@@ -30,7 +30,7 @@ export function presetTree(presets: PresetEntry[]): TreeNode<PresetEntry>[] {
 }
 
 /** Flat matches for a query, best first. */
-export function searchPresets(
+function searchPresets(
   presets: PresetEntry[],
   query: string,
 ): TreeNode<PresetEntry>[] {

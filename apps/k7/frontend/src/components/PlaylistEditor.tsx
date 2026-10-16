@@ -84,7 +84,7 @@ export function PlaylistEditor({
   );
   useEffect(() => {
     void refreshSongs();
-    return pollWhileVisible(() => void refreshSongs(), SONGS_POLL_MS);
+    return pollWhileVisible(refreshSongs, SONGS_POLL_MS);
   }, [refreshSongs]);
 
   // Memoised on the listing itself: the poll hands back a fresh array every time, and rebuilding the ref lists per tick is work for nothing.

@@ -56,6 +56,7 @@ import {
   settledNotes,
 } from "../rollPending";
 import type { WebClip, WebProject } from "../types";
+import { KEYS, KeyGutter, N_NOTES } from "./KeyGutter";
 import { LoopBrace, LoopToggle } from "./LoopBrace";
 import { RollPlayhead } from "./RollPlayhead";
 import { ArrangementRuler, Grid, RulerTicks, rulerScale } from "./Ruler";
@@ -65,12 +66,10 @@ import { type PanelTakes, TakesView } from "./TakesView";
 /** How loud a click on a row's NAME auditions it — half, a check of which sound this is rather than a performance. */
 export const AUDITION_VEL = 0.5;
 
-const N_NOTES = 128; // every possible MIDI note (0..127)
 const PX_PER_BEAT = 24; // fallback beat width for the first, unmeasured frame only
 const GUTTER = 44; // note-name column, px
 const NAMED_GUTTER = 112; // …wide enough for a sample's name, when the lane's rack gives its keys one
 const RULER_H = 18; // bar/beat ruler height, px
-const KEYS = Array.from({ length: N_NOTES }, (_, i) => 127 - i); // high → low, top → bottom
 
 /** What the shell drives on the ROLL — the third of these, beside `TimelineHandle` and `AudioClipHandle`. */
 export interface RollHandle {
@@ -656,44 +655,18 @@ export function PianoRoll({
 
             {/* piano gutter + note grid */}
             <div className="flex" style={{ height: gridH }}>
-              <div
-                className="sticky left-0 z-10 shrink-0 border-r border-border bg-background"
-                style={{ width: gutter }}
-              >
-                {KEYS.map((k) => (
-                  <button
-                    type="button"
-                    key={k}
-                    onClick={() => onPreviewNote?.(k, AUDITION_VEL)}
-                    onDoubleClick={() => grid.selectRow(127 - k)}
-                    title={
-                      keyNames?.has(k)
-                        ? `${keyNames.get(k)} · ${noteName(k)}`
-                        : onPreviewNote
-                          ? noteName(k)
-                          : undefined
-                    }
-                    className={`flex w-full items-center justify-end pr-1 text-[9px] text-muted-foreground cursor-pointer hover:bg-accent ${isBlack(k) ? "bg-muted/50" : ""}`}
-                    style={{ height: rowH, lineHeight: `${rowH}px` }}
-                  >
-                    {!showLabels ? (
-                      ""
-                    ) : keyNames?.has(k) ? (
-                      <span className="min-w-0 truncate text-foreground">
-                        {keyNames.get(k)}
-                      </span>
-                    ) : named ? (
-                      noteName(k)
-                    ) : pc(k) === 0 ? (
-                      <>
-                        {noteName(k)} <span className="opacity-50">{k}</span>
-                      </>
-                    ) : (
-                      ""
-                    )}
-                  </button>
-                ))}
-              </div>
+              <KeyGutter
+                width={gutter}
+                rowH={rowH}
+                showLabels={showLabels}
+                keyNames={keyNames}
+                onAudition={
+                  onPreviewNote
+                    ? (k) => onPreviewNote(k, AUDITION_VEL)
+                    : undefined
+                }
+                onSelectKey={(k) => grid.selectRow(127 - k)}
+              />
               <div
                 ref={laneRef}
                 // overflow-hidden is the cage's edge: a note crossing the window is drawn at its true beats and cut where it ends.

@@ -8,14 +8,14 @@
 import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
 
-export type IconComponent = ComponentType<{ className?: string }>;
+type IconComponent = ComponentType<{ className?: string }>;
 export type IconSet = Record<string, IconComponent>;
 
 let cache: IconSet | null = null;
 let pending: Promise<IconSet> | null = null;
 
 /** The whole set, loaded once. Repeat calls get the cache, or join the flight already in the air. */
-export function loadIcons(): Promise<IconSet> {
+function loadIcons(): Promise<IconSet> {
   if (cache) return Promise.resolve(cache);
   pending ??= import("@frediverse/ui/icons/all").then((mod) => {
     const out: IconSet = {};
@@ -38,7 +38,7 @@ export function loadIcons(): Promise<IconSet> {
 }
 
 /** What is loaded right now — null until it is. Synchronous, for a render that cannot await. */
-export const iconsNow = (): IconSet | null => cache;
+const iconsNow = (): IconSet | null => cache;
 
 /** The icon set for a component that draws user-chosen icons — a menu opened before the chunk lands draws labels and no icons, which is honest. */
 export function useIcons(wanted = true): IconSet | null {

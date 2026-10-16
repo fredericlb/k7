@@ -1,21 +1,12 @@
 // CopyProject.tsx — the dialog that picks where a copy lands, opened from the row's ⋮ menu.
 // See ../../docs/projects.md.
 
-import { Button } from "@frediverse/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@frediverse/ui/dialog";
-import { Copy, Folder, Loader2 } from "@frediverse/ui/icons";
-import { Input } from "@frediverse/ui/input";
+import { Copy, Folder } from "@frediverse/ui/icons";
 import type { AccountWorkspace } from "@studio/web-protocol";
 import type { ProjectApp } from "@studio/web-protocol/projects";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { NameFormDialog, useNameSubmit } from "./NameForm";
 import { projectFolderName } from "./projectName";
 
 export function CopyProject({
@@ -44,94 +35,58 @@ export function CopyProject({
 }) {
   const [to, setTo] = useState<AccountWorkspace | null>(null);
   const [name, setName] = useState(label);
-  const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState("");
-  const [error, setError] = useState("");
+  const { busy, step, error, run } = useNameSubmit();
 
   const { folder, error: badName } = projectFolderName(name, app);
 
   const submit = () => {
-    if (!folder || !to || busy) return;
-    setBusy(true);
-    setError("");
-    setStep("");
-    void onCopy(to, folder, setStep)
-      .then(onClose)
-      .catch((e: Error) => setError(e.message))
-      .finally(() => {
-        setBusy(false);
-        setStep("");
-      });
+    if (!folder || !to) return;
+    run((onStep) => onCopy(to, folder, onStep), onClose);
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !busy && !o && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{m["project.copyTitle"]({ label })}</DialogTitle>
-          <DialogDescription>{m["project.copyBody"]()}</DialogDescription>
-        </DialogHeader>
-
-        <p className="rounded bg-muted px-3 py-2 font-mono text-xs">{path}</p>
-
-        <div className="flex max-h-48 flex-col gap-1 overflow-auto">
-          {targets.map((w) => (
-            <button
-              key={w.name}
-              type="button"
-              disabled={busy}
-              className={`flex items-center gap-2 rounded px-2 py-1 text-left text-sm ${
-                to?.name === w.name ? "bg-accent" : "hover:bg-accent/50"
-              }`}
-              onClick={() => setTo(w)}
-            >
-              <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span className="truncate">{w.name}</span>
-            </button>
-          ))}
-        </div>
-
-        <Input
-          placeholder={m["project.copyNamePlaceholder"]()}
-          value={name}
-          disabled={busy}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
-        />
-
-        {/* What will actually be created, before confirming — as in NewProject, the name decides everything. */}
-        <p className="font-mono text-xs text-muted-foreground">
-          {badName ? (
-            <span className="text-destructive">{badName}</span>
-          ) : folder && to ? (
-            `${to.name} / ${folder}`
-          ) : (
-            " "
-          )}
-        </p>
-
-        {step && (
-          <p className="text-xs text-muted-foreground">
-            <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
-            {step}
-          </p>
-        )}
-        {error && (
-          <p className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            {error}
-          </p>
-        )}
-
-        <DialogFooter>
-          <Button variant="secondary" disabled={busy} onClick={onClose}>
-            {m["common.cancel"]()}
-          </Button>
-          <Button disabled={busy || !folder || !to} onClick={submit}>
-            {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-            <Copy className="mr-1 h-3.5 w-3.5" /> {m["project.copy"]()}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <NameFormDialog
+      open={open}
+      onClose={onClose}
+      title={m["project.copyTitle"]({ label })}
+      description={m["project.copyBody"]()}
+      before={
+        <>
+          <p className="rounded bg-muted px-3 py-2 font-mono text-xs">{path}</p>
+          <div className="flex max-h-48 flex-col gap-1 overflow-auto">
+            {targets.map((w) => (
+              <button
+                key={w.name}
+                type="button"
+                disabled={busy}
+                className={`flex items-center gap-2 rounded px-2 py-1 text-left text-sm ${
+                  to?.name === w.name ? "bg-accent" : "hover:bg-accent/50"
+                }`}
+                onClick={() => setTo(w)}
+              >
+                <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{w.name}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      }
+      autoFocus={false}
+      placeholder={m["project.copyNamePlaceholder"]()}
+      name={name}
+      onName={setName}
+      onSubmit={submit}
+      busy={busy}
+      step={step}
+      error={error}
+      badName={badName}
+      preview={folder && to ? `${to.name} / ${folder}` : ""}
+      submit={
+        <>
+          <Copy className="mr-1 h-3.5 w-3.5" /> {m["project.copy"]()}
+        </>
+      }
+      canSubmit={Boolean(folder && to)}
+    />
   );
 }

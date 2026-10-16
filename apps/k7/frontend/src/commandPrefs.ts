@@ -9,7 +9,7 @@ import type { MenuEntity } from "./types";
 export type CommandLabel = string | Record<string, string>;
 
 /** Where a right-click may offer a command: a list of entities, `false` for nowhere at all. */
-export type MenuChoice = boolean | MenuEntity[];
+type MenuChoice = boolean | MenuEntity[];
 
 /** One command's overrides. Every field optional — an untouched command has no entry at all. */
 export interface CommandPref {

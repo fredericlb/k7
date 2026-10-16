@@ -424,7 +424,7 @@ named one without the gutter having to choose.
 
 ### Clicking it opens the lane's menu
 
-The shell's `nodeMenu` (`contextMenu.ts`), through `onNodeMenu`. The chains graph shows the same
+The shell's `nodeMenu` (`nodeMenu.ts`), through `onNodeMenu`. The chains graph shows the same
 sets as badges on the lane's node and runs the same verbs, so the switch, the two `create` entries
 and the freeze are one behaviour with one set of commands, and each row is literally the command line it runs —
 `node alternative select|create|copy`, `node freeze`. Switching goes on the click; the two

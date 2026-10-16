@@ -15,7 +15,7 @@ interface Channel {
 }
 
 /** The supervisor's `state` frame, the part the panel draws. */
-export interface EngineState
+interface EngineState
   extends Pick<DesktopEngineSnapshot, "instruments" | "downloads"> {
   status?: string;
   enginePort?: number;

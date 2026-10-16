@@ -18,12 +18,10 @@ import type { ProjectApp } from "@studio/web-protocol/projects";
 import { sortNodes } from "@studio/web-protocol/tree";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { norm } from "../projectPaths";
 import type { AccountFiles } from "./api";
 import { FileViewer } from "./FileViewer";
 import { type TreeSource, workspaceSource } from "./workspaceFiles";
-
-/** A path with forward slashes, whatever separator the far side used. */
-const slash = (p: string): string => p.replace(/\\/g, "/");
 
 interface RowProps {
   node: FileNode;
@@ -40,7 +38,7 @@ function Row(props: RowProps) {
     props;
   const isOpen = open.has(node.path);
   const pad = { paddingLeft: `${depth * 14 + 8}px` };
-  const key = slash(node.path);
+  const key = norm(node.path);
   if (!node.dir) {
     return (
       <button

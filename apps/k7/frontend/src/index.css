@@ -24,14 +24,8 @@
 @source "../../../../packages/ui-editor/src";
 @source "../../../../packages/ui-eyes/src";
 @source "../../../../packages/ui-waveform/src";
-/* The DESK. Missing until now, and it is the sharpest example of the paragraph above: the
-   layout classes it shares with the app (`flex`, `w-16`, `gap-2`) were generated anyway, so the
-   strip stood in the right place with the right spacing — and every class the desk alone uses
-   was dropped. `fill-muted`, `stroke-border` and `stroke-foreground` are only ever written
-   here, so a knob drew an SVG with no fill and no stroke: present, positioned, and invisible.
-   That is what "the filter knob is gone" was, and why resizing the strip did not bring it
-   back. See ChannelStrip.tsx. */
-@source "../../../../packages/k7-plugins/src/turntables";
+/* k7's builtin plugins, the desk and the viewport: `fill-muted` on a knob is written only there, and without it the knob draws invisible. */
+@source "../../../../packages/k7-plugins/src";
 /* The GATE and the toasts. Every screen you see before the shell — cloning a repository, a
    workspace that will not open — is drawn from here, which is the worst place to be unstyled:
    it is what somebody sees when something has already gone wrong. Same omission, found by

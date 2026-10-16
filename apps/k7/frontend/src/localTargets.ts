@@ -4,9 +4,10 @@
 // the resolution is tested in a repo where nothing mounts a component.
 
 import { fuzzyScore } from "./fuzzy";
+import { norm } from "./projectPaths";
 
 /** The best fuzzy match in a pool, or null. Exported for the resolvers below and for tests. */
-export function bestMatch(arg: string, pool: readonly string[]): string | null {
+function bestMatch(arg: string, pool: readonly string[]): string | null {
   if (!arg) return null;
   if (pool.includes(arg)) return arg;
   return (
@@ -41,14 +42,14 @@ export function resolveModuleFile(
 
 /** The folder a path sits in — "" at the root, which every file route reads as the workspace. */
 export const parentDir = (path: string): string => {
-  const p = path.replace(/\\/g, "/").replace(/\/+$/, "");
+  const p = norm(path).replace(/\/+$/, "");
   const i = p.lastIndexOf("/");
   return i < 0 ? "" : p.slice(0, i);
 };
 
 /** The last segment of a path — the name a rename starts from. */
 export const baseName = (path: string): string =>
-  path.replace(/\\/g, "/").replace(/\/+$/, "").split("/").pop() ?? path;
+  norm(path).replace(/\/+$/, "").split("/").pop() ?? path;
 
 /** Split a line into its leading N tokens and the rest, so a name with spaces survives while the path before it stays one token. */
 export function headTokens(rest: string, n: number): string[] {

@@ -83,7 +83,7 @@ sweep that moved them settled:
   screen just falls back to printing the key.
 
 **A shared package under `packages/` has no catalogue and stays ENGLISH.** `ui-chains`,
-`ui-chains-react`, `ui-turntables`, `ui-module-builder`, `project-shell` and `ui-user-menu` draw
+`ui-chains-react`, `k7-plugins`, `ui-module-builder`, `project-shell` and `ui-user-menu` draw
 inside this app and inside others, each with its own message set; a French string in one of them
 is a French string in every host. What crosses that line is a `noun`-shaped hint the host hands
 in, not a sentence. The same rule covers text a package writes into a FILE — the
