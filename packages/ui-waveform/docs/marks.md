@@ -88,7 +88,7 @@ absent and the first drag brings one into being.
 ## Stretch points: what snaps and what does not
 
 Everywhere else on this canvas a click lands on the nearest drawn tick, because what you are
-naming there IS a beat ([ticks.md](ticks.md)). A warp is the exception, twice over:
+naming there IS a beat ([ticks.md](../../ui-timeline/docs/ticks.md)). A warp is the exception, twice over:
 
 - **placing** one is unsnapped. What you are naming is a moment of the SOURCE — an attack, a
   syllable — and the whole gesture is to pin it to the grid afterwards. Snapping the origin would

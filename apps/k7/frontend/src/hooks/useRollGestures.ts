@@ -133,7 +133,7 @@ export function useRollGestures({
   // One pointer per gesture, abandoned on a cancel or an unmount — @studio/ui-timeline/drag.
   const follow = usePointerFollow();
 
-  /** The step a gesture moves in: the grid the roll is drawing, or none while Ctrl is held (packages/ui-waveform/docs/ticks.md). */
+  /** The step a gesture moves in: the grid the roll is drawing, or none while Ctrl is held (packages/ui-timeline/docs/ticks.md). */
   const stepAt = (e: PointerEvent | React.PointerEvent): number =>
     freeSnap(e) ? 0 : gridUnit;
 

@@ -1,5 +1,13 @@
 import { Flag } from "@frediverse/ui/icons";
 import {
+  labelled,
+  labelMinPx,
+  labelStride,
+  MAX_COLUMN_PX,
+  nearestTick,
+  subdivideGrid,
+} from "@studio/ui-timeline/ticks";
+import {
   memo,
   type Ref,
   useEffect,
@@ -11,14 +19,6 @@ import {
 } from "react";
 import { playheadPlacement } from "./playhead";
 import { columnsOf, mirroredYs, spectrumLayer } from "./spectrum";
-import {
-  labelled,
-  labelMinPx,
-  labelStride,
-  MAX_COLUMN_PX,
-  nearestTick,
-  subdivideGrid,
-} from "./ticks";
 import type {
   Annotation,
   DetectedEvent,
@@ -321,7 +321,7 @@ function WaveformInner({
   const timeToX = (t: number) => (span > 0 ? ((t - v0) / span) * width : 0);
   const xToTime = (x: number) => (width > 0 ? v0 + (x / width) * span : v0);
 
-  /** The lines BETWEEN the ones the host sent, derived here because the CLICK wants them too — see docs/ticks.md. */
+  /** The lines BETWEEN the ones the host sent, derived here because the CLICK wants them too — see ui-timeline's docs/ticks.md. */
   const subGrid = useMemo(
     () =>
       subdivideGrid(
@@ -639,7 +639,7 @@ function WaveformInner({
       if (y > 10) ctx.fillText(`${db} dB`, 3, y - 1);
     }
 
-    // Bar-number labels on top of the gridlines they belong to, thinned by powers of two once they crowd (see ticks.ts).
+    // Bar-number labels on top of the gridlines they belong to, thinned by powers of two once they crowd (ui-timeline's ticks.ts).
     ctx.textBaseline = "top";
     ctx.fillStyle = "rgba(160,200,255,0.85)";
 
@@ -673,7 +673,7 @@ function WaveformInner({
       texts.length > 1
         ? timeToX(texts[1].t) - timeToX(texts[0].t)
         : Number.POSITIVE_INFINITY;
-    // Against the widest number this ruler prints, not a flat minimum — see docs/ticks.md.
+    // Against the widest number this ruler prints, not a flat minimum — see ui-timeline's docs/ticks.md.
     const widest = texts.reduce(
       (w, t) => (t.text.length > w.length ? t.text : w),
       "",

@@ -207,7 +207,7 @@ Three things fall out of sharing it, and all three are the point:
   same line at the same weight, because one function drew them.
 - **The zoom is the resolution control here too.** A click on the arrangement ruler snaps to a
   tick that was drawn, so opening the view up is how a finer position is reached — the rule
-  `packages/ui-waveform/docs/ticks.md` states for every ruler.
+  `packages/ui-timeline/docs/ticks.md` states for every ruler.
 - **The window's origin is respected for free.** The ladder counts from the coordinate's origin
   rather than the view's left edge, so a clip windowed to open at bar 3 says 3, without the
   surface arranging for it.
@@ -395,7 +395,7 @@ What a cell IS differs, and that is the whole of the per-pane work:
 | the sequencer | a rack sound, then the keys the rack does not name | one step of the chosen precision |
 
 The roll's column following the zoom is the point rather than a side effect: the ladder is the
-resolution control everywhere else here (`packages/ui-waveform/docs/ticks.md`), so a finer caret
+resolution control everywhere else here (`packages/ui-timeline/docs/ticks.md`), so a finer caret
 is reached by opening the view, not by a second setting nobody would find. It is also why the
 caret resets when the unit changes — column 12 is a different MOMENT once the step halves, and
 that is not where you put it.
