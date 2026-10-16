@@ -134,6 +134,10 @@ writes `1,2`); everywhere else the word on screen is the word in the file.
 `setModuleField` is declared before its two callers because their dependency arrays name it, and
 those are evaluated on the spot rather than at call time.
 
+A PROJECT setting (`@project:<field>`) is committed the same way and for the same reason, through
+`onProjectField`, and travels as the option's WORD rather than its index: `project aspect 16:9` is
+what a person would type, and the row's position in the dropdown is the card's business alone.
+
 ## The right-click menu is for a PLUGIN param only
 
 Two binds are excluded, and both because the answer would be a promise nothing can keep:
