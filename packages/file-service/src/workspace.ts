@@ -78,11 +78,7 @@ import {
   type CatalogueModule,
   moduleCatalogue,
 } from "@studio/song/moduleCatalogue";
-import {
-  type ForkedModule,
-  materialiseEngineModule,
-  sharedModuleRef,
-} from "@studio/song/moduleFork";
+import { type ForkedModule, sharedModuleRef } from "@studio/song/moduleFork";
 import {
   assertNotEngine,
   planModuleMove,
@@ -99,7 +95,6 @@ import {
   formatChannels,
   loadPreferences,
   PREFS_PATH,
-  setAudioDevice,
   setEditorVim,
   setInputPair,
 } from "@studio/song/preferences";
@@ -484,12 +479,6 @@ export function setVim(on: boolean): boolean {
   return setEditorVim(on).editor.vim;
 }
 
-// Remember which interface this machine plays through; the engine forgets, so engineLink replays this.
-export function setAudioDevicePref(name: string, type?: string): string | null {
-  const p = setAudioDevice(name, type);
-  return p.audioDevice ? formatAudioDevice(p.audioDevice) : null;
-}
-
 // Where each workspace's active-project marker lives: a folder BESIDE the workspaces, so no sync of one ever sees it.
 export const ACTIVE_MARKERS_DIR = ".active-projects";
 // The marker a workspace kept INSIDE itself, moved out at its first read.
@@ -716,7 +705,6 @@ export class Workspace {
       activeProject: () => this.activeProject,
       cachedProjectDoc: (dir) => this.cachedProjectDoc(dir),
       withinRoot: (abs) => this.withinRoot(abs),
-      skip,
     });
   }
 
@@ -1901,14 +1889,6 @@ export class Workspace {
     return enginesBeside(this.safePath(rel));
   }
 
-  /** Give an ENGINE module a folder in this project and repoint the chains — see moduleFork.ts. */
-  materialiseModule(ref: string): ForkedModule {
-    const dir = this.requireActive();
-    const out = materialiseEngineModule(dir, ref);
-    this.invalidateProjectDoc();
-    return { ...out, path: this.toRel(join(dir, out.path)) };
-  }
-
   // One of the module's own files beside `abs`, or the path it would take plus `scaffold()`.
   private sidecar(
     abs: string,
@@ -2148,11 +2128,6 @@ export class Workspace {
 
   waveformStatus(): WaveformStatus {
     return this.wf.status();
-  }
-
-  /** Clear the in-memory memo + every `{source}.cache` sidecar — see waveformOps.ts. */
-  clearWaveformCache(): number {
-    return this.wf.clear();
   }
 
   /** Stop any in-flight prewarm (called before a delete/rename) — see waveformOps.ts. */

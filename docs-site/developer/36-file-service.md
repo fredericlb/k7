@@ -76,7 +76,7 @@ engine machine's jobs socket, and of the sync relay.
 | GET | `/workspaces/projects`, `/workspaces/surfaces`, `/workspaces/sync` | Every project (home page); projects a second device can open; where each workspace lives. |
 | POST | `/workspaces/sync/download`, `/move`, `/copy` | Move or copy a workspace between servers. |
 | GET | `/engine/served` | The project the engine holds for this user. |
-| GET | `/plugins`, `/plugin-params`, `/plugin-native-ui` | The engine's plugin scan; a plugin's parameters; its native window. |
+| GET | `/plugin-params`, `/plugin-native-ui` | A scanned plugin's parameters; its native window. |
 | GET, PUT, POST | `/account/live-chains`, `/account/cold-chains[/:which]`, `/account/cold-chains/download`, `/account/models/:id` | Account-level chain choices and model downloads. |
 | * | `/mediatek/*` | The media library cache (`src/routes/mediatek.ts`). |
 | POST | `/render` | Render a document and stream the file back (`src/routes/render.ts`). |
@@ -88,14 +88,14 @@ engine machine's jobs socket, and of the sync relay.
 | State | `GET /workspace` (the poll; also prewarms the engine), `GET /revision`, `GET /project`, `GET /project-doc` (timeline view), `GET /engine-doc` (the compiled `ProjectDoc`), `GET /graph` (`WebGraph`), `GET /video-doc`, `GET /surfaces`, `GET /project-errors`, `GET /video-errors`, `GET /hints`, `GET /tree`, `GET /workspace-tree` |
 | Files | `GET /file`, `PUT /file` `{ path, content }`, `POST /upload`, `POST /folder`, `POST /rename`, `POST /move`, `POST /entry/delete` (to the recycle bin), `POST /fmt`, `POST /migrate-k7x` |
 | Projects | `POST /project/create` `{ shape, name }`, `POST /open` `{ path }`, `POST /project/delete`, `POST /project/rename`, `POST /import-project`, `POST /import-upload` |
-| Modules | `POST /module`, `POST /module/clone`, `POST /node`, `POST /library/move`, `GET /module-libraries`, `GET /module-catalogue`, `GET /base-modules`, `GET /module-ui`, `GET /module-engines`, `GET /module-base`, `POST /module-base/snapshot`, `POST /module-materialise`, `GET /presets`, `GET /consoles`, `GET /io-ports`, `GET /library-chains`, `GET /library-assemblies` |
+| Modules | `POST /module`, `POST /module/clone`, `POST /node`, `POST /library/move`, `GET /module-libraries`, `GET /module-catalogue`, `GET /base-modules`, `GET /module-ui`, `GET /module-engines`, `GET /module-base`, `POST /module-base/snapshot`, `GET /presets`, `GET /consoles`, `GET /io-ports`, `GET /library-chains`, `GET /library-assemblies` |
 | Commands | `GET /commands`, `GET /complete`, `POST /command` `{ line, at?, want? }` → `{ output, refused?, rev?, changed?, graph? }` |
 | History | `GET /history`, `GET /history/entries`, `POST /undo`, `POST /redo` |
 | Engine | `POST /engine/project` (a browser-built doc), `POST /engine/unload`, `POST /engine/sync/retry`, `POST /auto-freeze/thaw`, `GET /project-plugins`, `GET /project-compat`, `POST /models/download` |
-| Audio views | `GET /waveform`, `POST /waveforms/prewarm`, `GET /waveforms/status`, `POST /waveforms/cancel`, `POST /waveforms/clear`, `POST /preview` |
+| Audio views | `GET /waveform`, `POST /waveforms/prewarm`, `GET /waveforms/status`, `POST /waveforms/cancel`, `POST /preview` |
 | Sharing, export | `GET /export` (`wav`/`mp3`), `POST /share/k7`, `POST`/`GET /share/link` |
 | Sync | `GET /sync/log`, `GET /sync/project`, `GET /sync/conflicts`, `POST /sync/conflicts/:id` |
-| Misc | `GET /preferences`, `PUT /preferences/vim`, `PUT /preferences/audio-device`, `GET /playlists`, `GET /references`, `GET /logs` |
+| Misc | `GET /preferences`, `PUT /preferences/vim`, `GET /playlists`, `GET /references`, `GET /logs` |
 
 ## Writes, revisions and the journal
 

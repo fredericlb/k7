@@ -43,7 +43,7 @@ import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
 import { serviceLogSince } from "../serviceLog.ts";
-import { preferences, setAudioDevicePref, setVim } from "../workspace.ts";
+import { preferences, setVim } from "../workspace.ts";
 import { skip } from "../workspaceFilter.ts";
 
 export const filesRouter = Router();
@@ -76,19 +76,6 @@ filesRouter.put(
   validate(vimBody),
   wrap((req, res) => {
     res.json({ vim: setVim((req.body as z.infer<typeof vimBody>).vim) });
-  }),
-);
-// The interface this machine plays through, remembered here because the engine keeps none — see docs/fileRoutes.md.
-const audioDeviceBody = z.object({
-  name: z.string(),
-  type: z.string().optional(),
-});
-filesRouter.put(
-  "/preferences/audio-device",
-  validate(audioDeviceBody),
-  wrap((req, res) => {
-    const { name, type } = req.body as z.infer<typeof audioDeviceBody>;
-    res.json({ audioDevice: setAudioDevicePref(name, type) });
   }),
 );
 // No input-pair route: grouping an interface's inputs is `system channel type` — see docs/fileRoutes.md.
@@ -937,13 +924,6 @@ filesRouter.post(
     res.json(req.ws!.waveformStatus());
   }),
 );
-filesRouter.post(
-  "/waveforms/clear",
-  wrap((req, res) => {
-    const removed = req.ws!.clearWaveformCache();
-    res.json({ ok: true, removed });
-  }),
-);
 // The Logs panel's two halves: the bound engine machine's `.studio.log` (`?tail=N` seeds, `?offset=X`
 // continues) and this service's own lines (`?after=S` continues) — docs/serviceLog.md.
 filesRouter.get(
@@ -1121,21 +1101,6 @@ filesRouter.get(
   wrap((req, res) => {
     try {
       res.json(req.ws!.moduleEngines(String(req.query.path ?? "")));
-    } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
-    }
-  }),
-);
-
-// Give an engine module a folder in the project, so it can carry a panel; POST because it writes.
-const materialiseBody = z.object({ ref: z.string().min(1) });
-filesRouter.post(
-  "/module-materialise",
-  validate(materialiseBody),
-  wrap((req, res) => {
-    const { ref } = req.body as z.infer<typeof materialiseBody>;
-    try {
-      res.json(req.ws!.materialiseModule(ref));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }

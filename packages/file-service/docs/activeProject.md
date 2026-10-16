@@ -305,17 +305,15 @@ behind, and only the second has anything to say about why.
 
 ## The machine's own questions have no workspace
 
-`/plugins`, `/plugin-params` and `/plugin-native-ui` are asked on the BARE session, deliberately.
-Which plugins exist, what they have, and what they look like are facts about the MACHINE, exactly
+`/plugin-params` and `/plugin-native-ui` are asked on the BARE session, deliberately.
+What a plugin has and what it looks like are facts about the MACHINE, exactly
 like the scan cache they come out of. The médiathèque asks them while no project is open at all — it
 edits a library — and routing them through a session would send them to a room the engine holds
 nothing in. `pluginParams` skips the `isReady` check the arm and the session listing make, because it
 is the FIRST thing to want the bare session on many machines and routinely arrives while the socket is
 still dialling; `send` buffers until open, so asking anyway is what makes the first click work.
 
-`/plugins` answers two shapes of the same list and both are used: `pluginNames` is what a name-matching
-field needs, and `plugins` carries the role and the plugin's own category, which is what decides a
-module's PORTS and where it is filed. `/plugin-params` takes `format` and `id` together because `id`
+`/plugin-params` takes `format` and `id` together because `id`
 is the binary's path: a display name can belong to two formats of one plugin, and the engine resolves
 the pair, not the name. It answers 503 rather than an empty list when the engine cannot be reached —
 the caller writes a panel from what comes back, and an empty one is a REAL answer.

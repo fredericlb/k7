@@ -3,13 +3,9 @@
 // gated by the hub's secret. Drives whichever engine the hub binds it to, through that engine's
 // tunnel; engines' machines run no file service. Run under tsx to import the brain's TS.
 
-import { existsSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { validate, wrap } from "@frediverse/http/route";
 import { coldChains } from "@studio/audio-passes/processChain";
-import {
-  scannedPluginNames,
-  scannedPlugins,
-} from "@studio/engine-client/pluginCache";
 // k7's plugin contributions — commands and surface types — before anything reads a catalogue
 // or compiles a song. The LIST is the plugins package's; this process only calls the install.
 import { installBuiltinPlugins } from "@studio/k7-plugins/server";
@@ -21,7 +17,6 @@ import {
 } from "@studio/song/preferences";
 import { accountLibraries } from "@studio/song/sharedFolders";
 import {
-  type AccountLibrariesReply,
   type AccountWorkspaceList,
   ADMIN_HEADER,
   type ColdChainsReply,
@@ -349,21 +344,13 @@ app.post(
   }),
 );
 
-// The media library is per MACHINE: the user for the gate, and no workspace.
+// The media library belongs to no workspace: the user for the gate, nothing more.
 app.use(mediatekRouter);
 
 // An offline bounce for a hosted backend that cannot exec anything itself — docs/render.md.
 app.use(renderRouter);
 
-// What this machine's engine has SCANNED, in the two shapes both used — see docs/activeProject.md.
-app.get(
-  "/plugins",
-  wrap((_req, res) =>
-    res.json({ pluginNames: scannedPluginNames(), plugins: scannedPlugins() }),
-  ),
-);
-
-/** …and what ONE of them HAS — a plugin LOADED and asked, which takes seconds. See docs/activeProject.md. */
+/** What ONE scanned plugin HAS — a plugin LOADED and asked, which takes seconds. See docs/activeProject.md. */
 app.get(
   "/plugin-params",
   wrap(async (req, res) => {
