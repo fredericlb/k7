@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The song layer — parses a folder of CUE files and compiles it: to a flat ProjectDoc/GraphDoc for k7, and the same folder's picture to a VideoProjectDoc. A strudel lane compiles to the engine plugin that plays it (enginePattern.ts). Consumed as source.",
+  "description": "The song layer — reads a project folder and compiles its sound to a flat ProjectDoc/GraphDoc for k7; its picture is @studio/song-video's. A strudel lane compiles to the engine plugin that plays it (enginePattern.ts). Consumed as source.",
   "exports": {
     "./loader": "./src/loader.ts",
     "./atomicWrite": "./src/atomicWrite.ts",

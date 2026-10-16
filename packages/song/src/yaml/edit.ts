@@ -1,5 +1,5 @@
 // edit.ts — set or clear one field of a YAML file, in place. The FILE primitive; it
-// knows nothing about modules or chains (that's ../projectEdit.ts). Uses the YAML
+// knows nothing about modules or chains (that's packages/song-edit/src/projectEdit.ts). Uses the YAML
 // Document API so the rest of the file comes back byte-identical, comments included.
 
 import { isMap, isScalar, isSeq, parseDocument, Scalar } from "yaml";
@@ -21,9 +21,7 @@ export function setFileValue(
 ): void {
   const doc = read(file);
   const node = doc.createNode(value);
-  // A list the author wrote INLINE stays inline. `createNode` always builds a block sequence, so
-  // writing `viewport: [1280, 720, 30]` turned one line into four — churn in a file whose whole
-  // point is that a value change is a one-line diff. The author's style is the file's.
+  // A list the author wrote INLINE stays inline, so a value change stays a one-line diff.
   const had = doc.getIn(path, true);
   if (isSeq(had) && had.flow && isSeq(node)) node.flow = true;
   doc.setIn(path, node);
