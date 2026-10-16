@@ -43,11 +43,23 @@ export function setQuotedKeyMap(
   path: (string | number)[],
   map: Record<string, string>,
 ): void {
-  const doc = read(file);
+  wsWrite(
+    file,
+    withQuotedKeyMap(wsExists(file) ? wsRead(file) : "{}", path, map),
+  );
+}
+
+/** The same edit on a TEXT, written by nobody: for a caller that writes several files only once all of them are made. */
+export function withQuotedKeyMap(
+  text: string,
+  path: (string | number)[],
+  map: Record<string, string>,
+): string {
+  const doc = parseDocument(text, { version: "1.2" });
   const node = doc.createNode(map);
   if (isMap(node))
     for (const pair of node.items)
       if (isScalar(pair.key)) pair.key.type = Scalar.QUOTE_DOUBLE;
   doc.setIn(path, node);
-  save(file, doc);
+  return doc.toString({ lineWidth: 0 });
 }

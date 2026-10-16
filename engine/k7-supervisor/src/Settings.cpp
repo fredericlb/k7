@@ -124,8 +124,22 @@ void saveSettings(const Settings& s)
     if (!gConfigFile.empty()) return;
     std::error_code ec;
     std::filesystem::create_directories(paths::studioDir(), ec);
-    std::ofstream out(paths::settings(), std::ios::binary | std::ios::trunc);
-    if (out) out << settingsJson(s).dump(2) << "\n";
+    const std::filesystem::path path = paths::settings();
+    const auto tmp = path.parent_path() / (path.filename().string() + ".tmp");
+    // Written beside, then renamed over: a crash mid-write must not leave a torn file that loads as defaults.
+    {
+        std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+        if (!out) return;
+        out << settingsJson(s).dump(2) << "\n";
+        out.flush();
+        if (!out.good()) {
+            out.close();
+            std::filesystem::remove(tmp, ec);
+            return;
+        }
+    }
+    std::filesystem::rename(tmp, path, ec);
+    if (ec) std::filesystem::remove(tmp, ec);
 }
 
 }  // namespace k7

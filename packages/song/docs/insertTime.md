@@ -43,6 +43,14 @@ it is a change to the song's **clock**: an alternative you switch to has to stil
 markers. So `spliceTime` walks `everyEventList` — the playing events and every alternative's own
 events — rather than asking where one edit belongs.
 
+## All the files, or none
+
+A splice rewrites every lane, curve and video lane and `project.yaml`'s markers. Every new text is
+made first and only then written, so a file that cannot be transformed (its YAML broken) throws
+before anything reaches the disk. Written one by one, a throw on the fifth file would leave the first
+four shifted and the rest not: a song whose lanes disagree about where bar 9 is, which no undo knows
+how to take back.
+
 ## A straddling event is decided by its START
 
 An event whose start is at or after the point moves. One already playing **across** the point stays
