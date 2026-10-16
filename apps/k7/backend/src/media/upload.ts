@@ -12,7 +12,7 @@ import { mediatekDir } from "@studio/mediatek/layout";
 import type { Request, RequestHandler } from "express";
 
 /** The ceiling every upload route here had as `express.raw`'s limit. */
-export const MAX_UPLOAD = 512 * 1024 * 1024;
+const MAX_UPLOAD = 512 * 1024 * 1024;
 
 /** A dot-directory on the library volume, so no family scan sees it and a move into place is a rename. */
 export const libraryUploads = (): string => join(mediatekDir(), ".uploads");

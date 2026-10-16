@@ -18,7 +18,7 @@ import { type LoopbackAnswer, loopbackReturn } from "./loopbackReturn.ts";
 import { chosenServer } from "./server.ts";
 
 /** The server this machine syncs with: the one chosen at sign-in (server.ts). */
-export const syncOrigin = (): string => chosenServer();
+const syncOrigin = (): string => chosenServer();
 
 /** The relay's socket at a server's origin: `https://st0.app` → `wss://st0.app/api/sync`. */
 const relayOf = (origin: string): string =>

@@ -35,10 +35,10 @@ import { fetchFromYoutube, youtubeQuery } from "./youtube.ts";
 class ExhaustedError extends Error {}
 
 /** A peer gets this long to START sending before the hunt moves to the next one. */
-export const NO_START_MS = 60_000;
+const NO_START_MS = 60_000;
 
 /** …and this many moves before the hunt is a failure — ten peers tried, ../../../docs/media/hunt.md. */
-export const MAX_SWITCHES = 10;
+const MAX_SWITCHES = 10;
 
 /** How long the network gets to answer a search before what arrived is ranked. */
 const SEARCH_WINDOW_MS = 12_000;

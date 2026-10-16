@@ -23,7 +23,7 @@ export interface AiSettings {
 const hintOf = (key: string): string =>
   key.length > 16 ? `${key.slice(0, 7)}…${key.slice(-4)}` : "…";
 
-export const viewOf = (s: AiSettings | null): AiSettingsView => ({
+const viewOf = (s: AiSettings | null): AiSettingsView => ({
   model: s?.model || null,
   defaultModel: DEFAULT_AI_MODEL,
   keyHint: s?.apiKey ? hintOf(s.apiKey) : null,

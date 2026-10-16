@@ -43,7 +43,7 @@ const SERVICE_SUB_PREFIX = "service:";
 const RESERVED = new Set(["pending.json", "snapshot.json"]);
 
 /** A path the manifest may list: relative, slash-separated, never climbing, never one of the store's own files. */
-export function shareFileOk(rel: unknown): rel is string {
+function shareFileOk(rel: unknown): rel is string {
   if (typeof rel !== "string" || !rel || rel.length > 1024) return false;
   if (rel.includes("\\") || rel.includes("\u0000") || rel.startsWith("/"))
     return false;

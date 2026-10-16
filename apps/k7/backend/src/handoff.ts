@@ -107,7 +107,7 @@ export function openCode(
 }
 
 /** Codes already redeemed, by hash, until they would have expired anyway. */
-export function redeemedCodes(): (code: string, expires: number) => boolean {
+function redeemedCodes(): (code: string, expires: number) => boolean {
   const seen = new Map<string, number>();
   return (code, expires) => {
     const now = Date.now();
@@ -120,7 +120,7 @@ export function redeemedCodes(): (code: string, expires: number) => boolean {
 }
 
 /** Whether a navigation was made by the app itself (or this origin), not by a link on another site. */
-export function isAppNavigation(req: Request): boolean {
+function isAppNavigation(req: Request): boolean {
   const site = req.get("sec-fetch-site");
   if (site !== undefined) return site === "none" || site === "same-origin";
   // A WebView that sends no Sec-Fetch-Site still names the app it runs in, which no page can forge.

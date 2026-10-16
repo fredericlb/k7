@@ -34,7 +34,7 @@ const SECRETS = [
 ] as const;
 
 /** Under a dot-directory: `writablePath` refuses those and `revision.ts` does not walk them. */
-export function settingsDir(): string {
+function settingsDir(): string {
   return process.env.STUDIO_SETTINGS_DIR || join(mediatekDir(), ".settings");
 }
 

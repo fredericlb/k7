@@ -50,7 +50,7 @@ export function ytdlpArgs(query: string, outDir: string): string[] {
 }
 
 /** The one audio file in the folder: yt-dlp names by video id, so only the codec gives the extension. */
-export function audioIn(dir: string): string | null {
+function audioIn(dir: string): string | null {
   try {
     return readdirSync(dir).find((f) => isAudio(f)) ?? null;
   } catch {

@@ -15,7 +15,7 @@ export interface TokenVerbs {
 }
 
 /** What the owner sees of a token: never the token itself. */
-export const publicRecord = (r: ApiTokenRecord) => ({
+const publicRecord = (r: ApiTokenRecord) => ({
   id: r.id,
   label: r.label,
   created: r.created,
@@ -24,7 +24,7 @@ export const publicRecord = (r: ApiTokenRecord) => ({
 });
 
 /** A label as typed, bounded so a list stays a list. */
-export const labelOf = (raw: unknown, fallback: string): string =>
+const labelOf = (raw: unknown, fallback: string): string =>
   typeof raw === "string" && raw.trim() !== ""
     ? raw.trim().slice(0, 80)
     : fallback;
