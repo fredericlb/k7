@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type ConditionCtx,
+  commandKeyMap,
   effectiveKeys,
   KEY_NONE,
   KEYS,
@@ -157,7 +158,24 @@ describe("effectiveKeys / resolveToken", () => {
     ).toBe("p");
     expect(keyForCommand("transport toggle")).toBe("space");
   });
+
+  it("commandKeyMap answers every plain command as a per-command scan of the table would", () => {
+    const prefs = { "ui help": { key: "v" } };
+    const map = commandKeyMap(prefs);
+    for (const [, b] of Object.entries(KEYS))
+      if (typeof b === "string")
+        expect(map.get(b)).toBe(keyForCommandByScan(b, prefs));
+  });
 });
+
+/** The scan `commandKeyMap` replaced, kept here as its oracle. */
+function keyForCommandByScan(
+  command: string,
+  prefs: Parameters<typeof effectiveKeys>[0],
+): string | undefined {
+  const eff = effectiveKeys(prefs);
+  return Object.keys(eff).find((k) => eff[k] === command);
+}
 
 /** The tools: three keys and one rung of the ladder, all conditional on the timeline OWNING the keys. */
 describe("the timeline's tools", () => {

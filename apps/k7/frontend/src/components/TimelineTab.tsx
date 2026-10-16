@@ -101,6 +101,7 @@ import {
   rowTarget,
   stepRow,
 } from "../rows";
+import type { EditFocus } from "../shellEquality";
 import { freeSnap, moveOffset, snapMode, snapPosition, snapTo } from "../snap";
 import { recordingFrom } from "../takeCounter";
 import type { DropLane, DropUpload, TimelineDropEvent } from "../timelineDrop";
@@ -623,7 +624,7 @@ export function TimelineTab({
   /** …and how far that upload has got, drawn at the foot of the pane — the file tree's bar, over here. */
   dropUpload?: DropUpload | null;
   setStatus: (s: string) => void;
-  onEditTarget: (t: EditTarget | null) => void; // the clip under the caret, for the Editor panel
+  onEditTarget: (t: EditFocus | null) => void; // the clip under the caret, for the shell
   // A clip was CLICKED — a press that never moved; the caret-driven `onEditTarget` above is a different question.
   onOpenClip?: (t: EditTarget) => void;
   // The bare lane was clicked — the counterpart of `onOpenClip`: the shell puts the graph back.

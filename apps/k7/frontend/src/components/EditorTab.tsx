@@ -77,6 +77,7 @@ import {
 import { movedTheTree, movedTheVocabulary, type Reload } from "../reloadScope";
 import { needsAttention, saveLabel } from "../saveLabel";
 import type { SeqView } from "../sequenceEdit";
+import type { EditFocus } from "../shellEquality";
 import { rackSliceRanges, scanSlices, setSliceWindow } from "../sliceSymbols";
 import type {
   Diagnostic,
@@ -89,7 +90,6 @@ import type {
 } from "../types";
 import { useIsMobile } from "../useIsMobile";
 import { Breadcrumb } from "./Breadcrumb";
-import type { EditTarget } from "./ClipView";
 import { ConflictBanner } from "./ConflictsPanel";
 import { EditorPane } from "./EditorPane";
 import { FileTree, type FileTreeHandle } from "./FileTree";
@@ -286,7 +286,7 @@ export function EditorTab({
   /** The library level the engine's machine runs (1 from an older supervisor); undefined with no engine. */
   engineLevel?: number;
   setStatus: SetStatus;
-  onEditTarget: (t: EditTarget | null) => void; // the open sequence, for the Editor panel
+  onEditTarget: (t: EditFocus | null) => void; // the open sequence by path, never its text — see shellEquality.ts
   onOpenItem: (item: MinimapItem | null) => void; // the open clip/track, for the minimap
   // Open the shared module builder on the MODULE file of the trio, plus which of the three was clicked.
   onOpenBuilder: (path: string, pane: "module" | "panel") => void;
@@ -542,16 +542,16 @@ export function EditorTab({
           .catch(() => {
             if (!cancelled) {
               setAudioClip(null);
-              onEditTarget({ kind: "seq", path: p, content: file.content });
+              onEditTarget({ kind: "seq", path: p });
             }
           });
         return () => {
           cancelled = true;
         };
       }
-      // Otherwise: notes are inline in the sequence file — hand the panel the content.
+      // Otherwise: notes are inline in the sequence file — name it, and a keystroke leaves the shell still.
       setAudioClip(null);
-      onEditTarget({ kind: "seq", path: p, content: file.content });
+      onEditTarget({ kind: "seq", path: p });
       return;
     }
 

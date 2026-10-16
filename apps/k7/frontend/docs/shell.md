@@ -1266,6 +1266,13 @@ re-renders everything that component draws. `s.playhead` read in the body of `Mi
 screen too**, because every pane here is mounted exactly once and merely `hidden`. Each has a playhead
 leaf instead, the shape `TimelineTab` uses ([`timeline.md`](timeline.md)).
 
+**The status line is live state too.** A timeline drag re-states it on every snapped cell, so it is
+not `App` state: it is the small store in `src/statusLine.ts`, written through `setStatus` and read by
+one leaf, `components/StatusText.tsx`. A menu hint borrows the same line through the same store. What
+the panes REPORT to `App` — the caret, the timeline's view, what the editor has open — goes through a
+setter that keeps the current object when the new one says the same thing (`src/shellEquality.ts`), and
+the editor reports an open sequence by PATH, never its text, so a keystroke is not a new shell state.
+
 ## The catalogue is the app's; the ARRANGEMENT is the person's
 
 `ui settings commands` opens a page where a command can be renamed, given an icon, told which right-clicks

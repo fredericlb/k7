@@ -209,17 +209,20 @@ export function resolveToken(
     : resolveBinding(b, cond);
 }
 
+/** Every plain command's key, inverted once — the first token binding it wins, as a scan of the table would find. */
+export function commandKeyMap(prefs?: CommandPrefs): Map<string, string> {
+  const table: Record<string, Binding> = prefs ? effectiveKeys(prefs) : KEYS;
+  const out = new Map<string, string>();
+  for (const [token, b] of Object.entries(table))
+    if (typeof b === "string" && !out.has(b)) out.set(b, token);
+  return out;
+}
+
 /** The key bound to a plain command, for tooltips — read off the effective table, so a hint cannot advertise a key nothing binds. */
 export const keyForCommand = (
   command: string,
   prefs?: CommandPrefs,
-): string | undefined => {
-  if (prefs) {
-    const eff = effectiveKeys(prefs);
-    return Object.keys(eff).find((k) => eff[k] === command);
-  }
-  return Object.keys(KEYS).find((k) => KEYS[k] === command);
-};
+): string | undefined => commandKeyMap(prefs).get(command);
 
 /** A readable label for a key token — the raw tokens are terse ("esc", "Z", "?"). */
 export function keyLabel(token: string): string {

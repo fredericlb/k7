@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { isAnswer } from "../readFailure";
+import { keepIfEqual } from "../shellEquality";
 import type {
   Diagnostic,
   EngineSyncState,
@@ -56,25 +57,37 @@ export function useWarmWaveforms(
     total: 0,
   });
   const warmingRef = useRef(false);
+  // Off once the shell unmounts: the loop outlives the effect that started it, and must not set state on a dead hook.
+  const aliveRef = useRef(true);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
+  // Every 350 ms the same answer comes back while nothing decodes; only a new count re-renders the shell.
+  const show = useCallback((st: WaveformStatus) => {
+    if (aliveRef.current) setWarm(keepIfEqual(st));
+  }, []);
   const warmWaveforms = useCallback(async () => {
     await api
       .prewarmWaveforms()
-      .then(setWarm)
+      .then(show)
       .catch(() => {});
     if (warmingRef.current) return;
     warmingRef.current = true;
     try {
-      for (;;) {
+      while (aliveRef.current) {
         const st = await api.waveformStatus().catch(() => null);
         if (!st) break;
-        setWarm(st);
+        show(st);
         if (!st.warming) break;
         await new Promise((r) => setTimeout(r, 350));
       }
     } finally {
       warmingRef.current = false;
     }
-  }, []);
+  }, [show]);
   useEffect(() => {
     if (playing) return; // the machine is busy making sound; ask again when it stops
     void warmWaveforms();
