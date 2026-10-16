@@ -88,6 +88,11 @@ the paragraph above promises, and an append is cheap beside the whole-state save
 A restore from the history is submitted to the same live room the sockets feed, through the same
 path as a replica's batch, so it is on disk before it is relayed like any other entry.
 
+A replica's link reconnects after a jittered, doubling wait, and pings the relay itself: the relay's
+own ping ends sockets it no longer hears, but only the replica can tell that its socket went
+half-open — a laptop that slept, a Wi-Fi that changed — while it would otherwise go on sending into
+nothing and read as current.
+
 The order matters because of what a replica does on reconnecting. It says hello at the last `seq` it
 applied. A room that forgot entries it had already relayed would be BEHIND that replica, and would
 send it the room's older state to adopt, overwriting edits the replica had seen confirmed.

@@ -46,8 +46,11 @@ fetch for a workspace named `@lib/…` reads `lib/` (`BlobTransfer.get`'s `works
 A batch leaves a replica only once every blob it names is on the store: a HEAD, then a PUT when it is
 missing. So a replica that receives a ref can always fetch its bytes. Batches still leave in the order
 they were made, so one waiting for its upload holds back the ones after it. A failed upload is retried,
-longer and longer, and never drops the batch. A batch re-sent after a reconnect asks again, and the
-HEAD makes that cheap.
+longer and longer, while the failure may pass: the network, a 5xx, a timeout (408), a throttle
+(429). A REFUSAL — any other 4xx, such as 413 for a file past the store's limit or 403 for a revoked
+device — is not retried: the batch leaves without those bytes, logged, as it does when the bytes
+are gone. Retrying it would hold every later edit of every workspace on the link behind a file that
+can never go. A batch re-sent after a reconnect asks again, and the HEAD makes that cheap.
 
 ## A transfer resumes where it stopped
 
@@ -63,7 +66,10 @@ A take is gigabytes and a phone's connection drops, so no transfer starts again 
   `Range`, which the store answers `206`. A partial that is not a prefix of the blob fails the hash
   at the end and is dropped, so the attempt after it starts clean.
 
-Retries keep their backoff; resuming only changes what each attempt sends.
+Retries keep their backoff, jittered, so the replicas a server restart cut off do not all come back
+in the same instant; resuming only changes what each attempt sends. A download holds one of its
+link's three slots for an ATTEMPT, never across the wait between two, so blobs the store never had
+(a ref sent without its bytes) cannot take every slot for good.
 
 ## Orphans are collected; nothing history names ever is
 
