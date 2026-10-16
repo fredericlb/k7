@@ -12,6 +12,7 @@ import {
   markFailed,
   markRunning,
 } from "./analysisMarks.ts";
+import { boundedQueue } from "./boundedQueue.ts";
 
 type FileEnvelope = Awaited<ReturnType<typeof analyseFile>>;
 
@@ -26,20 +27,8 @@ export class MarkedFailedError extends Error {
 /** Decodes in flight at once, across the routes and the background sweep. */
 export const MAX_DECODES = 2;
 
-let active = 0;
-const waiting: (() => void)[] = [];
+const queue = boundedQueue({ max: MAX_DECODES });
 const inflight = new Map<string, Promise<FileEnvelope>>();
-
-async function slot<T>(fn: () => Promise<T>): Promise<T> {
-  if (active >= MAX_DECODES) await new Promise<void>((go) => waiting.push(go));
-  active++;
-  try {
-    return await fn();
-  } finally {
-    active--;
-    waiting.shift()?.();
-  }
-}
 
 /** Measure `source` now, sharing a decode of the same file already running or queued. */
 export function analyseShared(source: string): Promise<FileEnvelope> {
@@ -47,9 +36,9 @@ export function analyseShared(source: string): Promise<FileEnvelope> {
   if (running) return running;
   const reason = markedFailed(source);
   if (reason) return Promise.reject(new MarkedFailedError(source, reason));
-  const p = slot(() => markedDecode(source)).finally(() =>
-    inflight.delete(source),
-  );
+  const p = queue
+    .run(() => markedDecode(source))
+    .finally(() => inflight.delete(source));
   inflight.set(source, p);
   return p;
 }
@@ -77,7 +66,4 @@ export async function ensureAnalysedShared(
 }
 
 /** How many decodes run and wait — for the tests, and for `/analysis`. */
-export const gateLoad = (): { active: number; waiting: number } => ({
-  active,
-  waiting: waiting.length,
-});
+export const gateLoad = queue.load;
