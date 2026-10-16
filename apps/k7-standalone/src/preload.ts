@@ -2,6 +2,8 @@
 // The ports cannot wait for a fetch: pages derive the services' addresses synchronously at import time (packages/web-protocol/services.ts).
 
 import { contextBridge, ipcRenderer } from "electron";
+import type { AccountStatus } from "./accountStatus.ts";
+import { RELEASE } from "./release.ts";
 
 /** One row of the strip; mirrored by apps/k7/frontend/src/tabs/bridge.ts. */
 export interface TabRow {
@@ -22,6 +24,8 @@ const spec = process.argv
   .find((a) => a.startsWith(PREFIX))
   ?.slice(PREFIX.length);
 if (spec) contextBridge.exposeInMainWorld("__STUDIO_PORTS__", spec);
+// The release stamp, for the settings page: the same one About shows (docs/menu.md).
+contextBridge.exposeInMainWorld("studioApp", { version: RELEASE });
 
 const stateSubs = new Set<(s: TabState) => void>();
 const rowSubs = new Set<(r: TabRow[]) => void>();
@@ -39,6 +43,11 @@ ipcRenderer.on("studio:tab", (_e, s: TabState) => {
 ipcRenderer.on("studio:tabs", (_e, r: TabRow[]) => {
   latest = r;
   for (const cb of rowSubs) cb(r);
+});
+
+const authSubs = new Set<(s: AccountStatus) => void>();
+ipcRenderer.on("studio:auth:status", (_e, s: AccountStatus) => {
+  for (const cb of authSubs) cb(s);
 });
 
 ipcRenderer.on("studio:fullscreen", (_e, on: boolean) => {
@@ -85,6 +94,17 @@ contextBridge.exposeInMainWorld("studioTabs", {
   select: (id: number) => ipcRenderer.send("studio:tabs:select", id),
   close: (id: number) => ipcRenderer.send("studio:tabs:close", id),
   signIn: (server?: string) => ipcRenderer.send("studio:auth:signIn", server),
+  /** Where a sign-in or a pairing stands, for the account bar (docs/notices.md). */
+  authStatus: (): Promise<AccountStatus | null> =>
+    ipcRenderer.invoke("studio:auth:status"),
+  onAuthStatus(cb: (s: AccountStatus) => void): () => void {
+    authSubs.add(cb);
+    return () => {
+      authSubs.delete(cb);
+    };
+  },
+  /** Abandon the browser trip in progress: its loopback port closes. */
+  cancelSignIn: () => ipcRenderer.send("studio:auth:cancel"),
   /** Whether the window is fullscreen, which takes the window's own controls off the strip. */
   fullscreen: (): boolean => fullscreen,
   onFullscreen(cb: (on: boolean) => void): () => void {

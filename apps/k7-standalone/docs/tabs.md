@@ -49,8 +49,9 @@ link to a project, or a different view of it, selects the tab that holds it.
 The home tab has no close button, and `TabSet.close` refuses it as well: it is where every other
 tab comes from. There is no "+" for the same reason.
 
-**Cmd/Ctrl+W closes the tab in front, and Ctrl+Tab cycles.** Taken in `before-input-event`,
-before the menu: the menu's Close Window would close the window, and closing the window quits.
+**Cmd/Ctrl+W closes the tab in front, and Ctrl+Tab cycles.** Cmd/Ctrl+W is the menu's Close Tab
+(`docs/menu.md`), and a tab also takes it in `before-input-event`, before the menu, so one keypress
+closes one tab. Closing the window quits, so Close Window is Shift+Cmd/Ctrl+W.
 
 ## Told, not inferred
 

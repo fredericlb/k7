@@ -9,7 +9,7 @@ platform, beside the phone's APK, and publish **two files per desktop**:
 | stage | job | what it publishes |
 |---|---|---|
 | 1 | engine | the **command-line engine**: `engine/k7-runtime` and `engine/k7-supervisor` (C++, CMake) compiled and staged as one folder, archived — `.zip` on Windows, `.tar.gz` elsewhere |
-| 2 | desktop | the **desktop app**, `apps/k7-standalone`, packaged around stage 1's binaries — the NSIS installer, the `.dmg`, the `.AppImage` |
+| 2 | desktop | the **desktop app**, `apps/k7-standalone`, packaged around stage 1's binaries — the NSIS installer, the `.dmg`, the `.AppImage` and the `.deb` |
 
 The desktop job compiles nothing: it unpacks its platform's engine archive and hands it to the app's
 staging through `$STUDIO_PREBUILT_BIN` (`engine/scripts/docs/buildEngine.md`). So the engine a user runs
@@ -173,12 +173,16 @@ SHA, resolved with `gh api repos/<owner>/<repo>/commits/<tag> -q .sha`.
 
 The release stamp — the tag, or `snapshot-<commit>` — reaches commands through the environment and is
 checked in `decide` against `vX.Y.Z` or `snapshot-<hex>`: a tag name is chosen by whoever pushes it,
-and anything else stops the run.
+and anything else stops the run. The desktop job hands it to the app's build as
+`$STUDIO_RELEASE_STAMP`, which inlines it as the app's release — shown in About and compared with
+this repository's releases to tell the person a newer one exists (`apps/k7-standalone/docs/menu.md`,
+`apps/k7-standalone/docs/notices.md`). The app reads `releases/latest` and the `snapshot` prerelease
+through GitHub's unauthenticated API, so that notice works once the repository is public.
 
 ## The installer each platform gets
 
 electron-builder makes them, from `apps/k7-standalone/electron-builder.cjs`: NSIS on Windows, a `.dmg`
-on macOS, an `.AppImage` on Linux. It runs with `--publish never`: on a tagged CI run it would
+on macOS, an `.AppImage` and a `.deb` on Linux. It runs with `--publish never`: on a tagged CI run it would
 otherwise try to publish to GitHub itself, and the release is the `publish` job's alone.
 
 The `.dmg` is electron-builder's own target, which drives `hdiutil convert`. On the dev Mac that path
@@ -189,10 +193,31 @@ that works around it.
 ## The desktops are not signed
 
 The macOS `.dmg` and engine archive are unsigned and unnotarised, and the Windows installer and
-binaries unsigned, so they warn on first launch, macOS needs the right-click-Open path, and an engine
-unpacked from a download needs its quarantine attribute cleared. This is not a gap in the workflow; it
-is a certificate nobody has bought. ONNX Runtime, a third-party library loaded beside the supervisor,
-is the sharp end of the same thing.
+binaries unsigned, so they warn on first launch. This is not a gap in the workflow; it is a
+certificate nobody has bought. ONNX Runtime, a third-party library loaded beside the supervisor, is
+the sharp end of the same thing.
+
+**What a user does to open them.** On macOS 15 and later, right-click > Open no longer lets an
+unnotarised app through. Open k7 once, dismiss the refusal, then System Settings > Privacy &
+Security, where an "Open Anyway" button for k7 appears for about an hour; confirm with the account's
+password. The same from a terminal, after copying the app to Applications:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/k7.app
+```
+
+An engine archive unpacked from a download needs the same command on its folder. On Windows,
+SmartScreen's "Windows protected your PC" has a More info link, then Run anyway.
+
+**What signing would take.** On macOS, an Apple Developer Program membership, a Developer ID
+Application certificate in the build's keychain (a `.p12` and its password as secrets), every
+binary in the bundle signed with the hardened runtime — the supervisor, the engine and ONNX Runtime
+included, or Gatekeeper kills the unsigned children — and the `.dmg` notarised with `notarytool`
+(an App Store Connect API key or an app-specific password) and stapled. electron-builder does all of
+it once `mac.identity` is no longer `null` and `mac.notarize` is set. On Windows, an Authenticode
+certificate, whose key the CAs now issue only on a hardware token or in a cloud HSM — so CI signs
+through a signing service (Azure Trusted Signing, a CA's cloud signer) called from
+electron-builder's `win.signtoolOptions`.
 
 ## The two limits worth knowing before reading a red run
 

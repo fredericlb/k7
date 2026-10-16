@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { AccountButton, type Me } from "../tabs/AccountButton";
+import { AccountStatusNote } from "../tabs/AccountStatusNote";
 import { hasAccountBar } from "../tabs/bridge";
 import { SyncServers } from "./SyncServers";
 
@@ -17,6 +18,7 @@ export function AccountBar() {
         {/* Signed out: what that means here. Signed in: the servers its workspaces sync with. */}
         {me?.local ? m["home.signedOut"]() : me ? <SyncServers /> : null}
       </span>
+      <AccountStatusNote />
       <AccountButton onUser={setMe} />
     </div>
   );

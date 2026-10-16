@@ -36,6 +36,14 @@ export function SettingsPage() {
               {m["settings.trayHint"]()}
             </p>
           )}
+          {/* The desktop app's release, the one its About panel shows (apps/k7-standalone/docs/menu.md). */}
+          {window.studioApp && (
+            <p className="text-muted-foreground text-xs">
+              {m["settings.desktopVersion"]({
+                version: window.studioApp.version,
+              })}
+            </p>
+          )}
           <LanguageSection />
           <ChainsSection />
           <AiSection />

@@ -42,7 +42,17 @@ export class TabSet {
   private next = 1;
   private bounds: Rectangle = { x: 0, y: 0, width: 0, height: 0 };
 
-  constructor(private readonly spec: TabSetSpec) {}
+  /** The window's set, for the menu (menu.ts): the app has one window, so one set. */
+  static front: TabSet | null = null;
+
+  constructor(private readonly spec: TabSetSpec) {
+    TabSet.front = this;
+  }
+
+  /** Go to `url` as a link in a tab would: the home tab for a home page, a project's own tab, or the browser. */
+  navigate(url: string): void {
+    this.send(url, destination(url, this.spec.origin));
+  }
 
   /** The pinned first tab; `url` may be a sign-in that comes back home. */
   openHome(url: string): void {
@@ -126,6 +136,7 @@ export class TabSet {
     }
     this.tabs.length = 0;
     this.active = 0;
+    if (TabSet.front === this) TabSet.front = null;
   }
 
   private open(url: string, key: string | null, home: boolean): void {
@@ -170,7 +181,7 @@ export class TabSet {
   private route(tab: Tab): void {
     const wc = tab.view.webContents;
     this.guard(wc, (d) => this.stays(tab, d));
-    // Taken before the menu sees it: the menu's Close Window would quit the whole app.
+    // Taken before the menu's Close Tab sees it, so one keypress closes one tab.
     wc.on("before-input-event", (e, input) => {
       if (input.type !== "keyDown") return;
       const mod = process.platform === "darwin" ? input.meta : input.control;

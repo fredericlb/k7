@@ -20,12 +20,15 @@ import { LOCAL_SIGN_IN } from "@studio/web-protocol/handoff";
 import { PORTS_ENV } from "@studio/web-protocol/services";
 import { session } from "electron";
 import standalone from "../../k7/backend/standalone.json";
+import { installAccountStatus, setAccountStatus } from "./accountStatus.ts";
 import { startBackend } from "./backends.ts";
 import {
   engineDown,
   engineSnapshot,
   installEngineBridge,
 } from "./engineBridge.ts";
+import { installMenu } from "./menu.ts";
+import { noticeNoEngine } from "./notices.ts";
 import { addServer, pairIfNeeded } from "./pairSync.ts";
 import {
   appIcon,
@@ -37,6 +40,7 @@ import {
 import { chooseServer, chosenServer } from "./server.ts";
 import { signIn } from "./signIn.ts";
 import { startSupervisor } from "./supervisor.ts";
+import { startUpdateChecks } from "./updates.ts";
 import { openTabbedWindow, type TabbedWindow } from "./window.ts";
 
 // Not the dev session's 8789, so the two run side by side; every process is told through PORTS_ENV.
@@ -106,8 +110,14 @@ function openWindow(): void {
     icon: appIcon(),
     onSignIn: (server) => {
       // A server typed in the strip is kept for pairing; one that is no server address leaves the last choice.
-      if (server && !chooseServer(server))
-        return line("app", `not a server address: ${server}`);
+      if (server && !chooseServer(server)) {
+        line("app", `not a server address: ${server}`);
+        return setAccountStatus({
+          state: "error",
+          code: "badServer",
+          detail: server,
+        });
+      }
       signIn(K7, (redeemUrl) => {
         win?.reset(redeemUrl);
         win?.focus();
@@ -151,7 +161,11 @@ async function boot(): Promise<void> {
       onSnapshot: (s) => engineSnapshot(K7, s),
       onDown: (why) => engineDown(K7, why),
     });
-  else line("app", "no k7-supervisor build found — running without an engine");
+  else {
+    line("app", "no k7-supervisor build found — running without an engine");
+    engineDown(K7, "no k7-supervisor in this build");
+    noticeNoEngine();
+  }
 
   backends = [startBackend(PORTS.k7, env, dirs.root)];
   await Promise.all(backends.map((b) => waitListening(b)));
@@ -163,7 +177,10 @@ async function boot(): Promise<void> {
     grants: K7_GRANTS,
   });
   watchSignOut();
+  installAccountStatus(K7);
+  installMenu(K7, dirs.log, appIcon());
   openWindow();
+  startUpdateChecks();
 }
 
 runApp({
