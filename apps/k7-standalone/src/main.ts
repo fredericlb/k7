@@ -21,6 +21,7 @@ import { PORTS_ENV } from "@studio/web-protocol/services";
 import { app, session } from "electron";
 import standalone from "../../k7/backend/standalone.json";
 import { startBackend } from "./backends.ts";
+import { confirmQuitFor } from "./confirmQuit.ts";
 import { installDesktopBridge } from "./desktopBridge.ts";
 import {
   engineDown,
@@ -140,7 +141,7 @@ async function boot(): Promise<void> {
   });
   // At once, on a splash: a cold start or a first library seed would otherwise show nothing for seconds.
   openWindow();
-  await assertPortsFree([PORTS.k7]);
+  await assertPortsFree([PORTS.k7], "k7");
 
   const engine = engineBinary();
   const seed = librarySource();
@@ -184,11 +185,9 @@ runApp({
   title: "k7",
   logPath: stateDirs().log,
   boot,
-  // Shown in the window when it is open; the app then quits when it is closed.
-  showFailure: (why) => {
-    win?.fail(failedPage(why, stateDirs().log));
-    return win !== null;
-  },
+  // Painted in the window when it is open, behind the shell's Retry / Open log / Quit dialog.
+  showFailure: (why) => win?.fail(failedPage(why, stateDirs().log)),
+  confirmQuit: confirmQuitFor(K7),
   stop: async () => {
     // The supervisor first: it deregisters from k7, which must still be up to hear it.
     await supervisor?.stop();

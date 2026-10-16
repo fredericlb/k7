@@ -246,6 +246,7 @@ import { eventIdOf, takesEventOf } from "./takes";
 // here, before the shell renders any surface — see packages/k7-sdk/docs/sdk.md.
 import "./plugins";
 import { PanelCloseFrame } from "./components/PanelClose";
+import { exposeBusy } from "./desktopBusy";
 import { type FloatState, loadFloat, saveFloat } from "./floatingRect";
 import { latestAnswer } from "./latestAnswer";
 import { guardSwipeBack } from "./noSwipeBack";
@@ -553,6 +554,8 @@ export default function App({
   } | null>(null);
   // The engine's live state as an EXTERNAL store, so a component re-renders only when its own slice changes.
   const store = useRef(new EngineStore()).current;
+  // The desktop app's quit asks this before it stops the engine (apps/k7-standalone/docs/standalone.md).
+  useEffect(() => exposeBusy(store), [store]);
   const playing = useStoreState(store, (s) => s.playing);
   // NOTE: App does NOT subscribe to `playhead` — at ~20 Hz that would re-render the whole tree every frame.
   const armed = useStoreState(store, (s) => s.armed, arrayEq);

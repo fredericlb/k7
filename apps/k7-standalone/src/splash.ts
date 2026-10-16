@@ -39,10 +39,10 @@ export function startingPage(): string {
   );
 }
 
-/** What it shows when the start failed: the reason, and the log to read. */
+/** What it shows when the start failed, behind the dialog that offers Retry, Open log and Quit: the reason, and the log to read. */
 export function failedPage(why: string, logPath: string): string {
   return page(
     "k7 could not start",
-    `<h1>k7 could not start</h1><p>Close this window to quit.</p><pre>${escapeHtml(why)}\n\nLog: ${escapeHtml(logPath)}</pre>`,
+    `<h1>k7 could not start</h1><p>Retry, open the log or quit from the dialog.</p><pre>${escapeHtml(why)}\n\nLog: ${escapeHtml(logPath)}</pre>`,
   );
 }

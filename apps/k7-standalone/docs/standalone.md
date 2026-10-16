@@ -60,8 +60,33 @@ start — the backend under tsx, a first seed of the library — takes seconds, 
 until then leaves nothing on screen but a Dock icon. The splash is a data URL (`src/splash.ts`):
 it needs no server, holds no link, and is loaded by the main process, so the tabs' routing never
 sees it. The tab strip stays empty until then, since it is a k7 page too. A start that fails
-puts its reason and the log's path in that window, which then quits the app when it is closed;
-a failure before the window exists still gets the shell's error box.
+puts its reason and the log's path in that window, behind the shell's dialog — Retry, which
+relaunches the app, Open log, Quit (`commons/packages/electron-shell/docs/shell.md`, "When
+something fails"). The page holds no button of its own: it is a data URL with no link, and the
+one set of choices is the dialog's.
+
+**Port 18789 already taken is the failure to expect.** The single-instance lock is per user, so
+the case it cannot catch is k7 left running in another account on the same Mac or PC: the
+message names the holder when `lsof` or `netstat` can see it, and says so.
+
+**The window opens where it was left**, in `window-state.json` beside the other state, fitted
+onto a display that is there now (the shell's `windowState`); the first launch opens 1440×900.
+
+## A crash
+
+**The backend is restarted when it crashes**, on the shell's backoff (`src/backends.ts`, the
+shell's `keepAlive`). While it is down the pages see their requests fail, as they would of the
+hosted k7 restarting. Past the shell's limit the app asks Restart or Quit rather than restart a
+crash loop for ever. The supervisor has its own relaunch (below), and the engine is the
+supervisor's.
+
+## Quit
+
+**A quit while the engine plays or records asks first** (`src/confirmQuit.ts`). Every k7 page is
+asked `window.__k7Busy()` (`apps/k7/frontend/src/desktopBusy.ts`), half a second each, and one
+answering `recording` or `playing` gets a native confirm; a page that does not answer counts as
+idle, so a hung page cannot keep the app from quitting. Then the windows disappear at once, and
+the teardown below runs out of sight.
 
 ## What a page is told of the app
 
