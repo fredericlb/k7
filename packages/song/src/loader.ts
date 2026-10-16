@@ -42,7 +42,12 @@ import {
   TRACKS_DIR,
   VSTPRESETS_DIR,
 } from "@studio/song-schema/yaml/chainSchema";
-import { ENTITY_SCHEMAS } from "@studio/song-schema/yaml/entitySchemas";
+import {
+  CAPTION_SOURCE,
+  ENTITY_SCHEMAS,
+  isPictureSource,
+  VIDEO_SOURCE,
+} from "@studio/song-schema/yaml/entitySchemas";
 import { parseGraph as parseGraphYaml } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
 import {
@@ -126,14 +131,13 @@ export {
   splitModuleKey,
 };
 
-// Video source extensions — clips/ holds both kinds identically ({source}), so the kind is read off the extension.
-export const VIDEO_EXT = [".mp4", ".mov", ".m4v", ".webm", ".mkv"];
+// clips/ holds every kind identically ({source}), so the kind is read off the extension, by song-schema's patterns.
 export const isVideoSource = (source: string): boolean =>
-  VIDEO_EXT.some((e) => source.toLowerCase().endsWith(e));
+  VIDEO_SOURCE.test(source);
 
-/** A clip the PICTURE reads — a video or a still — rather than an audio one (song-video docs/media.md). */
-export const isPictureSource = (source: string): boolean =>
-  isVideoSource(source) || /\.(png|jpe?g|webp|gif|avif|srt|vtt)$/i.test(source);
+/** A clip the PICTURE reads — a video, a still or captions — rather than an audio one (song-video docs/media.md). */
+export const readsAsPicture = (source: string): boolean =>
+  isPictureSource(source) || CAPTION_SOURCE.test(source);
 
 // The entities in a subdirectory, keyed by id ({} if the subdir doesn't exist).
 export const exportSub = (dir: string, sub: string): any =>
