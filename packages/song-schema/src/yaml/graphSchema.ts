@@ -53,5 +53,4 @@ export const GraphFileSchema = z
   })
   .strict();
 
-export type Dests = z.infer<typeof DestsSchema>;
 export type GraphFile = z.infer<typeof GraphFileSchema>;

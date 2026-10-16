@@ -28,12 +28,6 @@ import {
 } from "@studio/song-schema/yaml/trackFile";
 import { type MaterialKind, resizeToWindow } from "./clipResize";
 
-/** The scalar fields a lane's own file carries — not mute, solo or frozen, docs/trackMix.md. */
-export type TrackFields = Partial<{
-  color: string;
-  disabled: boolean;
-}>;
-
 // --- gain / pan conversions: a track's `volume` is a LINEAR GAIN, not dB (1.0 == unity) ----
 
 export const MIN_GAIN_DB = -60; // fader floor; below this we store silence

@@ -52,8 +52,8 @@ That indirection is the reason the whole feature works twice over. Instancing mi
 `<box>_<member>`; a MIGRATION folds nodes that already exist — `deckA`, `trimA`, `fadeA` — under the
 names they already have, so it renames nothing and touches no line of `graph.yaml`.
 
-A member is a template name and a project node name, so it can be checked from either end:
-`memberNamed` answers the inverse, which is what a node rename walks.
+A member is a template name and a project node name, so a node rename walks the instances' members
+by value: `renameNodeInAssemblies` in `packages/song/src/assemblyEdit.ts`.
 
 ## Why every write goes through the Document API
 

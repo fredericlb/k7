@@ -13,11 +13,6 @@ export const STEMS_DIR = "stems";
 /** The one output a separation can name that is not a stem: the record without the voice (docs/stems.md). */
 export const INSTRUMENTAL = "instrumental";
 
-/** What it sums — every stem the voice is not, in the model's own order. */
-export const INSTRUMENTAL_STEMS: readonly Stem[] = STEMS.filter(
-  (s) => s !== "vocals",
-);
-
 /** What a separating module may declare as an output, and therefore what a pass may be asked to write. */
 export type SeparationOutput = Stem | typeof INSTRUMENTAL;
 

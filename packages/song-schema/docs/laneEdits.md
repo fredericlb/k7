@@ -31,7 +31,7 @@ Every index-taking edit rests on one property: the index came from the list that
 forking copies it in order, so it still points at the same placement.
 
 `setTrackField` writes the module's OWN field whichever set is on, and that is deliberate:
-`TrackFields` is `color` and `disabled`, which describe the lane rather than the take. A set may
+the fields it takes are `color` and `disabled`, which describe the lane rather than the take. A set may
 still override either by hand; nothing here writes one there.
 
 ## Plain values, not document nodes

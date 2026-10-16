@@ -111,8 +111,6 @@ export const OVER = "over";
 /** The four knobs every shader gets, numbered rather than named and 0..1 — see packages/song-video/docs/shaders.md. */
 export const SHADER_PARAMS = ["P1", "P2", "P3", "P4"] as const;
 export type ShaderParam = (typeof SHADER_PARAMS)[number];
-export const isShaderParam = (name: string): name is ShaderParam =>
-  (SHADER_PARAMS as readonly string[]).includes(name);
 
 /** The uniform each of them lands on — one rule, so a panel and a shader cannot disagree. */
 export const shaderUniformFor = (param: string): string => `u${param}`;
@@ -258,10 +256,6 @@ export const isEngineRef = (ref: string): boolean =>
 /** How a chain names a BUILT-IN — `@meta/track`, `@meta/IN` — the app's own vocabulary, never a scanned plugin (docs/moduleTypes.md). */
 export const META_NS = "@meta";
 export const metaRef = (slug: string): string => `${META_NS}/${slug}`;
-
-/** Is this ref one of the built-ins? Asked wherever a ref's own namespace decides how it resolves. */
-export const isMetaRef = (ref: string): boolean =>
-  ref === META_NS || ref.startsWith(`${META_NS}/`);
 
 /** How a module asks to be TREATED BY THE COMPLETIONS and nothing else — full rationale: docs/moduleStatus.md. */
 export const MODULE_STATUSES = ["listed", "favorite", "hidden"] as const;
@@ -459,9 +453,6 @@ export const NOT_SUPPORTED_TYPE = "not_supported";
 /** `@meta/doc` — the module every note on the graph is a NODE of, and it names no folder (docs/moduleTypes.md). */
 export const DOC_CATEGORY = "docs";
 export const DOC_REF = `${META_NS}/doc`;
-
-/** Is this what a note extends? The one spelling of the ref, so a typo cannot half-work. */
-export const isDocRef = (ref: unknown): boolean => ref === DOC_REF;
 
 // --- the not-supported module (see packages/song/docs/notSupported.md) -----------
 
