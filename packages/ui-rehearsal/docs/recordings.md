@@ -47,3 +47,11 @@ the IndexedDB backup, a source that ends, a hidden tab — are its page
 
 The server gives a single request 30 minutes rather than Node's 5, and never holds a take whole in
 memory (`packages/rehearsal-server/docs/audit.md`).
+
+## Playing a session re-renders the playhead, not the page
+
+A session's page follows playback every frame, so the position is a store
+(`createLiveValue`, `packages/recorder`) rather than the page's state: the waveform and the
+`0:42 / 3:10` clock subscribe to it (`src/components/Playhead.tsx`), the clock only when the
+second changes. The page itself — the moments, their editors, the threshold controls — renders on
+what the user does, never on the frame clock.
