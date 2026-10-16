@@ -46,12 +46,12 @@ describe("token routes", () => {
   });
 
   it("mints by POST, lists, and revokes only the owner's", async () => {
-    const minted = await (
+    const minted = (await (
       await fetch(
         `${base}/api/token`,
         as("ada", { method: "POST", body: '{"label":"laptop"}' }),
       )
-    ).json();
+    ).json()) as { token: string; id: string; label: string };
     expect(tokens.verifyApiToken(minted.token)).toBe("ada");
     expect(minted.label).toBe("laptop");
     const del = (user: string) =>
