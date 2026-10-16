@@ -20,6 +20,7 @@ import {
   INPUT_VOLUME_PARAM,
   MIX_PARAM,
   OUTPUT_VOLUME_PARAM,
+  VOLUME_RANGE,
 } from "@studio/song-schema/moduleTypes";
 import {
   RACK_ADD_BIND,
@@ -800,8 +801,8 @@ export const MAIN_OUT_UI: WebModuleUI = {
       rowSpan: 2,
       bind: "Volume",
       label: "out",
-      min: -60,
-      max: 12,
+      min: VOLUME_RANGE.min,
+      max: VOLUME_RANGE.max,
       step: 0.5,
     },
   },
