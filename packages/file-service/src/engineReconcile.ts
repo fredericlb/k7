@@ -1,3 +1,7 @@
+// engineReconcile.ts — the poll's check that the engine still holds what a session was sent, and
+// the re-send or re-dial when it does not: a silent socket is re-dialled, a deaf one too after
+// RESEND_LIMIT re-sends. See docs/activeProject.md.
+
 import { basename } from "node:path";
 import type { SessionInfo } from "@studio/engine-client/engineControl";
 import { isWarming, loadPhase } from "./engineLoad.ts";
