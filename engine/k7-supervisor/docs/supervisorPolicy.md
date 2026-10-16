@@ -132,6 +132,15 @@ still receives the token. That is why the form says so, and why only instances t
 there. `$STUDIO_REGISTRY_URL` is not asked — an environment variable is configuration, not a form — and
 there is no other way to pin a registry: every add goes through this one.
 
+### A heartbeat proves its machine
+
+A studio may list paired machines only (`packages/engine-registry/docs/heartbeat.md`), so each
+heartbeat carries `Authorization: Bearer <device token>` for THAT registry: `deviceTokens` in the
+settings, by registry URL, which the phone writes when it pairs; `$STUDIO_DEVICE_TOKEN` when the
+registries themselves come from the environment, never to one the user added, since a token is
+one studio's and must not reach another. `$STUDIO_RENDER_KEY` rides along as
+`x-studio-render-key`, which is how the server's own engine is listed.
+
 ### Shutdown order
 
 Deregister **first**, while the entry still means something, but bounded by

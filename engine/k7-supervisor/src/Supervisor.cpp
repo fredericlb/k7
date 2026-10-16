@@ -622,7 +622,12 @@ struct Supervisor::Impl {
         beating = true;
         auto id = identity;
         auto presence = presenceNow();
-        loop.work<registry::Result>([urls, id, presence] { return registry::heartbeat(urls, id, presence); },
+        registry::Credentials cred;
+        cred.deviceTokens = settings.deviceTokens;
+        // The environment's token goes only to the environment's registries: a studio added by hand has its own.
+        if (const char* t = std::getenv("STUDIO_DEVICE_TOKEN"); t && *t && settings.registryUrls.empty()) cred.envToken = t;
+        if (const char* k = std::getenv("STUDIO_RENDER_KEY"); k && *k) cred.renderKey = k;
+        loop.work<registry::Result>([urls, id, presence, cred] { return registry::heartbeat(urls, id, presence, cred); },
                                     [this, then](registry::Result r) {
                                         beating = false;
                                         for (const auto& o : r.outcomes) noteBeat(o);

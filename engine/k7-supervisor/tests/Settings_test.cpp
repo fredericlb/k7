@@ -77,6 +77,25 @@ void aConfigFileSetsWhatTheEnvironmentOtherwiseCarries()
     CHECK(k7::configEnvironment(json::parse(R"({"instruments":["surge"]})")).empty());
 }
 
+void deviceTokensAreKeptByStudio()
+{
+    const Settings s = settingsFrom(json::parse(
+        R"({"registryUrls":["https://st0.app"],"deviceTokens":{"https://st0.app":" t1 ","https://x.example":7}})"));
+    CHECK(s.deviceTokens.size() == 1);
+    CHECK(s.deviceTokens.at("https://st0.app") == "t1");
+    // And back: a supervisor saving its settings must not drop the token a phone wrote.
+    CHECK(settingsFrom(k7::settingsJson(s)).deviceTokens == s.deviceTokens);
+}
+
+void aConfigFilesOneTokenIsItsOwnStudios()
+{
+    const Settings s = settingsFrom(json::parse(
+        R"({"registryUrls":["https://st0.app","https://b.example"],"deviceToken":"cli","deviceTokens":{"https://b.example":"own"}})"));
+    CHECK(s.deviceTokens.at("https://st0.app") == "cli");
+    // A studio with a token of its own keeps it.
+    CHECK(s.deviceTokens.at("https://b.example") == "own");
+}
+
 }  // namespace
 
 void runSettingsTests()
@@ -88,4 +107,6 @@ void runSettingsTests()
     RUN(aPortOutOfRangeIsTheDefault);
     RUN(theInstrumentsKeptTellAbsentFromEmpty);
     RUN(aConfigFileSetsWhatTheEnvironmentOtherwiseCarries);
+    RUN(deviceTokensAreKeptByStudio);
+    RUN(aConfigFilesOneTokenIsItsOwnStudios);
 }

@@ -3,6 +3,7 @@
 // and the BROWSER GETs /engines and POSTs /engine/select, token-checked. Mounting is the
 // host's job: the engine routes must stay open while the browser ones need a session.
 
+import { timingSafeEqual } from "node:crypto";
 import { validate, wrap } from "@frediverse/http/route";
 import type { TunnelHub } from "@studio/engine-tunnel/hub";
 import { REGISTRY_SERVICE } from "@studio/web-protocol/services";
@@ -59,6 +60,37 @@ const REFUSALS = {
   rate: [429, "too many new engines from this address in the last minute"],
 } as const;
 
+/** Who may list an engine here: a device paired with an account, or the render machine — docs/heartbeat.md. */
+export interface HeartbeatGate {
+  /** On, a heartbeat proving neither is refused; off, it is taken as before and only counted. */
+  requireDevice: boolean;
+  /** The account a device token belongs to, or null. */
+  deviceOf: (token: string) => string | null;
+  /** The deployment's render key, which the server's own engine presents; unset, none. */
+  renderKey?: string;
+}
+
+const RENDER_KEY_HEADER = "x-studio-render-key";
+
+/** The account (or `render`) a heartbeat's credentials prove, or null. */
+function provenBy(
+  req: { get(name: string): string | undefined },
+  gate: HeartbeatGate,
+): string | null {
+  const bearer = /^Bearer (.+)$/.exec(req.get("authorization") ?? "")?.[1];
+  const account = bearer ? gate.deviceOf(bearer) : null;
+  if (account) return account;
+  const key = req.get(RENDER_KEY_HEADER);
+  if (gate.renderKey && key && safeEqual(key, gate.renderKey)) return "render";
+  return null;
+}
+
+const safeEqual = (a: string, b: string): boolean => {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+};
+
 /** The account a claim is held under, from the session — the one name every claim check compares against. */
 export function claimHolder(req: {
   user?: { email?: string | null; sub?: string | null };
@@ -72,6 +104,7 @@ export function engineRegistryRouter(
   tunnels?: TunnelHub,
   // Where a refused heartbeat or select is said — the server's own log; injected for the tests.
   log: (line: string) => void = (l) => console.warn(`[registry] ${l}`),
+  gate?: HeartbeatGate,
 ): Router {
   const router = Router();
   // Once a minute per (engine, complaint): a machine refused every 5 s is one line, not twelve.
@@ -104,6 +137,18 @@ export function engineRegistryRouter(
           .json({ error: `heartbeat refused — ${read.error}` });
       }
       const b = read.beat;
+      // An open route would let anyone list a machine every account then sends its project to (docs/heartbeat.md).
+      if (gate && !provenBy(req, gate)) {
+        complain(
+          `${b.id}|unpaired`,
+          `${gate.requireDevice ? "refused" : "took"} a heartbeat from ${who(b.id, b.hostname, req.ip)} with no device token`,
+        );
+        if (gate.requireDevice)
+          return res.status(401).json({
+            error:
+              "this studio lists paired machines only — pair this machine, or set STUDIO_DEVICE_TOKEN to a device token of your account",
+          });
+      }
       if (b.cleaned.length)
         complain(
           `${b.id}|cleaned|${b.cleaned.join("|")}`,

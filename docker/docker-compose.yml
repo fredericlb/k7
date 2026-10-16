@@ -72,6 +72,8 @@ services:
       AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:-}
       # Recognises the engine service as the render machine, since this image has no engine binary.
       STUDIO_RENDER_KEY: ${RENDER_KEY:-}
+      # 1: list only machines paired with an account, or the render machine (packages/engine-registry/docs/heartbeat.md).
+      STUDIO_REGISTRY_REQUIRE_DEVICE: ${REGISTRY_REQUIRE_DEVICE:-0}
     volumes:
       - data:/data
       # The media library IS this volume — apps/k7/docker/Dockerfile.

@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <string>
 
 namespace k7::http {
@@ -27,6 +28,8 @@ struct Request {
     int timeoutSeconds = 2;
     /** A redirect is REFUSED where the answer must come from the address asked. */
     bool followRedirects = false;
+    /** Sent as given, beside the content type. */
+    std::map<std::string, std::string> headers;
 };
 
 /** Perform `r`; never throws. */

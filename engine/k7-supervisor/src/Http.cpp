@@ -21,6 +21,7 @@ Response send(const Request& r)
     args->followRedirects = r.followRedirects;
     args->compress = false;
     if (!r.contentType.empty()) args->extraHeaders["Content-Type"] = r.contentType;
+    for (const auto& [k, v] : r.headers) args->extraHeaders[k] = v;
     auto res = client.request(r.url, r.method, r.body, args);
     Response out;
     if (!res) {

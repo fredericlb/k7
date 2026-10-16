@@ -77,6 +77,12 @@ Settings settingsFrom(const nlohmann::json& raw)
     s.onnxProviders = normaliseProviders(raw.value("onnxProviders", nlohmann::json()));
     // An array, even an empty one, is a choice; anything else is "never chosen", which a boot settles.
     if (auto it = raw.find("instruments"); it != raw.end() && it->is_array()) s.instruments = uniqueStrings(*it);
+    if (auto it = raw.find("deviceTokens"); it != raw.end() && it->is_object())
+        for (const auto& [k, v] : it->items())
+            if (v.is_string() && !trim(v.get<std::string>()).empty()) s.deviceTokens[k] = trim(v.get<std::string>());
+    // A config file's one `deviceToken` is the token of the studios that same file names.
+    if (auto one = trim(str(raw, "deviceToken")); !one.empty())
+        for (const auto& u : s.registryUrls) s.deviceTokens.emplace(u, one);
     return s;
 }
 
@@ -89,6 +95,7 @@ nlohmann::json settingsJson(const Settings& s)
         {"onnxProviders", s.onnxProviders},
     };
     if (s.instruments) j["instruments"] = *s.instruments;
+    if (!s.deviceTokens.empty()) j["deviceTokens"] = s.deviceTokens;
     return j;
 }
 

@@ -151,6 +151,22 @@ object SupervisorHost {
         file.writeText(settings.put("registryUrls", pinned).toString(2))
     }
 
+    /** The device token `origin` paired this phone with, for the supervisor's heartbeat there; read at its next start. */
+    fun rememberDeviceToken(context: Context, origin: String, token: String) {
+        if (origin.isEmpty() || token.isEmpty()) return
+        val home = EngineBridge.stateDir(context.applicationContext)
+        home.mkdirs()
+        val file = File(home, "engine-host.json")
+        synchronized(this) {
+            val settings = runCatching { JSONObject(file.readText()) }.getOrNull() ?: JSONObject()
+            val tokens = settings.optJSONObject("deviceTokens") ?: JSONObject()
+            // Beside, then renamed over: the supervisor reads this file, and must never find half of it.
+            val tmp = File(home, "engine-host.json.tmp")
+            tmp.writeText(settings.put("deviceTokens", tokens.put(origin, token)).toString(2))
+            if (!tmp.renameTo(file)) file.writeText(tmp.readText()).also { tmp.delete() }
+        }
+    }
+
     // What the picker shows for this engine: the name the user gave the phone, else its model.
     private fun deviceName(context: Context): String =
         Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME) ?: Build.MODEL

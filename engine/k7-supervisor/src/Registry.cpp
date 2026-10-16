@@ -38,7 +38,8 @@ std::string detailOf(const http::Response& res)
     return "HTTP " + std::to_string(res.status) + (body.empty() ? "" : " " + body);
 }
 
-Outcome post(const std::string& base, const std::string& path, const nlohmann::json& body)
+Outcome post(const std::string& base, const std::string& path, const nlohmann::json& body,
+             const std::map<std::string, std::string>& headers = {})
 {
     Outcome o{base, false, 0, ""};
     try {
@@ -49,6 +50,7 @@ Outcome post(const std::string& base, const std::string& path, const nlohmann::j
         // not turn every heartbeat into an exception nobody sees (docs/supervisor.md).
         r.body = body.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
         r.contentType = "application/json";
+        r.headers = headers;
         const auto res = http::send(r);
         o.status = res.status;
         o.ok = res.ok();
@@ -59,11 +61,28 @@ Outcome post(const std::string& base, const std::string& path, const nlohmann::j
     return o;
 }
 
+/** The headers one registry gets: ITS device token only, so a token for one studio never reaches another. */
+std::map<std::string, std::string> headersFor(const std::string& registry, const Credentials& cred)
+{
+    std::map<std::string, std::string> h;
+    std::string token;
+    for (const auto& [u, t] : cred.deviceTokens)
+        if (url::engineRegistryUrl(u) == registry) token = t;
+    if (token.empty()) token = cred.envToken;
+    if (!token.empty()) h["Authorization"] = "Bearer " + token;
+    if (!cred.renderKey.empty()) h["x-studio-render-key"] = cred.renderKey;
+    return h;
+}
+
 /** `post` to every url at once, each one's outcome kept: the snapshot shows one light, the log says which. */
-Result all(const std::vector<std::string>& urls, const std::string& path, const nlohmann::json& body)
+Result all(const std::vector<std::string>& urls, const std::string& path, const nlohmann::json& body,
+           const Credentials& cred = {})
 {
     std::vector<std::future<Outcome>> calls;
-    for (const auto& u : urls) calls.push_back(std::async(std::launch::async, [u, path, body] { return post(u, path, body); }));
+    for (const auto& u : urls) {
+        auto headers = headersFor(u, cred);
+        calls.push_back(std::async(std::launch::async, [u, path, body, headers] { return post(u, path, body, headers); }));
+    }
     Result r;
     for (auto& c : calls) r.outcomes.push_back(c.get());
     return r;
@@ -113,14 +132,15 @@ bool Result::ok() const
     return true;
 }
 
-Result heartbeat(const std::vector<std::string>& urls, const EngineIdentity& id, const nlohmann::json& presence)
+Result heartbeat(const std::vector<std::string>& urls, const EngineIdentity& id, const nlohmann::json& presence,
+                 const Credentials& cred)
 {
     nlohmann::json body = presence;
     body["id"] = id.id;
     body["token"] = id.token;
     // Only to an address `probe` proved is a registry; the registry binds the id to it (packages/engine-registry/docs/token.md).
     if (!id.tunnelSecret.empty()) body["tunnelSecret"] = id.tunnelSecret;
-    return all(urls, "/api/registry/heartbeat", body);
+    return all(urls, "/api/registry/heartbeat", body, cred);
 }
 
 Result deregister(const std::vector<std::string>& urls, const EngineIdentity& id)
