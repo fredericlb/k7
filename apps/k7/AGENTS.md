@@ -132,9 +132,7 @@ context alive while you are looking elsewhere.
 field, and both schemas are `.strict()`, so a file still holding one refuses to load. A note is a
 node of the built-in `@meta/doc`: one input, no output, one field (`content`), drawn as written
 on the graph and wired from whatever it is about. Off by default; the note button sits in the
-footer beside the mixer. Read `packages/song/docs/docModules.md`, and
-`packages/song/scripts/migrateDocFields.ts` is the tool that moves a project's prose out of those
-fields and into comments.
+footer beside the mixer. Read `packages/song/docs/docModules.md`.
 
 **A project declares its SURFACES.** A `surfaces/` folder, one file per special view — `type`,
 `layout`, and a `mapping` saying which module each of its components moves. Four types, and the

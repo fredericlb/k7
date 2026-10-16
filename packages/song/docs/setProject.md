@@ -142,8 +142,7 @@ bus_only: [ trimA, trimB ]                 # …and the strip's HEAD loses its d
 **The platters are the source, and there is one per lane that plays a file** — the record, and
 one per stem. A platter reads ONE record (`loadRecord(File)`), so five files need five of them;
 the desk writes only the record and the two live numbers onto each. See
-[docs/platter-node-plan.md](../../../docs/platter-node-plan.md), and `migrateSetPlatter` for the
-sets that predate them.
+[docs/platter-node-plan.md](../../../docs/platter-node-plan.md).
 
 Three of the others are the **channel strip** rather than the crossfade, and they have their own
 page in the desk that draws them: [mix.md](../../../packages/k7-plugins/docs/turntables/mix.md) for the trim and the
@@ -233,13 +232,8 @@ unprepared, from the desk itself, which is what `surfaces/desk.yaml`'s `stems:` 
 the desk does with them either way is `packages/k7-plugins/docs/turntables/stems.md`.
 
 **A set with one lane a deck** draws no stem column at all — the designed answer to an unwired
-mapping, not a fault. `scripts/migrateSetStems.ts` gives it the eight lanes, the sixteen nodes,
-the eight bypasses and the eight mapping lines, through the YAML Document API so every comment in
-the files survives. Dry by default:
-
-```bash
-npx tsx packages/song/scripts/migrateSetStems.ts <projet>.k7 --write
-```
+mapping, not a fault. Wiring the stems in by hand means the eight lanes, the sixteen nodes, the
+eight bypasses and the eight mapping lines the scaffold writes.
 
 The part it is easy to get wrong by hand is the DECK's own lane: one feeder makes the EQ a step
 the signal goes through, five make it a meeting point every lane reaches as a send, and `out`
@@ -297,12 +291,6 @@ what `assemblyCompile`'s case in `assemblies.test.ts` pins. The plugs and the kn
 template the files name, `@k7-core/turntable`, which lives in the account's library —
 `k7-core/assemblies/turntable/` is the copy this repo ships in the library seed.
 
-A set without those two files gets them from a migration that writes nothing else:
-
-```bash
-npx tsx packages/song/scripts/migrateSetAssemblies.ts <projet>.k7 --write
-```
-
 An unpublished template is not a fault: the box still draws, from its members alone, with no
 plugs and no knobs, and says which ref is missing. See [assemblies.md](assemblies.md).
 
@@ -321,19 +309,3 @@ what is on a deck right now is not.
 `example.k7` compiles to deckA carrying the crossfade and nothing else. The stretch stays a warp
 on the clip the desk fills in, which is the only thing that stretches live. Making it a module in
 fact means writing the cold pass, and that is a separate piece of work from this one.
-
-## Migrating stem cuts, and the one ambiguous case
-
-`scripts/migrateStemParts.ts` carries a set whose platter **subtracted** over to the one that
-**sums** its four parts: `Level` goes from −1..1 (neutral at 0) to 0..2 (neutral at 1), by adding
-one. Same sound, and the reasoning behind the shape is `packages/song-schema/docs/stems.md`.
-
-It decides **per set** and not per node: a single knob above 0 means the document already speaks
-the new travel, and it touches nothing. A second pass is therefore harmless in every case but one
-— an already-migrated set whose **eight** knobs have since been pulled to silence reads exactly
-like an old one never touched, and would be raised a notch.
-
-That case is not guarded, it is written down. Guarding it would mean inscribing a migration mark
-in a document that has no room for one: a `graph.yaml` describes a signal, not the history of the
-tools that edited it. A field every reader must ignore for ever, because of a one-off conversion,
-costs more than a case that requires silencing a whole set before rerunning a finished migration.

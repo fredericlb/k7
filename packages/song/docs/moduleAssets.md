@@ -159,8 +159,7 @@ sound at all, and silence with no explanation is the failure mode worth spending
 ## A rack's samples in `sources/` — the older layout
 
 A rack's taps name samples in a library's or the project's `samples/` (`racks.md`,
-`libraryFiles.md`), and nothing writes the layout below; the loader still reads it, and
-`scripts/migrateRacks.ts` moves a rack off it.
+`libraryFiles.md`), and nothing writes the layout below; the loader still reads it.
 
 In that layout a rack keeps its audio in **`sources/`**, its own reserved subfolder (`MODULE_SOURCES_DIR`, in
 song-schema so a browser knows the word too). It is not `assets/` because the two are chosen by

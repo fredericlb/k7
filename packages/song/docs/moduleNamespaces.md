@@ -48,10 +48,8 @@ npx tsx packages/song/scripts/migrateNamespace.ts <state>/workspace/<you>/<works
 npx tsx packages/song/scripts/migrateNamespace.ts <state>/mediatek --write
 ```
 
-That script is a **text replace** on `@mediatek/` and `@st0/` (and the `st0:` key of a `_library-pins.yaml`), where `migrateDocFields.ts` beside it goes
-through the yaml Document API. The difference is what is being changed: a doc field is a
-*structure*, and rewriting the document is what preserves everything around it — but a namespace
-appears in mapping KEYS (a chain step is one), in scalar values, inside flow sequences, and in
+That script is a **text replace** on `@mediatek/` and `@st0/` (and the `st0:` key of a `_library-pins.yaml`),
+not a pass through the yaml Document API: a namespace appears in mapping KEYS (a chain step is one), in scalar values, inside flow sequences, and in
 the comment at the top of a panel. Reserialising to catch all four is exactly what `formatChains`
 does, and it emits a canonical document, which would eat every comment in the file. Replacing one
 unambiguous token touches nothing else: there is no other thing in this repo spelled `@mediatek` or `@st0`.

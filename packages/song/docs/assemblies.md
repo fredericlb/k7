@@ -78,9 +78,9 @@ members:
 The id is the **filename**, as in every flat entity folder here (`surfaces/`, `clips/`, `curves/`).
 
 `members:` maps the **template's** name to **this project's** node name, and that indirection is
-what makes both halves work. `assembly new` mints `<box>_<member>`; a migration folds nodes that
-already exist under the names they already have and **renames nothing**. `migrateSetAssemblies.ts`
-is the whole of that: it writes one file per deck and does not touch `graph.yaml`.
+what makes both halves work. `assembly new` mints `<box>_<member>`; the set scaffold folds nodes
+that already exist under the names they already have and **renames nothing** — one file per deck,
+and `graph.yaml` untouched.
 
 ## Expanded, not referenced
 

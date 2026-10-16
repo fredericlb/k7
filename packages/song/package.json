@@ -22,7 +22,6 @@
     "./moduleMove": "./src/moduleMove.ts",
     "./uiLibrary": "./src/uiLibrary.ts",
     "./uiMigrate": "./src/uiMigrate.ts",
-    "./chainsMigrate": "./src/chainsMigrate.ts",
     "./chainsGraph": "./src/chainsGraph.ts",
     "./controller": "./src/controller.ts",
     "./controllerBind": "./src/controllerBind.ts",

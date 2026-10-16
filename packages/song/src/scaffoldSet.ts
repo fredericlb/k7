@@ -237,7 +237,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `  deckA.filter: { module: ${FILTER_A}, param: Sweep }\n` +
       `  deckB.filter: { module: ${FILTER_B}, param: Sweep }\n` +
       // The CUE button is a binding like any other: the send's own gain, 0 or 1. See packages/song/docs/cue.md.
-      // Listed with the filter it is tapped off, which is also where migrateSetCue inserts it.
+      // Listed with the filter it is tapped off.
       `  deckA.cue: { module: ${CUE_A}, param: ${FADE_PARAM} }\n` +
       `  deckB.cue: { module: ${CUE_B}, param: ${FADE_PARAM} }\n` +
       // The gain staging: the input trim in front of the strip, the channel fader at the end of it.
@@ -258,21 +258,11 @@ export function setProjectFiles(name: string): Record<string, string> {
   };
 }
 
-/** The lane and cut for every stem of every deck; exported for migrateSetStems — docs/setProject.md. */
-/** One deck's fade node, by its letter and which way its gain runs — for the scaffold and the migration. */
-export function fadeNodeFile(
-  letter: string,
-  invert: boolean,
-): Record<string, string> {
-  return { [`nodes/fade${letter}.yaml`]: fadeNode(letter, invert) };
-}
-
 /** One `assemblies/turntable<L>.yaml` per deck: the box its eighteen nodes are drawn as.
  *
  * It writes NO graph change and no node, which is the whole point — an assembly is a drawing, so a
- * set with these files and one without compile to the same `ProjectDoc`. Exported for the same
- * reason `stemNodeFiles` is: the migration gives an older set exactly the files a new one gets. */
-export function assemblyFiles(
+ * set with these files and one without compile to the same `ProjectDoc`. */
+function assemblyFiles(
   decks: readonly string[] = DECKS,
 ): Record<string, string> {
   const out: Record<string, string> = {};
@@ -294,7 +284,8 @@ export function assemblyFiles(
   return out;
 }
 
-export function stemNodeFiles(
+/** The lane and cut for every stem of every deck — docs/setProject.md. */
+function stemNodeFiles(
   decks: readonly string[] = DECKS,
 ): Record<string, string> {
   const out: Record<string, string> = {};
@@ -310,7 +301,7 @@ export function stemNodeFiles(
  * One reader per file, and that is the whole rule. A platter reads ONE record, so five files need
  * five of them; they are generated here for the same reason the stem lanes above are, rather than
  * being ten hand-written files that differ by a letter. See docs/platter-node-plan.md. */
-export function platterNodeFiles(
+function platterNodeFiles(
   decks: readonly string[] = DECKS,
 ): Record<string, string> {
   const out: Record<string, string> = {};
@@ -398,7 +389,7 @@ function graphForDeck(deck: string): string {
     `  eq${l}: [ filter${l} ]\n` +
     // TWO destinations, which is what a pre-fade headphone tap IS — see packages/song/docs/cue.md.
     `  filter${l}: [ level${l}, cue${l} ]\n` +
-    // The tap listed with the split it belongs to, which is also where migrateSetCue inserts it.
+    // The tap listed with the split it belongs to.
     `  cue${l}: [ CUE ]\n` +
     // The echo AFTER the fader, so cutting the channel leaves its tail ringing — that is echo-out.
     `  level${l}: [ echo${l} ]\n` +
@@ -407,8 +398,8 @@ function graphForDeck(deck: string): string {
   );
 }
 
-/** The note above `bus_only:`, ONE text — migrateSetCue writes the same file and must not diverge. */
-export const BUS_ONLY_NOTE = [
+/** The note above `bus_only:`. */
+const BUS_ONLY_NOTE = [
   "The strips, for the SAME reason and NOT the same word: each one now feeds two buses (the",
   "fade and the cue), so its own dry path would reach the master unfaded. `bypassed` cannot say",
   "this — it would ALSO turn the EQ off, the chain being named after its first module. See",
@@ -464,10 +455,10 @@ const ECHO_B = "echoB";
 const TRIM_PARAM = "Trim";
 const GAIN_PARAM = "Gain";
 /** A Fade's one param, its lane's GAIN — not "Mix", which would name a dry/wet it does not have (engine docs/mix.md). */
-export const FADE_PARAM = "Level";
+const FADE_PARAM = "Level";
 
 /** What the desk's echo knob binds: the engine's blend around the delay, not the delay's own. */
-export const ECHO_BIND = MIX_PARAM;
+const ECHO_BIND = MIX_PARAM;
 
 /** One deck's tempo: a node of the médiathèque's cold Tempo module. */
 /** One deck's fade — the same module twice, `Side` deciding which way its gain runs (docs/setProject.md). */
@@ -494,14 +485,6 @@ function fadeNode(letter: string, invert: boolean): string {
     `  # Centred, like the fader that drives it: both decks at half, which is where a set starts.\n` +
     `  ${FADE_PARAM}: 0.5\n`
   );
-}
-
-/** One deck's cue node, by its letter and what feeds it; for the scaffold and the migration. */
-export function cueNodeFile(
-  letter: string,
-  from = `filter${letter}`,
-): Record<string, string> {
-  return { [`nodes/cue${letter}.yaml`]: cueNode(letter, from) };
 }
 
 /** One deck's headphone send — the same Fade module, used as a tap rather than as half a crossfade. */
@@ -549,8 +532,8 @@ function tempoNode(letter: string): string {
   );
 }
 
-/** The trim, level and echo of every deck — exported so the migration writes the same files. */
-export function stripNodeFiles(
+/** The trim, level and echo of every deck. */
+function stripNodeFiles(
   decks: readonly string[] = DECKS,
 ): Record<string, string> {
   const out: Record<string, string> = {};

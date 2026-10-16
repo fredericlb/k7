@@ -127,19 +127,12 @@ line in `PluginScan.cpp`.
 not be committed into the project (`deckTrack` says so). Worth noting because the question comes
 back, and the answer is not "impossible" but "it would write the record into the project".
 
-## The migration
+## The identifiers
 
-Identifiers changed: `plattersOf` addresses `deckA:platterA` and `stemBassA:platterBassA` where the
-desk injected `deckA:platter`. An unmigrated set has nothing to patch — it plays silence.
+`plattersOf` addresses `deckA:platterA` and `stemBassA:platterBassA`; a set without those
+platters has nothing to patch — it plays silence.
 
-```bash
-npx tsx packages/song/scripts/migrateSetPlatter.ts <projet.k7> --write
-```
-
-Dry by default, idempotent, and its test holds a migrated set **byte for byte** against what the
-scaffold writes — the same contract as `migrateSetCue` and `migrateSetStrip`.
-
-The nodes it writes name `@meta/audio/turntable`, which ships with k7, so no library has to be
+The platter nodes name `@meta/audio/turntable`, which ships with k7, so no library has to be
 prepared first.
 
 ## What is left

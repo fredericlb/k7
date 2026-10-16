@@ -74,7 +74,7 @@ one line. The line goes at the **end** of the `modules:` map, where the signal a
 A block map extends over "the lines indented under the key": a comment indented with the map
 belongs to it and is stepped over, only the next unindented line ends it. And `null` for a graph
 with no `modules:` at all — inventing the map to house a line would write a file the project never
-had, the same refusal as `scripts/migrateMixOut.ts`.
+had.
 
 `ensureVideoRun` **does not ask** whether the project has a viewport: the caller has already
 decided, and the two callers know it differently — `createSurfaceFile` is the one writing the

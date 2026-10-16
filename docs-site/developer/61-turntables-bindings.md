@@ -73,8 +73,6 @@ Choices it encodes:
 
 Node and control names are spelled once in `packages/song-schema/src/stems.ts` (`stemLane`, `stemPlatter`, `deckPlatter`, `stemControl`, `turntableMembers`), because the scaffold, migrations and the desk must agree and the desk cannot import a scaffold.
 
-`fadeNodeFile`, `cueNodeFile`, `stripNodeFiles`, `stemNodeFiles`, `platterNodeFiles` and `assemblyFiles` are exported so migrations of older sets write the same files as a new one; see `packages/song/src/migrateSetCue.test.ts`, `migrateSetStrip.test.ts`, `migrateSetPlatter.test.ts`, `migrateSetAssemblies.test.ts`.
-
 ## Adding a control, end to end
 
 1. Add the id to `MIX_CONTROLS` (`controls.ts`) with the module's real range.

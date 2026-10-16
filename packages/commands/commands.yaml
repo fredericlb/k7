@@ -1847,11 +1847,6 @@
 # rather than a verb offered in every session's palette for ever:
 #
 #   npx tsx packages/song/scripts/migrateUis.ts <project>      panels out into the _ui/ library
-#   npx tsx packages/song/scripts/migrateChains.ts <root>      a pre-segments graph file
-#
-# (graph.yaml holds SEGMENTS — who feeds whom — and the chains are derived from them. A file
-# written as a LIST of chains, each naming its source, its modules and its sink, is refused
-# with a message pointing at that script.)
 # Sets one plugin param on a module node, writing it to the module's own .cue.
 # `param` is the engine's display name for it ("Filter Freq"), which is what the
 # module UI's widgets bind to — and what `list params` prints.
