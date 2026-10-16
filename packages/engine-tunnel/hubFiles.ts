@@ -2,8 +2,9 @@
 // roots the channel was opened with. Confinement is checked on the REAL path, since a cloned
 // repository may carry a symlink pointing anywhere on the server. See docs/tunnel.md.
 
-import { createReadStream, createWriteStream, type WriteStream } from "node:fs";
-import { mkdir, realpath, rename, rm, stat } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+import { createReadStream, type WriteStream } from "node:fs";
+import { mkdir, open, realpath, rename, rm, stat } from "node:fs/promises";
 import { posix, win32 } from "node:path";
 import { CHUNK_BYTES, type RemoteStat, type TunnelRoot } from "./frames.ts";
 
@@ -106,14 +107,46 @@ export async function readFileChunks(
   if (sent < size) await send(Buffer.alloc(0), true);
 }
 
-/** One upload in progress, written beside its target and renamed over it only when complete. */
-export class Upload {
-  private readonly tmp: string;
-  private readonly out: WriteStream;
+/** What one tunnel may upload: open at once, per upload, per hour, and how long an upload may go without a chunk. */
+export interface UploadLimits {
+  maxOpen: number;
+  maxBytes: number;
+  bytesPerHour: number;
+  idleMs: number;
+}
 
-  private constructor(readonly path: string) {
-    this.tmp = `${path}.tunnel-${process.pid}-${Date.now()}.part`;
-    this.out = createWriteStream(this.tmp);
+const GIB = 1024 * 1024 * 1024;
+
+/** Bytes from the environment, or `fallback` when unset or not a positive number. */
+function envBytes(name: string, fallback: number): number {
+  const n = Number(process.env[name]);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/** The defaults, two of them configurable: `STUDIO_TUNNEL_MAX_UPLOAD_BYTES` and `STUDIO_TUNNEL_UPLOAD_BYTES_PER_HOUR`. */
+export function uploadLimits(over: Partial<UploadLimits> = {}): UploadLimits {
+  return {
+    maxOpen: 16,
+    maxBytes: envBytes("STUDIO_TUNNEL_MAX_UPLOAD_BYTES", 2 * GIB),
+    bytesPerHour: envBytes("STUDIO_TUNNEL_UPLOAD_BYTES_PER_HOUR", 20 * GIB),
+    idleMs: 60_000,
+    ...over,
+  };
+}
+
+/** One upload in progress, written beside its target under a name nobody else holds, and renamed over it only when complete. */
+export class Upload {
+  private error: Error | null = null;
+
+  private constructor(
+    readonly path: string,
+    private readonly tmp: string,
+    private readonly out: WriteStream,
+  ) {
+    // Heard, so a failed write is a rejected `write` rather than an `error` event nobody listens to.
+    out.on("error", (e) => {
+      this.error = e;
+    });
   }
 
   static async start(roots: TunnelRoot[], path: string): Promise<Upload> {
@@ -123,10 +156,13 @@ export class Upload {
     if (!(await stillInside(root, P.dirname(path))))
       throw new Error(`outside the shared tree: ${path}`);
     await mkdir(P.dirname(path), { recursive: true });
-    return new Upload(path);
+    const tmp = `${path}.tunnel-${randomBytes(8).toString("hex")}.part`;
+    const fh = await open(tmp, "wx");
+    return new Upload(path, tmp, fh.createWriteStream());
   }
 
   write(chunk: Buffer): Promise<void> {
+    if (this.error) return Promise.reject(this.error);
     return new Promise((res, rej) =>
       this.out.write(chunk, (e) => (e ? rej(e) : res())),
     );

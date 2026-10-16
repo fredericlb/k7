@@ -128,3 +128,9 @@ The browser sends `whoami` the instant the socket opens — and at that instant 
 socket is still being dialled. The relay holds what arrives before that and replays it once
 upstream is open. Losing it would time out every probe: the relay would be "reachable" and answer
 nothing, which is worse than unreachable.
+
+That queue is bounded like the claim gate's (256 frames, 8 MiB — `HeldFrames` in
+`packages/engine-tunnel/backpressure.ts`): a client that sends more before the engine answers is
+closed with 1013. Once both ends are up, every frame goes through the same file's `sendBounded`, so
+a browser that stops reading costs the server at most a bounded backlog
+(`packages/engine-tunnel/docs/backpressure.md`).
