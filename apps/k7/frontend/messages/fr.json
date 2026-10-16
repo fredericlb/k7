@@ -669,6 +669,8 @@
   "ext.noSurfaces": "Aucune surface dans ce projet.",
   "ext.noOpenProject": "Aucun projet ouvert sur le moteur.",
   "rb.dupSymbol": "symbole en double : {symbol}",
+  "rb.badSymbol": "symbole invalide : \"{symbol}\"",
+  "ext.noSurfacesBody": "Un projet déclare ses écrans dans son dossier {folder}. Celui qui est ouvert n'en déclare aucun.",
   "project.anotherProject": "un autre projet",
   "meter.outputLabel": "niveau de sortie du morceau",
   "mod.fileHint": "le fichier du module — un enregistrement vaut pour toutes ses instances",

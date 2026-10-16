@@ -94,7 +94,7 @@ export function rackIssues(
   const seen = new Set<string>();
   for (const p of pads) {
     if (!/^[A-Za-z0-9_-]+$/.test(p.symbol))
-      out.push(`symbole invalide : "${p.symbol}"`);
+      out.push(m["rb.badSymbol"]({ symbol: p.symbol }));
     else if (seen.has(p.symbol))
       out.push(m["rb.dupSymbol"]({ symbol: p.symbol }));
     seen.add(p.symbol);

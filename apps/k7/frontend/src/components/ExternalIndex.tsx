@@ -17,6 +17,7 @@ import { fileTokenOf } from "@studio/engine-browser/probe";
 import type { ServedProject, SurfacedProject } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, engines } from "../api";
+import { parts } from "../i18nParts";
 import { needingPairing, PairThisDevice } from "../pairing/PairThisDevice";
 import { m } from "../paraglide/messages.js";
 import { accountFiles, externalHref } from "../projects/api";
@@ -198,8 +199,9 @@ export function ExternalIndex() {
           <Empty icon={<Disc3 className="h-8 w-8" />}>
             <p className="text-sm">{m["ext.noSurfaces"]()}</p>
             <p className="max-w-xs text-center text-xs opacity-70">
-              Un projet déclare ses écrans dans son dossier{" "}
-              <code>surfaces/</code>. Celui qui est ouvert n'en déclare aucun.
+              {parts((h) => m["ext.noSurfacesBody"](h), {
+                folder: <code>surfaces/</code>,
+              })}
             </p>
           </Empty>
         ) : (

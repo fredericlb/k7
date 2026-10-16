@@ -669,6 +669,8 @@
   "ext.noSurfaces": "No surface in this project.",
   "ext.noOpenProject": "No project open on the engine.",
   "rb.dupSymbol": "duplicate symbol: {symbol}",
+  "rb.badSymbol": "invalid symbol: \"{symbol}\"",
+  "ext.noSurfacesBody": "A project declares its screens in its {folder} folder. The open one declares none.",
   "project.anotherProject": "another project",
   "meter.outputLabel": "the song's output level",
   "mod.fileHint": "the module's own file — one save counts for every instance of it",
