@@ -56,7 +56,7 @@ module being automated.
 ## A track owns an automation because a MODULE is in its chain
 
 There is no track-level automation field anywhere in the authoring model, and there should not be.
-`ownerOf` in `nodeProject.ts` returns the chain's own name — and a track-fed run is named after its
+`ownerOf` in `compile/ownership.ts` returns the chain's own name — and a track-fed run is named after its
 lane — so an automation lands on a track purely because the automated module sits in that track's
 chain. A chain that is neither track-fed nor a used bus owns nothing, and its automations are
 dropped.

@@ -83,7 +83,7 @@ second makes the module disappear *silently* from the compiled document.
 | file | what it does |
 |---|---|
 | `loader.ts` `dspSourceFor` | resolves the source against the module's folder |
-| `nodeProject.ts` | the compiler's gate — an unknown type is dropped without a word |
+| `compile/plugins.ts` | the compiler's gate — an unknown type is dropped without a word |
 | `graphDoc.ts` `known` | the node's colour: red means "the engine cannot load this" |
 | `enginePlugin` (engine-protocol/build.ts) | the mapping onto the built-in plugin |
 

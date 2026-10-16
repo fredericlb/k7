@@ -177,7 +177,7 @@ silence, with the graph still drawing the cable — the worst version of being w
 
 So it MATERIALISES a track of its own, named after the chain, carrying the run's plugins. That is
 the same thing a BUS already gets and for the same reason: the document names a run, and the
-engine's model needs a strip. `inputChains` in `nodeProject.ts` is the whole of it, and it is one
+engine's model needs a strip. `inputChains` in `compile/ownership.ts` is the whole of it, and it is one
 arm added to `ownerOf` beside `busChains`.
 
 So `validate()` does not demand a lane. What it checks is a lane that IS named and is disabled or

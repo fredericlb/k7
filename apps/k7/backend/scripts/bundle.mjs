@@ -128,7 +128,7 @@ await build({
   banner: { js: banner("..") },
 });
 
-// The DSP runner is spawned by its path beside nodeProject.ts, so it is bundled to that same path.
+// The DSP runner is spawned by its source path (song's compile/plugins.ts), so it is bundled to that same path.
 const DSP_RUNNER = "packages/song/src/dspRunner.mjs";
 await build({
   ...common,
