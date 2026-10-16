@@ -307,7 +307,7 @@ export function ExternalSurface({
             spellCheck={false}
             autoCapitalize="off"
             autoCorrect="off"
-            className="min-w-0 flex-1 bg-transparent py-0.5 font-mono text-xs outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent py-0.5 rounded-sm font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
           />
         </form>
         {/* The way back, which is not optional: installed as a PWA this screen has no address bar, so without it the menu is a trap door. */}

@@ -94,11 +94,11 @@ export const ECHO_RANGE: readonly [min: number, max: number] = [0, 1];
 /** How fast a record runs backwards under the CENSOR — a platter rate, so 1 is its own speed. */
 export const CENSOR_RATE = -1;
 
-/** The three bands a deck's EQ strip draws, low to high — the order they sit in. */
+/** The three bands a deck's EQ strip draws, low to high — the order they sit in; the strip names them. */
 export const EQ_BANDS = [
-  { id: "eqLow", label: "GRAVE" },
-  { id: "eqMid", label: "MID" },
-  { id: "eqHigh", label: "AIGU" },
+  { id: "eqLow" },
+  { id: "eqMid" },
+  { id: "eqHigh" },
 ] as const;
 
 /** A colour per cue BUTTON rather than per cue, kept away from the readout's amber — see docs/cues.md. */

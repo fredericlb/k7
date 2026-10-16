@@ -272,7 +272,7 @@ export function PlaylistPane({
           title={cannotAdd}
           onClick={() => setSearching((s) => !s)}
         >
-          <Search className="mr-1 h-4 w-4" /> Chercher un morceau
+          <Search className="mr-1 h-4 w-4" /> {m["media.playlists.search"]()}
         </Button>
         {/* The night-before job, here rather than on the desk because it is about the SET LIST and not about one record. */}
         <Button
@@ -329,7 +329,7 @@ export function PlaylistPane({
                 if (e.key === "Enter" && hits[0]) add(hits[0] as MediatekEntry);
               }}
               placeholder={m["pl.searchPlaceholder"]()}
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              className="min-w-0 flex-1 rounded-sm bg-transparent text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
             />
             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
               {hits.length}
@@ -412,7 +412,8 @@ export function PlaylistPane({
                 title={cannotAdd}
                 onClick={() => setSearching(true)}
               >
-                <Search className="mr-1 h-4 w-4" /> Chercher un morceau
+                <Search className="mr-1 h-4 w-4" />{" "}
+                {m["media.playlists.search"]()}
               </Button>
             )}
           </div>

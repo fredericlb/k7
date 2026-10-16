@@ -4,6 +4,7 @@
 
 import type { PaletteArg } from "../../components/CommandBar";
 import { headTokens, resolveEntry } from "../../localTargets";
+import { m } from "../../paraglide/messages.js";
 import type { LocalCommand, LocalCtx } from "./context";
 
 const ENTRY: PaletteArg = {
@@ -36,9 +37,10 @@ const create = (folder: boolean): LocalCommand => {
       const [dirArg, name] = headTokens(rest, 2);
       const dir = entryOf(ctx, dirArg);
       const ed = ctx.editorRef.current;
-      if (!dirArg || !name) ctx.setStatus(`usage: ${head} <folder> <name>`);
+      if (!dirArg || !name)
+        ctx.setStatus(m["status.usage"]({ syntax: `${head} <folder> <name>` }));
       else if (!dir || !ed?.isDir(dir))
-        ctx.setStatus(`no folder "${dirArg}" in this workspace`);
+        ctx.setStatus(m["status.noFolder"]({ name: dirArg }));
       else if (folder) ed.createFolder(dir, name);
       else ed.createFile(dir, name);
       return true;
@@ -59,10 +61,12 @@ export const FILE_COMMANDS: LocalCommand[] = [
       const arg = rest.trim();
       const path = entryOf(ctx, arg);
       const pinned = path ? ctx.editorRef.current?.togglePin(path) : null;
-      if (!path) ctx.setStatus(`no file "${arg}" in this workspace`);
-      else if (pinned == null)
-        ctx.setStatus("the file tree is not on screen — the pins live in it");
-      else ctx.setStatus(`${pinned ? "pinned" : "unpinned"} ${path}`);
+      if (!path) ctx.setStatus(m["status.noFileInWorkspace"]({ name: arg }));
+      else if (pinned == null) ctx.setStatus(m["status.treeHiddenPins"]());
+      else
+        ctx.setStatus(
+          m[pinned ? "status.pinned" : "status.unpinned"]({ path }),
+        );
       return true;
     },
   },
@@ -77,10 +81,10 @@ export const FILE_COMMANDS: LocalCommand[] = [
     run: (ctx, rest) => {
       const arg = rest.trim();
       const path = entryOf(ctx, arg);
-      if (!path) ctx.setStatus(`no entry "${arg}" in this workspace`);
+      if (!path) ctx.setStatus(m["status.noEntry"]({ name: arg }));
       else {
         void navigator.clipboard?.writeText(path);
-        ctx.setStatus(`copied ${path}`);
+        ctx.setStatus(m["status.copiedPath"]({ path }));
       }
       return true;
     },
@@ -103,8 +107,10 @@ export const FILE_COMMANDS: LocalCommand[] = [
       const [pathArg, name] = headTokens(rest, 2);
       const path = entryOf(ctx, pathArg);
       if (!pathArg || !name)
-        ctx.setStatus("usage: fs file rename <path> <new name>");
-      else if (!path) ctx.setStatus(`no entry "${pathArg}" in this workspace`);
+        ctx.setStatus(
+          m["status.usage"]({ syntax: "fs file rename <path> <new name>" }),
+        );
+      else if (!path) ctx.setStatus(m["status.noEntry"]({ name: pathArg }));
       else ctx.editorRef.current?.rename(path, name);
       return true;
     },
@@ -123,10 +129,12 @@ export const FILE_COMMANDS: LocalCommand[] = [
       const path = entryOf(ctx, pathArg);
       const dir = entryOf(ctx, dirArg);
       if (!pathArg || !dirArg)
-        ctx.setStatus("usage: fs file move <path> <folder>");
-      else if (!path) ctx.setStatus(`no entry "${pathArg}" in this workspace`);
+        ctx.setStatus(
+          m["status.usage"]({ syntax: "fs file move <path> <folder>" }),
+        );
+      else if (!path) ctx.setStatus(m["status.noEntry"]({ name: pathArg }));
       else if (!dir || !ctx.editorRef.current?.isDir(dir))
-        ctx.setStatus(`no folder "${dirArg}" in this workspace`);
+        ctx.setStatus(m["status.noFolder"]({ name: dirArg }));
       else ctx.editorRef.current?.move(path, dir);
       return true;
     },
@@ -144,8 +152,9 @@ export const FILE_COMMANDS: LocalCommand[] = [
       const arg = rest.trim();
       const path = entryOf(ctx, arg);
       const ed = ctx.editorRef.current;
-      if (!arg) ctx.setStatus("usage: fs file delete <path>");
-      else if (!path) ctx.setStatus(`no entry "${arg}" in this workspace`);
+      if (!arg)
+        ctx.setStatus(m["status.usage"]({ syntax: "fs file delete <path>" }));
+      else if (!path) ctx.setStatus(m["status.noEntry"]({ name: arg }));
       else ed?.remove(path, ed.isDir(path));
       return true;
     },
@@ -167,11 +176,13 @@ export const FILE_COMMANDS: LocalCommand[] = [
       const dir = entryOf(ctx, dirArg);
       const ed = ctx.editorRef.current;
       if (!dir || !ed?.isDir(dir))
-        ctx.setStatus("usage: fs file upload <folder> [files|folder]");
-      else if (!ed.pickUpload(dir, (what ?? "").toLowerCase() === "folder"))
         ctx.setStatus(
-          "the file tree is not on screen — the picker lives in it",
+          m["status.usage"]({
+            syntax: "fs file upload <folder> [files|folder]",
+          }),
         );
+      else if (!ed.pickUpload(dir, (what ?? "").toLowerCase() === "folder"))
+        ctx.setStatus(m["status.treeHiddenPicker"]());
       return true;
     },
   },

@@ -4,6 +4,7 @@
 
 import { beatsToDuration, beatsToPosition } from "@studio/song-schema/timecode";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { m } from "../paraglide/messages.js";
 import { freeSnap, snapMode, snapPosition, snapTo } from "../snap";
 import type { WebProject } from "../types";
 
@@ -94,7 +95,7 @@ export function useEdgeResize(
     // A drag that ended where it started writes nothing — the same courtesy the move drag extends.
     if (r.start === r.origStart && r.end === r.origEnd) {
       setResize(null);
-      setStatus("resize cancelled — no change");
+      setStatus(m["status.timeline.resizeCancelled"]());
       return;
     }
     // Held until the reload, exactly as a committed move is: clearing here snapped the edge back for a round trip.
@@ -156,7 +157,7 @@ export function useFadeDrag(
     // Ended where it started: write nothing, the courtesy every other drag here extends.
     if (f.len === f.orig) {
       setFade(null);
-      setStatus("fade cancelled — no change");
+      setStatus(m["status.timeline.fadeCancelled"]());
       return;
     }
     setFade({ ...f, pending: true });

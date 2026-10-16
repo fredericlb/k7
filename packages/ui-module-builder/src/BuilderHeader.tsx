@@ -35,7 +35,7 @@ import {
   MODULE_STATUSES,
   type ModuleStatus,
 } from "@studio/song-schema/moduleTypes";
-import type { loudest } from "@studio/ui-editor/autosave";
+import type { AutosaveStatus, loudest } from "@studio/ui-editor/autosave";
 import type { PresetInfo } from "@studio/web-protocol";
 
 /** What each `status:` is CALLED on screen — a label, not a second spelling; packages/song/docs/moduleStatus.md. */
@@ -45,14 +45,21 @@ const STATUS_LABEL: Record<ModuleStatus, string> = {
   hidden: "hidden",
 };
 
-// What the header says BESIDE the Save button; "clean" and "pending" say nothing — see docs/builder.md.
-const SAVE_LABEL: Record<string, string> = {
+// The English fallback for what the header says beside Save, when the host hands in no `saveLabel`.
+const SAVE_LABEL: Record<AutosaveStatus, string> = {
   clean: "",
   pending: "",
   saving: "saving…",
   held: "not saved",
   error: "save failed",
 };
+export const englishSaveLabel = (
+  status: AutosaveStatus,
+  reason: string | null,
+) =>
+  (status === "held" || status === "error") && reason
+    ? `${SAVE_LABEL[status]} — ${reason}`
+    : SAVE_LABEL[status];
 
 // The preset menu's sections in display order, each with the icon for its source: program bank, OS file.
 const PRESET_GROUPS: {
@@ -80,6 +87,7 @@ export function BuilderHeader({
   anyDirty,
   publishing,
   saveState,
+  saveLabel,
 }: {
   kind: "base" | "module";
   moduleName: string;
@@ -96,6 +104,8 @@ export function BuilderHeader({
   anyDirty: boolean;
   publishing: boolean;
   saveState: ReturnType<typeof loudest>;
+  /** The state beside Save, in the host's language; "clean" and "pending" are never asked — docs/builder.md. */
+  saveLabel: (status: AutosaveStatus, reason: string | null) => string;
 }) {
   return (
     <header className="flex items-center gap-3 border-b border-border px-3 py-2">
@@ -231,11 +241,9 @@ export function BuilderHeader({
             <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
           )}
           <span className="truncate">
-            {SAVE_LABEL[saveState.status]}
-            {(saveState.status === "held" || saveState.status === "error") &&
-            saveState.reason
-              ? ` — ${saveState.reason}`
-              : ""}
+            {saveState.status === "clean" || saveState.status === "pending"
+              ? ""
+              : saveLabel(saveState.status, saveState.reason)}
           </span>
         </span>
       </div>

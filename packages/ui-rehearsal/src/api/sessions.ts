@@ -2,7 +2,7 @@
 
 import { apiBase } from "../config";
 import type { Annotation, Envelope, Marker, Session } from "../types";
-import { f, json } from "./http";
+import { f, fu, json, type OnProgress } from "./http";
 
 export const sessionsApi = {
   // --- Sessions ---
@@ -23,16 +23,16 @@ export const sessionsApi = {
     envelope: Envelope,
     duration: number,
     gain: number,
+    onProgress?: OnProgress,
   ): Promise<Session> => {
     const form = new FormData();
     form.append("audio", blob, "recording.webm");
     form.append("envelope", JSON.stringify(envelope));
     form.append("duration", String(duration));
     form.append("gain", String(gain));
-    return f(`/api/sessions/${id}/recording`, {
-      method: "POST",
-      body: form,
-    }).then(json);
+    return fu(`/api/sessions/${id}/recording`, "POST", form, onProgress).then(
+      json,
+    );
   },
 
   // Continue a saved session: the server glues the new take onto the existing recording.
@@ -42,6 +42,7 @@ export const sessionsApi = {
     envelope: Envelope,
     duration: number,
     gain: number,
+    onProgress?: OnProgress,
   ): Promise<Session> => {
     const form = new FormData();
     form.append("audio", blob, "recording.webm");
@@ -49,10 +50,9 @@ export const sessionsApi = {
     form.append("duration", String(duration));
     form.append("gain", String(gain));
     form.append("append", "true");
-    return f(`/api/sessions/${id}/recording`, {
-      method: "POST",
-      body: form,
-    }).then(json);
+    return fu(`/api/sessions/${id}/recording`, "POST", form, onProgress).then(
+      json,
+    );
   },
 
   getEnvelope: (id: string): Promise<Envelope> =>

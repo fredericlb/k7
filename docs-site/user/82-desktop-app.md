@@ -31,9 +31,9 @@ The app's library of modules and chains, `@k7-core`, is copied into the app's ow
 
 ## Signing in
 
-Signing in is optional. Use it when you want your workspaces to sync with a k7 server, such as `https://st0.app`.
+Signing in is optional. Use it when you want your workspaces to sync with a k7 server, such as `https://app.k7.rocks`.
 
-1. Click **Sign in** in the tab strip. You may type the address of the server to sync with; the default is `https://st0.app`, or the last server you chose.
+1. Click **Sign in** in the tab strip. You may type the address of the server to sync with; the default is `https://app.k7.rocks`, or the last server you chose.
 2. Your system browser opens on the sign-in page. Sign in there.
 3. The browser shows *Signed in. You can close this tab and go back to k7.* The app now holds your session.
 

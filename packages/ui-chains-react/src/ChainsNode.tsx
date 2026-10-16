@@ -12,6 +12,7 @@ import { altBadgesW } from "./AltBadges";
 import { ClipList } from "./ClipList";
 import { usePluginLoadBadge } from "./chainsStores";
 import { useIcons } from "./chainsTypes";
+import { onEnter } from "./keyActivate";
 import { nodeFoot, nodeHeader, nodeTags } from "./NodeHeader";
 import { nodePorts } from "./NodePorts";
 import { assemblyFrame, farCard, noteCard, pendingCard } from "./NodeShells";
@@ -259,6 +260,7 @@ function NodeInner({
   const groupEdge = shownWidgets ? groupEdgeInsets(shownWidgets) : null;
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: a <fieldset> is a form's, and this card is a node on a canvas
     <div
       className={cls}
       data-node-id={n.id}
@@ -279,6 +281,12 @@ function NodeInner({
           ? { background: `color-mix(in srgb, ${n.color} 12%, var(--card))` }
           : {}),
       }}
+      // A group, not a button: the card holds buttons of its own; Enter on the card itself selects it.
+      role="group"
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: Enter selects the card, so it takes the focus
+      tabIndex={0}
+      aria-label={headName || n.label}
+      onKeyDown={onEnter((e) => onTapNode(n, e.shiftKey))}
       onClick={(e) => onTapNode(n, e.shiftKey)}
       onContextMenu={(e) => onContext(n, e)}
     >
@@ -328,10 +336,15 @@ function NodeInner({
         })}
       {/* The native plugin's editor: a corner bubble, not a header item, where it stole width from the longest names. */}
       {corners.includes("plugin") && (
+        // biome-ignore lint/a11y/useSemanticElements: a corner bubble styled by chainsCss.ts, where a <button> would bring the UA's own box
         <span
           className="dgx-cbtn dgx-pbtn"
           style={{ "--slot": slot("plugin") } as React.CSSProperties}
           title="Open native plugin UI"
+          role="button"
+          tabIndex={0}
+          aria-label="Open native plugin UI"
+          onKeyDown={onEnter(() => n.module && onOpenPlugin(n.module))}
           // Keep the press off the pane, as a widget's does — otherwise it arms a pan and the click never reaches the button.
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
@@ -346,6 +359,7 @@ function NodeInner({
       {/* Bypass — a module's, never a lane's, where it would read as the mute the mixer strip already carries. */}
       {/* A box's only gesture: open it to see what is inside, close it to get the appliance back. */}
       {corners.includes("open") && (
+        // biome-ignore lint/a11y/useSemanticElements: a corner bubble styled by chainsCss.ts, where a <button> would bring the UA's own box
         <span
           className={`dgx-cbtn dgx-obtn${n.assemblyOf?.open ? " on" : ""}`}
           style={{ "--slot": slot("open") } as React.CSSProperties}
@@ -354,6 +368,10 @@ function NodeInner({
               ? `Close ${n.label}`
               : `Open ${n.label} — ${n.assemblyOf?.uses ?? ""}`
           }
+          role="button"
+          tabIndex={0}
+          aria-expanded={!!n.assemblyOf?.open}
+          onKeyDown={onEnter(() => n.module && onToggleAssembly?.(n.module))}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();

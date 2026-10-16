@@ -47,7 +47,11 @@ export function ModuleSidePane({
       })
       .catch(
         (e) =>
-          !cancelled && setStatus(`module: ${(e as Error).message}`, "error"),
+          !cancelled &&
+          setStatus(
+            m["status.module.loadFailed"]({ message: (e as Error).message }),
+            "error",
+          ),
       );
     return () => {
       cancelled = true;
@@ -67,15 +71,18 @@ export function ModuleSidePane({
       if (forked) {
         setFile({ path: forked.path, binary: false, content: text });
         setStatus(
-          `${forked.ref} is shared — saved a project copy as ${forked.module}`,
+          m["status.editor.forked"]({ ref: forked.ref, module: forked.module }),
         );
-      } else setStatus(`saved ${p}`);
+      } else setStatus(m["status.editor.saved"]({ path: p }));
       onChanged();
     },
   });
   useEffect(() => {
     if (autosave.status === "error" && autosave.reason)
-      setStatus(`save error: ${autosave.reason}`, "error");
+      setStatus(
+        m["status.editor.saveFailed"]({ reason: autosave.reason }),
+        "error",
+      );
   }, [autosave.status, autosave.reason, setStatus]);
 
   /** The gutter ▶s, spelled PROJECT-RELATIVE so the request matches the full-screen editor's — and a failure TOASTS, the status line being covered. */
@@ -88,9 +95,14 @@ export function ModuleSidePane({
           ? req
           : { ...req, source: `${dir}/${req.source}` };
       void api.preview(r).catch((e) => {
-        setStatus(`preview error: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.editor.previewFailed"]({ message: (e as Error).message }),
+          "error",
+        );
         showToast({
-          message: `preview : ${(e as Error).message}`,
+          message: m["status.editor.previewFailed"]({
+            message: (e as Error).message,
+          }),
           variant: "error",
         });
       });

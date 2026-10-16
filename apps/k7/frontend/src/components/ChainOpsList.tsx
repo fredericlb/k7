@@ -25,7 +25,7 @@ export function ChainOpsList({
         onChange={(e) => onSearch(e.target.value)}
         placeholder={m["clip.searchChain"]()}
         // Not autofocused: the menu takes the focus itself, and stealing it back breaks the arrow keys.
-        className="mb-1 w-full rounded border bg-transparent px-2 py-1 text-xs outline-none"
+        className="mb-1 w-full rounded border bg-transparent px-2 py-1 text-xs outline-none focus:border-primary"
       />
       <div className="max-h-64 overflow-auto">
         {ops.length === 0 ? (

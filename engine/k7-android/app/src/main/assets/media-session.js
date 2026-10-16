@@ -1,6 +1,8 @@
 // media-session.js — run at document start in every studio app's view (AppViewsPlugin.kt). A WebView's Media Session
 // reaches nothing outside it, so this copies what the page tells it to the app's native session (MediaPlayback.kt,
-// `media`) and hands the system's buttons back to the page's own handlers (`media-action`). See docs/android.md.
+// `media`) and hands the system's buttons back to the page's own handlers (`media-action`). It also reports, as
+// `busy`, a microphone the page holds open and a screen wake lock it holds (Busy.kt), and stands in for the Wake
+// Lock API where the WebView has none. See docs/android.md.
 (() => {
   const bridge = window.k7Android;
   const ms = navigator.mediaSession;
@@ -90,5 +92,110 @@
     position = null;
     handlers.clear();
     send();
+  });
+})();
+
+(() => {
+  const bridge = window.k7Android;
+  if (!bridge || window.__k7Busy) return;
+  window.__k7Busy = true;
+
+  const mics = new Set();
+  const locks = new Set();
+  let sent = "";
+  let poll = 0;
+
+  const report = () => {
+    for (const t of mics) if (t.readyState !== "live") mics.delete(t);
+    const reasons = [];
+    if (mics.size) reasons.push("capture");
+    if (locks.size) reasons.push("awake");
+    if (mics.size && !poll) poll = setInterval(report, 5000);
+    if (!mics.size && poll) {
+      clearInterval(poll);
+      poll = 0;
+    }
+    const key = reasons.join(",");
+    if (key === sent) return;
+    sent = key;
+    bridge.postMessage(JSON.stringify({ t: "busy", from: "page", reasons }));
+  };
+
+  // A track stopped fires no `ended`, so stop() is watched too, and the poll catches the rest.
+  const md = navigator.mediaDevices;
+  if (md?.getUserMedia) {
+    const own = md.getUserMedia.bind(md);
+    md.getUserMedia = async (constraints) => {
+      const stream = await own(constraints);
+      for (const t of stream.getAudioTracks()) {
+        mics.add(t);
+        const stop = t.stop.bind(t);
+        t.stop = () => {
+          stop();
+          report();
+        };
+        t.addEventListener("ended", report);
+      }
+      report();
+      return stream;
+    };
+  }
+
+  const held = (sentinel) => {
+    locks.add(sentinel);
+    sentinel.addEventListener("release", () => {
+      locks.delete(sentinel);
+      report();
+    });
+    report();
+    return sentinel;
+  };
+
+  const wl = navigator.wakeLock;
+  if (wl?.request) {
+    const own = wl.request.bind(wl);
+    wl.request = async (type) => held(await own(type));
+  } else {
+    // The API's shape, kept by the app's window flag: released on every hide, as a browser does.
+    class Sentinel extends EventTarget {
+      constructor() {
+        super();
+        this.type = "screen";
+        this.released = false;
+        this.onrelease = null;
+      }
+      release() {
+        if (!this.released) {
+          this.released = true;
+          const e = new Event("release");
+          this.dispatchEvent(e);
+          if (this.onrelease) this.onrelease(e);
+        }
+        return Promise.resolve();
+      }
+    }
+    const request = (type = "screen") => {
+      if (type !== "screen")
+        return Promise.reject(new TypeError(`no wake lock of type ${type}`));
+      if (document.visibilityState !== "visible")
+        return Promise.reject(
+          new DOMException("the page is not visible", "NotAllowedError"),
+        );
+      return Promise.resolve(held(new Sentinel()));
+    };
+    Object.defineProperty(navigator, "wakeLock", {
+      configurable: true,
+      value: { request },
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "visible")
+        for (const s of [...locks]) s.release();
+    });
+  }
+
+  addEventListener("pagehide", () => {
+    mics.clear();
+    locks.clear();
+    report();
   });
 })();

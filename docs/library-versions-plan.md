@@ -81,7 +81,7 @@ drums: 2
   rather than as one archive: most files do not change between two versions, and one whose digest
   the machine already holds is copied instead of downloaded. A frozen version caches forever.
 - **Only a machine that names an origin asks one** (`STUDIO_LIBRARY_ORIGIN`, set by the desktop and
-  phone table). A hosted origin never does: it IS one, and the private instance asking `st0.app`
+  phone table). A hosted origin never does: it IS one, and the private instance asking `app.k7.rocks`
   would mix two origins' libraries.
 - **First run is the installer's copy.** The desktop and the phone bundle the newest published
   version of `k7` the build runs, `library.yaml` included, and install it under that number on first

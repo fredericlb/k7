@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../api";
+import { api, type OnProgress } from "../api";
 import {
   ActionFailure,
   LoadFailure,
@@ -46,15 +46,18 @@ export function ReleaseDetailContainer({
   });
 
   const handleAddVersion = guard(
-    async (data: { name: string; isDefault: boolean; audio: File }) => {
-      await api.addVersion(releaseId, data);
+    async (
+      data: { name: string; isDefault: boolean; audio: File },
+      onProgress?: OnProgress,
+    ) => {
+      await api.addVersion(releaseId, data, onProgress);
       await load();
     },
   );
 
   const handleReplaceVersionAudio = guard(
-    async (versionId: string, audio: File) => {
-      await api.replaceVersionAudio(releaseId, versionId, audio);
+    async (versionId: string, audio: File, onProgress?: OnProgress) => {
+      await api.replaceVersionAudio(releaseId, versionId, audio, onProgress);
       await load();
     },
   );

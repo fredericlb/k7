@@ -56,7 +56,7 @@ async function fromOrigin(origin, level, dest) {
 /** Lay the bundle's `k7-core` library out at `dest`: published when the origin answers, else the repo's. */
 export async function bundleLibrary(repo, dest) {
   const origin = (
-    process.env.STUDIO_LIBRARY_ORIGIN ?? "https://st0.app"
+    process.env.STUDIO_LIBRARY_ORIGIN ?? "https://app.k7.rocks"
   ).replace(/\/+$/, "");
   rmSync(dest, { recursive: true, force: true });
   try {

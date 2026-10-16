@@ -13,14 +13,15 @@ import {
   SYNC_RELAY_PATH,
   syncPairUrl,
 } from "@studio/web-protocol/pairing";
-import { session } from "electron";
+import { dialog, session } from "electron";
+import { onCancel, setAccountStatus } from "./accountStatus.ts";
 import { type LoopbackAnswer, loopbackReturn } from "./loopbackReturn.ts";
 import { chosenServer } from "./server.ts";
 
 /** The server this machine syncs with: the one chosen at sign-in (server.ts). */
 const syncOrigin = (): string => chosenServer();
 
-/** The relay's socket at a server's origin: `https://st0.app` → `wss://st0.app/api/sync`. */
+/** The relay's socket at a server's origin: `https://app.k7.rocks` → `wss://app.k7.rocks/api/sync`. */
 const relayOf = (origin: string): string =>
   `${origin.replace(/^http/, "ws")}${SYNC_RELAY_PATH}`;
 
@@ -34,6 +35,35 @@ const hostOf = (url: string): string => {
 };
 
 let pending: { close(): void } | null = null;
+let forget: () => void = () => undefined;
+
+/** Let go of the pairing in progress once it has ended, so Cancel no longer reaches it. */
+function release(): void {
+  pending = null;
+  forget();
+}
+
+/** Stop listening for the browser's token: it then lands on a closed port. */
+function abandon(): void {
+  pending?.close();
+  release();
+}
+
+/** The second browser trip, right after the sign-in's, said before it happens; false when the person declines it. */
+async function confirmPairing(origin: string): Promise<boolean> {
+  const { response } = await dialog.showMessageBox({
+    type: "info",
+    title: "k7",
+    message:
+      "Now k7 opens your browser once more to link this computer's workspaces",
+    detail: `${new URL(origin).host} asks you to confirm, in the browser, that this computer may sync your account's workspaces. Not now leaves them on this computer only; Add a server on the home page asks again.`,
+    buttons: ["Open the browser", "Not now"],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  return response === 0;
+}
+
 /** Account and server pairs asked this run: a pairing the person closed is not reopened at every cookie change. */
 const asked = new Set<string>();
 
@@ -77,7 +107,7 @@ export async function pairIfNeeded(k7: string): Promise<void> {
   // Already a server of this account, main or not: which one is main is the person's choice, kept by the hub.
   if (!hosts || hosts.has(hostOf(syncOrigin()))) return;
   asked.add(`${email} ${syncOrigin()}`);
-  pair(k7, email, syncOrigin(), true);
+  if (await confirmPairing(syncOrigin())) pair(k7, email, syncOrigin(), true);
 }
 
 /** Pair the account with ANOTHER server beside its main one — the home page's Add server; false when it cannot. */
@@ -94,15 +124,28 @@ export async function addServer(k7: string, input: string): Promise<boolean> {
 
 /** The pairing itself: the browser on `origin`'s pairing page, the token back on loopback, kept by the local backend. */
 function pair(k7: string, email: string, origin: string, main: boolean): void {
-  pending?.close();
+  abandon();
   const state = randomBytes(16).toString("base64url");
   pending = loopbackReturn({
     path: SYNC_PAIR_RETURN_PATH,
     state,
-    onHit: (p) => kept(k7, email, origin, main, p),
+    onHit: (p) => {
+      release();
+      return kept(k7, email, origin, main, p);
+    },
     open: (back) =>
       openExternalSafely(syncPairUrl(origin, back, state, hostname())),
+    onFail: (why, detail) => {
+      if (detail) line("app", `sync pairing could not listen: ${detail}`);
+      release();
+      setAccountStatus({
+        state: "error",
+        code: why === "timeout" ? "pairTimeout" : "pairFailed",
+      });
+    },
   });
+  forget = onCancel(abandon);
+  setAccountStatus({ state: "waiting", what: "pair" });
 }
 
 /** A token the browser brought back: kept for `email` when the browser was signed in as them. */
@@ -119,6 +162,7 @@ function kept(
       "app",
       `sync pairing refused: the browser is signed in as ${p.get("identity")}, not ${email}`,
     );
+    setAccountStatus({ state: "error", code: "pairRefused", detail: email });
     return {
       status: 409,
       said: `The browser is signed in to k7 as another account. Sign in there as ${email} and try again.`,
@@ -133,14 +177,20 @@ function kept(
       token: p.get("token"),
       main,
     }),
-  }).then((done) =>
+  }).then((done) => {
     line(
       "app",
       done
         ? `sync paired with ${origin}${main ? " (main)" : ""}`
         : "sync pairing could not be stored",
-    ),
-  );
+    );
+    const host = new URL(origin).host;
+    setAccountStatus(
+      done
+        ? { state: "done", code: "paired", detail: host }
+        : { state: "error", code: "pairNotStored", detail: host },
+    );
+  });
   return {
     status: 200,
     said: "This machine now syncs your workspaces. You can close this tab.",

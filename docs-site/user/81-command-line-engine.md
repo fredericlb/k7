@@ -49,7 +49,7 @@ The config file is a JSON object. Every key is optional. A key with a wrong type
 
 ```json
 {
-  "registryUrls": ["https://st0.app"],
+  "registryUrls": ["https://app.k7.rocks"],
   "port": 8765,
   "audioPriority": [],
   "instruments": ["all"],
@@ -61,7 +61,7 @@ The config file is a JSON object. Every key is optional. A key with a wrong type
 
 | Key | Type | Default | What it does |
 |---|---|---|---|
-| `registryUrls` | array of strings | none | The studios this engine is listed at. Give any address of the studio: `https://st0.app`, `st0.app`, `https://play.st0.app` and `https://k7.st0.app` all mean the same studio. A bare host gets `https://`. Duplicates are dropped. When the list is empty, the engine is listed nowhere (see `STUDIO_REGISTRY_URL` below). |
+| `registryUrls` | array of strings | none | The studios this engine is listed at. Give any address of the studio: `https://app.k7.rocks`, `app.k7.rocks` and `https://docs.k7.rocks` all mean the same studio, and so do the former addresses `https://st0.app`, `https://play.st0.app` and `https://k7.st0.app`. A bare host gets `https://`. Duplicates are dropped. When the list is empty, the engine is listed nowhere (see `STUDIO_REGISTRY_URL` below). |
 | `registryUrl` | string | none | One studio, as a single string. Read only when `registryUrls` is missing or empty. |
 | `port` | integer, 1 to 65535 | `8765` | The port the engine listens on. Browsers on your network and the supervisor reach the engine on it. |
 | `audioPriority` | array of strings | empty | Audio interface names, best first. The engine uses the first one that is plugged in. See [Audio interfaces, MIDI and plugins](./84-audio-midi-plugins.md). |
@@ -82,7 +82,7 @@ An engine listed at two studios, preferring an RME interface and falling back to
 
 ```json
 {
-  "registryUrls": ["https://st0.app", "https://studio.example.org"],
+  "registryUrls": ["https://app.k7.rocks", "https://studio.example.org"],
   "audioPriority": ["Fireface UCX II", "MacBook Pro Speakers"],
   "machineName": "Studio Mac"
 }
@@ -92,7 +92,7 @@ A Windows machine that separates stems on its GPU and keeps two instruments:
 
 ```json
 {
-  "registryUrls": ["st0.app"],
+  "registryUrls": ["app.k7.rocks"],
   "onnxProviders": ["dml", "cpu"],
   "instruments": ["salamander-grand-piano", "naked-drums"]
 }
@@ -135,8 +135,8 @@ The supervisor has two extra modes. Neither starts the engine.
 
 ```sh
 # Is this address a k7 studio that will accept the engine?
-./k7-supervisor --probe st0.app
-# → https://st0.app: an k7 registry
+./k7-supervisor --probe app.k7.rocks
+# → https://app.k7.rocks: an k7 registry
 
 # Separate one file into stems on this machine, printing progress
 ./k7-supervisor --separate song.wav htdemucs.onnx out/ dml,cpu

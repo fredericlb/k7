@@ -4,22 +4,26 @@ import { frediverseParaglide } from "@frediverse/i18n/vite";
 import { defineAppConfig } from "@frediverse/vite-config";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import {
-  ALIAS_DEV_HOST,
   DEV_HOST,
-  K7_ALIAS_DEV_HOST,
+  DOCS_DEV_HOST,
   LEGACY_DEV_HOSTS,
 } from "../../../scripts/dev-hosts.mjs";
 
 /** The paths on this origin that are NOT k7's shell: the worker's scope is `/`, so only this list keeps a navigation to `/z0` or the `/rtc` socket off it. */
 const OTHER_APPS = /^\/(z0|api|auth|rtc)(\/|$)/;
 
-/** The language every catalogue resolves the same way, so the rehearsal pages' follows k7's — docs/settings.md. */
+/** The language every catalogue resolves the same way, so the rehearsal pages' and the plugins' follow k7's — docs/settings.md. */
 const STRATEGY: ["localStorage", "baseLocale"] = ["localStorage", "baseLocale"];
 
 /** The rehearsal pages' OWN catalogue, compiled where that package reads it: frediverseParaglide fixes the paths to this app's. */
 // fileURLToPath, not `.pathname`: on Windows the latter is `/D:/…`, which a resolve turns into `D:\D:\…`.
 const REHEARSAL_I18N = fileURLToPath(
   new URL("../../../packages/ui-rehearsal/", import.meta.url),
+);
+
+/** The builtin plugins' catalogue (the desk, the viewport), compiled where k7-plugins reads it — packages/k7-plugins/docs/i18n.md. */
+const PLUGINS_I18N = fileURLToPath(
+  new URL("../../../packages/k7-plugins/", import.meta.url),
 );
 
 // Unlike the other apps, k7's dev server has no fixed port: the backend URL it proxies to is env-driven, and always localhost.
@@ -54,12 +58,18 @@ export default defineAppConfig({
         emitTsDeclarations: true,
         strategy: STRATEGY,
       }),
+      paraglideVitePlugin({
+        project: `${PLUGINS_I18N}project.inlang`,
+        outdir: `${PLUGINS_I18N}src/paraglide`,
+        emitTsDeclarations: true,
+        strategy: STRATEGY,
+      }),
       // alphaTab copies its font and soundfont into public/ and wires its worker and worklet (packages/score).
       alphaTab(),
     ],
-    // The play. and k7. aliases and the old name still reach these servers — see scripts/dev-hosts.mjs.
+    // The docs host and the former hosts still reach these servers — see scripts/dev-hosts.mjs.
     server: {
-      allowedHosts: [ALIAS_DEV_HOST, K7_ALIAS_DEV_HOST, ...LEGACY_DEV_HOSTS],
+      allowedHosts: [DOCS_DEV_HOST, ...LEGACY_DEV_HOSTS],
     },
     // The three @studio UI packages are consumed as raw .ts, and esbuild's dep scanner chokes on the extension in their exports maps.
     optimizeDeps: {

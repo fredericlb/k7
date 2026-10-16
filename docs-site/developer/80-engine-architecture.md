@@ -47,7 +47,7 @@ Two choices shape all of it.
 
 The relay dials the engine through its tunnel first, then the address its heartbeat came **from** (never an address the heartbeat names, since the heartbeat route is open). A relay ticket is bound to one engine and one account; behind it a `RelayGate` lets an account with no claim on the engine send only the probe verbs (`whoami`, `pair`, `list-plugins`) and closes the socket if no claim arrives within ten seconds. WebRTC uses no STUN or TURN servers on either side (`iceServers: []`), so it connects only with host candidates, which in practice means the same network. It exists so an `https:` page can reach a LAN engine directly without the relay.
 
-Over a direct LAN connection, the engine requires pairing ([83](./83-engine-protocol.md#pairing)); loopback peers and relayed traffic (which arrives from the supervisor on loopback, already authenticated by the server) are trusted. Independently of the peer address, a **browser page** is only served when its `Origin` is allowed: loopback, `https://st0.app` and its subdomains, or a studio the supervisor is listed at.
+Over a direct LAN connection, the engine requires pairing ([83](./83-engine-protocol.md#pairing)); loopback peers and relayed traffic (which arrives from the supervisor on loopback, already authenticated by the server) are trusted. Independently of the peer address, a **browser page** is only served when its `Origin` is allowed: loopback, `https://k7.rocks` and its subdomains, or a studio the supervisor is listed at.
 
 ## Trust
 

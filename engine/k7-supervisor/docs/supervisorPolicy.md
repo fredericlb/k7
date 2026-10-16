@@ -88,8 +88,9 @@ remove, never per heartbeat.
 
 Every URL, whichever tier it came from, is read as its family's **one registry, k7's backend's**
 (`url::engineRegistryUrl` in `Url.cpp`, the twin of `engineRegistryUrl` in
-`packages/web-protocol/services.ts` — `Url_test.cpp` replays that file's cases): `https://st0.app` and
-`https://play.st0.app` (the permanent alias of k7's host) both mean `https://st0.app`, and any loopback URL means
+`packages/web-protocol/services.ts` — `Url_test.cpp` replays that file's cases): `https://app.k7.rocks`,
+`https://docs.k7.rocks` and the former hosts `https://st0.app` and `https://play.st0.app` all mean
+`https://app.k7.rocks`, and any loopback URL means
 `http://localhost:8789` — or k7's port in `$STUDIO_PORTS` when a host moved it, as the desktop app
 does (`packages/web-protocol/docs/addresses.md`). The registry is mounted by k7's backend
 (`packages/engine-registry/docs/shared.md`), so a supervisor that saved `https://play.st0.app` still

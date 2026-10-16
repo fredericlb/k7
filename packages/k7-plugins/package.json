@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "k7's builtin plugins and the two composition lists: the server half the file-service installs at boot, and the browser half the shell registers into its pane ring. A plugin is declared with @studio/k7-sdk's definePlugin — see packages/k7-sdk/docs/sdk.md. Consumed as source.",
+  "description": "k7's builtin plugins and the two composition lists: the server half the file-service installs at boot, and the browser half the shell registers into its pane ring. A plugin is declared with @studio/k7-sdk's definePlugin — see packages/k7-sdk/docs/sdk.md. Consumed as source; the browser half's words are its own catalogue (messages/, compiled into src/paraglide).",
   "exports": {
     "./server": "./src/server.ts",
     "./browser": "./src/browser.ts",
@@ -13,8 +13,12 @@
     "./video/sceneFrom": "./src/video/sceneFrom.ts"
   },
   "scripts": {
+    "i18n": "paraglide-js compile --emit-ts-declarations --strategy localStorage baseLocale --silent",
+    "prebuild": "npm run i18n",
     "build": "tsc --noEmit",
+    "pretypecheck": "npm run i18n",
     "typecheck": "tsc --noEmit",
+    "pretest": "npm run i18n",
     "test": "vitest run --passWithNoTests"
   },
   "engines": {

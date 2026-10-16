@@ -45,6 +45,8 @@ export interface LibraryLabels {
     rename: string;
     renamePlaceholder: string;
     renameSubmit: string;
+    /** The ⋮ button on a row, which opens the same menu a right-click does. */
+    more: string;
   };
   contents: {
     emptyLibrary: string;
@@ -80,6 +82,10 @@ export interface LibraryLabels {
     sendMany: (count: number) => string;
     /** Take one song off the list before sending. */
     drop: string;
+    /** The share of a song's bytes sent so far, 0 to 100. */
+    uploading: (percent: number) => string;
+    /** Every byte sent, the server still filing it. */
+    filing: string;
   };
   save: {
     clean: string;

@@ -20,7 +20,9 @@ import { LOCAL_SIGN_IN } from "@studio/web-protocol/handoff";
 import { PORTS_ENV } from "@studio/web-protocol/services";
 import { app, session } from "electron";
 import standalone from "../../k7/backend/standalone.json";
+import { installAccountStatus, setAccountStatus } from "./accountStatus.ts";
 import { startBackend } from "./backends.ts";
+import { confirmQuitFor } from "./confirmQuit.ts";
 import { installDesktopBridge } from "./desktopBridge.ts";
 import {
   engineDown,
@@ -28,6 +30,8 @@ import {
   installEngineBridge,
 } from "./engineBridge.ts";
 import { K7_GRANTS } from "./grants.ts";
+import { installMenu } from "./menu.ts";
+import { noticeNoEngine } from "./notices.ts";
 import { addServer, pairIfNeeded } from "./pairSync.ts";
 import {
   appIcon,
@@ -40,6 +44,7 @@ import { chooseServer, chosenServer } from "./server.ts";
 import { signIn } from "./signIn.ts";
 import { failedPage, startingPage } from "./splash.ts";
 import { startSupervisor } from "./supervisor.ts";
+import { startUpdateChecks } from "./updates.ts";
 import { openTabbedWindow, type TabbedWindow } from "./window.ts";
 
 // Not the dev session's 8789, so the two run side by side; every process is told through PORTS_ENV.
@@ -105,8 +110,14 @@ function openWindow(): void {
     icon: appIcon(),
     onSignIn: (server) => {
       // A server typed in the strip is kept for pairing; one that is no server address leaves the last choice.
-      if (server && !chooseServer(server))
-        return line("app", `not a server address: ${server}`);
+      if (server && !chooseServer(server)) {
+        line("app", `not a server address: ${server}`);
+        return setAccountStatus({
+          state: "error",
+          code: "badServer",
+          detail: server,
+        });
+      }
       signIn(K7, (redeemUrl) => {
         win?.reset(redeemUrl);
         win?.focus();
@@ -134,7 +145,7 @@ async function boot(): Promise<void> {
   });
   // At once, on a splash: a cold start or a first library seed would otherwise show nothing for seconds.
   openWindow();
-  await assertPortsFree([PORTS.k7]);
+  await assertPortsFree([PORTS.k7], "k7");
 
   const engine = engineBinary();
   const seed = librarySource();
@@ -159,7 +170,11 @@ async function boot(): Promise<void> {
       onSnapshot: (s) => engineSnapshot(K7, s),
       onDown: (why) => engineDown(K7, why),
     });
-  else line("app", "no k7-supervisor build found — running without an engine");
+  else {
+    line("app", "no k7-supervisor build found — running without an engine");
+    engineDown(K7, "no k7-supervisor in this build");
+    noticeNoEngine();
+  }
 
   backends = [startBackend(PORTS.k7, env, dirs.root)];
   // The workers are cleared while the backend starts; both before the first k7 page.
@@ -169,20 +184,21 @@ async function boot(): Promise<void> {
   ]);
   line("app", "backend up");
   watchSignOut();
+  installAccountStatus(K7);
+  installMenu(K7, dirs.log, appIcon());
   started = true;
   if (win) win.start();
   else openWindow();
+  startUpdateChecks();
 }
 
 runApp({
   title: "k7",
   logPath: stateDirs().log,
   boot,
-  // Shown in the window when it is open; the app then quits when it is closed.
-  showFailure: (why) => {
-    win?.fail(failedPage(why, stateDirs().log));
-    return win !== null;
-  },
+  // Painted in the window when it is open, behind the shell's Retry / Open log / Quit dialog.
+  showFailure: (why) => win?.fail(failedPage(why, stateDirs().log)),
+  confirmQuit: confirmQuitFor(K7),
   stop: async () => {
     // The supervisor first: it deregisters from k7, which must still be up to hear it.
     await supervisor?.stop();

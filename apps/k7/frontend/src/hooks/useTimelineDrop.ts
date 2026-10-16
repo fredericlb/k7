@@ -7,6 +7,7 @@
 import { IMAGE_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
 import { useCallback, useState } from "react";
 import { fileClip } from "../clipFiles";
+import { m } from "../paraglide/messages.js";
 import {
   type DropUpload,
   droppedKind,
@@ -40,8 +41,8 @@ export function useTimelineDrop(
       if (!plan.declare.length) {
         setStatus(
           plan.refused.length
-            ? `${plan.refused.join(", ")} — neither audio nor video`
-            : "nothing to drop here",
+            ? m["status.drop.refused"]({ files: plan.refused.join(", ") })
+            : m["status.drop.nothing"](),
         );
         return;
       }
@@ -58,7 +59,10 @@ export function useTimelineDrop(
           })),
         );
       } catch (e) {
-        setStatus(`drop failed: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.drop.failed"]({ message: (e as Error).message }),
+          "error",
+        );
         return;
       }
       const total = entries.reduce((s, e) => s + e.size, 0);
@@ -87,7 +91,10 @@ export function useTimelineDrop(
         } catch (e) {
           setUpload(null);
           setStatus(
-            `drop failed: ${c.upload} — ${(e as Error).message}`,
+            m["status.drop.fileFailed"]({
+              name: c.upload,
+              message: (e as Error).message,
+            }),
             "error",
           );
           return;

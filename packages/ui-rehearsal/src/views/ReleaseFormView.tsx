@@ -4,12 +4,14 @@ import { Field } from "@frediverse/ui/field";
 import { Input } from "@frediverse/ui/input";
 import { AUDIO_ACCEPT } from "@studio/mediatek/media";
 import { useState } from "react";
+import type { OnProgress } from "../api";
 import {
   ReleaseFields,
   type ReleaseFieldValues,
 } from "../components/ReleaseFields";
 import { m } from "../paraglide/messages.js";
 import type { Release } from "../types";
+import { uploadLabel } from "../uploadLabel";
 
 interface SaveData extends ReleaseFieldValues {
   versionName: string;
@@ -17,7 +19,7 @@ interface SaveData extends ReleaseFieldValues {
 }
 
 interface Props {
-  onSave: (data: SaveData) => Promise<Release>;
+  onSave: (data: SaveData, onProgress?: OnProgress) => Promise<Release>;
   onCancel: () => void;
 }
 
@@ -34,6 +36,7 @@ export function ReleaseFormView({ onSave, onCancel }: Props) {
   );
   const [audio, setAudio] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
@@ -43,16 +46,20 @@ export function ReleaseFormView({ onSave, onCancel }: Props) {
     }
     setSaving(true);
     setError(null);
+    setProgress(null);
     try {
-      await onSave({
-        title: values.title.trim(),
-        artist: values.artist.trim(),
-        releaseDate: values.releaseDate,
-        description: values.description.trim(),
-        canDownload: values.canDownload,
-        versionName: versionName.trim() || m["release.versionN"]({ n: 1 }),
-        audio,
-      });
+      await onSave(
+        {
+          title: values.title.trim(),
+          artist: values.artist.trim(),
+          releaseDate: values.releaseDate,
+          description: values.description.trim(),
+          canDownload: values.canDownload,
+          versionName: versionName.trim() || m["release.versionN"]({ n: 1 }),
+          audio,
+        },
+        setProgress,
+      );
     } catch (e) {
       setError((e as Error).message);
       setSaving(false);
@@ -84,7 +91,7 @@ export function ReleaseFormView({ onSave, onCancel }: Props) {
 
       <div className="row">
         <Button disabled={saving} onClick={submit}>
-          {saving ? m["common.uploading"]() : m["release.create"]()}
+          {saving ? uploadLabel(progress) : m["release.create"]()}
         </Button>
         <Button variant="outline" onClick={onCancel}>
           {m["common.cancel"]()}

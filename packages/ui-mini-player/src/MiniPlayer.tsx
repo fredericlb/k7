@@ -10,6 +10,7 @@ import { Pause, Play, X } from "@frediverse/ui/icons";
 import { formatClock } from "@studio/ui-timeline/ticks";
 import type { ReactNode } from "react";
 import { useMediaSession } from "./mediaSession";
+import { useScrub } from "./useScrub";
 
 /** mm:ss — one clock, so two readings of one transport never disagree by a rounding. */
 export function clock(sec: number): string {
@@ -79,11 +80,14 @@ export function MiniPlayer({
     onClose,
     onNext,
   });
-  const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
+  // While dragging, the bar shows where the thumb is and seeks once, on release.
+  const scrub = useScrub(onSeek);
+  const shown = scrub.value ?? position;
+  const pct = duration > 0 ? Math.min(100, (shown / duration) * 100) : 0;
   return (
     <section
       aria-label={labels.region}
-      className="relative flex shrink-0 items-center gap-3 border-t bg-card px-3 py-2"
+      className="relative flex shrink-0 items-center gap-3 border-t bg-card px-3 py-2 [@media(hover:none)]:pr-12"
     >
       <Button
         size="icon"
@@ -105,23 +109,34 @@ export function MiniPlayer({
 
         <div className="mt-1 flex items-center gap-2">
           <span className="w-10 shrink-0 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
-            {clock(position)}
+            {clock(shown)}
           </span>
-          {/* A range and not a div: dragging, the keyboard and the accessible name come with it. */}
-          <input
-            type="range"
-            min={0}
-            max={duration || 0}
-            step={0.1}
-            value={Math.min(position, duration || 0)}
-            disabled={!duration}
-            onChange={(e) => onSeek(Number(e.currentTarget.value))}
-            aria-label={labels.position}
-            className="h-1 min-w-0 flex-1 cursor-pointer appearance-none rounded bg-muted accent-foreground"
-            style={{
-              background: `linear-gradient(to right, hsl(var(--foreground)) ${pct}%, hsl(var(--muted)) ${pct}%)`,
-            }}
-          />
+          {/* The track is drawn thin behind a taller range, so a finger finds it without the bar growing. */}
+          <div className="relative flex h-5 min-w-0 flex-1 items-center [@media(hover:none)]:h-8">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 h-1 rounded"
+              style={{
+                background: `linear-gradient(to right, hsl(var(--foreground)) ${pct}%, hsl(var(--muted)) ${pct}%)`,
+              }}
+            />
+            {/* A range and not a div: dragging, the keyboard and the accessible name come with it. */}
+            <input
+              ref={scrub.ref}
+              type="range"
+              min={0}
+              max={duration || 0}
+              step={0.1}
+              value={Math.min(shown, duration || 0)}
+              disabled={!duration}
+              onChange={(e) => scrub.preview(Number(e.currentTarget.value))}
+              onPointerDown={scrub.begin}
+              onKeyUp={scrub.commit}
+              onBlur={scrub.commit}
+              aria-label={labels.position}
+              className="relative h-full w-full min-w-0 cursor-pointer appearance-none bg-transparent accent-foreground"
+            />
+          </div>
           <span className="w-10 shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
             {clock(duration)}
           </span>
@@ -136,7 +151,7 @@ export function MiniPlayer({
         variant="ghost"
         onClick={onClose}
         aria-label={labels.close}
-        className="absolute top-1 right-1 h-6 w-6"
+        className="absolute top-1 right-1 h-6 w-6 [@media(hover:none)]:top-1/2 [@media(hover:none)]:h-10 [@media(hover:none)]:w-10 [@media(hover:none)]:-translate-y-1/2"
       >
         <X className="h-3.5 w-3.5" />
       </Button>

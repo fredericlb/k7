@@ -28,15 +28,17 @@ export function ExercisesView({ onOpen }: Props) {
     <div className="moments-pane">
       <ul className="session-list home-list">
         {EXERCISES.map((ex) => (
-          <li
-            key={ex.id}
-            className="session-item"
-            onClick={() => onOpen(ex.id)}
-          >
-            <div className="session-name">{ex.title()}</div>
-            <div className="session-meta">
-              <span>{ex.desc()}</span>
-            </div>
+          <li key={ex.id}>
+            <button
+              type="button"
+              className="session-item"
+              onClick={() => onOpen(ex.id)}
+            >
+              <div className="session-name">{ex.title()}</div>
+              <div className="session-meta">
+                <span>{ex.desc()}</span>
+              </div>
+            </button>
           </li>
         ))}
       </ul>

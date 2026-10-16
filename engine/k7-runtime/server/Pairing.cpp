@@ -100,7 +100,7 @@ bool originAllowed(const std::string& origin, const std::vector<std::string>& ex
     if (hasPort && (port.empty() || port.find_first_not_of("0123456789") != std::string::npos)) return false;
     if (host == "127.0.0.1" || host == "localhost" || host == "[::1]") return true;
     if (scheme != "https" || hasPort) return false;
-    const std::string apex = "st0.app";
+    const std::string apex = "k7.rocks";
     if (host == apex) return true;
     const std::string sub = "." + apex;
     if (host.size() <= sub.size() || host.compare(host.size() - sub.size(), sub.size(), sub) != 0) return false;

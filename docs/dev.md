@@ -9,25 +9,28 @@ npm run vscode                     # the browser editor at /dev, on its own
 
 ## Where it answers
 
-**Three hosts** — `priv.st0.app` (k7 with its media library and its rehearsal pages), and `play.priv.st0.app` and `k7.priv.st0.app`, aliases of k7 as `play.st0.app` and
-`k7.st0.app` are in production — `scripts/dev-hosts.mjs` names all three (`DEV_HOST`,
-`ALIAS_DEV_HOST`, `K7_ALIAS_DEV_HOST`). The same shape production has under `st0.app` / `play.st0.app` /
-`k7.st0.app`, which is the point: the two differ by their domain and nothing else.
+**Two hosts** — `app.priv.k7.rocks` (k7 with its media library and its rehearsal pages) and
+`docs.priv.k7.rocks` (its documentation alone), as `app.k7.rocks` and `docs.k7.rocks` are in
+production — `scripts/dev-hosts.mjs` names both (`DEV_HOST`, `DOCS_DEV_HOST`). The two differ from
+production by their domain and nothing else. The former dev hosts, `priv.st0.app` and its `play.`
+and `k7.` aliases, are still accepted (`LEGACY_DEV_HOSTS`), and k7 moves their pages to
+`app.priv.k7.rocks` as the hosted k7 moves the former production hosts'
+(`packages/web-protocol/docs/addresses.md`).
 
 > **The LAN proxy's host table lives on the other machine.** It is the one piece of this
 > topology not versioned here. What it needs to hold, as ports:
 >
 > | host | goes to | |
 > |---|---|---|
-> | `priv.st0.app` | **5223** | k7's dev server |
-> | `play.priv.st0.app` | **5223** | k7's dev server, which answers the alias as the hosted k7 does |
-> | `k7.priv.st0.app` | **5223** | k7's dev server, the same way |
+> | `app.priv.k7.rocks` | **5223** | k7's dev server |
+> | `docs.priv.k7.rocks` | **5223** | k7's dev server, which shows the docs alone on that host |
+> | `priv.st0.app`, `play.priv.st0.app`, `k7.priv.st0.app` | **5223** | k7's dev server, which redirects their pages to `app.priv.k7.rocks` |
 >
 > That is the WHOLE table for k7: its vite dev server already proxies
 > `/api`, `/auth` and `/rtc` (the rehearsal pages' phone microphone) to its backend port internally
 > (`commons/dev/vite-config/src/index.ts`'s `defineAppConfig` — `backendPort` +
 > `proxyPaths`/`wsPaths`), so the LAN proxy only has to get a request to the right HOST. `/z0` on
-> `priv.st0.app` belongs to z0's own repository, whose dev servers `npm run dev` here does not start;
+> `app.priv.k7.rocks` belongs to z0's own repository, whose dev servers `npm run dev` here does not start;
 > its per-path rules are that repository's to document.
 >
 > **`/auth/*` follows k7**, wherever the request lands: the registered `redirect_uri` is
@@ -53,7 +56,7 @@ Two things about names and ports:
   and a dev server answers **403** to any name not on its list, so that file is what makes
   the studio reachable at all.
 - **The Tilt UI is local only**: `http://localhost:10350` on the workstation.
-  `/dev-status` redirects to `priv.st0.app:10351`, which does not answer until
+  `/dev-status` redirects to `app.priv.k7.rocks:10351`, which does not answer until
   the LAN proxy forwards that port.
 
 The session runs under **[Tilt](https://tilt.dev)**: `npm run dev` is `tilt up --port

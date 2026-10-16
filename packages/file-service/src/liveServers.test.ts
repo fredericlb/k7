@@ -11,11 +11,11 @@ afterEach(() => {
 
 describe("syncServers", () => {
   it("is the main server alone when no list is given", () => {
-    process.env.STUDIO_SYNC_URL = "wss://st0.app/api/sync";
+    process.env.STUDIO_SYNC_URL = "wss://app.k7.rocks/api/sync";
     process.env.STUDIO_SYNC_TOKEN = "t";
     delete process.env.STUDIO_SYNC_SERVERS;
     expect(syncServers()).toEqual([
-      { url: "wss://st0.app/api/sync", auth: { token: "t" }, main: true },
+      { url: "wss://app.k7.rocks/api/sync", auth: { token: "t" }, main: true },
     ]);
   });
 
@@ -34,7 +34,7 @@ describe("syncServers", () => {
 
 describe("localNameFor", () => {
   const server = {
-    url: "wss://priv.st0.app:8443/api/sync",
+    url: "wss://app.priv.k7.rocks:8443/api/sync",
     auth: { token: "t" },
     main: false,
   };
@@ -46,14 +46,14 @@ describe("localNameFor", () => {
   it("suffixes it with the server's host, a name the workspace rules allow", () => {
     const taken = new Set(["band"]);
     expect(localNameFor("band", server, (n) => taken.has(n))).toBe(
-      "band.priv.st0.app-8443",
+      "band.app.priv.k7.rocks-8443",
     );
   });
 
   it("numbers it when that is taken too", () => {
-    const taken = new Set(["band", "band.priv.st0.app-8443"]);
+    const taken = new Set(["band", "band.app.priv.k7.rocks-8443"]);
     expect(localNameFor("band", server, (n) => taken.has(n))).toBe(
-      "band.priv.st0.app-8443-2",
+      "band.app.priv.k7.rocks-8443-2",
     );
   });
 });

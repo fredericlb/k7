@@ -12,6 +12,7 @@ import {
 import type { ReactNode } from "react";
 import { AltBadges } from "./AltBadges";
 import type { Channels } from "./chainsStores";
+import { onEnter } from "./keyActivate";
 import { hasBypass, hasLeadColumn, headerNameW } from "./nodeLayout";
 import type { NodeProps } from "./nodeProps";
 import { type NodeEngines, PresetButton } from "./PresetButton";
@@ -131,9 +132,15 @@ export function nodeHeader({
       {hasLeadColumn(n) && (
         <span className="dgx-hdlead">
           {hasBypass(n) && n.module ? (
+            // biome-ignore lint/a11y/useSemanticElements: a corner bubble styled by chainsCss.ts, where a <button> would bring the UA's own box
             <span
               className={`dgx-byp dgx-bbtn${n.bypassed ? " on" : ""}`}
               title={n.bypassed ? "Bypassed — click to re-enable" : "Bypass"}
+              role="button"
+              tabIndex={0}
+              aria-pressed={!!n.bypassed}
+              aria-label="Bypass"
+              onKeyDown={onEnter(() => n.module && onBypass(n.module))}
               onPointerDown={(e) => e.stopPropagation()}
               onDoubleClick={(e) => e.stopPropagation()}
               onClick={(e) => {

@@ -60,6 +60,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useAndroidBusy } from "./androidBusy";
 import { aiOrganize, api, engines, moduleStore, PL8_API } from "./api";
 import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";
 import type { MaybeClipboard } from "./clipboard";
@@ -81,6 +82,7 @@ import { CommentsPanel } from "./components/CommentsPanel";
 import { ConflictsPanel, ConflictsTab } from "./components/ConflictsPanel";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EngineLink } from "./components/EngineLink";
+import { EngineLostStrip } from "./components/EngineLostStrip";
 import { EngineSwitch } from "./components/EngineSwitch";
 import { syncRunning } from "./components/EngineSyncProgress";
 import { FloatingWindow } from "./components/FloatingWindow";
@@ -183,6 +185,7 @@ import { eventIdOf, takesEventOf } from "./takes";
 // The shell's BROWSER composition point: k7's builtin plugins register their pane drawers here (packages/k7-sdk/docs/sdk.md).
 import "./plugins";
 import { PanelCloseFrame } from "./components/PanelClose";
+import { exposeBusy } from "./desktopBusy";
 import { type FloatState, loadFloat, saveFloat } from "./floatingRect";
 import { latestAnswer } from "./latestAnswer";
 import { guardSwipeBack } from "./noSwipeBack";
@@ -201,6 +204,7 @@ import {
 import { type RollMode, rollCondition } from "./rollMode";
 import { type Pane, type Panel, viewPanes } from "./routes";
 import { pictureRowId, placementOf, type RowKey, type RowTarget } from "./rows";
+import { saveLabel } from "./saveLabel";
 import { ShellFooter } from "./shell/ShellFooter";
 import {
   type MenuState,
@@ -451,6 +455,8 @@ export default function App({
   } | null>(null);
   // The engine's live state as an EXTERNAL store, so a component re-renders only when its own slice changes.
   const store = useRef(new EngineStore()).current;
+  // The desktop app's quit asks this before it stops the engine (apps/k7-standalone/docs/standalone.md).
+  useEffect(() => exposeBusy(store), [store]);
   const playing = useStoreState(store, (s) => s.playing);
   // NOTE: App does NOT subscribe to `playhead` — at ~20 Hz that would re-render the whole tree every frame.
   const armed = useStoreState(store, (s) => s.armed, arrayEq);
@@ -788,6 +794,9 @@ export default function App({
     });
   }, [store]);
 
+  // The Android app holds its foreground service and the screen while this engine is busy (androidBusy.ts).
+  useAndroidBusy(store);
+
   /** A session making SOUND is active — a playing song, and a live rig played with the transport stopped — @studio/project-shell/docs/idle.md. */
   useEffect(() => {
     let last = 0;
@@ -962,10 +971,13 @@ export default function App({
     try {
       const { vim } = await api.setVim(next);
       setVimMode(vim);
-      setStatus(`vim mode ${vim ? "on" : "off"}`);
+      setStatus(vim ? m["status.vimOn"]() : m["status.vimOff"]());
     } catch (e) {
       setVimMode(!next);
-      setStatus(`vim error: ${(e as Error).message}`, "error");
+      setStatus(
+        m["status.vimFailed"]({ message: (e as Error).message }),
+        "error",
+      );
     }
   }, [vimMode]);
 
@@ -1044,7 +1056,9 @@ export default function App({
     (p: Pane) => {
       if (!layout.fullscreen.includes(p)) {
         setStatus(
-          `this project declares no ${PANE_META[p].label.toLowerCase()} surface, so there is no such pane to expand.`,
+          m["status.noSuchSurface"]({
+            surface: PANE_META[p].label.toLowerCase(),
+          }),
         );
         return;
       }
@@ -1078,7 +1092,7 @@ export default function App({
       }
       // A layout with no editor to fullscreen (a frozen share) would hide the builder inside a hidden pane: open nothing.
       if (full !== "editor" && !layout.fullscreen.includes("editor")) {
-        setStatus("this view has no editor, so the module builder cannot open");
+        setStatus(m["status.noEditorForBuilder"]());
         return;
       }
       builderDirty.current = false;
@@ -1264,7 +1278,10 @@ export default function App({
         // What it wrote, for a caller that reloads after it; a quiet command itself reloads nothing.
         return changed;
       } catch (e) {
-        setStatus(`command error: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.commandFailed"]({ message: (e as Error).message }),
+          "error",
+        );
         return undefined;
       }
     },
@@ -1307,14 +1324,19 @@ export default function App({
         pushLog("cmd", `› ${line}`);
         try {
           const { output, refused } = await api.command(line, { want: [] });
-          const said = output.length ? output.join("  ·  ") : `ran: ${line}`;
+          const said = output.length
+            ? output.join("  ·  ")
+            : m["status.ran"]({ line });
           for (const o of output) pushLog(refused ? "refused" : "info", o);
           if (refused) return void setRefusal(said);
           setStatus(said);
           // Filed, so the local take goes: its bytes are in the médiathèque now (packages/song/docs/recorderNode.md).
           engineRef.current?.recorder(id, "clear");
         } catch (e) {
-          setStatus(`command error: ${(e as Error).message}`, "error");
+          setStatus(
+            m["status.commandFailed"]({ message: (e as Error).message }),
+            "error",
+          );
         }
       })();
     },
@@ -1517,11 +1539,14 @@ export default function App({
           .then(askProject())
           .catch(() => {});
         bumpReload();
-        setStatus(`opened ${path === "." ? w.root : path} — engine starting…`);
+        setStatus(m["status.opened"]({ path: path === "." ? w.root : path }));
         setFull(null);
         // The layout the project that was open had — the doc effect above corrects it a moment later.
       } catch (e) {
-        setStatus(`open error: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.openFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       }
     },
     [bumpReload, pluginParamsStore, askWs, askProject],
@@ -1560,13 +1585,13 @@ export default function App({
       if (!arg) return null;
       const ed = editorRef.current;
       if (!ed) {
-        setStatus("the editor is not ready yet — try again in a moment");
+        setStatus(m["status.editorNotReady"]());
         return null;
       }
       // Exact path, then a fuzzy name, then the MATERIAL behind a placement id — see openInEditor.ts.
       const path = resolveEditorFile(arg, ed.files());
       if (path === null) {
-        setStatus(`no file matching "${arg}" in this project`);
+        setStatus(m["status.noFileMatching"]({ name: arg }));
         return null;
       }
       void ed.open(path).then((opened) => {
@@ -1591,9 +1616,7 @@ export default function App({
   /** The footer's two graph toggles, each as ONE callback the button and the command share. */
   const toggleMixer = useCallback(() => {
     if (panel !== "mix" && mixerStrips.length === 0)
-      return setStatus(
-        "no strip in this song — a strip is a Mixer module at the end of a track",
-      );
+      return setStatus(m["status.noStrip"]());
     togglePanel("mix");
   }, [panel, mixerStrips.length, togglePanel]);
 
@@ -1604,44 +1627,40 @@ export default function App({
     if (full !== "chains") setPanel(null);
     setFull("chains");
     setStackView(true);
-    setStatus("stack view — a column per track, the mix last");
+    setStatus(m["status.stackView"]());
   }, [stackView, full]);
 
   const toggleDocs = useCallback(() => {
-    if (docCount === 0)
-      return setStatus(
-        "no notes in this project — a note is a node of @meta/doc, wired from what it is about",
-      );
+    if (docCount === 0) return setStatus(m["status.noNotes"]());
     setShowDocs((on) => !on);
   }, [docCount]);
 
   /** Arm MIDI learn on one param: the capture is the browser's, the binding is a `module cc` — see docs/midi.md. */
   const armMidiLearn = useCallback(
     (rest: string) => {
-      const m = /^(\S+)\s+(?:"([^"]*)"|(.+))$/.exec(rest.trim());
-      if (!m) {
+      const hit = /^(\S+)\s+(?:"([^"]*)"|(.+))$/.exec(rest.trim());
+      if (!hit) {
         setStatus(
-          'usage: ui midi learn <module> <param>  (e.g. ui midi learn synth "Filter Freq")',
+          m["status.usageExample"]({
+            syntax: "ui midi learn <module> <param>",
+            example: 'ui midi learn synth "Filter Freq"',
+          }),
         );
         return;
       }
-      const module = m[1];
-      const param = (m[2] ?? m[3] ?? "").trim();
+      const module = hit[1];
+      const param = (hit[2] ?? hit[3] ?? "").trim();
       const midi = chainsMidiRef.current;
       if (!midi?.ready) {
-        setStatus(
-          "no MIDI here — this browser has no Web MIDI, or access was refused",
-        );
+        setStatus(m["status.noMidi"]());
         return;
       }
-      setStatus(
-        `MIDI learn: ${module} ${param} — move a control, or press Esc or run any command to cancel`,
-      );
+      setStatus(m["status.midiLearnArmed"]({ module, param }));
       setMidiLearning(true);
       midi.learn(module, param, (learned) => {
         setMidiLearning(false);
         if (!learned) {
-          const said = `MIDI learn cancelled — ${module} ${param} unchanged`;
+          const said = m["status.midiLearnCancelled"]({ module, param });
           setStatus(said);
           pushLog("info", said);
           return;
@@ -1653,10 +1672,13 @@ export default function App({
             // Bidirectional when possible: possible means the device that just spoke also has an output port to answer on.
             const both = midi.hasFeedback(module, param);
             setStatus(
-              `${module} ${param} ← ${learned.device} ch${learned.ch} cc${learned.cc} — ` +
-                (both
-                  ? "bidirectional (the control will follow the value)"
-                  : "write only (this device has no MIDI output to answer on)"),
+              m[both ? "status.midiLearnBoth" : "status.midiLearnWriteOnly"]({
+                module,
+                param,
+                device: learned.device,
+                ch: learned.ch,
+                cc: learned.cc,
+              }),
             );
           });
       });
@@ -1796,7 +1818,9 @@ export default function App({
           api.command(s, { want: graphOnScreenRef.current ? ["graph"] : [] });
         const { output, refused, graph, rev, changed } = await send();
         // A refusal is neither a success nor a failure, so it gets its own channel rather than being recorded as the first.
-        const said = output.length ? output.join("  ·  ") : `ran: ${s}`;
+        const said = output.length
+          ? output.join("  ·  ")
+          : m["status.ran"]({ line: s });
         if (refused) setRefusal(said);
         else setStatus(said);
         settle(!refused);
@@ -1825,7 +1849,10 @@ export default function App({
         if (outcome) outcome.ok = !refused;
       } catch (e) {
         settle(false);
-        setStatus(`command error: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.commandFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       } finally {
         // The placeholder comes down in the same update that carries the new graph, so the two swap in one frame.
         if (willInsert) setInsertingAt(null);
@@ -1865,7 +1892,9 @@ export default function App({
         const { output, refused, graph, rev } = await api.command(line, {
           want: ["graph"],
         });
-        const said = output.length ? output.join("  ·  ") : `ran: ${line}`;
+        const said = output.length
+          ? output.join("  ·  ")
+          : m["status.ran"]({ line });
         if (refused) setRefusal(said);
         else setStatus(said);
         for (const o of output) pushLog(refused ? "refused" : "info", o);
@@ -1877,7 +1906,10 @@ export default function App({
         // Adopted, so the `/revision` tick this write causes does not turn into the full reload skipped here.
         if (rev) noteRevision(rev);
       } catch (e) {
-        setStatus(`command error: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.commandFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       }
     },
     [projectDoc, runCommand, pushLog],
@@ -1933,7 +1965,7 @@ export default function App({
         entityFile(files, "nodes", target.id) ??
         entityFile(files, "tracks", target.id);
       const path = file && openInEditor(file, false);
-      focusLine.current = `${target.id} — ${path ?? "no nodes/ or tracks/ file"}`;
+      focusLine.current = `${target.id} — ${path ?? m["status.noNodesFile"]()}`;
       setStatus(focusLine.current);
       focusNonce.current += 1;
       setGraphFocus({ id: target.id, nonce: focusNonce.current });
@@ -1947,8 +1979,10 @@ export default function App({
   const reportFramed = useCallback((chains: number) => {
     setStatus(
       chains
-        ? `${focusLine.current} · ${chains} chain${chains > 1 ? "s" : ""} framed`
-        : `${focusLine.current} · no chain takes it as its source`,
+        ? chains > 1
+          ? m["status.framedMany"]({ line: focusLine.current, count: chains })
+          : m["status.framedOne"]({ line: focusLine.current })
+        : m["status.framedNone"]({ line: focusLine.current }),
     );
   }, []);
 
@@ -2678,6 +2712,10 @@ export default function App({
                 )}
               </div>
             </AppHeader>
+            <EngineLostStrip
+              connected={connected}
+              onRetry={() => engineRef.current?.connect()}
+            />
             {/* main: the panes on top, an optional bottom split panel below */}
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex min-h-0 flex-1">
@@ -2795,6 +2833,8 @@ export default function App({
                                     editorRef.current?.refreshLibraries();
                                   }}
                                   setStatus={setStatus}
+                                  // The same save sentence as every other text pane, in the app's language.
+                                  saveLabel={saveLabel}
                                   // What the plugin calls its parameters and what each spans, off `pluginParamMeta` — never the 20 Hz store, which render would read empty.
                                   pluginParamNames={
                                     builderPlugin

@@ -2,6 +2,7 @@
 // them, and the footer's toggles. All `ui`: none of them touches the project or the transport.
 
 import { externalUrl, parseLaunch } from "@studio/project-shell/launch";
+import { m } from "../../paraglide/messages.js";
 import { closeTopPopin } from "../../popins";
 import type { Pane, Panel } from "../../routes";
 import { PANEL_META, PANES } from "../../shellMeta";
@@ -63,10 +64,7 @@ export const VIEW_COMMANDS: LocalCommand[] = [
       fr: "Afficher ou masquer la fenêtre de l'image",
     },
     run: (ctx) => {
-      if (!ctx.hasViewport)
-        ctx.setStatus(
-          "this project declares no viewport surface, so there is no picture to show.",
-        );
+      if (!ctx.hasViewport) ctx.setStatus(m["status.noViewport"]());
       else ctx.setViewportWindow((cur) => ({ open: !cur.open }));
       return true;
     },
@@ -202,7 +200,9 @@ export const VIEW_COMMANDS: LocalCommand[] = [
       const want = lower.trim();
       const names = Object.keys(PANEL_META) as Panel[];
       if (!names.includes(want as Panel))
-        ctx.setStatus(`usage: ui panel <${names.join("|")}>`);
+        ctx.setStatus(
+          m["status.usage"]({ syntax: `ui panel <${names.join("|")}>` }),
+        );
       else ctx.togglePanel(want as Panel);
       return true;
     },
@@ -218,9 +218,7 @@ export const VIEW_COMMANDS: LocalCommand[] = [
       { name: "surface", kind: "choice", hint: "a surface of this project" },
     ],
     run: (ctx) => {
-      ctx.setStatus(
-        "a surface is a pane now — use `ui turntables` (or its number key). See surfaces/.",
-      );
+      ctx.setStatus(m["status.surfaceIsPane"]());
       return true;
     },
   },
@@ -244,8 +242,11 @@ export const VIEW_COMMANDS: LocalCommand[] = [
       if (!hit) {
         ctx.setStatus(
           ctx.surfaces.length
-            ? `no surface "${want}" — this project declares ${ctx.surfaces.map((x) => x.id).join(", ")}`
-            : "this project declares no surface — see surfaces/",
+            ? m["status.noSurfaceNamed"]({
+                surface: want,
+                surfaces: ctx.surfaces.map((x) => x.id).join(", "),
+              })
+            : m["status.noSurfaces"](),
         );
         return true;
       }

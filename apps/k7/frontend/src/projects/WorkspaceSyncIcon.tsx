@@ -27,7 +27,7 @@ export function syncStateOf(
   return syncEntryOf(sync, name)?.state ?? null;
 }
 
-/** A server's host, for a label: `https://priv.st0.app` → `priv.st0.app`. */
+/** A server's host, for a label: `https://app.priv.k7.rocks` → `app.priv.k7.rocks`. */
 export const hostLabel = (origin: string): string => {
   try {
     return new URL(origin).host;

@@ -10,6 +10,7 @@ import {
   IMAGE_SOURCE,
   VIDEO_SOURCE,
 } from "@studio/song-schema/yaml/entitySchemas";
+import { m } from "./paraglide/messages.js";
 
 /** Audio or picture — the two kinds of material a lane holds, and the two verbs that place one. */
 export type DropKind = "audio" | "video";
@@ -131,13 +132,17 @@ export function dropReport(plan: DropPlan, reused: readonly string[]): string {
   const added = plan.declare.length - reused.length;
   const left = plan.declare.length - plan.place.length;
   const parts = [
-    ...(added ? [`${added} into clips/`] : []),
-    ...(reused.length ? [`${reused.length} already declared`] : []),
-    ...(plan.place.length ? [`placing ${plan.place.length}`] : []),
-    ...(left ? [`${left} with no lane to take it`] : []),
+    ...(added ? [m["status.drop.added"]({ count: added })] : []),
+    ...(reused.length
+      ? [m["status.drop.reused"]({ count: reused.length })]
+      : []),
+    ...(plan.place.length
+      ? [m["status.drop.placing"]({ count: plan.place.length })]
+      : []),
+    ...(left ? [m["status.drop.noLane"]({ count: left })] : []),
     ...(plan.refused.length
-      ? [`${plan.refused.join(", ")}: neither audio nor video`]
+      ? [m["status.drop.refused"]({ files: plan.refused.join(", ") })]
       : []),
   ];
-  return parts.join(" — ") || "nothing to drop here";
+  return parts.join(" — ") || m["status.drop.nothing"]();
 }

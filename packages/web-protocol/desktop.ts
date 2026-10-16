@@ -26,6 +26,8 @@ export const DESKTOP_IPC = {
   tabsClose: "studio:tabs:close",
   signIn: "studio:auth:signIn",
   server: "studio:auth:server",
+  authStatus: "studio:auth:status",
+  authCancel: "studio:auth:cancel",
   addServer: "studio:sync:addServer",
   engine: "studio:engine",
   engineState: "studio:engine:state",

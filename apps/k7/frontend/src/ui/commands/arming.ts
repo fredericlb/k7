@@ -2,6 +2,7 @@
 // camera. The listening is the browser's in the last two, which is why they are `ui` lines and
 // the binding, when there is one, is written by a separate verb (`module cc`, docs/midi.md).
 
+import { m } from "../../paraglide/messages.js";
 import type { LocalCommand } from "./context";
 
 export const ARMING_COMMANDS: LocalCommand[] = [
@@ -18,7 +19,7 @@ export const ARMING_COMMANDS: LocalCommand[] = [
     match: "names",
     run: (ctx, rest) => {
       const id = rest.trim();
-      if (!id) ctx.setStatus("usage: rec <track>");
+      if (!id) ctx.setStatus(m["status.usage"]({ syntax: "rec <track>" }));
       else ctx.onTrackToggle(id, "arm");
       return true;
     },
@@ -57,8 +58,8 @@ export const ARMING_COMMANDS: LocalCommand[] = [
       ctx.setVideoArmed((cur) => (!lane || cur === lane ? null : lane));
       ctx.setStatus(
         lane && ctx.videoArmed !== lane
-          ? `${lane} armed — record + play captures its camera onto it`
-          : "picture disarmed",
+          ? m["status.pictureArmed"]({ lane })
+          : m["status.pictureDisarmed"](),
       );
       return true;
     },

@@ -6,7 +6,7 @@ One sign-in covers the whole site: the editor, the media library and the rehears
 
 ## In a browser
 
-1. Open the site's address, for example `https://st0.app/`.
+1. Open the site's address, for example `https://app.k7.rocks/`.
 2. The sign-in screen shows **k7**, the line "A text-based DAW. Sign in to open your projects and
    pick an engine.", and a **Sign in** button.
 3. Click **Sign in**. You are sent to the site's account provider. Once you are signed in there,
@@ -48,7 +48,7 @@ You can still create and open projects. They belong to that local user.
 
 1. Click the sign-in icon at the right of the account bar.
 2. On the desktop app, a field opens that asks which k7 server to sync with. It is filled with the
-   last server you used (`st0.app` is shown as an example). Type the server's address and press
+   last server you used (`app.k7.rocks` is shown as an example). Type the server's address and press
    Enter, or click the sign-in icon beside the field. Press Escape or click the cross to cancel.
 3. Sign-in finishes in your system browser. On a phone, the app opens the system browser directly.
 4. Back in the app, the bar shows your name. Hovering it shows your email and the server you sync

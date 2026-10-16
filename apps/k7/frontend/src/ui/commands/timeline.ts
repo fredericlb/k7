@@ -2,6 +2,7 @@
 // selection, the zoom stack, the header toggles, and the rectangle's copy, paste, delete and
 // split. The state lives in TimelineTab and the grids; these reach it through their handles.
 
+import { m } from "../../paraglide/messages.js";
 import { isRollMode, ROLL_MODES, ROLL_PRESS } from "../../rollMode";
 import { isTool, TOOLS } from "../../timelineTools";
 import { isWaveMode, WAVE_MODES } from "../../waveMode";
@@ -44,11 +45,17 @@ export const TIMELINE_COMMANDS: LocalCommand[] = [
     run: (ctx, _rest, lower) => {
       const want = lower.trim();
       if (!isTool(want)) {
-        ctx.setStatus(`unknown tool "${want}" — ${TOOLS.join(" · ")}`);
+        ctx.setStatus(
+          m["status.unknownTool"]({ tool: want, tools: TOOLS.join(" · ") }),
+        );
         return true;
       }
       ctx.timelineRef.current?.setTool(want);
-      ctx.setStatus(want === "pointer" ? "pointer" : `tool: ${want}`);
+      ctx.setStatus(
+        want === "pointer"
+          ? m["status.toolPointer"]()
+          : m["status.tool"]({ tool: want }),
+      );
       return true;
     },
   },
@@ -70,11 +77,16 @@ export const TIMELINE_COMMANDS: LocalCommand[] = [
     run: (ctx, _rest, lower) => {
       const want = lower.trim();
       if (!isWaveMode(want)) {
-        ctx.setStatus(`unknown view "${want}" — ${WAVE_MODES.join(" · ")}`);
+        ctx.setStatus(
+          m["status.unknownView"]({
+            view: want,
+            views: WAVE_MODES.join(" · "),
+          }),
+        );
         return true;
       }
       if (!ctx.waveRef.current) {
-        ctx.setStatus("no audio clip open — click one on the timeline first");
+        ctx.setStatus(m["status.noAudioClip"]());
         return true;
       }
       ctx.waveRef.current.setView(want);
@@ -99,11 +111,16 @@ export const TIMELINE_COMMANDS: LocalCommand[] = [
     run: (ctx, _rest, lower) => {
       const want = lower.trim();
       if (!isRollMode(want)) {
-        ctx.setStatus(`unknown mode "${want}" — ${ROLL_MODES.join(" · ")}`);
+        ctx.setStatus(
+          m["status.unknownMode"]({
+            mode: want,
+            modes: ROLL_MODES.join(" · "),
+          }),
+        );
         return true;
       }
       if (!ctx.rollRef.current) {
-        ctx.setStatus("no piano roll open — click a MIDI event first");
+        ctx.setStatus(m["status.noPianoRoll"]());
         return true;
       }
       ctx.rollRef.current.setMode(want);
@@ -187,16 +204,14 @@ export const TIMELINE_COMMANDS: LocalCommand[] = [
         clipGridOf(ctx)?.copy() ?? ctx.timelineRef.current?.copy() ?? null;
       if (!got) {
         // The caret is a rectangle too, so reaching here means it was parked on nothing.
-        ctx.setStatus(
-          "nothing to copy — put the caret on a clip or a note, or draw a rectangle with v",
-        );
+        ctx.setStatus(m["status.nothingToCopy"]());
         return true;
       }
       ctx.setClipboard(got);
       ctx.setStatus(
         got.kind === "notes"
-          ? `copied ${got.notes.length} note(s)`
-          : `copied ${got.events.length} event(s)`,
+          ? m["status.copiedNotes"]({ count: got.notes.length })
+          : m["status.copiedEvents"]({ count: got.events.length }),
       );
       return true;
     },
@@ -211,18 +226,14 @@ export const TIMELINE_COMMANDS: LocalCommand[] = [
     run: (ctx) => {
       const held = ctx.clipboardRef.current;
       if (!held) {
-        ctx.setStatus(
-          "nothing on the clipboard — `selection copy` (Ctrl+C) something first",
-        );
+        ctx.setStatus(m["status.clipboardEmpty"]());
         return true;
       }
       const notes = held.kind === "notes";
       const pane = notes ? ctx.clipGridRef.current : ctx.timelineRef.current;
       if (!pane) {
         ctx.setStatus(
-          notes
-            ? "no clip open — click a MIDI event to paste notes into it"
-            : "no timeline here",
+          notes ? m["status.noClipForNotes"]() : m["status.noTimeline"](),
         );
         return true;
       }
@@ -253,7 +264,7 @@ export const TIMELINE_COMMANDS: LocalCommand[] = [
             : (grid ?? timeline);
       const out = pane?.deleteLine?.();
       if (!out) {
-        ctx.setStatus("nothing to delete here");
+        ctx.setStatus(m["status.nothingToDelete"]());
         return true;
       }
       if (out.line) void ctx.runCommand(out.line);
@@ -273,7 +284,7 @@ export const TIMELINE_COMMANDS: LocalCommand[] = [
         ctx.store.getSnapshot().playhead,
       );
       if (out?.line) void ctx.runCommand(out.line);
-      ctx.setStatus(out?.note ?? "nothing to split here");
+      ctx.setStatus(out?.note ?? m["status.nothingToSplit"]());
       return true;
     },
   },

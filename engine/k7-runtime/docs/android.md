@@ -8,8 +8,8 @@ WebSocket protocol on port 8765, bound to every interface.
 **It lives as long as `MainActivity`**, and leaving it deregisters the engine, stops it and ends the
 process. That teardown runs on a thread of its own, never the UI thread, since its stops wait for
 seconds and a blocked main thread is an ANR; the backend gets longer than its own 8 s stop, so its
-file services are not killed mid-teardown. The one service, `MediaPlaybackService`, keeps that process in front while a page plays
-(below), and starts nothing of its own.
+file services are not killed mid-teardown. Its two services, `MediaPlaybackService` and `EngineService`, keep that process in
+front while a page plays or the engine is at work (below), and start nothing of their own.
 
 ## Standalone: the phone runs its own studio
 
@@ -28,13 +28,20 @@ elsewhere is something it can ADD, never something it needs. `BackendHost.kt` is
 | one `backend.zip` asset, unpacked once per install | node reads files, not assets; the APK's `lastUpdateTime` marks the copy, as for Faust's libraries |
 | cleartext allowed for `127.0.0.1` only (`engine/k7-android/app/src/main/res/xml/network_security_config.xml`) | the local studio is plain http, as on desktop, and every other host stays https |
 | the views wait for the backend before loading it | a first run spends a few seconds unpacking, and a load that fails then would put the error screen up for nothing |
+| the shell page shows the start — "Starting k7…", with the unpack's percentage — and a failed one says why, with a Retry (`web/src/Backend.tsx`) | the phone's own studio is the one a first launch opens, so a start that never ends must not be a blank screen; the percentage is the bytes of `backend.zip` read, which is stored uncompressed in the APK, so its length is known before the unpack |
+| the zip streamed straight out of the APK's assets, never copied to disk first | the extracted tree is the only copy the phone keeps, so there is nothing to delete after it |
+| native libraries extracted at install (`useLegacyPackaging`), and no R8 | node and the supervisor are EXECUTED, which needs real files; R8 would need keep rules for Capacitor's reflective bridge and the JNI entry points that nobody has written, and a release that breaks at run time costs more than the megabytes |
 
 **A crashed backend is relaunched on a doubling delay, 2 s up to 60 s, and given up on after six
 exits in a row that each came within a minute of their launch.** A backend that dies at boot — a
 corrupt SQLite file, a full disk — dies again on every launch, and relaunching it forever only
-drains the battery. Given up on, it tells the views waiting for it, and the shell page shows its
-load error with a Retry; that retry is what starts it again, with the count reset. A run longer
-than a minute is no boot failure, so it resets the count too.
+drains the battery. Given up on, it tells the views waiting for it, and the shell page shows "k7
+could not start" with the reason and a Retry. There is one retry, `BackendHost.retry()`: the shell
+page's Retry calls it, and so does a view asking for the backend after it was given up on; it
+starts again with the count reset, reusing a backend still running and an unpack already done. A
+run longer than a minute is no boot failure, so it resets the count too. Every step — the unpack
+and its percentage, the launch and each relaunch, ready, given up on — is reported to the shell
+page as one status (`AppViews.backend()` and its `backend` event), which is what it draws.
 
 ## The app is also where the studio is used: k7, full screen
 
@@ -53,8 +60,17 @@ it again when the route or the theme changes. The status bar's icons follow its 
 **This phone's engine is set in k7's settings** (the home page's cog), because on the phone
 k7 is the only screen there is: the studios the engine is listed at, which one the apps open, the private CA,
 Quit (`apps/k7/frontend/docs/settings.md`). The page bundled in the APK, `engine/k7-android/web`,
-is only seen while there is **no studio to open**, or while the open one **fails to load** — then
-no app is on screen to reach settings in, so it draws the same tray with a Retry.
+is only seen while there is **no studio to open**, while the phone's own k7 is **still starting or
+failed to**, or while the open one **fails to load** — then no app is on screen to reach settings in,
+so it draws the same tray with a Retry. Its forms — another studio's address, the private CA — are
+collapsed, since the phone's own studio needs neither; a studio refused for its certificate opens the
+private CA section, the likely fix.
+
+The activity keeps Capacitor's `AppTheme.NoActionBar`, a dark theme, rather than a DayNight one. Every
+studio page is dark-only (`@frediverse/ui/theme.css`, and k7's `color-scheme: dark`), so the
+`prefers-color-scheme` a light theme would give the views changes nothing in them; what it would
+change is the window behind a loading page and the native dialogs, a white flash and white boxes
+over a dark app.
 
 Two ways from the page to the native half:
 
@@ -95,7 +111,7 @@ What the app views do that a browser would do on its own:
   `mailto` and `tel` are handed to another app; any other scheme a page names is dropped, since a
   `file:` or `intent:` URI handed out exposes or launches what it should not.
 - **The microphone** goes to the studio's apps only (the rehearsal recorder's remote mic), and only once the app holds
-  RECORD_AUDIO, which it asks for at start for the engine.
+  RECORD_AUDIO, asked for when a page first wants it (below).
 - **The private CA** covers the app views too: a certificate the WebView refuses only for its unknown issuer
   is accepted when `TrustedCas` holds that certificate or its issuer. The WebView hands over the leaf
   alone, so a studio whose certificate hangs off an intermediate needs the intermediate imported.
@@ -106,8 +122,26 @@ What the app views do that a browser would do on its own:
   the page's host in its subjectAltName (a DNS name, one leftmost `*` label at most, or the IP);
   a wrong name, an expired or not-yet-valid date, or any fault besides the unknown issuer is never
   forgiven.
-- **Back** walks the visible app's history. With none left it does what it always did: it finishes
-  the activity, which quits.
+- **A download is saved to the phone's Downloads.** The WebView's own download hands a URL to
+  a listener that can neither read a `blob:` URL nor send the session's cookie, and the exports are
+  blobs (`apps/k7/frontend/src/downloadBlob.ts`, the songbook's zip, a release's files). So the
+  PAGE fetches the file: `assets/download.js`, a document-start script for the app's origin only,
+  takes an `<a download>` click on a `blob:`, `data:` or same-origin URL — before the page revokes
+  the blob, which `downloadBlob` does a second later — and the download listener runs the same
+  script for anything it still catches. The bytes go to `Downloads.kt` over `k7Android` as base64
+  chunks of 512 KiB, each acknowledged before the next, so a large file never sits whole in a
+  string or a queue; it is written through `MediaStore.Downloads`, which API 29+ grants without a
+  storage permission, and a toast names the file as MediaStore saved it. Any other URL still opens
+  outside. The script is injected per origin, not everywhere, because the bridge drops a message
+  from another origin: a click taken there would vanish.
+- **Back** goes to the page first: `assets/back.js` lets a page take it (a cancelled `k7:back` event),
+  then closes an open Radix dialog, sheet, popover or menu with the Escape it already answers to,
+  since none of them pushes history. Only when the page used nothing does Back walk the view's
+  history, and with none left it goes to the activity, where Android 12+ moves the task to the back
+  and 10 and 11 finish it, which quits.
+- **Insets on every side.** Android 15 draws every app edge to edge, so the views are inset by the
+  system bars and the cutout on the left and right too — a landscape phone's navigation bar and
+  notch are on a side — and the status-bar strip still spans the whole width.
 
 **No `cap sync`.** Gradle stages the page the way it stages the engine: `stageShell` runs the
 workspace's `npm run build` and lays `dist/` out as `cap copy` would (`public/`,
@@ -147,6 +181,38 @@ the foreground before anything else — a placeholder notification when nothing 
 start that only stops it: a `startForegroundService` left without its `startForeground` crashes
 the app. So the service is stopped through a start that says so, never by `stopService`.
 
+## Busy: the engine at work holds the process and the screen
+
+Android freezes a process whose activity is behind, and cuts its microphone: a take, a live rig or a song playing
+would stop the moment the phone locks or another app comes up. So `EngineService` is in the foreground, with a
+notification, for as long as the app is **busy**, and the screen is kept on for the same while (`Busy.kt`).
+
+| choice | why |
+|---|---|
+| a session PLAYING, read off the supervisor's snapshot (`sessions[].playing`) | it is the engine's own word, true whoever drives it — a browser on the LAN included; it holds the service and not the screen, since nobody is looking at the phone |
+| armed, recording and a rig sounding come from k7's page (`apps/k7/frontend/src/androidBusy.ts`, a `busy` message) | the engine reports none of them to the supervisor; the page has them on every frame. A rig counts as live for 30 s after its meters last moved, so a pause between songs does not drop it |
+| a microphone and a wake lock the page holds, from `assets/media-session.js` | `getUserMedia` and `navigator.wakeLock` are watched where every page runs, so the rehearsal recorder and the `/external` surfaces need no code for the app |
+| the Wake Lock API stood in for when the WebView has none | `useStayAwake` asks for it first; the stand-in has its shape, is released on every hide as a browser's is, and keeps the window flag on |
+| the screen on while a page reports anything, never for the whole activity | an idle app left open must let the phone sleep |
+| `mediaPlayback\|microphone`, the microphone only with RECORD_AUDIO and while the engine's inputs or a page's microphone are open | Android 14 grants the microphone type only to a start made in front; a start refused it falls back to `mediaPlayback`, so the process stays up and only the inputs are cut |
+| its own service beside the media one, not that one widened | the media service leaves the foreground on every pause by design; the engine's must not |
+| POST_NOTIFICATIONS asked the first time the app is busy, in front, once per run | without it Android 13+ hides the notification and still runs the service |
+
+A page that goes away reports nothing (`pagehide`), and what it last said is cleared, so nothing here outlives it.
+
+## The microphone is asked when first needed
+
+The engine starts **without waiting for RECORD_AUDIO**, and is not asked for it at start: without it the engine opens
+its device output only. `MicAccess.kt` asks when something first needs it — a page's `getUserMedia`
+(`onPermissionRequest`), or a track armed on the engine — with a short explanation when Android says one is due.
+A permission the user has blocked is not asked again: the request is denied, the page gets a `k7:mic-denied`
+event, and a dialog offers the app's settings.
+
+The engine opens its inputs once, with its device, and a stopped engine cannot be started again in the same
+process (below). So a grant that comes after the engine started reaches it at the **next start**: the app says so,
+and offers to quit when nothing is busy. Quitting is the one restart there is; relaunching on the user's behalf
+would be an activity start from the background, which Android refuses.
+
 ## Signing in happens in the browser
 
 An identity provider refuses a WebView, and RFC 8252 §8.12 says it should: a page inside an app
@@ -157,6 +223,13 @@ the sign-in opens in the system browser instead, through the studio's handoff
 one-use code, `MainActivity` (`singleTask`, so the intent reaches the running one) hands it to the
 plugin, and `AuthHandoff.kt` turns it into a session in k7's view with the verifier only this app
 holds. The verifier is kept on disk: the process may be killed while the browser is in front.
+
+The browser is a **Custom Tab** (`androidx.browser`), launched in the app's own task: the answer
+reaching the `singleTask` activity clears it off the top, so the user lands back in k7 rather than in
+a browser left open behind it. It is still the system browser, with its cookies and its password
+manager, as RFC 8252 asks. A phone whose browser has no Custom Tabs gets a plain view intent, and one
+with no browser at all gets a native dialog saying so — the Sign in a page cannot complete must not
+just do nothing.
 
 The studio's own OIDC client is the one used, with its registered `redirect_uri`: nothing new to
 register at the identity provider for the phone.
@@ -181,7 +254,9 @@ The phone runs the desktop's backend and hub, so it is a live-sync replica the s
 step with the origin's, and the phone's libraries follow the origin's read-only
 (`packages/file-hub/docs/fileHub.md`). `SyncPairing.kt` is `pairSync.ts` in Kotlin, with the same
 rules — once per account per run, never for the local user, refused when the browser is signed in
-to the origin as someone else.
+to the origin as someone else. It **asks first**, in a dialog over the app ("Sync this phone's workspaces with
+app.k7.rocks?"), since the browser coming up on its own reads as a bug, and says how it ended — paired, not stored,
+not finished — in a toast. A browser signed in as another account gets a dialog naming both accounts and a Try again.
 
 - **The token comes back on loopback, not through the app's scheme.** The origin hands a device
   token only to an http loopback return (`isLoopbackReturn`, `packages/web-protocol/pairing.ts`), so
@@ -191,10 +266,11 @@ to the origin as someone else.
   studio, and the backend says that account is unpaired (`GET /api/sync/remote`). The pairing is
   stored with the view's session cookie, read from the `CookieManager`, so the backend knows which
   account it is for. The device is named after the phone's maker and model.
-- **The listener lives in the app's process.** Android may freeze or kill a process whose activity
-  is behind the browser: frozen, the browser's redirect waits until the app is back in front;
-  killed, the answer is lost, and the next start asks again since the account is still unpaired.
-- **The origin is `st0.app`**, web-protocol's `STUDIO_ORIGIN`: a phone connected to another studio
+- **The listener lives in the app's process, and what it waits for is on disk.** Android may freeze or kill a
+  process whose activity is behind the browser: frozen, the browser's redirect waits until the app is back in
+  front; killed, the next start listens again on the same port with the same state, for as long as the pairing had
+  left, and the browser's page reloaded delivers the answer. The token itself is never written down.
+- **The origin is `app.k7.rocks`**, web-protocol's `STUDIO_ORIGIN`: a phone connected to another studio
   uses that studio's own session and has nothing to pair.
 
 ## A library in the app, not a process it spawns
@@ -285,7 +361,7 @@ No ONNX Runtime ships for Android, so the supervisor builds without stem separat
 what is missing, as it does on any platform without the library.
 
 **A private CA is the user's to add, in the app — and optional.** A studio with a public certificate
-needs nothing: `st0.app` and `priv.st0.app` carry Let's Encrypt ones, which Android trusts as every
+needs nothing: `app.k7.rocks` and `app.priv.k7.rocks` carry Let's Encrypt ones, which Android trusts as every
 OS does, so the section is folded away unless a CA of the user's is already trusted, and says when
 one is worth adding. A studio behind a private CA is exactly the case the
 desktop answers from the OS store, and on Android the certificates a user installs in Settings are
@@ -363,8 +439,9 @@ also catches the GL driver's chatter, which is noise.
 - **The tunnel and WebRTC are untested on a phone.** They are the desktop code, built unchanged; no
   studio has driven a phone through them yet.
 - **No external plugins, no plugin scan, no offline render or freeze.**
-- **No foreground service of its own**, so the screen is kept on and the engine stops with the activity.
-  The media one runs only while a page plays.
+- **The busy service and the microphone flow have not been driven on a phone yet**: a take with the screen off,
+  the microphone type refused from behind on Android 14, the notification permission and the blocked-microphone
+  dialog are each still to check.
 - **The media session has not been driven on a phone yet**: background playback in a hidden view,
   the notification on Android 12 and 13+, and a headset's buttons are each still to check.
 - **Pairing has not been run on a phone.** `SyncPairing.kt` was written against the desktop's flow
@@ -373,6 +450,9 @@ also catches the GL driver's chatter, which is noise.
 - **The app views have not been driven through a real sign-in on a phone yet.** The routing rules,
   the browser handoff, the home page's account control, the status-bar colour and k7's engine section above are
   the design; each needs checking against a live studio.
+- **Downloads, Back and the start screen are compiled, not driven.** The in-page fetch of a revoked
+  blob, a file of hundreds of megabytes through the chunks, Back closing a Radix sheet, the
+  landscape insets and a failed start's Retry each need a phone.
 
 ## What was measured
 
@@ -394,7 +474,7 @@ through `adb forward`:
 | the same importing a library that does not exist | `faust: ERROR : unable to open file nosuch.lib`, and the audio passes untouched |
 | an HTTPS studio whose certificate a private CA signed | refused; after importing that CA (DER) 146 roots, the engine adopted, connected and heartbeating; after forgetting it 145 and refused again — one engine start throughout |
 | importing a file that is not a certificate | refused with a message; nothing stored, nothing restarted |
-| `--probe https://priv.st0.app` with Android's CAs only | an k7 registry: nothing to import for a publicly certified studio |
+| `--probe https://app.priv.k7.rocks` with Android's CAs only | an k7 registry: nothing to import for a publicly certified studio |
 
 The standalone backend, on the same emulator, run as an app (`run-as`) from the bundle and the
 tools the scripts produce:

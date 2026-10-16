@@ -6,6 +6,7 @@ import { api } from "../../api";
 import { newCurveName, type ParamKind } from "../../curveDraft";
 import { resolveModuleFile } from "../../localTargets";
 import { describeDownload, followDownload } from "../../modelDownload";
+import { m } from "../../paraglide/messages.js";
 import { trackPlacing } from "../../rows";
 import { resolveSequence, type SeqView } from "../../sequenceEdit";
 import type { LocalCommand } from "./context";
@@ -27,8 +28,11 @@ const seqEdit = (
   run: (ctx, rest) => {
     const name = rest.trim();
     const path = resolveSequence(name, ctx.editorRef.current?.files() ?? []);
-    if (!name) ctx.setStatus(`usage: sequence edit ${view} <sequence>`);
-    else if (!path) ctx.setStatus(`no sequence "${name}" in this project`);
+    if (!name)
+      ctx.setStatus(
+        m["status.usage"]({ syntax: `sequence edit ${view} <sequence>` }),
+      );
+    else if (!path) ctx.setStatus(m["status.noSequence"]({ name }));
     else ctx.openEvent({ kind: "grid", path, view });
     return true;
   },
@@ -97,7 +101,7 @@ export const EDITOR_COMMANDS: LocalCommand[] = [
     run: (ctx, rest) => {
       const clip = rest.trim();
       if (!clip) {
-        ctx.setStatus("usage: ui review <clip>");
+        ctx.setStatus(m["status.usage"]({ syntax: "ui review <clip>" }));
         return true;
       }
       ctx.setReviewOn({ clip, track: trackPlacing(ctx.projectDoc, clip) });
@@ -119,7 +123,7 @@ export const EDITOR_COMMANDS: LocalCommand[] = [
     run: (ctx, rest) => {
       const arg = rest.trim();
       const path = resolveModuleFile(arg, ctx.editorRef.current?.files() ?? []);
-      if (!path) ctx.setStatus(`no module "${arg}" in this project`);
+      if (!path) ctx.setStatus(m["status.noModule"]({ name: arg }));
       else void ctx.openModuleBuilder(path, "module");
       return true;
     },
@@ -145,7 +149,7 @@ export const EDITOR_COMMANDS: LocalCommand[] = [
         .then(({ assemblies }) => {
           const hit = assemblies.find((a) => a.ref === ref);
           if (!hit) {
-            ctx.setStatus(`no assembly template "${ref}" in the library`);
+            ctx.setStatus(m["status.noAssemblyTemplate"]({ ref }));
             return;
           }
           ctx.setAssemblyBuilder({ file: hit.file, folder: hit.path });
@@ -174,7 +178,7 @@ export const EDITOR_COMMANDS: LocalCommand[] = [
         .downloadModel(node)
         .then(async ({ job }) => {
           if (!job) {
-            ctx.setStatus(`${node}'s model is already on this machine`);
+            ctx.setStatus(m["status.modelAlreadyHere"]({ node }));
             return;
           }
           const end = await followDownload(job, api.modelDownload, (j) =>
@@ -213,10 +217,13 @@ export const EDITOR_COMMANDS: LocalCommand[] = [
         .then((g) => {
           const spec = g.curves?.[name]?.spec;
           if (spec) ctx.setCurveEdit({ name, isNew: false, spec });
-          else ctx.setStatus(`no curve "${name}" in this project`);
+          else ctx.setStatus(m["status.noCurve"]({ name }));
         })
         .catch((e) =>
-          ctx.setStatus(`ui curve: ${(e as Error).message}`, "error"),
+          ctx.setStatus(
+            m["status.curveFailed"]({ message: (e as Error).message }),
+            "error",
+          ),
         );
       return true;
     },
@@ -233,15 +240,18 @@ export const EDITOR_COMMANDS: LocalCommand[] = [
       { name: "param", kind: "text", hint: "the name its widget binds" },
     ],
     run: (ctx, rest) => {
-      const m = NODE_PARAM.exec(rest.trim());
-      if (!m) {
+      const hit = NODE_PARAM.exec(rest.trim());
+      if (!hit) {
         ctx.setStatus(
-          'usage: ui automate <node> <param>  (e.g. ui automate synth "Filter Freq")',
+          m["status.usageExample"]({
+            syntax: "ui automate <node> <param>",
+            example: 'ui automate synth "Filter Freq"',
+          }),
         );
         return true;
       }
-      const node = m[1];
-      const param = (m[2] ?? m[3] ?? "").trim();
+      const node = hit[1];
+      const param = (hit[2] ?? hit[3] ?? "").trim();
       void api
         .graph()
         .then((g) => {
@@ -274,7 +284,10 @@ export const EDITOR_COMMANDS: LocalCommand[] = [
           );
         })
         .catch((e) =>
-          ctx.setStatus(`ui automate: ${(e as Error).message}`, "error"),
+          ctx.setStatus(
+            m["status.automateFailed"]({ message: (e as Error).message }),
+            "error",
+          ),
         );
       return true;
     },
@@ -294,7 +307,10 @@ export const EDITOR_COMMANDS: LocalCommand[] = [
       const [node, tap] = [...lower.matchAll(/"((?:[^"\\]|\\.)*)"|(\S+)/g)].map(
         (w) => (w[1] !== undefined ? JSON.parse(`"${w[1]}"`) : w[2]),
       );
-      if (!node || !tap) ctx.setStatus("usage: ui tap chain <node> <tap>");
+      if (!node || !tap)
+        ctx.setStatus(
+          m["status.usage"]({ syntax: "ui tap chain <node> <tap>" }),
+        );
       else ctx.setTapChain({ node, tap });
       return true;
     },

@@ -6,6 +6,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import { ListChecks, Plus, Trash2, X } from "@frediverse/ui/icons";
+import { askConfirm } from "@studio/project-shell/ask";
 import { projectTagsOf } from "@studio/song-schema/projectTags";
 import { parseTasks, TASKS_FILE, type Task } from "@studio/song-schema/tasks";
 import { useCallback, useEffect, useState } from "react";
@@ -84,6 +85,17 @@ export function TasksPanel({
     await run(
       attach && project ? `task mark ${timecode()} ${t}` : `task add ${t}`,
     );
+  };
+  // A removed task is gone from the file, so the bin asks first and names what it drops.
+  const removeTask = async (n: number, task: string) => {
+    const ok = await askConfirm({
+      title: m["tasks.removeTitle"](),
+      body: task,
+      confirmLabel: m["common.remove"](),
+      cancelLabel: m["common.cancel"](),
+      danger: true,
+    });
+    if (ok) await run(`task remove ${n}`);
   };
 
   return (
@@ -233,7 +245,7 @@ export function TasksPanel({
                 size="icon"
                 variant="ghost"
                 className="h-6 w-6 opacity-0 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
-                onClick={() => void run(`task remove ${n}`)}
+                onClick={() => void removeTask(n, t.text)}
                 title={m["tasks.remove"]()}
                 aria-label={m["tasks.remove"]()}
               >

@@ -2,10 +2,13 @@
 // The strip is k7's own `/@tabs` page in a view of its own; the window frame is hidden on every platform.
 // It opens before the backend answers, on a splash: `start` is what loads the strip and k7's home.
 
+import { join } from "node:path";
 import { line } from "@frediverse/electron-shell/log";
+import { windowState } from "@frediverse/electron-shell/windowState";
 import { DESKTOP_IPC } from "@studio/web-protocol/desktop";
 import { tabsUrl } from "@studio/web-protocol/projects";
 import {
+  app,
   BaseWindow,
   type IpcMainEvent,
   ipcMain,
@@ -24,6 +27,7 @@ const CAPTION_INSET = 140;
 /** --sh-background and --sh-muted-foreground, so the strip and the caption buttons are one bar. */
 const BACKGROUND = "#101114";
 const SYMBOLS = "#92929e";
+const MIN_SIZE = { width: 900, height: 600 };
 
 export interface TabbedWindowSpec {
   /** The app's origin; the strip is served from it. */
@@ -55,11 +59,16 @@ export interface TabbedWindow {
 
 export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
   const mac = process.platform === "darwin";
+  // Where it was left, fitted onto a display that is still there (docs/standalone.md, "The first window").
+  const kept = windowState(
+    join(app.getPath("userData"), "window-state.json"),
+    { width: 1440, height: 900 },
+    MIN_SIZE,
+  );
   const win = new BaseWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 900,
-    minHeight: 600,
+    ...kept.bounds,
+    minWidth: MIN_SIZE.width,
+    minHeight: MIN_SIZE.height,
     title: "k7",
     backgroundColor: BACKGROUND,
     titleBarStyle: "hidden",
@@ -78,6 +87,8 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
         }),
     ...(spec.icon ? { icon: spec.icon } : {}),
   });
+  if (kept.maximized) win.maximize();
+  kept.track(win);
 
   const strip = new WebContentsView({ webPreferences: spec.webPreferences });
   // Empty until `start`, and the same colour as the frame rather than a white bar.

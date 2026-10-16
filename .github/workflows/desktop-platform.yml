@@ -186,6 +186,9 @@ jobs:
 
       # The standalone app: k7's frontend and backend bundled, the engine beside them (apps/k7-standalone/docs/standalone.md).
       - name: desktop app
+        env:
+          # Inlined as the app's release, shown in About and compared with GitHub's releases (apps/k7-standalone/docs/menu.md).
+          STUDIO_RELEASE_STAMP: ${{ inputs.stamp }}
         run: npm run package --workspace k7-standalone
 
       - name: installer

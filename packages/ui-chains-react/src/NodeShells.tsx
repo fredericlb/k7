@@ -7,6 +7,7 @@ import type { GraphNode } from "@studio/ui-chains/graph";
 import type { ReactNode } from "react";
 import { cableColorFor } from "./chainsCss";
 import type { ChainsIcons } from "./chainsTypes";
+import { onEnter } from "./keyActivate";
 import { farIconPx, fitFont } from "./nodeLayout";
 import type { NodeProps } from "./nodeProps";
 
@@ -64,10 +65,15 @@ export function assemblyFrame({
         title={n.assemblyOf?.uses}
       >
         <span className="dgx-frame-nm">{n.label}</span>
+        {/* biome-ignore lint/a11y/useSemanticElements: a corner bubble styled by chainsCss.ts, where a <button> would bring the UA's own box */}
         <span
           className="dgx-cbtn dgx-obtn on"
           title={`Close ${n.label}`}
+          role="button"
+          tabIndex={0}
+          aria-label={`Close ${n.label}`}
           onPointerDown={(e) => e.stopPropagation()}
+          onKeyDown={onEnter(() => n.module && onToggleAssembly?.(n.module))}
           onClick={(e) => {
             e.stopPropagation();
             if (n.module) onToggleAssembly?.(n.module);
@@ -88,6 +94,7 @@ export function noteCard({
   onContext,
 }: Pick<NodeProps, "n" | "onTapNode" | "onContext"> & { cls: string }) {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: a node card holds controls of its own, which a <button> may not contain
     <div
       className={`${cls} dgx-note`}
       style={{
@@ -97,6 +104,9 @@ export function noteCard({
         height: n.h,
         opacity: n.dim ? 0.5 : 1,
       }}
+      role="button"
+      tabIndex={0}
+      onKeyDown={onEnter((e) => onTapNode(n, e.shiftKey))}
       onClick={(e) => onTapNode(n, e.shiftKey)}
       onContextMenu={(e) => onContext(n, e)}
       title={n.label}
@@ -140,6 +150,7 @@ export function farCard({
   // The module here too, for the header's reason: two LODs answering differently would be two cards.
   const label = headName || (n.kind === "sink" ? "OUT" : n.kind);
   return (
+    // biome-ignore lint/a11y/useSemanticElements: a node card holds controls of its own, which a <button> may not contain
     <div
       className={`${cls}${onHeaderDrag ? " grab" : ""}`}
       data-node-id={n.id}
@@ -167,6 +178,10 @@ export function farCard({
           ? { background: `color-mix(in srgb, ${n.color} 12%, var(--card))` }
           : {}),
       }}
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      onKeyDown={onEnter((e) => onTapNode(n, e.shiftKey))}
       onClick={(e) => onTapNode(n, e.shiftKey)}
       onContextMenu={(e) => onContext(n, e)}
     >

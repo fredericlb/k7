@@ -20,6 +20,8 @@ listens on, the way sign-in does (`docs/signIn.md`).
 - **The browser must be signed in as the same account.** The origin says whose token it minted
   (`identity`), and a different email is refused: that account's workspaces would otherwise sync
   into this one.
+- **Announced before the browser opens.** It is the second trip right after the sign-in's, so a
+  native dialog says why first, and the account bar shows it waiting, with Cancel (`docs/notices.md`).
 - **Once per account and server per run.** A pairing the person closes is not reopened at every session change;
   the next start asks again.
 - **The local user never pairs.** It has no account at the origin.
@@ -32,7 +34,7 @@ listens on, the way sign-in does (`docs/signIn.md`).
 
 ## The server is the person's choice
 
-Signing in asks which k7 server this machine syncs with — `st0.app`, a private instance, a dev
+Signing in asks which k7 server this machine syncs with — `app.k7.rocks`, a private instance, a dev
 origin — inline, beside the home page's Sign in, prefilled with the last one (`src/server.ts`,
 `AccountButton.tsx`). It is kept in the app's state folder and is where pairing goes; the sign-in
 still goes through the app's own provider. The address is an origin, https unless the server is on

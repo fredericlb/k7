@@ -1,8 +1,8 @@
-// services.ts — where each studio service answers. Every one is k7's origin: z0 is a path under
-// it, and pl8 (the media library) is served BY k7 — `play.` and `k7.` (the rehearsal recorder's
-// former host) are only alias hosts that saved URLs still reach. Stated once so nothing derives it a
-// second way. Browser-safe: no node imports, because the SPAs, the file service and the
-// supervisor all have to agree about this.
+// services.ts — where each studio service answers. Every one is k7's origin, `app.<domain>`: z0
+// is a path under it, pl8 (the media library) is served BY k7, and `docs.<domain>` is the same app
+// showing its documentation alone. `st0.app` and its `play.` / `k7.` aliases are FORMER hosts that
+// saved URLs still reach, each read as the current origin. Browser-safe: no node imports, because
+// the SPAs, the file service and the supervisor all have to agree about this — docs/addresses.md.
 
 export type StudioService = "k7" | "pl8" | "z0";
 
@@ -12,6 +12,16 @@ export const SERVICE_PATHS: Record<"z0", string> = { z0: "/z0" };
 /** The alias hosts k7 also answers on — pl8's and the rehearsal recorder's former addresses, kept for saved URLs. */
 const ALIAS_LABELS = ["play", "k7"];
 
+/** k7's label in front of its domain, and the documentation's beside it. */
+const APP_LABEL = "app";
+const DOCS_LABEL = "docs";
+
+/** The former hosts, each read as the one that replaced it — docs/addresses.md. */
+const LEGACY_HOSTS: Record<string, string> = {
+  "st0.app": "app.k7.rocks",
+  "priv.st0.app": "app.priv.k7.rocks",
+};
+
 /** The services with an address of their own — the others are served by k7's process. */
 type Addressed = Exclude<StudioService, "pl8">;
 
@@ -20,20 +30,35 @@ const addressOf = (service: StudioService): Addressed =>
   service === "pl8" ? "k7" : service;
 
 /**
- * k7's OWN hostname, given any studio hostname — stripping an alias's label back off.
- * Pattern-based rather than a fixed table of known domains, so a deployment on its
- * own domain needs nothing configured here.
+ * k7's OWN hostname, given any studio hostname — an alias's label stripped back off, `docs.`
+ * swapped for `app.`, and a former host read as its successor. Pattern-based apart from
+ * LEGACY_HOSTS, so a deployment on its own domain needs nothing configured here.
  */
 function k7Hostname(hostname: string): string {
+  let host = hostname;
   for (const label of ALIAS_LABELS) {
-    const prefix = `${label}.`;
-    if (hostname.startsWith(prefix)) return hostname.slice(prefix.length);
+    const rest = host.slice(label.length + 1);
+    // Stripped only off a real domain: `k7.rocks` is a domain, not an alias of `rocks`.
+    if (host.startsWith(`${label}.`) && rest.includes(".")) {
+      host = rest;
+      break;
+    }
   }
-  return hostname;
+  if (host.startsWith(`${DOCS_LABEL}.`))
+    host = `${APP_LABEL}.${host.slice(DOCS_LABEL.length + 1)}`;
+  return LEGACY_HOSTS[host] ?? host;
 }
 
+/** Whether `hostname` is the documentation's host — the app showing its docs and nothing else. */
+export const isDocsHost = (hostname: string): boolean =>
+  hostname.startsWith(`${DOCS_LABEL}.`);
+
+/** Whether `hostname` is an alias or a former host, whose pages move to k7's own origin. */
+export const isLegacyHost = (hostname: string): boolean =>
+  !isDocsHost(hostname) && k7Hostname(hostname) !== hostname;
+
 /** The hosted studio. A constant and not a setting, for the same reason the paths are. */
-export const STUDIO_ORIGIN = "https://st0.app";
+export const STUDIO_ORIGIN = "https://app.k7.rocks";
 
 /** Each backend's port — what a SERVER calls, since node does not trust the dev CA; see docs/addresses.md. */
 export const SERVICE_PORTS: Record<Addressed, number> = {

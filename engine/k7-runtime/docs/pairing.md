@@ -38,7 +38,7 @@ Allowed:
 - loopback pages, any port or none, on `http` or `https`: `127.0.0.1`, `localhost`, `[::1]` — the
   desktop app's window, a dev server, the phone app's shell page (`https://localhost`) and its studio
   views (`http://127.0.0.1:<port>`);
-- `https://st0.app` and `https://<sub>.st0.app`, on the default port only;
+- `https://k7.rocks` and `https://<sub>.k7.rocks` — the app, its dev instance, the docs — on the default port only;
 - every origin listed in `STUDIO_ENGINE_ALLOWED_ORIGINS`, comma-separated and matched exactly
   (scheme, host and port). The supervisor sets it to the origins of the studios this machine is
   listed at, so a self-hosted studio's pages reach its engine; a studio added after the engine

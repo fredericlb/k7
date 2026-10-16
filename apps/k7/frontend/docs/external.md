@@ -7,7 +7,7 @@ surface has an address of its own:
 ```
 <project>/@external/<surface>
 
-https://priv.st0.app/lemo_mante/mymix.k7/@external/desk
+https://app.priv.k7.rocks/lemo_mante/mymix.k7/@external/desk
 ```
 
 Opened on another device, it gives **that surface and nothing else**, driving the same engine as the

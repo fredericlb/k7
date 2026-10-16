@@ -4,13 +4,13 @@ import { relayUrls } from "./probe.ts";
 describe("relayUrls", () => {
   it("reaches a relay on ANOTHER origin at that origin, not the page's", () => {
     const r = relayUrls(
-      "https://play.priv.st0.app",
+      "https://app.priv.k7.rocks",
       "05ff",
       "t.k",
-      "https://priv.st0.app/@local/ws/p.k7",
+      "https://app.priv.k7.rocks/@local/ws/p.k7",
     );
-    expect(r.ws).toBe("wss://play.priv.st0.app/api/engine/05ff/ws?ticket=t.k");
-    expect(r.rtc).toBe("rtc:https://play.priv.st0.app/api/engine/05ff/rtc");
+    expect(r.ws).toBe("wss://app.priv.k7.rocks/api/engine/05ff/ws?ticket=t.k");
+    expect(r.rtc).toBe("rtc:https://app.priv.k7.rocks/api/engine/05ff/rtc");
   });
 
   it("reaches a relay given as a PATH on the page's own origin", () => {

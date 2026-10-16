@@ -2,7 +2,7 @@
 
 import { apiBase } from "../config";
 import type { Release, ReleasePatch, SongEnvelope } from "../types";
-import { f, json } from "./http";
+import { f, fu, json, type OnProgress } from "./http";
 
 export const releasesApi = {
   // --- Releases ---
@@ -18,15 +18,18 @@ export const releasesApi = {
       body: JSON.stringify(patch),
     }).then(json),
 
-  createRelease: (data: {
-    title: string;
-    artist: string;
-    releaseDate: string;
-    description: string;
-    canDownload: boolean;
-    versionName: string;
-    audio: File;
-  }): Promise<Release> => {
+  createRelease: (
+    data: {
+      title: string;
+      artist: string;
+      releaseDate: string;
+      description: string;
+      canDownload: boolean;
+      versionName: string;
+      audio: File;
+    },
+    onProgress?: OnProgress,
+  ): Promise<Release> => {
     const form = new FormData();
     form.append("title", data.title);
     form.append("artist", data.artist);
@@ -35,7 +38,7 @@ export const releasesApi = {
     form.append("canDownload", String(data.canDownload));
     form.append("versionName", data.versionName);
     form.append("audio", data.audio, data.audio.name);
-    return f("/api/releases", { method: "POST", body: form }).then(json);
+    return fu("/api/releases", "POST", form, onProgress).then(json);
   },
 
   deleteRelease: (id: string): Promise<null> =>
@@ -44,15 +47,15 @@ export const releasesApi = {
   addVersion: (
     id: string,
     data: { name: string; isDefault: boolean; audio: File },
+    onProgress?: OnProgress,
   ): Promise<unknown> => {
     const form = new FormData();
     form.append("name", data.name);
     form.append("isDefault", String(data.isDefault));
     form.append("audio", data.audio, data.audio.name);
-    return f(`/api/releases/${id}/versions`, {
-      method: "POST",
-      body: form,
-    }).then(json);
+    return fu(`/api/releases/${id}/versions`, "POST", form, onProgress).then(
+      json,
+    );
   },
 
   /** A version's shape, measured by the backend the first time and kept. */
@@ -64,13 +67,16 @@ export const releasesApi = {
     id: string,
     versionId: string,
     audio: File,
+    onProgress?: OnProgress,
   ): Promise<unknown> => {
     const form = new FormData();
     form.append("audio", audio, audio.name);
-    return f(`/api/releases/${id}/versions/${versionId}/audio`, {
-      method: "PUT",
-      body: form,
-    }).then(json);
+    return fu(
+      `/api/releases/${id}/versions/${versionId}/audio`,
+      "PUT",
+      form,
+      onProgress,
+    ).then(json);
   },
 
   setDefaultVersion: (id: string, versionId: string): Promise<Release> =>

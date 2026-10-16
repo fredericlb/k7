@@ -117,7 +117,7 @@ export function PresetPicker({
           title={taken ? `'${clean}' is already kept in ${scope}` : undefined}
           spellCheck={false}
           autoComplete="off"
-          className="min-w-0 flex-1 rounded border border-border bg-transparent px-1 py-0.5 font-mono text-xs outline-none placeholder:text-muted-foreground/60"
+          className="min-w-0 flex-1 rounded border border-border bg-transparent px-1 py-0.5 font-mono text-xs outline-none focus:border-primary placeholder:text-muted-foreground/60"
         />
         <select
           value={scope}
@@ -164,7 +164,7 @@ export function PresetPicker({
       aria-label={m["preset.engine"]()}
     >
       <div className="px-3 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-        engine
+        {m["preset.engine"]()}
       </div>
       {engines.names.map((name) => (
         <button

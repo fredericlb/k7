@@ -4,18 +4,23 @@
 // See packages/song/docs/moduleAssets.md.
 
 import type { ModelDownloadJob } from "@studio/web-protocol";
+import { m } from "./paraglide/messages.js";
 
 const POLL_MS = 1000;
 const MB = 1024 * 1024;
 
 /** One line for the job as it stands — the status bar's, or the settings'. */
 export function describeDownload(j: ModelDownloadJob): string {
-  if (j.done)
-    return j.error ?? `${j.file} downloaded — it is on this machine now`;
+  if (j.done) return j.error ?? m["status.modelDownloaded"]({ file: j.file });
   const got = (j.received / MB).toFixed(0);
-  if (!j.total) return `downloading ${j.file} — ${got} MB so far`;
+  if (!j.total) return m["status.modelDownloading"]({ file: j.file, got });
   const pct = Math.floor((j.received / j.total) * 100);
-  return `downloading ${j.file} — ${pct}% (${got} of ${(j.total / MB).toFixed(0)} MB)`;
+  return m["status.modelDownloadingPct"]({
+    file: j.file,
+    pct,
+    got,
+    total: (j.total / MB).toFixed(0),
+  });
 }
 
 /** Poll until the job is done, reporting each state; answers the final one. A poll that fails ends it as an error rather than spinning. */

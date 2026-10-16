@@ -11,6 +11,8 @@ import {
 import { CloudDownload, Disc3 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { useMemo, useState } from "react";
+import { isOne } from "../../i18n";
+import { m } from "../../paraglide/messages.js";
 import { browseSongs, type SetEntry } from "../setList";
 
 export function SongBrowser({
@@ -44,16 +46,20 @@ export function SongBrowser({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[80vh] max-w-lg flex-col">
         <DialogHeader>
-          <DialogTitle>Platine {side}</DialogTitle>
+          <DialogTitle>{m["browser.title"]({ side })}</DialogTitle>
           <DialogDescription>
-            {songs.length} morceau{songs.length > 1 ? "x" : ""} dans le set
+            {m[
+              isOne(songs.length) ? "browser.count.one" : "browser.count.other"
+            ]({
+              count: songs.length,
+            })}
           </DialogDescription>
         </DialogHeader>
 
         <Input
           autoFocus
           value={query}
-          placeholder="Search for an artist, a title…"
+          placeholder={m["browser.search"]()}
           onChange={(e) => setQuery(e.target.value)}
           // Type, Enter, done — and the first PLAYABLE row, so a syncing song cannot be loaded by mistake.
           onKeyDown={(e) => {
@@ -66,9 +72,7 @@ export function SongBrowser({
         <div className="min-h-0 flex-1 overflow-auto">
           {!shown.length ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-              {songs.length
-                ? "No song matches."
-                : "The set is empty — add songs to the playlist this desk names."}
+              {songs.length ? m["browser.noMatch"]() : m["browser.emptySet"]()}
             </p>
           ) : (
             <ul className="flex flex-col">
@@ -80,10 +84,10 @@ export function SongBrowser({
                     onClick={() => pick(s)}
                     title={
                       playable(s)
-                        ? `load onto deck ${side}`
+                        ? m["browser.load"]({ side })
                         : s.entry
-                          ? "this folder carries no audio"
-                          : "not in this machine's cache yet"
+                          ? m["browser.noAudio"]()
+                          : m["browser.notCached"]()
                     }
                     className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left hover:bg-accent/40 disabled:opacity-50 disabled:hover:bg-transparent"
                   >

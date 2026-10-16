@@ -17,7 +17,7 @@ import type { ProjectGateStrings } from "./gateTypes.ts";
 
 /** What a workspace with no project says when the app draws no wizard: nothing is wrong, it is empty. */
 const EMPTY_WORKSPACE =
-  "this workspace holds no project yet — add one from the projects page";
+  "This workspace holds no project yet — add one from the projects page.";
 
 const PRIMARY =
   "rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground";
@@ -45,11 +45,15 @@ function GateCard({
   );
 }
 
-function Message({ text }: { text: string }) {
+/** The raw message behind a screen, folded away: the sentence above it is what to do, this is what to report. */
+function Detail({ label, text }: { label: string; text: string }) {
   return (
-    <code className="max-w-full overflow-x-auto whitespace-pre-wrap rounded bg-muted px-2 py-1 text-left text-xs">
-      {text}
-    </code>
+    <details className="w-full max-w-full text-left text-xs text-muted-foreground">
+      <summary className="cursor-pointer select-none">{label}</summary>
+      <code className="mt-1 block max-w-full overflow-x-auto whitespace-pre-wrap rounded bg-muted px-2 py-1">
+        {text}
+      </code>
+    </details>
   );
 }
 
@@ -111,18 +115,24 @@ export function CloningScreen({
 /** Repository fine, machine fine, project not in it: picking again is the only move, so no Retry. */
 export function MissingScreen({
   strings,
-  message,
+  hint,
+  detail,
   onBack,
 }: {
   strings: ProjectGateStrings;
-  message: string;
+  /** What to do instead, when the gate knows better than the generic body. */
+  hint?: string;
+  /** The service's own sentence, folded away under `strings.details`. */
+  detail?: string;
   onBack: () => void;
 }) {
   return (
     <GateCard icon={<FolderSearch className="h-10 w-10 text-amber-500" />}>
       <h1 className="text-lg font-semibold">{strings.missingTitle}</h1>
-      <p className="text-sm text-muted-foreground">{strings.missingBody}</p>
-      <Message text={message} />
+      <p className="text-sm text-muted-foreground">
+        {hint ?? strings.missingBody}
+      </p>
+      {detail && <Detail label={strings.details ?? "Details"} text={detail} />}
       <Back label={strings.back} onClick={onBack} />
     </GateCard>
   );
@@ -238,7 +248,10 @@ export function ErrorScreen({
             : // The probe didn't run (the service answered): the message says it.
               strings.bothBody}
       </p>
-      <Message text={lines?.length ? lines.join("\n") : message} />
+      <Detail
+        label={strings.details ?? "Details"}
+        text={lines?.length ? lines.join("\n") : message}
+      />
       <div className="flex items-center gap-2">
         <button
           type="button"

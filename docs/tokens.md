@@ -47,7 +47,7 @@ verifies it. A token of the `{sub, iat}` format, with no id, is refused.
 ## The URLs are not configuration
 
 `packages/web-protocol/services.ts` holds the one table, every address derived from k7's origin
-— `https://st0.app` in production (`packages/web-protocol/docs/addresses.md`). `play.st0.app` and
-`k7.st0.app` are aliases of that origin: they answer `/api/*` (and `/rtc` for the recorder's phone
-microphone) and send every page to `/media` or `/rehearsal` at the root. **`/auth/*` belongs to
+— `https://app.k7.rocks` in production (`packages/web-protocol/docs/addresses.md`). `play.st0.app`
+and `k7.st0.app` are former hosts read as that origin: they answer `/api/*` (and `/rtc` for the
+recorder's phone microphone) and send every page to `/media` or `/rehearsal` at k7's origin. **`/auth/*` belongs to
 k7**, since the registered `redirect_uri` is on its origin.

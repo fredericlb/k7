@@ -3,6 +3,7 @@
 
 import { apiBase } from "../config";
 import { m } from "../paraglide/messages.js";
+import { upload } from "../upload";
 
 /** A publish token as its owner sees it: never the token itself. */
 export interface ApiToken {
@@ -16,6 +17,23 @@ export interface ApiToken {
 // Every call sends the session cookie, under the base the host configured (config.ts).
 export const f = (path: string, init?: RequestInit) =>
   fetch(`${apiBase()}${path}`, { credentials: "include", ...init });
+
+/** Called as an upload's bytes leave, with the share sent so far (0 to 1). */
+export type OnProgress = (fraction: number) => void;
+
+// An upload, through XMLHttpRequest so its progress is known — ../../docs/recordings.md.
+export const fu = (
+  path: string,
+  method: string,
+  body: FormData,
+  onProgress?: OnProgress,
+) =>
+  upload(`${apiBase()}${path}`, {
+    method,
+    body,
+    onProgress,
+    withCredentials: true,
+  });
 
 /** A failed call: the server's own sentence when it sent one, and the status a caller tells 404 by. */
 export class ApiError extends Error {

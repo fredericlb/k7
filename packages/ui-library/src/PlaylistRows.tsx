@@ -116,6 +116,7 @@ export function PlaylistRows({
             size="sm"
             disabled={downloading}
             title={labels.contents.downloadMissing(missing)}
+            aria-busy={downloading}
             onClick={() => {
               setDownloading(true);
               void onDownloadMissing().finally(() => setDownloading(false));

@@ -239,3 +239,19 @@ name. The menu opens on the first tab, which is the thing clicked; `ui` always g
 about the editor rather than the song. With only one kind of row there is no strip at all — a lone
 tab says nothing. Left and right arrows walk the tabs.
 
+## On a touch screen, a held finger is the right-click
+
+A tablet has no right button, and the menu is the only door to most of these verbs. So a finger or
+a pen held still for half a second, moving less than ten pixels, dispatches a `contextmenu` where it
+is held (`src/longPress.ts`). It is installed ONCE, on the window, rather than beside each of the
+app's seventy-odd `onContextMenu` handlers: every surface that answers a right-click answers a long
+press the day it is written, and none of them knows the difference.
+
+Movement past the slop cancels it, because a held finger that travels is a pan or a drag; so does a
+second finger, which is a pinch. A text field keeps its native long press, which selects text. The
+click the release produces is swallowed only when a handler TOOK the menu — called
+`preventDefault`, as every one here does to hide the browser's own — so a slow tap on a plain
+button still clicks, and a release over the menu just opened does not pick its first row. Android
+fires a native `contextmenu` of its own during a long press: one that arrives before ours wins and
+cancels ours, one that arrives after is dropped, so a press never opens two menus.
+

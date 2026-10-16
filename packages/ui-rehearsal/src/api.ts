@@ -10,7 +10,12 @@ import { singingApi } from "./api/singing";
 import { songsApi } from "./api/songs";
 import { tokensApi } from "./api/tokens";
 
-export { ApiError, type ApiToken, UnauthenticatedError } from "./api/http";
+export {
+  ApiError,
+  type ApiToken,
+  type OnProgress,
+  UnauthenticatedError,
+} from "./api/http";
 
 export const api = {
   ...sessionsApi,

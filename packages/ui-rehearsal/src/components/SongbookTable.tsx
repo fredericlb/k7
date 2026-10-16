@@ -129,8 +129,18 @@ export function SongbookTable({
               <td className="songbook-artist" title={s.artist}>
                 {s.artist}
               </td>
+              {/* The row's keyboard way in: a mouse clicks anywhere on the row, a keyboard reaches this. */}
               <td className="songbook-title" title={s.title}>
-                {s.title}
+                <button
+                  type="button"
+                  className="songbook-title-open"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenSong(s);
+                  }}
+                >
+                  {s.title}
+                </button>
               </td>
               <td className="songbook-links">
                 <div className="song-links">

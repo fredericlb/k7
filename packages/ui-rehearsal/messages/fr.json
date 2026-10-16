@@ -71,6 +71,8 @@
   "common.start": "Démarrer",
   "common.stop": "Arrêter",
   "common.uploading": "Envoi…",
+  "common.uploadProgress": "Envoi… {percent} %",
+  "common.analyzing": "Analyse…",
   "date.today": "Aujourd'hui",
   "date.yesterday": "Hier",
   "exercise.chords.count": "Accord n° {n}",

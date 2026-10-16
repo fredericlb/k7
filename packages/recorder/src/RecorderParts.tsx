@@ -174,23 +174,25 @@ export function HighlightList({
   return (
     <ul className="event-list">
       {highlights.map((h, i) => (
-        <li
-          key={i}
-          className={`event-item link-row${active === h.startSec ? " active-row" : ""}`}
-          onClick={() => onPick(h)}
-        >
-          <span>
-            {fmtTime(h.startSec)} – {fmtTime(h.endSec)}{" "}
-            <span className="muted small">({fmtTime(h.durationSec)})</span>
-            {tagged.some((p) => p.startSec === h.startSec) && (
-              <Badge variant="tag" className="ml-2">
-                {L.taggedBadge}
-              </Badge>
-            )}
-          </span>
-          <span className="muted small">
-            <Pause className="size-3" /> {L.listenAndTag}
-          </span>
+        <li key={i}>
+          <button
+            type="button"
+            className={`event-item link-row${active === h.startSec ? " active-row" : ""}`}
+            onClick={() => onPick(h)}
+          >
+            <span>
+              {fmtTime(h.startSec)} – {fmtTime(h.endSec)}{" "}
+              <span className="muted small">({fmtTime(h.durationSec)})</span>
+              {tagged.some((p) => p.startSec === h.startSec) && (
+                <Badge variant="tag" className="ml-2">
+                  {L.taggedBadge}
+                </Badge>
+              )}
+            </span>
+            <span className="muted small">
+              <Pause className="size-3" /> {L.listenAndTag}
+            </span>
+          </button>
         </li>
       ))}
     </ul>

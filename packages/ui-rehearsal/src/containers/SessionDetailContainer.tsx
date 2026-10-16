@@ -16,7 +16,7 @@ interface Props {
   allTags: string[];
   onBack: () => void;
   onChange: () => void;
-  onResume: (session: Session) => void;
+  onResume: (session: Session) => Promise<void>;
 }
 
 export function SessionDetailContainer({
@@ -157,7 +157,8 @@ export function SessionDetailContainer({
         audioSrc={`${api.recordingUrl(sessionId)}?v=${session.duration}`}
         validating={validating}
         onBack={onBack}
-        onResume={() => onResume(session)}
+        // The refusal is already on the page through guard; nothing else wants the rejection.
+        onResume={() => void guard(onResume)(session).catch(() => {})}
         onThresholdChange={setThreshold}
         onMinSilenceChange={setMinSilence}
         onAddAnnotation={handleAddAnnotation}

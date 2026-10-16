@@ -37,7 +37,7 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** The origin a relay URL names, as a person reads it: `wss://st0.app/api/sync` → `st0.app`. */
+/** The origin a relay URL names, as a person reads it: `wss://app.k7.rocks/api/sync` → `app.k7.rocks`. */
 const originOf = (url: string | null): string => {
   try {
     return url ? new URL(url).host : "";

@@ -121,7 +121,8 @@ export function ProjectGate({
       return (
         <MissingScreen
           strings={strings}
-          message={phase.message}
+          hint={phase.hint}
+          detail={phase.detail}
           onBack={quit}
         />
       );

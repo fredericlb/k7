@@ -5,7 +5,7 @@
 import type { LrcCandidate } from "@studio/rehearsal-shared";
 
 const SEARCH_URL = "https://lrclib.net/api/search";
-const USER_AGENT = "k7 songbook (https://studio.frediver.se/k7)";
+const USER_AGENT = "k7 songbook (https://app.k7.rocks/rehearsal)";
 const TIMEOUT_MS = 10_000;
 /** More than this many candidates is a list nobody reads on a phone. */
 const MAX_CANDIDATES = 8;

@@ -4,7 +4,7 @@ The music and stage apps of the frediverse.
 
 | app | what it is | dev site |
 |---|---|---|
-| `apps/k7` | text-first DAW — the web editor, the media library (songs, samples, recordings, under `/media`) and the rehearsal recorder (sessions, takes, songbook, tuner, under `/rehearsal`); the origin's front door | `priv.st0.app` |
+| `apps/k7` | text-first DAW — the web editor, the media library (songs, samples, recordings, under `/media`) and the rehearsal recorder (sessions, takes, songbook, tuner, under `/rehearsal`); the origin's front door | `app.priv.k7.rocks` |
 | `engine/k7-runtime` | the native C++ audio engine (JUCE/Tracktion) | — |
 | `engine/k7-supervisor` | the engine machine's supervisor: starts and watches the engine, holds its tunnel | — |
 | `apps/k7-standalone` | k7 as a desktop app (Electron): its backend, the supervisor and its engine, and a window | — |
@@ -29,9 +29,10 @@ cp env.example.yaml env.yaml   # then fill in the secrets
 npm run dev                    # every app, plus the engine and the desktop app
 ```
 
-In dev the studio answers at **https://priv.st0.app** — k7 at the root, the media library under
-`/media`, the rehearsal recorder under `/rehearsal` — with `play.priv.st0.app` and
-`k7.priv.st0.app` aliases of k7 (`packages/web-protocol/services.ts`).
+In dev the studio answers at **https://app.priv.k7.rocks** — k7 at the root, the media library
+under `/media`, the rehearsal recorder under `/rehearsal` — and its documentation at
+**https://docs.priv.k7.rocks**; in production, `app.k7.rocks` and `docs.k7.rocks`
+(`packages/web-protocol/services.ts`).
 Nothing here terminates TLS: the name resolves to the LAN server, which reverse-proxies to
 the dev servers. See [docs/dev.md](docs/dev.md).
 

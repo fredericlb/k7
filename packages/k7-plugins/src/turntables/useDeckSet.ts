@@ -22,6 +22,7 @@ import {
 } from "@studio/song-schema/yaml/mixFile";
 import type { MixView as MixViewFile } from "@studio/song-schema/yaml/mixViewSchema";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { m } from "../paraglide/messages.js";
 import { alignSeek } from "./beats";
 import {
   type DeckPlaying,
@@ -741,9 +742,7 @@ export function useDeckSet(
       if (!load) return;
       // Never written from a sheet this desk has not read: the whole file would go with it.
       if (mixReadFor.current !== project) {
-        setDeskError(
-          `${MIX_FILE} could not be read yet — the cue was not written`,
-        );
+        setDeskError(m["desk.mixUnread"]({ file: MIX_FILE }));
         return;
       }
       const ref = `@k7-core/${load.id}`;
@@ -756,9 +755,7 @@ export function useDeckSet(
       setMixText(text);
       void writeMixText(project, text).catch((e: Error) =>
         // Said out loud: the button has already gone coloured, so a silent failure would lose the cue.
-        setDeskError(
-          `the cue could not be written into ${MIX_FILE}: ${e.message}`,
-        ),
+        setDeskError(m["desk.cueFailed"]({ file: MIX_FILE, error: e.message })),
       );
     },
 
@@ -947,9 +944,7 @@ export function useDeckSet(
       // …and the stand-in, before the compile lands: no crossfade module, so the two decks' levels move.
       if (!compiled) return pushCrossfade(deck.engine, value);
       // Compiled but bound to no loaded plugin — the stand-in's levels are not in THIS document.
-      setDeskError(
-        `the crossfade is bound to no loaded plugin — check ${MIX_VIEW_FILE}`,
-      );
+      setDeskError(m["desk.xfadeUnbound"]({ file: MIX_VIEW_FILE }));
     },
     turnEq: (deckId, band, dB) => {
       const id = `${deckId}.${band}`;

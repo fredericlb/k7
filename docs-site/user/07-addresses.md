@@ -20,14 +20,14 @@ what each form means, for when you type or share one yourself.
 | `/media/…` | The media library. |
 | `/rehearsal/…` | The rehearsal recorder. `/rehearsal/@<nametag>` is a public page, open without signing in. |
 
-Examples, on the site `st0.app`:
+Examples, on the site `app.k7.rocks`:
 
 ```text
-https://st0.app/@local/band/winter.k7
-https://st0.app/@local/band/covers/heroes.k7
-https://st0.app/@local/band
-https://st0.app/@local/band/set.k7/@external/desk
-https://st0.app/@banc/@k7-core/bass/di/live.k7
+https://app.k7.rocks/@local/band/winter.k7
+https://app.k7.rocks/@local/band/covers/heroes.k7
+https://app.k7.rocks/@local/band
+https://app.k7.rocks/@local/band/set.k7/@external/desk
+https://app.k7.rocks/@banc/@k7-core/bass/di/live.k7
 ```
 
 The words `external`, `libraries`, `tasks`, `settings`, `media` and `rehearsal` are reserved: a
@@ -45,7 +45,7 @@ Once a project is open, the part of the address after the project names what is 
 | `/chains-builder`, `/chains-builder/<chain>` | The chain builder: the list of library chains, or one of them. |
 | `?panel=event`, `graph`, `mix`, `logs` | A bottom panel open over whichever screen you are on. |
 
-So `https://st0.app/@local/band/winter.k7/chains?panel=mix` opens winter on the chains pane with the
+So `https://app.k7.rocks/@local/band/winter.k7/chains?panel=mix` opens winter on the chains pane with the
 mixer panel open. The editor shell section of this guide describes the panes and panels.
 
 ## Things to know

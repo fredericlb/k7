@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import type { SetStatus } from "../hooks/useLogs";
 import { useQuietWrites, useRevision } from "../hooks/useRevision";
+import { m } from "../paraglide/messages.js";
 import type { SeqView } from "../sequenceEdit";
 import type { Hints } from "../types";
 import { SeqGrid } from "./SeqGrid";
@@ -88,7 +89,11 @@ export function SeqGridFile({
       .then(() => api.write(path, next))
       .then(
         () => onChanged(),
-        (e) => setStatus(`could not save ${path}: ${e?.message ?? e}`, "error"),
+        (e) =>
+          setStatus(
+            m["status.seq.saveFailed"]({ path, message: e?.message ?? e }),
+            "error",
+          ),
       )
       .finally(() => {
         pending.current--;

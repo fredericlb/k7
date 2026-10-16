@@ -12,7 +12,7 @@ export type GatePhase =
   | { k: "cloning"; workspace: string; phase: string }
   | { k: "error"; message: string; fault?: FileServiceFault; lines?: string[] }
   // The machine answered and has no such folder — its own screen, see docs/launch.md.
-  | { k: "missing"; message: string }
+  | { k: "missing"; hint?: string; detail?: string }
   // The account has no library repository, so nothing resolves and nothing retries — docs/launch.md.
   | { k: "no-libraries" }
   // The workspace opened and holds no project at all — the host app's wizard, see docs/launch.md.
@@ -66,4 +66,10 @@ export interface ProjectGateStrings {
   loading?: EngineLoadStrings;
   /** The wait for sync before it opens; English when an app passes none. */
   syncing?: SyncWaitStrings;
+  /** `@local` with no project after it — what such an address looks like; English when absent. */
+  localUsage?: string;
+  /** An address from before `@local` (a repository name) — where to open it instead; English when absent. */
+  retiredAddress?: (name: string) => string;
+  /** The label over the raw technical detail, which stays collapsed; English when absent. */
+  details?: string;
 }

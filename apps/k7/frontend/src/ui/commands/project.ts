@@ -93,7 +93,7 @@ export const PROJECT_COMMANDS: LocalCommand[] = [
     run: (ctx, rest) => {
       const ask = parseExportAsk(rest);
       const name = ctx.projectDoc?.name;
-      if (!ask) ctx.setStatus(EXPORT_USAGE);
+      if (!ask) ctx.setStatus(m["status.usage"]({ syntax: EXPORT_USAGE }));
       else if (ask.kind === "audio") void ctx.share.exportMix(ask.format);
       else if (ask.kind === "timeline")
         void ctx.share.exportTimeline(
@@ -156,10 +156,7 @@ export const PROJECT_COMMANDS: LocalCommand[] = [
       const path = arg
         ? resolveEntry(arg, ctx.editorRef.current?.entries() ?? [])
         : null;
-      if (!path)
-        ctx.setStatus(
-          "usage: project import <a .dawproject, .als or Ableton .zip of this workspace>",
-        );
+      if (!path) ctx.setStatus(m["status.importUsage"]());
       else ctx.imp.askImport(path);
       return true;
     },

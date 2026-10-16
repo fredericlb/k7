@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { m } from "../paraglide/messages.js";
 import { snapMode, snapTo } from "../snap";
 import { pictureToolLine, type Tool } from "../timelineTools";
 import type { WebVideoTrack } from "../types";
@@ -148,7 +149,7 @@ export function useVideoDrag({
     // A drag that ended where it started writes nothing — the same courtesy the clip drag extends.
     if (!write || !v.moved || videoDragIsStill(v)) {
       setVDrag(null);
-      if (v.moved) setStatus("drag cancelled — no change");
+      if (v.moved) setStatus(m["status.timeline.dragCancelled"]());
       return;
     }
     // Held until the reload, exactly as a committed move is: clearing here snapped the shot back for a round trip.

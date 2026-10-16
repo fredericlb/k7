@@ -2,6 +2,7 @@
 // one entry the line names. False means "not mine" and the caller sends the line to the server.
 
 import { isUiLine, uiVerdict } from "../../localCommands";
+import { m } from "../../paraglide/messages.js";
 import type { LocalCtx } from "./context";
 import { dispatchKey, findLocal } from "./index";
 
@@ -18,8 +19,8 @@ export function runLocal(ctx: LocalCtx, input: string): boolean {
     // Handled rather than passed down: the backend has no such command either, and would say less.
     ctx.setStatus(
       isUi
-        ? `"${line}" is a ui command — type: ui ${line}`
-        : `"${line}" is not a ui command — type it without the ui prefix`,
+        ? m["status.isUiCommand"]({ line })
+        : m["status.notUiCommand"]({ line }),
     );
     return true;
   }

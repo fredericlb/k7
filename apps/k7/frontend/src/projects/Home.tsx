@@ -236,7 +236,7 @@ export function Home() {
           button on this page silently does nothing — see @studio/project-shell/ask. */}
       <AskHost />
       {/* Where the page's passing notices are drawn. */}
-      <Toaster />
+      <Toaster dismissLabel={m["common.dismiss"]()} />
 
       {/* The desktop and Android apps' account, at the top of the page rather than in a title or native bar (projects/AccountBar.tsx). */}
       <AccountBar />

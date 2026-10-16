@@ -1,5 +1,5 @@
 // server.ts — the k7 server this machine syncs its signed-in account with, as the person chose it at
-// sign-in: kept in the app's state folder, `https://st0.app` until they choose another. Sign-in itself
+// sign-in: kept in the app's state folder, `https://app.k7.rocks` until they choose another. Sign-in itself
 // still goes through the app's own provider (docs/signIn.md); this names where pairing goes (docs/sync.md).
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -10,7 +10,7 @@ import { app } from "electron";
 
 const file = (): string => join(app.getPath("userData"), "server.json");
 
-/** The chosen server: `K7_SYNC_ORIGIN` for a test, else the one saved at the last sign-in, else st0.app. */
+/** The chosen server: `K7_SYNC_ORIGIN` for a test, else the one saved at the last sign-in, else app.k7.rocks. */
 export function chosenServer(): string {
   const forced = normalizeServer(process.env.K7_SYNC_ORIGIN ?? "");
   if (forced) return forced;

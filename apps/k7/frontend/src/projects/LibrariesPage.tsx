@@ -29,7 +29,7 @@ export function LibrariesPage() {
   return (
     <HomeShell subtitle={m["home.libraries"]()}>
       <AskHost />
-      <Toaster />
+      <Toaster dismissLabel={m["common.dismiss"]()} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl">
           {fileService === undefined ? (

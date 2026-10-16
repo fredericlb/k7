@@ -380,6 +380,7 @@ export function MediaLibrary({
                 : undefined
             }
             cancelLabel={labels.common.cancel}
+            rowMenuLabel={labels.tree.more}
             // Every target needs one action whose `when` passes, or no menu opens at all (../docs/library.md).
             actions={
               !editable

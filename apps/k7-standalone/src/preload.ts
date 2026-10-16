@@ -7,12 +7,16 @@ import {
   type TabState,
 } from "@studio/web-protocol/desktop";
 import { contextBridge, ipcRenderer } from "electron";
+import type { AccountStatus } from "./accountStatus.ts";
+import { RELEASE } from "./release.ts";
 
 const PREFIX = "--studio-ports=";
 const spec = process.argv
   .find((a) => a.startsWith(PREFIX))
   ?.slice(PREFIX.length);
 if (spec) contextBridge.exposeInMainWorld("__STUDIO_PORTS__", spec);
+// The release stamp, for the settings page: the same one About shows (docs/menu.md).
+contextBridge.exposeInMainWorld("studioApp", { version: RELEASE });
 
 const stateSubs = new Set<(s: TabState) => void>();
 const rowSubs = new Set<(r: TabRow[]) => void>();
@@ -30,6 +34,11 @@ ipcRenderer.on(DESKTOP_IPC.tab, (_e, s: TabState) => {
 ipcRenderer.on(DESKTOP_IPC.tabs, (_e, r: TabRow[]) => {
   latest = r;
   for (const cb of rowSubs) cb(r);
+});
+
+const authSubs = new Set<(s: AccountStatus) => void>();
+ipcRenderer.on(DESKTOP_IPC.authStatus, (_e, s: AccountStatus) => {
+  for (const cb of authSubs) cb(s);
 });
 
 ipcRenderer.on(DESKTOP_IPC.fullscreen, (_e, on: boolean) => {
@@ -81,6 +90,17 @@ contextBridge.exposeInMainWorld("studioTabs", {
   select: (id: number) => ipcRenderer.send(DESKTOP_IPC.tabsSelect, id),
   close: (id: number) => ipcRenderer.send(DESKTOP_IPC.tabsClose, id),
   signIn: (server?: string) => ipcRenderer.send(DESKTOP_IPC.signIn, server),
+  /** Where a sign-in or a pairing stands, for the account bar (docs/notices.md). */
+  authStatus: (): Promise<AccountStatus | null> =>
+    ipcRenderer.invoke(DESKTOP_IPC.authStatus),
+  onAuthStatus(cb: (s: AccountStatus) => void): () => void {
+    authSubs.add(cb);
+    return () => {
+      authSubs.delete(cb);
+    };
+  },
+  /** Abandon the browser trip in progress: its loopback port closes. */
+  cancelSignIn: () => ipcRenderer.send(DESKTOP_IPC.authCancel),
   /** Whether the window is fullscreen, which takes the window's own controls off the strip. */
   fullscreen: (): boolean => fullscreen,
   onFullscreen(cb: (on: boolean) => void): () => void {

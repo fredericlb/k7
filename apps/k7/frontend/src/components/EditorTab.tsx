@@ -372,7 +372,10 @@ export function EditorTab({
               source: resolveGutterSource(req.source, filePath, activeProject),
             };
       void api.preview(r).catch((e) => {
-        setStatus(`preview error: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.editor.previewFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       });
       void previewSound(r);
     },
@@ -386,7 +389,10 @@ export function EditorTab({
         const { start, length } = await api.preview(req);
         return { start, length };
       } catch (e) {
-        setStatus(`preview error: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.editor.previewFailed"]({ message: (e as Error).message }),
+          "error",
+        );
         return null; // no sound, so no playhead: the strip draws nothing rather than a lie
       }
     },
@@ -566,7 +572,10 @@ export function EditorTab({
       setLibChains(c.chains);
       setLibAssemblies(a.assemblies);
     } catch (e) {
-      setStatus(`load error: ${(e as Error).message}`, "error");
+      setStatus(
+        m["status.editor.loadFailed"]({ message: (e as Error).message }),
+        "error",
+      );
     }
   }, [setStatus]);
 
@@ -582,7 +591,10 @@ export function EditorTab({
         if (t) setTree(keepIfSame(t));
         if (h) setHints(keepIfSame(h));
       } catch (e) {
-        setStatus(`load error: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.editor.loadFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       }
     },
     [setStatus],
@@ -619,7 +631,7 @@ export function EditorTab({
         if (seq !== openSeq.current) return false;
         // Never open a binary: the tree disables them, but the breadcrumb reaches here too, so guard centrally.
         if (f.binary) {
-          setStatus(`${path} — binary file, not shown`);
+          setStatus(m["status.editor.binaryFile"]({ path }));
           return false;
         }
         // An edit that could never be written outlived the pane showing it: give it back rather than the disk copy.
@@ -629,7 +641,10 @@ export function EditorTab({
         setStatus(path);
         return true;
       } catch (e) {
-        setStatus(`open error: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.editor.openFailed"]({ message: (e as Error).message }),
+          "error",
+        );
         return false;
       }
     },
@@ -647,9 +662,12 @@ export function EditorTab({
         else if (cur && cur.startsWith(`${path}/`))
           void open(newPath + cur.slice(path.length));
         onChanged();
-        setStatus(`renamed to ${newPath}`);
+        setStatus(m["status.editor.renamed"]({ path: newPath }));
       } catch (e) {
-        setStatus(`rename failed: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.editor.renameFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       }
     },
     [file?.path, refresh, open, onChanged, setStatus],
@@ -666,9 +684,12 @@ export function EditorTab({
         else if (cur && cur.startsWith(`${path}/`))
           void open(newPath + cur.slice(path.length));
         onChanged();
-        setStatus(`moved to ${newPath}`);
+        setStatus(m["status.editor.moved"]({ path: newPath }));
       } catch (e) {
-        setStatus(`move failed: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.editor.moveFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       }
     },
     [file?.path, refresh, open, onChanged, setStatus],
@@ -696,9 +717,12 @@ export function EditorTab({
           onEditTarget(null);
         }
         onChanged();
-        setStatus(`deleted ${path} (recycled)`);
+        setStatus(m["status.editor.deleted"]({ path }));
       } catch (e) {
-        setStatus(`delete failed: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.editor.deleteFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       }
     },
     [file?.path, refresh, onChanged, onEditTarget, setStatus],
@@ -722,11 +746,17 @@ export function EditorTab({
           await refresh();
           onChanged();
           setStatus(
-            `renamed to ${newPath}, ${repointed.length} file(s) repointed`,
+            m["status.editor.renamedRepointed"]({
+              path: newPath,
+              count: repointed.length,
+            }),
           );
         }
       } catch (e) {
-        setStatus(`rename failed: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.editor.renameFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       }
     },
     [afterLibraryChange, refresh, onChanged, setStatus],
@@ -749,7 +779,10 @@ export function EditorTab({
         await api.deleteFile(path);
         await afterLibraryChange();
       } catch (e) {
-        setStatus(`delete failed: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.editor.deleteFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       }
     },
     [afterLibraryChange, setStatus],
@@ -767,14 +800,19 @@ export function EditorTab({
         await refresh();
         onChanged();
         setStatus(
-          `moved ${from} → ${to}` +
-            (repointed.length
-              ? `, ${repointed.length} file(s) repointed`
-              : ", nothing named it"),
+          repointed.length
+            ? m["status.editor.movedRepointed"]({
+                from,
+                to,
+                count: repointed.length,
+              })
+            : m["status.editor.movedUnnamed"]({ from, to }),
         );
       } catch (e) {
         showToast({
-          message: `move failed: ${(e as Error).message}`,
+          message: m["status.editor.moveFailed"]({
+            message: (e as Error).message,
+          }),
           variant: "error",
         });
       }
@@ -793,9 +831,12 @@ export function EditorTab({
         await refresh();
         void open(rel);
         onChanged();
-        setStatus(`created ${rel}`);
+        setStatus(m["status.editor.created"]({ path: rel }));
       } catch (e) {
-        setStatus(`create failed: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.editor.createFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       }
     },
     [refresh, open, onChanged, setStatus],
@@ -808,9 +849,12 @@ export function EditorTab({
         const { path } = await api.createFolder(dir, name);
         await refresh();
         onChanged();
-        setStatus(`created ${path}/`);
+        setStatus(m["status.editor.folderCreated"]({ path }));
       } catch (e) {
-        setStatus(`new folder failed: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.editor.folderFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       }
     },
     [refresh, onChanged, setStatus],
@@ -824,9 +868,12 @@ export function EditorTab({
         await refresh();
         void open(newPath);
         onChanged();
-        setStatus(`cloned to ${newPath}`);
+        setStatus(m["status.editor.cloned"]({ path: newPath }));
       } catch (e) {
-        setStatus(`clone failed: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.editor.cloneFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       }
     },
     [refresh, open, onChanged, setStatus],
@@ -840,9 +887,12 @@ export function EditorTab({
         await refresh();
         void open(newPath);
         onChanged();
-        setStatus(`created ${newPath}`);
+        setStatus(m["status.editor.created"]({ path: newPath }));
       } catch (e) {
-        setStatus(`new node failed: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.editor.nodeFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       }
     },
     [refresh, open, onChanged, setStatus],
@@ -941,14 +991,20 @@ export function EditorTab({
         void open(forked.path);
         onChanged();
         setStatus(
-          `${forked.ref} is shared — saved a project copy as ${forked.module}` +
-            (forked.chains.length
-              ? `, and repointed ${forked.chains.join(", ")}`
-              : ""),
+          forked.chains.length
+            ? m["status.editor.forkedRepointed"]({
+                ref: forked.ref,
+                module: forked.module,
+                chains: forked.chains.join(", "),
+              })
+            : m["status.editor.forked"]({
+                ref: forked.ref,
+                module: forked.module,
+              }),
         );
         return;
       }
-      setStatus(`saved ${path}`);
+      setStatus(m["status.editor.saved"]({ path }));
       // The reload re-reads the tree and the completions too: a second `refresh()` here fetched both twice per save.
       onChanged();
     },
@@ -966,7 +1022,10 @@ export function EditorTab({
   // The bar is where this pane already says what it did, and a failed write is what the badge is too small to explain.
   useEffect(() => {
     if (autosave.status === "error" && autosave.reason)
-      setStatus(`save error: ${autosave.reason}`, "error");
+      setStatus(
+        m["status.editor.saveFailed"]({ reason: autosave.reason }),
+        "error",
+      );
   }, [autosave.status, autosave.reason, setStatus]);
 
   // Drop OS files onto the tree: upload each into the dropped folder, sequentially, skipping existing names.
@@ -1026,9 +1085,12 @@ export function EditorTab({
           if (err.status === 409) skipped++;
           else {
             setUploadState(null);
-            setStatus(`upload error: ${name} — ${err.message}`, "error");
+            setStatus(
+              m["status.editor.uploadFailed"]({ name, message: err.message }),
+              "error",
+            );
             showToast({
-              message: `upload failed: ${name}`,
+              message: m["status.editor.uploadFailedShort"]({ name }),
               variant: "error",
             });
             return;
@@ -1040,10 +1102,13 @@ export function EditorTab({
       // A sound dropped into a LIBRARY lists under the Libraries tab, which reads its own route.
       if (dir.startsWith(`${LIBRARIES_DIR}/`)) void refreshLibraries();
       onChanged(); // a dropped clip/asset may change the project
-      const into = dir === "." ? "workspace root" : dir;
-      const msg =
-        `uploaded ${added} file${added === 1 ? "" : "s"} to ${into}` +
-        (skipped ? ` — skipped ${skipped} already there` : "");
+      const uploaded =
+        dir === "."
+          ? m["status.editor.uploadedRoot"]({ count: added })
+          : m["status.editor.uploaded"]({ count: added, dir });
+      const msg = skipped
+        ? m["status.editor.uploadedSkipped"]({ uploaded, skipped })
+        : uploaded;
       setStatus(msg);
       if (added > 0) showToast({ message: msg, variant: "success" });
     },

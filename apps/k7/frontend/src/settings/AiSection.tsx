@@ -5,6 +5,7 @@
 import { TriangleAlert } from "@frediverse/ui/icons";
 import { useEffect, useState } from "react";
 import { type AiSettingsView, aiOrganize } from "../api";
+import { m } from "../paraglide/messages.js";
 import { Action, Row, Section } from "./Section";
 
 const FIELD =
@@ -45,21 +46,18 @@ export function AiSection() {
   const modelChanged = model.trim() !== (view?.model ?? "");
 
   return (
-    <Section
-      title="AI"
-      hint="The Claude API key and model the module builder's AI organize uses. Stored on the server for your account; once saved, the key is never shown again."
-    >
+    <Section title={m["ai.title"]()} hint={m["ai.hint"]()}>
       <Row
-        label={view?.keyHint ? `Key ${view.keyHint}` : "No key"}
-        detail={
+        label={
           view?.keyHint
-            ? "AI organize is on in the module builder."
-            : "Without one, the module builder shows no AI organize button."
+            ? m["ai.keyHint"]({ hint: view.keyHint })
+            : m["ai.noKey"]()
         }
+        detail={view?.keyHint ? m["ai.keyOn"]() : m["ai.keyOff"]()}
       >
         {view?.keyHint && (
           <Action danger disabled={busy} onClick={() => save({ apiKey: null })}>
-            Remove
+            {m["ai.remove"]()}
           </Action>
         )}
       </Row>
@@ -68,7 +66,7 @@ export function AiSection() {
           type="password"
           autoComplete="off"
           className={FIELD}
-          placeholder={view?.keyHint ? "Replace with a new key" : "sk-ant-…"}
+          placeholder={view?.keyHint ? m["ai.replaceKey"]() : "sk-ant-…"}
           value={key}
           onChange={(e) => setKey(e.target.value)}
           onKeyDown={(e) => {
@@ -79,14 +77,14 @@ export function AiSection() {
           disabled={busy || !key.trim()}
           onClick={() => save({ apiKey: key })}
         >
-          Save
+          {m["common.save"]()}
         </Action>
       </div>
       <div className="flex gap-2 px-4 py-2.5">
         <input
           className={FIELD}
-          placeholder={view?.defaultModel ?? "model"}
-          title="A Claude model id; empty uses the default"
+          placeholder={view?.defaultModel ?? m["ai.modelPlaceholder"]()}
+          title={m["ai.modelHint"]()}
           value={model}
           onChange={(e) => setModel(e.target.value)}
           onKeyDown={(e) => {
@@ -98,7 +96,7 @@ export function AiSection() {
           disabled={busy || !modelChanged}
           onClick={() => save({ model: model || null })}
         >
-          Save
+          {m["common.save"]()}
         </Action>
       </div>
       {error && (

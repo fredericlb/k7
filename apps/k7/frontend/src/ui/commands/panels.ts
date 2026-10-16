@@ -3,6 +3,7 @@
 
 import { api } from "../../api";
 import type { SettingsTab } from "../../components/SettingsPanel";
+import { m } from "../../paraglide/messages.js";
 import type { LocalCommand, RightPanelId } from "./context";
 
 const toggle = (
@@ -139,7 +140,11 @@ export const PANEL_COMMANDS: LocalCommand[] = [
     run: (ctx, _rest, lower) => {
       const want = lower.trim();
       if (!ctx.locales.includes(want))
-        ctx.setStatus(`usage: ui language <${ctx.locales.join("|")}>`);
+        ctx.setStatus(
+          m["status.usage"]({
+            syntax: `ui language <${ctx.locales.join("|")}>`,
+          }),
+        );
       else ctx.setLocale(want);
       return true;
     },

@@ -10,6 +10,7 @@ import { cn } from "@frediverse/ui/lib/utils";
 import type { ParamMeta } from "@studio/engine-protocol";
 import { alignTabs, reflowNarrow } from "@studio/panel-rules/layout-twins";
 import { FILE_PARAMS } from "@studio/song-schema/moduleTypes";
+import type { AutosaveStatus } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-editor/yaml-pane";
 import type { PresetInfo } from "@studio/web-protocol";
 import {
@@ -19,7 +20,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { BuilderHeader } from "./BuilderHeader";
+import { BuilderHeader, englishSaveLabel } from "./BuilderHeader";
 import { InputChannelBar } from "./InputChannelBar";
 import {
   channelOf,
@@ -72,6 +73,7 @@ export function ModuleScreen({
   onRelocated,
   renderPreview,
   onAiOrganize,
+  saveLabel = englishSaveLabel,
 }: {
   // Everything file-shaped. The one thing the two apps don't share — see store.ts.
   store: ModuleStore;
@@ -128,6 +130,8 @@ export function ModuleScreen({
   }) => ReactNode;
   /** Ask Claude for the panel; the HOST holds the key and the model, so absent means no button — docs/aiOrganize.md. */
   onAiOrganize?: AiOrganizeCall;
+  /** The state beside Save, in the host's language; "clean" and "pending" are never asked — docs/builder.md. */
+  saveLabel?: (status: AutosaveStatus, reason: string | null) => string;
 }) {
   const {
     content,
@@ -309,6 +313,7 @@ export function ModuleScreen({
         anyDirty={anyDirty}
         publishing={publishing}
         saveState={saveState}
+        saveLabel={saveLabel}
       />
 
       {error ? (

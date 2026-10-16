@@ -22,8 +22,12 @@ export function EngineSyncProgress({ sync }: { sync: EngineSyncState }) {
       className="flex shrink-0 items-center gap-2 whitespace-nowrap text-amber-500"
       title={m["engine.syncingHint"]()}
     >
-      copying to the engine {sync.filesDone}/{sync.files} ·{" "}
-      {formatBytes(sync.bytesDone)} / {formatBytes(sync.bytes)}
+      {m["engine.syncingProgress"]({
+        done: sync.filesDone,
+        files: sync.files,
+        bytesDone: formatBytes(sync.bytesDone),
+        bytes: formatBytes(sync.bytes),
+      })}
       <span
         role="progressbar"
         aria-valuemin={0}

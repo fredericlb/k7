@@ -10,6 +10,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Headphones, Link2, Repeat, Undo2 } from "@frediverse/ui/icons";
 import { usePointerFollow } from "@studio/ui-timeline/drag";
+import { m } from "../../paraglide/messages.js";
 
 /** A deck's two MOMENTARY effects — held, never toggled. See ../../docs/fx.md.
  *
@@ -52,9 +53,7 @@ export function FxButtons({
         disabled={!censorable}
         className="shrink-0 px-2 text-xs"
         title={
-          censorable
-            ? `censor deck ${side} — the record runs backwards while the button is held`
-            : `deck ${side} is empty — nothing to censor`
+          censorable ? m["fx.censor"]({ side }) : m["fx.censorEmpty"]({ side })
         }
         {...held(onCensor, censorable)}
       >
@@ -65,11 +64,7 @@ export function FxButtons({
         variant={echoingOut ? "default" : "secondary"}
         disabled={!echoLive}
         className="shrink-0 px-2 text-xs"
-        title={
-          echoLive
-            ? `echo-out on deck ${side} — cuts the channel and lets the echo ring`
-            : `this deck has no echo wired — connect \`deck${side}.echo\` in surfaces/`
-        }
+        title={echoLive ? m["fx.echoOut"]({ side }) : m["fx.noEcho"]({ side })}
         aria-pressed={echoingOut}
         {...held(onEchoOut, echoLive)}
       >
@@ -104,12 +99,12 @@ export function CueButton({
       title={
         // The reason, not the rule — and WHICH of the two is missing, since the fixes are different.
         !wired
-          ? `this deck has no headphone send — connect \`deck${side}.cue\` in surfaces/`
+          ? m["hp.noSend"]({ side })
           : !live
-            ? "this machine has no headphone pair — name one with `system cue 3+4`, or the cue plays nowhere"
+            ? m["hp.noPair"]()
             : on
-              ? `deck ${side} is in the headphones — click to take it out`
-              : `hear deck ${side} in the headphones, before the crossfader`
+              ? m["hp.on"]({ side })
+              : m["hp.off"]({ side })
       }
       onClick={onClick}
       aria-pressed={on}
@@ -143,12 +138,12 @@ export function SyncButton({
       className="shrink-0"
       title={
         !enabled
-          ? "both decks need a tempo"
+          ? m["sync.needTempo"]()
           : !beats
-            ? `sync onto deck ${side} — tempo only: the analysis found no reliable grid on one of the songs, so the beats will not line up`
+            ? m["sync.tempoOnly"]({ side })
             : on
-              ? `deck ${side} leads — click to release`
-              : `sync onto deck ${side}`
+              ? m["sync.leads"]({ side })
+              : m["sync.onto"]({ side })
       }
       onClick={onClick}
     >

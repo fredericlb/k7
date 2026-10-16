@@ -33,7 +33,7 @@ two servers.
 survives the trip back through HTTP to a browser:
 
 ```
-mediatek GET https://priv.st0.app/api/mediatek/file songs/…/original.flac:
+mediatek GET https://app.priv.k7.rocks/api/mediatek/file songs/…/original.flac:
   terminated ← other side closed (UND_ERR_SOCKET)
 ```
 

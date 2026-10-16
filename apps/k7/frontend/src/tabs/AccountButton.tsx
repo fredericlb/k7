@@ -92,7 +92,7 @@ export function AccountButton({
           value={server}
           onChange={(e) => setServer(e.target.value)}
           onKeyDown={(e) => e.key === "Escape" && setServer(null)}
-          placeholder="st0.app"
+          placeholder="app.k7.rocks"
           aria-label={m["account.serverLabel"]()}
           title={m["account.serverHint"]()}
           spellCheck={false}
@@ -139,7 +139,10 @@ export function AccountButton({
     <div className="flex min-w-0 items-center gap-1">
       <span
         className="max-w-48 truncate text-xs"
-        title={[me.email, current && `syncs with ${current}`]
+        title={[
+          me.email,
+          current && m["account.syncsWith"]({ server: current }),
+        ]
           .filter(Boolean)
           .join(" — ")}
       >

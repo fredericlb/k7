@@ -24,7 +24,7 @@ bool isLoopbackAddress(const std::string& ip);
 /** Two secrets compared in a time that does not depend on where they first differ. */
 bool sameKey(const std::string& a, const std::string& b);
 
-/** Whether a socket whose handshake carries `Origin: origin` may be served: loopback, st0.app, or one of `extra` — docs/pairing.md. */
+/** Whether a socket whose handshake carries `Origin: origin` may be served: loopback, k7.rocks, or one of `extra` — docs/pairing.md. */
 bool originAllowed(const std::string& origin, const std::vector<std::string>& extra);
 
 /** `STUDIO_ENGINE_ALLOWED_ORIGINS`: comma-separated origins, trimmed, lower-cased, a trailing slash dropped. */

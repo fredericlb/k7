@@ -74,4 +74,10 @@
     background: var(--sh-background);
     color: var(--sh-foreground);
   }
+  /* A keyboard user must see where focus is: one ring for every focusable thing, at zero
+     specificity so a component's own focus-visible style still wins (docs/shell.md). */
+  :where(button, [role="button"], [role="option"], a, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
 }

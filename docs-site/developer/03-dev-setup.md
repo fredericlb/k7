@@ -95,9 +95,10 @@ its top-level folder (`apps` or `engine`). The resource is named after the packa
 | k7 backend | `8789` (`PORT`) | Also the production port. |
 | k7 frontend | `5223`, or `$STUDIO_WEB_PORT` | `strictPort`: a clash is a hard failure. Proxies `/api` and `/auth` to the backend, and upgrades WebSockets on `/api/engine`, `/api/sync` and `/rtc`. The backend URL can be moved with `$STUDIO_BACKEND_URL`. |
 
-Without `STUDIO_WEB_PORT` the frontend dev server declares the public dev host `priv.st0.app`
+Without `STUDIO_WEB_PORT` the frontend dev server declares the public dev host `app.priv.k7.rocks`
 (`scripts/dev-hosts.mjs`) and points HMR at port 443, for a reverse proxy in front of it. It also
-accepts the `play.priv.st0.app` and `k7.priv.st0.app` aliases. Set `STUDIO_WEB_PORT` to run it on a
+accepts the docs host `docs.priv.k7.rocks` and the former dev hosts `priv.st0.app`,
+`play.priv.st0.app` and `k7.priv.st0.app`. Set `STUDIO_WEB_PORT` to run it on a
 plain local port with HMR on that port. `STUDIO_POLL=1` switches the file watcher to polling for
 trees where native file events do not arrive.
 

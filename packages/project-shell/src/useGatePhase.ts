@@ -22,6 +22,12 @@ import { parseLaunch, projectsUrl } from "./launch.ts";
 import { accountLibraries } from "./repoLookup.ts";
 import { waitForSync } from "./syncWait.tsx";
 
+/** What a bare `@local` and a retired address say when the host passes no wording of its own. */
+const LOCAL_USAGE =
+  "This address names no project. A project on this machine opens at /@local/<workspace>/<project> — open it from the projects page.";
+const RETIRED_ADDRESS = (name: string) =>
+  `“${name}” is an older kind of address that no longer opens anything. Open the project from the projects page instead.`;
+
 export function useGatePhase({
   engine,
   app,
@@ -106,6 +112,9 @@ export function useGatePhase({
   // By ref, and load-bearing: an inline `onIdle` would re-fire the effect below every render.
   const idleCallback = useRef(onIdle);
   idleCallback.current = onIdle;
+  // The wording by ref too: a host's inline `strings` object would otherwise re-run the resolve every render.
+  const wording = useRef(strings);
+  wording.current = strings;
   /** In an EFFECT so the flush lands after `children` has unmounted — see docs/idle.md. */
   useEffect(() => {
     if (phase.k !== "idle") return;
@@ -147,8 +156,7 @@ export function useGatePhase({
           if (!local)
             return setPhase({
               k: "missing",
-              message:
-                "@local opens a project in a workspace on this machine — `/@local/<workspace>/<project>`.",
+              hint: wording.current.localUsage ?? LOCAL_USAGE,
             });
           configure(userEmail, local.workspace);
           // No library is not a refusal here: a song started on this machine may extend nothing
@@ -174,7 +182,7 @@ export function useGatePhase({
               if (status === 400 || status === 404)
                 return setPhase({
                   k: "missing",
-                  message: (e as Error).message,
+                  detail: (e as Error).message,
                 });
               throw e;
             }
@@ -196,8 +204,8 @@ export function useGatePhase({
         if (app === "k7" && isBench(repoName)) {
           setPhase({
             k: "cloning",
-            workspace: strings.benchWorkspace ?? "",
-            phase: strings.benchFetching ?? "",
+            workspace: wording.current.benchWorkspace ?? "",
+            phase: wording.current.benchFetching ?? "",
           });
           // The project part goes with it: the machine is the side that says which address it answers.
           let bench: { workspace: string; project: string };
@@ -208,7 +216,7 @@ export function useGatePhase({
             // 404 is an address under `@banc` that names nothing; 409 a library that will not mount.
             const status = (e as { status?: number }).status;
             if (status === 404 || status === 409) {
-              setPhase({ k: "missing", message: (e as Error).message });
+              setPhase({ k: "missing", detail: (e as Error).message });
               return;
             }
             throw e;
@@ -227,10 +235,7 @@ export function useGatePhase({
         // A bare repository name names no folder, so this refuses rather than guesses — apps/k7/frontend/docs/projects.md.
         return setPhase({
           k: "missing",
-          message:
-            `"${repoName}" is a repository name, and this studio keeps no register ` +
-            "of those: a project is a folder on this machine. Open it from the home page — " +
-            "its address will be `/@local/<workspace>/<project>`.",
+          hint: (wording.current.retiredAddress ?? RETIRED_ADDRESS)(repoName),
         });
       } catch (e) {
         if (cancelled) return;

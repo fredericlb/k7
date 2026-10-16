@@ -6,6 +6,7 @@ import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { interpolated } from "@studio/ui-waveform/spectrum";
 import { SpectrumStrip } from "@studio/ui-waveform/spectrum-strip";
 import { useCallback, useEffect, useRef } from "react";
+import { m } from "../../paraglide/messages.js";
 import type { DeckTempo } from "../deckVocabulary";
 import { shuttleRate } from "../shuttle";
 import {
@@ -267,16 +268,12 @@ export function Waveform({
       onPointerDown={
         onShove ? (e) => shuttle(follow, e, onShove, preview, land) : undefined
       }
-      title={
-        onShove
-          ? "drag left to go forward, right to go back — further is faster"
-          : undefined
-      }
+      title={onShove ? m["wave.shuttle"]() : undefined}
     >
       <canvas ref={canvas} className="h-full w-full" />
       {analysing ? (
         <span className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-          analysing the song…
+          {m["wave.analysing"]()}
         </span>
       ) : null}
       {problem ? (
@@ -285,13 +282,13 @@ export function Waveform({
           className="absolute inset-x-2 top-1/2 -translate-y-1/2 truncate text-center text-[11px] text-destructive"
           title={problem}
         >
-          pas de forme d'onde : {problem}
+          {m["wave.none"]({ problem })}
         </span>
       ) : null}
       {envelope && !envelope.bpm ? (
         // No tempo means no grid, said out loud: missing yellow lines would otherwise read as a bug.
         <span className="absolute right-2 top-1 text-[10px] text-muted-foreground">
-          tempo inconnu
+          {m["wave.noTempo"]()}
         </span>
       ) : null}
       {envelope?.bpm ? (

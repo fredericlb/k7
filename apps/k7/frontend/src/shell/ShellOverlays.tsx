@@ -395,7 +395,7 @@ export function ShellOverlays({
       </Dialog>
 
       {/* Global toast notifications — positioned bottom-right, above everything */}
-      <Toaster />
+      <Toaster dismissLabel={m["common.dismiss"]()} />
       {/* A LAN device asking to pair, answered here when this page runs on the engine's machine — docs/pairing.md. */}
       <PairRequestsPrompt engine={engineRef.current} connected={connected} />
       {/* The app's own confirm/prompt, in place of the OS box that ignored the Escape ladder. */}

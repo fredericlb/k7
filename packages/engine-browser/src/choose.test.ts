@@ -229,7 +229,7 @@ describe("bestEngine", () => {
 const relayed = (r: RankedEngine<PublicEngine>): RankedEngine<PublicEngine> =>
   ({
     ...r,
-    wsUrl: `wss://st0.app/api/engine/${r.engine.id}/ws?ticket=x`,
+    wsUrl: `wss://app.k7.rocks/api/engine/${r.engine.id}/ws?ticket=x`,
   }) as RankedEngine<PublicEngine>;
 
 // Anyone may register an engine: one met only through the relay is a stranger's until somebody clicks it.
