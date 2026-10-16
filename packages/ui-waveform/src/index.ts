@@ -4,16 +4,6 @@
 // wrapper/marker styles.
 
 export {
-  BAND_COLOURS,
-  type Bands,
-  bandsAt,
-  type Column,
-  columnColour,
-  columnsOf,
-  PLAIN,
-  spectrumColumns,
-} from "./spectrum";
-export {
   LABEL_GAP_PX,
   labelled,
   labelMinPx,
