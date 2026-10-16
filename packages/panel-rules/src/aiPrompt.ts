@@ -2,7 +2,7 @@
 // builder's grid works, every widget it may use, the lcdscreen draw contract, and the look.
 // Pure text, identical for every request, so it caches; the per-module half is aiOrganize.ts.
 // The one thing easy to get wrong: WIDGET_DOCS must cover every schema type — a test pins it.
-// Rationale: docs/aiOrganize.md.
+// Rationale: packages/ui-module-builder/docs/aiOrganize.md.
 
 import type { WidgetType } from "@studio/song-schema/yaml/moduleSchema";
 

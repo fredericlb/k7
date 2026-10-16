@@ -52,6 +52,8 @@ export interface Playback {
   close: () => void;
   /** An engine ANSWERED: what makes the moteur an offerable destination — ../../docs/playbackTarget.md. */
   engineAvailable: boolean;
+  /** The host has mpv: what makes its speakers a destination at all — ../../docs/playbackTarget.md. */
+  hostPlayerAvailable: boolean;
   /** Where the account WANTS sound to come out, and changing it — the picker's two halves. */
   target: PlaybackTarget;
   choose: (t: PlaybackTarget) => void;
@@ -122,6 +124,16 @@ export function PlaybackProvider({
   const lastSent = useRef<string | null>(null);
   // The song the engine branch is currently asking its two questions about — see ../../docs/playback.md.
   const asked = useRef<string | null>(null);
+
+  // Assumed there until the host says otherwise, so a stored choice is not dropped while it is asked.
+  const [hostPlayer, setHostPlayer] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    void player.available().then((ok) => alive && setHostPlayer(ok));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const viaHost = now?.target === "library";
   const viaEngine = now?.target === "engine";
@@ -217,7 +229,10 @@ export function PlaybackProvider({
       // The fallback is decided HERE, once, so no caller has to know whether an engine answered.
       const loading = {
         ...what,
-        target: effectiveTarget(what.target, engine.available),
+        target: effectiveTarget(what.target, {
+          engine: engine.available,
+          hostPlayer,
+        }),
       };
       setError("");
       // Where the engine was ASKED to be is the only honest answer until its ~20 Hz frame lands.
@@ -248,7 +263,7 @@ export function PlaybackProvider({
         .then((s) => setLocalPlaying(s.playing))
         .catch((e: Error) => setError(e.message));
     },
-    [engine, loadedEnginePath, startOnEngine, clock],
+    [engine, hostPlayer, loadedEnginePath, startOnEngine, clock],
   );
 
   const playing = viaEngine ? ours && engine.playing : localPlaying;
@@ -341,6 +356,7 @@ export function PlaybackProvider({
       ended,
       close,
       engineAvailable: engine.available,
+      hostPlayerAvailable: hostPlayer,
       target,
       choose,
       queue: playQueue.queue,
@@ -359,6 +375,7 @@ export function PlaybackProvider({
       ended,
       close,
       engine.available,
+      hostPlayer,
       target,
       choose,
       playQueue,

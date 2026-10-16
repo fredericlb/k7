@@ -93,7 +93,10 @@ export function SongPlayer({
   useEffect(() => setCursor(0), [path]);
 
   // What will actually play, the moteur's absence resolved once — see ../docs/playbackTarget.md.
-  const actual = effectiveTarget(target, playback.engineAvailable);
+  const actual = effectiveTarget(target, {
+    engine: playback.engineAvailable,
+    hostPlayer: playback.hostPlayerAvailable,
+  });
 
   /** The shape, and the analysis that makes one — once per tab, and cancelled on leaving (../docs/songPlayer.md). */
   // biome-ignore lint/correctness/useExhaustiveDependencies: `retry` is the button's trigger, not a value read here

@@ -5,8 +5,6 @@
 // to have run the same rules. Or copy the same request for a LOCAL Claude Code session, which
 // writes the files itself. Rationale: docs/aiOrganize.md.
 
-import { askChoice, askTextAction } from "@studio/project-shell/ask";
-import { useCallback, useRef, useState } from "react";
 import {
   type AiOrganizeMode,
   type AiOrganizeRequest,
@@ -15,7 +13,9 @@ import {
   bindableNames,
   checkAiResult,
   hasLayout,
-} from "./aiOrganize";
+} from "@studio/panel-rules/ai-organize";
+import { askChoice, askTextAction } from "@studio/project-shell/ask";
+import { useCallback, useRef, useState } from "react";
 import { claudeCodePrompt, whereIs } from "./claudeCodePrompt";
 
 /** The dialog's second button: the prompt on the clipboard, for a Claude Code session to write the files. */

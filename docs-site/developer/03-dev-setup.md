@@ -4,7 +4,7 @@
 
 | Tool | Why |
 |---|---|
-| Node.js `>= 22.12.0` (`engines` in `package.json`; CI uses the version in `.nvmrc`) | Everything TypeScript. The backend relies on `node:sqlite` (it passes `--experimental-sqlite`, a no-op on newer Node). |
+| Node.js 24 (`engines` in `package.json`; CI and the image use the same version, `.nvmrc`) | Everything TypeScript. The backend relies on `node:sqlite`, which needs no flag on it. |
 | npm 10 | The workspace manager (`devEngines` in `package.json`). |
 | [Tilt](https://docs.tilt.dev/install.html) | Runs the dev session. `npm run dev` exits with a pointer to the install page if `tilt` is missing. |
 | Access to the `commons` submodule | Install, lint and build all need it. |
@@ -84,7 +84,7 @@ its top-level folder (`apps` or `engine`). The resource is named after the packa
 | Resource | Workspace | Runs |
 |---|---|---|
 | `k7-frontend` | `apps/k7/frontend` | `vite` |
-| `k7-backend` | `apps/k7/backend` | `tsx watch src/server.ts` with `STUDIO_FILES_WATCH=1` and `--experimental-sqlite` |
+| `k7-backend` | `apps/k7/backend` | `tsx watch src/server.ts` with `STUDIO_FILES_WATCH=1` |
 | `native` | `engine/k7-runtime` | `scripts/dev-native.mjs` |
 | `studio-k7-android-shell` | `engine/k7-android/web` | `vite` for the Android app's page |
 

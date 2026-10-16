@@ -152,7 +152,7 @@ content but not in path reads as synced.
 
 ## Tests
 
-`npm test -w k7-backend` (vitest, with `--experimental-sqlite`) covers `routes/library.test.ts`,
+`npm test -w k7-backend` (vitest) covers `routes/library.test.ts`,
 `routes/shares.test.ts`, `routes/serverCopy.test.ts`, `routes/engineLocal.test.ts`,
 `routes/settings.test.ts`, `hunt/*.test.ts`, `stems/cut.test.ts`, `mp3Sweep.test.ts`,
 `transcodeQueue.test.ts`, `analysisGate.test.ts`, `analysisMarks.test.ts`,

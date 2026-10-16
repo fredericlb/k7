@@ -85,6 +85,13 @@ export interface MachinePlayerState {
  * The library is right there, so a relative path is all that crosses — packages/mpv-player/docs/mpvPlayer.md.
  */
 export const player = {
+  /** False only when the host has no player routes, i.e. no mpv; any other failure says nothing. */
+  available: async (): Promise<boolean> =>
+    request(`${apiBase()}/api/player`, {}, PLAYER_MS).then(
+      (res) => res.status !== 404,
+      () => true,
+    ),
+
   state: async (): Promise<MachinePlayerState> =>
     json(await request(`${apiBase()}/api/player`, {}, PLAYER_MS), "player"),
 

@@ -6,10 +6,10 @@
   "main": "src/server.ts",
   "description": "The studio's hosted backend: the origin's OIDC flow, the account's preferences, and the media library — a folder on a volume, served over HTTP, whose filesystem is the index except for the comments on a frozen share, which live in SQLite (docs/media/comments.md).",
   "scripts": {
-    "start": "node scripts/with-env.mjs NODE_OPTIONS=--experimental-sqlite tsx src/server.ts",
-    "dev": "node scripts/with-env.mjs STUDIO_FILES_WATCH=1 NODE_OPTIONS=--experimental-sqlite tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "dev": "node scripts/with-env.mjs STUDIO_FILES_WATCH=1 tsx watch src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/with-env.mjs NODE_OPTIONS=--experimental-sqlite vitest run"
+    "test": "vitest run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
@@ -22,9 +22,9 @@
     "@studio/file-hub": "*",
     "@studio/mediatek": "*",
     "@studio/mpv-player": "*",
+    "@studio/panel-rules": "*",
     "@studio/rehearsal-server": "*",
     "@studio/song-schema": "*",
-    "@studio/ui-module-builder": "*",
     "@studio/user-prefs": "*",
     "@studio/web-protocol": "*",
     "ws": "^8.18.0",

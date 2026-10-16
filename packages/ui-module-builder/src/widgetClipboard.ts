@@ -3,8 +3,8 @@
 // The one thing a reader would get wrong: positions are held RELATIVE to the clip's top-left, so a
 // paste lands the whole block at the cell it is dropped on. Rationale: docs/builder.md.
 
+import { framedBy } from "@studio/panel-rules/group-geometry";
 import type { Widget } from "@studio/song-schema/yaml/moduleSchema";
-import { framedBy } from "./groupGeometry";
 
 /** What a copy holds: the widgets at clip-relative positions, and the block's size in cells. */
 export interface WidgetClip {
