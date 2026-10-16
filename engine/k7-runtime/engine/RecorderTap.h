@@ -30,9 +30,9 @@ public:
     // count changed halfway would be unplayable rather than merely garbled.
     static constexpr int CHANNELS = 2;
 
-    // Capacity in FRAMES, a power of two so the index is a mask. Four times the broadcast's, since
-    // a disk write can stall far longer than a socket send: ~1.4 s at 48 kHz.
-    static constexpr size_t CAPACITY = 65536;
+    // Capacity in FRAMES, a power of two so the index is a mask. Sized for the longest message-thread
+    // stall, not for a disk: ~21.8 s at 48 kHz, ~10.9 s at 96 kHz, 8 MiB (docs/recorder.md).
+    static constexpr size_t CAPACITY = size_t{1} << 20;
     static constexpr size_t MASK = CAPACITY - 1;
 
     // How far behind the writer a LAPPED reader resumes. Not an optimisation: the slots nearest

@@ -184,6 +184,10 @@ int serve(int port) {
     static const std::unordered_set<std::string> overrideQueries = {
         "drop-session", "show-native-plugin-ui", "show-native-plugin-ui-of"};
 
+    // The verbs a later message of the same kind may make pointless before they run (docs/supersede.md).
+    static const std::unordered_set<std::string> supersedable = {
+        "project", "tracks", "set-plugin-param"};
+
     // Which connections earned their deferred "[client] connected" line, so a disconnect logs only when the connect did; mutex-guarded, since IXWebSocket runs each callback on its own thread.
     std::mutex loggedMx;
     std::unordered_set<std::string> loggedConns;
@@ -294,6 +298,10 @@ int serve(int port) {
                         host.post([&host, session] { host.rewindRecorderEnvelopes(session); });
                 }
             }
+
+            // Every verb but the three that can be superseded, and the read-only probes, fences what was queued before it (docs/supersede.md).
+            if (supersedable.count(type) == 0 && probeQueries.count(type) == 0)
+                ctx.supersede.barrier(session);
 
             if (const auto* handle = handlers.find(type)) {
                 (*handle)(ctx, ws, j, session, type);

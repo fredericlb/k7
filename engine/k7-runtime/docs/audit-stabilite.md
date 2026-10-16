@@ -403,6 +403,9 @@ The same pass is what gives a recorder added in place its ring.
 lapped while it reads, and the frames that fell behind are zeroed and counted, which is the one
 thing `damaged` promises (`docs/recorder.md`).
 
+The ring holds ~21.8 s at 48 kHz, because the message thread is what drains it and an apply that
+instantiates plugins or compiles Faust stalls it for seconds (`docs/recorder.md`).
+
 ## What the audio thread reads, and what it never lets through
 
 - **Tempo and time signature** come from `tempoSequence.getInternalSequence()`, the one view
@@ -421,6 +424,8 @@ thing `damaged` promises (`docs/recorder.md`).
   the next biquad's state into NaN — a track, or the whole master, then silent until a reset. The
   fetch-time patch (`engine/patches/tracktion.cmake`) makes the test `isfinite`, which covers our
   own plugins, the master gain included, as much as anyone's.
+- **Surge's read-back timer never reads the synth**: the audio thread publishes a snapshot of it on
+  request, under the lock it already holds, and the timer compares that (`docs/surgePlugin.md`).
 - **NAM prewarms a loaded model before swapping it in**, so the lock covers a pointer swap and the
   bridge's buffers rather than thousands of samples of inference (`docs/namPlugin.md`).
 
@@ -436,6 +441,11 @@ thing `damaged` promises (`docs/recorder.md`).
   loading a fresh one every five seconds (`docs/pluginEditors.md`).
 - **The audio sender asks the session registry for stale sequence counters once a second**, not on
   every 5 ms tick.
+- **A queued `project`, `tracks` or `set-plugin-param` a newer one overtook is skipped**, so the
+  documents and knob writes that pile up behind a slow apply are not each run after it; every other
+  verb fences them, so order between verbs holds (`docs/supersede.md`).
+- **An audition with no length decodes at most 30 s**, since the sampler decodes its excerpt whole on
+  the message thread before the note fires (`docs/engineHost.md`).
 
 ## Smaller hazards, and what closes each
 
