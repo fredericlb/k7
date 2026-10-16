@@ -13,6 +13,17 @@ export {
   mountEngineRegistry,
 } from "./mount.ts";
 export {
+  claimHolder,
+  cleanShares,
+  createOwners,
+  type EngineOwners,
+  type EngineRole,
+  mayUse,
+  OWNERS_FILE,
+  type Ownership,
+  roleOf,
+} from "./owners.ts";
+export {
   attachEngineProxy,
   ENGINE_PROXY_PATH,
   issueEngineTicket,
@@ -27,4 +38,4 @@ export {
   REGISTRY_TTL_MS,
   type UpsertResult,
 } from "./registry.ts";
-export { claimHolder, engineRegistryRouter } from "./router.ts";
+export { engineRegistryRouter, type RouterOptions } from "./router.ts";

@@ -15,19 +15,22 @@ class MediaPlaybackService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Detached first, so stopping leaves the paused notification up instead of taking it down.
-        if (intent?.action == PAUSED) {
-            stopForeground(STOP_FOREGROUND_DETACH)
-            stopSelf()
-            return START_NOT_STICKY
-        }
+        // Every start enters the foreground first, even one that only stops: a startForegroundService left unanswered crashes the app.
         val shown = MediaPlayback.notification
-        if (shown == null) {
-            stopSelf()
-            return START_NOT_STICKY
+        runCatching {
+            startForeground(MediaPlayback.NOTIFICATION_ID, shown ?: MediaPlayback.placeholder(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        }.onFailure { Log.w(TAG, "no foreground: ${it.message}") }
+        when {
+            // Detached, so stopping leaves the paused notification up instead of taking it down.
+            intent?.action == PAUSED && shown != null -> leave(STOP_FOREGROUND_DETACH)
+            intent?.action == PAUSED || intent?.action == STOP || shown == null -> leave(STOP_FOREGROUND_REMOVE)
         }
-        startForeground(MediaPlayback.NOTIFICATION_ID, shown, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         return START_NOT_STICKY
+    }
+
+    private fun leave(how: Int) {
+        stopForeground(how)
+        stopSelf()
     }
 
     // The app swiped away is the app quit, as leaving MainActivity is: the controls go with it.
@@ -39,6 +42,7 @@ class MediaPlaybackService : Service() {
     companion object {
         private const val TAG = "k7-media"
         private const val PAUSED = "se.frediver.k7.PAUSED"
+        private const val STOP = "se.frediver.k7.STOP"
         private var held = false
 
         /** Into the foreground; refused from the background on Android 12+, when the notification alone stays. */
@@ -54,8 +58,8 @@ class MediaPlaybackService : Service() {
             if (!held) return
             held = false
             val intent = Intent(context, MediaPlaybackService::class.java)
-            if (keep) runCatching { context.startService(intent.setAction(PAUSED)) }.onFailure { context.stopService(intent) }
-            else context.stopService(intent)
+            // Through onStartCommand rather than stopService, which could end it before its pending startForeground.
+            runCatching { context.startService(intent.setAction(if (keep) PAUSED else STOP)) }.onFailure { context.stopService(intent) }
         }
     }
 }

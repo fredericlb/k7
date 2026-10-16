@@ -84,8 +84,28 @@ engine port **8766**, not the command-line engine's `~/.k7` and 8765: the superv
 already listens on its port, and its lock is per home, so the two coexist. Its first run
 downloads its sample packs into that home, like any fresh supervisor home.
 
-Quit stops the supervisor first — it deregisters from k7's registry, which must still be up —
-then kills the engine named by its pidfile if it survived, then the backend.
+Quit first has every page write the text its editor panes hold (`flushAutosaves`, through the
+shell's `__beforeQuit` hook — `commons/packages/electron-shell/docs/shell.md`), then stops the
+supervisor — it deregisters from k7's registry, which must still be up — then kills the engine
+named by its pidfile if it survived, then the backend, which stops its file services itself before
+anything is force-killed.
+
+## Permissions
+
+The session answers every permission through the shell's handlers
+(`commons/packages/electron-shell/docs/shell.md`, "Permissions"), with k7's origin as the app's.
+Its defaults are widened for what k7 uses, and nothing else is granted:
+
+| permission | to | what needs it |
+|---|---|---|
+| `media` | any k7 frame in a k7 page | the recorder's mic, a live rig's webcam, and the rehearsal bench, a k7 project framed in the recorder's page |
+| `midi` | any k7 frame in a k7 page | the MIDI controller (`apps/k7/frontend/docs/midi.md`) |
+| `screen-wake-lock` | any k7 frame in a k7 page | the screen kept awake during a take |
+| `clipboard-sanitized-write` | k7's top frame | the Copy buttons |
+| `fullscreen` | any k7 frame in a k7 page | the viewport and the score made fullscreen |
+
+`midiSysex` is not granted: k7 asks for MIDI without sysex, and sysex is what rewrites a device's
+firmware.
 
 ## State
 

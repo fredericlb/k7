@@ -200,6 +200,14 @@ every certificate an admin or the user gave trust settings to on macOS, the ROOT
 user and the machine on Windows, the distribution's bundle on Linux, and `$STUDIO_EXTRA_CA_CERTS`
 on top. A studio behind a private CA works because that CA is in the OS store, and nowhere else.
 
+A certificate in those stores is not a trusted root by being there. mbedTLS takes every PEM it is
+handed as an anchor, for every purpose, so the OS's own verdict is read first and applied here:
+on macOS a certificate counts only when its trust settings say *trust as root* for SSL (an empty
+list being "always trust"), and one the admin or the user set to *Never Trust* is dropped even from
+the system anchors, the user's setting winning over the admin's; a setting scoped to one application
+or one hostname is not borrowed. On Windows a root also listed in a `Disallowed` store, or whose
+enhanced key usages leave out server authentication, is dropped.
+
 ## One thread owns the state
 
 `Loop` is the program's event loop: timers and posted tasks run on one thread, so the supervisor's

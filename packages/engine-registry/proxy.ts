@@ -5,6 +5,12 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, Server } from "node:http";
 import type { Socket } from "node:net";
+import {
+  HeldFrames,
+  OVERLOAD_CLOSE,
+  type Payload,
+  sendBounded,
+} from "@studio/engine-tunnel/backpressure";
 import type { TunnelChannel } from "@studio/engine-tunnel/channel";
 import { MAX_FRAME_BYTES } from "@studio/engine-tunnel/frames";
 import type { TunnelHub } from "@studio/engine-tunnel/hub";
@@ -13,6 +19,7 @@ import {
   ENGINE_REACH_BUDGET_MS,
 } from "@studio/web-protocol";
 import { WebSocket, WebSocketServer } from "ws";
+import { mayUse, roleOf } from "./owners.ts";
 import type { EngineEntry, EngineRegistry } from "./registry.ts";
 import { type Frame, RelayGate } from "./relayGate.ts";
 
@@ -134,14 +141,27 @@ async function dialDirect(e: EngineEntry): Promise<WebSocket | null> {
   return null;
 }
 
-/** Send one frame, ending both sockets if the send throws: a throw inside a socket listener escapes to the process. */
+/** Send one frame, bounded (backpressure.ts), ending both sockets if the send throws: a throw inside a socket listener escapes to the process. */
 function forward(to: Upstream, from: Upstream, f: Frame): void {
   try {
     if (to.readyState === WebSocket.OPEN)
-      to.send(f.data as Buffer, { binary: f.binary });
+      sendBounded(to, f.data as Payload, f.binary, () => {
+        overloaded(to);
+        shut(from);
+      });
   } catch {
     shut(to);
     shut(from);
+  }
+}
+
+/** A peer that stopped reading: a browser is told why, a tunnel channel just ends. */
+function overloaded(ws: Upstream): void {
+  try {
+    if (ws instanceof WebSocket) ws.close(OVERLOAD_CLOSE, "peer too slow");
+    else ws.close();
+  } catch {
+    /* already closing */
   }
 }
 
@@ -157,7 +177,8 @@ function shut(ws: Upstream): void {
 function pipe(client: WebSocket, upstream: Upstream, gate: RelayGate): void {
   upstream.on("message", (data: WebSocket.RawData, binary: boolean) => {
     const f = { data, binary };
-    if (gate.fromEngine(f)) forward(client, upstream, f);
+    const out = gate.fromEngine(f);
+    if (out) forward(client, upstream, out);
   });
   client.on("close", () => shut(upstream));
   upstream.on("close", () => shut(client));
@@ -222,12 +243,23 @@ export function attachEngineProxy(
 
     wss.handleUpgrade(req, socket, head, (client) => {
       let upstream: Upstream | null = null;
-      // Buffered, because the browser sends `whoami` before the upstream socket is dialled — see docs/proxy.md.
-      const pending: Frame[] = [];
+      // Buffered, and bounded, because the browser sends `whoami` before the upstream socket is dialled — see docs/proxy.md.
+      const pending = new HeldFrames<WebSocket.RawData>();
       const gate = new RelayGate({
         holds: () => reg.holds(id, ticket.holder),
-        toEngine: (f) =>
-          upstream ? forward(upstream, client, f) : pending.push(f),
+        // Asked per frame: a share withdrawn mid-socket stops the token at once — docs/ownership.md.
+        mayReadToken: () =>
+          mayUse(
+            roleOf(
+              reg.owners.get(id),
+              ticket.holder,
+              !!tunnels?.isRenderer(id),
+            ),
+          ),
+        toEngine: (f) => {
+          if (upstream) forward(upstream, client, f);
+          else if (!pending.push(f.data, f.binary)) overloaded(client);
+        },
         close: (code, reason) => {
           client.close(code, reason);
           if (upstream) shut(upstream);
@@ -249,7 +281,7 @@ export function attachEngineProxy(
             return;
           }
           upstream = up;
-          for (const f of pending.splice(0)) forward(up, client, f);
+          for (const f of pending.drain()) forward(up, client, f);
           pipe(client, up, gate);
         })
         .catch((e: Error) => {

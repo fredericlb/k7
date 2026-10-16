@@ -11,9 +11,9 @@ import {
   mkdirSync,
   readFileSync,
   rmSync,
-  writeFileSync,
 } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
 import { studioHome } from "@studio/song/studioHome";
 import { HISTORY_HOME_DIR } from "@studio/song-schema/moduleTypes";
 import type {
@@ -151,7 +151,7 @@ export class ProjectHistory {
 
   private persist(): void {
     mkdirSync(this.storeDir, { recursive: true });
-    writeFileSync(this.journalPath, JSON.stringify(this.j), "utf8");
+    writeFileAtomic(this.journalPath, JSON.stringify(this.j));
   }
 
   // A recorded path resolved against the workspace root, refusing anything that would escape.
@@ -183,7 +183,7 @@ export class ProjectHistory {
     if (!bytes) return null;
     mkdirSync(this.blobsDir, { recursive: true });
     const name = `${id}-${tag}`;
-    writeFileSync(this.blobPath(name), bytes);
+    writeFileAtomic(this.blobPath(name), bytes);
     return name;
   }
 
@@ -194,7 +194,7 @@ export class ProjectHistory {
       return;
     }
     mkdirSync(dirname(abs), { recursive: true });
-    writeFileSync(abs, content, "utf8");
+    writeFileAtomic(abs, content);
   }
   private restoreBlob(rel: string, name: string | null): void {
     const abs = this.abs(rel);

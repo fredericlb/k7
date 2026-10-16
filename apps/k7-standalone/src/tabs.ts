@@ -1,10 +1,10 @@
 // tabs.ts — one WebContentsView per tab: the home tab, pinned, and one per open project. Only the tab in FRONT holds its project.
 // Switching tells the leaving page before it is hidden, so its unload still has a live socket to leave on. See docs/tabs.md.
 
+import { openExternalSafely } from "@frediverse/electron-shell/external";
 import { line } from "@frediverse/electron-shell/log";
 import {
   type Rectangle,
-  shell,
   type View,
   type WebContents,
   WebContentsView,
@@ -169,30 +169,7 @@ export class TabSet {
   /** What a tab's navigations and `window.open`s turn into — the table in docs/tabs.md. */
   private route(tab: Tab): void {
     const wc = tab.view.webContents;
-    const { origin, webPreferences, icon } = this.spec;
-    wc.on("will-navigate", (e, url) => {
-      const d = destination(url, origin);
-      if (this.stays(tab, d)) return;
-      e.preventDefault();
-      this.send(url, d);
-    });
-    // A server redirect skips will-navigate: one leaving the app is the IdP's page, which a tab must not show.
-    wc.on("will-redirect", (e, url) => {
-      if (destination(url, origin).to !== "browser") return;
-      e.preventDefault();
-      void shell.openExternal(url);
-    });
-    wc.setWindowOpenHandler(({ url }) => {
-      const d = destination(url, origin);
-      if (d.to === "window" || d.to === "inPlace")
-        return {
-          action: "allow",
-          overrideBrowserWindowOptions: { webPreferences },
-        };
-      this.send(url, d);
-      return { action: "deny" };
-    });
-    if (icon) wc.on("did-create-window", (child) => child.setIcon(icon));
+    this.guard(wc, (d) => this.stays(tab, d));
     // Taken before the menu sees it: the menu's Close Window would quit the whole app.
     wc.on("before-input-event", (e, input) => {
       if (input.type !== "keyDown") return;
@@ -207,6 +184,41 @@ export class TabSet {
     });
   }
 
+  /** The navigation, redirect and `window.open` rules of `wc`, a tab or a window a page opened; `stays` says what it keeps. */
+  private guard(wc: WebContents, stays: (d: Destination) => boolean): void {
+    const { origin, webPreferences, icon } = this.spec;
+    wc.on("will-navigate", (e, url) => {
+      const d = destination(url, origin);
+      if (stays(d)) return;
+      e.preventDefault();
+      this.send(url, d);
+    });
+    // A server redirect skips will-navigate: one leaving the app is the IdP's page, which a tab must not show.
+    wc.on("will-redirect", (e, url) => {
+      if (destination(url, origin).to !== "browser") return;
+      e.preventDefault();
+      openExternalSafely(url);
+    });
+    wc.setWindowOpenHandler(({ url }) => {
+      const d = destination(url, origin);
+      if (d.to === "window" || d.to === "inPlace")
+        return {
+          action: "allow",
+          overrideBrowserWindowOptions: { webPreferences },
+        };
+      this.send(url, d);
+      return { action: "deny" };
+    });
+    // A window a page opened is held to the same rules: a surface on its own stays one, anything else is routed.
+    wc.on("did-create-window", (child) => {
+      if (icon) child.setIcon(icon);
+      this.guard(
+        child.webContents,
+        (d) => d.to === "inPlace" || d.to === "window",
+      );
+    });
+  }
+
   /** Whether a navigation of `tab` to `d` stays in it. */
   private stays(tab: Tab, d: Destination): boolean {
     if (d.to === "inPlace") return true;
@@ -218,7 +230,7 @@ export class TabSet {
 
   private send(url: string, d: Destination): void {
     if (d.to === "browser") {
-      void shell.openExternal(url);
+      openExternalSafely(url);
       return;
     }
     if (d.to === "signIn") {

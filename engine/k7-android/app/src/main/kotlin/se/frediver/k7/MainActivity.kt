@@ -12,6 +12,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.WindowManager
 import com.getcapacitor.BridgeActivity
+import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
 class MainActivity : BridgeActivity() {
@@ -43,17 +44,23 @@ class MainActivity : BridgeActivity() {
         if (!isFinishing) return
         // A paused track's notification is detached from any service, so it would outlive the process otherwise.
         MediaPlayback.clear(this)
-        // Supervisor FIRST: it deregisters while the engine still answers, then asks the engine to stop.
-        SupervisorHost.stop(SUPERVISOR_STOP_MS)
-        EngineBridge.stop(ENGINE_STOP_MS)
-        BackendHost.stop(BACKEND_STOP_MS)
-        exitProcess(0)
+        // Off the UI thread: the stops below wait up to seconds each, and a blocked main thread is an ANR.
+        thread(name = "k7-teardown") {
+            // Supervisor FIRST: it deregisters while the engine and the backend still answer, then asks the engine to stop.
+            SupervisorHost.stop(SUPERVISOR_STOP_MS)
+            // The backend asked next, beside the engine: its own stop (file services, then requests) takes longest.
+            val backend = thread(name = "k7-backend-stop") { BackendHost.stop(BACKEND_STOP_MS) }
+            EngineBridge.stop(ENGINE_STOP_MS)
+            backend.join()
+            exitProcess(0)
+        }
     }
 
     companion object {
         private const val REQUEST_AUDIO = 1
         const val SUPERVISOR_STOP_MS = 4000L
         private const val ENGINE_STOP_MS = 3000L
-        private const val BACKEND_STOP_MS = 3000L
+        // Longer than the backend's own 8 s stop, so its file services are not killed mid-teardown (apps/k7/backend/src/server.ts).
+        private const val BACKEND_STOP_MS = 10_000L
     }
 }

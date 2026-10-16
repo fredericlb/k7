@@ -94,6 +94,11 @@ can load a document, drop a session, approve a pairing. So a ticket is not enoug
 | browser → engine | `whoami`, `pair`, `list-plugins` — what `probe.ts` and `compat.ts` send to pick | everything |
 | engine → browser | `whoami`, `plugins`, `error` | everything |
 
+Either way a `whoami` reaches the browser without its `token` unless the ticket's account may use the
+engine — its owner, an account it is shared with, anyone for the server's own
+([ownership.md](ownership.md)). `/engines` mints no ticket for any other engine, so this strip is the
+second lock; it is asked per frame, so a share withdrawn mid-socket takes effect at once.
+
 Anything else the browser sends is **held**, in order, rather than dropped: a page opens its driving
 socket and claims the engine at the same moment, and the claim may land a few hundred milliseconds
 after the socket's first `hello`. Held frames go through the moment the claim exists; after 10 s
@@ -128,3 +133,9 @@ The browser sends `whoami` the instant the socket opens — and at that instant 
 socket is still being dialled. The relay holds what arrives before that and replays it once
 upstream is open. Losing it would time out every probe: the relay would be "reachable" and answer
 nothing, which is worse than unreachable.
+
+That queue is bounded like the claim gate's (256 frames, 8 MiB — `HeldFrames` in
+`packages/engine-tunnel/backpressure.ts`): a client that sends more before the engine answers is
+closed with 1013. Once both ends are up, every frame goes through the same file's `sendBounded`, so
+a browser that stops reading costs the server at most a bounded backlog
+(`packages/engine-tunnel/docs/backpressure.md`).

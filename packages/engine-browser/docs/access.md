@@ -33,9 +33,10 @@ somebody changes engine from a neighbouring header.
 
 ## Who is taken unasked
 
-Registration is open — a machine enrols with no account (`packages/engine-registry/docs/heartbeat.md`)
-— so the list is not a list of the user's machines: anyone can heartbeat an engine and claim any
-performance score. Taking one without a click would bind the account's workspaces to a stranger's
+Registration is open — a machine registers with no account (`packages/engine-registry/docs/heartbeat.md`).
+The list holds only the engines this account owns, was shared or may use as the server's, plus the
+UNOWNED ones (`packages/engine-registry/docs/ownership.md`) — and an unowned engine is anybody's
+machine until somebody opens it directly, with any performance score it likes to claim. Taking one without a click would bind the account's workspaces to a stranger's
 tunnel. So `chooseEngine` and `bestEngine` only ever take an engine that passes `mayAutoPick`
 (`choose.ts`), and offer every other one in the picker:
 
@@ -53,9 +54,14 @@ The bench's rule in k7 (`accountEngine`) is not an exception: it takes the engin
 already holds a claim on, and a claim is named by the session, never by the engine.
 
 A first open from an HTTPS page on a machine with no local engine therefore lands on the picker
-until the user clicks one, which remembers it. The server repeats the check on its side: a route
-that reaches an engine for an account requires that account to hold a claim on it
-(`packages/engine-registry/docs/claim.md`).
+until the user clicks one, which remembers it. The server repeats the check on its side: `select`
+refuses an engine that is another account's (`ClaimLost`, reason `refused`, which the lease does not
+retry), and a route that reaches an engine for an account requires that account to hold a claim on
+it (`packages/engine-registry/docs/claim.md`).
+
+An unowned engine comes with no relay ticket, so only a direct probe can reach it, and the relay
+strips the token from a `whoami` for an account that may not use the engine. A reply without a
+token ranks below one with it and leaves `token` null, so no chooser takes it.
 
 **A silent registry is not an error.** `find()` swallows both requests' failure and answers an
 empty list — the honest state, and a screen, where a rejected promise inside a gate's effect is

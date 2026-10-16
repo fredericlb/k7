@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createSqlite } from "./sqlite.ts";
+import { createSqlite, INDEXED_FIELDS } from "./sqlite.ts";
 
 let dir: string;
 let db: ReturnType<typeof createSqlite>;
@@ -82,5 +82,15 @@ describe("the SQLite store", () => {
       }),
     ).rejects.toThrow("halfway");
     expect(await db.listRecords("Songs")).toHaveLength(1);
+  });
+
+  it("looks a row up by an indexed field through its index, not a scan", async () => {
+    await db.addRecords("Comments", [{ SessionUid: "s", OwnerId: "o" }]);
+    for (const f of INDEXED_FIELDS) {
+      const plan = db.planOf("Comments", { [f]: ["x", "y"] }).join("\n");
+      expect(plan).toContain(`USING INDEX records_by_${f}`);
+    }
+    const two = db.planOf("Markers", { SessionUid: ["s"], MomentId: ["m"] });
+    expect(two.join("\n")).toMatch(/USING INDEX records_by_/);
   });
 });

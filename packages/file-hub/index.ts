@@ -31,6 +31,7 @@ import {
   type Instance,
   Instances,
   type InstancesOptions,
+  Unavailable,
 } from "./instances.ts";
 import { LibraryStore } from "./libraries.ts";
 import {
@@ -242,11 +243,12 @@ export class FileHub {
       }
       const engineId = req.get(ENGINE_ID_HEADER) ?? ticket?.engineId ?? null;
       void this.forward(user, admin, engineId, req, res).catch((e: Error) => {
-        if (res.headersSent) res.end();
-        else
-          res
-            .status(503)
-            .json({ error: `file service unavailable: ${e.message}` });
+        if (res.headersSent) return void res.end();
+        if (e instanceof Unavailable)
+          res.setHeader("retry-after", String(e.retryAfterS));
+        res
+          .status(503)
+          .json({ error: `file service unavailable: ${e.message}` });
       });
     };
   }
@@ -349,7 +351,10 @@ export class FileHub {
     req: Request,
     res: Response,
   ): Promise<void> {
-    const inst = await this.instances.get(user);
+    const { inst, release } = await this.instances.hold(user);
+    // Counted in flight until the answer is done, so neither the reaper nor the cap stops it mid-request.
+    if (res.closed) release();
+    else res.once("close", release);
     // An engine is one account's at a time: whoever claimed it since, this account's link goes first.
     await releaseIfUnclaimed(this.deps, inst).catch((e: Error) =>
       this.deps.log(

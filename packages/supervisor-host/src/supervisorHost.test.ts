@@ -7,18 +7,25 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Snapshot } from "./hostProtocol.ts";
 import { SupervisorHost } from "./supervisorHost.ts";
 
-// Emits one snapshot, answers `crash` by dying and `shutdown` by leaving, and ends with its stdin.
+// Emits one snapshot, answers `crash` by dying, `shutdown` by leaving and `closein` by shutting its stdin while staying up, and otherwise ends with its stdin.
 const FAKE = `#!/usr/bin/env node
 const rl = require("node:readline").createInterface({ input: process.stdin });
 const out = (f) => process.stdout.write(JSON.stringify(f) + "\\n");
+let deaf = false;
 out({ t: "state", status: "running", ownsEngine: true, userStopped: false, engineId: "e1", enginePort: 8765, registryUrl: "", hostPid: process.env.STUDIO_HOST_PID });
 rl.on("line", (l) => {
   const c = JSON.parse(l);
   if (c.cmd === "crash") process.exit(3);
   if (c.cmd === "notify") out({ t: "notify", kind: "passive", title: "hi", body: c.arg });
   if (c.cmd === "shutdown") process.exit(0);
+  if (c.cmd === "closein") {
+    deaf = true;
+    setInterval(() => {}, 1000);
+    process.stdin.destroy();
+    try { require("node:fs").closeSync(0); } catch {}
+  }
 });
-rl.on("close", () => process.exit(0));
+rl.on("close", () => { if (!deaf) process.exit(0); });
 `;
 
 const dirs: string[] = [];
@@ -89,5 +96,22 @@ describe.skipIf(process.platform === "win32")("SupervisorHost", () => {
     await host.stop(500);
     await new Promise((r) => setTimeout(r, 300));
     expect(launches).toBe(2);
+  });
+
+  it("survives writing to a supervisor whose stdin is gone", async () => {
+    const lines: string[] = [];
+    let snaps = 0;
+    const host = new SupervisorHost({
+      bin: fakeBin(),
+      onSnapshot: () => snaps++,
+      log: (l) => lines.push(l),
+    });
+    hosts.push(host);
+    host.start();
+    await until(() => (snaps >= 1 ? true : undefined));
+    host.send("closein");
+    await new Promise((r) => setTimeout(r, 200));
+    for (let i = 0; i < 20; i++) host.send("notify", "x".repeat(65_536));
+    await until(() => lines.find((l) => l.startsWith("supervisor stdin:")));
   });
 });

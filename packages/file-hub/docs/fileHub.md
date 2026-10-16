@@ -19,6 +19,38 @@ browser built — and a process boundary is the one isolation nobody can forget 
 The price is a Node process per **active** account; an instance nobody called for 30 minutes is
 stopped and starts again, in well under a second, on the next request.
 
+### Bounded, and held off when it crashes
+
+A Node process per account is the one cost of this design that grows with the user count, so it is
+**capped**: `STUDIO_MAX_FILE_SERVICES`, 50 by default — about what a small server's memory holds,
+and far above the accounts one origin has active at once. At the cap, a new account's start stops
+the least recently used instance that has been idle for two minutes; one with a request still in
+flight (a forwarded request is counted until its answer closes, a long download included) or one
+kept for a remote pairing is never chosen. When nothing can go, the request answers **503 with
+`Retry-After`** instead of forking past the cap. The idle reaper spares an instance in flight too.
+
+A service that dies on its own is not started again on the very next request: the account waits
+1 s, then 2, 4… up to 60 s, answered 503 with `Retry-After` meanwhile, and a service that ran a
+healthy minute starts that count over. A crash loop would otherwise fork a process per request.
+A stop the hub makes itself — idle, eviction, restart, source change — is no crash.
+
+A stop is **asked, then forced**: the hub closes the child's stdin — its stop on every platform,
+since Windows delivers no SIGTERM and a `kill` there ends a process on the spot
+(`packages/file-service/docs/shutdown.md`) — sends SIGTERM where there is one, and kills it only
+after `STOP_GRACE_MS`, longer than the service's own grace for its requests in flight. `stopAll`
+asks every child at once and resolves when each is gone, inside the 8 s k7's backend gives its
+own stop.
+
+Whatever is left when the hub's process exits is killed by **one** exit hook, whatever their number: a listener per child
+trips Node's MaxListeners warning past ten accounts.
+
+A child is ready when it answers a **gated** probe carrying its own secret. Its port is picked free
+by the hub and released before the child binds it, so another account's child starting at the same
+moment may hold it; that one answers 401 to a secret not its own, and the start fails rather than
+forwarding one account's requests to another's process. The accounts paired with a remote (a
+desktop or a phone only) start with the hub and are never reaped: they are replicas that must keep
+syncing.
+
 An account's folder is `accountKey(email)`: the readable slug **and** a hash of the exact email,
 since a slug alone folds `a.b@` and `a_b@` into one folder. The same key names its copy on an
 engine's machine. Behind that, each hosted process records its one owner like any file service

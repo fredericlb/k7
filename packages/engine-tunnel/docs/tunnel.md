@@ -103,7 +103,16 @@ The hub answers file requests only inside the roots the channel was opened with,
 **real** path: a cloned repository may carry a symlink pointing anywhere on the server, and a
 lexical check would follow it. Only roots opened `writable` accept an upload, written beside the
 target and renamed over it when complete, so a dropped tunnel never leaves half a file under a
-real name.
+real name. The part file's name carries random bytes and is created exclusively (`wx`), so two
+uploads of one path never write into the same part.
+
+Holding a tunnel needs no account, so what it may upload is **bounded** (`uploadLimits`,
+`hubFiles.ts`): 16 uploads open at once per tunnel; 2 GiB per upload
+(`STUDIO_TUNNEL_MAX_UPLOAD_BYTES`), well above an hour-long multitrack take; 20 GiB per tunnel per
+hour (`STUDIO_TUNNEL_UPLOAD_BYTES_PER_HOUR`); and 60 s without a chunk. An upload past any of them is
+aborted, its part file deleted, the agent answered a `put-reply` with the reason, and its later
+chunks ignored. Without them an agent opening request after request would hold a write stream and
+a growing file each, until the tunnel dropped.
 
 ## What it does not do
 

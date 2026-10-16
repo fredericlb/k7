@@ -3,18 +3,19 @@
 // the host's mpv player and the stems. The filesystem is the index; the one exception is the
 // comments on a share, which have many writers (../../docs/media/comments.md).
 // It mounts no auth and no CORS: server.ts applies both to the whole process before calling this.
-// The bearer secret still ends in `:pl8`, so every token issued before stays valid.
+// A library token is valid only while listed in its store under the auth dir (../authState.ts).
 
 import type { Server } from "node:http";
 import { join } from "node:path";
-import { apiTokenAuth } from "@frediverse/oidc/api-auth";
+import { apiTokenAuth, fileTokenStore } from "@frediverse/oidc/api-auth";
 import { mountEngineRegistry } from "@studio/engine-registry";
 import { ensureLayout, mediatekDir } from "@studio/mediatek/layout";
 import { startRevisionRefresh } from "@studio/mediatek/revision";
 import { configureMpv } from "@studio/mpv-player/player";
 import { createPlayerRouter } from "@studio/mpv-player/router";
-import { isLoopbackReturn } from "@studio/web-protocol/pairing";
 import type { Express, Request, RequestHandler } from "express";
+import { authDir } from "../authState.ts";
+import { isAdminRequest } from "./admin.ts";
 import { startAnalysisSweep } from "./analysisSweep.ts";
 import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
 import { startMp3Sweep } from "./mp3Sweep.ts";
@@ -28,6 +29,7 @@ import { sharesRouter } from "./routes/shares.ts";
 import { stemsRouter } from "./routes/stems.ts";
 import { SharePlayer } from "./shares/player.ts";
 import { dropLegacyShares, sharesDir } from "./shares/store.ts";
+import { mountTokenRoutes } from "./tokenRoutes.ts";
 import { clearUploads, libraryUploads } from "./upload.ts";
 
 /** The library's bearer scheme, created on its own so a mount BEFORE this one can be handed a token. */
@@ -35,12 +37,13 @@ export function mediaTokens(): ReturnType<typeof apiTokenAuth> {
   // A bearer stands in for the session: a service calling the library — the rehearsal server, an account's file service — has no cookie jar.
   return apiTokenAuth(
     process.env.API_TOKEN_SECRET || `${process.env.SESSION_SECRET ?? ""}:pl8`,
+    { store: fileTokenStore(join(authDir(), "library-tokens.json")) },
   );
 }
 
 export interface MediaMount {
   /** Mint a library bearer for `sub` — what server.ts hands a service mounted beside this one. */
-  issueApiToken(sub: string): string;
+  issueApiToken(sub: string, opts?: { ephemeral?: boolean }): string;
   /** The boot work once the server listens: the volume's layout, the sweeps, the registry's relay. */
   serve(server: Server, url: string): void;
   /** Say goodbye to the registry and stop every account's file service; idempotent. */
@@ -64,7 +67,8 @@ export function mountMedia(
   // Before anything listens: without it no project can open anywhere — packages/file-hub/docs/fileHub.md.
   const filesRoot = requireFilesRoot();
 
-  const { issueApiToken, bearerOrSession } = opts.tokens ?? mediaTokens();
+  const tokens = opts.tokens ?? mediaTokens();
+  const { issueApiToken, bearerOrSession } = tokens;
 
   // Everything is behind one of the two: a library is somebody's work, not a public bucket.
   app.use("/api/mediatek", bearerOrSession(requireAuth), libraryRouter);
@@ -92,6 +96,8 @@ export function mountMedia(
     exitOnSignal: false,
     // On the volume, so an engine's id stays bound to its tunnel secret across a redeploy — packages/engine-registry/docs/token.md.
     stateDir: process.env.STUDIO_ENGINES_DIR || join(mediatekDir(), ".engines"),
+    // An admin may reset an engine's owner — packages/engine-registry/docs/ownership.md.
+    isAdmin: isAdminRequest,
   });
 
   // A share is played by the server's engine, one session per visitor — ../../docs/media/sharePlayer.md.
@@ -108,7 +114,8 @@ export function mountMedia(
     requireAuth,
     port,
     filesRoot,
-    issueApiToken,
+    // Held in memory only: the service it is handed to dies with this process.
+    (user) => issueApiToken(user, { ephemeral: true }),
   );
 
   // A paired device reads this library and songbook by its token; its own backend places its copies against ours.
@@ -141,34 +148,8 @@ export function mountMedia(
   // Where a song is on an engine's machine, fetched there first — what the player hands the engine.
   app.use("/api/engine-local", requireAuth, engineLocalRouter(engine));
 
-  // A token for a DESKTOP app on its loopback port; isLoopbackReturn IS this route's security.
-  app.get("/api/token/pair", requireAuth, (req, res) => {
-    const back = String(req.query.return ?? "");
-    // The predicate is shared with the app that builds this address: one rule, two sides.
-    if (!isLoopbackReturn(back))
-      return res
-        .status(400)
-        .json({ error: "return must be an http loopback address" });
-    const target = new URL(back);
-
-    const who = (req as Who).user;
-    const id = who?.sub ?? who?.email;
-    if (!id) return res.status(401).json({ error: "no user on the session" });
-
-    target.searchParams.set("token", issueApiToken(id));
-    target.searchParams.set("identity", who?.email ?? id);
-    if (typeof req.query.state === "string")
-      target.searchParams.set("state", req.query.state);
-    res.redirect(target.toString());
-  });
-
-  /** Mint a token for the signed-in user. Session only: a token must not mint another. */
-  app.post("/api/token", requireAuth, (req, res) => {
-    const who = (req as Who).user;
-    const id = who?.sub ?? who?.email;
-    if (!id) return res.status(401).json({ error: "no user on the session" });
-    res.json({ token: issueApiToken(id) });
-  });
+  // Minted, listed and revoked by their owner, behind the session only (./tokenRoutes.ts).
+  mountTokenRoutes(app, requireAuth, tokens);
 
   let stopping: Promise<void> | undefined;
   const stopHub = (): Promise<void> => {

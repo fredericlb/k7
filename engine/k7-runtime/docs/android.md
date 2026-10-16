@@ -6,7 +6,9 @@ phone at the studios it is connected to, exactly as on desktop, and the engine s
 WebSocket protocol on port 8765, bound to every interface.
 
 **It lives as long as `MainActivity`**, and leaving it deregisters the engine, stops it and ends the
-process. The one service, `MediaPlaybackService`, keeps that process in front while a page plays
+process. That teardown runs on a thread of its own, never the UI thread, since its stops wait for
+seconds and a blocked main thread is an ANR; the backend gets longer than its own 8 s stop, so its
+file services are not killed mid-teardown. The one service, `MediaPlaybackService`, keeps that process in front while a page plays
 (below), and starts nothing of its own.
 
 ## Standalone: the phone runs its own studio
@@ -62,7 +64,15 @@ Two ways from the page to the native half:
   every message, may call the engine** (`apps/k7/frontend/src/settings/androidEngine.ts`). The
   object is offered to every origin because the studio can change under a view that already
   exists, and a listener's origin rules are fixed when it is added; the check is per message
-  instead.
+  instead. k7's origin is whichever studio is open, possibly a remote one, so a script on it is
+  not trusted with the supervisor: `command` takes the desktop's seven (`engine.start|stop|restart`,
+  `audio.priority`, `plugins.rescan`, `instruments.download|remove`, as in
+  `apps/k7-standalone/src/engineBridge.ts`) plus `weburi.remove`, which only unlists this engine;
+  `weburi.add` asks the user in a native dialog naming the address, and anything else is refused —
+  `shutdown`, `session.drop`, `registry.deregister` and pairing included, which the panel never sends.
+  `chooseStudio` takes `https` origins, or this phone's own loopback one; an origin no listed studio
+  answers on asks the user first too. A dialog a page cannot draw or click is what stops a script
+  from listing the engine at a studio of its own and moving k7 there.
 
 **The apps load from a studio, never from the shell page.** Each app is same-origin with its backend
 (relative `/api` and `/auth`, cookie sessions), so it is served by one: this phone's own by default.
@@ -77,12 +87,21 @@ What the app views do that a browser would do on its own:
 - **A link to an app with a view switches to it** instead of opening a window: `target=_blank` and
   cross-app links go to that app's view, at that URL. Only a link the *user* followed does this; a
   redirect stays in its view. Other hosts in a new window open in the browser. Every page of k7
-  is same-origin with its `/auth`, so the views need no third-party cookies.
+  is same-origin with its `/auth`, so the views need no third-party cookies. Only `http`, `https`,
+  `mailto` and `tel` are handed to another app; any other scheme a page names is dropped, since a
+  `file:` or `intent:` URI handed out exposes or launches what it should not.
 - **The microphone** goes to the studio's apps only (the rehearsal recorder's remote mic), and only once the app holds
   RECORD_AUDIO, which it asks for at start for the engine.
 - **The private CA** covers the app views too: a certificate the WebView refuses only for its unknown issuer
   is accepted when `TrustedCas` holds that certificate or its issuer. The WebView hands over the leaf
   alone, so a studio whose certificate hangs off an intermediate needs the intermediate imported.
+  What `CertTrust` decides, since the WebView's own checks are skipped once it is asked: an imported
+  certificate signs for others only if it is a CA (basicConstraints CA:true, and keyCertSign when
+  it states a key usage); one that is not — a studio's self-signed leaf — is trusted as that exact
+  certificate, by SHA-256, and never as an issuer. Either way the leaf must be in its dates and name
+  the page's host in its subjectAltName (a DNS name, one leftmost `*` label at most, or the IP);
+  a wrong name, an expired or not-yet-valid date, or any fault besides the unknown issuer is never
+  forgiven.
 - **Back** walks the visible app's history. With none left it does what it always did: it finishes
   the activity, which quits.
 
@@ -119,7 +138,10 @@ API (`packages/ui-mini-player/docs/miniPlayer.md`) and knows nothing of Android.
 | the task swiped away or the activity left clears it | a detached notification would outlive the process it controls |
 
 A foreground start can be refused when the app is behind (Android 12+); the notification then
-shows without the service, and the log says so under `k7-media`.
+shows without the service, and the log says so under `k7-media`. Every start of the service enters
+the foreground before anything else — a placeholder notification when nothing plays — even a
+start that only stops it: a `startForegroundService` left without its `startForeground` crashes
+the app. So the service is stopped through a start that says so, never by `stopService`.
 
 ## Signing in happens in the browser
 

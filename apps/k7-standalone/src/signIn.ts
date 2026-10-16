@@ -3,12 +3,12 @@
 
 import { createHash, randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
+import { openExternalSafely } from "@frediverse/electron-shell/external";
 import { line } from "@frediverse/electron-shell/log";
 import {
   handoffIssueUrl,
   handoffRedeemUrl,
 } from "@studio/web-protocol/handoff";
-import { shell } from "electron";
 
 /** A sign-in left unfinished in the browser stops listening after this. */
 const WAIT_MS = 10 * 60_000;
@@ -57,7 +57,7 @@ export function signIn(
     const address = server.address();
     if (!address || typeof address === "string") return;
     const redirect = `http://127.0.0.1:${address.port}/done`;
-    void shell.openExternal(
+    openExternalSafely(
       handoffIssueUrl(origin, { redirect, challenge, state, forget: true }),
     );
   });

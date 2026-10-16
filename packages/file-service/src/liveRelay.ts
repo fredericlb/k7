@@ -5,13 +5,14 @@
 // See docs/liveCapture.md, ../../file-hub/docs/syncRelay.md and ../../file-hub/docs/blobs.md.
 
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { type BlobId, blobsOf, parseBlobRef } from "@studio/live-sync/blob";
 import { applyFileOp, fileOpFor } from "@studio/live-sync/file-op";
 import type { Batch, Sequenced } from "@studio/live-sync/ops";
 import type { FromRelay, ToRelay } from "@studio/live-sync/protocol";
 import type { Replica } from "@studio/live-sync/replica";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import { WebSocket } from "ws";
 import { cloneFile } from "./liveBlobs.ts";
@@ -60,7 +61,7 @@ export function loadHead(logDir: string): number {
 
 function saveHead(logDir: string, head: number): void {
   mkdirSync(logDir, { recursive: true });
-  writeFileSync(join(logDir, "head"), String(head));
+  writeFileAtomic(join(logDir, "head"), String(head));
 }
 
 export class RelayLink {
@@ -433,7 +434,7 @@ export class RelayLink {
       // A binary's text is its ref: what is kept aside is its bytes.
       if (parseBlobRef(mine)) {
         if (existsSync(abs)) cloneFile(abs, to);
-      } else writeFileSync(to, mine);
+      } else writeFileAtomic(to, mine);
       displaced++;
     }
     if (ops.length)

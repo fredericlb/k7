@@ -9,6 +9,7 @@ import {
 } from "@frediverse/electron-shell/boot";
 import { runApp } from "@frediverse/electron-shell/lifecycle";
 import { line, openLog } from "@frediverse/electron-shell/log";
+import { installPermissions } from "@frediverse/electron-shell/permissions";
 import {
   type Server,
   stopServer,
@@ -60,6 +61,13 @@ const webPreferences = {
   preload: join(__dirname, "preload.cjs"),
   additionalArguments: [`--studio-ports=${PORTS_SPEC}`],
 };
+
+/** Widened past the shell's defaults for the rehearsal bench, an app frame inside an app page that records and plays MIDI. */
+const K7_GRANTS = {
+  media: "app",
+  midi: "app",
+  "screen-wake-lock": "app",
+} as const;
 
 let backends: Server[] = [];
 let supervisor: SupervisorHost | null = null;
@@ -149,6 +157,11 @@ async function boot(): Promise<void> {
   await Promise.all(backends.map((b) => waitListening(b)));
   line("app", "backend up");
   await noServiceWorker();
+  // Before the first page: what k7's frames may use, everything else refused (docs/standalone.md, "Permissions").
+  installPermissions(session.defaultSession, {
+    origins: [K7],
+    grants: K7_GRANTS,
+  });
   watchSignOut();
   openWindow();
 }

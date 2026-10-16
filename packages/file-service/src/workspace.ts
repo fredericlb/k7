@@ -14,7 +14,6 @@ import {
   renameSync,
   rmSync,
   statSync,
-  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import {
@@ -39,6 +38,7 @@ import {
   assemblyIssues,
   libraryAssemblies,
 } from "@studio/song/assemblies";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
 import type { AutoFreeze } from "@studio/song/autoFreeze";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { confineToProject } from "@studio/song/confine";
@@ -516,7 +516,7 @@ export function readActiveMarker(root: string): string | null {
 export function writeActiveMarker(root: string, rel: string): void {
   const at = activeMarkerOf(root);
   mkdirSync(dirname(at), { recursive: true });
-  writeFileSync(at, rel ? `${rel}\n` : "", "utf8");
+  writeFileAtomic(at, rel ? `${rel}\n` : "");
 }
 
 /** Read an in-workspace marker once, write it beside the workspace and delete it from the workspace. */
@@ -1608,7 +1608,7 @@ export class Workspace {
     this.assertLibraryWritable(abs, "write");
     if (isBinary(basename(abs))) throw new Error("cannot edit a binary file");
     mkdirSync(dirname(abs), { recursive: true });
-    if (isK7xPath(abs)) writeFileSync(abs, content, "utf8");
+    if (isK7xPath(abs)) writeFileAtomic(abs, content);
     else wsWrite(abs, content);
     this.invalidateProjectDoc();
     return {};
@@ -1633,7 +1633,7 @@ export class Workspace {
       throw err;
     }
     mkdirSync(dirname(abs), { recursive: true });
-    writeFileSync(abs, bytes);
+    writeFileAtomic(abs, bytes);
     this.invalidateProjectDoc();
     return { path: this.toRel(abs) };
   }

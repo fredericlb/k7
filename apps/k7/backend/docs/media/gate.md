@@ -23,15 +23,15 @@ other callers have **no cookie jar**: the rehearsal server filing a take — mou
 yet calling the library over loopback with a `service:k7` token minted here — and each account's
 file service,
 which this process starts and hands a token so it can reach the médiathèque over loopback
-(`packages/file-hub/docs/fileHub.md`). A token is a signed `{sub, iat}` with no server-side storage,
-and rotating the secret revokes every one at once.
+(`packages/file-hub/docs/fileHub.md`). A token is a signed `{jti, sub, iat, exp}` that is valid only while
+its id is listed in the library's token store, so one can be revoked alone ([../sessions.md](../sessions.md)); the
+two handed over in code are ephemeral, held in this process's memory only.
 
 The secret is `API_TOKEN_SECRET`, or `SESSION_SECRET` with `:pl8` appended when that is unset
-(`mount.ts`). The suffix is the library's name and is part of every token already issued — machine
-caches and the tokens the file services and the rehearsal server hold — so changing it is a revocation of all of them, not a rename.
+(`mount.ts`). Changing it revokes every token at once.
 
-`POST /api/token` mints one and is **session only**, deliberately: a token must not be able to mint
-another. `GET /api/token/pair` hands one to a desktop app on its loopback port, and
+`POST /api/token` mints one, `GET /api/token` lists the owner's and `DELETE /api/token/:id` revokes one;
+all are **session only**, deliberately: a token must not be able to mint another. `GET /api/token/pair` hands one to a desktop app on its loopback port, and
 `isLoopbackReturn` is that route's whole security. Two routes refuse the bearer for reasons of their
 own — the hunt, which spends an account's reputation ([hunt.md](hunt.md)), and the settings, which
 hold the slskd key and have no headless caller ([settings.md](settings.md)).
