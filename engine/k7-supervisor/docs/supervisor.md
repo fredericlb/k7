@@ -225,6 +225,20 @@ a thread of its own. What a job changes in the settings goes through the loop, t
 single writer — a job writing the file beside the loop's own copy would be undone by the next save
 of that copy.
 
+## One stem cut at a time
+
+A cut holds the whole decoded song, per channel, and the overlap-add buffers of all four stems: past
+a gigabyte for a ten-minute song. A set list sent for cutting asks for every song at once, on a
+machine whose engine may be playing live — so the machine runs `$STUDIO_SEPARATIONS_AT_ONCE` cuts at
+a time (1 when unset), read once per run, and the others wait in the order they asked
+(`src/JobSlots.h`). A waiting job reports the phase `queued` with a line saying how many are ahead
+of it, so a server shows a queue rather than a cut that never moves. The hour a cut is allowed
+counts from its start, not from its request: the last song of a long set list waits longer than
+that.
+
+The decode holds ffmpeg's bytes and the per-channel copy, and no interleaved float copy between
+them.
+
 ## ONNX Runtime is loaded, never linked
 
 The library is looked for at the first separation — at `$STUDIO_ONNXRUNTIME_DIR`, then beside the

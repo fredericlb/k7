@@ -1,10 +1,11 @@
 // Separation.cpp — see Separation.h. A job runs on a thread of its own and is POLLED by whoever asked,
-// once a second, which is how a second request for the same cut joins the first. An hour ends a job
-// whatever it is doing: the run is terminated and the job says why. The rationale for
-// every step is stem-separation's docs/stemSplit.md.
+// once a second, which is how a second request for the same cut joins the first. Jobs past the
+// machine's cap wait `queued` (docs/supervisor.md); an hour from its START ends a job whatever it is
+// doing. The rationale for every step is stem-separation's docs/stemSplit.md.
 
 #include "Separation.h"
 
+#include "JobSlots.h"
 #include "OnnxSession.h"
 #include "Paths.h"
 #include "Processes.h"
@@ -14,7 +15,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -46,6 +46,25 @@ std::mutex registryMutex;
 std::map<std::string, std::shared_ptr<Job>> jobs;
 /** A provider that lost its device once, for this process's lifetime: the next song starts on the CPU. */
 std::string lost;
+
+/** How many cuts run at once on this machine: `$STUDIO_SEPARATIONS_AT_ONCE`, 1 when unset or not a count. */
+std::size_t separationsAtOnce()
+{
+    const char* env = std::getenv("STUDIO_SEPARATIONS_AT_ONCE");
+    if (!env || !*env) return 1;
+    try {
+        const int n = std::stoi(env);
+        return n > 0 ? static_cast<std::size_t>(n) : 1;
+    } catch (...) {
+        return 1;
+    }
+}
+
+JobSlots& slots()
+{
+    static JobSlots s(separationsAtOnce());
+    return s;
+}
 
 /** Keyed by the WORK — who, which file, which model, which outputs — never by a workspace. */
 std::string jobId(const Request& r, const std::vector<std::string>& outputs)
@@ -109,9 +128,7 @@ Channels decode(const std::string& source)
         throw std::runtime_error("ffmpeg is not installed — stem separation decodes its input with it, and unlike a transcode "
                                  "there is no lesser result to fall back to");
     if (r.code != 0) throw std::runtime_error("ffmpeg could not decode " + source + ": " + r.err.substr(r.err.size() > 2048 ? r.err.size() - 2048 : 0));
-    std::vector<float> pcm(r.out.size() / sizeof(float));
-    std::memcpy(pcm.data(), r.out.data(), pcm.size() * sizeof(float));
-    return deinterleave(pcm);
+    return deinterleaveBytes(r.out);
 }
 
 /** The record's own rate: a stem only cancels against the record at the rate the record plays. */
@@ -263,27 +280,31 @@ void run(const Request& r, const std::function<void(const nlohmann::json& job)>&
             }
             if (providers.empty()) providers = {"cpu"};
             std::thread([job, r, outputs, providers] {
+                const auto held = slots().hold([&](std::size_t ahead) {
+                    say(*job, "queued", nullptr,
+                        ahead ? "queued behind " + std::to_string(ahead) + " other cut(s)" : "queued: next, once a running cut ends");
+                });
+                // The hour counts from here: a set list's last song may wait longer than that in the queue.
+                std::thread([job, source = r.source] {
+                    const auto until = Clock::now() + kTimeout;
+                    while (Clock::now() < until) {
+                        std::this_thread::sleep_for(kPoll);
+                        std::lock_guard lock(job->mutex);
+                        if (job->state.value("done", false)) return;
+                    }
+                    std::shared_ptr<OnnxSession> s;
+                    {
+                        std::lock_guard lock(job->mutex);
+                        s = job->session;
+                    }
+                    if (s) s->terminate();
+                    finish(*job, {{"failed", true}, {"error", "separation of " + source + " exceeded 60 minutes"}, {"phase", "failed"}});
+                }).detach();
                 try {
                     separate(*job, r, outputs, providers);
                 } catch (const std::exception& e) {
                     finish(*job, {{"failed", true}, {"error", e.what()}, {"phase", "failed"}});
                 }
-            }).detach();
-            // The hour: past it the job is failed and its run aborted, whatever it was doing.
-            std::thread([job, source = r.source] {
-                const auto until = Clock::now() + kTimeout;
-                while (Clock::now() < until) {
-                    std::this_thread::sleep_for(kPoll);
-                    std::lock_guard lock(job->mutex);
-                    if (job->state.value("done", false)) return;
-                }
-                std::shared_ptr<OnnxSession> s;
-                {
-                    std::lock_guard lock(job->mutex);
-                    s = job->session;
-                }
-                if (s) s->terminate();
-                finish(*job, {{"failed", true}, {"error", "separation of " + source + " exceeded 60 minutes"}, {"phase", "failed"}});
             }).detach();
         }
     }
