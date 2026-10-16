@@ -219,11 +219,22 @@ describe("resumable transfers", () => {
     expect(head.status).toBe(404);
     expect(head.headers.get("x-k7fs-partial-length")).toBe("120000");
     // An offset past what is kept is refused with the length to resume from.
-    const ahead = await fetch(`${base}/${h}?offset=150000`, {
-      method: "PUT",
-      headers: auth,
-      body: bytes.subarray(150_000),
-    });
+    const putAhead = () =>
+      fetch(`${base}/${h}?offset=150000`, {
+        method: "PUT",
+        headers: auth,
+        body: bytes.subarray(150_000),
+      });
+    let ahead = await putAhead();
+    // The cut upload holds its lock until the server sees the socket close, which a loaded machine sees late.
+    for (
+      let i = 0;
+      i < 100 && !ahead.headers.has("x-k7fs-partial-length");
+      i++
+    ) {
+      await new Promise((r) => setTimeout(r, 50));
+      ahead = await putAhead();
+    }
     expect(ahead.status).toBe(409);
     expect(ahead.headers.get("x-k7fs-partial-length")).toBe("120000");
     const rest = await fetch(`${base}/${h}?offset=120000`, {

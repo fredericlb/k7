@@ -88,7 +88,7 @@ describe("uploads through a tunnel", () => {
     const { put, replies } = tunnel({ idleMs: 300 });
     put(1, "slow", 4, false);
     await until(() => readdirSync(dir).some((f) => f.endsWith(".part")));
-    await until(() => replies().length > 0);
+    await until(() => replies().length > 0 && readdirSync(dir).length === 0);
     expect(replies()).toMatchObject([{ req: 1, error: expect.any(String) }]);
     expect(readdirSync(dir)).toEqual([]);
   });
