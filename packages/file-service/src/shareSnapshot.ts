@@ -35,6 +35,7 @@ import {
   SHARE_SCHEMA,
   type ShareManifest,
 } from "@studio/web-protocol";
+import { isBelow, isWithin } from "@studio/web-protocol/paths";
 import {
   buildGraphDoc,
   clipExtentsOf,
@@ -138,9 +139,8 @@ export function shareVisit(src: string, dir: string): Visit {
     modelsRoot(),
   ];
   return (s, kind) => {
-    if (s === src || s.startsWith(`${src}${sep}`))
-      return `${SHARE_ROOT}src/${slash(relative(src, s))}`;
-    if (kind !== "file" || !s.startsWith(`${home}${sep}`)) return s;
+    if (isWithin(src, s)) return `${SHARE_ROOT}src/${slash(relative(src, s))}`;
+    if (kind !== "file" || !isBelow(home, s)) return s;
     const from = confineTo(stores, s);
     if (!from || !existsSync(from) || !statSync(from).isFile()) return s;
     const rel = slash(relative(home, from));

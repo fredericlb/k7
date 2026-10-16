@@ -9,6 +9,7 @@ import { ENGINES_DIR } from "@studio/song-schema/engines";
 import { namePart } from "@studio/song-schema/instanceName";
 import { parseGraph, renameNode } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
+import { isBelow } from "@studio/web-protocol/paths";
 import { parseDocument } from "yaml";
 import { editChainItem } from "./chainItemEdit";
 import { isChainProject, readChainProject } from "./chainProject";
@@ -53,7 +54,7 @@ export function sharedModuleRef(
 ): { ref: string; folder: string; leaf: string; type: string } | null {
   const abs = resolve(file);
   for (const { root, ns } of sharedRoots(dir)) {
-    if (!abs.startsWith(root + sep)) continue;
+    if (!isBelow(root, abs)) continue;
     const segs = toPosix(relative(root, abs)).split("/");
     // An ENGINE's file is its module's path plus `engines/<name>/` — docs/engines.md.
     const engine =

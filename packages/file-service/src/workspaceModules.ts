@@ -35,6 +35,7 @@ import {
   type ModuleNamespace,
 } from "@studio/song-schema/moduleTypes";
 import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
+import { isPlainSegment } from "@studio/web-protocol/paths";
 import { parse as parseYaml } from "yaml";
 
 /** The members of the workspace these read and write through. */
@@ -201,8 +202,7 @@ export function baseSnapshotPathOf(
 ): { abs: string; path: string } {
   const moduleAbs = h.safePath(rel);
   const clean = basename(name).replace(/[\\/]/g, "").trim();
-  if (!clean || clean === "." || clean === "..")
-    throw new Error(`invalid name: ${name}`);
+  if (!isPlainSegment(clean)) throw new Error(`invalid name: ${name}`);
   // Spelt once whether or not the user typed it: `warm` and `warm.vstpreset` are one base.
   const leaf = clean.endsWith(".vstpreset") ? clean : `${clean}.vstpreset`;
   const dir = h.safePath(h.toRel(join(dirname(moduleAbs), "base")));

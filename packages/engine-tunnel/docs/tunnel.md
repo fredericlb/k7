@@ -89,6 +89,8 @@ path, a device name, anything of the engine's machine is left alone because no r
 or space-only segment, no control character, `\` or `:`, no Windows device name, and on Windows no
 trailing dot or space. Both agents refuse the same table, because a path one of them would open is a
 path the server can aim at whichever machine runs the weaker one.
+It starts from the tree's own segment rule, `isPlainSegment` (`packages/web-protocol/docs/paths.md`),
+and refuses more: the rest of the table is what an engine's machine would mis-open.
 
 **A file the engine holds open is never waited for.** On Windows a rename over a file another
 process has open is refused, and the engine keeps open the clips of what it played. The new version

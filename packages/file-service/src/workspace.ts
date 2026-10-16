@@ -78,6 +78,8 @@ import type {
   WorkspaceInfo,
 } from "@studio/web-protocol";
 import type { Compatibility } from "@studio/web-protocol/compat";
+import { isWithin } from "@studio/web-protocol/paths";
+import type { PlaylistInfo } from "@studio/web-protocol/playlists";
 import {
   PROJECT_SUFFIXES,
   type ProjectApp,
@@ -138,7 +140,6 @@ import { type Recorded, WorkspaceHistory } from "./workspaceHistory.ts";
 import {
   fileTree,
   isProjectDir,
-  type PlaylistRow,
   playlistsIn,
   referencesIn,
 } from "./workspaceListings.ts";
@@ -292,7 +293,7 @@ export class Workspace {
 
   // --- path guards (verbatim from store.ts, reading this.root) ---------------
   private withinRoot(abs: string): boolean {
-    return abs === this.root || abs.startsWith(this.root + sep);
+    return isWithin(this.root, abs);
   }
 
   /** Resolve `rel` inside the workspace, or throw — TWO gates, both needed, docs/workspace.md.
@@ -373,8 +374,7 @@ export class Workspace {
 
   // Whether `abs` is in _recycle_bin — a deleted project, never listed, opened or started.
   private isRecycled(abs: string): boolean {
-    const bin = join(this.root, RECYCLE_DIR);
-    return abs === bin || abs.startsWith(bin + sep);
+    return isWithin(join(this.root, RECYCLE_DIR), abs);
   }
 
   setActiveProject(rel: string): string {
@@ -488,9 +488,7 @@ export class Workspace {
       err.code = "EEXIST";
       throw err;
     }
-    const wasActive =
-      !!this.activeProject &&
-      (abs === this.activeProject || this.activeProject.startsWith(abs + sep));
+    const wasActive = !!this.activeProject && isWithin(abs, this.activeProject);
     // Release every handle inside the folder before renaming, or Windows answers EPERM.
     this.cancelPrewarm();
     await beforeMove?.(abs);
@@ -759,7 +757,7 @@ export class Workspace {
   }
 
   /** The playlists this workspace holds, at the ROOT and at any depth — see docs/workspace.md. */
-  playlists(): PlaylistRow[] {
+  playlists(): PlaylistInfo[] {
     return playlistsIn(this.root, (a) => this.toRel(a));
   }
 

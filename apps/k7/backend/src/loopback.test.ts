@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  isLoopbackAddress,
   isLoopbackHostHeader,
   isLoopbackRequest,
   loopbackOnly,
@@ -29,15 +28,6 @@ describe("isLoopbackHostHeader", () => {
     ])
       expect(isLoopbackHostHeader(h)).toBe(false);
     expect(isLoopbackHostHeader(undefined)).toBe(false);
-  });
-});
-
-describe("isLoopbackAddress", () => {
-  it("accepts IPv4, IPv6 and the IPv4-mapped spelling", () => {
-    for (const a of ["127.0.0.1", "::1", "::ffff:127.0.0.1"])
-      expect(isLoopbackAddress(a)).toBe(true);
-    for (const a of ["192.168.1.4", "::ffff:10.0.0.2", undefined])
-      expect(isLoopbackAddress(a)).toBe(false);
   });
 });
 

@@ -5,11 +5,10 @@
 
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { JobError, requestJob } from "@studio/engine-tunnel/jobs-client";
+import { JobError, requestJobAt } from "@studio/engine-tunnel/jobs-client";
 import { mediatekSongRefs } from "@studio/song/mediatekRefs";
 import { mediatekRoot } from "@studio/song/mediatekRoot";
 import { songPathPrefix } from "@studio/song-schema/songRef";
-import { WebSocket } from "ws";
 import { liveWorkspaces } from "./workspaces.ts";
 
 /** How often the open projects are asked what they name; each ask that finds a change costs one request. */
@@ -57,11 +56,9 @@ async function prefetchOnce(jobsUrl: string | null): Promise<void> {
   const signature = `${jobsUrl}\n${files.join("\n")}`;
   if (signature === settled) return;
   running = true;
-  const ws = new WebSocket(jobsUrl);
-  ws.on("error", () => {});
   try {
-    await requestJob(
-      ws,
+    await requestJobAt(
+      jobsUrl,
       { type: "prefetch", files },
       (r) => r.type === "prefetched",
     );
@@ -72,7 +69,6 @@ async function prefetchOnce(jobsUrl: string | null): Promise<void> {
     if (message !== lastError) console.warn(`   mediatek prefetch: ${message}`);
     lastError = message;
   } finally {
-    ws.close();
     running = false;
   }
 }

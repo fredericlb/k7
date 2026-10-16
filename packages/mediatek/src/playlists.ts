@@ -11,6 +11,7 @@ import {
   parsePlaylist,
   playlistStub,
 } from "@studio/song-schema/playlist";
+import { plainSegments } from "@studio/web-protocol/paths";
 import { playlistsDir, safePath } from "./layout.ts";
 import { mapLimit } from "./pool.ts";
 import { PLAYLISTS_DIR } from "./types.ts";
@@ -38,9 +39,9 @@ export interface PlaylistSummary {
 export function playlistPath(name: string): string | null {
   const clean = name.trim().replace(/^\/+|\/+$/g, "");
   if (!clean) return null;
-  const segs = clean.split("/");
   // `.` and `..` are refused per SEGMENT, since `resolve` would otherwise walk out of the volume.
-  if (segs.some((s) => !s || s === "." || s === "..")) return null;
+  const segs = plainSegments(clean);
+  if (!segs) return null;
   const rel = segs.join("/");
   return `${PLAYLISTS_DIR}/${/\.ya?ml$/i.test(rel) ? rel : `${rel}${PLAYLIST_EXT}`}`;
 }

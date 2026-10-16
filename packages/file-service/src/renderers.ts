@@ -7,14 +7,13 @@ import { randomUUID } from "node:crypto";
 import { copyFileSync, mkdirSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
-import { requestJob } from "@studio/engine-tunnel/jobs-client";
+import { requestJobAt } from "@studio/engine-tunnel/jobs-client";
 import { autoRendersHome } from "@studio/song/autoFreeze";
 import {
   localRenderer,
   type Renderer,
   type RenderManifest,
 } from "@studio/take-render/renderer";
-import { WebSocket } from "ws";
 import { boundJobsUrl } from "./boundMachine.ts";
 
 /** The server's render machine, a jobs path the file hub binds when the deployment names one; unset elsewhere. */
@@ -36,19 +35,16 @@ export function machineRenderer(jobsUrl: () => string | null): Renderer {
     // Under the render cache, the one writable root every machine is given; the hub accepts no upload under a root that does not exist.
     mkdirSync(autoRendersHome(), { recursive: true });
     const staging = join(autoRendersHome(), "jobs", randomUUID());
-    const ws = new WebSocket(url);
-    ws.on("error", () => {});
-    const timer = setTimeout(() => ws.terminate(), MACHINE_RENDER_TIMEOUT_MS);
     try {
-      const reply = await requestJob(
-        ws,
+      const reply = await requestJobAt(
+        url,
         { type: "render", doc, outDir: staging, stems: !!opts.stems },
         (r) => r.type === "rendered",
+        undefined,
+        { totalMs: MACHINE_RENDER_TIMEOUT_MS },
       );
       return moveInto(reply, outDir);
     } finally {
-      clearTimeout(timer);
-      ws.close();
       rmSync(staging, { recursive: true, force: true });
     }
   };

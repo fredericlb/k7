@@ -23,6 +23,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@studio/web-protocol": "*",
     "@studio/k7x": "*",
     "node-diff3": "^3.2.1",
     "yaml": "^2.5.0"

@@ -5,7 +5,7 @@
 // is for — a workspace may keep presets for a library module. See packages/song/docs/userPresets.md.
 
 import { mkdirSync, readdirSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { swappedModule } from "@studio/song/alternatives";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { loadModuleRefs, loadModules } from "@studio/song/loader";
@@ -49,6 +49,7 @@ import {
   setAlternativeField,
   setAlternativeParam,
 } from "@studio/song-schema/yaml/alternativeFile";
+import { isBelow } from "@studio/web-protocol/paths";
 import { parse as parseYaml } from "yaml";
 import { selectModuleEngine } from "./engineSwitch";
 import { editModuleFile } from "./projectEdit";
@@ -110,8 +111,7 @@ export function presetFile(
     );
   const folder = presetFolder(dir, scope, ref);
   const path = resolve(folder, `${name}.yaml`);
-  if (!path.startsWith(folder + sep))
-    throw new Error(`invalid preset name '${name}'`);
+  if (!isBelow(folder, path)) throw new Error(`invalid preset name '${name}'`);
   return path;
 }
 

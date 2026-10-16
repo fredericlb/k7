@@ -29,6 +29,7 @@
     "upload-library": "node --experimental-strip-types scripts/uploadLibrary.ts"
   },
   "dependencies": {
+    "@studio/web-protocol": "*",
     "@studio/engine-client": "*",
     "yaml": "^2.5.0",
     "@studio/song-schema": "*",

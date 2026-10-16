@@ -3,7 +3,7 @@
 // here or another verb file, never from `commands.ts`, which imports every verb file; only
 // erased TYPES come from `commands.ts`. See docs/verbs.md.
 
-import { resolve, sep } from "node:path";
+import { resolve } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import {
   isInputModule,
@@ -14,6 +14,7 @@ import type { ProjectDoc } from "@studio/song/project";
 import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song-schema/playlist";
 import { parsePosition } from "@studio/song-schema/timecode";
 import { localRenderer, type Renderer } from "@studio/take-render/renderer";
+import { isWithin } from "@studio/web-protocol/paths";
 import type { CommandHost } from "../commands.ts";
 
 /** What the playlist verbs say with no workspace: they never fall back to `songPath`, docs/playlist.md. */
@@ -38,7 +39,7 @@ export function playlistFile(
   const rel = playlistPathOf(name);
   const dir = resolve(root, PLAYLISTS_DIR);
   const abs = rel ? resolve(root, rel) : "";
-  if (!rel || !(abs.startsWith(dir + sep) || abs === dir)) {
+  if (!rel || !isWithin(dir, abs)) {
     h.refuse([
       `'${name}' is not a playlist name — it would leave ${PLAYLISTS_DIR}/`,
     ]);

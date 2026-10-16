@@ -19,6 +19,11 @@ A caller waits for a bounded time: 15 minutes without a reply (`JOB_IDLE_MS`), o
 the channel, so a machine that went quiet holds no server-side promise, and no channel, for ever. The
 idle bound is long because a `render` says `rendering` once and nothing more until its files are up.
 
+A caller holding no channel of its own — the hosted file service, which reaches the bound machine
+at a loopback path — asks through `requestJobAt`: a socket per request, closed once it settles. A
+request is rare and long, so a pooled socket would buy nothing and would have to survive the
+machine's restarts.
+
 What a machine does is registered by type; the supervisor's list is
 `engine/k7-supervisor/src/MachineJobs.cpp` (`TunnelAgentOptions.jobs` for the TypeScript reference
 agent the server's tests run on). A type it does not know is refused by name.

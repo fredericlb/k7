@@ -10,6 +10,7 @@ import {
   libraryRef,
   libraryRefParts,
 } from "@studio/song-schema/moduleTypes";
+import { plainSegments } from "@studio/web-protocol/paths";
 import { repointRefs } from "./moduleMove";
 import { accountLibraryHome, libraryFamilyRoot } from "./sharedFolders";
 import { wsCopy, wsExists, wsWrite } from "./yaml/workspaceFile";
@@ -29,9 +30,8 @@ export function forkIntoAccount(projectDir: string, ref: string): AccountFork {
     throw new Error(`${ref} is no module of the origin's libraries`);
   // A ref may name one node of the module (`…/x:warm`); the fork is of the module.
   const path = parts.rest.split(":")[0];
-  const segs = path.split("/");
-  if (segs.some((s) => !s || s === "." || s === ".."))
-    throw new Error(`${ref} is no module path`);
+  const segs = plainSegments(path);
+  if (!segs) throw new Error(`${ref} is no module path`);
   const modules = libraryFamilyRoot(parts.library, "modules", projectDir);
   const base = modules ? join(modules, ...segs) : null;
   if (!base || !wsExists(join(base, "module.yaml")))

@@ -2,8 +2,15 @@
 // silence, or after its whole budget however chatty it is.
 
 import { EventEmitter } from "node:events";
+import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { JobError, type JobSocket, requestJob } from "./jobsClient.ts";
+import { WebSocketServer } from "ws";
+import {
+  JobError,
+  type JobSocket,
+  requestJob,
+  requestJobAt,
+} from "./jobsClient.ts";
 
 class FakeSocket extends EventEmitter {
   readyState = 1;
@@ -73,5 +80,47 @@ describe("a job's time limits", () => {
     await expect(p).resolves.toMatchObject({ type: "done" });
     vi.advanceTimersByTime(24 * 60 * 60_000);
     expect(sock.closed).toBe(false);
+  });
+});
+
+describe("requestJobAt", () => {
+  let server: WebSocketServer;
+  let url: string;
+  beforeEach(async () => {
+    server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+    await new Promise((r) => server.once("listening", r));
+    url = `ws://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+  afterEach(() => new Promise((r) => server.close(r)));
+
+  it("dials, answers with the last reply, and closes its socket", async () => {
+    const closed = new Promise<void>((resolve) =>
+      server.on("connection", (c) => {
+        c.on("message", (d) => {
+          const { id } = JSON.parse(d.toString());
+          c.send(JSON.stringify({ type: "progress", id }));
+          c.send(JSON.stringify({ type: "done", id }));
+        });
+        c.on("close", () => resolve());
+      }),
+    );
+    const seen: string[] = [];
+    const reply = await requestJobAt(
+      url,
+      { type: "x" },
+      (r) => r.type === "done",
+      (r) => seen.push(r.type),
+    );
+    expect(reply.type).toBe("done");
+    expect(seen).toEqual(["progress", "done"]);
+    await closed;
+  });
+
+  it("rejects with a JobError when nothing listens there", async () => {
+    await new Promise((r) => server.close(r));
+    server = new WebSocketServer({ noServer: true });
+    await expect(
+      requestJobAt(url, { type: "x" }, () => true),
+    ).rejects.toBeInstanceOf(JobError);
   });
 });

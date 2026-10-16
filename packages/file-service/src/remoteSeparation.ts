@@ -3,14 +3,13 @@
 // (packages/engine-tunnel/docs/jobs.md). Pollers see the same job records as a local run, so
 // nothing that starts or waits on one knows the difference. See docs/owner.md.
 
-import { JobError, requestJob } from "@studio/engine-tunnel/jobs-client";
+import { JobError, requestJobAt } from "@studio/engine-tunnel/jobs-client";
 import {
   type SeparationRunner,
   type StartSeparate,
   separationId,
 } from "@studio/stem-separation/separateJobs";
 import type { SeparateJob } from "@studio/web-protocol";
-import { WebSocket } from "ws";
 
 /** A finished job is kept this long for its last poll, as a local one is. */
 const KEEP_MS = 5 * 60 * 1000;
@@ -61,10 +60,8 @@ export function remoteSeparationRunner(
         fail(h, "no engine to cut on — open this project on an engine first");
         return { ...h.job };
       }
-      const ws = new WebSocket(url);
-      ws.on("error", () => {});
-      requestJob(
-        ws,
+      requestJobAt(
+        url,
         {
           type: "separate",
           user: opts.userEmail,
@@ -79,16 +76,14 @@ export function remoteSeparationRunner(
           h.job = { ...(r.job as SeparateJob), id };
           h.at = Date.now();
         },
-      )
-        .catch((e: Error) =>
-          fail(
-            h,
-            e instanceof JobError
-              ? e.message
-              : `the engine's machine: ${e.message}`,
-          ),
-        )
-        .finally(() => ws.close());
+      ).catch((e: Error) =>
+        fail(
+          h,
+          e instanceof JobError
+            ? e.message
+            : `the engine's machine: ${e.message}`,
+        ),
+      );
       return { ...h.job };
     },
 

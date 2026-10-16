@@ -21,6 +21,7 @@ import {
   VSTPRESETS_DIR,
 } from "@studio/song-schema/yaml/chainSchema";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
+import { plainSegments } from "@studio/web-protocol/paths";
 import { parse as parseYaml } from "yaml";
 import { bypassedOf, chainSteps } from "./chainsGraph";
 import { libraryFamilyRoots } from "./sharedFolders";
@@ -127,8 +128,7 @@ export function chainRefParts(
   const path = (parts ? parts.rest : trimmed).replace(/^\/+/, "");
   if (trimmed.startsWith("@") && !parts) return null; // `@engine/…`, `@workspace/…`: no library
   // A ref is a path under the family folder, so a `..` in it would reach out of the library.
-  if (!path || path.split("/").some((s) => !s || s === "." || s === ".."))
-    return null;
+  if (!plainSegments(path)) return null;
   return { library, path };
 }
 

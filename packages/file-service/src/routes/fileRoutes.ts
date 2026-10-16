@@ -2,10 +2,11 @@
 // k7x migration.
 // Mounted by files.ts after resolveWorkspace, so `req.ws` is always a Workspace. See docs/fileRoutes.md.
 
-import { join, resolve, sep } from "node:path";
+import { join, resolve } from "node:path";
 import { validate, wrap } from "@frediverse/http/route";
 import { K7X_BACKUP_DIR, migrateToK7x } from "@studio/song/k7xMigrate";
 import { k7xEverywhere } from "@studio/song/yaml/workspaceFile";
+import { isWithin } from "@studio/web-protocol/paths";
 import express, { Router } from "express";
 import { z } from "zod";
 import { startEngineForActive } from "../engineLink.ts";
@@ -47,11 +48,7 @@ fileRouter.put(
       // TWO gates — the token moved AND the path is inside the open song — before the engine is pushed to.
       const active = req.ws!.activeProjectPath();
       const abs = resolve(req.ws!.root, path);
-      if (
-        r.after !== r.before &&
-        active &&
-        (abs === active || abs.startsWith(active + sep))
-      )
+      if (r.after !== r.before && active && isWithin(active, abs))
         startEngineForActive(req.ws!);
       // `.value` because a journalled mutation also answers with the tokens either side of it.
       res.json({ ok: true, ...r.value });

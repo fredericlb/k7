@@ -2,6 +2,7 @@
 // route that serves one, so the file crosses the network over SFTP, PULLED by this server rather than
 // pushed by the other machine. See ../../../docs/media/hunt.md.
 
+import { isPlainSegment } from "@studio/web-protocol/paths";
 import SftpClient from "ssh2-sftp-client";
 
 /** The library's own upload route stops here, so anything past it is a transfer spent on nothing. */
@@ -35,9 +36,7 @@ export interface SftpConfig {
 
 /** Where slskd will have put a download — two segments, `.` and `..` dropped; ../../../docs/media/hunt.md. */
 export function localPathFor(remote: string, downloadsDir: string): string {
-  const parts = remote
-    .split(/[\\/]/)
-    .filter((p) => p && p !== "." && p !== "..");
+  const parts = remote.split(/[\\/]/).filter(isPlainSegment);
   const name = parts[parts.length - 1] ?? "";
   const dir = parts.length >= 2 ? parts[parts.length - 2] : "";
   return [downloadsDir.replace(/\/+$/, ""), dir, name]

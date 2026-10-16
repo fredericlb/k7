@@ -4,11 +4,12 @@
 // over one data root, so a `../` in a song file is another account's file, not a typo — docs/confine.md.
 
 import { lstatSync, readdirSync, realpathSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import {
   AUTO_RENDERS_HOME_DIR,
   isLibraryName,
 } from "@studio/song-schema/moduleTypes";
+import { climbsOut, isWithin } from "@studio/web-protocol/paths";
 import { modelsRoot } from "./modelCache";
 import {
   accountLibraryHome,
@@ -18,10 +19,6 @@ import {
   META_MODULES_ROOT,
 } from "./sharedFolders";
 import { studioHome } from "./studioHome";
-
-/** Is `p` the root itself or under it — both already resolved. */
-const within = (p: string, root: string): boolean =>
-  p === root || p.startsWith(root.endsWith(sep) ? root : root + sep);
 
 /** Is there anything at `p`, a dangling link included — which realpath then refuses. */
 function present(p: string): boolean {
@@ -52,17 +49,17 @@ export function confineTo(
   for (const raw of roots) {
     if (!raw) continue;
     const root = resolve(raw);
-    if (!within(p, root)) continue;
+    if (!isWithin(root, p)) continue;
     let probe = p;
     while (probe !== root && !present(probe)) probe = dirname(probe);
     // Below a root that does not exist nothing exists either, so no link can lead out of it.
     if (!present(probe)) return p;
     const real = realOr(probe, null);
-    if (real && within(real, realOr(root, root))) return p;
+    if (real && isWithin(realOr(root, root), real)) return p;
     // A link inside this root may still land inside another allowed one.
     if (
       real &&
-      roots.some((r) => r && within(real, realOr(resolve(r), resolve(r))))
+      roots.some((r) => r && isWithin(realOr(resolve(r), resolve(r)), real))
     )
       return p;
   }
@@ -89,8 +86,7 @@ export function workspaceDirOf(projectDir: string): string {
   // The folder engine-client's rootDir() names, which song may not import.
   const home = join(studioHome(), "workspace");
   const rel = relative(home, dir);
-  if (rel && !rel.startsWith("..") && !isAbsolute(rel))
-    return join(home, rel.split(/[\\/]+/)[0]);
+  if (rel && !climbsOut(rel)) return join(home, rel.split(/[\\/]+/)[0]);
   return dirname(dir);
 }
 

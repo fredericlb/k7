@@ -33,6 +33,7 @@ import {
   MASTER_MAX_DB,
   MASTER_MIN_DB,
 } from "@studio/song-schema/yaml/projectSchema";
+import { climbsOut } from "@studio/web-protocol/paths";
 import type { CommandHost } from "../commands.ts";
 
 /** A module's INTRINSICS — its own fields, set as `node param <node> @<field> <value>`; docs/verbs.md. */
@@ -228,7 +229,7 @@ export async function setIntrinsic(
     const { path, said } = write(h.songPath, module, raw);
     h.log([
       `${module}: ${said}` +
-        (relative(h.songPath, path).startsWith("..")
+        (climbsOut(relative(h.songPath, path))
           ? " — in the shared library, so every project beside this one sees it"
           : ""),
     ]);

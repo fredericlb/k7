@@ -6,9 +6,8 @@
 
 import { statSync } from "node:fs";
 import { isAbsolute } from "node:path";
-import { JobError, requestJob } from "@studio/engine-tunnel/jobs-client";
+import { JobError, requestJobAt } from "@studio/engine-tunnel/jobs-client";
 import type { EngineSyncState } from "@studio/web-protocol";
-import { WebSocket } from "ws";
 import { boundJobsUrl } from "./boundMachine.ts";
 
 interface Run<D> {
@@ -118,11 +117,9 @@ async function copy<D>(
   };
   const run: Run<D> = { ...held, state };
   runs.set(session, run as Run<unknown>);
-  const sock = new WebSocket(url);
-  sock.on("error", () => {});
   try {
-    const last = await requestJob(
-      sock,
+    const last = await requestJobAt(
+      url,
       { type: "sync", files: todo.map((t) => t.path) },
       (r) => r.type === "synced",
       (r) => {
@@ -158,7 +155,6 @@ async function copy<D>(
       failures.set(session, { ...state, error: message });
     }
   } finally {
-    sock.close();
     runs.delete(session);
   }
   // A failed copy sends nothing; otherwise the latest document goes through the gate again, as it may name more files.

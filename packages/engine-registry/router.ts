@@ -8,7 +8,7 @@ import { validate, wrap } from "@frediverse/http/route";
 import type { TunnelHub } from "@studio/engine-tunnel/hub";
 import type { PublicEngine } from "@studio/web-protocol";
 import { REGISTRY_SERVICE } from "@studio/web-protocol/services";
-import { Router } from "express";
+import { type Request, Router } from "express";
 import { z } from "zod";
 import { readHeartbeat, throttledLog } from "./heartbeat.ts";
 import { claimHolder, type EngineRole, mayUse, roleOf } from "./owners.ts";
@@ -99,7 +99,7 @@ export { claimHolder } from "./owners.ts";
 /** What the host tells the routes about an account beyond its name. */
 export interface RouterOptions {
   /** Whether the request's account administers this origin: it may reset an engine's owner. */
-  isAdmin?: (req: unknown) => boolean;
+  isAdmin?: (req: Request) => boolean;
   /** Who may list an engine; absent, anyone, as before — docs/heartbeat.md. */
   heartbeat?: HeartbeatGate;
 }

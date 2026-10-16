@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import { wrap } from "@frediverse/http/route";
 import { moveFile } from "@studio/mediatek/write";
 import { SHARE_SCHEMA, type ShareManifest } from "@studio/web-protocol";
+import { plainSegments } from "@studio/web-protocol/paths";
 import { type Request, Router, type Router as RouterT } from "express";
 import { emailOf, subOf } from "../../who.ts";
 import { rememberIdentity, subFor } from "../projects/identities.ts";
@@ -47,8 +48,7 @@ function shareFileOk(rel: unknown): rel is string {
   if (typeof rel !== "string" || !rel || rel.length > 1024) return false;
   if (rel.includes("\\") || rel.includes("\u0000") || rel.startsWith("/"))
     return false;
-  const segs = rel.split("/");
-  if (segs.some((s) => !s || s === "." || s === "..")) return false;
+  if (!plainSegments(rel)) return false;
   return !RESERVED.has(rel);
 }
 

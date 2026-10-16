@@ -13,6 +13,7 @@ import {
   referenceName,
 } from "@studio/song-schema/reference";
 import type { FileNode } from "@studio/web-protocol";
+import type { PlaylistInfo } from "@studio/web-protocol/playlists";
 import { projectApp } from "@studio/web-protocol/projects";
 import { isBinary, skip } from "./workspaceFilter.ts";
 
@@ -80,16 +81,8 @@ function filesBelow(at: string, keep: (name: string) => boolean): string[] {
   return out;
 }
 
-export interface PlaylistRow {
-  path: string;
-  name: string;
-  title?: string;
-  count: number;
-  ok: boolean;
-}
-
 /** The playlists the workspace at `root` holds, at the ROOT and at any depth — see docs/workspace.md. */
-export function playlistsIn(root: string, toRel: ToRel): PlaylistRow[] {
+export function playlistsIn(root: string, toRel: ToRel): PlaylistInfo[] {
   return filesBelow(join(root, PLAYLISTS_DIR), isDocName)
     .map((abs) => {
       let parsed: ReturnType<typeof parsePlaylist> = null;

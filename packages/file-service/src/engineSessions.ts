@@ -9,7 +9,8 @@ import {
 } from "@studio/engine-client/engineClient";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { loadPreferences } from "@studio/song/preferences";
-import { ENGINE_RECONNECT_MIN_MS } from "@studio/web-protocol";
+import { backoffMs } from "@studio/web-protocol";
+import { climbsOut } from "@studio/web-protocol/paths";
 import { BENCH_WORKSPACE } from "./bench.ts";
 import { rootDir, slugify } from "./slug.ts";
 import type { Workspace } from "./workspace.ts";
@@ -89,7 +90,7 @@ export function sessionOf(ws: { root: string } | null): string {
   if (!ws || !owner) return SESSIONS.k7;
   const rel = relative(rootDir(), ws.root);
   // Outside the root is a workspace this service does not own — the bare session, as before.
-  if (!rel || rel.startsWith("..")) return SESSIONS.k7;
+  if (!rel || climbsOut(rel)) return SESSIONS.k7;
   // The bench's workspace plays in a session of its own, beside the song — apps/k7/backend/docs/media/banc.md.
   if (rel.split(/[\\/]/)[0] === BENCH_WORKSPACE)
     return sessionFor(SESSIONS.bench, owner);
@@ -104,9 +105,10 @@ export function servedProject(
   const s =
     served.get(`${SESSIONS.k7}:${slug}`) ?? served.get(SESSIONS.k7) ?? null;
   if (!s) return null;
-  const ws = relative(rootDir(), s.ws.root).split(/[\\/]/);
+  const under = relative(rootDir(), s.ws.root);
   // Anything but a single `<workspace>` is one this machine cannot name in an address.
-  if (!ws[0] || ws[0].startsWith("..")) return null;
+  if (!under || climbsOut(under)) return null;
+  const ws = under.split(/[\\/]/);
   const rel = relative(s.ws.root, s.project).replace(/\\/g, "/");
   // `.` for a lone-project workspace, which is how the surface listing spells it too.
   return { workspace: ws[0], path: rel === "" ? "." : rel };
@@ -136,10 +138,7 @@ function wireEngine(session: string, e: EngineClient): void {
   e.on("close", () => {
     const l = links.get(session);
     if (l) l.ready = false;
-    const step = Math.min(
-      LOCAL_RECONNECT_MAX_MS,
-      ENGINE_RECONNECT_MIN_MS * 2 ** (l?.attempt ?? 0),
-    );
+    const step = backoffMs(l?.attempt ?? 0, LOCAL_RECONNECT_MAX_MS);
     if (l) l.attempt++;
     setTimeout(
       () => {
