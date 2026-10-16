@@ -1,6 +1,6 @@
 # What is drawn on top of the wave, and what a hand can grab
 
-[Waveform.tsx](../src/Waveform.tsx) draws one canvas and hangs a few DOM buttons over it. This
+[Waveform.tsx](../src/Waveform.tsx) draws one canvas and hangs a few DOM buttons over it ([overlays.tsx](../src/overlays.tsx)). This
 page holds the reasoning behind the marks — the view, the markers, the stretch points, the
 material's window — so the component itself can say what each prop is in one line.
 
