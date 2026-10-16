@@ -211,6 +211,9 @@ scripts/               Node harnesses that drive a running engine, not build ste
   cue-bus.ts             the two facts a CUE bus rests on, neither visible to a unit test: how many
                          destinations a source may have and still be heard only through them, and
                          whether `outputChannels` really takes a track off the mixdown (docs/cueOutput.md)
+  wav.ts                 the one wav reader and writer the render harnesses above share: the reader walks
+                         the RIFF chunks and decodes PCM 16/24/32 and float32, the writer puts a plain 44-byte
+                         PCM header in front of the samples
 ```
 
 Long-form rationale is in `docs/`: `design.md` (pipeline + threading), `engineHost.md`,
