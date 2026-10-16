@@ -5,7 +5,9 @@
 
 package se.frediver.k7
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Looper
 import android.system.Os
 import android.util.Log
@@ -14,6 +16,10 @@ import java.io.File
 
 object EngineBridge {
     private var thread: Thread? = null
+
+    /** Whether the engine had RECORD_AUDIO when it opened its device; null before it started. Its inputs are fixed then. */
+    @Volatile var startedWithMic: Boolean? = null
+        private set
 
     @JvmStatic private external fun nativeServe(port: Int): Int
     @JvmStatic private external fun nativeQuit()
@@ -32,6 +38,7 @@ object EngineBridge {
         Os.setenv("STUDIO_ENGINE_TOKEN", token, true)
         Os.setenv("STUDIO_ENGINE_ALLOWED_ORIGINS", origins, true)
         Os.setenv("STUDIO_FAUST_LIBS", faustLibs(context).absolutePath, true)
+        startedWithMic = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         // Loads libk7runtime (Java's static block), whose JNI_OnLoad registered this very method.
         Java.initialiseJUCE(context.applicationContext)
         thread = Thread({
