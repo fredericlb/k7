@@ -48,11 +48,22 @@ function zeroes(table: string): Record<string, unknown> {
   );
 }
 
-/** A filter key goes into a JSON path, so it must be a plain field name. */
-function fieldPath(key: string): string {
+/** A filter key is written INTO the SQL, so an index on the same expression matches: a plain field name only. */
+function fieldExpr(key: string): string {
   if (!/^\w+$/.test(key)) throw new DbError(400, `bad field ${key}`);
-  return `$.${key}`;
+  return `json_extract(fields, '$.${key}')`;
 }
+
+/** The fields the store looks rows up by; each has an expression index, so a lookup scans no collection. */
+export const INDEXED_FIELDS = [
+  "Uid",
+  "OwnerId",
+  "SessionUid",
+  "ReleaseUid",
+  "MomentId",
+  "SongUid",
+  "SongUuid",
+] as const;
 
 /** What any id must look like: one plain segment, since ids name files. */
 export const SAFE_ID = /^[\w-]+$/;
@@ -93,6 +104,10 @@ export function createSqlite(dir: string) {
       );
       CREATE INDEX IF NOT EXISTS sheets_by_song ON sheets (song);
     `);
+    for (const f of INDEXED_FIELDS)
+      next.exec(
+        `CREATE INDEX IF NOT EXISTS records_by_${f} ON records (coll, ${fieldExpr(f)})`,
+      );
     db = next;
     return next;
   };
@@ -100,26 +115,44 @@ export function createSqlite(dir: string) {
   /** Where a sheet's bytes are; the file exists once its row does. */
   const attachmentPath = (id: string): string => join(sheetsDir, safeId(id));
 
+  /** The SELECT a filter makes, or null when an empty value list matches nothing. */
+  const selectFor = (
+    table: string,
+    filter?: Record<string, unknown>,
+  ): { sql: string; args: (string | number | null)[] } | null => {
+    const where = ["coll = ?"];
+    const args: (string | number | null)[] = [table];
+    for (const [key, v] of Object.entries(filter ?? {})) {
+      const values = Array.isArray(v) ? v : [v];
+      if (!values.length) return null;
+      where.push(`${fieldExpr(key)} IN (${values.map(() => "?").join(",")})`);
+      args.push(...values.map(bindable));
+    }
+    const sql = `SELECT id, fields FROM records WHERE ${where.join(" AND ")} ORDER BY rowid`;
+    return { sql, args };
+  };
+
+  /** SQLite's plan for `listRecords(table, filter)`: how a test sees an index used. */
+  const planOf = (table: string, filter: Record<string, unknown>): string[] => {
+    const q = selectFor(table, filter);
+    if (!q) return [];
+    return (
+      open()
+        .prepare(`EXPLAIN QUERY PLAN ${q.sql}`)
+        .all(...q.args) as { detail: string }[]
+    ).map((r) => r.detail);
+  };
+
   const listRecords = async <T = Record<string, unknown>>(
     table: string,
     filter?: Record<string, unknown>,
     opts: { fields?: string[] } = {},
   ): Promise<DbRecord<T>[]> => {
-    const where = ["coll = ?"];
-    const args: (string | number | null)[] = [table];
-    for (const [key, v] of Object.entries(filter ?? {})) {
-      const values = Array.isArray(v) ? v : [v];
-      if (!values.length) return [];
-      where.push(
-        `json_extract(fields, ?) IN (${values.map(() => "?").join(",")})`,
-      );
-      args.push(fieldPath(key), ...values.map(bindable));
-    }
+    const q = selectFor(table, filter);
+    if (!q) return [];
     const rows = open()
-      .prepare(
-        `SELECT id, fields FROM records WHERE ${where.join(" AND ")} ORDER BY rowid`,
-      )
-      .all(...args) as { id: string; fields: string }[];
+      .prepare(q.sql)
+      .all(...q.args) as { id: string; fields: string }[];
     const zero = zeroes(table);
     return rows.map(({ id, fields }) => {
       const all = { ...zero, ...JSON.parse(fields) };
@@ -233,6 +266,7 @@ export function createSqlite(dir: string) {
     !open().prepare("SELECT 1 FROM records LIMIT 1").get();
 
   return {
+    planOf,
     listRecords,
     addRecords,
     patchRecord,

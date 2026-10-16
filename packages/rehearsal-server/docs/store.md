@@ -24,6 +24,14 @@ therefore needs no migration: old rows simply lack it. Such a field reads as its
 (`""`, `0`, `false`), taken from `schema.ts`, because `store.ts` relies on getting a value rather
 than nothing. A filter is an IN-list per field, matched with `json_extract`.
 
+The connection is synchronous, so a lookup that scans a whole collection blocks every other
+request for as long as it takes. The fields the store looks rows up by (`INDEXED_FIELDS` in
+`../src/sqlite.ts`: the uids and owner ids) each carry an **expression index** on
+`(coll, json_extract(fields, '$.<field>'))`, created when the store opens. SQLite uses such an index
+only when the query spells the same expression, so the field path is written into the SQL rather
+than bound as a parameter; the field name is checked as a plain word first. A field added to the
+lookups is added to that list, and `sqlite.test.ts` checks the query plan of each.
+
 An id is a random 15-character string. Rows imported from PocketBase keep their PocketBase ids,
 which is what keeps the references between rows intact (a sheet's song, a song's `SheetMeta`).
 

@@ -13,10 +13,17 @@ export interface ChannelSink {
   sendText(ch: number, text: string): void;
   sendBinary(ch: number, bytes: Buffer): void;
   close(ch: number): void;
+  /** This channel's bytes handed to the tunnel and not yet written to its socket. */
+  buffered(ch: number): number;
 }
 
 export class TunnelChannel extends EventEmitter {
   readyState: number = CONNECTING;
+
+  /** Its OWN unsent bytes, not the tunnel's: one stalled channel is told apart from the others. */
+  get bufferedAmount(): number {
+    return this.sink.buffered(this.ch);
+  }
 
   constructor(
     readonly ch: number,
