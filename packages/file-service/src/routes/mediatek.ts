@@ -117,8 +117,8 @@ mediatekRouter.post(
 /** What this machine holds and where — the cache's answer, not the catalogue's; `present: false` is normal. */
 mediatekRouter.get(
   "/mediatek",
-  wrap((_req, res) => {
-    res.json({ ...summary(), root: mediatekDir(), cached: true });
+  wrap(async (_req, res) => {
+    res.json({ ...(await summary()), root: mediatekDir(), cached: true });
   }),
 );
 
@@ -158,10 +158,10 @@ mediatekRouter.get(
 /** One family's entries, stamped with the token they were read at. */
 mediatekRouter.get(
   "/mediatek/list",
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const family = asFamily(req.query.family);
     if (!family) return res.status(400).json({ error: FAMILY_ERROR });
-    res.json(listFamily(family));
+    res.json(await listFamily(family));
   }),
 );
 
@@ -251,7 +251,7 @@ mediatekRouter.get(
 /** Filter across families; what a query MEANS belongs to the catalogue, not to a shell over it. */
 mediatekRouter.get(
   "/mediatek/search",
-  wrap((req, res) => {
-    res.json({ entries: search(parseQuery(req.query)) });
+  wrap(async (req, res) => {
+    res.json({ entries: await search(parseQuery(req.query)) });
   }),
 );

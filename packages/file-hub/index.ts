@@ -35,6 +35,7 @@ import {
 } from "./instances.ts";
 import { LibraryStore } from "./libraries.ts";
 import {
+  BodyTooLargeError,
   isLibrariesPath,
   jsonBody,
   librariesRoute,
@@ -116,6 +117,8 @@ export class FileHub {
   /** The hub's replica of each library: relayed here on the origin, following the origin on a paired machine. */
   private libraryRelay: LibraryRelay | null = null;
   private pairPoll: NodeJS.Timeout | null = null;
+  // Set by stop(), so a startup still copying the libraries does not start the relay after it.
+  private stopped = false;
   private readonly devices: DeviceTokens;
   private readonly renderSweep: NodeJS.Timeout;
   /** Each account's loopback path to the render machine, bound once and kept: it resolves the machine per connection. */
@@ -241,7 +244,8 @@ export class FileHub {
           this.libraryRelay?.follow(this.libraries.settings());
         void librariesRoute(this.libraries, req, res, admin, changed).catch(
           (e: Error) => {
-            if (!res.headersSent) res.status(500).json({ error: e.message });
+            if (!res.headersSent)
+              res.status(statusOf(e)).json({ error: e.message });
           },
         );
         return;
@@ -321,7 +325,7 @@ export class FileHub {
           version?: unknown;
         };
         const name = typeof body.name === "string" ? body.name : undefined;
-        const notes = this.libraries.ensure({
+        const notes = await this.libraries.ensure({
           name,
           draft: body.draft === true,
         });
@@ -344,7 +348,8 @@ export class FileHub {
         }
         res.json({ notes });
       })().catch((e: Error) => {
-        if (!res.headersSent) res.status(500).json({ error: e.message });
+        if (!res.headersSent)
+          res.status(statusOf(e)).json({ error: e.message });
       });
     };
   }
@@ -441,18 +446,24 @@ export class FileHub {
       onOrdered: publishSyncEvent,
       log: this.deps.log,
     });
-    this.libraries.ensure();
     // A pairing comes and goes through syncRoutes.ts, which restarts the account's service alone: the libraries look for themselves.
     const source = () => {
       const r = this.pairedAccounts()[0];
       if (r) relay.followRemote(r.url, r.token);
       else relay.followLocal();
     };
-    source();
-    relay.follow(this.libraries.settings());
     this.libraryRelay = relay;
-    this.pairPoll = setInterval(source, PAIR_POLL_MS);
-    this.pairPoll.unref();
+    // The folders first, copied off the event loop, then the relay that follows them.
+    void this.libraries
+      .ensure()
+      .catch((e: Error) => this.deps.log(`libraries | ${e.message}`))
+      .then(() => {
+        if (this.stopped) return;
+        source();
+        relay.follow(this.libraries.settings());
+        this.pairPoll = setInterval(source, PAIR_POLL_MS);
+        this.pairPoll.unref();
+      });
   }
 
   /** Where an account's service renders when it has no engine binary and no bound machine: the deployment's render machine, if any. */
@@ -472,6 +483,7 @@ export class FileHub {
   }
 
   async stop(): Promise<void> {
+    this.stopped = true;
     clearInterval(this.reaper);
     clearInterval(this.renderSweep);
     if (this.pairPoll) clearInterval(this.pairPoll);
@@ -497,6 +509,10 @@ function syncTarget(
     ),
   };
 }
+
+/** A body past the hub's own limit is the caller's 413; anything else is this side's 500. */
+const statusOf = (e: Error): number =>
+  e instanceof BodyTooLargeError ? e.status : 500;
 
 /** One request to the instance, the session's user, its admin flag and the hub's secret stamped on it. */
 function pipeTo(

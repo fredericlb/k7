@@ -152,6 +152,10 @@ than a cache with an expiry:
   the volume by hand, a `git pull`, another tool. That is the same class of change the walk was
   always the only way to notice.
 
+The timer is re-armed only once a walk has FINISHED: on a slow volume a walk can outlast the
+interval, and walks started on a clock would then pile up behind each other, each holding its own
+share of the thread pool.
+
 A reader that never starts the refresher — every test in this package, and any consumer that
 wants the exact answer — walks per call exactly as before. The refresher is opt-in, and being
 opt-in is what keeps the tests honest about what a walk sees.
@@ -159,6 +163,29 @@ opt-in is what keeps the tests honest about what a walk sees.
 A **watcher** is the next step if ten seconds ever stops being good enough, with `index.json` as
 the warm start — not a database. That escape hatch is written down here so the decision is a
 decision, not an assumption nobody revisited.
+
+## A moved family is rescanned in the background
+
+When a family's token moves, its listing is walked again — a `readdir` per folder, a `stat` per
+file and a YAML parse per song. That runs in the one process every user of the library is served
+by, so it is asynchronous (`fs/promises`, at most thirty-two operations in flight, level by level
+through the tree) and never holds the event loop.
+
+A reader does not wait for it either, past a moment. `listFamily` starts ONE rescan per family —
+a second reader joins the one running — and waits for it `FRESH_WAIT_MS` (250 ms); past that it
+gets the previous listing, **stamped with its own, older `rev`**. That stamp is the contract: a
+surface marks what it loaded with the listing's `rev`, not with the token it polled, so a stale
+answer reads as not yet current and the next poll asks again (`packages/ui-library/docs/library.md`).
+A small library rescans inside the wait, so a person who just uploaded sees the song; a large one
+on a slow volume answers at once with what it had. With nothing held at all, the first walk is
+awaited. `listFamilyFresh` always waits, for a caller that acts on what is there rather than
+showing it.
+
+The index is written the same way: asynchronously, one write at a time with the last state
+winning, into a sibling renamed into place, so a crash mid-write leaves the previous index.
+
+`/manifest` walks every FILE of a family, which a listing does not, so it is held too: one walk per
+family per token (`manifestAt`), shared by every caller asking at that token.
 
 ## A derived sidecar does not move the token
 

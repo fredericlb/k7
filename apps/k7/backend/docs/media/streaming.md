@@ -30,3 +30,11 @@ file-service's médiathèque cache and any archival copy use, because that mirro
 master byte-for-byte, not a lossy stand-in. A session's own recordings and a moment's clip stay
 on `/file` too — the browser records them as WebM/Opus itself, so nothing there is ever a FLAC
 `/stream` would touch.
+
+## A replay costs a 304
+
+`/file` and `/stream` answer through `streamFile`, which stamps a weak `ETag` from the file's size
+and time, a `Last-Modified`, and `Cache-Control: private, no-cache` — keep the bytes, ask before
+each use, since a song can be replaced in place (`commons/packages/http/docs/stream.md`). A player
+seeking or replaying a song it already holds asks with `If-None-Match` or `If-Range` and gets a
+304, or the piece it asked for, instead of the whole file through the one Node process again.

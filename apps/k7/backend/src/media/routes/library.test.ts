@@ -9,6 +9,9 @@ import {
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DEFAULT_TRANSIENT_SENSITIVITY } from "@studio/audio-analysis/envelope";
+import { fileFingerprint } from "@studio/audio-analysis/fingerprint";
+import { writeSidecar } from "@studio/audio-analysis/sidecar";
 import { ensureLayout } from "@studio/mediatek/layout";
 import { FAMILY_ERROR } from "@studio/mediatek/types";
 import express from "express";
@@ -451,5 +454,66 @@ describe("who may remove or move", () => {
     expect(await manage()).toBe(true);
     groups = [];
     expect(await manage()).toBe(false);
+  });
+});
+
+// Every replay of a song asks again; a validator makes that a 304 — commons/packages/http/docs/stream.md.
+describe("cache validators", () => {
+  const SONG = "songs/A/B/C/original.wav";
+
+  it("answers /file's replay with a 304 and honours If-Range", async () => {
+    mkdirSync(join(root, "songs/A/B/C"), { recursive: true });
+    writeFileSync(join(root, SONG), "0123456789");
+    const url = `${base}/api/mediatek/file?path=${encodeURIComponent(SONG)}`;
+    const first = await fetch(url);
+    const etag = first.headers.get("etag") as string;
+    expect(etag).toMatch(/^W\//);
+    expect(first.headers.get("cache-control")).toBe("private, no-cache");
+    expect(
+      (await fetch(url, { headers: { "if-none-match": etag } })).status,
+    ).toBe(304);
+    const piece = await fetch(url, {
+      headers: { range: "bytes=0-1", "if-range": etag },
+    });
+    expect(piece.status).toBe(206);
+    expect(await piece.text()).toBe("01");
+  });
+
+  it("serves /envelope from its sidecar, then a 304, then anew once the sidecar moves", async () => {
+    mkdirSync(join(root, "songs/A/B/C"), { recursive: true });
+    const abs = join(root, SONG);
+    writeFileSync(abs, "RIFF-not-really-audio");
+    const sidecar = (rms: number[]) =>
+      writeSidecar(abs, {
+        fingerprint: fileFingerprint(abs),
+        sampleRate: 48000,
+        channels: 2,
+        frames: 48000,
+        seconds: 1,
+        peak: rms,
+        rms,
+        transients: [0.5],
+        sensitivity: DEFAULT_TRANSIENT_SENSITIVITY,
+        bpm: 120,
+      });
+    sidecar([0.1, 0.2]);
+    const url = `${base}/api/mediatek/envelope?path=${encodeURIComponent(SONG)}`;
+    const first = await fetch(url);
+    expect(first.status).toBe(200);
+    expect(((await first.json()) as { rms: number[] }).rms).toEqual([0.1, 0.2]);
+    const etag = first.headers.get("etag") as string;
+    expect(etag).toBeTruthy();
+    expect(
+      (await fetch(url, { headers: { "if-none-match": etag } })).status,
+    ).toBe(304);
+    // A re-analysis rewrites the sidecar: a new version, a new answer, a new tag.
+    await new Promise((r) => setTimeout(r, 20));
+    sidecar([0.3, 0.4, 0.5]);
+    const again = await fetch(url, { headers: { "if-none-match": etag } });
+    expect(again.status).toBe(200);
+    expect(again.headers.get("etag")).not.toBe(etag);
+    expect(((await again.json()) as { rms: number[] }).rms).toEqual([
+      0.3, 0.4, 0.5,
+    ]);
   });
 });

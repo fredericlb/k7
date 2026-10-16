@@ -72,7 +72,8 @@ export function useLibraryData(section: SectionId) {
     try {
       const l = await library.list(f);
       if (shown.current !== f) return;
-      seen.current[f] = rev;
+      // The listing's OWN token: a stale one served during a rescan stays unseen, so the next poll reloads.
+      seen.current[f] = l.rev ?? rev;
       setEntries(l.entries);
       setUnlisted(l.unlisted ?? []);
       setCounts((c) => ({ ...c, [f]: l.entries.length }));

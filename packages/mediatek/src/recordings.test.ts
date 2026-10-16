@@ -167,16 +167,16 @@ describe("listing the zone", () => {
 });
 
 describe("what the zone is NOT", () => {
-  it("produces no catalogue entry", () => {
+  it("produces no catalogue entry", async () => {
     // A firehose of untitled captures would drown the songs listing; the scan visits families only.
     addRecording({ filename: "a.mp3", bytes: Buffer.from("a"), at: evening });
-    expect(scanFamily("songs")).toEqual([]);
+    expect(await scanFamily("songs")).toEqual([]);
   });
 
-  it("stays out of the manifest a cache syncs against", () => {
+  it("stays out of the manifest a cache syncs against", async () => {
     putFile("songs/A/B/C/original.mp3", "real");
     addRecording({ filename: "a.mp3", bytes: Buffer.from("a"), at: evening });
-    const paths = manifest("songs").map((f) => f.path);
+    const paths = (await manifest("songs")).map((f) => f.path);
     expect(paths).toContain("songs/A/B/C/original.mp3");
     expect(paths.some((p) => p.includes("recordings"))).toBe(false);
   });

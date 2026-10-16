@@ -113,7 +113,10 @@ const dirOf = (key: RevisionKey): string =>
 
 /** The last walk per key. EMPTY until a service starts the refresher, and then the only walk anyone waits for. */
 const walked = new Map<RevisionKey, { count: number; newest: number }>();
-let refresher: ReturnType<typeof setInterval> | null = null;
+let refresher: ReturnType<typeof setTimeout> | null = null;
+// Which start the running cycle belongs to: a walk finishing after a stop never re-arms the timer.
+let cycleId = 0;
+let refreshing = false;
 
 /** The mutation counter is read HERE, not stored: our own write must move the token before any walk confirms it. */
 const token = (
@@ -148,15 +151,27 @@ export async function refreshRevisions(): Promise<void> {
  * and `unref`ed so it never holds a process open. What it costs in freshness: docs/index.md.
  */
 export function startRevisionRefresh(everyMs = 10_000): void {
-  if (refresher) return;
-  refresher = setInterval(() => void refreshRevisions(), everyMs);
-  refresher.unref?.();
-  void refreshRevisions();
+  if (refreshing) return;
+  refreshing = true;
+  const id = ++cycleId;
+  // Re-armed only once a walk has FINISHED: on a slow volume, walks never stack up behind each other.
+  const cycle = (): void => {
+    void refreshRevisions()
+      .catch(() => {})
+      .finally(() => {
+        if (!refreshing || id !== cycleId) return;
+        refresher = setTimeout(cycle, everyMs);
+        refresher.unref?.();
+      });
+  };
+  cycle();
 }
 
 /** Stop it, and go back to walking per request — for a test, and for a root that changed under us. */
 export function stopRevisionRefresh(): void {
-  if (refresher) clearInterval(refresher);
+  refreshing = false;
+  cycleId++;
+  if (refresher) clearTimeout(refresher);
   refresher = null;
   walked.clear();
 }

@@ -3,7 +3,8 @@
 // @studio/song-schema/playlist, the same one k7 writes — and neither is resolving a line, which
 // needs the songs listing (playlistItems.ts). See docs/playlists.md.
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import {
   PLAYLIST_EXT,
@@ -11,6 +12,7 @@ import {
   playlistStub,
 } from "@studio/song-schema/playlist";
 import { playlistsDir, safePath } from "./layout.ts";
+import { mapLimit } from "./pool.ts";
 import { PLAYLISTS_DIR } from "./types.ts";
 import { putFile } from "./write.ts";
 
@@ -53,51 +55,53 @@ export function playlistName(path: string): string | null {
 }
 
 /** Every `.yaml` under the zone, at whatever depth — the zone nests, so `live/repet` is one. */
-function walk(dir: string, into: string[]): void {
+async function walk(dir: string, into: string[]): Promise<void> {
   let entries: string[];
   try {
-    entries = readdirSync(dir);
+    entries = await readdir(dir);
   } catch {
     return; // No zone yet on an old volume: an absent folder is an empty list, not a failure.
   }
-  for (const name of entries) {
-    if (name.startsWith(".")) continue;
+  const below: string[] = [];
+  await mapLimit(entries, async (name) => {
+    if (name.startsWith(".")) return;
     const abs = join(dir, name);
-    let stat: ReturnType<typeof statSync>;
     try {
-      stat = statSync(abs);
+      const st = await stat(abs);
+      if (st.isDirectory()) below.push(abs);
+      else if (/\.ya?ml$/i.test(name)) into.push(abs);
     } catch {
-      continue; // Vanished between the readdir and the stat — it is not in the listing either way.
+      /* vanished between the readdir and the stat — it is not in the listing either way */
     }
-    if (stat.isDirectory()) walk(abs, into);
-    else if (/\.ya?ml$/i.test(name)) into.push(abs);
-  }
+  });
+  for (const d of below) await walk(d, into);
 }
 
 /** The zone's whole listing, newest first — the order a surface wants without sorting again. */
-export function listPlaylists(): PlaylistSummary[] {
+export async function listPlaylists(): Promise<PlaylistSummary[]> {
   const root = playlistsDir();
   const files: string[] = [];
-  walk(root, files);
-  const out: PlaylistSummary[] = [];
-  for (const abs of files) {
-    const rel = relative(root, abs).split(sep).join("/");
-    let text: string;
-    let mtime = 0;
+  await walk(root, files);
+  const read = await mapLimit(files, async (abs) => {
     try {
-      text = readFileSync(abs, "utf8");
-      mtime = statSync(abs).mtimeMs;
+      const [text, st] = await Promise.all([readFile(abs, "utf8"), stat(abs)]);
+      return { abs, text, mtime: st.mtimeMs };
     } catch {
-      continue;
+      return null;
     }
-    const doc = parsePlaylist(text);
+  });
+  const out: PlaylistSummary[] = [];
+  for (const r of read) {
+    if (!r) continue;
+    const rel = relative(root, r.abs).split(sep).join("/");
+    const doc = parsePlaylist(r.text);
     out.push({
       name: rel.replace(/\.ya?ml$/i, ""),
       path: `${PLAYLISTS_DIR}/${rel}`,
       ...(doc?.title ? { title: doc.title } : {}),
       count: doc?.items.length ?? 0,
       ok: doc !== null,
-      mtime,
+      mtime: r.mtime,
     });
   }
   return out.sort((a, b) => b.mtime - a.mtime);

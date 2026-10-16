@@ -29,6 +29,11 @@ which is true of the VOLUME and false of the screen, which now holds nothing. Wi
 the poll does not reload and the spinner spins forever. It hangs off `section` rather than off the
 nav's click, because Back and a deep link change section without going through it.
 
+A loaded section is marked with the token its LISTING carries, not the one the poll read. The
+server may answer `/list` with the previous listing while it rescans a family that moved
+(`packages/mediatek/docs/index.md`); that listing carries the older token, so the next poll still
+sees a difference and reloads.
+
 ## What a tree row stands for
 
 The tree is derived, never stored: it IS the entry list in another shape, so a second copy could

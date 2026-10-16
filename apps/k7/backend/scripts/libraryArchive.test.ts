@@ -39,18 +39,18 @@ beforeEach(async () => {
   mkdirSync(join(seed, "k7-core"), { recursive: true });
   writeFileSync(join(seed, "k7-core", "mix.yaml"), "plugin: one\n");
   const store = new LibraryStore(join(tmp, "origin"), seed);
-  store.ensure({ draft: true });
+  await store.ensure({ draft: true });
   writeFileSync(
     join(store.home, "k7-core", "draft", "mix.yaml"),
     "plugin: two\n",
   );
-  store.publish("k7-core");
+  await store.publish("k7-core");
   // A third version this build cannot run: the bundle must stop at 2.
   writeFileSync(
     join(store.home, "k7-core", "draft", "mix.yaml"),
     "plugin: three\n",
   );
-  const three = store.publish("k7-core");
+  const three = await store.publish("k7-core");
   if ("ok" in three)
     writeFileSync(
       join(store.home, "k7-core", "3", "library.yaml"),
