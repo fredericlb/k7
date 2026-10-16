@@ -147,9 +147,10 @@ SQLite rather than in a file, is [comments.md](comments.md).
 
 ## The upload is in three steps
 
-The library does no multipart: `PUT /api/mediatek/file`, `POST /song`, `POST /recording` are all
-`express.raw({type:"*/*", limit:"512mb"})` — *a 400 MB master has no business inside a form
-parse* — and the global `express.json` is at 8 MB. Hence:
+The library does no multipart: `PUT /api/mediatek/file`, `POST /song`, `POST /recording` and a
+share's own `PUT` all stream the raw body to a file on the volume, bounded at 512 MB (`rawToDisk`,
+`apps/k7/backend/src/media/upload.ts`) — *a 400 MB master has no business inside a form parse, nor
+in the heap* — and the shared JSON parser is small (`apps/k7/backend/src/bodyLimits.ts`). Hence:
 
 1. **draft** — `POST /api/shares`, the manifest as JSON: refused with a 503 when this server has no
    engine to play it, then mints the secret, creates the folder, writes `pending.json` with the

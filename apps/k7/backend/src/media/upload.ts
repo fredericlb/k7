@@ -11,7 +11,7 @@ import { pipeline } from "node:stream/promises";
 import { mediatekDir } from "@studio/mediatek/layout";
 import type { Request, RequestHandler } from "express";
 
-/** The ceiling every upload route here had as `express.raw`'s limit. */
+/** The ceiling on every upload route here. */
 const MAX_UPLOAD = 512 * 1024 * 1024;
 
 /** A dot-directory on the library volume, so no family scan sees it and a move into place is a rename. */

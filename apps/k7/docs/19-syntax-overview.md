@@ -8,7 +8,7 @@ Files are **flat**: no wrapper key, no package clause. A track file starts at `t
 
 The same choice covers the other 1.1 traps: `on`, `no` and `y` stay strings rather than becoming booleans, and a leading zero is not octal — so a track called `no` is a track called `no`.
 
-**Every file is validated on load** against a schema (`song/src/yaml`), and the editor's completions come from those same schemas — what it offers you is what the loader will accept.
+**Every file is validated on load** against a schema (`packages/song-schema/src/yaml`), and the editor's completions come from those same schemas — what it offers you is what the loader will accept.
 
 Unknown fields are an **error**, not a shrug: a typo in a key would otherwise be a setting that silently never applies. `settings.yaml` is the one deliberate exception.
 
