@@ -17,8 +17,18 @@ export const PROTOCOLS: readonly string[] = [
   "file,pipe",
 ];
 
+/** A path named as a file, so a colon in its name (`a:b.wav`) is never read as a protocol. */
+export const asFileInput = (source: string): string =>
+  source === "-" || source.startsWith("pipe:") || source.startsWith("file:")
+    ? source
+    : `file:${source}`;
+
 /** One input, whitelisted: the option applies to the next `-i` only, so each input carries its own. */
-export const input = (source: string): string[] => [...PROTOCOLS, "-i", source];
+export const input = (source: string): string[] => [
+  ...PROTOCOLS,
+  "-i",
+  asFileInput(source),
+];
 
 /** The binary is not there; `why` says what it was needed for, and the message is shown to users. */
 export class NoFfmpegError extends Error {

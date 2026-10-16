@@ -26,6 +26,10 @@ The option is an INPUT option: it applies to the next `-i` and is then reset. A 
 several inputs (the rehearsal concatenation) carries it once per input, which is why inputs are
 never written by hand.
 
+`input()` also names the path as a file (`file:<path>`). Under the whitelist ffmpeg reads the text
+before a colon as a protocol, so an upload called `Song: Remix.mp3` would otherwise be refused as
+an unknown one. `-` and `pipe:` inputs pass through as they are.
+
 It is applied even where the input is a file this repo wrote itself (a render's wav), because
 whether a path is trusted is not something the call site can be relied on to know. An input that
 is not a file at all is the one exception: a `-f lavfi` source is a generated signal, opened by no

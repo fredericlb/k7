@@ -1,11 +1,11 @@
 // decodeArgs.test.ts — the probe and the decode of a file open it through the protocol whitelist.
 
-import { PROTOCOLS } from "@studio/ffmpeg";
+import { asFileInput, PROTOCOLS } from "@studio/ffmpeg";
 import { describe, expect, it } from "vitest";
 import { decodeArgs, probeArgs } from "./decode.ts";
 
 const whitelisted = (args: string[], source: string): boolean => {
-  const at = args.indexOf(source);
+  const at = args.indexOf(asFileInput(source));
   return (
     args[at - 1] === "-i" &&
     args.slice(at - 3, at - 1).join(" ") === PROTOCOLS.join(" ")

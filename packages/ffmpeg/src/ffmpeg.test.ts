@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  asFileInput,
   ffmpegBin,
   ffprobeBin,
   input,
@@ -38,8 +39,16 @@ describe("input", () => {
       "-protocol_whitelist",
       "file,pipe",
       "-i",
-      "/a b.wav",
+      "file:/a b.wav",
     ]);
+  });
+
+  it("names a path as a file so a colon is not a protocol, and leaves pipes alone", () => {
+    expect(asFileInput("/x/Song: Remix.mp3")).toBe("file:/x/Song: Remix.mp3");
+    expect(asFileInput("C:\\x\\a.wav")).toBe("file:C:\\x\\a.wav");
+    expect(asFileInput("file:/a.wav")).toBe("file:/a.wav");
+    expect(asFileInput("-")).toBe("-");
+    expect(asFileInput("pipe:0")).toBe("pipe:0");
   });
 });
 
