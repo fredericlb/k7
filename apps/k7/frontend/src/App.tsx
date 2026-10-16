@@ -5,25 +5,17 @@
 // ever lost. Live engine state goes to an external store, never App state. See docs/shell.md.
 
 import { AppHeader } from "@frediverse/ui/app-header";
-import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
-import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import {
   ArrowLeft,
-  Circle,
   Headphones,
   History,
   ListChecks,
   ListMusic,
-  Loader2,
   Lock,
   MessageSquare,
-  Pause,
-  Play,
   Settings,
   Share2,
-  Square,
-  StickyNote,
   Terminal,
   X,
 } from "@frediverse/ui/icons";
@@ -90,18 +82,14 @@ import { ConflictsPanel, ConflictsTab } from "./components/ConflictsPanel";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EngineLink } from "./components/EngineLink";
 import { EngineSwitch } from "./components/EngineSwitch";
-import {
-  EngineSyncProgress,
-  syncRunning,
-} from "./components/EngineSyncProgress";
+import { syncRunning } from "./components/EngineSyncProgress";
 import { FloatingWindow } from "./components/FloatingWindow";
-import { FooterTab, FooterTabs } from "./components/FooterTab";
+import { FooterTab } from "./components/FooterTab";
 import { GraphPanel } from "./components/GraphPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { LogsPanel } from "./components/LogsPanel";
 import { MasteringTab } from "./components/MasteringTab";
 import { MasterMeter, type MasterMeterHandle } from "./components/MasterMeter";
-import { MetronomeButton } from "./components/MetronomeButton";
 import { MidiTakeRoll } from "./components/MidiTakeRoll";
 import { Minimap, type MinimapItem } from "./components/Minimap";
 import { MobileMenu, MobileMenuItem } from "./components/MobileChrome";
@@ -119,7 +107,6 @@ import {
 } from "./components/SettingsPanel";
 import type { OpenShare } from "./components/SharedGate";
 import { SharePanel } from "./components/SharePanel";
-import { StatusText } from "./components/StatusText";
 import { SurfaceTab } from "./components/SurfaceTab";
 import type { PanelTakes } from "./components/TakesView";
 import { TasksPanel } from "./components/TasksPanel";
@@ -170,12 +157,7 @@ import { useVideoDoc } from "./hooks/useVideoDoc";
 import { useVideoEdits } from "./hooks/useVideoEdits";
 import { useVideoRecording } from "./hooks/useVideoRecording";
 import { useLocale } from "./i18n";
-import {
-  blurOnClick,
-  type ConditionCtx,
-  commandKeyMap,
-  effectiveKeys,
-} from "./keys";
+import { type ConditionCtx, commandKeyMap, effectiveKeys } from "./keys";
 import {
   refreshLcdSounds,
   setLcdSoundsProject,
@@ -220,19 +202,15 @@ import {
 import { type RollMode, rollCondition } from "./rollMode";
 import { type Pane, type Panel, viewPanes } from "./routes";
 import { pictureRowId, placementOf, type RowKey, type RowTarget } from "./rows";
+import { ShellFooter } from "./shell/ShellFooter";
 import {
   type MenuState,
   ShellOverlays,
   type UndoConfirm,
 } from "./shell/ShellOverlays";
+import { ShellTransport } from "./shell/ShellTransport";
 import { type PendingWire, useGraphActions } from "./shell/useGraphActions";
-import {
-  MiniTransport,
-  PANE_META,
-  PANEL_META,
-  TransportClock,
-  VIEWPORT_META,
-} from "./shellMeta";
+import { MiniTransport, PANE_META, VIEWPORT_META } from "./shellMeta";
 import { tabBridge } from "./tabs/bridge";
 import { modeCondition, type TimelineMode } from "./timelineMode";
 import type { Tool } from "./timelineTools";
@@ -254,7 +232,6 @@ import type {
   RightPanelId,
 } from "./ui/commands/context";
 import { runLocal } from "./ui/commands/dispatch";
-import { NO_ARM_HINT } from "./ui/commands/transport";
 import { useIsMobile } from "./useIsMobile";
 import { useViewRoute } from "./useViewRoute";
 import { videoSpans } from "./videoSpans";
@@ -2696,88 +2673,20 @@ export default function App({
 
                 {/* centre: transport — play/pause, stop, the clock, then record, each dropping focus on click (docs/shell.md). */}
                 {(!noArrangement || hasTurntables) && !deskOnly && (
-                  <div className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 flex items-center gap-1">
-                    <Button
-                      size={toolSize}
-                      variant={playing ? "default" : "secondary"}
-                      // While the engine is loading a project it reads nothing: the spinner replaces the icon and the button goes dead.
-                      // …and in record mode with nothing armed it waits for an arm, though a rolling transport can always be stopped.
-                      disabled={
-                        transportWaiting || (!playing && recordWithoutArm)
-                      }
-                      onClick={(e) => {
-                        transport(playing ? "stop" : "play");
-                        blurOnClick(e);
-                      }}
-                      title={
-                        transportWaiting
-                          ? "Loading this project — the engine can't answer the transport yet"
-                          : !playing && recordWithoutArm
-                            ? NO_ARM_HINT
-                            : playing
-                              ? m["transport.pause"]()
-                              : m["transport.play"]()
-                      }
-                      aria-label={
-                        transportWaiting
-                          ? "loading the project"
-                          : playing
-                            ? m["transport.pause"]()
-                            : m["transport.play"]()
-                      }
-                      aria-busy={transportWaiting}
-                    >
-                      {transportWaiting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : playing ? (
-                        <Pause className="h-4 w-4" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button
-                      size={toolSize}
-                      variant="secondary"
-                      onClick={(e) => {
-                        transport("stop");
-                        // Zero on a set too: every record is on a platter, and the timeline holds only the click.
-                        transport("rewind");
-                        blurOnClick(e);
-                      }}
-                      title={m["transport.stop"]()}
-                    >
-                      <Square className="h-4 w-4" />
-                    </Button>
-                    {/* The clock and record are the ARRANGEMENT's half: a set has no bars to count and no lane to arm. */}
-                    {!noArrangement && (
-                      <>
-                        <TransportClock
-                          tempo={recInfo.tempo}
-                          beatsPerBar={recInfo.beatsPerBar}
-                        />
-                        <Button
-                          size={toolSize}
-                          variant={recordEnabled ? "default" : "secondary"}
-                          aria-pressed={recordEnabled}
-                          onClick={(e) => {
-                            // A MIDI-armed lane is recorded by THIS record too: the press is the gesture Web MIDI's request rides.
-                            if (!recordEnabled && midiArmed)
-                              void openMidiInputs().then((ok) => {
-                                if (!ok) setStatus(m["midi.unavailable"]());
-                              });
-                            engineRef.current?.setRecordEnabled(!recordEnabled);
-                            blurOnClick(e);
-                          }}
-                          title={m["transport.record"]()}
-                          aria-label={m["transport.record"]()}
-                        >
-                          <Circle
-                            className={`h-4 w-4 ${recordEnabled ? "fill-red-500 text-red-500" : ""}`}
-                          />
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                  <ShellTransport
+                    toolSize={toolSize}
+                    playing={playing}
+                    transportWaiting={transportWaiting}
+                    recordWithoutArm={recordWithoutArm}
+                    transport={transport}
+                    noArrangement={noArrangement}
+                    recInfo={recInfo}
+                    recordEnabled={recordEnabled}
+                    midiArmed={midiArmed}
+                    openMidiInputs={openMidiInputs}
+                    setStatus={setStatus}
+                    engineRef={engineRef}
+                  />
                 )}
               </div>
             </AppHeader>
@@ -3702,173 +3611,33 @@ export default function App({
               />
             )}
 
-            <footer
-              className={cn(
-                // The header's tint, so the panel tabs read as tabs against it (components/FooterTab.tsx).
-                "flex items-center border-t border-primary/20 bg-primary/20 text-muted-foreground",
-                isMobile
-                  ? "gap-2 px-2 py-0.5 text-[10px]"
-                  : "gap-3 px-4 py-1 text-xs",
-              )}
-            >
-              {/* left: the frediverse logo, then the status text */}
-              <div className="flex min-w-0 items-center gap-2.5">
-                <FrediverseMark size="sm" className="shrink-0 opacity-60" />
-                {/* The MODE and the tool, PERSISTENT unlike the line beside it: a state nobody can see is one you leave by surprise (docs/timeline.md). */}
-                {/* The waveform's comes FIRST when one is open, the clip pane being the surface in front. */}
-                {rollMode && shownSlot?.kind === "clip" ? (
-                  rollMode !== "select" && (
-                    <Badge
-                      variant="rec"
-                      className="shrink-0"
-                      title={`piano roll: ${rollMode} — esc or a backs out`}
-                    >
-                      {rollMode}
-                    </Badge>
-                  )
-                ) : waveView && shownSlot?.kind === "clip" ? (
-                  waveView !== "standard" && (
-                    <Badge
-                      variant="rec"
-                      className="shrink-0"
-                      title={`waveform: ${waveView} — esc or a backs out`}
-                    >
-                      {waveView}
-                    </Badge>
-                  )
-                ) : ringPanes.includes("timeline") &&
-                  (tlView.mode !== "normal" || tlView.tool !== "pointer") ? (
-                  <Badge
-                    variant={tlView.tool !== "pointer" ? "rec" : "default"}
-                    className="shrink-0"
-                    title={`timeline: ${tlView.mode}${tlView.tool !== "pointer" ? ` · ${tlView.tool}` : ""} — esc backs out`}
-                  >
-                    {tlView.tool !== "pointer" ? tlView.tool : tlView.mode}
-                  </Badge>
-                ) : null}
-                <StatusText store={statusStore} fallback={project?.root} />
-                {/* The play button spins for this too; the line stays because it NAMES what is awaited, which a spinner cannot. */}
-                {copyingToEngine && engineSync ? (
-                  <EngineSyncProgress sync={engineSync} />
-                ) : waitingForEngine ? (
-                  <span
-                    className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-amber-500"
-                    title={m["status.engineStarting"]()}
-                  >
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    waiting for engine…
-                  </span>
-                ) : warm.warming ? (
-                  <span
-                    className="flex shrink-0 items-center gap-1.5 whitespace-nowrap"
-                    title={m["status.decodingWaveforms"]()}
-                  >
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    caching waveforms
-                    {warm.total ? ` ${warm.done}/${warm.total}` : ""}…
-                  </span>
-                ) : null}
-                {projectErrors > 0 && (
-                  <Badge
-                    variant="rec"
-                    className="shrink-0"
-                    title={`${projectErrors} error${projectErrors === 1 ? "" : "s"} in this project — the timeline and chains won't load until they're fixed`}
-                  >
-                    {projectErrors} error{projectErrors === 1 ? "" : "s"}
-                  </Badge>
-                )}
-              </div>
-
-              {/* right: the tempo and signature, the metronome, a separator, then the bottom-panel choices, a separator, then the side panels' buttons */}
-              <div className="ml-auto flex shrink-0 items-center gap-2">
-                {/* Next to the metronome because it is what the metronome clicks — the doc's tempo, not the engine's. */}
-                <span
-                  className="whitespace-nowrap font-mono tabular-nums"
-                  title={m["transport.tempoSig"]()}
-                >
-                  {recInfo.tempo} bpm
-                  <span className="mx-1 text-border">·</span>
-                  {recInfo.beatsPerBar}/{recInfo.beatUnit}
-                </span>
-                {/* Left click toggles the click, right click opens its level; both are project settings, so both are command lines. */}
-                <MetronomeButton
-                  on={optMetronome ?? metronomeOn}
-                  level={metronomeLevel}
-                  onToggle={() => {
-                    setOptMetronome((cur) => !(cur ?? metronomeOn));
-                    void runCommand("transport metronome");
-                  }}
-                  onLevel={(v) =>
-                    void runCommand(`transport metronome volume ${v}`)
-                  }
-                />
-                <span
-                  className="h-4 w-px shrink-0 bg-border"
-                  aria-hidden="true"
-                />
-                {/* The notes, off by default: they are IN the graph and you say when, and the button is dead on a project with none. */}
-                <Button
-                  size="icon-xs"
-                  variant={showDocs ? "default" : "ghost"}
-                  disabled={docCount === 0}
-                  onClick={() => void runCommand("ui notes")}
-                  title={
-                    docCount === 0
-                      ? "No notes in this project: a note is a node of @meta/doc, wired from what it is about"
-                      : showDocs
-                        ? `Hide the ${docCount} note(s) on the graph`
-                        : `Show the ${docCount} note(s) on the graph`
-                  }
-                  aria-label="Toggle docs"
-                  aria-pressed={showDocs}
-                >
-                  <StickyNote className="h-3.5 w-3.5" />
-                </Button>
-                <FooterTabs dense={isMobile}>
-                  {/* The mix panel, apart from the loop below because it is dead when the song has no strip (docs/shell.md). */}
-                  <FooterTab
-                    active={panel === "mix"}
-                    disabled={mixerStrips.length === 0}
-                    onClick={() => void runCommand("ui mixer")}
-                    title={
-                      mixerStrips.length === 0
-                        ? "No strip in this song: a strip is a Mixer module at the end of a track"
-                        : mixerStrips.length === 1
-                          ? "Mix panel — one strip, nothing to line up"
-                          : `Mix panel — this song's ${mixerStrips.length} strips lined up`
-                    }
-                    aria-label="Mix panel"
-                  >
-                    <PANEL_META.mix.icon className="h-3.5 w-3.5" />
-                  </FooterTab>
-                  {(Object.keys(PANEL_META) as Panel[]).map((p) => {
-                    if (p === "mix") return null;
-                    const Icon = PANEL_META[p].icon;
-                    return (
-                      <FooterTab
-                        key={p}
-                        active={panel === p}
-                        onClick={() => void runCommand(`ui panel ${p}`)}
-                        title={`${PANEL_META[p].label} panel`}
-                        aria-label={`${PANEL_META[p].label} panel`}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                      </FooterTab>
-                    );
-                  })}
-                </FooterTabs>
-                {/* The SIDE panels' buttons, at the corner nearest the column they open — a phone keeps them in its menu (docs/shell.md). */}
-                {!isMobile && (
-                  <>
-                    <span
-                      className="h-4 w-px shrink-0 bg-border"
-                      aria-hidden="true"
-                    />
-                    <FooterTabs>{headerTools}</FooterTabs>
-                  </>
-                )}
-              </div>
-            </footer>
+            {/* The status line on the left, the tempo, the metronome and the panels' buttons on the right (shell/ShellFooter.tsx). */}
+            <ShellFooter
+              isMobile={isMobile}
+              rollMode={rollMode}
+              waveView={waveView}
+              shownSlot={shownSlot}
+              ringPanes={ringPanes}
+              tlView={tlView}
+              statusStore={statusStore}
+              statusFallback={project?.root}
+              copyingToEngine={copyingToEngine}
+              engineSync={engineSync}
+              waitingForEngine={waitingForEngine}
+              warm={warm}
+              projectErrors={projectErrors}
+              recInfo={recInfo}
+              optMetronome={optMetronome}
+              setOptMetronome={setOptMetronome}
+              metronomeOn={metronomeOn}
+              metronomeLevel={metronomeLevel}
+              runCommand={runCommand}
+              showDocs={showDocs}
+              docCount={docCount}
+              panel={panel}
+              mixerStrips={mixerStrips}
+              headerTools={headerTools}
+            />
 
             {/* The bottom of the window: the minimap, then the docked command bar, both desktop-only (docs/commandBar.md). */}
             {docked && (

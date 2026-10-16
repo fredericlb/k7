@@ -1696,6 +1696,7 @@ be revisited when the edge's path table moves is a manifest written wrong.
 | the palette catalogue and argument completion | `src/palette.ts` |
 | the shell's own commands — row and handler, one entry each | `src/ui/commands/` |
 | every popin, dialog and menu drawn over the panes | `src/shell/ShellOverlays.tsx` |
+| the bar under the panes, and the transport centred over the header | `src/shell/ShellFooter.tsx`, `src/shell/ShellTransport.tsx` |
 | what the graph's gestures run — the module picker, the asset browser, a tap's edit | `src/shell/useGraphActions.ts` |
 | self-contained slices of state | `src/hooks/` — engine link, project doc, track controls, polls, logs, MIDI recording, dialogs |
 
