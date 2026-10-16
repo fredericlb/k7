@@ -159,3 +159,11 @@ here, beside the subscription:
 
 The subscription reads all three off one frame, builds the seeds, and stops at `seedsEq` when
 nothing moved — which is most frames, and is what keeps a 20 Hz meter from walking the graph.
+
+## An assembly's box, open or closed
+
+`chainsModel.ts` is where a box changes the cables. With a box OPEN, the cables that are not its
+own are the traffic crossing it: they still run right over the frame, at half strength, so the
+wiring inside reads first; nothing fades otherwise. A CLOSED box has swallowed its lanes' cards, so
+a metered lane's signal leaves from the box instead (`foldedAt`) — without it a folded set reaches
+nothing and not one cable ripples.
