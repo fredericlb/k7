@@ -506,7 +506,7 @@ export function FileTree({
             onClick={() => togglePin(p)}
             title="unpin"
             aria-label={`unpin ${p.split("/").pop()}`}
-            className="shrink-0 rounded p-0.5 text-muted-foreground/50 opacity-0 hover:text-foreground group-hover:opacity-100"
+            className="shrink-0 rounded p-0.5 text-muted-foreground/50 opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
           >
             <X className="h-3.5 w-3.5" />
           </button>
