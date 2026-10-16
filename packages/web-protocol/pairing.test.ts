@@ -61,12 +61,12 @@ describe("the URL the desktop opens", () => {
   it("carries the return address and the state nonce", () => {
     const u = new URL(
       pairUrl(
-        "https://st0.app",
+        "https://app.k7.rocks",
         `http://127.0.0.1:8780${PAIR_RETURN_PATH}`,
         "n0nce",
       ),
     );
-    expect(u.origin).toBe("https://st0.app");
+    expect(u.origin).toBe("https://app.k7.rocks");
     expect(u.pathname).toBe("/api/token/pair");
     expect(u.searchParams.get("return")).toBe(
       "http://127.0.0.1:8780/desktop/pair",
@@ -85,9 +85,9 @@ describe("the URL the desktop opens", () => {
 
 describe("the server a person types", () => {
   it("is an origin, https when no scheme is given", () => {
-    expect(normalizeServer("st0.app")).toBe("https://st0.app");
-    expect(normalizeServer(" https://priv.st0.app/some/path ")).toBe(
-      "https://priv.st0.app",
+    expect(normalizeServer("app.k7.rocks")).toBe("https://app.k7.rocks");
+    expect(normalizeServer(" https://app.priv.k7.rocks/some/path ")).toBe(
+      "https://app.priv.k7.rocks",
     );
     expect(normalizeServer("https://studio.example:8443")).toBe(
       "https://studio.example:8443",
@@ -99,15 +99,15 @@ describe("the server a person types", () => {
       "http://127.0.0.1:8789",
     );
     expect(normalizeServer("http://192.168.1.10")).toBeNull();
-    expect(normalizeServer("http://st0.app")).toBeNull();
+    expect(normalizeServer("http://app.k7.rocks")).toBeNull();
   });
 
   it("refuses what is not a server address", () => {
     for (const bad of [
       "",
       "   ",
-      "ftp://st0.app",
-      "https://user:pw@st0.app",
+      "ftp://app.k7.rocks",
+      "https://user:pw@app.k7.rocks",
       "https://",
     ])
       expect(normalizeServer(bad)).toBeNull();

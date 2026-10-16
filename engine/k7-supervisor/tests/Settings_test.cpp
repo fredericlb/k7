@@ -21,8 +21,8 @@ void oneBadKeyLosesNothingElse()
 
 void olderSpellingsAreMigratedInTheReader()
 {
-    const Settings s = settingsFrom(json::parse(R"({"registryUrl":"https://st0.app","audioDevice":"A","audioFallback":"B"})"));
-    CHECK(s.registryUrls == std::vector<std::string>{"https://st0.app"});
+    const Settings s = settingsFrom(json::parse(R"({"registryUrl":"https://app.k7.rocks","audioDevice":"A","audioFallback":"B"})"));
+    CHECK(s.registryUrls == std::vector<std::string>{"https://app.k7.rocks"});
     CHECK((s.audioPriority == std::vector<std::string>{"A", "B"}));
 }
 

@@ -37,7 +37,7 @@ was written for.
 ## The address follows
 
 This screen is **the front door itself**. k7 answers at the origin root
-(`priv.st0.app`, `st0.app`), the médiathèque below it under `/media`, and the rehearsal recorder
+(`app.priv.k7.rocks`, `app.k7.rocks`), the médiathèque below it under `/media`, and the rehearsal recorder
 under `/rehearsal`.
 If the first thing you want at a front door is your own work, then the page listing that work IS
 the front door, and putting it behind a prefix you have to know how to type would rank it second.

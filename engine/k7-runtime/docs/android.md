@@ -190,7 +190,7 @@ to the origin as someone else.
 - **The listener lives in the app's process.** Android may freeze or kill a process whose activity
   is behind the browser: frozen, the browser's redirect waits until the app is back in front;
   killed, the answer is lost, and the next start asks again since the account is still unpaired.
-- **The origin is `st0.app`**, web-protocol's `STUDIO_ORIGIN`: a phone connected to another studio
+- **The origin is `app.k7.rocks`**, web-protocol's `STUDIO_ORIGIN`: a phone connected to another studio
   uses that studio's own session and has nothing to pair.
 
 ## A library in the app, not a process it spawns
@@ -269,7 +269,7 @@ No ONNX Runtime ships for Android, so the supervisor builds without stem separat
 what is missing, as it does on any platform without the library.
 
 **A private CA is the user's to add, in the app — and optional.** A studio with a public certificate
-needs nothing: `st0.app` and `priv.st0.app` carry Let's Encrypt ones, which Android trusts as every
+needs nothing: `app.k7.rocks` and `app.priv.k7.rocks` carry Let's Encrypt ones, which Android trusts as every
 OS does, so the section is folded away unless a CA of the user's is already trusted, and says when
 one is worth adding. A studio behind a private CA is exactly the case the
 desktop answers from the OS store, and on Android the certificates a user installs in Settings are
@@ -378,7 +378,7 @@ through `adb forward`:
 | the same importing a library that does not exist | `faust: ERROR : unable to open file nosuch.lib`, and the audio passes untouched |
 | an HTTPS studio whose certificate a private CA signed | refused; after importing that CA (DER) 146 roots, the engine adopted, connected and heartbeating; after forgetting it 145 and refused again — one engine start throughout |
 | importing a file that is not a certificate | refused with a message; nothing stored, nothing restarted |
-| `--probe https://priv.st0.app` with Android's CAs only | an k7 registry: nothing to import for a publicly certified studio |
+| `--probe https://app.priv.k7.rocks` with Android's CAs only | an k7 registry: nothing to import for a publicly certified studio |
 
 The standalone backend, on the same emulator, run as an app (`run-as`) from the bundle and the
 tools the scripts produce:

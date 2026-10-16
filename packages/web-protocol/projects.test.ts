@@ -365,11 +365,11 @@ describe("a shared snapshot's address", () => {
   it("addresses the share on the family root, on the one unauthenticated route", async () => {
     // The page and the route are both k7's origin now: serviceUrl gives pl8 the family root.
     const key = await shareKey(TOKEN);
-    expect(shareApiBase(`https://st0.app/@shares/x.k7`, key)).toBe(
-      `https://st0.app/api/public/share/${key}`,
+    expect(shareApiBase(`https://app.k7.rocks/@shares/x.k7`, key)).toBe(
+      `https://app.k7.rocks/api/public/share/${key}`,
     );
-    expect(shareApiBase("https://priv.st0.app", key)).toBe(
-      `https://priv.st0.app/api/public/share/${key}`,
+    expect(shareApiBase("https://app.priv.k7.rocks", key)).toBe(
+      `https://app.priv.k7.rocks/api/public/share/${key}`,
     );
   });
 });

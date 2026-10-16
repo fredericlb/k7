@@ -2,7 +2,7 @@
 
 An engine heartbeats to **one** registry per studio family, mounted by k7's backend
 (`apps/k7/backend/src/media/mount.ts`) and answering on k7's origin — `engineRegistryUrl` in
-`packages/web-protocol/services.ts`. The `play.` host is an alias of that origin, so a supervisor
+`packages/web-protocol/services.ts`. `play.st0.app` is a former host read as that origin, so a supervisor
 that saved `https://play.st0.app` reaches the same registry (`packages/web-protocol/docs/addresses.md`).
 The editor, the media library's player, z0's editor and the rehearsal recorder's chain source all
 list their engines from it; the last only waits for the engine holding its bench and drives none.

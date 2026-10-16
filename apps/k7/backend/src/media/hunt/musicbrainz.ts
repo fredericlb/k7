@@ -167,7 +167,7 @@ let chain: Promise<unknown> = Promise.resolve();
 
 const userAgent = (): string =>
   process.env.MUSICBRAINZ_USER_AGENT ||
-  "studio-pl8/0.1 ( https://studio.frediver.se )";
+  "studio-pl8/0.1 ( https://app.k7.rocks )";
 
 /** One at a time and never faster than the gap — queued rather than dropped. */
 function throttled<T>(run: () => Promise<T>): Promise<T> {

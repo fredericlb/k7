@@ -12,10 +12,11 @@ once, browser-safe, and nowhere else. See `apps/k7/frontend/docs/projects.md` an
 
 | service | where | dev | production |
 |---|---|---|---|
-| k7 | the origin itself | `priv.st0.app` | `st0.app` |
-| z0 | a path under k7's origin, `SERVICE_PATHS.z0` | `priv.st0.app/z0` | `st0.app/z0` |
-| pl8 | the media library, served BY k7 — k7's origin, its screens under `/media` | `priv.st0.app/media` | `st0.app/media` |
-| k7 | the rehearsal recorder, served BY k7 — k7's origin, its screens under `/rehearsal` | `priv.st0.app/rehearsal` | `st0.app/rehearsal` |
+| k7 | the origin itself | `app.priv.k7.rocks` | `app.k7.rocks` |
+| z0 | a path under k7's origin, `SERVICE_PATHS.z0` | `app.priv.k7.rocks/z0` | `app.k7.rocks/z0` |
+| pl8 | the media library, served BY k7 — k7's origin, its screens under `/media` | `app.priv.k7.rocks/media` | `app.k7.rocks/media` |
+| k7 | the rehearsal recorder, served BY k7 — k7's origin, its screens under `/rehearsal` | `app.priv.k7.rocks/rehearsal` | `app.k7.rocks/rehearsal` |
+| docs | k7's documentation, served BY k7 on a host of its own | `docs.priv.k7.rocks` | `docs.k7.rocks` |
 
 `serviceUrl(origin, service)` answers from any studio URL — k7's or a sibling's, whose label it
 strips first — so a page never spells a host, and a deployment on a domain of its own needs nothing
@@ -34,23 +35,36 @@ the projects, the libraries and the shares. The catalogue is what a project draw
 media library, a group of entries in that page's sidebar; the rehearsal recorder is another. The
 shares, `/api/mediatek` and the rehearsal routes are k7's backend's; the workspaces, the libraries and the deploy key are the file service's.
 
-### `play.` and `k7.` are aliases, and permanent ones
+### k7 is `app.`, and its documentation is `docs.` beside it
 
-`pl8` and `k7` are service ids with k7's address, not hosts: `serviceUrl(origin, "pl8")`,
-`serviceUrl(origin, "k7")` and `engineRegistryUrl` answer k7's origin, and so does the
-supervisor's `Url.cpp`. The `play.` and `k7.` labels in front of k7's host are still routed to
-k7's container and stripped like a sibling's (`ALIAS_LABELS`), because things outside this repo's
-reach name them and cannot be rewritten:
+k7's origin carries the `app.` label so the documentation can have a host of its own on the same
+domain. `docs.<domain>` is routed to k7's container and served the same SPA, which, seeing that
+host (`isDocsHost`), mounts the help page alone: no gate, no engine, no session
+(`apps/k7/frontend/docs/docsSite.md`). Every service resolved from it is k7's: `docs.` reads as
+`app.` in `serviceUrl`, so the page's Back, and any sign-in, land on the app.
+
+### The former hosts — `st0.app`, `play.` and `k7.` — are permanent
+
+`st0.app` is k7's former origin, and `play.st0.app` and `k7.st0.app` the former hosts of the media
+library and the rehearsal recorder. All three are still routed to k7's container, because things
+outside this repo's reach name them and cannot be rewritten:
 
 - every installed supervisor has `https://play.st0.app` saved as its registry URL;
 - every share link already sent carries `play.`;
 - every k7 publish URL and token saved in a workspace's `.settings.json` names `k7.`;
 - every public page link sent to an audience, and every PWA installed from `k7.`, does too.
 
-So on those hosts k7's backend answers `/api/*`, `/auth/*` and `/rtc` as on its own, and sends
-every other path to the same path under `/media` (for `play.`) or `/rehearsal` (for `k7.`) at k7's
-origin with a 301 (`apps/k7/backend/src/server.ts`). Dropping an alias is a breakage of those, not
-a cleanup.
+`serviceUrl` reads each of them as the current origin: the `play.` and `k7.` labels are stripped
+(`ALIAS_LABELS`), and what is left is looked up in `LEGACY_HOSTS`, which names each former host's
+successor — so a supervisor's saved registry heartbeats `app.k7.rocks` directly, and so does the
+supervisor's `Url.cpp`, its twin. On those hosts k7's backend answers `/api/*`, `/auth/*` and
+`/rtc` as on its own, and sends every other path to k7's origin with a 301 — under `/media` from
+`play.`, under `/rehearsal` from `k7.` (`isLegacyHost`, `apps/k7/backend/src/server.ts`). Dropping
+one of them is a breakage of those links, not a cleanup.
+
+A label is stripped only when a real domain is left behind it: `k7.rocks` is a domain, not the
+`k7.` alias of `rocks`. The labels stay pattern-based otherwise, so a deployment on a domain of
+its own gets the same aliases with nothing configured.
 
 ### `/auth/*` belongs to k7
 
@@ -64,7 +78,7 @@ and be wrong. Nothing is registered at the IdP per service.
 
 A SERVER calling another studio service uses `SERVICE_PORTS` rather than the public URL, and the
 reason is not performance: in a checkout everything is behind a private CA, whose local CA node
-does not trust, so `https://priv.st0.app` fails with `UNABLE_TO_GET_ISSUER_CERT` from
+does not trust, so `https://app.priv.k7.rocks` fails with `UNABLE_TO_GET_ISSUER_CERT` from
 a backend while working perfectly in the browser beside it.
 
 On a loopback host the same table is what a PAGE uses too, and a host may move it:
@@ -97,9 +111,9 @@ COMPILE, and `@studio/song` asks that question its own way, on the machine's own
 
 ## Where an app is mounted
 
-`PROJECT_MOUNTS` is empty for k7, which IS its service: `priv.st0.app/@local/<workspace>/<project>`.
+`PROJECT_MOUNTS` is empty for k7, which IS its service: `app.priv.k7.rocks/@local/<workspace>/<project>`.
 z0 is six SPAs behind one prefix and only one of them opens a project, so its address has to name
-the SPA too — `priv.st0.app/z0/editor/@local/<workspace>/<project.z0>`.
+the SPA too — `app.priv.k7.rocks/z0/editor/@local/<workspace>/<project.z0>`.
 
 It belongs here rather than in a link builder for the reason the suffixes do: the address is a
 contract between the side that WRITES it and the side that parses it back, and a mount known to

@@ -91,7 +91,7 @@ export function AccountButton({
           value={server}
           onChange={(e) => setServer(e.target.value)}
           onKeyDown={(e) => e.key === "Escape" && setServer(null)}
-          placeholder="st0.app"
+          placeholder="app.k7.rocks"
           aria-label="k7 server"
           title="The k7 server this machine syncs your workspaces with"
           spellCheck={false}

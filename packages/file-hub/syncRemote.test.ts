@@ -13,7 +13,7 @@ import {
   writeRemote,
 } from "./syncRemote.ts";
 
-const A = "wss://st0.app/api/sync";
+const A = "wss://app.k7.rocks/api/sync";
 const B = "wss://k7.example.org/api/sync";
 const home = () => mkdtempSync(join(tmpdir(), "syncremote-"));
 const pair = (url: string, main: boolean) => ({

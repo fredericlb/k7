@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 
 describe("externalUrl", () => {
   it.each([
-    ["https://st0.app/docs", "https://st0.app/docs"],
+    ["https://app.k7.rocks/docs", "https://app.k7.rocks/docs"],
     ["http://example.com", "http://example.com/"],
     ["mailto:someone@example.com", "mailto:someone@example.com"],
     ["HTTPS://EXAMPLE.COM/a", "https://example.com/a"],

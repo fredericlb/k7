@@ -1,10 +1,13 @@
-// Every service resolves on the family root's origin, the `play.` and `k7.` aliases stripped,
-// z0 a path under it; on a loopback host that origin is the page's own, port and all.
+// Every service resolves on k7's origin — `docs.` read as `app.`, the `play.` and `k7.` aliases
+// stripped, a former host read as its successor — z0 a path under it; on a loopback host that
+// origin is the page's own, port and all.
 
 import { afterEach, describe, expect, it } from "vitest";
 import {
   authOrigin,
   engineRegistryUrl,
+  isDocsHost,
+  isLegacyHost,
   parsePorts,
   servicePorts,
   serviceUrl,
@@ -14,49 +17,65 @@ import {
 
 describe("serviceUrl", () => {
   it("echoes k7 back on whatever origin it's given, dev or prod", () => {
-    expect(serviceUrl("https://st0.app/x", "k7")).toBe("https://st0.app");
-    expect(serviceUrl("https://priv.st0.app/x", "k7")).toBe(
-      "https://priv.st0.app",
+    expect(serviceUrl("https://app.k7.rocks/x", "k7")).toBe(
+      "https://app.k7.rocks",
+    );
+    expect(serviceUrl("https://app.priv.k7.rocks/x", "k7")).toBe(
+      "https://app.priv.k7.rocks",
     );
   });
 
   it("keeps z0 a path under the given origin, unmoved", () => {
-    expect(serviceUrl("https://st0.app", "z0")).toBe("https://st0.app/z0");
-    expect(serviceUrl("https://priv.st0.app", "z0")).toBe(
-      "https://priv.st0.app/z0",
+    expect(serviceUrl("https://app.k7.rocks", "z0")).toBe(
+      "https://app.k7.rocks/z0",
+    );
+    expect(serviceUrl("https://app.priv.k7.rocks", "z0")).toBe(
+      "https://app.priv.k7.rocks/z0",
     );
   });
 
   it("resolves pl8 and k7 to k7's own origin, since k7 serves pl8", () => {
-    expect(serviceUrl("https://st0.app", "pl8")).toBe("https://st0.app");
-    expect(serviceUrl("https://st0.app", "k7")).toBe("https://st0.app");
+    expect(serviceUrl("https://app.k7.rocks", "pl8")).toBe(
+      "https://app.k7.rocks",
+    );
+    expect(serviceUrl("https://app.k7.rocks", "k7")).toBe(
+      "https://app.k7.rocks",
+    );
   });
 
-  it("strips the play. alias back to the family root, for any service", () => {
+  it("reads the docs host as the app beside it", () => {
+    expect(serviceUrl("https://docs.k7.rocks/x", "k7")).toBe(
+      "https://app.k7.rocks",
+    );
+    expect(serviceUrl("https://docs.priv.k7.rocks", "z0")).toBe(
+      "https://app.priv.k7.rocks/z0",
+    );
+  });
+
+  it("reads a former host, alias or not, as the current origin", () => {
+    expect(serviceUrl("https://st0.app/x", "k7")).toBe("https://app.k7.rocks");
     expect(serviceUrl("https://play.st0.app/songs/a", "pl8")).toBe(
-      "https://st0.app",
-    );
-    expect(serviceUrl("https://play.priv.st0.app", "k7")).toBe(
-      "https://priv.st0.app",
-    );
-  });
-
-  it("strips the k7. alias back to the family root, for any service", () => {
-    expect(serviceUrl("https://k7.priv.st0.app", "k7")).toBe(
-      "https://priv.st0.app",
+      "https://app.k7.rocks",
     );
     expect(serviceUrl("https://k7.st0.app/session/1", "k7")).toBe(
-      "https://st0.app",
+      "https://app.k7.rocks",
     );
     expect(serviceUrl("https://k7.priv.st0.app", "z0")).toBe(
-      "https://priv.st0.app/z0",
+      "https://app.priv.k7.rocks/z0",
+    );
+    expect(serviceUrl("https://play.priv.st0.app", "k7")).toBe(
+      "https://app.priv.k7.rocks",
     );
   });
 
-  it("picks the dev family from ANY of the dev hosts, not just k7's", () => {
-    expect(serviceUrl("https://play.priv.st0.app", "k7")).toBe(
-      "https://priv.st0.app",
+  it("strips an alias label on a domain of its own, which needs no configuring", () => {
+    expect(serviceUrl("https://play.studio.example/x", "k7")).toBe(
+      "https://studio.example",
     );
+  });
+
+  it("never strips a label down to a bare TLD", () => {
+    expect(serviceUrl("https://k7.rocks", "k7")).toBe("https://k7.rocks");
   });
 
   it("returns '' for a string that is not a URL, never a throw", () => {
@@ -79,10 +98,29 @@ describe("serviceUrl", () => {
   });
 });
 
+describe("isLegacyHost / isDocsHost", () => {
+  it("names the hosts whose pages move to k7's origin", () => {
+    expect(isLegacyHost("st0.app")).toBe(true);
+    expect(isLegacyHost("play.st0.app")).toBe(true);
+    expect(isLegacyHost("k7.priv.st0.app")).toBe(true);
+    expect(isLegacyHost("play.studio.example")).toBe(true);
+    expect(isLegacyHost("app.k7.rocks")).toBe(false);
+    expect(isLegacyHost("docs.k7.rocks")).toBe(false);
+    expect(isLegacyHost("k7.rocks")).toBe(false);
+    expect(isLegacyHost("localhost")).toBe(false);
+  });
+
+  it("names the documentation's host", () => {
+    expect(isDocsHost("docs.k7.rocks")).toBe(true);
+    expect(isDocsHost("docs.priv.k7.rocks")).toBe(true);
+    expect(isDocsHost("app.k7.rocks")).toBe(false);
+  });
+});
+
 describe("studioOrigin", () => {
   it("drops everything but the origin", () => {
-    expect(studioOrigin("https://st0.app/band/winter.k7")).toBe(
-      "https://st0.app",
+    expect(studioOrigin("https://app.k7.rocks/band/winter.k7")).toBe(
+      "https://app.k7.rocks",
     );
   });
 
@@ -92,14 +130,19 @@ describe("studioOrigin", () => {
 });
 
 describe("authOrigin", () => {
-  it("sends the k7. and play. aliases back to the family root", () => {
-    expect(authOrigin("https://k7.st0.app/session/1")).toBe("https://st0.app");
-    expect(authOrigin("https://play.st0.app/library")).toBe("https://st0.app");
+  it("sends the docs host and the former hosts to k7's origin", () => {
+    expect(authOrigin("https://docs.k7.rocks/x")).toBe("https://app.k7.rocks");
+    expect(authOrigin("https://k7.st0.app/session/1")).toBe(
+      "https://app.k7.rocks",
+    );
+    expect(authOrigin("https://play.st0.app/library")).toBe(
+      "https://app.k7.rocks",
+    );
   });
 
   it("echoes k7's own origin and any other host back as-is", () => {
-    expect(authOrigin("https://st0.app/band/winter.k7")).toBe(
-      "https://st0.app",
+    expect(authOrigin("https://app.k7.rocks/band/winter.k7")).toBe(
+      "https://app.k7.rocks",
     );
     expect(authOrigin("http://localhost:5223")).toBe("http://localhost:5223");
   });
@@ -110,14 +153,27 @@ describe("authOrigin", () => {
 });
 
 describe("engineRegistryUrl", () => {
-  it("is the family root, whichever service of the family was named", () => {
+  it("is k7's origin, whichever host of the family was named", () => {
     // One registry: k7 lists its engines from its own origin, so an engine heartbeats nowhere else.
-    expect(engineRegistryUrl("https://st0.app")).toBe("https://st0.app");
-    expect(engineRegistryUrl("https://st0.app/band/winter.k7")).toBe(
-      "https://st0.app",
+    expect(engineRegistryUrl("https://app.k7.rocks")).toBe(
+      "https://app.k7.rocks",
     );
-    expect(engineRegistryUrl("https://play.st0.app")).toBe("https://st0.app");
-    expect(engineRegistryUrl("https://k7.st0.app")).toBe("https://st0.app");
+    expect(engineRegistryUrl("https://app.k7.rocks/band/winter.k7")).toBe(
+      "https://app.k7.rocks",
+    );
+    expect(engineRegistryUrl("https://docs.k7.rocks")).toBe(
+      "https://app.k7.rocks",
+    );
+  });
+
+  it("moves a supervisor's saved former host to the current origin", () => {
+    expect(engineRegistryUrl("https://st0.app")).toBe("https://app.k7.rocks");
+    expect(engineRegistryUrl("https://play.st0.app")).toBe(
+      "https://app.k7.rocks",
+    );
+    expect(engineRegistryUrl("https://k7.st0.app")).toBe(
+      "https://app.k7.rocks",
+    );
   });
 
   it("uses k7's backend PORT on a loopback host, where services are ports", () => {
@@ -131,16 +187,16 @@ describe("engineRegistryUrl", () => {
 
   it("returns '' for anything that is not a web URL", () => {
     expect(engineRegistryUrl("not a url")).toBe("");
-    expect(engineRegistryUrl("ftp://st0.app")).toBe("");
+    expect(engineRegistryUrl("ftp://app.k7.rocks")).toBe("");
   });
 });
 
 describe("studioFamily", () => {
   it("is k7's origin for any service of a hosted family", () => {
     expect(studioFamily("https://play.st0.app/library")).toBe(
-      "https://st0.app",
+      "https://app.k7.rocks",
     );
-    expect(studioFamily("https://st0.app")).toBe("https://st0.app");
+    expect(studioFamily("https://app.k7.rocks")).toBe("https://app.k7.rocks");
   });
 
   it("is the bare host on loopback, where services are only ports", () => {

@@ -70,14 +70,22 @@ bool forbiddenHostChar(char c)
     return bad.find(c) != std::string::npos || static_cast<unsigned char>(c) < 0x20 || c == 0x7f;
 }
 
-/** `play.` and `k7.` (the alias hosts) stripped back off, giving k7's own hostname. */
+/** k7's own hostname: an alias label stripped, `docs.` read as `app.`, a former host as its successor — services.ts's twin. */
 std::string k7Hostname(const std::string& hostname)
 {
+    std::string host = hostname;
     for (const char* label : {"play.", "k7."}) {
         const std::string prefix(label);
-        if (hostname.rfind(prefix, 0) == 0) return hostname.substr(prefix.size());
+        // Stripped only off a real domain: `k7.rocks` is a domain, not an alias of `rocks`.
+        if (host.rfind(prefix, 0) == 0 && host.find('.', prefix.size()) != std::string::npos) {
+            host = host.substr(prefix.size());
+            break;
+        }
     }
-    return hostname;
+    if (host.rfind("docs.", 0) == 0) host = "app." + host.substr(5);
+    if (host == "st0.app") return "app.k7.rocks";
+    if (host == "priv.st0.app") return "app.priv.k7.rocks";
+    return host;
 }
 
 }  // namespace

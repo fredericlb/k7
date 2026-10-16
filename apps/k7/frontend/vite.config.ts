@@ -4,9 +4,8 @@ import { frediverseParaglide } from "@frediverse/i18n/vite";
 import { defineAppConfig } from "@frediverse/vite-config";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import {
-  ALIAS_DEV_HOST,
   DEV_HOST,
-  K7_ALIAS_DEV_HOST,
+  DOCS_DEV_HOST,
   LEGACY_DEV_HOSTS,
 } from "../../../scripts/dev-hosts.mjs";
 
@@ -57,9 +56,9 @@ export default defineAppConfig({
       // alphaTab copies its font and soundfont into public/ and wires its worker and worklet (packages/score).
       alphaTab(),
     ],
-    // The play. and k7. aliases and the old name still reach these servers — see scripts/dev-hosts.mjs.
+    // The docs host and the former hosts still reach these servers — see scripts/dev-hosts.mjs.
     server: {
-      allowedHosts: [ALIAS_DEV_HOST, K7_ALIAS_DEV_HOST, ...LEGACY_DEV_HOSTS],
+      allowedHosts: [DOCS_DEV_HOST, ...LEGACY_DEV_HOSTS],
     },
     // The three @studio UI packages are consumed as raw .ts, and esbuild's dep scanner chokes on the extension in their exports maps.
     optimizeDeps: {

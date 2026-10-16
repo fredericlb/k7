@@ -41,11 +41,12 @@ void loopback_is_the_machine_and_nothing_else() {
 void only_the_studio_origins_open_a_socket() {
     const std::vector<std::string> none;
     for (const char* ok : {"http://127.0.0.1:18789", "http://localhost:5173", "http://[::1]:8080", "https://localhost",
-                           "https://st0.app", "https://priv.st0.app", "HTTPS://ST0.APP/", "ws://127.0.0.1:8765",
-                           "wss://192.168.1.5:8765"})
+                           "https://app.k7.rocks", "https://app.priv.k7.rocks", "https://docs.k7.rocks",
+                           "HTTPS://APP.K7.ROCKS/", "ws://127.0.0.1:8765", "wss://192.168.1.5:8765"})
         CHECK(studio::originAllowed(ok, none));
-    for (const char* bad : {"https://evil.example", "https://st0.app.evil.example", "https://evilst0.app",
-                            "http://st0.app", "https://st0.app:8443", "https://user@st0.app", "null", "",
+    for (const char* bad : {"https://evil.example", "https://k7.rocks.evil.example", "https://evilk7.rocks",
+                            "http://app.k7.rocks", "https://app.k7.rocks:8443", "https://user@k7.rocks",
+                            "https://st0.app", "null", "",
                             "file://", "http://127.0.0.1.evil.example", "http://localhost:abc", "http://[::1]x"})
         CHECK(!studio::originAllowed(bad, none));
     const auto extra = studio::parseOrigins(" https://studio.example.org/ ,http://studio.lan:8080,, ");

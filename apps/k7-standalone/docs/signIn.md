@@ -21,7 +21,7 @@ run before sign-in existed made. An account's workspaces are its own, under its 
 ## k7's identity provider, as a public client
 
 The app signs in to k7's own provider, `https://login.frediver.se` (Authelia), so an account here
-is the account on st0.app. It is a **public** client, `st0-desktop`: an app on the user's machine
+is the account on app.k7.rocks. It is a **public** client, `st0-desktop`: an app on the user's machine
 cannot keep a secret, so it has none, and PKCE alone proves the callback
 (`commons/packages/oidc/index.ts` — no secret is what makes a client public). The provider has to
 know that client, by that id: it is a name the provider holds, like the hostnames, so it keeps its

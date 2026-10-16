@@ -1,7 +1,7 @@
 // server.ts — the studio's hosted backend: the origin's OIDC flow (it MINTS the session every
 // studio app verifies), the account's preferences, the rehearsal recorder (@studio/rehearsal-server),
 // the media library and its engine registry (./media/mount.ts), and the built SPA — docker/ ships
-// no nginx. `play.` and `k7.` are aliases: a page there goes to `/media` or `/rehearsal` at the root.
+// no nginx. A former host's page goes to k7's origin — `play.` and `k7.` under `/media` or `/rehearsal`.
 // Rehearsal is mounted BEFORE the library: the library's catch-all `/api` guard would swallow it.
 // The registry installs no signal handler here: the stop below says its goodbye, then closes gracefully.
 // Runs under tsx to import the brain's TS.
@@ -16,7 +16,7 @@ import { ENGINE_BODY_LIMIT } from "@studio/engine-registry";
 import { mountRehearsal } from "@studio/rehearsal-server";
 import { prefsStore } from "@studio/user-prefs";
 import { preferencesRouter } from "@studio/user-prefs/router";
-import { serviceUrl } from "@studio/web-protocol/services";
+import { isLegacyHost, serviceUrl } from "@studio/web-protocol/services";
 import express from "express";
 import { z } from "zod";
 import { aiOrganizeBody, aiOrganizeRouter } from "./aiOrganize";
@@ -145,23 +145,23 @@ app.use(
   aiOrganizeRouter(prefsStore(join(PREFS_DIR, "ai")), requireAuth),
 );
 
-// The old hosts, kept for saved links and installs: a page moves under its prefix at the family root; the API keeps answering.
+// The old hosts, kept for saved links and installs: a page moves to k7's origin, under the alias's prefix; the API keeps answering.
 const ALIASES: Record<string, string> = {
   "play.": "/media",
   "k7.": "/rehearsal",
 };
 app.use((req, res, next) => {
-  const alias = Object.keys(ALIASES).find((h) => req.hostname.startsWith(h));
   if (
-    !alias ||
+    !isLegacyHost(req.hostname) ||
     req.path.startsWith("/api") ||
     req.path.startsWith("/auth") ||
     req.path === "/rtc"
   )
     return next();
+  const alias = Object.keys(ALIASES).find((h) => req.hostname.startsWith(h));
   const root = serviceUrl(`${req.protocol}://${req.hostname}`, "k7");
   const rest = req.originalUrl === "/" ? "" : req.originalUrl;
-  res.redirect(301, `${root}${ALIASES[alias]}${rest}`);
+  res.redirect(301, `${root}${alias ? ALIASES[alias] : ""}${rest}`);
 });
 
 // The built SPA: a real file wins outright, then the shell for everything but /api and /auth, which 404 on their own.

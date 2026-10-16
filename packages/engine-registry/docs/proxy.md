@@ -34,7 +34,7 @@ The browser composes no LAN address at all. It opens a `wss://` towards **the re
 page's own origin — and the backend composes towards the engine:
 
 ```
-browser ──wss://priv.st0.app/api/engine/<id>/ws──▶ k7 backend ──tunnel, or ws://<address>:8765──▶ engine
+browser ──wss://app.priv.k7.rocks/api/engine/<id>/ws──▶ k7 backend ──tunnel, or ws://<address>:8765──▶ engine
 ```
 
 The backend is not a secure context: it calls whom it likes, which is why it calls only one place

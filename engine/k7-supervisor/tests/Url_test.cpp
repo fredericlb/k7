@@ -14,10 +14,19 @@ namespace {
 
 void registryIsTheFamilyRootWhicheverServiceWasNamed()
 {
-    CHECK(engineRegistryUrl("https://st0.app") == "https://st0.app");
-    CHECK(engineRegistryUrl("https://st0.app/band/winter.k7") == "https://st0.app");
-    CHECK(engineRegistryUrl("https://play.st0.app") == "https://st0.app");
-    CHECK(engineRegistryUrl("https://k7.st0.app") == "https://st0.app");
+    CHECK(engineRegistryUrl("https://app.k7.rocks") == "https://app.k7.rocks");
+    CHECK(engineRegistryUrl("https://app.k7.rocks/band/winter.k7") == "https://app.k7.rocks");
+    CHECK(engineRegistryUrl("https://docs.k7.rocks") == "https://app.k7.rocks");
+}
+
+// A supervisor saved one of these before the move; each must still heartbeat the current origin.
+void formerHostsAreTheCurrentOrigin()
+{
+    CHECK(engineRegistryUrl("https://st0.app") == "https://app.k7.rocks");
+    CHECK(engineRegistryUrl("https://play.st0.app") == "https://app.k7.rocks");
+    CHECK(engineRegistryUrl("https://k7.st0.app") == "https://app.k7.rocks");
+    CHECK(serviceUrl("https://play.priv.st0.app/songs/a", "pl8") == "https://app.priv.k7.rocks");
+    CHECK(serviceUrl("https://k7.rocks", "k7") == "https://k7.rocks");
 }
 
 void registryOnLoopbackIsK7sPort()
@@ -28,12 +37,12 @@ void registryOnLoopbackIsK7sPort()
 
 void pl8AndK7ResolveToK7sOrigin()
 {
-    CHECK(serviceUrl("https://st0.app", "pl8") == "https://st0.app");
-    CHECK(serviceUrl("https://play.priv.st0.app/songs/a", "pl8") == "https://priv.st0.app");
-    CHECK(serviceUrl("https://st0.app", "k7") == "https://st0.app");
-    CHECK(serviceUrl("https://k7.priv.st0.app", "k7") == "https://priv.st0.app");
-    CHECK(serviceUrl("https://k7.st0.app/session/1", "k7") == "https://st0.app");
-    CHECK(serviceUrl("https://k7.priv.st0.app", "z0") == "https://priv.st0.app/z0");
+    CHECK(serviceUrl("https://app.k7.rocks", "pl8") == "https://app.k7.rocks");
+    CHECK(serviceUrl("https://app.priv.k7.rocks/songs/a", "pl8") == "https://app.priv.k7.rocks");
+    CHECK(serviceUrl("https://app.k7.rocks", "k7") == "https://app.k7.rocks");
+    CHECK(serviceUrl("https://docs.priv.k7.rocks", "k7") == "https://app.priv.k7.rocks");
+    CHECK(serviceUrl("https://k7.st0.app/session/1", "k7") == "https://app.k7.rocks");
+    CHECK(serviceUrl("https://app.priv.k7.rocks", "z0") == "https://app.priv.k7.rocks/z0");
     CHECK(serviceUrl("http://localhost:5223", "k7") == "http://localhost:5223");
 }
 
@@ -60,13 +69,13 @@ void registryOnLoopbackFollowsMovedPorts()
 void registryOfNonUrlIsEmpty()
 {
     CHECK(engineRegistryUrl("not a url").empty());
-    CHECK(engineRegistryUrl("ftp://st0.app").empty());
+    CHECK(engineRegistryUrl("ftp://app.k7.rocks").empty());
 }
 
 void familyIsK7sOrigin()
 {
-    CHECK(studioFamily("https://play.st0.app/library") == "https://st0.app");
-    CHECK(studioFamily("https://st0.app") == "https://st0.app");
+    CHECK(studioFamily("https://play.st0.app/library") == "https://app.k7.rocks");
+    CHECK(studioFamily("https://app.k7.rocks") == "https://app.k7.rocks");
     CHECK(studioFamily("http://localhost:8080") == "http://localhost");
     CHECK(studioFamily("http://localhost:8789") == "http://localhost");
     CHECK(studioFamily("not a url").empty());
@@ -74,7 +83,7 @@ void familyIsK7sOrigin()
 
 void userOriginIsStrict()
 {
-    CHECK(normaliseUserOrigin("st0.app") == std::optional<std::string>("https://st0.app"));
+    CHECK(normaliseUserOrigin("app.k7.rocks") == std::optional<std::string>("https://app.k7.rocks"));
     CHECK(normaliseUserOrigin("  https://Daw.Test:443/path?q=1 ") == std::optional<std::string>("https://daw.test"));
     CHECK(normaliseUserOrigin("http://localhost:8789/x") == std::optional<std::string>("http://localhost:8789"));
     CHECK(!normaliseUserOrigin("ftp://daw.test"));
@@ -87,15 +96,15 @@ void userOriginIsStrict()
 // A heartbeat carries the token and the tunnel secret, so plain http goes only where nobody can listen.
 void plaintextOnlyToLoopbackOrTheAllowlist()
 {
-    CHECK(plaintextRefusal("https://st0.app", "").empty());
-    CHECK(plaintextRefusal("wss://st0.app/api/tunnel", "").empty());
+    CHECK(plaintextRefusal("https://app.k7.rocks", "").empty());
+    CHECK(plaintextRefusal("wss://app.k7.rocks/api/tunnel", "").empty());
     CHECK(plaintextRefusal("http://localhost:8789", "").empty());
     CHECK(plaintextRefusal("ws://127.0.0.1:8789/x", "").empty());
     CHECK(plaintextRefusal("http://[::1]:8789", "").empty());
-    CHECK(!plaintextRefusal("http://st0.app", "").empty());
+    CHECK(!plaintextRefusal("http://app.k7.rocks", "").empty());
     CHECK(!plaintextRefusal("ws://studio.lan:8080", "").empty());
     CHECK(!plaintextRefusal("http://192.168.1.2:8789", "").empty());
-    CHECK(!plaintextRefusal("ftp://st0.app", "k7").empty());
+    CHECK(!plaintextRefusal("ftp://app.k7.rocks", "k7").empty());
     CHECK(!plaintextRefusal("not a url", "").empty());
     CHECK(plaintextRefusal("http://k7:8789", "k7").empty());
     CHECK(plaintextRefusal("ws://K7:8789/api", " other , K7 ").empty());
@@ -107,7 +116,7 @@ void plaintextOnlyToLoopbackOrTheAllowlist()
 void cacheKeyIsTheHost()
 {
     CHECK(cacheKey("https://pl8.priv.frediver.se:8443/api") == "pl8.priv.frediver.se_8443");
-    CHECK(cacheKey("https://play.st0.app") == "play.st0.app");
+    CHECK(cacheKey("https://app.k7.rocks") == "app.k7.rocks");
     CHECK(cacheKey("http://[::1]:8795") == "___1__8795");
 }
 
@@ -134,6 +143,7 @@ void engineOriginsAreTheStudios()
 void runUrlTests()
 {
     RUN(registryIsTheFamilyRootWhicheverServiceWasNamed);
+    RUN(formerHostsAreTheCurrentOrigin);
     RUN(registryOnLoopbackIsK7sPort);
     RUN(pl8AndK7ResolveToK7sOrigin);
     RUN(registryOnLoopbackFollowsMovedPorts);

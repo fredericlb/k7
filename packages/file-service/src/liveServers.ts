@@ -33,7 +33,7 @@ export const hostOf = (url: string): string => {
   }
 };
 
-/** A relay socket's server as a page shows it: `wss://st0.app/api/sync` → `https://st0.app`. */
+/** A relay socket's server as a page shows it: `wss://app.k7.rocks/api/sync` → `https://app.k7.rocks`. */
 export const originOf = (url: string): string => {
   try {
     return new URL(url.replace(/^ws/, "http")).origin;

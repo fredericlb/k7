@@ -40,7 +40,7 @@ async function remote(
   }
 }
 
-/** A relay socket as the page names its server: `wss://st0.app/api/sync` → `st0.app`. */
+/** A relay socket as the page names its server: `wss://app.k7.rocks/api/sync` → `app.k7.rocks`. */
 const hostOf = (url: string): string => hostLabel(url.replace(/^ws/, "http"));
 
 export function SyncServers() {

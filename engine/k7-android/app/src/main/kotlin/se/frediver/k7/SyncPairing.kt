@@ -24,7 +24,7 @@ import java.security.SecureRandom
 
 object SyncPairing {
     /** web-protocol's STUDIO_ORIGIN: the one origin a phone's workspaces and libraries follow. */
-    private const val SYNC_ORIGIN = "https://st0.app"
+    private const val SYNC_ORIGIN = "https://app.k7.rocks"
     /** web-protocol's SYNC_PAIR_ROUTE and SYNC_PAIR_RETURN_PATH: the origin accepts only an http loopback return. */
     private const val PAIR_ROUTE = "/api/sync/devices/pair"
     private const val RETURN_PATH = "/desktop/sync-pair"

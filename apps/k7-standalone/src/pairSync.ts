@@ -29,7 +29,7 @@ const PAGE = (
 /** The server this machine syncs with: the one chosen at sign-in (server.ts). */
 export const syncOrigin = (): string => chosenServer();
 
-/** The relay's socket at a server's origin: `https://st0.app` → `wss://st0.app/api/sync`. */
+/** The relay's socket at a server's origin: `https://app.k7.rocks` → `wss://app.k7.rocks/api/sync`. */
 const relayOf = (origin: string): string =>
   `${origin.replace(/^http/, "ws")}${SYNC_RELAY_PATH}`;
 

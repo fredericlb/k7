@@ -34,9 +34,10 @@ On an empty volume the backend creates its layout — `songs/`, `samples/{audio,
 ## 2. It answers two hosts, and one of them only for its API
 
 The library answers on k7's own host, under `/media` for the screens and `/api/*` for the routes.
-`play.st0.app` is routed to the same container and is **permanent**: every installed supervisor has
-`https://play.st0.app` saved as its registry, and every share link sent names it. On that host `/api/*` and `/auth/*` answer as on k7's, and any
-other path is a 301 to the same path under `/media` at the family root (`server.ts`).
+`play.st0.app`, a former host, is routed to the same container and is **permanent**: every installed
+supervisor has `https://play.st0.app` saved as its registry, and every share link sent names it. On
+that host `/api/*` and `/auth/*` answer as on k7's, and any other path is a 301 to the same path
+under `/media` at k7's origin, `app.k7.rocks` (`server.ts`).
 `packages/web-protocol/docs/addresses.md` is the page for the address side.
 
 ## 3. It moves media, so nothing in front may buffer or cut it

@@ -23,7 +23,7 @@ interface TabsBridge {
   close: (id: number) => void;
   /** Sign in through the system browser, syncing with `server` when given — apps/k7-standalone/docs/signIn.md. */
   signIn: (server?: string) => void;
-  /** The k7 server the account syncs with: the last one chosen, st0.app until then. */
+  /** The k7 server the account syncs with: the last one chosen, app.k7.rocks until then. */
   server?: () => Promise<string | null>;
   /** Pair with another server beside the main one, in the system browser — docs/sync.md, "Several servers". */
   addServer?: (server: string) => Promise<boolean>;

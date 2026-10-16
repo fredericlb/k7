@@ -32,7 +32,7 @@ listens on, the way sign-in does (`docs/signIn.md`).
 
 ## The server is the person's choice
 
-Signing in asks which k7 server this machine syncs with — `st0.app`, a private instance, a dev
+Signing in asks which k7 server this machine syncs with — `app.k7.rocks`, a private instance, a dev
 origin — inline, beside the home page's Sign in, prefilled with the last one (`src/server.ts`,
 `AccountButton.tsx`). It is kept in the app's state folder and is where pairing goes; the sign-in
 still goes through the app's own provider. The address is an origin, https unless the server is on

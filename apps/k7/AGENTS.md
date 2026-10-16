@@ -13,10 +13,10 @@ rather than inside it, because they serve every audio app in the repo — the re
 | `frontend` (`k7-frontend`) | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: YAML code editor (CodeMirror), timeline, chains graph. |
 | `backend` (`k7-backend`) | Express — **the origin's OIDC flow, the account's preferences, the media library and the rehearsal recorder**: it MINTS the `studio.sid` every studio service verifies, being the service with no path prefix, it mounts the rehearsal routes (`@studio/rehearsal-server`, `packages/rehearsal-server/docs/`), and it mounts the médiathèque (`src/media/`, `docs/media/`) — the catalogue, the shares, the hunt, THE engine registry and the file hub that starts each account's file service. It has no file routes of its own: every file operation is the file service's. |
 
-Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://priv.st0.app`
-by the LAN reverse proxy — and at `https://play.priv.st0.app` and `https://k7.priv.st0.app`, the
-aliases the hosted k7 answers as `play.st0.app` and `k7.st0.app`
-(`packages/web-protocol/docs/addresses.md`).
+Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://app.priv.k7.rocks`
+by the LAN reverse proxy — and at `https://docs.priv.k7.rocks`, the documentation alone, as the
+hosted k7 answers `docs.k7.rocks` (`frontend/docs/docsSite.md`,
+`packages/web-protocol/docs/addresses.md`).
 
 The médiathèque's screens are `@studio/ui-library`, mounted at `/media/*`
 (`frontend/src/projects/MediaPage.tsx`, `packages/ui-library/docs/host.md`); its sections are
@@ -53,8 +53,8 @@ otherwise a workspace — so `external` is a reserved short name. The engine
 picker is unreachable until logged in either way. Auth falls back to a "Dev User" stub when no
 `OIDC_*` env is set, but login is still mandatory.
 
-**`/auth/*` is THIS backend's.** k7 answers the origin root (`priv.st0.app`, `st0.app`) and the
-`play.` and `k7.` aliases, and z0 a `/z0` path on it (`packages/web-protocol/docs/addresses.md`).
+**`/auth/*` is THIS backend's.** k7 answers the origin root (`app.priv.k7.rocks`, `app.k7.rocks`), the
+docs host and the former `st0.app` hosts, and z0 a `/z0` path on it (`packages/web-protocol/docs/addresses.md`).
 There is one session cookie — `studio.sid`, signed with the `SESSION_SECRET` in `env.yaml`'s
 `common` and scoped to the shared `COOKIE_DOMAIN` so every subdomain receives it — and one
 `redirect_uri` to register with the IdP: `<k7 origin>/auth/callback`. So the flow is k7's; z0 passes
@@ -100,6 +100,7 @@ matches before changing it:
 | `contextMenu.md` | the right-click menu, derived from the command catalogue |
 | `midi.md` | playing a module's params from a MIDI controller |
 | `docExamples.md` | how `docs.test.ts` keeps the shipped documentation honest |
+| `docsSite.md` | `docs.<domain>` — the same documentation on a host of its own, with no account and no engine |
 | `audit.md` | the standing stability and speed audit — what the app holds, and the lots still open |
 
 ### Three data paths (`src/api.ts`)

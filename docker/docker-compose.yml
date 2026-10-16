@@ -70,8 +70,8 @@ services:
       - traefik
     labels:
       - traefik.enable=true
-      # The play. and k7. hosts are permanent aliases: saved share links, registries, publish URLs and public pages name them.
-      - traefik.http.routers.k7.rule=Host(`${K7_DOMAIN:-st0.app}`) || Host(`${PL8_DOMAIN:-play.st0.app}`) || Host(`${K7_ALIAS_DOMAIN:-k7.st0.app}`)
+      # docs. is the same app showing its documentation. The st0.app hosts are former ones, kept: saved share links, registries, publish URLs and public pages name them.
+      - traefik.http.routers.k7.rule=Host(`${K7_DOMAIN:-app.k7.rocks}`) || Host(`${DOCS_DOMAIN:-docs.k7.rocks}`) || Host(`${LEGACY_DOMAIN:-st0.app}`) || Host(`${PL8_DOMAIN:-play.st0.app}`) || Host(`${K7_ALIAS_DOMAIN:-k7.st0.app}`)
       - traefik.http.routers.k7.entrypoints=websecure
       - traefik.http.routers.k7.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
       - traefik.http.services.k7.loadbalancer.server.port=8789
@@ -132,7 +132,7 @@ services:
       # More specific than k7's bare Host() rule, so it wins for /z0 on the same
       # hostname — an explicit priority, not left to rule-length inference, since a
       # mistake here means the game silently loses its own container to k7's.
-      - traefik.http.routers.z0.rule=Host(`${K7_DOMAIN:-st0.app}`) && PathPrefix(`/z0`)
+      - traefik.http.routers.z0.rule=Host(`${K7_DOMAIN:-app.k7.rocks}`) && PathPrefix(`/z0`)
       - traefik.http.routers.z0.priority=10
       - traefik.http.routers.z0.entrypoints=websecure
       - traefik.http.routers.z0.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}

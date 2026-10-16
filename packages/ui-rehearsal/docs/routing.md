@@ -39,11 +39,11 @@ out themselves, since the browser is what fetches them.
 Both are exported from the package's entry, which is light on purpose: the host's entry imports it
 before any lazy chunk has loaded.
 
-## The `k7.` host is a permanent alias
+## The `k7.` host is a permanent former host
 
 `k7.st0.app` (`k7.priv.st0.app` in dev) answers from k7's container: `/api/*`, `/auth/*` and
-`/rtc` as on the root origin, and anything else is a 301 to `/rehearsal` + the same path at the
-root (`apps/k7/backend/src/server.ts`). It stays because of what was handed out under that name and
+`/rtc` as on k7's origin, and anything else is a 301 to `/rehearsal` + the same path at k7's
+origin, `app.k7.rocks` (`apps/k7/backend/src/server.ts`). It stays because of what was handed out under that name and
 cannot be recalled: publish URLs and tokens saved in workspaces' `.settings.json`, public page
 links sent to an audience, and installed PWAs. Why `k7` resolves to k7's origin is
 `packages/web-protocol/docs/addresses.md`.

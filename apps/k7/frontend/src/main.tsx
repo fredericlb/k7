@@ -4,6 +4,7 @@
 // See apps/k7-standalone/docs/tabs.md.
 
 import { isTabs, parseLaunch } from "@studio/project-shell/launch";
+import { isDocsHost } from "@studio/web-protocol/services";
 import { reloadForChunk, reloadOnChunkError } from "./chunkReload";
 
 reloadOnChunkError();
@@ -14,10 +15,11 @@ const at = parseLaunch(
   import.meta.env.BASE_URL,
 );
 
-// Dynamic on BOTH arms: a static import is hoisted, so one would cost the other everything.
+// Dynamic on EVERY arm: a static import is hoisted, so one would cost the others everything.
 // …and the first chunk has no boundary above it: a failure past the one reload is said in the page itself.
-const boot =
-  at !== null && isTabs(at.repo)
+const boot = isDocsHost(window.location.hostname)
+  ? import("./docs/mountSite")
+  : at !== null && isTabs(at.repo)
     ? import("./tabs/mountStrip")
     : import("./appMain");
 boot.catch((e: unknown) => {

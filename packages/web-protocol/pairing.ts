@@ -73,7 +73,7 @@ export function syncPairUrl(
   return u.toString();
 }
 
-/** The k7 server a person typed, as an origin (`https://st0.app`), or null when it cannot be one: no scheme means https. */
+/** The k7 server a person typed, as an origin (`https://app.k7.rocks`), or null when it cannot be one: no scheme means https. */
 export function normalizeServer(input: string): string | null {
   const raw = input.trim();
   if (!raw) return null;
