@@ -18,6 +18,7 @@ import type {
   Song,
   SongbookPlacement,
   SongEnvelope,
+  SongListEntry,
 } from "./types";
 
 /** A publish token as its owner sees it: never the token itself. */
@@ -439,7 +440,8 @@ export const api = {
     f(`/api/singing/${id}`, { method: "DELETE" }).then(json),
 
   // --- Songs (songbook) ---
-  listSongs: (): Promise<Song[]> => f("/api/songs").then(json),
+  /** The songbook's rows, without any song's texts: a song's own GET has them. */
+  listSongs: (): Promise<SongListEntry[]> => f("/api/songs").then(json),
   /** Whether releases and pages can be reached: they live on the server alone — ../../rehearsal-server/docs/publications.md. */
   publicationsStatus: (): Promise<PublicationsStatus> =>
     f("/api/publications").then(json),

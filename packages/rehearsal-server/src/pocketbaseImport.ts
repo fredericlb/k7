@@ -76,10 +76,10 @@ export async function importFromPocketbase(
       String(s.id),
     );
   // In one transaction: the store stays empty unless every row landed, and an empty store is what makes the next boot retry.
-  await store.inTransaction(async () => {
+  store.inTransaction(() => {
     for (const [coll, items] of Object.entries(rows)) {
       const names = new Set(SCHEMA[coll].map((f) => f.name));
-      await store.addRecords(
+      store.addRecords(
         coll,
         items.map((item) => ({
           id: String(item.id),

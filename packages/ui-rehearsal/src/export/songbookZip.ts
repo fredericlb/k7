@@ -10,7 +10,8 @@ import {
   uniqueNames,
 } from "@studio/rehearsal-shared/naming";
 import { zip } from "fflate";
-import type { Song } from "../types";
+import { api } from "../api";
+import type { Song, SongListEntry } from "../types";
 import { loadSheets } from "./sheets";
 import { buildSongEpub } from "./songEpub";
 import { buildSongPdf } from "./songPdf";
@@ -27,10 +28,14 @@ export interface ExportResult {
   skipped: string[];
 }
 
+/** A whole song as it is, or a songbook row fetched whole: the list carries no texts. */
+const whole = (s: Song | SongListEntry): Promise<Song> =>
+  "lyrics" in s ? Promise.resolve(s) : api.getSong(s.id);
+
 /** Every song as its own file inside one zip. Kept apart from the download so it can be tested. */
 export async function buildSongbookZip(
   kind: ExportKind,
-  songs: Song[],
+  songs: (Song | SongListEntry)[],
   onProgress?: (done: number, total: number) => void,
 ): Promise<ExportResult & { bytes: Uint8Array }> {
   const names = uniqueNames(songs.map(songBase), kind);
@@ -40,7 +45,7 @@ export async function buildSongbookZip(
 
   for (const [i, song] of songs.entries()) {
     try {
-      entries[names[i]] = await buildOne(kind, song, skipped);
+      entries[names[i]] = await buildOne(kind, await whole(song), skipped);
     } catch {
       failed.push(songBase(song));
     }
@@ -59,7 +64,7 @@ export async function buildSongbookZip(
 /** The button's call: build the zip, then hand it to the browser. */
 export async function exportSongbook(
   kind: ExportKind,
-  songs: Song[],
+  songs: (Song | SongListEntry)[],
   onProgress?: (done: number, total: number) => void,
 ): Promise<ExportResult> {
   const { bytes, ...result } = await buildSongbookZip(kind, songs, onProgress);

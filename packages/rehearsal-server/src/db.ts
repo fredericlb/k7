@@ -8,6 +8,7 @@ export const store = createSqlite(env.dataDir);
 
 export const {
   listRecords,
+  getRecord,
   addRecords,
   patchRecord,
   deleteRecords,
@@ -15,4 +16,5 @@ export const {
   attachmentFile,
   deleteAttachment,
   isEmpty,
+  inTransaction,
 } = store;

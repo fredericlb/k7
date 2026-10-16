@@ -244,6 +244,22 @@ export interface EventsResult {
   events: DetectedEvent[];
 }
 
+/** A songbook row: what the list shows of a song, never its texts — ../rehearsal-server/docs/store.md. */
+export interface SongListEntry {
+  id: string;
+  artist: string;
+  title: string;
+  hasLyrics: boolean;
+  hasTablature: boolean;
+  sheetCount: number;
+  private: boolean;
+  favorite: boolean;
+  mine: boolean;
+  canDelete: boolean;
+  origin: string;
+  createdAt: string;
+}
+
 /** A songbook song as a paired machine lists the server's: enough to name it. */
 export interface SongSummary {
   id: string;

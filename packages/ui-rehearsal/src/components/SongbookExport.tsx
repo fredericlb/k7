@@ -14,10 +14,10 @@ import { useState } from "react";
 import { type ExportKind, exportSongbook } from "../export/songbookZip";
 import { isOne } from "../i18n";
 import { m } from "../paraglide/messages.js";
-import type { Song } from "../types";
+import type { SongListEntry } from "../types";
 
 interface Props {
-  songs: Song[];
+  songs: SongListEntry[];
 }
 
 interface Running {
