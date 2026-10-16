@@ -4,6 +4,7 @@
 // where Live has no portable form (native devices, sends, Session view). See docs/import.md.
 
 import { XMLParser } from "fast-xml-parser";
+import { mapDevices, uniqueName } from "./alsDevices.js";
 import { boundedGunzip } from "./inflate";
 import type {
   ClipOut,
@@ -13,6 +14,7 @@ import type {
   TrackOut,
   Translation,
 } from "./model.js";
+import { asArray, bool, num, round, str, val } from "./xmlAttrs.js";
 
 export interface AlsOptions {
   // Resolve a Live sample reference to bytes, null when unreachable: the CALLER owns the path policy.
@@ -25,34 +27,6 @@ export interface SampleRef {
   relative?: string;
   absolute?: string;
 }
-
-// --- small attribute helpers -------------------------------------------------
-
-const num = (v: unknown, dflt = 0): number => {
-  const n =
-    typeof v === "string" ? parseFloat(v) : typeof v === "number" ? v : NaN;
-  return Number.isFinite(n) ? n : dflt;
-};
-const bool = (v: unknown): boolean => v === "true" || v === true;
-const str = (v: unknown): string | undefined =>
-  v == null ? undefined : String(v);
-// Trim float noise (Live writes ~17 digits) without lying about beats.
-const round = (n: number, p = 6): number => {
-  const f = 10 ** p;
-  return Math.round(n * f) / f;
-};
-const asArray = <T>(v: T | T[] | undefined): T[] =>
-  v == null ? [] : Array.isArray(v) ? v : [v];
-
-// Live nests every scalar as <Volume><Manual Value="0.85"/></Volume>. One walker for all of them.
-const val = (node: any, ...path: string[]): unknown => {
-  let cur = node;
-  for (const key of path) {
-    if (cur == null) return undefined;
-    cur = Array.isArray(cur) ? cur[0]?.[key] : cur[key];
-  }
-  return Array.isArray(cur) ? cur[0]?.["@_Value"] : cur?.["@_Value"];
-};
 
 // Tags that always model a collection — forced to arrays, so one child and many are handled the same way.
 const ARRAY_TAGS = new Set([
@@ -70,13 +44,6 @@ const ARRAY_TAGS = new Set([
   "AuPluginDevice",
   "PluginFloatParameter",
 ]);
-
-// Live's own devices carry no portable state, so they are reported and skipped — see docs/import.md.
-const NATIVE_DEVICE =
-  /Device$|^(Eq8|Compressor2|Reverb|Operator|Wavetable|AutoFilter|Delay|Saturator|Limiter|GlueCompressor|MultibandDynamics|Echo|Roar|Drift|Meld)$/;
-const NOT_A_DEVICE = /^(MixerDevice|.*DeviceChain|DevicesListWrapper|Devices)$/;
-// Racks are containers: the plugins inside DO cross over, only the rack's own structure is lost.
-const RACK_DEVICE = /GroupDevice$/;
 
 // Live packs the time signature into one integer, 201 -> 4/4 — see docs/import.md.
 export function decodeTimeSignature(v: number): string {
@@ -222,7 +189,7 @@ export function mapLiveSet(
   };
 }
 
-interface MapCtx {
+export interface MapCtx {
   opts: AlsOptions;
   files: Record<string, Uint8Array>;
   warnings: string[];
@@ -459,108 +426,3 @@ function readSampleRef(sampleRef: any): SampleRef | null {
   if (!name) return null;
   return { name, relative, absolute };
 }
-
-function uniqueName(name: string, used: Set<string>): string {
-  const dot = name.lastIndexOf(".");
-  const stem = dot > 0 ? name.slice(0, dot) : name;
-  const ext = dot > 0 ? name.slice(dot) : "";
-  let candidate = name;
-  for (let n = 2; used.has(candidate); n++) candidate = `${stem}-${n}${ext}`;
-  used.add(candidate);
-  return candidate;
-}
-
-// Live's <Buffer> hex is wrapped across lines and indented; strip everything non-hex before decoding.
-function decodeHex(text: string): Uint8Array | null {
-  const clean = text.replace(/[^0-9a-fA-F]/g, "");
-  if (clean.length < 2) return null;
-  const bytes = new Uint8Array(clean.length >> 1);
-  for (let i = 0; i < bytes.length; i++)
-    bytes[i] = parseInt(clean.substr(i * 2, 2), 16);
-  return bytes;
-}
-
-// Map a track's Devices to plugin refs; Live gives no explicit instrument/FX role — see docs/import.md.
-function mapDevices(
-  devices: any,
-  contentType: "audio" | "notes",
-  ctx: MapCtx,
-): PluginOut[] {
-  if (!devices) return [];
-  const out: PluginOut[] = [];
-
-  // Walk into racks and flatten them away: only the plugins a rack holds can cross over.
-  const found: { tag: string; node: any }[] = [];
-  const walk = (node: any): void => {
-    if (node == null || typeof node !== "object") return;
-    for (const [tag, child] of Object.entries(node)) {
-      if (tag.startsWith("@_")) continue;
-      if (tag === "PluginDevice" || tag === "AuPluginDevice") {
-        for (const d of asArray<any>(child)) found.push({ tag, node: d });
-        continue;
-      }
-      if (!NOT_A_DEVICE.test(tag) && NATIVE_DEVICE.test(tag))
-        (RACK_DEVICE.test(tag) ? ctx.racks : ctx.nativeDevices).add(tag);
-      if (Array.isArray(child)) for (const c of child) walk(c);
-      else walk(child);
-    }
-  };
-  walk(devices);
-
-  for (const { tag, node: d } of found) {
-    const desc = d.PluginDesc ?? {};
-    const vst3 = desc.Vst3PluginInfo;
-    const vst2 = desc.VstPluginInfo;
-    const info = vst3 ?? vst2 ?? {};
-    const name =
-      str(val(info, "Name")) ?? str(val(info, "PlugName")) ?? "unknown plugin";
-    const on = val(d, "On", "Manual");
-    const plugin: PluginOut = {
-      type: tag === "AuPluginDevice" ? "au" : vst3 ? "vst3" : "vst2",
-      name,
-      enabled: on == null ? true : bool(on),
-    };
-
-    // VST3 keeps its state in ProcessorState, VST2 in Preset/VstPreset/Buffer; both are hex text.
-    const raw =
-      textOf(vst3?.Preset?.Vst3Preset?.ProcessorState) ??
-      textOf(vst2?.Preset?.VstPreset?.Buffer);
-    if (raw) {
-      const bytes = decodeHex(raw);
-      if (bytes) {
-        const key = `plugins/${uniqueName(`${slug(name)}.vstpreset`, ctx.usedNames)}`;
-        ctx.files[key] = bytes;
-        plugin.path = key;
-      }
-    }
-
-    // Live exposes only a SUBSET of the params by name, so paramsComplete is never set — docs/import.md.
-    const params: Record<string, number> = {};
-    for (const p of asArray<any>(d.ParameterList?.PluginFloatParameter)) {
-      const pname = str(val(p, "ParameterName"));
-      const pval = val(p, "ParameterValue", "Manual");
-      if (pname && pval != null) params[pname] = round(num(pval));
-    }
-    if (Object.keys(params).length) plugin.params = params;
-
-    plugin.role =
-      contentType === "notes" && out.length === 0 ? "instrument" : "audioFX";
-    out.push(plugin);
-  }
-  return out;
-}
-
-// fast-xml-parser gives a string for a text-only node, or an object with #text when it carries attributes.
-function textOf(node: unknown): string | null {
-  if (node == null) return null;
-  if (typeof node === "string") return node;
-  if (typeof node === "number") return String(node);
-  const text = (node as any)["#text"];
-  return text == null ? null : String(text);
-}
-
-const slug = (s: string): string =>
-  s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "") || "plugin";

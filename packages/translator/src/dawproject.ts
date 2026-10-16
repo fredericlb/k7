@@ -14,27 +14,10 @@ import type {
   Translation,
   WarpOut,
 } from "./model.js";
+import { asArray, bool, num, round, str } from "./xmlAttrs.js";
 
 // Re-exported so `@studio/translator/dawproject` type imports resolve from here too.
 export type * from "./model.js";
-
-// --- small attribute helpers -------------------------------------------------
-
-const num = (v: unknown, dflt = 0): number => {
-  const n =
-    typeof v === "string" ? parseFloat(v) : typeof v === "number" ? v : NaN;
-  return Number.isFinite(n) ? n : dflt;
-};
-const bool = (v: unknown): boolean => v === "true" || v === true;
-const str = (v: unknown): string | undefined =>
-  v == null ? undefined : String(v);
-// Trim float noise (fade/note times carry ~17 digits) without lying about beats.
-const round = (n: number, p = 6): number => {
-  const f = 10 ** p;
-  return Math.round(n * f) / f;
-};
-const asArray = <T>(v: T | T[] | undefined): T[] =>
-  v == null ? [] : Array.isArray(v) ? v : [v];
 
 // Tags that always model a collection — forced to arrays, so one child and many are handled the same way.
 const ARRAY_TAGS = new Set([
