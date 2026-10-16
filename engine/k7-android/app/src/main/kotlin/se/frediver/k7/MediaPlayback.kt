@@ -129,9 +129,7 @@ object MediaPlayback {
 
     // Android 13+ draws its controls from the session; the actions below are what older versions show.
     private fun build(app: Context, s: MediaSession, title: String, artist: String, actions: Set<String>): Notification {
-        val nm = app.getSystemService(NotificationManager::class.java)
-        if (nm.getNotificationChannel(CHANNEL) == null)
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, "Playback", NotificationManager.IMPORTANCE_LOW))
+        ensureChannel(app)
         val shown = mutableListOf<Notification.Action>()
         shown += if (playing) action(app, "pause", android.R.drawable.ic_media_pause, "Pause")
         else action(app, "play", android.R.drawable.ic_media_play, "Play")
@@ -146,6 +144,23 @@ object MediaPlayback {
             .setOngoing(playing)
             .setActions(*shown.toTypedArray())
             .setStyle(Notification.MediaStyle().setMediaSession(s.sessionToken).setShowActionsInCompactView(*shown.indices.toList().toIntArray()))
+            .build()
+    }
+
+    private fun ensureChannel(app: Context) {
+        val nm = app.getSystemService(NotificationManager::class.java)
+        if (nm.getNotificationChannel(CHANNEL) == null)
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, "Playback", NotificationManager.IMPORTANCE_LOW))
+    }
+
+    /** What the service shows when it must enter the foreground with nothing playing, only to leave it at once. */
+    fun placeholder(context: Context): Notification {
+        val app = context.applicationContext
+        ensureChannel(app)
+        return Notification.Builder(app, CHANNEL)
+            .setSmallIcon(R.drawable.ic_media)
+            .setContentTitle("k7")
+            .setContentIntent(openApp(app))
             .build()
     }
 

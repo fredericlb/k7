@@ -266,12 +266,17 @@ class AppViewsPlugin : Plugin() {
     private fun appOf(url: Uri): String? =
         apps.entries.firstOrNull { (_, home) -> home.scheme == url.scheme && home.host == url.host && home.port == url.port }?.key
 
-    /** Somewhere this app does not show: the browser, the mail app, whatever claims it. */
+    /** Somewhere this app does not show: the browser, the mail app, the dialer — and only those, by scheme. */
     private fun openOutside(url: Uri) {
+        // A page may name any scheme: file:, content: or intent: handed to another app would expose or launch what it should not.
+        if (url.scheme?.lowercase() !in OUTSIDE_SCHEMES) return
         try {
             activity.startActivity(Intent(Intent.ACTION_VIEW, url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (_: ActivityNotFoundException) {
             // Nothing handles it: the link just does nothing.
+        } catch (e: RuntimeException) {
+            // A refused URI (FileUriExposedException, SecurityException) must not take the app down with it.
+            android.util.Log.w("k7-views", "not opened outside: ${e.message}")
         }
     }
 
@@ -393,5 +398,7 @@ class AppViewsPlugin : Plugin() {
         private const val LOCAL_SIGN_IN_GAP_MS = 5_000L
         // web-protocol's PORTS_GLOBAL, the name every page reads the loopback ports from.
         private const val PORTS_GLOBAL = "__STUDIO_PORTS__"
+        // What openOutside hands to another app; anything else is dropped.
+        private val OUTSIDE_SCHEMES = setOf("http", "https", "mailto", "tel")
     }
 }

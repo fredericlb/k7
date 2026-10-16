@@ -17,6 +17,7 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { RECYCLE_DIR } from "@studio/file-service/src/workspaceFilter.ts";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
 import {
   DRAFT_VERSION,
   LIBRARY_LEVEL,
@@ -156,9 +157,10 @@ export class LibraryStore {
     const problem = settingsProblem(list);
     if (problem) throw new Error(problem);
     mkdirSync(this.dataRoot, { recursive: true });
-    const tmp = `${this.listFile}.${process.pid}.tmp`;
-    writeFileSync(tmp, `${JSON.stringify({ libraries: list }, null, 2)}\n`);
-    renameSync(tmp, this.listFile);
+    writeFileAtomic(
+      this.listFile,
+      `${JSON.stringify({ libraries: list }, null, 2)}\n`,
+    );
   }
 
   /** The list as an account sees it: each library, and whether the server holds its folder. */

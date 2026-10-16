@@ -3,20 +3,14 @@
 // Each entry is on disk BEFORE it is relayed, so a crash cannot leave a replica ahead of the room.
 // See docs/syncRelay.md.
 
-import {
-  appendFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import type { IncomingMessage, Server } from "node:http";
 import type { Socket } from "node:net";
 import { join } from "node:path";
 import type { Batch, Sequenced } from "@studio/live-sync/ops";
 import { type FromRelay, parseToRelay } from "@studio/live-sync/protocol";
 import { Room, type RoomState } from "@studio/live-sync/room";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
 import { isLibraryName } from "@studio/song-schema/moduleTypes";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import { SYNC_RELAY_PATH } from "@studio/web-protocol/pairing";
@@ -128,19 +122,21 @@ function load(dir: string): Room {
   adoptLegacy(dir, state);
   const room = state ? Room.from(state) : new Room();
   const entries = join(dir, ENTRIES);
-  if (existsSync(entries))
-    for (const line of readFileSync(entries, "utf8").split("\n")) {
+  if (existsSync(entries)) {
+    const text = readFileSync(entries, "utf8");
+    // A torn last line is closed off, so the next append starts a line of its own instead of joining it.
+    if (text && !text.endsWith("\n")) appendFileSync(entries, "\n");
+    for (const line of text.split("\n")) {
       const entry = line ? parseEntry(line) : null;
       if (entry) room.replay(entry);
     }
+  }
   return room;
 }
 
 function snapshot(live: Live, historyEvery: number): void {
-  const tmp = join(live.dir, "room.json.tmp");
   const state = live.room.state();
-  writeFileSync(tmp, JSON.stringify(state));
-  renameSync(tmp, join(live.dir, "room.json"));
+  writeFileAtomic(join(live.dir, "room.json"), JSON.stringify(state));
   rollLog(live.dir, state.head, state.files, historyEvery);
   live.sinceSnapshot = 0;
 }

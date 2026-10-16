@@ -6,7 +6,9 @@ phone at the studios it is connected to, exactly as on desktop, and the engine s
 WebSocket protocol on port 8765, bound to every interface.
 
 **It lives as long as `MainActivity`**, and leaving it deregisters the engine, stops it and ends the
-process. The one service, `MediaPlaybackService`, keeps that process in front while a page plays
+process. That teardown runs on a thread of its own, never the UI thread, since its stops wait for
+seconds and a blocked main thread is an ANR; the backend gets longer than its own 8 s stop, so its
+file services are not killed mid-teardown. The one service, `MediaPlaybackService`, keeps that process in front while a page plays
 (below), and starts nothing of its own.
 
 ## Standalone: the phone runs its own studio
@@ -77,7 +79,9 @@ What the app views do that a browser would do on its own:
 - **A link to an app with a view switches to it** instead of opening a window: `target=_blank` and
   cross-app links go to that app's view, at that URL. Only a link the *user* followed does this; a
   redirect stays in its view. Other hosts in a new window open in the browser. Every page of k7
-  is same-origin with its `/auth`, so the views need no third-party cookies.
+  is same-origin with its `/auth`, so the views need no third-party cookies. Only `http`, `https`,
+  `mailto` and `tel` are handed to another app; any other scheme a page names is dropped, since a
+  `file:` or `intent:` URI handed out exposes or launches what it should not.
 - **The microphone** goes to the studio's apps only (the rehearsal recorder's remote mic), and only once the app holds
   RECORD_AUDIO, which it asks for at start for the engine.
 - **The private CA** covers the app views too: a certificate the WebView refuses only for its unknown issuer
@@ -119,7 +123,10 @@ API (`packages/ui-mini-player/docs/miniPlayer.md`) and knows nothing of Android.
 | the task swiped away or the activity left clears it | a detached notification would outlive the process it controls |
 
 A foreground start can be refused when the app is behind (Android 12+); the notification then
-shows without the service, and the log says so under `k7-media`.
+shows without the service, and the log says so under `k7-media`. Every start of the service enters
+the foreground before anything else — a placeholder notification when nothing plays — even a
+start that only stops it: a `startForegroundService` left without its `startForeground` crashes
+the app. So the service is stopped through a start that says so, never by `stopService`.
 
 ## Signing in happens in the browser
 

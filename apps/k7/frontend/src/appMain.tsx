@@ -81,6 +81,10 @@ installFreezeWatchdog({ commits: PROFILING });
 // that runs on this thread while a project opens, and the engine link was the only one instrumented.
 setFileApiTally(tally);
 
+// A desktop quit asks every page to write what its panes hold before the servers stop (commons/packages/electron-shell/docs/shell.md).
+(globalThis as { __beforeQuit?: () => Promise<unknown> }).__beforeQuit = () =>
+  import("@studio/ui-editor/autosave").then((m) => m.flushAutosaves());
+
 /** The Profiler is here for the freeze watchdog, and OFF unless someone is looking: it bills every commit in a tree that commits per meter frame. */
 const profiling = PROFILING;
 
