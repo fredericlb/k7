@@ -147,8 +147,11 @@ export class Compositor {
     }
     for (const p of this.framePrograms) if (p) gl.deleteProgram(p.prog);
     for (const t of this.transitions.values()) if (t) gl.deleteProgram(t.prog);
-    this.canvas.width = scene.viewport[0];
-    this.canvas.height = scene.viewport[1];
+    // Assigning a canvas size clears it even when unchanged, which would flash black on every edit.
+    if (this.canvas.width !== scene.viewport[0])
+      this.canvas.width = scene.viewport[0];
+    if (this.canvas.height !== scene.viewport[1])
+      this.canvas.height = scene.viewport[1];
     const [vw, vh] = scene.viewport;
 
     // One program per name the cuts use, the built-in FIRST so a module of that name overrides it.
