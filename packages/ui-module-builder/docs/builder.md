@@ -2,7 +2,9 @@
 
 `src/ModuleBuilder.tsx` is the full-screen module editor: a file's text on the LEFT, a visual grid
 of the module's widgets on the RIGHT. This page holds the reasoning behind its shape, so the
-component can carry one line per decision.
+component can carry one line per decision. Its state lives in three hooks — the four files
+(`useModuleFiles.ts`), what the machine is asked (`usePluginProbe.ts`) and the bindable parameters
+(`useParamRows.ts`) — and its parts in `BuilderHeader.tsx`, `ParamsPane.tsx` and `ShapeBar.tsx`.
 
 ## Four files, four autosaves
 
