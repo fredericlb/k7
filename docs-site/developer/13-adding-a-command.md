@@ -55,7 +55,7 @@ Nothing else is needed: the file service's `/commands` serves it to the palette 
 
 ### A new completion provider
 
-Add it to `PROVIDERS` in `packages/commands/src/commandSpec.ts`, then give it a class in `PROVIDER_CLASS` and a hint in `PROVIDER_HINT` (both are exhaustive records, so the build tells you). The provider and class names are mirrored on the wire as the `ArgProvider` and `ArgClass` unions in `packages/web-protocol/types.ts`, which `commandSpec.test.ts` holds against the package; add the new name there too.
+Add it to `PROVIDERS` in `packages/commands/src/providers.ts`, then give it a class in `PROVIDER_CLASS` and a hint in `PROVIDER_HINT` (both are exhaustive records, so the build tells you). The provider and class names are mirrored on the wire as the `ArgProvider` and `ArgClass` unions in `packages/web-protocol/types.ts`, which `commandSpec.test.ts` holds against the package; add the new name there too.
 
 ## A `ui` command
 

@@ -6,17 +6,16 @@ import type { ProjectDoc, TrackDoc } from "@studio/song/project";
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import {
-  ARG_CLASSES,
   ARG_KIND_NAMES,
   argClass,
   argHint,
   completions,
   loadCommandSpecs,
   MENU_ENTITIES,
-  PROVIDER_NAMES,
   validateArgs,
 } from "./commandSpec";
 import type { CommandHost } from "./commands";
+import { ARG_CLASSES, PROVIDER_NAMES } from "./providers";
 
 // A host exposing the given track ids and nothing else: completion calls no engine op.
 function host(trackIds: string[]): CommandHost {
