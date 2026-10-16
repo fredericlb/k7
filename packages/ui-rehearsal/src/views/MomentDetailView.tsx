@@ -8,10 +8,10 @@ import {
   Play,
   Trash2,
 } from "@frediverse/ui/icons";
-import { Input } from "@frediverse/ui/input";
 import { Waveform } from "@studio/recorder";
 import { useEffect, useRef, useState } from "react";
 import { BackButton } from "../components/BackButton";
+import { MarkerRow } from "../components/MarkerRow";
 import {
   type MomentState,
   MomentStateIcon,
@@ -19,7 +19,7 @@ import {
 } from "../components/MomentServerShare";
 import { fmtDate, fmtTime, sessionTitle } from "../format";
 import { m } from "../paraglide/messages.js";
-import type { Marker, Moment } from "../types";
+import type { Moment } from "../types";
 
 interface Props {
   moment: Moment;
@@ -190,7 +190,7 @@ export function MomentDetailView({
           </h3>
           <ul className="marker-list">
             {markers.map((mk) => (
-              <MomentMarkerRow
+              <MarkerRow
                 key={mk.id}
                 marker={mk}
                 onSeek={seek}
@@ -234,69 +234,5 @@ export function MomentDetailView({
         {m["moment.captured"]({ at: fmtDate(moment.createdAt) })}
       </p>
     </div>
-  );
-}
-
-interface MarkerRowProps {
-  marker: Marker;
-  onSeek: (sec: number) => void;
-  /** Both absent on a shared moment: the marker is read, not edited. */
-  onUpdate?: (markerId: string, comment: string) => Promise<void>;
-  onDelete?: (markerId: string) => Promise<void>;
-}
-
-function MomentMarkerRow({
-  marker,
-  onSeek,
-  onUpdate,
-  onDelete,
-}: MarkerRowProps) {
-  // Local draft so typing stays snappy; persisted on blur/Enter.
-  const [comment, setComment] = useState(marker.comment);
-  useEffect(() => setComment(marker.comment), [marker.comment]);
-
-  const saveComment = () => {
-    const c = comment.trim();
-    if (c !== marker.comment) onUpdate?.(marker.id, c);
-  };
-
-  return (
-    <li className="marker-item">
-      <Button
-        variant="link"
-        onClick={() => onSeek(marker.atSec)}
-        title={m["marker.jump"]()}
-      >
-        <Flag className="size-4" /> {fmtTime(marker.atSec)}
-      </Button>
-      {onUpdate ? (
-        <Input
-          value={comment}
-          placeholder={m["marker.comment"]()}
-          onChange={(e) => setComment(e.target.value)}
-          onBlur={saveComment}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.currentTarget.blur();
-          }}
-        />
-      ) : (
-        <span className="marker-comment">{marker.comment}</span>
-      )}
-      {onDelete && (
-        <Button
-          variant="outline"
-          size="sm"
-          aria-label={m["marker.delete"]()}
-          title={m["marker.delete"]()}
-          onClick={() => {
-            // A bare marker is one tap to put back; its comment is not.
-            if (!marker.comment || confirm(m["marker.confirmDelete"]()))
-              onDelete(marker.id);
-          }}
-        >
-          <Trash2 className="size-4" />
-        </Button>
-      )}
-    </li>
   );
 }

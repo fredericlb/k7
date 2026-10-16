@@ -12,9 +12,15 @@ import {
   Trash2,
 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
-import { createLiveValue, MomentPlayer, TagInput } from "@studio/recorder";
+import {
+  createLiveValue,
+  MomentPlayer,
+  TagInput,
+  usePlayheadLoop,
+} from "@studio/recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BackButton } from "../components/BackButton";
+import { MarkerRow } from "../components/MarkerRow";
 import { PlaybackTime, PlayheadWaveform } from "../components/Playhead";
 import { fmtTime, sessionTitle } from "../format";
 import { m } from "../paraglide/messages.js";
@@ -23,7 +29,6 @@ import type {
   DetectedEvent,
   Envelope,
   EventsResult,
-  Marker,
   Selection,
   Session,
 } from "../types";
@@ -105,21 +110,11 @@ export function SessionDetailView({
   } | null>(null);
 
   const audioRef = useRef<HTMLAudioElement>(null);
-  const rafRef = useRef<number | null>(null);
   const seekApplied = useRef(false);
   const playCtx = useRef<AudioContext | null>(null);
   const gainNode = useRef<GainNode | null>(null);
 
-  useEffect(() => {
-    const loop = () => {
-      if (audioRef.current) clock.set(audioRef.current.currentTime);
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    if (playing) rafRef.current = requestAnimationFrame(loop);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [playing, clock]);
+  usePlayheadLoop(audioRef, playing, clock.set);
 
   useEffect(() => {
     if (seekTo == null) return;
@@ -733,58 +728,6 @@ function MomentRow({
           labels={{ play: m["common.play"](), pause: m["common.pause"]() }}
         />
       )}
-    </li>
-  );
-}
-
-interface MarkerRowProps {
-  marker: Marker;
-  onSeek: (sec: number) => void;
-  onUpdate: (markerId: string, comment: string) => Promise<void>;
-  onDelete: (markerId: string) => Promise<void>;
-}
-
-function MarkerRow({ marker, onSeek, onUpdate, onDelete }: MarkerRowProps) {
-  // Local draft so typing stays snappy; persisted on blur/Enter.
-  const [comment, setComment] = useState(marker.comment);
-  useEffect(() => setComment(marker.comment), [marker.comment]);
-
-  const saveComment = () => {
-    const c = comment.trim();
-    if (c !== marker.comment) onUpdate(marker.id, c);
-  };
-
-  return (
-    <li className="marker-item">
-      <Button
-        variant="link"
-        onClick={() => onSeek(marker.atSec)}
-        title={m["marker.jump"]()}
-      >
-        <Flag className="size-4" /> {fmtTime(marker.atSec)}
-      </Button>
-      <Input
-        value={comment}
-        placeholder={m["marker.comment"]()}
-        onChange={(e) => setComment(e.target.value)}
-        onBlur={saveComment}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-        }}
-      />
-      <Button
-        variant="outline"
-        size="sm"
-        aria-label={m["marker.delete"]()}
-        title={m["marker.delete"]()}
-        onClick={() => {
-          // A bare marker is one tap to put back; its comment is not.
-          if (!marker.comment || confirm(m["marker.confirmDelete"]()))
-            onDelete(marker.id);
-        }}
-      >
-        <Trash2 className="size-4" />
-      </Button>
     </li>
   );
 }

@@ -7,6 +7,7 @@ import "./styles.css";
 export { Waveform } from "@studio/ui-waveform";
 export { type DetectOpts, type DetectResult, detectEvents } from "./detect";
 export { downloadTake } from "./download";
+export { fmtStamp, fmtTime, sessionTitle } from "./format";
 export { LiveWaveform } from "./LiveWaveform";
 export {
   MIC_ERRORS_EN,
@@ -30,6 +31,7 @@ export {
 } from "./takeBackup";
 export type { Metronome, Selection } from "./types";
 export { useMetronome } from "./useMetronome";
+export { usePlayheadLoop } from "./usePlayheadLoop";
 export {
   acquireMicrophone,
   describeMicError,

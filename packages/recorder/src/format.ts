@@ -1,5 +1,4 @@
-// Minimal time formatting used by the recorder/waveform UI. Kept local so the
-// package doesn't depend on the app's broader format helpers.
+// The time and stamp formats a take is shown with, here and in the rehearsal pages, which re-export them.
 
 /** Format seconds as H:MM:SS (or M:SS for short durations). */
 export function fmtTime(totalSec: number): string {
@@ -12,7 +11,7 @@ export function fmtTime(totalSec: number): string {
 }
 
 /** Format a date as "DD/MM HH:MM". */
-function fmtStamp(d: Date = new Date()): string {
+export function fmtStamp(d: Date = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(
     d.getMinutes(),
