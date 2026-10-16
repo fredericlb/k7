@@ -3,8 +3,9 @@
 // which is what makes removing a device cut it off. See docs/syncRelay.md.
 
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
 
 export interface Device {
   id: string;
@@ -12,6 +13,9 @@ export interface Device {
   created: number;
   lastSeen?: number;
 }
+
+/** How far `lastSeen` must have moved before a verify rewrites the device list. */
+export const LAST_SEEN_STEP_MS = 60_000;
 
 const b64 = (b: Buffer | string): string =>
   Buffer.from(b).toString("base64url");
@@ -41,7 +45,7 @@ export class DeviceTokens {
   private save(slug: string, devices: Device[]): void {
     const f = this.file(slug);
     mkdirSync(join(f, ".."), { recursive: true });
-    writeFileSync(f, JSON.stringify(devices, null, 2));
+    writeFileAtomic(f, JSON.stringify(devices, null, 2));
   }
 
   /** A new device for the account, and the token it will dial with; the token is shown once. */
@@ -90,8 +94,12 @@ export class DeviceTokens {
     const devices = this.list(claim.s);
     const device = devices.find((d) => d.id === claim.d);
     if (!device) return null;
-    device.lastSeen = Date.now();
-    this.save(claim.s, devices);
+    // `lastSeen` is shown to the minute: a token verified on every request does not rewrite the list each time.
+    const now = Date.now();
+    if (now - (device.lastSeen ?? 0) >= LAST_SEEN_STEP_MS) {
+      device.lastSeen = now;
+      this.save(claim.s, devices);
+    }
     return {
       slug: claim.s,
       id: claim.d,

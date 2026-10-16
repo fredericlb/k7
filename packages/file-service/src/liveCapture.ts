@@ -13,12 +13,12 @@ import {
   rmSync,
   statSync,
   watch,
-  writeFileSync,
 } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { type BlobId, blobRef, parseBlobRef } from "@studio/live-sync/blob";
 import { fileOpFor, textHash } from "@studio/live-sync/file-op";
 import type { FileOp } from "@studio/live-sync/ops";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
 import { SETTLE_MS } from "@studio/song/moduleCache";
 import { BlobCache, cloneFile, sha256Buffer, sha256File } from "./liveBlobs.ts";
 import {
@@ -163,7 +163,7 @@ export class LiveCapture {
     if (text === null) rmSync(abs, { force: true });
     else {
       mkdirSync(dirname(abs), { recursive: true });
-      writeFileSync(abs, text);
+      writeFileAtomic(abs, text);
     }
     this.learn(file);
     if (waited) this.savePending();

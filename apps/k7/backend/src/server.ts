@@ -203,12 +203,21 @@ const server = behindProxy(
 server.requestTimeout = 30 * 60_000;
 
 // A stop lets the requests in flight finish, within the 10 s Docker allows before its SIGKILL.
-for (const signal of ["SIGTERM", "SIGINT"] as const)
-  process.on(signal, () => {
-    console.log("stopping: the file services, then the requests in flight");
-    setTimeout(() => process.exit(0), 8_000).unref();
-    void Promise.all([
-      media.stop().catch((e) => console.error("media stop:", e)),
-      rehearsal.stop().catch((e) => console.error("rehearsal stop:", e)),
-    ]).finally(() => server.close(() => process.exit(0)));
-  });
+let stopping = false;
+const stop = (): void => {
+  if (stopping) return;
+  stopping = true;
+  console.log("stopping: the file services, then the requests in flight");
+  setTimeout(() => process.exit(0), 8_000).unref();
+  void Promise.all([
+    media.stop().catch((e) => console.error("media stop:", e)),
+    rehearsal.stop().catch((e) => console.error("rehearsal stop:", e)),
+  ]).finally(() => server.close(() => process.exit(0)));
+};
+for (const signal of ["SIGTERM", "SIGINT"] as const) process.on(signal, stop);
+// Under the desktop app, stdin closing is the stop Windows has no signal for (commons/packages/electron-shell/docs/shell.md).
+if (process.env.ELECTRON_SHELL_STDIN_STOP === "1") {
+  delete process.env.ELECTRON_SHELL_STDIN_STOP;
+  process.stdin.on("end", stop);
+  process.stdin.resume();
+}

@@ -84,8 +84,11 @@ engine port **8766**, not the command-line engine's `~/.k7` and 8765: the superv
 already listens on its port, and its lock is per home, so the two coexist. Its first run
 downloads its sample packs into that home, like any fresh supervisor home.
 
-Quit stops the supervisor first — it deregisters from k7's registry, which must still be up —
-then kills the engine named by its pidfile if it survived, then the backend.
+Quit first has every page write the text its editor panes hold (`flushAutosaves`, through the
+shell's `__beforeQuit` hook — `commons/packages/electron-shell/docs/shell.md`), then stops the
+supervisor — it deregisters from k7's registry, which must still be up — then kills the engine
+named by its pidfile if it survived, then the backend, which stops its file services itself before
+anything is force-killed.
 
 ## State
 

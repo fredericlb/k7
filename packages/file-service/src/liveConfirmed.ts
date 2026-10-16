@@ -8,10 +8,10 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
-  writeFileSync,
 } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import type { ConfirmedStore } from "@studio/live-sync/replica";
+import { isAtomicTemp, writeFileAtomic } from "@studio/song/atomicWrite";
 import { confinedPath } from "./livePath.ts";
 
 export class ConfirmedDir implements ConfirmedStore {
@@ -31,7 +31,7 @@ export class ConfirmedDir implements ConfirmedStore {
     if (text === null) rmSync(abs, { force: true });
     else {
       mkdirSync(dirname(abs), { recursive: true });
-      writeFileSync(abs, text);
+      writeFileAtomic(abs, text);
     }
   }
 
@@ -42,7 +42,8 @@ export class ConfirmedDir implements ConfirmedStore {
       for (const e of readdirSync(dir, { withFileTypes: true })) {
         const child = join(dir, e.name);
         if (e.isDirectory()) visit(child);
-        else out.push(relative(this.root, child).split(sep).join("/"));
+        else if (!isAtomicTemp(e.name))
+          out.push(relative(this.root, child).split(sep).join("/"));
       }
     };
     visit(this.root);
