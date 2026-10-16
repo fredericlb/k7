@@ -151,7 +151,7 @@ export function useActiveProjectFollow(opts: {
 }
 
 /** How often /workspace is read while a stopped take is on its way — the gap between Stop and its picture. */
-export const TAKE_POLL_MS = 200;
+const TAKE_POLL_MS = 200;
 
 /** Is `clip` a take this tab has not seen? Seeding on the first answer is what makes this mean 'a take just landed' rather than 'a take exists'. */
 export const isNewTake = (

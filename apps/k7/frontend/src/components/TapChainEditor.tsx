@@ -12,7 +12,7 @@ import { usePopin } from "../popins";
 import type { WebGraph } from "../types";
 
 /** The tap's subchain as the graph has it: its first node's run, or nothing while the tap is not routed. */
-export function tapChainOf(
+function tapChainOf(
   graph: WebGraph | null,
   node: string,
   tap: string,

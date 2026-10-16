@@ -3,7 +3,7 @@
 // nothing; on its return the tab asks once at once, so what it shows is never a full period stale.
 
 /** Whether the page is out of sight — false where there is no document (a test under Node). */
-export const tabHidden = (): boolean =>
+const tabHidden = (): boolean =>
   typeof document !== "undefined" && document.hidden;
 
 /** Run `fn` every `ms` while the tab is visible, and once on its return; the result stops both. */

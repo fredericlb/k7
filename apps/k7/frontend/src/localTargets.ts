@@ -6,7 +6,7 @@
 import { fuzzyScore } from "./fuzzy";
 
 /** The best fuzzy match in a pool, or null. Exported for the resolvers below and for tests. */
-export function bestMatch(arg: string, pool: readonly string[]): string | null {
+function bestMatch(arg: string, pool: readonly string[]): string | null {
   if (!arg) return null;
   if (pool.includes(arg)) return arg;
   return (

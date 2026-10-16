@@ -10,9 +10,9 @@ import { subscribeWorkspace } from "../syncFeed";
 import { pollWhileVisible } from "../visiblePoll";
 
 /** How often the token is asked for. Reading it is a ~2 ms file walk on the service's side. */
-export const REVISION_POLL_MS = 2000;
+const REVISION_POLL_MS = 2000;
 /** The same ask while change notices are pushed: only a safety net for a notice lost on the way. */
-export const REVISION_FALLBACK_MS = 30_000;
+const REVISION_FALLBACK_MS = 30_000;
 
 /** A source of change notices: `notice` for an edit to this workspace, `live` when the push starts or stops. */
 export type RevisionPush = (

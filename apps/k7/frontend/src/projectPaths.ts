@@ -4,7 +4,7 @@
 // than an anchored `^`, since a path may carry a project-folder prefix in a workspace.
 
 /** A project file's extension. `.yml` too: it is the same format under another spelling. */
-export const PROJECT_EXT = /\.(?:ya?ml|k7x)$/i;
+const PROJECT_EXT = /\.(?:ya?ml|k7x)$/i;
 
 const kind = (folder: string): RegExp =>
   new RegExp(`(^|/)${folder}/[^/]+.(?:ya?ml|k7x)$`, "i");

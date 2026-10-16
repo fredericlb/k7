@@ -82,7 +82,7 @@ export type MenuCtx =
     };
 
 /** The values a pad's effects are offered at — a closed set, so the menu is a choice; the schema still takes any whole number from 2 up. */
-export const PAD_EFFECT_VALUES = [2, 4] as const;
+const PAD_EFFECT_VALUES = [2, 4] as const;
 
 // A canonical entry: `verb` the command, `arg` its entity, `needsMore` a trailing space when a value is owed; `help` and `name` override the catalogue.
 interface Entry {

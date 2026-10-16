@@ -9,7 +9,7 @@ import { m } from "./paraglide/messages.js";
 /** The grid's side. 4×4 today — sixteen pads, the drum-machine page. */
 export const GRID = 4;
 /** The bottom-left pad's note. 36 is C1, where every pad convention starts. */
-export const FIRST_NOTE = 36;
+const FIRST_NOTE = 36;
 
 /** The MIDI note a pad fires: the grid READS like a drum machine, bottom-left 36 to top-right 51, with `row` counting from the TOP. */
 export const padNote = (row: number, col: number): number =>
@@ -40,9 +40,9 @@ export interface RackPad {
 }
 
 /** The rack every kit is a node of — a LIBRARY module whose engines are its kits, the kit being the node's. */
-export const RACK_MODULE = "instruments/k7-rack";
+const RACK_MODULE = "instruments/k7-rack";
 /** …and its SAMPLER engine, the one that plays the node's own taps; the module's default is an SFZ kit. */
-export const RACK_ENGINE = "samples";
+const RACK_ENGINE = "samples";
 
 /** Which library's sampler a kit extends: `@k7-core`'s first, else any library's; null when none holds one. */
 export function rackModuleRef(baseModules: readonly string[]): string | null {

@@ -5,7 +5,7 @@
 import type { EngineState } from "@studio/engine-protocol";
 
 /** Below this the meters read noise floor, not someone playing. */
-export const SOUNDING_DB = -50;
+const SOUNDING_DB = -50;
 
 /** A playing transport, sound leaving the master, or signal on an input. */
 export function soundingNow(

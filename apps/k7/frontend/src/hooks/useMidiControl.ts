@@ -33,7 +33,7 @@ export interface DroppedBinding {
 }
 
 /** The bindings `mappedParams` left behind. Separate so the join itself stays the one thing it is. */
-export function droppedBindings(graph: WebGraph | null): DroppedBinding[] {
+function droppedBindings(graph: WebGraph | null): DroppedBinding[] {
   if (!graph) return [];
   const out: DroppedBinding[] = [];
   for (const chain of Object.values(graph.chains)) {

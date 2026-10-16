@@ -14,7 +14,7 @@ export interface SyncNotice {
   settled: number;
 }
 
-export interface SyncConsumer {
+interface SyncConsumer {
   notice: (n: SyncNotice) => void;
   /** The stream opened (true: catch up, a notice may have been missed) or dropped (false: poll faster). */
   live?: (live: boolean) => void;
@@ -114,7 +114,7 @@ export function currentWorkspace(): string | null {
 const EVENTS = `${serviceUrl(globalThis.location?.origin ?? "", "k7")}/api/sync/events`;
 
 /** The page's feed; it opens nothing where there is no EventSource or no live workspace. */
-export const syncFeed = createSyncFeed(() =>
+const syncFeed = createSyncFeed(() =>
   typeof EventSource === "undefined" || currentWorkspace() === null
     ? null
     : new EventSource(EVENTS, { withCredentials: true }),

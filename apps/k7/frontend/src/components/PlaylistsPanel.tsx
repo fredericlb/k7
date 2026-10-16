@@ -40,7 +40,7 @@ const nodeOf = (p: PlaylistInfo): TreeNode<PlaylistInfo> => ({
 });
 
 /** The dropdown's search: fuzzy over the name AND the path, best first, with the shell's one matcher. */
-export function searchPlaylists(
+function searchPlaylists(
   rows: PlaylistInfo[],
   query: string,
 ): TreeNode<PlaylistInfo>[] {

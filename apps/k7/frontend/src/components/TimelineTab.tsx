@@ -198,7 +198,7 @@ const GUTTER_STICKY =
   "sticky left-0 z-30 before:absolute before:inset-0 before:-z-10 before:bg-background before:content-['']";
 
 // `beat: LABEL` puts the caret on the row's label — the only position a group or generated lane can take.
-export const LABEL = -1;
+const LABEL = -1;
 
 /** The take being recorded, drawn on its lane as it grows — its OWN subscription, so a frame rewrites one absolutely positioned div (docs/playhead.md). */
 function RecordingClip({
