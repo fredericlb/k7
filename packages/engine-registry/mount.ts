@@ -15,6 +15,7 @@ import type {
 import { advertiseRegistry } from "./advertise.ts";
 import { BINDINGS_FILE, createBindings } from "./bindings.ts";
 import { throttledLog } from "./heartbeat.ts";
+import { createOwners, OWNERS_FILE } from "./owners.ts";
 import { attachEngineProxy } from "./proxy.ts";
 import { createRegistry, type EngineRegistry } from "./registry.ts";
 import { engineRegistryRouter } from "./router.ts";
@@ -41,8 +42,10 @@ export function mountEngineRegistry(
     alsoGuard?: string[];
     /** False when the host closes gracefully itself and calls the returned goodbye; default true. */
     exitOnSignal?: boolean;
-    /** Where the engines' secret bindings are kept across restarts; in memory alone when absent — docs/token.md. */
+    /** Where the engines' secret bindings and owners are kept across restarts; in memory alone when absent — docs/token.md. */
     stateDir?: string;
+    /** Whether a request's account administers the origin, and so may reset an engine's owner — docs/ownership.md. */
+    isAdmin?: (req: unknown) => boolean;
   },
 ): EngineMount {
   app.use(
@@ -52,6 +55,9 @@ export function mountEngineRegistry(
   const registry = createRegistry({
     bindings: createBindings(
       opts.stateDir ? join(opts.stateDir, BINDINGS_FILE) : undefined,
+    ),
+    owners: createOwners(
+      opts.stateDir ? join(opts.stateDir, OWNERS_FILE) : undefined,
     ),
   });
   const complain = throttledLog((l) => console.warn(`[registry] ${l}`));
@@ -68,7 +74,12 @@ export function mountEngineRegistry(
     // The deployment's render machine, which renders for a server with no engine binary (docs/server-engine.md).
     renderKey: process.env.STUDIO_RENDER_KEY?.trim() || undefined,
   });
-  app.use("/api", engineRegistryRouter(registry, tunnels));
+  app.use(
+    "/api",
+    engineRegistryRouter(registry, tunnels, undefined, {
+      isAdmin: opts.isAdmin,
+    }),
+  );
 
   return {
     registry,

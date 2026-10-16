@@ -15,6 +15,7 @@ import { configureMpv } from "@studio/mpv-player/player";
 import { createPlayerRouter } from "@studio/mpv-player/router";
 import type { Express, Request, RequestHandler } from "express";
 import { authDir } from "../authState.ts";
+import { isAdminRequest } from "./admin.ts";
 import { startAnalysisSweep } from "./analysisSweep.ts";
 import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
 import { startMp3Sweep } from "./mp3Sweep.ts";
@@ -95,6 +96,8 @@ export function mountMedia(
     exitOnSignal: false,
     // On the volume, so an engine's id stays bound to its tunnel secret across a redeploy — packages/engine-registry/docs/token.md.
     stateDir: process.env.STUDIO_ENGINES_DIR || join(mediatekDir(), ".engines"),
+    // An admin may reset an engine's owner — packages/engine-registry/docs/ownership.md.
+    isAdmin: isAdminRequest,
   });
 
   // A share is played by the server's engine, one session per visitor — ../../docs/media/sharePlayer.md.

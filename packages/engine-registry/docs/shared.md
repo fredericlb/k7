@@ -47,10 +47,11 @@ An engine is still listed once and driven by several apps at once, through separ
 ## One mounting
 
 The registry is mounted in ONE place, k7's backend, and still through one call rather than by hand.
-`mountEngineRegistry(app, { service, requireAuth, exitOnSignal, stateDir })` installs the guard, the registry
+`mountEngineRegistry(app, { service, requireAuth, exitOnSignal, stateDir, isAdmin })` installs the guard, the registry
 and the routes, and answers a `serve(server, url)` that attaches the relay after `listen` — the relay
 needs the `http.Server`, which Express does not have before then. `stateDir` is where the engines'
-secret bindings outlive a restart (`token.md`); without it they live in memory alone.
+secret bindings and owners outlive a restart (`token.md`, `ownership.md`); without it they live in
+memory alone. `isAdmin` says who may reset an engine's owner.
 
 The ORDER is the load-bearing part, and that is why this is a function rather than a paragraph:
 `requireAuth` goes on the paths meant for the BROWSER **before** the router, so that those meant

@@ -122,6 +122,20 @@ export function EngineSelect({
                       {r.engine.assigned && (
                         <Badge variant="amber">in use</Badge>
                       )}
+                      {accessText(r.engine) && (
+                        <Badge
+                          variant={
+                            r.engine.access === "unowned" ? "amber" : "default"
+                          }
+                          title={
+                            r.engine.access === "unowned"
+                              ? m["media.engines.unownedHint"]()
+                              : undefined
+                          }
+                        >
+                          {accessText(r.engine)}
+                        </Badge>
+                      )}
                     </div>
                     {/* The socket URL is never shown: it can carry a signed ticket, and the latency badge already says the link works. */}
                     {!r.wsUrl && (
@@ -145,6 +159,24 @@ export function EngineSelect({
       </div>
     </div>
   );
+}
+
+/** What this account is to the engine, said as the settings card says it — engine-registry docs/ownership.md. */
+function accessText(e: RankedEngine["engine"]): string | null {
+  switch (e.access) {
+    case "owner":
+      return m["media.engines.yours"]();
+    case "shared":
+      return m["media.engines.sharedBy"]({
+        owner: e.ownedBy || m["media.engines.someone"](),
+      });
+    case "server":
+      return m["media.engines.server"]();
+    case "unowned":
+      return m["media.engines.unowned"]();
+    default:
+      return null;
+  }
 }
 
 /** Answered, free, and not waiting to pair this device. */

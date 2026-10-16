@@ -172,6 +172,21 @@ export interface LibraryLabels {
     sameNetwork: string;
     someone: string;
     heldBy: (who: string) => string;
+    /** What this account is to the engine — packages/engine-registry/docs/ownership.md. */
+    yours: string;
+    sharedBy: (owner: string) => string;
+    server: string;
+    unowned: string;
+    unownedHint: string;
+    share: string;
+    shareHint: string;
+    sharePlaceholder: string;
+    shareSave: string;
+    shareSaved: string;
+    notAnEmail: (what: string) => string;
+    close: string;
+    giveUp: string;
+    giveUpConfirm: string;
   };
   slskd: {
     hint: string;

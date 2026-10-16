@@ -1,6 +1,7 @@
 // relayGate.test.ts — a relay ticket is an account's, and it drives nothing until that account
 // holds a claim: before it, the probe passes and everything else waits, then closes. Also the
-// WebRTC offer, which reaches the engine's machine directly and so asks for the claim up front.
+// WebRTC offer, which reaches the engine's machine directly and so asks for the claim up front,
+// and the engine token, which reaches through the relay only an account that may use the engine.
 
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -48,19 +49,24 @@ describe("where the server dials an engine", () => {
   });
 });
 
+const passes = (f: Frame | null): boolean => f !== null;
+
 describe("the gate", () => {
   let holds: boolean;
+  let mayRead: boolean;
   let sent: string[];
   let closed: [number, string] | null;
   let gate: RelayGate;
   beforeEach(() => {
     vi.useFakeTimers();
     holds = false;
+    mayRead = true;
     sent = [];
     closed = null;
     gate = new RelayGate(
       {
         holds: () => holds,
+        mayReadToken: () => mayRead,
         toEngine: (f) => sent.push(String(f.data)),
         close: (code, reason) => {
           closed = [code, reason];
@@ -79,12 +85,35 @@ describe("the gate", () => {
     gate.fromClient(text({ type: "whoami" }));
     gate.fromClient(text({ type: "list-plugins" }));
     expect(sent).toHaveLength(3);
-    expect(gate.fromEngine(text({ type: "whoami", id: "e1" }))).toBe(true);
-    expect(gate.fromEngine(text({ type: "plugins", plugins: [] }))).toBe(true);
-    expect(gate.fromEngine(text({ type: "state", playing: true }))).toBe(false);
-    expect(gate.fromEngine({ data: Buffer.from([1, 2]), binary: true })).toBe(
-      false,
+    expect(passes(gate.fromEngine(text({ type: "whoami", id: "e1" })))).toBe(
+      true,
     );
+    expect(
+      passes(gate.fromEngine(text({ type: "plugins", plugins: [] }))),
+    ).toBe(true);
+    expect(
+      passes(gate.fromEngine(text({ type: "state", playing: true }))),
+    ).toBe(false);
+    expect(
+      passes(gate.fromEngine({ data: Buffer.from([1, 2]), binary: true })),
+    ).toBe(false);
+  });
+
+  it("strips the token from a whoami for an account that may not use the engine", () => {
+    const who = text({
+      type: "whoami",
+      id: "e1",
+      token: "tok",
+      bufferSize: 64,
+    });
+    expect(JSON.parse(String(gate.fromEngine(who)?.data)).token).toBe("tok");
+    mayRead = false;
+    const out = JSON.parse(String(gate.fromEngine(who)?.data));
+    expect(out).toEqual({ type: "whoami", id: "e1", bufferSize: 64 });
+    holds = true;
+    expect(
+      JSON.parse(String(gate.fromEngine(who)?.data)).token,
+    ).toBeUndefined();
   });
 
   it("holds what comes next, in order, and lets it through once the claim lands", () => {
@@ -94,7 +123,7 @@ describe("the gate", () => {
     holds = true;
     vi.advanceTimersByTime(250);
     expect(sent.map((s) => JSON.parse(s).type)).toEqual(["hello", "whoami"]);
-    expect(gate.fromEngine(text({ type: "state" }))).toBe(true);
+    expect(passes(gate.fromEngine(text({ type: "state" })))).toBe(true);
     expect(closed).toBeNull();
   });
 
@@ -267,6 +296,8 @@ describe("the WebRTC offer", () => {
   });
 
   it("mints each listed engine a ticket for the asking account, naming only its own claims", async () => {
+    reg.owners.enrol("e1", "bob");
+    reg.owners.share("e1", ["alice"]);
     reg.claim("e1", { project: "@local/ws/a.k7", holder: "alice" });
     const list = (await (await fetch(`${base}/api/engines`)).json()) as {
       proxyTicket: string;
