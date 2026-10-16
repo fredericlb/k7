@@ -10,7 +10,8 @@ As a prop, `ChainsTab` and `GraphPanel` would each call a `useActiveTracks(track
 pass the result down as `activeTracks`. Every crossing of the floor would then:
 
 1. re-render the host (`ChainsTab` including its whole sidebar);
-2. re-render the `DomChains` body — three thousand lines of hooks and memos;
+2. re-render the `DomChains` body — some twelve hundred lines, and every hook it calls from the
+   files beside it (`useNodeActions.ts`, `useNodeDrag.ts`, `useEdgeGestures.ts`…);
 3. re-run `computeLive`, a fixpoint over every edge;
 4. rebuild `cableDraws`, one fresh object per edge;
 5. and only then repaint the canvas.

@@ -250,7 +250,7 @@ it). Without `inputUI`, every live input in every project draws a card reading *
 no amount of authoring can fix it.
 
 **Everything is a dropdown, and that is a constraint rather than a taste.** Only a widget carrying
-`options` can commit a module field — `setModuleField` in `DomChains` sends the picked option's
+`options` can commit a module field — `setModuleField` in `ui-chains-react`'s `useNodeActions.ts` sends the picked option's
 `arg`, so a knob bound to a field draws, drags, and writes nothing. `@gain` is deliberately
 **absent** for that reason and only that one: a continuous trim has no options to pick. Not for want
 of a verb — `node param <node> @gain <db>` exists — so what a gain knob waits on is a
@@ -279,7 +279,7 @@ An **authored** panel wins over all of this, exactly as for a rack.
 Both readers go through it — the node's `ui` and `nodeSize` — and that is the whole reason it
 exists. Take the node's panel from `carryStep` (the step's raw `ui`) and only its SIZE from
 `stepUI`, and the one thing `stepUI` does on its own — folding the module's base list into the
-authored panel (`withBaseOptions`) — is computed, measured, then dropped: every base dropdown draws
+authored panel (`withFolderOptions`) — is computed, measured, then dropped: every base dropdown draws
 `none` and nothing else, on a panel whose author wrote exactly what the format asks for.
 
 The list cannot live in the `ui.yaml`: which bases exist changes every time somebody snapshots one,

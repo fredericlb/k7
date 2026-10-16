@@ -201,7 +201,7 @@ would have hidden the value the input actually has.
 `@base` is offered only on a module that HAS bases, which is what makes it a row rather than a
 permanent one nearly every module would show empty. Its `states` are the names, so a widget bound to
 it draws as a dropdown rather than a knob; the VALUES are positions and nothing more, and the graph
-fills the real entries at draw time (`withBaseOptions`). It has to: a base can be snapshotted after
+fills the real entries at draw time (`withFolderOptions`). It has to: a base can be snapshotted after
 this panel is written, and a `ui.yaml` carrying the list would be a copy of a directory going stale.
 
 The preview's widgets take the same values as NUMBERS. The pane keeps them as text because a value
