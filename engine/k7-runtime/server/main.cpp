@@ -114,7 +114,7 @@ int main(int argc, char** argv) {
     if (argc >= 2 && std::string(argv[1]) == "--list-audio-devices")
         return studio::runAudioDevicesCli();
 
-    // THROWAWAY PROBE `--multi-edit-test <doc1.json> <doc2.json> [--seconds N]`: can several documents play at once on ONE device? Delete with MultiEditTest.cpp once the answer is written down.
+    // Probe `--multi-edit-test <doc1.json> <doc2.json> [--seconds N]`: can several documents play at once on ONE device? Kept on purpose (docs/multiEdit.md).
     if (argc >= 2 && std::string(argv[1]) == "--multi-edit-test") {
         std::vector<studio::ProjectDoc> docs;
         std::vector<std::string> baseDirs;

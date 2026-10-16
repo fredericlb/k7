@@ -1,7 +1,7 @@
-// MultiEditTest.cpp — a THROWAWAY probe answering one question: can several Edits play at
-// once through one audio device? Tracktion's DeviceManager holds `activeContexts` as an
-// ARRAY and sums them in the callback, so the code says yes; this runs it. Delete once the
-// answer is written down. See docs/multiEdit.md.
+// MultiEditTest.cpp — a probe answering one question: can several Edits play at once through
+// one audio device? Tracktion's DeviceManager holds `activeContexts` as an ARRAY and sums them
+// in the callback, so the code says yes; this runs it, bypassing EngineHost's session map.
+// Kept on purpose: rerun it when a device, a driver or a Tracktion bump puts that in doubt (docs/multiEdit.md).
 
 #include "EngineHost.h"
 
