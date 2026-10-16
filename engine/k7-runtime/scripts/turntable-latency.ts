@@ -18,6 +18,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
 import { onBroadcast } from "./platterBench";
+import { wavFile } from "./wav.ts";
 
 const url =
   process.argv.find((a) => a.startsWith("ws://")) ?? "ws://127.0.0.1:8765";
@@ -43,24 +44,11 @@ function tone(): string {
     phase += (2 * Math.PI * TONE) / RATE;
     pcm.writeInt16LE(Math.round(Math.sin(phase) * 0.25 * 32767), i * 2);
   }
-  const h = Buffer.alloc(44);
-  h.write("RIFF", 0);
-  h.writeUInt32LE(36 + pcm.length, 4);
-  h.write("WAVEfmt ", 8);
-  h.writeUInt32LE(16, 16);
-  h.writeUInt16LE(1, 20);
-  h.writeUInt16LE(1, 22);
-  h.writeUInt32LE(RATE, 24);
-  h.writeUInt32LE(RATE * 2, 28);
-  h.writeUInt16LE(2, 32);
-  h.writeUInt16LE(16, 34);
-  h.write("data", 36);
-  h.writeUInt32LE(pcm.length, 40);
   const file = join(
     mkdtempSync(join(process.env.STUDIO_SCRATCH ?? tmpdir(), "m9-lat-")),
     "tone.wav",
   );
-  writeFileSync(file, Buffer.concat([h, pcm]));
+  writeFileSync(file, wavFile(pcm, RATE, 1, 16));
   return file;
 }
 

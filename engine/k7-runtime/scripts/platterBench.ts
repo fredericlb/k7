@@ -9,6 +9,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type WebSocket from "ws";
+import { wavFile } from "./wav.ts";
 
 /** The platter every bench here drives. */
 export const PLUGIN = "deckA:platter";
@@ -19,24 +20,11 @@ export function writeWav(pcm: Int16Array, rate: number, tag: string): string {
   const stereo = new Int16Array(pcm.length * 2);
   for (let i = 0; i < pcm.length; i++) stereo[2 * i] = stereo[2 * i + 1] = pcm[i];
   const bytes = Buffer.from(stereo.buffer, stereo.byteOffset, stereo.byteLength);
-  const h = Buffer.alloc(44);
-  h.write("RIFF", 0);
-  h.writeUInt32LE(36 + bytes.length, 4);
-  h.write("WAVEfmt ", 8);
-  h.writeUInt32LE(16, 16);
-  h.writeUInt16LE(1, 20);
-  h.writeUInt16LE(2, 22);
-  h.writeUInt32LE(rate, 24);
-  h.writeUInt32LE(rate * 4, 28);
-  h.writeUInt16LE(4, 32);
-  h.writeUInt16LE(16, 34);
-  h.write("data", 36);
-  h.writeUInt32LE(bytes.length, 40);
   const file = join(
     mkdtempSync(join(process.env.STUDIO_SCRATCH ?? tmpdir(), `m9-${tag}-`)),
     `${tag}.wav`,
   );
-  writeFileSync(file, Buffer.concat([h, bytes]));
+  writeFileSync(file, wavFile(bytes, rate, 2, 16));
   return file;
 }
 

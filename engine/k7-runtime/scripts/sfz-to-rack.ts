@@ -9,6 +9,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderProject } from "../../../packages/file-service/src/render.ts";
+import { readWav, wavFile } from "./wav.ts";
 
 const arg = (name: string, fallback?: string): string => {
   const at = process.argv.indexOf(`--${name}`);
@@ -73,19 +74,9 @@ async function renderPiece(note: number, seconds: number): Promise<Buffer> {
 
 /** The data chunk of a 24-bit PCM wav, and its channel count. */
 function pcm24(wav: Buffer): { data: Buffer; channels: number } {
-  let i = 12;
-  let channels = 2;
-  while (i < wav.length) {
-    const id = wav.toString("ascii", i, i + 4);
-    const size = wav.readUInt32LE(i + 4);
-    if (id === "fmt ") {
-      channels = wav.readUInt16LE(i + 10);
-      if (wav.readUInt16LE(i + 22) !== 24) throw new Error("expected the engine's 24-bit render");
-    }
-    if (id === "data") return { data: wav.subarray(i + 8, i + 8 + size), channels };
-    i += 8 + size + (size & 1);
-  }
-  throw new Error("no data chunk");
+  const w = readWav(wav);
+  if (w.bits !== 24) throw new Error("expected the engine's 24-bit render");
+  return { data: w.data, channels: w.channels };
 }
 
 /** The render with its silent tail cut and a short fade on what is left. */
@@ -105,20 +96,7 @@ function trimmed(wav: Buffer): Buffer {
     for (let c = 0; c < channels; c++)
       out.writeIntLE(Math.round(Math.max(-1, Math.min(1, at(f, c) * g)) * 8388607), f * frame + c * 3, 3);
   }
-  const header = Buffer.alloc(44);
-  header.write("RIFF", 0);
-  header.writeUInt32LE(36 + out.length, 4);
-  header.write("WAVEfmt ", 8);
-  header.writeUInt32LE(16, 16);
-  header.writeUInt16LE(1, 20);
-  header.writeUInt16LE(channels, 22);
-  header.writeUInt32LE(RATE, 24);
-  header.writeUInt32LE(RATE * frame, 28);
-  header.writeUInt16LE(frame, 32);
-  header.writeUInt16LE(24, 34);
-  header.write("data", 36);
-  header.writeUInt32LE(out.length, 40);
-  return Buffer.concat([header, out]);
+  return wavFile(out, RATE, channels, 24);
 }
 
 async function main() {

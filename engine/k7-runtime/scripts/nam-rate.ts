@@ -12,6 +12,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderProject } from "../../../packages/file-service/src/render.ts";
+import { channelOf, readWav as readAnyWav, wavFile } from "./wav.ts";
 
 export const F0 = 110;
 const SECONDS = 3;
@@ -27,60 +28,15 @@ export function sawtooth(rate: number): string {
       v += Math.sin((2 * Math.PI * k * F0 * i) / rate) / k;
     pcm.writeInt16LE(Math.round(v * 0.12 * 32767), i * 2);
   }
-  const h = Buffer.alloc(44);
-  h.write("RIFF", 0);
-  h.writeUInt32LE(36 + pcm.length, 4);
-  h.write("WAVEfmt ", 8);
-  h.writeUInt32LE(16, 16);
-  h.writeUInt16LE(1, 20);
-  h.writeUInt16LE(1, 22);
-  h.writeUInt32LE(rate, 24);
-  h.writeUInt32LE(rate * 2, 28);
-  h.writeUInt16LE(2, 32);
-  h.writeUInt16LE(16, 34);
-  h.write("data", 36);
-  h.writeUInt32LE(pcm.length, 40);
   const file = join(mkdtempSync(join(tmpdir(), "m9-nam-")), `saw-${rate}.wav`);
-  writeFileSync(file, Buffer.concat([h, pcm]));
+  writeFileSync(file, wavFile(pcm, rate, 1, 16));
   return file;
 }
 
 /** The first channel of a PCM or float wav, as floats, and its rate. */
 export function readWav(file: string): { rate: number; x: Float32Array } {
-  const b = readFileSync(file);
-  let at = 12;
-  let fmt = { format: 1, channels: 1, rate: 0, bits: 16 };
-  while (at + 8 <= b.length) {
-    const id = b.toString("ascii", at, at + 4);
-    const size = b.readUInt32LE(at + 4);
-    const body = at + 8;
-    if (id === "fmt ")
-      fmt = {
-        format: b.readUInt16LE(body),
-        channels: b.readUInt16LE(body + 2),
-        rate: b.readUInt32LE(body + 4),
-        bits: b.readUInt16LE(body + 14),
-      };
-    if (id === "data") {
-      const step = (fmt.bits / 8) * fmt.channels;
-      const n = Math.floor(size / step);
-      const x = new Float32Array(n);
-      for (let i = 0; i < n; i++) {
-        const o = body + i * step;
-        x[i] =
-          fmt.bits === 32 && fmt.format === 3
-            ? b.readFloatLE(o)
-            : fmt.bits === 24
-              ? b.readIntLE(o, 3) / 8388608
-              : fmt.bits === 32
-                ? b.readInt32LE(o) / 2147483648
-                : b.readInt16LE(o) / 32768;
-      }
-      return { rate: fmt.rate, x };
-    }
-    at = body + size + (size & 1);
-  }
-  throw new Error(`${file}: no data chunk`);
+  const w = readAnyWav(file);
+  return { rate: w.rate, x: channelOf(w) };
 }
 
 /** Each harmonic's level in dB relative to the fundamental, by Goertzel over the steady middle second. */
