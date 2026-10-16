@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadCommandSpecs, registerVerb } from "./commandSpec";
-import { SID_HANDLERS } from "./commands";
+import { SID_HANDLERS, VERB_TABLES } from "./commands";
 
 // commands.yaml names a `sid` and SID_HANDLERS holds it: a drift fails here, not at runtime.
 describe("command registry integrity (commands.yaml <-> SID_HANDLERS)", () => {
@@ -13,6 +13,15 @@ describe("command registry integrity (commands.yaml <-> SID_HANDLERS)", () => {
 
   it("every command's sid has a registered handler", () => {
     expect(yamlSids.filter((sid) => !(sid in SID_HANDLERS))).toEqual([]);
+  });
+
+  it("every builtin SID is registered by exactly one verb table", () => {
+    const seen = new Map<string, number>();
+    for (const table of VERB_TABLES)
+      for (const sid of Object.keys(table))
+        seen.set(sid, (seen.get(sid) ?? 0) + 1);
+    expect([...seen].filter(([, n]) => n !== 1)).toEqual([]);
+    expect(yamlSids.filter((sid) => !seen.has(sid))).toEqual([]);
   });
 
   it("every registered handler is referenced by a command (no dead handlers)", () => {

@@ -38,7 +38,7 @@ every strip and its buss first on the master — one setting, because the halves
 ## The song's output and the master meter
 
 The song's output level is `project.masterVolume`, −100..+12 dB, written by `project master` and by
-`node param "OUT" Volume` (the same writer, `writeMasterVolume` in `packages/commands/src/commands.ts`).
+`node param "OUT" Volume` (the same writer, `writeMasterVolume` in `packages/commands/src/verbs/intrinsics.ts`).
 Values outside the range are refused, not clamped. The engine applies it with a gain of its own rather
 than the host library's master fader, whose curve saturates at +6.
 

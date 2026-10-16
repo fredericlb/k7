@@ -8,7 +8,7 @@
 |---|---|
 | `packages/commands/commands.yaml` | The **catalogue**: what you type, mapped to a feature SID, with its description, arguments and menus. Declarative. |
 | `packages/commands/src/commandSpec.ts` | Loads the catalogue, holds the completion **providers**, validates argument shapes, completes, dispatches (`runCommand`), and registers plugin verbs. |
-| `packages/commands/src/commands.ts` | `SID_HANDLERS`: SID → handler, the `CommandHost` interface, and many handlers. |
+| `packages/commands/src/commands.ts` | `SID_HANDLERS`: SID → handler, built from the `verbs/` tables, and the `CommandHost` interface. |
 | `packages/commands/src/verbs/` | Handler families (`TRACK_VERBS`, `PICTURE_VERBS`, `SYSTEM_VERBS`…), spread into `SID_HANDLERS`. |
 | `packages/commands/src/testHost.ts` | A host for tests. |
 

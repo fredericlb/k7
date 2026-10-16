@@ -875,12 +875,18 @@ so a smaller number would be accepted here, written to the file, and then played
 stating a level nobody hears. Refused by name instead, and the message says where silence actually
 lives.
 
-## What sits in `verbs/` rather than in `commands.ts`
+## Every verb lives in `verbs/`, and `commands.ts` only gathers them
 
-- `PLAYLIST_VERBS` and `SYSTEM_VERBS`. They import TYPES from `commands.ts`, which are erased at
-  compile time, so there is no runtime cycle — see `verbs/shared.ts`.
-- `playlistFile`, in `verbs/shared.ts` for the same reason: a helper left in `commands.ts` would
-  make those files import back into it, which is the cycle the split exists to avoid.
-- `splitWords` lives in `verbs/shared.ts` and is imported AND re-exported by `commands.ts` — a bare
-  `export … from` would not bring the name into that module's own scope, and several handlers there
-  call it.
+- Each group is one table, `XXX_VERBS`, in a file of `verbs/` named after its namespace (`node.ts`,
+  `nodeTap.ts`, `event.ts`, `eventStrip.ts`, `sequence.ts`, `project.ts`, …). `commands.ts` holds
+  the `CommandHost` and `SidHandler` types, lists the tables in `VERB_TABLES`, and builds
+  `SID_HANDLERS` from them. A SID sits in exactly one table: `registry.test.ts` fails on a second,
+  since a later table would otherwise override an earlier one without a word.
+- A verb file imports TYPES from `commands.ts`, which are erased at compile time, and VALUES only
+  from other verb files, since `commands.ts` imports every one of them and a value import back into
+  it would be a real cycle at runtime.
+- What several groups need and none owns sits in `verbs/shared.ts` (`splitWords`, `splitArgs`,
+  `firstArg`, `resolveEvent`, `rendererOf`, `playlistFile`). The writers behind `node param`'s
+  non-plugin names sit in `verbs/intrinsics.ts`.
+- `commands.ts` re-exports `splitWords`, `collectSequences`, `parseMidiNote` and
+  `collectPluginModules`, which the completions and the tests import from there.

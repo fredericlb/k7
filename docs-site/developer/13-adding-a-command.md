@@ -32,7 +32,7 @@ First decide **where it runs**:
 
    Pick the first word for the entity the command acts on: the settings page groups by it, and the right-click menu matches on the **leading arguments** (here a `tracks` value, so it appears on a track's menu). Use `menu:` only to narrow that. Add `confirm: true` if the menu should ask first. Give every free-text argument a `hint`.
 
-2. **Write the handler**, in a family file under `packages/commands/src/verbs/` (or a new one exported as `XXX_VERBS` and spread into `SID_HANDLERS` in `packages/commands/src/commands.ts`):
+2. **Write the handler**, in a family file under `packages/commands/src/verbs/` (or a new one exported as `XXX_VERBS` and listed in `VERB_TABLES` in `packages/commands/src/commands.ts`):
 
    ```ts
    "track.colour": async (args, h) => {
