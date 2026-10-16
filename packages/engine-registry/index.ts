@@ -25,7 +25,6 @@ export {
 } from "./owners.ts";
 export {
   attachEngineProxy,
-  ENGINE_PROXY_PATH,
   issueEngineTicket,
   replayBody,
   verifyEngineTicket,

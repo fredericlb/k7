@@ -5,6 +5,7 @@
 import type { Server } from "node:http";
 import { join } from "node:path";
 import { TunnelHub } from "@studio/engine-tunnel/hub";
+import { ENGINE_PROXY_PATH } from "@studio/web-protocol";
 import type {
   Express,
   NextFunction,
@@ -51,7 +52,7 @@ export function mountEngineRegistry(
   },
 ): EngineMount {
   app.use(
-    ["/api/engines", "/api/engine", ...(opts.alsoGuard ?? [])],
+    ["/api/engines", ENGINE_PROXY_PATH, ...(opts.alsoGuard ?? [])],
     opts.requireAuth,
   );
   const registry = createRegistry({

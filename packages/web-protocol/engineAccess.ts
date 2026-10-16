@@ -40,6 +40,9 @@ export const ENGINE_ASSIGN_RENEW_MS = 5000;
 /** No renewal for this long ⇒ the assignment lapses — past a minute, since a background tab's timers fire only once a minute. */
 export const ENGINE_ASSIGN_TTL_MS = 90000;
 
+/** Where the origin's engine relay listens, under each service's `/api`: `<path>/<id>/ws`, and `<path>/<id>/rtc`. */
+export const ENGINE_PROXY_PATH = "/api/engine";
+
 // ── Reaching an engine, and staying reached ──────────────────────────────────
 
 // One budget for both halves, the browser probing in parallel and the relay dialling in sequence — see docs/machine.md.
