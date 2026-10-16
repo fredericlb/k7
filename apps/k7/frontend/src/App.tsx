@@ -5,33 +5,17 @@
 // ever lost. Live engine state goes to an external store, never App state. See docs/shell.md.
 
 import { AppHeader } from "@frediverse/ui/app-header";
-import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@frediverse/ui/dialog";
-import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
-import {
   ArrowLeft,
-  Circle,
   Headphones,
   History,
   ListChecks,
   ListMusic,
-  Loader2,
   Lock,
   MessageSquare,
-  Pause,
-  Play,
   Settings,
   Share2,
-  Square,
-  StickyNote,
   Terminal,
   X,
 } from "@frediverse/ui/icons";
@@ -44,10 +28,9 @@ import {
   EngineStoreProvider,
   useStoreState,
 } from "@studio/engine-browser/store";
-import type { PresetInfo, TransportAction } from "@studio/engine-protocol";
-import type { CurveSpec } from "@studio/graph-model";
-import { ViewportTab, sceneOf as videoSceneOf } from "@studio/k7-plugins/video";
-import { AskHost, askConfirm } from "@studio/project-shell/ask";
+import type { PresetInfo } from "@studio/engine-protocol";
+import { ViewportTab } from "@studio/k7-plugins/video";
+import { askConfirm } from "@studio/project-shell/ask";
 import { markActive } from "@studio/project-shell/idle";
 // The address of ONE surface, for another device to open — the same module the launch uses, so both spell a project alike (docs/external.md).
 import {
@@ -56,17 +39,13 @@ import {
   parseLaunch,
   projectsUrl,
 } from "@studio/project-shell/launch";
-import { onToast, showToast, Toaster } from "@studio/project-shell/toast";
+import { onToast, showToast } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the loader in.
-import { moduleKeyFromPath, TAP_SAMPLE } from "@studio/song-schema/moduleTypes";
+import { moduleKeyFromPath } from "@studio/song-schema/moduleTypes";
 import type { ReferenceTrack } from "@studio/song-schema/reference";
 import { beatsToPosition, parsePosition } from "@studio/song-schema/timecode";
-import {
-  LcdSoundsContext,
-  SongClockProvider,
-  type TapAction,
-} from "@studio/ui-chains-react";
+import { LcdSoundsContext, SongClockProvider } from "@studio/ui-chains-react";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import type { BuilderPane } from "@studio/ui-module-builder";
 import { usePointerFollow } from "@studio/ui-timeline/drag";
@@ -85,13 +64,12 @@ import { aiOrganize, api, engines, moduleStore, PL8_API } from "./api";
 import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";
 import type { MaybeClipboard } from "./clipboard";
 import { type CommandPrefs, labelOf, orderCommands } from "./commandPrefs";
-import { AssetPicker } from "./components/AssetPicker";
 import type { AudioClipHandle } from "./components/AudioClipPanel";
 import { AudioClipPanel } from "./components/AudioClipPanel";
 import { BottomPanel } from "./components/BottomPanel";
 import { ChainsBuilder } from "./components/ChainsBuilder";
 import { ChainsTab } from "./components/ChainsTab";
-import { ClipView, type EditTarget } from "./components/ClipView";
+import { ClipView } from "./components/ClipView";
 import {
   barTint,
   CommandBar,
@@ -99,37 +77,22 @@ import {
   type CommandPending,
   type PaletteCommand,
 } from "./components/CommandBar";
-import { CommandsSettings } from "./components/CommandsSettings";
 import { CommentsPanel } from "./components/CommentsPanel";
 import { ConflictsPanel, ConflictsTab } from "./components/ConflictsPanel";
-import { ContextMenu } from "./components/ContextMenu";
-import { CurveEditor } from "./components/CurveEditor";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EngineLink } from "./components/EngineLink";
 import { EngineSwitch } from "./components/EngineSwitch";
-import { EngineSyncFailedDialog } from "./components/EngineSyncFailedDialog";
-import {
-  EngineSyncProgress,
-  syncRunning,
-} from "./components/EngineSyncProgress";
+import { syncRunning } from "./components/EngineSyncProgress";
 import { FloatingWindow } from "./components/FloatingWindow";
-import { FooterTab, FooterTabs } from "./components/FooterTab";
+import { FooterTab } from "./components/FooterTab";
 import { GraphPanel } from "./components/GraphPanel";
-import { HelpPage } from "./components/HelpPage";
 import { HistoryPanel } from "./components/HistoryPanel";
-import { ImportDialog } from "./components/ImportDialog";
 import { LogsPanel } from "./components/LogsPanel";
 import { MasteringTab } from "./components/MasteringTab";
 import { MasterMeter, type MasterMeterHandle } from "./components/MasterMeter";
-import { MetronomeButton } from "./components/MetronomeButton";
 import { MidiTakeRoll } from "./components/MidiTakeRoll";
 import { Minimap, type MinimapItem } from "./components/Minimap";
 import { MobileMenu, MobileMenuItem } from "./components/MobileChrome";
-import {
-  type ModulePick,
-  ModulePicker,
-  type PickerModule,
-} from "./components/ModulePicker";
 import type { RollHandle } from "./components/PianoRoll";
 import { PlaylistsPanel } from "./components/PlaylistsPanel";
 import { RackBuilder } from "./components/RackBuilder";
@@ -138,17 +101,14 @@ import { ReferencesPanel } from "./components/ReferencesPanel";
 import { RightPanel } from "./components/RightPanel";
 import { SeqGridPane } from "./components/SeqGridPane";
 import {
-  isSettingsTab,
   SETTINGS_TABS,
   SettingsPanel,
   type SettingsTab,
 } from "./components/SettingsPanel";
 import type { OpenShare } from "./components/SharedGate";
 import { SharePanel } from "./components/SharePanel";
-import { StatusText } from "./components/StatusText";
 import { SurfaceTab } from "./components/SurfaceTab";
 import type { PanelTakes } from "./components/TakesView";
-import { TapChainEditor } from "./components/TapChainEditor";
 import { TasksPanel } from "./components/TasksPanel";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
 import { TrackModulesPane } from "./components/TrackModulesPane";
@@ -160,9 +120,7 @@ import {
   nodeMenu,
   withAmbient,
 } from "./contextMenu";
-import { newCurveName, type ParamKind } from "./curveDraft";
 import { desktop } from "./desktop";
-import { EXPORT_USAGE, parseExportAsk } from "./exportArgs";
 import { fixedMaster, TARGET_DB, trimFor } from "./gainTrim";
 import type { ClipGridHandle } from "./gridCaret";
 import type { HistoryMark } from "./historyMarks";
@@ -199,58 +157,37 @@ import { useVideoDoc } from "./hooks/useVideoDoc";
 import { useVideoEdits } from "./hooks/useVideoEdits";
 import { useVideoRecording } from "./hooks/useVideoRecording";
 import { useLocale } from "./i18n";
-import {
-  blurOnClick,
-  type ConditionCtx,
-  commandKeyMap,
-  effectiveKeys,
-} from "./keys";
+import { type ConditionCtx, commandKeyMap, effectiveKeys } from "./keys";
 import {
   refreshLcdSounds,
   setLcdSoundsProject,
   shellSounds,
   touchesSounds,
 } from "./lcdSounds";
-import { isLibraryPath, libraryModuleRef } from "./libraryTree";
-import {
-  BARE_TRANSPORT,
-  isUiLine,
-  namesLine,
-  uiVerdict,
-} from "./localCommands";
-import { headTokens, resolveEntry, resolveModuleFile } from "./localTargets";
+import { libraryModuleRef } from "./libraryTree";
 import { confirmMenuItem } from "./menuConfirm";
 import { midiInDeviceFor, midiInLanes } from "./midiIn";
-import { describeDownload, followDownload } from "./modelDownload";
-import {
-  chainRefFromCreate,
-  createForGraphCommand,
-  nodeNewRefArg,
-  type PendingInsert,
-  wireCommand,
-} from "./nodeInsert";
+import { chainRefFromCreate, wireCommand } from "./nodeInsert";
 import { noteSpans } from "./noteSpans";
 import { resolveEditorFile } from "./openInEditor";
-import { PairRequestsPrompt } from "./pairing/PairRequestsPrompt";
 import { buildPaletteCommands, commandNameOf, makeListArg } from "./palette";
 import { PaneVisible } from "./paneVisible";
 import { m } from "./paraglide/messages.js";
 import { type PendingEdit, pendingOf } from "./pendingEdits";
-import { type PendingNode, spawnBox } from "./pendingNode";
+import type { PendingNode } from "./pendingNode";
 import { type EditFocus, keepIfEqual, sameEditFocus } from "./shellEquality";
 import { soundingNow } from "./sounding";
 import { createStatusLine } from "./statusLine";
 import { onOpenConflictsPanel } from "./syncConflicts";
 import { eventIdOf, takesEventOf } from "./takes";
-// The shell's BROWSER composition point: k7's builtin plugins register their pane drawers
-// here, before the shell renders any surface — see packages/k7-sdk/docs/sdk.md.
+// The shell's BROWSER composition point: k7's builtin plugins register their pane drawers here (packages/k7-sdk/docs/sdk.md).
 import "./plugins";
 import { PanelCloseFrame } from "./components/PanelClose";
 import { type FloatState, loadFloat, saveFloat } from "./floatingRect";
 import { latestAnswer } from "./latestAnswer";
 import { guardSwipeBack } from "./noSwipeBack";
 import { PaneBoundary } from "./PaneBoundary";
-import { closeTopPopin, useAnyPopin, usePopin } from "./popins";
+import { useAnyPopin, usePopin } from "./popins";
 import { entityFile, fileStem } from "./projectPaths";
 import { rememberCommand } from "./recentCommands";
 import {
@@ -261,33 +198,21 @@ import {
   UNKNOWN_RELOAD,
   useScopedKey,
 } from "./reloadScope";
-import {
-  isRollMode,
-  ROLL_MODES,
-  ROLL_PRESS,
-  type RollMode,
-  rollCondition,
-} from "./rollMode";
+import { type RollMode, rollCondition } from "./rollMode";
 import { type Pane, type Panel, viewPanes } from "./routes";
+import { pictureRowId, placementOf, type RowKey, type RowTarget } from "./rows";
+import { ShellFooter } from "./shell/ShellFooter";
 import {
-  pictureRowId,
-  placementOf,
-  type RowKey,
-  type RowTarget,
-  trackPlacing,
-} from "./rows";
-import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
-import {
-  MiniTransport,
-  PANE_META,
-  PANEL_META,
-  PANES,
-  TransportClock,
-  VIEWPORT_META,
-} from "./shellMeta";
+  type MenuState,
+  ShellOverlays,
+  type UndoConfirm,
+} from "./shell/ShellOverlays";
+import { ShellTransport } from "./shell/ShellTransport";
+import { type PendingWire, useGraphActions } from "./shell/useGraphActions";
+import { MiniTransport, PANE_META, VIEWPORT_META } from "./shellMeta";
 import { tabBridge } from "./tabs/bridge";
 import { modeCondition, type TimelineMode } from "./timelineMode";
-import { isTool, TOOLS, type Tool } from "./timelineTools";
+import type { Tool } from "./timelineTools";
 import type {
   ChangedFile,
   CommandInfo,
@@ -299,15 +224,17 @@ import type {
   WebVideoTrack,
   WorkspaceInfo,
 } from "./types";
+import type {
+  CurveEdit,
+  GraphSlot,
+  LocalCtx,
+  RightPanelId,
+} from "./ui/commands/context";
+import { runLocal } from "./ui/commands/dispatch";
 import { useIsMobile } from "./useIsMobile";
 import { useViewRoute } from "./useViewRoute";
 import { videoSpans } from "./videoSpans";
-import {
-  isWaveMode,
-  WAVE_MODES,
-  type WaveMode,
-  waveCondition,
-} from "./waveMode";
+import { type WaveMode, waveCondition } from "./waveMode";
 
 /** One frozen empty list, so a builder with no live plugin does not get a new array per render. */
 const EMPTY_PRESETS: PresetInfo[] = [];
@@ -317,19 +244,10 @@ const EMPTY_VIDEO_TRACKS: WebVideoTrack[] = [];
 // One key for every song: where the picture's window sits is a habit of this screen (floatingRect.ts).
 const VIEWPORT_FLOAT_KEY = "k7.viewportWindow";
 
-/** Why Play is refused in record mode with nothing armed — said on the button and on the status line. */
-const NO_ARM_HINT =
-  "record is on and no track is armed — arm a track, or turn record off";
-
 // The two builders open on demand, and carry an editor and a language of their own: loaded then, not with the shell.
 const ModuleBuilder = lazy(() =>
   import("@studio/ui-module-builder").then((mod) => ({
     default: mod.ModuleBuilder,
-  })),
-);
-const AssemblyBuilder = lazy(() =>
-  import("@studio/ui-module-builder/assembly").then((mod) => ({
-    default: mod.AssemblyBuilder,
   })),
 );
 
@@ -366,16 +284,6 @@ function sameCaret(a: CaretFields, b: CaretFields): boolean {
 // In the desktop app's tab, whose strip already shows the way home and the song's name (apps/k7-standalone/docs/tabs.md).
 const inDesktopTab = !!tabBridge();
 
-const TAP_CHAIN_INPUT = {
-  id: "tap-chain-input",
-  get label() {
-    return m["tapChain.input"]();
-  },
-  get sub() {
-    return m["tapChain.inputSub"]();
-  },
-};
-
 export default function App({
   engineUrl,
   engineLatency,
@@ -411,23 +319,13 @@ export default function App({
   // The timeline, because it is what the default view opens on — see ringPanes.
   const [focusPane, setFocusPane] = useState<Pane>("timeline");
   const [panel, setPanel] = useState<Panel | null>(null);
-  // The curve editor popin (`ui curve [name]`): the curve it is on, and whether it exists yet — docs/curveEditor.md.
   // The popin on one tap's own chain of effects — `ui tap chain <node> <tap>` (TapChainEditor.tsx).
   const [tapChain, setTapChain] = useState<{
     node: string;
     tap: string;
   } | null>(null);
-  const [curveEdit, setCurveEdit] = useState<{
-    name: string;
-    isNew: boolean;
-    spec?: CurveSpec;
-    /** The events of the node it automates — the condition's dropdown; absent when no node is in view (`ui curve`). */
-    events?: string[];
-    /** The control a NEW curve is bound to once created (`ui automate`). */
-    bind?: { node: string; param: string };
-    /** What kind of param it drives — what shapes it may follow; absent from `ui curve`. */
-    kind?: ParamKind;
-  } | null>(null);
+  // The curve editor popin (`ui curve [name]`): the curve it is on, and whether it exists yet — docs/curveEditor.md.
+  const [curveEdit, setCurveEdit] = useState<CurveEdit | null>(null);
   // The CHAINS BUILDER: a library chain being edited by its ref, `""` for the list, null closed — docs/chainsBuilder.md.
   const [openBuilder, setOpenBuilder] = useState<string | null>(null);
   /** The NODE of that chain to land on — its file name, or null for the chain itself. Not in the URL. */
@@ -558,8 +456,7 @@ export default function App({
   const armed = useStoreState(store, (s) => s.armed, arrayEq);
   // Global record enable — ENGINE session state, so it comes straight off the frame; play then records the armed.
   const recordEnabled = useStoreState(store, (s) => s.recordEnabled);
-  // The project's change token, read here so the whole tree shares the ONE refcounted poll —
-  // the desk's drawer takes it as a prop and refetches its graph when it moves (docs/plugins.md).
+  // The project's change token, read here so the whole tree shares the ONE refcounted poll (docs/plugins.md).
   const rev = useRevision();
   const { logs, pushLog, clearLogs } = useLogs(panel);
   // A pane that threw draws its own card (PaneBoundary); the log keeps what it said.
@@ -664,17 +561,7 @@ export default function App({
     [],
   );
   /** Which panel has the RIGHT COLUMN, or null — one state because there is one column (docs/shell.md). */
-  const [rightPanel, setRightPanel] = useState<
-    | "settings"
-    | "playlists"
-    | "references"
-    | "tasks"
-    | "history"
-    | "share"
-    | "comments"
-    | "conflicts"
-    | null
-  >(null);
+  const [rightPanel, setRightPanel] = useState<RightPanelId | null>(null);
   /** What the History panel's hovered row touched — lit on the graph and the timeline (historyMarks.ts). */
   const [historyMark, setHistoryMark] = useState<HistoryMark | null>(null);
   /** The reference track the bar has loaded, or null for no bar — it outlives every tab, being nothing this project owns (docs/references.md). */
@@ -688,17 +575,8 @@ export default function App({
   const [commandsPage, setCommandsPage] = useState(false);
   /** Open `which`, or close it when it is already the one showing — every panel button toggles. */
   const toggleRight = useCallback(
-    (
-      which:
-        | "settings"
-        | "playlists"
-        | "references"
-        | "tasks"
-        | "history"
-        | "share"
-        | "comments"
-        | "conflicts",
-    ) => setRightPanel((cur) => (cur === which ? null : which)),
+    (which: RightPanelId) =>
+      setRightPanel((cur) => (cur === which ? null : which)),
     [],
   );
   // A conflict banner over the editor opens the conflicts panel (components/ConflictsPanel.tsx).
@@ -750,16 +628,7 @@ export default function App({
   /** What the chains slot shows INSTEAD of the graph, or null — three occupants, one state (docs/shell.md). */
   // Whether the per-track view draws its curve cards — a view toggle, writing nothing (`ui curves`).
   const [trackCurves, setTrackCurves] = useState(false);
-  const [graphSlot, setGraphSlot] = useState<
-    | { kind: "grid"; path: string; view: SeqView }
-    | { kind: "clip"; target: EditTarget }
-    | { kind: "recording" }
-    // A MIDI take rolling: its notes drawn as they are played (MidiTakeRoll.tsx).
-    | { kind: "midiTake" }
-    // One track's modules side by side, opened by a double-click on the lane's header — see docs/shell.md.
-    | { kind: "trackModules"; trackId: string }
-    | null
-  >(null);
+  const [graphSlot, setGraphSlot] = useState<GraphSlot | null>(null);
   // The STACK view: a column per lane, the MIX's last — exclusive with the mixer row.
   const [stackView, setStackView] = useState(false);
 
@@ -794,8 +663,7 @@ export default function App({
   // …read by the command path through a ref, so the transport callbacks are not rebuilt on every arm.
   const recordWithoutArmRef = useRef(recordWithoutArm);
   recordWithoutArmRef.current = recordWithoutArm;
-  // A take of the takes view is drawn THERE: the record panel would take the very slot it is in.
-  // A ref, set where useTakeRecording is called below: the take is on before the engine rolls.
+  // A take of the takes view is drawn THERE, so the record panel must not take its slot; set by useTakeRecording below.
   const takeActiveRef = useRef(false);
   // An audio take shows its envelope; a take of a MIDI lane alone shows its notes instead.
   const takeSlot = armed.length || !midiRolling ? "recording" : "midiTake";
@@ -825,11 +693,7 @@ export default function App({
   const editorRef = useRef<EditorHandle>(null);
 
   // Undo/redo: a process step (restoring a bounced file) is gated behind this confirm dialog.
-  const [undoConfirm, setUndoConfirm] = useState<{
-    files: string[];
-    label: string;
-    resolve: (ok: boolean) => void;
-  } | null>(null);
+  const [undoConfirm, setUndoConfirm] = useState<UndoConfirm | null>(null);
   // Registered like the other dialogs; refusing IS an answer here, so the closer resolves the promise.
   usePopin(!!undoConfirm, () => {
     if (!undoConfirm) return;
@@ -1021,8 +885,7 @@ export default function App({
   );
   const hasMastering = !!masteringSurface;
 
-  /** The addresses this project answers on, for the share panel — the WHOLE project first, so a
-   *  second device can edit it and not only drive a surface, then EVERY surface (docs/external.md). */
+  /** The addresses this project answers on, for the share panel — the WHOLE project first, then EVERY surface (docs/external.md). */
   const externals = useMemo(() => {
     const at = parseLaunch(
       window.location.pathname,
@@ -1044,8 +907,7 @@ export default function App({
     ];
   }, [surfaces]);
 
-  /** Where a SECOND DEVICE reaches this app: a QR code built on `location.origin` would carry
-   *  loopback in the desktop window, which scans to the phone itself (remoteUrl.ts). */
+  /** Where a SECOND DEVICE reaches this app — not `location.origin`, which is loopback in the desktop window (remoteUrl.ts). */
   const [lanUrls, setLanUrls] = useState<string[]>([]);
   useEffect(() => {
     void desktop.state().then((d) => setLanUrls(d?.lanUrls ?? []));
@@ -1421,8 +1283,7 @@ export default function App({
     [quietCommand],
   );
 
-  // …and the NOTES' half of the picture's answer, since nothing meters MIDI either: when each
-  // lane's notes sound, and how hard, so a note cable ripples with what it carries (noteSpans.ts).
+  // …and the NOTES' half, since nothing meters MIDI either: when each lane's notes sound, and how hard (noteSpans.ts).
   const noteLanes = useMemo(() => noteSpans(projectDoc), [projectDoc]);
 
   // A RECORDER's button: two go down the socket, `save` is a verb — packages/song/docs/recorderNode.md.
@@ -1441,8 +1302,7 @@ export default function App({
       if (!last) return; // the button draws faint with no take; this is the race, not the state
       const id = node.pluginId;
       const line = `node record save ${JSON.stringify(last.file)}`;
-      // Run here rather than through `runCommand`, which reports a refusal but does not return
-      // one: the take is dropped after this, and dropping it on a save that failed loses it.
+      // Not through `runCommand`, which does not RETURN a refusal: the take is dropped after this, so a failed save would lose it.
       void (async () => {
         pushLog("cmd", `› ${line}`);
         try {
@@ -1451,8 +1311,7 @@ export default function App({
           for (const o of output) pushLog(refused ? "refused" : "info", o);
           if (refused) return void setRefusal(said);
           setStatus(said);
-          // Filed, so the local take goes: its bytes are in the médiathèque now, and a stack that
-          // kept it would offer the same one again — packages/song/docs/recorderNode.md.
+          // Filed, so the local take goes: its bytes are in the médiathèque now (packages/song/docs/recorderNode.md).
           engineRef.current?.recorder(id, "clear");
         } catch (e) {
           setStatus(`command error: ${(e as Error).message}`, "error");
@@ -1462,8 +1321,7 @@ export default function App({
     [store, pushLog, setRefusal],
   );
 
-  /** A PROJECT setting off a card — today the RENDER node's frame shape. A verb, since what it
-   *  writes is project.yaml and the node has no file (packages/song-video/docs/picture.md). */
+  /** A PROJECT setting off a card — the RENDER node's frame shape, written to project.yaml (packages/song-video/docs/picture.md). */
   const onProjectField = useCallback(
     (field: string, value: string) =>
       void runCommandRef.current(`project ${field} ${value}`),
@@ -1544,8 +1402,6 @@ export default function App({
     engineRef.current?.trackMix(mix);
   }, [frozen, connected, trackControls, docTracks, engineRef]);
 
-  // Web MIDI capture, driven by the MIDI record + play + a MIDI-armed track; it also holds
-  // the device picker's data, which the transport's dropdown beside the MIDI record reads.
   // The armed lane's MIDI device: the midi-in node wired to it, read off the graph — packages/song/docs/midiIn.md.
   const [midiIn, setMidiIn] = useState<{ any: boolean; device: string | null }>(
     {
@@ -1591,6 +1447,7 @@ export default function App({
   const projectTasks = useProjectTasks(
     frozen ? null : (ws?.activeProject ?? null),
   );
+  // Web MIDI capture, driven by the MIDI record + play + a MIDI-armed track, and the device picker's data.
   const { midiInputs, openMidiInputs, liveTake } = useMidiRecording({
     store,
     tempo: recInfo.tempo,
@@ -1807,813 +1664,90 @@ export default function App({
     [pushLog],
   );
 
-  // The shell's view commands; returns false when the line isn't one, so the caller falls through to the backend.
-  const runLocalCommand = useCallback(
-    (s: string): boolean => {
-      // View commands live under `ui`, and the pairing is enforced both ways. See docs/shell.md.
-      const prefixed = /^ui\s+/i.test(s);
-      if (prefixed) s = s.replace(/^ui\s+/i, "");
-      const line = s.toLowerCase();
-      // WHICH lines are `ui`'s is a table of its own (localCommands.ts), so a test can hold it against the palette's catalogue.
-      const isUi = isUiLine(line);
-      // The server's catalogue decides a line that shares a word with a `ui` head: `curve set` is not `ui curve set`.
-      const verdict = uiVerdict(line, prefixed, (l) => {
-        const name = commandNameOf(l, paletteRef.current);
-        return !!name && !name.startsWith("ui ");
-      });
-      if (verdict === "refuse") {
-        // Handled (true) rather than passed down: the backend has no such command either, and would say less.
-        setStatus(
-          isUi
-            ? `"${line}" is a ui command — type: ui ${line}`
-            : `"${line}" is not a ui command — type it without the ui prefix`,
-        );
-        return true;
-      }
-      // …and goes to the server, past every `ui` handler below, which would otherwise take it by its first word.
-      if (!prefixed && isUi) return false;
-      // `ui tap chain <node> <tap>` — the popin on that tap's own chain; names with a space arrive quoted.
-      if (line.startsWith("tap chain ")) {
-        const [node, tap] = [
-          ...line
-            .slice("tap chain ".length)
-            .matchAll(/"((?:[^"\\]|\\.)*)"|(\S+)/g),
-        ].map((w) => (w[1] !== undefined ? JSON.parse(`"${w[1]}"`) : w[2]));
-        if (!node || !tap) setStatus("usage: ui tap chain <node> <tap>");
-        else setTapChain({ node, tap });
-        return true;
-      }
-      // `ui curve` opens the editor on a NEW curve; `ui curve <name>` on that one, read off the graph's own curves.
-      if (line === "curve") {
-        setCurveEdit({ name: newCurveName(), isNew: true });
-        return true;
-      }
-      if (line.startsWith("curve ")) {
-        const name = s.slice("curve ".length).trim();
-        void api
-          .graph()
-          .then((g) => {
-            const spec = g.curves?.[name]?.spec;
-            if (spec) setCurveEdit({ name, isNew: false, spec });
-            else setStatus(`no curve "${name}" in this project`);
-          })
-          .catch((e) =>
-            setStatus(`ui curve: ${(e as Error).message}`, "error"),
-          );
-        return true;
-      }
-      // `ui automate <node> <param>` — the editor on the curve that control is bound to, or on a new one to bind.
-      if (line.startsWith("automate ")) {
-        const m = /^(\S+)\s+(?:"([^"]*)"|(.+))$/.exec(
-          s.slice("automate ".length).trim(),
-        );
-        if (!m) {
-          setStatus(
-            'usage: ui automate <node> <param>  (e.g. ui automate synth "Filter Freq")',
-          );
-          return true;
-        }
-        const node = m[1];
-        const param = (m[2] ?? m[3] ?? "").trim();
-        void api
-          .graph()
-          .then((g) => {
-            const step = Object.values(g.chains)
-              .flatMap((c) => c.use)
-              .find((u) => u.module === node);
-            const events = step?.events ?? [];
-            const bound = step?.automations?.find((a) => a.param === param);
-            const spec = bound ? g.curves?.[bound.curve]?.spec : undefined;
-            // A toggle or a button drives a BOOLEAN, which follows an on/off curve; any other control a number.
-            const widget = Object.values(step?.ui?.widgets ?? {}).find(
-              (w) => w.bind === param,
-            );
-            const kind: ParamKind =
-              widget?.type === "toggle" ||
-              widget?.type === "button" ||
-              spec?.type === "onoff"
-                ? "boolean"
-                : "number";
-            setCurveEdit(
-              bound && spec
-                ? { name: bound.curve, isNew: false, spec, events, kind }
-                : {
-                    name: newCurveName(),
-                    isNew: true,
-                    events,
-                    kind,
-                    bind: { node, param },
-                  },
-            );
-          })
-          .catch((e) =>
-            setStatus(`ui automate: ${(e as Error).message}`, "error"),
-          );
-        return true;
-      }
-      if (line === "global") {
-        // Back to the project's home page — there is no split to return to — closing the panel as any page change does.
-        if (full !== homePane) setPanel(null);
-        setFull(null);
-        return true;
-      }
-      // The frame is a WINDOW over the layout, so its command shows or hides it rather than fullscreening anything.
-      if (line === "viewport") {
-        if (!hasViewport)
-          setStatus(
-            "this project declares no viewport surface, so there is no picture to show.",
-          );
-        else setViewportWindow((cur) => ({ open: !cur.open }));
-        return true;
-      }
-      if ((PANES as string[]).includes(line)) {
-        // …and likewise for a pane this layout cannot fullscreen — `fullscreen` decides, as it does for the buttons and the number keys.
-        fullscreen(line as Pane);
-        return true;
-      }
-      // One page on screen, so walking the keys' owner IS walking the pages.
-      if (line === "focus next") {
-        const i = ringPanes.indexOf(full);
-        fullscreen(ringPanes[(i + 1) % ringPanes.length]);
-        return true;
-      }
-      if (line === "close") {
-        setPanel(null);
-        return true;
-      }
-      // Close the topmost overlay, whoever registered it; with nothing open the line asks for what is already true.
-      if (line === "popin close") {
-        closeTopPopin();
-        return true;
-      }
-      // Let the event go and close its panel. Escape and the footer's panel button do exactly this.
-      if (line === "slot close") {
-        closeEvent();
-        return true;
-      }
-      // The rack builder popin — the building is the browser's, so the command only OPENS it.
-      if (line === "module create rack") {
-        setRackBuilder(true);
-        return true;
-      }
-      // No `project new` or `project delete` here: making and unmaking a project is the home page's, not this shell's — packages/project-shell/docs/launch.md.
-      if (line.startsWith("file ")) {
-        openInEditor(s.slice(5).trim());
-        return true;
-      }
-      // A node's model, fetched from its module's `model_url` — the right-click's "Download model". Followed on the
-      // status line, and the graph re-read at the end, which is what takes the entry off the node's menu.
-      if (line.startsWith("model ")) {
-        const node = s.slice("model ".length).trim();
-        void api
-          .downloadModel(node)
-          .then(async ({ job }) => {
-            if (!job) {
-              setStatus(`${node}'s model is already on this machine`);
-              return;
-            }
-            const end = await followDownload(job, api.modelDownload, (j) =>
-              setStatus(describeDownload(j)),
-            );
-            if (!end.error) bumpReload();
-          })
-          .catch((e: Error) => setStatus(e.message, "error"));
-        return true;
-      }
-      if (line === "help") {
-        if (window.location.hash === "#help") closeHelp();
-        else openHelp();
-        return true;
-      }
-      // The chains builder. `""` is the LIST — the state `/chains-builder` parses to; typing it again closes.
-      if (line === "chains builder") {
-        setOpenBuilder((cur) => (cur === null ? "" : null));
-        return true;
-      }
-      /** The selection, the loop and `t` belong to whichever grid is ON SCREEN — `selection copy` excepted, at its own branch. */
-      const clipGrid = shownSlot?.kind === "clip" ? clipGridRef.current : null;
-      if (line === "select") {
-        if (clipGrid) clipGrid.toggleSelect();
-        else timelineRef.current?.toggleSelect();
-        return true;
-      }
-      if (line === "zoom") {
-        timelineRef.current?.zoomIn();
-        return true;
-      }
-      if (line === "zoom out") {
-        timelineRef.current?.zoomOut();
-        return true;
-      }
-      if (line === "zoom reset") {
-        timelineRef.current?.zoomReset();
-        return true;
-      }
-      /** `ui roll <mode>` — where a press on the piano roll goes: select, create, remove (rollMode.ts). */
-      if (namesLine(line, "roll")) {
-        const want = line.slice("roll".length).trim();
-        if (!isRollMode(want)) {
-          setStatus(`unknown mode "${want}" — ${ROLL_MODES.join(" · ")}`);
-          return true;
-        }
-        if (!rollRef.current) {
-          setStatus("no piano roll open — click a MIDI event first");
-          return true;
-        }
-        rollRef.current.setMode(want);
-        setStatus(`${want} — ${ROLL_PRESS[want]()}`);
-        return true;
-      }
-      /** `ui wave <mode>` — the waveform's picture and its gestures are ONE thing, so one verb sets both (waveMode.ts). */
-      if (namesLine(line, "wave")) {
-        const want = line.slice("wave".length).trim();
-        if (!isWaveMode(want)) {
-          setStatus(`unknown view "${want}" — ${WAVE_MODES.join(" · ")}`);
-          return true;
-        }
-        if (!waveRef.current) {
-          setStatus("no audio clip open — click one on the timeline first");
-          return true;
-        }
-        waveRef.current.setView(want);
-        return true;
-      }
-      /** `ui tool <name>` — the tool belongs to the SURFACE, so it is routed like every other pane verb. */
-      if (namesLine(line, "tool")) {
-        const want = line.slice("tool".length).trim();
-        if (!isTool(want)) {
-          setStatus(`unknown tool "${want}" — ${TOOLS.join(" · ")}`);
-          return true;
-        }
-        // Only the timeline holds tools today; the graph gets its own once it has a keyboard (docs/timeline.md).
-        timelineRef.current?.setTool(want);
-        setStatus(want === "pointer" ? "pointer" : `tool: ${want}`);
-        return true;
-      }
-      if (line === "transport locate") {
-        if (clipGrid) clipGrid.seekToCaret();
-        else timelineRef.current?.seekToCaret();
-        return true;
-      }
-      if (line === "transport loop") {
-        // The clip pane's only when IT holds the selection, as Shift+L's conditions say: a timeline range looped from
-        // the ruler's menu must not land on the clip pane open below it.
-        if (clipGrid && clipSel) clipGrid.toggleLoop();
-        else timelineRef.current?.toggleLoop();
-        return true;
-      }
-      /** `selection copy` / `selection paste` — one pair of verbs over events and notes, routed by what the clipboard holds (docs/clipEditors.md). */
-      if (line === "selection copy") {
-        /** The clip pane first, and the timeline WHEN IT HAS NOTHING — the one verb of the four that falls through (docs/clipEditors.md). */
-        const got = clipGrid?.copy() ?? timelineRef.current?.copy() ?? null;
-        if (!got) {
-          // The caret is a rectangle too, so reaching here means it was parked on nothing — and both ways of pointing are named.
-          setStatus(
-            "nothing to copy — put the caret on a clip or a note, or draw a rectangle with v",
-          );
-          return true;
-        }
-        setClipboard(got);
-        setStatus(
-          got.kind === "notes"
-            ? `copied ${got.notes.length} note(s)`
-            : `copied ${got.events.length} event(s)`,
-        );
-        return true;
-      }
-      /** `selection paste` — the CLIPBOARD says which surface, having been copied as events or as notes (clipboard.ts). */
-      if (line === "selection paste") {
-        const held = clipboardRef.current;
-        if (!held) {
-          setStatus(
-            "nothing on the clipboard — `selection copy` (Ctrl+C) something first",
-          );
-          return true;
-        }
-        const notes = held.kind === "notes";
-        const pane = notes ? clipGridRef.current : timelineRef.current;
-        if (!pane) {
-          setStatus(
-            notes
-              ? "no clip open — click a MIDI event to paste notes into it"
-              : "no timeline here",
-          );
-          return true;
-        }
-        const out = pane.pasteLine(held);
-        if (out.line) void runCommand(out.line);
-        setStatus(out.note);
-        return true;
-      }
-      /** `selection delete` — whichever surface holds a RECTANGLE, the clip grid first; with none, the open grid's caret, else the timeline's. */
-      if (line === "selection delete") {
-        const grid = clipGrid?.deleteLine ? clipGrid : null;
-        // The timeline stays mounted off screen: only the one in FRONT may lose an event to a key.
-        const timeline = activePane === "timeline" ? timelineRef.current : null;
-        const pane =
-          grid && clipSel
-            ? grid
-            : timeline && tlView.selecting
-              ? timeline
-              : (grid ?? timeline);
-        const out = pane?.deleteLine?.();
-        if (!out) {
-          setStatus("nothing to delete here");
-          return true;
-        }
-        if (out.line) void runCommand(out.line);
-        setStatus(out.note);
-        return true;
-      }
-      // The blade at the PLAYHEAD, on the caret's lane — the same line the cut tool makes, audio or picture (docs/timeline.md).
-      if (line === "selection split") {
-        const out = timelineRef.current?.splitLine(
-          store.getSnapshot().playhead,
-        );
-        if (out?.line) void runCommand(out.line);
-        setStatus(out?.note ?? "nothing to split here");
-        return true;
-      }
-      // Toggle record over the wire. Reading the live snapshot keeps this out of the deps and always flips current.
-      if (line === "transport record") {
-        engineRef.current?.setRecordEnabled(!store.getSnapshot().recordEnabled);
-        return true;
-      }
-      // One snap position either way, the ticks the timeline draws: a FRAME once it is zoomed in on a picture (docs/timeline.md).
-      if (line === "transport step next" || line === "transport step prev") {
-        const to = timelineRef.current?.stepTarget(
-          store.getSnapshot().playhead,
-          line.endsWith("next") ? 1 : -1,
-        );
-        if (to !== null && to !== undefined) seek(to);
-        return true;
-      }
-      // Replay: back to where playback last started (`replayAtRef`), then rolls again — `play` is not a toggle.
-      if (line === "transport replay") {
-        if (recordWithoutArmRef.current && !store.getSnapshot().playing) {
-          setRefusal(NO_ARM_HINT);
-          return true;
-        }
-        seek(replayAtRef.current);
-        // Deliberately the BARE verb: the seek above has already chosen a position.
-        transport("play");
-        return true;
-      }
-      /** …and so do the four bare verbs, for LATENCY — falling through to the service only when the socket cannot answer (docs/shell.md). */
-      if (BARE_TRANSPORT.includes(line)) {
-        // Play in record mode with nothing armed records nothing: refused, with the two ways out.
-        if (
-          (line === "transport play" || line === "transport replay") &&
-          recordWithoutArmRef.current &&
-          !store.getSnapshot().playing
-        ) {
-          setRefusal(NO_ARM_HINT);
-          return true;
-        }
-        // On a snapshot there IS no slow path: `transport` is already the browser player, so it always answers.
-        if (!frozen && (!connected || engineBusyRef.current)) return false;
-        transport(line.slice("transport ".length) as TransportAction);
-        return true;
-      }
-      // `rec <track>`: exactly the lane's A button — an instrument track arms in the browser, an audio track in the engine.
-      if (line === "rec" || line.startsWith("rec ")) {
-        const id = s.slice(3).trim();
-        if (!id) setStatus("usage: rec <track>");
-        else onTrackToggle(id, "arm");
-        return true;
-      }
-      // Bare `event move` opens the timeline's move mode; the backend command takes three args, so it still falls through.
-      if (line === "event move") {
-        timelineRef.current?.startMove();
-        return true;
-      }
-      // `sequence edit roll|tracker <sequence>` — bare-named, not under `ui`, since it writes to the sequence it names.
-      const seq = parseSeqEdit(s);
-      if (seq) {
-        const path = resolveSequence(
-          seq.name,
-          editorRef.current?.files() ?? [],
-        );
-        if (!seq.name) setStatus(`usage: sequence edit ${seq.view} <sequence>`);
-        else if (!path) setStatus(`no sequence "${seq.name}" in this project`);
-        else {
-          openEvent({ kind: "grid", path, view: seq.view });
-        }
-        return true;
-      }
-      // e on a clip opens its own definition — the name fuzzy-resolves to sequences/<id>.yaml or clips/<id>.yaml.
-      if (line.startsWith("edit sequence ")) {
-        openInEditor(s.slice("edit sequence ".length).trim());
-        return true;
-      }
-      if (line.startsWith("edit clip ")) {
-        openInEditor(s.slice("edit clip ".length).trim());
-        return true;
-      }
-      /** `ui review <clip>` — reopen the take review on a clip; the lane is looked up rather than asked for (docs/clipEditors.md). */
-      if (line.startsWith("review ")) {
-        const clip = s.slice("review ".length).trim();
-        if (!clip) {
-          setStatus("usage: ui review <clip>");
-          return true;
-        }
-        setReviewOn({ clip, track: trackPlacing(projectDoc, clip) });
-        // …and put the clip panel on screen: it is the ONE place a clip is drawn now.
-        openEvent({ kind: "recording" });
-        return true;
-      }
-      // Esc's rung: `runCommand` has already cancelled the pending learn, so there is nothing left to do here.
-      if (line === "midi learn cancel") return true;
-      // `ui midi learn <module> <param>` — arm the browser's Web MIDI; the BINDING is written by `module cc`.
-      if (line.startsWith("midi learn ")) {
-        armMidiLearn(s.slice("midi learn ".length).trim());
-        return true;
-      }
-      // `ui picture arm [lane]` — nothing is written: the camera is the browser's, so the arm is too.
-      if (line === "picture arm" || line.startsWith("picture arm ")) {
-        const lane = s.slice("picture arm".length).trim();
-        setVideoArmed((cur) => (!lane || cur === lane ? null : lane));
-        setStatus(
-          lane && videoArmed !== lane
-            ? `${lane} armed — record + play captures its camera onto it`
-            : "picture disarmed",
-        );
-        return true;
-      }
-
-      // --- what the footer and the timeline header draw ------------------------
-      if (line === "mixer") {
-        toggleMixer();
-        return true;
-      }
-      if (line === "stack") {
-        toggleStack();
-        return true;
-      }
-      if (line === "notes") {
-        toggleDocs();
-        return true;
-      }
-      if (line === "logs clear") {
-        clearLogs();
-        return true;
-      }
-      if (line === "ruler") {
-        timelineRef.current?.toggleRuler();
-        return true;
-      }
-      if (line === "lanes") {
-        timelineRef.current?.toggleLanes();
-        return true;
-      }
-      if (line === "automation") {
-        timelineRef.current?.toggleAutomation();
-        return true;
-      }
-      if (line === "curves") {
-        setTrackCurves((v) => !v);
-        return true;
-      }
-      // `ui panel <event|graph|mix|logs>`: the footer buttons' own toggle — naming the panel already up closes it.
-      if (line.startsWith("panel ")) {
-        const want = line.slice("panel ".length).trim();
-        const names = Object.keys(PANEL_META) as Panel[];
-        if (!names.includes(want as Panel))
-          setStatus(`usage: ui panel <${names.join("|")}>`);
-        else togglePanel(want as Panel);
-        return true;
-      }
-      // `ui surface <id>` names nothing — every surface is a PANE — and this arm exists only to say so to anyone who read the verb in the docs.
-      if (line.startsWith("surface ")) {
-        setStatus(
-          "a surface is a pane now — use `ui turntables` (or its number key). See surfaces/.",
-        );
-        return true;
-      }
-      /** `ui external <surface>` — the link that opens ONE surface on another device; it COPIES rather than navigating (docs/external.md). */
-      if (line.startsWith("external ")) {
-        const want = s.slice("external ".length).trim();
-        const hit = surfaces.find((x) => x.id === want);
-        if (!hit) {
-          setStatus(
-            surfaces.length
-              ? `no surface "${want}" — this project declares ${surfaces.map((x) => x.id).join(", ")}`
-              : "this project declares no surface — see surfaces/",
-          );
-          return true;
-        }
-        const at = parseLaunch(
-          window.location.pathname,
-          "k7",
-          import.meta.env.BASE_URL,
-        );
-        if (!at) return false; // no project in the address; nothing to hang a surface off
-        const url = externalUrl(window.location.href, at, hit.id, "k7");
-        void navigator.clipboard?.writeText(url).catch(() => {});
-        setStatus(url);
-        return true;
-      }
-      // `ui builder <module>`: the shared builder over the shell, on the MODULE file of the trio.
-      if (line.startsWith("builder ")) {
-        const arg = s.slice("builder ".length).trim();
-        const path = resolveModuleFile(arg, editorRef.current?.files() ?? []);
-        if (!path) setStatus(`no module "${arg}" in this project`);
-        else void openModuleBuilder(path, "module");
-        return true;
-      }
-      // An assembly TEMPLATE, by its ref. The PATH is the file service's to give — never one built here.
-      if (line.startsWith("assembly ")) {
-        const ref = s.slice("assembly ".length).trim();
-        void api
-          .libraryAssemblies()
-          .then(({ assemblies }) => {
-            const hit = assemblies.find((a) => a.ref === ref);
-            if (!hit) {
-              setStatus(`no assembly template "${ref}" in the library`);
-              return;
-            }
-            setAssemblyBuilder({ file: hit.file, folder: hit.path });
-          })
-          .catch((e: Error) => setStatus(e.message, "error"));
-        return true;
-      }
-
-      // --- the right-hand panels, and the one page left --------------------
-
-      // The bare lines TOGGLE, as their buttons do; naming a settings TAB always opens, never closes.
-      if (line === "settings") {
-        toggleRight("settings");
-        return true;
-      }
-      if (line === "playlists") {
-        toggleRight("playlists");
-        return true;
-      }
-      if (line === "references") {
-        toggleRight("references");
-        return true;
-      }
-      if (line === "tasks") {
-        toggleRight("tasks");
-        return true;
-      }
-      if (line === "history") {
-        toggleRight("history");
-        return true;
-      }
-      if (line === "share") {
-        toggleRight("share");
-        return true;
-      }
-      if (line === "settings commands") {
-        setCommandsPage(true);
-        return true;
-      }
-      if (line.startsWith("settings ")) {
-        const which = line.slice("settings ".length);
-        if (isSettingsTab(which)) {
-          setSettingsTab(which);
-          setRightPanel("settings");
-          return true;
-        }
-      }
-      // The one control ON the editor settings screen — a global preference, which is why it is `ui` and not a project verb.
-      if (line === "vim") {
-        void toggleVim();
-        return true;
-      }
-      if (line === "engine") {
-        onChangeEngine();
-        return true;
-      }
-      if (line === "workspace quit") {
-        onQuitWorkspace();
-        return true;
-      }
-      // Reload after logout: AuthGate is outermost, so a fresh load lands on sign-in.
-      if (line === "logout") {
-        void api.logout().then(() => window.location.reload());
-        return true;
-      }
-      if (line.startsWith("language ")) {
-        const want = line.slice("language ".length).trim();
-        if (!(locales as readonly string[]).includes(want))
-          setStatus(`usage: ui language <${locales.join("|")}>`);
-        else setLocale(want as typeof locale);
-        return true;
-      }
-      // `ui copy path <path>` — the tree's own entry: what it copies is the workspace-relative path every route takes.
-      if (line.startsWith("copy path ")) {
-        const arg = s.slice("copy path ".length).trim();
-        const path = resolveEntry(arg, editorRef.current?.entries() ?? []);
-        if (!path) setStatus(`no entry "${arg}" in this workspace`);
-        else {
-          void navigator.clipboard?.writeText(path);
-          setStatus(`copied ${path}`);
-        }
-        return true;
-      }
-      // `ui pin <path>` — to the top of the tree, or off it when it is already there.
-      if (line.startsWith("pin ")) {
-        const arg = s.slice("pin ".length).trim();
-        const path = resolveEntry(arg, editorRef.current?.entries() ?? []);
-        const pinned = path ? editorRef.current?.togglePin(path) : null;
-        if (!path) setStatus(`no file "${arg}" in this workspace`);
-        else if (pinned == null)
-          setStatus("the file tree is not on screen — the pins live in it");
-        else setStatus(`${pinned ? "pinned" : "unpinned"} ${path}`);
-        return true;
-      }
-
-      // --- the file tree's right-click menu, as commands ------------------------
-
-      // Each of these calls the SAME callback the menu item runs (see EditorHandle), including the confirm a delete asks for.
-      if (namesLine(line, "fs file new") || namesLine(line, "fs folder new")) {
-        const folder = line.startsWith("folder ");
-        const head = folder ? "fs folder new" : "fs file new";
-        const [dirArg, name] = headTokens(s.slice(head.length), 2);
-        const dir = dirArg
-          ? resolveEntry(dirArg, editorRef.current?.entries() ?? [])
-          : null;
-        if (!dirArg || !name) setStatus(`usage: ${head} <folder> <name>`);
-        else if (!dir || !editorRef.current?.isDir(dir))
-          setStatus(`no folder "${dirArg}" in this workspace`);
-        else if (folder) editorRef.current?.createFolder(dir, name);
-        else editorRef.current?.createFile(dir, name);
-        return true;
-      }
-      // The NAME, not a path: a rename leaves the entry where it is.
-      if (namesLine(line, "fs file rename")) {
-        const [pathArg, name] = headTokens(s.slice("fs file rename".length), 2);
-        const path = pathArg
-          ? resolveEntry(pathArg, editorRef.current?.entries() ?? [])
-          : null;
-        if (!pathArg || !name)
-          setStatus("usage: fs file rename <path> <new name>");
-        else if (!path) setStatus(`no entry "${pathArg}" in this workspace`);
-        else editorRef.current?.rename(path, name);
-        return true;
-      }
-      // What dragging a row onto a folder does.
-      if (namesLine(line, "fs file move")) {
-        const [pathArg, dirArg] = headTokens(s.slice("fs file move".length), 2);
-        const entries = editorRef.current?.entries() ?? [];
-        const path = pathArg ? resolveEntry(pathArg, entries) : null;
-        const dir = dirArg ? resolveEntry(dirArg, entries) : null;
-        if (!pathArg || !dirArg)
-          setStatus("usage: fs file move <path> <folder>");
-        else if (!path) setStatus(`no entry "${pathArg}" in this workspace`);
-        else if (!dir || !editorRef.current?.isDir(dir))
-          setStatus(`no folder "${dirArg}" in this workspace`);
-        else editorRef.current?.move(path, dir);
-        return true;
-      }
-      // Recycled, not erased — and confirmed, because the menu's is.
-      if (namesLine(line, "fs file delete")) {
-        const arg = s.slice("fs file delete".length).trim();
-        const path = resolveEntry(arg, editorRef.current?.entries() ?? []);
-        if (!arg) setStatus("usage: fs file delete <path>");
-        else if (!path) setStatus(`no entry "${arg}" in this workspace`);
-        else editorRef.current?.remove(path, editorRef.current.isDir(path));
-        return true;
-      }
-      // Opens the OS picker; `folder` asks for a whole directory, which a browser draws differently — see FileTree.
-      if (namesLine(line, "fs file upload")) {
-        const [dirArg, what] = headTokens(s.slice("fs file upload".length), 2);
-        const dir = dirArg
-          ? resolveEntry(dirArg, editorRef.current?.entries() ?? [])
-          : null;
-        if (!dir || !editorRef.current?.isDir(dir))
-          setStatus("usage: fs file upload <folder> [files|folder]");
-        else if (
-          !editorRef.current.pickUpload(
-            dir,
-            (what ?? "").toLowerCase() === "folder",
-          )
-        )
-          setStatus("the file tree is not on screen — the picker lives in it");
-        return true;
-      }
-
-      // --- the project ---------------------------------------------------------
-
-      // Ctrl+Z / Ctrl+Y as commands: the project-wide journal (@studio/project-shell/undo), the editor's own buffer history staying with the keys.
-      if (line === "project undo" || line === "project redo") {
-        void (line === "project redo"
-          ? runRedo(historyDeps)
-          : runUndo(historyDeps));
-        return true;
-      }
-      /** `project master fix [peak-db]` — the Fix button as a verb; local, because the trim comes from a peak only this browser saw (docs/masterMeter.md). */
-      if (namesLine(line, "project master fix")) {
-        const arg = s.slice("project master fix".length).trim();
-        const given = arg ? Number(arg) : null;
-        if (given !== null && !Number.isFinite(given)) {
-          setStatus(m["master.notADb"]({ arg }));
-          return true;
-        }
-        const pass = masterMeterRef.current?.pass();
-        if (given === null && !pass?.offered) {
-          setStatus(pass ? m["master.nothingToFix"]() : m["master.noMeter"]());
-          return true;
-        }
-        masterMeterRef.current?.take();
-        void fixClipping(given ?? (pass?.peak as number));
-        return true;
-      }
-      if (line.startsWith("project export")) {
-        // Which HALF of the project leaves is the first word now — see exportArgs.ts.
-        const ask = parseExportAsk(s.slice("project export".length));
-        if (!ask) setStatus(EXPORT_USAGE);
-        else if (ask.kind === "audio") void share.exportMix(ask.format);
-        else if (ask.kind === "timeline")
-          void share.exportTimeline(
-            ws?.activeProject ?? ".",
-            ask.format,
-            ask.lane,
-            projectDoc?.name ?? "cut",
-            runCommand,
-          );
-        else
-          void share.exportVideo(
-            videoDoc ? videoSceneOf(videoDoc, null, "export") : null,
-            ask.format,
-            ask.audio,
-            projectDoc?.name ?? "video",
-            ask.settings,
-          );
-        return true;
-      }
-      if (line === "project share k7") {
-        void share.shareK7();
-        return true;
-      }
-      if (line === "project share link") {
-        void share.shareLink();
-        return true;
-      }
-      // The dialog reports what the translation did and then offers to open the result.
-      if (line.startsWith("project import")) {
-        const arg = s.slice("project import".length).trim();
-        const path = arg
-          ? resolveEntry(arg, editorRef.current?.entries() ?? [])
-          : null;
-        if (!path)
-          setStatus(
-            "usage: project import <a .dawproject, .als or Ableton .zip of this workspace>",
-          );
-        else imp.askImport(path);
-        return true;
-      }
-      return false;
+  // What the shell's own commands may reach, rebuilt every render and read through a ref (ui/commands/context.ts).
+  const localCtx = useRef<LocalCtx | null>(null);
+  localCtx.current = {
+    setStatus,
+    setRefusal,
+    runCommand: (l) => runCommandRef.current(l),
+    isServerCommand: (l) => {
+      const name = commandNameOf(l, paletteRef.current);
+      return !!name && !name.startsWith("ui ");
     },
-    [
-      fullscreen,
-      full,
-      openEvent,
-      closeEvent,
-      shownSlot,
-      // `selection delete` goes to whichever surface holds a rectangle, and to the timeline only when it is in front.
-      clipSel,
-      tlView.selecting,
-      activePane,
-      // `ui global` closes the bottom panel only when it really changes the page.
-      homePane,
-      openInEditor,
-      armMidiLearn,
-      onTrackToggle,
-      ringPanes,
-      ws,
-      openHelp,
-      closeHelp,
-      imp,
-      engineRef,
-      store,
-      seek,
-      transport,
-      engineBusyRef,
-      // …and whether that socket is up, which decides whether the bare transport verbs are answered here or handed to the service.
-      connected,
-      frozen,
-      setFull,
-      toggleMixer,
-      toggleStack,
-      toggleDocs,
-      clearLogs,
-      togglePanel,
-      onChangeEngine,
-      onQuitWorkspace,
-      toggleVim,
-      locales,
-      setLocale,
-      historyDeps,
-      share,
-      fixClipping,
-      openModuleBuilder,
-      setRefusal,
-      hasViewport,
-      setViewportWindow,
-    ],
+    full,
+    homePane,
+    ringPanes,
+    activePane,
+    setFull,
+    fullscreen,
+    setPanel,
+    togglePanel,
+    shownSlot,
+    openEvent,
+    closeEvent,
+    hasViewport,
+    setViewportWindow,
+    openHelp,
+    closeHelp,
+    toggleRight,
+    setRightPanel,
+    setSettingsTab,
+    setCommandsPage,
+    toggleMixer,
+    toggleStack,
+    toggleDocs,
+    clearLogs,
+    setTrackCurves,
+    editorRef,
+    openInEditor: (arg) => openInEditor(arg),
+    setTapChain,
+    setCurveEdit,
+    setOpenBuilder,
+    openModuleBuilder,
+    setAssemblyBuilder,
+    setRackBuilder,
+    setReviewOn,
+    projectDoc,
+    surfaces,
+    bumpReload,
+    timelineRef,
+    clipGridRef,
+    waveRef,
+    rollRef,
+    clipSel,
+    timelineSelecting: tlView.selecting,
+    clipboardRef,
+    setClipboard,
+    store,
+    engineRef,
+    engineBusyRef,
+    connected,
+    frozen,
+    transport,
+    seek,
+    replayAtRef,
+    recordWithoutArmRef,
+    onTrackToggle,
+    armMidiLearn,
+    videoArmed,
+    setVideoArmed,
+    toggleVim,
+    onChangeEngine,
+    onQuitWorkspace,
+    locales,
+    setLocale: (l) => setLocale(l as typeof locale),
+    ws,
+    historyDeps,
+    masterMeterRef,
+    fixClipping,
+    share,
+    videoDoc,
+    imp,
+  };
+  // The shell's own commands; false when the line isn't one, so the caller falls through to the backend.
+  const runLocalCommand = useCallback(
+    (s: string): boolean => runLocal(localCtx.current as LocalCtx, s),
+    [],
   );
 
   // The arrow a module is being created on while the command RUNS — the narrower window the canvas draws a placeholder for.
@@ -2625,17 +1759,14 @@ export default function App({
     graph: WebGraph;
     at: number;
   } | null>(null);
-  // Every command — typed or bound to a key — comes through here.
-  // `outcome`, when given, is told whether the line WENT THROUGH — for a caller with a second step to gate on it.
+  // Every command comes through here; `outcome`, when given, is told whether the line WENT THROUGH.
   const runCommand = useCallback(
     async (line: string, outcome?: { ok: boolean }): Promise<void> => {
       if (!line.trim()) return;
       // A pending MIDI learn waits for a control OR the next command, whichever comes first — see docs/midi.md.
       if (chainsMidiRef.current?.learning) chainsMidiRef.current.cancelLearn();
-      const typed = line.trim();
       const s = line.trim();
-      // What was typed, and — when the catalogue rewrote it — what actually ran, so the transcript shows a line you could retype.
-      pushLog("cmd", typed === s ? `› ${typed}` : `› ${typed}   ⇒ ${s}`);
+      pushLog("cmd", `› ${s}`);
       // Here rather than in the bar, because EVERY command passes here; through a ref, so a rebuilt catalogue does not rebuild this.
       rememberCommand(commandNameOf(s, paletteRef.current));
       if (runLocalCommand(s)) return;
@@ -2683,8 +1814,7 @@ export default function App({
         if (rev) noteRevision(rev);
         /** …and the reload, carrying the files this command wrote — `undefined`, from a service that could not diff, still means everything. */
         reloadWith(changed);
-        // The picker's second half, as its own journalled command — and null when there is nothing left to do.
-        // Not after a refusal: there is no node to wire, and its own refusal would bury the real one.
+        // The picker's second half, as its own journalled command — never after a refusal, which it would bury.
         const after =
           !refused && madeRef && wire
             ? wireCommand(madeRef, wire.at, wire.spawn)
@@ -2823,11 +1953,7 @@ export default function App({
   }, []);
 
   // The right-click context menu (timeline + graph).
-  const [menu, setMenu] = useState<{
-    items: MenuItem[];
-    x: number;
-    y: number;
-  } | null>(null);
+  const [menu, setMenu] = useState<MenuState | null>(null);
   // What the entry under the pointer DOES, borrowing the status line while the menu is open — see ContextMenu.tsx's `onHint`.
   const setMenuHint = statusStore.hint;
   const prewriteCommand = useCallback(
@@ -2882,41 +2008,33 @@ export default function App({
     },
     [],
   );
-  /** A node's alternative badge on the graph: switch to that set, or copy the one on — packages/song/docs/alternatives.md. */
-  const runAlternative = useCallback(
-    (module: string, name: string | null) =>
-      void runCommand(
-        name === null
-          ? `node alternative copy ${module}`
-          : `node alternative select ${module} ${name}`,
-      ),
-    [runCommand],
-  );
-  /** A node's engine dropdown on the graph: run the module as that engine — packages/song/docs/engines.md. */
-  const runEngine = useCallback(
-    (module: string, name: string) =>
-      void runCommand(`node engine ${module} ${name}`),
-    [runCommand],
-  );
   // A `+` click asks WHICH module before writing anything; picking pre-writes a command. See docs/shell.md.
   const pendingInsert = useRef<PendingNode | null>(null);
   // Where the node a CREATING line is about to make should be wired: an arrow or nowhere, plus the world point clicked (see onModulePick).
-  const pendingWire = useRef<{
-    at: PendingInsert | null;
-    spawn: { x: number; y: number } | null;
-  } | null>(null);
-  // 'Which file?' — a filepicker widget's asset browser, rendered by the shell because the popup is viewport-positioned.
-  const [assetPicker, setAssetPicker] = useState<{
-    module: string;
-    param: string;
-    x: number;
-    y: number;
-    files: string[];
-    /** The library family the widget names, which decides the extensions when the param's name cannot. */
-    family?: string;
-    /** The command a pick runs, when it is not `node param` — a rack tap's sample is `node tap sample`. */
-    commit?: (file: string | null) => string;
-  } | null>(null);
+  const pendingWire = useRef<PendingWire | null>(null);
+  // The graph's insert, asset and tap callbacks, and the two pickers they open (shell/useGraphActions.ts).
+  const {
+    modulePicker,
+    setModulePicker,
+    baseModules,
+    insertIntoChain,
+    placeInGraph,
+    onModulePick,
+    assetPicker,
+    setAssetPicker,
+    browseAssets,
+    editTap,
+    runAlternative,
+    runEngine,
+  } = useGraphActions({
+    runCommand,
+    runCommandRef,
+    prewriteCommand,
+    cmdRef,
+    reloadKey,
+    pendingInsert,
+    pendingWire,
+  });
   /** Find the open project's node of the builder's module and watch its plugin — `watchPluginParams` is what makes the values LIVE. */
   useEffect(() => {
     if (!builder) return void setBuilderPlugin(null);
@@ -2954,197 +2072,101 @@ export default function App({
     return () => watchPluginParams(pluginId, false);
   }, [builderPlugin, requestPluginParams, watchPluginParams, listPresets]);
 
-  const browseAssets = useCallback(
-    (module: string, param: string, x: number, y: number, family?: string) => {
-      // The choices are the MODULE's own assets/ and its ancestors', re-read from the graph so a file dropped since the last look is offered.
-      void api
-        .graph()
-        .then((g) => {
-          const step = Object.values(g.chains ?? {})
-            .flatMap((c) => c.use ?? [])
-            .find((s) => s.module === module);
-          setAssetPicker({
-            module,
-            param,
-            x,
-            y,
-            files: step?.assetChoices ?? [],
-            family,
-          });
-        })
-        .catch(() => {});
-    },
-    [],
+  // What every module card is drawn with, whichever host holds it — the chains page, the bottom panel, a lane's or a tap's cards.
+  const cardProps = useMemo(
+    () => ({
+      mark: historyMark,
+      onPreviewNote: previewNote,
+      cameras,
+      inputDevices,
+      midiDevices,
+      reloadKey,
+      trackOrder,
+      project: projectDoc,
+      command: quietCommand,
+      onBypassModule: (mod: string) => void bypassModule(mod),
+      onModuleField: runCommand,
+      onRecorder,
+      onProjectField,
+      onAlternative: runAlternative,
+      onAssetBrowse: browseAssets,
+      onTapEdit: editTap,
+      onWatchWaveform: watchWaveform,
+      engineWarnings: nodeWarnings,
+      onContextMenu: openContextMenu,
+      pluginParamsStore,
+      setPluginParam,
+      moduleParams: offlineParams,
+      trackControls,
+    }),
+    [
+      historyMark,
+      previewNote,
+      cameras,
+      inputDevices,
+      midiDevices,
+      reloadKey,
+      trackOrder,
+      projectDoc,
+      quietCommand,
+      bypassModule,
+      runCommand,
+      onRecorder,
+      onProjectField,
+      runAlternative,
+      browseAssets,
+      editTap,
+      watchWaveform,
+      nodeWarnings,
+      openContextMenu,
+      pluginParamsStore,
+      setPluginParam,
+      offlineParams,
+      trackControls,
+    ],
   );
-  /** A rack tap's edit, as the `node tap` command it is — a sample opens the same picker a file param does. */
-  const editTap = useCallback(
-    (module: string, a: TapAction) => {
-      const q = (v: string) => JSON.stringify(v);
-      if (a.kind === "note")
-        void runCommand(`node tap note ${q(module)} ${q(a.symbol)} ${a.note}`);
-      else if (a.kind === "add")
-        void runCommand(
-          a.note === undefined
-            ? `node tap add ${q(module)}`
-            : `node tap at ${q(module)} ${a.note}`,
-        );
-      else if (a.kind === "remove")
-        void runCommand(`node tap remove ${q(module)} ${q(a.symbol)}`);
-      // A kit's pad is muted on the SFZ player, a rack's on its tap — packages/song/docs/racks.md.
-      else if (a.kind === "mute")
-        void runCommand(
-          a.kit
-            ? `node param ${q(module)} ${q(`Mute ${a.note}`)} ${a.on ? 1 : 0}`
-            : `node tap mute ${q(module)} ${q(a.symbol)} ${a.on ? "on" : "off"}`,
-        );
-      else
-        void api
-          .graph()
-          .then((g) => {
-            const step = Object.values(g.chains ?? {})
-              .flatMap((c) => c.use ?? [])
-              .find((s) => s.module === module);
-            setAssetPicker({
-              module,
-              param: TAP_SAMPLE,
-              x: a.x,
-              y: a.y,
-              files: step?.assetChoices ?? [],
-              commit: (file) =>
-                `node tap sample ${q(module)} ${q(a.symbol)} ${file ? q(file) : "none"}`,
-            });
-          })
-          .catch(() => {});
-    },
-    [runCommand],
+  // …plus what a WHOLE graph draws: its lanes' spans and notes, the picture's viewport, the lane buttons.
+  const graphHostProps = useMemo(
+    () => ({
+      ...cardProps,
+      organizeKey,
+      videoSpans: videoLaneSpans,
+      noteLanes,
+      viewport: videoDoc?.viewport,
+      onTrackToggle: onLaneToggle,
+      onTrackSet,
+    }),
+    [
+      cardProps,
+      organizeKey,
+      videoLaneSpans,
+      noteLanes,
+      videoDoc?.viewport,
+      onLaneToggle,
+      onTrackSet,
+    ],
   );
-  // `info` is the arrow the pick will splice into — NULL when the picker was opened on empty canvas.
-  const [modulePicker, setModulePicker] = useState<{
-    info: PendingInsert | null;
-    x: number;
-    y: number;
-    // The click's WORLD point — where the picked module will be BORN, so a new node never asks the layout where to appear.
-    at?: { x: number; y: number };
-    /** What a node of the picked module lands CALLED — `<lane>_<module>_<n>`, from the pane that holds the graph (ChainsTab's `nameFor`). */
-    nameFor: (module: string) => string;
-    /** Set when the pick is not a node to place but a ref to hand on — a tap's chain asks for one (TapChainEditor.tsx). */
-    onRef?: (ref: string) => void;
-  } | null>(null);
-  // Offer the click into the pre-written line's `at` field, deferred a tick: a same-tick offer reads the bar's old state.
-  const offerSpawnAt = useCallback((at?: { x: number; y: number }) => {
-    if (!at) return;
-    // Negative is kept, not clamped: above the first lane is where a node belongs as readily as below it (`graph move`).
-    const v = `${Math.round(at.x)},${Math.round(at.y)}`;
-    setTimeout(() => cmdRef.current?.offer({ at: v }, true), 0);
-  }, []);
-  // The picker's vocabulary, PREFETCHED once per project — the CATALOGUE and not a list of refs, since only the module says what kind it is.
-  const [baseModules, setBaseModules] = useState<PickerModule[]>([]);
-  useEffect(() => {
-    let alive = true;
-    void Promise.all([api.moduleCatalogue(), api.baseModules()])
-      .then(([cat, refs]) => {
-        if (!alive) return;
-        // The project's OWN modules come from the ref list: the picker needs them to know one already exists to instantiate.
-        const known = new Set(cat.map((m) => m.ref));
-        setBaseModules([
-          ...cat.map((m) => ({
-            ref: m.ref,
-            category: m.category,
-            panel: m.panel,
-          })),
-          ...refs.filter((r) => !known.has(r.ref)),
-        ]);
-      })
-      .catch(() => {}); // the picker falls back to pre-writing the command
-    return () => {
-      alive = false;
-    };
-  }, [reloadKey]);
-
-  // Opening the picker awaits nothing; with no vocabulary yet, the command is pre-written instead.
-  const insertIntoChain = useCallback(
-    (
-      info: PendingInsert,
-      x: number,
-      y: number,
-      at: { x: number; y: number } | undefined,
-      nameFor: (module: string) => string,
-    ) => {
-      if (!baseModules.length) {
-        prewriteCommand(
-          info.stack
-            ? `node stack ${info.before} `
-            : `node insert ${info.before} ${info.after} `,
-        );
-        offerSpawnAt(at);
-        return;
-      }
-      setModulePicker({ info, x, y, at, nameFor });
-    },
-    [baseModules, prewriteCommand, offerSpawnAt],
+  // …or what a card needs of the LIVE engine: its plugin's params, its engine and its presets.
+  const liveCardProps = useMemo(
+    () => ({
+      ...cardProps,
+      requestPluginParams,
+      watchPluginParams,
+      onEngine: runEngine,
+      onPresets: openPresets,
+      onPresetStep: stepPreset,
+      presetNames,
+    }),
+    [
+      cardProps,
+      requestPluginParams,
+      watchPluginParams,
+      runEngine,
+      openPresets,
+      stepPreset,
+      presetNames,
+    ],
   );
-  // Right-click on empty canvas: the same picker, but the pick has nowhere to be spliced.
-  const placeInGraph = useCallback(
-    (
-      x: number,
-      y: number,
-      at: { x: number; y: number } | undefined,
-      nameFor: (module: string) => string,
-    ) => {
-      if (!baseModules.length) {
-        // No catalogue to pick from: the person names what to create, and `node new` puts it in the graph.
-        prewriteCommand("node new ");
-        offerSpawnAt(at);
-        return;
-      }
-      setModulePicker({ info: null, x, y, at, nameFor });
-    },
-    [baseModules, prewriteCommand, offerSpawnAt],
-  );
-  const onModulePick = useCallback(
-    (pick: ModulePick) => {
-      if (!modulePicker) return;
-      setModulePicker(null);
-      // A ref wanted, not a node: this project's own module is reached through `@workspace`, like any other ref.
-      if (modulePicker.onRef) {
-        if (!pick.newCurve)
-          modulePicker.onRef(
-            pick.namespace === null ? `@workspace/${pick.ref}` : pick.ref,
-          );
-        return;
-      }
-      const { info, at, nameFor } = modulePicker;
-      // The picker's one non-module offer: a curve has nothing to pick and nothing to splice into, so the bar is prewritten.
-      if (pick.newCurve) {
-        prewriteCommand("curve new ");
-        offerSpawnAt(at);
-        return;
-      }
-      /** ONE creating line, then the WIRED half when the pick was on an arrow — see `chainRefFromCreate`. */
-      // An io SOURCE has no input port to receive the arrow's signal, so it is PLACED, never
-      // spliced: born wired to nothing, and the person draws its cable from there.
-      const placed = pick.type === "io";
-      const node = nameFor(pick.name);
-      // A splice is CENTRED on the `+`, and a pin is a top-left, so the verb is sent the card's corner (docs/chainsGraph.md).
-      const box = !placed && info && at ? spawnBox(at, pick.panel) : null;
-      const born = box ?? at ?? null;
-      // A bare-canvas pick is fully placed by `node new`'s own spawn pin, so there is no second
-      // command to queue: the wire half exists only for an arrow, and never for an io SOURCE.
-      pendingWire.current = placed || !info ? null : { at: info, spawn: born };
-      // The placeholder on the arrow, while the command runs — the node itself, at the box it will be pinned to.
-      pendingInsert.current = box && info ? { ...info, node, ...box } : null;
-      const ref = pick.namespace === null ? undefined : pick.ref;
-      const spawn = born ? ` ${Math.round(born.x)},${Math.round(born.y)}` : "";
-      void runCommandRef.current(
-        createForGraphCommand(pick.type, pick.name) +
-          node +
-          nodeNewRefArg(ref) +
-          spawn,
-      );
-    },
-    [modulePicker, prewriteCommand, offerSpawnAt],
-  );
-
   // What the caret is currently over, for the conditional bindings (keys.ts).
   const conditions = useMemo<ConditionCtx>(() => {
     const cond: ConditionCtx = {};
@@ -3639,88 +2661,20 @@ export default function App({
 
                 {/* centre: transport — play/pause, stop, the clock, then record, each dropping focus on click (docs/shell.md). */}
                 {(!noArrangement || hasTurntables) && !deskOnly && (
-                  <div className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 flex items-center gap-1">
-                    <Button
-                      size={toolSize}
-                      variant={playing ? "default" : "secondary"}
-                      // While the engine is loading a project it reads nothing: the spinner replaces the icon and the button goes dead.
-                      // …and in record mode with nothing armed it waits for an arm, though a rolling transport can always be stopped.
-                      disabled={
-                        transportWaiting || (!playing && recordWithoutArm)
-                      }
-                      onClick={(e) => {
-                        transport(playing ? "stop" : "play");
-                        blurOnClick(e);
-                      }}
-                      title={
-                        transportWaiting
-                          ? "Loading this project — the engine can't answer the transport yet"
-                          : !playing && recordWithoutArm
-                            ? NO_ARM_HINT
-                            : playing
-                              ? m["transport.pause"]()
-                              : m["transport.play"]()
-                      }
-                      aria-label={
-                        transportWaiting
-                          ? "loading the project"
-                          : playing
-                            ? m["transport.pause"]()
-                            : m["transport.play"]()
-                      }
-                      aria-busy={transportWaiting}
-                    >
-                      {transportWaiting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : playing ? (
-                        <Pause className="h-4 w-4" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button
-                      size={toolSize}
-                      variant="secondary"
-                      onClick={(e) => {
-                        transport("stop");
-                        // Zero on a set too: every record is on a platter, and the timeline holds only the click.
-                        transport("rewind");
-                        blurOnClick(e);
-                      }}
-                      title={m["transport.stop"]()}
-                    >
-                      <Square className="h-4 w-4" />
-                    </Button>
-                    {/* The clock and record are the ARRANGEMENT's half: a set has no bars to count and no lane to arm. */}
-                    {!noArrangement && (
-                      <>
-                        <TransportClock
-                          tempo={recInfo.tempo}
-                          beatsPerBar={recInfo.beatsPerBar}
-                        />
-                        <Button
-                          size={toolSize}
-                          variant={recordEnabled ? "default" : "secondary"}
-                          aria-pressed={recordEnabled}
-                          onClick={(e) => {
-                            // A MIDI-armed lane is recorded by THIS record too: the press is the gesture Web MIDI's request rides.
-                            if (!recordEnabled && midiArmed)
-                              void openMidiInputs().then((ok) => {
-                                if (!ok) setStatus(m["midi.unavailable"]());
-                              });
-                            engineRef.current?.setRecordEnabled(!recordEnabled);
-                            blurOnClick(e);
-                          }}
-                          title={m["transport.record"]()}
-                          aria-label={m["transport.record"]()}
-                        >
-                          <Circle
-                            className={`h-4 w-4 ${recordEnabled ? "fill-red-500 text-red-500" : ""}`}
-                          />
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                  <ShellTransport
+                    toolSize={toolSize}
+                    playing={playing}
+                    transportWaiting={transportWaiting}
+                    recordWithoutArm={recordWithoutArm}
+                    transport={transport}
+                    noArrangement={noArrangement}
+                    recInfo={recInfo}
+                    recordEnabled={recordEnabled}
+                    midiArmed={midiArmed}
+                    openMidiInputs={openMidiInputs}
+                    setStatus={setStatus}
+                    engineRef={engineRef}
+                  />
                 )}
               </div>
             </AppHeader>
@@ -3884,7 +2838,6 @@ export default function App({
                                     setBuilder({ path: next, pane: "module" });
                                     editorRef.current?.open(next);
                                   }}
-                                  // The module drawn as the card it will be in a chain — a slot, since the graph needs OUR glyphs and OUR command line.
                                   // Claude draws the panel on THIS app's backend, which holds the key — absent when it holds none.
                                   onAiOrganize={
                                     aiEnabled ? aiOrganize.run : undefined
@@ -4000,9 +2953,9 @@ export default function App({
                                   ? recInfo.countIn * recInfo.beatsPerBar
                                   : 0
                               }
-                              // …and the MIDI take, drawn on its lane the same way, whichever record started it.
                               // The open project's tasks, flagged in the ruler where they carry a timecode (docs/tasks.md).
                               tasks={projectTasks}
+                              // …and the MIDI take, drawn on its lane the same way, whichever record started it.
                               midiTake={
                                 liveTake
                                   ? { lane: liveTake.lane, from: liveTake.from }
@@ -4216,41 +3169,17 @@ export default function App({
                           onError={paneError}
                         >
                           <ChainsTab
-                            mark={historyMark}
-                            onPreviewNote={previewNote}
-                            cameras={cameras}
-                            midiDevices={midiDevices}
-                            reloadKey={reloadKey}
-                            organizeKey={organizeKey}
+                            {...graphHostProps}
+                            {...liveCardProps}
                             active={!chainsOffScreen}
                             // A SET's lanes are DECKS and wear the record the header wears; the choice is the project's — see chainsIcons.tsx.
                             icons={hasTurntables ? DECK_ICONS : STUDIO_ICONS}
                             // The sidebar is fullscreen chrome, and the graph is only ever on screen as a whole page.
                             showList
-                            trackOrder={trackOrder}
-                            videoSpans={videoLaneSpans}
-                            noteLanes={noteLanes}
-                            viewport={videoDoc?.viewport}
-                            project={projectDoc}
-                            command={quietCommand}
-                            onBypassModule={(mod) => void bypassModule(mod)}
-                            onModuleField={runCommand}
                             onOrganize={() => void runCommand("graph organize")}
-                            onRecorder={onRecorder}
-                            onProjectField={onProjectField}
-                            onAlternative={runAlternative}
-                            onEngine={runEngine}
-                            onPresets={openPresets}
-                            onPresetStep={stepPreset}
-                            presetNames={presetNames}
-                            engineWarnings={nodeWarnings}
-                            onAssetBrowse={browseAssets}
-                            onTapEdit={editTap}
-                            onWatchWaveform={watchWaveform}
                             onSetModuleAsset={(mod, kind, f) =>
                               void runCommand(`module ${kind} ${mod} ${f}`)
                             }
-                            onContextMenu={openContextMenu}
                             onEdgeInsert={frozen ? undefined : insertIntoChain}
                             onCanvasInsert={frozen ? undefined : placeInGraph}
                             // The patch cable's landing runs the verb outright, and all five are OPTIONAL props a snapshot simply passes none of.
@@ -4304,20 +3233,10 @@ export default function App({
                             showDocs={showDocs}
                             onDocCount={setDocCount}
                             onLaneNodes={setLaneNodes}
-                            pluginParamsStore={pluginParamsStore}
-                            requestPluginParams={requestPluginParams}
-                            watchPluginParams={watchPluginParams}
-                            setPluginParam={setPluginParam}
-                            moduleParams={offlineParams}
-                            trackControls={trackControls}
-                            onTrackToggle={onLaneToggle}
-                            onTrackSet={onTrackSet}
                             focus={graphFocus}
                             onFocused={reportFramed}
                             stack={stackView}
                             onStack={() => void runCommand("ui stack")}
-                            // The sockets a live input can be on — the same list the editor's strip uses.
-                            inputDevices={inputDevices}
                             // …and the song's output level, for the fader on the OUT card — the same param the header's fader writes.
                             masterVolume={projectDoc?.masterVolume}
                             midiRef={chainsMidiRef}
@@ -4442,43 +3361,20 @@ export default function App({
               >
                 {/* The panel's ✕ at its top left: a view's own toolbar takes it, else it floats (PanelClose.tsx). */}
                 <PanelCloseFrame onClose={closePanel}>
-                  {panel === "graph" && (
+                  {/* The caret's track, or the MIX: every strip on one rank. Keyed, so switching the two remounts it. */}
+                  {(panel === "graph" || panel === "mix") && (
                     <PaneBoundary
+                      key={panel}
                       name="graph panel"
                       resetKey={reloadKey}
                       onError={paneError}
                     >
                       <GraphPanel
-                        mark={historyMark}
-                        onPreviewNote={previewNote}
-                        cameras={cameras}
-                        inputDevices={inputDevices}
-                        midiDevices={midiDevices}
-                        reloadKey={reloadKey}
-                        organizeKey={organizeKey}
-                        trackId={caret?.trackId ?? null}
-                        trackOrder={trackOrder}
-                        videoSpans={videoLaneSpans}
-                        noteLanes={noteLanes}
-                        viewport={videoDoc?.viewport}
-                        project={projectDoc}
-                        command={quietCommand}
-                        onBypassModule={(mod) => void bypassModule(mod)}
-                        onModuleField={runCommand}
-                        onRecorder={onRecorder}
-                        onProjectField={onProjectField}
-                        onAlternative={runAlternative}
-                        onAssetBrowse={browseAssets}
-                        onTapEdit={editTap}
-                        onWatchWaveform={watchWaveform}
-                        engineWarnings={nodeWarnings}
-                        onContextMenu={openContextMenu}
-                        pluginParamsStore={pluginParamsStore}
-                        setPluginParam={setPluginParam}
-                        moduleParams={offlineParams}
-                        trackControls={trackControls}
-                        onTrackToggle={onLaneToggle}
-                        onTrackSet={onTrackSet}
+                        {...graphHostProps}
+                        trackId={
+                          panel === "graph" ? (caret?.trackId ?? null) : null
+                        }
+                        strips={panel === "mix" ? mixerStrips : undefined}
                       />
                     </PaneBoundary>
                   )}
@@ -4591,39 +3487,11 @@ export default function App({
                           onError={paneError}
                         >
                           <TrackModulesPane
-                            mark={historyMark}
-                            project={projectDoc}
-                            onPreviewNote={previewNote}
-                            cameras={cameras}
-                            inputDevices={inputDevices}
-                            midiDevices={midiDevices}
+                            {...liveCardProps}
                             trackId={graphSlot.trackId}
-                            reloadKey={reloadKey}
-                            command={quietCommand}
-                            onModuleField={runCommand}
-                            onRecorder={onRecorder}
-                            onProjectField={onProjectField}
-                            trackOrder={trackOrder}
-                            pluginParamsStore={pluginParamsStore}
-                            requestPluginParams={requestPluginParams}
-                            watchPluginParams={watchPluginParams}
-                            setPluginParam={setPluginParam}
-                            moduleParams={offlineParams}
-                            trackControls={trackControls}
-                            onContextMenu={openContextMenu}
-                            onBypassModule={(mod) => void bypassModule(mod)}
-                            onAlternative={runAlternative}
-                            onEngine={runEngine}
-                            onPresets={openPresets}
-                            onPresetStep={stepPreset}
-                            presetNames={presetNames}
-                            onAssetBrowse={browseAssets}
-                            onTapEdit={editTap}
-                            onWatchWaveform={watchWaveform}
                             onTrackToggle={onLaneToggle}
                             onTrackSet={onTrackSet}
                             onEdgeInsert={frozen ? undefined : insertIntoChain}
-                            engineWarnings={nodeWarnings}
                             showCurves={trackCurves}
                             onToggleCurves={() => void runCommand("ui curves")}
                             onTrackInput={(kind) =>
@@ -4702,47 +3570,6 @@ export default function App({
                       )}
                     </div>
                   )}
-                  {panel === "mix" && (
-                    <PaneBoundary
-                      name="graph panel"
-                      resetKey={reloadKey}
-                      onError={paneError}
-                    >
-                      <GraphPanel
-                        mark={historyMark}
-                        onPreviewNote={previewNote}
-                        cameras={cameras}
-                        inputDevices={inputDevices}
-                        midiDevices={midiDevices}
-                        reloadKey={reloadKey}
-                        organizeKey={organizeKey}
-                        trackId={null}
-                        strips={mixerStrips}
-                        trackOrder={trackOrder}
-                        videoSpans={videoLaneSpans}
-                        noteLanes={noteLanes}
-                        viewport={videoDoc?.viewport}
-                        project={projectDoc}
-                        command={quietCommand}
-                        onBypassModule={(mod) => void bypassModule(mod)}
-                        onModuleField={runCommand}
-                        onRecorder={onRecorder}
-                        onProjectField={onProjectField}
-                        onAlternative={runAlternative}
-                        onAssetBrowse={browseAssets}
-                        onTapEdit={editTap}
-                        onWatchWaveform={watchWaveform}
-                        engineWarnings={nodeWarnings}
-                        onContextMenu={openContextMenu}
-                        pluginParamsStore={pluginParamsStore}
-                        setPluginParam={setPluginParam}
-                        moduleParams={offlineParams}
-                        trackControls={trackControls}
-                        onTrackToggle={onLaneToggle}
-                        onTrackSet={onTrackSet}
-                      />
-                    </PaneBoundary>
-                  )}
                   {panel === "logs" && (
                     <PaneBoundary
                       name="logs"
@@ -4771,173 +3598,33 @@ export default function App({
               />
             )}
 
-            <footer
-              className={cn(
-                // The header's tint, so the panel tabs read as tabs against it (components/FooterTab.tsx).
-                "flex items-center border-t border-primary/20 bg-primary/20 text-muted-foreground",
-                isMobile
-                  ? "gap-2 px-2 py-0.5 text-[10px]"
-                  : "gap-3 px-4 py-1 text-xs",
-              )}
-            >
-              {/* left: the frediverse logo, then the status text */}
-              <div className="flex min-w-0 items-center gap-2.5">
-                <FrediverseMark size="sm" className="shrink-0 opacity-60" />
-                {/* The MODE and the tool, PERSISTENT unlike the line beside it: a state nobody can see is one you leave by surprise (docs/timeline.md). */}
-                {/* The waveform's comes FIRST when one is open, the clip pane being the surface in front. */}
-                {rollMode && shownSlot?.kind === "clip" ? (
-                  rollMode !== "select" && (
-                    <Badge
-                      variant="rec"
-                      className="shrink-0"
-                      title={`piano roll: ${rollMode} — esc or a backs out`}
-                    >
-                      {rollMode}
-                    </Badge>
-                  )
-                ) : waveView && shownSlot?.kind === "clip" ? (
-                  waveView !== "standard" && (
-                    <Badge
-                      variant="rec"
-                      className="shrink-0"
-                      title={`waveform: ${waveView} — esc or a backs out`}
-                    >
-                      {waveView}
-                    </Badge>
-                  )
-                ) : ringPanes.includes("timeline") &&
-                  (tlView.mode !== "normal" || tlView.tool !== "pointer") ? (
-                  <Badge
-                    variant={tlView.tool !== "pointer" ? "rec" : "default"}
-                    className="shrink-0"
-                    title={`timeline: ${tlView.mode}${tlView.tool !== "pointer" ? ` · ${tlView.tool}` : ""} — esc backs out`}
-                  >
-                    {tlView.tool !== "pointer" ? tlView.tool : tlView.mode}
-                  </Badge>
-                ) : null}
-                <StatusText store={statusStore} fallback={project?.root} />
-                {/* The play button spins for this too; the line stays because it NAMES what is awaited, which a spinner cannot. */}
-                {copyingToEngine && engineSync ? (
-                  <EngineSyncProgress sync={engineSync} />
-                ) : waitingForEngine ? (
-                  <span
-                    className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-amber-500"
-                    title={m["status.engineStarting"]()}
-                  >
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    waiting for engine…
-                  </span>
-                ) : warm.warming ? (
-                  <span
-                    className="flex shrink-0 items-center gap-1.5 whitespace-nowrap"
-                    title={m["status.decodingWaveforms"]()}
-                  >
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    caching waveforms
-                    {warm.total ? ` ${warm.done}/${warm.total}` : ""}…
-                  </span>
-                ) : null}
-                {projectErrors > 0 && (
-                  <Badge
-                    variant="rec"
-                    className="shrink-0"
-                    title={`${projectErrors} error${projectErrors === 1 ? "" : "s"} in this project — the timeline and chains won't load until they're fixed`}
-                  >
-                    {projectErrors} error{projectErrors === 1 ? "" : "s"}
-                  </Badge>
-                )}
-              </div>
-
-              {/* right: the tempo and signature, the metronome, a separator, then the bottom-panel choices, a separator, then the side panels' buttons */}
-              <div className="ml-auto flex shrink-0 items-center gap-2">
-                {/* Next to the metronome because it is what the metronome clicks — the doc's tempo, not the engine's. */}
-                <span
-                  className="whitespace-nowrap font-mono tabular-nums"
-                  title={m["transport.tempoSig"]()}
-                >
-                  {recInfo.tempo} bpm
-                  <span className="mx-1 text-border">·</span>
-                  {recInfo.beatsPerBar}/{recInfo.beatUnit}
-                </span>
-                {/* Left click toggles the click, right click opens its level; both are project settings, so both are command lines. */}
-                <MetronomeButton
-                  on={optMetronome ?? metronomeOn}
-                  level={metronomeLevel}
-                  onToggle={() => {
-                    setOptMetronome((cur) => !(cur ?? metronomeOn));
-                    void runCommand("transport metronome");
-                  }}
-                  onLevel={(v) =>
-                    void runCommand(`transport metronome volume ${v}`)
-                  }
-                />
-                <span
-                  className="h-4 w-px shrink-0 bg-border"
-                  aria-hidden="true"
-                />
-                {/* The notes, off by default: they are IN the graph and you say when, and the button is dead on a project with none. */}
-                <Button
-                  size="icon-xs"
-                  variant={showDocs ? "default" : "ghost"}
-                  disabled={docCount === 0}
-                  onClick={() => void runCommand("ui notes")}
-                  title={
-                    docCount === 0
-                      ? "No notes in this project: a note is a node of @meta/doc, wired from what it is about"
-                      : showDocs
-                        ? `Hide the ${docCount} note(s) on the graph`
-                        : `Show the ${docCount} note(s) on the graph`
-                  }
-                  aria-label="Toggle docs"
-                  aria-pressed={showDocs}
-                >
-                  <StickyNote className="h-3.5 w-3.5" />
-                </Button>
-                <FooterTabs dense={isMobile}>
-                  {/* The mix panel, apart from the loop below because it is dead when the song has no strip (docs/shell.md). */}
-                  <FooterTab
-                    active={panel === "mix"}
-                    disabled={mixerStrips.length === 0}
-                    onClick={() => void runCommand("ui mixer")}
-                    title={
-                      mixerStrips.length === 0
-                        ? "No strip in this song: a strip is a Mixer module at the end of a track"
-                        : mixerStrips.length === 1
-                          ? "Mix panel — one strip, nothing to line up"
-                          : `Mix panel — this song's ${mixerStrips.length} strips lined up`
-                    }
-                    aria-label="Mix panel"
-                  >
-                    <PANEL_META.mix.icon className="h-3.5 w-3.5" />
-                  </FooterTab>
-                  {(Object.keys(PANEL_META) as Panel[]).map((p) => {
-                    if (p === "mix") return null;
-                    const Icon = PANEL_META[p].icon;
-                    return (
-                      <FooterTab
-                        key={p}
-                        active={panel === p}
-                        onClick={() => void runCommand(`ui panel ${p}`)}
-                        title={`${PANEL_META[p].label} panel`}
-                        aria-label={`${PANEL_META[p].label} panel`}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                      </FooterTab>
-                    );
-                  })}
-                </FooterTabs>
-                {/* The SIDE panels' buttons, at the corner nearest the column they open — a phone keeps them in its menu (docs/shell.md). */}
-                {!isMobile && (
-                  <>
-                    <span
-                      className="h-4 w-px shrink-0 bg-border"
-                      aria-hidden="true"
-                    />
-                    <FooterTabs>{headerTools}</FooterTabs>
-                  </>
-                )}
-              </div>
-            </footer>
+            {/* The status line on the left, the tempo, the metronome and the panels' buttons on the right (shell/ShellFooter.tsx). */}
+            <ShellFooter
+              isMobile={isMobile}
+              rollMode={rollMode}
+              waveView={waveView}
+              shownSlot={shownSlot}
+              ringPanes={ringPanes}
+              tlView={tlView}
+              statusStore={statusStore}
+              statusFallback={project?.root}
+              copyingToEngine={copyingToEngine}
+              engineSync={engineSync}
+              waitingForEngine={waitingForEngine}
+              warm={warm}
+              projectErrors={projectErrors}
+              recInfo={recInfo}
+              optMetronome={optMetronome}
+              setOptMetronome={setOptMetronome}
+              metronomeOn={metronomeOn}
+              metronomeLevel={metronomeLevel}
+              runCommand={runCommand}
+              showDocs={showDocs}
+              docCount={docCount}
+              panel={panel}
+              mixerStrips={mixerStrips}
+              headerTools={headerTools}
+            />
 
             {/* The bottom of the window: the minimap, then the docked command bar, both desktop-only (docs/commandBar.md). */}
             {docked && (
@@ -5054,272 +3741,50 @@ export default function App({
               </div>
             )}
 
-            {/* right-click context menu — opened by the timeline and the chains graph */}
-            {menu && (
-              <ContextMenu
-                items={menu.items}
-                // The icons and names this person chose, from `ui settings commands`.
-                prefs={commandPrefs}
-                x={menu.x}
-                y={menu.y}
-                onPick={pickMenuItem}
-                // What the row under the pointer does, into the status line — stable, because the menu also calls it from an unmount cleanup.
-                onHint={setMenuHint}
-                onClose={() => setMenu(null)}
-              />
-            )}
-
-            {/* "which file?" — a module widget's library browser, the same popup as the `+`: both are a nested catalogue. */}
-            {presetPicker}
-            {tapChain && (
-              <TapChainEditor
-                node={tapChain.node}
-                tap={tapChain.tap}
-                reloadKey={reloadKey}
-                command={runCommand}
-                onAddModule={(x, y) =>
-                  setModulePicker({
-                    info: null,
-                    x,
-                    y,
-                    nameFor: (n) => n,
-                    onRef: (ref) =>
-                      void runCommand(
-                        `node tap chain add ${JSON.stringify(tapChain.node)} ${JSON.stringify(tapChain.tap)} ${ref}`,
-                      ),
-                  })
-                }
-                renderCards={(nodes) => (
-                  <TrackModulesPane
-                    mark={historyMark}
-                    project={projectDoc}
-                    onPreviewNote={previewNote}
-                    cameras={cameras}
-                    inputDevices={inputDevices}
-                    midiDevices={midiDevices}
-                    trackId=""
-                    nodes={nodes}
-                    // The chain's start, as a node that says so and does nothing: the sound arrives from there.
-                    lead={TAP_CHAIN_INPUT}
-                    reloadKey={reloadKey}
-                    command={quietCommand}
-                    onModuleField={runCommand}
-                    onRecorder={onRecorder}
-                    onProjectField={onProjectField}
-                    trackOrder={trackOrder}
-                    pluginParamsStore={pluginParamsStore}
-                    requestPluginParams={requestPluginParams}
-                    watchPluginParams={watchPluginParams}
-                    setPluginParam={setPluginParam}
-                    moduleParams={offlineParams}
-                    trackControls={trackControls}
-                    onContextMenu={openContextMenu}
-                    onBypassModule={(mod) => void bypassModule(mod)}
-                    onAlternative={runAlternative}
-                    onEngine={runEngine}
-                    onPresets={openPresets}
-                    onPresetStep={stepPreset}
-                    presetNames={presetNames}
-                    onAssetBrowse={browseAssets}
-                    onTapEdit={editTap}
-                    onWatchWaveform={watchWaveform}
-                    engineWarnings={nodeWarnings}
-                  />
-                )}
-                onClose={() => setTapChain(null)}
-              />
-            )}
-            {curveEdit && (
-              <CurveEditor
-                name={curveEdit.name}
-                isNew={curveEdit.isNew}
-                spec={curveEdit.spec}
-                num={projectDoc?.timeSigNumerator ?? 4}
-                den={projectDoc?.timeSigDenominator ?? 4}
-                events={curveEdit.events}
-                kind={curveEdit.kind}
-                // An update writes the curve and nothing else; a new one is created, THEN bound — in that order.
-                onSave={async (name, fields) => {
-                  const written = { ok: false };
-                  await runCommand(
-                    `curve set ${name} ${JSON.stringify(fields)}`,
-                    written,
-                  );
-                  const bind = curveEdit.bind;
-                  // Bound only once the curve EXISTS: a binding to a curve that was refused is dropped by the compile.
-                  if (bind && written.ok)
-                    await runCommand(
-                      `node automate ${bind.node} ${bind.param} ${name}`,
-                    );
-                }}
-                onClose={() => setCurveEdit(null)}
-              />
-            )}
-            {assetPicker && (
-              <AssetPicker
-                x={assetPicker.x}
-                y={assetPicker.y}
-                param={assetPicker.param}
-                files={assetPicker.files}
-                family={assetPicker.family}
-                onPick={(file) => {
-                  const { module, param, commit } = assetPicker;
-                  setAssetPicker(null);
-                  if (commit) return void runCommand(commit(file));
-                  // A file-valued param is a param — `node param <node> model <file>`, all three QUOTED, with `none` left bare (docs/moduleBuilder.md).
-                  void runCommand(
-                    file
-                      ? `node param "${module}" "${param}" "${file}"`
-                      : `node param "${module}" "${param}" none`,
-                  );
-                }}
-                onClose={() => setAssetPicker(null)}
-              />
-            )}
-
-            {/* "which module?" — opened by the `+` on a graph arrow, before any command */}
-            {modulePicker && (
-              <ModulePicker
-                x={modulePicker.x}
-                y={modulePicker.y}
-                baseModules={baseModules}
-                onPick={onModulePick}
-                onClose={() => setModulePicker(null)}
-              />
-            )}
-
-            {/* The documentation at #help — a PAGE, not a popin, so the reference reads as one ctrl-F-able document. */}
-            {showHelp && (
-              <div className="fixed inset-0 z-50 bg-background">
-                <HelpPage onBack={closeHelp} prefs={commandPrefs} />
-              </div>
-            )}
-
-            {/* The SCREEN surfaces were mounted here; they are panes in the column above now — packages/song/docs/surfaces.md. */}
-
-            {/* The project's files did not all reach the engine's machine: fatal until reloaded (engineSync.md). */}
-            <EngineSyncFailedDialog
-              sync={
-                !frozen && engineSync && !syncRunning(engineSync)
-                  ? engineSync
-                  : null
-              }
-              onReload={async () => {
-                await api.retryEngineSync();
-              }}
-            />
-
-            {/* "import this .dawproject?" — clicking one in the tree lands here */}
-            <ImportDialog
-              path={imp.importPath}
-              busy={imp.importing}
-              error={imp.importError}
-              log={imp.importLog}
-              onConfirm={() => void imp.confirmImport()}
-              onOpen={() => void imp.openImported()}
-              onCancel={imp.cancelImport}
-            />
-
-            {/* COMMANDS is the one settings screen still drawn as a page: a catalogue does not fit a 24rem column (docs/shell.md). */}
-            {commandsPage && (
-              <div className="absolute inset-0 z-40 bg-background">
-                <CommandsSettings
-                  // The whole catalogue, both halves: a page that arranged only one would order a menu it does not draw.
-                  commands={allCommands}
-                  prefs={commandPrefs}
-                  onSave={saveCommandPrefs}
-                  onBack={() => setCommandsPage(false)}
-                />
-              </div>
-            )}
-
-            {/* The shared module builder over the whole shell; it holds no engine link, so no factory banks and no live params (docs/moduleBuilder.md). */}
-            {assemblyBuilder && (
-              <div className="absolute inset-0 z-30 bg-background">
-                <Suspense fallback={null}>
-                  <PaneBoundary
-                    name="assembly builder"
-                    resetKey={reloadKey}
-                    onError={paneError}
-                  >
-                    <AssemblyBuilder
-                      store={moduleStore}
-                      path={assemblyBuilder.file}
-                      graph={assemblyGraph}
-                      vimMode={vimMode}
-                      // A template lives in the library, so it opens the way a shared module does: locked.
-                      readOnly={
-                        isLibraryPath(assemblyBuilder.file) && !assemblyUnlocked
-                      }
-                      onRequestEdit={
-                        isLibraryPath(assemblyBuilder.file) && !assemblyUnlocked
-                          ? () => setAssemblyUnlocked(true)
-                          : undefined
-                      }
-                      onClose={() => {
-                        setAssemblyBuilder(null);
-                        setAssemblyUnlocked(false);
-                        bumpReload();
-                      }}
-                    />
-                  </PaneBoundary>
-                </Suspense>
-              </div>
-            )}
-
-            {/* Confirm before undoing a process step — it restores a bounced audio file. */}
-            <Dialog
-              open={!!undoConfirm}
-              onOpenChange={(o) => {
-                if (!o && undoConfirm) {
-                  undoConfirm.resolve(false);
-                  setUndoConfirm(null);
-                }
-              }}
-            >
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>{m["undo.processTitle"]()}</DialogTitle>
-                  <DialogDescription>
-                    {undoConfirm
-                      ? m["undo.processBody"]({
-                          files:
-                            undoConfirm.files.join(", ") || undoConfirm.label,
-                        })
-                      : ""}
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      undoConfirm?.resolve(false);
-                      setUndoConfirm(null);
-                    }}
-                  >
-                    {m["common.cancel"]()}
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      undoConfirm?.resolve(true);
-                      setUndoConfirm(null);
-                    }}
-                  >
-                    {m["common.confirm"]()}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            {/* Global toast notifications — positioned bottom-right, above everything */}
-            <Toaster />
-            {/* A LAN device asking to pair, answered here when this page runs on the engine's machine — docs/pairing.md. */}
-            <PairRequestsPrompt
-              engine={engineRef.current}
+            {/* Every popin, dialog and menu over the shell (shell/ShellOverlays.tsx). */}
+            <ShellOverlays
+              menu={menu}
+              setMenu={setMenu}
+              commandPrefs={commandPrefs}
+              pickMenuItem={pickMenuItem}
+              setMenuHint={setMenuHint}
+              presetPicker={presetPicker}
+              tapChain={tapChain}
+              setTapChain={setTapChain}
+              liveCardProps={liveCardProps}
+              reloadKey={reloadKey}
+              runCommand={runCommand}
+              modulePicker={modulePicker}
+              setModulePicker={setModulePicker}
+              baseModules={baseModules}
+              onModulePick={onModulePick}
+              curveEdit={curveEdit}
+              setCurveEdit={setCurveEdit}
+              projectDoc={projectDoc}
+              assetPicker={assetPicker}
+              setAssetPicker={setAssetPicker}
+              showHelp={showHelp}
+              closeHelp={closeHelp}
+              frozen={frozen}
+              engineSync={engineSync}
+              imp={imp}
+              commandsPage={commandsPage}
+              setCommandsPage={setCommandsPage}
+              allCommands={allCommands}
+              saveCommandPrefs={saveCommandPrefs}
+              assemblyBuilder={assemblyBuilder}
+              setAssemblyBuilder={setAssemblyBuilder}
+              assemblyGraph={assemblyGraph}
+              assemblyUnlocked={assemblyUnlocked}
+              setAssemblyUnlocked={setAssemblyUnlocked}
+              vimMode={vimMode}
+              paneError={paneError}
+              bumpReload={bumpReload}
+              undoConfirm={undoConfirm}
+              setUndoConfirm={setUndoConfirm}
+              engineRef={engineRef}
               connected={connected}
             />
-            {/* The app's own confirm/prompt, in place of the OS box that ignored the Escape ladder. */}
-            <AskHost />
           </div>
         </LcdSoundsContext.Provider>
       </SongClockProvider>
