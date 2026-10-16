@@ -11,6 +11,9 @@ export interface VideoEdit {
   value: number;
 }
 
+/** Below this a gesture is a click, not a drag — the same 4px the ruler's gestures use. */
+export const DRAG_SLOP = 4;
+
 // The shortest shot a drag may leave, in seconds: `length: 0` already MEANS 'to the end of the source'.
 const V_MIN = 0.04;
 // Seconds drawn for a `length: 0` placement, whose real extent needs the source opened to know.
