@@ -100,8 +100,7 @@ async function main() {
     await peakDb(bin, (await renderProject({ ...base, tracks })).files[0]);
 
   // --- 1. how many destinations a source may have and still be heard only through them ---
-  // ONE send from a muted track is not an aux send at all: `feedsBusOnly` ROUTES the output to the
-  // destination instead. So this measures the routing path, and the two below measure the send path.
+  // ONE send from a muted track is ROUTED (`feedsBusOnly`), not sent: this measures routing, the two below sends.
   const oneRouted = await render([source("t1", 45, "busM"), bus("busM")]);
   const twoMuted = await render([
     { ...source("t1", 45, "busM", "busC"), mute: true },
