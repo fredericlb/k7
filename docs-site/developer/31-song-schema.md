@@ -86,8 +86,8 @@ a schema makes the editor offer it; there is no second list to keep in step. The
 `packages/song-schema/src/timecode.ts`: `parsePosition` (1-based) and `parseDuration` (0-based) turn
 `bar:beat:half:quarter.ticks` into quarter-note beats for a given metre; `beatsToPosition` and
 `beatsToDuration` go back, rounding once in ticks (`TICKS_PER_QUARTER = 960`) and dropping trailing
-fields at their origin. Chains longer than four fields fall back to a legacy rule (each level a
-quarter of the previous) that only `parseLegacyPosition`/`parseLegacyDuration` force.
+fields at their origin. Chains longer than four fields fall back to the deep rule (each level a
+quarter of the previous).
 
 ## Tests
 
