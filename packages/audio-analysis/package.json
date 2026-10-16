@@ -23,7 +23,8 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@studio/audio-probe": "*"
+    "@studio/audio-probe": "*",
+    "@studio/ffmpeg": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
