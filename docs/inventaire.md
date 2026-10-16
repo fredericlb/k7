@@ -12,8 +12,9 @@ into configuration. What it does not see: the C++ (`biome.json` excludes it too)
 describes — knip believes what it is told. Its `ignoreWorkspaces` holds only `commons/`, because the
 submodule carries its own docs and its own truth.
 
-Current output: **0 files, 2 unused dependencies, 4 undeclared dependencies, 1 undeclared binary,
-187 exports, 31 types and 1 duplicate export** — 226 findings. On a checkout where the paraglide
+Current output: **0 files, 0 dependencies, 0 binaries, 1 export, 0 types and 0 duplicate
+exports** — 1 finding: `SYNC_WAIT_ENGLISH` (`packages/project-shell/src/syncWait.tsx`), left exported
+because `project-shell` is one of the four packages z0 consumes by version. On a checkout where the paraglide
 catalogues have not been compiled, it also lists every `paraglide/messages.js` import as unresolved:
 those files are generated, not missing.
 
@@ -74,9 +75,9 @@ without anyone seeing it.
 
 | what | how it lives |
 |---|---|
-| `packages/song/src/dspRunner.mjs` | launched as a **child process** by `nodeProject.ts`. It does `import { graph } from "@studio/dsp"`, and the `song → dsp` dependency exists precisely so that import resolves: a song folder has no `node_modules`. |
+| `packages/song/src/dspRunner.mjs` | launched as a **child process** by `compile/plugins.ts`. It does `import { graph } from "@studio/dsp"`, and the `song → dsp` dependency exists precisely so that import resolves: a song folder has no `node_modules`. |
 | a library module's `jsdsp.ts` | MODULE DSPs, in a library folder rather than this tree. The compiler finds them by filename (`JSDSP_FILE = "jsdsp.ts"`), never by import, so no import sweep sees them; `knip.json` declares `k7-core/modules/**/jsdsp.ts` an entry. |
-| `songs/**/jsdsp.ts` | same mechanism: a demo song's DSP is data loaded at runtime. |
+| `demos/**/jsdsp.ts` | same mechanism: a demo module's DSP is data loaded at runtime. |
 | `packages/file-service/src/server.ts` | **spawned** by `packages/file-hub/instances.ts` through `tsx`, one process per account. Zero imports is not zero callers. |
 | `packages/ui-chains-react/src/DomChains.stories.tsx` | picked up by `.storybook/main.ts`'s glob. |
 | `packages/dsp/src/emit.ts` | the package's `build` script (`tsx src/emit.ts`). A pass looking only at `bin` and esbuild entries declares it dead; **a `package.json` `scripts` entry is a caller.** |
@@ -105,13 +106,19 @@ The parent repo's `git ls-files` does not list it. `OIDC_ISSUER`, `GRIST_API_KEY
 
 ## 1. Published surface with no external consumer
 
-**31 subpaths out of 232** have no importer outside their own package. That is a finding about the
-`exports` map, not about the code: nearly all 31 are **alive inside** their package, reached by
-relative import.
+**6 subpaths out of 376** have no importer outside their own package. That is a finding about the
+`exports` map, not about the code: all 6 are **alive inside** their package, reached by relative
+import.
 
-Shrinking the map therefore deletes almost nothing: it documents the real surface. The widest
-publisher is `song` (5), then three tied at 3 — `engine-browser`, `ui-editor`, `ui-eyes`. The "publish all of `src/`"
-reflex.
+| package | subpath |
+|---|---|
+| `engine-registry` | `/advertise`, `/proxy` |
+| `engine-tunnel` | `/rtc` |
+| `song` | `/uiMigrate` |
+| `ui-editor` | `/faust/language` |
+| `project-shell` | `/files` — published, so z0 may be its importer |
+
+Shrinking the map deletes nothing: it documents the real surface.
 
 The desk (`packages/k7-plugins/src/turntables`) publishes **1** subpath, `/turntables/engine`. Its
 other plumbing stays reachable by relative import inside the package.
@@ -120,29 +127,24 @@ other plumbing stays reachable by relative import inside the package.
 
 | what | where | note |
 |---|---|---|
-| `index.ts` | `packages/ui-eyes/src/` | the convenience barrel. Its own header says "the subpaths are the real API", which is exactly what callers do. `export.ts` does not depend on it: `exportScene` is reached through its own `/export` subpath (k7's `useShare.ts`, by dynamic import) and through `renderPage.ts`, the page `file-service`'s `pictureRender.ts` drives. |
 | `probeLocalEngine` | `packages/engine-browser/src/probe.ts` | the registry does this work. Deleting a loopback probe nothing replays is to be decided, not left to rot. |
 | type `Signal` | `packages/dsp/src/index.ts` | `@deprecated`, not one reference left in the whole repo. |
-| export `AuthUser` | `packages/ui-library/src/api.ts` | used in its own file, imported by nobody: it is the `export` that is surplus. |
 
 ### SYMBOLS, not files
 
 The file lives, the function does not: nobody pronounces that name anywhere, not even the file
-declaring it. From pass 4; the three already described elsewhere on this page
-(`probeLocalEngine`, `ChainsPanel`) are not repeated.
+declaring it. From pass 4, over `apps/`, `packages/` and `engine/`; `probeLocalEngine`, above, is
+not repeated. Pass 4 finds nothing else but the named stories of the `*.stories.tsx` files, which
+Storybook reads by export rather than by name.
 
 | symbol | where | note |
 |---|---|---|
-| `FrameClock` | `packages/ui-eyes/src/clock.ts` | a clock advanced frame by frame; the exporter keeps its own time and does not use it. |
-| `isDocRef` | `packages/song-schema/src/moduleTypes.ts` | a type guard nothing interrogates. |
-| `listAll` | `packages/mediatek/src/catalogue.ts` | |
-| `PATH_SEP` | `packages/mpv-player/src/player.ts` | |
-| `knownPrefs` | `packages/ui-library/src/prefs.ts` | |
+| types `LcdDraw`, `LcdPointer`, `PanelVisible` | `packages/ui-chains/src/lcdScreen.ts` | the contract a module's `widgets.js` is written against (`../packages/ui-chains-react/docs/lcdScreen.md`), kept for its reader: a `widgets.js` is plain JavaScript, so no file in the tree names them. |
 
-**A further 232 symbols are pronounced only by their own test.** That is not dead code — it is the
+**A further ~480 symbols are pronounced only by their own test.** That is not dead code — it is the
 choice, taken everywhere here, of testing a constant or a computation step rather than the single
 public function wrapping them. Counted so the figure does not surprise the next pass:
-`k7-plugins/src/turntables/deck.ts` (10), `ui-chains/cableCanvas.ts` (9), `ui-chains/graph.ts` (9).
+`ui-chains/src/cableCanvas.ts` (13), `song-schema/src/trackKind.ts` (7), `dsp/src/sweep.ts` (6).
 
 **Tooling with no entry point** — programs, not dead code, but nothing wires them:
 
@@ -157,10 +159,11 @@ public function wrapping them. Counted so the figure does not surprise the next 
 ### Asking a plugin what it has
 
 The full chain is alive: `App.tsx` (`onScanParams={api.scanPluginParams}`) → `api.ts`
-(`GET /plugin-params`) → `file-service/src/server.ts` → `awaitPluginParams` → `listPluginParams` →
+(`GET /plugin-params`) → `file-service/src/routes/accountRoutes.ts` → `awaitPluginParams`
+(`enginePluginQueries.ts`) → `listPluginParams` →
 `list-plugin-params` → `pluginParamsOf` (`engine/k7-runtime/engine/ParamDump.cpp`). What has no caller is
-the **browser half** only: `listPluginParams` (`engine-browser/src/engine.ts`) and
-`onPluginParamList`.
+the **browser half** only: `listPluginParams` (`engine-browser/src/engineQueries.ts`) and
+`onPluginParamList` (`engine-browser/src/engineEvents.ts`).
 
 Two reasons to keep the whole. It is the **only** way to learn an installed plugin's parameters — a
 plugin registers them in its constructor, and the scan cache carries none. And three real failures
@@ -179,7 +182,7 @@ offering the list of a VST's parameters to bind.
 
 ## 4. Duplication
 
-### A MIDI note's name, six times, in four spellings
+### A MIDI note's name, five times, in four spellings
 
 The same chromatic table and the same arithmetic (`((k%12)+12)%12`, `Math.floor(k/12)-1`):
 
@@ -188,7 +191,6 @@ The same chromatic table and the same arithmetic (`((k%12)+12)%12`, `Math.floor(
 | `packages/ui-editor/src/tracker/RollGrid.ts` | `NOTE_NAMES` |
 | `packages/ui-editor/src/tracker/TrackerGrid.ts` | `NAMES2` (two characters: `C-`) |
 | `apps/k7/frontend/src/noteNames.ts` | `NAMES`, behind `noteName` |
-| `apps/k7/frontend/src/components/IoPanel.tsx` | `NOTE_NAMES` |
 | `packages/ui-rehearsal/src/utils/pitch.ts` | `NOTE_NAMES` |
 | `packages/lyrics/src/chords.ts` | `SHARP` |
 
@@ -208,9 +210,6 @@ Written here so it stops being mistaken for laziness.
 |---|---|
 | The `-100 dBFS` floor: `PEAK_FLOOR_DB` (`audio-analysis/src/peak.ts`), `MIN_DB` (`audio-probe/src/trimGate.ts`), and three times in `@studio/dsp` | `trimGate` is **browser-safe** — k7's clip panel imports it — and `peak.ts` spawns a decoder. Sharing the constant would bring a process launcher into the browser to save one number. The generated JSON cannot import at all |
 
-The rehearsal recorder has one detector, in the browser (`packages/recorder/src/detect.ts`). It is
-tested nowhere — which is what the copy above has when it defends itself.
-
 ### Cosmetic, but real
 
 - **The `piano-16` glyph**, SVG body identical byte for byte:
@@ -218,7 +217,7 @@ tested nowhere — which is what the copy above has when it defends itself.
   (The rest of the glyph-table duplication is argued and accepted — see `moduleIcons.tsx`.)
 - **The full-screen spinner**, three copies of the same block here:
   `apps/k7/frontend/src/components/{AuthGate,EngineGate}.tsx` and
-  `packages/project-shell/src/ProjectGate.tsx`. Left as is: short presentation blocks, no risk of silent drift — but
+  `packages/project-shell/src/GateScreens.tsx`. Left as is: short presentation blocks, no risk of silent drift — but
   one grows per gate, which makes this count a thing to re-check.
 
 ### Left on purpose
@@ -229,19 +228,20 @@ identical lines whose only natural home would be `packages/web-protocol/quality.
 the UI's language into a protocol package. Two lines are not worth that property. Same reasoning for
 `signedInAs` / `currentUser()`.
 
-`AuthUser` is declared five times, and only k7's carries `email?: string | null` and
-`groups?: string[]`.
+`AuthUser` is declared twice: `@frediverse/http`'s, which k7's backend widens with `groups`
+(`apps/k7/backend/src/types/express.d.ts`), and k7's frontend's own in `api.ts`, the only one
+carrying `email?: string | null`.
 
 ## 5. Config
 
 | finding | where |
 |---|---|
-| With no test file at all: `graph-model` and `ui-eyes`. | — |
-| Read in code and absent from **every** `.md`, in addition to the fourteen below: `STUDIO_BACKEND_URL`, `STUDIO_ENGINE_PORT`, `STUDIO_FILE_PORT`. | `apps/k7/frontend/vite.config.ts`, `packages/file-service/src/server.ts` |
-| Imported without being declared, outside the audio axis: `ui-chains-react`, `ui-rehearsal` and `score` (`@storybook/react-vite`). | — |
-| `yaml` in `k7-frontend` is not only test: `rackBuilder.ts` and `sliceSymbols.ts` import it in production. | `apps/k7/frontend` |
-| `packages/web-protocol` has no `dependencies` block, and that is RIGHT — `types.ts` imports only a `type` from its own `projects.ts`. That absence of a runtime dependency is what lets `engine-client` take it to read `ENGINE_OUTBOX_MAX` without weighing down the supervisor's bundle. | `packages/web-protocol` |
-| Read in code, absent from `env.example.yaml`: `STUDIO_REGISTRY_URL` (9 reads), `STUDIO_WEB_ORIGIN` (5), `STUDIO_DEMOS` (4), `STUDIO_MODELS` (3), `STUDIO_WEB_PORT` (3), `STRUDEL_SAMPLES`, `DIRT_SAMPLES`, `STUDIO_ENGINE_TOKEN`, `STUDIO_SCRATCH`, `K7_URL`, `K7_TOKEN`, `Z0_RENDER_ENGINE`, `MPV_BIN`, `CHROME`. | `env.example.yaml` |
+| With no test file at all: `graph-model`. | — |
+| Read in code and absent from **every** `.md`: `STUDIO_MODELS`, `STUDIO_SCRATCH`, `CHROME`. | `packages/song/src/modelCache.ts`, `engine/k7-runtime/scripts/` |
+| Imported without being declared: `ui-chains-react`, `ui-rehearsal`, `score` and `k7-plugins` (`@storybook/react-vite`, in their `*.stories.tsx`; the root declares it). | — |
+| `yaml` in `k7-frontend` is not only test: `rackBuilder.ts`, `sliceSymbols.ts` and `components/TakeRow.tsx` import it in production. | `apps/k7/frontend` |
+| `packages/web-protocol` depends on `@studio/engine-protocol` alone, which has no dependency of its own, and that is RIGHT — what it takes from it is types. That absence of a runtime dependency is what lets `engine-client` take it to read `ENGINE_OUTBOX_MAX` without weighing down the supervisor's bundle. | `packages/web-protocol` |
+| Read in code, absent from `env.example.yaml`: `STUDIO_REGISTRY_URL`, `STUDIO_DEMOS`, `STUDIO_MODELS`, `STUDIO_WEB_PORT`, `STRUDEL_SAMPLES`, `DIRT_SAMPLES`, `STUDIO_ENGINE_TOKEN`, `STUDIO_SCRATCH`, `K7_URL`, `K7_TOKEN`, `MPV_BIN`, `CHROME`. | `env.example.yaml` |
 
 ## 6. A deck has no effects chain
 
