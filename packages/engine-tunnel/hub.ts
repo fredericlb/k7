@@ -8,6 +8,12 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, Server } from "node:http";
 import type { Socket } from "node:net";
 import { type RawData, WebSocket, WebSocketServer } from "ws";
+import {
+  HeldFrames,
+  OVERLOAD_CLOSE,
+  type Payload,
+  sendBounded,
+} from "./backpressure.ts";
 import { OPEN, type TunnelChannel } from "./channel.ts";
 import {
   type ChannelKind,
@@ -18,6 +24,7 @@ import {
   TUNNEL_TOKEN_HEADER,
   type TunnelRoot,
 } from "./frames.ts";
+import type { UploadLimits } from "./hubFiles.ts";
 import { HubTunnel } from "./hubTunnel.ts";
 
 export interface TunnelHubOptions {
@@ -27,6 +34,8 @@ export interface TunnelHubOptions {
   renderKey?: string;
   /** Keepalive period; a tunnel silent for two of these is dropped. */
   pingMs?: number;
+  /** What one tunnel may upload; the defaults are `uploadLimits` in hubFiles.ts. */
+  uploads?: Partial<UploadLimits>;
   log?: (msg: string) => void;
 }
 
@@ -235,7 +244,7 @@ export class TunnelHub {
     this.wss.handleUpgrade(req, socket, head, (ws) => {
       // One tunnel per engine: a reconnect, verified above, replaces the socket it outlived.
       this.tunnels.get(id)?.ws.terminate();
-      const t = new HubTunnel(id, ws, this.log);
+      const t = new HubTunnel(id, ws, this.log, this.opts.uploads);
       this.tunnels.set(id, t);
       // Re-added, so the newest render machine is the one a render reaches.
       this.renderers.delete(id);
@@ -292,9 +301,14 @@ export class TunnelHub {
   }
 }
 
-/** A local client and a channel, frames both ways; what the client sends before the engine answers is held. */
+/** A local client and a channel, frames both ways and bounded; what the client sends before the engine answers is held. */
 function pipe(client: WebSocket, channel: TunnelChannel): void {
-  const held: { data: RawData; binary: boolean }[] = [];
+  const held = new HeldFrames();
+  // A peer that stopped reading is closed rather than queued for without end — backpressure.ts.
+  const overrun = (): void => {
+    channel.close();
+    client.close(OVERLOAD_CLOSE, "peer too slow");
+  };
   // Guarded: a throw inside a socket listener escapes to the process, so it ends this pair instead.
   const safely = (fn: () => void): void => {
     try {
@@ -304,25 +318,30 @@ function pipe(client: WebSocket, channel: TunnelChannel): void {
       client.terminate();
     }
   };
-  client.on("message", (data, binary) =>
+  const toChannel = (data: Payload, binary: boolean): void => {
+    sendBounded(channel, data, binary, overrun);
+  };
+  client.on("message", (data: RawData, binary) =>
     safely(() => {
-      if (channel.readyState === OPEN)
-        channel.send(binary ? (data as Buffer) : data.toString(), { binary });
-      else held.push({ data, binary });
+      const payload = binary ? (data as Buffer) : data.toString();
+      if (channel.readyState === OPEN) toChannel(payload, binary);
+      else if (!held.push(payload, binary)) overrun();
     }),
   );
   channel.once("open", () =>
     safely(() => {
-      for (const h of held.splice(0))
-        channel.send(h.binary ? (h.data as Buffer) : h.data.toString(), {
-          binary: h.binary,
-        });
+      for (const h of held.drain()) toChannel(h.data, h.binary);
     }),
   );
   channel.on("message", (data: Buffer, binary: boolean) =>
     safely(() => {
       if (client.readyState === WebSocket.OPEN)
-        client.send(binary ? data : data.toString("utf8"), { binary });
+        sendBounded(
+          client,
+          binary ? data : data.toString("utf8"),
+          binary,
+          overrun,
+        );
     }),
   );
   channel.on("close", () => client.close());

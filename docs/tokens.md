@@ -10,10 +10,9 @@ npm run tokens -- --dry-run # say what it would do
 
 ## Why no service token is minted
 
-A token is a **self-contained** `{sub, iat}` signed with HMAC-SHA256
-(`commons/packages/oidc/apiToken.ts`): whoever holds the signing secret can mint one, with no
-server-side record. Every service that calls the media library with one is mounted in k7's
-backend itself, so the backend mints the token at boot and hands it over in code:
+A token is a signed `{jti, sub, iat, exp}` (`commons/packages/oidc/apiToken.ts`). Every service that calls the media library with one is mounted in k7's
+backend itself, so the backend mints the token and hands it over in code, as an EPHEMERAL token
+held in its memory only and never written to a store (`apps/k7/backend/docs/sessions.md`):
 
 | caller | `sub` | minted by |
 |---|---|---|
@@ -26,8 +25,7 @@ wire, from `POST /api/token` on k7's origin.
 
 ## Why the secret is still generated
 
-Left unset, the library signs with `${SESSION_SECRET}:pl8` — the suffix kept so every token
-already issued still verifies. That works, and is what nobody should rely on: rotating the session
+Left unset, the library signs with `${SESSION_SECRET}:pl8`. That works, and is what nobody should rely on: rotating the session
 secret would then log everyone out *and* revoke every machine's sync in one move. Restart k7's
 backend after the secret is written; every token signed with the previous one is void.
 
@@ -35,16 +33,16 @@ backend after the secret is written; every token signed with the previous one is
 
 The rehearsal recorder's personal tokens — the ones users saved in their settings to publish from
 k7 — are signed with **`K7_API_TOKEN_SECRET`**, not with `API_TOKEN_SECRET`. Unset, it falls back
-to `${SESSION_SECRET}:api-token`, the secret those tokens were issued under. This script never
-touches it: generating one would void every token already saved. The two schemes also answer on
-different routes — `GET /api/token` is the recorder's, `POST /api/token` and
-`GET /api/token/pair` are the library's.
+to `${SESSION_SECRET}:api-token`. This script never touches it: generating one would void every
+token already saved. The two schemes also answer on different routes — `/api/token/publish` is the
+recorder's, the rest of `/api/token` the library's.
 
 ## Rotation and revocation
 
-There is no per-token revocation, by construction. Rotate a secret and every token signed with it
-dies at once. That is the trade the scheme makes, and it is why each secret belongs to the one
-scheme that verifies it.
+A token is valid only while its id is listed in its scheme's store, so its owner revokes one alone,
+and it expires after 90 days (`apps/k7/backend/docs/sessions.md`). Rotating a secret still kills
+every token signed with it at once, which is why each secret belongs to the one scheme that
+verifies it. A token of the `{sub, iat}` format, with no id, is refused.
 
 ## The URLs are not configuration
 

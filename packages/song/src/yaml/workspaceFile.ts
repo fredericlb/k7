@@ -9,13 +9,13 @@ import {
   renameSync,
   rmSync,
   statSync,
-  writeFileSync,
 } from "node:fs";
 import { fromYaml } from "@studio/k7x/from-yaml";
 import { applyYaml, toYaml } from "@studio/k7x/yaml-bridge";
 import { relocateIssues } from "@studio/song-schema/yaml/k7xIssues";
 import type { ModuleIssue } from "@studio/song-schema/yaml/moduleFile";
 import { sugarFor } from "@studio/song-schema/yaml/sugar";
+import { writeFileAtomic } from "../atomicWrite";
 import { convertChecked } from "../k7xMigrate";
 
 export const K7X_EXT = ".k7x";
@@ -67,7 +67,7 @@ export function wsRead(path: string): string {
   return isK7xPath(real) ? toYaml(text, sugarFor(real)) : text;
 }
 
-/** Writes YAML text to the file a path names: a .k7x file takes it as edits, so its comments and layout stay. */
+/** Writes YAML text, whole or not at all, to the file a path names: a .k7x file takes it as edits, so its comments and layout stay. */
 export function wsWrite(path: string, content: string | Uint8Array): void {
   const real = realPath(path);
   // A new file, when k7x is everywhere: k7x if the text converts with the same data, YAML as written otherwise.
@@ -79,7 +79,7 @@ export function wsWrite(path: string, content: string | Uint8Array): void {
   ) {
     const converted = convertChecked(content);
     if ("k7x" in converted) {
-      writeFileSync(k7xSibling(real), converted.k7x);
+      writeFileAtomic(k7xSibling(real), converted.k7x);
       return;
     }
     // Once YAML is retired a new file is k7x or nothing: written as YAML it would be a file no lookup finds.
@@ -89,16 +89,16 @@ export function wsWrite(path: string, content: string | Uint8Array): void {
       );
   }
   if (!isK7xPath(real) || typeof content !== "string") {
-    writeFileSync(real, content);
+    writeFileAtomic(real, content);
     return;
   }
   if (!existsSync(real)) {
-    writeFileSync(real, fromYaml(content));
+    writeFileAtomic(real, fromYaml(content));
     return;
   }
   const before = readFileSync(real, "utf8");
   const after = applyYaml(before, content, sugarFor(real));
-  if (after !== before) writeFileSync(real, after);
+  if (after !== before) writeFileAtomic(real, after);
 }
 
 /** Removes the file a path names, whichever spelling is on disk. */

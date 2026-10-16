@@ -5,12 +5,15 @@
 
 import { FragmentJoiner, toFragments } from "@studio/web-protocol/rtc-frames";
 import { WebSocket } from "ws";
+import { admit, HeldFrames, sendBounded } from "./backpressure.ts";
 
 /** The slice of node-datachannel used here, declared rather than imported: the package is OPTIONAL. */
 interface DataChannel {
   close(): void;
   isOpen(): boolean;
+  /** False only means the message was queued rather than sent at once; `bufferedAmount` is what tells a stall. */
   sendMessageBinary(buffer: Uint8Array): boolean;
+  bufferedAmount(): number;
   onMessage(cb: (msg: string | Buffer | ArrayBuffer) => void): void;
   onClosed(cb: () => void): void;
   onError(cb: (err: string) => void): void;
@@ -111,11 +114,12 @@ export async function answerOffer(
 function pipe(dc: DataChannel, opts: RtcOptions, done: () => void): void {
   const engine = new WebSocket(`ws://127.0.0.1:${opts.enginePort}`);
   const joiner = new FragmentJoiner();
-  const held: (string | Buffer)[] = [];
+  const held = new HeldFrames<string | Buffer>();
+  // Bounded both ways (backpressure.ts): a reader that stopped ends the channel rather than this process's memory.
   const toEngine = (m: string | Buffer): void => {
     if (engine.readyState === WebSocket.OPEN)
-      engine.send(m, { binary: typeof m !== "string" });
-    else held.push(m);
+      sendBounded(engine, m, typeof m !== "string", end);
+    else if (!held.push(m, typeof m !== "string")) end();
   };
   // Guarded both ways: a throw inside a native or socket callback would end the supervisor, so it ends this channel.
   const safely = (fn: () => void): void => {
@@ -138,15 +142,18 @@ function pipe(dc: DataChannel, opts: RtcOptions, done: () => void): void {
     }),
   );
   engine.on("open", () => {
-    for (const m of held.splice(0))
-      engine.send(m, { binary: typeof m !== "string" });
+    for (const m of held.drain()) toEngine(m.data);
   });
   engine.on("message", (data, isBinary) =>
     safely(() => {
       if (!dc.isOpen()) return;
+      const verdict = admit(dc.bufferedAmount(), data as Buffer, isBinary);
+      if (verdict === "close") return end();
+      if (verdict === "drop") return;
       const payload = isBinary
         ? new Uint8Array(data as Buffer)
         : (data as Buffer).toString("utf8");
+      // A frame's fragments go all together or not at all: the joiner cannot use half of one.
       for (const f of toFragments(payload)) dc.sendMessageBinary(f);
     }),
   );

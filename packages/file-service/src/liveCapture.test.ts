@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import {
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -17,6 +18,7 @@ import { textHash } from "@studio/live-sync/file-op";
 import type { Sequenced } from "@studio/live-sync/ops";
 import { MemoryConfirmed, Replica } from "@studio/live-sync/replica";
 import { Room } from "@studio/live-sync/room";
+import { atomicTempFor, writeFileAtomic } from "@studio/song/atomicWrite";
 import { afterEach, describe, expect, it } from "vitest";
 import { sha256Buffer } from "./liveBlobs.ts";
 import { type CaptureOptions, LiveCapture } from "./liveCapture.ts";
@@ -115,6 +117,26 @@ describe("LiveCapture", () => {
         ops: [{ op: "set", path: ["params", "gain"], k7x: "0.8", was: "0.5" }],
       },
     ]);
+  });
+
+  it("never captures the temp an atomic write goes through", async () => {
+    const a = replica("atomic");
+    const target = join(a.root, "song.k7/nodes/mix.yaml");
+    // A temp a killed process left behind, then a real atomic save beside it.
+    writeFileSync(atomicTempFor(target), "half a fi");
+    writeFileAtomic(target, MIX.replace("0.5", "0.8"));
+    await batches(a, 1);
+    await settle();
+    expect(a.capture.flushNow({ full: true })).toBeNull();
+    const files = a.batches.flatMap((b) => b.ops.map((o) => o.file));
+    expect(files).toEqual(["song.k7/nodes/mix.yaml"]);
+  });
+
+  it("writes a file for another replica without leaving a temp beside it", () => {
+    const a = replica("known");
+    a.capture.writeKnown("song.k7/notes.md", "- hi\n");
+    expect(read(a.root, "song.k7/notes.md")).toBe("- hi\n");
+    expect(readdirSync(join(a.root, "song.k7"))).toEqual(["nodes", "notes.md"]);
   });
 
   it("captures a new file as text and a deleted one as a removal", async () => {

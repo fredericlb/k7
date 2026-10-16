@@ -1,8 +1,8 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DeviceTokens } from "./deviceTokens.ts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DeviceTokens, LAST_SEEN_STEP_MS } from "./deviceTokens.ts";
 
 let root: string;
 let tokens: DeviceTokens;
@@ -34,5 +34,28 @@ describe("a device token", () => {
       JSON.stringify({ s: "acct", d: "x", p: "someone-else" }),
     ).toString("base64url");
     expect(tokens.verify(`${forged}.${sig}`)).toBeNull();
+  });
+
+  it("rewrites the device list only when lastSeen moves by a step", () => {
+    const { token } = tokens.mint("acct", "laptop");
+    const file = join(root, "acct", ".sync-relay", "devices.json");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(1_000_000_000_000);
+      tokens.verify(token);
+      const first = readFileSync(file, "utf8");
+      const ino = statSync(file).ino;
+      vi.setSystemTime(1_000_000_000_000 + LAST_SEEN_STEP_MS - 1);
+      expect(tokens.verify(token)).not.toBeNull();
+      expect(readFileSync(file, "utf8")).toBe(first);
+      expect(statSync(file).ino).toBe(ino);
+      vi.setSystemTime(1_000_000_000_000 + LAST_SEEN_STEP_MS);
+      tokens.verify(token);
+      expect(tokens.list("acct")[0].lastSeen).toBe(
+        1_000_000_000_000 + LAST_SEEN_STEP_MS,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
