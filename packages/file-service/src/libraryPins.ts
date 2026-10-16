@@ -3,8 +3,9 @@
 // from before versions, the newest this k7 runs for a new one, the draft for an admin's. After
 // that only an upgrade rewrites it. See ../../../docs/library-versions-plan.md.
 
-import { existsSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
 import {
   accountLibraries,
   libraryManifest,
@@ -64,9 +65,7 @@ export function ensureLibraryPins(
       : opts.fresh
         ? newestRunnableVersion(name)
         : UNPINNED_VERSION;
-  // Through a dot-named sibling, which live sync skips, and a rename: no replica sees half a pins file.
-  const tmp = join(root, `.${LIBRARY_PINS_FILE}.${process.pid}`);
-  writeFileSync(tmp, stringifyLibraryPins(pins));
-  renameSync(tmp, file);
+  // Through a dot-named temp, which live sync skips, and a rename: no replica sees half a pins file.
+  writeFileAtomic(file, stringifyLibraryPins(pins));
   return pins;
 }
