@@ -655,7 +655,7 @@ export async function ensureMomentClipCached(ownerId, momentId) {
 // --- Moment markers ---------------------------------------------------------
 
 // Pins on a moment's clip timeline: the shared Markers table, keyed by MomentId not SessionUid.
-export async function listMomentMarkers(ownerId, momentId) {
+async function listMomentMarkers(ownerId, momentId) {
   const recs = await db.listRecords("Markers", {
     MomentId: [String(momentId)],
   });
@@ -1158,7 +1158,7 @@ export async function addVersion(
 }
 
 /** Whether a library folder is this version's own, named with its uid — ../docs/audio.md. */
-export function ownsVersionFolder(folder: string, versionUid: string): boolean {
+function ownsVersionFolder(folder: string, versionUid: string): boolean {
   return folder.endsWith(mediatek.uidTag(versionUid));
 }
 

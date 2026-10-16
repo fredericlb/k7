@@ -16,7 +16,7 @@ import { DatabaseSync, type StatementSync } from "node:sqlite";
 import { SCHEMA } from "./schema.ts";
 
 /** A store error with the HTTP status it means; the routes' error handler answers with it. */
-export class DbError extends Error {
+class DbError extends Error {
   readonly status: number;
   constructor(status: number, message: string) {
     super(message);

@@ -15,6 +15,5 @@ export const {
   uploadAttachment,
   attachmentFile,
   deleteAttachment,
-  isEmpty,
   inTransaction,
 } = store;

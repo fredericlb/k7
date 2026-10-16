@@ -57,7 +57,7 @@ export function issueTicket(userId: string): string {
 }
 
 /** Verify a ticket and return its user id, or null if invalid/expired. */
-export function verifyTicket(token: string): string | null {
+function verifyTicket(token: string): string | null {
   const [payload, sig] = String(token).split(".");
   if (!payload || !sig) return null;
   const expected = sign(payload);

@@ -20,7 +20,7 @@ export {
   useLiveValue,
 } from "./liveValue";
 export { MomentPlayer } from "./MomentPlayer";
-export { type PendingAnnotation, RecorderView } from "./RecorderView";
+export { RecorderView } from "./RecorderView";
 export { TagInput } from "./TagInput";
 export {
   type BackedUpTake,
@@ -33,7 +33,5 @@ export { useMetronome } from "./useMetronome";
 export {
   acquireMicrophone,
   describeMicError,
-  type RecordingResult,
-  type RecStatus,
   useRecorder,
 } from "./useRecorder";

@@ -8,7 +8,7 @@ import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { apiBase } from "../config";
 
 /** The track a preview lives on — one name, so the engine's diff sees a track it already has. */
-export const PREVIEW_TRACK = "song-preview";
+const PREVIEW_TRACK = "song-preview";
 
 /** Where a song is on that engine's machine, fetched there first; `why` says which of three things went wrong. */
 export async function localPathOn(
