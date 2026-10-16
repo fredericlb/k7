@@ -254,7 +254,7 @@ export function movePlacementAt(
 }
 
 /** Every list of placements this file holds — what a change to the song's CLOCK must reach, docs/laneEdits.md. */
-export function everyEventList(
+function everyEventList(
   doc: ReturnType<typeof parseDocument>,
 ): (string | number)[][] {
   const out: (string | number)[][] = [];

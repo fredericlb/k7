@@ -55,9 +55,7 @@ A material file describes the bytes; a placement describes the use. `from`/`to` 
 **event**, and `event window`, `event trim` and `event resize` narrow only the event they address,
 clamped inside whatever the material file still states. `packages/song-edit/src/clipResize.ts`
 turns "span these two beats" into the fields the model has (window and loop count; a placement has
-no length). `packages/song-edit/src/windowDescend.ts` and
-`packages/song-edit/scripts/migrateClipWindows.ts` move old material-level windows down onto every
-placement.
+no length).
 
 ## Note views
 

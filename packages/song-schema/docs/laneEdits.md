@@ -71,9 +71,7 @@ the second half is new.
 go" and answers with the selected set alone. Inserting time is not an edit to the arrangement — it is
 a change to the song's clock — so it has to reach what is playing, every take of it, and every
 alternative's own events and takes. An alternative you switch to next week has to still line up with
-the markers. It is exported for the other operation with the same reach: moving a material's window
-down onto every placement of it (`packages/song-edit/src/windowDescend.ts`). A migration that missed a
-take would leave that take playing the whole file the day you swapped it back onto the lane.
+the markers.
 
 ## Halving a placement's passes
 
