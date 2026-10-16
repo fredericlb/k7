@@ -171,5 +171,3 @@ move it. [shapes.md](shapes.md) is the page.
   plugin format for `video_effect` alone.
 - **A fade_out that reveals the shot beneath it on the SAME lane.** A reveal belongs to the incoming
   shot, and its `fade_in` is at its own start ([transitions.md](transitions.md)).
-- **Export.** `@studio/ui-eyes`'s `exportScene` works frame-by-frame through WebCodecs; no
-  surface mounts a button for it.

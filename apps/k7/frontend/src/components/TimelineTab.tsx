@@ -45,8 +45,7 @@ import {
   usePanScroll,
   zoomCeiling,
 } from "@studio/ui-timeline/panZoom";
-import { adjacentTick } from "@studio/ui-timeline/ticks";
-import { nearestTick } from "@studio/ui-waveform";
+import { adjacentTick, nearestTick } from "@studio/ui-timeline/ticks";
 import {
   useCallback,
   useEffect,

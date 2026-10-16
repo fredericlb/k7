@@ -1,12 +1,10 @@
 # The note grids — TrackerGrid, RollGrid, and the plugin that mounts them
 
 Two views of the same inline `notes: [ … ]` array in a sequence file. Both are plain
-DOM (they mount inside a CodeMirror widget, not the React tree), and both call back with
-the WHOLE new note list, which `notes.ts` serializes straight back into the file.
+DOM, outside the React tree, and both call back with the WHOLE new note list, which
+`notes.ts` serializes straight back into the file.
 
 ## `plugin.ts` — the mounting mechanism
-
-Two mountings, and only the first has callers.
 
 **`mountSeqGrid(container, opts)`** renders a grid into a plain filling element, with no
 CodeMirror anywhere near it. It takes the file's content and hands back the WHOLE next
@@ -14,11 +12,8 @@ content with the note list rewritten, and re-rendering is driven from OUTSIDE it
 (`controller.update`) — so an edit and an external reformat share one path, with no
 re-entrant rebuild in the middle of an event. This is what every host uses.
 
-**`rollGridPlugin` / `trackerPlugin`** are the same grids as CodeMirror `Extension`s,
-replacing the `notes:` array *in place* with a replace-decoration so the wrapper text
-stays visible around it. Nobody calls them (see `docs/inventaire.md`). They are kept
-because that property — the YAML around the grid still readable — is one `mountSeqGrid`
-does not have, so this is a question of who calls, not of whether it works.
+There is no in-place mounting — a grid replacing the `notes:` array inside the text editor,
+the YAML around it still readable. A host wanting that property builds it on `mountSeqGrid`.
 
 ## Where a host puts them
 
@@ -58,7 +53,7 @@ name (`C-4`); the rows a note sustains through show a continuation tick.
 It is keyboard-driven, like the trackers it apes: click to place the cursor, then the
 arrows move it and the piano-key layout (z-row / q-row) types notes at it. Because the
 cursor and focus must survive the widget being rebuilt after every edit, they live in a
-caller-owned `ctx` the plugin keeps across rebuilds, not in this DOM.
+caller-owned `ctx` that `mountSeqGrid` keeps across rebuilds, not in this DOM.
 
 ## `RollGrid.ts` — the piano-roll view
 
@@ -77,10 +72,10 @@ A sequence holds its notes inline as a flat list of compact mappings —
 velocity). Both grids go through here, so a grid edit round-trips to the exact text the
 compiler reads back.
 
-It works on a SPAN rather than rewriting the whole document, and that is deliberate: the
-tracker dispatches a CodeMirror transaction replacing that range, which keeps the undo
-history and the cursor a full-document rewrite would throw away. The parser finds the
-list, and the span comes off its node range.
+It works on a SPAN rather than rewriting the whole document, and that is deliberate: a host
+can replace that range alone, which keeps an editor's undo history and cursor a
+full-document rewrite would throw away. The parser finds the list, and the span comes off
+its node range.
 
 ## The window both grids draw
 
@@ -92,9 +87,8 @@ Three things about how it gets there:
 
 - **It is read from the whole document, not from the notes array**, like `use_rack`: the
   pair sits outside the list, so `findNotesArray` never sees it. `seqWindowFromText` in
-  `@studio/song` is the reader, and `GridWidget.eq` carries a key for the result — editing
-  `from:` changes neither the notes nor the rack, so without it the band would keep
-  whatever value it was first built with.
+  `@studio/song-schema` is the reader, called on every render, since editing `from:`
+  changes neither the notes nor the rack.
 - **The window joins the content span.** A `to` reaching past the last hit is a pad, and a
   grid that stopped at the notes would clip the very edge that explains the silence after
   them.

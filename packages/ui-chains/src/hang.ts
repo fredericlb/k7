@@ -3,7 +3,7 @@
 // and swing when its endpoints move. Pure math over points; the renderer draws it.
 // See docs/hang.md for the model and the numbers.
 
-import type { Pt } from "./graph";
+import type { Pt } from "./graphNode";
 
 // The droop grows with the HORIZONTAL run, which is what gravity does. See docs/hang.md.
 export const HANG_DROOP_MIN = 6; // world px — even a short cable is not a ruler

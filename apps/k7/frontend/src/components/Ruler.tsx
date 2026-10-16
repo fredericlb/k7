@@ -8,16 +8,14 @@ import {
   chooseTick,
   formatClock,
   formatSecondTick,
-  secondTicks,
-  ticksUpTo,
-} from "@studio/ui-timeline/ticks";
-import {
   labelled,
   labelMinPx,
   labelStride,
   nearestTick,
+  secondTicks,
   subdivideBeats,
-} from "@studio/ui-waveform";
+  ticksUpTo,
+} from "@studio/ui-timeline/ticks";
 import { memo, type RefObject, useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
 

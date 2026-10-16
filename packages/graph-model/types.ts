@@ -42,8 +42,7 @@ export interface WebWidget {
   max?: number;
   step?: number;
   curve?: "lin" | "log";
-  // waveform only: which audio tap to display, or "take" for a RECORDER node's own picture —
-  // the whole take, growing, off the state frame rather than a tap (engine docs/recorder.md).
+  // waveform only: which audio tap to display, or "take" for a RECORDER's growing take (engine docs/recorder.md).
   source?: "input" | "output" | "take";
   // dropdown only: a discrete param's named settings, `arg` differing from the label — see docs/graph.md.
   options?: { label: string; value: number; arg?: string }[];
@@ -58,8 +57,7 @@ export interface WebModuleUI {
   rows: number;
   // Drawn on every tab — and the whole panel when there is one tab or none.
   widgets: Record<string, WebWidget>;
-  // The panel's pages in order; two or more are drawn as a column at the card's left (graph-model's panel.ts).
-  // `cols`: what THIS tab needs once a responsive fold has run (ui-chains' gridFit.ts); absent, the panel's own.
+  // The panel's pages in order (panel.ts); a tab's `cols` is its width after a responsive fold (ui-chains' gridFit.ts).
   tabs?: { name: string; widgets: Record<string, WebWidget>; cols?: number }[];
   // The `widgets.js` source beside the panel, run by the BROWSER to draw its lcdscreen widgets.
   script?: string;
@@ -146,11 +144,9 @@ export interface WebChainStep {
   monitor?: "off" | "auto" | "on";
   /** io "in" only: the channels this input listens on, 1-based; only the NUMERIC form travels — docs/graph.md. */
   channel?: number[];
-  /** io "camera" only: WHICH lens, by the LABEL a person reads — "" being whichever is default.
-   *  Present is what says this step IS a camera, the way `monitor` does for a live audio input. */
+  /** io "camera" only: WHICH lens by its label, "" the default — present is what makes the step a camera. */
   camera?: string;
-  /** io "midi" only: WHICH MIDI device it records from, by its label — "" being any device.
-   *  Present is what says this step IS a midi-in node, the way `camera` does for a lens. */
+  /** io "midi" only: WHICH MIDI device by its label, "" any — present is what makes the step a midi-in node. */
   device?: string;
   // Where this node's waveform widget listens, an io "in" borrowing one step downstream — see docs/graph.md.
   tap?: { id: string; side: "input" | "output" };
@@ -264,7 +260,7 @@ export interface WebChain {
   out: WebOut[];
 }
 /** Per-module metadata off the signal path: one field, a DOC module's note text — see docs/graph.md. */
-export interface WebModuleMeta {
+interface WebModuleMeta {
   content?: string;
 }
 /** How a routing graph names a PORT: `crossfade#b`, a third separator for a third axis — docs/graph.md. */
@@ -303,7 +299,7 @@ export interface WebTrackClip {
 }
 
 /** One PLUG on an assembly's box: a port, plus the member node whose own port it stands for. */
-export interface WebPlug {
+interface WebPlug {
   name: string;
   type: WebSignal;
   node: string;
@@ -311,11 +307,7 @@ export interface WebPlug {
   mandatory?: boolean;
 }
 
-/** One ASSEMBLY as the browser receives it — a template's box over nodes this project holds.
- *
- * `WebNodeAssembly` rather than `WebAssembly`, which is a JS global: shadowing it inside a
- * renderer that may one day touch wasm is a name nobody would suspect. See
- * packages/song/docs/assemblies.md. */
+/** One ASSEMBLY as the browser receives it, named apart from the `WebAssembly` global — packages/song/docs/assemblies.md. */
 export interface WebNodeAssembly {
   uses: string; // the template ref (`@k7-core/turntable`)
   label: string; // the template's `label:`, else the instance's own name
@@ -354,11 +346,7 @@ export interface WebGraph {
   // A rack node's taps routed to subchains: the tap, and the first node of the run it feeds (packages/song/docs/racks.md).
   tapFeeds?: { node: string; tap: string; to: string }[];
   frozen?: Record<string, "at" | "inside">;
-  /**
-   * What an AUTOMATIC freeze bakes, node name → the VST module the render was taken at
-   * (packages/song/docs/autoFreeze.md). Apart from `frozen` because it acts the other way: its
-   * controls are not refused — touching one thaws that point, and the edit plays live.
-   */
+  /** What an AUTOMATIC freeze bakes, node → VST module; apart from `frozen`, a touch thaws it (packages/song/docs/autoFreeze.md). */
   autoFrozen?: Record<string, string>;
   // The note text of every doc module, optional because dagre's layout-only subgraphs carry geometry alone.
   modules?: Record<string, WebModuleMeta>;

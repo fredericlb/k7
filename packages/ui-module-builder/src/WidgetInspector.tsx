@@ -4,7 +4,15 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Trash2 } from "@frediverse/ui/icons";
+import { Input } from "@frediverse/ui/input";
 import { cn } from "@frediverse/ui/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@frediverse/ui/select";
 import { useState } from "react";
 import type { Widget, WidgetType } from "./moduleUi";
 import { ParamDropField } from "./ParamDropField";
@@ -65,23 +73,17 @@ export function WidgetInspector({
 
       <div className="grid grid-cols-2 gap-2">
         <Field label="Type">
-          <select
-            className={FIELD_CLS}
+          <PickField
             value={w.type}
             disabled={!!disabled}
-            onChange={(e) => onPatch(retype(w, e.target.value as WidgetType))}
-          >
-            {TYPES.map((t) => (
-              <option key={t.type} value={t.type}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+            options={TYPES.map((t) => ({ value: t.type, label: t.label }))}
+            onChange={(v) => onPatch(retype(w, v as WidgetType))}
+          />
         </Field>
 
         {isLabel ? (
           <Field label="Text">
-            <input
+            <Input
               className={FIELD_CLS}
               value={w.text ?? ""}
               disabled={!!disabled}
@@ -160,7 +162,7 @@ export function WidgetInspector({
         )}
 
         <Field label="Label">
-          <input
+          <Input
             className={FIELD_CLS}
             value={w.label ?? ""}
             disabled={!!disabled}
@@ -172,73 +174,59 @@ export function WidgetInspector({
         {w.type === "filepicker" && (
           // WHICH file-valued param this picker sets — the whole configuration, so nothing can disagree.
           <Field label="File">
-            <select
-              className={FIELD_CLS}
+            <PickField
               value={w.bind ?? ""}
-              disabled={disabled || !assetParams?.length}
-              onChange={(e) =>
-                onPatch({
-                  bind: e.target.value || undefined,
-                  library: undefined,
-                })
+              disabled={!!disabled || !assetParams?.length}
+              options={[
+                { value: "", label: "(pick a parameter)" },
+                ...(assetParams ?? []).map((p) => ({ value: p, label: p })),
+              ]}
+              onChange={(v) =>
+                onPatch({ bind: v || undefined, library: undefined })
               }
-            >
-              <option value="">(pick a parameter)</option>
-              {(assetParams ?? []).map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+            />
           </Field>
         )}
 
         {w.type === "dropdown" && !!w.library && (
           // The older spelling of a file picker, kept editable — packages/song/docs/filePicker.md.
           <Field label="Files (legacy)">
-            <select
-              className={FIELD_CLS}
+            <PickField
               value={w.library ?? ""}
-              disabled={disabled || !assetParams?.length}
-              onChange={(e) => {
-                const param = e.target.value;
+              disabled={!!disabled || !assetParams?.length}
+              options={[
+                { value: "", label: "(the parameter's settings)" },
+                ...(assetParams ?? []).map((p) => ({ value: p, label: p })),
+              ]}
+              onChange={(param) =>
                 onPatch(
                   param
                     ? { library: param, bind: param, options: undefined }
                     : { library: undefined, bind: undefined },
-                );
-              }}
-            >
-              <option value="">(the parameter's settings)</option>
-              {(assetParams ?? []).map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+                )
+              }
+            />
           </Field>
         )}
 
         {isWaveform && (
           <Field label="Source">
-            <select
-              className={FIELD_CLS}
+            <PickField
               value={w.source ?? "output"}
               disabled={!!disabled}
-              onChange={(e) =>
-                onPatch({ source: e.target.value as "input" | "output" })
-              }
-            >
-              <option value="output">Output</option>
-              <option value="input">Input</option>
-            </select>
+              options={[
+                { value: "output", label: "Output" },
+                { value: "input", label: "Input" },
+              ]}
+              onChange={(v) => onPatch({ source: v as "input" | "output" })}
+            />
           </Field>
         )}
 
         {numeric && (
           <>
             <Field label="Min">
-              <input
+              <Input
                 className={FIELD_CLS}
                 inputMode="decimal"
                 value={w.min ?? ""}
@@ -247,7 +235,7 @@ export function WidgetInspector({
               />
             </Field>
             <Field label="Max">
-              <input
+              <Input
                 className={FIELD_CLS}
                 inputMode="decimal"
                 value={w.max ?? ""}
@@ -256,7 +244,7 @@ export function WidgetInspector({
               />
             </Field>
             <Field label="Step">
-              <input
+              <Input
                 className={FIELD_CLS}
                 inputMode="decimal"
                 value={w.step ?? ""}
@@ -266,19 +254,17 @@ export function WidgetInspector({
               />
             </Field>
             <Field label="Curve">
-              <select
-                className={FIELD_CLS}
+              <PickField
                 value={w.curve ?? "lin"}
                 disabled={!!disabled}
-                onChange={(e) =>
-                  onPatch({
-                    curve: e.target.value === "log" ? "log" : undefined,
-                  })
+                options={[
+                  { value: "lin", label: "lin" },
+                  { value: "log", label: "log" },
+                ]}
+                onChange={(v) =>
+                  onPatch({ curve: v === "log" ? "log" : undefined })
                 }
-              >
-                <option value="lin">lin</option>
-                <option value="log">log</option>
-              </select>
+              />
             </Field>
           </>
         )}
@@ -287,8 +273,43 @@ export function WidgetInspector({
   );
 }
 
-const FIELD_CLS =
-  "w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none focus:border-primary";
+// The design system's fields at the inspector's density: a row of the grid, not a form.
+const FIELD_CLS = "h-7 rounded px-2 py-1";
+
+// Radix reserves "" for "no value", so an empty option travels under this name instead.
+const NONE = "(none)";
+
+// A design-system Select over plain options, "" allowed as one of them.
+function PickField({
+  value,
+  options,
+  disabled,
+  onChange,
+}: {
+  value: string;
+  options: { value: string; label: string }[];
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Select
+      value={value || NONE}
+      disabled={disabled}
+      onValueChange={(v) => onChange(v === NONE ? "" : v)}
+    >
+      <SelectTrigger size="sm" className="h-7 w-full px-2">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((o) => (
+          <SelectItem key={o.value || NONE} value={o.value || NONE}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 function Field({
   label,
@@ -335,7 +356,7 @@ function ColorField({
           onChange(e.target.value + alpha);
         }}
       />
-      <input
+      <Input
         className={cn(
           FIELD_CLS,
           "font-mono",

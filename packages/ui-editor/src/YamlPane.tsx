@@ -1,20 +1,19 @@
-// YamlPane.tsx — one of the module's files as text. YAML for three of them, FAUST or JavaScript
-// for the sources, chosen by extension. Deliberately smaller than k7's EditorPane: no sequence tracker,
-// no waveform, no video readers. Those exist because k7 edits a SONG's material.
+// YamlPane.tsx — one file as text, for the screens beside k7's editor: a module's files, a chain,
+// a playlist, a song's sidecar. YAML, FAUST or JavaScript, chosen by extension. Deliberately smaller
+// than k7's EditorPane: no sequence tracker, no waveform, no video readers — a SONG's material needs those.
 
 import { autocompletion } from "@codemirror/autocomplete";
 import { javascript } from "@codemirror/lang-javascript";
 import { Prec } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
-import { faustLanguage } from "@studio/ui-editor/faust/language";
-import type { YamlVocabulary } from "@studio/ui-editor/yaml/completions";
-import { yamlCompletions } from "@studio/ui-editor/yaml/completions";
-import { projectLanguage } from "@studio/ui-editor/yaml/language";
-import { schemaVocabulary } from "@studio/ui-editor/yaml/vocabulary";
 import type { Hints } from "@studio/web-protocol";
 import CodeMirror from "@uiw/react-codemirror";
 import { useMemo, useRef } from "react";
+import { faustLanguage } from "./faust/language";
+import { type YamlVocabulary, yamlCompletions } from "./yaml/completions";
+import { projectLanguage } from "./yaml/language";
+import { schemaVocabulary } from "./yaml/vocabulary";
 
 /** Is this Faust source? The EXTENSION decides, since a pane is a place rather than a language. */
 const isFaust = (path: string): boolean => path.toLowerCase().endsWith(".dsp");

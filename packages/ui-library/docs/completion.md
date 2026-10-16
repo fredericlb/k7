@@ -1,7 +1,7 @@
 # What the media library can complete
 
-One library screen shows YAML — a song's sidecar, in `SongEditor`, through
-`@studio/ui-module-builder`'s `YamlPane` — and it completes nothing. The completion machinery is
+Two library screens show YAML — a song's sidecar in `SongEditor` and a playlist in `Playlists`,
+both through `@studio/ui-editor`'s `YamlPane` — and neither is handed a vocabulary. The completion machinery is
 [packages/ui-editor/docs/completion.md](../../ui-editor/docs/completion.md); this
 page is the other half, where the names here would have to come from.
 
@@ -35,5 +35,4 @@ and needs to ask nobody. The editor's playlist screen does that over the listing
 ## Not covered
 
 A song's sidecar. Its fields are not a project `FileKind`, so `fileKindFor` answers `null` and
-nothing completes. It would be one more vocabulary on the model above, and it is the only YAML
-screen here.
+nothing completes. It would be one more vocabulary on the model above.

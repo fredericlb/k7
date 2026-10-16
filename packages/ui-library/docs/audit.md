@@ -34,7 +34,7 @@ middle pane `LibraryContents.tsx` ([library.md](library.md)). The transport and 
 
 ## The editor stack is fetched when text is shown
 
-`YamlPane` is the module builder's, and CodeMirror with its vim mode weighs more than every other screen
+`YamlPane` is `@studio/ui-editor`'s, and CodeMirror with its vim mode weighs more than every other screen
 here together. The song editor and the playlists reach it through `src/LazyYamlPane.tsx`, so the
 catalogue draws without it and the pane arrives the first time a file is opened as text. The package
 declares `"sideEffects": false`: the host's sidebar imports the section list through the barrel, and

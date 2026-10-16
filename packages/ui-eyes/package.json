@@ -8,12 +8,10 @@
     "./scene": "./src/scene.ts",
     "./timeline": "./src/timeline.ts",
     "./clock": "./src/clock.ts",
-    "./compositor": "./src/compositor.ts",
     "./realtime": "./src/realtime.ts",
     "./export": "./src/export.ts",
     "./exportSupport": "./src/exportSupport.ts",
     "./camera": "./src/camera.ts",
-    ".": "./src/index.ts",
     "./exportQuality": "./src/exportQuality.ts",
     "./renderPage": "./src/renderPage.ts",
     "./renderSettings": "./src/renderSettings.ts"

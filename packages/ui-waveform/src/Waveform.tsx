@@ -1,4 +1,15 @@
-import { Flag } from "@frediverse/ui/icons";
+// Waveform.tsx — the shared dB-scale waveform canvas: one clip's envelope, its grid, markers and
+// playhead, rasterised once into layers and blitted, with seek and select on the canvas and the
+// grab handles over it (overlays.tsx). See docs/layers.md.
+
+import {
+  labelled,
+  labelMinPx,
+  labelStride,
+  MAX_COLUMN_PX,
+  nearestTick,
+  subdivideGrid,
+} from "@studio/ui-timeline/ticks";
 import {
   memo,
   type Ref,
@@ -9,16 +20,10 @@ import {
   useRef,
   useState,
 } from "react";
+import { ampToDb, contourYs, dbToYIn, envelopeLayer } from "./envelope";
+import { MarkerPins, WarpHandles, WindowEdges } from "./overlays";
 import { playheadPlacement } from "./playhead";
 import { columnsOf, mirroredYs, spectrumLayer } from "./spectrum";
-import {
-  labelled,
-  labelMinPx,
-  labelStride,
-  MAX_COLUMN_PX,
-  nearestTick,
-  subdivideGrid,
-} from "./ticks";
 import type {
   Annotation,
   DetectedEvent,
@@ -77,7 +82,6 @@ interface Props {
 }
 
 const DEFAULT_HEIGHT = 160; // canvas height when no `height` prop is given
-const MIN_DB = -120; // bottom of the vertical scale (0 dBFS at the top)
 const DB_GRID = [0, -20, -40, -60, -80, -100];
 const HANDLE_HIT = 9; // px from an edge that counts as grabbing its handle
 const MIN_DUR = 0.1; // shortest allowed moment (s)
@@ -113,120 +117,6 @@ const NO_MARKERS: Marker[] = [];
 const NO_GRID: WaveformGrid[] = [];
 const NO_WARPS: { orig: number; target: number }[] = [];
 const NO_ONSETS: number[] = [];
-
-const ampToDb = (amp: number): number =>
-  amp > 0 ? 20 * Math.log10(amp) : MIN_DB;
-
-// The dB scale, absolute: MIN_DB at the bottom, 0 dBFS at the top, both envelopes linear — see docs/envelopes.md.
-const dbToYIn = (db: number, h: number): number => {
-  const norm = Math.max(0, Math.min(1, (db - MIN_DB) / -MIN_DB));
-  return h - norm * h;
-};
-
-/** One y per pixel column: interpolate when zoomed in, average when zoomed out — run twice, see docs/envelopes.md. */
-export function contourYs(
-  samples: number[],
-  intervalMs: number,
-  width: number,
-  v0: number,
-  span: number,
-  height: number,
-): number[] {
-  const n = samples.length;
-  const dt = intervalMs / 1000;
-  const toTime = (x: number) => (width > 0 ? v0 + (x / width) * span : v0);
-  // dB per sample, lightly averaged to take the edge off single-sample spikes.
-  const R = 1; // smoothing radius, in samples
-  const sdb = new Array<number>(n);
-  for (let i = 0; i < n; i++) {
-    let sum = 0;
-    let cnt = 0;
-    for (let k = i - R; k <= i + R; k++) {
-      if (k >= 0 && k < n) {
-        sum += ampToDb(samples[k]);
-        cnt++;
-      }
-    }
-    sdb[i] = cnt ? sum / cnt : MIN_DB;
-  }
-  const out = new Array<number>(Math.max(1, width));
-  for (let px = 0; px < width; px++) {
-    const a = toTime(px) / dt;
-    const b = toTime(px + 1) / dt;
-    let db: number;
-    if (b - a >= 1) {
-      const i0 = Math.max(0, Math.floor(a));
-      const i1 = Math.min(n, Math.ceil(b));
-      let sum = 0;
-      let cnt = 0;
-      for (let i = i0; i < i1; i++) {
-        sum += sdb[i];
-        cnt++;
-      }
-      db = cnt ? sum / cnt : MIN_DB;
-    } else {
-      const c = (a + b) / 2;
-      const i = Math.floor(c);
-      const f = c - i;
-      const s0 = sdb[Math.max(0, Math.min(n - 1, i))];
-      const s1 = sdb[Math.max(0, Math.min(n - 1, i + 1))];
-      db = s0 + (s1 - s0) * f;
-    }
-    out[px] = dbToYIn(db, height);
-  }
-  return out;
-}
-
-/** One envelope contour rasterised onto a canvas of its own, drawn once and then blitted — see docs/layers.md. */
-function envelopeLayer(
-  ys: number[],
-  width: number,
-  height: number,
-  dpr: number,
-  rgb: string,
-  /** Scales both the fill and the line — 1 is the solid contour, less is the one behind it. */
-  alpha = 1,
-): HTMLCanvasElement {
-  const cv = document.createElement("canvas");
-  cv.width = Math.max(1, Math.round(width * dpr));
-  cv.height = Math.max(1, Math.round(height * dpr));
-  const ctx = cv.getContext("2d");
-  if (!ctx || width < 2) return cv;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-  // Smooth curve through the points via quadratic segments to the midpoints.
-  const contour = () => {
-    for (let x = 0; x < width - 1; x++) {
-      const xc = (x + x + 1) / 2;
-      const yc = (ys[x] + ys[x + 1]) / 2;
-      ctx.quadraticCurveTo(x, ys[x], xc, yc);
-    }
-    ctx.lineTo(width - 1, ys[width - 1]);
-  };
-
-  // A soft filled area…
-  ctx.beginPath();
-  ctx.moveTo(0, height);
-  ctx.lineTo(0, ys[0]);
-  contour();
-  ctx.lineTo(width - 1, height);
-  ctx.closePath();
-  const grad = ctx.createLinearGradient(0, 0, 0, height);
-  grad.addColorStop(0, `rgba(${rgb}, ${0.22 * alpha})`);
-  grad.addColorStop(1, `rgba(${rgb}, 0)`);
-  ctx.fillStyle = grad;
-  ctx.fill();
-
-  // …under a top line.
-  ctx.beginPath();
-  ctx.moveTo(0, ys[0]);
-  contour();
-  ctx.strokeStyle = `rgba(${rgb}, ${0.9 * alpha})`;
-  ctx.lineWidth = 1;
-  ctx.lineJoin = "round";
-  ctx.stroke();
-  return cv;
-}
 
 /** The transport, steered without a render: the played fill and the line move, and no canvas is redrawn. */
 export interface WaveformHandle {
@@ -321,7 +211,7 @@ function WaveformInner({
   const timeToX = (t: number) => (span > 0 ? ((t - v0) / span) * width : 0);
   const xToTime = (x: number) => (width > 0 ? v0 + (x / width) * span : v0);
 
-  /** The lines BETWEEN the ones the host sent, derived here because the CLICK wants them too — see docs/ticks.md. */
+  /** The lines BETWEEN the ones the host sent, derived here because the CLICK wants them too — see ui-timeline's docs/ticks.md. */
   const subGrid = useMemo(
     () =>
       subdivideGrid(
@@ -639,7 +529,7 @@ function WaveformInner({
       if (y > 10) ctx.fillText(`${db} dB`, 3, y - 1);
     }
 
-    // Bar-number labels on top of the gridlines they belong to, thinned by powers of two once they crowd (see ticks.ts).
+    // Bar-number labels on top of the gridlines they belong to, thinned by powers of two once they crowd (ui-timeline's ticks.ts).
     ctx.textBaseline = "top";
     ctx.fillStyle = "rgba(160,200,255,0.85)";
 
@@ -673,7 +563,7 @@ function WaveformInner({
       texts.length > 1
         ? timeToX(texts[1].t) - timeToX(texts[0].t)
         : Number.POSITIVE_INFINITY;
-    // Against the widest number this ruler prints, not a flat minimum — see docs/ticks.md.
+    // Against the widest number this ruler prints, not a flat minimum — see ui-timeline's docs/ticks.md.
     const widest = texts.reduce(
       (w, t) => (t.text.length > w.length ? t.text : w),
       "",
@@ -813,6 +703,9 @@ function WaveformInner({
     }
   };
 
+  // What every overlay needs to turn a second into a position and back.
+  const axis = { width, height: HEIGHT, total, timeToX, xToTime, localX };
+
   return (
     <div ref={wrapRef} className="waveform-wrap">
       {/* The three layers under the interactive canvas, in paint order: whole, played (clipped per frame), the line — docs/layers.md. */}
@@ -849,167 +742,37 @@ function WaveformInner({
         }}
       />
       {/* The window's two EDGES, on the same `timeToX` as the line each holds — see docs/marks.md. */}
-      {onWindowMove &&
-        winEdges &&
-        (["from", "to"] as const).map((edge) => {
-          const at = winEdges[edge];
-          return (
-            <button
-              key={edge}
-              type="button"
-              className="waveform-edge"
-              // CLAMPED into the strip, unlike the pins below, with the true second in the title — see docs/marks.md.
-              style={{
-                left: Math.max(0, Math.min(width, timeToX(at))),
-                height: HEIGHT,
-              }}
-              title={`Drag to set the event's ${edge} (${at.toFixed(3)}s)`}
-              aria-label={`window ${edge}`}
-              onPointerDown={(e) => {
-                e.stopPropagation(); // …or the canvas starts a selection under the same finger
-                e.currentTarget.setPointerCapture(e.pointerId);
-                // `edge` AFTER the spread: `winEdges` may itself be a drag in flight, carrying its own.
-                setWinDrag({ ...winEdges, edge });
-              }}
-              onPointerMove={(e) => {
-                if (winDrag?.edge !== edge) return;
-                // Clamped to the FILE and kept a hair apart, since a window that crossed itself plays nothing.
-                const sec = Math.max(
-                  0,
-                  Math.min(total, xToTime(localX(e.clientX))),
-                );
-                setWinDrag(
-                  edge === "from"
-                    ? { ...winDrag, from: Math.min(sec, winDrag.to - 0.001) }
-                    : { ...winDrag, to: Math.max(sec, winDrag.from + 0.001) },
-                );
-              }}
-              onPointerUp={() => {
-                const d = winDrag;
-                setWinDrag(null);
-                if (d?.edge === edge) onWindowMove({ from: d.from, to: d.to });
-              }}
-              onPointerCancel={() => setWinDrag(null)}
-            />
-          );
-        })}
+      {onWindowMove && winEdges && (
+        <WindowEdges
+          edges={winEdges}
+          drag={winDrag}
+          setDrag={setWinDrag}
+          onMove={onWindowMove}
+          {...axis}
+        />
+      )}
       {/* A stretch point's TARGET as a grab handle on the blue rule, never its origin — see docs/marks.md. */}
-      {onWarpMove &&
-        warps.map((w) => {
-          const held =
-            warpDrag && Math.abs(warpDrag.orig - w.orig) < 1e-9
-              ? warpDrag
-              : null;
-          const at = held ? held.target : w.target;
-          return (
-            <button
-              key={`warp-${w.orig}`}
-              type="button"
-              className="waveform-edge"
-              style={{
-                left: Math.max(0, Math.min(width, timeToX(at))),
-                height: HEIGHT,
-              }}
-              title={`Drag to move where ${w.orig.toFixed(3)}s lands (${at.toFixed(3)}s) — right-click for more`}
-              aria-label="stretch point"
-              // The host's menu and not the browser's, but only when it offers one.
-              onContextMenu={
-                onWarpMenu
-                  ? (e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onWarpMenu(
-                        { orig: w.orig, target: w.target },
-                        e.clientX,
-                        e.clientY,
-                      );
-                    }
-                  : undefined
-              }
-              onPointerDown={(e) => {
-                e.stopPropagation(); // …or the canvas starts a selection under the same finger
-                e.currentTarget.setPointerCapture(e.pointerId);
-                setWarpDrag({ orig: w.orig, target: w.target });
-              }}
-              onPointerMove={(e) => {
-                if (!held) return;
-                // NOT snapped, unlike every other click on this canvas, and that is the point of a warp.
-                setWarpDrag({
-                  orig: w.orig,
-                  target: Math.max(
-                    0,
-                    Math.min(total, xToTime(localX(e.clientX))),
-                  ),
-                });
-              }}
-              onPointerUp={() => {
-                const d = warpDrag;
-                setWarpDrag(null);
-                if (d && Math.abs(d.orig - w.orig) < 1e-9)
-                  onWarpMove({ orig: w.orig, target: w.target }, d.target);
-              }}
-              onPointerCancel={() => setWarpDrag(null)}
-            />
-          );
-        })}
+      {onWarpMove && (
+        <WarpHandles
+          warps={warps}
+          drag={warpDrag}
+          setDrag={setWarpDrag}
+          onMove={onWarpMove}
+          onMenu={onWarpMenu}
+          {...axis}
+        />
+      )}
       {/* Only the pins inside the window, since their `left` is absolute px — see docs/marks.md. */}
-      {markers
-        .filter((m) => m.atSec >= v0 && m.atSec <= v1)
-        .map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            className={
-              markerPlace === "low"
-                ? "waveform-marker waveform-marker--low"
-                : "waveform-marker"
-            }
-            // The pin follows the pointer from LOCAL state while dragged, or it would lag the hand by a save.
-            style={{
-              left: timeToX(
-                markerDrag?.id === m.id ? markerDrag.atSec : m.atSec,
-              ),
-            }}
-            title={
-              onMarkerMove
-                ? (m.comment ?? "Marker — drag to move")
-                : m.comment || "Marker"
-            }
-            onPointerDown={(e) => {
-              if (!onMarkerMove) return;
-              e.stopPropagation(); // …or the canvas underneath starts a selection at the same time
-              e.currentTarget.setPointerCapture(e.pointerId);
-              setMarkerDrag({ id: m.id, atSec: m.atSec, moved: false });
-            }}
-            onPointerMove={(e) => {
-              if (!markerDrag || markerDrag.id !== m.id) return;
-              const x = localX(e.clientX);
-              setMarkerDrag({
-                id: m.id,
-                atSec: Math.max(0, Math.min(total, xToTime(x))),
-                // 4px, the same threshold the canvas uses to tell a click from a drag.
-                moved: markerDrag.moved || Math.abs(x - timeToX(m.atSec)) > 4,
-              });
-            }}
-            onPointerUp={() => {
-              const d = markerDrag;
-              setMarkerDrag(null);
-              if (!d || d.id !== m.id) return;
-              if (d.moved) onMarkerMove?.(m, d.atSec);
-              else if (onMarkerClick) onMarkerClick(m);
-              else onSeek?.(m.atSec);
-            }}
-            onPointerCancel={() => setMarkerDrag(null)}
-            // Click still answers for a host that offers no move; a drag that handled the release never reaches it.
-            onClick={() => {
-              if (onMarkerMove) return;
-              if (onMarkerClick) onMarkerClick(m);
-              else onSeek?.(m.atSec);
-            }}
-          >
-            <Flag className="waveform-marker-flag" />
-          </button>
-        ))}
+      <MarkerPins
+        markers={markers.filter((m) => m.atSec >= v0 && m.atSec <= v1)}
+        place={markerPlace}
+        drag={markerDrag}
+        setDrag={setMarkerDrag}
+        onMove={onMarkerMove}
+        onClick={onMarkerClick}
+        onSeek={onSeek}
+        {...axis}
+      />
     </div>
   );
 }

@@ -38,7 +38,7 @@ type Pair = [RenderTarget, RenderTarget];
 const FULL: [number, number, number, number] = [-1, -1, 1, 1];
 
 /** Does any shot in the scene name an effect? Its targets exist only then. */
-export const grades = (scene: VideoScene): boolean =>
+const grades = (scene: VideoScene): boolean =>
   scene.layers.some((l) => l.clips.some((c) => c.effect));
 
 export class Sides {
