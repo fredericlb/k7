@@ -242,16 +242,6 @@ JSON over `ws://127.0.0.1:8765` (default). A sample of the message types:
 
 Run from `engine/k7-runtime/`, in the order you'll hit them.
 
-**`git@github.com: Permission denied (publickey)` during the JUCE submodule
-clone** — Tracktion's `.gitmodules` hardcodes the JUCE submodule as an SSH URL.
-Redirect GitHub to anonymous HTTPS (keeping SSH for your own pushes):
-
-```sh
-git config --global url."https://github.com/".insteadOf "git@github.com:"
-git config --global url."git@github.com:".pushInsteadOf "https://github.com/"
-rm -rf engine/build
-```
-
 **`fatal error: 'X11/extensions/Xrandr.h' file not found`** — JUCE builds its
 `juceaide` helper first, which needs the full X11 + font dev stack even headless.
 Install the dependency list above.

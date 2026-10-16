@@ -89,13 +89,14 @@ jobs:
       # The dependencies' SOURCES, on the slow leg only — the budget docs/desktop-release.md counts; exact key, since a
       # restored tree does not re-run a patch whose script changed. The folder is the same on every leg regardless.
       - name: dependency sources
+        id: fetch
         if: runner.os == 'Windows'
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ runner.temp }}/k7-fetch
           key: fetch-${{ inputs.label }}-${{ hashFiles('engine/k7-runtime/CMakeLists.txt', 'engine/k7-supervisor/CMakeLists.txt', 'engine/k7-runtime/engine/patches/**', 'engine/k7-runtime/engine/eurorack/patches/**', 'engine/k7-supervisor/cmake/**') }}
 
-      # Not fatal: a runner that cannot download sccache builds uncached rather than not at all.
+      # Not fatal: a runner that cannot download sccache builds uncached rather than not at all. Saved from main alone.
       - name: compiler cache
         id: cache
         continue-on-error: true
@@ -103,7 +104,8 @@ jobs:
         with:
           variant: sccache
           key: engine-${{ inputs.label }}
-          max-size: 2G
+          max-size: 1G
+          save: ${{ github.ref == 'refs/heads/main' }}
 
       # The engine and the supervisor, staged as the command-line engine — the script a developer runs.
       # See engine/scripts/docs/buildEngine.md.
@@ -117,6 +119,7 @@ jobs:
         run: node engine/scripts/build-engine.mjs
 
       # Sources only reach the cache: what CMake built inside the folder depends on the preset, as on OneDev.
+      # The downloaded archives go too: their stamps stay, so a restored tree is not fetched again.
       - name: sources only in the fetch cache
         if: always()
         shell: bash
@@ -125,6 +128,15 @@ jobs:
           [ -d "$d" ] || exit 0
           find "$d" -mindepth 2 -maxdepth 2 -type d -name '*-build' -exec rm -rf {} +
           rm -rf "$d/k7-runtime/faust-src/build/lib"
+          find "$d" -path '*-populate-prefix/src/*' -type f \( -name '*.tar.*' -o -name '*.tgz' -o -name '*.zip' -o -name '*.nupkg' \) -delete
+
+      # After a build that succeeded, from main alone: a branch's copy would only push main's out of the 10 GB.
+      - name: save dependency sources
+        if: success() && runner.os == 'Windows' && steps.fetch.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/k7-fetch
+          key: ${{ steps.fetch.outputs.cache-primary-key }}
 
       - name: compiler cache stats
         if: always()

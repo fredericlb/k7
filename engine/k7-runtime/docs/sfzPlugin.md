@@ -32,8 +32,9 @@ cymbal keeps the level it was struck at, which is also what a real one does.
 **It is compiled as C++17, ours being 20.** Under C++20 `std::result_of` is gone and abseil changes
 what `string_view` is, and sfizz does not build; 17 is what it already picks for itself on MSVC, so
 it is the one standard every platform builds it at. Only its public header is included on our side,
-and that one is plain `std`. **Not shallow**: one of its submodules has a submodule pinned at a
-commit a shallow clone cannot reach. It is built on **every platform, Android included**: there
+and that one is plain `std`. **Fetched as upstream's source archive**, which carries the six
+submodules it compiles: a clone could not be shallow, since one of them pins a submodule at a commit
+only a full history reaches (`build.md`). It is built on **every platform, Android included**: there
 the engine library links it with no static TLS (`llvm-readelf -d` shows none, which `android.md`
 says the loader would refuse), and the stripped library with it is 40.5 MB. `STUDIO_SFZ` is what says the
 plugin is compiled in, and the scan lists it only then.

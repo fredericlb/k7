@@ -154,9 +154,9 @@ travel: reaching it in an installed app means the resource staging did not happe
 script fails loudly when it finds nothing to copy, rather than producing a package that looks
 built.
 
-`libraries/` is a **submodule** of faust (`grame-cncm/faustlibraries`). A clone that does not
-initialise it gets an empty folder, and `import("stdfaust.lib")` fails at runtime — not at build
-time.
+`libraries/` is a **submodule** of faust (`grame-cncm/faustlibraries`), fetched as a second archive
+at the commit the tag pins (`build.md`). Without it the folder is empty, and `import("stdfaust.lib")`
+fails at runtime — not at build time.
 
 ## Two link traps that do not show up on the author's machine
 

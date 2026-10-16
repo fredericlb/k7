@@ -1,0 +1,61 @@
+# archive-fetch.cmake — assembles a dependency from pinned archives: a repository's and its submodules', each checked by hash.
+# The one thing a reader would get wrong: there is no git here on purpose — a tree with no history is what CI caches (docs/build.md).
+#
+# Run as the DOWNLOAD_COMMAND: -DSRC=<source dir>, then per archive N from 0: -DURL<N>=… -DSHA<N>=<sha256> -DDIR<N>=<subdir, empty for the root>.
+# Idempotent: a stamp names what is there. Archive 0 must be the root; each archive holds one top-level folder.
+
+set(_want "")
+set(_count 0)
+while(DEFINED URL${_count})
+    string(APPEND _want "${URL${_count}} ${SHA${_count}} ${DIR${_count}}\n")
+    math(EXPR _count "${_count} + 1")
+endwhile()
+if(_count EQUAL 0 OR NOT "${DIR0}" STREQUAL "")
+    message(FATAL_ERROR "archive-fetch: archive 0 must be given, and be the root")
+endif()
+
+set(_stamp "${SRC}/.studio-fetched")
+if(EXISTS "${_stamp}")
+    file(READ "${_stamp}" _have)
+    if(_have STREQUAL _want)
+        return()
+    endif()
+endif()
+
+set(_work "${SRC}.download")
+file(REMOVE_RECURSE "${SRC}" "${_work}")
+math(EXPR _last "${_count} - 1")
+foreach(i RANGE ${_last})
+    set(_file "${_work}/${i}.archive")
+    # A runner's network drops a download now and then; three tries before the build gives up.
+    foreach(_try 1 2 3)
+        file(DOWNLOAD "${URL${i}}" "${_file}" EXPECTED_HASH SHA256=${SHA${i}} STATUS _status TLS_VERIFY ON)
+        list(GET _status 0 _rc)
+        if(_rc EQUAL 0)
+            break()
+        endif()
+        file(REMOVE "${_file}")
+    endforeach()
+    if(NOT _rc EQUAL 0)
+        message(FATAL_ERROR "archive-fetch: ${URL${i}} failed: ${_status}")
+    endif()
+    file(ARCHIVE_EXTRACT INPUT "${_file}" DESTINATION "${_work}/${i}")
+    file(GLOB _top LIST_DIRECTORIES true "${_work}/${i}/*")
+    list(LENGTH _top _n)
+    if(NOT _n EQUAL 1)
+        message(FATAL_ERROR "archive-fetch: ${URL${i}} holds ${_n} top-level entries, expected one folder")
+    endif()
+    if(i EQUAL 0)
+        set(_dest "${SRC}")
+    else()
+        set(_dest "${SRC}/${DIR${i}}")
+    endif()
+    # A submodule's place in its parent's archive is an empty folder, replaced whole.
+    file(REMOVE_RECURSE "${_dest}")
+    get_filename_component(_parent "${_dest}" DIRECTORY)
+    file(MAKE_DIRECTORY "${_parent}")
+    file(RENAME "${_top}" "${_dest}")
+endforeach()
+file(REMOVE_RECURSE "${_work}")
+
+file(WRITE "${_stamp}" "${_want}")

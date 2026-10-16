@@ -27,6 +27,28 @@ unless the environment already sets it. Not under the Visual Studio generator: t
 becomes MSBuild's `/m`, projects in parallel on top of `/MP`'s files in parallel — the 144-compiler
 case `AGENTS.md` warns about.
 
+## Every dependency arrives without its history
+
+No fetched source keeps a `.git`. A clone's history is most of its size — sfizz's 426 MB of 520,
+Tracktion's 332 of 493, nlohmann/json's 169 of 186 — and the source tree is what CI keeps in a cache
+of 10 GB shared by every leg (`docs/desktop-release.md` at the root). The six that are large without
+it, measured on macOS: 2.7 GB as clones, 0.85 GB as archives.
+
+| how | which | why that way |
+|---|---|---|
+| one release archive, `URL` + `URL_HASH` | nlohmann/json, sfizz | upstream publishes one for exactly this; sfizz's carries the six submodules it compiles, minus their tests |
+| one commit's archive, `URL` + `URL_HASH` | Eigen (GitLab), Mutable's eurorack and stmlib | the pin is a commit, which a shallow clone cannot fetch |
+| several archives, `engine/patches/archive-fetch.cmake` | Tracktion with JUCE, Faust with faustlibraries | a submodule is a second archive, at the commit its parent pins; a bump of the parent moves both lines |
+| a sparse git fetch, history dropped after | Surge | `resources/data` is 480 MB the engine never reads, and an archive cannot leave it out; `surge-fetch.cmake` writes `VERSION_GIT_INFO`, which Surge's version script reads before asking git |
+
+Nothing that configures needs git either: sfizz runs `git submodule update` only in a tree that has a
+`.git`, and its build id is then empty. The shallow clones left — IXWebSocket, QuickJS, RTNeural and
+NeuralAmpModelerCore here, libdatachannel in `engine/k7-supervisor` — keep theirs: under 200 MB
+together, most of it libdatachannel's.
+
+A hash pins the bytes, not the URL: GitHub's and GitLab's generated archives are stable for a given
+commit, and a hash that stops matching fails the configure loudly rather than building something else.
+
 ## A patch re-runs when its script changes
 
 Every third-party source is patched at fetch time by a `cmake -P` script, and CMake re-runs a patch

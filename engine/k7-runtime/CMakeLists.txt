@@ -59,11 +59,10 @@ foreach(_patch eurorack stmlib)
 endforeach()
 
 # --- nlohmann/json : parse the JSON project the frontend sends (server) --------
+# Upstream's release archive for FetchContent: the headers and the CMake files, 0.1 MB against a clone's 186.
 FetchContent_Declare(nlohmann_json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_PROGRESS   ON
-    GIT_TAG        v3.11.3
-    GIT_SHALLOW    ON)
+    URL      https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+    URL_HASH SHA256=d6c65aca6b1ed68e7a182f4757257b107ae403032760ed6ef121c9d55e81757d)
 set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
 
 # --- Neural Amp Modeler : the amp/pedal modeller's DSP core -------------------
@@ -102,12 +101,11 @@ FetchContent_Declare(nam_core
 #
 # Pinned to the exact commit NAM vendors as its own submodule (a post-3.4 master
 # snapshot), NOT to the 3.4.0 release: NAM's lstm.h uses Eigen::placeholders::lastN,
-# which 3.4.0 spells Eigen::lastN — the tag fails to compile against this NAM. No
-# GIT_SHALLOW, because a shallow clone can only fetch a ref, not an arbitrary commit.
+# which 3.4.0 spells Eigen::lastN — the tag fails to compile against this NAM. GitLab's
+# archive of that commit rather than a clone, which could not be shallow at a commit.
 FetchContent_Declare(eigen
-    GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-    GIT_PROGRESS   ON
-    GIT_TAG        87300c93cae6a8afd9a4f8aa8d9d5c5324cf02e1
+    URL      https://gitlab.com/libeigen/eigen/-/archive/87300c93cae6a8afd9a4f8aa8d9d5c5324cf02e1/eigen-87300c93cae6a8afd9a4f8aa8d9d5c5324cf02e1.tar.gz
+    URL_HASH SHA256=50e5eaae4c213e51dee1727c42d1ada5f8c4f025c0e81d1d517b30f6142fb30d
     SOURCE_SUBDIR  studio-does-not-build-this)
 
 # --- RTNeural : the recurrent amp models NAM does not read (AIDA-X, Proteus) -----
@@ -162,13 +160,16 @@ set(INCLUDE_WASM_GLUE  OFF CACHE BOOL "" FORCE)
 # `import("stdfaust.lib")` resolves. Without it the build succeeds and every module fails to
 # compile at RUNTIME, which is the worst place to find out. Named explicitly rather than
 # recursing, because the other eight submodules are oboe, clap and friends — hundreds of MB
-# for architectures we do not build.
+# for architectures we do not build. Two archives: the tag's, and faustlibraries' at the commit it pins.
 FetchContent_Declare(faust
-    GIT_REPOSITORY https://github.com/grame-cncm/faust.git
-    GIT_PROGRESS   ON
-    GIT_TAG        2.85.9
-    GIT_SUBMODULES "libraries"
-    GIT_SHALLOW    ON
+    DOWNLOAD_COMMAND ${CMAKE_COMMAND} -DSRC=<SOURCE_DIR>
+        -DURL0=https://codeload.github.com/grame-cncm/faust/tar.gz/refs/tags/2.85.9
+        -DSHA0=a615582af7729b93428a8fd987f9b34261a748f4270ff9608ea9b7b3c5d474da
+        -DURL1=https://codeload.github.com/grame-cncm/faustlibraries/tar.gz/78a72d4998dec43e20492ef9b78d1a785b3dc864
+        -DSHA1=6331b79fff8f767039bb3097aa4bd3df9421c792eab0524a7a47347c0dfc44cb
+        -DDIR1=libraries
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/archive-fetch.cmake"
+    UPDATE_COMMAND ""
     # poly-dsp.h prints on the audio thread at every voice steal; explained in the script.
     PATCH_COMMAND ${STUDIO_PATCH_faust}
     SOURCE_SUBDIR  build)
@@ -178,13 +179,10 @@ FetchContent_Declare(faust
 # multi-sampled piano is a folder of files rather than a plugin to install. Built STATIC, with its
 # own stand-alone tools off. Upstream is archived; the two fixes today's compilers need are in the
 # patch script. Rationale: docs/sfzPlugin.md.
+# Upstream's source archive carries all six submodules the library compiles (abseil, the audio file readers…), minus their tests.
 FetchContent_Declare(sfizz
-    GIT_REPOSITORY https://github.com/sfztools/sfizz.git
-    GIT_PROGRESS   ON
-    GIT_TAG        1.2.3
-    # Not shallow: a shallow clone cannot reach the commit libaiff, a submodule of a submodule, is pinned at.
-    # All six are compiled into the library: abseil, the audio file readers (FLAC is dr_libs'), and so on.
-    GIT_SUBMODULES_RECURSE ON
+    URL      https://github.com/sfztools/sfizz/releases/download/1.2.3/sfizz-1.2.3.tar.gz
+    URL_HASH SHA256=a9339eac7620d7f0f6b44bdfe860680fab73e66efad4b5f15b21198dd9436822
     PATCH_COMMAND ${STUDIO_PATCH_sfizz})
 set(SFIZZ_SHARED OFF CACHE BOOL "" FORCE)
 set(SFIZZ_JACK OFF CACHE BOOL "" FORCE)
@@ -271,22 +269,8 @@ set(USE_ZLIB OFF CACHE BOOL "" FORCE)         # no permessage-deflate; avoids a 
 
 # --- Tracktion Engine : the audio engine (+ JUCE via submodules) (engine) -----
 # Pinned to v3.2.0 (latest release, JUCE 8). engine/EngineHost.cpp targets this
-# exact tag; bump deliberately and re-test it.
-# Tracktion's .gitmodules pins JUCE over SSH (git@github.com:juce-framework/JUCE.git),
-# so populating it needs a GitHub SSH key AND an already-trusted host key. On a fresh
-# machine or a CI runner (which rarely has either) configure dies with "Host key
-# verification failed" nowhere near anything we wrote. JUCE is public, so rewrite that
-# one URL to HTTPS.
-#
-# This has to be an env var, NOT FetchContent's GIT_CONFIG. GIT_CONFIG only writes the
-# rewrite into the superproject's .git/config, but `git submodule update` clones each
-# submodule in a CHILD git process that has no repo context yet, so it reads only the
-# system/global scopes and never sees it — the clone still goes out over SSH. Git
-# passes GIT_CONFIG_* down to those children, which is exactly what we need.
-# Deliberately scoped to this configure run: no global git config, no ~/.ssh changes.
-set(ENV{GIT_CONFIG_COUNT} 1)
-set(ENV{GIT_CONFIG_KEY_0} "url.https://github.com/.insteadOf")
-set(ENV{GIT_CONFIG_VALUE_0} "git@github.com:")
+# exact tag; bump deliberately and re-test it. JUCE, its one submodule, is fetched as an
+# archive of the commit v3.2.0 pins: a bump moves both lines together.
 
 # On Android, populate only: Tracktion's root always adds its examples, and EngineInPluginDemo
 # depends on a VST3 target that does not exist there — configure fails on a demo we never build.
@@ -296,13 +280,14 @@ if(ANDROID)
 endif()
 
 FetchContent_Declare(tracktion_engine
-    GIT_REPOSITORY https://github.com/Tracktion/tracktion_engine.git
-    GIT_PROGRESS   ON
-    GIT_TAG        v3.2.0
-    GIT_SUBMODULES_RECURSE ON
-    # Shallow: Tracktion's history is 1.6 GB, cloned in silence, which on a CI agent reads as a hang.
-    # The JUCE submodule is still fetched whole, at the very commit v3.2.0 pins.
-    GIT_SHALLOW    ON
+    DOWNLOAD_COMMAND ${CMAKE_COMMAND} -DSRC=<SOURCE_DIR>
+        -DURL0=https://codeload.github.com/Tracktion/tracktion_engine/tar.gz/refs/tags/v3.2.0
+        -DSHA0=4314dc05db9abeb39436abca759098004847d77400339648c54f49451c7bb806
+        -DURL1=https://codeload.github.com/juce-framework/JUCE/tar.gz/19edd538429c93d277bf95b55aaa7e3eb545f951
+        -DSHA1=5be3406ca3c7e4e757b1ca4d8e9083024563ce05a3a675597adadbcc8f334e82
+        -DDIR1=modules/juce
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/archive-fetch.cmake"
+    UPDATE_COMMAND ""
     # SamplerPlugin re-decodes every rack sound on any change to one, and the file-check callback reads an empty queue; explained in the script.
     PATCH_COMMAND ${STUDIO_PATCH_tracktion}
     ${STUDIO_TRACKTION_SUBDIR})

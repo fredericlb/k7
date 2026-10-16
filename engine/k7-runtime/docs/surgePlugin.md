@@ -32,6 +32,8 @@ off:
 cannot shallow-fetch a commit hash. A full clone is 640 MB; the script fetches one commit, sparse
 without `resources/data` (480 MB of presets, wavetables and skins the engine never reads), and
 only the fifteen submodules the core compiles from — not JUCE, LuaJIT, pybind11 or the CLAP glue.
+It then drops every `.git`, having written the branch and hash to `VERSION_GIT_INFO`, the file
+Surge's `cmake/versiontools.cmake` reads before it asks git (`build.md`).
 
 **Four fixes at fetch time** (`engine/patches/surge.cmake`), every one about being a SUBPROJECT:
 two paths and a version number Surge takes from the top project, which is ours; the static MSVC
