@@ -30,6 +30,10 @@ export const ENGINE_GLOBAL_REPLIES = [
   "sessions", // the one question whose answer is about the OTHER sessions
   "edit-plugins", // asked by the supervisor, which drives none; each row names its own session
   "whoami", // the identity of the process
+  // About a plugin TYPE or its window on the machine, never a project's instance of it.
+  "plugin-param-list",
+  "native-plugin-ui-opened",
+  "plugin-base-saved",
   // Pairing: about a DEVICE and the machine, never a project — engine/k7-runtime/docs/pairing.md.
   "pair-pending",
   "paired",

@@ -1,6 +1,8 @@
 // Tests for the session id. Its whole job is that two processes spell it the same way, so
 // what is pinned here is the SPELLING — a mismatch is silent on both sides.
 
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SESSION,
@@ -82,5 +84,41 @@ describe("the stamped/unstamped sets", () => {
   it("lets every engine-global reply through unstamped", () => {
     for (const type of ENGINE_GLOBAL_REPLIES)
       expect(forSession(frame(type), "k7:a")).toBe(true);
+  });
+});
+
+// The engine's handlers are where a reply is stamped or not; this reads them, so a new verb cannot ship unclassified.
+describe("the engine's own send sites", () => {
+  const dir = join(import.meta.dirname, "../../engine/k7-runtime/server");
+  const source = readdirSync(dir)
+    .filter((f) => /\.(cpp|h)$/.test(f))
+    .map((f) => readFileSync(join(dir, f), "utf8"))
+    .join("\n");
+  const sites = (verb: RegExp): string[] =>
+    [...source.matchAll(verb)].map((m) => m[1]);
+  const unstamped = [
+    ...sites(
+      /\b(?:broadcast|broadcastLocal)\(\s*(?:json)?\{\{"type",\s*"([a-z-]+)"/g,
+    ),
+    ...sites(/\bsendTo\([^,]+,\s*(?:json)?\{\{"type",\s*"([a-z-]+)"/g),
+  ];
+  const stamped = sites(
+    /\bbroadcastTo\(\s*\w+,\s*(?:json)?\{\{"type",\s*"([a-z-]+)"/g,
+  );
+
+  // A scan that finds nothing passes everything, so it must keep finding what it finds today.
+  it("finds the send sites", () => {
+    expect(unstamped.length).toBeGreaterThanOrEqual(8);
+    expect(stamped.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("classifies every unstamped reply as engine-global", () => {
+    const global = new Set<string>(ENGINE_GLOBAL_REPLIES);
+    expect(unstamped.filter((t) => !global.has(t))).toEqual([]);
+  });
+
+  it("classifies every stamped reply as per-session", () => {
+    const perSession = new Set<string>(PER_SESSION_REPLIES);
+    expect(stamped.filter((t) => !perSession.has(t))).toEqual([]);
   });
 });
