@@ -292,6 +292,9 @@ export const OUTPUT_VOLUME_PARAM = "@output-volume";
 /** The range both levels take, in dB. */
 export const VOLUME_RANGE = { min: -60, max: 12, def: 0 } as const;
 
+/** A rack's first pad note: 36 is C1, General MIDI's kick, where every pad convention starts. */
+export const RACK_FIRST_NOTE = 36;
+
 /** Which LEVEL a plugin's own param is, by its WHOLE name — "Output", "Input Gain", "Out Level" — mirroring the engine's. */
 export function ownLevelSide(name: string): "input" | "output" | null {
   if (/^(input|in)(\s+(volume|vol|gain|level|lvl|trim))?$/i.test(name))

@@ -3,18 +3,16 @@
 // library's `k7-rack` on its `samples` engine, carrying its own taps (packages/song/docs/racks.md).
 // Pure, because what lands in the project deserves a test; the popin is a grid drawn around these numbers.
 
+import { RACK_FIRST_NOTE } from "@studio/song-schema/moduleTypes";
 import { Document } from "yaml";
 import { m } from "./paraglide/messages.js";
 import { projectDir } from "./projectPaths";
 
 /** The grid's side. 4×4 today — sixteen pads, the drum-machine page. */
 export const GRID = 4;
-/** The bottom-left pad's note. 36 is C1, where every pad convention starts. */
-const FIRST_NOTE = 36;
-
 /** The MIDI note a pad fires: the grid READS like a drum machine, bottom-left 36 to top-right 51, with `row` counting from the TOP. */
 export const padNote = (row: number, col: number): number =>
-  FIRST_NOTE + (GRID - 1 - row) * GRID + col;
+  RACK_FIRST_NOTE + (GRID - 1 - row) * GRID + col;
 
 /** Every cell in NOTE order — the order the symbols are WRITTEN in, so the hints, the colours and the sequencer read the grid as it plays. */
 export function cellsInNoteOrder(): { row: number; col: number }[] {
