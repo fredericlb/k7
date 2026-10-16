@@ -11,7 +11,7 @@ import { resolveSequence, type SeqView } from "../../sequenceEdit";
 import type { LocalCommand } from "./context";
 
 /** `<node> <param>`, the param quoted when it holds a space. */
-export const NODE_PARAM = /^(\S+)\s+(?:"([^"]*)"|(.+))$/;
+const NODE_PARAM = /^(\S+)\s+(?:"([^"]*)"|(.+))$/;
 
 /** `sequence edit roll|tracker <sequence>` — the sequence's notes where the graph is. */
 const seqEdit = (

@@ -41,8 +41,3 @@ export async function patchPrefs(change: Partial<Pl8Prefs>): Promise<void> {
     .savePrefs(known)
     .catch(() => {});
 }
-
-/** What has been read so far, for a caller that cannot wait: empty, never a lie about a field. */
-export function knownPrefs(): Pl8Prefs {
-  return known;
-}

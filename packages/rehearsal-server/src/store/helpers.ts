@@ -98,7 +98,7 @@ export function mapComment(rec: Row<"Comments">) {
   } satisfies Annotation & { sessionUid: string | null; sharedFrom: string };
 }
 
-export function parseTags(value: unknown): string[] {
+function parseTags(value: unknown): string[] {
   if (Array.isArray(value)) return value;
   return String(value || "")
     .split(",")

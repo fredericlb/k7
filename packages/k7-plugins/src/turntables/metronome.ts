@@ -24,7 +24,7 @@ import {
 export const METRONOME_TRACK = "metronome";
 
 /** How loud the click sits under the music, in dB on its own strip. */
-export const METRONOME_DB = -6;
+const METRONOME_DB = -6;
 
 /** WHICH deck's beat the click follows, or null: a click needs ONE beat, and a MEASURED one — docs/metronome.md. */
 export function metronomeDeck(

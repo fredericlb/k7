@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { micErrors } from "../recorderLabels";
 
 // "mix" sums every channel to mono; a number picks one 0-based input channel.
-export type ChannelSel = "mix" | number;
+type ChannelSel = "mix" | number;
 
 export interface RemoteInput {
   /** Available audio input devices (labels populate once mic permission is granted). */

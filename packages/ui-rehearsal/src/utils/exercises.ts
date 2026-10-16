@@ -2,7 +2,7 @@
 // qualities are all present in @tombatossals/chords-db, so the "reveal"
 // fingering diagram is always available.
 
-export const EXERCISE_ROOTS = [
+const EXERCISE_ROOTS = [
   "C",
   "C#",
   "D",
@@ -20,7 +20,7 @@ export const EXERCISE_ROOTS = [
 import { m } from "../paraglide/messages.js";
 
 // A quality: the suffix appended to the root, plus its name in the language shown.
-export const EXERCISE_QUALITIES: { suffix: string; label: () => string }[] = [
+const EXERCISE_QUALITIES: { suffix: string; label: () => string }[] = [
   { suffix: "", label: m["chord.major"] },
   { suffix: "m", label: m["chord.minor"] },
   { suffix: "7", label: m["chord.dominant7"] },

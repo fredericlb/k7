@@ -49,7 +49,7 @@ sidecars of 349 KB: 1.56 s of blocked event loop per pass before, 32 ms after.
 
 ## Every error is answered, and none ends the process
 
-- **`wrap`** (`@frediverse/http/route.ts`) and **`engineErrorHandler`**, mounted last, answer a failed
+- **`wrap`** (`@frediverse/http/route.ts`) and **`jsonErrorHandler`** (`apps/k7/backend/src/hardening.ts`), mounted last, answer a failed
   handler and a malformed or oversized body as JSON; a caller that hung up is logged as a warning.
 - **`streamFile`** (`@frediverse/http/stream.ts`) serves every file, stream and share with Range and
   `stream.pipeline`: an aborted seek closes its file, and a file unlinked mid-request is a 500 rather

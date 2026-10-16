@@ -20,12 +20,12 @@ import { createOwners, type EngineOwners } from "./owners.ts";
 /** No heartbeat for this long ⇒ the engine is presumed gone. (Beats every ~5s.) */
 export const REGISTRY_TTL_MS = 15000;
 /** At most this many engines listed at once: the heartbeat is open, so the list must not be. */
-export const MAX_ENGINES = 1000;
+const MAX_ENGINES = 1000;
 /** At most this many ids NEW to the list from one source address in a minute. */
-export const NEW_IDS_PER_IP_PER_MINUTE = 30;
+const NEW_IDS_PER_IP_PER_MINUTE = 30;
 
 /** One tab holding one engine; its `secret` is what makes takeover work rather than ping-pong — see docs/claim.md. */
-export interface EngineHolder {
+interface EngineHolder {
   /** The launch address — `<repo>/<projet>` — or **null** for a surface that opens on no project, which conflicts with nothing. */
   project: string | null;
   /** The account holding it, for the screen shown to whoever is turned away. */
@@ -65,7 +65,7 @@ export interface HeartbeatInput {
 }
 
 /** Why a heartbeat was refused: `token` — another token holds the id; `secret` — the id is bound to another secret; `full`/`rate` — admission. */
-export type UpsertResult =
+type UpsertResult =
   | { ok: true }
   | { ok: false; why: "token" | "secret" | "full" | "rate" };
 
@@ -79,14 +79,14 @@ export interface RegistryOptions {
 }
 
 /** What a browser asks for when it opens a project, or renews having opened one. */
-export interface ClaimRequest {
+interface ClaimRequest {
   project: string | null;
   holder: string;
   /** Absent on the first call (an OPEN); present on every renewal. */
   secret?: string;
 }
 
-export type ClaimResult =
+type ClaimResult =
   | {
       ok: true;
       /** Renew with this. A fresh open mints a new one. */

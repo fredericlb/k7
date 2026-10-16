@@ -34,7 +34,7 @@ export interface TrackMenuEntry {
   separatorBefore?: boolean;
 }
 
-export interface TrackPicker {
+interface TrackPicker {
   label: string;
   value: string;
   options: { value: string; label: string }[];

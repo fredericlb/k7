@@ -3,10 +3,8 @@
 // Metronome that lives here.
 
 export type {
-  Annotation,
   DetectedEvent,
   Envelope,
-  Marker,
   Session,
 } from "@studio/rehearsal-shared";
 export type { Selection } from "@studio/ui-waveform";

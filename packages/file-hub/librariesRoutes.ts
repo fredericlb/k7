@@ -6,7 +6,7 @@ import type { PublishLibraryBody } from "@studio/web-protocol";
 import type { Request, Response } from "express";
 import type { LibraryStore } from "./libraries.ts";
 
-/** The most a body read here may weigh: the file service's own limit, ENGINE_BODY_LIMIT. */
+/** The most a body read here may weigh: the file service's own JSON limit, 8 MB. */
 const JSON_BODY_MAX = 8 * 1024 * 1024;
 
 /** Thrown by `jsonBody` past JSON_BODY_MAX, rather than reading on or handing back an empty body. */

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { CUE_COLOURS } from "../deckVocabulary";
 
 /** How long a press has to last to mean "record this" rather than "go there". */
-export const HOLD_MS = 1000;
+const HOLD_MS = 1000;
 
 /** One cue button — the timer decides WHICH gesture happened, never where. See ../../docs/cues.md. */
 function Cue({

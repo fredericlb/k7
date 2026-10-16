@@ -71,7 +71,7 @@ export async function stopAll() {
 }
 
 /** The config the dev engine runs from: the settings file a desktop install keeps, created empty if absent. */
-export function devConfig() {
+function devConfig() {
   const file = join(stateDir(), "engine-host.json");
   if (!existsSync(file)) {
     mkdirSync(dirname(file), { recursive: true });

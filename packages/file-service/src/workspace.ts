@@ -9,7 +9,6 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  renameSync,
 } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import {
@@ -131,6 +130,7 @@ import {
   moveEntryIn,
   moveLibraryModuleIn,
   renameEntryIn,
+  renameWithRetry,
   uploadFileIn,
 } from "./workspaceEntries.ts";
 import { isBinary, RECYCLE_DIR, skip } from "./workspaceFilter.ts";
@@ -181,30 +181,6 @@ export function projectDirsUnder(
     projectDirsUnder(root, child, out);
   }
   return out;
-}
-
-// Rename, retrying briefly while Windows releases a lingering handle; a non-transient error still throws.
-async function renameWithRetry(
-  from: string,
-  to: string,
-  tries = 25,
-  delayMs = 100,
-): Promise<void> {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      renameSync(from, to);
-      return;
-    } catch (e) {
-      const code = (e as NodeJS.ErrnoException).code;
-      const transient =
-        code === "EPERM" ||
-        code === "EBUSY" ||
-        code === "EACCES" ||
-        code === "ENOTEMPTY";
-      if (!transient || attempt >= tries) throw e;
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
 }
 
 // The user's global preferences — one file for this service, not per workspace, hence module-level.

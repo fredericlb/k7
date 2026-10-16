@@ -19,7 +19,7 @@ export const UI_HEADS: readonly string[] = uiCommands
   .map((c) => `${dispatchKey(c)} `);
 
 /** Does `line` name this command? Whole-word, so a bare `fs file new` from an unfilled form reaches the same branch as the full line. */
-export const namesLine = (line: string, name: string): boolean =>
+const namesLine = (line: string, name: string): boolean =>
   line === name || line.startsWith(`${name} `);
 
 const heads = (line: string, names: readonly string[]): boolean =>
