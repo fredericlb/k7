@@ -59,14 +59,13 @@ export function mountMedia(
   opts: {
     requireAuth: RequestHandler;
     port: number;
-    tokens?: ReturnType<typeof mediaTokens>;
+    tokens: ReturnType<typeof mediaTokens>;
   },
 ): MediaMount {
-  const { requireAuth, port } = opts;
+  const { requireAuth, port, tokens } = opts;
   // Before anything listens: without it no project can open anywhere — packages/file-hub/docs/fileHub.md.
   const filesRoot = requireFilesRoot();
 
-  const tokens = opts.tokens ?? mediaTokens();
   const { issueApiToken, bearerOrSession } = tokens;
 
   // Everything is behind one of the two: a library is somebody's work, not a public bucket.
