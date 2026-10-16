@@ -47,6 +47,12 @@ So the check that gates the write is not "is this valid" but **"does this make i
 `decideAutosave` is that rule, and it is a pure function so it can be exercised without a
 browser (`autosave.test.ts`).
 
+The disk's verdict is asked only when the buffer parses and its schema refuses it, and it is kept
+(`baselineMemo`) for as long as the saved text is the same string. On a large file each answer is a
+full parse and a schema walk, and the timer fires after every pause in the typing while the disk
+has not moved. The memo keys on the path and the text, not on the `validate` function: a pane's
+judge is its file kind's fixed rule, and a host may hand a fresh closure on every render.
+
 ## What is held survives the pane
 
 Held text lives in a `Map` outside React, keyed by path. That is the point: an unwritable buffer
