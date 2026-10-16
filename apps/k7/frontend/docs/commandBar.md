@@ -73,12 +73,22 @@ What is remembered is recorded in the shell's `runCommand`, where EVERY command 
 palette, a key binding, a context menu. What you reach for by shortcut is still what you reach
 for, and the palette should offer it first when you do come looking for it.
 
-### Nothing is listed until you type
+### The catalogue is never listed until you type
 
-The command list opens on the first character, not on focus. The catalogue is over a hundred rows:
-opening on the whole of it puts a wall over the minimap every time the bar takes the keyboard,
-and a list you did not ask for is a list you have to dismiss. One letter is the whole cost of
-asking for it.
+The CATALOGUE opens on the first character, not on focus. It is over a hundred rows: opening on
+the whole of it puts a wall over the minimap every time the bar takes the keyboard, and a list you
+did not ask for is a list you have to dismiss. One letter is the whole cost of asking for it.
+
+What the empty bar does show is a HANDFUL (`emptyBar.ts`): up to five of the commands you ran
+lately, from the same history the ranking reads, then a few starters — add a track, find a file,
+the mixer, the help. A bar that shows nothing teaches nothing, and someone who has never typed a
+verb here does not know what letter to start with; nine rows at most stay clear of the minimap.
+Each row carries a mark saying which of the two it is. Both are looked up in the catalogue the bar
+was handed, so a recent the catalogue no longer holds, or a starter it lacks, is simply not offered.
+
+The empty list has **no highlighted row until an arrow key asks for one**. Enter on an empty bar
+runs nothing, as before: a bare Enter that ran whichever recent sat at the bottom would be a
+command nobody chose.
 
 A parameter's field is the other way round, deliberately: its list is there as soon as the field
 opens, because you cannot type the first letter of a track you have not been shown. The

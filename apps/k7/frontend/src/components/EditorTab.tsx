@@ -1323,7 +1323,7 @@ export function EditorTab({
                 onChange={(e) => setOpSearch(e.target.value)}
                 placeholder={m["clip.searchChain"]()}
                 // Not autofocused, as in the waveform panel: the menu takes the focus, and stealing it back breaks the arrow keys.
-                className="mb-1 w-full rounded border bg-transparent px-2 py-1 text-xs outline-none"
+                className="mb-1 w-full rounded border bg-transparent px-2 py-1 text-xs outline-none focus:border-primary"
               />
               <div className="max-h-64 overflow-auto">
                 {clipOps.length === 0 ? (

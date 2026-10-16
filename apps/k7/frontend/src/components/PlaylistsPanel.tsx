@@ -212,7 +212,7 @@ export function PlaylistsPanel({
               if (e.key === "Enter") create();
             }}
             placeholder={m["pls.namePlaceholder"]()}
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 rounded-sm bg-transparent text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
           />
           <Button size="sm" onClick={create} disabled={!name.trim()}>
             {m["common.create"]()}

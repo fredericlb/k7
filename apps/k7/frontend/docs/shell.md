@@ -315,7 +315,16 @@ the connection light, the Q badge and the engine process's memory. They describe
 switch names, so they stand beside its name rather than at the far end of the status bar. Q1/Q2/Q3
 off the measured latency is a property of the SESSION rather than of a screen — it decides what you
 can do here (`@studio/web-protocol/quality`) — and it is the same line the médiathèque shows. A phone
-keeps the light alone.
+keeps the light alone. The light changes SHAPE as well as colour — a dot when connected, an unplugged
+plug when not — so it reads for someone who cannot tell red from green.
+
+A link that stays down says so in words, on a strip under the header
+(`components/EngineLostStrip.tsx`): a red dot is easy to miss while every gesture quietly does nothing.
+It waits two seconds before showing, because the client reconnects on its own and a blip that
+flashed a banner would teach people to ignore it. Its Retry dials at once rather than waiting out the
+backoff; its close hides it for this outage only, and the next one is announced again. A transport
+press made while the link is down is DROPPED with a sentence on the status line rather than queued:
+the client's outbox would otherwise play it up to thirty seconds later, when the person has moved on.
 
 ### On a phone, one menu holds everywhere there is to go
 
@@ -1231,7 +1240,8 @@ file's disk check, whose path is workspace-relative where `files` is project-rel
 Every pane is mounted at once and hidden rather than unmounted, and in React an uncaught throw
 unmounts the ROOT — so one fault in a pane nobody is looking at would take the whole app with it
 mid-session. Each pane and panel therefore sits in a `PaneBoundary` ([`../src/PaneBoundary.tsx`](../src/PaneBoundary.tsx)):
-it draws a card with the message and a Retry, writes the fault to the Logs panel, and clears itself
+it draws a card saying which pane failed and a Retry, with the raw message folded under Details — it
+is for a bug report, not for the person reading the card — writes the fault to the Logs panel, and clears itself
 on the next reload, since new data is a new chance. One more wraps the whole tree in `appMain.tsx`,
 the last line before a white page. `createRoot`'s `onCaughtError` / `onUncaughtError` put every
 fault in the console with its component stack, and a promise nobody caught goes to the Logs panel.
@@ -1621,6 +1631,26 @@ editor needs a keyboard and the graph needs room.
 Every row of chrome is a row the panes do not get. On a phone in landscape the whole window is about 400px
 tall, so the header and footer are trimmed to what a touch target needs and no more. The one control that
 could not simply move is the command bar's opener: a phone has no double-Shift, so the menu carries it.
+
+Being a phone is a question of SIZE, not of pointer (`useIsMobile.ts`): an iPad gets the desktop
+layout. What a touch screen of any size does need is the right-click, and a finger held still is one
+(`longPress.ts`, [contextMenu.md](contextMenu.md)).
+
+## Keyboard focus is always drawn
+
+`index.css` gives every button, link, `role="button"`/`option` and `tabindex` element one focus ring
+under `:focus-visible`, at zero specificity (`:where`) so a component's own ring still wins. A field
+that removes the outline (`outline-none`) puts a cue of its own in its place — a border that turns the
+primary colour, or a ring under `focus-visible:` — never nothing. The chains graph injects its own
+sheet, so it carries the same rule (`packages/ui-chains-react/src/chainsCss.ts`).
+
+A selection ROW — a node card, a corner button drawn as a `span` — is focusable and answers Enter as
+it answers a click. Not Space: Space is the transport wherever focus is ("Space is the transport, wherever the last click
+landed", above), and a row that took
+it would stop the music for whoever had just clicked a card. The command bar's list is a listbox the
+field drives (`aria-activedescendant`), so its rows are never in the tab order. A drag or scrub
+SURFACE (the ruler, a waveform, the roll's grid, a lane's body, a clip) is not focusable either: its
+keyboard is the shell's own keys, the timeline's caret among them, which reach the same commands.
 
 ## The service worker, and the scope it cannot avoid
 
