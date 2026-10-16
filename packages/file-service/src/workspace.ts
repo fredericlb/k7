@@ -78,6 +78,7 @@ import type {
   WorkspaceInfo,
 } from "@studio/web-protocol";
 import type { Compatibility } from "@studio/web-protocol/compat";
+import type { PlaylistInfo } from "@studio/web-protocol/playlists";
 import {
   PROJECT_SUFFIXES,
   type ProjectApp,
@@ -138,7 +139,6 @@ import { type Recorded, WorkspaceHistory } from "./workspaceHistory.ts";
 import {
   fileTree,
   isProjectDir,
-  type PlaylistRow,
   playlistsIn,
   referencesIn,
 } from "./workspaceListings.ts";
@@ -759,7 +759,7 @@ export class Workspace {
   }
 
   /** The playlists this workspace holds, at the ROOT and at any depth — see docs/workspace.md. */
-  playlists(): PlaylistRow[] {
+  playlists(): PlaylistInfo[] {
     return playlistsIn(this.root, (a) => this.toRel(a));
   }
 
