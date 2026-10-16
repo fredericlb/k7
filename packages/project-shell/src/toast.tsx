@@ -53,7 +53,12 @@ export function showToast(opts: {
   for (const l of listeners) l(t);
 }
 
-export function Toaster() {
+/** `dismissLabel` is the close button's accessible name, in the host app's language. */
+export function Toaster({
+  dismissLabel = "Dismiss",
+}: {
+  dismissLabel?: string;
+} = {}) {
   const [items, setItems] = useState<ToastItem[]>([]);
 
   useEffect(() => {
@@ -79,7 +84,12 @@ export function Toaster() {
         )}
       >
         {here.map((t) => (
-          <Toast key={t.id} item={t} onDismiss={() => dismiss(t.id)} />
+          <Toast
+            key={t.id}
+            item={t}
+            dismissLabel={dismissLabel}
+            onDismiss={() => dismiss(t.id)}
+          />
         ))}
       </div>
     ) : null;
@@ -95,9 +105,11 @@ export function Toaster() {
 
 function Toast({
   item,
+  dismissLabel,
   onDismiss,
 }: {
   item: ToastItem;
+  dismissLabel: string;
   onDismiss: () => void;
 }) {
   // Hovering holds the toast: reading a message must not be a race against its own timer.
@@ -130,8 +142,8 @@ function Toast({
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="dismiss"
-        title="dismiss"
+        aria-label={dismissLabel}
+        title={dismissLabel}
         className="ml-1 shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
       >
         <X className="h-3.5 w-3.5" />

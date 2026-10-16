@@ -278,6 +278,7 @@ import {
   type RowTarget,
   trackPlacing,
 } from "./rows";
+import { saveLabel } from "./saveLabel";
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {
   MiniTransport,
@@ -1107,10 +1108,13 @@ export default function App({
     try {
       const { vim } = await api.setVim(next);
       setVimMode(vim);
-      setStatus(`vim mode ${vim ? "on" : "off"}`);
+      setStatus(vim ? m["status.vimOn"]() : m["status.vimOff"]());
     } catch (e) {
       setVimMode(!next);
-      setStatus(`vim error: ${(e as Error).message}`, "error");
+      setStatus(
+        m["status.vimFailed"]({ message: (e as Error).message }),
+        "error",
+      );
     }
   }, [vimMode]);
 
@@ -1189,7 +1193,9 @@ export default function App({
     (p: Pane) => {
       if (!layout.fullscreen.includes(p)) {
         setStatus(
-          `this project declares no ${PANE_META[p].label.toLowerCase()} surface, so there is no such pane to expand.`,
+          m["status.noSuchSurface"]({
+            surface: PANE_META[p].label.toLowerCase(),
+          }),
         );
         return;
       }
@@ -1223,7 +1229,7 @@ export default function App({
       }
       // A layout with no editor to fullscreen (a frozen share) would hide the builder inside a hidden pane: open nothing.
       if (full !== "editor" && !layout.fullscreen.includes("editor")) {
-        setStatus("this view has no editor, so the module builder cannot open");
+        setStatus(m["status.noEditorForBuilder"]());
         return;
       }
       builderDirty.current = false;
@@ -1409,7 +1415,10 @@ export default function App({
         // What it wrote, for a caller that reloads after it; a quiet command itself reloads nothing.
         return changed;
       } catch (e) {
-        setStatus(`command error: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.commandFailed"]({ message: (e as Error).message }),
+          "error",
+        );
         return undefined;
       }
     },
@@ -1454,7 +1463,9 @@ export default function App({
         pushLog("cmd", `› ${line}`);
         try {
           const { output, refused } = await api.command(line, { want: [] });
-          const said = output.length ? output.join("  ·  ") : `ran: ${line}`;
+          const said = output.length
+            ? output.join("  ·  ")
+            : m["status.ran"]({ line });
           for (const o of output) pushLog(refused ? "refused" : "info", o);
           if (refused) return void setRefusal(said);
           setStatus(said);
@@ -1462,7 +1473,10 @@ export default function App({
           // kept it would offer the same one again — packages/song/docs/recorderNode.md.
           engineRef.current?.recorder(id, "clear");
         } catch (e) {
-          setStatus(`command error: ${(e as Error).message}`, "error");
+          setStatus(
+            m["status.commandFailed"]({ message: (e as Error).message }),
+            "error",
+          );
         }
       })();
     },
@@ -1667,11 +1681,14 @@ export default function App({
           .then(askProject())
           .catch(() => {});
         bumpReload();
-        setStatus(`opened ${path === "." ? w.root : path} — engine starting…`);
+        setStatus(m["status.opened"]({ path: path === "." ? w.root : path }));
         setFull(null);
         // The layout the project that was open had — the doc effect above corrects it a moment later.
       } catch (e) {
-        setStatus(`open error: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.openFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       }
     },
     [bumpReload, pluginParamsStore, askWs, askProject],
@@ -1710,13 +1727,13 @@ export default function App({
       if (!arg) return null;
       const ed = editorRef.current;
       if (!ed) {
-        setStatus("the editor is not ready yet — try again in a moment");
+        setStatus(m["status.editorNotReady"]());
         return null;
       }
       // Exact path, then a fuzzy name, then the MATERIAL behind a placement id — see openInEditor.ts.
       const path = resolveEditorFile(arg, ed.files());
       if (path === null) {
-        setStatus(`no file matching "${arg}" in this project`);
+        setStatus(m["status.noFileMatching"]({ name: arg }));
         return null;
       }
       void ed.open(path).then((opened) => {
@@ -1741,9 +1758,7 @@ export default function App({
   /** The footer's two graph toggles, each as ONE callback the button and the command share. */
   const toggleMixer = useCallback(() => {
     if (panel !== "mix" && mixerStrips.length === 0)
-      return setStatus(
-        "no strip in this song — a strip is a Mixer module at the end of a track",
-      );
+      return setStatus(m["status.noStrip"]());
     togglePanel("mix");
   }, [panel, mixerStrips.length, togglePanel]);
 
@@ -1754,44 +1769,40 @@ export default function App({
     if (full !== "chains") setPanel(null);
     setFull("chains");
     setStackView(true);
-    setStatus("stack view — a column per track, the mix last");
+    setStatus(m["status.stackView"]());
   }, [stackView, full]);
 
   const toggleDocs = useCallback(() => {
-    if (docCount === 0)
-      return setStatus(
-        "no notes in this project — a note is a node of @meta/doc, wired from what it is about",
-      );
+    if (docCount === 0) return setStatus(m["status.noNotes"]());
     setShowDocs((on) => !on);
   }, [docCount]);
 
   /** Arm MIDI learn on one param: the capture is the browser's, the binding is a `module cc` — see docs/midi.md. */
   const armMidiLearn = useCallback(
     (rest: string) => {
-      const m = /^(\S+)\s+(?:"([^"]*)"|(.+))$/.exec(rest.trim());
-      if (!m) {
+      const hit = /^(\S+)\s+(?:"([^"]*)"|(.+))$/.exec(rest.trim());
+      if (!hit) {
         setStatus(
-          'usage: ui midi learn <module> <param>  (e.g. ui midi learn synth "Filter Freq")',
+          m["status.usageExample"]({
+            syntax: "ui midi learn <module> <param>",
+            example: 'ui midi learn synth "Filter Freq"',
+          }),
         );
         return;
       }
-      const module = m[1];
-      const param = (m[2] ?? m[3] ?? "").trim();
+      const module = hit[1];
+      const param = (hit[2] ?? hit[3] ?? "").trim();
       const midi = chainsMidiRef.current;
       if (!midi?.ready) {
-        setStatus(
-          "no MIDI here — this browser has no Web MIDI, or access was refused",
-        );
+        setStatus(m["status.noMidi"]());
         return;
       }
-      setStatus(
-        `MIDI learn: ${module} ${param} — move a control, or press Esc or run any command to cancel`,
-      );
+      setStatus(m["status.midiLearnArmed"]({ module, param }));
       setMidiLearning(true);
       midi.learn(module, param, (learned) => {
         setMidiLearning(false);
         if (!learned) {
-          const said = `MIDI learn cancelled — ${module} ${param} unchanged`;
+          const said = m["status.midiLearnCancelled"]({ module, param });
           setStatus(said);
           pushLog("info", said);
           return;
@@ -1803,10 +1814,13 @@ export default function App({
             // Bidirectional when possible: possible means the device that just spoke also has an output port to answer on.
             const both = midi.hasFeedback(module, param);
             setStatus(
-              `${module} ${param} ← ${learned.device} ch${learned.ch} cc${learned.cc} — ` +
-                (both
-                  ? "bidirectional (the control will follow the value)"
-                  : "write only (this device has no MIDI output to answer on)"),
+              m[both ? "status.midiLearnBoth" : "status.midiLearnWriteOnly"]({
+                module,
+                param,
+                device: learned.device,
+                ch: learned.ch,
+                cc: learned.cc,
+              }),
             );
           });
       });
@@ -1832,8 +1846,8 @@ export default function App({
         // Handled (true) rather than passed down: the backend has no such command either, and would say less.
         setStatus(
           isUi
-            ? `"${line}" is a ui command — type: ui ${line}`
-            : `"${line}" is not a ui command — type it without the ui prefix`,
+            ? m["status.isUiCommand"]({ line })
+            : m["status.notUiCommand"]({ line }),
         );
         return true;
       }
@@ -1846,7 +1860,8 @@ export default function App({
             .slice("tap chain ".length)
             .matchAll(/"((?:[^"\\]|\\.)*)"|(\S+)/g),
         ].map((w) => (w[1] !== undefined ? JSON.parse(`"${w[1]}"`) : w[2]));
-        if (!node || !tap) setStatus("usage: ui tap chain <node> <tap>");
+        if (!node || !tap)
+          setStatus(m["status.usage"]({ syntax: "ui tap chain <node> <tap>" }));
         else setTapChain({ node, tap });
         return true;
       }
@@ -1862,26 +1877,32 @@ export default function App({
           .then((g) => {
             const spec = g.curves?.[name]?.spec;
             if (spec) setCurveEdit({ name, isNew: false, spec });
-            else setStatus(`no curve "${name}" in this project`);
+            else setStatus(m["status.noCurve"]({ name }));
           })
           .catch((e) =>
-            setStatus(`ui curve: ${(e as Error).message}`, "error"),
+            setStatus(
+              m["status.curveFailed"]({ message: (e as Error).message }),
+              "error",
+            ),
           );
         return true;
       }
       // `ui automate <node> <param>` — the editor on the curve that control is bound to, or on a new one to bind.
       if (line.startsWith("automate ")) {
-        const m = /^(\S+)\s+(?:"([^"]*)"|(.+))$/.exec(
+        const hit = /^(\S+)\s+(?:"([^"]*)"|(.+))$/.exec(
           s.slice("automate ".length).trim(),
         );
-        if (!m) {
+        if (!hit) {
           setStatus(
-            'usage: ui automate <node> <param>  (e.g. ui automate synth "Filter Freq")',
+            m["status.usageExample"]({
+              syntax: "ui automate <node> <param>",
+              example: 'ui automate synth "Filter Freq"',
+            }),
           );
           return true;
         }
-        const node = m[1];
-        const param = (m[2] ?? m[3] ?? "").trim();
+        const node = hit[1];
+        const param = (hit[2] ?? hit[3] ?? "").trim();
         void api
           .graph()
           .then((g) => {
@@ -1914,7 +1935,10 @@ export default function App({
             );
           })
           .catch((e) =>
-            setStatus(`ui automate: ${(e as Error).message}`, "error"),
+            setStatus(
+              m["status.automateFailed"]({ message: (e as Error).message }),
+              "error",
+            ),
           );
         return true;
       }
@@ -1926,10 +1950,7 @@ export default function App({
       }
       // The frame is a WINDOW over the layout, so its command shows or hides it rather than fullscreening anything.
       if (line === "viewport") {
-        if (!hasViewport)
-          setStatus(
-            "this project declares no viewport surface, so there is no picture to show.",
-          );
+        if (!hasViewport) setStatus(m["status.noViewport"]());
         else setViewportWindow((cur) => ({ open: !cur.open }));
         return true;
       }
@@ -1976,7 +1997,7 @@ export default function App({
           .downloadModel(node)
           .then(async ({ job }) => {
             if (!job) {
-              setStatus(`${node}'s model is already on this machine`);
+              setStatus(m["status.modelAlreadyHere"]({ node }));
               return;
             }
             const end = await followDownload(job, api.modelDownload, (j) =>
@@ -2020,11 +2041,16 @@ export default function App({
       if (namesLine(line, "roll")) {
         const want = line.slice("roll".length).trim();
         if (!isRollMode(want)) {
-          setStatus(`unknown mode "${want}" — ${ROLL_MODES.join(" · ")}`);
+          setStatus(
+            m["status.unknownMode"]({
+              mode: want,
+              modes: ROLL_MODES.join(" · "),
+            }),
+          );
           return true;
         }
         if (!rollRef.current) {
-          setStatus("no piano roll open — click a MIDI event first");
+          setStatus(m["status.noPianoRoll"]());
           return true;
         }
         rollRef.current.setMode(want);
@@ -2035,11 +2061,16 @@ export default function App({
       if (namesLine(line, "wave")) {
         const want = line.slice("wave".length).trim();
         if (!isWaveMode(want)) {
-          setStatus(`unknown view "${want}" — ${WAVE_MODES.join(" · ")}`);
+          setStatus(
+            m["status.unknownView"]({
+              view: want,
+              views: WAVE_MODES.join(" · "),
+            }),
+          );
           return true;
         }
         if (!waveRef.current) {
-          setStatus("no audio clip open — click one on the timeline first");
+          setStatus(m["status.noAudioClip"]());
           return true;
         }
         waveRef.current.setView(want);
@@ -2049,12 +2080,18 @@ export default function App({
       if (namesLine(line, "tool")) {
         const want = line.slice("tool".length).trim();
         if (!isTool(want)) {
-          setStatus(`unknown tool "${want}" — ${TOOLS.join(" · ")}`);
+          setStatus(
+            m["status.unknownTool"]({ tool: want, tools: TOOLS.join(" · ") }),
+          );
           return true;
         }
         // Only the timeline holds tools today; the graph gets its own once it has a keyboard (docs/timeline.md).
         timelineRef.current?.setTool(want);
-        setStatus(want === "pointer" ? "pointer" : `tool: ${want}`);
+        setStatus(
+          want === "pointer"
+            ? m["status.toolPointer"]()
+            : m["status.tool"]({ tool: want }),
+        );
         return true;
       }
       if (line === "transport locate") {
@@ -2075,16 +2112,14 @@ export default function App({
         const got = clipGrid?.copy() ?? timelineRef.current?.copy() ?? null;
         if (!got) {
           // The caret is a rectangle too, so reaching here means it was parked on nothing — and both ways of pointing are named.
-          setStatus(
-            "nothing to copy — put the caret on a clip or a note, or draw a rectangle with v",
-          );
+          setStatus(m["status.nothingToCopy"]());
           return true;
         }
         setClipboard(got);
         setStatus(
           got.kind === "notes"
-            ? `copied ${got.notes.length} note(s)`
-            : `copied ${got.events.length} event(s)`,
+            ? m["status.copiedNotes"]({ count: got.notes.length })
+            : m["status.copiedEvents"]({ count: got.events.length }),
         );
         return true;
       }
@@ -2092,18 +2127,14 @@ export default function App({
       if (line === "selection paste") {
         const held = clipboardRef.current;
         if (!held) {
-          setStatus(
-            "nothing on the clipboard — `selection copy` (Ctrl+C) something first",
-          );
+          setStatus(m["status.clipboardEmpty"]());
           return true;
         }
         const notes = held.kind === "notes";
         const pane = notes ? clipGridRef.current : timelineRef.current;
         if (!pane) {
           setStatus(
-            notes
-              ? "no clip open — click a MIDI event to paste notes into it"
-              : "no timeline here",
+            notes ? m["status.noClipForNotes"]() : m["status.noTimeline"](),
           );
           return true;
         }
@@ -2125,7 +2156,7 @@ export default function App({
               : (grid ?? timeline);
         const out = pane?.deleteLine?.();
         if (!out) {
-          setStatus("nothing to delete here");
+          setStatus(m["status.nothingToDelete"]());
           return true;
         }
         if (out.line) void runCommand(out.line);
@@ -2138,7 +2169,7 @@ export default function App({
           store.getSnapshot().playhead,
         );
         if (out?.line) void runCommand(out.line);
-        setStatus(out?.note ?? "nothing to split here");
+        setStatus(out?.note ?? m["status.nothingToSplit"]());
         return true;
       }
       // Toggle record over the wire. Reading the live snapshot keeps this out of the deps and always flips current.
@@ -2185,7 +2216,7 @@ export default function App({
       // `rec <track>`: exactly the lane's A button — an instrument track arms in the browser, an audio track in the engine.
       if (line === "rec" || line.startsWith("rec ")) {
         const id = s.slice(3).trim();
-        if (!id) setStatus("usage: rec <track>");
+        if (!id) setStatus(m["status.usage"]({ syntax: "rec <track>" }));
         else onTrackToggle(id, "arm");
         return true;
       }
@@ -2201,8 +2232,13 @@ export default function App({
           seq.name,
           editorRef.current?.files() ?? [],
         );
-        if (!seq.name) setStatus(`usage: sequence edit ${seq.view} <sequence>`);
-        else if (!path) setStatus(`no sequence "${seq.name}" in this project`);
+        if (!seq.name)
+          setStatus(
+            m["status.usage"]({
+              syntax: `sequence edit ${seq.view} <sequence>`,
+            }),
+          );
+        else if (!path) setStatus(m["status.noSequence"]({ name: seq.name }));
         else {
           openEvent({ kind: "grid", path, view: seq.view });
         }
@@ -2221,7 +2257,7 @@ export default function App({
       if (line.startsWith("review ")) {
         const clip = s.slice("review ".length).trim();
         if (!clip) {
-          setStatus("usage: ui review <clip>");
+          setStatus(m["status.usage"]({ syntax: "ui review <clip>" }));
           return true;
         }
         setReviewOn({ clip, track: trackPlacing(projectDoc, clip) });
@@ -2242,8 +2278,8 @@ export default function App({
         setVideoArmed((cur) => (!lane || cur === lane ? null : lane));
         setStatus(
           lane && videoArmed !== lane
-            ? `${lane} armed — record + play captures its camera onto it`
-            : "picture disarmed",
+            ? m["status.pictureArmed"]({ lane })
+            : m["status.pictureDisarmed"](),
         );
         return true;
       }
@@ -2286,15 +2322,15 @@ export default function App({
         const want = line.slice("panel ".length).trim();
         const names = Object.keys(PANEL_META) as Panel[];
         if (!names.includes(want as Panel))
-          setStatus(`usage: ui panel <${names.join("|")}>`);
+          setStatus(
+            m["status.usage"]({ syntax: `ui panel <${names.join("|")}>` }),
+          );
         else togglePanel(want as Panel);
         return true;
       }
       // `ui surface <id>` names nothing — every surface is a PANE — and this arm exists only to say so to anyone who read the verb in the docs.
       if (line.startsWith("surface ")) {
-        setStatus(
-          "a surface is a pane now — use `ui turntables` (or its number key). See surfaces/.",
-        );
+        setStatus(m["status.surfaceIsPane"]());
         return true;
       }
       /** `ui external <surface>` — the link that opens ONE surface on another device; it COPIES rather than navigating (docs/external.md). */
@@ -2304,8 +2340,11 @@ export default function App({
         if (!hit) {
           setStatus(
             surfaces.length
-              ? `no surface "${want}" — this project declares ${surfaces.map((x) => x.id).join(", ")}`
-              : "this project declares no surface — see surfaces/",
+              ? m["status.noSurfaceNamed"]({
+                  surface: want,
+                  surfaces: surfaces.map((x) => x.id).join(", "),
+                })
+              : m["status.noSurfaces"](),
           );
           return true;
         }
@@ -2324,7 +2363,7 @@ export default function App({
       if (line.startsWith("builder ")) {
         const arg = s.slice("builder ".length).trim();
         const path = resolveModuleFile(arg, editorRef.current?.files() ?? []);
-        if (!path) setStatus(`no module "${arg}" in this project`);
+        if (!path) setStatus(m["status.noModule"]({ name: arg }));
         else void openModuleBuilder(path, "module");
         return true;
       }
@@ -2336,7 +2375,7 @@ export default function App({
           .then(({ assemblies }) => {
             const hit = assemblies.find((a) => a.ref === ref);
             if (!hit) {
-              setStatus(`no assembly template "${ref}" in the library`);
+              setStatus(m["status.noAssemblyTemplate"]({ ref }));
               return;
             }
             setAssemblyBuilder({ file: hit.file, folder: hit.path });
@@ -2405,7 +2444,9 @@ export default function App({
       if (line.startsWith("language ")) {
         const want = line.slice("language ".length).trim();
         if (!(locales as readonly string[]).includes(want))
-          setStatus(`usage: ui language <${locales.join("|")}>`);
+          setStatus(
+            m["status.usage"]({ syntax: `ui language <${locales.join("|")}>` }),
+          );
         else setLocale(want as typeof locale);
         return true;
       }
@@ -2413,10 +2454,10 @@ export default function App({
       if (line.startsWith("copy path ")) {
         const arg = s.slice("copy path ".length).trim();
         const path = resolveEntry(arg, editorRef.current?.entries() ?? []);
-        if (!path) setStatus(`no entry "${arg}" in this workspace`);
+        if (!path) setStatus(m["status.noEntry"]({ name: arg }));
         else {
           void navigator.clipboard?.writeText(path);
-          setStatus(`copied ${path}`);
+          setStatus(m["status.copiedPath"]({ path }));
         }
         return true;
       }
@@ -2425,10 +2466,10 @@ export default function App({
         const arg = s.slice("pin ".length).trim();
         const path = resolveEntry(arg, editorRef.current?.entries() ?? []);
         const pinned = path ? editorRef.current?.togglePin(path) : null;
-        if (!path) setStatus(`no file "${arg}" in this workspace`);
-        else if (pinned == null)
-          setStatus("the file tree is not on screen — the pins live in it");
-        else setStatus(`${pinned ? "pinned" : "unpinned"} ${path}`);
+        if (!path) setStatus(m["status.noFileInWorkspace"]({ name: arg }));
+        else if (pinned == null) setStatus(m["status.treeHiddenPins"]());
+        else
+          setStatus(m[pinned ? "status.pinned" : "status.unpinned"]({ path }));
         return true;
       }
 
@@ -2442,9 +2483,10 @@ export default function App({
         const dir = dirArg
           ? resolveEntry(dirArg, editorRef.current?.entries() ?? [])
           : null;
-        if (!dirArg || !name) setStatus(`usage: ${head} <folder> <name>`);
+        if (!dirArg || !name)
+          setStatus(m["status.usage"]({ syntax: `${head} <folder> <name>` }));
         else if (!dir || !editorRef.current?.isDir(dir))
-          setStatus(`no folder "${dirArg}" in this workspace`);
+          setStatus(m["status.noFolder"]({ name: dirArg }));
         else if (folder) editorRef.current?.createFolder(dir, name);
         else editorRef.current?.createFile(dir, name);
         return true;
@@ -2456,8 +2498,10 @@ export default function App({
           ? resolveEntry(pathArg, editorRef.current?.entries() ?? [])
           : null;
         if (!pathArg || !name)
-          setStatus("usage: fs file rename <path> <new name>");
-        else if (!path) setStatus(`no entry "${pathArg}" in this workspace`);
+          setStatus(
+            m["status.usage"]({ syntax: "fs file rename <path> <new name>" }),
+          );
+        else if (!path) setStatus(m["status.noEntry"]({ name: pathArg }));
         else editorRef.current?.rename(path, name);
         return true;
       }
@@ -2468,10 +2512,12 @@ export default function App({
         const path = pathArg ? resolveEntry(pathArg, entries) : null;
         const dir = dirArg ? resolveEntry(dirArg, entries) : null;
         if (!pathArg || !dirArg)
-          setStatus("usage: fs file move <path> <folder>");
-        else if (!path) setStatus(`no entry "${pathArg}" in this workspace`);
+          setStatus(
+            m["status.usage"]({ syntax: "fs file move <path> <folder>" }),
+          );
+        else if (!path) setStatus(m["status.noEntry"]({ name: pathArg }));
         else if (!dir || !editorRef.current?.isDir(dir))
-          setStatus(`no folder "${dirArg}" in this workspace`);
+          setStatus(m["status.noFolder"]({ name: dirArg }));
         else editorRef.current?.move(path, dir);
         return true;
       }
@@ -2479,8 +2525,9 @@ export default function App({
       if (namesLine(line, "fs file delete")) {
         const arg = s.slice("fs file delete".length).trim();
         const path = resolveEntry(arg, editorRef.current?.entries() ?? []);
-        if (!arg) setStatus("usage: fs file delete <path>");
-        else if (!path) setStatus(`no entry "${arg}" in this workspace`);
+        if (!arg)
+          setStatus(m["status.usage"]({ syntax: "fs file delete <path>" }));
+        else if (!path) setStatus(m["status.noEntry"]({ name: arg }));
         else editorRef.current?.remove(path, editorRef.current.isDir(path));
         return true;
       }
@@ -2491,14 +2538,18 @@ export default function App({
           ? resolveEntry(dirArg, editorRef.current?.entries() ?? [])
           : null;
         if (!dir || !editorRef.current?.isDir(dir))
-          setStatus("usage: fs file upload <folder> [files|folder]");
+          setStatus(
+            m["status.usage"]({
+              syntax: "fs file upload <folder> [files|folder]",
+            }),
+          );
         else if (
           !editorRef.current.pickUpload(
             dir,
             (what ?? "").toLowerCase() === "folder",
           )
         )
-          setStatus("the file tree is not on screen — the picker lives in it");
+          setStatus(m["status.treeHiddenPicker"]());
         return true;
       }
 
@@ -2531,7 +2582,7 @@ export default function App({
       if (line.startsWith("project export")) {
         // Which HALF of the project leaves is the first word now — see exportArgs.ts.
         const ask = parseExportAsk(s.slice("project export".length));
-        if (!ask) setStatus(EXPORT_USAGE);
+        if (!ask) setStatus(m["status.usage"]({ syntax: EXPORT_USAGE }));
         else if (ask.kind === "audio") void share.exportMix(ask.format);
         else if (ask.kind === "timeline")
           void share.exportTimeline(
@@ -2565,10 +2616,7 @@ export default function App({
         const path = arg
           ? resolveEntry(arg, editorRef.current?.entries() ?? [])
           : null;
-        if (!path)
-          setStatus(
-            "usage: project import <a .dawproject, .als or Ableton .zip of this workspace>",
-          );
+        if (!path) setStatus(m["status.importUsage"]());
         else imp.askImport(path);
         return true;
       }
@@ -2672,7 +2720,9 @@ export default function App({
           api.command(s, { want: graphOnScreenRef.current ? ["graph"] : [] });
         const { output, refused, graph, rev, changed } = await send();
         // A refusal is neither a success nor a failure, so it gets its own channel rather than being recorded as the first.
-        const said = output.length ? output.join("  ·  ") : `ran: ${s}`;
+        const said = output.length
+          ? output.join("  ·  ")
+          : m["status.ran"]({ line: s });
         if (refused) setRefusal(said);
         else setStatus(said);
         settle(!refused);
@@ -2702,7 +2752,10 @@ export default function App({
         if (outcome) outcome.ok = !refused;
       } catch (e) {
         settle(false);
-        setStatus(`command error: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.commandFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       } finally {
         // The placeholder comes down in the same update that carries the new graph, so the two swap in one frame.
         if (willInsert) setInsertingAt(null);
@@ -2742,7 +2795,9 @@ export default function App({
         const { output, refused, graph, rev } = await api.command(line, {
           want: ["graph"],
         });
-        const said = output.length ? output.join("  ·  ") : `ran: ${line}`;
+        const said = output.length
+          ? output.join("  ·  ")
+          : m["status.ran"]({ line });
         if (refused) setRefusal(said);
         else setStatus(said);
         for (const o of output) pushLog(refused ? "refused" : "info", o);
@@ -2754,7 +2809,10 @@ export default function App({
         // Adopted, so the `/revision` tick this write causes does not turn into the full reload skipped here.
         if (rev) noteRevision(rev);
       } catch (e) {
-        setStatus(`command error: ${(e as Error).message}`, "error");
+        setStatus(
+          m["status.commandFailed"]({ message: (e as Error).message }),
+          "error",
+        );
       }
     },
     [projectDoc, runCommand, pushLog],
@@ -2810,7 +2868,7 @@ export default function App({
         entityFile(files, "nodes", target.id) ??
         entityFile(files, "tracks", target.id);
       const path = file && openInEditor(file, false);
-      focusLine.current = `${target.id} — ${path ?? "no nodes/ or tracks/ file"}`;
+      focusLine.current = `${target.id} — ${path ?? m["status.noNodesFile"]()}`;
       setStatus(focusLine.current);
       focusNonce.current += 1;
       setGraphFocus({ id: target.id, nonce: focusNonce.current });
@@ -2824,8 +2882,10 @@ export default function App({
   const reportFramed = useCallback((chains: number) => {
     setStatus(
       chains
-        ? `${focusLine.current} · ${chains} chain${chains > 1 ? "s" : ""} framed`
-        : `${focusLine.current} · no chain takes it as its source`,
+        ? chains > 1
+          ? m["status.framedMany"]({ line: focusLine.current, count: chains })
+          : m["status.framedOne"]({ line: focusLine.current })
+        : m["status.framedNone"]({ line: focusLine.current }),
     );
   }, []);
 
@@ -3848,6 +3908,8 @@ export default function App({
                                     editorRef.current?.refreshLibraries();
                                   }}
                                   setStatus={setStatus}
+                                  // The same save sentence as every other text pane, in the app's language.
+                                  saveLabel={saveLabel}
                                   // What the plugin calls its parameters and what each spans, off `pluginParamMeta` — never the 20 Hz store, which render would read empty.
                                   pluginParamNames={
                                     builderPlugin
@@ -5319,7 +5381,7 @@ export default function App({
             </Dialog>
 
             {/* Global toast notifications — positioned bottom-right, above everything */}
-            <Toaster />
+            <Toaster dismissLabel={m["common.dismiss"]()} />
             {/* A LAN device asking to pair, answered here when this page runs on the engine's machine — docs/pairing.md. */}
             <PairRequestsPrompt
               engine={engineRef.current}

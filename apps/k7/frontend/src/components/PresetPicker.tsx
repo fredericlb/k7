@@ -164,7 +164,7 @@ export function PresetPicker({
       aria-label={m["preset.engine"]()}
     >
       <div className="px-3 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-        engine
+        {m["preset.engine"]()}
       </div>
       {engines.names.map((name) => (
         <button

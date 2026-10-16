@@ -46,7 +46,9 @@ export function useSurfaceCommands(
         // A refusal reads as a refusal even here: this screen has one line of chrome, so the word has to be in the sentence.
         setStatus(refused ? m["srf.refused"]({ said }) : said);
       } catch (e) {
-        setStatus(`command error: ${(e as Error).message}`);
+        setStatus(
+          m["status.surface.commandFailed"]({ message: (e as Error).message }),
+        );
       } finally {
         if (reload) bumpReload();
       }

@@ -181,6 +181,36 @@ const VU_MIN_DB = -60; // name-header VU meter: dB mapped to an empty header fil
 const VU_MAX_DB = 6; // dB mapped to a full-width header fill
 
 // A track row as the CLIPBOARD reads it — both halves of `copy` go through it, and `event` carries the placement's own words (clipboard.ts).
+/** A lane's M/S/A button, named for a screen reader in the reader's language. */
+const controlLabel = (control: "mute" | "solo" | "arm", name: string) =>
+  control === "mute"
+    ? m["tl.muteLane"]({ name })
+    : control === "solo"
+      ? m["tl.soloLane"]({ name })
+      : m["tl.armLane"]({ name });
+
+/** A clip's tooltip: what it is, how it plays, and the three gestures it answers. */
+function clipTitle(
+  c: WebClip,
+  looping: boolean,
+  stretched: boolean,
+  unwarped: boolean,
+  ghost: boolean,
+  instances: number,
+): string {
+  const parts = [`${c.name} (${c.type})`];
+  if (looping) parts.push(m["tl.clipLooping"]());
+  if (stretched)
+    parts.push(unwarped ? m["tl.clipUnwarped"]() : m["tl.clipStretched"]());
+  if (instances > 1)
+    parts.push(
+      ghost
+        ? m["tl.clipInstanceOther"]({ count: instances })
+        : m["tl.clipInstanceFirst"]({ count: instances }),
+    );
+  return `${parts.join(" · ")} — ${m["tl.clipHint"]()}`;
+}
+
 const laneEvents = (r: Extract<Row, { kind: "track" }>) => ({
   events: r.track.clips.map((c) => ({
     ref: materialOf(c),
@@ -1303,9 +1333,7 @@ export function TimelineTab({
         if (toolRef.current === "crossfade") {
           const pair = crossfadePair(track.clips, c, at);
           if (!pair)
-            return void setStatus(
-              "no audio event beside this one to crossfade into",
-            );
+            return void setStatus(m["status.timeline.noCrossfadePair"]());
           const x0 = e.clientX;
           const alt = e.altKey;
           const lenAt = (x: number) => {
@@ -1316,9 +1344,11 @@ export function TimelineTab({
               Math.round((2 * dx) / ppbRef.current / 0.125) * 0.125,
             );
           };
-          const move = (m: PointerEvent) =>
+          const move = (ev: PointerEvent) =>
             setStatus(
-              `crossfade ${lenAt(m.clientX)} beat(s) — release to set it`,
+              m["status.timeline.crossfadeLength"]({
+                beats: lenAt(ev.clientX),
+              }),
             );
           const up = (u: PointerEvent) => {
             const len = alt ? 0 : lenAt(u.clientX);
@@ -1333,7 +1363,7 @@ export function TimelineTab({
           follow(e, {
             move,
             end: up,
-            cancel: () => setStatus("crossfade dropped"),
+            cancel: () => setStatus(m["status.timeline.crossfadeDropped"]()),
           });
           return;
         }
@@ -1441,7 +1471,7 @@ export function TimelineTab({
     // A drag that ended where it started writes nothing — the same courtesy the move drag extends.
     if (r.start === r.origStart && r.end === r.origEnd) {
       setResize(null);
-      setStatus("resize cancelled — no change");
+      setStatus(m["status.timeline.resizeCancelled"]());
       return;
     }
     // Held until the reload, exactly as a committed move is: clearing here snapped the edge back for a round trip.
@@ -1496,7 +1526,7 @@ export function TimelineTab({
     // Ended where it started: write nothing, the courtesy every other drag here extends.
     if (f.len === f.orig) {
       setFade(null);
-      setStatus("fade cancelled — no change");
+      setStatus(m["status.timeline.fadeCancelled"]());
       return;
     }
     setFade({ ...f, pending: true });
@@ -1613,7 +1643,7 @@ export function TimelineTab({
     // A drag that ended where it started writes nothing — the same courtesy the clip drag extends.
     if (!write || !v.moved || videoDragIsStill(v)) {
       setVDrag(null);
-      if (v.moved) setStatus("drag cancelled — no change");
+      if (v.moved) setStatus(m["status.timeline.dragCancelled"]());
       return;
     }
     // Held until the reload, exactly as a committed move is: clearing here snapped the shot back for a round trip.
@@ -1718,17 +1748,17 @@ export function TimelineTab({
     dragRef.current = null;
     // Answering the bar is NOT committing, and it comes BEFORE the click branch: a click is how you say WHICH clip.
     const feed = feedMoveRef.current;
-    const m = moveRef.current;
-    if (feed && m) {
-      const a = moveArgs(m);
+    const mv = moveRef.current;
+    if (feed && mv) {
+      const a = moveArgs(mv);
       if (a) feed(a.trackId, a.fromTc, a.toTc, a.toTrackId, false);
       setMove(null);
-      setStatus("event move — enter runs it, esc drops the line");
+      setStatus(m["status.timeline.moveFed"]());
       return;
     }
     // A press that never passed the slop is a CLICK: it selects the clip, and only a DOUBLE-click opens it (docs/timeline.md).
-    if (!d.moved && m) {
-      coverClip(m);
+    if (!d.moved && mv) {
+      coverClip(mv);
       setMove(null);
       return;
     }
@@ -1779,28 +1809,28 @@ export function TimelineTab({
 
   // Drop the clip as an `event move` between 1-based timecodes; a zero net move just cancels. See docs/timeline.md.
   const commitMove = useCallback(() => {
-    const m = moveRef.current;
-    if (!m || !proj) {
+    const mv = moveRef.current;
+    if (!mv || !proj) {
       setMove(null);
       return;
     }
     // A drop on another lane is a move even when the beat didn't change.
-    if (Math.abs(m.offset) < 1e-6 && m.toTrackId === m.trackId) {
+    if (Math.abs(mv.offset) < 1e-6 && mv.toTrackId === mv.trackId) {
       setMove(null);
-      setStatus("move cancelled — no change");
+      setStatus(m["status.timeline.moveUnchanged"]());
       return;
     }
     const num = proj.timeSigNumerator;
     const den = proj.timeSigDenominator;
-    const fromTc = beatsToPosition(m.origStart, num, den);
-    const toTc = beatsToPosition(m.origStart + m.offset, num, den);
+    const fromTc = beatsToPosition(mv.origStart, num, den);
+    const toTc = beatsToPosition(mv.origStart + mv.offset, num, den);
     // HELD, not cleared: clearing here draws the clip back at its old start for the whole write-and-reload round trip.
-    setMove({ ...m, dragging: false, pending: true });
+    setMove({ ...mv, dragging: false, pending: true });
     onMoveEvent?.(
-      m.trackId,
+      mv.trackId,
       fromTc,
       toTc,
-      m.toTrackId === m.trackId ? undefined : m.toTrackId,
+      mv.toTrackId === mv.trackId ? undefined : mv.toTrackId,
     );
   }, [proj, onMoveEvent, setStatus]);
   commitMoveRef.current = commitMove;
@@ -1825,7 +1855,7 @@ export function TimelineTab({
         else if (e.key === "Enter") commitMove();
         else if (e.key === "Escape") {
           setMove(null);
-          setStatus("move cancelled");
+          setStatus(m["status.timeline.moveCancelled"]());
         }
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -1837,7 +1867,7 @@ export function TimelineTab({
         const s = selRef.current;
         setSel(null);
         if (s) setCaret(clampCaret(s.head)); // the caret lands where the selection ended
-        setStatus("selection cancelled");
+        setStatus(m["status.timeline.selectionCancelled"]());
         e.preventDefault();
         e.stopImmediatePropagation();
         return;
@@ -1893,7 +1923,7 @@ export function TimelineTab({
       zoomIn: () => {
         const s = selRef.current;
         if (!s) {
-          setStatus("no selection to zoom — press v first");
+          setStatus(m["status.timeline.noSelectionToZoom"]());
           return;
         }
         const a = rowIndexOf(visRows, s.anchor.row);
@@ -2136,9 +2166,7 @@ export function TimelineTab({
           offset: 0,
           toTrackId: caretRow.track.id,
         });
-        setStatus(
-          `moving ${c.name || c.id} — ←/→ or j/m nudge · enter commit · esc cancel`,
-        );
+        setStatus(m["status.timeline.moving"]({ name: c.name || c.id }));
       },
       // The clock button: bars ⇄ seconds. Both units read the SAME grid — see docs/picture.md.
       toggleRuler: () =>
@@ -2260,7 +2288,7 @@ export function TimelineTab({
       const from = beatsToPosition(move.origStart, num, den);
       const to = beatsToPosition(move.origStart + move.offset, num, den);
       setStatus(
-        `moving ${move.name}: ${from} → ${to} — ←/→ or j/m nudge · enter commit · esc cancel`,
+        m["status.timeline.movingFromTo"]({ name: move.name, from, to }),
       );
       return;
     }
@@ -2269,17 +2297,29 @@ export function TimelineTab({
       const num = proj.timeSigNumerator;
       const den = proj.timeSigDenominator;
       setStatus(
-        `resizing: ${beatsToPosition(resize.start, num, den)} → ${beatsToPosition(resize.end, num, den)} (${resize.end - resize.start} beats) — release to commit`,
+        m["status.timeline.resizing"]({
+          from: beatsToPosition(resize.start, num, den),
+          to: beatsToPosition(resize.end, num, den),
+          beats: resize.end - resize.start,
+        }),
       );
       return;
     }
     // A zoom is a mode you can forget you are in, so say so on every line and name the way out.
     const z = zoom.length
-      ? ` · zoom ${zoom.length}: bars ${Math.floor(beatLo / barBeats) + 1}–${Math.floor(beatHi / barBeats) + 1}, ${visRows.length} rows (shift+z out · 0 reset)`
+      ? ` · ${m["status.timeline.zoomed"]({
+          depth: zoom.length,
+          from: Math.floor(beatLo / barBeats) + 1,
+          to: Math.floor(beatHi / barBeats) + 1,
+          rows: visRows.length,
+        })}`
       : "";
     if (selBox) {
       setStatus(
-        `selection: ${selBox.beatHi - selBox.beatLo + 1} beats × ${selBox.rowHi - selBox.rowLo + 1} rows — z zooms in · v cancels${z}`,
+        m["status.timeline.selection"]({
+          beats: selBox.beatHi - selBox.beatLo + 1,
+          rows: selBox.rowHi - selBox.rowLo + 1,
+        }) + z,
       );
       return;
     }
@@ -2289,25 +2329,33 @@ export function TimelineTab({
     }
     if (caret.beat !== LABEL) {
       const name = caretRow.kind === "track" ? caretRow.track.name : "";
-      setStatus(`caret: ${name}, beat ${caret.beat + 1}`);
+      setStatus(m["status.timeline.caret"]({ name, beat: caret.beat + 1 }));
       return;
     }
     // A label says what m/s will act on — on a pattern lane that is its group, so the redirect doesn't look like a miss.
     if (caretRow.kind === "group")
       setStatus(
-        `selected: group ${caretRow.group.name} — m/s act on its members`,
+        m["status.timeline.selectedGroup"]({ name: caretRow.group.name }),
       );
     else if (caretRow.kind === "video")
       setStatus(
-        `selected: video ${caretRow.track.name} — picture, cut in seconds; drag its shots, m hides the lane`,
+        m["status.timeline.selectedVideo"]({ name: caretRow.track.name }),
       );
     else if (caretRow.track.generated)
       setStatus(
         caretTrackId
-          ? `selected: ${caretRow.track.name} (live) — m/s act on group ${caretTrackId}`
-          : `selected: ${caretRow.track.name} (live) — no group to mute`,
+          ? m["status.timeline.selectedLive"]({
+              name: caretRow.track.name,
+              group: caretTrackId,
+            })
+          : m["status.timeline.selectedLiveAlone"]({
+              name: caretRow.track.name,
+            }),
       );
-    else setStatus(`selected: track ${caretRow.track.name}`);
+    else
+      setStatus(
+        m["status.timeline.selectedTrack"]({ name: caretRow.track.name }),
+      );
   }, [
     active,
     caret.beat,
@@ -2582,9 +2630,7 @@ export function TimelineTab({
             if (!files.length) return;
             // A lane is what says WHERE the material goes, so a drop between rows is refused by name rather than guessed at.
             if (!spot) {
-              setStatus(
-                "drop it on a lane — a lane is what says where it goes",
-              );
+              setStatus(m["status.timeline.dropOnLane"]());
               return;
             }
             onDropFiles?.({
@@ -2799,7 +2845,7 @@ export function TimelineTab({
                       left: x(loop.lo),
                       width: (loop.hi + 1 - loop.lo) * ppb,
                     }}
-                    title="loop region — Shift+L to clear"
+                    title={m["tl.loopRegion"]()}
                   />
                 )}
                 {/* Marker handles: a diamond flag in the ruler, hover for the name and right-click to delete; the full line is drawn below. */}
@@ -2915,7 +2961,7 @@ export function TimelineTab({
                           "truncate font-semibold",
                           row.group.solo && "text-amber-400",
                         )}
-                        title={`${row.group.name} — a group; holds no clips of its own`}
+                        title={m["tl.groupTitle"]({ name: row.group.name })}
                       >
                         {/* Stripped like a track row's: a group can pin its position too, and the full name stays in the title. */}
                         {trackLabel(row.group.name)}
@@ -2974,7 +3020,11 @@ export function TimelineTab({
                       />
                       <span
                         className="flex-1 truncate"
-                        title={`${vt.name} — a ${vt.shapes.length ? "shape" : "video"} lane; cut in seconds, composited on the viewport`}
+                        title={
+                          vt.shapes.length
+                            ? m["tl.shapeLaneTitle"]({ name: vt.name })
+                            : m["tl.videoLaneTitle"]({ name: vt.name })
+                        }
                       >
                         {trackLabel(vt.name)}
                       </span>
@@ -2995,8 +3045,8 @@ export function TimelineTab({
                             <button
                               key={control}
                               type="button"
-                              title={`${control} ${vt.name}`}
-                              aria-label={`${control} ${vt.name}`}
+                              title={controlLabel(control, vt.name)}
+                              aria-label={controlLabel(control, vt.name)}
                               aria-pressed={on}
                               onPointerDown={(e) => e.stopPropagation()}
                               onDoubleClick={(e) => e.stopPropagation()}
@@ -3021,8 +3071,8 @@ export function TimelineTab({
                       {onVideoArm && !vt.shapes.length && (
                         <button
                           type="button"
-                          title={`arm ${vt.name} — record + play captures its camera`}
-                          aria-label={`arm ${vt.name}`}
+                          title={m["tl.armVideoTitle"]({ name: vt.name })}
+                          aria-label={controlLabel("arm", vt.name)}
                           aria-pressed={videoArmed === vt.id}
                           onPointerDown={(e) => e.stopPropagation()}
                           onDoubleClick={(e) => e.stopPropagation()}
@@ -3384,8 +3434,8 @@ export function TimelineTab({
                         {msa.map(([label, control, on, onCls]) => (
                           <button
                             key={control}
-                            title={`${control} ${t.name}`}
-                            aria-label={`${control} ${t.name}`}
+                            title={controlLabel(control, t.name)}
+                            aria-label={controlLabel(control, t.name)}
                             aria-pressed={on}
                             onPointerDown={(e) => e.stopPropagation()}
                             // dblclick is its own event and bubbles past the click handler's stop.
@@ -3509,7 +3559,7 @@ export function TimelineTab({
                     {/* A generated lane carries only the scheduler's look-ahead, rewritten every tick, so it is hatched rather than drawn. */}
                     {t.generated ? (
                       <div
-                        title={`${t.name} — generated by an algo pattern; can't hold clips`}
+                        title={m["tl.generatedTitle"]({ name: t.name })}
                         className="pointer-events-none absolute inset-0 text-muted-foreground/30"
                         style={{ backgroundImage: HATCH }}
                       />
@@ -3631,7 +3681,14 @@ export function TimelineTab({
                               <div
                                 // A track may place the same clip ref twice, so the id alone collides — key by placement, id + index.
                                 key={`${c.id}-${i}`}
-                                title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? (unwarped ? " · unwarped (plays at its own rate)" : " · stretched") : ""}${(inst?.n ?? 1) > 1 ? ` · ${ghost ? "another instance" : "first"} of ${inst?.n}` : ""} — click to select, double-click to open, drag to move (ctrl : hors grille)`}
+                                title={clipTitle(
+                                  c,
+                                  looping,
+                                  stretched,
+                                  unwarped,
+                                  ghost,
+                                  inst?.n ?? 1,
+                                )}
                                 // Drag to move: along the lane, or onto one holding the same material. Nothing is written until release.
                                 onPointerDown={(e) => beginClipDrag(e, t, c)}
                                 onPointerMove={onClipDragMove}

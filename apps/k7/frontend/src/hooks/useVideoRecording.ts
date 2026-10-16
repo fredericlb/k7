@@ -11,6 +11,7 @@ import fixWebmDuration from "fix-webm-duration";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fileClip } from "../clipFiles";
 import { downloadBlob } from "../downloadBlob";
+import { m } from "../paraglide/messages.js";
 import { dropSpool, openSpool, recoverSpools, type Spool } from "../takeSpool";
 import {
   extForMime,
@@ -149,7 +150,7 @@ export function useVideoRecording(opts: {
             // A take with no bytes is a camera that never delivered a frame — nothing to file and nothing to place.
             if (blob.size) return finish(blob, landed, spool);
             spool.discard();
-            live.current.setStatus("take was empty — no frames came");
+            live.current.setStatus(m["status.video.emptyTake"]());
           })
           .finally(() => setFiling((n) => n - 1));
       };
@@ -194,9 +195,7 @@ export function useVideoRecording(opts: {
         const file = name.replace(/^k7-take-/, "recovered-take-");
         downloadBlob(blob, file);
         await dropSpool(name);
-        live.current.setStatus(
-          `an interrupted camera take was recovered — saved to your downloads as ${file}`,
-        );
+        live.current.setStatus(m["status.video.recovered"]({ file }));
       }
     });
   }, []);
