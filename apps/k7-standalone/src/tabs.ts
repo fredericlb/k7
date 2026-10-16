@@ -88,7 +88,15 @@ export class TabSet {
     for (const t of this.tabs.filter((x) => !x.home)) this.close(t.id);
     const home = this.tabs.find((t) => t.home);
     if (!home) return;
-    void home.view.webContents.loadURL(url);
+    const wc = home.view.webContents;
+    // Nothing before it is a page to go back to: the last account's, or the splash.
+    wc.loadURL(url)
+      .then(() => {
+        if (!wc.isDestroyed()) wc.navigationHistory.clear();
+      })
+      .catch((e: unknown) => {
+        line("app", `home did not load: ${String(e)}`);
+      });
     this.select(home.id);
   }
 

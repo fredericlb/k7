@@ -40,7 +40,7 @@ back to 8789 and reach the dev backend.
 The port is fixed, not picked free at each launch: a page's storage is keyed on its ORIGIN, port
 included, so a moving port would empty it every time.
 
-**No service worker.** The app clears the stored ones before its window opens and refuses
+**No service worker.** The app clears the stored ones before its first k7 page and refuses
 `/sw.js` (`noServiceWorker` in `src/main.ts`). A worker stored by an earlier run hangs the
 window's first navigation for good — a blank window, with the backend answering instantly to
 anything else — and a local origin has nothing to gain from it: there is no network to survive,
@@ -52,6 +52,16 @@ the engine is reached on TCP directly.
 
 Plain http on loopback is enough: `127.0.0.1` is a secure context, and the session cookie is
 host-only and `Lax`. `COOKIE_DOMAIN` is therefore forced empty — set, it would make the cookie `Secure`.
+
+## The first window
+
+**The window opens at once, on a splash, and k7 loads into it once the backend answers.** A cold
+start — the backend under tsx, a first seed of the library — takes seconds, and a window held back
+until then leaves nothing on screen but a Dock icon. The splash is a data URL (`src/splash.ts`):
+it needs no server, holds no link, and is loaded by the main process, so the tabs' routing never
+sees it. The tab strip stays empty until then, since it is a k7 page too. A start that fails
+puts its reason and the log's path in that window, which then quits the app when it is closed;
+a failure before the window exists still gets the shell's error box.
 
 ## Sign-in
 
