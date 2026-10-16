@@ -4,10 +4,9 @@
 
 import { type GraphBuilder, type GraphJson, graph } from "./index";
 
-/** The note repeater's graph, written once so the module's jsdsp.ts and this copy are the same text. */
-export function noteRepeatGraph(g: GraphBuilder): void {
-  // Both in BEATS rather than as an index into a table: the graph has no array to index, and a
-  // panel's dropdown writes the value it labels — 1/8 is 0.5, and that IS the number.
+/** The note repeater's graph; k7-core's note-repeat jsdsp.ts is a copy, held to it by k7core.test.ts. */
+function noteRepeatGraph(g: GraphBuilder): void {
+  // In BEATS, not an index into a table: the panel's dropdown writes the value it labels — "1/8" is 0.5.
   const count = g.param("Count", { min: 1, max: 8, default: 1 });
   const division = g.param("Division", { min: 0.125, max: 4, default: 0.5 });
   const gate = g.param("Gate", { min: 0.05, max: 1, default: 0.5 });
