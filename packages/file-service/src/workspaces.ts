@@ -5,7 +5,6 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
-  readFileSync,
   renameSync,
   rmSync,
 } from "node:fs";
@@ -161,7 +160,7 @@ export async function restoreRoomName(name: string): Promise<string> {
 let accountLibrary: Workspace | null = null;
 
 /** The account's own library, synced like a workspace in the room ACCOUNT_LIBRARY_ROOM — docs/library-versions-plan.md. */
-export function attachAccountLibrary(): void {
+function attachAccountLibrary(): void {
   if (accountLibrary || !rootOwner()) return;
   const root = accountLibraryHome();
   mkdirSync(root, { recursive: true });

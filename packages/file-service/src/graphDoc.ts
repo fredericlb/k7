@@ -15,7 +15,6 @@ import { type PanelLike, panelWidgets } from "@studio/graph-model/panel";
 import { ampModelInfo } from "@studio/song/ampModel";
 import { type AutoFreeze, playsRender } from "@studio/song/autoFreeze";
 import { moduleBaseChoices } from "@studio/song/basePreset";
-import { CONSOLE_ID, type ConsoleSystem } from "@studio/song/console";
 import { loadCurves } from "@studio/song/curves";
 import { activeFreezePlans } from "@studio/song/freeze";
 import type { Rack } from "@studio/song/graph";
@@ -50,7 +49,6 @@ import {
   LIBRARY_FILE_PARAMS,
   type LibraryFileFamily,
   MIDI_IN_IO,
-  MIX_NODE,
   MIX_PARAM,
   OUTPUT_VOLUME_PARAM,
   SHADER_CATEGORY,
@@ -58,9 +56,6 @@ import {
 } from "@studio/song-schema/moduleTypes";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { moduleShaderChoices } from "@studio/song-video/shaders";
-
-// The formats with a native editor, re-exported rather than restated — see docs/graphFlags.md.
-export { EXTERNAL_PLUGIN_FORMATS };
 
 /** The assets a module may name — its own and its ancestors'. See docs/graphFlags.md. */
 function assetChoicesFor(

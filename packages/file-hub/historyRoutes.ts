@@ -31,7 +31,7 @@ export interface HistoryOptions {
 }
 
 /** One entry as the history lists it: who, when, which files, and how many ops were set aside. */
-export interface EntrySummary {
+interface EntrySummary {
   seq: number;
   ts: number;
   replica: string;
@@ -41,7 +41,7 @@ export interface EntrySummary {
 }
 
 /** One file that differs between two points; a binary file's value is its blob ref, never diffed as text. */
-export interface FileChange {
+interface FileChange {
   file: string;
   before: string | null;
   after: string | null;
@@ -52,7 +52,7 @@ export interface FileChange {
 const isBlobRef = (v: string | null): boolean =>
   v?.startsWith("\u0000") ?? false;
 
-export const summary = (e: Sequenced): EntrySummary => ({
+const summary = (e: Sequenced): EntrySummary => ({
   seq: e.seq,
   ts: e.batch.ts,
   replica: e.batch.replica,
@@ -62,7 +62,7 @@ export const summary = (e: Sequenced): EntrySummary => ({
 });
 
 /** Every file whose value differs between two sets of files. */
-export function changes(
+function changes(
   from: Record<string, string>,
   to: Record<string, string>,
 ): FileChange[] {
@@ -86,7 +86,7 @@ export function changes(
 }
 
 /** The ops that turn `current` into `target`, each naming the text it replaces. */
-export function restoreOps(
+function restoreOps(
   current: Map<string, string>,
   target: Record<string, string>,
 ): FileOp[] {

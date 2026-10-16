@@ -164,7 +164,7 @@ function listFiles(dir: string, base = dir): { path: string; bytes: number }[] {
 }
 
 /** Thrown when a VST track's render is missing at the checkpoint: the share would play it wrong. */
-export class UnfrozenShare extends Error {}
+class UnfrozenShare extends Error {}
 
 /** Build the share of the project at `projectRel` from the checkpoint's `files`. */
 export function buildShareSnapshot(

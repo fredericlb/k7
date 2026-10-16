@@ -193,5 +193,5 @@ here doubles the cost of every graph build (~1.8 s on a real project), and a gra
 `assets/` listings are memoised for the whole build for the same reason — ancestors repeat, so every
 module inheriting one shared amp would otherwise re-read that amp's folder.
 
-`EXTERNAL_PLUGIN_FORMATS` is re-exported, not restated: a second declaration here is a copy of the
+`EXTERNAL_PLUGIN_FORMATS` is imported, not restated: a second declaration here is a copy of the
 loader's list, and one the loader's own note of copies to keep in step would not mention.

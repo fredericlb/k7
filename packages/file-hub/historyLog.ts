@@ -47,8 +47,7 @@ const seqsIn = (dir: string, ext: string): number[] =>
     : [];
 
 const segmentSeqs = (dir: string) => seqsIn(join(dir, SEGMENTS), ".jsonl");
-export const snapshotSeqs = (dir: string) =>
-  seqsIn(join(dir, SNAPSHOTS), ".json");
+const snapshotSeqs = (dir: string) => seqsIn(join(dir, SNAPSHOTS), ".json");
 
 function readLines(file: string): Sequenced[] {
   if (!existsSync(file)) return [];
@@ -112,7 +111,7 @@ export function rollLog(
 }
 
 /** One segment as the index knows it; `bytes` tells a segment appended to since it was indexed. */
-export interface SegmentInfo {
+interface SegmentInfo {
   start: number;
   first: number;
   last: number;
@@ -121,7 +120,7 @@ export interface SegmentInfo {
 }
 
 /** The segments, oldest first, from the index; one it lacks or whose length moved is read, and the index rewritten. */
-export function segmentIndex(dir: string): SegmentInfo[] {
+function segmentIndex(dir: string): SegmentInfo[] {
   const logDir = join(dir, SEGMENTS);
   let saved: Record<string, SegmentInfo> = {};
   try {
@@ -154,11 +153,7 @@ export function segmentIndex(dir: string): SegmentInfo[] {
 }
 
 /** Entries with `after < seq <= upto`, oldest first, read only from the files that can hold them. */
-export function entriesBetween(
-  dir: string,
-  after: number,
-  upto: number,
-): Sequenced[] {
+function entriesBetween(dir: string, after: number, upto: number): Sequenced[] {
   const segs = segmentIndex(dir);
   const files = segs
     .filter((s) => s.last > after && s.first <= upto)

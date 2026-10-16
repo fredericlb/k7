@@ -18,9 +18,9 @@ export interface SyncNotice {
 }
 
 /** A page's stream gets a comment this often, so a proxy never closes it for idleness. */
-export const HEARTBEAT_MS = 20_000;
+const HEARTBEAT_MS = 20_000;
 /** Open streams per account; one per tab, so this is many tabs on many machines. */
-export const MAX_SUBSCRIBERS = 32;
+const MAX_SUBSCRIBERS = 32;
 
 type Send = (frame: string) => void;
 const subscribers = new Map<string, Set<Send>>();

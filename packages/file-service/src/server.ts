@@ -53,7 +53,7 @@ import {
 import { startPrefetch } from "./mediatekPrefetch.ts";
 import { modelDownload, startModelDownload } from "./modelDownloads.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
-import { adoptRecordedOwner, workspaceGate } from "./owner.ts";
+import { adoptRecordedOwner, requireRootOwner } from "./owner.ts";
 import { resolvePlugin } from "./pluginRef.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
@@ -131,7 +131,7 @@ app.use(requireHubSecret);
 app.use(hubRouter());
 app.use(resolveUser);
 // Workspaces are ONE account's, recorded on first use — docs/owner.md.
-app.use(["/workspaces", "/engine/served", "/account"], workspaceGate);
+app.use(["/workspaces", "/engine/served", "/account"], requireRootOwner);
 
 // Registered BEFORE resolveWorkspace, and typed by the envelope web-protocol already declares for it.
 app.get(
@@ -500,7 +500,7 @@ app.get(
 // No cut route here: pl8 drives a separation and posts the bytes — see docs/processChain.md.
 
 // Everything else needs a resolved workspace on req.ws, and is its owner's alone.
-app.use(workspaceGate, resolveWorkspace, filesRouter);
+app.use(requireRootOwner, resolveWorkspace, filesRouter);
 
 // Loopback: its only caller is the hub beside it.
 const HOST = "127.0.0.1";

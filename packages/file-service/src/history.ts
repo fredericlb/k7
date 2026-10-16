@@ -21,7 +21,6 @@ import type {
   HistoryPeek,
   HistoryState,
 } from "@studio/web-protocol";
-import { HISTORY_DIR } from "./workspaceFilter.ts";
 
 /** A journal folder inside a project: nothing writes one, and the tree and the walks still hide it. */
 const MAX_ENTRIES = 1000;
@@ -34,7 +33,7 @@ export interface FileChange {
 }
 
 // A binary file's change, keyed to blobs (a file name under blobs/, or null for absent).
-export interface BlobChange {
+interface BlobChange {
   path: string;
   before: string | null;
   after: string | null;
@@ -81,7 +80,7 @@ export interface BlobKeeper {
 }
 
 /** No engine to keep anything on: every blob stays in the account's cache. */
-export const LOCAL_KEEPER: BlobKeeper = {
+const LOCAL_KEEPER: BlobKeeper = {
   engine: () => null,
   keep: async () => false,
   fetch: async () => false,
@@ -94,7 +93,7 @@ interface Journal {
 }
 
 /** Where every project's journal lives: the account's cache, out of every workspace (docs/history.md). */
-export function historyHome(): string {
+function historyHome(): string {
   return join(studioHome(), HISTORY_HOME_DIR);
 }
 
@@ -370,5 +369,3 @@ export class ProjectHistory {
     });
   }
 }
-
-export { HISTORY_DIR };

@@ -73,7 +73,7 @@ function touch(file: string): void {
 }
 
 /** One `bytes=` range of a file of `size` bytes: null to send it whole, "none" when nothing of it is asked for. */
-export function parseRange(
+function parseRange(
   header: string | undefined,
   size: number,
 ): { start: number; end: number } | "none" | null {

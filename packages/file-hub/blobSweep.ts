@@ -10,7 +10,7 @@ import { isBlobHash } from "@studio/live-sync/blob";
 import { roomDir } from "./syncRelay.ts";
 
 /** An unnamed blob younger than this may belong to a batch still on its way: it stays. */
-export const ORPHAN_AGE_MS = 7 * 24 * 60 * 60_000;
+const ORPHAN_AGE_MS = 7 * 24 * 60 * 60_000;
 
 /** A ref as any file of a room spells it, JSON-escaped NUL or not: `k7fs-blob <sha256>`. */
 const REF = /k7fs-blob ([0-9a-f]{64})/g;
@@ -32,9 +32,7 @@ async function filesBelow(dir: string): Promise<string[]> {
 }
 
 /** Every blob hash named by any file the rooms under `accountDir` keep. */
-export async function referencedBlobs(
-  accountDir: string,
-): Promise<Set<string>> {
+async function referencedBlobs(accountDir: string): Promise<Set<string>> {
   const out = new Set<string>();
   // The folder every room of the account lives in, as the relay lays it out.
   for (const file of await filesBelow(dirname(roomDir(accountDir, "_")))) {

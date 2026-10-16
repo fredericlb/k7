@@ -25,8 +25,3 @@ export function runInBackground(
   );
   return true;
 }
-
-/** The tags running now, oldest first — for a test, and for anything that wants to say "still working". */
-export function backgroundTags(): string[] {
-  return [...running.entries()].sort((a, b) => a[1] - b[1]).map(([t]) => t);
-}

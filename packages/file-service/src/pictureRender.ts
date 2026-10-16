@@ -41,7 +41,7 @@ const CHROMIUM_CANDIDATES = [
 ];
 
 /** The browser to render in, or a sentence saying why there is none. */
-export function findChromium(): string {
+function findChromium(): string {
   // biome-ignore lint/suspicious/noUndeclaredEnvVars: set by the image, or by whoever runs this service
   const named = process.env.STUDIO_CHROMIUM;
   if (named) {

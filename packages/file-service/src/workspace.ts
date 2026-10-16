@@ -7,7 +7,6 @@ import {
   type Dirent,
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
   realpathSync,
@@ -15,18 +14,15 @@ import {
   rmSync,
   statSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import {
   basename,
   dirname,
-  extname,
   isAbsolute,
   join,
   relative,
   resolve,
   sep,
 } from "node:path";
-import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import {
   scannedPluginNames,
   scannedPlugins,
@@ -42,11 +38,7 @@ import { writeFileAtomic } from "@studio/song/atomicWrite";
 import type { AutoFreeze } from "@studio/song/autoFreeze";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { confineToProject } from "@studio/song/confine";
-import {
-  CONSOLE_ID,
-  type ConsoleSystem,
-  consoleSystems,
-} from "@studio/song/console";
+import { type ConsoleSystem, consoleSystems } from "@studio/song/console";
 import { deadAutomations } from "@studio/song/deadAutomations";
 import { EXTS_PATH, engineModules } from "@studio/song/engineCatalogue";
 import { enginesBeside } from "@studio/song/engines";
@@ -96,7 +88,6 @@ import {
   loadPreferences,
   PREFS_PATH,
   setEditorVim,
-  setInputPair,
 } from "@studio/song/preferences";
 import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
 import {
@@ -144,7 +135,6 @@ import {
   type ReferenceTrack,
   referenceName,
 } from "@studio/song-schema/reference";
-import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import type {
   VideoProjectDoc,
@@ -197,7 +187,6 @@ import {
   ProjectHistory,
 } from "./history.ts";
 import { engineKeeper } from "./historyKeeper.ts";
-import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { closeModuleWatchesUnder, moduleFoldersMoved } from "./moduleWatch.ts";
 import {
   type PluginNeed,
@@ -223,7 +212,6 @@ import { foldComps } from "./webComp.ts";
 import { webProjectOf } from "./webProject.ts";
 import { isBinary, RECYCLE_DIR, skip } from "./workspaceFilter.ts";
 
-export { DEFAULT_WF_BUCKETS } from "./waveformOps.ts";
 export { isBinary, skip };
 
 // Turn a compiler error into editor diagnostics; a line with no "<file>: " prefix yields none but still counts.
@@ -480,7 +468,7 @@ export function setVim(on: boolean): boolean {
 }
 
 // Where each workspace's active-project marker lives: a folder BESIDE the workspaces, so no sync of one ever sees it.
-export const ACTIVE_MARKERS_DIR = ".active-projects";
+const ACTIVE_MARKERS_DIR = ".active-projects";
 // The marker a workspace kept INSIDE itself, moved out at its first read.
 const LEGACY_MARKER = ".studio-active";
 
@@ -502,7 +490,7 @@ export function readActiveMarker(root: string): string | null {
 }
 
 /** Remember `rel` (workspace-relative, "" for none) as the workspace's open project. */
-export function writeActiveMarker(root: string, rel: string): void {
+function writeActiveMarker(root: string, rel: string): void {
   const at = activeMarkerOf(root);
   mkdirSync(dirname(at), { recursive: true });
   writeFileAtomic(at, rel ? `${rel}\n` : "");

@@ -50,7 +50,7 @@ export function namedSongFiles(): string[] {
 }
 
 /** One pass: send the named files to the bound machine if the list or the machine moved. Never throws. */
-export async function prefetchOnce(jobsUrl: string | null): Promise<void> {
+async function prefetchOnce(jobsUrl: string | null): Promise<void> {
   if (!jobsUrl || running) return;
   const files = namedSongFiles();
   if (!files.length) return;

@@ -30,7 +30,6 @@ import type { Translation } from "@studio/translator/model";
 import { resolvePluginParams } from "@studio/translator/params";
 import {
   DROPPABLE_PROJECTS,
-  PROJECT_SUFFIXES,
   projectApp,
   projectLabel,
 } from "@studio/web-protocol/projects";
@@ -44,7 +43,7 @@ export interface LifecycleHost {
 }
 
 /** The foreign project formats this workspace can translate, by extension. */
-export const IMPORTABLE = [".dawproject", ".als", ".zip"] as const;
+const IMPORTABLE = [".dawproject", ".als", ".zip"] as const;
 
 /** …and the subset a DROP may carry, which the BROWSER also filters on — see `DROPPABLE_PROJECTS`. */
 export const DROPPABLE = DROPPABLE_PROJECTS;

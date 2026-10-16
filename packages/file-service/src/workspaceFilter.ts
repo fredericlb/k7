@@ -28,7 +28,7 @@ export const isBinary = (name: string): boolean =>
 export const RECYCLE_DIR = "_recycle_bin";
 
 // The undo/redo journal folder inside a project; history.ts holds the journal itself.
-export const HISTORY_DIR = "_history";
+const HISTORY_DIR = "_history";
 
 // Hidden files and deps are never shown, edited or WATCHED — the strudel watcher prunes this same list.
 export const skip = (name: string): boolean =>

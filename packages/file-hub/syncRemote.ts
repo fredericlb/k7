@@ -17,7 +17,7 @@ export interface SyncRemote {
 const FILE = ".sync-remote.json";
 
 /** The relay's host, which is what makes two pairings the same server. */
-export const serverHost = (url: string): string => {
+const serverHost = (url: string): string => {
   try {
     return new URL(url).host;
   } catch {
