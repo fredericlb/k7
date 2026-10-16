@@ -2,7 +2,10 @@
 // answer nobody else (../docs/standalone.md). The Host header counts as much as the peer address:
 // a page on a rebound DNS name reaches 127.0.0.1 from the user's own browser, with a foreign Host.
 
-import { isLoopbackHost } from "@studio/web-protocol/services";
+import {
+  isLoopbackAddress,
+  isLoopbackHost,
+} from "@studio/web-protocol/services";
 import type { NextFunction, Request, Response } from "express";
 
 /** A `Host` header, port included, naming this machine; absent or unparsable is not loopback. */
@@ -13,13 +16,6 @@ export function isLoopbackHostHeader(host: string | undefined): boolean {
   } catch {
     return false;
   }
-}
-
-/** A socket peer on this machine, IPv4-mapped spelling included. */
-export function isLoopbackAddress(address: string | undefined): boolean {
-  if (!address) return false;
-  const a = address.replace(/^::ffff:/i, "");
-  return a === "::1" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(a);
 }
 
 /** Both halves: the peer is this machine, and the page asked for this machine by name. */
