@@ -96,7 +96,7 @@ export function TabStrip() {
             <button
               type="button"
               aria-label="Close tab"
-              className="shrink-0 rounded p-0.5 opacity-0 hover:bg-secondary group-hover:opacity-100"
+              className="shrink-0 rounded p-0.5 opacity-0 hover:bg-secondary focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
               onClick={() => bridge?.close(row.id)}
             >
               <X className="h-3 w-3" />
