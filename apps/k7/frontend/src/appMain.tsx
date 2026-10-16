@@ -39,12 +39,12 @@ const SharedGate = lazy(() =>
   import("./components/SharedGate").then((m) => ({ default: m.SharedGate })),
 );
 const RehearsalPublicPage = lazy(() =>
-  import("@studio/ui-rehearsal/pages").then((m) => ({
+  import("@studio/ui-rehearsal/public").then((m) => ({
     default: m.RehearsalPublicPage,
   })),
 );
 const RehearsalRemote = lazy(() =>
-  import("@studio/ui-rehearsal/pages").then((m) => ({
+  import("@studio/ui-rehearsal/public").then((m) => ({
     default: m.RehearsalRemote,
   })),
 );

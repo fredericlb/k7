@@ -18,8 +18,17 @@ live `samples` array feeds moment detection as it goes. The rehearsal pages moun
 - **The gain is derived from the observed peak** and applied uniformly on stop, not during: that
   is what keeps the stored envelope coherent end to end. `TARGET_PEAK = 0.9` aims the loudest
   moment just under full scale, ~ −1 dBFS.
-- **The duration is rewritten into the WebM header.** `MediaRecorder` omits it, which makes the
-  file unseekable: `duration` is `Infinity` and assignments to `currentTime` are ignored.
+- **The duration is written into the WebM header, and only the header is read to do it.**
+  `MediaRecorder` omits it, which makes the file unseekable: `duration` is `Infinity` and
+  assignments to `currentTime` are ignored. `src/webmDuration.ts` reads the first 64 kB, adds a
+  `Duration` to the Segment's `Info` (moving a sized Segment's size and any `SeekHead` position past
+  `Info` with it), and hands back a Blob of the patched head and a SLICE of the rest — the take's
+  bytes are never copied into the JS heap. The server stores the bytes as sent and keeps the
+  duration in its row from the form, so a file without the header would still be listed right but
+  play unseekable: the fix stays in the browser. A layout the patch does not know falls back to
+  `fix-webm-duration`, which reads the whole file and rebuilds it — two to three times the take in
+  memory — so only under 32 MB; past that the take is uploaded unfixed rather than risk the tab on
+  a three-hour phone take.
 - **The screen lock is re-requested on return to the foreground.** The OS revokes it as soon as
   the tab goes to the background and never gives it back; without this catch-up a long take is
   cut off by the device locking.
@@ -32,6 +41,23 @@ Stopping requires a **two-second hold**, button or space bar, so a brushed key d
 hour-long take. The space bar is swallowed on every `keydown` while the take runs — otherwise the
 page scrolls — but only starts the hold on the first; and it is ignored while the recorder is
 minimised, since the stop button is then off screen.
+
+## A take of hours renders like a take of seconds
+
+The recorder runs for hours, so nothing per frame may re-render its view, and nothing per sample
+may cost the length of the take:
+
+- **The level moves through a store, not state.** `useRecorder` reads the input every frame and
+  sets a `LiveValue` (`src/liveValue.ts`) that only the meter subscribes to (`src/LiveMeter.tsx`).
+  The view's own state — the elapsed seconds, the gain — changes once a second at most.
+- **The waveform scrolls itself.** `LiveWaveform` takes a `LiveFeed` — a clock and a pull — and
+  redraws from its own animation frame; its cost per frame is the canvas's width, whatever the
+  take's length. The preview's playhead is a function it reads each frame, not a prop re-rendered.
+- **The envelope grows in place.** Samples are pushed into one array; the drawn envelope (a resumed
+  session's saved samples, then the new ones at the live gain, `src/liveEnvelope.ts`) is appended
+  to as frames pull it and rebuilt only when the gain moves.
+- **Moments are detected once a recorded second**, over the raw samples: the floor is a share of
+  the peak, so the gain does not change what is found.
 
 ## A take survives the tab, the source and the timer
 

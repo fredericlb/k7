@@ -24,6 +24,7 @@ export function ScoreSheet({ url }: { url: string }) {
   const view = useRef<ScoreViewHandle>(null);
   const [state, setState] = useState<ScoreState>({
     ready: false,
+    loading: false,
     playing: false,
   });
   const [transpose, setTranspose] = useState(0);
@@ -44,7 +45,7 @@ export function ScoreSheet({ url }: { url: string }) {
         <Button
           variant="outline"
           size="sm"
-          disabled={!state.ready}
+          disabled={!state.ready || state.loading}
           onClick={() => view.current?.playPause()}
         >
           {state.playing ? m["score.pause"]() : m["score.play"]()}

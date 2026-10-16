@@ -1,13 +1,17 @@
 import fixWebmDuration from "fix-webm-duration";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MIC_ERRORS_EN, type MicErrorTexts } from "./labels";
+import { createLiveValue, type LiveValue } from "./liveValue";
 import { backupChunk, beginTake } from "./takeBackup";
 import type { Envelope } from "./types";
+import { patchWebmDuration } from "./webmDuration";
 
 const SAMPLE_INTERVAL_MS = 200; // one loudness sample every 200ms
 // Auto-gain aims the loudest moment just under full scale, ~ -1 dBFS.
 const TARGET_PEAK = 0.9;
 const MAX_GAIN = 32;
+// Past this size a take is never read whole: only the header patch may fix its duration.
+const WHOLE_FILE_FIX_MAX = 32 * 1024 * 1024;
 
 export interface RecordingResult {
   blob: Blob;
@@ -25,15 +29,17 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
   const micRef = useRef(mic);
   micRef.current = mic;
   const [status, setStatus] = useState<RecStatus>("idle");
-  const [elapsed, setElapsed] = useState(0); // recorded seconds (excludes pauses)
-  const [level, setLevel] = useState(0); // current RMS, 0..1
-  const [samples, setSamples] = useState<number[]>([]); // live envelope (raw RMS)
+  const [elapsed, setElapsed] = useState(0); // recorded seconds, whole while running (excludes pauses)
+  const [level] = useState(() => createLiveValue(0)); // current RMS, 0..1, read by the meter alone
   const [gain, setGainState] = useState(1); // auto gain: max before saturation
   const [error, setError] = useState<string | null>(null);
 
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
-  const samplesRef = useRef<number[]>([]);
+  const samplesRef = useRef<number[]>([]); // live envelope (raw RMS), grown in place
+  const running = useRef(false); // the timers run, so elapsed time is still counting
+  const shownSec = useRef(-1); // the whole second last put into state
+  const shownGain = useRef(1); // the gain last put into state
   const takeIdRef = useRef("");
   const rawPeak = useRef(0); // loudest raw RMS seen so far
   const truePeak = useRef(0); // loudest absolute sample seen so far
@@ -47,6 +53,7 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
   const wakeLock = useRef<WakeLockSentinel | null>(null);
 
   const stopTimers = useCallback(() => {
+    running.current = false;
     if (rafTimer.current) cancelAnimationFrame(rafTimer.current);
     if (sampleTimer.current) clearInterval(sampleTimer.current);
     rafTimer.current = null;
@@ -91,22 +98,27 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
     audioCtx.current = null;
   }, [stopTimers, releaseWakeLock]);
 
-  // Gain that brings the loudest moment to just below saturation.
-  const autoGain = () =>
-    rawPeak.current > 0
-      ? Math.min(MAX_GAIN, TARGET_PEAK / rawPeak.current)
-      : MAX_GAIN;
+  /** Recorded seconds right now, for whoever draws at frame rate. */
+  const readElapsed = useCallback(
+    () =>
+      (accumulatedMs.current +
+        (running.current ? performance.now() - segmentStart.current : 0)) /
+      1000,
+    [],
+  );
 
+  // Every frame feeds the meter's store and the peak; React state moves once a second at most (../docs/recorder.md).
   const startTimers = useCallback(() => {
+    running.current = true;
     const tick = () => {
       const rms = readRmsRef.current();
       if (rms > rawPeak.current) rawPeak.current = rms;
-      setLevel(rms);
-      setGainState(autoGain());
-      setElapsed(
-        (accumulatedMs.current + (performance.now() - segmentStart.current)) /
-          1000,
-      );
+      level.set(rms);
+      const whole = Math.floor(readElapsed());
+      if (whole !== shownSec.current) {
+        shownSec.current = whole;
+        setElapsed(whole);
+      }
       rafTimer.current = requestAnimationFrame(tick);
     };
     rafTimer.current = requestAnimationFrame(tick);
@@ -118,14 +130,15 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
       const due = Math.floor(recordedMs / SAMPLE_INTERVAL_MS);
       const missing = due - samplesRef.current.length;
       if (missing <= 0) return;
-      const level = round(readRmsRef.current());
-      samplesRef.current = [
-        ...samplesRef.current,
-        ...new Array<number>(missing).fill(level),
-      ];
-      setSamples(samplesRef.current);
+      const rms = round(readRmsRef.current());
+      for (let i = 0; i < missing; i++) samplesRef.current.push(rms);
+      const g = autoGain(rawPeak.current);
+      if (g !== shownGain.current) {
+        shownGain.current = g;
+        setGainState(g);
+      }
     }, SAMPLE_INTERVAL_MS);
-  }, []);
+  }, [level, readElapsed]);
 
   const start = useCallback(
     async (existing?: MediaStream) => {
@@ -166,7 +179,7 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
         samplesRef.current = [];
         rawPeak.current = 0;
         truePeak.current = 0;
-        setSamples([]);
+        shownGain.current = MAX_GAIN;
         setGainState(MAX_GAIN);
 
         const mime = pickMimeType();
@@ -204,6 +217,7 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
         accumulatedMs.current = 0;
         segmentStart.current = performance.now();
         setStatus("recording");
+        shownSec.current = 0;
         setElapsed(0);
         startTimers();
         acquireWakeLock();
@@ -230,10 +244,10 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
     accumulatedMs.current += performance.now() - segmentStart.current;
     stopTimers();
     releaseWakeLock();
-    setLevel(0);
+    level.set(0);
     setElapsed(accumulatedMs.current / 1000);
     setStatus("paused");
-  }, [stopTimers, releaseWakeLock]);
+  }, [stopTimers, releaseWakeLock, level]);
   pauseRef.current = pause;
 
   const resume = useCallback(() => {
@@ -278,17 +292,10 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
           type: recorder.mimeType || "audio/webm",
         });
         // MediaRecorder leaves the WebM duration out, which makes the file unseekable.
-        if (blob.type.includes("webm")) {
-          try {
-            blob = await fixWebmDuration(blob, durationSec * 1000, {
-              logger: false,
-            });
-          } catch {
-            /* fall back to the unfixed blob */
-          }
-        }
+        if (blob.type.includes("webm"))
+          blob = await withDuration(blob, durationSec);
         // Normalize the RMS envelope, so the waveform fills to just below the top.
-        const factor = autoGain();
+        const factor = autoGain(rawPeak.current);
         const samples = samplesRef.current.map((s) =>
           round(Math.min(1, s * factor)),
         );
@@ -297,7 +304,7 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
           truePeak.current > 0 ? Math.min(MAX_GAIN, 0.9 / truePeak.current) : 1;
         cleanup();
         setStatus("stopped");
-        setLevel(0);
+        level.set(0);
         resolve({
           takeId: takeIdRef.current,
           blob,
@@ -314,15 +321,16 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
       recorder.onstop = finish;
       recorder.stop();
     });
-  }, [cleanup, stopTimers]);
+  }, [cleanup, stopTimers, level]);
 
   return {
     status,
     isRecording: status === "recording",
     isPaused: status === "paused",
     elapsed,
-    level,
-    samples,
+    readElapsed,
+    level: level as LiveValue<number>,
+    samples: samplesRef.current,
     gain,
     error,
     start,
@@ -332,6 +340,20 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
     getPreviewBlob,
     getPlaybackGain,
   };
+}
+
+/** The header patch reads 64 kB; the whole-file fix, kept for a layout the patch does not know, only on a short take. */
+async function withDuration(blob: Blob, durationSec: number): Promise<Blob> {
+  const ms = durationSec * 1000;
+  try {
+    const patched = await patchWebmDuration(blob, ms);
+    if (patched) return patched;
+    if (blob.size <= WHOLE_FILE_FIX_MAX)
+      return await fixWebmDuration(blob, ms, { logger: false });
+  } catch {
+    /* fall back to the unfixed blob */
+  }
+  return blob;
 }
 
 // Unprocessed constraints first, then a fallback: Safari answers NotFoundError to some.
@@ -396,5 +418,9 @@ function pickMimeType(): string | undefined {
   }
   return undefined;
 }
+
+/** The gain that brings the loudest moment to just below saturation. */
+const autoGain = (rawPeak: number) =>
+  rawPeak > 0 ? Math.min(MAX_GAIN, TARGET_PEAK / rawPeak) : MAX_GAIN;
 
 const round = (v: number) => Math.round(v * 10000) / 10000;
