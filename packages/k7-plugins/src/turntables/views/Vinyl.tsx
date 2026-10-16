@@ -4,6 +4,7 @@
 
 import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { useEffect, useRef } from "react";
+import { m } from "../../paraglide/messages.js";
 import { CUE_COLOURS } from "../deckVocabulary";
 import { CENTRE, pointOnDial, progressOf, wedgePath } from "../dial";
 import { useInSight } from "./inSight";
@@ -80,6 +81,7 @@ export function Vinyl({
   onScratch?: (rate: number | null) => void;
 }) {
   const loaded = !!title;
+  const name = loaded ? `${artist ?? ""} ${title}` : m["vinyl.deck"]({ side });
   const wedge = useRef<SVGPathElement>(null);
   const disc = useRef<SVGSVGElement>(null);
   // Read by the frame loop, which must not be restarted by a pitch fader moving — hence refs, not deps.
@@ -211,10 +213,7 @@ export function Vinyl({
         aria-hidden="true"
       >
         {/* One title, not two: it names the record AND says what the hand may do with it. */}
-        <title>
-          {loaded ? `${artist ?? ""} ${title}` : `deck ${side}`}
-          {onScratch ? " — turn the record by hand" : ""}
-        </title>
+        <title>{onScratch ? m["vinyl.scratch"]({ name }) : name}</title>
         <defs>
           {/* Not flat black: a record reads as one because the light moves across it. */}
           <radialGradient id={`vinyl-${side}`} cx="50%" cy="50%" r="50%">
@@ -280,7 +279,7 @@ export function Vinyl({
         <button
           type="button"
           onClick={onPick}
-          title={loaded ? "change this deck's song" : "choose a song"}
+          title={loaded ? m["vinyl.change"]() : m["vinyl.choose"]()}
           className={`pointer-events-auto flex aspect-square w-[46%] cursor-pointer flex-col items-center justify-center rounded-full px-3 text-center transition-shadow hover:ring-2 hover:ring-foreground/30 ${
             loaded
               ? "bg-accent text-accent-foreground"
@@ -299,7 +298,7 @@ export function Vinyl({
               </span>
             </>
           ) : (
-            <span className="text-xs">platine {side}</span>
+            <span className="text-xs">{m["vinyl.deck"]({ side })}</span>
           )}
           {/* The spindle hole — the one detail that makes the ring read as a label. */}
           <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-background" />

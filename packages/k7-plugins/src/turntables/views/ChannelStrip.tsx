@@ -17,6 +17,7 @@ import {
 } from "@frediverse/ui/icons";
 import { STEM_NEUTRAL, STEM_RANGE, type Stem } from "@studio/song-schema/stems";
 import { usePointerFollow } from "@studio/ui-timeline/drag";
+import { m } from "../../paraglide/messages.js";
 import {
   ECHO_RANGE,
   EQ_BANDS,
@@ -27,11 +28,18 @@ import {
 import type { StripLayout } from "../deskLayout";
 
 /** What each stem is called under its knob — short, because the label sits under a 36 px dial. */
-const STEM_LABELS: Record<Stem, string> = {
-  drums: "BATT",
-  bass: "BASSE",
-  other: "RESTE",
-  vocals: "VOIX",
+const STEM_LABELS: Record<Stem, () => string> = {
+  drums: m["stem.drums"],
+  bass: m["stem.bass"],
+  other: m["stem.other"],
+  vocals: m["stem.vocals"],
+};
+
+/** …and each EQ band, by band id. */
+const EQ_LABELS: Record<string, () => string> = {
+  eqLow: m["strip.eqLow"],
+  eqMid: m["strip.eqMid"],
+  eqHigh: m["strip.eqHigh"],
 };
 
 /** …and the glyph beside it: the instrument, so a hand finds the knob without reading — ../../docs/stems.md. */
@@ -166,11 +174,7 @@ function Knob({
           else return;
           e.preventDefault();
         }}
-        title={
-          disabled
-            ? "this deck has not got that module loaded"
-            : `${label} — drag to set, double-click to go back to neutral`
-        }
+        title={disabled ? m["knob.unwired"]() : m["knob.title"]({ label })}
       >
         <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden="true">
           <title>{label}</title>
@@ -281,7 +285,7 @@ export function ChannelStrip({
     >
       {/* FIRST, because it is first in the signal: everything below shapes what this one set. */}
       <Knob
-        label="TRIM"
+        label={m["strip.trim"]()}
         icon={SlidersHorizontal}
         value={trim ?? 0}
         range={TRIM_DB}
@@ -296,7 +300,7 @@ export function ChannelStrip({
       {EQ_BANDS.map((b) => (
         <Knob
           key={b.id}
-          label={b.label}
+          label={EQ_LABELS[b.id]()}
           icon={EQ_ICONS[b.id]}
           value={eq[b.id] ?? 0}
           range={EQ_DB}
@@ -311,7 +315,7 @@ export function ChannelStrip({
       {/* A rule, because the filter is not a fourth band but a different instrument on the same strip. */}
       <div className="h-px w-8 shrink-0 bg-border" />
       <Knob
-        label="FILTRE"
+        label={m["strip.filter"]()}
         icon={Filter}
         value={filter ?? 0}
         range={FILTER_RANGE}
@@ -328,7 +332,7 @@ export function ChannelStrip({
         <>
           <div className="h-px w-8 shrink-0 bg-border" />
           <Knob
-            label="ECHO"
+            label={m["strip.echo"]()}
             icon={Repeat}
             value={echo ?? 0}
             range={ECHO_RANGE}
@@ -374,7 +378,7 @@ export function StemStrip({
       {STEM_GRID.map((s) => (
         <Knob
           key={s}
-          label={STEM_LABELS[s]}
+          label={STEM_LABELS[s]()}
           icon={STEM_ICONS[s]}
           value={stems[s] ?? STEM_NEUTRAL}
           range={STEM_RANGE}
@@ -418,13 +422,9 @@ export type StemPrep =
 
 /** The one sentence the column says on hover, and it is different in all four states. */
 function titleFor(ready: boolean, prep: StemPrep | undefined): string {
-  if (prep?.k === "failed") return `The separation failed: ${prep.why}`;
-  if (prep)
-    return `Separating (${prep.phase}) — the knobs light up when it is done`;
-  if (ready) return "Take an instrument out of the song";
+  if (prep?.k === "failed") return m["stems.failed"]({ why: prep.why });
+  if (prep) return m["stems.running"]({ phase: prep.phase });
+  if (ready) return m["stems.ready"]();
   // Nothing on this column fixes it, so the sentence names the two commands that do.
-  return (
-    "This song has not been separated — prepare the playlist (playlist stems), " +
-    "or name a chain in the surface's `stems:` so the desk does it itself"
-  );
+  return m["stems.unprepared"]();
 }

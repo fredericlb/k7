@@ -83,12 +83,16 @@ sweep that moved them settled:
   screen just falls back to printing the key.
 
 **A shared package under `packages/` has no catalogue and stays ENGLISH.** `ui-chains`,
-`ui-chains-react`, `ui-turntables`, `ui-module-builder`, `project-shell` and `ui-user-menu` draw
+`ui-chains-react`, `ui-module-builder`, `project-shell` and `ui-user-menu` draw
 inside this app and inside others, each with its own message set; a French string in one of them
 is a French string in every host. What crosses that line is a `noun`-shaped hint the host hands
 in, not a sentence. The same rule covers text a package writes into a FILE — the
 `SURFACE_MAPPING_SKELETON` notes that end up as comments in `surfaces/<id>.yaml` are English
 because the file is read where the code is.
+
+Two packages draw inside k7 alone and so carry a catalogue of their own, compiled by this app's
+`vite.config.ts` with the same strategy chain: `ui-rehearsal` (`packages/ui-rehearsal/docs/i18n.md`)
+and `k7-plugins`, the desk and the viewport (`packages/k7-plugins/docs/i18n.md`).
 
 ## Separation chains — the machine's, not a project's
 

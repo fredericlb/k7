@@ -19,6 +19,8 @@ import { AudioLines, Laptop, Music, RefreshCw } from "@frediverse/ui/icons";
 import type { SongDrag } from "@studio/mediatek/playlistItems";
 import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song-schema/playlist";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CodeText } from "../../CodeText";
+import { m } from "../../paraglide/messages.js";
 import { beatPhase } from "../beats";
 import type { DeckId, DeckTempo } from "../deckVocabulary";
 import { deskLayout, stemStripHeight } from "../deskLayout";
@@ -139,10 +141,7 @@ export function MixView({
 
   useEffect(() => {
     // An engine answering on its own port but not the file one: said, since an empty list misleads.
-    if (!link)
-      return setError(
-        "this machine's file service is not answering — the media library is unreachable",
-      );
+    if (!link) return setError(m["mix.noFileService"]());
     void refresh(link);
   }, [link, refresh]);
 
@@ -180,9 +179,7 @@ export function MixView({
       .setSongBpm(library, song, bpm)
       .then(() => decks.correctTempo(deckId, bpm))
       .catch((e: Error) =>
-        setError(
-          `the tempo could not be corrected in the media library: ${e.message}`,
-        ),
+        setError(m["mix.tempoFailed"]({ error: e.message })),
       );
   };
 
@@ -224,7 +221,7 @@ export function MixView({
       }
       if (!mine()) return;
       if (job?.failed)
-        say({ k: "failed", why: job.error ?? "raison inconnue" });
+        say({ k: "failed", why: job.error ?? m["mix.unknownReason"]() });
       else landed();
     } catch (e) {
       // Said on the column, not the desk's error card: this is one deck's record, the other still plays.
@@ -251,10 +248,7 @@ export function MixView({
   const dropped = (deckId: DeckId, drag: SongDrag) => {
     const row = entryForDrag(set?.entries ?? [], drag);
     // A panel may show another playlist than the one the surface names; saying so beats a dead drop.
-    if (!row)
-      return setError(
-        `${drag.song}: that song is not in this surface's playlist`,
-      );
+    if (!row) return setError(m["mix.notInPlaylist"]({ song: drag.song }));
     load(deckId, row);
   };
 
@@ -265,10 +259,7 @@ export function MixView({
     // The line's OWN file, master or variant — reading `meta.master` would play the wrong record.
     const path = playablePath(root, s.entry, s.file);
     // Said out loud: a catalogued folder with no audio is a real state, and a dead button explains nothing.
-    if (!path)
-      return setError(
-        `${s.name}: the folder is catalogued but carries no audio`,
-      );
+    if (!path) return setError(m["mix.noAudio"]({ song: s.name }));
     setError(null);
     decks.putOn(deckId, {
       path,
@@ -379,10 +370,7 @@ export function MixView({
             {/* Not an error but a desk pointed at no set list, said with the one line that fixes it. */}
             {set?.absent ? (
               <Card className="p-3 text-sm text-muted-foreground">
-                This surface names no playlist. Add a{" "}
-                <span className="font-mono">playlist: &lt;name&gt;</span> line
-                to <span className="font-mono">{file}</span> — the repository's
-                playlists are written in k7, under the cog.
+                <CodeText text={m["mix.noPlaylist"]({ file })} />
               </Card>
             ) : null}
             {/* A binding naming something the project has not got, reported by CONTROL: that is what looks broken. */}
@@ -591,7 +579,7 @@ export function MixView({
           {deck.setListening && (
             <label
               className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground"
-              title="The sound already leaves this machine's interface. Tick this to hear it in this tab as well."
+              title={m["mix.listenTitle"]()}
             >
               <input
                 type="checkbox"
@@ -600,7 +588,7 @@ export function MixView({
               />
               {/* A laptop, not headphones: the CUE buttons own that icon, and this one is about THIS TAB. */}
               <Laptop className="h-4 w-4" />
-              Listen here
+              {m["mix.listen"]()}
             </label>
           )}
 
@@ -630,11 +618,13 @@ export function MixView({
             disabled={!ready || !decks.clickDeck}
             title={
               !ready
-                ? "no engine on this machine"
+                ? m["mix.noEngine"]()
                 : decks.clickDeck
-                  ? `metronome on deck ${decks.clickDeck === "deckA" ? "A" : "B"}'s beat`
+                  ? m["mix.metronome"]({
+                      side: decks.clickDeck === "deckA" ? "A" : "B",
+                    })
                   : // The rule, said as the reason it is off rather than as a rule.
-                    "the metronome asks for one beat: one deck loaded, or both synced — and a beat measured on the one that leads"
+                    m["mix.metronomeOff"]()
             }
             onClick={decks.toggleMetronome}
             aria-pressed={decks.clicking}
@@ -646,11 +636,7 @@ export function MixView({
           {prewarming(warm) ? (
             <span
               className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums"
-              title={
-                `analysing the playlist: ${warm.done}/${warm.total} songs` +
-                (warm.failed ? ` (${warm.failed} unreadable)` : "") +
-                " — an analysed song lays down its tempo and lights SYNC at once"
-              }
+              title={m[warm.failed ? "mix.prewarmFailed" : "mix.prewarm"](warm)}
             >
               <Music className="size-3" /> {warm.done}/{warm.total}
             </span>
@@ -660,7 +646,7 @@ export function MixView({
             size="sm"
             variant="ghost"
             className="shrink-0 text-xs"
-            title="Re-read the media library's cache"
+            title={m["mix.refresh"]()}
             onClick={() => link && void refresh(link)}
           >
             <RefreshCw className="h-3.5 w-3.5" />

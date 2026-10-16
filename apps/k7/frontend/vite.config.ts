@@ -13,13 +13,18 @@ import {
 /** The paths on this origin that are NOT k7's shell: the worker's scope is `/`, so only this list keeps a navigation to `/z0` or the `/rtc` socket off it. */
 const OTHER_APPS = /^\/(z0|api|auth|rtc)(\/|$)/;
 
-/** The language every catalogue resolves the same way, so the rehearsal pages' follows k7's — docs/settings.md. */
+/** The language every catalogue resolves the same way, so the rehearsal pages' and the plugins' follow k7's — docs/settings.md. */
 const STRATEGY: ["localStorage", "baseLocale"] = ["localStorage", "baseLocale"];
 
 /** The rehearsal pages' OWN catalogue, compiled where that package reads it: frediverseParaglide fixes the paths to this app's. */
 // fileURLToPath, not `.pathname`: on Windows the latter is `/D:/…`, which a resolve turns into `D:\D:\…`.
 const REHEARSAL_I18N = fileURLToPath(
   new URL("../../../packages/ui-rehearsal/", import.meta.url),
+);
+
+/** The builtin plugins' catalogue (the desk, the viewport), compiled where k7-plugins reads it — packages/k7-plugins/docs/i18n.md. */
+const PLUGINS_I18N = fileURLToPath(
+  new URL("../../../packages/k7-plugins/", import.meta.url),
 );
 
 // Unlike the other apps, k7's dev server has no fixed port: the backend URL it proxies to is env-driven, and always localhost.
@@ -51,6 +56,12 @@ export default defineAppConfig({
       paraglideVitePlugin({
         project: `${REHEARSAL_I18N}project.inlang`,
         outdir: `${REHEARSAL_I18N}src/paraglide`,
+        emitTsDeclarations: true,
+        strategy: STRATEGY,
+      }),
+      paraglideVitePlugin({
+        project: `${PLUGINS_I18N}project.inlang`,
+        outdir: `${PLUGINS_I18N}src/paraglide`,
         emitTsDeclarations: true,
         strategy: STRATEGY,
       }),
