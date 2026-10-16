@@ -1,7 +1,7 @@
 // The Auto Wah, written in JS — the effect as a description rather than as a compiled plugin.
 //
-// It is the only auto-wah: what pins it is autowah.test.ts, which holds this file against the
-// fallback graph the engine carries, so the two cannot drift apart.
+// It is the engine's fallback graph: autowah.test.ts holds this file against GraphDspPlugin.cpp, so the
+// two cannot drift apart. k7-core's auto-wah module is a different graph, with an `Output` make-up stage.
 
 import { type GraphJson, graph, sr } from "./index";
 
