@@ -134,7 +134,7 @@ Stroke width grows as the camera pulls back, so on-screen thickness stays roughl
 instead of thinning to nothing.
 
 **Text is sized in world units**, so it scales with the camera: a node that is tiny on
-screen still shows a name as large as it can hold. `fitText` is width-bound by glyph count
+screen still shows a name as large as it can hold. `fitFont` is width-bound by glyph count
 with a margin, then capped by height, and floored so it never vanishes.
 
 **Far LOD**: past a zoom threshold the widgets are hidden — unreadable at that size — and
@@ -297,7 +297,7 @@ the right order: the click was about the graph.
 ## Zooming: wheel, trackpad pinch, two fingers
 
 The camera scales about a point in host coordinates, and three gestures reach that one piece of
-arithmetic (`zoomAround`) — the anchor is what reads as a bug when it drifts, the graph sliding
+arithmetic (`zoomAbout`) — the anchor is what reads as a bug when it drifts, the graph sliding
 out from under the cursor instead of growing around it.
 
 A wheel notch reports a delta in the hundreds, and `0.001` turns that into ~10% a notch. A
