@@ -20,8 +20,6 @@ import {
   contextMenu,
   type MenuCtx,
   type MenuItem,
-  type NodeMenuTarget,
-  nodeMenu,
   withAmbient,
 } from "../contextMenu";
 import { useProjectDoc } from "../hooks/useProjectDoc";
@@ -32,6 +30,7 @@ import { useVideoEdits } from "../hooks/useVideoEdits";
 import { useLocale } from "../i18n";
 import type { ConditionCtx } from "../keys";
 import { confirmMenuItem } from "../menuConfirm";
+import { type NodeMenuTarget, nodeMenu } from "../nodeMenu";
 import { modeCondition, type TimelineMode } from "../timelineMode";
 import type { CommandInfo } from "../types";
 import { ContextMenu } from "./ContextMenu";
