@@ -53,6 +53,20 @@ the engine is reached on TCP directly.
 Plain http on loopback is enough: `127.0.0.1` is a secure context, and the session cookie is
 host-only and `Lax`. `COOKIE_DOMAIN` is therefore forced empty — set, it would make the cookie `Secure`.
 
+## What a page is told of the app
+
+k7 knows it is in the app because the preload hands every page `window.studioDesktop`, whose
+`state()` the main process answers (`src/desktopBridge.ts`, read by
+`apps/k7/frontend/src/desktop.ts`). It answers only a page of the app's own origin, in any tab or
+window: unlike the account calls, which the strip and the home tab alone may make (`docs/tabs.md`),
+a project's playlist needs it too. An IPC call rather than an HTTP route, because a route on this
+backend is one more thing a page of another origin, or DNS rebinding, could probe.
+
+| field | value | what reads it |
+|---|---|---|
+| `server` | the server chosen at sign-in (`src/server.ts`), `https://st0.app` until one is | the playlist's *Add songs* link, opened on that server's médiathèque in the system browser; the user menu's list of apps |
+| `lanUrls` | always empty | the QR codes: this backend answers its own machine only (`apps/k7/backend/docs/standalone.md`), so a LAN address would scan to a page the device cannot load, and the share panel says there is no address instead |
+
 ## Sign-in
 
 Optional: signed out, the app runs as a **local user**; signed in, as an k7 account. The control

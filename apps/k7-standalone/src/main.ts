@@ -21,6 +21,7 @@ import { PORTS_ENV } from "@studio/web-protocol/services";
 import { session } from "electron";
 import standalone from "../../k7/backend/standalone.json";
 import { startBackend } from "./backends.ts";
+import { installDesktopBridge } from "./desktopBridge.ts";
 import {
   engineDown,
   engineSnapshot,
@@ -145,6 +146,7 @@ async function boot(): Promise<void> {
 
   // Before the supervisor: its first snapshot may arrive before any page asks.
   installEngineBridge(K7, () => supervisor);
+  installDesktopBridge(K7, chosenServer);
   const sup = supervisorBinary();
   if (sup && existsSync(sup))
     supervisor = startSupervisor(sup, dirs.engineHome, K7, {
