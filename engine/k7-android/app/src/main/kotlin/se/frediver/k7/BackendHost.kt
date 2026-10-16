@@ -37,8 +37,32 @@ object BackendHost {
     private var failure: String? = null
     private var quickExits = 0
     private val waiting = mutableListOf<Waiter>()
+    private var status = Status("starting")
+    private val watchers = mutableListOf<(Status) -> Unit>()
 
     private class Waiter(val then: () -> Unit, val failed: (String) -> Unit)
+
+    /** What the shell page shows: `starting` with a step (`unpacking` with the fraction done, `launching`), `ready`, or `failed` with why. */
+    data class Status(val state: String, val step: String? = null, val progress: Double? = null, val message: String? = null)
+
+    fun current(): Status = synchronized(this) { status }
+
+    /** Every status change from now on, called on whichever thread made it. */
+    fun watch(watcher: (Status) -> Unit) {
+        synchronized(this) { watchers.add(watcher) }
+    }
+
+    fun unwatch(watcher: (Status) -> Unit) {
+        synchronized(this) { watchers.remove(watcher) }
+    }
+
+    private fun report(next: Status) {
+        val to = synchronized(this) {
+            status = next
+            watchers.toList()
+        }
+        to.forEach { it(next) }
+    }
 
     /** Unpack, lay out and start, once per process: a first run unpacks for a few seconds. */
     @Synchronized
@@ -51,18 +75,21 @@ object BackendHost {
 
     /** `then` once the backend has answered — at once if it has — or `failed` once it is given up on; either on any thread. */
     fun whenReady(then: () -> Unit, failed: (String) -> Unit) {
-        val (now, again) = synchronized(this) {
-            if (ready) return@synchronized true to false
-            waiting.add(Waiter(then, failed))
-            // A view asking after the backend was given up on is the user's retry.
-            val retry = failure != null && started
-            if (retry) {
-                failure = null
-                quickExits = 0
+        val now = synchronized(this) { ready.also { if (!it) waiting.add(Waiter(then, failed)) } }
+        // A view asking after the backend was given up on is the user's retry.
+        if (now) then() else retry()
+    }
+
+    /** The user's retry — a view asking again, or the shell page's Retry: a backend given up on starts over, with a fresh count of quick exits. */
+    fun retry() {
+        val again = synchronized(this) {
+            (failure != null && started).also {
+                if (it) {
+                    failure = null
+                    quickExits = 0
+                }
             }
-            false to retry
         }
-        if (now) then()
         if (again) attempt()
     }
 
@@ -81,10 +108,13 @@ object BackendHost {
         val context = synchronized(this) { app } ?: return
         Thread(body@{
             try {
+                report(Status("starting"))
                 val d = synchronized(this) { dirs } ?: prepare(context).also { synchronized(this) { dirs = it } }
+                report(Status("starting", "launching"))
                 val p = synchronized(this) { if (stopping) null else process ?: launch(context, d) } ?: return@body
                 if (!waitUp(p)) return@body
                 Log.i(TAG, "backend up on $ORIGIN")
+                report(Status("ready"))
                 val run = synchronized(this) {
                     ready = true
                     waiting.toList().also { waiting.clear() }
@@ -105,6 +135,7 @@ object BackendHost {
             ready = false
             waiting.toList().also { waiting.clear() }
         }
+        report(Status("failed", message = why))
         told.forEach { it.failed(why) }
     }
 
@@ -128,7 +159,9 @@ object BackendHost {
         dir.deleteRecursively()
         dir.mkdirs()
         var count = 0
-        ZipInputStream(context.assets.open(BUNDLE_ASSET).buffered()).use { zip ->
+        // Stored uncompressed in the APK (noCompress), so its length is known and the bytes read are the progress.
+        val total = context.assets.openFd(BUNDLE_ASSET).use { it.length }.coerceAtLeast(1)
+        ZipInputStream(Counting(context.assets.open(BUNDLE_ASSET), total).buffered()).use { zip ->
             generateSequence { zip.nextEntry }.forEach { entry ->
                 val out = File(dir, entry.name)
                 require(out.canonicalPath.startsWith(dir.canonicalPath + File.separator)) { "bad entry ${entry.name}" }
@@ -147,6 +180,25 @@ object BackendHost {
         marker.writeText(stamp)
         Log.i(TAG, "unpacked the backend: $count files")
         return dir
+    }
+
+    /** The asset as it is read, reporting each whole percent of it to the watchers. */
+    private class Counting(inner: java.io.InputStream, private val total: Long) : java.io.FilterInputStream(inner) {
+        private var done = 0L
+        private var shown = -1
+
+        private fun add(n: Int) {
+            if (n <= 0) return
+            done += n
+            val pct = (done * 100 / total).toInt()
+            if (pct == shown) return
+            shown = pct
+            report(Status("starting", "unpacking", pct / 100.0))
+        }
+
+        override fun read(): Int = super.read().also { if (it >= 0) add(1) }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int = super.read(b, off, len).also(::add)
     }
 
     /** `bin/` of symlinks into the native library directory, which moves on every update, so redone each start. */
@@ -222,6 +274,7 @@ object BackendHost {
             if (quickExits < MAX_QUICK_EXITS) minOf(RELAUNCH_FIRST_MS shl (quickExits - 1), RELAUNCH_MAX_MS) else null
         }
         if (delay == null) return fail("k7's backend stopped $MAX_QUICK_EXITS times in a row (last exit code $code)")
+        report(Status("starting", "launching"))
         Thread.sleep(delay)
         val again = synchronized(this) { !stopping && failure == null && process == null }
         if (again) attempt()

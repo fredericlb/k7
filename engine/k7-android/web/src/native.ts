@@ -74,6 +74,14 @@ export const K7Runtime = registerPlugin<K7RuntimePlugin>("K7Runtime");
 export type AppId = "k7";
 export const APP_IDS: AppId[] = ["k7"];
 
+/** The phone's own backend: starting (unpacking with the fraction done, on a first run, then launching), ready, or failed with why. */
+export interface BackendStatus {
+  state: "starting" | "ready" | "failed";
+  step?: "unpacking" | "launching";
+  progress?: number;
+  message?: string;
+}
+
 interface AppViewsPlugin {
   /**
    * Show `id`'s view, creating it on first use. It loads `url` when given, else `apps[id]` when it
@@ -89,6 +97,14 @@ interface AppViewsPlugin {
   /** Back to this page alone: the tray. The views keep running, hidden. */
   hideAll(): Promise<void>;
   reload(options: { id: AppId }): Promise<void>;
+  /** Where the phone's own backend is (BackendHost.kt); `backend` events follow every change. */
+  backend(): Promise<BackendStatus>;
+  /** Start the phone's own backend again after it failed. */
+  restartBackend(): Promise<void>;
+  addListener(
+    event: "backend",
+    listener: (status: BackendStatus) => void,
+  ): Promise<PluginListenerHandle>;
   /** A view followed a link to another app: show that one, at that URL. */
   addListener(
     event: "navigate",
