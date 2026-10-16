@@ -259,7 +259,7 @@ export async function deleteSession(uid) {
 async function storeBytes(rec, buffer, ext) {
   const previous = rec.fields.RecordingPath || "";
   if (previous.endsWith(`.${mediatek.zoneExt(ext)}`)) {
-    await mediatek.replace(previous, buffer);
+    await mediatek.putFile(previous, buffer);
     return previous;
   }
   // The session's own moment, not now: a take saved after midnight belongs to that evening.

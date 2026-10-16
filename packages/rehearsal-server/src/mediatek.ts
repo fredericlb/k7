@@ -2,15 +2,11 @@
 // The store keeps the metadata (duration, envelope, gain, moments) and carries no audio at all.
 // The client is the package's, not a second one written here. See ../docs/audio.md.
 
-import { randomUUID } from "node:crypto";
-import { createWriteStream, mkdirSync, renameSync, rmSync } from "node:fs";
-import { dirname } from "node:path";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
 import {
   pushRecording,
   pushSong,
   type RemoteConfig,
+  type RemoteEnvelope,
   remoteLibrary,
   remoteWriter,
 } from "@studio/mediatek/remote";
@@ -121,7 +117,7 @@ export async function pushSongTrack(
   return master;
 }
 
-/** Write a file at a chosen path, reserved for what this service created itself. */
+/** Write a file at a chosen path, reserved for what this service created itself: an extended session overwrites its recording this way. */
 export async function putFile(
   path: string,
   body: Uint8Array | Blob | string,
@@ -134,14 +130,6 @@ export async function removeTree(path: string): Promise<void> {
   await remoteWriter(cfg()).removeTree(path);
 }
 
-/** Overwrite an EXISTING recording in place: an extended session is still one session. */
-export async function replace(
-  path: string,
-  bytes: Uint8Array | Blob,
-): Promise<void> {
-  await remoteWriter(cfg()).put(path, bytes);
-}
-
 /** Already gone counts as success, on the médiathèque's side and here. */
 export async function remove(path: string): Promise<void> {
   await remoteWriter(cfg()).remove(path);
@@ -152,36 +140,12 @@ export async function download(path: string, dest: string): Promise<void> {
   await remoteLibrary(cfg()).download(path, dest);
 }
 
-/**
- * Like `download`, but through pl8's `/stream` — a FLAC source lands on disk as its MP3
- * transcode, anything else unchanged. For a path a browser will PLAY, never one this app
- * re-uploads or re-processes: `download` still owns that case, byte-exact.
- */
+/** Like `download`, through `/stream`: for a path a browser will PLAY, never one this app re-uploads, which `download` keeps byte-exact. */
 export async function downloadStreamable(
   path: string,
   dest: string,
 ): Promise<void> {
-  const { base, token } = cfg();
-  const res = await fetch(
-    `${base.replace(/\/+$/, "")}/api/mediatek/stream?path=${encodeURIComponent(path)}`,
-    // Bounded, body included: a stalled pl8 must fail the request that waits on it, not hold it for ever.
-    {
-      headers: token ? { authorization: `Bearer ${token}` } : {},
-      signal: AbortSignal.timeout(10 * 60_000),
-    },
-  );
-  if (!res.ok || !res.body)
-    throw new Error(`mediatek stream ${path}: ${res.status} ${res.statusText}`);
-  mkdirSync(dirname(dest), { recursive: true });
-  // A random suffix: two requests racing the same cache miss must never share one temp file.
-  const tmp = `${dest}.${randomUUID()}.part`;
-  try {
-    await pipeline(Readable.fromWeb(res.body as never), createWriteStream(tmp));
-    renameSync(tmp, dest);
-  } catch (e) {
-    rmSync(tmp, { force: true });
-    throw e;
-  }
+  await remoteLibrary(cfg()).stream(path, dest);
 }
 
 /** What a médiathèque path will actually stream as, read off the path the server filed — pl8 transcodes only a FLAC source. */
@@ -191,27 +155,7 @@ export function streamedMime(remotePath: string): string {
     : audioMimeOf(remotePath);
 }
 
-export interface RemoteEnvelope {
-  sampleRate: number;
-  seconds: number;
-  rms: number[];
-  transients: number[];
-}
-
-/** pl8's own measurement of a médiathèque path — computed once there, kept in its cache. */
+/** The library's own measurement of a médiathèque path — computed once there, kept in its cache. */
 export async function getFileEnvelope(path: string): Promise<RemoteEnvelope> {
-  const { base, token } = cfg();
-  const res = await fetch(
-    `${base.replace(/\/+$/, "")}/api/mediatek/envelope?path=${encodeURIComponent(path)}`,
-    // pl8 may measure the file first, hours of audio: minutes, not for ever.
-    {
-      headers: token ? { authorization: `Bearer ${token}` } : {},
-      signal: AbortSignal.timeout(5 * 60_000),
-    },
-  );
-  if (!res.ok)
-    throw new Error(
-      `mediatek envelope ${path}: ${res.status} ${res.statusText}`,
-    );
-  return res.json() as Promise<RemoteEnvelope>;
+  return remoteLibrary(cfg()).envelope(path);
 }
