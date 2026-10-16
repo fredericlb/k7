@@ -10,52 +10,26 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
-  statSync,
 } from "node:fs";
-import {
-  basename,
-  dirname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-  sep,
-} from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import {
   scannedPluginNames,
   scannedPlugins,
 } from "@studio/engine-client/pluginCache";
 // WebGraph is graph-model's, not web-protocol's: an app that draws chains needn't pull in auth and the registry.
 import type { WebGraph } from "@studio/graph-model";
-import {
-  ASSEMBLY_FILE,
-  assemblyIssues,
-  libraryAssemblies,
-} from "@studio/song/assemblies";
 import { writeFileAtomic } from "@studio/song/atomicWrite";
 import type { AutoFreeze } from "@studio/song/autoFreeze";
-import { moduleBaseChoices } from "@studio/song/basePreset";
-import { confineTo, confineToProject } from "@studio/song/confine";
-import { type ConsoleSystem, consoleSystems } from "@studio/song/console";
-import { deadAutomations } from "@studio/song/deadAutomations";
-import { engineModules } from "@studio/song/engineCatalogue";
+import { confineTo } from "@studio/song/confine";
+import type { ConsoleSystem } from "@studio/song/console";
 import { enginesBeside } from "@studio/song/engines";
 import { loadGraph } from "@studio/song/graph";
 import { projectHints } from "@studio/song/hints";
 import { type IoPort, ioPorts } from "@studio/song/ioPorts";
-import { libraryChainDirs } from "@studio/song/libraryChains";
 import {
   type BaseModuleRef,
-  cloneModuleFile,
-  createNode,
   type Diagnostic,
-  deadProjectFields,
-  freeNodeName,
-  libraryModuleIssues,
   listBaseModuleRefs,
-  loadModuleRefs,
-  moduleRefOf,
-  notSupportedModules,
   withModuleStamp,
 } from "@studio/song/loader";
 import { type MissingModel, missingModel } from "@studio/song/modelCache";
@@ -63,69 +37,31 @@ import {
   type CatalogueModule,
   moduleCatalogue,
 } from "@studio/song/moduleCatalogue";
-import { type ForkedModule, sharedModuleRef } from "@studio/song/moduleFork";
-import {
-  assertNotEngine,
-  planModuleMove,
-  refAt,
-  repointRefs,
-} from "@studio/song/moduleMove";
-import {
-  compileWithAutoFreezes,
-  materialRefOf,
-} from "@studio/song/nodeProject";
+import type { ForkedModule } from "@studio/song/moduleFork";
+import { compileWithAutoFreezes } from "@studio/song/nodeProject";
 import {
   formatAudioDevice,
   formatChannels,
   loadPreferences,
   setEditorVim,
 } from "@studio/song/preferences";
-import type { ClipDoc, ProjectDoc } from "@studio/song/project";
-import { loadAudioClipDoc, loadProject } from "@studio/song/project";
+import type { ProjectDoc } from "@studio/song/project";
+import { loadProject } from "@studio/song/project";
 import {
-  accountLibraries,
-  isInSharedModules,
-  isLibraryEditable,
   isLibraryName,
-  isLibraryRootEditable,
   LIBRARIES_DIR,
   librariesHome,
   libraryOf,
   libraryRoot,
-  moduleLibraryDirs,
-  moduleNamespaceOf,
 } from "@studio/song/sharedFolders";
-import {
-  hasPicture,
-  projectSurfaces,
-  surfaceIssues,
-} from "@studio/song/surfaces";
-import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
+import { hasPicture, projectSurfaces } from "@studio/song/surfaces";
 import { ensureVideoRun } from "@studio/song/videoOutputs";
-import {
-  isDocName,
-  isK7xPath,
-  realPath,
-  wsExists,
-  wsRead,
-  wsWrite,
-} from "@studio/song/yaml/workspaceFile";
-import {
-  ACCOUNT_LIBRARY,
-  ENGINE_NS,
-  type ModuleNamespace,
-} from "@studio/song-schema/moduleTypes";
-import { PLAYLISTS_DIR, parsePlaylist } from "@studio/song-schema/playlist";
-import {
-  isReferenceFile,
-  REFERENCES_DIR,
-  type ReferenceTrack,
-  referenceName,
-} from "@studio/song-schema/reference";
+import { isK7xPath, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { ACCOUNT_LIBRARY } from "@studio/song-schema/moduleTypes";
+import type { ReferenceTrack } from "@studio/song-schema/reference";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import type { VideoProjectDoc } from "@studio/song-video/videoDoc";
 import { loadVideoProject } from "@studio/song-video/videoProject";
-import { videoDuration } from "@studio/song-video/videoTracks";
 import type { K7Result } from "@studio/take-render/render";
 import type {
   FileContent,
@@ -147,7 +83,6 @@ import {
   type ProjectApp,
   projectApp,
 } from "@studio/web-protocol/projects";
-import { parse as parseYaml } from "yaml";
 import { readActiveMarker, writeActiveMarker } from "./activeMarker.ts";
 import { guard } from "./background.ts";
 import {
@@ -166,6 +101,7 @@ import {
   pluginNeedsOf,
   projectCompatOf,
 } from "./pluginNeeds.ts";
+import { resolvePreview } from "./previewSource.ts";
 import {
   copyProjectInto,
   createProjectIn,
@@ -176,44 +112,51 @@ import { revisionOf, type WalkedFile, walkProject } from "./projectWalk.ts";
 import { shareProgress, startShareLink } from "./shareLink.ts";
 // The export acts, behind a host of a few members — see shareOps.ts.
 import { exportMix, type ShareHost, shareK7 } from "./shareOps.ts";
-import {
-  AUDIO_EXT,
-  DEFAULT_WF_BUCKETS,
-  findClip,
-  WaveformOps,
-} from "./waveformOps.ts";
+import { DEFAULT_WF_BUCKETS, WaveformOps } from "./waveformOps.ts";
 import { webProjectOf } from "./webProject.ts";
-import { toWebVideoTracks, webPlugin } from "./webTracks.ts";
+import {
+  EMPTY_HINTS,
+  emptyVideoProject,
+  ifCompiles,
+  projectErrorsIn,
+  projectInfoOf,
+  webVideoProjectOf,
+} from "./workspaceDocs.ts";
+import {
+  assertLibraryWritable,
+  createFolderIn,
+  deleteEntryIn,
+  type EntriesHost,
+  guardShared,
+  moveEntryIn,
+  moveLibraryModuleIn,
+  renameEntryIn,
+  uploadFileIn,
+} from "./workspaceEntries.ts";
 import { isBinary, RECYCLE_DIR, skip } from "./workspaceFilter.ts";
 import { type Recorded, WorkspaceHistory } from "./workspaceHistory.ts";
+import {
+  fileTree,
+  isProjectDir,
+  type PlaylistRow,
+  playlistsIn,
+  referencesIn,
+} from "./workspaceListings.ts";
+import {
+  baseSnapshotPathOf,
+  cloneModuleIn,
+  consolesIn,
+  createModuleIn,
+  createNodeIn,
+  libraryAssembliesOf,
+  libraryChainsOf,
+  type ModulesHost,
+  moduleBasesOf,
+  moduleLibrariesOf,
+  moduleUiOf,
+} from "./workspaceModules.ts";
 
-export { isBinary, skip };
-
-// Turn a compiler error into editor diagnostics; a line with no "<file>: " prefix yields none but still counts.
-function parseCompileError(msg: string): Diagnostic[] {
-  const out: Diagnostic[] = [];
-  for (const line of msg.split("\n")) {
-    const m = /^\s*(\S+\.(?:ya?ml|k7x))(?::(\d+))?:\s*(.+)$/i.exec(line);
-    if (m)
-      out.push({
-        file: m[1].replace(/^\.\//, ""),
-        line: m[2] ? Number(m[2]) : 1,
-        col: 1,
-        message: m[3].trim(),
-      });
-  }
-  return out;
-}
-
-/** A directory whose NAME claims an app and that EXISTS — the name rule, see docs/activeProject.md. */
-export const isProjectDir = (dir: string): boolean => {
-  if (projectApp(basename(dir)) === null) return false;
-  try {
-    return statSync(dir).isDirectory();
-  } catch {
-    return false;
-  }
-};
+export { isBinary, isProjectDir, skip };
 
 /** Every project folder under `root`, workspace-relative, at any depth — see docs/workspace.md. */
 export function projectDirsUnder(
@@ -238,16 +181,6 @@ export function projectDirsUnder(
     projectDirsUnder(root, child, out);
   }
   return out;
-}
-
-// A project FILE by name — every "file or folder?" test asks this rather than naming an extension.
-const PROJECT_FILE = /\.(ya?ml|k7x)$/i;
-/** Is `abs` inside one of the account libraries' `samples/`, `irs/` or `wavetables/` — and nowhere else of theirs? */
-function inLibrarySounds(abs: string): boolean {
-  const lib = libraryOf(abs);
-  if (!lib) return false;
-  const family = relative(lib.root, abs).split(sep)[0];
-  return family === "samples" || family === "irs" || family === "wavetables";
 }
 
 // Rename, retrying briefly while Windows releases a lingering handle; a non-transient error still throws.
@@ -306,37 +239,6 @@ function confined(
   const inside = confineTo([root], abs);
   if (inside === null) throw new Error(`path escapes the ${what}: ${rel}`);
   return inside;
-}
-
-/** `@engine` as a library — synthesised, not a folder. See docs/workspace.md. */
-function engineLibrary(): ModuleLibrary | null {
-  const byType = new Map<string, FileNode[]>();
-  for (const [ref, m] of Object.entries(engineModules()) as [
-    string,
-    { category?: unknown; file?: unknown },
-  ][]) {
-    const type = String(m.category ?? "audio");
-    const list = byType.get(type) ?? [];
-    // A LEAF deliberately: a row that draws the name and opens nothing is the truth about a scan.
-    list.push({
-      name: String(m.file ?? ref),
-      path: ref,
-      dir: false,
-      kind: "text",
-    });
-    byType.set(type, list);
-  }
-  if (!byType.size) return null;
-  const nodes = [...byType.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([type, children]) => ({
-      name: type,
-      // Synthetic — no such folder exists. Unique per type, which is all the tree needs it for.
-      path: `${ENGINE_NS}/${type}`,
-      dir: true,
-      children: children.sort((a, b) => a.name.localeCompare(b.name)),
-    }));
-  return { ns: "engine", path: "", exists: true, readOnly: true, nodes };
 }
 
 export class Workspace {
@@ -564,7 +466,7 @@ export class Workspace {
   ): Promise<{ path: string }> {
     const abs = this.safePath(rel);
     if (abs === this.root) throw new Error("can't rename the workspace root");
-    this.guardShared(abs, "rename");
+    guardShared((a) => this.toRel(a), abs, "rename");
     if (this.isRecycled(abs))
       throw new Error(`'${this.toRel(abs)}' is already in the recycle bin`);
     if (!isProjectDir(abs))
@@ -778,34 +680,7 @@ export class Workspace {
 
   // --- tree / text I/O -------------------------------------------------------
   private walk(abs: string): FileNode[] {
-    const entries = readdirSync(abs, { withFileTypes: true })
-      .filter((e) => !skip(e.name))
-      .sort(
-        (a, b) =>
-          Number(b.isDirectory()) - Number(a.isDirectory()) ||
-          a.name.localeCompare(b.name),
-      );
-    return entries.map((e): FileNode => {
-      const childAbs = join(abs, e.name);
-      const path = this.toRel(childAbs);
-      const children = e.isDirectory() ? this.walk(childAbs) : undefined;
-      return children
-        ? {
-            name: e.name,
-            path,
-            dir: true,
-            project: isProjectDir(childAbs) || undefined,
-            // WHICH app opens it, beside the flag that says one does — that row must not guess.
-            app: (isProjectDir(childAbs) && projectApp(e.name)) || undefined,
-            children,
-          }
-        : {
-            name: e.name,
-            path,
-            dir: false,
-            kind: isBinary(e.name) ? "binary" : "text",
-          };
-    });
+    return fileTree(abs, (a) => this.toRel(a));
   }
   /** The file tree an editor draws: the WHOLE workspace, every project in it — see docs/activeProject.md. */
   tree(): FileNode[] {
@@ -855,203 +730,57 @@ export class Workspace {
 
   /** The module libraries this project can reach, in precedence order — see docs/workspace.md. */
   moduleLibraries(): ModuleLibrary[] {
-    const dir = this.activeProject ?? this.root;
-    const roots: { ns: ModuleNamespace; abs: string }[] = moduleLibraryDirs(
-      dir,
-    ).map((abs) => ({
-      ns: moduleNamespaceOf(abs),
-      abs,
-    }));
-    // Every library is a row, one with no `modules/` yet included: its chains are listed under it.
-    for (const lib of accountLibraries(dir))
-      if (!roots.some((r) => r.ns === lib.name))
-        roots.push({ ns: lib.name, abs: join(lib.root, "modules") });
-    const out: ModuleLibrary[] = roots.map(({ ns, abs }) => {
-      const exists = existsSync(abs);
-      // A library REPOSITORY's sound folders too, walked like its modules: the tab draws them and takes drops on them.
-      const lib = accountLibraries(dir).find((l) => l.name === ns);
-      const sounds = (family: "samples" | "irs" | "wavetables" | "models") => {
-        const at = lib ? join(lib.root, family) : null;
-        return at && existsSync(at) ? this.walk(at) : [];
-      };
-      return {
-        ns,
-        path: this.toRel(abs),
-        exists,
-        nodes: exists ? this.walk(abs) : [],
-        ...(lib
-          ? {
-              samples: sounds("samples"),
-              irs: sounds("irs"),
-              wavetables: sounds("wavetables"),
-              models: sounds("models"),
-            }
-          : {}),
-      };
-    });
-    const engine = engineLibrary();
-    if (engine) out.push(engine);
-    return out;
+    return moduleLibrariesOf(this.modulesHost());
   }
 
   /** The CHAINS the account's libraries hold, by `@<library>/<path>`: `path` is the chain's file, or a folder chain's folder. */
   libraryChains(): { ref: string; path: string; nodes: string[] }[] {
-    // The walk is shared with the ACCOUNT's own listing, which has no workspace to be relative to.
-    return libraryChainDirs(this.activeProject ?? this.root).map((c) => ({
-      ref: c.ref,
-      path: this.toRel(c.at),
-      nodes: c.nodes,
-    }));
+    return libraryChainsOf(this.modulesHost());
   }
 
-  /** The ASSEMBLY templates the library holds — what the builder lists and `assembly new` completes on.
-   *
-   * `file` is the `assembly.yaml` inside, and it is answered HERE rather than joined in a browser:
-   * a path a caller builds is one `safePath` never saw. Same rule as `/module-libraries`. */
+  /** The ASSEMBLY templates the library holds — what the builder lists and `assembly new` completes on. */
   libraryAssemblies(): { ref: string; path: string; file: string }[] {
-    return libraryAssemblies(this.activeProject ?? this.root).map((a) => ({
-      ref: a.ref,
-      path: this.toRel(a.path),
-      file: this.toRel(join(a.path, ASSEMBLY_FILE)),
-    }));
+    return libraryAssembliesOf(this.modulesHost());
+  }
+
+  // The path guards workspaceModules.ts works through, without making safePath public API.
+  private modulesHost(): ModulesHost {
+    return {
+      root: this.root,
+      activeProject: () => this.activeProject,
+      requireActive: () => this.requireActive(),
+      safePath: (rel) => this.safePath(rel),
+      toRel: (abs) => this.toRel(abs),
+      tree: (abs) => this.walk(abs),
+      assertLibraryWritable: (abs, verb) =>
+        this.assertLibraryWritable(abs, verb),
+      invalidateProjectDoc: () => this.invalidateProjectDoc(),
+    };
   }
 
   /** The playlists this workspace holds, at the ROOT and at any depth — see docs/workspace.md. */
-  playlists(): {
-    path: string;
-    name: string;
-    title?: string;
-    count: number;
-    ok: boolean;
-  }[] {
-    const root = join(this.root, PLAYLISTS_DIR);
-    const out: {
-      path: string;
-      name: string;
-      title?: string;
-      count: number;
-      ok: boolean;
-    }[] = [];
-    const walk = (at: string): void => {
-      let entries: Dirent[];
-      try {
-        entries = readdirSync(at, { withFileTypes: true });
-      } catch {
-        return; // no folder yet: an account with no set list has none, which is not an error
-      }
-      for (const e of entries) {
-        const abs = join(at, e.name);
-        if (e.isDirectory()) {
-          walk(abs);
-          continue;
-        }
-        if (!e.isFile() || !isDocName(e.name)) continue;
-        let parsed: ReturnType<typeof parsePlaylist> = null;
-        try {
-          parsed = parsePlaylist(wsRead(abs));
-        } catch {
-          parsed = null; // unreadable bytes read exactly like unparseable ones from here
-        }
-        out.push({
-          path: this.toRel(abs),
-          name: e.name.replace(/\.(ya?ml|k7x)$/i, ""),
-          ...(parsed?.title ? { title: parsed.title } : {}),
-          count: parsed?.items.length ?? 0,
-          ok: parsed !== null,
-        });
-      }
-    };
-    walk(root);
-    return out.sort((a, b) => a.path.localeCompare(b.path));
+  playlists(): PlaylistRow[] {
+    return playlistsIn(this.root, (a) => this.toRel(a));
   }
 
   /** The reference tracks this workspace holds — `_references/` at any depth, see docs/workspace.md. */
   references(): ReferenceTrack[] {
-    const out: ReferenceTrack[] = [];
-    const walk = (at: string): void => {
-      let entries: Dirent[];
-      try {
-        entries = readdirSync(at, { withFileTypes: true });
-      } catch {
-        return; // no folder yet: a workspace with nothing to listen against has none
-      }
-      for (const e of entries) {
-        const abs = join(at, e.name);
-        if (e.isDirectory()) {
-          walk(abs);
-          continue;
-        }
-        if (!e.isFile() || !isReferenceFile(e.name)) continue;
-        // The size is the one thing a listing can say without decoding; an unstattable file is 0.
-        let bytes = 0;
-        try {
-          bytes = statSync(abs).size;
-        } catch {}
-        out.push({
-          path: this.toRel(abs),
-          name: referenceName(e.name),
-          bytes,
-        });
-      }
-    };
-    walk(join(this.root, REFERENCES_DIR));
-    return out.sort((a, b) => a.path.localeCompare(b.path));
+    return referencesIn(this.root, (a) => this.toRel(a));
   }
 
   /** Make an empty module in one of those libraries, creating the folder on the way. */
   createModule(root: string, rel: string): { path: string; dir: string } {
-    const segs = rel.split("/").filter(Boolean);
-    // At least a TYPE folder and a name: `audio/reverb` is the shortest thing the loader will key.
-    if (segs.length < 2)
-      throw new Error(
-        `a module is named <type>/<name> — '${rel}' names no type folder`,
-      );
-    for (const seg of segs)
-      if (!/^[A-Za-z0-9][A-Za-z0-9._ -]*$/.test(seg))
-        throw new Error(`'${seg}' is not something a folder can be called`);
-    // Through safePath, so a `..` in either part cannot leave the workspace.
-    const dir = this.safePath(`${root}/${segs.join("/")}`);
-    this.assertLibraryWritable(dir, "create a module in");
-    const file = join(dir, "module.yaml");
-    if (wsExists(file))
-      throw new Error(`${this.toRel(realPath(file))} already exists`);
-    mkdirSync(dir, { recursive: true });
-    wsWrite(file, `# ${segs[segs.length - 1]}\nplugin:\n  type: \n  name: \n`);
-    this.invalidateProjectDoc();
-    return { path: this.toRel(realPath(file)), dir: this.toRel(dir) };
+    return createModuleIn(this.modulesHost(), root, rel);
   }
 
   /** The named bases the module at `rel` may be set to, ancestors included — docs/workspace.md. */
   moduleBases(rel: string): string[] {
-    const abs = this.safePath(rel);
-    const dir = this.activeProject ?? this.root;
-    try {
-      const refs = withModuleStamp(dir, () => loadModuleRefs(dir)) as Record<
-        string,
-        { extends?: unknown; folderAbs?: unknown }
-      >;
-      // The module is addressed by its FILE, so its folder is that file's, and its `extends` the map's.
-      const folderAbs = dirname(abs);
-      const self = Object.values(refs).find((m) => m.folderAbs === folderAbs);
-      return moduleBaseChoices({ folderAbs, extends: self?.extends }, refs);
-    } catch {
-      return [];
-    }
+    return moduleBasesOf(this.modulesHost(), rel);
   }
 
   /** Where a named BASE goes: `base/<name>.vstpreset` beside the module file — docs/workspace.md. */
   baseSnapshotPath(rel: string, name: string): { abs: string; path: string } {
-    const moduleAbs = this.safePath(rel);
-    const clean = basename(name).replace(/[\\/]/g, "").trim();
-    if (!clean || clean === "." || clean === "..")
-      throw new Error(`invalid name: ${name}`);
-    // Spelt once whether or not the user typed it: `warm` and `warm.vstpreset` are one base.
-    const leaf = clean.endsWith(".vstpreset") ? clean : `${clean}.vstpreset`;
-    const dir = this.safePath(this.toRel(join(dirname(moduleAbs), "base")));
-    const abs = this.safePath(this.toRel(join(dir, leaf)));
-    this.assertLibraryWritable(abs, "snapshot a base into");
-    mkdirSync(dir, { recursive: true });
-    return { abs, path: this.toRel(abs) };
+    return baseSnapshotPathOf(this.modulesHost(), rel, name);
   }
 
   /** The project list, re-scanned at most this often — see `workspaceInfo` and docs/workspace.md. */
@@ -1109,246 +838,66 @@ export class Workspace {
 
   /** Drop a file into `dir` under `name`, which may carry FOLDERS. Binary-safe, EEXIST rather than clobber. */
   uploadFile(dir: string, name: string, bytes: Buffer): { path: string } {
-    const segs = name
-      .split(/[\\/]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (!segs.length || segs.some((s) => s === "." || s === ".."))
-      throw new Error(`invalid filename: ${name}`);
-    const clean = segs.join("/");
-    const base = dir && dir !== "." ? dir.replace(/\/+$/, "") : "";
-    const rel = base ? `${base}/${clean}` : clean;
-    const abs = this.safePath(rel);
-    this.guardShared(abs, "add a file to");
-    if (existsSync(abs)) {
-      const err = new Error(`already exists: ${rel}`) as NodeJS.ErrnoException;
-      err.code = "EEXIST";
-      throw err;
-    }
-    mkdirSync(dirname(abs), { recursive: true });
-    writeFileAtomic(abs, bytes);
-    this.invalidateProjectDoc();
-    return { path: this.toRel(abs) };
+    return uploadFileIn(this.entriesHost(), dir, name, bytes);
   }
 
   /** Make an empty folder `name` inside `dir` — uploadFile's shape, and no guardMutable. */
   createFolder(dir: string, name: string): { path: string } {
-    const clean = basename(name).replace(/[\\/]/g, "").trim();
-    if (!clean || clean === "." || clean === "..")
-      throw new Error(`invalid folder name: ${name}`);
-    const base = dir && dir !== "." ? dir.replace(/\/+$/, "") : "";
-    const rel = base ? `${base}/${clean}` : clean;
-    const abs = this.safePath(rel);
-    this.guardShared(abs, "create a folder in");
-    if (this.isRecycled(abs))
-      throw new Error("can't create a folder in the recycle bin");
-    if (existsSync(abs)) {
-      const err = new Error(`already exists: ${rel}`) as NodeJS.ErrnoException;
-      err.code = "EEXIST";
-      throw err;
-    }
-    mkdirSync(abs, { recursive: true });
-    // The compiler reads nothing new, but the token is what refreshes the tree.
-    this.invalidateProjectDoc();
-    return { path: this.toRel(abs) };
+    return createFolderIn(this.entriesHost(), dir, name);
   }
 
-  /** `_modules`'s own STRUCTURE is fixed to every route — its files are edited in place, never renamed, moved or deleted this way — see docs/workspace.md. */
   /** A library is written only by an admin, whose account overlays it writable — docs/libraries.md. */
   assertLibraryWritable(abs: string, verb = "change"): void {
-    const lib = libraryOf(abs);
-    if (lib && !isLibraryRootEditable(lib))
-      throw new Error(
-        isLibraryEditable(lib.name)
-          ? `can't ${verb} '${this.toRel(abs)}': a published version never changes — edit the draft`
-          : `can't ${verb} '${this.toRel(abs)}': only the origin's admins edit a library`,
-      );
-  }
-
-  private guardShared(abs: string, verb: string): void {
-    this.assertLibraryWritable(abs, verb);
-    if (isInSharedModules(this.toRel(abs)))
-      throw new Error(
-        `can't ${verb} '${this.toRel(abs)}': a shared module is edited in place — ` +
-          `change its files directly, or run 'module populate' to rebuild it`,
-      );
-  }
-
-  // Never the root, the recycle bin, or the active project's own folder — but anything INSIDE it is fair game.
-  private guardMutable(abs: string, verb: string): void {
-    if (abs === this.root) throw new Error(`can't ${verb} the workspace root`);
-    // A library is added and removed from the origin's list, never from a workspace's tree.
-    const lib = abs === librariesHome() ? null : libraryOf(abs);
-    if (abs === librariesHome() || lib?.root === abs)
-      throw new Error(
-        `can't ${verb} '${this.toRel(abs)}': the libraries are listed by the admins, not moved from a workspace`,
-      );
-    this.guardShared(abs, verb);
-    if (this.isRecycled(abs))
-      throw new Error(`'${this.toRel(abs)}' is already in the recycle bin`);
-    if (
-      this.activeProject &&
-      (abs === this.activeProject || this.activeProject.startsWith(abs + sep))
-    )
-      throw new Error(
-        `can't ${verb} the active project's folder — stop it first, then ${verb} it`,
-      );
+    assertLibraryWritable((a) => this.toRel(a), abs, verb);
   }
 
   // Rename within the same parent: workspace-sandboxed, no clobber, Windows-handle-retry.
-  async renameEntry(
+  renameEntry(
     rel: string,
     newName: string,
   ): Promise<{ path: string; repointed?: string[] }> {
-    const abs = this.safePath(rel);
-    this.guardMutable(abs, "rename");
-    // A library module's ref IS its path: renaming it, or a folder of them, repoints every ref (song docs/moduleMove.md).
-    const library = libraryOf(abs);
-    const oldRef = library ? refAt(library, abs) : null;
-    if (library && oldRef) assertNotEngine(library, abs);
-    // A single path segment — no separators or traversal (the new name stays in place).
-    const clean = basename(newName).replace(/[\\/]/g, "").trim();
-    if (!clean || clean === "." || clean === "..")
-      throw new Error(`invalid name: ${newName}`);
-    const destAbs = this.safePath(this.toRel(join(dirname(abs), clean)));
-    if (destAbs === abs) return { path: this.toRel(abs) }; // no-op rename to the same name
-    if (existsSync(destAbs)) {
-      const err = new Error(
-        `already exists: ${this.toRel(destAbs)}`,
-      ) as NodeJS.ErrnoException;
-      err.code = "EEXIST";
-      throw err;
-    }
-    // Release our own handles first; renameWithRetry covers a watcher's that lingers.
-    this.cancelPrewarm();
-    await renameWithRetry(abs, destAbs);
-    const newRef = library ? refAt(library, destAbs) : null;
-    const repointed =
-      library && oldRef && newRef
-        ? repointRefs([library.root, this.root], oldRef, newRef, true)
-        : [];
-    this.invalidateProjectDoc();
-    return {
-      path: this.toRel(destAbs),
-      ...(repointed.length
-        ? { repointed: repointed.map((f) => this.toRel(f)) }
-        : {}),
-    };
+    return renameEntryIn(this.entriesHost(), rel, newName);
   }
 
   /** Move an entry into another folder — renameEntry's three concerns, plus the self-descent check. */
-  async moveEntry(rel: string, toDir: string): Promise<{ path: string }> {
-    const abs = this.safePath(rel);
-    this.guardMutable(abs, "move");
-    const destDir = this.safePath(toDir);
-    this.guardShared(destDir, "move into"); // the destination too — a move IN is a write
-    if (!existsSync(destDir) || !statSync(destDir).isDirectory())
-      throw new Error(`not a folder: ${toDir}`);
-    if (this.isRecycled(destDir))
-      throw new Error(
-        "can't move something into the recycle bin — delete it instead",
-      );
-    if (destDir === dirname(abs)) return { path: this.toRel(abs) }; // already there
-    if (destDir === abs || destDir.startsWith(abs + sep))
-      throw new Error(`can't move '${basename(abs)}' into itself`);
-    const destAbs = join(destDir, basename(abs));
-    if (existsSync(destAbs)) {
-      const err = new Error(
-        `already exists: ${this.toRel(destAbs)}`,
-      ) as NodeJS.ErrnoException;
-      err.code = "EEXIST";
-      throw err;
-    }
-    this.cancelPrewarm();
-    await renameWithRetry(abs, destAbs);
-    this.invalidateProjectDoc();
-    return { path: this.toRel(destAbs) };
+  moveEntry(rel: string, toDir: string): Promise<{ path: string }> {
+    return moveEntryIn(this.entriesHost(), rel, toDir);
   }
 
   /** Move a LIBRARY module to another folder of its library, repointing every ref to it here — song docs/moduleMove.md. */
-  async moveLibraryModule(
+  moveLibraryModule(
     rel: string,
     toDir: string,
   ): Promise<{ path: string; from: string; to: string; repointed: string[] }> {
-    const abs = this.safePath(rel);
-    const destDir = this.safePath(toDir);
-    const library = libraryOf(abs);
-    if (!library)
-      throw new Error(`${rel} is not in one of the account's libraries`);
-    this.assertLibraryWritable(abs, "move");
-    if (libraryOf(destDir)?.name !== library.name)
-      throw new Error(
-        `a module stays in its library — this one is ${library.name}'s`,
-      );
-    this.guardMutable(abs, "move");
-    const plan = planModuleMove(library, abs, destDir);
-    this.cancelPrewarm();
-    await renameWithRetry(abs, plan.dest);
-    // The library itself first — its chains, assemblies and modules — then every song of this workspace.
-    const repointed = repointRefs(
-      [library.root, this.root],
-      plan.from,
-      plan.to,
-    );
-    this.invalidateProjectDoc();
-    return {
-      path: this.toRel(plan.dest),
-      from: plan.from,
-      to: plan.to,
-      repointed: repointed.map((f) => this.toRel(f)),
-    };
+    return moveLibraryModuleIn(this.entriesHost(), rel, toDir);
   }
 
   // Delete by moving into the recycle bin — reversible and hidden, like deleteProject.
-  async deleteEntry(rel: string): Promise<{ recycled: string }> {
-    const abs = this.safePath(rel);
-    this.guardMutable(abs, "delete");
-    // A library keeps its own bin at its root: it may sit on another disk than the workspace's.
-    const lib = libraryOf(abs);
-    const bin = join(lib ? lib.root : this.root, RECYCLE_DIR);
-    mkdirSync(bin, { recursive: true });
-    // Don't clobber an earlier deletion of the same name — suffix a counter.
-    const base = basename(abs);
-    let dest = join(bin, base);
-    for (let n = 2; existsSync(dest); n++) dest = join(bin, `${base}-${n}`);
-    this.cancelPrewarm();
-    await renameWithRetry(abs, dest);
-    this.invalidateProjectDoc();
-    return { recycled: this.toRel(dest) };
+  deleteEntry(rel: string): Promise<{ recycled: string }> {
+    return deleteEntryIn(this.entriesHost(), rel);
+  }
+
+  // The path guards workspaceEntries.ts works through, without making safePath public API.
+  private entriesHost(): EntriesHost {
+    return {
+      root: this.root,
+      activeProject: () => this.activeProject,
+      safePath: (rel) => this.safePath(rel),
+      toRel: (abs) => this.toRel(abs),
+      isRecycled: (abs) => this.isRecycled(abs),
+      cancelPrewarm: () => this.cancelPrewarm(),
+      invalidateProjectDoc: () => this.invalidateProjectDoc(),
+    };
   }
 
   // Clone a module folder under a new name; `rel` may be the folder or any file inside it.
   cloneModule(rel: string, newName: string): { path: string } {
-    const abs = this.safePath(rel);
-    // A clone copies the whole folder, so the MODULE is what's cloned whichever of its files the caller had open.
-    let modDir = abs;
-    if (PROJECT_FILE.test(basename(abs))) modDir = dirname(abs);
-    const category = basename(dirname(modDir));
-    const name = basename(modDir);
-    const dir = this.requireActive();
-    const newPath = cloneModuleFile(dir, category, name, newName);
-    this.invalidateProjectDoc();
-    // Re-rooted to the workspace: a clone now lands in `_modules`, beside the project rather than under it.
-    return { path: this.toRel(join(dir, newPath)) };
+    return cloneModuleIn(this.modulesHost(), rel, newName);
   }
 
   /** Add one USE of a module; the file lands in the project's flat `nodes/`, NOT under `rel`. */
   createNode(rel: string, node?: string): { path: string } {
-    const abs = this.safePath(rel);
-    let modDir = abs;
-    if (PROJECT_FILE.test(basename(abs))) modDir = dirname(abs);
-    const category = basename(dirname(modDir));
-    const name = basename(modDir);
-    const dir = this.requireActive();
-    // Unnamed is the ordinary case, so `<module>_<n>` — no lane prefix, this one is not born in a chain.
-    const newPath = createNode(
-      dir,
-      category,
-      name,
-      node || freeNodeName(dir, name),
-    );
-    this.invalidateProjectDoc();
-    return { path: newPath };
+    return createNodeIn(this.modulesHost(), rel, node);
   }
 
   /** The `ui.yaml` panel beside a module file, or the path it WOULD take plus a scaffold. */
@@ -1358,65 +907,17 @@ export class Workspace {
     content: string;
     exists: boolean;
   } {
-    const abs = this.safePath(rel);
-    const dir = this.requireActive();
-    const ref = sharedModuleRef(dir, abs)?.ref ?? this.localModuleRef(dir, abs);
-    if (!ref) throw new Error(`${this.toRel(abs)} is not a module file`);
-
-    return this.sidecar(abs, ref, UI_FILE, () =>
-      uiFileText({ cols: 4, rows: 2, widgets: {} }, `panel for ${ref}`),
-    );
+    return moduleUiOf(this.modulesHost(), rel);
   }
 
   /** The console systems the libraries hold, and the one this project runs — packages/song/docs/console.md. */
   consoles(): { systems: ConsoleSystem[]; current?: string } {
-    return this.consolesIn(this.requireActive());
-  }
-  private consolesIn(dir: string): {
-    systems: ConsoleSystem[];
-    current?: string;
-  } {
-    let current: string | undefined;
-    try {
-      const root = parseYaml(wsRead(join(dir, "project.yaml"))) as {
-        project?: { console?: unknown };
-      };
-      if (typeof root?.project?.console === "string")
-        current = root.project.console;
-    } catch {
-      current = undefined; // no project.yaml, or one that will not read: the compile says so, not this
-    }
-    return { systems: consoleSystems(loadModuleRefs(dir)), current };
+    return consolesIn(this.requireActive());
   }
 
   /** The engines a module file's folder holds, and the one it runs — packages/song/docs/engines.md. */
   moduleEngines(rel: string): { engines: string[]; engine?: string } {
     return enginesBeside(this.safePath(rel));
-  }
-
-  // One of the module's own files beside `abs`, or the path it would take plus `scaffold()`.
-  private sidecar(
-    abs: string,
-    ref: string,
-    name: string,
-    scaffold: () => string,
-  ): { ref: string; path: string; content: string; exists: boolean } {
-    const path = join(dirname(abs), name);
-    const exists = existsSync(path);
-    return {
-      ref,
-      path: this.toRel(path),
-      content: exists ? readFileSync(path, "utf8") : scaffold(),
-      exists,
-    };
-  }
-
-  // "…/modules/<type>/<name>/<file>" -> the ref the loader keys that module by; null for anything else.
-  private localModuleRef(dir: string, abs: string): string | null {
-    const segs = relative(dir, abs).split(sep);
-    if (segs.length < 4 || segs[0] !== "modules") return null;
-    // Everything between the TYPE and the file is the name, so a FILED module keys too.
-    return moduleRefOf(segs[1], segs.slice(2, -1).join("/"));
   }
 
   /** Read the file back after a save, formatting NOTHING — both editors call it and use the reply. */
@@ -1484,26 +985,7 @@ export class Workspace {
       this.hintsCache = { dir, rev, hints };
       return hints;
     } catch {
-      return {
-        baseModules: [],
-        ioSinks: [],
-        modules: [],
-        tracks: [],
-        channels: [],
-        clips: [],
-        videoTracks: [],
-        sequences: [],
-        chains: [],
-        moduleAssets: {},
-        paramsByBase: {},
-        paramMetaByBase: {},
-        racks: {},
-        keywords: [],
-        pluginNames: {},
-        paths: {},
-        projectRoot: "",
-        media: {},
-      };
+      return EMPTY_HINTS;
     }
   }
 
@@ -1556,79 +1038,20 @@ export class Workspace {
     return shareK7(this.shareHost(), opts);
   }
 
-  // Resolve a play-button request to a file + window: an absolute path (guarded), else a clip id, else a media path.
+  // Resolve a play-button request to a file + window — previewSource.ts.
   resolvePreview(req: PreviewReq): {
     file: string;
     start: number;
     length: number;
   } {
-    const dir = this.requireActive();
-    // A clip's source is text a file holds: inside the project's roots or nothing (@studio/song docs/confine.md).
-    const confinedSource = (source: string): string => {
-      const abs = confineToProject(dir, source);
-      if (!abs) throw new Error("audio path is outside the project");
-      return abs;
-    };
-    // A clip id / media path / absolute audio path -> an absolute file within the root.
-    const resolveSource = (spec: string): string => {
-      if (!spec) throw new Error("preview: empty source");
-      if (isAbsolute(spec) && AUDIO_EXT.test(spec)) {
-        const abs = resolve(spec);
-        // A library module's own audio is the other place a preview may play from.
-        if (!this.withinRoot(abs) && !libraryOf(abs))
-          throw new Error("audio path is outside the workspace");
-        return abs;
-      }
-      let clip: ClipDoc | null | undefined;
-      try {
-        clip =
-          findClip(this.cachedProjectDoc(dir), spec) ??
-          loadAudioClipDoc(dir, spec);
-      } catch {
-        clip = undefined; // not a clip id — try it as a plain path below
-      }
-      if (clip && clip.type === "audio") return confinedSource(clip.source);
-      const abs = resolve(dir, spec);
-      // …or in a library's shared SOUNDS, where a rack tap's sample and a cabinet IR live (@studio/song's libraryFiles.md).
-      if (!this.withinRoot(abs) && !inLibrarySounds(abs))
-        throw new Error("audio path is outside the workspace");
-      if (!existsSync(abs)) throw new Error(`no audio for '${spec}'`);
-      return abs;
-    };
-    if (req.kind === "clip") {
-      const p = this.cachedProjectDoc(dir);
-      // The grid, so a TIMECODE `from:`/`to:` becomes seconds here as it does in the compiler.
-      const grid = {
-        tempo: p.tempo,
-        num: p.timeSigNumerator,
-        den: p.timeSigDenominator,
-      };
-      // A clip id may name a PLACEMENT (`bass_2_0@16`); the definition is keyed by the material.
-      const clip =
-        findClip(p, req.clip) ??
-        loadAudioClipDoc(dir, materialRefOf(req.clip), grid);
-      if (!clip) throw new Error(`no clip '${req.clip}'`);
-      if (clip.type !== "audio")
-        throw new Error(`'${req.clip}' is not an audio clip`);
-      // The clip's own WINDOW, not the whole file — see docs/workspace.md.
-      const start = Math.max(0, clip.sourceFrom ?? 0);
-      const to = clip.sourceTo ?? 0;
-      return {
-        file: confinedSource(clip.source),
-        start,
-        length: to > start ? to - start : 0,
-      };
-    }
-    if (req.kind === "slice") {
-      const from = Math.max(0, req.from);
-      return {
-        file: resolveSource(req.source),
-        start: from,
-        length: Math.max(0, req.to - from),
-      };
-    }
-    // kind === "source": the whole file.
-    return { file: resolveSource(req.source), start: 0, length: 0 };
+    return resolvePreview(
+      {
+        requireActive: () => this.requireActive(),
+        withinRoot: (abs) => this.withinRoot(abs),
+        cachedProjectDoc: (dir) => this.cachedProjectDoc(dir),
+      },
+      req,
+    );
   }
 
   waveformStatus(): WaveformStatus {
@@ -1659,30 +1082,7 @@ export class Workspace {
     errors: string[];
     diagnostics: Diagnostic[];
   } {
-    try {
-      const doc = this.cachedProjectDoc(dir);
-      // Clean — but the non-blocking WARNINGS below surface here or nowhere at all.
-      return {
-        errors: [],
-        diagnostics: [
-          ...notSupportedModules(dir),
-          // A curve the engine will refuse, which it otherwise only logs.
-          ...deadAutomations(dir, doc),
-          ...libraryModuleIssues(dir),
-          ...deadProjectFields(dir),
-          // A `surfaces/` file that is THERE and malformed draws nothing, and says nothing either.
-          ...surfaceIssues(dir),
-          // …and an assembly whose template is not in the library draws a box with no plugs.
-          ...assemblyIssues(dir),
-        ],
-      };
-    } catch (e) {
-      const diagnostics = parseCompileError((e as Error).message);
-      const errors = diagnostics.length
-        ? diagnostics.map((d) => `${d.file}: ${d.message}`)
-        : [(e as Error).message];
-      return { errors, diagnostics };
-    }
+    return projectErrorsIn(dir, () => this.cachedProjectDoc(dir));
   }
 
   /** The compiled document itself, UNFOLDED — the caller sends, the caller folds. */
@@ -1723,43 +1123,8 @@ export class Workspace {
   /** The project's picture, or an EMPTY one when it has none — never a throw, since every song may carry one. */
   videoProjectDoc(): WebVideoProject {
     const dir = this.requireActive();
-    if (!hasPicture(dir))
-      return {
-        name: basename(dir),
-        viewport: [0, 0],
-        fps: 0,
-        duration: 0,
-        markers: [],
-        videoTracks: [],
-        framePlugins: [],
-        transitions: {},
-        stretches: {},
-      };
-    const p = this.cachedVideoDoc(dir);
-    const videoTracks = toWebVideoTracks(p.videoTracks, (a) => this.toRel(a));
-    return {
-      name: p.name,
-      viewport: p.viewport,
-      fps: p.fps,
-      duration: videoDuration(p.videoTracks),
-      markers: p.markers.map((m) => ({ sec: m.sec, name: m.name, tc: m.tc })),
-      videoTracks,
-      framePlugins: p.framePlugins.map((pl) =>
-        webPlugin(pl, (a) => this.toRel(a)),
-      ),
-      transitions: Object.fromEntries(
-        Object.entries(p.transitions).map(([k, t]) => [
-          k,
-          { ...t, params: { ...t.params } },
-        ]),
-      ),
-      stretches: Object.fromEntries(
-        Object.entries(p.stretches).map(([k, run]) => [
-          k,
-          run.map((pl) => webPlugin(pl, (a) => this.toRel(a))),
-        ]),
-      ),
-    };
+    if (!hasPicture(dir)) return emptyVideoProject(dir);
+    return webVideoProjectOf(this.cachedVideoDoc(dir), (a) => this.toRel(a));
   }
 
   /** Everything wrong with a song's PICTURE — the compile's own throw, same shape as projectErrors. */
@@ -1787,29 +1152,17 @@ export class Workspace {
 
   /** The clip extents the graph draws its mini timelines from, off the MEMOISED compile, or nothing. */
   private clipExtents(dir: string): ClipExtents | undefined {
-    try {
-      return clipExtentsOf(this.cachedProjectDoc(dir));
-    } catch {
-      return undefined;
-    }
+    return ifCompiles(() => clipExtentsOf(this.cachedProjectDoc(dir)));
   }
 
   /** …and each lane's colour, off the same compile: a lane that states none takes its category's shade there. */
   private trackColors(dir: string): Record<string, string> | undefined {
-    try {
-      return trackColorsOf(this.cachedProjectDoc(dir));
-    } catch {
-      return undefined;
-    }
+    return ifCompiles(() => trackColorsOf(this.cachedProjectDoc(dir)));
   }
 
   /** …and which node is each lane's fader, off the same compile: `graph.yaml` does not say what a module IS. */
   private trackMixers(dir: string): TrackMixers | undefined {
-    try {
-      return trackMixersOf(this.cachedProjectDoc(dir));
-    } catch {
-      return undefined;
-    }
+    return ifCompiles(() => trackMixersOf(this.cachedProjectDoc(dir)));
   }
 
   // `at` builds the graph of a folder OTHER than the open project — a library chain, for the builder.
@@ -1847,16 +1200,6 @@ export class Workspace {
   }
 
   projectInfo(): ProjectInfo {
-    const dir = this.activeProject ?? this.root;
-    let name = basename(dir);
-    try {
-      const root = parseYaml(wsRead(join(dir, "project.yaml"))) as {
-        project?: { name?: unknown };
-      } | null;
-      if (typeof root?.project?.name === "string") name = root.project.name;
-    } catch {
-      /* no project.yaml — keep the folder name */
-    }
-    return { name, root: dir };
+    return projectInfoOf(this.activeProject ?? this.root);
   }
 }

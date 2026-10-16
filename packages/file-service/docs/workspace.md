@@ -6,6 +6,13 @@ The file service serves many users' workspaces from one process, so `root`, the 
 project and the compiled/waveform caches all live on a `Workspace` instance rather than in
 module state, and the path-traversal guards (`safePath`/`toRel`) read `this.root`.
 
+`Workspace` is the facade every route calls; the work behind most of its methods lives beside it,
+each file reaching the instance only through a small host of closures (`ModulesHost`,
+`EntriesHost`, `HistoryHost`…) so `safePath` stays private: `workspaceModules.ts`,
+`workspaceEntries.ts`, `workspaceHistory.ts`, `workspaceListings.ts`, `workspaceDocs.ts`,
+`previewSource.ts`, `projectWalk.ts`, `webTracks.ts` and `activeMarker.ts`. What stays in the class
+is what holds state — the active project, the caches keyed on the revision, the walk scope.
+
 The active project is remembered per-workspace in a marker file BESIDE the root, never in it:
 `<the workspaces' folder>/.active-projects/<workspace>` (`activeMarkerOf`). Which project is open
 here is this machine's state, not the band's, so it must not travel with the workspace to another
