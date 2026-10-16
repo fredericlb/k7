@@ -141,10 +141,10 @@ export async function createWorkletSink(
 
   return {
     node,
-    push(samples: Float32Array) {
-      // A copy, and transferred: the frame's samples are a view onto a socket buffer the next message reuses.
-      const copy = samples.slice();
-      node.port.postMessage(copy, [copy.buffer]);
+    push(samples: Float32Array, owned = false) {
+      // The message's own buffer, header and all, when nobody else reads it; otherwise a copy, so another listener keeps its bytes.
+      const out = owned ? samples : samples.slice();
+      node.port.postMessage(out, [out.buffer]);
     },
     reset() {
       node.port.postMessage({ reset: true });

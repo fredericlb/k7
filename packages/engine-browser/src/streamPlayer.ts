@@ -11,8 +11,8 @@ import {
 
 /** Where decoded samples go. The real one drives an AudioWorklet; tests use a fake. */
 export interface StreamSink {
-  /** Interleaved float32, `frames * channels` long. */
-  push(samples: Float32Array): void;
+  /** Interleaved float32, `frames * channels` long; `owned` lets the sink take its buffer rather than copy it. */
+  push(samples: Float32Array, owned?: boolean): void;
   /** Throw away what is buffered and re-cushion — after a gap, or a format change. */
   reset(): void;
 }
@@ -62,8 +62,8 @@ export class StreamPlayer {
     this.now = now;
   }
 
-  /** @returns the frame, or null when the bytes were not one. */
-  handle(data: ArrayBuffer): StreamFrame | null {
+  /** @returns the frame, or null; when `owned`, `data` is handed to the sink and its samples read empty afterwards. */
+  handle(data: ArrayBuffer, owned = false): StreamFrame | null {
     const frame = decodeStreamFrame(data);
     if (!frame) {
       this.stats.rejected++;
@@ -99,7 +99,7 @@ export class StreamPlayer {
     this.lastSeq = frame.seq;
     this.stats.frames++;
     this.stats.framesOfAudio += frame.frames;
-    this.sink.push(frame.samples);
+    this.sink.push(frame.samples, owned);
     return frame;
   }
 
