@@ -1,6 +1,0 @@
-# The input trim, and the HEAD of this deck's strip — so it names the chain, and reaches all five
-# of the deck's lanes. Two records cut ten years apart do not arrive at the same level.
-extends: "@k7-core/audio/utility/trim"
-params:
-  # Unity, in the MIDDLE of the travel: the rest of a trim is "whatever the record gives".
-  Trim: 0

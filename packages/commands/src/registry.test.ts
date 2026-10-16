@@ -75,4 +75,15 @@ describe("registerVerb (a plugin's installer)", () => {
       ),
     ).toThrow(/already in the catalogue/);
   });
+
+  it("refuses a SID a builtin handles without leaving a catalogue row behind", () => {
+    const word = `plugin test clash ${Date.now()}`;
+    expect(() =>
+      registerVerb(
+        { command: word, sid: "track.mute", surfaces: ["cli"] },
+        () => {},
+      ),
+    ).toThrow(/already has a handler/);
+    expect(loadCommandSpecs().some((c) => c.command === word)).toBe(false);
+  });
 });

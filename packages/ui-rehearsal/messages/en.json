@@ -347,7 +347,7 @@
   "settings.token": "CLI access token",
   "settings.tokenGenerate": "Generate token",
   "settings.tokenGenerating": "Generating…",
-  "settings.tokenHelp": "For the k7 `export` command. Add it to `~/.k7/config.json` as `k7Token` (or set `K7_TOKEN`). Anyone with this token can upload releases as you — keep it secret.",
+  "settings.tokenHelp": "For `project share k7`. Add it as `{ \"k7\": { \"token\": \"…\" } }` to `.settings.json` at the workspace root, set `K7_TOKEN`, or put it in `~/.studio/config.json`. Anyone with this token can upload releases as you — keep it secret.",
   "settings.tokenRegenerate": "Generate another",
   "settings.tokenList": "Tokens in use",
   "settings.tokenRevoke": "Revoke",

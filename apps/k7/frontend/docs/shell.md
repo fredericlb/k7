@@ -1608,9 +1608,9 @@ Some gestures need a second command the user did not type, and both are held as 
   cannot name `@engine/…` (`use` takes a local module), so it creates the local module that inherits it
   *and* the node, with the module name pre-filled and the node name left to you.
 
-- **`rec <track>`** (the `r` key). An instrument track arms for MIDI capture in the browser; an audio track
-  falls through to the backend, which arms it in the engine. Same key, routed by whether the track carries
-  a sequence.
+- **`rec <track>`** (the `r` key). The lane's A button, verbatim: `onTrackToggle(id, "arm")`, which arms an
+  instrument track for MIDI capture in the browser and sends `transport arm` for any other. One key, one
+  button, one function, so the two cannot route a lane differently.
 
 ## Mobile
 

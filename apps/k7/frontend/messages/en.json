@@ -508,6 +508,7 @@
   "seq.moved": "moved {n} note{s}",
   "seq.moveOutside": "can't move there — a note would leave the grid",
   "seq.moveOccupied": "can't move there — a pad that stays is in the way",
+  "seq.deleteSpan": "can't delete in one go — the rows between hold other notes; select fewer rows",
   "seq.moveEmpty": "nothing to move — the selection holds no note",
   "roll.outsideWindow": "+{n} outside the window",
   "seq.counts": "{sounds} sounds · {steps} steps",

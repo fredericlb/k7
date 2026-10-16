@@ -4,6 +4,7 @@
 //
 // Drawn by the shell rather than by `SurfaceTab` because what it needs is the ENGINE LINK —
 // `setPluginParam`, `watchPluginParams` and the params store — and that lives up in `App`.
+// A control is live while it moves and written to the module's file once, on release.
 // See ../../docs/mastering.md and packages/song/docs/surfaces.md.
 
 import {
@@ -12,12 +13,13 @@ import {
 } from "@studio/engine-browser/params";
 import type { WebGraph } from "@studio/graph-model";
 import type { ProjectSurface } from "@studio/song-schema/yaml/surfaceFile";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { useRevision } from "../hooks/useRevision";
 import {
   engineAgrees,
   type MasterBinding,
+  masterParamLine,
   masterRange,
   resolveMasterBindings,
   shownValue,
@@ -36,11 +38,14 @@ export function MasteringTab({
   paramsStore,
   setPluginParam,
   watchPluginParams,
+  command,
 }: {
   surface: ProjectSurface;
   paramsStore: PluginParamsStore;
   setPluginParam: (id: string, name: string, value: number) => void;
   watchPluginParams: (id: string, on: boolean) => void;
+  /** Runs a project command quietly — how a released control's value reaches the module's file. */
+  command: (line: string) => unknown;
 }) {
   /** The compiled chains, fetched here on the revision token — `App`'s `seedGraph` is a command's answer, not the project's current graph. */
   const rev = useRevision();
@@ -132,6 +137,7 @@ export function MasteringTab({
                   binding={b}
                   store={paramsStore}
                   onSet={setPluginParam}
+                  onWrite={command}
                 />
               ))}
           </Part>
@@ -185,10 +191,12 @@ function Knob({
   binding,
   store,
   onSet,
+  onWrite,
 }: {
   binding: MasterBinding;
   store: PluginParamsStore;
   onSet: (id: string, name: string, value: number) => void;
+  onWrite: (line: string) => unknown;
 }) {
   const live = usePluginParamValue(store, binding.pluginId, binding.param);
   /** The hand's value while a gesture is in flight — optimistic, and dropped as soon as the engine agrees. */
@@ -197,6 +205,15 @@ function Knob({
     if (held !== undefined && engineAgrees(binding, held, live))
       setHeld(undefined);
   }, [binding, held, live]);
+
+  /** The value a drag has sent live and not yet written — flushed once, when the gesture ends. */
+  const unwritten = useRef<number | undefined>(undefined);
+  const write = () => {
+    const v = unwritten.current;
+    if (v === undefined) return;
+    unwritten.current = undefined;
+    onWrite(masterParamLine(binding, v));
+  };
 
   const { min, max, step } = masterRange(binding);
   const { label, unit, home, choices } = binding.control;
@@ -213,6 +230,8 @@ function Knob({
             const v = Number(e.target.value);
             setHeld(v);
             onSet(binding.pluginId, binding.param, v);
+            // A pick is a whole gesture, so it is written at once.
+            onWrite(masterParamLine(binding, v));
           }}
         >
           {choices.map((c, i) => (
@@ -240,7 +259,12 @@ function Knob({
           const v = Number(e.target.value);
           setHeld(v);
           onSet(binding.pluginId, binding.param, v);
+          unwritten.current = v;
         }}
+        // Whichever ends the gesture writes it: the pointer let go, a key released, or focus leaving.
+        onPointerUp={write}
+        onKeyUp={write}
+        onBlur={write}
       />
       <span className="w-16 shrink-0 text-right font-mono tabular-nums">
         {shown}

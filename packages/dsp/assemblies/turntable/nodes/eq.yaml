@@ -1,7 +1,0 @@
-# The three-band channel EQ. Flat, and only the three gains are stated: the crossover points come
-# from the module, and restating them would let one deck disagree with the other about "mid".
-extends: "@k7-core/audio/filter/eq3"
-params:
-  Low-shelf gain: 0
-  Mid gain 1: 0
-  High-shelf gain: 0

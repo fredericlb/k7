@@ -13,13 +13,20 @@ import {
 } from "react";
 import { clamp } from "../clamp";
 import type { MenuCtx } from "../contextMenu";
-import { type GridBox, type GridCell, inBox } from "../gridCaret";
+import {
+  type GridBox,
+  type GridCell,
+  inBox,
+  type PasteResult,
+} from "../gridCaret";
+import { noteName } from "../noteNames";
 import { m } from "../paraglide/messages.js";
 import {
   NUDGE_MAX,
   nudgedTime,
   nudgeOf,
   type PadEdit,
+  planSelectionDelete,
   planSelectionMove,
   settledEdits,
 } from "../stepGrid";
@@ -47,6 +54,7 @@ export function useStepPads({
   origin,
   span,
   byCell,
+  notes,
   grid,
   command,
   setStatus,
@@ -62,6 +70,8 @@ export function useStepPads({
   origin: number;
   span: number;
   byCell: ReadonlyMap<string, WebNote>;
+  /** The clip's notes, which `selection delete` counts the way the command's range will. */
+  notes: readonly WebNote[];
   grid: GridCaret;
   command: (line: string) => void | Promise<void>;
   setStatus?: (s: string) => void;
@@ -203,6 +213,39 @@ export function useStepPads({
     grid.shiftSelect(dRow, dCol);
     const n = plan.moves.length;
     setStatus?.(m["seq.moved"]({ n, s: n > 1 ? "s" : "" }));
+  };
+
+  /** `selection delete` on the box — the roll's lines and statuses, the pads cleared at once; the SHELL runs the line. */
+  const deleteLine = (b: GridBox): PasteResult => {
+    const plan = planSelectionDelete({
+      box: b,
+      rowNotes: rows.map((r) => r.note),
+      cells,
+      step,
+      notes,
+    });
+    if ("refused" in plan)
+      return {
+        note:
+          plan.refused === "span"
+            ? m["seq.deleteSpan"]()
+            : m["grid.nothingToDelete"](),
+      };
+    setPending((cur) => {
+      const next = new Map(cur);
+      for (const k of plan.lift) next.set(k, { on: false });
+      return next;
+    });
+    const { hit, range } = plan;
+    if (hit.length === 1)
+      return {
+        line: `sequence note remove ${seqId} ${hit[0].key} ${hit[0].time}`,
+        note: m["grid.noteDeleted"]({ note: noteName(hit[0].key) }),
+      };
+    return {
+      line: `sequence notes remove ${seqId} ${range.lo} ${range.hi} ${range.from} ${range.to}`,
+      note: m["grid.notesDeleted"]({ n: hit.length }),
+    };
   };
 
   const onCellDown = (
@@ -400,5 +443,13 @@ export function useStepPads({
     );
   };
 
-  return { pending, onCellDown, onCellMove, onCellUp, onCellWheel, onCellMenu };
+  return {
+    pending,
+    deleteLine,
+    onCellDown,
+    onCellMove,
+    onCellUp,
+    onCellWheel,
+    onCellMenu,
+  };
 }

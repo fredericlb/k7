@@ -357,6 +357,9 @@ export function registerCommandSpec(spec: CommandSpec): void {
  *  half verb that reads but never runs (or runs and never reads). Both halves refuse an already
  *  spoken-for word, so a partially installed verb fails loudly at install, never at use. */
 export function registerVerb(spec: CommandSpec, handler: SidHandler): void {
+  // Both refusals run before either half is written, so a clash leaves no catalogue row behind.
+  if (SID_HANDLERS[spec.sid])
+    throw new Error(`command '${spec.sid}' already has a handler`);
   registerCommandSpec(spec);
   registerCommand({ sid: spec.sid, handler });
 }

@@ -104,7 +104,7 @@ import {
 import { freeSnap, moveOffset, snapMode, snapPosition, snapTo } from "../snap";
 import { recordingFrom } from "../takeCounter";
 import type { DropLane, DropUpload, TimelineDropEvent } from "../timelineDrop";
-import { type TimelineMode, timelineMode } from "../timelineMode";
+import { moveNudge, type TimelineMode, timelineMode } from "../timelineMode";
 import {
   CROSSFADE_BEATS,
   crossfadePair,
@@ -1811,9 +1811,9 @@ export function TimelineTab({
         return;
       // One block per MODE, and the mode is derived from the state this used to read directly (timelineMode.ts).
       if (modeRef.current === "move") {
-        // Move swallows keys HARD, the four it answers and every other: a nudge must not also scroll the pane.
-        if (e.key === "ArrowLeft" || e.key === "j") nudgeMove(-1);
-        else if (e.key === "ArrowRight" || e.key === "m") nudgeMove(1);
+        // Move swallows keys HARD, the ones it answers and every other: a nudge must not also scroll the pane.
+        const d = moveNudge(e.key);
+        if (d) nudgeMove(d);
         else if (e.key === "Enter") commitMove();
         else if (e.key === "Escape") {
           setMove(null);

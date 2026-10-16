@@ -1,29 +1,28 @@
 // The shipped `turntable` template, held to the set the scaffold writes. There are two documents
-// saying what a turntable is — `packages/dsp/assemblies/turntable/` for a project that has no decks
+// saying what a turntable is — `k7-core/assemblies/turntable/` for a project that has no decks
 // yet, and `scaffoldSet` for one being created — and the thing that actually breaks when they drift
 // is the NAMES: a member the map does not mention is a knob that silently drives nothing.
 // See docs/assemblies.md.
 
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { turntableMembers } from "@studio/song-schema/stems";
 import { parseAssemblyTemplate } from "@studio/song-schema/yaml/assemblyFile";
 import { parseGraph } from "@studio/song-schema/yaml/graphFile";
 import { describe, expect, it } from "vitest";
 import { entityFiles } from "./yaml/moduleIO";
+import { wsRead } from "./yaml/workspaceFile";
 
 const FOLDER = join(
   import.meta.dirname,
   "..",
   "..",
-  "dsp",
+  "..",
+  "k7-core",
   "assemblies",
   "turntable",
 );
 
-const template = parseAssemblyTemplate(
-  readFileSync(join(FOLDER, "assembly.yaml"), "utf8"),
-);
+const template = parseAssemblyTemplate(wsRead(join(FOLDER, "assembly.yaml")));
 const members = entityFiles(join(FOLDER, "nodes"), "nodes").map((f) => f.id);
 
 describe("the shipped turntable template", () => {
@@ -49,7 +48,7 @@ describe("the shipped turntable template", () => {
   });
 
   it("wires only members, and the two built-in sinks a deck ends at", () => {
-    const g = parseGraph(readFileSync(join(FOLDER, "graph.yaml"), "utf8"));
+    const g = parseGraph(wsRead(join(FOLDER, "graph.yaml")));
     expect(g.issues).toEqual([]);
     const known = new Set([...members, "MIX", "CUE"]);
     for (const [key, dests] of Object.entries(g.value?.modules ?? {})) {
