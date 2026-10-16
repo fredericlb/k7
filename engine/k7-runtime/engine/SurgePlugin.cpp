@@ -46,10 +46,8 @@ SurgePlugin::SurgePlugin(tracktion::engine::PluginCreationInfo info)
         auto value = std::make_unique<juce::CachedValue<float>>();
         // No undo manager: a patch load writes every one of them, and the read-back follows the synth on its own.
         value->referTo(state, juce::Identifier(p.id), nullptr, p.def);
-        // Surge's own words for a value, read off the live synth, so a slot reads as what its type makes it.
-        auto toText = [this, i](float v) {
-            return juce::String(core_ != nullptr ? core_->display((int)i, v) : std::string{});
-        };
+        // Surge's own words for a value, so a slot reads as what its type makes it — off the twin, not the live synth.
+        auto toText = [this, i](float v) { return juce::String(displayText(i, v)); };
         juce::NormalisableRange<float> range(p.min, p.max);
         if (p.discrete) range.interval = 1.0f;
         auto param = addParam(p.id, p.name, range, toText, [](const juce::String& s) { return s.getFloatValue(); });
@@ -57,6 +55,7 @@ SurgePlugin::SurgePlugin(tracktion::engine::PluginCreationInfo info)
         params_.push_back(param);
         values_.push_back(std::move(value));
         agreed_[i] = core_->get((int)i);
+        twinValues_.push_back(agreed_[i].load());
     }
     startTimerHz(READ_BACK_HZ);
 }
@@ -118,11 +117,11 @@ bool SurgePlugin::loadPatch(const juce::String& path, juce::String& error)
         return false;
     }
     std::cerr << "[surge] " << file.getFileName() << ": " << fresh->patchName() << "\n";
-    swapIn(std::move(fresh));
+    swapIn(std::move(fresh), file.getFullPathName().toStdString());
     return true;
 }
 
-void SurgePlugin::swapIn(std::unique_ptr<surge::SurgeCore> fresh)
+void SurgePlugin::swapIn(std::unique_ptr<surge::SurgeCore> fresh, const std::string& path)
 {
     // The patch's values become the parameters'; the module's own go back on top after (EditBuilder, EngineHost).
     const size_t n = params_.size();
@@ -136,14 +135,49 @@ void SurgePlugin::swapIn(std::unique_ptr<surge::SurgeCore> fresh)
         // A snapshot of the previous synth must not be read back onto the new one's parameters.
         readBack_.store(kIdle, std::memory_order_release);
     }
+    {
+        // The twin was the old patch's; the next text asked for builds one from this patch.
+        const std::lock_guard<std::mutex> twin(twinMx_);
+        twin_.reset();
+        patchPath_ = path;
+        twinValues_ = patch;
+    }
     for (size_t i = 0; i < n; ++i) params_[i]->setParameter(patch[i], juce::sendNotification);
     // The previous synth dies here, on the message thread, never on the audio one.
+}
+
+std::string SurgePlugin::displayText(size_t i, float value)
+{
+    // Never the live synth: the audio thread owns it, and a type change rewrites a slot mid-block. The twin is the message side's.
+    const std::lock_guard<std::mutex> twin(twinMx_);
+    if (twin_ == nullptr) {
+        auto fresh = std::make_unique<surge::SurgeCore>(sampleRate_);
+        std::string err;
+        if (!patchPath_.empty() && !fresh->loadPatch(patchPath_, err))
+            std::cerr << "[surge] text twin: " << err << "\n";
+        twin_ = std::move(fresh);
+    }
+    // Brought to the values the audio thread last published, types included, so a slot's text follows its type.
+    bool moved = false;
+    for (size_t k = 0; k < twinValues_.size(); ++k)
+        if (std::abs(twin_->get((int)k) - twinValues_[k]) > AGREE) {
+            twin_->set((int)k, twinValues_[k]);
+            moved = true;
+        }
+    // Surge applies a type change inside a render — an effect's is loaded there — so the twin renders before it is read.
+    if (moved)
+        for (int r = 0; r < 2; ++r) twin_->render();
+    return twin_->display((int)i, value);
 }
 
 void SurgePlugin::timerCallback()
 {
     // The synth is the audio thread's while it renders, so the timer reads only what that thread published.
     if (readBack_.load(std::memory_order_acquire) == kPublished) {
+        {
+            const std::lock_guard<std::mutex> twin(twinMx_);
+            for (size_t i = 0; i < twinValues_.size(); ++i) twinValues_[i] = heard_[i].load(std::memory_order_relaxed);
+        }
         for (size_t i = 0; i < params_.size(); ++i) {
             const float synth = heard_[i].load(std::memory_order_relaxed);
             const float then = heardAgreed_[i].load(std::memory_order_relaxed);

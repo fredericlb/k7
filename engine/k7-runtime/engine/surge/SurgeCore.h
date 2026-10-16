@@ -42,7 +42,7 @@ public:
     bool loadPatch(const std::string& path, std::string& error);
     std::string patchName() const;
 
-    // A parameter's value in its ParamInfo range, and Surge's own text for a value of it.
+    // A parameter's value in its ParamInfo range, and Surge's own text for a value of it — read off THIS synth, so never a live one from another thread.
     float get(int i) const;
     std::string display(int i, float value) const;
 

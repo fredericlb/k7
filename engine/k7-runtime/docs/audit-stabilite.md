@@ -426,7 +426,8 @@ disk that stalls (`docs/recorder.md`).
   fetch-time patch (`engine/patches/tracktion.cmake`) makes the test `isfinite`, which covers our
   own plugins, the master gain included, as much as anyone's.
 - **Surge's read-back timer never reads the synth**: the audio thread publishes a snapshot of it on
-  request, under the lock it already holds, and the timer compares that (`docs/surgePlugin.md`).
+  request, under the lock it already holds, and the timer compares that. A value's TEXT is read off a
+  message-side twin brought to that snapshot, never off the live synth (`docs/surgePlugin.md`).
 - **NAM prewarms a loaded model before swapping it in**, so the lock covers a pointer swap and the
   bridge's buffers rather than thousands of samples of inference (`docs/namPlugin.md`).
 
