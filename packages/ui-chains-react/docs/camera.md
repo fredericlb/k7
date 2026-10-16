@@ -1,6 +1,7 @@
 # The camera — panning and zooming
 
-`camera.ts` holds the arithmetic; `DomChains` holds the element and one frame loop. The rules
+`camera.ts` holds the arithmetic; `DomChains` holds the element, and `useChainsCamera.ts` its one
+frame loop. The rules
 below are about **feel**, and the framing rules — `fitKey`, `fitted` vs `userMoved`, the camera
 that survives an unmount — are a separate set, in
 [k7's chainsGraph.md](../../../apps/k7/frontend/docs/chainsGraph.md).

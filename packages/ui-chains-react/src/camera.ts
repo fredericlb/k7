@@ -1,6 +1,6 @@
 // The graph's camera, as arithmetic: a wheel notch to a zoom goal, a zoom that leaves the point
 // under the cursor where it is, the glide that chases the goal, and the little the DRAWING needs
-// back from all that. DomChains owns the element and the frame loop; this owns the numbers,
+// back from all that. useChainsCamera.ts owns the frame loop; this owns the numbers,
 // which is the half worth pinning down — see docs/camera.md.
 
 import { wheelZoomFactor } from "@studio/ui-chains/zoomGesture";
