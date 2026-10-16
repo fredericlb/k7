@@ -27,6 +27,7 @@ import {
   engineSnapshot,
   installEngineBridge,
 } from "./engineBridge.ts";
+import { K7_GRANTS } from "./grants.ts";
 import { addServer, pairIfNeeded } from "./pairSync.ts";
 import {
   appIcon,
@@ -63,13 +64,6 @@ const webPreferences = {
   preload: join(__dirname, "preload.cjs"),
   additionalArguments: [`--studio-ports=${PORTS_SPEC}`],
 };
-
-/** Widened past the shell's defaults for the rehearsal bench, an app frame inside an app page that records and plays MIDI. */
-const K7_GRANTS = {
-  media: "app",
-  midi: "app",
-  "screen-wake-lock": "app",
-} as const;
 
 let backends: Server[] = [];
 let supervisor: SupervisorHost | null = null;
