@@ -1512,14 +1512,11 @@ line, whichever way it was triggered — the bar, a key, a button, a right-click
 buffer is the shell's and fills whether the panel is open or not; only the engine machine's merged process log is
 polled on demand (`useLogs`).
 
-Three cases are worth saying out loud, because each is a command nobody typed:
+Two cases are worth saying out loud, because each is a command nobody typed:
 
 - **The picker's first half.** Choosing a module from the canvas menu runs a `module new` ahead of the
   `node new` you were prompted for. Unrecorded, it would leave a transcript showing a node appearing with
   no module ever created.
-- **A rewritten line.** `canonicalizeCommand` may turn what was typed into another spelling — a translated
-  verb name. The log shows both, `typed ⇒ ran`, since a transcript holding a line you cannot retype is
-  worse than a slightly longer one.
 - **A command aimed elsewhere.** The chains builder's verbs run against a library chain, not the open song,
   so its lines carry the chain's ref: `› [process/normalize] node new x`. Without it the transcript would
   claim an edit to the project that never happened.

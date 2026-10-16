@@ -2632,10 +2632,8 @@ export default function App({
       if (!line.trim()) return;
       // A pending MIDI learn waits for a control OR the next command, whichever comes first — see docs/midi.md.
       if (chainsMidiRef.current?.learning) chainsMidiRef.current.cancelLearn();
-      const typed = line.trim();
       const s = line.trim();
-      // What was typed, and — when the catalogue rewrote it — what actually ran, so the transcript shows a line you could retype.
-      pushLog("cmd", typed === s ? `› ${typed}` : `› ${typed}   ⇒ ${s}`);
+      pushLog("cmd", `› ${s}`);
       // Here rather than in the bar, because EVERY command passes here; through a ref, so a rebuilt catalogue does not rebuild this.
       rememberCommand(commandNameOf(s, paletteRef.current));
       if (runLocalCommand(s)) return;
