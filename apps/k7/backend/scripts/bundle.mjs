@@ -87,7 +87,8 @@ const common = {
   // The server image runs node 22; the desktop and the phone run 24.
   target: inTree ? "node22" : "node24",
   // ssh2's optional native helpers: absent, it falls back to JS, as in the desktop app.
-  external: ["cpu-features", "*.node"],
+  // playwright-core: imported lazily by the server's picture render, from node_modules; its own optional imports do not bundle.
+  external: ["cpu-features", "*.node", "playwright-core"],
   plugins: [metaPlugin],
   logLevel: "warning",
   legalComments: "none",

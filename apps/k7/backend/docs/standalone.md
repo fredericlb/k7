@@ -60,6 +60,7 @@ A data file a source starts reading is added to `DATA`; `--list` prints every so
 | a bundle, not source under tsx | tsx needs esbuild's native binary, which the phone's node cannot load; and the desktop app shipped 150 MB of source and `node_modules` for an 8 MB bundle |
 | `$STUDIO_FILE_SERVICE_ENTRY` | the file hub starts each account's file service with tsx over its source otherwise, and a bundle ships neither |
 | `cpu-features` and `*.node` left out | ssh2's native helpers, optional: it falls back to JS, and no addon could target both Electron's node and Termux's |
+| `playwright-core` left out | only the server's picture render reaches it, through a lazy `import()`, and it does not bundle: its optional `chromium-bidi` imports are not installed. The server image has it in `node_modules`; the desktop and the phone render no picture |
 | `node24` | the oldest node it runs under — Electron's |
 
 An unpackaged desktop run stays on the checkout's source under tsx, so an edit needs no bundling.
