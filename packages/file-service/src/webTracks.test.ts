@@ -5,7 +5,7 @@
 
 import type { ClipDoc, TrackDoc } from "@studio/song/project";
 import { describe, expect, it } from "vitest";
-import { toWebTracks } from "./workspace";
+import { toWebTracks } from "./webTracks.ts";
 
 const clip = (over: Partial<ClipDoc> = {}): ClipDoc => ({
   id: "riff",

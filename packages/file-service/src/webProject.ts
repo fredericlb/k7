@@ -3,7 +3,7 @@
 
 import type { ProjectDoc } from "@studio/song/project";
 import type { WebProject } from "@studio/web-protocol";
-import { toWebTracks } from "./workspace.ts";
+import { toWebTracks } from "./webTracks.ts";
 
 export function webProjectOf(p: ProjectDoc): WebProject {
   return {

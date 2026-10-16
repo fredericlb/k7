@@ -10,7 +10,6 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
-  rmSync,
   statSync,
 } from "node:fs";
 import {
@@ -39,7 +38,7 @@ import { moduleBaseChoices } from "@studio/song/basePreset";
 import { confineTo, confineToProject } from "@studio/song/confine";
 import { type ConsoleSystem, consoleSystems } from "@studio/song/console";
 import { deadAutomations } from "@studio/song/deadAutomations";
-import { EXTS_PATH, engineModules } from "@studio/song/engineCatalogue";
+import { engineModules } from "@studio/song/engineCatalogue";
 import { enginesBeside } from "@studio/song/engines";
 import { loadGraph } from "@studio/song/graph";
 import { projectHints } from "@studio/song/hints";
@@ -59,12 +58,7 @@ import {
   notSupportedModules,
   withModuleStamp,
 } from "@studio/song/loader";
-import {
-  type MissingModel,
-  missingModel,
-  modelsRoot,
-} from "@studio/song/modelCache";
-import { SETTLE_MS } from "@studio/song/moduleCache";
+import { type MissingModel, missingModel } from "@studio/song/modelCache";
 import {
   type CatalogueModule,
   moduleCatalogue,
@@ -78,22 +72,16 @@ import {
 } from "@studio/song/moduleMove";
 import {
   compileWithAutoFreezes,
-  isFrozenClipId,
   materialRefOf,
 } from "@studio/song/nodeProject";
 import {
   formatAudioDevice,
   formatChannels,
   loadPreferences,
-  PREFS_PATH,
   setEditorVim,
 } from "@studio/song/preferences";
-import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
-import {
-  loadAudioClipDoc,
-  loadProject,
-  trackMixer,
-} from "@studio/song/project";
+import type { ClipDoc, ProjectDoc } from "@studio/song/project";
+import { loadAudioClipDoc, loadProject } from "@studio/song/project";
 import {
   accountLibraries,
   isInSharedModules,
@@ -135,16 +123,11 @@ import {
   referenceName,
 } from "@studio/song-schema/reference";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
-import type {
-  VideoProjectDoc,
-  VideoTrackDoc,
-} from "@studio/song-video/videoDoc";
+import type { VideoProjectDoc } from "@studio/song-video/videoDoc";
 import { loadVideoProject } from "@studio/song-video/videoProject";
 import { videoDuration } from "@studio/song-video/videoTracks";
 import type { K7Result } from "@studio/take-render/render";
-import { wavSeconds } from "@studio/take-render/wavLength";
 import type {
-  ChangedFile,
   FileContent,
   FileNode,
   Hints,
@@ -153,11 +136,8 @@ import type {
   ProjectInfo,
   ShareProgress,
   WaveformStatus,
-  WebMixer,
   WebProject,
-  WebTrack,
   WebVideoProject,
-  WebVideoTrack,
   WebWaveform,
   WorkspaceInfo,
 } from "@studio/web-protocol";
@@ -168,6 +148,7 @@ import {
   projectApp,
 } from "@studio/web-protocol/projects";
 import { parse as parseYaml } from "yaml";
+import { readActiveMarker, writeActiveMarker } from "./activeMarker.ts";
 import { guard } from "./background.ts";
 import {
   buildGraphDoc,
@@ -177,15 +158,7 @@ import {
   trackColorsOf,
   trackMixersOf,
 } from "./graphDoc.ts";
-import {
-  type FileChange,
-  type HistoryListEntry,
-  type HistoryPeek,
-  type HistoryState,
-  historyStoreFor,
-  ProjectHistory,
-} from "./history.ts";
-import { engineKeeper } from "./historyKeeper.ts";
+import type { HistoryListEntry, HistoryPeek, HistoryState } from "./history.ts";
 import type { ChangeFeed } from "./liveCapture.ts";
 import { closeModuleWatchesUnder, moduleFoldersMoved } from "./moduleWatch.ts";
 import {
@@ -199,6 +172,7 @@ import {
   importProjectBytes,
   importProjectInto,
 } from "./projectLifecycle.ts";
+import { revisionOf, type WalkedFile, walkProject } from "./projectWalk.ts";
 import { shareProgress, startShareLink } from "./shareLink.ts";
 // The export acts, behind a host of a few members — see shareOps.ts.
 import { exportMix, type ShareHost, shareK7 } from "./shareOps.ts";
@@ -208,9 +182,10 @@ import {
   findClip,
   WaveformOps,
 } from "./waveformOps.ts";
-import { foldComps } from "./webComp.ts";
 import { webProjectOf } from "./webProject.ts";
+import { toWebVideoTracks, webPlugin } from "./webTracks.ts";
 import { isBinary, RECYCLE_DIR, skip } from "./workspaceFilter.ts";
+import { type Recorded, WorkspaceHistory } from "./workspaceHistory.ts";
 
 export { isBinary, skip };
 
@@ -267,19 +242,6 @@ export function projectDirsUnder(
 
 // A project FILE by name — every "file or folder?" test asks this rather than naming an extension.
 const PROJECT_FILE = /\.(ya?ml|k7x)$/i;
-// What moves the revision: the YAML or k7x, and a VST's .vstpreset — its params, rewritten IN PLACE by its
-// own window, which is what an automatic freeze must notice (packages/song/docs/autoFreeze.md).
-const REVISION_FILE = /\.(ya?ml|k7x|vstpreset)$/i;
-
-/** One file found by `walkProject`, from a single `statSync` — see docs/workspace.md. */
-interface WalkedFile {
-  abs: string;
-  size: number;
-  mtimeMs: number;
-  binary: boolean;
-  source: boolean;
-}
-
 /** Is `abs` inside one of the account libraries' `samples/`, `irs/` or `wavetables/` — and nowhere else of theirs? */
 function inLibrarySounds(abs: string): boolean {
   const lib = libraryOf(abs);
@@ -287,25 +249,6 @@ function inLibrarySounds(abs: string): boolean {
   const family = relative(lib.root, abs).split(sep)[0];
   return family === "samples" || family === "irs" || family === "wavetables";
 }
-
-/** What a journalled mutation answers, tokens included — see docs/workspace.md. */
-export interface Recorded<T> {
-  value: T;
-  /** Before the mutation. `after !== before` is what "this command changed the project" means. */
-  before: string;
-  after: string;
-  /** …and WHICH files moved, project-relative; `null` when the diff could not be taken. */
-  files: ChangedFile[] | null;
-}
-
-/** One file's mtime, or 0 when it is not there — absent is a state, not a failure. */
-const mtimeOf = (path: string): number => {
-  try {
-    return statSync(path).mtimeMs;
-  } catch {
-    return 0;
-  }
-};
 
 // Rename, retrying briefly while Windows releases a lingering handle; a non-transient error still throws.
 async function renameWithRetry(
@@ -331,120 +274,6 @@ async function renameWithRetry(
   }
 }
 
-// The strip a track's surfaces read — level and pan only, spread in. See docs/workspace.md.
-function mixerOf(t: TrackDoc): { mixer?: WebMixer } {
-  const p = trackMixer(t);
-  if (!p) return {};
-  const v = (name: string) => Number(p.params?.[name] ?? 0);
-  return { mixer: { module: p.name, volume: v("Volume"), pan: v("Pan") } };
-}
-
-/** How long a source is, memoised on the file's IDENTITY rather than its name — docs/workspace.md. */
-const durations = new Map<string, { key: string; secs: number | null }>();
-function sourceSeconds(abs: string): number | null {
-  let key: string;
-  try {
-    const s = statSync(abs);
-    key = `${s.size}-${s.mtimeMs}`;
-  } catch {
-    return null; // gone, or never there — the caller draws what the document says
-  }
-  const hit = durations.get(abs);
-  if (hit && hit.key === key) return hit.secs;
-  const secs = wavSeconds(abs);
-  durations.set(abs, { key, secs });
-  return secs;
-}
-
-/** The extent a clip DRAWS at, for one whose document states none — see docs/workspace.md. */
-function naturalBeats(c: TrackDoc["clips"][number], tempo: number): number {
-  if (c.type !== "audio" || !c.source || tempo <= 0) return 0;
-  const secs = sourceSeconds(c.source);
-  if (secs === null) return 0;
-  const rest = secs - (c.sourceFrom ?? 0);
-  return rest > 0 ? (rest * tempo) / 60 : 0;
-}
-
-// One clip as the browser reads it, named so a TAKE draws identically to the arrangement it was.
-function toWebClip(
-  c: TrackDoc["clips"][number],
-  // The extent to draw when the document states none — absent for a lane with no files behind it.
-  natural?: (c: TrackDoc["clips"][number]) => number,
-) {
-  return {
-    id: c.id,
-    type: c.type,
-    name: c.name,
-    start: c.start,
-    // `|| natural`, not `??`: 0 is precisely the value that means "unstated" — docs/workspace.md.
-    length: c.length || natural?.(c) || 0,
-    // The window of material this placement draws — what the browser's envelope cache keys on.
-    offset: c.offset,
-    sourceFrom: c.sourceFrom,
-    sourceTo: c.sourceTo,
-    // The NAME only: a browser has no business resolving a path on the engine's machine.
-    sourceName: c.source ? basename(c.source) : undefined,
-    loopStart: c.loopStart,
-    loopEnd: c.loopEnd,
-    // `warped` is "there is a map at play here"; `warpOff` is what draws the icon CROSSED.
-    warped: c.warp || c.warpOff ? true : undefined,
-    warpOff: c.warpOff ? true : undefined,
-    disabled: c.disabled ? true : undefined,
-    // The fades, `|| undefined` rather than copied: a zero fade is no fade — docs/workspace.md.
-    fadeIn: c.fadeIn || undefined,
-    fadeOut: c.fadeOut || undefined,
-    // A render standing in for a frozen lane, told by the suffix the compiler reserves for one.
-    frozen: isFrozenClipId(c.id) ? true : undefined,
-    // The placement's own words, straight through — the only part a paste can write back.
-    event: c.event,
-    // …and, for a piece of a comped event, which event and which take (song docs/takes.md).
-    ...(c.comp ? { comp: c.comp } : {}),
-    ...(c.crossfade ? { crossfade: c.crossfade } : {}),
-    notes: c.notes.map((n) => ({
-      time: n.time,
-      duration: n.duration,
-      key: n.key,
-      // Only when the file SAID one: the compiler defaults `vel` to 1 — see docs/workspace.md.
-      ...(n.vel !== undefined && n.vel !== 1 ? { vel: n.vel } : {}),
-      // The pad's effects, unexpanded — what the sequencer draws its icon from.
-      ...(n.repeat ? { repeat: n.repeat } : {}),
-      ...(n.skip ? { skip: n.skip } : {}),
-    })),
-  };
-}
-
-/** TrackDoc[] -> the flat WebTrack[] the Timeline draws; `tempo` turns seconds into beats. */
-export function toWebTracks(tracks: TrackDoc[], tempo?: number): WebTrack[] {
-  const natural =
-    tempo === undefined
-      ? undefined
-      : (c: TrackDoc["clips"][number]) => naturalBeats(c, tempo);
-  return tracks.map((t) => ({
-    id: t.id,
-    name: t.name,
-    group: t.group,
-    generated: t.generated,
-    contentType: t.contentType,
-    color: t.color,
-    ...mixerOf(t),
-    mute: t.mute,
-    solo: t.solo,
-    ...(t.highlight ? { highlight: true } : {}),
-    // A comped event is ONE clip to every surface, its pieces carried inside it (webComp.ts).
-    clips: foldComps(t.clips.map((c) => toWebClip(c, natural))),
-    ...(t.frozenMaterial?.length
-      ? { frozenMaterial: t.frozenMaterial.map((c) => toWebClip(c, natural)) }
-      : {}),
-    plugins: t.plugins.map((pl) => ({
-      id: pl.id,
-      type: pl.type,
-      name: pl.name,
-      ...(pl.sfzFile ? { sfzFile: pl.sfzFile } : {}),
-    })),
-    // `docs`/`todos`, `frozen` and the alternatives belong to the graph — packages/song/docs/docModules.md.
-  }));
-}
-
 // The user's global preferences — one file for this service, not per workspace, hence module-level.
 export function preferences(): {
   audioDevice: string | null;
@@ -465,125 +294,6 @@ export function preferences(): {
 
 export function setVim(on: boolean): boolean {
   return setEditorVim(on).editor.vim;
-}
-
-// Where each workspace's active-project marker lives: a folder BESIDE the workspaces, so no sync of one ever sees it.
-const ACTIVE_MARKERS_DIR = ".active-projects";
-// The marker a workspace kept INSIDE itself, moved out at its first read.
-const LEGACY_MARKER = ".studio-active";
-
-/** The marker file of the workspace at `root`: `<the workspaces' folder>/.active-projects/<workspace>`. */
-export function activeMarkerOf(root: string): string {
-  const abs = resolve(root);
-  return join(dirname(abs), ACTIVE_MARKERS_DIR, basename(abs));
-}
-
-/** The workspace's open project, absolute; null when nothing is open. */
-export function readActiveMarker(root: string): string | null {
-  let rel: string;
-  try {
-    rel = readFileSync(activeMarkerOf(root), "utf8").trim();
-  } catch {
-    rel = moveLegacyMarker(root);
-  }
-  return rel ? resolve(root, rel) : null;
-}
-
-/** Remember `rel` (workspace-relative, "" for none) as the workspace's open project. */
-function writeActiveMarker(root: string, rel: string): void {
-  const at = activeMarkerOf(root);
-  mkdirSync(dirname(at), { recursive: true });
-  writeFileAtomic(at, rel ? `${rel}\n` : "");
-}
-
-/** Read an in-workspace marker once, write it beside the workspace and delete it from the workspace. */
-function moveLegacyMarker(root: string): string {
-  const legacy = join(root, LEGACY_MARKER);
-  let rel: string;
-  try {
-    rel = readFileSync(legacy, "utf8").trim();
-  } catch {
-    return "";
-  }
-  try {
-    writeActiveMarker(root, rel);
-    rmSync(legacy, { force: true });
-  } catch {
-    /* best-effort: read again next time */
-  }
-  return rel;
-}
-
-// Text files that differ between two snapshots — a null side means the file was absent then.
-function diffText(
-  before: Map<string, string>,
-  after: Map<string, string>,
-): FileChange[] {
-  const changes: FileChange[] = [];
-  for (const path of new Set([...before.keys(), ...after.keys()])) {
-    const b = before.get(path);
-    const a = after.get(path);
-    if (b !== a) changes.push({ path, before: b ?? null, after: a ?? null });
-  }
-  return changes;
-}
-
-/** The two diffs above, project-relative and said as appeared / edited / disappeared. */
-function changedFiles(
-  base: string,
-  // Both diffs, read only for their SHAPE: a path, and which side was absent.
-  ...diffs: { path: string; before: unknown; after: unknown }[][]
-): ChangedFile[] {
-  const head = base === "." || base === "" ? "" : `${base}/`;
-  const out = new Map<string, ChangedFile>();
-  for (const c of diffs.flat()) {
-    // A prefix that did not match would otherwise be reported as an absolute-looking path.
-    if (head && !c.path.startsWith(head)) continue;
-    const path = head ? c.path.slice(head.length) : c.path;
-    const kind =
-      c.before === null ? "added" : c.after === null ? "removed" : "edited";
-    // A file in both lists is one change, and appearing or disappearing outranks being rewritten.
-    const seen = out.get(path);
-    if (!seen || seen.kind === "edited") out.set(path, { path, kind });
-  }
-  return [...out.values()];
-}
-
-// Binary files created or overwritten, by presence and by the snapshotted pre-image — docs/workspace.md.
-function diffBin(
-  base: string, // the workspace root, since paths are root-relative
-  before: Map<string, string>,
-  after: Map<string, string>,
-  pre: Map<string, Buffer>,
-): { path: string; before: Buffer | null; after: Buffer | null }[] {
-  const blobs: { path: string; before: Buffer | null; after: Buffer | null }[] =
-    [];
-  const readBytes = (path: string): Buffer | null => {
-    try {
-      return readFileSync(join(base, path));
-    } catch {
-      return null;
-    }
-  };
-  for (const path of new Set([
-    ...before.keys(),
-    ...after.keys(),
-    ...pre.keys(),
-  ])) {
-    const existedBefore = before.has(path);
-    // Read the bytes only where they can end up in the journal — see docs/workspace.md.
-    if (!existedBefore) {
-      const afterBytes = after.has(path) ? readBytes(path) : null;
-      if (afterBytes) blobs.push({ path, before: null, after: afterBytes }); // created
-      continue;
-    }
-    const preBytes = pre.get(path);
-    if (!preBytes) continue; // existed but no pre-image — nothing to restore to
-    const afterBytes = after.has(path) ? readBytes(path) : null;
-    if (afterBytes === null || !preBytes.equals(afterBytes))
-      blobs.push({ path, before: preBytes, after: afterBytes });
-  }
-  return blobs;
 }
 
 /** `abs` if it stays inside `root` both LEXICALLY and on the REAL path, else a throw — docs/workspace.md. */
@@ -634,15 +344,14 @@ export class Workspace {
   readonly rootIsProject: boolean;
   private activeProject: string | null;
   private docCache: { dir: string; rev: string; doc: ProjectDoc } | null = null;
-  // The last snapshotText walk, so the next one only re-reads what moved. See snapshotText.
-  private textCache = new Map<string, { stamp: string; text: string }>();
   // The picture compile's own cache — see cachedVideoDoc for why it is not a branch inside the one above.
   private videoCache: {
     dir: string;
     rev: string;
     doc: VideoProjectDoc;
   } | null = null;
-  private historyCache: { dir: string; h: ProjectHistory } | null = null;
+  // The undo/redo journal — see workspaceHistory.ts.
+  private readonly journal: WorkspaceHistory;
   /** Live sync's capture, when on: a mutation window holds its batch open — docs/liveCapture.md. */
   liveCapture:
     | (ChangeFeed & { hold(): void; release(label: string): void })
@@ -667,6 +376,15 @@ export class Workspace {
       activeProject: () => this.activeProject,
       cachedProjectDoc: (dir) => this.cachedProjectDoc(dir),
       withinRoot: (abs) => this.withinRoot(abs),
+    });
+    this.journal = new WorkspaceHistory({
+      root: this.root,
+      activeProject: () => this.activeProject,
+      toRel: (abs) => this.toRel(abs),
+      revision: () => this.revision(),
+      withWalk: (dir, fn) => this.withWalk(dir, fn),
+      revisionOf: (files) => this.revisionOf(files),
+      invalidateProjectDoc: () => this.invalidateProjectDoc(),
     });
   }
 
@@ -997,47 +715,10 @@ export class Workspace {
 
   /** ONE walk of the project, opened by `withWalk` and read by three — see docs/workspace.md. */
   private walkScope: WalkedFile[] | null = null;
-  private walkProject(dir: string, sourcesOnly = false): WalkedFile[] {
-    const out: WalkedFile[] = [];
-    const walk = (abs: string): void => {
-      let entries: Dirent[];
-      try {
-        entries = readdirSync(abs, { withFileTypes: true });
-      } catch {
-        return; // unreadable — treated as empty rather than failing the caller
-      }
-      for (const e of entries) {
-        if (skip(e.name)) continue;
-        const p = join(abs, e.name);
-        if (e.isDirectory()) {
-          walk(p);
-          continue;
-        }
-        // A project SOURCE — an out-of-band edit to one moves the token, a media copy does not.
-        const source = REVISION_FILE.test(e.name);
-        if (sourcesOnly && !source) continue;
-        try {
-          const s = statSync(p);
-          out.push({
-            abs: p,
-            size: s.size,
-            mtimeMs: s.mtimeMs,
-            binary: isBinary(e.name),
-            source,
-          });
-        } catch {
-          /* raced away between readdir and stat — the next walk sees it */
-        }
-      }
-    };
-    walk(dir);
-    return out;
-  }
-
   /** Run `fn` over ONE walk of the active project; nothing inside may WRITE — docs/workspace.md. */
   private withWalk<T>(dir: string, fn: (files: WalkedFile[]) => T): T {
     if (this.walkScope !== null) return fn(this.walkScope);
-    this.walkScope = this.walkProject(dir);
+    this.walkScope = walkProject(dir);
     try {
       return fn(this.walkScope);
     } finally {
@@ -1050,38 +731,15 @@ export class Workspace {
     const dir = this.activeProject;
     if (!dir) return `none:${this.mutations}`;
     // The walk a mutation already has open, else its own and a NARROW one — see docs/workspace.md.
-    return this.revisionOf(this.walkScope ?? this.walkProject(dir, true));
+    return this.revisionOf(this.walkScope ?? walkProject(dir, true));
   }
 
-  /** The token from a walk: the mutation counter, the SOURCE count, and the newest mtime. */
+  /** The token from a walk — projectWalk.ts — with this workspace's mutation counter. */
   private revisionOf(files: WalkedFile[]): string {
-    // …and the two files OUTSIDE the project a derived view still reads — see docs/workspace.md.
-    let newest = mtimeOf(EXTS_PATH);
-    const prefsAt = mtimeOf(PREFS_PATH);
-    if (prefsAt > newest) newest = prefsAt;
-    // A model arriving in the machine's cache changes what the graph offers to download.
-    const modelsAt = mtimeOf(modelsRoot());
-    if (modelsAt > newest) newest = modelsAt;
-    let count = 0;
-    for (const f of files) {
-      if (!f.source) continue;
-      count++;
-      if (f.mtimeMs > newest) newest = f.mtimeMs;
-    }
-    return `${this.mutations}:${count}:${newest}`;
+    return revisionOf(files, this.mutations);
   }
 
   // --- undo/redo journal -----------------------------------------------------
-
-  // One ProjectHistory per active project, cached so the on-disk journal is read once.
-  private history(dir: string): ProjectHistory {
-    if (this.historyCache?.dir !== dir)
-      this.historyCache = {
-        dir,
-        h: new ProjectHistory(historyStoreFor(dir), this.root, engineKeeper),
-      };
-    return this.historyCache.h;
-  }
 
   /** Run a project mutation and journal what it changed, so Ctrl+Z can undo it — docs/workspace.md. */
   async recordChange<T>(
@@ -1090,146 +748,32 @@ export class Workspace {
   ): Promise<Recorded<T>> {
     this.liveCapture?.hold();
     try {
-      return await this.recordChangeHeld(label, mutate);
+      return await this.journal.record(label, mutate);
     } finally {
       this.liveCapture?.release(label);
     }
   }
 
-  private async recordChangeHeld<T>(
-    label: string,
-    mutate: (snapshot: (abs: string) => void) => T | Promise<T>,
-  ): Promise<Recorded<T>> {
-    const dir = this.activeProject;
-    if (!dir) {
-      // No project, no journal, no walk — and `files: null`, since nothing was diffed.
-      const rev = this.revision().rev;
-      return {
-        value: await mutate(() => {}),
-        before: rev,
-        after: rev,
-        files: null,
-      };
-    }
-    const pre = new Map<string, Buffer>(); // rel -> pre-image bytes of a binary about to be overwritten
-    const snapshot = (abs: string): void => {
-      try {
-        const rel = this.toRel(abs);
-        if (!pre.has(rel) && existsSync(abs) && statSync(abs).isFile())
-          pre.set(rel, readFileSync(abs));
-      } catch {
-        /* best effort — a missed pre-image just means that one file can't be undone */
-      }
-    };
-    const before = this.treeShot(dir);
-    const result = await mutate(snapshot);
-    const after = this.treeShot(dir);
-    // Null until the diff is taken: a throw below must never read as a false "nothing changed".
-    let files: ChangedFile[] | null = null;
-    try {
-      const changes = diffText(before.text, after.text);
-      const blobs = diffBin(this.root, before.bin, after.bin, pre);
-      files = changedFiles(this.toRel(dir), changes, blobs);
-      if (changes.length || blobs.length)
-        this.history(dir).push({ label, changes, blobs });
-    } catch {
-      /* journaling must never break a good write */
-    }
-    return { value: result, before: before.rev, after: after.rev, files };
-  }
-
-  /** The project at one instant from ONE walk: two images and the token naming the moment. */
-  private treeShot(dir: string): {
-    text: Map<string, string>;
-    bin: Map<string, string>;
-    rev: string;
-  } {
-    return this.withWalk(dir, (files) => ({
-      text: this.textOf(files),
-      bin: this.binOf(files),
-      rev: this.revisionOf(files),
-    }));
-  }
-
-  /** Every text file's content, re-reading only what MOVED — see docs/workspace.md. */
-  private textOf(files: WalkedFile[]): Map<string, string> {
-    const out = new Map<string, string>();
-    // Built fresh so a deleted file leaves the cache with it, rather than lingering for ever.
-    const seen = new Map<string, { stamp: string; text: string }>();
-    const now = Date.now();
-    for (const f of files) {
-      if (f.binary) continue;
-      const rel = this.toRel(f.abs);
-      const stamp = `${f.size}:${f.mtimeMs}`;
-      // A file written in the last tick can be rewritten to the same size in the next one, so its
-      // stamp says nothing yet — and this image is what an undo diff is taken against.
-      const settled = now - f.mtimeMs > SETTLE_MS;
-      const hit = this.textCache.get(rel);
-      let text: string;
-      if (settled && hit?.stamp === stamp) text = hit.text;
-      else
-        try {
-          text = readFileSync(f.abs, "utf8");
-        } catch {
-          continue; // unreadable — treated as absent, as it always was
-        }
-      out.set(rel, text);
-      // …and nothing young is KEPT either: the next call would find it under the same stamp.
-      if (settled) seen.set(rel, { stamp, text });
-    }
-    this.textCache = seen;
-    return out;
-  }
-
-  // Size+mtime of every binary file — enough to tell created/overwritten from untouched.
-  private binOf(files: WalkedFile[]): Map<string, string> {
-    const out = new Map<string, string>();
-    for (const f of files)
-      if (f.binary) out.set(this.toRel(f.abs), `${f.size}:${f.mtimeMs}`);
-    return out;
-  }
-
   /** Undo the most recent journalled change on the active project. */
-  async undoHistory(): Promise<HistoryPeek | null> {
-    const dir = this.activeProject;
-    if (!dir) return null;
-    const r = await this.history(dir).undo();
-    if (r) this.invalidateProjectDoc();
-    return r;
+  undoHistory(): Promise<HistoryPeek | null> {
+    return this.journal.undo();
   }
   /** Redo the change undo just reverted. */
-  async redoHistory(): Promise<HistoryPeek | null> {
-    const dir = this.activeProject;
-    if (!dir) return null;
-    const r = await this.history(dir).redo();
-    if (r) this.invalidateProjectDoc();
-    return r;
+  redoHistory(): Promise<HistoryPeek | null> {
+    return this.journal.redo();
   }
   /** The open project's journal for the History panel, its paths PROJECT-relative like a commit's. */
   historyList(): HistoryListEntry[] {
-    const dir = this.activeProject;
-    if (!dir) return [];
-    const prefix = `${this.toRel(dir)}/`;
-    return this.history(dir)
-      .list()
-      .map((e) => ({
-        ...e,
-        paths: e.paths.map((p) =>
-          p.startsWith(prefix) ? p.slice(prefix.length) : p,
-        ),
-      }));
+    return this.journal.list();
   }
   peekUndo(): HistoryPeek | null {
-    const dir = this.activeProject;
-    return dir ? this.history(dir).peekUndo() : null;
+    return this.journal.peekUndo();
   }
   peekRedo(): HistoryPeek | null {
-    const dir = this.activeProject;
-    return dir ? this.history(dir).peekRedo() : null;
+    return this.journal.peekRedo();
   }
   historyState(): HistoryState {
-    const dir = this.activeProject;
-    return dir ? this.history(dir).state() : { canUndo: false, canRedo: false };
+    return this.journal.state();
   }
 
   // --- tree / text I/O -------------------------------------------------------
@@ -2100,49 +1644,6 @@ export class Workspace {
     return this.wf.prewarm(buckets);
   }
 
-  toWebVideoTracks(videoTracks: VideoTrackDoc[]): WebVideoTrack[] {
-    return videoTracks.map((t) => ({
-      id: t.id,
-      name: t.name,
-      color: t.color,
-      mute: t.mute,
-      solo: t.solo,
-      // The LENS wired to this lane, when one is, and when it opens — packages/song/docs/camera.md.
-      ...(t.camera === undefined
-        ? {}
-        : { camera: t.camera, cameraMonitor: t.cameraMonitor ?? "on" }),
-      x: t.x,
-      y: t.y,
-      w: t.w,
-      h: t.h,
-      // Workspace-RELATIVE on the way out: the browser fetches every byte back through /media.
-      clips: t.clips.map((c) => ({
-        id: c.id,
-        name: c.name,
-        src: c.source ? this.toRel(c.source) : "",
-        ...(c.optimized ? { optimized: this.toRel(c.optimized) } : {}),
-        ...(c.proxy ? { proxy: this.toRel(c.proxy) } : {}),
-        ...(c.still ? { still: true as const } : {}),
-        start: c.start,
-        length: c.length,
-        sourceFrom: c.sourceFrom,
-        // A fade names its kind; the kind's GLSL rides on the project, once per name.
-        ...(c.fadeIn ? { fadeIn: { ...c.fadeIn } } : {}),
-        ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
-        ...(c.animate ? { animate: c.animate } : {}),
-        ...(c.speed !== undefined ? { speed: c.speed } : {}),
-        ...(c.effect ? { effect: c.effect } : {}),
-        ...(c.captions ? { captions: c.captions } : {}),
-      })),
-      // Shapes carry no media path — each variant's fields, `id` included, pass straight through.
-      shapes: t.shapes.map((s) => ({ ...s })),
-      // …and this lane's own video run — a shader's GLSL travels INLINE, so there is no path here.
-      ...(t.plugins?.length
-        ? { plugins: t.plugins.map((p) => this.webPlugin(p)) }
-        : {}),
-    }));
-  }
-
   /** Everything wrong with the project, from the compile itself, in BOTH scopes — docs/workspace.md. */
   projectErrors(): { errors: string[]; diagnostics: Diagnostic[] } {
     return this.onRevision(
@@ -2235,7 +1736,7 @@ export class Workspace {
         stretches: {},
       };
     const p = this.cachedVideoDoc(dir);
-    const videoTracks = this.toWebVideoTracks(p.videoTracks);
+    const videoTracks = toWebVideoTracks(p.videoTracks, (a) => this.toRel(a));
     return {
       name: p.name,
       viewport: p.viewport,
@@ -2243,7 +1744,9 @@ export class Workspace {
       duration: videoDuration(p.videoTracks),
       markers: p.markers.map((m) => ({ sec: m.sec, name: m.name, tc: m.tc })),
       videoTracks,
-      framePlugins: p.framePlugins.map((pl) => this.webPlugin(pl)),
+      framePlugins: p.framePlugins.map((pl) =>
+        webPlugin(pl, (a) => this.toRel(a)),
+      ),
       transitions: Object.fromEntries(
         Object.entries(p.transitions).map(([k, t]) => [
           k,
@@ -2253,15 +1756,10 @@ export class Workspace {
       stretches: Object.fromEntries(
         Object.entries(p.stretches).map(([k, run]) => [
           k,
-          run.map((pl) => this.webPlugin(pl)),
+          run.map((pl) => webPlugin(pl, (a) => this.toRel(a))),
         ]),
       ),
     };
-  }
-
-  /** A picture plugin for the browser: its LUT made workspace-relative, as every path the browser fetches back is. */
-  private webPlugin<P extends { lut?: string }>(p: P): P {
-    return { ...p, ...(p.lut ? { lut: this.toRel(p.lut) } : {}) };
   }
 
   /** Everything wrong with a song's PICTURE — the compile's own throw, same shape as projectErrors. */

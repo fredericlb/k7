@@ -20,6 +20,7 @@ import type {
   WorkspaceSummary,
 } from "@studio/web-protocol";
 import { projectApp } from "@studio/web-protocol/projects";
+import { activeMarkerOf, readActiveMarker } from "./activeMarker.ts";
 import { BENCH_WORKSPACE } from "./bench.ts";
 import { EXAMPLES_WORKSPACE } from "./demos.ts";
 import { liveLogFor } from "./liveLog.ts";
@@ -35,13 +36,7 @@ import {
 import { closeModuleWatchesUnder } from "./moduleWatch.ts";
 import { rootOwner } from "./owner.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
-import {
-  activeMarkerOf,
-  isProjectDir,
-  projectDirsUnder,
-  readActiveMarker,
-  Workspace,
-} from "./workspace.ts";
+import { isProjectDir, projectDirsUnder, Workspace } from "./workspace.ts";
 
 // Memoized so a workspace's caches (compiled doc, waveforms) persist across requests.
 const live = new Map<string, Workspace>();
