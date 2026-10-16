@@ -9,8 +9,8 @@ import {
 } from "@studio/song-schema/yaml/videoTrackFile";
 import { useCallback } from "react";
 import { api } from "../api";
-import type { VideoEdit } from "../components/TimelineTab";
 import { projectDir } from "../projectPaths";
+import type { VideoEdit } from "../videoDrag";
 import type { SetStatus } from "./useLogs";
 
 /** Apply a finished picture drag to the lane's own file: a SURGICAL text rewrite by INDEX, one buffer written once, and not a COMMAND. */

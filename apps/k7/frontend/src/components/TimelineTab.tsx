@@ -75,10 +75,8 @@ import { acceptsFileDrop, dragPayload } from "../fileDrop";
 import type { PasteResult } from "../gridCaret";
 import type { HistoryMark } from "../historyMarks";
 import { useDocument } from "../hooks/useDocument";
-import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { blurOnClick } from "../keys";
 import { cursorOf, ModeStrip, stripButton } from "../modeIcons";
-import { usePaneVisible } from "../paneVisible";
 import { m } from "../paraglide/messages.js";
 import {
   type PendingEdit,
@@ -104,7 +102,6 @@ import {
 } from "../rows";
 import type { EditFocus } from "../shellEquality";
 import { freeSnap, moveOffset, snapMode, snapPosition, snapTo } from "../snap";
-import { recordingFrom } from "../takeCounter";
 import type { DropLane, DropUpload, TimelineDropEvent } from "../timelineDrop";
 import { moveNudge, type TimelineMode, timelineMode } from "../timelineMode";
 import {
@@ -125,6 +122,14 @@ import type {
   WebVideoTrack,
 } from "../types";
 import { useIsMobile } from "../useIsMobile";
+import {
+  V_NATURAL,
+  type VDrag,
+  type VideoEdit,
+  videoDragEdits,
+  videoDragIsStill,
+  videoDragTo,
+} from "../videoDrag";
 import { ClipActivity } from "./ClipActivity";
 import { ClipContent } from "./ClipContent";
 import type { EditTarget } from "./ClipView";
@@ -135,6 +140,11 @@ import {
   rulerScale,
   rulerTicks,
 } from "./Ruler";
+import { GROW } from "./timeline/grow";
+import { LaneAlternative } from "./timeline/LaneAlternative";
+import { LaneMeter } from "./timeline/LaneMeter";
+import { Playhead } from "./timeline/Playhead";
+import { RecordingClip } from "./timeline/RecordingClip";
 import { UploadProgress } from "./UploadProgress";
 
 // Fallback beat width, used only before the pane is measured — after that the view's range fills it exactly.
@@ -147,8 +157,6 @@ const GUTTER_WIDE = Math.round(GUTTER_DESKTOP * 1.3);
 // Extra lane height when EXPANDED, so a clip can draw its content. Groups stay ROW_H — they hold no clips.
 const EXPAND_EXTRA = 40;
 // Expand's movement, shared by the lanes and every line spanning them, so they travel as one.
-const GROW =
-  "transition-[height] duration-200 ease-out motion-reduce:transition-none";
 // The shortest an event may be left by a FREE resize — a 64th; the grid's own step is the floor while there is one.
 const MIN_FREE_BEATS = 1 / 16;
 const NATURAL = 4;
@@ -177,8 +185,6 @@ const NEW_TRACK_BTN =
 const MIN_LOOP_GLYPH_PX = 18;
 // No tool line to dispatch ⇒ no tools, and a stable array so the strip is not handed a new one per render.
 const NO_TOOLS: readonly Tool[] = [];
-const VU_MIN_DB = -60; // name-header VU meter: dB mapped to an empty header fill
-const VU_MAX_DB = 6; // dB mapped to a full-width header fill
 
 // A track row as the CLIPBOARD reads it — both halves of `copy` go through it, and `event` carries the placement's own words (clipboard.ts).
 const laneEvents = (r: Extract<Row, { kind: "track" }>) => ({
@@ -200,301 +206,11 @@ const GUTTER_STICKY =
 // `beat: LABEL` puts the caret on the row's label — the only position a group or generated lane can take.
 const LABEL = -1;
 
-/** The take being recorded, drawn on its lane as it grows — its OWN subscription, so a frame rewrites one absolutely positioned div (docs/playhead.md). */
-function RecordingClip({
-  tempo,
-  startBeat,
-  countInBeats,
-  beatLo,
-  beatHi,
-  ppb,
-}: {
-  tempo: number;
-  startBeat: number;
-  /** The pre-roll, in beats — nothing is recorded during it, so nothing is drawn. */
-  countInBeats: number;
-  beatLo: number;
-  beatHi: number;
-  ppb: number;
-}) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  // The take's material starts after the COUNT-IN, not where the transport rolled.
-  const from0 = recordingFrom(startBeat, countInBeats);
-  // WIDTH per animation frame, not a transform: unlike the playhead this element genuinely changes size — see docs/playhead.md.
-  usePlayheadFrames(
-    useCallback(
-      (seconds: number) => {
-        const el = ref.current;
-        if (!el) return;
-        const now = (seconds * tempo) / 60;
-        const from = Math.max(from0, beatLo);
-        const to = Math.min(now, beatHi);
-        const shown = now > from0 && to > from;
-        el.style.visibility = shown ? "visible" : "hidden";
-        if (shown) {
-          el.style.left = `${(from - beatLo) * ppb}px`;
-          el.style.width = `${(to - from) * ppb}px`;
-        }
-      },
-      [tempo, from0, beatLo, beatHi, ppb],
-    ),
-  );
-  return (
-    <div
-      ref={ref}
-      className="pointer-events-none absolute inset-y-1 z-10 rounded border border-red-400/70 bg-red-500/25"
-      style={{ visibility: "hidden" }}
-      title={m["clip.takeRolling"]()}
-    />
-  );
-}
-
-function Playhead({
-  tempo,
-  beatLo,
-  beatHi,
-  ppb,
-  left0,
-  height,
-}: {
-  tempo: number;
-  beatLo: number;
-  beatHi: number;
-  ppb: number;
-  left0: number; // the lane's left edge — the gutter's width
-  height: number;
-}) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  // Written per animation frame instead of per engine frame: 50 ms is one move every three screen frames — see docs/playhead.md.
-  usePlayheadFrames(
-    useCallback(
-      (seconds: number) => {
-        const el = ref.current;
-        if (!el) return;
-        const beat = (seconds * tempo) / 60;
-        // HIDDEN, not unmounted, outside the zoomed range: the callback needs a node to write to when it comes back.
-        const inside = beat >= beatLo && beat <= beatHi;
-        el.style.visibility = inside ? "visible" : "hidden";
-        if (inside)
-          el.style.transform = `translateX(${(beat - beatLo) * ppb}px)`;
-      },
-      [tempo, beatLo, beatHi, ppb],
-    ),
-  );
-  return (
-    // Parked at the lane's left edge and TRANSLATED from there: a position is layout and a transform is not.
-    <div
-      ref={ref}
-      className={cn(
-        "pointer-events-none absolute top-0 z-20 w-px bg-white/80",
-        GROW,
-      )}
-      style={{
-        left: left0,
-        willChange: "transform",
-        visibility: "hidden", // until the first frame says where it is
-        height,
-      }}
-    />
-  );
-}
-
-// dB → how much of the header the bar fills.
-const vuFill = (db: number | undefined) =>
-  Math.max(
-    0,
-    Math.min(1, ((db ?? -Infinity) - VU_MIN_DB) / (VU_MAX_DB - VU_MIN_DB)),
-  ) * 100;
-
-/** One lane's meters — the output level across the header, the input level when armed; the dB is rounded first, so a bar nobody can see costs no re-render. */
-function LaneMeter({ index, armed }: { index: number; armed: boolean }) {
-  // Hidden, the selectors answer a constant, so the meter-rate frames render nothing behind another pane.
-  const visible = usePaneVisible();
-  const out = useEngineState((s) =>
-    visible ? Math.round(s.levels[index] ?? -Infinity) : -Infinity,
-  );
-  const input = useEngineState((s) =>
-    visible && armed
-      ? Math.round(s.inputLevels[index] ?? -Infinity)
-      : -Infinity,
-  );
-  return (
-    <>
-      {/* live VU: a faint green fill behind the label, SCALED from the left rather than resized so it never reflows (@studio/engine-browser docs/meters.md). */}
-      <div
-        className="pointer-events-none absolute inset-y-0 left-0 w-full origin-left bg-emerald-500/20"
-        style={{ transform: `scaleX(${vuFill(out) / 100})` }}
-      />
-      {/* armed input meter, pinned to the bottom edge; the faint track shows at silence, so a quiet armed input still reads as armed. */}
-      {armed && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-red-500/20">
-          <div
-            className="h-full w-full origin-left bg-red-500"
-            style={{ transform: `scaleX(${vuFill(input) / 100})` }}
-          />
-        </div>
-      )}
-    </>
-  );
-}
-
-/** Which attribute set a lane is playing, drawn only when it HAS a choice — amber away from the first, and the click opens the lane's ⋮ menu (packages/song/docs/alternatives.md). */
-function LaneAlternative({
-  track,
-  names,
-  current,
-  onOpen,
-}: {
-  track: string;
-  names: string[];
-  current: string;
-  onOpen: (at: { x: number; y: number }) => void;
-}) {
-  const away = current !== names[0];
-  const title = `${track}: alternative '${current}' of ${names.length} — ${names.join(", ")}. Click to switch or add one.`;
-  return (
-    <button
-      type="button"
-      aria-haspopup="menu"
-      // The gutter is too narrow to repeat the lane's name, so the tooltip carries it.
-      title={title}
-      aria-label={title}
-      // As the m/s/a buttons do: the gutter is the row's handle, and opening this must not also move the caret.
-      onPointerDown={(e) => e.stopPropagation()}
-      onDoubleClick={(e) => e.stopPropagation()}
-      onClick={(e) => {
-        e.stopPropagation();
-        const r = e.currentTarget.getBoundingClientRect();
-        onOpen({ x: r.left, y: r.bottom + 2 });
-        // Or the next Space re-opens this menu instead of rolling the transport — see blurOnClick.
-        blurOnClick(e);
-      }}
-      className={cn(
-        "shrink-0 rounded-sm px-1 font-mono text-[9px] leading-none",
-        away
-          ? "bg-amber-400/20 text-amber-400 hover:bg-amber-400/30"
-          : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground",
-      )}
-    >
-      {current}
-    </button>
-  );
-}
-
 // The lanes' grid layer is `Grid`, in Ruler.tsx beside the ticks it matches — its memo is documented there.
 
 interface Caret {
   row: RowKey; // identity, not an index — a lane added or removed renumbers the rows
   beat: number; // >= 0 a beat cell; LABEL the row's label
-}
-
-/** One field of a picture placement, in seconds — what a finished drag asks the shell to write. */
-// By INDEX in the lane's `events:`, which is the only address that is unique: one source may be
-// placed twice, and an ACTIVATION names no source at all (song-video/docs/shapes.md).
-export interface VideoEdit {
-  index: number;
-  field: "start" | "source_from" | "length";
-  value: number;
-}
-
-// The shortest shot a drag may leave, in seconds: `length: 0` already MEANS 'to the end of the source'.
-const V_MIN = 0.04;
-// Seconds drawn for a `length: 0` placement, whose real extent needs the source opened to know.
-const V_NATURAL = 4;
-
-/** A picture placement in hand, in seconds throughout; `pxPerSec` and the ticks are captured at the GRAB, so a zoom mid-drag cannot slide the shot. */
-interface VDrag {
-  trackId: string;
-  index: number; // its place in the lane's `events:` — see VideoEdit
-  // An event with no `ref`: a span saying the lane is ON, with no source to trim (docs/shapes.md).
-  activation: boolean;
-  // Where the press landed: the body moves the shot, an edge trims it. See docs/picture.md.
-  mode: "move" | "in" | "out";
-  origStart: number;
-  origLength: number; // 0 == to the end of the source
-  origFrom: number;
-  /** How fast the source runs under the shot, signed; absent is 1 — what a head trim multiplies (song-video/docs/speed.md). */
-  speed?: number;
-  start: number; // live
-  length: number; // live; still 0 while a length-0 placement is only being moved
-  x: number; // pointer x at grab
-  pxPerSec: number;
-  moved: boolean;
-  pending?: boolean; // written, still drawn until the reload — as Move.pending is
-}
-
-/** The extent a placement is DRAWN at: its own, or the placeholder a length-0 shot gets. */
-const drawnLength = (length: number): number =>
-  length > 0 ? length : V_NATURAL;
-
-/** Where a picture drag puts the shot, in seconds — PURE and exported for its tests, since nothing in this app mounts a component. */
-export function videoDragTo(
-  v: Pick<
-    VDrag,
-    | "mode"
-    | "origStart"
-    | "origLength"
-    | "origFrom"
-    | "start"
-    | "length"
-    | "speed"
-  >,
-  deltaSec: number,
-  snapSec: (sec: number) => number,
-): { start: number; length: number } {
-  const drawn = drawnLength(v.origLength);
-  if (v.mode === "move")
-    return { start: snapSec(v.origStart + deltaSec), length: v.length };
-  if (v.mode === "in") {
-    // The head follows the pointer, the source's in-point follows the head, and the EXTENT shortens by the same amount.
-    // Forwards, the head cannot pass the source's first frame; a freeze or a reverse never reaches it that way.
-    const speed = v.speed ?? 1;
-    const floor =
-      speed > 0 ? v.origStart - v.origFrom / speed : Number.NEGATIVE_INFINITY;
-    const start = Math.max(
-      Math.min(snapSec(v.origStart + deltaSec), v.origStart + drawn - V_MIN),
-      floor,
-    );
-    return { start, length: drawn - (start - v.origStart) };
-  }
-  const end = Math.max(
-    snapSec(v.origStart + drawn + deltaSec),
-    v.origStart + V_MIN,
-  );
-  return { start: v.start, length: end - v.origStart };
-}
-
-/** The fields a finished picture drag writes, in SECONDS — the left edge writes three, and each is load-bearing (docs/picture.md). */
-export function videoDragEdits(v: VDrag): VideoEdit[] {
-  if (v.mode === "out")
-    return [{ index: v.index, field: "length", value: v.length }];
-  const edits: VideoEdit[] = [
-    { index: v.index, field: "start", value: v.start },
-  ];
-  if (v.mode === "in") {
-    const delta = v.start - v.origStart;
-    // An ACTIVATION has no source: its left edge moves the start and leaves the end where it was.
-    if (!v.activation)
-      edits.push({
-        index: v.index,
-        field: "source_from",
-        value: Math.max(0, v.origFrom + delta * (v.speed ?? 1)),
-      });
-    edits.push({
-      index: v.index,
-      field: "length",
-      value: Math.max(V_MIN, v.length),
-    });
-  }
-  return edits;
-}
-
-/** Whether a finished drag left the placement exactly where it was — then nothing is written. */
-export function videoDragIsStill(v: VDrag): boolean {
-  return (
-    v.start === v.origStart &&
-    (v.mode !== "out" || v.length === drawnLength(v.origLength))
-  );
 }
 
 // The `v` selection: a vim-style anchor + head, both holding a real beat (a rectangle is a region of the lane).
