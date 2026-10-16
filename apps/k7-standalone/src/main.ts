@@ -18,7 +18,7 @@ import {
 import type { SupervisorHost } from "@studio/supervisor-host/supervisorHost";
 import { LOCAL_SIGN_IN } from "@studio/web-protocol/handoff";
 import { PORTS_ENV } from "@studio/web-protocol/services";
-import { session } from "electron";
+import { app, session } from "electron";
 import standalone from "../../k7/backend/standalone.json";
 import { startBackend } from "./backends.ts";
 import {
@@ -36,6 +36,7 @@ import {
 } from "./paths.ts";
 import { chooseServer, chosenServer } from "./server.ts";
 import { signIn } from "./signIn.ts";
+import { failedPage, startingPage } from "./splash.ts";
 import { startSupervisor } from "./supervisor.ts";
 import { openTabbedWindow, type TabbedWindow } from "./window.ts";
 
@@ -72,6 +73,8 @@ const K7_GRANTS = {
 let backends: Server[] = [];
 let supervisor: SupervisorHost | null = null;
 let win: TabbedWindow | null = null;
+/** The backend answered: a window opened from now on loads k7 at once. */
+let started = false;
 
 /** No service worker here: one left by an earlier run hangs the first navigation, and a local origin has nothing to precache — docs/standalone.md. */
 async function noServiceWorker(): Promise<void> {
@@ -102,6 +105,7 @@ function openWindow(): void {
   win = openTabbedWindow({
     origin: K7,
     homeUrl: LOCAL_HOME,
+    splashUrl: startingPage(),
     webPreferences,
     icon: appIcon(),
     onSignIn: (server) => {
@@ -120,13 +124,21 @@ function openWindow(): void {
   win.win.on("closed", () => {
     win = null;
   });
+  if (started) win.start();
 }
 
 async function boot(): Promise<void> {
   const dirs = stateDirs();
   mkdirSync(dirs.root, { recursive: true });
-  openLog(dirs.log);
+  openLog(dirs.log, { echo: !app.isPackaged });
   line("app", `state in ${dirs.root}`);
+  // Before the first page, the splash included: what k7's frames may use, everything else refused (docs/standalone.md, "Permissions").
+  installPermissions(session.defaultSession, {
+    origins: [K7],
+    grants: K7_GRANTS,
+  });
+  // At once, on a splash: a cold start or a first library seed would otherwise show nothing for seconds.
+  openWindow();
   await assertPortsFree([PORTS.k7]);
 
   const engine = engineBinary();
@@ -154,22 +166,27 @@ async function boot(): Promise<void> {
   else line("app", "no k7-supervisor build found — running without an engine");
 
   backends = [startBackend(PORTS.k7, env, dirs.root)];
-  await Promise.all(backends.map((b) => waitListening(b)));
+  // The workers are cleared while the backend starts; both before the first k7 page.
+  await Promise.all([
+    ...backends.map((b) => waitListening(b)),
+    noServiceWorker(),
+  ]);
   line("app", "backend up");
-  await noServiceWorker();
-  // Before the first page: what k7's frames may use, everything else refused (docs/standalone.md, "Permissions").
-  installPermissions(session.defaultSession, {
-    origins: [K7],
-    grants: K7_GRANTS,
-  });
   watchSignOut();
-  openWindow();
+  started = true;
+  if (win) win.start();
+  else openWindow();
 }
 
 runApp({
   title: "k7",
   logPath: stateDirs().log,
   boot,
+  // Shown in the window when it is open; the app then quits when it is closed.
+  showFailure: (why) => {
+    win?.fail(failedPage(why, stateDirs().log));
+    return win !== null;
+  },
   stop: async () => {
     // The supervisor first: it deregisters from k7, which must still be up to hear it.
     await supervisor?.stop();
@@ -177,7 +194,7 @@ runApp({
   },
   onSecondInstance: () => win?.focus(),
   onActivate: () => {
-    if (!win && backends.length) openWindow();
+    if (!win && started) openWindow();
   },
   devIcon: appIcon(),
 });
