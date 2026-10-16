@@ -6,7 +6,7 @@
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { connect, type Socket } from "node:net";
-import { isAbsolute, join, normalize, relative, sep } from "node:path";
+import { isAbsolute, join, normalize, relative } from "node:path";
 import { isAudio } from "@studio/mediatek/media";
 
 /** What a host must tell this package before anything can play. */
@@ -291,6 +291,3 @@ export async function state(userEmail: string): Promise<PlayerState> {
     idle: isIdle,
   };
 }
-
-/** Exported for the guard's test, which has no business knowing `sep`. */
-export const PATH_SEP = sep;

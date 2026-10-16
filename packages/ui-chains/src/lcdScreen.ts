@@ -75,9 +75,6 @@ export type PanelVisible = (
   panel: PanelFrame,
 ) => Readonly<Record<string, boolean>> | undefined;
 
-/** The reserved key — a screen cannot be named this, and the builder says so. */
-export const VISIBLE_KEY = "visible";
-
 /** How many tap points a screen keeps — ~6 s at 44.1 kHz with the engine's 256-sample bucket. */
 export const LCD_HISTORY = 1024;
 

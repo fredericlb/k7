@@ -81,8 +81,3 @@ export function manifestAt(family: Family): {
   });
   return next;
 }
-
-/** Forget every held manifest — for tests, and for a root that changed under us. */
-export function resetManifests(): void {
-  held.clear();
-}

@@ -14,7 +14,7 @@ asked of a machine, and nothing is asked of the person who happened to click fir
 The sweep's predicate is `readSidecar(master) === null` — no sidecar at all. A sidecar that no
 longer matches the bytes beside it is a different question with a different answer: the reader
 checks the fingerprint, and the surface that read it asks for a fresh analysis
-(`ensureAnalysed`). Sweeping for staleness would mean fingerprinting the whole library on every
+(`ensureAnalysedShared`). Sweeping for staleness would mean fingerprinting the whole library on every
 pass to find the handful of files somebody replaced.
 
 The predicate is asked through `sidecarPresent`, which answers what `readSidecar` would without
@@ -39,7 +39,7 @@ analysed by the surface that made it.
 
 ## One gate for every decode
 
-The sweep, `/analyse` and `/envelope` all decode through `apps/k7/backend/src/media/analysisGate.ts`: one decode
+The sweep, `/analyse` and `/envelope` all decode through `../../src/media/analysisGate.ts`: one decode
 per file at a time, shared by whoever asks during it, and at most two at once. A decode holds the
 file's whole mono signal — about 1.4 GB for two hours at 48 kHz — and a listener flipping through
 songs asks for one per song, so an ungated route is a memory ceiling the users set. The same
@@ -78,7 +78,7 @@ same song again gets a 304 decided on two `stat`s, before anything is read or co
 `GET /api/mediatek/analysis` reports the state: what it is on, how many are left, what failed, and
 whether there is a decoder. That route exists because a sweep with no readout is indistinguishable
 from a sweep that died. A different question — one FILE's own measurement, not the sweep's
-progress — is `GET /api/mediatek/envelope`: `ensureAnalysed` under the same fingerprint check, its
+progress — is `GET /api/mediatek/envelope`: `ensureAnalysedShared` under the same fingerprint check, its
 `rms`/`transients`/`sampleRate`/`seconds` returned as JSON. The rehearsal server's `songEnvelope.ts` is its first
 caller, for the songbook's reference track — a path outside `songs/`, so the sweep never reaches
 it, and the route measures it on request instead.

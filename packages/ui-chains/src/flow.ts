@@ -52,8 +52,6 @@ export interface NodeFlow {
   video: number;
 }
 
-export const NO_FLOW: NodeFlow = { audio: STILL, midi: STILL, video: STILL };
-
 /** What a cable of this kind takes from the node feeding it. `event` follows the notes it is. */
 export function flowOf(
   seed: NodeFlow,

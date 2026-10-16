@@ -8,7 +8,6 @@ import {
   readFileSync,
   renameSync,
   rmSync,
-  statSync,
 } from "node:fs";
 import { fromYaml } from "@studio/k7x/from-yaml";
 import { applyYaml, toYaml } from "@studio/k7x/yaml-bridge";
@@ -115,8 +114,6 @@ export function wsCopy(from: string, to: string): void {
   const real = realPath(from);
   copyFileSync(real, isK7xPath(real) ? k7xSibling(to) : to);
 }
-
-export const wsStat = (path: string) => statSync(realPath(path));
 
 /** A parser's findings on a file read through wsRead, placed on the .k7x file's own lines when that is the file. */
 export function wsIssues(path: string, issues: ModuleIssue[]): ModuleIssue[] {

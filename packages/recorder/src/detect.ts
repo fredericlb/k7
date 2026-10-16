@@ -1,6 +1,6 @@
 import type { DetectedEvent, Envelope } from "./types";
 
-// The backend detector, ported to run live during a take — ../docs/recorder.md.
+// Finds a take's moments in the browser, live during the take and again over a session's envelope — ../docs/recorder.md.
 
 // Detected moments shorter than this are ignored — a brief blip isn't a moment.
 const MIN_EVENT_SEC = 4;
@@ -23,7 +23,7 @@ export function detectEvents(
 ): DetectResult {
   const minSilenceSec = num(opts.minSilenceSec, 2);
   const samples = env?.samples;
-  if (!samples || !samples.length)
+  if (!samples?.length)
     return { threshold: 0, minSilenceSec, peak: 0, events: [] };
 
   const dt = env.intervalMs / 1000;

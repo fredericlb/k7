@@ -33,10 +33,6 @@ export const NOT_SUPPORTED_REF = `${META_NS}/not-supported`;
 /** Its category: not a type folder, so nothing can be authored under it — the module has no folder. */
 export const NOT_SUPPORTED_CATEGORY = "misc";
 
-/** Is this what an unsupported plugin's node extends? One spelling, so a typo cannot half-work. */
-export const isNotSupportedRef = (ref: unknown): boolean =>
-  ref === NOT_SUPPORTED_REF;
-
 // --- the track modules (see docs/trackModules.md) --------------------------------
 
 /** The three modules a LANE is a node of — three and not five, since a lane is not typed by its signal (docs/trackModules.md). */

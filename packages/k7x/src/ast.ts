@@ -46,8 +46,6 @@ export type K7Path = readonly (string | number)[];
 
 export const isMap = (n: unknown): n is K7MapNode =>
   (n as K7Node | undefined)?.kind === "map";
-export const isList = (n: unknown): n is K7ListNode =>
-  (n as K7Node | undefined)?.kind === "list";
 export const isScalar = (n: unknown): n is K7ScalarNode =>
   (n as K7Node | undefined)?.kind === "scalar";
 

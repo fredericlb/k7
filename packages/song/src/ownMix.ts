@@ -29,13 +29,6 @@ export function ownsBlend(m: BlendShape | undefined): boolean {
   );
 }
 
-/** The params of `params` that are the plugin's OWN blend — what such a module may not set. */
-export function ownMixParams(
-  params: Record<string, unknown> | undefined,
-): string[] {
-  return Object.keys(params ?? {}).filter((n) => ownMixSide(n) !== null);
-}
-
 /** Does the engine set the level INTO this module? Any audio module — an effect, whatever its inputs. */
 export function takesInputVolume(m: BlendShape | undefined): boolean {
   return !!m && (m.kind ?? "plugin") === "plugin" && m.category === "audio";

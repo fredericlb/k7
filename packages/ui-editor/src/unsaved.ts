@@ -15,9 +15,6 @@ const onBeforeUnload = (e: BeforeUnloadEvent) => {
   e.returnValue = "";
 };
 
-/** True while any pane is holding work that is not on disk — for a host that wants to ask before it navigates. */
-export const hasUnsaved = (): boolean => claims.size > 0;
-
 /** Hold the tab while `active`. The claim is this hook instance's, so releasing one never releases another's. */
 export function useUnsavedGuard(active: boolean): void {
   const id = useId();
