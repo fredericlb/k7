@@ -2,6 +2,7 @@
 // done to it, stems included. "Hidden" only keeps it out of a page's dropdown — ../../../rehearsal-server/docs/pages.md.
 
 import { Badge } from "@frediverse/ui/badge";
+import { confirmLoss } from "../confirm";
 import { m } from "../paraglide/messages.js";
 import type { ReleaseVersion, SongEnvelope } from "../types";
 import { TrackCard, type TrackMenuEntry } from "./TrackCard";
@@ -60,8 +61,8 @@ export function VersionCard({
       label: m["version.delete"](),
       danger: true,
       separatorBefore: true,
-      onSelect: () => {
-        if (confirm(m["common.confirmDeleteNamed"]({ name: v.name })))
+      onSelect: async () => {
+        if (await confirmLoss(m["common.confirmDeleteNamed"]({ name: v.name })))
           onDelete();
       },
     },

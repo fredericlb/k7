@@ -11,6 +11,7 @@ import {
   readBackedUpTake,
 } from "@studio/recorder";
 import { useEffect, useState } from "react";
+import { confirmLoss } from "../confirm";
 import { m } from "../paraglide/messages.js";
 
 const megabytes = (n: number) => (n / 1024 / 1024).toFixed(1);
@@ -32,7 +33,13 @@ export function RecoveredTakes() {
   if (takes.length === 0) return null;
 
   const discard = async (take: BackedUpTake) => {
-    if (!confirm(m["recover.discardConfirm"]())) return;
+    if (
+      !(await confirmLoss(
+        m["recover.discardConfirm"](),
+        m["recover.discard"](),
+      ))
+    )
+      return;
     await forgetTake(take.id);
     setTakes((all) => all.filter((t) => t.id !== take.id));
   };

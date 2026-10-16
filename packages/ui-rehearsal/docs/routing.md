@@ -56,3 +56,12 @@ links sent to an audience, and installed PWAs. Why `k7` resolves to k7's origin 
 `src/rtc.ts` opens `${apiBase}/rtc` on the same host; the server takes upgrades on `/rtc` alone
 and leaves every other one to the engine registry (`packages/rehearsal-server/docs/audio.md`). In
 dev, k7's Vite server proxies `/rtc` as a WebSocket path (`apps/k7/frontend/vite.config.ts`).
+
+## A confirmation is asked in the page
+
+A deletion is confirmed through `@frediverse/ui/ask` (`src/confirm.ts`), never `window.confirm`,
+whose box ignores the page's language, its focus and its Escape. The dialog needs an `<AskHost/>`
+of that same module, and k7's pages mount the one from `@studio/project-shell/ask`, a different
+module with a host of its own; so the rehearsal pages mount theirs where they are drawn, in
+`RehearsalRoutes` and in `RehearsalSettings`. Without it `askConfirm` answers no, and a delete
+button does nothing.

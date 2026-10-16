@@ -11,6 +11,7 @@ import {
   MomentStateIcon,
   type useMomentShare,
 } from "../components/MomentServerShare";
+import { confirmLoss } from "../confirm";
 import { dayKey, dayKeyToDate, fmtDay, fmtTime } from "../format";
 import { locale } from "../i18n";
 import { m } from "../paraglide/messages.js";
@@ -99,7 +100,7 @@ export function RecordingsTimeline({
 
   const remove = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!confirm(m["session.confirmDelete"]())) return;
+    if (!(await confirmLoss(m["session.confirmDelete"]()))) return;
     await onDeleteSession(id);
   };
 

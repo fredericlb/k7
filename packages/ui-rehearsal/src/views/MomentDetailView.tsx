@@ -17,6 +17,7 @@ import {
   MomentStateIcon,
   ShareMomentButton,
 } from "../components/MomentServerShare";
+import { confirmLoss } from "../confirm";
 import { fmtDate, fmtTime, sessionTitle } from "../format";
 import { m } from "../paraglide/messages.js";
 import type { Moment } from "../types";
@@ -87,7 +88,7 @@ export function MomentDetailView({
   };
 
   const remove = async () => {
-    if (!confirm(m["moment.confirmDelete"]())) return;
+    if (!(await confirmLoss(m["moment.confirmDelete"]()))) return;
     await onDelete();
   };
 

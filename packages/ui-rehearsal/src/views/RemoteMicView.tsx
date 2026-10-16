@@ -1,6 +1,13 @@
 import { Card } from "@frediverse/ui/card";
 import { Circle, Mic, MicOff } from "@frediverse/ui/icons";
 import { Label } from "@frediverse/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@frediverse/ui/select";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { useRemoteInput } from "../hooks/useRemoteInput";
@@ -16,6 +23,9 @@ type Status =
   | "error";
 
 // The /remote device: this machine's mic, streamed on demand — ../../docs/audio.md.
+// Radix allows no empty value: the browser's default input stands for "no device chosen".
+const DEFAULT_DEVICE = "__default__";
+
 export function RemoteMicView() {
   const input = useRemoteInput();
   const [status, setStatus] = useState<Status>("starting");
@@ -182,46 +192,60 @@ export function RemoteMicView() {
           <div className="remote-inputs">
             <div className="remote-field">
               <Label htmlFor="remote-device">{m["remote.device"]()}</Label>
-              <select
-                id="remote-device"
-                value={input.deviceId ?? ""}
+              <Select
+                value={input.deviceId || DEFAULT_DEVICE}
                 disabled={!input.outputStream}
-                onChange={(e) => input.setDevice(e.target.value)}
+                onValueChange={(v) =>
+                  input.setDevice(v === DEFAULT_DEVICE ? "" : v)
+                }
               >
-                {input.devices.length === 0 && (
-                  <option value="">{m["remote.defaultMic"]()}</option>
-                )}
-                {input.devices.map((d, i) => (
-                  <option key={d.deviceId || i} value={d.deviceId}>
-                    {d.label || m["remote.inputN"]({ n: i + 1 })}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="remote-device">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rehearsal-root">
+                  {input.devices.length === 0 && (
+                    <SelectItem value={DEFAULT_DEVICE}>
+                      {m["remote.defaultMic"]()}
+                    </SelectItem>
+                  )}
+                  {input.devices.map((d, i) => (
+                    <SelectItem
+                      key={d.deviceId || i}
+                      value={d.deviceId || DEFAULT_DEVICE}
+                    >
+                      {d.label || m["remote.inputN"]({ n: i + 1 })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {input.channelCount > 1 && (
               <div className="remote-field">
                 <Label htmlFor="remote-channel">{m["remote.channel"]()}</Label>
-                <select
-                  id="remote-channel"
+                <Select
                   value={
                     input.channel === "mix" ? "mix" : String(input.channel)
                   }
-                  onChange={(e) =>
-                    input.setChannel(
-                      e.target.value === "mix" ? "mix" : Number(e.target.value),
-                    )
+                  onValueChange={(v) =>
+                    input.setChannel(v === "mix" ? "mix" : Number(v))
                   }
                 >
-                  <option value="mix">
-                    {m["remote.mix"]({ n: input.channelCount })}
-                  </option>
-                  {Array.from({ length: input.channelCount }, (_, i) => (
-                    <option key={i} value={i}>
-                      {m["remote.channelN"]({ n: i + 1 })}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="remote-channel">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rehearsal-root">
+                    <SelectItem value="mix">
+                      {m["remote.mix"]({ n: input.channelCount })}
+                    </SelectItem>
+                    {Array.from({ length: input.channelCount }, (_, i) => (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: a channel IS its index
+                      <SelectItem key={i} value={String(i)}>
+                        {m["remote.channelN"]({ n: i + 1 })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>

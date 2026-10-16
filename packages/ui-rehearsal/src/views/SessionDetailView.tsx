@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BackButton } from "../components/BackButton";
 import { MarkerRow } from "../components/MarkerRow";
 import { PlaybackTime, PlayheadWaveform } from "../components/Playhead";
+import { confirmLoss } from "../confirm";
 import { fmtTime, sessionTitle } from "../format";
 import { m } from "../paraglide/messages.js";
 import type {
@@ -660,8 +661,8 @@ function MomentRow({
         size="sm"
         aria-label={m["moment.delete"]()}
         title={m["moment.delete"]()}
-        onClick={() => {
-          if (confirm(m["moment.confirmDelete"]())) onDelete(ann.id);
+        onClick={async () => {
+          if (await confirmLoss(m["moment.confirmDelete"]())) onDelete(ann.id);
         }}
       >
         <Trash2 className="size-4" />

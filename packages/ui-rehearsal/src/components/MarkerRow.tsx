@@ -5,6 +5,7 @@ import { Button } from "@frediverse/ui/button";
 import { Flag, Trash2 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { useEffect, useState } from "react";
+import { confirmLoss } from "../confirm";
 import { fmtTime } from "../format";
 import { m } from "../paraglide/messages.js";
 import type { Marker } from "../types";
@@ -55,9 +56,12 @@ export function MarkerRow({ marker, onSeek, onUpdate, onDelete }: Props) {
           size="sm"
           aria-label={m["marker.delete"]()}
           title={m["marker.delete"]()}
-          onClick={() => {
+          onClick={async () => {
             // A bare marker is one tap to put back; its comment is not.
-            if (!marker.comment || confirm(m["marker.confirmDelete"]()))
+            if (
+              !marker.comment ||
+              (await confirmLoss(m["marker.confirmDelete"]()))
+            )
               onDelete(marker.id);
           }}
         >
