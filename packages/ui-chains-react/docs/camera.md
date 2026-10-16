@@ -60,7 +60,7 @@ drifting under the pointer during the glide and snapping back at the end.
 
 ## The wheel is a PAN. The pinch is the zoom.
 
-`isZoomWheel` is the whole rule: `ctrlKey` (or `metaKey`) means zoom, anything else means pan.
+`isZoomWheel` (shared with the timeline, `@studio/ui-timeline/panZoom`) is the whole rule: `ctrlKey` (or `metaKey`) means zoom, anything else means pan.
 
 That is not a preference, it is the only signal there is. On a Mac trackpad — and on a Windows
 precision touchpad — a **pinch** arrives as a wheel event with `ctrlKey` set, synthesised by the

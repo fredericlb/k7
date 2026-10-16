@@ -133,6 +133,7 @@ import type { RowSeam } from "@studio/ui-chains/rowSeams";
 import { type TakeReadout, takeReadout } from "@studio/ui-chains/takeClock";
 import { pinchFactor, spreadOf } from "@studio/ui-chains/zoomGesture";
 import { usePointerFollow } from "@studio/ui-timeline/drag";
+import { isMouseWheel, isZoomWheel } from "@studio/ui-timeline/panZoom";
 import {
   createContext,
   memo,
@@ -153,8 +154,6 @@ import {
   flyStep,
   frameBox,
   frameOriginX,
-  isMouseWheel,
-  isZoomWheel,
   type Lod,
   lodFor,
   sameLod,
@@ -800,7 +799,7 @@ function Knob({
 }
 
 /** The song's clock as the host knows it: what turns the engine's seconds into the beats a curve is written in. */
-export interface SongClock {
+interface SongClock {
   tempo: number;
   num: number;
   den: number;
@@ -1752,7 +1751,7 @@ function hasLeadColumn(n: GraphNode): boolean {
 }
 
 /** One corner bubble, in the order they sit: the corner first, then leftwards. */
-export type CornerButton = "plugin" | "open";
+type CornerButton = "plugin" | "open";
 
 /** Which bubbles a node's corner shows — ONE list, read by three things, docs/nodeCard.md. */
 function cornerButtons(n: GraphNode): CornerButton[] {
@@ -3105,7 +3104,7 @@ export interface ChainsCamApi {
   set: (c: Cam) => void;
 }
 
-export interface FitToOpts {
+interface FitToOpts {
   /** Keep the zoom this fit computed and only CENTRE on this node — used to walk a chain. */
   panOnly?: GraphNode;
   /** `"height"` fills the height and lets the set run off the right, where it pans — docs/camera.md. */
@@ -3114,7 +3113,7 @@ export interface FitToOpts {
   zoom?: number;
 }
 
-export type FitToFn = (nodes: GraphNode[], opts?: FitToOpts) => boolean;
+type FitToFn = (nodes: GraphNode[], opts?: FitToOpts) => boolean;
 
 // The open tab in its column's view: a column longer than its card scrolls, and a lit tab out of sight says nothing.
 function keepTabInView(el: HTMLButtonElement | null) {

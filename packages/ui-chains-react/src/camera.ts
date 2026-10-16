@@ -14,8 +14,8 @@ export interface Cam {
 // Carried over verbatim from the WebGL renderer, so the feel is identical.
 export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 4;
-export const WIDGET_MIN_SCALE = 0.6; // below this the widget grid is dropped (unreadable anyway)
-export const LABEL_MIN_SCALE = 0.4; // …and below this the text goes too
+const WIDGET_MIN_SCALE = 0.6; // below this the widget grid is dropped (unreadable anyway)
+const LABEL_MIN_SCALE = 0.4; // …and below this the text goes too
 
 // A line, in pixels, for the browsers that measure a wheel in lines rather than pixels.
 const LINE_PX = 16;
@@ -24,30 +24,6 @@ export const ZOOM_HALF_LIFE = 45;
 
 export const clampZoom = (k: number): number =>
   Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, k));
-
-/** Which gesture a wheel event IS: a pinch arrives with `ctrlKey` set, anything else pans — docs/camera.md. */
-export const isZoomWheel = (e: {
-  ctrlKey: boolean;
-  metaKey: boolean;
-}): boolean => e.ctrlKey || e.metaKey;
-
-/** Below this, a pixel-mode delta is a finger rather than a detent. A notch is ~100 (Chrome). */
-const MOUSE_NOTCH_MIN = 40;
-
-/** A mouse WHEEL rather than a surface, from three signals in order of reliability — docs/camera.md. */
-export function isMouseWheel(e: {
-  deltaX: number;
-  deltaY: number;
-  deltaMode: number;
-  wheelDeltaY?: number;
-}): boolean {
-  if (e.deltaMode !== 0) return true;
-  const legacy = e.wheelDeltaY;
-  if (typeof legacy === "number" && legacy !== 0)
-    return Math.abs(legacy) % 120 === 0;
-  if (e.deltaX !== 0) return false;
-  return Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= MOUSE_NOTCH_MIN;
-}
 
 /** One wheel delta in PIXELS: `deltaMode` may report lines or pages, a 30× difference — docs/camera.md. */
 export function wheelPixels(
