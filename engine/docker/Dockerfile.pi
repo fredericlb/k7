@@ -1,0 +1,63 @@
+# syntax=docker/dockerfile:1
+#
+# k7-runtime for a Raspberry Pi — the engine and its supervisor on a 64-bit Pi OS, playing through the
+# Pi's own sound card (a USB interface, in practice) over ALSA, with no PulseAudio in between.
+# The build stage is Dockerfile's, tuned for the Cortex-A53 and with arm64 cache ids; docs/pi-engine.md.
+#
+# Build from the repo root, on an arm64 machine (an Apple Silicon Mac, not the Pi itself):
+#   docker build --platform linux/arm64 -f engine/docker/Dockerfile.pi -t k7-runtime-pi .
+
+# ---- build: the two CMake projects and the script that stages them, nothing else of the repo ----
+FROM --platform=linux/arm64 node:24-bookworm AS build
+# Dockerfile's set, minus JACK: JUCE_JACK is off, and the Pi image has nothing to link it against.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential cmake ninja-build ccache git ca-certificates pkg-config python3 \
+      libssl-dev \
+      libasound2-dev libfreetype6-dev libfontconfig1-dev \
+      libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev \
+      libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev \
+      libcurl4-openssl-dev ladspa-sdk \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY engine/k7-runtime engine/k7-runtime
+COPY engine/k7-supervisor engine/k7-supervisor
+COPY packages/supervisor-host/scripts packages/supervisor-host/scripts
+# Empty is cores − 2: a JUCE or Tracktion unity file takes a gigabyte to compile (engine/k7-runtime/docs/build.md).
+ARG BUILD_JOBS=
+# Scheduled for the Pi 3's in-order A53; the code stays plain ARMv8.0 and runs on a Pi 4 or 5 as well.
+ENV CFLAGS="-mcpu=cortex-a53" CXXFLAGS="-mcpu=cortex-a53"
+ENV STUDIO_COMPILER_LAUNCHER=ccache CCACHE_DIR=/root/.ccache
+# Cache ids of their own, so a builder that also makes the server image never links its objects into this one.
+RUN --mount=type=cache,id=k7-pi-runtime-build,target=/src/engine/k7-runtime/build,sharing=locked \
+    --mount=type=cache,id=k7-pi-supervisor-build,target=/src/engine/k7-supervisor/build,sharing=locked \
+    --mount=type=cache,id=k7-pi-ccache,target=/root/.ccache,sharing=locked \
+    set -eu; \
+    export CMAKE_BUILD_PARALLEL_LEVEL="${BUILD_JOBS:-$(( $(nproc) > 2 ? $(nproc) - 2 : 1 ))}"; \
+    cd /src/engine/k7-runtime; \
+    [ -f build/release-gcc/CMakeCache.txt ] || cmake --preset release-gcc -DSTUDIO_BUILD_TESTS=OFF; \
+    cmake --build --preset release-gcc; \
+    cd /src/engine/k7-supervisor; \
+    [ -f build/release-gcc/CMakeCache.txt ] || cmake --preset release-gcc; \
+    cmake --build --preset release-gcc --target k7-supervisor; \
+    node -e "import('/src/packages/supervisor-host/scripts/stageEngine.mjs').then((m) => m.stageEngine({ repo: '/src', bin: '/opt/k7' }))"
+
+# ---- runtime -------------------------------------------------------------------
+FROM --platform=linux/arm64 debian:bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      tini ca-certificates libasound2 alsa-utils \
+      libfreetype6 libfontconfig1 libcurl4 \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=build /opt/k7 /opt/k7
+# A library the binaries link and this stage lacks fails the build here, not the first start.
+RUN ! ldd /opt/k7/k7-runtime /opt/k7/k7-supervisor | grep "not found"
+COPY --chmod=755 engine/docker/pi-entrypoint.sh /usr/local/bin/k7-runtime-entrypoint
+
+# The sound card is /dev/snd, owned by `audio`, which is gid 29 on Debian and on Pi OS alike.
+RUN useradd --system --create-home --home-dir /home/k7 --groups audio k7 \
+ && mkdir -p /engine-home && chown k7:k7 /engine-home
+USER k7
+ENV HOME=/home/k7
+ENV STUDIO_HOME=/engine-home
+VOLUME ["/engine-home"]
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/k7-runtime-entrypoint"]
