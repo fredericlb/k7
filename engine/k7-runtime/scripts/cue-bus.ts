@@ -128,18 +128,18 @@ async function main() {
   // The reference the routed render must EQUAL: the same document with no cue source in it at all.
   const cueAbsent = await render([source("onMix", 45, "busMix"), bus("busMix")]);
 
-  console.log(`1 dest, muté (donc ROUTÉ)     : ${oneRouted.toFixed(1)} dBFS`);
-  console.log(`2 dests, source mutée         : ${twoMuted.toFixed(1)} dBFS`);
-  console.log(`2 dests, source non mutée     : ${twoOpen.toFixed(1)} dBFS`);
-  console.log(`cue sur la paire 3+4, + 1 bus  : ${cueRouted.toFixed(1)} dBFS`);
-  console.log(`le même cue sur le mix        : ${cueOnMix.toFixed(1)} dBFS`);
-  console.log(`la source de cue RETIRÉE      : ${cueAbsent.toFixed(1)} dBFS`);
+  console.log(`1 dest, muted (so ROUTED)     : ${oneRouted.toFixed(1)} dBFS`);
+  console.log(`2 dests, source muted         : ${twoMuted.toFixed(1)} dBFS`);
+  console.log(`2 dests, source not muted     : ${twoOpen.toFixed(1)} dBFS`);
+  console.log(`cue on the 3+4 pair, + 1 bus  : ${cueRouted.toFixed(1)} dBFS`);
+  console.log(`the same cue on the mix       : ${cueOnMix.toFixed(1)} dBFS`);
+  console.log(`the cue source REMOVED        : ${cueAbsent.toFixed(1)} dBFS`);
 
   // The control has to make a sound, or neither comparison means anything.
   const controlAudible = oneRouted > -40;
   const mutedBusFeedsSends = twoMuted > -40;
   console.log(
-    `\n0. deux départs portent le signal   : ${twoOpen > -40 ? "OUI" : "NON"}`,
+    `\n0. two sends carry the signal       : ${twoOpen > -40 ? "YES" : "NO"}`,
   );
   // The mix is still there in all three — so a silent file would be a broken render, not a working cue.
   const cueIsAudibleOnMix = cueOnMix > -40 && cueRouted > -40 && cueAbsent > -40;
@@ -149,16 +149,16 @@ async function main() {
     Math.abs(cueRouted - cueAbsent) < 0.2 && cueOnMix - cueRouted > 1;
 
   console.log(
-    `\n1. un bus MUTÉ alimente ses départs : ${mutedBusFeedsSends ? "OUI" : "NON"}`,
+    `\n1. a MUTED bus feeds its sends      : ${mutedBusFeedsSends ? "YES" : "NO"}`,
   );
   console.log(
-    `2. outputChannels sort du mix       : ${cueStaysOffTheMix ? "OUI" : "NON"}`,
+    `2. outputChannels leaves the mix    : ${cueStaysOffTheMix ? "YES" : "NO"}`,
   );
   const ok = controlAudible && cueIsAudibleOnMix && cueStaysOffTheMix;
   console.log(
     ok
-      ? "OK — le cue ne peut pas fuir dans le master"
-      : `ECHEC — control=${controlAudible} cueOnMix=${cueIsAudibleOnMix} offMix=${cueStaysOffTheMix}`,
+      ? "OK — the cue cannot leak into the master"
+      : `FAIL — control=${controlAudible} cueOnMix=${cueIsAudibleOnMix} offMix=${cueStaysOffTheMix}`,
   );
   process.exit(ok ? 0 : 1);
 }
