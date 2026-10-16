@@ -4,6 +4,7 @@
 // browser go by exactly the same rules. See docs/playlists.md.
 
 import { parse as parseYaml } from "yaml";
+import { isDocFile } from "./docExt";
 
 /** The folder a workspace keeps its playlists in, beside `_modules` — see docs/playlistFile.md. */
 export const PLAYLISTS_DIR = "_playlists";
@@ -18,7 +19,7 @@ export function playlistPathOf(name: string): string | null {
   const segs = clean.split("/");
   if (segs.some((s) => !s || s === "." || s === "..")) return null;
   const rel = segs.join("/");
-  return `${PLAYLISTS_DIR}/${/\.(ya?ml|k7x)$/i.test(rel) ? rel : `${rel}${PLAYLIST_EXT}`}`;
+  return `${PLAYLISTS_DIR}/${isDocFile(rel) ? rel : `${rel}${PLAYLIST_EXT}`}`;
 }
 
 /** One line of a playlist; `song` is kept VERBATIM, since resolving it needs the médiathèque listing. */

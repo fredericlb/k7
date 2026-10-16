@@ -25,6 +25,7 @@ import {
   wsRead,
   wsWrite,
 } from "@studio/song/yaml/workspaceFile";
+import { stripDocExt } from "@studio/song-schema/docExt";
 import { currentEngine, engineNames } from "@studio/song-schema/engines";
 import {
   ACCOUNT_LIBRARY,
@@ -126,7 +127,7 @@ export function listNodePresets(dir: string, node: string): NodePresets {
     if (!wsExists(folder)) continue;
     const names = readdirSync(folder, { withFileTypes: true })
       .filter((e) => e.isFile() && isDocName(e.name))
-      .map((e) => e.name.replace(/\.(ya?ml|k7x)$/i, ""))
+      .map((e) => stripDocExt(e.name))
       .filter((n) => PRESET_NAME.test(n))
       .sort((a, b) => a.localeCompare(b));
     for (const name of names) presets.push({ scope, name });

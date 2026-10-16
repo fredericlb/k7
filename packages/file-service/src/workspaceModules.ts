@@ -30,6 +30,7 @@ import {
   wsRead,
   wsWrite,
 } from "@studio/song/yaml/workspaceFile";
+import { isDocFile } from "@studio/song-schema/docExt";
 import {
   ENGINE_NS,
   type ModuleNamespace,
@@ -49,9 +50,6 @@ export interface ModulesHost {
   assertLibraryWritable(abs: string, verb?: string): void;
   invalidateProjectDoc(): void;
 }
-
-// A project FILE by name — every "file or folder?" test asks this rather than naming an extension.
-const PROJECT_FILE = /\.(ya?ml|k7x)$/i;
 
 /** `@engine` as a library — synthesised, not a folder. See docs/workspace.md. */
 function engineLibrary(): ModuleLibrary | null {
@@ -214,7 +212,7 @@ export function baseSnapshotPathOf(
 
 /** The module folder `abs` names: the folder itself, or the folder of a file inside it. */
 function moduleDirOf(abs: string): string {
-  return PROJECT_FILE.test(basename(abs)) ? dirname(abs) : abs;
+  return isDocFile(basename(abs)) ? dirname(abs) : abs;
 }
 
 // Clone a module folder under a new name; `rel` may be the folder or any file inside it.

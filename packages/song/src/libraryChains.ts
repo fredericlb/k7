@@ -9,6 +9,7 @@
 
 import { type Dirent, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { stripDocExt } from "@studio/song-schema/docExt";
 import {
   DEFAULT_LIBRARY,
   libraryRef,
@@ -89,7 +90,7 @@ function walkChains(library: string, chainsRoot: string): LibraryChainDir[] {
       const sub = (name: string) => (path ? `${path}/${name}` : name);
       if (e.isDirectory()) walk(join(at, e.name), sub(e.name));
       else if (e.isFile() && isDocName(e.name)) {
-        const p = sub(e.name.replace(/\.(ya?ml|k7x)$/i, ""));
+        const p = sub(stripDocExt(e.name));
         out.push({
           ref: libraryRef(library, p),
           library,

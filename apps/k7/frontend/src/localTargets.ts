@@ -3,6 +3,7 @@
 // person types the short name they can see rather than the workspace-relative path. Pure, so
 // the resolution is tested in a repo where nothing mounts a component.
 
+import { docPattern } from "@studio/song-schema/docExt";
 import { fuzzyScore } from "./fuzzy";
 import { norm } from "./projectPaths";
 
@@ -25,7 +26,7 @@ export const resolveEntry = (
 ): string | null => bestMatch(arg, entries);
 
 /** A module folder's own `module.yaml` — what the builder opens on. */
-const MODULE_FILE = /(^|\/)module\.(?:ya?ml|k7x)$/i;
+const MODULE_FILE = docPattern("(^|/)module");
 
 /** The module file a name means — MODULES FIRST, then the whole project, so `ui builder ampli` cannot land on `clips/ampli`. */
 export function resolveModuleFile(

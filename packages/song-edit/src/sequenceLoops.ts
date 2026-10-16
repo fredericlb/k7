@@ -17,6 +17,7 @@ import {
   wsRead,
   wsWrite,
 } from "@studio/song/yaml/workspaceFile";
+import { stripDocExt } from "@studio/song-schema/docExt";
 import {
   halveSequenceLoops,
   type KeptLoop,
@@ -63,7 +64,7 @@ export function halveLoopsOf(
     const { text, halved, kept } = isChain
       ? halveInChain(before, ref)
       : halveSequenceLoops(before, ref);
-    const lane = rel.slice(rel.indexOf("/") + 1).replace(/\.(ya?ml|k7x)$/i, "");
+    const lane = stripDocExt(rel.slice(rel.indexOf("/") + 1));
     out.kept.push(...kept.map((k) => ({ ...k, lane })));
     if (!halved) continue;
     snapshot?.(path);

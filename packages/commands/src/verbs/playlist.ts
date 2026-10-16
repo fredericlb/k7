@@ -15,6 +15,7 @@ import {
 import { familyDir } from "@studio/mediatek/layout";
 import { isAudio } from "@studio/mediatek/media";
 import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { stripDocExt } from "@studio/song-schema/docExt";
 import {
   appendPlaylistItem,
   movePlaylistItem,
@@ -100,10 +101,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
     try {
       mkdirSync(dirname(found.abs), { recursive: true });
       // The STUB rather than an empty file, which would open on a parse failure. See docs/playlist.md.
-      wsWrite(
-        found.abs,
-        playlistStub(basename(found.rel).replace(/\.(ya?ml|k7x)$/i, "")),
-      );
+      wsWrite(found.abs, playlistStub(stripDocExt(basename(found.rel))));
     } catch (e) {
       return h.refuse([`playlist new: ${(e as Error).message}`]);
     }

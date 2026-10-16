@@ -21,8 +21,6 @@ import { convertChecked } from "../k7xMigrate";
 export const K7X_EXT = ".k7x";
 const YAML_NAME = /\.ya?ml$/i;
 const K7X_NAME = /\.k7x$/i;
-/** A name a workspace file of either format may have — what an extension test should accept. */
-export const DOC_NAME = /\.(ya?ml|k7x)$/i;
 
 /** The deploy switch, STUDIO_K7X: off, `1` (every device reads k7x), or `only` (YAML is no longer read). */
 export type K7xMode = "off" | "everywhere" | "only";

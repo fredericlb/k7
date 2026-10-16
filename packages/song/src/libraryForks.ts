@@ -6,6 +6,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { docPattern } from "@studio/song-schema/docExt";
 import type { LibraryVersion } from "@studio/song-schema/libraryVersions";
 import {
   ACCOUNT_LIBRARY,
@@ -15,6 +16,8 @@ import {
 import { parse as parseYaml } from "yaml";
 import { accountLibraryHome, libraryVersionRoot } from "./sharedFolders";
 import { isDocName, wsRead } from "./yaml/workspaceFile";
+
+const MODULE_FILE = docPattern("^module", "");
 
 /** One fork: the workspace module, and the library module it extends. */
 export interface LibraryFork {
@@ -37,7 +40,7 @@ function moduleFiles(dir: string): string[] {
     if (name.startsWith(".")) continue;
     const abs = join(dir, name);
     // The module file in either spelling, the .k7x one first, as moduleIO's lookup reads it.
-    if (/^module\.(ya?ml|k7x)$/.test(name) && isDocName(name)) {
+    if (MODULE_FILE.test(name) && isDocName(name)) {
       if (name === "module.k7x" || !entries.includes("module.k7x"))
         out.push(abs);
     } else if (statSync(abs).isDirectory()) out.push(...moduleFiles(abs));

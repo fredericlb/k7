@@ -7,6 +7,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
+import { stripDocExt } from "@studio/song-schema/docExt";
 import { formatChain, parseChain } from "@studio/song-schema/yaml/chainFile";
 import {
   CHAINS_DIR,
@@ -93,8 +94,8 @@ export function readChainProject(dir: string): ChainProject {
   // By chain NAME, each read once from chainFilePath, since `x.k7x` and `x.yaml` are one chain.
   const names = new Set<string>();
   for (const f of readdirSync(folder)) {
-    const m = /^(.+)\.(?:ya?ml|k7x)$/i.exec(f);
-    if (m && isDocName(f)) names.add(m[1]);
+    const name = stripDocExt(f);
+    if (name && isDocName(f)) names.add(name);
   }
   // `polysynth-copy` sorts before `polysynth` by file name but not by chain name, and lanes follow this order.
   for (const name of [...names].sort((p, q) => (p < q ? -1 : p > q ? 1 : 0))) {

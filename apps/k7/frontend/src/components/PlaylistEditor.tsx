@@ -5,6 +5,7 @@
 import { Button } from "@frediverse/ui/button";
 import { ArrowLeft, ListMusic, Loader2 } from "@frediverse/ui/icons";
 import type { MediatekEntry } from "@studio/mediatek/types";
+import { stripDocExt } from "@studio/song-schema/docExt";
 import {
   appendPlaylistItem,
   movePlaylistItem,
@@ -95,11 +96,8 @@ export function PlaylistEditor({
     let alive = true;
     setContent(null);
     setStatus("");
-    const stem =
-      path
-        .split("/")
-        .pop()
-        ?.replace(/\.(?:ya?ml|k7x)$/i, "") ?? "playlist";
+    const name = path.split("/").pop();
+    const stem = name === undefined ? "playlist" : stripDocExt(name);
     void api
       .read(path)
       .then((f) => {
