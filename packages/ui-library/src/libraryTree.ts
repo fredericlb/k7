@@ -5,7 +5,6 @@
 import type { TreeNode } from "@frediverse/ui/file-tree";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { MediatekEntry } from "@studio/mediatek/types";
-import { folderAt } from "./assetTree";
 
 /** Is this entry a SONG? The family alone answers — the scan stopped at the folder (../docs/library.md). */
 export const isSong = (e: MediatekEntry): boolean => e.family === "songs";
@@ -34,6 +33,22 @@ export const isSongFolder = (
   const e = path ? entryAt(entries, path) : null;
   return !!e && isSong(e);
 };
+
+/** Walk a folder path into `roots`, creating what is missing, and hand back the level inside. */
+export function folderAt(roots: TreeNode[], rel: string): TreeNode[] {
+  let level = roots;
+  let sofar = "";
+  for (const part of rel.split("/").filter(Boolean)) {
+    sofar = sofar ? `${sofar}/${part}` : part;
+    let node = level.find((n) => n.name === part);
+    if (!node) {
+      node = { name: part, path: sofar, dir: true, children: [] };
+      level.push(node);
+    }
+    level = node.children ??= [];
+  }
+  return level;
+}
 
 /** The family's entries as a folder tree, from their paths alone — and the paired server's `remote` ones, filed among them (../docs/library.md). */
 export function treeOf(

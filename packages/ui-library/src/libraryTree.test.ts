@@ -1,8 +1,10 @@
+import type { TreeNode } from "@frediverse/ui/file-tree";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
 import {
   bytes,
   entryAt,
+  folderAt,
   isSongFolder,
   remoteRows,
   treeOf,
@@ -110,5 +112,36 @@ describe("the server's entries in the tree", () => {
       "Nirvana",
       "Nirvana/Nevermind",
     ]);
+  });
+});
+
+describe("folderAt", () => {
+  it("creates what is missing and hands back the level inside", () => {
+    const roots: TreeNode[] = [];
+    const level = folderAt(roots, "audio/amp");
+    level.push({ name: "module.yaml", path: "audio/amp/module.yaml" });
+    expect(roots).toEqual([
+      {
+        name: "audio",
+        path: "audio",
+        dir: true,
+        children: [
+          {
+            name: "amp",
+            path: "audio/amp",
+            dir: true,
+            children: [{ name: "module.yaml", path: "audio/amp/module.yaml" }],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("reuses a folder it already made", () => {
+    const roots: TreeNode[] = [];
+    folderAt(roots, "audio/amp");
+    folderAt(roots, "audio/fuzz");
+    expect(roots).toHaveLength(1);
+    expect(roots[0]?.children?.map((n) => n.name)).toEqual(["amp", "fuzz"]);
   });
 });

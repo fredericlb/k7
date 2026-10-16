@@ -101,6 +101,6 @@ badge, the destination and the `QueueButton`.
 ## Tests
 
 `npm test -w @studio/ui-library` covers the pure modules: `routes.test.ts`, `libraryTree.test.ts`,
-`assetTree.test.ts`, `api.test.ts`, `poll.test.ts`, `serverSets.test.ts`,
+`api.test.ts`, `poll.test.ts`, `serverSets.test.ts`,
 `playback/queue.test.ts`, `playback/targets.test.ts`. Nothing mounts a component: check a visual
 change in the running app.
