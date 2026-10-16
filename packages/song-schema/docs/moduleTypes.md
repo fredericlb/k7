@@ -238,7 +238,7 @@ on its own, so the lane offers BOTH outputs and every event leaves by the one it
 What is left to say is where the events come from (written down, or streamed) and whether this is a
 relationship rather than a lane at all (`packages/song/docs/trackModules.md`).
 
-`TRACK_OUT_AUDIO` / `TRACK_OUT_MIDI` / `TRACK_OUTPUTS` are re-exported from `@studio/graph-model`,
+`TRACK_OUTPUTS` is re-exported from `@studio/graph-model`,
 beside `splitPort`, and for the same reason: the RENDERER draws a jack per entry and does not depend
 on this package, so a second copy here is where the sockets and the ports would come to disagree
 about how many there are or which is first. The re-export is because this is where every
@@ -247,10 +247,9 @@ module-vocabulary caller already looks. The same holds for `PORT_SEP`, `portRef`
 graph renderer can reach, and `ui-chains` draws ported edges while deliberately not depending on
 this package (`packages/song/docs/ports.md`).
 
-`LEGACY_TRACK_REFS` is kept as NAMES the way `LEGACY_MEDIATEK_NS` is: a file saying
-`@meta/sequence-track` names a module that does not exist, and the loader is entitled to say which
-one it means instead of leaving a reader to guess. There is no migration code, deliberately — the
-same call `packages/song/docs/nodes.md` and
+The retired signal-typed lane spellings (`@meta/sequence-track`…) have no constant here: nothing
+resolves them, and a file saying one names a module that does not exist, which the loader reports
+as such. There is no migration code, deliberately — the same call `packages/song/docs/nodes.md` and
 `packages/song/docs/trackModules.md` already made.
 
 ## The three levels

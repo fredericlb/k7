@@ -13,19 +13,6 @@ import {
 } from "@studio/song-schema/moduleTypes";
 import type { LoadedModule, RawPlacement } from "./rawDoc";
 
-export {
-  GROUP_TRACK_REF,
-  isTrackRef,
-  LEGACY_TRACK_REFS,
-  STRUDEL_TRACK_REF,
-  TRACK_CATEGORY,
-  TRACK_OUT_AUDIO,
-  TRACK_OUT_MIDI,
-  TRACK_OUTPUTS,
-  TRACK_REF,
-  TRACK_REFS,
-} from "@studio/song-schema/moduleTypes";
-
 /** What tells the three apart, and the only thing that does — see docs/trackModules.md. */
 interface TrackShape {
   group?: boolean;

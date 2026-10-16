@@ -51,20 +51,4 @@ export const TRACK_REFS = [
 ] as const;
 
 /** The two output ports every non-group lane offers, from `@studio/graph-model` so the renderer cannot disagree (docs/moduleTypes.md). */
-export {
-  TRACK_OUT_AUDIO,
-  TRACK_OUT_MIDI,
-  TRACK_OUTPUTS,
-} from "@studio/graph-model";
-
-/** The signal-typed lane refs a project on disk may carry, for the DIAGNOSTIC alone — nothing resolves these (docs/moduleTypes.md). */
-export const LEGACY_TRACK_REFS: Record<string, string> = {
-  [`${META_NS}/audio-track`]: TRACK_REF,
-  [`${META_NS}/sequence-track`]: TRACK_REF,
-  [`${META_NS}/audio-strudel-track`]: STRUDEL_TRACK_REF,
-  [`${META_NS}/sequence-strudel-track`]: STRUDEL_TRACK_REF,
-};
-
-/** Is this what a lane extends? Asked of an authored `extends:`, before anything is resolved. */
-export const isTrackRef = (ref: unknown): boolean =>
-  (TRACK_REFS as readonly unknown[]).includes(ref);
+export { TRACK_OUTPUTS } from "@studio/graph-model";

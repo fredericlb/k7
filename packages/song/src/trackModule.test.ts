@@ -6,12 +6,16 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MODULE_TYPES, TRACK_CATEGORY } from "@studio/song-schema/moduleTypes";
+import {
+  MODULE_TYPES,
+  TRACK_CATEGORY,
+  TRACK_REFS,
+} from "@studio/song-schema/moduleTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { loadLanes, loadModuleRefs } from "./loader";
 import { compileNodeProject } from "./nodeProject";
-import { isTrack, TRACK_REFS, trackModules } from "./trackModule";
+import { isTrack, trackModules } from "./trackModule";
 
 let dir: string;
 
