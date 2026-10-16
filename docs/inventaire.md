@@ -12,9 +12,8 @@ into configuration. What it does not see: the C++ (`biome.json` excludes it too)
 describes — knip believes what it is told. Its `ignoreWorkspaces` holds only `commons/`, because the
 submodule carries its own docs and its own truth.
 
-Current output: **0 files, 0 dependencies, 0 binaries, 1 export, 0 types and 0 duplicate
-exports** — 1 finding: `SYNC_WAIT_ENGLISH` (`packages/project-shell/src/syncWait.tsx`), left exported
-because `project-shell` is one of the four packages z0 consumes by version. On a checkout where the paraglide
+Current output: **0 files, 0 dependencies, 0 binaries, 0 exports, 0 types and 0 duplicate
+exports**. On a checkout where the paraglide
 catalogues have not been compiled, it also lists every `paraglide/messages.js` import as unresolved:
 those files are generated, not missing.
 
