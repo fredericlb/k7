@@ -12,8 +12,10 @@ into configuration. What it does not see: the C++ (`biome.json` excludes it too)
 describes — knip believes what it is told. Its `ignoreWorkspaces` holds only `commons/`, because the
 submodule carries its own docs and its own truth.
 
-Current output: **1 file, 1 undeclared dependency, 2 undeclared binaries, 120 exports and 45 types**
-— 169 findings.
+Current output: **0 files, 2 unused dependencies, 4 undeclared dependencies, 1 undeclared binary,
+187 exports, 31 types and 1 duplicate export** — 226 findings. On a checkout where the paraglide
+catalogues have not been compiled, it also lists every `paraglide/messages.js` import as unresolved:
+those files are generated, not missing.
 
 > **A rising count can measure a `package.json` that lies less.** A symbol published in an `exports`
 > map is invisible to knip, which takes it as consumed from outside; the same symbol turned internal
@@ -73,7 +75,7 @@ without anyone seeing it.
 | what | how it lives |
 |---|---|
 | `packages/song/src/dspRunner.mjs` | launched as a **child process** by `nodeProject.ts`. It does `import { graph } from "@studio/dsp"`, and the `song → dsp` dependency exists precisely so that import resolves: a song folder has no `node_modules`. |
-| a library module's `jsdsp.ts` | MODULE DSPs, in a library folder rather than this tree. The compiler finds them by filename (`JSDSP_FILE = "jsdsp.ts"`), never by import — so nothing here can see them and knip cannot either. |
+| a library module's `jsdsp.ts` | MODULE DSPs, in a library folder rather than this tree. The compiler finds them by filename (`JSDSP_FILE = "jsdsp.ts"`), never by import, so no import sweep sees them; `knip.json` declares `k7-core/modules/**/jsdsp.ts` an entry. |
 | `songs/**/jsdsp.ts` | same mechanism: a demo song's DSP is data loaded at runtime. |
 | `packages/file-service/src/server.ts` | **spawned** by `packages/file-hub/instances.ts` through `tsx`, one process per account. Zero imports is not zero callers. |
 | `packages/ui-chains-react/src/DomChains.stories.tsx` | picked up by `.storybook/main.ts`'s glob. |
@@ -111,29 +113,27 @@ Shrinking the map therefore deletes almost nothing: it documents the real surfac
 publisher is `song` (5), then three tied at 3 — `engine-browser`, `ui-editor`, `ui-eyes`. The "publish all of `src/`"
 reflex.
 
-`ui-turntables` publishes **4** — `.`, `/surface`, `/engine`, `/deck-set`. Its other internal
-plumbing stays reachable by relative import inside the package.
+The desk (`packages/k7-plugins/src/turntables`) publishes **1** subpath, `/turntables/engine`. Its
+other plumbing stays reachable by relative import inside the package.
 
 ## 2. Genuinely orphaned — nothing reaches it
 
 | what | where | note |
 |---|---|---|
-| `index.ts` | `packages/ui-eyes/src/` | the convenience barrel. Its own header says "the subpaths are the real API", which is exactly what callers do. **Kept** because deleting it takes `export.ts` and `FrameClock` with it — that is the WebCodecs block, a product decision. |
-| `export.ts` | `packages/ui-eyes/src/` | **reachable only through the dead barrel above**: `exportScene` (the frame-by-frame WebCodecs export) is therefore reachable by nothing. No surface mounts a button for it. |
+| `index.ts` | `packages/ui-eyes/src/` | the convenience barrel. Its own header says "the subpaths are the real API", which is exactly what callers do. `export.ts` does not depend on it: `exportScene` is reached through its own `/export` subpath (k7's `useShare.ts`, by dynamic import) and through `renderPage.ts`, the page `file-service`'s `pictureRender.ts` drives. |
 | `probeLocalEngine` | `packages/engine-browser/src/probe.ts` | the registry does this work. Deleting a loopback probe nothing replays is to be decided, not left to rot. |
 | type `Signal` | `packages/dsp/src/index.ts` | `@deprecated`, not one reference left in the whole repo. |
-| `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts` | the two CodeMirror extensions that replace `notes:` **in place**, in the text. The grids' only host (k7, `SeqGrid.tsx`) goes through `mountSeqGrid`, which renders the same grid in a separate container. They keep one property `mountSeqGrid` has not — the YAML envelope stays visible around the grid. |
 | export `AuthUser` | `packages/ui-library/src/api.ts` | used in its own file, imported by nobody: it is the `export` that is surplus. |
 
 ### SYMBOLS, not files
 
 The file lives, the function does not: nobody pronounces that name anywhere, not even the file
 declaring it. From pass 4; the three already described elsewhere on this page
-(`probeLocalEngine`/`isReachable`, `rollGridPlugin`/`trackerPlugin`, `ChainsPanel`) are not repeated.
+(`probeLocalEngine`, `ChainsPanel`) are not repeated.
 
 | symbol | where | note |
 |---|---|---|
-| `FrameClock` | `packages/ui-eyes/src/clock.ts` | the clock the **exporter** advances — and `export.ts` is already dead two lines above. The WebCodecs path is dead whole: the barrel, `exportScene`, and the clock driving it. To be cut in one block. |
+| `FrameClock` | `packages/ui-eyes/src/clock.ts` | a clock advanced frame by frame; the exporter keeps its own time and does not use it. |
 | `isDocRef` | `packages/song-schema/src/moduleTypes.ts` | a type guard nothing interrogates. |
 | `listAll` | `packages/mediatek/src/catalogue.ts` | |
 | `PATH_SEP` | `packages/mpv-player/src/player.ts` | |
@@ -142,13 +142,13 @@ declaring it. From pass 4; the three already described elsewhere on this page
 **A further 232 symbols are pronounced only by their own test.** That is not dead code — it is the
 choice, taken everywhere here, of testing a constant or a computation step rather than the single
 public function wrapping them. Counted so the figure does not surprise the next pass:
-`ui-turntables/deck.ts` (10), `ui-chains/cableCanvas.ts` (9), `ui-chains/graph.ts` (9).
+`k7-plugins/src/turntables/deck.ts` (10), `ui-chains/cableCanvas.ts` (9), `ui-chains/graph.ts` (9).
 
 **Tooling with no entry point** — programs, not dead code, but nothing wires them:
 
-- `packages/song/scripts/` — no npm script wires it in. Eight migrations, and
-  `packages/song/src/moduleMigrate.ts` (350+ lines) exists only for `migrateModules.ts`. The folder
-  grows by one migration per rename, and nothing removes them once played.
+- `packages/song/scripts/` — run by hand, apart from `checkPanelBinds.ts`, which is `npm run lint:panels`.
+  `migrateK7x.ts` turns a workspace's YAML files into `.k7x`; `projectFingerprint.ts` records what a
+  real project compiles to, to diff before and after a refactor.
 - `packages/k7-plugins/scripts/turntables/put-on.ts` — this one is **documented** and run by hand
   (`../packages/k7-plugins/docs/turntables/hosting.md`); it measures a SOUND, which no unit test does.
 
@@ -187,13 +187,13 @@ The same chromatic table and the same arithmetic (`((k%12)+12)%12`, `Math.floor(
 |---|---|
 | `packages/ui-editor/src/tracker/RollGrid.ts` | `NOTE_NAMES` |
 | `packages/ui-editor/src/tracker/TrackerGrid.ts` | `NAMES2` (two characters: `C-`) |
-| `apps/k7/frontend/src/components/PianoRoll.tsx` | `NAMES`, exported as `noteName` |
+| `apps/k7/frontend/src/noteNames.ts` | `NAMES`, behind `noteName` |
 | `apps/k7/frontend/src/components/IoPanel.tsx` | `NOTE_NAMES` |
 | `packages/ui-rehearsal/src/utils/pitch.ts` | `NOTE_NAMES` |
 | `packages/lyrics/src/chords.ts` | `SHARP` |
 
 Two aggravating details. The first two are in **the same folder of the same package**. And
-`PianoRoll.tsx` carries the comment "one spelling of a key, wherever it is read" — true within k7,
+`noteNames.ts` calls itself "one spelling of a MIDI key, for every view" — true within k7,
 false the moment you step into `@studio/ui-editor`, which k7 already depends on and which has two of
 its own. The predicate follows: `isBlack = [1,3,6,8,10].includes(...)`, identical in two files.
 
@@ -201,17 +201,15 @@ Not addressed: it is a decision about **where to put the table**, not a cleanup.
 
 ### STRUCTURAL copies — the ones an import cannot resolve
 
-Three duplications that cannot be removed without inverting a dependency or poisoning a bundle.
-Written here so they stop being mistaken for laziness.
+A duplication that cannot be removed without inverting a dependency or poisoning a bundle.
+Written here so it stops being mistaken for laziness.
 
 | what is doubled | why it stays |
 |---|---|
-| The `-100 dBFS` floor: `PEAK_FLOOR_DB` (`audio-analysis/src/peak.ts`), `MIN_DB` (`audio-probe/src/trimGate.ts`), and three times in `@studio/dsp` | `trimGate` is **browser-safe** — k7's clip panel imports it — and `peak.ts` spawns a decoder. Sharing the constant would bring a process launcher into the browser to save one number. Tried, reverted. The generated JSON cannot import at all |
-| `FileEnvelope` (`commands/waveform.ts`) ≡ `Envelope` (`ui-turntables/waveform.ts`) | `ui-turntables` does not depend on `@studio/commands`. Both depend on `web-protocol`, which already holds `RegionWaveform` — that is where it would go |
-| `isMouseWheel`: `ui-timeline/panZoom.ts` ≡ `ui-chains-react/camera.ts` | Telling a wheel from a trackpad — three signals (`deltaMode`, `wheelDeltaY`'s 120s, the shape of the delta), identical on both sides. Neither package can depend on the other: `ui-timeline` has **no** `@studio/` dependency and the graph would be importing a package named for the arrangement. Defensible here because **both sides are tested**, case by case. The natural home would be a DOM-gesture package that does not exist; creating one for a ten-line function is a decision, not a cleanup |
+| The `-100 dBFS` floor: `PEAK_FLOOR_DB` (`audio-analysis/src/peak.ts`), `MIN_DB` (`audio-probe/src/trimGate.ts`), and three times in `@studio/dsp` | `trimGate` is **browser-safe** — k7's clip panel imports it — and `peak.ts` spawns a decoder. Sharing the constant would bring a process launcher into the browser to save one number. The generated JSON cannot import at all |
 
-The rehearsal server's detector (`packages/rehearsal-server/src/detect.ts`) has no twin left, but it is tested nowhere — which is
-what the copies above have when they defend themselves.
+The rehearsal recorder has one detector, in the browser (`packages/recorder/src/detect.ts`). It is
+tested nowhere — which is what the copy above has when it defends itself.
 
 ### Cosmetic, but real
 
