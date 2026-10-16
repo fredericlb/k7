@@ -45,8 +45,7 @@ The button is off and disabled in two cases with different remedies, and it says
 | the MACHINE has named no pair (`cueLive`) | "name it with `system cue 3+4`, or the cue plays nowhere" |
 
 The second is the one that gets forgotten, and without it the button **would light up and do
-nothing** — which [hosting.md](hosting.md) already refuses for "Listen here": a command that
-cannot be honoured is worse than an absent one.
+nothing** — and a command that cannot be honoured is worse than an absent one.
 
 The desk knows this without asking for anything new: the compiled document's cue track carries
 its `outputChannels`, and `leavesByItsOwnPair` reads them. That function asks about CHANNELS and
@@ -56,18 +55,6 @@ so trusting the mute would grey out the EQ knobs. A test pins the distinction.
 `deck<X>.cue` is **offered without being required** — it is not in `REQUIRED_CONTROLS`, like the
 four stems and for the same kind of reason: a machine with one output pair has nowhere to send a
 headphone feed, and a desk that refused to draw itself there would be wrong.
-
-## Not to be confused with "Listen here"
-
-Two neighbouring commands, two different questions, hence two icons:
-
-| | what it is | icon |
-|---|---|---|
-| **CUE A / B** | one deck to the interface's **second pair** — the DJ's headphones | headphones |
-| **Listen here** | the master streamed into **this tab**, for a laptop with no monitoring | a laptop |
-
-The second is [hosting.md](hosting.md)'s, and is absent on a host with no stream player. The
-first depends on the machine, not on the host.
 
 ## Where it leaves, and what happens when there is nowhere
 

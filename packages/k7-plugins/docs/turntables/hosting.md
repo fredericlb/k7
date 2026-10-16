@@ -58,16 +58,12 @@ the file routes are `@studio/project-shell`'s `projectApi`, the catalogue types 
 playlist RESOLUTION are `@studio/mediatek`'s, and the playlist format is `@studio/song`'s. A
 seam over those would be a seam over something that is already one thing.
 
-### Listening in the tab is optional, and its absence is deliberate
+### The desk does not stream into the tab
 
-`Deck.setListening` is the one seam member the desk draws a control for only when the host
-supplies it. The "Écouter ici" checkbox is **off by default**: the sound already comes out of the
-machine's audio interface, so streaming it into the tab doubles it. On a laptop with no monitors
-it is the only way to hear anything, which is why it exists at all.
-
-A host with no stream player gets **no checkbox**, not a disabled one. A checkbox that cannot be
-honoured is worse than none: it says the sound could be here, and the only thing it changes is
-your confidence about why it is not.
+The sound leaves through the machine's audio interface, and the seam carries no way to hear it in
+the browser: no host has a stream player. The desk draws no "Listen here" control, not a disabled
+one — a control that cannot be honoured says the sound could be here, and the only thing it
+changes is your confidence about why it is not.
 
 ### Two services, two credentials
 

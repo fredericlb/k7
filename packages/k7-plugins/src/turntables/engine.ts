@@ -40,13 +40,6 @@ export interface Deck {
   engine: EngineClient | null;
   /** Play this document — a seam, because who may write to an engine is the HOST's answer (docs/hosting.md). */
   sendProject: (doc: ProjectDoc) => void;
-  /** Reconnect. OPTIONAL and unread here — what a host WOULD wire a "réessayer" button to. */
-  retry?: () => void;
-  /** Hear the engine's output in this tab — OPTIONAL, and its absence means the host cannot monitor at all. */
-  listening?: boolean;
-  setListening?: (on: boolean) => void;
-  /** Underruns and buffer depth, once listening — the numbers étape 7 exists to expose. */
-  listenStats?: { depth: number; underruns: number };
   /** Every WATCHED plugin's live values — an external store, so turning a knob re-renders no app. */
   params: PluginParamsStore;
   /** Watch exactly these plugins: without it a knob draws the file's number for ever. */
