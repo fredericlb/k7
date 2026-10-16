@@ -51,3 +51,5 @@ tilt.local.yaml
 .design-sync/
 .ds-sync/
 ds-bundle/
+# The server image's bundle (apps/k7/backend/scripts/bundle.mjs --in-tree).
+server-dist/

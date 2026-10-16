@@ -110,16 +110,30 @@ function maxFromEnv(): number {
 }
 
 /** tsx over `@studio/file-service`'s entry, resolved from here so the image needs no path configured. */
+/** Node's own flags for a file service: a heap ceiling when the deployment names one, so one account cannot take the box. */
+function nodeFlags(): string[] {
+  const mb = Number(process.env.STUDIO_FILE_SERVICE_HEAP_MB);
+  return Number.isInteger(mb) && mb > 0 ? [`--max-old-space-size=${mb}`] : [];
+}
+
 function defaultCommand(): { cmd: string; args: string[]; cwd: string } {
-  // A bundled backend (the Android app) names its bundled file service: there is no tsx and no source.
+  // A bundled backend (the server image, the desktop, the phone) names its bundled file service: no tsx, no source.
   const bundled = process.env.STUDIO_FILE_SERVICE_ENTRY;
   if (bundled)
-    return { cmd: process.execPath, args: [bundled], cwd: dirname(bundled) };
+    return {
+      cmd: process.execPath,
+      args: [...nodeFlags(), bundled],
+      cwd: dirname(bundled),
+    };
   const req = createRequire(import.meta.url);
   const pkg = dirname(req.resolve("@studio/file-service/package.json"));
   return {
     cmd: process.execPath,
-    args: [req.resolve("tsx/cli"), join(pkg, "src", "server.ts")],
+    args: [
+      ...nodeFlags(),
+      req.resolve("tsx/cli"),
+      join(pkg, "src", "server.ts"),
+    ],
     cwd: pkg,
   };
 }
