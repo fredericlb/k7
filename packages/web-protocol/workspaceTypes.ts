@@ -260,13 +260,12 @@ export interface AccountLibrariesReply {
 
 /** The machine's two separating choices and the libraries' COLD chains to make them from — `GET /account/cold-chains`. */
 export interface ColdChainsReply {
-  /**
-   * `@<library>/<path>` refs; `instrumental` when one of its offline steps writes an instrumental;
-   * `unavailable` says why THIS machine cannot run it yet (a model not downloaded), null when it can.
-   */
   chains: {
+    /** `@<library>/<path>`. */
     ref: string;
+    /** One of its offline steps writes an instrumental. */
     instrumental: boolean;
+    /** Why THIS machine cannot run it yet (a model not downloaded), null when it can. */
     unavailable: string | null;
     /** Models it needs that this machine can DOWNLOAD — their module gives a `model_url`. */
     downloads: { file: string; url: string }[];

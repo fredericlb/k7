@@ -512,8 +512,7 @@ export function TimelineTab({
   const engineLoop = useEngineState((s) =>
     s.loop?.on ? `${s.loop.start}|${s.loop.end}` : s.loop ? "off" : "",
   );
-  // Adopted when it CHANGES, not each frame: a reloaded page learns the loop that is playing, and a frame
-  // older than a loop just set here cannot undo it.
+  // Adopted when it CHANGES, not each frame, so a frame older than a loop just set here cannot undo it.
   const lastEngineLoop = useRef("");
   useEffect(() => {
     // Not before the document: a refreshed page hears the engine first, and would mark its loop as adopted with nowhere to draw it.
@@ -2613,9 +2612,8 @@ export function TimelineTab({
                         const length = live ? live.length : c.length;
                         // An ACTIVATION says WHEN this lane is on and names no source (docs/shapes.md).
                         const activation = !c.id;
-                        // A length-0 placement runs to the end of a source nothing has measured, so it draws provisional: dashed and amber.
+                        // Length 0 runs to the end of an unmeasured source (an activation's, to the next one), so it draws provisional: dashed and amber.
                         const provisional = length <= 0;
-                        // …except on an activation, whose length 0 needs no source opened: it runs to the next one.
                         // A retimed shot says so, since nothing else on the strip would: ×0.5, a freeze, a reverse.
                         const pace =
                           c.speed === undefined

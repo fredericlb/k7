@@ -9,8 +9,7 @@ import { modelsRoot } from "@studio/song/modelCache";
 import { PREFS_PATH } from "@studio/song/preferences";
 import { isBinary, skip } from "./workspaceFilter.ts";
 
-// What moves the revision: the YAML or k7x, and a VST's .vstpreset — its params, rewritten IN PLACE by its
-// own window, which is what an automatic freeze must notice (packages/song/docs/autoFreeze.md).
+// What moves the revision; a .vstpreset is rewritten in place by its window — packages/song/docs/autoFreeze.md.
 const REVISION_FILE = /\.(ya?ml|k7x|vstpreset)$/i;
 
 /** One file found by `walkProject`, from a single `statSync` — see docs/workspace.md. */

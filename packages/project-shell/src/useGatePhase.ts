@@ -149,8 +149,7 @@ export function useGatePhase({
         setEmail(userEmail);
         configure(userEmail, ""); // base set; the workspace is what we are about to find
 
-        // `@local` names a folder already here: no lookup and no clone. The account's libraries
-        // are the machine's business — `/open` brings them up to date (docs/launch.md).
+        // `@local` names a folder already here: no lookup, no clone, and `/open` brings the libraries up to date (docs/launch.md).
         if (isLocal(repoName)) {
           const local = localTarget(project);
           if (!local)
@@ -159,8 +158,7 @@ export function useGatePhase({
               hint: wording.current.localUsage ?? LOCAL_USAGE,
             });
           configure(userEmail, local.workspace);
-          // No library is not a refusal here: a song started on this machine may extend nothing
-          // shared, and the project's own "unresolved reference" is the better complaint.
+          // No library is no refusal: the project's own "unresolved reference" is the better complaint.
           for (;;) {
             // The relay first: half a project compiles to "file missing" (syncWait.tsx).
             const synced = await waitForSync(

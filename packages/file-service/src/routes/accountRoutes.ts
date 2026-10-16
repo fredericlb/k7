@@ -74,12 +74,7 @@ accountRouter.get(
   }),
 );
 
-/**
- * WHICH chains this machine separates a record with and makes an instrumental with — standing
- * answers for the machine, so they are k7's GLOBAL settings and answered before
- * `resolveWorkspace`, like the libraries: no project is open when they are set. The choice is
- * from the libraries' COLD chains (`coldChains`). See docs/libraries.md.
- */
+/** The machine's stem and instrumental chains: global settings, answered before any workspace — docs/libraries.md. */
 const coldChainsView = (): ColdChainsReply => {
   const prefs = loadPreferences();
   return {
@@ -131,11 +126,7 @@ accountRouter.put(
   }),
 );
 
-/**
- * Download the models a cold chain needs and this machine has not got — the settings' "Download
- * model" link. What is fetched, and from where, is read off the chain's own modules (`model_url`),
- * never taken from the caller. Answers one job per model, polled below.
- */
+/** Download a cold chain's missing models, from its modules' `model_url`, one polled job each — docs/libraries.md. */
 accountRouter.post(
   "/account/cold-chains/download",
   wrap((req, res) => {

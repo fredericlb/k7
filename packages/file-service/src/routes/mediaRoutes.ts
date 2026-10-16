@@ -115,8 +115,7 @@ mediaRouter.post(
     res.json(req.ws!.waveformStatus());
   }),
 );
-// The Logs panel's two halves: the bound engine machine's `.studio.log` (`?tail=N` seeds, `?offset=X`
-// continues) and this service's own lines (`?after=S` continues) — docs/serviceLog.md.
+// The Logs panel: the engine machine's `.studio.log` (`?tail`, `?offset`) and this service's lines (`?after`) — docs/serviceLog.md.
 mediaRouter.get(
   "/logs",
   wrap(async (req, res) => {

@@ -47,8 +47,7 @@ commandRouter.post(
     // A verb aimed at a library's chain writes it, so it runs only on that library's bench.
     if (target) req.ws!.assertLibraryWritable(target, "run a command on");
     const t0 = performance.now();
-    // The two tokens come OUT of the run, so this route takes no walk of its own — see docs/fileRoutes.md.
-    // The graph is built INSIDE the run, under the token it ended on and beside its reload — docs/fileRoutes.md.
+    // The tokens come out of the run and the graph is built inside it, so no walk of its own — docs/fileRoutes.md.
     const {
       output,
       before,

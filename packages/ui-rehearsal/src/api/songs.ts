@@ -70,11 +70,11 @@ export const songsApi = {
       `/api/songs/${id}/lrclib${duration ? `?duration=${Math.round(duration)}` : ""}`,
     ).then(json),
 
-  // "Fetch song": a library master copied in as the track, and an instrumental mixed from its stems.
-  // The song forgets its library track and instrumental; pl8 keeps the files.
+  // The song forgets its library track and instrumental; the médiathèque keeps the files.
   unlinkSongAudio: (id: string): Promise<Song> =>
     f(`/api/songs/${id}/audio`, { method: "DELETE" }).then(json),
 
+  // "Fetch song": a library master copied in as the track, and an instrumental mixed from its stems.
   copyLibraryTrack: (id: string, path: string): Promise<Song> =>
     f(`/api/songs/${id}/audio/from-library`, {
       method: "POST",

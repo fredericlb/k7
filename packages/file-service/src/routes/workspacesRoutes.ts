@@ -46,11 +46,7 @@ workspacesRouter.get(
     res.json(reply);
   }),
 );
-/**
- * A workspace is not made before the account HAS a library. Every `@<library>/…` a
- * project extends resolves through one, and a workspace made without any opens onto references
- * that resolve to nothing — see docs/libraries.md.
- */
+/** No workspace before a library: its `@<library>/…` refs would resolve to nothing — docs/libraries.md. */
 const NO_LIBRARIES = "no libraries — an admin adds them in k7's Libraries page";
 const hasLibraries = (res: Response): boolean => {
   if (accountLibraries().length) return true;
@@ -89,8 +85,7 @@ workspacesRouter.post(
   wrap(async (req, res) => {
     const { name } = req.body as z.infer<typeof removeWorkspaceBody>;
     try {
-      // The engine first: a project of this workspace still loaded holds files open, and on
-      // Windows that answers EPERM half-way through — see workspaces.ts.
+      // Unload the engine first: a loaded project holds files open, and Windows answers EPERM — docs/workspaces.md.
       await removeWorkspace(req.userEmail!, name, (abs) =>
         unloadEngineIfServing(abs),
       );

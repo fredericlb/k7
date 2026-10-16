@@ -114,11 +114,7 @@ workspaceRouter.get(
   }),
 );
 
-/**
- * Fetch the model a NODE of the open project names and this machine has not got — the right-click's
- * "Download model". The URL is the module's `model_url`, never the caller's; the job is polled at
- * `GET /account/models/:id`. `job: null` is "already here", so a stale menu costs nothing.
- */
+/** Fetch a node's missing model from its module's `model_url`; `job: null` means already here — docs/libraries.md. */
 workspaceRouter.post(
   "/models/download",
   validate(z.object({ node: z.string().min(1) })),

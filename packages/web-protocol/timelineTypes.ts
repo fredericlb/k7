@@ -226,8 +226,7 @@ export interface WebVideoTransition {
   fragment: string;
   params: Record<string, number>;
 }
-// A shape module (mirrors ShapeDoc): a fill or text on the viewport, geometry in px, `color` any CSS
-// colour. `id` is the module NODE that draws it — see packages/song-video/docs/shapes.md.
+/** A shape module (mirrors ShapeDoc), geometry in px; `id` is the NODE that draws it — packages/song-video/docs/shapes.md. */
 export type WebShape =
   | {
       id: string;
@@ -275,8 +274,7 @@ export interface WebVideoPlugin {
   /** The `.cube` LUT the shader reads, workspace-relative (song-video/docs/effects.md). */
   lut?: string;
 }
-// A video-mode lane (mirrors VideoTrackDoc): places picture, shows a lens, or draws the `shapes`
-// wired to it. In draw order (bottom first).
+/** A video lane (mirrors VideoTrackDoc): picture, a lens, or the `shapes` wired to it; in draw order, bottom first. */
 export interface WebVideoTrack {
   id: string;
   name: string;
@@ -292,8 +290,7 @@ export interface WebVideoTrack {
   shapes: WebShape[];
   // This lane's own run, applied to the layer BEFORE it is composited; absent on a lane no run starts at.
   plugins?: WebVideoPlugin[];
-  /** A live CAMERA feeds this lane instead of its placements — the LABEL a node wired to it names,
-   *  and "" for whichever this machine calls default. See packages/song/docs/camera.md. */
+  /** The camera LABEL feeding this lane instead of its placements, "" for the machine's default — packages/song/docs/camera.md. */
   camera?: string;
   /** …and WHEN that lens opens: `off` never, `auto` while the lane is armed, `on` always. */
   cameraMonitor?: "off" | "auto" | "on";

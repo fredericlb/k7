@@ -3,8 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// The two catalogues are one document in two languages: a key in one and not the other is a
-// screen that falls back to its own name, and nothing else in the build says so.
+// A key in one catalogue and not the other falls back to its own name, and nothing else in the build says so.
 
 const here = dirname(fileURLToPath(import.meta.url));
 const read = (locale: string): Record<string, string> =>

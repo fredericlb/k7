@@ -2,9 +2,7 @@
 // what a finished drag writes, and whether it moved at all. In SECONDS throughout, since a picture
 // lane is placed on the clock rather than the bar grid. See ../docs/picture.md.
 
-/** One field of a picture placement, in seconds — what a finished drag asks the shell to write. */
-// By INDEX in the lane's `events:`, which is the only address that is unique: one source may be
-// placed twice, and an ACTIVATION names no source at all (song-video/docs/shapes.md).
+/** One field of a picture placement, in seconds, by INDEX in `events:` — the only unique address (song-video/docs/shapes.md). */
 export interface VideoEdit {
   index: number;
   field: "start" | "source_from" | "length";
@@ -63,8 +61,7 @@ export function videoDragTo(
   if (v.mode === "move")
     return { start: snapSec(v.origStart + deltaSec), length: v.length };
   if (v.mode === "in") {
-    // The head follows the pointer, the source's in-point follows the head, and the EXTENT shortens by the same amount.
-    // Forwards, the head cannot pass the source's first frame; a freeze or a reverse never reaches it that way.
+    // The head follows the pointer and the in-point the head; forwards, the head cannot pass the source's first frame.
     const speed = v.speed ?? 1;
     const floor =
       speed > 0 ? v.origStart - v.origFrom / speed : Number.NEGATIVE_INFINITY;

@@ -37,8 +37,7 @@ entryRouter.post(
     // A workspace from before versions pins what it already hears, once.
     ensureLibraryPins(req.ws!.root, { fresh: false, admin });
     try {
-      // `.` is the WORKSPACE, which now holds several projects: it names one only when the
-      // folder itself is one. Otherwise the workspace decides — see docs/workspaces.md.
+      // `.` names a project only when the workspace folder is one; otherwise the workspace picks — docs/workspaces.md.
       const want = path === "." ? req.ws!.defaultProject() : path;
       // A workspace with no project at all opens as a tree; there is nothing to start.
       if (want) {
@@ -233,8 +232,7 @@ entryRouter.post(
   }),
 );
 
-// A project DROPPED on a workspace: raw body, the file's name and the chosen folder in the query.
-// Nothing is left behind — the bytes are translated, never written into the workspace (docs/import.md).
+// A project dropped on a workspace: its bytes are translated, never written into the workspace (docs/import.md).
 entryRouter.post(
   "/import-upload",
   express.raw({ type: () => true, limit: "512mb" }),

@@ -152,8 +152,7 @@ export abstract class EngineLink {
         for (const cb of this.streamCbs) cb(ev.data, owned);
         return;
       }
-      // The clock starts BEFORE the parse: the type is not known until after it, so a span cannot
-      // open there — which left the parse of a large frame attributed to nothing at all.
+      // The clock starts BEFORE the parse, so a large frame's parse is tallied under its type rather than under nothing.
       const began = performance.now();
       const text = String(ev.data);
       let m: { type?: string };
@@ -170,8 +169,7 @@ export abstract class EngineLink {
       } finally {
         doneDispatch();
       }
-      // Parse AND dispatch, added up per type: a thread saturated by short frames has no span long
-      // enough to name, and this is the line that names it anyway.
+      // Parse AND dispatch, added up per type: what names a thread saturated by frames each too short to be a span.
       this.tally(`ws ${m.type ?? "?"}`, performance.now() - began, text.length);
     };
   }

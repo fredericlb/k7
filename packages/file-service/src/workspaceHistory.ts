@@ -197,8 +197,7 @@ export class WorkspaceHistory {
       if (f.binary) continue;
       const rel = this.host.toRel(f.abs);
       const stamp = `${f.size}:${f.mtimeMs}`;
-      // A file written in the last tick can be rewritten to the same size in the next one, so its
-      // stamp says nothing yet — and this image is what an undo diff is taken against.
+      // A file younger than a tick may be rewritten at the same size, so its stamp is not trusted for the undo image.
       const settled = now - f.mtimeMs > SETTLE_MS;
       const hit = this.textCache.get(rel);
       let text: string;
