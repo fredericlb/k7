@@ -2,8 +2,8 @@
 // folder has no node_modules and should never need one (the `import type` is erased; see dspRunner.mjs).
 //
 // This is @studio/dsp's `fade()` graph, written out here: a module is a FOLDER you can copy, so it carries
-// its own source rather than pointing at a shared library. packages/dsp/src/fade.test.ts holds the two to
-// the same shape.
+// its own source rather than pointing at a shared library. packages/dsp/src/k7core.test.ts holds the two
+// to the same graph.
 
 import type { GraphBuilder } from "@studio/dsp";
 

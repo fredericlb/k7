@@ -3,8 +3,8 @@
 // dspRunner.mjs).
 //
 // This is @studio/dsp's `tremolo()` graph, written out here: a module is a FOLDER you can copy, so it
-// carries its own source rather than pointing at a shared library. packages/dsp/src/tremolo.test.ts
-// holds the two to the same shape.
+// carries its own source rather than pointing at a shared library. packages/dsp/src/k7core.test.ts
+// holds the two to the same graph.
 //
 // The LFO runs at SAMPLE rate. A gain stepped once per block is a ~10 ms staircase, which on a
 // tremolo is the effect itself made of steps — audible as a stutter rather than a swell.

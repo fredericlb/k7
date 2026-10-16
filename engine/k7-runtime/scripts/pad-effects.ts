@@ -4,8 +4,9 @@
 // is the only thing that can say whether they happened.
 //   npx tsx engine/k7-runtime/scripts/pad-effects.ts
 
-import { readFileSync, rmSync } from "node:fs";
+import { rmSync } from "node:fs";
 import { renderProject } from "../../../packages/file-service/src/render.ts";
+import { channelOf, readWav } from "./wav.ts";
 
 const RATE = 48000;
 const TEMPO = 120; // 2 beats per second — a beat is 0.5s, and a 1/4-note pad's step is one beat
@@ -21,42 +22,10 @@ interface Wav {
   mono: Float32Array;
 }
 
-/** Enough of a wav reader for what the engine writes: PCM 16/24/32 or float32, any chunk order. */
-function readWav(path: string): Wav {
-  const b = readFileSync(path);
-  let rate = 0;
-  let channels = 0;
-  let bits = 0;
-  let format = 1;
-  let mono = new Float32Array(0);
-  let i = 12;
-  while (i + 8 <= b.length) {
-    const id = b.toString("ascii", i, i + 4);
-    const size = b.readUInt32LE(i + 4);
-    if (id === "fmt ") {
-      format = b.readUInt16LE(i + 8);
-      channels = b.readUInt16LE(i + 10);
-      rate = b.readUInt32LE(i + 12);
-      bits = b.readUInt16LE(i + 22);
-    } else if (id === "data") {
-      const bytes = bits / 8;
-      const frames = Math.floor(size / (bytes * channels));
-      mono = new Float32Array(frames);
-      for (let n = 0; n < frames; n++) {
-        const o = i + 8 + n * bytes * channels;
-        let s = 0;
-        if (format === 3) s = b.readFloatLE(o);
-        else if (bits === 16) s = b.readInt16LE(o) / 32768;
-        else if (bits === 24)
-          s = ((b[o] | (b[o + 1] << 8) | ((b[o + 2] << 24) >> 8)) << 8) / 2147483648;
-        else if (bits === 32) s = b.readInt32LE(o) / 2147483648;
-        mono[n] = s;
-      }
-      break;
-    }
-    i += 8 + size + (size % 2);
-  }
-  return { rate, mono };
+/** The first channel of what the engine wrote, as floats (./wav.ts reads any chunk order and format). */
+function readMono(path: string): Wav {
+  const w = readWav(path);
+  return { rate: w.rate, mono: channelOf(w) };
 }
 
 /** Where each note ATTACKS, in seconds — what both effects change is how many and when. */
@@ -156,7 +125,7 @@ const inPass = (hits: number[], p: number): number => {
 async function main(): Promise<void> {
   const run = async (label: string, note: Record<string, unknown>) => {
     const out = await renderProject(docFor(note));
-    const hits = attacks(readWav(out.files[0]));
+    const hits = attacks(readMono(out.files[0]));
     rmSync(out.dir, { recursive: true, force: true });
     const perPass = [0, 1, 2, 3].map((p) => inPass(hits, p));
     console.log(

@@ -5,9 +5,7 @@
   "type": "module",
   "description": "Write a module's DSP in JS and emit the graph the engine runs (see engine/DspGraph.h). A build step, never the audio thread.",
   "exports": {
-    ".": "./src/index.ts",
-    "./autowah": "./src/autowah.ts",
-    "./normalize": "./src/normalize.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "build": "tsx src/emit.ts",

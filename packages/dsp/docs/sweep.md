@@ -1,8 +1,9 @@
 # The DJ filter — one knob, two filters, and a travelling resonance
 
-`modules/audio/filter/multimode/engines/sweep/` (the filter module's `sweep` engine) and `packages/dsp/src/sweep.ts` are the same graph written twice: a
-module is a **folder you copy**, so it carries its own source rather than a pointer at the library,
-and `packages/dsp/src/sweep.test.ts` holds the two to the same shape.
+`k7-core/modules/audio/filter/engines/sweep/` (the filter module's `sweep` engine) and
+`packages/dsp/src/sweep.ts` are the same graph written twice: a module is a **folder you copy**, so
+it carries its own source rather than a pointer at the library, and `packages/dsp/src/k7core.test.ts`
+holds the two to the same graph.
 
 One knob that walks a **resonant** corner down to the left and up to the right, silent in the
 middle. This page holds the numbers and the reasons; the code keeps one line of each.

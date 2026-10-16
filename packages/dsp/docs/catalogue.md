@@ -1,15 +1,15 @@
 # The modules written with this library, and why each is what it is
 
-**This repo ships no modules.** A module is `module.yaml`, a panel, and the `jsdsp.ts` or `dsp.dsp`
-that makes the sound, and all of that is authored straight into the account's **library
-repository** — `@studio/song`'s `docs/sharedFolders.md` gives the reason: the library is the
-reference, and a copy in a build would be a second source of truth quietly disagreeing with it.
+A module is its descriptor, a panel, and the `jsdsp.ts` or `dsp.dsp` that makes the sound. The
+modules live in `k7-core/` at the repository root: the **seed** a server's library folder is copied
+from once, and the copy the desktop and phone bundles carry (`@studio/song`'s
+`docs/sharedFolders.md`).
 
-What is here instead is the *reasoning*, for the modules that were designed against this library
-and whose numbers are argued rather than picked. The graphs themselves live in `../src` as
-functions — `echo()`, `autoWah()`, `tremolo()`, `noteRepeat()`, `normalize()`, `crossfade()`,
-`fade()`, `sweep()` — each with a test holding it to the shape a module's copy of it must have.
-That is what makes a module in somebody's library checkable at all from this side.
+What is here is the *reasoning*, for the modules that were designed against this library and whose
+numbers are argued rather than picked. The graphs themselves live in `../src` as functions —
+`echo()`, `autoWah()`, `tremolo()`, `noteRepeat()`, `normalize()`, `crossfade()`, `fade()`,
+`sweepFilter()`, `chorus()`, `phaser()`, `flanger()` — and `../src/k7core.test.ts` holds each
+k7-core `jsdsp.ts` that writes one out to the same emitted graph.
 
 A module's path in a library is `<type folder>/<category>/<name>`. The first segment decides what
 the module IS (`audio`, `instruments`, `transformers`, `io`… — see `@studio/song`'s
@@ -109,31 +109,22 @@ difference is **clamped** before going linear, because the arithmetic has a very
 case: near-silence measures −100 dBFS and would ask for +99 dB, turning hiss into a full-scale
 roar. +30 is generous for anything worth normalising and finite for everything else.
 
-## It is not a seed
+## The seed, and the library it becomes
 
-This folder is copied into no account library. **The reference is the account's libraries
-repository**: what it holds is what a project inherits, and a build shipping its own copy of
-someone's modules would be a second source of truth — two sources can only end up contradicting
-each other. `initIfEmpty` does one thing: give a commit to a repository that has none, so it has
-a branch for the next machine to fetch.
-
-What that costs, said here because here is where you would come looking for a seed: **a new
-library is empty**, so any `@k7-core/…` reference resolves to nothing until something is put in it —
-including the four a scaffolded SET writes for its decks. And an unresolved reference **is not a
-compile error** (`@studio/song`'s `docs/sharedFolders.md`): the module is simply absent from the
-document, which looks exactly like a module that was bypassed.
+`k7-core/` is a seed and nothing more: a server copies it into a library folder once, and from then
+on **the library is the reference** — its admins edit it live from k7, and the seed is not read
+again for it. A module in a library can therefore drift from `k7-core/`, and this side cannot see
+it. An unresolved `@k7-core/…` reference **is not a compile error** (`@studio/song`'s
+`docs/sharedFolders.md`): the module is simply absent from the document, which looks exactly like a
+module that was bypassed.
 
 ## So what holds a module to any of this?
 
-Nothing in this repo can open your library, which is the price of the library being the only source
-of truth. Two things narrow the gap, and neither is a copy of a module:
-
-- **The graphs are here as functions**, in `../src`, each with a test. A module's `jsdsp.ts` is that
-  function written out — `crossfade.test.ts` compares the two shapes, both ways, so a module copied
-  from one cannot silently drift from what is argued here.
+- **The graphs are here as functions**, in `../src`, each with a test. A `jsdsp.ts` in `k7-core/`
+  that writes one out is compared to it by `k7core.test.ts`, so the seed cannot silently drift from
+  what is argued here.
 - **The Faust compiler will walk a library**: `engine/k7-runtime/tests/Faust_test.cpp` compiles every
   `.dsp` under `$STUDIO_MODULES`. Point it at yours before pushing one: nothing else compiles a
   Faust module before an account's engine is handed it.
 
-A module is written in k7, against a project where the plugin it names is actually LOADED, and
-committed to the library. That is the only path in, and there is deliberately no second one.
+A module is written in k7, against a project where the plugin it names is actually LOADED.

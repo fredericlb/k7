@@ -25,10 +25,7 @@ const base = {
   groups: [],
 };
 
-/** A lane holding two seconds of a loud note, muted and sending into each of `to` — every case starts here.
- *
- * `key` matters: two sources playing the SAME note sum by phase, and a 4osc's start phase is not fixed
- * across renders, so their peak swung by 7 dB run to run and no threshold on it meant anything. */
+/** Two seconds of a loud note, muted and sending into each of `to`; two sources play DIFFERENT keys (docs/cueOutput.md). */
 const source = (id: string, key: number, ...to: string[]) => ({
   id,
   name: id,
@@ -100,8 +97,8 @@ async function main() {
     await peakDb(bin, (await renderProject({ ...base, tracks })).files[0]);
 
   // --- 1. how many destinations a source may have and still be heard only through them ---
-  // ONE send from a muted track is not an aux send at all: `feedsBusOnly` ROUTES the output to the
-  // destination instead. So this measures the routing path, and the two below measure the send path.
+
+  // ONE send from a muted track is ROUTED (`feedsBusOnly`), not sent: this measures routing, the two below sends.
   const oneRouted = await render([source("t1", 45, "busM"), bus("busM")]);
   const twoMuted = await render([
     { ...source("t1", 45, "busM", "busC"), mute: true },
@@ -115,8 +112,8 @@ async function main() {
   ]);
 
   // --- 2. a bus that leaves by its own pair, against the same bus on the mix ---
-  // A normal bus stays beside it in every render, so "the cue is gone" is never read off a silent file:
-  // an empty mixdown is what a broken render looks like too. Different NOTES, for the reason in `source`.
+
+  // A normal bus stays beside it in every render, since an empty mixdown is what a broken render looks like too.
   const pair = (cueBus: ReturnType<typeof bus>) => [
     source("onMix", 45, "busMix"),
     source("onCue", 64, "busCue"),
@@ -128,37 +125,36 @@ async function main() {
   // The reference the routed render must EQUAL: the same document with no cue source in it at all.
   const cueAbsent = await render([source("onMix", 45, "busMix"), bus("busMix")]);
 
-  console.log(`1 dest, muté (donc ROUTÉ)     : ${oneRouted.toFixed(1)} dBFS`);
-  console.log(`2 dests, source mutée         : ${twoMuted.toFixed(1)} dBFS`);
-  console.log(`2 dests, source non mutée     : ${twoOpen.toFixed(1)} dBFS`);
-  console.log(`cue sur la paire 3+4, + 1 bus  : ${cueRouted.toFixed(1)} dBFS`);
-  console.log(`le même cue sur le mix        : ${cueOnMix.toFixed(1)} dBFS`);
-  console.log(`la source de cue RETIRÉE      : ${cueAbsent.toFixed(1)} dBFS`);
+  console.log(`1 dest, muted (so ROUTED)     : ${oneRouted.toFixed(1)} dBFS`);
+  console.log(`2 dests, source muted         : ${twoMuted.toFixed(1)} dBFS`);
+  console.log(`2 dests, source not muted     : ${twoOpen.toFixed(1)} dBFS`);
+  console.log(`cue on the 3+4 pair, + 1 bus  : ${cueRouted.toFixed(1)} dBFS`);
+  console.log(`the same cue on the mix       : ${cueOnMix.toFixed(1)} dBFS`);
+  console.log(`the cue source REMOVED        : ${cueAbsent.toFixed(1)} dBFS`);
 
   // The control has to make a sound, or neither comparison means anything.
   const controlAudible = oneRouted > -40;
   const mutedBusFeedsSends = twoMuted > -40;
   console.log(
-    `\n0. deux départs portent le signal   : ${twoOpen > -40 ? "OUI" : "NON"}`,
+    `\n0. two sends carry the signal       : ${twoOpen > -40 ? "YES" : "NO"}`,
   );
   // The mix is still there in all three — so a silent file would be a broken render, not a working cue.
   const cueIsAudibleOnMix = cueOnMix > -40 && cueRouted > -40 && cueAbsent > -40;
-  // IDENTITY rather than "quieter": routed away must be indistinguishable from never having been there.
-  // A threshold on the summed peak would be measuring how two notes happen to line up, which is not the question.
+  // IDENTITY rather than "quieter": routed away must equal never having been there (docs/cueOutput.md).
   const cueStaysOffTheMix =
     Math.abs(cueRouted - cueAbsent) < 0.2 && cueOnMix - cueRouted > 1;
 
   console.log(
-    `\n1. un bus MUTÉ alimente ses départs : ${mutedBusFeedsSends ? "OUI" : "NON"}`,
+    `\n1. a MUTED bus feeds its sends      : ${mutedBusFeedsSends ? "YES" : "NO"}`,
   );
   console.log(
-    `2. outputChannels sort du mix       : ${cueStaysOffTheMix ? "OUI" : "NON"}`,
+    `2. outputChannels leaves the mix    : ${cueStaysOffTheMix ? "YES" : "NO"}`,
   );
   const ok = controlAudible && cueIsAudibleOnMix && cueStaysOffTheMix;
   console.log(
     ok
-      ? "OK — le cue ne peut pas fuir dans le master"
-      : `ECHEC — control=${controlAudible} cueOnMix=${cueIsAudibleOnMix} offMix=${cueStaysOffTheMix}`,
+      ? "OK — the cue cannot leak into the master"
+      : `FAIL — control=${controlAudible} cueOnMix=${cueIsAudibleOnMix} offMix=${cueStaysOffTheMix}`,
   );
   process.exit(ok ? 0 : 1);
 }

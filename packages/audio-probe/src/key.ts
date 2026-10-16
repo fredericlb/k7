@@ -1,17 +1,9 @@
 // key.ts — what KEY a record is in, from decoded audio. The reference implementation, the way
-// `detectTransients` below it is: the C++ pass mirrors this one, and the tests here are what says
-// whether either is right. The plan, the measurements and what is still unknown:
-// ../../../docs/key-detection-plan.md.
+// `detectTransients` (waveform.ts) is: the C++ pass mirrors this one, and the tests here are what
+// says whether either is right.
 //
-// Three steps, and only the middle one has an opinion:
-//   samples -> CHROMAGRAM (12 pitch classes)  — arithmetic, no taste
-//   chromagram -> KEY, by correlating against a profile  — the profile IS the taste
-//   key -> CAMELOT  — a lookup, for the wheel a DJ actually reads
-//
-// Goertzel rather than an FFT, deliberately: a chromagram needs ~60 known frequencies, not a whole
-// spectrum, and one resonator per semitone is a dozen lines against an FFT plus windowing plus
-// bin-to-pitch mapping. The engine's pass is a per-sample loop with no frame buffer, so this shape
-// is also the one that ports into it.
+// samples -> CHROMAGRAM -> KEY (the profile is the only taste) -> CAMELOT, by Goertzel rather than
+// an FFT. Why each, and the plan it serves: ../docs/key.md.
 
 /** The twelve, C first — the order every profile and every chroma vector below is written in. */
 export const PITCH_CLASSES = [
@@ -62,12 +54,7 @@ export const TEMPERLEY: Record<Mode, readonly number[]> = {
   ],
 };
 
-/** The lowest and highest semitone the chromagram listens to, as MIDI note numbers.
- *
- * C3 to C7, and the bottom is a RESOLUTION limit rather than a taste: a frame this long resolves
- * about 5.4 Hz, and the semitone step at C3 is 7.8 Hz — but only 3.9 Hz at C2, so the bottom
- * octave would smear each note across its neighbours and vote for the wrong pitch class.
- * Above C7 there is little but cymbals, which are noise and belong to no class at all. */
+/** C3..C7, the semitones the chromagram listens to as MIDI notes: the bottom is a RESOLUTION limit, ../docs/key.md. */
 const LOW_MIDI = 48;
 const HIGH_MIDI = 96;
 
@@ -94,11 +81,7 @@ function goertzel(
   return s1 * s1 + s2 * s2 - coeff * s1 * s2;
 }
 
-/** How long a frame lasts, in SECONDS — not in samples, which is the trap.
- *
- * A fixed 4096-sample frame resolves 5.4 Hz at 22 k and 11.7 Hz at 48 k, so the same code would
- * silently stop resolving semitones at the rate the ENGINE actually runs at. Fixing the duration
- * fixes the resolution, whatever the file's rate. ~0.19 s keeps bins near 5 Hz. */
+/** How long a frame lasts, in SECONDS and never in samples, so the resolution holds at any rate — ../docs/key.md. */
 export const FRAME_SECONDS = 0.19;
 
 /** The frame in samples for this rate: the next power of two, so a future FFT port drops straight in. */
@@ -107,10 +90,7 @@ export function frameFor(sampleRate: number): number {
   return 2 ** Math.ceil(Math.log2(want));
 }
 
-/** The chromagram: how much of each pitch class the whole file holds, normalised to its own max.
- *
- * Normalised per FRAME before summing, so a loud chorus does not outvote a quiet verse — the key
- * is a property of the harmony, not of the mastering. */
+/** How much of each pitch class the file holds, normalised per FRAME so a loud chorus cannot outvote a verse. */
 export function chromagram(
   samples: Float32Array,
   sampleRate: number,
@@ -158,15 +138,7 @@ function correlate(a: readonly number[], b: readonly number[]): number {
   return den > 0 ? num / den : 0;
 }
 
-/** The best of the twenty-four, and how far ahead of the second best it finished.
- *
- * The MARGIN is the whole reason this returns more than a name. Key detection is wrong often
- * enough that a bare answer would lie with a straight face; a margin near zero is the detector
- * saying it could not tell, and the desk can draw that as a doubt.
- *
- * MEASURED: a dominant-less minor comes back as its RELATIVE MAJOR, and the margin does not
- * separate that case from a correct one — both sit near 0.18. It says "one of these two relatives",
- * not which. See ../../../docs/key-detection-plan.md. */
+/** The best of the twenty-four, and its MARGIN over the second best — what a doubt is drawn from; ../docs/key.md. */
 export function keyOf(
   chroma: readonly number[],
   profile: Record<Mode, readonly number[]> = TEMPERLEY,
@@ -175,8 +147,7 @@ export function keyOf(
   const scores: { tonic: number; mode: Mode; score: number }[] = [];
   for (const mode of ["major", "minor"] as const)
     for (let tonic = 0; tonic < 12; tonic++) {
-      // Rotate the CHROMA down by the tonic rather than rotating the profile up: same answer,
-      // and it keeps the profile arrays readable as "the scale degrees of C".
+      // Rotate the CHROMA down rather than the profile up: same answer, and the profiles stay "the degrees of C".
       const rotated = Array.from(
         { length: 12 },
         (_, i) => chroma[(i + tonic) % 12],

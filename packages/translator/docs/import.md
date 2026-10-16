@@ -338,7 +338,10 @@ No schema file: a project is validated in process against the loader's own schem
 
 ### What the emitter decides, and why
 
-These are the choices `src/emit.ts` makes that a reader would otherwise have to reconstruct.
+These are the choices `src/emit.ts` and its parts make that a reader would otherwise have to
+reconstruct. `emit.ts` runs the import; `emitGraph.ts` writes the routing, `emitModules.ts` the
+plugins, `emitAudio.ts` the material, and `emitNaming.ts` holds the YAML, the slugs and the one
+`EmitCtx` they all fill.
 
 **Every timing field is a `#Timecode` STRING, never a bare number.** A bare `4` parses as BARS
 and lands the clip at beat 12. And a timecode is written QUOTED: bare, `25:1` is a YAML 1.1
