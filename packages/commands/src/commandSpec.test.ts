@@ -226,7 +226,10 @@ describe("commands.yaml is well-formed against the providers", () => {
       "utf8",
     );
     const union = contract.match(/export type ArgClass =([\s\S]*?);/)?.[1];
-    expect(union, "ArgClass not found in web-protocol/commandTypes.ts").toBeTruthy();
+    expect(
+      union,
+      "ArgClass not found in web-protocol/commandTypes.ts",
+    ).toBeTruthy();
     expect([...union!.matchAll(/"([a-z]+)"/g)].map((m) => m[1])).toEqual([
       ...ARG_CLASSES,
     ]);

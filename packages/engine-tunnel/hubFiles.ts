@@ -34,10 +34,7 @@ function rootOf(roots: TunnelRoot[], p: string): TunnelRoot | null {
 }
 
 /** Whether the REAL path of `p` (or of its nearest existing ancestor) stays inside `root` — or, for a `perChild` root, inside its top-level folder. */
-async function stillInside(
-  root: TunnelRoot,
-  p: string,
-): Promise<boolean> {
+async function stillInside(root: TunnelRoot, p: string): Promise<boolean> {
   // A library's clone may itself be a link (a dev's checkout); what it holds is still kept inside that clone.
   const base =
     root.perChild && p !== root.remote
