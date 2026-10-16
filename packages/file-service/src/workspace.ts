@@ -186,6 +186,7 @@ import {
   ProjectHistory,
 } from "./history.ts";
 import { engineKeeper } from "./historyKeeper.ts";
+import type { ChangeFeed } from "./liveCapture.ts";
 import { closeModuleWatchesUnder, moduleFoldersMoved } from "./moduleWatch.ts";
 import {
   type PluginNeed,
@@ -643,7 +644,9 @@ export class Workspace {
   } | null = null;
   private historyCache: { dir: string; h: ProjectHistory } | null = null;
   /** Live sync's capture, when on: a mutation window holds its batch open — docs/liveCapture.md. */
-  liveCapture: { hold(): void; release(label: string): void } | null = null;
+  liveCapture:
+    | (ChangeFeed & { hold(): void; release(label: string): void })
+    | null = null;
   private mutations = 0; // half the change token — the half reacting to our own writes with no clock tick
   // The waveform machinery (slice + memo + prewarm) — see waveformOps.ts.
   private readonly wf: WaveformOps;

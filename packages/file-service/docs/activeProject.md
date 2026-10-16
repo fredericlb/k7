@@ -361,29 +361,29 @@ this machine's folders, so this is the question k7 asks before deciding whether 
 all. `POST /workspaces` is the ONE place a workspace is created on request — `getWorkspace` deliberately
 refuses to, Examples aside.
 
-## The strudel watcher carries almost nothing
+## The strudel watch carries almost nothing
 
-`ignoreInitial` only silences the first events; chokidar still walks and remembers the whole tree, so a
-project with a `media/` folder of takes has every one of them statted and held for the sake of a handful
-of `.strudel` files.
+It opens no watcher of its own when live sync is on: the workspace's capture already hears every path
+(`liveCapture.md`, "The change feed"), and the watch subscribes to it. With live sync off it is one
+recursive `fs.watch` on the project — a single handle, closed by `closeStrudelWatcher` before anything
+renames the project.
 
-`outsideTheWatch` is two rules, and the second is why it is not a blacklist of heavy folders. Directories
-are pruned by `skip()` — the file service's own idea of what is not part of a project, so there is no
-second list to keep in step and nothing a person could have authored inside one. FILES are kept only when
-they are patterns, wherever they sit: that is what makes `media/` cheap without anyone having to predict
-where a pattern is allowed to live. The two-call shape is chokidar 3's — a two-argument predicate is asked
-once with the path alone and again with its `Stats` — and nothing may be ignored on the first call, or a
-file would be dropped before its kind is known.
+`carriesPattern` is two rules, and the second is why it is not a blacklist of heavy folders. A path
+under a segment `skip()` hides is dropped — the file service's own idea of what is not part of a
+project, so there is no second list to keep in step. FILES are kept only when they are patterns,
+wherever they sit: that is what makes `media/` cheap without anyone having to predict where a pattern
+is allowed to live.
 
 It re-sends the document only for a file a pattern LANE plays (`patternFiles`): a lane's pattern travels
 IN the document, so a save is a recompile, and the engine applies the new source in place
-(`engine/k7-runtime/docs/patternPlugin.md`).
+(`engine/k7-runtime/docs/patternPlugin.md`). One save is several events — the watcher's, then the batch
+the capture makes of it — so they are let settle for `PATTERN_SETTLE_MS` into one recompile.
 
 Narrowing it is the kind of change that fails SILENTLY: a pattern edit simply stops reaching the engine, and
-nothing says why. So the predicate is tested rather than trusted, and a watcher that dies says so on the console —
-unlike `moduleWatch`, this one has no walk-anyway ceiling to heal it.
+nothing says why. So the predicate is tested rather than trusted, and a fallback watcher that dies says so on
+the console — unlike `moduleWatch`, this one has no walk-anyway ceiling to heal it.
 
-A `watchModuleFolders` runs beside it for a different consumer: the strudel watcher RE-SENDS the song, that
+A `watchModuleFolders` runs beside it for a different consumer: the strudel watch RE-SENDS the song, that
 one only lets `@studio/song` skip its stamp walk. It is closed by `forgetModuleWatch` unless somebody else
 is still being served the same project — two people can have one shared project open, so "this session left
 it" is not "nobody is on it". Closing it under them would cost them the fast path and nothing else, but

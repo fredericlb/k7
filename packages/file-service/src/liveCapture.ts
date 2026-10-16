@@ -2,6 +2,7 @@
 // A ledger holds each YAML file's last known text, the only kind diffed (fileOpFor); others, a hash.
 // An opaque file (binary, or too big) is known by its blob REF, which is the text its ops carry.
 // A file written for ANOTHER replica is recorded in the ledger first, so the watcher never echoes it back.
+// Every path seen is also a ChangeFeed event, which the strudel and module watchers subscribe to.
 // See docs/liveCapture.md and ../../file-hub/docs/blobs.md.
 
 import { randomUUID } from "node:crypto";
@@ -59,12 +60,22 @@ export interface CaptureOptions {
   activeMs?: number;
 }
 
+/** Every path that moved under a capture's root, whoever moved it — what the other watchers subscribe to (docs/liveCapture.md). */
+export interface ChangeFeed {
+  /** The folder the paths are relative to, slash-separated. */
+  readonly root: string;
+  /** Bumped by every reported path: only its changes matter, never its value. */
+  readonly generation: number;
+  /** Hear each path (a file, or a folder moved whole) as it is seen; answers the unsubscribe. */
+  onChange(fn: (rel: string, generation: number) => void): () => void;
+}
+
 /** The re-scan of an active workspace, of an idle one, and what active means — docs/liveCapture.md. */
 const RECONCILE_MS = 5000;
 const IDLE_RECONCILE_MS = 60_000;
 const ACTIVE_MS = 2 * 60_000;
 
-export class LiveCapture {
+export class LiveCapture implements ChangeFeed {
   private readonly ledger = new Map<string, Known>();
   private readonly dirty = new Set<string>();
   private watcher: FSWatcher | null = null;
@@ -86,6 +97,8 @@ export class LiveCapture {
   /** Binaries still being written, looked at again once they have settled. */
   private readonly young = new Set<string>();
   private youngTimer: NodeJS.Timeout | null = null;
+  private readonly listeners = new Set<(rel: string, gen: number) => void>();
+  private gen = 0;
 
   constructor(private readonly o: CaptureOptions) {
     this.quietMs = o.quietMs ?? 100;
@@ -130,6 +143,32 @@ export class LiveCapture {
       this.sweep = setInterval(() => this.sweepUnlessHeld(), every);
       this.sweep.unref();
     }
+  }
+
+  get root(): string {
+    return this.o.root;
+  }
+
+  get generation(): number {
+    return this.gen;
+  }
+
+  onChange(fn: (rel: string, generation: number) => void): () => void {
+    this.listeners.add(fn);
+    return () => {
+      this.listeners.delete(fn);
+    };
+  }
+
+  /** Tell every subscriber `rel` moved; a listener that throws costs only itself. */
+  private publish(rel: string): void {
+    this.gen++;
+    for (const fn of this.listeners)
+      try {
+        fn(rel, this.gen);
+      } catch (e) {
+        console.error(`   ✗ change feed: ${(e as Error).message}`);
+      }
   }
 
   stop(): void {
@@ -181,6 +220,7 @@ export class LiveCapture {
     this.lastActive = Date.now();
     this.learn(file);
     if (waited) this.savePending();
+    this.publish(file);
   }
 
   /** The file's text now, its blob ref when it is opaque, or null when it is absent. */
@@ -312,6 +352,7 @@ export class LiveCapture {
       text: null,
       ref,
     });
+    this.publish(file);
   }
 
   /** A workspace file whose ledger ref names `hash` and whose stamp has not moved since. */
@@ -337,6 +378,8 @@ export class LiveCapture {
   }
 
   private emit(ops: FileOp[]): Batch {
+    // A sweep finds what a dead or lossy watcher never reported, so its files are news too.
+    for (const op of ops) this.publish(op.file);
     const batch: Batch = {
       id: randomUUID(),
       replica: this.o.replica,
@@ -365,6 +408,7 @@ export class LiveCapture {
     if (rel.split("/").some((s) => this.o.skip(s))) return;
     this.lastActive = Date.now();
     this.dirty.add(rel);
+    this.publish(rel);
     this.schedule();
   }
 

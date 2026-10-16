@@ -118,7 +118,7 @@ workspace under `<root>/.active-projects/`. For it, `src/engineLink.ts`:
 1. keeps one `EngineClient` socket per engine session, reconnecting with backoff;
 2. on a trigger — open, a `PUT /file` inside the project, undo/redo, a command that reloads, the poll
    when nothing is served — calls `startEngineForActive`, which watches the project's `*.strudel`
-   files (chokidar) and pushes the document;
+   files (through live sync's change feed) and pushes the document;
 3. `pushProject` compiles with `loadProject` (memoised on the revision);
 4. `sendWhenSynced` (`src/engineSync.ts`) copies to the engine's machine every file the document
    names that the machine does not hold yet, as one `sync` job over the jobs socket; a failed copy

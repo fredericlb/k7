@@ -3,8 +3,8 @@
 // service sent to each of them, so a re-send or a take resolves its workspace explicitly.
 // The one singleton is the document a browser hands over — see docs/activeProject.md.
 
-import type { Stats } from "node:fs";
-import { basename, relative, resolve } from "node:path";
+import { watch } from "node:fs";
+import { basename, isAbsolute, relative, resolve, sep } from "node:path";
 import {
   argClass,
   argHint,
@@ -40,7 +40,6 @@ import {
   type EngineLoadPhase,
   type EngineSyncState,
 } from "@studio/web-protocol";
-import chokidar from "chokidar";
 import { autoFreezer } from "./autoFreezeJobs.ts";
 import { guard } from "./background.ts";
 import { runInBackground } from "./backgroundJobs.ts";
@@ -603,61 +602,81 @@ function sendActiveProject(ws: Workspace, p: string): void {
   }
 }
 
-/** One pattern watcher per SESSION: the bench beside a song must not silence the song's — docs/activeProject.md. */
-const strudelWatchers = new Map<string, ReturnType<typeof chokidar.watch>>();
-// Close a session's strudel watcher and WAIT for the OS to release its handle — on Windows a rename needs it gone.
+/** One pattern watch per SESSION, as its close: the bench beside a song must not silence the song's — docs/activeProject.md. */
+const strudelWatchers = new Map<string, () => void>();
+/** How long a burst of events on one save is let settle into one recompile. */
+const PATTERN_SETTLE_MS = 50;
+// Close a session's pattern watch; a fallback `fs.watch` lets go of its handle here, before any rename.
 async function closeStrudelWatcher(session: string): Promise<void> {
-  const prev = strudelWatchers.get(session);
-  if (!prev) return;
+  const close = strudelWatchers.get(session);
+  if (!close) return;
   strudelWatchers.delete(session);
-  try {
-    await prev.close();
-  } catch {
-    /* already closing */
-  }
+  close();
 }
-/** What the watcher below refuses to carry: `skip()`ped folders and every non-pattern file. See docs/activeProject.md. */
-export function outsideTheWatch(
-  dir: string,
-  p: string,
-  stats?: Stats,
-): boolean {
-  if (p === dir) return false;
-  const name = basename(p);
-  if (skip(name)) return true;
-  return stats?.isFile() ? !name.endsWith(".strudel") : false;
+/** Whether a path under the project (slash-separated) is a pattern the watch carries — docs/activeProject.md. */
+export function carriesPattern(rel: string): boolean {
+  return rel.endsWith(".strudel") && !rel.split("/").some(skip);
 }
 
 function watchStrudel(ws: Workspace, dir: string | null): void {
   const session = sessionOf(ws);
-  // Switching projects: the old handle can close in the background.
+  // Switching projects: the old watch closes first.
   void closeStrudelWatcher(session);
   if (!dir) return;
-  const onChange = (p: string): void => {
+  let timer: NodeJS.Timeout | null = null;
+  const onChange = (rel: string): void => {
     // A lane's pattern is IN the document, so its save is a recompile; the engine applies it in place.
-    if (!p.endsWith(".strudel") || !patternFiles(dir).includes(resolve(p)))
-      return;
-    ws.invalidateProjectDoc();
-    guard(
-      "pattern save",
-      Promise.resolve().then(() => pushProject(ws, dir)),
-    );
+    if (!carriesPattern(rel) || timer) return;
+    if (!patternFiles(dir).includes(resolve(dir, ...rel.split("/")))) return;
+    timer = setTimeout(() => {
+      timer = null;
+      ws.invalidateProjectDoc();
+      guard(
+        "pattern save",
+        Promise.resolve().then(() => pushProject(ws, dir)),
+      );
+    }, PATTERN_SETTLE_MS);
   };
-  const watcher = chokidar
-    .watch(dir, {
-      ignoreInitial: true,
-      ignored: (p: string, stats?: Stats) => outsideTheWatch(dir, p, stats),
-    })
-    .on("add", onChange)
-    .on("change", onChange)
-    .on("unlink", onChange)
-    // A watcher that dies here stops feeding pattern edits for ever, and this line is all there is.
-    .on("error", (err: unknown) =>
+  const stopTimer = (): void => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  };
+  // Live sync's capture already hears every path in the workspace: no second watcher on the project.
+  const feed = ws.liveCapture;
+  const under = feed ? relative(feed.root, dir).split(sep).join("/") : null;
+  if (feed && under !== null && !under.startsWith("..") && !isAbsolute(under)) {
+    const prefix = under ? `${under}/` : "";
+    const unsubscribe = feed.onChange((rel) => {
+      if (rel.startsWith(prefix)) onChange(rel.slice(prefix.length));
+    });
+    strudelWatchers.set(session, () => {
+      unsubscribe();
+      stopTimer();
+    });
+    return;
+  }
+  // Live sync off: one recursive watch on the project, closed before anything renames it.
+  try {
+    const handle = watch(
+      dir,
+      { recursive: true, persistent: false },
+      (_e, name) => {
+        if (name) onChange(String(name).split(sep).join("/"));
+      },
+    );
+    // A watch that dies here stops feeding pattern edits for ever, and this line is all there is.
+    handle.on("error", (err: unknown) =>
       console.error(
         `   ✗ strudel watcher: ${err instanceof Error ? err.message : String(err)}`,
       ),
     );
-  strudelWatchers.set(session, watcher);
+    strudelWatchers.set(session, () => {
+      handle.close();
+      stopTimer();
+    });
+  } catch (e) {
+    console.error(`   ✗ strudel watcher: ${(e as Error).message}`);
+  }
 }
 
 // Point the engine at the active project and send it; switching to a DIFFERENT project flushes it first.
@@ -671,7 +690,7 @@ export function startEngineForActive(ws: Workspace): void {
   if (p !== before) beginLoad(sessionOf(ws));
   watchStrudel(ws, p);
   // …and the module folders, for a different consumer — see docs/activeProject.md.
-  watchModuleFolders(p);
+  watchModuleFolders(p, ws.liveCapture);
   if (switching) {
     ensureEngine(ws)?.flush();
     // A document built for the project we are LEAVING must not survive into this one.
