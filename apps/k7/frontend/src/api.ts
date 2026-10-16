@@ -30,10 +30,9 @@ import type {
   StemsReply,
 } from "@studio/web-protocol";
 import type { PlaylistInfo } from "@studio/web-protocol/playlists";
-import { serviceUrl } from "@studio/web-protocol/services";
 import type { CommandPrefs } from "./commandPrefs";
 // The reader `@studio/engine-browser` wants: it owns the routes, this app owns the errors.
-import { json } from "./projects/api";
+import { json, pl8Url } from "./projects/api";
 import type {
   PreviewReq,
   PublicEngine,
@@ -44,8 +43,8 @@ import type {
 // The app is mounted at the ORIGIN ROOT, so BASE is the empty string — kept as a derived constant, this app's mount being the one that can still change.
 export const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-/** Where pl8's routes answer, from the services table — this origin now. It holds the media library AND the one engine registry. */
-const PL8 = serviceUrl(globalThis.location?.origin ?? "", "pl8");
+/** Where pl8's routes answer — this origin now. It holds the media library AND the one engine registry. */
+const PL8 = pl8Url();
 
 // ── The hosted backend (same-origin): auth + preferences ────────────────────────
 

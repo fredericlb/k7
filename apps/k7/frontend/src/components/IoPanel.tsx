@@ -13,6 +13,7 @@ import type { EngineClient, EngineInputDevice } from "@studio/engine-browser";
 import { INPUT_VU_MAX_DB, INPUT_VU_MIN_DB } from "@studio/engine-browser/store";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
+import { pitchName } from "../noteNames";
 import type { IoPort } from "../types";
 import { pollWhileVisible } from "../visiblePoll";
 
@@ -47,21 +48,6 @@ function Meter({ level, live }: { level: number; live: boolean }) {
   );
 }
 
-// Sharps throughout: which spelling is right depends on a key the tuner does not know, so the consistent one never looks like a mistake.
-const NOTE_NAMES = [
-  "C",
-  "C♯",
-  "D",
-  "D♯",
-  "E",
-  "F",
-  "F♯",
-  "G",
-  "G♯",
-  "A",
-  "A♯",
-  "B",
-];
 /** Concert pitch. Hard-coded rather than a setting — nothing else in k7 has a tuning reference yet. */
 const A4_HZ = 440;
 /** Within this many cents reads as in tune, which is the tolerance a tuner's centre band conventionally means. */
@@ -79,7 +65,7 @@ export function noteOf(
   // MIDI 69 is A4, and C-1 is 0 — so the octave turns over at C, not at A.
   const midi = nearest + 69;
   return {
-    name: NOTE_NAMES[((midi % 12) + 12) % 12],
+    name: pitchName(midi, "♯"),
     octave: Math.floor(midi / 12) - 1,
     cents,
   };
