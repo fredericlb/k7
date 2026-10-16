@@ -458,6 +458,8 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                     for (const auto& p : t.plugins)
                         if (p.id == c.plugin->id) was = &p;
                 loadPluginFiles(edit, *it->second, *c.plugin, was);
+                // A model or a cabinet moves the module's latency, and no rebuild follows to tell its blend.
+                if (auto* blend = studio::mixBlendOf(*it->second)) blend->refreshLatency();
                 // A preset or a Surge patch sets every parameter it holds, so the document's text params go back on top, as at insert.
                 if (was == nullptr || was->path != c.plugin->path || was->surgePatch != c.plugin->surgePatch)
                     applyPluginParams(*it->second, c.plugin->params);
@@ -795,19 +797,16 @@ void EngineHost::enableWaveformTap(const std::string& session, const std::string
     te::Plugin* target = found->second.get();
 
     te::AudioTrack* track = nullptr;
-    int at = -1;
-    for (auto* t : te::getAudioTracks(*impl_->session(session).edit)) {
-        const int i = t->pluginList.indexOf(target);
-        if (i >= 0) {
+    for (auto* t : te::getAudioTracks(*impl_->session(session).edit))
+        if (t->pluginList.indexOf(target) >= 0) {
             track = t;
-            at = i;
             break;
         }
-    }
     if (track == nullptr) return;   // in the doc but not in the graph — nothing to tap
 
-    // "input" taps BEFORE the module, "output" AFTER it.
-    const int insertIndex = (side == "input") ? at : at + 1;
+    // "input" taps BEFORE the module and its split, "output" AFTER it and its blend: never between a module and its @mix pair.
+    const int insertIndex = (side == "input") ? studio::indexBeforeModule(track->pluginList, target)
+                                              : studio::indexAfterModule(track->pluginList, target);
 
     // Created via the plugin cache, where registerBuiltInPlugins put its type.
     auto tapPlugin = impl_->session(session).edit->getPluginCache().createNewPlugin(

@@ -38,7 +38,7 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   HeldMemory.h             what one of OUR plugins says it holds, in bytes (docs/load.md)
   ProcessMemory.{h,cpp}    the engine process's memory, one system call per platform (docs/load.md)
   SeekRelease.{h,cpp}      a seek while playing: which plugins let go of their notes and tails (docs/panic.md)
-  MixBlend.{h,cpp}         a module's @mix: the split and blend put around it, found by adjacency (docs/mix.md)
+  MixBlend.{h,cpp}         a module's @mix: the split and blend put around it, found by what they name (docs/mix.md)
   PluginParams.{h,cpp}     plugin parameters as text
   PluginScan.{h,cpp}       discovery + cache
   AudioInputs.{h,cpp}      live-input device mapping
