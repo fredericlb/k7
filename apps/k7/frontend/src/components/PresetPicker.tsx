@@ -12,6 +12,7 @@ import {
 import type { NodeEngines } from "@studio/ui-chains-react";
 import { useState } from "react";
 import { fuzzyScore } from "../fuzzy";
+import { m } from "../paraglide/messages.js";
 import { type TreeNode, TreePicker } from "./TreePicker";
 
 const SEARCH_LIMIT = 40;
@@ -121,7 +122,7 @@ export function PresetPicker({
         <select
           value={scope}
           onChange={(e) => setScope(e.target.value)}
-          title="where the preset is kept"
+          title={m["preset.scopeHint"]()}
           className="rounded border border-border bg-popover px-0.5 py-0.5 font-mono text-xs"
         >
           {data.scopes.map((s) => (
@@ -160,7 +161,7 @@ export function PresetPicker({
     <div
       className="mr-1 flex max-h-[min(28rem,80vh)] flex-col overflow-y-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md"
       role="menu"
-      aria-label="engine"
+      aria-label={m["preset.engine"]()}
     >
       <div className="px-3 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
         engine

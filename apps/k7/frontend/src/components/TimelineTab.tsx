@@ -3909,7 +3909,7 @@ export function TimelineTab({
                                   {/* The name on HOVER, faded rather than unmounted so the row keeps its height — and shown outright while the block is in hand. */}
                                   <span
                                     className={cn(
-                                      "truncate opacity-0 transition-opacity group-hover:opacity-100",
+                                      "truncate opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100",
                                       (moving || resizing) && "opacity-100",
                                     )}
                                   >

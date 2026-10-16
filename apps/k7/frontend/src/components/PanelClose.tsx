@@ -12,6 +12,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { m } from "../paraglide/messages.js";
 
 interface PanelCloseApi {
   close: () => void;
@@ -51,8 +52,8 @@ export function PanelCloseFrame({
         <button
           type="button"
           onClick={onClose}
-          title="close the panel (ui close)"
-          aria-label="close the panel"
+          title={m["panel.closeHint"]()}
+          aria-label={m["panel.close"]()}
           className="absolute top-1 left-1 z-20 flex h-6 w-6 items-center justify-center rounded border border-border bg-popover/90 text-muted-foreground shadow-sm hover:text-foreground"
         >
           <X className="h-3.5 w-3.5" />

@@ -660,7 +660,15 @@ function MomentRow({
           <MoveHorizontal className="size-4" /> {m["moment.adjust"]()}
         </Button>
       )}
-      <Button variant="outline" size="sm" onClick={() => onDelete(ann.id)}>
+      <Button
+        variant="outline"
+        size="sm"
+        aria-label={m["moment.delete"]()}
+        title={m["moment.delete"]()}
+        onClick={() => {
+          if (confirm(m["moment.confirmDelete"]())) onDelete(ann.id);
+        }}
+      >
         <Trash2 className="size-4" />
       </Button>
 
@@ -764,7 +772,17 @@ function MarkerRow({ marker, onSeek, onUpdate, onDelete }: MarkerRowProps) {
           if (e.key === "Enter") e.currentTarget.blur();
         }}
       />
-      <Button variant="outline" size="sm" onClick={() => onDelete(marker.id)}>
+      <Button
+        variant="outline"
+        size="sm"
+        aria-label={m["marker.delete"]()}
+        title={m["marker.delete"]()}
+        onClick={() => {
+          // A bare marker is one tap to put back; its comment is not.
+          if (!marker.comment || confirm(m["marker.confirmDelete"]()))
+            onDelete(marker.id);
+        }}
+      >
         <Trash2 className="size-4" />
       </Button>
     </li>

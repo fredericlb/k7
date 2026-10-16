@@ -1,4 +1,5 @@
 import { apiBase, pagesPrefix } from "./config";
+import { m } from "./paraglide/messages.js";
 import type {
   Annotation,
   Envelope,
@@ -34,8 +35,24 @@ export interface ApiToken {
 const f = (path: string, init?: RequestInit) =>
   fetch(`${apiBase()}${path}`, { credentials: "include", ...init });
 
+/** A failed call: the server's own sentence when it sent one, and the status a caller tells 404 by. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
 const json = async (res: Response) => {
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new ApiError(
+      body.error ?? m["common.requestFailed"]({ status: res.status }),
+      res.status,
+    );
+  }
   return res.status === 204 ? null : res.json();
 };
 

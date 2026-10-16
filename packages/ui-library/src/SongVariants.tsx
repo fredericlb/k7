@@ -56,7 +56,7 @@ export function SongVariants({
                 onClick={() => onRemove(v.name)}
                 title={labels.tree.delete(v.name)}
                 aria-label={labels.tree.delete(v.name)}
-                className="shrink-0 rounded p-0.5 text-muted-foreground/50 opacity-0 hover:text-destructive group-hover:opacity-100"
+                className="shrink-0 rounded p-0.5 text-muted-foreground/50 opacity-0 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:-my-2 [@media(hover:none)]:p-2.5 [@media(hover:none)]:opacity-100"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>

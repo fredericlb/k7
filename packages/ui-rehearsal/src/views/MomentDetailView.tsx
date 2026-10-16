@@ -283,7 +283,17 @@ function MomentMarkerRow({
         <span className="marker-comment">{marker.comment}</span>
       )}
       {onDelete && (
-        <Button variant="outline" size="sm" onClick={() => onDelete(marker.id)}>
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={m["marker.delete"]()}
+          title={m["marker.delete"]()}
+          onClick={() => {
+            // A bare marker is one tap to put back; its comment is not.
+            if (!marker.comment || confirm(m["marker.confirmDelete"]()))
+              onDelete(marker.id);
+          }}
+        >
           <Trash2 className="size-4" />
         </Button>
       )}

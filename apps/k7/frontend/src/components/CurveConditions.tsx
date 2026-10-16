@@ -13,6 +13,7 @@ import {
   type DraftWhen,
   newCondition,
 } from "../curveDraft";
+import { m } from "../paraglide/messages.js";
 
 /** What each condition reads as in its select. */
 const WHEN_LABEL: Record<DraftWhen, string> = {
@@ -110,7 +111,7 @@ function ConditionRow({
           variant="ghost"
           size="sm"
           onClick={onRemove}
-          title="remove this condition"
+          title={m["curve.removeCondition"]()}
         >
           <X className="size-3.5" />
         </Button>

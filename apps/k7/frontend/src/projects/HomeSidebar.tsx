@@ -135,7 +135,7 @@ function HomeSidebar({
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  // Asked once: a hosted origin will not grow the route mid-session; the SERVER is whose apps the menu lists (../desktop.ts).
+  // Null off the desktop app; on it, the SERVER is whose apps the menu lists (../desktop.ts).
   const [isDesktop, setIsDesktop] = useState(false);
   const [server, setServer] = useState<string | null>(null);
   useEffect(() => {

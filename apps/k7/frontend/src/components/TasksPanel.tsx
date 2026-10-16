@@ -230,7 +230,7 @@ export function TasksPanel({
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                className="h-6 w-6 opacity-0 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
                 onClick={() => void run(`task remove ${n}`)}
                 title={m["tasks.remove"]()}
                 aria-label={m["tasks.remove"]()}
