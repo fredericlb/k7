@@ -134,6 +134,7 @@ server/
   ServePlugins.cpp       …about plugins: the catalogue and its scan, instances, windows, presets, watches
   ServeMachine.cpp       …about the machine: the audio stream, sessions, the interface, identity
   AudioSender.{h,cpp}    the audio broadcast's own thread and wire frame (docs/broadcast.md)
+  Supersede.h            which queued project, tracks and parameter jobs a newer message skips (docs/supersede.md)
   Outbox.h               every JSON push, sent from ONE writer thread so the message thread never waits on a peer
   DocJson.{h,cpp}        the ProjectDoc off the wire, shared by the server and the CLI
   android/EngineJni.cpp  the Android app's entry into serve() (docs/android.md)
@@ -141,6 +142,7 @@ server/
 scripts/               Node harnesses that drive a running engine, not build steps
   two-sessions.ts        two sessions on one engine stay separate
   track-delta.ts         `tracks` amends the document a session holds, and refuses the rest
+  supersede-probe.ts     a burst of knob writes or of documents ends on the LAST one, and a fence keeps its place (docs/supersede.md)
   list-sessions.ts       an engine's sessions, and drop-session, over the control socket
   broadcast-sessions.mjs per-session streaming
   gen-strudel-bundle.mjs bundle @studio/song-strudel's engineEntry.ts into engine/strudel/strudel.bundle.js,
@@ -211,6 +213,7 @@ Long-form rationale is in `docs/`: `design.md` (pipeline + threading), `engineHo
 `protocol.md` (the wire), `sessions.md` (this side: who may create one, what the registry's
 lock protects, when a session is reaped) with its TypeScript half in
 `packages/engine-protocol/docs/sessions.md`, `multiEdit.md`, `broadcast.md`, `cliModes.md`,
+`supersede.md` (which queued jobs a newer message skips, and what fences them),
 `audit-stabilite.md` (the standing audit of this engine's own stability and speed — read it
 before touching the audio callback, `applyFull`, or the build flags),
 `builtinParams.md`, `namPlugin.md`,

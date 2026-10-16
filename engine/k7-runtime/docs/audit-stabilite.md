@@ -436,6 +436,9 @@ thing `damaged` promises (`docs/recorder.md`).
   loading a fresh one every five seconds (`docs/pluginEditors.md`).
 - **The audio sender asks the session registry for stale sequence counters once a second**, not on
   every 5 ms tick.
+- **A queued `project`, `tracks` or `set-plugin-param` a newer one overtook is skipped**, so the
+  documents and knob writes that pile up behind a slow apply are not each run after it; every other
+  verb fences them, so order between verbs holds (`docs/supersede.md`).
 
 ## Smaller hazards, and what closes each
 

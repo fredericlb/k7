@@ -61,6 +61,10 @@ The handler is a **named** lambda, `onMessage`, for that reason alone: the regis
 
 ## client → server
 
+`project`, `tracks` and `set-plugin-param` may be skipped while still queued, when a newer one of the
+same session makes them pointless; every other verb fences them, so order between verbs holds —
+[supersede.md](supersede.md).
+
 | message | meaning |
 |---|---|
 | `{ type: "project", doc: {…ProjectDoc…} }` | set or update the song |

@@ -23,6 +23,7 @@
 
 #include "../engine/Warnings.h"   // warn() — a failed background job has to reach the client
 #include "Pairing.h"
+#include "Supersede.h"
 
 namespace studio {
 
@@ -84,6 +85,9 @@ struct ServeContext {
     std::unordered_map<const ix::WebSocket*, std::string> drivers;
     // WHICH project each socket is about, bound ONCE from its first real message, so a state frame reaches only those (docs/protocol.md).
     std::unordered_map<const ix::WebSocket*, std::string> subscribers;
+
+    // Which queued project, tracks and parameter jobs a newer message made pointless (docs/supersede.md).
+    SupersedeLedger supersede;
 
     // The audio stream's sender, set once serve() has built it.
     AudioSender* audio = nullptr;
