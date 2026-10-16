@@ -1,0 +1,154 @@
+# The Docker images, on GHCR: k7-webapp (apps/k7/docker/Dockerfile), k7-runtime, the server's engine
+# (engine/docker/Dockerfile), and k7-runtime-pi, the Raspberry Pi's (engine/docker/Dockerfile.pi, docs/pi-engine.md).
+#
+# OneDev's image jobs, ported (docs/images.md): each image is built beside the tests and pushed under the
+# commit only; `publish` moves `:latest` and the version stamp onto those manifests once k7.yml has passed
+# for the same commit. The Pi image builds on an arm64 runner, natively: no emulation, no cross-compile.
+
+name: images
+
+on:
+  push:
+    branches: [main]
+    # The webapp's Dockerfile copies the whole tree: only the developer notes at the root change no image.
+    paths-ignore:
+      - "docs/**"
+  workflow_dispatch:
+
+# A cancelled engine build exports no cache at all: the next push waits rather than throws a compile away.
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io/fredericlb
+
+jobs:
+  version:
+    name: build version
+    runs-on: ubuntu-24.04
+    outputs:
+      stamp: ${{ steps.stamp.outputs.stamp }}
+    steps:
+      # YY.MMDDHHmm in Europe/Paris, the stamp the SPAs show; computed once, since a second reading could disagree.
+      - id: stamp
+        run: echo "stamp=$(TZ=Europe/Paris date +%y.%m%d%H%M)" >> "$GITHUB_OUTPUT"
+
+  webapp:
+    name: k7-webapp
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
+      - id: commons
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/k7/docker/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/k7-webapp:${{ github.sha }}
+          build-args: APP_VERSION=${{ needs.version.outputs.stamp }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/k7-cache:k7-webapp
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/k7-cache:k7-webapp,mode=max,image-manifest=true,oci-mediatypes=true
+
+  engine:
+    name: ${{ matrix.image }}
+    runs-on: ${{ matrix.runner }}
+    # A cold build compiles Tracktion, JUCE, sfizz, Surge and Faust; a push that touches no native source finds it in the cache.
+    timeout-minutes: 300
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: k7-runtime
+            dockerfile: engine/docker/Dockerfile
+            runner: ubuntu-24.04
+          - image: k7-runtime-pi
+            dockerfile: engine/docker/Dockerfile.pi
+            runner: ubuntu-24.04-arm
+    steps:
+      # A cold engine build outgrows a stock runner's free disk: drop the toolchains it never uses.
+      - name: free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL && df -h /
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ matrix.image }}:${{ github.sha }}
+          # The runners have 4 cores and 16 GB: every core compiles, a unity file taking about a gigabyte.
+          build-args: BUILD_JOBS=4
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/k7-cache:${{ matrix.image }}
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/k7-cache:${{ matrix.image }},mode=max,image-manifest=true,oci-mediatypes=true
+
+  publish:
+    name: tag latest
+    needs: [version, webapp, engine]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    steps:
+      # The tests of this same commit gate the tags; a commit k7.yml's paths skipped has none to wait for.
+      - name: wait for k7.yml on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          id=""
+          for _ in $(seq 1 30); do
+            id=$(gh run list --workflow k7.yml --commit "$GITHUB_SHA" --event push --json databaseId --jq '.[0].databaseId // empty')
+            [ -n "$id" ] && break
+            sleep 10
+          done
+          if [ -z "$id" ]; then echo "k7.yml did not run for $GITHUB_SHA: nothing to wait for"; exit 0; fi
+          gh run watch "$id" --exit-status --interval 30
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      # A copy of each manifest inside the registry: nothing is built or pulled here.
+      - name: tag latest and the stamp
+        env:
+          STAMP: ${{ needs.version.outputs.stamp }}
+        run: |
+          for image in k7-webapp k7-runtime k7-runtime-pi; do
+            docker buildx imagetools create \
+              -t "$REGISTRY/$image:latest" -t "$REGISTRY/$image:$STAMP" "$REGISTRY/$image:$GITHUB_SHA"
+          done

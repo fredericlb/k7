@@ -96,6 +96,16 @@ onto that manifest with `docker buildx imagetools create`, a copy inside the reg
 have passed. The stamp travels from the build job as an artifact, because it is baked into the
 SPAs and a second clock reading could disagree with it.
 
+## GitHub builds the same images, into GHCR
+
+`.github/workflows/images.yml` is the same pipeline on GitHub, for `k7-webapp`, `k7-runtime` and the
+Pi's `k7-runtime-pi`, under `ghcr.io/fredericlb/`: built beside `k7.yml` under the commit, tagged
+`:latest` and with the stamp once `k7.yml` has passed for that commit. The Pi image builds on an
+arm64 runner, natively. The engine's compile lives in cache mounts, which a registry cache does not
+carry and a fresh runner starts without: a push that changes no native source reuses the compiled
+layer whole, and one that does compiles cold. The deployment (`docker/docker-compose.yml`) still
+pulls from OneDev's registry.
+
 ## The process runs as `node`, and its volumes must be `node`'s
 
 The runtime stage ends on `USER node`: the code under `/app` stays root's, so a flaw in a route
