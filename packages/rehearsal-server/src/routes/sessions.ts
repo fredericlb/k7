@@ -7,7 +7,7 @@ import { diskUpload } from "@frediverse/http/upload";
 import type { Envelope } from "@studio/rehearsal-shared";
 import { Router } from "express";
 import { z } from "zod";
-import { isAudioMime, streamAudio } from "../serve.ts";
+import { audioExtOf, isAudioMime, streamAudio } from "../serve.ts";
 import * as store from "../store.ts";
 
 const annotationCreate = z.object({
@@ -111,11 +111,7 @@ async function receiveTake(req, res) {
   }
 
   const mime = req.file.mimetype;
-  const ext = mime.includes("ogg")
-    ? "ogg"
-    : mime.includes("mp4")
-      ? "mp4"
-      : "webm";
+  const ext = audioExtOf(mime) ?? "webm";
   const duration = Number(req.body.duration) || 0;
   const gain = Number(req.body.gain) || 1;
   const append = req.body.append === "true";

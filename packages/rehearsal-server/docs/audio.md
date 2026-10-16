@@ -113,7 +113,8 @@ they only lose the link back. Markers, which exist only on a session's timeline,
 Safari's `MediaRecorder` produces `audio/mp4`. The médiathèque files `.mp4` as **video**: the
 family would refuse the file, and the refusal would reach the user as "upload failed" and nothing
 else. An mp4 with no picture is an `.m4a` — same container, honest name, and an extension the
-family recognises. The disk cache keeps `mp4`: it is a local name nobody reads.
+family recognises. The extension comes from the médiathèque's own table read backwards
+(`extForMime`, `packages/mediatek/docs/mime.md`), so the upload, the disk cache and the zone agree.
 
 ## The time is the session's
 

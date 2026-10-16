@@ -26,7 +26,7 @@ import { env } from "./env.ts";
 import { runTool } from "./ffmpeg.ts";
 import { serialized } from "./lock.ts";
 import * as mediatek from "./mediatek.ts";
-import { audioMimeOf } from "./serve.ts";
+import { audioExtOf, audioMimeOf } from "./serve.ts";
 import { envelopeOf } from "./songEnvelope.ts";
 import { SAFE_ID } from "./sqlite.ts";
 
@@ -1321,7 +1321,7 @@ function versionCachePath(uid) {
 
 /** The extension a version's mixdown is FILED under; `bin` is not audio to the zone, so mp3. */
 function versionExt(mime) {
-  const ext = audioExtFor(mime);
+  const ext = audioExtOrBin(mime);
   return ext === "bin" ? "mp3" : ext;
 }
 
@@ -1336,28 +1336,21 @@ function stemName(track, i) {
   return `${stem}.${versionExt(track.mime)}`;
 }
 
+/** The extension audio of this type is filed under, `bin` when the type names none. */
+function audioExtOrBin(mime) {
+  return audioExtOf(mime) ?? "bin";
+}
+
 /** The folder holding a file, in the médiathèque's POSIX path space. */
 function dirOf(p) {
   return String(p).split("/").slice(0, -1).join("/");
-}
-
-function audioExtFor(mime) {
-  if (!mime) return "bin";
-  if (mime.includes("mpeg") || mime.includes("mp3")) return "mp3";
-  if (mime.includes("flac")) return "flac";
-  if (mime.includes("wav")) return "wav";
-  if (mime.includes("ogg")) return "ogg";
-  if (mime.includes("mp4") || mime.includes("m4a") || mime.includes("aac"))
-    return "m4a";
-  if (mime.includes("webm")) return "webm";
-  return "bin";
 }
 
 // Per-stem cache key: the stem's rank in the version, plus an ext the browser can sniff.
 function versionTrackCachePath(versionUid, entry) {
   return path.join(
     CACHE_DIR,
-    `version-${versionUid}-${entry.id}.${audioExtFor(entry.mime)}`,
+    `version-${versionUid}-${entry.id}.${audioExtOrBin(entry.mime)}`,
   );
 }
 
@@ -2017,8 +2010,9 @@ function normalizeTags(input) {
   return out;
 }
 
+/** A session's cache file extension, the same the upload filed it under. */
 function extFor(mime) {
-  return mime.includes("ogg") ? "ogg" : mime.includes("mp4") ? "mp4" : "webm";
+  return audioExtOf(mime) ?? "webm";
 }
 
 function cachePathFor(rec) {
@@ -2031,20 +2025,8 @@ function cachePathFor(rec) {
 
 /** Common audio containers, then the uploaded name's own extension, then `bin`. */
 function songAudioExt(mime, name) {
-  const known = {
-    "audio/mpeg": "mp3",
-    "audio/mp3": "mp3",
-    "audio/mp4": "m4a",
-    "audio/x-m4a": "m4a",
-    "audio/aac": "m4a",
-    "audio/wav": "wav",
-    "audio/x-wav": "wav",
-    "audio/flac": "flac",
-    "audio/ogg": "ogg",
-    "audio/opus": "opus",
-    "audio/webm": "webm",
-  };
-  if (known[mime]) return known[mime];
+  const known = audioExtOf(mime);
+  if (known) return known;
   const fromName = /\.([a-z0-9]{1,5})$/i.exec(String(name || ""));
   return fromName ? fromName[1].toLowerCase() : "bin";
 }
