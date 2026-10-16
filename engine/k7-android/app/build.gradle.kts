@@ -83,6 +83,8 @@ dependencies {
     implementation("androidx.core:core:1.17.0")
     implementation("androidx.coordinatorlayout:coordinatorlayout:1.3.0")
     implementation("androidx.webkit:webkit:1.14.0")
+    // CertTrust's decision runs on the JVM alone (app/src/test).
+    testImplementation("junit:junit:4.13.2")
 }
 
 val engineDir = rootDir.resolve("../k7-runtime")
