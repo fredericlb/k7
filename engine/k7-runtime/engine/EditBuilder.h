@@ -28,7 +28,7 @@ void reloadRack(te::Edit& edit, te::Plugin& plugin, const PluginDoc& p);
 // A module's second input aimed at `from` through `doc`, or unwired when `from` is empty.
 void wireSidechain(te::Edit& edit, te::Plugin& plugin, const std::string& from, const ProjectDoc& doc);
 
-// One track's send LEVELS on the live aux sends, found by the bus the plan gives them — only valid while the routing signature is unchanged.
+// One track's send LEVELS on the live auxiliary sends, found by the bus the plan gives them — only valid while the routing signature is unchanged.
 void applySendLevels(te::Edit& edit, const ProjectDoc& doc, const std::string& trackId);
 
 // Insert a wave clip (MIDI clips are skipped — see insertMidiClip).

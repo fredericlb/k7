@@ -58,9 +58,6 @@ private:
 
 public:
 
-    /** How long the loaded record is, in seconds — 0 with nothing on. Read by the host, not the audio thread. */
-    double recordSeconds() const;
-
     /** Where the needle is, in seconds of the record. Published once a block for the state push. */
     double needleSeconds() const { return needle_.load(std::memory_order_relaxed); }
 

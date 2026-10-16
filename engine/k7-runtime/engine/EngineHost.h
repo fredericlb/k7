@@ -522,7 +522,7 @@ int renderOffline(const ProjectDoc& doc, const std::string& baseDir,
 // Print a symbolised stack when the process is about to die of an access violation, then let it die — there is no debugger here. Same dbghelp walk as watchdogStack.
 void installCrashHandler();
 
-// THROWAWAY PROBE, wired from `--multi-edit-test`: several documents at once on ONE audio device, reporting whether each master made signal. See docs/multiEdit.md.
+// Probe kept on purpose, wired from `--multi-edit-test`: several documents at once on ONE audio device, reporting whether each master made signal. See docs/multiEdit.md.
 int runMultiEditTest(const std::vector<ProjectDoc>& docs,
                      const std::vector<std::string>& baseDirs, double seconds,
                      const std::string& deviceName = {},

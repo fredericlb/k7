@@ -244,11 +244,6 @@ int64_t TurntablePlugin::heldBytes() const noexcept
     return pcm + stretch;
 }
 
-double TurntablePlugin::recordSeconds() const
-{
-    return recordRate_ > 0.0 ? frames_ / recordRate_ : 0.0;
-}
-
 void TurntablePlugin::initialise(const te::PluginInitialisationInfo& info)
 {
     // An unlinked mode silently becomes `disabled`, so ASK rather than name one — see EditBuilder's warp.

@@ -1,6 +1,6 @@
 // Supervisor.cpp — see Supervisor.h. Every member of Impl is touched on the loop thread only; what
 // blocks goes through `loop.work` and comes back as a posted task. Every pace below is argued in
-// docs/supervisor.md; they are the TypeScript supervisor's, unchanged.
+// docs/supervisor.md.
 
 #include "Supervisor.h"
 

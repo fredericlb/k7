@@ -27,7 +27,7 @@ endif()
 # -----------------------------------------------------------------------------
 # Shared dependencies (fetched once here, consumed by the packages below)
 #
-# The frontend is a separate Node app (../brain), so there's no C++ UI or YAML
+# The apps that drive the engine are Node apps (apps/k7), so there's no C++ UI or YAML
 # dependency here — just the audio engine and the WebSocket transport.
 # Tracktion is HEAVY (bundles JUCE, hundreds of MB, long first build).
 # -----------------------------------------------------------------------------
@@ -469,7 +469,7 @@ endif()
 #   engine/  -> studio::engine  (library: model, diff, Tracktion host)
 #   server/  -> k7-runtime  (app: WebSocket audio server)
 #
-# The frontend lives in ../brain as a standalone Node app and is NOT built here.
+# The apps that drive the engine are Node apps elsewhere in the repo and are NOT built here.
 #
 # Note: Tracktion also declares example/test targets nothing here depends on, so
 # building the `k7-runtime` target never touches them. The build presets
