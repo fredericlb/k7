@@ -1,5 +1,5 @@
 // render.ts (routes) — bounce a document to audio on this machine and stream the result
-// back. Mounted BEFORE resolveWorkspace, like the médiathèque cache: a render is a property
+// back. Mounted BEFORE resolveWorkspace, like the médiathèque routes: a render is a property
 // of the MACHINE (its engine binary, its plugins), not of anyone's workspace.
 //
 // The one caller is z0's backend, which is hosted and cannot exec anything itself.

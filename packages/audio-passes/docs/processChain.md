@@ -245,8 +245,8 @@ names, and over the MACHINE's copies (`<state>/mediatek/songs/…`), since that 
 opens. Three properties make it a command you run the night before rather than once: a song whose
 `stems/` already holds something is skipped, the registry's id hashes the WORK (so even an
 interrupted pass costs nothing twice), and an unreadable song costs its own line rather than the
-other twenty-nine. Writing into that cache is safe — `syncFamily` drops what it once fetched
-(`heldManifest`), never what it finds beside it.
+other twenty-nine. Writing beside a song is safe: nothing on the machine prunes a song folder of
+files it did not put there.
 
 What a deck then DOES with the four files — subtract one from the mix, and why that rather than
 summing the stems — is `packages/song-schema/docs/stems.md`.

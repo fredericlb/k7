@@ -103,8 +103,8 @@ Two consequences worth stating:
 - A song ref syncs the **folder**, trailing slash and all (`songPathPrefix`), because a song IS
   its folder: the master, its variants, `song.yaml`. A sync that fetched only the file named
   would land a catalogued folder with nothing to play.
-- The scope narrows **both sides** of the diff (`syncFamily`'s own note), so pulling one set's
-  songs never evicts the rest of the cache. Adding a set to a machine is additive.
+- Pulling one set's songs never evicts the rest of what the machine holds. Adding a set to a
+  machine is additive.
 
 ## The refs stay live
 

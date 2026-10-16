@@ -462,7 +462,7 @@ export function toWebTracks(tracks: TrackDoc[], tempo?: number): WebTrack[] {
   }));
 }
 
-// The user's global preferences — per-MACHINE, not per-workspace, hence module-level.
+// The user's global preferences — one file for this service, not per workspace, hence module-level.
 export function preferences(): {
   audioDevice: string | null;
   channels: { in: string; out: string };
