@@ -3,7 +3,11 @@
 // wrong: an envelope is placed by its EVENTS, every other curve is a function of song time. docs/curves.md.
 
 import { adsrUnit, sampleSpec } from "@studio/song-schema/curveMath";
-import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
+import {
+  parseDuration,
+  parsePosition,
+  roundBeat,
+} from "@studio/song-schema/timecode";
 import { curveRuns, type EnvelopeFire } from "./curveConditions";
 import {
   type AdsrCurve,
@@ -28,7 +32,8 @@ export function sampleCurve(
 
 const LFO_BAKE_PER_BAR = 24; // breakpoints per bar for an LFO (the engine interpolates)
 const LFO_BAKE_MAX_POINTS = 2048; // cap, so a long song can't explode the point count
-export const round6 = (v: number) => Math.round(v * 1e6) / 1e6;
+/** Six decimals, a breakpoint's beat and value alike: the rounding a beat gets everywhere. */
+export const round6 = roundBeat;
 
 // A curve baked to engine breakpoints; `points` are [beat, output] in the curve's OWN range, `bipolar` alongside.
 export interface BakedCurve {

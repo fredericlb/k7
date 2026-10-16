@@ -4,9 +4,7 @@
 import { LineCounter, parseDocument } from "yaml";
 import { type MixView, MixViewSchema } from "./mixViewSchema";
 import type { ModuleIssue } from "./moduleFile";
-
-// YAML 1.2 for the reason every other file here pins it: a scalar shaped like `5:1:1` stays a string.
-const OPTS = { version: "1.2" as const };
+import { YAML_READ } from "./yamlText";
 
 /** The folder a project keeps its per-view files in, and the Mix desk's own. */
 export const VIEWS_DIR = "views";
@@ -19,7 +17,7 @@ export interface ParsedMixView {
 
 export function parseMixView(text: string): ParsedMixView {
   const lines = new LineCounter();
-  const doc = parseDocument(text, { ...OPTS, lineCounter: lines });
+  const doc = parseDocument(text, { ...YAML_READ, lineCounter: lines });
   const issues: ModuleIssue[] = [];
   for (const e of doc.errors) {
     const pos = lines.linePos(e.pos[0]);

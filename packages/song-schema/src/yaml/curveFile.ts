@@ -5,9 +5,7 @@
 import { isMap, isSeq, parseDocument } from "yaml";
 import { beatsToPosition, parsePosition } from "../timecode";
 import { quoteTimecodes } from "./moduleFile";
-
-const OPTS = { version: "1.2" as const, lineWidth: 0 };
-const OUT = { lineWidth: 0 };
+import { YAML_READ, YAML_WRITE } from "./yamlText";
 
 /** Insert or delete time in one curve file, by the point's own position — see docs/curveEdits.md. */
 export function spliceCurveTime(
@@ -18,7 +16,7 @@ export function spliceCurveTime(
   num: number,
   den: number,
 ): { text: string; moved: number; removed: number } {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   let moved = 0;
   let removed = 0;
   const points = doc.getIn(["points"]);
@@ -54,7 +52,7 @@ export function spliceCurveTime(
   }
   if (!moved && !removed) return { text, moved, removed };
   quoteTimecodes(doc);
-  return { text: doc.toString(OUT), moved, removed };
+  return { text: doc.toString(YAML_WRITE), moved, removed };
 }
 
 /** One point as the file holds it — for a caller counting them, or checking one is there. */
@@ -72,7 +70,7 @@ export function curvePoints(
 ): CurvePointAt[] {
   let doc: ReturnType<typeof parseDocument>;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return [];
   }
@@ -134,7 +132,7 @@ export function setCurvePoint(
   num: number,
   den: number,
 ): string {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const type = doc.get("type");
   if (!isDrawn(type))
     throw new Error(
@@ -176,7 +174,7 @@ export function setCurvePoint(
     points.items.splice(before, 0, node);
   }
   quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** Move the point at `beat` to `toBeat` — remove-then-set, so the list stays sorted (docs/curveEdits.md). */
@@ -204,12 +202,12 @@ export function removeCurvePoint(
   num: number,
   den: number,
 ): string | null {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const points = doc.getIn(["points"]);
   if (!isSeq(points)) return null;
   const at = pointIndexAt(points, doc, beat, num, den);
   if (at < 0) return null;
   points.items.splice(at, 1);
   quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }

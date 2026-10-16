@@ -13,6 +13,7 @@ import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
 import { accountLibraries } from "@studio/song/sharedFolders";
 import { isDocName } from "@studio/song/yaml/workspaceFile";
 import { alternativesOf } from "@studio/song-schema/alternatives";
+import { stripDocExt } from "@studio/song-schema/docExt";
 import {
   completionOrder,
   isEngineRef,
@@ -111,8 +112,7 @@ export const PROVIDERS = {
       for (const e of entries) {
         const name = under ? `${under}/${e.name}` : e.name;
         if (e.isDirectory()) walk(join(at, e.name), name);
-        else if (e.isFile() && isDocName(e.name))
-          out.push(name.replace(/\.(ya?ml|k7x)$/i, ""));
+        else if (e.isFile() && isDocName(e.name)) out.push(stripDocExt(name));
       }
     };
     walk(join(root, PLAYLISTS_DIR), "");
@@ -126,7 +126,7 @@ export const PROVIDERS = {
         withFileTypes: true,
       })
         .filter((e) => e.isFile() && isDocName(e.name))
-        .map((e) => e.name.replace(/\.(ya?ml|k7x)$/i, ""))
+        .map((e) => stripDocExt(e.name))
         .sort();
     } catch {
       return []; // a song with no picture has no lanes, which is not an error
@@ -160,7 +160,7 @@ export const PROVIDERS = {
     try {
       return readdirSync(join(h.songPath, "sequences"))
         .filter((f) => isDocName(f))
-        .map((f) => f.replace(/\.(ya?ml|k7x)$/i, ""));
+        .map(stripDocExt);
     } catch {
       return [];
     }

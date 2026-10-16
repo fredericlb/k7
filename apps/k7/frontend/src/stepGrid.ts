@@ -2,6 +2,7 @@
 // chosen precision, and which cell a note lights. Pure, because a button that writes a note is
 // exactly the arithmetic worth pinning — the drawing is a table of buttons around these numbers.
 
+import { roundBeat } from "@studio/song-schema/timecode";
 import { notesInRegion } from "./clipboard";
 import type { WebNote } from "./types";
 
@@ -97,7 +98,7 @@ export function nudgeOf(time: number, cellStart: number, step: number): number {
 /** …and back: the beat a pad nudged by `n` hundredths starts on, rounded to six decimals so a later edit addresses the same beat. */
 export function nudgedTime(cellStart: number, step: number, n: number): number {
   const t = cellStart + (Math.max(0, Math.min(NUDGE_MAX, n)) / 100) * step;
-  return Math.round(t * 1e6) / 1e6;
+  return roundBeat(t);
 }
 
 /** One optimistic edit: what a pad was set to before the document could say so. */
@@ -175,7 +176,7 @@ export function planSelectionMove(a: {
     const key = `${a.rowNotes[nr]}@${nc}`;
     if (a.byCell.has(key) && !leaving.has(key)) return { refused: "occupied" };
     // The note's offset inside its step rides along, rounded so a float's tail never reaches the file.
-    const nt = Math.round((a.cells[nc] + (n.time - a.cells[c])) * 1e6) / 1e6;
+    const nt = roundBeat(a.cells[nc] + (n.time - a.cells[c]));
     moves.push([n.key, n.time, a.rowNotes[nr], nt]);
     land.push({ key, ...(n.vel === undefined ? {} : { vel: n.vel }) });
   }

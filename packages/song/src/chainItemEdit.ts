@@ -16,6 +16,10 @@ import {
   TRACKS_DIR,
 } from "@studio/song-schema/yaml/chainSchema";
 import {
+  YAML_READ_LENIENT,
+  YAML_WRITE,
+} from "@studio/song-schema/yaml/yamlText";
+import {
   Document,
   isMap,
   isSeq,
@@ -30,9 +34,6 @@ import {
 } from "./chainProject";
 import { entityFileFor, type ModuleFile } from "./yaml/moduleIO";
 import { isDocName, wsRead, wsWrite } from "./yaml/workspaceFile";
-
-const OPTS = { version: "1.2" as const, strict: false };
-const OUT = { lineWidth: 0 };
 
 /** The folder a project keeps its LANES' files in: `tracks/` in a chain project, `nodes/` otherwise. */
 export const laneFolder = (dir: string): string =>
@@ -92,16 +93,16 @@ function standalone(node: YAMLMap): string {
   const copy = node.clone() as YAMLMap;
   copy.flow = false;
   copy.commentBefore = undefined;
-  const doc = new Document(undefined, OPTS);
+  const doc = new Document(undefined, YAML_READ_LENIENT);
   doc.contents = copy as unknown as typeof doc.contents;
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** The text a node file would hold for this chain node — what a reader of the module's text wants. */
 export function chainItemText(dir: string, name: string): string {
   const ref = chainItemOf(dir, name);
   if (!ref) throw new Error(`no chain node '${name}' in this project`);
-  const doc = parseDocument(wsRead(ref.path), OPTS);
+  const doc = parseDocument(wsRead(ref.path), YAML_READ_LENIENT);
   const node = itemNode(doc, ref.id);
   if (!node)
     throw new Error(`${relative(dir, ref.path)} holds no item ${ref.id}`);
@@ -128,13 +129,13 @@ export function spliceChainItem(
   id: string,
   transform: (text: string) => string,
 ): string {
-  const doc = parseDocument(chainText, OPTS);
+  const doc = parseDocument(chainText, YAML_READ_LENIENT);
   const node = itemNode(doc, id);
   if (!node) throw new Error(`no item ${id} in this chain`);
   const text = standalone(node);
   const next = transform(text);
   if (next === text) return chainText;
-  const edited = parseDocument(next, OPTS);
+  const edited = parseDocument(next, YAML_READ_LENIENT);
   const fresh = edited.contents as unknown as YAMLMap<unknown, unknown>;
   if (!isMap(fresh))
     throw new Error(`node ${id}: an edit left it not a mapping`);
@@ -148,7 +149,7 @@ export function spliceChainItem(
   const slot = slotOf(doc, node);
   if (!slot) throw new Error(`no item ${id} in this chain`);
   slot.seq.items[slot.index] = fresh;
-  const out = doc.toString(OUT);
+  const out = doc.toString(YAML_WRITE);
   const parsed = parseChain(out);
   if (!parsed.value)
     throw new Error(

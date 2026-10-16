@@ -14,6 +14,7 @@ import {
   moduleEmits,
   OUTPUT_VOLUME_PARAM,
 } from "@studio/song-schema/moduleTypes";
+import { roundBeat } from "@studio/song-schema/timecode";
 import { isSurgePatch } from "../basePreset";
 import { confineTo } from "../confine";
 import { envelopeFires } from "../curveConditions";
@@ -369,9 +370,7 @@ export function bakeAutomations(
         }
       }
     }
-    return [...new Set(out.map((b) => Math.round(b * 1e6) / 1e6))].sort(
-      (a, b) => a - b,
-    );
+    return [...new Set(out.map((b) => roundBeat(b)))].sort((a, b) => a - b);
   };
 
   // Baked here, once every track exists: an LFO is sampled over the song's length (the furthest clip end).

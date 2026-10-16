@@ -4,8 +4,7 @@
 import { LineCounter, parseDocument } from "yaml";
 import type { ModuleIssue } from "./moduleFile";
 import { type UiFile, UiFileSchema } from "./moduleSchema";
-
-const PARSE_OPTIONS = { version: "1.2" as const, strict: false };
+import { YAML_READ_LENIENT } from "./yamlText";
 
 export interface ParsedUiFile {
   /** The validated panel. Null when `issues` is non-empty. */
@@ -16,7 +15,7 @@ export interface ParsedUiFile {
 /** Parse + validate one UI file. */
 export function parseUiFile(text: string): ParsedUiFile {
   const lines = new LineCounter();
-  const doc = parseDocument(text, { ...PARSE_OPTIONS, lineCounter: lines });
+  const doc = parseDocument(text, { ...YAML_READ_LENIENT, lineCounter: lines });
   const issues: ModuleIssue[] = [];
   for (const e of doc.errors) {
     const pos = lines.linePos(e.pos[0]);

@@ -9,9 +9,14 @@ import { currentAlternative } from "../alternatives";
 import { beatsToPosition, parsePosition } from "../timecode";
 import { quoteTimecodes } from "./moduleFile";
 import type { Placement } from "./placementSchema";
+import { editYamlText, YAML_READ, YAML_WRITE, type YamlDoc } from "./yamlText";
 
-const OPTS = { version: "1.2" as const, lineWidth: 0 };
-const OUT = { lineWidth: 0 };
+/** Every placement edit: the change, then the timecodes quoted, printed with the shared options. */
+const editLane = (text: string, edit: (doc: YamlDoc) => void): string =>
+  editYamlText(text, (doc) => {
+    edit(doc);
+    quoteTimecodes(doc);
+  });
 
 // A raw object stored via setIn stays plain until stringify, invisible to the quoting visitor — createNode first.
 function put(
@@ -69,12 +74,11 @@ export function setTrackField(
   field: string,
   value: unknown,
 ): string {
-  const doc = parseDocument(text, OPTS);
-  if (value === null) doc.deleteIn([field]);
-  else put(doc, [field], value);
-  flowPlacements(doc, eventsIn(doc));
-  quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return editLane(text, (doc) => {
+    if (value === null) doc.deleteIn([field]);
+    else put(doc, [field], value);
+    flowPlacements(doc, eventsIn(doc));
+  });
 }
 
 /** One placement per line — the shape the file already uses, kept on every write. */
@@ -90,7 +94,7 @@ function flowPlacements(
 
 /** The index of the placement starting at `start`, or -1 — read off the DOCUMENT, see docs/laneEdits.md. */
 export function findPlacement(text: string, start: string): number {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const path = eventsIn(doc);
   const events = doc.getIn(path);
   if (!isSeq(events)) return -1;
@@ -103,21 +107,19 @@ export function findPlacement(text: string, start: string): number {
 export function movePlacement(text: string, start: string, to: string): string {
   const at = findPlacement(text, start);
   if (at < 0) throw new Error(`no placement at ${start}`);
-  const doc = parseDocument(text, OPTS);
   // The index came from the list that is PLAYING, and forking copies it in order (docs/laneEdits.md).
-  doc.setIn([...eventsToEdit(doc), at, "start"], to);
-  quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return editLane(text, (doc) => {
+    doc.setIn([...eventsToEdit(doc), at, "start"], to);
+  });
 }
 
 /** Drop the placement at `start`. The clip itself stays in the project. */
 export function removePlacement(text: string, start: string): string {
   const at = findPlacement(text, start);
   if (at < 0) throw new Error(`no placement at ${start}`);
-  const doc = parseDocument(text, OPTS);
-  doc.deleteIn([...eventsToEdit(doc), at]);
-  quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return editLane(text, (doc) => {
+    doc.deleteIn([...eventsToEdit(doc), at]);
+  });
 }
 
 /** Append a placement — the receiving half of a cross-lane clip move. */
@@ -126,15 +128,14 @@ export function addPlacement(
   // No `length`: how long a placement sounds is the material's window times `loop` (docs/laneEdits.md).
   placement: Placement,
 ): string {
-  const doc = parseDocument(text, OPTS);
-  const path = eventsToEdit(doc);
-  const events = doc.getIn(path);
-  const node = doc.createNode(placement);
-  node.flow = true; // one placement per line, as the file already writes them
-  if (isSeq(events)) events.items.push(node);
-  else doc.setIn(path, doc.createNode([node]));
-  quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return editLane(text, (doc) => {
+    const path = eventsToEdit(doc);
+    const events = doc.getIn(path);
+    const node = doc.createNode(placement);
+    node.flow = true; // one placement per line, as the file already writes them
+    if (isSeq(events)) events.items.push(node);
+    else doc.setIn(path, doc.createNode([node]));
+  });
 }
 
 // --- addressing a placement by POSITION (beats, not strings: "1:1:1", "1:1" and "1" are one position) ---
@@ -146,7 +147,7 @@ export function findPlacementAt(
   num: number,
   den: number,
 ): number {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const path = eventsIn(doc);
   const events = doc.getIn(path);
   if (!isSeq(events)) return -1;
@@ -168,7 +169,7 @@ export function placementAt(
   text: string,
   index: number,
 ): Record<string, unknown> | null {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const path = eventsIn(doc);
   const events = doc.getIn(path);
   if (!isSeq(events) || index < 0 || index >= events.items.length) return null;
@@ -180,7 +181,7 @@ export function placementAt(
 
 /** Every placement in `text`, as PLAIN VALUES — the list to `placementAt`'s one. */
 export function placementValues(text: string): Record<string, unknown>[] {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const events = doc.getIn(eventsIn(doc));
   if (!isSeq(events)) return [];
   return events.items.map(
@@ -194,10 +195,9 @@ export function placementValues(text: string): Record<string, unknown>[] {
 
 /** Drop the placement at `index`. */
 export function removePlacementAt(text: string, index: number): string {
-  const doc = parseDocument(text, OPTS);
-  doc.deleteIn([...eventsToEdit(doc), index]);
-  quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return editLane(text, (doc) => {
+    doc.deleteIn([...eventsToEdit(doc), index]);
+  });
 }
 
 /** Set (or, with `undefined`, clear) one field of the placement at `index` — the generic form of movePlacementAt. */
@@ -207,12 +207,11 @@ export function setPlacementField(
   field: string,
   value: string | number | boolean | undefined,
 ): string {
-  const doc = parseDocument(text, OPTS);
-  const path = eventsToEdit(doc);
-  if (value === undefined) doc.deleteIn([...path, index, field]);
-  else doc.setIn([...path, index, field], value);
-  quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return editLane(text, (doc) => {
+    const path = eventsToEdit(doc);
+    if (value === undefined) doc.deleteIn([...path, index, field]);
+    else doc.setIn([...path, index, field], value);
+  });
 }
 
 /** Copy the placement at `index`, patch the copy and append it — what a SPLIT writes (docs/laneEdits.md). */
@@ -221,24 +220,23 @@ export function copyPlacementAt(
   index: number,
   patch: Record<string, unknown>,
 ): string {
-  const doc = parseDocument(text, OPTS);
-  const path = eventsToEdit(doc);
-  const events = doc.getIn(path);
-  if (!isSeq(events) || index < 0 || index >= events.items.length)
-    throw new Error(`no placement at index ${index}`);
-  const src =
-    ((doc.getIn([...path, index]) as { toJSON?: () => unknown })?.toJSON?.() as
-      | Record<string, unknown>
-      | undefined) ?? {};
-  const merged: Record<string, unknown> = { ...src };
-  for (const [k, v] of Object.entries(patch))
-    if (v === undefined) delete merged[k];
-    else merged[k] = v;
-  const copy = doc.createNode(merged);
-  copy.flow = true; // one placement per line, as the file already writes them
-  events.items.push(copy);
-  quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return editLane(text, (doc) => {
+    const path = eventsToEdit(doc);
+    const events = doc.getIn(path);
+    if (!isSeq(events) || index < 0 || index >= events.items.length)
+      throw new Error(`no placement at index ${index}`);
+    const src =
+      ((
+        doc.getIn([...path, index]) as { toJSON?: () => unknown }
+      )?.toJSON?.() as Record<string, unknown> | undefined) ?? {};
+    const merged: Record<string, unknown> = { ...src };
+    for (const [k, v] of Object.entries(patch))
+      if (v === undefined) delete merged[k];
+      else merged[k] = v;
+    const copy = doc.createNode(merged);
+    copy.flow = true; // one placement per line, as the file already writes them
+    events.items.push(copy);
+  });
 }
 
 /** Rewrite the `start` of the placement at `index`. Everything else it carries stays. */
@@ -247,10 +245,9 @@ export function movePlacementAt(
   index: number,
   to: string,
 ): string {
-  const doc = parseDocument(text, OPTS);
-  doc.setIn([...eventsToEdit(doc), index, "start"], to);
-  quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return editLane(text, (doc) => {
+    doc.setIn([...eventsToEdit(doc), index, "start"], to);
+  });
 }
 
 /** Every list of placements this file holds — what a change to the song's CLOCK must reach, docs/laneEdits.md. */
@@ -281,7 +278,7 @@ export function halveSequenceLoops(
   text: string,
   ref: string,
 ): { text: string; halved: number; kept: KeptLoop[] } {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const kept: KeptLoop[] = [];
   let halved = 0;
   for (const path of everyEventList(doc)) {
@@ -309,7 +306,7 @@ export function halveSequenceLoops(
   }
   if (!halved) return { text, halved, kept };
   quoteTimecodes(doc);
-  return { text: doc.toString(OUT), halved, kept };
+  return { text: doc.toString(YAML_WRITE), halved, kept };
 }
 
 /** What `spliceTime` did to one lane — for a caller reporting it, and for refusing a no-op. */
@@ -327,7 +324,7 @@ export function spliceTime(
   num: number,
   den: number,
 ): { text: string; splice: TimeSplice } {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const splice: TimeSplice = { moved: 0, removed: 0 };
   if (!(lenBeats > 0)) return { text, splice };
   const end = atBeats + lenBeats;
@@ -365,5 +362,5 @@ export function spliceTime(
   }
   if (!splice.moved && !splice.removed) return { text, splice };
   quoteTimecodes(doc);
-  return { text: doc.toString(OUT), splice };
+  return { text: doc.toString(YAML_WRITE), splice };
 }

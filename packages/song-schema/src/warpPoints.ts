@@ -2,6 +2,8 @@
 // over `[timelineBeat, sourceSecond]` pairs, so the rule that matters — the map stays monotonic —
 // is decided in one place and tested without a file. Full rationale: docs/warp.md.
 
+import { roundBeat } from "./timecode";
+
 /** One point of the map: where a moment of the SOURCE lands on the timeline. */
 export type WarpMarker = [beat: number, sec: number];
 
@@ -131,11 +133,9 @@ export function retimeWarpMarkers(
   const at = kept[kept.length - 1];
   const out: WarpMarker[] = kept.map((m): WarpMarker => [m[0], m[1]]);
   // Six decimals, what every marker an importer writes already carries — a file a person reads.
-  out.push([round6(at[0] + (seconds - at[1]) * rate), round6(seconds)]);
+  out.push([roundBeat(at[0] + (seconds - at[1]) * rate), roundBeat(seconds)]);
   return out.length >= 2 ? out : null;
 }
-
-const round6 = (v: number): number => Math.round(v * 1e6) / 1e6;
 
 /** The complaint about the first pair that is out of order, or null — both axes must rise (docs/warpPoints.md). */
 function firstNonMonotonic(m: readonly WarpMarker[]): string | null {

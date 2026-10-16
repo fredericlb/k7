@@ -25,6 +25,7 @@ import {
   wsRead,
   wsWrite,
 } from "@studio/song/yaml/workspaceFile";
+import { stripDocExt } from "@studio/song-schema/docExt";
 import { currentEngine, engineNames } from "@studio/song-schema/engines";
 import {
   ACCOUNT_LIBRARY,
@@ -49,6 +50,7 @@ import {
   setAlternativeField,
   setAlternativeParam,
 } from "@studio/song-schema/yaml/alternativeFile";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { isBelow } from "@studio/web-protocol/paths";
 import { parse as parseYaml } from "yaml";
 import { selectModuleEngine } from "./engineSwitch";
@@ -126,7 +128,7 @@ export function listNodePresets(dir: string, node: string): NodePresets {
     if (!wsExists(folder)) continue;
     const names = readdirSync(folder, { withFileTypes: true })
       .filter((e) => e.isFile() && isDocName(e.name))
-      .map((e) => e.name.replace(/\.(ya?ml|k7x)$/i, ""))
+      .map((e) => stripDocExt(e.name))
       .filter((n) => PRESET_NAME.test(n))
       .sort((a, b) => a.localeCompare(b));
     for (const name of names) presets.push({ scope, name });
@@ -146,7 +148,7 @@ function readPreset(
   if (!wsExists(found))
     throw new Error(`no preset '${name}' in ${scope} for ${ref}`);
   const r = PresetFileSchema.safeParse(
-    parseYaml(wsRead(found), { version: "1.2" }) ?? {},
+    parseYaml(wsRead(found), YAML_READ) ?? {},
   );
   if (!r.success)
     throw new Error(

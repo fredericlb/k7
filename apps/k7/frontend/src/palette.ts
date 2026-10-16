@@ -4,6 +4,7 @@
 // plus a `files()` getter, with no shell state. See docs/commandBar.md.
 
 import type { Completion } from "@studio/project-shell/project";
+import { docPattern, stripDocExt } from "@studio/song-schema/docExt";
 import { api } from "./api";
 import { type ArgOption, optionsFromCompletions } from "./argOptions";
 import type { PaletteArg, PaletteCommand } from "./components/CommandBar";
@@ -19,6 +20,10 @@ import {
   LOCAL_READABLE,
 } from "./ui/commands/index";
 import { WAVE_MODES } from "./waveMode";
+
+const MODULE_FILE = docPattern("(^|/)module");
+const CURVE_FILE = docPattern("(^|/)curves/[^/]+");
+const CLIP_FILE = docPattern("(^|/)clips/[^/]+");
 
 export {
   type ArgOption,
@@ -180,21 +185,19 @@ export function makeListArg(shell: {
     if (canonical === "ui external" && first) return shell.surfaces();
     if (canonical === "ui file" && first) return shell.files();
     if (canonical === "ui builder" && first)
-      return shell
-        .files()
-        .filter((f) => /(^|\/)module\.(?:ya?ml|k7x)$/i.test(f));
+      return shell.files().filter((f) => MODULE_FILE.test(f));
     // A curve is named by its id, its file's basename, as a clip is below.
     if (canonical === "ui curve" && first)
       return shell
         .files()
-        .filter((f) => /(^|\/)curves\/[^/]+\.(?:ya?ml|k7x)$/i.test(f))
-        .map((f) => (f.split("/").pop() ?? f).replace(/\.(?:ya?ml|k7x)$/i, ""));
+        .filter((f) => CURVE_FILE.test(f))
+        .map((f) => stripDocExt(f.split("/").pop() ?? f));
     // The review takes a clip ID, not a path, so the tree is filtered to clips/ and the basename handed back, which is what the id IS.
     if (canonical === "ui review" && first)
       return shell
         .files()
-        .filter((f) => /(^|\/)clips\/[^/]+\.(?:ya?ml|k7x)$/i.test(f))
-        .map((f) => (f.split("/").pop() ?? f).replace(/\.(?:ya?ml|k7x)$/i, ""));
+        .filter((f) => CLIP_FILE.test(f))
+        .map((f) => stripDocExt(f.split("/").pop() ?? f));
     if (ENTRY_COMMANDS.has(canonical)) {
       // WHICH of this command's arguments names a path is declared in LOCAL_ARGS, which is what stops a NAME field being answered with the tree.
       const arg = LOCAL_ARGS[canonical]?.[priorArgs.length];

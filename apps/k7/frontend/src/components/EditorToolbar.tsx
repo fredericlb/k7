@@ -18,6 +18,7 @@ import {
   Wand2,
 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
+import { docPattern } from "@studio/song-schema/docExt";
 import type { AutosaveStatus } from "@studio/ui-editor/autosave";
 import { m } from "../paraglide/messages.js";
 import {
@@ -31,6 +32,8 @@ import type { SeqView } from "../sequenceEdit";
 import type { FileContent, FileNode } from "../types";
 import { Breadcrumb } from "./Breadcrumb";
 import { ChainOpsList } from "./ChainOpsList";
+
+const UI_FILE = docPattern("ui");
 
 // The popin's three views of a sequence, in the order they read: the file, then its notes twice.
 const SEQ_TABS = [
@@ -138,7 +141,7 @@ export function EditorToolbar({
           onClick={() =>
             onOpenBuilder(
               moduleFileOf(file.path),
-              /ui\.(?:ya?ml|k7x)$/i.test(file.path) ? "panel" : "module",
+              UI_FILE.test(file.path) ? "panel" : "module",
             )
           }
         >

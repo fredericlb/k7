@@ -7,6 +7,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
+import { stripDocExt } from "@studio/song-schema/docExt";
 import { formatChain, parseChain } from "@studio/song-schema/yaml/chainFile";
 import {
   CHAINS_DIR,
@@ -19,6 +20,7 @@ import {
   stepLists,
 } from "@studio/song-schema/yaml/chainSchema";
 import type { GraphFile } from "@studio/song-schema/yaml/graphSchema";
+import { YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { parse, stringify } from "yaml";
 import { toSegments } from "./chainSegments";
 import {
@@ -93,8 +95,8 @@ export function readChainProject(dir: string): ChainProject {
   // By chain NAME, each read once from chainFilePath, since `x.k7x` and `x.yaml` are one chain.
   const names = new Set<string>();
   for (const f of readdirSync(folder)) {
-    const m = /^(.+)\.(?:ya?ml|k7x)$/i.exec(f);
-    if (m && isDocName(f)) names.add(m[1]);
+    const name = stripDocExt(f);
+    if (name && isDocName(f)) names.add(name);
   }
   // `polysynth-copy` sorts before `polysynth` by file name but not by chain name, and lanes follow this order.
   for (const name of [...names].sort((p, q) => (p < q ? -1 : p > q ? 1 : 0))) {
@@ -154,10 +156,7 @@ export function writeLayout(dir: string, positions: Positions): void {
     return;
   }
   const flow = Object.fromEntries(Object.entries(positions));
-  const text = stringify(
-    { positions: flow },
-    { lineWidth: 0, flowCollectionPadding: true },
-  )
+  const text = stringify({ positions: flow }, YAML_WRITE)
     // One card per line: a move is a one-line diff.
     .replace(
       /^ {2}(\S.*):\n {4}x: (.+)\n {4}y: (.+)$/gm,

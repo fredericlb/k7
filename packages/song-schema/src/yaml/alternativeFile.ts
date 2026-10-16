@@ -11,14 +11,11 @@ import {
 } from "../alternatives";
 import { quoteTimecodes } from "./moduleFile";
 import { AlternativeSchema } from "./moduleSchema";
-
-// YAML 1.2 (so `5:1:1` stays a string) and no wrapping — the options every module write takes.
-const OPTS = { version: "1.2" as const, lineWidth: 0 };
-const OUT = { lineWidth: 0 };
+import { YAML_READ, YAML_WRITE } from "./yamlText";
 
 /** What a module's file says its alternatives are called, in order. `["1"]` when it has none. */
 export function alternativeNames(text: string): string[] {
-  return alternativesOf(parseDocument(text, OPTS).toJS() ?? {}).map(
+  return alternativesOf(parseDocument(text, YAML_READ).toJS() ?? {}).map(
     (a) => a.name,
   );
 }
@@ -28,11 +25,11 @@ export function setAlternative(text: string, name: string): string {
   const names = alternativeNames(text);
   const at = pickAlternative(names, name);
   if (names[at] !== name) throw new Error(`no alternative "${name}"`);
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   if (at === 0) doc.deleteIn(["alternative"]);
   else doc.setIn(["alternative"], name);
   quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** What a switch to `name` does to the params, when that is ALL it does — null otherwise (docs/alternatives.md). */
@@ -45,7 +42,7 @@ export interface ParamsSwitch {
 
 /** Read off the file alone, so a running engine can take the switch as values without a recompile. */
 export function paramsSwitch(text: string, name: string): ParamsSwitch | null {
-  const raw = (parseDocument(text, OPTS).toJS() ?? {}) as Record<
+  const raw = (parseDocument(text, YAML_READ).toJS() ?? {}) as Record<
     string,
     unknown
   >;
@@ -93,7 +90,7 @@ export function setAlternativeParam(
   value: number | string | null,
   engine?: string,
 ): string {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const at = currentAlternative(
     (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
   );
@@ -103,7 +100,7 @@ export function setAlternativeParam(
       at === 0 ? [...inSet, name] : ["alternatives", at - 1, ...inSet, name];
     if (!doc.hasIn(key)) return text;
     doc.deleteIn(key);
-    return doc.toString(OUT);
+    return doc.toString(YAML_WRITE);
   }
   if (at === 0) doc.setIn([...inSet, name], value);
   else {
@@ -115,12 +112,12 @@ export function setAlternativeParam(
     if (isMap(params)) params.flow = false;
   }
   quoteTimecodes(doc);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** Remove every NUMBER the set that is ON states, under `engines.<engine>` when the module runs one — a file param stays. */
 export function clearAlternativeParams(text: string, engine?: string): string {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const at = currentAlternative(
     (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
   );
@@ -136,7 +133,7 @@ export function clearAlternativeParams(text: string, engine?: string): string {
   if (!numbers.length) return text;
   for (const key of numbers) params.delete(key);
   if (!params.items.length) doc.deleteIn(path);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** Set one FIELD on the set that is ON — `engine:` being the one that needs it (packages/song/docs/engines.md). */
@@ -145,7 +142,7 @@ export function setAlternativeField(
   field: string,
   value: string,
 ): string {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const at = currentAlternative(
     (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
   );
@@ -155,7 +152,7 @@ export function setAlternativeField(
     if (isMap(entry)) entry.flow = false;
     doc.setIn(["alternatives", at - 1, field], value);
   }
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 export interface AddOptions {
@@ -176,7 +173,7 @@ export function addAlternative(
   if (names.includes(chosen))
     throw new Error(`this module already has an alternative "${chosen}"`);
 
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const entry: Record<string, unknown> = {};
   // Named only when the author said one: an unnamed set is known by its position.
   if (name !== undefined) entry.name = name;
@@ -190,7 +187,7 @@ export function addAlternative(
   else doc.setIn(["alternatives"], doc.createNode([node]));
   doc.setIn(["alternative"], chosen);
   quoteTimecodes(doc);
-  return { text: doc.toString(OUT), name: chosen };
+  return { text: doc.toString(YAML_WRITE), name: chosen };
 }
 
 /** The fields a `copy` starts from: only what the CURRENT set states, never the merged result. */

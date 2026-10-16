@@ -12,6 +12,7 @@ import {
   StateField,
 } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { isMap, isScalar, parseDocument } from "yaml";
 
 export interface SliceSym {
@@ -48,7 +49,7 @@ export function scanSlices(doc: string): SliceSym[] | null {
   if (!doc.includes("rack_type")) return null;
   let parsed: ReturnType<typeof parseDocument>;
   try {
-    parsed = parseDocument(doc, { version: "1.2" });
+    parsed = parseDocument(doc, YAML_READ);
   } catch {
     return null;
   }

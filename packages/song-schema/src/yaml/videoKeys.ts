@@ -12,8 +12,7 @@ import {
   type Key,
   keysOf,
 } from "../keyframes";
-
-const OPTS = { version: "1.2" as const, lineWidth: 0 };
+import { YAML_READ, YAML_WRITE } from "./yamlText";
 
 // A collection comes back from `getIn` as a YAML node; the schema reads plain values.
 const plain = (v: unknown): unknown =>
@@ -60,7 +59,7 @@ function write(doc: Doc, index: number, keys: Keys): string {
       doc.createNode(out, { flow: true }),
     );
   else doc.deleteIn(["events", index, "animate"]);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 const ms = (t: number) => Math.round(t * 1000) / 1000;
@@ -76,7 +75,7 @@ export function setVideoKeyAt(
 ): string | null {
   let doc: Doc;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return null;
   }
@@ -99,7 +98,7 @@ export function removeVideoKeyAt(
 ): string | null {
   let doc: Doc;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return null;
   }

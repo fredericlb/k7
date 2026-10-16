@@ -24,9 +24,7 @@ import {
 } from "./chainSchema";
 import { locate, type ModuleIssue, quoteTimecodes } from "./moduleFile";
 import { ModuleSchema } from "./moduleSchema";
-
-const OPTS = { version: "1.2" as const, strict: false };
-const OUT = { lineWidth: 0 };
+import { YAML_READ_LENIENT, YAML_WRITE } from "./yamlText";
 
 export interface ParsedChain {
   value: ChainFile | null;
@@ -43,7 +41,7 @@ export function moduleOfItem(item: Item): Record<string, unknown> {
 /** Parse + validate one chain file, every node item through ModuleSchema as a node file would be. */
 export function parseChain(text: string): ParsedChain {
   const lines = new LineCounter();
-  const doc = parseDocument(text, { ...OPTS, lineCounter: lines });
+  const doc = parseDocument(text, { ...YAML_READ_LENIENT, lineCounter: lines });
   const issues: ModuleIssue[] = [];
   for (const e of doc.errors) {
     const pos = lines.linePos(e.pos[0]);
@@ -151,14 +149,14 @@ function canonical(v: unknown): string {
 
 /** Write `chain` as a file's text, keeping `prevText`'s header and every unchanged item's own node. */
 export function formatChain(chain: ChainFile, prevText = ""): string {
-  const doc = parseDocument(prevText || "{}", OPTS);
+  const doc = parseDocument(prevText || "{}", YAML_READ_LENIENT);
   const old = nodesById(doc);
   const top: Record<string, unknown> = {};
   if (chain.start !== undefined) top.start = chain.start;
   if (chain.ports?.length) top.ports = chain.ports;
   if (chain.bus_only) top.bus_only = true;
   if (chain.hidden) top.hidden = true;
-  const fresh = parseDocument("start: x", OPTS);
+  const fresh = parseDocument("start: x", YAML_READ_LENIENT);
   fresh.delete("start");
   fresh.commentBefore = doc.commentBefore;
   for (const [k, v] of Object.entries(top)) {
@@ -177,7 +175,7 @@ export function formatChain(chain: ChainFile, prevText = ""): string {
     fresh.set("subchains", subs);
   }
   quoteTimecodes(fresh);
-  return fresh.toString(OUT);
+  return fresh.toString(YAML_WRITE);
 }
 
 /** One list of steps as a YAML sequence, each unchanged item keeping its own node. */

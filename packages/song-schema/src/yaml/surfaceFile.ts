@@ -11,9 +11,7 @@ import {
   type Surface,
   SurfaceSchema,
 } from "./surfaceSchema";
-
-// YAML 1.2, as every other file here pins it: a scalar shaped like `5:1:1` stays a string.
-const OPTS = { version: "1.2" as const };
+import { YAML_READ } from "./yamlText";
 
 /** The folder a project keeps its surfaces in. OPTIONAL — most projects have none. */
 export const SURFACES_DIR = "surfaces";
@@ -40,7 +38,7 @@ export interface ParsedSurface {
 /** Parse one surface file; an EMPTY one is an error, unlike `views/mix.yaml` (docs/surfaceFiles.md). */
 export function parseSurface(text: string): ParsedSurface {
   const lines = new LineCounter();
-  const doc = parseDocument(text, { ...OPTS, lineCounter: lines });
+  const doc = parseDocument(text, { ...YAML_READ, lineCounter: lines });
   const issues: ModuleIssue[] = [];
   for (const e of doc.errors) {
     const pos = lines.linePos(e.pos[0]);

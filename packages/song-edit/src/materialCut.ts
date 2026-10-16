@@ -22,6 +22,7 @@ import {
   removePlacementAt,
   setPlacementField,
 } from "@studio/song-schema/yaml/trackFile";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { parseDocument } from "yaml";
 import { editTrackStruct } from "./trackMix";
 
@@ -72,7 +73,7 @@ function freeSequenceName(
 /** The notes a sequence file holds; anything unreadable is no notes at all, and the compile says so. */
 function notesOf(file: string): NoteIn[] {
   try {
-    const doc = parseDocument(wsRead(file), { version: "1.2" });
+    const doc = parseDocument(wsRead(file), YAML_READ);
     const raw = doc.toJS() as { notes?: unknown };
     if (!Array.isArray(raw?.notes)) return [];
     return raw.notes

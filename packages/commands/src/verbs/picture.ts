@@ -14,6 +14,7 @@ import {
 } from "@studio/song/loader";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
 import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { stripDocExt } from "@studio/song-schema/docExt";
 import { orderPosition, reorderTracks } from "@studio/song-schema/trackKind";
 import {
   addVideoPlacement,
@@ -41,7 +42,7 @@ export function laneFile(
   lane: string,
   h: CommandHost,
 ): { rel: string; abs: string; text: string } | null {
-  const name = lane.trim().replace(/\.(ya?ml|k7x)$/i, "");
+  const name = stripDocExt(lane.trim());
   const dir = resolve(h.songPath, LANES_DIR);
   const abs = join(dir, `${name}.yaml`);
   // Containment, as every path-taking verb does: a lane name is one segment, never a way out.
@@ -159,11 +160,7 @@ export function target(
 /** `layer-N`, the first free one — the lanes are a DIRECTORY, not something the song's own doc holds. */
 function nextLaneId(h: CommandHost): string {
   const dir = resolve(h.songPath, LANES_DIR);
-  const taken = new Set(
-    wsExists(dir)
-      ? readdirSync(dir).map((f) => f.replace(/\.(ya?ml|k7x)$/i, ""))
-      : [],
-  );
+  const taken = new Set(wsExists(dir) ? readdirSync(dir).map(stripDocExt) : []);
   let n = 1;
   while (taken.has(`layer-${n}`)) n++;
   return `layer-${n}`;

@@ -9,6 +9,7 @@ import {
   beatsToPosition,
   parseDuration,
   parsePosition,
+  roundBeat,
 } from "@studio/song-schema/timecode";
 import type { WebClip, WebProject } from "./types";
 
@@ -160,9 +161,7 @@ export function armLine(
 export function compSeams(ev: TakesEvent): number[] {
   const inside = (b: number) => b > ev.start + 1e-6 && b < ev.to - 1e-6;
   const all = ev.comp.flatMap((s) => [s.from, s.to]).filter(inside);
-  return [...new Set(all.map((b) => Math.round(b * 1e6) / 1e6))].sort(
-    (a, b) => a - b,
-  );
+  return [...new Set(all.map(roundBeat))].sort((a, b) => a - b);
 }
 
 /** The line that crossfades the seam `seam` over `beats` — 0 removes it. */

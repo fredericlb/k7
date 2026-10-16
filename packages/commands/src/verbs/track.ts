@@ -53,6 +53,7 @@ import {
   placementValues,
   setTrackField,
 } from "@studio/song-schema/yaml/trackFile";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { parseDocument } from "yaml";
 import type { CommandHost, SidHandler } from "../commands.ts";
 import { splitWords } from "./shared.ts";
@@ -229,9 +230,10 @@ async function duplicateTrack(
   }
   try {
     const srcText = wsRead(srcAbs);
-    const srcValue = parseDocument(srcText, {
-      version: "1.2",
-    }).toJS() as Record<string, unknown>;
+    const srcValue = parseDocument(srcText, YAML_READ).toJS() as Record<
+      string,
+      unknown
+    >;
     if (Array.isArray(srcValue.tracks)) {
       h.refuse([`"${lane}" is a group — a group has no events to duplicate`]);
       return;

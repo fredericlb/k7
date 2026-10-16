@@ -40,3 +40,10 @@ an un-migrated song unreadable. Only the WRITER stops at the double-croche.
 `fields()` returns the ticks unshifted by the 1-based rule: they are a REMAINDER past the last
 field, not an index into anything, so "the first tick" is 0 in a position exactly as it is in a
 duration.
+
+## A beat is written to six decimals
+
+Every beat a writer puts in a file or a key goes through `roundBeat` (`Math.round(x * 1e6) / 1e6`):
+a drag's float tail would otherwise churn a file on a no-op write, and two spellings of one beat
+would address two different notes. Six places is far below a tick (1/960 of a quarter). A site that
+rounds by `toFixed(6)` instead is not the same function at the half-way case, and keeps its own.

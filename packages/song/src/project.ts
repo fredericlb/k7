@@ -127,7 +127,7 @@ function readSource(sourcePath: string): AssembledDoc {
 // Read a single-file song: one YAML document holding `project` and `tracks`.
 function readYamlSong(path: string): AssembledDoc {
   const abs = resolve(path);
-  const value = parseYaml(wsRead(abs), { version: "1.2" });
+  const value = parseYaml(wsRead(abs), YAML_READ);
   if (!value || typeof value !== "object")
     throw new Error(`${basename(abs)} is not a song — expected a mapping`);
   return value as AssembledDoc;
@@ -333,6 +333,7 @@ export function loadAudioClipDoc(
 
 // Imported as well as re-exported: `export … from` publishes a name without BINDING it, and trackMixer reads it.
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 
 export {
   MIXER_PARAMS,

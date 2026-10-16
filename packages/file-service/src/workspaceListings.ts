@@ -5,6 +5,7 @@
 import { type Dirent, readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { isDocName, wsRead } from "@studio/song/yaml/workspaceFile";
+import { stripDocExt } from "@studio/song-schema/docExt";
 import { PLAYLISTS_DIR, parsePlaylist } from "@studio/song-schema/playlist";
 import {
   isReferenceFile,
@@ -93,7 +94,7 @@ export function playlistsIn(root: string, toRel: ToRel): PlaylistInfo[] {
       }
       return {
         path: toRel(abs),
-        name: basename(abs).replace(/\.(ya?ml|k7x)$/i, ""),
+        name: stripDocExt(basename(abs)),
         ...(parsed?.title ? { title: parsed.title } : {}),
         count: parsed?.items.length ?? 0,
         ok: parsed !== null,

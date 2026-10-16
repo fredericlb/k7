@@ -9,6 +9,7 @@ import { ENGINES_DIR } from "@studio/song-schema/engines";
 import { namePart } from "@studio/song-schema/instanceName";
 import { parseGraph, renameNode } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
+import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { isBelow } from "@studio/web-protocol/paths";
 import { parseDocument } from "yaml";
 import { editChainItem } from "./chainItemEdit";
@@ -156,9 +157,9 @@ function repointChainItems(dir: string, ref: string, to: string): string[] {
   for (const n of Object.values(readChainProject(dir).nodes)) {
     if (n.track || (n.value as { extends?: unknown }).extends !== ref) continue;
     editChainItem(dir, n.name, (text) => {
-      const doc = parseDocument(text, { version: "1.2" });
+      const doc = parseDocument(text, YAML_READ);
       doc.set("extends", to);
-      return doc.toString({ lineWidth: 0 });
+      return doc.toString(YAML_WRITE);
     });
     chains.add(n.chain);
   }
