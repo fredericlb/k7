@@ -328,7 +328,7 @@ struct Supervisor::Impl {
         queue.pop_front();
         fetching = i.name;
         onDownload(i.name, 0, i.bytes, "downloading", "");
-        // Detached: a download outlives no supervisor, and one cut short leaves only a .part to start over from.
+        // Detached: a download outlives no supervisor, and one cut short leaves only a .part the next try resumes.
         std::thread([this, i] {
             log::host("instrument " + i.name + ": downloading " + i.url);
             int lastPercent = -1;

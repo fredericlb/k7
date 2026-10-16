@@ -171,21 +171,55 @@ single file is what the web UI's Logs panel reads — the
 server asks for it over the jobs channel (`readLog` in `MachineJobs.cpp`), since the file is on this
 machine.
 
-Under an app a line is **not** echoed to stderr: the app drains the supervisor's stderr into this
-same file, so an echo would be every line twice, and stderr is for what the app should file under
-its own tag. Run from a config file there is no app, and every line is echoed — stderr is then the
+Under an app a line is **not** echoed to stderr: stderr is what the app files under its own tag, in
+its own log (`standalone.log` on the desktop, logcat on the phone), and an echo would put every line
+in two places. Run from a config file there is no app, and every line is echoed — stderr is then the
 only place a terminal sees it.
 
 The line format is `HH:MM:SS [tag] text` and must stay BYTE-IDENTICAL: the Logs panel seeds on a
 tail and then polls by byte offset, so a format change is not cosmetic.
 
-**UNDER AN APP, TRUNCATION IS NOT OURS.** We open in APPEND mode. The app truncates the file once
-when it starts, because the app's lifetime is what "a session" means — and this process can be
-relaunched mid-session after a crash, at which point truncating would wipe the log the user is
-reading to find out why it crashed. Run from a config file, our own start IS the session, so we
-truncate at the first open. An app also appends its own `[host]` lines to the same file;
-single writes in append mode are atomic on both platforms, so the two writers interleave whole
-lines rather than tearing.
+**Under an app, a start does not truncate.** This process can be relaunched mid-session after a
+crash, and truncating then would wipe the log the user is reading to find out why it crashed. Run
+from a config file, our own start IS the session, so we truncate at the first open.
+
+**The supervisor bounds the file, because nothing else does.** It is the file's only writer and no
+app truncates it, and a machine can stay up for months, the server's own engine first among them.
+Past 8 MB (`kRotateAbove`) the file is moved to `.studio.log.1`, replacing the one there, and a
+fresh one is opened: at the open, and while it runs. One generation is kept because the log is read
+for the trouble of THIS run and the last; 16 MB at most is what the state folder can afford on a
+phone. Where Windows refuses the move (a reader holds the file), the file is kept and the move tried
+again a whole size later — never truncated in place.
+
+**A `log` job reads a bounded slice, never the file.** The Logs panel polls it every second and a half,
+so reading the whole file per poll would cost the machine its size in memory each time
+(`readLog` in `MachineJobs.cpp`). With an offset, it reads from there, at most 1 MB
+(`kLogReadCap`) — a reader far behind catches up over several polls. Without one, or with one past
+the end — the file rotated under the reader — it reads the last megabyte and starts at its first
+whole line.
+
+## Backpressure — what a slow peer is not sent
+
+The engine's frames reach a browser through the tunnel's socket or a WebRTC data channel, and
+neither waits for a slow uplink: a frame queues inside the socket however much is already there. The
+engine pushes a `state` frame twenty times a second, and an audio stream frame every 10 ms, so a
+phone on a weak uplink would build a backlog that grows without bound, and a file transfer or a
+command's reply would sit behind seconds of meters nobody will see.
+
+So past 256 KB unsent toward the peer (`kDropAboveBytes` in `Backpressure.h`), those two kinds are
+**dropped**, and nothing else is. They are the two the engine itself skips for a socket that is
+behind (`engine/k7-runtime/server/Outbox.h`, `AudioSender.cpp`): the next `state` carries the whole
+transport again, and the audio listener reads a gap in the sequence and re-cushions. A reply, a
+`plugin-params-live` value, a recorder's `takes`, a job's answer and every file chunk are always sent
+— none of them is superseded by the next. A jobs channel is never shed at all.
+
+The mark sits below the uploads' own high-water (`kHighWaterBytes`, 1 MB): while a file goes up, the
+meters stop rather than compete with it. A meter queued behind a megabyte is already seconds old
+on the uplinks this is for, so it would show nothing true, and the transfer ends sooner.
+
+The JSON is parsed only once the peer is already behind, so a fast link pays nothing. What was
+dropped is counted and said once in `.studio.log` when the peer catches up, or every 1200 drops (a
+minute of `state`) while it does not.
 
 ## `EngineProcess.cpp` — adopting, and what a pidfile is not
 

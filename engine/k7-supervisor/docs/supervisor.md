@@ -65,6 +65,10 @@ which has no `pipe2`, `fcntl` on both ends at once), and a child gets its ends b
 the flag on the copy alone. A pipe made on one thread is then never inherited by a child spawned on
 another, where its write end would hold off the EOF the first spawn waits for.
 
+An app that dies closes our stdout, and the next frame we write would raise SIGPIPE, whose default
+action ends the process before the stdin EOF reaches the shutdown — no deregister, and an engine
+nobody watches. So SIGPIPE is ignored as the first thing `main` does, and that write fails as a write.
+
 ## An engine is adopted by its PORT, and a probe that cannot ask says nothing
 
 Whether the engine is up is asked of its port (`isServing`), and the answer has three values, not

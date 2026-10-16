@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <functional>
 #include <map>
+#include <optional>
 #include <string>
 
 namespace k7::http {
@@ -35,8 +36,11 @@ struct Request {
 /** Perform `r`; never throws. */
 Response send(const Request& r);
 
-/** GET `r.url` straight into `to`, the body never held in memory; `progress` gets the bytes received so far. */
+/** GET `r.url` into `to`, never in memory, RESUMING a `to` already there where the server can (docs/instruments.md); `progress` gets `to`'s size. */
 Response download(const Request& r, const std::filesystem::path& to,
                   const std::function<void(std::uint64_t)>& progress);
+
+/** The first byte a `Content-Range: bytes A-B/T` answer starts at, or nothing for any other spelling. */
+std::optional<std::uint64_t> contentRangeStart(const std::string& header);
 
 }  // namespace k7::http

@@ -51,10 +51,34 @@ the list is updated.
 
 The archive is downloaded beside the folder (`<name>.zip.part`), unpacked into a sibling, renamed
 into place, and the marker `.k7-archive` — the hash it came from — written last. `installed` reads
-that marker: a download cut short leaves no marker and is started over at the next supervisor start,
-and a list that pins a NEW archive replaces an older install. A name in the archive that would land
-outside the folder is refused. One folder and nothing else at the top — what GitHub serves — is
-dropped, so `<file>.sfz` sits directly under `<name>/`.
+that marker: a download cut short leaves no marker, only its `.part`, and is taken up again at the
+next supervisor start; a list that pins a NEW archive replaces an older install. A name in the
+archive that would land outside the folder is refused. One folder and nothing else at the top — what
+GitHub serves — is dropped, so `<file>.sfz` sits directly under `<name>/`.
+
+## A cut download is resumed, and the hash still judges the whole
+
+The largest archive is over a gigabyte, and the machine that fetches it is often a phone, killed in
+the background or moved between networks. Started over each time, it might never land. So a `.part`
+left behind is RESUMED: `http::download` asks for the bytes past its length with a `Range` header.
+
+- **206 starting at that length** — the answer is appended to the `.part`.
+- **200** — the server cannot resume (GitHub's generated zips, the piano among them), and the
+  answer replaces the `.part` whole.
+- **416 naming the `.part`'s own length as the size** — it is already whole: nothing is fetched,
+  and the hash decides.
+- **416 otherwise, or a 206 starting elsewhere** — what is there is no prefix to trust: dropped, and
+  the download starts from zero in the same call.
+
+The answer goes to a file beside the `.part` until its status says which of these it is, since the
+HTTP client hands over the body before it hands over the status. A transfer cut short keeps what it
+brought, and an error page never lands in the `.part`.
+
+Nothing in a resume is trusted beyond what the hash proves: the WHOLE `.part` is hashed before it is
+unpacked, as it would be after one uninterrupted download. A resumed archive that does not match is
+deleted and the error says the next try downloads it whole, since a mismatch there can be a bad
+prefix rather than an upstream change. A verified archive that fails to unpack is kept, so the next
+try finds it whole and fetches nothing.
 
 ## What an app shows
 

@@ -1,5 +1,5 @@
 // MachineJobs_test.cpp — the jobs that only answer, called as the agent calls them: the log seeded
-// by its tail and continued by offset, a local path handed back under `raw`, a set list counted,
+// by its tail and continued by offset, read a bounded slice at a time, a local path handed back under `raw`, a set list counted,
 // the providers going through the one accessor rather than the file, an undo's audio sent back,
 // and the month after which this machine stops keeping it; a write outside the channel's roots refused,
 // and a read outside this machine's copies of them answered as if the file were absent.
@@ -67,6 +67,42 @@ void theLogIsSeededThenContinued()
     auto next = ask(jobs, {{"type", "log"}, {"offset", 6}});
     CHECK(next[0]["raw"]["offset"] == 8);
     CHECK((next[0]["raw"]["lines"] == json{"d"}));
+}
+
+void aStaleOffsetSeedsFromTheTail()
+{
+    scratch();
+    std::ofstream(k7::paths::mergedLog(), std::ios::binary) << "x\ny\n";
+    std::vector<std::string> held;
+    auto jobs = k7::machineJobs(fakeAccess(held));
+    // An offset from before a rotation: past the end of the file that replaced it.
+    auto r = ask(jobs, {{"type", "log"}, {"offset", 5000}});
+    CHECK(r[0]["raw"]["offset"] == 4);
+    CHECK((r[0]["raw"]["lines"] == json{"x", "y"}));
+}
+
+void aLargeLogIsReadByItsTailOnly()
+{
+    scratch();
+    const std::string row(99, 'r');
+    {
+        std::ofstream out(k7::paths::mergedLog(), std::ios::binary);
+        for (int i = 0; i < 30000; ++i) out << row << "\n";
+        out << "last\n";
+    }
+    const auto size = fs::file_size(k7::paths::mergedLog());
+    CHECK(size > 2 * k7::kLogReadCap);
+    auto seed = k7::readLog(std::nullopt, 100000);
+    CHECK(seed["offset"] == size);
+    CHECK(seed["lines"].back() == "last");
+    // Whole lines only, and no more than the cap holds: the cut at the start is dropped.
+    CHECK(seed["lines"].size() <= k7::kLogReadCap / 100 + 1);
+    CHECK(seed["lines"].front() == row);
+    // Far behind, a reader is handed one cap's worth and catches up on the next polls.
+    auto behind = k7::readLog(std::uint64_t{0}, std::nullopt);
+    CHECK(behind["offset"].get<std::uint64_t>() <= k7::kLogReadCap);
+    CHECK(behind["offset"].get<std::uint64_t>() % 100 == 0);
+    CHECK(behind["lines"].size() == behind["offset"].get<std::uint64_t>() / 100);
 }
 
 void anAbsentLogIsEmpty()
@@ -248,6 +284,8 @@ void runMachineJobsTests()
 {
     RUN(theLogIsSeededThenContinued);
     RUN(anAbsentLogIsEmpty);
+    RUN(aStaleOffsetSeedsFromTheTail);
+    RUN(aLargeLogIsReadByItsTailOnly);
     RUN(aLocalPathComesBackRaw);
     RUN(aSetListIsCounted);
     RUN(providersGoThroughTheAccessor);

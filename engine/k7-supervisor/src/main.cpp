@@ -82,6 +82,10 @@ bool useConfig(const char* file)
 
 int main(int argc, char** argv)
 {
+#ifdef SIGPIPE
+    // First of all: an app that died closes our stdout, and the next frame must fail as a write, not kill us before the deregister (docs/supervisor.md).
+    std::signal(SIGPIPE, SIG_IGN);
+#endif
     // Winsock first, before ANY socket — `--probe` below speaks HTTP too. IXWebSocket leaves it to the
     // program, as the engine's Serve.cpp does. Without it every socket on Windows fails WSANOTINITIALISED,
     // and nothing says so: no engine query is answered (an app shows every interface "not connected"),
