@@ -1,4 +1,4 @@
-// LazyYamlPane.tsx — the module builder's YamlPane, fetched the first time a screen shows text.
+// LazyYamlPane.tsx — ui-editor's YamlPane, fetched the first time a screen shows text.
 // CodeMirror and its vim mode weigh more than every other screen of the library together, so a
 // host that mounts the catalogue does not pay for them until a song or a playlist is opened as
 // YAML — see ../docs/audit.md.
@@ -8,7 +8,7 @@ import { type ComponentProps, lazy, Suspense } from "react";
 import { useLabels } from "./host";
 
 const Pane = lazy(() =>
-  import("@studio/ui-module-builder/yaml-pane").then((m) => ({
+  import("@studio/ui-editor/yaml-pane").then((m) => ({
     default: m.YamlPane,
   })),
 );

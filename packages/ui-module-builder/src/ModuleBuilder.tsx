@@ -103,7 +103,7 @@ import { WidgetGridEditor } from "./WidgetGridEditor";
 
 export type { AiOrganizeCall } from "./useAiOrganize";
 
-import { YamlPane } from "./YamlPane";
+import { YamlPane } from "@studio/ui-editor/yaml-pane";
 
 /** What the left column shows; `params` is the odd entry, being a list rather than a file — docs/builder.md. */
 

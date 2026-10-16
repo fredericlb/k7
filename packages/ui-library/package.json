@@ -22,7 +22,6 @@
     "@studio/song-schema": "*",
     "@studio/ui-editor": "*",
     "@studio/ui-mini-player": "*",
-    "@studio/ui-module-builder": "*",
     "@studio/ui-waveform": "*",
     "@studio/web-protocol": "*",
     "music-metadata": "^11.14.0",

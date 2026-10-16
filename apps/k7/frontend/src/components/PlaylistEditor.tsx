@@ -15,7 +15,7 @@ import {
 } from "@studio/song-schema/playlist";
 import type { Validity } from "@studio/song-schema/yaml/validate";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
-import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
+import { YamlPane } from "@studio/ui-editor/yaml-pane";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, mediatek } from "../api";
 import { m } from "../paraglide/messages.js";

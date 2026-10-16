@@ -52,7 +52,7 @@ A chain drawn without its gestures would be a picture of one.
 ## The text half
 
 Beside the drawing: the chain file, or for a folder chain one tab per file — the graph, then each
-node — in the repo own YamlPane, with the autosave every text pane here runs. No Save button;
+node — in `@studio/ui-editor`'s YamlPane, with the autosave every text pane here runs. No Save button;
 written as soon as it is a file the compiler could read.
 
 The two halves are one chain seen twice. A verb rewrites the file under the pane showing it, so a

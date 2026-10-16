@@ -15,10 +15,10 @@ import {
   setAssemblyParam,
 } from "@studio/song-schema/yaml/assemblyFile";
 import { useAutosave } from "@studio/ui-editor/autosave";
+import { YamlPane } from "@studio/ui-editor/yaml-pane";
 import type { Hints } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ModuleStore } from "./store";
-import { YamlPane } from "./YamlPane";
 
 /** One promotable row: a member, one of its params, and whether the box already wears it. */
 interface Row {
