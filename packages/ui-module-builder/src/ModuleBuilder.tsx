@@ -43,6 +43,12 @@ import {
   JSDSP_FILE,
   JSDSP_TYPE,
 } from "@studio/engine-protocol/build";
+import {
+  alignTabs,
+  LAYOUT_MAX,
+  reflowNarrow,
+  twinIssues,
+} from "@studio/panel-rules/layout-twins";
 import { askConfirm, askText } from "@studio/project-shell/ask";
 import {
   builtinPluginFor,
@@ -74,7 +80,6 @@ import {
   useState,
 } from "react";
 import { InputChannelBar } from "./InputChannelBar";
-import { alignTabs, LAYOUT_MAX, reflowNarrow, twinIssues } from "./layoutTwins";
 import {
   channelOf,
   extendsRefOf,

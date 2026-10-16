@@ -47,7 +47,7 @@ These are the **account's** preferences. The machine's own (vim mode, the audio 
 
 `apps/k7/backend/src/aiSettings.ts` keeps each account's Claude API key and model in a second prefs store (`<PREFS_DIR>/ai`). `GET /api/ai/settings` answers the model, the default model and a **hint** of the key (`sk-ant-…wxyz`), never the key. `PUT` is a patch: an absent field is kept, `null` or `""` clears it. This is why the key is not a field of the preferences document, which the browser reads and writes whole.
 
-`apps/k7/backend/src/aiOrganize.ts` is the module builder's AI organize: it receives a module (its params, panel and screens), asks Claude for a new panel, checks the answer with the builder's own rules (`@studio/ui-module-builder/ai-organize`), hands the model its mistakes once (two rounds at most), and streams progress as NDJSON. The system prompt is cached. With no key on the account, the route is off and the builder shows no button.
+`apps/k7/backend/src/aiOrganize.ts` is the module builder's AI organize: it receives a module (its params, panel and screens), asks Claude for a new panel, checks the answer with the builder's own rules (`@studio/panel-rules/ai-organize`, React-free), hands the model its mistakes once (two rounds at most), and streams progress as NDJSON. The system prompt is cached. With no key on the account, the route is off and the builder shows no button.
 
 ## Running and checking
 

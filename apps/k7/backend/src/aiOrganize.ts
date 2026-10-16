@@ -14,8 +14,8 @@ import {
   bindableNames,
   checkAiResult,
   readAiAnswer,
-} from "@studio/ui-module-builder/ai-organize";
-import { aiSystemPrompt } from "@studio/ui-module-builder/ai-prompt";
+} from "@studio/panel-rules/ai-organize";
+import { aiSystemPrompt } from "@studio/panel-rules/ai-prompt";
 import type { PrefsStore } from "@studio/user-prefs";
 import express, { type RequestHandler } from "express";
 import { z } from "zod";

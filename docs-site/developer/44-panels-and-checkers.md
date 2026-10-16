@@ -13,9 +13,9 @@ that cross widgets live elsewhere:
 | Rule | Where |
 |---|---|
 | Tab names 1 to 10 characters, unique; `vertical.tabs` match `tabs` by name and order | the schema |
-| Horizontal layout at most 4 rows; `vertical` at most 4 columns, required past 4 columns; both layouts offer the same binds per page | `twinIssues`, `packages/ui-module-builder/src/layoutTwins.ts` |
-| In bounds, no overlap except a group framing a widget | `gridIssues`, same file, and `packages/ui-module-builder/src/groupGeometry.ts` |
-| No knob, slider, fader or number on an `@` parameter; EQ bands as faders; no lone group | `atControlIssues`, `eqBandIssues`, `loneGroupIssues` in `packages/ui-module-builder/src/aiOrganize.ts` |
+| Horizontal layout at most 4 rows; `vertical` at most 4 columns, required past 4 columns; both layouts offer the same binds per page | `twinIssues`, `packages/panel-rules/src/layoutTwins.ts` |
+| In bounds, no overlap except a group framing a widget | `gridIssues`, same file, and `packages/panel-rules/src/groupGeometry.ts` |
+| No knob, slider, fader or number on an `@` parameter; EQ bands as faders; no lone group | `atControlIssues`, `eqBandIssues`, `loneGroupIssues` in `packages/panel-rules/src/aiOrganize.ts` |
 
 Panels inherited through `extends` merge their top-level `widgets` per id
 (`packages/song/src/moduleResolve.ts`); widgets marked `hidden` are dropped when the panel is
@@ -96,5 +96,5 @@ library panels, and after an AI organize run over many modules.
    `packages/ui-chains/src/graph.ts`.
 3. Offer it in the builder: `packages/ui-module-builder/src/widgetKinds.ts` and the inspector's
    fields in `packages/ui-module-builder/src/WidgetInspector.tsx`.
-4. Describe it in `WIDGET_DOCS` in `packages/ui-module-builder/src/aiPrompt.ts`, so AI organize
+4. Describe it in `WIDGET_DOCS` in `packages/panel-rules/src/aiPrompt.ts`, so AI organize
    knows it, and extend `checkAiResult` if it has rules.

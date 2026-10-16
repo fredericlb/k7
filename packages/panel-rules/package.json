@@ -1,0 +1,28 @@
+{
+  "name": "@studio/panel-rules",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The rules a module's panel is checked against — group geometry, the two layouts — and AI organize's wire, check and prompt built on them. No React, so k7's backend imports it without the builder's frontend stack (docs/panelRules.md). Consumed as source.",
+  "exports": {
+    "./ai-organize": "./src/aiOrganize.ts",
+    "./ai-prompt": "./src/aiPrompt.ts",
+    "./group-geometry": "./src/groupGeometry.ts",
+    "./layout-twins": "./src/layoutTwins.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@studio/engine-protocol": "*",
+    "@studio/song-schema": "*",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,4 +1,4 @@
-// checkLayouts.ts — every library module's panel against the two-layout rules (src/layoutTwins.ts) and the
+// checkLayouts.ts — every library module's panel against the two-layout rules (packages/panel-rules/src/layoutTwins.ts) and the
 // AI brief's checks, and against what it offered BEFORE: a migrated panel must keep every control the
 // committed one had, wherever it moved. Usage: tsx scripts/checkLayouts.ts [module dirs…] (default: all of
 // k7-core). Exits 1 on any issue. See docs/layouts.md.
@@ -7,6 +7,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { parse as parseK7x } from "@studio/k7x/document";
+import { gridIssues, twinIssues } from "@studio/panel-rules/layout-twins";
 import {
   type ModuleUI,
   UiFileSchema,
@@ -18,7 +19,6 @@ import {
   eqBandIssues,
   loneGroupIssues,
 } from "../src/aiOrganize";
-import { gridIssues, twinIssues } from "../src/layoutTwins";
 
 const LIBRARY = resolve(import.meta.dirname, "../../../k7-core");
 

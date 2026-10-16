@@ -1,5 +1,5 @@
 // groupGeometry.ts — the one exception to "widgets never overlap": a GROUP frames the widgets that lie
-// wholly inside its box. Pure, so the grid editor and AI organize's check apply one rule. docs/builder.md.
+// wholly inside its box. Pure, so the grid editor and AI organize's check apply one rule. packages/ui-module-builder/docs/builder.md.
 // The one thing a reader would get wrong: a group holds nothing — membership is geometry, not nesting.
 
 import type { Widget } from "@studio/song-schema/yaml/moduleSchema";

@@ -15,7 +15,7 @@ import {
 /** The engine's stage around any plugin: what the mix corner holds. */
 const STAGE = new Set([INPUT_VOLUME_PARAM, MIX_PARAM, OUTPUT_VOLUME_PARAM]);
 
-import { LAYOUT_MAX } from "./layoutTwins";
+import { LAYOUT_MAX } from "@studio/panel-rules/layout-twins";
 import {
   KNOB_SPAN,
   type ModuleUI,
