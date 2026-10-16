@@ -3,19 +3,13 @@
 // container a camera writes; without it the answer is a NoFfmpegError, never a guess.
 // See docs/videoPrep.md.
 
-import { spawn } from "node:child_process";
+import { ffprobeBin, input, NoFfmpegError, run } from "@studio/ffmpeg";
 
-const FFPROBE = process.env.FFPROBE_BIN || "ffprobe";
+export { NoFfmpegError };
 
-/** ffprobe is absent: nothing can be said about the file, and nothing made from it. */
-export class NoFfmpegError extends Error {
-  constructor(bin: string) {
-    super(
-      `${bin} is not installed — getting a video ready for the picture needs ffmpeg. Install it on the machine the file service runs on.`,
-    );
-    this.name = "NoFfmpegError";
-  }
-}
+/** ffprobe or ffmpeg is absent: nothing can be said about the file, and nothing made from it. */
+export const WHY =
+  "getting a video ready for the picture needs ffmpeg. Install it on the machine the file service runs on.";
 
 /** A video as the plan reads it; `codec` is ffprobe's name, `pixFmt` says the bit depth and the chroma. */
 export interface VideoFacts {
@@ -29,29 +23,6 @@ export interface VideoFacts {
   container: string;
 }
 
-// Run a binary, its stdout as text; ENOENT is the missing tool, anything else its own message.
-export function run(bin: string, args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(bin, args);
-    let out = "";
-    let err = "";
-    child.stdout.on("data", (c: Buffer) => {
-      out += c.toString();
-    });
-    child.stderr.on("data", (c: Buffer) => {
-      err += c.toString();
-    });
-    child.on("error", (e: NodeJS.ErrnoException) =>
-      reject(e.code === "ENOENT" ? new NoFfmpegError(bin) : e),
-    );
-    child.on("close", (code) =>
-      code === 0
-        ? resolve(out)
-        : reject(new Error(err.trim() || `${bin} failed (${code})`)),
-    );
-  });
-}
-
 // "30000/1001" → 29.97; ffprobe states a rate as a fraction.
 const rate = (r: unknown): number => {
   const [n, d] = String(r ?? "0/1")
@@ -60,19 +31,22 @@ const rate = (r: unknown): number => {
   return d ? (n as number) / d : Number(n) || 0;
 };
 
+/** ffprobe's arguments for `source`, pure so the whitelist on an uploaded file is testable. */
+export const probeArgs = (source: string): string[] => [
+  "-v",
+  "error",
+  "-select_streams",
+  "v:0",
+  "-show_entries",
+  "stream=codec_name,width,height,pix_fmt,avg_frame_rate:format=duration,format_name",
+  "-of",
+  "json",
+  ...input(source),
+];
+
 /** The facts of `source`'s first video stream, or null when it has none — an audio file, a still in a container. */
 export async function probeVideo(source: string): Promise<VideoFacts | null> {
-  const out = await run(FFPROBE, [
-    "-v",
-    "error",
-    "-select_streams",
-    "v:0",
-    "-show_entries",
-    "stream=codec_name,width,height,pix_fmt,avg_frame_rate:format=duration,format_name",
-    "-of",
-    "json",
-    source,
-  ]);
+  const out = await run(ffprobeBin(), probeArgs(source), { why: WHY });
   const j = JSON.parse(out) as {
     streams?: Record<string, unknown>[];
     format?: Record<string, unknown>;
