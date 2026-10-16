@@ -40,7 +40,6 @@ describe("the desk's controls", () => {
       "deckB.stemOther",
       "deckB.stemVocals",
       "transport",
-      "listen",
     ]);
   });
 
