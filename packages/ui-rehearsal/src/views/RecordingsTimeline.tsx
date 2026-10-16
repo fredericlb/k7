@@ -115,6 +115,7 @@ export function RecordingsTimeline({
       className={`timeline-item${child ? " moment-child" : ""}`}
       validated={mo.validated}
       time={time}
+      activatable
       onClick={() => onOpenMoment(mo)}
     >
       <div className="session-name">
@@ -204,6 +205,7 @@ export function RecordingsTimeline({
                         key={e.session.id}
                         className="timeline-item"
                         time={timeOfDay(e.at)}
+                        activatable
                         onClick={() => onOpen(e.session)}
                       >
                         <div className="session-row">
@@ -216,6 +218,7 @@ export function RecordingsTimeline({
                             type="button"
                             className="session-del"
                             title={m["session.delete"]()}
+                            aria-label={m["session.delete"]()}
                             onClick={(ev) => remove(ev, e.session.id)}
                           >
                             <Trash2 className="size-4" />

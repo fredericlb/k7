@@ -13,7 +13,9 @@ import type {
   HuntRecord,
   HuntTags,
 } from "@studio/web-protocol/hunt";
+import { ApiError } from "../api";
 import { apiBase } from "../config";
+import { m } from "../paraglide/messages.js";
 
 // The media library answers on the same origin as the rehearsal API, so its base is the configured one.
 export function pl8Base(): Promise<string> {
@@ -35,9 +37,10 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   if (!res.ok) {
     const said = (await res.json().catch(() => ({}))) as { error?: string };
-    const err = new Error(said.error ?? `pl8 answered ${res.status}`);
-    (err as Error & { status?: number }).status = res.status;
-    throw err;
+    throw new ApiError(
+      said.error ?? m["common.requestFailed"]({ status: res.status }),
+      res.status,
+    );
   }
   return (await res.json()) as T;
 }
@@ -86,7 +89,7 @@ export const pl8: Pl8Client = {
     try {
       return await call<SeparateJob>(`/stems/${encodeURIComponent(id)}`);
     } catch (err) {
-      if ((err as Error & { status?: number }).status === 404) return null;
+      if (err instanceof ApiError && err.status === 404) return null;
       throw err;
     }
   },

@@ -117,8 +117,8 @@ export function RehearsalRoutes() {
               element={
                 <ServerOnly>
                   <ReleaseFormView
-                    onSave={async (data) => {
-                      const r = await api.createRelease(data);
+                    onSave={async (data, onProgress) => {
+                      const r = await api.createRelease(data, onProgress);
                       await d.refreshReleases();
                       go(`/releases/${r.id}`);
                       return r;

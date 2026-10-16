@@ -46,7 +46,9 @@ export function LibraryContents({
       ) : isZone ? (
         <RecordingDays days={recordings} />
       ) : entries === null ? (
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <span role="status" aria-label={l.common.loading}>
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </span>
       ) : entries.length === 0 ? (
         <Card className="p-6 text-sm text-muted-foreground">
           {l.contents.emptyFamily}
@@ -68,7 +70,21 @@ export function LibraryContents({
                 state={serverCopy.stateOf(e.path)}
                 server={serverCopy.placement?.server ?? null}
               />
-              <span className="min-w-0 flex-1 truncate">{e.name}</span>
+              {/* A song's name is the row's keyboard way in; the row itself answers the mouse. */}
+              {isSong(e) ? (
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 truncate text-left"
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    onOpen(`${relative(e.path)}/${SONG_FILE}`);
+                  }}
+                >
+                  {e.name}
+                </button>
+              ) : (
+                <span className="min-w-0 flex-1 truncate">{e.name}</span>
+              )}
               {/* Not filed: found on disk with no sidecar, and worth SAYING rather than hiding. */}
               {e.meta?.catalogued === false ? (
                 <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">

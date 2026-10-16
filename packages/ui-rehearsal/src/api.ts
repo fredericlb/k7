@@ -21,6 +21,7 @@ import type {
   SongEnvelope,
   SongListEntry,
 } from "./types";
+import { upload } from "./upload";
 
 /** A publish token as its owner sees it: never the token itself. */
 export interface ApiToken {
@@ -34,6 +35,23 @@ export interface ApiToken {
 // Every call sends the session cookie, under the base the host configured (config.ts).
 const f = (path: string, init?: RequestInit) =>
   fetch(`${apiBase()}${path}`, { credentials: "include", ...init });
+
+/** Called as an upload's bytes leave, with the share sent so far (0 to 1). */
+export type OnProgress = (fraction: number) => void;
+
+// An upload, through XMLHttpRequest so its progress is known — ../docs/recordings.md.
+const fu = (
+  path: string,
+  method: string,
+  body: FormData,
+  onProgress?: OnProgress,
+) =>
+  upload(`${apiBase()}${path}`, {
+    method,
+    body,
+    onProgress,
+    withCredentials: true,
+  });
 
 /** A failed call: the server's own sentence when it sent one, and the status a caller tells 404 by. */
 export class ApiError extends Error {
@@ -78,16 +96,16 @@ export const api = {
     envelope: Envelope,
     duration: number,
     gain: number,
+    onProgress?: OnProgress,
   ): Promise<Session> => {
     const form = new FormData();
     form.append("audio", blob, "recording.webm");
     form.append("envelope", JSON.stringify(envelope));
     form.append("duration", String(duration));
     form.append("gain", String(gain));
-    return f(`/api/sessions/${id}/recording`, {
-      method: "POST",
-      body: form,
-    }).then(json);
+    return fu(`/api/sessions/${id}/recording`, "POST", form, onProgress).then(
+      json,
+    );
   },
 
   // Continue a saved session: the server glues the new take onto the existing recording.
@@ -97,6 +115,7 @@ export const api = {
     envelope: Envelope,
     duration: number,
     gain: number,
+    onProgress?: OnProgress,
   ): Promise<Session> => {
     const form = new FormData();
     form.append("audio", blob, "recording.webm");
@@ -104,10 +123,9 @@ export const api = {
     form.append("duration", String(duration));
     form.append("gain", String(gain));
     form.append("append", "true");
-    return f(`/api/sessions/${id}/recording`, {
-      method: "POST",
-      body: form,
-    }).then(json);
+    return fu(`/api/sessions/${id}/recording`, "POST", form, onProgress).then(
+      json,
+    );
   },
 
   getEnvelope: (id: string): Promise<Envelope> =>
@@ -247,15 +265,18 @@ export const api = {
       body: JSON.stringify(patch),
     }).then(json),
 
-  createRelease: (data: {
-    title: string;
-    artist: string;
-    releaseDate: string;
-    description: string;
-    canDownload: boolean;
-    versionName: string;
-    audio: File;
-  }): Promise<Release> => {
+  createRelease: (
+    data: {
+      title: string;
+      artist: string;
+      releaseDate: string;
+      description: string;
+      canDownload: boolean;
+      versionName: string;
+      audio: File;
+    },
+    onProgress?: OnProgress,
+  ): Promise<Release> => {
     const form = new FormData();
     form.append("title", data.title);
     form.append("artist", data.artist);
@@ -264,7 +285,7 @@ export const api = {
     form.append("canDownload", String(data.canDownload));
     form.append("versionName", data.versionName);
     form.append("audio", data.audio, data.audio.name);
-    return f("/api/releases", { method: "POST", body: form }).then(json);
+    return fu("/api/releases", "POST", form, onProgress).then(json);
   },
 
   deleteRelease: (id: string): Promise<null> =>
@@ -273,15 +294,15 @@ export const api = {
   addVersion: (
     id: string,
     data: { name: string; isDefault: boolean; audio: File },
+    onProgress?: OnProgress,
   ): Promise<unknown> => {
     const form = new FormData();
     form.append("name", data.name);
     form.append("isDefault", String(data.isDefault));
     form.append("audio", data.audio, data.audio.name);
-    return f(`/api/releases/${id}/versions`, {
-      method: "POST",
-      body: form,
-    }).then(json);
+    return fu(`/api/releases/${id}/versions`, "POST", form, onProgress).then(
+      json,
+    );
   },
 
   /** A version's shape, measured by the backend the first time and kept. */
@@ -293,13 +314,16 @@ export const api = {
     id: string,
     versionId: string,
     audio: File,
+    onProgress?: OnProgress,
   ): Promise<unknown> => {
     const form = new FormData();
     form.append("audio", audio, audio.name);
-    return f(`/api/releases/${id}/versions/${versionId}/audio`, {
-      method: "PUT",
-      body: form,
-    }).then(json);
+    return fu(
+      `/api/releases/${id}/versions/${versionId}/audio`,
+      "PUT",
+      form,
+      onProgress,
+    ).then(json);
   },
 
   setDefaultVersion: (id: string, versionId: string): Promise<Release> =>

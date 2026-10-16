@@ -11,6 +11,7 @@ import { Download, EllipsisVertical } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { AUDIO_ACCEPT } from "@studio/mediatek/media";
 import { useRef, useState } from "react";
+import type { OnProgress } from "../api";
 import { BackButton } from "../components/BackButton";
 import { ReleaseEditForm } from "../components/ReleaseEditForm";
 import { SwitchField } from "../components/SwitchField";
@@ -18,17 +19,25 @@ import { VersionCard } from "../components/VersionCard";
 import { fmtDate } from "../format";
 import { m } from "../paraglide/messages.js";
 import type { Release, ReleasePatch, SongEnvelope } from "../types";
+import { uploadLabel } from "../uploadLabel";
 
 interface Props {
   release: Release;
   onUpdate: (patch: ReleasePatch) => Promise<void>;
-  onAddVersion: (data: {
-    name: string;
-    isDefault: boolean;
-    audio: File;
-  }) => Promise<void>;
+  onAddVersion: (
+    data: {
+      name: string;
+      isDefault: boolean;
+      audio: File;
+    },
+    onProgress?: OnProgress,
+  ) => Promise<void>;
   /** Swap one version's file; its name, its stems and its place are kept. */
-  onReplaceVersionAudio: (versionId: string, audio: File) => Promise<void>;
+  onReplaceVersionAudio: (
+    versionId: string,
+    audio: File,
+    onProgress?: OnProgress,
+  ) => Promise<void>;
   onSetDefaultVersion: (versionId: string) => Promise<void>;
   onSetVersionHidden: (versionId: string, hidden: boolean) => Promise<void>;
   onDeleteVersion: (versionId: string) => Promise<void>;
@@ -58,6 +67,8 @@ export function ReleaseDetailView({
   const [vDefault, setVDefault] = useState(true);
   const [vFile, setVFile] = useState<File | null>(null);
   const [adding, setAdding] = useState(false);
+  // The share an upload in flight has sent; one at a time, since each disables the other.
+  const [progress, setProgress] = useState<number | null>(null);
   // One input for the whole list; this remembers which version asked for it.
   const replaceInput = useRef<HTMLInputElement>(null);
   const [replacing, setReplacing] = useState<string | null>(null);
@@ -75,8 +86,9 @@ export function ReleaseDetailView({
     setReplacing(null);
     if (!file || !versionId) return;
     setSwapping(true);
+    setProgress(null);
     try {
-      await onReplaceVersionAudio(versionId, file);
+      await onReplaceVersionAudio(versionId, file, setProgress);
       setBust((b) => ({ ...b, [versionId]: (b[versionId] ?? 0) + 1 }));
     } finally {
       setSwapping(false);
@@ -86,14 +98,18 @@ export function ReleaseDetailView({
   const addVersion = async () => {
     if (!vFile) return;
     setAdding(true);
+    setProgress(null);
     try {
-      await onAddVersion({
-        name:
-          vName.trim() ||
-          m["release.versionN"]({ n: (release.versions?.length ?? 0) + 1 }),
-        isDefault: vDefault,
-        audio: vFile,
-      });
+      await onAddVersion(
+        {
+          name:
+            vName.trim() ||
+            m["release.versionN"]({ n: (release.versions?.length ?? 0) + 1 }),
+          isDefault: vDefault,
+          audio: vFile,
+        },
+        setProgress,
+      );
       setVName("");
       setVFile(null);
       setVDefault(true);
@@ -187,6 +203,11 @@ export function ReleaseDetailView({
       )}
 
       <h3>{m["release.versions"]()}</h3>
+      {swapping && (
+        <p className="muted small" role="status">
+          {uploadLabel(progress)}
+        </p>
+      )}
       {versions.length === 0 && (
         <p className="muted">{m["release.noVersions"]()}</p>
       )}
@@ -241,7 +262,7 @@ export function ReleaseDetailView({
         </SwitchField>
         <div>
           <Button disabled={!vFile || adding} onClick={addVersion}>
-            {adding ? m["common.uploading"]() : m["release.addVersionButton"]()}
+            {adding ? uploadLabel(progress) : m["release.addVersionButton"]()}
           </Button>
         </div>
       </Card>

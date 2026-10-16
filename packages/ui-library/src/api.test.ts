@@ -11,6 +11,20 @@ const hang = vi.fn(
     }),
 );
 
+// The same server for an upload, which goes through XMLHttpRequest for its progress (upload.ts).
+class HangingXhr {
+  upload: { onprogress?: unknown; onload?: unknown } = {};
+  onabort: (() => void) | null = null;
+  withCredentials = false;
+  responseType = "";
+  open() {}
+  setRequestHeader() {}
+  send() {}
+  abort() {
+    this.onabort?.();
+  }
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   hang.mockClear();
@@ -47,6 +61,7 @@ describe("a call to a server that never answers", () => {
   });
 
   it("never times an upload out, and lets the page cancel it", async () => {
+    vi.stubGlobal("XMLHttpRequest", HangingXhr);
     const ctl = new AbortController();
     const file = new File(["x"], "a.mp3");
     const upload = library.addSong(
