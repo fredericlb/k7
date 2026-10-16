@@ -212,7 +212,7 @@ public:
         size_t envelopeFrom = 0;
     };
 
-    // Drain every recording node onto its file and report them all — the state tick's, message thread.
+    // Report every node, and file a take the disk refused — the state tick's; the writer thread does the writing.
     std::map<std::string, RecorderReport> pumpRecorders(const std::string& session);
 
     // Point every RecorderPlugin in the running edit at its session-owned ring; after each build.

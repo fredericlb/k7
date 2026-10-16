@@ -157,6 +157,9 @@ void the_two_threads_do_not_tear() {
 
 }  // namespace
 
+// The writer thread's suite, in RecorderWriter_test.cpp: one binary, so the suite count stays the ring's.
+void runRecorderWriterTests();
+
 int main() {
     RUN(carries_every_frame_in_order);
     RUN(a_drain_resumes_where_it_stopped);
@@ -164,5 +167,6 @@ int main() {
     RUN(an_overrun_is_COUNTED);
     RUN(a_take_starts_clean);
     RUN(the_two_threads_do_not_tear);
+    runRecorderWriterTests();
     TEST_MAIN_END();
 }

@@ -1052,9 +1052,7 @@ private:
 
         /** Nothing is happening here, so most of these frames are not sent; the levels are in the test because an AUDITION sounds with the transport stopped. docs/engineHost.md. */
         const bool idle = !s.playing && !s.recordEnabled && s.armedTracks.empty() &&
-                          // A recorder node is free-running: a rig capturing with the transport
-                          // stopped looks exactly like an idle session, and skipping its drain
-                          // would let the ring lap and lose the take (docs/recorder.md).
+                          // A recorder node is free-running: a rig capturing with the transport stopped looks idle, and its clock must keep moving (docs/recorder.md).
                           !host_.anyRecording(session) &&
                           !host_.sessionWatched(session) && allSilent(s.trackLevelsDb) &&
                           allSilent(s.trackInputLevelsDb);
@@ -1067,7 +1065,7 @@ private:
             idleTicks_[session] = 0;
 
         s.waveformEnvelopes = host_.drainAllWaveformTaps(session);
-        // …and the recorders, drained onto disk in the same breath: this tick IS the writer thread.
+        // …and the recorders' clocks and pictures; their writer thread is what puts the audio on disk.
         s.recorders = host_.pumpRecorders(session);
         // A platter carries its own clock, so `playheadSeconds` says nothing about it — docs/turntable.md.
         s.platterSeconds = host_.platterPositions(session);

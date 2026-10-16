@@ -130,6 +130,17 @@ the `agreed` value of each; the next tick reads that copy. A parameter is moved 
 synth's value left the one agreed at that snapshot and nothing was pushed or touched since, so a
 snapshot up to a tick old cannot undo a knob turned meanwhile.
 
+**A value's text is read off a TWIN.** Surge's own words for a value — `440 Hz`, `-6.0 dB`, a slot's
+meaning under its type — come from the parameter's `Parameter` object, which a type change rewrites
+on the audio thread: a message-thread copy of the live one can tear, and it holds strings and an
+optional that a torn copy corrupts. The lock is no option, for the timer's reason. So the plugin
+keeps a second synth on the message side, built on the first text anyone asks for and dropped on a
+patch change, and brings it to the values the audio thread last PUBLISHED for the read-back — types
+included — before reading it; it renders twice after a change, since Surge applies an effect's type
+inside a render. Nothing in the engine asks for text today, Tracktion's control surfaces aside, so the
+twin's cost — a synth's memory — is paid only by a host that does; and its text lags the live synth
+by one read-back at most.
+
 **The panel is GENERATED** (`scripts/gen-surge-panel.mjs`, `npm run gen:surge-panel`) from
 `k7-runtime --dump-surge-layout`: the parameters with their ranges and choices, and what every
 oscillator and effect type calls its slots. Seven hundred binds typed by hand would drift from the
