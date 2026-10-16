@@ -27,6 +27,7 @@ import {
   type ParamKind,
   shapesFor,
 } from "../curveDraft";
+import { m } from "../paraglide/messages.js";
 import { usePopin } from "../popins";
 import { CurveConditions } from "./CurveConditions";
 import { CurveKnob } from "./CurveKnob";
@@ -243,7 +244,7 @@ export function CurveEditor({
                 onChange={(e) => set({ duration: e.target.value })}
                 placeholder="0"
                 spellCheck={false}
-                title="how long the curve runs, a length like 2:0 — 0 runs for ever"
+                title={m["curve.durationHint"]()}
                 className="w-24 font-mono text-xs"
               />
             </div>
