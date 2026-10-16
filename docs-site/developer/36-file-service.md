@@ -44,7 +44,7 @@ prefetch and the idle-link pruning.
 The process trusts only its hub. `x-studio-hub-secret` is compared in constant time
 (`requireHubSecret`); everything else is a header the hub stamps after authenticating the user:
 `x-studio-user` (the email, required), `x-studio-workspace` (resolved to a `Workspace`, 404 if
-unknown), `x-studio-admin` (`1` for an admin). The names are in `packages/web-protocol/types.ts`.
+unknown), `x-studio-admin` (`1` for an admin). The names are in `packages/web-protocol/engineAccess.ts`.
 `workspaceGate` (`src/owner.ts`) holds an account's workspaces to the one recorded owner.
 
 ## HTTP API
