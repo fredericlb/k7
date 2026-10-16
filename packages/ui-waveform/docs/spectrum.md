@@ -64,3 +64,15 @@ A timeline block paints its 160 buckets into a canvas 160 px wide and 100 px tal
 stretches that canvas to the block, the way a `preserveAspectRatio="none"` SVG would. A canvas sized
 to the block would need a `ResizeObserver` per clip, and the timeline is the surface with the most
 clips on it.
+
+## A band that scrolls paints tiles, not columns
+
+The desk's band shows the same track every frame, moved. `SpectrumStrip`
+([spectrumStrip.ts](../src/spectrumStrip.ts)) rasterises the columns into tiles of `TILE_PX` once
+per track and size, and a frame blits the one or two in view at an offset. Each tile is smoothed
+with the columns either side of its edges, so two tiles meet without a seam. It keeps only the
+tiles in view and their neighbours, and renders one neighbour ahead on a frame that rendered
+nothing else, so crossing a tile edge costs no frame.
+
+A blit lands on a whole device pixel: one resampled at a fractional offset blurs, and a blur that
+changes every frame shimmers.

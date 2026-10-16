@@ -96,12 +96,23 @@ export function spectrumColumns(
   height: number,
   column: (px: number) => Column | null,
 ): void {
-  const mid = Math.round(height / 2) + 0.5;
   const cols = smoothColumns(
     Array.from({ length: width }, (_, px) => column(px)),
   );
-  for (let px = 0; px < width; px++) {
-    const c = cols[px];
+  paintColumns(ctx, cols, 0, width, height);
+}
+
+/** Paint `count` already smoothed columns from index `from`, the first at x = 0. */
+export function paintColumns(
+  ctx: CanvasRenderingContext2D,
+  cols: (Column | null)[],
+  from: number,
+  count: number,
+  height: number,
+): void {
+  const mid = Math.round(height / 2) + 0.5;
+  for (let px = 0; px < count; px++) {
+    const c = cols[from + px];
     if (!c) continue;
     ctx.fillStyle = c.bands ? columnColour(c.bands, PLAIN) : PLAIN;
     const half = Math.max(0.5, c.amp * (height / 2 - 1));
