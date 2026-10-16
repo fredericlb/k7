@@ -1,42 +1,44 @@
-// desktop.ts — is k7 running inside the desktop app, and if so, what can it change?
+// desktop.ts — is k7 running inside the desktop app, and if so, which server does it sync with?
 //
-// The detection is a PROBE, not a build flag: `/desktop/state` exists only where the app
-// serves k7 itself, and a hosted backend answers 404. So the same bundle is shipped to both
-// and the settings screen is simply absent on the web — nothing to keep in step, and no user
-// agent to sniff.
+// The detection is the PRELOAD's bridge, not a build flag: `window.studioDesktop` exists only
+// in the app's windows (apps/k7-standalone/src/desktopBridge.ts), so the same bundle ships to
+// both and a browser tab simply has none. An IPC call rather than a route, so no other device
+// on the network can ask. See apps/k7-standalone/docs/standalone.md.
 
-/** Mirrors `DesktopState` on the app's side; type-only, so the web build carries none of it. */
+/** Mirrors `DesktopState` in apps/k7-standalone/src/desktopBridge.ts. */
 export interface DesktopState {
   server: string | null;
   lanUrls: string[];
 }
 
-/**
- * Asked once and remembered: a hosted origin will never grow the route mid-session, and every
- * screen that wants to know would otherwise re-probe.
- */
-let known: boolean | null = null;
+interface DesktopBridge {
+  state: () => Promise<DesktopState | null>;
+}
+
+declare global {
+  interface Window {
+    studioDesktop?: DesktopBridge;
+  }
+}
+
+const bridge = (): DesktopBridge | undefined =>
+  typeof window === "undefined" ? undefined : window.studioDesktop;
 
 export const desktop = {
-  /** Read the whole screen's state, or null when this is not the desktop app. */
+  /** The app's state, or null when this is not the desktop app. */
   state: async (): Promise<DesktopState | null> => {
+    const b = bridge();
+    if (!b) return null;
     try {
-      const res = await fetch("/desktop/state");
-      if (!res.ok) {
-        known = false;
-        return null;
-      }
-      known = true;
-      return (await res.json()) as DesktopState;
+      return await b.state();
     } catch {
-      // A hosted origin with no such route, or no origin at all: both mean "not the app".
-      known = false;
+      // The main process gone mid-quit: nothing left to point at.
       return null;
     }
   },
 
-  /** What the last probe found, without asking again — for a header that only needs a link. */
-  get isDesktop(): boolean | null {
-    return known;
+  /** Whether this page is in the desktop app, known without asking. */
+  get isDesktop(): boolean {
+    return !!bridge();
   },
 };

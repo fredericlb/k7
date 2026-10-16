@@ -41,7 +41,7 @@ person at the machine — a venue's Wi-Fi is full of strangers. Three locks, eac
 
 Nothing on another device needs this backend. A device on the network drives the **engine**, on
 the engine's own port and once paired (`engine/k7-runtime/docs/pairing.md`). The QR codes the window
-draws rebase onto `lanUrls`, which the desktop app does not supply, so they show no code rather than
+draws rebase onto `lanUrls`, which the desktop app hands over empty (`apps/k7-standalone/docs/standalone.md`), so they show no code rather than
 a link into this port (`apps/k7/frontend/docs/shell.md`); serving k7's pages to a tablet from here
 would mean lifting all three locks, and a login of its own for the tablet. The supervisor, the file
 services and the window all reach this backend on `127.0.0.1`. The locks cover HTTP routes; a
