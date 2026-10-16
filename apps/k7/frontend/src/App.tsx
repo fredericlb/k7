@@ -2228,6 +2228,71 @@ export default function App({
     },
     [runCommand],
   );
+  // What every graph host draws the song with — the chains page and the bottom panel's graph and mix alike.
+  const chainsHostProps = useMemo(
+    () => ({
+      mark: historyMark,
+      onPreviewNote: previewNote,
+      cameras,
+      inputDevices,
+      midiDevices,
+      reloadKey,
+      organizeKey,
+      trackOrder,
+      videoSpans: videoLaneSpans,
+      noteLanes,
+      viewport: videoDoc?.viewport,
+      project: projectDoc,
+      command: quietCommand,
+      onBypassModule: (mod: string) => void bypassModule(mod),
+      onModuleField: runCommand,
+      onRecorder,
+      onProjectField,
+      onAlternative: runAlternative,
+      onAssetBrowse: browseAssets,
+      onTapEdit: editTap,
+      onWatchWaveform: watchWaveform,
+      engineWarnings: nodeWarnings,
+      onContextMenu: openContextMenu,
+      pluginParamsStore,
+      setPluginParam,
+      moduleParams: offlineParams,
+      trackControls,
+      onTrackToggle: onLaneToggle,
+      onTrackSet,
+    }),
+    [
+      historyMark,
+      previewNote,
+      cameras,
+      inputDevices,
+      midiDevices,
+      reloadKey,
+      organizeKey,
+      trackOrder,
+      videoLaneSpans,
+      noteLanes,
+      videoDoc?.viewport,
+      projectDoc,
+      quietCommand,
+      bypassModule,
+      runCommand,
+      onRecorder,
+      onProjectField,
+      runAlternative,
+      browseAssets,
+      editTap,
+      watchWaveform,
+      nodeWarnings,
+      openContextMenu,
+      pluginParamsStore,
+      setPluginParam,
+      offlineParams,
+      trackControls,
+      onLaneToggle,
+      onTrackSet,
+    ],
+  );
   // `info` is the arrow the pick will splice into — NULL when the picker was opened on empty canvas.
   const [modulePicker, setModulePicker] = useState<{
     info: PendingInsert | null;
@@ -3426,41 +3491,20 @@ export default function App({
                           onError={paneError}
                         >
                           <ChainsTab
-                            mark={historyMark}
-                            onPreviewNote={previewNote}
-                            cameras={cameras}
-                            midiDevices={midiDevices}
-                            reloadKey={reloadKey}
-                            organizeKey={organizeKey}
+                            {...chainsHostProps}
                             active={!chainsOffScreen}
                             // A SET's lanes are DECKS and wear the record the header wears; the choice is the project's — see chainsIcons.tsx.
                             icons={hasTurntables ? DECK_ICONS : STUDIO_ICONS}
                             // The sidebar is fullscreen chrome, and the graph is only ever on screen as a whole page.
                             showList
-                            trackOrder={trackOrder}
-                            videoSpans={videoLaneSpans}
-                            noteLanes={noteLanes}
-                            viewport={videoDoc?.viewport}
-                            project={projectDoc}
-                            command={quietCommand}
-                            onBypassModule={(mod) => void bypassModule(mod)}
-                            onModuleField={runCommand}
                             onOrganize={() => void runCommand("graph organize")}
-                            onRecorder={onRecorder}
-                            onProjectField={onProjectField}
-                            onAlternative={runAlternative}
                             onEngine={runEngine}
                             onPresets={openPresets}
                             onPresetStep={stepPreset}
                             presetNames={presetNames}
-                            engineWarnings={nodeWarnings}
-                            onAssetBrowse={browseAssets}
-                            onTapEdit={editTap}
-                            onWatchWaveform={watchWaveform}
                             onSetModuleAsset={(mod, kind, f) =>
                               void runCommand(`module ${kind} ${mod} ${f}`)
                             }
-                            onContextMenu={openContextMenu}
                             onEdgeInsert={frozen ? undefined : insertIntoChain}
                             onCanvasInsert={frozen ? undefined : placeInGraph}
                             // The patch cable's landing runs the verb outright, and all five are OPTIONAL props a snapshot simply passes none of.
@@ -3514,20 +3558,12 @@ export default function App({
                             showDocs={showDocs}
                             onDocCount={setDocCount}
                             onLaneNodes={setLaneNodes}
-                            pluginParamsStore={pluginParamsStore}
                             requestPluginParams={requestPluginParams}
                             watchPluginParams={watchPluginParams}
-                            setPluginParam={setPluginParam}
-                            moduleParams={offlineParams}
-                            trackControls={trackControls}
-                            onTrackToggle={onLaneToggle}
-                            onTrackSet={onTrackSet}
                             focus={graphFocus}
                             onFocused={reportFramed}
                             stack={stackView}
                             onStack={() => void runCommand("ui stack")}
-                            // The sockets a live input can be on — the same list the editor's strip uses.
-                            inputDevices={inputDevices}
                             // …and the song's output level, for the fader on the OUT card — the same param the header's fader writes.
                             masterVolume={projectDoc?.masterVolume}
                             midiRef={chainsMidiRef}
@@ -3652,43 +3688,20 @@ export default function App({
               >
                 {/* The panel's ✕ at its top left: a view's own toolbar takes it, else it floats (PanelClose.tsx). */}
                 <PanelCloseFrame onClose={closePanel}>
-                  {panel === "graph" && (
+                  {/* The caret's track, or the MIX: every strip on one rank. Keyed, so switching the two remounts it. */}
+                  {(panel === "graph" || panel === "mix") && (
                     <PaneBoundary
+                      key={panel}
                       name="graph panel"
                       resetKey={reloadKey}
                       onError={paneError}
                     >
                       <GraphPanel
-                        mark={historyMark}
-                        onPreviewNote={previewNote}
-                        cameras={cameras}
-                        inputDevices={inputDevices}
-                        midiDevices={midiDevices}
-                        reloadKey={reloadKey}
-                        organizeKey={organizeKey}
-                        trackId={caret?.trackId ?? null}
-                        trackOrder={trackOrder}
-                        videoSpans={videoLaneSpans}
-                        noteLanes={noteLanes}
-                        viewport={videoDoc?.viewport}
-                        project={projectDoc}
-                        command={quietCommand}
-                        onBypassModule={(mod) => void bypassModule(mod)}
-                        onModuleField={runCommand}
-                        onRecorder={onRecorder}
-                        onProjectField={onProjectField}
-                        onAlternative={runAlternative}
-                        onAssetBrowse={browseAssets}
-                        onTapEdit={editTap}
-                        onWatchWaveform={watchWaveform}
-                        engineWarnings={nodeWarnings}
-                        onContextMenu={openContextMenu}
-                        pluginParamsStore={pluginParamsStore}
-                        setPluginParam={setPluginParam}
-                        moduleParams={offlineParams}
-                        trackControls={trackControls}
-                        onTrackToggle={onLaneToggle}
-                        onTrackSet={onTrackSet}
+                        {...chainsHostProps}
+                        trackId={
+                          panel === "graph" ? (caret?.trackId ?? null) : null
+                        }
+                        strips={panel === "mix" ? mixerStrips : undefined}
                       />
                     </PaneBoundary>
                   )}
@@ -3911,47 +3924,6 @@ export default function App({
                         </PaneBoundary>
                       )}
                     </div>
-                  )}
-                  {panel === "mix" && (
-                    <PaneBoundary
-                      name="graph panel"
-                      resetKey={reloadKey}
-                      onError={paneError}
-                    >
-                      <GraphPanel
-                        mark={historyMark}
-                        onPreviewNote={previewNote}
-                        cameras={cameras}
-                        inputDevices={inputDevices}
-                        midiDevices={midiDevices}
-                        reloadKey={reloadKey}
-                        organizeKey={organizeKey}
-                        trackId={null}
-                        strips={mixerStrips}
-                        trackOrder={trackOrder}
-                        videoSpans={videoLaneSpans}
-                        noteLanes={noteLanes}
-                        viewport={videoDoc?.viewport}
-                        project={projectDoc}
-                        command={quietCommand}
-                        onBypassModule={(mod) => void bypassModule(mod)}
-                        onModuleField={runCommand}
-                        onRecorder={onRecorder}
-                        onProjectField={onProjectField}
-                        onAlternative={runAlternative}
-                        onAssetBrowse={browseAssets}
-                        onTapEdit={editTap}
-                        onWatchWaveform={watchWaveform}
-                        engineWarnings={nodeWarnings}
-                        onContextMenu={openContextMenu}
-                        pluginParamsStore={pluginParamsStore}
-                        setPluginParam={setPluginParam}
-                        moduleParams={offlineParams}
-                        trackControls={trackControls}
-                        onTrackToggle={onLaneToggle}
-                        onTrackSet={onTrackSet}
-                      />
-                    </PaneBoundary>
                   )}
                   {panel === "logs" && (
                     <PaneBoundary
