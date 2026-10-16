@@ -11,8 +11,7 @@ Node packages, which is what lets it run in a browser.
 |---|---|---|
 | `./scene` | `src/scene.ts` | `VideoScene`, `VideoLayer`, `SceneClip`, `ScenePass`, `SceneShape`, `SceneCaptions`, `buildScene` |
 | `./timeline` | `src/timeline.ts` | which clips a layer shows at `t` and the transition between them |
-| `./clock` | `src/clock.ts` | `Clock`, `SeekingClock`; `EngineClock`, `TransportClock`, `FrameClock` |
-| `./compositor` | `src/compositor.ts` | the GL renderer |
+| `./clock` | `src/clock.ts` | `Clock`, `SeekingClock`; `EngineClock`, `TransportClock` |
 | `./realtime` | `src/realtime.ts` | the live driver |
 | `./export` | `src/export.ts` | `exportScene`, frame-exact export |
 | `./exportSupport` | `src/exportSupport.ts` | which containers this build can encode; `VIDEO_FORMATS`, `DEFAULT_VIDEO_FORMAT` (`webm`) |
@@ -20,7 +19,6 @@ Node packages, which is what lets it run in a browser.
 | `./renderSettings` | `src/renderSettings.ts` | `parseVideoSettings` — the `size=`/`quality=`/`from=`/`to=` words, re-exported from `@studio/song-schema/renderSettings` |
 | `./camera` | `src/camera.ts` | `matchCamera`, `localLens`, the `LensOpener` seam |
 | `./renderPage` | `src/renderPage.ts` | the page a server render runs (see [Server render](./55-server-render.md)) |
-| `.` | `src/index.ts` | convenience re-exports |
 
 `exportQuality.ts`, `exportSupport.ts` and `renderSettings.ts` load no muxer on purpose: the command
 line and the shell name the export's words without pulling in the heaviest module the editor has.
