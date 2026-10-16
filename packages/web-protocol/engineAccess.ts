@@ -72,6 +72,14 @@ export const ENGINE_RECONNECT_MIN_MS = 1000;
 /** …and never waits longer than this, so a forgotten tab stops hammering the relay. */
 export const ENGINE_RECONNECT_MAX_MS = 30000;
 
+/** The un-jittered wait before retry number `attempt` (0 first): doubling from the minimum, never past `max`. */
+export function backoffMs(
+  attempt: number,
+  max: number = ENGINE_RECONNECT_MAX_MS,
+): number {
+  return Math.min(max, ENGINE_RECONNECT_MIN_MS * 2 ** attempt);
+}
+
 // The queue that covers a blink, and only a blink: unbounded, a ten-minute outage burst on reconnect.
 
 /** Most messages held while the socket is down. Oldest go first. */
