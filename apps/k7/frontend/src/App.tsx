@@ -180,8 +180,7 @@ import { soundingNow } from "./sounding";
 import { createStatusLine } from "./statusLine";
 import { onOpenConflictsPanel } from "./syncConflicts";
 import { eventIdOf, takesEventOf } from "./takes";
-// The shell's BROWSER composition point: k7's builtin plugins register their pane drawers
-// here, before the shell renders any surface — see packages/k7-sdk/docs/sdk.md.
+// The shell's BROWSER composition point: k7's builtin plugins register their pane drawers here (packages/k7-sdk/docs/sdk.md).
 import "./plugins";
 import { PanelCloseFrame } from "./components/PanelClose";
 import { type FloatState, loadFloat, saveFloat } from "./floatingRect";
@@ -320,12 +319,12 @@ export default function App({
   // The timeline, because it is what the default view opens on — see ringPanes.
   const [focusPane, setFocusPane] = useState<Pane>("timeline");
   const [panel, setPanel] = useState<Panel | null>(null);
-  // The curve editor popin (`ui curve [name]`): the curve it is on, and whether it exists yet — docs/curveEditor.md.
   // The popin on one tap's own chain of effects — `ui tap chain <node> <tap>` (TapChainEditor.tsx).
   const [tapChain, setTapChain] = useState<{
     node: string;
     tap: string;
   } | null>(null);
+  // The curve editor popin (`ui curve [name]`): the curve it is on, and whether it exists yet — docs/curveEditor.md.
   const [curveEdit, setCurveEdit] = useState<CurveEdit | null>(null);
   // The CHAINS BUILDER: a library chain being edited by its ref, `""` for the list, null closed — docs/chainsBuilder.md.
   const [openBuilder, setOpenBuilder] = useState<string | null>(null);
@@ -457,8 +456,7 @@ export default function App({
   const armed = useStoreState(store, (s) => s.armed, arrayEq);
   // Global record enable — ENGINE session state, so it comes straight off the frame; play then records the armed.
   const recordEnabled = useStoreState(store, (s) => s.recordEnabled);
-  // The project's change token, read here so the whole tree shares the ONE refcounted poll —
-  // the desk's drawer takes it as a prop and refetches its graph when it moves (docs/plugins.md).
+  // The project's change token, read here so the whole tree shares the ONE refcounted poll (docs/plugins.md).
   const rev = useRevision();
   const { logs, pushLog, clearLogs } = useLogs(panel);
   // A pane that threw draws its own card (PaneBoundary); the log keeps what it said.
@@ -665,8 +663,7 @@ export default function App({
   // …read by the command path through a ref, so the transport callbacks are not rebuilt on every arm.
   const recordWithoutArmRef = useRef(recordWithoutArm);
   recordWithoutArmRef.current = recordWithoutArm;
-  // A take of the takes view is drawn THERE: the record panel would take the very slot it is in.
-  // A ref, set where useTakeRecording is called below: the take is on before the engine rolls.
+  // A take of the takes view is drawn THERE, so the record panel must not take its slot; set by useTakeRecording below.
   const takeActiveRef = useRef(false);
   // An audio take shows its envelope; a take of a MIDI lane alone shows its notes instead.
   const takeSlot = armed.length || !midiRolling ? "recording" : "midiTake";
@@ -888,8 +885,7 @@ export default function App({
   );
   const hasMastering = !!masteringSurface;
 
-  /** The addresses this project answers on, for the share panel — the WHOLE project first, so a
-   *  second device can edit it and not only drive a surface, then EVERY surface (docs/external.md). */
+  /** The addresses this project answers on, for the share panel — the WHOLE project first, then EVERY surface (docs/external.md). */
   const externals = useMemo(() => {
     const at = parseLaunch(
       window.location.pathname,
@@ -911,8 +907,7 @@ export default function App({
     ];
   }, [surfaces]);
 
-  /** Where a SECOND DEVICE reaches this app: a QR code built on `location.origin` would carry
-   *  loopback in the desktop window, which scans to the phone itself (remoteUrl.ts). */
+  /** Where a SECOND DEVICE reaches this app — not `location.origin`, which is loopback in the desktop window (remoteUrl.ts). */
   const [lanUrls, setLanUrls] = useState<string[]>([]);
   useEffect(() => {
     void desktop.state().then((d) => setLanUrls(d?.lanUrls ?? []));
@@ -1288,8 +1283,7 @@ export default function App({
     [quietCommand],
   );
 
-  // …and the NOTES' half of the picture's answer, since nothing meters MIDI either: when each
-  // lane's notes sound, and how hard, so a note cable ripples with what it carries (noteSpans.ts).
+  // …and the NOTES' half, since nothing meters MIDI either: when each lane's notes sound, and how hard (noteSpans.ts).
   const noteLanes = useMemo(() => noteSpans(projectDoc), [projectDoc]);
 
   // A RECORDER's button: two go down the socket, `save` is a verb — packages/song/docs/recorderNode.md.
@@ -1308,8 +1302,7 @@ export default function App({
       if (!last) return; // the button draws faint with no take; this is the race, not the state
       const id = node.pluginId;
       const line = `node record save ${JSON.stringify(last.file)}`;
-      // Run here rather than through `runCommand`, which reports a refusal but does not return
-      // one: the take is dropped after this, and dropping it on a save that failed loses it.
+      // Not through `runCommand`, which does not RETURN a refusal: the take is dropped after this, so a failed save would lose it.
       void (async () => {
         pushLog("cmd", `› ${line}`);
         try {
@@ -1318,8 +1311,7 @@ export default function App({
           for (const o of output) pushLog(refused ? "refused" : "info", o);
           if (refused) return void setRefusal(said);
           setStatus(said);
-          // Filed, so the local take goes: its bytes are in the médiathèque now, and a stack that
-          // kept it would offer the same one again — packages/song/docs/recorderNode.md.
+          // Filed, so the local take goes: its bytes are in the médiathèque now (packages/song/docs/recorderNode.md).
           engineRef.current?.recorder(id, "clear");
         } catch (e) {
           setStatus(`command error: ${(e as Error).message}`, "error");
@@ -1329,8 +1321,7 @@ export default function App({
     [store, pushLog, setRefusal],
   );
 
-  /** A PROJECT setting off a card — today the RENDER node's frame shape. A verb, since what it
-   *  writes is project.yaml and the node has no file (packages/song-video/docs/picture.md). */
+  /** A PROJECT setting off a card — the RENDER node's frame shape, written to project.yaml (packages/song-video/docs/picture.md). */
   const onProjectField = useCallback(
     (field: string, value: string) =>
       void runCommandRef.current(`project ${field} ${value}`),
@@ -1411,8 +1402,6 @@ export default function App({
     engineRef.current?.trackMix(mix);
   }, [frozen, connected, trackControls, docTracks, engineRef]);
 
-  // Web MIDI capture, driven by the MIDI record + play + a MIDI-armed track; it also holds
-  // the device picker's data, which the transport's dropdown beside the MIDI record reads.
   // The armed lane's MIDI device: the midi-in node wired to it, read off the graph — packages/song/docs/midiIn.md.
   const [midiIn, setMidiIn] = useState<{ any: boolean; device: string | null }>(
     {
@@ -1458,6 +1447,7 @@ export default function App({
   const projectTasks = useProjectTasks(
     frozen ? null : (ws?.activeProject ?? null),
   );
+  // Web MIDI capture, driven by the MIDI record + play + a MIDI-armed track, and the device picker's data.
   const { midiInputs, openMidiInputs, liveTake } = useMidiRecording({
     store,
     tempo: recInfo.tempo,
@@ -1769,8 +1759,7 @@ export default function App({
     graph: WebGraph;
     at: number;
   } | null>(null);
-  // Every command — typed or bound to a key — comes through here.
-  // `outcome`, when given, is told whether the line WENT THROUGH — for a caller with a second step to gate on it.
+  // Every command comes through here; `outcome`, when given, is told whether the line WENT THROUGH.
   const runCommand = useCallback(
     async (line: string, outcome?: { ok: boolean }): Promise<void> => {
       if (!line.trim()) return;
@@ -1825,8 +1814,7 @@ export default function App({
         if (rev) noteRevision(rev);
         /** …and the reload, carrying the files this command wrote — `undefined`, from a service that could not diff, still means everything. */
         reloadWith(changed);
-        // The picker's second half, as its own journalled command — and null when there is nothing left to do.
-        // Not after a refusal: there is no node to wire, and its own refusal would bury the real one.
+        // The picker's second half, as its own journalled command — never after a refusal, which it would bury.
         const after =
           !refused && madeRef && wire
             ? wireCommand(madeRef, wire.at, wire.spawn)
@@ -2850,7 +2838,6 @@ export default function App({
                                     setBuilder({ path: next, pane: "module" });
                                     editorRef.current?.open(next);
                                   }}
-                                  // The module drawn as the card it will be in a chain — a slot, since the graph needs OUR glyphs and OUR command line.
                                   // Claude draws the panel on THIS app's backend, which holds the key — absent when it holds none.
                                   onAiOrganize={
                                     aiEnabled ? aiOrganize.run : undefined
@@ -2966,9 +2953,9 @@ export default function App({
                                   ? recInfo.countIn * recInfo.beatsPerBar
                                   : 0
                               }
-                              // …and the MIDI take, drawn on its lane the same way, whichever record started it.
                               // The open project's tasks, flagged in the ruler where they carry a timecode (docs/tasks.md).
                               tasks={projectTasks}
+                              // …and the MIDI take, drawn on its lane the same way, whichever record started it.
                               midiTake={
                                 liveTake
                                   ? { lane: liveTake.lane, from: liveTake.from }

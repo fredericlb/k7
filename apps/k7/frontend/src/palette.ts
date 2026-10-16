@@ -164,8 +164,7 @@ export function makeListArg(shell: {
     if (canonical === "ui language" && first) return shell.locales();
     if (canonical === "project export") {
       if (first) return ["audio", "video", "timeline"];
-      // The format offered depends on the half: only a video has a container, and only a video
-      // takes a third word at all; the cut takes an interchange format.
+      // The format depends on the half: a video has a container and a third word, the cut an interchange format.
       if (priorArgs.length === 1)
         return priorArgs[0] === "video"
           ? [...VIDEO_FORMATS]

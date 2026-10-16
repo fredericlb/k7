@@ -29,11 +29,7 @@ const heads = (line: string, names: readonly string[]): boolean =>
 export const isUiLine = (line: string): boolean =>
   UI_EXACT.includes(line) || heads(line, UI_HEADS);
 
-/**
- * Who answers a line: the shell's `ui` handlers, a refusal for a prefix on the wrong side, or the
- * caller's other paths (`pass`). An UNPREFIXED line the server's catalogue names is the server's even
- * when it shares a word with a `ui` head — `curve set` is not `ui curve set`. See docs/shell.md.
- */
+/** Who answers a line — `ui`, a refusal, or the server (`pass`), which keeps an unprefixed line it names: docs/shell.md. */
 export function uiVerdict(
   line: string,
   prefixed: boolean,

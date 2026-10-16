@@ -239,8 +239,7 @@ export function useGraphActions({
         offerSpawnAt(at);
         return;
       }
-      // ONE creating line, then the WIRED half when the pick was on an arrow — see `chainRefFromCreate`.
-      // An io SOURCE has no input port to receive the arrow's signal, so it is PLACED, born wired to nothing.
+      // ONE creating line, then the WIRED half on an arrow (`chainRefFromCreate`) — but an io SOURCE has no input, so it is only PLACED.
       const placed = pick.type === "io";
       const node = nameFor(pick.name);
       // A splice is CENTRED on the `+`, and a pin is a top-left, so the verb is sent the card's corner (docs/chainsGraph.md).
