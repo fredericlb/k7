@@ -1,11 +1,12 @@
 // targets.test.ts — what the destination vocabulary promises: a stored id always narrows to
-// something playable, and one that needs an engine falls back to a destination that does not.
+// something playable, and one that needs what is not there falls back to one that needs nothing.
 
 import { describe, expect, it } from "vitest";
 import {
   asPlaybackTarget,
   DEFAULT_PLAYBACK_TARGET,
   effectiveTarget,
+  offered,
   PLAYBACK_TARGETS,
   playbackTargetInfo,
 } from "./targets";
@@ -49,26 +50,51 @@ describe("the three destinations", () => {
   });
 });
 
+const all = { engine: true, hostPlayer: true };
+
 describe("effectiveTarget", () => {
   // The whole point: a preference pointing at a machine that is off still makes a sound.
   it("falls back to the default when the moteur is not answering", () => {
-    expect(effectiveTarget("engine", false)).toBe(DEFAULT_PLAYBACK_TARGET);
+    expect(effectiveTarget("engine", { ...all, engine: false })).toBe(
+      DEFAULT_PLAYBACK_TARGET,
+    );
   });
 
   it("keeps the moteur once one answers", () => {
-    expect(effectiveTarget("engine", true)).toBe("engine");
+    expect(effectiveTarget("engine", all)).toBe("engine");
   });
 
-  // The other two are never repaired: neither can be half-there, so neither may be moved.
-  it("leaves a destination that needs no engine alone, either way", () => {
-    for (const ready of [true, false])
-      for (const t of PLAYBACK_TARGETS.filter((x) => !x.needsEngine))
-        expect(effectiveTarget(t.id, ready)).toBe(t.id);
+  // A host without mpv offers no such destination, so a stored choice of it must still sound.
+  it("falls back to the default when the host has no player", () => {
+    expect(effectiveTarget("library", { ...all, hostPlayer: false })).toBe(
+      DEFAULT_PLAYBACK_TARGET,
+    );
+    expect(effectiveTarget("library", all)).toBe("library");
   });
 
-  // A default that itself needed an engine would make the fallback a loop with no exit.
-  it("has a default that needs no engine", () => {
-    expect(playbackTargetInfo(DEFAULT_PLAYBACK_TARGET).needsEngine).toBe(false);
+  it("leaves a destination that needs nothing alone, whatever is there", () => {
+    for (const engine of [true, false])
+      for (const hostPlayer of [true, false])
+        for (const t of PLAYBACK_TARGETS.filter(
+          (x) => !x.needsEngine && !x.needsHostPlayer,
+        ))
+          expect(effectiveTarget(t.id, { engine, hostPlayer })).toBe(t.id);
+  });
+
+  // A default that itself needed something would make the fallback a loop with no exit.
+  it("has a default that needs nothing", () => {
+    const d = playbackTargetInfo(DEFAULT_PLAYBACK_TARGET);
+    expect(d.needsEngine || d.needsHostPlayer).toBe(false);
+  });
+});
+
+describe("offered", () => {
+  it("hides only the rows that need a player the host lacks", () => {
+    const none = { engine: false, hostPlayer: false };
+    expect(
+      PLAYBACK_TARGETS.filter((t) => offered(t, none)).map((t) => t.id),
+    ).toEqual(["browser", "engine"]);
+    expect(PLAYBACK_TARGETS.every((t) => offered(t, all))).toBe(true);
   });
 });
 

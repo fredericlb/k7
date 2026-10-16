@@ -90,6 +90,12 @@ over there, not an element of this page.
 
 ## What the machine needs
 
-`mpv` on the PATH — that is all, and it is probed on demand, as yt-dlp is. Without it the route
-returns 503 with the sentence, rather than failing silently. The hosted image installs it
-alongside ffmpeg and yt-dlp; a musician's machine may not have it, which is what the 503 is for.
+`mpv` on the PATH (or `MPV_BIN`) — that is all. `createPlayerRouter` probes it ONCE, when the host
+mounts it: without it every `/player` route falls through to a 404, as if the package were not
+mounted, and the log says so once. The browser reads that 404 as "this host has no speakers" and
+does not offer the destination (`packages/ui-library/docs/playbackTarget.md`). Installing mpv
+takes a restart to be seen, which is the price of not spawning a probe per poll.
+
+The hosted image does not install it: a container has no sound device, and alpine's mpv pulls
+X, Wayland and mesa for a player that could never make a sound there. The desktop app and a
+dedicated player box find it on their PATH when the musician installed it.

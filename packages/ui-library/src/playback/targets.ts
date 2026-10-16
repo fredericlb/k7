@@ -1,6 +1,6 @@
 // targets.ts — WHERE the médiathèque makes sound. One list, so a destination is one entry here
-// and nothing else. Two of the three need nothing — this tab, and the host that serves the
-// files; the third needs a musician's machine to be answering.
+// and nothing else. This tab needs nothing; the host that serves the files needs mpv installed
+// there, and the moteur needs a musician's machine to be answering.
 // See ../../docs/playbackTarget.md.
 
 import { Laptop, type LucideIcon, Radio, Speaker } from "@frediverse/ui/icons";
@@ -14,13 +14,21 @@ export interface PlaybackTargetInfo {
   icon: LucideIcon;
   /** True when it needs an engine to be ANSWERING, so the menu can say so instead of offering silence. */
   needsEngine: boolean;
+  /** True when it needs mpv on the host; a host without it does not offer this row at all. */
+  needsHostPlayer: boolean;
+}
+
+/** What the page has learned is there: an engine answering, and mpv on the host. */
+export interface Readiness {
+  engine: boolean;
+  hostPlayer: boolean;
 }
 
 /** The destinations in menu order — a LIST rather than a switch (../../docs/playbackTarget.md). */
 export const PLAYBACK_TARGETS: PlaybackTargetInfo[] = [
-  { id: "browser", icon: Laptop, needsEngine: false },
-  { id: "library", icon: Speaker, needsEngine: false },
-  { id: "engine", icon: Radio, needsEngine: true },
+  { id: "browser", icon: Laptop, needsEngine: false, needsHostPlayer: false },
+  { id: "library", icon: Speaker, needsEngine: false, needsHostPlayer: true },
+  { id: "engine", icon: Radio, needsEngine: true, needsHostPlayer: false },
 ];
 
 /** The browser, deliberately: it is the destination that needs NOTHING to make a sound. */
@@ -33,12 +41,18 @@ export function asPlaybackTarget(value: unknown): PlaybackTarget {
     : DEFAULT_PLAYBACK_TARGET;
 }
 
+/** Whether the menu lists a destination at all: a host without mpv has no such destination. */
+export function offered(t: PlaybackTargetInfo, ready: Readiness): boolean {
+  return !t.needsHostPlayer || ready.hostPlayer;
+}
+
 /** The destination ACTUALLY used, with the fallback decided ONCE — ../../docs/playbackTarget.md. */
 export function effectiveTarget(
   chosen: PlaybackTarget,
-  engineReady: boolean,
+  ready: Readiness,
 ): PlaybackTarget {
-  return playbackTargetInfo(chosen).needsEngine && !engineReady
+  const t = playbackTargetInfo(chosen);
+  return (t.needsEngine && !ready.engine) || !offered(t, ready)
     ? DEFAULT_PLAYBACK_TARGET
     : chosen;
 }

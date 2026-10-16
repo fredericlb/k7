@@ -53,6 +53,12 @@ account: that cost was paid per account, at every first request and every deploy
 still compiles a user's TypeScript DSP with tsx. Its target is node 24, like the desktop and phone
 bundles.
 
+## No `mpv` in the runtime stage
+
+The container has no sound device, and alpine's `mpv` pulls X, Wayland and mesa libraries for a
+player that could never be heard. Without it the backend mounts no host-player routes and the
+library does not offer the host's speakers (`packages/mpv-player/docs/mpvPlayer.md`).
+
 ## A healthcheck, memory limits and capped logs
 
 `HEALTHCHECK` asks `/api/health`, which needs no session and touches no disk, so it fails only
