@@ -1,10 +1,18 @@
 // supervisorHost.ts — engine/k7-supervisor as a child over NDJSON on stdio, kept running: relaunched on 1s→30s backoff.
 // Its stdin closing is what stops it, so the pipe stays open for the host's whole life. See docs/shell.md.
 
-import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { readFileSync, rmSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { line } from "@frediverse/electron-shell/log";
+import {
+  checkPid,
+  inspectPid,
+  killTree,
+  type PidRecord,
+  parsePidFile,
+  pidAlive,
+} from "./enginePid.ts";
 import {
   commandLine,
   type NotifyFrame,
@@ -68,6 +76,8 @@ export class SupervisorHost {
       windowsHide: true,
     });
     this.child = child;
+    // A write to a supervisor that just died is an EPIPE on this stream, which unheard would end the app.
+    child.stdin?.on("error", (e) => this.log(`supervisor stdin: ${e.message}`));
     child.stderr?.on("data", (chunk: Buffer) => {
       for (const l of chunk.toString("utf8").split(/\r?\n/))
         if (l.trim()) this.log(l);
@@ -142,23 +152,26 @@ export class SupervisorHost {
         child.kill("SIGKILL");
     }
     // Also when the supervisor had already crashed: an engine that survives the app is adopted by nobody next launch.
-    for (let i = 0; i < 20 && engine && alive(engine); i++) await sleep(100);
-    if (engine && alive(engine)) {
-      this.log(`engine ${engine} outlived the teardown — killed`);
-      killTree(engine);
-      if (this.opts.enginePidFile)
-        rmSync(this.opts.enginePidFile, { force: true });
+    for (let i = 0; i < 20 && engine && pidAlive(engine.pid); i++)
+      await sleep(100);
+    if (!engine || !pidAlive(engine.pid)) return;
+    const verdict = checkPid(engine, inspectPid(engine.pid), true);
+    if (verdict !== "same") {
+      this.log(
+        `pid ${engine.pid} outlived the teardown, but the pidfile does not prove it is the engine — left alone`,
+      );
+      return;
     }
+    this.log(`engine ${engine.pid} outlived the teardown — killed`);
+    killTree(engine.pid);
+    if (this.opts.enginePidFile)
+      rmSync(this.opts.enginePidFile, { force: true });
   }
 
-  private enginePid(): number | null {
+  private enginePid(): PidRecord | null {
     if (!this.opts.enginePidFile) return null;
     try {
-      const pid = Number.parseInt(
-        readFileSync(this.opts.enginePidFile, "utf8"),
-        10,
-      );
-      return pid > 0 ? pid : null;
+      return parsePidFile(readFileSync(this.opts.enginePidFile, "utf8"));
     } catch {
       return null;
     }
@@ -167,32 +180,4 @@ export class SupervisorHost {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
-}
-
-/** The engine leads its process group on POSIX; Windows walks parent links with taskkill. */
-function killTree(pid: number): void {
-  if (process.platform === "win32") {
-    spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
-      windowsHide: true,
-    });
-    return;
-  }
-  try {
-    process.kill(-pid, "SIGKILL");
-  } catch {
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {
-      /* already gone */
-    }
-  }
-}
-
-function alive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
 }

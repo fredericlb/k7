@@ -6,6 +6,7 @@
 #include "HostProtocol.h"
 #include "Log.h"
 #include "Paths.h"
+#include "PidFile.h"
 #include "Processes.h"
 #include "Url.h"
 
@@ -13,6 +14,7 @@
 #include <cstdlib>
 #include <chrono>
 #include <fstream>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -49,13 +51,21 @@ std::string allowedOrigins(const std::vector<std::string>& registryUrls)
 
 namespace {
 
-int readPid()
+#ifndef __ANDROID__
+/** The engine THIS supervisor spawned, and whether its reaper has seen it exit. */
+std::mutex ownedMutex;
+int ownedPid = 0;
+bool ownedAlive = false;
+
+/** Which of the two the pid in the file is: our own child, alive per its reaper, or one a pid alone names. */
+bool ownedChild(int pid, bool& alive)
 {
-    std::ifstream in(paths::enginePid());
-    int pid = 0;
-    if (!(in >> pid)) return 0;
-    return pid;
+    std::lock_guard lock(ownedMutex);
+    if (pid <= 0 || pid != ownedPid) return false;
+    alive = ownedAlive;
+    return true;
 }
+#endif
 
 const std::vector<std::string> kNames = {"k7-runtime.exe", "k7-runtime"};
 
@@ -109,8 +119,15 @@ std::optional<fs::path> findBinary()
 
 bool running()
 {
-    const int pid = readPid();
-    return pid > 0 && process::pidAlive(pid);
+    const auto rec = pidfile::read();
+#ifdef __ANDROID__
+    // The pidfile names the app the engine lives in, our parent.
+    return rec.pid > 0 && process::pidAlive(rec.pid);
+#else
+    if (bool alive = false; ownedChild(rec.pid, alive)) return alive;
+    const bool alive = process::pidAlive(rec.pid);
+    return pidfile::check(rec, pidfile::inspect(rec.pid), alive) != pidfile::Check::Stale;
+#endif
 }
 
 namespace {
@@ -159,8 +176,11 @@ Probe probe(int port)
 // The pid listening on `port`, asked of lsof; 0 when none, or when there is no lsof to ask.
 int listenerPid(int port)
 {
+    auto lsof = process::findTool("lsof");
+    // macOS keeps it in /usr/sbin, which an app's PATH does not list.
+    if (lsof.empty() && fs::is_regular_file("/usr/sbin/lsof")) lsof = "/usr/sbin/lsof";
     std::string out;
-    if (!process::runCapture("lsof", {"-t", "-nP", "-iTCP:" + std::to_string(port), "-sTCP:LISTEN"}, out))
+    if (!process::runCapture(lsof, {"-t", "-nP", "-iTCP:" + std::to_string(port), "-sTCP:LISTEN"}, out))
         return 0;
     return std::atoi(out.c_str());
 }
@@ -216,6 +236,12 @@ StartResult start(const EngineIdentity& identity, int port, const std::string& o
         // A pid is not an identity, so the PORT is asked too — here, where a wrong answer costs a spare engine.
         const auto answer = probe(port);
         if (answer == Probe::Up) {
+            const auto rec = pidfile::read();
+            bool alive = false;
+            // A bare-pid file whose process the OS now shows to be the engine is upgraded, so a later stop may reach it.
+            if (!ownedChild(rec.pid, alive) && !rec.verified())
+                if (const auto live = pidfile::inspect(rec.pid); live && pidfile::check(*live, live, true) == pidfile::Check::Same)
+                    pidfile::write(*live);
             log::host("adopting the engine already on the pidfile");
             return {StartKind::Adopted};
         }
@@ -232,7 +258,12 @@ StartResult start(const EngineIdentity& identity, int port, const std::string& o
     // An engine answering with no pidfile naming it: a fresh one could only fail to bind, so take that one.
     if (probe(port) == Probe::Up) {
         if (const int pid = listenerPid(port); pid > 0) {
-            std::ofstream(paths::enginePid(), std::ios::trunc) << pid;
+            const auto rec = pidfile::recordOf(pid);
+            // Something else on the engine's port is no engine of ours: never recorded, so never killed.
+            if (!rec.exe.empty() && !pidfile::isEngineExecutable(rec.exe))
+                return {StartKind::Error, 0, rec.exe + " (pid " + std::to_string(pid) + ") already serves :" +
+                                                 std::to_string(port) + " — stop it, then start again"};
+            pidfile::write(rec);
             log::host("adopting the engine already serving :" + std::to_string(port) + " (pid " +
                       std::to_string(pid) + "), which no pidfile named");
             return {StartKind::Adopted, pid};
@@ -255,17 +286,37 @@ StartResult start(const EngineIdentity& identity, int port, const std::string& o
                 {"STUDIO_ENGINE_TOKEN", identity.token},
                 {"STUDIO_ENGINE_ALLOWED_ORIGINS", origins}};
     opts.onLine = [](const std::string& line, bool) { log::line("engine", line); };
+    opts.onExit = [](int pid) {
+        std::lock_guard lock(ownedMutex);
+        if (pid == ownedPid) ownedAlive = false;
+    };
+    // Held across the spawn, so an engine that dies at once is not marked alive after its reaper ran.
+    std::unique_lock owned(ownedMutex);
     const auto spawned = process::spawn(opts);
     if (!spawned.pid) return {StartKind::Error, 0, spawned.error};
-    std::ofstream(paths::enginePid(), std::ios::trunc) << spawned.pid;
+    ownedPid = spawned.pid;
+    ownedAlive = true;
+    owned.unlock();
+    auto rec = pidfile::recordOf(spawned.pid);
+    if (rec.exe.empty()) rec.exe = paths::utf8(*bin);
+    pidfile::write(rec);
     log::host("engine started (pid " + std::to_string(spawned.pid) + ") on :" + std::to_string(port));
     return {StartKind::Spawned, spawned.pid};
 }
 
 void stop()
 {
-    // The whole TREE, not the pid: a scan child left behind keeps the audio device and the port.
-    if (const int pid = readPid(); pid > 0) process::killTree(pid);
+    const auto rec = pidfile::read();
+    bool alive = false;
+    if (ownedChild(rec.pid, alive)) {
+        // Our child, unreaped while alive, so its pid is still its own: the whole TREE goes, scan children included.
+        if (alive) process::killTree(rec.pid);
+    } else if (rec.pid > 0) {
+        const auto verdict = pidfile::check(rec, pidfile::inspect(rec.pid), process::pidAlive(rec.pid));
+        if (verdict == pidfile::Check::Same) process::killTree(rec.pid);
+        else if (verdict == pidfile::Check::Unverified)
+            log::host("not killing pid " + std::to_string(rec.pid) + ": the pidfile cannot prove it is the engine");
+    }
     std::error_code ec;
     fs::remove(paths::enginePid(), ec);
 }

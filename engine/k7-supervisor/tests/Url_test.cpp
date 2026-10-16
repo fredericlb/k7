@@ -84,6 +84,26 @@ void userOriginIsStrict()
     CHECK(!normaliseUserOrigin("https://bad host"));
 }
 
+// A heartbeat carries the token and the tunnel secret, so plain http goes only where nobody can listen.
+void plaintextOnlyToLoopbackOrTheAllowlist()
+{
+    CHECK(plaintextRefusal("https://st0.app", "").empty());
+    CHECK(plaintextRefusal("wss://st0.app/api/tunnel", "").empty());
+    CHECK(plaintextRefusal("http://localhost:8789", "").empty());
+    CHECK(plaintextRefusal("ws://127.0.0.1:8789/x", "").empty());
+    CHECK(plaintextRefusal("http://[::1]:8789", "").empty());
+    CHECK(!plaintextRefusal("http://st0.app", "").empty());
+    CHECK(!plaintextRefusal("ws://studio.lan:8080", "").empty());
+    CHECK(!plaintextRefusal("http://192.168.1.2:8789", "").empty());
+    CHECK(!plaintextRefusal("ftp://st0.app", "k7").empty());
+    CHECK(!plaintextRefusal("not a url", "").empty());
+    CHECK(plaintextRefusal("http://k7:8789", "k7").empty());
+    CHECK(plaintextRefusal("ws://K7:8789/api", " other , K7 ").empty());
+    CHECK(plaintextRefusal("http://studio.lan:8080", "studio.lan:8080").empty());
+    CHECK(!plaintextRefusal("http://studio.lan:9090", "studio.lan:8080").empty());
+    CHECK(!plaintextRefusal("http://k7.evil:8789", "k7").empty());
+}
+
 void cacheKeyIsTheHost()
 {
     CHECK(cacheKey("https://pl8.priv.frediver.se:8443/api") == "pl8.priv.frediver.se_8443");
@@ -120,6 +140,7 @@ void runUrlTests()
     RUN(registryOfNonUrlIsEmpty);
     RUN(familyIsK7sOrigin);
     RUN(userOriginIsStrict);
+    RUN(plaintextOnlyToLoopbackOrTheAllowlist);
     RUN(cacheKeyIsTheHost);
     RUN(loopbackHosts);
     RUN(engineOriginsAreTheStudios);

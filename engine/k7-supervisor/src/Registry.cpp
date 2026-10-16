@@ -4,6 +4,7 @@
 #include "Registry.h"
 
 #include "Http.h"
+#include "Log.h"
 #include "Url.h"
 
 #include <algorithm>
@@ -22,7 +23,12 @@ std::vector<std::string> asRegistries(const std::vector<std::string>& urls)
     std::vector<std::string> out;
     for (const auto& u : urls) {
         const auto r = url::engineRegistryUrl(u);
-        if (!r.empty() && std::find(out.begin(), out.end(), r) == out.end()) out.push_back(r);
+        if (r.empty() || std::find(out.begin(), out.end(), r) != out.end()) continue;
+        if (const auto why = url::plaintextRefusal(r); !why.empty()) {
+            log::line("registry", why);
+            continue;
+        }
+        out.push_back(r);
     }
     return out;
 }
@@ -41,6 +47,11 @@ std::string detailOf(const http::Response& res)
 Outcome post(const std::string& base, const std::string& path, const nlohmann::json& body)
 {
     Outcome o{base, false, 0, ""};
+    // The body carries the token and the tunnel secret: never in clear past loopback and the allowlist.
+    if (auto why = url::plaintextRefusal(base); !why.empty()) {
+        o.detail = std::move(why);
+        return o;
+    }
     try {
         http::Request r;
         r.method = "POST";
@@ -89,6 +100,7 @@ std::vector<std::string> resolve(const std::vector<std::string>& configured)
 
 Probe probe(const std::string& base)
 {
+    if (auto why = url::plaintextRefusal(base); !why.empty()) return {false, std::move(why)};
     http::Request r;
     r.url = url::join(base, kHelloPath);
     // Longer than a heartbeat's bound: somebody waits on the form, and a slow first handshake is not a "no".
