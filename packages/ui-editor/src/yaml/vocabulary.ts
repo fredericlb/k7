@@ -7,6 +7,7 @@
 // EditorPane, the médiathèque's, and the module builder's. What it reaches for is pure
 // Zod introspection, no node in it.
 
+import { docPattern } from "@studio/song-schema/docExt";
 import { isEngineRef } from "@studio/song-schema/moduleTypes";
 import type { FileKind } from "@studio/song-schema/yaml/fields";
 import {
@@ -54,8 +55,9 @@ function projectValues(
 }
 
 /** A project's use of a module, `nodes/<name>.yaml` or a lane's `tracks/<name>.yaml` — it reaches a scanned plugin through its library face. */
+const NODE_FILE = docPattern("(^|/)(nodes|tracks)/[^/]+", "");
 const isNodeFile = (path: string): boolean =>
-  /(^|\/)(nodes|tracks)\/[^/]+\.(ya?ml|k7x)$/.test(path.replace(/\\/g, "/"));
+  NODE_FILE.test(path.replace(/\\/g, "/"));
 
 /** The vocabulary for the file at `path`. Offers nothing for a file that isn't ours. */
 export function schemaVocabulary(path?: string, hints?: Hints): YamlVocabulary {

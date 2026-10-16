@@ -2,6 +2,7 @@ import { Button } from "@frediverse/ui/button";
 import { Trash2 } from "@frediverse/ui/icons";
 import { sheetKind } from "@studio/rehearsal-shared/sheetKind";
 import { useState } from "react";
+import { confirmLoss } from "../confirm";
 import { m } from "../paraglide/messages.js";
 import type { SheetFile } from "../types";
 import { ScoreSheet } from "./ScoreSheet";
@@ -19,7 +20,7 @@ export function SheetPanel({ sheets, urlFor, onDelete }: Props) {
   const [busy, setBusy] = useState(false);
 
   const remove = async (file: SheetFile) => {
-    if (!confirm(m["sheet.remove"]({ name: file.name }))) return;
+    if (!(await confirmLoss(m["sheet.remove"]({ name: file.name })))) return;
     setBusy(true);
     try {
       await onDelete?.(file.id);

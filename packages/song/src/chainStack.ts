@@ -3,25 +3,23 @@
 // The one thing a reader would get wrong: the new node must be LOOSE — alone in its chain, wired to
 // nothing — which is what `node new` leaves; its chain file goes, its item moves. docs/chainFiles.md.
 
-import { join } from "node:path";
+import { relative } from "node:path";
 import { formatChain, parseChain } from "@studio/song-schema/yaml/chainFile";
 import {
   CHAIN_SINKS,
-  CHAINS_DIR,
   type ChainFile,
   type Item,
   itemsOf,
 } from "@studio/song-schema/yaml/chainSchema";
-import { readChainProject, readLayout, writeLayout } from "./chainProject";
-import { wsExists, wsRemove, wsWrite } from "./yaml/workspaceFile";
+import {
+  chainFilePath,
+  readChainProject,
+  readLayout,
+  writeLayout,
+} from "./chainProject";
+import { wsRemove, wsWrite } from "./yaml/workspaceFile";
 
 const SINKS = new Set<string>(CHAIN_SINKS);
-
-/** A chain's file on disk, `.yaml` or `.yml`. */
-const fileOf = (dir: string, chain: string): string => {
-  const yml = join(dir, CHAINS_DIR, `${chain}.yml`);
-  return wsExists(yml) ? yml : join(dir, CHAINS_DIR, `${chain}.yaml`);
-};
 
 /** A free subchain id inside `c`, after what the node above extends. */
 function freeId(c: ChainFile, item: Item): string {
@@ -88,11 +86,13 @@ export function stackChainNode(
       `stacking would make ${at.chain} unreadable — ${read.issues[0]?.message ?? ""}`,
     );
 
-  wsWrite(fileOf(dir, at.chain), text);
-  wsRemove(fileOf(dir, born.chain));
+  const atFile = chainFilePath(dir, at.chain);
+  const bornFile = chainFilePath(dir, born.chain);
+  wsWrite(atFile, text);
+  wsRemove(bornFile);
   const written = [
-    `${CHAINS_DIR}/${at.chain}.yaml`,
-    `${CHAINS_DIR}/${born.chain}.yaml (removed)`,
+    relative(dir, atFile),
+    `${relative(dir, bornFile)} (removed)`,
   ];
   // Its pin placed a loose card; in a chain it is laid out with the chain, so the pin goes.
   const pins = readLayout(dir);

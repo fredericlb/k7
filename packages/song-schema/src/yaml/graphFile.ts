@@ -14,11 +14,7 @@ import {
 import { portRef, splitPort } from "../moduleTypes";
 import { type GraphFile, GraphFileSchema } from "./graphSchema";
 import type { ModuleIssue } from "./moduleFile";
-
-// YAML 1.2 (so `5:1:1` stays a string) and no wrapping, keeping destinations on ONE line (docs/graphEdits.md).
-const OPTS = { version: "1.2" as const, lineWidth: 0 };
-// `toString` takes only the rendering half of those (the version is a parse concern).
-const OUT = { lineWidth: 0 };
+import { YAML_READ, YAML_WRITE } from "./yamlText";
 
 export interface ParsedChains {
   value: GraphFile | null;
@@ -27,7 +23,7 @@ export interface ParsedChains {
 
 export function parseGraph(text: string): ParsedChains {
   const lines = new LineCounter();
-  const doc = parseDocument(text, { ...OPTS, lineCounter: lines });
+  const doc = parseDocument(text, { ...YAML_READ, lineCounter: lines });
   const issues: ModuleIssue[] = [];
   for (const e of doc.errors) {
     const pos = lines.linePos(e.pos[0]);
@@ -71,7 +67,7 @@ function read(text: string): { doc: Document; file: GraphFile } {
   const { value, issues } = parseGraph(text);
   if (!value)
     throw new Error(`graph.yaml: ${issues[0]?.message ?? "unreadable"}`);
-  return { doc: parseDocument(text, OPTS), file: value };
+  return { doc: parseDocument(text, YAML_READ), file: value };
 }
 
 /** Does the file name this node at all? One map, so the answer is a yes/no and not a section — docs/graphEdits.md. */
@@ -110,7 +106,7 @@ export function addNode(text: string, module: string): string {
   const { doc, file } = read(text);
   if (hasNode(file, module)) return text;
   setDests(doc, module, []);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** Bypass (or re-enable) one module; the list disappears when it empties, so the round trip is a no-op. */
@@ -132,7 +128,7 @@ export function setModuleEnabled(
     if (isSeq(seq)) (seq as YAMLSeq).items.push(doc.createNode(module));
     else doc.set("bypassed", destsNode(doc, [module]));
   }
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** Insert `module` into the arrow from `before` to `after` — one arrow, one rewire (docs/graphEdits.md). */
@@ -162,7 +158,7 @@ export function insertBetween(
   }
   setDests(doc, before, dests);
   setDests(doc, module, after ? [after] : []);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** Pin (or, with null, release) where `node` sits — whole px, one-line flow map, see docs/graphEdits.md. */
@@ -174,14 +170,14 @@ export function setNodePosition(
   const { doc } = read(text);
   if (at === null) {
     dropPosition(doc, node);
-    return doc.toString(OUT);
+    return doc.toString(YAML_WRITE);
   }
   if (!isMap(doc.getIn(["positions"])))
     doc.set("positions", doc.createNode({}));
   const entry = doc.createNode({ x: Math.round(at.x), y: Math.round(at.y) });
   entry.flow = true;
   doc.setIn(["positions", node], entry);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** Draw a NEW arrow from `from` to `to` — a patch cable rather than a splice, see docs/graphEdits.md. */
@@ -191,7 +187,7 @@ export function connectNodes(text: string, from: string, to: string): string {
   if (dests.includes(to)) throw new Error(`'${from}' already feeds '${to}'`);
   dests.push(to);
   setDests(doc, from, dests);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** Add a whole SEGMENT SET in one write — what instancing an assembly's template emits.
@@ -220,7 +216,7 @@ export function mergeSegments(
     const next = [...(file[key] ?? []), ...names.filter((n) => !have.has(n))];
     doc.set(key, destsNode(doc, next));
   }
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** Take ONE arrow out; a source left feeding nothing keeps its key as `[]` (docs/graphEdits.md). */
@@ -240,7 +236,7 @@ export function disconnectNodes(
     from,
     dests.filter((d) => d !== to),
   );
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** Rejoin what fed `module` to what it fed, handing back the nodes repointed — see docs/graphEdits.md. */
@@ -269,7 +265,7 @@ export function unlinkNode(
   const rewired = spliceOut(doc, file, module);
   // Named as a step or only ever as somebody's destination — either way it has an entry now.
   setDests(doc, module, []);
-  return { text: doc.toString(OUT), rewired };
+  return { text: doc.toString(YAML_WRITE), rewired };
 }
 
 /** Take `module` out ENTIRELY — the entry, its bypass and its pin; what `node delete` writes (docs/graphEdits.md). */
@@ -283,7 +279,7 @@ export function removeNode(
   dropFromBypassed(doc, module);
   // Its pin goes with it — a position for a node that is gone is a key nothing can read.
   dropPosition(doc, module);
-  return { text: doc.toString(OUT), rewired };
+  return { text: doc.toString(YAML_WRITE), rewired };
 }
 
 /** Pin MANY nodes in ONE write, leaving existing pins alone — see docs/graphEdits.md. */
@@ -307,7 +303,7 @@ export function setNodePositions(
     doc.setIn(["positions", node], entry);
     wrote = true;
   }
-  return wrote ? doc.toString(OUT) : text;
+  return wrote ? doc.toString(YAML_WRITE) : text;
 }
 
 /** Drop the whole `positions:` section — `graph organize`'s write, every node handed back to the layout. */
@@ -315,7 +311,7 @@ export function clearNodePositions(text: string): string {
   const { doc } = read(text);
   if (!isMap(doc.get("positions"))) return text;
   doc.delete("positions");
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** Take one node's pin out, dropping the section once it empties — guarded, since `deleteIn` THROWS on a missing path. */
@@ -375,12 +371,12 @@ export function renameNode(
         item.key.value = to;
         item.key.type = undefined;
       }
-  return { text: doc.toString(OUT), rewired };
+  return { text: doc.toString(YAML_WRITE), rewired };
 }
 
 /** A whole segments file in canonical form — what the scaffold writes and what the migration emits. */
 export function formatChains(file: GraphFile, header = ""): string {
-  const doc = new Document({}, OPTS);
+  const doc = new Document({}, YAML_READ);
   const entries = Object.entries(file.modules ?? {});
   if (entries.length) {
     doc.set("modules", doc.createNode({}));
@@ -388,5 +384,5 @@ export function formatChains(file: GraphFile, header = ""): string {
       doc.setIn(["modules", node], destsNode(doc, dests));
   }
   if (file.bypassed?.length) doc.set("bypassed", destsNode(doc, file.bypassed));
-  return (header ? `${header}\n` : "") + doc.toString(OUT);
+  return (header ? `${header}\n` : "") + doc.toString(YAML_WRITE);
 }

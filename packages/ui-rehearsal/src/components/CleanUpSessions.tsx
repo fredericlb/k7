@@ -3,6 +3,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import { BrushCleaning } from "@frediverse/ui/icons";
+import { confirmLoss } from "../confirm";
 import { isOne } from "../i18n";
 import { m } from "../paraglide/messages.js";
 import type { Session } from "../types";
@@ -27,7 +28,7 @@ export function CleanUpSessions({ sessions, onClean }: Props) {
     const ask = isOne(n)
       ? m["cleanup.confirm.one"]({ n })
       : m["cleanup.confirm.other"]({ n });
-    if (!confirm(ask)) return;
+    if (!(await confirmLoss(ask))) return;
     await onClean(stale.map((s) => s.id));
   };
 

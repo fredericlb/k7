@@ -12,6 +12,7 @@ import { FIXED_NAMESPACES } from "@studio/song-schema/moduleTypes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { m } from "../paraglide/messages.js";
+import { projectDir } from "../projectPaths";
 import {
   buildKitNodeYaml,
   cellsInNoteOrder,
@@ -178,8 +179,8 @@ export function RackBuilder({
     setBusy(true);
     const kit = name.trim();
     // WORKSPACE-relative, project prefix included: without it a file lands BESIDE the project, where nothing ever lists it.
-    const ap = (activeProject ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
-    const prefix = ap && ap !== "." ? `${ap}/` : "";
+    const ap = projectDir(activeProject);
+    const prefix = ap ? `${ap}/` : "";
     // The samples go where every sample lives: a samples/ folder, the project's own or a library's.
     const src = kitUploadDir(dest, kit, ap);
     let done = 0;

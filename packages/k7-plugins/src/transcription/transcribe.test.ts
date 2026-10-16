@@ -1,5 +1,6 @@
+import { input } from "@studio/ffmpeg";
 import { describe, expect, it } from "vitest";
-import { parseSrt, srtOf } from "./transcribe";
+import { extractAudioArgs, parseSrt, srtOf } from "./transcribe";
 
 // The SRT dialect is the one decision here worth pinning: both whisper CLIs write it, the track's
 // `content:` carries it, and whoever copies it out gets a valid subtitle file. Raw timings are the
@@ -61,5 +62,12 @@ kept
   it("keeps the timing text valid SRT: commas, three millisecond digits, 1-based numbering", () => {
     const srt = srtOf([{ start: 0, end: 1.5, text: "one" }]);
     expect(srt).toBe("1\n00:00:00,000 --> 00:00:01,500\none\n");
+  });
+});
+
+describe("extractAudioArgs", () => {
+  it("opens the user's video under the protocol whitelist", () => {
+    const args = extractAudioArgs("/ws/clip.mov", "/tmp/a.wav");
+    expect(args.join("\0")).toContain(input("/ws/clip.mov").join("\0"));
   });
 });

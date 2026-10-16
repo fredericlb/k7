@@ -85,6 +85,32 @@ export const MIME_BY_EXT: Record<string, string> = {
   ".webp": "image/webp",
 };
 
+// The table read backwards, keyed by the type without its parameters: the FIRST extension listed for a type wins.
+const EXT_BY_MIME = new Map<string, string>();
+for (const [ext, mime] of Object.entries(MIME_BY_EXT)) {
+  const base = mime.split(";")[0];
+  if (!EXT_BY_MIME.has(base)) EXT_BY_MIME.set(base, ext);
+}
+
+// Audio types a browser or a client sends that the table spells another way.
+const MIME_ALIASES: Record<string, string> = {
+  "audio/mp3": ".mp3",
+  "audio/m4a": ".m4a",
+  "audio/aac": ".m4a",
+  "audio/opus": ".opus",
+  "audio/webm": ".webm",
+};
+
+/** The dotted extension a content type is filed under, its parameters and an `x-` ignored, or undefined — docs/mime.md. */
+export function extForMime(mime: string): string | undefined {
+  const base = mime.split(";")[0].trim().toLowerCase().replace("/x-", "/");
+  return (
+    MIME_ALIASES[base] ??
+    EXT_BY_MIME.get(base) ??
+    EXT_BY_MIME.get(base.replace("/", "/x-"))
+  );
+}
+
 /** What to serve a path as, reading the LAST SEGMENT's extension so a dotted directory is not one. */
 export function mimeFor(pathOrName: string): string {
   const last = pathOrName.split(/[\\/]/).pop() ?? "";

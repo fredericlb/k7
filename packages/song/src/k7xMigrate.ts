@@ -18,6 +18,7 @@ import {
   LIBRARY_MANIFEST,
   LIBRARY_PINS_FILE,
 } from "@studio/song-schema/libraryVersions";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { parse as parseYaml } from "yaml";
 
 export interface MigrateOptions {
@@ -80,7 +81,7 @@ export function convertChecked(
   } catch (e) {
     return { reason: (e as Error).message };
   }
-  const want = parseYaml(yaml, { version: "1.2" }) ?? {};
+  const want = parseYaml(yaml, YAML_READ) ?? {};
   let got: unknown;
   try {
     got = parseK7x(k7x);

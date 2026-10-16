@@ -2,27 +2,12 @@
 // on screen, where a second lands in pixels, and where the beats are. No canvas, no React, so
 // the parts that decide what you SEE are testable. See docs/waveform.md.
 
+import type { FileEnvelope } from "@studio/audio-probe/waveform";
+import { formatClock } from "@studio/ui-timeline/ticks";
 import { BEATS_PER_BAR, beatPhase, firstBeatAfter } from "./beats";
 
-/** What the file service hands back for one cached song (@studio/audio-probe/waveform's shape). */
-export interface Envelope {
-  sampleRate: number;
-  channels: number;
-  frames: number;
-  seconds: number;
-  /** Per-bucket max |sample|, 0..1. 8192 buckets for a whole file, whatever its length. */
-  peak: number[];
-  rms: number[];
-  /** Onsets in FILE seconds, as the engine detected them. */
-  transients: number[];
-  sensitivity: number;
-  /** The engine's estimate, or 0 for "none found". A starting point, not an authority. */
-  bpm: number;
-  /** The same envelope split at 200 Hz and 4 kHz, in `peak`'s bucket space — optional, a pre-v4 sidecar has none. */
-  low?: number[];
-  mid?: number[];
-  high?: number[];
-}
+/** What the file service hands back for one cached song, less the cache's own fingerprint. */
+export type Envelope = Omit<FileEnvelope, "fingerprint">;
 
 /** How many seconds are visible at once — far enough to see the next phrase, tight enough to see a beat. */
 export const WINDOW_SECONDS = 8;
@@ -97,10 +82,8 @@ function gridIn(
 
 /** Seconds as `m:ss`, and `-m:ss` for what is left — what makes the playhead's MOVEMENT visible. */
 export function mmss(seconds: number): string {
-  const sign = seconds < 0 ? "-" : "";
-  const whole = Math.floor(Math.abs(seconds));
-  const m = Math.floor(whole / 60);
-  return `${sign}${m}:${String(whole % 60).padStart(2, "0")}`;
+  // Floored on the magnitude, so the last fraction of a track still reads -0:00.
+  return `${seconds < 0 ? "-" : ""}${formatClock(Math.floor(Math.abs(seconds)))}`;
 }
 
 /** The transients inside `[from, to]` — a plain filter, they are already sorted and in file seconds. */

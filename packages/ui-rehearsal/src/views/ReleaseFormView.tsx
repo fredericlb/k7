@@ -2,21 +2,18 @@ import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { Field } from "@frediverse/ui/field";
 import { Input } from "@frediverse/ui/input";
-import { Textarea } from "@frediverse/ui/textarea";
 import { AUDIO_ACCEPT } from "@studio/mediatek/media";
 import { useState } from "react";
 import type { OnProgress } from "../api";
-import { SwitchField } from "../components/SwitchField";
+import {
+  ReleaseFields,
+  type ReleaseFieldValues,
+} from "../components/ReleaseFields";
 import { m } from "../paraglide/messages.js";
 import type { Release } from "../types";
 import { uploadLabel } from "../uploadLabel";
 
-interface SaveData {
-  title: string;
-  artist: string;
-  releaseDate: string;
-  description: string;
-  canDownload: boolean;
+interface SaveData extends ReleaseFieldValues {
   versionName: string;
   audio: File;
 }
@@ -27,11 +24,13 @@ interface Props {
 }
 
 export function ReleaseFormView({ onSave, onCancel }: Props) {
-  const [title, setTitle] = useState("");
-  const [artist, setArtist] = useState("");
-  const [releaseDate, setReleaseDate] = useState("");
-  const [description, setDescription] = useState("");
-  const [canDownload, setCanDownload] = useState(false);
+  const [values, setValues] = useState<ReleaseFieldValues>({
+    title: "",
+    artist: "",
+    releaseDate: "",
+    description: "",
+    canDownload: false,
+  });
   const [versionName, setVersionName] = useState<string>(() =>
     m["release.versionN"]({ n: 1 }),
   );
@@ -41,7 +40,7 @@ export function ReleaseFormView({ onSave, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
-    if (!title.trim() || !artist.trim() || !audio) {
+    if (!values.title.trim() || !values.artist.trim() || !audio) {
       setError(m["release.newRequired"]());
       return;
     }
@@ -51,11 +50,11 @@ export function ReleaseFormView({ onSave, onCancel }: Props) {
     try {
       await onSave(
         {
-          title: title.trim(),
-          artist: artist.trim(),
-          releaseDate,
-          description: description.trim(),
-          canDownload,
+          title: values.title.trim(),
+          artist: values.artist.trim(),
+          releaseDate: values.releaseDate,
+          description: values.description.trim(),
+          canDownload: values.canDownload,
           versionName: versionName.trim() || m["release.versionN"]({ n: 1 }),
           audio,
         },
@@ -71,52 +70,22 @@ export function ReleaseFormView({ onSave, onCancel }: Props) {
     <Card className="release-form">
       <h2>{m["release.new"]()}</h2>
 
-      <Field label={m["field.title"]()}>
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-      </Field>
+      <ReleaseFields values={values} onChange={setValues}>
+        <Field label={m["release.firstVersionLabel"]()}>
+          <Input
+            value={versionName}
+            onChange={(e) => setVersionName(e.target.value)}
+          />
+        </Field>
 
-      <Field label={m["field.artist"]()}>
-        <Input value={artist} onChange={(e) => setArtist(e.target.value)} />
-      </Field>
-
-      <Field label={m["release.dateLabel"]()}>
-        <Input
-          type="date"
-          value={releaseDate}
-          onChange={(e) => setReleaseDate(e.target.value)}
-        />
-      </Field>
-
-      <Field label={m["release.descriptionLabel"]()}>
-        <Textarea
-          rows={3}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </Field>
-
-      <Field label={m["release.firstVersionLabel"]()}>
-        <Input
-          value={versionName}
-          onChange={(e) => setVersionName(e.target.value)}
-        />
-      </Field>
-
-      <Field label={m["release.audioLabel"]()}>
-        <Input
-          type="file"
-          accept={AUDIO_ACCEPT}
-          onChange={(e) => setAudio(e.target.files?.[0] ?? null)}
-        />
-      </Field>
-
-      <SwitchField
-        checked={canDownload}
-        onCheckedChange={setCanDownload}
-        className="mb-4 mt-2"
-      >
-        {m["release.allowDownload"]()}
-      </SwitchField>
+        <Field label={m["release.audioLabel"]()}>
+          <Input
+            type="file"
+            accept={AUDIO_ACCEPT}
+            onChange={(e) => setAudio(e.target.files?.[0] ?? null)}
+          />
+        </Field>
+      </ReleaseFields>
 
       {error && <p className="error">{error}</p>}
 

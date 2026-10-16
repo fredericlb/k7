@@ -3,7 +3,7 @@
 // every row of the view shares one axis without measuring anything. Audio is its RMS envelope,
 // MIDI its notes; both are fetched here, since a take is not in the compiled project until comped.
 
-import { parsePosition } from "@studio/song-schema/timecode";
+import { seqWindowFromText, windowSpan } from "@studio/song-schema/seqWindow";
 import { memo, useEffect, useId, useMemo, useState } from "react";
 import { parse } from "yaml";
 import { api } from "../api";
@@ -63,16 +63,12 @@ function useMaterial(
         .then(({ content }) => {
           const seq = (parse(content) ?? {}) as {
             notes?: { t: number; d: number; k: number }[];
-            to?: string;
           };
           const notes = Array.isArray(seq.notes) ? seq.notes : [];
           const extent = notes.reduce((m, n) => Math.max(m, n.t + n.d), 0);
-          let stated = 0;
-          try {
-            stated = seq.to ? parsePosition(String(seq.to), num, den) : 0;
-          } catch {
-            /* an unreadable window: the notes' own extent frames the row */
-          }
+          // An unreadable window reads as none: the notes' own extent frames the row.
+          const win = seqWindowFromText(content, num, den);
+          const stated = win ? (windowSpan(win, extent)?.to ?? 0) : 0;
           done({ kind: "midi", length: Math.max(stated, extent), notes });
         })
         .catch(() => retry(loadMidi));

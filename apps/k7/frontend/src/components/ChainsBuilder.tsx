@@ -7,12 +7,13 @@ import { Loader2, Workflow, X } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { askText } from "@studio/project-shell/ask";
 import { projectApi } from "@studio/project-shell/project";
+import { stripDocExt } from "@studio/song-schema/docExt";
 import { DEFAULT_LIBRARY, libraryRef } from "@studio/song-schema/moduleTypes";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { buildGraph, layout } from "@studio/ui-chains/graph";
 import { DomChains } from "@studio/ui-chains-react";
 import { useAutosave } from "@studio/ui-editor/autosave";
-import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
+import { YamlPane } from "@studio/ui-editor/yaml-pane";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { STUDIO_ICONS } from "../chainsIcons";
 import { isChainFile } from "../libraryTree";
@@ -122,7 +123,7 @@ export function ChainsBuilder({
 
   /** The node id the drawing selects: the focused file without its extension, or none. */
   const selectedNode = useMemo(
-    () => (focusNode ? focusNode.replace(/.(?:ya?ml|k7x)$/i, "") : null),
+    () => (focusNode ? stripDocExt(focusNode) : null),
     [focusNode],
   );
 

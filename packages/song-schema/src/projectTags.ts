@@ -5,7 +5,7 @@
 import { parse } from "yaml";
 
 /** A tag as it is stored: trimmed, inner runs of space made one, at most this long. */
-export const TAG_MAX = 32;
+const TAG_MAX = 32;
 
 /** The tag to store for what was typed, or null when nothing is left of it. */
 export function normalizeTag(raw: string): string | null {

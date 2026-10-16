@@ -2,6 +2,7 @@
 // its prefix ("/rehearsal/*"), inside its own frame and below RehearsalRecording.
 // Every navigation goes through useRehearsalNav: a bare "/sessions" would leave the prefix.
 
+import { AskHost } from "@frediverse/ui/ask";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { api } from "../api";
 import { RecoveredTakes } from "../components/RecoveredTakes";
@@ -59,6 +60,8 @@ export function RehearsalRoutes() {
 
   return (
     <div className="rehearsal-root rehearsal-page">
+      {/* Where every confirmation of these pages is drawn; without it `confirmLoss` answers no. */}
+      <AskHost />
       <main className="main">
         <RecoveredTakes />
         <div className={`main-inner${minimized ? " has-rec-bar" : ""}`}>

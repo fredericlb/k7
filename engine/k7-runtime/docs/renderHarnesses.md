@@ -63,11 +63,11 @@ default ceiling never engages, which is what makes "neutral leaves the mix alone
 rather than an artefact. The first check the script runs is that the BARE render has headroom, so
 this cannot quietly stop being true.
 
-Its wav reader takes 16/24/32-bit PCM and float32 rather than pinning one: the bounce's format is
-the engine's to choose, and a harness that fails on it tells you nothing about the plugin. It walks
-the RIFF chunks instead of assuming a 44-byte
-header, because a float wav carries `fmt ` with an extension and often a `fact` chunk, so the fixed
-offset lands mid-sample.
+Every harness reads and writes wavs through `scripts/wav.ts`, one reader for all of them. It takes
+16/24/32-bit PCM and float32 rather than pinning one: the bounce's format is the engine's to
+choose, and a harness that fails on it tells you nothing about the plugin. It walks the RIFF chunks
+instead of assuming a 44-byte header, because a float wav carries `fmt ` with an extension and often
+a `fact` chunk, so the fixed offset lands mid-sample.
 
 ## Ask for a value the parameter can actually take
 

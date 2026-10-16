@@ -19,12 +19,12 @@ import {
   X,
 } from "@frediverse/ui/icons";
 import { playlistPathOf } from "@studio/song-schema/playlist";
+import type { PlaylistInfo } from "@studio/web-protocol/playlists";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { fuzzyScore } from "../fuzzy";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";
-import type { PlaylistInfo } from "../types";
 import { PlaylistEditor } from "./PlaylistEditor";
 import { type TreeNode, TreePicker } from "./TreePicker";
 
@@ -40,7 +40,7 @@ const nodeOf = (p: PlaylistInfo): TreeNode<PlaylistInfo> => ({
 });
 
 /** The dropdown's search: fuzzy over the name AND the path, best first, with the shell's one matcher. */
-export function searchPlaylists(
+function searchPlaylists(
   rows: PlaylistInfo[],
   query: string,
 ): TreeNode<PlaylistInfo>[] {

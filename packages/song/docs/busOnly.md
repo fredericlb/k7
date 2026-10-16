@@ -56,9 +56,8 @@ and cue are both downstream of the whole strip.
 
 ## Who writes it
 
-A set's scaffold (`scaffoldSet.ts`) and the migration (`scripts/migrateSetCue.ts`), which share the
-note placed above the key — `BUS_ONLY_NOTE`, one text, so both produce the same file byte for byte.
-By hand otherwise: it is one line, and the graph does not write it from a click.
+A set's scaffold (`scaffoldSet.ts`), with the note `BUS_ONLY_NOTE` placed above the key. By hand
+otherwise: it is one line, and the graph does not write it from a click.
 
 ## What it is not
 

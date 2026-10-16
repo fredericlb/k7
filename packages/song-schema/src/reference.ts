@@ -3,11 +3,13 @@
 // `node:fs` so the file service and the browser go by the same rules. See
 // docs/references.md.
 
+import { plainSegments } from "@studio/web-protocol/paths";
+
 /** The folder a workspace keeps them in, beside `_modules` and `_playlists`. */
 export const REFERENCES_DIR = "_references";
 
 /** The extensions offered as reference tracks — what a browser's `<audio>` can be asked to decode. */
-export const REFERENCE_EXTS = [
+const REFERENCE_EXTS = [
   ".wav",
   ".flac",
   ".mp3",
@@ -50,8 +52,8 @@ export interface ReferenceTrack {
 export function referencePathOf(name: string): string | null {
   const clean = name.trim().replace(/^\/+|\/+$/g, "");
   if (!clean) return null;
-  const segs = clean.split(/[\\/]+/);
-  if (segs.some((s) => !s || s === "." || s === "..")) return null;
+  const segs = plainSegments(clean, /[\\/]+/);
+  if (!segs) return null;
   const rel = segs.join("/");
   return isReferenceFile(rel) ? `${REFERENCES_DIR}/${rel}` : null;
 }

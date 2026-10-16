@@ -7,13 +7,14 @@
     "!*.test.ts",
     "docs"
   ],
-  "description": "The engine wire protocol: the state frames (.) and the compiled project document (./project), both types-only and erased at runtime, plus the two subpaths that emit code — constructors for that document (./build) and the binary audio-broadcast frame (./stream).",
+  "description": "The engine wire protocol: the state frames (.) and the compiled project document (./project), both types-only and erased at runtime, plus the two subpaths that emit code — constructors for that document (./build), the binary audio-broadcast frame (./stream), and the decoders and outbox both clients share (./decode).",
   "types": "./types.ts",
   "exports": {
     ".": "./types.ts",
     "./project": "./project.ts",
     "./build": "./build.ts",
     "./sessions": "./sessions.ts",
+    "./decode": "./decode.ts",
     "./stream": "./stream.ts"
   },
   "scripts": {

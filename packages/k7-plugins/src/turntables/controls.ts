@@ -153,13 +153,6 @@ export const MIX_CONTROLS: readonly MixControl[] = [
     range: [0, 1],
     home: 0,
   },
-  {
-    id: "listen",
-    label: "Listen here",
-    kind: "button",
-    range: [0, 1],
-    home: 0,
-  },
 ];
 
 const BY_ID = new Map(MIX_CONTROLS.map((c) => [c.id, c]));

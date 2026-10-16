@@ -1,6 +1,7 @@
 # The camera — panning and zooming
 
-`camera.ts` holds the arithmetic; `DomChains` holds the element and one frame loop. The rules
+`camera.ts` holds the arithmetic; `DomChains` holds the element, and `useChainsCamera.ts` its one
+frame loop. The rules
 below are about **feel**, and the framing rules — `fitKey`, `fitted` vs `userMoved`, the camera
 that survives an unmount — are a separate set, in
 [k7's chainsGraph.md](../../../apps/k7/frontend/docs/chainsGraph.md).
@@ -60,7 +61,7 @@ drifting under the pointer during the glide and snapping back at the end.
 
 ## The wheel is a PAN. The pinch is the zoom.
 
-`isZoomWheel` is the whole rule: `ctrlKey` (or `metaKey`) means zoom, anything else means pan.
+`isZoomWheel` (shared with the timeline, `@studio/ui-timeline/panZoom`) is the whole rule: `ctrlKey` (or `metaKey`) means zoom, anything else means pan.
 
 That is not a preference, it is the only signal there is. On a Mac trackpad — and on a Windows
 precision touchpad — a **pinch** arrives as a wheel event with `ctrlKey` set, synthesised by the

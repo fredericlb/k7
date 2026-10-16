@@ -45,10 +45,9 @@ describe("REQUIRED_CONTROLS", () => {
   });
 
   it("does NOT require the buttons that name no module param", () => {
-    // `transport`, `sync` and `listen` are actions of the app: requiring one is an uncleanable error.
+    // `transport` and `sync` are actions of the app: requiring one is an uncleanable error.
     const required = ids(REQUIRED_CONTROLS);
     expect(required).not.toContain("transport");
-    expect(required).not.toContain("listen");
     for (const d of DECKS) expect(required).not.toContain(`${d}.sync`);
   });
 
@@ -110,8 +109,8 @@ describe("the scaffold offers every control that must be wired", () => {
   });
 
   it("leaves out the controls that drive no param", () => {
-    // Offering `transport`, `sync` or `listen` a module prints an error nobody can clear.
-    for (const id of ["transport", "listen", `${DECKS[0]}.sync`])
+    // Offering `transport` or `sync` a module prints an error nobody can clear.
+    for (const id of ["transport", `${DECKS[0]}.sync`])
       expect(skeleton).not.toContain(id);
   });
 

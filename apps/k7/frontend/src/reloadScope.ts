@@ -4,6 +4,7 @@
 // questions rather than one counter meaning "everything is stale".
 // The rationale, the measurements and the one named limit are in docs/shell.md.
 
+import { docPattern, isDocFile } from "@studio/song-schema/docExt";
 import type { ChangedFile } from "@studio/web-protocol";
 import { useRef } from "react";
 
@@ -17,7 +18,7 @@ export interface Reload {
 export const UNKNOWN_RELOAD: Reload = { key: 0, files: null };
 
 /** Entities gathered BY NAME, anchored at the project root: a module may legitimately be called `clips`. */
-const NAMED_ONLY = /^(clips|sequences|curves)\/[^/]+\.(?:ya?ml|k7x)$/;
+const NAMED_ONLY = docPattern("^(clips|sequences|curves)/[^/]+", "");
 
 /** Did a file appear or disappear? — the only thing `/tree` draws. */
 export const movedTheTree = (r: Reload): boolean =>
@@ -29,8 +30,10 @@ export const movedTheVocabulary = (r: Reload): boolean =>
   r.files.some((f) => f.kind !== "edited" || !NAMED_ONLY.test(f.path));
 
 /** A lane's events, a clip, a sequence, a curve — what a TIMELINE edit writes, none of which wires anything. */
-const ARRANGEMENT_ONLY =
-  /^(tracks|clips|sequences|curves)\/[^/]+\.(?:ya?ml|k7x)$/;
+const ARRANGEMENT_ONLY = docPattern(
+  "^(tracks|clips|sequences|curves)/[^/]+",
+  "",
+);
 
 /** Could this have changed the CHAINS — a node, a cable, an input? No when it only rewrote the arrangement. */
 export const movedTheChains = (r: Reload): boolean =>
@@ -43,9 +46,7 @@ export const movedTheSurfaces = (r: Reload): boolean =>
 /** Could this have brought audio to prewarm? A placement, a clip, or a file that is not YAML — an upload, a take, a render. */
 export const movedTheAudio = (r: Reload): boolean =>
   r.files === null ||
-  r.files.some(
-    (f) => /^(tracks|clips)\//.test(f.path) || !/\.(?:ya?ml|k7x)$/.test(f.path),
-  );
+  r.files.some((f) => /^(tracks|clips)\//.test(f.path) || !isDocFile(f.path));
 
 /** A counter that moves only when `moved` says this reload concerns it — the dependency to give an effect in place of `reload.key`. */
 export function useScopedKey(

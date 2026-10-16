@@ -7,8 +7,9 @@
 | File | Role |
 |---|---|
 | `packages/commands/commands.yaml` | The **catalogue**: what you type, mapped to a feature SID, with its description, arguments and menus. Declarative. |
-| `packages/commands/src/commandSpec.ts` | Loads the catalogue, holds the completion **providers**, validates argument shapes, completes, dispatches (`runCommand`), and registers plugin verbs. |
-| `packages/commands/src/commands.ts` | `SID_HANDLERS`: SID → handler, the `CommandHost` interface, and many handlers. |
+| `packages/commands/src/commandSpec.ts` | Loads the catalogue, validates argument shapes, completes, dispatches (`runCommand`), and registers plugin verbs. |
+| `packages/commands/src/providers.ts` | The completion **providers**, and each one's label, display class and hint. |
+| `packages/commands/src/commands.ts` | `SID_HANDLERS`: SID → handler, built from the `verbs/` tables, and the `CommandHost` interface. |
 | `packages/commands/src/verbs/` | Handler families (`TRACK_VERBS`, `PICTURE_VERBS`, `SYSTEM_VERBS`…), spread into `SID_HANDLERS`. |
 | `packages/commands/src/testHost.ts` | A host for tests. |
 
@@ -45,7 +46,7 @@ The work a verb does lives in other packages: `@studio/song-edit` changes projec
 
 ## Providers
 
-`PROVIDERS` in `commandSpec.ts` answer `complete:` names from the `CommandHost`: `tracks`, `nodes`, `modules`, `baseModules`, `engineModules`, `categories`, `curves`, `sequenceFiles`, `audioFiles`, `clipTargets`, `chains`, `samples`, `markerNames`, `moduleAlternatives`, `moduleEngines`, `assemblies`, `assemblyTemplates`, `playlists`, `libraries`, `pictureLanes`, `surfaceTypes`. The map is typed `satisfies Record<string, …>`, so `ProviderName` follows it and a stale reference stops compiling; an unknown name in the YAML is reported at load and fails the test suite rather than emptying the catalogue.
+`PROVIDERS` in `providers.ts` answer `complete:` names from the `CommandHost`: `tracks`, `nodes`, `modules`, `baseModules`, `engineModules`, `categories`, `curves`, `sequenceFiles`, `audioFiles`, `clipTargets`, `chains`, `samples`, `markerNames`, `moduleAlternatives`, `moduleEngines`, `assemblies`, `assemblyTemplates`, `playlists`, `libraries`, `pictureLanes`, `surfaceTypes`. The map is typed `satisfies Record<string, …>`, so `ProviderName` follows it and a stale reference stops compiling; an unknown name in the YAML is reported at load and fails the test suite rather than emptying the catalogue.
 
 Each provider also declares a **display class** (`PROVIDER_CLASS`: track, module, file, marker, choice…) and a default hint (`PROVIDER_HINT`). The class colours the palette's field; `CLASS_HINT` supplies the hint of scalar classes (`timecode` → "bar:beat:sixteenth — 5, 5:1, 5:1:1"). `PROVIDER_LABELS` lets a provider show a readable label for a value that is not readable (a chain project's node uuid shown as its module and place).
 

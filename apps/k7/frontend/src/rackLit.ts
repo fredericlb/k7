@@ -118,7 +118,7 @@ function same(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
 }
 
 /** How long a pad stays lit when it is CLICKED: the engine reports no notes, so the click is all there is to show. */
-export const FLASH_MS = 160;
+const FLASH_MS = 160;
 
 /** The store the pads subscribe to, per MODULE — a playhead moving through silence notifies nobody, twenty times a second. */
 export class LiveRackLit implements RackLitStore {

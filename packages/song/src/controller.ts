@@ -11,15 +11,16 @@ import {
   type ControllerFile,
   ControllerFileSchema,
 } from "@studio/song-schema/yaml/moduleSchema";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { parse as parseYaml } from "yaml";
 import { eachLibrarySibling } from "./moduleSiblings";
 import { CONTROLLER_BASE, moduleFileFor } from "./yaml/moduleIO";
 import { wsRead, wsWrite } from "./yaml/workspaceFile";
 
 /** The map file a module folder holds, as it is written. `.yml` is read too (moduleFileFor probes both). */
-export const CONTROLLER_FILE = `${CONTROLLER_BASE}.yaml`;
+const CONTROLLER_FILE = `${CONTROLLER_BASE}.yaml`;
 
-export interface ControllerEntry {
+interface ControllerEntry {
   ref: string;
   /** By the widget's `bind` string, verbatim — see setCcBinding. */
   cc: ControllerFile;
@@ -55,7 +56,7 @@ export function parseController(text: string): {
 } {
   let raw: unknown;
   try {
-    raw = parseYaml(text, { version: "1.2" });
+    raw = parseYaml(text, YAML_READ);
   } catch (e) {
     return { value: null, issue: (e as Error).message };
   }

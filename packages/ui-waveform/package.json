@@ -15,7 +15,8 @@
     "react": "^19.2.7"
   },
   "dependencies": {
-    "@frediverse/ui": "*"
+    "@frediverse/ui": "*",
+    "@studio/ui-timeline": "*"
   },
   "scripts": {
     "test": "vitest run",

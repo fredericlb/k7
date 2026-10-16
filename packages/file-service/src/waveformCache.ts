@@ -8,7 +8,6 @@ import { analyseFile } from "@studio/audio-analysis/analyse";
 import { DEFAULT_TRANSIENT_SENSITIVITY } from "@studio/audio-analysis/envelope";
 import { fileFingerprint } from "@studio/audio-analysis/fingerprint";
 import {
-  CACHE_EXT,
   cachePath,
   readSidecar,
   storedSensitivity,
@@ -17,7 +16,6 @@ import type { FileEnvelope } from "@studio/audio-probe/waveform";
 
 // Re-exported so this module's importers keep resolving them; they are the sidecar's, not ours.
 export {
-  CACHE_EXT,
   cachePath,
   DEFAULT_TRANSIENT_SENSITIVITY,
   fileFingerprint,
@@ -139,7 +137,7 @@ export function staleWaveformSources(sources: string[]): string[] {
 }
 
 /** How many files a prewarm decodes at once: each holds a mono copy of its file, ~57 MB for five minutes. */
-export const WARM_DECODES = 2;
+const WARM_DECODES = 2;
 
 // Rebuild every stale sidecar, a few at a time; `onResult` fires per file for a live count.
 export async function runWaveformBatch(

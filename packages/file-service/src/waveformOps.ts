@@ -4,8 +4,7 @@
 // engine-written `{source}.cache` sidecars (see waveformCache.ts) — everything here is
 // the in-memory, per-session layer over them.
 
-import { readdirSync, unlinkSync } from "node:fs";
-import { basename, isAbsolute, join, resolve } from "node:path";
+import { basename, isAbsolute, resolve } from "node:path";
 import { beatGrid, regionWaveform } from "@studio/audio-probe/waveform";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import {
@@ -20,7 +19,6 @@ import { resolveOnsets } from "@studio/song-edit/onsets";
 import { clipOnsets } from "@studio/song-edit/projectEdit";
 import type { WaveformStatus, WebWaveform } from "@studio/web-protocol";
 import {
-  CACHE_EXT,
   ensureFileEnvelope,
   runWaveformBatch,
   staleWaveformSources,
@@ -125,8 +123,6 @@ export interface WaveformHost {
   /** The compiled (cached) doc for `dir`. */
   cachedProjectDoc(dir: string): ProjectDoc;
   withinRoot(abs: string): boolean;
-  /** The tree's hidden-name rule, reused so the cache sweep skips the same places. */
-  skip(name: string): boolean;
 }
 
 export class WaveformOps {
@@ -232,37 +228,6 @@ export class WaveformOps {
 
   status(): WaveformStatus {
     return { ...this.warmState };
-  }
-
-  // Clear the memo and every `{source}.cache` sidecar — destructive, and a walk, since they sit beside their audio.
-  clear(): number {
-    this.wfCache.clear();
-
-    let removed = 0;
-    const sweep = (abs: string): void => {
-      // The try covers only the readdir; each unlink has its own catch (docs/waveformCache.md).
-      try {
-        for (const e of readdirSync(abs, { withFileTypes: true })) {
-          // The same exclusions as the tree, so the sweep stays inside what the user calls their workspace.
-          if (e.isDirectory()) {
-            if (!this.host.skip(e.name)) sweep(join(abs, e.name));
-          } else if (e.name.endsWith(CACHE_EXT)) {
-            try {
-              unlinkSync(join(abs, e.name));
-              removed++;
-            } catch {
-              // A sidecar the engine still holds open (Windows) stays; the next decode overwrites it anyway.
-            }
-          }
-        }
-      } catch {
-        // Unreadable directory — nothing to clear in it.
-      }
-    };
-    sweep(this.host.root);
-
-    this.warmState = { warming: false, done: 0, total: 0 };
-    return removed;
   }
 
   // Stop an in-flight prewarm — bump the run guard and kill its child — since a held clip blocks a rename on Windows.

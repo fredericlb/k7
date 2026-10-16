@@ -5,7 +5,7 @@
 // on either side: the song plays in one session while the frontend steers an empty other,
 // which reads as "the engine ignores Play". Nothing else in the repo would catch that.
 
-import { mkdtempSync, rmSync, type Stats } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { emptyDoc } from "@studio/engine-protocol/build";
@@ -57,7 +57,7 @@ const {
   awaitPluginParams,
   enginePreview,
   ensureEngine,
-  outsideTheWatch,
+  carriesPattern,
   pruneIdleLinks,
   noteOwner,
   sessionOf,
@@ -118,48 +118,33 @@ describe("sessionOf", () => {
 });
 
 // Narrowing a watcher fails SILENTLY, so the predicate is tested rather than trusted — docs/activeProject.md.
-describe("outsideTheWatch", () => {
-  const dir = join("/tmp", "song.k7");
-  const file = { isFile: () => true } as Stats;
-  const folder = { isFile: () => false } as Stats;
-
+describe("carriesPattern", () => {
   it("keeps a pattern wherever it sits", () => {
     for (const p of [
-      join(dir, "beat.strudel"),
-      join(dir, "algo", "beat.strudel"),
-      join(dir, "media", "takes", "beat.strudel"),
+      "beat.strudel",
+      "algo/beat.strudel",
+      "media/takes/beat.strudel",
     ])
-      expect(outsideTheWatch(dir, p, file), p).toBe(false);
+      expect(carriesPattern(p), p).toBe(true);
   });
 
   it("drops every file that is not one", () => {
     for (const p of [
-      join(dir, "project.yaml"),
-      join(dir, "media", "take-01.wav"),
-      join(dir, "renders", "mix.wav"),
+      "project.yaml",
+      "media/take-01.wav",
+      "renders/mix.wav",
+      "algo",
     ])
-      expect(outsideTheWatch(dir, p, file), p).toBe(true);
+      expect(carriesPattern(p), p).toBe(false);
   });
 
-  // The saving is here: a pruned directory is one chokidar never walks.
-  it("prunes what the file service does not consider part of a project", () => {
+  it("drops a pattern inside what the file service does not consider part of a project", () => {
     for (const p of [
-      join(dir, ".git"),
-      join(dir, "node_modules"),
-      join(dir, "_recycle_bin"),
+      ".git/beat.strudel",
+      "node_modules/x/beat.strudel",
+      "_recycle_bin/beat.strudel",
     ])
-      expect(outsideTheWatch(dir, p, folder), p).toBe(true);
-  });
-
-  it("walks the project's own folders", () => {
-    expect(outsideTheWatch(dir, join(dir, "media"), folder)).toBe(false);
-    expect(outsideTheWatch(dir, join(dir, "algo"), folder)).toBe(false);
-  });
-
-  // chokidar 3 asks once with the path alone, before a file's kind is known.
-  it("commits to nothing before it has the stats", () => {
-    expect(outsideTheWatch(dir, join(dir, "take-01.wav"))).toBe(false);
-    expect(outsideTheWatch(dir, dir)).toBe(false);
+      expect(carriesPattern(p), p).toBe(false);
   });
 });
 

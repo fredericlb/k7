@@ -31,7 +31,7 @@ Every index-taking edit rests on one property: the index came from the list that
 forking copies it in order, so it still points at the same placement.
 
 `setTrackField` writes the module's OWN field whichever set is on, and that is deliberate:
-`TrackFields` is `color` and `disabled`, which describe the lane rather than the take. A set may
+the fields it takes are `color` and `disabled`, which describe the lane rather than the take. A set may
 still override either by hand; nothing here writes one there.
 
 ## Plain values, not document nodes
@@ -71,9 +71,7 @@ the second half is new.
 go" and answers with the selected set alone. Inserting time is not an edit to the arrangement — it is
 a change to the song's clock — so it has to reach what is playing, every take of it, and every
 alternative's own events and takes. An alternative you switch to next week has to still line up with
-the markers. It is exported for the other operation with the same reach: moving a material's window
-down onto every placement of it (`packages/song-edit/src/windowDescend.ts`). A migration that missed a
-take would leave that take playing the whole file the day you swapped it back onto the lane.
+the markers.
 
 ## Halving a placement's passes
 

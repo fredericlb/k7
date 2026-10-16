@@ -17,17 +17,11 @@ import {
   REFERENCES_DIR,
   type ReferenceTrack,
 } from "@studio/song-schema/reference";
+import { formatBytes } from "@studio/ui-chains-react/node-load";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";
-
-/** A size a reader can hold in their head — the only thing a listing knows before anything decodes. */
-function size(bytes: number): string {
-  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} MB`;
-  if (bytes >= 1e3) return `${Math.round(bytes / 1e3)} kB`;
-  return `${bytes} B`;
-}
 
 export function ReferencesPanel({
   playing,
@@ -182,7 +176,7 @@ export function ReferencesPanel({
                   )}
                   <span className="min-w-0 flex-1 truncate">{r.name}</span>
                   <span className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums">
-                    {size(r.bytes)}
+                    {formatBytes(r.bytes)}
                   </span>
                 </button>
                 <Button

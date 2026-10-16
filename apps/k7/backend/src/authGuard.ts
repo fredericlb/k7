@@ -5,7 +5,7 @@
 /** The literal commons' `setupAuth` signs with when `SESSION_SECRET` is unset. */
 export const DEFAULT_SESSION_SECRET = "dev-insecure-secret-change-me";
 /** Shorter is guessable; the desktop's and the phone's generated secret is 64 hex characters. */
-export const MIN_SESSION_SECRET = 32;
+const MIN_SESSION_SECRET = 32;
 
 /** Why this environment must not start, one line per reason; empty means it may. */
 export function authRefusals(

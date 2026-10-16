@@ -287,7 +287,7 @@ to **the layer below**.
 | guarded | `packages/song/src/loader.ts` — `loadVideoTracks` goes through the schema; `packages/song/src/graph.ts` — `isStretch`, and a stretch's head counted as fed in `checkChainInputs` |
 | read | `src/videoTransitions.ts` — the ancestry from `src/shaders.ts`, and `resolveStretches`; `src/videoChains.ts` — the stretches |
 | compiled | `src/videoTracks.ts` -> `VideoClipDoc.fadeIn`, and `src/videoProject.ts` -> `VideoProjectDoc.transitions` and `.stretches`, the GLSL **inline** |
-| on the wire | `packages/web-protocol/types.ts` — `WebVideoFade`, `WebVideoTransition`, `WebVideoProject.stretches` |
+| on the wire | `packages/web-protocol/timelineTypes.ts` — `WebVideoFade`, `WebVideoTransition`, `WebVideoProject.stretches` |
 | served | `packages/file-service/src/workspace.ts` — `toWebVideoTracks`, `videoProjectDoc` |
 | adapted | `packages/k7-plugins/src/video/scene.ts` -> `packages/ui-eyes/src/scene.ts` |
 | decided | `packages/ui-eyes/src/timeline.ts` — `layerFrameAt`, the only rule |

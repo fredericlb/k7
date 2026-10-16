@@ -19,8 +19,10 @@ const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
 
 /** A wheel event that zooms whatever the DEVICE is — a pinch, or the modifier; see docs/panZoom.md. */
-const isZoomWheel = (e: { ctrlKey: boolean; metaKey: boolean }): boolean =>
-  e.ctrlKey || e.metaKey;
+export const isZoomWheel = (e: {
+  ctrlKey: boolean;
+  metaKey: boolean;
+}): boolean => e.ctrlKey || e.metaKey;
 
 /** Below this, a pixel-mode delta is a finger rather than a detent. A notch is ~100 (Chrome). */
 const MOUSE_NOTCH_MIN = 40;

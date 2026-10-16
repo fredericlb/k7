@@ -7,6 +7,13 @@ import {
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
 import { Check, Copy, EllipsisVertical } from "@frediverse/ui/icons";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@frediverse/ui/select";
 import { pageVersion } from "@studio/rehearsal-shared/pageVersion";
 import { useState } from "react";
 import { BackButton } from "../components/BackButton";
@@ -16,6 +23,7 @@ import {
   VisibilityPicker,
   visibilityHint,
 } from "../components/VisibilityPicker";
+import { confirmLoss } from "../confirm";
 import { isOne } from "../i18n";
 import { m } from "../paraglide/messages.js";
 import type { Page, PageVisibility, Release, SongEnvelope } from "../types";
@@ -61,7 +69,7 @@ export function PageDetailView({
   const [editing, setEditing] = useState(false);
 
   const remove = async () => {
-    if (!confirm(m["page.confirmDelete"]())) return;
+    if (!(await confirmLoss(m["page.confirmDelete"]()))) return;
     await onDelete();
   };
 
@@ -214,28 +222,30 @@ export function PageDetailView({
         <Card>
           <h3 style={{ marginTop: 0 }}>{m["page.addRelease"]()}</h3>
           <div className="row">
-            <select
+            {/* Never holding a value: a pick adds the release, and the placeholder comes back. */}
+            <Select
+              value=""
               disabled={adding}
-              defaultValue=""
-              onChange={async (e) => {
-                const id = e.target.value;
-                if (!id) return;
+              onValueChange={async (id) => {
                 setAdding(true);
                 try {
                   await onAddRelease(id);
                 } finally {
                   setAdding(false);
-                  e.target.value = "";
                 }
               }}
             >
-              <option value="">{m["page.chooseRelease"]()}</option>
-              {notInPage.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.title} · {r.artist}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger>
+                <SelectValue placeholder={m["page.chooseRelease"]()} />
+              </SelectTrigger>
+              <SelectContent className="rehearsal-root">
+                {notInPage.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.title} · {r.artist}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </Card>
       )}

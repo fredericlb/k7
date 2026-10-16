@@ -7,10 +7,10 @@ import type { WebWidget } from "@studio/graph-model";
 import type { GraphNode } from "@studio/ui-chains/graph";
 
 /** The lens a card shows when the file names none — the label `cameraUI` puts first. */
-export const CAMERA_DEFAULT = "default";
+const CAMERA_DEFAULT = "default";
 
 /** …and the MIDI device, likewise — the label `midiInUI` puts first. */
-export const DEVICE_ANY = "any";
+const DEVICE_ANY = "any";
 
 /** The value a dropdown bound to `@<field>` is currently on, or undefined when nothing names it. */
 export function moduleFieldValue(

@@ -22,6 +22,7 @@ import {
   removePlacementAt,
   setPlacementField,
 } from "@studio/song-schema/yaml/trackFile";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { parseDocument } from "yaml";
 import { editTrackStruct } from "./trackMix";
 
@@ -29,7 +30,7 @@ import { editTrackStruct } from "./trackMix";
 const EDGE_EPS = 1e-6;
 
 /** One material this wrote: what it is called, where it landed, and how much is in it. */
-export interface WrittenMaterial {
+interface WrittenMaterial {
   ref: string;
   /** Project-relative POSIX path — for the log, so a person can go and open it. */
   file: string;
@@ -72,7 +73,7 @@ function freeSequenceName(
 /** The notes a sequence file holds; anything unreadable is no notes at all, and the compile says so. */
 function notesOf(file: string): NoteIn[] {
   try {
-    const doc = parseDocument(wsRead(file), { version: "1.2" });
+    const doc = parseDocument(wsRead(file), YAML_READ);
     const raw = doc.toJS() as { notes?: unknown };
     if (!Array.isArray(raw?.notes)) return [];
     return raw.notes

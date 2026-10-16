@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TrackDoc } from "@studio/song/project";
 import { afterEach, describe, expect, it } from "vitest";
-import { toWebTracks } from "./workspace.ts";
+import { toWebTracks } from "./webTracks.ts";
 
 const dirs: string[] = [];
 afterEach(() => {

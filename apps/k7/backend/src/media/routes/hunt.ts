@@ -8,8 +8,8 @@ import {
   type HuntIdentity,
   type HuntTags,
 } from "@studio/web-protocol/hunt";
-import type { Request } from "express";
 import { Router } from "express";
+import { subjectOf } from "../../who.ts";
 import {
   identify,
   runningIds,
@@ -21,12 +21,6 @@ import { listHunts, reconcile, removeHunt } from "../hunt/store.ts";
 import { youtubeAvailable } from "../hunt/youtube.ts";
 import { missing } from "../settings/store.ts";
 
-/** Whose hunt: the subject, falling back to the email for a session without one. */
-function subOf(req: Request): string | null {
-  const u = (req as { user?: { sub?: string; email?: string } }).user;
-  return u?.sub ?? u?.email ?? null;
-}
-
 /** Longer than a title, short enough that nobody is pasting a document into it. */
 const MAX_QUERY = 200;
 
@@ -36,7 +30,7 @@ const MAX_RUNNING = 4;
 export const huntRouter: Router = Router();
 
 huntRouter.use((req, res, next) => {
-  if (!subOf(req))
+  if (!subjectOf(req))
     return res.status(401).json({ error: "no user on the session" });
   next();
 });
@@ -52,7 +46,7 @@ huntRouter.get(
       reason,
       // Whether the fallback is even possible, so a failed row can grey its button and say why.
       youtube: await youtubeAvailable(),
-      hunts: reconcile(subOf(req) as string, runningIds()),
+      hunts: reconcile(subjectOf(req) as string, runningIds()),
     });
   }),
 );
@@ -65,7 +59,7 @@ huntRouter.post(
       return res
         .status(503)
         .json({ error: "yt-dlp n'est pas installé sur ce serveur" });
-    const sub = subOf(req) as string;
+    const sub = subjectOf(req) as string;
     const row = reconcile(sub, runningIds()).find(
       (h) => h.id === req.params.id,
     );
@@ -126,7 +120,7 @@ huntRouter.post(
       return res.status(400).json({ error: "il faut un titre à chercher" });
     if (query.length > MAX_QUERY)
       return res.status(400).json({ error: "recherche trop longue" });
-    const sub = subOf(req) as string;
+    const sub = subjectOf(req) as string;
     const mine = reconcile(sub, runningIds()).filter(
       (h) => h.status === "searching" || h.status === "downloading",
     );
@@ -143,7 +137,7 @@ huntRouter.delete(
   "/:id",
   wrap((req, res) => {
     const id = req.params.id;
-    const sub = subOf(req) as string;
+    const sub = subjectOf(req) as string;
     // Only one of the caller's own: a hunt id is not a capability, and another's would stop for anyone.
     const stopped = listHunts(sub).some((h) => h.id === id) && stopHunt(id);
     const removed = removeHunt(sub, id);

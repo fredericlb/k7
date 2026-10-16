@@ -1,6 +1,6 @@
 # The compiled project, on the wire
 
-`types.ts` carries the flat document a surface draws from: `WebProject` and its tracks, clips
+`timelineTypes.ts` carries the flat document a surface draws from: `WebProject` and its tracks, clips
 and notes, plus `WebVideoProject` for the picture. The backend compiles the node project into
 it, so the timeline needs to know nothing about chains or modules. This page holds the *why*
 behind the fields that look redundant, so the type file can stay a list of names.

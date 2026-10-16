@@ -48,7 +48,7 @@ export function barWindow(
 }
 
 /** Bars of context kept either side of the event when the panel opens on it — more, and the event stops being framed. */
-export const FRAME_MARGIN_BARS = 1;
+const FRAME_MARGIN_BARS = 1;
 
 /** The window the panel OPENS on: the act span framed inside the reach, answered in the units `barWindow` takes, which owns the clamping. */
 export function frameWindow(

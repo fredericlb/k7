@@ -7,7 +7,7 @@
 // rather than left to the eye.
 
 import { describe, expect, it } from "vitest";
-import { contourYs } from "./Waveform";
+import { contourYs } from "./envelope";
 
 const H = 100; // canvas height, so a y reads as "percent from the top"
 const MIN_DB = -120;

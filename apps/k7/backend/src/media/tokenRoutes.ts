@@ -4,7 +4,8 @@
 
 import type { ApiTokenRecord } from "@frediverse/oidc";
 import { isLoopbackReturn } from "@studio/web-protocol/pairing";
-import type { Express, Request, RequestHandler } from "express";
+import type { Express, RequestHandler } from "express";
+import { emailOf, subjectOf } from "../who.ts";
 
 /** The verbs of one token scheme, as `apiTokenAuth` returns them. */
 export interface TokenVerbs {
@@ -13,16 +14,8 @@ export interface TokenVerbs {
   revokeApiToken(sub: string, id: string): boolean;
 }
 
-type Who = { user?: { sub?: string; email?: string } };
-
-/** The subject a token is minted for: the session's `sub`, else its email. */
-export const subjectOf = (req: Request): string | undefined => {
-  const who = (req as Who).user;
-  return who?.sub ?? who?.email;
-};
-
 /** What the owner sees of a token: never the token itself. */
-export const publicRecord = (r: ApiTokenRecord) => ({
+const publicRecord = (r: ApiTokenRecord) => ({
   id: r.id,
   label: r.label,
   created: r.created,
@@ -31,7 +24,7 @@ export const publicRecord = (r: ApiTokenRecord) => ({
 });
 
 /** A label as typed, bounded so a list stays a list. */
-export const labelOf = (raw: unknown, fallback: string): string =>
+const labelOf = (raw: unknown, fallback: string): string =>
   typeof raw === "string" && raw.trim() !== ""
     ? raw.trim().slice(0, 80)
     : fallback;
@@ -52,12 +45,11 @@ export function mountTokenRoutes(
     const target = new URL(back);
     const id = subjectOf(req);
     if (!id) return res.status(401).json({ error: "no user on the session" });
-    const who = (req as Who).user;
     target.searchParams.set(
       "token",
       tokens.issueApiToken(id, { label: "desktop pairing" }),
     );
-    target.searchParams.set("identity", who?.email ?? id);
+    target.searchParams.set("identity", emailOf(req) ?? id);
     if (typeof req.query.state === "string")
       target.searchParams.set("state", req.query.state);
     res.redirect(target.toString());

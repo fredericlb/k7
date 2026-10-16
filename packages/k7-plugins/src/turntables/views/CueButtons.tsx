@@ -1,12 +1,13 @@
 // CueButtons.tsx — a deck's eight hot cues. A short press JUMPS to one, a long press SETS it
 // at the moment the finger landed. See ../../docs/cues.md.
 
+import { formatClock } from "@studio/ui-timeline/ticks";
 import { useEffect, useRef, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { CUE_COLOURS } from "../deckVocabulary";
 
 /** How long a press has to last to mean "record this" rather than "go there". */
-export const HOLD_MS = 1000;
+const HOLD_MS = 1000;
 
 /** One cue button — the timer decides WHICH gesture happened, never where. See ../../docs/cues.md. */
 function Cue({
@@ -85,18 +86,12 @@ function Cue({
           ? m["cue.noSong"]({ n: slot + 1 })
           : at === null
             ? m["cue.free"]({ n: slot + 1 })
-            : m["cue.set"]({ n: slot + 1, at: mmss(at) })
+            : m["cue.set"]({ n: slot + 1, at: formatClock(Math.max(0, at)) })
       }
     >
       {slot + 1}
     </button>
   );
-}
-
-/** `m:ss`, the way a deck reads a position. */
-function mmss(seconds: number): string {
-  const s = Math.max(0, Math.round(seconds));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 /** A deck's eight cues, drawn on an EMPTY deck too — greyed says "not yet". See ../../docs/cues.md. */

@@ -72,7 +72,7 @@ export function planReuse(
 }
 
 /** A clip's element: muted, parked 1px and invisible but NOT display:none, so it still decodes. */
-export function videoElement(host: HTMLElement): HTMLVideoElement {
+function videoElement(host: HTMLElement): HTMLVideoElement {
   const el = document.createElement("video");
   el.muted = true;
   el.playsInline = true;

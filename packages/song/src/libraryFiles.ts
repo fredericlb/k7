@@ -10,6 +10,7 @@ import {
   type LibraryFileFamily,
   sharedFamilyOf,
 } from "@studio/song-schema/moduleTypes";
+import { isBelow } from "@studio/web-protocol/paths";
 import { resolveModuleAssetIn } from "./assetPath";
 import { libraryFamilyRoot, libraryFamilyRoots } from "./sharedFolders";
 
@@ -79,7 +80,7 @@ export function libraryFile(
   if (!root) return undefined;
   const abs = resolve(root, m[2]);
   // A `..` in the path would reach out of the folder, and a ref is text a file may hold.
-  return abs.startsWith(root + sep) ? abs : undefined;
+  return isBelow(root, abs) ? abs : undefined;
 }
 
 /** A file param's file: a library's when the param may name one and the ref says `@<library>/`, else the module's own `assets/`. */

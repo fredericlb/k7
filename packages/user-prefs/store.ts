@@ -3,9 +3,10 @@
 // and whatever else earns a line later. See docs/store.md for why this is a file and not a
 // database, and for what losing the volume costs.
 
-import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { writeFileAtomic } from "@studio/song/atomicWrite";
 
 export interface PrefsStore<T> {
   /** This user's preferences, or null when they have never saved any. */
@@ -49,9 +50,7 @@ export function prefsStore<T>(dir: string): PrefsStore<T> {
         mkdirSync(dir, { recursive: true });
         const file = join(dir, fileFor(sub));
         // Beside then renamed: a crash mid-write would leave a file that reads as "no preferences" (docs/store.md).
-        const tmp = `${file}.${randomUUID()}.part`;
-        writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-        renameSync(tmp, file);
+        writeFileAtomic(file, `${JSON.stringify(value, null, 2)}\n`);
         return true;
       } catch {
         // Never throws — the choice stands for the session either way; the caller decides what to say (docs/store.md).

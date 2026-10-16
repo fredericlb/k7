@@ -1,6 +1,5 @@
-// manifest.ts — one family's files as (path, size, mtime), which is what a cache diffs
-// against to know what to fetch. Runs on BOTH sides: the server describes its volume, the
-// cache remembers what the server said. See docs/sync.md.
+// manifest.ts — one family's files as (path, size, mtime), the description a library serves so
+// another one can copy from it (docs/serverCopy.md). The mtime is the OWNER's, never a local stat.
 
 import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
@@ -81,24 +80,4 @@ export function manifestAt(family: Family): {
     if (held.get(key) === next) held.delete(key);
   });
   return next;
-}
-
-/** Forget every held manifest — for tests, and for a root that changed under us. */
-export function resetManifests(): void {
-  held.clear();
-}
-
-/** What a cache holding `have` must fetch and drop to match `want`, both being the OWNER's description — docs/sync.md. */
-export function diff(
-  have: Manifest,
-  want: Manifest,
-): { fetch: ManifestEntry[]; drop: string[] } {
-  const mine = new Map(have.map((e) => [e.path, e]));
-  const fetch: ManifestEntry[] = [];
-  for (const w of want) {
-    const h = mine.get(w.path);
-    if (!h || h.bytes !== w.bytes || h.mtime !== w.mtime) fetch.push(w);
-    mine.delete(w.path);
-  }
-  return { fetch, drop: [...mine.keys()] };
 }

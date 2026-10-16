@@ -21,7 +21,6 @@
     "@studio/audio-analysis": "*",
     "@studio/engine-client": "*",
     "@studio/engine-protocol": "*",
-    "@studio/mediatek": "*",
     "@studio/song": "*",
     "@studio/song-schema": "*",
     "@studio/take-render": "*",

@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { useRevision } from "../hooks/useRevision";
 import { m } from "../paraglide/messages.js";
+import { projectDir } from "../projectPaths";
 
 export function TasksPanel({
   project,
@@ -41,7 +42,8 @@ export function TasksPanel({
   const refreshTags = useCallback(async () => {
     if (!project) return setTags([]);
     try {
-      const file = project === "." ? "project.yaml" : `${project}/project.yaml`;
+      const dir = projectDir(project);
+      const file = dir ? `${dir}/project.yaml` : "project.yaml";
       setTags(projectTagsOf((await api.read(file)).content));
     } catch {
       setTags([]);

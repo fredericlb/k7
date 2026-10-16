@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { detectEvents } from "@studio/recorder";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import {
   ActionFailure,
@@ -6,7 +7,7 @@ import {
   useDetailState,
 } from "../hooks/useDetailState";
 import { m } from "../paraglide/messages.js";
-import type { Envelope, EventsResult, Session } from "../types";
+import type { Envelope, Session } from "../types";
 import { SessionDetailView } from "../views/SessionDetailView";
 
 interface Props {
@@ -28,7 +29,6 @@ export function SessionDetailContainer({
 }: Props) {
   const [session, setSession] = useState<Session | null>(null);
   const [envelope, setEnvelope] = useState<Envelope | null>(null);
-  const [eventsResult, setEventsResult] = useState<EventsResult | null>(null);
   const [threshold, setThreshold] = useState<number | null>(null);
   const [minSilence, setMinSilence] = useState(2);
   const [validating, setValidating] = useState<string | null>(null);
@@ -49,14 +49,10 @@ export function SessionDetailContainer({
       setSession(s);
       setLoadError(null);
       if (!s.hasRecording) return;
-      const [env, ev] = await Promise.all([
-        api.getEnvelope(sessionId),
-        api.getEvents(sessionId, undefined, minSilence),
-      ]);
+      const env = await api.getEnvelope(sessionId);
       if (!alive) return;
       setEnvelope(env);
-      setEventsResult(ev);
-      setThreshold(ev.threshold);
+      setThreshold(detectEvents(env, { minSilenceSec: minSilence }).threshold);
     })().catch((e) => {
       if (alive) setLoadError(e);
     });
@@ -65,14 +61,14 @@ export function SessionDetailContainer({
     };
   }, [sessionId, attempt]);
 
-  useEffect(() => {
-    if (threshold == null || !session?.hasRecording) return;
-    const t = setTimeout(async () => {
-      const ev = await api.getEvents(sessionId, threshold, minSilence);
-      setEventsResult(ev);
-    }, 250);
-    return () => clearTimeout(t);
-  }, [threshold, minSilence, sessionId, session?.hasRecording]);
+  // Detection runs here, over the stored envelope: the server keeps no detector — ../docs/recordings.md.
+  const eventsResult = useMemo(
+    () =>
+      envelope && threshold != null
+        ? detectEvents(envelope, { threshold, minSilenceSec: minSilence })
+        : null,
+    [envelope, threshold, minSilence],
+  );
 
   const handleAddAnnotation = guard(
     async (ann: {

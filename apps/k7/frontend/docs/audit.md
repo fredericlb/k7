@@ -117,7 +117,8 @@ builder and this app's backend call the same `bindableNames`.
 - **The polls do not stack.** One refcounted `/revision` poller answers every consumer and skips a
   tick while its last ask is in the air.
 - **A hidden tab polls nothing it would show.** The timers go through `pollWhileVisible`
-  (`src/visiblePoll.ts`), the home page's workspace-sync check included.
+  (`src/visiblePoll.ts`), the home page's workspace-sync check and the logs tail included — and it
+  schedules the next tick when the last one ENDS, so a slow answer slows the poll instead of stacking it.
 - **The playhead does not render the shell.** Engine state lives in an external store read by
   slice, the arrangement's playhead is drawn per animation frame without a render
   (`usePlayheadFrames`), and no selector builds a fresh object per frame.

@@ -100,7 +100,7 @@ the same shape as `module gain`: a family the UI treats generically, held togeth
 written one at a time. The asset picker builds its line from the param's own name, so an `.onnx`
 picked under such a scheme reaches a command nobody wrote.
 
-What it costs: the value has no `assetFiles` completion. A provider is handed the host and not
+What it costs: the value has no completion of the module's asset files. A provider is handed the host and not
 the half-typed line — the same limit that makes that list every module's assets rather than this
 one's — so `node param`'s value cannot know that the param before it was `model`. The picker is
 unaffected; typing the line by hand does not offer the filenames.
@@ -109,7 +109,7 @@ unaffected; typing the line by hand does not offer the filenames.
 
 | what | where |
 |---|---|
-| the table and its validation | `INTRINSICS` / `setIntrinsic` in `packages/commands/src/commands.ts` |
+| the table and its validation | `INTRINSICS` / `setIntrinsic` in `packages/commands/src/verbs/intrinsics.ts` |
 | the writers | `setModuleChannel`, `setModuleMonitor`, `setModuleInputGain` in `projectEdit.ts` |
 | what a widget binds | `widgetTarget` in `@studio/ui-chains-react` — an `@` bind on a module node |
 | the line a pick sends | `setModuleField`, same file |

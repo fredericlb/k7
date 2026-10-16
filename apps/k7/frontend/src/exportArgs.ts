@@ -102,4 +102,4 @@ export function parseExportAsk(rest: string): ExportAsk | null {
   };
 }
 
-export { parseClock, type VideoSettings } from "@studio/ui-eyes/renderSettings";
+export type { VideoSettings } from "@studio/ui-eyes/renderSettings";

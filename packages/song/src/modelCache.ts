@@ -3,8 +3,9 @@
 // never the reverse, so a path song itself needs is defined here.
 // Why a module's model may live outside its folder: docs/moduleAssets.md.
 
-import { isAbsolute, join, resolve, sep } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { FILE_PARAMS, type FileParam } from "@studio/song-schema/moduleTypes";
+import { isBelow } from "@studio/web-protocol/paths";
 import { studioHome } from "./studioHome";
 
 /** `<state>/models` or `$STUDIO_MODELS`, resolved for the reason `mediatekRoot` is: one spelling. */
@@ -45,5 +46,5 @@ export function modelCachePath(file: string): string | null {
   if (!file || isAbsolute(file)) return null;
   const root = modelsRoot();
   const at = resolve(root, file);
-  return at.startsWith(root + sep) ? at : null;
+  return isBelow(root, at) ? at : null;
 }

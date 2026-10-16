@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadCommandSpecs, registerVerb } from "./commandSpec";
-import { SID_HANDLERS } from "./commands";
+import { SID_HANDLERS, VERB_TABLES } from "./commands";
 
 // commands.yaml names a `sid` and SID_HANDLERS holds it: a drift fails here, not at runtime.
 describe("command registry integrity (commands.yaml <-> SID_HANDLERS)", () => {
@@ -15,6 +15,15 @@ describe("command registry integrity (commands.yaml <-> SID_HANDLERS)", () => {
     expect(yamlSids.filter((sid) => !(sid in SID_HANDLERS))).toEqual([]);
   });
 
+  it("every builtin SID is registered by exactly one verb table", () => {
+    const seen = new Map<string, number>();
+    for (const table of VERB_TABLES)
+      for (const sid of Object.keys(table))
+        seen.set(sid, (seen.get(sid) ?? 0) + 1);
+    expect([...seen].filter(([, n]) => n !== 1)).toEqual([]);
+    expect(yamlSids.filter((sid) => !seen.has(sid))).toEqual([]);
+  });
+
   it("every registered handler is referenced by a command (no dead handlers)", () => {
     expect(
       Object.keys(SID_HANDLERS).filter((k) => !yamlSids.includes(k)),
@@ -22,9 +31,7 @@ describe("command registry integrity (commands.yaml <-> SID_HANDLERS)", () => {
   });
 });
 
-// A plugin contributes BOTH halves of a verb through registerVerb. The registry tests above
-// pin the BUILTIN seam; these pin the PLUGIN one — the installer is the SDK's whole surface,
-// so its contract (both halves at once, refusing a taken word) is the contract that matters.
+// The PLUGIN seam: registerVerb installs both halves at once and refuses a taken word.
 describe("registerVerb (a plugin's installer)", () => {
   const fresh = (word: string) => ({
     command: word,

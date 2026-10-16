@@ -35,10 +35,6 @@ export const SETTINGS_TABS = ["editor", "io", "project", "account"] as const;
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number];
 
-/** Is this word one of them? For the places a typed string arrives — a command line. */
-export const isSettingsTab = (s: string): s is SettingsTab =>
-  (SETTINGS_TABS as readonly string[]).includes(s);
-
 const TAB_META: Record<
   SettingsTab,
   { icon: typeof Settings; label: string; command: string }

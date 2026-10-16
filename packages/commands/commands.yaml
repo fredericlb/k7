@@ -1847,11 +1847,6 @@
 # rather than a verb offered in every session's palette for ever:
 #
 #   npx tsx packages/song/scripts/migrateUis.ts <project>      panels out into the _ui/ library
-#   npx tsx packages/song/scripts/migrateChains.ts <root>      a pre-segments graph file
-#
-# (graph.yaml holds SEGMENTS — who feeds whom — and the chains are derived from them. A file
-# written as a LIST of chains, each naming its source, its modules and its sink, is refused
-# with a message pointing at that script.)
 # Sets one plugin param on a module node, writing it to the module's own .cue.
 # `param` is the engine's display name for it ("Filter Freq"), which is what the
 # module UI's widgets bind to — and what `list params` prints.
@@ -2252,7 +2247,7 @@
 # The routing as text is a READER rather than a palette row: `describeGraph` has its own CLI
 # entry, and nothing here offers it.
 #
-#   npx tsx packages/song/src/graph.ts <project> [track]
+#   npx tsx packages/song/scripts/graph.ts <project> [track]
 #
 # Moves one placement (a clip/sequence) on a track from its current timecode to a new one.
 # The event is found by its start position; only that placement's `start:` is rewritten.

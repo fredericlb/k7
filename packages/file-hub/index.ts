@@ -4,12 +4,10 @@
 // See docs/fileHub.md.
 
 import { createHmac, randomBytes } from "node:crypto";
-import { request as httpRequest, type Server } from "node:http";
+import type { Server } from "node:http";
 import { join, resolve } from "node:path";
-import { replayBody } from "@studio/engine-registry";
 import type { TunnelRoot } from "@studio/engine-tunnel/frames";
 import {
-  ADMIN_HEADER,
   ENGINE_ID_HEADER,
   ENGINE_TOKEN_HEADER,
   FILE_HUB_HELLO,
@@ -27,21 +25,16 @@ import {
   unbindAll,
 } from "./binding.ts";
 import { DeviceTokens } from "./deviceTokens.ts";
-import {
-  type Instance,
-  Instances,
-  type InstancesOptions,
-  Unavailable,
-} from "./instances.ts";
+import { Instances, type InstancesOptions, Unavailable } from "./instances.ts";
 import { LibraryStore } from "./libraries.ts";
 import {
-  BodyTooLargeError,
   isLibrariesPath,
   jsonBody,
   librariesRoute,
 } from "./librariesRoutes.ts";
 import { fetchLibraryVersion, remoteVersions } from "./libraryFetch.ts";
 import { LIBRARIES_ACCOUNT, LibraryRelay } from "./libraryRelay.ts";
+import { pipeTo, statusOf } from "./proxy.ts";
 import { PublicLibraries } from "./publicLibraries.ts";
 import {
   ShareHistoryError,
@@ -95,17 +88,6 @@ export interface FileHubOptions
 
 /** How often the libraries look for a pairing made or removed: a readdir, cheap enough. */
 const PAIR_POLL_MS = 30_000;
-
-/** Headers a client may not choose: identity and the hub's own secret are the hub's to set. */
-const DROPPED = new Set([
-  "cookie",
-  "authorization",
-  "host",
-  USER_HEADER,
-  HUB_SECRET_HEADER,
-  ENGINE_TOKEN_HEADER,
-  ADMIN_HEADER,
-]);
 
 export class FileHub {
   private readonly instances: Instances;
@@ -508,53 +490,4 @@ function syncTarget(
       remotes.map((r) => ({ url: r.url, token: r.token, main: r.main })),
     ),
   };
-}
-
-/** A body past the hub's own limit is the caller's 413; anything else is this side's 500. */
-const statusOf = (e: Error): number =>
-  e instanceof BodyTooLargeError ? e.status : 500;
-
-/** One request to the instance, the session's user, its admin flag and the hub's secret stamped on it. */
-function pipeTo(
-  inst: Instance,
-  user: string,
-  admin: boolean,
-  req: Request,
-  res: Response,
-): void {
-  const headers: Record<string, string | string[]> = {};
-  for (const [k, v] of Object.entries(req.headers))
-    if (v !== undefined && !DROPPED.has(k.toLowerCase())) headers[k] = v;
-  headers.host = `127.0.0.1:${inst.port}`;
-  headers[USER_HEADER] = user;
-  if (admin) headers[ADMIN_HEADER] = "1";
-  headers[HUB_SECRET_HEADER] = inst.secret;
-  const body = replayBody(req);
-  if (body) {
-    headers["content-length"] = String(body.length);
-    delete headers["transfer-encoding"];
-  }
-  const up = httpRequest(
-    {
-      host: "127.0.0.1",
-      port: inst.port,
-      path: req.url,
-      method: req.method,
-      headers,
-    },
-    (upRes) => {
-      res.status(upRes.statusCode ?? 502);
-      for (const [k, v] of Object.entries(upRes.headers))
-        if (v !== undefined && k.toLowerCase() !== "transfer-encoding")
-          res.setHeader(k, v as string | string[]);
-      upRes.pipe(res);
-    },
-  );
-  up.on("error", (e) => {
-    // Past the headers a clean end would pass a cut-off body as a whole one: the browser must see the connection fail.
-    if (res.headersSent) res.destroy();
-    else res.status(502).json({ error: `file service: ${e.message}` });
-  });
-  if (body) up.end(body);
-  else req.pipe(up);
 }

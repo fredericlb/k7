@@ -5,8 +5,9 @@
 // really collapses the image, and the three bands really sum back to the signal that went in.
 //   npx tsx engine/k7-runtime/scripts/quick-master.ts
 
-import { readFileSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import { renderProject } from "../../../packages/file-service/src/render.ts";
+import { readWav } from "./wav.ts";
 
 /** The knobs a run overrides, on top of the plugin's own neutral defaults. */
 type Knobs = Record<string, number>;
@@ -63,42 +64,9 @@ function doc(params: Knobs | null, keys: [number, number] = [45, 52]) {
 }
 
 /** Peak and mid/side energy of a rendered stereo float wav. */
-function measure(file: string): { peak: number; side: number; mid: number } {
-  const buf = readFileSync(file);
-  // Walk the RIFF chunks rather than assuming a 44-byte header (../docs/renderHarnesses.md).
-  let at = 12;
-  let dataAt = -1;
-  let dataLen = 0;
-  let bits = 32;
-  let chans = 2;
-  let fmt = 1; // 1 = PCM, 3 = IEEE float
-  while (at + 8 <= buf.length) {
-    const id = buf.toString("ascii", at, at + 4);
-    const size = buf.readUInt32LE(at + 4);
-    if (id === "fmt ") {
-      fmt = buf.readUInt16LE(at + 8);
-      chans = buf.readUInt16LE(at + 10);
-      bits = buf.readUInt16LE(at + 22);
-    } else if (id === "data") {
-      dataAt = at + 8;
-      dataLen = size;
-      break;
-    }
-    at += 8 + size + (size & 1);
-  }
-  if (dataAt < 0) throw new Error(`${file}: no data chunk`);
-
-  // Both formats rather than one: a harness failing on the render's own format says nothing.
-  const bytes = bits / 8;
-  const full = 2 ** (bits - 1);
-  const sample = (i: number): number => {
-    if (bits === 32 && fmt === 3) return buf.readFloatLE(i);
-    if (bits === 24)
-      return ((buf.readUInt8(i) | (buf.readUInt8(i + 1) << 8) | (buf.readInt8(i + 2) << 16)) / full);
-    if (bits === 16) return buf.readInt16LE(i) / full;
-    if (bits === 32) return buf.readInt32LE(i) / full;
-    throw new Error(`${file}: unsupported ${bits}-bit format ${fmt}`);
-  };
+function measure(file: string): { peak: number; side: number; mid: number; offGrid16: number } {
+  // PCM or float, any chunk order: a harness failing on the render's own format says nothing (../docs/renderHarnesses.md).
+  const w = readWav(file);
 
   let peak = 0;
   let side = 0;
@@ -106,9 +74,9 @@ function measure(file: string): { peak: number; side: number; mid: number } {
   let n = 0;
   // Samples OFF the 16-bit grid, give or take the one 24-bit step JUCE's writer loses scaling by 2^23−1, not 2^23.
   let offGrid16 = 0;
-  for (let i = dataAt; i + bytes * chans <= dataAt + dataLen; i += bytes * chans) {
-    const l = sample(i);
-    const r = chans > 1 ? sample(i + bytes) : l;
+  for (let f = 0; f < w.frames; f++) {
+    const l = w.at(f, 0);
+    const r = w.channels > 1 ? w.at(f, 1) : l;
     peak = Math.max(peak, Math.abs(l), Math.abs(r));
     for (const x of [l, r]) {
       const v = Math.round(x * 8388608);

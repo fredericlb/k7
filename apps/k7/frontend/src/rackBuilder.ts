@@ -3,17 +3,17 @@
 // library's `k7-rack` on its `samples` engine, carrying its own taps (packages/song/docs/racks.md).
 // Pure, because what lands in the project deserves a test; the popin is a grid drawn around these numbers.
 
+import { RACK_FIRST_NOTE } from "@studio/song-schema/moduleTypes";
+import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { Document } from "yaml";
 import { m } from "./paraglide/messages.js";
+import { projectDir } from "./projectPaths";
 
 /** The grid's side. 4×4 today — sixteen pads, the drum-machine page. */
 export const GRID = 4;
-/** The bottom-left pad's note. 36 is C1, where every pad convention starts. */
-export const FIRST_NOTE = 36;
-
 /** The MIDI note a pad fires: the grid READS like a drum machine, bottom-left 36 to top-right 51, with `row` counting from the TOP. */
 export const padNote = (row: number, col: number): number =>
-  FIRST_NOTE + (GRID - 1 - row) * GRID + col;
+  RACK_FIRST_NOTE + (GRID - 1 - row) * GRID + col;
 
 /** Every cell in NOTE order — the order the symbols are WRITTEN in, so the hints, the colours and the sequencer read the grid as it plays. */
 export function cellsInNoteOrder(): { row: number; col: number }[] {
@@ -40,9 +40,9 @@ export interface RackPad {
 }
 
 /** The rack every kit is a node of — a LIBRARY module whose engines are its kits, the kit being the node's. */
-export const RACK_MODULE = "instruments/k7-rack";
+const RACK_MODULE = "instruments/k7-rack";
 /** …and its SAMPLER engine, the one that plays the node's own taps; the module's default is an SFZ kit. */
-export const RACK_ENGINE = "samples";
+const RACK_ENGINE = "samples";
 
 /** Which library's sampler a kit extends: `@k7-core`'s first, else any library's; null when none holds one. */
 export function rackModuleRef(baseModules: readonly string[]): string | null {
@@ -62,8 +62,8 @@ export function kitUploadDir(
   project: string,
 ): string {
   if (dest === "project") {
-    const p = project.replace(/\\/g, "/").replace(/\/+$/, "");
-    return `${p && p !== "." ? `${p}/` : ""}samples/${kit}`;
+    const p = projectDir(project);
+    return `${p ? `${p}/` : ""}samples/${kit}`;
   }
   return `_libraries/${dest.library}/samples/${kit}`;
 }
@@ -93,7 +93,7 @@ export function rackIssues(
   const seen = new Set<string>();
   for (const p of pads) {
     if (!/^[A-Za-z0-9_-]+$/.test(p.symbol))
-      out.push(`symbole invalide : "${p.symbol}"`);
+      out.push(m["rb.badSymbol"]({ symbol: p.symbol }));
     else if (seen.has(p.symbol))
       out.push(m["rb.dupSymbol"]({ symbol: p.symbol }));
     seen.add(p.symbol);
@@ -122,7 +122,7 @@ export function buildKitNodeYaml(
     };
   const doc = new Document(
     { extends: rackRef, engine: RACK_ENGINE, rack: { symbols } },
-    { version: "1.2" },
+    YAML_READ,
   );
   // `BD: { note: 36, sample: … }` — a kit is read down, the way a drum map is.
   const map = doc.getIn(["rack", "symbols"]) as {
@@ -131,6 +131,6 @@ export function buildKitNodeYaml(
   for (const it of map.items) it.value.flow = true;
   return (
     `# ${name} — a kit, built with the rack builder: each tap a note and the sample it fires.\n` +
-    doc.toString({ lineWidth: 0 })
+    doc.toString(YAML_WRITE)
   );
 }

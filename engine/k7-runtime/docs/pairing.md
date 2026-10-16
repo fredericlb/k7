@@ -88,7 +88,7 @@ the room. Approving, denying, listing and revoking are refused over the LAN, a p
 
 32 random bytes from the OS's generator, kept in `<state>/paired-devices.json` in clear, like the
 engine's own token in `engine-id.json`: whatever can read that folder owns the machine already.
-Compared in constant time. The file is written aside and renamed, so a crash mid-write unpairs nobody;
+Compared in constant time. The file is readable by its owner only, and written aside and renamed, so a crash mid-write unpairs nobody;
 an unreadable one pairs nobody, and the next approval rewrites it.
 
 **Revoking** removes the key and closes that device's live connections: an unpaired phone must not

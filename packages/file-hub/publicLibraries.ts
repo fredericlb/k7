@@ -4,14 +4,21 @@
 // never changes, so its listing is computed once per process. See ../../docs/library-versions-plan.md.
 
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
+import { confineTo } from "@studio/song/confine";
 import { DEFAULT_LIBRARY } from "@studio/song-schema/moduleTypes";
 import type { Request, Response } from "express";
 import type { LibraryStore } from "./libraries.ts";
 
 /** The libraries anyone may read: the one a new install is seeded with. */
-export const PUBLIC_LIBRARIES: readonly string[] = [DEFAULT_LIBRARY];
+const PUBLIC_LIBRARIES: readonly string[] = [DEFAULT_LIBRARY];
 
 /** One file of a published version, as a machine fetching it checks it. */
 export interface VersionFile {
@@ -92,17 +99,13 @@ export class PublicLibraries {
       return;
     }
     const path = typeof req.query.path === "string" ? req.query.path : "";
-    let real: string | null = null;
-    try {
-      real = path ? realpathSync(resolve(root, path)) : null;
-    } catch {
-      real = null; // not there: the same answer as outside
-    }
     // Confined by REAL path: neither a `..` nor a link inside a version may serve a file outside it.
-    if (!real?.startsWith(realpathSync(root) + sep)) {
+    const abs = path ? confineTo([root], resolve(root, path)) : null;
+    // A missing file gets the same answer as one outside, and so does the version folder itself.
+    if (!abs || abs === resolve(root) || !existsSync(abs)) {
       res.status(404).json({ error: `no file ${path}` });
       return;
     }
-    res.sendFile(real);
+    res.sendFile(realpathSync(abs));
   }
 }

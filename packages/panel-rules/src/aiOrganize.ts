@@ -76,6 +76,13 @@ export type AiOrganizeEvent =
   | { type: "done"; result: AiOrganizeResult }
   | { type: "error"; error: string; issues?: string[] };
 
+/** The account's Claude settings as the browser may see them: the model, and the key only as a hint. */
+export interface AiSettingsView {
+  model: string | null;
+  defaultModel: string;
+  keyHint: string | null;
+}
+
 /** The JSON the model is constrained to — snake_case, as the prompt names the fields. */
 export const AI_RESULT_SCHEMA = {
   type: "object",

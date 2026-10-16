@@ -160,9 +160,9 @@ and a set refuses them — the copy keeps only what `AlternativeSchema` admits.
 
 **A LANE is the exception, and it is `events: []`.** "States only what it changes" cuts the wrong
 way for an arrangement: a set that says nothing about `events:` inherits them, so a new take would
-open holding the previous take's placements — and a new take is empty. `newModuleAlternative` asks
-`isTrack` of the RESOLVED module (`extends` folded; `loadModules` alone hands back the ref as a
-string) and passes `blankClips`. Not for `copy`, whose whole promise is what is playing.
+open holding the previous take's placements — and a new take is empty. `newModuleAlternative`
+(`@studio/song-edit`'s `projectEdit.ts`) asks `isTrack` of the RESOLVED module (`extends` folded;
+`loadModules` alone hands back the ref as a string) and passes `blankEvents`. Not for `copy`, whose whole promise is what is playing.
 
 ## A knob turned on a set changes THAT set
 
@@ -177,12 +177,12 @@ the knob just turned still inherits every other from the module's own.
 ## Editing a lane that is on one — the fork
 
 A lane's `events:` exists in two places at once: the module's own, which is set "1", and one per
-entry under `alternatives:`. So "move this clip" has to say WHICH, and `yaml/trackFile.ts` answers
-it twice, because reading and writing do not agree:
+entry under `alternatives:`. So "move this clip" has to say WHICH, and song-schema's
+`yaml/trackFile.ts` answers it twice, because reading and writing do not agree:
 
-- **`clipsIn`** — what an edit ADDRESSES. A set stating no `events:` inherits the module's, so that
+- **`eventsIn`** — what an edit ADDRESSES. A set stating no `events:` inherits the module's, so that
   is what is on screen and what a clip is picked out of.
-- **`clipsToEdit`** — where it LANDS: always the selected set, copying the inherited list into it
+- **`eventsToEdit`** — where it LANDS: always the selected set, copying the inherited list into it
   on the first write.
 
 That copy-on-write is the whole of it. Writing `["clips"]` flat whichever set is on would make a

@@ -6,6 +6,7 @@
 import { type Dirent, rmSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { NoFfmpegError } from "@studio/ffmpeg";
 import {
   cacheDir,
   exists,
@@ -17,7 +18,6 @@ import { FAMILIES } from "@studio/mediatek/types";
 import {
   ensureMp3,
   mp3IsFresh,
-  NoFfmpegError,
   SourceChangedError,
   TranscodeBusyError,
 } from "./transcode.ts";

@@ -36,8 +36,8 @@ host's own path space:
 | `publish?(path)`, `snapshotBase?(...)`, `bases?(path)` | Publish after a save, snapshot a plugin state as a base, list bases. |
 
 k7's implementation is `moduleStore` in `apps/k7/frontend/src/api.ts`, over file-service routes
-such as `/module-ui`, `/module-engines`, `/module-base`, `/module-base/snapshot` and
-`/module-materialise` (`packages/file-service/src/routes/files.ts`).
+such as `/module-ui`, `/module-engines`, `/module-base` and `/module-base/snapshot`
+(`packages/file-service/src/routes/files.ts`).
 
 ## Saving
 

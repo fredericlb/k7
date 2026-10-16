@@ -5,9 +5,9 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MODULE_TYPES } from "@studio/song-schema/moduleTypes";
+import { DOC_REF, MODULE_TYPES } from "@studio/song-schema/moduleTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DOC_REF, isDoc } from "./docModule";
+import { isDoc } from "./docModule";
 import { loadGraph } from "./graph";
 import { loadModuleRefs, loadModules } from "./loader";
 

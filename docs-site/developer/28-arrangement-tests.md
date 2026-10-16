@@ -56,7 +56,7 @@ characters, known completion providers). `packages/commands/src/testHost.ts` is 
 `moveEvent.test.ts`, `clipResize.test.ts`, `eventWindow.test.ts`, `eventFade.test.ts`,
 `eventLoop.test.ts`, `eventWarp.test.ts`, `loopWindow.test.ts`, `crossfade.test.ts`,
 `materialCut.test.ts`, `insertTime.test.ts`, `onsets.test.ts`, `sequenceDoubleLoops.test.ts`,
-`windowDescend.test.ts`, `addTrackPlacement.test.ts`, `trackMix.test.ts`. The house style is to
+`addTrackPlacement.test.ts`, `trackMix.test.ts`. The house style is to
 assert that **exactly one line** of the file changed, as `moveEvent.test.ts` does — that is the
 property the whole write path is built to keep.
 

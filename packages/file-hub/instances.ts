@@ -54,16 +54,16 @@ export class Unavailable extends Error {
 }
 
 /** Running instances at most, unless `STUDIO_MAX_FILE_SERVICES` says otherwise. */
-export const MAX_INSTANCES = 50;
+const MAX_INSTANCES = 50;
 /** An instance nobody called for this long may be stopped to make room for another account. */
-export const EVICT_IDLE_MS = 2 * 60_000;
+const EVICT_IDLE_MS = 2 * 60_000;
 /** The first and the longest wait before a crashed account's service is started again. */
-export const BACKOFF_MIN_MS = 1_000;
-export const BACKOFF_MAX_MS = 60_000;
+const BACKOFF_MIN_MS = 1_000;
+const BACKOFF_MAX_MS = 60_000;
 /** A service that ran this long before it exited starts its backoff over. */
-export const HEALTHY_MS = 60_000;
+const HEALTHY_MS = 60_000;
 /** A service asked to stop gets this long before it is killed: past its own 5 s grace (packages/file-service/docs/shutdown.md). */
-export const STOP_GRACE_MS = 6_000;
+const STOP_GRACE_MS = 6_000;
 /** Read by the file service: the end of its stdin is its stop, the only graceful one Windows has. */
 const STDIN_STOP_ENV = "ELECTRON_SHELL_STDIN_STOP";
 

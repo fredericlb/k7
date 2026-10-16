@@ -2,10 +2,11 @@
 // What reads wrong: the store MOVES a file it keeps, so what is left here was refused or failed.
 
 import { wrap } from "@frediverse/http";
+import type { Request, Response } from "express";
 import * as store from "./store.ts";
 
 /** Every file a request carried, so what the store did not keep can be removed. */
-const uploadsOf = (req): { path?: string }[] => [
+const uploadsOf = (req: Request): { path?: string }[] => [
   ...(req.file ? [req.file] : []),
   ...(Array.isArray(req.files)
     ? req.files
@@ -13,7 +14,7 @@ const uploadsOf = (req): { path?: string }[] => [
 ];
 
 /** The handler, then the leftovers removed whatever it answered. */
-export const keepingUploads = (fn) =>
+export const keepingUploads = (fn: (req: Request, res: Response) => unknown) =>
   wrap(async (req, res) => {
     try {
       await fn(req, res);

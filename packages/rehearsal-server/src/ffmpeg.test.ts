@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { input, NoFfmpegError } from "@studio/ffmpeg";
 import { describe, expect, it } from "vitest";
-import { createLimiter, runTool } from "./ffmpeg.ts";
+import { clipArgs, concatArgs, createLimiter, runTool } from "./ffmpeg.ts";
 
 const later = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -77,11 +78,29 @@ describe("runTool", () => {
 
   it("rejects when the tool cannot be spawned", async () => {
     await expect(
-      runTool("definitely-not-a-binary-k7", [], {
+      runTool("/nonexistent/definitely-not-ffmpeg", [], {
         timeoutMs: 5000,
         what: "x",
         limiter: createLimiter(1),
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(NoFfmpegError);
+  });
+});
+
+describe("the whitelist on an uploaded recording", () => {
+  const has = (args: string[], src: string) =>
+    args.join("\0").includes(input(src).join("\0"));
+
+  it("is on a moment's cut", () => {
+    expect(
+      has(clipArgs("/up/take.webm", 1, 2, "/c/o.webm"), "/up/take.webm"),
+    ).toBe(true);
+  });
+
+  it("is on EVERY input of a concatenation", () => {
+    const args = concatArgs(["/up/a.webm", "/up/b.m4a"], "/c/o.webm");
+    expect(has(args, "/up/a.webm")).toBe(true);
+    expect(has(args, "/up/b.m4a")).toBe(true);
+    expect(args.filter((a) => a === "-protocol_whitelist")).toHaveLength(2);
   });
 });

@@ -18,6 +18,7 @@ import { wsExists, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { fromEdl } from "@studio/song-video/interchange/fromEdl";
 import { fromOtio } from "@studio/song-video/interchange/fromOtio";
 import type { ImportedShot } from "@studio/song-video/interchange/imported";
+import { climbsOut } from "@studio/web-protocol/paths";
 import type { CommandHost, SidHandler } from "../commands.ts";
 import { splitWords } from "./shared.ts";
 
@@ -57,12 +58,7 @@ class Media {
     const path = decodeURI(media.replace(/^file:\/\//, ""));
     const abs = resolve(dirname(this.from), path);
     const rel = relative(this.h.songPath, abs);
-    if (
-      path &&
-      existsSync(abs) &&
-      !rel.startsWith("..") &&
-      !rel.includes(`..${sep}`)
-    )
+    if (path && existsSync(abs) && !climbsOut(rel))
       return rel.split(sep).join("/");
     const name = basename(path);
     const hit = this.inClips.get(name.toLowerCase());
@@ -112,7 +108,7 @@ export const PICTURE_IMPORT_VERBS: Record<string, SidHandler> = {
     }
     const abs = resolve(h.songPath, fileArg);
     const inside = relative(h.songPath, abs);
-    if (inside.startsWith("..") || !existsSync(abs)) {
+    if (climbsOut(inside) || !existsSync(abs)) {
       h.refuse([
         `no ${fileArg} in this project — put the file in it, then name it from the project folder`,
       ]);

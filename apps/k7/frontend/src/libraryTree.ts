@@ -4,6 +4,7 @@
 // LOADER resolves against — they sit outside the active project, so the file tree does not and
 // must not contain them. Why the tab exists: apps/k7/frontend/docs/sharedModules.md.
 
+import { isDocFile } from "@studio/song-schema/docExt";
 import {
   FIXED_NAMESPACES,
   isLibraryName,
@@ -14,7 +15,7 @@ import {
 import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
 
 /** How a level is written wherever a person reads one: in a ref, and on a tree row. */
-export const nsLabel = (ns: string): string => `@${ns}`;
+const nsLabel = (ns: string): string => `@${ns}`;
 
 /** A library chain, as the tab lists it: `ref` is `@<library>/<path under chains/>`, `path` its file or a folder chain's folder. */
 export interface LibraryChainRow {
@@ -25,8 +26,7 @@ export interface LibraryChainRow {
 }
 
 /** A chain kept as ONE file — the format; a folder chain is one a library clone has not migrated yet. */
-export const isChainFile = (path: string): boolean =>
-  /\.(?:ya?ml|k7x)$/i.test(path);
+export const isChainFile = isDocFile;
 
 /** An assembly template of the library: `path` its folder, `file` the `assembly.yaml` the builder opens. */
 export interface LibraryAssemblyRow {

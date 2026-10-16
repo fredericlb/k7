@@ -8,6 +8,7 @@ import {
   engineRegistryUrl,
   isDocsHost,
   isLegacyHost,
+  isLoopbackAddress,
   parsePorts,
   servicePorts,
   serviceUrl,
@@ -240,5 +241,32 @@ describe("moved loopback ports", () => {
     });
     process.env.STUDIO_PORTS = "pl8=18787";
     expect(servicePorts().k7).toBe(8789);
+  });
+});
+
+describe("isLoopbackAddress", () => {
+  it("accepts 127/8, ::1 and the IPv4-mapped spelling", () => {
+    for (const a of [
+      "127.0.0.1",
+      "127.1.2.3",
+      "::1",
+      "::ffff:127.0.0.1",
+      "::FFFF:127.0.0.1",
+    ])
+      expect(isLoopbackAddress(a)).toBe(true);
+  });
+
+  // A prefix test passes the first of these: a NAME, or a longer string that merely starts with 127.
+  it("refuses what only starts like one", () => {
+    for (const a of [
+      "127.evil.example",
+      "127.0.0.1.nip.io",
+      "1270.0.0.1",
+      "192.168.1.4",
+      "::ffff:10.0.0.2",
+      "",
+      undefined,
+    ])
+      expect(isLoopbackAddress(a)).toBe(false);
   });
 });

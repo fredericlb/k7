@@ -4,6 +4,7 @@
 
 import { parseTasks, TASKS_FILE, type Task } from "@studio/song-schema/tasks";
 import type { AccountWorkspace, RepoProject } from "@studio/web-protocol";
+import { norm } from "../projectPaths";
 import type { AccountFiles } from "./api";
 import { workspaceFiles } from "./workspaceFiles";
 
@@ -20,8 +21,8 @@ export function anchorProject(
   at: Task["at"],
 ): RepoProject | undefined {
   if (!at) return undefined;
-  const want = at.project.replace(/\\/g, "/").replace(/\/+$/, "");
-  return ws.projects.find((p) => p.path.replace(/\\/g, "/") === want);
+  const want = norm(at.project).replace(/\/+$/, "");
+  return ws.projects.find((p) => norm(p.path) === want);
 }
 
 /** Read every workspace's file at once: one slow workspace must not hold the others back. */

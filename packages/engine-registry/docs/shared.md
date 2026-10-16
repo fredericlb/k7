@@ -60,16 +60,11 @@ stay open. Written by hand per service, that order would be a rule every file ha
 one of them mount a guard over the whole of `/api` and the only thing still protecting the
 heartbeat would be that the router had already answered.
 
-Three drifts the base removes by construction:
+Two things stay out of the base: k7's backend does not parse the file hub's paths at all and
+streams their bodies through, so the file service applies its own 8 MB body limit
+(`apps/k7/backend/docs/hardening.md`), and the error handler mounted LAST is the backend's own
+`jsonErrorHandler`. One drift the base removes by construction:
 
-- **The body limit.** The relay makes these backends a pipe to the file service, which accepts
-  8 MB. Raised in one service and not the other, the same request passes or answers 413
-  depending on which origin the browser sends it from. It is `ENGINE_BODY_LIMIT`, one number. k7's
-  backend does not parse the file hub's paths at all and streams their bodies through, so the file
-  service applies that number itself (`apps/k7/backend/docs/hardening.md`).
-- **The error handler.** A body that stops arriving throws **inside** the parser, where no
-  route's `try/catch` sees it, and every service relays the same bytes. It is
-  `engineErrorHandler`, to be mounted LAST.
 - **Leaving.** A service that leaves its advertisement file behind points the file service at a
   dead port for ever (`~/.k7/web-endpoints/pl8.json` — the service is still named `pl8` — is how
   a machine's file service finds the médiathèque). The supervisor does not heartbeat to these

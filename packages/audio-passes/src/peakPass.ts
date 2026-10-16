@@ -8,9 +8,6 @@ import type { PluginDoc } from "@studio/song/project";
 /** The param a MEASURING cold module receives its number in — one name, spelled once. */
 export const PEAK_PARAM = "Peak";
 
-/** The floor a measurement reports for silence, and the `Peak` param's minimum — spelled in @studio/audio-analysis. */
-export { PEAK_FLOOR_DB } from "@studio/audio-analysis/peak";
-
 /** One file's true peak in dBFS, decoded by the engine and NOT read off the sidecar — docs/peakPass.md. */
 export async function measureFilePeakDb(
   engineBin: string,

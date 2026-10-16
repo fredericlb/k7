@@ -6,13 +6,14 @@ import { chainNodeName } from "@studio/song/chainGraphEdit";
 import { isChainProject } from "@studio/song/chainProject";
 import { stackChainNode } from "@studio/song/chainStack";
 import type { CommandHost, SidHandler } from "../commands.ts";
+import { splitWords } from "./shared.ts";
 
 export const NODE_STACK_VERBS: Record<string, SidHandler> = {
   "node.stack": (a, h) => stackNode(a, h),
 };
 
 async function stackNode(arg: string, h: CommandHost): Promise<void> {
-  const parts = arg.trim().split(/\s+/).filter(Boolean);
+  const parts = splitWords(arg);
   if (parts.length < 2) {
     h.refuse([
       "usage: node stack <node> <new node> (the new node goes right under the first, in one subchain)",

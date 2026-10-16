@@ -1,4 +1,4 @@
-// SupervisorHost.kt — the app's half of the supervisor's NDJSON channel: what electron-shell's supervisorHost.ts
+// SupervisorHost.kt — the app's half of the supervisor's NDJSON channel: what packages/supervisor-host/src/supervisorHost.ts
 // is on desktop. It runs k7-supervisor from the native library directory, the one place Android lets an
 // app execute its own binary, and adds the one Android duty: the supervisor's `engine` requests, since
 // the engine is a library in THIS process rather than a program it could spawn. See docs/android.md.

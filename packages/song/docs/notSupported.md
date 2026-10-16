@@ -44,7 +44,7 @@ That is the whole reason.
 - **`category: "misc"`** — deliberately NOT a type folder. `MODULE_TYPES` has no `misc`, so nobody
   can author `modules/misc/…`, and the placeholder stays the one thing that answers to it.
 
-It compiles to nothing: `nodeProject.ts` gates on the plugin format, `not_supported` is not one,
+It compiles to nothing: the compile (`compile/plugins.ts`) gates on the plugin format, `not_supported` is not one,
 and the step contributes no plugin. The signal routes through, which is what a bypass is.
 
 ## The diagnostic

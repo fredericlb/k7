@@ -73,8 +73,10 @@ has not spoken yet read someone else's meters.
 
 That rule is safe because of something outside this package, and it is worth being exact about
 it. The unstamped replies are a **closed set**, not a tendency: `ENGINE_GLOBAL_REPLIES` in
-`sessions.ts` names them all — the machine's, and pairing's, which are about a device — `PER_SESSION_REPLIES` names the rest, and `sessions.test.ts` pins
-both. Everything in the second list is stamped by the engine, so against a current engine the
+`sessions.ts` names them all — the machine's, a plugin type's, and pairing's, which are about a
+device — `PER_SESSION_REPLIES` names the rest, and `sessions.test.ts` pins both, down to reading
+the engine's own handlers: every `broadcast`, `broadcastLocal` or `sendTo` there must name a reply
+of the first list, every `broadcastTo` one of the second. Everything in the second list is stamped by the engine, so against a current engine the
 only frames that arrive unstamped are genuinely the machine's. Against an engine *older* than
 sessions nothing is stamped, and that is the case pass-on-absence exists for — requiring the
 field would make a new client silently deaf rather than merely unsorted.

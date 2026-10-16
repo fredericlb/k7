@@ -44,7 +44,7 @@ export function claimRoot(email: string): boolean {
   }
 }
 
-/** A hosted root's gate: its one account passes, every other is refused. */
+/** What stands in front of every workspace- and account-shaped route: the root's one account passes, every other is refused. */
 export const requireRootOwner: RequestHandler = (req, res, next) => {
   const email = req.userEmail ?? "";
   if (!email || !claimRoot(email)) {
@@ -57,9 +57,6 @@ export const requireRootOwner: RequestHandler = (req, res, next) => {
   noteOwner(email);
   next();
 };
-
-/** What stands in front of every workspace- and account-shaped route. */
-export const workspaceGate: RequestHandler = requireRootOwner;
 
 /** At boot: the session is the recorded owner's before any request names anyone. */
 export function adoptRecordedOwner(): void {

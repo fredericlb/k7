@@ -51,16 +51,14 @@ wrong when a preference exists and is not applied.
 
 | where | who writes it | who applies it | when |
 |---|---|---|---|
-| `<state>/preferences.yaml` (`audioDevice`) | the machine's file service — `PUT /preferences/audio-device` | `engineLink.wireEngine`, on the socket's `open` | the first socket any session opens, and every reconnect after — so every engine restart, before anything plays |
+| `<state>/preferences.yaml` (`audioDevice`) | whoever edits the file — no route writes it | `engineLink.wireEngine`, on the socket's `open` | the first socket any session opens, and every reconnect after — so every engine restart, before anything plays |
 | `<state>/engine-host.json` (`audioPriority`) | the command-line engine's config file, or the desktop app's Engine page | the supervisor's `AudioPolicy.cpp` | continuously — it also RE-selects the device when it is replugged |
 | `%APPDATA%/Studio/Settings.xml` | Tracktion, by itself | nobody | never — inert on purpose, see AGENTS.md |
 
-The first row is the one a browser can reach, and it is the one that is easy to leave half
-done. `set-audio-device` switches the RUNNING engine and is forgotten the moment it exits —
-in dev the engine exits on every native rebuild, so a pick made that way lasts minutes.
-Writing `preferences.yaml` through `PUT /preferences/audio-device` is what makes it survive:
-`packages/song/src/preferences.ts`'s `setAudioDevice()` writes the field and `engineLink`
-replays it on every connect.
+`set-audio-device` switches the RUNNING engine and is forgotten the moment it exits — in dev
+the engine exits on every native rebuild, so a pick made that way lasts minutes. The first row is
+what survives it: the field in `preferences.yaml` (`packages/song/src/preferences.ts`) is replayed
+by `engineLink` on every connect.
 
 That second row is an ordered LIST, best first, and no longer a pick plus a fallback: the
 engine goes to the highest-ranked interface actually plugged in

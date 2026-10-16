@@ -6,9 +6,13 @@
 // See docs/chainFiles.md.
 
 import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { parseChain } from "@studio/song-schema/yaml/chainFile";
 import { CHAINS_DIR, TRACKS_DIR } from "@studio/song-schema/yaml/chainSchema";
+import {
+  YAML_READ_LENIENT,
+  YAML_WRITE,
+} from "@studio/song-schema/yaml/yamlText";
 import {
   Document,
   isMap,
@@ -17,10 +21,8 @@ import {
   type YAMLMap,
   YAMLSeq,
 } from "yaml";
-import { newNodeId, readChainProject } from "./chainProject";
+import { chainFilePath, newNodeId, readChainProject } from "./chainProject";
 import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
-
-const OPTS = { version: "1.2" as const, strict: false };
 
 /** Whether `chains/<name>` is taken — a chain file of that name, either extension. */
 export const chainTaken = (dir: string, name: string): boolean =>
@@ -37,9 +39,9 @@ export function createChainNode(
     throw new Error(
       `${CHAINS_DIR}/${chain}.yaml already exists — refusing to overwrite`,
     );
-  const src = parseDocument(body, OPTS);
+  const src = parseDocument(body, YAML_READ_LENIENT);
   const id = newNodeId();
-  const doc = new Document({ steps: [] }, OPTS);
+  const doc = new Document({ steps: [] }, YAML_READ_LENIENT);
   const item = doc.createNode({ id }) as YAMLMap<unknown, unknown>;
   // The body's fields after the id, each pair moved whole so its comments come along.
   if (isMap(src.contents))
@@ -50,7 +52,7 @@ export function createChainNode(
   doc.commentBefore = src.commentBefore ?? src.contents?.commentBefore ?? null;
   mkdirSync(join(dir, CHAINS_DIR), { recursive: true });
   const rel = `${CHAINS_DIR}/${chain}.yaml`;
-  wsWrite(join(dir, rel), doc.toString({ lineWidth: 0 }));
+  wsWrite(join(dir, rel), doc.toString(YAML_WRITE));
   return { id, rel };
 }
 
@@ -90,24 +92,23 @@ export function insertChainInput(
     throw new Error(
       `'${lane}' sits inside a subchain or a parallel step — wire its input by hand`,
     );
-  const yml = join(dir, CHAINS_DIR, `${at.chain}.yaml`);
-  const path = wsExists(yml) ? yml : join(dir, CHAINS_DIR, `${at.chain}.yml`);
-  const doc = parseDocument(wsRead(path), OPTS);
+  const path = chainFilePath(dir, at.chain);
+  const doc = parseDocument(wsRead(path), YAML_READ_LENIENT);
   const steps = doc.get("steps");
   if (!isSeq(steps)) throw new Error(`${at.chain} has no steps`);
-  const src = parseDocument(body, OPTS);
+  const src = parseDocument(body, YAML_READ_LENIENT);
   const id = newNodeId();
   const item = doc.createNode({ id }) as YAMLMap<unknown, unknown>;
   if (isMap(src.contents))
     for (const p of src.contents.items) item.items.push(p);
   item.commentBefore = src.commentBefore ?? src.contents?.commentBefore;
   steps.items.splice(at.step, 0, item);
-  const out = doc.toString({ lineWidth: 0 });
+  const out = doc.toString(YAML_WRITE);
   const parsed = parseChain(out);
   if (!parsed.value)
     throw new Error(
       `the input would make ${at.chain} unreadable — ${parsed.issues[0]?.message ?? ""}`.trim(),
     );
   wsWrite(path, out);
-  return { id, rel: `${CHAINS_DIR}/${at.chain}.yaml` };
+  return { id, rel: relative(dir, path) };
 }

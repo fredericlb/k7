@@ -14,5 +14,11 @@
     "gen:surge-panel": "node scripts/gen-surge-panel.mjs",
     "test": "node scripts/run-tests.mjs",
     "test:all": "node scripts/run-tests.mjs --all"
+  },
+  "devDependencies": {
+    "@studio/engine-client": "*",
+    "@studio/engine-protocol": "*",
+    "@studio/song": "*",
+    "@studio/song-schema": "*"
   }
 }

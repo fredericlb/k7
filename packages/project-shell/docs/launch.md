@@ -89,7 +89,7 @@ a folder name git would give a clone, so none can collide with a workspace.
 
 | address | what it opens | the road |
 |---|---|---|
-| `/@local/<espace>/<projet>` | a project in a workspace on this machine | `POST /open` on it — no lookup, no clone, **no libraries check** |
+| `/@local/<workspace>/<project>` | a project in a workspace on this machine | `POST /open` on it — no lookup, no clone, **no libraries check** |
 | `/@banc/<chain>/live.k7` | the bench: one live rig, generated, seeded with a copy of a library chain, for anyone. The bare `/@banc/live.k7` and a bare library (`/@banc/@k7-core/live.k7`) are refused — a library is edited by an admin from any project | the libraries check, then the machine writes the rig again and opens it |
 | `/@shares/<token>.k7` | a project at a checkpoint the media library holds | no account and no working copy; the server's engine, through the share's player |
 

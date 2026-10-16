@@ -36,15 +36,3 @@ export function freshSidecar(
     ? have
     : null;
 }
-
-/** The sidecar when it still describes these bytes, else a fresh analysis — the usual entry point. */
-export async function ensureAnalysed(
-  source: string,
-  sensitivity: number = DEFAULT_TRANSIENT_SENSITIVITY,
-  options: DecodeOptions = {},
-): Promise<FileEnvelope> {
-  return (
-    freshSidecar(source, sensitivity) ??
-    analyseFile(source, sensitivity, options)
-  );
-}

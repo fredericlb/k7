@@ -121,8 +121,8 @@ where a `@k7-core/…` ref becomes a module and a model becomes a path on this m
 and it says so rather than throwing.
 
 The songs are the **machine's copies**, under the médiathèque cache, because a deck opens file paths
-and what matters is what is on this disk. Writing into that cache is safe: `syncFamily` drops what
-it once fetched, never what it finds beside it. The master is the FIRST audio file in a song's
+and what matters is what is on this disk. Writing beside a song is safe: nothing prunes a song
+folder of files it did not put there. The master is the FIRST audio file in a song's
 folder and the scan does not descend — the médiathèque's own rule, restated here because this reads
 the cache directly rather than through a scan of every song on the disk.
 

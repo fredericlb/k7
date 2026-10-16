@@ -5,6 +5,8 @@
 // default of a whole beat — on a 1/16 grid those two differ by sixteen cells.
 // See apps/k7/frontend/docs/clipEditors.md.
 
+import { roundBeat } from "@studio/song-schema/timecode";
+
 /** The shortest a stretch may leave a note: a 64th at any tempo — a real choice, and not a note vanishing from the roll. */
 export const MIN_NOTE_BEATS = 1 / 16;
 
@@ -133,12 +135,11 @@ export function planGroupMove(
   if (Math.abs(off.dBeats) < 1e-6 && off.dKeys === 0)
     return { refused: "still" };
   // Rounded so a pixel's float tail never reaches the file — the velocity drag's own rule, at six places.
-  const at = (t: number) => Math.round(t * 1e6) / 1e6;
   const moves = group.map((n): [number, number, number, number] => [
     n.key,
     n.time,
     n.key + off.dKeys,
-    at(n.time + off.dBeats),
+    roundBeat(n.time + off.dBeats),
   ]);
   const taken = (k: number, t: number) =>
     others.some((o) => o.key === k && Math.abs(o.time - t) < 1e-6);

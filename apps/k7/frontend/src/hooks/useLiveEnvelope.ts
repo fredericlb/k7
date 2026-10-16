@@ -13,7 +13,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { RingBuffer } from "../ringBuffer";
 
 /** How long one engine frame stands for — the nominal, since a growing take is read for its SHAPE and not for its timings. */
-export const LIVE_FRAME_MS = 50;
+const LIVE_FRAME_MS = 50;
 
 // Ten minutes at 20 Hz: a take that outruns it scrolls, where an unbounded envelope would redraw more slowly the longer you played.
 const MAX_FRAMES = 12000;

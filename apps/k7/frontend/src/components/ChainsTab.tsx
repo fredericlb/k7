@@ -5,10 +5,7 @@
 
 import { ChevronRight, List } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
-import {
-  type PluginParamsStore,
-  usePluginParams,
-} from "@studio/engine-browser/params";
+import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { automationLanes, type WebAutomationLane } from "@studio/graph-model";
 import { ASPECTS, aspectOf } from "@studio/song-schema/aspect";
 import { foldAssemblies } from "@studio/ui-chains/assembly";
@@ -37,13 +34,9 @@ import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import { withoutNotes } from "../graphNotes";
 import { type HistoryMark, nodePredicate } from "../historyMarks";
+import { useChainsMidi } from "../hooks/useChainsMidi";
 import { useDocument } from "../hooks/useDocument";
-import {
-  droppedReport,
-  type MappedParam,
-  type MidiControlApi,
-  useMidiControl,
-} from "../hooks/useMidiControl";
+import type { MidiControlApi } from "../hooks/useMidiControl";
 import { useRackTrigger } from "../hooks/useRackTrigger";
 import { midiActivity } from "../midiActivity";
 import { nodeNameFor } from "../nodeInsert";
@@ -51,6 +44,7 @@ import { type PendingNode, withPendingNode } from "../pendingNode";
 import { useLiveRackLit } from "../rackLit";
 import type { WebGraph, WebProject } from "../types";
 import { useIsMobile } from "../useIsMobile";
+import { MidiFeedback } from "./MidiFeedback";
 
 // A card with no authored vertical layout is folded to the same 4 columns (packages/ui-chains/docs/graphBuild.md).
 const GRAPH_FIT: GridFit = { axis: "cols", max: 4 };
@@ -584,30 +578,7 @@ export function ChainsTab({
 
   // --- MIDI: the graph's map, played ------------------------------------------------
 
-  // `setParam` is the same call a knob drag makes, so a value moved by hand and one moved by a controller are alike downstream.
-  const midi = useMidiControl({
-    graph,
-    setParam: useCallback(
-      (m: MappedParam, value: number) =>
-        setPluginParam(m.pluginId, m.param, value),
-      [setPluginParam],
-    ),
-  });
-  useEffect(() => {
-    if (midiRef) midiRef.current = midi;
-  }, [midiRef, midi]);
-  useEffect(() => {
-    if (!midi.learning) return;
-    onMidiStatus?.(
-      `MIDI learn: ${midi.learning.module} ${midi.learning.param} — move a control, or press Esc or run any command to cancel`,
-    );
-  }, [midi.learning, onMidiStatus]);
-  // A binding that cannot be played is still a binding somebody wrote: say so once per graph rather than dropping it.
-  useEffect(() => {
-    if (!midi.ready) return;
-    const report = droppedReport(midi.dropped);
-    if (report) onMidiStatus?.(report);
-  }, [midi.ready, midi.dropped, onMidiStatus]);
+  const midi = useChainsMidi(graph, setPluginParam, midiRef, onMidiStatus);
 
   // --- framing a track (a double-click on its timeline header) -----------------------
 
@@ -867,17 +838,4 @@ export function ChainsTab({
       </main>
     </div>
   );
-}
-
-/** The MIDI feedback pass — a component that renders null, so the per-frame param values do not re-render the graph. */
-function MidiFeedback({
-  store,
-  push,
-}: {
-  store: PluginParamsStore;
-  push: (live: Record<string, Record<string, number>>) => void;
-}) {
-  const live = usePluginParams(store);
-  useEffect(() => push(live), [live, push]);
-  return null;
 }

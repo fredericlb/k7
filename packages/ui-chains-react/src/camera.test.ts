@@ -13,8 +13,6 @@ import {
   flyStep,
   frameBox,
   frameOriginX,
-  isMouseWheel,
-  isZoomWheel,
   lodFor,
   MAX_ZOOM,
   MIN_ZOOM,
@@ -24,19 +22,6 @@ import {
   ZOOM_HALF_LIFE,
   zoomAbout,
 } from "./camera";
-
-describe("isZoomWheel", () => {
-  it("calls a PINCH a zoom — that is how a trackpad sends one", () => {
-    // The browser synthesises ctrlKey for a pinch, and it is the only signal there is.
-    expect(isZoomWheel({ ctrlKey: true, metaKey: false })).toBe(true);
-    expect(isZoomWheel({ ctrlKey: false, metaKey: true })).toBe(true);
-  });
-
-  it("calls a plain wheel a PAN, which is the whole change", () => {
-    // Two fingers sliding arrive exactly like a mouse wheel, so the plain wheel gives up zoom.
-    expect(isZoomWheel({ ctrlKey: false, metaKey: false })).toBe(false);
-  });
-});
 
 describe("wheelPixels", () => {
   it("reads a delta the same however the browser measured it", () => {
@@ -181,40 +166,6 @@ describe("frameOriginX", () => {
     // Same numbers, centred: the content starts off the left edge — the bug this rule exists for.
     expect(frameOriginX(1000, 4000, PAD, false)).toBeLessThan(0);
     expect(frameOriginX(1000, 4000, PAD, true)).toBeGreaterThan(0);
-  });
-});
-
-describe("isMouseWheel", () => {
-  // A wheel and a trackpad send the same event and mean opposite things — docs/camera.md.
-  const ev = (o: Partial<Parameters<typeof isMouseWheel>[0]>) => ({
-    deltaX: 0,
-    deltaY: 0,
-    deltaMode: 0,
-    ...o,
-  });
-
-  it("reads lines or pages as a wheel — nothing else reports those", () => {
-    expect(isMouseWheel(ev({ deltaY: 3, deltaMode: 1 }))).toBe(true);
-    expect(isMouseWheel(ev({ deltaY: 1, deltaMode: 2 }))).toBe(true);
-  });
-
-  it("separates a Mac MOUSE from a Mac TRACKPAD by the legacy 120s", () => {
-    // Chrome/Safari still carry wheelDeltaY: a detent is a multiple of 120, a finger is not.
-    expect(isMouseWheel(ev({ deltaY: 100, wheelDeltaY: -120 }))).toBe(true);
-    expect(isMouseWheel(ev({ deltaY: 4, wheelDeltaY: -12 }))).toBe(false);
-    expect(isMouseWheel(ev({ deltaY: 1.5, wheelDeltaY: -4.5 }))).toBe(false);
-  });
-
-  it("falls back on the delta's SHAPE where the legacy field is absent", () => {
-    // Firefox in pixel mode. A notch is integral, vertical only, and large.
-    expect(isMouseWheel(ev({ deltaY: 120 }))).toBe(true);
-    expect(isMouseWheel(ev({ deltaY: 6 }))).toBe(false); // too small: a finger
-    expect(isMouseWheel(ev({ deltaY: 60.5 }))).toBe(false); // fractional: a finger
-    expect(isMouseWheel(ev({ deltaY: 100, deltaX: 8 }))).toBe(false); // sideways: a surface
-  });
-
-  it("calls a still surface a surface, not a wheel", () => {
-    expect(isMouseWheel(ev({}))).toBe(false);
   });
 });
 

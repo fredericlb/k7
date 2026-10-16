@@ -283,7 +283,7 @@ Dragging an event snaps to **the ruler's current unit**, not to whole beats. Sna
 every zoom makes the gesture and the grid disagree in both directions: zoomed past the beat, the
 lines offer eighths the drag cannot land on; zoomed out to bars, it still moves in beats you
 cannot see. The zoom is the resolution control everywhere else here
-(`packages/ui-waveform/docs/ticks.md`), and the drag obeys it.
+(`packages/ui-timeline/docs/ticks.md`), and the drag obeys it.
 
 Three details, each of which could have gone the other way:
 
@@ -424,7 +424,7 @@ named one without the gutter having to choose.
 
 ### Clicking it opens the lane's menu
 
-The shell's `nodeMenu` (`contextMenu.ts`), through `onNodeMenu`. The chains graph shows the same
+The shell's `nodeMenu` (`nodeMenu.ts`), through `onNodeMenu`. The chains graph shows the same
 sets as badges on the lane's node and runs the same verbs, so the switch, the two `create` entries
 and the freeze are one behaviour with one set of commands, and each row is literally the command line it runs —
 `node alternative select|create|copy`, `node freeze`. Switching goes on the click; the two
@@ -1131,5 +1131,5 @@ and zooming it out smears the numbers, while the same zoom on the timeline behav
 The pair is one statement and that is why they are together: a line under a ruler has to be a
 line the ruler drew, at the weight the ruler gave it. Anything with a ruler gets both —
 [clipEditors.md](clipEditors.md) has the roll's side, and the waveform canvas answers the same
-question a different way (`subdivideGrid`, in `packages/ui-waveform/docs/ticks.md`) because its
+question a different way (`subdivideGrid`, in `packages/ui-timeline/docs/ticks.md`) because its
 ticks arrive as a list off the wire rather than as a unit it can compute.

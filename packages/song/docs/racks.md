@@ -33,9 +33,7 @@ same absolute `clip` the compile already hands the engine, so nothing downstream
 word, and the name it was written with rides beside it for the picker.
 
 `clip:` (a file in the module's own folder) and `rack_type: slice` (windows cut from one `source`)
-still load: they are how racks were written, and `scripts/migrateRacks.ts` converts them — a slice
-rack's windows cut into one file each, byte for byte, the kit moved into the nodes that play the
-module, and a module no node plays converted in place so nothing is lost.
+still load: they are how racks were written, and nothing writes them.
 
 ## …or a KIT's pads: `k7-rack`'s other engines
 

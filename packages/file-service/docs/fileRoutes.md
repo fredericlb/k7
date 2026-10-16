@@ -1,5 +1,8 @@
 # routes/files.ts — the project file API, and why each route is shaped that way
 
+`files.ts` mounts one router per domain (`workspaceRoutes.ts`, `entryRoutes.ts`, `commandRoutes.ts`,
+`docRoutes.ts`, `mediaRoutes.ts`, `fileRoutes.ts`) in the order the routes are registered in.
+
 The project file API, rooted per workspace: mounted after `resolveWorkspace`, so `req.ws` is
 always a `Workspace`, every file call is a method on that workspace, and the command layer
 takes it explicitly.
@@ -26,16 +29,11 @@ document back, for the same reason — the bar it draws needs no route either (`
 `prewarmEngineForActive` is called on the same poll: idempotent while the engine is idle, so
 plugin instantiation overlaps the browser's remaining startup.
 
-## The audio device preference
+## The audio interface's input pairs
 
-`PUT /preferences/audio-device` is written here and not by the engine, which keeps no such
-memory of its own on purpose: a picker tells the engine to switch NOW, and this service is
-what has it still be on that interface after the next restart. `type` matters — ASIO and the
-Windows endpoint of one interface share a name and not a latency.
-
-How that interface's inputs are GROUPED is the other half of the same rig, remembered for the
-same reason and replayed on the same connect. It is the `system channel type` verb rather than
-a route beside this one: a route that remembers the pairing while the browser tells the engine
+How the interface's inputs are GROUPED is remembered in `preferences.yaml`, because the engine
+keeps no such memory, and replayed on every connect. It is the `system channel type` verb rather
+than a route: a route that remembers the pairing while the browser tells the engine
 on its own socket makes one act two doors, and the verb does both, in the order that survives a
 slow rig.
 

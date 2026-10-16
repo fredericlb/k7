@@ -27,7 +27,7 @@ export const IMAGE_SOURCE = /\.(png|jpe?g|webp|gif|avif)$/i;
 export const CAPTION_SOURCE = /\.(srt|vtt)$/i;
 
 /** How text is set — the words a text shape and a captions clip share. */
-export const TEXT_ALIGNS = ["left", "center", "right"] as const;
+const TEXT_ALIGNS = ["left", "center", "right"] as const;
 
 /** Either kind of picture source, which is what tells a picture clip from an audio one. */
 export const isPictureSource = (s: string): boolean =>
@@ -81,7 +81,7 @@ export const VideoClipSchema = z
   .strict();
 
 /** A subtitle file placed on a picture lane, and how its cues are set — every field optional, the defaults a broadcast's. */
-export const CaptionClipSchema = z
+const CaptionClipSchema = z
   .object({
     source: z.string().regex(CAPTION_SOURCE),
     font: z.string().optional(), // a CSS family
@@ -228,7 +228,7 @@ export const AdsrCurveSchema = z
   .strict();
 
 /** A BOOLEAN param's curve: drawn points of 0 or 1, each held until the next — no ramp, no depth, no polarity. */
-export const OnOffCurveSchema = z
+const OnOffCurveSchema = z
   .object({
     type: z.literal("onoff"),
     points: z
@@ -269,15 +269,14 @@ export const FadeSchema = z
 
 /** How a shot arrives or leaves: seconds alone is the built-in dissolve — see song-video/docs/transitions.md. */
 // Widened rather than a union: a union reports a typo'd key as a bare "Invalid input" with no line.
-export const TransitionSchema = z.preprocess(
+const TransitionSchema = z.preprocess(
   (v) => (typeof v === "number" ? { over: v } : v),
   FadeSchema,
 );
 
 export const VideoPlacementSchema = z
   .object({
-    // Absent is an ACTIVATION: a span saying the lane is ON, which is how a shape is put on
-    // screen and taken off again — see packages/song-video/docs/shapes.md.
+    // Absent is an ACTIVATION, a span saying the lane is ON — packages/song-video/docs/shapes.md.
     ref: z.string().min(1).optional(),
     start: z.number().min(0).optional(), // seconds on the timeline
     length: z.number().min(0).optional(), // 0 == to the end of the source
@@ -332,8 +331,7 @@ export const VideoTrackSchema = z
     events: z.array(VideoPlacementSchema).optional(), // the shots it places — see #Module's `events:`
   })
   .strict()
-  // A fade_out is measured back from an END, and the LAST length-0 shot has none — the only case with no answer.
-  // A length-0 shot with another after it is fine: its end is that one's start, which is activeAt's own rule.
+  // A fade_out needs an END: only the LAST length-0 shot has none, since an earlier one ends where the next starts.
   .superRefine((t, ctx) => {
     const ev = t.events;
     if (!ev?.length) return;

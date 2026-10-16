@@ -33,9 +33,7 @@ decided by what a module IS rather than by a list of names:
 
 A module whose `params:` names one of the held params — or inherits one — does not compile: the
 error names the node and says to write `mix:`. Silently overriding it would leave a file claiming a
-sound it does not make. `packages/song/scripts/migrateEngineStage.ts` rewrites a workspace and its
-libraries: an authored dry/wet becomes `mix:`, read on the equal-power curve when it is two levels
-(and the level change it costs reported), a proportion read straight.
+sound it does not make.
 
 The Fade module's one param is `Level`, not `Mix`: it is a lane's GAIN — two mirrored are the desk's
 crossfader, one is the cue send — and a name holding *mix* would have it held at full.

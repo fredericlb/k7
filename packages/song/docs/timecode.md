@@ -33,9 +33,7 @@ and **no syntax separates them**. The LENGTH decides: five fields or more cannot
 notation, so they are read the deep way; four or fewer are read this way.
 
 That is enough because a short deep chain is almost always at its own level's origin
-(`"1:1:1"`, `"2:1:1"`), and an origin is 0 under either rule. `scripts/migrateTimecodes.ts`
-rewrites the handful that are not — it reads with `parseLegacyPosition`, which forces the deep
-rule, because it is the one caller that knows a file has not been converted yet.
+(`"1:1:1"`, `"2:1:1"`), and an origin is 0 under either rule.
 
 - **960 because it divides by three.** 960 = 2⁶·3·5, so a triplet, a quintuplet and a 64th all
   land on whole ticks. A power of two would have made every triplet a rounding.
@@ -67,34 +65,6 @@ is why `yaml/edit.ts` has `setQuotedKeyMap` beside `setFileValue`. `setFileValue
 object and `createNode` gives every key the plain style — correct under YAML 1.2 and a disaster
 under 1.1, where `2:1:1` unquoted is a sexagesimal integer. `quoteTimecodes` cannot rescue it
 either: it walks values under known keys.
-
-## Rewriting a document — timecodeMigrate.ts
-
-Edits are SPLICED by source offset rather than re-serialised: a project is hand-written YAML with
-comments and a shape its author chose, and rewriting a whole file to change eight characters would
-bury the migration in a diff nobody could check. Back to front, so an earlier splice cannot move a
-later one's offsets.
-
-`TIMECODE_FIELDS` spells out which fields hold a timecode and whether each counts from 1 or from 0.
-A POSITION says where something sits — `start`, and a window's edges, which are positions in the
-material, `"1:1"` being its beginning. A DURATION says how long something lasts. Reading one as the
-other lands a whole bar out, so the pair is written down rather than guessed per file.
-
-A STRING only: `from: 0.25` on a clip is SECONDS into a file, not a timecode, and the two spellings
-mean different things on the very same key (`AudioClipSchema`).
-
-**A value already in the canonical spelling is left alone, and that is what makes the pass
-idempotent.** Idempotence is not a nicety here: the rewrite reads with the DEEP rule, so running it
-twice would read its own output as something it never meant and shift the song by a sixteenth. A
-second run must be a no-op or the script is a trap.
-
-The gap it leaves: a value that is canonical in this notation AND means something else under the
-deep rule is skipped. Such a value has to be short, sub-beat, and exactly what the writer emits.
-Where one exists the two rules disagree, which is a thing that can be searched for.
-
-`driftBeats` compares what the halving reader makes of what was just written against what the deep
-reader makes of what was there. That is the only comparison that says the song still sounds the
-same.
 
 ## A clip's window edge needs the grid
 

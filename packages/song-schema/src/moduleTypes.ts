@@ -1,14 +1,21 @@
-// moduleTypes.ts — the module vocabulary, with no filesystem and no imports: the type
-// folders and what each one means, plus how a module is NAMED (node keys, refs, the
-// slug a plugin earns).
+// moduleTypes.ts — the module vocabulary, with no filesystem: the type folders and what each
+// one means, plus how a module is NAMED. It re-exports its three parts — `metaRefs.ts`,
+// `fileParams.ts`, `moduleKeys.ts` — and imports nothing else but `@studio/graph-model`.
 //
 // A leaf on purpose. These tables are the one thing everything about a module derives
 // from — `kind`, `inputs`, `emits`, the ref a `ui.yaml` panel answers to — so knowing what
 // `audio/` means costs no import of a loader that reads files, and the engine catalogue
 // (which knows about plugins and nothing about folders) can reach them without a cycle.
 
+import { META_NS } from "./metaRefs";
+import { slugifyPluginName } from "./moduleKeys";
+
+export * from "./fileParams";
+export * from "./metaRefs";
+export * from "./moduleKeys";
+
 /** The io roles the signal comes FROM; everything else under `io/` is a sink by ELIMINATION — see docs/moduleTypes.md. */
-export const IO_SOURCES = ["in", "file", "camera", "midi"] as const;
+const IO_SOURCES = ["in", "file", "camera", "midi"] as const;
 export type IoSource = (typeof IO_SOURCES)[number];
 export const isIoSource = (io: unknown): io is IoSource =>
   (IO_SOURCES as readonly unknown[]).includes(io);
@@ -25,7 +32,7 @@ export const VIDEO_OUT_NODE = "VIDEO_OUT";
 export const CUE_NODE = "CUE";
 
 /** The five built-in outputs — the two sums, and the three devices they leave by. */
-export const BUILTIN_OUTPUTS = [
+const BUILTIN_OUTPUTS = [
   MIX_NODE,
   OUT_NODE,
   RENDER_NODE,
@@ -86,9 +93,8 @@ export const SHAPE_CATEGORY = "shapes";
 /** What a shape module DRAWS, named by its `shape:` field — see packages/song-video/docs/shapes.md. */
 export const SHAPE_KINDS = ["square", "circle", "text"] as const;
 
-/** The type folders whose modules ARE their behaviour — a shader's and a transition's GLSL, a
- *  shape's params. None of them hosts a plugin, so an empty `plugin:` is not a hole in one. */
-export const PLUGINLESS_CATEGORIES = [
+/** The type folders whose modules ARE their behaviour (GLSL, a shape's params), so an empty `plugin:` is no hole. */
+const PLUGINLESS_CATEGORIES = [
   SHADER_CATEGORY,
   SHAPE_CATEGORY,
   TRANSITION_CATEGORY,
@@ -110,9 +116,6 @@ export const OVER = "over";
 
 /** The four knobs every shader gets, numbered rather than named and 0..1 — see packages/song-video/docs/shaders.md. */
 export const SHADER_PARAMS = ["P1", "P2", "P3", "P4"] as const;
-export type ShaderParam = (typeof SHADER_PARAMS)[number];
-export const isShaderParam = (name: string): name is ShaderParam =>
-  (SHADER_PARAMS as readonly string[]).includes(name);
 
 /** The uniform each of them lands on — one rule, so a panel and a shader cannot disagree. */
 export const shaderUniformFor = (param: string): string => `u${param}`;
@@ -186,8 +189,7 @@ export const MODULE_TYPES: Record<
     inputs: [{ name: "in", type: "video" }],
     outputs: [{ name: "out", type: "video" }],
   },
-  // NAMED by a placement, never wired: the ports stay declared but `validate()` refuses the cable.
-  // Not emptied — empty ports mean UNCONSTRAINED here (graph.ts's normalizeInputs), the opposite.
+  // NAMED by a placement, never wired: ports stay declared (empty means UNCONSTRAINED) and `validate()` refuses the cable.
   video_transitions: {
     kind: "plugin",
     inputs: [{ name: "in", type: "video" }],
@@ -202,8 +204,7 @@ export const MODULE_TYPES: Record<
     ],
     outputs: [{ name: "out", type: "video" }],
   },
-  // A SHAPE: no input, one picture out. It is a picture SOURCE and lands on a lane the way a lens
-  // does — `inputs: []` reads as unconstrained here, and validate() is what refuses a cable into one.
+  // A SHAPE: a picture SOURCE on a lane like a lens; `inputs: []` is unconstrained, and validate() refuses a cable in.
   shapes: {
     kind: "plugin",
     inputs: [],
@@ -255,14 +256,6 @@ export const engineRef = (slug: string): string => `${ENGINE_NS}/${slug}`;
 export const isEngineRef = (ref: string): boolean =>
   ref === ENGINE_NS || ref.startsWith(`${ENGINE_NS}/`);
 
-/** How a chain names a BUILT-IN — `@meta/track`, `@meta/IN` — the app's own vocabulary, never a scanned plugin (docs/moduleTypes.md). */
-export const META_NS = "@meta";
-export const metaRef = (slug: string): string => `${META_NS}/${slug}`;
-
-/** Is this ref one of the built-ins? Asked wherever a ref's own namespace decides how it resolves. */
-export const isMetaRef = (ref: string): boolean =>
-  ref === META_NS || ref.startsWith(`${META_NS}/`);
-
 /** How a module asks to be TREATED BY THE COMPLETIONS and nothing else — full rationale: docs/moduleStatus.md. */
 export const MODULE_STATUSES = ["listed", "favorite", "hidden"] as const;
 export type ModuleStatus = (typeof MODULE_STATUSES)[number];
@@ -298,6 +291,9 @@ export const OUTPUT_VOLUME_PARAM = "@output-volume";
 
 /** The range both levels take, in dB. */
 export const VOLUME_RANGE = { min: -60, max: 12, def: 0 } as const;
+
+/** A rack's first pad note: 36 is C1, General MIDI's kick, where every pad convention starts. */
+export const RACK_FIRST_NOTE = 36;
 
 /** Which LEVEL a plugin's own param is, by its WHOLE name — "Output", "Input Gain", "Out Level" — mirroring the engine's. */
 export function ownLevelSide(name: string): "input" | "output" | null {
@@ -345,19 +341,6 @@ export const IO_MODULES: Record<
   [MIDI_IN_NODE]: { io: MIDI_IN_IO },
 };
 
-// --- curve refs (see packages/song/docs/curves.md) -------------------------------
-
-/** The type folder a curve ref names — the file still lives at `curves/<id>.yaml`, per-project; this is REF-CONSISTENCY only. */
-export const CURVES_CATEGORY = "curves";
-const CURVE_REF_PREFIX = `${META_NS}/${CURVES_CATEGORY}/`;
-
-/** How an automation binding names a curve: `@meta/curves/sweep` — docs/curves.md. */
-export const curveRef = (id: string): string => `${CURVE_REF_PREFIX}${id}`;
-
-/** The bare curve id an authored `curve:` field names, whichever form it was written in — docs/curves.md. */
-export const curveIdFromRef = (ref: string): string =>
-  ref.startsWith(CURVE_REF_PREFIX) ? ref.slice(CURVE_REF_PREFIX.length) : ref;
-
 /** How a scanned plugin becomes a module, null when the name leaves no slug — ONE rule for two tiers, docs/moduleTypes.md. */
 export function engineModuleOf(p: {
   name: string;
@@ -372,145 +355,16 @@ export function engineModuleOf(p: {
   };
 }
 
-/** The params whose value is a FILE the plugin loads, not a number — three tiers need the same list, docs/moduleTypes.md. */
-export const FILE_PARAMS = ["model", "onnx"] as const;
-
-/** An amp model is a NAM file or an RTNeural JSON (AIDA-X, Proteus) — engine/k7-runtime/docs/namPlugin.md. */
-const PARAM_EXTS: Record<string, readonly string[]> = {
-  model: [".nam", ".json"],
-};
-
-/** The extensions a file-valued param takes: its table entry, else its NAME — `onnx` loads `.onnx`, see docs/moduleTypes.md. */
-export const assetExtsFor = (param: string): readonly string[] =>
-  PARAM_EXTS[param] ?? [`.${param.toLowerCase()}`];
-
-/** What a rack TAP's sample picker asks for: a library's `samples/`, the way `ir` asks for its `irs/`. */
-export const TAP_SAMPLE = "sample";
-
-/** Those of `files` a param of this name can take — a library pick only the `@<library>/…` sound files; a panel naming its `family` filters by that. */
-export function assetsForParam(
-  files: string[],
-  param: string,
-  family?: string,
-): string[] {
-  // A Faust slot's name is the program's own, so only the family the panel names can say what it takes.
-  if (family && isLibraryFileFamily(family)) {
-    const exts = LIBRARY_FILE_FAMILIES[family];
-    return files.filter((f) => exts.some((e) => f.toLowerCase().endsWith(e)));
-  }
-  if (isLibraryFileParam(param) || param === TAP_SAMPLE)
-    return files.filter((f) => f.startsWith("@") && isLibraryAudio(f));
-  const exts = assetExtsFor(param);
-  return files.filter((f) => exts.some((e) => f.toLowerCase().endsWith(e)));
-}
-export type FileParam = (typeof FILE_PARAMS)[number];
-
-/** File-valued params whose file is in a LIBRARY's shared folder, named `@<library>/<path>` — packages/song/docs/libraryFiles.md. */
-export const LIBRARY_FILE_PARAMS = { ir: "irs" } as const;
-export type LibraryFileParam = keyof typeof LIBRARY_FILE_PARAMS;
-export const isLibraryFileParam = (name: string): name is LibraryFileParam =>
-  Object.hasOwn(LIBRARY_FILE_PARAMS, name);
-
-/** The sound files a library's `samples/` and `irs/` hold — what those folders are walked for. */
-export const LIBRARY_AUDIO_EXTS = [".wav", ".aif", ".aiff", ".flac"] as const;
-export const isLibraryAudio = (path: string): boolean =>
-  LIBRARY_AUDIO_EXTS.some((e) => path.toLowerCase().endsWith(e));
-
-/** File params a module may fill from its own `assets/` OR from a library's shared folder — packages/song/docs/libraryFiles.md. */
-export const SHARED_FILE_PARAMS = { model: "models" } as const;
-export type SharedFileFamily =
-  (typeof SHARED_FILE_PARAMS)[keyof typeof SHARED_FILE_PARAMS];
-
-/** The library folders that hold FILES rather than modules, and what each one is walked for. */
-export const LIBRARY_FILE_FAMILIES = {
-  samples: LIBRARY_AUDIO_EXTS,
-  irs: LIBRARY_AUDIO_EXTS,
-  // Single-cycle frames end to end, what a Faust wavetable instrument's `soundfile` reads (packages/song/docs/faustFiles.md).
-  wavetables: LIBRARY_AUDIO_EXTS,
-  models: [".nam", ".json"],
-} as const;
-export type LibraryFileFamily = keyof typeof LIBRARY_FILE_FAMILIES;
-export const isLibraryFileFamily = (name: string): name is LibraryFileFamily =>
-  Object.hasOwn(LIBRARY_FILE_FAMILIES, name);
-
-/** Is `path` a file a library's `family` folder holds? */
-export const isLibraryFileOf = (
-  family: LibraryFileFamily,
-  path: string,
-): boolean =>
-  LIBRARY_FILE_FAMILIES[family].some((e) => path.toLowerCase().endsWith(e));
-
-/** The library folder a file param can ALSO name a file in, by `@<library>/<path>`; null for the rest. */
-export const sharedFamilyOf = (param: string): SharedFileFamily | null =>
-  Object.hasOwn(SHARED_FILE_PARAMS, param)
-    ? SHARED_FILE_PARAMS[param as keyof typeof SHARED_FILE_PARAMS]
-    : null;
-export const isFileParam = (name: string): name is FileParam =>
-  (FILE_PARAMS as readonly string[]).includes(name);
-
 /** `plugin: { type: offline }` — no engine plugin, its outputs produced onto disk by a pass first (docs/coldModules.md). */
 export const OFFLINE_TYPE = "offline";
 
 /** `plugin: { type: not_supported }` — the DELIBERATE marker: k7 knows this plugin and knows it cannot load it. */
 export const NOT_SUPPORTED_TYPE = "not_supported";
 
-// --- the doc module (see docs/docModules.md) -------------------------------------
-
-/** `@meta/doc` — the module every note on the graph is a NODE of, and it names no folder (docs/moduleTypes.md). */
-export const DOC_CATEGORY = "docs";
-export const DOC_REF = `${META_NS}/doc`;
-
-/** Is this what a note extends? The one spelling of the ref, so a typo cannot half-work. */
-export const isDocRef = (ref: unknown): boolean => ref === DOC_REF;
-
-// --- the not-supported module (see packages/song/docs/notSupported.md) -----------
-
-/** `@meta/not-supported` — what a node stands on when the plugin it WAS is one k7 cannot load. */
-export const NOT_SUPPORTED_REF = `${META_NS}/not-supported`;
-
-/** Its category: not a type folder, so nothing can be authored under it — the module has no folder. */
-export const NOT_SUPPORTED_CATEGORY = "misc";
-
-/** Is this what an unsupported plugin's node extends? One spelling, so a typo cannot half-work. */
-export const isNotSupportedRef = (ref: unknown): boolean =>
-  ref === NOT_SUPPORTED_REF;
-
-// --- the track modules (see docs/trackModules.md) --------------------------------
-
-/** The three modules a LANE is a node of — three and not five, since a lane is not typed by its signal (docs/trackModules.md). */
-export const TRACK_REF = `${META_NS}/track`;
-export const STRUDEL_TRACK_REF = `${META_NS}/strudel-track`;
-export const GROUP_TRACK_REF = `${META_NS}/group-track`;
-
-export const TRACK_REFS = [
-  TRACK_REF,
-  STRUDEL_TRACK_REF,
-  GROUP_TRACK_REF,
-] as const;
-
-/** The two output ports every non-group lane offers, from `@studio/graph-model` so the renderer cannot disagree (docs/moduleTypes.md). */
-export {
-  TRACK_OUT_AUDIO,
-  TRACK_OUT_MIDI,
-  TRACK_OUTPUTS,
-} from "@studio/graph-model";
-
-/** The signal-typed lane refs a project on disk may carry, for the DIAGNOSTIC alone — nothing resolves these (docs/moduleTypes.md). */
-export const LEGACY_TRACK_REFS: Record<string, string> = {
-  [`${META_NS}/audio-track`]: TRACK_REF,
-  [`${META_NS}/sequence-track`]: TRACK_REF,
-  [`${META_NS}/audio-strudel-track`]: STRUDEL_TRACK_REF,
-  [`${META_NS}/sequence-strudel-track`]: STRUDEL_TRACK_REF,
-};
-
-/** Is this what a lane extends? Asked of an authored `extends:`, before anything is resolved. */
-export const isTrackRef = (ref: unknown): boolean =>
-  (TRACK_REFS as readonly unknown[]).includes(ref);
-
 // --- ports (see docs/ports.md) --------------------------------------------------
 
 // The port vocabulary lives in @studio/graph-model, the one tier both the compiler and the renderer reach (docs/moduleTypes.md).
-export { PORT_SEP, portRef, splitPort } from "@studio/graph-model";
+export { portRef, splitPort } from "@studio/graph-model";
 
 /** The two FIXED levels a module can live at; every other `@<name>` is one of the account's libraries — docs/moduleTypes.md. */
 export const FIXED_NAMESPACES = ["engine", "workspace"] as const;
@@ -522,13 +376,13 @@ export type ModuleNamespace = string;
 export const DEFAULT_LIBRARY = "k7-core";
 
 /** What a library may be called: a ref segment and a folder name at once, lowercase so no filesystem can disagree. */
-export const LIBRARY_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
+const LIBRARY_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
 /** The ACCOUNT's own library, `@account/…`: its forks of the origin's modules — docs/library-versions-plan.md. */
 export const ACCOUNT_LIBRARY = "account";
 
 /** Names a library cannot take, because a ref spelled with them already means something else. */
-export const RESERVED_LIBRARY_NAMES: readonly string[] = [
+const RESERVED_LIBRARY_NAMES: readonly string[] = [
   ...FIXED_NAMESPACES,
   ACCOUNT_LIBRARY,
   META_NS.slice(1),
@@ -560,9 +414,6 @@ export const LEGACY_MEDIATEK_NS = "mediatek";
 /** The default library's name before it was `k7-core` — a NAME for the migration script alone, since nothing resolves it. */
 export const LEGACY_DEFAULT_LIBRARY = "st0";
 
-/** `@meta`'s old spelling — a NAME for the migration script alone, since nothing resolves it (docs/moduleTypes.md). */
-export const LEGACY_META_NS = "studio";
-
 /** The folder the account's libraries answer to in a workspace's file API: `_libraries/<name>/…`, VIRTUAL — no workspace holds it on disk (docs/sharedFolders.md). */
 export const LIBRARIES_DIR = "_libraries";
 
@@ -577,45 +428,3 @@ export const HISTORY_HOME_DIR = ".history";
 
 /** The folder a WORKSPACE's own shared library sits in, at the workspace root — the `@workspace` level. */
 export const SHARED_MODULES_DIR = "_modules";
-
-// --- module nodes (see docs/loader.md) --------------------------------------
-export const NODE_SEP = ":";
-
-// The map key / chain reference for a module, with or without a node.
-export const moduleKey = (module: string, node?: string): string =>
-  node ? `${module}${NODE_SEP}${node}` : module;
-
-// The bare form of a module's ref; an io module carries no type folder in its (docs/moduleTypes.md).
-export const moduleRefOf = (type: string, name: string): string =>
-  MODULE_TYPES[type]?.kind === "io" ? name : `${type}/${name}`;
-
-/** The chain KEY of the module a path points into — everything between the type folder and the filename, docs/moduleTypes.md. */
-export function moduleKeyFromPath(path: string): string | null {
-  const segs = path.split(/[\\/]+/);
-  // The LAST `modules/`, so a workspace-relative path and an absolute one land on the same segment.
-  const at = segs.lastIndexOf("modules");
-  if (at < 0) return null;
-  const rest = segs.slice(at + 1);
-  // <type> … <file>: at least a type, a module folder and a file.
-  if (rest.length < 3 || !MODULE_TYPES[rest[0]]) return null;
-  return rest.slice(1, -1).join("/");
-}
-
-// "synth:lead" -> {module, node}, splitting on the FIRST separator so it stays total on any key.
-export function splitModuleKey(key: string): {
-  module: string;
-  node?: string;
-} {
-  const i = key.indexOf(NODE_SEP);
-  return i < 0
-    ? { module: key }
-    : { module: key.slice(0, i), node: key.slice(i + 1) };
-}
-
-/** A plugin's real name as a filesystem- and ref-safe slug: "Neural Amp Modeler" -> "neural-amp-modeler". */
-export function slugifyPluginName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}

@@ -12,6 +12,7 @@ import {
   keysOf,
   splitAnimate,
 } from "../keyframes";
+import { YAML_READ, YAML_WRITE } from "./yamlText";
 
 export interface VideoPlacement {
   /** The `ref:` value — a clips/ id whose source is a video file. EMPTY on an ACTIVATION, an
@@ -23,8 +24,6 @@ export interface VideoPlacement {
   /** How fast its source runs, signed — present only when the file states one (song-video docs/speed.md). */
   speed?: number;
 }
-
-const OPTS = { version: "1.2" as const, lineWidth: 0 };
 
 // A collection comes back from `getIn` as a YAML node; the schemas read plain values.
 const plain = (v: unknown): unknown =>
@@ -41,7 +40,7 @@ const num = (v: unknown, dflt = 0): number => {
 export function listVideoPlacements(text: string): VideoPlacement[] {
   let doc: ReturnType<typeof parseDocument>;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return []; // a half-typed file has no placements to show yet
   }
@@ -69,14 +68,14 @@ export function listVideoPlacements(text: string): VideoPlacement[] {
 export function setVideoLaneMute(text: string, mute: boolean): string {
   let doc: ReturnType<typeof parseDocument>;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return text;
   }
   // Removed rather than written `false`: absent already means audible, and a file says what is unusual.
   if (mute) doc.setIn(["mute"], true);
   else doc.deleteIn(["mute"]);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** Set the LANE's own rect — x/y/w/h, top-level keys, in viewport px (packages/song-video/docs/picture.md). */
@@ -86,14 +85,14 @@ export function setVideoLaneRect(
 ): string {
   let doc: ReturnType<typeof parseDocument>;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return text;
   }
   // All four, always: a lane stating three of them and inheriting the fourth is a rect nobody can read.
   for (const k of ["x", "y", "w", "h"] as const)
     doc.setIn([k], Math.round(rect[k]));
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** Set one numeric field of the placement whose `ref` is `ref` — by REF and not by index, since a drag grabbed a strip. */
@@ -105,7 +104,7 @@ export function setVideoPlacementField(
 ): string {
   let doc: ReturnType<typeof parseDocument>;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return text;
   }
@@ -117,7 +116,7 @@ export function setVideoPlacementField(
   if (at < 0) return text;
   // Rounded to milliseconds: a drag's float noise doesn't belong in the file, and cutting needs no more.
   doc.setIn(["events", at, field], Math.round(value * 1000) / 1000);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** Set one numeric field of the placement at `index`. By POSITION, so a ref placed twice is still two placements. */
@@ -129,7 +128,7 @@ export function setVideoPlacementFieldAt(
 ): string {
   let doc: ReturnType<typeof parseDocument>;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return text;
   }
@@ -137,7 +136,7 @@ export function setVideoPlacementFieldAt(
   if (!isSeq(events) || index < 0 || index >= events.items.length) return text;
   // The same millisecond rounding the drag writes, so a verb and a gesture leave the same bytes.
   doc.setIn(["events", index, field], Math.round(value * 1000) / 1000);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** Set the placement's `speed:`, signed — or drop the key at 1, which is what absent already means. */
@@ -148,7 +147,7 @@ export function setVideoSpeedAt(
 ): string {
   let doc: ReturnType<typeof parseDocument>;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return text;
   }
@@ -156,21 +155,21 @@ export function setVideoSpeedAt(
   if (!isSeq(events) || index < 0 || index >= events.items.length) return text;
   if (Math.abs(speed - 1) < 1e-9) doc.deleteIn(["events", index, "speed"]);
   else doc.setIn(["events", index, "speed"], Math.round(speed * 10000) / 10000);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** Drop the placement at `index`, or the text unchanged when there is none there. */
 export function removeVideoPlacementAt(text: string, index: number): string {
   let doc: ReturnType<typeof parseDocument>;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return text;
   }
   const events = doc.getIn(["events"]);
   if (!isSeq(events) || index < 0 || index >= events.items.length) return text;
   events.items.splice(index, 1);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** Cut the placement at `index` in two at `cut` seconds, the tail inserted RIGHT AFTER it; null when the cut is not inside it. */
@@ -182,7 +181,7 @@ export function splitVideoPlacementAt(
 ): string | null {
   let doc: ReturnType<typeof parseDocument>;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return null;
   }
@@ -234,7 +233,7 @@ export function splitVideoPlacementAt(
       // The source runs at the shot's SPEED, so the head consumed head × speed of it (song-video docs/speed.md).
       ms(num(at(index, "source_from")) + head * num(at(index, "speed"), 1)),
     );
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** Append a placement, creating `events:` when the lane has none. */
@@ -244,7 +243,7 @@ export function addVideoPlacement(
 ): string | null {
   let doc: ReturnType<typeof parseDocument>;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return null; // a half-typed lane is not one to append to
   }
@@ -260,10 +259,10 @@ export function addVideoPlacement(
     // No `events:` at all, or one holding something else — only the absent case is ours to create.
     if (events !== undefined && events !== null) return null;
     doc.setIn(["events"], [entry]);
-    return doc.toString({ lineWidth: 0 });
+    return doc.toString(YAML_WRITE);
   }
   doc.addIn(["events"], entry);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** Insert or delete seconds on a video lane, by INDEX since a ref may be placed twice — the lanes' rule otherwise. */
@@ -277,7 +276,7 @@ export function spliceVideoTime(
   let moved = 0;
   let removed = 0;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return { text, moved, removed }; // a half-typed file is left exactly as it is
   }
@@ -300,7 +299,7 @@ export function spliceVideoTime(
     moved++;
   }
   if (!moved && !removed) return { text, moved, removed };
-  return { text: doc.toString({ lineWidth: 0 }), moved, removed };
+  return { text: doc.toString(YAML_WRITE), moved, removed };
 }
 
 /** Shift the keys of the placement at `index` by `-delta` seconds, so a trimmed head keeps its animation on the same frames. */
@@ -311,7 +310,7 @@ export function shiftVideoAnimationAt(
 ): string {
   let doc: ReturnType<typeof parseDocument>;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return text;
   }
@@ -339,7 +338,7 @@ export function shiftVideoAnimationAt(
     ["events", index, "animate"],
     doc.createNode(shifted, { flow: true }),
   );
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** Rename the STRETCH each fade's `chain:` names, by `renames` — the text unchanged when none matches. */
@@ -349,7 +348,7 @@ export function renameFadeChains(
 ): string {
   let doc: ReturnType<typeof parseDocument>;
   try {
-    doc = parseDocument(text, OPTS);
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return text;
   }
@@ -364,5 +363,5 @@ export function renameFadeChains(
       changed = true;
     }
   });
-  return changed ? doc.toString({ lineWidth: 0 }) : text;
+  return changed ? doc.toString(YAML_WRITE) : text;
 }

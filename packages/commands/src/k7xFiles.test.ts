@@ -16,6 +16,7 @@ import { join, relative } from "node:path";
 import { fromYaml } from "@studio/k7x/from-yaml";
 import { toYaml } from "@studio/k7x/yaml-bridge";
 import { loadProject } from "@studio/song/project";
+import { isDocFile, stripDocExt } from "@studio/song-schema/docExt";
 import { afterAll, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
@@ -96,10 +97,7 @@ async function run(
 
 const names = (dir: string): string[] =>
   existsSync(dir)
-    ? readdirSync(dir)
-        .filter((f) => /\.(ya?ml|k7x)$/.test(f))
-        .map((f) => f.replace(/\.(ya?ml|k7x)$/, ""))
-        .sort()
+    ? readdirSync(dir).filter(isDocFile).map(stripDocExt).sort()
     : [];
 
 const yamlRoot = copyDemos(false);

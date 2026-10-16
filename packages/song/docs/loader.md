@@ -1,7 +1,9 @@
 # loader.ts — extended notes
 
-Background for the inline one-liners in `loader.ts`. Read that file first; come here
-when a one-liner says "see docs/loader.md".
+Background for the inline one-liners in `loader.ts` and the readers it re-exports —
+`entities.ts`, `moduleTree.ts`, `moduleRefs.ts`, `moduleAssetFiles.ts`, `diagnostics.ts` and
+`projectFiles.ts`. Callers import from `loader.ts`; the split is by what is read, so a reader of one
+kind of file opens one module. Come here when a one-liner says "see docs/loader.md".
 
 ## Module type folders and `MODULE_EMITS`
 

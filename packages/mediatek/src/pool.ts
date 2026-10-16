@@ -2,7 +2,7 @@
 // A library walk is latency, not CPU: unbounded it would hold one file handle per song at once.
 
 /** How many directories are read, or files stat'd or read, at once by every walk in this package. */
-export const FANOUT = 32;
+const FANOUT = 32;
 
 /** `fn` over every item, at most `limit` at a time, results in the items' order. */
 export async function mapLimit<T, R>(

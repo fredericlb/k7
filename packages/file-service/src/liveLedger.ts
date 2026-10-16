@@ -6,6 +6,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { type BlobId, parseBlobRef } from "@studio/live-sync/blob";
 import { SETTLE_MS } from "@studio/song/moduleCache";
+import { isDocFile } from "@studio/song-schema/docExt";
 
 /** What the ledger knows of one file: its stamp, the `textHash` of its text or ref, the text of a YAML file. */
 export interface Known {
@@ -22,7 +23,7 @@ export interface Known {
 export const TEXT_CEILING = 5 * 1024 * 1024;
 
 /** A file whose text the ledger keeps, to diff its next change into path ops: YAML and k7x. */
-export const keepsText = (rel: string): boolean => /\.(ya?ml|k7x)$/i.test(rel);
+export const keepsText = (rel: string): boolean => isDocFile(rel);
 
 /** Git's own test: a NUL byte in the first 8000 bytes makes a file binary, whatever its extension. */
 export const looksBinary = (buf: Buffer): boolean =>

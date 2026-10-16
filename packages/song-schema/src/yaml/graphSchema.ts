@@ -13,7 +13,7 @@ export const GRAPH_BASE = "graph";
 // A library CHAIN uses this same name, and IS one of these documents — see docs/graphEdits.md.
 
 /** Where one node's signal goes, `#port` and all, empty meaning unwired — the port is checked by validate(). */
-export const DestsSchema = z.array(
+const DestsSchema = z.array(
   z
     .string()
     .min(1)
@@ -53,5 +53,4 @@ export const GraphFileSchema = z
   })
   .strict();
 
-export type Dests = z.infer<typeof DestsSchema>;
 export type GraphFile = z.infer<typeof GraphFileSchema>;

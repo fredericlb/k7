@@ -6,6 +6,7 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { basename, join } from "node:path";
+import { ffmpegBin, input, spawnError } from "@studio/ffmpeg";
 import { wsExists, wsRead } from "@studio/song/yaml/workspaceFile";
 
 /** One spoken segment, in the SOURCE video's own seconds. */
@@ -80,26 +81,33 @@ const stderrTail = (err: Buffer | string | undefined): string =>
     .slice(-3)
     .join(" · ");
 
+/** ffmpeg's arguments for the 16 kHz mono wav whisper reads, the user's video opened under the whitelist. */
+export const extractAudioArgs = (video: string, wav: string): string[] => [
+  "-y",
+  "-hide_banner",
+  "-loglevel",
+  "error",
+  ...input(video),
+  "-vn", // no picture: it is the sound whisper listens to
+  "-ac",
+  "1",
+  "-ar",
+  "16000",
+  wav,
+];
+
 /** The audio whisper needs, decoded by ffmpeg — which this machine has, renders being made with it. */
 export function extractAudio(video: string, wav: string): void {
-  const r = spawnSync(
-    "ffmpeg",
-    [
-      "-y",
-      "-hide_banner",
-      "-loglevel",
-      "error",
-      "-i",
-      video,
-      "-vn", // no picture: it is the sound whisper listens to
-      "-ac",
-      "1",
-      "-ar",
-      "16000",
-      wav,
-    ],
-    { stdio: ["ignore", "ignore", "pipe"] },
-  );
+  const bin = ffmpegBin();
+  const r = spawnSync(bin, extractAudioArgs(video, wav), {
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  if (r.error)
+    throw spawnError(
+      r.error,
+      bin,
+      "transcribing a video decodes its sound with ffmpeg. Install it.",
+    );
   if (r.status !== 0 || !wsExists(wav))
     throw new Error(
       `ffmpeg could not read ${basename(video)}: ${stderrTail(r.stderr)}`,

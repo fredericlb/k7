@@ -135,8 +135,8 @@ error.
 
 Vitest defaults to **5 000 ms** per test, and many of this repo's test files scaffold a real
 project on disk. Passing alone, such a suite goes over that budget under thirty concurrent
-workspaces on Windows, where it fails on a different test every run —
-`@studio/song`'s `migrateSetPlatter › is idempotent` and `jsdspModule` among them.
+workspaces on Windows, where it fails on a different test every run, most of them in
+`@studio/song`.
 
 Every one of them passes alone. **The tests were never wrong; the budget was.** A red that moves
 is worse than a red that stays, because it teaches you to re-run instead of read.

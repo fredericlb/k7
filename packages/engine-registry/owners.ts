@@ -8,7 +8,7 @@ import { loadJson, saveJson } from "./stateFile.ts";
 /** The file's name under a host's state dir. */
 export const OWNERS_FILE = "engine-owners.json";
 /** Past this many owned ids the oldest record goes, so the file cannot grow for ever. */
-export const MAX_OWNED = 10_000;
+const MAX_OWNED = 10_000;
 /** How many accounts one engine may be shared with. */
 export const MAX_SHARED = 50;
 

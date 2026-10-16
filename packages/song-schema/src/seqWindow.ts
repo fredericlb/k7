@@ -4,6 +4,7 @@
 
 import { isMap, isScalar, parseDocument } from "yaml";
 import { parsePosition } from "./timecode";
+import { YAML_READ } from "./yaml/yamlText";
 
 export interface SeqWindow {
   /** Where the window opens, in beats. 0 when the file states no `from`. */
@@ -26,7 +27,7 @@ export function seqWindowFromText(
 ): SeqWindow | null {
   let doc: ReturnType<typeof parseDocument>;
   try {
-    doc = parseDocument(text, { version: "1.2" });
+    doc = parseDocument(text, YAML_READ);
   } catch {
     return null;
   }

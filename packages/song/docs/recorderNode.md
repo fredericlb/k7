@@ -80,7 +80,7 @@ A browser naming any file on the machine is the failure this exists to prevent, 
 enough that there is no argument for trusting the frame instead.
 
 The path travels **JSON-quoted** — `node record save "C:\\Users\\…\\rec-1.wav"` — and
-`firstArg` in [commands.ts](../../commands/src/commands.ts) parses it back with `JSON.parse`.
+`firstArg` in [verbs/shared.ts](../../commands/src/verbs/shared.ts) parses it back with `JSON.parse`.
 Nothing else survives the trip: a take's path is absolute, on Windows it is full of backslashes,
 and a project folder may hold a space. Merely stripping the quotes, which is what the other verbs
 do to a node name, hands the check `C:\\Users` and it refuses a take that was right there.

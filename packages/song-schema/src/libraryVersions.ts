@@ -3,6 +3,7 @@
 // the file service and the browser read them by the same rules. Rationale: docs/library-versions-plan.md.
 
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { YAML_READ } from "./yaml/yamlText";
 
 /** What this k7 can run: a library whose `requires` is above it is refused — raise it when a library may use something new. */
 export const LIBRARY_LEVEL = 1;
@@ -23,7 +24,7 @@ export const LIBRARY_PINS_FILE = "_library-pins.yaml";
 export const UNPINNED_VERSION = 1;
 
 /** A published version's folder name: a positive integer, written without leading zeros. */
-export const VERSION_DIR = /^[1-9][0-9]{0,5}$/;
+const VERSION_DIR = /^[1-9][0-9]{0,5}$/;
 
 /** A folder name as the version it holds, or null when it is no version folder. */
 export function versionOfDir(name: string): LibraryVersion | null {
@@ -47,7 +48,7 @@ const int = (v: unknown): number | null =>
 export function parseLibraryManifest(text: string): LibraryManifest | null {
   let doc: unknown;
   try {
-    doc = parseYaml(text, { version: "1.2" });
+    doc = parseYaml(text, YAML_READ);
   } catch {
     return null;
   }
@@ -79,7 +80,7 @@ export type LibraryPins = Record<string, LibraryVersion>;
 export function parseLibraryPins(text: string): LibraryPins {
   let doc: unknown;
   try {
-    doc = parseYaml(text, { version: "1.2" });
+    doc = parseYaml(text, YAML_READ);
   } catch {
     return {};
   }

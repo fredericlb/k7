@@ -29,6 +29,21 @@ export interface RemoteConfig {
 
 export class RemoteError extends Error {}
 
+/** The library's own measurement of a file: computed once there and kept in its cache. */
+export interface RemoteEnvelope {
+  sampleRate: number;
+  seconds: number;
+  rms: number[];
+  transients: number[];
+}
+
+/** The hosted service: a `LibrarySource`, plus what only a browser-facing host asks of it. */
+export interface RemoteLibrary extends LibrarySource {
+  /** Like `download`, through `/stream`: a FLAC lands as its MP3 transcode, anything else unchanged. */
+  stream(path: string, dest: string): Promise<void>;
+  envelope(path: string): Promise<RemoteEnvelope>;
+}
+
 /** Everything an `Error` knows, its `cause` chain flattened into the message — see docs/sync.md. */
 function why(e: unknown): string {
   const parts: string[] = [];
@@ -43,20 +58,23 @@ function why(e: unknown): string {
 }
 
 /** The hosted service as a `LibrarySource`. */
-export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
+export function remoteLibrary(cfg: RemoteConfig): RemoteLibrary {
   const url = (path: string): string =>
     `${cfg.base.replace(/\/+$/, "")}${cfg.route ?? "/api/mediatek"}${path}`;
   const headers: Record<string, string> = cfg.token
     ? { authorization: `Bearer ${cfg.token}` }
     : {};
 
-  const get = async (path: string): Promise<Response> => {
+  const get = async (
+    path: string,
+    timeoutMs = 10 * 60_000,
+  ): Promise<Response> => {
     let res: Response;
     try {
       // Bounded, body included — a file comes this way too, so minutes, never for ever.
       res = await fetch(url(path), {
         headers,
-        signal: AbortSignal.timeout(10 * 60_000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (e) {
       // The ADDRESS, not just the path: it is derived, so which library it tried is half the answer.
@@ -84,33 +102,40 @@ export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
         ).json()) as { files: Manifest }
       ).files,
 
-    /** One file onto the disk, through a TEMPORARY name so a truncated master never appears — docs/sync.md. */
-    async download(path, dest) {
-      const res = await get(`/file?path=${encodeURIComponent(path)}`);
-      if (!res.body) throw new RemoteError(`mediatek ${path}: empty response`);
-      mkdirSync(dirname(dest), { recursive: true });
-      // A random suffix, not just `.part`: two callers racing a cache miss for the SAME dest
-      // must never share one temp file — the first to rename would delete it out from under
-      // the second, which then fails the rename with an ENOENT that names no real cause.
-      const part = `${dest}.${randomUUID()}.part`;
-      try {
-        // Streamed to disk: a video must never be held whole in memory on the way through.
-        await pipeline(Readable.fromWeb(res.body), createWriteStream(part));
-        // `dest` may be the master the engine is playing — docs/rename.md.
-        await placeFile(part, dest);
-      } catch (e) {
-        rmSync(part, { force: true }); // never leave half a file to be mistaken for a whole one
-        // `terminated` alone says only "the body stopped"; the cause says which of six things it was.
-        throw new RemoteError(
-          `mediatek GET ${url(`/file`)} ${path}: ${why(e)}`,
-        );
-      }
-    },
+    download: (path, dest) => toDisk("/file", path, dest),
+    stream: (path, dest) => toDisk("/stream", path, dest),
+
+    // The library may measure the file first, hours of audio: minutes, not for ever.
+    envelope: async (path) =>
+      (await (
+        await get(`/envelope?path=${encodeURIComponent(path)}`, 5 * 60_000)
+      ).json()) as RemoteEnvelope,
   };
+
+  /** One file onto the disk, through a TEMPORARY name so a truncated master never appears — docs/sync.md. */
+  async function toDisk(route: string, path: string, dest: string) {
+    const res = await get(`${route}?path=${encodeURIComponent(path)}`);
+    if (!res.body) throw new RemoteError(`mediatek ${path}: empty response`);
+    mkdirSync(dirname(dest), { recursive: true });
+    // A random suffix, not just `.part`: two callers racing a cache miss for the SAME dest
+    // must never share one temp file — the first to rename would delete it out from under
+    // the second, which then fails the rename with an ENOENT that names no real cause.
+    const part = `${dest}.${randomUUID()}.part`;
+    try {
+      // Streamed to disk: a video must never be held whole in memory on the way through.
+      await pipeline(Readable.fromWeb(res.body), createWriteStream(part));
+      // `dest` may be the master the engine is playing — docs/rename.md.
+      await placeFile(part, dest);
+    } catch (e) {
+      rmSync(part, { force: true }); // never leave half a file to be mistaken for a whole one
+      // `terminated` alone says only "the body stopped"; the cause says which of six things it was.
+      throw new RemoteError(`mediatek GET ${url(route)} ${path}: ${why(e)}`);
+    }
+  }
 }
 
 /** Where a library's content is PUT — separate from `LibrarySource`, because a cache only ever reads. */
-export interface LibrarySink {
+interface LibrarySink {
   put(path: string, body: Uint8Array | Blob | string): Promise<void>;
   remove(path: string): Promise<void>;
   /** A whole subtree — its own method, so removing a folder is never done while meaning one entry. */
@@ -241,24 +266,4 @@ export async function pushRecording(
       `mediatek recording: ${res.status} ${res.statusText}`,
     );
   return (await res.json()) as { path: string; day: string; name: string };
-}
-
-/** Tell the library a song's detected tempo, one way and never overwriting — see docs/songs.md. */
-export async function pushSongBpm(
-  cfg: RemoteConfig,
-  folder: string,
-  bpm: number,
-): Promise<{ set: boolean }> {
-  const res = await fetch(`${cfg.base.replace(/\/+$/, "")}/api/mediatek/bpm`, {
-    method: "POST",
-    headers: {
-      ...(cfg.token ? { authorization: `Bearer ${cfg.token}` } : {}),
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({ path: folder, bpm }),
-    signal: AbortSignal.timeout(30_000),
-  });
-  if (!res.ok)
-    throw new RemoteError(`mediatek bpm: ${res.status} ${res.statusText}`);
-  return (await res.json()) as { set: boolean };
 }

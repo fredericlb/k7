@@ -9,12 +9,12 @@ import { loadJson, saveJson } from "./stateFile.ts";
 /** The file's name under a host's state dir. */
 export const BINDINGS_FILE = "engine-bindings.json";
 /** Past this many ids the least recently seen binding goes, so an open heartbeat cannot grow the file for ever. */
-export const MAX_BINDINGS = 10_000;
+const MAX_BINDINGS = 10_000;
 /** A bound id seen again rewrites its `at` at most this often, so a heartbeat every 5 s is not a write every 5 s. */
 const REFRESH_MS = 24 * 60 * 60_000;
 
 /** `bound`: the id's own secret; `fresh`: an unbound id offering one; `legacy`: unbound and none offered; `refused`: bound to another. */
-export type BindingVerdict = "bound" | "fresh" | "legacy" | "refused";
+type BindingVerdict = "bound" | "fresh" | "legacy" | "refused";
 
 export interface SecretBindings {
   /** What `secret` is worth for `id`, changing nothing. */

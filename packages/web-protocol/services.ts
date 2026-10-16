@@ -146,6 +146,13 @@ const LOOPBACK = /^(localhost|127(\.\d{1,3}){3}|\[::1\])$/;
 export const isLoopbackHost = (hostname: string): boolean =>
   LOOPBACK.test(hostname);
 
+/** A socket peer address on this machine — `127.0.0.0/8`, `::1`, or either IPv4 one in its IPv4-mapped spelling. */
+export function isLoopbackAddress(address: string | undefined): boolean {
+  if (!address) return false;
+  const a = address.replace(/^::ffff:/i, "");
+  return a === "::1" || /^127(\.\d{1,3}){3}$/.test(a);
+}
+
 /**
  * Which studio family a URL belongs to, as one key: k7's origin, whichever service was named —
  * or, on a loopback host where every service is a port of the same host, that host alone.

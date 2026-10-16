@@ -1,5 +1,5 @@
-// EngineQueries.cpp — see EngineQueries.h. The deadlines are the ones the TypeScript supervisor
-// used: a plugin list can be thousands of entries, and a device switch opens hardware.
+// EngineQueries.cpp — see EngineQueries.h. The deadlines are generous on purpose: a plugin list
+// can be thousands of entries, and a device switch opens hardware.
 
 #include "EngineQueries.h"
 

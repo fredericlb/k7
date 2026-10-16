@@ -17,7 +17,7 @@ export interface SyncWaitStrings {
   offline: (files: number) => string;
 }
 
-export const SYNC_WAIT_ENGLISH: SyncWaitStrings = {
+const SYNC_WAIT_ENGLISH: SyncWaitStrings = {
   title: (workspace) => `Syncing ${workspace}`,
   connecting: "Reaching the server…",
   catchingUp: "Bringing the latest edits…",

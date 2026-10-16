@@ -37,8 +37,8 @@ whatever its name, which is git's own test.
 
 ## One recursive `fs.watch`, and sweeps behind it
 
-One handle per workspace, for the reason `moduleWatch.md` gives against chokidar: a handle on every
-directory stops its parent from being renamed on Windows, and renaming a project is routine.
+One handle per workspace, for the reason `moduleWatch.md` gives: a handle on every directory stops
+its parent from being renamed on Windows, and renaming a project is routine.
 
 A watcher can lose events. One started beside another missed a write made in its first moments
 (measured on macOS, in the test that now covers it). So:
@@ -53,6 +53,19 @@ work proportional to everything stored, active or not. An active one keeps the f
 the watcher it backs up does miss: Linux's recursive one can lose a rewrite, and five seconds is
 how long such an edit then waits. A write through the file service needs no sweep at all, since
 its mutation window closing sweeps on its own.
+
+### The change feed
+
+The capture is also the one place that hears every path in the workspace, so it hands that on:
+`onChange` reports each path the watcher reports, each file a sweep finds moved, and each file
+written for another replica, with a generation that moves on every one. The strudel watch and the
+module watch subscribe to it rather than open watchers of their own over the same folders — one
+handle per workspace instead of three, and none inside a project to release before it is renamed.
+
+It reports more than happened rather than less: a save is heard from the watcher and again from the
+batch it becomes. A subscriber that acts on an event (the strudel one re-sends the song) coalesces
+them; one that only counts (the module one) does not need to. With live sync off (`STUDIO_LIVE_SYNC=0`)
+there is no capture, and each subscriber falls back to a recursive `fs.watch` of its own.
 
 A file whose mtime has not SETTLED is re-read even when its stamp matches. A same-size rewrite inside
 one timestamp tick keeps the stamp, the hazard `history.md` describes for the undo journal.

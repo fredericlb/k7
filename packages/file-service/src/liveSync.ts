@@ -62,7 +62,7 @@ export interface Attached {
 
 const attached = new Map<string, Attached>();
 
-export const liveSyncOn = (): boolean => process.env.STUDIO_LIVE_SYNC !== "0";
+const liveSyncOn = (): boolean => process.env.STUDIO_LIVE_SYNC !== "0";
 
 /** The captured workspace at `root`, for the move and the routes that look at its sync. */
 export const attachedAt = (root: string): Attached | undefined =>

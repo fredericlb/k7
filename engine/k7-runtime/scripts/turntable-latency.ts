@@ -2,22 +2,16 @@
 //
 //   npx tsx engine/k7-runtime/scripts/turntable-latency.ts [ws://127.0.0.1:8765] [--n=12]
 //
-// The platter follows a hand accurately (docs/turntable.md); this asks the other question, which is
-// whether it follows SOON. It steps the rate at a known moment and finds where the tone changed.
-//
-// The tap carries its own buffering, so the stream's origin is estimated by keeping the LEAST
-// DELAYED frame of the run — the technique `@studio/engine-browser/playhead-clock` uses for the same
-// reason, and for the same reason it converges on the minimum rather than the mean.
-//
-// WHAT IT INCLUDES: the socket, the engine's message queue, the block boundary, and the plugin's
-// 6 ms glide. WHAT IT EXCLUDES: the audio device's own output buffer, which the tap sits before —
-// add `2 x buffer / rate` from `whoami` for what a speaker does. See docs/turntable.md.
+// It steps the rate at a known moment and finds where the tone changed. It includes the socket, the
+// queue, the block boundary and the 6 ms glide, and excludes the device's own output buffer; the
+// stream's origin is the LEAST delayed frame. Why, and the numbers: docs/turntable.md.
 
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
 import { onBroadcast } from "./platterBench";
+import { wavFile } from "./wav.ts";
 
 const url =
   process.argv.find((a) => a.startsWith("ws://")) ?? "ws://127.0.0.1:8765";
@@ -43,24 +37,11 @@ function tone(): string {
     phase += (2 * Math.PI * TONE) / RATE;
     pcm.writeInt16LE(Math.round(Math.sin(phase) * 0.25 * 32767), i * 2);
   }
-  const h = Buffer.alloc(44);
-  h.write("RIFF", 0);
-  h.writeUInt32LE(36 + pcm.length, 4);
-  h.write("WAVEfmt ", 8);
-  h.writeUInt32LE(16, 16);
-  h.writeUInt16LE(1, 20);
-  h.writeUInt16LE(1, 22);
-  h.writeUInt32LE(RATE, 24);
-  h.writeUInt32LE(RATE * 2, 28);
-  h.writeUInt16LE(2, 32);
-  h.writeUInt16LE(16, 34);
-  h.write("data", 36);
-  h.writeUInt32LE(pcm.length, 40);
   const file = join(
     mkdtempSync(join(process.env.STUDIO_SCRATCH ?? tmpdir(), "m9-lat-")),
     "tone.wav",
   );
-  writeFileSync(file, Buffer.concat([h, pcm]));
+  writeFileSync(file, wavFile(pcm, RATE, 1, 16));
   return file;
 }
 
@@ -228,8 +209,7 @@ function finish() {
       `le socket, pas le glissement. Ici ${spread.toFixed(1)} ms d'étendue pour ${block.toFixed(1)} ms de bloc,\n` +
       `médiane ${at50.toFixed(1)} ms pour ${(block / 2).toFixed(1)} attendue.`,
   );
-  // Said rather than hidden: the origin is the LEAST delayed guess, so it leans early and some
-  // readings fall below zero. Those are dropped, which is why the count is not the number of steps.
+  // Said rather than hidden: the origin leans early, so readings below zero are dropped and counted here.
   console.log(
     `\n${steps.length - found.length} pas écartés : l'origine du flux est estimée sur la trame la MOINS\n` +
       `retardée, donc elle penche tôt et pousse quelques lectures sous zéro. Le chiffre est un\n` +

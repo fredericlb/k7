@@ -25,7 +25,7 @@ import {
 } from "./syncRemote.ts";
 
 /** Who passed `deviceGate`: the account, the person who paired the device when its token says (older ones do not), the device's name. */
-export interface SyncCaller {
+interface SyncCaller {
   slug: string;
   person: string | null;
   /** The name the device was paired under; null for a hub secret. */

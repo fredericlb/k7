@@ -1,6 +1,8 @@
 // path.ts — the one rule every workspace path on the wire obeys: relative, POSIX, and unable to climb out.
 // An op's `file` comes from another replica, so whoever writes it treats it as untrusted. See ../docs/ops.md.
 
+import { isPlainSegment } from "@studio/web-protocol/paths";
+
 /** Why `file` cannot name a workspace file, or null when it can. */
 export function syncPathError(file: unknown): string | null {
   if (typeof file !== "string" || file === "") return "empty path";
@@ -10,7 +12,7 @@ export function syncPathError(file: unknown): string | null {
   if (/^[A-Za-z]:/.test(file)) return "drive letter";
   if (file.startsWith("/")) return "absolute path";
   for (const seg of file.split("/"))
-    if (seg === "" || seg === "." || seg === "..") return `'${seg}' segment`;
+    if (!isPlainSegment(seg)) return `'${seg}' segment`;
   return null;
 }
 

@@ -219,11 +219,13 @@ plugin at all (`@studio/song`'s [coldModules.md](../../song/docs/coldModules.md)
   (`coldStepOf`), so a machine that has not downloaded it costs no time and leaves no file — and
   the two failures are told apart: a module authored with no `onnx:` is a bug, a model missing
   from `<state>/models` is a download.
+- **A cold chain this machine cannot run yet is still LISTED** (`coldChains`), with the reason.
+  An undownloaded model is a fact about the machine, not about the chain, and it is fixed without
+  touching the library; hidden, a library full of separating chains reads as holding none.
 
-**Nothing puts either of these in your library.** The account's libraries repository is the
-reference and nothing seeds it, so `stemsplit` the MODULE and a chain naming it are both things to
-author there; what the module has to say is in `@studio/dsp`'s `docs/catalogue.md`. The chain is
-one file:
+**The seed carries both.** `k7-core/` holds `stemsplit` the MODULE (`modules/cold/stemsplit`) and
+`chains/stems.k7x` naming it, so a library seeded from it can separate from its first day; what the
+module has to say is in `@studio/dsp`'s `docs/catalogue.md`. The chain is one file, in substance:
 
 ```yaml
 # <library>/chains/stems.yaml
@@ -245,8 +247,8 @@ names, and over the MACHINE's copies (`<state>/mediatek/songs/…`), since that 
 opens. Three properties make it a command you run the night before rather than once: a song whose
 `stems/` already holds something is skipped, the registry's id hashes the WORK (so even an
 interrupted pass costs nothing twice), and an unreadable song costs its own line rather than the
-other twenty-nine. Writing into that cache is safe — `syncFamily` drops what it once fetched
-(`heldManifest`), never what it finds beside it.
+other twenty-nine. Writing beside a song is safe: nothing on the machine prunes a song folder of
+files it did not put there.
 
 What a deck then DOES with the four files — subtract one from the mix, and why that rather than
 summing the stems — is `packages/song-schema/docs/stems.md`.

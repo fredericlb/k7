@@ -26,13 +26,13 @@ import { deriveChains } from "./chainsGraph";
 import {
   baseModuleRefs,
   exportSub,
-  isPictureSource,
   loadChains,
   loadLanes,
   loadModuleRefs,
   loadModules,
   loadProjectRoot,
   loadVideoTracks,
+  readsAsPicture,
   withModuleStamp,
 } from "./loader";
 import { assetLookup, moduleAssetChoices } from "./moduleAssetChoices";
@@ -246,11 +246,11 @@ function projectHintsIn(dir: string): Hints {
 
   // Split by kind so the overlays keep an audio and a video reference apart — see docs/hints.md.
   const audioClips = Object.entries<any>(clips ?? {})
-    .filter(([, c]) => !isPictureSource(String(c?.source ?? "")))
+    .filter(([, c]) => !readsAsPicture(String(c?.source ?? "")))
     .map(([id]) => id)
     .sort();
   const videoClips = Object.entries<any>(clips ?? {})
-    .filter(([, c]) => isPictureSource(String(c?.source ?? "")))
+    .filter(([, c]) => readsAsPicture(String(c?.source ?? "")))
     .map(([id]) => id)
     .sort();
 

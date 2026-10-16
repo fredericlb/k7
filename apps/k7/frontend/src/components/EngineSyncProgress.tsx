@@ -2,9 +2,9 @@
 // machine: the project is sent, and plays, only once they are all there, so nothing is fetched
 // mid-set. Counts only what had to be copied. See packages/file-service/docs/engineSync.md.
 
+import { formatBytes } from "@studio/ui-chains-react/node-load";
 import type { EngineSyncState } from "@studio/web-protocol";
 import { m } from "../paraglide/messages.js";
-import { formatBytes } from "./UploadProgress";
 
 /** Whether `s` is a copy still running, as opposed to the report of one that went wrong. */
 export const syncRunning = (s: EngineSyncState | null | undefined): boolean =>

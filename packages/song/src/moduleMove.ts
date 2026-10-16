@@ -7,6 +7,7 @@ import { readdirSync, statSync } from "node:fs";
 import { basename, dirname, join, relative, sep } from "node:path";
 import { ENGINES_DIR } from "@studio/song-schema/engines";
 import { MODULE_TYPES } from "@studio/song-schema/moduleTypes";
+import { climbsOut } from "@studio/web-protocol/paths";
 import { moduleFileFor } from "./yaml/moduleIO";
 import { isDocName, wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
@@ -39,7 +40,7 @@ export function planModuleMove(
   const modules = join(library.root, "modules");
   const inside = (abs: string): string[] | null => {
     const rel = relative(modules, abs);
-    return !rel || rel.startsWith("..") ? (rel ? null : []) : rel.split(sep);
+    return !rel || climbsOut(rel) ? (rel ? null : []) : rel.split(sep);
   };
   const from = inside(moduleAbs);
   const to = inside(destAbs);
@@ -80,7 +81,7 @@ export function refAt(
   abs: string,
 ): string | null {
   const rel = relative(join(library.root, "modules"), abs);
-  if (!rel || rel.startsWith("..")) return null;
+  if (!rel || climbsOut(rel)) return null;
   return refOf(library.name, rel.split(sep));
 }
 

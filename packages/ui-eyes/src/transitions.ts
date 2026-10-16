@@ -10,7 +10,7 @@ import type { SceneTransition } from "./scene";
 export const DISSOLVE = "dissolve";
 
 /** …and the one a stretch with no `with:` compiles to — mirrored in @studio/song-schema's `OVER`. */
-export const OVER = "over";
+const OVER = "over";
 
 // The vertex stage every full-target program wants, and the same one a shader module ships.
 const VERTEX = `#version 300 es
@@ -21,9 +21,7 @@ void main() {
   gl_Position = vec4(aUnit * 2.0 - 1.0, 0.0, 1.0);
 }`;
 
-// Premultiplied on both sides, which is what makes ONE mix serve a cross-dissolve AND a fade to
-// nothing: against a transparent texel the colour and the coverage fall off together, so the
-// layer beneath shows through instead of the picture darkening on its way out.
+// Premultiplied on both sides, so ONE mix serves a cross-dissolve and a fade to nothing (docs/compositor.md).
 const FRAGMENT = `#version 300 es
 precision mediump float;
 in vec2 vUV;

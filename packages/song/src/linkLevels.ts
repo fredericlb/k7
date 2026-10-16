@@ -7,7 +7,7 @@ import { splitPort } from "@studio/song-schema/moduleTypes";
 import type { Chain } from "./graph";
 
 /** The node a chain's outs leave from: its last step, else its source — the `<from>` of a level key. */
-export const lastNodeOf = (c: Chain): string | undefined =>
+const lastNodeOf = (c: Chain): string | undefined =>
   c.use.length ? c.use[c.use.length - 1].module : c.from;
 
 /** Each out's gain from `levels` (keyed `<from>><to>` as toSegments spells it), in place. */
@@ -27,7 +27,7 @@ export function applyLinkLevels(
 }
 
 /** Is `to` a bus the compile sends to — a chain of its own, entered by its main input, fed by no lane. */
-export const isBusTarget = (
+const isBusTarget = (
   chains: Record<string, Chain>,
   to: string,
   isSink: (to: string) => boolean,

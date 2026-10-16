@@ -16,6 +16,7 @@ import { MAX_FRAME_BYTES } from "@studio/engine-tunnel/frames";
 import type { TunnelHub } from "@studio/engine-tunnel/hub";
 import {
   ENGINE_DIAL_TIMEOUT_MS,
+  ENGINE_PROXY_PATH,
   ENGINE_REACH_BUDGET_MS,
 } from "@studio/web-protocol";
 import { WebSocket, WebSocketServer } from "ws";
@@ -27,9 +28,8 @@ import { type Frame, RelayGate } from "./relayGate.ts";
 const SECRET = randomBytes(32);
 const TICKET_TTL_MS = 60_000; // a ticket only needs to survive the handshake it was minted for
 
-/** Where the relay listens, under each service's `/api`; the id is in the path so a ticket cannot be replayed elsewhere. */
-export const ENGINE_PROXY_PATH = "/api/engine";
-const WS_ROUTE = /^\/api\/engine\/([^/]+)\/ws$/;
+// The id is in the path so a ticket cannot be replayed elsewhere.
+const WS_ROUTE = new RegExp(`^${ENGINE_PROXY_PATH}/([^/]+)/ws$`);
 
 const b64url = (buf: Buffer): string =>
   buf

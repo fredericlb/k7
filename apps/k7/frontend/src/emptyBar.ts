@@ -8,7 +8,7 @@ import type { PaletteCommand } from "./components/CommandBar";
 export const EMPTY_RECENT_MAX = 5;
 
 /** The first verbs a newcomer needs: make a lane, find a file, see the mix, read the help. */
-export const STARTER_COMMANDS: readonly string[] = [
+const STARTER_COMMANDS: readonly string[] = [
   "track new",
   "ui file",
   "ui mixer",

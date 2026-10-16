@@ -69,8 +69,9 @@ the builder's Preset menu holds the plugin's factory banks only (`packages/song/
 
 ## The shared package, and the seam
 
-`@studio/ui-module-builder`: `ModuleBuilder.tsx`, `WidgetGridEditor.tsx`, `YamlPane.tsx`,
-`moduleUi.ts` and `paramDrag.ts`, plus `store.ts` — the seam. Both apps draw it.
+`@studio/ui-module-builder`: `ModuleBuilder.tsx`, `WidgetGridEditor.tsx`, `moduleUi.ts` and
+`paramDrag.ts`, plus `store.ts` — the seam; its YAML pane is `@studio/ui-editor`'s `YamlPane.tsx`.
+Both apps draw it.
 
 **The seam is `ModuleStore`** (`read`, `moduleUi`, `hints`, `write` and the optional ones), and
 the builder never builds a path — it only hands back the ones it was given. The two path spaces
@@ -109,7 +110,7 @@ created in the builder, which offers them anyway — it is the entrance, not the
 
 The media library carries k7's chrome: families as tabs, the shared `FileTree` in the sidebar with
 context menus and drag and drop, a cog for the engine and for signing out. The backend has
-`POST /move`, `POST /folder` and `DELETE /folder` (`apps/k7/backend/src/media/routes/library.ts`, backed
+`POST /move`, `POST /folder` and `DELETE /folder` (`apps/k7/backend/src/media/routes/library/write.ts`, backed
 by `@studio/mediatek/write`).
 
 Trap in the shared `FileTree`: the context menu **does not open at all** if no action passes its

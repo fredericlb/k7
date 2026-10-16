@@ -214,7 +214,7 @@ else, which is the same failure that function stops for asset files.
 
 A module with bases offers `@base` in the builder's parameter list, so a widget can be bound to
 it like any other. The ENTRIES are not written into `ui.yaml`: the graph fills them at draw time
-from what the loader found (`withBaseOptions`), because a base can be snapshotted after the panel
+from what the loader found (`withFolderOptions` in `@studio/ui-chains`'s `graph.ts`), because a base can be snapshotted after the panel
 was authored and a list copied into the panel would go stale between saves. Same reason a live
 input's socket list is the machine's rather than the panel's.
 

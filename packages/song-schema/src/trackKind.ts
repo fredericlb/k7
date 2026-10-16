@@ -17,7 +17,7 @@ export const TRACK_FAMILIES = [
 export type TrackFamily = (typeof TRACK_FAMILIES)[number];
 
 // A track with no prefix, or an unknown one, sorts after every named family in its existing order.
-export const UNKNOWN_RANK = TRACK_FAMILIES.length;
+const UNKNOWN_RANK = TRACK_FAMILIES.length;
 
 // prefix -> [family, label]; the label is the human name the web app shows as a row's tooltip.
 export const TRACK_PREFIXES: Record<

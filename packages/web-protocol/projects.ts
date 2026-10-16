@@ -4,6 +4,7 @@
 // page — and the apps that read one back, so they are stated here, browser-safe, and nowhere
 // else. See apps/k7/frontend/docs/projects.md and packages/project-shell/docs/launch.md.
 
+import { isDotSegment } from "./paths.ts";
 import { type StudioService, serviceUrl } from "./services.ts";
 
 /** The apps a project folder can belong to. A subset of the services: k7 owns no projects. */
@@ -236,12 +237,7 @@ export function localTarget(
 ): { workspace: string; project: string } | null {
   const segs = segments(project);
   const workspace = segs.shift();
-  if (
-    !workspace ||
-    workspace === "." ||
-    workspace === ".." ||
-    workspace.includes("\\")
-  )
+  if (!workspace || isDotSegment(workspace) || workspace.includes("\\"))
     return null;
   return { workspace, project: segs.length ? segs.join("/") : "." };
 }

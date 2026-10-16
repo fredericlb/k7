@@ -2,9 +2,9 @@
 // runtime — a song folder has no node_modules and should never need one (the `import type` is
 // erased; see dspRunner.mjs).
 //
-// This is @studio/dsp's `noteRepeatGraph()`, written out here: a module is a FOLDER you can copy,
+// This is @studio/dsp's `noteRepeat()` graph, written out here: a module is a FOLDER you can copy,
 // so it carries its own source rather than pointing at a shared library.
-// packages/dsp/src/noteRepeat.test.ts holds the shared copy to its shape.
+// packages/dsp/src/k7core.test.ts holds the two to the same graph.
 //
 // `hold` before `strike` is the circuit; the four nodes between them say which strikes play and how
 // loud (engine/k7-runtime/docs/midiGraph.md). After the strike they would apply a block late.

@@ -8,8 +8,8 @@ import {
   USER_HEADER,
   WORKSPACE_HEADER,
 } from "@studio/web-protocol";
+import { isLoopbackHost } from "@studio/web-protocol/services";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
-import { isLoopbackHostname } from "../loopback.ts";
 
 /** What a page may send: the file hub's calls carry the studio headers, never the hub secret. */
 const ALLOWED_HEADERS = [
@@ -79,7 +79,7 @@ export function isAllowedOrigin(
     (u.hostname === domain || u.hostname.endsWith(`.${domain}`))
   )
     return true;
-  return policy.loopback && isLoopbackHostname(u.hostname);
+  return policy.loopback && isLoopbackHost(u.hostname);
 }
 
 /** Whether a request must be refused as a cross-site write, given what `isAllowedOrigin` said. */

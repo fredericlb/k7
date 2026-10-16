@@ -10,6 +10,7 @@
     "./aspect": "./src/aspect.ts",
     "./builtinParams": "./src/builtinParams.ts",
     "./curveMath": "./src/curveMath.ts",
+    "./docExt": "./src/docExt.ts",
     "./instanceName": "./src/instanceName.ts",
     "./libraryVersions": "./src/libraryVersions.ts",
     "./moduleTypes": "./src/moduleTypes.ts",
@@ -17,6 +18,7 @@
     "./playlist": "./src/playlist.ts",
     "./presets": "./src/presets.ts",
     "./reference": "./src/reference.ts",
+    "./renderSettings": "./src/renderSettings.ts",
     "./tasks": "./src/tasks.ts",
     "./projectTags": "./src/projectTags.ts",
     "./seqWindow": "./src/seqWindow.ts",
@@ -56,7 +58,8 @@
     "./yaml/sugar": "./src/yaml/sugar.ts",
     "./yaml/videoTrackFile": "./src/yaml/videoTrackFile.ts",
     "./keyframes": "./src/keyframes.ts",
-    "./yaml/videoKeys": "./src/yaml/videoKeys.ts"
+    "./yaml/videoKeys": "./src/yaml/videoKeys.ts",
+    "./yaml/yamlText": "./src/yaml/yamlText.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -70,6 +73,7 @@
   "dependencies": {
     "yaml": "^2.5.0",
     "zod": "^4.4.3",
+    "@studio/graph-model": "*",
     "@studio/engine-protocol": "*",
     "@studio/k7x": "*",
     "@studio/web-protocol": "*"

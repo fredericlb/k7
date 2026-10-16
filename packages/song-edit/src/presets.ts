@@ -5,7 +5,7 @@
 // is for — a workspace may keep presets for a library module. See packages/song/docs/userPresets.md.
 
 import { mkdirSync, readdirSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { swappedModule } from "@studio/song/alternatives";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { loadModuleRefs, loadModules } from "@studio/song/loader";
@@ -25,6 +25,7 @@ import {
   wsRead,
   wsWrite,
 } from "@studio/song/yaml/workspaceFile";
+import { stripDocExt } from "@studio/song-schema/docExt";
 import { currentEngine, engineNames } from "@studio/song-schema/engines";
 import {
   ACCOUNT_LIBRARY,
@@ -49,6 +50,8 @@ import {
   setAlternativeField,
   setAlternativeParam,
 } from "@studio/song-schema/yaml/alternativeFile";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
+import { isBelow } from "@studio/web-protocol/paths";
 import { parse as parseYaml } from "yaml";
 import { selectModuleEngine } from "./engineSwitch";
 import { editModuleFile } from "./projectEdit";
@@ -69,7 +72,7 @@ export function presetRefOf(dir: string, node: string): string | null {
 }
 
 /** Every scope this project can keep a preset in: its workspace, then each library by name. */
-export function presetScopes(dir?: string): PresetScope[] {
+function presetScopes(dir?: string): PresetScope[] {
   return [
     WORKSPACE_SCOPE,
     ACCOUNT_LIBRARY,
@@ -110,8 +113,7 @@ export function presetFile(
     );
   const folder = presetFolder(dir, scope, ref);
   const path = resolve(folder, `${name}.yaml`);
-  if (!path.startsWith(folder + sep))
-    throw new Error(`invalid preset name '${name}'`);
+  if (!isBelow(folder, path)) throw new Error(`invalid preset name '${name}'`);
   return path;
 }
 
@@ -126,7 +128,7 @@ export function listNodePresets(dir: string, node: string): NodePresets {
     if (!wsExists(folder)) continue;
     const names = readdirSync(folder, { withFileTypes: true })
       .filter((e) => e.isFile() && isDocName(e.name))
-      .map((e) => e.name.replace(/\.(ya?ml|k7x)$/i, ""))
+      .map((e) => stripDocExt(e.name))
       .filter((n) => PRESET_NAME.test(n))
       .sort((a, b) => a.localeCompare(b));
     for (const name of names) presets.push({ scope, name });
@@ -135,7 +137,7 @@ export function listNodePresets(dir: string, node: string): NodePresets {
 }
 
 /** One preset's content; a file the schema refuses throws with the reason, since applying half of one would be worse. */
-export function readPreset(
+function readPreset(
   dir: string,
   scope: PresetScope,
   ref: string,
@@ -146,7 +148,7 @@ export function readPreset(
   if (!wsExists(found))
     throw new Error(`no preset '${name}' in ${scope} for ${ref}`);
   const r = PresetFileSchema.safeParse(
-    parseYaml(wsRead(found), { version: "1.2" }) ?? {},
+    parseYaml(wsRead(found), YAML_READ) ?? {},
   );
   if (!r.success)
     throw new Error(
@@ -195,7 +197,7 @@ function chosenBase(
 }
 
 /** What a node plays as right now: its resolved numeric params, the engine and base they belong to, and a rack's kit. */
-export function nodeSnapshot(dir: string, node: string): PresetFile {
+function nodeSnapshot(dir: string, node: string): PresetFile {
   const m = loadModules(dir)[node];
   if (!m) throw new Error(`no node named '${node}'`);
   const resolved = resolveModule(m, loadModuleRefs(dir));

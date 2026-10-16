@@ -6,6 +6,13 @@ The file service serves many users' workspaces from one process, so `root`, the 
 project and the compiled/waveform caches all live on a `Workspace` instance rather than in
 module state, and the path-traversal guards (`safePath`/`toRel`) read `this.root`.
 
+`Workspace` is the facade every route calls; the work behind most of its methods lives beside it,
+each file reaching the instance only through a small host of closures (`ModulesHost`,
+`EntriesHost`, `HistoryHost`…) so `safePath` stays private: `workspaceModules.ts`,
+`workspaceEntries.ts`, `workspaceHistory.ts`, `workspaceListings.ts`, `workspaceDocs.ts`,
+`previewSource.ts`, `projectWalk.ts`, `webTracks.ts` and `activeMarker.ts`. What stays in the class
+is what holds state — the active project, the caches keyed on the revision, the walk scope.
+
 The active project is remembered per-workspace in a marker file BESIDE the root, never in it:
 `<the workspaces' folder>/.active-projects/<workspace>` (`activeMarkerOf`). Which project is open
 here is this machine's state, not the band's, so it must not travel with the workspace to another
@@ -203,10 +210,10 @@ not noticed a folder yet, which is a wait, not a lie.
    workspace (by an unzip, a sync, a CLI run) pointing at `~/.ssh` passes gate 1 happily,
    and `GET /file?path=link/id_rsa` would read straight through it.
 
-The trap in gate 2 is that `realpathSync` throws ENOENT for a path being CREATED, which would break
-every write to a new file. So it realpaths the nearest ancestor that exists and re-attaches the
-rest: a component that does not exist yet cannot be a symlink, so nothing is lost by not resolving
-it. An unreadable ancestor falls back to the lexical answer, which has already passed.
+Both are `confineTo` (`packages/song/src/confine.ts`), the one check every path read from a song
+file passes too, so the workspace and the song files cannot disagree about what escapes. A path
+being CREATED does not exist yet, so it checks the nearest ancestor that does: a component that
+does not exist cannot be a symlink. An ancestor that exists and cannot be resolved is refused.
 
 `guardShared` sits on top for STRUCTURE: `_modules` is shared by every project in the workspace,
 so its files are edited in place and never renamed, moved or deleted through the routes that do

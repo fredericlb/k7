@@ -3,7 +3,8 @@
 // A base may sit in a subfolder, and is then named by its path: `Pads/Bell Pad`.
 
 import { existsSync, readdirSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { join, resolve } from "node:path";
+import { isBelow } from "@studio/web-protocol/paths";
 import { wsExists } from "./yaml/workspaceFile";
 
 /** The folder a module keeps its bases in, and the extensions a base file carries. */
@@ -53,7 +54,7 @@ export function basePresetIn(
   const root = resolve(folder, MODULE_BASES_DIR);
   for (const ext of BASE_EXTS) {
     const file = resolve(root, `${base.trim()}${ext}`);
-    if (file.startsWith(root + sep) && wsExists(file)) return file;
+    if (isBelow(root, file) && wsExists(file)) return file;
   }
   return undefined;
 }

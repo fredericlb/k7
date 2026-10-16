@@ -6,6 +6,7 @@
 
 import { isSeq, parseDocument } from "yaml";
 import { beatsToPosition, parsePosition } from "../timecode";
+import { YAML_READ, YAML_WRITE } from "./yamlText";
 
 export interface NoteIn {
   t: number;
@@ -16,8 +17,6 @@ export interface NoteIn {
   repeat?: number;
   skip?: number;
 }
-
-const OPTS = { version: "1.2" as const, lineWidth: 0 };
 
 /** Is `n` a note this can write — finite times, a positive length, a real MIDI key? */
 export const isPlayableNote = (n: Partial<NoteIn>): n is NoteIn =>
@@ -30,7 +29,7 @@ export const isPlayableNote = (n: Partial<NoteIn>): n is NoteIn =>
 
 /** Append `notes` to the sequence's list (creating it if absent), in the order given — the engine reads the list as a set, not in order. */
 export function appendNotes(text: string, notes: NoteIn[]): string {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const nodes = notes.map((n) => {
     const node = doc.createNode({
       t: n.t,
@@ -47,7 +46,7 @@ export function appendNotes(text: string, notes: NoteIn[]): string {
   const list = doc.getIn(["notes"]);
   if (isSeq(list)) list.items.push(...nodes);
   else doc.setIn(["notes"], doc.createNode(nodes));
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** Two beat positions that are the same one. The times are decimals a surface computed. */
@@ -55,7 +54,7 @@ const EPS = 1e-6;
 
 /** The index of the note on key `k` starting at `t`, or -1 — how every surface addresses one (docs/noteEdits.md). */
 export function findNote(text: string, k: number, t: number): number {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const list = doc.getIn(["notes"]);
   if (!isSeq(list)) return -1;
   return list.items.findIndex(
@@ -77,19 +76,19 @@ export function setNoteTimeRange(
   if (at < 0) throw new Error(`no note k${k} at beat ${t}`);
   if (!(newD > 0)) throw new Error("a note has to be longer than nothing");
   if (newT < 0) throw new Error("a note cannot start before the sequence does");
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   doc.setIn(["notes", at, "t"], newT);
   doc.setIn(["notes", at, "d"], newD);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** Remove one note, throwing on a miss like every note edit — see docs/noteEdits.md. */
 export function removeNote(text: string, k: number, t: number): string {
   const at = findNote(text, k, t);
   if (at < 0) throw new Error(`no note k${k} at beat ${t}`);
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   doc.deleteIn(["notes", at]);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** Move one note to another key and/or start — MOVED and not rebuilt, see docs/noteEdits.md. */
@@ -106,10 +105,10 @@ export function moveNote(
   const same = newK === k && Math.abs(newT - t) < EPS;
   if (!same && findNote(text, newK, newT) >= 0)
     throw new Error(`k${newK} already has a note at beat ${newT}`);
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   doc.setIn(["notes", at, "k"], newK);
   doc.setIn(["notes", at, "t"], newT);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** One note's way to somewhere else: from key `k` at `t` to key `nk` at `nt`. */
@@ -127,7 +126,7 @@ export interface NoteMove {
  */
 export function moveNotes(text: string, moves: readonly NoteMove[]): string {
   if (!moves.length) throw new Error("no note to move");
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const list = doc.getIn(["notes"]);
   if (!isSeq(list)) throw new Error("the sequence has no notes");
   const at = (k: number, t: number) =>
@@ -163,7 +162,7 @@ export function moveNotes(text: string, moves: readonly NoteMove[]): string {
     doc.setIn(["notes", from[j], "k"], m.nk);
     doc.setIn(["notes", from[j], "t"], m.nt);
   });
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** Cut one note in two at beat `at`, which must be strictly INSIDE it — see docs/noteEdits.md. */
@@ -175,7 +174,7 @@ export function splitNote(
 ): string {
   const i = findNote(text, k, t);
   if (i < 0) throw new Error(`no note k${k} at beat ${t}`);
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const d = Number(doc.getIn(["notes", i, "d"]) ?? Number.NaN);
   if (!Number.isFinite(d) || d <= 0)
     throw new Error(`the note k${k} at beat ${t} has no length to split`);
@@ -185,7 +184,7 @@ export function splitNote(
     );
   const v = doc.getIn(["notes", i, "v"]);
   doc.setIn(["notes", i, "d"], at - t);
-  return appendNotes(doc.toString({ lineWidth: 0 }), [
+  return appendNotes(doc.toString(YAML_WRITE), [
     { t: at, d: t + d - at, k, ...(typeof v === "number" ? { v } : {}) },
   ]);
 }
@@ -199,10 +198,10 @@ export function setNoteVelocity(
 ): string {
   const at = findNote(text, k, t);
   if (at < 0) throw new Error(`no note k${k} at beat ${t}`);
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   if (v === undefined) doc.deleteIn(["notes", at, "v"]);
   else doc.setIn(["notes", at, "v"], v);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }
 
 /** A rectangle of the roll, as a surface draws one: two keys INCLUSIVE, and a half-open beat span. */
@@ -248,7 +247,7 @@ export function mapNotesInRegion(
   region: NoteRegion,
   fn: (n: NoteIn) => NoteIn | null,
 ): { text: string; changed: number } {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const list = doc.getIn(["notes"]);
   if (!isSeq(list)) return { text, changed: 0 };
   const drop: number[] = [];
@@ -286,7 +285,7 @@ export function mapNotesInRegion(
   // Back to front, so an index taken before the first deletion still points at its own note.
   for (const i of drop.reverse()) doc.deleteIn(["notes", i]);
   return changed
-    ? { text: doc.toString({ lineWidth: 0 }), changed }
+    ? { text: doc.toString(YAML_WRITE), changed }
     : { text, changed: 0 };
 }
 
@@ -314,7 +313,7 @@ function windowOf(
 
 /** Twice as long, playing twice: the window's notes copied one window later, a stated `to` moved out — docs/noteEdits.md. */
 export function doubleSequence(text: string, num: number, den: number): string {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   const list = doc.getIn(["notes"]);
   const notes: NoteIn[] = [];
   if (isSeq(list))
@@ -335,7 +334,7 @@ export function doubleSequence(text: string, num: number, den: number): string {
     throw new Error("no notes inside the window — nothing to double");
   if (doc.get("to") != null)
     doc.set("to", beatsToPosition(from + 2 * win, num, den));
-  return appendNotes(doc.toString({ lineWidth: 0 }), copies);
+  return appendNotes(doc.toString(YAML_WRITE), copies);
 }
 
 /** The two effects a PAD can carry — see @studio/song docs/padEffects.md. */
@@ -355,8 +354,8 @@ export function setNoteEffect(
     throw new Error(
       `${effect} takes a whole number of 2 or more — ${n} says nothing a pad without it does not`,
     );
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   if (n === undefined) doc.deleteIn(["notes", at, effect]);
   else doc.setIn(["notes", at, effect], n);
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString(YAML_WRITE);
 }

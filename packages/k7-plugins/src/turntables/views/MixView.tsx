@@ -1,21 +1,14 @@
 // MixView.tsx — the desk: two decks facing each other, each with its tempo on the outer edge
 // and its channel strip on the inner one, and the crossfader in the gap between them. What
 // plays comes from the playlist the desk's surface names, chosen at the record itself. See ../../docs/mix.md.
-//
-// A deck's own column is `DeckSide.tsx` and its buttons `DeckButtons.tsx`; what is left here is
-// what SITS BETWEEN two decks. Still over 500 lines: the remainder is one component holding the
-// state both columns share — the waveforms, the browser, the separation poll — and it has no
-// test file, so the next split wants `MixView.test.tsx` first.
-import { CueButton, FxButtons, SyncButton } from "./DeckButtons";
-import { DeckSide, loopProps, type Wave } from "./DeckSide";
-//
-// It DRAWS the decks and owns nothing about them. The document — what is loaded, what it plays
-// at, every gesture that changes either — is `useDeckSet`, held by Studio, because this view is
-// unmounted the moment somebody opens the graph and a set does not stop existing then.
+// A deck's column is `MixDeck.tsx` over `DeckSide.tsx`, its buttons `DeckButtons.tsx`; what is left is
+// the state both columns share (waveforms, browser, separation poll), still over 500 lines and untested.
+// It DRAWS the decks and owns nothing about them: the document is `useDeckSet`, held by Studio,
+// because this view is unmounted the moment somebody opens the graph and a set outlives that.
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { AudioLines, Laptop, Music, RefreshCw } from "@frediverse/ui/icons";
+import { AudioLines, Music, RefreshCw } from "@frediverse/ui/icons";
 import type { SongDrag } from "@studio/mediatek/playlistItems";
 import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song-schema/playlist";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -45,7 +38,10 @@ import {
 import { useContentHeight } from "../useContentHeight";
 import type { DeckSet } from "../useDeckSet";
 import type { StemPrep } from "./ChannelStrip";
+import { CueButton, FxButtons, SyncButton } from "./DeckButtons";
+import type { Wave } from "./DeckSide";
 import { InSightContext, useWatchSight } from "./inSight";
+import { MixDeck } from "./MixDeck";
 import { MasterMeter, MixerColumn } from "./MixerColumn";
 import { SongBrowser } from "./SongBrowser";
 
@@ -317,7 +313,7 @@ export function MixView({
       });
   };
 
-  const { loads, tempos, master, mix } = decks;
+  const { tempos, master, mix } = decks;
 
   const ready = deck.phase.k === "ready";
 
@@ -389,68 +385,18 @@ export function MixView({
 
         {/* --- the two decks, facing each other -------------------------------------------- */}
         <div ref={deckRow} className="flex min-h-0 flex-1 gap-4 p-4">
-          <DeckSide
-            side="A"
+          <MixDeck
+            id="deckA"
+            decks={decks}
             layout={layout}
-            load={loads.deckA}
-            spinning={decks.running("deckA")}
             wave={waves.deckA}
-            tempo={tempos.deckA}
             driven={master === "deckB"}
-            onNudge={(bpm) => decks.nudge("deckA", bpm)}
-            onCommit={decks.release}
-            keylock={decks.keylock("deckA")}
-            onKeylock={() => decks.toggleKeylock("deckA")}
-            corrected={decks.gridOf("deckA").bpm !== undefined}
-            songKey={decks.keyOf("deckA")}
-            onHalve={
-              library && tempos.deckA?.natural
-                ? () => correctTempo("deckA", tempos.deckA!.natural / 2)
-                : undefined
-            }
-            onDouble={
-              library && tempos.deckA?.natural
-                ? () => correctTempo("deckA", tempos.deckA!.natural * 2)
-                : undefined
-            }
+            canCorrect={!!library}
+            onCorrect={correctTempo}
             onPick={() => setBrowsing("deckA")}
             onDropSong={(d) => dropped("deckA", d)}
-            trim={decks.trimOf("deckA")}
-            trimLive={decks.trimLive("deckA")}
-            onTrim={(dB) => decks.turnTrim("deckA", dB)}
-            eq={decks.eqOf("deckA")}
-            eqLive={decks.eqLive("deckA")}
-            onEq={(band, dB) => decks.turnEq("deckA", band, dB)}
-            filter={decks.filterOf("deckA")}
-            filterLive={decks.filterLive("deckA")}
-            onFilter={(v) => decks.turnFilter("deckA", v)}
-            echo={decks.echoOf("deckA")}
-            echoLive={decks.echoLive("deckA")}
-            onEcho={(v) => decks.turnEcho("deckA", v)}
-            stems={decks.stemsOf("deckA")}
-            stemLive={decks.stemLive("deckA")}
-            stemsReady={decks.stemsReady("deckA")}
             stemPrep={preps.deckA}
-            onStem={(s, cut) => decks.turnStem("deckA", s, cut)}
-            cues={decks.cuesOf("deckA")}
-            onCueJump={(slot) => decks.jumpCue("deckA", slot)}
-            onCueSet={(slot, at) => decks.setCue("deckA", slot, at)}
-            onShove={(seconds) => decks.shove("deckA", seconds)}
-            loop={loopProps(decks, "deckA")}
             loopSpan={spanA}
-            needle={decks.rawNeedle.deckA}
-            drawnNeedle={decks.drawnNeedle.deckA}
-            running={decks.running("deckA")}
-            onToggleDeck={
-              decks.canStartAlone("deckA")
-                ? () => decks.toggleDeck("deckA")
-                : undefined
-            }
-            onScratch={
-              decks.canScratch("deckA")
-                ? (rate) => decks.scratch("deckA", rate)
-                : undefined
-            }
           />
 
           {/* Between the two, where a hand crosses from one to the other — ../../docs/mix.md.
@@ -480,68 +426,18 @@ export function MixView({
             onChange={decks.crossfade}
           />
 
-          <DeckSide
-            side="B"
+          <MixDeck
+            id="deckB"
+            decks={decks}
             layout={layout}
-            load={loads.deckB}
-            spinning={decks.running("deckB")}
             wave={waves.deckB}
-            tempo={tempos.deckB}
             driven={master === "deckA"}
-            onNudge={(bpm) => decks.nudge("deckB", bpm)}
-            onCommit={decks.release}
-            keylock={decks.keylock("deckB")}
-            onKeylock={() => decks.toggleKeylock("deckB")}
-            corrected={decks.gridOf("deckB").bpm !== undefined}
-            songKey={decks.keyOf("deckB")}
-            onHalve={
-              library && tempos.deckB?.natural
-                ? () => correctTempo("deckB", tempos.deckB!.natural / 2)
-                : undefined
-            }
-            onDouble={
-              library && tempos.deckB?.natural
-                ? () => correctTempo("deckB", tempos.deckB!.natural * 2)
-                : undefined
-            }
+            canCorrect={!!library}
+            onCorrect={correctTempo}
             onPick={() => setBrowsing("deckB")}
             onDropSong={(d) => dropped("deckB", d)}
-            trim={decks.trimOf("deckB")}
-            trimLive={decks.trimLive("deckB")}
-            onTrim={(dB) => decks.turnTrim("deckB", dB)}
-            eq={decks.eqOf("deckB")}
-            eqLive={decks.eqLive("deckB")}
-            onEq={(band, dB) => decks.turnEq("deckB", band, dB)}
-            filter={decks.filterOf("deckB")}
-            filterLive={decks.filterLive("deckB")}
-            onFilter={(v) => decks.turnFilter("deckB", v)}
-            echo={decks.echoOf("deckB")}
-            echoLive={decks.echoLive("deckB")}
-            onEcho={(v) => decks.turnEcho("deckB", v)}
-            stems={decks.stemsOf("deckB")}
-            stemLive={decks.stemLive("deckB")}
-            stemsReady={decks.stemsReady("deckB")}
             stemPrep={preps.deckB}
-            onStem={(s, cut) => decks.turnStem("deckB", s, cut)}
-            cues={decks.cuesOf("deckB")}
-            onCueJump={(slot) => decks.jumpCue("deckB", slot)}
-            onCueSet={(slot, at) => decks.setCue("deckB", slot, at)}
-            onShove={(seconds) => decks.shove("deckB", seconds)}
-            loop={loopProps(decks, "deckB")}
             loopSpan={spanB}
-            needle={decks.rawNeedle.deckB}
-            drawnNeedle={decks.drawnNeedle.deckB}
-            running={decks.running("deckB")}
-            onToggleDeck={
-              decks.canStartAlone("deckB")
-                ? () => decks.toggleDeck("deckB")
-                : undefined
-            }
-            onScratch={
-              decks.canScratch("deckB")
-                ? (rate) => decks.scratch("deckB", rate)
-                : undefined
-            }
           />
         </div>
 
@@ -574,23 +470,6 @@ export function MixView({
             echoingOut={decks.echoingOut("deckA")}
             onEchoOut={(on) => decks.echoOut("deckA", on)}
           />
-
-          {/* Off by default, and absent entirely for a host with no stream player — ../../docs/hosting.md. */}
-          {deck.setListening && (
-            <label
-              className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground"
-              title={m["mix.listenTitle"]()}
-            >
-              <input
-                type="checkbox"
-                checked={!!deck.listening}
-                onChange={(e) => deck.setListening?.(e.target.checked)}
-              />
-              {/* A laptop, not headphones: the CUE buttons own that icon, and this one is about THIS TAB. */}
-              <Laptop className="h-4 w-4" />
-              {m["mix.listen"]()}
-            </label>
-          )}
 
           {/* What the crossfader used to fill: it lives BETWEEN the decks now, on the cue row's line. */}
           <div className="min-w-0 flex-1" />

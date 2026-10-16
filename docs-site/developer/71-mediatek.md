@@ -93,14 +93,11 @@ and accepted when the file already there has the same bytes.
 the same stem as derived: every walk hides it, so it is never an entry, a master, or a loose file.
 The backend makes them (see [Media backend routes](./72-media-backend.md)).
 
-## A machine's mirror
+## Reading another library
 
-The engine plays from file paths, so a machine keeps a copy of what it plays.
-`manifest.ts` describes a family as `(path, size, mtime)` on both sides; `cache.ts` diffs the
-server's manifest against what the machine holds and syncs; `remote.ts` is the HTTP client
-(`LibrarySource`, `LibrarySink`, `pushSong`, `pushRecording`, `pushSongBpm`), written as a port so
-tests supply a source without a server; `evict.ts` trims a family to a byte budget and is never run
-automatically; `ingest.ts` pushes a workspace's shared folders up into the library.
+`manifest.ts` describes a family as `(path, size, mtime)`, as its owner reports it; `remote.ts` is
+the HTTP client (`LibrarySource`, `remoteWriter`, `pushSong`, `pushRecording`),
+written as a port so tests supply a source without a server.
 
 ## Uploading a whole tree
 

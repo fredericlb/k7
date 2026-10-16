@@ -12,7 +12,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { copyAsYaml } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { activeMarkerOf, Workspace } from "./workspace.ts";
+import { activeMarkerOf } from "./activeMarker.ts";
+import { Workspace } from "./workspace.ts";
 
 // The two consequences of being opened ON a project instead of picking one — see docs/activeProject.md.
 

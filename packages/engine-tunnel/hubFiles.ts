@@ -6,38 +6,30 @@ import { randomBytes } from "node:crypto";
 import { createReadStream, type WriteStream } from "node:fs";
 import { mkdir, open, realpath, rename, rm, stat } from "node:fs/promises";
 import { posix, win32 } from "node:path";
+import { isDotSegment, isWithin } from "@studio/web-protocol/paths";
 import { CHUNK_BYTES, type RemoteStat, type TunnelRoot } from "./frames.ts";
 
 /** At most this many paths per stat request — a document names dozens, never thousands. */
-export const MAX_STAT_PATHS = 2000;
+const MAX_STAT_PATHS = 2000;
 
 // `realpath` answers in backslashes on Windows; elsewhere a backslash is a name character and must not pass.
 const WIN = process.platform === "win32";
-const SEPS = WIN ? ["/", "\\"] : ["/"];
 const P = WIN ? win32 : posix;
 
 // Absolute, with no `.` or `..` segment; a Windows root is `C:\…` and its paths mix both separators.
 const isPlain = (p: string): boolean =>
   WIN
-    ? win32.isAbsolute(p) &&
-      !p.split(/[\\/]/).some((s) => s === "." || s === "..")
+    ? win32.isAbsolute(p) && !p.split(/[\\/]/).some(isDotSegment)
     : posix.isAbsolute(p) && posix.normalize(p) === p;
 
-const within = (root: string, p: string): boolean =>
-  p === root ||
-  SEPS.some((s) => p.startsWith(root.endsWith(s) ? root : `${root}${s}`));
-
 /** The root `p` lies in, lexically, or null; a relative or non-normal path is refused outright. */
-export function rootOf(roots: TunnelRoot[], p: string): TunnelRoot | null {
+function rootOf(roots: TunnelRoot[], p: string): TunnelRoot | null {
   if (!isPlain(p)) return null;
-  return roots.find((r) => within(r.remote, p)) ?? null;
+  return roots.find((r) => isWithin(r.remote, p)) ?? null;
 }
 
 /** Whether the REAL path of `p` (or of its nearest existing ancestor) stays inside `root` — or, for a `perChild` root, inside its top-level folder. */
-export async function stillInside(
-  root: TunnelRoot,
-  p: string,
-): Promise<boolean> {
+async function stillInside(root: TunnelRoot, p: string): Promise<boolean> {
   // A library's clone may itself be a link (a dev's checkout); what it holds is still kept inside that clone.
   const base =
     root.perChild && p !== root.remote
@@ -52,7 +44,7 @@ export async function stillInside(
   let probe = p;
   for (;;) {
     try {
-      return within(realRoot, await realpath(probe));
+      return isWithin(realRoot, await realpath(probe));
     } catch {
       const up = P.dirname(probe);
       if (up === probe) return false;

@@ -8,7 +8,6 @@ import {
   readFileSync,
   renameSync,
   rmSync,
-  statSync,
 } from "node:fs";
 import { fromYaml } from "@studio/k7x/from-yaml";
 import { applyYaml, toYaml } from "@studio/k7x/yaml-bridge";
@@ -21,8 +20,6 @@ import { convertChecked } from "../k7xMigrate";
 export const K7X_EXT = ".k7x";
 const YAML_NAME = /\.ya?ml$/i;
 const K7X_NAME = /\.k7x$/i;
-/** A name a workspace file of either format may have — what an extension test should accept. */
-export const DOC_NAME = /\.(ya?ml|k7x)$/i;
 
 /** The deploy switch, STUDIO_K7X: off, `1` (every device reads k7x), or `only` (YAML is no longer read). */
 export type K7xMode = "off" | "everywhere" | "only";
@@ -117,8 +114,6 @@ export function wsCopy(from: string, to: string): void {
   const real = realPath(from);
   copyFileSync(real, isK7xPath(real) ? k7xSibling(to) : to);
 }
-
-export const wsStat = (path: string) => statSync(realPath(path));
 
 /** A parser's findings on a file read through wsRead, placed on the .k7x file's own lines when that is the file. */
 export function wsIssues(path: string, issues: ModuleIssue[]): ModuleIssue[] {

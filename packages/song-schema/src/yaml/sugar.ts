@@ -1,7 +1,11 @@
 // sugar.ts — the short forms a .k7x file may write for one kind of data, expanded into that data before anything reads it.
 // A sequence's `notes("c4 d4 ~ e4")` and a graph's `runs([...])`; a write that changes what they expand to writes it in full (docs/sugar.md).
 
+import { docPattern } from "../docExt";
 import { fileKindFor } from "./fields";
+
+const GRAPH_FILE = docPattern("(^|/)graph");
+const CHAINS_FILE = docPattern("(^|/)chains");
 
 type Data = Record<string, unknown>;
 interface Note {
@@ -12,7 +16,7 @@ interface Note {
 }
 
 /** A kind's short form: which top-level key holds it, which key it expands into, and the expansion. */
-export interface SugarPart {
+interface SugarPart {
   key: string;
   target: string;
   /** Is the key, as read, written in the short form rather than as plain data? */
@@ -223,8 +227,8 @@ export function sugarFor(path: string): Sugar | null {
   // A project's graph, and the segments files under their other names: one format, so one short form.
   const p = path.replace(/\\/g, "/");
   const segments =
-    /(^|\/)graph\.(ya?ml|k7x)$/i.test(p) ||
-    (/(^|\/)chains\.(ya?ml|k7x)$/i.test(p) && !/(^|\/)chains\/[^/]+$/.test(p));
+    GRAPH_FILE.test(p) ||
+    (CHAINS_FILE.test(p) && !/(^|\/)chains\/[^/]+$/.test(p));
   if (segments) return { parts: [RUNS], expand: expandGraph };
   return null;
 }

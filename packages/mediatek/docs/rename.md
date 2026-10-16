@@ -9,8 +9,8 @@ EPERM: operation not permitted, rename '…\original.mp3.<uuid>.part' -> '…\or
 ```
 
 `../src/place.ts` is where that refusal is answered, and every final rename in this package goes
-through it: the cache sync (`../src/cache.ts`), a download from another library
-(`../src/remote.ts`), and a write into the library (`putFile`, `../src/write.ts`).
+through it: a download from another library (`../src/remote.ts`) and a write into the library
+(`putFile`, `../src/write.ts`).
 
 ## Why it bites here
 
@@ -29,9 +29,8 @@ the instant it is written and lets go a few hundred milliseconds later.
 1. **Retry**, five times over about a second. That settles the scanner.
 2. **Compare, then keep.** If the name is still held and the file already there holds the same
    bytes as the one that just arrived, the rename had nothing to do: the temporary is dropped and
-   the write succeeds. That is the ordinary case of analysing a song while it plays —
-   `POST /mediatek/analyse` re-downloads before analysing (`../../file-service/docs/mediatekRoutes.md`),
-   so it re-fetches a file that is already there, unchanged, and open in a deck.
+   the write succeeds. That is the ordinary case of copying a song from a server while it plays:
+   the copy re-fetches a file that is already there, unchanged, and open in a deck.
 
 The comparison is by **contents**, not size: two mixes of the same byte count are a coincidence,
 not an impossibility, and keeping the wrong master would analyse bytes nobody asked about. Size is

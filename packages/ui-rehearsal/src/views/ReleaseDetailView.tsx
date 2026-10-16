@@ -16,6 +16,7 @@ import { BackButton } from "../components/BackButton";
 import { ReleaseEditForm } from "../components/ReleaseEditForm";
 import { SwitchField } from "../components/SwitchField";
 import { VersionCard } from "../components/VersionCard";
+import { confirmLoss } from "../confirm";
 import { fmtDate } from "../format";
 import { m } from "../paraglide/messages.js";
 import type { Release, ReleasePatch, SongEnvelope } from "../types";
@@ -130,7 +131,7 @@ export function ReleaseDetailView({
   };
 
   const remove = async () => {
-    if (!confirm(m["release.confirmDelete"]())) return;
+    if (!(await confirmLoss(m["release.confirmDelete"]()))) return;
     await onDelete();
   };
 

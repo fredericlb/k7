@@ -12,7 +12,7 @@ export type Binding = string | { if?: string; command: string } | Binding[];
 export type ConditionCtx = Record<string, string | undefined>;
 
 // Sentinel excluding the palette-opener from the completion base-command list; no key binds to it.
-export const RESERVED_COMMAND = "@command";
+const RESERVED_COMMAND = "@command";
 
 /** The rectangle's two, held by FOUR tokens and UNCONDITIONAL: both commands answer in every state, so the shortcut is never dead. */
 const COPY_SELECTION: Binding = "selection copy";

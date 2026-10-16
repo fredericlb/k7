@@ -5,7 +5,7 @@
 The catalogue has no database. That is not an omission to be corrected later, and reversing it
 would cost more than it buys.
 
-- **The folder is the truth, on both sides.** The machine's cache runs this same package over a
+- **The folder is the truth, on every volume.** The device's library runs this same package over a
   local folder, because the engine plays from file paths (`sync.md`). A database holding the rows
   would be a second truth to keep in step with the tree the engine actually reads.
 - **A database is chosen where the data is rows, not where it is bytes.** The rehearsal recorder's store
@@ -35,12 +35,8 @@ Either would answer 200 and appear nowhere, which reads as the call having done 
 `scanUnlisted` is the other half: every path no entry accounts for, family-relative, beside the
 entries in the same listing.
 
-An ENTRY's folder is never descended into. A song and a module ARE folders and their
-insides are theirs — so a module's own files travel **on the entry**, as `files`. A tree
-drawing one needs both halves of that: what is actually in the folder (nodes, a
-`.vstpreset`, a jsdsp source) and which of the three canonical names are missing, so it can
-offer to create them. Drawing the three fixed rows alone would show neither file of a folder
-dropped with two of its own, and read as having been flattened on the way in.
+An ENTRY's folder is never descended into. A song IS a folder and its insides are its own:
+what a consumer needs from them travels on the entry's `meta`.
 
 ## What this volume does NOT hold, and why — two different reasons
 
@@ -65,21 +61,6 @@ reaching for the *name* of a file must not pull the filesystem in with it. `scan
 
 A chain's layout is not a word of this package: chains live in the account's libraries, and
 `@studio/song`'s `libraryChains.ts` is the one reader of them (`packages/song/docs/sharedFolders.md`).
-
-## `files` and `assets` are two different questions
-
-An entry that is a **folder** carries both, and they are not interchangeable.
-
-`files` is the entry's own definition — its nodes, its panel, its shelf, a `.vstpreset`, a jsdsp
-source. Exactly what is on disk: nothing more, because a row for a file that is not there lies
-about the disk, and nothing less, because three fixed rows would hide whatever was actually
-dropped in.
-
-`assets` is the **material it loads** — samples, impulse responses, amp profiles. A tree draws
-these as children and drops new ones in; nothing offers to *create* one, since they arrive as
-bytes. They are `assets/`-relative POSIX paths and they are **nested**: a NAM pack is a folder per
-amp, so flattening would invent a shape the disk has not got. A path ending in `/` is a folder
-that holds nothing — the one thing no other path would mention.
 
 ## What an entry carries beyond its path
 
@@ -119,8 +100,8 @@ inside the same filesystem-timestamp tick, with no file added or removed. That i
 the shape of "import a library, then list it".
 
 So the token also carries a **mutation counter**, bumped by whatever did the writing —
-the same pair `workspace.ts` uses, and for the same reason. `ingest.ts` bumps it only when
-a file actually landed: an import that copied nothing changed nothing, and moving the
+the same pair `workspace.ts` uses, and for the same reason. A writer bumps it only when
+a file actually landed: a copy that wrote nothing changed nothing, and moving the
 token would make every surface refetch a listing that is identical.
 
 The counter is per process, which is the honest scope: it covers writes WE caused, and

@@ -38,7 +38,7 @@ export interface SetList {
 }
 
 /** A string as the browser SEARCHES it: lower case, accents folded — a DJ types `alizee`. */
-export function fold(s: string): string {
+function fold(s: string): string {
   // The combining-marks block as escapes: the literal characters are invisible in an editor.
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
@@ -79,7 +79,7 @@ function entryOf(r: ResolvedItem, entries: MediatekEntry[]): SetEntry {
 }
 
 /** What NAMES a row: the VARIANT is part of it, since a master and its instrumental are two records. */
-export const entryKey = (ref: string, variant?: string): string =>
+const entryKey = (ref: string, variant?: string): string =>
   `${ref.replace(/^\/+|\/+$/g, "")}\u0000${variant ?? ""}`;
 
 /** The row a dragged playlist line means, or undefined when this set list does not carry it. */

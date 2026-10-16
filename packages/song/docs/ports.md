@@ -136,7 +136,7 @@ is one the compiler cannot lay out at all.
 
 The schema refuses a ref that is all separator (`#b`, `x#`) — those are typos with no reading,
 and letting them through would make the node name empty. Whether the port `b` *exists* is not a
-schema question: `chainsSchema` knows nothing about modules, and `validate()` is what has the
+schema question: `GraphFileSchema` knows nothing about modules, and `validate()` is what has the
 module map.
 
 ## The signal, and how it gets there

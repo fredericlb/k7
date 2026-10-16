@@ -1,7 +1,7 @@
 # The widgets on a card — what one binds to, and what it shows
 
 A node's panel is a grid of widgets, and every one of them answers two questions before it can be
-drawn: **what does this actuate**, and **what value does it hold right now**. `DomChains.tsx`
+drawn: **what does this actuate**, and **what value does it hold right now**. `widgetTarget.ts`
 answers the first in `widgetTarget` and the second in `widgetValue`; this page is the reasoning
 behind both.
 
@@ -134,6 +134,10 @@ writes `1,2`); everywhere else the word on screen is the word in the file.
 `setModuleField` is declared before its two callers because their dependency arrays name it, and
 those are evaluated on the spot rather than at call time.
 
+A PROJECT setting (`@project:<field>`) is committed the same way and for the same reason, through
+`onProjectField`, and travels as the option's WORD rather than its index: `project aspect 16:9` is
+what a person would type, and the row's position in the dropdown is the card's business alone.
+
 ## The right-click menu is for a PLUGIN param only
 
 Two binds are excluded, and both because the answer would be a promise nothing can keep:
@@ -155,7 +159,9 @@ writability flags, `docs/hosting.md`).
 The order of the test matters. A rack pad is asked first, because it needs a host that can make a
 SOUND and a rehearsal cannot invent one. Everything else asks `rehearsal` next: a rehearsal has
 nowhere to send a value and needs nowhere, so its widgets move whether or not a plugin happens to
-be loaded behind them.
+be loaded behind them. A PROJECT setting needs a host that can run a verb, and a recorder's
+button one wired to the ENGINE: a preview card is looking at no project, so its dropdown reads
+without writing, and it must never start a take in somebody's project.
 
 ## The knob
 
@@ -304,7 +310,7 @@ again. A Shift+drag over EMPTY space draws a box, and every module card it touch
 selection on release (`nodesInBox`) — adding, as Shift+click does, never replacing. It is
 checked before the fixed-camera guard: the mix panel's camera does not move, and that is exactly
 where a row of strips is selected by sweeping across it. On a card, Shift keeps its other meaning,
-a fine drag on a control. The set is the graph's own (`DomChains`), beside the host's single `selected`, which is set
+a fine drag on a control. The set is the graph's own (`useWidgetDrag.ts`), beside the host's single `selected`, which is set
 only when there was none — so a host that knows one selected node is not asked to know several.
 
 When EVERY selected node is a use of the same ref on the same engine, a control moved on one of them
@@ -371,4 +377,5 @@ the same browsing popup the `+` on an arrow uses.
 
 `dropdown` + `library` is the older spelling of the same widget, from when the files came from a
 shared library instead of the module's own `assets/`. It is read as a filepicker so every panel
-already written keeps working — `packages/song/docs/filePicker.md`.
+already written keeps working — `packages/song/docs/filePicker.md`. Either way the param is the
+widget's BIND: an older panel's `library:` names a folder (`nam`), not a param.

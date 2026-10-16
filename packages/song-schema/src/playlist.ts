@@ -3,7 +3,10 @@
 // and adding, dropping or reordering a line AS TEXT. No `node:fs`, so the file service and the
 // browser go by exactly the same rules. See docs/playlists.md.
 
+import { plainSegments } from "@studio/web-protocol/paths";
 import { parse as parseYaml } from "yaml";
+import { isDocFile } from "./docExt";
+import { YAML_READ } from "./yaml/yamlText";
 
 /** The folder a workspace keeps its playlists in, beside `_modules` — see docs/playlistFile.md. */
 export const PLAYLISTS_DIR = "_playlists";
@@ -15,10 +18,10 @@ export const PLAYLIST_EXT = ".yaml";
 export function playlistPathOf(name: string): string | null {
   const clean = name.trim().replace(/^\/+|\/+$/g, "");
   if (!clean) return null;
-  const segs = clean.split("/");
-  if (segs.some((s) => !s || s === "." || s === "..")) return null;
+  const segs = plainSegments(clean);
+  if (!segs) return null;
   const rel = segs.join("/");
-  return `${PLAYLISTS_DIR}/${/\.(ya?ml|k7x)$/i.test(rel) ? rel : `${rel}${PLAYLIST_EXT}`}`;
+  return `${PLAYLISTS_DIR}/${isDocFile(rel) ? rel : `${rel}${PLAYLIST_EXT}`}`;
 }
 
 /** One line of a playlist; `song` is kept VERBATIM, since resolving it needs the médiathèque listing. */
@@ -42,7 +45,7 @@ const str = (v: unknown): string | undefined =>
 export function parsePlaylist(text: string): Playlist | null {
   let doc: unknown;
   try {
-    doc = parseYaml(text, { version: "1.2" });
+    doc = parseYaml(text, YAML_READ);
   } catch {
     return null;
   }
@@ -160,7 +163,7 @@ export function appendPlaylistItem(
 }
 
 /** The line span of every entry of a BLOCK `items:`, or null when the file is not in that shape (docs/playlistFile.md). */
-export function playlistItemLines(
+function playlistItemLines(
   text: string,
 ): { start: number; end: number }[] | null {
   const lines = text.split("\n");

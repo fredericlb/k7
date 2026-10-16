@@ -13,8 +13,8 @@ import {
 } from "express";
 import { z } from "zod";
 import * as db from "./db.ts";
-import type * as Declared from "./index.d.ts";
 import * as mediatek from "./mediatek.ts";
+import type { ServerOf } from "./publications.ts";
 import { SAFE_ID } from "./sqlite.ts";
 import * as store from "./store.ts";
 
@@ -62,9 +62,7 @@ function playedAt(m: SharedMoment): Date | undefined {
 }
 
 /** The server's side: the person's moment ids, and the upsert of one, behind a device token (`gate`). */
-export const momentDeviceRouter: typeof Declared.momentDeviceRouter = (
-  gate: RequestHandler,
-) => {
+export const momentDeviceRouter = (gate: RequestHandler): Router => {
   const r = Router();
   const upload = diskUpload(store.UPLOAD_DIR);
   r.use(gate);
@@ -176,7 +174,11 @@ export const momentDeviceRouter: typeof Declared.momentDeviceRouter = (
 };
 
 /** The machine's side: `GET /` says which of its moments the server holds, `POST /:id/share` shares one. */
-export const momentShareRouter: typeof Declared.momentShareRouter = (opts) => {
+export const momentShareRouter = (opts: {
+  /** Where `momentDeviceRouter` is mounted on the server. */
+  deviceRoute: string;
+  server: ServerOf;
+}): Router => {
   const r = Router();
 
   r.get(

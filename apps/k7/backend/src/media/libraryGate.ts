@@ -9,7 +9,7 @@ import type { Request, Response } from "express";
 import { isAdminRequest } from "./admin.ts";
 
 /** The answer a refused caller reads; the UI hides the gesture, so this is for scripts and stale tabs. */
-export const MANAGE_REFUSED =
+const MANAGE_REFUSED =
   "only an admin may remove or move folders in the shared library";
 
 /** Whether this request may remove from, or reshape, the library. */

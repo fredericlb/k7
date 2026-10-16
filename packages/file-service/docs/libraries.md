@@ -45,3 +45,14 @@ A chain's bench (`/@banc/<chain>/live.k7`) edits no library and changes no overl
 refused. It syncs as one more room of the account, `_account`, attached at start beside the
 workspaces (`attachAccountLibrary` in `../src/workspaces.ts`) and kept out of every list of
 workspaces, since it is none.
+
+## Cold chains and their models are the machine's, not a project's
+
+Which chains this machine separates a record with and makes an instrumental with are standing
+answers for the machine: k7's global settings, answered before `resolveWorkspace` like the
+libraries, since no project is open when they are set. The choice is among the libraries' cold
+chains (`coldChains`).
+
+A model a chain or a node needs is fetched from the module's own `model_url`, never from a URL the
+caller sends, so a route can only download what a library already names. A download that finds the
+model already present answers `job: null`, so a stale menu costs nothing.

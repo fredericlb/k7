@@ -21,6 +21,7 @@ import type {
   AiOrganizeEvent,
   AiOrganizeRequest,
   AiOrganizeResult,
+  AiSettingsView,
 } from "@studio/ui-module-builder/ai-organize";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import type {
@@ -29,12 +30,11 @@ import type {
   ShareProgress,
   StemsReply,
 } from "@studio/web-protocol";
-import { serviceUrl } from "@studio/web-protocol/services";
+import type { PlaylistInfo } from "@studio/web-protocol/playlists";
 import type { CommandPrefs } from "./commandPrefs";
 // The reader `@studio/engine-browser` wants: it owns the routes, this app owns the errors.
-import { json } from "./projects/api";
+import { json, pl8Url } from "./projects/api";
 import type {
-  PlaylistInfo,
   PreviewReq,
   PublicEngine,
   WaveformStatus,
@@ -44,8 +44,8 @@ import type {
 // The app is mounted at the ORIGIN ROOT, so BASE is the empty string — kept as a derived constant, this app's mount being the one that can still change.
 export const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-/** Where pl8's routes answer, from the services table — this origin now. It holds the media library AND the one engine registry. */
-const PL8 = serviceUrl(globalThis.location?.origin ?? "", "pl8");
+/** Where pl8's routes answer — this origin now. It holds the media library AND the one engine registry. */
+const PL8 = pl8Url();
 
 // ── The hosted backend (same-origin): auth + preferences ────────────────────────
 
@@ -450,12 +450,7 @@ export const moduleStore: ModuleStore = {
   },
 };
 
-/** The account's Claude settings as the browser may see them: the key only as a hint (backend/src/aiSettings.ts). */
-export interface AiSettingsView {
-  model: string | null;
-  defaultModel: string;
-  keyHint: string | null;
-}
+export type { AiSettingsView };
 
 /** The module builder's "AI organize", on THIS backend — the one holding the account's key (backend/src/aiOrganize.ts). */
 export const aiOrganize = {

@@ -1,7 +1,7 @@
 #include "SfzPlugin.h"
 #include "InstrumentStatus.h"
 
-#include "LoadGuard.h"   // an instrument that crashes the engine as it loads is pinned on its file
+#include "LoadGuard.h"   // studioStateDir, and an instrument that crashes the engine as it loads is pinned on its file
 
 #include <sfizz.hpp>
 
@@ -117,11 +117,8 @@ void SfzPlugin::midiPanic()
 juce::File SfzPlugin::resolve(const juce::String& path)
 {
     if (!path.startsWith(INSTRUMENTS_REF)) return juce::File(path);
-    // The same state directory the scan cache and the supervisor use: $STUDIO_HOME, else ~/.k7.
-    const auto env = juce::SystemStats::getEnvironmentVariable("STUDIO_HOME", {});
-    const auto home = env.isNotEmpty() ? juce::File(env)
-                                       : juce::File::getSpecialLocation(juce::File::userHomeDirectory).getChildFile(".k7");
-    return home.getChildFile("instruments").getChildFile(path.substring(juce::String(INSTRUMENTS_REF).length()));
+    // The same state directory the scan cache and the supervisor use.
+    return studioStateDir().getChildFile("instruments").getChildFile(path.substring(juce::String(INSTRUMENTS_REF).length()));
 }
 
 bool SfzPlugin::installed(const juce::String& path)

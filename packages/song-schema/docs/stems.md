@@ -34,9 +34,6 @@ are here rather than in `scaffoldSet` because the desk has to recognise the lane
 `stemLaneOf` is the reverse of `stemLane`, and the desk's way in: it is handed a compiled document
 and has to tell a stem lane from the record's without knowing how the graph was written.
 
-`stemCut` is exported and nothing writes one: it names a node older sets carry, and removing one is
-the only way a migration script can name it — see below.
-
 ## How loud a part plays: the PLATTER's own gain
 
 ```
@@ -118,15 +115,6 @@ A level needs a gain that reaches exact silence, and the mixer's does not:
 `TurntablePlugin` declares `add("gain", "Gain", 0.0f, 2.0f, 1.0f)` and multiplies by it directly, so 0
 is exact silence, with the range and the rest a level wants. A separate gain module after the platter
 would be two linear gains in series, and eight compiled DSP graphs per set for nothing.
-
-### Migrating a set that still has the module
-
-`npx tsx packages/song/scripts/migrateStemGain.ts <projet.k7> --write` — it carries each cut's
-`Level` onto its platter's `Gain`, repoints the binding, and removes the node. Older sets walk the
-whole chain in order: `migrateSetStems` → `migrateSetPlatter` → `migrateStemGain`.
-
-Each of those handles ONE shape, so each spells its param out instead of importing `STEM_PARAM`: a
-migration that follows a constant which has since moved silently skips the steps between.
 
 ## What the assembly still requires
 

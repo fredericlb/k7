@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { parse } from "yaml";
 import {
   BARE_TRANSPORT,
@@ -15,6 +15,14 @@ import {
   uiVerdict,
 } from "./localCommands";
 import { LOCAL_ARGS, LOCAL_COMMANDS } from "./palette";
+import { runLocal } from "./ui/commands/dispatch";
+import {
+  findLocal,
+  isUiCommand,
+  LOCAL_REGISTRY,
+  type LocalCtx,
+  matchOf,
+} from "./ui/commands/index";
 
 // What `runLocalCommand` sees: the line lowercased, with any `ui ` prefix already stripped.
 const asDispatched = (name: string) =>
@@ -96,6 +104,112 @@ describe("the bare transport verbs", () => {
   it("names them as the catalogue does, so a typed line reaches the same branch", () => {
     // The dispatcher matches the line whole and lowercased; every entry must already be that.
     for (const line of BARE_TRANSPORT) expect(line).toBe(line.toLowerCase());
+  });
+});
+
+// The registry against itself: one entry per name, each found by its own line, on its own side of the gate.
+describe("the command registry", () => {
+  it("names each command once", () => {
+    const names = LOCAL_REGISTRY.map((c) => c.name);
+    expect(names.filter((n, i) => names.indexOf(n) !== i)).toEqual([]);
+  });
+
+  it("describes every command the palette lists", () => {
+    const bare = LOCAL_REGISTRY.filter(
+      (c) => c.listed !== false && !c.readable,
+    );
+    expect(bare.map((c) => c.name)).toEqual([]);
+  });
+
+  it("finds each command by its own line, with and without arguments", () => {
+    for (const c of LOCAL_REGISTRY) {
+      const ui = isUiCommand(c);
+      expect(findLocal(asDispatched(withArgs(c.name)), ui), c.name).toBe(c);
+      if (matchOf(c) !== "head")
+        expect(findLocal(asDispatched(c.name), ui), c.name).toBe(c);
+    }
+  });
+
+  it("never matches an argument-taking command whole only", () => {
+    const wrong = LOCAL_REGISTRY.filter(
+      (c) => c.args?.length && matchOf(c) === "exact",
+    );
+    expect(wrong.map((c) => c.name)).toEqual([]);
+  });
+
+  it("answers every bare transport verb, without listing it twice", () => {
+    for (const line of BARE_TRANSPORT)
+      expect(findLocal(line, false)?.listed, line).toBe(false);
+  });
+});
+
+// A context that answers every field with a recording stub, so a line can be run without a shell.
+function fakeCtx(over: Partial<LocalCtx> = {}) {
+  const calls: string[] = [];
+  const stub =
+    (name: string) =>
+    (...args: unknown[]) => {
+      calls.push(`${name}(${args.map((a) => JSON.stringify(a)).join(",")})`);
+    };
+  const ctx = new Proxy(over as LocalCtx, {
+    get: (target, key: string) =>
+      key in target ? target[key as keyof LocalCtx] : stub(key),
+  });
+  return { ctx, calls };
+}
+
+describe("runLocal — the registry as the dispatcher reads it", () => {
+  const noServer = { isServerCommand: () => false };
+
+  it("runs a `ui` line and refuses it unprefixed", () => {
+    const zoomIn = vi.fn();
+    const { ctx, calls } = fakeCtx({
+      ...noServer,
+      timelineRef: {
+        current: { zoomIn },
+      } as unknown as LocalCtx["timelineRef"],
+    });
+    expect(runLocal(ctx, "ui zoom")).toBe(true);
+    expect(zoomIn).toHaveBeenCalledOnce();
+    expect(runLocal(ctx, "zoom")).toBe(true);
+    expect(calls[0]).toContain("is a ui command");
+  });
+
+  it("hands an unknown line, and a server line sharing a `ui` head, to the server", () => {
+    const { ctx } = fakeCtx({
+      isServerCommand: (l) => l.startsWith("curve set"),
+    });
+    expect(runLocal(ctx, "track mute melody")).toBe(false);
+    expect(runLocal(ctx, "curve set wob {}")).toBe(false);
+  });
+
+  it("creates a FOLDER with `fs folder new`, and a file with `fs file new`", () => {
+    const createFolder = vi.fn();
+    const createFile = vi.fn();
+    const editor = {
+      entries: () => ["clips"],
+      isDir: () => true,
+      createFolder,
+      createFile,
+    };
+    const { ctx } = fakeCtx({
+      ...noServer,
+      editorRef: { current: editor } as unknown as LocalCtx["editorRef"],
+    });
+    runLocal(ctx, "fs folder new clips takes");
+    expect(createFolder).toHaveBeenCalledWith("clips", "takes");
+    runLocal(ctx, "fs file new clips kick.yaml");
+    expect(createFile).toHaveBeenCalledWith("clips", "kick.yaml");
+  });
+
+  it("leaves a bare transport verb to the service while the engine socket is down", () => {
+    const { ctx } = fakeCtx({
+      ...noServer,
+      frozen: false,
+      connected: false,
+      recordWithoutArmRef: { current: false },
+    });
+    expect(runLocal(ctx, "transport stop")).toBe(false);
   });
 });
 

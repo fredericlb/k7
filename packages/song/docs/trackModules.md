@@ -217,7 +217,7 @@ satisfies every absorption test — one feeder, feeding nothing else, and the la
 so without that rule the input's run would swallow the lane as its next step, and the chain that
 owns the lane's material would cease to exist.
 
-## Migrating
+## Retired spellings
 
 There is no migration code, deliberately, and every schema is `.strict()` — so a file carrying a
 retired field says so by name and by line rather than being read and dropped. This is the outcome
@@ -237,22 +237,9 @@ file cannot: it holds nothing until the transport rolls, so `pad#midi: [ synth ]
 place "these events are notes for the synth" is written down. An authored lane says it by holding
 events.
 
-`LEGACY_TRACK_REFS` in `moduleTypes.ts` keeps the four retired spellings as NAMES, so a diagnostic
-can say which one a file means. Nothing resolves them — the same call
-[moduleNamespaces.md](moduleNamespaces.md) makes for `@mediatek/…`.
-
-No migration CODE, and a migration SCRIPT, which is the distinction this repo keeps drawing
-(`migrateChains`, `migrateNamespace`, `migrateModules`, …). The loader refuses, once, by name and
-by line; a one-shot rewrites the files and is then done with:
-
-```bash
-npx tsx packages/song/scripts/migrateTracks.ts <project-or-workspace>          # dry run
-npx tsx packages/song/scripts/migrateTracks.ts <project-or-workspace> --write
-```
-
-It reports every STREAMING lane it touched separately, because that is the one case it cannot
-finish: a written-down lane says what it carries by holding events, and a streaming one holds
-nothing until it rolls — so `graph.yaml` has to name the output, and only a person knows which.
+Nothing resolves the retired spellings: a file naming one names a module that does not exist,
+which the loader reports as such — the same call [moduleNamespaces.md](moduleNamespaces.md) makes
+for `@mediatek/…`.
 
 And for a project whose lanes are still files in `tracks/`:
 
@@ -265,10 +252,6 @@ And for a project whose lanes are still files in `tracks/`:
 | `mute: true` | the name in `graph.yaml`'s `bypassed:` |
 | `solo: true` | the name in project.yaml's root `soloed:` list |
 | the `tracks:` entry in `graph.yaml` | the same line, under `modules:` |
-
-`k7 migrate chains` handles the chain-list → segments step and reports the lanes it saw
-(`ChainsMigration.tracks`) — the `{ track: … }` heads are the last place that fact is written down,
-and a caller that threw it away could not derive the chains it had just written.
 
 ## Two things a lane does not carry itself
 

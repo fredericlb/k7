@@ -29,7 +29,7 @@ language: all JUCE threading stays behind that API. Almost everything else here 
   plugin or state survives. Call it when switching projects, where diffing against the old
   song is meaningless.
 
-`resetProjectState()` drops everything derived from the current project — editors, plugin
+`teardownProjectState()` drops everything derived from the current project — editors, plugin
 refs, preset-save state, level meters — in the order that keeps editors from outliving the
 plugins they point at. It is shared by `applyFull()` (which then rebuilds) and `reset()`
 (which does not), and leaves the Edit alone either way.
@@ -270,7 +270,7 @@ only place they can live. Tracktion already stores the arm flag per input destin
 the Edit's ValueTree, which we never save — so `armedTracks()` is a read of that, not a
 second copy.
 
-`setTrackArmed()` with `armed` unset **toggles**, and resolves it here against the flag
+`setArmed()` with `armed` unset **toggles**, and resolves it here against the flag
 itself rather than having the caller read the state and write back the opposite — which
 would race the 20-per-second broadcast the caller read it from. A track with no live input
 cannot be armed: there would be nothing to capture, so it refuses rather than record
@@ -416,7 +416,7 @@ its name, so anything still asking for one of those channels alone — a module 
 — then matches nothing and reads as silence, which is `findWaveInput`'s own rule met from the
 other side.
 
-`audioDeviceName()` returning "" means the engine can neither make a sound nor **keep
+`outputDeviceName()` returning "" means the engine can neither make a sound nor **keep
 time**: with no output there is no audio callback to advance the playhead, so the transport
 reports playing while nothing moves. Callers say so out loud, because nothing else will.
 
@@ -486,10 +486,10 @@ These are static and wire up from `main()`:
 | `scanInstalledPlugins` | enumerate installed plugins, load only the new or changed ones (each in a child process), update the cache; `forceRescan` re-scans everything |
 | `runPluginScanChild` | `--scan-plugin <fmt> <id>`: load ONE plugin in isolation and print its descriptions as sentinel-fenced JSON, so a crashy plugin only kills this child |
 | `runPluginScanCli` | `scan [--force]` |
-| `runListAudioDevicesCli` | `--list-audio-devices`: builds only a JUCE device manager, opening no device and starting no engine, so it works with nothing running |
+| `runAudioDevicesCli` | `--list-audio-devices`: builds only a JUCE device manager, opening no device and starting no engine, so it works with nothing running |
 | `dumpPluginParams` | `--dump-params <type>` — a built-in, always complete |
 | `dumpPluginParamsExternal` | `--dump-params-ext <format> <identifier> <statefile>` — an external restored from its `.vstpreset`, complete iff it round-trips |
-| `renderDocument` | `--render <doc.json\|-> --out <dir> [--stems]`: offline bounce with no audio device, so MIDI and instrument tracks are rendered (unlike an ffmpeg mixdown) |
+| `renderOffline` | `--render <doc.json\|-> --out <dir> [--stems]`: offline bounce with no audio device, so MIDI and instrument tracks are rendered (unlike an ffmpeg mixdown) |
 | `decodeToStdout` | `--decode <audiofile>` — the samples `@studio/audio-analysis` measures, see [cliModes.md](cliModes.md) |
 
 The param dumps are k7's text alternative to an opaque `.vstpreset`: the payload is

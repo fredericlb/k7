@@ -3,10 +3,11 @@
 // one that also compresses overall, which is what a real recording's map does.
 //   npx tsx engine/k7-runtime/scripts/warp-points.ts
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderProject } from "../../../packages/file-service/src/render.ts";
+import { channelOf, readWav, wavFile } from "./wav.ts";
 
 const RATE = 48000;
 const TEMPO = 120; // 2 beats per second, so a beat is exactly 0.5s and the arithmetic reads plainly
@@ -66,20 +67,7 @@ function writeSource(path: string): void {
     data.writeInt16LE(v, n * 4);
     data.writeInt16LE(v, n * 4 + 2);
   }
-  const head = Buffer.alloc(44);
-  head.write("RIFF", 0);
-  head.writeUInt32LE(36 + data.length, 4);
-  head.write("WAVEfmt ", 8);
-  head.writeUInt32LE(16, 16);
-  head.writeUInt16LE(1, 20);
-  head.writeUInt16LE(2, 22);
-  head.writeUInt32LE(RATE, 24);
-  head.writeUInt32LE(RATE * 4, 28);
-  head.writeUInt16LE(4, 32);
-  head.writeUInt16LE(16, 34);
-  head.write("data", 36);
-  head.writeUInt32LE(data.length, 40);
-  writeFileSync(path, Buffer.concat([head, data]));
+  writeFileSync(path, wavFile(data, RATE, 2, 16));
 }
 
 interface Wav {
@@ -87,42 +75,10 @@ interface Wav {
   mono: Float32Array;
 }
 
-/** Enough of a wav reader for what the engine writes: PCM 16/24/32 or float32, any chunk order. */
-function readWav(path: string): Wav {
-  const b = readFileSync(path);
-  let rate = 0;
-  let channels = 0;
-  let bits = 0;
-  let format = 1;
-  let mono = new Float32Array(0);
-  let i = 12;
-  while (i + 8 <= b.length) {
-    const id = b.toString("ascii", i, i + 4);
-    const size = b.readUInt32LE(i + 4);
-    if (id === "fmt ") {
-      format = b.readUInt16LE(i + 8);
-      channels = b.readUInt16LE(i + 10);
-      rate = b.readUInt32LE(i + 12);
-      bits = b.readUInt16LE(i + 22);
-    } else if (id === "data") {
-      const bytes = bits / 8;
-      const frames = Math.floor(size / (bytes * channels));
-      mono = new Float32Array(frames);
-      for (let n = 0; n < frames; n++) {
-        const o = i + 8 + n * bytes * channels;
-        let s = 0;
-        if (format === 3) s = b.readFloatLE(o);
-        else if (bits === 16) s = b.readInt16LE(o) / 32768;
-        else if (bits === 24)
-          s = ((b[o] | (b[o + 1] << 8) | ((b[o + 2] << 24) >> 8)) << 8) / 2147483648;
-        else if (bits === 32) s = b.readInt32LE(o) / 2147483648;
-        mono[n] = s;
-      }
-      break;
-    }
-    i += 8 + size + (size % 2);
-  }
-  return { rate, mono };
+/** The first channel of what the engine wrote, as floats (./wav.ts reads any chunk order and format). */
+function readMono(path: string): Wav {
+  const w = readWav(path);
+  return { rate: w.rate, mono: channelOf(w) };
 }
 
 /** Each burst's energy CENTROID in seconds, never its onset (../docs/renderHarnesses.md). */
@@ -210,7 +166,7 @@ async function main(): Promise<void> {
     );
 
     const out = await renderProject(docFor(src, c.markers));
-    const heard = centroids(readWav(out.files[0]));
+    const heard = centroids(readMono(out.files[0]));
     rmSync(out.dir, { recursive: true, force: true });
 
     // Loose on purpose, so the discrimination check below carries it (../docs/renderHarnesses.md).

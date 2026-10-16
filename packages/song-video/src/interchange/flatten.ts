@@ -6,7 +6,7 @@
 import type { VideoClipDoc, VideoTrackDoc } from "../videoDoc";
 
 /** One stretch of the lane showing one shot, in timeline seconds; `sourceFrom` is where in the source it starts. */
-export interface Segment {
+interface Segment {
   clip: VideoClipDoc;
   start: number;
   end: number;
@@ -14,7 +14,7 @@ export interface Segment {
 }
 
 /** A dissolve INTO the segment at `index`, over `over` seconds after its start — the outgoing one runs on under it. */
-export interface Dissolve {
+interface Dissolve {
   index: number;
   over: number;
 }

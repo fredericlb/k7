@@ -10,11 +10,12 @@ import type {
 } from "@studio/rehearsal-shared";
 import {
   type Response as ExpressResponse,
+  type Request,
   type RequestHandler,
   Router,
 } from "express";
 import * as db from "./db.ts";
-import type * as Declared from "./index.d.ts";
+import type { ServerOf } from "./publications.ts";
 import { streamSheet } from "./serve.ts";
 import { ensureSheetFileCached, invalidateSong } from "./store.ts";
 
@@ -66,20 +67,18 @@ const visible = (f: Fields, person: string | null): boolean =>
 
 /** A song's record when the device may see it, else null. */
 async function songFor(uid: string, res: ExpressResponse) {
-  const [rec] = await db.listRecords<Fields>("Songs", { Uid: [uid] });
+  const [rec] = await db.listRecords("Songs", { Uid: [uid] });
   return rec && visible(rec.fields, personOf(res)) ? rec : null;
 }
 
 /** The server's side: the songs the device's person may see, read-only, behind a device token (`gate`). */
-export const songbookDeviceRouter: typeof Declared.songbookDeviceRouter = (
-  gate: RequestHandler,
-) => {
+export const songbookDeviceRouter = (gate: RequestHandler): Router => {
   const r = Router();
   r.use(gate);
   r.get(
     "/",
     wrap(async (_req, res) => {
-      const recs = await db.listRecords<Fields>("Songs", undefined, {
+      const recs = await db.listRecords("Songs", undefined, {
         fields: ["Uid", "Artist", "Title", "Private", "OwnerId"],
       });
       const songs: SongSummary[] = recs
@@ -123,9 +122,13 @@ export const songbookDeviceRouter: typeof Declared.songbookDeviceRouter = (
 };
 
 /** The machine's side: `GET /` places its songs, `POST /download {id}` copies one server-only song here. */
-export const songbookCopyRouter: typeof Declared.songbookCopyRouter = (
-  opts,
-) => {
+export const songbookCopyRouter = (opts: {
+  /** Where `songbookDeviceRouter` is mounted on the server. */
+  deviceRoute: string;
+  server: ServerOf;
+  /** Bring the médiathèque file at `path` down from that server, when this machine lacks it. */
+  fetchTrack(req: Request, path: string): Promise<void>;
+}): Router => {
   const r = Router();
 
   r.get(
@@ -156,9 +159,9 @@ export const songbookCopyRouter: typeof Declared.songbookCopyRouter = (
         });
       }
       const here = new Set(
-        (
-          await db.listRecords<Fields>("Songs", undefined, { fields: ["Uid"] })
-        ).map((r) => String(r.fields.Uid)),
+        (await db.listRecords("Songs", undefined, { fields: ["Uid"] })).map(
+          (r) => String(r.fields.Uid),
+        ),
       );
       const placement: SongbookPlacement = {
         paired: true,

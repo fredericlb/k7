@@ -61,7 +61,7 @@ though it were a result.
 
 ## The rule is pinned in the source
 
-`refusal.test.ts` reads `commands.ts` and fails on two shapes:
+`refusal.test.ts` reads `commands.ts` and the verb files it lists, and fails on two shapes:
 
 - an `h.log([…])` whose next line `return`s — that is a handler declining, and the one
   legitimate exception (the alternatives listing) is named in the test with its reason;

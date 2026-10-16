@@ -3,11 +3,9 @@
 // place so the conventions can't drift apart between features. Matched with `(^|\/)` rather
 // than an anchored `^`, since a path may carry a project-folder prefix in a workspace.
 
-/** A project file's extension. `.yml` too: it is the same format under another spelling. */
-export const PROJECT_EXT = /\.(?:ya?ml|k7x)$/i;
+import { docPattern, stripDocExt } from "@studio/song-schema/docExt";
 
-const kind = (folder: string): RegExp =>
-  new RegExp(`(^|/)${folder}/[^/]+.(?:ya?ml|k7x)$`, "i");
+const kind = (folder: string): RegExp => docPattern(`(^|/)${folder}/[^/]+`);
 
 /** A MIDI sequence file — the Editor panel previews its inline notes. */
 export const isSeqFile = (path: string): boolean =>
@@ -23,29 +21,27 @@ export const isVideoTrackFile = (path: string): boolean =>
   kind("video_tracks").test(norm(path));
 
 /** A module file — the one whose rack's `source:` names a file BESIDE it, rather than the project-relative path a clip's source is. */
+const RACK_MODULE_FILE = docPattern("(^|/)modules/[^/]+/[^/]+/module");
 export const isRackModuleFile = (path: string): boolean =>
-  /(^|\/)modules\/[^/]+\/[^/]+\/module\.(?:ya?ml|k7x)$/i.test(norm(path));
+  RACK_MODULE_FILE.test(norm(path));
+
+const MODULE_TAIL = docPattern("/module");
+const NODE_FILE = docPattern("(^|/)nodes/([^/]+)");
 
 /** The chain-`use` key a file answers to in `hints.racks` — a module's folder name or a NODE's stem, so both spellings ask one key. */
 export const rackKeyOf = (path: string): string | null => {
   const p = norm(path);
   if (isRackModuleFile(p))
-    return (
-      p
-        .replace(/\/module\.(?:ya?ml|k7x)$/i, "")
-        .split("/")
-        .pop() ?? null
-    );
+    return p.replace(MODULE_TAIL, "").split("/").pop() ?? null;
   // A chain project's file holds many nodes, keyed by uuid, so its path names none (packages/song/docs/chainFiles.md).
-  const m = /(^|\/)nodes\/([^/]+)\.(?:ya?ml|k7x)$/i.exec(p);
+  const m = NODE_FILE.exec(p);
   return m ? m[2] : null;
 };
 
 /** A module file the BUILDER opens — both, in both trees, since the builder edits both and its routes take either. */
+const MODULE_FILE = docPattern("(^|/)_?modules/[^/]+/([^/]+/)?(module|ui)");
 export const isModuleFile = (path: string): boolean =>
-  /(^|\/)_?modules\/[^/]+\/([^/]+\/)?(module|ui)\.(?:ya?ml|k7x)$/i.test(
-    norm(path),
-  );
+  MODULE_FILE.test(norm(path));
 
 /** The file in `files` that IS `<folder>/<id>`, or null — a lookup and not a search, since `tracks/kick` and `clips/kick` both exist. */
 export function entityFile(
@@ -53,10 +49,7 @@ export function entityFile(
   folder: string,
   id: string,
 ): string | null {
-  const want = new RegExp(
-    `(^|/)${esc(folder)}/${esc(id)}\\.(?:ya?ml|k7x)$`,
-    "i",
-  );
+  const want = docPattern(`(^|/)${esc(folder)}/${esc(id)}`);
   return files.find((p) => want.test(norm(p))) ?? null;
 }
 
@@ -67,7 +60,25 @@ export const norm = (path: string): string => path.replace(/\\/g, "/");
 
 /** A file's id: its name without the folder or the extension. */
 export const fileStem = (path: string): string =>
-  (norm(path).split("/").pop() ?? "").replace(PROJECT_EXT, "");
+  stripDocExt(norm(path).split("/").pop() ?? "");
+
+/** A project folder, slashed and without a trailing `/`; "" when there is none or it is the workspace itself (`.`). */
+export const projectDir = (activeProject: string | null): string => {
+  const ap = norm(activeProject ?? "").replace(/\/+$/, "");
+  return ap === "." ? "" : ap;
+};
+
+/** A workspace-relative path made relative to the project folder, or merely slashed when it lies outside it. */
+export function toProjectRelative(
+  path: string,
+  activeProject: string | null,
+): string {
+  const p = norm(path);
+  const ap = projectDir(activeProject);
+  return ap && (p === ap || p.startsWith(`${ap}/`))
+    ? p.slice(ap.length + 1)
+    : p;
+}
 
 /**
  * Is this path inside the project the ENGINE holds? The tree is the whole WORKSPACE now, so a
@@ -79,16 +90,16 @@ export function inActiveProject(
   activeProject: string | null,
 ): boolean {
   if (activeProject === null) return false;
-  const ap = norm(activeProject).replace(/\/+$/, "");
-  // `.` is the workspace itself being the project: everything in it is the project's.
-  if (!ap || ap === ".") return true;
+  const ap = projectDir(activeProject);
+  // An empty folder is the workspace itself being the project: everything in it is the project's.
+  if (!ap) return true;
   const p = norm(path);
   return p === ap || p.startsWith(`${ap}/`);
 }
 
 /** The generic module file beside `rel` — a node's sibling. */
 export const moduleFileOf = (rel: string): string =>
-  norm(rel).replace(/\/[^/]+\.(?:ya?ml|k7x)$/i, "/module.yaml");
+  norm(rel).replace(docPattern("/[^/]+"), "/module.yaml");
 
 /** The value of a top-level scalar field, quoted or not, with trailing comments and a flow mapping's `,`/`}` dropped. */
 export function readScalarField(text: string, key: string): string | null {

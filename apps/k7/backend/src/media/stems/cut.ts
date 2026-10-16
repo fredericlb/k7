@@ -20,7 +20,7 @@ import type { SeparateJob } from "@studio/web-protocol";
 export class CutError extends Error {}
 
 /** The stems this song already has — asked of the FOLDER, since the files are the truth. */
-export function heldStems(song: string): string[] {
+function heldStems(song: string): string[] {
   const outDir = join(dirname(safePath(song)), STEMS_DIR);
   return existsSync(outDir) ? readdirSync(outDir).filter(isAudio) : [];
 }

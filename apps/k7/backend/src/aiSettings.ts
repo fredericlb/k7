@@ -4,9 +4,11 @@
 // field of the preferences document the browser reads whole and writes back whole.
 // Rationale: packages/ui-module-builder/docs/aiOrganize.md.
 
+import type { AiSettingsView } from "@studio/panel-rules/ai-organize";
 import type { PrefsStore } from "@studio/user-prefs";
 import express, { type RequestHandler } from "express";
 import { z } from "zod";
+import { subOf } from "./who.ts";
 
 /** The model asked for when the account names none. */
 export const DEFAULT_AI_MODEL = "claude-opus-5";
@@ -17,18 +19,11 @@ export interface AiSettings {
   model?: string;
 }
 
-/** What the browser may see: the model, and only enough of the key to recognise it. */
-export interface AiSettingsView {
-  model: string | null;
-  defaultModel: string;
-  keyHint: string | null;
-}
-
 /** `sk-ant-…wxyz`: enough to tell two keys apart, not enough to use one. */
 const hintOf = (key: string): string =>
   key.length > 16 ? `${key.slice(0, 7)}…${key.slice(-4)}` : "…";
 
-export const viewOf = (s: AiSettings | null): AiSettingsView => ({
+const viewOf = (s: AiSettings | null): AiSettingsView => ({
   model: s?.model || null,
   defaultModel: DEFAULT_AI_MODEL,
   keyHint: s?.apiKey ? hintOf(s.apiKey) : null,
@@ -43,8 +38,6 @@ const patchSchema = z
     model: z.string().trim().max(200).nullable().optional(),
   })
   .strict();
-
-const subOf = (req: express.Request): string | undefined => req.user?.sub;
 
 /** `GET`/`PUT /settings` over the store; mounted behind the host's requireAuth. */
 export function aiSettingsRoutes(

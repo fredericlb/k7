@@ -6,6 +6,7 @@
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
+import { isDocFile } from "@studio/song-schema/docExt";
 import { LIBRARY_PINS_FILE } from "@studio/song-schema/libraryVersions";
 import {
   DEFAULT_LIBRARY,
@@ -67,7 +68,7 @@ function* sourceFiles(dir: string): Generator<string> {
       continue;
     }
     if (st.isDirectory()) yield* sourceFiles(p);
-    else if (/\.(ya?ml|k7x)$/i.test(name)) yield p;
+    else if (isDocFile(name)) yield p;
   }
 }
 

@@ -19,7 +19,6 @@
     "./eventLoop": "./src/eventLoop.ts",
     "./takeEdit": "./src/takeEdit.ts",
     "./trackMix": "./src/trackMix.ts",
-    "./windowDescend": "./src/windowDescend.ts",
     "./onsets": "./src/onsets.ts",
     "./presets": "./src/presets.ts"
   },
@@ -33,6 +32,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@studio/web-protocol": "*",
     "@studio/song": "*",
     "@studio/song-schema": "*",
     "yaml": "^2.5.0"

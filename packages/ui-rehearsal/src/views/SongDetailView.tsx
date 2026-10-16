@@ -22,6 +22,7 @@ import { SheetPanel } from "../components/SheetPanel";
 import { SongFetchInsert } from "../components/SongFetchInsert";
 import { SongMenu } from "../components/SongMenu";
 import { SongPlayer } from "../components/SongPlayer";
+import { confirmLoss } from "../confirm";
 import { fmtDate } from "../format";
 import { useLyricsLead } from "../hooks/useLyricsLead";
 import { useMediaQuery } from "../hooks/useMediaQuery";
@@ -217,7 +218,7 @@ export function SongDetailView({
     const asked = readOnly
       ? m["song.confirmRemoveCopy"]({ server: hostOf(song.origin) })
       : m["song.confirmDelete"]();
-    if (!confirm(asked)) return;
+    if (!(await confirmLoss(asked))) return;
     await onDelete();
   };
 

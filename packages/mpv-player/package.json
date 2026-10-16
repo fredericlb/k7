@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Playing a file on the HOST's own outputs through mpv, driven over its JSON IPC socket, one player per person. Knows nothing about where the media lives: the host injects that. Used by the file service, whose media is a cache, and by pl8, whose media is the library itself. Consumed as source.",
+  "description": "Playing a file on the HOST's own outputs through mpv, driven over its JSON IPC socket, one player per person. Knows nothing about where the media lives: the host injects that. Mounted by k7's backend, whose media is the library itself. Consumed as source.",
   "exports": {
     "./player": "./src/player.ts",
     "./router": "./src/router.ts"

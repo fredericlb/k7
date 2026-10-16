@@ -8,19 +8,19 @@
 import type { RawData } from "ws";
 
 /** What a browser may send before it holds a claim: what `probe.ts` and `compat.ts` send. */
-export const PROBE_REQUESTS: ReadonlySet<string> = new Set([
+const PROBE_REQUESTS: ReadonlySet<string> = new Set([
   "whoami",
   "pair",
   "list-plugins",
 ]);
 /** What an engine may answer to a browser without a claim. */
-export const PROBE_ANSWERS: ReadonlySet<string> = new Set([
+const PROBE_ANSWERS: ReadonlySet<string> = new Set([
   "whoami",
   "plugins",
   "error",
 ]);
 /** How long frames past the probe wait for a claim before the socket is closed. */
-export const CLAIM_GRACE_MS = 10_000;
+const CLAIM_GRACE_MS = 10_000;
 /** The close code a socket gets when it never held a claim — 4403, the 403 of a WebSocket. */
 export const NO_CLAIM_CLOSE = 4403;
 const POLL_MS = 200;
@@ -66,13 +66,13 @@ function parsed(f: Frame): Record<string, unknown> | null {
 }
 
 /** A text frame's `type`, or null for a binary frame, a large one, or one that is not a JSON object. */
-export function frameType(f: Frame): string | null {
+function frameType(f: Frame): string | null {
   const m = parsed(f);
   return typeof m?.type === "string" ? m.type : null;
 }
 
 /** The frame without the engine token a `whoami` carries; any other frame as it came. */
-export function withoutToken(f: Frame): Frame {
+function withoutToken(f: Frame): Frame {
   const m = parsed(f);
   if (m?.type !== "whoami" || !("token" in m)) return f;
   const { token: _token, ...rest } = m;

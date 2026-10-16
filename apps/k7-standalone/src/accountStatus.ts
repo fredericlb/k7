@@ -1,6 +1,7 @@
 // accountStatus.ts — where a sign-in or a pairing stands, told to k7's pages for the account bar, and its Cancel taken back.
 // The main process says WHAT happened as a code; the page words it in the person's language. See docs/notices.md.
 
+import { DESKTOP_IPC } from "@studio/web-protocol/desktop";
 import {
   type IpcMainEvent,
   type IpcMainInvokeEvent,
@@ -50,7 +51,7 @@ export function setAccountStatus(s: AccountStatus): void {
     if (wc.isDestroyed()) continue;
     try {
       if (new URL(wc.getURL()).origin === origin)
-        wc.send("studio:auth:status", s);
+        wc.send(DESKTOP_IPC.authStatus, s);
     } catch {
       // A page with no URL yet asks on mount.
     }
@@ -66,8 +67,8 @@ export function onCancel(cancel: () => void): () => void {
 /** Answer the pages of `appOrigin`: the status on ask, and Cancel. */
 export function installAccountStatus(appOrigin: string): void {
   origin = appOrigin;
-  ipcMain.handle("studio:auth:status", (e) => (fromApp(e) ? current : null));
-  ipcMain.on("studio:auth:cancel", (e) => {
+  ipcMain.handle(DESKTOP_IPC.authStatus, (e) => (fromApp(e) ? current : null));
+  ipcMain.on(DESKTOP_IPC.authCancel, (e) => {
     if (!fromApp(e)) return;
     for (const c of [...cancels]) c();
     setAccountStatus({ state: "idle" });

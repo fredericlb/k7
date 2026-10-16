@@ -11,14 +11,11 @@ import {
   resolveModule,
 } from "@studio/song/moduleResolve";
 import { currentAlternative } from "@studio/song-schema/alternatives";
+import { RACK_FIRST_NOTE } from "@studio/song-schema/moduleTypes";
 import { calledSubchains } from "@studio/song-schema/yaml/chainSchema";
+import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { isMap, isScalar, parseDocument, Scalar } from "yaml";
 import { editModuleFile } from "./projectEdit";
-
-const OPTS = { version: "1.2" as const };
-
-/** The first note a new tap takes when the kit has none: General MIDI's kick. */
-const FIRST_NOTE = 36;
 
 /** The node's effective rack, refused when the node is not a rack at all. */
 export function kitOf(dir: string, node: string) {
@@ -33,7 +30,7 @@ export function kitOf(dir: string, node: string) {
 /** Where a tap is written in the node's file: its own `rack:`, or the selected set's. */
 function tapBase(text: string): (string | number)[] {
   const at = currentAlternative(
-    (parseDocument(text, OPTS).toJS() ?? {}) as {
+    (parseDocument(text, YAML_READ).toJS() ?? {}) as {
       alternatives?: unknown;
       alternative?: unknown;
     },
@@ -53,7 +50,7 @@ function editTaps(
   ) => void,
 ): string {
   return editModuleFile(dir, node, (text) => {
-    const doc = parseDocument(text, OPTS);
+    const doc = parseDocument(text, YAML_READ);
     const base = tapBase(text);
     // A node with no `rack:` of its own has nothing yaml's deleteIn/setIn can descend through.
     const parent = base.slice(0, -1);
@@ -67,7 +64,7 @@ function editTaps(
     if (isMap(symbols))
       for (const item of symbols.items)
         if (isMap(item.value)) item.value.flow = true;
-    return doc.toString({ lineWidth: 0 });
+    return doc.toString(YAML_WRITE);
   });
 }
 
@@ -84,7 +81,10 @@ export function setTap(
   return editTaps(dir, node, (doc, base) => {
     const at = [...base, symbol];
     if (!doc.hasIn([...at, "note"]))
-      doc.setIn([...at, "note"], change.note ?? inherited?.note ?? FIRST_NOTE);
+      doc.setIn(
+        [...at, "note"],
+        change.note ?? inherited?.note ?? RACK_FIRST_NOTE,
+      );
     if (change.note !== undefined) doc.setIn([...at, "note"], change.note);
     if (change.sample === null) doc.deleteIn([...at, "sample"]);
     else if (change.sample !== undefined)
@@ -154,7 +154,9 @@ export function addTap(
       throw new Error(`no free note ${near.side} ${near.symbol}'s ${at.note}`);
     note = found;
   } else
-    note = notes.length ? Math.min(127, Math.max(...notes) + 1) : FIRST_NOTE;
+    note = notes.length
+      ? Math.min(127, Math.max(...notes) + 1)
+      : RACK_FIRST_NOTE;
   editTaps(dir, node, (doc, base) => doc.setIn([...base, name, "note"], note));
   return { symbol: name, note };
 }
@@ -263,7 +265,7 @@ export function setTapOut(
       );
   }
   return editModuleFile(dir, node, (text) => {
-    const doc = parseDocument(text, OPTS);
+    const doc = parseDocument(text, YAML_READ);
     if (subchain === null) {
       doc.deleteIn(["tap_outs", tap]);
       const left = doc.get("tap_outs");
@@ -274,6 +276,6 @@ export function setTapOut(
       const outs = doc.get("tap_outs");
       if (isMap(outs)) outs.flow = true;
     }
-    return doc.toString({ lineWidth: 0 });
+    return doc.toString(YAML_WRITE);
   });
 }

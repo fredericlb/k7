@@ -4,18 +4,25 @@
 // What reads wrong: it must be mounted BEFORE the media library, whose catch-all `/api` guard is
 // session-only — the public pages are unguarded and the releases take k7's own bearer.
 
-import { Router } from "express";
+import type { Server } from "node:http";
+import type { RemoteConfig } from "@studio/mediatek/remote";
+import {
+  type Express,
+  type Request,
+  type RequestHandler,
+  Router,
+} from "express";
 import { bearerOrSession } from "./apitoken.ts";
 import { store } from "./db.ts";
 import { env } from "./env.ts";
 import { jsonErrors } from "./errors.ts";
-import type * as Declared from "./index.d.ts";
 import { linkMediatek } from "./mediatek.ts";
 import { importFromPocketbase } from "./pocketbaseImport.ts";
 import {
   forwardToServer,
   PUBLICATION_ROUTES,
   publicationsStatus,
+  type SongbookServer,
 } from "./publications.ts";
 import { configRouter } from "./routes/config.ts";
 import { momentsRouter } from "./routes/moments.ts";
@@ -31,11 +38,27 @@ import { attachRtc } from "./rtc.ts";
 import { startCacheSweeps } from "./store.ts";
 
 export { momentDeviceRouter, momentShareRouter } from "./momentShare.ts";
+export type { SongbookServer } from "./publications.ts";
 export {
   DEVICE_ROUTE as DEVICE_PUBLICATIONS_ROUTE,
   publicationsDeviceRouter,
 } from "./publications.ts";
 export { songbookCopyRouter, songbookDeviceRouter } from "./songbookCopy.ts";
+
+export interface RehearsalMount {
+  /** The boot work once the server listens: the one-time PocketBase import, the phone-mic signaling, the cache sweeps. */
+  serve(server: Server): void;
+  /** Close the signaling and stop the sweeps; idempotent. */
+  stop(): Promise<void>;
+}
+
+export interface RehearsalOptions {
+  requireAuth: RequestHandler;
+  /** The server this request's account is paired with, or null: where a local instance's releases and pages are. */
+  server?: (req: Request) => SongbookServer | null;
+  /** The media library a session's bytes live in: the host's own, over loopback, with a service token. */
+  mediatek: RemoteConfig;
+}
 
 /** Every path this package answers under `/api`: what waits for the import, and nothing else. */
 const REHEARSAL_PATHS = [
@@ -53,7 +76,10 @@ const REHEARSAL_PATHS = [
 ];
 
 /** Mount every rehearsal route on `app`; call it after setupAuth and before the media library. */
-export const mountRehearsal: typeof Declared.mountRehearsal = (app, opts) => {
+export const mountRehearsal = (
+  app: Express,
+  opts: RehearsalOptions,
+): RehearsalMount => {
   const { requireAuth } = opts;
   linkMediatek(opts.mediatek);
 

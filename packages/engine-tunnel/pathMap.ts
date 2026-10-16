@@ -6,8 +6,10 @@
 
 import { mkdir, rename, rm, stat, utimes } from "node:fs/promises";
 import { dirname, extname, join, relative, sep } from "node:path";
+import { isBelow } from "@studio/web-protocol/paths";
 import { TargetInUse } from "./agentFiles.ts";
 import type { RemoteStat } from "./frames.ts";
+import { safeSegment } from "./segments.ts";
 
 export interface MappedRoot {
   /** The server's absolute POSIX path. */
@@ -119,7 +121,8 @@ export class PathMap {
       if (remote === r.remote) return r.local;
       if (!remote.startsWith(`${r.remote}/`)) continue;
       const rest = remote.slice(r.remote.length + 1).split("/");
-      if (rest.some((s) => s === ".." || s === "")) return null;
+      // Every segment the native agent would refuse, refused here too — segments.ts.
+      if (!rest.every((s) => safeSegment(s))) return null;
       return join(r.local, ...rest);
     }
     return null;
@@ -144,7 +147,7 @@ export class PathMap {
     const local = this.ledger.canonicalOf(named) ?? named;
     for (const r of this.roots) {
       if (local === r.local) return { remote: r.remote, root: r };
-      if (!local.startsWith(r.local + sep)) continue;
+      if (!isBelow(r.local, local)) continue;
       const rel = relative(r.local, local);
       if (!rel || rel.startsWith("..")) continue;
       return { remote: `${r.remote}/${rel.split(sep).join("/")}`, root: r };

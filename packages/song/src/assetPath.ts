@@ -2,8 +2,9 @@
 // keeps it inside the module. A leaf: `node:fs` and modelCache only, so both the loader and the
 // ancestry fold can use the ONE copy of that check. See docs/moduleAssets.md.
 
-import { isAbsolute, resolve, sep } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import { MODULE_SOURCES_DIR } from "@studio/song-schema/moduleTypes";
+import { isWithin } from "@studio/web-protocol/paths";
 import { modelsRoot } from "./modelCache";
 import { wsExists } from "./yaml/workspaceFile";
 
@@ -25,7 +26,7 @@ export function resolveModuleFileIn(
     const root = resolve(folder, sub);
     const abs = resolve(root, ref);
     // Escaping is a property of the REF, so one refusal ends it — trying the next folder lets `../` through.
-    if (!(abs === root || abs.startsWith(root + sep))) return undefined;
+    if (!isWithin(root, abs)) return undefined;
     if (wsExists(abs)) return abs;
   }
   return undefined;
@@ -41,6 +42,6 @@ export function resolveModuleAssetIn(
   if (typeof ref !== "string" || !ref || isAbsolute(ref)) return undefined;
   const cacheRoot = modelsRoot();
   const cached = resolve(cacheRoot, ref);
-  const inCache = cached === cacheRoot || cached.startsWith(cacheRoot + sep);
+  const inCache = isWithin(cacheRoot, cached);
   return inCache && wsExists(cached) ? cached : undefined;
 }

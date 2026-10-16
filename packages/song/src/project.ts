@@ -27,7 +27,7 @@ import { parse as parseYaml } from "yaml";
 import { isChainProject } from "./chainProject";
 import { confineToProject } from "./confine";
 import { assembleFolder, isFolderProject } from "./folder";
-import { exportSub, isPictureSource } from "./loader";
+import { exportSub, readsAsPicture } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 import type { AssembledClip, AssembledDoc } from "./rawDoc";
 import { isDocName, wsExists, wsRead, yamlRetired } from "./yaml/workspaceFile";
@@ -127,7 +127,7 @@ function readSource(sourcePath: string): AssembledDoc {
 // Read a single-file song: one YAML document holding `project` and `tracks`.
 function readYamlSong(path: string): AssembledDoc {
   const abs = resolve(path);
-  const value = parseYaml(wsRead(abs), { version: "1.2" });
+  const value = parseYaml(wsRead(abs), YAML_READ);
   if (!value || typeof value !== "object")
     throw new Error(`${basename(abs)} is not a song — expected a mapping`);
   return value as AssembledDoc;
@@ -327,12 +327,13 @@ export function loadAudioClipDoc(
 ): ClipDoc | null {
   if (!isFolderProject(dir)) return null;
   const def = exportSub(dir, "clips")?.[id];
-  if (!def?.source || isPictureSource(String(def.source))) return null;
+  if (!def?.source || readsAsPicture(String(def.source))) return null;
   return mapClip({ id, ...def }, dir, `'${id}'`, grid);
 }
 
 // Imported as well as re-exported: `export … from` publishes a name without BINDING it, and trackMixer reads it.
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 
 export {
   MIXER_PARAMS,

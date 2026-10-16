@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  isLoopbackAddress,
-  isLoopbackHost,
+  isLoopbackHostHeader,
   isLoopbackRequest,
   loopbackOnly,
 } from "./loopback.ts";
@@ -9,7 +8,7 @@ import {
 const req = (remoteAddress: string, host: string | undefined) =>
   ({ socket: { remoteAddress }, headers: { host } }) as never;
 
-describe("isLoopbackHost", () => {
+describe("isLoopbackHostHeader", () => {
   it("accepts this machine's names, port or not", () => {
     for (const h of [
       "127.0.0.1:18789",
@@ -17,7 +16,7 @@ describe("isLoopbackHost", () => {
       "localhost:1",
       "[::1]:18789",
     ])
-      expect(isLoopbackHost(h)).toBe(true);
+      expect(isLoopbackHostHeader(h)).toBe(true);
   });
 
   it("refuses a LAN address, a rebound name and nothing at all", () => {
@@ -27,17 +26,8 @@ describe("isLoopbackHost", () => {
       "127.0.0.1.evil.example",
       "",
     ])
-      expect(isLoopbackHost(h)).toBe(false);
-    expect(isLoopbackHost(undefined)).toBe(false);
-  });
-});
-
-describe("isLoopbackAddress", () => {
-  it("accepts IPv4, IPv6 and the IPv4-mapped spelling", () => {
-    for (const a of ["127.0.0.1", "::1", "::ffff:127.0.0.1"])
-      expect(isLoopbackAddress(a)).toBe(true);
-    for (const a of ["192.168.1.4", "::ffff:10.0.0.2", undefined])
-      expect(isLoopbackAddress(a)).toBe(false);
+      expect(isLoopbackHostHeader(h)).toBe(false);
+    expect(isLoopbackHostHeader(undefined)).toBe(false);
   });
 });
 

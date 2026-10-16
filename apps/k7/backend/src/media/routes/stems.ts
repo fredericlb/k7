@@ -7,15 +7,11 @@ import { claimHolder, type EngineMount } from "@studio/engine-registry";
 import { PathEscapesError } from "@studio/mediatek/layout";
 import { INSTRUMENTAL } from "@studio/song-schema/stems";
 import type { SeparateJob, StemsReply } from "@studio/web-protocol";
-import { type Request, Router } from "express";
+import { Router } from "express";
 import { z } from "zod";
+import { emailOf } from "../../who.ts";
 import { type CutDeps, cutStems, heldFor } from "../stems/cut.ts";
 import { jobIdFor, runningJob, startJob, stemsJob } from "../stems/jobs.ts";
-
-/** The email on the session, or null when the request carries none. */
-function emailOf(req: Request): string | null {
-  return (req as { user?: { email?: string } }).user?.email ?? null;
-}
 
 const body = z.object({
   /** Volume-relative, the string every other route here takes; `safePath` confines it. */

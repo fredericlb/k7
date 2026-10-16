@@ -8,28 +8,12 @@
 import { redo, redoDepth, undo, undoDepth } from "@codemirror/commands";
 import { Transaction } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import { Button } from "@frediverse/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@frediverse/ui/dropdown-menu";
 import type { DroppedFile } from "@frediverse/ui/file-tree";
-import {
-  FileText,
-  FolderTree,
-  Grid3x3,
-  LayoutGrid,
-  Loader2,
-  Piano,
-  TriangleAlert,
-  Wand2,
-} from "@frediverse/ui/icons";
+import { FolderTree } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { askConfirm } from "@studio/project-shell/ask";
 import { showToast } from "@studio/project-shell/toast";
 import { LIBRARIES_DIR } from "@studio/song-schema/moduleTypes";
-import { VIDEO_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
 import {
   listVideoPlacements,
   setVideoPlacementField,
@@ -53,6 +37,14 @@ import { api } from "../api";
 import { NO_READS, readBuffer } from "../bufferReads";
 import { chainOps, filterOps, processLine } from "../clipOps";
 import { clipWindowBand, setClipWindowText } from "../clipWindowText";
+import {
+  allEntries,
+  findUseRack,
+  gridOf,
+  isAudioClipFile,
+  resolveGutterSource,
+  textFiles,
+} from "../editorPaths";
 import { useDiskSync } from "../hooks/useDiskSync";
 import { useDocPerRevision } from "../hooks/useDocPerRevision";
 import type { SetStatus } from "../hooks/useLogs";
@@ -63,17 +55,16 @@ import {
   fileStem,
   inActiveProject,
   isClipFile,
-  isModuleFile,
-  isRackModuleFile,
   isSeqFile,
   isTrackFile,
   isVideoTrackFile,
-  moduleFileOf,
+  norm,
+  projectDir,
   rackKeyOf,
   readScalarField,
+  toProjectRelative,
 } from "../projectPaths";
 import { movedTheTree, movedTheVocabulary, type Reload } from "../reloadScope";
-import { needsAttention, saveLabel } from "../saveLabel";
 import type { SeqView } from "../sequenceEdit";
 import { type EditFocus, keepIfSame } from "../shellEquality";
 import { rackSliceRanges, setSliceWindow } from "../sliceSymbols";
@@ -87,9 +78,9 @@ import type {
   WebProject,
 } from "../types";
 import { useIsMobile } from "../useIsMobile";
-import { Breadcrumb } from "./Breadcrumb";
 import { ConflictBanner } from "./ConflictsPanel";
 import { EditorPane } from "./EditorPane";
+import { DiskConflictBar, EditorToolbar } from "./EditorToolbar";
 import { FileTree, type FileTreeHandle } from "./FileTree";
 import { LibraryUpgrades } from "./LibraryUpgrades";
 import type { MinimapItem } from "./Minimap";
@@ -125,95 +116,7 @@ export interface EditorHandle {
   refreshLibraries: () => void;
 }
 
-// The popin's three views of a sequence, in the order they read: the file, then its notes twice.
-const SEQ_TABS = [
-  { id: "text", label: "Text", icon: FileText, title: "the file itself" },
-  {
-    id: "roll",
-    label: "Roll",
-    icon: Piano,
-    title: "its notes as a piano roll",
-  },
-  {
-    id: "tracker",
-    label: "Tracker",
-    icon: Grid3x3,
-    title: "its notes as a tracker (arrows move, keys type notes)",
-  },
-] as const;
-
-// Flatten the tree to openable text paths — binaries can't be shown, which also drops .dawproject archives.
-function textFiles(nodes: FileNode[]): string[] {
-  const out: string[] = [];
-  const walk = (ns: FileNode[]): void => {
-    for (const n of ns) {
-      if (n.dir) {
-        if (n.children) walk(n.children);
-      } else if (n.kind !== "binary") out.push(n.path);
-    }
-  };
-  walk(nodes);
-  return out;
-}
-
-// EVERY path the tree holds, folders included and binaries kept — what a `file …` command may name; `textFiles` is the narrower list.
-function allEntries(nodes: FileNode[]): { path: string; dir: boolean }[] {
-  const out: { path: string; dir: boolean }[] = [];
-  const walk = (ns: FileNode[]): void => {
-    for (const n of ns) {
-      out.push({ path: n.path, dir: !!n.dir });
-      if (n.children) walk(n.children);
-    }
-  };
-  walk(nodes);
-  return out;
-}
-
-// Which kind of file is open — all of it lives in projectPaths.ts; see its header for the bug that put it there.
-
-// The open file's path relative to the PROJECT (the tree and api speak workspace-relative).
-function toProjectRelative(
-  filePath: string,
-  activeProject: string | null,
-): string {
-  const p = filePath.replace(/\\/g, "/");
-  const ap = (activeProject ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
-  return ap && ap !== "." && (p === ap || p.startsWith(`${ap}/`))
-    ? p.slice(ap.length + 1)
-    : p;
-}
-
-// Resolve a gutter source where the COMPILER puts it: a rack's sits beside its file, a clip's at the project root.
-function resolveGutterSource(
-  source: string,
-  filePath: string,
-  activeProject: string | null,
-): string {
-  if (!source || /^([A-Za-z]:[\\/]|[\\/])/.test(source)) return source;
-  const projRel = toProjectRelative(filePath, activeProject);
-  if (!isRackModuleFile(projRel)) return source;
-  const slash = projRel.lastIndexOf("/");
-  return slash > 0 ? `${projRel.slice(0, slash)}/${source}` : source;
-}
-
-// clips/ holds audio and video: the kind comes off the source extension, read with readScalarField, since YAML does not quote.
-const isAudioClipFile = (text: string): boolean => {
-  const src = readScalarField(text, "source");
-  return !!src && !VIDEO_SOURCE.test(src);
-};
-
-// The rack module a sequence names via use_rack, so a slice rack can dock its source waveform.
-const findUseRack = (text: string): string | null =>
-  readScalarField(text, "use_rack");
-
-// The grid a clip's window is read and written on, defaulted rather than optional — an edge spelled in SECONDS needs no grid at all.
-const gridOf = (p: WebProject | null | undefined) => ({
-  tempo: p?.tempo || 120,
-  num: p?.timeSigNumerator || 4,
-  den: p?.timeSigDenominator || 4,
-});
-
-// What the toolbar says in place of a Save button; 'clean' says nothing, a saved file being the ordinary state.
+// The hints before the first answer: every list empty, so completion offers nothing rather than failing.
 const EMPTY_HINTS: Hints = {
   baseModules: [],
   ioSinks: [],
@@ -368,7 +271,7 @@ export function EditorTab({
 
   // Point the minimap at the open file's entity: a clip or sequence highlights a clip, a track file a track.
   useEffect(() => {
-    const p = (file?.path ?? "").replace(/\\/g, "/");
+    const p = norm(file?.path ?? "");
     const stem = fileStem(p);
     const item: MinimapItem | null =
       // A file of ANOTHER project in this workspace points at nothing here: the minimap draws the
@@ -504,7 +407,7 @@ export function EditorTab({
       setAudioClip(null);
       return;
     }
-    const p = file.path.replace(/\\/g, "/");
+    const p = norm(file.path);
     let cancelled = false;
     const stem = fileStem(p);
 
@@ -713,7 +616,7 @@ export function EditorTab({
   const open = useCallback(
     async (path: string): Promise<boolean> => {
       const seq = ++openSeq.current;
-      const posix = path.replace(/\\/g, "/").toLowerCase();
+      const posix = norm(path).toLowerCase();
       // A .dawproject and an Ableton project's .zip are ZIPs, a .als gzip — offer to import rather than decode bytes as text.
       if (
         posix.endsWith(".dawproject") ||
@@ -1002,9 +905,9 @@ export function EditorTab({
       open,
       files: () => {
         const all = textFiles(tree);
-        if (!activeProject || activeProject === ".") return all;
-        const prefix = `${activeProject.replace(/\\/g, "/").replace(/\/+$/, "")}/`;
-        return all.filter((p) => p.replace(/\\/g, "/").startsWith(prefix));
+        const ap = projectDir(activeProject);
+        if (!ap) return all;
+        return all.filter((p) => norm(p).startsWith(`${ap}/`));
       },
       currentFile: () => file?.path ?? null,
       editorFocused: () => !!cmViewRef.current?.hasFocus,
@@ -1309,148 +1212,29 @@ export function EditorTab({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
-        <Breadcrumb
-          tree={tree}
-          path={file?.path ?? null}
-          // Where `tree` is rooted: paths stay workspace-relative, so the breadcrumb needs BOTH to tell the two spaces apart.
-          root={activeProject && activeProject !== "." ? activeProject : ""}
-          // In a workspace the folder name IS the project; alone, only the song knows what it is called.
-          rootLabel={
-            (activeProject && activeProject !== "."
-              ? activeProject.split("/").pop()
-              : projectName) || "project"
-          }
-          activeProject={activeProject}
-          onOpen={open}
-          onOpenProject={onOpenProject}
-        />
-        <div className="flex-1" />
-        {/* A sequence in the POPIN gets its three views as tabs, text and the two grids as peers (docs/shell.md). */}
-        {popin && isSeq && (
-          <div
-            role="tablist"
-            aria-label={m["seq.views"]()}
-            className="flex items-center gap-0.5 rounded-md border border-border p-0.5"
-          >
-            {SEQ_TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                aria-selected={tab === t.id}
-                title={t.title}
-                className={cn(
-                  "flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors",
-                  tab === t.id
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                )}
-                onClick={() => setTab(t.id)}
-              >
-                <t.icon className="h-3.5 w-3.5" />
-                {t.label}
-              </button>
-            ))}
-          </div>
-        )}
-        {/* A BUTTON and not a redirected click: opening `module.yaml` must still open its text, the path a shared module forks through. */}
-        {file && isModuleFile(file.path) && (
-          <Button
-            size="sm"
-            variant="secondary"
-            title={m["editor.openInBuilder"]()}
-            onClick={() =>
-              onOpenBuilder(
-                moduleFileOf(file.path),
-                /ui\.(?:ya?ml|k7x)$/i.test(file.path) ? "panel" : "module",
-              )
-            }
-          >
-            <LayoutGrid className="mr-1 h-4 w-4" />
-            Builder
-          </Button>
-        )}
-        {/* The waveform panel's "operations" menu on the clip's TEXT (../clipOps.ts); the reload keeps the buffer off the repointed `source:`. */}
-        {file && isClipFile(file.path) && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={processing}
-                title={m["editor.runChain"]()}
-              >
-                {processing ? (
-                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                ) : (
-                  <Wand2 className="mr-1 h-4 w-4" />
-                )}
-                Process
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64 p-1">
-              <input
-                value={opSearch}
-                onChange={(e) => setOpSearch(e.target.value)}
-                placeholder={m["clip.searchChain"]()}
-                // Not autofocused, as in the waveform panel: the menu takes the focus, and stealing it back breaks the arrow keys.
-                className="mb-1 w-full rounded border bg-transparent px-2 py-1 text-xs outline-none focus:border-primary"
-              />
-              <div className="max-h-64 overflow-auto">
-                {clipOps.length === 0 ? (
-                  <p className="px-2 py-1 text-xs text-muted-foreground">
-                    {m["clip.noChain"]()}
-                  </p>
-                ) : (
-                  clipOps.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => void runProcess(c)}
-                      className="block w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-muted"
-                    >
-                      {c}
-                    </button>
-                  ))
-                )}
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-        {/* In place of a Save button: silent while the file is saved, amber with the reason for as long as it is not. */}
-        <span
-          className={cn(
-            "flex min-w-0 shrink items-center gap-1 text-xs",
-            needsAttention(autosave.status)
-              ? "text-amber-500"
-              : "text-muted-foreground",
-          )}
-          title={autosave.reason ?? undefined}
-        >
-          {autosave.status === "saving" && (
-            <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-          )}
-          <span className="truncate">
-            {saveLabel(autosave.status, autosave.reason)}
-          </span>
-        </span>
-      </div>
-      {/* The file moved under an edit in progress: both versions are real work, so this states the choice and waits. */}
+      <EditorToolbar
+        tree={tree}
+        file={file}
+        activeProject={activeProject}
+        projectName={projectName}
+        onOpen={open}
+        onOpenProject={onOpenProject}
+        seqTabs={popin && isSeq}
+        tab={tab}
+        onTab={setTab}
+        onOpenBuilder={onOpenBuilder}
+        processing={processing}
+        opSearch={opSearch}
+        onOpSearch={setOpSearch}
+        clipOps={clipOps}
+        onProcess={(c) => void runProcess(c)}
+        autosave={autosave}
+      />
       {diskSync.conflict !== null && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs">
-          <TriangleAlert className="h-4 w-4 shrink-0 text-amber-500" />
-          <span className="min-w-0 flex-1">
-            This file changed on disk while you were editing it. Your unsaved
-            changes and the new version are different.
-          </span>
-          <Button size="sm" variant="secondary" onClick={diskSync.keepEditing}>
-            Continue editing
-          </Button>
-          <Button size="sm" onClick={diskSync.takeDisk}>
-            Update
-          </Button>
-        </div>
+        <DiskConflictBar
+          onKeep={diskSync.keepEditing}
+          onTake={diskSync.takeDisk}
+        />
       )}
       <div className="relative flex min-h-0 flex-1">
         {/* 256px of tree beside a phone's screen leaves nothing to edit in, so it becomes a drawer closed by picking a file. */}

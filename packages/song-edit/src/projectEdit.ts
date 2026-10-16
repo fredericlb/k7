@@ -32,6 +32,7 @@ import {
   setModuleList,
   setModuleValue,
 } from "@studio/song-schema/yaml/moduleFile";
+import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { parseDocument, parse as parseYaml } from "yaml";
 import type { OnsetEdits } from "./onsets";
 
@@ -137,8 +138,7 @@ export function setModuleParam(
   name: string,
   value: number,
 ): string {
-  // A module with engines keeps its knobs PER engine, so the one that is on is asked first (docs/engines.md).
-  // The reads before the write share one stamp walk; the scope closes BEFORE the write (packages/song/docs/moduleCache.md).
+  // Knobs are kept PER engine, so the one that is on is read first, in one stamp walk closed before the write (packages/song/docs/moduleCache.md).
   const { engine, at } = withModuleStamp(dir, () => ({
     engine: engineOn(dir, module),
     at: moduleFileOf(dir, module),
@@ -149,7 +149,7 @@ export function setModuleParam(
 }
 
 /** The engine a module runs as, resolved like the compile resolves it — undefined for a module with none. */
-export function engineOn(dir: string, module: string): string | undefined {
+function engineOn(dir: string, module: string): string | undefined {
   const node = loadModules(dir)[module];
   return node
     ? currentEngine(resolveModule(node, loadModuleRefs(dir)))
@@ -165,8 +165,7 @@ export function moduleAlternatives(
   const names = alternativeNames(text);
   return {
     names,
-    current:
-      names[currentAlternative(parseYaml(text, { version: "1.2" }) ?? {})],
+    current: names[currentAlternative(parseYaml(text, YAML_READ) ?? {})],
   };
 }
 
@@ -177,8 +176,7 @@ export function newModuleAlternative(
   name?: string,
   opts: { copy?: boolean } = {},
 ): { path: string; name: string } {
-  // RESOLVED and not as loaded, because `kind: "track"` lives on the built-in it extends.
-  // One stamp walk for the reads, closed before the write, as in setModuleParam.
+  // RESOLVED, since `kind: "track"` lives on the built-in; one stamp walk closed before the write, as in setModuleParam.
   const { blankEvents, file } = withModuleStamp(dir, () => {
     const node = loadModules(dir)[module];
     return {
@@ -228,11 +226,7 @@ export function setModuleShader(
   return editModuleValue(dir, module, ["shader"], clean || null);
 }
 
-/** Which CAMERA a live picture node opens, by the LABEL a person reads; empty means the default one.
- *
- * A label and not a deviceId, and the schema's comment says why: an id is salted per browser and
- * per origin, so one written into a committed file names nothing on the next machine. The browser
- * matches this against what it enumerates — see packages/song/docs/camera.md. */
+/** Which CAMERA a live picture node opens, by its LABEL, never a per-browser deviceId; empty is the default — packages/song/docs/camera.md. */
 export function setModuleCamera(
   dir: string,
   module: string,
@@ -357,9 +351,9 @@ export function setClipOnsets(
 
 /** Read a clip's `[timelineBeat, sourceSecond]` pairs exactly as the file states them, or null — never an identity map. */
 export function clipWarpMarkers(dir: string, ref: string): WarpMarker[] | null {
-  const raw = parseYaml(wsRead(clipFilePath(dir, ref)), {
-    version: "1.2",
-  }) as { warp?: { markers?: unknown } } | null;
+  const raw = parseYaml(wsRead(clipFilePath(dir, ref)), YAML_READ) as {
+    warp?: { markers?: unknown };
+  } | null;
   const m = raw?.warp?.markers;
   if (!Array.isArray(m)) return null;
   const out = m
@@ -377,7 +371,7 @@ export function setClipWarp(
 ): string {
   const path = clipFilePath(dir, ref);
   const before = wsRead(path);
-  const doc = parseDocument(before, { version: "1.2" });
+  const doc = parseDocument(before, YAML_READ);
   if (!doc.getIn(["warp", "algorithm"]))
     doc.setIn(["warp", "algorithm"], algorithm);
   // One pair per line, inline — the shape the importer writes and the one a person can read.
@@ -385,6 +379,7 @@ export function setClipWarp(
   for (const item of (seq as { items?: { flow?: boolean }[] }).items ?? [])
     item.flow = true;
   doc.setIn(["warp", "markers"], seq);
+  // The default width, not YAML_WRITE: unfolding would churn clip files already written (docs/yamlText.md).
   const after = String(doc);
   if (after !== before) wsWrite(path, after);
   return path;
@@ -402,7 +397,7 @@ export function clipOnsets(dir: string, ref: string): OnsetEdits {
   const file = clipFileOf(dir, ref);
   if (!file) return {};
   try {
-    const raw = parseYaml(wsRead(file.path), { version: "1.2" });
+    const raw = parseYaml(wsRead(file.path), YAML_READ);
     const o = (raw as { onsets?: OnsetEdits } | null)?.onsets;
     return {
       ...(o?.added?.length ? { added: [...o.added] } : {}),
@@ -448,7 +443,7 @@ export function setModuleExtends(
   const dropped: string[] = [];
   let set: string | undefined;
   const path = editModuleFile(dir, module, (text) => {
-    const doc = parseDocument(text, { version: "1.2" });
+    const doc = parseDocument(text, YAML_READ);
     // On a set other than the first, the SET is repointed: it becomes another module, the node's own untouched.
     const at = currentAlternative(
       (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
@@ -464,7 +459,7 @@ export function setModuleExtends(
         doc.deleteIn([...base, k]);
         dropped.push(k);
       }
-    return doc.toString({ lineWidth: 0 });
+    return doc.toString(YAML_WRITE);
   });
   return {
     rel: relative(dir, path).split(sep).join("/"),

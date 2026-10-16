@@ -133,7 +133,7 @@ struct Command {
     std::string arg;
 };
 
-/** The `state` frame for a snapshot, keys in the order the TypeScript supervisor wrote them. */
+/** The `state` frame for a snapshot, keys in a fixed order, since a frame is sent only when its bytes change. */
 nlohmann::ordered_json stateFrame(const Snapshot& s);
 
 /** The `result` frame answering command `id`. */

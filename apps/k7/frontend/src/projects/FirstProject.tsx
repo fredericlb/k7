@@ -6,13 +6,13 @@
 
 import { Button } from "@frediverse/ui/button";
 import { FolderPlus, Loader2 } from "@frediverse/ui/icons";
-import { Input } from "@frediverse/ui/input";
 import { projectApi } from "@studio/project-shell/project";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { NameField } from "./NameForm";
 import { projectFolderName } from "./projectName";
-import { SHAPES } from "./shapes";
+import { ShapePicker } from "./ShapePicker";
 
 export function FirstProject({
   workspace,
@@ -59,53 +59,20 @@ export function FirstProject({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {SHAPES.map((sh) => (
-            <Button
-              key={sh.id}
-              type="button"
-              size="sm"
-              variant={shape === sh.id ? "default" : "secondary"}
-              disabled={busy}
-              onClick={() => setShape(sh.id)}
-            >
-              {sh.label()}
-            </Button>
-          ))}
-        </div>
-        <span className="text-muted-foreground text-xs">
-          {SHAPES.find((sh) => sh.id === shape)?.what()}
-        </span>
-
-        <Input
-          autoFocus
-          placeholder={m["project.namePlaceholder"]()}
-          value={name}
-          disabled={busy}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
-        />
+        <ShapePicker shape={shape} onShape={setShape} busy={busy} />
 
         {/* What will actually be created, before confirming — as on the projects page. */}
-        <p className="font-mono text-muted-foreground text-xs">
-          {badName ? (
-            <span className="text-destructive">{badName}</span>
-          ) : (
-            folder || " "
-          )}
-        </p>
-
-        {step && (
-          <p className="text-muted-foreground text-xs">
-            <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
-            {step}
-          </p>
-        )}
-        {error && (
-          <code className="max-w-full overflow-x-auto whitespace-pre-wrap rounded bg-muted px-2 py-1 text-red-400 text-xs">
-            {error}
-          </code>
-        )}
+        <NameField
+          placeholder={m["project.namePlaceholder"]()}
+          name={name}
+          onName={setName}
+          onSubmit={submit}
+          busy={busy}
+          step={step}
+          error={error}
+          badName={badName}
+          preview={folder}
+        />
 
         <div className="flex justify-end">
           <Button disabled={busy || !folder} onClick={submit}>

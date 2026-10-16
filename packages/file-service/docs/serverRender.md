@@ -2,7 +2,7 @@
 
 `picture render [webm|mp4] [wav|none] [size=… quality=… from=… to=…]` writes
 `exports/<project>.<ext>` with no browser left open. It takes the words `project export video`
-takes, read by one parser (`@studio/ui-eyes/renderSettings`), so a line typed in either place
+takes, read by one parser (`@studio/song-schema/renderSettings`), so a line typed in either place
 means the same render.
 
 ## The browser's compositor, in a headless Chromium

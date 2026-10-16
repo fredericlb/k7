@@ -4,11 +4,14 @@
 // compiler into the supervisor's bundle. Outgoing messages buffer until the socket opens.
 
 import { EventEmitter } from "node:events";
-import type {
-  EngineState,
-  TransportAction,
-  WaveformEnvelope,
-} from "@studio/engine-protocol";
+import type { TransportAction } from "@studio/engine-protocol";
+import {
+  decodeIoLevels,
+  decodeState,
+  Outbox,
+  type PluginInfo,
+  type PluginParamInfo,
+} from "@studio/engine-protocol/decode";
 import {
   DEFAULT_SESSION,
   forSession,
@@ -19,6 +22,11 @@ import WebSocket from "ws";
 
 // The wire shapes shared with the browser client live in @studio/engine-protocol, so the two can't drift.
 export type { EngineState, TransportAction } from "@studio/engine-protocol";
+export type {
+  IoLevels,
+  PluginInfo,
+  PluginParamInfo,
+} from "@studio/engine-protocol/decode";
 
 // A finished take, ready to become a clip. Position in SECONDS: the engine has no tempo map, so the brain converts.
 export interface RecordedTake {
@@ -26,26 +34,6 @@ export interface RecordedTake {
   file: string; // absolute path of the .wav
   start: number; // seconds
   length: number; // seconds
-}
-
-export interface PluginInfo {
-  name: string;
-  format: string;
-  manufacturer: string;
-  instrument: boolean;
-  role: "instrument" | "audioEffect" | "midiEffect";
-  // What KIND of effect it is, lower case, '' when unknown — an external plugin reports whatever its vendor wrote.
-  category?: string;
-  id: string;
-}
-
-/** One parameter of an installed plugin TYPE, in `@studio/song`'s `BuiltinParam` shape so one panel generator reads both. */
-export interface PluginParamInfo {
-  name: string;
-  min: number;
-  max: number;
-  def?: number;
-  states?: { label: string; value: number }[];
 }
 
 export interface AudioDeviceInfo {
@@ -82,8 +70,8 @@ export interface EditPluginInfo {
 
 export class EngineControl extends EventEmitter {
   protected ws?: WebSocket;
-  // Stamped, because what is queued is REPLAYED — same bound and TTL as `engine-browser/src/engine.ts`, from the constants both read.
-  private outbox: { at: number; s: string }[] = [];
+  // Stamped, because what is queued is REPLAYED — the same queue as the browser client's.
+  private outbox = new Outbox(ENGINE_OUTBOX_MAX, ENGINE_OUTBOX_TTL_MS);
 
   /** @param session which project this client drives; it must match what the app's BROWSER half passes — see `@studio/engine-protocol/docs/sessions.md`. */
   constructor(
@@ -99,12 +87,7 @@ export class EngineControl extends EventEmitter {
 
     ws.on("open", () => {
       // Replay what is still worth replaying, oldest first, and drop the rest.
-      const now = Date.now();
-      const fresh = this.outbox.filter(
-        (e) => now - e.at < ENGINE_OUTBOX_TTL_MS,
-      );
-      this.outbox = [];
-      for (const e of fresh) ws.send(e.s);
+      for (const s of this.outbox.drain()) ws.send(s);
       this.emit("open");
     });
     ws.on("close", () => this.emit("close"));
@@ -120,22 +103,7 @@ export class EngineControl extends EventEmitter {
       if (!forSession(msg, this.session)) return;
       switch (msg.type) {
         case "state":
-          this.emit("state", {
-            playing: !!msg.playing,
-            playhead: Number(msg.playhead ?? 0),
-            levels: (msg.levels ?? []) as number[],
-            inputLevels: (msg.inputLevels ?? []) as number[],
-            armed: (msg.armed ?? []) as string[],
-            recordEnabled: !!msg.recordEnabled,
-            // The master's peak and its overload latch: this client drives no meter, but it publishes the frame whole.
-            master: Number(msg.master ?? -100),
-            masterClipped: !!msg.masterClipped,
-            // Empty unless a waveform tap is subscribed — the Node client has none, so in practice this stays {}.
-            waveform: (msg.waveform ?? {}) as Record<
-              string,
-              WaveformEnvelope[]
-            >,
-          } satisfies EngineState);
+          this.emit("state", decodeState(msg));
           break;
         case "armed":
           this.emit("armed", {
@@ -164,10 +132,7 @@ export class EngineControl extends EventEmitter {
           this.emit("audioDevices", (msg.devices ?? []) as AudioDeviceInfo[]);
           break;
         case "io-levels":
-          this.emit("ioLevels", {
-            inputs: (msg.inputs ?? []) as number[],
-            master: Number(msg.master ?? -100),
-          });
+          this.emit("ioLevels", decodeIoLevels(msg));
           break;
         case "sessions":
           this.emit("sessions", (msg.sessions ?? []) as SessionInfo[]);
@@ -231,9 +196,7 @@ export class EngineControl extends EventEmitter {
       this.ws.send(s);
       return;
     }
-    this.outbox.push({ at: Date.now(), s }); // flushed on 'open'
-    // Bounded, and the oldest goes: this queue holds a blink, never a ten-minute backlog handed over at once.
-    if (this.outbox.length > ENGINE_OUTBOX_MAX) this.outbox.shift();
+    this.outbox.push(s); // flushed on 'open'
   }
 
   // Forget the song — plugins, editors, Edit, diff baseline — so the next send is built fresh; the engine keeps its device and scan cache.

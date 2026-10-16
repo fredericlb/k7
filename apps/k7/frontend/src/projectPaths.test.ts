@@ -9,8 +9,10 @@ import {
   isTrackFile,
   isVideoTrackFile,
   moduleFileOf,
+  projectDir,
   rackKeyOf,
   readScalarField,
+  toProjectRelative,
 } from "./projectPaths";
 
 // The reported bug: the gutter ▶ on a migrated rack sent a bare filename, and the backend resolved it against the project root.
@@ -198,5 +200,22 @@ describe("a .k7x file is the same kind of file as its YAML spelling", () => {
     expect(moduleFileOf("_modules/audio/amp/lead.k7x")).toBe(
       "_modules/audio/amp/module.yaml",
     );
+  });
+});
+
+describe("projectDir / toProjectRelative", () => {
+  it("slashes the folder, drops a trailing slash, and reads `.` as none", () => {
+    expect(projectDir("songs\\first.k7\\")).toBe("songs/first.k7");
+    expect(projectDir(".")).toBe("");
+    expect(projectDir(null)).toBe("");
+  });
+  it("strips the project prefix and leaves any other path slashed", () => {
+    expect(toProjectRelative("a.k7\\clips\\x.yaml", "a.k7")).toBe(
+      "clips/x.yaml",
+    );
+    expect(toProjectRelative("a.k7x/clips/x.yaml", "a.k7")).toBe(
+      "a.k7x/clips/x.yaml",
+    );
+    expect(toProjectRelative("clips/x.yaml", ".")).toBe("clips/x.yaml");
   });
 });

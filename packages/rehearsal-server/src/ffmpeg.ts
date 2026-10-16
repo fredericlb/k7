@@ -1,9 +1,14 @@
 // ffmpeg.ts — every ffmpeg this package runs: a few at a time across the whole process, each one killed past its deadline.
 // Appends and clip cuts arrive from every account of one shared backend, and each ffmpeg takes a whole core (../docs/audio.md).
 // The one thing a reader would get wrong: the deadline starts at the spawn, so the time spent queued for a slot never counts.
+// Their arguments are built here too, every input opened under @studio/ffmpeg's protocol whitelist.
 
-import { spawn } from "node:child_process";
+import { input, run } from "@studio/ffmpeg";
 import { env } from "./env.ts";
+
+/** The end of a missing ffmpeg's message: what this package needs it for. */
+const WHY =
+  "the rehearsal recorder cuts clips and joins takes with ffmpeg. Install it (brew install ffmpeg), or point FFMPEG_BIN at it.";
 
 export interface Limiter {
   run<T>(fn: () => Promise<T>): Promise<T>;
@@ -42,55 +47,72 @@ export function createLimiter(max: number): Limiter {
 }
 
 /** The one limiter every ffmpeg of this package goes through, `K7_FFMPEG_CONCURRENCY` wide. */
-export const ffmpegSlots = createLimiter(env.ffmpegConcurrency);
-
-// Only the tail of stderr is ever reported, so a chatty child cannot grow this string without bound.
-const STDERR_KEEP = 4096;
+const ffmpegSlots = createLimiter(env.ffmpegConcurrency);
 
 /** Run `cmd args` under `limiter`, resolving on exit 0; past `timeoutMs` the child is SIGKILLed and the call rejects. */
-export function runTool(
+export async function runTool(
   cmd: string,
   args: string[],
   opts: { timeoutMs: number; what: string; limiter?: Limiter },
 ): Promise<void> {
   const limiter = opts.limiter ?? ffmpegSlots;
-  return limiter.run(
-    () =>
-      new Promise<void>((resolve, reject) => {
-        const child = spawn(cmd, args, { stdio: ["ignore", "ignore", "pipe"] });
-        let err = "";
-        let settled = false;
-        const settle = (e?: Error) => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          if (e) reject(e);
-          else resolve();
-        };
-        const timer = setTimeout(() => {
-          child.kill("SIGKILL");
-          settle(
-            new Error(
-              `${opts.what} took longer than ${Math.round(opts.timeoutMs / 1000)} s and was killed`,
-            ),
-          );
-        }, opts.timeoutMs);
-        child.stderr?.on("data", (d) => {
-          err = (err + d.toString()).slice(-STDERR_KEEP);
-        });
-        child.on("error", (e) =>
-          settle(
-            new Error(
-              (e as NodeJS.ErrnoException).code === "ENOENT"
-                ? `${cmd} is not installed (run: brew install ffmpeg)`
-                : e.message,
-            ),
-          ),
-        );
-        child.on("close", (code) => {
-          if (code === 0) settle();
-          else settle(new Error(`${opts.what} failed: ${err.slice(-300)}`));
-        });
-      }),
+  await limiter.run(() =>
+    run(cmd, args, { timeoutMs: opts.timeoutMs, what: opts.what, why: WHY }),
   );
+}
+
+/** ffmpeg's arguments to cut [start, start + duration] of an uploaded recording into a webm/opus file. */
+export function clipArgs(
+  src: string,
+  start: number,
+  duration: number,
+  out: string,
+): string[] {
+  return [
+    "-y",
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-ss",
+    String(start),
+    ...input(src),
+    "-t",
+    String(duration),
+    "-vn",
+    // EBU R128 normalization, so a standalone clip sits at -14 LUFS, true peak -1 dBTP.
+    "-af",
+    "loudnorm=I=-14:TP=-1.0:LRA=11",
+    "-c:a",
+    "libopus",
+    "-b:a",
+    "128k",
+    "-f",
+    "webm",
+    out,
+  ];
+}
+
+/** ffmpeg's arguments to join recordings into one webm/opus file; each input carries its own whitelist. */
+export function concatArgs(paths: string[], out: string): string[] {
+  const args = ["-y", "-hide_banner", "-loglevel", "error"];
+  for (const p of paths) args.push(...input(p));
+  // The concat filter needs identical parameters, so each input is coerced to one format.
+  const fmt =
+    "aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo";
+  const pre = paths.map((_, i) => `[${i}:a]${fmt}[a${i}]`).join(";");
+  const labels = paths.map((_, i) => `[a${i}]`).join("");
+  args.push(
+    "-filter_complex",
+    `${pre};${labels}concat=n=${paths.length}:v=0:a=1[a]`,
+    "-map",
+    "[a]",
+    "-c:a",
+    "libopus",
+    "-b:a",
+    "128k",
+    "-f",
+    "webm",
+    out,
+  );
+  return args;
 }

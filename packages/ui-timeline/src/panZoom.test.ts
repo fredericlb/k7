@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isMouseWheel,
+  isZoomWheel,
   MAX_LANE_PX,
   wheelFactor,
   wheelZooms,
@@ -44,6 +45,19 @@ describe("one wheel event on an arrangement", () => {
 
   it("does nothing at all for a delta of nothing", () => {
     expect(wheelFactor(0, true)).toBe(1);
+  });
+});
+
+describe("isZoomWheel", () => {
+  it("calls a PINCH a zoom — that is how a trackpad sends one", () => {
+    // The browser synthesises ctrlKey for a pinch, and it is the only signal there is.
+    expect(isZoomWheel({ ctrlKey: true, metaKey: false })).toBe(true);
+    expect(isZoomWheel({ ctrlKey: false, metaKey: true })).toBe(true);
+  });
+
+  it("calls a plain wheel a PAN, which is the whole change", () => {
+    // Two fingers sliding arrive exactly like a mouse wheel, so the plain wheel gives up zoom.
+    expect(isZoomWheel({ ctrlKey: false, metaKey: false })).toBe(false);
   });
 });
 

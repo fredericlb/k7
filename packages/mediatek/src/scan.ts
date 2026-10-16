@@ -9,6 +9,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 // Where a separation's four files land, beside the master — shared, because a set's graph names it too.
 import { STEMS_DIR, stemsComplete } from "@studio/song-schema/stems";
+import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { parse as parseYaml } from "yaml";
 import { familyDir, SAMPLE_KINDS, toRel } from "./layout.ts";
 import { isAudio, isVideo, withoutDerived } from "./media.ts";
@@ -20,15 +21,6 @@ import {
   SONG_FILE,
   type SongVariant,
 } from "./types.ts";
-
-/** The file that makes a folder a module — the same name a project's `modules/` uses. */
-export const MODULE_FILE = "module.yaml";
-
-/** Its sibling: the module's PANEL — see `@studio/song`'s docs/uiLibrary.md. */
-export const UI_FILE = "ui.yaml";
-
-/** Where a module keeps what it LOADS rather than what it IS — `@studio/song`'s MODULE_ASSETS_DIR. */
-export const ASSETS_DIR = "assets";
 
 // That word lives in types.ts, which a browser may import; re-exported where importers look.
 export { SONG_FILE };
@@ -85,9 +77,10 @@ async function newestUnder(abs: string): Promise<number> {
 /** A song's sidecar, read for display only — unparseable still lists, under the folder name. */
 async function readSong(abs: string): Promise<Record<string, unknown>> {
   try {
-    const v = parseYaml(await readFile(join(abs, SONG_FILE), "utf8"), {
-      version: "1.2",
-    });
+    const v = parseYaml(
+      await readFile(join(abs, SONG_FILE), "utf8"),
+      YAML_READ,
+    );
     return v && typeof v === "object" ? (v as Record<string, unknown>) : {};
   } catch {
     return {};

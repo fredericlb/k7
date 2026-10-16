@@ -27,12 +27,10 @@ import { locate, type ModuleIssue, parseModule } from "./moduleFile";
 import { ControllerFileSchema, ModuleConfigSchema } from "./moduleSchema";
 import { ProjectFileSchema } from "./projectSchema";
 import { parseUiFile } from "./uiFile";
-
-// YAML 1.2 for the reason every parser here pins it: `5:1:1` stays a string.
-const OPTS = { version: "1.2" as const };
+import { YAML_READ } from "./yamlText";
 
 /** How far the check could go — what a caller may conclude from `ok`. */
-export type ValidityDepth =
+type ValidityDepth =
   | "schema" // parsed AND checked against this file's schema
   | "syntax" // parsed; no schema knows this path, so only malformed text is caught
   | "none"; // not YAML at all — nothing here can judge it
@@ -62,7 +60,7 @@ const against =
   (schema: ZodType): Parse =>
   (text) => {
     const lines = new LineCounter();
-    const doc = parseDocument(text, { ...OPTS, lineCounter: lines });
+    const doc = parseDocument(text, { ...YAML_READ, lineCounter: lines });
     const result = schema.safeParse(doc.toJS({ maxAliasCount: 100 }) ?? {});
     if (result.success) return { issues: [] };
     return {
@@ -129,7 +127,7 @@ export function parserFor(path: string): Parse | null {
 /** The YAML parser's own complaints — the text does not parse at all. */
 function syntaxIssues(text: string): ModuleIssue[] {
   const lines = new LineCounter();
-  const doc = parseDocument(text, { ...OPTS, lineCounter: lines });
+  const doc = parseDocument(text, { ...YAML_READ, lineCounter: lines });
   return doc.errors.map((e) => {
     const pos = lines.linePos(e.pos[0]);
     return { path: "", message: e.message, line: pos.line, col: pos.col };

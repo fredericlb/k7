@@ -47,6 +47,9 @@ no `env.yaml` — the images exclude it — and the Dockerfile sets `ENV STUDIO_
 - `FFMPEG_BIN`, `YTDLP_BIN` — the two tools, when they are not on the `PATH`.
 - `STUDIO_PROJECTS_DIR`, `STUDIO_HUNTS_DIR`, `STUDIO_SETTINGS_DIR`, `STUDIO_SHARES_DIR` — move
   four dot directories off the volume. For tests; no deployment sets them.
+- `STUDIO_ENGINES_DIR` — the engine registry's state, `.engines` on the volume by default: an
+  engine's id stays bound to its tunnel secret across a redeploy only while this outlives the
+  container (`packages/engine-registry/docs/token.md`).
 - `STUDIO_PREFS_DIR` — the one preferences document per person (`engineId`, `commands`,
   `playbackTarget`), which is k7's and not the volume's: `~/.studio/prefs/k7` by default,
   `/data/prefs` in the image.

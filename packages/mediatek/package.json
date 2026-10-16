@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The media library: what lives under ~/.k7/mediatek, how it is scanned, and the change token surfaces poll. A library, not a service — two HTTP shells serve it and share their vocabulary from here: apps/k7/backend (src/media) for the hosted volume, @studio/file-service for this machine's cache. Consumed as source.",
+  "description": "The media library: what lives on its volume, how it is scanned, and the change token surfaces poll. A library, not a service — apps/k7/backend (src/media) serves it and @studio/file-service reads it; both share their vocabulary from here. Consumed as source.",
   "types": "./src/layout.ts",
   "exports": {
     "./layout": "./src/layout.ts",
@@ -14,11 +14,8 @@
     "./media": "./src/media.ts",
     "./song": "./src/song.ts",
     "./recordings": "./src/recordings.ts",
-    "./ingest": "./src/ingest.ts",
     "./manifest": "./src/manifest.ts",
     "./remote": "./src/remote.ts",
-    "./cache": "./src/cache.ts",
-    "./evict": "./src/evict.ts",
     "./takes": "./src/takes.ts",
     "./write": "./src/write.ts",
     "./playlistItems": "./src/playlistItems.ts",
@@ -32,6 +29,7 @@
     "upload-library": "node --experimental-strip-types scripts/uploadLibrary.ts"
   },
   "dependencies": {
+    "@studio/web-protocol": "*",
     "@studio/engine-client": "*",
     "yaml": "^2.5.0",
     "@studio/song-schema": "*",

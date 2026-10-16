@@ -42,8 +42,8 @@ mediatek/modules/audio/amps/guitar/assets/   ← the fourteen profiles are HERE
 Looking at `<project>/modules/<category>/<file>/assets` and nowhere else is right only for a
 module this project both owns and stores the files in. For the guitar above it lists the local
 folder — empty — so the one module in the médiathèque built to be picked from would open with
-nothing in it. The graph (`assetChoicesFor`) and the CLI completion (`assetFiles`) go through
-`moduleAssetChoices` for that reason, rather than each carrying the walk.
+nothing in it. The graph (`assetChoicesFor`) and the verb that sets a file param (`setFileParam` in
+`@studio/commands`) go through `moduleAssetChoices` for that reason, rather than each carrying the walk.
 
 A nearer module's assets come first and a duplicate path is dropped, so a local file shadows an
 inherited one of the same name.
@@ -73,7 +73,7 @@ the name you chose while the engine loads the inherited file. Silently the wrong
 worse than none.
 
 So the fold re-resolves a file param against the folders of the whole chain
-(`withInheritedAssets`), nearest first — the same order the choices are offered in, because the
+(`withInheritedFiles` in `moduleResolve.ts`), nearest first — the same order the choices are offered in, because the
 list you pick from and the path you get must agree. Two rules keep it honest:
 
 - Only what **this** module named. A ref it inherited was already resolved by the module that

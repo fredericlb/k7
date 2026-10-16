@@ -50,7 +50,7 @@ own camera.
 | `hooks/useVideoRecording.ts`, `videoTake.ts`, `takeSpool.ts` | camera recording: armed lane + record + play, `MediaRecorder` (WebM VP9/VP8, then MP4), chunks spooled to disk, the take filed in `clips/` and placed with a measured length via `picture add` |
 | `hooks/useCameras.ts` | the cameras this browser sees, by label, for a camera node's card |
 | `videoSpans.ts` | when each picture lane is on screen, so graph cables ripple for picture as they do for sound; pinned to the compositor's rule by `videoSpans.test.ts` |
-| `exportArgs.ts` | parses `project export audio\|video\|timeline …`; the settings words come from `ui-eyes/renderSettings` |
+| `exportArgs.ts` | parses `project export audio\|video\|timeline …`; the settings words come from `song-schema/renderSettings`, through `ui-eyes` |
 | `hooks/useShare.ts`, `components/SharePanel.tsx` | the browser export: mixdown first (the engine renders it, the page decodes it), then `exportScene`, then a download; `exportTimeline` runs `picture interchange` and downloads the result |
 
 ### Drags are file edits, not commands

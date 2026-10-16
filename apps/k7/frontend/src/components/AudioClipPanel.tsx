@@ -16,9 +16,7 @@ import { arrayEq, useEngineState } from "@studio/engine-browser/store";
 import { projectApi } from "@studio/project-shell/project";
 import { followPointer } from "@studio/ui-timeline/drag";
 import { wheelFactor } from "@studio/ui-timeline/panZoom";
-import { Waveform, type WaveformHandle } from "@studio/ui-waveform";
 import {
-  type ComponentProps,
   type RefObject,
   useCallback,
   useEffect,
@@ -31,15 +29,9 @@ import { api } from "../api";
 import { anchorBars, barWindow, frameWindow, zoomBars } from "../barWindow";
 import { clamp } from "../clamp";
 import { chainOps, filterOps, processLine } from "../clipOps";
-import { clipPlayhead } from "../clipPlayhead";
 import { warpLine } from "../clipWarp";
 import type { MenuCtx } from "../contextMenu";
-import {
-  type LiveTake,
-  useLiveEnvelope,
-  useLiveSamples,
-} from "../hooks/useLiveEnvelope";
-import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
+import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
 import { cursorOf, ModeStrip } from "../modeIcons";
 import { m } from "../paraglide/messages.js";
 import { barBeat, takeCounter } from "../takeCounter";
@@ -51,8 +43,11 @@ import {
   WAVE_SOLO_MODES,
   type WaveMode,
 } from "../waveMode";
+import { ChainOpsList } from "./ChainOpsList";
+import { OnsetThreshold, TrimGateMenu } from "./ClipGateControls";
 import { CompStrip } from "./CompStrip";
 import { EventGainSlider } from "./EventGainSlider";
+import { LiveSeconds, LiveTakeWave, LiveWaveform } from "./LiveWaveform";
 import { LoopBrace, LoopToggle } from "./LoopBrace";
 import { ArrangementRuler } from "./Ruler";
 import { type PanelTakes, TakesView } from "./TakesView";
@@ -60,13 +55,7 @@ import { type PanelTakes, TakesView } from "./TakesView";
 // The waveform fills whatever the panel has left under its header, MEASURED because a canvas needs its height in pixels; 120 is only the first frame.
 const MIN_WAVE_H = 120;
 const BUCKETS = 1200;
-// The bounds the file service clamps to anyway (see the /waveform route), repeated so the slider cannot ask for something silently adjusted.
-const SENS_MIN = 0.25;
-const SENS_MAX = 8;
 
-// The gate's range, in dBFS: −80 is below anything a take carries and −10 above a signal, so neither end is useless.
-const GATE_MIN = -80;
-const GATE_MAX = -10;
 /** How many bars the waveform shows before you ask for more — twelve, about what a phrase tends to be. */
 const DEFAULT_BARS = 12;
 // Stable empty defaults: a fresh `[]` per render is a new identity, and one of these feeds a memo.
@@ -609,82 +598,26 @@ export function AudioClipPanel({
             </label>
             {/* The threshold belongs to the onset editor alone: under a stretch job a slider rewriting the sidecar would be a trap. */}
             {editingOnsets && (
-              <label className="flex items-center gap-2">
-                {m["clip.threshold"]()}
-                <input
-                  type="range"
-                  min={SENS_MIN}
-                  max={SENS_MAX}
-                  step={0.25}
-                  value={sensitivity ?? 2}
-                  onChange={(e) => setSensitivity(Number(e.target.value))}
-                  className="w-32"
-                  aria-label={m["clip.sensitivityLabel"]()}
-                />
-                <span className="w-8 tabular-nums">
-                  {(sensitivity ?? 2).toFixed(2)}
-                </span>
-              </label>
+              <OnsetThreshold value={sensitivity} onChange={setSensitivity} />
             )}
 
             {/* Trim OPENS a gate rather than applying one, drawing what would be KEPT over the wave (docs/shell.md). */}
-            <DropdownMenu
+            <TrimGateMenu
               open={gateOpen}
               onOpenChange={(o) => setGateOpen(o && !!clip)}
-            >
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" disabled={!!busy || !clip}>
-                  {busy === "trim" ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    m["clip.trim"]()
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72 p-3">
-                <div className="flex items-center gap-2 text-xs">
-                  {m["clip.threshold"]()}
-                  <input
-                    type="range"
-                    min={GATE_MIN}
-                    max={GATE_MAX}
-                    step={1}
-                    value={gate}
-                    onChange={(e) => setGate(Number(e.target.value))}
-                    className="flex-1"
-                    aria-label={m["clip.gateLabel"]()}
-                  />
-                  <span className="w-12 tabular-nums">{gate} dB</span>
-                </div>
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  {keep
-                    ? m["clip.keeps"]({
-                        from: keep.from.toFixed(2),
-                        to: keep.to.toFixed(2),
-                      })
-                    : m["clip.nothingAbove"]()}
-                </p>
-                {/* No warning needed: a trim writes this EVENT's window, not the material (song/docs/materialCut.md). */}
-                <Button
-                  size="sm"
-                  className="mt-2 w-full"
-                  // …and off with no EVENT to name: the verb addresses a placement, and a take being reviewed has none.
-                  disabled={!keep || !!busy || !eventAt || !track}
-                  onClick={() => {
-                    setGateOpen(false);
-                    // The EVENT is the bound, and naming it is all the command needs — the same pair the preview above was drawn against.
-                    if (eventAt && track)
-                      void run(
-                        `event trim ${track} ${eventAt} ${gate}`,
-                        "trim",
-                      );
-                  }}
-                  title={m["clip.trimHint"]()}
-                >
-                  {m["clip.trim"]()}
-                </Button>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              gate={gate}
+              onGate={setGate}
+              keep={keep}
+              busy={busy === "trim"}
+              disabled={!!busy || !clip}
+              canTrim={!!keep && !busy && !!eventAt && !!track}
+              onTrim={() => {
+                setGateOpen(false);
+                // The EVENT is the bound, and naming it is all the command needs — the same pair the preview above was drawn against.
+                if (eventAt && track)
+                  void run(`event trim ${track} ${eventAt} ${gate}`, "trim");
+              }}
+            />
             {/* Operations: every chain the project and the library offer, run over THIS clip (@studio/commands docs/processChain.md). */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -697,33 +630,15 @@ export function AudioClipPanel({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64 p-1">
-                <input
-                  value={opSearch}
-                  onChange={(e) => setOpSearch(e.target.value)}
-                  placeholder={m["clip.searchChain"]()}
-                  // Not autofocused: the menu takes the focus itself, and stealing it back breaks the arrow keys.
-                  className="mb-1 w-full rounded border bg-transparent px-2 py-1 text-xs outline-none focus:border-primary"
+                <ChainOpsList
+                  search={opSearch}
+                  onSearch={setOpSearch}
+                  ops={ops}
+                  pending={chains === null}
+                  onPick={(c) =>
+                    clip && void run(processLine(clip, c), "process")
+                  }
                 />
-                <div className="max-h-64 overflow-auto">
-                  {ops.length === 0 ? (
-                    <p className="px-2 py-1 text-xs text-muted-foreground">
-                      {chains === null ? "…" : m["clip.noChain"]()}
-                    </p>
-                  ) : (
-                    ops.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() =>
-                          clip && void run(processLine(clip, c), "process")
-                        }
-                        className="block w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-muted"
-                      >
-                        {c}
-                      </button>
-                    ))
-                  )}
-                </div>
               </DropdownMenuContent>
             </DropdownMenu>
             {onDiscard && (
@@ -1030,57 +945,5 @@ export function AudioClipPanel({
         </div>
       </div>
     </section>
-  );
-}
-
-/** The canvas with the TRANSPORT on it — a LEAF, so the frame it watches reaches nothing else, and where SONG seconds become FILE seconds. */
-function LiveWaveform({
-  placedAt,
-  act,
-  tempo,
-  ...rest
-}: Omit<ComponentProps<typeof Waveform>, "currentTime" | "ref"> & {
-  /** The beat this event's window starts playing at, or null for a clip nothing places. */
-  placedAt: number | null;
-  /** The slice of the file the event plays, in file seconds. */
-  act: { from: number; to: number };
-  tempo: number;
-}) {
-  const wave = useRef<WaveformHandle>(null);
-  // Steered per animation frame through the handle: the canvas is not redrawn, only its played clip and line move (docs/playhead.md).
-  usePlayheadFrames(
-    useCallback(
-      (playhead: number) => {
-        const at = clipPlayhead(playhead, placedAt, act, tempo);
-        wave.current?.setTime(at ?? act.from);
-      },
-      [placedAt, act, tempo],
-    ),
-  );
-  return <Waveform ref={wave} {...rest} />;
-}
-
-/** How long the growing take runs, a leaf re-rendering at the take's published rate and nothing around it. */
-function LiveSeconds({ live }: { live: LiveTake }) {
-  const samples = useLiveSamples(live);
-  return <>{((samples.length * live.intervalMs) / 1000).toFixed(1)} s</>;
-}
-
-/** The growing take, drawn in a LEAF: the panel does not render for its samples, only this does. */
-function LiveTakeWave({ live, height }: { live: LiveTake; height: number }) {
-  const samples = useLiveSamples(live);
-  const envelope = useMemo(
-    () => ({ intervalMs: live.intervalMs, samples }),
-    [live.intervalMs, samples],
-  );
-  const seconds = (samples.length * live.intervalMs) / 1000;
-  return (
-    <Waveform
-      look="spectrum"
-      envelope={envelope}
-      duration={seconds}
-      height={height}
-      currentTime={seconds}
-    />
   );
 }

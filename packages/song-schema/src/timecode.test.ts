@@ -3,8 +3,8 @@ import {
   beatsToDuration,
   beatsToPosition,
   parseDuration,
-  parseLegacyPosition,
   parsePosition,
+  roundBeat,
   TICKS_PER_QUARTER,
 } from "./timecode";
 
@@ -143,24 +143,29 @@ describe("ticks", () => {
   it("still reads a DEEP chain by the old ÷4 rule — five fields or more cannot be the new one", () => {
     // Refusing these would make the songs on disk unreadable — the LENGTH tells them apart.
     expect(parseDuration("0:0:0:0:0:1:3:2", 4, 4)).toBeGreaterThan(0);
-    expect(parsePosition("1:1:1:1:3", 4, 4)).toBeCloseTo(
-      parseLegacyPosition("1:1:1:1:3", 4, 4),
-      9,
-    );
+    expect(parsePosition("1:1:1:1:3", 4, 4)).toBeCloseTo(2 / 64, 9);
   });
 
-  // A SHORT chain is legal in both notations, which is why `migrateTimecodes` exists (docs/timecode.md).
-  it("reads a short chain by the NEW rule, which the old one disagrees with", () => {
+  // A SHORT chain always reads by the halving rule, whatever wrote it (docs/timecode.md).
+  it("reads a short chain by the halving rule", () => {
     expect(parsePosition("1:1:3", 4, 4)).toBe(1); // two quavers
-    expect(parseLegacyPosition("1:1:3", 4, 4)).toBe(0.5); // two semiquavers, as it used to
-    // …and where it does agree, it agrees exactly: an origin is an origin.
-    for (const tc of ["1:1:1", "2:1:1", "1:2:1", "3:1:1"])
-      expect(parsePosition(tc, 4, 4)).toBe(parseLegacyPosition(tc, 4, 4));
   });
 
   it("counts ticks from zero in a position, as in a duration", () => {
     // They are a REMAINDER and not an index: the 1-based rule applies to fields alone.
     expect(parsePosition("1:1.0", 4, 4)).toBe(0);
     expect(parseDuration("0:0.0", 4, 4)).toBe(0);
+  });
+});
+
+describe("roundBeat", () => {
+  it("rounds to six decimals, as Math.round(x * 1e6) / 1e6", () => {
+    expect(roundBeat(0.1 + 0.2)).toBe(0.3);
+    expect(roundBeat(1.0000004)).toBe(1);
+    expect(roundBeat(1.0000006)).toBe(1.000001);
+    expect(roundBeat(-2.5)).toBe(-2.5);
+    expect(String(roundBeat(3 + 1 / 3))).toBe("3.333333");
+    for (const x of [0, 0.125, 7.999999999, 1e-7, 123.4567895])
+      expect(roundBeat(x)).toBe(Math.round(x * 1e6) / 1e6);
   });
 });

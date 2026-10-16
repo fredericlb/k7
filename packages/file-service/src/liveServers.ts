@@ -95,12 +95,8 @@ export function linkFor(
   return link;
 }
 
-/** The link to `server` when one was made, without making one. */
-export const linkOf = (server: SyncServer): RelayLink | undefined =>
-  links.get(hostOf(server.url));
-
 /** The relay's HTTP twin of its socket URL: `ws(s)://host/api/sync` → `http(s)://host/api/sync/rooms`. */
-export const roomsUrl = (syncUrl: string): string =>
+const roomsUrl = (syncUrl: string): string =>
   `${syncUrl.replace(/^ws/, "http").replace(/\/+$/, "")}/rooms`;
 
 const rooms = new Map<string, { names: string[]; at: number }>();

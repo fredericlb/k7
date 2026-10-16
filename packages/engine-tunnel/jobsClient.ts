@@ -4,6 +4,7 @@
 // See docs/jobs.md.
 
 import { randomBytes } from "node:crypto";
+import { WebSocket } from "ws";
 
 /** What both kinds of socket offer, and all this uses. */
 export interface JobSocket {
@@ -117,4 +118,22 @@ export function requestJob(
     if (sock.readyState === 1) send();
     else sock.once("open", send);
   });
+}
+
+/** `requestJob` over a socket of its own, dialled to `url` and closed once the job settles. */
+export async function requestJobAt(
+  url: string,
+  body: Record<string, unknown> & { type: string },
+  isLast: (reply: JobReply) => boolean,
+  onReply?: (reply: JobReply) => void,
+  timeouts?: JobTimeouts,
+): Promise<JobReply> {
+  const ws = new WebSocket(url);
+  // A failed dial surfaces as the close requestJob already rejects on; the error event alone would crash.
+  ws.on("error", () => {});
+  try {
+    return await requestJob(ws, body, isLast, onReply, timeouts);
+  } finally {
+    ws.close();
+  }
 }

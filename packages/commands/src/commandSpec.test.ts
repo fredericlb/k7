@@ -6,17 +6,16 @@ import type { ProjectDoc, TrackDoc } from "@studio/song/project";
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import {
-  ARG_CLASSES,
   ARG_KIND_NAMES,
   argClass,
   argHint,
   completions,
   loadCommandSpecs,
   MENU_ENTITIES,
-  PROVIDER_NAMES,
   validateArgs,
 } from "./commandSpec";
 import type { CommandHost } from "./commands";
+import { ARG_CLASSES, PROVIDER_NAMES } from "./providers";
 
 // A host exposing the given track ids and nothing else: completion calls no engine op.
 function host(trackIds: string[]): CommandHost {
@@ -218,16 +217,19 @@ describe("commands.yaml is well-formed against the providers", () => {
       for (const a of c.args ?? [])
         expect(ARG_CLASSES, `${c.command} <${a.name}>`).toContain(argClass(a));
 
-    // web-protocol/types.ts writes the same list out for the browser — docs/completions.md.
+    // web-protocol/commandTypes.ts writes the same list out for the browser — docs/completions.md.
     const contract = readFileSync(
       join(
         dirname(fileURLToPath(import.meta.url)),
-        "../../web-protocol/types.ts",
+        "../../web-protocol/commandTypes.ts",
       ),
       "utf8",
     );
     const union = contract.match(/export type ArgClass =([\s\S]*?);/)?.[1];
-    expect(union, "ArgClass not found in web-protocol/types.ts").toBeTruthy();
+    expect(
+      union,
+      "ArgClass not found in web-protocol/commandTypes.ts",
+    ).toBeTruthy();
     expect([...union!.matchAll(/"([a-z]+)"/g)].map((m) => m[1])).toEqual([
       ...ARG_CLASSES,
     ]);
@@ -238,14 +240,14 @@ describe("commands.yaml is well-formed against the providers", () => {
     const contract = readFileSync(
       join(
         dirname(fileURLToPath(import.meta.url)),
-        "../../web-protocol/types.ts",
+        "../../web-protocol/commandTypes.ts",
       ),
       "utf8",
     );
     const union = contract.match(/export type ArgProvider =([\s\S]*?);/)?.[1];
     expect(
       union,
-      "ArgProvider not found in web-protocol/types.ts",
+      "ArgProvider not found in web-protocol/commandTypes.ts",
     ).toBeTruthy();
     const onWire = [...union!.matchAll(/"([A-Za-z]+)"/g)].map((m) => m[1]);
     expect(onWire.slice().sort()).toEqual([...PROVIDER_NAMES].sort());
@@ -271,7 +273,7 @@ describe("commands.yaml is well-formed against the providers", () => {
     const contract = readFileSync(
       join(
         dirname(fileURLToPath(import.meta.url)),
-        "../../web-protocol/types.ts",
+        "../../web-protocol/commandTypes.ts",
       ),
       "utf8",
     );
@@ -280,7 +282,7 @@ describe("commands.yaml is well-formed against the providers", () => {
     )?.[1];
     expect(
       list,
-      "MENU_ENTITIES not found in web-protocol/types.ts",
+      "MENU_ENTITIES not found in web-protocol/commandTypes.ts",
     ).toBeTruthy();
     expect([...list!.matchAll(/"([a-z-]+)"/g)].map((m) => m[1])).toEqual([
       ...MENU_ENTITIES,

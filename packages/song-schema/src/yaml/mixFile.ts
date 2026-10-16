@@ -6,12 +6,12 @@ import { isMap, isSeq, LineCounter, parseDocument } from "yaml";
 import { songIdOf } from "../songRef";
 import { MARKER_SLOTS, type MixFile, MixFileSchema } from "./mixSchema";
 import type { ModuleIssue } from "./moduleFile";
+import { YAML_READ } from "./yamlText";
+
+// Printed with String(doc), the default width of 80 and not YAML_WRITE: unfolding would churn files (docs/yamlText.md).
 
 /** The cue sheet's filename, at the root of the project — named once, see docs/deskFiles.md. */
 export const MIX_BASE = "mix";
-
-// YAML 1.2 for the reason every other file here pins it: a scalar shaped like `5:1:1` stays a string.
-const OPTS = { version: "1.2" as const };
 
 export interface ParsedMix {
   value: MixFile | null;
@@ -20,7 +20,7 @@ export interface ParsedMix {
 
 export function parseMix(text: string): ParsedMix {
   const lines = new LineCounter();
-  const doc = parseDocument(text, { ...OPTS, lineCounter: lines });
+  const doc = parseDocument(text, { ...YAML_READ, lineCounter: lines });
   const issues: ModuleIssue[] = [];
   for (const e of doc.errors) {
     const pos = lines.linePos(e.pos[0]);
@@ -107,7 +107,7 @@ function editEntry(
   ref: string,
   change: (e: Entry) => Entry,
 ): string {
-  const doc = parseDocument(text, OPTS);
+  const doc = parseDocument(text, YAML_READ);
   let cues = doc.get("cues", true);
   if (!isSeq(cues)) {
     doc.set("cues", doc.createNode([]));

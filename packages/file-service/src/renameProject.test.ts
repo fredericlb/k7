@@ -9,7 +9,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { activeMarkerOf, Workspace } from "./workspace.ts";
+import { activeMarkerOf } from "./activeMarker.ts";
+import { Workspace } from "./workspace.ts";
 
 // Renaming a project is `renameEntry` plus the one thing a PROJECT has: a suffix that says which
 // app opens the folder. See docs/workspaces.md.

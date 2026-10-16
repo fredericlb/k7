@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { measureFilePeak } from "../../../packages/audio-analysis/src/peak.ts";
 import { findEngineBinary } from "../../../packages/engine-client/src/engineBinary.ts";
 import { renderProject } from "../../../packages/file-service/src/render.ts";
+import { wavFile } from "./wav.ts";
 
 const base = {
   name: "tap-outputs",
@@ -30,20 +31,9 @@ const SILENT_DB = -60;
 function sine(dir: string, name: string, hz: number): string {
   const rate = 48000;
   const n = rate / 2;
-  const b = Buffer.alloc(44 + n * 2);
-  b.write("RIFF", 0);
-  b.writeUInt32LE(36 + n * 2, 4);
-  b.write("WAVEfmt ", 8);
-  b.writeUInt32LE(16, 16);
-  b.writeUInt16LE(1, 20);
-  b.writeUInt16LE(1, 22);
-  b.writeUInt32LE(rate, 24);
-  b.writeUInt32LE(rate * 2, 28);
-  b.writeUInt16LE(2, 32);
-  b.writeUInt16LE(16, 34);
-  b.write("data", 36);
-  b.writeUInt32LE(n * 2, 40);
-  for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(Math.sin((2 * Math.PI * hz * i) / rate) * 16000), 44 + i * 2);
+  const pcm = Buffer.alloc(n * 2);
+  for (let i = 0; i < n; i++) pcm.writeInt16LE(Math.round(Math.sin((2 * Math.PI * hz * i) / rate) * 16000), i * 2);
+  const b = wavFile(pcm, rate, 1, 16);
   const path = join(dir, name);
   writeFileSync(path, b);
   return path;

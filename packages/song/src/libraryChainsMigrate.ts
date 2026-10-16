@@ -11,6 +11,10 @@ import { isDeepStrictEqual } from "node:util";
 import { parseChain } from "@studio/song-schema/yaml/chainFile";
 import { VSTPRESETS_DIR } from "@studio/song-schema/yaml/chainSchema";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
+import {
+  YAML_READ_LENIENT,
+  YAML_WRITE,
+} from "@studio/song-schema/yaml/yamlText";
 import { isMap, isSeq, parseDocument, YAMLMap, YAMLSeq } from "yaml";
 import { newNodeId } from "./chainProject";
 import { bypassedOf, CHAIN_IN, CHAIN_OUT } from "./chainsGraph";
@@ -22,8 +26,6 @@ import {
   type TemplateStep,
 } from "./libraryChains";
 import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
-
-const OPTS = { version: "1.2" as const, strict: false };
 
 /** One folder chain's conversion: where it goes, its text, and the presets that move with it. */
 export interface ChainConversion {
@@ -72,10 +74,8 @@ export function folderChains(
 
 /** The node names of a graph that is ONE run `@in` → … → `@out`, or why it is not one. */
 function runOf(graphText: string): string[] | string {
-  const raw = (parseDocument(graphText, OPTS).toJS() ?? {}) as Record<
-    string,
-    unknown
-  >;
+  const raw = (parseDocument(graphText, YAML_READ_LENIENT).toJS() ??
+    {}) as Record<string, unknown>;
   const edges: Record<string, string[]> = {};
   for (const key of ["tracks", "modules"]) {
     const m = raw[key];
@@ -100,7 +100,7 @@ function runOf(graphText: string): string[] | string {
 
 /** The graph file's header, less any paragraph about the `@in`/`@out` ends the folder layout had. */
 function headerOf(graphText: string): string | undefined {
-  const doc = parseDocument(graphText, OPTS);
+  const doc = parseDocument(graphText, YAML_READ_LENIENT);
   // With no blank line under it, the header hangs on the first key rather than on the document.
   const first = isMap(doc.contents) ? doc.contents.items[0]?.key : null;
   const c =
@@ -118,7 +118,7 @@ function headerOf(graphText: string): string | undefined {
 
 /** A node file as a chain item: `id` first, then its own fields as written, comments included. */
 function itemOf(nodeText: string, id: string, bypass: boolean): YAMLMap {
-  const doc = parseDocument(nodeText, OPTS);
+  const doc = parseDocument(nodeText, YAML_READ_LENIENT);
   const item = new YAMLMap();
   item.items.push(doc.createPair("id", id));
   if (bypass) item.items.push(doc.createPair("bypass", true));
@@ -166,7 +166,9 @@ export function convertFolderChain(c: LibraryChainDir): ChainConversion {
     )
   )
     throw new Error("its run and the folder reader's steps disagree");
-  const bypassed = bypassedOf(parseDocument(graphText, OPTS).toJS());
+  const bypassed = bypassedOf(
+    parseDocument(graphText, YAML_READ_LENIENT).toJS(),
+  );
   const before: TemplateStep[] = [];
   for (const name of run) {
     const file = join(nodesDir, `${name}.yaml`);
@@ -176,16 +178,14 @@ export function convertFolderChain(c: LibraryChainDir): ChainConversion {
     before.push({
       name,
       label: name,
-      module: (parseDocument(wsRead(file), OPTS).toJS() ?? {}) as Record<
-        string,
-        unknown
-      >,
+      module: (parseDocument(wsRead(file), YAML_READ_LENIENT).toJS() ??
+        {}) as Record<string, unknown>,
       ...(bypassed.has(name) ? { bypass: true } : {}),
       ...(wsExists(preset) ? { preset } : {}),
     });
   }
 
-  const doc = parseDocument("steps: []", OPTS);
+  const doc = parseDocument("steps: []", YAML_READ_LENIENT);
   const steps = new YAMLSeq();
   const ids: [string, string][] = [];
   const presets: [string, string][] = [];
@@ -207,7 +207,7 @@ export function convertFolderChain(c: LibraryChainDir): ChainConversion {
   doc.set("steps", steps);
   const header = headerOf(graphText);
   if (header) doc.commentBefore = header;
-  const text = doc.toString({ lineWidth: 0 });
+  const text = doc.toString(YAML_WRITE);
 
   // Read back exactly as the reader will, and compared with the folder before a byte is written.
   const parsed = parseChain(text);

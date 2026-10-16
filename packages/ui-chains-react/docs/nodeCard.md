@@ -1,6 +1,7 @@
 # The card a node draws — its header, its corner, its flags, its LODs
 
-`DomChains.tsx`'s `NodeInner` is one component drawing every kind of node, and the branches it
+`ChainsNode.tsx`'s `NodeInner` is one component drawing every kind of node — its sections in
+`NodeHeader.tsx`, `NodePorts.tsx`, `NodeShells.tsx` and `NodeTabs.tsx` — and the branches it
 takes are all decisions someone made once. This page holds the reasons; the file holds one line
 each.
 
@@ -17,6 +18,11 @@ second line holds the engine-and-preset dropdown, a control used far more often 
 is read once. The name's own tooltip holds both, the ref and the node. The far LOD says the module too: at that
 zoom the card IS one word, and the useful one is what the node is rather than which copy of it. Two
 LODs answering differently would be two cards.
+
+A lane's strip wears its LANE's name, spelt without its instrument code, which the glyph beside it
+already says; the TRACK node keeps its id, being addressed by it. A step with no module and no plugin
+plays nothing and says so — "empty step" — its place kept for the tooltip
+(`packages/song/docs/chainFiles.md`).
 
 **A curve card draws the curve editor's picture, and only that**: the same samples, split the same way
 (`previewParts`, `@studio/song-schema`'s `curveMath.ts`, at the editor's resolution), on the same -1..1 frame with 0 dashed and the same beat and bar lines (`previewBeats`), an
@@ -291,6 +297,11 @@ render, `packages/song/docs/autoFreeze.md`) takes the same wash and snowflake, b
 refuses a drag and hides the plugin bubble and the on/off block, `autoFrozen` keeps them: a drag or the
 plugin bubble first calls the host's `onThawAutoFreeze` with the VST the render was taken at, so the
 edit reaches a live plugin.
+
+**An output with a declared FACE draws it as any card does.** A sink whose `ui` is showing falls
+through to the widget grid, so its controls are children of the CARD and land on `widgetRect`'s
+coordinates. Inside `.dgx-out` — itself absolute at `UI_CONTENT_TOP` — they would pay the header's
+height twice and fall out of the bottom of a card `mainOutCard` sized for them.
 
 ## A note is drawn before the LOD branch
 

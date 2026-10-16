@@ -1,12 +1,12 @@
 # Is this text a file the compiler can read?
 
-`yaml/validate.ts` answers that about a **buffer**, in a browser, for any file a project is made
+song-schema's `yaml/validate.ts` answers that about a **buffer**, in a browser, for any file a project is made
 of. It exists because the editors autosave now
 ([packages/ui-editor/docs/autosave.md](../../ui-editor/docs/autosave.md)) and something has to
 decide whether the text in the pane is worth writing.
 
 It adds no schema of its own. Every file kind here already had a parser — `parseModule`,
-`parseUiFile`, `parseTrack`, `parseChains`, `parseMix`, `parseMixView` — all with the same
+`parseUiFile`, `parseChain`, `parseGraph`, `parseMix`, `parseMixView` — all with the same
 shape, `{ value, issues }`, all returning located findings, all browser-safe. This is a
 **router** over them, plus a plain Zod check for the kinds that have no parser of their own
 (clips, sequences, curves, video tracks, `project.yaml`, a module folder's MIDI map, and a

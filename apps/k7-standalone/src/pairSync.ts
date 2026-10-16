@@ -4,7 +4,6 @@
 // window: a page could be anything. See docs/sync.md.
 
 import { randomBytes } from "node:crypto";
-import { createServer, type Server } from "node:http";
 import { hostname } from "node:os";
 import { openExternalSafely } from "@frediverse/electron-shell/external";
 import { line } from "@frediverse/electron-shell/log";
@@ -16,19 +15,11 @@ import {
 } from "@studio/web-protocol/pairing";
 import { dialog, session } from "electron";
 import { onCancel, setAccountStatus } from "./accountStatus.ts";
+import { type LoopbackAnswer, loopbackReturn } from "./loopbackReturn.ts";
 import { chosenServer } from "./server.ts";
 
-/** A pairing left unfinished in the browser stops listening after this. */
-const WAIT_MS = 10 * 60_000;
-
-const PAGE = (
-  said: string,
-) => `<!doctype html><meta charset="utf-8"><title>k7</title>
-<body style="font:16px system-ui;background:#101114;color:#e4e4e7;display:grid;place-items:center;height:100vh;margin:0">
-<p>${said}</p>`;
-
 /** The server this machine syncs with: the one chosen at sign-in (server.ts). */
-export const syncOrigin = (): string => chosenServer();
+const syncOrigin = (): string => chosenServer();
 
 /** The relay's socket at a server's origin: `https://app.k7.rocks` → `wss://app.k7.rocks/api/sync`. */
 const relayOf = (origin: string): string =>
@@ -43,16 +34,19 @@ const hostOf = (url: string): string => {
   }
 };
 
-let pending: Server | null = null;
+let pending: { close(): void } | null = null;
 let forget: () => void = () => undefined;
 
-/** Stop listening for `server`'s token; true when it was still the one waited for. */
-function abandon(server: Server): boolean {
-  if (pending !== server) return false;
-  server.close();
+/** Let go of the pairing in progress once it has ended, so Cancel no longer reaches it. */
+function release(): void {
   pending = null;
   forget();
-  return true;
+}
+
+/** Stop listening for the browser's token: it then lands on a closed port. */
+function abandon(): void {
+  pending?.close();
+  release();
 }
 
 /** The second browser trip, right after the sign-in's, said before it happens; false when the person declines it. */
@@ -130,77 +124,75 @@ export async function addServer(k7: string, input: string): Promise<boolean> {
 
 /** The pairing itself: the browser on `origin`'s pairing page, the token back on loopback, kept by the local backend. */
 function pair(k7: string, email: string, origin: string, main: boolean): void {
-  if (pending) abandon(pending);
+  abandon();
   const state = randomBytes(16).toString("base64url");
-  const server = createServer((req, res) => {
-    const url = new URL(req.url ?? "/", "http://127.0.0.1");
-    const p = url.searchParams;
-    if (url.pathname !== SYNC_PAIR_RETURN_PATH || p.get("state") !== state) {
-      res.writeHead(404).end();
-      return;
-    }
-    abandon(server);
-    // The browser may be signed in to the server as someone else: their token must not sync this account.
-    if (p.get("identity") !== email) {
-      line(
-        "app",
-        `sync pairing refused: the browser is signed in as ${p.get("identity")}, not ${email}`,
-      );
-      setAccountStatus({ state: "error", code: "pairRefused", detail: email });
-      res
-        .writeHead(409, { "Content-Type": "text/html; charset=utf-8" })
-        .end(
-          PAGE(
-            `The browser is signed in to k7 as another account. Sign in there as ${email} and try again.`,
-          ),
-        );
-      return;
-    }
-    res
-      .writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
-      .end(
-        PAGE("This machine now syncs your workspaces. You can close this tab."),
-      );
-    void local(k7, "/api/sync/remote", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      // The relay is reached where the person named the server, whatever host a proxy showed it.
-      body: JSON.stringify({
-        url: relayOf(origin),
-        token: p.get("token"),
-        main,
-      }),
-    }).then((done) => {
-      line(
-        "app",
-        done
-          ? `sync paired with ${origin}${main ? " (main)" : ""}`
-          : "sync pairing could not be stored",
-      );
-      const host = new URL(origin).host;
-      setAccountStatus(
-        done
-          ? { state: "done", code: "paired", detail: host }
-          : { state: "error", code: "pairNotStored", detail: host },
-      );
-    });
+  pending = loopbackReturn({
+    path: SYNC_PAIR_RETURN_PATH,
+    state,
+    onHit: (p) => {
+      release();
+      return kept(k7, email, origin, main, p);
+    },
+    open: (back) =>
+      openExternalSafely(syncPairUrl(origin, back, state, hostname())),
+    onFail: (why, detail) => {
+      if (detail) line("app", `sync pairing could not listen: ${detail}`);
+      release();
+      setAccountStatus({
+        state: "error",
+        code: why === "timeout" ? "pairTimeout" : "pairFailed",
+      });
+    },
   });
-  pending = server;
-  forget = onCancel(() => abandon(server));
+  forget = onCancel(abandon);
   setAccountStatus({ state: "waiting", what: "pair" });
-  server.on("error", (e) => {
-    line("app", `sync pairing could not listen: ${e.message}`);
-    if (abandon(server))
-      setAccountStatus({ state: "error", code: "pairFailed" });
+}
+
+/** A token the browser brought back: kept for `email` when the browser was signed in as them. */
+function kept(
+  k7: string,
+  email: string,
+  origin: string,
+  main: boolean,
+  p: URLSearchParams,
+): LoopbackAnswer {
+  // The browser may be signed in to the server as someone else: their token must not sync this account.
+  if (p.get("identity") !== email) {
+    line(
+      "app",
+      `sync pairing refused: the browser is signed in as ${p.get("identity")}, not ${email}`,
+    );
+    setAccountStatus({ state: "error", code: "pairRefused", detail: email });
+    return {
+      status: 409,
+      said: `The browser is signed in to k7 as another account. Sign in there as ${email} and try again.`,
+    };
+  }
+  void local(k7, "/api/sync/remote", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    // The relay is reached where the person named the server, whatever host a proxy showed it.
+    body: JSON.stringify({
+      url: relayOf(origin),
+      token: p.get("token"),
+      main,
+    }),
+  }).then((done) => {
+    line(
+      "app",
+      done
+        ? `sync paired with ${origin}${main ? " (main)" : ""}`
+        : "sync pairing could not be stored",
+    );
+    const host = new URL(origin).host;
+    setAccountStatus(
+      done
+        ? { state: "done", code: "paired", detail: host }
+        : { state: "error", code: "pairNotStored", detail: host },
+    );
   });
-  server.listen(0, "127.0.0.1", () => {
-    const address = server.address();
-    if (!address || typeof address === "string") return;
-    const back = `http://127.0.0.1:${address.port}${SYNC_PAIR_RETURN_PATH}`;
-    openExternalSafely(syncPairUrl(origin, back, state, hostname()));
-  });
-  setTimeout(() => {
-    if (abandon(server))
-      setAccountStatus({ state: "error", code: "pairTimeout" });
-  }, WAIT_MS).unref();
+  return {
+    status: 200,
+    said: "This machine now syncs your workspaces. You can close this tab.",
+  };
 }

@@ -16,12 +16,9 @@ import {
   AssemblyTemplateSchema,
 } from "./assemblySchema";
 import type { ModuleIssue } from "./moduleFile";
+import { YAML_READ, YAML_WRITE } from "./yamlText";
 
 export { ASSEMBLIES_DIR, ASSEMBLY_FILE };
-
-// YAML 1.2, as every other file here pins it, and no wrapping so a plug stays on one line.
-const OPTS = { version: "1.2" as const, lineWidth: 0 };
-const OUT = { lineWidth: 0 };
 
 /** One assembly as a reader gets it, its id being its FILENAME — a WIRE shape. */
 export interface ProjectAssembly {
@@ -55,7 +52,7 @@ function parseWith<T>(
   empty: string,
 ): ParsedAssembly<T> {
   const lines = new LineCounter();
-  const doc = parseDocument(text, { ...OPTS, lineCounter: lines });
+  const doc = parseDocument(text, { ...YAML_READ, lineCounter: lines });
   const issues: ModuleIssue[] = [];
   for (const e of doc.errors) {
     const pos = lines.linePos(e.pos[0]);
@@ -107,12 +104,15 @@ export function parseAssembly(text: string): ParsedAssembly<AssemblyFile> {
 
 /** The instance file as this library writes one — what `assembly new` and the migrations emit. */
 export function formatAssembly(file: AssemblyFile, header = ""): string {
-  const doc = new Document({ uses: file.uses, members: file.members }, OPTS);
+  const doc = new Document(
+    { uses: file.uses, members: file.members },
+    YAML_READ,
+  );
   return (
     (header
       ? `${header}
 `
-      : "") + doc.toString(OUT)
+      : "") + doc.toString(YAML_WRITE)
   );
 }
 
@@ -121,7 +121,7 @@ function read(text: string, what: string): ReturnType<typeof parseDocument> {
   const { value, issues } =
     what === ASSEMBLY_FILE ? parseAssemblyTemplate(text) : parseAssembly(text);
   if (!value) throw new Error(`${what}: ${issues[0]?.message ?? "unreadable"}`);
-  return parseDocument(text, OPTS);
+  return parseDocument(text, YAML_READ);
 }
 
 /** Point one member at a different node — what a node RENAME does to every assembly holding it. */
@@ -143,15 +143,7 @@ export function renameAssemblyMember(
     members.set(key, to);
     touched = true;
   }
-  return touched ? doc.toString(OUT) : text;
-}
-
-/** Which of this instance's members is that node, if any — the inverse the rename above walks. */
-export function memberNamed(
-  file: AssemblyFile,
-  node: string,
-): string | undefined {
-  return Object.entries(file.members).find(([, n]) => n === node)?.[0];
+  return touched ? doc.toString(YAML_WRITE) : text;
 }
 
 /** Promote a member's param onto the box's face, or replace what that name already promoted. */
@@ -165,7 +157,7 @@ export function setAssemblyParam(
   const node = doc.createNode({ node: target.node, param: target.param });
   node.flow = true;
   doc.setIn(["params", name], node);
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }
 
 /** …and take it back off, the empty map going with the last entry — an authored-then-emptied `params:` says nothing. */
@@ -176,5 +168,5 @@ export function dropAssemblyParam(text: string, name: string): string {
   if (!params.has(name)) return text;
   params.delete(name);
   if (!params.items.length) doc.delete("params");
-  return doc.toString(OUT);
+  return doc.toString(YAML_WRITE);
 }

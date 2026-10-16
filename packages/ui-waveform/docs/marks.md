@@ -1,6 +1,6 @@
 # What is drawn on top of the wave, and what a hand can grab
 
-[Waveform.tsx](../src/Waveform.tsx) draws one canvas and hangs a few DOM buttons over it. This
+[Waveform.tsx](../src/Waveform.tsx) draws one canvas and hangs a few DOM buttons over it ([overlays.tsx](../src/overlays.tsx)). This
 page holds the reasoning behind the marks — the view, the markers, the stretch points, the
 material's window — so the component itself can say what each prop is in one line.
 
@@ -88,7 +88,7 @@ absent and the first drag brings one into being.
 ## Stretch points: what snaps and what does not
 
 Everywhere else on this canvas a click lands on the nearest drawn tick, because what you are
-naming there IS a beat ([ticks.md](ticks.md)). A warp is the exception, twice over:
+naming there IS a beat ([ticks.md](../../ui-timeline/docs/ticks.md)). A warp is the exception, twice over:
 
 - **placing** one is unsnapped. What you are naming is a moment of the SOURCE — an attack, a
   syllable — and the whole gesture is to pin it to the grid afterwards. Snapping the origin would

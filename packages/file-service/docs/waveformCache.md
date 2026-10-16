@@ -204,14 +204,9 @@ take review all draw the same onsets without knowing corrections exist. The raw 
 it, mapped the same way, so an editor can tell which pins it may only refuse and which it may pick
 up.
 
-### Prewarm, cancel and clear
+### Prewarm and cancel
 
 Prewarm runs in two phases: rebuild every stale sidecar, a few decodes at a time, then memoise the
 sliced results on the fast no-spawn path. A newer prewarm — or a delete — takes over: on Windows a
 held `.wav` blocks a rename, so cancelling aborts the decoders, which kills them rather than merely
 stopping consuming them.
-
-`clear` drops the memo and every `{source}.cache` sidecar, which is a walk since they sit beside
-their audio. The sweep uses the tree's own hidden-name rule, so it never clears where the user does
-not consider their workspace to be, and each unlink has its own catch so one sidecar a decoder
-still holds open does not abandon the rest.

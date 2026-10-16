@@ -36,7 +36,6 @@ boolean-looking strings are quoted, whatever the writer.
 | `crossfade.ts` | A crossfade between neighbouring events: overlap them by its length and fade each over it. |
 | `materialCut.ts` | Cutting and merging material: `event split` writes two sequences, `selection consolidate` one. |
 | `materialWindow.ts` | A DAW's (start, length, offset, loop region) turned into a material window and a placement count — used by imports. |
-| `windowDescend.ts` | Move a material's `from`/`to` down onto every placement of it. |
 | `sequenceLoops.ts` | After a sequence is doubled, halve the loop count of each placement so the arrangement does not move. |
 | `insertTime.ts` | Insert or delete a span of song time across everything positioned in it: events, takes, alternatives, markers, curve points. |
 | `takeEdit.ts` | An event's takes on disk: pick a comp span, drop or add a take, write a MIDI take as its own sequence. |
@@ -46,9 +45,6 @@ boolean-looking strings are quoted, whatever the writer.
 | `presets.ts` | A node's presets: listed from every preset tree it can see, applied onto the node, saved from what it resolves to. |
 | `alternativeSwitch.ts` | Switch a node to another alternative, and say whether the switch reaches a running engine as plain values. |
 | `engineSwitch.ts` | Run a module as another engine by writing `engine:` on the set that is on. |
-
-`packages/song-edit/scripts/migrateClipWindows.ts` is a one-off migration script kept with the
-package.
 
 ## Choices
 

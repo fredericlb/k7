@@ -1,12 +1,10 @@
 // freezeWatchdog.ts — turn "the tab froze randomly" into evidence, console only.
 //
-// A heartbeat catches the stall and says HOW LONG. That is where this stopped, and a duration alone names no
-// suspect: "it blocked 3.7 s" is the same sentence whether React committed a huge tree, a message handler chewed
-// through a payload, or the browser paused us. So the stall report now also says WHAT — the long tasks that fell
+// A heartbeat catches the stall and says HOW LONG; the report also says WHAT — the long tasks that fell
 // inside the window, the React commits that landed in it, and whatever the app had told us it was doing.
 //
-// Imported for its side effects from main.tsx; safe to keep on. The probes cost microseconds, the breadcrumb ring
-// is fixed-size, and nothing prints until a real stall happens.
+// Installed from appMain.tsx; safe to keep on. The probes cost microseconds, the breadcrumb ring is
+// fixed-size, and nothing prints until a real stall happens.
 
 const STALL_MS = 250; // heartbeat overshoot above this == a stall worth reporting
 const LONGTASK_MS = 200; // report long tasks at least this long
@@ -86,17 +84,7 @@ export function beginActivity(name: string): () => void {
   };
 }
 
-/** Wrap a synchronous call in a breadcrumb. */
-export function activity<T>(name: string, fn: () => T): T {
-  const done = beginActivity(name);
-  try {
-    return fn();
-  } finally {
-    done();
-  }
-}
-
-/** React's Profiler callback, for main.tsx. Only slow commits are kept. */
+/** React's Profiler callback, for appMain.tsx. Only slow commits are kept. */
 export function reportCommit(
   id: string,
   phase: string,

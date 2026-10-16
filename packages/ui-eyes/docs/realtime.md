@@ -145,13 +145,12 @@ being what notices the return, and coming back reseeks every element as a transp
 
 ## The clocks
 
-`clock.ts` holds three, and the compositor cannot tell which one it has — that is what keeps the
+`clock.ts` holds two, and the compositor cannot tell which one it has — that is what keeps the
 renderer independent of where its time comes from.
 
 | | what it answers to |
 |---|---|
 | `EngineClock` | follows a playhead reported over a socket |
-| `FrameClock` | stepped by the exporter; no wall clock, so a render is reproducible |
 | `TransportClock` | is the authority itself, for a host with no engine |
 
 Only the realtime driver needs `SeekingClock`. Drawing a frame just asks what second it is, while

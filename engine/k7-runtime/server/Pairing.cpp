@@ -8,7 +8,9 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <random>
 
 namespace studio {
@@ -153,7 +155,13 @@ void Pairing::save() {
         out << json{{"devices", arr}}.dump(2);
         if (!out) return;
     }
-    std::rename(tmp.c_str(), file_.c_str());
+    std::error_code ec;
+    // The keys are secrets: only the account the engine runs as may read them.
+    std::filesystem::permissions(tmp, std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+                                 std::filesystem::perm_options::replace, ec);
+    // std::filesystem::rename replaces an existing target on Windows too, where std::rename refuses.
+    std::filesystem::rename(tmp, file_, ec);
+    if (ec) std::cerr << "[pairing] cannot save " << file_ << ": " << ec.message() << "\n";
 }
 
 void Pairing::prune(long long now) {

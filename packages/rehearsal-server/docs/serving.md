@@ -13,7 +13,7 @@ that streams; no route calls `streamFile` itself.
   release, a version, a version's replacement, an import's mixdown and stems, a session's take, a
   song's reference track.
 - **The `Content-Type` is read off the file's extension**, the extension the server itself filed it
-  under (`audioMimeOf`), and never off the `*Mime` column the row stores. Those columns hold what
+  under (`audioMimeOf`, over the médiathèque's `MIME_BY_EXT`), and never off the `*Mime` column the row stores. Those columns hold what
   the client said; they are kept for the file names a download is given, and serve nothing. An
   extension outside the audio table goes out as `application/octet-stream`.
 - **Every response carries `X-Content-Type-Options: nosniff`**, so a browser never second-guesses

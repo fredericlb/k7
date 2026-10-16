@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
 
 /** How long the link must stay down before the strip shows — a reconnect inside it is a blip. */
-export const ENGINE_LOST_DELAY_MS = 2000;
+const ENGINE_LOST_DELAY_MS = 2000;
 
 export function EngineLostStrip({
   connected,

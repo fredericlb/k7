@@ -21,7 +21,7 @@ import {
 export const BYPASS_W = 26;
 export const BYPASS_GAP = 8;
 /** The largest a node header's text — its name, its dropdowns — is drawn on SCREEN, px. */
-export const HEADER_TEXT_MAX_PX = 16;
+const HEADER_TEXT_MAX_PX = 16;
 
 import { useEffect } from "react";
 
@@ -29,7 +29,7 @@ import { useEffect } from "react";
 export const SAND = "#c8a06a";
 export const MAUVE = "#a889b5";
 // A cable is coloured by WHAT IT CARRIES, muted so it sits behind the nodes. See docs/chainsGraph.md.
-export const CABLE: Record<WebSignal, string> = {
+const CABLE: Record<WebSignal, string> = {
   midi: "#5b9bd5", // blue
   audio: "#d98b45", // orange
   video: "#5fa871", // green
@@ -39,9 +39,9 @@ export const CABLE: Record<WebSignal, string> = {
 // An untyped cable (a source that says nothing) stays the neutral sand rather than claiming a signal it doesn't know.
 export const cableColorFor = (s?: WebSignal): string => (s ? CABLE[s] : SAND);
 export const RING = "#8b5cf6"; // the selection ring (violet-500)
-export const MARK = "#f59e0b"; // a host's highlight ring (amber-500)
+const MARK = "#f59e0b"; // a host's highlight ring (amber-500)
 // Where the signal enters or leaves the graph. The audio cable's own orange, since that is what an edge carries.
-export const EDGE = "#d98b45";
+const EDGE = "#d98b45";
 export const CTRL: Record<string, string> = {
   "@mute": "#f97316", // orange-500
   "@solo": "#eab308", // yellow-500

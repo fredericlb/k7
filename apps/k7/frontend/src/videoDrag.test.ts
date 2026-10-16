@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  videoDragEdits,
-  videoDragIsStill,
-  videoDragTo,
-} from "./components/TimelineTab";
+import { videoDragEdits, videoDragIsStill, videoDragTo } from "./videoDrag";
 
 // The three drags a picture placement takes, as arithmetic — every case below is one where a wrong answer is invisible until the reload.
 

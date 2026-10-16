@@ -5,6 +5,7 @@
 import { Button } from "@frediverse/ui/button";
 import { ArrowLeft, ListMusic, Loader2 } from "@frediverse/ui/icons";
 import type { MediatekEntry } from "@studio/mediatek/types";
+import { stripDocExt } from "@studio/song-schema/docExt";
 import {
   appendPlaylistItem,
   movePlaylistItem,
@@ -15,7 +16,7 @@ import {
 } from "@studio/song-schema/playlist";
 import type { Validity } from "@studio/song-schema/yaml/validate";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
-import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
+import { YamlPane } from "@studio/ui-editor/yaml-pane";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, mediatek } from "../api";
 import { m } from "../paraglide/messages.js";
@@ -84,7 +85,7 @@ export function PlaylistEditor({
   );
   useEffect(() => {
     void refreshSongs();
-    return pollWhileVisible(() => void refreshSongs(), SONGS_POLL_MS);
+    return pollWhileVisible(refreshSongs, SONGS_POLL_MS);
   }, [refreshSongs]);
 
   // Memoised on the listing itself: the poll hands back a fresh array every time, and rebuilding the ref lists per tick is work for nothing.
@@ -95,11 +96,8 @@ export function PlaylistEditor({
     let alive = true;
     setContent(null);
     setStatus("");
-    const stem =
-      path
-        .split("/")
-        .pop()
-        ?.replace(/\.(?:ya?ml|k7x)$/i, "") ?? "playlist";
+    const name = path.split("/").pop();
+    const stem = name === undefined ? "playlist" : stripDocExt(name);
     void api
       .read(path)
       .then((f) => {

@@ -3,8 +3,7 @@
 // frame and the timeline both draw the answer and must not come to disagree.
 // See apps/k7/frontend/docs/picture.md.
 
-/** When a lens opens — the audio input's three words, meaning SHOWN rather than heard. */
-export type CameraMonitor = "off" | "auto" | "on";
+import type { CameraMonitor } from "@studio/song-video/videoDoc";
 
 /** The little of a picture lane these two rules read. */
 export interface MixLane {
