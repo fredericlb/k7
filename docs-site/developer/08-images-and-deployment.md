@@ -72,8 +72,8 @@ routes ALSA to PulseAudio.
 
 | Service | Image | Notes |
 |---|---|---|
-| `k7` | `k7-webapp:${APP_VERSION:-latest}` | Routed by Traefik for `Host(K7_DOMAIN)`, `Host(PL8_DOMAIN)` and `Host(K7_ALIAS_DOMAIN)` (defaults `st0.app`, `play.st0.app`, `k7.st0.app`) on port 8789, TLS through `TRAEFIK_CERTRESOLVER`. Volumes `data`, `library`, `workspaces`, `k7-data`. |
-| `engine` | `k7-runtime:${APP_VERSION:-latest}` | No published port and no Traefik route. Registers at `http://k7:8789` over the compose network (`STUDIO_REGISTRY_URL`), named `ENGINE_NAME`, with every sampled instrument (`STUDIO_INSTRUMENTS=all`). Volume `engine-home`. |
+| `k7` | `k7-webapp:${APP_VERSION}` (required) | Routed by Traefik for `Host(K7_DOMAIN)`, `Host(PL8_DOMAIN)` and `Host(K7_ALIAS_DOMAIN)` (defaults `st0.app`, `play.st0.app`, `k7.st0.app`) on port 8789, TLS through `TRAEFIK_CERTRESOLVER`. Volumes `data`, `library`, `workspaces`, `k7-data`. |
+| `engine` | `k7-runtime:${APP_VERSION}` (required) | No published port and no Traefik route. Registers at `http://k7:8789` over the compose network (`STUDIO_REGISTRY_URL`), named `ENGINE_NAME`, with every sampled instrument (`STUDIO_INSTRUMENTS=all`). Volume `engine-home`. |
 | `pocketbase` | `ghcr.io/muchobien/pocketbase` | Only the source of the rehearsal recorder's one-time import into its SQLite store. Publishes `POCKETBASE_PORT` directly on the host, without Traefik: firewall it. Remove it, its volume and the `POCKETBASE_*` variables once k7 has logged the import. |
 | `z0` | `dev.frediver.se/frediverse/z0:${Z0_VERSION:-latest}` | The blind-test game, built by its own repository. Routed for `Host(K7_DOMAIN) && PathPrefix(/z0)` with priority 10, so it wins over k7's host rule. |
 
@@ -108,8 +108,9 @@ OneDev's `build studio images` job computes the stamp as `YY.MMDDHHmm` in the Eu
 
 Images are first pushed under the commit hash only. `:latest` and `:<stamp>` are added after
 `lint and test` and both image builds succeed, so nothing deployable points at an untested commit.
-To deploy a specific build, set `APP_VERSION` in `docker/.env` to a stamp or a commit hash; it
-applies to both the web and the engine image. `Z0_VERSION` is pinned separately.
+A deploy sets `APP_VERSION` in `docker/.env` to a stamp or a commit hash — compose refuses to start
+without it — and it applies to both the web and the engine image. `Z0_VERSION` is pinned
+separately and defaults to `latest`.
 
 The backend serves the frontend shell with `Cache-Control: no-cache` and the hashed files under
 `assets/` as `public, max-age=31536000, immutable`, so a new deployment is picked up on the next page
