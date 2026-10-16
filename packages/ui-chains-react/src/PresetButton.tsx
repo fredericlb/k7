@@ -13,14 +13,14 @@ export interface NodeEngines {
 }
 
 /** The button's width without an engine: room for a short preset name and the arrow. */
-export const PRESET_BUTTON_W = 70;
+const PRESET_BUTTON_W = 70;
 // One character of the 9 px monospace, the gap after the engine, and the most the engine part takes.
 const ENGINE_CHAR_W = 5.5;
 const ENGINE_GAP_W = 6;
 const ENGINE_MAX_W = 60;
 
 /** The button's least width: the preset's room, and the longest engine name's when there is a choice of engines. */
-export function presetButtonW(engines?: NodeEngines): number {
+function presetButtonW(engines?: NodeEngines): number {
   if (!engines) return PRESET_BUTTON_W;
   const longest = Math.max(0, ...engines.names.map((n) => n.length));
   return (

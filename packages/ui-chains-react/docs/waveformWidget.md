@@ -58,6 +58,11 @@ card folds each paint's NEW points into buckets it keeps (`GrowingDecimate`, in
 `packages/ui-chains/src/decimate.ts`) rather than decimating the whole take again: an hour of take
 is some forty thousand points, and a rolling take paints up to thirty times a second.
 
+The STORE accumulates the take, not the card: the whole picture arrives in ONE frame when the
+socket connects, often before the card exists (engine-browser's `takeEnvelope.ts`), and a card
+folding it itself would miss that frame every time. Averaging the points instead of keeping the
+extremes would draw a quiet take.
+
 The buckets have power-of-two widths with fixed edges, which is what lets an append touch only the
 last one; when they outnumber the pixels, pairs merge. So a long take draws between half the width
 and the width in points rather than exactly the width, and every extreme survives either way.

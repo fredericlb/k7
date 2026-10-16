@@ -40,13 +40,13 @@ export interface Plan<N extends MotionNode> {
 }
 
 /** How fast a card covers the ground it has left. 70 ms ⇒ ~90 % of the way in 230 ms. */
-export const MOVE_HALF_LIFE = 70;
+const MOVE_HALF_LIFE = 70;
 /** An organize moves every card at once, far: slower, so the eye can follow where each one went. 130 ms ⇒ ~90 % in 430 ms. */
 export const ORGANIZE_HALF_LIFE = 130;
 /** Fading in and out is quicker than travelling: a card half there is a card you read as broken. */
-export const FADE_HALF_LIFE = 45;
+const FADE_HALF_LIFE = 45;
 /** Under this many world px a "move" is a layout rounding, not a movement worth drawing. */
-export const MOVE_EPSILON = 0.5;
+const MOVE_EPSILON = 0.5;
 /** How small a node is when it is not there yet. Not 0: a card scaling from nothing reads as a zoom. */
 export const ENTER_SCALE = 0.84;
 
