@@ -88,8 +88,7 @@ function commandsPath(): string {
 
 let cached: CommandSpec[] | null = null;
 export function loadCommandSpecs(): CommandSpec[] {
-  // Both arms merge the registered specs: the early return is the HOT one (every dispatch, every
-  // completion), so a plugin verb that vanished once the yaml was cached would be the quiet kind.
+  // Both arms merge the registered specs, the cached one above all: it serves every dispatch and completion.
   if (cached) return [...cached, ...registeredSpecs];
   try {
     const raw = parseYaml(wsRead(commandsPath()));
@@ -141,26 +140,21 @@ export function loadCommandSpecs(): CommandSpec[] {
   } catch {
     cached = [];
   }
-  // The yaml is the BUILTINS' declarative home; a plugin's specs are registered in code, so both
-  // merge here — every reader of the catalogue (the palette, the menus, the dispatch) sees them.
+  // The yaml holds the builtins and a plugin registers in code; every reader of the catalogue sees both.
   return [...cached, ...registeredSpecs];
 }
 
 /** The catalogue a plugin added, merged at every read — see registerCommandSpec. */
 const registeredSpecs: CommandSpec[] = [];
 
-/** Add a plugin's verb to the catalogue: same shape as a yaml row, same treatment everywhere.
- *  A command word that is already spoken for is refused, not renamed — one word, one verb. */
+/** Add a plugin's verb to the catalogue like a yaml row; a word already spoken for is refused, never renamed. */
 function registerCommandSpec(spec: CommandSpec): void {
   if (loadCommandSpecs().some((c) => c.command === spec.command))
     throw new Error(`command '${spec.command}' is already in the catalogue`);
   registeredSpecs.push(spec);
 }
 
-/** The ONE installer a plugin calls: the catalogue half AND the behaviour half, in one move —
- *  a spec whose SID dispatches is the whole verb, so contributing either alone would leave a
- *  half verb that reads but never runs (or runs and never reads). Both halves refuse an already
- *  spoken-for word, so a partially installed verb fails loudly at install, never at use. */
+/** The ONE installer a plugin calls: catalogue and behaviour in one move, so a half verb fails at install — docs/verbs.md. */
 export function registerVerb(spec: CommandSpec, handler: SidHandler): void {
   // Both refusals run before either half is written, so a clash leaves no catalogue row behind.
   if (SID_HANDLERS[spec.sid])

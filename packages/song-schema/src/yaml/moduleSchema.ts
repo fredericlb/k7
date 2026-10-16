@@ -58,8 +58,7 @@ const PortSchema = z
   })
   .strict();
 
-/** What a waveform widget draws: the live signal either side of the module, or the recorder
- *  node's own TAKE — its whole picture, growing (engine/k7-runtime/docs/recorder.md). */
+/** What a waveform widget draws: the live signal either side, or the recorder's growing TAKE (engine/k7-runtime/docs/recorder.md). */
 export const WAVEFORM_SOURCES = ["input", "output", "take"] as const;
 
 /** Every `io:` a module may declare. Named for WAVEFORM_SOURCES' reason: `fields.ts` offers it. */
@@ -157,53 +156,51 @@ export type Widget = z.infer<typeof WidgetBase>;
 
 const RANGED = new Set(["knob", "slider", "fader", "number"]);
 
-const WidgetSchema: z.ZodType<Widget> = WidgetBase.superRefine(
-  (w, ctx) => {
-    const wrong = (field: string, why: string) =>
-      ctx.addIssue({
-        code: "custom",
-        path: [field],
-        message: `\`${field}\` is not a ${w.type} field — ${why}`,
-      });
-    if (!RANGED.has(w.type))
-      for (const f of ["min", "max", "step", "curve"] as const)
-        if (w[f] !== undefined)
-          wrong(f, "only knob, slider, fader and number carry a range");
-    if (w.type !== "label" && w.text !== undefined)
-      wrong("text", "only a label draws text");
-    if (w.type === "lcdscreen" && w.bind !== undefined)
-      wrong("bind", "an lcdscreen drives no param — widgets.js draws it");
-    if (w.type !== "knob" && w.pair !== undefined)
-      wrong("pair", "only a knob crossfades two params");
-    if (w.pair !== undefined && (!w.bind || w.bind === w.pair))
-      ctx.addIssue({
-        code: "custom",
-        path: ["pair"],
-        message:
-          "a crossfade knob binds the wet param and pairs a DIFFERENT, dry one",
-      });
-    if (w.type !== "group" && w.color !== undefined)
-      wrong("color", "only a group paints a background");
-    if (w.type !== "group" && w.invert !== undefined)
-      wrong("invert", "only a group's on/off switch reads its param backwards");
-    if (w.type !== "waveform" && w.source !== undefined)
-      wrong("source", "only a waveform picks an audio tap");
-    if (w.type !== "dropdown") {
-      if (w.options !== undefined)
-        wrong("options", "only a dropdown has settings");
-      if (w.library !== undefined)
-        wrong("library", "only a dropdown lists a library");
-    }
-    // A file picker with nothing to pick FOR cannot say what it would write — see docs/moduleFile.md.
-    if (w.type === "filepicker" && !w.bind)
-      ctx.addIssue({
-        code: "custom",
-        path: ["bind"],
-        message:
-          "a filepicker needs `bind` — the file-valued param it writes (e.g. bind: model)",
-      });
-  },
-);
+const WidgetSchema: z.ZodType<Widget> = WidgetBase.superRefine((w, ctx) => {
+  const wrong = (field: string, why: string) =>
+    ctx.addIssue({
+      code: "custom",
+      path: [field],
+      message: `\`${field}\` is not a ${w.type} field — ${why}`,
+    });
+  if (!RANGED.has(w.type))
+    for (const f of ["min", "max", "step", "curve"] as const)
+      if (w[f] !== undefined)
+        wrong(f, "only knob, slider, fader and number carry a range");
+  if (w.type !== "label" && w.text !== undefined)
+    wrong("text", "only a label draws text");
+  if (w.type === "lcdscreen" && w.bind !== undefined)
+    wrong("bind", "an lcdscreen drives no param — widgets.js draws it");
+  if (w.type !== "knob" && w.pair !== undefined)
+    wrong("pair", "only a knob crossfades two params");
+  if (w.pair !== undefined && (!w.bind || w.bind === w.pair))
+    ctx.addIssue({
+      code: "custom",
+      path: ["pair"],
+      message:
+        "a crossfade knob binds the wet param and pairs a DIFFERENT, dry one",
+    });
+  if (w.type !== "group" && w.color !== undefined)
+    wrong("color", "only a group paints a background");
+  if (w.type !== "group" && w.invert !== undefined)
+    wrong("invert", "only a group's on/off switch reads its param backwards");
+  if (w.type !== "waveform" && w.source !== undefined)
+    wrong("source", "only a waveform picks an audio tap");
+  if (w.type !== "dropdown") {
+    if (w.options !== undefined)
+      wrong("options", "only a dropdown has settings");
+    if (w.library !== undefined)
+      wrong("library", "only a dropdown lists a library");
+  }
+  // A file picker with nothing to pick FOR cannot say what it would write — see docs/moduleFile.md.
+  if (w.type === "filepicker" && !w.bind)
+    ctx.addIssue({
+      code: "custom",
+      path: ["bind"],
+      message:
+        "a filepicker needs `bind` — the file-valued param it writes (e.g. bind: model)",
+    });
+});
 
 /** The longest a tab's name may be: it is drawn in a fixed column at the card's left (docs/moduleFile.md). */
 export const TAB_NAME_MAX = 10;
@@ -230,8 +227,7 @@ const LayoutSchema = z
   })
   .strict();
 
-// `widgets` is drawn on every tab; `tabs`, in order, are the panel's pages — two or more are drawn as a column.
-// The panel itself is the HORIZONTAL layout (at most 4 rows); `vertical` is its narrow twin, absent when the panel already fits both.
+// `widgets` on every tab, `tabs` the pages; the panel is the HORIZONTAL layout and `vertical` its optional narrow twin.
 export const UISchema = z
   .object({
     cols: z.number().int().positive(),
@@ -379,22 +375,18 @@ const MODULE_FIELDS = {
     .optional(),
   // A COLD module needs the whole of its input before it can produce any of it — see docs/coldModules.md.
   cold: z.boolean().optional(),
-  // Where the MODEL a file-valued param names (`onnx:`, `nam:`) can be downloaded from, when this machine has not got
-  // it — a URL, never a path. Inherited like any key; see packages/song/docs/moduleAssets.md.
+  // A URL the MODEL a file-valued param names can be downloaded from — packages/song/docs/moduleAssets.md.
   model_url: z
     .string()
     .regex(/^https?:\/\/\S+$/, "model_url is an http(s) URL")
     .optional(),
   // An io "in" module says WHICH interface input it is, and nothing about where the signal goes.
   channel: InputSchema.optional(),
-  // …and an io "camera" module WHICH camera, by the LABEL a person reads: a deviceId is per
-  // browser and rotates, so one written here names nothing anywhere else (docs/camera.md).
+  // …and an io "camera" module WHICH camera, by its LABEL, never a per-browser deviceId (docs/camera.md).
   camera: z.string().optional(),
   // …and an io "midi" module WHICH device it records from, by its label; "" or absent is any device (docs/midiIn.md).
   device: z.string().optional(),
-  // …and WHERE in the viewport it draws, [x, y, w, h] in px. Absent is the whole frame. One key
-  // rather than four, so it cannot be confused with graph.yaml's `positions:` — which is where a
-  // node's CARD sits, a different fact about the same node (docs/camera.md).
+  // …and WHERE in the viewport it draws, [x, y, w, h] px, absent the whole frame; not graph.yaml's `positions:` (docs/camera.md).
   frame: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
   // An io "file" module's audio FILE, project-relative, and ABSENT on a chain template — see docs/fileInput.md.
   source: z.string().optional(),
@@ -468,7 +460,6 @@ export const AlternativeSchema = z
     ...MODULE_FIELDS,
   })
   .strict();
-
 
 export const ModuleSchema = z
   .object({

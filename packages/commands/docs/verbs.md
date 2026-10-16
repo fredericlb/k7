@@ -888,5 +888,8 @@ lives.
 - What several groups need and none owns sits in `verbs/shared.ts` (`splitWords`, `splitArgs`,
   `firstArg`, `resolveEvent`, `rendererOf`, `playlistFile`). The writers behind `node param`'s
   non-plugin names sit in `verbs/intrinsics.ts`.
+- A plugin's verb goes in through `registerVerb` alone, which installs the catalogue row and the
+  handler together: either half without the other is a verb that reads and never runs, or runs and
+  never reads. Both halves refuse a word or SID already taken, so a clash fails at install, not at use.
 - `commands.ts` re-exports `splitWords`, `collectSequences`, `parseMidiNote` and
   `collectPluginModules`, which the completions and the tests import from there.

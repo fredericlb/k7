@@ -91,9 +91,7 @@ export function rendererOf(h: Pick<CommandHost, "renderer">): Renderer | null {
   return bin ? localRenderer(bin) : null;
 }
 
-/** The first argument off a command line, JSON-quoted or bare, and the rest behind it. The inverse
- *  of the `JSON.stringify` a caller wraps a PATH in — the one spelling a Windows backslash and a
- *  space both survive, where stripping the quotes would leave `C:\\Users`. See docs/verbs.md. */
+/** The first argument, JSON-quoted or bare, and the rest: JSON is what a Windows path survives — packages/song/docs/recorderNode.md. */
 export function firstArg(a: string): { head: string; rest: string } | null {
   const quoted = /^"(?:[^"\\]|\\.)*"/.exec(a);
   if (quoted) {

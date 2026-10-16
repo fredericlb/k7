@@ -211,8 +211,7 @@ export const GRAPH_VERBS: Record<string, SidHandler> = {
         return {};
       }
     })();
-    // An ASSEMBLY is drawn as a card and pinned like one, though it is no key of `modules:` —
-    // one flat key space, so its name sits in `positions:` beside every node's (docs/assemblies.md).
+    // An ASSEMBLY is pinned like a card: one flat key space puts its name in `positions:` (docs/assemblies.md).
     if (
       !isBuiltinOutput(name) &&
       !(name in g.modules) &&

@@ -153,8 +153,7 @@ export const PROVIDERS = {
       return []; // a broken curve file costs the completion, not the command
     }
   },
-  // The kinds of surface, from the OPEN registry rather than the schema's frozen enum — a
-  // plugin's contribution completes like a builtin's. See packages/k7-sdk/docs/sdk.md.
+  // The OPEN registry, not the schema's enum, so a plugin's surface completes like a builtin's (packages/k7-sdk/docs/sdk.md).
   surfaceTypes: () => [...allSurfaceTypes()],
   // Sequence FILE ids, read off disk: a file id can differ from the midi-clip name it reports.
   sequenceFiles: (h) => {

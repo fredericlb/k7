@@ -53,9 +53,7 @@ export const ProjectSettingsSchema = z
   })
   .strict();
 
-/** The ARCHETYPES. Three are named after the SURFACE they open on — and `mix` writes a SET — while
- *  the two `live` ones are named after what they ARE: a rig you play through, with no timeline and
- *  nothing arranged (docs/projectFile.md, and packages/song/docs/liveProject.md). */
+/** The ARCHETYPES: three named after the surface they open on, the two `live` ones after what they are (docs/projectFile.md). */
 export const PROJECT_SHAPES = [
   "arrangement",
   "mix",
@@ -104,4 +102,3 @@ export const SettingsSchema = z.looseObject({
   metronome_level: z.number().min(METRONOME_MIN).max(1).optional(),
   count_in: z.number().int().min(0).optional(),
 });
-

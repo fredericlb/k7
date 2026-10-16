@@ -70,11 +70,7 @@ function padEffectCommand(effect: PadEffect): SidHandler {
   };
 }
 
-/**
- * The four `sequence notes …` verbs: one RECTANGLE, one document pass, one journal entry — which
- * is why they exist beside the eight that address a single note. All five arguments are parsed
- * here and only the EDIT is each verb's own. See @studio/song-schema docs/noteEdits.md.
- */
+/** The `sequence notes …` verbs: one RECTANGLE, one pass, one journal entry; only the EDIT is each verb's — song-schema docs/noteEdits.md. */
 function regionCommand(
   verb: string,
   /** The trailing argument, or undefined for a verb that wants none (`remove`). */
@@ -157,12 +153,7 @@ export const SEQUENCE_NOTE_VERBS: Record<string, SidHandler> = {
   "sequence.noteRepeat": padEffectCommand("repeat"),
   "sequence.noteSkip": padEffectCommand("skip"),
   "sequence.notesRemove": regionCommand("remove", undefined, () => () => null),
-  /**
-   * Transposing CLAMPS onto the keyboard rather than dropping what falls off it — the engine's own
-   * `transpose` node does the same, and for the sharper reason: a dropped note leaves its note-off
-   * behind and hangs the voice (engine/k7-runtime DspGraph.cpp). A paste, which is not an edit of notes
-   * that exist, drops instead and says so.
-   */
+  /** Transposing CLAMPS onto the keyboard, as the engine's `transpose` does: a dropped note hangs its voice (song-schema docs/noteEdits.md). */
   "sequence.notesTranspose": regionCommand(
     "transpose",
     {

@@ -276,8 +276,7 @@ const TransitionSchema = z.preprocess(
 
 export const VideoPlacementSchema = z
   .object({
-    // Absent is an ACTIVATION: a span saying the lane is ON, which is how a shape is put on
-    // screen and taken off again — see packages/song-video/docs/shapes.md.
+    // Absent is an ACTIVATION, a span saying the lane is ON — packages/song-video/docs/shapes.md.
     ref: z.string().min(1).optional(),
     start: z.number().min(0).optional(), // seconds on the timeline
     length: z.number().min(0).optional(), // 0 == to the end of the source
@@ -332,8 +331,7 @@ export const VideoTrackSchema = z
     events: z.array(VideoPlacementSchema).optional(), // the shots it places — see #Module's `events:`
   })
   .strict()
-  // A fade_out is measured back from an END, and the LAST length-0 shot has none — the only case with no answer.
-  // A length-0 shot with another after it is fine: its end is that one's start, which is activeAt's own rule.
+  // A fade_out needs an END: only the LAST length-0 shot has none, since an earlier one ends where the next starts.
   .superRefine((t, ctx) => {
     const ev = t.events;
     if (!ev?.length) return;

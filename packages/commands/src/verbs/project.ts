@@ -170,8 +170,7 @@ export const PROJECT_VERBS: Record<string, SidHandler> = {
   },
   /** project surface new <type> [id] — declare a special view; no layout argument, docs/verbs.md. */
   "project.surface.create": async (a, h) => {
-    // Spelled from the OPEN registry, not by hand: a usage string that omits the word you wanted
-    // is worse than none, and a plugin's type completes like a builtin's.
+    // Spelled from the OPEN registry, so a plugin's type is in the usage like a builtin's.
     const usage = `usage: project surface new <${allSurfaceTypes().join("|")}> [id]  (e.g. project surface new turntables desk)`;
     const [type, id] = a.trim().split(/\s+/);
     // Narrowed rather than cast, so the list in the message cannot drift from the list the parser accepts.
@@ -233,9 +232,7 @@ export const PROJECT_VERBS: Record<string, SidHandler> = {
       h.refuse([`metronome volume failed: ${(e as Error).message}`]);
     }
   },
-  /** `project aspect <ratio>` — the FRAME's shape, written as `project.viewport`'s pixel size.
-   *  A ratio and not a size: a person picks 16:9, and 1920×1080 is what that means here. See
-   *  packages/song-video/docs/picture.md. */
+  /** `project aspect <ratio>` — the frame's SHAPE, written as `project.viewport`'s size — packages/song-video/docs/picture.md. */
   "project.aspect": async (a, h) => {
     const want = aspectSize(a.trim());
     if (!want) {
@@ -245,15 +242,12 @@ export const PROJECT_VERBS: Record<string, SidHandler> = {
       return;
     }
     const file = join(h.songPath, "project.yaml");
-    // The third element is the EXPORT fps and is nobody's business here: read it back and keep it,
-    // or a project that stated one silently loses it on a shape change.
+    // The third element is the EXPORT fps: read back and kept, so a shape change never drops it.
     const now = loadProjectRoot(h.songPath).project?.viewport as
       | number[]
       | undefined;
     const fps = now && now.length > 2 ? Number(now[2]) : null;
-    // RESHAPE the frame, do not resize it: the long edge is kept, so a 1280×720 project asked for
-    // 9:16 becomes 720×1280 rather than jumping to 1080×1920. Picking the shape you are already
-    // on then writes back what you had, instead of quietly changing your resolution.
+    // RESHAPE, never resize: the long edge is kept, so 1280×720 asked for 9:16 becomes 720×1280.
     const long = now?.[0] && now?.[1] ? Math.max(now[0], now[1]) : 0;
     const [vw, vh] = !long
       ? [want.w, want.h]

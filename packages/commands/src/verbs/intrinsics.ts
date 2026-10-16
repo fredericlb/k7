@@ -134,8 +134,7 @@ export async function setFileParam(
 ): Promise<void> {
   const file = rawFile.replace(/^"(.*)"$/s, "$1").trim();
   const clearing = file === "none";
-  // An empty list means the module has no `assets/` — say that, not "no such file".
-  // A library's family when the param names one there: always for `ir`, by an `@` for `model`.
+  // A library's family when the param names one: always for `ir`, by an `@` for `model`; none means no `assets/`.
   const family = isLibraryFileParam(param)
     ? LIBRARY_FILE_PARAMS[param]
     : file.startsWith("@")

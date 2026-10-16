@@ -66,8 +66,7 @@ export const AssemblyFileSchema = z
   .object({
     // The template, by the ref a chain template is named by: `@k7-core/turntable`.
     uses: z.string().min(1),
-    // The template's member name -> this project's node name; the indirection is what lets a
-    // migration fold nodes that already exist without renaming one (docs/assemblies.md).
+    // The template's member name -> this project's node name, so existing nodes fold in unrenamed (docs/assemblies.md).
     members: z.record(z.string().min(1), z.string().min(1)),
   })
   .strict();

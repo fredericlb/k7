@@ -31,9 +31,7 @@ describe("command registry integrity (commands.yaml <-> SID_HANDLERS)", () => {
   });
 });
 
-// A plugin contributes BOTH halves of a verb through registerVerb. The registry tests above
-// pin the BUILTIN seam; these pin the PLUGIN one — the installer is the SDK's whole surface,
-// so its contract (both halves at once, refusing a taken word) is the contract that matters.
+// The PLUGIN seam: registerVerb installs both halves at once and refuses a taken word.
 describe("registerVerb (a plugin's installer)", () => {
   const fresh = (word: string) => ({
     command: word,

@@ -93,8 +93,7 @@ export const SHAPE_CATEGORY = "shapes";
 /** What a shape module DRAWS, named by its `shape:` field — see packages/song-video/docs/shapes.md. */
 export const SHAPE_KINDS = ["square", "circle", "text"] as const;
 
-/** The type folders whose modules ARE their behaviour — a shader's and a transition's GLSL, a
- *  shape's params. None of them hosts a plugin, so an empty `plugin:` is not a hole in one. */
+/** The type folders whose modules ARE their behaviour (GLSL, a shape's params), so an empty `plugin:` is no hole. */
 const PLUGINLESS_CATEGORIES = [
   SHADER_CATEGORY,
   SHAPE_CATEGORY,
@@ -190,8 +189,7 @@ export const MODULE_TYPES: Record<
     inputs: [{ name: "in", type: "video" }],
     outputs: [{ name: "out", type: "video" }],
   },
-  // NAMED by a placement, never wired: the ports stay declared but `validate()` refuses the cable.
-  // Not emptied — empty ports mean UNCONSTRAINED here (graph.ts's normalizeInputs), the opposite.
+  // NAMED by a placement, never wired: ports stay declared (empty means UNCONSTRAINED) and `validate()` refuses the cable.
   video_transitions: {
     kind: "plugin",
     inputs: [{ name: "in", type: "video" }],
@@ -206,8 +204,7 @@ export const MODULE_TYPES: Record<
     ],
     outputs: [{ name: "out", type: "video" }],
   },
-  // A SHAPE: no input, one picture out. It is a picture SOURCE and lands on a lane the way a lens
-  // does — `inputs: []` reads as unconstrained here, and validate() is what refuses a cable into one.
+  // A SHAPE: a picture SOURCE on a lane like a lens; `inputs: []` is unconstrained, and validate() refuses a cable in.
   shapes: {
     kind: "plugin",
     inputs: [],

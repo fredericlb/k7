@@ -155,9 +155,7 @@ export const NODE_VERBS: Record<string, SidHandler> = {
     await h.showNativePluginUI(match.id);
     h.log([`opening ${match.module} (${match.type}) on ${match.track}…`]);
   },
-  /** `node record save <file> [name]` — send a recorder's take to the médiathèque's recordings
-   *  zone. The FILE and not the node: a node has a stack of takes and the card knows which one is
-   *  on top, so naming it here would be a second answer to that. See docs/recorderNode.md. */
+  /** `node record save <file> [name]` — send a take FILE, not a node, to the recordings — packages/song/docs/recorderNode.md. */
   "node.record.save": async (a, h) => {
     // The path comes JSON-quoted, since a take's is absolute and on Windows full of backslashes.
     const m = firstArg(a.trim());
@@ -167,8 +165,7 @@ export const NODE_VERBS: Record<string, SidHandler> = {
     }
     const { head: file, rest: label } = m;
     if (!h.saveTake) {
-      // Never silent: this host has no médiathèque behind it, which is a fact about WHERE the
-      // command ran rather than about the take.
+      // Never silent: this host has no médiathèque, a fact about where the command ran, not about the take.
       h.refuse([
         "this surface cannot save a take — it runs nowhere near the recording",
       ]);

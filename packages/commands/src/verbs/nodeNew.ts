@@ -91,8 +91,7 @@ function midOfArrow(
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
 
-/** Where a `module new`/`node new` target's OWN files would live — the workspace for a real
- *  project, or the folder itself for a template being edited with `at` (no project.yaml). */
+/** Where a `module new`/`node new` target's files live: the workspace, or a template's own folder (no project.yaml). */
 function localModuleFolder(
   songPath: string,
   category: string,
@@ -223,8 +222,7 @@ export const NODE_NEW_VERBS: Record<string, SidHandler> = {
       return;
     }
     const [category, module] = segs;
-    // Refs carry a slash, node names never do ([A-Za-z0-9_-]+): that is the whole distinction,
-    // and it makes the ref's POSITION free — `… @engine/… name` and `… name @engine/…` both parse.
+    // A ref carries a slash and a node name never does, so the ref may come before or after the name.
     const ref = rest.find((p) => p.includes("/"));
     const named = rest.find((p) => !p.includes("/"));
     if (rest.length > (ref && named ? 2 : 1)) {

@@ -142,8 +142,7 @@ function duplicateChain(
   const cloneName = (node: string): string => {
     if (isStrip(node)) return claim(mixerNameFor(newLane, taken));
     const m = g.modules[node];
-    // A step naming a SHARED module directly is the qualified ref itself (`@workspace/audio/amp`);
-    // the instance is named after its last segment, same as inheriting one through `extends`.
+    // A step naming a SHARED module by its ref (`@workspace/audio/amp`) is named after its last segment.
     const leaf = m?.extends
       ? (String(m.extends).split("/").pop() ?? node)
       : node.startsWith("@")
