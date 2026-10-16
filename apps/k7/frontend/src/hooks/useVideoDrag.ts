@@ -2,7 +2,7 @@
 // apart by where the press landed, and the tools that answer the press instead. The arithmetic is
 // ../videoDrag.ts; this is the gesture around it. See ../../docs/picture.md.
 
-import { nearestTick } from "@studio/ui-waveform";
+import { nearestTick } from "@studio/ui-timeline/ticks";
 import {
   type RefObject,
   useCallback,
