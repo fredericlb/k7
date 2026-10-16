@@ -212,3 +212,38 @@ export interface DomChainsProps {
     value: number,
   ) => void;
 }
+
+/** The callbacks DomChains reads through one ref, so its handlers bind once — docs/hosting.md. */
+export type ChainsCallbacks = Pick<
+  DomChainsProps,
+  | "onSelect"
+  | "onPickModule"
+  | "onContextMenu"
+  | "onEdgeInsert"
+  | "onCanvasInsert"
+  | "onConnect"
+  | "onDisconnect"
+  | "onAutomate"
+  | "onReplug"
+  | "onMoveNode"
+  | "command"
+  | "onBypassModule"
+  | "onThawAutoFreeze"
+  | "onModuleField"
+  | "onAlternative"
+  | "onEngine"
+  | "onPresets"
+  | "onPresetStep"
+  | "onTriggerRack"
+  | "onRecorder"
+  | "onProjectField"
+  | "onSetModuleAsset"
+  | "onAssetBrowse"
+  | "onLibraryBrowse"
+  | "onPickTrackInput"
+  | "setPluginParam"
+  | "onModuleParam"
+  | "onTrackToggle"
+  | "onTrackSet"
+  | "onTapEdit"
+>;

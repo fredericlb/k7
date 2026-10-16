@@ -1,7 +1,7 @@
 # The widgets on a card — what one binds to, and what it shows
 
 A node's panel is a grid of widgets, and every one of them answers two questions before it can be
-drawn: **what does this actuate**, and **what value does it hold right now**. `DomChains.tsx`
+drawn: **what does this actuate**, and **what value does it hold right now**. `widgetTarget.ts`
 answers the first in `widgetTarget` and the second in `widgetValue`; this page is the reasoning
 behind both.
 
@@ -304,7 +304,7 @@ again. A Shift+drag over EMPTY space draws a box, and every module card it touch
 selection on release (`nodesInBox`) — adding, as Shift+click does, never replacing. It is
 checked before the fixed-camera guard: the mix panel's camera does not move, and that is exactly
 where a row of strips is selected by sweeping across it. On a card, Shift keeps its other meaning,
-a fine drag on a control. The set is the graph's own (`DomChains`), beside the host's single `selected`, which is set
+a fine drag on a control. The set is the graph's own (`useWidgetDrag.ts`), beside the host's single `selected`, which is set
 only when there was none — so a host that knows one selected node is not asked to know several.
 
 When EVERY selected node is a use of the same ref on the same engine, a control moved on one of them

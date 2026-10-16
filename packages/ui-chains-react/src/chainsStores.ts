@@ -19,7 +19,7 @@ import {
 import { loadBadge } from "./nodeLoad";
 
 /** The optimistic overrides, held OUTSIDE React state: a drag re-renders the widget it moves, not every card. */
-interface OverrideStore {
+export interface OverrideStore {
   get: () => Record<string, number>;
   set: (next: (o: Record<string, number>) => Record<string, number>) => void;
   subscribe: (cb: () => void) => () => void;
@@ -249,4 +249,8 @@ export function usePlayingBeat(tempo: number | undefined): number | null {
   return useSyncExternalStore(subscribe, read, read);
 }
 
+// A stable empty track order: a fresh `[]` per render would change every Node's props each frame.
+export const EMPTY_ORDER: string[] = [];
+// …and a stable empty selection, so clearing an empty one re-renders nothing.
+export const EMPTY_SET: ReadonlySet<string> = new Set();
 export const NOOP = (): void => {};
