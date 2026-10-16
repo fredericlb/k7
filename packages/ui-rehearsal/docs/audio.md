@@ -174,13 +174,22 @@ changes — against a gesture that is meant to be a nudge of − / + while you r
 picked over `soundtouchjs` on licence as much as on quality: LGPL-2.1 in a bundled frontend is a
 complication, MIT is not.
 
-**At zero it is bypassed entirely**: no audio context, no worklet, no latency, no CPU. A song
-nobody transposes pays nothing at all for this, and the graph is built the first time a semitone
-is actually asked for.
+**At zero no stretcher runs.** A song nobody transposes pays nothing at all: no audio context, the
+element plays itself. The first semitone builds the graph, in two audio contexts:
 
-The cost, while transposed: the sound trails the element's own clock by the node's latency, so a
-highlighted lyric line runs slightly ahead of what you hear. It is constant and small, and the
-alternative — delaying the lyrics to match — would make a seek feel late.
+- **The element's context holds its source for good.** A media element gives its source node once,
+  so from the first semitone on the element always plays through this context — straight to the
+  speakers at zero, which costs a pass-through and nothing more.
+- **The stretcher has a context of its own, closed whenever the shift returns to zero**, and fed
+  from the element's through a `MediaStream`. An AudioWorklet that answers "keep me alive" — this
+  one does — is processed for as long as its context runs, connected or not: in the element's
+  context, a song transposed once and put back at zero would run the stretcher, on silence, until
+  the page closed.
+
+The cost, while transposed: the sound trails the element's own clock by the node's latency and the
+bridge between the two contexts, so a highlighted lyric line runs slightly ahead of what you hear.
+It is constant and small, and the alternative — delaying the lyrics to match — would make a seek
+feel late.
 
 ## Fetching a song: from the médiathèque, into the songbook
 
