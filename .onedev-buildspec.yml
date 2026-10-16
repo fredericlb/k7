@@ -477,6 +477,7 @@ jobs:
         sha256sum -- * > /tmp/SHA256SUMS
         mv /tmp/SHA256SUMS SHA256SUMS
         cat SHA256SUMS
+    runAs: 0:0
     useTTY: false
     condition: SUCCESSFUL
     optional: false
