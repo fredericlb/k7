@@ -36,8 +36,8 @@ out themselves, since the browser is what fetches them.
   signed-in person's session — but outside the home's frame: a phone held as a microphone needs
   the input picker and nothing else.
 
-Both are recognised by the package's entry, which is light on purpose: the host's entry imports it
-before any lazy chunk has loaded. Their screens are a lazy entry of their own, `./public`
+The public page is recognised by the package's entry, which is light on purpose: the host's entry
+imports it before any lazy chunk has loaded; the microphone is a plain route of the host's. Their screens are a lazy entry of their own, `./public`
 (`src/public.ts`), apart from `./pages`, which holds the signed-in routes: one module exporting both
 would be one chunk of both, and an anonymous visitor of a public page would download every
 signed-in screen — the songbook, the exercises, the editors — to read one page.
@@ -56,3 +56,12 @@ links sent to an audience, and installed PWAs. Why `k7` resolves to k7's origin 
 `src/rtc.ts` opens `${apiBase}/rtc` on the same host; the server takes upgrades on `/rtc` alone
 and leaves every other one to the engine registry (`packages/rehearsal-server/docs/audio.md`). In
 dev, k7's Vite server proxies `/rtc` as a WebSocket path (`apps/k7/frontend/vite.config.ts`).
+
+## A confirmation is asked in the page
+
+A deletion is confirmed through `@frediverse/ui/ask` (`src/confirm.ts`), never `window.confirm`,
+whose box ignores the page's language, its focus and its Escape. The dialog needs an `<AskHost/>`
+of that same module, and k7's pages mount the one from `@studio/project-shell/ask`, a different
+module with a host of its own; so the rehearsal pages mount theirs where they are drawn, in
+`RehearsalRoutes` and in `RehearsalSettings`. Without it `askConfirm` answers no, and a delete
+button does nothing.

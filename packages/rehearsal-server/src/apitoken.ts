@@ -6,12 +6,7 @@ import { join } from "node:path";
 import { apiTokenAuth, fileTokenStore } from "@frediverse/oidc/api-auth";
 import { env } from "./env.ts";
 
-export const {
-  issueApiToken,
-  verifyApiToken,
-  listApiTokens,
-  revokeApiToken,
-  bearerOrSession,
-} = apiTokenAuth(env.apiTokenSecret, {
-  store: fileTokenStore(join(env.dataDir, "api-tokens.json")),
-});
+export const { issueApiToken, listApiTokens, revokeApiToken, bearerOrSession } =
+  apiTokenAuth(env.apiTokenSecret, {
+    store: fileTokenStore(join(env.dataDir, "api-tokens.json")),
+  });

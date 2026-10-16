@@ -3,13 +3,10 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { Field } from "@frediverse/ui/field";
-import { Input } from "@frediverse/ui/input";
-import { Textarea } from "@frediverse/ui/textarea";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import type { Release, ReleasePatch } from "../types";
-import { SwitchField } from "./SwitchField";
+import { ReleaseFields, type ReleaseFieldValues } from "./ReleaseFields";
 
 interface Props {
   release: Release;
@@ -18,16 +15,18 @@ interface Props {
 }
 
 export function ReleaseEditForm({ release, onSave, onCancel }: Props) {
-  const [title, setTitle] = useState(release.title);
-  const [artist, setArtist] = useState(release.artist);
-  const [releaseDate, setReleaseDate] = useState(release.releaseDate ?? "");
-  const [description, setDescription] = useState(release.description);
-  const [canDownload, setCanDownload] = useState(release.canDownload);
+  const [values, setValues] = useState<ReleaseFieldValues>({
+    title: release.title,
+    artist: release.artist,
+    releaseDate: release.releaseDate ?? "",
+    description: release.description,
+    canDownload: release.canDownload,
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
-    if (!title.trim() || !artist.trim()) {
+    if (!values.title.trim() || !values.artist.trim()) {
       setError(m["release.editRequired"]());
       return;
     }
@@ -35,11 +34,11 @@ export function ReleaseEditForm({ release, onSave, onCancel }: Props) {
     setError(null);
     try {
       await onSave({
-        title: title.trim(),
-        artist: artist.trim(),
-        releaseDate: releaseDate || null,
-        description: description.trim(),
-        canDownload,
+        title: values.title.trim(),
+        artist: values.artist.trim(),
+        releaseDate: values.releaseDate || null,
+        description: values.description.trim(),
+        canDownload: values.canDownload,
       });
     } catch (e) {
       setError((e as Error).message);
@@ -51,37 +50,7 @@ export function ReleaseEditForm({ release, onSave, onCancel }: Props) {
     <Card className="release-form">
       <h3 style={{ marginTop: 0 }}>{m["release.edit"]()}</h3>
 
-      <Field label={m["field.title"]()}>
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-      </Field>
-
-      <Field label={m["field.artist"]()}>
-        <Input value={artist} onChange={(e) => setArtist(e.target.value)} />
-      </Field>
-
-      <Field label={m["release.dateLabel"]()}>
-        <Input
-          type="date"
-          value={releaseDate}
-          onChange={(e) => setReleaseDate(e.target.value)}
-        />
-      </Field>
-
-      <Field label={m["release.descriptionLabel"]()}>
-        <Textarea
-          rows={3}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </Field>
-
-      <SwitchField
-        checked={canDownload}
-        onCheckedChange={setCanDownload}
-        className="mb-4 mt-2"
-      >
-        {m["release.allowDownload"]()}
-      </SwitchField>
+      <ReleaseFields values={values} onChange={setValues} />
 
       {error && <p className="error">{error}</p>}
 

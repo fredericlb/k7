@@ -1,6 +1,7 @@
 // RehearsalSettings.tsx — the rehearsal pages' section of the host's settings page: clearing empty
 // sessions and the CLI token. The language and the account are the host's own sections.
 
+import { AskHost } from "@frediverse/ui/ask";
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { Check } from "@frediverse/ui/icons";
@@ -69,6 +70,8 @@ export function RehearsalSettings() {
 
   return (
     <div className="rehearsal-root settings">
+      {/* The clean-up's confirmation is drawn here: the host's settings page mounts no host of this one. */}
+      <AskHost />
       <h2>{m["settings.rehearsal"]()}</h2>
 
       <Card>

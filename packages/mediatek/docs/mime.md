@@ -35,6 +35,11 @@ by copying either one into the other.
 `mimeFor` reads the **last path segment's** extension. A bare `split(".").pop()` returns
 `"2/patch"` for `modules/v1.2/patch`, mis-keying any path whose *directory* carries a dot.
 
+`extForMime` reads the same table backwards, for a server that FILES bytes a client typed: the
+first extension listed for a type wins (`audio/ogg` is `.ogg`, not `.opus`), and the handful of
+audio spellings browsers send that the table does not hold (`audio/mp3`, `audio/x-m4a`, `audio/aac`)
+are aliases beside it rather than rows in it, since a row would also change what is served.
+
 `application/octet-stream` is the default and stays honest: the browser downloads the file
 rather than being told something false about it.
 

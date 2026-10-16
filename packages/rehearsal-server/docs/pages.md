@@ -7,7 +7,7 @@ outside k7's sign-in gate is the UI's business (`packages/ui-rehearsal/docs/rout
 Publications entry groups releases under their pages is too (`packages/ui-rehearsal/docs/sections.md`).
 
 **A nametag is one address whatever its case.** `Band` and `band` are the same page to the
-public route and to the uniqueness check (`pagesNamed`, `src/store.ts`), since an address read
+public route and to the uniqueness check (`pagesNamed`, `src/store/pages.ts`), since an address read
 aloud or typed on a phone loses its case; the page keeps the case its owner gave it, for display.
 
 ## Who opens a page

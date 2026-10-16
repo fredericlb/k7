@@ -81,8 +81,8 @@ the host's (`packages/ui-rehearsal/docs/recordings.md`).
 
 ## Detecting moments
 
-`src/detect.ts` surfaces moments live during a take; the server runs the same detector over the
-stored envelope. The model is three sentences, and the first is the one that gets misread:
+`src/detect.ts` surfaces moments live during a take, and the session page runs it again over the
+stored envelope (`packages/ui-rehearsal/docs/recordings.md`). The model is three sentences, and the first is the one that gets misread:
 
 - `threshold` is the **minimum** volume the algorithm cares about: a silence floor, not a
   "loud" bar.

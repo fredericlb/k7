@@ -12,6 +12,13 @@ import {
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
 import { EllipsisVertical } from "@frediverse/ui/icons";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@frediverse/ui/select";
 import type { ReactNode } from "react";
 import type { SongEnvelope } from "../types";
 import { WaveformPlayer } from "./WaveformPlayer";
@@ -65,17 +72,18 @@ export function TrackCard({
         <span className="version-name">{title}</span>
         {badges}
         {picker && (
-          <select
-            aria-label={picker.label}
-            value={picker.value}
-            onChange={(e) => picker.onChange(e.target.value)}
-          >
-            {picker.options.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <Select value={picker.value} onValueChange={picker.onChange}>
+            <SelectTrigger size="sm" aria-label={picker.label}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rehearsal-root">
+              {picker.options.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
         {actions}
         {menu.length > 0 && (

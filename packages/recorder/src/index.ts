@@ -7,6 +7,7 @@ import "./styles.css";
 export { Waveform } from "@studio/ui-waveform";
 export { type DetectOpts, type DetectResult, detectEvents } from "./detect";
 export { downloadTake } from "./download";
+export { fmtStamp, fmtTime, sessionTitle } from "./format";
 export { LiveWaveform } from "./LiveWaveform";
 export {
   MIC_ERRORS_EN,
@@ -20,7 +21,7 @@ export {
   useLiveValue,
 } from "./liveValue";
 export { MomentPlayer } from "./MomentPlayer";
-export { type PendingAnnotation, RecorderView } from "./RecorderView";
+export { RecorderView } from "./RecorderView";
 export { TagInput } from "./TagInput";
 export {
   type BackedUpTake,
@@ -30,10 +31,9 @@ export {
 } from "./takeBackup";
 export type { Metronome, Selection } from "./types";
 export { useMetronome } from "./useMetronome";
+export { usePlayheadLoop } from "./usePlayheadLoop";
 export {
   acquireMicrophone,
   describeMicError,
-  type RecordingResult,
-  type RecStatus,
   useRecorder,
 } from "./useRecorder";

@@ -1,15 +1,8 @@
 import { locale } from "./i18n";
 import { m } from "./paraglide/messages.js";
 
-/** Format seconds as H:MM:SS (or M:SS for short durations). */
-export function fmtTime(totalSec: number): string {
-  if (!Number.isFinite(totalSec) || totalSec < 0) totalSec = 0;
-  const s = Math.floor(totalSec % 60);
-  const m = Math.floor((totalSec / 60) % 60);
-  const h = Math.floor(totalSec / 3600);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
-}
+// A take's time and stamp formats are the recorder's, so a session reads the same on both sides.
+export { fmtStamp, fmtTime, sessionTitle } from "@studio/recorder";
 
 export function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString(locale());
@@ -43,17 +36,4 @@ export function fmtDay(iso: string): string {
     month: "long",
     year: "numeric",
   });
-}
-
-/** Format a date as "DD/MM HH:MM" for use as/within a session name. */
-export function fmtStamp(d: Date = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(
-    d.getMinutes(),
-  )}`;
-}
-
-/** A session's title: it has no name, so its createdAt as "DD/MM HH:MM". */
-export function sessionTitle(iso: string): string {
-  return fmtStamp(new Date(iso));
 }

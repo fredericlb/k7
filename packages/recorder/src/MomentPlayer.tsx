@@ -2,6 +2,7 @@ import { Button } from "@frediverse/ui/button";
 import { Pause, Play } from "@frediverse/ui/icons";
 import { useEffect, useRef, useState } from "react";
 import { fmtTime } from "./format";
+import { usePlayheadLoop } from "./usePlayheadLoop";
 
 interface Props {
   src: string; // extracted clip audio
@@ -25,7 +26,6 @@ export function MomentPlayer({
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const rafRef = useRef<number | null>(null);
   const [width, setWidth] = useState(240);
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
@@ -45,16 +45,7 @@ export function MomentPlayer({
   }, []);
 
   // Smoothly follow the playhead while playing.
-  useEffect(() => {
-    const loop = () => {
-      if (audioRef.current) setCurrent(audioRef.current.currentTime);
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    if (playing) rafRef.current = requestAnimationFrame(loop);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [playing]);
+  usePlayheadLoop(audioRef, playing, setCurrent);
 
   useEffect(() => {
     const canvas = canvasRef.current;

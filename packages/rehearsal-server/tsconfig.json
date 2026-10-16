@@ -14,9 +14,6 @@
     "noEmit": true,
     "verbatimModuleSyntax": true,
     "strict": true,
-    // The Grist data layer (store.ts) plumbs dynamic rows; implicit any is
-    // tolerated there for now (strict null-checks etc. stay on). Tighten later.
-    "noImplicitAny": false,
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "types": ["node"]

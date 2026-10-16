@@ -13,7 +13,7 @@ const MAX_GAIN = 32;
 // Past this size a take is never read whole: only the header patch may fix its duration.
 const WHOLE_FILE_FIX_MAX = 32 * 1024 * 1024;
 
-export interface RecordingResult {
+interface RecordingResult {
   blob: Blob;
   envelope: Envelope;
   duration: number;
@@ -21,7 +21,7 @@ export interface RecordingResult {
   takeId: string; // its IndexedDB backup, forgotten once the take is saved (takeBackup.ts)
 }
 
-export type RecStatus = "idle" | "recording" | "paused" | "stopped";
+type RecStatus = "idle" | "recording" | "paused" | "stopped";
 
 /** Record audio while building its loudness envelope live — see ../docs/recorder.md. */
 export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {

@@ -3,7 +3,14 @@
 // what the other could play. The shape lock below is what makes that unrepresentable.
 
 import { describe, expect, it } from "vitest";
-import { AUDIO_EXT, extOf, MIME_BY_EXT, mimeFor, VIDEO_EXT } from "./media.ts";
+import {
+  AUDIO_EXT,
+  extForMime,
+  extOf,
+  MIME_BY_EXT,
+  mimeFor,
+  VIDEO_EXT,
+} from "./media.ts";
 
 describe("MIME_BY_EXT", () => {
   // Whole-table equality rather than a snapshot, so adding an entry is a reviewable one-line change.
@@ -73,5 +80,34 @@ describe("mimeFor", () => {
   it("serves the two a shell most easily gets wrong", () => {
     expect(mimeFor("library/nam/fender.nam")).toBe("application/json");
     expect(mimeFor("songs/a/b/c/cover.png")).toBe("image/png");
+  });
+});
+
+describe("extForMime", () => {
+  it("reads the table backwards, the first extension of a type winning", () => {
+    expect(extForMime("audio/mpeg")).toBe(".mp3");
+    expect(extForMime("audio/ogg")).toBe(".ogg");
+    expect(extForMime("audio/mp4")).toBe(".m4a");
+    expect(extForMime("video/mp4")).toBe(".mp4");
+    expect(extForMime("audio/aiff")).toBe(".aiff");
+  });
+
+  it("ignores parameters, case and an x- prefix", () => {
+    expect(extForMime("audio/webm;codecs=opus")).toBe(".webm");
+    expect(extForMime("Audio/X-WAV")).toBe(".wav");
+    expect(extForMime("video/matroska")).toBe(".mkv");
+    expect(extForMime("text/yaml")).toBe(".yaml");
+  });
+
+  it("knows the audio spellings the table does not", () => {
+    expect(extForMime("audio/mp3")).toBe(".mp3");
+    expect(extForMime("audio/x-m4a")).toBe(".m4a");
+    expect(extForMime("audio/aac")).toBe(".m4a");
+    expect(extForMime("audio/opus")).toBe(".opus");
+  });
+
+  it("answers nothing for a type it has no extension for", () => {
+    expect(extForMime("application/octet-stream")).toBeUndefined();
+    expect(extForMime("")).toBeUndefined();
   });
 });

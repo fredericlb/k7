@@ -4,10 +4,7 @@
   "description": "The rehearsal recorder's server half, mounted inside k7's backend: sessions, releases, public pages, songbook, phone-mic signaling",
   "type": "module",
   "exports": {
-    ".": {
-      "types": "./src/index.d.ts",
-      "default": "./src/mount.ts"
-    }
+    ".": "./src/mount.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

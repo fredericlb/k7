@@ -6,10 +6,10 @@ import type { Envelope } from "@studio/ui-waveform";
 import { library } from "./api";
 
 /** The sidecar's name, mirroring `CACHE_EXT`: to this app it is a file beside the audio. */
-export const CACHE_EXT = ".cache";
+const CACHE_EXT = ".cache";
 
 /** A structural SUBSET of the engine's `FileEnvelope`: the rest is the writer's business. */
-export interface SongEnvelope {
+interface SongEnvelope {
   seconds: number;
   /** Per-bucket RMS, 0..1 linear — exactly what Envelope.samples wants. */
   rms: number[];

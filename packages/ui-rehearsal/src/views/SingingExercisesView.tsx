@@ -20,6 +20,7 @@ import { isYouTubeUrl } from "@studio/rehearsal-shared/youtube";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { BackButton } from "../components/BackButton";
+import { confirmLoss } from "../confirm";
 import { m } from "../paraglide/messages.js";
 import type { SingingExercise } from "../types";
 import { pickWorkout } from "../utils/exercises";
@@ -97,7 +98,10 @@ export function SingingExercisesView({ onBack }: Props) {
   const badLink = link !== "" && !isYouTubeUrl(link);
 
   const remove = async (ex: SingingExercise) => {
-    if (!confirm(m["common.confirmDeleteNamed"]({ name: ex.title }))) return;
+    if (
+      !(await confirmLoss(m["common.confirmDeleteNamed"]({ name: ex.title })))
+    )
+      return;
     setError(null);
     try {
       await api.deleteSingingExercise(ex.id);

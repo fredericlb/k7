@@ -54,8 +54,8 @@ in `LibraryLabels.playback.targets` and k7's `mediaLabels.ts`, and its branch in
 ### A new rehearsal collection or field
 
 Add it to `packages/rehearsal-server/src/schema.ts`; no migration is needed. Write the store
-function in `packages/rehearsal-server/src/store.ts`, the route under `src/routes/`, and, if a host
-calls it, its declaration in `src/index.d.ts`. Shared types go to
+function in the entity's module under `packages/rehearsal-server/src/store/`, re-export it from
+`src/store.ts`, and add the route under `src/routes/`. Shared types go to
 `packages/rehearsal-shared/types.ts`.
 
 ### A new rehearsal screen

@@ -21,7 +21,7 @@ token and manifest, so it is never a master and never reaches a machine's mirror
 
 ## Who calls this instead of `/file`
 
-The rehearsal server's `mediatek.ts` — `downloadStreamable`, used everywhere it caches a file for a browser
+The rehearsal server's `mediatek.ts` — `downloadStreamable`, which is `remoteLibrary`'s `stream`, used everywhere it caches a file for a browser
 to *play* (the songbook track and instrumental, a release's mixdown and stems). The médiathèque's
 player (`packages/ui-library/src/playback/PlaybackProvider.tsx`) and k7's playlist pane
 (`songUrl` in `apps/k7/frontend/src/api.ts`) load it as their `<audio>` source. `download()`

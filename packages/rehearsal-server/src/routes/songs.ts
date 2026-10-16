@@ -6,9 +6,9 @@
 
 import { sub, validate, wrap } from "@frediverse/http";
 import { diskUpload } from "@frediverse/http/upload";
-import { isAdmin } from "@frediverse/oidc";
+import { isAdmin, type SessionUser } from "@frediverse/oidc";
 import { canonicalSheetMime } from "@studio/rehearsal-shared/sheetKind";
-import { Router } from "express";
+import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 import { env } from "../env.ts";
 import { searchLrclib } from "../lrclib.ts";
@@ -108,19 +108,24 @@ songsRouter.use("/:sid", (req, res, next) => {
 });
 
 /** A copy is removed by whoever uses this machine; a private song by its creator, a public one by an admin. */
-const mayDelete = (song, req) =>
+const mayDelete = (
+  song: { origin: string; private: boolean; mine: boolean },
+  req: Request,
+): boolean =>
   song.origin
     ? true
     : song.private
       ? song.mine
-      : isAdmin(req.user, env.adminGroups);
+      : isAdmin((req as { user?: SessionUser }).user, env.adminGroups);
 
 /** A song as the asking user sees it, with whether they may delete it. */
-const withRights = (song, req) =>
-  song && { ...song, canDelete: mayDelete(song, req) };
+const withRights = <T extends Parameters<typeof mayDelete>[0]>(
+  song: T | null,
+  req: Request,
+) => song && { ...song, canDelete: mayDelete(song, req) };
 
 /** The song again, as the asking user sees it — their star, whether they created it, whether they delete it. */
-const sendSong = async (req, res, status = 200) => {
+const sendSong = async (req: Request, res: Response, status = 200) => {
   const song = await store.getSong(req.params.sid, sub(req));
   if (!song) return res.status(404).json({ error: "not found" });
   res.status(status).json(withRights(song, req));
@@ -275,7 +280,7 @@ const libraryFileBody = z.object({ path: z.string().min(1) });
 const libraryFolderBody = z.object({ folder: z.string().min(1) });
 
 /** A refused path is the caller's mistake; anything else is the library failing. */
-const fetchFailure = (res, err: Error) =>
+const fetchFailure = (res: Response, err: Error) =>
   err instanceof LibraryPathError
     ? res.status(400).json({ error: err.message })
     : res.status(502).json({ error: err.message });
