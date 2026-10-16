@@ -111,6 +111,14 @@ one is made audible is the host's — k7 auditions the sample through the file s
 médiathèque could preview it from its own catalogue — and a host that offers nothing leaves the
 pads drawn but silent, which is the right degradation for a surface with no engine behind it.
 
+`onRecorder` hands the host BOTH names of the node: `pluginId`, which is what the engine keys a
+recorder by, and `module`, which is what a verb names. The host needs both because record and
+clear go down the socket while save is a command (`engine/k7-runtime/docs/recorder.md`).
+
+`onModuleField` is separate from `command` for `onBypassModule`'s reason — it must reload — and
+one more: a module's own field has no optimistic value, so the reload is the only feedback the
+control ever gets.
+
 ### `onPresets` and `presetNames` — a dropdown whose list the host draws
 
 A node's second header line holds ONE dropdown, its engine and its preset, and it is only a BUTTON:
