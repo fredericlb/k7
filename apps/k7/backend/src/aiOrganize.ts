@@ -24,6 +24,7 @@ import {
   aiSettingsRoutes,
   DEFAULT_AI_MODEL,
 } from "./aiSettings";
+import { subOf } from "./who.ts";
 
 /** One proposal and one repair: a second round of the same mistakes is not worth a third minute. */
 const ROUNDS = 2;
@@ -161,8 +162,10 @@ export function aiOrganizeRouter(
   const router = express.Router();
   router.use(aiSettingsRoutes(store, requireAuth));
   // Read per request: a key set in the panel a second ago is the one this click uses.
-  const settingsOf = (req: express.Request) =>
-    req.user?.sub ? store.read(req.user.sub) : null;
+  const settingsOf = (req: express.Request) => {
+    const sub = subOf(req);
+    return sub ? store.read(sub) : null;
+  };
 
   router.get("/organize", requireAuth, (req, res) => {
     const s = settingsOf(req);

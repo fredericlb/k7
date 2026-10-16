@@ -15,6 +15,7 @@ import { configureMpv } from "@studio/mpv-player/player";
 import { createPlayerRouter } from "@studio/mpv-player/router";
 import type { Express, Request, RequestHandler } from "express";
 import { authDir } from "../authState.ts";
+import { emailOf, subOf } from "../who.ts";
 import { isAdminRequest } from "./admin.ts";
 import { startAnalysisSweep } from "./analysisSweep.ts";
 import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
@@ -51,8 +52,6 @@ export interface MediaMount {
   /** The server the request's account is paired with, or null — where a desktop's releases and pages are. */
   pairedServer(req: Request): { base: string; token: string } | null;
 }
-
-type Who = { user?: { sub?: string; email?: string } };
 
 /** Mount every media route on `app`; call it after setupAuth and before the SPA fallback. */
 export function mountMedia(
@@ -132,10 +131,8 @@ export function mountMedia(
   app.use(
     "/api",
     bearerOrSession(requireAuth),
-    createPlayerRouter((req) => {
-      const who = (req as Who).user;
-      return who?.email ?? who?.sub ?? "";
-    }),
+    // Email first: mpv-player names each listener's socket directory after it.
+    createPlayerRouter((req) => emailOf(req) ?? subOf(req) ?? ""),
   );
 
   // Cutting a song into stems, driven from HERE because the bytes are here — ../../docs/media/stems.md.

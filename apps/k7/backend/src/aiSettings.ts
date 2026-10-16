@@ -7,6 +7,7 @@
 import type { PrefsStore } from "@studio/user-prefs";
 import express, { type RequestHandler } from "express";
 import { z } from "zod";
+import { subOf } from "./who.ts";
 
 /** The model asked for when the account names none. */
 export const DEFAULT_AI_MODEL = "claude-opus-5";
@@ -43,8 +44,6 @@ const patchSchema = z
     model: z.string().trim().max(200).nullable().optional(),
   })
   .strict();
-
-const subOf = (req: express.Request): string | undefined => req.user?.sub;
 
 /** `GET`/`PUT /settings` over the store; mounted behind the host's requireAuth. */
 export function aiSettingsRoutes(

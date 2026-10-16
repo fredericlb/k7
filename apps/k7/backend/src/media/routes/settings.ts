@@ -4,9 +4,9 @@
 
 import { wrap } from "@frediverse/http/route";
 import type { CheckResult, SlskdCheck } from "@studio/web-protocol/settings";
-import type { Request } from "express";
 import { Router } from "express";
 import { z } from "zod";
+import { subjectOf } from "../../who.ts";
 import { isAdminRequest } from "../admin.ts";
 import { checkSftp } from "../hunt/sftp.ts";
 import { checkSlskd } from "../hunt/slskd.ts";
@@ -16,11 +16,6 @@ import {
   sftpOf,
   slskdOf,
 } from "../settings/store.ts";
-
-function subOf(req: Request): string | null {
-  const u = (req as { user?: { sub?: string; email?: string } }).user;
-  return u?.sub ?? u?.email ?? null;
-}
 
 // Empty is allowed on every plain field: saving half a form is how a form gets filled in.
 const inputSchema = z.object({
@@ -55,7 +50,7 @@ async function probe(
 export const settingsRouter: Router = Router();
 
 settingsRouter.use((req, res, next) => {
-  if (!subOf(req))
+  if (!subjectOf(req))
     return res.status(401).json({ error: "no user on the session" });
   if (!isAdminRequest(req))
     return res.status(403).json({ error: "admins only" });

@@ -15,6 +15,7 @@ import {
 import { mediatekDir } from "@studio/mediatek/layout";
 import { SYNC_PAIR_ROUTE } from "@studio/web-protocol/pairing";
 import type { Express, RequestHandler } from "express";
+import { emailOf, subOf } from "../who.ts";
 import { isAdminRequest } from "./admin.ts";
 
 /** `$STUDIO_FILES_ROOT`, or the process exits with what to set — called before anything listens. */
@@ -47,8 +48,8 @@ export function mountFileHub(
     registry: engine.registry,
     tunnels: engine.tunnels,
     selfPort: () => port,
-    userOf: (req) => req.user?.email ?? "",
-    subjectOf: (req) => req.user?.sub ?? "",
+    userOf: (req) => emailOf(req) ?? "",
+    subjectOf: (req) => subOf(req) ?? "",
     // Who may edit the origin's libraries: the `groups` claim against this list, which empty admits nobody.
     isAdmin: isAdminRequest,
     // Set by `npm run dev` only: this process's own watch cannot see the ones it spawns.
