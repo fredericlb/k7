@@ -6,12 +6,12 @@ export interface FieldSpec {
   type: "text" | "number" | "bool";
 }
 
-export type CollectionSchema = Record<string, FieldSpec[]>;
+export type CollectionSchema = Record<string, readonly FieldSpec[]>;
 
 // Collections the store no longer holds: their rows, left in an older file, are dropped when it opens.
 export const RETIRED_COLLECTIONS = ["Highlights"];
 
-export const SCHEMA: CollectionSchema = {
+const COLLECTIONS = {
   Sessions: [
     { name: "Uid", type: "text" },
     { name: "OwnerId", type: "text" },
@@ -128,4 +128,20 @@ export const SCHEMA: CollectionSchema = {
     { name: "SongUid", type: "text" },
     { name: "OwnerId", type: "text" },
   ],
+} as const satisfies CollectionSchema;
+
+export const SCHEMA: CollectionSchema = COLLECTIONS;
+
+/** A collection the store holds, by name. */
+export type Collection = keyof typeof COLLECTIONS;
+
+type FieldValue<T extends FieldSpec["type"]> = T extends "text"
+  ? string
+  : T extends "number"
+    ? number
+    : boolean;
+
+/** A row's fields as the store reads them back, every one present: what was never set reads as its zero value. */
+export type FieldsOf<C extends Collection> = {
+  [F in (typeof COLLECTIONS)[C][number] as F["name"]]: FieldValue<F["type"]>;
 };

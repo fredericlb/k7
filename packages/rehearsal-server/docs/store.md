@@ -23,6 +23,11 @@ Each row is one JSON document, keyed by its collection and id. A field added to 
 therefore needs no migration: old rows simply lack it. Such a field reads as its type's zero value
 (`""`, `0`, `false`), taken from `schema.ts`, because `store.ts` relies on getting a value rather
 than nothing. A filter is an IN-list per field, matched with `json_extract`.
+
+A row's type is read off the same file: `FieldsOf<"Songs">` is what `schema.ts` lists for that
+collection, and `db.ts` hands each collection's rows back under it, so a field added to the schema
+is typed in every reader at once and a field misspelt in the store does not compile. The package is
+type-checked strictly and its host reads its sources, with no declaration file between them.
 A collection the store stops holding is named in `RETIRED_COLLECTIONS` (`schema.ts`), and its rows
 are deleted when the file opens: an older file would otherwise carry them forever, read by nothing.
 

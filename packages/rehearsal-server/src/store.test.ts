@@ -50,9 +50,7 @@ describe("the store's lookups and writes", () => {
       { OwnerId: "me", SessionUid: session.id },
     ]);
     expect(await store.deleteSession(session.id)).toBe(true);
-    const of = (coll: string) =>
-      db.listRecords(coll, { SessionUid: [session.id] });
-    expect(of("Markers")).toEqual([]);
+    expect(db.listRecords("Markers", { SessionUid: [session.id] })).toEqual([]);
     expect(db.getRecord("Comments", moment)).not.toBeNull();
   });
 

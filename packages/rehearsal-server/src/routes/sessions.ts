@@ -5,7 +5,7 @@
 import { ownerGuard, sub, validate, wrap } from "@frediverse/http";
 import { diskUpload } from "@frediverse/http/upload";
 import type { Envelope } from "@studio/rehearsal-shared";
-import { Router } from "express";
+import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 import { audioExtOf, isAudioMime, streamAudio } from "../serve.ts";
 import * as store from "../store.ts";
@@ -92,7 +92,7 @@ sessionsRouter.post(
   }),
 );
 
-async function receiveTake(req, res) {
+async function receiveTake(req: Request, res: Response) {
   if (!req.file) return res.status(400).json({ error: "missing audio file" });
   if (!req.file.size)
     return res

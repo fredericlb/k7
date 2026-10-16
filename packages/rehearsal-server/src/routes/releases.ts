@@ -2,7 +2,7 @@
 
 import { ownerGuard, sub, validate, wrap } from "@frediverse/http";
 import { diskUpload } from "@frediverse/http/upload";
-import { Router } from "express";
+import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 import { isAudioMime, streamAudio } from "../serve.ts";
 import * as store from "../store.ts";
@@ -26,7 +26,10 @@ const releasePatch = z.object({
 });
 
 /** The one uploaded audio file, or null once a 400 has answered — the type is served back, so only audio passes. */
-function audioPart(req, res): { file: string; mime: string } | null {
+function audioPart(
+  req: Request,
+  res: Response,
+): { file: string; mime: string } | null {
   if (!req.file?.size) {
     res.status(400).json({ error: "missing audio file" });
     return null;

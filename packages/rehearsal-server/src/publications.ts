@@ -7,19 +7,24 @@ import type { PublicationsStatus } from "@studio/rehearsal-shared";
 import { type Request, type RequestHandler, Router } from "express";
 import { env } from "./env.ts";
 import { jsonErrors } from "./errors.ts";
-import type * as Declared from "./index.d.ts";
 import { pagesRouter } from "./routes/pages.ts";
 import { publicPagesRouter } from "./routes/publicPages.ts";
 import { releasesRouter } from "./routes/releases.ts";
 
 /** Where the server answers a paired device's releases and pages, behind its device token. */
-export const DEVICE_ROUTE: typeof Declared.DEVICE_PUBLICATIONS_ROUTE =
-  "/api/sync/k7";
+export const DEVICE_ROUTE = "/api/sync/k7";
 
 /** The rehearsal routes that live on the server alone, under `/api`. */
 export const PUBLICATION_ROUTES = ["/releases", "/pages", "/public/pages"];
 
-type ServerOf = (req: Request) => { base: string; token: string } | null;
+/** The paired server a request's account reaches, and the device token to call it with. */
+export interface SongbookServer {
+  base: string;
+  token: string;
+}
+
+/** The server this request's account is paired with, or null. */
+export type ServerOf = (req: Request) => SongbookServer | null;
 
 /** Headers a request carries through; the session's cookie and the host are this origin's, never sent. */
 const REQUEST_HEADERS = [
@@ -50,31 +55,30 @@ function parsedBody(req: Request): Buffer | null {
 }
 
 /** The server's side: the three routers again, with the device's person standing in for the session. */
-export const publicationsDeviceRouter: typeof Declared.publicationsDeviceRouter =
-  (gate: RequestHandler) => {
-    const r = Router();
-    r.use(gate);
-    r.use((req, res, next) => {
-      const person = (
-        res.locals.syncCaller as { person?: string | null } | undefined
-      )?.person;
-      // Releases and pages are somebody's: a token that names nobody reaches none of them.
-      if (!person)
-        return void res.status(403).json({
-          error:
-            "this machine was paired before tokens named a person: pair it again",
-          reason: "repair",
-        });
-      (req as { user?: { sub: string } }).user = { sub: person };
-      next();
-    });
-    r.get("/ping", (_req, res) => void res.json({ ok: true }));
-    r.use("/releases", releasesRouter);
-    r.use("/pages", pagesRouter);
-    r.use("/public/pages", publicPagesRouter);
-    r.use(jsonErrors);
-    return r;
-  };
+export const publicationsDeviceRouter = (gate: RequestHandler): Router => {
+  const r = Router();
+  r.use(gate);
+  r.use((req, res, next) => {
+    const person = (
+      res.locals.syncCaller as { person?: string | null } | undefined
+    )?.person;
+    // Releases and pages are somebody's: a token that names nobody reaches none of them.
+    if (!person)
+      return void res.status(403).json({
+        error:
+          "this machine was paired before tokens named a person: pair it again",
+        reason: "repair",
+      });
+    (req as { user?: { sub: string } }).user = { sub: person };
+    next();
+  });
+  r.get("/ping", (_req, res) => void res.json({ ok: true }));
+  r.use("/releases", releasesRouter);
+  r.use("/pages", pagesRouter);
+  r.use("/public/pages", publicPagesRouter);
+  r.use(jsonErrors);
+  return r;
+};
 
 /** On a local instance: every request to a publication route goes to the paired server, or is refused. */
 export function forwardToServer(server: ServerOf): RequestHandler {

@@ -205,7 +205,7 @@ re-download of bytes that have not changed.
 **Deleting a version removes only what is its own.** A folder carrying the version's uid goes
 whole. A folder named by titles alone — rows keep the `AudioPath` they were filed under, and older
 ones have no uid in it — may hold another version's bytes, so only the files of this row that no
-other version row names are removed (`forgetVersionFolder`, `src/store.ts`).
+other version row names are removed (`forgetVersionFolder`, `src/store/versions.ts`).
 
 **Replacing a version's file** writes into the folder its uids name — so a version filed under
 titles alone moves into one of its own — and keeps the name, the stems and the place
@@ -232,7 +232,7 @@ package keeps no copy.
   here may overwrite a catalogued song; replacing an upload only overwrites that folder, whose
   title carries the song's uid (`<title> (<uid>)`), so two songbook songs of one name never share it.
 - **Only a library file is a track.** A path outside the library's `songs/` family is read as no
-  track at all (`libraryPath`, `src/store.ts`): the rehearsal server stores, copies and plays no
+  track at all (`libraryPath`, `src/store/songs.ts`): the rehearsal server stores, copies and plays no
   songbook file of its own, so such a song shows the fetch insert like any song without one.
 - **Linking only checks and records paths** (`src/songFetch.ts`). The hunt, the download and the
   stem cut are asked by the page, as the user (`packages/ui-rehearsal/docs/audio.md`); what lands
