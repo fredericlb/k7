@@ -18,9 +18,8 @@ in its backend that goes through the file service over HTTP and never the
 socket; the **rehearsal pages** only listen, subscribing to the bench's master broadcast to record
 a chain (`packages/ui-rehearsal/docs/chainSource.md`).
 
-Volume: ~7,400 lines of TypeScript in the five engine packages (`engine-protocol` 959,
-`engine-client` 684, `engine-browser` 1,944, `engine-host` 3,029 — the TypeScript supervisor
-`engine/k7-supervisor` now replaces —, `engine-registry` 793), 52 C++ files, and 35 app files that
+Volume: ~4,400 lines of TypeScript in four engine packages (`engine-protocol` 959,
+`engine-client` 684, `engine-browser` 1,944, `engine-registry` 793), 52 C++ files, and 35 app files that
 import `@studio/engine-*`. The most churned files were the supervisor's loop and
 `engine-browser/src/engine.ts` — reliability is decided there.
 
@@ -65,8 +64,9 @@ of identity for the probe. What the token proves today is written in
 
 ## C. Duplication — what a package would save
 
-### C2 — the engine pickers, three copies
+### C2 — the engine pickers, copied across repositories
 
+k7's picker is `apps/k7/frontend/src/components/EngineGate.tsx`; z0 carries its own `Gate.tsx`.
 The full-screen spinner, the "Connect" card, the engine row, and the `useRelook` effect duplicated
 word for word with its `biome-ignore` (26 lines for a `useEngineList(active)` of ~12). The gates
 share the `Phase` structure, `findEngine`, `pick`, the `auth.me` effect, the three render branches
@@ -80,17 +80,18 @@ when the batch is taken.
 
 ### C3 — the accidental divergences that package would remove
 
-1. **Four different predicates for "reachable"**, two of which ignore the token
-   (`z0/Gate.tsx:107`, `pl8/EnginePicker.tsx:49`). This is the bug `access.md:37` describes —
-   guarded in `choose.ts` but not in the pickers, which filter for themselves. An `isReachable()`
-   exists in the package and is **called nowhere**.
+1. **Several predicates for "reachable"**. z0's (`z0/Gate.tsx:107`) ignores the token — the bug
+   `access.md:37` describes, guarded in `choose.ts` but not in a picker that filters for itself.
+   k7's `EngineGate.tsx` tests `wsUrl`, `fileBase` and the token by hand, where the package's
+   `isReachable()` says the same thing and only `apps/k7/frontend/src/settings/PairedDevicesSection.tsx`
+   calls it.
 2. **z0 has no `useRelook`** — the only permanent picker that can stay stuck on "out of reach"
    until a reload, precisely what `relook.ts` exists to kill.
 3. **z0 never takes the lease**, where `lease.md:20-27` records two apps shipping that bug
    independently. z0 drives no project, but it drives an engine, so the rule holds.
-4. **`assigned` ignored by 2 gates out of 3**: only k7 hides an engine already taken.
-5. **`select` before entering: k7 alone.** The other two enter on a token unverified server-side.
-6. **"Search again" destroys the list** in z0 (`setPhase({k:"looking"})`), not in k7 or pl8.
+4. **`assigned` ignored by z0**: only k7 hides an engine already taken.
+5. **`select` before entering: k7 alone.** z0 enters on a token unverified server-side.
+6. **"Search again" destroys the list** in z0 (`setPhase({k:"looking"})`), not in k7.
 
 ### C4 — the shapes of the wire, declared twice
 
@@ -103,9 +104,6 @@ it and says what to do: "if a third copy ever appears, move them there instead" 
 Two divergences have already been born there: the browser reads `pitches`/`clarity` on
 `io-levels`, the Node client ignores them.
 
-Same for the address list, built twice from the same `EngineAddresses`: `probe.ts:161-165`
-(browser) and `proxy.ts:70-73` `hostsFor` (server), in two packages.
-
 And for the "latency or out of reach" formatting: 5 copies of a one-line function whose place is
 `web-protocol/quality.ts`, next to `formatLatency`.
 
@@ -114,8 +112,8 @@ path is rewritten by hand on the browser side (`probe.ts:170`).
 
 ### C5 — dead code
 
-`probeLocalEngine()`, `isReachable()`, `EngineLookup.ambiguous`, `RELOOK_MS`,
-`StreamPlayer.snapshot()`: zero callers outside tests. The streaming instrumentation described in `streaming.md`
+`probeLocalEngine()`, `EngineLookup.ambiguous`, `RELOOK_MS` outside its own file:
+zero callers outside tests. The streaming instrumentation described in `streaming.md`
 (jitter, drift, `dropped`) is exposed by no screen.
 
 ## D. The supervisor
