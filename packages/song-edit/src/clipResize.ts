@@ -2,6 +2,8 @@
 // actually has: the MATERIAL's window (`from`/`to`) and the placement's `start`/`loop`. A
 // placement has no length to set, so a resize is not one number — see docs/clipResize.md.
 
+import { roundBeat } from "@studio/song-schema/timecode";
+
 /** The units a window is written in: seconds into a file, or beats into a sequence's notes. */
 export type MaterialKind = "audio" | "sequence";
 
@@ -41,7 +43,7 @@ const toBeats = (units: number, kind: MaterialKind, tempo: number): number =>
   kind === "sequence" ? units : (units * tempo) / 60;
 
 /** Seconds carry float noise from the beat conversion; six places is well under a sample. */
-const tidy = (n: number): number => Math.round(n * 1e6) / 1e6;
+const tidy = roundBeat;
 
 /** The EVENT's window and count spanning `startBeats..endBeats`, clamped inside `bounds` — packages/song/docs/clipResize.md. */
 export function resizeToWindow(

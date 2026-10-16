@@ -3,6 +3,7 @@
 // Works on a SPAN rather than rewriting the document, which keeps the undo history and
 // the cursor. See docs/noteGrids.md.
 
+import { roundBeat } from "@studio/song-schema/timecode";
 import { isSeq, parseDocument } from "yaml";
 
 export interface Note {
@@ -88,7 +89,7 @@ function reindent(text: string): string {
 }
 
 // Round to 6 decimals: onsets come from drags, and an exact float would churn the file on every no-op write.
-const num = (v: number): string => String(Math.round(v * 1e6) / 1e6);
+const num = (v: number): string => String(roundBeat(v));
 
 /** Serialize notes one per line at `indent`, the FIRST line bare since the text it replaces began after the indentation. */
 export function renderNotes(notes: Note[], indent = "  "): string {

@@ -6,6 +6,7 @@ import { createSequenceFile } from "@studio/song/loader";
 import type { ClipDoc, ProjectDoc } from "@studio/song/project";
 import { wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { halveLoopsOf } from "@studio/song-edit/sequenceLoops";
+import { roundBeat } from "@studio/song-schema/timecode";
 import {
   appendNotes,
   doubleSequence,
@@ -63,7 +64,7 @@ export function parseMidiNote(s: string): number | null {
 }
 
 // A beat value for a note struct, 6 decimals max, mirroring the tracker so drags don't churn the file.
-export const fmtBeat = (v: number) => String(Math.round(v * 1e6) / 1e6);
+export const fmtBeat = (v: number) => String(roundBeat(v));
 
 // `sequence new [name]` — four empty bars to write into. Place it on a lane with `event new`.
 async function newSequence(arg: string, h: CommandHost): Promise<void> {

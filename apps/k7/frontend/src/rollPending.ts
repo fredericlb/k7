@@ -4,6 +4,8 @@
 // and by precision, which is not the roll's shape — here the key is the ADDRESS every note verb
 // takes, `${key}@${start}`. See docs/clipEditors.md.
 
+import { roundBeat } from "@studio/song-schema/timecode";
+
 export interface RollNote {
   key: number;
   time: number;
@@ -16,7 +18,7 @@ const EPS = 1e-6;
 
 /** How a note is addressed, here and in every `sequence note …` verb: its key and where it starts. */
 export const noteAddr = (key: number, time: number): string =>
-  `${key}@${Math.round(time * 1e6) / 1e6}`;
+  `${key}@${roundBeat(time)}`;
 
 /**
  * One edit in flight, keyed by the address it was made AT. `null` removes; anything else is what

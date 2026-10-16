@@ -136,3 +136,7 @@ export function beatsToDuration(
 ): string {
   return fromBeats(beats, num, den, false);
 }
+
+/** A beat rounded to six decimals, so a float's tail never reaches a file or a key. */
+export const roundBeat = (beats: number): number =>
+  Math.round(beats * 1e6) / 1e6;

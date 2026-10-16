@@ -5,6 +5,7 @@ import {
   parseDuration,
   parseLegacyPosition,
   parsePosition,
+  roundBeat,
   TICKS_PER_QUARTER,
 } from "./timecode";
 
@@ -162,5 +163,17 @@ describe("ticks", () => {
     // They are a REMAINDER and not an index: the 1-based rule applies to fields alone.
     expect(parsePosition("1:1.0", 4, 4)).toBe(0);
     expect(parseDuration("0:0.0", 4, 4)).toBe(0);
+  });
+});
+
+describe("roundBeat", () => {
+  it("rounds to six decimals, as Math.round(x * 1e6) / 1e6", () => {
+    expect(roundBeat(0.1 + 0.2)).toBe(0.3);
+    expect(roundBeat(1.0000004)).toBe(1);
+    expect(roundBeat(1.0000006)).toBe(1.000001);
+    expect(roundBeat(-2.5)).toBe(-2.5);
+    expect(String(roundBeat(3 + 1 / 3))).toBe("3.333333");
+    for (const x of [0, 0.125, 7.999999999, 1e-7, 123.4567895])
+      expect(roundBeat(x)).toBe(Math.round(x * 1e6) / 1e6);
   });
 });
