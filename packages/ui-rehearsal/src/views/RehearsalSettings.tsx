@@ -4,8 +4,8 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { Check } from "@frediverse/ui/icons";
-import { useEffect, useState } from "react";
-import { api } from "../api";
+import { useCallback, useEffect, useState } from "react";
+import { type ApiToken, api } from "../api";
 import { CleanUpSessions } from "../components/CleanUpSessions";
 import { CodeText } from "../components/CodeText";
 import { m } from "../paraglide/messages.js";
@@ -27,16 +27,34 @@ export function RehearsalSettings() {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [listed, setListed] = useState<ApiToken[]>([]);
+  const refresh = useCallback(
+    () =>
+      api
+        .listApiTokens()
+        .then((r) => setListed(r.tokens))
+        .catch(() => {}),
+    [],
+  );
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   const generate = async () => {
     setLoading(true);
     setCopied(false);
     try {
-      const { token } = await api.getApiToken();
+      const { token } = await api.createApiToken();
       setToken(token);
+      await refresh();
     } finally {
       setLoading(false);
     }
+  };
+
+  const revoke = async (id: string) => {
+    await api.revokeApiToken(id);
+    await refresh();
   };
 
   const copy = async () => {
@@ -94,7 +112,37 @@ export function RehearsalSettings() {
               : m["settings.tokenGenerate"]()}
           </Button>
         )}
+        {listed.length > 0 && (
+          <>
+            <div
+              className="settings-title muted small"
+              style={{ marginTop: 16 }}
+            >
+              {m["settings.tokenList"]()}
+            </div>
+            {listed.map((t) => (
+              <div key={t.id} className="row" style={{ marginTop: 8 }}>
+                <span className="small">
+                  {t.label} ·{" "}
+                  {m["settings.tokenExpires"]({ date: day(t.expires) })} ·{" "}
+                  {t.lastUsed
+                    ? m["settings.tokenLastUsed"]({ date: day(t.lastUsed) })
+                    : m["settings.tokenNeverUsed"]()}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void revoke(t.id)}
+                >
+                  {m["settings.tokenRevoke"]()}
+                </Button>
+              </div>
+            ))}
+          </>
+        )}
       </Card>
     </div>
   );
 }
+
+const day = (ms: number): string => new Date(ms).toLocaleDateString();

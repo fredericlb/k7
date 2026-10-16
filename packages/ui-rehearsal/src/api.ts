@@ -20,6 +20,15 @@ import type {
   SongEnvelope,
 } from "./types";
 
+/** A publish token as its owner sees it: never the token itself. */
+export interface ApiToken {
+  id: string;
+  label: string;
+  created: number;
+  expires: number;
+  lastUsed: number | null;
+}
+
 // Every call sends the session cookie, under the base the host configured (config.ts).
 const f = (path: string, init?: RequestInit) =>
   fetch(`${apiBase()}${path}`, { credentials: "include", ...init });
@@ -310,8 +319,21 @@ export const api = {
   versionTrackUrl: (id: string, versionId: string, trackId: string) =>
     `${apiBase()}/api/releases/${id}/versions/${versionId}/tracks/${trackId}`,
 
-  // Mint a personal access token for the k7 CLI (Settings UI).
-  getApiToken: (): Promise<{ token: string }> => f("/api/token").then(json),
+  // Mint a personal access token for the k7 CLI (Settings UI): a POST, never a GET.
+  createApiToken: (label?: string): Promise<{ token: string } & ApiToken> =>
+    f("/api/token/publish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label }),
+    }).then(json),
+
+  listApiTokens: (): Promise<{ tokens: ApiToken[] }> =>
+    f("/api/token/publish").then(json),
+
+  revokeApiToken: (id: string): Promise<{ ok: true }> =>
+    f(`/api/token/publish/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }).then(json),
 
   // --- Pages ---
   listPages: (): Promise<Page[]> => f("/api/pages").then(json),

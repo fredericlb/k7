@@ -267,6 +267,8 @@ in the image — and `CACHE_MAX_GB`, past which that cache is trimmed ([audit.md
 
 `K7_API_TOKEN_SECRET` signs the personal tokens a user mints from k7's settings and saves in a
 workspace's `.settings.json` to publish to these pages. It is NOT k7's `API_TOKEN_SECRET`: it
-defaults to `${SESSION_SECRET}:api-token`, the derivation the tokens already in circulation were
-signed with, so every one of them keeps verifying. `GET /api/token` mints one; k7's own
-`POST /api/token` and `GET /api/token/pair` are the media library's, and differ by method.
+defaults to `${SESSION_SECRET}:api-token`. A token is valid only while listed in `api-tokens.json`
+under `K7_DATA_DIR`, so its owner can revoke it from the settings page. `POST /api/token/publish`
+mints one (never a GET, which a link could trigger), `GET` lists them and
+`DELETE /api/token/publish/:id` revokes one; the rest of `/api/token` is the media library's
+(`apps/k7/backend/docs/sessions.md`).

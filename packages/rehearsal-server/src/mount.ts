@@ -84,7 +84,7 @@ export const mountRehearsal: typeof Declared.mountRehearsal = (app, opts) => {
   api.use("/songs", requireAuth, songsRouter);
   api.use("/singing", requireAuth, singingRouter);
   api.use("/rtc", requireAuth, rtcRouter);
-  // GET only: k7's own `POST /api/token` and `GET /api/token/pair` fall through to the media library.
+  // `/token/publish` only: the rest of `/api/token` falls through to the media library.
   api.use("/token", requireAuth, tokenRouter);
   api.use(jsonErrors);
   app.use("/api", api);
