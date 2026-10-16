@@ -64,19 +64,11 @@ import {
 } from "react";
 import { Cables, type EdgeGeom } from "./ChainsCables";
 import { Node } from "./ChainsNode";
-import {
-  applyCam,
-  type Cam,
-  clampZoom,
-  frameOriginX,
-  type Lod,
-  lodFor,
-  sameLod,
-} from "./camera";
+import { applyCam, type Cam, type Lod, lodFor, sameLod } from "./camera";
 import { cableColorFor, MAUVE, useCss } from "./chainsCss";
 import { createOverrideStore, EMPTY_ORDER, NOOP } from "./chainsStores";
 import { IconsContext } from "./chainsTypes";
-import type { DomChainsProps, FitToFn, FitToOpts } from "./domChainsProps";
+import type { DomChainsProps } from "./domChainsProps";
 import { LcdSetContext, LcdSoundsContext } from "./LcdScreenWidget";
 import { createLcdZoom, LcdZoomContext } from "./lcdZoom";
 import { Minimap } from "./Minimap";
@@ -92,6 +84,7 @@ import {
 import type { NodeEngines } from "./PresetButton";
 import { Seams } from "./Seams";
 import type { TapAction } from "./TapWidget";
+import { useCameraFit } from "./useCameraFit";
 import { useChainsCamera } from "./useChainsCamera";
 import { useEdgeGestures } from "./useEdgeGestures";
 import { useNodeActions } from "./useNodeActions";
@@ -875,133 +868,21 @@ export function DomChains({
   }, [hostStore, trackOrder, videoSpans, noteLanes]);
 
   // --- fit: frame the whole graph to the host; it ANSWERS whether it did (docs/camera.md) ---
-  const fit = useRef<() => boolean>(() => false);
-  fit.current = () => {
-    const c = fitCam.current();
-    if (!c) return false;
-    // Framed, so from here the camera is worth remembering — `place` persists it.
-    fitted.current = true;
-    place(c);
-    return true;
-  };
-  /** The camera that frames the whole graph, or null while there is no size to frame to. */
-  const fitCam = useRef<() => Cam | null>(() => null);
-  fitCam.current = () => {
-    const host = hostRef.current;
-    // isFinite, not truthy: an empty dagre layout reported -Infinity and still marked the view framed over nothing.
-    if (
-      !host ||
-      !Number.isFinite(graph.width) ||
-      !Number.isFinite(graph.height)
-    )
-      return null;
-    // The BOX, not the extent: a pin may sit above the first track or left of it — docs/hosting.md.
-    const gw = graph.width - graph.left;
-    const gh = graph.height - graph.top;
-    if (!gw || !gh) return null;
-    const sw = host.clientWidth;
-    const sh = host.clientHeight;
-    if (!sw || !sh) return null;
-    const pad = fitPad;
-    // "height" frames the HEIGHT and lets the width run off the side, which is pannable — docs/camera.md.
-    const k = clampZoom(
-      Math.min(
-        fitMaxZoom ?? Number.POSITIVE_INFINITY,
-        fitAxis === "height"
-          ? (sh / gh) * pad
-          : Math.min((sw / gw) * pad, (sh / gh) * pad),
-      ),
-    );
-    return {
-      k,
-      // Height-fitted content overflows, so it is pinned LEFT and each offset carries the box's corner.
-      x:
-        (fitAxis === "height" && gw * k > sw ? 0 : (sw - gw * k) / 2) -
-        graph.left * k,
-      y: (sh - gh * k) / 2 - graph.top * k,
-    };
-  };
-  // Frame once, and again only when `fitKey` says this is a different graph. See docs/chainsGraph.md.
-  const lastFitKey = useRef(fitKey);
-  useLayoutEffect(() => {
-    if (fitKey !== lastFitKey.current) {
-      lastFitKey.current = fitKey;
-      fitted.current = false;
-    }
-    if (!fitted.current) fitted.current = fit.current();
-  }, [graph, fitKey]);
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-    // Only until the first successful fit: the host starts at zero size, but later resizes must not re-frame.
-    const ro = new ResizeObserver(([entry]) => {
-      // The cable canvas is sized from here: not being in the flow, nothing else would tell it.
-      const box = entry?.contentRect;
-      if (box) hostSize.current = { w: box.width, h: box.height };
-      paintRef.current();
-      // Keep re-framing while the camera is still ours — the host settles for a while after the first fit.
-      if (userMoved.current) return;
-      if (fit.current()) fitted.current = true;
-    });
-    ro.observe(host);
-    return () => ro.disconnect();
-  }, []);
-
-  // --- fitTo: frame a subset of nodes (chain selection from the sidebar) ---------
-  const fitTo = useRef<FitToFn>(() => false);
-  fitTo.current = (nodes: GraphNode[], opts: FitToOpts = {}) => {
-    const { panOnly, axis = "both", zoom = 1 } = opts;
-    const host = hostRef.current;
-    if (!host || !nodes.length) return false;
-    const sw = host.clientWidth;
-    const sh = host.clientHeight;
-    if (!sw || !sh) return false;
-    // Framing a chain the user picked is their choice too — AFTER the size checks, so a no-op claims nothing.
-    userMoved.current = true;
-    const minX = Math.min(...nodes.map((n) => n.x));
-    const minY = Math.min(...nodes.map((n) => n.y));
-    const maxX = Math.max(...nodes.map((n) => n.x + n.w));
-    const maxY = Math.max(...nodes.map((n) => n.y + n.h));
-    const bw = maxX - minX;
-    const bh = maxY - minY;
-    const pad = 0.9;
-    const k = clampZoom(
-      (axis === "height"
-        ? (sh / bh) * pad
-        : Math.min((sw / bw) * pad, (sh / bh) * pad)) * zoom,
-    );
-    if (panOnly) {
-      // Keep the zoom from the chain fit; only adjust translation to center the target.
-      const cur = cam.current;
-      place({
-        k: cur.k,
-        x: sw / 2 - (panOnly.x + panOnly.w / 2) * cur.k,
-        y: sh / 2 - (panOnly.y + panOnly.h / 2) * cur.k,
-      });
-    } else {
-      // Centred, EXCEPT a row that does not fit across — see `frameOriginX`, docs/camera.md.
-      const spills = axis === "height" && bw * k > sw;
-      const originX = frameOriginX(sw, bw * k, pad, spills);
-      place({
-        k,
-        x: originX - minX * k,
-        y: (sh - bh * k) / 2 - minY * k,
-      });
-    }
-    return true;
-  };
-  useEffect(() => {
-    // One options object forwarded whole, because it cannot be half-forwarded by accident.
-    onCamReady?.({
-      fitTo: (nodes, opts) => fitTo.current(nodes, opts),
-      get: () => ({ ...cam.current }),
-      // Placed outright, no glide: putting a camera BACK is not a gesture to animate.
-      set: (c) => {
-        userMoved.current = true;
-        place(c);
-      },
-    });
-  }, [onCamReady]);
+  const { fit, fitCam } = useCameraFit({
+    cam,
+    fitAxis,
+    fitKey,
+    fitMaxZoom,
+    fitPad,
+    fitted,
+    graph,
+    hostRef,
+    hostSize,
+    onCamReady,
+    paintRef,
+    place,
+    userMoved,
+  });
 
   // The widget drag, the channels it reads and the multi-selection — useWidgetDrag.ts, docs/widgets.md.
   const {
