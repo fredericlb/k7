@@ -4,6 +4,7 @@
 // See engine/k7-runtime/docs/android.md.
 
 import { useEffect, useState } from "react";
+import type { DesktopEngineSnapshot } from "./desktopEngine";
 
 interface Channel {
   postMessage(message: string): void;
@@ -14,7 +15,8 @@ interface Channel {
 }
 
 /** The supervisor's `state` frame, the part the panel draws. */
-export interface EngineState {
+export interface EngineState
+  extends Pick<DesktopEngineSnapshot, "instruments" | "downloads"> {
   status?: string;
   enginePort?: number;
   error?: string;

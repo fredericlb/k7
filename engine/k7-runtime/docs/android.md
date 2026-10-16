@@ -29,8 +29,12 @@ elsewhere is something it can ADD, never something it needs. `BackendHost.kt` is
 | cleartext allowed for `127.0.0.1` only (`engine/k7-android/app/src/main/res/xml/network_security_config.xml`) | the local studio is plain http, as on desktop, and every other host stays https |
 | the views wait for the backend before loading it | a first run spends a few seconds unpacking, and a load that fails then would put the error screen up for nothing |
 
-A crashed backend is relaunched once after two seconds; a dead origin under the views is otherwise
-only fixed by restarting the app.
+**A crashed backend is relaunched on a doubling delay, 2 s up to 60 s, and given up on after six
+exits in a row that each came within a minute of their launch.** A backend that dies at boot — a
+corrupt SQLite file, a full disk — dies again on every launch, and relaunching it forever only
+drains the battery. Given up on, it tells the views waiting for it, and the shell page shows its
+load error with a Retry; that retry is what starts it again, with the count reset. A run longer
+than a minute is no boot failure, so it resets the count too.
 
 ## The app is also where the studio is used: k7, full screen
 
@@ -255,6 +259,18 @@ overlay change is enough, and `configChanges` does not cover it — and a second
 by the host lock while the first keeps drawing into the dead activity. So `SupervisorHost` is an
 `object`, like `EngineBridge`: it starts once, keeps the last snapshot, and whichever activity is on
 screen listens.
+
+**A supervisor that dies unasked is relaunched**, on the desktop host's backoff — 1 s doubling to
+30 s, back to 1 s after a run of 20 s — and its last snapshot is marked down meanwhile, so the
+pages say why rather than show a stale status. Without it the phone drops off every studio until the
+app restarts; the engine keeps serving through the gap and the new supervisor adopts it. It never
+gives up: unlike the backend, nothing on the phone would retry it.
+
+**No instrument is downloaded until the user asks**, in the Downloads section of k7's settings —
+the desktop's own section, through this app's bridge (`engine/k7-supervisor/docs/instruments.md`).
+Every instrument together is close to 3 GB, the piano alone 750 MB, and a phone is often on a
+metered network: a first launch that fetched them all would spend a data plan on instruments
+nobody chose.
 
 Two things a phone answers differently from a desktop:
 

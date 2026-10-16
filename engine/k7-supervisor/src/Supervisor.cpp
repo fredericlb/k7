@@ -264,7 +264,7 @@ struct Supervisor::Impl {
 
     // --- instruments ----------------------------------------------------------------------------------
 
-    /** A host with no Downloads tab to choose in — the standalone app, the phone — keeps every instrument. */
+    /** `$STUDIO_INSTRUMENTS=all` keeps every instrument, for a host with no Downloads tab to choose in (docs/instruments.md). */
     static bool keepsAll()
     {
         const char* v = std::getenv("STUDIO_INSTRUMENTS");

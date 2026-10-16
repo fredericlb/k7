@@ -7,6 +7,7 @@
 package se.frediver.k7
 
 import android.content.Context
+import android.os.SystemClock
 import android.system.Os
 import android.util.Log
 import org.json.JSONObject
@@ -27,38 +28,42 @@ object BackendHost {
     const val LOCAL_HOME = "$ORIGIN/auth/local?return_to=%2F"
 
     private var process: Process? = null
+    private var app: Context? = null
+    private var dirs: Dirs? = null
     private var started = false
     private var stopping = false
     private var ready = false
-    private val waiting = mutableListOf<() -> Unit>()
+    // Why the backend is given up on, until a view asks again; null while it runs or is being relaunched.
+    private var failure: String? = null
+    private var quickExits = 0
+    private val waiting = mutableListOf<Waiter>()
+
+    private class Waiter(val then: () -> Unit, val failed: (String) -> Unit)
 
     /** Unpack, lay out and start, once per process: a first run unpacks for a few seconds. */
     @Synchronized
     fun start(context: Context) {
         if (started) return
         started = true
-        val app = context.applicationContext
-        Thread({
-            try {
-                val dirs = prepare(app)
-                launch(app, dirs)
-                waitUp()
-                Log.i(TAG, "backend up on $ORIGIN")
-                val run = synchronized(this) {
-                    ready = true
-                    waiting.toList().also { waiting.clear() }
-                }
-                run.forEach { it() }
-            } catch (e: Exception) {
-                Log.e(TAG, "backend did not start: ${e.message}", e)
-            }
-        }, "k7-backend-start").start()
+        app = context.applicationContext
+        attempt()
     }
 
-    /** `then` once the backend has answered — at once if it has — on whichever thread saw it. */
-    fun whenReady(then: () -> Unit) {
-        val now = synchronized(this) { ready.also { if (!it) waiting.add(then) } }
+    /** `then` once the backend has answered — at once if it has — or `failed` once it is given up on; either on any thread. */
+    fun whenReady(then: () -> Unit, failed: (String) -> Unit) {
+        val (now, again) = synchronized(this) {
+            if (ready) return@synchronized true to false
+            waiting.add(Waiter(then, failed))
+            // A view asking after the backend was given up on is the user's retry.
+            val retry = failure != null && started
+            if (retry) {
+                failure = null
+                quickExits = 0
+            }
+            false to retry
+        }
         if (now) then()
+        if (again) attempt()
     }
 
     /** SIGTERM, which the backend answers by stopping its file services; killed after `timeoutMs`. */
@@ -69,6 +74,38 @@ object BackendHost {
         } ?: return
         p.destroy()
         if (!p.waitFor(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)) p.destroyForcibly()
+    }
+
+    /** Launch unless one runs, then wait for its answer; a launch that exits first is left to its waiter thread. */
+    private fun attempt() {
+        val context = synchronized(this) { app } ?: return
+        Thread(body@{
+            try {
+                val d = synchronized(this) { dirs } ?: prepare(context).also { synchronized(this) { dirs = it } }
+                val p = synchronized(this) { if (stopping) null else process ?: launch(context, d) } ?: return@body
+                if (!waitUp(p)) return@body
+                Log.i(TAG, "backend up on $ORIGIN")
+                val run = synchronized(this) {
+                    ready = true
+                    waiting.toList().also { waiting.clear() }
+                }
+                run.forEach { it.then() }
+            } catch (e: Exception) {
+                Log.e(TAG, "backend did not start: ${e.message}", e)
+                fail(e.message ?: "k7's backend did not start")
+            }
+        }, "k7-backend-start").start()
+    }
+
+    /** Given up on: every view waiting is told why, and the next one to ask starts it again. */
+    private fun fail(why: String) {
+        val told = synchronized(this) {
+            if (stopping) return
+            failure = why
+            ready = false
+            waiting.toList().also { waiting.clear() }
+        }
+        told.forEach { it.failed(why) }
     }
 
     private class Dirs(val root: File, val bundle: File, val tools: File, val cacert: File, val table: JSONObject)
@@ -137,7 +174,7 @@ object BackendHost {
     }
 
     @Synchronized
-    private fun launch(context: Context, dirs: Dirs) {
+    private fun launch(context: Context, dirs: Dirs): Process {
         val lib = context.applicationInfo.nativeLibraryDir
         val tools = dirs.tools.absolutePath
         val cacert = dirs.cacert.absolutePath
@@ -166,31 +203,40 @@ object BackendHost {
             }
         }.start()
         process = p
+        val since = SystemClock.elapsedRealtime()
         Thread({ p.inputStream.bufferedReader().forEachLine { Log.i(TAG, it) } }, "k7-backend-out").start()
-        Thread({
-            val code = p.waitFor()
-            val again = synchronized(this) {
-                process = null
-                !stopping
-            }
-            Log.w(TAG, "backend exited ($code)")
-            // A crash leaves the views on a dead origin: one relaunch after a pause, never in a tight loop.
-            if (again) {
-                Thread.sleep(RELAUNCH_MS)
-                synchronized(this) { if (!stopping && process == null) launch(context, dirs) }
-            }
-        }, "k7-backend-wait").start()
+        Thread({ watch(p, since) }, "k7-backend-wait").start()
+        return p
     }
 
-    /** Until the backend answers its registry's hello — what the supervisor asks before it connects. */
-    private fun waitUp() {
+    /** A crash is relaunched on a doubling delay; after MAX_QUICK_EXITS short runs in a row it is given up on (docs/android.md). */
+    private fun watch(p: Process, since: Long) {
+        val code = p.waitFor()
+        Log.w(TAG, "backend exited ($code)")
+        val delay = synchronized(this) {
+            if (process === p) process = null
+            ready = false
+            if (stopping || failure != null) return
+            if (SystemClock.elapsedRealtime() - since >= HEALTHY_MS) quickExits = 0
+            quickExits++
+            if (quickExits < MAX_QUICK_EXITS) minOf(RELAUNCH_FIRST_MS shl (quickExits - 1), RELAUNCH_MAX_MS) else null
+        }
+        if (delay == null) return fail("k7's backend stopped $MAX_QUICK_EXITS times in a row (last exit code $code)")
+        Thread.sleep(delay)
+        val again = synchronized(this) { !stopping && failure == null && process == null }
+        if (again) attempt()
+    }
+
+    /** Until the backend answers its registry's hello — what the supervisor asks before it connects; false if `p` exits first. */
+    private fun waitUp(p: Process): Boolean {
         val end = System.currentTimeMillis() + READY_MS
         while (System.currentTimeMillis() < end) {
+            if (!p.isAlive) return false
             try {
                 val c = URL("$ORIGIN/api/registry/hello").openConnection() as HttpURLConnection
                 c.connectTimeout = 500
                 c.readTimeout = 500
-                if (c.responseCode == 200) return
+                if (c.responseCode == 200) return true
             } catch (_: java.io.IOException) {
                 // not listening yet
             }
@@ -204,5 +250,9 @@ object BackendHost {
     private const val TABLE = "standalone.json"
     private const val TOOLS_ASSETS = "termux"
     private const val READY_MS = 60_000L
-    private const val RELAUNCH_MS = 2_000L
+    private const val RELAUNCH_FIRST_MS = 2_000L
+    private const val RELAUNCH_MAX_MS = 60_000L
+    // A run this long is no crash at boot: the count of quick exits starts over.
+    private const val HEALTHY_MS = 60_000L
+    private const val MAX_QUICK_EXITS = 6
 }

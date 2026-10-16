@@ -138,7 +138,11 @@ class AppViewsPlugin : Plugin() {
         val url = call.getString("url")
         val studio = call.getString("studio")
         // The phone's own studio is not up yet on a first run, which is still unpacking: wait rather than fail.
-        if (studio == BackendHost.ORIGIN) BackendHost.whenReady { bridge.executeOnMainThread { show(call, id, given, url, studio) } }
+        if (studio == BackendHost.ORIGIN) BackendHost.whenReady(
+            { bridge.executeOnMainThread { show(call, id, given, url, studio) } },
+            // Given up on (BackendHost.kt): the shell page's retry is what asks it to start again.
+            { why -> bridge.executeOnMainThread { loadFailed(id, why); call.resolve() } },
+        )
         else bridge.executeOnMainThread { show(call, id, given, url, studio) }
     }
 
