@@ -308,7 +308,7 @@ export function DeckSide({
               // How fast the FILE is playing: a record stretched to another tempo turns at that speed.
               ratio={
                 tempo && tempo.natural > 0 && tempo.target > 0
-                  ? tempo.natural / tempo.target
+                  ? tempo.target / tempo.natural
                   : 1
               }
               onPick={onPick}
