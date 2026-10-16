@@ -14,11 +14,9 @@ import {
   rackBindSymbol,
   stripWidgetRect,
   widgetNorm,
-  widgetText,
   widgetTyped,
 } from "@studio/ui-chains/graph";
 import { memo, useState } from "react";
-import { CTRL, RING } from "../chainsCss";
 import {
   type Channels,
   useMidiActivity,
@@ -36,19 +34,9 @@ import {
   widgetTarget,
   widgetValue,
 } from "../widgetTarget";
-import { Knob } from "./Knob";
-import { FaderMeter } from "./Meters";
+import { groupWidget } from "./GroupWidget";
 import { WaveformWidget } from "./WaveformWidget";
-
-// A group's colour as its label's spine: the same hue, made opaque enough to read as the section's tab.
-function spineColor(color: string): string {
-  const hex = color.slice(1);
-  const rgb =
-    hex.length <= 4
-      ? hex.slice(0, 3).replace(/./g, (c) => c + c)
-      : hex.slice(0, 6);
-  return `#${rgb}73`;
-}
+import { widgetBody } from "./widgetBody";
 
 // A box drawn `inset` px in from its left edge, its right edge kept: the grid is untouched, only the drawing moves.
 const insetRect = <R extends { x: number; w: number }>(
@@ -156,8 +144,7 @@ function WidgetInner({
       : null,
   );
 
-  // …and a RECORDER's, the same way and for the same reason: what lights it is the engine
-  // saying it is rolling, never the click, which would light on a refusal too.
+  // …and a RECORDER's, lit by the engine saying it is rolling, never by the click — docs/widgets.md.
   const recNode = tgt?.kind === "recorder" ? (tgt.pluginId ?? null) : null;
   const recState = useRecorderState(useEngineStoreOrNull(), recNode);
   // …and a midi-in card's device dropdown, whose LED lights while that keyboard is sending.
@@ -230,12 +217,10 @@ function WidgetInner({
     // A pad needs a host that can make a SOUND, which a rehearsal cannot invent — so it is asked first.
     (tgt.kind === "rack"
       ? ch.rackTriggerable
-      : // …and a PROJECT setting needs a host that can run a verb: a preview card is looking at
-        // no project, so its dropdown reads and does not write.
+      : // …and a PROJECT setting a host that runs a verb, which a preview card has not got.
         tgt.kind === "project"
         ? ch.projectWritable
-        : // …and a recorder's button needs a host wired to the ENGINE, which a rehearsal has not
-          // got: a preview card must not start a take in somebody's project.
+        : // …and a recorder's button a host wired to the ENGINE: a preview must not start a take.
           tgt.kind === "recorder"
           ? ch.recorderWired
           : // A rehearsal has nowhere to send a value and needs nowhere: the override is the answer.
@@ -270,56 +255,17 @@ function WidgetInner({
     w.type === "dropdown" || w.type === "filepicker" || w.type === "number";
 
   // A GROUP frames the widgets inside its box and holds none of them — song-schema's docs/moduleFile.md.
-  if (w.type === "group") {
-    // Bound to an on/off param, it carries that param's switch and greys its section out while off.
-    const switched = !!w.bind;
-    // A MUTE or BYPASS bind is on while the param is OFF; the tap still flips the param, whichever way it reads.
-    const lit = known && (w.invert ? t < 0.5 : t >= 0.5);
-    // An unknown value greys nothing: a section drawn dead because its state has not arrived would lie.
-    const off = switched && known && !lit;
-    return (
-      <div
-        className={`dgx-w dgx-group${off ? " off" : ""}`}
-        style={{ ...style, ...(w.color ? { background: w.color } : {}) }}
-      >
-        {switched && (
-          <button
-            type="button"
-            className={`dgx-gswitch${lit ? " on" : ""}${known ? "" : " unknown"}`}
-            disabled={!actuable}
-            title={w.bind}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              onTap(n, w);
-            }}
-            onContextMenu={
-              actuable && onContextParam
-                ? (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onContextParam(n, w, e.clientX, e.clientY);
-                  }
-                : undefined
-            }
-          />
-        )}
-        {w.label && (
-          <span
-            className={`dgx-wlab dgx-glab${switched ? " sw" : ""}`}
-            style={
-              w.color
-                ? ({ "--spine": spineColor(w.color) } as React.CSSProperties)
-                : undefined
-            }
-          >
-            {w.label}
-          </span>
-        )}
-        {off && <span className="dgx-gveil" />}
-      </div>
-    );
-  }
+  if (w.type === "group")
+    return groupWidget({
+      n,
+      w,
+      style,
+      known,
+      t,
+      actuable,
+      onTap,
+      onContextParam,
+    });
 
   // A control never selects the node; an inert one (label, meter, undrivable knob) lets the click fall through.
   const interact: React.HTMLAttributes<HTMLDivElement> & { className: string } =
@@ -361,158 +307,27 @@ function WidgetInner({
       onContextParam(n, w, e.clientX, e.clientY);
     };
 
-  let body: React.ReactNode = null;
-  if (w.type === "knob") {
-    const size = Math.min(r.w, r.h - (caption ? 11 : 0)) - 4;
-    body = (
-      <Knob
-        t={t}
-        known={known}
-        span={span}
-        size={knobPx ?? Math.max(14, size)}
-        text={isMixKnob(w) ? `${Math.round(t * 100)}%` : widgetText(w, value)}
-      />
-    );
-  } else if (w.type === "slider") {
-    body = (
-      <div className="dgx-slider">
-        <i style={{ width: `${(known ? t : 0) * 100}%` }} />
-      </div>
-    );
-  } else if (w.type === "fader") {
-    // Readout first, then the rail with whatever height is left — see .dgx-fader.
-    body = (
-      <>
-        <span className={`dgx-fval${known ? "" : " unknown"}`}>
-          {widgetText(w, value)}
-        </span>
-        <div className={`dgx-fader${known ? "" : " unknown"}`}>
-          {/* The VU rides left of the throw, and only on a chain that IS a track. */}
-          {n.chain && <FaderMeter trackId={n.chain} order={ch.trackOrder} />}
-          <div className="rail">
-            <i
-              className="fill"
-              style={{ height: `${(known ? t : 0) * 100}%` }}
-            />
-            <i
-              className="cap"
-              style={{ top: `${(1 - (known ? t : 0)) * 100}%` }}
-            />
-          </div>
-        </div>
-      </>
-    );
-  } else if (w.type === "toggle") {
-    const on = known && t >= 0.5;
-    body = (
-      <div className={`dgx-toggle${on ? " on" : ""}`}>
-        <i />
-      </div>
-    );
-  } else if (w.type === "button") {
-    // A rack pad has no value, so `t` says nothing about it: what lights it is its own note.
-    // A recorder's `record` is the same shape: lit while the ENGINE says it is rolling.
-    const on = padSymbol
-      ? padLit
-      : tgt?.kind === "recorder"
-        ? tgt.verb === "record" && (recState?.recording ?? false)
-        : known && t >= 0.5;
-    const c = (w.bind && CTRL[w.bind]) ?? RING;
-    // `clear` and `save` need a take to act on, and `save` needs one that is FINISHED — drawn
-    // faint rather than hidden, so the card reads the same whether or not anything is recorded.
-    // A take being ROLLING is something `clear` can act on: it stops it and drops it, one press.
-    const none =
-      (recState?.takes.length ?? 0) === 0 && !(recState?.recording ?? false);
-    const idle =
-      tgt?.kind === "recorder" &&
-      tgt.verb !== "record" &&
-      (tgt.verb === "save"
-        ? (recState?.takes.length ?? 0) === 0 || (recState?.recording ?? false)
-        : none);
-    body = (
-      <b
-        className={`dgx-btn${on ? " on" : ""}${idle ? " unknown" : ""}`}
-        style={{ ["--c" as string]: c }}
-      >
-        {/* A rack PAD draws bare, its symbol left to the tooltip; see docs/widgets.md. */}
-        {padSymbol ? "" : (w.label ?? "?")}
-      </b>
-    );
-  } else if (w.type === "number") {
-    body = (
-      <span className={`dgx-num${known ? "" : " unknown"}`}>
-        {widgetText(w, value)}
-      </span>
-    );
-  } else if (w.type === "label") {
-    body = <span className="dgx-wtext">{w.text ?? ""}</span>;
-  } else if (w.type === "meter") {
-    body = <div className="dgx-meter" />;
-  } else if (w.type === "filepicker" || (w.type === "dropdown" && w.library)) {
-    // Picks a FILE the module carries, through a button rather than a <select> — docs/widgets.md.
-    // The param is the BIND, in both spellings: an older panel's `library:` names a folder (`nam`), not a param.
-    const param = String(
-      w.type === "filepicker" ? (w.bind ?? "") : (w.bind ?? w.library),
-    );
-    const current = n.assets?.[param] ?? "";
-    const shown = current
-      ? current.slice(current.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "")
-      : "—";
-    body = (
-      <button
-        type="button"
-        className={`dgx-sel dgx-file${current ? "" : " unknown"}`}
-        // The whole path, since the face shows only the basename, which two packs may share.
-        title={current || `pick a ${w.library} file`}
-        disabled={!n.module}
-        onClick={(e) => {
-          e.stopPropagation();
-          // …and the family the widget names, for a param whose name says nothing about its files.
-          onPickAsset(n, param, e.clientX, e.clientY, w.library);
-        }}
-      >
-        {shown}
-      </button>
-    );
-  } else if (w.type === "dropdown") {
-    // Options carry their own values, so the current setting is the NEAREST one — a plugin's states aren't evenly spaced.
-    const opts = w.options ?? [];
-    const cur =
-      known && opts.length
-        ? opts.reduce((best, o) =>
-            Math.abs(o.value - value) < Math.abs(best.value - value) ? o : best,
-          ).value
-        : undefined;
-    const select = (
-      <select
-        className={`dgx-sel${known ? "" : " unknown"}`}
-        value={cur ?? ""}
-        disabled={!actuable || !opts.length}
-        onChange={(e) => onPick(n, w, Number(e.target.value))}
-      >
-        {/* Only until the first value arrives, so the first option is never shown as the setting. */}
-        {cur === undefined && <option value="">—</option>}
-        {opts.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    );
-    // A MIDI device's dropdown carries the LED that says the keyboard is reaching this browser.
-    body =
-      tgt?.kind === "module" && tgt.field === "device" ? (
-        <span className="dgx-ledrow">
-          <i className={`dgx-led${midiLit ? " on" : ""}`} />
-          {select}
-        </span>
-      ) : (
-        select
-      );
-  }
+  const body = widgetBody({
+    n,
+    w,
+    ch,
+    r,
+    tgt,
+    value,
+    t,
+    span,
+    caption,
+    knobPx,
+    padSymbol,
+    padLit,
+    recState,
+    midiLit,
+    actuable,
+    onPick,
+    onPickAsset,
+  });
 
-  // A curve's cable is in hand and this PLUGIN param can take it — docs/widgets.md.
-  // Not a crossfade knob: a curve drives ONE param, and wet alone would break the equal-power pair.
+  // A curve's cable is in hand and this PLUGIN param, never a crossfade pair, can take it — docs/widgets.md.
   const landing =
     !!onLandAutomation && !!w.bind && !w.bind.startsWith("@") && !w.pair;
   if (landing)

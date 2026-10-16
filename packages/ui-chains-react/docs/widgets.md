@@ -159,7 +159,9 @@ writability flags, `docs/hosting.md`).
 The order of the test matters. A rack pad is asked first, because it needs a host that can make a
 SOUND and a rehearsal cannot invent one. Everything else asks `rehearsal` next: a rehearsal has
 nowhere to send a value and needs nowhere, so its widgets move whether or not a plugin happens to
-be loaded behind them.
+be loaded behind them. A PROJECT setting needs a host that can run a verb, and a recorder's
+button one wired to the ENGINE: a preview card is looking at no project, so its dropdown reads
+without writing, and it must never start a take in somebody's project.
 
 ## The knob
 
@@ -375,4 +377,5 @@ the same browsing popup the `+` on an arrow uses.
 
 `dropdown` + `library` is the older spelling of the same widget, from when the files came from a
 shared library instead of the module's own `assets/`. It is read as a filepicker so every panel
-already written keeps working — `packages/song/docs/filePicker.md`.
+already written keeps working — `packages/song/docs/filePicker.md`. Either way the param is the
+widget's BIND: an older panel's `library:` names a folder (`nam`), not a param.
