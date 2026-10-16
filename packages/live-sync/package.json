@@ -6,11 +6,8 @@
   "description": "A workspace edit as a small operation: a YAML or k7x file's change as values set or deleted at key paths, replayed without touching the rest of the file, with the whole text as the fallback. No node:, so a browser may have it. Consumed as source.",
   "exports": {
     "./ops": "./src/ops.ts",
-    "./yaml-ops": "./src/yamlOps.ts",
-    "./k7x-ops": "./src/k7xOps.ts",
     "./file-op": "./src/fileOp.ts",
     "./room": "./src/room.ts",
-    "./conflicts": "./src/conflicts.ts",
     "./replica": "./src/replica.ts",
     "./protocol": "./src/protocol.ts",
     "./path": "./src/path.ts",
