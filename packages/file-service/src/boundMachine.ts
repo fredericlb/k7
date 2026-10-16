@@ -3,8 +3,7 @@
 // live. Its own module because `hosted.ts` refuses to load without a hub secret, and a route must be
 // importable without one.
 
-import { requestJob } from "@studio/engine-tunnel/jobs-client";
-import { WebSocket } from "ws";
+import { requestJobAt } from "@studio/engine-tunnel/jobs-client";
 
 let jobsUrl: string | null = null;
 let engine: { id: string; name: string } | null = null;
@@ -35,11 +34,5 @@ export async function askBoundMachine(
 ): Promise<Record<string, unknown> | null> {
   const url = jobsUrl;
   if (!url) return null;
-  const ws = new WebSocket(url);
-  ws.on("error", () => {});
-  try {
-    return await requestJob(ws, body, (r) => r.type === last);
-  } finally {
-    ws.close();
-  }
+  return await requestJobAt(url, body, (r) => r.type === last);
 }
