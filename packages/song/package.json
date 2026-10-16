@@ -23,7 +23,6 @@
     "./uiLibrary": "./src/uiLibrary.ts",
     "./uiMigrate": "./src/uiMigrate.ts",
     "./chainsGraph": "./src/chainsGraph.ts",
-    "./controller": "./src/controller.ts",
     "./controllerBind": "./src/controllerBind.ts",
     "./moduleAssetChoices": "./src/moduleAssetChoices.ts",
     "./hints": "./src/hints.ts",
