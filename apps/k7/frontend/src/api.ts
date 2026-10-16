@@ -29,12 +29,12 @@ import type {
   ShareProgress,
   StemsReply,
 } from "@studio/web-protocol";
+import type { PlaylistInfo } from "@studio/web-protocol/playlists";
 import { serviceUrl } from "@studio/web-protocol/services";
 import type { CommandPrefs } from "./commandPrefs";
 // The reader `@studio/engine-browser` wants: it owns the routes, this app owns the errors.
 import { json } from "./projects/api";
 import type {
-  PlaylistInfo,
   PreviewReq,
   PublicEngine,
   WaveformStatus,
