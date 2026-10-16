@@ -8,6 +8,11 @@ import {
   builtinPluginFor,
   builtinPluginForRef,
 } from "@studio/song-schema/builtinParams";
+import {
+  INPUT_VOLUME_PARAM,
+  OUTPUT_VOLUME_PARAM,
+  VOLUME_RANGE,
+} from "@studio/song-schema/moduleTypes";
 import type { Hints } from "@studio/web-protocol";
 import { useMemo } from "react";
 import {
@@ -23,13 +28,13 @@ const TRACK_BINDS = ["@pan", "@mute", "@solo", "@arm"];
 
 // The engine's level OUT: a lane's fader, and the stage after any module with audio out — engine docs/mix.md.
 const OUTPUT_VOLUME_BIND: { name: string; meta: ParamMeta } = {
-  name: "@output-volume",
-  meta: { min: -60, max: 12, def: 0 },
+  name: OUTPUT_VOLUME_PARAM,
+  meta: { ...VOLUME_RANGE },
 };
 // …and the level IN, on an effect only: an instrument's input is the silence before it.
 const INPUT_VOLUME_BIND: { name: string; meta: ParamMeta } = {
-  name: "@input-volume",
-  meta: { min: -60, max: 12, def: 0 },
+  name: INPUT_VOLUME_PARAM,
+  meta: { ...VOLUME_RANGE },
 };
 
 /** An effect is a module filed under `audio/`, in the workspace or a library — the one family with a dry signal. */
