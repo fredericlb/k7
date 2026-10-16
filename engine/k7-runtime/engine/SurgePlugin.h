@@ -70,6 +70,12 @@ private:
     std::vector<std::unique_ptr<juce::CachedValue<float>>> values_;
     // The value the synth and the parameter last agreed on: the audio thread pushes past it, the timer reads back.
     std::unique_ptr<std::atomic<float>[]> agreed_;
+    // The synth's values and `agreed_` as the AUDIO thread read them under the lock, for the timer: it never touches the synth.
+    std::unique_ptr<std::atomic<float>[]> heard_;
+    std::unique_ptr<std::atomic<float>[]> heardAgreed_;
+    // The read-back handshake: the timer asks (kAsked), the audio thread publishes (kPublished) — docs/surgePlugin.md.
+    enum : int { kIdle, kAsked, kPublished };
+    std::atomic<int> readBack_{kIdle};
 
     // What the synth was last prepared with, so one loaded AFTER initialise() gets the same rate.
     double sampleRate_ = 48000.0;

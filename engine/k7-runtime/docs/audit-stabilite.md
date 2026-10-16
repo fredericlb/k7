@@ -421,6 +421,8 @@ thing `damaged` promises (`docs/recorder.md`).
   the next biquad's state into NaN — a track, or the whole master, then silent until a reset. The
   fetch-time patch (`engine/patches/tracktion.cmake`) makes the test `isfinite`, which covers our
   own plugins, the master gain included, as much as anyone's.
+- **Surge's read-back timer never reads the synth**: the audio thread publishes a snapshot of it on
+  request, under the lock it already holds, and the timer compares that (`docs/surgePlugin.md`).
 - **NAM prewarms a loaded model before swapping it in**, so the lock covers a pointer swap and the
   bridge's buffers rather than thousands of samples of inference (`docs/namPlugin.md`).
 
