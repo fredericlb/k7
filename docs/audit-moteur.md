@@ -18,9 +18,9 @@ in its backend that goes through the file service over HTTP and never the
 socket; the **rehearsal pages** only listen, subscribing to the bench's master broadcast to record
 a chain (`packages/ui-rehearsal/docs/chainSource.md`).
 
-Volume: ~4,400 lines of TypeScript in four engine packages (`engine-protocol` 959,
-`engine-client` 684, `engine-browser` 1,944, `engine-registry` 793), 52 C++ files, and 35 app files that
-import `@studio/engine-*`. The most churned files were the supervisor's loop and
+Volume: ~6,200 lines of TypeScript, tests excluded, in four engine packages (`engine-protocol` 809,
+`engine-client` 470, `engine-browser` 3,047, `engine-registry` 1,888), 183 C++ files under
+`engine/k7-runtime`, and 62 app files that import `@studio/engine-*`. The most churned files were the supervisor's loop and
 `engine-browser/src/engine.ts` — reliability is decided there.
 
 ## What works, and must not be undone
@@ -93,22 +93,19 @@ when the batch is taken.
 5. **`select` before entering: k7 alone.** z0 enters on a token unverified server-side.
 6. **"Search again" destroys the list** in z0 (`setPhase({k:"looking"})`), not in k7.
 
-### C4 — the shapes of the wire, declared twice
+### C4 — the shapes of the wire, declared once
 
-`EngineSessionInfo`, `EngineAudioDevice`, `EnginePluginInfo`, `EngineEditPlugin` exist in
-duplicate, in `engine-browser/src/engine.ts:44-75` and `engine-client/src/engineControl.ts:55-78`,
-with the same field-by-field coercions copied across. The comment at `engine.ts:41-43` acknowledges
-it and says what to do: "if a third copy ever appears, move them there instead" — into
-`engine-protocol`, which exists and carries only the erased types.
+The reply shapes both clients read, the decoders that fill a frame's absent fields, and the
+`Outbox` a down socket holds are `@studio/engine-protocol/decode`, which the Node client
+(`engine-client/src/engineControl.ts`) and the browser one (`engine-browser/src/engine.ts`,
+`engineEvents.ts`, `engineLink.ts`) both import: a field one of them drops is a field both drop.
 
-Two divergences have already been born there: the browser reads `pitches`/`clarity` on
-`io-levels`, the Node client ignores them.
+`ENGINE_PROXY_PATH` is defined once, in `web-protocol/engineAccess.ts`, and read by the relay
+(`engine-registry/proxy.ts`), its guard (`engine-registry/mount.ts`) and the probe
+(`engine-browser/src/probe.ts`).
 
-And for the "latency or out of reach" formatting: 5 copies of a one-line function whose place is
-`web-protocol/quality.ts`, next to `formatLatency`.
-
-Same family: `ENGINE_PROXY_PATH` is exported by `engine-registry` and **nobody imports it** — the
-path is rewritten by hand on the browser side (`probe.ts:170`).
+What remains: the "latency or out of reach" formatting, a one-line function copied per picker
+whose place is `web-protocol/quality.ts`, next to `formatLatency`.
 
 ### C5 — dead code
 
@@ -136,8 +133,7 @@ zero callers outside tests. The streaming instrumentation described in `streamin
 ## E. Tests — the asymmetry that costs
 
 A hundred or so cases cover **the pure functions and the policies** well: `chooseEngine`,
-`forSession`, `desiredSwitch`, `normaliseOrigin`, `resolveRegistryUrls`, `seqGap`,
-`decodeStreamFrame`. They cover **almost nothing of what concerns a socket over time**: opening,
+`forSession`, `desiredSwitch`, `seqGap`, `decodeStreamFrame`. They cover **almost nothing of what concerns a socket over time**: opening,
 closing, reopening, queueing, replay, ticket. Yet the thirty-odd bugs recorded in the docs are, to
 three exceptions, **all** connection lifecycle bugs.
 
@@ -165,9 +161,10 @@ C2 and C3. The biggest batch (~770 lines towards ~400), and the one that removes
 a stroke. The package must be born with the reconnection semantics of
 `packages/engine-browser/docs/reliability.md` rather than freezing those of one picker.
 
-### Batch 4 — move the wire shapes down into `engine-protocol`
+### Batch 4 — C5's dead code
 
-C4, plus the C5 cleanup. The comment in the code already says what to do.
+`probeLocalEngine`, `EngineLookup.ambiguous` and the streaming instrumentation no screen reads:
+delete, or give each a caller.
 
 ### Batch 5 — the lifecycle tests
 
@@ -187,5 +184,3 @@ Section B. To be settled before anything is written.
 - `engine-browser/docs/lease.md` presents the lease as a closed subject; z0 takes none.
 - `engine-browser/docs/streaming.md` says "four apps" for `./stream` (there is one), and its table
   for reading the measurements describes instrumentation no screen exposes.
-- `engine-registry/docs/proxy.md` promises a clean 502 on a streamed body; the code
-  (`proxy.ts:291`) retries on a stream already partly consumed.
