@@ -15,8 +15,7 @@ export interface LayerGL {
   tex2: WebGLTexture | null;
   rect: [number, number, number, number]; // clip space, precomputed from the viewport
   px: { x: number; y: number; w: number; h: number }; // …and the same rect in viewport px, which a shot moves inside
-  /** The rect's own aspect in PIXELS, and the SOURCE's as the last upload reported it (0 = not
-   *  said yet). The two together are the UV transform that keeps a picture from stretching. */
+  /** The rect's aspect in PIXELS; with `srcAR` (0 = not said yet), the UV transform that keeps a picture unstretched. */
   dstAR: number;
   srcAR: number;
   hasFrame: boolean; // nothing uploaded yet -> don't draw (avoids a black or garbage quad)
