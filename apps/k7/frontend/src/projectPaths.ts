@@ -69,6 +69,24 @@ export const norm = (path: string): string => path.replace(/\\/g, "/");
 export const fileStem = (path: string): string =>
   (norm(path).split("/").pop() ?? "").replace(PROJECT_EXT, "");
 
+/** A project folder, slashed and without a trailing `/`; "" when there is none or it is the workspace itself (`.`). */
+export const projectDir = (activeProject: string | null): string => {
+  const ap = norm(activeProject ?? "").replace(/\/+$/, "");
+  return ap === "." ? "" : ap;
+};
+
+/** A workspace-relative path made relative to the project folder, or merely slashed when it lies outside it. */
+export function toProjectRelative(
+  path: string,
+  activeProject: string | null,
+): string {
+  const p = norm(path);
+  const ap = projectDir(activeProject);
+  return ap && (p === ap || p.startsWith(`${ap}/`))
+    ? p.slice(ap.length + 1)
+    : p;
+}
+
 /**
  * Is this path inside the project the ENGINE holds? The tree is the whole WORKSPACE now, so a
  * clip or a lane may belong to a project that is not playing — and every rule above matches on
@@ -79,9 +97,9 @@ export function inActiveProject(
   activeProject: string | null,
 ): boolean {
   if (activeProject === null) return false;
-  const ap = norm(activeProject).replace(/\/+$/, "");
-  // `.` is the workspace itself being the project: everything in it is the project's.
-  if (!ap || ap === ".") return true;
+  const ap = projectDir(activeProject);
+  // An empty folder is the workspace itself being the project: everything in it is the project's.
+  if (!ap) return true;
   const p = norm(path);
   return p === ap || p.startsWith(`${ap}/`);
 }

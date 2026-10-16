@@ -5,6 +5,7 @@
 
 import { Document } from "yaml";
 import { m } from "./paraglide/messages.js";
+import { projectDir } from "./projectPaths";
 
 /** The grid's side. 4×4 today — sixteen pads, the drum-machine page. */
 export const GRID = 4;
@@ -62,8 +63,8 @@ export function kitUploadDir(
   project: string,
 ): string {
   if (dest === "project") {
-    const p = project.replace(/\\/g, "/").replace(/\/+$/, "");
-    return `${p && p !== "." ? `${p}/` : ""}samples/${kit}`;
+    const p = projectDir(project);
+    return `${p ? `${p}/` : ""}samples/${kit}`;
   }
   return `_libraries/${dest.library}/samples/${kit}`;
 }

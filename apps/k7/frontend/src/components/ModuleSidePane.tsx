@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import type { SetStatus } from "../hooks/useLogs";
 import { m } from "../paraglide/messages.js";
-import { rackKeyOf } from "../projectPaths";
+import { rackKeyOf, toProjectRelative } from "../projectPaths";
 import { rackSliceRanges, setSliceWindow } from "../sliceSymbols";
 import type { PreviewReq, WebClip, WebProject } from "../types";
 import { EditorPane } from "./EditorPane";
@@ -81,12 +81,7 @@ export function ModuleSidePane({
   /** The gutter ▶s, spelled PROJECT-RELATIVE so the request matches the full-screen editor's — and a failure TOASTS, the status line being covered. */
   const onPreview = useCallback(
     (req: PreviewReq) => {
-      const norm = (file?.path ?? path).replace(/\\/g, "/");
-      const root = hints.projectRoot.replace(/\\/g, "/").replace(/\/+$/, "");
-      const rel =
-        root && norm.startsWith(`${root}/`)
-          ? norm.slice(root.length + 1)
-          : norm;
+      const rel = toProjectRelative(file?.path ?? path, hints.projectRoot);
       const dir = rel.replace(/\/[^/]*$/, "");
       const r =
         req.kind === "clip" || /^([A-Za-z]:[\\/]|[\\/])/.test(req.source)

@@ -10,6 +10,7 @@ import {
 import { useCallback } from "react";
 import { api } from "../api";
 import type { VideoEdit } from "../components/TimelineTab";
+import { projectDir } from "../projectPaths";
 import type { SetStatus } from "./useLogs";
 
 /** Apply a finished picture drag to the lane's own file: a SURGICAL text rewrite by INDEX, one buffer written once, and not a COMMAND. */
@@ -20,7 +21,8 @@ export function useVideoEdits(
 ): (trackId: string, edits: VideoEdit[]) => Promise<void> {
   return useCallback(
     async (trackId: string, edits: VideoEdit[]) => {
-      const path = `${project === "." ? "" : `${project}/`}video_tracks/${trackId}.yaml`;
+      const dir = projectDir(project);
+      const path = `${dir ? `${dir}/` : ""}video_tracks/${trackId}.yaml`;
       try {
         const { content } = await api.read(path);
         const before = listVideoPlacements(content);

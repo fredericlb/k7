@@ -69,8 +69,11 @@ import {
   isTrackFile,
   isVideoTrackFile,
   moduleFileOf,
+  norm,
+  projectDir,
   rackKeyOf,
   readScalarField,
+  toProjectRelative,
 } from "../projectPaths";
 import { movedTheTree, movedTheVocabulary, type Reload } from "../reloadScope";
 import { needsAttention, saveLabel } from "../saveLabel";
@@ -170,18 +173,6 @@ function allEntries(nodes: FileNode[]): { path: string; dir: boolean }[] {
 }
 
 // Which kind of file is open — all of it lives in projectPaths.ts; see its header for the bug that put it there.
-
-// The open file's path relative to the PROJECT (the tree and api speak workspace-relative).
-function toProjectRelative(
-  filePath: string,
-  activeProject: string | null,
-): string {
-  const p = filePath.replace(/\\/g, "/");
-  const ap = (activeProject ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
-  return ap && ap !== "." && (p === ap || p.startsWith(`${ap}/`))
-    ? p.slice(ap.length + 1)
-    : p;
-}
 
 // Resolve a gutter source where the COMPILER puts it: a rack's sits beside its file, a clip's at the project root.
 function resolveGutterSource(
@@ -368,7 +359,7 @@ export function EditorTab({
 
   // Point the minimap at the open file's entity: a clip or sequence highlights a clip, a track file a track.
   useEffect(() => {
-    const p = (file?.path ?? "").replace(/\\/g, "/");
+    const p = norm(file?.path ?? "");
     const stem = fileStem(p);
     const item: MinimapItem | null =
       // A file of ANOTHER project in this workspace points at nothing here: the minimap draws the
@@ -498,7 +489,7 @@ export function EditorTab({
       setAudioClip(null);
       return;
     }
-    const p = file.path.replace(/\\/g, "/");
+    const p = norm(file.path);
     let cancelled = false;
     const stem = fileStem(p);
 
@@ -701,7 +692,7 @@ export function EditorTab({
   const open = useCallback(
     async (path: string): Promise<boolean> => {
       const seq = ++openSeq.current;
-      const posix = path.replace(/\\/g, "/").toLowerCase();
+      const posix = norm(path).toLowerCase();
       // A .dawproject and an Ableton project's .zip are ZIPs, a .als gzip — offer to import rather than decode bytes as text.
       if (
         posix.endsWith(".dawproject") ||
@@ -952,9 +943,9 @@ export function EditorTab({
       open,
       files: () => {
         const all = textFiles(tree);
-        if (!activeProject || activeProject === ".") return all;
-        const prefix = `${activeProject.replace(/\\/g, "/").replace(/\/+$/, "")}/`;
-        return all.filter((p) => p.replace(/\\/g, "/").startsWith(prefix));
+        const ap = projectDir(activeProject);
+        if (!ap) return all;
+        return all.filter((p) => norm(p).startsWith(`${ap}/`));
       },
       currentFile: () => file?.path ?? null,
       editorFocused: () => !!cmViewRef.current?.hasFocus,
@@ -1249,12 +1240,12 @@ export function EditorTab({
           tree={tree}
           path={file?.path ?? null}
           // Where `tree` is rooted: paths stay workspace-relative, so the breadcrumb needs BOTH to tell the two spaces apart.
-          root={activeProject && activeProject !== "." ? activeProject : ""}
+          root={projectDir(activeProject)}
           // In a workspace the folder name IS the project; alone, only the song knows what it is called.
           rootLabel={
-            (activeProject && activeProject !== "."
-              ? activeProject.split("/").pop()
-              : projectName) || "project"
+            projectDir(activeProject).split("/").pop() ||
+            projectName ||
+            "project"
           }
           activeProject={activeProject}
           onOpen={open}

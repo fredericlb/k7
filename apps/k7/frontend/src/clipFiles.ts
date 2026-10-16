@@ -4,6 +4,7 @@
 // See apps/k7/frontend/docs/timeline.md.
 
 import { api } from "./api";
+import { projectDir } from "./projectPaths";
 import { clipDecl } from "./timelineDrop";
 
 /** What filing one clip did — `reused` when the declaration was already there and was left alone. */
@@ -25,7 +26,8 @@ export async function fileClip(
   bytes: ArrayBuffer,
   onProgress?: (loaded: number) => void,
 ): Promise<FiledClip> {
-  const prefix = project === "." ? "" : `${project}/`;
+  const dir = projectDir(project);
+  const prefix = dir ? `${dir}/` : "";
   try {
     await api.uploadWithProgress(
       `${prefix}clips`,
