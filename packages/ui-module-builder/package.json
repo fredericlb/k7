@@ -28,6 +28,7 @@
     "@studio/project-shell": "*",
     "@studio/song-schema": "*",
     "@studio/ui-editor": "*",
+    "@studio/ui-timeline": "*",
     "@studio/web-protocol": "*",
     "yaml": "^2.5.0"
   },

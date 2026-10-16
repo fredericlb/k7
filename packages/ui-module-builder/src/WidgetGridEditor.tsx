@@ -21,6 +21,7 @@ import {
 import { cn } from "@frediverse/ui/lib/utils";
 import { clash, framedBy, groupOf } from "@studio/panel-rules/group-geometry";
 import { askConfirm } from "@studio/project-shell/ask";
+import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { useCallback, useRef, useState } from "react";
 import { type AutoParam, autoOrganize } from "./autoLayout";
 import { GridMenu } from "./GridMenu";
@@ -368,7 +369,7 @@ export function WidgetGridEditor({
     return { col, row };
   };
 
-  const onPointerMove = (e: React.PointerEvent) => {
+  const onPointerMove = (e: { clientX: number; clientY: number }) => {
     const d = drag.current;
     if (!d) return;
     const w = widgets[d.id];
@@ -409,6 +410,11 @@ export function WidgetGridEditor({
     }
   };
 
+  // The latest render's move handler, since the drag's listeners outlive the render that started it.
+  const moveRef = useRef(onPointerMove);
+  moveRef.current = onPointerMove;
+  const follow = usePointerFollow();
+
   const startDrag = (
     e: React.PointerEvent,
     id: string,
@@ -435,14 +441,22 @@ export function WidgetGridEditor({
             members: w?.type === "group" ? framedBy(widgets, w) : undefined,
           }
         : { id, mode: "resize", anchor: cornerAnchor(w, mode) };
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    // A cancelled gesture puts the panel back as it was at the press, having written nothing.
+    const before = ui;
+    follow(e, {
+      move: (ev) => moveRef.current(ev),
+      end: endDrag,
+      cancel: () => {
+        if (drag.current?.moved) onChange(before);
+        drag.current = null;
+      },
+    });
   };
-  const endDrag = (e: React.PointerEvent) => {
+  const endDrag = () => {
     // A click that never moved the group it grabbed was meant for the widget under it.
     const d = drag.current;
     if (d?.tap && !d.moved) setSelected(d.tap);
     drag.current = null;
-    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
   };
 
   return (
@@ -543,8 +557,6 @@ export function WidgetGridEditor({
               gridTemplateColumns: `repeat(${ui.cols}, minmax(0, 1fr))`,
               gridTemplateRows: `repeat(${ui.rows}, ${ROW_PX}px)`,
             }}
-            onPointerMove={onPointerMove}
-            onPointerUp={endDrag}
           >
             {/* Empty cell guides, and drop targets: a parameter dropped on bare grid creates its widget. */}
             {Array.from({ length: ui.cols * ui.rows }).map((_, i) => {
