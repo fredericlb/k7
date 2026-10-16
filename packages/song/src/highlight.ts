@@ -8,7 +8,7 @@ import { OUTPUT_VOLUME_PARAM } from "@studio/song-schema/moduleTypes";
 import type { PluginDoc } from "./project";
 
 /** How much louder a highlighted lane plays, dB. */
-export const HIGHLIGHT_DB = 10;
+const HIGHLIGHT_DB = 10;
 /** The output stage's ceiling, the engine's own (engine docs/mix.md). */
 const STAGE_MAX_DB = 12;
 
