@@ -148,8 +148,8 @@ export function useNodeActions({
       n.module && n.autoFrozen ? [[n.module, n.autoFrozen]] : [],
     ),
   );
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the inputs are refs and setters DomChains hands in, stable for its lifetime.
   // The plugin's OWN window: the verb names an INSTANCE, since a window belongs to what is loaded.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the inputs are refs and setters DomChains hands in, stable for its lifetime.
   const openPlugin = useCallback((module: string) => {
     // A baked VST has no window to open: thaw its freeze, then ask.
     const at = autoFrozenOf.current[module];
