@@ -68,7 +68,7 @@ export function SongBrowser({
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
               {songs.length
                 ? "No song matches."
-                : "The set is empty — add songs to songs.yaml."}
+                : "The set is empty — add songs to the playlist this desk names."}
             </p>
           ) : (
             <ul className="flex flex-col">

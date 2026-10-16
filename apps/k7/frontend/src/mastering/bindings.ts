@@ -90,3 +90,8 @@ export function engineAgrees(
   const { min, max } = masterRange(binding);
   return Math.abs(live - held) <= (max - min) * 0.005;
 }
+
+/** The command that WRITES a control's value into the module's file — `node param`, both names quoted, as the chains graph commits a knob. */
+export function masterParamLine(b: MasterBinding, value: number): string {
+  return `node param ${JSON.stringify(b.module)} ${JSON.stringify(b.param)} ${value}`;
+}

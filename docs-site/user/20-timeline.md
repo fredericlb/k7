@@ -94,9 +94,9 @@ Many keys act on **what the caret is on**:
 
 | Key | On a lane | On an event |
 |---|---|---|
-| `m` | mute the lane (`track mute`) | pick the event up to move it |
+| `m` | mute the lane (`track mute`) | pick the event up to move it: `h`/← and `l`/→ then nudge it one beat, Enter writes, Esc cancels |
 | `s` | solo the lane (`track solo`) | — |
-| `r` | arm the lane for recording (`transport arm`) | — |
+| `r` | arm the lane for recording, as its **A** button (`rec`) | — |
 | `e` | — | open the event's file in the editor |
 | `c` / Ctrl+C | — | copy the event |
 | Backspace | — | remove the event |

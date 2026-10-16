@@ -53,6 +53,9 @@ The keyboard **mode** (`normal`, `select`, `move`) is derived from `move` and `s
 `timelineMode` in `apps/k7/frontend/src/timelineMode.ts` rather than stored, so it cannot disagree
 with them. The mode and the tool are reported upward through `onView`, which is what the shell's
 conditional key bindings read (`timeline_selection`, `timeline_zoomed`, `tool_held`…).
+In `move` the pane's capture-phase listener swallows every key; `moveNudge` (same file) maps the
+caret's horizontal keys, `h`/`l` and the arrows, to a one-beat nudge, so `j`/`k` keep meaning rows
+and nudge nothing, and Enter and Esc commit or cancel.
 
 ## Geometry
 

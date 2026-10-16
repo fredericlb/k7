@@ -1,7 +1,7 @@
 # commands.yaml — declarative command definitions (see commandSpec.ts).
 #
-# Each entry maps a command STRING (what you type in the web editor's command bar or
-# after `k7 cmd`) to a feature SID (implemented in commands.ts), plus:
+# Each entry maps a command STRING (what you type in the web editor's command bar) to a
+# feature SID (implemented in commands.ts), plus:
 #   readable  ONE sentence saying what the command does, `en` and `fr`. This is what the
 #             web palette LISTS and fuzzy-matches on — a person looking for a feature knows
 #             what they want done, not what it is called. Kept apart from `help` rather than
@@ -734,7 +734,7 @@
     ]
 
 # Remove one note, addressed the way every note edit addresses one: by key and by where it
-# starts. The step sequencer's button-off runs this; the roll has no delete gesture yet.
+# starts. The step sequencer's button-off and the roll's remove mode run this.
 # Twice as long, playing twice. What a length IS here is the window: `from`/`to` when the file
 # states them, else the notes' extent rounded up to the bar — so an unwindowed sequence is left
 # unwindowed, its extent doubling on its own once the copies are in. The notes the window HOLDS
@@ -922,7 +922,7 @@
       { name: curve, complete: curves },
       {
         name: fields,
-        hint: "JSON — type (lfo|custom|adsr) and its fields: shape, frequency, phase, amplitude, polarity, attack…, points, condition",
+        hint: "JSON — type (lfo|custom|adsr|onoff) and its fields: shape, frequency, phase, amplitude, polarity, attack…, points, conditions",
       },
     ]
 

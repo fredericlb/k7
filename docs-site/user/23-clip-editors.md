@@ -88,7 +88,9 @@ The same views can be opened by command: `sequence edit roll melody`, `sequence 
 All note views share the timeline's caret keys: `hjkl` or the arrows move a caret over the grid,
 `v` grows it into a rectangle, Esc drops the rectangle, Shift+drag draws one with the pointer.
 `Shift+L` loops the rectangle, `c`/Ctrl+C copies the notes in it, `p`/Ctrl+V pastes at the caret,
-Backspace (or `x`) deletes. Pasted notes that would fall off the keyboard are left out
+Backspace (or `x`) deletes what the rectangle holds, or the note under the caret when there is no
+rectangle: one note is `sequence note remove`, several are one `sequence notes remove`, a single undo
+step either way. Pasted notes that would fall off the keyboard are left out
 (`2 off the keyboard, left out`).
 
 ### Piano roll
@@ -102,7 +104,9 @@ The roll has its own modes, chosen from its strip or with keys:
 | remove | `d` | Clicking a note takes it off. |
 | takes | | The takes view. |
 
-`ui roll select|create|remove` does the same. Shift+drag draws a rectangle in every mode.
+`ui roll select|create|remove` does the same. Shift+drag draws a rectangle in every mode. A
+sequence file with no event placing it opens on the same roll, with the same modes, so you can draw
+and remove notes there too; it has no ruler to seek on and no event loop.
 
 Gestures on a note (select mode):
 
@@ -152,6 +156,12 @@ Right-click a lit cell for its two effects:
 |---|---|---|
 | repeat ×2 / ×4, repeat off | `sequence note repeat drums C1 4 2` | Retrigger the hit 2 or 4 times inside its own step. |
 | skip 1/2 / 1/4, skip off | `sequence note skip drums C1 4 2` | Silence the hit one pass in 2 (or in 4). |
+
+Backspace or `x` clears the caret's pad or the rectangle's, as in the roll. A sequencer row is a rack
+sound rather than a semitone, so the rows of a rectangle are not always neighbouring notes: when the
+key range from its lowest to its highest row would also take a note on a row outside it, the delete
+is refused (`can't delete in one go — the rows between hold other notes`) and nothing is removed.
+Select fewer rows, or clear the pads one by one.
 
 Any whole number from 2 up can be typed. The **×2** button doubles the sequence: its window twice as
 long, its notes played twice (`sequence double drums`).

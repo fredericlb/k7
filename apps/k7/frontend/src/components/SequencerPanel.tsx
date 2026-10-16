@@ -146,6 +146,36 @@ export function SequencerPanel({
     setStatus?.(m["seq.selection"]({ steps, lanes, s: lanes > 1 ? "s" : "" }));
   }, [active, box, setStatus]);
 
+  /** What the grid draws, in ONE pass over the notes: a scan per cell is a hundred thousand comparisons per render. */
+  const byCell = useMemo(
+    () => notesByCell(notes, origin, span, prec.beats),
+    [notes, origin, span, prec.beats],
+  );
+
+  /** Everything a press on a pad does — the ghosts, the queue, the gestures — is the hook's; this file draws (useStepPads.ts). */
+  const {
+    pending,
+    deleteLine,
+    onCellDown,
+    onCellMove,
+    onCellUp,
+    onCellWheel,
+    onCellMenu,
+  } = useStepPads({
+    clipId: clip.id,
+    seqId,
+    step: prec.beats,
+    cells,
+    rows,
+    origin,
+    span,
+    byCell,
+    notes,
+    grid,
+    command,
+    setStatus,
+    onContextMenu,
+  });
   useImperativeHandle(
     caretRef,
     (): ClipGridHandle => ({
@@ -200,6 +230,13 @@ export function SequencerPanel({
             (dropped ? ` — ${m["grid.pasteDropped"]({ n: dropped })}` : ""),
         };
       },
+      /** `selection delete` — what the rectangle holds, or the caret's pad; one line, so N notes are one Ctrl+Z. */
+      deleteLine: () =>
+        deleteLine(
+          grid.sel
+            ? selBox(grid.sel)
+            : cellBox({ row: caret.row, col: caret.col }),
+        ),
     }),
     [
       grid,
@@ -214,6 +251,7 @@ export function SequencerPanel({
       cells,
       origin,
       prec.beats,
+      deleteLine,
     ],
   );
 
@@ -222,28 +260,6 @@ export function SequencerPanel({
     if (active) onSelection?.(!!box);
   }, [active, box, onSelection]);
 
-  /** What the grid draws, in ONE pass over the notes: a scan per cell is a hundred thousand comparisons per render. */
-  const byCell = useMemo(
-    () => notesByCell(notes, origin, span, prec.beats),
-    [notes, origin, span, prec.beats],
-  );
-
-  /** Everything a press on a pad does — the ghosts, the queue, the gestures — is the hook's; this file draws (useStepPads.ts). */
-  const { pending, onCellDown, onCellMove, onCellUp, onCellWheel, onCellMenu } =
-    useStepPads({
-      clipId: clip.id,
-      seqId,
-      step: prec.beats,
-      cells,
-      rows,
-      origin,
-      span,
-      byCell,
-      grid,
-      command,
-      setStatus,
-      onContextMenu,
-    });
   return (
     <div className="flex h-full min-h-0 flex-col border-t-2 border-border">
       <div className="flex items-center gap-2 border-b border-border px-3 py-1 text-xs">

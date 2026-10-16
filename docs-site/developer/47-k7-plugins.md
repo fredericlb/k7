@@ -45,9 +45,7 @@ covers only how they plug in.
 
 `packages/k7-plugins/scripts/turntables/put-on.ts` is a WebSocket benchmark that measures what
 putting a record on a deck costs against a running engine (`npx tsx` with the engine's address,
-`--minutes`, `--runs`, `--hold`). It is a measuring tool, not part of any test run. Its import of
-`../src/deck` does not resolve from the script's own folder (the module is
-`packages/k7-plugins/src/turntables/deck.ts`), so it fails to start until that path is fixed.
+`--minutes`, `--runs`, `--hold`). It is a measuring tool, not part of any test run.
 
 ## Adding a plugin
 

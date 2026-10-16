@@ -77,6 +77,11 @@ press — start edge, end edge, body, velocity line — and each commits one ver
 | Body of a note inside the rectangle | `sequence notes move seq [[key,start,newKey,newStart],…]` |
 | Press in remove mode | `sequence note remove seq key start` |
 
+A sequence FILE with no placement (`EditTarget` kind `seq`) draws `SeqRoll` in `ClipView.tsx`: the
+same `PianoRoll`, given the clip roll's caret, `onCommand`, `modeRef`/`onModeChange` and
+`onRemoveNote`, so its mode strip, `ui roll <mode>` and `x` work; it gets no `onSeek` and no event
+loop, having no placement.
+
 Notes are addressed by key and start, never by index. A command costs a round trip of a few hundred
 milliseconds, so `rollPending.ts` paints the expected result immediately and drops it when the
 reload lands or the command is refused.
@@ -94,9 +99,14 @@ so the arrangement does not move.
 that writes the file directly rather than through `sequence note` verbs, because it edits the
 file's text.
 
-All three share the timeline's caret through `apps/k7/frontend/src/hooks/useGridCaret.ts` and `gridCaret.ts`, and expose
+The roll and the sequencer share the timeline's caret through `apps/k7/frontend/src/hooks/useGridCaret.ts` and `gridCaret.ts`, and expose
 the same `copy` / `pasteLine` / `deleteLine` contract to the shell, so `selection copy|paste|delete`
-route to whichever grid holds a rectangle (`App.tsx`, `clipGridRef`). Region verbs
+route to whichever grid holds a rectangle (`App.tsx`, `clipGridRef`). `deleteLine` answers the same
+two lines in both: one note is `sequence note remove`, several are `sequence notes remove` over the
+rectangle. The sequencer plans it in `planSelectionDelete` (`stepGrid.ts`): a row there is a rack
+sound, so the key range from the lowest to the highest row can cross rows outside the rectangle, and
+when it would take a note on one of them the delete is refused rather than split into several
+journal entries. Region verbs
 (`sequence notes remove|transpose|quantize|velocity`) take two keys and a half-open beat span: the
 rectangle exactly as drawn.
 

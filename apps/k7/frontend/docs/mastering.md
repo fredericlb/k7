@@ -99,6 +99,15 @@ Each slider subscribes to **its own** param (`usePluginParamValue`), not to the 
 knobs over one plugin at ~20 frames a second is exactly the shape that store exists for: a frame
 that did not move this number ends at `Object.is` and re-renders nothing.
 
+## Live while it moves, written once on release
+
+A slider sends `setPluginParam` on every step, and writes `node param "<module>" "<param>" <value>`
+(`masterParamLine`) once, when the gesture ends — pointer up, key up or blur — through the shell's
+quiet command, the same write a knob on the chains graph commits. A dropdown pick is a whole gesture
+and is written at once. Writing on every step would be one file write and one revision per frame of
+a drag; sending only live would leave the strip's settings in the engine and lose them on the next
+reload. The write names the module the file names, never the engine's `chain:module` address.
+
 ## Why the shell draws it, not `SurfaceTab`
 
 `SurfaceTab` picks a component for a `type` and hands it the deck, the mapping and the file

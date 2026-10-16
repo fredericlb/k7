@@ -23,7 +23,7 @@ in **Settings → Commands**.
 | `Shift+R` | `transport record` | Record enable. |
 | `m` | `track mute <lane>` / `event move` | On a lane / on an event. |
 | `s` | `track solo <lane>` | |
-| `r` | `transport arm <lane>` | |
+| `r` | `rec <lane>` | The lane's **A** button: MIDI in the browser, audio in the engine. |
 | `e` | `ui edit clip|sequence <clip>` | Open the event's file. |
 | `+` | `track new` | |
 | `c`, Ctrl+C | `selection copy` | |
@@ -37,7 +37,7 @@ in **Settings → Commands**.
 | Esc | — | Backs out one layer: a popup, the tool, the selection, a fullscreen pane. |
 | Ctrl+Z / Ctrl+Y | `project undo` / `project redo` | |
 
-In move mode (`m` on an event): ←/`j` and →/`m` nudge one beat, Enter writes, Esc cancels.
+In move mode (`m` on an event): `h`/← and `l`/→ nudge one beat, Enter writes, Esc cancels. `j`/`k` do nothing there: a key move stays on its lane, and a drag is what changes lanes.
 
 ## Keys in the clip editors
 
@@ -48,7 +48,7 @@ In move mode (`m` on an event): ←/`j` and →/`m` nudge one beat, Enter writes
 | `w` | waveform | `ui wave warp` |
 | `n` | roll | `ui roll create` |
 | `d` | roll | `ui roll remove` |
-| `x`, Backspace | note grids | `selection delete` |
+| `x`, Backspace | roll, sequencer | `selection delete` |
 | Esc | waveform / roll | back to standard / select |
 
 ## Mouse modifiers

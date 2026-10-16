@@ -114,6 +114,7 @@ Tasks live in `TODOS.md` at the root of the workspace, a Markdown checklist you 
 | `transport loop` | | Loops the selection, or clears the loop. |
 | `transport record` | | Turns the global record enable on or off. |
 | `transport arm` | `<track>` | Toggles a track's record arm; armed tracks record when you play with record on. |
+| `rec` | `<track>` | Arms or disarms a track exactly as its A button does: an instrument lane in the browser, an audio lane in the engine. This is what `r` runs on the caret's lane. |
 | `transport panic` | | Silences every note and resets every plugin. |
 | `transport metronome` | | Turns the metronome on or off (bar starts emphasised). |
 | `transport metronome volume` | `<level>` | Sets the metronome's level, 0.2..1. |

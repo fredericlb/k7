@@ -129,7 +129,7 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
   a flat mapping of the module's own attributes (a `plugin`/`io`/`rack`, optional
   `params`/`extends`), with **no `name:`**. The folder also holds the module's own
   `<name>.vstpreset` (overriding an extended module's) and its rack's audio. The io sink
-  is a module too (`modules/io/OUT/module.yaml`, `io: "out"`). `k7 cmd new module`
+  is a module too (`modules/io/OUT/module.yaml`, `io: "out"`). `module new`
   writes the right shape;
   `demos/synth-demo.k7/modules/instruments/synth/module.yaml` is the
   reference, and `.../kit` shows `extends`.
@@ -140,7 +140,7 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
   params and its own `nodes/<name>.vstpreset`, so tweaking one never touches the module
   or another use; the merge order is *extended base → the module → the node*. The folder
   is flat on purpose: a node does not mirror the folders of what it uses, so using a
-  médiathèque module needs no local folder for it. `k7 cmd node new
+  médiathèque module needs no local folder for it. `node new
   instruments/synth lead` scaffolds one and puts it in the graph, and `demos/synth-demo.k7/nodes/`
   is the worked example — one 4OSC module, a `lead` and a `pad`, each driving its own chain.
   See `packages/song/docs/nodes.md`.

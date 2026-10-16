@@ -59,9 +59,9 @@ export const definePlugin = <T extends K7Plugin>(p: T): T => p;
 
 `pluginOf(sid)` answers which plugin installed a SID (undefined for a built-in).
 
-Note an ordering hazard: the attribution and the catalogue row are recorded before the dispatch
-registration can throw, so a plugin reusing a built-in SID fails loudly at boot but leaves its row
-in the catalogue. Treat any throw from the installer as fatal.
+A verb whose word is already in the catalogue, or whose SID already has a handler, is refused
+before either half is written, so a clash fails loudly at boot and leaves nothing behind. Treat any
+throw from the installer as fatal.
 
 Because completion and the catalogue read the registries, a contributed verb appears in the
 command bar, its completions and its right-click menus (`menu:`) with no further wiring.

@@ -8,6 +8,7 @@ import {
   nudgeOf,
   type PadEdit,
   PRECISIONS,
+  planSelectionDelete,
   planSelectionMove,
   settledEdits,
   stepCells,
@@ -317,5 +318,42 @@ describe("dragging a selection", () => {
     // The hat at step 3 stays where it is: the kick cannot land there.
     expect(plan([0, 0, 0, 0], 2, 3)).toEqual({ refused: "occupied" });
     expect(plan([2, 2, 0, 1], 0, 1)).toEqual({ refused: "empty" });
+  });
+});
+
+describe("deleting a selection", () => {
+  // Rack order is not key order: the hat (42) sits between the kick (36) and the snare (38).
+  const rowNotes = [36, 42, 38];
+  const cells = [0, 1, 2, 3];
+  const base = [note(0, 36), note(2.25, 38), note(1, 42), note(3, 42)];
+  const plan = (
+    box: [number, number, number, number],
+    notes: WebNote[] = base,
+  ) =>
+    planSelectionDelete({
+      box: { rowLo: box[0], rowHi: box[1], colLo: box[2], colHi: box[3] },
+      rowNotes,
+      cells,
+      step: 1,
+      notes,
+    });
+
+  it("takes the notes the box holds, as the range the command reads, and clears their pads", () => {
+    expect(plan([0, 1, 0, 1])).toEqual({
+      hit: [note(0, 36), note(1, 42)],
+      range: { lo: 36, hi: 42, from: 0, to: 2 },
+      lift: ["36@0", "42@1"],
+    });
+  });
+
+  it("refuses when the key range would also take a note on a row outside the box", () => {
+    // Kick and hat over beats 0..2: the range 36..42 also holds a snare at 0.5.
+    expect(plan([0, 1, 0, 1], [...base, note(0.5, 38)])).toEqual({
+      refused: "span",
+    });
+  });
+
+  it("refuses a box that holds nothing", () => {
+    expect(plan([0, 0, 2, 3])).toEqual({ refused: "empty" });
   });
 });

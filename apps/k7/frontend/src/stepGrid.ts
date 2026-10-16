@@ -2,6 +2,7 @@
 // chosen precision, and which cell a note lights. Pure, because a button that writes a note is
 // exactly the arithmetic worth pinning — the drawing is a table of buttons around these numbers.
 
+import { notesInRegion } from "./clipboard";
 import type { WebNote } from "./types";
 
 /** The precisions offered, as note values — a list rather than a free number, so the grid never lands on a step nothing musical means. */
@@ -180,4 +181,43 @@ export function planSelectionMove(a: {
   }
   const landing = new Set(land.map((l) => l.key));
   return { moves, lift: [...leaving].filter((k) => !landing.has(k)), land };
+}
+
+/** A deleted selection, planned: the notes the `sequence notes remove` range takes, its five numbers, and the pads to clear. */
+export type SelectionDelete =
+  | {
+      hit: WebNote[];
+      range: { lo: number; hi: number; from: number; to: number };
+      lift: string[];
+    }
+  | { refused: "empty" | "span" };
+
+/** What deleting the rectangle removes — refused when the key RANGE would also take a note on a row outside it (docs/clipEditors.md). */
+export function planSelectionDelete(a: {
+  box: { rowLo: number; rowHi: number; colLo: number; colHi: number };
+  rowNotes: readonly number[];
+  cells: readonly number[];
+  step: number;
+  notes: readonly WebNote[];
+}): SelectionDelete {
+  const keys = a.rowNotes.slice(a.box.rowLo, a.box.rowHi + 1);
+  const from = a.cells[a.box.colLo];
+  const last = a.cells[a.box.colHi];
+  if (!keys.length || from === undefined || last === undefined)
+    return { refused: "empty" };
+  const range = {
+    lo: Math.min(...keys),
+    hi: Math.max(...keys),
+    from,
+    to: last + a.step,
+  };
+  const hit = notesInRegion(a.notes, range.lo, range.hi, range.from, range.to);
+  if (!hit.length) return { refused: "empty" };
+  // A row is a rack sound, not a semitone: the range spans every key between, and those rows are not in the box.
+  const inBox = new Set(keys);
+  if (hit.some((n) => !inBox.has(n.key))) return { refused: "span" };
+  const lift = hit.map(
+    (n) => `${n.key}@${Math.floor((n.time - a.cells[0] + EPS) / a.step)}`,
+  );
+  return { hit, range, lift: [...new Set(lift)] };
 }

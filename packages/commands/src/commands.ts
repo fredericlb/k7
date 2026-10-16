@@ -1,6 +1,6 @@
 // commands.ts — the feature registry: one stable SID (module.new, transport.play, …) per
 // capability, mapped to a handler that acts through a CommandHost, so the SAME feature
-// runs from the web command bar and from `k7 cmd`. Which words invoke a SID lives
+// runs from the command bar, a key, a menu or a plugin. Which words invoke a SID lives
 // declaratively in commands.yaml (see commandSpec.ts); this file is just the behaviours.
 
 import { mkdirSync, rmSync } from "node:fs";
@@ -3212,7 +3212,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const raw = a.trim();
     const db = Number(raw);
     if (!raw || !Number.isFinite(db)) {
-      h.refuse(["usage: project master <dB>  (0 is unity, -100..+6)"]);
+      h.refuse([
+        `usage: project master <dB>  (0 is unity, ${MASTER_MIN_DB}..+${MASTER_MAX_DB})`,
+      ]);
       return;
     }
     if (!(await writeMasterVolume(h, db))) return;

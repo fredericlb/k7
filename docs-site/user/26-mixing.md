@@ -91,9 +91,9 @@ It then appears as a pane (`ui mastering`). Its controls:
 Which module parameter each control moves is stated under `mapping` in the surface's file in `surfaces/`. When a required control is not mapped, the pane lists what is missing instead of
 drawing the controls.
 
-The mastering pane sends its values to the running engine only: they are heard at once but not
-written to the song, so they are lost when the song reloads. To keep a setting, set it on the
-module itself (in the graph, or with `node param`).
+A mastering control is heard at once while you move it, and is written to the song when you let
+go — the same as a knob on the graph — so its setting is still there when the song reloads. Each
+release is one `node param` on the module the surface maps, which you can also type yourself.
 
 ## Reference tracks
 

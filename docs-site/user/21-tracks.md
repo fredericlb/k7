@@ -64,9 +64,9 @@ Mute and solo flip on screen at once and are confirmed when the song reloads.
 
 ### Arming
 
-**A** arms a lane for recording. An audio lane is armed in the engine (`transport arm bass`, also
-the `r` key with the caret on the lane). A lane fed by a MIDI input is armed in the browser
-instead, by its **A** button: notes are captured where your keyboard is. Arming writes nothing to
+**A** arms a lane for recording, and so do the `r` key with the caret on the lane and `rec bass`.
+An audio lane is armed in the engine (`transport arm bass` does only that). A lane fed by a MIDI
+input is armed in the browser instead: notes are captured where your keyboard is. Arming writes nothing to
 your song and is forgotten when the engine stops. See [Recording](./25-recording.md).
 
 ## Selecting, grouping and reordering lanes

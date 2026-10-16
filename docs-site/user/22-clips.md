@@ -88,7 +88,7 @@ Release to write the move.
 ### With the keyboard
 
 1. Put the caret on the event and press `m` (or type `event move` with nothing after it).
-2. `←`/`j` and `→`/`m` nudge it one beat. The status line shows `moving riff: 5:1 → 6:1`.
+2. `h`/`←` and `l`/`→` nudge it one beat, the caret's own keys. The status line shows `moving riff: 5:1 → 6:1`.
 3. Enter writes the move; Esc cancels.
 
 ### Typed
@@ -226,7 +226,7 @@ The timeline and the note editors share one clipboard.
 |---|---|---|
 | `c` or Ctrl+C | `selection copy` | Copy the events that **start** inside the rectangle — or, with no rectangle, the event under the caret. |
 | `p` or Ctrl+V | `selection paste` | Put them down with the rectangle's top-left at the caret. |
-| Backspace | `selection delete` | Remove what the rectangle holds, or the event under the caret. |
+| Backspace | `selection delete` | Remove what the rectangle holds, or the event under the caret. In an open roll or sequencer, the notes instead. |
 
 Pasted events keep everything they had — window, fades, loop count, mute, warp — and only their
 start moves. The first copied row lands on the caret's lane and each following row on the next lane

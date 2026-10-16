@@ -506,6 +506,7 @@
   "seq.moved": "{n} note{s} déplacée{s}",
   "seq.moveOutside": "impossible ici — une note sortirait de la grille",
   "seq.moveOccupied": "impossible ici — un pad qui reste est sur le chemin",
+  "seq.deleteSpan": "impossible d'un coup — les rangées entre elles portent d'autres notes ; sélectionnez moins de rangées",
   "seq.moveEmpty": "rien à déplacer — la sélection ne contient aucune note",
   "roll.outsideWindow": "+{n} hors fenêtre",
   "seq.counts": "{sounds} sons · {steps} pas",

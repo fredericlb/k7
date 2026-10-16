@@ -9,13 +9,15 @@ same Record and Play — and at the takes view.
 | Arm | Held by | Set by |
 |---|---|---|
 | Audio | The engine's session; reported back in every state frame (`useEngineState(s => s.armed)`) | `transport arm <track>` — a verb that writes nothing, so the CLI has it too |
-| MIDI | The browser: `midiArmed` in `App.tsx`, one lane at a time | The lane's arm button, through `onTrackToggle` in `apps/k7/frontend/src/hooks/useTrackControls.ts`, and the local line `rec <track>` |
+| MIDI | The browser: `midiArmed` in `App.tsx`, one lane at a time | The lane's arm button, through `onTrackToggle` in `apps/k7/frontend/src/hooks/useTrackControls.ts`; the local line `rec <track>` and the `r` key call the same function |
 
 `onTrackToggle` decides which: a lane that holds a sequence or is fed by a midi-in node
 (`midiSeqRef`, `midiLanesRef`, found by `apps/k7/frontend/src/midiIn.ts`) arms in the browser; any
 other lane sends `transport arm`. The arm button reads both (`armed.includes(id) || midiArmed === id`).
-The `r` key is bound to `transport arm` only (`apps/k7/frontend/src/keys.ts`), so it does not reach
-the browser-side MIDI arm.
+`rec <track>` is a local line in `App.tsx` that calls `onTrackToggle(id, "arm")`, so it is the A
+button whatever the lane holds, and the `r` key is bound to `rec {caret_track}`
+(`apps/k7/frontend/src/keys.ts`). Typed `transport arm` stays the engine's verb: on a MIDI lane it
+reaches the engine, not the browser.
 
 Record enable is a third, separate state: `transport record` / the header button call
 `engine.setRecordEnabled`. With Record on and nothing armed (audio, MIDI or picture), Play is refused
@@ -67,7 +69,11 @@ from the `midiTake` prop, since nothing on disk names it yet.
 
 `ui midi learn <module> <param>` arms the browser to swallow the next CC
 (`App.tsx` `armMidiLearn`, `apps/k7/frontend/src/midiControl.ts`), then runs
-`module cc <module> <param> <ch> <cc>`. The map is written to `controller.yaml` in the **module's**
+`module cc <module> <param> <ch> <cc>`. A pending learn is cancelled by the next command:
+`runCommand` calls `cancelLearn` before it dispatches anything, and `cancelLearn` hands `null` to
+the learn's callback, which puts "MIDI learn cancelled" on the status line. `Esc` is the first rung
+of its ladder while a learn waits (`midi_learning` → `ui midi learn cancel`), so it cancels the
+learn and closes nothing behind it. The map is written to `controller.yaml` in the **module's**
 folder (`packages/song/src/controllerBind.ts`), so every node of that module in every project plays by
 it. `apps/k7/frontend/src/hooks/useMidiControl.ts` applies incoming CCs scaled into the widget's range and sends the value
 back to an output port of the same name when there is one.

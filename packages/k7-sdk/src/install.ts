@@ -27,8 +27,8 @@ export function installServerSide(plugin: K7Plugin): void {
       throw new Error(
         `command sid '${c.sid}' is already claimed by plugin '${claimed}' — plugin '${plugin.id}' cannot install it`,
       );
-    attribution.set(c.sid, plugin.id);
     registerVerb(c.spec, c.handler);
+    attribution.set(c.sid, plugin.id);
   }
   for (const t of plugin.surfaceTypes ?? []) registerSurfaceType(t);
 }

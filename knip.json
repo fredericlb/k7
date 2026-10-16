@@ -60,8 +60,8 @@
     "packages/take-render": {
       "entry": ["src/timeline.ts"]
     },
-    "packages/ui-turntables": {
-      "entry": ["scripts/*.ts"]
+    "packages/k7-plugins": {
+      "entry": ["scripts/turntables/*.ts"]
     },
     "packages/ui-chains-react": {}
   }

@@ -63,15 +63,14 @@ and the resolution in `apps/k7/frontend/src/mastering/bindings.ts`, which reuses
 `packages/ui-chains/src/bindings.ts` (shared with the DJ desk). A required control left unmapped is
 reported on the surface rather than refusing the project.
 
-The pane currently drives the engine only: its controls call `setPluginParam`, a live send, and issue
-no `node param`, so their values are not written to the song. Wiring a release to `node param` is the
-missing half.
+A slider calls `setPluginParam` (a live send) on every step and writes `node param "<module>"
+"<param>" <value>` once, when the gesture ends (pointer up, key up or blur), through `App`'s
+`quietCommand` — the same write the chains graph commits for a knob. A dropdown writes on its pick.
+The line is built by `masterParamLine` in `bindings.ts`, tested in `bindings.test.ts`; the rationale is
+in `apps/k7/frontend/docs/mastering.md`.
 
 ## Known rough edges
 
-- The usage line of `project master` still says `-100..+6` while the range is −100..+12.
-- The palette's readable sentence for `project master fix` speaks of lowering every strip; the verb
-  lowers the output only.
 - A few user-facing strings in `MasterMeter.tsx`, `MasteringTab.tsx` and `SharePanel.tsx` are French
   literals outside the message catalogue.
 

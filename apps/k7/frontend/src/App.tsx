@@ -837,6 +837,8 @@ export default function App({
   clipboardRef.current = clipboard;
   // The chains pane owns the MIDI runtime; the shell only reaches in to arm a learn — see docs/midi.md.
   const chainsMidiRef = useRef<MidiControlApi | null>(null);
+  // Mirrors whether a learn is pending, for Esc's first rung; the learn itself is the chains pane's.
+  const [midiLearning, setMidiLearning] = useState(false);
   const editorRef = useRef<EditorHandle>(null);
 
   // Undo/redo: a process step (restoring a bounced file) is gated behind this confirm dialog.
@@ -1774,46 +1776,53 @@ export default function App({
   }, [docCount]);
 
   /** Arm MIDI learn on one param: the capture is the browser's, the binding is a `module cc` — see docs/midi.md. */
-  const armMidiLearn = useCallback((rest: string) => {
-    const m = /^(\S+)\s+(?:"([^"]*)"|(.+))$/.exec(rest.trim());
-    if (!m) {
-      setStatus(
-        'usage: ui midi learn <module> <param>  (e.g. ui midi learn synth "Filter Freq")',
-      );
-      return;
-    }
-    const module = m[1];
-    const param = (m[2] ?? m[3] ?? "").trim();
-    const midi = chainsMidiRef.current;
-    if (!midi?.ready) {
-      setStatus(
-        "no MIDI here — this browser has no Web MIDI, or access was refused",
-      );
-      return;
-    }
-    setStatus(
-      `MIDI learn: ${module} ${param} — move a control on your controller`,
-    );
-    midi.learn(module, param, (learned) => {
-      if (!learned) {
-        setStatus(`MIDI learn cancelled — ${module} ${param} unchanged`);
+  const armMidiLearn = useCallback(
+    (rest: string) => {
+      const m = /^(\S+)\s+(?:"([^"]*)"|(.+))$/.exec(rest.trim());
+      if (!m) {
+        setStatus(
+          'usage: ui midi learn <module> <param>  (e.g. ui midi learn synth "Filter Freq")',
+        );
         return;
       }
-      const arg = /\s/.test(param) ? JSON.stringify(param) : param;
-      void runCommandRef
-        .current(`module cc ${module} ${arg} ${learned.ch} ${learned.cc}`)
-        .then(() => {
-          // Bidirectional when possible: possible means the device that just spoke also has an output port to answer on.
-          const both = midi.hasFeedback(module, param);
-          setStatus(
-            `${module} ${param} ← ${learned.device} ch${learned.ch} cc${learned.cc} — ` +
-              (both
-                ? "bidirectional (the control will follow the value)"
-                : "write only (this device has no MIDI output to answer on)"),
-          );
-        });
-    });
-  }, []);
+      const module = m[1];
+      const param = (m[2] ?? m[3] ?? "").trim();
+      const midi = chainsMidiRef.current;
+      if (!midi?.ready) {
+        setStatus(
+          "no MIDI here — this browser has no Web MIDI, or access was refused",
+        );
+        return;
+      }
+      setStatus(
+        `MIDI learn: ${module} ${param} — move a control, or press Esc or run any command to cancel`,
+      );
+      setMidiLearning(true);
+      midi.learn(module, param, (learned) => {
+        setMidiLearning(false);
+        if (!learned) {
+          const said = `MIDI learn cancelled — ${module} ${param} unchanged`;
+          setStatus(said);
+          pushLog("info", said);
+          return;
+        }
+        const arg = /\s/.test(param) ? JSON.stringify(param) : param;
+        void runCommandRef
+          .current(`module cc ${module} ${arg} ${learned.ch} ${learned.cc}`)
+          .then(() => {
+            // Bidirectional when possible: possible means the device that just spoke also has an output port to answer on.
+            const both = midi.hasFeedback(module, param);
+            setStatus(
+              `${module} ${param} ← ${learned.device} ch${learned.ch} cc${learned.cc} — ` +
+                (both
+                  ? "bidirectional (the control will follow the value)"
+                  : "write only (this device has no MIDI output to answer on)"),
+            );
+          });
+      });
+    },
+    [pushLog],
+  );
 
   // The shell's view commands; returns false when the line isn't one, so the caller falls through to the backend.
   const runLocalCommand = useCallback(
@@ -2183,14 +2192,12 @@ export default function App({
         transport(line.slice("transport ".length) as TransportAction);
         return true;
       }
-      // `rec <track>`: an instrument track arms in the browser, an audio track in the engine. See docs/shell.md.
-      if (line.startsWith("rec ")) {
-        const id = s.slice(4).trim();
-        if (midiSeqRef.current[id] || midiLanesRef.current.has(id)) {
-          setMidiArmed((cur) => (cur === id ? null : id));
-          return true;
-        }
-        return false;
+      // `rec <track>`: exactly the lane's A button — an instrument track arms in the browser, an audio track in the engine.
+      if (line === "rec" || line.startsWith("rec ")) {
+        const id = s.slice(3).trim();
+        if (!id) setStatus("usage: rec <track>");
+        else onTrackToggle(id, "arm");
+        return true;
       }
       // Bare `event move` opens the timeline's move mode; the backend command takes three args, so it still falls through.
       if (line === "event move") {
@@ -2232,6 +2239,8 @@ export default function App({
         openEvent({ kind: "recording" });
         return true;
       }
+      // Esc's rung: `runCommand` has already cancelled the pending learn, so there is nothing left to do here.
+      if (line === "midi learn cancel") return true;
       // `ui midi learn <module> <param>` — arm the browser's Web MIDI; the BINDING is written by `module cc`.
       if (line.startsWith("midi learn ")) {
         armMidiLearn(s.slice("midi learn ".length).trim());
@@ -2589,13 +2598,13 @@ export default function App({
       homePane,
       openInEditor,
       armMidiLearn,
+      onTrackToggle,
       ringPanes,
       ws,
       openHelp,
       closeHelp,
       imp,
       engineRef,
-      midiSeqRef,
       store,
       seek,
       transport,
@@ -2638,6 +2647,8 @@ export default function App({
   const runCommand = useCallback(
     async (line: string, outcome?: { ok: boolean }): Promise<void> => {
       if (!line.trim()) return;
+      // A pending MIDI learn waits for a control OR the next command, whichever comes first — see docs/midi.md.
+      if (chainsMidiRef.current?.learning) chainsMidiRef.current.cancelLearn();
       const typed = line.trim();
       const s = line.trim();
       // What was typed, and — when the catalogue rewrote it — what actually ran, so the transcript shows a line you could retype.
@@ -3157,6 +3168,7 @@ export default function App({
     cond.focus_pane = focusPane;
     // The two layers Esc backs out of before it touches the layout; `popin` counts every registered overlay — see popins.ts.
     if (anyPopin) cond.popin = "1";
+    if (midiLearning) cond.midi_learning = "1";
     if (shownSlot) cond.graph_slot = "1";
     // Away from the home page, Escape goes back to it; on it, the key falls through to the bottom panel.
     if (full !== homePane) cond.fullscreen = "1";
@@ -3206,6 +3218,7 @@ export default function App({
     return cond;
   }, [
     anyPopin,
+    midiLearning,
     caret,
     clipSel,
     editTarget,
@@ -4172,6 +4185,7 @@ export default function App({
                             paramsStore={pluginParamsStore}
                             setPluginParam={setPluginParam}
                             watchPluginParams={watchPluginParams}
+                            command={quietCommand}
                           />
                         </PaneBoundary>
                       </div>

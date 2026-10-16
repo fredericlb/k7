@@ -52,8 +52,9 @@ or unavailable, the status line says "No MIDI — Web MIDI was refused or is una
 | How | What it arms |
 |---|---|
 | The lane's **A** button | A MIDI lane in the browser, an audio lane in the engine. |
-| `r` with the caret on a lane | `transport arm <lane>` — the engine's arm, for audio. |
-| `transport arm vox` | The same, typed. Run it again to disarm. |
+| `r` with the caret on a lane | The same as its **A** button: `rec <lane>`. |
+| `rec vox` | The same, typed. Run it again to disarm. |
+| `transport arm vox` | The engine's arm only, typed: for an audio lane. Run it again to disarm. |
 
 Only one MIDI lane can be armed at a time. An armed lane turns red, and its header shows the input
 level along its bottom edge. Arming is never saved in the song.
@@ -161,6 +162,8 @@ To drive a parameter from a hardware knob:
 1. Right-click the control in the graph and choose **midi learn** (or type
    `ui midi learn synth "Filter Freq"`).
 2. Move a knob on your controller. That message is captured and not applied.
+
+Press `Esc` or run any other command before moving a knob to cancel the learn; nothing is written.
 
 The binding is written with `module cc synth "Filter Freq" 1 74` into the module's own folder, so it
 holds for every use of that module in every project. If your device can also receive MIDI, the knob

@@ -53,8 +53,10 @@ You can drive any control of a module from a hardware MIDI controller plugged in
 To bind a control:
 
 1. Right-click the control on the graph and choose MIDI learn, or type `ui midi learn <module> <param>` (e.g. `ui midi learn synth "Filter Freq"`).
-2. The status line says "move a control on your controller". Move a knob or fader.
+2. The status line says "move a control, or press Esc or run any command to cancel". Move a knob or fader.
 3. k7 writes the binding with `module cc` and tells you which device, channel and CC it learned.
+
+To give up instead, press `Esc` or run any other command: the learn is cancelled, nothing is written, and the status line says "MIDI learn cancelled".
 
 If the controller also has a MIDI output, the binding is **bidirectional**: the controller follows the value when it changes in k7 (motorised faders, LED rings). Otherwise it is write only, and the status line says so.
 

@@ -44,7 +44,7 @@ Moving a caret or growing a selection is not a command: those keys belong to the
 
 ## `Esc`
 
-`Esc` backs out one layer at a time, in this order: the overlay in front (`ui popin close`), the event in the bottom panel (`ui slot close`), the piano roll's mode (`ui roll select`), the waveform's view (`ui wave standard`), the timeline tool (`ui tool pointer`), a page other than the home page (`ui global`), and finally the bottom panel (`ui close`).
+`Esc` backs out one layer at a time, in this order: a MIDI learn waiting for a control (`ui midi learn cancel`), the overlay in front (`ui popin close`), the event in the bottom panel (`ui slot close`), the piano roll's mode (`ui roll select`), the waveform's view (`ui wave standard`), the timeline tool (`ui tool pointer`), a page other than the home page (`ui global`), and finally the bottom panel (`ui close`).
 
 ## Keys that depend on where the caret is
 
@@ -55,7 +55,7 @@ Moving a caret or growing a selection is not a command: those keys belong to the
 | `m` | on a picture lane | `picture mute <lane>` |
 | `s` | on a track | `track solo <track>` |
 | `s` | on a picture lane | `picture solo <lane>` |
-| `r` | on a track | `transport arm <track>` (record arm) |
+| `r` | on a track | `rec <track>` (record arm, as the lane's **A** button: a MIDI lane in the browser, an audio lane in the engine) |
 | `r` | on a picture lane | `ui picture arm <lane>` |
 | `e` | a MIDI clip or sequence is under the caret | `ui edit sequence <name>` |
 | `e` | an audio clip is under the caret | `ui edit clip <name>` |
@@ -85,7 +85,7 @@ These act while a clip is open in the bottom panel.
 
 | Key | When | Command |
 |---|---|---|
-| `Backspace`, `x` | a clip's grid is open | `selection delete` |
+| `Backspace`, `x` | a clip's grid is open (roll or sequencer) | `selection delete` — the rectangle, or the note under the caret |
 | `a` | piano roll open | `ui roll select` |
 | `n` | piano roll open | `ui roll create` |
 | `d` | piano roll open | `ui roll remove` |
@@ -102,7 +102,7 @@ When two views could take the same letter, the one in front wins: the piano roll
 | Timeline | `h` `j` `k` `l` or arrows | Move the caret (left, down, up, right). Left of the first beat selects the lane's label |
 | Timeline, selecting | same keys | Grow or shrink the rectangle |
 | Timeline, selecting | `Esc` | Drop the rectangle; the caret lands where it ended |
-| Timeline, moving a clip (`m`) | `←` or `j` / `→` or `m` | Nudge the clip one step left / right |
+| Timeline, moving a clip (`m`) | `h` or `←` / `l` or `→` | Nudge the clip one beat left / right; `j` and `k` do nothing while a clip is in hand |
 | Timeline, moving a clip | `Enter` | Commit the move |
 | Timeline, moving a clip | `Esc` | Cancel the move |
 | Clip grid (roll, tracker) | `h` `j` `k` `l` or arrows, `v`, `Esc` | Same caret and rectangle as the timeline |
