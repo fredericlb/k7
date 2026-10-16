@@ -3,15 +3,17 @@
 // The one thing a reader would get wrong: a hidden lane is also taken out of `soloed`, since a solo
 // nobody can see would silence every other lane. See packages/song/docs/chainFiles.md, "Hidden chains".
 
-import { join } from "node:path";
-import { isChainProject, readChainProject } from "@studio/song/chainProject";
+import { relative } from "node:path";
+import {
+  chainFilePath,
+  isChainProject,
+  readChainProject,
+} from "@studio/song/chainProject";
 import { loadProjectRoot } from "@studio/song/loader";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
-import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { splitPort } from "@studio/song-schema/moduleTypes";
 import {
-  CHAINS_DIR,
   type ChainFile,
   isTrackItem,
   itemsOf,
@@ -22,12 +24,6 @@ import type { CommandHost, SidHandler } from "../commands.ts";
 export const TRACK_HIDE_VERBS: Record<string, SidHandler> = {
   "track.hide": (a, h) => hideTrack(a, h, true),
   "track.unhide": (a, h) => hideTrack(a, h, false),
-};
-
-/** A chain's file on disk, `.yaml` or `.yml`. */
-const chainFile = (dir: string, chain: string): string => {
-  const yml = join(dir, CHAINS_DIR, `${chain}.yml`);
-  return wsExists(yml) ? yml : join(dir, CHAINS_DIR, `${chain}.yaml`);
 };
 
 async function hideTrack(
@@ -72,10 +68,10 @@ async function hideTrack(
     return;
   }
   try {
-    const path = chainFile(dir, chain);
+    const path = chainFilePath(dir, chain);
     if (hide) setFileValue(path, ["hidden"], true);
     else deleteFileValue(path, ["hidden"]);
-    const notes = [`${CHAINS_DIR}/${chain}.yaml`];
+    const notes = [relative(dir, path)];
     if (hide) {
       const soloed = (loadProjectRoot(dir).soloed ?? []).map(String);
       const project = entityFileFor(dir, "", "project");
