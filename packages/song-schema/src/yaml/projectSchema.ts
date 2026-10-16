@@ -66,7 +66,7 @@ export const PROJECT_SHAPES = [
 export type ProjectShape = (typeof PROJECT_SHAPES)[number];
 
 /** v1's marker key: a WALL-CLOCK position, a superset of TIMECODE where the two overlap (docs/projectFile.md). */
-export const WALL_CLOCK = /^[0-9]+(\.[0-9]+)?$|^[0-9]+:[0-5][0-9](\.[0-9]+)?$/;
+const WALL_CLOCK = /^[0-9]+(\.[0-9]+)?$|^[0-9]+:[0-5][0-9](\.[0-9]+)?$/;
 
 /** What `markers:` accepts across every dialect — one schema validates them all (see viewport above). */
 const MARKER_KEY = new RegExp(`${TIMECODE.source}|${WALL_CLOCK.source}`);
@@ -97,8 +97,6 @@ export const ProjectFileSchema = z
   })
   .strict();
 
-export type ProjectFile = z.infer<typeof ProjectFileSchema>;
-
 /** settings.yaml — project-level preferences, a flat file of its own. */
 export const SettingsSchema = z.looseObject({
   metronome: z.boolean().optional(),
@@ -107,4 +105,3 @@ export const SettingsSchema = z.looseObject({
   count_in: z.number().int().min(0).optional(),
 });
 
-export type Settings = z.infer<typeof SettingsSchema>;

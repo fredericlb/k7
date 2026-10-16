@@ -160,7 +160,7 @@ export function appendPlaylistItem(
 }
 
 /** The line span of every entry of a BLOCK `items:`, or null when the file is not in that shape (docs/playlistFile.md). */
-export function playlistItemLines(
+function playlistItemLines(
   text: string,
 ): { start: number; end: number }[] | null {
   const lines = text.split("\n");

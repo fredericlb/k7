@@ -29,7 +29,7 @@ import { editTrackStruct } from "./trackMix";
 const EDGE_EPS = 1e-6;
 
 /** One material this wrote: what it is called, where it landed, and how much is in it. */
-export interface WrittenMaterial {
+interface WrittenMaterial {
   ref: string;
   /** Project-relative POSIX path — for the log, so a person can go and open it. */
   file: string;

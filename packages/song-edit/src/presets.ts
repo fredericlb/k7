@@ -69,7 +69,7 @@ export function presetRefOf(dir: string, node: string): string | null {
 }
 
 /** Every scope this project can keep a preset in: its workspace, then each library by name. */
-export function presetScopes(dir?: string): PresetScope[] {
+function presetScopes(dir?: string): PresetScope[] {
   return [
     WORKSPACE_SCOPE,
     ACCOUNT_LIBRARY,
@@ -135,7 +135,7 @@ export function listNodePresets(dir: string, node: string): NodePresets {
 }
 
 /** One preset's content; a file the schema refuses throws with the reason, since applying half of one would be worse. */
-export function readPreset(
+function readPreset(
   dir: string,
   scope: PresetScope,
   ref: string,
@@ -195,7 +195,7 @@ function chosenBase(
 }
 
 /** What a node plays as right now: its resolved numeric params, the engine and base they belong to, and a rack's kit. */
-export function nodeSnapshot(dir: string, node: string): PresetFile {
+function nodeSnapshot(dir: string, node: string): PresetFile {
   const m = loadModules(dir)[node];
   if (!m) throw new Error(`no node named '${node}'`);
   const resolved = resolveModule(m, loadModuleRefs(dir));

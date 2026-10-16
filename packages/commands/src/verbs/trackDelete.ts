@@ -19,7 +19,7 @@ export const TRACK_DELETE_VERBS: Record<string, SidHandler> = {
 };
 
 /** The nodes a lane takes with it, the lane LAST: each delete rejoins around its node, and the lane is what the chain hangs on. */
-export function laneOwnNodes(dir: string, lane: string): string[] {
+function laneOwnNodes(dir: string, lane: string): string[] {
   if (isChainProject(dir)) {
     const cp = readChainProject(dir);
     const chain = cp.nodes[lane]?.chain;

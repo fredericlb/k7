@@ -39,7 +39,7 @@ import { soundingLaneRefusal } from "./verbs/pictureSound";
 export type Surface = "cli";
 
 // A scalar shape checked before the handler, for ONE-token arguments only — docs/completions.md.
-export type ArgKind = "timecode" | "number" | "note";
+type ArgKind = "timecode" | "number" | "note";
 
 export interface ArgSpec {
   name: string;
@@ -55,7 +55,7 @@ export interface ArgSpec {
   optional?: boolean;
 }
 /** What a command does, as a sentence, in each language a surface can be asked for. */
-export interface ReadableDescription {
+interface ReadableDescription {
   en: string;
   fr: string;
 }
@@ -346,7 +346,7 @@ const registeredSpecs: CommandSpec[] = [];
 
 /** Add a plugin's verb to the catalogue: same shape as a yaml row, same treatment everywhere.
  *  A command word that is already spoken for is refused, not renamed — one word, one verb. */
-export function registerCommandSpec(spec: CommandSpec): void {
+function registerCommandSpec(spec: CommandSpec): void {
   if (loadCommandSpecs().some((c) => c.command === spec.command))
     throw new Error(`command '${spec.command}' is already in the catalogue`);
   registeredSpecs.push(spec);
@@ -418,7 +418,7 @@ export const MENU_ENTITIES = [
   "note",
   "tap",
 ] as const;
-export type MenuEntity = (typeof MENU_ENTITIES)[number];
+type MenuEntity = (typeof MENU_ENTITIES)[number];
 const MENU_NAMES: ReadonlySet<string> = new Set(MENU_ENTITIES);
 
 // Which class each provider serves. Exhaustive over PROVIDERS, so a new one must say what it names to compile.

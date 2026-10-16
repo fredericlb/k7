@@ -12,7 +12,7 @@ interface Note {
 }
 
 /** A kind's short form: which top-level key holds it, which key it expands into, and the expansion. */
-export interface SugarPart {
+interface SugarPart {
   key: string;
   target: string;
   /** Is the key, as read, written in the short form rather than as plain data? */

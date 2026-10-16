@@ -9,7 +9,7 @@ import { MODULE_STATUSES, SHAPE_KINDS } from "../moduleTypes";
 import { PlacementSchema } from "./placementSchema";
 
 /** An interface input: a preferences label, or one/two physical channel numbers. */
-export const InputSchema = z.union([
+const InputSchema = z.union([
   z.string().min(1),
   z.tuple([z.number().int().positive()]),
   z.tuple([z.number().int().positive(), z.number().int().positive()]),
@@ -50,7 +50,7 @@ const SliceRack = z.object({
 export const RackSchema = z.union([SliceRack, SamplesRack]);
 
 /** One named port a module declares for itself; `mandatory` is an INPUT's business — see docs/moduleFile.md. */
-export const PortSchema = z
+const PortSchema = z
   .object({
     name: z.string().min(1),
     type: z.enum(["audio", "midi", "video"]),
@@ -157,7 +157,7 @@ export type Widget = z.infer<typeof WidgetBase>;
 
 const RANGED = new Set(["knob", "slider", "fader", "number"]);
 
-export const WidgetSchema: z.ZodType<Widget> = WidgetBase.superRefine(
+const WidgetSchema: z.ZodType<Widget> = WidgetBase.superRefine(
   (w, ctx) => {
     const wrong = (field: string, why: string) =>
       ctx.addIssue({
@@ -209,7 +209,7 @@ export const WidgetSchema: z.ZodType<Widget> = WidgetBase.superRefine(
 export const TAB_NAME_MAX = 10;
 
 /** One tab of a panel: a name and the widgets drawn while it is open. */
-export const TabSchema = z
+const TabSchema = z
   .object({
     name: z
       .string()
@@ -220,10 +220,8 @@ export const TabSchema = z
   })
   .strict();
 
-export type Tab = z.infer<typeof TabSchema>;
-
 // The VERTICAL layout: the same controls and tabs laid out narrow (at most 4 columns), for a card read down — docs/moduleFile.md.
-export const LayoutSchema = z
+const LayoutSchema = z
   .object({
     cols: z.number().int().positive(),
     rows: z.number().int().positive(),
@@ -295,7 +293,7 @@ export type ControllerFile = z.infer<typeof ControllerFileSchema>;
 export type WidgetType = Widget["type"];
 
 /** A curve driving a named param; `trigger` names the module whose note-ons restart it — see docs/moduleFile.md. */
-export const AutomationSchema = z
+const AutomationSchema = z
   .object({
     param: z.string().min(1),
     curve: z.string().min(1),
@@ -471,7 +469,6 @@ export const AlternativeSchema = z
   })
   .strict();
 
-export type Alternative = z.infer<typeof AlternativeSchema>;
 
 export const ModuleSchema = z
   .object({

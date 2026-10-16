@@ -8,7 +8,7 @@
 // (which knows about plugins and nothing about folders) can reach them without a cycle.
 
 /** The io roles the signal comes FROM; everything else under `io/` is a sink by ELIMINATION — see docs/moduleTypes.md. */
-export const IO_SOURCES = ["in", "file", "camera", "midi"] as const;
+const IO_SOURCES = ["in", "file", "camera", "midi"] as const;
 export type IoSource = (typeof IO_SOURCES)[number];
 export const isIoSource = (io: unknown): io is IoSource =>
   (IO_SOURCES as readonly unknown[]).includes(io);
@@ -25,7 +25,7 @@ export const VIDEO_OUT_NODE = "VIDEO_OUT";
 export const CUE_NODE = "CUE";
 
 /** The five built-in outputs — the two sums, and the three devices they leave by. */
-export const BUILTIN_OUTPUTS = [
+const BUILTIN_OUTPUTS = [
   MIX_NODE,
   OUT_NODE,
   RENDER_NODE,
@@ -88,7 +88,7 @@ export const SHAPE_KINDS = ["square", "circle", "text"] as const;
 
 /** The type folders whose modules ARE their behaviour — a shader's and a transition's GLSL, a
  *  shape's params. None of them hosts a plugin, so an empty `plugin:` is not a hole in one. */
-export const PLUGINLESS_CATEGORIES = [
+const PLUGINLESS_CATEGORIES = [
   SHADER_CATEGORY,
   SHAPE_CATEGORY,
   TRANSITION_CATEGORY,
@@ -110,7 +110,6 @@ export const OVER = "over";
 
 /** The four knobs every shader gets, numbered rather than named and 0..1 — see packages/song-video/docs/shaders.md. */
 export const SHADER_PARAMS = ["P1", "P2", "P3", "P4"] as const;
-export type ShaderParam = (typeof SHADER_PARAMS)[number];
 
 /** The uniform each of them lands on — one rule, so a panel and a shader cannot disagree. */
 export const shaderUniformFor = (param: string): string => `u${param}`;
@@ -342,7 +341,7 @@ export const IO_MODULES: Record<
 // --- curve refs (see packages/song/docs/curves.md) -------------------------------
 
 /** The type folder a curve ref names — the file still lives at `curves/<id>.yaml`, per-project; this is REF-CONSISTENCY only. */
-export const CURVES_CATEGORY = "curves";
+const CURVES_CATEGORY = "curves";
 const CURVE_REF_PREFIX = `${META_NS}/${CURVES_CATEGORY}/`;
 
 /** How an automation binding names a curve: `@meta/curves/sweep` — docs/curves.md. */
@@ -406,8 +405,8 @@ export const isLibraryFileParam = (name: string): name is LibraryFileParam =>
   Object.hasOwn(LIBRARY_FILE_PARAMS, name);
 
 /** The sound files a library's `samples/` and `irs/` hold — what those folders are walked for. */
-export const LIBRARY_AUDIO_EXTS = [".wav", ".aif", ".aiff", ".flac"] as const;
-export const isLibraryAudio = (path: string): boolean =>
+const LIBRARY_AUDIO_EXTS = [".wav", ".aif", ".aiff", ".flac"] as const;
+const isLibraryAudio = (path: string): boolean =>
   LIBRARY_AUDIO_EXTS.some((e) => path.toLowerCase().endsWith(e));
 
 /** File params a module may fill from its own `assets/` OR from a library's shared folder — packages/song/docs/libraryFiles.md. */
@@ -501,7 +500,7 @@ export const isTrackRef = (ref: unknown): boolean =>
 // --- ports (see docs/ports.md) --------------------------------------------------
 
 // The port vocabulary lives in @studio/graph-model, the one tier both the compiler and the renderer reach (docs/moduleTypes.md).
-export { PORT_SEP, portRef, splitPort } from "@studio/graph-model";
+export { portRef, splitPort } from "@studio/graph-model";
 
 /** The two FIXED levels a module can live at; every other `@<name>` is one of the account's libraries — docs/moduleTypes.md. */
 export const FIXED_NAMESPACES = ["engine", "workspace"] as const;
@@ -513,13 +512,13 @@ export type ModuleNamespace = string;
 export const DEFAULT_LIBRARY = "k7-core";
 
 /** What a library may be called: a ref segment and a folder name at once, lowercase so no filesystem can disagree. */
-export const LIBRARY_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
+const LIBRARY_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
 /** The ACCOUNT's own library, `@account/…`: its forks of the origin's modules — docs/library-versions-plan.md. */
 export const ACCOUNT_LIBRARY = "account";
 
 /** Names a library cannot take, because a ref spelled with them already means something else. */
-export const RESERVED_LIBRARY_NAMES: readonly string[] = [
+const RESERVED_LIBRARY_NAMES: readonly string[] = [
   ...FIXED_NAMESPACES,
   ACCOUNT_LIBRARY,
   META_NS.slice(1),
@@ -550,9 +549,6 @@ export const LEGACY_MEDIATEK_NS = "mediatek";
 
 /** The default library's name before it was `k7-core` — a NAME for the migration script alone, since nothing resolves it. */
 export const LEGACY_DEFAULT_LIBRARY = "st0";
-
-/** `@meta`'s old spelling — a NAME for the migration script alone, since nothing resolves it (docs/moduleTypes.md). */
-export const LEGACY_META_NS = "studio";
 
 /** The folder the account's libraries answer to in a workspace's file API: `_libraries/<name>/…`, VIRTUAL — no workspace holds it on disk (docs/sharedFolders.md). */
 export const LIBRARIES_DIR = "_libraries";

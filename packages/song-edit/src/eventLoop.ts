@@ -23,7 +23,7 @@ import { editTrackStruct } from "./trackMix";
 const EDGE_EPS = 1e-6;
 
 /** The passes a looped event starts with: one more than none, the least that is a loop at all. */
-export const FIRST_LOOP = 2;
+const FIRST_LOOP = 2;
 
 /** Where an event addressed by lane and start stands: its material, its window as the compiler reads it, its passes. */
 interface Placed {

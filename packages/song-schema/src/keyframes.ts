@@ -42,7 +42,7 @@ export const ANIMATED_PROPS = ["x", "y", "scale", "opacity", "rotate"] as const;
 export type AnimatedProp = (typeof ANIMATED_PROPS)[number];
 
 /** Each property's value when the shot says nothing — the lane's rect as it is. */
-export const REST: Readonly<Record<AnimatedProp, number>> = {
+const REST: Readonly<Record<AnimatedProp, number>> = {
   x: 0,
   y: 0,
   scale: 1,

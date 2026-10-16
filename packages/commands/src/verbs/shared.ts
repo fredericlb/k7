@@ -18,7 +18,7 @@ import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song-schema/playlist";
 import type { CommandHost } from "../commands.ts";
 
 /** What the playlist verbs say with no workspace: they never fall back to `songPath`, docs/playlist.md. */
-export const NO_WORKSPACE =
+const NO_WORKSPACE =
   "no workspace here — a playlist lives in the repository's _playlists/";
 
 /** A command line's words — named because `node automate` once split on `/s+/`, the LETTER `s`. */

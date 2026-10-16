@@ -32,7 +32,7 @@ import { parseUiFile } from "./uiFile";
 const OPTS = { version: "1.2" as const };
 
 /** How far the check could go — what a caller may conclude from `ok`. */
-export type ValidityDepth =
+type ValidityDepth =
   | "schema" // parsed AND checked against this file's schema
   | "syntax" // parsed; no schema knows this path, so only malformed text is caught
   | "none"; // not YAML at all — nothing here can judge it

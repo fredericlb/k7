@@ -10,7 +10,7 @@ export interface OnsetEdits {
 }
 
 /** How close a removal must be to a detected onset to mean "that one" — a detection moves with the threshold. */
-export const ONSET_MATCH_S = 0.025;
+const ONSET_MATCH_S = 0.025;
 
 const near = (a: number, b: number): boolean =>
   Math.abs(a - b) <= ONSET_MATCH_S;

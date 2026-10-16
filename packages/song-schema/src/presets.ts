@@ -48,7 +48,7 @@ export function presetModulePath(ref: string): string | null {
 }
 
 /** One pad of a rack's kit, as a preset keeps it: a note and a LIBRARY sample, never a project's. */
-export const PresetTapSchema = z
+const PresetTapSchema = z
   .object({
     note: z.number().int().min(0).max(127),
     sample: z.string().min(1).optional(),

@@ -18,8 +18,7 @@ import { splitWords } from "./shared.ts";
 const FORMATS = ["otio", "edl"] as const;
 
 /** Where `picture interchange` writes, project-relative and FIXED, so the shell can fetch it without being told. */
-export const interchangePath = (format: string): string =>
-  `exports/cut.${format}`;
+const interchangePath = (format: string): string => `exports/cut.${format}`;
 
 export const PICTURE_INTERCHANGE_VERBS: Record<string, SidHandler> = {
   "picture.interchange": async (a, h) => {

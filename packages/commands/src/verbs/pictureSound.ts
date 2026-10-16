@@ -26,7 +26,7 @@ import { laneFile } from "./picture.ts";
 import { splitWords } from "./shared.ts";
 
 /** Where a video's sound is written: beside it, under a name no clip of its own is likely to hold. */
-export const soundPathOf = (source: string): string =>
+const soundPathOf = (source: string): string =>
   source.replace(VIDEO_SOURCE, ".sound.wav");
 
 /** What one clip came to: a line to log (or none), and whether the shot now HAS a sound. */

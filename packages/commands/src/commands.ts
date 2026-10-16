@@ -350,7 +350,7 @@ export interface CommandHost {
 }
 
 /** The host's renderer, else this machine's engine binary; null when neither can render. */
-export function rendererOf(h: Pick<CommandHost, "renderer">): Renderer | null {
+function rendererOf(h: Pick<CommandHost, "renderer">): Renderer | null {
   if (h.renderer) return h.renderer;
   const bin = findEngineBinary();
   return bin ? localRenderer(bin) : null;

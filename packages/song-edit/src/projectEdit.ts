@@ -149,7 +149,7 @@ export function setModuleParam(
 }
 
 /** The engine a module runs as, resolved like the compile resolves it — undefined for a module with none. */
-export function engineOn(dir: string, module: string): string | undefined {
+function engineOn(dir: string, module: string): string | undefined {
   const node = loadModules(dir)[module];
   return node
     ? currentEngine(resolveModule(node, loadModuleRefs(dir)))

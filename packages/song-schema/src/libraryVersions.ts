@@ -23,7 +23,7 @@ export const LIBRARY_PINS_FILE = "_library-pins.yaml";
 export const UNPINNED_VERSION = 1;
 
 /** A published version's folder name: a positive integer, written without leading zeros. */
-export const VERSION_DIR = /^[1-9][0-9]{0,5}$/;
+const VERSION_DIR = /^[1-9][0-9]{0,5}$/;
 
 /** A folder name as the version it holds, or null when it is no version folder. */
 export function versionOfDir(name: string): LibraryVersion | null {

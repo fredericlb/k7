@@ -15,7 +15,7 @@ const TargetSchema = z
   .strict();
 
 /** What one control drives: a target, and at most one SECOND — see packages/song/docs/setProject.md. */
-export const ViewBindingSchema = TargetSchema.extend({
+const ViewBindingSchema = TargetSchema.extend({
   also: TargetSchema.optional(),
 }).strict();
 

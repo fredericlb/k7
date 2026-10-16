@@ -13,7 +13,7 @@ export const ASSEMBLIES_DIR = "assemblies";
 export const ASSEMBLY_FILE = "assembly.yaml";
 
 /** One PLUG: a port on the box, plus the member whose own port it stands for. */
-export const AssemblyPlugSchema = z
+const AssemblyPlugSchema = z
   .object({
     name: z.string().min(1),
     type: z.enum(["audio", "midi", "video"]),
@@ -28,7 +28,7 @@ export const AssemblyPlugSchema = z
 export type AssemblyPlug = z.infer<typeof AssemblyPlugSchema>;
 
 /** One PROMOTED param: a knob on the box's face, and the member param it writes. */
-export const AssemblyParamSchema = z
+const AssemblyParamSchema = z
   .object({ node: z.string().min(1), param: z.string().min(1) })
   .strict();
 
