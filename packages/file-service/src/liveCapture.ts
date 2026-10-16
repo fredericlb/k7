@@ -512,7 +512,12 @@ export class LiveCapture implements ChangeFeed {
     if (looksBinary(buf)) return opaque(id(buf));
     const text = buf.toString("utf8");
     const hash = textHash(text);
-    return { now: { stamp, hash, text: keepsText(rel) ? text : null }, text };
+    // A stamp read unsettled may be reused by a same-size rewrite in its tick: empty, the next look compares by hash.
+    const sure = Date.now() - st.mtimeMs > SETTLE_MS ? stamp : "";
+    return {
+      now: { stamp: sure, hash, text: keepsText(rel) ? text : null },
+      text,
+    };
   }
 
   /** The ledger as the baseline says the text files were, opaque files as they are on disk. */
