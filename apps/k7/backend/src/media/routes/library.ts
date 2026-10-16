@@ -4,7 +4,11 @@
 // legitimately have one, and by TAGS for an upload, which does not. See packages/mediatek/docs/songs.md.
 
 import { existsSync, statSync } from "node:fs";
-import { streamFile } from "@frediverse/http";
+import {
+  DEFAULT_CACHE_CONTROL,
+  notModified,
+  streamFile,
+} from "@frediverse/http";
 import { wrap } from "@frediverse/http/route";
 import { NoFfmpegError } from "@studio/audio-analysis/decode";
 import {
@@ -19,7 +23,7 @@ import {
   PathEscapesError,
   readablePath,
 } from "@studio/mediatek/layout";
-import { manifest } from "@studio/mediatek/manifest";
+import { manifestAt } from "@studio/mediatek/manifest";
 import { extOf, mimeFor } from "@studio/mediatek/media";
 import {
   createPlaylist,
@@ -49,6 +53,7 @@ import {
 import express, { Router } from "express";
 import { analyseShared, ensureAnalysedShared } from "../analysisGate.ts";
 import { sweepState } from "../analysisSweep.ts";
+import { envelopeEtag, envelopeOf, envelopeVersion } from "../envelopeMemo.ts";
 import {
   allowManage,
   mayManageLibrary,
@@ -71,9 +76,9 @@ const badFamily = { error: FAMILY_ERROR };
 /** Is there a library on this volume, and how much is in it. */
 libraryRouter.get(
   "/",
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     // The root is a server path and stays one — a client is never told where the disk is.
-    const { present, counts } = summary();
+    const { present, counts } = await summary();
     // `manage`: whether the removals and folder moves are this caller's — ../libraryGate.ts.
     res.json({ present, counts, manage: mayManageLibrary(req) });
   }),
@@ -90,28 +95,29 @@ libraryRouter.get(
 
 libraryRouter.get(
   "/list",
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const family = asFamily(req.query.family);
     if (!family) return res.status(400).json(badFamily);
-    res.json(listFamily(family));
+    res.json(await listFamily(family));
   }),
 );
 
 /** One family's FILES as (path, bytes, mtime) — `/list` describes entries, and a song is many. */
 libraryRouter.get(
   "/manifest",
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const family = asFamily(req.query.family);
     if (!family) return res.status(400).json(badFamily);
-    res.json({ family, rev: revisions()[family], files: manifest(family) });
+    const { rev, files } = manifestAt(family);
+    res.json({ family, rev, files: await files });
   }),
 );
 
 /** Filter across families. What a query MEANS belongs to the catalogue, not here: see parseQuery. */
 libraryRouter.get(
   "/search",
-  wrap((req, res) => {
-    res.json({ entries: search(parseQuery(req.query)) });
+  wrap(async (req, res) => {
+    res.json({ entries: await search(parseQuery(req.query)) });
   }),
 );
 
@@ -383,13 +389,25 @@ libraryRouter.get(
       return res.status(404).json({ error: `${path} is not here` });
 
     try {
-      const env = await ensureAnalysedShared(source);
-      res.json({
-        sampleRate: env.sampleRate,
-        seconds: env.seconds,
-        rms: env.rms,
-        transients: env.transients,
+      // A browser holding this version's answer is told so before anything is read or computed.
+      const current = envelopeEtag(await envelopeVersion(source));
+      if (notModified(req, current)) {
+        res.setHeader("ETag", current);
+        res.setHeader("Cache-Control", DEFAULT_CACHE_CONTROL);
+        return res.status(304).end();
+      }
+      const { body, etag } = await envelopeOf(source, async () => {
+        const env = await ensureAnalysedShared(source);
+        return {
+          sampleRate: env.sampleRate,
+          seconds: env.seconds,
+          rms: env.rms,
+          transients: env.transients,
+        };
       });
+      res.setHeader("ETag", etag);
+      res.setHeader("Cache-Control", DEFAULT_CACHE_CONTROL);
+      res.type("application/json").send(body);
     } catch (e) {
       if (e instanceof NoFfmpegError)
         return res.status(503).json({ error: e.message });
@@ -453,8 +471,8 @@ libraryRouter.get(
 /** The set lists — its own listing too, and for the same reason: no family scan reaches the zone. */
 libraryRouter.get(
   "/playlists",
-  wrap((_req, res) => {
-    res.json({ playlists: listPlaylists() });
+  wrap(async (_req, res) => {
+    res.json({ playlists: await listPlaylists() });
   }),
 );
 

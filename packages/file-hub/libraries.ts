@@ -3,10 +3,10 @@
 // and the `draft/` only admins write. A listed library missing on disk is copied from the seed
 // (`$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…`) as its version 1, or made empty.
 // Its edits reach other replicas through k7fs (libraryRelay.ts). See docs/fileHub.md and
-// ../../docs/library-versions-plan.md.
+// ../../docs/library-versions-plan.md. The copies are asynchronous and run one at a time, so a
+// seed of IR and amp-model binaries never holds the shared process, nor races another copy.
 
 import {
-  cpSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -15,6 +15,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { cp } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { RECYCLE_DIR } from "@studio/file-service/src/workspaceFilter.ts";
 import { writeFileAtomic } from "@studio/song/atomicWrite";
@@ -106,6 +107,8 @@ export class LibraryStore {
   readonly home: string;
   private readonly listFile: string;
   private readonly seed: Map<string, string>;
+  // Every change to the folders queues here: two copies deciding on the same name would collide.
+  private queue: Promise<unknown> = Promise.resolve();
 
   constructor(
     private readonly dataRoot: string,
@@ -179,30 +182,46 @@ export class LibraryStore {
     return reply;
   }
 
+  /** Run `fn` once every change queued before it is done, whether those succeeded or not. */
+  private serial<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(fn, fn);
+    this.queue = run.catch(() => {});
+    return run;
+  }
+
   /** SET the list: each new library gets its folder; one dropped keeps its folder, unlisted. */
   set(
     asked: LibrarySetting[],
-  ): { ok: true; reply: AccountLibrariesReply } | { error: string } {
-    const problem = settingsProblem(asked);
-    if (problem) return { error: problem };
-    const notes = asked.map((l) => this.ensureOne(l.name));
-    const failed = notes.filter((n) => n.state === "failed");
-    if (failed.length)
-      return { error: failed.map((n) => `'${n.name}': ${n.note}`).join("; ") };
-    this.write(asked);
-    return { ok: true, reply: this.view(notes) };
+  ): Promise<{ ok: true; reply: AccountLibrariesReply } | { error: string }> {
+    return this.serial(async () => {
+      const problem = settingsProblem(asked);
+      if (problem) return { error: problem };
+      const notes: LibraryNote[] = [];
+      for (const l of asked) notes.push(await this.ensureOne(l.name));
+      const failed = notes.filter((n) => n.state === "failed");
+      if (failed.length)
+        return {
+          error: failed.map((n) => `'${n.name}': ${n.note}`).join("; "),
+        };
+      this.write(asked);
+      return { ok: true as const, reply: this.view(notes) };
+    });
   }
 
   /** Give every listed library (or only `name`) its folder, and its draft when asked; answers what was done to each. */
-  ensure(opts: { name?: string; draft?: boolean } = {}): LibraryNote[] {
-    return this.settings()
-      .filter((l) => !opts.name || l.name === opts.name)
-      .map((l) => {
-        const note = this.ensureOne(l.name);
-        if (!opts.draft || note.state === "failed") return note;
-        const drafted = this.ensureDraft(l.name);
-        return drafted ?? note;
-      });
+  ensure(
+    opts: { name?: string; draft?: boolean } = {},
+  ): Promise<LibraryNote[]> {
+    return this.serial(async () => {
+      const notes: LibraryNote[] = [];
+      for (const l of this.settings()) {
+        if (opts.name && l.name !== opts.name) continue;
+        const note = await this.ensureOne(l.name);
+        if (!opts.draft || note.state === "failed") notes.push(note);
+        else notes.push((await this.ensureDraft(l.name)) ?? note);
+      }
+      return notes;
+    });
   }
 
   /** The published versions of library `name`, oldest first, each as its `library.yaml` says. */
@@ -221,7 +240,14 @@ export class LibraryStore {
   publish(
     name: string,
     opts: { requires?: number; notes?: string } = {},
-  ): { ok: true; manifest: LibraryManifest } | { error: string } {
+  ): Promise<{ ok: true; manifest: LibraryManifest } | { error: string }> {
+    return this.serial(() => this.publishNow(name, opts));
+  }
+
+  private async publishNow(
+    name: string,
+    opts: { requires?: number; notes?: string },
+  ): Promise<{ ok: true; manifest: LibraryManifest } | { error: string }> {
     if (!isLibraryName(name)) return { error: `'${name}' names no library` };
     const at = join(this.home, name);
     const draft = join(at, DRAFT_VERSION);
@@ -238,13 +264,13 @@ export class LibraryStore {
     if (opts.notes?.trim()) manifest.notes = opts.notes.trim();
     const partial = join(this.home, `.publishing-${Date.now()}-${process.pid}`);
     try {
-      cpSync(draft, partial, { recursive: true, filter: publishable });
+      await cp(draft, partial, { recursive: true, filter: publishable });
       writeFileSync(
         join(partial, LIBRARY_MANIFEST),
         stringifyLibraryManifest(manifest),
       );
       renameSync(partial, join(at, String(version)));
-      return { ok: true, manifest };
+      return { ok: true as const, manifest };
     } catch (e) {
       rmSync(partial, { recursive: true, force: true });
       return { error: (e as Error).message.trim() };
@@ -252,13 +278,13 @@ export class LibraryStore {
   }
 
   /** Copy into a SIBLING and rename it into place: a dot-name is never a library, so no reader sees half of one. */
-  private ensureOne(name: string): LibraryNote {
+  private async ensureOne(name: string): Promise<LibraryNote> {
     const at = join(this.home, name);
     if (existsSync(at)) {
       const note = this.migrate(name);
       return note.state === "failed"
         ? note
-        : (this.addSeedVersion(name) ?? note);
+        : ((await this.addSeedVersion(name)) ?? note);
     }
     const partial = join(this.home, `.seeding-${Date.now()}-${process.pid}`);
     try {
@@ -267,7 +293,7 @@ export class LibraryStore {
       // A published seed (an installer's) installs under its own number; a bare folder is version 1.
       const first = join(partial, String(this.seedVersion(name)));
       if (from && existsSync(from)) {
-        cpSync(from, first, { recursive: true, filter: publishable });
+        await cp(from, first, { recursive: true, filter: publishable });
         writeFirstManifest(name, first);
         renameSync(partial, at);
         return { name, state: "seeded", note: `copied from ${from}` };
@@ -289,7 +315,7 @@ export class LibraryStore {
   }
 
   /** An app update brings a newer published seed: added as one more frozen version, no pin moved. */
-  private addSeedVersion(name: string): LibraryNote | null {
+  private async addSeedVersion(name: string): Promise<LibraryNote | null> {
     const from = this.seed.get(name);
     const manifest = from ? readManifest(from) : null;
     if (!from || !manifest) return null;
@@ -297,7 +323,7 @@ export class LibraryStore {
     if (existsSync(dest)) return null;
     const partial = join(this.home, `.seeding-${Date.now()}-${process.pid}`);
     try {
-      cpSync(from, partial, { recursive: true, filter: publishable });
+      await cp(from, partial, { recursive: true, filter: publishable });
       renameSync(partial, dest);
       return {
         name,
@@ -334,7 +360,7 @@ export class LibraryStore {
   }
 
   /** Give library `name` the draft its admins edit, copied from its newest version; null when it already has one. */
-  private ensureDraft(name: string): LibraryNote | null {
+  private async ensureDraft(name: string): Promise<LibraryNote | null> {
     const at = join(this.home, name);
     const draft = join(at, DRAFT_VERSION);
     if (existsSync(draft)) return null;
@@ -343,7 +369,7 @@ export class LibraryStore {
     const manifest = join(at, String(newest), LIBRARY_MANIFEST);
     try {
       if (newest)
-        cpSync(join(at, String(newest)), partial, {
+        await cp(join(at, String(newest)), partial, {
           recursive: true,
           filter: (src) => resolve(src) !== manifest,
         });

@@ -5,7 +5,7 @@
 import { existsSync as fileExists } from "node:fs";
 import { wrap } from "@frediverse/http/route";
 import type { FileHub } from "@studio/file-hub";
-import { listFamily } from "@studio/mediatek/catalogue";
+import { listFamilyFresh } from "@studio/mediatek/catalogue";
 import { safePath } from "@studio/mediatek/layout";
 import { remoteLibrary } from "@studio/mediatek/remote";
 import { bumped } from "@studio/mediatek/revision";
@@ -143,7 +143,9 @@ export function serverCopyRouter(hub: FileHub): Router {
           });
         theirs = known;
       }
-      const here = new Set(listFamily(family).entries.map((e) => e.path));
+      const here = new Set(
+        (await listFamilyFresh(family)).entries.map((e) => e.path),
+      );
       const placement: LibraryPlacement = {
         paired: true,
         server: server.base,

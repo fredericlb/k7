@@ -56,22 +56,24 @@ describe("in the library", () => {
   const derive = (rel: string): void =>
     writeFileSync(join(root, rel.replace(/\.flac$/, ".mp3")), "mp3");
 
-  it("never takes the MP3 for a song's master", () => {
+  it("never takes the MP3 for a song's master", async () => {
     putFile("songs/A/B/So What/original.flac", "flac");
     derive("songs/A/B/So What/original.flac");
-    const [song] = scanFamily("songs");
+    const [song] = await scanFamily("songs");
     expect(song?.meta?.master).toBe("original.flac");
   });
 
-  it("lists it neither as a sample nor as a loose file", () => {
+  it("lists it neither as a sample nor as a loose file", async () => {
     putFile("samples/audio/pack/kick.flac", "flac");
     derive("samples/audio/pack/kick.flac");
     putFile("samples/audio/loose.flac", "flac");
     derive("samples/audio/loose.flac");
-    const entries = scanFamily("samples");
+    const entries = await scanFamily("samples");
     expect(entries.map((e) => e.name)).toEqual(["kick.flac", "loose.flac"]);
     expect(
-      scanUnlisted("samples", entries).filter((p) => p.endsWith(".mp3")),
+      (await scanUnlisted("samples", entries)).filter((p) =>
+        p.endsWith(".mp3"),
+      ),
     ).toEqual([]);
   });
 
@@ -82,10 +84,10 @@ describe("in the library", () => {
     expect(familyRevision("samples")).toBe(before);
   });
 
-  it("never syncs to a machine", () => {
+  it("never syncs to a machine", async () => {
     putFile("songs/A/B/C/original.flac", "flac");
     derive("songs/A/B/C/original.flac");
-    expect(manifest("songs").map((e) => e.path)).toEqual([
+    expect((await manifest("songs")).map((e) => e.path)).toEqual([
       "songs/A/B/C/original.flac",
     ]);
   });
@@ -123,7 +125,7 @@ describe("in the library", () => {
     expect(existsSync(join(root, "samples/audio/other/k2.mp3"))).toBe(false);
   });
 
-  it("keeps an uploaded MP3 master that replaces its FLAC", () => {
+  it("keeps an uploaded MP3 master that replaces its FLAC", async () => {
     const tags = { artist: "A", album: "B", title: "C" };
     const first = addSong({ filename: "c.flac", bytes: bytes("flac"), tags });
     derive(first.master);
@@ -135,11 +137,13 @@ describe("in the library", () => {
     });
     expect(second.master.endsWith("original.mp3")).toBe(true);
     expect(existsSync(join(root, second.master))).toBe(true);
-    expect(scanFamily("songs")[0]?.meta?.master).toBe("original.mp3");
+    expect((await scanFamily("songs"))[0]?.meta?.master).toBe("original.mp3");
   });
 
-  it("leaves a real MP3 with no FLAC beside it alone", () => {
+  it("leaves a real MP3 with no FLAC beside it alone", async () => {
     putFile("samples/audio/pack/snare.mp3", "mp3");
-    expect(scanFamily("samples").map((e) => e.name)).toEqual(["snare.mp3"]);
+    expect((await scanFamily("samples")).map((e) => e.name)).toEqual([
+      "snare.mp3",
+    ]);
   });
 });

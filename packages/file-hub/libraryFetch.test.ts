@@ -32,12 +32,12 @@ beforeEach(async () => {
   writeFileSync(join(seed, "k7-core", "irs", "room.wav"), "RIFF-room");
   writeFileSync(join(seed, "k7-core", "mix.yaml"), "plugin: old\n");
   origin = new LibraryStore(join(tmp, "origin"), seed);
-  origin.ensure({ draft: true });
+  await origin.ensure({ draft: true });
   writeFileSync(
     join(origin.home, "k7-core", "draft", "mix.yaml"),
     "plugin: new\n",
   );
-  origin.publish("k7-core");
+  await origin.publish("k7-core");
   desk = join(tmp, "desk");
   mkdirSync(join(desk, "k7-core"), { recursive: true });
   // The desk already holds version 1: its seed.

@@ -2,10 +2,13 @@
 // against to know what to fetch. Runs on BOTH sides: the server describes its volume, the
 // cache remembers what the server said. See docs/sync.md.
 
-import { type Dirent, readdirSync, statSync } from "node:fs";
+import type { Dirent } from "node:fs";
+import { readdir, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { familyDir, mediatekDir } from "./layout.ts";
 import { withoutDerived } from "./media.ts";
+import { mapLimit } from "./pool.ts";
+import { familyRevision } from "./revision.ts";
 import type { Family } from "./types.ts";
 
 /** One file, as the side that owns it describes it. */
@@ -19,39 +22,70 @@ export interface ManifestEntry {
 
 export type Manifest = ManifestEntry[];
 
-function walk(dir: string, out: Manifest): void {
-  let entries: Dirent[];
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return; // unreadable corner — fewer entries, never a throw
+/** Every file under `root`, level by level so the folders read at once stay bounded. */
+async function walk(root: string): Promise<Manifest> {
+  const files: string[] = [];
+  let level = [root];
+  while (level.length) {
+    const listed = await mapLimit(level, (d) =>
+      readdir(d, { withFileTypes: true }).catch((): Dirent[] => []),
+    );
+    level = [];
+    // A FLAC's derived MP3 never syncs: a machine's mirror plays the FLAC (docs/derivedMp3.md).
+    for (const entries of listed)
+      for (const e of withoutDerived(entries)) {
+        if (e.name.startsWith(".")) continue; // .cache and friends are derived
+        const abs = join(e.parentPath, e.name);
+        if (e.isDirectory()) level.push(abs);
+        else files.push(abs);
+      }
   }
-  // A FLAC's derived MP3 never syncs: a machine's mirror plays the FLAC (docs/derivedMp3.md).
-  for (const e of withoutDerived(entries)) {
-    if (e.name.startsWith(".")) continue; // .cache and friends are derived
-    const abs = join(dir, e.name);
-    if (e.isDirectory()) {
-      walk(abs, out);
-      continue;
-    }
+  const out = await mapLimit(files, async (abs) => {
     try {
-      const s = statSync(abs);
-      out.push({
+      const s = await stat(abs);
+      return {
         path: relative(mediatekDir(), abs).split(sep).join("/"),
         bytes: s.size,
         mtime: s.mtimeMs,
-      });
+      };
     } catch {
-      /* raced away between readdir and stat */
+      return null; // raced away between readdir and stat
     }
-  }
+  });
+  return out.filter((e): e is ManifestEntry => e !== null);
 }
 
 /** Every file in a FAMILY, sorted; the capture zone is no family, so it never syncs (docs/recordings.md). */
-export function manifest(family: Family): Manifest {
-  const out: Manifest = [];
-  walk(familyDir(family), out);
+export async function manifest(family: Family): Promise<Manifest> {
+  const out = await walk(familyDir(family));
   return out.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+// Keyed by the family's DIRECTORY, so a root that changed under us is never answered from the old one.
+const held = new Map<string, { rev: string; files: Promise<Manifest> }>();
+
+/** `manifest`, walked once per family revision and shared by every caller asking at that revision. */
+export function manifestAt(family: Family): {
+  rev: string;
+  files: Promise<Manifest>;
+} {
+  const key = familyDir(family);
+  const rev = familyRevision(family);
+  const have = held.get(key);
+  if (have && have.rev === rev) return have;
+  const files = manifest(family);
+  const next = { rev, files };
+  held.set(key, next);
+  // A failed walk is not kept: the next caller walks again.
+  files.catch(() => {
+    if (held.get(key) === next) held.delete(key);
+  });
+  return next;
+}
+
+/** Forget every held manifest — for tests, and for a root that changed under us. */
+export function resetManifests(): void {
+  held.clear();
 }
 
 /** What a cache holding `have` must fetch and drop to match `want`, both being the OWNER's description — docs/sync.md. */

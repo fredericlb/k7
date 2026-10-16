@@ -12,7 +12,6 @@ import { loadServiceEnv } from "@frediverse/env";
 import { precompressedStatic } from "@frediverse/http/precompressed";
 import { behindProxy } from "@frediverse/http/proxied";
 import { setupAuth } from "@frediverse/oidc";
-import { ENGINE_BODY_LIMIT } from "@studio/engine-registry";
 import { mountRehearsal } from "@studio/rehearsal-server";
 import { prefsStore } from "@studio/user-prefs";
 import { preferencesRouter } from "@studio/user-prefs/router";
@@ -22,6 +21,7 @@ import { z } from "zod";
 import { aiOrganizeBody, aiOrganizeRouter } from "./aiOrganize";
 import { authRefusals, DEFAULT_SESSION_SECRET } from "./authGuard.ts";
 import { sessionRevocations } from "./authState.ts";
+import { jsonBodies } from "./bodyLimits.ts";
 import { mountHandoff } from "./handoff.ts";
 import {
   jsonErrorHandler,
@@ -73,8 +73,8 @@ app.get("/api/health", (_req, res) => {
 });
 // The module builder's AI organize takes a whole module, so it parses first, with its own limit.
 app.use("/api/ai", aiOrganizeBody);
-// The relay pipes bodies to an engine's file service, so the limit is that service's opinion.
-app.use(express.json({ limit: ENGINE_BODY_LIMIT }));
+// Small for everyone, since it runs before any guard; the relayed paths are piped unparsed (./bodyLimits.ts).
+app.use(jsonBodies());
 
 // Empty stays undefined, not []: setupAuth falls back on nullish only, and [] asks for NO scopes.
 const scopes = (process.env.OIDC_SCOPES ?? "")
