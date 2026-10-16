@@ -147,11 +147,19 @@ export function resolveStretches(
         warnings,
         headOf,
       );
-      const { fadeIn: _i, fadeOut: _o, ...rest } = c;
+      // A shot's `effect:` is the same kind of run, held to the same rule: one landing on ITS lane.
+      const head = c.effect ? headOf(t.id, c.effect) : undefined;
+      const effect = head && lanesOf[head]?.includes(t.id) ? head : undefined;
+      if (c.effect && !effect)
+        warnings.push(
+          `${t.id}: '${c.id}' names effect '${c.effect}', which is no run of shaders landing on this lane — it plays as it is`,
+        );
+      const { fadeIn: _i, fadeOut: _o, effect: _e, ...rest } = c;
       return {
         ...rest,
         ...(fadeIn ? { fadeIn } : {}),
         ...(fadeOut ? { fadeOut } : {}),
+        ...(effect ? { effect } : {}),
       };
     }),
   }));

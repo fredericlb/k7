@@ -38,7 +38,14 @@ A service that dies on its own is not started again on the very next request: th
 healthy minute starts that count over. A crash loop would otherwise fork a process per request.
 A stop the hub makes itself — idle, eviction, restart, source change — is no crash.
 
-The children are killed by **one** exit hook of the hub, whatever their number: a listener per child
+A stop is **asked, then forced**: the hub closes the child's stdin — its stop on every platform,
+since Windows delivers no SIGTERM and a `kill` there ends a process on the spot
+(`packages/file-service/docs/shutdown.md`) — sends SIGTERM where there is one, and kills it only
+after `STOP_GRACE_MS`, longer than the service's own grace for its requests in flight. `stopAll`
+asks every child at once and resolves when each is gone, inside the 8 s k7's backend gives its
+own stop.
+
+Whatever is left when the hub's process exits is killed by **one** exit hook, whatever their number: a listener per child
 trips Node's MaxListeners warning past ten accounts.
 
 A child is ready when it answers a **gated** probe carrying its own secret. Its port is picked free

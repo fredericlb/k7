@@ -94,6 +94,11 @@ can load a document, drop a session, approve a pairing. So a ticket is not enoug
 | browser → engine | `whoami`, `pair`, `list-plugins` — what `probe.ts` and `compat.ts` send to pick | everything |
 | engine → browser | `whoami`, `plugins`, `error` | everything |
 
+Either way a `whoami` reaches the browser without its `token` unless the ticket's account may use the
+engine — its owner, an account it is shared with, anyone for the server's own
+([ownership.md](ownership.md)). `/engines` mints no ticket for any other engine, so this strip is the
+second lock; it is asked per frame, so a share withdrawn mid-socket takes effect at once.
+
 Anything else the browser sends is **held**, in order, rather than dropped: a page opens its driving
 socket and claims the engine at the same moment, and the claim may land a few hundred milliseconds
 after the socket's first `hello`. Held frames go through the moment the claim exists; after 10 s

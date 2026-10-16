@@ -9,14 +9,23 @@ import { type LensOpener, localLens } from "./camera";
 import type { SeekingClock } from "./clock";
 import type { LayerBlend } from "./compositor";
 import { Compositor } from "./compositor";
+import { StaticMedia } from "./media";
 import { type Motion, slotMotions } from "./motion";
 import type { VideoLayer, VideoScene } from "./scene";
-import { type Active, layerFrameAt, shapesVisibleAt } from "./timeline";
+import {
+  type Active,
+  layerFrameAt,
+  shapesVisibleAt,
+  slotEffects,
+} from "./timeline";
 
 const HARD_SEEK = 0.25; // s of error that forces a seek rather than a nudge
 const SOFT_EPS = 0.008; // ≈ a quarter-frame at 30fps; below this, nudging chases quantization
 const NUDGE_K = 1.5; // playbackRate = 1 - err*K, i.e. speed up when behind
 const SETTLE_MS = 200; // after a seek, leave the rate alone while the decoder catches up
+const MIN_RATE = 0.0625; // the slowest playbackRate browsers play; below it, and at 0 or backwards, the element is stepped
+const MAX_RATE = 16; // …and the fastest
+const STEP_EPS = 1 / 60; // a stepped element is re-seeked once it is half a frame off at 30 fps
 
 // Per-layer runtime state. `els` is empty for a SHAPE layer: no media to decode, no clock to chase.
 // The second element exists only where a `fade_in` needs two pictures at once.
@@ -86,6 +95,8 @@ async function openCamera(
 export class RealtimeDriver {
   private comp: Compositor;
   private lanes: Lane[];
+  // The pictures drawn with no element — stills and captions — one decode or one draw each (media.ts).
+  private media: StaticMedia;
   private raf = 0;
   private disposed = false;
   private debug: LaneDebug[] = [];
@@ -94,9 +105,11 @@ export class RealtimeDriver {
     comp: Compositor,
     lanes: Lane[],
     private readonly clock: SeekingClock,
+    viewport: [number, number],
   ) {
     this.comp = comp;
     this.lanes = lanes;
+    this.media = new StaticMedia(viewport[0], viewport[1]);
     // A seek/loop/transport edge: land every element on its exact frame at once.
     clock.onSeek = () => this.reseekAll();
   }
@@ -143,7 +156,7 @@ export class RealtimeDriver {
         settleUntil: els.map(() => 0),
       };
     });
-    driver = new RealtimeDriver(comp, lanes, clock);
+    driver = new RealtimeDriver(comp, lanes, clock, scene.viewport);
     driver.watchSight(host);
     driver.loop();
     return driver;
@@ -181,13 +194,26 @@ export class RealtimeDriver {
     }
 
     const want = active.sourceTime;
-    // Past the source's material the hard seek below would fire every frame — see docs/realtime.md.
-    if (Number.isFinite(el.duration) && want >= el.duration) {
+    // Past the source's material — either end, a reverse reaching its first frame — the hard seek would fire every frame.
+    if ((Number.isFinite(el.duration) && want >= el.duration) || want < 0) {
       if (!el.paused) el.pause();
       return false;
     }
 
     const err = el.currentTime - want; // + == the video is AHEAD of the song
+    const speed = active.clip.speed ?? 1;
+    // A freeze, a reverse, or a rate no decoder plays: the element is PARKED and stepped by seeks (docs/realtime.md).
+    if (!(speed >= MIN_RATE && speed <= MAX_RATE)) {
+      if (!el.paused) el.pause();
+      if (Math.abs(err) > STEP_EPS && !el.seeking) this.seekEl(lane, e, want);
+      this.debug.push({
+        id: lane.layer.id,
+        active: true,
+        errMs: Math.round(err * 1000),
+        rate: 0,
+      });
+      return true;
+    }
     if (Math.abs(err) > HARD_SEEK) {
       // A visible desync: flush to the right frame and let it settle before nudging.
       this.seekEl(lane, e, want);
@@ -196,10 +222,10 @@ export class RealtimeDriver {
       Math.abs(err) > SOFT_EPS &&
       performance.now() > lane.settleUntil[e]
     ) {
-      // Small, steady drift: speed up if behind, slow down if ahead. Invisible.
-      el.playbackRate = clamp(1 - err * NUDGE_K, 0.92, 1.08);
+      // Small, steady drift: speed up if behind, slow down if ahead — around the shot's own rate. Invisible.
+      el.playbackRate = speed * clamp(1 - err * NUDGE_K, 0.92, 1.08);
     } else {
-      el.playbackRate = 1;
+      el.playbackRate = speed;
     }
 
     // Keep the element's transport in step with the song's.
@@ -262,6 +288,7 @@ export class RealtimeDriver {
     const visible = new Set<string>();
     const blends = new Map<string, LayerBlend>();
     const motions = new Map<string, [Motion | null, Motion | null]>();
+    const effects = new Map<string, [string | null, string | null]>();
     this.debug = [];
 
     for (const lane of this.lanes) {
@@ -323,6 +350,15 @@ export class RealtimeDriver {
       let from = false;
       let to = false;
       for (const w of wanted) {
+        // A STILL or a CAPTION takes no element: its picture is made once and uploaded as any frame is.
+        if (StaticMedia.owns(w.active.clip)) {
+          const pic = this.media.picture(w.active.clip, w.active.sourceTime);
+          if (!pic) continue;
+          this.comp.upload(lane.layer.id, pic, w.slot);
+          if (w.slot === 0) from = true;
+          else to = true;
+          continue;
+        }
         const e = this.claim(lane, w.active, used);
         if (e === null) continue;
         if (!this.steer(lane, e, w.active, playing)) continue;
@@ -345,6 +381,7 @@ export class RealtimeDriver {
       }
       visible.add(lane.layer.id);
       motions.set(lane.layer.id, slotMotions(frame, t));
+      effects.set(lane.layer.id, slotEffects(frame));
       // Held at 0 while the incoming side has no frame yet, rather than blending against black.
       if (frame.blend)
         blends.set(lane.layer.id, {
@@ -358,7 +395,7 @@ export class RealtimeDriver {
 
     // The live half of a shader's uniforms, refreshed per frame rather than per document — see docs/passes.md.
     this.comp.setLive(t, this.audio);
-    this.comp.draw(visible, blends, motions);
+    this.comp.draw(visible, blends, motions, effects);
   }
 
   /** The audio level each pass is driven by, 0..1 by pass id — PUSHED by the host, and held here since the rates differ. */

@@ -13,6 +13,24 @@ export interface SceneClip {
   fadeIn?: SceneFade; // over its own start; absent is a hard cut
   fadeOut?: SceneFade; // over its own end
   animate?: SceneAnimate; // how it moves in its lane's frame; absent costs nothing — docs/motion.md
+  speed?: number; // how fast the source runs under it, signed; absent is 1 — song-video/docs/speed.md
+  still?: true; // `src` is an IMAGE: decoded once and held while the shot is on — docs/realtime.md
+  effect?: string; // the run this shot alone goes through, a key of `VideoScene.stretches` — docs/effects.md
+  captions?: SceneCaptions; // a SUBTITLE clip: the cue at its source time is drawn, as a still is — docs/titles.md
+}
+
+/** A subtitle clip's cues, in seconds of the file, and how they are set; every style word optional. */
+export interface SceneCaptions {
+  cues: readonly { start: number; end: number; text: string }[];
+  style: {
+    font?: string;
+    fontSize?: number;
+    color?: string;
+    background?: string;
+    align?: "left" | "center" | "right";
+    position?: "bottom" | "top" | "middle";
+    margin?: number;
+  };
 }
 
 /** A shot's animated properties, each its sorted keys in seconds from the shot's start; `ease` shapes the segment leaving a key. */
@@ -65,8 +83,13 @@ export type SceneShape =
       fontSize: number; // px
       x: number;
       y: number;
-      w?: number; // optional max width — the text condenses to fit it (single line)
+      w?: number; // the width its lines wrap in; a word longer than it is condensed to fit
       color: string;
+      align?: "left" | "center" | "right"; // how its lines sit in `w`, or about `x` with none
+      background?: string; // a box behind the lines, any CSS colour
+      shadow?: boolean; // a soft shadow under the glyphs, for text over a picture
+      lineHeight?: number; // a multiple of the font size; 1.2 unsaid
+      padding?: number; // px between the lines and their box
     };
 
 /** One GLSL pass over a picture — plain source and plain numbers, `audio` being the live level the host refreshes per frame. */
@@ -78,6 +101,7 @@ export interface ScenePass {
   enabled: boolean;
   params: Record<string, number>; // uP1..uP4, each 0..1
   audio: number; // uAudio, 0..1 — replaced every frame by the host
+  lut?: string; // a `.cube` file's URL, read as `uLut` — fetched and uploaded once (docs/luts.md)
 }
 
 // A layer in the draw stack: a VIDEO lane (a rect plus clips), a SHAPE lane, or a CAMERA — the
@@ -130,6 +154,10 @@ export interface SceneLayerInput {
     fadeIn?: SceneFade;
     fadeOut?: SceneFade;
     animate?: SceneAnimate;
+    speed?: number;
+    still?: true;
+    effect?: string;
+    captions?: SceneCaptions;
   }[];
   shapes?: SceneShape[];
   passes?: ScenePass[];
@@ -169,6 +197,10 @@ export function buildScene(
         ...(c.fadeIn ? { fadeIn: { ...c.fadeIn } } : {}),
         ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
         ...(c.animate ? { animate: c.animate } : {}),
+        ...(c.speed !== undefined ? { speed: c.speed } : {}),
+        ...(c.still ? { still: true as const } : {}),
+        ...(c.effect ? { effect: c.effect } : {}),
+        ...(c.captions ? { captions: c.captions } : {}),
       })),
       // Shapes carry no time, so they don't extend durationSec — a shapes-only song has no natural end to render.
       ...(l.shapes?.length ? { shapes: l.shapes.map((s) => ({ ...s })) } : {}),

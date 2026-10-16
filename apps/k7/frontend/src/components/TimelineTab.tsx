@@ -405,6 +405,8 @@ interface VDrag {
   origStart: number;
   origLength: number; // 0 == to the end of the source
   origFrom: number;
+  /** How fast the source runs under the shot, signed; absent is 1 — what a head trim multiplies (song-video/docs/speed.md). */
+  speed?: number;
   start: number; // live
   length: number; // live; still 0 while a length-0 placement is only being moved
   x: number; // pointer x at grab
@@ -421,7 +423,13 @@ const drawnLength = (length: number): number =>
 export function videoDragTo(
   v: Pick<
     VDrag,
-    "mode" | "origStart" | "origLength" | "origFrom" | "start" | "length"
+    | "mode"
+    | "origStart"
+    | "origLength"
+    | "origFrom"
+    | "start"
+    | "length"
+    | "speed"
   >,
   deltaSec: number,
   snapSec: (sec: number) => number,
@@ -431,9 +439,13 @@ export function videoDragTo(
     return { start: snapSec(v.origStart + deltaSec), length: v.length };
   if (v.mode === "in") {
     // The head follows the pointer, the source's in-point follows the head, and the EXTENT shortens by the same amount.
+    // Forwards, the head cannot pass the source's first frame; a freeze or a reverse never reaches it that way.
+    const speed = v.speed ?? 1;
+    const floor =
+      speed > 0 ? v.origStart - v.origFrom / speed : Number.NEGATIVE_INFINITY;
     const start = Math.max(
       Math.min(snapSec(v.origStart + deltaSec), v.origStart + drawn - V_MIN),
-      v.origStart - v.origFrom,
+      floor,
     );
     return { start, length: drawn - (start - v.origStart) };
   }
@@ -458,7 +470,7 @@ export function videoDragEdits(v: VDrag): VideoEdit[] {
       edits.push({
         index: v.index,
         field: "source_from",
-        value: Math.max(0, v.origFrom + delta),
+        value: Math.max(0, v.origFrom + delta * (v.speed ?? 1)),
       });
     edits.push({
       index: v.index,
@@ -1554,6 +1566,7 @@ export function TimelineTab({
         origStart: c.start,
         origLength: c.length,
         origFrom: c.sourceFrom,
+        ...(c.speed !== undefined ? { speed: c.speed } : {}),
         start: c.start,
         length: c.length,
         x: e.clientX,
@@ -3049,7 +3062,16 @@ export function TimelineTab({
                         // A length-0 placement runs to the end of a source nothing has measured, so it draws provisional: dashed and amber.
                         const provisional = length <= 0;
                         // …except on an activation, whose length 0 needs no source opened: it runs to the next one.
-                        const label = activation ? "on" : c.name || c.id;
+                        // A retimed shot says so, since nothing else on the strip would: ×0.5, a freeze, a reverse.
+                        const pace =
+                          c.speed === undefined
+                            ? ""
+                            : c.speed === 0
+                              ? " · freeze"
+                              : ` ×${c.speed}`;
+                        const label = activation
+                          ? "on"
+                          : `${c.name || c.id}${pace}`;
                         const w = Math.max(
                           ppb,
                           toBeats(provisional ? V_NATURAL : length) * ppb,

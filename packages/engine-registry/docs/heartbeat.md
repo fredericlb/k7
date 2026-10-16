@@ -47,9 +47,9 @@ of their own. So a heartbeat may PROVE who sent it, two ways:
 `STUDIO_REGISTRY_REQUIRE_DEVICE=1` refuses a heartbeat that proves neither, with a `401` naming
 the way in. Unset, it is taken as before and the machine is logged as unpaired, once a minute: a
 supervisor older than the device token keeps working until the flag is turned on, and the log says
-which machines would drop off. Proving an account does not narrow who sees the engine: the pool
-stays the studio's (`shared.md`), and a desktop app's engine is never in it, since that engine is
-listed at its own app only (`apps/k7-standalone/docs/engine.md`).
+which machines would drop off. Proving an account lists the machine; who may then see and drive it is
+ownership's (`ownership.md`). A desktop app's engine is listed at its own app only
+(`apps/k7-standalone/docs/engine.md`).
 
 ## What is logged here
 
@@ -71,4 +71,6 @@ listed at its own app only (`apps/k7-standalone/docs/engine.md`).
 `404 engine gone` when there is no live entry — the engine's machine has not had a heartbeat
 accepted in 15 s, and its `.studio.log` says why. `403 bad token` when there is one and the token
 the browser got from the engine's `whoami` is not the one it registered with. Two answers and not
-one 403, because a single one sends the reader to the token when the cause is the heartbeat.
+one 403, because a single one sends the reader to the token when the cause is the heartbeat. A
+third, `403 not-yours`, is ownership's and not the heartbeat's: the engine is another account's
+([ownership.md](ownership.md)).

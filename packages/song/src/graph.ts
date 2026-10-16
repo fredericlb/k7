@@ -33,7 +33,7 @@ import { bypassedOf, deriveChains, isParked } from "./chainsGraph";
 import { applyLinkLevels, unplayedLevels } from "./linkLevels";
 import {
   exportSub,
-  isVideoSource,
+  isPictureSource,
   loadChains,
   loadModuleRefs,
   loadModules,
@@ -225,12 +225,18 @@ export interface Module {
   base?: string;
   // Which SHADER a shader node runs, absent when nothing is chosen — see packages/song-video/docs/shaders.md.
   shader?: string;
+  // …and the 3D LUT it reads, project-relative — packages/song-video/docs/effects.md.
+  lut?: string;
   // …and which PRIMITIVE a shape module draws, its geometry being `params:` — see song-video/docs/shapes.md.
   shape?: string;
   // What a shape is FILLED with, and on a lane module its colour in the timeline — one key, read by category.
   color?: string;
   // A `text` shape's CSS font family; its string is `content:`, the key a doc note already uses.
   font?: string;
+  // …and how a `text` shape's lines are set — packages/song-video/docs/titles.md.
+  align?: "left" | "center" | "right";
+  background?: string;
+  shadow?: boolean;
   ui?: ModuleUI;
   // What this module LOADS when it is a rack, `extends` already merged in; absent for a plugin.
   rack?: Rack;
@@ -368,7 +374,7 @@ function sourceType(
 ): "audio" | "midi" | "video" | undefined {
   if (seqs?.[id]) return "midi";
   if (clips?.[id])
-    return isVideoSource(String(clips[id]?.source ?? "")) ? "video" : "audio";
+    return isPictureSource(String(clips[id]?.source ?? "")) ? "video" : "audio";
   const { node, port } = splitPort(id);
   if (lanes?.[node]) return trackType(lanes[node], port, clips, seqs);
   if (videoTracks?.[node]) return "video";
@@ -570,10 +576,20 @@ export function buildGraph(
         : undefined,
     // Which SHADER a shader node runs, inherited like `plugin` — see packages/song-video/docs/shaders.md.
     shader: typeof b?.shader === "string" && b.shader ? b.shader : undefined,
+    lut: typeof b?.lut === "string" && b.lut ? b.lut : undefined,
     // The shape a `shapes` module draws, and how it is painted — inherited like `plugin` (docs/shapes.md).
     shape: typeof b?.shape === "string" && b.shape ? b.shape : undefined,
     color: typeof b?.color === "string" && b.color ? b.color : undefined,
     font: typeof b?.font === "string" && b.font ? b.font : undefined,
+    align:
+      b?.align === "left" || b?.align === "center" || b?.align === "right"
+        ? b.align
+        : undefined,
+    background:
+      typeof b?.background === "string" && b.background
+        ? b.background
+        : undefined,
+    shadow: b?.shadow === true ? true : undefined,
     ui: resolvedUI(b),
     // Stamped on by the loader; re-validated here because a map read off a cached doc has not been through the schema.
     cc: resolvedCc(b),

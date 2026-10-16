@@ -163,9 +163,9 @@ The engine can still be driven by a client that never asks the registry at all â
 machine, or a paired device on the LAN. The claim is a policy at the server's doors; the engine
 itself accepts whatever arrives on a socket it trusts.
 
-Nor does a claim prove ownership: any signed-in account can read an engine's token through the
-relay's probe and claim it, displacing whoever held it, who is told (`tookOver`, the `409`). Closing that would mean the engine verifying a claim per session, which is a trust-model
-decision and belongs with the rest of them (`docs/audit-moteur.md`, section B).
+Nor does a claim decide WHO may claim: ownership does, before any of the rules above
+([ownership.md](ownership.md)). `select` answers `403 not-yours` to an account that neither owns
+the engine nor was shared it, and the three rules only arbitrate between accounts that may.
 
 It also says nothing about a tab that goes away. That is the other half, and it is the engine's:
 see `engine/k7-runtime/docs/sessions.md`.

@@ -34,7 +34,9 @@ async function registryWith(
   app.use(express.json());
   app.use(
     "/api",
-    engineRegistryRouter(reg, undefined, (l) => logged.push(l), gate),
+    engineRegistryRouter(reg, undefined, (l) => logged.push(l), {
+      heartbeat: gate,
+    }),
   );
   const server = app.listen(0);
   await new Promise<void>((r) => server.once("listening", () => r()));

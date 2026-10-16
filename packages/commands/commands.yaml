@@ -1573,6 +1573,74 @@
       { name: prop, values: [x, y, scale, opacity, rotate] },
       { name: when, hint: "the timeline time of the key — seconds or m:ss" },
     ]
+# A shot's SPEED, signed: the place and the length on the timeline stay, the source spent changes —
+# packages/song-video/docs/speed.md.
+- command: "picture speed"
+  sid: picture.speed
+  readable:
+    en: "Change a shot's speed"
+    fr: "Changer la vitesse d'un plan"
+  help: "retime a shot (e.g. picture speed main 4 0.5) — 2 double, 0.5 slow motion, 0 a freeze, -1 backwards, 1 its own pace"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: at, hint: "where the shot starts — seconds or m:ss" },
+      { name: factor, hint: "2 double, 0.5 half, 0 freeze, -1 backwards, 1 its own pace" },
+    ]
+# The files a browser cannot play, or cannot play fast enough, get copies it can: probed now,
+# transcoded in the background — packages/song-video/docs/media.md.
+- command: "picture prepare"
+  sid: picture.prepare
+  readable:
+    en: "Prepare a lane's footage"
+    fr: "Préparer les rushes d'une piste"
+  help: "make each shot's video playable (e.g. picture prepare main) — an optimized copy for codecs a browser cannot decode, a proxy for footage above 1080p"
+  surfaces: [cli, timeline]
+  args: [{ name: lane, complete: pictureLanes }]
+# The CUT for another editor — every lane as OpenTimelineIO, or one as a CMX 3600 EDL — written
+# into exports/ — packages/song-video/docs/interchange.md.
+- command: "picture interchange"
+  sid: picture.interchange
+  readable:
+    en: "Hand the cut to another editor"
+    fr: "Transmettre le montage à un autre logiciel"
+  help: "write the picture's cut for another editor (e.g. picture interchange otio) — otio carries every lane, edl one: the bottom lane unless named"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: format, values: [otio, edl] },
+      { name: lane, optional: true, complete: pictureLanes },
+    ]
+# …and a cut BACK from another editor: each video track of an .otio, or an .edl, as a new picture
+# lane, its media found by path then by name in clips/ — packages/song-video/docs/interchange.md.
+- command: "picture import"
+  sid: picture.import
+  readable:
+    en: "Bring in a cut from another editor"
+    fr: "Importer un montage d'un autre logiciel"
+  help: "read an .otio or an .edl into new picture lanes (e.g. picture import imports/cut.otio) — media found by path, then by name in clips/"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: file, hint: "an .otio or .edl inside the project, named from its folder" },
+      { name: prefix, optional: true, hint: "what the new lanes are called — import-1, import-2… unless said" },
+    ]
+# The picture rendered on the SERVER, with no browser left open — in the background, into exports/;
+# the words are `project export video`'s — packages/file-service/docs/serverRender.md.
+- command: "picture render"
+  sid: picture.render
+  readable:
+    en: "Render the picture on the server"
+    fr: "Rendre l'image sur le serveur"
+  help: "render the picture with no browser left open (e.g. picture render mp4 size=720p) — in the background, into exports/"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: format, optional: true, values: [webm, mp4] },
+      { name: sound, optional: true, values: [wav, none] },
+      { name: settings, optional: true, hint: "size=720p quality=high from=0:10 to=0:40" },
+    ]
 - command: "picture sound"
   sid: picture.sound
   readable:

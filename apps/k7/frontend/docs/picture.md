@@ -324,6 +324,9 @@ project export audio wav|mp3                   the mix, rendered by the engine
 project export video webm|mp4 [wav|mp3|none]   the picture, rendered here — the sound married in
 ```
 
+The same render runs on the SERVER as `picture render`, in a headless Chromium
+([packages/file-service/docs/serverRender.md](../../../../packages/file-service/docs/serverRender.md)).
+
 `exportScene` (`@studio/ui-eyes`) renders the viewport frame by frame into that container: the
 same compositor as in real time, but frame *n* is second *n/fps* and every source frame is pulled
 EXACTLY, so a song always renders the same picture.
@@ -354,3 +357,31 @@ and `exportScene` returns them beside the bytes, so the name and the contents ca
 The bare line `project export wav` is REFUSED rather than read as audio: the following word now
 says which half comes out, and accepting it would make `project export webm` a mixdown.
 [exportArgs.ts](../src/exportArgs.ts) is the reading, and its test is the list of shapes.
+
+### The render's settings are words on the line
+
+```
+project export video mp4 wav size=720p quality=max from=1:30 to=2:00
+```
+
+`size=` (`720p`, the width following the viewport's aspect, or `1280x720`), `quality=`
+(`low | medium | high | max`, mediabunny's presets, scaled by the codec to the size) and the
+range, `from=` / `to=`, in the picture's own spelling of time. Each is optional, and what a line
+leaves out is the viewport's size, `high`, and the whole song. A word this does not know, or a
+range running backwards, refuses the line rather than rendering something else.
+
+**A size is a SCALE, not a re-layout.** The frame is composited at the viewport's size and drawn
+into a canvas of the file's. Every rect, motion and shader is in viewport px, so rendering at
+another size directly would re-place what the project placed. The cost is that a size larger than
+the viewport is an upscale, not more detail.
+
+**A range starts the FILE at 0.** The frames are stamped from 0 whatever second they show, and the
+mixdown is cut to the same span (`sliceAudio`). A minute taken from 1:30 is a minute-long file
+whose first frame and first sample are both 1:30's.
+
+### …and the CUT goes to another editor, rather than a render
+
+`project export timeline otio|edl [lane]` runs `picture interchange`, which writes the cut into the
+project's `exports/cut.<ext>`, then downloads that file under the song's name. The path is fixed
+so the shell reads the file without being told where it went. What the formats carry, and what
+they cannot, is [packages/song-video/docs/interchange.md](../../../../packages/song-video/docs/interchange.md).

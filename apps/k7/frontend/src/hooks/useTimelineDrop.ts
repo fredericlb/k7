@@ -4,6 +4,7 @@
 // order that works — nothing is placed before everything it names is on disk. See
 // ../../docs/timeline.md.
 
+import { IMAGE_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
 import { useCallback, useState } from "react";
 import { fileClip } from "../clipFiles";
 import {
@@ -14,6 +15,9 @@ import {
   type TimelineDropEvent,
 } from "../timelineDrop";
 import type { SetStatus } from "./useLogs";
+
+/** How long a dropped still is placed for: it has no length of its own to run to. */
+const STILL_SECONDS = 5;
 
 export function useTimelineDrop(
   project: string,
@@ -99,18 +103,27 @@ export function useTimelineDrop(
 
       // 3. the placements — commands, so each is one journal entry and one Ctrl+Z.
       const kindOf = new Map(plan.declare.map((c) => [c.id, c.kind]));
+      const stills = new Set(
+        plan.declare
+          .filter((c) => IMAGE_SOURCE.test(c.upload))
+          .map((c) => c.id),
+      );
       for (const p of plan.place)
         await runCommand(
           kindOf.get(p.id) === "video"
-            ? `picture add ${p.lane} ${p.id} ${seconds}`
+            ? // A still has no length of its own, so it is placed with one: five seconds, trimmed like any shot.
+              `picture add ${p.lane} ${p.id} ${seconds}${stills.has(p.id) ? ` ${STILL_SECONDS}` : ""}`
             : `event add ${p.lane} ${p.id} ${tc}`,
         );
       // 4. …and a shot's SOUND, which the engine plays from an audio lane (packages/song/docs/videoSound.md).
       const pictured = plan.place
         .filter((p) => kindOf.get(p.id) === "video")
         .map((p) => p.lane);
-      for (const lane of new Set(pictured))
+      for (const lane of new Set(pictured)) {
         await runCommand(`picture sound ${lane}`);
+        // …and what a browser cannot play is given a copy it can, in the background (song-video/docs/media.md).
+        await runCommand(`picture prepare ${lane}`);
+      }
     },
     [project, runCommand, setStatus, bumpReload],
   );

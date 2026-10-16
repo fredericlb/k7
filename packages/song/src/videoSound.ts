@@ -16,6 +16,8 @@ interface Shot {
   start: number;
   end: number;
   sourceFrom: number;
+  /** How fast the source runs under the shot, signed — song-video docs/speed.md. */
+  speed: number;
   fadeIn: number;
   fadeOut: number;
 }
@@ -46,6 +48,7 @@ function shotsOf(events: readonly RawVideoPlacement[]): Shot[] {
       start,
       end,
       sourceFrom: Number(p.source_from ?? 0),
+      speed: Number.isFinite(Number(p.speed ?? 1)) ? Number(p.speed ?? 1) : 1,
       // A fade is clamped to its own shot, as the picture clamps it.
       fadeIn: Math.min(fadeOver(p.fade_in), span),
       fadeOut: Number.isFinite(end) ? Math.min(fadeOver(p.fade_out), span) : 0,
@@ -85,7 +88,8 @@ export function videoSoundClips(
   const out: ClipDoc[] = [];
   shots.forEach((s, i) => {
     const sound = clipsMap[s.ref]?.sound;
-    if (!sound) return;
+    // A freeze holds one frame and a reverse runs a clip backwards, which the engine cannot: both are silent (docs/videoSound.md).
+    if (!sound || !(s.speed > 0)) return;
     // A LATER shot covers this one once its own fade_in is done; during that fade the two cross.
     let spans: [number, number][] = [[s.start, s.end]];
     const crossAt = new Map<number, number>();
@@ -100,7 +104,7 @@ export function videoSoundClips(
       const fadeIn = a === s.start ? s.fadeIn : 0;
       // Ending where a later shot finishes fading in is that crossfade's outgoing half, as the incoming fade_in IS the transition.
       const fadeOut = crossAt.get(b) ?? (b === s.end ? s.fadeOut : 0);
-      const sourceFrom = s.sourceFrom + (a - s.start);
+      const sourceFrom = s.sourceFrom + (a - s.start) * s.speed;
       out.push({
         id: placementId(s.ref, a * bps),
         type: "audio",
@@ -111,7 +115,19 @@ export function videoSoundClips(
         length: open ? 0 : (b - a) * bps,
         offset: 0,
         ...(sourceFrom > 0 ? { sourceFrom } : {}),
-        ...(open ? {} : { sourceTo: sourceFrom + (b - a) }),
+        ...(open ? {} : { sourceTo: sourceFrom + (b - a) * s.speed }),
+        // A retimed shot's sound is RESAMPLED, as a tape would be: one second of song takes `speed` seconds of source.
+        ...(s.speed !== 1
+          ? {
+              warp: {
+                algorithm: "varispeed",
+                markers: [
+                  [0, sourceFrom],
+                  [bps, sourceFrom + s.speed],
+                ] as [number, number][],
+              },
+            }
+          : {}),
         fadeIn: fadeIn * bps,
         fadeOut: fadeOut * bps,
         loopStart: 0,

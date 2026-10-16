@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "Tls.h"
+#include "TrustRoots.h"
 #include "test_harness.h"
 
 namespace {
@@ -24,9 +25,18 @@ void closingOneSocketKeepsTheProcessCryptoUp()
     CHECK(psa_generate_random(bytes, sizeof bytes) == PSA_SUCCESS);
 }
 
+// Filtering the OS stores by their trust settings must still leave the system's own roots.
+void theSystemRootsSurviveTheTrustFilter()
+{
+#if defined(__APPLE__)
+    CHECK(k7::tls::rootCount() > 50);
+#endif
+}
+
 }  // namespace
 
 void runTlsTests()
 {
     RUN(closingOneSocketKeepsTheProcessCryptoUp);
+    RUN(theSystemRootsSurviveTheTrustFilter);
 }

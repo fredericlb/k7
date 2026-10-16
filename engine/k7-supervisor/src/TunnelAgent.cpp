@@ -9,6 +9,7 @@
 #include "TrustRoots.h"
 #include "TunnelFiles.h"
 #include "TunnelFrames.h"
+#include "Url.h"
 
 #include <ixwebsocket/IXWebSocket.h>
 
@@ -19,6 +20,7 @@
 #include <random>
 #include <regex>
 #include <thread>
+#include <utility>
 
 namespace k7::tunnel {
 
@@ -133,6 +135,11 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
     void life()
     {
         auto self = shared_from_this();
+        // The handshake carries the token and the tunnel secret, so a plain ws past loopback is never dialled.
+        if (const auto why = url::plaintextRefusal(opts.registryUrl); !why.empty()) {
+            opts.log("tunnel not dialled: " + why);
+            return;
+        }
         std::mt19937 rng{std::random_device{}()};
         while (true) {
             auto sock = std::make_shared<ix::WebSocket>();
@@ -304,10 +311,13 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
         c->jobs = kind == "jobs";
         c->synced = synced;
         if (!mapped.empty()) c->map = std::make_unique<PathMap>(mapped, files.forChannel(ch), ledger, opts.log);
+        std::shared_ptr<Channel> previous;
         {
             std::lock_guard lock(mutex);
-            channels[ch] = c;
+            previous = std::exchange(channels[ch], c);
         }
+        // A reused id replaces its channel, whose engine socket would otherwise stay open with nothing to reap it.
+        if (previous) previous->shut();
         if (c->jobs) {
             tell({{"t", "opened"}, {"ch", ch}});
             return;

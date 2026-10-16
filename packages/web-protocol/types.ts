@@ -470,6 +470,12 @@ export interface WebVideoClip {
   id: string;
   name: string;
   src: string; // workspace-relative media path
+  /** A browser-decodable copy at full resolution, read instead of `src` by preview and export (song-video/docs/media.md). */
+  optimized?: string;
+  /** …and a small one for the preview alone. */
+  proxy?: string;
+  /** An IMAGE, held while the shot is on (song-video/docs/media.md). */
+  still?: true;
   start: number; // seconds
   length: number; // seconds (0 == natural)
   sourceFrom: number; // seconds into the source
@@ -477,6 +483,23 @@ export interface WebVideoClip {
   fadeOut?: WebVideoFade;
   /** How the shot moves in its lane's frame: each property's keys, sorted, in seconds from its start (song-video/docs/animation.md). */
   animate?: WebVideoAnimate;
+  /** How fast the source runs under the shot, signed; absent is 1 (song-video/docs/speed.md). */
+  speed?: number;
+  /** The run this shot alone goes through, by head node — a key of `stretches` (song-video/docs/effects.md). */
+  effect?: string;
+  /** A subtitle clip's cues and style (mirrors CaptionsDoc, song-video/docs/titles.md). */
+  captions?: {
+    cues: { start: number; end: number; text: string }[];
+    style: {
+      font?: string;
+      fontSize?: number;
+      color?: string;
+      background?: string;
+      align?: "left" | "center" | "right";
+      position?: "bottom" | "top" | "middle";
+      margin?: number;
+    };
+  };
 }
 /** One keyframe as the compile normalised it; `ease` shapes the segment LEAVING it. */
 export interface WebVideoKey {
@@ -532,6 +555,11 @@ export type WebShape =
       y: number;
       w?: number;
       color: string;
+      align?: "left" | "center" | "right"; // how its lines sit in `w`, or about `x` with none
+      background?: string; // a box behind the lines, any CSS colour
+      shadow?: boolean; // a soft shadow under the glyphs, for text over a picture
+      lineHeight?: number; // a multiple of the font size; 1.2 unsaid
+      padding?: number; // px between the lines and their box
     };
 /** One pass over the picture (mirrors VideoPluginDoc); its GLSL rides inline and `audioFrom` names a lane — see docs/document.md. */
 export interface WebVideoPlugin {
@@ -543,6 +571,8 @@ export interface WebVideoPlugin {
   params: Record<string, number>;
   shader?: { name: string; vertex: string; fragment: string };
   audioFrom?: string;
+  /** The `.cube` LUT the shader reads, workspace-relative (song-video/docs/effects.md). */
+  lut?: string;
 }
 // A video-mode lane (mirrors VideoTrackDoc): places picture, shows a lens, or draws the `shapes`
 // wired to it. In draw order (bottom first).
@@ -1043,7 +1073,14 @@ export interface PublicEngine {
   rtc?: boolean;
   /** The server's own engine: its tunnel presented the render key — packages/engine-tunnel/docs/jobs.md. */
   server?: boolean;
+  /** What the asking account is to it — packages/engine-registry/docs/ownership.md; absent from an older registry. */
+  access?: EngineAccessRole;
+  /** For `shared`: the account that shared it. */
+  ownedBy?: string;
 }
+
+/** `owner` enrolled it, `shared` was given it, `server` is the deployment's own, `unowned` waits for its first direct open. */
+export type EngineAccessRole = "owner" | "shared" | "server" | "unowned";
 
 // How good a link is — Q1/Q2/Q3, off a measured latency — lives in ./quality; see docs/quality.md.
 // How capable the machine behind it is — one integer, 1000 the reference — lives in ./performance.

@@ -27,7 +27,7 @@ import { parse as parseYaml } from "yaml";
 import { isChainProject } from "./chainProject";
 import { confineToProject } from "./confine";
 import { assembleFolder, isFolderProject } from "./folder";
-import { exportSub, isVideoSource } from "./loader";
+import { exportSub, isPictureSource } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 import type { AssembledClip, AssembledDoc } from "./rawDoc";
 import { isDocName, wsExists, wsRead, yamlRetired } from "./yaml/workspaceFile";
@@ -327,7 +327,7 @@ export function loadAudioClipDoc(
 ): ClipDoc | null {
   if (!isFolderProject(dir)) return null;
   const def = exportSub(dir, "clips")?.[id];
-  if (!def?.source || isVideoSource(String(def.source))) return null;
+  if (!def?.source || isPictureSource(String(def.source))) return null;
   return mapClip({ id, ...def }, dir, `'${id}'`, grid);
 }
 

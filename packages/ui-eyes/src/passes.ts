@@ -17,6 +17,8 @@ export const PASS_UNIFORMS = [
   "uP2",
   "uP3",
   "uP4",
+  "uLut", // sampler3D — the node's `.cube` LUT, on unit 2; read only when uLutSize is above 0
+  "uLutSize", // float — the LUT's edge, 0 while it loads or when the node names none (docs/luts.md)
 ] as const;
 
 /** The uniforms a TRANSITION may rely on — its OWN contract, two inputs being a different shape. */
@@ -163,6 +165,8 @@ export function drawPass(
   timeSec: number,
   /** 1 outside a stretch, so a stretch's module run as an ordinary lane effect is the shot whole. */
   presence = 1,
+  /** The pass's LUT once it is on the GPU; absent, `uLutSize` is 0 and the shader lets its picture through. */
+  lut?: { tex: WebGLTexture; size: number } | null,
 ): void {
   // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook — the rule misfires on the `use` prefix.
   gl.useProgram(p.prog);
@@ -174,6 +178,13 @@ export function drawPass(
     gl.uniform2f(p.loc.uResolution, resolution[0], resolution[1]);
   for (const k of ["uP1", "uP2", "uP3", "uP4"] as const)
     if (p.loc[k] != null) gl.uniform1f(p.loc[k], pass.params[k.slice(1)] ?? 0);
+  if (p.loc.uLutSize != null) gl.uniform1f(p.loc.uLutSize, lut ? lut.size : 0);
+  if (lut && p.loc.uLut != null) {
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_3D, lut.tex);
+    gl.uniform1i(p.loc.uLut, 2);
+    gl.activeTexture(gl.TEXTURE0);
+  }
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
 

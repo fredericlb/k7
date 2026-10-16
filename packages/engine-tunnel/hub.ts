@@ -69,6 +69,8 @@ export class TunnelHub {
   private readonly locals = new Map<string, LocalBinding>();
   /** The engines whose tunnel presented the render key, most recent last. */
   private readonly renderers = new Set<string>();
+  /** The same engines, kept while their tunnel is down: the server role must outlive a drop. */
+  private readonly rendered = new Set<string>();
   private readonly wss = new WebSocketServer({
     noServer: true,
     maxPayload: MAX_FRAME_BYTES,
@@ -151,9 +153,9 @@ export class TunnelHub {
     return last;
   }
 
-  /** Whether engine `id` has a tunnel up that presented the render key: the server's own engine. */
+  /** Whether engine `id`'s last tunnel presented the render key, up or not: the server's own engine — docs/jobs.md. */
   isRenderer(id: string): boolean {
-    return this.renderers.has(id) && this.tunnels.has(id);
+    return this.rendered.has(id);
   }
 
   /** A loopback jobs path to the render machine, resolved when a client connects, so it outlives the machine's restarts. */
@@ -249,6 +251,8 @@ export class TunnelHub {
       // Re-added, so the newest render machine is the one a render reaches.
       this.renderers.delete(id);
       if (renders) this.renderers.add(id);
+      if (renders) this.rendered.add(id);
+      else this.rendered.delete(id);
       this.log(`${id} up${renders ? " (render machine)" : ""}`);
       ws.on("close", () => {
         t.shutdown();

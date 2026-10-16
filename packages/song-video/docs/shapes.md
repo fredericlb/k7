@@ -90,8 +90,9 @@ built. `content`, `font` and `color` are strings, which no knob can be.
 its colour. One key, read according to what the module IS — the same rule that lets `frame:` mean
 a camera's rectangle and nothing at all on anything else.
 
-On a text, `w` is a **maximum width** the glyphs condense into rather than wrap at, so a `w: 0`
-has to stay absent: a width of nothing would mean a title squeezed to a line.
+On a text, `w` is the width its lines **wrap** in, a word wider than it being condensed to fit, so
+a `w: 0` has to stay absent: a width of nothing would mean a column of single words. How a text is
+set, and captions beside it, is [titles.md](titles.md).
 
 ## Where it lands, and what happens when it lands nowhere
 

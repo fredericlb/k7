@@ -1,0 +1,6 @@
+// A LUT has one knob worth turning: how much of it is laid over the picture.
+cols(1)
+rows(1)
+widgets({
+  strength: { type: "knob", col: 0, row: 0, bind: "P1", min: 0, max: 1, step: 0.01 },
+})

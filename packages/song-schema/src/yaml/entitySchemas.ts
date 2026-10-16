@@ -20,6 +20,19 @@ export const WarpSchema = z
 /** A clip is PICTURE when its source ends in one of these — the whole reason a clip file can say only `source:`. */
 export const VIDEO_SOURCE = /\.(mp4|mov|m4v|webm|mkv)$/i;
 
+/** …and a STILL when it ends in one of these: a picture with no time of its own (song-video docs/media.md). */
+export const IMAGE_SOURCE = /\.(png|jpe?g|webp|gif|avif)$/i;
+
+/** …and CAPTIONS when it is a subtitle file: timed text, drawn on a picture lane (song-video docs/titles.md). */
+export const CAPTION_SOURCE = /\.(srt|vtt)$/i;
+
+/** How text is set — the words a text shape and a captions clip share. */
+export const TEXT_ALIGNS = ["left", "center", "right"] as const;
+
+/** Either kind of picture source, which is what tells a picture clip from an audio one. */
+export const isPictureSource = (s: string): boolean =>
+  VIDEO_SOURCE.test(s) || IMAGE_SOURCE.test(s);
+
 /** `from`/`to` window the SOURCE FILE, in seconds or as a timecode — see docs/entityFiles.md. */
 const WindowEdge = z.union([
   z.number().min(0), // seconds
@@ -52,17 +65,43 @@ export const AudioClipSchema = z
 
 export const VideoClipSchema = z
   .object({
-    source: z.string().regex(VIDEO_SOURCE),
+    source: z
+      .string()
+      .refine(isPictureSource, "expected a video or an image file"),
     // The file's sound, extracted once into an audio file the engine reads on every platform (packages/song/docs/videoSound.md).
     sound: z
       .string()
       .refine((s) => !VIDEO_SOURCE.test(s), "a sound is an audio file")
       .optional(),
+    // A full-resolution copy every browser DECODES, made when the source is not — preview AND export read it (song-video docs/media.md).
+    optimized: z.string().optional(),
+    // …and a small one to PREVIEW, made when the source is heavier than a lane can decode in time; export never reads it.
+    proxy: z.string().optional(),
   })
   .strict();
 
-// Audio or video, told apart by the source's EXTENSION, which lets a clip file say only `source:`.
-export const ClipSchema = z.union([VideoClipSchema, AudioClipSchema]);
+/** A subtitle file placed on a picture lane, and how its cues are set — every field optional, the defaults a broadcast's. */
+export const CaptionClipSchema = z
+  .object({
+    source: z.string().regex(CAPTION_SOURCE),
+    font: z.string().optional(), // a CSS family
+    font_size: z.number().positive().optional(), // px of the viewport
+    color: z.string().optional(),
+    // A box behind each cue, any CSS colour; absent, the text carries a shadow instead.
+    background: z.string().optional(),
+    align: z.enum(TEXT_ALIGNS).optional(),
+    // Where the block sits, and how far from that edge, in px.
+    position: z.enum(["bottom", "top", "middle"]).optional(),
+    margin: z.number().min(0).optional(),
+  })
+  .strict();
+
+// Audio, video or captions, told apart by the source's EXTENSION, which lets a clip file say only `source:`.
+export const ClipSchema = z.union([
+  VideoClipSchema,
+  CaptionClipSchema,
+  AudioClipSchema,
+]);
 
 /** One note — and, on a step sequencer, one PAD, which is why two effects live here (docs/padEffects.md). */
 export const NoteSchema = z
@@ -248,16 +287,35 @@ export const VideoPlacementSchema = z
     fade_out: TransitionSchema.optional(),
     // How the shot MOVES inside its lane's frame, in seconds from its own start — song-video docs/animation.md.
     animate: AnimateSchema.optional(),
+    // How fast the SOURCE runs under the shot: 2 is double, 0 a freeze, -1 backwards from `source_from` — song-video docs/speed.md.
+    speed: z.number().finite().optional(),
+    // The head node of a run fed by nothing landing on this lane, run on THIS shot for as long as it is on — song-video docs/effects.md.
+    effect: z.string().min(1).optional(),
   })
   .strict()
   // Three keys that need a source, on an event that has none: each would be read by nothing.
   .superRefine((p, ctx) => {
+    // Backwards from `source_from` reaches the source's first frame after source_from/|speed| seconds.
+    const speed = p.speed ?? 1;
+    if (p.ref && speed < 0 && (p.length ?? 0) > 0)
+      if ((p.source_from ?? 0) + (p.length ?? 0) * speed < -5e-4)
+        ctx.addIssue({
+          code: "custom",
+          message: `backwards at ${-speed}× from ${p.source_from ?? 0}s, this shot runs out of source after ${((p.source_from ?? 0) / -speed).toFixed(3)}s — shorten it, or start it later in its source`,
+          path: ["length"],
+        });
     if (p.ref) return;
-    for (const key of ["source_from", "fade_in", "fade_out"] as const)
+    for (const key of [
+      "source_from",
+      "fade_in",
+      "fade_out",
+      "speed",
+      "effect",
+    ] as const)
       if (p[key] != null)
         ctx.addIssue({
           code: "custom",
-          message: `an event with no \`ref\` is an ACTIVATION — it says WHEN this lane is on, and has no source to ${key === "source_from" ? "trim" : "fade"}`,
+          message: `an event with no \`ref\` is an ACTIVATION — it says WHEN this lane is on, and has no source to ${key === "source_from" ? "trim" : key === "speed" ? "run" : key === "effect" ? "grade" : "fade"}`,
           path: [key],
         });
   });

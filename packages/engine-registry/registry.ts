@@ -15,6 +15,7 @@ import {
 import type { EnginePerformance } from "@studio/web-protocol/performance";
 import { claimSlot } from "@studio/web-protocol/projects";
 import { createBindings, type SecretBindings } from "./bindings.ts";
+import { createOwners, type EngineOwners } from "./owners.ts";
 
 /** No heartbeat for this long ⇒ the engine is presumed gone. (Beats every ~5s.) */
 export const REGISTRY_TTL_MS = 15000;
@@ -71,6 +72,8 @@ export type UpsertResult =
 export interface RegistryOptions {
   /** Where the id → secret bindings live; in memory alone when absent. */
   bindings?: SecretBindings;
+  /** Which account owns each id — docs/ownership.md; in memory alone when absent. */
+  owners?: EngineOwners;
   maxEngines?: number;
   newIdsPerIpPerMinute?: number;
 }
@@ -103,6 +106,8 @@ export type ClaimResult =
     };
 
 export interface EngineRegistry {
+  /** Whose each engine is, and whom it is shared with — docs/ownership.md. */
+  owners: EngineOwners;
   upsert(input: HeartbeatInput): UpsertResult;
   get(id: string): EngineEntry | undefined;
   verifyToken(id: string, token: string): boolean;
@@ -114,6 +119,8 @@ export interface EngineRegistry {
   release(id: string, secret: string): void;
   /** Whether account `holder` holds a live claim on engine `id` — what lets a server route reach that engine for it. */
   holds(id: string, holder: string): boolean;
+  /** Drop every claim on `id` whose account `keep` refuses — an owner changed, a share withdrawn. */
+  evict(id: string, keep: (holder: string) => boolean): void;
   /** Which engine is driving this project right now, or undefined. */
   engineForProject(project: string): string | undefined;
   /** The browser's list; `viewer` is the asking account, the only one whose claims it names. */
@@ -124,6 +131,7 @@ export interface EngineRegistry {
 export function createRegistry(opts: RegistryOptions = {}): EngineRegistry {
   const engines = new Map<string, EngineEntry>();
   const bindings = opts.bindings ?? createBindings();
+  const owners = opts.owners ?? createOwners();
   const maxEngines = opts.maxEngines ?? MAX_ENGINES;
   const perIp = opts.newIdsPerIpPerMinute ?? NEW_IDS_PER_IP_PER_MINUTE;
   /** New ids per source address in the current minute. */
@@ -189,6 +197,8 @@ export function createRegistry(opts: RegistryOptions = {}): EngineRegistry {
     [...engines.values()].filter((e) => now - e.seen < REGISTRY_TTL_MS);
 
   return {
+    owners,
+
     /** Record a heartbeat under the bindings' rule, pinning an unbound id's token on first sight — docs/token.md. */
     upsert(input) {
       const existing = get(input.id);
@@ -324,6 +334,13 @@ export function createRegistry(opts: RegistryOptions = {}): EngineRegistry {
     holds(id, holder) {
       const e = get(id);
       return !!e && !!holder && holdersOf(e).some((h) => h.holder === holder);
+    },
+
+    evict(id, keep) {
+      const e = get(id);
+      if (!e) return;
+      for (const [secret, h] of e.holders)
+        if (!keep(h.holder)) e.holders.delete(secret);
     },
 
     engineForProject(project) {

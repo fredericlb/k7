@@ -8,7 +8,7 @@ import { api } from "./api";
 import { type ArgOption, optionsFromCompletions } from "./argOptions";
 import type { PaletteArg, PaletteCommand } from "./components/CommandBar";
 // Everything whose ONLY effect is on the shell lives under `ui` — not 'writes no file': a pin and a language are remembered, which is not editing a song.
-import { MIX_FORMATS, VIDEO_FORMATS } from "./exportArgs";
+import { MIX_FORMATS, TIMELINE_FORMATS, VIDEO_FORMATS } from "./exportArgs";
 import { fuzzyScore } from "./fuzzy";
 import { MAX_RECENT } from "./recentCommands";
 import { ROLL_MODES } from "./rollMode";
@@ -422,8 +422,8 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     fr: "Baisser les tranches pour rentrer le dernier passage",
   },
   "project export": {
-    en: "Render the mixdown or the picture, and download it",
-    fr: "Rendre le mixage ou l'image, et le télécharger",
+    en: "Download the mixdown, the picture, or the cut",
+    fr: "Télécharger le mixage, l'image ou le montage",
   },
   "project share k7": {
     en: "Publish this song to k7",
@@ -523,8 +523,12 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   "ui language": [{ name: "language", kind: "choice", hint: "en · fr" }],
   // Which HALF leaves first, then its format — and for a video, the sound married into it.
   "project export": [
-    { name: "what", kind: "choice", hint: "audio · video" },
-    { name: "format", kind: "choice", hint: "wav · mp3 · webm · mp4" },
+    { name: "what", kind: "choice", hint: "audio · video · timeline" },
+    {
+      name: "format",
+      kind: "choice",
+      hint: "wav · mp3 · webm · mp4 · otio · edl",
+    },
     {
       name: "sound",
       kind: "choice",
@@ -720,11 +724,15 @@ export function makeListArg(shell: {
     if (canonical === "ui roll" && first) return [...ROLL_MODES];
     if (canonical === "ui language" && first) return shell.locales();
     if (canonical === "project export") {
-      if (first) return ["audio", "video"];
+      if (first) return ["audio", "video", "timeline"];
       // The format offered depends on the half: only a video has a container, and only a video
-      // takes a third word at all.
+      // takes a third word at all; the cut takes an interchange format.
       if (priorArgs.length === 1)
-        return priorArgs[0] === "video" ? [...VIDEO_FORMATS] : [...MIX_FORMATS];
+        return priorArgs[0] === "video"
+          ? [...VIDEO_FORMATS]
+          : priorArgs[0] === "timeline"
+            ? [...TIMELINE_FORMATS]
+            : [...MIX_FORMATS];
       if (priorArgs.length === 2 && priorArgs[0] === "video")
         return [...MIX_FORMATS, "none"];
       return [];

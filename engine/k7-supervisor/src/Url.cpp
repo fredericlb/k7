@@ -200,6 +200,30 @@ std::string engineRegistryUrl(const std::string& raw)
     return serviceUrl(u->origin(), "k7");
 }
 
+std::string plaintextRefusal(const std::string& raw, const std::string& allowlist)
+{
+    const auto u = parse(raw);
+    if (!u) return raw + " is not a web address";
+    if (u->scheme == "https" || u->scheme == "wss") return "";
+    if (u->scheme != "http" && u->scheme != "ws") return raw + " is not an http(s) address";
+    if (isLoopbackHost(u->hostname)) return "";
+    for (size_t start = 0; start <= allowlist.size();) {
+        const size_t comma = allowlist.find(',', start);
+        const std::string entry = lower(trim(allowlist.substr(start, comma == std::string::npos ? std::string::npos : comma - start)));
+        if (!entry.empty() && (entry == u->hostname || entry == u->host())) return "";
+        if (comma == std::string::npos) break;
+        start = comma + 1;
+    }
+    return u->origin() + " is plain http and not loopback: refused, since the engine's token would cross in clear " +
+           "(use https, or name the host in STUDIO_INSECURE_REGISTRIES)";
+}
+
+std::string plaintextRefusal(const std::string& raw)
+{
+    const char* env = std::getenv("STUDIO_INSECURE_REGISTRIES");
+    return plaintextRefusal(raw, env ? env : "");
+}
+
 std::optional<std::string> normaliseUserOrigin(const std::string& input)
 {
     const std::string raw = trim(input);

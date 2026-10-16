@@ -43,6 +43,9 @@ RUN --mount=type=cache,target=/root/.npm npm ci --workspace k7-backend --omit=de
 FROM node:22-alpine AS runtime
 # yt-dlp/ffmpeg: media imports and a take's envelope and instrumental; mpv: packages/mpv-player/docs/mpvPlayer.md.
 RUN apk add --no-cache yt-dlp ffmpeg mpv
+# chromium and its fonts: `picture render`, the picture drawn headless (packages/file-service/docs/serverRender.md).
+RUN apk add --no-cache chromium font-noto ttf-freefont
+ENV STUDIO_CHROMIUM=/usr/bin/chromium-browser
 # Before the VOLUME lines, which freeze them: a fresh volume copies this owner (docs/images.md).
 RUN mkdir -p /data /library /workspaces /rehearsal-data \
  && chown node:node /data /library /workspaces /rehearsal-data

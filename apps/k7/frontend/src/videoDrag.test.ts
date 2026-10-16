@@ -49,6 +49,24 @@ describe("moving a shot", () => {
   });
 });
 
+describe("trimming the head of a retimed shot", () => {
+  const head = (over = {}) => shot({ mode: "in" as const, ...over });
+
+  it("moves the in-point at the shot's SPEED, so the frame under the edge stays", () => {
+    const v = full({ ...head({ speed: 2 }), start: 5, length: 5 });
+    expect(videoDragEdits(v)).toContainEqual({
+      index: 2,
+      field: "source_from",
+      value: 4,
+    });
+  });
+
+  it("stops forwards at the source's first frame, reached sooner at 2×", () => {
+    // origFrom 2 at 2× is one second of timeline before the head.
+    expect(videoDragTo(head({ speed: 2 }), -10, free).start).toBe(3);
+  });
+});
+
 describe("trimming the head", () => {
   const head = (over = {}) => shot({ mode: "in" as const, ...over });
 

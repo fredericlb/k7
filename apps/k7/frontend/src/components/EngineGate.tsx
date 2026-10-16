@@ -209,7 +209,9 @@ export function EngineGate({
         title={
           phase.why === "engine"
             ? m["project.engineTakenTitle"]()
-            : m["project.takenTitle"]()
+            : phase.why === "refused"
+              ? m["project.notYoursTitle"]()
+              : m["project.takenTitle"]()
         }
         // One wording per REASON: opening a DIFFERENT project on the same engine displaces this one, and the honest advice is the opposite.
         body={(heldBy) =>
@@ -217,9 +219,11 @@ export function EngineGate({
             ? m["project.engineTakenBody"]({
                 project: phase.tookFor ?? m["project.anotherProject"](),
               })
-            : heldBy
-              ? m["project.takenBody"]({ heldBy })
-              : m["project.takenBodyAnon"]()
+            : phase.why === "refused"
+              ? m["project.notYoursBody"]()
+              : heldBy
+                ? m["project.takenBody"]({ heldBy })
+                : m["project.takenBodyAnon"]()
         }
         back={m["project.backToProjects"]()}
         onBack={() => {

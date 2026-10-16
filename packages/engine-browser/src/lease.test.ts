@@ -102,6 +102,18 @@ describe("holdEngine", () => {
     });
   });
 
+  it("stops for good, without retrying, when the engine is another account's", async () => {
+    const a = api([new ClaimLost("", "refused")]);
+    const onLost = vi.fn();
+    holdEngine(a, "e1", "tok", 3, { project: "songs/first", onLost });
+    await vi.advanceTimersByTimeAsync(ENGINE_ASSIGN_RENEW_MS * 2 + 1);
+    expect(onLost).toHaveBeenCalledWith("", {
+      reason: "refused",
+      tookFor: null,
+    });
+    expect(a.calls).toHaveLength(1);
+  });
+
   it("keeps renewing through a network miss — only a 409 is an answer", async () => {
     const a = api(["s1", new Error("offline")]);
     const onLost = vi.fn();

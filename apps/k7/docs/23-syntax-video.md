@@ -83,6 +83,105 @@ the same frames.
 From the command bar, `picture key main 4 scale 10 1.2 inout` sets a key on the shot starting at
 4 s, at 10 s on the timeline. `picture unkey main 4 scale 10` removes it.
 
+## Footage a browser cannot play, and stills
+
+Phones and cameras write video a browser cannot always play: HEVC, ProRes, 10-bit footage. 4K plays,
+but slowly enough to hold a lane behind the music. `picture prepare main` looks at each shot on the
+lane and, in the background, makes what it needs:
+
+```yaml schema=Clip
+# clips/interview.yaml
+source: clips/interview.mov                 # what the camera wrote
+optimized: clips/interview.optimized.mp4    # full size, playable — the preview and the export use it
+proxy: clips/interview.proxy.mp4            # small — the preview only
+```
+
+The copies appear on their own once they are written. Dropping footage on a picture lane runs it
+for you. An export never uses a proxy, so the file you render keeps the source's resolution. If it
+meets a file the browser cannot read, it says which one, before it starts.
+
+An image (`png`, `jpg`, `webp`…) is a shot too: drop it on a picture lane and it is placed for
+five seconds, held still. Give it `scale` and `x` keys for a slow push across a photograph.
+
+## Speed, freeze and reverse
+
+```yaml schema=VideoTrack
+events:
+  - { ref: run,   start: 0, length: 4, speed: 0.5 }                 # slow motion
+  - { ref: face,  start: 4, length: 3, speed: 0 }                   # held on its first frame
+  - { ref: glass, start: 7, length: 2, source_from: 5, speed: -1 }  # backwards from 5 s
+```
+
+`speed` is how fast the source runs under the shot: `2` is double, `0.5` half, `0` freezes on
+`source_from`, and a negative speed runs **backwards from** `source_from`. The shot keeps its place
+and its length; what changes is how much of the source it uses. The timeline labels a retimed
+shot `×0.5`, or `freeze`. From the command bar: `picture speed main 0 0.5`.
+
+Its sound follows at the same speed, with the pitch moving like a tape's. A reversed or frozen
+shot is silent. The preview steps a reversed shot frame by frame, so it plays choppier there than
+in the export.
+
+## Exporting
+
+`project export video mp4` renders the picture with the song's sound. Add words to change the
+render: `size=720p` (or `size=1280x720`), `quality=low`, `medium`, `high` or `max`, and a range,
+`from=1:30 to=2:00`. A range gives a file that starts at that moment.
+
+`picture render` makes the same file without keeping a browser open: the server renders it in
+the background and puts it in `exports/`, so you can close the tab and come back. It takes the
+same words — `picture render mp4 size=720p from=1:30 to=2:00`, or `none` for a silent film. It
+is slower than the browser, and WebM is the safe choice there: the server may have no MP4
+encoder. A camera lane renders nothing, since there is no live picture to take.
+
+`project export timeline otio` hands the **cut** to another editor instead: every picture lane as
+an OpenTimelineIO timeline, which DaVinci Resolve opens and `otioconvert` turns into Final Cut,
+Premiere or Avid formats. `project export timeline edl main` writes one lane as an EDL, which
+every editor reads. Both name your original camera files, and both carry the shots, the gaps,
+the dissolves and the speeds. Moves, picture-in-picture positions, shaders and the shots' sound
+stay here.
+
+A cut can come back the same way. Put the `.otio` or `.edl` in the project (an `imports/` folder
+is a good home) and run `picture import imports/cut.otio`: each video track becomes a new picture
+lane, `import-1`, `import-2` and so on, laid over the lanes you already have. Its media is
+found by the path the file gives, then by name in `clips/`. Anything missing is still placed, and
+the command lists what to copy into `clips/`. Dissolves come back as fades, and speeds as speeds.
+Audio tracks are left out: run `picture sound import-1` to get each shot's own sound.
+
+## Grading a shot, and LUTs
+
+Two shaders come with every workspace: `@k7-core/shaders/grade` (exposure, contrast, saturation,
+temperature, each neutral at its middle) and `@k7-core/shaders/look` (a `.cube` LUT, with a strength
+knob). Wire one onto a lane and it grades the whole lane. To grade a single shot, give it a node of
+its own that nothing feeds, landing on the lane, and name that node on the shot:
+
+```yaml schema=Module
+# nodes/warm.yaml
+extends: "@k7-core/shaders/grade"
+params: { P4: 0.7 }                # a touch warmer
+```
+
+```yaml schema=Module
+# nodes/film.yaml
+extends: "@k7-core/shaders/look"
+lut: looks/film.cube               # a LUT from your colourist, in the project
+```
+
+```yaml schema=GraphFile
+modules:
+  warm: [main]
+  film: [main]
+```
+
+```yaml schema=VideoTrack
+events:
+  - { ref: interview, start: 0, length: 6, effect: warm }
+  - { ref: street, start: 6, length: 4, effect: film }
+```
+
+A shot's effect is applied to the picture as it was filmed, before it moves or crosses into the
+next shot. Several shots naming the same node share its settings, so a scene graded together stays
+together.
+
 ## A shot's sound
 
 The picture lane plays no sound. The **engine** plays it, from an ordinary audio lane that names
@@ -155,3 +254,46 @@ events:
 
 A lane stating no event at all shows its shapes throughout. `source_from` and the two fades are
 refused here — there is no source to trim and no picture to cross into.
+
+### Titles: several lines, a box, a shadow
+
+A text's `content` keeps its line breaks, and with a `w` its words wrap inside that width.
+`align` sets each line left, centred or right in it; `background` puts a box behind the lines and
+`padding` the room around them; `shadow: true` lifts the text off a busy picture. That is a lower
+third:
+
+```yaml schema=Module
+# modules/shapes/lower_third/module.yaml
+type: shape
+shape: text
+content: "Ada Lovelace\nAnalyst"
+align: left
+background: "rgba(0, 0, 0, 0.6)"
+shadow: true
+params: { x: 80, y: 560, w: 520, font_size: 40, line_height: 1.2, padding: 14 }
+```
+
+To fade it in, give its activation an `animate:` with `opacity` keys (see Moving a shot).
+
+### Subtitles: an `.srt` or `.vtt` file is a clip
+
+Drop a subtitle file on a picture lane of its own and its cues show at their times, from where you
+placed it. Its look is set on its clip file:
+
+```yaml schema=Clip
+# clips/subs.yaml
+source: clips/subs.srt
+font: sans-serif
+font_size: 36
+color: "#ffffff"
+background: "rgba(0, 0, 0, 0.6)"
+align: center
+position: bottom   # bottom, top or middle
+margin: 40         # px from that edge
+```
+
+Everything but `source` is optional: unsaid, captions are white, centred near the bottom, with a
+shadow instead of a box. Move the placement to slide every cue together, as you would a shot. A
+cue the file gets wrong is named in the picture's warnings rather than skipped quietly. Captions
+are drawn into the picture, so an export carries them, and they are left out of a cut handed to
+another editor, since the `.srt` itself is what that editor takes.

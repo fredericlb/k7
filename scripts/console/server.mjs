@@ -14,6 +14,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pty from "node-pty";
 import { WebSocketServer } from "ws";
+import { allowedOrigins, originAllowed } from "./origin.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -232,8 +233,17 @@ const http = createServer((req, res) => {
   }
 });
 
+const ORIGINS = allowedOrigins(PORT, process.env.STUDIO_CONSOLE_ORIGINS);
 const wss = new WebSocketServer({ server: http, path: "/ws" });
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
+  // Another site open in a browser on the LAN must not drive these shells (origin.mjs).
+  if (!originAllowed(req.headers.origin, ORIGINS)) {
+    console.error(
+      `console: refused a socket from origin ${req.headers.origin}`,
+    );
+    ws.close(1008, "origin not allowed");
+    return;
+  }
   clients.add(ws);
   send(ws, tabsMsg()); // the client picks a tab and asks to attach
   ws.on("message", (raw) => {

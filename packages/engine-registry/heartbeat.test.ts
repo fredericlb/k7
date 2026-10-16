@@ -147,6 +147,11 @@ describe("the routes", () => {
     reg = createRegistry();
     const app = express();
     app.use(express.json());
+    // A signed-in account: an anonymous session may claim nothing — docs/ownership.md.
+    app.use((req, _res, next) => {
+      (req as { user?: object }).user = { email: "ann@x" };
+      next();
+    });
     app.use(
       "/api",
       engineRegistryRouter(reg, undefined, (l) => logged.push(l)),

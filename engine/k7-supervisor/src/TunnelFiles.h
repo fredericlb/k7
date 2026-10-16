@@ -7,6 +7,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <atomic>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -70,8 +72,12 @@ public:
 
 private:
     struct Download {
+        /** Guards `out` against the waiter giving up while a chunk is being written. */
+        std::mutex mutex;
         std::ofstream out;
         std::promise<void> done;
+        /** Steady-clock milliseconds of the last chunk: a download fails when it goes quiet, not when it is long. */
+        std::atomic<std::int64_t> lastChunkMs{0};
     };
 
     std::vector<RemoteStat> stat(int ch, const std::vector<std::string>& paths);

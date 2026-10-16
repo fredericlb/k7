@@ -90,6 +90,23 @@ supervisor — it deregisters from k7's registry, which must still be up — the
 named by its pidfile if it survived, then the backend, which stops its file services itself before
 anything is force-killed.
 
+## Permissions
+
+The session answers every permission through the shell's handlers
+(`commons/packages/electron-shell/docs/shell.md`, "Permissions"), with k7's origin as the app's.
+Its defaults are widened for what k7 uses, and nothing else is granted:
+
+| permission | to | what needs it |
+|---|---|---|
+| `media` | any k7 frame in a k7 page | the recorder's mic, a live rig's webcam, and the rehearsal bench, a k7 project framed in the recorder's page |
+| `midi` | any k7 frame in a k7 page | the MIDI controller (`apps/k7/frontend/docs/midi.md`) |
+| `screen-wake-lock` | any k7 frame in a k7 page | the screen kept awake during a take |
+| `clipboard-sanitized-write` | k7's top frame | the Copy buttons |
+| `fullscreen` | any k7 frame in a k7 page | the viewport and the score made fullscreen |
+
+`midiSysex` is not granted: k7 asks for MIDI without sysex, and sysex is what rewrites a device's
+firmware.
+
 ## State
 
 Everything lives under the OS's per-app folder (`~/Library/Application Support/k7-standalone`

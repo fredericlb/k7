@@ -1,0 +1,16 @@
+// "look" — a 3D LUT, a `.cube` file, over the picture: the grade a colourist or a camera maker
+// ships. The NODE names the file, since one look module serves every LUT a song uses:
+//
+//   nodes/film.yaml
+//     extends: "@k7-core/shaders/look"
+//     lut: looks/film.cube          # project-relative
+//
+// P1 is how much of it is laid over the picture, all of it at 1. See packages/song-video/docs/effects.md.
+type("shader")
+shader("look")
+params({
+  P1: 1, // strength: 0 the picture as shot, 1 the LUT's look entirely
+  P2: 0,
+  P3: 0,
+  P4: 0,
+})

@@ -122,6 +122,7 @@ services:
     environment:
       # k7's registry on the container network; the supervisor dials its tunnel from the same address.
       STUDIO_REGISTRY_URL: ${ENGINE_REGISTRY_URL:-http://k7:8789}
+      STUDIO_INSECURE_REGISTRIES: ${ENGINE_INSECURE_REGISTRIES:-k7}
       # The name the engine pickers show.
       STUDIO_MACHINE_NAME: ${ENGINE_NAME:-k7 server}
       # Every sampled instrument, since this machine has no Downloads tab to choose them in.

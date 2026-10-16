@@ -143,6 +143,36 @@ describe("a shot's sound, where the picture shows it", () => {
     ]);
   });
 
+  it("retimes a shot's sound by its speed, resampled, and silences a freeze and a reverse", () => {
+    const clips2 = videoSoundClips(
+      "/p",
+      {
+        events: [
+          { ref: "a", start: 0, length: 2, source_from: 1, speed: 2 },
+          { ref: "b", start: 2, length: 2, speed: 0 },
+          { ref: "a", start: 4, length: 2, source_from: 5, speed: -1 },
+        ],
+      },
+      clips,
+      120,
+    );
+    // Only the 2× shot sounds: two seconds of song spending four of source, through a varispeed warp.
+    expect(clips2).toHaveLength(1);
+    expect(clips2[0]).toMatchObject({
+      start: 0,
+      length: 4,
+      sourceFrom: 1,
+      sourceTo: 5,
+      warp: {
+        algorithm: "varispeed",
+        markers: [
+          [0, 1],
+          [2, 3],
+        ],
+      },
+    });
+  });
+
   it("keeps a shot's own fades, and is silent for a clip with no sound and for an activation", () => {
     expect(
       sound([

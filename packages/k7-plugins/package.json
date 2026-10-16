@@ -9,7 +9,8 @@
     "./browser": "./src/browser.ts",
     "./video": "./src/video/index.ts",
     "./video/camera/relay": "./src/video/camera/relay.ts",
-    "./turntables/engine": "./src/turntables/engine.ts"
+    "./turntables/engine": "./src/turntables/engine.ts",
+    "./video/sceneFrom": "./src/video/sceneFrom.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

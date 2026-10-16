@@ -26,7 +26,7 @@ import { deriveChains } from "./chainsGraph";
 import {
   baseModuleRefs,
   exportSub,
-  isVideoSource,
+  isPictureSource,
   loadChains,
   loadLanes,
   loadModuleRefs,
@@ -246,11 +246,11 @@ function projectHintsIn(dir: string): Hints {
 
   // Split by kind so the overlays keep an audio and a video reference apart — see docs/hints.md.
   const audioClips = Object.entries<any>(clips ?? {})
-    .filter(([, c]) => !isVideoSource(String(c?.source ?? "")))
+    .filter(([, c]) => !isPictureSource(String(c?.source ?? "")))
     .map(([id]) => id)
     .sort();
   const videoClips = Object.entries<any>(clips ?? {})
-    .filter(([, c]) => isVideoSource(String(c?.source ?? "")))
+    .filter(([, c]) => isPictureSource(String(c?.source ?? "")))
     .map(([id]) => id)
     .sort();
 

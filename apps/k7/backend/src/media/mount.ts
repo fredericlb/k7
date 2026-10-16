@@ -15,6 +15,7 @@ import { configureMpv } from "@studio/mpv-player/player";
 import { createPlayerRouter } from "@studio/mpv-player/router";
 import type { Express, Request, RequestHandler } from "express";
 import { authDir } from "../authState.ts";
+import { isAdminRequest } from "./admin.ts";
 import { startAnalysisSweep } from "./analysisSweep.ts";
 import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
 import { startMp3Sweep } from "./mp3Sweep.ts";
@@ -97,6 +98,8 @@ export function mountMedia(
     stateDir: process.env.STUDIO_ENGINES_DIR || join(mediatekDir(), ".engines"),
     // Read when a heartbeat comes, by which time the hub below exists: a machine proves itself with its device token.
     deviceOf: (token) => fileHub?.deviceAccount(token) ?? null,
+    // An admin may reset an engine's owner — packages/engine-registry/docs/ownership.md.
+    isAdmin: isAdminRequest,
   });
 
   // A share is played by the server's engine, one session per visitor — ../../docs/media/sharePlayer.md.

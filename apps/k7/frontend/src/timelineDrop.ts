@@ -5,7 +5,11 @@
 // docs/timeline.md.
 
 import { isAudio } from "@studio/mediatek/media";
-import { VIDEO_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
+import {
+  CAPTION_SOURCE,
+  IMAGE_SOURCE,
+  VIDEO_SOURCE,
+} from "@studio/song-schema/yaml/entitySchemas";
 
 /** Audio or picture — the two kinds of material a lane holds, and the two verbs that place one. */
 export type DropKind = "audio" | "video";
@@ -66,7 +70,13 @@ const safeStem = (s: string): string =>
 /** Which kind of material a dropped file is, or null — the EXTENSION decides, exactly as it does for the compiler. */
 export function droppedKind(name: string): DropKind | null {
   // Picture first: `.webm` is in both lists, and a clip whose source ends in one compiles as picture.
-  if (VIDEO_SOURCE.test(name)) return "video";
+  // A still is picture too, and so are captions: each lands on a picture lane (song-video/docs/media.md, titles.md).
+  if (
+    VIDEO_SOURCE.test(name) ||
+    IMAGE_SOURCE.test(name) ||
+    CAPTION_SOURCE.test(name)
+  )
+    return "video";
   return isAudio(name) ? "audio" : null;
 }
 

@@ -3,6 +3,7 @@
 // layer names). Its own file rather than a section of nodeProject.ts because the two are two
 // compiles of one folder, and only this one's output ever draws. See docs/picture.md.
 
+import { readFileSync } from "node:fs";
 import { confineToProject } from "@studio/song/confine";
 import type {
   RawClip,
@@ -17,7 +18,17 @@ import {
   keysOf,
 } from "@studio/song-schema/keyframes";
 import { DISSOLVE, OVER } from "@studio/song-schema/moduleTypes";
-import type { VideoClipDoc, VideoFadeDoc, VideoTrackDoc } from "./videoDoc";
+import {
+  CAPTION_SOURCE,
+  IMAGE_SOURCE,
+} from "@studio/song-schema/yaml/entitySchemas";
+import { parseCaptions } from "./captions";
+import type {
+  CaptionsDoc,
+  VideoClipDoc,
+  VideoFadeDoc,
+  VideoTrackDoc,
+} from "./videoDoc";
 
 /** A placement's fade in the ONE shape everything downstream copies — the scalar's sugar is undone HERE. */
 // Normalised at the first hop so the union never leaves song-schema and five later copies see one shape.
@@ -82,12 +93,22 @@ export function videoPlacementToClip(
     warnings?.push(
       `${lane ? `${lane}: ` : ""}'${ref}' names a file outside the project — this shot draws nothing`,
     );
+  // A derived copy outside the roots is dropped, and the shot falls back to its source.
+  const optimized = confineToProject(dir, clipsMap[ref]?.optimized);
+  const proxy = confineToProject(dir, clipsMap[ref]?.proxy);
   const fadeIn = readFade(p.fade_in);
   const fadeOut = readFade(p.fade_out);
+  // Absent stays absent: a shot at its source's own pace says nothing about speed.
+  const speed = Number(p.speed ?? 1);
   return {
     id: ref,
     name: ref,
     source: source ?? "",
+    ...(optimized ? { optimized } : {}),
+    ...(proxy ? { proxy } : {}),
+    ...(IMAGE_SOURCE.test(String(clipsMap[ref]?.source ?? ""))
+      ? { still: true as const }
+      : {}),
     start: Number(p.start ?? 0),
     length: Number(p.length ?? 0),
     sourceFrom: Number(p.source_from ?? 0),
@@ -95,6 +116,55 @@ export function videoPlacementToClip(
     ...(fadeIn ? { fadeIn } : {}),
     ...(fadeOut ? { fadeOut } : {}),
     ...(animate ? { animate } : {}),
+    ...(Number.isFinite(speed) && speed !== 1 ? { speed } : {}),
+    ...(typeof p.effect === "string" && p.effect ? { effect: p.effect } : {}),
+    ...captionsOf(dir, clipsMap[ref], ref, warnings),
+  };
+}
+
+/** A subtitle clip's cues and style, read off its file, as `{ captions }` — or nothing for any other clip. */
+function captionsOf(
+  dir: string,
+  clip: RawClip | undefined,
+  ref: string,
+  warnings?: string[],
+): { captions?: CaptionsDoc } {
+  const source = String(clip?.source ?? "");
+  if (!clip || !CAPTION_SOURCE.test(source)) return {};
+  const path = confineToProject(dir, source);
+  if (path === null) {
+    warnings?.push(
+      `'${ref}': ${source} is outside the project — its captions draw nothing`,
+    );
+    return { captions: { cues: [], style: {} } };
+  }
+  let text = "";
+  try {
+    text = readFileSync(path, "utf8");
+  } catch {
+    warnings?.push(
+      `'${ref}': ${source} could not be read — its captions draw nothing`,
+    );
+    return { captions: { cues: [], style: {} } };
+  }
+  const { cues, problems } = parseCaptions(text);
+  for (const p of problems) warnings?.push(`'${ref}': ${source}, ${p}`);
+  const c = clip as Record<string, unknown>;
+  const str = (k: string) =>
+    typeof c[k] === "string" && c[k] ? { [k]: c[k] } : {};
+  return {
+    captions: {
+      cues,
+      style: {
+        ...str("font"),
+        ...(typeof c.font_size === "number" ? { fontSize: c.font_size } : {}),
+        ...str("color"),
+        ...str("background"),
+        ...str("align"),
+        ...str("position"),
+        ...(typeof c.margin === "number" ? { margin: c.margin } : {}),
+      } as CaptionsDoc["style"],
+    },
   };
 }
 

@@ -4,12 +4,33 @@
 // everything the C++ engine is handed. Full rationale: docs/picture.md.
 
 import type { AnimatedProp, Key } from "@studio/song-schema/keyframes";
+import type { CueDoc } from "./captions";
+
+/** A subtitle clip as the picture draws it: its cues, read at compile time, and its authored style. */
+export interface CaptionsDoc {
+  cues: CueDoc[];
+  style: {
+    font?: string;
+    fontSize?: number;
+    color?: string;
+    background?: string;
+    align?: "left" | "center" | "right";
+    position?: "bottom" | "top" | "middle";
+    margin?: number;
+  };
+}
 
 // A placed shot; `source` is ABSOLUTE, since whoever renders knows nothing about the project folder.
 export interface VideoClipDoc {
   id: string;
   name: string;
   source: string; // absolute path
+  /** A browser-decodable copy at full resolution, absolute; read instead of `source` by preview and export (docs/media.md). */
+  optimized?: string;
+  /** …and a small copy the PREVIEW reads; an export never does. */
+  proxy?: string;
+  /** The source is an IMAGE: one picture, held for as long as the shot is on (docs/media.md). */
+  still?: true;
   start: number; // seconds on the timeline
   length: number; // seconds; 0 == the source's natural length
   sourceFrom: number; // seconds, the in-point INTO the source
@@ -18,6 +39,12 @@ export interface VideoClipDoc {
   fadeOut?: VideoFadeDoc;
   /** How the shot moves inside its lane's frame: each property's keys, sorted, seconds from the shot's start (docs/animation.md). */
   animate?: Partial<Record<AnimatedProp, Key[]>>;
+  /** How fast the source runs under the shot, signed; absent is 1 — docs/speed.md. */
+  speed?: number;
+  /** The run this shot goes through for as long as it is on, by head node — a key of `VideoProjectDoc.stretches` (docs/effects.md). */
+  effect?: string;
+  /** A SUBTITLE file's cues, in seconds of the file, and how they are set — docs/titles.md. */
+  captions?: CaptionsDoc;
 }
 
 /** A transition ON a placement: how long, and which kind. The kind's GLSL is on the PROJECT, once per name. */
@@ -65,8 +92,13 @@ export type ShapeDoc =
       fontSize: number;
       x: number;
       y: number;
-      w?: number; // optional max width (text condenses to fit)
+      w?: number; // the width its lines wrap in; a word longer than it is condensed to fit
       color: string;
+      align?: "left" | "center" | "right"; // how its lines sit in `w`, or about `x` with none
+      background?: string; // a box behind the lines, any CSS colour
+      shadow?: boolean; // a soft shadow under the glyphs, for text over a picture
+      lineHeight?: number; // a multiple of the font size; 1.2 unsaid
+      padding?: number; // px between the lines and their box
     };
 
 /** A shader's two stages, read off `shaders/<name>/` and carried INLINE — see docs/shaders.md. */
@@ -88,6 +120,8 @@ export interface VideoPluginDoc {
   shader?: ShaderSourceDoc;
   /** The LANE whose live level drives this shader's `uAudio` — a NAME, not a number; docs/shaders.md. */
   audioFrom?: string;
+  /** The `.cube` LUT a shader reads as `uLut`, absolute — docs/effects.md. */
+  lut?: string;
 }
 
 // A lane: it places picture at (x,y,w,h), in layer draw order, and what fills it is its placements,

@@ -1,0 +1,13 @@
+// "grade" — a colour correction: exposure, contrast, saturation and temperature, each knob
+// NEUTRAL at its middle, so a fresh node changes nothing until a knob is turned.
+//
+// Wire it like any shader: on a lane's run it grades the lane, on a run fed by nothing it is a
+// shot's `effect:` and grades that shot alone. See packages/song-video/docs/effects.md.
+type("shader")
+shader("grade")
+params({
+  P1: 0.5, // exposure: ±2 stops either side of the middle
+  P2: 0.5, // contrast: 0 flat, the middle as shot, 1 doubled
+  P3: 0.5, // saturation: 0 grey, the middle as shot, 1 doubled
+  P4: 0.5, // temperature: below the middle cooler, above it warmer
+})

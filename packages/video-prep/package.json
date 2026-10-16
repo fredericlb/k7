@@ -1,0 +1,26 @@
+{
+  "name": "@studio/video-prep",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Getting a VIDEO file ready for the picture: probe it with ffprobe, decide what the browser needs of it — nothing, a remux, a full-resolution optimized copy, a small proxy — and make that with ffmpeg. Node-only. Consumed as source.",
+  "exports": {
+    "./probe": "./src/probe.ts",
+    "./plan": "./src/plan.ts",
+    "./transcode": "./src/transcode.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

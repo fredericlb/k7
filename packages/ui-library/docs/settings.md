@@ -8,18 +8,24 @@ library has no settings page of its own: one account, one page.
 ## Engines — the registry this origin holds
 
 The origin's backend holds THE engine registry: the editor and z0 list their engines from it too
-(`packages/engine-registry/docs/shared.md`). `src/EnginesSettings.tsx` lists every engine registered
-there — the machine's name, the id's first eight characters, and the one this account has
-**chosen**.
+(`packages/engine-registry/docs/shared.md`). `src/EnginesSettings.tsx` lists the engines this
+account may use there — its own, those shared with it, the server's — and the unowned ones, each
+badged with which it is (`src/engineShares.ts`); the machine's name, the id's first eight
+characters, and the one this account has **chosen**.
 
 Each row is **measured from this browser** (`engines.find`, the same probe the player runs), not
 just listed: registered and reachable-from-here are two different facts, and "unreachable from this
 browser" is the one that explains an empty player. An engine in use says by whom and on what,
 rather than just "busy". A refresh button looks again.
 
-It is read-only. An engine is connected from its OWN machine — the instance's address in the command-line
+An engine is connected from its OWN machine — the instance's address in the command-line
 engine's `registryUrls`, or the app's list of studios — because that is where its token lives; the empty card says exactly
 that, with the address to type. Nothing here can register, drop or pick an engine for anyone.
+
+The one thing it edits is ownership (`packages/engine-registry/docs/ownership.md`): under an engine
+this account owns, `src/EngineShareEditor.tsx` holds the emails it is shared with, as one list typed
+freely and checked before it is sent, and the way to give the engine up — two clicks, inline, since
+the settings page mounts no confirmation dialog.
 
 ## slskd — a form whose secrets never come back
 

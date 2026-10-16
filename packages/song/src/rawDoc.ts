@@ -50,6 +50,9 @@ export interface RawClip {
   source?: string;
   // A VIDEO clip's sound, extracted into an audio file (docs/videoSound.md).
   sound?: string;
+  // …and the copies the picture reads instead of it, when it has to (song-video docs/media.md).
+  optimized?: string;
+  proxy?: string;
   name?: unknown;
   gain?: unknown;
   // The window into the source; `unknown` because the SPELLING is the unit (see AudioClipSchema).
@@ -81,6 +84,8 @@ export interface RawVideoPlacement {
   fade_in?: unknown;
   fade_out?: unknown;
   animate?: unknown; // the shot's keyframes (song-video docs/animation.md)
+  speed?: unknown; // how fast its source runs, signed (song-video docs/speed.md)
+  effect?: unknown; // the run this shot alone goes through (song-video docs/effects.md)
 }
 
 /** A video track file's struct (video_tracks/<id>.yaml). */
@@ -152,9 +157,15 @@ export interface LoadedModule {
   model_url?: string;
   // shaders only — which folder under the module's `shaders/` this node runs (song-video's docs/shaders.md).
   shader?: unknown;
+  // …and the `.cube` LUT it reads, project-relative (song-video's docs/effects.md).
+  lut?: unknown;
   // shapes only — which primitive it draws, and the family a `text` one is set in (song-video's docs/shapes.md).
   shape?: unknown;
   font?: unknown;
+  // …and how a `text` shape's lines are set (song-video's docs/titles.md).
+  align?: unknown;
+  background?: unknown;
+  shadow?: unknown;
   ui?: unknown; // the widget grid — normalized downstream (effectiveUI)
   // The module's MIDI map from its folder's `controller.yaml`, stamped on beside `ui` and by the same rule.
   cc?: unknown;

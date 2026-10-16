@@ -150,8 +150,17 @@ not. A loopback bind answers the proxy "connection refused". The day any of it l
 the dev network, the remedy is a forward-auth rule on the proxy pointed at k7's
 backend, which owns `/auth` for the origin.
 
+**The console's WebSocket checks the page's Origin**, because a browser lets any site it shows
+open a socket to a LAN address: without the check, a page visited on a machine of the LAN could
+type into these shells. Only `https://console.priv.frediver.se`, `localhost` / `127.0.0.1` /
+`[::1]` on the console's own port, and the comma-separated origins in `STUDIO_CONSOLE_ORIGINS`
+attach; any other socket, one with no Origin included, is closed with 1008
+(`scripts/console/origin.mjs`). It guards browsers only: a LAN peer writes whatever Origin it likes.
+
 Anyone who reaches the editor gets a shell on the dev machine, which is what makes this a
-decision rather than an oversight. To put VS Code's own auth back, drop
+decision rather than an oversight. The editor keeps `--without-connection-token`: a token would
+turn every first visit from a new browser into a hunt for the `?tkn=` URL in the task's output, and
+the LAN boundary above is the one this workstation relies on. To put VS Code's own auth back, drop
 `--without-connection-token` from `scripts/vscode.mjs` and add `--connection-token-file <path>`:
 `serve-web` then trades a `?tkn=` query for a 7-day cookie.
 

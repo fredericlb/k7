@@ -20,8 +20,8 @@ export interface ClaimGrant {
   tookOver?: { holder: string; engineId: string };
 }
 
-/** Why a claim stopped being ours: `project` (opened elsewhere), `engine` (`tookFor`), `lapsed` (aged out). */
-export type ClaimLostReason = "project" | "engine" | "lapsed";
+/** Why a claim stopped being ours: `project` (opened elsewhere), `engine` (`tookFor`), `lapsed` (aged out), `refused` (not this account's engine). */
+export type ClaimLostReason = "project" | "engine" | "lapsed" | "refused";
 
 /** A `select` refused because the claim moved on — thrown by the client, carrying why. */
 export class ClaimLost extends Error {
@@ -34,11 +34,13 @@ export class ClaimLost extends Error {
     super(
       reason === "engine"
         ? `this engine is now driving ${tookFor ?? "another project"}`
-        : reason === "lapsed"
-          ? "this claim lapsed"
-          : heldBy
-            ? `this project is now open by ${heldBy}`
-            : "this project was taken over",
+        : reason === "refused"
+          ? "this engine belongs to another account"
+          : reason === "lapsed"
+            ? "this claim lapsed"
+            : heldBy
+              ? `this project is now open by ${heldBy}`
+              : "this project was taken over",
     );
     this.name = "ClaimLost";
   }
@@ -104,6 +106,14 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
           body.lost ?? "project",
           body.tookFor ?? null,
         );
+      }
+      // 403 `not-yours`: the engine is another account's, unshared — an answer like 409, never retried (engine-registry docs/ownership.md).
+      if (res.status === 403) {
+        const body = (await res
+          .clone()
+          .json()
+          .catch(() => ({}))) as { error?: string };
+        if (body.error === "not-yours") throw new ClaimLost("", "refused");
       }
       return json<ClaimGrant>(res, "select");
     },

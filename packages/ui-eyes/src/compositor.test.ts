@@ -480,3 +480,44 @@ describe("drawing a moved shot", () => {
     expect(alphas.at(-1)).toEqual([1, 0]);
   });
 });
+
+describe("a shot's own EFFECT", () => {
+  const grade = {
+    id: "grade:0",
+    name: "grade",
+    vertex: "// v",
+    fragment: "// f",
+    enabled: true,
+    params: { P1: 0.5, P2: 0.5, P3: 0.5, P4: 0.5 },
+    audio: 0,
+  };
+  const graded = () =>
+    make({
+      ...scene([clip({ effect: "grade" })]),
+      stretches: { grade: [grade] },
+    });
+
+  it("allocates the scratch and a target per slot, only for a scene that grades a shot", () => {
+    expect(fbos(graded().log)).toBe(4);
+    expect(fbos(make(scene([clip()])).log)).toBe(0);
+  });
+
+  it("runs its shot through the effect on a plain CUT, at full presence", () => {
+    const { comp, uniforms } = graded();
+    comp.upload("main", {} as TexImageSource, 0);
+    comp.draw(
+      new Set(["main"]),
+      undefined,
+      undefined,
+      new Map([["main", ["grade", null]]]),
+    );
+    expect(uniforms.get("uPresence")).toEqual([1]);
+  });
+
+  it("leaves a shot that names none alone", () => {
+    const { comp, uniforms } = graded();
+    comp.upload("main", {} as TexImageSource, 0);
+    comp.draw(new Set(["main"]));
+    expect(uniforms.get("uPresence")).toBeUndefined();
+  });
+});
