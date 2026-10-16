@@ -7,6 +7,7 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, Server } from "node:http";
 import type { Socket } from "node:net";
+import { isLoopbackAddress } from "@studio/web-protocol/services";
 import { type RawData, WebSocket, WebSocketServer } from "ws";
 import {
   HeldFrames,
@@ -48,10 +49,6 @@ interface LocalBinding {
 }
 
 const LOCAL_ROUTE = new RegExp(`^${TUNNEL_PATH}/local/([A-Za-z0-9_-]+)$`);
-
-const isLoopback = (addr: string | undefined): boolean =>
-  !!addr &&
-  (addr === "::1" || addr.startsWith("127.") || addr.startsWith("::ffff:127."));
 
 const sameKey = (a: string, b: string): boolean => {
   const x = Buffer.from(a);
@@ -276,7 +273,7 @@ export class TunnelHub {
     head: Buffer,
     key: string,
   ): void {
-    const binding = isLoopback(req.socket.remoteAddress)
+    const binding = isLoopbackAddress(req.socket.remoteAddress)
       ? this.locals.get(key)
       : undefined;
     const engineId = binding ? (binding.engineId ?? this.renderer()) : null;

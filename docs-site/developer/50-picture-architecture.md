@@ -23,7 +23,7 @@ project folder (project, video_tracks/, clips/, graph or chains/, modules)
 VideoProjectDoc   (seconds, absolute paths, GLSL inlined, warnings)
    │  Workspace.videoProjectDoc()        packages/file-service/src/workspace.ts
    ▼
-WebVideoProject   GET /video-doc         packages/web-protocol/types.ts
+WebVideoProject   GET /video-doc         packages/web-protocol/timelineTypes.ts
    │  sceneFrom() / sceneOf()            packages/k7-plugins/src/video/sceneFrom.ts
    ▼
 VideoScene        (plain structural type, media URLs, mute/solo/lens already folded)

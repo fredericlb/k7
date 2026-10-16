@@ -8,6 +8,7 @@ import { mkdir, rename, rm, stat, utimes } from "node:fs/promises";
 import { dirname, extname, join, relative, sep } from "node:path";
 import { TargetInUse } from "./agentFiles.ts";
 import type { RemoteStat } from "./frames.ts";
+import { safeSegment } from "./segments.ts";
 
 export interface MappedRoot {
   /** The server's absolute POSIX path. */
@@ -119,7 +120,8 @@ export class PathMap {
       if (remote === r.remote) return r.local;
       if (!remote.startsWith(`${r.remote}/`)) continue;
       const rest = remote.slice(r.remote.length + 1).split("/");
-      if (rest.some((s) => s === ".." || s === "")) return null;
+      // Every segment the native agent would refuse, refused here too — segments.ts.
+      if (!rest.every((s) => safeSegment(s))) return null;
       return join(r.local, ...rest);
     }
     return null;

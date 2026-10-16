@@ -165,7 +165,7 @@ another today, so the rule is guarded rather than exercised.
 
 ## The wire carries the same two lists
 
-`packages/web-protocol/types.ts` writes `ArgClass` and `ArgProvider` out for the browser, which
+`packages/web-protocol/commandTypes.ts` writes `ArgClass` and `ArgProvider` out for the browser, which
 cannot import this module — it reads `commands.yaml` off disk. A test compares both unions to the
 sources here, because the two failures are silent:
 

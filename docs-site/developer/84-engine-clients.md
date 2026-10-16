@@ -10,11 +10,9 @@ Two packages speak the [engine protocol](./83-engine-protocol.md): `@studio/engi
 |---|---|
 | `./engineControl` | `EngineControl`: the WebSocket link minus the project. Connect, send a command, emit the reply as an event. Messages sent before the socket opens are buffered (at most `ENGINE_OUTBOX_MAX` = 200, each dropped after `ENGINE_OUTBOX_TTL_MS` = 30 s). Methods: `transport`, `preview`, `arm`, `setRecordEnabled`, `flush`, `listPlugins`, `rescanPlugins`, `listPluginParams`, `snapshotPluginBase`, `listEditPlugins`, `showNativePluginUI`, `showNativePluginUIOf`, `watchPluginParams`, `listSessions`, `dropSession`, `listAudioDevices`, `setAudioDevice`, `ioLevels`, `setInputStereo`, `close`. |
 | `./engineClient` | `EngineClient extends EngineControl` adding `sendProject(doc)`, which folds groups onto their members (`withGroupMix`) before sending. It imports `@studio/song` (the compiler, a few MB), which is why it is a separate subpath: a process that only asks questions imports `engineControl` and carries none of it. |
-| `./engineDaemon` | `ensureEngineDaemon()` / `stopEngineDaemon()` / `engineRunning()`: start the engine as a background process tracked by `engine.pid`, idempotently, reporting whether this call started it |
 | `./engineBinary` | `findEngineBinary()`: `$STUDIO_ENGINE`, then a copy beside a packaged bundle, then the newest build under `engine/k7-runtime/build/*/` (Debug last) |
-| `./paths` | The `~/.k7` layout (twin of the supervisor's `Paths.cpp`): `studioDir`, `engineIdPath`, `enginePidPath`, `hostPidPath`, `settingsPath`, `extsCachePath`, `engineLogPath`, `mergedLogPath`, `rootDir`, `mediatekDir`, `webEndpointsDir`, `slugify` |
+| `./paths` | The `~/.k7` layout (twin of the supervisor's `Paths.cpp`): `studioDir`, `rootDir`, `mediatekDir`, `webEndpointsDir`, `slugify` |
 | `./pluginCache` | Reading `exts.json` |
-| `./processTree` | `killTree(pid)` |
 
 The main consumer is `packages/file-service` (`packages/file-service/src/engineLink.ts` holds each workspace's link to its bound engine), plus `packages/commands`' test host, `packages/audio-passes` and `packages/engine-registry/advertise.ts`.
 

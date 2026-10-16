@@ -119,7 +119,6 @@ export function useTurntableDeck({
       watchParams,
       moduleParams,
       setModuleParam,
-      // No `listening`: k7 has no stream player. No `retry`: reconnecting is the shell's, not a surface's. Both are optional.
     }),
     [
       engineReady,

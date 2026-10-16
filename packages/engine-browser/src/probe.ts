@@ -8,6 +8,7 @@
 // latency, not by which cable they arrive over, so a gigabit LAN beats a laptop sitting at
 // 2048 frames. Unreachable is its own state, because it is not a slow link. See docs/access.md.
 
+import { ENGINE_PROXY_PATH } from "@studio/web-protocol";
 import {
   type EngineLatency,
   engineLatency,
@@ -203,7 +204,7 @@ export function relayUrls(
   pageHref: string,
 ): { ws: string; rtc: string } {
   const http = new URL(
-    `${relayBase}/api/engine/${encodeURIComponent(id)}`,
+    `${relayBase}${ENGINE_PROXY_PATH}/${encodeURIComponent(id)}`,
     pageHref,
   );
   // The relay's own scheme decides, not the page's: an HTTPS relay is reached over `wss:`.

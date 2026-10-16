@@ -1,6 +1,6 @@
 # The machine, and what it answers
 
-The second half of `types.ts` is not about a song. It is about *where* a song is: which
+`engineAccess.ts` and `machineTypes.ts` are not about a song. It is about *where* a song is: which
 workspaces a machine holds, what an engine is currently serving, and the numbers that decide
 whether a browser can reach one at all. This page holds the reasoning; the type file keeps the
 names.

@@ -55,15 +55,13 @@ Nothing else is needed: the file service's `/commands` serves it to the palette 
 
 ### A new completion provider
 
-Add it to `PROVIDERS` in `packages/commands/src/providers.ts`, then give it a class in `PROVIDER_CLASS` and a hint in `PROVIDER_HINT` (both are exhaustive records, so the build tells you). The provider and class names are mirrored on the wire as the `ArgProvider` and `ArgClass` unions in `packages/web-protocol/types.ts`, which `commandSpec.test.ts` holds against the package; add the new name there too.
+Add it to `PROVIDERS` in `packages/commands/src/providers.ts`, then give it a class in `PROVIDER_CLASS` and a hint in `PROVIDER_HINT` (both are exhaustive records, so the build tells you). The provider and class names are mirrored on the wire as the `ArgProvider` and `ArgClass` unions in `packages/web-protocol/commandTypes.ts`, which `commandSpec.test.ts` holds against the package; add the new name there too.
 
 ## A `ui` command
 
-1. Add the name to `UI_EXACT` (or a head ending in a space to `UI_HEADS`) in `apps/k7/frontend/src/localCommands.ts`.
-2. Add `ui <name>` to `LOCAL_COMMANDS`, its sentence to `LOCAL_READABLE` (both languages, 60 characters), and its arguments to `LOCAL_ARGS` in `apps/k7/frontend/src/palette.ts`. A fixed vocabulary goes in `makeListArg`.
-3. Handle it in `runLocalCommand` in `apps/k7/frontend/src/App.tsx`, returning `true`.
-4. If the help page should describe it, add it to `VIEW_COMMANDS` in `apps/k7/frontend/src/components/HelpPage.tsx`.
-5. If a one-surface device should answer it, add it to `ExternalSurface`'s `runLocal` (`apps/k7/frontend/src/components/ExternalSurface.tsx`); otherwise it answers that it is editor-only.
+1. Add an entry to the group file it belongs to under `apps/k7/frontend/src/ui/commands/`: its name, its sentence in both languages (60 characters), its arguments, and `run`, returning `true`. `UI_EXACT`, `UI_HEADS`, `LOCAL_COMMANDS`, `LOCAL_READABLE` and `LOCAL_ARGS` are derived from that registry. A fixed vocabulary goes in `makeListArg` (`apps/k7/frontend/src/palette.ts`).
+2. If the help page should describe it, add it to `VIEW_COMMANDS` in `apps/k7/frontend/src/components/HelpPage.tsx`.
+3. If a one-surface device should answer it, add it to `ExternalSurface`'s `runLocal` (`apps/k7/frontend/src/components/ExternalSurface.tsx`); otherwise it answers that it is editor-only.
 
 `localCommands.test.ts` fails if the palette lists a line the dispatcher does not recognise.
 
