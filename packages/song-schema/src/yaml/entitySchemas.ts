@@ -30,7 +30,7 @@ export const CAPTION_SOURCE = /\.(srt|vtt)$/i;
 const TEXT_ALIGNS = ["left", "center", "right"] as const;
 
 /** Either kind of picture source, which is what tells a picture clip from an audio one. */
-const isPictureSource = (s: string): boolean =>
+export const isPictureSource = (s: string): boolean =>
   VIDEO_SOURCE.test(s) || IMAGE_SOURCE.test(s);
 
 /** `from`/`to` window the SOURCE FILE, in seconds or as a timecode — see docs/entityFiles.md. */
