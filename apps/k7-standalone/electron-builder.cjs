@@ -29,7 +29,7 @@ module.exports = {
   linux: {
     category: "Audio",
     target: ["AppImage", "deb"],
-    // A .deb refuses to build without a maintainer.
+    // A .deb refuses to build without a maintainer, nor without package.json's homepage.
     maintainer: "F <fred@parapluie.org>",
   },
 };

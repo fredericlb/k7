@@ -4,6 +4,7 @@
   "private": true,
   "description": "k7 in one desktop app: its backend (the media library included), the file services it starts, the supervisor and the engine, all on this machine. See docs/standalone.md.",
   "author": "F <fred@parapluie.org>",
+  "homepage": "https://app.k7.rocks",
   "main": "dist/main.cjs",
   "scripts": {
     "build:main": "node scripts/build-main.mjs",
