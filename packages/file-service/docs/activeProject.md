@@ -6,6 +6,11 @@ and choosing it is a gesture on screen. An app is still opened by an address rat
 a picker (`packages/project-shell/docs/launch.md`), and that address may name the project — but
 it does not decide alone, and it is not the only thing that can change it.
 
+The code is `engineLink.ts` — what a session is sent, the commands and the pattern watch — over
+`engineSessions.ts` (one socket per session), `engineReconcile.ts` (does the engine still hold it),
+`enginePluginQueries.ts` (one plugin's parameters, window and base) and `commandHost.ts` (the parts
+of a command's host that do not depend on the run).
+
 ## The tree is the workspace's, not the project's
 
 `tree()` walks the **workspace root**, not the active project, because what the tree shows is what
