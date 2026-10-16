@@ -4,6 +4,7 @@
 import { existsSync, statSync } from "node:fs";
 import { streamFile } from "@frediverse/http";
 import { wrap } from "@frediverse/http/route";
+import { NoFfmpegError } from "@studio/ffmpeg";
 import {
   listFamily,
   parseQuery,
@@ -23,7 +24,6 @@ import { type Response, Router } from "express";
 import { mayManageLibrary } from "../../libraryGate.ts";
 import {
   ensureMp3,
-  NoFfmpegError as NoTranscoderError,
   SourceChangedError,
   TranscodeBusyError,
 } from "../../transcode.ts";
@@ -138,7 +138,7 @@ readRoutes.get(
         e instanceof SourceChangedError ? ensureMp3(abs) : Promise.reject(e),
       );
     } catch (e) {
-      if (e instanceof NoTranscoderError || e instanceof TranscodeBusyError)
+      if (e instanceof NoFfmpegError || e instanceof TranscodeBusyError)
         return res.status(503).json({ error: e.message });
       throw e;
     }

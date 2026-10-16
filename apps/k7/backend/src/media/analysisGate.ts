@@ -5,7 +5,7 @@
 // A file a decode failed on is marked on the volume (analysisMarks.ts) and refused until it changes.
 
 import { analyseFile, freshSidecar } from "@studio/audio-analysis/analyse";
-import { NoFfmpegError } from "@studio/audio-analysis/decode";
+import { NoFfmpegError } from "@studio/ffmpeg";
 import {
   clearMark,
   markedFailed,

@@ -5,8 +5,8 @@
 // not a sweep's. See ../../docs/media/analysis.md.
 
 import { join } from "node:path";
-import { NoFfmpegError } from "@studio/audio-analysis/decode";
 import { sidecarPresent } from "@studio/audio-analysis/sidecar";
+import { NoFfmpegError } from "@studio/ffmpeg";
 import { listFamily } from "@studio/mediatek/catalogue";
 import { exists, mediatekDir } from "@studio/mediatek/layout";
 import { analyseShared, gateLoad } from "./analysisGate.ts";
