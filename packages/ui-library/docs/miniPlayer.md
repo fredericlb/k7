@@ -56,7 +56,7 @@ socket is a second client on the same session, driving the same project.
 
 ## The play queue
 
-Right-click a song in the tree → "Add to queue". A song that ends chains into
+Open a song's menu in the tree — a right-click, its ⋮ button, or a long-press on a touch screen — and pick "Add to queue". A song that ends chains into
 the next. The button right of the bar opens it: rows can be moved and removed there.
 
 The system's skip button — a lock screen's, a headset's — is offered while the queue holds

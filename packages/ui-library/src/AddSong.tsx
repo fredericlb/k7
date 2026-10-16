@@ -51,6 +51,8 @@ interface Item {
   reading: boolean;
   state: "ready" | "sending" | "occupied" | "failed";
   error?: string;
+  /** The share of its bytes sent, while `sending`. */
+  progress?: number;
 }
 
 type Field = "artist" | "album" | "title";
@@ -96,7 +98,7 @@ export function AddSong({ onDone }: { onDone: () => void }) {
     replace: boolean,
     signal: AbortSignal,
   ): Promise<boolean> => {
-    update(it.id, { state: "sending", error: undefined });
+    update(it.id, { state: "sending", error: undefined, progress: 0 });
     try {
       const added = await library.addSong(
         it.file,
@@ -105,7 +107,11 @@ export function AddSong({ onDone }: { onDone: () => void }) {
           album: it.tags.album ?? "",
           title: it.tags.title ?? "",
         },
-        { replace, signal },
+        {
+          replace,
+          signal,
+          onProgress: (progress) => update(it.id, { progress }),
+        },
       );
       // Sent: off the list. Analysed after, never awaited — the first surface that needs it computes it anyway.
       setItems((xs) => xs.filter((x) => x.id !== it.id));
@@ -182,6 +188,21 @@ export function AddSong({ onDone }: { onDone: () => void }) {
 
   const status = (it: Item) => (
     <>
+      {it.state === "sending" && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <progress
+            className="h-1.5 flex-1 accent-primary"
+            max={1}
+            value={it.progress ?? 0}
+            aria-label={l.uploading(Math.round((it.progress ?? 0) * 100))}
+          />
+          <span className="shrink-0 tabular-nums" aria-live="polite">
+            {(it.progress ?? 0) < 1
+              ? l.uploading(Math.round((it.progress ?? 0) * 100))
+              : l.filing}
+          </span>
+        </div>
+      )}
       {!isAudio(it.file.name) && (
         // `accept` is only the picker's default filter — "all files" stays one click away.
         <div className="text-xs text-destructive">

@@ -95,8 +95,7 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
     async (session: Session) => {
       if (recording) {
         setRecOpen(true);
-        alert(m["rec.finishFirst"]());
-        return;
+        throw new Error(m["rec.finishFirst"]());
       }
       const { acquireMicrophone, describeMicError } = await import(
         "@studio/recorder"
@@ -105,8 +104,7 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
       try {
         stream = await acquireMicrophone();
       } catch (err) {
-        alert(describeMicError(err, micErrors()));
-        return;
+        throw new Error(describeMicError(err, micErrors()));
       }
       let fresh: Session;
       let baseEnvelope: Awaited<ReturnType<typeof api.getEnvelope>> | undefined;
@@ -118,8 +116,7 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
           : undefined;
       } catch (err) {
         stopTracks(stream);
-        alert((err as Error).message);
-        return;
+        throw err;
       }
       loadTags();
       setRecording({
@@ -133,7 +130,10 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
     [recording, loadTags],
   );
 
-  const save = async (result: SaveResult) => {
+  const save = async (
+    result: SaveResult,
+    onProgress?: (fraction: number) => void,
+  ) => {
     if (!recording) return;
     const { session, resumeFrom } = recording;
     const args = [
@@ -142,6 +142,7 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
       result.envelope,
       result.duration,
       result.gain,
+      onProgress,
     ] as const;
     const updated =
       resumeFrom != null

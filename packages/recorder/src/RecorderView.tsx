@@ -46,13 +46,17 @@ interface Props {
   // Collapsed to a bottom bar and still recording; `onExpand` reopens the full view.
   minimized?: boolean;
   onExpand?: () => void;
-  onSave: (result: {
-    blob: Blob;
-    envelope: Envelope;
-    duration: number;
-    gain: number;
-    annotations: PendingAnnotation[];
-  }) => Promise<void>;
+  onSave: (
+    result: {
+      blob: Blob;
+      envelope: Envelope;
+      duration: number;
+      gain: number;
+      annotations: PendingAnnotation[];
+    },
+    /** For the host to report the upload's share sent, 0 to 1. */
+    onProgress?: (fraction: number) => void,
+  ) => Promise<void>;
   onDiscard: () => void;
   /** Controls the host adds at the end of the header row (the pop-in's Hide). */
   headerActions?: React.ReactNode;
@@ -87,6 +91,7 @@ export function RecorderView({
   const [pending, setPending] = useState<PendingAnnotation[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
   const [autoStarting, setAutoStarting] = useState(true);
   const [previewTime, setPreviewTime] = useState(0);
   const [previewPlaying, setPreviewPlaying] = useState(false);
@@ -204,16 +209,20 @@ export function RecorderView({
   const stopAndSave = async () => {
     setUploading(true);
     setUploadErr(null);
+    setProgress(null);
     try {
       if (!stopped.current) stopped.current = await rec.stop();
       const result = stopped.current;
-      await onSave({
-        blob: result.blob,
-        envelope: result.envelope,
-        duration: result.duration,
-        gain: result.gain,
-        annotations: pending,
-      });
+      await onSave(
+        {
+          blob: result.blob,
+          envelope: result.envelope,
+          duration: result.duration,
+          gain: result.gain,
+          annotations: pending,
+        },
+        setProgress,
+      );
       // Saved: the crash backup has done its job (takeBackup.ts).
       void forgetTake(result.takeId);
     } catch (e) {
@@ -443,7 +452,15 @@ export function RecorderView({
         </>
       )}
 
-      {uploading && <p className="muted">{L.uploading}</p>}
+      {uploading && (
+        <p className="muted" role="status">
+          {progress === null
+            ? L.uploading
+            : progress < 1
+              ? L.uploadProgress(Math.round(progress * 100))
+              : L.analyzing}
+        </p>
+      )}
     </Card>
   );
 }
