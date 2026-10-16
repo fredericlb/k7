@@ -64,8 +64,7 @@ export function mountFileHub(
   app.get(FILE_HUB_HELLO, requireAuth, hub.helloHandler());
   // The published versions of the seed's library, for a desktop never paired: no session, read-only.
   app.use(PUBLIC_LIBRARIES_PATH, hub.publicLibrariesHandler());
-  // The machines that sync this account's workspaces: a device token is minted here, behind the session.
-  // A desktop pairing with this origin: its browser lands here, signs in if it must, and is sent home with a device token.
+  // A desktop pairing with this origin: its browser lands here, signs in if it must, and leaves with a device token.
   app.get(
     SYNC_PAIR_ROUTE,
     (req, res, next) => {

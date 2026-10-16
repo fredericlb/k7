@@ -87,10 +87,10 @@ export function mountMedia(
   app.use("/api/settings", requireAuth, settingsRouter);
 
   // The studio's ONE engine registry; "pl8" is only its file name under ~/.k7/web-endpoints — ../../docs/media/engine.md.
-  // server.ts owns the signals, so the goodbye runs before its graceful close.
   const engine = mountEngineRegistry(app, {
     service: "pl8",
     requireAuth,
+    // server.ts owns the signals, so the goodbye runs before its graceful close.
     exitOnSignal: false,
     // On the volume, so an engine's id stays bound to its tunnel secret across a redeploy — packages/engine-registry/docs/token.md.
     stateDir: process.env.STUDIO_ENGINES_DIR || join(mediatekDir(), ".engines"),
