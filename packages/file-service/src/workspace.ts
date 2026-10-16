@@ -9,7 +9,6 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -37,7 +36,7 @@ import {
 import { writeFileAtomic } from "@studio/song/atomicWrite";
 import type { AutoFreeze } from "@studio/song/autoFreeze";
 import { moduleBaseChoices } from "@studio/song/basePreset";
-import { confineToProject } from "@studio/song/confine";
+import { confineTo, confineToProject } from "@studio/song/confine";
 import { type ConsoleSystem, consoleSystems } from "@studio/song/console";
 import { deadAutomations } from "@studio/song/deadAutomations";
 import { EXTS_PATH, engineModules } from "@studio/song/engineCatalogue";
@@ -592,30 +591,10 @@ function confined(
   root: string,
   rel: string,
   what: "workspace" | "libraries",
-  realRoot?: string,
 ): string {
-  if (abs !== root && !abs.startsWith(root + sep))
-    throw new Error(`path escapes the ${what}: ${rel}`);
-
-  let existing = abs;
-  const tail: string[] = [];
-  while (!existsSync(existing)) {
-    const parent = dirname(existing);
-    if (parent === existing) break; // hit the filesystem root
-    tail.unshift(basename(existing));
-    existing = parent;
-  }
-  let real: string;
-  let realTop: string;
-  try {
-    real = resolve(realpathSync(existing), ...tail);
-    realTop = realRoot ?? realpathSync(root);
-  } catch {
-    return abs; // unreadable ancestor, or no libraries yet — the lexical check already passed
-  }
-  if (real !== realTop && !real.startsWith(realTop + sep))
-    throw new Error(`path escapes the ${what}: ${rel}`);
-  return abs;
+  const inside = confineTo([root], abs);
+  if (inside === null) throw new Error(`path escapes the ${what}: ${rel}`);
+  return inside;
 }
 
 /** `@engine` as a library — synthesised, not a folder. See docs/workspace.md. */
@@ -651,8 +630,6 @@ function engineLibrary(): ModuleLibrary | null {
 
 export class Workspace {
   readonly root: string;
-  /** `root` with symlinks resolved — what safePath compares against. */
-  private readonly realRoot: string;
   readonly rootIsProject: boolean;
   private activeProject: string | null;
   private docCache: { dir: string; rev: string; doc: ProjectDoc } | null = null;
@@ -673,12 +650,6 @@ export class Workspace {
 
   constructor(root: string) {
     this.root = resolve(root);
-    // Normally succeeds (the root exists); falls back to the lexical root if it raced away.
-    try {
-      this.realRoot = realpathSync(this.root);
-    } catch {
-      this.realRoot = this.root;
-    }
     this.rootIsProject = isProjectDir(this.root);
     // ROOT when it is itself a project, else the remembered one if still valid, else null.
     const remembered = this.readActiveMarker();
@@ -729,7 +700,6 @@ export class Workspace {
       this.root,
       rel,
       "workspace",
-      this.realRoot,
     );
   }
   private toRel(abs: string): string {

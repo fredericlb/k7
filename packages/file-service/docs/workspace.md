@@ -203,10 +203,10 @@ not noticed a folder yet, which is a wait, not a lie.
    workspace (by an unzip, a sync, a CLI run) pointing at `~/.ssh` passes gate 1 happily,
    and `GET /file?path=link/id_rsa` would read straight through it.
 
-The trap in gate 2 is that `realpathSync` throws ENOENT for a path being CREATED, which would break
-every write to a new file. So it realpaths the nearest ancestor that exists and re-attaches the
-rest: a component that does not exist yet cannot be a symlink, so nothing is lost by not resolving
-it. An unreadable ancestor falls back to the lexical answer, which has already passed.
+Both are `confineTo` (`packages/song/src/confine.ts`), the one check every path read from a song
+file passes too, so the workspace and the song files cannot disagree about what escapes. A path
+being CREATED does not exist yet, so it checks the nearest ancestor that does: a component that
+does not exist cannot be a symlink. An ancestor that exists and cannot be resolved is refused.
 
 `guardShared` sits on top for STRUCTURE: `_modules` is shared by every project in the workspace,
 so its files are edited in place and never renamed, moved or deleted through the routes that do
