@@ -1,12 +1,11 @@
 // termux-tools.mjs — node for the phone's backend: Termux's arm64 builds, laid out as
 // lib*.so files, since the native library directory is the only place Android lets an app execute a file.
 // Names and the Termux prefix are patched IN PLACE, same length, so no binary is relinked.
-// Every .deb is the one pinned in termux-packages.json, checked by its SHA-256: Termux's index is never trusted at build time.
+// Every .deb is the one pinned in termux-packages.json, checked by its SHA-256 (termux-debs.mjs): no index is trusted at build time.
 // Usage: ANDROID_NDK_HOME=… node termux-tools.mjs <jniOut> <assetOut> <cacheDir>; `--pin` rewrites the table from the index.
 // See engine/k7-runtime/docs/android.md.
 
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   chmodSync,
   copyFileSync,
@@ -17,29 +16,11 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { fetchDeb, PACKAGES, PINS, POOLS, readPins } from "./termux-debs.mjs";
 
-const REPO = "https://packages-cf.termux.dev/apt/termux-main";
-const PINS = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "termux-packages.json",
-);
 const PREFIX = "data/data/com.termux/files/usr";
 const TERMUX_SH = "/data/data/com.termux/files/usr/bin/sh";
-
-// The program and every package its libraries come from (Termux's nodejs Depends, plus the CA bundle).
-const PACKAGES = [
-  "nodejs",
-  "libc++",
-  "openssl",
-  "c-ares",
-  "libicu",
-  "libsqlite",
-  "zlib",
-  "libffi",
-  "ca-certificates",
-];
 
 // Each program and the library name it ships as.
 const PROGRAMS = {
@@ -49,7 +30,7 @@ const PROGRAMS = {
 /** The index's stanza for each package: where it is and its digest, read only to write a new pin table. */
 async function index() {
   const text = await (
-    await fetch(`${REPO}/dists/stable/main/binary-aarch64/Packages`)
+    await fetch(`${POOLS[0]}/dists/stable/main/binary-aarch64/Packages`)
   ).text();
   const out = new Map();
   for (const stanza of text.split("\n\n")) {
@@ -63,26 +44,6 @@ async function index() {
       });
   }
   return out;
-}
-
-/** A .deb, downloaded once into the cache and verified each time against its pinned digest. */
-async function deb({ file, sha256 }) {
-  const at = join(cache, basename(file));
-  if (!existsSync(at)) {
-    const res = await fetch(`${REPO}/${file}`);
-    // Termux's pool keeps current versions only: a pinned one that is gone needs a new table.
-    if (!res.ok)
-      throw new Error(
-        `${file}: HTTP ${res.status} — re-pin with \`node termux-tools.mjs --pin\` and commit the table`,
-      );
-    writeFileSync(at, Buffer.from(await res.arrayBuffer()));
-  }
-  const got = createHash("sha256").update(readFileSync(at)).digest("hex");
-  if (got !== sha256) {
-    rmSync(at);
-    throw new Error(`${file}: sha256 ${got}, the pin says ${sha256}`);
-  }
-  return at;
 }
 
 /** A .deb's data.tar.* member, read here: macOS's `ar` refuses the GNU member names a .deb carries. */
@@ -201,18 +162,15 @@ if (!jniOut || !assetOut || !cache)
 const ndk = process.env.ANDROID_NDK_HOME;
 if (!ndk) throw new Error("ANDROID_NDK_HOME is not set");
 
-const pinned = JSON.parse(readFileSync(PINS, "utf8"));
+const pinned = readPins();
 mkdirSync(cache, { recursive: true });
 const root = join(cache, "root");
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root);
 const versions = {};
 for (const name of PACKAGES) {
-  const entry = pinned[name];
-  if (!entry?.file || !/^[0-9a-f]{64}$/.test(entry.sha256 ?? ""))
-    throw new Error(`${PINS}: no valid pin for '${name}'`);
-  versions[name] = entry.version;
-  extract(await deb(entry), root);
+  versions[name] = pinned[name].version;
+  extract(await fetchDeb(cache, pinned[name]), root);
 }
 
 const usr = join(root, PREFIX);
