@@ -77,7 +77,7 @@ function Tuner({ hz, clarity }: { hz: number; clarity: number }) {
   if (!note)
     return (
       <div className="flex flex-1 items-center pl-1">
-        <span className="text-[10px] text-muted-foreground/50">no note</span>
+        <span className="text-[10px] text-faint">no note</span>
       </div>
     );
   const inTune = Math.abs(note.cents) <= IN_TUNE_CENTS;

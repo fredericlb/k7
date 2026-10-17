@@ -72,9 +72,7 @@ export function GridMenu({
           }}
           className={cn(
             "flex w-full items-center gap-2 rounded px-2 py-1 text-left",
-            it.disabled
-              ? "cursor-default text-muted-foreground/50"
-              : "hover:bg-secondary",
+            it.disabled ? "cursor-default text-faint" : "hover:bg-secondary",
           )}
         >
           <it.icon className="h-3.5 w-3.5" />

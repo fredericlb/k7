@@ -46,6 +46,23 @@ them draws, so nothing changes on screen, but a steady signal re-renders nothing
 Round in the **selector**, not in the component. The selector's result is what `Object.is`
 compares; rounding after the hook has returned is rounding a value that already re-rendered.
 
+## The scale spends the bar where a mix is judged
+
+`meterFill` is linear in dB between corners — −60 at the bottom, −40 at 15 %, −20 at 40 %, −6 at
+80 %, full scale at the top — so the last 20 dB take 60 % of the bar. Linear from −60 gave the
+whole top third to the stretch between −20 and 0 and spent the rest drawing levels nobody mixes at;
+a bar 96 px long then moved four pixels between a healthy master and a hot one. Within a stretch
+equal dB is still equal distance, so the markings stay readable. `meterZone` answers which of three
+colours the bar wears, at the same −6 and 0 the Fix button and the clip light already use.
+
+## A peak mark is a number, held and released
+
+`nextPeakMark` keeps the level a mark was raised to and WHEN; `peakMarkLevel` derives where it stands
+now — held 1.5 s, then falling at 20 dB/s. Derived rather than stepped down frame by frame, so a
+release never compounds (a mark decremented from its own last value falls faster the more frames
+arrive), and the same two numbers answer at 20 Hz or at a stall. This is the ballistics the rule
+above sends to the number.
+
 ## Scale the bar, never resize it
 
 Every meter here is a flat block of colour, so `transform: scaleX()` from the left (or

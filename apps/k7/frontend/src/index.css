@@ -54,6 +54,35 @@
   --color-tree-panel: var(--color-card);
 }
 
+/* k7's own values over the shared palette, which phare keeps as it is (docs/shell.md):
+   - the accent as a FILL is violet-600, white on it 5.7:1 where violet-500 gave 4.2; as TEXT it is
+     `primary-text`, below, since no one violet passes both ways on this ground;
+   - the ground one step deeper, so a card reads as a surface without the hairline round it;
+   - a hover its own step above a panel, where `accent` and `muted` were the same grey. */
+:root {
+  --sh-primary: #7c3aed;
+  --sh-primary-hover: #6d28d9;
+  --sh-background: #0d0e11;
+  --sh-accent: #2c2d36;
+}
+
+/* One colour per MEANING across every view of a song, canvas included (it reads these variables):
+   the playhead, the three lane states, the meter's three zones. `static`, so each variable exists
+   even where no class names it. The series palette for takes, slices and cues is
+   @studio/song-schema's seriesColors.ts, since a canvas and an SVG draw it too. */
+@theme static {
+  --color-primary-text: #a78bfa;
+  --color-faint: #8a8a97;
+  --color-playhead: #f4f3f8;
+  --color-playhead-rec: #ff5468;
+  --color-mute: #f08a3c;
+  --color-solo: #f2c94c;
+  --color-arm: #ff5468;
+  --color-meter-ok: #3ddc97;
+  --color-meter-hot: #f2c94c;
+  --color-meter-clip: #ff5468;
+}
+
 @layer base {
   html,
   body,

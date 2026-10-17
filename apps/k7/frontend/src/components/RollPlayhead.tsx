@@ -53,7 +53,7 @@ export function RollPlayhead({
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute top-0 left-0 z-10 w-px bg-white/80"
+      className="pointer-events-none absolute top-0 left-0 z-10 w-px bg-playhead"
       style={{
         willChange: "transform",
         visibility: "hidden", // until the first frame says where it is

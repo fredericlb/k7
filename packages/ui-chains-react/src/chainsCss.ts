@@ -42,11 +42,12 @@ export const RING = "#8b5cf6"; // the selection ring (violet-500)
 const MARK = "#f59e0b"; // a host's highlight ring (amber-500)
 // Where the signal enters or leaves the graph. The audio cable's own orange, since that is what an edge carries.
 const EDGE = "#d98b45";
+// The lane states read the host's tokens (k7's index.css), so the graph's solo is the timeline's solo; the hex is for a host without them.
 export const CTRL: Record<string, string> = {
-  "@mute": "#f97316", // orange-500
-  "@solo": "#eab308", // yellow-500
+  "@mute": "var(--color-mute, #f08a3c)",
+  "@solo": "var(--color-solo, #f2c94c)",
   "@highlight": "#22d3ee", // cyan-400 — a lane pushed forward, distinct from solo's yellow
-  "@arm": "#ef4444", // red-500
+  "@arm": "var(--color-arm, #ff5468)",
 };
 
 const CSS = `
@@ -464,7 +465,9 @@ const CSS = `
 /* The VU, left of the throw: the Mix panel's -60..+6 dB span and thresholds, its ramp on the box. */
 .dgx-fmeter { position:relative; width:5px; border-radius:3px; border:1px solid #212129; overflow:hidden;
   flex:none; background:linear-gradient(to top,
-    #10b981 0%, #10b981 81.8%, #fbbf24 81.8%, #fbbf24 90.9%, #ef4444 90.9%, #ef4444 100%); }
+    var(--color-meter-ok,#3ddc97) 0%, var(--color-meter-ok,#3ddc97) 81.8%,
+    var(--color-meter-hot,#f2c94c) 81.8%, var(--color-meter-hot,#f2c94c) 90.9%,
+    var(--color-meter-clip,#ff5468) 90.9%, var(--color-meter-clip,#ff5468) 100%); }
 /* NO transition on the shade: a 60ms ease restarted by 50ms levels never finished; see docs/nodeCard.md. */
 .dgx-fmeter i { position:absolute; inset:0; display:block; background:#08080b;
   transform-origin:top; }

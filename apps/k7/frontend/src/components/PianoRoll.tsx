@@ -515,7 +515,7 @@ export function PianoRoll({
     // min-w-0, as in the timeline: the fixed-width grid must not become this flex child's minimum.
     <div className="flex h-full min-h-0 min-w-0 flex-col border-t-2 border-border">
       <div className="flex items-center gap-2 border-b border-border px-3 py-1 text-xs">
-        <span className="font-semibold text-primary">
+        <span className="font-semibold text-primary-text">
           <Piano className="h-3.5 w-3.5" /> {clip.name || clip.id}
         </span>
         <span className="text-muted-foreground">
@@ -534,7 +534,7 @@ export function PianoRoll({
             </span>
           )}
           {onCreateNote && (
-            <span className="ml-2 text-muted-foreground/70">
+            <span className="ml-2 text-faint">
               · drag to draw · x supprime · ctrl: hors grille · pinch to zoom ·
               middle-drag pan
             </span>

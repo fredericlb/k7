@@ -172,7 +172,7 @@ export function TasksPage() {
                               </a>
                             ) : (
                               // The anchor names a project the workspace no longer holds: said, not linked.
-                              <span className="shrink-0 font-mono text-xs text-muted-foreground/60">
+                              <span className="shrink-0 font-mono text-xs text-faint">
                                 {t.at.project} @ {t.at.timecode}
                               </span>
                             ))}

@@ -267,9 +267,10 @@ export function RepoList({
             <li
               key={w.name}
               className={cn(
-                "flex flex-col rounded-md border border-border p-3",
+                // A surface by its fill, not an outline (docs/shell.md); a ring only while a drop is over it.
+                "flex flex-col rounded-lg bg-card p-3",
                 // The row lights up only for something it can actually take — see `DROPPABLE`.
-                over === w.name && "border-primary bg-primary/5",
+                over === w.name && "bg-primary/10 ring-1 ring-primary",
               )}
               onDragOver={(e) => {
                 if (!carriesFiles(e)) return;

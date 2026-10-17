@@ -109,11 +109,11 @@ export function LibrariesCard({
     <div
       className={cn(
         "flex flex-col gap-2",
-        inPage ? "rounded-md border border-border p-4" : "border-b px-6 py-4",
+        inPage ? "rounded-lg bg-card p-4" : "border-b px-6 py-4",
         // With no library the card is not an information row: it is the one thing to do here, and nothing else works until it is done.
         missing &&
           (inPage
-            ? "border-amber-500/40 bg-amber-500/5"
+            ? "bg-amber-500/10 ring-1 ring-amber-500/40"
             : "border-b-amber-500/40 bg-amber-500/5"),
       )}
     >

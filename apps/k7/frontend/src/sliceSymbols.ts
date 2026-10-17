@@ -12,6 +12,7 @@ import {
   StateField,
 } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
+import { SERIES_COLORS, seriesColor } from "@studio/song-schema/seriesColors";
 import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { isMap, isScalar, parseDocument } from "yaml";
 
@@ -24,21 +25,9 @@ export interface SliceSym {
   keyRange: [number, number]; // doc positions of the symbol NAME (for the colour)
 }
 
-/** One colour per slice, by INDEX in the symbols map's own order, so 'the third slice is violet' is true in every view of a rack. */
-export const SLICE_COLORS = [
-  "#f472b6", // pink
-  "#38bdf8", // sky
-  "#a3e635", // lime
-  "#fb923c", // orange
-  "#a78bfa", // violet
-  "#2dd4bf", // teal
-  "#fb7185", // rose
-  "#818cf8", // indigo
-] as const;
-export const sliceColor = (i: number): string =>
-  SLICE_COLORS[
-    ((i % SLICE_COLORS.length) + SLICE_COLORS.length) % SLICE_COLORS.length
-  ];
+/** One colour per slice, by INDEX in the symbols map's own order, so 'the third slice is teal' is true in every view of a rack — the studio's series palette. */
+export const SLICE_COLORS = SERIES_COLORS;
+export const sliceColor = (i: number): string => seriesColor(i);
 
 const round = (v: number) => Math.round(v * 10000) / 10000; // 0.1 ms
 const fmt = (v: number) => String(round(v));

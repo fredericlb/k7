@@ -162,7 +162,7 @@ export function BpmFader({
       {/* Only when pl8 HOLDS a correction: a badge that is always there says nothing. */}
       {corrected ? (
         <span
-          className="shrink-0 font-mono text-[8px] text-primary leading-none"
+          className="shrink-0 font-mono text-[8px] text-primary-text leading-none"
           title={m["bpm.corrected"]()}
         >
           BPM <Pencil className="size-2" />

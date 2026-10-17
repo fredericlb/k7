@@ -227,6 +227,29 @@ the time — the page on screen, a selection, Play — and those are violet; a v
 leaves the accent nothing to mark. The footer and the home page's sidebar take the same surface
 (`projects.md`).
 
+### One colour per meaning, across every view
+
+k7 keeps its own values over the shared palette in `src/index.css`, and every surface that draws a
+song reads them, canvases included (through the CSS variable, since a canvas cannot take `var()`):
+
+| meaning | token | why one |
+|---|---|---|
+| the playhead | `playhead` | the timeline, the roll, the step grid, the minimap, the takes view, the clip's waveform and the desk drew five different lines; an audition's line stays amber, being another clock |
+| mute, solo, arm | `mute`, `solo`, `arm` | the timeline's solo and the graph's were two yellows; a lit pad takes dark type, which reads on all three |
+| the meter's zones | `meter-ok`, `meter-hot`, `meter-clip` | the header, the desk and the graph's faders say the same thing about the same level |
+| violet as text | `primary-text` | no one violet passes both as a fill under white type and as text on this ground (`primary` is the fill) |
+| text below muted | `faint` | it replaces `/50`–`/70` fades of the muted grey, which fell to 2.4:1 |
+
+Takes, slices and cues are a SERIES, coloured by order from `@studio/song-schema`'s
+`seriesColors.ts`; a track keeps its category colour, and one the compile has not coloured yet is
+that scheme's `other` grey rather than a type hue of its own.
+
+**Surfaces are told apart by fill.** The ground is one step deeper than the shared theme's, the
+card a step above it, and a hover a step above that — `accent` and `muted` were the same grey, so a
+hovered row looked like a panel. A panel that is a surface (the home page's workspaces, the settings
+sections, the libraries card) is its fill with no outline; a hairline is kept where it SEPARATES
+something, between a header and its rows.
+
 ### The bar is 30 px, and its height is a rule rather than a number
 
 Every row of chrome is a row the panes don't get, and a phone in landscape is about 400 px tall.

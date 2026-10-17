@@ -48,14 +48,16 @@ export function ShapePicker({
                 onChange={() => onShape(sh.id)}
                 className="sr-only"
               />
-              <span className={on ? "text-primary" : "text-muted-foreground"}>
+              <span
+                className={on ? "text-primary-text" : "text-muted-foreground"}
+              >
                 <ShapeSchematic shape={sh.id} />
               </span>
               <span className="flex items-center gap-1.5 font-semibold text-sm">
                 <sh.icon
                   className={cn(
                     "h-3.5 w-3.5 shrink-0",
-                    on ? "text-primary" : "text-muted-foreground",
+                    on ? "text-primary-text" : "text-muted-foreground",
                   )}
                 />
                 {/* `::first-letter` needs a block container, which a flex row is not. */}

@@ -8,8 +8,9 @@
 import {
   clipLatch,
   FLOOR_DB,
-  HOT_DB,
+  type MeterZone,
   meterFill,
+  meterZone,
 } from "@studio/engine-browser/meter";
 import {
   EngineStore,
@@ -38,6 +39,13 @@ export const CROSSFADE_BLEED = 16 + 64 + 8;
  * The alternative — a conditional `useStoreState` — is not a thing React allows. */
 const SILENT = new EngineStore();
 
+/** The bar's fill per zone: the host's meter tokens, the header meter's three (k7's index.css). */
+const ZONE_FILL: Record<MeterZone, string> = {
+  ok: "bg-meter-ok",
+  hot: "bg-meter-hot",
+  clip: "bg-meter-clip",
+};
+
 /** One track's output level in dB, off whichever store the host provided. */
 function useLevelDb(trackId: string | null, order: readonly string[]): number {
   const store = useEngineStoreOrNull() ?? SILENT;
@@ -65,7 +73,7 @@ function Meter({ db }: { db: number }) {
       {/* Scaled and not resized: a height would reflow this column every frame the engine speaks. */}
       <div
         className={`absolute inset-x-0 bottom-0 h-full origin-bottom rounded-full ${
-          db >= HOT_DB ? "bg-amber-400" : "bg-emerald-400"
+          ZONE_FILL[meterZone(db)]
         }`}
         style={{ transform: `scaleY(${fill})` }}
       />
@@ -109,7 +117,7 @@ export function MasterMeter() {
       <div className="relative h-1.5 w-20 overflow-hidden rounded-full bg-foreground/15">
         <div
           className={`absolute inset-y-0 left-0 w-full origin-left rounded-full ${
-            db >= HOT_DB ? "bg-amber-400" : "bg-emerald-400"
+            ZONE_FILL[meterZone(db)]
           }`}
           style={{ transform: `scaleX(${meterFill(db)})` }}
         />
@@ -119,7 +127,7 @@ export function MasterMeter() {
         aria-label={clipped ? m["meter.clipped"]() : m["meter.noClip"]()}
         className={`h-1.5 w-1.5 shrink-0 rounded-full ${
           clipped
-            ? "bg-red-500 shadow-[0_0_4px_1px] shadow-red-500/60"
+            ? "bg-meter-clip shadow-[0_0_4px_1px] shadow-meter-clip/60"
             : "bg-foreground/20"
         }`}
       />

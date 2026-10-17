@@ -69,7 +69,7 @@ function Row(props: RowProps) {
             <ChevronRight className="h-3.5 w-3.5 shrink-0" />
           )}
           {node.project ? (
-            <FolderOpen className="h-3.5 w-3.5 shrink-0 text-primary" />
+            <FolderOpen className="h-3.5 w-3.5 shrink-0 text-primary-text" />
           ) : (
             <Folder className="h-3.5 w-3.5 shrink-0 opacity-60" />
           )}

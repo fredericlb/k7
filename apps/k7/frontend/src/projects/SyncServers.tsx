@@ -91,7 +91,7 @@ export function SyncServers() {
         >
           <span className="text-foreground">{hostOf(s.url)}</span>
           {s.main ? (
-            <span className="text-primary">{m["account.main"]()}</span>
+            <span className="text-primary-text">{m["account.main"]()}</span>
           ) : (
             <>
               <button

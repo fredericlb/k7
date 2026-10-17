@@ -461,7 +461,7 @@ function TakesPlayhead({
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute inset-y-0 w-px bg-red-500"
+      className="pointer-events-none absolute inset-y-0 w-px bg-playhead"
     />
   );
 }

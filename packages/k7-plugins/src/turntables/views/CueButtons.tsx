@@ -67,13 +67,16 @@ function Cue({
     <button
       type="button"
       disabled={disabled}
+      // An empty pad is the quietest thing on the desk, a set one wears its series colour with dark type (6:1 on every hue).
       className={`h-7 flex-1 rounded border font-mono text-[10px] tabular-nums transition-transform ${
         holding ? "scale-95" : ""
-      } ${disabled ? "opacity-40" : ""}`}
-      style={
+      } ${disabled ? "opacity-40" : ""} ${
         at === null
-          ? { background: "#ffffff", color: "#111827", borderColor: "#d1d5db" }
-          : { background: colour, color: "#ffffff", borderColor: colour }
+          ? "border-muted-foreground/40 border-dashed bg-transparent text-muted-foreground"
+          : "text-background"
+      }`}
+      style={
+        at === null ? undefined : { background: colour, borderColor: colour }
       }
       onPointerDown={down}
       onPointerUp={up}

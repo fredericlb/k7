@@ -90,7 +90,7 @@ function SidebarEntry({
           "bg-primary/15 text-foreground hover:bg-primary/20 hover:text-foreground",
       )}
     >
-      <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
+      <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary-text")} />
       <span className="hidden min-w-0 flex-1 truncate text-left sm:inline">
         {label}
       </span>
@@ -185,7 +185,7 @@ function HomeSidebar({
   }));
 
   return (
-    <aside className="z-20 flex w-14 shrink-0 flex-col border-r border-border bg-card sm:w-52">
+    <aside className="z-20 flex w-14 shrink-0 flex-col bg-card sm:w-52">
       <div className="flex flex-col gap-1 px-3 pt-4 pb-3 sm:px-5">
         <span
           className="truncate font-brand text-xl leading-none text-white"

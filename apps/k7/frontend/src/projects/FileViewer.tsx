@@ -22,7 +22,7 @@ async function load(source: TreeSource, path: string): Promise<Shown> {
 
 function Gutter({ n }: { n?: number }) {
   return (
-    <span className="w-10 shrink-0 select-none pr-2 text-right text-muted-foreground/60">
+    <span className="w-10 shrink-0 select-none pr-2 text-right text-faint">
       {n ?? ""}
     </span>
   );

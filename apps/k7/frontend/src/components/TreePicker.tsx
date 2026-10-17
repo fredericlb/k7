@@ -246,7 +246,7 @@ export function TreePicker<T>({
         placeholder={placeholder}
         spellCheck={false}
         autoComplete="off"
-        className="w-full bg-transparent px-1 py-1 rounded-sm font-mono text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground/60"
+        className="w-full bg-transparent px-1 py-1 rounded-sm font-mono text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-faint"
       />
     </div>
   );

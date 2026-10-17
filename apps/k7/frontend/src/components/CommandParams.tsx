@@ -59,7 +59,7 @@ export function CommandParams({
       <button
         type="button"
         onClick={onRepick}
-        className="h-5 shrink-0 font-mono text-sm leading-5 text-foreground hover:text-primary"
+        className="h-5 shrink-0 font-mono text-sm leading-5 text-foreground hover:text-primary-text"
         title={`${command.readable} — click to pick another command`}
       >
         {command.canonical}
@@ -85,7 +85,7 @@ export function CommandParams({
             autoComplete="off"
             className={cn(
               // h-5, the bar input's own line: a field any taller makes the whole strip jump when a command is picked.
-              "h-5 shrink-0 rounded border bg-background/60 px-1.5 py-0 font-mono text-xs leading-none outline-none focus:border-primary placeholder:text-muted-foreground/60",
+              "h-5 shrink-0 rounded border bg-background/60 px-1.5 py-0 font-mono text-xs leading-none outline-none focus:border-primary placeholder:text-faint",
               i === active
                 ? `border-primary/60 ${argColor[a.kind]}`
                 : "border-border text-foreground/80",

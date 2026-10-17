@@ -146,9 +146,7 @@ export function LoopRow({
             : m["loop.running"]({ beats: lengthLabel(beats) })
         }
         className={`flex h-6 min-w-0 flex-1 items-center justify-center rounded font-mono text-[10px] tabular-nums ${
-          beats === null
-            ? "text-muted-foreground/50"
-            : "bg-amber-500/15 text-amber-600"
+          beats === null ? "text-faint" : "bg-amber-500/15 text-amber-600"
         }`}
       >
         {lengthLabel(beats ?? step)}

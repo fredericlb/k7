@@ -43,7 +43,7 @@ export function Playhead({
     <div
       ref={ref}
       className={cn(
-        "pointer-events-none absolute top-0 z-20 w-px bg-white/80",
+        "pointer-events-none absolute top-0 z-20 w-px bg-playhead",
         GROW,
       )}
       style={{

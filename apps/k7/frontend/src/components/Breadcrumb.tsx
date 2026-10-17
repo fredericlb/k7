@@ -90,7 +90,7 @@ export function Breadcrumb({
         const dir = isFile ? prefixes[prefixes.length - 1] : prefixes[i + 1];
         return (
           <div key={`${part}-${i}`} className="flex min-w-0 items-center">
-            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground/60" />
+            <ChevronRight className="h-3 w-3 shrink-0 text-faint" />
             <Segment
               label={part}
               file={isFile}
@@ -151,7 +151,7 @@ export function Breadcrumb({
                     className={`shrink-0 rounded p-1 ${
                       isActiveProject
                         ? "text-emerald-500"
-                        : "text-muted-foreground/60 hover:text-foreground"
+                        : "text-faint hover:text-foreground"
                     }`}
                   >
                     <Play

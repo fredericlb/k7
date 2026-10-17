@@ -417,7 +417,7 @@ export const CommandBar = forwardRef<
 
   return (
     <div className="relative flex flex-1 items-center">
-      <ChevronRight className="mr-1 h-4 w-4 text-primary" />
+      <ChevronRight className="mr-1 h-4 w-4 text-primary-text" />
       {command ? (
         // While a command is being filled the row IS its form: the name, then a field per param, on one line.
         <CommandParams
@@ -499,7 +499,7 @@ export const CommandBar = forwardRef<
               ? `${listId}-${highlighted}`
               : undefined
           }
-          className="min-w-0 flex-1 bg-transparent font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground/60"
+          className="min-w-0 flex-1 bg-transparent font-mono text-sm text-foreground outline-none placeholder:text-faint"
         />
       )}
 
