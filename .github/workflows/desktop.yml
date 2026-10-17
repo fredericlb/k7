@@ -199,6 +199,14 @@ jobs:
           max-size: 1G
           save: ${{ github.ref == 'refs/heads/main' }}
 
+      # The pinned Termux debs stageTermuxTools reads, keyed by the pin table: one more source no upstream can take away.
+      - name: termux debs
+        id: termux
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: engine/k7-android/app/build/termux-cache/*.deb
+          key: termux-debs-${{ hashFiles('engine/k7-android/scripts/termux-packages.json') }}
+
       # The release key, decoded from its secret into the runner's temp folder and deleted at the end of the job.
       - name: release signing key
         shell: bash
@@ -259,6 +267,13 @@ jobs:
         with:
           path: ${{ runner.temp }}/k7-fetch
           key: ${{ steps.fetch.outputs.cache-primary-key }}
+      # Verified against the pins by the build, so a later failure in the job does not make them wrong.
+      - name: save termux debs
+        if: always() && steps.termux.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main' && hashFiles('engine/k7-android/app/build/termux-cache/*.deb') != ''
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: engine/k7-android/app/build/termux-cache/*.deb
+          key: ${{ steps.termux.outputs.cache-primary-key }}
       - name: save gradle cache
         if: success() && steps.gradle.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
