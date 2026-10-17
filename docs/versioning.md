@@ -112,8 +112,7 @@ their `rN` tag scheme is unrelated to CI's.
 That script finds its apps by globbing `apps/*/docker/Dockerfile` and names the image
 after the folder, so nothing is named by hand — under the checkout's own folder name, which is the
 `<repo>` of `<repo>/<app>`, the shape phare's `phare/phare` has. CI's images are
-`dev.frediver.se/frediverse/k7/k7-webapp` and `…/k7/k7-runtime`, OneDev's registry keeping a project's images
-under its path (`frediverse/k7`). The two do not meet: the script names an image after its app's folder,
+`ghcr.io/fredericlb/k7-webapp` and `…/k7-runtime` ([images.md](images.md)). The two do not meet: the script names an image after its app's folder,
 so a hand-built one is `<checkout>/k7`, never CI's `k7-webapp`, and nothing deployed pulls it.
 
 `?? "dev"` at each render site covers `vite dev` and a bare `vite build`, where the

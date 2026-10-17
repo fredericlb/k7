@@ -1,10 +1,10 @@
 # The desktop release
 
 `docker/` ships the hosted apps. This is the other half: what runs on the musician's machine and is in
-no image. **OneDev builds it** (`.onedev-buildspec.yml`); `.github/workflows/desktop.yml` draws the same
-graph for GitHub, kept for when the repository is public — a private repository's Actions minutes do
-not cover three desktops on every push, macOS counting ten times. Both build it in two stages per
-platform, beside the phone's APK, and publish **two files per desktop**:
+no image. **GitHub builds it** (`.github/workflows/desktop.yml`), the repository being public, so
+its Actions minutes cover three desktops on every push. `.onedev-buildspec.yml` draws the same graph
+for OneDev, with no trigger: its jobs run by hand. Both build it in two stages per platform, beside
+the phone's APK, and publish **two files per desktop**:
 
 | stage | job | what it publishes |
 |---|---|---|
@@ -22,8 +22,7 @@ it just packaged under Playwright before making the installer (`apps/k7-standalo
 
 ## Two channels, and what names a file
 
-A push to `main` makes a snapshot; a `vX.Y.Z` tag makes a release of its own. On OneDev each is the
-`release` build that gathers the files. On GitHub the snapshot is a prerelease on the moving tag
+A push to `main` makes a snapshot; a `vX.Y.Z` tag makes a release of its own. On GitHub the snapshot is a prerelease on the moving tag
 `snapshot`, deleted and recreated rather than edited, because a GitHub release keeps the commit its tag
 points at however its assets are replaced — an edited one would keep advertising the commit it was
 first cut from.
@@ -296,9 +295,8 @@ through, and it must be minutes rather than hours.
 ## On OneDev
 
 `.onedev-buildspec.yml` names jobs by what they make — `engine windows`, `desktop windows`, `android` —
-and builds no Linux leg: that one is GitHub's alone, and OneDev's container runs would only duplicate it. Only **`release`** carries triggers: a push to `main` touching
-`engine/`, `apps/`, `packages/`, `commons` or the lock, and a `v*` tag, GitHub's gate expressed as the
-trigger's paths. Its dependencies run the rest, each desktop job retrieving its engine job's archive,
+and builds no Linux leg: that one is GitHub's alone, and OneDev's container runs would only duplicate it. No job carries a trigger: **`release`**, run by hand, is
+the one to start. Its dependencies run the rest, each desktop job retrieving its engine job's archive,
 and it gathers every file into its own build: that build's artifacts are the release. The file names
 are GitHub's — the tag, or `snapshot-<commit>`. The engine job and the APK wait for `lint and test`: a release
 should not ship what the tests refuse, and the APK shares its machine, where a C++ compile beside it times

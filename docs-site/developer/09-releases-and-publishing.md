@@ -41,7 +41,7 @@ git push origin v1.2.0
 A manual dispatch of the `desktop` workflow on another branch builds everything and uploads the
 artifacts to the run without publishing a release.
 
-OneDev builds the Windows engine archive, the Windows installer and the APK on the same triggers and
+OneDev can build the Windows engine archive, the Windows installer and the APK, by hand, and
 gathers them as the files of its `release` build (see [CI](./07-ci.md)). The Linux and macOS files
 come from GitHub only.
 

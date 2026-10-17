@@ -5,8 +5,8 @@ The hosted side of k7 ships as two Docker images built from this repository, run
 
 | Image | Dockerfile | Registry name |
 |---|---|---|
-| k7 web app: the backend, the built frontend, the media library and the rehearsal recorder in one Node process | `apps/k7/docker/Dockerfile` | `dev.frediver.se/frediverse/k7/k7-webapp` |
-| Server engine: `k7-runtime` and `k7-supervisor` | `engine/docker/Dockerfile` | `dev.frediver.se/frediverse/k7/k7-runtime` |
+| k7 web app: the backend, the built frontend, the media library and the rehearsal recorder in one Node process | `apps/k7/docker/Dockerfile` | `ghcr.io/fredericlb/k7-webapp` |
+| Server engine: `k7-runtime` and `k7-supervisor` | `engine/docker/Dockerfile` | `ghcr.io/fredericlb/k7-runtime` |
 
 Both build with the repository root as context:
 

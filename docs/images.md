@@ -1,18 +1,19 @@
 # The k7 image — why its Dockerfile is staged the way it is
 
-The OneDev job `build studio images` builds one image, k7 — the editor, the media library and the
-rehearsal recorder — in a single `BuildImageStep` (`.onedev-buildspec.yml`). Its Dockerfile builds
+`.github/workflows/images.yml` builds one image, k7 — the editor, the media library and the
+rehearsal recorder — as `ghcr.io/fredericlb/k7-webapp`. Its Dockerfile builds
 from the repo root (`apps/k7/docker/Dockerfile`) and pays for two expensive things: an `npm ci`
 over the workspace, and the C toolchain `ssh2` builds its optional crypto binding with. z0 is
 deployed beside it but built by its own repository, which keeps the same stage layout by
 convention only: nothing here checks the two against each other.
 
-The server's engine is a second image built here, `k7-runtime`, in a job of its own because it
-compiles C++: `docs/server-engine.md`.
+The server's engine is a second image built here, `ghcr.io/fredericlb/k7-runtime`, in a job of its
+own because it compiles C++ (`docs/server-engine.md`), and the Raspberry Pi's a third,
+`k7-runtime-pi` (`docs/pi-engine.md`).
 
 ## One Node version: 24
 
-The image's stages, OneDev's jobs, GitHub's (through `.nvmrc`) and the bundles' esbuild target all
+The image's stages, GitHub's jobs (through `.nvmrc`), OneDev's and the bundles' esbuild target all
 name Node 24, the active LTS: a test run on one version and a server on another is a bug found in
 production. Its `node:sqlite`, the shares' comments store, needs no `--experimental-sqlite`, and
 it has an alpine image. A move to the next LTS changes every `node:24-*` image tag, `.nvmrc`, the
@@ -75,7 +76,7 @@ between builds, so `npm ci` reinstalls from the local cache instead of the regis
 
 ## The layers are kept in the registry, not only in the builder
 
-The `BuildImageStep` exports its cache to `k7/cache:k7-webapp` (`mode=max`, so the install
+The build exports its cache to `k7-cache:k7-webapp` (`mode=max`, so the install
 stages are in it, not only the final image) and imports it on the next run. A builder that
 starts empty, or one whose cache was pruned, still finds the installs. `image-manifest=true`
 stores the cache as an ordinary OCI image, which a registry that refuses BuildKit's own cache
@@ -84,29 +85,30 @@ manifest still accepts.
 ## An image build checks no types
 
 The frontends are built with `vite build` alone, not with their `build` script, whose second half
-is `tsc`. Every frontend has a `typecheck` script, and `lint and test` runs all of them, so a type
-error is still red; the image job just doesn't find it a second time.
+is `tsc`. `k7.yml` runs that `build` script, so a type error is still red, and the tags wait for it;
+the image job just doesn't find it a second time.
 
 ## Built beside the tests, published after them
 
-`build studio images` has no trigger. `publish studio images` does, and depends on it and on
-`lint and test`, which therefore run at the same time. The build pushes the image under the
-commit hash only, which nothing deploys. The publish job moves `:latest` and the version stamp
-onto that manifest with `docker buildx imagetools create`, a copy inside the registry, once both
-have passed. The stamp travels from the build job as an artifact, because it is baked into the
-SPAs and a second clock reading could disagree with it.
+`images.yml` builds each image beside `k7.yml`, which therefore run at the same time, and pushes it
+under the commit hash only, which nothing deploys. Its `publish` job moves `:latest` and the version
+stamp onto that manifest with `docker buildx imagetools create`, a copy inside the registry, once
+`k7.yml` has passed for that commit — and never when it has not run, which
+`.github/actions/k7-passed` counts as a failure, since a tag that moves untested is the hazard the
+wait exists for. The stamp is computed once, in the `version` job, because it is baked into the SPA
+and a second clock reading could disagree with it. The Pi image builds on an arm64 runner, natively.
 
-## GitHub builds the same images, into GHCR
+The engine's compile lives in cache mounts, which a registry cache does not carry and a fresh runner
+starts without: a push that changes no native source reuses the compiled layer whole, and one that
+does compiles cold.
 
-`.github/workflows/images.yml` is the same pipeline on GitHub, for `k7-webapp`, `k7-runtime` and the
-Pi's `k7-runtime-pi`, under `ghcr.io/fredericlb/`: built beside `k7.yml` under the commit, tagged
-`:latest` and with the stamp once `k7.yml` has passed for that commit — and never when it has not run,
-which `.github/actions/k7-passed` counts as a failure, since a tag that moves untested is the hazard the
-wait exists for. The Pi image builds on an
-arm64 runner, natively. The engine's compile lives in cache mounts, which a registry cache does not
-carry and a fresh runner starts without: a push that changes no native source reuses the compiled
-layer whole, and one that does compiles cold. The deployment (`docker/docker-compose.yml`) still
-pulls from OneDev's registry.
+## The deployment pulls from GHCR, anonymously
+
+`docker/docker-compose.yml` names `ghcr.io/fredericlb/k7-webapp` and `ghcr.io/fredericlb/k7-runtime`,
+the images `images.yml` publishes. The three packages are public, so the deploy host pulls them
+without a `docker login`; making one private means that host needs a login to `ghcr.io` with a token
+holding `read:packages`. `.onedev-buildspec.yml` keeps the same jobs pushing to OneDev's registry,
+with no trigger: nothing deploys from it.
 
 ## The process runs as `node`, and its volumes must be `node`'s
 

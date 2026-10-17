@@ -99,9 +99,9 @@ The compile is one `RUN`, with the two build folders and ccache as cache mounts:
 Faust libraries out of the engine's build folder, which exists only inside that step. The step copies
 only `engine/k7-runtime`, `engine/k7-supervisor` and the staging script, so a push that touches none
 of them finds the compile in the registry cache (`cache:k7-runtime`, as `docs/images.md` describes
-for k7). A cold build is long enough to have its own OneDev job, `build engine image`, with a
-three-hour timeout. `publish studio images` waits for it and tags both images with the same stamp,
-which is why the compose file names both images by `APP_VERSION`, and requires it.
+for k7). A cold build is long enough to have its own job in `images.yml`, with a five-hour
+timeout. The `publish` job waits for it and tags both images with the same stamp, which is why the
+compose file names both images by `APP_VERSION`, and requires it.
 
 ## It is k7's render machine
 
