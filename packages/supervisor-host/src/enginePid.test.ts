@@ -77,66 +77,71 @@ describe("checkPid", () => {
   });
 });
 
-describe.skipIf(process.platform === "win32")("the teardown backstop", () => {
-  function sleeper(bin = "/bin/sleep", args = ["30"]): ChildProcess {
-    const child = spawn(bin, args, { detached: true, stdio: "ignore" });
-    children.push(child);
-    return child;
-  }
-
-  async function stopWith(pidFileText: string): Promise<void> {
-    const file = join(tempDir(), "engine.pid");
-    writeFileSync(file, pidFileText);
-    const host = new SupervisorHost({
-      bin: "/nonexistent",
-      enginePidFile: file,
-      log: () => {},
-    });
-    await host.stop(100);
-  }
-
-  it("describes a live process the same way twice", () => {
-    const a = inspectPid(process.pid);
-    expect(a?.start).toBeTruthy();
-    expect(a?.exe).toBeTruthy();
-    expect(inspectPid(process.pid)?.start).toBe(a?.start);
-  });
-
-  it("never kills a bare pid, which may by now be anything", async () => {
-    const child = sleeper();
-    await stopWith(`${child.pid}\n`);
-    expect(pidAlive(child.pid ?? 0)).toBe(true);
-  });
-
-  it("never kills a pid whose identity does not match", async () => {
-    const child = sleeper();
-    await stopWith(`${child.pid}\nstart=1\nexe=/x/k7-runtime\n`);
-    expect(pidAlive(child.pid ?? 0)).toBe(true);
-  });
-
-  it("kills the engine the pidfile proves", async () => {
-    const bin = join(tempDir(), "k7-runtime");
-    // Node under the engine's name: Alpine's /bin/sleep is BusyBox, which refuses to run as "k7-runtime".
-    try {
-      linkSync(process.execPath, bin);
-    } catch {
-      copyFileSync(process.execPath, bin);
+// A spawned process under a full test run can take seconds to show up: slowness is not what these test.
+describe.skipIf(process.platform === "win32")(
+  "the teardown backstop",
+  { timeout: 20_000 },
+  () => {
+    function sleeper(bin = "/bin/sleep", args = ["30"]): ChildProcess {
+      const child = spawn(bin, args, { detached: true, stdio: "ignore" });
+      children.push(child);
+      return child;
     }
-    const child = sleeper(bin, ["-e", "setTimeout(() => {}, 30000)"]);
-    const pid = child.pid ?? 0;
-    const exited = new Promise((r) => child.once("exit", r));
-    const live = await waitFor(() => {
-      const r = inspectPid(pid);
-      return r && isEngineExecutable(r.exe ?? "") ? r : null;
+
+    async function stopWith(pidFileText: string): Promise<void> {
+      const file = join(tempDir(), "engine.pid");
+      writeFileSync(file, pidFileText);
+      const host = new SupervisorHost({
+        bin: "/nonexistent",
+        enginePidFile: file,
+        log: () => {},
+      });
+      await host.stop(100);
+    }
+
+    it("describes a live process the same way twice", () => {
+      const a = inspectPid(process.pid);
+      expect(a?.start).toBeTruthy();
+      expect(a?.exe).toBeTruthy();
+      expect(inspectPid(process.pid)?.start).toBe(a?.start);
     });
-    await stopWith(`${pid}\nstart=${live.start}\nexe=${live.exe}\n`);
-    await exited;
-    expect(pidAlive(pid)).toBe(false);
-  });
-});
+
+    it("never kills a bare pid, which may by now be anything", async () => {
+      const child = sleeper();
+      await stopWith(`${child.pid}\n`);
+      expect(pidAlive(child.pid ?? 0)).toBe(true);
+    });
+
+    it("never kills a pid whose identity does not match", async () => {
+      const child = sleeper();
+      await stopWith(`${child.pid}\nstart=1\nexe=/x/k7-runtime\n`);
+      expect(pidAlive(child.pid ?? 0)).toBe(true);
+    });
+
+    it("kills the engine the pidfile proves", async () => {
+      const bin = join(tempDir(), "k7-runtime");
+      // Node under the engine's name: Alpine's /bin/sleep is BusyBox, which refuses to run as "k7-runtime".
+      try {
+        linkSync(process.execPath, bin);
+      } catch {
+        copyFileSync(process.execPath, bin);
+      }
+      const child = sleeper(bin, ["-e", "setTimeout(() => {}, 30000)"]);
+      const pid = child.pid ?? 0;
+      const exited = new Promise((r) => child.once("exit", r));
+      const live = await waitFor(() => {
+        const r = inspectPid(pid);
+        return r && isEngineExecutable(r.exe ?? "") ? r : null;
+      });
+      await stopWith(`${pid}\nstart=${live.start}\nexe=${live.exe}\n`);
+      await exited;
+      expect(pidAlive(pid)).toBe(false);
+    });
+  },
+);
 
 async function waitFor<T>(read: () => T | null): Promise<T> {
-  const end = Date.now() + 5000;
+  const end = Date.now() + 15_000;
   while (Date.now() < end) {
     const v = read();
     if (v) return v;
