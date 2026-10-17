@@ -66,6 +66,7 @@ export function SiteMarkdown({ file, body }: { file: string; body: string }) {
         "[&_td]:border-b [&_td]:border-border/40 [&_td]:py-1.5 [&_td]:pr-4 [&_td]:align-top",
         "[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:italic",
       ].join(" ")}
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: build-time markdown from docs-site/, never user input — see the note at the top of this file.
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
