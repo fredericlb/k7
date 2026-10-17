@@ -4,8 +4,8 @@
 
 | Check | Command | Blocks |
 |---|---|---|
-| Biome lint and format | `npm run lint` | `pre-push` hook, OneDev `lint and test`. Informational on GitHub. |
-| NUL bytes in source | `npm run lint:bytes` | `pre-push` hook, OneDev `lint and test` |
+| Biome lint and format | `npm run lint` | `pre-push` hook, GitHub `k7` `lint` job, OneDev `lint and test` |
+| NUL bytes in source | `npm run lint:bytes` | `pre-push` hook, GitHub `k7` `lint` job, OneDev `lint and test` |
 | Dead file references | `npm run lint:docs` | `pre-push` hook |
 | Typecheck | `npm run typecheck` | OneDev `lint and test`; GitHub runs `build` (which typechecks) instead |
 | Comment limits | `npm run lint:comments` | Nothing: a backlog report |

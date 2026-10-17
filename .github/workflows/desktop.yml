@@ -11,7 +11,8 @@
 # push that touched only docs/ does not pay for three native builds.
 #
 # The desktops are NOT signed: the .dmg is unsigned and unnotarised, the Windows installer unsigned. The APK is
-# signed with the release key held in secrets, and every release carries SHA256SUMS. See docs/desktop-release.md.
+# signed with the release key held in secrets, and every release carries SHA256SUMS. Nothing is published
+# before k7.yml has passed on the same commit (`tested`). See docs/desktop-release.md.
 
 name: desktop
 
@@ -99,6 +100,21 @@ jobs:
 
           printf '%s\n' "build=$build" "publish=$publish" "channel=$channel" \
                         "tag=$tag" "stamp=$stamp" "android=$android" | tee -a "$GITHUB_OUTPUT"
+
+  # Beside the builds rather than before them: the tests take minutes, a native build tens of them.
+  tested:
+    name: k7.yml passed
+    needs: decide
+    if: needs.decide.outputs.publish == 'yes'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # the k7.yml run to wait for
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          sparse-checkout: .github/actions
+      - uses: ./.github/actions/k7-passed
 
   build:
     name: ${{ matrix.label }}
@@ -295,10 +311,11 @@ jobs:
 
   publish:
     name: publish
-    needs: [decide, build, android]
+    needs: [decide, tested, build, android]
     # The APK may be skipped only when `decide` skipped it, on a snapshot with no release key.
     if: >-
-      !cancelled() && needs.decide.outputs.publish == 'yes' && needs.build.result == 'success'
+      !cancelled() && needs.decide.outputs.publish == 'yes' && needs.tested.result == 'success'
+      && needs.build.result == 'success'
       && (needs.android.result == 'success'
           || (needs.android.result == 'skipped' && needs.decide.outputs.android == 'no'))
     runs-on: ubuntu-latest

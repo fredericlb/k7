@@ -176,20 +176,11 @@ jobs:
       actions: read
       packages: write
     steps:
-      # The tests of this same commit gate the tags; a commit k7.yml's paths skipped has none to wait for.
-      - name: wait for k7.yml on this commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          id=""
-          for _ in $(seq 1 30); do
-            id=$(gh run list --workflow k7.yml --commit "$GITHUB_SHA" --event push --json databaseId --jq '.[0].databaseId // empty')
-            [ -n "$id" ] && break
-            sleep 10
-          done
-          if [ -z "$id" ]; then echo "k7.yml did not run for $GITHUB_SHA: nothing to wait for"; exit 0; fi
-          gh run watch "$id" --exit-status --interval 30
+      # The tests of this same commit gate the tags; no run, or a red one, and nothing moves.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          sparse-checkout: .github/actions
+      - uses: ./.github/actions/k7-passed
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:

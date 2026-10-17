@@ -40,13 +40,23 @@ dearest one there is. So a `main` push that touched only a doc must not start it
 `paths:` is the obvious tool and it is the wrong one here: GitHub applies it to **tag** pushes
 too, and a tag push carries no commit list for it to match against — the release would silently
 never run, on the one event that matters most. The `decide` job diffs the push instead and lets
-tags through untested.
+every tag through.
 
 Its filter is `engine/`, `apps/` and `packages/` **whole**: the desktop app bundles k7's frontend and
 backend and most of the shared tier, and the tier moves together. `commons` counts too: the Electron
 shell under the app, `@frediverse/electron-shell`, lives there, and a change to it reaches this tree as
 a bump of that one path. An `apps/`-only push does rebuild the engines; with their objects cached
 that costs minutes, and it keeps one engine build per release.
+
+## Nothing is published untested
+
+The `publish` job needs `tested`, which waits for `k7.yml`'s push run on the same commit and the same
+ref — the `main` push for a snapshot, the tag push for a release — and fails if that run is red or
+never appears (`.github/actions/k7-passed`). A missing run counts as a failure, not as a pass: the
+hazard is a release cut from a commit no test ever saw. `tested` runs beside the builds rather than
+before them, since the tests take minutes and a native build tens of them. `k7.yml` carries no path
+filter for the same reason, and on `main` and tags it cancels no run, since every commit's result is
+read by a publish.
 
 ## The presets a runner can actually use
 

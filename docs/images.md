@@ -100,7 +100,9 @@ SPAs and a second clock reading could disagree with it.
 
 `.github/workflows/images.yml` is the same pipeline on GitHub, for `k7-webapp`, `k7-runtime` and the
 Pi's `k7-runtime-pi`, under `ghcr.io/fredericlb/`: built beside `k7.yml` under the commit, tagged
-`:latest` and with the stamp once `k7.yml` has passed for that commit. The Pi image builds on an
+`:latest` and with the stamp once `k7.yml` has passed for that commit — and never when it has not run,
+which `.github/actions/k7-passed` counts as a failure, since a tag that moves untested is the hazard the
+wait exists for. The Pi image builds on an
 arm64 runner, natively. The engine's compile lives in cache mounts, which a registry cache does not
 carry and a fresh runner starts without: a push that changes no native source reuses the compiled
 layer whole, and one that does compiles cold. The deployment (`docker/docker-compose.yml`) still
