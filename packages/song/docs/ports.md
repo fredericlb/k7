@@ -145,7 +145,7 @@ The audio flows through the second input. A module's DSP reads it with `input(1)
 
 ```ts
 // modules/audio/crossfade/jsdsp.ts — the builder arrives as an argument, so a song folder
-// still imports nothing at runtime (see dspRunner.mjs).
+// still imports nothing at runtime (see docs/jsdspJail.md).
 import type { GraphBuilder } from "@studio/dsp";
 
 export default (g: GraphBuilder) => {

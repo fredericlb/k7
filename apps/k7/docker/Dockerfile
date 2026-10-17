@@ -39,6 +39,12 @@ RUN node apps/k7/backend/scripts/bundle.mjs server-dist --in-tree
 FROM toolchain AS backend-deps
 RUN --mount=type=cache,target=/root/.npm npm ci --workspace k7-backend --omit=dev --no-audit --no-fund
 
+# ---- dsp-exec: the setuid helper a jsdsp module runs through, as the `dsp` user (packages/song/docs/jsdspJail.md)
+FROM node:24-alpine AS dsp-exec
+RUN apk add --no-cache gcc musl-dev
+COPY apps/k7/docker/dsp-exec.c /src/dsp-exec.c
+RUN gcc -O2 -static -DDSP_UID=10001 -DDSP_GID=10001 -o /src/dsp-exec /src/dsp-exec.c
+
 # ---- final image --------------------------------------------------------------
 FROM node:24-alpine AS runtime
 # Media imports and a take's envelope and instrumental; no mpv, since a container has no speakers (docs/images.md).
@@ -48,7 +54,12 @@ RUN apk add --no-cache chromium font-noto ttf-freefont
 ENV STUDIO_CHROMIUM=/usr/bin/chromium-browser
 # Before the VOLUME lines, which freeze them: a fresh volume copies this owner (docs/images.md).
 RUN mkdir -p /data /library /workspaces /rehearsal-data \
- && chown node:node /data /library /workspaces /rehearsal-data
+ && chown node:node /data /library /workspaces /rehearsal-data \
+ && chmod 700 /data /library /workspaces /rehearsal-data
+# A jsdsp module runs as `dsp`, which owns nothing and may read none of the volumes (packages/song/docs/jsdspJail.md).
+RUN addgroup -S -g 10001 dsp && adduser -S -D -H -u 10001 -G dsp -s /sbin/nologin dsp
+COPY --from=dsp-exec --chown=root:node --chmod=4750 /src/dsp-exec /usr/local/libexec/dsp-exec
+ENV STUDIO_DSP_EXEC=/usr/local/libexec/dsp-exec
 # Express hides its stack traces and the rehearsal server refuses the dev secret.
 ENV NODE_ENV=production
 WORKDIR /app
@@ -81,4 +92,5 @@ USER node
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD wget -qO- http://127.0.0.1:8789/api/health || exit 1
 # The bundle, under plain node: no transpiler and no esbuild child per process (docs/images.md).
-CMD ["node", "/app/server-dist/backend.mjs"]
+# A volume created before the chmod above keeps its old mode, so the start closes it to `dsp` again.
+CMD ["sh", "-c", "chmod 700 /data /library /workspaces /rehearsal-data 2>/dev/null; exec node /app/server-dist/backend.mjs"]

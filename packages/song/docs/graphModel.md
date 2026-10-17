@@ -306,7 +306,8 @@ field. The cost is ~200 ms of Node startup, which is why the result is cached as
 and only regenerated when the source is newer. Steady state is a file read. That sibling is also
 the artifact worth committing: it is what actually ran, it diffs, and a checkout with no Node
 still plays the song. The child receives the builder as an argument, so the module's file imports
-nothing at runtime — a song folder has no `node_modules` and should never need one.
+nothing at runtime — a song folder has no `node_modules` and should never need one. It is an
+account's code running on the server, so the child is a jail: `jsdspJail.md`.
 
 Faust needs none of that: the compiler is on the other side of the wire, so what the engine wants
 is the `.dsp` itself — no child process, no mtime check, nothing to commit beyond the source.

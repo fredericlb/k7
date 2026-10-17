@@ -3,10 +3,8 @@
 // curves bound to them baked into automation. What a reader gets wrong: an unknown plugin type
 // is dropped SILENTLY, where a module stating a held param is refused. docs/nodeProject.md.
 
-import { execFileSync } from "node:child_process";
 import { statSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   curveIdFromRef,
   INPUT_VOLUME_PARAM,
@@ -38,6 +36,7 @@ import {
 import { tapOutsFor } from "../tapOuts";
 import { wsExists, wsRead, wsWrite } from "../yaml/workspaceFile";
 import type { CompileInputs } from "./inputs";
+import { runJsDsp } from "./jsDspJail";
 import type { ChainOwnership } from "./ownership";
 
 // `params` as the engine takes them: numbers only, a file-valued one leaving as `namFile` instead (docs/graphModel.md).
@@ -50,7 +49,7 @@ function numericParams(
   return out;
 }
 
-// A module's DSP graph, from the JS/TS source it declares with `jsdsp:`, run in a child process — see docs/graphModel.md.
+// A module's DSP graph, from the JS/TS source it declares with `jsdsp:`, run in a jailed child — see docs/jsdspJail.md.
 function readJsDspGraph(source: string): string | undefined {
   if (!wsExists(source)) return undefined;
   const built = `${source.replace(/\.[tj]sx?$/, "")}.json`;
@@ -66,12 +65,7 @@ function readJsDspGraph(source: string): string | undefined {
     }
   }
   try {
-    const runner = fileURLToPath(new URL("../dspRunner.mjs", import.meta.url));
-    const out = execFileSync(
-      process.execPath,
-      ["--import", "tsx", runner, source],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 30_000 },
-    );
+    const out = runJsDsp(wsRead(source), source);
     JSON.parse(out); // refuse to cache something the engine could not read
     // Normalised BEFORE both the write and the return, so a fresh compile and a later cache hit yield the same string.
     const text = out.endsWith("\n") ? out : `${out}\n`;

@@ -128,15 +128,6 @@ await build({
   banner: { js: banner("..") },
 });
 
-// The DSP runner is spawned by its source path (song's compile/plugins.ts), so it is bundled to that same path.
-const DSP_RUNNER = "packages/song/src/dspRunner.mjs";
-await build({
-  ...common,
-  entryPoints: [DSP_RUNNER],
-  outfile: join(out, DSP_RUNNER),
-  banner: { js: banner("../../..") },
-});
-
 if (process.argv.includes("--list"))
   console.log([...metaUsers].sort().join("\n"));
 

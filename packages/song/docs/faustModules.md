@@ -35,7 +35,7 @@ That is the only difference, and it explains all the rest.
 | | `jsdsp` | `faust` |
 |---|---|---|
 | the source | `jsdsp.ts` | `dsp.dsp` |
-| who compiles it | **here**, `readJsDspGraph` spawns a Node process | **the engine**, in the plugin's constructor |
+| who compiles it | **here**, `readJsDspGraph` runs it in a jailed Node child (`jsdspJail.md`) | **the engine**, in the plugin's constructor |
 | what goes on the wire | `dspGraph` — the produced JSON | `faustDsp` — the source text |
 | committed sibling artefact | `jsdsp.json`, rebuilt on mtime | **none** |
 | what runs on the audio thread | the `DspGraph` interpreter | compiled code |

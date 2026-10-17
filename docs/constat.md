@@ -281,7 +281,7 @@ Biome sees only intra-file — an `export` nobody imports is invisible to it **b
 not block a merge.
 
 Its exception list is the inventory's §0 translated into configuration, without which it kills live
-code: `dspRunner.mjs`, `emit.ts`, the `jsdsp.ts`
+code: `emit.ts`, the `jsdsp.ts`
 files, the harnesses in `engine/k7-runtime/scripts/`.
 
 Output: **1 file, 1 undeclared dependency, 2 undeclared binaries, 120 exports, 45 types** — 169

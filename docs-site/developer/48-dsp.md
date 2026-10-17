@@ -48,17 +48,19 @@ A module opts in with `plugin({ type: "jsdsp", name })` and a `jsdsp.ts` beside 
 default-exports `(g: GraphBuilder) => void`.
 
 1. The loader (`packages/song/src/loader.ts`) finds the source for each module folder.
-2. Compiling the project (`readJsDspGraph` in `packages/song/src/nodeProject.ts`) reuses
-   `jsdsp.json` beside the source when it is at least as new; otherwise it runs
-   `node --import tsx packages/song/src/dspRunner.mjs <source>` in a child process (30 s timeout),
-   validates the JSON, and writes `jsdsp.json`. On failure it keeps the last good JSON, so a typo
+2. Compiling the project (`readJsDspGraph` in `packages/song/src/compile/plugins.ts`) reuses
+   `jsdsp.json` beside the source when it is at least as new; otherwise it transpiles the source
+   with esbuild and runs it in a jailed node child (`packages/song/src/compile/jsDspJail.ts`, 30 s
+   timeout), validates the JSON, and writes `jsdsp.json`. On failure it keeps the last good JSON, so a typo
    does not silence a song.
 3. The graph travels inline on the plugin document. `jsdsp` maps to the engine plugin "DSP Graph",
    or "MIDI Graph" when the module emits MIDI.
 4. Offline passes (`packages/audio-passes/src/processChain.ts`) read the same `jsdsp.json`.
 
-The child process runs code from a workspace or a library on the machine that compiles the
-project. Treat a `jsdsp.ts` with the same trust as the library or workspace it comes from.
+The child runs code from a workspace or a library on the machine that compiles the project, so it
+runs in a jail: an empty environment, Node's permission model with nothing granted, every import
+refused, and on the server a separate OS user that can read no workspace. A module imports nothing
+at run time. The choices are in `packages/song/docs/jsdspJail.md`.
 
 `jsdsp.json` is committed beside each `k7-core` source, so a machine can play the library without
 running TypeScript.

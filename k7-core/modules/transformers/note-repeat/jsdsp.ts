@@ -1,6 +1,6 @@
 // The note repeater's graph. The builder arrives as an ARGUMENT, so this file imports nothing at
 // runtime — a song folder has no node_modules and should never need one (the `import type` is
-// erased; see dspRunner.mjs).
+// erased; see @studio/song's docs/jsdspJail.md).
 //
 // This is @studio/dsp's `noteRepeat()` graph, written out here: a module is a FOLDER you can copy,
 // so it carries its own source rather than pointing at a shared library.

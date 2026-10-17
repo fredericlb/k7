@@ -74,7 +74,7 @@ without anyone seeing it.
 
 | what | how it lives |
 |---|---|
-| `packages/song/src/dspRunner.mjs` | launched as a **child process** by `compile/plugins.ts`. It does `import { graph } from "@studio/dsp"`, and the `song → dsp` dependency exists precisely so that import resolves: a song folder has no `node_modules`. |
+| `@studio/dsp` in `@studio/song` | resolved by PATH (`require.resolve`) in `packages/song/src/compile/jsDspJail.ts`, bundled with esbuild and handed to the jailed child as a `data:` URL. The `song → dsp` dependency exists so that resolve succeeds: a song folder has no `node_modules`. |
 | a library module's `jsdsp.ts` | MODULE DSPs, in a library folder rather than this tree. The compiler finds them by filename (`JSDSP_FILE = "jsdsp.ts"`), never by import, so no import sweep sees them; `knip.json` declares `k7-core/modules/**/jsdsp.ts` an entry. |
 | `demos/**/jsdsp.ts` | same mechanism: a demo module's DSP is data loaded at runtime. |
 | `packages/file-service/src/server.ts` | **spawned** by `packages/file-hub/instances.ts` through `tsx`, one process per account. Zero imports is not zero callers. |
