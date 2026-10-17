@@ -66,6 +66,9 @@ Three costs come with it:
   for Opus (`packages/engine-browser/docs/streaming.md`).
 - **Latency.** A transport press makes its round trip, then the worklet waits for its 150 ms cushion
   before it plays. Fine for playback; not for playing an instrument through the server's engine.
+  The relay's stalls would otherwise pile up as latency that stays, so the page caps it: a backlog
+  held above 300 ms is cut back to the cushion, at the cost of a brief skip
+  (`packages/engine-browser/docs/streaming.md`).
 - **The first sound waits for a click.** A browser lets an AudioContext built without a gesture stay
   silent, so the context resumes on the page's next pointer or key press. Pressing play is one.
 
