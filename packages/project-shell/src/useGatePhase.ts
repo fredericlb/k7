@@ -37,6 +37,7 @@ export function useGatePhase({
   asleep,
   onIdle,
   onResume,
+  engineWait = true,
 }: {
   engine: GateEngine;
   app: ProjectApp;
@@ -46,6 +47,8 @@ export function useGatePhase({
   asleep: boolean;
   onIdle?: () => void;
   onResume?: () => void;
+  /** Hold the project back until the engine has it (the `loading` phase); false opens it at once and leaves that wait to the app. */
+  engineWait?: boolean;
 }) {
   const [phase, setPhase] = useState<GatePhase>({ k: "resolving" });
   const [email, setEmail] = useState("");
@@ -57,28 +60,33 @@ export function useGatePhase({
     [app, base],
   );
 
-  const configure = useCallback(
-    (userEmail: string, workspace: string) => {
-      configureFileApi({
-        base: engine.fileBase!,
-        userEmail,
-        engineToken: (engine.fileToken ?? engine.token)!,
-        engineId: engine.engine.id,
-        workspace,
-        // Only a hub ticket ages; an engine's own token does not.
-        ...(engine.fileToken && engine.renewTicket
-          ? { renewTicket: engine.renewTicket }
-          : {}),
-      });
-    },
-    [
-      engine.fileBase,
-      engine.token,
-      engine.fileToken,
-      engine.engine.id,
-      engine.renewTicket,
-    ],
-  );
+  // By ref: an engine arriving or changing re-points the files below rather than re-running the resolve — docs/launch.md.
+  const engineRef = useRef(engine);
+  engineRef.current = engine;
+  /** Who and where the file API was last pointed at, so a new engine can be given the same workspace. */
+  const pointed = useRef<{ userEmail: string; workspace: string } | null>(null);
+
+  const configure = useCallback((userEmail: string, workspace: string) => {
+    const e = engineRef.current;
+    pointed.current = { userEmail, workspace };
+    configureFileApi({
+      base: e.fileBase!,
+      userEmail,
+      engineToken: (e.fileToken ?? e.token)!,
+      engineId: e.engine.id,
+      workspace,
+      // Only a hub ticket ages; an engine's own token does not.
+      ...(e.fileToken && e.renewTicket ? { renewTicket: e.renewTicket } : {}),
+    });
+  }, []);
+
+  // The engine's identity as the files see it: its id rides on the token, which is what binds it at the hub.
+  const engineKey = `${engine.fileBase}|${engine.fileToken ?? engine.token}|${engine.engine.id}`;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `engineKey` is the trigger; the values are read through `engineRef`.
+  useEffect(() => {
+    const p = pointed.current;
+    if (p) configure(p.userEmail, p.workspace);
+  }, [engineKey, configure]);
 
   /** Leave: go back to where projects live. Nothing to forget. */
   const quit = useCallback(() => {
@@ -131,7 +139,7 @@ export function useGatePhase({
     if (!target) window.location.replace(projectsUrl(window.location.href));
   }, [target]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` is the Retry trigger; `app` and the bench wording are fixed for a mount.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` is the Retry trigger; `app`, `engineWait` and the bench wording are fixed for a mount.
   useEffect(() => {
     if (!target) return;
     let cancelled = false;
@@ -187,7 +195,7 @@ export function useGatePhase({
           }
           if (cancelled) return;
           return setPhase({
-            k: "loading",
+            k: engineWait ? "loading" : "open",
             workspace: local.workspace,
             project: local.project,
           });
@@ -224,7 +232,7 @@ export function useGatePhase({
           await fileRoutes.open(bench.project);
           if (cancelled) return;
           return setPhase({
-            k: "loading",
+            k: engineWait ? "loading" : "open",
             workspace: bench.workspace,
             project: bench.project,
           });
@@ -241,7 +249,7 @@ export function useGatePhase({
         const answered = typeof (e as { status?: unknown }).status === "number";
         const fault = answered
           ? undefined
-          : await diagnoseFileService(engine.fileBase);
+          : await diagnoseFileService(engineRef.current.fileBase);
         if (!cancelled)
           setPhase({ k: "error", message: (e as Error).message, fault });
       }
@@ -249,7 +257,7 @@ export function useGatePhase({
     return () => {
       cancelled = true;
     };
-  }, [configure, engine.fileBase, target, attempt]);
+  }, [configure, target, attempt]);
 
   /** Retry from an error: the resolve again, from the top. */
   const retry = useCallback(() => {

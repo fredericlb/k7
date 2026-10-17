@@ -30,6 +30,7 @@ export function EngineSelect({
   onPick,
   onPaired,
   onBack,
+  backLabel,
 }: {
   ranked: RankedEngine[];
   loading: boolean;
@@ -37,8 +38,10 @@ export function EngineSelect({
   onPick: (r: RankedEngine) => void;
   /** This device just paired with that engine: re-probe, and it answers as usable. */
   onPaired: (engineId: string) => void;
-  /** Leave for the projects page — the way out when no engine can be had. */
+  /** Leave for the projects page — the way out when no engine can be had — or close the list when drawn over the project. */
   onBack: () => void;
+  /** What that button says; "back to projects" when absent. */
+  backLabel?: string;
 }) {
   // The pairing card only while nothing is usable: with an engine to pick, pairing another is not this screen's business.
   const pairable = ranked.some(selectableRow) ? [] : needingPairing(ranked);
@@ -52,7 +55,7 @@ export function EngineSelect({
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={onBack}>
               <ArrowLeft className="h-4 w-4" />
-              {m["project.backToProjects"]()}
+              {backLabel ?? m["project.backToProjects"]()}
             </Button>
             <Button
               variant="secondary"

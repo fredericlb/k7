@@ -5,8 +5,8 @@
 
 import { Button } from "@frediverse/ui/button";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
-import { Loader2 } from "@frediverse/ui/icons";
 import { SignInScreen } from "@frediverse/ui/sign-in-screen";
+import { GateWait } from "@studio/project-shell/progress";
 import { type ReactNode, useEffect, useState } from "react";
 import { type AuthUser, api } from "../api";
 import { m } from "../paraglide/messages.js";
@@ -43,11 +43,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (phase.k === "authed") return <>{children}</>;
 
   if (phase.k === "checking")
-    return (
-      <div className="flex h-full items-center justify-center bg-background text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" />
-      </div>
-    );
+    return <GateWait label={m["startup.signingIn"]()} />;
 
   // Signing in cannot help when the service that mints the session is the thing that is down.
   if (phase.k === "down")

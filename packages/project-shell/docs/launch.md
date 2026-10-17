@@ -164,6 +164,21 @@ cannot open half a project either, and a gate that hears 409 because the project
 its two questions waits again. A service without the route answers 404, which reads as nothing to
 wait for: an older machine, or a share, has nothing on its way.
 
+## Waits as a bar
+
+`waits: "bar"` draws the gate's waits — resolving, syncing, the bench's fetch — as one line along the
+bottom of the window (`src/GateProgress.tsx`) instead of a screen each, and opens the project
+without the `loading` wait: the engine's copy, apply and warm-up are then the app's to report, under
+a project that is already drawn. k7 takes it; `screens` stays the default, so an app that wants the
+engine to have the project before anything is drawn keeps that.
+
+## The engine can change under an open project
+
+The gate reads its engine through a ref. A NEW engine — the first one found after the project
+opened on a hub ticket with none bound, or a different one — re-points the file API at it, keeping
+the workspace, and does not resolve the address again: a resolve would take the project off screen
+for a change that only alters which ticket the files are asked with.
+
 ## What the gate takes, and what it refuses to know
 
 `GateEngine` declares what the gate needs about the engine it resolved against, **structurally**,

@@ -17,6 +17,7 @@
     "./files": "./src/files.ts",
     "./project": "./src/project.ts",
     "./gate": "./src/ProjectGate.tsx",
+    "./progress": "./src/GateProgress.tsx",
     "./idle": "./src/idle.ts",
     "./toast": "./src/toast.tsx",
     "./ask": "./src/ask.tsx",

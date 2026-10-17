@@ -6,6 +6,7 @@
 import type { ProjectApp } from "@studio/web-protocol/projects";
 import type { ReactNode } from "react";
 import { EngineLoadScreen } from "./EngineLoadScreen.tsx";
+import { GateWait } from "./GateProgress.tsx";
 import {
   CloningScreen,
   EmptyWorkspaceScreen,
@@ -16,8 +17,11 @@ import {
   NoLibrariesScreen,
 } from "./GateScreens.tsx";
 import type { GateEngine, ProjectGateStrings } from "./gateTypes.ts";
-import { SyncScreen } from "./syncWait.tsx";
+import { SyncScreen, syncLine, syncOffline } from "./syncWait.tsx";
 import { useGatePhase } from "./useGatePhase.ts";
+
+/** What the bar says while the address is resolved, when the host passes no wording of its own. */
+const OPENING = "Opening the project…";
 
 export { ProjectTakenOver } from "./GateScreens.tsx";
 export type { GateEngine, ProjectGateStrings } from "./gateTypes.ts";
@@ -34,6 +38,7 @@ export function ProjectGate({
   asleep = false,
   onIdle,
   onResume,
+  waits = "screens",
 }: {
   engine: GateEngine;
   /** Which app this is — it decides the suffix that ends the project in the address. */
@@ -68,7 +73,10 @@ export function ProjectGate({
   onIdle?: () => void;
   /** Taking it back. Called before the reopen starts, so the app can retake what it released. */
   onResume?: () => void;
+  /** `screens` draws each wait full-screen; `bar` draws it as a bar along the bottom and opens the project without waiting for the engine, which the app then reports — docs/launch.md. */
+  waits?: "screens" | "bar";
 }) {
+  const bar = waits === "bar";
   const { phase, setPhase, email, quit, resume, retry } = useGatePhase({
     engine,
     app,
@@ -78,7 +86,26 @@ export function ProjectGate({
     asleep,
     onIdle,
     onResume,
+    engineWait: !bar,
   });
+
+  if (bar && phase.k === "resolving")
+    return <GateWait label={strings.opening ?? OPENING} />;
+  if (bar && phase.k === "syncing")
+    return (
+      <GateWait
+        label={syncLine(phase.sync, strings.syncing)}
+        stuck={syncOffline(phase.sync)}
+      />
+    );
+  if (bar && phase.k === "cloning")
+    return (
+      <GateWait
+        label={[strings.cloning(phase.workspace), phase.phase]
+          .filter(Boolean)
+          .join(" — ")}
+      />
+    );
 
   switch (phase.k) {
     case "loading": {

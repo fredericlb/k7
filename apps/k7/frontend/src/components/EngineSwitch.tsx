@@ -4,7 +4,13 @@
 // engine: the files are the server's, so nothing is lost but the playing position. See ../../docs/shell.md.
 
 import { Button } from "@frediverse/ui/button";
-import { Check, Loader2, Server, TriangleAlert } from "@frediverse/ui/icons";
+import {
+  Check,
+  Loader2,
+  TriangleAlert,
+  Volume2,
+  VolumeX,
+} from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { Compatibility } from "@studio/engine-browser/compat";
 import { formatLatency } from "@studio/web-protocol/quality";
@@ -21,12 +27,32 @@ export function EngineSwitch({
   current,
   onSwitch,
   compat,
+  audioToBrowser = false,
+  searching = false,
 }: {
-  current: RankedEngine;
+  /** The engine playing this project, or null while there is none — the project is open and silent. */
+  current: RankedEngine | null;
   onSwitch: (r: RankedEngine) => void;
   /** How compatible `current` is with the open project; under 100 draws a warning beside its name. Null: not known, nothing drawn. */
   compat?: Compatibility | null;
+  /** The engine's sound is played by this page rather than by its own machine — what the label says. */
+  audioToBrowser?: boolean;
+  /** The first engine is still being looked for. */
+  searching?: boolean;
 }) {
+  // Where the sound comes out, said in words: a laptop driving the desktop at home is otherwise silent with no reason given.
+  const label = current
+    ? audioToBrowser
+      ? m["engineSwitch.soundHere"]()
+      : m["engineSwitch.soundOn"]({ engine: nameOf(current) })
+    : searching
+      ? m["engines.searching"]()
+      : m["engineSwitch.noSound"]();
+  const hint = current
+    ? audioToBrowser
+      ? m["engineSwitch.hintHere"]({ engine: nameOf(current) })
+      : m["engineSwitch.hint"]({ engine: nameOf(current) })
+    : m["engineSwitch.noSoundHint"]();
   // What the warning says, or null when there is none to draw.
   const incompatible =
     compat && compat.score < 100
@@ -72,14 +98,23 @@ export function EngineSwitch({
       <Button
         size="xs"
         variant="ghost"
-        className="h-6 gap-1 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+        className={cn(
+          "h-6 gap-1 px-1.5 text-xs hover:text-foreground",
+          current || searching ? "text-muted-foreground" : "text-amber-500",
+        )}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="menu"
-        title={m["engineSwitch.hint"]({ engine: nameOf(current) })}
+        title={hint}
       >
-        <Server className="h-3 w-3 shrink-0" />
-        <span className="max-w-[8rem] truncate">{nameOf(current)}</span>
+        {current ? (
+          <Volume2 className="h-3 w-3 shrink-0" />
+        ) : searching ? (
+          <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+        ) : (
+          <VolumeX className="h-3 w-3 shrink-0" />
+        )}
+        <span className="max-w-[12rem] truncate">{label}</span>
         {incompatible && (
           <span
             className="flex shrink-0 text-amber-500"
@@ -102,12 +137,12 @@ export function EngineSwitch({
               {m["engines.searching"]()}
             </span>
           ) : ranked.length === 0 ? (
-            <span className="px-2 py-1 text-xs text-muted-foreground">
-              {m["engineSwitch.none"]()}
+            <span className="max-w-[20rem] px-2 py-1 text-xs text-muted-foreground">
+              {m["engines.none"]()}
             </span>
           ) : (
             ranked.map((r) => {
-              const isCurrent = r.engine.id === current.engine.id;
+              const isCurrent = r.engine.id === current?.engine.id;
               // Another tab or person holding it is a refusal the lease would give anyway, said before the click.
               const busy = !isCurrent && r.engine.assigned;
               const usable = !!r.latency && !!r.wsUrl && !busy;

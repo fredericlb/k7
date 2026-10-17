@@ -62,6 +62,25 @@ export async function waitForSync(
 }
 
 /** The screen of that wait: which workspace, and what it is waiting for. */
+/** Whether the wait is stuck rather than moving — the relay out of reach, or refusing this k7. */
+export const syncOffline = (sync: ProjectSyncState | null): boolean =>
+  sync?.state === "offline" || sync?.state === "refused";
+
+/** The one line that says where the sync has got to — the screen's and the bottom bar's. */
+export function syncLine(
+  sync: ProjectSyncState | null,
+  strings: SyncWaitStrings = SYNC_WAIT_ENGLISH,
+): string {
+  const refused = strings.refused ?? SYNC_WAIT_ENGLISH.refused;
+  if (!sync) return strings.connecting;
+  if (sync.state === "refused" && refused)
+    return refused(sync.refused ?? "update");
+  if (sync.state === "downloading") return strings.downloading(sync.pending);
+  if (sync.state === "catching-up") return strings.catchingUp;
+  if (syncOffline(sync)) return strings.offline(sync.pending);
+  return strings.connecting;
+}
+
 export function SyncScreen({
   workspace,
   sync,
@@ -71,19 +90,8 @@ export function SyncScreen({
   sync: ProjectSyncState | null;
   strings?: SyncWaitStrings;
 }) {
-  const offline = sync?.state === "offline" || sync?.state === "refused";
-  const refused = strings.refused ?? SYNC_WAIT_ENGLISH.refused;
-  const line = !sync
-    ? strings.connecting
-    : sync.state === "refused" && refused
-      ? refused(sync.refused ?? "update")
-      : sync.state === "downloading"
-        ? strings.downloading(sync.pending)
-        : sync.state === "catching-up"
-          ? strings.catchingUp
-          : offline
-            ? strings.offline(sync.pending)
-            : strings.connecting;
+  const offline = syncOffline(sync);
+  const line = syncLine(sync, strings);
   const Icon = offline ? CloudOff : CloudDownload;
   return (
     <div className="flex h-full items-center justify-center bg-background p-8 text-foreground">

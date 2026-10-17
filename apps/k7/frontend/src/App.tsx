@@ -84,6 +84,7 @@ import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EngineLink } from "./components/EngineLink";
 import { EngineLostStrip } from "./components/EngineLostStrip";
 import { EngineSwitch } from "./components/EngineSwitch";
+import { StartupBar } from "./components/StartupBar";
 import { syncRunning } from "./components/EngineSyncProgress";
 import { FloatingWindow } from "./components/FloatingWindow";
 import { FooterTab } from "./components/FooterTab";
@@ -297,6 +298,7 @@ export default function App({
   engine,
   onSwitchEngine,
   snapshot,
+  engineSearching = false,
 }: {
   engineUrl: EngineUrl;
   /** What the link measured — the footer's Q badge; null when the gate could not, which the badge says. */
@@ -312,6 +314,8 @@ export default function App({
   onSwitchEngine?: (r: RankedEngine) => void;
   /** The FROZEN snapshot this shell draws when it was opened through a share link — see docs/shared.md. */
   snapshot?: OpenShare;
+  /** No engine yet, and the gate is still looking for one: the project is drawn meanwhile (docs/shell.md). */
+  engineSearching?: boolean;
 }) {
   // Read once as a boolean: nearly every call site asks 'is this editable', not 'which snapshot is it'.
   const frozen = !!snapshot;
@@ -757,6 +761,7 @@ export default function App({
     engineBusy,
     // …and the same flag as a REF, for the local command dispatcher, which must not be rebuilt when it changes.
     engineBusyRef,
+    audioToBrowser,
     engineWarnings,
     watchWaveform,
     transport: engineTransport,
@@ -2667,11 +2672,13 @@ export default function App({
                   </span>
                 )}
                 {/* Which engine plays this project, and the way to another (components/EngineSwitch.tsx). */}
-                {!frozen && engine && onSwitchEngine && (
+                {!frozen && onSwitchEngine && (
                   <EngineSwitch
-                    current={engine}
+                    current={engine ?? null}
                     onSwitch={onSwitchEngine}
                     compat={engineCompat}
+                    audioToBrowser={audioToBrowser}
+                    searching={engineSearching}
                   />
                 )}
                 {/* …and how that engine is doing, right of it: the light, the latency, the memory (components/EngineLink.tsx). */}
@@ -3781,6 +3788,17 @@ export default function App({
                   />
                 </div>
               </div>
+            )}
+
+            {/* What Play is still waiting for, along the bottom — the project is drawn meanwhile (components/StartupBar.tsx). */}
+            {!frozen && (
+              <StartupBar
+                searching={engineSearching}
+                hasEngine={!!engine}
+                load={ws?.engineLoad}
+                sync={engineSync}
+                connecting={waitingForEngine}
+              />
             )}
 
             {/* Every popin, dialog and menu over the shell (shell/ShellOverlays.tsx). */}

@@ -23,6 +23,8 @@ export interface EngineLink {
   engineBusy: boolean;
   /** Mirrored in a ref so `transport` can consult it without re-creating callbacks. */
   engineBusyRef: React.RefObject<boolean>;
+  /** The engine's sound is played by this page (the server's engine), not by its own machine. */
+  audioToBrowser: boolean;
   /** Load problems by plugin id — what the graph badges a faulty module with. */
   engineWarnings: Record<string, string>;
   /** Param ranges per plugin id — stable while the plugin is loaded (see below). */
@@ -58,6 +60,8 @@ export function useEngineLink(
   const [connected, setConnected] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
   const [engineBusy, setEngineBusy] = useState(false);
+  // Whether the engine's sound is played by THIS page (the server's engine) rather than by its own machine's speakers.
+  const [audioToBrowser, setAudioToBrowser] = useState(false);
   // Load problems the engine reported, by SUBJECT — a PluginDoc id, which is what a node carries as `pluginId`; latest per subject wins.
   const [engineWarnings, setEngineWarnings] = useState<Record<string, string>>(
     {},
@@ -161,7 +165,10 @@ export function useEngineLink(
     engine.connect();
     // An engine nobody hears — the server's own — is heard here, through its broadcast.
     const offOutput = playEngineOutput(engine);
+    // …and that is said in the header, since where the sound comes out is not otherwise visible.
+    const offToBrowser = engine.onAudioToBrowser(setAudioToBrowser);
     return () => {
+      offToBrowser();
       offOutput();
       offState();
       offConn();
@@ -237,6 +244,7 @@ export function useEngineLink(
     engineReady,
     engineBusy,
     engineBusyRef,
+    audioToBrowser,
     pluginParamMeta,
     presets,
     listPresets,

@@ -2,19 +2,15 @@
 // @studio/project-shell's; what belongs here is the wording, which
 // is paraglide's, and what to render once the project is open. See @studio/project-shell docs/launch.md.
 
+import type { EngineUrl } from "@studio/engine-browser";
 import { AskHost } from "@studio/project-shell/ask";
-import { ProjectGate as Shared } from "@studio/project-shell/gate";
+import {
+  type GateEngine,
+  ProjectGate as Shared,
+} from "@studio/project-shell/gate";
 import { IDLE_TIMEOUT_MS } from "@studio/project-shell/idle";
 import type { AccountLibrary } from "@studio/web-protocol";
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import { engines } from "../api";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { FirstProject } from "../projects/FirstProject";
 import { LibrariesCard } from "../projects/LibrariesCard";
@@ -30,13 +26,23 @@ const App = lazy(loadApp);
 
 export function ProjectGate({
   engine,
+  gateEngine,
+  engineUrl,
+  engineSearching,
   external,
   onChangeEngine,
   onSwitchEngine,
   onIdle,
   onResume,
 }: {
-  engine: RankedEngine;
+  /** The engine playing the project, or null while there is none — the project opens either way. */
+  engine: RankedEngine | null;
+  /** Where the files are reached and with which token: the chosen engine's, else the server's file hub with none bound. */
+  gateEngine: GateEngine;
+  /** How the editor reaches the engine — asked again on every dial, so one chosen later is found. */
+  engineUrl: EngineUrl;
+  /** The first engine is still being looked for. */
+  engineSearching: boolean;
   /** A surface's name, when this tab was opened on ONE surface — the gates above are the same either way, only the rendering differs. */
   external?: string | null;
   /** Passed straight through to the settings menu: the engine choice belongs to the gate ABOVE this one. */
@@ -54,18 +60,12 @@ export function ProjectGate({
   useEffect(() => {
     if (!external) void loadApp();
   }, [external]);
-  // A session open past its twelve-hour ticket asks for a new one rather than failing every read — packages/project-shell/docs/fileApi.md.
-  const gateEngine = useMemo(
-    () =>
-      engine.filesHosted
-        ? { ...engine, renewTicket: () => engines.freshTicket() }
-        : engine,
-    [engine],
-  );
   return (
     <Shared
       engine={gateEngine}
       app="k7"
+      // The waits as a bar along the bottom, and the project open before the engine has it (docs/shell.md).
+      waits="bar"
       // Twenty minutes untouched and this tab stops being a client of that engine.
       idleTimeoutMs={IDLE_TIMEOUT_MS}
       asleep={!inFront}
@@ -91,6 +91,7 @@ export function ProjectGate({
         back: m["project.backToProjects"](),
         retry: m["common.retry"](),
         details: m["common.details"](),
+        opening: m["startup.opening"](),
         localUsage: m["project.localUsage"](),
         retiredAddress: (name) => m["project.retiredAddress"]({ name }),
         unreachableTitle: m["filesGate.title"](),
@@ -134,7 +135,7 @@ export function ProjectGate({
               key={`${workspace}/${project}/${external}`}
               name={external}
               project={project}
-              engineUrl={engines.linkUrl(engine)}
+              engineUrl={engineUrl}
               userEmail={userEmail}
             />
             {/* The editor mounts its own; a second device's menu asks the same questions (menuConfirm.ts). */}
@@ -146,15 +147,16 @@ export function ProjectGate({
             <App
               key={`${workspace}/${project}`}
               // A function, not the address: the editor stays open for hours and the relayed URL carries a one-minute ticket.
-              engineUrl={engines.linkUrl(engine)}
+              engineUrl={engineUrl}
               // What this link measured, passed down rather than re-probed: a second round trip would report a different number.
-              engineLatency={engine.latency}
+              engineLatency={engine?.latency ?? null}
               // The RAW email, not a slug: `sessionFor` does the slugging, so this half and the file service cannot drift.
               userEmail={userEmail}
               onQuitWorkspace={quit}
               onChangeEngine={onChangeEngine}
-              engine={engine}
+              engine={engine ?? undefined}
               onSwitchEngine={onSwitchEngine}
+              engineSearching={engineSearching}
             />
           </Suspense>
         )

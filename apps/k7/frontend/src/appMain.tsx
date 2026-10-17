@@ -3,7 +3,6 @@
 // dispatcher that imports one of us, and this is the heavy branch. See apps/k7-standalone/docs/tabs.md.
 
 import { clearDevPerfEntries } from "@frediverse/ui/dev-perf";
-import { Loader2 } from "@frediverse/ui/icons";
 import { registerWorker } from "@frediverse/vite-config/register";
 import { setFileApiTally } from "@studio/project-shell/fileApi";
 import {
@@ -12,6 +11,7 @@ import {
   parseLaunch,
   projectBasename,
 } from "@studio/project-shell/launch";
+import { GateProgress } from "@studio/project-shell/progress";
 import {
   isHomePage,
   isShare,
@@ -55,6 +55,7 @@ import { installFreezeWatchdog, reportCommit, tally } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
 import { installLongPress } from "./longPress";
 import { PaneBoundary } from "./PaneBoundary";
+import { m } from "./paraglide/messages.js";
 import {
   ABOUT_ROUTE,
   ENGINE_SETTINGS_ROUTE,
@@ -175,8 +176,8 @@ const external = parseExternal(
  *  app's colour by then (apps/k7/frontend/docs/shell.md), so this only has to say "coming". */
 function Booting() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+    <div className="min-h-screen bg-background">
+      <GateProgress label={m["startup.loading"]()} />
     </div>
   );
 }

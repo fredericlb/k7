@@ -3,16 +3,29 @@
 ## What wraps the editor (`main.tsx`)
 
 The gates, outermost first: **AuthGate** (you must be signed in — hosted backend OIDC),
-**EngineGate** (pick which registered engine to drive, without asking: the one most COMPATIBLE
+**EngineGate** (find which registered engine to drive, without asking: the one most COMPATIBLE
 with the project — it has the plugins the project uses, `engineCompat.ts` — then the best latency
 class, then the strongest machine by performance score, among TRUSTED engines only — the one the
 account chose before, one this browser reached on its own machine or network, or the server's own;
-anyone may register an engine, so any other one waits in the picker for a click. The picker shows
-when no trusted engine is usable, or when you ask to change —
+anyone may register an engine, so any other one waits in the list for a click —
 `@studio/engine-browser/docs/access.md`, "Who is taken unasked"), and **ProjectGate** (rendered by
-EngineGate: resolve the workspace this editor was opened on into a folder on that engine's
-machine, then mount the editor). Several tabs may open
-one project at once; there is no single-tab lease.
+EngineGate: resolve the workspace this editor was opened on into a folder, then mount the editor).
+Several tabs may open one project at once; there is no single-tab lease.
+
+**The project opens BEFORE its engine is found, and without one at all.** The files are the
+server's file hub's, which answers with no engine bound, so EngineGate opens the project on the
+hub's own ticket and looks for an engine beside it. Someone who has never heard of an engine must
+still see their song: a full-screen picker in front of it read as "k7 does not work". The editor's
+link asks for its URL on every dial and waits for the search's answer, so the engine picked by the
+search is reached without a reconnect delay; a pick made later — from the header, or the list drawn
+over the project — remounts the editor, as a switch always did. Once an engine is held, the files'
+ticket names it, and that is what binds it at the hub (`packages/file-hub/docs/fileHub.md`).
+
+**Every wait is one bar along the bottom** (`@studio/project-shell/progress`), never a screen: the
+sign-in check, the files, the address resolved, the sync, then — with the project already drawn —
+the engine looked for, the copy, the apply and the warm-up (`components/StartupBar.tsx`). A wait
+that hides the project tells a beginner nothing about what they are waiting FOR; a line under a
+song they can already read and edit does.
 
 **ProjectGate picks nothing.** The home page links here with an address —
 `/@local/<workspace>/<project>`, k7 answering the origin root — and arriving without a project in
@@ -195,7 +208,10 @@ gesture that ends a session. It is a whole-page navigation, and on a frozen shar
 and the name is plain text (`docs/shared.md`).
 
 **The engine is named right after it** (`components/EngineSwitch.tsx`), because which machine plays
-the song is the first thing to check when it sounds wrong or not at all. Its menu lists the engines
+the song is the first thing to check when it sounds wrong or not at all. It is said as WHERE THE
+SOUND COMES OUT — "Sound on <machine>", or "Sound in this browser" when the engine streams to the
+page (its `whoami`'s `audioToBrowser`) — since a laptop driving the desktop at home is silent with no
+other clue; with no engine it reads "No sound — choose an engine", in amber. Its menu lists the engines
 MEASURED when it opens, not a list kept from the gate, and picking one moves the project there
 without the full-screen picker: the files are the server's, so a switch costs the playing position
 and nothing else. An engine another tab or person holds is shown and refused before the click.

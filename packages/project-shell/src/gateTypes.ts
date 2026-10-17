@@ -72,4 +72,6 @@ export interface ProjectGateStrings {
   retiredAddress?: (name: string) => string;
   /** The label over the raw technical detail, which stays collapsed; English when absent. */
   details?: string;
+  /** The bottom bar's first step, while the address is resolved and the project opened; English when absent. */
+  opening?: string;
 }
