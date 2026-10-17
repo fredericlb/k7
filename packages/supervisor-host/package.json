@@ -1,6 +1,6 @@
 {
   "name": "@studio/supervisor-host",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "engine/k7-supervisor as the child of an Electron app: spawned, kept running, its NDJSON frames, and its binaries staged into the app. Built on @frediverse/electron-shell. See docs/supervisorHost.md.",

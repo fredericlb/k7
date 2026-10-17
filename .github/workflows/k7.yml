@@ -1,55 +1,26 @@
-# k7 CI.
+# k7 CI — the gate every publish waits for: images.yml and desktop.yml move nothing until this
+# workflow's push run on the same commit has passed (.github/actions/k7-passed).
 #
-# Scoped to the k7 side of the repo deliberately — apps/k7 plus the native halves it
-# owns, engine/k7-runtime (C++), engine/k7-supervisor (C++) and their build scripts in engine/scripts. `npm run test`
-# across the whole repo is 62 tasks over eight apps; this is 14. A CI that is red on
-# arrival for reasons nobody on this change caused is a CI people learn to ignore — so
-# it starts narrow and green. Widening it is one filter per job.
+# It runs on every push to main and every `vX.Y.Z` tag, with no path filter: a filter that misses
+# one input of an image or an installer — commons, docker/, k7-core/, a root config — is a commit
+# published untested. Its JOBS stay narrow: apps/k7, the shared tier and the native supervisor, not
+# the whole repo's 62 test tasks. The C++ engine is built by the release workflows, not here.
 #
-# The file name and the two gating job `name:` fields are load-bearing: they are what branch
-# protection matches on. Renaming them is its own change, made with that setting.
-#
-# Three jobs, and only two of them can fail the build:
-#
-#   js         — the vitest tests plus typechecking. The reason this file exists.
-#   supervisor — the native supervisor built, its unit tests, and engine-tunnel's suites run
-#                again with its agent in them: the wire it shares with the TypeScript hub.
-#   lint  — informational. Biome reports a pre-existing backlog of warnings here; gating
-#           on it would block every PR on work nobody on the change caused. It runs so the
-#           number is visible and can be driven down. Flip `continue-on-error` at zero.
-#
-# Not included, on purpose: any job that builds the C++ engine — that belongs in a release
-# workflow, not on every push.
+# The file name and the gating job `name:` fields are load-bearing: branch protection and the
+# publish gate match on them. Renaming them is its own change, made with that setting.
 
 name: k7
 
-# The two path lists are duplicated rather than shared with a YAML anchor: GitHub
-# Actions does not support anchors/aliases in workflow files.
 on:
   push:
     branches: [main]
-    paths:
-      - "apps/k7/**"
-      - "engine/k7-runtime/**"
-      - "engine/k7-supervisor/**"
-      - "engine/scripts/**"
-      - "packages/**"
-      - "package-lock.json"
-      - ".github/workflows/k7.yml"
+    tags: ["v*.*.*"]
   pull_request:
-    paths:
-      - "apps/k7/**"
-      - "engine/k7-runtime/**"
-      - "engine/k7-supervisor/**"
-      - "engine/scripts/**"
-      - "packages/**"
-      - "package-lock.json"
-      - ".github/workflows/k7.yml"
   workflow_dispatch:
 
-# A second push to the same branch makes the first run pointless.
+# A second push to a branch makes the first run pointless; on main and a tag every commit's run gates a publish, so none is cancelled.
 concurrency:
-  group: k7-${{ github.ref }}
+  group: k7-${{ github.ref }}${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) && format('-{0}', github.sha) || '' }}
   cancel-in-progress: true
 
 permissions:
@@ -131,10 +102,8 @@ jobs:
         run: npx vitest run
 
   lint:
-    name: biome (informational)
+    name: lint
     runs-on: ubuntu-latest
-    # See the header: 157 pre-existing errors. This reports, it does not gate.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
@@ -148,4 +117,8 @@ jobs:
           path: commons
           token: ${{ secrets.COMMONS_TOKEN || github.token }}
       - uses: ./.github/actions/node
-      - run: npx biome check apps/k7 engine/scripts packages
+      # Errors fail the build; warnings are the backlog biome still reports, and do not.
+      - run: npm run lint
+      - run: npm run lint:bytes
+      # One version, the root package.json's, in every copy of it (docs/versioning.md).
+      - run: npm run lint:version

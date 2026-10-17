@@ -1,6 +1,6 @@
 {
   "name": "@studio/ui-waveform",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "The waveform canvas — one clip's envelope, its grid, markers and playhead, rasterised once and blitted. See docs/layers.md.",

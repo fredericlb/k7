@@ -1,6 +1,6 @@
 {
   "name": "@studio/mpv-player",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Playing a file on the HOST's own outputs through mpv, driven over its JSON IPC socket, one player per person. Knows nothing about where the media lives: the host injects that. Mounted by k7's backend, whose media is the library itself. Consumed as source.",

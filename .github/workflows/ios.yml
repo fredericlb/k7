@@ -33,6 +33,10 @@ jobs:
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The whole history without its files: the build number is the commit count (docs/versioning.md).
+          fetch-depth: 0
+          filter: blob:none
       # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
       - id: commons
         shell: bash
@@ -80,12 +84,15 @@ jobs:
         run: node engine/k7-ios/scripts/stage.mjs
 
       # A generic device and no -sdk: naming both leaves the asset catalogue's unthinned half empty.
+      # The version is the root package.json's, the build number the commit count, as on Android (docs/versioning.md).
       - name: app
         shell: bash
         run: |
           set -euo pipefail
           xcodebuild -project engine/k7-ios/k7.xcodeproj -scheme k7 -configuration Release \
             -destination "generic/platform=iOS" -derivedDataPath "$RUNNER_TEMP/k7-ios" \
+            MARKETING_VERSION="$(node -p 'require("./package.json").version')" \
+            CURRENT_PROJECT_VERSION="$(git rev-list --count HEAD)" \
             CODE_SIGNING_ALLOWED=NO build
 
       # The three frameworks inside, each an arm64 device binary, before anything is uploaded.

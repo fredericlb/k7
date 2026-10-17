@@ -1,6 +1,6 @@
 {
   "name": "@studio/k7-sdk",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "k7's plugin contract: one K7Plugin a feature declares, and the installers that contribute it to the registries that already exist (commands, surface types, the shell's panes). A plugin is a set of commands, a surface, a set of modules — the four registries are the SDK's whole surface. Consumed as source.",

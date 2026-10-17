@@ -1,6 +1,6 @@
 {
   "name": "@studio/ui-library",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "The médiathèque as React — songs, samples, recordings, playlists and the hunt — mounted by k7 under /media. The host configures the API base and hands in the labels. See docs/host.md.",

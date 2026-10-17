@@ -1,6 +1,6 @@
 {
   "name": "@studio/ui-module-builder",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "The module builder as React: a module's YAML on the left, its widget grid on the right, both editing the module.yaml / ui.yaml pair. The app supplies a ModuleStore — four calls — and owns the engine link around it.",

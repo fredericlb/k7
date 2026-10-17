@@ -1,6 +1,6 @@
 {
   "name": "@studio/song",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "The song layer — reads a project folder and compiles its sound to a flat ProjectDoc/GraphDoc for k7; its picture is @studio/song-video's. A strudel lane compiles to the engine plugin that plays it (enginePattern.ts). Consumed as source.",

@@ -1,6 +1,6 @@
 {
   "name": "@studio/ui-chains",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "k7's routing-graph engine — compiles a project graph to a dagre layout the web app draws as HTML nodes + SVG cables. Framework-agnostic; consumed as source.",

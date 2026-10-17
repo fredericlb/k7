@@ -1,10 +1,10 @@
 # The desktop release
 
 `docker/` ships the hosted apps. This is the other half: what runs on the musician's machine and is in
-no image. **OneDev builds it** (`.onedev-buildspec.yml`); `.github/workflows/desktop.yml` draws the same
-graph for GitHub, kept for when the repository is public — a private repository's Actions minutes do
-not cover three desktops on every push, macOS counting ten times. Both build it in two stages per
-platform, beside the phone's APK, and publish **two files per desktop**:
+no image. **GitHub builds it** (`.github/workflows/desktop.yml`), the repository being public, so
+its Actions minutes cover three desktops on every push. `.onedev-buildspec.yml` draws the same graph
+for OneDev, with no trigger: its jobs run by hand. Both build it in two stages per platform, beside
+the phone's APK, and publish **two files per desktop**:
 
 | stage | job | what it publishes |
 |---|---|---|
@@ -22,8 +22,7 @@ it just packaged under Playwright before making the installer (`apps/k7-standalo
 
 ## Two channels, and what names a file
 
-A push to `main` makes a snapshot; a `vX.Y.Z` tag makes a release of its own. On OneDev each is the
-`release` build that gathers the files. On GitHub the snapshot is a prerelease on the moving tag
+A push to `main` makes a snapshot; a `vX.Y.Z` tag makes a release of its own. On GitHub the snapshot is a prerelease on the moving tag
 `snapshot`, deleted and recreated rather than edited, because a GitHub release keeps the commit its tag
 points at however its assets are replaced — an edited one would keep advertising the commit it was
 first cut from.
@@ -40,13 +39,23 @@ dearest one there is. So a `main` push that touched only a doc must not start it
 `paths:` is the obvious tool and it is the wrong one here: GitHub applies it to **tag** pushes
 too, and a tag push carries no commit list for it to match against — the release would silently
 never run, on the one event that matters most. The `decide` job diffs the push instead and lets
-tags through untested.
+every tag through.
 
 Its filter is `engine/`, `apps/` and `packages/` **whole**: the desktop app bundles k7's frontend and
 backend and most of the shared tier, and the tier moves together. `commons` counts too: the Electron
 shell under the app, `@frediverse/electron-shell`, lives there, and a change to it reaches this tree as
 a bump of that one path. An `apps/`-only push does rebuild the engines; with their objects cached
 that costs minutes, and it keeps one engine build per release.
+
+## Nothing is published untested
+
+The `publish` job needs `tested`, which waits for `k7.yml`'s push run on the same commit and the same
+ref — the `main` push for a snapshot, the tag push for a release — and fails if that run is red or
+never appears (`.github/actions/k7-passed`). A missing run counts as a failure, not as a pass: the
+hazard is a release cut from a commit no test ever saw. `tested` runs beside the builds rather than
+before them, since the tests take minutes and a native build tens of them. `k7.yml` carries no path
+filter for the same reason, and on `main` and tags it cancels no run, since every commit's result is
+read by a publish.
 
 ## The presets a runner can actually use
 
@@ -208,7 +217,8 @@ SHA, resolved with `gh api repos/<owner>/<repo>/commits/<tag> -q .sha`.
 
 The release stamp — the tag, or `snapshot-<commit>` — reaches commands through the environment and is
 checked in `decide` against `vX.Y.Z` or `snapshot-<hex>`: a tag name is chosen by whoever pushes it,
-and anything else stops the run. The desktop job hands it to the app's build as
+and anything else stops the run. A tag must also be `v` + the root package.json's version, which
+every artefact ships under ([versioning.md](versioning.md)). The desktop job hands it to the app's build as
 `$STUDIO_RELEASE_STAMP`, which inlines it as the app's release — shown in About and compared with
 this repository's releases to tell the person a newer one exists (`apps/k7-standalone/docs/menu.md`,
 `apps/k7-standalone/docs/notices.md`). The app reads `releases/latest` and the `snapshot` prerelease
@@ -286,9 +296,8 @@ through, and it must be minutes rather than hours.
 ## On OneDev
 
 `.onedev-buildspec.yml` names jobs by what they make — `engine windows`, `desktop windows`, `android` —
-and builds no Linux leg: that one is GitHub's alone, and OneDev's container runs would only duplicate it. Only **`release`** carries triggers: a push to `main` touching
-`engine/`, `apps/`, `packages/`, `commons` or the lock, and a `v*` tag, GitHub's gate expressed as the
-trigger's paths. Its dependencies run the rest, each desktop job retrieving its engine job's archive,
+and builds no Linux leg: that one is GitHub's alone, and OneDev's container runs would only duplicate it. No job carries a trigger: **`release`**, run by hand, is
+the one to start. Its dependencies run the rest, each desktop job retrieving its engine job's archive,
 and it gathers every file into its own build: that build's artifacts are the release. The file names
 are GitHub's — the tag, or `snapshot-<commit>`. The engine job and the APK wait for `lint and test`: a release
 should not ship what the tests refuse, and the APK shares its machine, where a C++ compile beside it times

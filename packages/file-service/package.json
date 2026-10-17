@@ -1,6 +1,6 @@
 {
   "name": "@studio/file-service",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "k7's file service: one account's workspaces and every file operation on them, run on the SERVER by @studio/file-hub, one process per account, driving the engine the account claimed through its tunnel (the C++ engine stays file-free). Consumed as source; run under tsx.",

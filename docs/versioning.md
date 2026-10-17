@@ -1,12 +1,49 @@
 # Versioning and the deployment pipeline
 
-How the studio image gets a version, and how that version reaches the screen. This
-mirrors what `../phare` does, with one deliberate difference noted below.
+What a build is called, and how that name reaches the screen. Two names answer two questions:
+**which release is this?** — the VERSION, `0.1.0`, one for the whole repository — and **which
+build of it?** — the STAMP, `26.08031412` for an image, `snapshot-9f2c1ab` or the tag itself for a
+desktop or phone build. The image half mirrors what `../phare` does, with one deliberate difference
+noted below.
 
-The whole thing exists to answer one question: **looking at a running app, which image
-is that?** There is no version endpoint and no `/healthz` — phare has none either. The
-stamp is visible in exactly two places, the SPA chrome and the image tag, and they are
-the same string.
+## One version, in the root package.json
+
+The root `package.json`'s `version` is the release version of everything this repository ships:
+the hosted image, the server's engine, the desktop app, the command-line engine, the APK, the
+iPhone app. A `vX.Y.Z` tag is a release of exactly that version, and CI refuses any other tag —
+`desktop.yml`'s `decide` and `images.yml`'s `version` job run `scripts/check-version.mjs --tag`
+before anything is built. So a release is two steps: `node scripts/check-version.mjs --set X.Y.Z`
+in a commit on `main`, then the tag on that commit.
+
+| choice | why |
+|---|---|
+| the root package.json, not a `VERSION` file | npm already requires a `version` in every manifest, so a separate file would be one more copy, not one fewer; node, Gradle and electron-builder all read JSON |
+| every private workspace carries the same version | a manifest must hold some version, and a stale one is read as a claim; `npm run lint:version`, a blocking step of `k7.yml`, refuses a copy that differs |
+| the four published packages keep their own | z0 pins them by semver, and their version moves with their API, not with a release ([publishing.md](publishing.md)) |
+| `--set` writes every copy, the lockfile and the iOS project included | a bump is one command; nobody edits sixty manifests by hand |
+
+Each artefact derives its name from it:
+
+| artefact | release | snapshot |
+|---|---|---|
+| image tags | `:X.Y.Z`, the stamp, the commit | `:latest`, the stamp, the commit |
+| `/api/health` | `version` (the backend's package.json copy) and `build` (the stamp) | same |
+| the SPA's tooltip | `0.1.0 (26.08031412)` | same |
+| engine and supervisor `build` | `v0.1.0` | `0.1.0-snapshot-9f2c1ab`; `0.1.0-dev` locally |
+| desktop bundle version | `0.1.0` | `0.1.0-snapshot-9f2c1ab`, a semver prerelease |
+| Android `versionName` / iOS `MARKETING_VERSION` | `0.1.0` | `0.1.0-snapshot-9f2c1ab` / `0.1.0` |
+| Android `versionCode` / iOS build number | the commit count | the commit count |
+
+**The phone's build number is the commit count** (`git rev-list --count HEAD`). Android refuses an
+update whose `versionCode` is lower than the installed one, so the number must grow with every
+build that may replace another. A count of ancestors grows with every descendant commit, is the
+same for a commit wherever it is built, and needs no counter stored anywhere; a CI run number would
+differ between the workflow that built a snapshot and the one that built its release. The cost is
+a full history: the jobs that build a phone app check out with `fetch-depth: 0` and no blobs, and
+Gradle refuses a shallow clone rather than count one commit.
+
+**A tag does not move `:latest`.** A tag may name an older commit than `main`'s tip, and `:latest`
+follows `main`; the release's own tag, `:X.Y.Z`, is the one a deploy names.
 
 ## One image built here, and why k7 does not share phare's shape
 
@@ -31,31 +68,28 @@ Two containers on one hostname each ship and restart on their own, so a crash in
 recycle the other. Inside k7's image the trade is phare's: the editor, the library and the
 rehearsal recorder are one process and restart together.
 
-## The chain
+## The image's stamp
 
 ```
-OneDev CommandStep (node -e, Europe/Paris)  →  ./build_version   e.g. "26.08031412"
-  ├─ SetBuildVersionStep  ─────────────────→  the OneDev build version
-  ├─ RegistryOutput tags  ─────────────────→  …/studio/k7:26.08031412
-  └─ --build-arg APP_VERSION=@build_version@   (passed to the BuildImageStep)
-       → Dockerfile frontend-build stage:  ARG APP_VERSION=dev
-                                           ENV VITE_APP_VERSION=$APP_VERSION
-         → vite inlines import.meta.env.VITE_APP_VERSION as a literal
-           → dist/ → COPY into the runtime stage (k7's frontend/dist)
-             → the stamp in k7's chrome
+images.yml `version` job (date, Europe/Paris)  →  stamp   e.g. "26.08031412"
+  ├─ `publish` job  ───────────────────────────→  ghcr.io/fredericlb/k7-webapp:26.08031412
+  └─ --build-arg APP_VERSION=<stamp>
+       → Dockerfile frontend-build stage:  ENV VITE_APP_VERSION=$APP_VERSION
+         → vite inlines import.meta.env.VITE_APP_VERSION as a literal → the stamp in k7's chrome
+       → Dockerfile runtime stage:         ENV APP_VERSION=$APP_VERSION → /api/health's `build`
 ```
 
-The image tag and the stamp in the SPA come from ONE `compute build version` step, so they
-cannot disagree. z0's stamp is its own repository's and is not comparable with this one.
+The image tag and the stamp in the SPA come from ONE `version` job, so they cannot disagree. The
+runtime stage declares the stamp last, so a new one rebuilds no layer above it. z0's stamp is its own repository's and is not comparable with this one.
 
 `YY.MMDDHHmm` in Europe/Paris — `26.08031412` is 3 August 2026, 14:12. Sortable,
 readable at a glance, and short enough to sit in a header without crowding it. The
 computation falls back to UTC if the builder image lacks timezone data, so a missing
 tzdata shifts the stamp by an hour or two rather than failing the build.
 
-The image also carries `:latest` and `:@commit_hash@`. Three tags, three uses: the one
-you deploy, the one you can `git show`, and the one you can read. Only the commit's is pushed
-before the tests pass; the other two follow once they have ([images.md](images.md)).
+The image also carries the commit hash, and `:latest` or, for a release, `:X.Y.Z`. Each has its
+use: the version you deploy, the commit you can `git show`, the stamp you can read. Only the
+commit's is pushed before the tests pass; the others follow once they have ([images.md](images.md)).
 
 ## A deploy names its build
 
@@ -112,8 +146,7 @@ their `rN` tag scheme is unrelated to CI's.
 That script finds its apps by globbing `apps/*/docker/Dockerfile` and names the image
 after the folder, so nothing is named by hand — under the checkout's own folder name, which is the
 `<repo>` of `<repo>/<app>`, the shape phare's `phare/phare` has. CI's images are
-`dev.frediver.se/frediverse/k7/k7-webapp` and `…/k7/k7-runtime`, OneDev's registry keeping a project's images
-under its path (`frediverse/k7`). The two do not meet: the script names an image after its app's folder,
+`ghcr.io/fredericlb/k7-webapp` and `…/k7-runtime` ([images.md](images.md)). The two do not meet: the script names an image after its app's folder,
 so a hand-built one is `<checkout>/k7`, never CI's `k7-webapp`, and nothing deployed pulls it.
 
 `?? "dev"` at each render site covers `vite dev` and a bare `vite build`, where the
@@ -133,7 +166,7 @@ One SPA, one image:
 
 `VERSION` is read at module scope so it constant-folds into the bundle.
 
-In k7's home sidebar the stamp is a
+In k7's home sidebar the version and the stamp are a
 tooltip on the app's name and never visible text: nobody needs it in the moment, and it is one hover
 away for whoever asks which image this is.
 
@@ -142,7 +175,9 @@ and no location list to keep in step with the SPA's `base`.
 
 ## The submodule, and why CI needs a credential
 
-`.gitmodules` uses `url = ../commons.git` — relative to whatever origin the clone has.
+On GitHub, `commons` is a checkout of its own read with `COMMONS_TOKEN`
+([desktop-release.md](desktop-release.md)). On OneDev, whose jobs run by hand,
+`.gitmodules`' `url = ../commons.git` is relative to whatever origin the clone has.
 On a developer machine that resolves against the SSH remote; on the OneDev agent it
 resolves against the project's HTTP origin. This is why every `CheckoutStep` uses
 

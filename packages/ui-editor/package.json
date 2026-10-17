@@ -1,6 +1,6 @@
 {
   "name": "@studio/ui-editor",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "k7's CodeMirror editor language stack — the YAML language mode + schema-derived completions + entity links, the sequence note grids, and YamlPane, the plain text pane the screens beside the editor share. Consumed as source.",

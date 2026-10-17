@@ -1,6 +1,6 @@
 {
   "name": "@studio/ffmpeg",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Running ffmpeg and ffprobe from Node: where the binaries are (FFMPEG_BIN / FFPROBE_BIN), the protocol whitelist every input goes through, the one NoFfmpegError a missing binary becomes, and a spawn that collects the output and kills a stuck child. Node-only. Consumed as source.",

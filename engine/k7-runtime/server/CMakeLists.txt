@@ -55,7 +55,13 @@ target_link_libraries(k7-runtime PRIVATE
 # The release stamp `whoami` reports, on its one source alone so a new stamp recompiles one file (packages/engine-protocol/docs/version.md).
 set(K7_BUILD_STAMP "$ENV{STUDIO_RELEASE_STAMP}")
 string(REGEX REPLACE "[^A-Za-z0-9._-]" "" K7_BUILD_STAMP "${K7_BUILD_STAMP}")
+# A snapshot or a local build names the version it was cut from, the root's, which k7-runtime's package.json copies (docs/versioning.md).
+file(READ "${CMAKE_CURRENT_LIST_DIR}/../package.json" K7_PACKAGE_JSON)
+string(JSON K7_VERSION GET "${K7_PACKAGE_JSON}" version)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/../package.json")
 if(K7_BUILD_STAMP STREQUAL "")
-    set(K7_BUILD_STAMP "dev")
+    set(K7_BUILD_STAMP "${K7_VERSION}-dev")
+elseif(NOT K7_BUILD_STAMP MATCHES "^v[0-9]")
+    set(K7_BUILD_STAMP "${K7_VERSION}-${K7_BUILD_STAMP}")
 endif()
 set_source_files_properties(WireVersion.cpp PROPERTIES COMPILE_DEFINITIONS "K7_BUILD=\"${K7_BUILD_STAMP}\"")

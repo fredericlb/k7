@@ -1,6 +1,6 @@
 {
   "name": "@studio/audio-analysis",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Measuring an audio FILE: decode it (the engine's `--decode` where there is one, ffmpeg otherwise), build the `{file}.cache` sidecar — peak/RMS/three-band envelope, onsets, tempo — and read its true peak. The only producer of the sidecar. Node-only, unlike @studio/audio-probe, which only MEASURES already-decoded audio. Consumed as source.",

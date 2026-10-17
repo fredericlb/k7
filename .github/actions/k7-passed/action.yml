@@ -1,0 +1,28 @@
+# Waits for k7.yml's run on this commit and this ref, and fails unless it succeeded — the gate every publish
+# passes (docs/desktop-release.md, docs/images.md). A run that never appears is a failure, never a pass:
+# nothing untested reaches `:latest` or a release. Needs `actions: read` and the repository checked out.
+name: k7 passed
+description: Fail unless k7.yml's push run on this commit and ref succeeded, waiting for it if it is still running.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        id=""
+        # The run is queued by the same push, so it may be a few seconds behind this one.
+        for _ in $(seq 1 30); do
+          id=$(gh run list --workflow k7.yml --commit "$GITHUB_SHA" --branch "$GITHUB_REF_NAME" --event push \
+                 --json databaseId --jq '.[0].databaseId // empty')
+          [ -n "$id" ] && break
+          sleep 10
+        done
+        if [ -z "$id" ]; then
+          echo "::error::k7.yml has no push run for $GITHUB_SHA on $GITHUB_REF_NAME: refusing to publish untested"
+          exit 1
+        fi
+        echo "k7.yml run $id"
+        gh run watch "$id" --exit-status --interval 30

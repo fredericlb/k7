@@ -31,6 +31,7 @@ Every script in the root `package.json`, grouped by purpose. Run them from the r
 | `lint:bytes` | `node scripts/check-source-bytes.mjs` | Yes (pre-push hook, OneDev). |
 | `lint:docs` | `node scripts/check-doc-links.mjs` | Yes (pre-push hook). |
 | `lint:comments` | `node scripts/check-comments.mjs` | No: reports a backlog. |
+| `lint:version` | `node scripts/check-version.mjs` | Yes (GitHub `k7` `lint` job). Every private workspace carries the root `package.json`'s version; `--set X.Y.Z` writes every copy, `--tag vX.Y.Z` also checks a release tag. |
 | `lint:dead` | `knip` | No: reports a backlog. |
 | `lint:panels` | `tsx packages/song/scripts/checkPanelBinds.ts` | No: needs the external plugins installed on the machine. |
 | `lint:layouts` | `tsx packages/ui-module-builder/scripts/checkLayouts.ts` | No: run by hand after editing module panels. |

@@ -37,14 +37,16 @@ accelerators are what remains of it.
 ## The release stamp
 
 A build's identity is its **release stamp** — `vX.Y.Z` for a tag, `snapshot-<commit>` for a push to
-`main` — the same string that names its files (`docs/desktop-release.md` at the root). package.json's
-`0.1.0` does not move with a build, so nothing reads it as the release.
+`main` — the same string that names its files (`docs/desktop-release.md` at the root). The version
+(`docs/versioning.md` at the root) does not move with a build, so the app shows the stamp.
 
 `scripts/build-main.mjs` inlines `$STUDIO_RELEASE_STAMP` into the main process and the preload as
 `__K7_RELEASE__` (`src/release.ts`); anything but the two CI shapes becomes `dev`, since the stamp is
 shown to the person and compared with GitHub's tags. Both CI paths set the variable before packaging.
-For a tag, `electron-builder.cjs` also sets the bundle's version (`extraMetadata.version`), so the
-OS's own views of the app agree; a snapshot is no semantic version and keeps package.json's.
+`electron-builder.cjs` sets the bundle's version (`extraMetadata.version`) from the root
+package.json, so the OS's own views of the app agree with the release: `0.1.0` for the tag `v0.1.0`,
+which it refuses to package under any other version, and `0.1.0-snapshot-9f2c1ab` for a snapshot, a
+prerelease of the version it was cut from.
 
 The stamp is shown in **About** (`app.setAboutPanelOptions`) and on k7's **settings page**, which
 reads it from the preload's `window.studioApp.version`.

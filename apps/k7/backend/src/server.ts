@@ -32,6 +32,7 @@ import { loopbackOnly } from "./loopback.ts";
 import { originPolicyFromEnv, studioCors } from "./media/cors.ts";
 import { mediaTokens, mountMedia } from "./media/mount.ts";
 import { readinessRoute, volumesFromEnv } from "./readiness.ts";
+import { BUILD, VERSION } from "./version.ts";
 
 // A stray rejection is logged and survived; an uncaught exception leaves, and the container restarts it.
 process.on("unhandledRejection", (reason) =>
@@ -68,9 +69,9 @@ app.use(securityHeaders);
 if (LOCAL_USER) app.use(loopbackOnly);
 // Listed origins only, and no cross-site write, before anything else runs — ../docs/media/cors.md.
 app.use(studioCors(originPolicyFromEnv()));
-// Liveness: no session, no disk, only that the loop answers.
+// Liveness: no session, no disk, only that the loop answers — and which release answers.
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, version: VERSION, build: BUILD });
 });
 // Readiness, what the image's healthcheck asks: the volumes take a write, no file-service start is stuck (./readiness.ts).
 app.get(

@@ -40,7 +40,7 @@ x-logging: &logging
 services:
   k7:
     # Required, so a deploy names the build it runs and the engine below runs the same one (docs/versioning.md).
-    image: dev.frediver.se/frediverse/k7/k7-webapp:${APP_VERSION:?set APP_VERSION to a build stamp or commit hash — see .env.example}
+    image: ghcr.io/fredericlb/k7-webapp:${APP_VERSION:?set APP_VERSION to a release version, build stamp or commit hash — see .env.example}
     restart: unless-stopped
     logging: *logging
     # The backend, every account's file service and their ffmpeg children share this; the engine has its own below.
@@ -114,7 +114,7 @@ services:
   # The server's own engine — engine/docker/Dockerfile. Not routed through Traefik: it publishes no
   # port, and browsers reach it through k7's relay like any machine's (docs/server-engine.md).
   engine:
-    image: dev.frediver.se/frediverse/k7/k7-runtime:${APP_VERSION:?set APP_VERSION to a build stamp or commit hash — see .env.example}
+    image: ghcr.io/fredericlb/k7-runtime:${APP_VERSION:?set APP_VERSION to a release version, build stamp or commit hash — see .env.example}
     restart: unless-stopped
     logging: *logging
     # Kept apart from k7's: a render or an import there must not take the server's engine down with it.

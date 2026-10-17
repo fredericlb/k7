@@ -1,6 +1,6 @@
 {
   "name": "@studio/engine-registry",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "The engine registry: engines announce themselves by heartbeat, browsers list what they can reach. One instance per hosted service, so k7 and pl8 each hold their own — see docs/shared.md.",

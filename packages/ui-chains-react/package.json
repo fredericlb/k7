@@ -1,6 +1,6 @@
 {
   "name": "@studio/ui-chains-react",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "The chains graph as React: HTML nodes plus one SVG cable layer, drawing what @studio/ui-chains laid out. The renderer only — the shell around it (fetching, the chain list, the parked camera) stays in each app.",
