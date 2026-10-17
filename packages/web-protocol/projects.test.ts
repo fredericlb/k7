@@ -464,6 +464,7 @@ describe("which addresses open a project", () => {
       "/external",
       "/libraries",
       "/settings",
+      "/about",
       "/media",
       "/media/songs/Miles/So-What/song.yaml",
       "/rehearsal",
@@ -477,6 +478,7 @@ describe("which addresses open a project", () => {
     expect(isHomePage("/libraries", "/")).toBe(true);
     expect(isHomePage("/settings/", "/")).toBe(true);
     expect(isHomePage("/tasks", "/")).toBe(true);
+    expect(isHomePage("/about", "/")).toBe(true);
     expect(isHomePage("/k7/settings", "/k7/")).toBe(true);
     expect(isHomePage("/settings/x.k7", "/")).toBe(false);
     expect(isHomePage("/external", "/")).toBe(false);

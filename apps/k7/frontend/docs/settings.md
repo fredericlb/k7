@@ -187,3 +187,7 @@ the built-in engine's state, its audio interface ranking and its plugins, reache
 main process, since the supervisor opens no socket (`../../../k7-standalone/docs/engine.md`). A browser has no
 such engine, so the row is drawn only when the app's bridge is there.
 
+## About is beside it, not in it
+
+The user menu's About row, under Settings, opens `/about` (`about.md`): the version, the licence,
+the source and the third-party notices. None of it is a setting, so none of it is on this page.

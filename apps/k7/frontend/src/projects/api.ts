@@ -28,6 +28,7 @@ import {
   type WorkspaceSyncStatus,
 } from "@studio/web-protocol";
 import {
+  ABOUT_PAGE,
   externalOf,
   LIBRARIES_PAGE,
   localProjectUrl,
@@ -87,6 +88,9 @@ export const LIBRARIES_ROUTE = `/${LIBRARIES_PAGE}`;
 
 /** …and the SETTINGS page, the same way. */
 export const SETTINGS_ROUTE = `/${SETTINGS_PAGE}`;
+
+/** …and the ABOUT page: k7's version, its licence, its source and the third-party notices. */
+export const ABOUT_ROUTE = `/${ABOUT_PAGE}`;
 
 /** …and the desktop app's built-in ENGINE, a page under the settings. */
 export const ENGINE_SETTINGS_ROUTE = `/${SETTINGS_PAGE}/engine`;

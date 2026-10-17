@@ -1,0 +1,4 @@
+Microsoft DirectML (Microsoft.AI.DirectML), redistributed with the Windows
+build of the engine's supervisor as DirectML.dll, is licensed by Microsoft
+under the Microsoft Software License Terms for Microsoft DirectML:
+https://www.nuget.org/packages/Microsoft.AI.DirectML/1.15.4/License

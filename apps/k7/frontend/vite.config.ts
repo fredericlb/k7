@@ -8,6 +8,7 @@ import {
   DOCS_DEV_HOST,
   LEGACY_DEV_HOSTS,
 } from "../../../scripts/dev-hosts.mjs";
+import { noticesPlugin } from "./notices/vitePlugin.ts";
 
 /** The paths on this origin that are NOT k7's shell: the worker's scope is `/`, so only this list keeps a navigation to `/z0` or the `/rtc` socket off it. */
 const OTHER_APPS = /^\/(z0|api|auth|rtc)(\/|$)/;
@@ -66,6 +67,8 @@ export default defineAppConfig({
       }),
       // alphaTab copies its font and soundfont into public/ and wires its worker and worklet (packages/score).
       alphaTab(),
+      // The About page's third-party notices, a chunk of their own — docs/about.md.
+      noticesPlugin(),
     ],
     // The docs host and the former hosts still reach these servers — see scripts/dev-hosts.mjs.
     server: {

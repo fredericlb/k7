@@ -1,5 +1,5 @@
 // HomeSidebar.tsx — the left sidebar of the home page and of the pages that hang off it, /libraries,
-// /tasks, /settings, /media/… and /rehearsal/…: Projects, Tasks and Libraries as entries, then the
+// /tasks, /settings, /about, /media/… and /rehearsal/…: Projects, Tasks and Libraries as entries, then the
 // media library's and the rehearsal pages' sections, the user menu at its foot. All are routes, so going between them reloads
 // nothing. Below `sm` it folds to an icon rail. See ../../docs/projects.md.
 
@@ -7,6 +7,7 @@ import { Button } from "@frediverse/ui/button";
 import {
   AudioLines,
   Folders,
+  Info,
   LibraryBig,
   ListChecks,
   type LucideIcon,
@@ -23,6 +24,7 @@ import { m } from "../paraglide/messages.js";
 import { onDesktopEngine } from "../settings/desktopEngine";
 import { VERSION } from "../version";
 import {
+  ABOUT_ROUTE,
   ENGINE_SETTINGS_ROUTE,
   LIBRARIES_ROUTE,
   MEDIA_ROUTE,
@@ -226,9 +228,9 @@ function HomeSidebar({
           }
           onSettings={() => navigate(SETTINGS_ROUTE)}
           settingsLabel={m["home.settings"]()}
-          // The desktop app runs an engine of its own; its settings are a page, reached from here.
-          items={
-            onDesktopEngine()
+          // The desktop app's own engine page, then About — version, licence, source, notices (../../docs/about.md).
+          items={[
+            ...(onDesktopEngine()
               ? [
                   {
                     id: "engine",
@@ -237,8 +239,14 @@ function HomeSidebar({
                     onSelect: () => navigate(ENGINE_SETTINGS_ROUTE),
                   },
                 ]
-              : undefined
-          }
+              : []),
+            {
+              id: "about",
+              label: m["home.about"](),
+              icon: Info,
+              onSelect: () => navigate(ABOUT_ROUTE),
+            },
+          ]}
           origin={server}
           unavailable={
             isDesktop && !server ? m["home.appsUnavailable"]() : undefined

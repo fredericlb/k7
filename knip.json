@@ -39,7 +39,7 @@
       "entry": ["scripts/*.{ts,mjs}", "engine/strudel/strudel.bundle.js"]
     },
     "apps/k7/frontend": {
-      "entry": ["src/docs/examples.ts"]
+      "entry": ["src/docs/examples.ts", "notices/vendor.ts"]
     },
     "apps/k7/backend": {
       "entry": ["scripts/bundle.mjs"]
