@@ -56,6 +56,7 @@ import { LocaleProvider } from "./i18n";
 import { installLongPress } from "./longPress";
 import { PaneBoundary } from "./PaneBoundary";
 import {
+  ABOUT_ROUTE,
   ENGINE_SETTINGS_ROUTE,
   LIBRARIES_ROUTE,
   MEDIA_ROUTE,
@@ -89,6 +90,9 @@ const SettingsPage = lazy(() =>
     default: m.SettingsPage,
   })),
 );
+const AboutPage = lazy(() =>
+  import("./about/AboutPage").then((m) => ({ default: m.AboutPage })),
+);
 
 import "./index.css";
 /** The waveform's own wrapper and marker rules — a plain stylesheet, so the `@source` scan cannot produce it and it has to be imported. */
@@ -109,7 +113,7 @@ installLongPress();
 /** The Profiler is here for the freeze watchdog, and OFF unless someone is looking: it bills every commit in a tree that commits per meter frame. */
 const profiling = PROFILING;
 
-/** The pages hanging off the home — `/libraries`, `/settings`, `/tasks`, `/media/…` — read FIRST: `parseLaunch` would take the word for a workspace. */
+/** The pages hanging off the home — `/libraries`, `/settings`, `/about`, `/tasks`, `/media/…` — read FIRST: `parseLaunch` would take the word for a workspace. */
 const homePage = isHomePage(window.location.pathname, import.meta.env.BASE_URL);
 
 /** Which of the three things this address is, read out of the address and nothing else — a branch, a SHARE being the wrong stack rather than a disabled one. */
@@ -249,6 +253,7 @@ ReactDOM.createRoot(document.getElementById("root")!, {
                           path={ENGINE_SETTINGS_ROUTE}
                           element={<DesktopEnginePage />}
                         />
+                        <Route path={ABOUT_ROUTE} element={<AboutPage />} />
                         <Route path={TASKS_ROUTE} element={<TasksPage />} />
                         <Route
                           path={`${MEDIA_ROUTE}/*`}

@@ -1,0 +1,487 @@
+{
+  "npmOverrides": {
+    "@lix-js/sdk-darwin-arm64": {
+      "license": "MIT",
+      "reason": "Platform binary of @lix-js/sdk, which is MIT; the binary's manifest omits the field."
+    },
+    "@lix-js/sdk-darwin-x64": {
+      "license": "MIT",
+      "reason": "Platform binary of @lix-js/sdk, which is MIT; the binary's manifest omits the field."
+    },
+    "@lix-js/sdk-linux-x64-gnu": {
+      "license": "MIT",
+      "reason": "Platform binary of @lix-js/sdk, which is MIT; the binary's manifest omits the field."
+    },
+    "@lix-js/sdk-linux-x64-musl": {
+      "license": "MIT",
+      "reason": "Platform binary of @lix-js/sdk, which is MIT; the binary's manifest omits the field."
+    },
+    "@lix-js/sdk-linux-arm64-gnu": {
+      "license": "MIT",
+      "reason": "Platform binary of @lix-js/sdk, which is MIT; the binary's manifest omits the field."
+    },
+    "@lix-js/sdk-linux-arm64-musl": {
+      "license": "MIT",
+      "reason": "Platform binary of @lix-js/sdk, which is MIT; the binary's manifest omits the field."
+    },
+    "@lix-js/sdk-win32-x64-msvc": {
+      "license": "MIT",
+      "reason": "Platform binary of @lix-js/sdk, which is MIT; the binary's manifest omits the field."
+    }
+  },
+  "components": [
+    {
+      "name": "Tracktion Engine",
+      "version": "3.2.0",
+      "source": "engine/k7-runtime/CMakeLists.txt",
+      "license": "GPL-3.0-or-later",
+      "url": "https://github.com/Tracktion/tracktion_engine",
+      "where": ["engine"],
+      "fetchContent": ["tracktion_engine"],
+      "text": "tracktion.txt",
+      "vendor": ["runtime:tracktion_engine-src/LICENSE.md"]
+    },
+    {
+      "name": "JUCE",
+      "version": "19edd538429c93d277bf95b55aaa7e3eb545f951",
+      "source": "engine/k7-runtime/CMakeLists.txt",
+      "license": "AGPL-3.0-only",
+      "url": "https://github.com/juce-framework/JUCE",
+      "where": ["engine"],
+      "note": "Fetched with Tracktion Engine. AGPLv3: whoever uses the engine over a network is offered its source.",
+      "text": "juce.txt",
+      "vendor": [
+        "runtime:tracktion_engine-src/modules/juce/LICENSE.md",
+        "runtime:tracktion_engine-src/modules/juce/modules/juce_audio_formats/codecs/flac/Flac Licence.txt",
+        "runtime:tracktion_engine-src/modules/juce/modules/juce_audio_formats/codecs/oggvorbis/Ogg Vorbis Licence.txt",
+        "runtime:tracktion_engine-src/modules/juce/modules/juce_graphics/image_formats/jpglib/README#L111-L197",
+        "runtime:tracktion_engine-src/modules/juce/modules/juce_graphics/image_formats/pnglib/LICENSE",
+        "runtime:tracktion_engine-src/modules/juce/modules/juce_core/zip/zlib/README#L93-L125",
+        "runtime:tracktion_engine-src/modules/juce/modules/juce_graphics/fonts/harfbuzz/COPYING",
+        "runtime:tracktion_engine-src/modules/juce/modules/juce_graphics/unicode/sheenbidi/LICENSE",
+        "runtime:tracktion_engine-src/modules/juce/modules/juce_javascript/choc/LICENSE.md",
+        "runtime:tracktion_engine-src/modules/juce/modules/juce_audio_processors/format_types/LV2_SDK/lv2/COPYING",
+        "runtime:tracktion_engine-src/modules/juce/modules/juce_audio_processors/format_types/VST3_SDK/LICENSE.txt",
+        "runtime:tracktion_engine-src/modules/juce/modules/juce_audio_devices/native/oboe/LICENSE"
+      ]
+    },
+    {
+      "name": "NeuralAmpModelerCore",
+      "version": "v0.5.4",
+      "source": "engine/k7-runtime/CMakeLists.txt",
+      "license": "MIT",
+      "url": "https://github.com/sdatkinson/NeuralAmpModelerCore",
+      "where": ["engine"],
+      "fetchContent": ["nam_core"],
+      "text": "nam-core.txt",
+      "vendor": ["runtime:nam_core-src/LICENSE"]
+    },
+    {
+      "name": "Eigen",
+      "version": "87300c93cae6a8afd9a4f8aa8d9d5c5324cf02e1",
+      "source": "engine/k7-runtime/CMakeLists.txt",
+      "license": "MPL-2.0",
+      "url": "https://gitlab.com/libeigen/eigen",
+      "where": ["engine"],
+      "fetchContent": ["eigen"],
+      "text": "eigen.txt",
+      "vendor": [
+        "runtime:eigen-src/COPYING.README",
+        "runtime:eigen-src/COPYING.BSD",
+        "runtime:eigen-src/COPYING.MINPACK"
+      ]
+    },
+    {
+      "name": "RTNeural",
+      "version": "95c3c0f987a6fe903e7eec71e797405dbed7caf7",
+      "source": "engine/k7-runtime/CMakeLists.txt",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/jatinchowdhury18/RTNeural",
+      "where": ["engine"],
+      "fetchContent": ["rtneural"],
+      "text": "rtneural.txt",
+      "vendor": ["runtime:rtneural-src/LICENSE"]
+    },
+    {
+      "name": "Faust",
+      "version": "2.85.9",
+      "source": "engine/k7-runtime/CMakeLists.txt",
+      "license": "LGPL-2.1-or-later",
+      "url": "https://github.com/grame-cncm/faust",
+      "where": ["engine"],
+      "fetchContent": ["faust"],
+      "text": "faust.txt",
+      "vendor": ["runtime:faust-src/COPYING.txt"]
+    },
+    {
+      "name": "Faust libraries",
+      "version": "78a72d4998dec43e20492ef9b78d1a785b3dc864",
+      "source": "engine/k7-runtime/CMakeLists.txt",
+      "license": "MIT AND LicenseRef-STK-4.3 AND LGPL-2.1-or-later AND GPL-3.0-or-later",
+      "url": "https://github.com/grame-cncm/faustlibraries",
+      "where": ["engine"],
+      "note": "Each function declares its own licence in its .lib file; most are MIT or STK-4.3.",
+      "text": "faustlibraries.txt",
+      "vendor": ["runtime:faust-src/libraries/licenses/stk-4.3.0.md"]
+    },
+    {
+      "name": "sfizz",
+      "version": "1.2.3",
+      "source": "engine/k7-runtime/CMakeLists.txt",
+      "license": "BSD-2-Clause AND Apache-2.0 AND MIT AND BSL-1.0 AND Zlib",
+      "url": "https://github.com/sfztools/sfizz",
+      "where": ["engine"],
+      "fetchContent": ["sfizz"],
+      "text": "sfizz.txt",
+      "vendor": [
+        "runtime:sfizz-src/LICENSE",
+        "runtime:sfizz-src/external/abseil-cpp/LICENSE",
+        "runtime:sfizz-src/external/atomic_queue/LICENSE",
+        "runtime:sfizz-src/external/cephes/LICENSE.txt",
+        "runtime:sfizz-src/external/filesystem/LICENSE",
+        "runtime:sfizz-src/external/fmidi/LICENSE.md",
+        "runtime:sfizz-src/external/jsl/LICENSE.md",
+        "runtime:sfizz-src/external/simde/COPYING",
+        "runtime:sfizz-src/external/st_audiofile/LICENSE.md",
+        "runtime:sfizz-src/external/threadpool/ThreadPool.h#L1-L1"
+      ]
+    },
+    {
+      "name": "Surge XT",
+      "version": "baa97f7cad09d3dcde472137ed030829ff55d202",
+      "source": "engine/k7-runtime/CMakeLists.txt",
+      "license": "GPL-3.0-or-later AND MIT AND BSL-1.0 AND BSD-3-Clause",
+      "url": "https://github.com/surge-synthesizer/surge",
+      "where": ["engine"],
+      "fetchContent": ["surge"],
+      "text": "surge.txt",
+      "vendor": [
+        "runtime:surge-src/LICENSE",
+        "runtime:surge-src/libs/sst/sst-basic-blocks/LICENSE.md",
+        "runtime:surge-src/libs/sst/sst-plugininfra/LICENSE_MIT.md",
+        "runtime:surge-src/libs/PEGTL/LICENSE",
+        "runtime:surge-src/libs/eurorack/eurorack/stmlib/LICENSE",
+        "runtime:surge-src/libs/fmt/LICENSE",
+        "runtime:surge-src/libs/pffft/pffft.c#L1-L53",
+        "runtime:surge-src/libs/simde/COPYING",
+        "runtime:surge-src/libs/zstd/LICENSE",
+        "runtime:surge-src/libs/r8brain-free-src/LICENSE",
+        "runtime:surge-src/libs/tuning-library/LICENSE.md"
+      ]
+    },
+    {
+      "name": "QuickJS-ng",
+      "version": "v0.17.0",
+      "source": "engine/k7-runtime/CMakeLists.txt",
+      "license": "MIT",
+      "url": "https://github.com/quickjs-ng/quickjs",
+      "where": ["engine"],
+      "fetchContent": ["quickjs"],
+      "text": "quickjs.txt",
+      "vendor": ["runtime:quickjs-src/LICENSE"]
+    },
+    {
+      "name": "Mutable Instruments eurorack and stmlib",
+      "version": "08460a69a7e1f7a81c5a2abcc7189c9a6b7208d4",
+      "source": "engine/k7-runtime/CMakeLists.txt",
+      "license": "MIT",
+      "url": "https://github.com/pichenettes/eurorack",
+      "where": ["engine"],
+      "fetchContent": ["eurorack", "stmlib"],
+      "text": "mutable-instruments.txt",
+      "vendor": ["repo:engine/k7-runtime/LICENSE#L12-L38"]
+    },
+    {
+      "name": "IXWebSocket",
+      "version": "v12.0.1",
+      "source": "engine/k7-runtime/CMakeLists.txt",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/machinezone/IXWebSocket",
+      "where": ["engine"],
+      "fetchContent": ["ixwebsocket"],
+      "text": "ixwebsocket.txt",
+      "vendor": ["runtime:ixwebsocket-src/LICENSE.txt"]
+    },
+    {
+      "name": "JSON for Modern C++",
+      "version": "3.11.3",
+      "source": "engine/k7-runtime/CMakeLists.txt",
+      "license": "MIT",
+      "url": "https://github.com/nlohmann/json",
+      "where": ["engine"],
+      "fetchContent": ["nlohmann_json"],
+      "text": "nlohmann-json.txt",
+      "vendor": ["runtime:nlohmann_json-src/LICENSE.MIT"]
+    },
+    {
+      "name": "Steinberg ASIO SDK",
+      "version": "2.3.4",
+      "source": "engine/k7-runtime/CMakeLists.txt",
+      "license": "GPL-3.0-only",
+      "url": "https://www.steinberg.net/developers/",
+      "where": ["engine"],
+      "note": "Windows builds only; Steinberg's dual licence, taken under GPLv3.",
+      "fetchContent": ["asiosdk"]
+    },
+    {
+      "name": "Mbed TLS",
+      "version": "3.6.5",
+      "source": "engine/k7-supervisor/CMakeLists.txt",
+      "license": "Apache-2.0 OR GPL-2.0-or-later",
+      "url": "https://github.com/Mbed-TLS/mbedtls",
+      "where": ["engine"],
+      "note": "Taken under Apache-2.0.",
+      "fetchContent": ["mbedtls"]
+    },
+    {
+      "name": "miniz",
+      "version": "3.0.2",
+      "source": "engine/k7-supervisor/CMakeLists.txt",
+      "license": "MIT",
+      "url": "https://github.com/richgel999/miniz",
+      "where": ["engine"],
+      "fetchContent": ["miniz"],
+      "text": "miniz.txt",
+      "vendor": ["supervisor:miniz-src/LICENSE"]
+    },
+    {
+      "name": "libdatachannel",
+      "version": "v0.24.5",
+      "source": "engine/k7-supervisor/CMakeLists.txt",
+      "license": "MPL-2.0 AND MIT AND BSD-3-Clause",
+      "url": "https://github.com/paullouisageneau/libdatachannel",
+      "where": ["engine"],
+      "fetchContent": ["libdatachannel"],
+      "text": "libdatachannel.txt",
+      "vendor": [
+        "supervisor:libdatachannel-src/LICENSE",
+        "supervisor:libdatachannel-src/deps/libjuice/LICENSE",
+        "supervisor:libdatachannel-src/deps/plog/LICENSE",
+        "supervisor:libdatachannel-src/deps/usrsctp/LICENSE.md"
+      ]
+    },
+    {
+      "name": "ONNX Runtime",
+      "version": "1.30.0",
+      "source": "engine/k7-supervisor/CMakeLists.txt",
+      "license": "MIT",
+      "url": "https://github.com/microsoft/onnxruntime",
+      "where": ["engine"],
+      "note": "Windows builds take the DirectML package, 1.24.4.",
+      "fetchContent": ["onnxruntime"],
+      "text": "onnxruntime.txt",
+      "vendor": [
+        "supervisor:onnxruntime-src/LICENSE",
+        "supervisor:onnxruntime-src/ThirdPartyNotices.txt"
+      ]
+    },
+    {
+      "name": "Microsoft DirectML",
+      "version": "1.15.4",
+      "source": "engine/k7-supervisor/CMakeLists.txt",
+      "license": "LicenseRef-Microsoft-DirectML",
+      "url": "https://www.nuget.org/packages/Microsoft.AI.DirectML",
+      "where": ["engine"],
+      "note": "Windows builds only.",
+      "fetchContent": ["directml"],
+      "text": "directml.txt"
+    },
+    {
+      "name": "Bravura (music font)",
+      "versionFrom": "package:packages/score#@coderline/alphatab",
+      "license": "OFL-1.1",
+      "url": "https://github.com/steinbergmedia/bravura",
+      "where": ["web"],
+      "note": "Copied into the app by alphaTab's build plugin, for scores and tablature.",
+      "text": "bravura.txt"
+    },
+    {
+      "name": "Sonivox sound font",
+      "versionFrom": "package:packages/score#@coderline/alphatab",
+      "license": "Apache-2.0",
+      "url": "https://github.com/CoderLine/alphaTab",
+      "where": ["web"],
+      "note": "Copied into the app by alphaTab's build plugin, for score playback.",
+      "text": "sonivox.txt"
+    },
+    {
+      "name": "Electron",
+      "versionFrom": "package:apps/k7-standalone#electron",
+      "license": "MIT",
+      "url": "https://github.com/electron/electron",
+      "where": ["desktop"],
+      "text": "electron.txt",
+      "shipped": "LICENSES.chromium.html, beside the app's executable, lists Chromium's and Node.js's components."
+    },
+    {
+      "name": "Node.js",
+      "version": "24",
+      "source": "apps/k7/docker/Dockerfile",
+      "license": "MIT",
+      "url": "https://nodejs.org",
+      "where": ["server"],
+      "note": "The node:24-alpine image k7's server runs on.",
+      "text": "nodejs.txt"
+    },
+    {
+      "name": "Alpine Linux base system",
+      "version": null,
+      "license": "MIT AND GPL-2.0-only",
+      "url": "https://alpinelinux.org",
+      "where": ["server"],
+      "note": "musl libc (MIT) and BusyBox (GPL-2.0), under k7's server image."
+    },
+    {
+      "name": "FFmpeg",
+      "version": null,
+      "license": "GPL-2.0-or-later AND LGPL-2.1-or-later",
+      "url": "https://ffmpeg.org",
+      "where": ["server"],
+      "note": "Alpine's package, run as a separate program.",
+      "apk": ["ffmpeg"]
+    },
+    {
+      "name": "yt-dlp",
+      "version": null,
+      "license": "Unlicense",
+      "url": "https://github.com/yt-dlp/yt-dlp",
+      "where": ["server"],
+      "note": "Alpine's package, run as a separate program.",
+      "apk": ["yt-dlp"]
+    },
+    {
+      "name": "Chromium",
+      "version": null,
+      "license": "BSD-3-Clause",
+      "url": "https://www.chromium.org",
+      "where": ["server"],
+      "note": "Alpine's package, run headless to render pictures.",
+      "apk": ["chromium"],
+      "text": "chromium.txt",
+      "shipped": "chrome://credits in that browser lists its third-party components."
+    },
+    {
+      "name": "Noto fonts",
+      "version": null,
+      "license": "OFL-1.1",
+      "url": "https://fonts.google.com/noto",
+      "where": ["server"],
+      "apk": ["font-noto"]
+    },
+    {
+      "name": "GNU FreeFont",
+      "version": null,
+      "license": "GPL-3.0-or-later WITH Font-exception-2.0",
+      "url": "https://www.gnu.org/software/freefont/",
+      "where": ["server"],
+      "apk": ["ttf-freefont"]
+    },
+    {
+      "name": "Debian packages of the server's engine image",
+      "version": null,
+      "license": "LGPL-2.1-or-later AND MIT AND GPL-2.0-or-later",
+      "url": "https://www.debian.org",
+      "where": ["engine"],
+      "note": "tini, ca-certificates, PulseAudio, ALSA, FreeType, Fontconfig and libcurl, under debian:bookworm-slim.",
+      "apt": [
+        "tini",
+        "ca-certificates",
+        "pulseaudio",
+        "pulseaudio-utils",
+        "libasound2",
+        "libasound2-plugins",
+        "libfreetype6",
+        "libfontconfig1",
+        "libcurl4"
+      ],
+      "shipped": "Each package's copyright file is in that image, under /usr/share/doc/<package>/copyright."
+    },
+    {
+      "name": "Node.js (Termux build)",
+      "versionFrom": "termux:nodejs",
+      "license": "MIT",
+      "url": "https://github.com/termux/termux-packages",
+      "where": ["android"],
+      "termux": ["nodejs"],
+      "text": "nodejs.txt"
+    },
+    {
+      "name": "LLVM libc++ (Termux build)",
+      "versionFrom": "termux:libc++",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "url": "https://libcxx.llvm.org",
+      "where": ["android"],
+      "termux": ["libc++"],
+      "text": "llvm-exception.txt"
+    },
+    {
+      "name": "OpenSSL (Termux build)",
+      "versionFrom": "termux:openssl",
+      "license": "Apache-2.0",
+      "url": "https://www.openssl.org",
+      "where": ["android"],
+      "termux": ["openssl"]
+    },
+    {
+      "name": "c-ares (Termux build)",
+      "versionFrom": "termux:c-ares",
+      "license": "MIT",
+      "url": "https://c-ares.org",
+      "where": ["android"],
+      "termux": ["c-ares"],
+      "text": "c-ares.txt"
+    },
+    {
+      "name": "ICU (Termux build)",
+      "versionFrom": "termux:libicu",
+      "license": "Unicode-3.0",
+      "url": "https://icu.unicode.org",
+      "where": ["android"],
+      "termux": ["libicu"],
+      "text": "icu.txt"
+    },
+    {
+      "name": "SQLite (Termux build)",
+      "versionFrom": "termux:libsqlite",
+      "license": "blessing",
+      "url": "https://sqlite.org",
+      "where": ["android"],
+      "termux": ["libsqlite"],
+      "text": "sqlite.txt"
+    },
+    {
+      "name": "zlib (Termux build)",
+      "versionFrom": "termux:zlib",
+      "license": "Zlib",
+      "url": "https://zlib.net",
+      "where": ["android"],
+      "termux": ["zlib"],
+      "text": "zlib.txt"
+    },
+    {
+      "name": "libffi (Termux build)",
+      "versionFrom": "termux:libffi",
+      "license": "MIT",
+      "url": "https://sourceware.org/libffi/",
+      "where": ["android"],
+      "termux": ["libffi"],
+      "text": "libffi.txt"
+    },
+    {
+      "name": "CA certificates (Termux build)",
+      "versionFrom": "termux:ca-certificates",
+      "license": "MPL-2.0",
+      "url": "https://curl.se/docs/caextract.html",
+      "where": ["android"],
+      "termux": ["ca-certificates"]
+    },
+    {
+      "name": "AndroidX libraries",
+      "version": null,
+      "license": "Apache-2.0",
+      "url": "https://developer.android.com/jetpack/androidx",
+      "where": ["android"],
+      "note": "appcompat, activity, core, coordinatorlayout, webkit and browser, with the Kotlin standard library."
+    }
+  ]
+}

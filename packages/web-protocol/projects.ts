@@ -338,6 +338,9 @@ export const LIBRARIES_PAGE = "libraries";
 /** The SETTINGS page, `/settings` — what a browser may change; reserved and routed like the libraries. */
 export const SETTINGS_PAGE = "settings";
 
+/** The ABOUT page, `/about` — k7's version, its licence, its source and the third-party notices; reserved and routed like the libraries. */
+export const ABOUT_PAGE = "about";
+
 /** The TASKS page, `/tasks` — every workspace's TODOS.md in one list; reserved and routed like the libraries. */
 export const TASKS_PAGE = "tasks";
 
@@ -370,11 +373,12 @@ function isReservedPrefix(
   return belowMount(pathname, base)?.[0] === word;
 }
 
-/** Is this address one of the pages that hang off k7's home — `/libraries`, `/settings`, `/tasks`, `/media/…`, `/rehearsal/…`? Read before `parseLaunch`, which would take the word for a workspace. */
+/** Is this address one of the pages that hang off k7's home — `/libraries`, `/settings`, `/about`, `/tasks`, `/media/…`, `/rehearsal/…`? Read before `parseLaunch`, which would take the word for a workspace. */
 export function isHomePage(pathname: string, base: string): boolean {
   return (
     isReservedPage(pathname, base, LIBRARIES_PAGE) ||
     isReservedPage(pathname, base, SETTINGS_PAGE) ||
+    isReservedPage(pathname, base, ABOUT_PAGE) ||
     isReservedPage(pathname, base, TASKS_PAGE) ||
     isReservedPrefix(pathname, base, MEDIA_PAGE) ||
     isReservedPrefix(pathname, base, REHEARSAL_PAGE)
@@ -407,6 +411,7 @@ export function isProjectAddress(url: string): boolean {
     head !== EXTERNAL_INDEX &&
     head !== LIBRARIES_PAGE &&
     head !== SETTINGS_PAGE &&
+    head !== ABOUT_PAGE &&
     head !== TASKS_PAGE &&
     head !== MEDIA_PAGE &&
     head !== REHEARSAL_PAGE
