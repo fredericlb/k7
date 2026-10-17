@@ -86,6 +86,9 @@ VOLUME ["/rehearsal-data"]
 
 ENV PORT=8789
 EXPOSE 8789
+# The stamp /api/health reports beside the version, last so a new one rebuilds no layer above (docs/versioning.md).
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
 WORKDIR /app/apps/k7/backend
 # Not root: the code under /app is root's and read-only to it; only the volumes above are its own.
 USER node

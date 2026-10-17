@@ -1,6 +1,6 @@
 {
   "name": "@studio/mediatek",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "The media library: what lives on its volume, how it is scanned, and the change token surfaces poll. A library, not a service — apps/k7/backend (src/media) serves it and @studio/file-service reads it; both share their vocabulary from here. Consumed as source.",

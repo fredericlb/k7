@@ -1,6 +1,6 @@
 {
   "name": "@studio/k7x",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "k7x, the Strudel-looking text format of a workspace's files: parsed, never evaluated, edited value by value so every other byte stays. No node:, so a browser may have it. Consumed as source.",

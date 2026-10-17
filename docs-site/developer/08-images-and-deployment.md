@@ -94,23 +94,28 @@ Further `k7` variables:
 `COOKIE_DOMAIN` is for production only: setting it forces `Secure` and `SameSite=None` cookies,
 which browsers drop over plain http.
 
-## The version stamp
+## The version and the stamp
 
-OneDev's `build studio images` job computes the stamp as `YY.MMDDHHmm` in the Europe/Paris time zone
-(UTC if the image has no time zone data), for example `26.10161432`. It is:
+The release version is the root `package.json`'s `version` (for example `0.1.0`), copied into every
+private workspace's `package.json`; `npm run lint:version` (`scripts/check-version.mjs`) checks the
+copies and `node scripts/check-version.mjs --set X.Y.Z` writes them all. See `docs/versioning.md`.
 
-- the OneDev build version;
+`images.yml`'s `version` job computes the image's stamp as `YY.MMDDHHmm` in the Europe/Paris time
+zone, for example `26.10161432`. It is:
+
 - passed as `--build-arg APP_VERSION=<stamp>` to the web image, which sets `VITE_APP_VERSION` for the
-  frontend build. `apps/k7/frontend/src/version.ts` exports it as `VERSION` (`"dev"` when unset), and
-  the home sidebar shows it as the tooltip of the `k7` wordmark
-  (`apps/k7/frontend/src/projects/HomeSidebar.tsx`);
-- the tag `publish studio images` adds to both images, beside `:latest`.
+  frontend build and `APP_VERSION` in the runtime stage. `apps/k7/frontend/src/version.ts` exports
+  `VERSION` as `<version> (<stamp>)` (`"dev"` for the stamp when unset), and the home sidebar shows
+  it as the tooltip of the `k7` wordmark (`apps/k7/frontend/src/projects/HomeSidebar.tsx`);
+  `/api/health` answers `{ ok, version, build }`;
+- a tag the `publish` job adds to every image.
 
-Images are first pushed under the commit hash only. `:latest` and `:<stamp>` are added after
-`lint and test` and both image builds succeed, so nothing deployable points at an untested commit.
-A deploy sets `APP_VERSION` in `docker/.env` to a stamp or a commit hash — compose refuses to start
-without it — and it applies to both the web and the engine image. `Z0_VERSION` is pinned
-separately and defaults to `latest`.
+Images are first pushed under the commit hash only. The stamp and `:latest` are added once
+`k7.yml` has passed for that commit (and the publish fails if it never ran), so nothing deployable
+points at an untested commit. A `vX.Y.Z` tag must equal the root version; its run adds the stamp
+and `:X.Y.Z` and leaves `:latest` to `main`. A deploy sets `APP_VERSION` in `docker/.env` to a
+version, a stamp or a commit hash — compose refuses to start without it — and it applies to both
+the web and the engine image. `Z0_VERSION` is pinned separately and defaults to `latest`.
 
 The backend serves the frontend shell with `Cache-Control: no-cache` and the hashed files under
 `assets/` as `public, max-age=31536000, immutable`, so a new deployment is picked up on the next page

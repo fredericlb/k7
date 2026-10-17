@@ -1,6 +1,6 @@
 {
   "name": "@studio/video-prep",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Getting a VIDEO file ready for the picture: probe it with ffprobe, decide what the browser needs of it — nothing, a remux, a full-resolution optimized copy, a small proxy — and make that with ffmpeg. Node-only. Consumed as source.",

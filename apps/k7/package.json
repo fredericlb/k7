@@ -1,6 +1,7 @@
 {
   "name": "k7",
-  "version": "1.0.0",
+  "version": "0.1.0",
+  "private": true,
   "description": "A **text-based DAW**. Your song is a folder of CUE files; the terminal (or a web editor) is your studio.",
   "license": "GPL-3.0-only",
   "author": "",

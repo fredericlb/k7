@@ -1,6 +1,6 @@
 {
   "name": "@studio/graph-model",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "The chains routing graph as the browser receives it. Types and the one panel walk, split out of @studio/web-protocol so that drawing a graph doesn't drag in auth, workspaces and the engine registry.",

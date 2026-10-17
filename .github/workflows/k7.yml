@@ -120,3 +120,5 @@ jobs:
       # Errors fail the build; warnings are the backlog biome still reports, and do not.
       - run: npm run lint
       - run: npm run lint:bytes
+      # One version, the root package.json's, in every copy of it (docs/versioning.md).
+      - run: npm run lint:version

@@ -1,6 +1,6 @@
 {
   "name": "@studio/k7-plugins",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "k7's builtin plugins and the two composition lists: the server half the file-service installs at boot, and the browser half the shell registers into its pane ring. A plugin is declared with @studio/k7-sdk's definePlugin — see packages/k7-sdk/docs/sdk.md. Consumed as source; the browser half's words are its own catalogue (messages/, compiled into src/paraglide).",

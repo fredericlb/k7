@@ -1,6 +1,6 @@
 {
   "name": "@studio/panel-rules",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "The rules a module's panel is checked against — group geometry, the two layouts — and AI organize's wire, check and prompt built on them. No React, so k7's backend imports it without the builder's frontend stack (docs/panelRules.md). Consumed as source.",

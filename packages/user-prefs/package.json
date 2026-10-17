@@ -1,6 +1,6 @@
 {
   "name": "@studio/user-prefs",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "What a hosted service remembers about a person: one small JSON per user on a volume, keyed by the OIDC subject, plus the two routes over it. No database — see docs/store.md.",

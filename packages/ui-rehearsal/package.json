@@ -1,6 +1,6 @@
 {
   "name": "@studio/ui-rehearsal",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "The rehearsal pages as React — sessions and takes, publications, songbook, exercises — mounted by k7 under /rehearsal. The host configures the API base and provides the prefix; the catalogue is its own (messages/, compiled into src/paraglide).",

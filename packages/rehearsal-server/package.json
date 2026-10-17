@@ -1,6 +1,7 @@
 {
   "name": "@studio/rehearsal-server",
-  "version": "1.0.0",
+  "version": "0.1.0",
+  "private": true,
   "description": "The rehearsal recorder's server half, mounted inside k7's backend: sessions, releases, public pages, songbook, phone-mic signaling",
   "type": "module",
   "exports": {

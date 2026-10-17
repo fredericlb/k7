@@ -1,19 +1,18 @@
 # The Docker images, on GHCR: k7-webapp (apps/k7/docker/Dockerfile), k7-runtime, the server's engine
 # (engine/docker/Dockerfile), and k7-runtime-pi, the Raspberry Pi's (engine/docker/Dockerfile.pi, docs/pi-engine.md).
 #
-# OneDev's image jobs, ported (docs/images.md): each image is built beside the tests and pushed under the
-# commit only; `publish` moves `:latest` and the version stamp onto those manifests once k7.yml has passed
-# for the same commit. The Pi image builds on an arm64 runner, natively: no emulation, no cross-compile.
+# Each image is built beside the tests and pushed under the commit only (docs/images.md); `publish` adds the
+# version stamp and `:latest` once k7.yml has passed for the same commit — or, for a `vX.Y.Z` tag, the stamp
+# and `:X.Y.Z`, the root package.json's version (docs/versioning.md). The Pi image builds on an arm64 runner.
 # `harnesses` renders through the k7-runtime binary just built, and reports without gating.
 
 name: images
 
+# No path filter: a tag must always run, and the webapp's Dockerfile copies the whole tree anyway.
 on:
   push:
     branches: [main]
-    # The webapp's Dockerfile copies the whole tree: only the developer notes at the root change no image.
-    paths-ignore:
-      - "docs/**"
+    tags: ["v*.*.*"]
   workflow_dispatch:
 
 # A cancelled engine build exports no cache at all: the next push waits rather than throws a compile away.
@@ -33,10 +32,19 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       stamp: ${{ steps.stamp.outputs.stamp }}
+      release: ${{ steps.release.outputs.release }}
     steps:
       # YY.MMDDHHmm in Europe/Paris, the stamp the SPAs show; computed once, since a second reading could disagree.
       - id: stamp
         run: echo "stamp=$(TZ=Europe/Paris date +%y.%m%d%H%M)" >> "$GITHUB_OUTPUT"
+      - if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # A tag names the version the tree holds, or nothing is built (docs/versioning.md).
+      - id: release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          node scripts/check-version.mjs --tag "$GITHUB_REF_NAME"
+          echo "release=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
   webapp:
     name: k7-webapp
@@ -188,11 +196,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
       # A copy of each manifest inside the registry: nothing is built or pulled here.
-      - name: tag latest and the stamp
+      - name: tag the stamp, and latest or a release's version
         env:
           STAMP: ${{ needs.version.outputs.stamp }}
+          RELEASE: ${{ needs.version.outputs.release }}
         run: |
           for image in k7-webapp k7-runtime k7-runtime-pi; do
-            docker buildx imagetools create \
-              -t "$REGISTRY/$image:latest" -t "$REGISTRY/$image:$STAMP" "$REGISTRY/$image:$GITHUB_SHA"
+            # A tag may name an older commit than main's: it adds its version and leaves `:latest` to main.
+            tags=(-t "$REGISTRY/$image:$STAMP")
+            if [ -n "$RELEASE" ]; then tags+=(-t "$REGISTRY/$image:$RELEASE"); else tags+=(-t "$REGISTRY/$image:latest"); fi
+            docker buildx imagetools create "${tags[@]}" "$REGISTRY/$image:$GITHUB_SHA"
           done

@@ -54,7 +54,7 @@ export interface ReadHeartbeat {
   libraryLevel?: number;
   /** The engine wire's version it speaks; absent from a supervisor older than the field, which speaks 1. */
   protocol?: number;
-  /** The release stamp it was built from, `dev` for a local build. */
+  /** The release it was built from: `v0.1.0`, `0.1.0-snapshot-9f2c1ab`, `0.1.0-dev` for a local build. */
   build?: string;
   /** It runs without external plugins after crashing again and again — engine/k7-supervisor/docs/crashLoop.md. */
   safeMode?: boolean;

@@ -1,6 +1,6 @@
 {
   "name": "k7-runtime",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Headless C++ audio engine (Tracktion + IXWebSocket). Receives a compiled ProjectDoc over WebSocket, plays audio, pushes transport and meter state back. Never parses song files.",
   "license": "GPL-3.0-only",

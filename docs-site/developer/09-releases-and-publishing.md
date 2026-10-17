@@ -29,13 +29,17 @@ Release files are named by a stamp, not by a package version:
 | Channel | When | GitHub release |
 |---|---|---|
 | Snapshot | Every push to `main` that touches `engine/`, `apps/`, `packages/`, `commons`, `package-lock.json` or the desktop workflows | The `snapshot` release is deleted and recreated as a pre-release pointing at the new commit, titled `snapshot <stamp>`. |
-| Release | A tag matching `v*.*.*` | A release named after the tag, with generated notes. |
+| Release | A tag matching `v*.*.*`, equal to `v` + the root `package.json` version | A release named after the tag, with generated notes. |
 
-To cut a release, push a tag:
+To cut a release, set the version (the root `package.json`'s, copied into every private workspace)
+in a commit on `main`, then tag that commit with the same version. CI refuses a tag that differs
+from the root version, and publishes nothing until `k7.yml` has passed on the tagged commit:
 
 ```bash
+node scripts/check-version.mjs --set 1.2.0
+git commit -am "release 1.2.0"
 git tag v1.2.0
-git push origin v1.2.0
+git push origin main v1.2.0
 ```
 
 A manual dispatch of the `desktop` workflow on another branch builds everything and uploads the

@@ -1,6 +1,6 @@
 {
   "name": "@studio/translator",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "k7's translator \u2014 parses another DAW's project (.dawproject, .als) and emits a k7 song folder (YAML). A library consumed as source; the file service is its caller.",

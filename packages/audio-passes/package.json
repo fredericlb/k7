@@ -1,6 +1,6 @@
 {
   "name": "@studio/audio-passes",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "The offline passes a chain runs over audio: processing a chain to a file, measuring a peak, and the cold pass a module declares. The RUNNING is handed in by the host (see docs/processChain.md) — the 166 MB separation model lives in @studio/file-service, which depends on this, so importing it back would be a cycle. Consumed as source.",

@@ -1,6 +1,6 @@
 {
   "name": "@studio/song-edit",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "CHANGING a project rather than compiling one: setting a module's params and assets, moving and resizing events, cutting and consolidating material, splicing time, applying a preset. Every write goes through a YAML writer that changes the value and nothing else — comments, key order and layout all survive. Split out of @studio/song, which now only READS a folder. Consumed as source.",

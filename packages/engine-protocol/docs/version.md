@@ -34,9 +34,12 @@ on the day the field appears, and makes the first bump the first refusal.
 
 ## The build stamp beside it
 
-Each binary also states `build`: `$STUDIO_RELEASE_STAMP` when CMake configured it — the release tag
-or `snapshot-<commit>` on CI — and `dev` for a local build. It is information, not a gate, with one
-use: a supervisor that ADOPTS a running engine compares the engine's protocol and build with its
-own and replaces an engine of another one (`engine/k7-supervisor/docs/crashLoop.md` covers the
-other reason it replaces one). Two local builds both read `dev`, so a developer's rebuilt
-supervisor does not kill the engine it finds.
+Each binary also states `build`, from `$STUDIO_RELEASE_STAMP` when CMake configured it: the release
+tag itself (`v0.1.0`), the version a snapshot was cut from with its stamp (`0.1.0-snapshot-9f2c1ab`),
+and `<version>-dev` for a local build. The version is the repository's one (`docs/versioning.md` at
+the root), read from `engine/k7-runtime/package.json`, which copies it and is the one package.json the
+engine's Docker build context holds. It is information, not a gate, with one use: a supervisor that
+ADOPTS a running engine compares the engine's protocol and build with its own and replaces an engine
+of another one (`engine/k7-supervisor/docs/crashLoop.md` covers the other reason it replaces one).
+Two local builds of one version read the same, so a developer's rebuilt supervisor does not kill the
+engine it finds.

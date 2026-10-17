@@ -71,6 +71,8 @@ jobs:
             echo "::error::refusing release stamp '$stamp': expected vX.Y.Z or snapshot-<commit>"
             exit 1
           fi
+          # A release tag names the version the tree holds, never another (docs/versioning.md).
+          if [ "$channel" = release ]; then node scripts/check-version.mjs --tag "$tag"; fi
 
           # No release key: a tag fails here, before any build; a snapshot ships without an APK.
           android=yes
@@ -155,6 +157,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The whole history without its files: versionCode is the commit count (docs/versioning.md).
+          fetch-depth: 0
+          filter: blob:none
       - id: commons
         shell: bash
         run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
@@ -241,6 +247,8 @@ jobs:
           STUDIO_COMPILER_LAUNCHER: ${{ steps.cache.outcome == 'success' && 'sccache' || '' }}
           STUDIO_FETCHCONTENT_DIR: ${{ runner.temp }}/k7-fetch
           STAMP: ${{ needs.decide.outputs.stamp }}
+          # The app's versionName and the engine's `build`, as on the desktops.
+          STUDIO_RELEASE_STAMP: ${{ needs.decide.outputs.stamp }}
           K7_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           K7_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           K7_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}

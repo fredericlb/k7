@@ -12,6 +12,19 @@ plugins {
 // The table the desktop app starts its backend with too (apps/k7/backend/docs/standalone.md): its port is a constant here.
 val standalone = groovy.json.JsonSlurper().parse(rootDir.resolve("../../apps/k7/backend/standalone.json")) as Map<*, *>
 
+// The root package.json's version, the one every artefact ships under (docs/versioning.md); a snapshot adds its stamp.
+val rootVersion = (groovy.json.JsonSlurper().parse(rootDir.resolve("../../package.json")) as Map<*, *>)["version"] as String
+val releaseStamp = System.getenv("STUDIO_RELEASE_STAMP").orEmpty()
+val appVersionName = if (releaseStamp.matches(Regex("snapshot-[0-9a-f]+"))) "$rootVersion-$releaseStamp" else rootVersion
+
+fun git(vararg args: String): String =
+    providers.exec { commandLine("git", *args); workingDir = rootDir }.standardOutput.asText.get().trim()
+
+// The commit count: it grows with every descendant commit, so an update always outranks what it replaces.
+val appVersionCode = if (git("rev-parse", "--is-shallow-repository") == "true")
+    throw GradleException("a shallow clone has no history to count for versionCode (docs/versioning.md)")
+else git("rev-list", "--count", "HEAD").toInt()
+
 // The release key comes from the environment only, never from a file in the tree (docs/desktop-release.md).
 val releaseKeystore = System.getenv("K7_ANDROID_KEYSTORE_FILE")?.takeIf { it.isNotBlank() }
 
@@ -27,8 +40,8 @@ android {
         applicationId = "se.frediver.k7"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.0.1"
+        versionCode = appVersionCode
+        versionName = appVersionName
         ndk { abiFilters += "arm64-v8a" }
         buildConfigField("int", "STANDALONE_PORT", standalone["port"].toString())
     }

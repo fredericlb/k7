@@ -1,6 +1,6 @@
 {
   "name": "@studio/ui-user-menu",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Studio's user menu — @frediverse/ui's, with one row per OTHER studio app of the origin. k7's home page, the media library's and the rehearsal recorder's headers mount the same one. See docs/userMenu.md.",

@@ -1,6 +1,6 @@
 {
   "name": "@studio/ui-timeline",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "The pieces every arrangement surface needs whatever its unit is: wheel zoom and middle-drag pan for a scroll container, a drag that follows one pointer and survives a cancel, a ruler's tick chooser, and the lane geometry the gutter and the rows are drawn to. One timeline draws a song in bars and its picture in seconds; this is what both readings agree about.",

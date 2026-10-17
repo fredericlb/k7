@@ -1,6 +1,6 @@
 {
   "name": "studio",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "license": "GPL-3.0-only",
   "workspaces": [
@@ -41,6 +41,7 @@
     "lint:bytes": "node scripts/check-source-bytes.mjs",
     "lint:docs": "node scripts/check-doc-links.mjs",
     "lint:comments": "node scripts/check-comments.mjs",
+    "lint:version": "node scripts/check-version.mjs",
     "lint:dead": "knip",
     "lint:panels": "tsx packages/song/scripts/checkPanelBinds.ts",
     "lint:layouts": "tsx packages/ui-module-builder/scripts/checkLayouts.ts",

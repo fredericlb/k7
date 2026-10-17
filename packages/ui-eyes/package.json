@@ -1,6 +1,6 @@
 {
   "name": "@studio/ui-eyes",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "The studio's eyes — composites a song's video lanes onto its viewport with WebGL, in real time or frame-by-frame to a file. Knows nothing about audio, and nothing about the brain: it takes a plain VideoScene.",

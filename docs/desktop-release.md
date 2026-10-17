@@ -217,7 +217,8 @@ SHA, resolved with `gh api repos/<owner>/<repo>/commits/<tag> -q .sha`.
 
 The release stamp — the tag, or `snapshot-<commit>` — reaches commands through the environment and is
 checked in `decide` against `vX.Y.Z` or `snapshot-<hex>`: a tag name is chosen by whoever pushes it,
-and anything else stops the run. The desktop job hands it to the app's build as
+and anything else stops the run. A tag must also be `v` + the root package.json's version, which
+every artefact ships under ([versioning.md](versioning.md)). The desktop job hands it to the app's build as
 `$STUDIO_RELEASE_STAMP`, which inlines it as the app's release — shown in About and compared with
 this repository's releases to tell the person a newer one exists (`apps/k7-standalone/docs/menu.md`,
 `apps/k7-standalone/docs/notices.md`). The app reads `releases/latest` and the `snapshot` prerelease

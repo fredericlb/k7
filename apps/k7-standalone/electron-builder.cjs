@@ -3,12 +3,20 @@
 
 const { baseConfig } = require("@frediverse/electron-shell/builder");
 
-// A tagged release is the bundle's version too, so the OS shows it; a snapshot keeps package.json's (docs/menu.md).
-const tag = /^v(\d+\.\d+\.\d+)$/.exec(process.env.STUDIO_RELEASE_STAMP ?? "");
+// The bundle's version is the root package.json's; a snapshot adds its stamp as a prerelease (docs/menu.md).
+const { version } = require("../../package.json");
+const stamp = process.env.STUDIO_RELEASE_STAMP ?? "";
+if (/^v\d/.test(stamp) && stamp !== `v${version}`)
+  throw new Error(
+    `release ${stamp} is not v${version}, the root package.json's version`,
+  );
+const bundleVersion = /^snapshot-[0-9a-f]+$/.test(stamp)
+  ? `${version}-${stamp}`
+  : version;
 
 module.exports = {
   ...baseConfig({ appDir: __dirname }),
-  ...(tag ? { extraMetadata: { version: tag[1] } } : {}),
+  extraMetadata: { version: bundleVersion },
   // Frozen once shipped: macOS keys microphone grants and single-instance on it.
   appId: "org.parapluie.k7.standalone",
   productName: "k7",
