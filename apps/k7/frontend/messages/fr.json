@@ -176,6 +176,7 @@
   "ws.copyBody": "Il est envoyé entier sur {server}, texte et audio, tel qu'il est maintenant, et reste synchronisé avec {from}. La copie est là-bas un espace de travail à part : ce qu'on modifie dans l'un n'atteint plus l'autre.",
   "ws.copy": "Copier",
   "home.projects": "Projets",
+  "shape.pick": "Ce sur quoi le projet s'ouvre",
   "shape.arrangement": "arrangement",
   "shape.arrangementWhat": "la timeline au-dessus du graphe — une piste, un synthé, un motif",
   "shape.mix": "mix",

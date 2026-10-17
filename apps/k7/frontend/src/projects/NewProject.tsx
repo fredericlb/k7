@@ -89,6 +89,7 @@ export function NewProject({
         open={open}
         onClose={() => setOpen(false)}
         title={m["project.newTitle"]()}
+        wide
         description={m["project.newBody"]()}
         before={
           <>

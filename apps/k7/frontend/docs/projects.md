@@ -546,6 +546,16 @@ hand-written rig opens anyway. The `live` MODE is something else: it is what `mi
 `createProjectIn` tells them apart in a `Record<ProjectShape, …>` and not in a chain of `if`s: a
 fourth archetype added to `PROJECT_SHAPES` will not compile until somebody says what it writes.
 
+**The picker draws them, all at once** (`ShapePicker.tsx`, `shapeSchematics.tsx`). Each archetype is
+a card with a line drawing of the screen it opens on — lanes and a playhead, two platters and a
+crossfader, a frame over lanes, an input through a fader to a speaker, a webcam into a frame — and
+its description, every card's visible and not only the picked one's. The archetype decides what the
+whole project BECOMES, and five text buttons with one line under the chosen one asked for that
+decision by name alone. The cards are native radios under the drawing, so the arrows, the single
+tab stop and what a screen reader announces are the browser's; the drawings are pictures of a
+screen rather than icons, hence drawn here and not taken from the icon set. The dialog widens for
+them (`wide` on `NameFormDialog`), and so does the first-project page.
+
 > **The file service knows these names, and a machine behind says so.** `shape` travels to
 > `POST /project/create`, whose `z.enum` is `PROJECT_SHAPES`. A machine whose service is older
 > answers 400 — a failure that is visible and named, which beats a template guessed alongside.
