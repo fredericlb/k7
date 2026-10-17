@@ -467,7 +467,7 @@ export function ClipView({
           // The tracker over the sequence FILE, headed the way the other two are; it writes straight to the file (SeqGridFile.tsx).
           <div className="flex h-full min-h-0 flex-col border-t-2 border-border">
             <div className="flex items-center gap-2 border-border border-b px-3 py-1 text-xs">
-              <span className="font-semibold text-primary">
+              <span className="font-semibold text-primary-text">
                 <Grid3x3 className="h-3.5 w-3.5" /> {seqId}
               </span>
               <span className="truncate text-muted-foreground">

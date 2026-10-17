@@ -26,7 +26,15 @@ const BEAT = "#facc15";
 /** The downbeat, a different HUE rather than a brighter yellow: at a glance you are counting bars. */
 const BAR = "#f97316";
 const TRANSIENT = "rgba(148,163,184,0.55)";
-const PLAYHEAD = "#f8fafc";
+let playhead = "";
+/** The host's playhead colour from k7's tokens (index.css), read at the first draw rather than at import, when the sheet may not be in yet; a canvas cannot take `var()`. */
+function playheadColour(): string {
+  if (!playhead && typeof document !== "undefined")
+    playhead = getComputedStyle(document.documentElement)
+      .getPropertyValue("--color-playhead")
+      .trim();
+  return playhead || "#f4f3f8";
+}
 
 /** How long the landed position is held after a release, while the engine catches up. */
 const HOLD_MS = 700;
@@ -239,7 +247,7 @@ export function Waveform({
         ctx.fillRect(Math.round(xPx(b)) - 1, 0, 2, h);
 
       // --- the playhead, dead centre and never anywhere else --------------------------
-      ctx.fillStyle = PLAYHEAD;
+      ctx.fillStyle = playheadColour();
       ctx.fillRect(Math.round(w / 2), 0, 1, h);
 
       // --- elapsed and remaining: they also make MOVEMENT visible, which a quiet intro hides ---

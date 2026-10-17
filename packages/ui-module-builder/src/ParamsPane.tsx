@@ -182,11 +182,11 @@ export function ParamsPane({
               {/* What the parameter spans, which is the number a knob has to be given. */}
               {/* A discrete one shows its setting count instead: that is the cue it makes a dropdown. */}
               {r.meta?.states?.length ? (
-                <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
+                <span className="shrink-0 text-[10px] tabular-nums text-faint">
                   {r.meta.states.length} settings
                 </span>
               ) : r.meta ? (
-                <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
+                <span className="shrink-0 text-[10px] tabular-nums text-faint">
                   {r.meta.min}…{r.meta.max}
                 </span>
               ) : null}

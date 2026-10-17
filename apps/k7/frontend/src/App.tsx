@@ -215,6 +215,7 @@ import {
   type UndoConfirm,
 } from "./shell/ShellOverlays";
 import { ShellTransport } from "./shell/ShellTransport";
+import { useCentredFits } from "./shell/useCentredFits";
 import { type PendingWire, useGraphActions } from "./shell/useGraphActions";
 import { MiniTransport, PANE_META, VIEWPORT_META } from "./shellMeta";
 import { tabBridge } from "./tabs/bridge";
@@ -2524,6 +2525,10 @@ export default function App({
 
   /** The bar's height IS its tallest control (docs/shell.md), so the desktop one is 24 px; a phone keeps a thumb-sized button. */
   const toolSize = isMobile ? "icon" : "icon-xs";
+  // The transport stays centred on the bar while that clears its neighbours, and joins the row when it would cover them.
+  const headerGroupRef = useRef<HTMLDivElement | null>(null);
+  const transportRef = useRef<HTMLDivElement | null>(null);
+  const transportCentred = useCentredFits(headerGroupRef, transportRef);
 
   const headerTools = snapshot ? (
     <>
@@ -2726,7 +2731,8 @@ export default function App({
           <div className="relative flex h-full flex-col bg-background text-foreground">
             {/* The shared bar (@frediverse/ui/app-header) with k7's contents; `items` is empty on purpose — docs/shell.md. */}
             <AppHeader
-              // No `variant`: the house look, the accent tinted over the page (@frediverse/ui's docs/app-header.md).
+              // `plain`, not the house tint: k7 keeps its violet for what is lit, and a violet bar would drown it (docs/shell.md).
+              variant="plain"
               className={cn(
                 // `relative` on the INNER box is what the transport centres against — the bar's own middle, not the gap between its neighbours.
                 "z-20 [&>div]:relative",
@@ -2740,7 +2746,10 @@ export default function App({
               actions={headerActions}
             >
               {/* Between the two: what you are looking AT, and the transport ABSOLUTELY centred over the bar (docs/shell.md). */}
-              <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div
+                ref={headerGroupRef}
+                className="flex min-w-0 flex-1 items-center gap-3"
+              >
                 {/* The way back, whole-page since the project is the router's BASENAME; a share has none (docs/shared.md). */}
                 {snapshot ? (
                   <span className="max-w-[10rem] truncate text-muted-foreground text-sm">
@@ -2811,6 +2820,8 @@ export default function App({
                     openMidiInputs={openMidiInputs}
                     setStatus={setStatus}
                     engineRef={engineRef}
+                    centred={transportCentred}
+                    rootRef={transportRef}
                     armForRecord={armForRecord}
                     loopOn={!!loopState?.on}
                     onLoop={toggleTransportLoop}

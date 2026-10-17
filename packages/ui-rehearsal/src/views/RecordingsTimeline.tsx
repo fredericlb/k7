@@ -4,7 +4,7 @@
 
 import { Badge } from "@frediverse/ui/badge";
 import { Calendar } from "@frediverse/ui/calendar";
-import { Check, Diamond, Flag, Trash2 } from "@frediverse/ui/icons";
+import { Check, Diamond, Flag, Mic, Trash2 } from "@frediverse/ui/icons";
 import { Timeline, TimelineItem } from "@frediverse/ui/timeline";
 import { useState } from "react";
 import {
@@ -15,6 +15,7 @@ import { confirmLoss } from "../confirm";
 import { dayKey, dayKeyToDate, fmtDay, fmtTime } from "../format";
 import { locale } from "../i18n";
 import { m } from "../paraglide/messages.js";
+import { StartFirstSessionButton } from "../recording/NewSessionButton";
 import type { Moment, Session } from "../types";
 
 interface Props {
@@ -142,10 +143,15 @@ export function RecordingsTimeline({
   );
 
   if (sessions.length === 0 && moments.length === 0) {
+    // The act on the spot, as k7's own empty pages offer theirs (apps/k7/frontend/src/projects/EmptyState.tsx); a div, the wrapper's `p` margins being unlayered.
     return (
-      <p className="muted small" style={{ padding: "6px 0" }}>
-        {m["recordings.empty"]()}
-      </p>
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border px-6 py-10 text-center">
+        <Mic className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+        <div className="max-w-md text-muted-foreground text-sm">
+          {m["recordings.empty"]()}
+        </div>
+        <StartFirstSessionButton />
+      </div>
     );
   }
 

@@ -11,6 +11,7 @@ import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
 import { HomeShell } from "./HomeSidebar";
 import { LibrariesCard } from "./LibrariesCard";
+import { PageFrame } from "./PageFrame";
 import type { AccountFiles } from "./workspaceOps";
 
 export function LibrariesPage() {
@@ -30,18 +31,16 @@ export function LibrariesPage() {
     <HomeShell subtitle={m["home.libraries"]()}>
       <AskHost />
       <Toaster dismissLabel={m["common.dismiss"]()} />
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl">
-          {fileService === undefined ? (
-            <div className="flex items-center gap-2 px-6 py-4 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />{" "}
-              {m["libs.reading"]()}
-            </div>
-          ) : (
-            <LibrariesCard fileService={fileService} />
-          )}
-        </div>
-      </div>
+      <PageFrame title={m["home.libraries"]()} narrow>
+        {fileService === undefined ? (
+          <div className="flex items-center gap-2 text-muted-foreground text-xs">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />{" "}
+            {m["libs.reading"]()}
+          </div>
+        ) : (
+          <LibrariesCard fileService={fileService} inPage />
+        )}
+      </PageFrame>
     </HomeShell>
   );
 }

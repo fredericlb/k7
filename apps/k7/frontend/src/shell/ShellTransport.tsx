@@ -33,6 +33,8 @@ export function ShellTransport({
   openMidiInputs,
   setStatus,
   engineRef,
+  centred,
+  rootRef,
   armForRecord,
   loopOn = false,
   onLoop,
@@ -50,13 +52,24 @@ export function ShellTransport({
   openMidiInputs: () => Promise<boolean>;
   setStatus: SetStatus;
   engineRef: RefObject<EngineClient | undefined>;
+  /** Centred on the bar while that clears its neighbours, at the row's end otherwise (useCentredFits.ts). */
+  centred: boolean;
+  /** The cluster's own box, which the fit is measured from. */
+  rootRef: RefObject<HTMLDivElement | null>;
   /** Arm a track when Record is turned on with none armed; false when there was none to arm. */
   armForRecord?: () => boolean;
   loopOn?: boolean;
   onLoop?: () => void;
 }) {
   return (
-    <div className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 flex items-center gap-1">
+    <div
+      ref={rootRef}
+      className={
+        centred
+          ? "-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 flex items-center gap-1"
+          : "ml-auto flex shrink-0 items-center gap-1"
+      }
+    >
       <Button
         size={toolSize}
         variant={playing ? "default" : "secondary"}

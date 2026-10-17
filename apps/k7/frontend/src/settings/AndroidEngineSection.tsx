@@ -115,7 +115,7 @@ export function AndroidEngineSection() {
           </Action>
         </form>
         {check?.state === "checking" && (
-          <p className="px-4 py-2 text-neutral-500 text-xs">
+          <p className="px-4 py-2 text-faint text-xs">
             {m["android.checking"]({ url: check.url ?? "" })}
           </p>
         )}

@@ -30,6 +30,16 @@ degrees in hue, so two guitars are both plainly green and still plainly two. A s
 the middle of its span. Which shade goes to which track follows the lane order, so the lightest and
 darkest do not swap places between two compiles.
 
+## Series that are not tracks (`src/seriesColors.ts`)
+
+Things told apart by their ORDER rather than their kind — a lane's takes, a rack's slices, a
+deck's cue buttons — share one palette of twelve hues at one OKLCH lightness and chroma, every one
+at 6:1 or better on the app's ground, so none shouts over another and dark type reads on all of
+them. `seriesColor(i)` walks it with a stride of five, so neighbours sit 150° apart and the first
+eight keep off the amber the desk's readout uses. Three palettes of eight, each picked by hand,
+made "the third take" and "the third slice" two different colours for no reason; one palette makes
+the same index the same colour in every view.
+
 ## Default, and `track arrange`
 
 A track whose file states no `color:` is drawn in its category's shade — computed at compile, so

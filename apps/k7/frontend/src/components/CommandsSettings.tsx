@@ -373,7 +373,7 @@ const CommandRow = memo(function CommandRow({
           <span
             className={cn(
               "shrink-0 font-mono text-[10px] uppercase",
-              l === locale ? "text-foreground" : "text-muted-foreground/60",
+              l === locale ? "text-foreground" : "text-faint",
             )}
           >
             {l}
@@ -390,7 +390,7 @@ const CommandRow = memo(function CommandRow({
       <code className="flex w-56 shrink-0 items-center gap-1 truncate text-[11px] text-muted-foreground">
         {plural && (
           <Layers
-            className="h-3 w-3 shrink-0 text-primary/70"
+            className="h-3 w-3 shrink-0 text-primary-text/70"
             aria-label={m["cmds.plural"]()}
           />
         )}

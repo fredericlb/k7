@@ -212,7 +212,7 @@ export const RulerTicks = memo(function RulerTicks({
             t.level === 0
               ? "border-border/50 text-muted-foreground"
               : t.level === 1
-                ? "border-border/30 text-muted-foreground/60"
+                ? "border-border/30 text-faint"
                 : "border-border/15",
           )}
           style={{ left: (t.beat - beatLo) * ppb }}

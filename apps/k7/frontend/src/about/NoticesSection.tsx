@@ -40,14 +40,12 @@ function Disclosure({
         aria-expanded={open}
         className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-neutral-800/40"
       >
-        <Icon className="size-3.5 shrink-0 text-neutral-500" />
+        <Icon className="size-3.5 shrink-0 text-faint" />
         <span className="min-w-0 flex-1 truncate text-neutral-200 text-sm">
           {label}
         </span>
         {detail && (
-          <span className="shrink-0 truncate text-neutral-500 text-xs">
-            {detail}
-          </span>
+          <span className="shrink-0 truncate text-faint text-xs">{detail}</span>
         )}
       </button>
       {open && <div className="pb-2">{children()}</div>}
@@ -136,7 +134,7 @@ export function NoticesSection() {
             </Action>
           ))}
         </div>
-        <p className="text-neutral-500 text-xs">
+        <p className="text-faint text-xs">
           {m["about.notices.count"]({
             shown: String(shown.length),
             total: String(notices.entries.length),

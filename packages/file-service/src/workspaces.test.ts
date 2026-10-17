@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readdirSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -49,7 +50,7 @@ describe("listMachineWorkspaces", () => {
     mkdirSync(join(root, "songs", "albums", "hiver.k7"), { recursive: true });
     const [ws] = await listMachineWorkspaces(USER);
     expect(ws.name).toBe("songs");
-    expect(ws.projects).toEqual([{ path: "albums/hiver.k7", app: "k7" }]);
+    expect(ws.projects).toMatchObject([{ path: "albums/hiver.k7", app: "k7" }]);
   });
 
   it("reports a workspace that IS a project as one project, named `.`", async () => {
@@ -57,7 +58,7 @@ describe("listMachineWorkspaces", () => {
     const [ws] = await listMachineWorkspaces(USER);
     expect(ws.isSingleProject).toBe(true);
     // `.` is what every other route calls the workspace root, and what `parseLaunch` answers.
-    expect(ws.projects).toEqual([{ path: ".", app: "k7" }]);
+    expect(ws.projects).toMatchObject([{ path: ".", app: "k7" }]);
   });
 
   it("lists only the folders a suffix claims, each named by its app", async () => {
@@ -65,7 +66,29 @@ describe("listMachineWorkspaces", () => {
     mkdirSync(join(root, "ws", "hiver.k7"), { recursive: true });
     mkdirSync(join(root, "ws", "notes"), { recursive: true });
     const [ws] = await listMachineWorkspaces(USER);
-    expect(ws.projects).toEqual([{ path: "hiver.k7", app: "k7" }]);
+    expect(ws.projects).toMatchObject([{ path: "hiver.k7", app: "k7" }]);
+  });
+
+  it("says what each project's row draws: its surfaces, whether it is open, its last edit", async () => {
+    const root = myRoot();
+    const song = join(root, "ws", "hiver.k7");
+    mkdirSync(join(song, "surfaces"), { recursive: true });
+    writeFileSync(join(song, "project.yaml"), 'project:\n  name: "hiver"\n');
+    writeFileSync(
+      join(song, "surfaces", "timeline.yaml"),
+      "type: timeline\nlayout: split\n",
+    );
+    mkdirSync(join(root, "ws", "vide.k7"), { recursive: true });
+    const [ws] = await listMachineWorkspaces(USER);
+    const hiver = ws.projects.find((p) => p.path === "hiver.k7");
+    const vide = ws.projects.find((p) => p.path === "vide.k7");
+    expect(hiver?.surfaces).toEqual(["timeline"]);
+    expect(hiver?.active).toBe(false);
+    // A file one folder down counts: that is where a project's nodes and surfaces are edited.
+    expect(hiver?.editedAt).toBeGreaterThan(0);
+    // An empty folder has no edit to report, and declares no surface — the `live` archetype's shape.
+    expect(vide?.editedAt).toBeUndefined();
+    expect(vide?.surfaces).toEqual([]);
   });
 });
 

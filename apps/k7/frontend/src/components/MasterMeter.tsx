@@ -11,10 +11,14 @@ import { cn } from "@frediverse/ui/lib/utils";
 import {
   clipLatch,
   FLOOR_DB,
-  HOT_DB,
+  type MeterZone,
   meterFill,
+  meterZone,
   newPass,
+  nextPeakMark,
+  type PeakMark,
   peakHold,
+  peakMarkLevel,
 } from "@studio/engine-browser/meter";
 import { useEngineState } from "@studio/engine-browser/store";
 import { MASTER_MAX_DB } from "@studio/song-schema/yaml/projectSchema";
@@ -37,6 +41,13 @@ const UNITY_LEFT = (() => {
   const f = (0 - FADER_MIN_DB) / (MASTER_MAX_DB - FADER_MIN_DB);
   return `calc(${(f * 100).toFixed(3)}% + ${((0.5 - f) * THUMB_PX).toFixed(2)}px)`;
 })();
+
+/** The bar's fill per zone: k7's meter tokens (index.css), the same three the desk and the graph wear. */
+const ZONE_FILL: Record<MeterZone, string> = {
+  ok: "bg-meter-ok",
+  hot: "bg-meter-hot",
+  clip: "bg-meter-clip",
+};
 
 /** What the Fix button knows and nothing else does — a handle, the peak being folded during render at 20 Hz; `take` marks the offer spent. */
 export interface MasterMeterHandle {
@@ -80,6 +91,17 @@ export function MasterMeter({
   const peak = useRef(FLOOR_DB);
   peak.current = peakHold(peak.current, db, playing, wasPlaying.current);
 
+  /** The peak MARK, the bar's own ballistics: held, then released, computed here with the frame rather than eased in CSS (docs/meters.md). */
+  const mark = useRef<PeakMark>({ db: FLOOR_DB, at: 0 });
+  const now = performance.now();
+  mark.current = nextPeakMark(
+    mark.current,
+    db,
+    now,
+    newPass(playing, wasPlaying.current),
+  );
+  const markDb = peakMarkLevel(mark.current, now);
+
   // …and the same two facts the button is drawn from, for the command; the peak is a ref, so it is fresh whenever it is asked for.
   useImperativeHandle(
     ref,
@@ -101,9 +123,17 @@ export function MasterMeter({
   const w = meterFill(db);
   /** Whether there is a fader at all: a share has no project to write to, and then the lane is a meter alone. */
   const fader = master !== undefined && onMaster !== undefined;
+  // Drawn while the transport rolls: stopped, no frame moves it, and a mark frozen mid-fall would read as a level.
+  const showMark = playing && markDb > FLOOR_DB;
   // The number, for anyone who wants it exactly — a bar answers "how loud", never "how much".
   const reading =
-    `sortie ${db <= FLOOR_DB ? "silence" : `${db.toFixed(1)} dB`}` +
+    m["meter.reading"]({
+      value: db <= FLOOR_DB ? m["meter.silence"]() : `${db.toFixed(1)} dB`,
+    }) +
+    // The mark's value in words too: it sits under the fader, whose tooltip is the one that shows.
+    (showMark
+      ? `, ${m["meter.peak"]({ value: `${markDb.toFixed(1)} dB` })}`
+      : "") +
     (clipped ? m["meter.clipped"]() : "");
 
   return (
@@ -111,14 +141,31 @@ export function MasterMeter({
       {/* ONE lane: the meter is the fader's track, and the handle rides on the reading it sets (docs/masterMeter.md). */}
       <div className="relative h-1.5 w-24" title={reading}>
         <div className="absolute inset-0 overflow-hidden rounded-full bg-foreground/15">
-          {/* SCALED from the left, not resized: a width is layout at the meter's rate, a transform is not (docs/masterMeter.md). */}
+          {/* SCALED from the left, not resized, and with no transition: a 20 Hz value lands, it does not chase (docs/meters.md). */}
           <div
             className={cn(
-              "absolute inset-0 origin-left transition-transform duration-75",
-              db >= HOT_DB ? "bg-amber-400" : "bg-emerald-400",
+              "absolute inset-0 origin-left",
+              ZONE_FILL[meterZone(db)],
             )}
             style={{ transform: `scaleX(${w})` }}
           />
+          {/* The PEAK MARK: a full-width layer whose left edge is the line, translated by its own width's fraction — no layout per frame. */}
+          {showMark && (
+            <div
+              aria-hidden="true"
+              className={cn(
+                "absolute inset-0 border-l-2",
+                meterZone(markDb) === "ok"
+                  ? "border-foreground/80"
+                  : meterZone(markDb) === "hot"
+                    ? "border-meter-hot"
+                    : "border-meter-clip",
+              )}
+              style={{
+                transform: `translateX(calc(${meterFill(markDb) * 100}% - 1px))`,
+              }}
+            />
+          )}
         </div>
         {/* UNITY — the one point of the travel worth finding without reading the number, and the handle covers it when it is there. */}
         {fader && (
@@ -161,7 +208,7 @@ export function MasterMeter({
         className={cn(
           "h-1.5 w-1.5 shrink-0 rounded-full",
           clipped
-            ? "bg-red-500 shadow-[0_0_4px_1px] shadow-red-500/60"
+            ? "bg-meter-clip shadow-[0_0_4px_1px] shadow-meter-clip/60"
             : "bg-foreground/20",
         )}
       />
@@ -174,7 +221,7 @@ export function MasterMeter({
             onFix();
           }}
           title={m["meter.fixHint"]({ target: TARGET_DB })}
-          className="shrink-0 rounded border border-red-500/40 px-1 py-px font-medium text-[10px] text-red-500 leading-none hover:bg-red-500/10"
+          className="shrink-0 rounded border border-meter-clip/40 px-1 py-px font-medium text-[10px] text-meter-clip leading-none hover:bg-meter-clip/10"
         >
           fix
         </button>

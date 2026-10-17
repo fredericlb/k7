@@ -263,7 +263,7 @@ export function SequencerPanel({
   return (
     <div className="flex h-full min-h-0 flex-col border-t-2 border-border">
       <div className="flex items-center gap-2 border-b border-border px-3 py-1 text-xs">
-        <span className="font-semibold text-primary">
+        <span className="font-semibold text-primary-text">
           <Grip className="h-3.5 w-3.5" /> {seqId}
         </span>
         <span className="text-muted-foreground">
@@ -275,7 +275,7 @@ export function SequencerPanel({
             </span>
           )}
         </span>
-        <span className="text-muted-foreground/70">{m["seq.hint"]()}</span>
+        <span className="text-faint">{m["seq.hint"]()}</span>
         {/* The precision, a closed set so the grid never lands on a musically meaningless step; session state, written nowhere. */}
         <span className="ml-auto flex items-center gap-1">
           {PRECISIONS.map((p) => (
@@ -322,7 +322,7 @@ export function SequencerPanel({
                 >
                   {row.symbol}
                 </span>
-                <span className="text-muted-foreground/70">
+                <span className="text-faint">
                   {row.known ? noteName(row.note) : `k${row.note}`}
                 </span>
               </button>

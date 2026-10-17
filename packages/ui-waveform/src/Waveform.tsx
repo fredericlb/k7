@@ -103,10 +103,10 @@ const UNDER = {
   left: 0,
   pointerEvents: "none",
 } as const;
-/** The playhead, as the canvas stroked it: 2px of near-white, moved by a transform rather than a redraw. */
+/** The playhead: 2px of the host's playhead colour (k7's index.css), moved by a transform rather than a redraw. */
 const LINE = {
   width: 2,
-  background: "rgba(235,235,242,0.9)",
+  background: "var(--color-playhead, #f4f3f8)",
   willChange: "transform",
 } as const;
 

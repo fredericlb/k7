@@ -6,10 +6,11 @@
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { EXAMPLES_WORKSPACE } from "@studio/web-protocol/projects";
 import { rootDir } from "./slug.ts";
 
-/** The workspace the demos are put in. */
-export const EXAMPLES_WORKSPACE = "Examples";
+// The workspace the demos are put in, named where the home page can read it too.
+export { EXAMPLES_WORKSPACE };
 
 /** Where the demo songs live: $STUDIO_DEMOS when a packaged app sets it, else walk up to `demos` (this file is bundled at a different depth than it sits in the repo). */
 function demosDir(): string | null {

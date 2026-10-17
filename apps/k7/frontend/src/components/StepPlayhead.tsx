@@ -38,7 +38,7 @@ export function StepPlayhead({
     <div className="pointer-events-none absolute inset-y-0 left-0 z-20 w-full overflow-hidden">
       <div
         ref={ref}
-        className="absolute inset-y-0 left-0 w-full border-white/80 border-l"
+        className="absolute inset-y-0 left-0 w-full border-playhead border-l"
         style={{ willChange: "transform", visibility: "hidden" }}
       />
     </div>

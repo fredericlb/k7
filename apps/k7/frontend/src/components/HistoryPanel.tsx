@@ -319,7 +319,7 @@ function SyncHistorySection({ revision }: { revision: unknown }) {
               head,
               c.seq,
               c.by === "auto" ? String(c.seq) : c.name,
-              <Bookmark className="mt-px h-3.5 w-3.5 shrink-0 text-primary" />,
+              <Bookmark className="mt-px h-3.5 w-3.5 shrink-0 text-primary-text" />,
             ),
           )}
         {(hist?.entries ?? []).map((e) =>

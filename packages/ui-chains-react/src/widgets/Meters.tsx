@@ -34,7 +34,7 @@ export function InputMeterBar({
           width: "100%",
           transform: `scaleX(${level})`,
           transformOrigin: "left",
-          background: CTRL["@arm"], // red-500, matching the arm control
+          background: CTRL["@arm"], // the arm colour, matching the arm control
         }}
       />
     </div>

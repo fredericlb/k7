@@ -83,8 +83,10 @@ export function NameField({
         onKeyDown={(e) => e.key === "Enter" && onSubmit()}
       />
       <p className="font-mono text-muted-foreground text-xs">
-        {badName ? (
-          <span className="text-destructive">{badName}</span>
+        {/* An empty field is not yet a mistake: the refusal waits for something typed, Create staying greyed meanwhile. */}
+        {badName && name.trim() ? (
+          // A sentence, so the body face: the mono is for the folder path the line shows otherwise.
+          <span className="font-sans text-destructive">{badName}</span>
         ) : (
           preview || " "
         )}
@@ -114,6 +116,7 @@ export function NameFormDialog({
   before,
   submit,
   canSubmit,
+  wide = false,
   ...field
 }: NameFieldProps & {
   open: boolean;
@@ -123,10 +126,16 @@ export function NameFormDialog({
   before?: ReactNode;
   submit: ReactNode;
   canSubmit: boolean;
+  /** Room for a picker of cards above the name, as New project's archetypes. */
+  wide?: boolean;
 }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !field.busy && !o && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent
+        className={
+          wide ? "max-h-[90dvh] overflow-y-auto sm:max-w-2xl" : "max-w-lg"
+        }
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

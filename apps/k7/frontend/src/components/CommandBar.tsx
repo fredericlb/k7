@@ -110,11 +110,12 @@ function splitArgs(s: string): string[] {
 const quoteArg = (v: string) => (/\s/.test(v) ? JSON.stringify(v) : v);
 
 /** The HOST's look while a command waits for its answers: orange, its edge glowing blue, padding included, faded in and out. */
+// Waiting is the accent breathing at 1 Hz on an inset ring (index.css's `animate-pending`), a still ring under reduced motion — no hue from outside the palette.
 export const barTint = (pending: boolean): string =>
-  `transition-[background-color,box-shadow] duration-300 ${
+  `transition-[background-color] duration-300 ${
     pending
-      ? "bg-orange-500/35 ring-2 ring-inset ring-blue-500 shadow-[0_0_14px_3px_rgba(59,130,246,0.65)]"
-      : "bg-popover ring-0 ring-inset ring-blue-500/0 shadow-none"
+      ? "bg-primary/10 motion-safe:animate-pending motion-reduce:ring-2 motion-reduce:ring-inset motion-reduce:ring-primary"
+      : "bg-popover"
   }`;
 
 export const CommandBar = forwardRef<
@@ -417,7 +418,7 @@ export const CommandBar = forwardRef<
 
   return (
     <div className="relative flex flex-1 items-center">
-      <ChevronRight className="mr-1 h-4 w-4 text-primary" />
+      <ChevronRight className="mr-1 h-4 w-4 text-primary-text" />
       {command ? (
         // While a command is being filled the row IS its form: the name, then a field per param, on one line.
         <CommandParams
@@ -499,7 +500,7 @@ export const CommandBar = forwardRef<
               ? `${listId}-${highlighted}`
               : undefined
           }
-          className="min-w-0 flex-1 bg-transparent font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground/60"
+          className="min-w-0 flex-1 bg-transparent font-mono text-sm text-foreground outline-none placeholder:text-faint"
         />
       )}
 

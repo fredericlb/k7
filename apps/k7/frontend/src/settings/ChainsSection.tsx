@@ -108,7 +108,7 @@ function ChainPicker({
           {mine.text}
         </p>
       )}
-      <p className="text-neutral-500 text-xs">{body}</p>
+      <p className="text-faint text-xs">{body}</p>
     </div>
   );
 }
@@ -176,12 +176,12 @@ export function ChainsSection() {
       hint={m["settings.chains.hint"]()}
     >
       {fileService === null ? (
-        <p className="px-4 py-2.5 text-neutral-500 text-xs">
+        <p className="px-4 py-2.5 text-faint text-xs">
           {m["settings.chains.noMachine"]()}
         </p>
       ) : (
         <>
-          <div className="px-4 pt-2.5 text-[10px] text-neutral-500 uppercase tracking-wide">
+          <div className="px-4 pt-2.5 text-[10px] text-faint uppercase tracking-wide">
             {m["stems.title"]()}
           </div>
           <ChainPicker
@@ -195,7 +195,7 @@ export function ChainsSection() {
             fetching={fetching}
             onDownload={download}
           />
-          <div className="px-4 pt-2.5 text-[10px] text-neutral-500 uppercase tracking-wide">
+          <div className="px-4 pt-2.5 text-[10px] text-faint uppercase tracking-wide">
             {m["instrumental.title"]()}
           </div>
           {/* Only those that WRITE an instrumental: four stems is not one, and the far side would refuse it. */}
@@ -212,7 +212,7 @@ export function ChainsSection() {
           />
           {/* An empty list is a real state — a library with no cold chain yet — and reads as a broken screen unless it says so. */}
           {view && chains.length === 0 && (
-            <p className="px-4 py-2.5 text-neutral-500 text-xs">
+            <p className="px-4 py-2.5 text-faint text-xs">
               {parts((h) => m["settings.chains.noCold"](h), {
                 dir: <span className="font-mono">chains/</span>,
               })}

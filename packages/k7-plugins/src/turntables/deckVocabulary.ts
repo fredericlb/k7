@@ -5,6 +5,7 @@
 // See docs/mix.md.
 
 import type { WebModuleCategory } from "@studio/graph-model";
+import { seriesColor } from "@studio/song-schema/seriesColors";
 
 /** A module the deck runs, as the desk holds it: a médiathèque ref plus what it plays as. */
 export interface DeckModule {
@@ -101,17 +102,11 @@ export const EQ_BANDS = [
   { id: "eqHigh" },
 ] as const;
 
-/** A colour per cue BUTTON rather than per cue, kept away from the readout's amber — see docs/cues.md. */
-export const CUE_COLOURS = [
-  "#ef4444", // rouge
-  "#f97316", // orange
-  "#eab308", // jaune
-  "#22c55e", // vert
-  "#14b8a6", // turquoise
-  "#3b82f6", // bleu
-  "#a855f7", // violet
-  "#ec4899", // rose
-] as const;
+/** A colour per cue BUTTON rather than per cue: the series palette's first eight, which keep away from the readout's amber — see docs/cues.md. */
+export const CUE_COLOURS: readonly string[] = Array.from(
+  { length: 8 },
+  (_, i) => seriesColor(i),
+);
 
 /** The stretch, as a multiplier of the file's own clock. 1 when either end is unknown. */
 export function ratioOf(natural: number, target: number): number {

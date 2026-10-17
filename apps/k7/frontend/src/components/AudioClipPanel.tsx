@@ -519,14 +519,10 @@ export function AudioClipPanel({
               <span>{m["clip.offTrack"]()}</span>
             )}
             {editingOnsets && (
-              <span className="text-muted-foreground/70">
-                {m["clip.onsetHint"]()}
-              </span>
+              <span className="text-faint">{m["clip.onsetHint"]()}</span>
             )}
             {editingWarp && (
-              <span className="text-muted-foreground/70">
-                {m["clip.warpHint"]()}
-              </span>
+              <span className="text-faint">{m["clip.warpHint"]()}</span>
             )}
             {/* What is on screen and the two ways out: a window showing only some bars without saying so reads as a clip that was cut. */}
             {wf && win.allBars > 1 && (

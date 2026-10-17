@@ -1,6 +1,7 @@
 # Recordings — sessions and their moments, one timeline
 
-`src/views/RecordingsTimeline.tsx` is the whole of the **Recordings** entry, at
+`src/views/RecordingsTimeline.tsx` is the whole of the **Sessions** entry (the sidebar's name for it,
+which the media library's own Recordings would otherwise share), at
 `/rehearsal/sessions`: a calendar to pick a day, and that day's sessions on a timeline with each
 session's moments hanging under it, indented.
 

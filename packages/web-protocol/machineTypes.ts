@@ -85,6 +85,12 @@ export interface RepoProject {
   app: ProjectApp;
   /** `project.tags` of an k7 project's project.yaml; absent when it has none. */
   tags?: string[];
+  /** The TYPES of the surfaces it declares (`timeline`, `turntables`…), which is what its archetype was; absent from an older service. */
+  surfaces?: string[];
+  /** Whether it is its workspace's active project, the one the engine plays — docs/machine.md. */
+  active?: boolean;
+  /** When a file in it last changed on this replica, epoch ms, from a walk two levels deep. */
+  editedAt?: number;
   /** A bundled demo, overwritten on the service's next start — the home page says so; absent otherwise. */
   demo?: boolean;
 }

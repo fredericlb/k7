@@ -640,7 +640,7 @@ export function WidgetGridEditor({
                     // A group's name runs up its left edge, turned 90° counter-clockwise as on the card, under its switch when bound.
                     <span className="pointer-events-none absolute bottom-0 left-0.5 top-0.5 z-10 flex flex-col items-center gap-0.5 overflow-hidden text-[10px] leading-none text-foreground">
                       {w.bind && (
-                        <Power className="h-3 w-3 shrink-0 text-primary" />
+                        <Power className="h-3 w-3 shrink-0 text-primary-text" />
                       )}
                       <span className="rotate-180 whitespace-nowrap [writing-mode:vertical-rl]">
                         {w.label || "group"}

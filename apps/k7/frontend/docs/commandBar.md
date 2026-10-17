@@ -98,8 +98,9 @@ are searching.
 ### The parameters, on the bar's row
 
 `CommandParams` replaces the input with ONE row: the command's name, then a field per parameter,
-named by its placeholder, then what Enter does this press. The bar's whole STRIP turns orange while it waits, its edge glowing blue,
-padding included, faded in and out — the host's background, from `barTint` and the bar's
+named by its placeholder, then what Enter does this press. The bar's whole STRIP takes a violet wash while it waits, an inset ring
+of the accent breathing once a second (`animate-pending` in `src/index.css`; a still ring under reduced motion — and a ring rather
+than a fade of the whole strip, which would fade the text being typed), padding included — the host's background, from `barTint` and the bar's
 `onPending`, since only the host knows its own padding: a command half-given is the shell waiting on you, and a bottom strip that looks the same
 asking or idle is one nobody looks at. **Every question is on screen at once**, and an answer
 given three fields ago can be changed without unwinding the ones after it. It holds no state —

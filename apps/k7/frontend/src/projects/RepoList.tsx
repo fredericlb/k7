@@ -1,13 +1,11 @@
 // RepoList.tsx — the account's workspaces, each with its projects indented: make a new one, or
-// open a project straight into this tab.
+// open a project straight into this tab. The page's heading and its two creates sit above them.
 // Presentational — the section holds the async and this file draws. See ../../docs/projects.md.
 
-import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import {
   Cloud,
   CloudDownload,
-  CornerDownRight,
   Folder,
   FolderPlus,
   Loader2,
@@ -21,17 +19,18 @@ import type {
   ShareSummary,
   WorkspaceSyncStatus,
 } from "@studio/web-protocol";
-import { projectLabel } from "@studio/web-protocol/projects";
-import { type DragEvent, useState } from "react";
+import { EXAMPLES_WORKSPACE } from "@studio/web-protocol/projects";
+import { type DragEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useLocale } from "../i18n";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";
 import { SETTINGS_ROUTE } from "./api";
+import { EmptyState } from "./EmptyState";
 import { NewProject } from "./NewProject";
 import { NewWorkspace } from "./NewWorkspace";
-import { ProjectMenu } from "./ProjectMenu";
-import { ProjectShares } from "./ProjectShares";
-import { sharesOf } from "./sharesForProject";
+import { PAGE_COLUMN, PageHeader } from "./PageFrame";
+import { ProjectRow } from "./ProjectRow";
 import { WorkspaceMenu } from "./WorkspaceMenu";
 import {
   hostLabel,
@@ -39,10 +38,6 @@ import {
   syncStateOf,
   WorkspaceSyncIcon,
 } from "./WorkspaceSyncIcon";
-
-/** The folder's name without its suffix, with the path that places it in the workspace beside it. */
-const nameOf = (p: RepoProject): string =>
-  projectLabel(p.path.split("/").pop() ?? p.path);
 
 /**
  * Where a copy of a project may land: every workspace but its own, minus the ones that ARE a
@@ -54,11 +49,23 @@ const targetsFor = (
 ): AccountWorkspace[] =>
   all.filter((w) => w.name !== from.name && !w.isSingleProject);
 
-/** The folder holding the project, or null when it sits at the workspace root. */
-const parentOf = (p: RepoProject): string | null => {
-  const cut = p.path.lastIndexOf("/");
-  return cut > 0 ? p.path.slice(0, cut) : null;
-};
+/** "1 project" / "4 projects", the one place the count's plural is chosen. */
+const projectsCount = (n: number): string =>
+  (n === 1 ? m["repos.projects.one"] : m["repos.projects.other"])({ n });
+
+/** …and the same for workspaces, in the heading's summary. */
+const workspacesCount = (n: number): string =>
+  (n === 1 ? m["repos.workspaces.one"] : m["repos.workspaces.other"])({ n });
+
+/** A clock for "edited … ago", ticking once a minute: the list re-renders only when it changes otherwise. */
+function useMinuteClock(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  return now;
+}
 
 /**
  * Is this drag carrying files at all? A dragover knows each item's KIND and its MIME type, never
@@ -171,14 +178,55 @@ export function RepoList({
   );
   // Which row the pointer is over, so exactly one lights up — a boolean would light them all.
   const [over, setOver] = useState<string | null>(null);
+  const now = useMinuteClock();
+  const { locale } = useLocale();
+  const projectTotal = workspaces.reduce((n, w) => n + w.projects.length, 0);
+  // Where the page's New project may land: a workspace that IS one project has no room beside it, and the demos' own comes last.
+  const eligible = workspaces
+    .filter((w) => !w.isSingleProject)
+    .sort(
+      (a, b) =>
+        Number(a.name === EXAMPLES_WORKSPACE) -
+        Number(b.name === EXAMPLES_WORKSPACE),
+    );
+  const createIn = (
+    name: string,
+    folder: string,
+    onStep: (s: string) => void,
+    shape: ProjectShape,
+  ) => {
+    const w = workspaces.find((x) => x.name === name);
+    if (!w) return Promise.reject(new Error(name));
+    return onCreate(w, folder, onStep, shape);
+  };
   return (
-    <div className="flex flex-col gap-4 p-6">
-      <div className="flex items-center gap-2">
-        <NewWorkspace blocked={blockedWorkspace} onCreate={onCreateWorkspace} />
-      </div>
+    <div className={PAGE_COLUMN}>
+      {/* The page names itself, and its one call to action is the act people come for: a project. */}
+      <PageHeader
+        title={m["home.projects"]()}
+        summary={
+          workspaces.length > 0
+            ? `${projectsCount(projectTotal)} · ${workspacesCount(workspaces.length)}`
+            : undefined
+        }
+        actions={
+          <>
+            <NewWorkspace
+              blocked={blockedWorkspace}
+              onCreate={onCreateWorkspace}
+            />
+            <NewProject
+              primary
+              blocked={blocked || blockedWorkspace}
+              workspaces={eligible.map((w) => w.name)}
+              onCreate={createIn}
+            />
+          </>
+        }
+      />
 
       {error && (
-        <code className="max-w-full overflow-x-auto rounded bg-muted px-2 py-1 text-xs text-red-400">
+        <code className="max-w-full overflow-x-auto rounded bg-muted px-2 py-1 text-destructive text-xs">
           {error}
         </code>
       )}
@@ -203,28 +251,34 @@ export function RepoList({
             })}
           </span>
         </div>
-      ) : workspaces.length === 0 ? (
-        <div className="rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
-          {busy ? (
-            <span className="inline-flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />{" "}
-              {m["common.loading"]()}
-            </span>
-          ) : (
-            parts((h) => m["repos.empty"](h), {
-              new: <strong>{m["repos.newWord"]()}</strong>,
-            })
-          )}
+      ) : workspaces.length === 0 && busy ? (
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" /> {m["common.loading"]()}
         </div>
+      ) : workspaces.length === 0 ? (
+        // The act itself, on the spot: the header has the same button, but an empty page is read from its middle.
+        <EmptyState
+          icon={Folder}
+          actions={
+            <NewWorkspace
+              primary
+              blocked={blockedWorkspace}
+              onCreate={onCreateWorkspace}
+            />
+          }
+        >
+          {m["repos.empty"]()}
+        </EmptyState>
       ) : (
         <ul className="flex flex-col gap-2">
           {workspaces.map((w) => (
             <li
               key={w.name}
               className={cn(
-                "flex flex-col rounded-md border border-border p-3",
+                // A surface by its fill, not an outline (docs/shell.md); a ring only while a drop is over it.
+                "flex flex-col rounded-lg bg-card p-3",
                 // The row lights up only for something it can actually take — see `DROPPABLE`.
-                over === w.name && "border-primary bg-primary/5",
+                over === w.name && "bg-primary/10 ring-1 ring-primary",
               )}
               onDragOver={(e) => {
                 if (!carriesFiles(e)) return;
@@ -249,13 +303,13 @@ export function RepoList({
               <div className="flex items-center justify-between gap-3">
                 <button
                   type="button"
-                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  className="-mx-1.5 group flex min-w-0 flex-1 items-center gap-3 rounded-md px-1.5 py-1 text-left hover:bg-accent/60"
                   onClick={() => onOpen(w)}
                 >
-                  <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <Folder className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
                   <span className="min-w-0">
                     <span className="flex items-center gap-2">
-                      <span className="truncate font-medium">{w.name}</span>
+                      <span className="truncate font-semibold">{w.name}</span>
                       <WorkspaceSyncIcon
                         state={syncStateOf(sync, w.name)}
                         server={
@@ -270,12 +324,10 @@ export function RepoList({
                         </span>
                       )}
                       <MoveNote move={syncEntryOf(sync, w.name)?.moving} />
-                      <Badge variant={w.projects.length ? "tag" : "default"}>
-                        {m["repos.projectCount"]({
-                          n: w.projects.length,
-                          s: w.projects.length === 1 ? "" : "s",
-                        })}
-                      </Badge>
+                      {/* A count is read, not acted on: plain muted text, the violet being kept for what is selected. */}
+                      <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+                        {projectsCount(w.projects.length)}
+                      </span>
                     </span>
                   </span>
                 </button>
@@ -283,9 +335,8 @@ export function RepoList({
                   {/* Inside the workspace's block, beside its contents: creating a project acts ON it, not on the list. */}
                   <NewProject
                     blocked={blocked}
-                    onCreate={(folder, onStep, shape) =>
-                      onCreate(w, folder, onStep, shape)
-                    }
+                    workspaces={[w.name]}
+                    onCreate={createIn}
                   />
                   {/* The rare acts on the whole workspace, behind one ⋮ as on a project's row. */}
                   <WorkspaceMenu
@@ -330,66 +381,27 @@ export function RepoList({
                   that opens one, in THIS tab — the editor's back arrow returns here
                   (../../docs/projects.md). */}
               {w.projects.length > 0 && (
-                <ul className="mt-2 ml-2 flex flex-col border-l border-border pl-3">
+                <ul className="mt-2 ml-2 flex flex-col border-l border-border pl-2">
                   {w.projects.map((p) => (
-                    // The row holds the link AND the buttons: the link stretches, and each button's `preventDefault` stops it opening.
-                    <li key={p.path} className="flex items-center gap-1">
-                      <a
-                        className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent/50"
-                        title={m["repos.openProject"]({
-                          path: p.path,
-                          app: p.app,
-                        })}
-                        href={projectHref(w, p)}
-                      >
-                        <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="truncate">
-                          {p.path === "." ? projectLabel(w.name) : nameOf(p)}
-                        </span>
-                        <Badge variant="tag">{p.app}</Badge>
-                        {/* A demo is overwritten on the next start: said before anyone edits one and loses it. */}
-                        {p.demo && (
-                          <Badge
-                            variant="amber"
-                            className="shrink-0"
-                            title={m["demo.badgeHint"]()}
-                          >
-                            {m["demo.badge"]()}
-                          </Badge>
-                        )}
-                        {p.tags?.map((t) => (
-                          <Badge key={t} className="shrink-0">
-                            {t}
-                          </Badge>
-                        ))}
-                        {parentOf(p) && (
-                          <span className="truncate text-xs text-muted-foreground">
-                            {parentOf(p)}
-                          </span>
-                        )}
-                      </a>
-                      {/* Before Supprimer: reading what you published comes ahead of the destructive act, and needs the file service (../../docs/projects.md). */}
-                      <ProjectShares
-                        label={p.path === "." ? w.name : nameOf(p)}
-                        shares={sharesOf(shares, w.name, p.path)}
-                        onChanged={onChanged}
-                      />
-                      {/* …and the three ACTS behind one ⋮: the row is a link first, and these are rare. */}
-                      <ProjectMenu
-                        path={p.path}
-                        label={p.path === "." ? w.name : nameOf(p)}
-                        app={p.app}
-                        blocked={blocked}
-                        targets={targetsFor(workspaces, w)}
-                        onCopy={(to, folder, onStep) =>
-                          onCopy(w, p, to, folder, onStep)
-                        }
-                        onRename={(folder, onStep) =>
-                          onRename(w, p, folder, onStep)
-                        }
-                        onDelete={(onStep) => onDelete(w, p, onStep)}
-                      />
-                    </li>
+                    <ProjectRow
+                      key={p.path}
+                      workspace={w}
+                      project={p}
+                      href={projectHref(w, p)}
+                      targets={targetsFor(workspaces, w)}
+                      blocked={blocked}
+                      shares={shares}
+                      onChanged={onChanged}
+                      now={now}
+                      locale={locale}
+                      onCopy={(to, folder, onStep) =>
+                        onCopy(w, p, to, folder, onStep)
+                      }
+                      onRename={(folder, onStep) =>
+                        onRename(w, p, folder, onStep)
+                      }
+                      onDelete={(onStep) => onDelete(w, p, onStep)}
+                    />
                   ))}
                 </ul>
               )}

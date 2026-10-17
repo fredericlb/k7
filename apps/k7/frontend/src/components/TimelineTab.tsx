@@ -2425,7 +2425,7 @@ export function TimelineTab({
                     key={`task:${t.line}`}
                     className={cn(
                       "absolute bottom-0 z-20 -translate-x-1/2 border-0 bg-transparent p-0",
-                      t.done ? "text-muted-foreground/50" : "text-amber-400",
+                      t.done ? "text-faint" : "text-amber-400",
                     )}
                     style={{ left: x(t.beat) }}
                     aria-label={t.text}
@@ -2502,7 +2502,7 @@ export function TimelineTab({
                       <span
                         className={cn(
                           "truncate font-semibold",
-                          row.group.solo && "text-amber-400",
+                          row.group.solo && "text-solo",
                         )}
                         title={m["tl.groupTitle"]({ name: row.group.name })}
                       >
@@ -2576,13 +2576,8 @@ export function TimelineTab({
                         <div className="flex shrink-0 items-center gap-0.5">
                           {(
                             [
-                              [
-                                "M",
-                                "mute",
-                                vt.mute,
-                                "bg-orange-500 text-white",
-                              ],
-                              ["S", "solo", vt.solo, "bg-amber-400 text-black"],
+                              ["M", "mute", vt.mute, "bg-mute text-background"],
+                              ["S", "solo", vt.solo, "bg-solo text-background"],
                             ] as const
                           ).map(([label, control, on, onCls]) => (
                             <button
@@ -2627,7 +2622,7 @@ export function TimelineTab({
                           className={cn(
                             "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm font-bold text-[9px] leading-none",
                             videoArmed === vt.id
-                              ? "bg-red-500 text-white"
+                              ? "bg-arm text-background"
                               : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground",
                             // Pulsing while the camera is actually rolling: armed and recording are two states.
                             videoArmed === vt.id &&
@@ -2646,7 +2641,7 @@ export function TimelineTab({
                         "relative overflow-hidden",
                         dropAt?.lane === vt.id && DROP_LANE,
                         // Armed red, the whole lane, exactly as an armed audio lane reads.
-                        videoArmed === vt.id && "bg-red-600/30",
+                        videoArmed === vt.id && "bg-arm/25",
                       )}
                       style={{ width: laneW }}
                     >
@@ -2872,15 +2867,15 @@ export function TimelineTab({
                     "M",
                     "mute",
                     ctl ? ctl.mute === 1 : !!t.mute,
-                    "bg-orange-500 text-white",
+                    "bg-mute text-background",
                   ],
                   [
                     "S",
                     "solo",
                     ctl ? ctl.solo === 1 : !!eff.solo,
-                    "bg-amber-400 text-black",
+                    "bg-solo text-background",
                   ],
-                  ["A", "arm", armed, "bg-red-500 text-white"],
+                  ["A", "arm", armed, "bg-arm text-background"],
                 ];
               return (
                 <div
@@ -2944,7 +2939,7 @@ export function TimelineTab({
                         "relative flex min-w-0 flex-1 items-center gap-1 truncate",
                         row.grouped && "pl-3",
                         // Armed red, soloed yellow. A ternary, not two classes: both can be true, and armed is about to write to disk.
-                        armed ? "text-red-400" : eff.solo && "text-amber-400",
+                        armed ? "text-arm" : eff.solo && "text-solo",
                       )}
                     >
                       <TrackIcon
@@ -3092,7 +3087,7 @@ export function TimelineTab({
                   >
                     {/* record-armed: the whole lane goes red, at the bottom of the stack, off the engine's state frame rather than the project. */}
                     {armed && (
-                      <div className="pointer-events-none absolute inset-0 bg-red-600/30" />
+                      <div className="pointer-events-none absolute inset-0 bg-arm/25" />
                     )}
                     {dropMark(t.id)}
                     {/* caret cell — gone while the label is selected, and while a rectangle is being drawn, the rectangle BEING the caret then. */}

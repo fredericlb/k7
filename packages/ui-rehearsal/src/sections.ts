@@ -3,9 +3,9 @@
 
 import {
   BookOpen,
-  Disc3,
   type LucideIcon,
   Mic,
+  Radio,
   Target,
 } from "@frediverse/ui/icons";
 import { withinPrefix } from "./host";
@@ -21,6 +21,7 @@ export interface RehearsalSection {
   label: () => string;
 }
 
+// Glyphs the media library's entries do not use: the host draws both groups in one rail.
 export const REHEARSAL_SECTIONS: readonly RehearsalSection[] = [
   {
     id: "recordings",
@@ -31,7 +32,7 @@ export const REHEARSAL_SECTIONS: readonly RehearsalSection[] = [
   {
     id: "publications",
     path: "/releases",
-    icon: Disc3,
+    icon: Radio,
     label: () => m["nav.publications"](),
   },
   {

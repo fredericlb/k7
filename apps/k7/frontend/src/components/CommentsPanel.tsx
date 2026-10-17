@@ -28,7 +28,7 @@ function StateChip({ state }: { state: ShareComment["state"] }) {
       ? "bg-emerald-500/15 text-emerald-500"
       : state === "ignored"
         ? "bg-muted text-muted-foreground"
-        : "bg-primary/15 text-primary";
+        : "bg-primary/15 text-primary-text";
   return (
     <span className={`shrink-0 rounded px-1.5 py-0.5 text-[0.65rem] ${tone}`}>
       {label}

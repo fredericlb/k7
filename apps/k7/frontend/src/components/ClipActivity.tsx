@@ -4,11 +4,15 @@
 // needs and paints. It replaces the block's flat background, masked or (no data yet) at 70%.
 
 import { cn } from "@frediverse/ui/lib/utils";
+import { categoryShade } from "@studio/song-schema/trackColor";
 import { memo, useMemo } from "react";
 import { activityMask, audioActivity, midiActivity } from "../activity";
 import type { EnvelopeProject } from "../clipEnvelope";
 import type { WebClip } from "../types";
 import { useClipWaveform } from "./ClipContent";
+
+/** What a track the compile has not coloured yet is drawn in: the `other` category's shade (trackColor.ts). */
+export const UNCOLOURED = categoryShade("other", 0, 1);
 
 /** Memoised for the reason ClipContent is: one per clip, re-rendered by everything the timeline does, while its inputs barely move. */
 export const ClipActivity = memo(function ClipActivity({
@@ -21,7 +25,7 @@ export const ClipActivity = memo(function ClipActivity({
   clip: WebClip;
   // The beats the block draws — a length-0 clip draws NATURAL wide, and the activity must cover what is drawn.
   spanBeats: number;
-  color?: string; // the track's authored colour; absent, the type default classes stand
+  color?: string; // the track's colour; absent until a compile gives one, which draws UNCOLOURED
   project: EnvelopeProject; // part of the envelope's identity — see src/clipEnvelope.ts
   /** A resize in hand: the fill goes grey until the release, the activity drawn being the OLD extent's. */
   pending?: boolean;
@@ -49,11 +53,10 @@ export const ClipActivity = memo(function ClipActivity({
       className={cn(
         "absolute inset-0 -z-10 transition-[filter]",
         pending && "grayscale",
-        // The type default only stands where no track colour is authored — as the flat fill did.
-        !color && (clip.type === "midi" ? "bg-emerald-600" : "bg-sky-600"),
       )}
       style={{
-        ...(color ? { background: color } : null),
+        // No colour yet (before a compile has given one) is the category scheme's own "other" grey, not a hue of its own.
+        background: color ?? UNCOLOURED,
         // No envelope (yet, or ever): the flat 70% the blocks always wore, so nothing flashes.
         ...(mask
           ? { WebkitMaskImage: mask, maskImage: mask }

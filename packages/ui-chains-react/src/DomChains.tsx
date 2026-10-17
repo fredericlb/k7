@@ -56,7 +56,7 @@ import {
 import { Cables } from "./ChainsCables";
 import { Node } from "./ChainsNode";
 import { applyCam, type Cam, type Lod, lodFor, sameLod } from "./camera";
-import { cableColorFor, MAUVE, useCss } from "./chainsCss";
+import { cableColorFor, cableStrokeFor, MAUVE, useCss } from "./chainsCss";
 import { buildModel } from "./chainsModel";
 import { createOverrideStore, EMPTY_ORDER, NOOP } from "./chainsStores";
 import { IconsContext } from "./chainsTypes";
@@ -425,7 +425,7 @@ export function DomChains({
       exciteSway(sway, base[0], base[base.length - 1]);
       draws.push({
         geom: { base, samples: NO_SAMPLES, len: 0 },
-        color: cableColorFor(e.signal),
+        color: cableStrokeFor(e.signal),
         flow: 0,
         sway,
         ...(anyOpen && !e.assembly ? { alpha: FOREIGN_ALPHA } : {}),
@@ -567,7 +567,7 @@ export function DomChains({
           return {
             id: g.id,
             geom: g,
-            color: cableColorFor(g.signal),
+            color: cableStrokeFor(g.signal),
             flow: live.get(g.id) ?? 0,
             sway,
             ...(g.faded ? { alpha: FOREIGN_ALPHA } : {}),

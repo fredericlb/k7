@@ -235,6 +235,37 @@ it: `AppHeader` folds `items` into a hamburger of its own below 640 px and k7's 
 collapse into one — two hamburgers side by side being two answers to "where do I go" — so anything
 put there must also be in k7's own menu.
 
+### The bar is `plain`, not the house tint
+
+k7 passes `variant="plain"` to the shared bar, the card surface with a hairline under it, where every
+phare app keeps the violet tint (`commons/packages/ui/docs/app-header.md`). A DAW lights things all
+the time — the page on screen, a selection, Play — and those are violet; a violet bar around them
+leaves the accent nothing to mark. The footer and the home page's sidebar take the same surface
+(`projects.md`).
+
+### One colour per meaning, across every view
+
+k7 keeps its own values over the shared palette in `src/index.css`, and every surface that draws a
+song reads them, canvases included (through the CSS variable, since a canvas cannot take `var()`):
+
+| meaning | token | why one |
+|---|---|---|
+| the playhead | `playhead` | the timeline, the roll, the step grid, the minimap, the takes view, the clip's waveform and the desk drew five different lines; an audition's line stays amber, being another clock |
+| mute, solo, arm | `mute`, `solo`, `arm` | the timeline's solo and the graph's were two yellows; a lit pad takes dark type, which reads on all three |
+| the meter's zones | `meter-ok`, `meter-hot`, `meter-clip` | the header, the desk and the graph's faders say the same thing about the same level |
+| violet as text | `primary-text` | no one violet passes both as a fill under white type and as text on this ground (`primary` is the fill) |
+| text below muted | `faint` | it replaces `/50`–`/70` fades of the muted grey, which fell to 2.4:1 |
+
+Takes, slices and cues are a SERIES, coloured by order from `@studio/song-schema`'s
+`seriesColors.ts`; a track keeps its category colour, and one the compile has not coloured yet is
+that scheme's `other` grey rather than a type hue of its own.
+
+**Surfaces are told apart by fill.** The ground is one step deeper than the shared theme's, the
+card a step above it, and a hover a step above that — `accent` and `muted` were the same grey, so a
+hovered row looked like a panel. A panel that is a surface (the home page's workspaces, the settings
+sections, the libraries card) is its fill with no outline; a hairline is kept where it SEPARATES
+something, between a header and its rows.
+
 ### The bar is 30 px, and its height is a rule rather than a number
 
 Every row of chrome is a row the panes don't get, and a phone in landscape is about 400 px tall.
@@ -261,10 +292,12 @@ middle of whatever the project name on one side and the icon row on the other le
 moved every time a name got longer or a surface added a button: a control you reach for without
 looking must not be somewhere else on the next project.
 
-The price is that nothing reserves its width. The left group is bounded (`max-w-[10rem]`
-and `truncate` on the name) and the right one is a fixed count of 24-pixel buttons, so on a desktop
-window they clear it; squeeze the window far enough and the transport draws over them rather than
-pushing them aside.
+Nothing reserves its width, so the shell MEASURES whether it has the room (`shell/useCentredFits.ts`):
+would a cluster centred on the bar clear the last thing in the left group and the first of the
+actions, by 12 px? While it would, it is centred; when it would not — a narrow window, a long engine
+name — it joins the row at the left group's end instead of drawing over its neighbours. The test
+reads where the bar's centre is, never where the transport sits now, so the answer cannot flip back
+the moment it moves.
 
 Play/pause, stop, the clock, then the record button, and each **drops focus on click**
 (`blurOnClick`). These are the buttons a mouse is most likely to land on right before reaching for
@@ -349,6 +382,9 @@ plug when not — so it reads for someone who cannot tell red from green.
 
 A link that stays down says so in words, on a strip under the header
 (`components/EngineLostStrip.tsx`): a red dot is easy to miss while every gesture quietly does nothing.
+The strip is an OVERLAY on a zero-height anchor, not a row: arriving two seconds into an outage, a
+row would push every pane down under the pointer, mid-gesture. It covers the panes' top edge instead,
+on the card surface so it reads over whatever is there, until the link is back or it is dismissed.
 It waits two seconds before showing, because the client reconnects on its own and a blip that
 flashed a banner would teach people to ignore it. Its Retry dials at once rather than waiting out the
 backoff; its close hides it for this outage only, and the next one is announced again. A transport
@@ -733,7 +769,7 @@ them in its menu.
 alike: the shared header's tabs upside down, hanging from the footer's top rule, the open one taking the
 page's background and opening into the panel it shows. A lit button says a toggle is on; a tab says
 WHICH of several places you are looking at, which is what a panel row is. The footer wears the header's
-tint for it, since a tab in the page's own colour on a bar of the same colour is not seen. The notes
+card surface for it, since a tab in the page's own colour on a bar of the same colour is not seen. The notes
 button stays a toggle: it opens nothing.
 
 The buttons:
