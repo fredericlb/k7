@@ -86,7 +86,10 @@ regions of a page it navigates away from when the next page declares none, so a 
 dragged the window left k7's home dragging it on every click, with nothing on the page to say why.
 The splash therefore drags nothing (`src/splash.ts`), and until `start` loads the real strip, the
 strip's view holds an empty bar that does (`placeholderStrip`), so the window can still be moved
-while the backend starts.
+while the backend starts. k7's pages also state `-webkit-app-region: no-drag` on `html`
+(`apps/k7/frontend/src/index.css`): a page that declares a region, even a no-drag one, replaces what
+its view kept, so whatever left a drag region behind, k7 clears it as it loads. The strip, the same
+build, still drags: its bar's own `drag` wins over the root's `no-drag`.
 
 **Fullscreen on macOS is the simple kind** (`simpleFullscreen`). Native fullscreen keeps a window
 below the camera housing of a notched screen and paints the band above it black, so the strip would

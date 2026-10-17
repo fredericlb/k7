@@ -116,6 +116,10 @@
     background: var(--sh-background);
     color: var(--sh-foreground);
   }
+  /* The desktop app: a page that STATES no-drag replaces a drag region its view kept from the last page (apps/k7-standalone/docs/tabs.md). */
+  html {
+    -webkit-app-region: no-drag;
+  }
   /* A keyboard user must see where focus is: one ring for every focusable thing, at zero
      specificity so a component's own focus-visible style still wins (docs/shell.md). */
   :where(button, [role="button"], [role="option"], a, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
