@@ -10,6 +10,9 @@ import { type StudioService, serviceUrl } from "./services.ts";
 /** The apps a project folder can belong to. A subset of the services: k7 owns no projects. */
 export type ProjectApp = Extract<StudioService, "k7">;
 
+/** The workspace the file service keeps stocked with the demos: managed content, which the home page offers last. */
+export const EXAMPLES_WORKSPACE = "Examples";
+
 /** The suffix each app claims — one, because everything an k7 project can BE is a shape INSIDE `.k7`. */
 export const PROJECT_SUFFIXES: Record<ProjectApp, string> = {
   k7: ".k7",

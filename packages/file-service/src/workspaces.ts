@@ -35,6 +35,7 @@ import {
 } from "./liveSync.ts";
 import { closeModuleWatchesUnder } from "./moduleWatch.ts";
 import { rootOwner } from "./owner.ts";
+import { projectEditedAt } from "./projectEdited.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import { isProjectDir, projectDirsUnder, Workspace } from "./workspace.ts";
 
@@ -293,6 +294,7 @@ export async function listMachineWorkspaces(
   const rows = names.map((name): AccountWorkspace => {
     const abs = join(dir, name);
     const single = isProjectDir(abs);
+    const active = activeOf(abs);
     return {
       name,
       isSingleProject: single,
@@ -300,8 +302,17 @@ export async function listMachineWorkspaces(
         // `.` names the workspace folder itself; either way the NAME decides, the one rule both ends use.
         const app = projectApp(path === "." ? name : path.split("/").pop()!);
         if (!app) return [];
-        const tags = tagsOf(join(abs, path));
-        return [tags.length ? { path, app, tags } : { path, app }];
+        const at = join(abs, path);
+        const tags = tagsOf(at);
+        // What the home page's row says beyond the name: the archetype, the open one, the last change (docs/workspaces.md).
+        const facts = {
+          surfaces: projectSurfaces(at).surfaces.map((s) => s.surface.type),
+          active: active !== null && active === resolve(at),
+          editedAt: projectEditedAt(at),
+        };
+        return [
+          tags.length ? { path, app, tags, ...facts } : { path, app, ...facts },
+        ];
       }),
     };
   });

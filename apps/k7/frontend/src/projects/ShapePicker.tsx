@@ -24,8 +24,10 @@ export function ShapePicker({
             size="sm"
             variant={shape === sh.id ? "default" : "secondary"}
             disabled={busy}
+            aria-pressed={shape === sh.id}
             onClick={() => onShape(sh.id)}
           >
+            <sh.icon className="h-3.5 w-3.5" />
             {sh.label()}
           </Button>
         ))}

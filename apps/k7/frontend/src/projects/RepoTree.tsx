@@ -81,7 +81,8 @@ function Row(props: RowProps) {
         {node.app && projectHref && (
           <Button size="sm" variant="secondary" asChild>
             <a href={projectHref(node.path, node.app)}>
-              <ArrowRight className="h-3.5 w-3.5" /> Ouvrir dans {node.app}
+              <ArrowRight className="h-3.5 w-3.5" />{" "}
+              {m["repos.openIn"]({ app: node.app })}
             </a>
           </Button>
         )}
@@ -115,7 +116,7 @@ export function RepoTree({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b px-6 py-2">
         <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4" /> Projets
+          <ArrowLeft className="h-4 w-4" /> {m["home.projects"]()}
         </Button>
         <span className="truncate font-medium">{workspace.name}</span>
       </div>

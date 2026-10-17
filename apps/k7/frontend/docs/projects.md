@@ -55,7 +55,7 @@ groups. **Projects**, **Tasks** and **Libraries** — what you WRITE — then, u
 the médiathèque's sections — **Songs**, **Samples**, **Recordings**, **Playlists**, each with its
 count, and **Find** — what you DRAW ON; then **Rehearsal** — **Recordings**, **Publications**,
 **Songbook**, **Exercises** — what you PLAY and keep (`packages/ui-rehearsal/docs/sections.md`). The
-one for the page you are on is lit, and the user menu sits at its foot; below `sm` it folds to an
+one for the page you are on is lit in the accent, and the user menu sits at its foot; below `sm` it folds to an
 icon rail, where a rule stands in for a group's title. The same entries in the same place on
 every page say which of them you are on, so none of the others carries a back button of its own.
 
@@ -256,7 +256,8 @@ that is the point.
 
 ### No workspace is made before a library is there
 
-**Nouveau** is greyed until the origin lists a library, saying so on the button rather than on the
+**New workspace** is greyed until the origin lists a library — and the page's **New project** with
+it, there being nowhere yet to put one — saying so on the button rather than on the
 click, and the file service refuses the same call on its own side. A workspace made before the
 library exists is a folder whose every `@k7-core/…` resolves to nothing — the same half-set-up account
 the libraries notice exists to prevent, one level down and harder to read, since by then there is a
@@ -415,7 +416,7 @@ as a sentence. The tree is read once per open: it is a look inside, not a monito
 
 ## Getting a workspace: one gesture
 
-**Nouveau** asks the file service for `POST /workspaces`, which creates the folder. Nothing to
+**New workspace** asks the file service for `POST /workspaces`, which creates the folder. Nothing to
 configure — no key, no remote, no host — and the live-sync relay is what carries it to the
 account's other devices (`docs/live-sync-plan.md`). There is no import and no publish: a workspace
 exists on every replica the relay reaches, so there is nothing to bring in or send out by hand.
@@ -459,8 +460,9 @@ step that this package exists to avoid.
 
 ## Creating, copying and deleting a project — on the machine, not here
 
-Each workspace's block carries a **"New project"** (the archetype, and a name), and each project
-a **⋮** holding the three acts on one: copy, rename, delete. Neither is done by the media library: what this page
+The page's primary button is **New project** (the archetype, a name, and which workspace when
+there are several), each workspace's block carries one of its own that already knows where, and
+each project a **⋮** holding the three acts on one: copy, rename, delete. Neither is done by the media library: what this page
 calls is the file service the whole app uses as soon as a project is open, not a seam that would
 serve only here.
 
@@ -489,13 +491,34 @@ Each is ONE call and nothing after it: the write lands in the workspace on the s
 live-sync relay is what carries it to the other replicas (`docs/live-sync-plan.md`). There is no
 second step to fail after the first has succeeded, so the dialogs report one outcome.
 
-### A row shows the project's tags
+### What a row says, and what it leaves out
 
-After the app badge, a project row shows its `project.tags` (set in the Tasks panel, `tasks.md`). The
-file service reads them while listing, from each k7 project's project.yaml
-(`packages/file-service/src/workspaces.ts`). One small file per project is cheap beside the tree walk the
-listing already does, and the 5-second listing cache covers it too. That cache is also why a tag added in
-the editor can take up to five seconds to appear here.
+A project row is a link, and what it shows is what somebody scans a list of songs BY: the
+archetype's glyph in place of a bullet, the name, a violet dot on the workspace's active project,
+its `project.tags` (set in the Tasks panel, `tasks.md`), and on the right how long ago it changed.
+The archetype is read back from the surfaces the project declares (`projectKind.ts`), the same
+question the editor answers to choose its panes, so a project whose surfaces were edited by hand is
+drawn as what it now is. All of it comes from the listing the page already polls
+(`packages/file-service/docs/workspaces.md`), whose 5-second window is also why a tag added in the
+editor can take up to five seconds to appear here.
+
+There is **no app badge**: every project this page lists is opened by k7, and a label that is the
+same on every row says nothing five times. A workspace's project count is plain muted text and not a
+violet pill, for the reason the next section gives.
+
+## The page's hierarchy: one heading, one primary, violet for state
+
+The page opens on a heading, **Projects**, with the counts under it, and two buttons beside it:
+**New project**, the primary, and **New workspace**, secondary. That order is how often each is
+wanted — a project every session, a workspace a few times a year — and an unlabelled "New" that
+made the rarer of the two was the only solid button on the page. The list is capped at `max-w-5xl`
+so a row's actions stay near its name on a wide screen.
+
+**The chrome is neutral; violet is a state.** The sidebar, the editor's header and footer, and the
+médiathèque's tree panel are the card surface, and the accent is kept for what is lit, selected or
+the main action — the sidebar's current entry, the archetype picked, the primary button, a
+selection on the timeline. A violet wash on every bar left that accent nothing to say once the thing
+it marked was on screen.
 
 ### The suffix decides, and the name is shown first
 
@@ -676,11 +699,11 @@ and the bar's verbs (`homeCommands.test.ts`) are covered, the screen is not.
 
 - open `/` while logged out → the login screen, then the home page;
 - **with no engine machine**: the project list is replaced by the sentence that says why, the add
-  field and "Nouveau projet" are greyed, and the libraries can still be set;
+  field and **New project** are greyed, and the libraries can still be set;
 - **with a machine and NO library**: `Examples` is there, and one of its demos opens
-  at `/@local/Examples/<démo>.k7` — the installation-day check. **Nouveau** is greyed, and
+  at `/@local/Examples/<démo>.k7` — the installation-day check. **New workspace** is greyed, and
   hovering it says to add a library first;
-- **add a library named `k7-core`** (as an admin): the page lists `@k7-core`, **Nouveau** comes back, and
+- **add a library named `k7-core`** (as an admin): the page lists `@k7-core`, **New workspace** comes back, and
   `<dataRoot>/libraries/k7` is on disk — the seed's copy when the server has one, else empty;
 - **add a second one, named `drums`** → it is listed beside `@k7-core`; its ✕ unlists it, and
   `<dataRoot>/libraries/drums` is still on disk. Add `drums` again → it comes back with what it held;

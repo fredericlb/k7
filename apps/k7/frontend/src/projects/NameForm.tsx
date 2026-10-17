@@ -83,7 +83,8 @@ export function NameField({
         onKeyDown={(e) => e.key === "Enter" && onSubmit()}
       />
       <p className="font-mono text-muted-foreground text-xs">
-        {badName ? (
+        {/* An empty field is not yet a mistake: the refusal waits for something typed, Create staying greyed meanwhile. */}
+        {badName && name.trim() ? (
           <span className="text-destructive">{badName}</span>
         ) : (
           preview || " "
