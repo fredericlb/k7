@@ -4,6 +4,7 @@
 # OneDev's image jobs, ported (docs/images.md): each image is built beside the tests and pushed under the
 # commit only; `publish` moves `:latest` and the version stamp onto those manifests once k7.yml has passed
 # for the same commit. The Pi image builds on an arm64 runner, natively: no emulation, no cross-compile.
+# `harnesses` renders through the k7-runtime binary just built, and reports without gating.
 
 name: images
 
@@ -113,6 +114,58 @@ jobs:
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/k7-cache:${{ matrix.image }}
           cache-to: type=registry,ref=${{ env.REGISTRY }}/k7-cache:${{ matrix.image }},mode=max,image-manifest=true,oci-mediatypes=true
+
+  # The render-and-measure harnesses, against the engine this run just built — engine/k7-runtime/docs/renderHarnesses.md.
+  harnesses:
+    name: render harnesses (informational)
+    needs: engine
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # Tuned on developers' machines and not yet proven on a runner: it reports, it does not gate `publish`.
+    continue-on-error: true
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
+      - id: commons
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
+      - uses: ./.github/actions/node
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      # The image's last stage has no node, so the binaries come out to the runner, whose glibc is newer than bookworm's.
+      - name: take the engine out of the image
+        run: |
+          docker create --name engine "$REGISTRY/k7-runtime:$GITHUB_SHA"
+          docker cp engine:/opt/k7 "$RUNNER_TEMP/k7"
+          docker rm engine
+      # The libraries the runtime stage installs, under Ubuntu's names; a missing one fails here, not inside a render.
+      - name: engine libraries
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2t64 libfreetype6 libfontconfig1 libcurl4t64
+          ! ldd "$RUNNER_TEMP/k7/k7-runtime" | grep "not found"
+      # Every harness runs whatever the one before it said, so one red render hides none of the others.
+      - name: render and measure
+        env:
+          STUDIO_ENGINE: ${{ runner.temp }}/k7/k7-runtime
+        run: |
+          failed=()
+          for h in render-once warp-points pad-effects quick-master master-chain cue-bus; do
+            echo "::group::$h"
+            npx tsx "engine/k7-runtime/scripts/$h.ts" || failed+=("$h")
+            echo "::endgroup::"
+          done
+          if [ ${#failed[@]} -gt 0 ]; then echo "::error::failed: ${failed[*]}"; exit 1; fi
 
   publish:
     name: tag latest
