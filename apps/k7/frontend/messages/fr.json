@@ -17,6 +17,8 @@
   "project.syncingCatchingUp": "Récupération des dernières modifications…",
   "project.syncingDownloading": "{files} fichier(s) encore en téléchargement…",
   "project.syncingOffline": "Le serveur est injoignable, et {files} fichier(s) de ce projet ne sont jamais arrivés. Il s'ouvrira dès qu'ils seront là.",
+  "project.syncingRefusedUpdate": "Ce k7 est trop ancien pour le serveur. Mettez-le à jour pour synchroniser à nouveau ce projet.",
+  "project.syncingRefusedServerOlder": "Le serveur fait tourner un k7 plus ancien que celui-ci et ne peut pas se synchroniser avec lui. La synchronisation reprendra une fois le serveur mis à jour.",
   "project.backToProjects": "Retour aux projets",
   "project.missingTitle": "Ce projet n'est pas dans l'espace de travail",
   "project.missingBody": "L'espace de travail est bien là, mais pas ce projet : il a sans doute été renommé ou supprimé depuis l'ouverture de cette page. Retournez aux projets et rouvrez-le.",

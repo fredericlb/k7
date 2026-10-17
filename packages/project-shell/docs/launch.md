@@ -158,7 +158,8 @@ from one table rather than a slash somebody has to remember.
 
 On a machine that syncs with a relay, the gate asks `/sync/project` before `/open` and shows the
 SYNC screen until the answer is ready (`src/syncWait.tsx`): reaching the server, the latest edits
-arriving, or N files still downloading. Asking first matters on a first download, where the project
+arriving, N files still downloading, or the relay refusing this k7 until one side is updated, which
+names the side. Asking first matters on a first download, where the project
 folder may not even exist yet and `/open` would answer "no such project".
 
 The machine is the rule and the gate the courtesy: `/open` refuses with 409 while the project is

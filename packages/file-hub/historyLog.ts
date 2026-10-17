@@ -1,6 +1,7 @@
 // historyLog.ts — a room's whole log on disk: append-only segments, full snapshots of the files, checkpoints.
 // `entries.jsonl` holds the entries since the room's last save; a save ROLLS it into `log/<firstSeq>.jsonl`, never empties it.
 // `log/index.json` knows each segment's first and last seq, so a page reads only the segments it needs.
+// Every line and saved state carries the LOG_V that wrote it; a higher one is refused, never replayed.
 // See docs/history.md.
 
 import {
@@ -15,7 +16,12 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { applyFileOp } from "@studio/live-sync/file-op";
-import type { Sequenced } from "@studio/live-sync/ops";
+import {
+  isKnownOpKind,
+  NeedsUpdate,
+  type Sequenced,
+} from "@studio/live-sync/ops";
+import { LOG_V } from "@studio/live-sync/protocol";
 import type { RoomState } from "@studio/live-sync/room";
 import { writeFileAtomic } from "@studio/song/atomicWrite";
 
@@ -49,16 +55,71 @@ const seqsIn = (dir: string, ext: string): number[] =>
 const segmentSeqs = (dir: string) => seqsIn(join(dir, SEGMENTS), ".jsonl");
 const snapshotSeqs = (dir: string) => seqsIn(join(dir, SNAPSHOTS), ".json");
 
+const isObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** A version stamp read from disk: absent is 1, the only version written before the stamp. */
+function checkVersion(v: unknown, what: string): void {
+  const ver = v ?? 1;
+  if (typeof ver !== "number" || !Number.isInteger(ver) || ver < 1)
+    throw new Error(`${what}: bad log version ${String(ver)}`);
+  if (ver > LOG_V)
+    throw new NeedsUpdate(
+      `${what} written by log version ${ver}, this k7 reads up to ${LOG_V}: update k7`,
+    );
+}
+
+/** One persisted entry, stamped with the log version that wrote it. */
+export const entryLine = (entry: Sequenced): string =>
+  `${JSON.stringify({ v: LOG_V, ...entry })}\n`;
+
+/** One line of a log, or null for one a crash cut short or that is no entry; a newer version throws NeedsUpdate. */
+export function parseEntryLine(line: string): Sequenced | null {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(line);
+  } catch {
+    return null;
+  }
+  if (!isObject(raw)) return null;
+  const { v, ...entry } = raw;
+  checkVersion(v, `entry ${String(entry.seq)}`);
+  const batch = entry.batch;
+  if (
+    typeof entry.seq !== "number" ||
+    !isObject(batch) ||
+    !Array.isArray(batch.ops) ||
+    !Array.isArray(entry.parked)
+  )
+    return null;
+  for (const op of batch.ops)
+    if (!isObject(op) || !isKnownOpKind(op.kind))
+      throw new NeedsUpdate(
+        `entry ${entry.seq}: op kind unknown here: update k7`,
+      );
+  return entry as unknown as Sequenced;
+}
+
+/** A saved room state as written, stamped like the entries. */
+export const stateText = (state: object): string =>
+  JSON.stringify({ v: LOG_V, ...state });
+
+/** A saved room state read back, its stamp checked and dropped. */
+export function parseState<T>(text: string): T {
+  const raw = JSON.parse(text);
+  if (!isObject(raw)) throw new Error("room state: not an object");
+  const { v, ...state } = raw;
+  checkVersion(v, "room state");
+  return state as T;
+}
+
 function readLines(file: string): Sequenced[] {
   if (!existsSync(file)) return [];
   const out: Sequenced[] = [];
   for (const line of readFileSync(file, "utf8").split("\n")) {
-    if (!line) continue;
-    try {
-      out.push(JSON.parse(line) as Sequenced);
-    } catch {
-      // a line a crash cut short was never relayed: skipped, as the relay skips it on load
-    }
+    // A line a crash cut short was never relayed: skipped, as the relay skips it on load.
+    const entry = line ? parseEntryLine(line) : null;
+    if (entry) out.push(entry);
   }
   return out;
 }
@@ -73,7 +134,7 @@ export function adoptLegacy(dir: string, state: RoomState | null): void {
   if (kept.length)
     writeFileAtomic(
       join(dir, SEGMENTS, `${kept[0].seq}.jsonl`),
-      kept.map((e) => `${JSON.stringify(e)}\n`).join(""),
+      kept.map(entryLine).join(""),
     );
   writeSnapshot(dir, state.head, state.files);
 }
@@ -124,7 +185,9 @@ function segmentIndex(dir: string): SegmentInfo[] {
   const logDir = join(dir, SEGMENTS);
   let saved: Record<string, SegmentInfo> = {};
   try {
-    saved = JSON.parse(readFileSync(join(logDir, SEGMENT_INDEX), "utf8"));
+    const raw = JSON.parse(readFileSync(join(logDir, SEGMENT_INDEX), "utf8"));
+    // Only this version's index is trusted; any other is a cache rebuilt from the segments.
+    if (raw?.v === LOG_V && isObject(raw.segments)) saved = raw.segments;
   } catch {
     // Missing or torn: rebuilt below from the segments themselves.
   }
@@ -147,7 +210,10 @@ function segmentIndex(dir: string): SegmentInfo[] {
   if (changed || Object.keys(saved).length !== out.length)
     writeFileAtomic(
       join(logDir, SEGMENT_INDEX),
-      JSON.stringify(Object.fromEntries(out.map((i) => [i.start, i]))),
+      JSON.stringify({
+        v: LOG_V,
+        segments: Object.fromEntries(out.map((i) => [i.start, i])),
+      }),
     );
   return out;
 }

@@ -37,6 +37,15 @@ describe("syncStateOf", () => {
       pending: 2,
     });
   });
+
+  it("never opens one the relay refused, and says which side to update", () => {
+    expect(syncStateOf("refused", 0, "server-older")).toEqual({
+      state: "refused",
+      ready: false,
+      pending: 0,
+      refused: "server-older",
+    });
+  });
 });
 
 describe("pendingUnder", () => {

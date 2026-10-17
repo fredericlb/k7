@@ -38,6 +38,15 @@ export type FileOp =
   | { kind: "text"; file: string; text: string; was?: string | null }
   | { kind: "remove"; file: string; was?: string | null };
 
+/** Every op kind this build applies; anything else came from a newer k7 (../docs/sync.md, "Versions"). */
+export const OP_KINDS: readonly string[] = ["yaml", "k7x", "text", "remove"];
+
+export const isKnownOpKind = (kind: unknown): boolean =>
+  typeof kind === "string" && OP_KINDS.includes(kind);
+
+/** Thrown where something written by a newer k7 reaches this one: it is refused, never guessed at. */
+export class NeedsUpdate extends Error {}
+
 /** One mutation window's changes, as captured by one replica. */
 export interface Batch {
   id: string;

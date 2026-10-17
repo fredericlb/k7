@@ -362,7 +362,11 @@ export function projectSyncState(
     Object.keys(a.capture.blobs?.pending() ?? {}),
     dir,
   );
-  return syncStateOf(a.link.textState(a.room), pending);
+  return syncStateOf(
+    a.link.textState(a.room),
+    pending,
+    a.link.refusal() ?? undefined,
+  );
 }
 
 /** How many of the files waiting for bytes are under `dir`; the empty `dir` is the whole workspace. */
@@ -373,7 +377,11 @@ export const pendingUnder = (files: string[], dir: string): number =>
 export function syncStateOf(
   text: TextState,
   pending: number,
+  refused?: ProjectSyncState["refused"],
 ): ProjectSyncState {
+  // Refused is never opened: its edits could not reach the server until an update, and this screen is where the user learns it.
+  if (text === "refused")
+    return { state: "refused", ready: false, pending, refused };
   // Offline is opened with what is here, unless a file it names has no bytes yet: that would open broken.
   if (text === "offline")
     return { state: "offline", ready: pending === 0, pending };

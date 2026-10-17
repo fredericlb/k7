@@ -94,10 +94,12 @@ carrying all its workspaces:
 
 | Direction | Message |
 |---|---|
-| replica → relay | `{ t: "hello", workspace, since }`, `{ t: "batch", workspace, batch }` |
-| relay → replica | `{ t: "welcome", mode: "seed" \| "entries" \| "snapshot", head?, files?, conflicts? }`, `{ t: "seq", entry }`, `{ t: "error", error }` |
+| replica → relay | `{ t: "hello", workspace, since, proto }`, `{ t: "batch", workspace, batch }` |
+| relay → replica | `{ t: "welcome", mode: "seed" \| "entries" \| "snapshot", head?, files?, conflicts? }`, `{ t: "seq", entry }`, `{ t: "refused", reason, min, server }`, `{ t: "error", error, reason? }` |
 
-`parseToRelay` validates every frame field by field (`isBatch`, `isFileOp`): the relay trusts the
+`proto` is the replica's `SYNC_PROTO`; a level the relay does not serve is refused, and the
+replica stops until one side is updated (`packages/live-sync/docs/sync.md`, "Versions").
+`readToRelay` validates every frame field by field (`isBatch`, `isFileOp`): the relay trusts the
 socket's authentication, never its payload. The endpoint is `WS /api/sync` on the hub
 ([file-hub](./37-file-hub.md)), or the paired server's `wss://<host>/api/sync`.
 

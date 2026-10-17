@@ -2,13 +2,47 @@
 // One socket carries every workspace of an account; each message names the one it is about.
 // See ../docs/sync.md.
 
-import type { Batch, Conflict, FileOp, Sequenced } from "./ops.ts";
+import {
+  type Batch,
+  type Conflict,
+  type FileOp,
+  isKnownOpKind,
+  type Sequenced,
+} from "./ops.ts";
 import { isSyncPath } from "./path.ts";
 
-/** Replica to relay. */
+/** The level of this build's ops and frames; what bumps it is ../docs/sync.md, "Versions". */
+export const SYNC_PROTO = 1;
+/** The oldest replica level a relay of this build still serves. */
+export const SYNC_PROTO_MIN = 1;
+/** The version stamped on every log entry and saved room state this build writes. */
+export const LOG_V = 1;
+
+/** Replica to relay; a hello without `proto` is a level-1 replica. */
 export type ToRelay =
-  | { t: "hello"; workspace: string; since: number }
+  | {
+      t: "hello";
+      workspace: string;
+      since: number;
+      proto: number;
+      build?: string;
+    }
   | { t: "batch"; workspace: string; batch: Batch };
+
+/** Why a hello is refused: the replica must be updated, or the server is older than it. */
+export type RefusalReason = "update" | "server-older";
+
+/** The relay's answer to a hello it will not serve: the levels it accepts, so the replica can say which side to update. */
+export interface Refused {
+  t: "refused";
+  workspace: string;
+  reason: RefusalReason;
+  min: number;
+  server: number;
+}
+
+/** Why a frame was not read: not a sync frame at all, an op kind this server lacks, or a message it does not know. */
+export type FrameError = "malformed" | "unknown-op" | "unknown-message";
 
 /** Relay to replica. `welcome` answers `hello` with the open conflicts; a `seq` follows for every batch ordered, the replica's own included. */
 export type FromRelay =
@@ -29,7 +63,22 @@ export type FromRelay =
       conflicts: Conflict[];
     }
   | { t: "seq"; workspace: string; entry: Sequenced }
-  | { t: "error"; workspace?: string; error: string };
+  | Refused
+  | { t: "error"; workspace?: string; error: string; reason?: FrameError };
+
+/** The refusal a relay at `server`, accepting from `min`, answers a hello at `proto` with, or null when it serves it. */
+export function protoRefusal(
+  workspace: string,
+  proto: number,
+  server = SYNC_PROTO,
+  min = SYNC_PROTO_MIN,
+): Refused | null {
+  if (proto < min)
+    return { t: "refused", workspace, reason: "update", min, server };
+  if (proto > server)
+    return { t: "refused", workspace, reason: "server-older", min, server };
+  return null;
+}
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -81,19 +130,68 @@ export function isBatch(v: unknown): v is Batch {
   );
 }
 
-/** A frame from a replica, or null when it is not one: the relay trusts the socket, not the payload. */
-export function parseToRelay(raw: string): ToRelay | null {
+/** A frame read, or why it was not: the relay trusts the socket, not the payload. */
+export type ReadFrame =
+  | { msg: ToRelay }
+  | { reason: FrameError; error: string; workspace?: string };
+
+/** The first op kind in a batch-looking value that this build does not know, or null. */
+function unknownKind(batch: unknown): string | null {
+  if (!isObject(batch) || !Array.isArray(batch.ops)) return null;
+  for (const op of batch.ops)
+    if (isObject(op) && !isKnownOpKind(op.kind)) return String(op.kind);
+  return null;
+}
+
+/** A frame from a replica, read whole before anything uses it. */
+export function readToRelay(raw: string): ReadFrame {
   let v: unknown;
   try {
     v = JSON.parse(raw);
   } catch {
-    return null;
+    return { reason: "malformed", error: "not JSON" };
   }
-  if (!isObject(v) || typeof v.workspace !== "string" || !v.workspace)
-    return null;
-  if (v.t === "hello" && typeof v.since === "number")
-    return { t: "hello", workspace: v.workspace, since: v.since };
-  if (v.t === "batch" && isBatch(v.batch))
-    return { t: "batch", workspace: v.workspace, batch: v.batch };
-  return null;
+  if (!isObject(v)) return { reason: "malformed", error: "not an object" };
+  if (typeof v.workspace !== "string" || !v.workspace)
+    return { reason: "malformed", error: "no workspace named" };
+  const workspace = v.workspace;
+  if (v.t === "hello") {
+    // No `proto` is a replica from before the field: level 1, the only level there was.
+    const proto = v.proto ?? 1;
+    if (typeof v.since !== "number")
+      return { reason: "malformed", error: "hello without since", workspace };
+    if (typeof proto !== "number" || !Number.isInteger(proto) || proto < 1)
+      return {
+        reason: "malformed",
+        error: "hello with a bad proto",
+        workspace,
+      };
+    const build = typeof v.build === "string" ? v.build : undefined;
+    return {
+      msg: { t: "hello", workspace, since: v.since, proto, build },
+    };
+  }
+  if (v.t === "batch") {
+    if (isBatch(v.batch))
+      return { msg: { t: "batch", workspace, batch: v.batch } };
+    const kind = unknownKind(v.batch);
+    return kind === null
+      ? { reason: "malformed", error: "batch malformed", workspace }
+      : {
+          reason: "unknown-op",
+          error: `op kind "${kind}" unknown here: this server's k7 is older than the replica's`,
+          workspace,
+        };
+  }
+  return {
+    reason: "unknown-message",
+    error: `message "${String(v.t)}" unknown here`,
+    workspace,
+  };
+}
+
+/** A frame from a replica, or null when it is not one. */
+export function parseToRelay(raw: string): ToRelay | null {
+  const read = readToRelay(raw);
+  return "msg" in read ? read.msg : null;
 }
