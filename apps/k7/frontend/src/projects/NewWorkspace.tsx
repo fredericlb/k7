@@ -13,9 +13,12 @@ export function NewWorkspace({
   /** Why it is impossible, or "" — a file service not answering is one. */
   blocked,
   onCreate,
+  primary = false,
 }: {
   blocked: string;
   onCreate: (workspace: string, onStep: (s: string) => void) => Promise<void>;
+  /** In the empty list's place, where making a workspace IS the page's one act. */
+  primary?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -36,10 +39,10 @@ export function NewWorkspace({
 
   return (
     <>
-      {/* Secondary: a workspace is made once in a while, a project every session — the page's primary is New project. */}
+      {/* Secondary in the header: a workspace is made once in a while, a project every session — the page's primary is New project. */}
       <Button
         size="sm"
-        variant="secondary"
+        variant={primary ? "default" : "secondary"}
         disabled={Boolean(blocked)}
         title={blocked || m["ws.newHint"]()}
         onClick={() => setOpen(true)}

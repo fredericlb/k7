@@ -229,6 +229,8 @@ function HomeSidebar({
           }
           onSettings={() => navigate(SETTINGS_ROUTE)}
           settingsLabel={m["home.settings"]()}
+          label={m["home.account"]()}
+          logoutLabel={m["home.signOut"]()}
           // The desktop app's own engine page, then About — version, licence, source, notices (../../docs/about.md).
           items={[
             ...(onDesktopEngine()

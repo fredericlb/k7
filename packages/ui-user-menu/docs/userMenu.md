@@ -22,6 +22,9 @@ project: the editor's header has no room for a menu that leaves the session.
 
 ## The account and the logout
 
+Its words are the host's: `label` (the trigger's name), `settingsLabel` and `logoutLabel` are passed
+through to `@frediverse/ui`'s menu, whose English defaults are what a host that passes none shows.
+
 k7 asks `/auth/me` on its own origin and, after signing out, reloads onto its sign-in screen. The
 session cookie is shared by everything on the origin, so logging out of one app logs out of all.
 

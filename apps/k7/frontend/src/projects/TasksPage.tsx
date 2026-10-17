@@ -3,11 +3,17 @@
 // ticked inside its workspace, where the `task` commands run. See ../../docs/tasks.md.
 
 import { Button } from "@frediverse/ui/button";
-import { ArrowRight, Loader2, RefreshCw } from "@frediverse/ui/icons";
+import {
+  ArrowRight,
+  ListChecks,
+  Loader2,
+  RefreshCw,
+} from "@frediverse/ui/icons";
 import { useCallback, useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
 import { accountFiles, projectHref, workspaceHref } from "./api";
+import { EmptyState } from "./EmptyState";
 import { HomeShell } from "./HomeSidebar";
 import { PageFrame } from "./PageFrame";
 import type { AccountFiles } from "./workspaceOps";
@@ -114,9 +120,8 @@ export function TasksPage() {
               </code>
             )}
             {shown.length === 0 && !error && (
-              <p className="text-sm text-muted-foreground">
-                {m["tasks.none"]()}
-              </p>
+              // No act on the spot: a task is written inside its workspace, where the `task` commands run.
+              <EmptyState icon={ListChecks}>{m["tasks.none"]()}</EmptyState>
             )}
             {shown.map(({ workspace: ws, tasks, error: wsError }) => (
               <section key={ws.name}>

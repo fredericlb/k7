@@ -26,6 +26,7 @@ import { useLocale } from "../i18n";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";
 import { SETTINGS_ROUTE } from "./api";
+import { EmptyState } from "./EmptyState";
 import { NewProject } from "./NewProject";
 import { NewWorkspace } from "./NewWorkspace";
 import { PAGE_COLUMN, PageHeader } from "./PageFrame";
@@ -242,19 +243,24 @@ export function RepoList({
             })}
           </span>
         </div>
-      ) : workspaces.length === 0 ? (
-        <div className="rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
-          {busy ? (
-            <span className="inline-flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />{" "}
-              {m["common.loading"]()}
-            </span>
-          ) : (
-            parts((h) => m["repos.empty"](h), {
-              new: <strong>{m["repos.newWord"]()}</strong>,
-            })
-          )}
+      ) : workspaces.length === 0 && busy ? (
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" /> {m["common.loading"]()}
         </div>
+      ) : workspaces.length === 0 ? (
+        // The act itself, on the spot: the header has the same button, but an empty page is read from its middle.
+        <EmptyState
+          icon={Folder}
+          actions={
+            <NewWorkspace
+              primary
+              blocked={blockedWorkspace}
+              onCreate={onCreateWorkspace}
+            />
+          }
+        >
+          {m["repos.empty"]()}
+        </EmptyState>
       ) : (
         <ul className="flex flex-col gap-2">
           {workspaces.map((w) => (

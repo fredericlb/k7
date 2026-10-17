@@ -53,7 +53,7 @@ browser (`packages/ui-user-menu/docs/userMenu.md`).
 (`HomeSidebar.tsx`), and no header: the page's whole height goes to the list. Its entries are three
 groups. **Projects**, **Tasks** and **Libraries** — what you WRITE — then, under a title of its own,
 the médiathèque's sections — **Songs**, **Samples**, **Recordings**, **Playlists**, each with its
-count, and **Find** — what you DRAW ON; then **Rehearsal** — **Recordings**, **Publications**,
+count, and **Find** — what you DRAW ON; then **Rehearsal** — **Sessions**, **Publications**,
 **Songbook**, **Exercises** — what you PLAY and keep (`packages/ui-rehearsal/docs/sections.md`). The
 one for the page you are on is lit in the accent, and the user menu sits at its foot; below `sm` it folds to an
 icon rail, where a rule stands in for a group's title. The same entries in the same place on
@@ -505,6 +505,24 @@ editor can take up to five seconds to appear here.
 There is **no app badge**: every project this page lists is opened by k7, and a label that is the
 same on every row says nothing five times. A workspace's project count is plain muted text and not a
 violet pill, for the reason the next section gives.
+
+### Every entry has a glyph of its own
+
+Below `sm` the sidebar is an icon rail and the glyph is all an entry has, so no two entries share
+one, across the media and rehearsal groups alike: the médiathèque's recorded FILES are a waveform,
+the rehearsal SESSIONS a microphone, its publications a broadcast. The rehearsal entry is named
+**Sessions** for the same reason — two entries called Recordings, one per group, read as one.
+
+## An empty page offers the act that fills it
+
+Every list on this side that can be empty draws the same block when it is (`EmptyState.tsx`): a
+glyph, one sentence saying what would be here in the reader's words, and the button that makes the
+first one — New workspace on Projects, Find and Add on the médiathèque's songs, Record a session on
+the rehearsal's. The button is there even when the same one exists elsewhere on the screen: an
+empty page is read from its middle, and a sentence telling the reader where a control is (*the red
+button at the foot of the sidebar*) is a map where an act was wanted. A page with nothing to do from
+here, Tasks, draws the block without one. The médiathèque and the rehearsal pages cannot import
+k7's component, so they spell the same block in their own packages.
 
 ## The page's hierarchy: one heading, one primary, violet for state
 

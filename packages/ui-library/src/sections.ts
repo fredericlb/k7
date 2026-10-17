@@ -3,10 +3,10 @@
 // The one thing a reader would get wrong: `counted` sections show a count, the hunt has none to show.
 
 import {
+  AudioWaveform,
   Disc3,
   ListMusic,
   type LucideIcon,
-  Mic,
   Search,
   Waves,
 } from "@frediverse/ui/icons";
@@ -20,10 +20,11 @@ export interface LibrarySection {
   counted: boolean;
 }
 
+// Each glyph is unique in the host's sidebar, rehearsal's entries included: on the icon rail it is all there is.
 export const LIBRARY_SECTIONS: LibrarySection[] = [
   { id: "songs", icon: Disc3, counted: true },
   { id: "samples", icon: Waves, counted: true },
-  { id: "recordings", icon: Mic, counted: true },
+  { id: "recordings", icon: AudioWaveform, counted: true },
   { id: "playlists", icon: ListMusic, counted: true },
   { id: "find", icon: Search, counted: false },
 ];
