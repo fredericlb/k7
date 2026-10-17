@@ -162,8 +162,7 @@ through the bridge's 32-sample blocks as through the host's.
 
 ### The formats, as read
 
-Written from the files and their documentation, not from AIDA-X's or Proteus's own code: both
-plugins are GPL-3, and this engine is not.
+Written from the files and their documentation, not from AIDA-X's or Proteus's own code.
 
 | | AIDA-X (Keras export) | Proteus (PyTorch `state_dict`) |
 |---|---|---|

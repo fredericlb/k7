@@ -87,3 +87,9 @@ npm run check-images    # asserts no workspace package is missing from an image
 
 See [commons/docs/images.md](commons/docs/images.md) — the base image and the
 app images use two different build contexts.
+
+## License
+
+studio is licensed under the GNU General Public License, version 3 — see [LICENSE](LICENSE).
+The notices of the third-party code the engine compiles are in
+[engine/k7-runtime/LICENSE](engine/k7-runtime/LICENSE).
