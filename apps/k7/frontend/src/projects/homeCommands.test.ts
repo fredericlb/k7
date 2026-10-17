@@ -60,7 +60,7 @@ function harness(
   const acts: HomeActs = {
     create: async (m, w, folder, _onStep, shape) => {
       seen.create.push([m, w, folder, shape]);
-      return folder;
+      return { project: folder, missing: [] };
     },
     copy: async (m, from, path, to, name) => {
       seen.copy.push([m, from, path, to, name]);

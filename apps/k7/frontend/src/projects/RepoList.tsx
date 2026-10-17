@@ -76,6 +76,7 @@ export function RepoList({
   workspaces,
   busy,
   error,
+  notice = null,
   hasFileService,
   onCreateWorkspace,
   onOpen,
@@ -99,6 +100,8 @@ export function RepoList({
   workspaces: AccountWorkspace[];
   busy: boolean;
   error: string | null;
+  /** A warning in plain words, drawn amber rather than as an error. */
+  notice?: string | null;
   hasFileService: boolean;
   /** A workspace of one's own, made on the server with nothing in it. */
   onCreateWorkspace: (
@@ -178,6 +181,11 @@ export function RepoList({
         <code className="max-w-full overflow-x-auto rounded bg-muted px-2 py-1 text-xs text-red-400">
           {error}
         </code>
+      )}
+      {notice && (
+        <p className="rounded border border-amber-500/40 px-2 py-1 text-amber-500 text-xs">
+          {notice}
+        </p>
       )}
 
       {!hasFileService ? (

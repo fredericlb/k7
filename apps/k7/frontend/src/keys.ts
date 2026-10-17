@@ -149,7 +149,8 @@ export function keyToken(e: KeyboardEvent): string | null {
   if (e.key === "Escape") return "esc";
   // Shift+Tab lands here and cycles FORWARD too: a ring of three is walked in at most two presses.
   if (e.key === "Tab") return "tab";
-  if (e.key === "Backspace") return "backspace";
+  // Delete is Backspace's twin everywhere else, so it gets the same token rather than a binding of its own.
+  if (e.key === "Backspace" || e.key === "Delete") return "backspace";
   return e.key.length === 1 ? e.key : null; // a bare character; named keys above
 }
 

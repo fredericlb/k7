@@ -278,7 +278,7 @@ export async function runHomeCommand(
       const found = resolveWorkspace(d);
       if ("error" in found) return use(d.refuse, found.error);
       try {
-        const project = await d.acts.create(
+        const { project, missing } = await d.acts.create(
           m,
           found.ws.name,
           folder,
@@ -286,7 +286,14 @@ export async function runHomeCommand(
           type as ProjectShape,
         );
         d.changed();
-        d.say(`+ ${found.ws.name}/${project}`);
+        d.say(
+          missing.length
+            ? msg["project.missingModules"]({
+                project,
+                modules: missing.join(", "),
+              })
+            : `+ ${found.ws.name}/${project}`,
+        );
       } catch (e) {
         d.refuse(`project new: ${(e as Error).message}`);
       }

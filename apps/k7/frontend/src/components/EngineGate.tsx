@@ -246,6 +246,9 @@ export function EngineGate({
       onRefresh={() => void refresh()}
       onPick={(r) => void pick(r)}
       onPaired={(id) => void afterPairing(id)}
+      onBack={() => {
+        window.location.href = projectsUrl(window.location.href);
+      }}
     />
   );
 }

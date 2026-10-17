@@ -387,8 +387,11 @@ export const accountFiles = {
     workspace: string,
     name: string,
     shape: ProjectShape,
-  ): Promise<string> => {
-    const { project } = await json<{ project: string }>(
+  ): Promise<{ project: string; missing: string[] }> => {
+    const { project, missing } = await json<{
+      project: string;
+      missing?: string[];
+    }>(
       await fetch(`${m.fileBase}/project/create`, {
         method: "POST",
         headers: {
@@ -400,7 +403,7 @@ export const accountFiles = {
       }),
       "create",
     );
-    return project;
+    return { project, missing: missing ?? [] };
   },
 
   /**

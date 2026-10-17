@@ -55,7 +55,7 @@ export function SharePanel({
       <header className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1.5">
         <Share2 className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-sm font-medium">
-          Partager / exporter
+          {m["share.button"]()}
         </span>
         {busy ? (
           <Loader2

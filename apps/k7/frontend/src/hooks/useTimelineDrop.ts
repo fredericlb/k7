@@ -7,6 +7,7 @@
 import { IMAGE_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
 import { useCallback, useState } from "react";
 import { fileClip } from "../clipFiles";
+import { mediaSeconds } from "../mediaSeconds";
 import { m } from "../paraglide/messages.js";
 import {
   type DropUpload,
@@ -110,18 +111,28 @@ export function useTimelineDrop(
 
       // 3. the placements — commands, so each is one journal entry and one Ctrl+Z.
       const kindOf = new Map(plan.declare.map((c) => [c.id, c.kind]));
-      const stills = new Set(
-        plan.declare
-          .filter((c) => IMAGE_SOURCE.test(c.upload))
-          .map((c) => c.id),
+      // A still has no length of its own, so it is placed with one: five seconds, trimmed like any shot.
+      const lengths = new Map<string, number | null>();
+      await Promise.all(
+        plan.declare.map(async (c, i) => {
+          if (c.kind !== "video") return;
+          lengths.set(
+            c.id,
+            IMAGE_SOURCE.test(c.upload)
+              ? STILL_SECONDS
+              : await mediaSeconds(carried[i]),
+          );
+        }),
       );
-      for (const p of plan.place)
+      for (const p of plan.place) {
+        // A video is placed with its measured length, since a shot with none counts for nothing in an export's duration.
+        const length = lengths.get(p.id);
         await runCommand(
           kindOf.get(p.id) === "video"
-            ? // A still has no length of its own, so it is placed with one: five seconds, trimmed like any shot.
-              `picture add ${p.lane} ${p.id} ${seconds}${stills.has(p.id) ? ` ${STILL_SECONDS}` : ""}`
+            ? `picture add ${p.lane} ${p.id} ${seconds}${length ? ` ${length}` : ""}`
             : `event add ${p.lane} ${p.id} ${tc}`,
         );
+      }
       // 4. …and a shot's SOUND, which the engine plays from an audio lane (packages/song/docs/videoSound.md).
       const pictured = plan.place
         .filter((p) => kindOf.get(p.id) === "video")

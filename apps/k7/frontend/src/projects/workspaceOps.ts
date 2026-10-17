@@ -20,14 +20,14 @@ export async function createWorkspace(
   return { workspace: name };
 }
 
-/** Scaffold a project of one of the archetypes in a workspace; the answer is its folder. */
+/** Scaffold a project of one of the archetypes in a workspace; the answer is its folder and the library modules it still owes. */
 export async function createProject(
   m: AccountFiles,
   workspace: string,
   folder: string,
   onStep: (s: string) => void,
   shape: ProjectShape,
-): Promise<string> {
+): Promise<{ project: string; missing: string[] }> {
   onStep(msg["ops.creating"]({ name: folder }));
   return accountFiles.createProject(m, workspace, folder, shape);
 }

@@ -27,6 +27,7 @@ export function FirstProject({
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState("");
   const [error, setError] = useState("");
+  const [owed, setOwed] = useState("");
 
   // One suffix is left, and this is it: every shape lives in a `.k7` folder.
   const { folder, error: badName } = projectFolderName(name, "k7");
@@ -37,8 +38,16 @@ export function FirstProject({
     setError("");
     void (async () => {
       setStep(m["project.creating"]({ folder }));
-      await projectApi.createProject(shape, folder);
-      onCreated();
+      const { project, missing = [] } = await projectApi.createProject(
+        shape,
+        folder,
+      );
+      // What the project still owes is said here, before it opens, rather than heard as silence once it has.
+      if (!missing.length) return onCreated();
+      setStep("");
+      setOwed(
+        m["project.missingModules"]({ project, modules: missing.join(", ") }),
+      );
     })().catch((e: Error) => {
       setError(e.message);
       setBusy(false);
@@ -74,11 +83,21 @@ export function FirstProject({
           preview={folder}
         />
 
+        {owed && (
+          <p className="rounded border border-amber-500/40 px-2 py-1 text-amber-500 text-xs">
+            {owed}
+          </p>
+        )}
+
         <div className="flex justify-end">
-          <Button disabled={busy || !folder} onClick={submit}>
-            {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-            {m["common.create"]()}
-          </Button>
+          {owed ? (
+            <Button onClick={onCreated}>{m["common.continue"]()}</Button>
+          ) : (
+            <Button disabled={busy || !folder} onClick={submit}>
+              {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+              {m["common.create"]()}
+            </Button>
+          )}
         </div>
       </div>
     </div>

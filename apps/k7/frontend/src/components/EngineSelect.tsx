@@ -5,7 +5,7 @@
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
-import { Loader2, RefreshCw, Server } from "@frediverse/ui/icons";
+import { ArrowLeft, Loader2, RefreshCw, Server } from "@frediverse/ui/icons";
 import {
   describePerformance,
   formatPerformance,
@@ -29,6 +29,7 @@ export function EngineSelect({
   onRefresh,
   onPick,
   onPaired,
+  onBack,
 }: {
   ranked: RankedEngine[];
   loading: boolean;
@@ -36,6 +37,8 @@ export function EngineSelect({
   onPick: (r: RankedEngine) => void;
   /** This device just paired with that engine: re-probe, and it answers as usable. */
   onPaired: (engineId: string) => void;
+  /** Leave for the projects page — the way out when no engine can be had. */
+  onBack: () => void;
 }) {
   // The pairing card only while nothing is usable: with an engine to pick, pairing another is not this screen's business.
   const pairable = ranked.some(selectableRow) ? [] : needingPairing(ranked);
@@ -46,17 +49,23 @@ export function EngineSelect({
           <h1 className="flex items-center gap-2 text-lg font-semibold">
             <Server className="h-5 w-5" /> {m["engines.title"]()}
           </h1>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onRefresh}
-            disabled={loading}
-          >
-            <RefreshCw
-              className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"}
-            />
-            {m["common.refresh"]()}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={onBack}>
+              <ArrowLeft className="h-4 w-4" />
+              {m["project.backToProjects"]()}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onRefresh}
+              disabled={loading}
+            >
+              <RefreshCw
+                className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"}
+              />
+              {m["common.refresh"]()}
+            </Button>
+          </div>
         </div>
 
         {pairable.map((r) => (
@@ -75,11 +84,7 @@ export function EngineSelect({
                 {m["engines.searching"]()}
               </span>
             ) : (
-              <>
-                No engines found. Start the k7 desktop app or{" "}
-                <code className="rounded bg-secondary px-1">k7-supervisor</code>
-                , then Refresh.
-              </>
+              m["engines.none"]()
             )}
           </div>
         ) : (
@@ -120,7 +125,9 @@ export function EngineSelect({
                         </Badge>
                       )}
                       {r.engine.assigned && (
-                        <Badge variant="amber">in use</Badge>
+                        <Badge variant="amber" title={m["engines.inUseHint"]()}>
+                          {m["engines.inUse"]()}
+                        </Badge>
                       )}
                       {r.engine.outdated && (
                         <Badge
@@ -156,7 +163,7 @@ export function EngineSelect({
                     {/* The socket URL is never shown: it can carry a signed ticket, and the latency badge already says the link works. */}
                     {!r.wsUrl && (
                       <div className="truncate text-xs text-muted-foreground">
-                        not reachable from this browser
+                        {m["engines.noRoute"]()}
                       </div>
                     )}
                   </div>
@@ -165,7 +172,7 @@ export function EngineSelect({
                     disabled={!selectable}
                     onClick={() => onPick(r)}
                   >
-                    Use
+                    {m["engines.use"]()}
                   </Button>
                 </li>
               );

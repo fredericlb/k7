@@ -34,6 +34,10 @@ The reversal is `projectRows`' alone. Nothing downstream re-sorts: the compile h
 
 ## The ruler reads either unit
 
+The ruler opens in `seconds` when the song carries a picture and in `bars` when it does not: someone
+cutting video thinks in time, and a beat grid they never chose would snap their cuts to it. Once the
+clock button has been pressed, that choice holds for the session.
+
 The clock button in the timeline's header toggles `RulerMode` between `bars` and `seconds`. Both
 modes are one function, `rulerTicks`, returning ticks positioned in **beats** — the surface's
 only coordinate — each carrying its own label and weight.

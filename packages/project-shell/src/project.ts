@@ -58,7 +58,10 @@ export const projectApi = {
   project: () => fget<ProjectInfo>("/project"),
   /** Scaffold a project in the OPEN workspace: `name` carries its suffix, `shape` is the archetype. */
   createProject: (shape: string, name: string) =>
-    fsend<{ project: string }>("POST", "/project/create", { shape, name }),
+    fsend<{ project: string; missing?: string[] }>("POST", "/project/create", {
+      shape,
+      name,
+    }),
   /** Play a document this browser built, through the service so ONE thing writes to the engine. */
   sendEngineProject: (doc: ProjectDoc) =>
     fsend<{ ok: true }>("POST", "/engine/project", { doc }),

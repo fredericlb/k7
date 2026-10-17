@@ -8,7 +8,8 @@ import { m } from "./paraglide/messages.js";
 
 // Functions, not strings: the message is read in the locale of the moment it is drawn.
 const SAVE_LABEL: Record<AutosaveStatus, () => string> = {
-  clean: () => "",
+  // Said rather than left blank: with no Save button, silence reads as "nothing was kept".
+  clean: m["save.saved"],
   pending: m["save.pending"],
   saving: m["save.saving"],
   held: m["save.held"],

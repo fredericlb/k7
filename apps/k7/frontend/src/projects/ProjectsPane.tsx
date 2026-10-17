@@ -54,6 +54,8 @@ export function ProjectsPane({
   onChanged: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
+  // A warning that is not a failure — the library modules a project just created still owes.
+  const [notice, setNotice] = useState<string | null>(null);
   const [nodes, setNodes] = useState<FileNode[] | null>(null);
   const ws = workspaces.find((w) => w.name === openWs) ?? null;
   const { sync, reload: reloadSync } = useWorkspaceSync(
@@ -106,7 +108,21 @@ export function ProjectsPane({
       onStep: (s: string) => void,
       shape: ProjectShape,
     ) => {
-      await createProjectOp(chosen(), w.name, folder, onStep, shape);
+      const { project, missing } = await createProjectOp(
+        chosen(),
+        w.name,
+        folder,
+        onStep,
+        shape,
+      );
+      setNotice(
+        missing.length
+          ? m["project.missingModules"]({
+              project,
+              modules: missing.join(", "),
+            })
+          : null,
+      );
       onChanged();
     },
     [chosen, onChanged],
@@ -242,6 +258,7 @@ export function ProjectsPane({
           workspaces={workspaces}
           busy={busy}
           error={error}
+          notice={notice}
           hasFileService={fileService !== null}
           onCreateWorkspace={createWorkspace}
           onOpen={(w) => onOpen(w.name)}

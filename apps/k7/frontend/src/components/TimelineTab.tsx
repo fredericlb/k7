@@ -496,7 +496,18 @@ export function TimelineTab({
   // Whether each lane's automation rows are drawn under it — a view toggle like Expand, writing nothing.
   const [showAutomation, setShowAutomation] = useState(true);
   // Which unit the RULER counts in: a song carrying picture is read in bars while you write it and in seconds while you cut it.
-  const [rulerMode, setRulerMode] = useState<RulerMode>("bars");
+  const [rulerMode, setRulerMode] = useState<RulerMode>(
+    fps ? "seconds" : "bars",
+  );
+  // Set once the clock button is pressed: from then on the picture arriving no longer picks the unit.
+  const rulerChosen = useRef(false);
+  useEffect(() => {
+    if (!rulerChosen.current) setRulerMode(fps ? "seconds" : "bars");
+  }, [fps]);
+  const toggleRuler = useCallback(() => {
+    rulerChosen.current = true;
+    setRulerMode((m) => (m === "bars" ? "seconds" : "bars"));
+  }, []);
   // The name of the marker the cursor is over, shown in the header while hovering.
   const [hoverMarker, setHoverMarker] = useState<string | null>(null);
   // The task flag the cursor is over: its text is drawn under the ruler, which clips its own children.
@@ -1664,8 +1675,7 @@ export function TimelineTab({
         setStatus(m["status.timeline.moving"]({ name: c.name || c.id }));
       },
       // The clock button: bars ⇄ seconds. Both units read the SAME grid — see docs/picture.md.
-      toggleRuler: () =>
-        setRulerMode((m) => (m === "bars" ? "seconds" : "bars")),
+      toggleRuler,
       // The height button: tall lanes draw each clip's waveform or notes.
       toggleLanes: () => {
         if (!lanesLocked) setExpanded((v) => !v);
@@ -1691,6 +1701,7 @@ export function TimelineTab({
       onSetLoop,
       clipUnderCaret,
       lanesLocked,
+      toggleRuler,
     ],
   );
 
@@ -2040,9 +2051,7 @@ export function TimelineTab({
               {/* The ruler's unit, beside Expand because it is the same kind of control: what this surface SHOWS, changing nothing on disk. */}
               <button
                 type="button"
-                onClick={() =>
-                  setRulerMode((m) => (m === "bars" ? "seconds" : "bars"))
-                }
+                onClick={toggleRuler}
                 aria-pressed={rulerMode === "seconds"}
                 title={
                   rulerMode === "seconds"
