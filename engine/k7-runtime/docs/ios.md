@@ -116,11 +116,12 @@ shell page and lays it out as `cap copy` would, and bundles the backend with `ap
 | Capacitor from `capacitor-swift-pm`, exactly 8.5.2 | Capacitor's npm package ships no Swift package; this one ships the same release as checksummed xcframeworks. Kept at the version the page's `@capacitor/core` resolves to |
 | the project file written by hand, its sources a folder Xcode keeps in sync | no generator to install, and a new Swift file joins the target by being in `k7/` |
 | signing left to the developer's own team | no team is committed; `CODE_SIGN_STYLE` is automatic |
+| JUCE's `juceaide` built at the Mac's own deployment target (`engine/patches/tracktion.cmake`) | JUCE builds that tool for the build machine in a nested CMake and hands it the preset's deployment target, which under `ios-arm64` is an iPhone floor no macOS has |
 
 ## What it does not have yet
 
-- **The engine has not been built for iOS.** Its iOS branches pass a syntax check against JUCE's iOS headers. The
-  framework itself, the audio session JUCE sets up, background playback and the device's close and reopen are
+- **The engine is built for iOS, not yet run.** `ios.yml` compiles and links `k7runtime.framework` into the app
+  (23 minutes cold); the audio session JUCE sets up, background playback and the device's close and reopen are
   all still to drive. JUCE's iOS device asks for `MixWithOthers`, which keeps an app out of Now Playing: the lock
   screen's controls may need the category changed.
 - **Not run on a phone**, only on the simulator (below). Sign-in through the browser, pairing, the private CA,
