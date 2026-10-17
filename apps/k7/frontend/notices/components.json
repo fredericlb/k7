@@ -4,27 +4,15 @@
       "license": "MIT",
       "reason": "Platform binary of @lix-js/sdk, which is MIT; the binary's manifest omits the field."
     },
-    "@lix-js/sdk-darwin-x64": {
+    "@lix-js/sdk-linux-arm64": {
       "license": "MIT",
       "reason": "Platform binary of @lix-js/sdk, which is MIT; the binary's manifest omits the field."
     },
-    "@lix-js/sdk-linux-x64-gnu": {
+    "@lix-js/sdk-linux-x64": {
       "license": "MIT",
       "reason": "Platform binary of @lix-js/sdk, which is MIT; the binary's manifest omits the field."
     },
-    "@lix-js/sdk-linux-x64-musl": {
-      "license": "MIT",
-      "reason": "Platform binary of @lix-js/sdk, which is MIT; the binary's manifest omits the field."
-    },
-    "@lix-js/sdk-linux-arm64-gnu": {
-      "license": "MIT",
-      "reason": "Platform binary of @lix-js/sdk, which is MIT; the binary's manifest omits the field."
-    },
-    "@lix-js/sdk-linux-arm64-musl": {
-      "license": "MIT",
-      "reason": "Platform binary of @lix-js/sdk, which is MIT; the binary's manifest omits the field."
-    },
-    "@lix-js/sdk-win32-x64-msvc": {
+    "@lix-js/sdk-win32-x64": {
       "license": "MIT",
       "reason": "Platform binary of @lix-js/sdk, which is MIT; the binary's manifest omits the field."
     }
