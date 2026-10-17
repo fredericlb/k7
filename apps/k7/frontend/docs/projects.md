@@ -514,6 +514,13 @@ wanted — a project every session, a workspace a few times a year — and an un
 made the rarer of the two was the only solid button on the page. The list is capped at `max-w-5xl`
 so a row's actions stay near its name on a wide screen.
 
+**Every page of the home side shares that frame** (`PageFrame.tsx`): Projects, Tasks, Libraries,
+Settings and About sit in the same column under the same heading row, a page's own controls in that
+row rather than in the sidebar's foot, and rehearsal's `.main-inner` is the same width. A page of
+narrow rows (settings, the libraries card) keeps them narrow inside the frame instead of re-centring
+a narrower column, so moving between pages never moves where the title starts. The médiathèque is
+the exception: a tree beside a list is a tool that uses the whole width, not a page to read.
+
 **The chrome is neutral; violet is a state.** The sidebar, the editor's header and footer, and the
 médiathèque's tree panel are the card surface, and the accent is kept for what is lit, selected or
 the main action — the sidebar's current entry, the archetype picked, the primary button, a

@@ -8,6 +8,7 @@ import { lazy, Suspense } from "react";
 import { m } from "../paraglide/messages.js";
 import { HomeShell } from "../projects/HomeSidebar";
 import { MediaHost } from "../projects/MediaHost";
+import { PageFrame } from "../projects/PageFrame";
 import { AiSection } from "./AiSection";
 import { AndroidEngineSection } from "./AndroidEngineSection";
 import { onAndroid } from "./androidEngine";
@@ -26,39 +27,37 @@ const RehearsalSettings = lazy(() =>
 export function SettingsPage() {
   return (
     <HomeShell subtitle={m["settings.title"]()}>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-xl flex-col gap-4 px-6 py-4">
-          {/* On the phone the app is the engine's machine: this page is where its engine is set. */}
-          {onAndroid ? (
-            <AndroidEngineSection />
-          ) : (
-            <p className="text-muted-foreground text-xs">
-              {m["settings.trayHint"]()}
-            </p>
-          )}
-          {/* The desktop app's release, the one its About panel shows (apps/k7-standalone/docs/menu.md). */}
-          {window.studioApp && (
-            <p className="text-muted-foreground text-xs">
-              {m["settings.desktopVersion"]({
-                version: window.studioApp.version,
-              })}
-            </p>
-          )}
-          <LanguageSection />
-          <ChainsSection />
-          <AiSection />
-          <PairedDevicesSection />
-          <SyncDevicesSection />
-          {/* The media library's two cards, which read its labels and its configured API. */}
-          <MediaHost>
-            <EnginesSettings />
-            <SlskdSettings />
-          </MediaHost>
-          <Suspense fallback={null}>
-            <RehearsalSettings />
-          </Suspense>
-        </div>
-      </div>
+      <PageFrame title={m["settings.title"]()} narrow>
+        {/* On the phone the app is the engine's machine: this page is where its engine is set. */}
+        {onAndroid ? (
+          <AndroidEngineSection />
+        ) : (
+          <p className="text-muted-foreground text-xs">
+            {m["settings.trayHint"]()}
+          </p>
+        )}
+        {/* The desktop app's release, the one its About panel shows (apps/k7-standalone/docs/menu.md). */}
+        {window.studioApp && (
+          <p className="text-muted-foreground text-xs">
+            {m["settings.desktopVersion"]({
+              version: window.studioApp.version,
+            })}
+          </p>
+        )}
+        <LanguageSection />
+        <ChainsSection />
+        <AiSection />
+        <PairedDevicesSection />
+        <SyncDevicesSection />
+        {/* The media library's two cards, which read its labels and its configured API. */}
+        <MediaHost>
+          <EnginesSettings />
+          <SlskdSettings />
+        </MediaHost>
+        <Suspense fallback={null}>
+          <RehearsalSettings />
+        </Suspense>
+      </PageFrame>
     </HomeShell>
   );
 }

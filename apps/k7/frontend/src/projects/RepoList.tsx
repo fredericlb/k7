@@ -28,6 +28,7 @@ import { m } from "../paraglide/messages.js";
 import { SETTINGS_ROUTE } from "./api";
 import { NewProject } from "./NewProject";
 import { NewWorkspace } from "./NewWorkspace";
+import { PAGE_COLUMN, PageHeader } from "./PageFrame";
 import { ProjectRow } from "./ProjectRow";
 import { WorkspaceMenu } from "./WorkspaceMenu";
 import {
@@ -195,33 +196,30 @@ export function RepoList({
     return onCreate(w, folder, onStep, shape);
   };
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6 sm:px-6">
+    <div className={PAGE_COLUMN}>
       {/* The page names itself, and its one call to action is the act people come for: a project. */}
-      <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="font-semibold text-2xl leading-tight">
-            {m["home.projects"]()}
-          </h1>
-          {workspaces.length > 0 && (
-            <p className="text-muted-foreground text-sm tabular-nums">
-              {projectsCount(projectTotal)} ·{" "}
-              {workspacesCount(workspaces.length)}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <NewWorkspace
-            blocked={blockedWorkspace}
-            onCreate={onCreateWorkspace}
-          />
-          <NewProject
-            primary
-            blocked={blocked || blockedWorkspace}
-            workspaces={eligible.map((w) => w.name)}
-            onCreate={createIn}
-          />
-        </div>
-      </header>
+      <PageHeader
+        title={m["home.projects"]()}
+        summary={
+          workspaces.length > 0
+            ? `${projectsCount(projectTotal)} · ${workspacesCount(workspaces.length)}`
+            : undefined
+        }
+        actions={
+          <>
+            <NewWorkspace
+              blocked={blockedWorkspace}
+              onCreate={onCreateWorkspace}
+            />
+            <NewProject
+              primary
+              blocked={blocked || blockedWorkspace}
+              workspaces={eligible.map((w) => w.name)}
+              onCreate={createIn}
+            />
+          </>
+        }
+      />
 
       {error && (
         <code className="max-w-full overflow-x-auto rounded bg-muted px-2 py-1 text-destructive text-xs">

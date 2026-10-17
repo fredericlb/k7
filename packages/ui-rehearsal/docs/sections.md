@@ -53,3 +53,8 @@ scoped under it: its palette as custom properties on the wrapper, and no `:root`
 element rule — a rule that reached k7's own pages would restyle them the moment a rehearsal page
 had been opened once. The fixed docks and pop-ins are offset by `--rehearsal-inset-left`, the
 sidebar's width, so they stay inside the content column.
+
+The palette's short names (`--bg`, `--accent`…) READ the theme's `--sh-*` tokens rather than repeat
+their values: a copy is a second palette that drifts the day the theme changes. And `.main-inner` is
+the same column as k7's other home pages (`apps/k7/frontend/src/projects/PageFrame.tsx`), so moving
+from Projects to Recordings does not shift where the page starts.

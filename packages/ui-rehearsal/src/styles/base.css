@@ -1,19 +1,22 @@
-/* base.css — the wrapper itself: k7's palette as custom properties on .rehearsal-root, the type,
-   and the element defaults that must reach nothing of the host's (no :root, no body, no bare tag). */
+/* base.css — the wrapper itself: k7's palette under this package's short names, the type, and the
+   element defaults that must reach nothing of the host's (no :root, no body, no bare tag). The
+   names READ the theme's --sh-* tokens rather than copy their values, so a theme change reaches
+   these pages too; k7, their only host, loads that theme. */
 
 .rehearsal-root {
-  --bg: #101114;
-  --surface: #1b1c22;
-  --surface-2: #24252c;
-  --text: #e9e9ee;
-  --muted: #92929e;
-  --border: #2f303a;
-  --accent: #8b5cf6;
-  --accent-hover: #7c3aed;
-  --accent-soft: rgba(139, 92, 246, 0.18);
-  --green: #34d399;
-  --amber: #f0a94e;
-  --red: #f16469;
+  --bg: var(--sh-background);
+  --surface: var(--sh-card);
+  --surface-2: var(--sh-secondary);
+  --surface-2-hover: var(--sh-secondary-hover);
+  --text: var(--sh-foreground);
+  --muted: var(--sh-muted-foreground);
+  --border: var(--sh-border);
+  --accent: var(--sh-primary);
+  --accent-hover: var(--sh-primary-hover);
+  --accent-soft: color-mix(in srgb, var(--sh-primary) 18%, transparent);
+  --green: var(--sh-green);
+  --amber: var(--sh-amber);
+  --red: var(--sh-destructive);
   --sidebar-w: 288px;
   /* Where a bar fixed at the foot starts: past the host's sidebar, w-14 then sm:w-52 (HomeSidebar.tsx). */
   --rehearsal-inset-left: 3.5rem;

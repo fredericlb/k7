@@ -27,10 +27,13 @@ const worthSaying = (r: AccountLibrariesReply): string[] =>
 export function LibrariesCard({
   fileService,
   onLibraries,
+  inPage = false,
 }: {
   fileService: AccountFiles | null;
   /** Reported UP because it decides more than this card: with no library, no workspace may be made either. */
   onLibraries?: (libraries: AccountLibrary[]) => void;
+  /** Under the Libraries page's own heading: a bordered card with no title of its own, rather than the gate's full-width strip. */
+  inPage?: boolean;
 }) {
   // `undefined` = not read yet, `[]` = read and there is none: a new account must read 'you need one', not a loading blank.
   const [libraries, setLibraries] = useState<AccountLibrary[] | undefined>(
@@ -105,19 +108,26 @@ export function LibrariesCard({
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 border-b px-6 py-4",
+        "flex flex-col gap-2",
+        inPage ? "rounded-md border border-border p-4" : "border-b px-6 py-4",
         // With no library the card is not an information row: it is the one thing to do here, and nothing else works until it is done.
-        missing && "border-b-amber-500/40 bg-amber-500/5",
+        missing &&
+          (inPage
+            ? "border-amber-500/40 bg-amber-500/5"
+            : "border-b-amber-500/40 bg-amber-500/5"),
       )}
     >
-      <div className="flex items-center gap-2 text-sm font-medium">
-        {missing ? (
-          <TriangleAlert className="h-4 w-4 text-amber-500" />
-        ) : (
-          <LibraryBig className="h-4 w-4" />
-        )}
-        {m["libs.title"]()}
-      </div>
+      {/* On the page the heading already says Libraries; only the warning is worth a row then. */}
+      {(!inPage || missing) && (
+        <div className="flex items-center gap-2 text-sm font-medium">
+          {missing ? (
+            <TriangleAlert className="h-4 w-4 text-amber-500" />
+          ) : (
+            <LibraryBig className="h-4 w-4" />
+          )}
+          {inPage ? m["libs.needOne"]() : m["libs.title"]()}
+        </div>
+      )}
 
       <p className="text-xs text-muted-foreground">
         {missing && !canEdit
