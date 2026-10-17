@@ -276,10 +276,12 @@ middle of whatever the project name on one side and the icon row on the other le
 moved every time a name got longer or a surface added a button: a control you reach for without
 looking must not be somewhere else on the next project.
 
-The price is that nothing reserves its width. The left group is bounded (`max-w-[10rem]`
-and `truncate` on the name) and the right one is a fixed count of 24-pixel buttons, so on a desktop
-window they clear it; squeeze the window far enough and the transport draws over them rather than
-pushing them aside.
+Nothing reserves its width, so the shell MEASURES whether it has the room (`shell/useCentredFits.ts`):
+would a cluster centred on the bar clear the last thing in the left group and the first of the
+actions, by 12 px? While it would, it is centred; when it would not — a narrow window, a long engine
+name — it joins the row at the left group's end instead of drawing over its neighbours. The test
+reads where the bar's centre is, never where the transport sits now, so the answer cannot flip back
+the moment it moves.
 
 Play/pause, stop, the clock, then the record button, and each **drops focus on click**
 (`blurOnClick`). These are the buttons a mouse is most likely to land on right before reaching for
@@ -351,6 +353,9 @@ plug when not — so it reads for someone who cannot tell red from green.
 
 A link that stays down says so in words, on a strip under the header
 (`components/EngineLostStrip.tsx`): a red dot is easy to miss while every gesture quietly does nothing.
+The strip is an OVERLAY on a zero-height anchor, not a row: arriving two seconds into an outage, a
+row would push every pane down under the pointer, mid-gesture. It covers the panes' top edge instead,
+on the card surface so it reads over whatever is there, until the link is back or it is dismissed.
 It waits two seconds before showing, because the client reconnects on its own and a blip that
 flashed a banner would teach people to ignore it. Its Retry dials at once rather than waiting out the
 backoff; its close hides it for this outage only, and the next one is announced again. A transport

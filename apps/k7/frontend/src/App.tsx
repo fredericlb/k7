@@ -212,6 +212,7 @@ import {
   type UndoConfirm,
 } from "./shell/ShellOverlays";
 import { ShellTransport } from "./shell/ShellTransport";
+import { useCentredFits } from "./shell/useCentredFits";
 import { type PendingWire, useGraphActions } from "./shell/useGraphActions";
 import { MiniTransport, PANE_META, VIEWPORT_META } from "./shellMeta";
 import { tabBridge } from "./tabs/bridge";
@@ -2424,6 +2425,10 @@ export default function App({
 
   /** The bar's height IS its tallest control (docs/shell.md), so the desktop one is 24 px; a phone keeps a thumb-sized button. */
   const toolSize = isMobile ? "icon" : "icon-xs";
+  // The transport stays centred on the bar while that clears its neighbours, and joins the row when it would cover them.
+  const headerGroupRef = useRef<HTMLDivElement | null>(null);
+  const transportRef = useRef<HTMLDivElement | null>(null);
+  const transportCentred = useCentredFits(headerGroupRef, transportRef);
 
   const headerTools = snapshot ? (
     <>
@@ -2641,7 +2646,10 @@ export default function App({
               actions={headerActions}
             >
               {/* Between the two: what you are looking AT, and the transport ABSOLUTELY centred over the bar (docs/shell.md). */}
-              <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div
+                ref={headerGroupRef}
+                className="flex min-w-0 flex-1 items-center gap-3"
+              >
                 {/* The way back, whole-page since the project is the router's BASENAME; a share has none (docs/shared.md). */}
                 {snapshot ? (
                   <span className="max-w-[10rem] truncate text-muted-foreground text-sm">
@@ -2710,6 +2718,8 @@ export default function App({
                     openMidiInputs={openMidiInputs}
                     setStatus={setStatus}
                     engineRef={engineRef}
+                    centred={transportCentred}
+                    rootRef={transportRef}
                   />
                 )}
               </div>

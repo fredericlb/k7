@@ -110,11 +110,12 @@ function splitArgs(s: string): string[] {
 const quoteArg = (v: string) => (/\s/.test(v) ? JSON.stringify(v) : v);
 
 /** The HOST's look while a command waits for its answers: orange, its edge glowing blue, padding included, faded in and out. */
+// Waiting is the accent breathing at 1 Hz on an inset ring (index.css's `animate-pending`), a still ring under reduced motion — no hue from outside the palette.
 export const barTint = (pending: boolean): string =>
-  `transition-[background-color,box-shadow] duration-300 ${
+  `transition-[background-color] duration-300 ${
     pending
-      ? "bg-orange-500/35 ring-2 ring-inset ring-blue-500 shadow-[0_0_14px_3px_rgba(59,130,246,0.65)]"
-      : "bg-popover ring-0 ring-inset ring-blue-500/0 shadow-none"
+      ? "bg-primary/10 motion-safe:animate-pending motion-reduce:ring-2 motion-reduce:ring-inset motion-reduce:ring-primary"
+      : "bg-popover"
   }`;
 
 export const CommandBar = forwardRef<

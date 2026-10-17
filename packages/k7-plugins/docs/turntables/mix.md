@@ -20,6 +20,16 @@
 In the **middle**, the two channel faders with their meters, and the crossfader below: that is a
 mixer's layout.
 
+They are drawn like k7's header fader (`src/turntables/views/faderStyles.ts`): a rail, a cap, and a
+notch at the one value worth finding without looking — unity on a channel, the centre on the
+crossfader. Each is still a NATIVE range, made transparent with only its thumb restyled, because
+that is what keeps the arrow keys, the screen reader and the double-click reset; the rail and the
+notch are elements behind it, the notch placed where the thumb's CENTRE rests at that value (the
+travel insets the thumb by half its width at each end). The browser's own slider beside a drawn
+platter read as two products on one desk. A channel fader stands upright by WRITING MODE, the one
+way a native range goes vertical and keeps its keyboard behaviour: `appearance: slider-vertical` is
+gone from both engines.
+
 Under each vinyl, the waveform scrolling under the playhead, beats in yellow and transients in grey
 — its own rules are in [waveform.md](waveform.md). On the outer edge the tempo fader, and at both
 ends of the bottom bar the SYNC buttons: [bpm.md](bpm.md). On the inner edge the strip: trim, EQ
