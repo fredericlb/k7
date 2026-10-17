@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "pretypecheck": "paraglide-js compile --emit-ts-declarations --silent && npm run i18n --workspace=@studio/ui-rehearsal && npm run i18n --workspace=@studio/k7-plugins",
     "typecheck": "tsc --noEmit",
+    "pretest": "npm run pretypecheck",
     "test": "vitest run"
   },
   "dependencies": {
