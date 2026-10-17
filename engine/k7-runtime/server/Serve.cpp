@@ -99,7 +99,7 @@ int serve(int port) {
     studio::enableLoadGuards();
     // `$STUDIO_ENGINE_SAFE_MODE=<crashes>`: the supervisor saw this engine die that many times in a row, so no external plugin loads.
     const char* safeEnv = std::getenv("STUDIO_ENGINE_SAFE_MODE");
-    const int safeModeCrashes = safeEnv ? std::max(0, std::atoi(safeEnv)) : 0;
+    const int safeModeCrashes = safeEnv ? (std::max)(0, std::atoi(safeEnv)) : 0;
     studio::setSafeMode(safeModeCrashes > 0);
     if (safeModeCrashes > 0)
         std::cerr << "[safe-mode] started after " << safeModeCrashes << " quick crashes: no external plugin will load\n";
