@@ -100,3 +100,7 @@ studio_replace("modules/juce/extras/Build/juceaide/CMakeLists.txt"
 studio_replace("modules/juce/extras/Build/juceaide/CMakeLists.txt"
     "if(CMAKE_CXX_COMPILER_LAUNCHER)\n"
     "if(CMAKE_CXX_COMPILER_LAUNCHER AND NOT MSVC)  # studio: juceaide's /Zi cannot go through sccache\n")
+# …and its deployment target, which on iOS is an iPhone floor: juceaide runs on the Mac, where 17.0 is no macOS (docs/ios.md).
+studio_replace("modules/juce/extras/Build/juceaide/CMakeLists.txt"
+    "if(CMAKE_OSX_DEPLOYMENT_TARGET)\n"
+    "if(CMAKE_OSX_DEPLOYMENT_TARGET AND NOT IOS)  # studio: an iOS floor is no macOS one\n")
