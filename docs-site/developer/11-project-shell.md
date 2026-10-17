@@ -1,6 +1,6 @@
 # project-shell: what an app needs before it can draw
 
-`packages/project-shell` (`@studio/project-shell`) is what any app that opens a project needs before drawing anything: the launch address, the file-service transport, the gate that opens the project, idle handling, undo, and the app's own confirm and toast. k7 mounts it, and z0's editor consumes it from another repository as a **published** package, which is why it has a version and a `files` list and why it may only depend on `@studio/web-protocol` (everything else is a peer).
+`packages/project-shell` (`@studio/project-shell`) is what any app that opens a project needs before drawing anything: the launch address, the file-service transport, the gate that opens the project, idle handling, undo, and the app's own confirm and toast. k7 mounts it, and apps outside this repository consume it as a **published** package, which is why it has a version and a `files` list and why it may only depend on `@studio/web-protocol` (everything else is a peer).
 
 ## Exports
 

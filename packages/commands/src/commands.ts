@@ -117,7 +117,7 @@ export interface CommandHost {
   remoteLibraryVersions?(
     name: string,
   ): Promise<{ version: number; requires: number }[]>;
-  /** Who bounces a render, handed in by a host with no engine binary — packages/file-service/docs/render.md. */
+  /** Who bounces a render, handed in by a host with no engine binary — packages/file-service/docs/renderers.md. */
   renderer?: Renderer;
   /** Run `work` after the command returns, once per tag; false when that tag is already running. Absent, a verb waits for it. */
   background?(tag: string, work: () => Promise<string>): boolean;

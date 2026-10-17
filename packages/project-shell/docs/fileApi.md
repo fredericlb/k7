@@ -114,15 +114,15 @@ for every request that met it together, and the request is sent again. A write i
 
 **Two route tables, split by what their TYPES reach.** `files.ts` (`fileRoutes`, exported as
 `./files`) holds the routes that need only `@studio/web-protocol`: opening a project, the bench, the
-tree and its files. The gate runs on it, and z0's editor
-uses nothing else. `project.ts` spreads it and adds the compiled views, the modules, the CLI's
+tree and its files. The gate runs on it, and an app that only opens a project
+needs nothing else. `project.ts` spreads it and adds the compiled views, the modules, the CLI's
 verbs and the undo journal, whose types live in `@studio/song-schema`, `@studio/graph-model` and
 `@studio/engine-protocol`. Those three are therefore OPTIONAL peers of this package: an app that
-imports `./project` brings them, and an app that does not — z0, consuming this package from outside
+imports `./project` brings them, and an app that does not — one consuming this package from outside
 the repository — installs none of them.
 
 `project.ts` is the shared client. k7 spreads it into its own and adds what only it has — timeline,
-waveforms, video; z0's editor uses it as it stands.
+waveforms, video; an app that needs no more uses it as it stands.
 
 - **`openBench`**: `@banc` in the address routes here. It can be slow the first time — a library
   that is not yet on disk — which is why it has a progress screen rather than being asked for silently

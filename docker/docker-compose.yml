@@ -1,15 +1,12 @@
 # The hosted half only: k7 (the editor, the media library AND the rehearsal recorder) in its OWN
-# image and container — no nginx, see apps/k7/docker/Dockerfile. z0, the blind-test game, is
-# built and tagged by its own repository and only DEPLOYED here, on k7's own hostname. The
-# musicians' engines run on their own machines, and reach this stack through the tunnel their
+# image and container — no nginx, see apps/k7/docker/Dockerfile. The musicians' engines run on their own machines, and reach this stack through the tunnel their
 # supervisor dials (packages/engine-tunnel/docs/tunnel.md); the `engine` service is one more of
 # those, the server's own, which dials k7 over the container network (docs/server-engine.md).
 # The accounts' WORKSPACES live here, in k7, one file service per account
 # (packages/file-hub/docs/fileHub.md).
 #
-# FOUR containers: Traefik routes k7 by Host() straight to its own backend port (no nginx to
-# hand off to) and z0 by a PathPrefix(`/z0`) rule layered on k7's own hostname — k7 answers
-# everything else there; the engine is reached on the container network only, and so is pocketbase,
+# THREE containers: Traefik routes k7 by Host() straight to its own backend port (no nginx to
+# hand off to), and k7 answers everything on that hostname; the engine is reached on the container network only, and so is pocketbase,
 # the rehearsal recorder's former store, until k7 has imported it. k7 also answers the `play.` and `k7.` hosts, aliases kept for the share links, registry
 # URLs, publish URLs and public pages saved against them. That's the topology env.yaml's
 # COOKIE_DOMAIN/TRUSTED_ORIGINS document.
@@ -71,7 +68,7 @@ services:
       STUDIO_FILE_SERVICE_HEAP_MB: ${FILE_SERVICE_HEAP_MB:-1024}
       # File services at once: 12 = (6 GB − 1.5 GB reserve) / 384 MB each; empty derives it from mem_limit (packages/file-hub/docs/fileHub.md).
       STUDIO_MAX_FILE_SERVICES: ${MAX_FILE_SERVICES:-12}
-      # Who edits the libraries every account shares and deletes a public song — z0's admins too.
+      # Who edits the libraries every account shares and deletes a public song.
       AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:-}
       # Recognises the engine service as the render machine, since this image has no engine binary.
       STUDIO_RENDER_KEY: ${RENDER_KEY:-}
@@ -136,32 +133,6 @@ services:
       - engine-home:/engine-home
     networks:
       - traefik
-
-  # Built by z0's own repository, so it ships on its own version rather than on APP_VERSION. Its
-  # default stays :latest because this repository has no stamp of z0's to require: pin it in .env.
-  z0:
-    image: dev.frediver.se/frediverse/z0:${Z0_VERSION:-latest}
-    restart: unless-stopped
-    logging: *logging
-    environment:
-      <<: *shared-auth
-      # z0's backend only; unset is none — e.g. "--latest".
-      EXTRA_FLAGS: ${EXTRA_FLAGS:-}
-      # Without this, nobody's group membership admits them to the editor,
-      # presenter, monitor or remote — the game plays but stays unrunnable.
-      AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:-}
-    networks:
-      - traefik
-    labels:
-      - traefik.enable=true
-      # More specific than k7's bare Host() rule, so it wins for /z0 on the same
-      # hostname — an explicit priority, not left to rule-length inference, since a
-      # mistake here means the game silently loses its own container to k7's.
-      - traefik.http.routers.z0.rule=Host(`${K7_DOMAIN:-app.k7.rocks}`) && PathPrefix(`/z0`)
-      - traefik.http.routers.z0.priority=10
-      - traefik.http.routers.z0.entrypoints=websecure
-      - traefik.http.routers.z0.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
-      - traefik.http.services.z0.loadbalancer.server.port=80
 
 networks:
   traefik:

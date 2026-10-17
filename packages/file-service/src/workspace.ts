@@ -451,7 +451,7 @@ export class Workspace {
         `not a project (the folder must end in ${Object.values(PROJECT_SUFFIXES).join(", ")}): ${rel}`,
       );
     const clean = basename(newName).replace(/[\\/]/g, "").trim();
-    // The SUFFIX is the app: renaming a `.k7` into a `.z0` would hand the folder to another editor.
+    // The SUFFIX is the app: renaming a `.k7` into anything else would stop it being a project.
     if (projectApp(clean) !== projectApp(basename(abs)))
       throw new Error(
         `a project keeps the suffix that says which app opens it — '${clean}' should end in '${PROJECT_SUFFIXES[projectApp(basename(abs)) as ProjectApp]}'`,

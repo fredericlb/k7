@@ -17,8 +17,8 @@ one project at once; there is no single-tab lease.
 **ProjectGate picks nothing.** The home page links here with an address —
 `/@local/<workspace>/<project>`, k7 answering the origin root — and arriving without a project in
 it draws the home page instead. That address is the router's `basename`, so the app's
-own routes are written below it and cannot rewrite it away. The gate is `@studio/project-shell`'s
-— z0's editor mounts the same one — and `components/ProjectGate.tsx` supplies this app's wording
+own routes are written below it and cannot rewrite it away. The gate is `@studio/project-shell`'s,
+and `components/ProjectGate.tsx` supplies this app's wording
 alone. Read
 [packages/project-shell/docs/launch.md](../../../../packages/project-shell/docs/launch.md)
 before touching any of it, in particular why the address is a path and the workspace is named
@@ -132,7 +132,7 @@ per component render, with a `detail` object for its DevTools track, and the bro
 entry until somebody clears it — about 140 a second on the editor. Measured after a long dev session:
 the tab at **3.5 GB**, one CC visiting **8.9 million** live objects and freeing 28 000, slices up to
 131 ms, and the cycle collector at **79 %** of the tab's CPU while the app's own JS was 13 %. So every
-studio app's entry — k7's and z0's six — calls `clearDevPerfEntries`
+studio app's entry calls `clearDevPerfEntries`
 (`commons/packages/ui/src/dev-perf.ts`) at boot, which clears the measures and marks every few
 seconds in DEV and does nothing in production. Nothing of the apps reads them: the profiler records
 them as markers as they happen, so a recording still shows them.
@@ -1686,13 +1686,11 @@ already draws.
 
 **The scope is `/`, the whole origin, and it cannot be narrower — this is the part k7 owns alone.** A
 worker's scope is a prefix and k7's own routes ARE the root, `/@local/…`. So this worker also
-controls `/z0`, `/api`, `/auth` and `/rtc`, which no other app on this origin has to think about. The
-media library and the rehearsal pages are k7's own routes, so the worker serving them is right. The only thing
-keeping k7's honest is the `pwaDenylist` it passes to `defineAppConfig`: without it, a navigation
-to `/z0` is answered with k7's `index.html` and the game becomes a white page with the editor's
-router refusing an address it cannot parse. That list is the same table as
-the locations of z0's nginx config, in z0's own repository — two copies of one fact in two
-repositories, and this is the one a browser enforces. **Check it first if z0 ever serves the editor's shell instead of the game.**
+controls `/api`, `/auth` and `/rtc`. The media library and the rehearsal pages are k7's own routes,
+so the worker serving them is right. The only thing keeping k7's honest is the `pwaDenylist` it
+passes to `defineAppConfig` (`OTHER_APPS` in `vite.config.ts`): without it, a navigation to one of
+those paths is answered with k7's `index.html`, and the editor's router refuses an address it
+cannot parse. **A path served on this origin by anything but k7's shell belongs in that list.**
 
 **Mixed content is what makes an install fail.** A page over HTTPS that loads one resource in the clear is
 flagged "includes resources that are not secure", and that alone makes it uninstallable — the certificate

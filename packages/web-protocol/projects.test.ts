@@ -9,7 +9,6 @@ import {
   EXTERNAL_SEGMENT,
   externalIndexUrl,
   externalUrl,
-  HAS_SCAFFOLD,
   isBenchProject,
   isDroppableProject,
   isExternalIndex,
@@ -21,13 +20,11 @@ import {
   launchUrl,
   localProjectUrl,
   localTarget,
-  PROJECT_SUFFIXES,
   parseExternal,
   parseLaunch,
   projectApp,
   projectBasename,
   projectLabel,
-  SCAFFOLDED_APPS,
   SHARE_REPO,
   shareApiBase,
   shareKey,
@@ -38,7 +35,6 @@ import {
 describe("projectApp", () => {
   it("reads the suffix", () => {
     expect(projectApp("mysong.k7")).toBe("k7");
-    expect(projectApp("session-2304.z0")).toBe("z0");
   });
 
   it("does not know `.v1` or `.m9` — both are shapes of an k7 project", () => {
@@ -55,7 +51,6 @@ describe("projectApp", () => {
 
   it("refuses a bare suffix — `.k7` is a dotfolder, not a nameless project", () => {
     expect(projectApp(".k7")).toBe(null);
-    expect(projectApp(".z0")).toBe(null);
   });
 
   it("reads a suffix only at the END, never as part of a name", () => {
@@ -89,14 +84,11 @@ describe("projectLabel", () => {
 });
 
 describe("launchUrl", () => {
-  it("sends each app to its own service, under one origin", () => {
+  it("sends a project to k7's origin", () => {
     const o = "https://st0.priv.frediver.se";
-    // k7 answers the origin so its projects have no prefix; the asymmetry is the table's, not this function's.
+    // k7 answers the origin, so its projects have no prefix.
     expect(launchUrl(o, "band", "winter.k7", "k7")).toBe(
       "https://st0.priv.frediver.se/band/winter.k7",
-    );
-    expect(launchUrl(o, "band", "partie.z0", "z0")).toBe(
-      "https://st0.priv.frediver.se/z0/editor/band/partie.z0",
     );
     expect(launchUrl(o, "band", "le clip.k7", "k7")).toBe(
       "https://st0.priv.frediver.se/band/le%20clip.k7",
@@ -179,7 +171,7 @@ describe("a surface's external address", () => {
 
   it("is null outside the app's mount", () => {
     // Same gate `parseLaunch` applies: an address that is not this app's names nothing here.
-    expect(parseExternal("/pl8/band/w.k7/@external/desk", "k7", "/z0/")).toBe(
+    expect(parseExternal("/pl8/band/w.k7/@external/desk", "k7", "/sub/")).toBe(
       null,
     );
   });
@@ -196,13 +188,10 @@ describe("the menu of those addresses", () => {
     expect(isExternalIndex("/external/", "/")).toBe(true);
   });
 
-  it("follows the mount for an app that has one", () => {
-    expect(externalIndexUrl(O, "z0")).toBe(
-      "https://st0.priv.frediver.se/z0/editor/external",
-    );
-    expect(isExternalIndex("/z0/editor/external", "/z0/editor/")).toBe(true);
-    // …and the same path is NOT the menu for an app mounted elsewhere.
-    expect(isExternalIndex("/z0/editor/external", "/")).toBe(false);
+  it("follows the base it is given", () => {
+    expect(isExternalIndex("/sub/external", "/sub/")).toBe(true);
+    // …and the same path is NOT the menu for a page mounted elsewhere.
+    expect(isExternalIndex("/sub/external", "/")).toBe(false);
   });
 
   it("is exactly one segment, so nothing under it is mistaken for it", () => {
@@ -219,20 +208,6 @@ describe("the menu of those addresses", () => {
       project: "winter.k7",
     });
     expect(isExternalIndex("/external/winter.k7", "/")).toBe(false);
-  });
-});
-
-describe("which apps can be CREATED", () => {
-  it("is not the same set as the apps that own a folder kind", () => {
-    // z0 owns `.z0` and has no scaffold. Offering it built a `.z0` holding an k7 song.
-    expect(SCAFFOLDED_APPS).toEqual(["k7"]);
-    expect(HAS_SCAFFOLD.z0).toBe(false);
-  });
-
-  it("answers for every app that owns a suffix", () => {
-    // The Record is what makes a new ProjectApp fail to compile until someone decides.
-    for (const app of Object.keys(PROJECT_SUFFIXES))
-      expect(HAS_SCAFFOLD, app).toHaveProperty(app);
   });
 });
 

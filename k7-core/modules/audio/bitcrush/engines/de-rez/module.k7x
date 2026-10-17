@@ -1,7 +1,7 @@
-// Bit Crush  [audioEffect] — the blindtest's "bitreduction", and the one effect of the nine that jsdsp cannot
+// Bit Crush  [audioEffect] — bit reduction, and the one effect of the nine that jsdsp cannot
 // express at all: quantising needs a rounding step, and this graph vocabulary has no round and no divide.
 // So it is the ENGINE's own — AirWindows De Rez, which reduces both the word length (Rez) and the sample rate
 // (Rate). Both are 1 here, meaning untouched; a chain lowers them.
 extends("@engine/de-rez")
 params({ Rez: 1, Rate: 1 })
-// Word-length and sample-rate reduction. Rez is resolution — 1 is the file's own, 0 destroys it — and Rate is the sample clock, same direction. z0's single 0–100 knob went from 16 bits to 2, which is roughly Rez 1 down to Rez 0.15; there is no one-knob version here because the engine's plugin has no such input.
+// Word-length and sample-rate reduction. Rez is resolution — 1 is the file's own, 0 destroys it — and Rate is the sample clock, same direction. A span from 16 bits to 2 is roughly Rez 1 down to Rez 0.15; there is no one-knob version because the engine's plugin has no such input.

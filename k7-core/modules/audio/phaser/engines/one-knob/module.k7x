@@ -1,5 +1,5 @@
-// Phaser  [audioEffect] — sliding notches, one knob for speed and width. An APPROXIMATION of the blindtest's
-// "phaser": a swept comb where z0 had four all-pass stages. The exact one is the `classic` engine beside it.
+// Phaser  [audioEffect] — sliding notches, one knob for speed and width. An APPROXIMATION of a phaser: a
+// swept comb rather than four all-pass stages. The exact one is the `classic` engine beside it.
 // Its DSP is described in jsdsp.ts beside this file, not compiled into the engine.
 plugin({ type: "jsdsp", name: "Phaser" })
 params({ Amount: 0 })

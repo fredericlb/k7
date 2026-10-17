@@ -30,7 +30,7 @@ std::optional<Url> parse(const std::string& s);
 /** Whether `hostname` is one where services are ports rather than subdomains. */
 bool isLoopbackHost(const std::string& hostname);
 
-/** Where `service` ("k7" | "pl8" | "z0") answers, given any URL of its family — k7's origin, z0 a path; "" for a non-URL. */
+/** Where `service` ("k7" | "pl8") answers, given any URL of its family — k7's origin for both; "" for a non-URL. */
 std::string serviceUrl(const std::string& origin, const std::string& service);
 
 /** The family key: k7's origin, or the bare scheme and host on loopback; "" for a non-URL. */

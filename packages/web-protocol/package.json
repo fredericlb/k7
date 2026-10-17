@@ -1,6 +1,6 @@
 {
   "name": "@studio/web-protocol",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "type": "module",
   "files": [
     "*.ts",
@@ -37,6 +37,6 @@
     "access": "restricted"
   },
   "dependencies": {
-    "@studio/engine-protocol": "^0.1.0"
+    "@studio/engine-protocol": "^0.2.0"
   }
 }

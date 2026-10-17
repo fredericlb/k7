@@ -42,7 +42,6 @@ void pl8AndK7ResolveToK7sOrigin()
     CHECK(serviceUrl("https://app.k7.rocks", "k7") == "https://app.k7.rocks");
     CHECK(serviceUrl("https://docs.priv.k7.rocks", "k7") == "https://app.priv.k7.rocks");
     CHECK(serviceUrl("https://k7.st0.app/session/1", "k7") == "https://app.k7.rocks");
-    CHECK(serviceUrl("https://app.priv.k7.rocks", "z0") == "https://app.priv.k7.rocks/z0");
     CHECK(serviceUrl("http://localhost:5223", "k7") == "http://localhost:5223");
 }
 

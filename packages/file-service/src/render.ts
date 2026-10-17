@@ -1,12 +1,11 @@
 // render.ts — bounce a ProjectDoc to audio through this service's renderer: this machine's engine
 // binary in its one-shot `--render` mode, or an engine's machine asked over a jobs path when this
-// machine has none (renderers.ts). No audio device is ever opened. See docs/render.md.
+// machine has none (renderers.ts). No audio device is ever opened. See docs/renderers.md.
 
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
-import { MP3_CODEC, transcode } from "@studio/take-render/render";
 import { serviceRenderer } from "./renderers.ts";
 
 /** The bound on a WEDGED bounce; a three-minute song renders in seconds. */
@@ -21,11 +20,8 @@ export interface RenderResult {
 
 export class RenderError extends Error {}
 
-/** Render `doc` and return what was written — see docs/render.md. */
-export async function renderProject(
-  doc: unknown,
-  opts: { baseDir?: string; stems?: boolean; mp3?: boolean } = {},
-): Promise<RenderResult> {
+/** Render `doc` and return what was written — see docs/renderers.md. */
+export async function renderProject(doc: unknown): Promise<RenderResult> {
   const render = serviceRenderer();
   // Named out loud, or "render failed" reads as a broken document rather than a missing engine.
   if (!render) throw new RenderError("no engine to render with");
@@ -34,10 +30,7 @@ export async function renderProject(
   let timer: NodeJS.Timeout | undefined;
   try {
     const manifest = await Promise.race([
-      render(doc as ProjectDoc, dir, {
-        stems: opts.stems,
-        base: opts.baseDir,
-      }).catch((e: Error) => {
+      render(doc as ProjectDoc, dir).catch((e: Error) => {
         throw new RenderError(e.message);
       }),
       new Promise<never>((_, reject) => {
@@ -55,7 +48,7 @@ export async function renderProject(
       .map((f) => join(dir, f));
     // Exit 0 with nothing written is a silent failure, not a successful empty render.
     if (!files.length) throw new RenderError("render wrote no audio");
-    return { files: opts.mp3 ? asMp3(files) : files, dir };
+    return { files, dir };
   } catch (e) {
     // The scratch directory belongs to this function until it SUCCEEDS, or a failing machine fills its temp dir.
     rmSync(dir, { recursive: true, force: true });
@@ -63,12 +56,4 @@ export async function renderProject(
   } finally {
     clearTimeout(timer);
   }
-}
-
-/** The same renders as mp3, BEST-EFFORT: a failed transcode costs the format, never the render. */
-function asMp3(wavs: string[]): string[] {
-  return wavs.map((wav) => {
-    const out = wav.replace(/\.wav$/i, ".mp3");
-    return transcode(wav, out, MP3_CODEC) ? out : wav;
-  });
 }

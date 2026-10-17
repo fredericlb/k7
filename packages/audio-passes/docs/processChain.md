@@ -155,7 +155,7 @@ about that file says so afterwards.
 ## Offline, always
 
 `--render`, never the transport: it opens no audio device, so a bounce runs while the live
-engine is playing (see `@studio/file-service`'s `docs/render.md`). Each source is rendered
+engine is playing (see `@studio/file-service`'s `docs/renderers.md`). Each source is rendered
 through a separate short-lived engine, from a one-track document holding the file at position 0
 with its natural length and the chain as the plugins on it — the same shape the médiathèque
 auditions a variant through (`packages/ui-library/docs/playback.md`).

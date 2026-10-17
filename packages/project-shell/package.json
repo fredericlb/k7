@@ -1,6 +1,6 @@
 {
   "name": "@studio/project-shell",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "type": "module",
   "files": [
     "src",
@@ -8,7 +8,7 @@
     "!src/**/*.test.tsx",
     "docs"
   ],
-  "description": "What every app that opens a project needs before it can draw anything: the launch parameters, the file service transport, the repository -> workspace resolution (cloning when this machine has never seen it), and the gate that does all three. k7 mounts it, and z0's editor consumes it as a published package.",
+  "description": "What every app that opens a project needs before it can draw anything: the launch parameters, the file service transport, the repository -> workspace resolution (cloning when this machine has never seen it), and the gate that does all three. k7 mounts it, and apps outside this repository consume it as a published package.",
   "types": "./src/launch.ts",
   "exports": {
     "./launch": "./src/launch.ts",
@@ -27,12 +27,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@studio/web-protocol": "^0.1.0"
+    "@studio/web-protocol": "^0.2.0"
   },
   "devDependencies": {
     "@frediverse/tsconfig": "*",
     "@frediverse/ui": "*",
-    "@studio/engine-protocol": "^0.1.0",
+    "@studio/engine-protocol": "^0.2.0",
     "@studio/graph-model": "*",
     "@studio/song-schema": "*",
     "@types/react": "^19.2.17",
@@ -42,7 +42,7 @@
   "peerDependencies": {
     "@frediverse/ui": "*",
     "react": "^19.2.7",
-    "@studio/engine-protocol": "^0.1.0",
+    "@studio/engine-protocol": "^0.2.0",
     "@studio/graph-model": "*",
     "@studio/song-schema": "*"
   },

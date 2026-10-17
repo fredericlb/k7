@@ -300,7 +300,7 @@ export async function listMachineWorkspaces(
         // `.` names the workspace folder itself; either way the NAME decides, the one rule both ends use.
         const app = projectApp(path === "." ? name : path.split("/").pop()!);
         if (!app) return [];
-        const tags = app === "k7" ? tagsOf(join(abs, path)) : [];
+        const tags = tagsOf(join(abs, path));
         return [tags.length ? { path, app, tags } : { path, app }];
       }),
     };

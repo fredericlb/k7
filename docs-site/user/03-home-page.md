@@ -54,7 +54,7 @@ The round button at the foot of the sidebar opens the user menu:
   registered engines and other account settings, described in the editor shell section);
 - in the desktop app, **Engine**, which opens `/settings/engine`, the settings of the engine built
   into the app;
-- a link to each other app of the site: **z0**, the blind-test game. In the desktop app these links
+- a link to each other app of the site, if there is one. In the desktop app these links
   point at the server you are paired with. If the app is not paired with a server, the menu says
   "Other apps — pair a server in Settings to open them" instead;
 - the logout entry.

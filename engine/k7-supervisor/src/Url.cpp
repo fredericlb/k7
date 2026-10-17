@@ -182,14 +182,13 @@ bool isLoopbackHost(const std::string& h)
     return dots == 2;
 }
 
-std::string serviceUrl(const std::string& origin, const std::string& service)
+std::string serviceUrl(const std::string& origin, const std::string& /*service*/)
 {
     const auto u = parse(origin);
     if (!u) return "";
     const std::string base = k7Hostname(u->hostname);
     // pl8 is served by k7's own process, so every service shares k7's address.
-    const std::string root = base == u->hostname ? u->origin() : u->scheme + "://" + base;
-    return service == "z0" ? root + "/z0" : root;
+    return base == u->hostname ? u->origin() : u->scheme + "://" + base;
 }
 
 std::string studioFamily(const std::string& raw)

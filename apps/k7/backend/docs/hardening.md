@@ -41,8 +41,6 @@ the tunnel or a LAN reaches) are not known when the page is served, and a policy
 them is a policy that breaks the app the first time one is missing. Framing is the attack a header
 alone stops, so framing is what is set.
 
-z0, at `/z0` on the same hostname, is its own container behind Traefik: none of this reaches it.
-
 ## A body is parsed small, before any guard
 
 The shared JSON parser (`src/bodyLimits.ts`) runs ahead of `setupAuth` and every route's guard, so

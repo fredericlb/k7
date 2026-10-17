@@ -54,6 +54,6 @@ The hub mints the file service's ticket from the session; it ages (twelve hours)
 ## Where to add something
 
 - A new **verb** on project files: `packages/commands`, never a new route ([Adding a command](./13-adding-a-command.md)).
-- A new **file-shaped** read the views need: a route in `packages/file-service`, a function in `@studio/project-shell` if z0's editor needs it too, else in `apps/k7/frontend/src/api.ts`.
+- A new **file-shaped** read the views need: a route in `packages/file-service`, a function in `@studio/project-shell` if an app outside this repository needs it too, else in `apps/k7/frontend/src/api.ts`.
 - A new **account-level** setting: k7's backend (`prefsSchema` in `server.ts`) and `K7Prefs` in `api.ts`, together.
 - Anything about **live audio**: the engine protocol (Engines section).

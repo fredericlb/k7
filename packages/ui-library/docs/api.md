@@ -37,8 +37,8 @@ thing the library still talks to directly: its socket, for transport and meters
 ## The registry is THE registry
 
 `engines()` is `engineAccess` bound to the current `apiBase()`, rebuilt only when the host moves
-it. This registry is the only one (`packages/engine-registry/docs/shared.md`): the editor and z0
-list their engines from it too, so an engine connected to a studio from its own machine appears here and
+it. This registry is the only one (`packages/engine-registry/docs/shared.md`): the editor
+lists its engines from it too, so an engine connected to a studio from its own machine appears here and
 there alike. It is typed on `Pl8Prefs` because the library remembers more than an engine id — where
 playback happens — and the preference document is the host's rather than the registry's: nothing
 should call `savePrefs` directly, since the route replaces wholesale and `prefs.ts` owns the merge

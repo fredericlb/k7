@@ -1,6 +1,6 @@
 # Broadcasting the master over the network
 
-The engine sends its master bus over the same WebSocket, which is what lets z0 be hosted.
+The engine sends its master bus over the same WebSocket, which is what lets a browser far from the machine hear it.
 Three things govern the design and each has a number below: end-to-end latency, the CPU cost
 on the audio thread, and what happens when a listener drops.
 

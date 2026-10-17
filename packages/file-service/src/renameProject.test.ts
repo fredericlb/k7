@@ -39,7 +39,7 @@ describe("Workspace.renameProject", () => {
   });
 
   it("refuses to change the SUFFIX, which is which app opens it", async () => {
-    await expect(ws.renameProject("winter.k7", "spring.z0")).rejects.toThrow(
+    await expect(ws.renameProject("winter.k7", "spring.v1")).rejects.toThrow(
       /suffix/,
     );
     await expect(ws.renameProject("winter.k7", "spring")).rejects.toThrow(

@@ -3,10 +3,9 @@
 //
 // The builder ARRIVES as the argument, so nothing is imported at runtime and this folder needs no node_modules.
 //
-// One knob, 0..100, because that is what a blindtest question carries: a single number saying "how muffled".
+// One knob, 0..100: a single number saying "how muffled".
 // The map is GEOMETRIC — 20 kHz down to 200 Hz — since a linear sweep over that span spends nine tenths of the
-// knob in territory nobody can hear moving. Same curve z0's WebAudio version used, so a question written
-// against that one still sounds like itself.
+// knob in territory nobody can hear moving.
 
 import type { GraphBuilder } from "@studio/dsp";
 

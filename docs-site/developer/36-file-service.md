@@ -79,7 +79,6 @@ engine machine's jobs socket, and of the sync relay.
 | GET | `/plugin-params`, `/plugin-native-ui` | A scanned plugin's parameters; its native window. |
 | GET, PUT, POST | `/account/live-chains`, `/account/cold-chains[/:which]`, `/account/cold-chains/download`, `/account/models/:id` | Account-level chain choices and model downloads. |
 | * | `/mediatek/*` | The media library cache (`src/routes/mediatek.ts`). |
-| POST | `/render` | Render a document and stream the file back (`src/routes/render.ts`). |
 
 ### Inside a workspace (`src/routes/files.ts`)
 

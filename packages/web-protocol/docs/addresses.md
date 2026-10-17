@@ -13,7 +13,6 @@ once, browser-safe, and nowhere else. See `apps/k7/frontend/docs/projects.md` an
 | service | where | dev | production |
 |---|---|---|---|
 | k7 | the origin itself | `app.priv.k7.rocks` | `app.k7.rocks` |
-| z0 | a path under k7's origin, `SERVICE_PATHS.z0` | `app.priv.k7.rocks/z0` | `app.k7.rocks/z0` |
 | pl8 | the media library, served BY k7 — k7's origin, its screens under `/media` | `app.priv.k7.rocks/media` | `app.k7.rocks/media` |
 | k7 | the rehearsal recorder, served BY k7 — k7's origin, its screens under `/rehearsal` | `app.priv.k7.rocks/rehearsal` | `app.k7.rocks/rehearsal` |
 | docs | k7's documentation, served BY k7 on a host of its own | `docs.priv.k7.rocks` | `docs.k7.rocks` |
@@ -22,9 +21,8 @@ once, browser-safe, and nowhere else. See `apps/k7/frontend/docs/projects.md` an
 strips first — so a page never spells a host, and a deployment on a domain of its own needs nothing
 configured. On a bare loopback host (`localhost`, a dev run) services are told apart by PORT instead.
 
-z0 is DEPLOYED on this origin and developed elsewhere: its code is in its own repository, which
-reads this table through the published package (`docs/publishing.md`). Its row stays here because
-the origin is k7's, and so is the list of paths no other app may claim.
+An app outside this repository reads this table through the published package
+(`docs/publishing.md`).
 
 **One session across them** is the shared `COOKIE_DOMAIN`: every `setupAuth` sets the cookie on the
 parent domain and trusts the sibling origins (`TRUSTED_ORIGINS`), both from the same environment
@@ -79,7 +77,7 @@ its own gets the same aliases with nothing configured.
 
 `redirectUriFor` builds `<k7 origin>/auth/callback`, and that is the single `redirect_uri` the IdP
 has registered, so the flow can only be served by k7. Every other service passes
-`mountRoutes: []` and verifies the cookie — z0 included. A page on a sibling subdomain sends the
+`mountRoutes: []` and verifies the cookie. A page on a sibling subdomain sends the
 browser to `authOrigin(origin)`, which is k7's origin: its own `/auth/login` would look the same
 and be wrong. Nothing is registered at the IdP per service.
 
@@ -96,47 +94,28 @@ On a loopback host the same table is what a PAGE uses too, and a host may move i
 scripts run (`servicePorts`). `pl8` and `k7` have no port of their own: they are k7's. The desktop app does, so it runs beside a dev session
 (`apps/k7-standalone/docs/standalone.md`). Unset, the table is `SERVICE_PORTS`.
 
-## Owning a suffix is not the same as being creatable
+## One suffix, and every shape inside it
 
-`PROJECT_SUFFIXES` has two entries, because two apps open a project. Everything an k7 project can
-BE is a shape *inside* `.k7` rather than a folder kind of its own: a song carries `video_tracks/`
-and a `viewport` surface, a set carries `songs.yaml` and a `turntables` surface (`PROJECT_SHAPES`
-in `@studio/song`). See `packages/song-video/docs/picture.md` and
-`packages/song/docs/setProject.md`.
-
-`HAS_SCAFFOLD` is a different set. Owning a folder kind is a naming rule; creating one needs a
-**scaffold** — a file map the file service can write (`createProjectIn`, and `@studio/song`'s
-three `scaffold*` modules). z0 owns `.z0` and has none: offered in a "new project" menu, it would
-produce a folder whose suffix says z0 and whose contents say k7, and nothing would complain until
-the app that opened it found nothing it could read.
-
-It is a `Record<ProjectApp, boolean>` rather than a list, so adding an app to `ProjectApp` fails to
-compile until someone answers the question for it.
+`PROJECT_SUFFIXES` has one entry, `.k7`, because one app opens a project. Everything an k7 project
+can BE is a shape *inside* `.k7` rather than a folder kind of its own: a song carries
+`video_tracks/` and a `viewport` surface, a set carries `songs.yaml` and a `turntables` surface
+(`PROJECT_SHAPES` in `@studio/song`). See `packages/song-video/docs/picture.md` and
+`packages/song/docs/setProject.md`. It stays a `Record<ProjectApp, string>`, so an app added to
+`ProjectApp` fails to compile until its suffix is stated.
 
 `projectApp` reads the NAME, not the contents, and the two are different questions: "who opens
 this" and "can the engine be given it". Only the second needs a file opened, which is why the
 first can be answered without a checkout at all. A `project.yaml` is what makes a project
 COMPILE, and `@studio/song` asks that question its own way, on the machine's own clone.
 
-## Where an app is mounted
-
-`PROJECT_MOUNTS` is empty for k7, which IS its service: `app.priv.k7.rocks/@local/<workspace>/<project>`.
-z0 is six SPAs behind one prefix and only one of them opens a project, so its address has to name
-the SPA too — `app.priv.k7.rocks/z0/editor/@local/<workspace>/<project.z0>`.
-
-It belongs here rather than in a link builder for the reason the suffixes do: the address is a
-contract between the side that WRITES it and the side that parses it back, and a mount known to
-only one of them is a 404 nobody can attribute.
-
-The name is `/z0/editor`, with nothing beside it: `/z0/editor` is a literal prefix of any
-`/z0/editor-*`, and a proxy comparing raw prefixes would send the project to the wrong SPA. One
-name, no overlap. z0's own repository documents the editor's side of it.
+k7 IS its service, so a project's address has no mount in front of it:
+`app.priv.k7.rocks/@local/<workspace>/<project>`.
 
 ## Parsing one back
 
 k7 is mounted at the ORIGIN ROOT, so its `base` is `/` and the sentinel is the FIRST path segment.
-`/z0` is claimed by z0 on the same origin, and `/api`, `/auth` by k7's backend; none of them can
-be a sentinel, since each starts with `@`, so nothing collides.
+`/api` and `/auth` are claimed by k7's backend; neither can be mistaken for a sentinel, since
+every sentinel starts with `@`, so nothing collides.
 
 **Where the project ends** is decided by the folder's own name, the same rule as `projectApp`: the
 project is everything up to and including the LAST segment claiming THIS app. That is what lets a
@@ -248,8 +227,8 @@ guard.
 address out beside it: these addresses are read back by `parseLaunch` and `projectBasename`, and a
 second builder is a second place for the encoding to differ. `launchUrl` keeps only the origin of
 what it is handed, so a caller can pass `window.location.href` without stripping anything first.
-`localProjectUrl` takes an `app` for the reason every other row on the home page does: a `.z0`
-folder in the same workspace opens in z0's editor, under its own mount.
+`localProjectUrl` goes through `launchUrl` too, so a home-page row and a shared link are encoded
+by the same builder.
 
 `projectClaimKey` is `<sentinel>/<projet>` — for `@local`, the workspace and the folder inside it —
 stated here and not in each gate: two surfaces that spell one project differently would each

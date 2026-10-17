@@ -18,7 +18,7 @@ The main consumer is `packages/file-service` (`packages/file-service/src/engineL
 
 ## `@studio/engine-browser` (browser)
 
-`packages/engine-browser/src/`, published for z0 like `engine-protocol`, with React as a peer dependency.
+`packages/engine-browser/src/`, published for apps outside this repository like `engine-protocol`, with React as a peer dependency.
 
 | Subpath | File | What |
 |---|---|---|

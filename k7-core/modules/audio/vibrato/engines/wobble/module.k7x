@@ -1,5 +1,5 @@
 // Pitch Wobble  [audioEffect] — warped vinyl: three sines at irrational ratios stretching a delay line, so the
-// pitch drifts and never repeats. The blindtest's "pitchvar", by a different mechanism — see jsdsp.ts.
+// pitch drifts and never repeats — see jsdsp.ts.
 // Its DSP is described in jsdsp.ts beside this file, not compiled into the engine.
 plugin({ type: "jsdsp", name: "Pitch Wobble" })
 params({ Amount: 0 })

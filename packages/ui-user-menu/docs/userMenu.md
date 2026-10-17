@@ -27,25 +27,24 @@ session cookie is shared by everything on the origin, so logging out of one app 
 
 ## The app rows
 
-**k7** and **z0** — every app on the origin that has a home page worth landing on, and the
-host's own row is dropped by `self` rather than by a table per host. The médiathèque and the
-rehearsal recorder have no row: they are parts of k7, reached from k7's sidebar. z0's row links to the z0 deployed at `/z0` on this origin, whose code lives in its own
-repository; the menu only needs the path, which `SERVICE_PATHS` holds.
+**k7** — the one app on the origin that has a home page worth landing on, and the host's own
+row is dropped by `self` rather than by a table per host, so k7's own menu shows none. The
+médiathèque and the rehearsal recorder have no row: they are parts of k7, reached from k7's
+sidebar.
 
-The k7 row goes first, and is worth a link because it lands on something: k7's home page lists
-the account's repositories and the projects in them (`apps/k7/frontend/docs/projects.md`), and
-that page IS the origin — `SERVICE_PATHS.k7` is the empty string, so this row's href is simply
-`/`. z0 is a place you go occasionally, k7 is where the work is, and — from anywhere but k7 —
-where you came FROM.
+The k7 row is worth a link because it lands on something: k7's home page lists the account's
+workspaces and the projects in them (`apps/k7/frontend/docs/projects.md`), and that page IS the
+origin, so this row's href is simply the origin's root. From anywhere but k7, it is where you
+came FROM.
 
-None of the rows takes a parameter: each app has a home page meaningful on its own — k7's
-projects, z0's game lobby — so a link is the whole navigation. A new tab rather than in place
+The row takes no parameter: k7's home page is meaningful on its own, so a link is the whole
+navigation. A new tab rather than in place
 matters here in particular: the médiathèque holds the tab's `<audio>` when the destination is the
 browser (`packages/ui-library/docs/miniPlayer.md`), and the rehearsal pages may hold a running
 take.
 
-The paths come from `SERVICE_PATHS` in `@studio/web-protocol/services`, the one table that says
-where each studio service is mounted. The trailing slash is added here: `BASE_URL` spells it that
+The addresses come from `serviceUrl` in `@studio/web-protocol/services`, the one place that says
+where each studio service answers. The trailing slash is added here: `BASE_URL` spells it that
 way, so the tab lands on the app's mount rather than on a redirect to it.
 
 ## `origin`, and the day there is none

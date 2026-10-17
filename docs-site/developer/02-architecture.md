@@ -112,7 +112,6 @@ details of these steps.
 
 ## What runs in production
 
-The hosted origin is the k7 image and the server engine image, plus the z0 game deployed beside
-them (see [Images and deployment](./08-images-and-deployment.md)). The desktop and phone apps
+The hosted origin is the k7 image and the server engine image (see [Images and deployment](./08-images-and-deployment.md)). The desktop and phone apps
 carry the same backend, bundled, and run it locally (see
 [Releases and publishing](./09-releases-and-publishing.md)).

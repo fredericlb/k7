@@ -59,7 +59,7 @@ export const env = {
     1,
     Math.floor(Number(raw.K7_FFMPEG_CONCURRENCY)) || 2,
   ),
-  // Read as k7 and z0 read the same variable — ../docs/ownership.md.
+  // Read as k7's backend reads the same variable — ../docs/ownership.md.
   adminGroups: raw.AUTH_ADMIN_GROUPS.split(",")
     .map((g) => g.trim())
     .filter(Boolean),

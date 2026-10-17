@@ -6,7 +6,7 @@ The pieces exist separately: `registry.ts` (the routes), `probe.ts` (measuring),
 ## The registry's address is given once, to the constructor
 
 `base` is where the registry answers — k7's backend, the one registry (`packages/engine-registry/docs/shared.md`):
-`serviceUrl(…, "pl8")`, which is k7's origin, for k7 and z0's editor, and the host's `apiBase()` for the
+`serviceUrl(…, "pl8")`, which is k7's origin, for k7, and the host's `apiBase()` for the
 media library's screens; k7 names the backend holding its preferences through `prefsBase`. It decides both the registry's routes
 and what the probe composes.
 Passed separately to two functions it is two places for one fact, and nothing would force an app
@@ -117,7 +117,7 @@ across origins. `token` stays the engine's own, since the claim is checked again
 `hostedFiles()` answers the same hub with no engine in the ticket, for a page that lists or edits
 files and plays nothing — k7's home page, whose workspaces exist whether or not an engine runs.
 
-k7 and z0's editor opt in: they open a project, and a project is the server's. The media library does not —
+k7 opts in: it opens a project, and a project is the server's. The media library does not —
 its player resolves songs against the engine machine's own médiathèque cache and sends the
 engine a document itself, which the server's files would name in paths the engine cannot open.
 

@@ -42,7 +42,7 @@ under `/rehearsal`.
 If the first thing you want at a front door is your own work, then the page listing that work IS
 the front door, and putting it behind a prefix you have to know how to type would rank it second.
 
-**The user menu — the account, the way out to z0, the logout — is in THIS page's
+**The user menu — the account, the settings, the logout — is in THIS page's
 sidebar, and only here.** Opened on a project, k7 draws the editor's header, where a menu that
 leaves the session has no business. It is the menu every app of the origin carries —
 `@studio/ui-user-menu`, rather than links this app spells its own way — so an app row opens a NEW tab and the desktop app can hand it to the system
@@ -135,13 +135,12 @@ the price noted there.
 
 ## The rule that holds everything
 
-**The folder's suffix names the application.** `mysong.k7` opens in k7, `partie.z0` in z0, and
+**The folder's suffix makes it a project.** `mysong.k7` opens in k7, and
 `packages/web-protocol/projects.ts` is the whole rule. A folder with no suffix is not a project,
 even if it contains a `project.yaml`.
 
-Two suffixes, because two applications open a project — and that is why this page keeps
-`launchUrl` on each row rather than building its own addresses: a `.z0` in the same workspace
-opens elsewhere, and the one line of the screen that would be entitled to guess does not.
+This page keeps `launchUrl` on each row rather than building its own addresses: the address is a
+contract with the gate that reads it back, and one builder is one encoding.
 
 Everything an k7 project can BE is in the **surfaces** it declares inside the `.k7`, rather than
 in some kind of folder: a `viewport` and video lanes for picture
@@ -340,7 +339,7 @@ third state to tell apart from "no projects", and a workspace shown without proj
 not been read yet is a lie that corrects itself ten seconds later, so one nobody reports.
 
 Projects are found **at any depth**, `songs/hiver.k7` included, and a project inside a project is
-descended into and reported — a `.z0` filed inside a `.k7` folder is a real arrangement. That is
+descended into and reported — a `.k7` filed inside a `.k7` folder is a real arrangement. That is
 `projectDirsUnder` in the file service, the same walker as the list the editor already polls. The
 tree keeps its button: it is for looking at what is inside, including folders that are not
 projects.
@@ -454,9 +453,9 @@ workspace fits in.
 Clicking a project goes straight into its application, in this tab, at
 `/@local/<workspace>/<dossier>` — an ADDRESS, naming the folder on the machine, which the gate
 opens without asking anybody ([launch.md](../../../../packages/project-shell/docs/launch.md)). That
-gate is `@studio/project-shell`, mounted identically by k7 and by z0's editor, and z0 comes back
-here too on leaving a project: this list holds `.z0` folders as much as `.k7`, and a second picker
-on its side would be the second thing to keep in step that this package exists to avoid.
+gate is `@studio/project-shell`, and an app outside this repository that mounts it comes back
+here too on leaving a project: a second picker on its side would be the second thing to keep in
+step that this package exists to avoid.
 
 ## Creating, copying and deleting a project — on the machine, not here
 
@@ -496,12 +495,12 @@ After the app badge, a project row shows its `project.tags` (set in the Tasks pa
 file service reads them while listing, from each k7 project's project.yaml
 (`packages/file-service/src/workspaces.ts`). One small file per project is cheap beside the tree walk the
 listing already does, and the 5-second listing cache covers it too. That cache is also why a tag added in
-the editor can take up to five seconds to appear here. A z0 project has no project.yaml and no tags.
+the editor can take up to five seconds to appear here.
 
 ### The suffix decides, and the name is shown first
 
 `projectName.ts` is pure and tested: it adds the suffix, removes an already-typed suffix —
-"hiver.z0" in a menu that writes k7 would give "hiver.z0.k7", which is neither — and refuses
+"hiver.k7" stays "hiver.k7" rather than becoming "hiver.k7.k7" — and refuses
 separators rather than replacing them silently. A suffix is read **only at the end**: "prise v1"
 is an ordinary folder name and nothing touches it. That is already `projectApp`'s rule, and
 `projectName.test.ts` pins it on both sides. The resulting folder is shown under the field
@@ -523,21 +522,10 @@ hand-written rig opens anyway. The `live` MODE is something else: it is what `mi
 
 `createProjectIn` tells them apart in a `Record<ProjectShape, …>` and not in a chain of `if`s: a
 fourth archetype added to `PROJECT_SHAPES` will not compile until somebody says what it writes.
-Same reason as `HAS_SCAFFOLD`.
 
 > **The file service knows these names, and a machine behind says so.** `shape` travels to
 > `POST /project/create`, whose `z.enum` is `PROJECT_SHAPES`. A machine whose service is older
 > answers 400 — a failure that is visible and named, which beats a template guessed alongside.
-
-### Owning a suffix and being creatable are two questions
-
-`ProjectApp` is `"k7" | "z0"` — the rehearsal recorder has no projects. But the menu reflects `SCAFFOLDED_APPS`, not
-that type. Creating needs a **template** — a map of files the file service knows how to write
-(`createProjectIn`, and `@studio/song`'s `scaffold*` modules). z0 owns `.z0` folders and has none,
-so offering it would make a `.z0` folder containing an k7 song: the suffix saying one thing, the
-contents another, and nothing complaining until z0 tried to open it. `HAS_SCAFFOLD` answers app by
-app, in a `Record` and not a list — which is why the menu offers an k7 project's archetypes
-rather than a list of applications.
 
 ### Copying a project
 
@@ -556,7 +544,7 @@ the workspace it is already in (`RenameProject.tsx` → `workspaceOps.ts`'s `ren
 Three things it does not do, each for its own reason:
 
 - **It does not change the SUFFIX.** The suffix is what says which app opens the folder
-  (`projectApp`), so renaming a `.k7` into a `.z0` would hand the project to another editor.
+  (`projectApp`), so renaming a `.k7` into anything else would stop it being a project.
   `projectFolderName` puts the source's own back whatever is typed, and the file service refuses
   the mismatch by name rather than trusting the caller.
 - **It STOPS the engine when that machine is playing the project**, exactly as a deletion does,

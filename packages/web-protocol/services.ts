@@ -1,13 +1,10 @@
-// services.ts — where each studio service answers. Every one is k7's origin, `app.<domain>`: z0
-// is a path under it, pl8 (the media library) is served BY k7, and `docs.<domain>` is the same app
-// showing its documentation alone. `st0.app` and its `play.` / `k7.` aliases are FORMER hosts that
+// services.ts — where each studio service answers. Every one is k7's origin, `app.<domain>`: pl8
+// (the media library) is served BY k7, and `docs.<domain>` is the same app showing its
+// documentation alone. `st0.app` and its `play.` / `k7.` aliases are FORMER hosts that
 // saved URLs still reach, each read as the current origin. Browser-safe: no node imports, because
 // the SPAs, the file service and the supervisor all have to agree about this — docs/addresses.md.
 
-export type StudioService = "k7" | "pl8" | "z0";
-
-/** z0's path under k7's own origin — the one service still living there; docs/addresses.md. */
-export const SERVICE_PATHS: Record<"z0", string> = { z0: "/z0" };
+export type StudioService = "k7" | "pl8";
 
 /** The alias hosts k7 also answers on — pl8's and the rehearsal recorder's former addresses, kept for saved URLs. */
 const ALIAS_LABELS = ["play", "k7"];
@@ -24,10 +21,6 @@ const LEGACY_HOSTS: Record<string, string> = {
 
 /** The services with an address of their own — the others are served by k7's process. */
 type Addressed = Exclude<StudioService, "pl8">;
-
-/** A service and the one whose address it shares — pl8 is served by k7's own process. */
-const addressOf = (service: StudioService): Addressed =>
-  service === "pl8" ? "k7" : service;
 
 /**
  * k7's OWN hostname, given any studio hostname — an alias's label stripped back off, `docs.`
@@ -91,14 +84,13 @@ export const STUDIO_ORIGIN = "https://app.k7.rocks";
 /** Each backend's port — what a SERVER calls, since node does not trust the dev CA; see docs/addresses.md. */
 export const SERVICE_PORTS: Record<Addressed, number> = {
   k7: 8789,
-  z0: 8080,
 };
 
-/** How a host moves the loopback ports, as `k7=18789,z0=18080`: an env var for node, a global for a page. */
+/** How a host moves the loopback ports, as `k7=18789`: an env var for node, a global for a page. */
 export const PORTS_ENV = "STUDIO_PORTS";
 export const PORTS_GLOBAL = "__STUDIO_PORTS__";
 
-/** `k7=18789,z0=18080` as a partial table; an unknown name (pl8 included) or a bad number is dropped. */
+/** `k7=18789` as a partial table; an unknown name (pl8 included) or a bad number is dropped. */
 export function parsePorts(
   spec: string,
 ): Partial<Record<StudioService, number>> {
@@ -140,10 +132,9 @@ export function localServiceUrl(service: StudioService): string {
 /**
  * Where a service is, given any URL on studio's origin (of any of its apps): everything
  * but that URL's origin is dropped, an alias label stripped, and every service keeps what
- * is left — they share one origin, z0 a path under it.
+ * is left — they share one origin.
  */
-export function serviceUrl(origin: string, named: StudioService): string {
-  const service = addressOf(named);
+export function serviceUrl(origin: string, _service: StudioService): string {
   let parsed: URL;
   try {
     parsed = new URL(origin);
@@ -151,7 +142,6 @@ export function serviceUrl(origin: string, named: StudioService): string {
     return "";
   }
   const base = k7Hostname(parsed.hostname);
-  if (service === "z0") return serviceUrl(origin, "k7") + SERVICE_PATHS.z0;
   // Unchanged (port included) when nothing was stripped: k7 itself, or a loopback dev host.
   return base === parsed.hostname
     ? parsed.origin

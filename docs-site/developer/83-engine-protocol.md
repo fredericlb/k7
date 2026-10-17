@@ -4,7 +4,7 @@ Every client talks to the engine over one WebSocket: JSON text messages both way
 
 ## The package
 
-`packages/engine-protocol` is one of the four packages published for z0 (as raw TypeScript). Its subpaths:
+`packages/engine-protocol` is one of the four packages published for apps outside this repository (as raw TypeScript). Its subpaths:
 
 | Subpath | File | Content | Emits code |
 |---|---|---|---|

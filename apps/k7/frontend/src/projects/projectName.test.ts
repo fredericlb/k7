@@ -23,12 +23,6 @@ describe("projectFolderName", () => {
     expect(projectFolderName("hiver.K7", "k7").folder).toBe("hiver.k7");
   });
 
-  it("laisse le MENU décider quand les deux se contredisent", () => {
-    // Somebody typing 'hiver.z0' and then picking k7 changed their mind; 'hiver.z0.k7' would be neither.
-    expect(projectFolderName("hiver.z0", "k7").folder).toBe("hiver.k7");
-    expect(projectFolderName("hiver.k7", "z0").folder).toBe("hiver.z0");
-  });
-
   it("garde un « v1 » qui fait partie du nom", () => {
     // `.v1` is not a suffix here — picture lives in a song — so 'prise v1' is an ordinary name nothing must touch.
     expect(projectFolderName("prise v1", "k7").folder).toBe("prise v1.k7");

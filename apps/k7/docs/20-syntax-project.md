@@ -10,8 +10,7 @@ The song header: tempo, rate, meter — plus what the song borrows from outside 
 # rather than misreading a key it does not know.
 format: 1
 
-# What this folder IS — the default, so it can be left out. The only other
-# value is `z0`, the blind test's own dialect.
+# What this folder IS: `k7`, the default, so it can be left out.
 #
 # The folder's own suffix (`.k7`) is what decides which app opens it, and it
 # wins if the two disagree — k7 reports the contradiction rather than picking a side.

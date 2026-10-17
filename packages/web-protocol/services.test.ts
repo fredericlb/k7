@@ -1,5 +1,5 @@
 // Every service resolves on k7's origin — `docs.` read as `app.`, the `play.` and `k7.` aliases
-// stripped, a former host read as its successor — z0 a path under it; on a loopback host that
+// stripped, a former host read as its successor; on a loopback host that
 // origin is the page's own, port and all.
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -27,15 +27,6 @@ describe("serviceUrl", () => {
     );
   });
 
-  it("keeps z0 a path under the given origin, unmoved", () => {
-    expect(serviceUrl("https://app.k7.rocks", "z0")).toBe(
-      "https://app.k7.rocks/z0",
-    );
-    expect(serviceUrl("https://app.priv.k7.rocks", "z0")).toBe(
-      "https://app.priv.k7.rocks/z0",
-    );
-  });
-
   it("resolves pl8 and k7 to k7's own origin, since k7 serves pl8", () => {
     expect(serviceUrl("https://app.k7.rocks", "pl8")).toBe(
       "https://app.k7.rocks",
@@ -49,8 +40,8 @@ describe("serviceUrl", () => {
     expect(serviceUrl("https://docs.k7.rocks/x", "k7")).toBe(
       "https://app.k7.rocks",
     );
-    expect(serviceUrl("https://docs.priv.k7.rocks", "z0")).toBe(
-      "https://app.priv.k7.rocks/z0",
+    expect(serviceUrl("https://docs.priv.k7.rocks", "pl8")).toBe(
+      "https://app.priv.k7.rocks",
     );
   });
 
@@ -62,8 +53,8 @@ describe("serviceUrl", () => {
     expect(serviceUrl("https://k7.st0.app/session/1", "k7")).toBe(
       "https://app.k7.rocks",
     );
-    expect(serviceUrl("https://k7.priv.st0.app", "z0")).toBe(
-      "https://app.priv.k7.rocks/z0",
+    expect(serviceUrl("https://k7.priv.st0.app", "pl8")).toBe(
+      "https://app.priv.k7.rocks",
     );
     expect(serviceUrl("https://play.priv.st0.app", "k7")).toBe(
       "https://app.priv.k7.rocks",
@@ -93,9 +84,6 @@ describe("serviceUrl", () => {
     );
     expect(serviceUrl("http://localhost:5223", "pl8")).toBe(
       "http://localhost:5223",
-    );
-    expect(serviceUrl("http://127.0.0.1:5223", "z0")).toBe(
-      "http://127.0.0.1:5223/z0",
     );
   });
 });
@@ -237,7 +225,7 @@ describe("moved loopback ports", () => {
   });
 
   it("drops what it cannot read and keeps the rest of the table", () => {
-    expect(parsePorts("pl8=18795, nope=1, z0=70000, k7=18789")).toEqual({
+    expect(parsePorts("pl8=18795, nope=1, k7=70000, k7=18789")).toEqual({
       k7: 18789,
     });
     process.env.STUDIO_PORTS = "pl8=18787";

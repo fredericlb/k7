@@ -5,7 +5,7 @@
 //
 // The low pass's mirror, and the asymmetry is deliberate: 20 Hz at 0 (below the material, so it does nothing)
 // climbing to 20 kHz at 100 (above it, so almost nothing is left). Both ends are useless on purpose — the knob
-// is a blindtest's "how thin", and a question wants the whole span available.
+// is a single "how thin", and a chain wants the whole span available.
 
 import type { GraphBuilder } from "@studio/dsp";
 

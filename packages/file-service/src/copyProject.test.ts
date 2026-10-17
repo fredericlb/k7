@@ -149,7 +149,7 @@ describe("copyProjectBetween", () => {
     workspace("albums");
 
     await expect(
-      copyProjectBetween(USER, "songs", "winter.k7", "albums", "winter.z0"),
+      copyProjectBetween(USER, "songs", "winter.k7", "albums", "winter.v1"),
     ).rejects.toThrow(/suffix/);
   });
 

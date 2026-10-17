@@ -14,7 +14,7 @@ The arithmetic lives here once. What varies is where the samples come from:
 - **ffmpeg** where there is no engine — k7's backend, which is hosted. The engine is never in that image and
   never will be: it is an instrument on a musician's machine. But it holds the médiathèque's bytes, so the
   analysis of a freshly uploaded song has to happen where the bytes are. ffmpeg is already in the
-  image for the rehearsal recorder's takes and z0's audio.
+  image for the rehearsal recorder's takes.
 
 `DecodeOptions.engineBin` picks between them, and nothing downstream knows which ran: both hand
 over interleaved float32 frames at the file's own rate, every channel. On wav and flac the two

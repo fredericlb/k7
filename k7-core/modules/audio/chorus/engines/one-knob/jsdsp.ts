@@ -3,7 +3,7 @@
 //
 // The builder ARRIVES as the argument, so nothing is imported at runtime and this folder needs no node_modules.
 //
-// A 30 ms tap swept ±20 ms by a sine, mixed 30% under the dry — z0's numbers, node for node. The sweep is a
+// A 30 ms tap swept ±20 ms by a sine, mixed 30% under the dry. The sweep is a
 // WIRE and not a scalar: a control-rate delay time steps once a block, and on a delay that is a zipper on
 // precisely the effect modulation exists for.
 

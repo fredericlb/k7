@@ -13,9 +13,7 @@ end of the page.
 
 Two services really talk to the engine: **k7's editor** and its **media library** (the `pl8` session), each by its two halves (browser +
 backend), plus the **supervisor** (`engine/k7-supervisor`), which announces it to the registries. At the
-margin: **z0**, in its own repository, links to it at one point only, a 74-line offline render
-in its backend that goes through the file service over HTTP and never the
-socket; the **rehearsal pages** only listen, subscribing to the bench's master broadcast to record
+margin, the **rehearsal pages** only listen, subscribing to the bench's master broadcast to record
 a chain (`packages/ui-rehearsal/docs/chainSource.md`).
 
 Volume: ~6,200 lines of TypeScript, tests excluded, in four engine packages (`engine-protocol` 809,
@@ -64,34 +62,12 @@ of identity for the probe. What the token proves today is written in
 
 ## C. Duplication — what a package would save
 
-### C2 — the engine pickers, copied across repositories
+### C3 — one predicate for "reachable"
 
-k7's picker is `apps/k7/frontend/src/components/EngineGate.tsx`; z0 carries its own `Gate.tsx`.
-The full-screen spinner, the "Connect" card, the engine row, and the `useRelook` effect duplicated
-word for word with its `biome-ignore` (26 lines for a `useEngineList(active)` of ~12). The gates
-share the `Phase` structure, `findEngine`, `pick`, the `auth.me` effect, the three render branches
-and the `ranked.map` loop; what distinguishes them is a comment banner, an import and a few
-strings.
-
-A `@studio/engine-gate` carrying the phase machine, the parameterised relook effect,
-`<EngineRow>`, the spinner and the anon card would bring **~770 lines down to about 400**. Above
-all it would make the divergences below structurally impossible. The numbers are to be rechecked
-when the batch is taken.
-
-### C3 — the accidental divergences that package would remove
-
-1. **Several predicates for "reachable"**. z0's (`z0/Gate.tsx:107`) ignores the token — the bug
-   `access.md:37` describes, guarded in `choose.ts` but not in a picker that filters for itself.
-   k7's `EngineGate.tsx` tests `wsUrl`, `fileBase` and the token by hand, where the package's
-   `isReachable()` says the same thing and only `apps/k7/frontend/src/settings/PairedDevicesSection.tsx`
-   calls it.
-2. **z0 has no `useRelook`** — the only permanent picker that can stay stuck on "out of reach"
-   until a reload, precisely what `relook.ts` exists to kill.
-3. **z0 never takes the lease**, where `lease.md:20-27` records two apps shipping that bug
-   independently. z0 drives no project, but it drives an engine, so the rule holds.
-4. **`assigned` ignored by z0**: only k7 hides an engine already taken.
-5. **`select` before entering: k7 alone.** z0 enters on a token unverified server-side.
-6. **"Search again" destroys the list** in z0 (`setPhase({k:"looking"})`), not in k7.
+k7's `apps/k7/frontend/src/components/EngineGate.tsx` tests `wsUrl`, `fileBase` and the token by
+hand, where the package's `isReachable()` says the same thing and only
+`apps/k7/frontend/src/settings/PairedDevicesSection.tsx` calls it — the token-less filtering
+`access.md:37` describes is guarded in `choose.ts`, not in a picker that filters for itself.
 
 ### C4 — the shapes of the wire, declared once
 
@@ -155,12 +131,6 @@ does not move.
 
 Ordered by value/risk ratio.
 
-### Batch 3 — `@studio/engine-gate`
-
-C2 and C3. The biggest batch (~770 lines towards ~400), and the one that removes six divergences at
-a stroke. The package must be born with the reconnection semantics of
-`packages/engine-browser/docs/reliability.md` rather than freezing those of one picker.
-
 ### Batch 4 — C5's dead code
 
 `probeLocalEngine`, `EngineLookup.ambiguous` and the streaming instrumentation no screen reads:
@@ -178,9 +148,7 @@ Section B. To be settled before anything is written.
 
 ## Documentation corrections to make along the way
 
-- `engine-browser/docs/access.md`: its "where to wire `useRelook`" table omits z0, the one case
-  where the doc says it must *always* be wired, and token-less filtering is presented there as
-  settled while two surfaces still do it.
-- `engine-browser/docs/lease.md` presents the lease as a closed subject; z0 takes none.
+- `engine-browser/docs/access.md` presents token-less filtering as settled while k7's picker still
+  does it by hand (C3).
 - `engine-browser/docs/streaming.md` says "four apps" for `./stream` (there is one), and its table
   for reading the measurements describes instrumentation no screen exposes.
