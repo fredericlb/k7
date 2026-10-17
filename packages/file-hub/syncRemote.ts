@@ -5,6 +5,7 @@
 
 import { readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { currentStudioUrl } from "@studio/web-protocol/services";
 
 /** One pairing: the remote relay's socket URL, the device token, the account's email, and whether it is the main one. */
 export interface SyncRemote {
@@ -48,7 +49,15 @@ export function readRemotes(home: string): SyncRemote[] {
     : [{ ...(raw as Partial<SyncRemote>), main: true }];
   const list = items.flatMap((v) =>
     v?.url && v.token && v.user
-      ? [{ url: v.url, token: v.token, user: v.user, main: v.main === true }]
+      ? [
+          {
+            // A pairing made under a former host relays through its successor: the token is the same backend's.
+            url: currentStudioUrl(v.url),
+            token: v.token,
+            user: v.user,
+            main: v.main === true,
+          },
+        ]
       : [],
   );
   return oneMain(list).sort((a, b) => Number(b.main) - Number(a.main));

@@ -49,6 +49,34 @@ function k7Hostname(hostname: string): string {
   return LEGACY_HOSTS[host] ?? host;
 }
 
+/** A former host's successor, its `play.` and `k7.` aliases included, or null: by name only, so another deployment's hosts are never rewritten. */
+function successorOf(hostname: string): string | null {
+  if (LEGACY_HOSTS[hostname]) return LEGACY_HOSTS[hostname];
+  for (const label of ALIAS_LABELS) {
+    const rest = hostname.slice(label.length + 1);
+    if (hostname.startsWith(`${label}.`) && LEGACY_HOSTS[rest])
+      return LEGACY_HOSTS[rest];
+  }
+  return null;
+}
+
+/** `url` moved off a former host onto its successor, scheme, path and query kept; any other URL as it was — docs/addresses.md. */
+export function currentStudioUrl(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+  const next = successorOf(parsed.hostname);
+  if (!next) return url;
+  const bare = url === parsed.origin;
+  parsed.hostname = next;
+  parsed.port = "";
+  // An origin stays an origin: URL would add a "/" the stored value never had.
+  return bare ? parsed.origin : parsed.toString();
+}
+
 /** Whether `hostname` is the documentation's host — the app showing its docs and nothing else. */
 export const isDocsHost = (hostname: string): boolean =>
   hostname.startsWith(`${DOCS_LABEL}.`);

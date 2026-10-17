@@ -6,6 +6,8 @@
 // The shape is RFC 8252's for native apps — the system browser, a loopback redirect, any port,
 // bound to a state nonce — applied to the studio session rather than to the IdP itself.
 
+import { currentStudioUrl } from "./services.ts";
+
 /** Where the desktop listens for its token. One path, so the server's rule and the app's agree. */
 export const PAIR_RETURN_PATH = "/desktop/pair";
 
@@ -89,5 +91,6 @@ export function normalizeServer(input: string): string | null {
   if (url.protocol === "http:" && !isLoopbackReturn(url.origin)) return null;
   if (url.protocol !== "https:" && url.protocol !== "http:") return null;
   if (url.username || url.password) return null;
-  return url.origin;
+  // A former host answers nothing any more: a server saved or typed under one is its successor.
+  return currentStudioUrl(url.origin);
 }
