@@ -355,7 +355,7 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
         // Which of the two copy rules this channel follows is the first thing a lag report needs.
         opts.log("ch" + std::to_string(ch) + " to the engine: " + (synced ? "synced, never fetches" : "fetches before each frame"));
         auto engine = std::make_shared<ix::WebSocket>();
-        engine->setUrl("ws://127.0.0.1:" + std::to_string(opts.enginePort));
+        engine->setUrl("ws://127.0.0.1:" + std::to_string(opts.enginePort()));
         engine->disableAutomaticReconnection();
         std::weak_ptr<Impl> weak = shared_from_this();
         std::weak_ptr<Channel> wc = c;

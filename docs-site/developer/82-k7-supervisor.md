@@ -84,7 +84,7 @@ U+001F (`kUnitSep`) joins multi-part arguments because no device name contains i
 | Field | Meaning |
 |---|---|
 | `registryUrls` | Studios, each reduced to its family's registry URL. Empty falls back to `$STUDIO_REGISTRY_URL` (comma-separated). |
-| `port` | Engine port, default 8765 |
+| `port` | The first engine port tried, default 8765; `--port` on the command line fixes it instead |
 | `audioPriority` | Interface names, best first |
 | `onnxProviders` | Separation providers, lowercased |
 | `instruments` | Absent until a first boot settles it to whatever is already installed; an array is a choice |
@@ -123,7 +123,7 @@ U+001F (`kUnitSep`) joins multi-part arguments because no device name contains i
 | Host lock refresh | 2 s |
 | Purge of kept undo audio older than 30 days | 1 h |
 
-**Engine start** (`engine/k7-supervisor/src/EngineProcess.cpp`): if the pidfile names a live process and the port answers, adopt it; if the port does not answer, the pidfile is stale. On Unix, an engine answering on the port with no pidfile is adopted via `lsof`. Otherwise spawn the binary found by `findBinary()`: `$STUDIO_ENGINE`, then `k7-runtime` beside the supervisor, then the newest build under `engine/k7-runtime/build/*/` in the checkout (Debug ranked last). The engine gets `STUDIO_ENGINE_HOST=0.0.0.0`, the id and token, and `STUDIO_ENGINE_ALLOWED_ORIGINS` built from the registries' origins at that moment (a registry added later counts from the next start); its output goes to the merged log under `[engine]`. Stop kills the whole process tree. Shutdown deregisters first, bounded to 1.5 s so a hung registry cannot hang Quit, then stops the engine even if it was adopted.
+**Engine start** (`engine/k7-supervisor/src/EngineProcess.cpp`): if the pidfile names a live process and the port answers, adopt it; if the port does not answer, the pidfile is stale. The pidfile records the engine's port (`port=`), so a surviving engine is asked where it was started. Otherwise the ports from `port` on (ten, or only that one under `--port`) are tried in turn: an engine answering on one with no pidfile is adopted, its pid asked of `lsof` on Unix and of the TCP table on Windows; a port another program holds is skipped, the log naming it; the first port that binds gets a fresh engine. Otherwise spawn the binary found by `findBinary()`: `$STUDIO_ENGINE`, then `k7-runtime` beside the supervisor, then the newest build under `engine/k7-runtime/build/*/` in the checkout (Debug ranked last). The engine gets `STUDIO_ENGINE_HOST=0.0.0.0`, the id and token, and `STUDIO_ENGINE_ALLOWED_ORIGINS` built from the registries' origins at that moment (a registry added later counts from the next start); its output goes to the merged log under `[engine]`. Stop kills the whole process tree. Shutdown deregisters first, bounded to 1.5 s so a hung registry cannot hang Quit, then stops the engine even if it was adopted.
 
 **Audio policy** (`engine/k7-supervisor/src/AudioPolicy.cpp`): the first ranked interface that is present wins; no default, no fallback beyond the list. A switch that did not take is not retried until the device set's signature changes.
 

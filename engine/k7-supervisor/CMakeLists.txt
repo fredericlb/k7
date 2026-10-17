@@ -281,7 +281,8 @@ add_executable(k7_supervisor_tests
     tests/Log_test.cpp
     tests/Backpressure_test.cpp
     tests/Http_test.cpp
-    tests/CrashLoop_test.cpp)
+    tests/CrashLoop_test.cpp
+    tests/EnginePorts_test.cpp)
 target_include_directories(k7_supervisor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../k7-runtime/tests)
 target_link_libraries(k7_supervisor_tests PRIVATE k7_supervisor_core)
 k7_beside_runtime(k7_supervisor_tests)

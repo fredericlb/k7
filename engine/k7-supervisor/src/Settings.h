@@ -19,8 +19,10 @@ namespace k7 {
 struct Settings {
     /** The k7 instances the user added, as their pl8 registries; overrides `$STUDIO_REGISTRY_URL`. */
     std::vector<std::string> registryUrls;
-    /** The engine's WebSocket port. */
+    /** The engine's WebSocket port: the first one tried, the next free one taken unless `portFixed`. */
     int port = 8765;
+    /** `--port`: that port or none, for a firewall rule or a LAN address someone wrote down; never saved. */
+    bool portFixed = false;
     /** The interfaces in the user's order, best first; the first one PRESENT is where the engine goes. */
     std::vector<std::string> audioPriority;
     /** The ONNX execution providers this machine separates on, lowercased; empty is the CPU. */
@@ -45,6 +47,9 @@ void saveSettings(const Settings& s);
 
 /** `--config`: settings come from `file` instead, and are never written back — the file is the user's. */
 void useConfigFile(const std::filesystem::path& file);
+
+/** `--port`: every load after this has that port, fixed. */
+void useFixedPort(int port);
 
 /** The config file's keys that the supervisor otherwise reads from the environment, as (variable, value). */
 std::vector<std::pair<std::string, std::string>> configEnvironment(const nlohmann::json& raw);

@@ -67,6 +67,10 @@ Record parse(const std::string& text)
         line = chomp(line);
         if (line.rfind("start=", 0) == 0 && allDigits(line.substr(6))) r.start = line.substr(6);
         else if (line.rfind("exe=", 0) == 0) r.exe = line.substr(4);
+        else if (line.rfind("port=", 0) == 0 && allDigits(line.substr(5)) && line.size() <= 10) {
+            const int p = std::stoi(line.substr(5));
+            if (p > 0 && p < 65536) r.port = p;
+        }
     }
     return r;
 }
@@ -76,6 +80,7 @@ std::string format(const Record& r)
     std::string out = std::to_string(r.pid) + "\n";
     if (!r.start.empty()) out += "start=" + r.start + "\n";
     if (!r.exe.empty()) out += "exe=" + r.exe + "\n";
+    if (r.port > 0) out += "port=" + std::to_string(r.port) + "\n";
     return out;
 }
 

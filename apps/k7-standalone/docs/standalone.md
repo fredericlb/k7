@@ -131,8 +131,10 @@ is rewritten to the origin's text, binaries included, and an edit made here is p
 The supervisor is run by `@studio/supervisor-host`'s `SupervisorHost`, the way the phone runs it —
 no arguments, NDJSON on stdio, stdin held open for the app's life, relaunched when it crashes
 (`packages/supervisor-host/docs/supervisorHost.md`). It gets a home of its own and
-engine port **8766**, not the command-line engine's `~/.k7` and 8765: the supervisor adopts whatever engine
-already listens on its port, and its lock is per home, so the two coexist. Its first run
+first engine port **8766**, not the command-line engine's `~/.k7` and 8765: its lock is per home, and
+each supervisor adopts only the engine its own pidfile names, so the two coexist. 8766 is only the
+first port tried: another program on it — phare's agent holds 8766 too — moves the engine to the next
+free one (`engine/k7-supervisor/docs/supervisor.md`, "The engine's port"). Its first run
 downloads its sample packs into that home, like any fresh supervisor home.
 
 Quit first has every page write the text its editor panes hold (`flushAutosaves`, through the

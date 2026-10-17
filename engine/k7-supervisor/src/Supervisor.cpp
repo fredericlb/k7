@@ -23,6 +23,7 @@
 #include "WireVersion.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdlib>
 #include <deque>
 #include <future>
@@ -66,6 +67,8 @@ struct Supervisor::Impl {
     std::function<void()> exit;
     EngineIdentity identity;
     Settings settings;
+    /** The port the engine serves on, which a start may move off `settings.port`; shared with the tunnels' threads. */
+    std::shared_ptr<std::atomic<int>> enginePort = std::make_shared<std::atomic<int>>(0);
     std::vector<std::string> registryUrls;
     protocol::Snapshot snap;
     std::string lastFrame;
@@ -108,7 +111,7 @@ struct Supervisor::Impl {
     void publish()
     {
         snap.engineId = identity.id;
-        snap.enginePort = settings.port;
+        snap.enginePort = enginePort->load();
         snap.audioPriority = settings.audioPriority;
         std::string joined;
         for (size_t i = 0; i < registryUrls.size(); ++i) joined += (i ? ", " : "") + registryUrls[i];
@@ -150,11 +153,18 @@ struct Supervisor::Impl {
         starting = true;
         auto id = identity;
         const int port = settings.port;
+        const bool fixed = settings.portFixed;
         // The studios it is listed at may open it from their pages; one added later counts from the next start.
         const std::string origins = engine::allowedOrigins(registryUrls);
-        loop.work<engine::StartResult>([id, port, origins, safeModeCrashes] { return engine::start(id, port, origins, safeModeCrashes); },
+        loop.work<engine::StartResult>([id, port, fixed, origins, safeModeCrashes] { return engine::start(id, port, fixed, origins, safeModeCrashes); },
                                        [this, done, safeModeCrashes](engine::StartResult r) {
                                            starting = false;
+                                           // Every reader of the port follows it: the queries, the tunnels, the next heartbeat's presence.
+                                           if (r.port > 0 && r.port != enginePort->load()) {
+                                               log::host("the engine serves on :" + std::to_string(r.port) + ", which the presence now carries");
+                                               enginePort->store(r.port);
+                                               engine->setPort(r.port);
+                                           }
                                            switch (r.kind) {
                                                case engine::StartKind::Spawned:
                                                    snap.ownsEngine = true;
@@ -630,14 +640,13 @@ struct Supervisor::Impl {
             o.tunnelSecret = identity.tunnelSecret;
             // Set on the server's own engine only, whose one registry is the server that shares the key.
             if (const char* key = std::getenv("STUDIO_RENDER_KEY"); key && *key) o.renderKey = key;
-            o.enginePort = settings.port;
+            o.enginePort = [port = enginePort] { return port->load(); };
             o.cacheDir = paths::remoteCache(url::cacheKey(u));
             o.jobs = machineJobs(access());
             o.log = [](const std::string& m) { log::line("tunnel", m); };
-            const int port = settings.port;
-            o.answerOffer = [port](const std::string& offer) {
+            o.answerOffer = [port = enginePort](const std::string& offer) {
                 rtc::Options r;
-                r.enginePort = port;
+                r.enginePort = port->load();
                 r.log = [](const std::string& m) { log::line("tunnel", m); };
                 return rtc::answerOffer(offer, r);
             };
@@ -651,7 +660,7 @@ struct Supervisor::Impl {
 
     nlohmann::json presenceNow() const
     {
-        auto p = addresses::presence(settings.port);
+        auto p = addresses::presence(enginePort->load());
         if (performance) p["performance"] = *performance;
         p["libraryLevel"] = kLibraryLevel;
         // The wire's version and the stamp, beside the library level and distinct from it: what the hub and the picker compare.
@@ -959,6 +968,7 @@ void Supervisor::start()
     s.settings = loadSettings();
     s.identity = ensureEngineIdentity();
     s.registryUrls = registry::resolve(s.settings.registryUrls);
+    s.enginePort->store(s.settings.port);
     s.engine = std::make_unique<EngineQueries>(s.loop, s.settings.port);
     s.settleInstruments();
     s.refreshInstruments();
@@ -967,7 +977,7 @@ void Supervisor::start()
     log::host("supervisor started (native), " + std::to_string(tls::rootCount()) + " trusted roots");
     // What every heartbeat will carry, said once: when a registry refuses one, the reason names a field of this.
     log::host("engine " + s.identity.id + ", presence " +
-              addresses::presence(s.settings.port).dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
+              addresses::presence(s.enginePort->load()).dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
 
     // Before the engine, so the CPU loop is not measuring its plugin scan.
     auto dir = paths::studioDir();

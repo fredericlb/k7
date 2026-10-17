@@ -14,6 +14,9 @@ are in [supervisorPolicy.md](supervisorPolicy.md).
 | **the command-line engine** | `k7-supervisor --config <file>`, a terminal, a service, the server's container | the file, read once and never written | nothing | SIGINT or SIGTERM |
 | **inside the iOS app** | `k7_supervisor_run` on a thread of `engine/k7-ios`, a framework since no iOS app may run a program (`src/Embedded.cpp`) | as under an app | the same protocol, on a pipe of its own: the app's stdout is shared | the command pipe closes |
 
+`--config <file> --port <n>` fixes the engine's port, which otherwise is only the first one tried
+("The engine's port", below).
+
 The config file has the settings' schema (`registryUrls`, `port`, `audioPriority`, `onnxProviders`,
 `instruments`, `deviceTokens`), plus a single `deviceToken` for every studio the file names, and the three keys that otherwise come from the environment — `machineName`,
 `extraCaCerts`, `renderKey` — and `"instruments": ["all"]` for `$STUDIO_INSTRUMENTS=all`. A key the
@@ -79,7 +82,25 @@ named the live engine, the probe could not open a socket, the supervisor dropped
 stale, and every engine it started after that died on the port the first one still held, every two
 seconds, while the browser's transport kept being reset. So *could not ask* keeps the pidfile and
 retries, and a start that finds the port already answered with no pidfile naming its owner adopts
-that owner (its pid asked of `lsof`) rather than spawning an engine that can only fail to bind.
+that owner (its pid asked of `lsof`, or of the TCP table on Windows) rather than spawning an engine
+that can only fail to bind.
+
+## The engine's port
+
+`port` is the FIRST port tried, not the port: the next free one of ten is taken when another program
+holds it. With a fixed port, one program on the machine is enough to keep the engine from ever
+starting — phare's desktop agent listens on 8766, the desktop app's first port — and an engine that
+cannot bind exits at once, which the crash loop reads as a crash and answers with safe mode. Nothing downstream
+needs the port fixed: the registry's presence, the snapshot, the tunnel and the WebRTC pipe all read
+the one the start reports, and the pidfile records it so the next supervisor adopts the engine there.
+
+What holds a port is judged by BINDING it, as the engine will, not by connecting to it: a connect
+cannot tell an engine from any other listener. A port answered by an engine no pidfile names is still
+adopted, and is never skipped for the next one, or a lost pidfile would put a second engine on the
+audio device. `--port` is for whoever wrote the port down — a firewall rule, a LAN address — and
+there a held port is an error naming its holder, never a silent move.
+
+On the phone the app binds the port it is handed, so there the first port is the only one.
 
 What ran the descriptors out was the heartbeat: one started every five seconds whether or not the
 last had come back, so a network gone dead — a sleeping laptop, a DNS lookup the request timeout

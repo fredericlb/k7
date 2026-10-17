@@ -41,7 +41,8 @@ struct AgentOptions {
     std::string tunnelSecret;
     /** The server's render key, sent when set: this machine then renders for the server (packages/engine-tunnel/docs/jobs.md). */
     std::string renderKey;
-    int enginePort = 8765;
+    /** The engine's port, asked at each channel: a relaunch may move it (docs/supervisor.md). */
+    std::function<int()> enginePort = [] { return 8765; };
     /** Where this server's files are kept on this machine. */
     std::filesystem::path cacheDir;
     Jobs jobs;

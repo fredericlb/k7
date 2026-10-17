@@ -15,6 +15,8 @@ namespace {
 
 // Set by `--config`; empty means `<state>/engine-host.json`, the file an app's commands save.
 std::filesystem::path gConfigFile;
+// Set by `--port`; 0 means the settings' port, the first of a range.
+int gFixedPort = 0;
 
 std::string trim(const std::string& s)
 {
@@ -101,6 +103,8 @@ nlohmann::json settingsJson(const Settings& s)
 
 void useConfigFile(const std::filesystem::path& file) { gConfigFile = file; }
 
+void useFixedPort(int port) { gFixedPort = port; }
+
 std::vector<std::pair<std::string, std::string>> configEnvironment(const nlohmann::json& raw)
 {
     std::vector<std::pair<std::string, std::string>> out;
@@ -118,12 +122,17 @@ std::vector<std::pair<std::string, std::string>> configEnvironment(const nlohman
 
 Settings loadSettings()
 {
-    std::ifstream in(gConfigFile.empty() ? paths::settings() : gConfigFile, std::ios::binary);
-    if (!in) return {};
-    std::stringstream buf;
-    buf << in.rdbuf();
-    auto raw = nlohmann::json::parse(buf.str(), nullptr, false);
-    return raw.is_discarded() ? Settings{} : settingsFrom(raw);
+    Settings s;
+    if (std::ifstream in(gConfigFile.empty() ? paths::settings() : gConfigFile, std::ios::binary); in) {
+        std::stringstream buf;
+        buf << in.rdbuf();
+        if (auto raw = nlohmann::json::parse(buf.str(), nullptr, false); !raw.is_discarded()) s = settingsFrom(raw);
+    }
+    if (gFixedPort > 0) {
+        s.port = gFixedPort;
+        s.portFixed = true;
+    }
+    return s;
 }
 
 void saveSettings(const Settings& s)

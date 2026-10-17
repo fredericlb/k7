@@ -9,6 +9,7 @@
 #include <ixwebsocket/IXWebSocket.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <condition_variable>
 #include <deque>
@@ -74,7 +75,7 @@ std::vector<AudioDevice> devicesOf(const json& msg)
 }  // namespace
 
 struct EngineQueries::Worker {
-    int port;
+    std::atomic<int> port;
     std::mutex mutex;
     std::condition_variable cv;
     std::deque<std::function<void()>> jobs;
@@ -132,7 +133,7 @@ struct EngineQueries::Worker {
         }
         drop();
         auto sock = std::make_unique<ix::WebSocket>();
-        sock->setUrl("ws://127.0.0.1:" + std::to_string(port));
+        sock->setUrl("ws://127.0.0.1:" + std::to_string(port.load()));
         sock->disableAutomaticReconnection();
         sock->setOnMessageCallback([this](const ix::WebSocketMessagePtr& m) { onMessage(m); });
         {
@@ -209,6 +210,12 @@ EngineQueries::~EngineQueries()
         worker_->quit = true;
     }
     worker_->cv.notify_all();
+}
+
+void EngineQueries::setPort(int port)
+{
+    worker_->port.store(port);
+    close();
 }
 
 void EngineQueries::close()

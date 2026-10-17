@@ -33,7 +33,8 @@ int main(int argc, char** argv)
     o.registryUrl = argv[1];
     o.id = argv[2];
     o.token = argv[3];
-    o.enginePort = std::atoi(argv[4]);
+    const int port = std::atoi(argv[4]);
+    o.enginePort = [port] { return port; };
     o.cacheDir = k7::paths::fromUtf8(argv[5]);
     if (argc == 7) o.renderKey = argv[6];
     o.log = [](const std::string& m) { std::fprintf(stderr, "tunnel | %s\n", m.c_str()); };
@@ -57,7 +58,6 @@ int main(int argc, char** argv)
         std::ofstream(out, std::ios::binary) << text;
         emit({{"type", "done"}, {"files", {k7::paths::utf8(out)}}});
     };
-    const int port = o.enginePort;
     o.answerOffer = [port](const std::string& offer) {
         k7::rtc::Options r;
         r.enginePort = port;

@@ -14,7 +14,7 @@ import type { Snapshot } from "@studio/supervisor-host/hostProtocol";
 import { SupervisorHost } from "@studio/supervisor-host/supervisorHost";
 import { noticeDown, noticeFrame, noticeSnapshot } from "./notices.ts";
 
-/** Not the command-line engine's 8765: the supervisor adopts whatever engine already listens on its port. */
+/** The first port tried, not the command-line engine's 8765; a held one moves the engine to the next free port. */
 const ENGINE_PORT = 8766;
 
 export function startSupervisor(

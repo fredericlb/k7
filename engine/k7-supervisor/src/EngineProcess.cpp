@@ -21,6 +21,7 @@
 
 #ifdef _WIN32
 #include <winsock2.h>
+#include <iphlpapi.h>
 #include <ws2tcpip.h>
 #else
 #include <arpa/inet.h>
@@ -173,7 +174,26 @@ Probe probe(int port)
     return up ? Probe::Up : Probe::Down;
 }
 
-#if !defined(_WIN32) && !defined(K7_ENGINE_IN_APP)
+#ifndef K7_ENGINE_IN_APP
+#ifdef _WIN32
+// The pid listening on `port` over IPv4, asked of the TCP table; 0 when none.
+int listenerPid(int port)
+{
+    ULONG size = 0;
+    std::vector<char> buf;
+    DWORD rc = ERROR_INSUFFICIENT_BUFFER;
+    // The table may grow between the sizing call and the read, so the read is retried with the new size.
+    for (int tries = 0; rc == ERROR_INSUFFICIENT_BUFFER && tries < 3; ++tries) {
+        buf.resize(size);
+        rc = GetExtendedTcpTable(buf.empty() ? nullptr : buf.data(), &size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_LISTENER, 0);
+    }
+    if (rc != NO_ERROR || buf.empty()) return 0;
+    const auto* table = reinterpret_cast<const MIB_TCPTABLE_OWNER_PID*>(buf.data());
+    for (DWORD i = 0; i < table->dwNumEntries; ++i)
+        if (ntohs(static_cast<u_short>(table->table[i].dwLocalPort)) == port) return static_cast<int>(table->table[i].dwOwningPid);
+    return 0;
+}
+#else
 // The pid listening on `port`, asked of lsof; 0 when none, or when there is no lsof to ask.
 int listenerPid(int port)
 {
@@ -186,7 +206,55 @@ int listenerPid(int port)
     return std::atoi(out.c_str());
 }
 #endif
+
+// Whether the engine could bind `port` on every interface now, as its server will; a socket we cannot open says yes.
+bool bindable(int port)
+{
+#ifdef _WIN32
+    SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (s == INVALID_SOCKET) return true;
+    // Exclusive, so a listener that let its port be shared still reads as taken.
+    BOOL one = TRUE;
+    setsockopt(s, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, reinterpret_cast<const char*>(&one), sizeof one);
+#else
+    int s = socket(AF_INET, SOCK_STREAM, 0);
+    if (s < 0) return true;
+    // As the engine's server sets it, so a connection still in TIME_WAIT does not read as a holder.
+    int one = 1;
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
+#endif
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(static_cast<unsigned short>(port));
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    const bool ok = bind(s, reinterpret_cast<sockaddr*>(&addr), sizeof addr) == 0;
+#ifdef _WIN32
+    closesocket(s);
+#else
+    close(s);
+#endif
+    return ok;
+}
+
+// Who holds `port`, for the log: the program and its pid when the OS says, else only that something does.
+std::string holderOf(int port)
+{
+    const int pid = listenerPid(port);
+    if (pid <= 0) return "something";
+    const auto rec = pidfile::recordOf(pid);
+    if (rec.exe.empty()) return "pid " + std::to_string(pid);
+    return paths::utf8(fs::path(paths::fromUtf8(rec.exe)).filename()) + " (pid " + std::to_string(pid) + ")";
+}
+#endif
 }  // namespace
+
+std::vector<int> candidatePorts(int first, bool fixed)
+{
+    std::vector<int> out;
+    const size_t span = fixed ? 1 : static_cast<size_t>(kPortSpan);
+    for (int p = first; p > 0 && p < 65536 && out.size() < span; ++p) out.push_back(p);
+    return out;
+}
 
 bool isServing(int port)
 {
@@ -209,7 +277,8 @@ int appPid()
 }
 }  // namespace
 
-StartResult start(const EngineIdentity& identity, int port, const std::string& origins, int safeModeCrashes)
+// The app binds the port it is handed, and whatever serves there is the app's: the first port is the only one.
+StartResult start(const EngineIdentity& identity, int port, bool, const std::string& origins, int safeModeCrashes)
 {
     std::error_code ec;
     fs::create_directories(paths::studioDir(), ec);
@@ -217,7 +286,7 @@ StartResult start(const EngineIdentity& identity, int port, const std::string& o
     if (isServing(port)) {
         std::ofstream(paths::enginePid(), std::ios::trunc) << app;
         log::host("adopting the engine the app already serves on :" + std::to_string(port));
-        return {StartKind::Adopted, app};
+        return {StartKind::Adopted, app, "", port};
     }
     protocol::emit({{"t", "engine"}, {"action", "start"}, {"id", identity.id}, {"token", identity.token},
                     {"port", port}, {"host", "0.0.0.0"}, {"origins", origins}, {"safeMode", safeModeCrashes}});
@@ -229,7 +298,7 @@ StartResult start(const EngineIdentity& identity, int port, const std::string& o
     }
     std::ofstream(paths::enginePid(), std::ios::trunc) << app;
     log::host("the app started the engine on :" + std::to_string(port));
-    return {StartKind::Spawned, app};
+    return {StartKind::Spawned, app, "", port};
 }
 
 void stop()
@@ -240,48 +309,9 @@ void stop()
     fs::remove(paths::enginePid(), ec);
 }
 #else
-StartResult start(const EngineIdentity& identity, int port, const std::string& origins, int safeModeCrashes)
+namespace {
+StartResult spawnOn(const EngineIdentity& identity, int port, const std::string& origins, int safeModeCrashes)
 {
-    if (running()) {
-        // A pid is not an identity, so the PORT is asked too — here, where a wrong answer costs a spare engine.
-        const auto answer = probe(port);
-        if (answer == Probe::Up) {
-            const auto rec = pidfile::read();
-            bool alive = false;
-            // A bare-pid file whose process the OS now shows to be the engine is upgraded, so a later stop may reach it.
-            if (!ownedChild(rec.pid, alive) && !rec.verified())
-                if (const auto live = pidfile::inspect(rec.pid); live && pidfile::check(*live, live, true) == pidfile::Check::Same)
-                    pidfile::write(*live);
-            log::host("adopting the engine already on the pidfile");
-            return {StartKind::Adopted};
-        }
-        // Out of descriptors, say: the engine may be fine, and dropping its pidfile would orphan it for good.
-        if (answer == Probe::Unknown)
-            return {StartKind::Error, 0, "could not open a socket to ask :" + std::to_string(port) +
-                                             " — keeping the engine on the pidfile"};
-        log::host("pidfile names a live process but nothing answers :" + std::to_string(port) +
-                  " — stale, starting a fresh engine");
-        std::error_code ec;
-        fs::remove(paths::enginePid(), ec);
-    }
-#ifndef _WIN32
-    // An engine answering with no pidfile naming it: a fresh one could only fail to bind, so take that one.
-    if (probe(port) == Probe::Up) {
-        if (const int pid = listenerPid(port); pid > 0) {
-            const auto rec = pidfile::recordOf(pid);
-            // Something else on the engine's port is no engine of ours: never recorded, so never killed.
-            if (!rec.exe.empty() && !pidfile::isEngineExecutable(rec.exe))
-                return {StartKind::Error, 0, rec.exe + " (pid " + std::to_string(pid) + ") already serves :" +
-                                                 std::to_string(port) + " — stop it, then start again"};
-            pidfile::write(rec);
-            log::host("adopting the engine already serving :" + std::to_string(port) + " (pid " +
-                      std::to_string(pid) + "), which no pidfile named");
-            return {StartKind::Adopted, pid};
-        }
-        return {StartKind::Error, 0, "something already serves :" + std::to_string(port) +
-                                         " and no pid could be found for it — stop it, then start again"};
-    }
-#endif
     const auto bin = findBinary();
     if (!bin) return {StartKind::Missing};
 
@@ -311,10 +341,73 @@ StartResult start(const EngineIdentity& identity, int port, const std::string& o
     owned.unlock();
     auto rec = pidfile::recordOf(spawned.pid);
     if (rec.exe.empty()) rec.exe = paths::utf8(*bin);
+    rec.port = port;
     pidfile::write(rec);
     log::host("engine started (pid " + std::to_string(spawned.pid) + ") on :" + std::to_string(port) +
               (safeModeCrashes > 0 ? " in safe mode" : ""));
-    return {StartKind::Spawned, spawned.pid};
+    return {StartKind::Spawned, spawned.pid, "", port};
+}
+}  // namespace
+
+StartResult start(const EngineIdentity& identity, int firstPort, bool portFixed, const std::string& origins, int safeModeCrashes)
+{
+    if (running()) {
+        auto rec = pidfile::read();
+        // The port it was started on; a pidfile written before ports were recorded names the first one.
+        const int port = rec.port > 0 ? rec.port : firstPort;
+        // A pid is not an identity, so the PORT is asked too — here, where a wrong answer costs a spare engine.
+        const auto answer = probe(port);
+        if (answer == Probe::Up && portFixed && port != firstPort) {
+            log::host("the engine on the pidfile serves :" + std::to_string(port) + ", not :" + std::to_string(firstPort) +
+                      ", the port --port fixes — replacing it");
+            stop();
+        } else if (answer == Probe::Up) {
+            bool alive = false;
+            // A bare-pid file whose process the OS now shows to be the engine is upgraded, so a later stop may reach it.
+            if (!ownedChild(rec.pid, alive) && !rec.verified())
+                if (auto live = pidfile::inspect(rec.pid); live && pidfile::check(*live, live, true) == pidfile::Check::Same) {
+                    live->port = port;
+                    pidfile::write(*live);
+                }
+            log::host("adopting the engine already on the pidfile, on :" + std::to_string(port));
+            return {StartKind::Adopted, 0, "", port};
+        } else if (answer == Probe::Unknown) {
+            // Out of descriptors, say: the engine may be fine, and dropping its pidfile would orphan it for good.
+            return {StartKind::Error, 0, "could not open a socket to ask :" + std::to_string(port) +
+                                             " — keeping the engine on the pidfile"};
+        } else {
+            log::host("pidfile names a live process but nothing answers :" + std::to_string(port) +
+                      " — stale, starting a fresh engine");
+            std::error_code ec;
+            fs::remove(paths::enginePid(), ec);
+        }
+    }
+    const auto ports = candidatePorts(firstPort, portFixed);
+    for (const int port : ports) {
+        // An engine answering with no pidfile naming it: a fresh one could only fail to bind, so take that one.
+        if (probe(port) == Probe::Up)
+            if (const int pid = listenerPid(port); pid > 0) {
+                auto rec = pidfile::recordOf(pid);
+                // An executable the OS will not name is taken for the engine's, as it always was.
+                if (rec.exe.empty() || pidfile::isEngineExecutable(rec.exe)) {
+                    rec.port = port;
+                    pidfile::write(rec);
+                    log::host("adopting the engine already serving :" + std::to_string(port) + " (pid " +
+                              std::to_string(pid) + "), which no pidfile named");
+                    return {StartKind::Adopted, pid, "", port};
+                }
+            }
+        if (bindable(port)) return spawnOn(identity, port, origins, safeModeCrashes);
+        // Something else on the port is no engine of ours: never recorded, so never killed.
+        const auto holder = holderOf(port);
+        if (portFixed)
+            return {StartKind::Error, 0, holder + " already holds :" + std::to_string(port) +
+                                             ", the port --port fixes — stop it, or choose another"};
+        log::host(holder + " holds :" + std::to_string(port) + " — trying the next port");
+    }
+    if (ports.empty()) return {StartKind::Error, 0, "no port to start the engine on"};
+    return {StartKind::Error, 0, "every port from :" + std::to_string(ports.front()) + " to :" +
+                                     std::to_string(ports.back()) + " is taken — free one, or start from another \"port\""};
 }
 
 void stop()

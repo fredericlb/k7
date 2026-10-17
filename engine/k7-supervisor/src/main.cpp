@@ -1,6 +1,7 @@
 // main.cpp — the supervisor's entry point, run two ways. Spawned by an app (the desktop app, the phone) and driven over
-// NDJSON on stdio, where stdin ending IS the app going away and ends us too. Or `--config <file>`, the command-line
-// engine: settings from that file, no frames on stdout, running until SIGINT or SIGTERM. Two diagnostics take
+// NDJSON on stdio, where stdin ending IS the app going away and ends us too. Or `--config <file> [--port <n>]`, the
+// command-line engine: settings from that file, no frames on stdout, running until SIGINT or SIGTERM; `--port` pins
+// the engine to that port, where otherwise it takes the next free one from the settings' port. Two diagnostics take
 // arguments and touch nothing else: `--probe <address>` asks a studio's registry, and
 // `--separate <mix> <model> <outDir> [providers]` runs one stem separation here, printing progress.
 
@@ -48,6 +49,15 @@ constexpr std::chrono::milliseconds kSignalPoll{100};
 extern "C" void onSignal(int)
 {
     gSignalled.store(true, std::memory_order_relaxed);
+}
+
+/** `--port`'s value, 0 for anything but a whole number from 1 to 65535. */
+int parsePort(const char* text)
+{
+    const std::string s(text);
+    if (s.empty() || s.size() > 5 || s.find_first_not_of("0123456789") != std::string::npos) return 0;
+    const int port = std::stoi(s);
+    return port > 0 && port < 65536 ? port : 0;
 }
 
 /** `--config <file>`: read it, put its environment keys in place, and make it the settings; false with a message on failure. */
@@ -137,11 +147,20 @@ int main(int argc, char** argv)
         return failed ? 1 : 0;
     }
     // Driven by an app over stdio unless a config file says otherwise.
-    const bool headless = argc == 3 && std::string(argv[1]) == "--config";
+    const bool pinned = argc == 5 && std::string(argv[3]) == "--port";
+    const bool headless = (argc == 3 || pinned) && std::string(argv[1]) == "--config";
+    if (headless && pinned) {
+        const int port = parsePort(argv[4]);
+        if (!port) {
+            std::fprintf(stderr, "--port takes a port from 1 to 65535, not %s\n", argv[4]);
+            return 2;
+        }
+        k7::useFixedPort(port);
+    }
     if (headless && !useConfig(argv[2])) return 2;
     if (!headless && argc > 1) {
         std::fprintf(stderr,
-                     "usage: k7-supervisor --config <file>\n"
+                     "usage: k7-supervisor --config <file> [--port <n>]\n"
                      "       k7-supervisor --probe <address>\n"
                      "       k7-supervisor --separate <mix> <model> <outDir> [providers]\n"
                      "       k7-supervisor            (driven by an app over stdio)\n");

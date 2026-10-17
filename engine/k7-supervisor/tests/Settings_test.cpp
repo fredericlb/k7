@@ -60,6 +60,17 @@ void theInstrumentsKeptTellAbsentFromEmpty()
     CHECK(!k7::settingsJson(Settings{}).contains("instruments"));
 }
 
+// `--port` lasts the run: an app's save must not turn a pinned port into the file's.
+void aFixedPortIsNeverSaved()
+{
+    Settings in;
+    in.port = 9001;
+    in.portFixed = true;
+    CHECK(!k7::settingsJson(in).contains("portFixed"));
+    CHECK(!settingsFrom(k7::settingsJson(in)).portFixed);
+    CHECK(!settingsFrom(json::parse(R"({"port":9001,"portFixed":true})")).portFixed);
+}
+
 void aPortOutOfRangeIsTheDefault()
 {
     CHECK(settingsFrom(json::parse(R"({"port":70000})")).port == 8765);
@@ -104,6 +115,7 @@ void runSettingsTests()
     RUN(olderSpellingsAreMigratedInTheReader);
     RUN(providersAreLowercasedAndDeduplicated);
     RUN(aRoundTripIsExact);
+    RUN(aFixedPortIsNeverSaved);
     RUN(aPortOutOfRangeIsTheDefault);
     RUN(theInstrumentsKeptTellAbsentFromEmpty);
     RUN(aConfigFileSetsWhatTheEnvironmentOtherwiseCarries);

@@ -22,6 +22,7 @@ void runLogTests();
 void runBackpressureTests();
 void runHttpTests();
 void runCrashLoopTests();
+void runEnginePortsTests();
 
 int main()
 {
@@ -44,5 +45,6 @@ int main()
     runBackpressureTests();
     runHttpTests();
     runCrashLoopTests();
+    runEnginePortsTests();
     TEST_MAIN_END();
 }

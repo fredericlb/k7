@@ -39,6 +39,12 @@ On Windows:
 k7-supervisor.exe --config engine.json
 ```
 
+To keep the engine on one port whatever else runs on the machine, for a firewall rule or an address you wrote down, add `--port`:
+
+```sh
+./k7-supervisor --config engine.json --port 8765
+```
+
 The supervisor reads the file, starts the engine, lists it at the studios you named, and runs until you press Ctrl-C (or the process receives SIGTERM or SIGHUP). On stop it first removes the engine from every studio's list, then stops the engine. It prints `[host] running from the config file; Ctrl-C to stop` once it is up.
 
 Before the engine starts, the supervisor measures the machine for about a second (CPU speed, cores, disk, memory). The resulting performance score is what the engine pickers show.
@@ -63,7 +69,7 @@ The config file is a JSON object. Every key is optional. A key with a wrong type
 |---|---|---|---|
 | `registryUrls` | array of strings | none | The studios this engine is listed at. Give any address of the studio: `https://app.k7.rocks`, `app.k7.rocks` and `https://docs.k7.rocks` all mean the same studio, and so do the former addresses `https://st0.app`, `https://play.st0.app` and `https://k7.st0.app`. A bare host gets `https://`. Duplicates are dropped. When the list is empty, the engine is listed nowhere (see `STUDIO_REGISTRY_URL` below). |
 | `registryUrl` | string | none | One studio, as a single string. Read only when `registryUrls` is missing or empty. |
-| `port` | integer, 1 to 65535 | `8765` | The port the engine listens on. Browsers on your network and the supervisor reach the engine on it. |
+| `port` | integer, 1 to 65535 | `8765` | The first port the engine tries. When another program already holds it, the engine takes the next free one, up to nine ports further, and the log names the program in the way. Studios learn the port the engine actually took, so browsers find it either way. With `--port` on the command line, the engine uses that port or does not start. |
 | `audioPriority` | array of strings | empty | Audio interface names, best first. The engine uses the first one that is plugged in. See [Audio interfaces, MIDI and plugins](./84-audio-midi-plugins.md). |
 | `audioDevice`, `audioFallback` | strings | none | One preferred interface and one fallback. Read only when `audioPriority` is missing or empty; they become a two-line `audioPriority`. |
 | `instruments` | array of strings | see below | The sampled instruments this machine keeps. Names come from the table in [Engines](./80-engines.md#sampled-instruments). The word `"all"` anywhere in the list keeps every instrument. Missing instruments are downloaded when the supervisor starts. |

@@ -30,13 +30,21 @@ struct StartResult {
     StartKind kind;
     int pid = 0;
     std::string message;
+    /** The port the engine serves on, spawned or adopted; 0 when none came up. */
+    int port = 0;
 };
+
+/** How many ports from the first one a start tries before it gives up, unless the port is fixed. */
+constexpr int kPortSpan = 10;
+
+/** The ports a start tries, in order: `first` alone when `fixed`, else the next kPortSpan that exist. */
+std::vector<int> candidatePorts(int first, bool fixed);
 
 /** The origins of the studios this machine is listed at, comma-separated: the engine's `STUDIO_ENGINE_ALLOWED_ORIGINS`. */
 std::string allowedOrigins(const std::vector<std::string>& registryUrls);
 
-/** Bring an engine up — in safe mode when `safeModeCrashes` > 0 — or adopt the one serving, letting `origins` in; blocking, call it off the loop. */
-StartResult start(const EngineIdentity& identity, int port, const std::string& origins, int safeModeCrashes = 0);
+/** Bring an engine up on the first free candidate port — in safe mode when `safeModeCrashes` > 0 — or adopt ours, letting `origins` in; blocking, call it off the loop. */
+StartResult start(const EngineIdentity& identity, int firstPort, bool portFixed, const std::string& origins, int safeModeCrashes = 0);
 
 /** Stop the engine the pidfile names, its whole process tree, and clear the pidfile. */
 void stop();

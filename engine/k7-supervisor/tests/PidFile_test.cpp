@@ -25,10 +25,12 @@ void theExtendedFormatRoundTrips()
     r.pid = 123;
     r.start = "1760000000";
     r.exe = "/Applications/k7.app/Contents/Resources/k7-runtime";
+    r.port = 8767;
     const auto back = parse(format(r));
     CHECK(back.pid == 123);
     CHECK(back.start == r.start);
     CHECK(back.exe == r.exe);
+    CHECK(back.port == 8767);
     CHECK(back.verified());
     // The pid leads, so a reader taking only the leading number still finds it.
     CHECK(format(r).rfind("123\n", 0) == 0);
@@ -41,6 +43,11 @@ void garbageIsNoPid()
     CHECK(parse("-5\n").pid == 0);
     CHECK(parse("99999999999999\n").pid == 0);
     CHECK(parse("12\nstart=nope\n").start.empty());
+    // No port, or one that is none, is the settings' first port to whoever reads it.
+    CHECK(parse("12\n").port == 0);
+    CHECK(parse("12\nport=x\n").port == 0);
+    CHECK(parse("12\nport=70000\n").port == 0);
+    CHECK(parse("12\nport=0\n").port == 0);
 }
 
 void theEngineIsKnownByItsName()

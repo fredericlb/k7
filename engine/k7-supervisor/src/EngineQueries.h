@@ -27,6 +27,9 @@ public:
     /** Drop the connection (the engine stopped); the next call redials. */
     void close();
 
+    /** The engine now serves on `port`: the next dial goes there. */
+    void setPort(int port);
+
     /** The engine's `whoami` reply as it came — its protocol, build and safe mode; null means it did not answer. */
     void whoami(Reply<nlohmann::json> done);
 

@@ -17,10 +17,12 @@ struct Record {
     /** macOS: start, seconds since the epoch; Linux: field 22 of /proc/<pid>/stat; Windows: creation FILETIME. "" when unknown. */
     std::string start;
     std::string exe;
+    /** The port the engine was started on; 0 in a file written before it was recorded. */
+    int port = 0;
     bool verified() const { return pid > 0 && !start.empty(); }
 };
 
-/** Read either format: a bare pid, or the pid then `start=` and `exe=` lines; pid 0 for anything else. */
+/** Read either format: a bare pid, or the pid then `start=`, `exe=` and `port=` lines; pid 0 for anything else. */
 Record parse(const std::string& text);
 
 /** The pid on the first line, so a reader that only takes the leading number still gets it. */
