@@ -165,8 +165,14 @@ on macOS): `workspaces/` (`$STUDIO_FILES_ROOT`), `mediatek/`, `prefs/`, `server-
 ## Packaging
 
 `scripts/stage.mjs` builds `staging/` — the frontend, then the backend bundle, then the engine and
-the supervisor — which the shell's builder config copies into Resources. The build is unsigned:
-partially signed, Gatekeeper kills the unsigned children. Linux gets an `.AppImage` and a `.deb`
+the supervisor — which the shell's builder config copies into Resources. On macOS the build is
+signed AD-HOC, every binary in the bundle, with no certificate. Left unsigned, the bundle keeps the
+seal of Electron's own executable, which renaming the app and adding its resources breaks, and a
+downloaded app with a broken seal is "damaged" with no way past it; ad-hoc it is merely
+unnotarised, which System Settings lets through (`docs/desktop-release.md`). Signing only some of
+the binaries would get the unsigned children killed by Gatekeeper. The hardened runtime is off: its
+library validation refuses a library signed by another team, and an ad-hoc signature has none, so
+ONNX Runtime would not load. Linux gets an `.AppImage` and a `.deb`
 beside it. No file type is associated with the app: a `.dawproject` is imported from inside a
 workspace (`packages/translator/docs/import.md`), and a file handed over by the OS belongs to none.
 The build's release stamp, and the menu that shows it, are `docs/menu.md`.

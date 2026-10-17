@@ -211,8 +211,10 @@ that works around it.
 
 ## The desktops are not signed
 
-The macOS `.dmg` and engine archive are unsigned and unnotarised, and the Windows installer and
-binaries unsigned, so they warn on first launch. This is not a gap in the workflow; it is a
+The macOS `.dmg` is signed ad-hoc — with no certificate, which is all that keeps it from being
+reported "damaged" (`apps/k7-standalone/docs/standalone.md`) — and unnotarised; the engine archive
+is unsigned beyond the linker's own ad-hoc signature; the Windows installer and binaries are
+unsigned. So they warn on first launch. This is not a gap in the workflow; it is a
 certificate nobody has bought. ONNX Runtime, a third-party library loaded beside the supervisor, is
 the sharp end of the same thing.
 
@@ -233,7 +235,8 @@ Application certificate in the build's keychain (a `.p12` and its password as se
 binary in the bundle signed with the hardened runtime — the supervisor, the engine and ONNX Runtime
 included, or Gatekeeper kills the unsigned children — and the `.dmg` notarised with `notarytool`
 (an App Store Connect API key or an app-specific password) and stapled. electron-builder does all of
-it once `mac.identity` is no longer `null` and `mac.notarize` is set. On Windows, an Authenticode
+it once `mac.identity` names that certificate instead of `-`, `mac.hardenedRuntime` is back on and
+`mac.notarize` is set. On Windows, an Authenticode
 certificate, whose key the CAs now issue only on a hardware token or in a cloud HSM — so CI signs
 through a signing service (Azure Trusted Signing, a CA's cloud signer) called from
 electron-builder's `win.signtoolOptions`.
