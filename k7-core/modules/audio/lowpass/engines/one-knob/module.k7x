@@ -1,5 +1,5 @@
-// Low Pass  [audioEffect] — one knob that muffles, 0 (open) to 100 (a corner at 200 Hz). The blindtest's
-// "lowpass", reimplemented: same geometric curve, so a question written against the WebAudio one is unchanged.
+// Low Pass  [audioEffect] — one knob that muffles, 0 (open) to 100 (a corner at 200 Hz), on a geometric
+// curve.
 // Its DSP is described in jsdsp.ts beside this file, not compiled into the engine.
 plugin({ type: "jsdsp", name: "Low Pass" })
 params({ Amount: 0 })

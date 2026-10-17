@@ -3,9 +3,8 @@
 //
 // The builder ARRIVES as the argument, so nothing is imported at runtime and this folder needs no node_modules.
 //
-// tanh(drive·x), drive climbing 1 → 50, which is exactly the curve z0's WaveShaper was filled with. What is
-// approximated is the NORMALISATION: the original divided by tanh(drive), and this vocabulary has no tanh at
-// control rate. Above drive 4 that divisor is within half a percent of 1, so the makeup only matters at the
+// tanh(drive·x), drive climbing 1 → 50. What is approximated is the NORMALISATION: the exact makeup divides
+// by tanh(drive), and this vocabulary has no tanh at control rate. Above drive 4 that divisor is within half a percent of 1, so the makeup only matters at the
 // very bottom of the knob and a two-point ramp covers it.
 
 import type { GraphBuilder } from "@studio/dsp";

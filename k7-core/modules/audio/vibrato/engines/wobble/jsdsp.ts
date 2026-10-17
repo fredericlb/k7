@@ -3,14 +3,11 @@
 //
 // The builder ARRIVES as the argument, so nothing is imported at runtime and this folder needs no node_modules.
 //
-// Warped vinyl. z0 did it by summing three detune LFOs onto the source's playback rate; nothing here can
-// retune a buffer, so the pitch comes from where it comes from on tape — a delay line whose length MOVES.
-// The three rates are z0's own (0.23, 0.71, 1.37 Hz, scaled by the knob) and they are mutually irrational on
-// purpose: the wobble must never settle into a pattern an ear can predict.
+// Warped vinyl. Nothing here can retune a buffer, so the pitch comes from where it comes from on tape — a
+// delay line whose length MOVES. The three rates (0.23, 0.71, 1.37 Hz, scaled by the knob) are mutually
+// irrational on purpose: the wobble must never settle into a pattern an ear can predict.
 //
-// What is dropped is the random drift z0 nudged in every 800 ms. A graph is a description, evaluated the same
-// way every time, and there is no noise source in this vocabulary — three incommensurable sines are the
-// closest thing to "never repeats" it can offer.
+// No random drift: a graph has no noise source, so three incommensurable sines stand in for "never repeats".
 
 import type { GraphBuilder } from "@studio/dsp";
 
