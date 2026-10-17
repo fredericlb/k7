@@ -5,6 +5,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   authOrigin,
+  currentStudioUrl,
   engineRegistryUrl,
   isDocsHost,
   isLegacyHost,
@@ -268,5 +269,31 @@ describe("isLoopbackAddress", () => {
       undefined,
     ])
       expect(isLoopbackAddress(a)).toBe(false);
+  });
+});
+
+describe("currentStudioUrl", () => {
+  it("moves a relay or an origin off a former host, keeping its scheme and path", () => {
+    expect(currentStudioUrl("wss://st0.app/api/sync")).toBe(
+      "wss://app.k7.rocks/api/sync",
+    );
+    expect(currentStudioUrl("wss://priv.st0.app/api/sync")).toBe(
+      "wss://app.priv.k7.rocks/api/sync",
+    );
+    expect(currentStudioUrl("https://st0.app")).toBe("https://app.k7.rocks");
+    expect(currentStudioUrl("https://play.st0.app/api/x?y=1")).toBe(
+      "https://app.k7.rocks/api/x?y=1",
+    );
+  });
+
+  it("leaves every other host alone, a self-hosted one named like an alias included", () => {
+    for (const url of [
+      "wss://app.k7.rocks/api/sync",
+      "https://k7.example.com",
+      "https://play.example.com/api/sync",
+      "http://127.0.0.1:8789/api/sync",
+      "not a url",
+    ])
+      expect(currentStudioUrl(url)).toBe(url);
   });
 });

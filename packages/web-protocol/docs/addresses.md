@@ -62,6 +62,15 @@ supervisor's `Url.cpp`, its twin. On those hosts k7's backend answers `/api/*`, 
 `play.`, under `/rehearsal` from `k7.` (`isLegacyHost`, `apps/k7/backend/src/server.ts`). Dropping
 one of them is a breakage of those links, not a cleanup.
 
+What THIS repo stores is not left to that routing. A desktop's sync pairings (`.sync-remote.json`),
+the server chosen at sign-in, and the server a synced workspace is linked to are read through
+`currentStudioUrl`, which moves a former host onto its successor and keeps the scheme, path and
+query: `wss://st0.app/api/sync` relays at `wss://app.k7.rocks/api/sync`, with the same token, since
+both names are one backend. It rewrites only the hosts `LEGACY_HOSTS` names and their aliases, never
+by pattern, because a stored address may be another deployment's, and `k7.example.com` is not an alias
+of `example.com` there. A machine paired under `st0.app` keeps syncing whether or not that host is
+still routed.
+
 A label is stripped only when a real domain is left behind it: `k7.rocks` is a domain, not the
 `k7.` alias of `rocks`. The labels stay pattern-based otherwise, so a deployment on a domain of
 its own gets the same aliases with nothing configured.

@@ -5,6 +5,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { currentStudioUrl } from "@studio/web-protocol/services";
 import { EXAMPLES_WORKSPACE } from "./demos.ts";
 import { authHeaders, type RelayAuth, RelayLink } from "./liveRelay.ts";
 
@@ -24,10 +25,10 @@ export interface WorkspaceLink {
 /** The room the account's own library syncs in; `_` starts no workspace name, so none can take it. */
 export const ACCOUNT_LIBRARY_ROOM = "_account";
 
-/** The relay's host, which is what makes two addresses the same server. */
+/** The relay's host, which is what makes two addresses the same server: a workspace linked under a former host is its successor's. */
 export const hostOf = (url: string): string => {
   try {
-    return new URL(url).host;
+    return new URL(currentStudioUrl(url)).host;
   } catch {
     return url;
   }
@@ -36,7 +37,7 @@ export const hostOf = (url: string): string => {
 /** A relay socket's server as a page shows it: `wss://app.k7.rocks/api/sync` → `https://app.k7.rocks`. */
 export const originOf = (url: string): string => {
   try {
-    return new URL(url.replace(/^ws/, "http")).origin;
+    return new URL(currentStudioUrl(url).replace(/^ws/, "http")).origin;
   } catch {
     return url;
   }
