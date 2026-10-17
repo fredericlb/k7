@@ -99,7 +99,7 @@ export const api = {
 
   // --- Workspaces + file ops (engine-side file service, cross-origin) ---
 
-  // The shared half, spread rather than re-listed, so this app and z0's editor cannot drift on a route name.
+  // The shared half, spread rather than re-listed, so this app and @studio/project-shell cannot drift on a route name.
   ...projectApi,
 
   importProject: (path: string) =>

@@ -15,8 +15,8 @@ describe("parseLaunch", () => {
   });
 
   it("is null for an address outside this app's mount", () => {
-    // The EDGE keeps other prefixes away from this reader; z0's editor has one of its own.
-    expect(parseLaunch("/rehearsal/sessions", "z0", "/z0/editor/")).toBe(null);
+    // The EDGE keeps other prefixes away from this reader; a page mounted under a base has its own.
+    expect(parseLaunch("/rehearsal/sessions", "k7", "/sub/")).toBe(null);
   });
 
   it("reads a path the edge claims as a repository name, which is exactly right", () => {
@@ -52,12 +52,11 @@ describe("parseLaunch", () => {
     );
   });
 
-  it("reads each app's OWN suffix, so a nested project belongs to the app that claims it", () => {
-    // A `.z0` inside a `.k7` is a real arrangement: one repository, two apps.
-    const path = "/z0/editor/band/winter.k7/partie.z0";
-    expect(parseLaunch(path, "z0", "/z0/editor/")).toEqual({
+  it("ends the project at the LAST segment carrying the suffix, under the given base", () => {
+    const path = "/sub/band/winter.k7/live.k7";
+    expect(parseLaunch(path, "k7", "/sub/")).toEqual({
       repo: "band",
-      project: "winter.k7/partie.z0",
+      project: "winter.k7/live.k7",
     });
   });
 
@@ -123,33 +122,6 @@ describe("launchUrl", () => {
     expect(
       launchUrl("https://st0.priv.frediver.se", "band", "live.k7", "k7"),
     ).toBe("https://st0.priv.frediver.se/band/live.k7");
-  });
-
-  // z0's address carries the SPA too (PROJECT_MOUNTS), and this pair would 404 if the ends drifted.
-  it("sends a z0 session to the editor, not to the game's apex", () => {
-    expect(
-      launchUrl(
-        "https://st0.priv.frediver.se",
-        "lemo_mante",
-        "session-2304.z0",
-        "z0",
-      ),
-    ).toBe("https://st0.priv.frediver.se/z0/editor/lemo_mante/session-2304.z0");
-  });
-
-  it("round-trips a z0 session through the editor's own base", () => {
-    const url = new URL(
-      launchUrl(
-        "https://st0.priv.frediver.se",
-        "lemo_mante",
-        "a/party.z0",
-        "z0",
-      ),
-    );
-    expect(parseLaunch(url.pathname, "z0", "/z0/editor/")).toEqual({
-      repo: "lemo_mante",
-      project: "a/party.z0",
-    });
   });
 
   it("keeps only the origin, whatever URL it is handed", () => {

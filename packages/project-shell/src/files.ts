@@ -1,7 +1,7 @@
 // files.ts — the file-service routes that need no compiled view: opening a project in a
-// workspace, its tree and its files. The gate runs on these,
-// and so does z0's editor, which is why they stand apart from project.ts: nothing here reaches
-// the song compiler's types. See ../docs/fileApi.md.
+// workspace, its tree and its files. The gate runs on these, and so may an editor outside this
+// repository, which is why they stand apart from project.ts: nothing here reaches the song
+// compiler's types. See ../docs/fileApi.md.
 
 import type {
   FileContent,

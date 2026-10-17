@@ -92,12 +92,12 @@ describe("the tree is rooted at the workspace", () => {
   it("finds a project at a depth, and inside another one", () => {
     // Both are addresses the vocabulary supports, so the scan may not stop at the first it recognises.
     mkdirSync(join(root, "albums", "winter.k7"), { recursive: true });
-    mkdirSync(join(root, "song.k7", "live.z0"), { recursive: true });
+    mkdirSync(join(root, "song.k7", "live.k7"), { recursive: true });
     expect(new Workspace(root).workspaceInfo().projects.sort()).toEqual([
       "albums/winter.k7",
       "other.k7",
       "song.k7",
-      "song.k7/live.z0",
+      "song.k7/live.k7",
     ]);
   });
 });

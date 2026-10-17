@@ -129,15 +129,7 @@ describe("fromLocation", () => {
 
   it("keeps the new section clear of the paths the proxy claims on the origin", () => {
     // Free rather than load-bearing under `/media`, and asserted anyway — see ../docs/routing.md.
-    for (const taken of [
-      "k7",
-      "m9",
-      "k7",
-      "z0",
-      "dev",
-      "console",
-      "dev-status",
-    ])
+    for (const taken of ["k7", "m9", "k7", "dev", "console", "dev-status"])
       expect(SECTION_IDS as readonly string[]).not.toContain(taken);
   });
 });

@@ -11,7 +11,7 @@ export interface FileNode {
   dir: boolean;
   kind?: "text" | "binary"; // files only
   project?: boolean; // dirs only — the folder is a project someone can open
-  app?: ProjectApp; // dirs only — WHICH app opens it, from the `.k7`/`.z0` suffix
+  app?: ProjectApp; // dirs only — WHICH app opens it, from the `.k7` suffix
   children?: FileNode[]; // dirs only
 }
 

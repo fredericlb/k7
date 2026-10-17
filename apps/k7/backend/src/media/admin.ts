@@ -1,5 +1,5 @@
 // admin.ts — who is an ADMIN of this origin: the session's `groups` claim against
-// `$AUTH_ADMIN_GROUPS`, which empty admits nobody. The same variable, and the same reading, as z0's.
+// `$AUTH_ADMIN_GROUPS`, which empty admits nobody.
 
 import { isAdmin } from "@frediverse/oidc";
 import type { Request } from "express";

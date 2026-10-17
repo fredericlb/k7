@@ -60,15 +60,12 @@ describe("listMachineWorkspaces", () => {
     expect(ws.projects).toEqual([{ path: ".", app: "k7" }]);
   });
 
-  it("sees a .z0 beside a .k7, each named by the app its folder claims", async () => {
+  it("lists only the folders a suffix claims, each named by its app", async () => {
     const root = myRoot();
     mkdirSync(join(root, "ws", "hiver.k7"), { recursive: true });
-    mkdirSync(join(root, "ws", "quiz.z0"), { recursive: true });
+    mkdirSync(join(root, "ws", "notes"), { recursive: true });
     const [ws] = await listMachineWorkspaces(USER);
-    expect(ws.projects).toEqual([
-      { path: "hiver.k7", app: "k7" },
-      { path: "quiz.z0", app: "z0" },
-    ]);
+    expect(ws.projects).toEqual([{ path: "hiver.k7", app: "k7" }]);
   });
 });
 

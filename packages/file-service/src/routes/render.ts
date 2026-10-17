@@ -2,7 +2,7 @@
 // back. Mounted BEFORE resolveWorkspace, like the médiathèque routes: a render is a property
 // of the MACHINE (its engine binary, its plugins), not of anyone's workspace.
 //
-// The one caller is z0's backend, which is hosted and cannot exec anything itself.
+// The caller is a hosted backend outside this repository, which cannot exec anything itself.
 
 import { rmSync } from "node:fs";
 import { streamFile } from "@frediverse/http";

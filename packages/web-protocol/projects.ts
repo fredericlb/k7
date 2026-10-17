@@ -1,5 +1,5 @@
 // projects.ts — which studio app owns a project folder, decided by the folder's NAME
-// (`mysong.k7` in k7, `party.z0` in z0's editor), and the ADDRESS that names one:
+// (`mysong.k7` in k7), and the ADDRESS that names one:
 // `/<repo>/<project>`. Both are contracts between the side that WRITES an address — k7's home
 // page — and the apps that read one back, so they are stated here, browser-safe, and nowhere
 // else. See apps/k7/frontend/docs/projects.md and packages/project-shell/docs/launch.md.
@@ -8,29 +8,11 @@ import { isDotSegment } from "./paths.ts";
 import { type StudioService, serviceUrl } from "./services.ts";
 
 /** The apps a project folder can belong to. A subset of the services: k7 owns no projects. */
-export type ProjectApp = Extract<StudioService, "k7" | "z0">;
+export type ProjectApp = Extract<StudioService, "k7">;
 
-/** The suffix each app claims — two, because everything an k7 project can BE is a shape INSIDE `.k7`. */
+/** The suffix each app claims — one, because everything an k7 project can BE is a shape INSIDE `.k7`. */
 export const PROJECT_SUFFIXES: Record<ProjectApp, string> = {
   k7: ".k7",
-  z0: ".z0",
-};
-
-/** The apps a project can be CREATED for, which owning a suffix does not make it — see docs/addresses.md. */
-export const HAS_SCAFFOLD: Record<ProjectApp, boolean> = {
-  k7: true,
-  z0: false,
-};
-
-/** The apps pl8 may offer to create, in the order its menu shows them. */
-export const SCAFFOLDED_APPS: ProjectApp[] = (
-  Object.keys(PROJECT_SUFFIXES) as ProjectApp[]
-).filter((a) => HAS_SCAFFOLD[a]);
-
-/** Where inside its service each app is mounted — empty for k7, which IS its service; see docs/addresses.md. */
-export const PROJECT_MOUNTS: Record<ProjectApp, string> = {
-  k7: "",
-  z0: "/editor",
 };
 
 /** The app that opens a folder with this NAME, which is not the question of whether it compiles — docs/addresses.md. */
@@ -242,7 +224,7 @@ export function localTarget(
   return { workspace, project: segs.length ? segs.join("/") : "." };
 }
 
-/** …and the address itself; it takes an `app` because a `.z0` folder here opens under z0's own mount. */
+/** …and the address itself, built by `launchUrl` like every other project address. */
 export function localProjectUrl(
   origin: string,
   workspace: string,
@@ -282,11 +264,7 @@ export function launchUrl(
   project: string,
   app: ProjectApp,
 ): string {
-  return (
-    serviceUrl(origin, app) +
-    PROJECT_MOUNTS[app] +
-    launchPath({ repo, project }, "")
-  );
+  return serviceUrl(origin, app) + launchPath({ repo, project }, "");
 }
 
 // --- a surface, opened on its own -----------------------------------------------------------
@@ -420,5 +398,5 @@ export function isProjectAddress(url: string): boolean {
 
 /** …and the whole URL of it: a surface cannot use the router, its basename ending at the project. */
 export function externalIndexUrl(origin: string, app: ProjectApp): string {
-  return `${serviceUrl(origin, app)}${PROJECT_MOUNTS[app]}/${EXTERNAL_INDEX}`;
+  return `${serviceUrl(origin, app)}/${EXTERNAL_INDEX}`;
 }

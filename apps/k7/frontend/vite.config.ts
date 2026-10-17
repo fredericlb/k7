@@ -10,8 +10,8 @@ import {
 } from "../../../scripts/dev-hosts.mjs";
 import { noticesPlugin } from "./notices/vitePlugin.ts";
 
-/** The paths on this origin that are NOT k7's shell: the worker's scope is `/`, so only this list keeps a navigation to `/z0` or the `/rtc` socket off it. */
-const OTHER_APPS = /^\/(z0|api|auth|rtc)(\/|$)/;
+/** The paths on this origin that are NOT k7's shell: the worker's scope is `/`, so only this list keeps a navigation to `/api` or the `/rtc` socket off it. */
+const OTHER_APPS = /^\/(api|auth|rtc)(\/|$)/;
 
 /** The language every catalogue resolves the same way, so the rehearsal pages' and the plugins' follow k7's — docs/settings.md. */
 const STRATEGY: ["localStorage", "baseLocale"] = ["localStorage", "baseLocale"];

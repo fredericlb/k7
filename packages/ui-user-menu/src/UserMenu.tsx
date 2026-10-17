@@ -1,9 +1,9 @@
 // UserMenu.tsx — studio's user menu: @frediverse/ui's, with one link per OTHER studio app of the
-// origin. `serviceUrl` resolves each one's address — k7's own origin or z0's path under it;
+// origin. `serviceUrl` resolves each one's address — k7's own origin;
 // `origin` makes those links resolve against the paired SERVER instead of this tab's origin,
 // which is the desktop app's case. See ../docs/userMenu.md.
 
-import { FolderGit2, Gamepad2, type LucideIcon } from "@frediverse/ui/icons";
+import { FolderGit2, type LucideIcon } from "@frediverse/ui/icons";
 import {
   UserMenu as BaseUserMenu,
   type UserMenuItem,
@@ -23,12 +23,6 @@ const APPS: {
     label: "k7",
     hint: "your projects, the media library, the rehearsals, the shares",
     icon: FolderGit2,
-  },
-  {
-    id: "z0",
-    label: "z0",
-    hint: "le blind-test — l'accueil du jeu",
-    icon: Gamepad2,
   },
 ];
 

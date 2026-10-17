@@ -99,7 +99,7 @@ const auth = await setupAuth(app, {
   revocations: sessionRevocations(),
   // The env.yaml section, which is the PACKAGE name here as everywhere else.
   service: "k7-backend",
-  // Dropping `groups` would 403 every z0 admin surface — see ../../AGENTS.md, § The backend in detail.
+  // Dropping `groups` would 403 every admin surface — see ../../AGENTS.md, § The backend in detail.
   ...(scopes.length > 0 ? { scopes } : {}),
 });
 const { requireAuth } = auth;
