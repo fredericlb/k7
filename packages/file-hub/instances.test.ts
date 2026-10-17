@@ -134,6 +134,21 @@ describe("Instances", () => {
     expect(a.child.exitCode).toBe(0);
   });
 
+  it("reports how full it is and the last start that failed", async () => {
+    const inst = make({ maxInstances: 3, command: run("missing.mjs") });
+    await expect(inst.get("a@x")).rejects.toThrow();
+    const failed = inst.status();
+    expect(failed.lastStartError?.message).toMatch(/exited/);
+    expect(failed).toMatchObject({ running: 0, starting: 0, cap: 3 });
+    const ok = make({ maxInstances: 3 });
+    await ok.get("b@x");
+    expect(ok.status()).toMatchObject({
+      running: 1,
+      oldestStartMs: 0,
+      lastStartError: null,
+    });
+  });
+
   it("does not take a port answered under another secret for its own", async () => {
     const owner = make({});
     const a = await owner.get("a@x");

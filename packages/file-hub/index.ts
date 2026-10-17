@@ -24,6 +24,7 @@ import {
   rootsFor,
   unbindAll,
 } from "./binding.ts";
+import { IDLE_MS } from "./capacity.ts";
 import { DeviceTokens } from "./deviceTokens.ts";
 import { Instances, type InstancesOptions, Unavailable } from "./instances.ts";
 import { LibraryStore } from "./libraries.ts";
@@ -54,7 +55,7 @@ import { SyncRoutes } from "./syncRoutes.ts";
 import { mintTicket, readTicket } from "./ticket.ts";
 
 export { holdsClaim, rootsFor } from "./binding.ts";
-export type { Instance } from "./instances.ts";
+export type { Instance, InstancesStatus } from "./instances.ts";
 export { accountKey } from "./instances.ts";
 export { LibraryStore } from "./libraries.ts";
 export { PUBLIC_LIBRARIES_PATH } from "./libraryFetch.ts";
@@ -77,7 +78,7 @@ export interface FileHubOptions
   isAdmin?: (req: Request) => boolean;
   /** Signs the tickets; stable across restarts when given, or tickets die with the process. */
   ticketKey?: string;
-  /** An instance nobody used for this long is stopped. */
+  /** An instance nobody used for this long is stopped; default IDLE_MS. */
   idleMs?: number;
   /** An account may be paired with a remote origin: the desktop and the phone only, since the libraries follow that pairing. */
   remotePairing?: boolean;
@@ -108,6 +109,11 @@ export class FileHub {
   private readonly key: Buffer;
   /** The origin's libraries: the list and the one folder of each. */
   readonly libraries: LibraryStore;
+
+  /** How full the hub is and how its starts are going: what the readiness probe reports. */
+  status(): ReturnType<Instances["status"]> {
+    return this.instances.status();
+  }
 
   /** The account a device token was minted for, or null: what the engine registry asks of a heartbeat. */
   deviceAccount(token: string): string | null {
@@ -159,7 +165,7 @@ export class FileHub {
       void this.instances
         .get(r.user)
         .catch((e: Error) => log(`paired ${r.user}: ${e.message}`));
-    const idle = opts.idleMs ?? 30 * 60_000;
+    const idle = opts.idleMs ?? IDLE_MS;
     this.reaper = setInterval(
       () => void this.instances.reap(idle),
       Math.min(idle, 5 * 60_000),

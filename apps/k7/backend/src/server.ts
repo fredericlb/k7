@@ -31,6 +31,7 @@ import {
 import { loopbackOnly } from "./loopback.ts";
 import { originPolicyFromEnv, studioCors } from "./media/cors.ts";
 import { mediaTokens, mountMedia } from "./media/mount.ts";
+import { readinessRoute, volumesFromEnv } from "./readiness.ts";
 
 // A stray rejection is logged and survived; an uncaught exception leaves, and the container restarts it.
 process.on("unhandledRejection", (reason) =>
@@ -67,10 +68,19 @@ app.use(securityHeaders);
 if (LOCAL_USER) app.use(loopbackOnly);
 // Listed origins only, and no cross-site write, before anything else runs — ../docs/media/cors.md.
 app.use(studioCors(originPolicyFromEnv()));
-// What the container's healthcheck asks: no session, no disk, only that the loop answers.
+// Liveness: no session, no disk, only that the loop answers.
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
+// Readiness, what the image's healthcheck asks: the volumes take a write, no file-service start is stuck (./readiness.ts).
+app.get(
+  "/api/ready",
+  loopbackOnly,
+  readinessRoute({
+    volumes: volumesFromEnv(),
+    files: () => media.fileStatus(),
+  }),
+);
 // The module builder's AI organize takes a whole module, so it parses first, with its own limit.
 app.use("/api/ai", aiOrganizeBody);
 // Small for everyone, since it runs before any guard; the relayed paths are piped unparsed (./bodyLimits.ts).

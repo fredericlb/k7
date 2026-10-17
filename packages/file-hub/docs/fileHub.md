@@ -16,8 +16,10 @@ process per account with that account's folder as its `$STUDIO_HOME`, and it is 
 that ever starts one. A process and not one shared service, because the file service holds one
 person's state in module globals — the owner, the watchers, the document a
 browser built — and a process boundary is the one isolation nobody can forget to thread through.
-The price is a Node process per **active** account; an instance nobody called for 30 minutes is
-stopped and starts again, in well under a second, on the next request.
+The price is a Node process per **active** account; an instance nobody called for 10 minutes is
+stopped and starts again, in well under a second, on the next request. Ten and not more because a
+slot held by an account that left is memory the next account cannot have, while a restart costs
+the account that comes back one second.
 
 **Where no process may be started — the iOS app — each runs on a worker thread instead**
 (`workerChild.ts`, selected by `STUDIO_FILE_SERVICE_THREADS=1`). A worker has module globals of its
@@ -38,12 +40,26 @@ every `process.env` read in the service bundle's inputs, plus what the engine it
 ### Bounded, and held off when it crashes
 
 A Node process per account is the one cost of this design that grows with the user count, so it is
-**capped**: `STUDIO_MAX_FILE_SERVICES`, 50 by default — about what a small server's memory holds,
-and far above the accounts one origin has active at once. At the cap, a new account's start stops
+**capped**, and the cap comes from the memory the container may use (`../capacity.ts`). The
+backend, every file service and their ffmpeg and chromium share one cgroup limit, and an OOM kill
+in it takes the whole backend down, every account with it. So the cap is
+`(limit − 1.5 GB reserve) / 384 MB`, between 1 and 50, with the limit read from cgroup v2's
+`memory.max` or v1's `memory.limit_in_bytes`. The 384 MB is what a service is counted at, not its
+heap ceiling: an editing session's resident set with room to grow, or the ceiling plus Node's own
+overhead when that is lower. Counting each at its 1 GB ceiling would turn most of the box away to
+pay for a runaway that is rare. The reserve is what pays for one: the backend, its children, and
+one account that grew. Where no limit is known — a desktop, a phone, a host without a cgroup
+limit — the cap is 50, far above the accounts one origin has active at once.
+`STUDIO_MAX_FILE_SERVICES` overrides the derivation; the compose file sets it to the value its
+default `mem_limit` gives, so the number a deployment runs at is written where it is deployed.
+The cap is read from the cgroup files rather than `process.constrainedMemory()` because what that
+answers when there is no limit has changed across Node versions, and the files can be tested.
+
+At the cap, a new account's start stops
 the least recently used instance that has been idle for two minutes; one with a request still in
 flight (a forwarded request is counted until its answer closes, a long download included) or one
 kept for a remote pairing is never chosen. When nothing can go, the request answers **503 with
-`Retry-After`** instead of forking past the cap. The idle reaper spares an instance in flight too.
+`Retry-After`**, saying the server is busy, instead of forking past the cap. The idle reaper spares an instance in flight too.
 
 `STUDIO_FILE_SERVICE_HEAP_MB` gives each service a heap ceiling (`--max-old-space-size`), so one
 account's runaway ends that account's process, which the backoff below then holds off, rather than
@@ -61,8 +77,23 @@ after `STOP_GRACE_MS`, longer than the service's own grace for its requests in f
 asks every child at once and resolves when each is gone, inside the 8 s k7's backend gives its
 own stop.
 
-Whatever is left when the hub's process exits is killed by **one** exit hook, whatever their number: a listener per child
+**A service's children die with it.** On POSIX each file service is started as the leader of its own
+process group, and when it exits — stopped, killed past its grace, killed by its heap ceiling, or
+crashed — the hub SIGKILLs the group. Without that, the ffmpeg, the render or the stem cut a service
+had started outlives it, re-parented to PID 1: still burning CPU, and a zombie once it ends unless
+PID 1 reaps (the image runs `tini` for that, `docs/images.md` at the repo root). The group and not a
+list of children kept by the service, because a SIGKILLed service runs no code to kill its list, and
+a group catches every spawn, the synchronous ones and those a library makes, without any of them
+registering. Playwright's chromium is the exception: Playwright starts it in a group of its own,
+and kills it on the service's ordinary exit only. On Windows there is no process group to signal, and
+`detached` there would open a console window, so a service's children there may outlive it. A worker thread has no
+children of its own to kill.
+
+Whatever is left when the hub's process exits is signalled by **one** exit hook, whatever their number: a listener per child
 trips Node's MaxListeners warning past ten accounts.
+
+`/api/ready` reads `status()`: how many services run, how many are starting, the cap, the last start
+that failed. A start waiting longer than the hub's own timeouts allow is a hub that is wedged.
 
 A child is ready when it answers a **gated** probe carrying its own secret. Its port is picked free
 by the hub and released before the child binds it, so another account's child starting at the same

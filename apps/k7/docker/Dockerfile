@@ -49,6 +49,8 @@ RUN gcc -O2 -static -DDSP_UID=10001 -DDSP_GID=10001 -o /src/dsp-exec /src/dsp-ex
 FROM node:24-alpine AS runtime
 # Media imports and a take's envelope and instrumental; no mpv, since a container has no speakers (docs/images.md).
 RUN apk add --no-cache yt-dlp ffmpeg
+# tini as PID 1: it reaps whatever a dead file service left re-parented to it, and forwards the stop (docs/images.md).
+RUN apk add --no-cache tini
 # chromium and its fonts: `picture render`, the picture drawn headless (packages/file-service/docs/serverRender.md).
 RUN apk add --no-cache chromium font-noto ttf-freefont
 ENV STUDIO_CHROMIUM=/usr/bin/chromium-browser
@@ -89,8 +91,11 @@ EXPOSE 8789
 WORKDIR /app/apps/k7/backend
 # Not root: the code under /app is root's and read-only to it; only the volumes above are its own.
 USER node
+# Readiness, not liveness: the volumes take a write and no file-service start is stuck (docs/images.md).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:8789/api/health || exit 1
+  CMD wget -qO- http://127.0.0.1:8789/api/ready || exit 1
 # The bundle, under plain node: no transpiler and no esbuild child per process (docs/images.md).
 # A volume created before the chmod above keeps its old mode, so the start closes it to `dsp` again.
+# `exec` makes node tini's own child, so the stop tini forwards reaches it.
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["sh", "-c", "chmod 700 /data /library /workspaces /rehearsal-data 2>/dev/null; exec node /app/server-dist/backend.mjs"]

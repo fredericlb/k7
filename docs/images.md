@@ -59,14 +59,38 @@ The container has no sound device, and alpine's `mpv` pulls X, Wayland and mesa 
 player that could never be heard. Without it the backend mounts no host-player routes and the
 library does not offer the host's speakers (`packages/mpv-player/docs/mpvPlayer.md`).
 
-## A healthcheck, memory limits and capped logs
+## tini is PID 1, in the image
 
-`HEALTHCHECK` asks `/api/health`, which needs no session and touches no disk, so it fails only
-when the event loop stops answering. The server's engine waits for it (`service_healthy`) rather
-than dialling a k7 still starting. `docker/docker-compose.yml` caps k7 and the engine with
-separate `mem_limit`s, so a render or an import on k7 cannot starve the engine's null sink, and
-every account's file service with `STUDIO_FILE_SERVICE_HEAP_MB`, so one account's leak ends that
-account's process. Every service's json-file log is rotated (`LOG_MAX_SIZE`, `LOG_MAX_FILE`).
+The backend starts a file service per account, and each of those starts ffmpeg, the engine for a
+render and chromium for a picture. A service that dies before its children — killed past its stop
+grace, or by its heap ceiling — leaves them re-parented to PID 1. Node never reaps a child it did
+not spawn, so with node as PID 1 each one becomes a zombie, and one still running burns CPU for
+nobody. So the image's `ENTRYPOINT` is `tini`, which reaps every orphan and forwards the stop
+signal; the `CMD` `exec`s node, so node is tini's direct child and gets that signal. It is in the
+image and not `init: true` in the compose file because the image runs elsewhere too — a bare
+`docker run`, another orchestrator — and an init that only one deployment supplies is one the
+others lack. tini only reaps: killing what a dead service left running is the file hub's job,
+which signals each service's process group (`packages/file-hub/docs/fileHub.md`). The server's
+engine image runs under tini for the same reason (`engine/docker/Dockerfile`).
+
+## A readiness healthcheck, memory limits and capped logs
+
+`HEALTHCHECK` asks `/api/ready`, answered only on loopback. It is ready when each volume the
+environment names takes a one-byte write, and no file-service start has been waiting longer than
+any timeout of the hub's own. Both are faults that persist until somebody acts: a full or
+read-only disk, and a start the hub can no longer finish. A hub at its cap is NOT unready: it turns
+one account away with a 503 and serves the others, and a check that failed on it would flip the
+container on every busy evening. `/api/health` stays as the liveness probe: no session, no disk,
+only that the event loop answers. The server's engine waits for the healthcheck (`service_healthy`)
+rather than dialling a k7 still starting.
+
+`docker/docker-compose.yml` caps k7 and the engine with separate `mem_limit`s, so a render or an
+import on k7 cannot starve the engine's null sink. Inside k7's limit the backend, every account's
+file service and their children share one budget, and an OOM kill there takes the whole backend
+down. So each file service gets a heap ceiling (`STUDIO_FILE_SERVICE_HEAP_MB`), and the number of
+them is capped from the same limit (`STUDIO_MAX_FILE_SERVICES`, derived as in
+`packages/file-hub/docs/fileHub.md`). The compose file sets the cap explicitly, matching its
+default `mem_limit`. Every service's json-file log is rotated (`LOG_MAX_SIZE`, `LOG_MAX_FILE`).
 
 ## `--mount=type=cache` keeps the npm cache when a manifest does change
 
