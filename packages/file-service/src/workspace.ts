@@ -87,6 +87,7 @@ import {
 } from "@studio/web-protocol/projects";
 import { readActiveMarker, writeActiveMarker } from "./activeMarker.ts";
 import { guard } from "./background.ts";
+import { isManagedDemo } from "./demos.ts";
 import {
   buildGraphDoc,
   type ClipExtents,
@@ -764,11 +765,16 @@ export class Workspace {
 
   /** What the workspace holds and which project is open — polled every 2 s, docs/workspace.md. */
   workspaceInfo(): WorkspaceInfo {
+    const active = this.activeProject ? this.toRel(this.activeProject) : null;
     return {
       root: this.root,
       rootIsProject: this.rootIsProject,
-      activeProject: this.activeProject ? this.toRel(this.activeProject) : null,
+      activeProject: active,
       projects: this.projects(),
+      // The editor warns on a demo: a restart overwrites it, edits and all (demos.ts).
+      ...(active && isManagedDemo(basename(this.root), active)
+        ? { activeIsDemo: true }
+        : {}),
     };
   }
 

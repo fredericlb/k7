@@ -37,9 +37,9 @@ in the frame; before them, both took a text editor.
 | `picture render [webm\|mp4] [wav\|none] [settings]` | `exports/<project>.<ext>`, rendered on the server in the background (`packages/file-service/docs/serverRender.md`) | `project export video`, which renders in the browser |
 | `picture key` / `picture unkey <lane> <at> <prop> <when> …` | one key of `animate:` | (none — keys are set at the playhead) |
 
-`picture split` is VIRTUAL where `event split` renders: two placements of one clip, the head
+`picture split` is VIRTUAL, as an audio `event split` is: two placements of one clip, the head
 ending at the cut and the tail starting there with `source_from` moved on by the head's length,
-so the frames played do not change (`packages/song/docs/materialCut.md` says why audio is the
+so the frames played do not change (`packages/song/docs/materialCut.md` says why a sequence is the
 other way). The tail is inserted RIGHT AFTER the head and not appended, because file order
 decides which shot covers which (`packages/song-video/docs/transitions.md`), and an appended tail
 would cover every shot placed between the two. The head keeps the `fade_in` and the tail takes
@@ -150,9 +150,8 @@ A lane whose `events:` is in a shape the text edit cannot extend is refused with
 - **No cross-lane move.** `event move` takes an optional destination track; this does not. Moving a
   shot between lanes is a delete and an add, and the two lanes may have different geometry —
   nothing here would know what to do about that.
-- **No split.** `event split` needs a machine for audio; for picture it would be two placements
-  sharing a source with a computed `source_from`, which is a real feature and not a variation on
-  these five.
+- **No split.** For picture it is two placements sharing a source with a computed `source_from`,
+  which is a real feature and not a variation on these five — `picture split`, above.
 - **They do not touch `layers:`.** Which lanes exist and in what order is `project.yaml`'s, and a
   verb that placed a shot on a lane the song does not draw would be writing into a file nobody
   reads.

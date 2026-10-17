@@ -243,6 +243,8 @@ interface Cell {
 interface Selection {
   anchor: Cell;
   head: Cell;
+  /** Set by a CLICK on a clip: copy and delete act on that placement alone, never on a neighbour sharing its beats. */
+  clip?: { trackId: string; start: number; length: number };
 }
 
 // Move mode: a clip picked up with `m`, pinned by track + ORIGINAL start, nudged by the keys until enter commits.
@@ -963,6 +965,8 @@ export function TimelineTab({
         s
           ? {
               ...s,
+              // Reshaped by hand: a rectangle now, no longer the one clip that was clicked.
+              clip: undefined,
               head: clampCell({
                 row: dRow
                   ? stepRow(rowsRef.current, s.head.row, dRow)
@@ -1239,8 +1243,18 @@ export function TimelineTab({
         row,
         beat: Math.max(lo.beat, Math.ceil(m.origStart + len) - 1),
       });
-      setCaret(clampCaret({ row, beat: lo.beat }));
-      setSel({ anchor: lo, head: hi });
+      // The caret inside the clicked clip, so what it reports is that clip and not one starting earlier in the beat.
+      setCaret(
+        clampCaret({
+          row,
+          beat: Math.min(Math.ceil(m.origStart), m.origStart + len - 1e-6),
+        }),
+      );
+      setSel({
+        anchor: lo,
+        head: hi,
+        clip: { trackId: m.trackId, start: m.origStart, length: len },
+      });
     },
     [clampCell, clampCaret],
   );
@@ -1478,6 +1492,20 @@ export function TimelineTab({
           const len = c.length > 0 ? c.length : NATURAL;
           return copyEvents([laneEvents(caretRow)], c.start, c.start + len);
         }
+        // A CLICKED clip: that placement alone, the rectangle around it only drawn.
+        if (s.clip) {
+          const { trackId, start } = s.clip;
+          const r = visRows.find(
+            (x) => x.kind === "track" && x.track.id === trackId,
+          );
+          if (r?.kind !== "track" || r.track.generated) return null;
+          const lane = laneEvents(r);
+          const one = {
+            ...lane,
+            events: lane.events.filter((e) => Math.abs(e.start - start) < 1e-6),
+          };
+          return copyEvents([one], start, start + s.clip.length);
+        }
         const a = rowIndexOf(visRows, s.anchor.row);
         const b = rowIndexOf(visRows, s.head.row);
         if (a < 0 || b < 0) return null;
@@ -1600,6 +1628,14 @@ export function TimelineTab({
             };
           return {
             line: `event remove ${caretRow.track.id} ${beatsToPosition(c.start, num, den)}`,
+            note: "event deleted",
+          };
+        }
+        // A CLICKED clip: that placement and nothing else, whatever else starts in its beats.
+        if (s.clip) {
+          setSel(null);
+          return {
+            line: `event remove ${s.clip.trackId} ${beatsToPosition(s.clip.start, num, den)}`,
             note: "event deleted",
           };
         }
@@ -1741,7 +1777,8 @@ export function TimelineTab({
 
   /** The lanes a rectangle covers that can actually hold events, comma-joined, and its span — null rather than an empty string. */
   const selRange = useMemo(() => {
-    if (!selBox || !proj) return null;
+    // A clicked clip is no RANGE: the range verbs would take in whatever else starts in its beats.
+    if (!selBox || !proj || sel?.clip) return null;
     const ids = visRows
       .slice(selBox.rowLo, selBox.rowHi + 1)
       .flatMap((r) =>
@@ -1755,7 +1792,7 @@ export function TimelineTab({
       from: beatsToPosition(selBox.beatLo, num, den),
       to: beatsToPosition(selBox.beatHi, num, den),
     };
-  }, [selBox, visRows, proj]);
+  }, [selBox, visRows, proj, sel?.clip]);
 
   // The caret, whole: where it is, what it is over, and what it has selected — one payload, because one gesture moves all three.
   useEffect(() => {
@@ -3010,7 +3047,7 @@ export function TimelineTab({
                             return head.row === s.head.row &&
                               head.beat === s.head.beat
                               ? s
-                              : { ...s, head };
+                              : { ...s, head, clip: undefined };
                           });
                         };
                         // The rectangle stays as drawn on a release or a cancel alike; only the pointer stops steering it.

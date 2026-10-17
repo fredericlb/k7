@@ -85,6 +85,8 @@ export interface RepoProject {
   app: ProjectApp;
   /** `project.tags` of an k7 project's project.yaml; absent when it has none. */
   tags?: string[];
+  /** A bundled demo, overwritten on the service's next start — the home page says so; absent otherwise. */
+  demo?: boolean;
 }
 
 /** One module LIBRARY a project can reach, nearest first; `exists: false` is a state, not an absence — docs/machine.md. */

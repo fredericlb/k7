@@ -51,6 +51,8 @@ export interface WorkspaceInfo {
   engineSync?: EngineSyncState | null;
   // Where the opened project stands on its way to playable; null once it is — packages/file-service/docs/engineLoad.md.
   engineLoad?: EngineLoadPhase | null;
+  // The open project is a bundled demo, which the next start of the service overwrites — packages/file-service/src/demos.ts.
+  activeIsDemo?: boolean;
 }
 
 // Copied to the engine's machine, applied by the engine, then played half a second in silence.

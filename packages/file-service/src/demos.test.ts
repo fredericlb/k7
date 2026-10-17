@@ -13,7 +13,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mirrorDemos } from "./demos.ts";
+import { EXAMPLES_WORKSPACE, isManagedDemo, mirrorDemos } from "./demos.ts";
 
 let work: string;
 let bundle: string;
@@ -91,5 +91,14 @@ describe("mirrorDemos", () => {
     delete process.env.STUDIO_DEMOS;
     // A bare temp path makes `demosDir()` null; in this repo the walk-up may still find the real songs.
     expect(() => mirrorDemos(join(work, "nope"))).not.toThrow();
+  });
+});
+
+describe("isManagedDemo", () => {
+  it("is a bundled folder at the top of Examples, and nothing else", () => {
+    expect(isManagedDemo(EXAMPLES_WORKSPACE, "demoA")).toBe(true);
+    expect(isManagedDemo(EXAMPLES_WORKSPACE, "my-song")).toBe(false);
+    expect(isManagedDemo(EXAMPLES_WORKSPACE, "sub/demoA")).toBe(false);
+    expect(isManagedDemo("band", "demoA")).toBe(false);
   });
 });

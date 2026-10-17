@@ -1,11 +1,11 @@
-// materialRender.ts — the AUDIO half of `event split` and `selection consolidate`. The
-// sequence half is pure text and lives in @studio/song's materialCut.ts; audio has to be
-// RENDERED, so it lives here beside the bounce, which already owns "write new material through
-// the engine". See packages/song/docs/materialCut.md.
+// materialRender.ts — the AUDIO half of `selection consolidate`. The sequence half is pure text
+// and lives in @studio/song-edit's materialCut.ts; audio has to be RENDERED, so it lives here
+// beside the bounce, which already owns "write new material through the engine". An audio
+// `event split` renders nothing and is materialCut.ts's. See packages/song/docs/materialCut.md.
 
 import { join } from "node:path";
 import { clipDoc, emptyDoc, trackDoc } from "@studio/engine-protocol/build";
-import type { ClipDoc, ProjectDoc } from "@studio/song/project";
+import type { ProjectDoc } from "@studio/song/project";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
 import { wsWrite } from "@studio/song/yaml/workspaceFile";
 import {
@@ -28,12 +28,6 @@ export interface RenderedMaterial {
   /** Project-relative POSIX path of the DEFINITION — `clips/<ref>.yaml`. */
   file: string;
   seconds: number;
-}
-
-export interface AudioSplitReport {
-  head: RenderedMaterial;
-  tail: RenderedMaterial;
-  from: string;
 }
 
 export interface AudioConsolidateReport {
@@ -69,102 +63,6 @@ async function fileRender(
   const file = `clips/${ref}.yaml`;
   wsWrite(join(dir, file), renderedClipYaml(doc.name, ref));
   return { ref, file, seconds: wavSeconds(wav) ?? seconds };
-}
-
-/** One clip, at position zero, playing exactly `[from, to)` of its source. */
-function windowDoc(
-  project: ProjectDoc,
-  name: string,
-  clip: ClipDoc,
-  from: number,
-  to: number,
-): ProjectDoc {
-  return emptyDoc({
-    name,
-    tempo: project.tempo,
-    sampleRate: project.sampleRate,
-    tracks: [
-      trackDoc(CUT_TRACK, {
-        name: CUT_TRACK,
-        clips: [
-          clipDoc({
-            id: `${CUT_TRACK}-clip`,
-            type: "audio",
-            name: clip.name,
-            source: clip.source,
-            sourceFrom: from,
-            sourceTo: to,
-          }),
-        ],
-      }),
-    ],
-  });
-}
-
-/** The window a compiled clip plays, in seconds of its source. */
-const windowOf = (c: ClipDoc, tempo: number) => ({
-  from: c.sourceFrom ?? 0,
-  to:
-    c.sourceTo ??
-    (c.length > 0 ? (c.sourceFrom ?? 0) + (c.length * 60) / tempo : 0),
-});
-
-/** Cut an AUDIO placement's material in two at `atBeats` — TWO renders, see docs/rendering.md. */
-export async function splitAudioMaterial(
-  render: Renderer,
-  dir: string,
-  project: ProjectDoc,
-  trackId: string,
-  fromBeats: number,
-  atBeats: number,
-  num: number,
-  den: number,
-): Promise<AudioSplitReport | null> {
-  const track = project.tracks.find((t) => t.id === trackId);
-  const clip = track?.clips.find(
-    (c) => Math.abs(c.start - fromBeats) < EDGE_EPS,
-  );
-  if (!clip) return null;
-  if (clip.type !== "audio")
-    throw new Error(
-      `'${clip.name}' is a sequence — its physical split is text, not a render`,
-    );
-  if (clip.loopEnd > clip.loopStart)
-    throw new Error(
-      `'${clip.name}' repeats here — set its loop back to 1 before splitting it`,
-    );
-
-  const win = windowOf(clip, project.tempo);
-  const cut = win.from + ((atBeats - fromBeats) * 60) / project.tempo;
-  if (!(atBeats > fromBeats + EDGE_EPS))
-    throw new Error("the cut has to be after the event starts");
-  if (win.to > 0 && cut >= win.to - EDGE_EPS)
-    throw new Error("the cut has to be before the event ends");
-
-  const base = clip.name || clip.id;
-  const headRef = freeClipName(dir, base);
-  const head = await fileRender(
-    render,
-    dir,
-    windowDoc(project, "split", clip, win.from, cut),
-    headRef,
-    cut - win.from,
-  );
-  const tailRef = freeClipName(dir, base);
-  const tail = await fileRender(
-    render,
-    dir,
-    windowDoc(project, "split", clip, cut, win.to),
-    tailRef,
-    Math.max(0, win.to - cut),
-  );
-
-  removeTrackPlacement(dir, trackId, fromBeats, num, den);
-  addTrackPlacements(dir, trackId, [
-    { ref: head.ref, start: beatsToPosition(fromBeats, num, den) },
-    { ref: tail.ref, start: beatsToPosition(atBeats, num, den) },
-  ]);
-  return { head, tail, from: base };
 }
 
 /** Render ONE file over `[fromBeats, toBeats]`, gaps included as real silence — docs/rendering.md. */

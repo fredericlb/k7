@@ -9,34 +9,35 @@ for the cases those refusals name.
 
 | verb | what it writes |
 |---|---|
-| `event split` | two materials, and a placement pointing at each |
+| `event split` | on a SEQUENCE, two materials and a placement pointing at each; on AUDIO, two placements of the same material, windowed either side of the cut |
 | `selection consolidate` | one material over a range, and one placement of it |
 
-Two verbs, and both write. That is the whole design.
+## Why an audio split is VIRTUAL and a sequence split is not
 
-## Why there is no VIRTUAL pair
+Cutting a clip is the first edit anyone makes, and on audio it is the edit every editor a newcomer
+has used does instantly, offline, and without a file to show for it. A render per cut needed an
+engine on the machine, refused without one, and left two files in `clips/` for every cut, which is
+the opposite of what the gesture promises. So an audio split writes the window — the head's `to`
+and the tail's `from`, in seconds of the source — and touches nothing under `clips/`. The compiler
+already intersects a placement's window with its clip's (`compile/clips.ts`), and the engine plays
+only that window.
 
-A virtual split — two placements of one material, the head stopping at the cut and the tail
-opening there, with a `join` to put such a pair back — would touch no file under `clips/` or
-`sequences/`, and so would be free and exactly reversible. That freedom is the wrong half of the
-trade:
+Two placements of one material cannot diverge: an edit to the material moves both. When one half
+has to be processed, warped or replaced on its own, `selection consolidate` over that half gives it
+a material of its own — the render happens when it is asked for, not on every cut.
 
-- **A split you cannot treat the halves of is not why you split.** The reason to cut an event in
-  two is to process, warp or replace one side. Two placements of one material cannot diverge —
-  every edit to the material moves both.
-- **Every refusal such a join needs is a case consolidate writes.** A different material, a gap, an
-  overlap, a neighbour restarting the material: it would hold out for the one arrangement where
-  nothing has to be written and refuse the four where something does. One verb rejoins a range,
-  whatever is in it.
+A sequence keeps the physical split. Its halves are text this package divides note by note, so
+writing them costs nothing and lets each be edited as notes at once — which is what a cut sequence
+is for.
 
-The cost is real and worth knowing: **there is no free, exactly-reversible cut.**
-Splitting writes two files, rejoining writes a third, and the material a split cut is left on disk
-rather than deleted. On audio each of those is a render, so both verbs need a machine with an
-engine on it.
+What a split leaves behind: on audio nothing new, on a sequence the material it cut, left on disk
+rather than deleted, since another placement may still be playing it. Rejoining is
+`selection consolidate`, whatever is in the range; on audio that IS a render, so it needs a machine
+with an engine on it.
 
-A PICTURE lane's split is the virtual one, and the first reason above is why: a shot has no
-material of its own to process, warp or replace. Its effects are the lane's, and its sound is
-another lane's (`videoSound.md`). Two placements of one clip lose nothing there, and re-encoding
+A PICTURE lane's split is virtual too, and for a stronger reason: a shot has no material of its own
+to process, warp or replace. Its effects are the lane's, and its sound is another lane's
+(`videoSound.md`). Two placements of one clip lose nothing there, and re-encoding
 video to cut it would cost a render and a generation of quality for nothing
 (`packages/commands/docs/picture.md`).
 

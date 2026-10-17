@@ -50,6 +50,13 @@ describe("droppedClip", () => {
 });
 
 describe("planDrop", () => {
+  it("gives two files of one drop that reduce to the same id two ids", () => {
+    const p = planDrop(["Kick 1.wav", "Kick-1.wav"], lanes, "bass");
+    expect(p.declare.map((c) => [c.id, c.upload])).toEqual([
+      ["Kick-1", "Kick-1.wav"],
+      ["Kick-1-2", "Kick-1-2.wav"],
+    ]);
+  });
   it("puts one file on the lane it was dropped on", () => {
     const p = planDrop(["kick.wav"], lanes, "bass");
     expect(p.place).toEqual([{ id: "kick", lane: "bass" }]);

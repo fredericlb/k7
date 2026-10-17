@@ -1,7 +1,7 @@
 # Rendering, export and bouncing
 
-Several arrangement verbs need audio **rendered offline**: the mixdown, an audio split or
-consolidate, a crossfade's material, a bounce through a chain, a freeze. None of them runs in the
+Several arrangement verbs need audio **rendered offline**: the mixdown, an audio consolidate, a
+crossfade's material, a bounce through a chain, a freeze. None of them runs in the
 browser or in the file service's own process; they hand a compiled document to an engine binary and
 read back files. This page covers that seam and the verbs on top of it. Video export is covered in
 the picture range.
@@ -38,12 +38,13 @@ is refused on purpose — the first word says which half of the project leaves.
 
 ## Splitting and consolidating material
 
-`packages/take-render/src/materialRender.ts` holds `splitAudioMaterial` and
-`consolidateAudioMaterial`: render the parts of an event (or of a range on one lane, gaps kept as
-silence) into new files, write `clips/<id>.yaml` for each, and replace the placements. The sequence
-counterparts are text edits in `packages/song-edit/src/materialCut.ts`. In both cases the original
-material is left on disk, since another lane may still play it. A split refuses a looped event — the
-cut position has as many answers as there are passes.
+`packages/take-render/src/materialRender.ts` holds `consolidateAudioMaterial`: render a range on one
+lane (gaps kept as silence) into one new file, write its `clips/<id>.yaml`, and replace the
+placements. An audio split renders nothing: it places the same file twice, windowed either side of
+the cut (`splitAudioPlacement` in `packages/song-edit/src/materialCut.ts`, where the sequence split
+and consolidate are text edits too). The material a consolidate or a sequence split replaced is left
+on disk, since another lane may still play it. A split refuses a looped event — the cut position has
+as many answers as there are passes.
 
 ## Bouncing through a chain
 

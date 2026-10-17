@@ -1,7 +1,7 @@
 // panZoom.ts — navigation for the media panes, which scale to FIT by default (so there is
 // nothing to scroll until you zoom). useHZoom scales horizontally, anchored so the point under
-// the cursor stays put — by a mouse WHEEL, by trackpad pinch, by Cmd/Ctrl+wheel and by two
-// fingers, but not by a trackpad slide, which stays the pan (isZoomWheel + isMouseWheel);
+// the cursor stays put — by trackpad pinch, by Cmd/Ctrl+wheel and by two fingers; a bare wheel
+// or a trackpad slide is the browser's scroll (wheelZooms);
 // usePanScroll pans on a MIDDLE-mouse drag — not Space-drag, because Space is the transport
 // toggle in every app that mounts these.
 // Unit-free on purpose: the caller multiplies its own lane width, in beats or in seconds.
@@ -42,19 +42,9 @@ export function isMouseWheel(e: {
   return Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= MOUSE_NOTCH_MIN;
 }
 
-/** What one wheel event MEANS, as the whole rule in one testable place — order matters; docs/panZoom.md. */
-export function wheelZooms(e: {
-  ctrlKey: boolean;
-  metaKey: boolean;
-  shiftKey: boolean;
-  deltaX: number;
-  deltaY: number;
-  deltaMode: number;
-  wheelDeltaY?: number;
-}): boolean {
-  if (isZoomWheel(e)) return true;
-  if (e.shiftKey) return false;
-  return isMouseWheel(e);
+/** What one wheel event MEANS, as the whole rule in one testable place: only a pinch or Cmd/Ctrl zooms, a bare wheel scrolls — docs/panZoom.md. */
+export function wheelZooms(e: { ctrlKey: boolean; metaKey: boolean }): boolean {
+  return isZoomWheel(e);
 }
 
 /** One wheel notch's worth of zoom. A whole step, because a notch is a discrete decision. */

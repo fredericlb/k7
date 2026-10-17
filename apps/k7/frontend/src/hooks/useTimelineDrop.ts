@@ -77,6 +77,8 @@ export function useTimelineDrop(
       });
       // 2. …and the declaration beside each: `fileClip` is the pair, shared with a recorded take.
       const reused: string[] = [];
+      // The id each clip was FILED under — another one when its name was taken by a different file.
+      const filedAs = new Map<string, string>();
       for (let i = 0; i < entries.length; i++) {
         const c = plan.declare[i];
         const at = offset;
@@ -88,7 +90,8 @@ export function useTimelineDrop(
                 : u,
             ),
           );
-          if (filed.reused) reused.push(c.id);
+          filedAs.set(c.id, filed.id);
+          if (filed.reused) reused.push(filed.id);
         } catch (e) {
           setUpload(null);
           setStatus(
@@ -127,10 +130,11 @@ export function useTimelineDrop(
       for (const p of plan.place) {
         // A video is placed with its measured length, since a shot with none counts for nothing in an export's duration.
         const length = lengths.get(p.id);
+        const ref = filedAs.get(p.id) ?? p.id;
         await runCommand(
           kindOf.get(p.id) === "video"
-            ? `picture add ${p.lane} ${p.id} ${seconds}${length ? ` ${length}` : ""}`
-            : `event add ${p.lane} ${p.id} ${tc}`,
+            ? `picture add ${p.lane} ${ref} ${seconds}${length ? ` ${length}` : ""}`
+            : `event add ${p.lane} ${ref} ${tc}`,
         );
       }
       // 4. …and a shot's SOUND, which the engine plays from an audio lane (packages/song/docs/videoSound.md).

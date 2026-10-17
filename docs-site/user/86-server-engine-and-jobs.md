@@ -28,7 +28,7 @@ Publishing a share is described in the getting-started section of this guide.
 
 ### Renders
 
-Some commands bounce audio offline: freezing a track, splitting, consolidating, processing a clip through a chain, a mixdown, or a share with stems. A bounce runs through an engine binary. The server picks, in this order: an engine binary installed beside the server's file service, then the machine of the engine your project is bound to, then the server's own engine. The finished files are copied back into your workspace. A render that takes longer than ten minutes on a remote machine is abandoned. Rendering a video's picture is a different job, done by the server itself rather than by an engine; see the picture section of this guide.
+Some commands bounce audio offline: freezing a track, consolidating, processing a clip through a chain, a mixdown, or a share with stems. A bounce runs through an engine binary. The server picks, in this order: an engine binary installed beside the server's file service, then the machine of the engine your project is bound to, then the server's own engine. The finished files are copied back into your workspace. A render that takes longer than ten minutes on a remote machine is abandoned. Rendering a video's picture is a different job, done by the server itself rather than by an engine; see the picture section of this guide.
 
 ### For administrators
 

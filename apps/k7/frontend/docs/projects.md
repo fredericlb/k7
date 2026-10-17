@@ -536,6 +536,17 @@ The destination list leaves out two workspaces. Its own, since a copy needs some
 useful and the same-workspace duplicate is a different gesture; and any workspace that IS a single
 project, where nothing under the root is listed and the copy would exist without ever showing up.
 
+### Demos
+
+The `Examples` workspace holds the bundled demos, which the file service mirrors on every start —
+an edit to one is overwritten, a deleted one comes back (`packages/file-service/src/demos.ts`).
+Mirroring is what keeps them working across versions, so it stays; what changes is that it is SAID.
+The listing marks a managed demo `demo: true`, and its row wears an amber "demo — resets" badge; the
+workspace poll says `activeIsDemo` for the open project, and the editor draws a line under its
+header with "Copy to my workspace" (`components/DemoBanner.tsx`), which opens the same dialog as
+"Copier" and goes straight into the copy. Only a bundled folder at the top of `Examples` counts:
+anything else put there is the person's own and is never touched.
+
 ### Renaming a project
 
 `project rename <project> <new name>`, and the ⋮'s "Rename". The folder moves on the machine, in

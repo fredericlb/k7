@@ -554,18 +554,18 @@ doing less than asked.
 
 ## `event split`
 
-Writes two MATERIALS and points a placement at each, so the halves can then be trimmed, processed
-or warped apart — which is the whole reason to want it. A split that only placed one material twice
-would leave halves nothing can treat separately.
+The KIND decides what it writes. A sequence is divided note by note into two MATERIALS, a placement
+pointing at each (`@studio/song-edit`'s `materialCut`), so each half is notes to edit at once. Audio
+is split VIRTUALLY: the same file placed twice, the head's window ending at the cut and the tail's
+starting there, with nothing rendered and no engine needed — a cut is the first edit anyone makes,
+and it must be instant and work offline. A half that has to be processed apart is given a material
+of its own by `selection consolidate` (`packages/song/docs/materialCut.md`).
 
-The KIND decides which half of the implementation runs, and they are genuinely different acts: a
-sequence is divided note by note in text (`@studio/song-edit`'s `materialCut`), while audio is
-RENDERED twice through the engine (`@studio/take-render`'s `materialRender`). So this one needs a
-machine and the virtual split does not — and when there is no engine binary it says exactly that
-rather than failing somewhere further in.
+A looped audio event is refused, as before: its window repeats, and a cut inside a repeat has no
+single place in the source.
 
-What was cut is left on disk, both kinds. Another placement on another lane may still be playing
-it, and nothing here can know what was meant to be kept.
+A sequence split leaves the material it cut on disk: another placement on another lane may still be
+playing it, and nothing here can know what was meant to be kept.
 
 ## `selection consolidate`
 

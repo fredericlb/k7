@@ -7,12 +7,27 @@ purpose — the caller multiplies its own lane width, in beats or in seconds.
 
 Space is not a pan modifier, because Space is the transport toggle in every app that mounts these.
 
-## Telling a wheel from a hand
+## Only a pinch or Cmd/Ctrl zooms; a bare wheel scrolls
 
-A mouse wheel and a trackpad slide arrive as the **same event** and mean opposite things here. A
-wheel is a detent, discrete, and the natural thing for it to do over an arrangement is ZOOM — which
-is what this pane is for. A trackpad slide is a hand pushing the view about, and zooming there
-turns every attempt to pan into a zoom. So the two are told apart rather than legislated over.
+`wheelZooms` is the whole rule, in one place: a wheel event zooms when the browser marks it as a
+pinch (`ctrlKey`) or Cmd is held (`metaKey`), and every other wheel event — a mouse notch, a
+trackpad slide, Shift+wheel — is handed straight back to the browser. That is the convention of
+every DAW and video editor a newcomer has met: the wheel walks the lanes vertically, Shift+wheel
+moves sideways, and zooming is asked for. A bare wheel that zoomed left a mouse with no way down a
+song of ten lanes but the scrollbar, and nothing on screen said so.
+
+The browser's native scroll is the pan, with the momentum, the axis locking and the rubber-banding a
+hand-rolled `scrollLeft` would have to counterfeit, on both axes at once.
+
+`isZoomWheel` is the other half. On a Mac trackpad — and on a Windows precision touchpad — a PINCH
+arrives as a wheel event with `ctrlKey` set, synthesised by the browser, while two fingers sliding
+arrive as a plain wheel. `metaKey` joins it because Cmd+scroll is the same intention on a Mac mouse.
+
+## Telling a wheel from a hand — the chains graph
+
+The graph has no lanes to walk, so a mouse wheel zooms there (`ui-chains-react`'s camera), while a
+trackpad slide still pans it. `isMouseWheel` is what tells the two apart, and lives here beside
+`isZoomWheel`.
 
 `isMouseWheel` reads three signals, most reliable first:
 
@@ -29,27 +44,6 @@ turns every attempt to pan into a zoom. So the two are told apart rather than le
 It is **wrong in one direction only, by design**: an unrecognised device is treated as a surface, so
 it scrolls. A trackpad that zooms is a broken trackpad; a mouse that pans is merely a mouse that
 does not zoom yet.
-
-`isZoomWheel` is the other half. On a Mac trackpad — and on a Windows precision touchpad — a PINCH
-arrives as a wheel event with `ctrlKey` set, synthesised by the browser, while two fingers sliding
-arrive as a plain wheel. `metaKey` joins it because Cmd+scroll is the same intention on a Mac mouse.
-
-## `wheelZooms` is the whole rule, in one place
-
-The hook that uses it is an effect on a DOM node, which nothing in this repo can mount, so a
-condition written inline there could only be verified by hand. Order matters, and each line answers
-a different question:
-
-1. a **pinch** (or Cmd/Ctrl+wheel) zooms whatever the device — it is the one gesture the browser
-   marks for us, and Ctrl+Shift+wheel is still a pinch with a finger resting on Shift;
-2. **Shift** is left alone, because every browser already reads it as "scroll sideways". It is the
-   one scroll gesture a mouse keeps once the bare wheel has become the zoom;
-3. otherwise it is the **device** that decides.
-
-What a mouse gives up by zooming is that the wheel no longer walks the lanes vertically; its pan is
-the middle-drag or Shift+wheel. A trackpad SLIDE is handed straight back to the browser, whose
-native scroll is the pan — with the momentum, the axis locking and the rubber-banding a hand-rolled
-`scrollLeft` would have to counterfeit, on both axes at once.
 
 ## A notch and a pinch cannot share an answer
 

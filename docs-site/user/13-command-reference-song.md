@@ -130,7 +130,7 @@ An event is addressed by its track and the timecode where it **starts**.
 | `event add` | `<track> <clip> <timecode>` | Puts an existing clip or sequence on a track. |
 | `event move` | `<track> <timecode> <newTimecode> [toTrack]` | Moves an event, optionally onto another track of the same type. Bare `event move` picks up the clip under the caret. |
 | `event resize` | `<track> <timecode> <newStart> <newEnd>` | Re-times an event's start and end (an end position, not a length). |
-| `event split` | `<track> <timecode> <at>` | Cuts an event in two, writing two new files. |
+| `event split` | `<track> <timecode> <at>` | Cuts an event in two. Audio is placed twice from the same file, nothing rendered; a sequence becomes two files. |
 | `event remove` | `<track> <timecode>` | Removes an event. |
 | `event trim` | `<track> <timecode> [gate]` | Cuts the silence off both ends of an audio event, at a gate in dBFS (default -40). |
 | `event window` | `<track> <timecode> <from> <to>` | Which slice of its file an event plays, in seconds into the file. |

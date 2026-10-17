@@ -82,8 +82,11 @@ export function useVideoRecording(opts: {
         }).catch(() => blob);
       const id = takeId(take.lane, fileStamp(new Date()));
       const upload = `${id}${extForMime(blob.type || undefined)}`;
+      let filedId = id;
       try {
-        await fileClip(dir, { id, upload }, await bytes.arrayBuffer());
+        filedId = (
+          await fileClip(dir, { id, upload }, await bytes.arrayBuffer())
+        ).id;
       } catch (e) {
         // A camera take cannot be played again: unfiled, it goes to the disk rather than nowhere (../../docs/audit.md).
         downloadBlob(bytes, upload);
@@ -95,7 +98,7 @@ export function useVideoRecording(opts: {
       }
       spool.discard();
       live.current.bumpReload();
-      await run(placeLine(take.lane, id, take.at, seconds));
+      await run(placeLine(take.lane, filedId, take.at, seconds));
     },
     [],
   );

@@ -101,37 +101,16 @@ describe("what one wheel event over an arrangement means", () => {
   const ev = (o: Partial<Parameters<typeof wheelZooms>[0]>) => ({
     ctrlKey: false,
     metaKey: false,
-    shiftKey: false,
-    deltaX: 0,
-    deltaY: 0,
-    deltaMode: 0,
     ...o,
   });
-  const NOTCH = { deltaY: 100, wheelDeltaY: -120 };
-  const SLIDE = { deltaY: 4, wheelDeltaY: -12 };
 
-  it("zooms on a mouse notch — the whole point of this change", () => {
-    expect(wheelZooms(ev(NOTCH))).toBe(true);
+  it("scrolls on a bare wheel, mouse or trackpad — the browser's own scroll walks the lanes", () => {
+    expect(wheelZooms(ev({}))).toBe(false);
   });
 
-  it("leaves a trackpad SLIDE to the browser, which is what pans it", () => {
-    expect(wheelZooms(ev(SLIDE))).toBe(false);
-  });
-
-  it("zooms on a pinch, on either device", () => {
-    expect(wheelZooms(ev({ ...SLIDE, ctrlKey: true }))).toBe(true);
-    expect(wheelZooms(ev({ ...NOTCH, metaKey: true }))).toBe(true);
-  });
-
-  it("gives SHIFT back to the browser, so a mouse keeps a scroll gesture", () => {
-    // Every browser reads Shift+wheel as "sideways", and it is the only scroll a mouse has left here.
-    expect(wheelZooms(ev({ ...NOTCH, shiftKey: true }))).toBe(false);
-  });
-
-  it("still calls Ctrl+Shift+wheel a pinch — a finger resting on Shift is not an instruction", () => {
-    expect(wheelZooms(ev({ ...SLIDE, ctrlKey: true, shiftKey: true }))).toBe(
-      true,
-    );
+  it("zooms on a pinch, or on Cmd/Ctrl with either device", () => {
+    expect(wheelZooms(ev({ ctrlKey: true }))).toBe(true);
+    expect(wheelZooms(ev({ metaKey: true }))).toBe(true);
   });
 });
 

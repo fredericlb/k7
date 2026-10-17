@@ -1,7 +1,7 @@
 // materialCut.ts — cutting and merging MATERIAL, where trackMix.ts moves and resizes PLACEMENTS.
-// `event split` writes two sequences, `selection consolidate` writes one over a range. Sequences
-// only: notes are text this package reads and writes, while the same verbs on audio need a render
-// and live with the bounce (@studio/audio-passes' processChain.ts).
+// `event split` writes two sequences, or two windowed placements of one audio source with nothing
+// rendered; `selection consolidate` writes one sequence over a range, while on audio it needs a
+// render and lives with the bounce (@studio/audio-passes' processChain.ts).
 // Full rationale: docs/materialCut.md.
 
 import { join } from "node:path";
@@ -184,7 +184,7 @@ export function splitSequenceMaterial(
   const file = entityFileFor(join(dir, "sequences"), "sequences", ref);
   if (!file)
     throw new Error(
-      `'${ref}' is not a sequence in this project — a physical split of audio renders two files, which is @studio/commands' half`,
+      `'${ref}' is not a sequence in this project — an audio split is two windowed placements, splitAudioPlacement`,
     );
   const loops = Math.max(1, Math.floor(Number(placement.loop ?? 1)) || 1);
   if (loops > 1)
@@ -330,4 +330,48 @@ export function consolidateSequenceMaterial(
     "consolidate a range",
   );
   return { written, replaced: picked.length, from };
+}
+
+/** What an audio split wrote: the cut, in seconds of the source both halves still play. */
+export interface PlacementSplitReport {
+  cut: number;
+}
+
+/** Cut an AUDIO placement in two WITHOUT a render: two placements of one source, windowed either side of the cut — docs/materialCut.md. */
+export function splitAudioPlacement(
+  dir: string,
+  trackId: string,
+  fromBeats: number,
+  atBeats: number,
+  num: number,
+  den: number,
+  cut: number,
+): PlacementSplitReport | null {
+  // Four decimals, as a resize writes a window: a split must not leave a hair of float noise in the file.
+  const at = Math.round(cut * 10000) / 10000;
+  let found = false;
+  editTrackStruct(
+    dir,
+    trackId,
+    (text) => {
+      const i = findPlacementAt(text, fromBeats, num, den);
+      if (i < 0) return text;
+      found = true;
+      // The tail: the same placement from the cut on, keeping the end and the fade-out, losing the fade-in.
+      const tail = copyPlacementAt(text, i, {
+        start: beatsToPosition(atBeats, num, den),
+        from: at,
+        fadeIn: undefined,
+      });
+      // The head ends at the cut and loses the fade-out the tail now has.
+      return setPlacementField(
+        setPlacementField(tail, i, "to", at),
+        i,
+        "fadeOut",
+        undefined,
+      );
+    },
+    "split an event",
+  );
+  return found ? { cut: at } : null;
 }

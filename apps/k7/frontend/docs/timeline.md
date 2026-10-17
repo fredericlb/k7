@@ -59,8 +59,8 @@ Each tool stands on **one verb**, so a press stays one command and one Ctrl+Z:
 | `mute` | `event status mute`, sent BARE so the toggling is the verb's | refused: a shot has no mute, and `m` hides its lane |
 
 **The tools are the same on both kinds of lane**, so the blade means the same thing wherever it
-lands. Only the verb underneath differs, because the two splits are different acts: audio renders
-two files and picture writes two placements (`packages/commands/docs/picture.md`). The picture
+lands. Both splits write two placements of one source and render nothing — audio by its window,
+picture by `source_from` (`packages/commands/docs/picture.md`). The picture
 column is `pictureToolLine`, beside `toolLine`, and a press on a shot goes through the same guard
 at the top of its own drag.
 
@@ -164,7 +164,7 @@ nothing joins them. **The caret moves only because you moved it.** Playing, rewi
 clicking the ruler, scrubbing the minimap: none of them touch it.
 
 Riding the playhead's beat would take the caret away from you: start playback and the thing
-every key aims at — `e` to edit the clip under it, `m` to pick one up, `v` to start a
+every key aims at — `e` to edit the clip under it, `g` to grab one, `v` to start a
 rectangle — is somewhere else a moment later, dragged across the arrangement at 20 Hz. It
 would sweep everything downstream of the caret along with it, so the Editor panel would
 re-target a new clip several times a second while the transport ran.
@@ -671,9 +671,15 @@ A click on a clip parks the caret **over it**: the `v` rectangle, anchored at th
 beat and headed at its last, on that event's lane. The caret is one cell, so covering something
 eight beats long is the rectangle or nothing.
 
+**The rectangle remembers the clip it was drawn for.** Delete and copy act on THAT placement alone,
+and the right-click menu offers no range verbs over it: everyone who has clicked a clip and pressed
+Delete expects that clip to go, not a neighbour that happens to start in the same beat or one
+layered inside it. The rectangle's own rule — every event STARTING inside it — returns the moment
+it is reshaped (an arrow, a Shift+click, a drag), since it is then a range someone drew.
+
 That makes a click a starting point rather than a dead end. Everything the caret and the
 selection already drive applies to the thing you pointed at: `z` frames it, Shift+L loops it,
-`m` picks it up, `m`/`s` act on its lane, and the Editor panel follows the caret onto its file.
+`g` grabs it, `m`/`s` act on its lane, and the Editor panel follows the caret onto its file.
 None of it needs writing — it is what the caret is for.
 
 A length-0 placement is covered as it is DRAWN, over its natural four beats, not over the zero
@@ -719,7 +725,7 @@ covers — where the loop's `[lo, hi+1)` covers time, a start either falls in a 
 One `Move` state serves both flows, so they cannot disagree about what is in hand, and both
 commit through `commitMove`:
 
-- **keyboard** — `m` picks up the placement under the caret, arrows (or `j`/`m`) nudge it,
+- **keyboard** — `g` grabs the placement under the caret (`m` is mute, as everywhere), arrows (or `h`/`l`) nudge it,
   Enter drops it, Escape puts it back.
 - **pointer** — a **left**-drag slides it, and release drops it.
 
@@ -773,7 +779,7 @@ Holding it is also the right answer when the command FAILS: the clip returns to 
 still says it is, rather than sitting at a position nothing on disk agrees with.
 
 A pending move is deliberately **not modal** — it is already written and only still drawn, so it
-must not swallow the keys, and `m` may pick up the next clip immediately. The edge resize is held
+must not swallow the keys, and `g` may grab the next clip immediately. The edge resize is held
 the same way, for the same reason.
 
 ### The LEFT button
@@ -920,9 +926,19 @@ whole file, which is what an untrimmed recording is (`apps/k7/docs/22-syntax-mat
 Accents are folded and everything else a path would argue about becomes one dash.
 
 **An existing declaration is never overwritten.** `clips/kick.yaml` may already carry a trim, a
-warp or corrected onsets, and a drop knows none of them; dropping a `kick.wav` next to one places
-*that* clip and says so. The bytes are the same story: the upload refuses to clobber (409), and
-the drop carries on with the file that was already there.
+warp or corrected onsets, and a drop knows none of them. The bytes are the same story: the upload
+refuses to clobber (409).
+
+### Same name, different file
+
+Phones and recorders reuse names — `IMG_0042.MOV`, `Recording.m4a` — and every name in a script a
+path cannot hold reduces to `clip`. So a taken id is reused only when it is the SAME file: its
+declaration names this very upload, and the file on disk is these bytes, measured by size (a `HEAD`
+on `/media`, `clipFiles.ts`). Anything else — other bytes, `song.mp3` after `song.wav` — files under
+the next free id, `kick-2`, and the drop places THAT. Placing the old file under a new file's name
+was the one outcome worse than a duplicate: the song plays something else and nothing says so. Two
+files of one drop that reduce to the same id are told apart before anything is uploaded
+(`planDrop`).
 
 ### Several files walk down the lanes
 

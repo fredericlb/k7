@@ -38,6 +38,13 @@ function bundledDemoNames(src: string): string[] {
   }
 }
 
+/** Whether `path` in `workspace` is a MANAGED demo — one a restart overwrites, which the UI has to say. */
+export function isManagedDemo(workspace: string, path: string): boolean {
+  if (workspace !== EXAMPLES_WORKSPACE || path.includes("/")) return false;
+  const src = demosDir();
+  return !!src && bundledDemoNames(src).includes(path);
+}
+
 // The caches and VCS noise a checkout accumulates: per-machine state, and a stale cache is worse than none.
 const demoCopyFilter = (s: string): boolean => {
   const base = s.split(/[/\\]/).pop() ?? "";

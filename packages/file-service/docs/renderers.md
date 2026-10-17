@@ -1,7 +1,7 @@
 # Who renders, and how
 
 Every bounce the file service makes — an export, a share, a k7 publish, and the verbs that write
-audio (freeze, split, consolidate, process) — goes through `renderProject` (`src/render.ts`) and
+audio (freeze, consolidate, process) — goes through `renderProject` (`src/render.ts`) and
 the one choice of machine behind it, `serviceRenderer` (`src/renderers.ts`).
 
 ## Why a process and not a message

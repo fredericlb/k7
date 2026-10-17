@@ -22,7 +22,7 @@ import type {
 import { projectApp } from "@studio/web-protocol/projects";
 import { activeMarkerOf, readActiveMarker } from "./activeMarker.ts";
 import { BENCH_WORKSPACE } from "./bench.ts";
-import { EXAMPLES_WORKSPACE } from "./demos.ts";
+import { EXAMPLES_WORKSPACE, isManagedDemo } from "./demos.ts";
 import { liveLogFor } from "./liveLog.ts";
 import { loadHead } from "./liveRelay.ts";
 import { isPaired } from "./liveServers.ts";
@@ -301,7 +301,15 @@ export async function listMachineWorkspaces(
         const app = projectApp(path === "." ? name : path.split("/").pop()!);
         if (!app) return [];
         const tags = tagsOf(join(abs, path));
-        return [tags.length ? { path, app, tags } : { path, app }];
+        return [
+          {
+            path,
+            app,
+            ...(tags.length ? { tags } : {}),
+            // A demo is overwritten on the next start, so the home page marks it rather than letting edits vanish.
+            ...(isManagedDemo(name, path) ? { demo: true } : {}),
+          },
+        ];
       }),
     };
   });

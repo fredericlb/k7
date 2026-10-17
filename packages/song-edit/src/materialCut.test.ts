@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import {
   consolidateSequenceMaterial,
+  splitAudioPlacement,
   splitSequenceMaterial,
 } from "./materialCut";
 
@@ -235,5 +236,31 @@ describe("selection consolidate, on sequences", () => {
     expect(() =>
       consolidateSequenceMaterial(dir, "drums", 0, 4, NUM, DEN),
     ).toThrow(/not a sequence/);
+  });
+});
+
+describe("event split, on audio", () => {
+  it("writes two placements of the same file, windowed either side of the cut, and renders nothing", () => {
+    lane(
+      '  - { ref: vox, start: "1:1:1", from: 1, to: 9, fadeIn: "0:0:2", fadeOut: "0:0:2", gain: -3 }\n',
+    );
+    // Two beats in at 120 bpm is one second of source past `from`.
+    expect(splitAudioPlacement(dir, "drums", 0, 2, NUM, DEN, 2)).toEqual({
+      cut: 2,
+    });
+    const [head, tail] = placements();
+    expect(head).toMatchObject({ ref: "vox", start: "1:1:1", from: 1, to: 2 });
+    expect(head).toHaveProperty("fadeIn");
+    expect(head).not.toHaveProperty("fadeOut");
+    expect(tail).toMatchObject({ ref: "vox", start: "1:3", from: 2, to: 9 });
+    expect(tail).toHaveProperty("fadeOut");
+    expect(tail).not.toHaveProperty("fadeIn");
+    // What each half carries besides its window rides along.
+    expect(tail.gain).toBe(-3);
+  });
+
+  it("answers null when no placement starts there", () => {
+    lane('  - { ref: vox, start: "1:1:1" }\n');
+    expect(splitAudioPlacement(dir, "drums", 1, 2, NUM, DEN, 1)).toBeNull();
   });
 });

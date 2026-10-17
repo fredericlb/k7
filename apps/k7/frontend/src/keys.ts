@@ -51,10 +51,12 @@ export const KEYS: Record<string, Binding> = {
     { if: "fullscreen", command: "ui global" },
     "ui close",
   ],
-  // m is context-sensitive like `e`: on a clip the bare `event move`, otherwise it mutes `caret_track`, unset with no track.
-  m: [
+  // `g` GRABS the clip under the caret — the bare `event move`; `m` is mute and nothing else, as in every other DAW.
+  g: [
     { if: "hover_midi_sequence", command: "event move" },
     { if: "hover_audio_clip", command: "event move" },
+  ],
+  m: [
     { if: "caret_track", command: "track mute {caret_track}" },
     { if: "caret_picture", command: "picture mute {caret_picture}" },
   ],

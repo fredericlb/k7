@@ -80,11 +80,11 @@ import {
 } from "./components/CommandBar";
 import { CommentsPanel } from "./components/CommentsPanel";
 import { ConflictsPanel, ConflictsTab } from "./components/ConflictsPanel";
+import { DemoBanner } from "./components/DemoBanner";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EngineLink } from "./components/EngineLink";
 import { EngineLostStrip } from "./components/EngineLostStrip";
 import { EngineSwitch } from "./components/EngineSwitch";
-import { StartupBar } from "./components/StartupBar";
 import { syncRunning } from "./components/EngineSyncProgress";
 import { FloatingWindow } from "./components/FloatingWindow";
 import { FooterTab } from "./components/FooterTab";
@@ -110,6 +110,7 @@ import {
 } from "./components/SettingsPanel";
 import type { OpenShare } from "./components/SharedGate";
 import { SharePanel } from "./components/SharePanel";
+import { StartupBar } from "./components/StartupBar";
 import { SurfaceTab } from "./components/SurfaceTab";
 import type { PanelTakes } from "./components/TakesView";
 import { TasksPanel } from "./components/TasksPanel";
@@ -2720,6 +2721,10 @@ export default function App({
                 )}
               </div>
             </AppHeader>
+            {/* A demo is overwritten on the service's next start: said before an edit is lost (components/DemoBanner.tsx). */}
+            {!frozen && ws?.activeIsDemo && ws.activeProject && (
+              <DemoBanner project={ws.activeProject} />
+            )}
             <EngineLostStrip
               connected={connected}
               onRetry={() => engineRef.current?.connect()}

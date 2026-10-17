@@ -109,10 +109,20 @@ export function planDrop(
 ): DropPlan {
   const declare: DroppedClip[] = [];
   const refused: string[] = [];
+  const taken = new Set<string>();
   for (const n of names) {
     const c = droppedClip(n);
-    if (c) declare.push(c);
-    else refused.push(n.split(/[\\/]+/).pop() ?? n);
+    if (!c) {
+      refused.push(n.split(/[\\/]+/).pop() ?? n);
+      continue;
+    }
+    // Two files of one drop that reduce to the same id (`Kick 1.wav`, `Kick-1.wav`) are two clips, not one.
+    let id = c.id;
+    for (let k = 2; taken.has(id); k++) id = `${c.id}-${k}`;
+    taken.add(id);
+    declare.push(
+      id === c.id ? c : { ...c, id, upload: c.upload.replace(c.id, id) },
+    );
   }
   const from = lanes.findIndex((l) => l.id === at);
   if (from < 0) return { declare, place: [], refused };

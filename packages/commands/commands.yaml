@@ -1501,7 +1501,7 @@
       { name: lane, complete: pictureLanes },
       { name: at, hint: "where the shot starts — seconds or m:ss" },
     ]
-# A picture split is VIRTUAL — two placements of one clip — where an audio one renders two files:
+# A picture split is VIRTUAL — two placements of one clip — like an audio one, and more so:
 # a shot has no material of its own to process, so there is nothing a second file would buy.
 - command: "picture split"
   sid: picture.split
@@ -2650,20 +2650,20 @@
 # other `event` verb, the cut being its own argument. A looped event is refused: "the position of
 # the cut" has as many answers as there are passes.
 #
-# It cuts the MATERIAL and not the placement: two new files are written and the event is replaced
-# by two events naming them. A sequence is divided note by note in text; an audio clip is RENDERED
-# in two, so this needs a machine with an engine on it. A split that only placed one material twice
-# would leave halves nothing can treat apart, and `selection consolidate` is what rejoins anything
-# at all. See packages/song/docs/materialCut.md.
+# A sequence is divided note by note: two new files, and the event replaced by two events naming
+# them. An audio clip is split VIRTUALLY: the same file placed twice, the head's window ending at
+# the cut and the tail's starting there — nothing rendered, no engine needed. A half to process on
+# its own gets its own file from `selection consolidate`, which also rejoins anything at all. See
+# packages/song/docs/materialCut.md.
 #
-# What it cut is left on disk: another placement, on another lane, may still be playing it, and
-# this verb has no way to know what was meant to be kept.
+# What a sequence split cut is left on disk: another placement, on another lane, may still be
+# playing it, and this verb has no way to know what was meant to be kept.
 - command: "event split"
   sid: event.split
   readable:
     en: "Split a clip in two"
     fr: "Couper un clip en deux"
-  help: "cut one event in two, writing two new files (e.g. event split drums 2:1:1 3:1:1)"
+  help: "cut one event in two at a position (e.g. event split drums 2:1:1 3:1:1)"
   surfaces: [cli]
   menu: [event]
   args:

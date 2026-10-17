@@ -4,6 +4,7 @@
 import { DEFAULT_TRIM_DB, trimWindow } from "@studio/audio-probe/trim-gate";
 import {
   consolidateSequenceMaterial,
+  splitAudioPlacement,
   splitSequenceMaterial,
 } from "@studio/song-edit/materialCut";
 import {
@@ -11,10 +12,7 @@ import {
   setTrackPlacementWindow,
 } from "@studio/song-edit/trackMix";
 import { beatsToDuration, parsePosition } from "@studio/song-schema/timecode";
-import {
-  consolidateAudioMaterial,
-  splitAudioMaterial,
-} from "@studio/take-render/materialRender";
+import { consolidateAudioMaterial } from "@studio/take-render/materialRender";
 import type { SidHandler } from "../commands.ts";
 import { rendererOf, resolveEvent, splitWords } from "./shared.ts";
 
@@ -151,7 +149,7 @@ export const EVENT_EDIT_VERBS: Record<string, SidHandler> = {
     const [, trackArg, atTc, cutTc] = m;
     const found = resolveEvent(h, trackArg, atTc, true);
     if (!found) return;
-    const { track, atBeats, hit, num, den } = found;
+    const { track, atBeats, hit, num, den, tempo } = found;
     let cutBeats: number;
     try {
       cutBeats = parsePosition(cutTc, num, den);
@@ -161,26 +159,33 @@ export const EVENT_EDIT_VERBS: Record<string, SidHandler> = {
     }
     try {
       if (hit.type === "audio") {
-        const render = rendererOf(h);
-        if (!render)
+        // Two placements of the SAME source, windowed either side of the cut: nothing rendered, no engine needed.
+        if (hit.loopEnd > hit.loopStart)
           return h.refuse([
-            "event split: no engine to render with — cutting audio means rendering two files",
+            `'${hit.name}' repeats here — set its loop back to 1 before splitting it`,
           ]);
-        const done = await splitAudioMaterial(
-          render,
+        const from = hit.sourceFrom ?? 0;
+        const to =
+          hit.sourceTo ??
+          (hit.length > 0 ? from + (hit.length * 60) / tempo : 0);
+        const cut = from + ((cutBeats - atBeats) * 60) / tempo;
+        if (!(cutBeats > atBeats + 1e-6))
+          return h.refuse(["the cut has to be after the event starts"]);
+        if (to > 0 && cut >= to - 1e-6)
+          return h.refuse(["the cut has to be before the event ends"]);
+        const done = splitAudioPlacement(
           h.songPath,
-          h.project(),
           track.id,
           atBeats,
           cutBeats,
           num,
           den,
+          cut,
         );
         if (!done) return h.refuse([`no event on '${track.id}' at ${atTc}`]);
         h.log([
-          `${track.id}: ${done.from} split at ${cutTc}, into two rendered clips`,
-          `  ${done.head.file} (${+done.head.seconds.toFixed(3)}s) and ${done.tail.file} (${+done.tail.seconds.toFixed(3)}s)`,
-          `  '${done.from}' is untouched — another lane may still be playing it`,
+          `${track.id}: ${hit.name || hit.id} split at ${cutTc}, into two placements of the same file`,
+          `  the source is cut at ${done.cut}s — nothing was rendered`,
         ]);
       } else {
         const done = splitSequenceMaterial(

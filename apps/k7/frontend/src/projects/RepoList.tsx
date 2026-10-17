@@ -346,6 +346,16 @@ export function RepoList({
                           {p.path === "." ? projectLabel(w.name) : nameOf(p)}
                         </span>
                         <Badge variant="tag">{p.app}</Badge>
+                        {/* A demo is overwritten on the next start: said before anyone edits one and loses it. */}
+                        {p.demo && (
+                          <Badge
+                            variant="amber"
+                            className="shrink-0"
+                            title={m["demo.badgeHint"]()}
+                          >
+                            {m["demo.badge"]()}
+                          </Badge>
+                        )}
                         {p.tags?.map((t) => (
                           <Badge key={t} className="shrink-0">
                             {t}
