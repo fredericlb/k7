@@ -145,6 +145,11 @@ Two things have to be true, and they arrive apart:
 is a machine that cannot work without the server. Except when a file of the project never got its
 bytes: that would open broken, so it waits, and says why.
 
+**Refused** — the relay does not serve this k7's level, or sent an op it does not know — is never
+opened, and the link stops reconnecting: its edits could not reach the server until one side is
+updated, and the wait screen is where the user learns which (`../../live-sync/docs/sync.md`,
+"Versions").
+
 A workspace linked to no relay has nothing on its way and is always ready. The wait itself, and its
 screen, are the shell's (`packages/project-shell/docs/launch.md`, "Waiting for sync").
 

@@ -215,7 +215,15 @@ export interface WorkspaceSyncStatus {
 /** `GET /sync/project` — whether a project is up to date with the relay, which is what `/open` waits for (file-service docs/liveCapture.md). */
 export interface ProjectSyncState {
   /** Where the copy here stands against the relay; each state is spelled out in file-service docs/liveCapture.md. */
-  state: "ready" | "offline" | "connecting" | "catching-up" | "downloading";
+  state:
+    | "ready"
+    | "offline"
+    | "connecting"
+    | "catching-up"
+    | "downloading"
+    | "refused";
+  /** With `refused`: `update` this k7, or the server's k7 is older than this one (live-sync docs/sync.md, "Versions"). */
+  refused?: "update" | "server-older";
   /** Whether the project may be opened: up to date, or offline with every file it names on disk. */
   ready: boolean;
   /** Files of the project still waiting for their bytes. */

@@ -28,6 +28,10 @@ from the one it recorded, is read again and the index rewritten, and a missing i
 Loading a room on restart reads the saved state and the working log only, as it would without any
 history: the segments are for reading the past, never for catching up.
 
+Every entry line and the index carry `v`, the log version that wrote them, and a reader refuses a
+version newer than its own rather than rebuild a point from entries it may misread
+(`../../live-sync/docs/sync.md`, "Versions"). An index of another version is a cache miss.
+
 ## Snapshots, so a point is rebuilt from nearby
 
 Every 1,000 entries the files are written whole to `snapshots/<seq>.json`. The files at any point

@@ -43,14 +43,17 @@ Every one of these is refused on the origin: only a hub given `remotePairing` pa
 
 ## The relay trusts the socket, not the payload
 
-A frame is checked whole before anything reads it (`parseToRelay`, `../../live-sync/docs/ops.md`):
+A frame is checked whole before anything reads it (`readToRelay`, `../../live-sync/docs/ops.md`), and
+one that does not read is answered with its reason; a hello at a level this relay does not serve is
+answered `refused` (`../../live-sync/docs/sync.md`, "Versions"). A frame must also be well formed:
 every op of a batch has the shape its kind gives it and a path that stays in the workspace. A room's
 name is a single folder name (`isWorkspaceName`), or `@lib/` and a library name, since it becomes a
 folder under `.sync-relay/`. Anything else is answered `{ t: "error" }`, and so is a throw while a
 frame is handled: a socket is one replica, and must not be able to stop the process every account
 shares. For the same reason an upgrade whose address does not parse is left to the other listeners,
 and a line of `entries.jsonl` that does not parse is skipped on load — the last one, cut short by a
-crash, was never relayed.
+crash, was never relayed. A line written by a newer log version is not skipped: the room refuses to
+load.
 
 ## Every workspace a replica, and the rooms say which exist
 

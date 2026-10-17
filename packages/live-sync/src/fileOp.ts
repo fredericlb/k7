@@ -4,7 +4,7 @@
 
 import { applyK7x, diffK7x, goneAt, valueAt as k7xValueAt } from "./k7xOps.ts";
 import { locate } from "./listKeys.ts";
-import type { Conflict, FileOp, PathOp } from "./ops.ts";
+import { type Conflict, type FileOp, NeedsUpdate, type PathOp } from "./ops.ts";
 import { textHash } from "./textHash.ts";
 import { mergeable, mergeTexts } from "./textMerge.ts";
 import { applyYaml, diffYamlParsed, parse, valueAt } from "./yamlOps.ts";
@@ -69,15 +69,25 @@ function replaysK7x(
   }
 }
 
-/** `current` (null = absent) after `op`; a path op on a file that is gone or unreadable throws. */
+/** `current` (null = absent) after `op`; a path op on a file that is gone or unreadable throws, an unknown kind throws NeedsUpdate. */
 export function applyFileOp(current: string | null, op: FileOp): string | null {
-  if (op.kind === "remove") return null;
-  if (op.kind === "text") return op.text;
-  if (current === null)
-    throw new Error(`${op.file}: ${op.kind} ops on a missing file`);
-  return op.kind === "k7x"
-    ? applyK7x(current, op.ops)
-    : applyYaml(current, op.ops);
+  switch (op.kind) {
+    case "remove":
+      return null;
+    case "text":
+      return op.text;
+    case "yaml":
+    case "k7x":
+      if (current === null)
+        throw new Error(`${op.file}: ${op.kind} ops on a missing file`);
+      return op.kind === "k7x"
+        ? applyK7x(current, op.ops)
+        : applyYaml(current, op.ops);
+    default:
+      throw new NeedsUpdate(
+        `${(op as { file?: unknown }).file}: op kind "${(op as { kind?: unknown }).kind}" unknown here: update k7`,
+      );
+  }
 }
 
 /** What the room sets aside of an op: the op itself, and the value kept in its place. */

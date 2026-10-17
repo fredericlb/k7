@@ -4,7 +4,12 @@
 
 import { ConflictSet } from "./conflicts.ts";
 import { applyFileOp } from "./fileOp.ts";
-import type { Batch, Sequenced } from "./ops.ts";
+import {
+  type Batch,
+  isKnownOpKind,
+  NeedsUpdate,
+  type Sequenced,
+} from "./ops.ts";
 
 /** The files a replica reads and writes; `write` must also tell its capture, so nothing is echoed. */
 export interface ReplicaHost {
@@ -60,8 +65,15 @@ export class Replica {
     this.pending.push(batch);
   }
 
-  /** One server-ordered batch; answers the files whose confirmed text it could not apply to. */
+  /** One server-ordered batch; answers the files whose confirmed text it could not apply to; one from a newer k7 throws NeedsUpdate. */
   remote(entry: Sequenced): string[] {
+    const ops = [...entry.batch.ops, ...(entry.parked ?? []).map((c) => c.op)];
+    const unknown = ops.find((op) => !isKnownOpKind(op.kind));
+    // Checked before the head moves: the entry stays unapplied, to be read again once this k7 knows it.
+    if (unknown)
+      throw new NeedsUpdate(
+        `seq ${entry.seq}: op kind "${unknown.kind}" unknown here: update k7`,
+      );
     if (entry.seq <= this.head) {
       // Already in what this replica adopted, but still the answer that confirms its own batch.
       this.forget(entry.batch.id);

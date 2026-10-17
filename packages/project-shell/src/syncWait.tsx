@@ -15,6 +15,8 @@ export interface SyncWaitStrings {
   catchingUp: string;
   downloading: (files: number) => string;
   offline: (files: number) => string;
+  /** The relay refused this k7's level; optional so an app built before it still compiles, English when absent. */
+  refused?: (reason: "update" | "server-older") => string;
 }
 
 const SYNC_WAIT_ENGLISH: SyncWaitStrings = {
@@ -25,6 +27,10 @@ const SYNC_WAIT_ENGLISH: SyncWaitStrings = {
     `${files} file${files === 1 ? "" : "s"} still downloading…`,
   offline: (files) =>
     `The server is out of reach, and ${files} file${files === 1 ? "" : "s"} of this project never arrived. It opens once they do.`,
+  refused: (reason) =>
+    reason === "server-older"
+      ? "The server runs an older k7 than this one and cannot sync with it. It syncs again once the server is updated."
+      : "This k7 is too old for the server. Update it to sync this project again.",
 };
 
 /** How often the machine is asked: the wait is the only thing on screen. */
@@ -65,16 +71,19 @@ export function SyncScreen({
   sync: ProjectSyncState | null;
   strings?: SyncWaitStrings;
 }) {
-  const offline = sync?.state === "offline";
+  const offline = sync?.state === "offline" || sync?.state === "refused";
+  const refused = strings.refused ?? SYNC_WAIT_ENGLISH.refused;
   const line = !sync
     ? strings.connecting
-    : sync.state === "downloading"
-      ? strings.downloading(sync.pending)
-      : sync.state === "catching-up"
-        ? strings.catchingUp
-        : offline
-          ? strings.offline(sync.pending)
-          : strings.connecting;
+    : sync.state === "refused" && refused
+      ? refused(sync.refused ?? "update")
+      : sync.state === "downloading"
+        ? strings.downloading(sync.pending)
+        : sync.state === "catching-up"
+          ? strings.catchingUp
+          : offline
+            ? strings.offline(sync.pending)
+            : strings.connecting;
   const Icon = offline ? CloudOff : CloudDownload;
   return (
     <div className="flex h-full items-center justify-center bg-background p-8 text-foreground">

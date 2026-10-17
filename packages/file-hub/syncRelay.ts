@@ -8,7 +8,11 @@ import type { IncomingMessage, Server } from "node:http";
 import type { Socket } from "node:net";
 import { join } from "node:path";
 import type { Batch, Sequenced } from "@studio/live-sync/ops";
-import { type FromRelay, parseToRelay } from "@studio/live-sync/protocol";
+import {
+  type FromRelay,
+  protoRefusal,
+  readToRelay,
+} from "@studio/live-sync/protocol";
 import { Room, type RoomState } from "@studio/live-sync/room";
 import { writeFileAtomic } from "@studio/song/atomicWrite";
 import { isLibraryName } from "@studio/song-schema/moduleTypes";
@@ -19,8 +23,12 @@ import {
   addCheckpoint,
   adoptLegacy,
   ENTRIES,
+  entryLine,
+  parseEntryLine,
+  parseState,
   readCheckpoints,
   rollLog,
+  stateText,
 } from "./historyLog.ts";
 
 export const SYNC_PATH = SYNC_RELAY_PATH;
@@ -98,15 +106,6 @@ export const isWorkspaceName = (w: string): boolean =>
 export const roomDir = (account: string, workspace: string): string =>
   join(account, ".sync-relay", encodeURIComponent(workspace));
 
-/** One line of the entries log, or null for one a crash cut short: it was never relayed (see the header). */
-function parseEntry(line: string): Sequenced | null {
-  try {
-    return JSON.parse(line) as Sequenced;
-  } catch {
-    return null;
-  }
-}
-
 /** Why a `hello` or `batch` cannot name this room, or null: a name that could climb out of `.sync-relay` is refused. */
 function roomNameError(
   workspace: string,
@@ -123,7 +122,7 @@ function roomNameError(
 function load(dir: string): Room {
   const file = join(dir, "room.json");
   const state = existsSync(file)
-    ? (JSON.parse(readFileSync(file, "utf8")) as RoomState)
+    ? parseState<RoomState>(readFileSync(file, "utf8"))
     : null;
   adoptLegacy(dir, state);
   const room = state ? Room.from(state) : new Room();
@@ -132,8 +131,9 @@ function load(dir: string): Room {
     const text = readFileSync(entries, "utf8");
     // A torn last line is closed off, so the next append starts a line of its own instead of joining it.
     if (text && !text.endsWith("\n")) appendFileSync(entries, "\n");
+    // A line a crash cut short was never relayed (see the header); a newer one throws, and the room does not load.
     for (const line of text.split("\n")) {
-      const entry = line ? parseEntry(line) : null;
+      const entry = line ? parseEntryLine(line) : null;
       if (entry) room.replay(entry);
     }
   }
@@ -142,7 +142,7 @@ function load(dir: string): Room {
 
 function snapshot(live: Live, historyEvery: number): void {
   const state = live.room.state();
-  writeFileAtomic(join(live.dir, "room.json"), JSON.stringify(state));
+  writeFileAtomic(join(live.dir, "room.json"), stateText(state));
   rollLog(live.dir, state.head, state.files, historyEvery);
   live.sinceSnapshot = 0;
 }
@@ -186,7 +186,7 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
   const order = (l: Live, workspace: string, batch: Batch): Sequenced => {
     const { entry, fresh } = l.room.submit(batch);
     if (!fresh) return entry;
-    appendFileSync(join(l.dir, ENTRIES), `${JSON.stringify(entry)}\n`);
+    appendFileSync(join(l.dir, ENTRIES), entryLine(entry));
     if (++l.sinceSnapshot >= snapshotEvery) snapshot(l, historyEvery);
     l.editedAt = Date.now();
     for (const [peer, as] of l.sockets)
@@ -231,8 +231,24 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
       }
     });
     const receive = (raw: string) => {
-      const msg = parseToRelay(raw);
-      if (!msg) return send(ws, { t: "error", error: "not a sync message" });
+      const read = readToRelay(raw);
+      if (!("msg" in read))
+        return send(ws, {
+          t: "error",
+          workspace: read.workspace,
+          error: read.error,
+          reason: read.reason,
+        });
+      const msg = read.msg;
+      if (msg.t === "hello") {
+        const refused = protoRefusal(msg.workspace, msg.proto);
+        if (refused) {
+          log(
+            `${slug}: ${msg.workspace} refused at proto ${msg.proto}${msg.build ? ` (${msg.build})` : ""}: ${refused.reason}`,
+          );
+          return send(ws, refused);
+        }
+      }
       const bad = roomNameError(msg.workspace, opts.sharedAccount);
       if (bad)
         return send(ws, { t: "error", workspace: msg.workspace, error: bad });

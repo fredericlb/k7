@@ -83,6 +83,10 @@ export function ProjectGate({
             m["project.syncingDownloading"]({ files: String(files) }),
           offline: (files) =>
             m["project.syncingOffline"]({ files: String(files) }),
+          refused: (reason) =>
+            reason === "server-older"
+              ? m["project.syncingRefusedServerOlder"]()
+              : m["project.syncingRefusedUpdate"](),
         },
         back: m["project.backToProjects"](),
         retry: m["common.retry"](),

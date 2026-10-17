@@ -84,6 +84,36 @@ A replica says hello at the last `seq` it applied:
   the room's, and only a state lets it back up the ones that differ before they are overwritten.
 - **An empty room:** asks its first replica for everything, as one batch of whole-file ops.
 
+## Versions
+
+Desktops and phones run whatever k7 they were last updated to, against a server updated on its own
+schedule, and the log is replayed for as long as the workspace exists. So nothing written by one k7
+is ever read by another on a guess. Two numbers in `src/protocol.ts` carry that rule:
+
+- **`SYNC_PROTO`**, the level of the wire. A hello carries it as `proto`. The relay serves every
+  level from `SYNC_PROTO_MIN` to its own. Below the minimum it answers `refused` with `update`; above
+  its own, `refused` with `server-older`, since only the server knows ops the replica would send it.
+  The refused replica stops reconnecting and says which side needs the update: a retry would be
+  refused the same way. A hello without `proto` is level 1, the level every replica had before the
+  field existed; that holds while no replica below 1 can exist, and is the line to change when the
+  minimum is first raised.
+- **`LOG_V`**, the meaning of what is on disk. Every entry line, the saved room state and the
+  segment index carry it as `v`; absent is 1. A reader meets a higher `v` with `NeedsUpdate`, and the
+  room does not load at all: an entry skipped would leave the room's text wrong for every replica
+  after it, and the log is the only history.
+
+`SYNC_PROTO` goes up when a frame or an op means something an older k7 would read differently: a
+new op kind, a new field an older room would drop, a new message. A new message or op a relay can
+ignore without harm does not need it. `LOG_V` goes up when an entry already written would replay
+differently under the new code; a new op kind alone needs `SYNC_PROTO`, since an older reader
+already refuses a kind it does not know. Raising `SYNC_PROTO_MIN` is the decision to stop serving the
+replicas still below it.
+
+An op kind a replica does not know is never replayed as something else. `applyFileOp` throws
+`NeedsUpdate` for it, and `Replica.remote` refuses the whole entry before its head moves, so the same
+entry is read again once that k7 is updated. A relay meeting one answers `unknown-op`, and every frame
+it cannot read gets a reason (`malformed`, `unknown-op`, `unknown-message`) rather than a bare error.
+
 ## The test that holds it
 
 `src/converge.test.ts` runs 50 seeded schedules: three replicas, random edits, deletions and

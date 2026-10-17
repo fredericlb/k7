@@ -81,7 +81,7 @@ is applied unchecked: a seed, a first join.
 An op's `file` comes from another replica, and the server is one replica among others: whoever
 writes it treats it as hostile. `src/path.ts` is the one rule: a relative POSIX path, no empty, `.`
 or `..` segment, no backslash, no drive letter, no control character. The relay's parser
-(`parseToRelay`, which also checks every op's shape, kind by kind) and `Room.submit` refuse a batch
+(`readToRelay`, which also checks every op's shape, kind by kind) and `Room.submit` refuse a batch
 that breaks it, so a room never holds such a path. Each replica checks again where it writes, against
 the resolved path (`packages/file-service/src/livePath.ts`), since a hostile server is exactly the
 case where the relay's check did not run. The rule has no `node:` in it, so a browser may use it too.

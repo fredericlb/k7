@@ -9,8 +9,13 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { type BlobId, blobsOf, parseBlobRef } from "@studio/live-sync/blob";
 import { applyFileOp, fileOpFor } from "@studio/live-sync/file-op";
-import type { Batch, Sequenced } from "@studio/live-sync/ops";
-import type { FromRelay, ToRelay } from "@studio/live-sync/protocol";
+import { type Batch, NeedsUpdate, type Sequenced } from "@studio/live-sync/ops";
+import {
+  type FromRelay,
+  type RefusalReason,
+  SYNC_PROTO,
+  type ToRelay,
+} from "@studio/live-sync/protocol";
 import type { Replica } from "@studio/live-sync/replica";
 import { writeFileAtomic } from "@studio/song/atomicWrite";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
@@ -45,7 +50,12 @@ const CONNECT_GRACE_MS = 8000;
 const PING_MS = 25_000;
 
 /** Where a workspace's TEXT stands against the relay — docs/liveCapture.md, "Up to date". */
-export type TextState = "current" | "offline" | "connecting" | "catching-up";
+export type TextState =
+  | "current"
+  | "offline"
+  | "connecting"
+  | "catching-up"
+  | "refused";
 
 /** The headers that prove a link's account, on its socket and on the blob store alike. */
 export const authHeaders = (auth: RelayAuth): Record<string, string> =>
@@ -85,6 +95,8 @@ export class RelayLink {
   private readonly target = new Map<string, number>();
   private readonly born = Date.now();
   private everOpen = false;
+  /** Set once the relay refuses this k7's level, or sends what it cannot read: the link stops until an update. */
+  private refusedFor: RefusalReason | null = null;
 
   constructor(
     private readonly url: string,
@@ -104,6 +116,7 @@ export class RelayLink {
   /** Start relaying `l`; says hello at once when the socket is up. */
   add(l: Linked, logDir: string): void {
     this.linked.set(l.name, { ...l, logDir });
+    if (this.refusedFor) return;
     if (!this.ws) this.connect();
     else if (this.ws.readyState === WebSocket.OPEN) this.hello(l.name);
   }
@@ -115,6 +128,7 @@ export class RelayLink {
 
   /** Whether workspace `name`'s text is the room's: welcomed on the open socket, and every entry since applied. */
   textState(name: string): TextState {
+    if (this.refusedFor) return "refused";
     const l = this.linked.get(name);
     if (!l) return "connecting";
     if (this.ws?.readyState !== WebSocket.OPEN) {
@@ -196,6 +210,23 @@ export class RelayLink {
 
   close(): void {
     this.closed = true;
+    this.ws?.close();
+  }
+
+  /** Why the relay refused this link, or null: `update` this k7, or the server's is older. */
+  refusal(): RefusalReason | null {
+    return this.refusedFor;
+  }
+
+  /** Stop for good: a reconnect would be refused the same way, so none is made. */
+  private refuse(reason: RefusalReason, why: string): void {
+    if (this.refusedFor) return;
+    this.refusedFor = reason;
+    this.log(
+      reason === "update"
+        ? `relay refused this k7 (${why}): update k7 to sync again`
+        : `relay refused this k7 (${why}): the server's k7 is older and must be updated first`,
+    );
     this.ws?.close();
   }
 
@@ -360,7 +391,8 @@ export class RelayLink {
       try {
         this.receive(JSON.parse(data.toString()) as FromRelay);
       } catch (e) {
-        this.log(`relay: frame refused — ${(e as Error).message}`);
+        if (e instanceof NeedsUpdate) this.refuse("update", e.message);
+        else this.log(`relay: frame refused — ${(e as Error).message}`);
       }
     });
     ws.on("error", (e) => this.log(`relay: ${e.message}`));
@@ -369,7 +401,7 @@ export class RelayLink {
       this.ws = null;
       // A new socket is a new hello: what the last welcome promised says nothing about what was missed since.
       this.target.clear();
-      if (this.closed) return;
+      if (this.closed || this.refusedFor) return;
       setTimeout(() => this.connect(), jittered(this.retryMs)).unref();
       this.retryMs = Math.min(this.retryMs * 2, RETRY_MAX_MS);
     });
@@ -387,12 +419,20 @@ export class RelayLink {
         t: "hello",
         workspace: name,
         since: since ?? l.replica.head,
+        proto: SYNC_PROTO,
       });
   }
 
   private receive(msg: FromRelay): void {
     if (msg.t === "error") {
       this.log(`relay refused: ${msg.error}`);
+      return;
+    }
+    if (msg.t === "refused") {
+      this.refuse(
+        msg.reason,
+        `this k7 speaks ${SYNC_PROTO}, the server ${msg.min}..${msg.server}`,
+      );
       return;
     }
     const l = this.linked.get(msg.workspace);
