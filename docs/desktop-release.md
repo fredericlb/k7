@@ -17,7 +17,8 @@ from the command line and the one inside the app are the same build, byte for by
 failure costs that platform only: a desktop job depends on its own engine job and no other, so a
 platform whose engine fails skips its own desktop build and the others carry on. On OneDev that is a
 job dependency; on GitHub, which cannot make one matrix leg wait for the same leg of another, each
-platform is one call of `.github/workflows/desktop-platform.yml`.
+platform is one call of `.github/workflows/desktop-platform.yml`. Its desktop job also boots the app
+it just packaged under Playwright before making the installer (`apps/k7-standalone/docs/e2e.md`).
 
 ## Two channels, and what names a file
 
