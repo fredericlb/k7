@@ -91,7 +91,8 @@
     "@studio/k7x": "*",
     "@studio/song-schema": "*",
     "@studio/engine-protocol": "*",
-    "@studio/graph-model": "*"
+    "@studio/graph-model": "*",
+    "esbuild": "^0.28.2"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

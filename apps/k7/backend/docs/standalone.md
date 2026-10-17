@@ -50,8 +50,8 @@ WebSocket upgrade is answered by its own listener and is that listener's to chec
 ## The bundle: `scripts/bundle.mjs`
 
 The backend and the file service it starts, each one ESM file, plus the files they read at run time —
-the built frontend, the song's `meta/`, `commands.yaml`, the demos, the video sample — and the
-bundled DSP runner, at their REPO paths. A source's `import.meta` is rewritten to its original path
+the built frontend, the song's `meta/`, `commands.yaml`, the demos, the video sample — at their
+REPO paths. A source's `import.meta` is rewritten to its original path
 under that tree, so `new URL("../meta", import.meta.url)` finds the same file it finds in a checkout.
 A data file a source starts reading is added to `DATA`; `--list` prints every source the rewrite touched.
 

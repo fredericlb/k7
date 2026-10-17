@@ -25,6 +25,16 @@ own, which is the isolation the process was for, and its stdin end is still its 
 service is the same program either way. It runs the bundled entry, `STUDIO_FILE_SERVICE_ENTRY`,
 since a thread runs plain JS and not tsx (`engine/k7-runtime/docs/ios.md`).
 
+### It inherits an allow-list, not the backend's environment
+
+A file service runs one account's code paths, and among them a module's jsdsp source
+(`packages/song/docs/jsdspJail.md`). The backend's environment holds the origin's secrets — the
+session and token signing keys, the OIDC client secret, the render key — and a file service needs
+none of them. So `serviceEnv.ts` passes only what the service and the programs it runs read, by name,
+and the hub adds each account's own values on top. The hazard runs one way: a variable the file service
+starts reading and nobody adds to the list is silently unset there, so the list is a sweep of
+every `process.env` read in the service bundle's inputs, plus what the engine it runs reads.
+
 ### Bounded, and held off when it crashes
 
 A Node process per account is the one cost of this design that grows with the user count, so it is

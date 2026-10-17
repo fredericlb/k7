@@ -20,7 +20,8 @@ and folders (`apps/k7/backend/docs/standalone.md`); unpackaged, the checkout's s
 an edit needs no bundling. What is particular to this app:
 
 - **The inherited `ELECTRON_RUN_AS_NODE` is what keeps the backend's children node.** Its file hub
-  starts each file service with `process.execPath`, and so does the song compiler's DSP runner.
+  starts each file service with `process.execPath` and passes the variable on; the song compiler's
+  jsdsp jail sets it itself, since its child gets an empty environment.
 - **The file services are the backend's children**: its signal handler stops them, and the guard's
   process group is what takes them down when the backend dies without running it.
 - **The supervisor needs no guard**: its stdin closing is already what stops it.

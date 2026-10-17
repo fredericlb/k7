@@ -55,7 +55,7 @@
       "ignoreDependencies": ["@types/multer"]
     },
     "packages/song": {
-      "entry": ["src/dspRunner.mjs", "src/benchProject.ts", "scripts/*.ts"]
+      "entry": ["src/benchProject.ts", "scripts/*.ts"]
     },
     "packages/audio-probe": {
       "entry": ["scripts/*.ts"]

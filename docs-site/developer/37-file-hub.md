@@ -44,11 +44,11 @@ request:
 
 - **Command:** `node <tsx cli> <@studio/file-service>/src/server.ts`, or `node $STUDIO_FILE_SERVICE_ENTRY`
   when the backend is bundled (desktop, phone).
-- **Environment:** the parent's, plus `STUDIO_HOME=<root>/<slug>`, `STUDIO_FILE_PORT` (a free
+- **Environment:** an allow-list of the parent's (`packages/file-hub/serviceEnv.ts`), plus `STUDIO_HOME=<root>/<slug>`, `STUDIO_FILE_PORT` (a free
   loopback port), `STUDIO_HUB_SECRET` (random per instance), `STUDIO_LIBRARIES_HOME=<root>/libraries`,
   `STUDIO_HUB_URL`, `STUDIO_SYNC_URL` (the hub's own relay, or the paired server's with
   `STUDIO_SYNC_TOKEN` and `STUDIO_SYNC_SERVERS`), `STUDIO_RENDER_JOBS_URL` when renders are on,
-  `STUDIO_MEDIATEK`, `MEDIATEK_URL`, `MEDIATEK_TOKEN`; `STUDIO_ENGINE_TOKEN` is removed.
+  `STUDIO_MEDIATEK`, `MEDIATEK_URL`, `MEDIATEK_TOKEN`. The backend's secrets are not on the list.
 - **Readiness:** `GET /health` polled every 200 ms, 60 s at most.
 - **Idle:** stopped after 30 minutes without a request, unless the account is paired with a remote.
 - **Crash:** no respawn loop; the instance is dropped and the next request starts a new one.

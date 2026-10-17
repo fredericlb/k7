@@ -49,8 +49,8 @@ account: that cost was paid per account, at every first request and every deploy
 
 `--in-tree` writes only the two entries, into a folder of the checkout, so each source's
 `import.meta` points at the files the image already copies (`frontend/dist`, `song/meta`,
-`commands.yaml`). The checkout stays in the image for that reason, and for the DSP runner, which
-still compiles a user's TypeScript DSP with tsx. Its target is node 24, like the desktop and phone
+`commands.yaml`). The checkout stays in the image for that reason, and for `@studio/dsp` and esbuild,
+with which the file service transpiles and jails a user's TypeScript DSP (`packages/song/docs/jsdspJail.md`). Its target is node 24, like the desktop and phone
 bundles.
 
 ## No `mpv` in the runtime stage
@@ -114,3 +114,14 @@ cannot rewrite the server it runs in. What the process writes is its four volume
 declaring them, so a FRESH volume inherits that owner. A volume that already holds files owned by
 root keeps them: it needs a one-time `chown -R 1000:1000` of its contents (for instance
 `docker run --rm -v <volume>:/v alpine chown -R 1000:1000 /v`) before this image can write to it.
+
+## A `dsp` user that can read none of it
+
+Compiling a project runs the account's `jsdsp.ts`, and that code must not reach another account's
+workspace or the backend's secrets. So the image also has a `dsp` user (uid 10001), and a setuid
+helper, `/usr/local/libexec/dsp-exec`. Only group `node` may execute the helper. It drops to `dsp`
+before it runs node (`apps/k7/docker/dsp-exec.c`, `packages/song/docs/jsdspJail.md`). The four volumes
+are mode 700, and the start re-applies that mode, because a volume created before it keeps the
+mode it had. The helper is built static in a stage of its own, so `gcc` stays out of the runtime
+stage. It needs the setuid bit honoured: a deployment that sets `no-new-privileges` turns every
+jsdsp compile into a failure, and a module then plays its last committed `jsdsp.json`.

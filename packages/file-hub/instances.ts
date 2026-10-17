@@ -14,6 +14,7 @@ import { dirname, join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { slugify } from "@studio/engine-client/paths";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
+import { serviceEnv } from "./serviceEnv.ts";
 import { spawnWorker } from "./workerChild.ts";
 
 /** An account's folder name: readable, and unique per EXACT email — a slug alone folds `a.b@` and `a_b@` together. */
@@ -381,14 +382,13 @@ export class Instances {
     const secret = randomBytes(32).toString("hex");
     const { cmd, args, cwd } = (this.opts.command ?? defaultCommand)();
     const env: NodeJS.ProcessEnv = {
-      ...process.env,
+      ...serviceEnv(process.env),
       [STDIN_STOP_ENV]: "1",
       STUDIO_HOME: home,
       STUDIO_FILE_PORT: String(port),
       STUDIO_HUB_SECRET: secret,
       ...this.opts.env?.(slug),
     };
-    delete env.STUDIO_ENGINE_TOKEN;
     if (this.opts.mediatekRoot) env.STUDIO_MEDIATEK = this.opts.mediatekRoot;
     const link = this.opts.mediatekLink?.(user);
     if (link) {
