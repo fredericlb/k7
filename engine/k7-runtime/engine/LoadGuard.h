@@ -33,4 +33,7 @@ void enableLoadGuards();
 /** Whether `path` is refused; `why` then says so in words a person can act on. */
 bool loadQuarantined(const std::string& path, std::string& why);
 
+/** Whether safe mode refuses the external plugin `name`; `why` then says so (docs/crashes.md). */
+bool safeModeRefuses(const std::string& name, std::string& why);
+
 }  // namespace studio

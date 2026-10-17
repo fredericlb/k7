@@ -4,6 +4,7 @@
 #include "ServeContext.h"
 #include "DocJson.h"
 #include "AudioSender.h"
+#include "WireVersion.h"
 
 #include "../engine/InstrumentStatus.h"
 #include "../engine/Warnings.h"
@@ -28,6 +29,20 @@ using json = nlohmann::json;
 namespace studio {
 
 namespace {
+
+// A path's last component, either separator: a warning names a plugin's file, never the user's folders.
+std::string fileNameOf(const std::string& path) {
+    const auto slash = path.find_last_of("/\\");
+    return slash == std::string::npos ? path : path.substr(slash + 1);
+}
+
+// What `whoami` says of safe mode: the crashes, and the file the last engine died loading or else the plugin it loaded last (docs/crashes.md).
+json safeModeOf(int crashes) {
+    json out{{"crashes", crashes}};
+    if (const auto died = previousLoadDeath(); !died.empty()) out["diedLoading"] = fileNameOf(died);
+    if (const auto last = previousLastPlugin(); !last.empty()) out["lastPlugin"] = fileNameOf(last);
+    return out;
+}
 
 // The 'audio-devices' reply, ASIO first, sent on request AND after a switch so clients learn the same way; message-thread only.
 json audioDevicesMsg(EngineHost& host) {
@@ -238,14 +253,17 @@ void addMachineHandlers(HandlerTable& t) {
         const auto& engineToken = ctx.engineToken;
         // Identity probe, replied to the ASKING socket alone and answered OFF the message thread, which is safe only because audioTiming() reads two atomics (docs/protocol.md).
         const auto timing = host.audioTiming();
-        ws.send(json{{"type", "whoami"},
-                     {"id", engineId},
-                     {"token", engineToken},
-                     {"boot", ctx.bootId},
-                     {"bufferSize", timing.bufferFrames},
-                     {"sampleRate", timing.sampleRate},
-                     {"audioToBrowser", ctx.audioToBrowser}}
-                    .dump());
+        json reply{{"type", "whoami"},
+                   {"id", engineId},
+                   {"token", engineToken},
+                   {"boot", ctx.bootId},
+                   {"protocol", kEngineProtocol},
+                   {"build", buildStamp()},
+                   {"bufferSize", timing.bufferFrames},
+                   {"sampleRate", timing.sampleRate},
+                   {"audioToBrowser", ctx.audioToBrowser}};
+        if (ctx.safeModeCrashes > 0) reply["safeMode"] = safeModeOf(ctx.safeModeCrashes);
+        ws.send(reply.dump());
 
         // …and, if this socket says it DRIVES a session, start counting it — on hello, so a reconnect restores the count, and ONCE per socket, since the keepalive re-sends whoami (docs/sessions.md).
         if (j.value("role", std::string{}) == "driver") {

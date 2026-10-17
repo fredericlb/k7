@@ -23,6 +23,9 @@ Everything else is CLEANED, and each cleaning is said:
 | `addresses.lanIps` | an entry not IPv4 | the others |
 | `performance` | any figure out of its bounds | no performance at all — the picker shows no rating |
 | `libraryLevel` | anything but an integer from 1 | no level — read as 1, what a supervisor older than the field runs |
+| `protocol` | anything but an integer from 1 | no version — read as 1, what a supervisor older than the field speaks (`../../engine-protocol/docs/version.md`) |
+| `build` | not 1 to 64 of `[A-Za-z0-9._-]` | no stamp |
+| `safeMode` | not a boolean | not in safe mode |
 
 The cleanings come back in the answer (`{ ok: true, cleaned: [...] }`) and go into this server's
 log. The bounds themselves are unchanged — the route is open, and a rating is a hint for a picker,

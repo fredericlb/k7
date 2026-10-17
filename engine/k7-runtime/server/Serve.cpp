@@ -97,6 +97,12 @@ int serve(int port) {
 
     // Before anything loads: a plugin or a model the last engine died loading is struck now, and refused at the second strike (docs/crashes.md).
     studio::enableLoadGuards();
+    // `$STUDIO_ENGINE_SAFE_MODE=<crashes>`: the supervisor saw this engine die that many times in a row, so no external plugin loads.
+    const char* safeEnv = std::getenv("STUDIO_ENGINE_SAFE_MODE");
+    const int safeModeCrashes = safeEnv ? std::max(0, std::atoi(safeEnv)) : 0;
+    studio::setSafeMode(safeModeCrashes > 0);
+    if (safeModeCrashes > 0)
+        std::cerr << "[safe-mode] started after " << safeModeCrashes << " quick crashes: no external plugin will load\n";
     // Every file a document names is held to these from here on: the state folder and $STUDIO_ENGINE_ROOTS, plus temp for reads (docs/pathRoots.md).
     studio::setPathRoots(studio::defaultPathRoots(studio::studioStatePath()));
 
@@ -139,6 +145,7 @@ int serve(int port) {
     if (const char* v = std::getenv("STUDIO_ENGINE_ALLOWED_ORIGINS")) ctx.allowedOrigins = parseOrigins(v);
     // The server's engine plays into a null sink, so its listeners are told to hear it through the broadcast.
     if (const char* v = std::getenv("STUDIO_AUDIO_TO_BROWSER"); v && std::string(v) == "1") ctx.audioToBrowser = true;
+    ctx.safeModeCrashes = safeModeCrashes;
     // The LAN devices allowed to drive, and the requests waiting for the musician (docs/pairing.md).
     Pairing pairing(studio::studioStatePath() + "/paired-devices.json");
     ctx.pairing = &pairing;

@@ -108,6 +108,14 @@ export interface PublicEngine {
   performance?: EnginePerformance;
   /** The library level its machine runs — docs/library-versions-plan.md; absent from an older supervisor, which runs level 1. */
   libraryLevel?: number;
+  /** The engine wire's version its machine speaks — packages/engine-protocol/docs/version.md; absent from an older registry. */
+  protocol?: number;
+  /** Below the oldest version this server serves: its tunnel is refused, and the picker says to update k7 on that machine. */
+  outdated?: boolean;
+  /** The release stamp its machine was built from, `dev` for a local build. */
+  build?: string;
+  /** It runs without external plugins after crashing again and again — engine/k7-supervisor/docs/crashLoop.md. */
+  safeMode?: boolean;
   assigned: boolean; // already selected by someone; hidden from the pick list
   /** Who holds it and what they opened — named only to that same account, anyone else sees `assigned` alone; docs/machine.md. */
   heldBy?: string;

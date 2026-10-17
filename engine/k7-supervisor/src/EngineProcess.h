@@ -35,8 +35,8 @@ struct StartResult {
 /** The origins of the studios this machine is listed at, comma-separated: the engine's `STUDIO_ENGINE_ALLOWED_ORIGINS`. */
 std::string allowedOrigins(const std::vector<std::string>& registryUrls);
 
-/** Bring an engine up, or adopt the one already serving, letting pages from `origins` in; blocking, so call it off the loop. */
-StartResult start(const EngineIdentity& identity, int port, const std::string& origins);
+/** Bring an engine up — in safe mode when `safeModeCrashes` > 0 — or adopt the one serving, letting `origins` in; blocking, call it off the loop. */
+StartResult start(const EngineIdentity& identity, int port, const std::string& origins, int safeModeCrashes = 0);
 
 /** Stop the engine the pidfile names, its whole process tree, and clear the pidfile. */
 void stop();

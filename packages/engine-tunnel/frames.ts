@@ -2,6 +2,8 @@
 // bytes (a file chunk, a binary engine frame) as a BINARY frame whose first four bytes give the
 // length of a JSON header, the payload following it. See docs/tunnel.md.
 
+export { ENGINE_PROTOCOL_HEADER as TUNNEL_PROTOCOL_HEADER } from "@studio/engine-protocol/version";
+
 /** Where the hub listens for supervisors, under the registry's own `/api`. */
 export const TUNNEL_PATH = "/api/engine-tunnel";
 /** The engine's token rides in a header, never the query, so no access log keeps it. */
@@ -164,6 +166,25 @@ export function parseAgentMessage(text: string): AgentMessage | null {
     }
   })();
   return ok ? (m as AgentMessage) : null;
+}
+
+/** What to call a text frame that was not read: its `t`, or why it has none — for a log line said once per type. */
+export function textFrameType(text: string): string {
+  try {
+    const m: unknown = JSON.parse(text);
+    if (!isObj(m)) return "(not a JSON object)";
+    return isStr(m.t) ? m.t : "(no type)";
+  } catch {
+    return "(not JSON)";
+  }
+}
+
+/** The same for a binary frame, whose type is in its header. */
+export function binaryFrameType(frame: Buffer): string {
+  if (frame.length < 4) return "(too short)";
+  const len = frame.readUInt32BE(0);
+  if (4 + len > frame.length) return "(header past the end)";
+  return textFrameType(frame.subarray(4, 4 + len).toString("utf8"));
 }
 
 /** A `ws` message as one Buffer, whichever of its three shapes it arrived in. */

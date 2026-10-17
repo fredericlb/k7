@@ -260,7 +260,7 @@ te::Plugin::Ptr orphanPluginFor(const std::string& formatName, const std::string
     std::lock_guard<std::mutex> lock(paramQueryMutex);
     const auto key = orphanKey(formatName, identifier);
     if (auto held = orphanPluginIfLoaded(formatName, identifier)) return held;
-    if (std::string why; loadQuarantined(identifier, why)) {
+    if (std::string why; safeModeRefuses(identifier, why) || loadQuarantined(identifier, why)) {
         warn(why, identifier);
         return {};
     }
@@ -311,7 +311,7 @@ bool prepareNativePluginUI(const std::string& formatName, const std::string& ide
 std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& formatName,
                                                            const std::string& identifier) {
     std::lock_guard<std::mutex> lock(paramQueryMutex);
-    if (std::string why; loadQuarantined(identifier, why)) {
+    if (std::string why; safeModeRefuses(identifier, why) || loadQuarantined(identifier, why)) {
         warn(why, identifier);
         return std::nullopt;
     }

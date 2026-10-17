@@ -8,6 +8,10 @@
 
 import { randomBytes } from "node:crypto";
 import {
+  engineOutdated,
+  engineProtocolOf,
+} from "@studio/engine-protocol/version";
+import {
   ENGINE_ASSIGN_TTL_MS,
   type EngineAddresses,
   type PublicEngine,
@@ -43,6 +47,10 @@ export interface EngineEntry {
   performance?: EnginePerformance;
   /** The library level its machine runs — absent from an older supervisor. */
   libraryLevel?: number;
+  /** The engine wire's version its supervisor states — absent from an older one, which speaks 1. */
+  protocol?: number;
+  build?: string;
+  safeMode?: boolean;
   publicIpHint?: string; // the source IP the heartbeat arrived from
   /** Its supervisor sends no tunnel secret: listed and tunnelled on its token alone — docs/token.md. */
   legacy: boolean;
@@ -59,6 +67,9 @@ export interface HeartbeatInput {
   addresses: EngineAddresses;
   performance?: EnginePerformance;
   libraryLevel?: number;
+  protocol?: number;
+  build?: string;
+  safeMode?: boolean;
   publicIpHint?: string;
   /** The supervisor's tunnel secret; absent from a supervisor older than it. Never stored, only its digest. */
   tunnelSecret?: string;
@@ -221,6 +232,9 @@ export function createRegistry(opts: RegistryOptions = {}): EngineRegistry {
         addresses: input.addresses,
         performance: input.performance,
         libraryLevel: input.libraryLevel,
+        protocol: input.protocol,
+        build: input.build,
+        safeMode: input.safeMode,
         publicIpHint: input.publicIpHint,
         legacy: !input.tunnelSecret,
         holders: existing?.holders ?? new Map(),
@@ -369,6 +383,11 @@ export function createRegistry(opts: RegistryOptions = {}): EngineRegistry {
           addresses: e.addresses,
           performance: e.performance,
           ...(e.libraryLevel ? { libraryLevel: e.libraryLevel } : {}),
+          // Absent is 1, said here once so no browser has to know the rule.
+          protocol: engineProtocolOf(e.protocol),
+          ...(engineOutdated(e.protocol) ? { outdated: true } : {}),
+          ...(e.build ? { build: e.build } : {}),
+          ...(e.safeMode ? { safeMode: true } : {}),
           assigned: holders.length > 0,
           // Who and what, named to that account alone: anyone else reads "in use" and learns no email.
           heldBy: owner?.holder,

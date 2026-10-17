@@ -7,6 +7,10 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, Server } from "node:http";
 import type { Socket } from "node:net";
+import {
+  engineProtocolOf,
+  MIN_ENGINE_PROTOCOL,
+} from "@studio/engine-protocol/version";
 import { isLoopbackAddress } from "@studio/web-protocol/services";
 import { type RawData, WebSocket, WebSocketServer } from "ws";
 import {
@@ -20,6 +24,7 @@ import {
   type ChannelKind,
   MAX_FRAME_BYTES,
   TUNNEL_PATH,
+  TUNNEL_PROTOCOL_HEADER,
   TUNNEL_RENDER_KEY_HEADER,
   TUNNEL_SECRET_HEADER,
   TUNNEL_TOKEN_HEADER,
@@ -37,6 +42,8 @@ export interface TunnelHubOptions {
   pingMs?: number;
   /** What one tunnel may upload; the defaults are `uploadLimits` in hubFiles.ts. */
   uploads?: Partial<UploadLimits>;
+  /** The oldest engine wire served; MIN_ENGINE_PROTOCOL unless a test raises it — engine-protocol's docs/version.md. */
+  minProtocol?: number;
   log?: (msg: string) => void;
 }
 
@@ -61,6 +68,16 @@ const deny = (socket: Socket, status: string): void => {
   socket.destroy();
 };
 
+/** A refusal with a reason in its body, which a supervisor's log shows beside the status. */
+const denyWith = (socket: Socket, status: string, reason: string): void => {
+  const body = Buffer.from(reason, "utf8");
+  socket.write(
+    `HTTP/1.1 ${status}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: ${body.length}\r\nConnection: close\r\n\r\n`,
+  );
+  socket.write(body);
+  socket.destroy();
+};
+
 export class TunnelHub {
   private readonly tunnels = new Map<string, HubTunnel>();
   private readonly locals = new Map<string, LocalBinding>();
@@ -74,6 +91,8 @@ export class TunnelHub {
   });
   private readonly log: (msg: string) => void;
   private pinger?: NodeJS.Timeout;
+  /** Engines already said to be refused for their protocol: a supervisor redials every half-minute. */
+  private readonly outdated = new Set<string>();
 
   constructor(private readonly opts: TunnelHubOptions) {
     this.log = opts.log ?? ((m) => console.log(`tunnel | ${m}`));
@@ -233,6 +252,17 @@ export class TunnelHub {
       deny(socket, "403 Forbidden");
       return;
     }
+    // Below the minimum, the machine is told to update rather than served a wire it would misread.
+    const protocol = engineProtocolOf(req.headers[TUNNEL_PROTOCOL_HEADER]);
+    const min = this.opts.minProtocol ?? MIN_ENGINE_PROTOCOL;
+    if (protocol < min) {
+      const reason = `this engine speaks protocol ${protocol} and this server needs ${min} at least — update k7 on this machine`;
+      if (!this.outdated.has(id)) this.log(`${id} refused: ${reason}`);
+      this.outdated.add(id);
+      denyWith(socket, "426 Upgrade Required", reason);
+      return;
+    }
+    this.outdated.delete(id);
     // A wrong key is refused rather than ignored: a render machine that is not one must say so in its log.
     const offered = String(req.headers[TUNNEL_RENDER_KEY_HEADER] ?? "");
     const renders = !!offered && !!this.opts.renderKey;

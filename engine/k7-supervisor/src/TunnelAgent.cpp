@@ -11,6 +11,7 @@
 #include "TunnelFiles.h"
 #include "TunnelFrames.h"
 #include "Url.h"
+#include "WireVersion.h"
 
 #include <ixwebsocket/IXWebSocket.h>
 
@@ -20,6 +21,7 @@
 #include <mutex>
 #include <random>
 #include <regex>
+#include <set>
 #include <thread>
 #include <utility>
 
@@ -85,6 +87,9 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
     int attempt = 0;
     /** The last reason the socket failed or closed — logged again only when it changes. Socket thread only. */
     std::string lastFail;
+    /** The frame types this agent does not read, each logged once: a newer hub speaking past us is said, not silent. */
+    std::set<std::string> unknownSeen;
+    std::mutex unknownMutex;
     std::map<int, std::shared_ptr<Channel>> channels;
     SyncLedger ledger;
     FileRequests files{*this};
@@ -147,7 +152,7 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
         while (true) {
             auto sock = std::make_shared<ix::WebSocket>();
             sock->setUrl(tunnelUrl(opts.registryUrl, opts.id));
-            ix::WebSocketHttpHeaders headers{{kTokenHeader, opts.token}};
+            ix::WebSocketHttpHeaders headers{{kTokenHeader, opts.token}, {kProtocolHeader, std::to_string(wire::kEngineProtocol)}};
             if (!opts.tunnelSecret.empty()) headers[kSecretHeader] = opts.tunnelSecret;
             if (!opts.renderKey.empty()) headers[kRenderKeyHeader] = opts.renderKey;
             sock->setExtraHeaders(headers);
@@ -240,11 +245,25 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
         return it == channels.end() ? nullptr : it->second;
     }
 
+    /** Say once per type that a frame was dropped, so a hub newer than this agent shows in the log. */
+    void unknownFrame(const std::string& kind, const std::string& t)
+    {
+        {
+            std::lock_guard lock(unknownMutex);
+            if (!unknownSeen.insert(kind + ":" + t).second) return;
+        }
+        opts.log("ignored a " + kind + " frame of type '" + t + "' from " + opts.registryUrl + " — this supervisor does not read it");
+    }
+
     void onText(const std::string& text)
     {
         auto m = json::parse(text, nullptr, false);
-        if (!m.is_object()) return;
-        const std::string t = m.value("t", "");
+        if (!m.is_object()) {
+            unknownFrame("text", "(not a JSON object)");
+            return;
+        }
+        const auto tf = m.find("t");
+        const std::string t = tf != m.end() && tf->is_string() ? tf->get<std::string>() : "";
         if (t == "open") {
             openChannel(m.value("ch", 0), m.value("roots", json::array()), m.value("kind", "engine"), m.value("synced", false));
         } else if (t == "close") {
@@ -268,18 +287,26 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
             files.onGetError(m.value("req", 0), m.value("error", ""));
         } else if (t == "rtc-offer") {
             answer(m.value("req", 0), m.value("sdp", ""));
+        } else {
+            unknownFrame("text", t);
         }
     }
 
     void onBinary(const std::string& frame)
     {
         const auto d = decodeBinary(frame);
-        if (!d) return;
-        const std::string t = d->header.value("t", "");
+        if (!d) {
+            unknownFrame("binary", "(no readable header)");
+            return;
+        }
+        const auto tf = d->header.find("t");
+        const std::string t = tf != d->header.end() && tf->is_string() ? tf->get<std::string>() : "";
         if (t == "chunk")
             files.onChunk(d->header.value("req", 0), d->header.value("last", false), d->payload);
         else if (t == "data")
             toEngine(d->header.value("ch", 0), d->payload, true);
+        else
+            unknownFrame("binary", t);
     }
 
     void answer(int req, const std::string& offer)

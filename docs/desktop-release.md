@@ -212,7 +212,9 @@ and anything else stops the run. The desktop job hands it to the app's build as
 `$STUDIO_RELEASE_STAMP`, which inlines it as the app's release — shown in About and compared with
 this repository's releases to tell the person a newer one exists (`apps/k7-standalone/docs/menu.md`,
 `apps/k7-standalone/docs/notices.md`). The app reads `releases/latest` and the `snapshot` prerelease
-through GitHub's unauthenticated API, so that notice works once the repository is public.
+through GitHub's unauthenticated API, so that notice works once the repository is public. The engine
+job hands the same stamp to the engine's and the supervisor's CMake, which compile it into one file
+each as the `build` both state (`packages/engine-protocol/docs/version.md`).
 
 ## The installer each platform gets
 

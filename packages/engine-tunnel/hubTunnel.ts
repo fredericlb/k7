@@ -10,12 +10,14 @@ import { drained } from "./drain.ts";
 import {
   asBuffer,
   type BinaryHeader,
+  binaryFrameType,
   type ChannelKind,
   decodeBinary,
   encodeBinary,
   type HubMessage,
   parseAgentMessage,
   type TunnelRoot,
+  textFrameType,
 } from "./frames.ts";
 import {
   readFileChunks,
@@ -56,6 +58,8 @@ export class HubTunnel implements ChannelSink {
   private nextCh = 1;
   /** Cleared by every ping, set by every pong: a tunnel that misses one is dead. */
   alive = true;
+  /** The frame types already said to be ignored: one line per type, never one per frame. */
+  private readonly ignored = new Set<string>();
 
   constructor(
     readonly engineId: string,
@@ -166,10 +170,23 @@ export class HubTunnel implements ChannelSink {
     this.uploads.clear();
   }
 
-  /** One text frame from the agent, checked for shape before anything reads it; a malformed one is ignored. */
+  /** A frame this hub does not read, said once per type: an agent newer than the server shows in the log. */
+  private ignore(kind: "text" | "binary", type: string): void {
+    const key = `${kind}:${type}`;
+    if (this.ignored.has(key)) return;
+    this.ignored.add(key);
+    this.log(
+      `${this.engineId}: ignored a ${kind} frame of type '${type}' — unknown here, or not the shape this server reads`,
+    );
+  }
+
+  /** One text frame from the agent, checked for shape before anything reads it; a malformed one is ignored and said once. */
   onText(text: string): void {
     const m = parseAgentMessage(text);
-    if (!m) return;
+    if (!m) {
+      this.ignore("text", textFrameType(text));
+      return;
+    }
     const carried = "ch" in m ? this.channels.get(m.ch) : undefined;
     switch (m.t) {
       case "opened":
@@ -226,7 +243,10 @@ export class HubTunnel implements ChannelSink {
   /** One binary frame from the agent; a header of the wrong shape is ignored, as `decodeBinary` answers null for it. */
   onBinary(frame: Buffer): void {
     const decoded = decodeBinary(frame);
-    if (!decoded) return;
+    if (!decoded) {
+      this.ignore("binary", binaryFrameType(frame));
+      return;
+    }
     const { header, payload } = decoded;
     if (header.t === "data") {
       this.channels.get(header.ch)?.channel.deliver(payload, true);

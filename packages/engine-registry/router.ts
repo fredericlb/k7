@@ -171,6 +171,9 @@ export function engineRegistryRouter(
         addresses: b.addresses,
         performance: b.performance,
         libraryLevel: b.libraryLevel,
+        protocol: b.protocol,
+        build: b.build,
+        safeMode: b.safeMode,
         publicIpHint: req.ip,
       });
       if (!up.ok) {

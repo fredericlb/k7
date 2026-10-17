@@ -55,6 +55,14 @@ export interface PairRequest {
   code: string;
   since: number;
 }
+/** The engine runs without external plugins after quick crashes; the file it names is the likeliest culprit — engine/k7-supervisor/docs/crashLoop.md. */
+export interface EngineSafeMode {
+  crashes: number;
+  /** The plugin it died loading, which is certain. */
+  diedLoading?: string;
+  /** Else the plugin it loaded last, which is only the likeliest. */
+  lastPlugin?: string;
+}
 /** A device paired with this engine; its key never leaves the engine again after the approval. */
 export interface PairedDevice {
   deviceId: string;
@@ -83,6 +91,9 @@ interface EngineMessage extends StateFrame, IoLevelsFrame {
   format?: string;
   boot?: string; // 'whoami': the engine PROCESS, so a reconnect can tell a restarted engine
   audioToBrowser?: boolean; // …and whether its device is heard by nobody, so the broadcast is the only way to hear it
+  protocol?: number; // …the engine wire's version it speaks, absent from an engine older than the field
+  build?: string; // …the release stamp it was built from
+  safeMode?: EngineSafeMode; // …present only while it runs without external plugins
   requests?: PairRequest[]; // 'pair-requests', to the machine's own clients only
 }
 
@@ -105,6 +116,9 @@ export abstract class EngineEvents extends EngineLink {
   /** Whether the engine said nobody hears its device (`whoami`); a client then plays its broadcast — docs/streaming.md. */
   private audioToBrowser = false;
   private audioToBrowserCbs = new Set<(on: boolean) => void>();
+  /** The engine's safe mode as `whoami` last said it, null when it is not in it. */
+  private safeMode: EngineSafeMode | null = null;
+  private safeModeCbs = new Set<(s: EngineSafeMode | null) => void>();
 
   protected dispatch(m: EngineMessage): void {
     // Another project's news, dropped here rather than per handler so a frame type that grows a session later is covered.
@@ -134,6 +148,11 @@ export abstract class EngineEvents extends EngineLink {
       if (toBrowser !== this.audioToBrowser) {
         this.audioToBrowser = toBrowser;
         for (const cb of this.audioToBrowserCbs) cb(toBrowser);
+      }
+      const safe = readSafeMode(m.safeMode);
+      if (JSON.stringify(safe) !== JSON.stringify(this.safeMode)) {
+        this.safeMode = safe;
+        for (const cb of this.safeModeCbs) cb(safe);
       }
     }
     // `error` is handled at the bottom beside `engine-warning`: dropped here, a refused command would vanish without trace.
@@ -221,6 +240,12 @@ export abstract class EngineEvents extends EngineLink {
   }
 
   /** Whether the engine's sound reaches anyone only through this browser; told now, then on every change. */
+  /** Safe mode entered or left, as `whoami` says it; called at once with what is known. */
+  onSafeMode(cb: (s: EngineSafeMode | null) => void): () => void {
+    this.safeModeCbs.add(cb);
+    cb(this.safeMode);
+    return () => this.safeModeCbs.delete(cb);
+  }
   onAudioToBrowser(cb: (on: boolean) => void): () => void {
     this.audioToBrowserCbs.add(cb);
     cb(this.audioToBrowser);
@@ -237,4 +262,18 @@ export abstract class EngineEvents extends EngineLink {
   private emitState(s: EngineState): void {
     for (const cb of this.stateCbs) cb(s);
   }
+}
+
+/** `whoami`'s safe mode, kept only in the shape the engine sends; anything else is no safe mode. */
+export function readSafeMode(v: unknown): EngineSafeMode | null {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const text = (x: unknown) => (typeof x === "string" && x ? x : undefined);
+  const diedLoading = text(o.diedLoading);
+  const lastPlugin = text(o.lastPlugin);
+  return {
+    crashes: Number.isSafeInteger(o.crashes) ? (o.crashes as number) : 0,
+    ...(diedLoading ? { diedLoading } : {}),
+    ...(lastPlugin ? { lastPlugin } : {}),
+  };
 }

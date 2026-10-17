@@ -52,6 +52,12 @@ export interface ReadHeartbeat {
   performance?: EnginePerformance;
   /** The library level the machine runs; absent from a supervisor older than the field, which runs level 1. */
   libraryLevel?: number;
+  /** The engine wire's version it speaks; absent from a supervisor older than the field, which speaks 1. */
+  protocol?: number;
+  /** The release stamp it was built from, `dev` for a local build. */
+  build?: string;
+  /** It runs without external plugins after crashing again and again — engine/k7-supervisor/docs/crashLoop.md. */
+  safeMode?: boolean;
   /** One line per field that was dropped or replaced — empty for a heartbeat taken as sent. */
   cleaned: string[];
 }
@@ -112,6 +118,24 @@ export function readHeartbeat(
       `libraryLevel: ${JSON.stringify(b.libraryLevel)} is no level, left out`,
     );
 
+  let protocol: number | undefined;
+  if (Number.isInteger(b.protocol) && (b.protocol as number) >= 1)
+    protocol = b.protocol as number;
+  else if (b.protocol !== undefined)
+    cleaned.push(
+      `protocol: ${JSON.stringify(b.protocol)} is no version, read as 1`,
+    );
+
+  let build: string | undefined;
+  if (typeof b.build === "string" && /^[A-Za-z0-9._-]{1,64}$/.test(b.build))
+    build = b.build;
+  else if (b.build !== undefined)
+    cleaned.push(`build: ${JSON.stringify(b.build)} is no stamp, left out`);
+  if (b.safeMode !== undefined && typeof b.safeMode !== "boolean")
+    cleaned.push(
+      `safeMode: ${JSON.stringify(b.safeMode)} is no flag, read as false`,
+    );
+
   return {
     ok: true,
     beat: {
@@ -125,6 +149,9 @@ export function readHeartbeat(
       addresses: { loopback, lanIps, port: core.data.addresses.port },
       ...(performance ? { performance } : {}),
       ...(libraryLevel ? { libraryLevel } : {}),
+      ...(protocol ? { protocol } : {}),
+      ...(build ? { build } : {}),
+      ...(b.safeMode === true ? { safeMode: true } : {}),
       cleaned,
     },
   };

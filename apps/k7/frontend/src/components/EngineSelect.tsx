@@ -122,6 +122,22 @@ export function EngineSelect({
                       {r.engine.assigned && (
                         <Badge variant="amber">in use</Badge>
                       )}
+                      {r.engine.outdated && (
+                        <Badge
+                          variant="amber"
+                          title={m["engines.outdatedHint"]()}
+                        >
+                          {m["engines.outdated"]()}
+                        </Badge>
+                      )}
+                      {r.engine.safeMode && (
+                        <Badge
+                          variant="amber"
+                          title={m["engines.safeModeHint"]()}
+                        >
+                          {m["engines.safeMode"]()}
+                        </Badge>
+                      )}
                       {accessText(r.engine) && (
                         <Badge
                           variant={
@@ -179,7 +195,13 @@ function accessText(e: RankedEngine["engine"]): string | null {
   }
 }
 
-/** Answered, free, and not waiting to pair this device. */
+/** Answered, free, not waiting to pair this device, and not too old for this server. */
 function selectableRow(r: RankedEngine): boolean {
-  return !!r.latency && !r.engine.assigned && !!r.wsUrl && !r.needsPairing;
+  return (
+    !!r.latency &&
+    !r.engine.assigned &&
+    !!r.wsUrl &&
+    !r.needsPairing &&
+    !r.engine.outdated
+  );
 }

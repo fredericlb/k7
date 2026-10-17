@@ -15,6 +15,10 @@ keeps them. One tunnel per engine: a reconnect that passes that check replaces t
 outlived rather than adding a second; one that fails it is refused before the live tunnel is
 touched, so nobody holding the token alone can take an engine's channels over.
 
+The supervisor also states the engine wire's version in `x-studio-engine-protocol`, and a hub
+refuses one below its minimum with a `426` whose body says to update k7 on that machine
+(`../../engine-protocol/docs/version.md`).
+
 Both ends ping every 20 s and drop a peer that missed one. A tunnel that died without a FIN would
 otherwise look alive for ever, and its channels with it.
 
@@ -26,7 +30,8 @@ uncaught exception, and k7's backend exits on those. So:
 
 - every agent text frame goes through `parseAgentMessage` and every binary header through
   `asBinaryHeader` (`frames.ts`) — a non-null object, a known `t`, integer `ch`/`req`, `paths` an
-  array of strings — and a frame of any other shape is ignored, never read;
+  array of strings — and a frame of any other shape is ignored, never read, and said once per
+  type, on the hub and on both agents, so a peer newer than its reader shows in a log;
 - every upgrade and message listener on the hub, the relay and the agent catches what is thrown,
   says it and drops that socket alone; the async handlers (`stat`, `get`, `put`) end in a `catch`;
 - the hub and the relay accept frames up to `MAX_FRAME_BYTES` (16 MiB). The largest legitimate
