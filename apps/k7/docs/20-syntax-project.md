@@ -5,6 +5,11 @@
 The song header: tempo, rate, meter — plus what the song borrows from outside its own folder.
 
 ```yaml schema=ProjectFile
+# The format this file is written in. Leave it out: a file without one is
+# format 1. A k7 older than the file refuses to open it and says to update k7,
+# rather than misreading a key it does not know.
+format: 1
+
 # What this folder IS — the default, so it can be left out. The only other
 # value is `z0`, the blind test's own dialect.
 #
