@@ -3,6 +3,7 @@
 // through the file service (docs/shell.md). None is `ui`: `ui` promises not to move the transport.
 
 import type { TransportAction } from "@studio/engine-protocol";
+import { m } from "../../paraglide/messages.js";
 import type { LocalCommand, LocalCtx } from "./context";
 import { clipGridOf } from "./timeline";
 
@@ -16,15 +17,11 @@ export const BARE_TRANSPORT: readonly string[] = [
   "transport panic",
 ];
 
-/** Why Play is refused in record mode with nothing armed — said on the button and on the status line. */
-export const NO_ARM_HINT =
-  "record is on and no track is armed — arm a track, or turn record off";
-
-/** Play in record mode with nothing armed records nothing: refused, with the two ways out. */
+/** Play in record mode with nothing armed records nothing: refused, with the way out — the button's own sentence. */
 const refusedForNoArm = (ctx: LocalCtx): boolean => {
   if (!ctx.recordWithoutArmRef.current || ctx.store.getSnapshot().playing)
     return false;
-  ctx.setRefusal(NO_ARM_HINT);
+  ctx.setRefusal(m["transport.noArm"]());
   return true;
 };
 

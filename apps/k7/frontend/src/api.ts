@@ -24,11 +24,12 @@ import type {
   AiSettingsView,
 } from "@studio/ui-module-builder/ai-organize";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
-import type {
-  ModelDownloadJob,
-  SeparateJob,
-  ShareProgress,
-  StemsReply,
+import {
+  MAX_UPLOAD_BYTES,
+  type ModelDownloadJob,
+  type SeparateJob,
+  type ShareProgress,
+  type StemsReply,
 } from "@studio/web-protocol";
 import type { PlaylistInfo } from "@studio/web-protocol/playlists";
 import type { CommandPrefs } from "./commandPrefs";
@@ -75,6 +76,17 @@ export interface AuthUser {
   name?: string;
   email?: string | null;
   groups?: string[];
+}
+
+/** The sentence for a file over the upload limit — said before sending, and again if the service refuses it. */
+const tooBigMessage = (name: string) =>
+  m["upload.tooBig"]({ name, mb: String(MAX_UPLOAD_BYTES / (1024 * 1024)) });
+
+/** Refuse a file over the limit BEFORE it is sent: a 4K clip would otherwise climb to 100% and fail with no reason. */
+function tooBig(name: string, bytes: Blob | ArrayBuffer): void {
+  const size = bytes instanceof Blob ? bytes.size : bytes.byteLength;
+  if (size <= MAX_UPLOAD_BYTES) return;
+  throw Object.assign(new Error(tooBigMessage(name)), { status: 413 });
 }
 
 export const api = {
@@ -148,8 +160,9 @@ export const api = {
   upload: async (
     dir: string,
     name: string,
-    bytes: ArrayBuffer,
+    bytes: Blob | ArrayBuffer,
   ): Promise<{ path: string }> => {
+    tooBig(name, bytes);
     const q = `dir=${encodeURIComponent(dir)}&name=${encodeURIComponent(name)}`;
     const res = await fetch(cfg().base + `/upload?${q}`, {
       method: "POST",
@@ -158,7 +171,10 @@ export const api = {
     });
     if (!res.ok) {
       const msg =
-        (await res.json().catch(() => ({}))).error ?? `upload ${name} failed`;
+        res.status === 413
+          ? tooBigMessage(name)
+          : ((await res.json().catch(() => ({}))).error ??
+            `upload ${name} failed`);
       const err = new Error(msg) as Error & { status?: number };
       err.status = res.status;
       throw err;
@@ -169,9 +185,14 @@ export const api = {
   uploadWithProgress: (
     dir: string,
     name: string,
-    bytes: ArrayBuffer,
+    bytes: Blob | ArrayBuffer,
     onProgress?: (loaded: number, total: number) => void,
   ): Promise<{ path: string }> => {
+    try {
+      tooBig(name, bytes);
+    } catch (e) {
+      return Promise.reject(e);
+    }
     const q = `dir=${encodeURIComponent(dir)}&name=${encodeURIComponent(name)}`;
     const url = cfg().base + `/upload?${q}`;
     const headers = fileHeaders({ "Content-Type": "application/octet-stream" });
@@ -196,6 +217,7 @@ export const api = {
           try {
             msg = JSON.parse(xhr.responseText).error ?? msg;
           } catch {}
+          if (xhr.status === 413) msg = tooBigMessage(name);
           const err = new Error(msg) as Error & { status?: number };
           err.status = xhr.status;
           reject(err);

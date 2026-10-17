@@ -290,6 +290,7 @@ export function RepoList({
                   {/* The rare acts on the whole workspace, behind one ⋮ as on a project's row. */}
                   <WorkspaceMenu
                     workspace={w.name}
+                    projectCount={w.projects.length}
                     blocked={blocked}
                     onRemove={() => onRemoveWorkspace(w)}
                     // Every OTHER server, once the workspace syncs with one and is not already moving.

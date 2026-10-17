@@ -107,7 +107,7 @@
   "desk.mixUnread": "{file} n'a pas encore pu être lu — le cue n'a pas été écrit",
   "desk.cueFailed": "le cue n'a pas pu être écrit dans {file} : {error}",
   "desk.xfadeUnbound": "le crossfade n'est lié à aucun plugin chargé — vérifiez {file}",
-  "video.noPicture": "Ce projet n'a pas encore d'image. Ajoutez `video_tracks/<nom>.yaml` et un `viewport` dans project.yaml.",
+  "video.noPicture": "Pas encore d'image. Glissez une vidéo ou une photo de votre ordinateur sur une piste vidéo de la timeline, et elle s'affiche ici.",
   "video.cannotDraw": "L'image ne peut pas être dessinée dans ce navigateur : {why}",
   "lens.noAnswer": "la machine n'a pas répondu",
   "lens.failed": "le lien caméra a échoué : {error}",

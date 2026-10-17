@@ -1,5 +1,5 @@
 // WorkspaceMenu.tsx — the ⋮ at the end of a workspace's row: copy or move it to another server, or delete it.
-// Each is confirmed through `askConfirm`, which says what it changes. See ../../docs/projects.md.
+// Each is confirmed in words; the delete asks for the workspace's NAME. See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -15,7 +15,7 @@ import {
   MoreVertical,
   Trash2,
 } from "@frediverse/ui/icons";
-import { askConfirm } from "@studio/project-shell/ask";
+import { askConfirm, askText } from "@studio/project-shell/ask";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { hostLabel } from "./WorkspaceSyncIcon";
@@ -28,8 +28,11 @@ export function WorkspaceMenu({
   from = "",
   onMove,
   onCopy,
+  projectCount = 0,
 }: {
   workspace: string;
+  /** How many projects the delete takes with it — said in the confirmation. */
+  projectCount?: number;
   /** Why nothing here can run — no file service, or one busy. Empty when it can. */
   blocked: string;
   onRemove: () => Promise<void>;
@@ -55,16 +58,23 @@ export function WorkspaceMenu({
     }
   };
 
-  const remove = () =>
-    confirmThen(
-      {
-        title: m["ws.removeTitle"]({ workspace }),
-        body: m["ws.removeBody"](),
-        confirmLabel: m["common.remove"](),
-        danger: true,
-      },
-      onRemove,
-    );
+  // The one act here that cannot be undone, so it asks for the NAME rather than a click a habit could give.
+  const remove = async () => {
+    const typed = await askText({
+      title: m["ws.removeTitle"]({ workspace }),
+      body: m["ws.removeBody"]({ count: String(projectCount) }),
+      placeholder: workspace,
+      confirmLabel: m["ws.delete"](),
+      validate: (v) => (v.trim() === workspace ? "" : m["ws.typeName"]()),
+    });
+    if (typed?.trim() !== workspace) return;
+    setBusy(true);
+    try {
+      await onRemove();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const move = (to: string) =>
     confirmThen(
@@ -138,7 +148,7 @@ export function WorkspaceMenu({
           onSelect={() => void remove()}
         >
           <Trash2 className="h-3.5 w-3.5" />
-          {m["common.remove"]()}
+          {m["ws.deleteEllipsis"]()}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

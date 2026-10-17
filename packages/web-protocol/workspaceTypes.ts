@@ -101,6 +101,9 @@ export interface HistoryListEntry {
   undone: boolean;
 }
 // The POST /undo | /redo reply: applied, refused pending confirmation, or nothing to do.
+/** The largest file one upload carries — the file service's limit, which the browser checks first so it can say so by name. */
+export const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
+
 export interface UndoResult {
   applied?: boolean;
   needsConfirm?: boolean;

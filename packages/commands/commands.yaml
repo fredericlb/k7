@@ -313,6 +313,25 @@
   help: "set the viewport's aspect ratio (e.g. project aspect 16:9)"
   surfaces: [cli]
   args: [{ name: ratio, hint: "16:9 or 9:16" }]
+# The song's one tempo and its time signature, written into project.yaml — what the footer's
+# "120 bpm · 4/4" edits on a click. The arrangement is in bars, so a tempo change plays the same
+# song faster or slower; a video lane's shots are in seconds and stay put.
+- command: "project tempo"
+  sid: project.tempo
+  readable:
+    en: "Set the tempo"
+    fr: "Choisir le tempo"
+  help: "set the song's tempo in beats per minute (e.g. project tempo 96)"
+  surfaces: [cli]
+  args: [{ name: bpm, type: number, hint: "beats per minute, 20–400" }]
+- command: "project meter"
+  sid: project.meter
+  readable:
+    en: "Set the time signature"
+    fr: "Choisir la mesure"
+  help: "set the song's time signature (e.g. project meter 3/4)"
+  surfaces: [cli]
+  args: [{ name: signature, hint: "beats/unit — 4/4, 3/4, 6/8" }]
 - command: "project reload"
   sid: project.reload
   help: "reload the song from disk and re-send"

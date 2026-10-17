@@ -107,7 +107,7 @@
   "desk.mixUnread": "{file} could not be read yet — the cue was not written",
   "desk.cueFailed": "the cue could not be written into {file}: {error}",
   "desk.xfadeUnbound": "the crossfade is bound to no loaded plugin — check {file}",
-  "video.noPicture": "This project has no picture yet. Add `video_tracks/<name>.yaml` and a `viewport` in project.yaml.",
+  "video.noPicture": "No picture yet. Drag a video or a photo from your computer onto a video lane of the timeline, and it shows here.",
   "video.cannotDraw": "The picture cannot be drawn in this browser: {why}",
   "lens.noAnswer": "the machine did not answer",
   "lens.failed": "camera link failed: {error}",

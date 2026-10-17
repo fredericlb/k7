@@ -271,6 +271,19 @@ Play/pause, stop, the clock, then the record button, and each **drops focus on c
 Space, and a focused one eats the keypress. On play/pause the theft is invisible, because the button
 does what Space would; on stop and on record it is not.
 
+**Record turned on with nothing armed arms a track first** — the caret's, else the song's only one
+(`armForRecord` in `App.tsx`). Record mode with no armed lane leaves Play dead, and someone who has
+never heard of arming reads that as a broken button; a track with no input still refuses on the
+status line, which then says why.
+
+**Loop sits beside the clock.** On, it turns the loop off; off, it loops the timeline's selection
+when there is one, and otherwise four bars from the playhead — so the one gesture needs nothing
+selected first. The region is the engine's session state, as Shift+L's is.
+
+**The footer's tempo and time signature edit themselves on a click**, through `project tempo` and
+`project meter`, which write `project.yaml` — the two numbers were otherwise reachable only by editing
+the file.
+
 **One record, whatever the lane holds.** The circle flips the ENGINE's record state, and play records
 every lane armed there (`transport arm`) — and the MIDI-armed lane too, which the BROWSER captures
 (`useMidiRecording.ts`): the engine never hears a controller, so the notes are timed here, in

@@ -7,6 +7,7 @@ import { Button } from "@frediverse/ui/button";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { Loader2, StickyNote } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
+import { askText } from "@studio/project-shell/ask";
 import type { ReactNode } from "react";
 import { EngineSyncProgress } from "../components/EngineSyncProgress";
 import { FooterTab, FooterTabs } from "../components/FooterTab";
@@ -171,13 +172,47 @@ export function ShellFooter({
       {/* right: the tempo and signature, the metronome, a separator, then the bottom-panel choices, a separator, then the side panels' buttons */}
       <div className="ml-auto flex shrink-0 items-center gap-2">
         {/* Next to the metronome because it is what the metronome clicks — the doc's tempo, not the engine's. */}
-        <span
-          className="whitespace-nowrap font-mono tabular-nums"
-          title={m["transport.tempoSig"]()}
-        >
-          {recInfo.tempo} bpm
+        {/* Each number edits itself on a click, through the commands that write project.yaml (`project tempo`, `project meter`). */}
+        <span className="flex items-center whitespace-nowrap font-mono tabular-nums">
+          <button
+            type="button"
+            className="rounded px-0.5 hover:bg-accent hover:text-foreground"
+            title={m["transport.tempoEdit"]()}
+            onClick={() =>
+              void askText({
+                title: m["transport.tempoAsk"](),
+                initial: String(recInfo.tempo),
+                validate: (v) =>
+                  Number(v) >= 20 && Number(v) <= 400
+                    ? ""
+                    : m["transport.tempoBad"](),
+              }).then((v) => {
+                if (v) void runCommand(`project tempo ${v.trim()}`);
+              })
+            }
+          >
+            {recInfo.tempo} bpm
+          </button>
           <span className="mx-1 text-border">·</span>
-          {recInfo.beatsPerBar}/{recInfo.beatUnit}
+          <button
+            type="button"
+            className="rounded px-0.5 hover:bg-accent hover:text-foreground"
+            title={m["transport.meterEdit"]()}
+            onClick={() =>
+              void askText({
+                title: m["transport.meterAsk"](),
+                initial: `${recInfo.beatsPerBar}/${recInfo.beatUnit}`,
+                validate: (v) =>
+                  /^\d+\/(1|2|4|8|16|32)$/.test(v.trim())
+                    ? ""
+                    : m["transport.meterBad"](),
+              }).then((v) => {
+                if (v) void runCommand(`project meter ${v.trim()}`);
+              })
+            }
+          >
+            {recInfo.beatsPerBar}/{recInfo.beatUnit}
+          </button>
         </span>
         {/* Left click toggles the click, right click opens its level; both are project settings, so both are command lines. */}
         <MetronomeButton

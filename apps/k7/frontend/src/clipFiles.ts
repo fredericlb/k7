@@ -26,6 +26,10 @@ export const declaredSource = (yaml: string): string | null =>
 export const candidateIds = (id: string, n = MAX_SUFFIX): string[] =>
   Array.from({ length: n }, (_, i) => (i === 0 ? id : `${id}-${i + 1}`));
 
+/** How many bytes a drop or a take carries, whichever form it arrives in. */
+const sizeOfBytes = (b: Blob | ArrayBuffer): number =>
+  b instanceof Blob ? b.size : b.byteLength;
+
 /** The size of a file already in the project, or null when it is not there or the service will not say. */
 async function sizeOf(path: string): Promise<number | null> {
   try {
@@ -42,7 +46,7 @@ async function sizeOf(path: string): Promise<number | null> {
 export async function fileClip(
   project: string,
   clip: { id: string; upload: string },
-  bytes: ArrayBuffer,
+  bytes: Blob | ArrayBuffer,
   onProgress?: (loaded: number) => void,
 ): Promise<FiledClip> {
   const dir = projectDir(project);
@@ -51,7 +55,7 @@ export async function fileClip(
   const ext = dot > 0 ? clip.upload.slice(dot) : "";
   // Same size is taken as same file: a re-drop of one recording must not pile up copies of it.
   const same = async (upload: string) =>
-    (await sizeOf(`${prefix}clips/${upload}`)) === bytes.byteLength;
+    (await sizeOf(`${prefix}clips/${upload}`)) === sizeOfBytes(bytes);
 
   for (const id of candidateIds(clip.id)) {
     const upload = `${id}${ext}`;

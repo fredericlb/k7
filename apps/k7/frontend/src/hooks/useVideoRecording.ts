@@ -84,9 +84,7 @@ export function useVideoRecording(opts: {
       const upload = `${id}${extForMime(blob.type || undefined)}`;
       let filedId = id;
       try {
-        filedId = (
-          await fileClip(dir, { id, upload }, await bytes.arrayBuffer())
-        ).id;
+        filedId = (await fileClip(dir, { id, upload }, bytes)).id;
       } catch (e) {
         // A camera take cannot be played again: unfiled, it goes to the disk rather than nowhere (../../docs/audit.md).
         downloadBlob(bytes, upload);

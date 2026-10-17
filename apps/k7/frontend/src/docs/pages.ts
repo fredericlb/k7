@@ -10,7 +10,7 @@ const FILES = import.meta.glob("../../../docs/*.md", {
   eager: true,
 }) as Record<string, string>;
 
-export type DocPart = "commands" | "syntax" | "technical";
+export type DocPart = "start" | "commands" | "syntax" | "technical";
 
 export interface DocPage {
   id: string; // anchor + nav key
@@ -19,7 +19,8 @@ export interface DocPage {
   body: string; // markdown, minus the title line
 }
 
-const PART_ORDER: DocPart[] = ["commands", "syntax", "technical"];
+// "start" first: the page a newcomer opens help for, before any reference.
+const PART_ORDER: DocPart[] = ["start", "commands", "syntax", "technical"];
 
 function parse(path: string, raw: string): DocPage | null {
   const file = path.split("/").pop() ?? "";
@@ -43,8 +44,11 @@ export const DOC_PAGES: DocPage[] = Object.entries(FILES)
 export const DOC_PARTS: { part: DocPart; label: string; pages: DocPage[] }[] =
   PART_ORDER.map((part) => ({
     part,
-    label: { commands: "Commands", syntax: "Syntax", technical: "Technical" }[
-      part
-    ],
+    label: {
+      start: "Getting started",
+      commands: "Commands",
+      syntax: "Syntax",
+      technical: "Technical",
+    }[part],
     pages: DOC_PAGES.filter((p) => p.part === part),
   })).filter((g) => g.pages.length);

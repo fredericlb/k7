@@ -191,7 +191,7 @@ export function RackBuilder({
         await api.uploadWithProgress(
           src,
           p.fileName,
-          await p.pad.file.arrayBuffer(),
+          p.pad.file,
           (loaded, total) =>
             setUp({
               done,

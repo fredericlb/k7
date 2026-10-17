@@ -514,6 +514,11 @@ is an ordinary folder name and nothing touches it. That is already `projectApp`'
 | `mix` | `turntables` | two decks, a crossfade, and a `playlist:` to fill in |
 | `video` | `timeline` + `viewport` | the arrangement, plus a picture lane |
 
+**On screen they are named for what someone wants to make**, not for the surface: Song, DJ set,
+Video, Live input, Live video, each with a sentence in plain words (`shape.*` messages). "mix" read
+as mixing a song, and "graph", "surface" and "rig" describe the app rather than the music. The ids
+stay the archetypes', since the command bar (`project new <type>`) and the file service speak them.
+
 Everything is a `.k7` folder opened by the same k7, so "what kind of project" has no answers to
 tell apart — what differs is the surface the project DECLARES
 (`packages/song/docs/surfaces.md`). There is no "the graph alone, no surface" archetype: an entry
@@ -535,6 +540,13 @@ copy, and the original is not touched (`CopyProject.tsx` → `workspaceOps.ts`'s
 The destination list leaves out two workspaces. Its own, since a copy needs somewhere else to be
 useful and the same-workspace duplicate is a different gesture; and any workspace that IS a single
 project, where nothing under the root is listed and the copy would exist without ever showing up.
+
+### Deleting a workspace asks for its name
+
+A project deleted goes to a bin; a workspace deleted is gone, folder and all. So the row's ⋮ says
+"Delete workspace…" rather than "Remove", the confirmation counts the projects it takes with it, and
+it asks for the workspace's NAME typed in (`askText`, `WorkspaceMenu.tsx`): a click is what a habit
+gives, and this is the one act on the page that cannot be undone.
 
 ### Demos
 

@@ -6,8 +6,9 @@ import { join, resolve } from "node:path";
 import { validate, wrap } from "@frediverse/http/route";
 import { K7X_BACKUP_DIR, migrateToK7x } from "@studio/song/k7xMigrate";
 import { k7xEverywhere } from "@studio/song/yaml/workspaceFile";
+import { MAX_UPLOAD_BYTES } from "@studio/web-protocol";
 import { isWithin } from "@studio/web-protocol/paths";
-import express, { Router } from "express";
+import express, { type RequestHandler, Router } from "express";
 import { z } from "zod";
 import { startEngineForActive } from "../engineLink.ts";
 import { skip } from "../workspaceFilter.ts";
@@ -58,10 +59,21 @@ fileRouter.put(
   }),
 );
 
+const rawUpload = express.raw({ type: () => true, limit: MAX_UPLOAD_BYTES });
+/** The raw parser, with a too-large body answered as JSON in words — express's own 413 is an HTML page nobody reads. */
+const uploadBody: RequestHandler = (req, res, next) =>
+  rawUpload(req, res, (err?: unknown) => {
+    if ((err as { type?: string } | undefined)?.type !== "entity.too.large")
+      return next(err);
+    res.status(413).json({
+      error: `larger than ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB, the most one upload takes`,
+    });
+  });
+
 // Drag-and-drop upload: raw body, target in the query, route-level raw parser. Refuses to overwrite (409).
 fileRouter.post(
   "/upload",
-  express.raw({ type: () => true, limit: "512mb" }),
+  uploadBody,
   wrap((req, res) => {
     const dir = String(req.query.dir ?? ".");
     const name = String(req.query.name ?? "");

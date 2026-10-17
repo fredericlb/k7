@@ -2405,6 +2405,31 @@ export default function App({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [commandsPage, historyDeps, undoConfirm]);
 
+  // Record pressed with NOTHING armed arms a track rather than leaving Play dead: the caret's, else the song's only one.
+  const armForRecord = useCallback((): boolean => {
+    if (armed.length || midiArmed || videoArmed) return true;
+    const tracks = (docRef.current?.tracks ?? []).filter((t) => !t.generated);
+    const id =
+      caret?.trackId ?? (tracks.length === 1 ? (tracks[0]?.id ?? null) : null);
+    if (!id) {
+      setStatus(m["transport.noArm"]());
+      return false;
+    }
+    void onTrackToggle(id, "arm");
+    setStatus(m["transport.armed"]({ track: id }));
+    return true;
+  }, [armed, midiArmed, videoArmed, caret?.trackId, onTrackToggle, setStatus]);
+  const loopState = useStoreState(store, (s) => s.loop);
+  // The transport's loop button: off when on; else the selection, or four bars from the playhead.
+  const toggleTransportLoop = useCallback(() => {
+    const e = engineRef.current;
+    if (!e) return;
+    if (loopState?.on) return e.loop(0, 0, false);
+    if (caret?.selection) return timelineRef.current?.toggleLoop();
+    const start = store.getSnapshot().playhead;
+    const bars = (4 * recInfo.beatsPerBar * 60) / Math.max(1, recInfo.tempo);
+    e.loop(start, start + bars, true);
+  }, [loopState?.on, caret?.selection, store, recInfo, engineRef]);
   // …and never on a snapshot: there is no engine coming, and what plays here is the browser, ready at once.
   const waitingForEngine = !frozen && !!ws?.activeProject && !engineReady;
   // The project is sent only once its files are on the engine's machine, so Play waits for the copy too.
@@ -2786,6 +2811,9 @@ export default function App({
                     openMidiInputs={openMidiInputs}
                     setStatus={setStatus}
                     engineRef={engineRef}
+                    armForRecord={armForRecord}
+                    loopOn={!!loopState?.on}
+                    onLoop={toggleTransportLoop}
                   />
                 )}
               </div>

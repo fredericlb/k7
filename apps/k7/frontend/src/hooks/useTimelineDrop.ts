@@ -5,6 +5,7 @@
 // ../../docs/timeline.md.
 
 import { IMAGE_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
+import { MAX_UPLOAD_BYTES } from "@studio/web-protocol";
 import { useCallback, useState } from "react";
 import { fileClip } from "../clipFiles";
 import { isPortrait, type MediaInfo, mediaInfo } from "../mediaSeconds";
@@ -52,22 +53,20 @@ export function useTimelineDrop(
       // planDrop keeps the drop's order and skips exactly what `droppedKind` refuses, so these pair up by index.
       const carried = files.filter((f) => droppedKind(f.name));
 
-      // 1. the bytes. Read upfront so the bar knows its total, as the file tree's upload does.
-      let entries: { bytes: ArrayBuffer; size: number }[];
-      try {
-        entries = await Promise.all(
-          carried.map(async (f) => ({
-            bytes: await f.arrayBuffer(),
-            size: f.size,
-          })),
-        );
-      } catch (e) {
+      // 1. a file over the upload limit is refused by NAME before anything is sent — a 4K clip would climb to 100% and then fail.
+      const tooBig = carried.filter((f) => f.size > MAX_UPLOAD_BYTES);
+      if (tooBig.length) {
         setStatus(
-          m["status.drop.failed"]({ message: (e as Error).message }),
+          m["status.drop.tooBig"]({
+            files: tooBig.map((f) => f.name).join(", "),
+            mb: String(MAX_UPLOAD_BYTES / (1024 * 1024)),
+          }),
           "error",
         );
         return;
       }
+      // The FILES go as they are: the browser streams each from disk, where reading them first held whole videos in the tab.
+      const entries = carried.map((f) => ({ bytes: f as Blob, size: f.size }));
       const total = entries.reduce((s, e) => s + e.size, 0);
       let offset = 0;
       setUpload({

@@ -66,7 +66,7 @@ export function ReferencesPanel({
         await api.uploadWithProgress(
           REFERENCES_DIR,
           file.name,
-          await file.arrayBuffer(),
+          file,
           (loaded, total) =>
             setBusy(
               `${file.name} — ${Math.round((loaded / Math.max(1, total)) * 100)}%`,

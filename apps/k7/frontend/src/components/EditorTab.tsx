@@ -1041,14 +1041,12 @@ export function EditorTab({
   const uploadFiles = useCallback(
     async (dir: string, files: DroppedFile[]) => {
       if (!files.length) return;
-      // Pre-read all ArrayBuffers so total byte count is known upfront.
-      const entries = await Promise.all(
-        files.map(async ({ path, file }) => ({
-          name: path,
-          bytes: await file.arrayBuffer(),
-          size: file.size,
-        })),
-      );
+      // The files as they are, streamed from disk by the upload: their sizes give the total without reading them.
+      const entries = files.map(({ path, file }) => ({
+        name: path,
+        bytes: file as Blob,
+        size: file.size,
+      }));
       const totalBytes = entries.reduce((s, e) => s + e.size, 0);
       let loadedSoFar = 0;
       let added = 0;

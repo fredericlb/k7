@@ -3,7 +3,14 @@
 // draws only the first two: it has no bars to count and no lane to arm.
 
 import { Button } from "@frediverse/ui/button";
-import { Circle, Loader2, Pause, Play, Square } from "@frediverse/ui/icons";
+import {
+  Circle,
+  Loader2,
+  Pause,
+  Play,
+  Repeat,
+  Square,
+} from "@frediverse/ui/icons";
 import type { EngineClient } from "@studio/engine-browser";
 import type { TransportAction } from "@studio/engine-protocol";
 import type { RefObject } from "react";
@@ -12,7 +19,6 @@ import type { RecInfo } from "../hooks/useProjectDoc";
 import { blurOnClick } from "../keys";
 import { m } from "../paraglide/messages.js";
 import { TransportClock } from "../shellMeta";
-import { NO_ARM_HINT } from "../ui/commands/transport";
 
 export function ShellTransport({
   toolSize,
@@ -27,6 +33,9 @@ export function ShellTransport({
   openMidiInputs,
   setStatus,
   engineRef,
+  armForRecord,
+  loopOn = false,
+  onLoop,
 }: {
   toolSize: "icon" | "icon-xs";
   playing: boolean;
@@ -41,6 +50,10 @@ export function ShellTransport({
   openMidiInputs: () => Promise<boolean>;
   setStatus: SetStatus;
   engineRef: RefObject<EngineClient | undefined>;
+  /** Arm a track when Record is turned on with none armed; false when there was none to arm. */
+  armForRecord?: () => boolean;
+  loopOn?: boolean;
+  onLoop?: () => void;
 }) {
   return (
     <div className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 flex items-center gap-1">
@@ -55,16 +68,16 @@ export function ShellTransport({
         }}
         title={
           transportWaiting
-            ? "Loading this project — the engine can't answer the transport yet"
+            ? m["transport.loading"]()
             : !playing && recordWithoutArm
-              ? NO_ARM_HINT
+              ? m["transport.noArm"]()
               : playing
                 ? m["transport.pause"]()
                 : m["transport.play"]()
         }
         aria-label={
           transportWaiting
-            ? "loading the project"
+            ? m["transport.loadingLabel"]()
             : playing
               ? m["transport.pause"]()
               : m["transport.play"]()
@@ -99,6 +112,23 @@ export function ShellTransport({
             tempo={recInfo.tempo}
             beatsPerBar={recInfo.beatsPerBar}
           />
+          {/* Loop, beside the clock: what every transport has, and the one way in that needs no selection first. */}
+          {onLoop && (
+            <Button
+              size={toolSize}
+              variant={loopOn ? "default" : "secondary"}
+              aria-pressed={loopOn}
+              onClick={(e) => {
+                onLoop();
+                blurOnClick(e);
+              }}
+              title={
+                loopOn ? m["transport.loopOn"]() : m["transport.loopOff"]()
+              }
+            >
+              <Repeat className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             size={toolSize}
             variant={recordEnabled ? "default" : "secondary"}
@@ -109,6 +139,8 @@ export function ShellTransport({
                 void openMidiInputs().then((ok) => {
                   if (!ok) setStatus(m["midi.unavailable"]());
                 });
+              // Turning record ON with nothing armed arms a track first, so Play does not go dead under it.
+              if (!recordEnabled) armForRecord?.();
               engineRef.current?.setRecordEnabled(!recordEnabled);
               blurOnClick(e);
             }}

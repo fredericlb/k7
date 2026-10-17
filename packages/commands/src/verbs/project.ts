@@ -24,6 +24,10 @@ import type { CommandHost, SidHandler } from "../commands.ts";
 import { writeMasterVolume } from "./intrinsics.ts";
 import { splitWords } from "./shared.ts";
 
+/** The tempo range `project tempo` takes: wide enough for any music, narrow enough to catch a typo. */
+const MIN_BPM = 20;
+const MAX_BPM = 400;
+
 // Rewrite the project's `markers` map with QUOTED keys — unquoted, `2:1:1` is a YAML 1.1 integer; docs/verbs.md.
 function writeMarkers(songPath: string, map: Record<string, string>): void {
   setQuotedKeyMap(join(songPath, "project.yaml"), ["markers"], map);
@@ -261,6 +265,40 @@ export const PROJECT_VERBS: Record<string, SidHandler> = {
     );
     h.log([`frame is ${want.name} (${vw}×${vh})`]);
     h.reload?.();
+  },
+  /** `project tempo <bpm>` — the song's ONE tempo, `project.tempo`; the arrangement stays in bars, so it plays faster or slower. */
+  "project.tempo": async (a, h) => {
+    const bpm = Number(a.trim());
+    if (!(bpm >= MIN_BPM && bpm <= MAX_BPM)) {
+      h.refuse([
+        `usage: project tempo <bpm> — a number from ${MIN_BPM} to ${MAX_BPM} (e.g. project tempo 96)`,
+      ]);
+      return;
+    }
+    const tidy = Math.round(bpm * 100) / 100;
+    setFileValue(join(h.songPath, "project.yaml"), ["project", "tempo"], tidy);
+    h.log([`tempo ${tidy} bpm`]);
+    await h.reload();
+  },
+  /** `project meter <n>/<d>` — the time signature, `project.timeSignature`, in the schema's own spelling. */
+  "project.meter": async (a, h) => {
+    const m = /^(\d+)\/(\d+)$/.exec(a.trim());
+    const beats = m ? Number(m[1]) : 0;
+    const unit = m ? Number(m[2]) : 0;
+    // The unit is a note value, so a power of two; more than 32 beats a bar is a typo rather than a meter.
+    if (!m || beats < 1 || beats > 32 || ![1, 2, 4, 8, 16, 32].includes(unit)) {
+      h.refuse([
+        "usage: project meter <beats>/<unit> (e.g. project meter 3/4, 6/8)",
+      ]);
+      return;
+    }
+    setFileValue(
+      join(h.songPath, "project.yaml"),
+      ["project", "timeSignature"],
+      `${beats}/${unit}`,
+    );
+    h.log([`time signature ${beats}/${unit}`]);
+    await h.reload();
   },
   "project.reload": async (_a, h) => {
     await h.reload();
