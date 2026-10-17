@@ -115,7 +115,7 @@ import.
 | `engine-tunnel` | `/rtc` |
 | `song` | `/uiMigrate` |
 | `ui-editor` | `/faust/language` |
-| `project-shell` | `/files` — published, so z0 may be its importer |
+| `project-shell` | `/files` — published, so its importer may be outside this repository |
 
 Shrinking the map deletes nothing: it documents the real surface.
 
@@ -220,12 +220,6 @@ Written here so it stops being mistaken for laziness.
   one grows per gate, which makes this count a thing to re-check.
 
 ### Left on purpose
-
-`where()` (z0's editor gate, in z0's repository) is two
-identical lines whose only natural home would be `packages/web-protocol/quality.ts`, beside
-`formatLatency` — but that package contains **no** French UI string, and "hors de portée" would bring
-the UI's language into a protocol package. Two lines are not worth that property. Same reasoning for
-`signedInAs` / `currentUser()`.
 
 `AuthUser` is declared twice: `@frediverse/http`'s, which k7's backend widens with `groups`
 (`apps/k7/backend/src/types/express.d.ts`), and k7's frontend's own in `api.ts`, the only one

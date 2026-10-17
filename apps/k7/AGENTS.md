@@ -54,12 +54,12 @@ picker is unreachable until logged in either way. Auth falls back to a "Dev User
 `OIDC_*` env is set, but login is still mandatory.
 
 **`/auth/*` is THIS backend's.** k7 answers the origin root (`app.priv.k7.rocks`, `app.k7.rocks`), the
-docs host and the former `st0.app` hosts, and z0 a `/z0` path on it (`packages/web-protocol/docs/addresses.md`).
+docs host and the former `st0.app` hosts (`packages/web-protocol/docs/addresses.md`).
 There is one session cookie — `studio.sid`, signed with the `SESSION_SECRET` in `env.yaml`'s
 `common` and scoped to the shared `COOKIE_DOMAIN` so every subdomain receives it — and one
-`redirect_uri` to register with the IdP: `<k7 origin>/auth/callback`. So the flow is k7's; z0 passes
-`mountRoutes: []` and merely verifies the cookie, and a page on a sibling subdomain sends the
-browser to `authOrigin(origin)` to sign in. The rehearsal routes (`@studio/rehearsal-server`) are
+`redirect_uri` to register with the IdP: `<k7 origin>/auth/callback`. So the flow is k7's: another
+service on the domain passes `mountRoutes: []` and merely verifies the cookie, and a page on a
+sibling subdomain sends the browser to `authOrigin(origin)` to sign in. The rehearsal routes (`@studio/rehearsal-server`) are
 mounted in this process and take its `requireAuth`.
 
 Spell this app's auth calls BARE (`/auth/me`), never under `BASE` — here the two coincide, for
@@ -294,8 +294,8 @@ then drains the requests in flight.
 
 Two traps in `server.ts` that read as ordinary lines:
 
-**`OIDC_SCOPES` must keep `groups`.** z0 reads this same cookie and gates its editor, presenter,
-monitor and remote on group membership (`AUTH_ADMIN_GROUPS`). `@frediverse/oidc` defaults to
+**`OIDC_SCOPES` must keep `groups`.** The library admins, and the deletion of a public rehearsal
+song, are gated on group membership (`AUTH_ADMIN_GROUPS`). `@frediverse/oidc` defaults to
 `openid profile email`, which puts an **empty** groups array in every session and 403s every admin
 surface with nothing to explain it. The value comes from `env.yaml`'s `common`, which already reads
 `openid profile email groups`. Note also that the code passes `scopes` only when non-empty: the
@@ -343,7 +343,7 @@ A project is named by an ADDRESS — the workspace, then the project folder insi
 `ProjectGate` opens that folder on the machine: no lookup and no download — the relay is what
 keeps the folder there. Arriving with no project in the address is the home page rather
 than an error to redirect away from, and `main.tsx` branches on `parseLaunch` before mounting
-anything. There is deliberately no SECOND picker — z0's editor comes back to this one.
+anything. There is deliberately no SECOND picker.
 
 **The project is the router's `basename`** (`projectBasename` in `main.tsx`), which is why
 there is no storage anywhere near it: React Router only writes below its basename, so
@@ -352,7 +352,7 @@ address. Hold it in a query string and a session instead, and a tab handed a pro
 not exist can never get out of it. Read
 `packages/project-shell/docs/launch.md` before touching any of this.
 
-The gate itself is that package's too, and z0's editor mounts the same one, published (`docs/publishing.md`); `components/ProjectGate.tsx`
+The gate itself is that package's too, published for apps outside this repository (`docs/publishing.md`); `components/ProjectGate.tsx`
 is a wrapper holding this app's wording and what to render once the project is open.
 
 **There is no workspace picker anywhere in this app**, and a folder under

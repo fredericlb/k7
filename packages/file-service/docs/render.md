@@ -1,7 +1,7 @@
 # Rendering for a hosted backend
 
-`POST /render` bounces a compiled `ProjectDoc` to audio and streams the wav back. It exists for exactly one caller: z0's backend, which is hosted in a container
-and cannot exec anything itself.
+`POST /render` bounces a compiled `ProjectDoc` to audio and streams the wav back. It exists for a hosted backend outside this
+repository, which runs in a container and cannot exec anything itself.
 
 ## Why a process and not a message
 
@@ -55,7 +55,7 @@ server cannot know what a remote machine has there.
 
 ## The shape of the route
 
-One request, one file, no job id. A render of an z0 clip takes seconds and the caller
+One request, one file, no job id. A render of a short clip takes seconds and the caller
 is a server: a polling protocol would be machinery in front of a wait shorter than the poll
 interval. `--stems` is deliberately not offered here — N files need a job to hold them.
 
@@ -75,13 +75,3 @@ renders repeatedly, and each attempt costs a song's worth of disk.
   track was filtered out. It is an error, not a successful empty render.
 
 Both come back as 422 with the sentence; anything else is 500.
-
-## z0's side, and why it is the exception
-
-z0's backend, in z0's own repository, picks the machine from **`Z0_RENDER_ENGINE`**, an
-environment variable holding that machine's file-service base URL.
-
-Configured, not chosen, and not per user. Every other service in studio asks a person which
-engine they drive, because a person is sitting at an interface. A render has no audience:
-which machine does it is a deployment fact, and asking a player would be asking them about
-someone else's hardware.

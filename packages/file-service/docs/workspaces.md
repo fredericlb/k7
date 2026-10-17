@@ -38,7 +38,7 @@ and validates what is read (`projectFolder`), the destination resolves and valid
 lands (`copyProject`, over `copyProjectInto` in `projectLifecycle.ts`).
 
 **The copy keeps the source's suffix.** The suffix is what decides which application opens a
-folder, so a `.k7` copied as `.z0` would be a song z0 is asked to read: refused by name here
+folder, so a `.k7` copied under another name would stop being a project: refused by name here
 rather than discovered by whoever opens it.
 
 **A workspace that IS a single project is refused as a destination.** Such a workspace lists `.`
@@ -63,8 +63,8 @@ destination's library by design, which is what a shared library IS.
 `renameProject` guards what every writer here guards — the root, the shared library, the recycle
 bin, the no-clobber, the Windows handle retry — plus the one thing a PROJECT folder has that an
 ordinary one has not: **a suffix that names the application**. It is checked with `projectApp` on
-both names rather than by string surgery, so `winter.k7` → `spring.z0` and `winter.k7` →
-`spring` are both refused by name, and the caller cannot hand a project to another editor by
+both names rather than by string surgery, so `winter.k7` → `spring.v1` and `winter.k7` →
+`spring` are both refused by name, and the caller cannot turn a project into a plain folder by
 typing.
 
 **It is deliberately not `renameEntry`**, whose `guardMutable` refuses the ACTIVE project outright.

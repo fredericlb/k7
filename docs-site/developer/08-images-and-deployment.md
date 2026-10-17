@@ -67,7 +67,7 @@ routes ALSA to PulseAudio.
 
 ## The compose file
 
-`docker/docker-compose.yml` runs four services on an external `traefik` network. Copy
+`docker/docker-compose.yml` runs three services on an external `traefik` network. Copy
 `docker/.env.example` to `docker/.env`, fill it in, and run `docker compose up -d`.
 
 | Service | Image | Notes |
@@ -75,11 +75,10 @@ routes ALSA to PulseAudio.
 | `k7` | `k7-webapp:${APP_VERSION}` (required) | Routed by Traefik for `Host(K7_DOMAIN)`, `Host(DOCS_DOMAIN)`, `Host(LEGACY_DOMAIN)`, `Host(PL8_DOMAIN)` and `Host(K7_ALIAS_DOMAIN)` (defaults `app.k7.rocks`, `docs.k7.rocks`, and the former hosts `st0.app`, `play.st0.app`, `k7.st0.app`) on port 8789, TLS through `TRAEFIK_CERTRESOLVER`. Volumes `data`, `library`, `workspaces`, `k7-data`. |
 | `engine` | `k7-runtime:${APP_VERSION}` (required) | No published port and no Traefik route. Registers at `http://k7:8789` over the compose network (`STUDIO_REGISTRY_URL`), named `ENGINE_NAME`, with every sampled instrument (`STUDIO_INSTRUMENTS=all`). Volume `engine-home`. |
 | `pocketbase` | `ghcr.io/muchobien/pocketbase` | Only the source of the rehearsal recorder's one-time import into its SQLite store. Publishes `POCKETBASE_PORT` directly on the host, without Traefik: firewall it. Remove it, its volume and the `POCKETBASE_*` variables once k7 has logged the import. |
-| `z0` | `dev.frediver.se/frediverse/z0:${Z0_VERSION:-latest}` | The blind-test game, built by its own repository. Routed for `Host(K7_DOMAIN) && PathPrefix(/z0)` with priority 10, so it wins over k7's host rule. |
 
-Environment, shared by `k7` and `z0` through a YAML anchor: `SESSION_SECRET` (required: compose
-refuses to start without it), `COOKIE_DOMAIN`, `TRUSTED_ORIGINS` and the `OIDC_*` variables. Both
-services verify the same `studio.sid` cookie, which k7 mints.
+Environment, through a YAML anchor: `SESSION_SECRET` (required: compose refuses to start without
+it), `COOKIE_DOMAIN`, `TRUSTED_ORIGINS` and the `OIDC_*` variables. They sign and verify the
+`studio.sid` cookie, which k7 mints.
 
 Further `k7` variables:
 
@@ -87,7 +86,7 @@ Further `k7` variables:
 |---|---|
 | `API_TOKEN_SECRET` | Signs the media library's bearer tokens; unset derives one from `SESSION_SECRET`. |
 | `K7_API_TOKEN_SECRET` | Signs the rehearsal recorder's personal tokens; unset keeps the value derived from `SESSION_SECRET`. |
-| `AUTH_ADMIN_GROUPS` | OIDC groups that edit the shared libraries (and z0's admins). |
+| `AUTH_ADMIN_GROUPS` | OIDC groups that edit the shared libraries. |
 | `RENDER_KEY` → `STUDIO_RENDER_KEY` | Shared with the `engine` service: an engine presenting it on the tunnel becomes k7's render machine, since the web image has no engine binary. Unset, k7 renders only on an account's own engine. |
 | `STUDIO_MEDIATEK=/library`, `STUDIO_FILES_ROOT=/workspaces`, `K7_DATA_DIR=/rehearsal-data` | Fixed paths onto the volumes. |
 
@@ -115,7 +114,7 @@ Images are first pushed under the commit hash only. The stamp and `:latest` are 
 points at an untested commit. A `vX.Y.Z` tag must equal the root version; its run adds the stamp
 and `:X.Y.Z` and leaves `:latest` to `main`. A deploy sets `APP_VERSION` in `docker/.env` to a
 version, a stamp or a commit hash — compose refuses to start without it — and it applies to both
-the web and the engine image. `Z0_VERSION` is pinned separately and defaults to `latest`.
+the web and the engine image.
 
 The backend serves the frontend shell with `Cache-Control: no-cache` and the hashed files under
 `assets/` as `public, max-age=31536000, immutable`, so a new deployment is picked up on the next page

@@ -19,7 +19,7 @@ in a commit on `main`, then the tag on that commit.
 |---|---|
 | the root package.json, not a `VERSION` file | npm already requires a `version` in every manifest, so a separate file would be one more copy, not one fewer; node, Gradle and electron-builder all read JSON |
 | every private workspace carries the same version | a manifest must hold some version, and a stale one is read as a claim; `npm run lint:version`, a blocking step of `k7.yml`, refuses a copy that differs |
-| the four published packages keep their own | z0 pins them by semver, and their version moves with their API, not with a release ([publishing.md](publishing.md)) |
+| the four published packages keep their own | their consumers outside this repository pin them by semver, and their version moves with their API, not with a release ([publishing.md](publishing.md)) |
 | `--set` writes every copy, the lockfile and the iOS project included | a bump is one command; nobody edits sixty manifests by hand |
 
 Each artefact derives its name from it:
@@ -56,9 +56,6 @@ process (nginx) to supervise alongside the backend. Traefik reaches it directly 
 media library and the rehearsal recorder it serves keep answering
 (`packages/web-protocol/docs/addresses.md`).
 
-z0 is deployed beside it from the same `docker/docker-compose.yml` — Traefik reaches it by a
-`PathPrefix(/z0)` rule layered on k7's domain, its own container — but its image is built, tagged
-and stamped by z0's own repository, and the compose file pulls it by its own `Z0_VERSION`.
 `engine/k7-runtime` and `engine/k7-supervisor` are not in k7's image. The server's own engine is
 an image of its own, `k7-runtime`, which is tagged with k7's stamp and has no SPA to show it
 ([server-engine.md](server-engine.md)). The desktop app, `apps/k7-standalone`, is in no image. The rehearsal recorder's store is a SQLite
@@ -80,7 +77,7 @@ images.yml `version` job (date, Europe/Paris)  →  stamp   e.g. "26.08031412"
 ```
 
 The image tag and the stamp in the SPA come from ONE `version` job, so they cannot disagree. The
-runtime stage declares the stamp last, so a new one rebuilds no layer above it. z0's stamp is its own repository's and is not comparable with this one.
+runtime stage declares the stamp last, so a new one rebuilds no layer above it.
 
 `YY.MMDDHHmm` in Europe/Paris — `26.08031412` is 3 August 2026, 14:12. Sortable,
 readable at a glance, and short enough to sit in a header without crowding it. The
@@ -98,9 +95,6 @@ it: compose refuses to start without one. `:latest` moves with every publish, so
 it runs whatever was newest when each container last pulled — the two halves can differ, and the
 answer to "which image is that?" is no longer in the deploy's own `.env`. One variable for both
 images keeps the web app and the server's engine on the same commit.
-
-`Z0_VERSION` keeps its `latest` default: z0's stamps are its own repository's, and nothing here
-could check a value required of it. Pinning it in `.env` is still what makes a deploy reproducible.
 
 ## Why `ENV` and not phare's `RUN VITE_APP_VERSION=… npm run build`
 

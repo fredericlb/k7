@@ -1,7 +1,7 @@
 # Overall findings — the audio axis
 
 Scope: `apps/k7`, `engine/k7-runtime`, `engine/k7-supervisor`, `apps/k7-standalone` and the packages they drive. Out of
-scope: z0 (its own repository) and the rehearsal recorder (`packages/rehearsal-server`, `packages/ui-rehearsal`).
+scope: the rehearsal recorder (`packages/rehearsal-server`, `packages/ui-rehearsal`).
 
 This page is **self-contained** — it carries its evidence rather than pointing at it — which means
 it goes stale. The remedy is not to believe it but to replay it: the last section gives the exact
@@ -27,7 +27,6 @@ where it hurts, and the symmetrical thing — which has not hurt yet — stays n
 |---|---|
 | The web is benched, figures published | No C++ bench, no browser bench |
 | An `unhandledRejection` / `uncaughtException` net at both TypeScript entry points | Neither a `try` at `main()` level nor `set_terminate` in C++ |
-| k7's gate: lease, re-look, full predicate | z0's: no lease, no re-look, reachability that ignores the token (out of scope) |
 
 And the consequence holding all three axes together: **there is no automatic guard on
 performance.** No non-regression gate. What is not tooled is checked by hand, and so slips.

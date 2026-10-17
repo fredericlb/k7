@@ -29,9 +29,7 @@ and `k7.` aliases, are still accepted (`LEGACY_DEV_HOSTS`), and k7 moves their p
 > That is the WHOLE table for k7: its vite dev server already proxies
 > `/api`, `/auth` and `/rtc` (the rehearsal pages' phone microphone) to its backend port internally
 > (`commons/dev/vite-config/src/index.ts`'s `defineAppConfig` — `backendPort` +
-> `proxyPaths`/`wsPaths`), so the LAN proxy only has to get a request to the right HOST. `/z0` on
-> `app.priv.k7.rocks` belongs to z0's own repository, whose dev servers `npm run dev` here does not start;
-> its per-path rules are that repository's to document.
+> `proxyPaths`/`wsPaths`), so the LAN proxy only has to get a request to the right HOST.
 >
 > **`/auth/*` follows k7**, wherever the request lands: the registered `redirect_uri` is
 > `<origin>/auth/callback` with no prefix, so the flow belongs to whichever service answers a

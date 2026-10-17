@@ -3,9 +3,7 @@
 `.github/workflows/images.yml` builds one image, k7 — the editor, the media library and the
 rehearsal recorder — as `ghcr.io/fredericlb/k7-webapp`. Its Dockerfile builds
 from the repo root (`apps/k7/docker/Dockerfile`) and pays for two expensive things: an `npm ci`
-over the workspace, and the C toolchain `ssh2` builds its optional crypto binding with. z0 is
-deployed beside it but built by its own repository, which keeps the same stage layout by
-convention only: nothing here checks the two against each other.
+over the workspace, and the C toolchain `ssh2` builds its optional crypto binding with.
 
 The server's engine is a second image built here, `ghcr.io/fredericlb/k7-runtime`, in a job of its
 own because it compiles C++ (`docs/server-engine.md`), and the Raspberry Pi's a third,

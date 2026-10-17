@@ -4,7 +4,7 @@ The media library's HTTP surface is `mountMedia(app, { requireAuth, port, tokens
 `apps/k7/backend/src/media/mount.ts`, called by `apps/k7/backend/src/server.ts` after
 `setupAuth` and `mountRehearsal`, and before the SPA fallback. It mounts no auth middleware and no
 CORS of its own: `server.ts` applies both to the whole process (`apps/k7/backend/src/media/cors.ts`
-answers every origin's credentialed request, since k7, its aliases and z0 call it from hosts that
+answers every origin's credentialed request, since k7 and its aliases call it from hosts that
 cannot be listed in advance).
 
 Besides the library, `mountMedia` mounts the engine registry (`@studio/engine-registry`), the

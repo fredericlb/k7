@@ -7,7 +7,7 @@ library has no settings page of its own: one account, one page.
 
 ## Engines — the registry this origin holds
 
-The origin's backend holds THE engine registry: the editor and z0 list their engines from it too
+The origin's backend holds THE engine registry: the editor lists its engines from it too
 (`packages/engine-registry/docs/shared.md`). `src/EnginesSettings.tsx` lists the engines this
 account may use there — its own, those shared with it, the server's — and the unowned ones, each
 badged with which it is (`src/engineShares.ts`); the machine's name, the id's first eight

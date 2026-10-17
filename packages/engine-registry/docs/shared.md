@@ -4,13 +4,13 @@ An engine heartbeats to **one** registry per studio family, mounted by k7's back
 (`apps/k7/backend/src/media/mount.ts`) and answering on k7's origin — `engineRegistryUrl` in
 `packages/web-protocol/services.ts`. `play.st0.app` is a former host read as that origin, so a supervisor
 that saved `https://play.st0.app` reaches the same registry (`packages/web-protocol/docs/addresses.md`).
-The editor, the media library's player, z0's editor and the rehearsal recorder's chain source all
+The editor, the media library's player and the rehearsal recorder's chain source all
 list their engines from it; the last only waits for the engine holding its bench and drives none.
 
 ## The problem it solves
 
 The registry answers one question: *which engines can this browser reach?* Every app that drives
-an engine asks it — the editor for a song, the media library for a track, z0 for a repository — so
+an engine asks it — the editor for a song, the media library for a track — so
 an app without one to consult could only hardcode `127.0.0.1:8765` (`probeLocalEngine`).
 
 ## Why one, and why the BROWSER asks it
@@ -20,9 +20,8 @@ each — and the heartbeat count would grow with every service. One registry mak
 connected to that studio" one fact.
 
 The case against a central registry is that one backend would become a request-time dependency of
-another. That coupling does not arise here: no BACKEND asks another. Every page that calls it —
-k7's own and z0's editor, served at `/z0` on k7's hostname — calls it same-origin, the relay
-included; a credentialed call from any other origin is refused (`apps/k7/backend/docs/media/cors.md`).
+another. That coupling does not arise here: no BACKEND asks another. Every page that calls it is
+k7's own and calls it same-origin, the relay included; a credentialed call from any other origin is refused (`apps/k7/backend/docs/media/cors.md`).
 
 ## Saying what it is
 

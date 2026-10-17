@@ -4,7 +4,7 @@ Two small packages exist because more than one screen of the studio draws the sa
 
 ## `@studio/ui-user-menu`
 
-`packages/ui-user-menu/src/UserMenu.tsx` is the account menu: who is signed in, a Settings row, extra host rows, one link per **other** studio app of the origin, and Log out. It wraps the generic user menu of `@frediverse/ui` and adds the studio's table of apps (`APPS`: k7 first, then z0).
+`packages/ui-user-menu/src/UserMenu.tsx` is the account menu: who is signed in, a Settings row, extra host rows, one link per **other** studio app of the origin, and Log out. It wraps the generic user menu of `@frediverse/ui` and adds the studio's table of apps (`APPS`, k7 first).
 
 | Prop | Meaning |
 |---|---|

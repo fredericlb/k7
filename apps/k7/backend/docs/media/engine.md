@@ -1,7 +1,7 @@
 # The engine registry, and what the library asks of an engine
 
 `mountMedia` mounts the studio's **one** engine registry (`@studio/engine-registry`,
-`packages/engine-registry/docs/shared.md`): the editor, the library's player and z0's editor all
+`packages/engine-registry/docs/shared.md`): the editor and the library's player both
 list their engines from it, and every installed supervisor heartbeats to it.
 
 ## "pl8" is a file name, not an address

@@ -56,7 +56,7 @@ my-workspace/
 
 | Entry | What it is |
 |---|---|
-| `<name>.k7/` | A k7 project. The `.k7` suffix is what makes the folder a project k7 opens; a folder ending in `.z0` belongs to the blind-test game. A folder is a project when it holds a `project` file. |
+| `<name>.k7/` | A k7 project. The `.k7` suffix is what makes the folder a project k7 opens. A folder is a project when it holds a `project` file. |
 | `_modules/` | Modules shared by every project of the workspace, organised by type folder (`instruments/synth/module.yaml`, `audio/...`). A node names them `@workspace/<type>/<name>`. A new project creates `_modules/instruments/synth/` the first time, and never overwrites it afterwards. |
 | `_presets/` | Presets kept at workspace level, one file per preset: `_presets/<namespace>/<module path>/<name>.yaml`. See [Picture, surfaces and other files](./37-picture-surfaces.md#preset-files). |
 | `_playlists/` | One playlist per file. A `turntables` surface names one by its name. Covered in the DJ & sets section. |

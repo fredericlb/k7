@@ -7,8 +7,6 @@ projects inside them, and it links to one with an **address**:
 ```
 /@local/Examples/synth-demo.k7
 /@local/band/albums/winter.k7             a project at a depth
-/z0/editor/@local/songs/party.z0
-/z0/editor/@local/band/winter.k7/live.z0  a .z0 session living inside a .k7 song
 ```
 
 | | |
@@ -17,7 +15,7 @@ projects inside them, and it links to one with an **address**:
 | for `@local`, the next one | the **workspace**: a folder on the machine holding the working copies |
 | the rest | the project folder **inside** that workspace, or nothing at all when the workspace *is* the project |
 
-Which of the two apps gets the link is decided by the folder's **name**: `.k7` or `.z0`
+Whether a folder is a project is decided by its **name**: `.k7`
 (`@studio/web-protocol/projects`). Resolving the address to a folder is this package's job.
 
 ## Why a path, and why a folder rather than a repository
@@ -46,9 +44,8 @@ somebody names a folder in yours (`apps/k7/frontend/docs/projects.md`).
 
 One rule: the project is everything up to and including the **last segment whose name claims
 this app**. `…/winter.k7/timeline` is the project `winter.k7`
-plus the app's own `/timeline`; a view segment never ends in `.k7` or `.z0`, so the two cannot
-be confused. Each app reads its OWN suffix, which is what lets z0's editor open
-`winter.k7/live.z0` without k7's suffix winning the match.
+plus the app's own `/timeline`; a view segment never ends in `.k7`, so the two cannot be
+confused.
 
 With no such segment at all, the project part is `"."` — and that means two different things,
 which the MACHINE settles rather than the address:
@@ -112,8 +109,7 @@ only for one not cloned yet — brings an admin's own clones of them to their re
 (`packages/file-service/docs/libraries.md`). Nothing about the libraries rides on the request:
 they are the server's, and it knows them.
 
-The bench is matched on the **app** as well as the name. It is a `.k7` project, so
-`/z0/editor/@banc/…` names nothing and is refused like any other unknown address. Its wait is
+The bench is a `.k7` project, matched on the app as well as the name. Its wait is
 reported as `cloning` because from here it is the same thing: a visible wait while the server
 brings the libraries up to date, and the first one is the slow one. The project part of the address rides
 along with it, since the machine is the side that says which address the bench answers.
@@ -138,9 +134,9 @@ IS the home page, `main.tsx` branching on `parseLaunch` before any gate is mount
 `apps/k7/frontend/docs/projects.md`). For every OTHER app that mounts this gate, it is a
 redirect there, through `projectsUrl`.
 
-There is deliberately no *second* picker: one list, in one app, is the whole point. z0's editor
-comes back to k7's home rather than growing one of its own, because that list already holds
-`.z0` folders and a second one would be the second thing to keep in step with the first.
+There is deliberately no *second* picker: one list, in one app, is the whole point. Another app
+mounting this gate comes back to k7's home rather than growing one of its own, because a second
+list would be the second thing to keep in step with the first.
 
 > **The screen is k7's, and so is the list.** The catalogue (the médiathèque) is what a project draws ON,
 > while "which projects do I have" is the first question of the app that opens one, and the
@@ -193,10 +189,10 @@ the prefix cannot change without a navigation that remounts the gate anyway.
 (`benchWorkspace`, `benchFetching`), the **idle** screen (`idleTitle`, `idleBody`, `resume`), and the
 **sync** wait (`syncing`), which a machine linked to no relay never shows. The missing screen's two
 address hints (`localUsage`, `retiredAddress`) and the `details` label over the raw message are optional
-too: they were added after z0 pinned the package, and an addition must not break it.
-Both are screens an app may be structurally unable to reach — the bench is a `.k7` project, so
-z0's editor can never open one, and an app that passes no `idleTimeoutMs` never leaves the
-running phase. Required, they would each be made to translate a card nobody can see. The gate
+too: the package is published, and an addition must not break an app that pinned it.
+Both are screens an app may be structurally unable to reach — the bench is a `.k7` project, which
+an app reading another suffix never opens, and an app that passes no `idleTimeoutMs` never leaves
+the running phase. Required, they would each be made to translate a card nobody can see. The gate
 falls back to plain English rather than to an empty one.
 
 ### "Somebody else opened this project"
@@ -222,16 +218,15 @@ drift when you meet it.
 
 The address vocabulary itself lives one level lower still, in
 `@studio/web-protocol/projects`, beside the suffix rule it depends on: k7's home page
-**writes** these addresses and both editors **read** them back, which makes it a wire contract
+**writes** these addresses and every editor **reads** them back, which makes it a wire contract
 rather than an app's habit. Neither end of the contract is where the vocabulary lives, and that
-is the point. `launch.ts` here is what the apps import — k7 from this tree, z0's editor from its
-own repository through the published package (`docs/publishing.md`), which is why a change to an
-export here is a versioned change.
+is the point. `launch.ts` here is what the apps import — k7 from this tree, an app outside this repository
+through the published package (`docs/publishing.md`), which is why a change to an export here is
+a versioned change.
 
 Each app keeps what is genuinely its own: k7 adds waveforms, video, export, the timeline's
-tracks; z0's editor adds nothing at all. The wording is each app's too — k7 has paraglide,
-z0's editor is French in place — which is why the gate takes a `strings` object instead of
-owning a catalogue.
+tracks. The wording is each app's too — k7 has paraglide — which is why the gate takes a
+`strings` object instead of owning a catalogue.
 
 ## What to check in a browser
 
@@ -243,7 +238,6 @@ test run says nothing about:
   stays that way as you move around the app;
 - **reload**, and use back/forward → still the same project, not the home page;
 - copy the URL into another tab → the same project opens there too;
-- open a `.z0` folder and a `.k7` folder from the same workspace → two apps, one working copy;
 - rename the project folder on the machine and reload → the "not in the workspace" screen, not the
   CORS one, and its button lands you back on k7's home;
 - replace `@local` in the address with a repository name → the same screen, saying a project opens

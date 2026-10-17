@@ -43,7 +43,7 @@ to adjust a knob mid-take.
 ## How the sound reaches the recorder
 
 The engine already broadcasts a session's master bus to any socket that subscribes
-(`engine/k7-runtime/docs/broadcast.md`), which is what lets z0 be hosted. The page subscribes on its
+(`engine/k7-runtime/docs/broadcast.md`). The page subscribes on its
 own socket, on the **bench's session** (`sessionFor("banc", …)`) — the bench plays there, beside your
 song rather than instead of it — and the frames go
 through `StreamPlayer` into an `AudioWorklet`, then into a `MediaStreamDestination` that the recorder

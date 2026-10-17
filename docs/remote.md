@@ -128,8 +128,7 @@ image — would otherwise compile it from C++ for a console that runs on this Wi
 
 ## The name, and the one accepted beside it
 
-`scripts/dev-hosts.mjs` holds them. `app.priv.k7.rocks` is k7's own origin, whose `/z0` path
-belongs to z0's own repository and is not served by this one's dev session; `docs.priv.k7.rocks`
+`scripts/dev-hosts.mjs` holds them. `app.priv.k7.rocks` is k7's own origin; `docs.priv.k7.rocks`
 is its documentation, served by the same dev server; `priv.st0.app` and its `play.` and `k7.`
 aliases are the former dev hosts, whose pages k7 moves to the origin — exactly as production is
 under `app.k7.rocks` / `docs.k7.rocks` / `st0.app`. Each resolves to the LAN server, which reverse-proxies to the matching dev server on

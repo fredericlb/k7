@@ -31,8 +31,8 @@ the engine is unchanged — it only speaks the JSON protocol below.
 
 ## Where the pieces live
 
-The engine, its supervisor and the brain packages serve every audio app in the repo —
-and z0, from its own repository — so they sit beside `apps/k7` rather than inside it. What lives
+The engine, its supervisor and the brain packages serve every audio app in the repo, so they
+sit beside `apps/k7` rather than inside it. What lives
 here is the web editor, its media library and the host of the rehearsal pages: `frontend` and
 `backend`.
 

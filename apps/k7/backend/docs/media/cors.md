@@ -30,7 +30,7 @@ environment `setupAuth` reads keeps the cookie's reach and the list in one place
 shares the cookie is an origin that may read with it.
 
 No route is open to every origin without credentials: a share is played on k7's own origin
-(`sharePlayer.md`), and z0 is a path on it, so nothing outside the list needs a CORS answer.
+(`sharePlayer.md`), so nothing outside the list needs a CORS answer.
 
 ## A write from another site is refused
 

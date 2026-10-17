@@ -44,7 +44,7 @@ home page has not opened, which is a different question with the same answer.
 
 ## Opening a project that is not there
 
-`isProjectDir` is a rule about a **name** — `mysong.k7`, `party.z0` — because the same
+`isProjectDir` is a rule about a **name** — `mysong.k7` — because the same
 question is answered in places where no file can be opened at all
 (`packages/web-protocol/projects.ts`). The trap is that a name rule says "yes" about a folder
 that does not exist.
