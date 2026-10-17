@@ -6,7 +6,12 @@ sequencer pad's `repeat` and `skip`) and `quick-master.ts` (what `QuickMasterPlu
 exist because the claim is a fact about a live `te::Edit`, which the four C++ suites build none of
 and which no TypeScript test can see.
 
-They all cost a real render, so none of them is in `ctest` or in vitest. Run them by hand:
+They all cost a real render, so none of them is in `ctest` or in vitest. They run on GitHub
+instead, in the `harnesses` job of `.github/workflows/images.yml`: after every engine build on
+`main`, against the binary that build put in the `k7-runtime` image, beside `render-once.ts`,
+`master-chain.ts` and `cue-bus.ts`. That job reports and does not gate the image's tags, since
+these tolerances were set on developers' machines and a shared runner has not yet proven it holds
+them. `nam-rate.ts` is not among them: it measures a `.nam` model it is handed. Run them by hand:
 
 ```
 npx tsx engine/k7-runtime/scripts/warp-points.ts

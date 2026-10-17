@@ -203,6 +203,32 @@ jobs:
           STUDIO_RELEASE_STAMP: ${{ inputs.stamp }}
         run: npm run package --workspace k7-standalone
 
+      # Ubuntu 24.04 refuses Chromium's sandbox its user namespaces, and a runner has no display and no sound card (apps/k7-standalone/docs/e2e.md).
+      - name: end-to-end environment
+        if: runner.os == 'Linux'
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb pulseaudio pulseaudio-utils libasound2-plugins
+          cp engine/docker/asound.conf ~/.asoundrc
+          pulseaudio --daemonize=yes --exit-idle-time=-1 -n --load="module-null-sink sink_name=k7 rate=48000 channels=2" --load="module-native-protocol-unix"
+          until pactl info >/dev/null 2>&1; do sleep 0.2; done
+
+      # The packaged app under out/, booted for real; informational until it has proven itself on all three runners.
+      - name: end-to-end
+        continue-on-error: true
+        shell: bash
+        working-directory: apps/k7-standalone
+        env:
+          K7_E2E_ENGINE: "1"
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a npm run e2e; else npm run e2e; fi
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: k7-e2e-${{ inputs.label }}
+          path: apps/k7-standalone/test-results
+          if-no-files-found: ignore
+
       - name: installer
         shell: bash
         env:

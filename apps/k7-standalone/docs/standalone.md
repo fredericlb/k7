@@ -4,6 +4,7 @@
 npm run desktop:build                                # once, and after a frontend change
 npm run desktop:dev                                  # run from the checkout
 npm run package --workspace k7-standalone           # out/ — a .dmg on macOS
+npm run e2e --workspace k7-standalone               # the app booted under Playwright (docs/e2e.md)
 ```
 
 The whole hosted studio on one machine: k7's backend — the media library included — the file
