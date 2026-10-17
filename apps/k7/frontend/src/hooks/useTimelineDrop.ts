@@ -7,7 +7,7 @@
 import { IMAGE_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
 import { useCallback, useState } from "react";
 import { fileClip } from "../clipFiles";
-import { mediaSeconds } from "../mediaSeconds";
+import { isPortrait, type MediaInfo, mediaInfo } from "../mediaSeconds";
 import { m } from "../paraglide/messages.js";
 import {
   type DropUpload,
@@ -26,6 +26,8 @@ export function useTimelineDrop(
   runCommand: (line: string) => Promise<void>,
   setStatus: SetStatus,
   bumpReload: () => void,
+  /** The picture as it stands — landscape or not, and whether it still holds only the scaffold's sample; null with no picture. */
+  pictureShape?: () => { landscape: boolean; untouched: boolean } | null,
 ): {
   onDrop: (d: TimelineDropEvent) => Promise<void>;
   upload: DropUpload | null;
@@ -115,27 +117,46 @@ export function useTimelineDrop(
       // 3. the placements — commands, so each is one journal entry and one Ctrl+Z.
       const kindOf = new Map(plan.declare.map((c) => [c.id, c.kind]));
       // A still has no length of its own, so it is placed with one: five seconds, trimmed like any shot.
-      const lengths = new Map<string, number | null>();
+      const infos = new Map<string, MediaInfo | null>();
       await Promise.all(
         plan.declare.map(async (c, i) => {
           if (c.kind !== "video") return;
-          lengths.set(
+          infos.set(
             c.id,
             IMAGE_SOURCE.test(c.upload)
-              ? STILL_SECONDS
-              : await mediaSeconds(carried[i]),
+              ? { seconds: STILL_SECONDS, width: 0, height: 0 }
+              : await mediaInfo(carried[i]),
           );
         }),
       );
+      // A phone clip into a picture nobody has touched yet: the PROJECT turns to 9:16 rather than cropping the clip.
+      const first = plan.place.find((p) => kindOf.get(p.id) === "video");
+      const firstInfo = first ? infos.get(first.id) : null;
+      const shape = pictureShape?.();
+      if (
+        firstInfo &&
+        isPortrait(firstInfo) &&
+        shape?.landscape &&
+        shape.untouched
+      ) {
+        await runCommand("project aspect 9:16");
+        setStatus(m["status.drop.portrait"]());
+      }
+      // Videos dropped together play one AFTER another on the drop lane, each where the previous one ends.
+      let at = seconds;
       for (const p of plan.place) {
-        // A video is placed with its measured length, since a shot with none counts for nothing in an export's duration.
-        const length = lengths.get(p.id);
         const ref = filedAs.get(p.id) ?? p.id;
+        if (kindOf.get(p.id) !== "video") {
+          await runCommand(`event add ${p.lane} ${ref} ${tc}`);
+          continue;
+        }
+        // Placed with its measured length, since a shot with none counts for nothing in an export's duration.
+        const length = infos.get(p.id)?.seconds ?? null;
         await runCommand(
-          kindOf.get(p.id) === "video"
-            ? `picture add ${p.lane} ${ref} ${seconds}${length ? ` ${length}` : ""}`
-            : `event add ${p.lane} ${ref} ${tc}`,
+          `picture add ${p.lane} ${ref} ${Math.round(at * 1000) / 1000}${length ? ` ${length}` : ""}`,
         );
+        // A length the browser could not read: the next one starts a still's worth later rather than on top.
+        at += length ?? STILL_SECONDS;
       }
       // 4. …and a shot's SOUND, which the engine plays from an audio lane (packages/song/docs/videoSound.md).
       const pictured = plan.place
@@ -147,7 +168,7 @@ export function useTimelineDrop(
         await runCommand(`picture prepare ${lane}`);
       }
     },
-    [project, runCommand, setStatus, bumpReload],
+    [project, runCommand, setStatus, bumpReload, pictureShape],
   );
 
   return { onDrop, upload };

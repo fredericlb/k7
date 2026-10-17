@@ -81,12 +81,16 @@ describe("planDrop", () => {
       { id: "shot", upload: "shot.mp4", kind: "video" },
     ]);
   });
-  it("counts picture lanes only when the drop landed on one", () => {
+  it("stacks picture on the lane it was dropped on, to be played one after another", () => {
     const p = planDrop(["a.mp4", "b.mp4"], lanes, "main");
     expect(p.place).toEqual([
       { id: "a", lane: "main" },
-      { id: "b", lane: "pip" },
+      { id: "b", lane: "main" },
     ]);
+  });
+  it("still places only the picture of a mixed drop on a picture lane", () => {
+    const p = planDrop(["a.mp4", "kick.wav"], lanes, "main");
+    expect(p.place).toEqual([{ id: "a", lane: "main" }]);
   });
   it("refuses what is neither, and declares nothing for it", () => {
     const p = planDrop(["notes.txt", "kick.wav"], lanes, "gtr");

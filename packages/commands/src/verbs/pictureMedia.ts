@@ -17,6 +17,9 @@ import type { CommandHost, SidHandler } from "../commands.ts";
 import { laneFile } from "./picture.ts";
 import { splitWords } from "./shared.ts";
 
+/** What a browser plays as it is, so a machine with no ffmpeg needs do nothing for it. */
+const BROWSER_PLAYS = /\.(mp4|m4v|webm)$/i;
+
 /** The copies one clip still needs, as the work that makes them, or null when it needs none. */
 async function clipWork(
   ref: string,
@@ -87,6 +90,8 @@ export const PICTURE_MEDIA_VERBS: Record<string, SidHandler> = {
       ),
     ];
     const lines: string[] = [];
+    // Clips that may not play here and that no ffmpeg can convert — said once, in words, after the rest.
+    const unconverted: string[] = [];
     for (const ref of refs) {
       const clip = clips[ref];
       // A still or a missing clip has nothing to transcode; `picture add` already reported the missing one.
@@ -95,9 +100,10 @@ export const PICTURE_MEDIA_VERBS: Record<string, SidHandler> = {
       try {
         job = await clipWork(ref, clip, h);
       } catch (e) {
+        // No ffmpeg: a file a browser plays as it is needs nothing, and one bad file must not stop the others.
         if (e instanceof NoFfmpegError) {
-          h.refuse([...lines, e.message]);
-          return;
+          if (!BROWSER_PLAYS.test(String(clip.source))) unconverted.push(ref);
+          continue;
         }
         lines.push(`${ref}: could not read it — ${(e as Error).message}`);
         continue;
@@ -121,6 +127,10 @@ export const PICTURE_MEDIA_VERBS: Record<string, SidHandler> = {
         lines.push(`${ref}: could not prepare it — ${(e as Error).message}`);
       }
     }
+    if (unconverted.length)
+      lines.push(
+        `${unconverted.join(", ")}: this video may not play in the browser (an iPhone .mov, say) — convert it to MP4 (H.264), or install ffmpeg so k7 converts it for you`,
+      );
     h.log(lines.length ? lines : [`nothing on ${laneArg} to prepare`]);
     return h.reload();
   },

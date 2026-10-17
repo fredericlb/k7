@@ -24,7 +24,13 @@ uniform vec4 uUV;              // (scaleX, scaleY, offsetX, offsetY) — see cov
 uniform vec2 uAlpha;           // (opacity, 1 when the result is read PREMULTIPLIED)
 out vec4 outColor;
 void main() {
-  vec4 c = texture(uTex, vUV * uUV.xy + uUV.zw);
+  vec2 uv = vUV * uUV.xy + uUV.zw;
+  // Outside the picture — a CONTAINED one's bars: nothing, or the clamped edge would smear across them.
+  if (any(lessThan(uv, vec2(-0.0001))) || any(greaterThan(uv, vec2(1.0001)))) {
+    outColor = vec4(0.0);
+    return;
+  }
+  vec4 c = texture(uTex, uv);
   outColor = vec4(c.rgb * mix(1.0, uAlpha.x, uAlpha.y), c.a * uAlpha.x);
 }`;
 

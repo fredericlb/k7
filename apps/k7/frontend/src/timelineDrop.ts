@@ -127,7 +127,11 @@ export function planDrop(
   const from = lanes.findIndex((l) => l.id === at);
   if (from < 0) return { declare, place: [], refused };
   const kind = lanes[from].kind;
-  const targets = lanes.slice(from).filter((l) => l.kind === kind);
+  // Picture SEQUENCES on the lane it was dropped on, as every video editor does; audio walks down the lanes.
+  const targets =
+    kind === "video"
+      ? declare.map(() => lanes[from])
+      : lanes.slice(from).filter((l) => l.kind === kind);
   const place = declare
     .filter((c) => c.kind === kind)
     .flatMap((c, i) => (targets[i] ? [{ id: c.id, lane: targets[i].id }] : []));

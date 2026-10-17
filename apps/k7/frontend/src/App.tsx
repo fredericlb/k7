@@ -127,6 +127,7 @@ import {
 import { desktop } from "./desktop";
 import { fixedMaster, TARGET_DB, trimFor } from "./gainTrim";
 import type { ClipGridHandle } from "./gridCaret";
+import { firstTimeFor, givesChannel, hasAudibleInput } from "./headphonesHint";
 import type { HistoryMark } from "./historyMarks";
 import { useCameras } from "./hooks/useCameras";
 import { useCommandKeys } from "./hooks/useCommandKeys";
@@ -289,6 +290,12 @@ function sameCaret(a: CaretFields, b: CaretFields): boolean {
 /** The tap-chain popin's first node: where the signal its modules process comes in, named and nothing more. */
 // In the desktop app's tab, whose strip already shows the way home and the song's name (apps/k7-standalone/docs/tabs.md).
 const inDesktopTab = !!tabBridge();
+
+/** The shot a new video project is scaffolded with (packages/song/src/scaffold.ts) — a picture holding only it is untouched. */
+const SCAFFOLD_SAMPLE = /(^|\/)clips\/sample\.mp4$/;
+
+/** How long a second Ctrl+Z has, once the text pane's own history is spent, to reach the project journal. */
+const JOURNAL_ARM_MS = 3000;
 
 export default function App({
   engineUrl,
@@ -718,6 +725,8 @@ export default function App({
       ),
     [],
   );
+  // When a Ctrl+Z last met the end of the text pane's history: the next one, soon after, goes to the journal.
+  const journalArmedAt = useRef(0);
   const historyDeps = useMemo<HistoryDeps>(
     () => ({
       openFile: (p) => editorRef.current?.open(p),
@@ -725,6 +734,12 @@ export default function App({
       confirmProcess,
       currentFile: () => editorRef.current?.currentFile() ?? null,
       onApplied: bumpReload,
+      strings: {
+        undone: (what) => m["undo.undone"]({ what }),
+        redone: (what) => m["undo.redone"]({ what }),
+        nothingToUndo: m["undo.nothing"](),
+        nothingToRedo: m["undo.nothingRedo"](),
+      },
     }),
     [confirmProcess, bumpReload],
   );
@@ -1788,6 +1803,27 @@ export default function App({
     graph: WebGraph;
     at: number;
   } | null>(null);
+  // The open project, for the headphones hint, which says itself once per project (headphonesHint.ts).
+  const activeProjectRef = useRef<string | null>(null);
+  activeProjectRef.current = ws?.activeProject ?? null;
+  const warnHeadphones = useCallback(() => {
+    const p = activeProjectRef.current;
+    if (!p || !firstTimeFor(p)) return;
+    showToast({ message: m["live.headphones"](), duration: 0 });
+  }, []);
+  // …and on opening a project whose input is ALREADY audible: one graph read per project, not per poll.
+  useEffect(() => {
+    const p = ws?.activeProject;
+    if (frozen || !p) return;
+    let live = true;
+    void api
+      .graph()
+      .then((g) => live && hasAudibleInput(g) && warnHeadphones())
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [ws?.activeProject, frozen, warnHeadphones]);
   // Every command comes through here; `outcome`, when given, is told whether the line WENT THROUGH.
   const runCommand = useCallback(
     async (line: string, outcome?: { ok: boolean }): Promise<void> => {
@@ -1796,6 +1832,8 @@ export default function App({
       if (chainsMidiRef.current?.learning) chainsMidiRef.current.cancelLearn();
       const s = line.trim();
       pushLog("cmd", `› ${s}`);
+      // A live input given a channel is heard at once: say headphones before the speakers find the mic (headphonesHint.ts).
+      if (givesChannel(s)) warnHeadphones();
       // Here rather than in the bar, because EVERY command passes here; through a ref, so a rebuilt catalogue does not rebuild this.
       rememberCommand(commandNameOf(s, paletteRef.current));
       if (runLocalCommand(s)) return;
@@ -1865,7 +1903,7 @@ export default function App({
         if (willInsert) setInsertingAt(null);
       }
     },
-    [pushLog, runLocalCommand],
+    [pushLog, runLocalCommand, warnHeadphones],
   );
   runCommandRef.current = runCommand;
   // The bottom panel's ✕ runs the command the footer and Escape do, as every button here does (docs/shell.md).
@@ -1934,12 +1972,25 @@ export default function App({
     [onTrackToggle],
   );
 
+  // The picture's shape for a drop to read: a phone clip turns an untouched landscape picture to 9:16 (hooks/useTimelineDrop.ts).
+  const videoDocRef = useRef(videoDoc);
+  videoDocRef.current = videoDoc;
+  const pictureShape = useCallback(() => {
+    const d = videoDocRef.current;
+    if (!d) return null;
+    const shots = d.videoTracks.flatMap((t) => t.clips);
+    return {
+      landscape: d.viewport[0] > d.viewport[1],
+      untouched: shots.every((c) => SCAFFOLD_SAMPLE.test(c.src)),
+    };
+  }, []);
   // Files dropped on a lane — here rather than beside the picture drag, since it PLACES with commands (hooks/useTimelineDrop.ts).
   const { onDrop: onDropOnTimeline, upload: timelineUpload } = useTimelineDrop(
     ws?.activeProject ?? ".",
     runCommand,
     setStatus,
     bumpReload,
+    pictureShape,
   );
   // …and the armed PICTURE lane's own recording, which places its take the same way.
   const { recording: videoRecording } = useVideoRecording({
@@ -2304,9 +2355,15 @@ export default function App({
       if (commandsPage || undoConfirm) return;
       if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       const key = e.key.toLowerCase();
+      const h = editorRef.current;
+      // Ctrl+S off the text pane: no "Save page as" — say instead that nothing needs saving (the pane flushes its own).
+      if (key === "s" && !e.shiftKey && !h?.editorFocused()) {
+        e.preventDefault();
+        showToast({ message: m["save.automatic"]() });
+        return;
+      }
       if (key !== "z" && key !== "y") return;
       const isRedo = key === "y" || (key === "z" && e.shiftKey);
-      const h = editorRef.current;
       if (h?.editorFocused()) {
         // Spend the buffer's own keystroke history first; once it is empty, fall through to the project journal.
         const depth = isRedo ? h.localRedoDepth() : h.localUndoDepth();
@@ -2317,6 +2374,18 @@ export default function App({
           else h.localUndo();
           return;
         }
+        // …but not on the same press: typing Ctrl+Z through the text must not silently undo a timeline edit next.
+        const now = Date.now();
+        if (now - journalArmedAt.current > JOURNAL_ARM_MS) {
+          e.preventDefault();
+          e.stopPropagation();
+          journalArmedAt.current = now;
+          showToast({
+            message: isRedo ? m["undo.textEndRedo"]() : m["undo.textEnd"](),
+          });
+          return;
+        }
+        journalArmedAt.current = 0;
       } else {
         // A plain input (command bar, a rename field) keeps its own native text undo.
         const t = e.target as HTMLElement | null;

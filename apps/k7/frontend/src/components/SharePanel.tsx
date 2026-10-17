@@ -15,10 +15,10 @@ import {
   X,
 } from "@frediverse/ui/icons";
 import type { ShareProgress } from "@studio/web-protocol";
-import { DEFAULT_VIDEO_FORMAT } from "../exportArgs";
 import { m } from "../paraglide/messages.js";
 import { ShareLinkProgress } from "./ShareLinkProgress";
 import { SurfaceQr } from "./SurfaceQr";
+import { VideoExportRow } from "./VideoExportRow";
 
 /** One surface's address, ready to hand over — computed by `App`, which holds both the launch parameters and the surface list. */
 export type SurfaceLink = { id: string; type: string; url: string };
@@ -74,7 +74,7 @@ export function SharePanel({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
-        <div className={head}>Mixdown</div>
+        <div className={head}>{m["share.mixdown"]()}</div>
         <button
           type="button"
           className={row}
@@ -82,7 +82,7 @@ export function SharePanel({
           onClick={() => onRun("project export audio mp3")}
         >
           <Download className="h-4 w-4 text-muted-foreground" />
-          Export MP3
+          {m["share.exportAudio"]({ format: "MP3" })}
         </button>
         <button
           type="button"
@@ -91,23 +91,13 @@ export function SharePanel({
           onClick={() => onRun("project export audio wav")}
         >
           <Download className="h-4 w-4 text-muted-foreground" />
-          Export WAV
+          {m["share.exportAudio"]({ format: "WAV" })}
         </button>
 
         {/* …and the PICTURE, on a project that draws one. The sound is married in: a video of a
             song is a video of its sound, so the silent one is `… video <container> none`. */}
         {hasPicture ? (
-          <button
-            type="button"
-            className={row}
-            disabled={busy}
-            onClick={() =>
-              onRun(`project export video ${DEFAULT_VIDEO_FORMAT}`)
-            }
-          >
-            <Download className="h-4 w-4 text-muted-foreground" />
-            Export {DEFAULT_VIDEO_FORMAT.toUpperCase()}
-          </button>
+          <VideoExportRow busy={busy} rowClass={row} onRun={onRun} />
         ) : null}
 
         <div className="my-1 border-t border-border" />
@@ -130,7 +120,7 @@ export function SharePanel({
           onClick={() => onRun("project share k7")}
         >
           <Radio className="h-4 w-4 text-muted-foreground" />
-          Share to k7
+          {m["share.toK7"]()}
         </button>
 
         {/* This project's addresses, as codes to SCAN: the whole project first, so a tablet can

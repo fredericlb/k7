@@ -42,7 +42,7 @@ fileRouter.put(
     const { path, content } = req.body as z.infer<typeof writeBody>;
     try {
       // `forked` says the save landed on a project-local copy of a shared module — see docs/fileRoutes.md.
-      const r = await req.ws!.recordChange(`édition ${path}`, () =>
+      const r = await req.ws!.recordChange(`edit ${path}`, () =>
         req.ws!.write(path, content),
       );
       // TWO gates — the token moved AND the path is inside the open song — before the engine is pushed to.
@@ -147,7 +147,7 @@ fileRouter.post(
       });
     const report = dryRun
       ? run()
-      : (await ws.recordChange("conversion en k7x", run)).value;
+      : (await ws.recordChange("convert to k7x", run)).value;
     if (!dryRun) ws.invalidateProjectDoc();
     res.json({ dryRun, backup: dryRun ? null : backup, ...report });
   }),

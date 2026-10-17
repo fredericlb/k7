@@ -940,17 +940,25 @@ was the one outcome worse than a duplicate: the song plays something else and no
 files of one drop that reduce to the same id are told apart before anything is uploaded
 (`planDrop`).
 
-### Several files walk down the lanes
+### Several files: picture in sequence, audio down the lanes
 
-The first lands on the lane you dropped on, the second on the next lane **of the same kind**, and
-so on. What runs out of lanes is left rather than folded onto the last one — the rule a paste
-already follows (`clipboard.ts`) — and a file of the *other* kind is declared without being
-placed, since it is in the project wanting a lane rather than being a mistake. Only a file that
-is neither audio nor video is refused outright, by name.
+Videos dropped together on a picture lane play **one after another on that lane**, each starting
+where the previous one ends — what every video editor does with a handful of clips, and what a
+beginner means by dropping them. The length is read by the browser off each file's metadata
+(`mediaSeconds.ts`), written on the placement, and used to chain the next; a file the browser
+cannot read (an HEVC `.mov`) is placed with no length and the next starts a still's five seconds
+later, rather than on top of it.
 
-Nothing here measures a duration, and that is why the files spread across lanes rather than in
-time: the browser would have to decode each one to know how long it is, and a `.mkv` it cannot
-decode would make the arrangement depend on the codec the machine happens to ship.
+Audio walks down the lanes instead: the first on the lane you dropped on, the second on the next
+lane **of the same kind**, and so on — stems dropped together are parts played at once. What runs
+out of lanes is left rather than folded onto the last one — the rule a paste already follows
+(`clipboard.ts`). A file of the *other* kind is declared without being placed, since it is in the
+project wanting a lane rather than being a mistake. Only a file that is neither audio nor video is
+refused outright, by name.
+
+**A vertical clip into a picture nobody has touched turns the picture 9:16** (`project aspect
+9:16`), and the status line says so. "Untouched" is a picture holding nothing but the scaffold's
+sample shot: a picture someone has already cut is never reshaped behind their back.
 
 ## Fading a clip
 

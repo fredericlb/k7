@@ -17,6 +17,37 @@ export function coverUV(
   return [sx, sy, (1 - sx) / 2, (1 - sy) / 2];
 }
 
+/** The UV transform that CONTAINS a `srcAR` picture in a `dstAR` rect, bars either side; identity when either is unknown — docs/compositor.md. */
+export function containUV(
+  srcAR: number,
+  dstAR: number,
+): [number, number, number, number] {
+  if (!(srcAR > 0) || !(dstAR > 0) || srcAR === dstAR) return [1, 1, 0, 0];
+  const wide = srcAR > dstAR;
+  const sx = wide ? 1 : dstAR / srcAR;
+  const sy = wide ? srcAR / dstAR : 1;
+  return [sx, sy, (1 - sx) / 2, (1 - sy) / 2];
+}
+
+/** Whether a lane's px rect is the whole frame — the case whose bars are the FRAME's, so it contains rather than covers. */
+export const isFullFrame = (
+  px: { x: number; y: number; w: number; h: number },
+  vw: number,
+  vh: number,
+): boolean =>
+  Math.abs(px.x) < 1 &&
+  Math.abs(px.y) < 1 &&
+  Math.abs(px.w - vw) < 1 &&
+  Math.abs(px.h - vh) < 1;
+
+/** How a lane samples its picture: a full-frame lane is CONTAINED (a phone clip keeps its whole picture), a boxed one COVERS its box. */
+export const laneUV = (
+  srcAR: number,
+  dstAR: number,
+  fullFrame: boolean,
+): [number, number, number, number] =>
+  fullFrame ? containUV(srcAR, dstAR) : coverUV(srcAR, dstAR);
+
 /** What a frame source is shaped like, or 0 when it will not say — see `upload`. */
 export function sourceAR(src: TexImageSource): number {
   const v = src as Partial<HTMLVideoElement> &

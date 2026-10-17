@@ -4,7 +4,7 @@
 // It OWNS its canvas (a React-owned one races two GL contexts). A layer may carry GLSL passes
 // and so may the finished frame: passes.ts runs those, docs/passes.md is the page.
 
-import { coverUV, sourceAR, UV_FILL } from "./geometry";
+import { isFullFrame, laneUV, sourceAR, UV_FILL } from "./geometry";
 import { buildLayer, emptyTexel, type LayerGL } from "./layerGL";
 import { Luts } from "./luts";
 import { type Motion, motionAffine, scissorBox } from "./motion";
@@ -274,6 +274,13 @@ export class Compositor {
     );
   }
 
+  /** How a lane samples its picture: contained when it fills the frame, covering its box otherwise — docs/compositor.md. */
+  private uvOf(layer: LayerGL): [number, number, number, number] {
+    // The canvas IS the viewport's pixel size, so the lane's px rect compares against it directly.
+    const full = isFullFrame(layer.px, this.canvas.width, this.canvas.height);
+    return laneUV(layer.srcAR, layer.dstAR, full);
+  }
+
   /** Draw one textured quad of `tex` with the plain program, onto whatever is bound now. */
   private blit(
     tex: WebGLTexture,
@@ -381,7 +388,7 @@ export class Compositor {
           this.blit(
             shown,
             [-1, -1, 1, 1],
-            coverUV(layer.srcAR, layer.dstAR),
+            this.uvOf(layer),
             still
               ? {
                   xf: motionAffine(frame, still, frame.w, frame.h),
@@ -404,14 +411,14 @@ export class Compositor {
       }
       bindComposite();
       if (!still) {
-        this.blit(layer.tex, layer.rect, coverUV(layer.srcAR, layer.dstAR));
+        this.blit(layer.tex, layer.rect, this.uvOf(layer));
         continue;
       }
       // A moved shot is cropped to its lane's rect, as it is on the two paths that draw through the lane's frame.
       const [vw, vh] = [this.canvas.width, this.canvas.height];
       gl.enable(gl.SCISSOR_TEST);
       gl.scissor(...scissorBox(layer.px, vh));
-      this.blit(layer.tex, layer.rect, coverUV(layer.srcAR, layer.dstAR), {
+      this.blit(layer.tex, layer.rect, this.uvOf(layer), {
         xf: motionAffine(layer.px, still, vw, vh),
         alpha: still.opacity,
       });

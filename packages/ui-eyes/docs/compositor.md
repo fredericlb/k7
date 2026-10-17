@@ -106,7 +106,7 @@ A layer no frame has been uploaded to yet is **skipped**: a track between two cl
 background, rather than a black quad or the rest of the previous frame. A shape layer is marked
 drawable as soon as the scene is built, its upload having already happened.
 
-## A picture keeps its shape — `coverUV`
+## A picture keeps its shape — `laneUV`
 
 One textured quad per layer, sampled over its whole face, means the texture is STRETCHED into
 whatever rect the layer occupies. A webcam is 4:3 or 16:9, and the frame it lands in is whatever
@@ -115,10 +115,14 @@ the project says: the two are rarely the same, and the difference shows as a squ
 So the plain program takes a UV transform, `uUV = (scaleX, scaleY, offsetX, offsetY)`, and the
 source is sampled through it: `texture(uTex, vUV * uUV.xy + uUV.zw)`.
 
-**COVER, not contain.** A lane fills its rect and the overflow is cropped, evenly on both sides.
-Letterboxing inside a layer would put bars in the middle of a composite, where no lane beneath can
-paint over them — the FRAME's bars are the viewport's business (`VideoCanvas`'s `fit`), not a
-layer's.
+**A full-frame lane CONTAINS, a boxed lane COVERS** (`laneUV`). A lane whose rect is the whole
+frame keeps the whole picture, with bars either side: a phone clip dropped into a 16:9 project
+shows the person, as every video editor shows it, rather than a strip across their chest. Its bars
+are the frame's own, so nothing ends up in the middle of a composite — and the shader draws them
+TRANSPARENT (a sample outside [0,1] is nothing, where the clamped texture would smear its edge), so
+a lane beneath shows through them, and the background where there is none. A lane drawn into a box
+— a picture-in-picture, a split screen — covers its box and crops the overflow evenly: bars inside
+a box WOULD sit in the middle of the composite, where no lane beneath could paint over them.
 
 **The source's shape is learned from the UPLOAD, never from the document.** A camera's aspect is
 the machine's and a file's is the file's; neither is anything a project could have written down.

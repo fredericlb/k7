@@ -152,6 +152,8 @@ const GUTTER_WIDE = Math.round(GUTTER_DESKTOP * 1.3);
 const EXPAND_EXTRA = 40;
 // Expand's movement, shared by the lanes and every line spanning them, so they travel as one.
 const NATURAL = 4;
+/** Sources a browser does not decode as they are, shown as converting until an `optimized:` copy lands (song-video/docs/media.md). */
+const NEEDS_COPY = /\.(mov|mkv)$/i;
 
 /** The part of the lanes that draws its clips, in px: lane x, rows' y — docs/timeline.md, "Only the clips near the screen are drawn". */
 type ClipWindow = { x0: number; x1: number; y0: number; y1: number };
@@ -2667,9 +2669,15 @@ export function TimelineTab({
                             : c.speed === 0
                               ? " · freeze"
                               : ` ×${c.speed}`;
+                        // A source no browser decodes, with no copy yet: it is being converted (or cannot be), and is black until it is.
+                        const converting =
+                          !activation &&
+                          !c.optimized &&
+                          !c.still &&
+                          NEEDS_COPY.test(c.src);
                         const label = activation
                           ? "on"
-                          : `${c.name || c.id}${pace}`;
+                          : `${c.name || c.id}${pace}${converting ? ` · ${m["tl.converting"]()}` : ""}`;
                         const w = Math.max(
                           ppb,
                           toBeats(provisional ? V_NATURAL : length) * ppb,

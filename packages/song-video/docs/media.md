@@ -54,6 +54,17 @@ what is missing. A host without a runner, such as the command line, simply waits
 
 Dropping footage on a picture lane runs it after `picture sound`.
 
+**With no ffmpeg on the machine** (the desktop app ships none), a file a browser plays as it is —
+`.mp4`, `.m4v`, `.webm` — needs nothing and is passed over in silence, and the rest are named in one
+line that says what to do: convert to MP4 (H.264), or install ffmpeg. One file that cannot be read
+does not stop the others, and the command does not refuse: it runs after every video drop, and a
+refusal there read as "the drop failed" when the clip had been placed.
+
+**A shot still waiting for its copy says so on the timeline** — "converting…" on the shot, for a
+source a browser cannot decode (`.mov`, `.mkv`) that has no `optimized:` yet. It is derived, not
+reported: it clears the moment the copy's write lands, and with no ffmpeg it stays, which the line
+above has already explained.
+
 ## The export refuses what it cannot decode, before it starts
 
 The export asks every source whether it decodes here (`assertDecodable` in

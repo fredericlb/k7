@@ -838,6 +838,26 @@ sits where a play would begin, and the rising edge of `playing` freezes that val
 key, the bar, another tab or the CLI all count. Shift+space arrives as `" "` with `shiftKey`, so
 `keyToken` spells the modifier out (`"shift+space"`) where a shifted letter arrives already uppercased.
 
+### Ctrl+Z stops at the end of the text, and Ctrl+S answers
+
+Ctrl+Z in the text pane spends the buffer's own history first. When it is spent, the next press
+does NOT reach the project journal: it says so, and only a second press within three seconds does.
+Someone pressing Ctrl+Z through their typing must not silently undo a clip they moved on the
+timeline a minute earlier. The toast then names the ACTION undone — the journal entry's label, a
+command line or `edit <file>` — and an empty journal says "Nothing to undo" rather than nothing.
+
+Ctrl+S anywhere but the text pane — which flushes its own buffer — answers that k7 saves by
+itself, instead of letting the browser offer to save the page.
+
+### Headphones, said when a live input becomes audible
+
+A live rig monitors its input on purpose (`packages/song/docs/liveProject.md`), so the moment the
+input reaches a channel it is heard — and a laptop's own mic and speakers feed back. The scaffold
+stays audible; what changes is that it is SAID, in a toast that stays until dismissed, at the two
+moments it becomes true: a channel picked on the input's card (`node param <input> @channel …`), or
+a project opened whose graph already has a monitored input with a channel (`headphonesHint.ts`).
+Once per project per browser: a warning repeated on every open would be read by nobody.
+
 ### The editor POPIN
 
 A command that sends the editor to a file (`ui file`, `edit clip`, `edit sequence`) has to do something
