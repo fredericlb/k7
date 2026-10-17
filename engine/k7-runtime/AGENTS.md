@@ -142,6 +142,7 @@ server/
   Outbox.h               every JSON push, sent from ONE writer thread so the message thread never waits on a peer
   DocJson.{h,cpp}        the ProjectDoc off the wire, shared by the server and the CLI
   android/EngineJni.cpp  the Android app's entry into serve() (docs/android.md)
+  ios/EngineEmbed.cpp    the iOS app's: serve(), quit, and the device closed while the app is idle behind another (docs/ios.md)
 
 scripts/               Node harnesses that drive a running engine, not build steps
   two-sessions.ts        two sessions on one engine stay separate
@@ -372,6 +373,11 @@ often locked while the engine is running — stop it before rebuilding.
 r28+, or let the app build it: `./gradlew assembleDebug` in `engine/k7-android`, which passes the
 SDK's own NDK — it builds the supervisor's `android-arm64` preset too. The engine's makes
 `libk7runtime.so`, a library the app loads, with no `main()`, no VST3/LADSPA and no tests. What differs there and why: [docs/android.md](docs/android.md).
+
+**iOS** — `npm run build:ios --workspace k7-runtime` (`ios-arm64`; `ios-sim-arm64` through `scripts/build.mjs`
+for the simulator), with a full Xcode, or `node engine/k7-ios/scripts/stage.mjs`, which builds it with the
+supervisor's matching preset. It makes `k7runtime.framework`, the same cuts as Android's. What differs and why:
+[docs/ios.md](docs/ios.md).
 
 ### A half-rebuilt engine REFUSES to start, rather than crash on the first project
 

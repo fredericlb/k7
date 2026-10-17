@@ -148,6 +148,11 @@ void emit(const nlohmann::ordered_json& frame);
 /** `--config`: no host reads stdout, so no frame is written to it. */
 void silenceFrames();
 
+#ifndef _WIN32
+/** Frames to `fd` instead of stdout, for a supervisor embedded in an app whose stdout others write to too; -1 is stdout again. */
+void sendFramesTo(int fd);
+#endif
+
 /** Split `s` on U+001F, dropping empty parts. */
 std::vector<std::string> splitUnits(const std::string& s);
 

@@ -9,6 +9,11 @@
 #include <atomic>
 #include <mutex>
 
+#ifndef _WIN32
+#include <cerrno>
+#include <unistd.h>
+#endif
+
 namespace k7::protocol {
 
 using ojson = nlohmann::ordered_json;
@@ -118,9 +123,14 @@ std::optional<Command> parseCommand(const std::string& line)
 
 namespace {
 std::atomic<bool> gSilent{false};
+std::atomic<int> gFramesFd{-1};
 }
 
 void silenceFrames() { gSilent = true; }
+
+#ifndef _WIN32
+void sendFramesTo(int fd) { gFramesFd = fd; }
+#endif
 
 void emit(const ojson& frame)
 {
@@ -128,6 +138,18 @@ void emit(const ojson& frame)
     static std::mutex mutex;
     const std::string line = frame.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace) + "\n";
     std::lock_guard lock(mutex);
+#ifndef _WIN32
+    if (const int fd = gFramesFd; fd >= 0) {
+        // A failed write is the app gone, as a closed stdout is: the frame is dropped, never retried forever.
+        for (size_t at = 0; at < line.size();) {
+            const ssize_t n = ::write(fd, line.data() + at, line.size() - at);
+            if (n < 0 && errno == EINTR) continue;
+            if (n <= 0) return;
+            at += static_cast<size_t>(n);
+        }
+        return;
+    }
+#endif
     std::fwrite(line.data(), 1, line.size(), stdout);
     std::fflush(stdout);
 }

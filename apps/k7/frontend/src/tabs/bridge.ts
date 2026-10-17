@@ -49,8 +49,10 @@ declare global {
 
 export const tabBridge = (): TabBridge | undefined => window.studioTab;
 export const tabsBridge = (): TabsBridge | undefined => window.studioTabs;
-/** Inside the Android app, whose views get `k7Android` (engine/k7-runtime/docs/android.md): its account lives on the home page too. */
-export const inAndroidApp = (): boolean =>
-  !!(window as { k7Android?: unknown }).k7Android;
+/** Inside a phone app, whose views get `k7Android` or `k7Ios` (engine/k7-runtime/docs/android.md, docs/ios.md): its account lives on the home page too. */
+export const inAndroidApp = (): boolean => {
+  const phone = window as { k7Android?: unknown; k7Ios?: unknown };
+  return !!(phone.k7Android ?? phone.k7Ios);
+};
 /** Where an account control belongs on the home page: the desktop app and the Android one, never a browser tab. */
 export const hasAccountBar = (): boolean => !!tabsBridge() || inAndroidApp();

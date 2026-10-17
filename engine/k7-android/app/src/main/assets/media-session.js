@@ -2,9 +2,9 @@
 // reaches nothing outside it, so this copies what the page tells it to the app's native session (MediaPlayback.kt,
 // `media`) and hands the system's buttons back to the page's own handlers (`media-action`). It also reports, as
 // `busy`, a microphone the page holds open and a screen wake lock it holds (Busy.kt), and stands in for the Wake
-// Lock API where the WebView has none. See docs/android.md.
+// Lock API where the WebView has none. The iOS app injects it too (AppViews.swift). See docs/android.md.
 (() => {
-  const bridge = window.k7Android;
+  const bridge = window.k7Android || window.k7Ios;
   const ms = navigator.mediaSession;
   if (!bridge || !ms || window.__k7Media) return;
   window.__k7Media = true;
@@ -96,7 +96,7 @@
 })();
 
 (() => {
-  const bridge = window.k7Android;
+  const bridge = window.k7Android || window.k7Ios;
   if (!bridge || window.__k7Busy) return;
   window.__k7Busy = true;
 

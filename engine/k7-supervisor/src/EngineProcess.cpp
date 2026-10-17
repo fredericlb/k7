@@ -7,6 +7,7 @@
 #include "Log.h"
 #include "Paths.h"
 #include "PidFile.h"
+#include "Platform.h"
 #include "Processes.h"
 #include "Url.h"
 
@@ -51,7 +52,7 @@ std::string allowedOrigins(const std::vector<std::string>& registryUrls)
 
 namespace {
 
-#ifndef __ANDROID__
+#ifndef K7_ENGINE_IN_APP
 /** The engine THIS supervisor spawned, and whether its reaper has seen it exit. */
 std::mutex ownedMutex;
 int ownedPid = 0;
@@ -120,8 +121,8 @@ std::optional<fs::path> findBinary()
 bool running()
 {
     const auto rec = pidfile::read();
-#ifdef __ANDROID__
-    // The pidfile names the app the engine lives in, our parent.
+#ifdef K7_ENGINE_IN_APP
+    // The pidfile names the app the engine lives in.
     return rec.pid > 0 && process::pidAlive(rec.pid);
 #else
     if (bool alive = false; ownedChild(rec.pid, alive)) return alive;
@@ -172,7 +173,7 @@ Probe probe(int port)
     return up ? Probe::Up : Probe::Down;
 }
 
-#if !defined(_WIN32) && !defined(__ANDROID__)
+#if !defined(_WIN32) && !defined(K7_ENGINE_IN_APP)
 // The pid listening on `port`, asked of lsof; 0 when none, or when there is no lsof to ask.
 int listenerPid(int port)
 {
@@ -192,18 +193,27 @@ bool isServing(int port)
     return probe(port) == Probe::Up;
 }
 
-#ifdef __ANDROID__
+#ifdef K7_ENGINE_IN_APP
 namespace {
 // How long the app gets to bind the engine's port: JUCE and the audio device come up first.
 constexpr auto kAppStartBound = std::chrono::seconds(20);
+
+// The process the engine is a thread of: our parent on Android, which runs us as its child; ourselves on iOS, a library like the engine.
+int appPid()
+{
+#ifdef K7_IOS
+    return process::currentPid();
+#else
+    return static_cast<int>(getppid());
+#endif
+}
 }  // namespace
 
 StartResult start(const EngineIdentity& identity, int port, const std::string& origins)
 {
     std::error_code ec;
     fs::create_directories(paths::studioDir(), ec);
-    // The engine lives in the process that spawned us, so the pidfile names our parent.
-    const int app = static_cast<int>(getppid());
+    const int app = appPid();
     if (isServing(port)) {
         std::ofstream(paths::enginePid(), std::ios::trunc) << app;
         log::host("adopting the engine the app already serves on :" + std::to_string(port));

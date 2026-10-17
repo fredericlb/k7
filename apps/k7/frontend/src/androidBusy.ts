@@ -1,6 +1,6 @@
-// androidBusy.ts — tell the Android app what the engine is doing for this page, so it holds a foreground service
-// and the screen while a take rolls, a track is armed or a rig sounds (engine/k7-runtime/docs/android.md).
-// A no-op in a browser: only the app's views have `window.k7Android`.
+// androidBusy.ts — tell the phone app what the engine is doing for this page, so it holds the process (a foreground
+// service on Android, background audio on iOS) and the screen while a take rolls, a track is armed or a rig sounds
+// (engine/k7-runtime/docs/android.md, docs/ios.md). A no-op in a browser: only the apps' views have the channel.
 
 import type { EngineStore } from "@studio/engine-browser/store";
 import type { EngineState } from "@studio/engine-protocol";
@@ -34,7 +34,8 @@ interface Channel {
 /** Report `store`'s busy state to the Android app whenever it changes; nothing at all elsewhere. */
 export function useAndroidBusy(store: EngineStore): void {
   useEffect(() => {
-    const channel = (window as { k7Android?: Channel }).k7Android;
+    const phone = window as { k7Android?: Channel; k7Ios?: Channel };
+    const channel = phone.k7Android ?? phone.k7Ios;
     if (!channel) return;
     let soundedAt = Number.NEGATIVE_INFINITY;
     let sent = "";

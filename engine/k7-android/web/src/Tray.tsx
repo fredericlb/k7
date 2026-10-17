@@ -3,12 +3,18 @@
 // With a studio open, k7's settings draw the same (apps/k7/frontend/src/settings/AndroidEngineSection.tsx).
 // The forms are collapsed: the phone's own studio needs none of them, and the first screen is the engine's state.
 
+import { Capacitor } from "@capacitor/core";
 import { Button } from "@frediverse/ui/button";
 import { ChevronDown, ChevronRight } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { type ReactNode, useEffect, useState } from "react";
 import { K7Runtime, type SupervisorState } from "./native";
 import { Pairing } from "./Pairing";
+
+/** The iOS app's engine trusts a CA set it ships, not the system's (engine/k7-runtime/docs/ios.md). */
+const ON_IOS = Capacitor.getPlatform() === "ios";
+const SYSTEM_CAS = ON_IOS ? "The built-in CAs" : "Android's CAs";
+const SYSTEM_CAS_INLINE = ON_IOS ? "the built-in CAs" : "Android's CAs";
 
 export interface TrayProps {
   state: SupervisorState | null;
@@ -196,8 +202,8 @@ function PrivateCa({ certFailed }: { certFailed: boolean }) {
 
   const base =
     count == null || count === 0
-      ? "Android's CAs only"
-      : `Android's CAs and ${count} of yours`;
+      ? `${SYSTEM_CAS} only`
+      : `${SYSTEM_CAS} and ${count} of yours`;
 
   return (
     <Disclosure
@@ -218,10 +224,12 @@ function PrivateCa({ certFailed }: { certFailed: boolean }) {
         Encrypt, connect without anything here.
       </p>
       <p className="text-sm text-muted-foreground">
-        Android does not let apps use the CAs installed in Settings, so a
-        private one is added here instead: pick its certificate file (.pem, .crt
-        or .der). It is trusted by the engine's connection to the studio and by
-        k7 alike.
+        {ON_IOS
+          ? "The engine's connection cannot read the CAs installed in Settings"
+          : "Android does not let apps use the CAs installed in Settings"}
+        , so a private one is added here instead: pick its certificate file
+        (.pem, .crt or .der). It is trusted by the engine's connection to the
+        studio and by k7 alike.
       </p>
       <p className="text-sm">{base}</p>
       {said ? <p className="text-sm">{said}</p> : null}
@@ -239,7 +247,7 @@ function PrivateCa({ certFailed }: { certFailed: boolean }) {
           onClick={() =>
             run(async () => {
               const done = await K7Runtime.forgetCas();
-              return { ...done, said: "trusting Android's CAs only" };
+              return { ...done, said: `trusting ${SYSTEM_CAS_INLINE} only` };
             }, "forgetting")
           }
         >

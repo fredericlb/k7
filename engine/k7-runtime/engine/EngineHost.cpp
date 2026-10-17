@@ -20,6 +20,8 @@
 #include "MessagePump.h"       // pumpMessages — the loop run() spins, where one may be spun
 
 #include <algorithm>
+#include <atomic>
+#include <cstdlib>
 #include <limits>
 #include <optional>
 #include <iostream>
@@ -69,7 +71,12 @@ void EngineHost::openAudioDevice() {
     // Open the interface once, INPUTS included — with none open the callback delivers no input samples and every input meters -100 for ever. docs/engineHost.md.
     auto& dm = impl_->engine.getDeviceManager();
     // 512 is Tracktion's own default, and means "as many channels as the device has" — asked of the OUTPUTS too, since a cue bus leaves by a second pair (docs/cueOutput.md).
-    dm.initialise(512, 512);
+    int inputs = 512;
+#if JUCE_IOS
+    // iOS asks for the microphone the moment inputs open, so the app says whether it may yet (docs/ios.md).
+    if (const char* allowed = std::getenv("STUDIO_ENGINE_INPUTS"); allowed && std::string(allowed) == "0") inputs = 0;
+#endif
+    dm.initialise(inputs, 512);
     // initialise() replays Tracktion's saved setup, which may record from another device than it plays through.
     if (keepInputsOnOutputDevice(dm.deviceManager)) dm.rescanWaveDeviceList();
     // …then onto the buffer this engine asks for, which decides its quality band; after initialise, because there is no device to ask before it.
@@ -1178,10 +1185,21 @@ void callLooper(const char* method, bool self) {
 }  // namespace
 #endif
 
+#if JUCE_IOS
+namespace {
+// quit()'s word to run(): JUCE's stopDispatchLoop on iOS exits the process, the app's own.
+std::atomic<bool> g_quitAsked{false};
+}  // namespace
+#endif
+
 void EngineHost::run() {
 #if JUCE_ANDROID
     // The message loop IS this thread's Looper — JUCE's Handler bound to it — so loop it until quit(). docs/android.md.
     callLooper("loop", false);
+#elif JUCE_IOS
+    // JUCE's queue is this thread's run loop (CFRunLoopGetCurrent on iOS), spun in slices until quit() says. docs/ios.md.
+    while (!g_quitAsked.load() && pumpMessages(100)) {
+    }
 #else
     // NOT runDispatchLoop(): on macOS that is `[NSApp run]`, and NSApp is nil here, so it returns instantly and the engine would exit ~0.3s after binding. docs/design.md.
     while (pumpMessages(100)) {
@@ -1193,6 +1211,8 @@ void EngineHost::quit() {
 #if JUCE_ANDROID
     // Quit the Looper run() spins, from ITS thread: stopDispatchLoop on Android finishes the app's Activity instead.
     juce::MessageManager::callAsync([] { callLooper("quitSafely", true); });
+#elif JUCE_IOS
+    g_quitAsked.store(true);
 #else
     juce::MessageManager::getInstance()->stopDispatchLoop();
 #endif

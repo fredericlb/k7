@@ -98,6 +98,28 @@
         "STUDIO_BUILD_TESTS": "OFF",
         "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
       }
+    },
+    {
+      "name": "ios-arm64",
+      "displayName": "iOS (arm64 device)",
+      "description": "Cross-compiles the engine as a FRAMEWORK, k7runtime.framework, for the iOS app (engine/k7-ios): no iOS app may run a program of its own, so the engine lives in the app's process and serves on a thread whose run loop is JUCE's message loop. Needs a full Xcode. 17.0 is the floor the app sets. No Surge, no VST3/LADSPA hosting, and no tests — they are host programs. docs/ios.md.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_SYSTEM_NAME": "iOS",
+        "CMAKE_OSX_SYSROOT": "iphoneos",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "17.0",
+        "STUDIO_BUILD_TESTS": "OFF",
+        "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
+      }
+    },
+    {
+      "name": "ios-sim-arm64",
+      "displayName": "iOS Simulator (arm64)",
+      "description": "ios-arm64 for the simulator on an Apple Silicon Mac.",
+      "inherits": "ios-arm64",
+      "cacheVariables": { "CMAKE_OSX_SYSROOT": "iphonesimulator" }
     }
   ],
   "buildPresets": [
@@ -108,6 +130,8 @@
     { "name": "windows-msvc",  "configurePreset": "windows-msvc",  "targets": ["k7-runtime"], "configuration": "RelWithDebInfo" },
     { "name": "windows-msvc-ninja", "configurePreset": "windows-msvc-ninja", "targets": ["k7-runtime"] },
     { "name": "macos-clang",   "configurePreset": "macos-clang",   "targets": ["k7-runtime"] },
-    { "name": "android-arm64", "configurePreset": "android-arm64", "targets": ["k7-runtime"] }
+    { "name": "android-arm64", "configurePreset": "android-arm64", "targets": ["k7-runtime"] },
+    { "name": "ios-arm64",     "configurePreset": "ios-arm64",     "targets": ["k7-runtime"] },
+    { "name": "ios-sim-arm64", "configurePreset": "ios-sim-arm64", "targets": ["k7-runtime"] }
   ]
 }

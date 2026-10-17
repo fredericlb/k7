@@ -1,6 +1,7 @@
 // native.ts — the two plugins this app's Kotlin half registers (MainActivity.kt): K7Runtime, the
 // supervisor's channel (EnginePlugin.kt), and AppViews, the full-screen WebViews the studio apps
-// load in over this page (AppViewsPlugin.kt). Typed here once; nothing else calls registerPlugin.
+// load in over this page (AppViewsPlugin.kt). The iOS app's Swift half registers the same two, with the
+// same methods and events (engine/k7-ios/k7/EnginePlugin.swift, AppViews.swift). Typed here once; nothing else calls registerPlugin.
 
 import { type PluginListenerHandle, registerPlugin } from "@capacitor/core";
 import standalone from "../../../../apps/k7/backend/standalone.json";
@@ -50,11 +51,11 @@ interface K7RuntimePlugin {
   command(options: { cmd: string; arg?: string }): Promise<void>;
   /** The active network's IPv4 — what a browser on the LAN dials. */
   lanAddress(): Promise<{ address?: string }>;
-  /** How many CAs are trusted beyond Android's. */
+  /** How many CAs are trusted beyond the platform's set — Android's, or the bundle the iOS app ships. */
   casInfo(): Promise<{ count: number }>;
   /** Pick a certificate file and trust it; resolves once the supervisor has restarted with it. */
   importCa(): Promise<{ said: string; count: number }>;
-  /** Trust Android's CAs only again; resolves once the supervisor has restarted. */
+  /** Trust the platform's set only again; resolves once the supervisor has restarted. */
   forgetCas(): Promise<{ count: number }>;
   /** Leave the app, which stops the supervisor and the engine. */
   quit(): Promise<void>;

@@ -4,6 +4,8 @@
 
 #include "Processes.h"
 
+#include "Platform.h"
+
 #include <algorithm>
 #include <cstdlib>
 #include <initializer_list>
@@ -427,6 +429,10 @@ void killTree(int pid)
 
 Spawned spawn(const SpawnOptions& opts)
 {
+#ifdef K7_IOS
+    // A simulator would let it through; a phone refuses, and the simulator must not promise what the phone cannot do.
+    return {0, "an iOS app cannot start a program: " + opts.program.filename().string()};
+#endif
     int out[2], err[2];
     if (!cloexecPipe(out)) return {0, "pipe failed"};
     if (!cloexecPipe(err)) {
@@ -477,6 +483,9 @@ Spawned spawn(const SpawnOptions& opts)
 
 bool runCapture(const std::filesystem::path& program, const std::vector<std::string>& args, std::string& out)
 {
+#ifdef K7_IOS
+    return false;
+#endif
     int fds[2];
     if (program.empty() || !cloexecPipe(fds)) return false;
     posix_spawn_file_actions_t actions;
@@ -514,6 +523,10 @@ bool runCapture(const std::filesystem::path& program, const std::vector<std::str
 RunResult run(const std::filesystem::path& program, const std::vector<std::string>& args, const std::string& input)
 {
     RunResult r;
+#ifdef K7_IOS
+    r.err = "an iOS app cannot start a program: " + program.filename().string();
+    return r;
+#endif
     int in[2], out[2], err[2];
     if (program.empty() || !cloexecPipe(in)) return r;
     if (!cloexecPipe(out)) {

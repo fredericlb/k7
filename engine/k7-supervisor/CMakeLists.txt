@@ -124,7 +124,7 @@ FetchContent_MakeAvailable(libdatachannel)
 # takes the DirectML package, which stops at 1.24; a platform with no binary builds without separation.
 # Android is one: it is UNIX and aarch64, but the linux-aarch64 build is glibc and loads on no phone.
 set(K7_ORT_URL "")
-if(APPLE AND (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64" OR CMAKE_OSX_ARCHITECTURES STREQUAL "arm64"))
+if(APPLE AND NOT IOS AND (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64" OR CMAKE_OSX_ARCHITECTURES STREQUAL "arm64"))
     set(K7_ORT_URL https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-osx-arm64-1.30.0.tgz)
     set(K7_ORT_HASH 6ebb5062a934537c352937821f9fe9718e7de1a2db1122a93dd363ffd53a7012)
 elseif(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -231,6 +231,18 @@ endfunction()
 add_executable(k7-supervisor src/main.cpp)
 target_link_libraries(k7-supervisor PRIVATE k7_supervisor_core)
 k7_beside_runtime(k7-supervisor)
+
+# iOS runs no program of an app's own: the supervisor is a framework there, k7supervisor.framework, which
+# the app embeds and calls on a thread of its own; the linker folds every archive above into it (engine/k7-runtime/docs/ios.md).
+if(IOS)
+    add_library(k7-supervisor-embedded SHARED src/Embedded.cpp)
+    target_link_libraries(k7-supervisor-embedded PRIVATE k7_supervisor_core)
+    set_target_properties(k7-supervisor-embedded PROPERTIES
+        FRAMEWORK TRUE
+        OUTPUT_NAME k7supervisor
+        MACOSX_FRAMEWORK_IDENTIFIER se.frediver.k7.supervisor
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+endif()
 
 # --- tests: the engine's tiny harness, one binary, no device and no network -----------------------
 enable_testing()

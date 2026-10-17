@@ -12,6 +12,7 @@ are in [supervisorPolicy.md](supervisorPolicy.md).
 |---|---|---|---|---|
 | **under an app** | the desktop app (`apps/k7-standalone`, through `@studio/supervisor-host`) or the phone (`engine/k7-android`) | `<state>/engine-host.json`, changed by the app's commands and saved | the app's protocol ([hostProtocol.md](hostProtocol.md)) | stdin closes — the app went away |
 | **the command-line engine** | `k7-supervisor --config <file>`, a terminal, a service, the server's container | the file, read once and never written | nothing | SIGINT or SIGTERM |
+| **inside the iOS app** | `k7_supervisor_run` on a thread of `engine/k7-ios`, a framework since no iOS app may run a program (`src/Embedded.cpp`) | as under an app | the same protocol, on a pipe of its own: the app's stdout is shared | the command pipe closes |
 
 The config file has the settings' schema (`registryUrls`, `port`, `audioPriority`, `onnxProviders`,
 `instruments`, `deviceTokens`), plus a single `deviceToken` for every studio the file names, and the three keys that otherwise come from the environment — `machineName`,
@@ -201,7 +202,8 @@ for bytes. The state is never freed: the process leaves by `_Exit`.
 
 mbedTLS knows no certificates, so `TrustRoots.cpp` hands it the OS's: the Keychain's anchors and
 every certificate an admin or the user gave trust settings to on macOS, the ROOT stores of the
-user and the machine on Windows, the distribution's bundle on Linux, and `$STUDIO_EXTRA_CA_CERTS`
+user and the machine on Windows, the distribution's bundle on Linux, the bundle the app ships on
+iOS (`$STUDIO_SYSTEM_CA_CERTS`, since iOS lets no app list its roots), and `$STUDIO_EXTRA_CA_CERTS`
 on top. A studio behind a private CA works because that CA is in the OS store, and nowhere else.
 
 A certificate in those stores is not a trusted root by being there. mbedTLS takes every PEM it is

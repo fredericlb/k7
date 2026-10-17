@@ -1,0 +1,6 @@
+# stage.mjs's output and its download cache
+build/
+# Xcode's per-user state
+xcuserdata/
+*.xcuserstate
+DerivedData/

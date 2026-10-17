@@ -1,7 +1,7 @@
-// account.js — run in every studio app's view once its page has loaded (AppViewsPlugin.kt): reports who is signed in,
-// which the bar over the views shows (StudioBridge.kt, `account`). Asked again whenever the page comes back to the front.
+// account.js — run in every studio app's view once its page has loaded (AppViewsPlugin.kt, and AppViews.swift on iOS):
+// reports who is signed in (StudioBridge.kt, `account`). Asked again whenever the page comes back to the front.
 (() => {
-  const bridge = window.k7Android;
+  const bridge = window.k7Android || window.k7Ios;
   if (!bridge || window.__k7Account) return;
   window.__k7Account = true;
 

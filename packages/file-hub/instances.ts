@@ -2,16 +2,19 @@
 // idle. A process rather than a shared service because the file service holds one person's
 // state in module globals (the owner, the pattern clock, the watchers), and a process boundary
 // is the one isolation that cannot be forgotten. The count is CAPPED and a crashing account is
-// held off by a backoff: a start refused throws `Unavailable`, answered 503. See docs/fileHub.md.
+// held off by a backoff: a start refused throws `Unavailable`, answered 503. Where no process may be started
+// (an iOS app), each runs on a worker thread instead, which keeps the same isolation (workerChild.ts). See docs/fileHub.md.
 
-import { type ChildProcess, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { dirname, join, resolve } from "node:path";
+import type { Readable, Writable } from "node:stream";
 import { slugify } from "@studio/engine-client/paths";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
+import { spawnWorker } from "./workerChild.ts";
 
 /** An account's folder name: readable, and unique per EXACT email — a slug alone folds `a.b@` and `a_b@` together. */
 export function accountKey(email: string): string {
@@ -27,7 +30,7 @@ export interface Instance {
   home: string;
   port: number;
   secret: string;
-  child: ChildProcess;
+  child: ServiceChild;
   lastUsed: number;
   /** The engine this instance drives, and the loopback path the tunnel hub bound for it. */
   engineId: string | null;
@@ -68,10 +71,22 @@ const STOP_GRACE_MS = 6_000;
 const STDIN_STOP_ENV = "ELECTRON_SHELL_STDIN_STOP";
 
 /** The part of a child process a stop touches, so a test can hand a fake one. */
-export type Stoppable = Pick<
-  ChildProcess,
-  "exitCode" | "signalCode" | "pid" | "stdin" | "kill" | "once"
->;
+export interface Stoppable {
+  readonly pid?: number | undefined;
+  readonly exitCode: number | null;
+  readonly signalCode: NodeJS.Signals | null;
+  readonly stdin: Writable | null;
+  kill(signal?: NodeJS.Signals | number): boolean;
+  once(event: "exit", listener: (code: number | null) => void): unknown;
+}
+
+/** What the hub holds of a running file service: a child process, or a worker thread shaped like one. */
+export interface ServiceChild extends Stoppable {
+  readonly stdout: Readable | null;
+  readonly stderr: Readable | null;
+  on(event: "exit", listener: (code: number | null) => void): unknown;
+  on(event: "error", listener: (e: Error) => void): unknown;
+}
 
 /** Ask `child` to stop — stdin closed, and SIGTERM where there is one — and kill it if it is still there after `graceMs`. */
 export function stopChild(
@@ -128,12 +143,25 @@ export interface InstancesOptions {
   stopGraceMs?: number;
   /** Tests only: the port a new child is handed, to force the free-port race. */
   pickPort?: () => Promise<number>;
+  /** Run each file service on a worker thread from this plain-JS entry, not as a process; default `threadEntryFromEnv()`. */
+  threadEntry?: string;
+}
+
+/** The bundled entry when `STUDIO_FILE_SERVICE_THREADS` is 1, which a host that may start no process sets. */
+function threadEntryFromEnv(): string | undefined {
+  if (process.env.STUDIO_FILE_SERVICE_THREADS !== "1") return undefined;
+  const entry = process.env.STUDIO_FILE_SERVICE_ENTRY;
+  if (!entry)
+    throw new Error(
+      "STUDIO_FILE_SERVICE_THREADS needs STUDIO_FILE_SERVICE_ENTRY: a thread runs plain JS, not tsx",
+    );
+  return entry;
 }
 
 /** Every child still running, killed by ONE exit hook: a listener per child trips MaxListeners. */
-const children = new Set<ChildProcess>();
+const children = new Set<ServiceChild>();
 let exitHooked = false;
-function adopt(child: ChildProcess): void {
+function adopt(child: ServiceChild): void {
   children.add(child);
   child.once("exit", () => children.delete(child));
   if (exitHooked) return;
@@ -195,7 +223,7 @@ class ForeignPort extends Error {}
 async function waitHealthy(
   port: number,
   secret: string,
-  child: ChildProcess,
+  child: ServiceChild,
   timeoutMs: number,
 ): Promise<void> {
   const end = Date.now() + timeoutMs;
@@ -367,12 +395,11 @@ export class Instances {
       env.MEDIATEK_URL = link.url;
       env.MEDIATEK_TOKEN = link.token;
     }
-    const child = spawn(cmd, args, {
-      cwd,
-      env,
-      // stdin is the stop pipe: closed by `stopChild`, or by the OS when this process dies.
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    const entry = this.opts.threadEntry ?? threadEntryFromEnv();
+    // stdin is the stop pipe either way: closed by `stopChild`, or by the OS when this process dies.
+    const child: ServiceChild = entry
+      ? spawnWorker(entry, env)
+      : spawn(cmd, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
     adopt(child);
     // A child that already exited closed its end first.
     child.stdin?.on("error", () => {});

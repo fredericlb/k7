@@ -19,6 +19,12 @@ browser built — and a process boundary is the one isolation nobody can forget 
 The price is a Node process per **active** account; an instance nobody called for 30 minutes is
 stopped and starts again, in well under a second, on the next request.
 
+**Where no process may be started — the iOS app — each runs on a worker thread instead**
+(`workerChild.ts`, selected by `STUDIO_FILE_SERVICE_THREADS=1`). A worker has module globals of its
+own, which is the isolation the process was for, and its stdin end is still its stop, so the file
+service is the same program either way. It runs the bundled entry, `STUDIO_FILE_SERVICE_ENTRY`,
+since a thread runs plain JS and not tsx (`engine/k7-runtime/docs/ios.md`).
+
 ### Bounded, and held off when it crashes
 
 A Node process per account is the one cost of this design that grows with the user count, so it is

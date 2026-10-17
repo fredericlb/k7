@@ -9,6 +9,7 @@
     "build:win": "node scripts/build.mjs windows-msvc",
     "build:mac": "node scripts/build.mjs macos-clang",
     "build:android": "node scripts/build.mjs android-arm64",
+    "build:ios": "node scripts/build.mjs ios-arm64",
     "gen:builtin-params": "node scripts/gen-builtin-params.mjs && npx biome format --write ../../packages/song-schema/src/builtinParams.generated.ts",
     "gen:strudel-bundle": "node scripts/gen-strudel-bundle.mjs",
     "gen:surge-panel": "node scripts/gen-surge-panel.mjs",
