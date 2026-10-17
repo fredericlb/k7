@@ -116,7 +116,8 @@ Notes for the whole repo — CI, deployment, the dev session — are in `docs/`:
 [dev.md](docs/dev.md) (what `npm run dev` starts), [versioning.md](docs/versioning.md) (the
 hosted image's stamp), [images.md](docs/images.md) (why k7's Dockerfile is staged the way it is),
 [server-engine.md](docs/server-engine.md) (the server's own engine: its image, its null-sink device),
-[publishing.md](docs/publishing.md) (the four packages z0 consumes by version), [desktop-release.md](docs/desktop-release.md) (the OTHER half — the
+[publishing.md](docs/publishing.md) (the four packages z0 consumes by version), [release-scope.md](docs/release-scope.md) (what
+the first release ships with — an invite-only hosted instance — and the hazards that accepts), [desktop-release.md](docs/desktop-release.md) (the OTHER half — the
 packaged app for the three desktops, a rolling snapshot off `main` and a release per `vX.Y.Z`
 tag, the workflow that compiles the C++ engine for them and the Android APK, and `ios.yml`, the unsigned iPhone build),
 and four plan/recipe pages, [platter-plan.md](docs/platter-plan.md) (the DJ deck's
