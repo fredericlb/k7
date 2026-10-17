@@ -127,7 +127,7 @@ U+001F (`kUnitSep`) joins multi-part arguments because no device name contains i
 
 **Audio policy** (`engine/k7-supervisor/src/AudioPolicy.cpp`): the first ranked interface that is present wins; no default, no fallback beyond the list. A switch that did not take is not retried until the device set's signature changes.
 
-**Heartbeat** (`engine/k7-supervisor/src/Registry.cpp`): `POST <registry>/api/registry/heartbeat` to every registry in parallel, with `{id, token, tunnelSecret, hostname, machineFingerprint, port, addresses: {loopback, lanIps, port}, performance, libraryLevel}`. Deregistering sends the secret too, since a bound id cannot be unlisted by its token alone. At most one heartbeat in flight. Each registry's failures are logged once per new reason and then once a minute. LAN IPs exclude loopback, link-local and virtual interfaces (Docker, WSL, VPNs, Tailscale and similar). The fingerprint is `sha256(host|sorted MACs)`, the same as the TypeScript supervisor computed.
+**Heartbeat** (`engine/k7-supervisor/src/Registry.cpp`): `POST <registry>/api/registry/heartbeat` to every registry in parallel, with `{id, token, tunnelSecret, hostname, machineFingerprint, port, addresses: {loopback, lanIps, port}, performance, libraryLevel, protocol, build, safeMode}`. Deregistering sends the secret too, since a bound id cannot be unlisted by its token alone. At most one heartbeat in flight. Each registry's failures are logged once per new reason and then once a minute. LAN IPs exclude loopback, link-local and virtual interfaces (Docker, WSL, VPNs, Tailscale and similar). The fingerprint is `sha256(host|sorted MACs)`, the same as the TypeScript supervisor computed.
 
 ## Tunnels, jobs and WebRTC
 

@@ -181,6 +181,8 @@ add_library(k7_supervisor_core STATIC
     src/HostProtocol.cpp
     src/AudioPolicy.cpp
     src/EngineProcess.cpp
+    src/CrashLoop.cpp
+    src/WireVersion.cpp
     src/EngineQueries.cpp
     src/TrustRoots.cpp
     src/Tls.cpp
@@ -202,6 +204,13 @@ add_library(k7_supervisor_core STATIC
     src/Separation.cpp
     src/Instruments.cpp
     src/Supervisor.cpp)
+# The release stamp the heartbeat and the adoption check use, on its one source alone so a new stamp recompiles one file.
+set(K7_BUILD_STAMP "$ENV{STUDIO_RELEASE_STAMP}")
+string(REGEX REPLACE "[^A-Za-z0-9._-]" "" K7_BUILD_STAMP "${K7_BUILD_STAMP}")
+if(K7_BUILD_STAMP STREQUAL "")
+    set(K7_BUILD_STAMP "dev")
+endif()
+set_source_files_properties(src/WireVersion.cpp PROPERTIES COMPILE_DEFINITIONS "K7_BUILD=\"${K7_BUILD_STAMP}\"")
 # `src` is searched before the system headers, and Windows ignores case: no header here may share a system header's name.
 target_include_directories(k7_supervisor_core PUBLIC src)
 target_link_libraries(k7_supervisor_core PUBLIC nlohmann_json::nlohmann_json ixwebsocket datachannel mbedtls mbedx509 mbedcrypto k7_miniz)
@@ -265,7 +274,8 @@ add_executable(k7_supervisor_tests
     tests/JobSlots_test.cpp
     tests/Log_test.cpp
     tests/Backpressure_test.cpp
-    tests/Http_test.cpp)
+    tests/Http_test.cpp
+    tests/CrashLoop_test.cpp)
 target_include_directories(k7_supervisor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../k7-runtime/tests)
 target_link_libraries(k7_supervisor_tests PRIVATE k7_supervisor_core)
 k7_beside_runtime(k7_supervisor_tests)

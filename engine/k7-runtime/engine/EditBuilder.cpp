@@ -165,7 +165,7 @@ te::Plugin::Ptr makeExternalPlugin(te::Edit& edit, const PluginDoc& p) {
              p.id);
         return {};
     }
-    if (std::string why; loadQuarantined(info->identifier, why)) {
+    if (std::string why; safeModeRefuses(p.name, why) || loadQuarantined(info->identifier, why)) {
         warn(why, p.id);
         return {};
     }

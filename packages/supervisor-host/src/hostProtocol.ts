@@ -84,6 +84,8 @@ export interface Snapshot {
   status: "stopped" | "running" | "error";
   /** Present only when there is one. */
   error?: string;
+  /** Present only while the engine runs without external plugins after quick crashes — engine/k7-supervisor/docs/crashLoop.md. */
+  safeMode?: { crashes: number; suspect: string };
   ownsEngine: boolean;
   userStopped: boolean;
   engineId: string;

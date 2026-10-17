@@ -104,6 +104,32 @@ describe("readHeartbeat", () => {
       'libraryLevel: "two" is no level, left out',
     ]);
   });
+
+  it("keeps the protocol, the build and safe mode a machine states, and cleans odd ones", () => {
+    const kept = readHeartbeat({
+      ...good(),
+      protocol: 2,
+      build: "snapshot-9f2c1ab",
+      safeMode: true,
+    });
+    expect(kept.ok && kept.beat.protocol).toBe(2);
+    expect(kept.ok && kept.beat.build).toBe("snapshot-9f2c1ab");
+    expect(kept.ok && kept.beat.safeMode).toBe(true);
+    const odd = readHeartbeat({
+      ...good(),
+      protocol: "2",
+      build: "a b",
+      safeMode: "yes",
+    });
+    expect(odd.ok && odd.beat.protocol).toBeUndefined();
+    expect(odd.ok && odd.beat.build).toBeUndefined();
+    expect(odd.ok && odd.beat.safeMode).toBeUndefined();
+    expect(odd.ok && odd.beat.cleaned).toEqual([
+      'protocol: "2" is no version, read as 1',
+      'build: "a b" is no stamp, left out',
+      'safeMode: "yes" is no flag, read as false',
+    ]);
+  });
 });
 
 describe("throttledLog", () => {

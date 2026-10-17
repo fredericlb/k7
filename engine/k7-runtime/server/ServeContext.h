@@ -71,6 +71,8 @@ struct ServeContext {
     std::string bootId;
     // Nobody hears this machine's device, so a client should play the broadcast instead (docs/broadcast.md); set by env at boot.
     bool audioToBrowser = false;
+    // The quick crashes that made the supervisor start this engine in safe mode, 0 when it is not in it (docs/crashes.md).
+    int safeModeCrashes = 0;
 
     // Every connected client — for the MACHINE's replies only; a project's go through broadcastTo (docs/protocol.md).
     std::function<void(const nlohmann::json&)> broadcast;

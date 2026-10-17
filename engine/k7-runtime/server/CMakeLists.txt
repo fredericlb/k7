@@ -17,6 +17,7 @@ set(STUDIO_SERVER_SOURCES
     Pairing.cpp
     AudioSender.cpp
     DocJson.cpp
+    WireVersion.cpp
     # The NAM core's objects, on the FINAL link line rather than only inside
     # studio_engine.lib. Its architectures register themselves from a file-scope static
     # that nothing references (see engine/CMakeLists.txt), so as archive members they are
@@ -50,3 +51,11 @@ target_link_libraries(k7-runtime PRIVATE
     studio::engine
     ixwebsocket
     nlohmann_json::nlohmann_json)
+
+# The release stamp `whoami` reports, on its one source alone so a new stamp recompiles one file (packages/engine-protocol/docs/version.md).
+set(K7_BUILD_STAMP "$ENV{STUDIO_RELEASE_STAMP}")
+string(REGEX REPLACE "[^A-Za-z0-9._-]" "" K7_BUILD_STAMP "${K7_BUILD_STAMP}")
+if(K7_BUILD_STAMP STREQUAL "")
+    set(K7_BUILD_STAMP "dev")
+endif()
+set_source_files_properties(WireVersion.cpp PROPERTIES COMPILE_DEFINITIONS "K7_BUILD=\"${K7_BUILD_STAMP}\"")

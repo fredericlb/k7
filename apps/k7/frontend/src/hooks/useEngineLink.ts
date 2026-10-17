@@ -125,6 +125,18 @@ export function useEngineLink(
         placement: "top-right",
       });
     });
+    // Safe mode is said once on entering, naming the plugin it suspects: the project plays, but without its external plugins.
+    const offSafeMode = engine.onSafeMode((safe) => {
+      if (!safe) return;
+      const suspect = safe.diedLoading
+        ? m["engine.safeModeDiedLoading"]({ plugin: safe.diedLoading })
+        : safe.lastPlugin
+          ? m["engine.safeModeLastPlugin"]({ plugin: safe.lastPlugin })
+          : "";
+      const text = `${m["engine.safeMode"]({ crashes: safe.crashes })}${suspect ? ` ${suspect}` : ""}`;
+      pushLog("error", `engine: ${text}`);
+      showToast({ message: text, variant: "error", placement: "top-right" });
+    });
     const offConn = engine.onConnected((c) => {
       connectedRef.current = c;
       setConnected(c);
@@ -158,6 +170,7 @@ export function useEngineLink(
       offPresets();
       offWarning();
       offRestart();
+      offSafeMode();
       offBusy();
       engine.dispose();
     };

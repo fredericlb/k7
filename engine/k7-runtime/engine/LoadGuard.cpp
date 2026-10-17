@@ -1,5 +1,6 @@
-// LoadGuard.cpp — the markers under `<state>/loading/`, the strikes in `<state>/quarantine.json`, and the
-// judgement a starting server makes of what a dead engine left in flight. See LoadGuard.h and docs/crashes.md.
+// LoadGuard.cpp — the markers under `<state>/loading/`, the strikes in `<state>/quarantine.json`, the last
+// plugin each engine loaded under `<state>/last-plugin/`, and the judgement a starting server makes of what
+// a dead engine left behind. Safe mode lives here too, beside the other refusal. See docs/crashes.md.
 
 #include "LoadGuard.h"
 
@@ -40,10 +41,15 @@ struct Entry {
     int strikes = 0;
 };
 
-std::mutex g_mx;   // the map below and quarantine.json
+std::mutex g_mx;   // the map below, quarantine.json and the two names after it
 std::map<std::string, Entry> g_entries;
+std::string g_previousDeath;
+std::string g_previousLast;
+std::atomic<bool> g_safeMode{false};
 
 juce::File markersDir() { return studioStateDir().getChildFile("loading"); }
+// One file per engine process naming the last external plugin it started loading: what a crash after the load is pinned on, as a guess.
+juce::File lastPluginDir() { return studioStateDir().getChildFile("last-plugin"); }
 juce::File quarantineFile() { return studioStateDir().getChildFile("quarantine.json"); }
 
 // What the file IS right now: an update or a replacement changes it, and that lifts a quarantine.
@@ -124,6 +130,10 @@ LoadGuard::LoadGuard(const std::string& kind, const std::string& path) : path_(p
     o->setProperty("path", juce::String(path));
     // Written through, not left in a buffer: the whole point is that it is on disk when the process dies.
     if (!marker_.replaceWithText(juce::JSON::toString(juce::var(o.get())))) marker_ = juce::File();
+    if (kind == "plugin") {
+        lastPluginDir().createDirectory();
+        lastPluginDir().getChildFile(juce::String(ownPid()) + ".txt").replaceWithText(juce::String(path));
+    }
 }
 
 LoadGuard::~LoadGuard() {
@@ -151,8 +161,20 @@ void enableLoadGuards() {
         changed = true;
         std::cerr << "[load-guard] the last engine died loading " << e.kind << " '" << path << "' (strike "
                   << e.strikes << " of " << kStrikesToQuarantine << ")\n";
+        g_previousDeath = path;
     }
     if (changed) save();
+    // The newest file a dead engine left names the plugin it loaded last; a live engine's is its own business.
+    juce::Time newest;
+    for (const auto& f : lastPluginDir().findChildFiles(juce::File::findFiles, false, "*.txt")) {
+        const long pid = f.getFileNameWithoutExtension().getLargeIntValue();
+        if (pid != ownPid() && pidAlive(pid)) continue;
+        if (f.getLastModificationTime() > newest) {
+            newest = f.getLastModificationTime();
+            g_previousLast = f.loadFileAsString().trim().toStdString();
+        }
+        f.deleteFile();
+    }
     g_enabled.store(true);
 }
 
@@ -171,6 +193,26 @@ bool loadQuarantined(const std::string& path, std::string& why) {
           " times it was loaded, so it is not loaded — update or replace it, or delete " +
           quarantineFile().getFullPathName().toStdString() + " to try again";
     return true;
+}
+
+void setSafeMode(bool on) { g_safeMode.store(on); }
+
+bool safeMode() { return g_safeMode.load(); }
+
+bool safeModeRefuses(const std::string& name, std::string& why) {
+    if (!g_safeMode.load()) return false;
+    why = "safe mode: '" + name + "' is not loaded — the engine kept crashing, so it runs without external plugins until it is restarted";
+    return true;
+}
+
+std::string previousLoadDeath() {
+    std::lock_guard<std::mutex> lk(g_mx);
+    return g_previousDeath;
+}
+
+std::string previousLastPlugin() {
+    std::lock_guard<std::mutex> lk(g_mx);
+    return g_previousLast;
 }
 
 }  // namespace studio

@@ -32,6 +32,7 @@ constexpr int kSetDeviceMs = 8000;
 constexpr int kEditPluginsMs = 6000;
 constexpr int kSessionsMs = 6000;
 constexpr int kPairingMs = 4000;
+constexpr int kWhoamiMs = 4000;
 
 std::string lower(std::string s)
 {
@@ -213,6 +214,14 @@ EngineQueries::~EngineQueries()
 void EngineQueries::close()
 {
     worker_->enqueue([w = worker_] { w->drop(); });
+}
+
+void EngineQueries::whoami(Reply<json> done)
+{
+    worker_->enqueue([w = worker_, &loop = loop_, done = std::move(done)] {
+        auto msg = w->request({{"type", "whoami"}}, "whoami", kWhoamiMs);
+        loop.post([done, msg] { done(msg); });
+    });
 }
 
 void EngineQueries::listAudioDevices(Reply<std::vector<AudioDevice>> done)

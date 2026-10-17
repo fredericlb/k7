@@ -27,6 +27,9 @@ public:
     /** Drop the connection (the engine stopped); the next call redials. */
     void close();
 
+    /** The engine's `whoami` reply as it came — its protocol, build and safe mode; null means it did not answer. */
+    void whoami(Reply<nlohmann::json> done);
+
     /** The interfaces the engine offers; null means it did not answer. */
     void listAudioDevices(Reply<std::vector<protocol::AudioDevice>> done);
 

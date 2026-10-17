@@ -536,6 +536,16 @@ std::string studioStatePath();
 // Judge what a previous engine left loading, then mark every risky load from here on — the server's, before anything loads (LoadGuard.h).
 void enableLoadGuards();
 
+// Refuse every external plugin for this process's life: what the supervisor asks after quick crashes (docs/crashes.md).
+void setSafeMode(bool on);
+bool safeMode();
+
+// The file the previous engine died loading, judged by enableLoadGuards; empty when it died elsewhere.
+std::string previousLoadDeath();
+
+// The last external plugin the previous engine started loading, whether or not the load returned; empty when none.
+std::string previousLastPlugin();
+
 // Decode one file to stdout — a JSON header line, then interleaved float32 frames; what is measured from them is @studio/audio-analysis's. docs/cliModes.md.
 int decodeToStdout(const std::string& audioPath);
 

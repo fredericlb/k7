@@ -209,7 +209,7 @@ int appPid()
 }
 }  // namespace
 
-StartResult start(const EngineIdentity& identity, int port, const std::string& origins)
+StartResult start(const EngineIdentity& identity, int port, const std::string& origins, int safeModeCrashes)
 {
     std::error_code ec;
     fs::create_directories(paths::studioDir(), ec);
@@ -220,7 +220,7 @@ StartResult start(const EngineIdentity& identity, int port, const std::string& o
         return {StartKind::Adopted, app};
     }
     protocol::emit({{"t", "engine"}, {"action", "start"}, {"id", identity.id}, {"token", identity.token},
-                    {"port", port}, {"host", "0.0.0.0"}, {"origins", origins}});
+                    {"port", port}, {"host", "0.0.0.0"}, {"origins", origins}, {"safeMode", safeModeCrashes}});
     const auto until = std::chrono::steady_clock::now() + kAppStartBound;
     while (!isServing(port)) {
         if (std::chrono::steady_clock::now() > until)
@@ -240,7 +240,7 @@ void stop()
     fs::remove(paths::enginePid(), ec);
 }
 #else
-StartResult start(const EngineIdentity& identity, int port, const std::string& origins)
+StartResult start(const EngineIdentity& identity, int port, const std::string& origins, int safeModeCrashes)
 {
     if (running()) {
         // A pid is not an identity, so the PORT is asked too — here, where a wrong answer costs a spare engine.
@@ -294,7 +294,9 @@ StartResult start(const EngineIdentity& identity, int port, const std::string& o
     opts.env = {{"STUDIO_ENGINE_HOST", "0.0.0.0"},
                 {"STUDIO_ENGINE_ID", identity.id},
                 {"STUDIO_ENGINE_TOKEN", identity.token},
-                {"STUDIO_ENGINE_ALLOWED_ORIGINS", origins}};
+                {"STUDIO_ENGINE_ALLOWED_ORIGINS", origins},
+                // Always set, so a value in the supervisor's own environment never puts a normal start in safe mode.
+                {"STUDIO_ENGINE_SAFE_MODE", std::to_string(safeModeCrashes)}};
     opts.onLine = [](const std::string& line, bool) { log::line("engine", line); };
     opts.onExit = [](int pid) {
         std::lock_guard lock(ownedMutex);
@@ -310,7 +312,8 @@ StartResult start(const EngineIdentity& identity, int port, const std::string& o
     auto rec = pidfile::recordOf(spawned.pid);
     if (rec.exe.empty()) rec.exe = paths::utf8(*bin);
     pidfile::write(rec);
-    log::host("engine started (pid " + std::to_string(spawned.pid) + ") on :" + std::to_string(port));
+    log::host("engine started (pid " + std::to_string(spawned.pid) + ") on :" + std::to_string(port) +
+              (safeModeCrashes > 0 ? " in safe mode" : ""));
     return {StartKind::Spawned, spawned.pid};
 }
 

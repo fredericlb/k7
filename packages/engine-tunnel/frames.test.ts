@@ -6,9 +6,11 @@ import { describe, expect, it } from "vitest";
 import type { WebSocket } from "ws";
 import {
   asBinaryHeader,
+  binaryFrameType,
   decodeBinary,
   encodeBinary,
   parseAgentMessage,
+  textFrameType,
 } from "./frames.ts";
 import { HubTunnel } from "./hubTunnel.ts";
 
@@ -22,7 +24,7 @@ const rawBinary = (header: string, payload = "x"): Buffer => {
 };
 
 /** A hub tunnel over a socket that only records what it is sent. */
-function fakeTunnel() {
+function fakeTunnel(log: (msg: string) => void = () => {}) {
   const ws = Object.assign(new EventEmitter(), {
     readyState: 1,
     sent: [] as unknown[],
@@ -33,7 +35,7 @@ function fakeTunnel() {
       this.readyState = 3;
     },
   });
-  const t = new HubTunnel("e1", ws as unknown as WebSocket, () => {});
+  const t = new HubTunnel("e1", ws as unknown as WebSocket, log);
   return { ws, t };
 }
 
@@ -104,6 +106,38 @@ describe("a hub tunnel fed garbage", () => {
     const { ws } = fakeTunnel();
     expect(() => ws.emit("message", rawBinary("null"), true)).not.toThrow();
     expect(() => ws.emit("message", Buffer.from([0, 0]), true)).not.toThrow();
+    expect(ws.readyState).toBe(1);
+  });
+});
+
+describe("the type of a frame nobody reads", () => {
+  it("names a text frame by its `t`, or says why it has none", () => {
+    expect(textFrameType('{"t":"future"}')).toBe("future");
+    expect(textFrameType('{"x":1}')).toBe("(no type)");
+    expect(textFrameType("[]")).toBe("(not a JSON object)");
+    expect(textFrameType("nope")).toBe("(not JSON)");
+  });
+
+  it("names a binary frame by its header's `t`", () => {
+    expect(binaryFrameType(rawBinary('{"t":"later"}'))).toBe("later");
+    expect(binaryFrameType(Buffer.from([0, 0]))).toBe("(too short)");
+    expect(binaryFrameType(Buffer.from([0, 0, 0, 9, 1]))).toBe(
+      "(header past the end)",
+    );
+  });
+
+  it("is logged once per type by the hub, never once per frame", () => {
+    const lines: string[] = [];
+    const { ws } = fakeTunnel((m) => lines.push(m));
+    for (let i = 0; i < 3; i++) {
+      ws.emit("message", Buffer.from('{"t":"future","ch":1}'), false);
+      ws.emit("message", rawBinary('{"t":"later"}'), true);
+    }
+    ws.emit("message", Buffer.from('{"t":"other"}'), false);
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toContain("'future'");
+    expect(lines[1]).toContain("'later'");
+    expect(lines[2]).toContain("'other'");
     expect(ws.readyState).toBe(1);
   });
 });

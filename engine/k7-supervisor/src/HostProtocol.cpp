@@ -25,6 +25,7 @@ ojson stateFrame(const Snapshot& s)
     f["owns"] = {{"engine", true}, {"engineQueries", true}};
     f["status"] = s.status;
     if (!s.error.empty()) f["error"] = s.error;
+    if (s.safeMode) f["safeMode"] = {{"crashes", s.safeMode->crashes}, {"suspect", s.safeMode->suspect}};
     f["ownsEngine"] = s.ownsEngine;
     f["userStopped"] = s.userStopped;
     f["engineId"] = s.engineId;

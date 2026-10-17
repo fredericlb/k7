@@ -28,6 +28,7 @@ export type {
 export type {
   EnginePluginInfo,
   EnginePluginParam,
+  EngineSafeMode,
   EngineWarning,
   InstrumentStatusCb,
   PairedDevice,

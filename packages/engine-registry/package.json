@@ -17,6 +17,7 @@
   "dependencies": {
     "@frediverse/http": "*",
     "@studio/engine-client": "*",
+    "@studio/engine-protocol": "*",
     "@studio/engine-tunnel": "*",
     "@studio/web-protocol": "*",
     "express": "^4.19.2",

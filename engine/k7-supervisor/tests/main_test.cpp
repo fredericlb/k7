@@ -21,6 +21,7 @@ void runJobSlotsTests();
 void runLogTests();
 void runBackpressureTests();
 void runHttpTests();
+void runCrashLoopTests();
 
 int main()
 {
@@ -42,5 +43,6 @@ int main()
     runLogTests();
     runBackpressureTests();
     runHttpTests();
+    runCrashLoopTests();
     TEST_MAIN_END();
 }

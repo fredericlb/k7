@@ -41,7 +41,10 @@ and finds a marker left by a process that is gone knows the last engine died ins
 Covered: instantiating an external plugin, handing it a `.vstpreset`, opening its editor, describing
 or creating it for a parameter list or an orphan window, loading an amp model and its prewarm, and
 loading an SFZ instrument. Not covered: a plugin crashing later, in `prepareToPlay` or on the audio
-thread — by then several plugins are live, and a crash cannot be pinned on one.
+thread — by then several plugins are live, and a crash cannot be pinned on one. That loop is the
+supervisor's to end: after three quick crashes it starts the engine in **safe mode**, which loads no
+external plugin, and the engine names the plugin it loaded last as the likeliest culprit
+(`engine/k7-supervisor/docs/crashLoop.md`).
 
 **Two strikes, not one.** A kill by the supervisor or a power cut in the middle of a load leaves the
 same marker as a crash, and refusing a good plugin for that would be worse than the loop. The first

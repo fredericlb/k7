@@ -6,6 +6,7 @@
 
 #include "Addresses.h"
 #include "AudioPolicy.h"
+#include "CrashLoop.h"
 #include "EngineProcess.h"
 #include "EngineQueries.h"
 #include "HostLock.h"
@@ -19,6 +20,7 @@
 #include "TrustRoots.h"
 #include "TunnelAgent.h"
 #include "Url.h"
+#include "WireVersion.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -39,7 +41,6 @@ using Ms = Loop::Ms;
 constexpr int kLibraryLevel = 1;
 constexpr Ms kHeartbeat{5000};
 constexpr Ms kWatch{2000};
-constexpr int kBackoffMaxS = 30;
 constexpr Ms kDevicesPoll{10000};
 constexpr Ms kEditPluginsPoll{3000};
 constexpr Ms kSessionsPoll{2000};
@@ -72,8 +73,10 @@ struct Supervisor::Impl {
     std::optional<nlohmann::json> performance;
     bool shuttingDown = false;
     bool starting = false;
-    int backoff = 1;
-    Clock::time_point backoffUntil{};
+    /** When an engine that died is started again, and whether in safe mode (docs/crashLoop.md). */
+    CrashLoop crashes;
+    /** An adopted engine of another protocol or build was replaced once: never twice, or one that cannot be killed loops. */
+    bool replacedAdopted = false;
     /** The last automatic switch asked for; a failing one is retried only once the device set moves. */
     std::optional<std::pair<std::string, std::string>> lastAttempt;
     std::vector<std::uint64_t> timers;
@@ -140,8 +143,8 @@ struct Supervisor::Impl {
 
     // --- the engine ---------------------------------------------------------------------------------
 
-    /** Spawn or adopt, off the loop; `done(up)` back on it. */
-    void startEngine(std::function<void(bool)> done)
+    /** Spawn or adopt, off the loop, in safe mode when `safeModeCrashes` > 0; `done(up)` back on it. */
+    void startEngine(std::function<void(bool)> done, int safeModeCrashes = 0)
     {
         snap.userStopped = false;
         starting = true;
@@ -149,8 +152,8 @@ struct Supervisor::Impl {
         const int port = settings.port;
         // The studios it is listed at may open it from their pages; one added later counts from the next start.
         const std::string origins = engine::allowedOrigins(registryUrls);
-        loop.work<engine::StartResult>([id, port, origins] { return engine::start(id, port, origins); },
-                                       [this, done](engine::StartResult r) {
+        loop.work<engine::StartResult>([id, port, origins, safeModeCrashes] { return engine::start(id, port, origins, safeModeCrashes); },
+                                       [this, done, safeModeCrashes](engine::StartResult r) {
                                            starting = false;
                                            switch (r.kind) {
                                                case engine::StartKind::Spawned:
@@ -174,14 +177,73 @@ struct Supervisor::Impl {
                                            }
                                            // The app shows the error; the log is what is still there tomorrow.
                                            if (snap.status == "error") log::host("engine did not start: " + snap.error);
+                                           const bool up = snap.status == "running";
+                                           if (up) {
+                                               crashes.started(Clock::now());
+                                               // Spawned in safe mode, or not; an adopted engine is whatever it was, which whoami says.
+                                               if (r.kind == engine::StartKind::Spawned && safeModeCrashes > 0)
+                                                   snap.safeMode = protocol::SafeMode{safeModeCrashes, ""};
+                                               else
+                                                   snap.safeMode.reset();
+                                               inspectEngine(r.kind == engine::StartKind::Adopted);
+                                           }
                                            publish();
-                                           if (done) done(snap.status == "running");
+                                           if (done) done(up);
                                        });
+    }
+
+    /** Ask the engine now up what it is: an adopted one of another version, or in safe mode, is replaced; a safe one names its suspect. */
+    void inspectEngine(bool adopted)
+    {
+        engine->whoami([this, adopted](std::optional<nlohmann::json> w) {
+            if (!w || snap.status != "running") return;
+            const auto& who = *w;
+            const auto safe = who.find("safeMode");
+            const bool isSafe = safe != who.end() && safe->is_object();
+            // An engine older than the fields speaks protocol 1 and has no stamp, which no build of ours matches.
+            const auto p = who.find("protocol");
+            const int theirs = p != who.end() && p->is_number_integer() ? p->get<int>() : 1;
+            const auto b = who.find("build");
+            const std::string build = b != who.end() && b->is_string() ? b->get<std::string>() : "";
+            const bool foreign = theirs != wire::kEngineProtocol || build != wire::build();
+            // A new supervisor is a way out of safe mode, so the safe engine it finds goes too.
+            if (adopted && !replacedAdopted && (foreign || isSafe)) {
+                replacedAdopted = true;
+                log::host(foreign ? "the engine already running speaks protocol " + std::to_string(theirs) + ", build '" + build +
+                                        "'; this supervisor speaks " + std::to_string(wire::kEngineProtocol) + ", build '" +
+                                        wire::build() + "' — replacing it"
+                                  : "the engine already running is in safe mode — replacing it with a normal one");
+                engine::stop();
+                engine->close();
+                snap.ownsEngine = false;
+                snap.status = "error";
+                snap.error = "replacing the engine already running…";
+                snap.safeMode.reset();
+                publish();
+                startEngine(nullptr);
+                return;
+            }
+            if (!isSafe) return;
+            auto mode = snap.safeMode.value_or(protocol::SafeMode{});
+            const auto n = safe->find("crashes");
+            if (n != safe->end() && n->is_number_integer()) mode.crashes = n->get<int>();
+            // The file it died loading is certain; the plugin it loaded last is only the likeliest.
+            for (const char* key : {"diedLoading", "lastPlugin"}) {
+                const auto f = safe->find(key);
+                if (mode.suspect.empty() && f != safe->end() && f->is_string()) mode.suspect = f->get<std::string>();
+            }
+            snap.safeMode = mode;
+            log::host("engine in safe mode" + (mode.suspect.empty() ? std::string() : "; the plugin it names is " + mode.suspect));
+            publish();
+        });
     }
 
     void stopEngine()
     {
         snap.userStopped = true;
+        // A stop is the user's word: whatever the crashes were, the next start is a normal one.
+        crashes.reset();
+        snap.safeMode.reset();
         // Only an engine we OWN is killed; a foreign one is never stopped from here.
         if (snap.ownsEngine) engine::stop();
         snap.ownsEngine = false;
@@ -204,28 +266,31 @@ struct Supervisor::Impl {
         publish();
     }
 
-    /** Relaunch an engine that died unasked; a dead process is nobody's, so ownership is not checked. */
+    /** Relaunch an engine that died unasked, backing off and then in safe mode when it keeps dying (docs/crashLoop.md). */
     void crashWatch()
     {
         if (shuttingDown || snap.userStopped) {
-            backoff = 1;
+            crashes.reset();
             return;
         }
-        if (snap.status == "stopped" || starting) return;
-        if (engine::running()) {
-            backoff = 1;
-            return;
+        if (snap.status == "stopped" || starting || engine::running()) return;
+        const auto now = Clock::now();
+        if (crashes.up()) {
+            crashes.died(now);
+            log::host("engine is gone (" + std::to_string(crashes.quickCrashes()) + " quick crash(es) in a row)");
+            snap.status = "error";
+            snap.error = "engine exited — restarting…";
+            publish();
         }
-        if (Clock::now() < backoffUntil) return;
-        log::host("engine is gone — relaunching");
-        snap.status = "error";
-        snap.error = "engine exited — restarting…";
-        publish();
+        if (!crashes.due(now)) return;
+        // In safe mode the count says how many crashes put it there, never less, even after a long run.
+        const int safe = crashes.safeMode() ? std::max(crashes.quickCrashes(), CrashLoop::kSafeModeAfter) : 0;
+        log::host(safe ? "relaunching the engine in SAFE MODE: no external plugin will load until it is restarted by hand"
+                       : "relaunching the engine");
+        // A dead process is nobody's, so ownership is not checked.
         startEngine([this](bool up) {
-            if (up) return;
-            backoffUntil = Clock::now() + std::chrono::seconds(backoff);
-            backoff = std::min(backoff * 2, kBackoffMaxS);
-        });
+            if (!up) crashes.startFailed(Clock::now());
+        }, safe);
     }
 
     // --- engine queries -----------------------------------------------------------------------------
@@ -589,6 +654,10 @@ struct Supervisor::Impl {
         auto p = addresses::presence(settings.port);
         if (performance) p["performance"] = *performance;
         p["libraryLevel"] = kLibraryLevel;
+        // The wire's version and the stamp, beside the library level and distinct from it: what the hub and the picker compare.
+        p["protocol"] = wire::kEngineProtocol;
+        p["build"] = wire::build();
+        if (snap.safeMode) p["safeMode"] = true;
         return p;
     }
 
@@ -776,6 +845,8 @@ struct Supervisor::Impl {
     {
         const auto& c = cmd.cmd;
         if (c == "engine.start") {
+            // Asked by the user, so a normal start whatever the crashes were: the way out of safe mode.
+            crashes.reset();
             startEngine([this, cmd](bool up) { reply(cmd.id, up, snap.error); });
         } else if (c == "engine.stop") {
             stopEngine();

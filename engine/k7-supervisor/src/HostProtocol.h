@@ -96,10 +96,17 @@ struct InstrumentRow {
     bool installed = false;
 };
 
+/** The engine runs without external plugins after `crashes` quick crashes; `suspect` is the plugin it names, if any (docs/crashLoop.md). */
+struct SafeMode {
+    int crashes = 0;
+    std::string suspect;
+};
+
 /** The whole of what an app draws. */
 struct Snapshot {
     std::string status = "stopped";  // "stopped" | "running" | "error"
     std::string error;
+    std::optional<SafeMode> safeMode;
     bool ownsEngine = false;
     bool userStopped = false;
     std::string engineId;

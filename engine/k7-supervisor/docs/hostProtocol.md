@@ -53,6 +53,10 @@ and `pair.revoke <deviceId>` are the commands that act on them; each is followed
 so the row leaves the window with the click. The supervisor sees only names, addresses and codes —
 the key an approved device receives goes from the engine to that device and nowhere else.
 
+`safeMode` is ABSENT unless the engine runs without external plugins after quick crashes; it carries
+the count and the plugin the engine names as the suspect, empty until the engine answered
+(`docs/crashLoop.md`).
+
 `owns` is always both-true: every subsystem it names is the supervisor's. It stays on the wire
 because the app still reads it, and removing a field the other side reads is a two-sided change.
 
@@ -65,7 +69,7 @@ sends `<session>\x1f<id>`. An empty `audio.priority` is meaningful — rank noth
 
 ## One frame only Android sends
 
-`{"t":"engine","action":"start","id","token","port","host"}` and `{"t":"engine","action":"stop"}`.
+`{"t":"engine","action":"start","id","token","port","host","origins","safeMode"}` and `{"t":"engine","action":"stop"}`.
 On Android the engine is a library in the app that spawned the supervisor, so `EngineProcess.cpp`
 cannot start or kill it and asks the app instead (`engine/k7-runtime/docs/android.md`). The desktop
 build never emits it, which is why the desktop app has no reader for it.

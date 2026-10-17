@@ -113,6 +113,8 @@ jobs:
         env:
           STUDIO_ENGINE_PRESET: ${{ inputs.preset }}
           STUDIO_SUPERVISOR_PRESET: ${{ inputs.preset }}
+          # Compiled into the engine's and the supervisor's `build` — packages/engine-protocol/docs/version.md.
+          STUDIO_RELEASE_STAMP: ${{ inputs.stamp }}
           STUDIO_FETCHCONTENT_DIR: ${{ runner.temp }}/k7-fetch
           # Read by the presets, not CMAKE_<LANG>_COMPILER_LAUNCHER: that one reaches JUCE's nested juceaide build too.
           STUDIO_COMPILER_LAUNCHER: ${{ steps.cache.outcome == 'success' && 'sccache' || '' }}

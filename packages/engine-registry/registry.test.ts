@@ -417,3 +417,30 @@ describe("the performance rating", () => {
     expect(byId.get("older")?.performance).toBeUndefined();
   });
 });
+
+describe("the engine wire's version in the list", () => {
+  it("reads a supervisor that states none as protocol 1, and passes on what one states", () => {
+    const reg = createRegistry();
+    beat(reg, "old");
+    reg.upsert({
+      id: "new",
+      token: "tok-new",
+      hostname: "new",
+      machineFingerprint: "fp-new",
+      addresses: { loopback: "127.0.0.1", lanIps: [], port: 8765 },
+      protocol: 1,
+      build: "v1.2.3",
+      safeMode: true,
+    });
+    const rows = new Map(reg.list().map((e) => [e.id, e]));
+    expect(rows.get("old")?.protocol).toBe(1);
+    expect(rows.get("old")?.build).toBeUndefined();
+    expect(rows.get("old")?.outdated).toBeUndefined();
+    expect(rows.get("new")).toMatchObject({
+      protocol: 1,
+      build: "v1.2.3",
+      safeMode: true,
+    });
+    expect(rows.get("new")?.outdated).toBeUndefined();
+  });
+});

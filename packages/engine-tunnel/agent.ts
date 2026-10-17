@@ -4,19 +4,23 @@
 // waiting on a download is never overtaken by the one after it. See docs/tunnel.md.
 
 import { join } from "node:path";
+import { ENGINE_PROTOCOL } from "@studio/engine-protocol/version";
 import { WebSocket } from "ws";
 import { FileRequests } from "./agentFiles.ts";
 import {
   asBuffer,
+  binaryFrameType,
   type ChannelKind,
   decodeBinary,
   encodeBinary,
   type HubMessage,
   TUNNEL_PATH,
+  TUNNEL_PROTOCOL_HEADER,
   TUNNEL_RENDER_KEY_HEADER,
   TUNNEL_SECRET_HEADER,
   TUNNEL_TOKEN_HEADER,
   type TunnelRoot,
+  textFrameType,
 } from "./frames.ts";
 import { PathMap, SyncLedger } from "./pathMap.ts";
 import { answerOffer } from "./rtc.ts";
@@ -37,6 +41,8 @@ export interface TunnelAgentOptions {
   iceServers?: string[];
   /** What this machine does when asked on a jobs channel, by request `type` — docs/jobs.md. */
   jobs?: Record<string, JobHandler>;
+  /** The engine wire's version stated on the upgrade; ENGINE_PROTOCOL unless a test plays an older machine. */
+  protocol?: number;
   log?: (msg: string) => void;
 }
 
@@ -93,6 +99,8 @@ export class TunnelAgent {
   private readonly ledger = new SyncLedger();
   private readonly files = new FileRequests(() => this.ws);
   private readonly log: (msg: string) => void;
+  /** The frame types already said to be ignored: one line per type, never one per frame. */
+  private readonly ignored = new Set<string>();
   /** Whether the hub accepted us last time; the supervisor shows it. */
   connected = false;
 
@@ -116,6 +124,7 @@ export class TunnelAgent {
     const ws = new WebSocket(tunnelUrl(this.opts.registryUrl, this.opts.id), {
       headers: {
         [TUNNEL_TOKEN_HEADER]: this.opts.token,
+        [TUNNEL_PROTOCOL_HEADER]: String(this.opts.protocol ?? ENGINE_PROTOCOL),
         ...(this.opts.tunnelSecret
           ? { [TUNNEL_SECRET_HEADER]: this.opts.tunnelSecret }
           : {}),
@@ -169,14 +178,28 @@ export class TunnelAgent {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(m));
   }
 
+  /** A frame this agent does not read, said once per type: a hub newer than the machine shows in the log. */
+  private ignore(kind: "text" | "binary", type: string): void {
+    const key = `${kind}:${type}`;
+    if (this.ignored.has(key)) return;
+    this.ignored.add(key);
+    this.log(
+      `ignored a ${kind} frame of type '${type}' from ${this.opts.registryUrl} — this machine does not read it`,
+    );
+  }
+
   private onText(text: string): void {
     let m: HubMessage;
     try {
       m = JSON.parse(text);
     } catch {
+      this.ignore("text", textFrameType(text));
       return;
     }
-    if (typeof m !== "object" || m === null) return;
+    if (typeof m !== "object" || m === null) {
+      this.ignore("text", textFrameType(text));
+      return;
+    }
     switch (m.t) {
       case "open":
         this.openChannel(m.ch, m.roots, m.kind ?? "engine", m.synced ?? false);
@@ -200,6 +223,8 @@ export class TunnelAgent {
       case "rtc-offer":
         this.answer(m.req, m.sdp);
         break;
+      default:
+        this.ignore("text", textFrameType(text));
     }
   }
 
@@ -216,10 +241,14 @@ export class TunnelAgent {
 
   private onBinary(frame: Buffer): void {
     const d = decodeBinary(frame);
-    if (!d) return;
+    if (!d) {
+      this.ignore("binary", binaryFrameType(frame));
+      return;
+    }
     if (d.header.t === "chunk")
       this.files.onChunk(d.header.req, d.header.last, d.payload);
     else if (d.header.t === "data") this.toEngine(d.header.ch, d.payload, true);
+    else this.ignore("binary", d.header.t);
   }
 
   private openChannel(
