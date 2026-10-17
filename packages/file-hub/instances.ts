@@ -3,19 +3,31 @@
 // state in module globals (the owner, the pattern clock, the watchers), and a process boundary
 // is the one isolation that cannot be forgotten. The count is CAPPED and a crashing account is
 // held off by a backoff: a start refused throws `Unavailable`, answered 503. Where no process may be started
-// (an iOS app), each runs on a worker thread instead, which keeps the same isolation (workerChild.ts). See docs/fileHub.md.
+// (an iOS app), each runs on a worker thread instead, which keeps the same isolation (workerChild.ts).
+// How a child is started and stopped is serviceChild.ts. See docs/fileHub.md.
 
-import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
-import { createRequire } from "node:module";
 import { createServer } from "node:net";
-import { dirname, join, resolve } from "node:path";
-import type { Readable, Writable } from "node:stream";
+import { join, resolve } from "node:path";
 import { slugify } from "@studio/engine-client/paths";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
+import { instanceCap } from "./capacity.ts";
+import {
+  defaultCommand,
+  type ServiceChild,
+  STDIN_STOP_ENV,
+  spawnService,
+  stopChild,
+  threadEntryFromEnv,
+} from "./serviceChild.ts";
 import { serviceEnv } from "./serviceEnv.ts";
-import { spawnWorker } from "./workerChild.ts";
+
+export {
+  type ServiceChild,
+  type Stoppable,
+  stopChild,
+} from "./serviceChild.ts";
 
 /** An account's folder name: readable, and unique per EXACT email — a slug alone folds `a.b@` and `a_b@` together. */
 export function accountKey(email: string): string {
@@ -57,8 +69,6 @@ export class Unavailable extends Error {
   }
 }
 
-/** Running instances at most, unless `STUDIO_MAX_FILE_SERVICES` says otherwise. */
-const MAX_INSTANCES = 50;
 /** An instance nobody called for this long may be stopped to make room for another account. */
 const EVICT_IDLE_MS = 2 * 60_000;
 /** The first and the longest wait before a crashed account's service is started again. */
@@ -66,57 +76,6 @@ const BACKOFF_MIN_MS = 1_000;
 const BACKOFF_MAX_MS = 60_000;
 /** A service that ran this long before it exited starts its backoff over. */
 const HEALTHY_MS = 60_000;
-/** A service asked to stop gets this long before it is killed: past its own 5 s grace (packages/file-service/docs/shutdown.md). */
-const STOP_GRACE_MS = 6_000;
-/** Read by the file service: the end of its stdin is its stop, the only graceful one Windows has. */
-const STDIN_STOP_ENV = "ELECTRON_SHELL_STDIN_STOP";
-
-/** The part of a child process a stop touches, so a test can hand a fake one. */
-export interface Stoppable {
-  readonly pid?: number | undefined;
-  readonly exitCode: number | null;
-  readonly signalCode: NodeJS.Signals | null;
-  readonly stdin: Writable | null;
-  kill(signal?: NodeJS.Signals | number): boolean;
-  once(event: "exit", listener: (code: number | null) => void): unknown;
-}
-
-/** What the hub holds of a running file service: a child process, or a worker thread shaped like one. */
-export interface ServiceChild extends Stoppable {
-  readonly stdout: Readable | null;
-  readonly stderr: Readable | null;
-  on(event: "exit", listener: (code: number | null) => void): unknown;
-  on(event: "error", listener: (e: Error) => void): unknown;
-}
-
-/** Ask `child` to stop — stdin closed, and SIGTERM where there is one — and kill it if it is still there after `graceMs`. */
-export function stopChild(
-  child: Stoppable,
-  graceMs = STOP_GRACE_MS,
-  win = process.platform === "win32",
-): Promise<void> {
-  if (
-    child.pid === undefined ||
-    child.exitCode !== null ||
-    child.signalCode !== null
-  )
-    return Promise.resolve();
-  return new Promise((res) => {
-    const timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      // An exit that never comes must not hold the caller's own stop.
-      setTimeout(res, 1_000);
-    }, graceMs);
-    child.once("exit", () => {
-      clearTimeout(timer);
-      res();
-    });
-    child.stdin?.end();
-    // On Windows a kill is TerminateProcess: only the stdin pipe asks.
-    if (!win) child.kill("SIGTERM");
-  });
-}
-
 export interface InstancesOptions {
   /** Every account's state lives under here, one folder per account. */
   dataRoot: string;
@@ -134,7 +93,7 @@ export interface InstancesOptions {
   keep?: (slug: string) => boolean;
   /** Told when an instance is gone, for the binding it held. */
   onExit?: (inst: Instance) => void;
-  /** The cap on instances; default `STUDIO_MAX_FILE_SERVICES`, else MAX_INSTANCES. */
+  /** The cap on instances; default `instanceCap()`, from `STUDIO_MAX_FILE_SERVICES` or the memory limit. */
   maxInstances?: number;
   evictIdleMs?: number;
   backoffMinMs?: number;
@@ -146,65 +105,6 @@ export interface InstancesOptions {
   pickPort?: () => Promise<number>;
   /** Run each file service on a worker thread from this plain-JS entry, not as a process; default `threadEntryFromEnv()`. */
   threadEntry?: string;
-}
-
-/** The bundled entry when `STUDIO_FILE_SERVICE_THREADS` is 1, which a host that may start no process sets. */
-function threadEntryFromEnv(): string | undefined {
-  if (process.env.STUDIO_FILE_SERVICE_THREADS !== "1") return undefined;
-  const entry = process.env.STUDIO_FILE_SERVICE_ENTRY;
-  if (!entry)
-    throw new Error(
-      "STUDIO_FILE_SERVICE_THREADS needs STUDIO_FILE_SERVICE_ENTRY: a thread runs plain JS, not tsx",
-    );
-  return entry;
-}
-
-/** Every child still running, killed by ONE exit hook: a listener per child trips MaxListeners. */
-const children = new Set<ServiceChild>();
-let exitHooked = false;
-function adopt(child: ServiceChild): void {
-  children.add(child);
-  child.once("exit", () => children.delete(child));
-  if (exitHooked) return;
-  exitHooked = true;
-  // An orphan would keep its port and its engine link after the hub is gone.
-  process.once("exit", () => {
-    for (const c of children) c.kill();
-  });
-}
-
-function maxFromEnv(): number {
-  const n = Number(process.env.STUDIO_MAX_FILE_SERVICES);
-  return Number.isInteger(n) && n > 0 ? n : MAX_INSTANCES;
-}
-
-/** tsx over `@studio/file-service`'s entry, resolved from here so the image needs no path configured. */
-/** Node's own flags for a file service: a heap ceiling when the deployment names one, so one account cannot take the box. */
-function nodeFlags(): string[] {
-  const mb = Number(process.env.STUDIO_FILE_SERVICE_HEAP_MB);
-  return Number.isInteger(mb) && mb > 0 ? [`--max-old-space-size=${mb}`] : [];
-}
-
-function defaultCommand(): { cmd: string; args: string[]; cwd: string } {
-  // A bundled backend (the server image, the desktop, the phone) names its bundled file service: no tsx, no source.
-  const bundled = process.env.STUDIO_FILE_SERVICE_ENTRY;
-  if (bundled)
-    return {
-      cmd: process.execPath,
-      args: [...nodeFlags(), bundled],
-      cwd: dirname(bundled),
-    };
-  const req = createRequire(import.meta.url);
-  const pkg = dirname(req.resolve("@studio/file-service/package.json"));
-  return {
-    cmd: process.execPath,
-    args: [
-      ...nodeFlags(),
-      req.resolve("tsx/cli"),
-      join(pkg, "src", "server.ts"),
-    ],
-    cwd: pkg,
-  };
 }
 
 function freePort(): Promise<number> {
@@ -253,6 +153,16 @@ async function waitHealthy(
   throw new Error(`file service did not answer within ${timeoutMs} ms`);
 }
 
+/** What a readiness probe reads of the hub: how full it is, and whether a start is stuck. */
+export interface InstancesStatus {
+  running: number;
+  starting: number;
+  cap: number;
+  /** How long the oldest start still waiting has waited, 0 when none is. */
+  oldestStartMs: number;
+  lastStartError: { at: number; message: string } | null;
+}
+
 interface Crashes {
   count: number;
   /** No start before this time. */
@@ -266,10 +176,13 @@ export class Instances {
   private readonly crashes = new Map<string, Crashes>();
   private readonly log: (msg: string) => void;
   private readonly max: number;
+  /** Each start still waiting for its child to answer, by when it began. */
+  private readonly starting = new Map<string, number>();
+  private lastStartError: InstancesStatus["lastStartError"] = null;
 
   constructor(private readonly opts: InstancesOptions) {
     this.log = opts.log ?? ((m) => console.log(`files | ${m}`));
-    this.max = opts.maxInstances ?? maxFromEnv();
+    this.max = opts.maxInstances ?? instanceCap();
   }
 
   /** The account's instance, started if it has none; concurrent callers share one start. */
@@ -314,7 +227,7 @@ export class Instances {
       );
     if (this.byUser.size < this.max || this.evictOne(now)) return null;
     return new Unavailable(
-      `${this.max} file services are running and all are busy`,
+      `the server is busy: ${this.max} file services are running and none has been idle long enough to stop`,
       30,
     );
   }
@@ -362,16 +275,33 @@ export class Instances {
 
   private async start(user: string): Promise<Instance> {
     const startedAt = Date.now();
+    this.starting.set(user, startedAt);
     try {
       const inst = await this.spawn(user);
       this.live.set(user, inst);
       return inst;
     } catch (e) {
+      this.lastStartError = { at: Date.now(), message: (e as Error).message };
       // A port another child took is a race, not this account's fault: no backoff for it.
       if (!(e instanceof ForeignPort))
         this.crashed(user, Date.now() - startedAt);
       throw e;
+    } finally {
+      if (this.starting.get(user) === startedAt) this.starting.delete(user);
     }
+  }
+
+  /** How full the hub is and how its starts are going, for the readiness probe. */
+  status(now = Date.now()): InstancesStatus {
+    let oldest = now;
+    for (const t of this.starting.values()) oldest = Math.min(oldest, t);
+    return {
+      running: this.live.size,
+      starting: this.starting.size,
+      cap: this.max,
+      oldestStartMs: now - oldest,
+      lastStartError: this.lastStartError,
+    };
   }
 
   private async spawn(user: string): Promise<Instance> {
@@ -380,7 +310,6 @@ export class Instances {
     mkdirSync(home, { recursive: true });
     const port = await (this.opts.pickPort ?? freePort)();
     const secret = randomBytes(32).toString("hex");
-    const { cmd, args, cwd } = (this.opts.command ?? defaultCommand)();
     const env: NodeJS.ProcessEnv = {
       ...serviceEnv(process.env),
       [STDIN_STOP_ENV]: "1",
@@ -395,12 +324,11 @@ export class Instances {
       env.MEDIATEK_URL = link.url;
       env.MEDIATEK_TOKEN = link.token;
     }
-    const entry = this.opts.threadEntry ?? threadEntryFromEnv();
-    // stdin is the stop pipe either way: closed by `stopChild`, or by the OS when this process dies.
-    const child: ServiceChild = entry
-      ? spawnWorker(entry, env)
-      : spawn(cmd, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
-    adopt(child);
+    const child = spawnService(
+      (this.opts.command ?? defaultCommand)(),
+      env,
+      this.opts.threadEntry ?? threadEntryFromEnv(),
+    );
     // A child that already exited closed its end first.
     child.stdin?.on("error", () => {});
     const relay = (chunk: Buffer) => {

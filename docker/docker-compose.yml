@@ -45,7 +45,7 @@ services:
     logging: *logging
     # The backend, every account's file service and their ffmpeg children share this; the engine has its own below.
     mem_limit: ${K7_MEM_LIMIT:-6g}
-    # The image's HEALTHCHECK asks /api/health; the engine below waits for it.
+    # The image's HEALTHCHECK asks /api/ready; the engine below waits for it.
     environment:
       <<: *shared-auth
       # Signs the media library's bearer tokens — see docs/tokens.md.
@@ -69,6 +69,8 @@ services:
       STUDIO_FILES_ROOT: /workspaces
       # One account's file service gets this heap at most, so a leak in one ends that one, not the box.
       STUDIO_FILE_SERVICE_HEAP_MB: ${FILE_SERVICE_HEAP_MB:-1024}
+      # File services at once: 12 = (6 GB − 1.5 GB reserve) / 384 MB each; empty derives it from mem_limit (packages/file-hub/docs/fileHub.md).
+      STUDIO_MAX_FILE_SERVICES: ${MAX_FILE_SERVICES:-12}
       # Who edits the libraries every account shares and deletes a public song — z0's admins too.
       AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:-}
       # Recognises the engine service as the render machine, since this image has no engine binary.

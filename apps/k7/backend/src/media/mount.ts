@@ -9,6 +9,7 @@ import type { Server } from "node:http";
 import { join } from "node:path";
 import { apiTokenAuth, fileTokenStore } from "@frediverse/oidc/api-auth";
 import { mountEngineRegistry } from "@studio/engine-registry";
+import type { FileHub } from "@studio/file-hub";
 import {
   ensureLayout,
   MediatekTooNewError,
@@ -55,6 +56,8 @@ export interface MediaMount {
   stop(): Promise<void>;
   /** The server the request's account is paired with, or null — where a desktop's releases and pages are. */
   pairedServer(req: Request): { base: string; token: string } | null;
+  /** How full the accounts' file hub is, for the readiness probe (../readiness.ts). */
+  fileStatus(): ReturnType<FileHub["status"]>;
 }
 
 /** Mount every media route on `app`; call it after setupAuth and before the SPA fallback. */
@@ -177,6 +180,7 @@ export function mountMedia(
   return {
     issueApiToken,
     pairedServer: (req) => serverOf(fileHub, req),
+    fileStatus: () => fileHub.status(),
     serve(server, url) {
       // Created on boot, so an empty volume is a working library rather than a 404 until an upload.
       try {
