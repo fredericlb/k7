@@ -145,15 +145,18 @@ compile to arm64 there. Like the desktops, a red APK holds the release back.
 ### The iPhone, in a workflow of its own
 
 `.github/workflows/ios.yml` builds `engine/k7-ios` for a device on `macos-26`, on a `main` push that touches
-what the app is made of, or by hand. It runs `engine/k7-ios/scripts/stage.mjs` — the engine and the supervisor
+what the app is made of, on a `vX.Y.Z` tag, or by hand. It runs `engine/k7-ios/scripts/stage.mjs` — the engine and the supervisor
 from their `ios-arm64` presets, under the same compiler cache scheme as the desktops (`engine-ios-arm64`) — then
 Xcode, and uploads `k7-ios_<stamp>_arm64-unsigned.ipa` as an artifact, after checking that the three frameworks
-inside are arm64 device binaries (`engine/k7-runtime/docs/ios.md`).
+inside are arm64 device binaries (`engine/k7-runtime/docs/ios.md`). On a tag, its `publish` job then waits for the
+release `desktop.yml` makes and attaches the `.ipa` to it, with its line added to `SHA256SUMS`.
 
 | choice | why |
 |---|---|
 | a workflow of its own, not a job of `desktop.yml` | an iOS build that fails must not hold back the desktop snapshot, which a job feeding `publish` would |
-| unsigned, and an artifact rather than a release asset | no Apple team is committed yet: an unsigned app installs nowhere until its developer signs it, so it is a build check and a starting point, not a download for musicians |
+| unsigned; attached to a VERSION's release, never to the snapshot | no Apple team is committed yet, so the app installs nowhere until its developer signs it. A version carries it for whoever does; the snapshot, replaced on every push, keeps to the downloads a musician can run |
+| the release waited for, not made | `desktop.yml` owns the release and makes it only after `k7.yml` passed and the desktops built; attaching after it keeps one owner, and an iOS failure still leaves the release as it was |
+| a diff in `decide`, not a `paths:` filter | GitHub applies `paths:` to tag pushes too, where it matches nothing — a version would never get its `.ipa`, as `desktop.yml` already notes |
 | `macos-26`, not `macos-latest` | the project file and its Swift are written for the Xcode 26 line, and a moving label would change the toolchain under them |
 | no dependency-source cache | the desktops keep one on the slow leg alone, within the 10 GB; this leg fetches its archives like the macOS one |
 

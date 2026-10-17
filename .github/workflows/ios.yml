@@ -2,19 +2,14 @@
 # presets by engine/k7-ios/scripts/stage.mjs, the script a developer runs, then Xcode. UNSIGNED: signing is the
 # developer's own team for now, so the artifact is an .ipa to sign before it installs (engine/k7-runtime/docs/ios.md).
 # A workflow of its own rather than a job of desktop.yml: an iOS failure must not hold the desktop snapshot back.
+# On a vX.Y.Z tag the .ipa is attached to that release once desktop.yml has made it; snapshots never carry one.
 
 name: ios
 
 on:
   push:
     branches: [main]
-    paths:
-      - "engine/**"
-      - "apps/k7/**"
-      - "packages/**"
-      - "commons"
-      - "package-lock.json"
-      - ".github/workflows/ios.yml"
+    tags: ["v*.*.*"]
   workflow_dispatch:
 
 # A native build is far too expensive to leave a superseded one running.
@@ -26,8 +21,46 @@ permissions:
   contents: read
 
 jobs:
+  decide:
+    name: what to build
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+      stamp: ${{ steps.plan.outputs.stamp }}
+      release: ${{ steps.plan.outputs.release }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0 # the push's `before` commit, to diff against
+      # A diff rather than a `paths:` filter, which GitHub applies to tag pushes too and which then matches nothing — as in desktop.yml.
+      - id: plan
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF" in
+            refs/tags/*) release=yes; stamp="${GITHUB_REF#refs/tags/}" ;;
+            *) release=no; stamp="snapshot-$(git rev-parse --short HEAD)" ;;
+          esac
+          # The stamp names a file and reaches shell commands downstream: only these two shapes pass.
+          if ! [[ "$stamp" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ || "$stamp" =~ ^snapshot-[0-9a-f]{7,40}$ ]]; then
+            echo "::error::refusing stamp '$stamp': expected vX.Y.Z or snapshot-<commit>"
+            exit 1
+          fi
+          build=yes
+          if [ "$release" = no ] && [ "$GITHUB_EVENT_NAME" = push ] \
+             && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            git diff --name-only "$BEFORE" HEAD > changed.txt
+            grep -qE '^(engine/|apps/k7/|packages/|commons$|package-lock\.json|\.github/workflows/ios\.yml)' \
+              changed.txt || build=no
+          fi
+          printf '%s\n' "build=$build" "stamp=$stamp" "release=$release" | tee -a "$GITHUB_OUTPUT"
+
   ios:
     name: ios
+    needs: decide
+    if: needs.decide.outputs.build == 'yes'
     # The Xcode 26 line the project is written for, rather than whichever image macos-latest names this month.
     runs-on: macos-26
     timeout-minutes: 150
@@ -98,6 +131,8 @@ jobs:
       # The three frameworks inside, each an arm64 device binary, before anything is uploaded.
       - name: unsigned ipa
         shell: bash
+        env:
+          STAMP: ${{ needs.decide.outputs.stamp }}
         run: |
           set -euo pipefail
           app="$RUNNER_TEMP/k7-ios/Build/Products/Release-iphoneos/k7.app"
@@ -106,10 +141,9 @@ jobs:
             test -f "$bin" || { echo "::error::$f.framework is missing from the app"; exit 1; }
             lipo -archs "$bin" | grep -qx arm64 || { echo "::error::$f is not arm64"; exit 1; }
           done
-          stamp="snapshot-$(git rev-parse --short HEAD)"
           mkdir -p "$RUNNER_TEMP/ipa/Payload" dist
           cp -R "$app" "$RUNNER_TEMP/ipa/Payload/"
-          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/dist/k7-ios_${stamp}_arm64-unsigned.ipa" Payload)
+          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/dist/k7-ios_${STAMP}_arm64-unsigned.ipa" Payload)
           ls -l dist
 
       - name: compiler cache stats
@@ -122,3 +156,53 @@ jobs:
           name: k7-ios-arm64-unsigned
           path: dist/*.ipa
           if-no-files-found: error
+
+  # A version tag's release gets the .ipa; a snapshot does not. The release is desktop.yml's to make, after
+  # k7.yml passed and every desktop built, so this waits for it rather than racing it — no release, no upload.
+  publish:
+    name: attach to the release
+    needs: [decide, ios]
+    if: needs.decide.outputs.release == 'yes'
+    runs-on: ubuntu-latest
+    # Long enough for desktop.yml's three native builds behind the tests; past it, the release is not coming.
+    timeout-minutes: 120
+    permissions:
+      contents: write # the release's assets
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: k7-ios-arm64-unsigned
+          path: dist
+
+      - name: wait for the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.decide.outputs.stamp }}
+        run: |
+          set -euo pipefail
+          until gh release view "$TAG" --json tagName >/dev/null 2>&1; do
+            echo "no release $TAG yet — desktop.yml makes it once its builds are done"
+            sleep 60
+          done
+
+      # The .ipa beside the desktops, and its line in the release's SHA256SUMS so one check covers every file.
+      - name: attach
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.decide.outputs.stamp }}
+        run: |
+          set -euo pipefail
+          cd dist
+          ipa=$(ls *.ipa)
+          gh release upload "$TAG" "$ipa" --clobber
+          gh release download "$TAG" --pattern SHA256SUMS --clobber
+          # Re-runs replace the .ipa's line rather than adding a second one.
+          grep -v "  $ipa\$" SHA256SUMS > sums.tmp || true
+          sha256sum -- "$ipa" >> sums.tmp
+          mv sums.tmp SHA256SUMS
+          cat SHA256SUMS
+          gh release upload "$TAG" SHA256SUMS --clobber
