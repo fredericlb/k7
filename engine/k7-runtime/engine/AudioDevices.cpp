@@ -307,7 +307,7 @@ void EngineHost::checkAudioCallback() {
             std::cerr << "[fatal] the audio callback has been inside the graph for " << inside / 1000
                       << " s — a plugin is hung, and nothing short of a restart frees the audio thread\n";
             std::cerr.flush();
-#if JUCE_ANDROID
+#ifdef STUDIO_ENGINE_IN_APP
             // Inside the app's own process, where exiting takes the app with it: said, and left alone.
             if (!impl_->stuckReported) warn("the audio engine is hung inside a plugin — restart the app");
             impl_->stuckReported = true;
@@ -356,6 +356,25 @@ void EngineHost::checkAudioCallback() {
                   << now->getActiveOutputChannels().countNumberOfSetBits() << " out\n";
     else
         warn("audio interface '" + name + "' could not be reopened");
+}
+
+// The device closed and reopened from the setup JUCE holds, as the watchdog's reopen does; a closed device is one it leaves alone — docs/ios.md.
+void EngineHost::suspendAudio(bool suspended) {
+    auto& dm = impl_->engine.getDeviceManager();
+    auto& jdm = dm.deviceManager;
+    if (suspended == (jdm.getCurrentAudioDevice() == nullptr)) return;
+    if (suspended) {
+        jdm.closeAudioDevice();
+        publishAudioTiming();
+        std::cerr << "[device] closed while the app is idle in the background\n";
+        return;
+    }
+    jdm.restartLastAudioDevice();
+    dm.rescanWaveDeviceList();
+    applyPreferredBufferSize(jdm);
+    publishAudioTiming();
+    if (auto* dev = jdm.getCurrentAudioDevice()) std::cerr << "[device] '" << dev->getName() << "' reopened\n";
+    else warn("the audio interface could not be reopened");
 }
 
 // Android only: a device that underran since the last check moves up ONE buffer size, up to kMaxXRunBufferMs — docs/android.md.

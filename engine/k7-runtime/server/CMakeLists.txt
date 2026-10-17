@@ -5,7 +5,8 @@
 #
 # On Android the same target is a SHARED library, libk7runtime.so, with no main(): JUCE's Oboe
 # backend reaches Java, so the engine is loaded into the app rather than spawned, and the app
-# calls serve() through android/EngineJni.cpp (docs/android.md).
+# calls serve() through android/EngineJni.cpp (docs/android.md). On iOS it is a FRAMEWORK,
+# k7runtime.framework, for the same reason and one more — no app may run a program of its own (docs/ios.md).
 
 set(STUDIO_SERVER_SOURCES
     Serve.cpp
@@ -31,6 +32,13 @@ if(ANDROID)
     # Oboe's AAudio/OpenSL ES and JUCE's logging, which the JUCE module sources compiled into
     # studio_engine call but do not link themselves.
     target_link_libraries(k7-runtime PRIVATE android log OpenSLES)
+elseif(IOS)
+    add_library(k7-runtime SHARED ${STUDIO_SERVER_SOURCES} ios/EngineEmbed.cpp)
+    set_target_properties(k7-runtime PROPERTIES
+        FRAMEWORK TRUE
+        OUTPUT_NAME k7runtime
+        MACOSX_FRAMEWORK_IDENTIFIER se.frediver.k7.runtime
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 else()
     add_executable(k7-runtime main.cpp ${STUDIO_SERVER_SOURCES})
     # Keep the binary at build/<preset>/k7-runtime.

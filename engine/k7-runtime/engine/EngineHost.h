@@ -326,6 +326,8 @@ public:
     void checkAudioCallback();
     // Once a second, Android only: a device that underran gets the next buffer size up, to a cap. MESSAGE THREAD ONLY. docs/android.md.
     void checkXRuns();
+    // Close the open device, or reopen it as it was: the iOS app idle behind another app lets go of audio, so iOS may suspend it. MESSAGE THREAD ONLY. docs/ios.md.
+    void suspendAudio(bool suspended);
 
     // Enumerate the interfaces (ASIO first) and open one for input and output, false when not found; an empty `type` is "any backend". See docs/engineHost.md.
     std::vector<AudioDeviceInfo> listAudioDevices();

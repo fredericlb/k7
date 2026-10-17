@@ -219,6 +219,10 @@ if(ANDROID)
 else()
     target_compile_definitions(studio_engine PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1)
 endif()
+# Inside an app's process on both phones, where exiting takes the app with it (docs/android.md, docs/ios.md).
+if(STUDIO_PHONE)
+    target_compile_definitions(studio_engine PUBLIC STUDIO_ENGINE_IN_APP=1)
+endif()
 
 # ASIO is enabled in the TOP-LEVEL CMakeLists (JUCE_ASIO + the SDK's include dir):
 # it has to reach the juce_audio_devices target that actually compiles the ASIO

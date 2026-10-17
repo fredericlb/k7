@@ -59,6 +59,10 @@ void requestQuit() {
     if (g_host) g_host->quit();
 }
 
+void suspendAudio(bool suspended) {
+    if (auto* host = g_host) host->post([host, suspended] { host->suspendAudio(suspended); });
+}
+
 int serve(int port) {
     // The last word before a throw nothing wrapped ends the process — a JUCE thread's, a plugin's: said on stderr, which the supervisor keeps, instead of nothing.
     std::set_terminate([] {
@@ -501,7 +505,7 @@ int serve(int port) {
 
     // The detached work captures this frame by reference: give it a moment, and if a scan or a plugin load is still running, leave WITHOUT unwinding rather than free what it holds.
     constexpr auto kDetachedGrace = std::chrono::seconds(3);
-#ifdef __ANDROID__
+#ifdef STUDIO_ENGINE_IN_APP
     // Inside the app's own process, where exiting would take the app with it; nothing here scans or loads a binary plugin, so the wait is short.
     while (!g_work.waitIdle(kDetachedGrace)) {}
 #else

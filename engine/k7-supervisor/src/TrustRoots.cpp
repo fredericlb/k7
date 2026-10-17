@@ -2,9 +2,12 @@
 // the user marked trusted as a root for SSL (a private CA lands there), less any marked "Never Trust".
 // Windows: the ROOT stores of the user and of the machine, less the Disallowed stores and any root
 // whose usages exclude server auth. Android: one file per CA, the updatable module's set first.
+// iOS: no app may list the system's roots, so the bundle the app ships, at `$STUDIO_SYSTEM_CA_CERTS`.
 // Linux: the distribution's bundle, the first that exists.
 
 #include "TrustRoots.h"
+
+#include "Platform.h"
 
 #include <mbedtls/base64.h>
 
@@ -14,7 +17,7 @@
 #include <sstream>
 #include <vector>
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(K7_IOS)
 #include <Security/Security.h>
 
 #include <map>
@@ -53,7 +56,13 @@ std::string readFile(const std::string& path)
     return buf.str();
 }
 
-#ifdef __APPLE__
+#ifdef K7_IOS
+std::string platformRoots()
+{
+    const char* bundle = std::getenv("STUDIO_SYSTEM_CA_CERTS");
+    return bundle && *bundle ? readFile(bundle) : std::string();
+}
+#elif defined(__APPLE__)
 enum class Verdict { None, Trust, Deny };
 
 std::string derOf(SecCertificateRef cert)
@@ -231,7 +240,8 @@ std::string platformRoots()
 }
 #endif
 
-std::once_flag once;
+std::mutex mutex;
+bool loaded = false;
 std::string roots;
 int count = 0;
 
@@ -239,18 +249,26 @@ int count = 0;
 
 const std::string& rootsPem()
 {
-    std::call_once(once, [] {
-        roots = platformRoots();
-        if (const char* extra = std::getenv("STUDIO_EXTRA_CA_CERTS"); extra && *extra) {
-            std::string more = readFile(extra);
-            if (!more.empty() && more.back() != '\n') more += "\n";
-            roots += more;
-        }
-        for (size_t at = roots.find("-----BEGIN CERTIFICATE-----"); at != std::string::npos;
-             at = roots.find("-----BEGIN CERTIFICATE-----", at + 1))
-            ++count;
-    });
+    std::lock_guard lock(mutex);
+    if (loaded) return roots;
+    loaded = true;
+    roots = platformRoots();
+    count = 0;
+    if (const char* extra = std::getenv("STUDIO_EXTRA_CA_CERTS"); extra && *extra) {
+        std::string more = readFile(extra);
+        if (!more.empty() && more.back() != '\n') more += "\n";
+        roots += more;
+    }
+    for (size_t at = roots.find("-----BEGIN CERTIFICATE-----"); at != std::string::npos;
+         at = roots.find("-----BEGIN CERTIFICATE-----", at + 1))
+        ++count;
     return roots;
+}
+
+void forgetRoots()
+{
+    std::lock_guard lock(mutex);
+    loaded = false;
 }
 
 int rootCount()

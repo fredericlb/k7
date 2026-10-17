@@ -1,9 +1,12 @@
 // PidFile.cpp — see PidFile.h. Each platform reads a process's start time and executable its own way:
-// libproc on macOS, /proc on Linux and Android, GetProcessTimes and the image name on Windows.
+// libproc on macOS, sysctl on iOS (whose pidfile only ever names the app), /proc on Linux and Android,
+// GetProcessTimes and the image name on Windows.
 
 #include "PidFile.h"
 
 #include "Paths.h"
+#include "Platform.h"
+#include "Processes.h"
 
 #include <algorithm>
 #include <cctype>
@@ -12,6 +15,8 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#elif defined(K7_IOS)
+#include <sys/sysctl.h>
 #elif defined(__APPLE__)
 #include <libproc.h>
 #include <sys/proc_info.h>
@@ -113,6 +118,13 @@ std::optional<Record> inspect(int pid)
     }
     CloseHandle(h);
     if (!live) return std::nullopt;
+#elif defined(K7_IOS)
+    kinfo_proc info{};
+    size_t len = sizeof info;
+    int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, pid};
+    if (sysctl(mib, 4, &info, &len, nullptr, 0) != 0 || len == 0) return std::nullopt;
+    r.start = std::to_string(info.kp_proc.p_starttime.tv_sec);
+    if (pid == process::currentPid()) r.exe = process::executablePath().string();
 #elif defined(__APPLE__)
     proc_bsdinfo info{};
     if (proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, sizeof info) != static_cast<int>(sizeof info)) return std::nullopt;

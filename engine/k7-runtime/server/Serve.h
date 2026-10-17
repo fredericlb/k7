@@ -12,4 +12,7 @@ int serve(int port);
 /** Ask a running serve() to return — from a signal handler or any thread; a no-op when none runs. */
 void requestQuit();
 
+/** Close the audio device, or reopen it — the iOS app's, while it sits idle behind another; any thread, a no-op when none runs. */
+void suspendAudio(bool suspended);
+
 }  // namespace studio

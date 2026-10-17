@@ -5,6 +5,10 @@ project(Studio VERSION 0.0.1 LANGUAGES C CXX)
 if(APPLE)
     enable_language(OBJC OBJCXX)
 endif()
+# The two phones, where the engine is a library inside an app and shares its cuts: no Surge, no plugin hosting, no Tracktion examples.
+if(ANDROID OR IOS)
+    set(STUDIO_PHONE ON)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -203,7 +207,7 @@ set(ENABLE_LTO OFF CACHE BOOL "" FORCE)
 # that release's core still links juce_dsp, which would put a second JUCE beside Tracktion's.
 # Fetched by a script because FetchContent cannot shallow-fetch a commit; the four fixes being a
 # subproject needs are in the patch script. Rationale: docs/surgePlugin.md.
-if(NOT ANDROID)
+if(NOT STUDIO_PHONE)
     set(STUDIO_SURGE_COMMIT baa97f7cad09d3dcde472137ed030829ff55d202)
     set(STUDIO_SURGE_SUBMODULES "libs/PEGTL,libs/eurorack/eurorack,libs/fmt,libs/pffft,libs/simde,libs/zstd,libs/r8brain-free-src,libs/tuning-library,libs/sst/sst-basic-blocks,libs/sst/sst-cmake,libs/sst/sst-cpputils,libs/sst/sst-effects,libs/sst/sst-filters,libs/sst/sst-plugininfra,libs/sst/sst-waveshapers")
     FetchContent_Declare(surge
@@ -275,10 +279,10 @@ set(USE_ZLIB OFF CACHE BOOL "" FORCE)         # no permessage-deflate; avoids a 
 # exact tag; bump deliberately and re-test it. JUCE, its one submodule, is fetched as an
 # archive of the commit v3.2.0 pins: a bump moves both lines together.
 
-# On Android, populate only: Tracktion's root always adds its examples, and EngineInPluginDemo
+# On a phone, populate only: Tracktion's root always adds its examples, and EngineInPluginDemo
 # depends on a VST3 target that does not exist there — configure fails on a demo we never build.
 # The two directories the engine needs are added by hand after MakeAvailable, below.
-if(ANDROID)
+if(STUDIO_PHONE)
     set(STUDIO_TRACKTION_SUBDIR SOURCE_SUBDIR studio-does-not-build-this)
 endif()
 
@@ -347,9 +351,9 @@ endif()
 # Enable VST3 (and LADSPA) hosting in the JUCE modules Tracktion compiles. These
 # must be set BEFORE tracktion_engine is made available so juce_audio_processors
 # picks them up. Global scope so they reach the Tracktion/JUCE targets created by
-# the add_subdirectory inside FetchContent_MakeAvailable. Not on Android: there is no
+# the add_subdirectory inside FetchContent_MakeAvailable. Not on a phone: there is no
 # plugin to host there, and no window to give its editor.
-if(NOT ANDROID)
+if(NOT STUDIO_PHONE)
     add_compile_definitions(JUCE_PLUGINHOST_VST3=1 JUCE_PLUGINHOST_LADSPA=1)
 endif()
 
@@ -390,7 +394,7 @@ FetchContent_MakeAvailable(nlohmann_json ixwebsocket tracktion_engine nam_core e
 set(CMAKE_CXX_STANDARD 17)
 FetchContent_MakeAvailable(sfizz)
 set(CMAKE_CXX_STANDARD 20)
-if(NOT ANDROID)
+if(NOT STUDIO_PHONE)
     # Surge's sources are compiled at the engine's macOS floor, not the 10.13 Tracktion forced (see below).
     if(APPLE)
         set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
@@ -405,9 +409,9 @@ if(NOT ANDROID)
     set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "${_studio_defs}")
 endif()
 
-# Android populated Tracktion without building its root (see its declaration): add JUCE and the
+# A phone populated Tracktion without building its root (see its declaration): add JUCE and the
 # Tracktion modules the way that root does, minus the examples.
-if(ANDROID)
+if(STUDIO_PHONE)
     add_subdirectory(${tracktion_engine_SOURCE_DIR}/modules/juce ${tracktion_engine_BINARY_DIR}/juce)
     add_subdirectory(${tracktion_engine_SOURCE_DIR}/modules ${tracktion_engine_BINARY_DIR}/modules)
 endif()
@@ -446,8 +450,9 @@ set(STUDIO_STMLIB_ROOT "${_stmlib_parent}" CACHE INTERNAL "The folder holding st
 # for this scope and everything below, so engine/ and server/ both compile at 11.0
 # while Tracktion's own example targets (which we never build) keep their 10.13.
 # 11.0 is the arm64 floor anyway, and comfortably clears the 10.15 std::filesystem
-# needs. Lower it to 10.15 if an Intel/Catalina build ever matters.
-if(APPLE)
+# needs. Lower it to 10.15 if an Intel/Catalina build ever matters. Not iOS, whose
+# preset's floor stands: no example is added there to force anything over it.
+if(APPLE AND NOT IOS)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
 endif()
 

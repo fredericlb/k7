@@ -11,6 +11,9 @@ seconds and a blocked main thread is an ANR; the backend gets longer than its ow
 file services are not killed mid-teardown. Its two services, `MediaPlaybackService` and `EngineService`, keep that process in
 front while a page plays or the engine is at work (below), and start nothing of their own.
 
+The iOS app (`docs/ios.md`) is this architecture again. It shares this app's shell page (`engine/k7-android/web`)
+and its three page scripts — account, top colour, media session — which accept either app's channel.
+
 ## Standalone: the phone runs its own studio
 
 Like the desktop app (`apps/k7-standalone/docs/standalone.md`), the phone needs no server: it runs

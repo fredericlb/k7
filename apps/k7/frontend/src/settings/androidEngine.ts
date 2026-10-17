@@ -1,7 +1,7 @@
-// androidEngine.ts — the phone's engine, when k7 runs inside the Android app: `window.k7Android`,
-// which that app puts in its views (engine/k7-android/app/src/main/kotlin/se/frediver/k7/StudioBridge.kt) and answers for k7's
-// origin only. Absent in a browser, so everything here is null there and the section is not drawn.
-// See engine/k7-runtime/docs/android.md.
+// androidEngine.ts — the phone's engine, when k7 runs inside the Android app or the iOS one: `window.k7Android`
+// (engine/k7-android/app/src/main/kotlin/se/frediver/k7/StudioBridge.kt) or `window.k7Ios` (engine/k7-ios/k7/StudioBridge.swift),
+// one protocol, answered for k7's origin only. Absent in a browser, so everything here is null there and the section is not drawn.
+// See engine/k7-runtime/docs/android.md and docs/ios.md.
 
 import { useEffect, useState } from "react";
 import type { DesktopEngineSnapshot } from "./desktopEngine";
@@ -32,9 +32,13 @@ export interface EngineSnapshot {
   studio: string | null;
 }
 
-const channel = (window as { k7Android?: Channel }).k7Android ?? null;
+const phone = window as { k7Android?: Channel; k7Ios?: Channel };
+const channel = phone.k7Android ?? phone.k7Ios ?? null;
 
-/** Inside the Android app, with its engine to show. */
+/** Inside the iOS app, whose engine trusts a bundled CA set rather than the system's. */
+export const onIos = !phone.k7Android && !!phone.k7Ios;
+
+/** Inside a phone app, Android or iOS, with its engine to show. */
 export const onAndroid = channel !== null;
 
 let nextId = 1;
@@ -71,7 +75,7 @@ export function engineCall<T = Record<string, never>>(
     | "quit",
   arg?: Record<string, string>,
 ): Promise<T> {
-  if (!channel) return Promise.reject(new Error("not in the Android app"));
+  if (!channel) return Promise.reject(new Error("not in a phone app"));
   const id = nextId++;
   return new Promise<T>((resolve, reject) => {
     pending.set(id, { resolve: resolve as (v: unknown) => void, reject });

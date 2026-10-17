@@ -149,6 +149,50 @@ describe("Instances", () => {
   });
 });
 
+describe("Instances on worker threads", () => {
+  const STDIN = `${GATED}\nprocess.stdin.on("end", () => process.exit(0));\nprocess.stdin.resume();`;
+  writeFileSync(join(dir, "thread.mjs"), STDIN);
+
+  it("runs each account's service on a thread of its own, apart, and stops it through its stdin", async () => {
+    const inst = make({ threadEntry: join(dir, "thread.mjs") });
+    const a = await inst.get("a@x");
+    const b = await inst.get("b@x");
+    expect(a.child.pid).not.toBe(process.pid);
+    expect(a.child.pid).not.toBe(b.child.pid);
+    expect(a.port).not.toBe(b.port);
+    // Each thread got its own environment: b's secret is refused on a's port.
+    const wrong = await fetch(`http://127.0.0.1:${a.port}/hub/ready`, {
+      headers: { "x-studio-hub-secret": b.secret },
+    });
+    expect(wrong.status).toBe(401);
+    await inst.stopAll();
+    expect(a.child.exitCode).toBe(0);
+    expect(a.child.signalCode).toBeNull();
+  });
+
+  it("terminates a thread that does not stop within its grace", async () => {
+    const inst = make({
+      threadEntry: join(dir, "gated.mjs"),
+      stopGraceMs: 100,
+    });
+    const a = await inst.get("a@x");
+    await inst.stopAll();
+    expect(a.child.signalCode).toBe("SIGKILL");
+  });
+
+  it("refuses threads without a plain-JS entry to run", async () => {
+    vi.stubEnv("STUDIO_FILE_SERVICE_THREADS", "1");
+    vi.stubEnv("STUDIO_FILE_SERVICE_ENTRY", "");
+    try {
+      await expect(make({}).get("a@x")).rejects.toThrow(
+        /needs STUDIO_FILE_SERVICE_ENTRY/,
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
+
 /** A child that exits on its stdin's end when `obeys`, and on SIGKILL always. */
 function fakeChild(obeys: boolean) {
   const ee = new EventEmitter();

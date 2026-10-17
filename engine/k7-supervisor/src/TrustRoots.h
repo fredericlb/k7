@@ -15,6 +15,9 @@ namespace k7::tls {
 /** Every trusted root as PEM, read once and cached; empty when the platform gave none. */
 const std::string& rootsPem();
 
+/** Read the roots again at the next `rootsPem`: an embedded supervisor restarted in one process, with no TLS socket open. */
+void forgetRoots();
+
 /** How many certificates `rootsPem` holds, for the one log line that says TLS is set up. */
 int rootCount();
 

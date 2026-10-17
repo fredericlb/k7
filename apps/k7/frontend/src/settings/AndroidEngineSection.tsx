@@ -1,7 +1,7 @@
-// AndroidEngineSection.tsx — this phone's engine, drawn only inside the Android app: there the app IS the
+// AndroidEngineSection.tsx — this phone's engine, drawn only inside a phone app, Android or iOS: there the app IS the
 // engine's machine, so what the command-line engine keeps in its config file — the studios it is listed at,
 // the instruments it downloads, a private CA — and quitting belong on this panel. The app shows its own tray only while no studio is open.
-// See ../../docs/settings.md and engine/k7-runtime/docs/android.md.
+// See ../../docs/settings.md, engine/k7-runtime/docs/android.md and docs/ios.md.
 
 import { studioFamily } from "@studio/web-protocol/services";
 import { useEffect, useState } from "react";
@@ -10,6 +10,7 @@ import {
   type EngineSnapshot,
   engineCall,
   onAndroid,
+  onIos,
   useEngineSnapshot,
 } from "./androidEngine";
 import { InstrumentsSection } from "./InstrumentsSection";
@@ -175,12 +176,19 @@ function PrivateCaSection() {
   };
 
   return (
-    <Section title={m["android.caTitle"]()} hint={m["android.caHint"]()}>
+    <Section
+      title={m["android.caTitle"]()}
+      hint={onIos ? m["android.caHintIos"]() : m["android.caHint"]()}
+    >
       <Row
         label={
           count == null || count === 0
-            ? m["android.caSystem"]()
-            : m["android.caYours"]({ count })
+            ? onIos
+              ? m["android.caSystemIos"]()
+              : m["android.caSystem"]()
+            : onIos
+              ? m["android.caYoursIos"]({ count })
+              : m["android.caYours"]({ count })
         }
         detail={said ?? undefined}
       >

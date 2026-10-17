@@ -1,9 +1,9 @@
-// top-color.js — run in every studio app's view once its page has loaded (AppViewsPlugin.kt): reports the
-// colour at the top of the page, which paints the status bar above it (StudioBridge.kt, `color`).
+// top-color.js — run in every studio app's view once its page has loaded (AppViewsPlugin.kt, AppViews.swift): reports
+// the colour at the top of the page, which paints the status bar above it (StudioBridge.kt, `color`).
 // The colour is COMPOSITED, not read: AppHeader's tint is the primary at 20% over the page, so the pixel
 // is every layer under the top edge laid on a 1px canvas, which also resolves oklch and color-mix.
 (() => {
-  const bridge = window.k7Android;
+  const bridge = window.k7Android || window.k7Ios;
   if (!bridge || window.__k7TopColor) return;
   window.__k7TopColor = true;
 
