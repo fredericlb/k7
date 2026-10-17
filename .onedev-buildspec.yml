@@ -40,10 +40,6 @@ jobs:
     useTTY: true
     condition: SUCCESSFUL
     optional: false
-  triggers:
-  - type: BranchUpdateTrigger
-    branches: main
-    userMatch: anyone
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
@@ -149,10 +145,6 @@ jobs:
     arguments: create -t dev.frediver.se/frediverse/k7/k7-runtime:latest -t dev.frediver.se/frediverse/k7/k7-runtime:@build_version@ dev.frediver.se/frediverse/k7/k7-runtime:@commit_hash@
     condition: SUCCESSFUL
     optional: false
-  triggers:
-  - type: BranchUpdateTrigger
-    branches: main
-    userMatch: anyone
   jobDependencies:
   - jobName: lint and test
     requireSuccessful: true
@@ -486,13 +478,6 @@ jobs:
     artifacts: dist/release/*
     condition: SUCCESSFUL
     optional: false
-  triggers:
-  - type: BranchUpdateTrigger
-    branches: main
-    paths: engine/** apps/** packages/** commons package-lock.json .onedev-buildspec.yml
-    userMatch: anyone
-  - type: TagCreateTrigger
-    tags: v*
   jobDependencies:
   - jobName: engine windows
     requireSuccessful: true
