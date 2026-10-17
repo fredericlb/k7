@@ -16,8 +16,10 @@ module.exports = {
   mac: {
     category: "public.app-category.music",
     target: ["dmg"],
-    // Unsigned, like the tray: a partial signing gets the unsigned children SIGKILLed by Gatekeeper.
-    identity: null,
+    // Ad-hoc, every binary: unsigned, the renamed bundle's seal is broken and macOS calls it damaged (docs/standalone.md).
+    identity: "-",
+    // An ad-hoc signature has no team, so the hardened runtime's library validation would refuse ONNX Runtime.
+    hardenedRuntime: false,
     extendInfo: {
       NSMicrophoneUsageDescription: "k7 records and monitors audio inputs.",
       // A live-video project's webcam; without it macOS refuses the camera outright.
