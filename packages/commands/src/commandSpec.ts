@@ -5,6 +5,7 @@
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { checkProjectFormat } from "@studio/song/loader";
 import { wsRead } from "@studio/song/yaml/workspaceFile";
 import { parsePosition } from "@studio/song-schema/timecode";
 import { parse as parseYaml } from "yaml";
@@ -338,6 +339,13 @@ export async function runCommand(
   const bad = validateArgs(spec, userArgs);
   if (bad) {
     host.refuse([`${spec.command}: ${bad}`]);
+    return;
+  }
+  // A project of a newer format is edited by no verb, since several write its root without reading it.
+  try {
+    if (host.songPath) checkProjectFormat(host.songPath);
+  } catch (e) {
+    host.refuse([(e as Error).message]);
     return;
   }
   // Once here rather than in every event verb, each of which finds its clip its own way.

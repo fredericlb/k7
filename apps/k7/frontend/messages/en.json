@@ -17,6 +17,7 @@
   "project.syncingCatchingUp": "Bringing the latest edits…",
   "project.syncingDownloading": "{files} file(s) still downloading…",
   "project.syncingOffline": "The server is out of reach, and {files} file(s) of this project never arrived. It opens once they do.",
+  "project.formatTooNew": "This project was written by a newer version of k7 (format {fileLevel}). This k7 reads format {buildLevel} — update k7 to open it.",
   "project.backToProjects": "Back to Projects",
   "project.missingTitle": "That project isn't in the workspace",
   "project.missingBody": "The workspace is here, but this project isn't: it was most likely renamed or removed since this page was opened. Go back to Projects and open it again.",

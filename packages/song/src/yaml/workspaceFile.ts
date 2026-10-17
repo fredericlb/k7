@@ -64,6 +64,10 @@ export function wsRead(path: string): string {
   return isK7xPath(real) ? toYaml(text, sugarFor(real)) : text;
 }
 
+/** A file's text as it is on disk, a .k7x one NOT turned into YAML — for what must be read before any parse. */
+export const readRaw = (path: string): string =>
+  readFileSync(realPath(path), "utf8");
+
 /** Writes YAML text, whole or not at all, to the file a path names: a .k7x file takes it as edits, so its comments and layout stay. */
 export function wsWrite(path: string, content: string | Uint8Array): void {
   const real = realPath(path);

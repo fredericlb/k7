@@ -1523,7 +1523,8 @@ export default function App({
   );
 
   // Background polls: the project errors, the waveform prewarm.
-  const { projectErrors, diagnostics } = useProjectErrors(reloadKey);
+  const { projectErrors, diagnostics, formatTooNew } =
+    useProjectErrors(reloadKey);
   const warm = useWarmWaveforms(audioKey, playing);
 
   const openProject = useCallback(
@@ -3653,6 +3654,7 @@ export default function App({
               waitingForEngine={waitingForEngine}
               warm={warm}
               projectErrors={projectErrors}
+              formatTooNew={formatTooNew}
               recInfo={recInfo}
               optMetronome={optMetronome}
               setOptMetronome={setOptMetronome}

@@ -17,6 +17,7 @@
   "project.syncingCatchingUp": "Récupération des dernières modifications…",
   "project.syncingDownloading": "{files} fichier(s) encore en téléchargement…",
   "project.syncingOffline": "Le serveur est injoignable, et {files} fichier(s) de ce projet ne sont jamais arrivés. Il s'ouvrira dès qu'ils seront là.",
+  "project.formatTooNew": "Ce projet a été écrit par une version plus récente de k7 (format {fileLevel}). Ce k7 lit le format {buildLevel} — mettez k7 à jour pour l'ouvrir.",
   "project.backToProjects": "Retour aux projets",
   "project.missingTitle": "Ce projet n'est pas dans l'espace de travail",
   "project.missingBody": "L'espace de travail est bien là, mais pas ce projet : il a sans doute été renommé ou supprimé depuis l'ouverture de cette page. Retournez aux projets et rouvrez-le.",

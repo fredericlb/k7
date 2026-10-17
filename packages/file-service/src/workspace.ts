@@ -68,6 +68,7 @@ import type {
   Hints,
   ModuleLibrary,
   PreviewReq,
+  ProjectErrors,
   ProjectInfo,
   ShareProgress,
   WaveformStatus,
@@ -1042,7 +1043,7 @@ export class Workspace {
   }
 
   /** Everything wrong with the project, from the compile itself, in BOTH scopes — docs/workspace.md. */
-  projectErrors(): { errors: string[]; diagnostics: Diagnostic[] } {
+  projectErrors(): ProjectErrors {
     return this.onRevision(
       "projectErrors",
       (dir) =>
@@ -1052,10 +1053,7 @@ export class Workspace {
       { errors: [], diagnostics: [] },
     );
   }
-  private projectErrorsIn(dir: string): {
-    errors: string[];
-    diagnostics: Diagnostic[];
-  } {
+  private projectErrorsIn(dir: string): ProjectErrors {
     return projectErrorsIn(dir, () => this.cachedProjectDoc(dir));
   }
 

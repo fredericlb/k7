@@ -8,6 +8,7 @@ import { keepIfEqual, keepIfSame } from "../shellEquality";
 import type {
   Diagnostic,
   EngineSyncState,
+  FormatTooNew,
   WaveformStatus,
   WorkspaceInfo,
 } from "../types";
@@ -18,9 +19,11 @@ import { useRevision } from "./useRevision";
 export function useProjectErrors(reloadKey: number): {
   projectErrors: number;
   diagnostics: Diagnostic[];
+  formatTooNew: FormatTooNew | null;
 } {
   const [projectErrors, setErrorCount] = useState(0);
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
+  const [formatTooNew, setFormatTooNew] = useState<FormatTooNew | null>(null);
   const rev = useRevision();
   // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is a TRIGGER, not a value this body reads — an action can change the answer without changing a source, and dropping it would stop noticing that.
   useEffect(() => {
@@ -31,6 +34,7 @@ export function useProjectErrors(reloadKey: number): {
       .then((r) => {
         if (!alive) return;
         setErrorCount(r.errors.length);
+        setFormatTooNew(r.formatTooNew ?? null);
         // Every revision answers a fresh array, and the editor's gutter re-lints on a new one; the same findings keep the old.
         setDiagnostics(keepIfSame(r.diagnostics));
       })
@@ -38,13 +42,14 @@ export function useProjectErrors(reloadKey: number): {
       .catch((e) => {
         if (!alive || !isAnswer(e)) return;
         setErrorCount(0);
+        setFormatTooNew(null);
         setDiagnostics(keepIfSame<Diagnostic[]>([]));
       });
     return () => {
       alive = false;
     };
   }, [rev, reloadKey]);
-  return { projectErrors, diagnostics };
+  return { projectErrors, diagnostics, formatTooNew };
 }
 
 /** Waveforms are cached and prewarmed on the backend; this kicks it, and steps aside for the transport — the decode competes for the same cores. */

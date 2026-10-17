@@ -4,6 +4,12 @@
 
 import { LineCounter, parseDocument } from "yaml";
 import type { ZodType } from "zod";
+import {
+  FORMAT_LEVEL,
+  FormatTooNewError,
+  formatLevelOfText,
+  formatLineOf,
+} from "../formatLevel";
 import { LIBRARIES_DIR, LIBRARIES_HOME_DIR } from "../moduleTypes";
 import {
   LIBRARY_PRESETS_DIR,
@@ -82,6 +88,9 @@ const isLibraryPresets = (d: string, i: number, all: string[]): boolean =>
   d === LIBRARY_PRESETS_DIR &&
   (all[i - 2] === LIBRARIES_DIR || all[i - 2] === LIBRARIES_HOME_DIR);
 
+/** The project root's parser, one instance so the root is told apart by identity. */
+const parseProjectFile = against(ProjectFileSchema);
+
 /** The parser for a path, or null — by FOLDER and BASENAME, the way `fileKindFor` reads one. */
 export function parserFor(path: string): Parse | null {
   const parts = segments(path);
@@ -118,7 +127,7 @@ export function parserFor(path: string): Parse | null {
   if (inFolder(VIEWS_DIR) && base === MIX_VIEW_BASE) return parseMixView;
   // A root `chains.yaml` is the segments file under its older name; a chain FILE was routed above.
   if (base === "chains") return parseGraph;
-  if (base === "project") return against(ProjectFileSchema);
+  if (base === "project") return parseProjectFile;
   // The cue sheet, at the ROOT: `views/mix.yaml` shares its base, so ORDER is what tells them apart.
   if (base === MIX_BASE) return parseMix;
   return null;
@@ -134,8 +143,24 @@ function syntaxIssues(text: string): ModuleIssue[] {
   });
 }
 
-/** Is `text` a document the compiler could read at `path`? Syntax is checked FIRST and separately. */
+/** A project root above this build's format level, as the one issue an editor shows — read before any parse (docs/formatLevel.md). */
+function formatRefusal(path: string, text: string): Validity | null {
+  if (parserFor(path) !== parseProjectFile) return null;
+  const level = formatLevelOfText(text);
+  if (level === null || level <= FORMAT_LEVEL) return null;
+  const issue: ModuleIssue = {
+    path: "format",
+    message: new FormatTooNewError(level).message,
+  };
+  const line = formatLineOf(text);
+  if (line) issue.line = line;
+  return { ok: false, issues: [issue], depth: "schema", malformed: false };
+}
+
+/** Is `text` a document the compiler could read at `path`? A newer format first, then syntax, then the schema. */
 export function validateFile(path: string, text: string): Validity {
+  const tooNew = formatRefusal(path, text);
+  if (tooNew) return tooNew;
   if (K7X_EXT.test(path)) return validateK7x(path, text);
   if (!YAML_EXT.test(path))
     return { ok: true, issues: [], depth: "none", malformed: false };

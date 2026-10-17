@@ -7,6 +7,7 @@
   "exports": {
     "./alternatives": "./src/alternatives.ts",
     "./engines": "./src/engines.ts",
+    "./formatLevel": "./src/formatLevel.ts",
     "./aspect": "./src/aspect.ts",
     "./builtinParams": "./src/builtinParams.ts",
     "./curveMath": "./src/curveMath.ts",

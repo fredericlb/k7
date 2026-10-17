@@ -9,7 +9,11 @@ import type { Server } from "node:http";
 import { join } from "node:path";
 import { apiTokenAuth, fileTokenStore } from "@frediverse/oidc/api-auth";
 import { mountEngineRegistry } from "@studio/engine-registry";
-import { ensureLayout, mediatekDir } from "@studio/mediatek/layout";
+import {
+  ensureLayout,
+  MediatekTooNewError,
+  mediatekDir,
+} from "@studio/mediatek/layout";
 import { startRevisionRefresh } from "@studio/mediatek/revision";
 import { configureMpv } from "@studio/mpv-player/player";
 import { createPlayerRouter } from "@studio/mpv-player/router";
@@ -68,8 +72,21 @@ export function mountMedia(
 
   const { issueApiToken, bearerOrSession } = tokens;
 
+  // Set at boot when the volume holds a library a newer k7 wrote; the library's routes then answer 503 (packages/mediatek/docs/index.md).
+  let tooNew: MediatekTooNewError | undefined;
+  const refuseTooNew: RequestHandler = (_req, res, next) => {
+    if (!tooNew) return next();
+    const { message: error, code, libraryVersion, buildVersion } = tooNew;
+    res.status(503).json({ error, code, libraryVersion, buildVersion });
+  };
+
   // Everything is behind one of the two: a library is somebody's work, not a public bucket.
-  app.use("/api/mediatek", bearerOrSession(requireAuth), libraryRouter);
+  app.use(
+    "/api/mediatek",
+    bearerOrSession(requireAuth),
+    refuseTooNew,
+    libraryRouter,
+  );
 
   /** THE ONE PUBLIC SURFACE: unguarded, and mounted ABOVE the `/api` guard — ../../docs/media/shares.md. */
   app.use("/api/public/share", publicShareRouter());
@@ -177,6 +194,7 @@ export function mountMedia(
         // …and every FLAC's MP3 beside it, for a browser to stream — ../../docs/media/derivedMp3.md.
         startMp3Sweep();
       } catch (e) {
+        if (e instanceof MediatekTooNewError) tooNew = e;
         console.error(
           `   library UNAVAILABLE at ${mediatekDir()}: ${(e as Error).message}`,
         );

@@ -3,6 +3,8 @@
 The rationale behind `packages/song-schema/src/yaml/projectSchema.ts` — the file's two tiers, the
 fields that are dead and still accepted, and the archetypes.
 
+The root `format` key, the level a newer k7 is refused at, is [formatLevel.md](formatLevel.md).
+
 ## The master fader's range
 
 `MASTER_MAX_DB` is +12 because the engine applies this with a gain of its OWN

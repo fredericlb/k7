@@ -13,12 +13,28 @@ import {
 } from "@studio/song/loader";
 import type { ProjectDoc } from "@studio/song/project";
 import { surfaceIssues } from "@studio/song/surfaces";
-import { wsRead } from "@studio/song/yaml/workspaceFile";
+import { readRaw, wsRead } from "@studio/song/yaml/workspaceFile";
+import { formatLineOf } from "@studio/song-schema/formatLevel";
 import type { VideoProjectDoc } from "@studio/song-video/videoDoc";
 import { videoDuration } from "@studio/song-video/videoTracks";
-import type { Hints, ProjectInfo, WebVideoProject } from "@studio/web-protocol";
+import type {
+  Hints,
+  ProjectErrors,
+  ProjectInfo,
+  WebVideoProject,
+} from "@studio/web-protocol";
 import { parse as parseYaml } from "yaml";
+import { formatTooNewOf } from "./compileError.ts";
 import { toWebVideoTracks, webPlugin } from "./webTracks.ts";
+
+// The line a root file declares its format on, or null when it cannot be read.
+function formatLineIn(path: string): number | null {
+  try {
+    return formatLineOf(readRaw(path));
+  } catch {
+    return null;
+  }
+}
 
 // Turn a compiler error into editor diagnostics; a line with no "<file>: " prefix yields none but still counts.
 function parseCompileError(msg: string): Diagnostic[] {
@@ -40,7 +56,7 @@ function parseCompileError(msg: string): Diagnostic[] {
 export function projectErrorsIn(
   dir: string,
   compile: () => ProjectDoc,
-): { errors: string[]; diagnostics: Diagnostic[] } {
+): ProjectErrors {
   try {
     const doc = compile();
     // Clean — but the non-blocking WARNINGS below surface here or nowhere at all.
@@ -63,7 +79,12 @@ export function projectErrorsIn(
     const errors = diagnostics.length
       ? diagnostics.map((d) => `${d.file}: ${d.message}`)
       : [(e as Error).message];
-    return { errors, diagnostics };
+    const formatTooNew = formatTooNewOf(e);
+    if (!formatTooNew) return { errors, diagnostics };
+    // The squiggle sits on the `format` line itself, read off the raw text like the refusal was.
+    for (const d of diagnostics)
+      d.line = formatLineIn(join(dir, d.file)) ?? d.line;
+    return { errors, diagnostics, formatTooNew };
   }
 }
 
