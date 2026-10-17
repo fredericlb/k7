@@ -15,13 +15,14 @@
     font-size: 13px;
   }
 
+  /* The same column as k7's home pages: 64rem with 24px inside it, so titles line up between them (apps/k7/frontend/src/projects/PageFrame.tsx). */
   .main {
     flex: 1;
     min-width: 0;
-    padding: 28px 36px 80px;
+    padding: 24px 24px 80px;
   }
   .main-inner {
-    max-width: 920px;
+    max-width: calc(64rem - 48px);
     margin: 0 auto;
   }
 
@@ -43,7 +44,7 @@
   }
   /* Excluded here too, or hovering the switch would grey out the track it colours itself. */
   button:not(header button):not([data-slot="switch"], [role="tab"], [data-slot^="calendar-"], .ds-button):hover:not(:disabled) {
-    background: #2c2d36;
+    background: var(--surface-2-hover);
   }
   button:disabled {
     opacity: 0.5;

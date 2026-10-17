@@ -8,7 +8,10 @@ names.
 ## The machine answers what it holds
 
 **The machine** — the account's file service — answers what is INSIDE a workspace:
-`AccountWorkspace`, from the folders it actually holds. Nothing else does: a second answer from
+`AccountWorkspace`, from the folders it actually holds. A `RepoProject` in it carries what the home
+page's row draws beyond the name — its surface types, whether it is the active one, when it last
+changed — all optional, since an older service sends none of them and the row then draws less
+rather than guessing (`packages/file-service/docs/workspaces.md`). Nothing else does: a second answer from
 another service would be a copy of what the folders already say, and a worse one. No service keeps
 a register of workspaces either (`apps/k7/backend/docs/media/projects.md`). A workspace is
 addressed by its folder name, under `@local` (`packages/web-protocol/docs/addresses.md`). See

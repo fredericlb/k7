@@ -29,7 +29,7 @@
     }
     .main {
       /* Room for the panel bar, which is fixed over the foot of the page. */
-      padding: 20px 20px 96px;
+      padding: 24px 16px 96px;
     }
 
     /* The rail becomes a BAR at the foot of the screen: one icon per panel, its body above it. */
@@ -94,7 +94,7 @@
 
   @media (max-width: 480px) {
     .main {
-      padding: 16px 14px 48px;
+      padding: 24px 16px 48px;
     }
     .timer {
       font-size: 26px;

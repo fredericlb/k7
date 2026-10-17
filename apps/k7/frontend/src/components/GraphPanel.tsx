@@ -302,7 +302,7 @@ export function GraphPanel({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 border-b border-border px-2 py-1 text-xs">
-        <span className="font-semibold text-primary">
+        <span className="font-semibold text-primary-text">
           {strips ? "Mix" : "Graph"}
         </span>
         <span className="truncate font-mono text-muted-foreground">

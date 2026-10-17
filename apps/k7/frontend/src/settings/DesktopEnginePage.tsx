@@ -5,6 +5,7 @@
 import { ArrowDown, ArrowUp } from "@frediverse/ui/icons";
 import { m } from "../paraglide/messages.js";
 import { HomeShell } from "../projects/HomeSidebar";
+import { PageFrame } from "../projects/PageFrame";
 import {
   type DesktopEngineSnapshot,
   engineCommand,
@@ -42,117 +43,112 @@ export function DesktopEnginePage() {
 
   return (
     <HomeShell subtitle={m["engine.title"]()}>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-xl flex-col gap-4 px-6 py-4">
-          {!onDesktopEngine() ? (
-            <p className="text-muted-foreground text-xs">
-              {m["engine.notHere"]()}
-            </p>
-          ) : (
-            <>
-              <Section title={m["engine.title"]()} hint={m["engine.hint"]()}>
-                <Row
-                  label={statusLine(s, state?.down ?? null)}
-                  detail={
-                    s?.engineId ? m["engine.id"]({ id: s.engineId }) : undefined
-                  }
-                >
-                  {running ? (
-                    <>
-                      <Action onClick={() => engineCommand("engine.restart")}>
-                        {m["engine.restart"]()}
-                      </Action>
-                      <Action
-                        danger
-                        onClick={() => engineCommand("engine.stop")}
-                      >
-                        {m["engine.stop"]()}
-                      </Action>
-                    </>
-                  ) : (
-                    <Action
-                      disabled={!s}
-                      onClick={() => engineCommand("engine.start")}
-                    >
-                      {m["engine.start"]()}
+      <PageFrame title={m["engine.title"]()} narrow>
+        {!onDesktopEngine() ? (
+          <p className="text-muted-foreground text-xs">
+            {m["engine.notHere"]()}
+          </p>
+        ) : (
+          <>
+            <Section title={m["engine.title"]()} hint={m["engine.hint"]()}>
+              <Row
+                label={statusLine(s, state?.down ?? null)}
+                detail={
+                  s?.engineId ? m["engine.id"]({ id: s.engineId }) : undefined
+                }
+              >
+                {running ? (
+                  <>
+                    <Action onClick={() => engineCommand("engine.restart")}>
+                      {m["engine.restart"]()}
                     </Action>
-                  )}
-                </Row>
-              </Section>
-
-              <Section
-                title={m["engine.audioTitle"]()}
-                hint={m["engine.audioHint"]()}
-              >
-                {devices.length === 0 ? (
-                  <Row label={m["engine.noDevices"]()} />
+                    <Action danger onClick={() => engineCommand("engine.stop")}>
+                      {m["engine.stop"]()}
+                    </Action>
+                  </>
                 ) : (
-                  devices.map((d, i) => (
-                    <Row
-                      key={d.name}
-                      label={d.name}
-                      detail={[
-                        d.deviceType,
-                        d.current && m["engine.inUse"](),
-                        d.currentInput && !d.current && m["engine.inputs"](),
-                        !d.present && m["engine.unplugged"](),
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    >
-                      <Action
-                        disabled={i === 0}
-                        onClick={() => move(i, i - 1)}
-                        title={m["engine.up"]()}
-                      >
-                        <ArrowUp className="size-3.5" />
-                      </Action>
-                      <Action
-                        disabled={i === devices.length - 1}
-                        onClick={() => move(i, i + 1)}
-                        title={m["engine.down"]()}
-                      >
-                        <ArrowDown className="size-3.5" />
-                      </Action>
-                    </Row>
-                  ))
-                )}
-              </Section>
-
-              <InstrumentsSection snapshot={s} send={engineCommand} />
-
-              <Section
-                title={m["engine.pluginsTitle"]()}
-                hint={m["engine.pluginsHint"]()}
-              >
-                <Row
-                  label={
-                    s?.pluginCount === undefined
-                      ? m["engine.scanning"]()
-                      : m["engine.pluginCount"]({ n: String(s.pluginCount) })
-                  }
-                >
                   <Action
-                    disabled={!running}
-                    onClick={() => engineCommand("plugins.rescan")}
+                    disabled={!s}
+                    onClick={() => engineCommand("engine.start")}
                   >
-                    {m["engine.rescan"]()}
+                    {m["engine.start"]()}
                   </Action>
-                </Row>
-                {(s?.plugins ?? []).map((p) => (
+                )}
+              </Row>
+            </Section>
+
+            <Section
+              title={m["engine.audioTitle"]()}
+              hint={m["engine.audioHint"]()}
+            >
+              {devices.length === 0 ? (
+                <Row label={m["engine.noDevices"]()} />
+              ) : (
+                devices.map((d, i) => (
                   <Row
-                    key={`${p.format}:${p.name}`}
-                    label={p.name}
-                    detail={[p.manufacturer, p.format]
+                    key={d.name}
+                    label={d.name}
+                    detail={[
+                      d.deviceType,
+                      d.current && m["engine.inUse"](),
+                      d.currentInput && !d.current && m["engine.inputs"](),
+                      !d.present && m["engine.unplugged"](),
+                    ]
                       .filter(Boolean)
                       .join(" · ")}
-                  />
-                ))}
-              </Section>
-            </>
-          )}
-        </div>
-      </div>
+                  >
+                    <Action
+                      disabled={i === 0}
+                      onClick={() => move(i, i - 1)}
+                      title={m["engine.up"]()}
+                    >
+                      <ArrowUp className="size-3.5" />
+                    </Action>
+                    <Action
+                      disabled={i === devices.length - 1}
+                      onClick={() => move(i, i + 1)}
+                      title={m["engine.down"]()}
+                    >
+                      <ArrowDown className="size-3.5" />
+                    </Action>
+                  </Row>
+                ))
+              )}
+            </Section>
+
+            <InstrumentsSection snapshot={s} send={engineCommand} />
+
+            <Section
+              title={m["engine.pluginsTitle"]()}
+              hint={m["engine.pluginsHint"]()}
+            >
+              <Row
+                label={
+                  s?.pluginCount === undefined
+                    ? m["engine.scanning"]()
+                    : m["engine.pluginCount"]({ n: String(s.pluginCount) })
+                }
+              >
+                <Action
+                  disabled={!running}
+                  onClick={() => engineCommand("plugins.rescan")}
+                >
+                  {m["engine.rescan"]()}
+                </Action>
+              </Row>
+              {(s?.plugins ?? []).map((p) => (
+                <Row
+                  key={`${p.format}:${p.name}`}
+                  label={p.name}
+                  detail={[p.manufacturer, p.format]
+                    .filter(Boolean)
+                    .join(" · ")}
+                />
+              ))}
+            </Section>
+          </>
+        )}
+      </PageFrame>
     </HomeShell>
   );
 }

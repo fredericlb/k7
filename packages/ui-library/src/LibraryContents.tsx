@@ -3,12 +3,32 @@
 // The one thing a reader would get wrong: an empty volume is an ANSWER, not an error (../docs/library.md).
 
 import { Card } from "@frediverse/ui/card";
-import { Loader2 } from "@frediverse/ui/icons";
+import { Inbox, Loader2 } from "@frediverse/ui/icons";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import { type MediatekEntry, SONG_FILE } from "@studio/mediatek/types";
+import type { ReactNode } from "react";
 import { useLabels } from "./host";
 import { bytes, isSong, relative } from "./libraryTree";
 import { PlacementIcon, type useServerCopy } from "./ServerCopy";
+
+/** Nothing to list: the sentence and the act that adds the first one, as k7's own empty pages draw it (apps/k7/frontend/src/projects/EmptyState.tsx). */
+function EmptyBlock({
+  children,
+  actions,
+}: {
+  children: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border px-6 py-10 text-center">
+      <Inbox className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+      <p className="max-w-md text-muted-foreground text-sm">{children}</p>
+      {actions && (
+        <div className="flex flex-wrap justify-center gap-2">{actions}</div>
+      )}
+    </div>
+  );
+}
 
 export function LibraryContents({
   notice,
@@ -19,6 +39,7 @@ export function LibraryContents({
   entries,
   serverCopy,
   onOpen,
+  emptyActions,
 }: {
   notice: string | null;
   error: string | null;
@@ -28,6 +49,8 @@ export function LibraryContents({
   entries: MediatekEntry[] | null;
   serverCopy: ReturnType<typeof useServerCopy>;
   onOpen: (rel: string) => void;
+  /** What adds the first entry of the section shown — the same acts as the tree panel's foot, offered where the eye is. */
+  emptyActions?: ReactNode;
 }) {
   const l = useLabels();
   const units = l.common.units;
@@ -40,9 +63,9 @@ export function LibraryContents({
         <Card className="p-4 text-sm text-destructive">{error}</Card>
       ) : present === false ? (
         // A real answer, not a failure: the volume is mounted but nothing is in it yet.
-        <Card className="p-6 text-sm text-muted-foreground">
+        <EmptyBlock actions={emptyActions}>
           {l.contents.emptyLibrary}
-        </Card>
+        </EmptyBlock>
       ) : isZone ? (
         <RecordingDays days={recordings} />
       ) : entries === null ? (
@@ -50,9 +73,7 @@ export function LibraryContents({
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </span>
       ) : entries.length === 0 ? (
-        <Card className="p-6 text-sm text-muted-foreground">
-          {l.contents.emptyFamily}
-        </Card>
+        <EmptyBlock actions={emptyActions}>{l.contents.emptyFamily}</EmptyBlock>
       ) : (
         <ul className="flex flex-col gap-1">
           {entries.map((e) => (

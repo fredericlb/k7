@@ -9,7 +9,17 @@
 // same frames, and these are the functions both of them read.
 
 import { describe, expect, it } from "vitest";
-import { clipLatch, FLOOR_DB, meterFill, newPass, peakHold } from "./meter";
+import {
+  clipLatch,
+  FLOOR_DB,
+  meterFill,
+  meterZone,
+  newPass,
+  nextPeakMark,
+  PEAK_HOLD_MS,
+  peakHold,
+  peakMarkLevel,
+} from "./meter";
 
 describe("the bar", () => {
   it("is empty at the floor and full at 0 dB", () => {
@@ -17,9 +27,25 @@ describe("the bar", () => {
     expect(meterFill(0)).toBe(1);
   });
 
-  it("is linear in dB, which is what a meter's markings are", () => {
-    // Half the scale is half the dB, not half the amplitude — a meter is drawn in dB so equal distances are equal loudness.
-    expect(meterFill(FLOOR_DB / 2)).toBeCloseTo(0.5, 6);
+  it("spends most of its length on the top 20 dB, where a mix is judged", () => {
+    expect(meterFill(-20)).toBeCloseTo(0.4, 6);
+    expect(meterFill(-6)).toBeCloseTo(0.8, 6);
+    // Equal dB is still equal distance WITHIN a stretch: the markings stay readable between corners.
+    expect(meterFill(-13)).toBeCloseTo(0.6, 6);
+  });
+
+  it("only ever climbs as the level does", () => {
+    let last = -1;
+    for (let db = -70; db <= 6; db += 0.5) {
+      const f = meterFill(db);
+      expect(f).toBeGreaterThanOrEqual(last);
+      last = f;
+    }
+  });
+
+  it("reads NaN and -Infinity as empty, which is what a silent frame can carry", () => {
+    expect(meterFill(Number.NaN)).toBe(0);
+    expect(meterFill(Number.NEGATIVE_INFINITY)).toBe(0);
   });
 
   it("clamps rather than running off either end", () => {
@@ -87,5 +113,54 @@ describe("the edge all three clear on", () => {
     // The same frame, the same answer from both — a clear that drifted would leave a peak behind a light that had reset.
     expect(clipLatch(true, false, true, false)).toBe(false);
     expect(peakHold(0, -40, true, false)).toBe(-40);
+  });
+});
+
+describe("the bar's colour", () => {
+  it("is ok below -6, hot from -6, clipped from full scale", () => {
+    expect(meterZone(-12)).toBe("ok");
+    expect(meterZone(-6)).toBe("hot");
+    expect(meterZone(-0.1)).toBe("hot");
+    expect(meterZone(0)).toBe("clip");
+  });
+});
+
+describe("the peak mark", () => {
+  const raised = { db: -3, at: 1000 };
+
+  it("holds where the loudest moment put it", () => {
+    expect(peakMarkLevel(raised, 1000 + PEAK_HOLD_MS)).toBe(-3);
+  });
+
+  it("then falls at 20 dB a second, and never below the floor", () => {
+    expect(peakMarkLevel(raised, 1000 + PEAK_HOLD_MS + 500)).toBeCloseTo(
+      -13,
+      6,
+    );
+    expect(peakMarkLevel(raised, 1000 + PEAK_HOLD_MS + 60_000)).toBe(FLOOR_DB);
+  });
+
+  it("does not compound its fall from one frame to the next", () => {
+    // Fed quieter frames all the way down, the mark is where the release alone puts it.
+    let mark = raised;
+    for (let t = 1000; t <= 1000 + PEAK_HOLD_MS + 500; t += 50)
+      mark = nextPeakMark(mark, -40, t, false);
+    expect(peakMarkLevel(mark, 1000 + PEAK_HOLD_MS + 500)).toBeCloseTo(-13, 6);
+  });
+
+  it("is raised, and its hold restarted, by anything at or above where it stands", () => {
+    const later = 1000 + PEAK_HOLD_MS + 500;
+    expect(nextPeakMark(raised, -10, later, false)).toEqual({
+      db: -10,
+      at: later,
+    });
+    expect(nextPeakMark(raised, -20, later, false)).toBe(raised);
+  });
+
+  it("starts over with a new pass, whatever it held", () => {
+    expect(nextPeakMark(raised, -30, 1100, true)).toEqual({
+      db: -30,
+      at: 1100,
+    });
   });
 });

@@ -9,6 +9,7 @@ import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { m } from "../paraglide/messages.js";
 import { HATCH, projectRows, type RowKey, rowIndexOf } from "../rows";
 import type { WebAutomationLane, WebProject } from "../types";
+import { UNCOLOURED } from "./ClipActivity";
 
 const MAX_H = 80; // the minimap never grows past this
 const ROW_MAX = 12; // per-track row height ceiling (few tracks shouldn't look bloated)
@@ -142,17 +143,16 @@ export const Minimap = memo(function Minimap({
               <div
                 // Same ref can be placed more than once, so id alone collides — key by placement (id + index), as the timeline does.
                 key={`${c.id}-${i}`}
-                // The type default only where no track colour is authored; a clip open in the editor gets an amber ring.
-                className={`absolute rounded-[1px] ${rowH >= 4 ? "bottom-px top-px" : "inset-y-0"} ${row.track.color ? "" : c.type === "midi" ? "bg-emerald-500/70" : "bg-sky-500/70"} ${
+                // A clip open in the editor gets an amber ring.
+                className={`absolute rounded-[1px] ${rowH >= 4 ? "bottom-px top-px" : "inset-y-0"} ${
                   row.track.mute ? "opacity-40" : ""
                 } ${hlClip && (c.id === hlClip || c.name === hlClip) ? "outline outline-1 outline-offset-1 outline-amber-400 brightness-125" : ""}`}
                 style={{
                   left: pct(c.start),
                   width: `${((c.length > 0 ? c.length : NATURAL) / totalBeats) * 100}%`,
                   minWidth: 2,
-                  background: row.track.color
-                    ? `color-mix(in srgb, ${row.track.color} 70%, transparent)`
-                    : undefined,
+                  // An uncoloured track takes the timeline's own fallback, so the two never disagree.
+                  background: `color-mix(in srgb, ${row.track.color ?? UNCOLOURED} 70%, transparent)`,
                 }}
               />
             ))}
@@ -219,7 +219,7 @@ function MinimapPlayhead({
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute inset-y-0 left-0 w-full border-white border-l"
+      className="pointer-events-none absolute inset-y-0 left-0 w-full border-playhead border-l"
       // Hidden until the first callback says where it is: the position is written to the node, so a first paint would flash it at beat 0.
       style={{ willChange: "transform", visibility: "hidden" }}
     />

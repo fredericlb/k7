@@ -86,7 +86,7 @@ export function ShellFooter({
     <footer
       className={cn(
         // The header's tint, so the panel tabs read as tabs against it (components/FooterTab.tsx).
-        "flex items-center border-t border-primary/20 bg-primary/20 text-muted-foreground",
+        "flex items-center border-t border-border bg-card text-muted-foreground",
         isMobile ? "gap-2 px-2 py-0.5 text-[10px]" : "gap-3 px-4 py-1 text-xs",
       )}
     >

@@ -14,6 +14,15 @@ edge, the way each lane's meter is drawn. A `width` at 20 Hz is a layout per fra
 transition a layout per animation frame; a transform is neither. The fill carries no rounding of
 its own — the track's `overflow-hidden` rounds both ends, where a scaled radius would squash.
 
+**It is read like a meter**, which a linear bar from −60 dB was not: the scale (`meterFill`, shared
+with the desk) gives the top 20 dB — where a mix is judged — 60 % of the length, the fill wears one
+of three zones (ok, hot from −6 dB, clip from full scale) in k7's meter tokens, and a **peak mark**
+holds where the loudest moment put it for 1.5 s, then falls at 20 dB/s. The mark is a NUMBER computed
+with the frame (`nextPeakMark`, `peakMarkLevel`), never a CSS ease, for the reason
+`packages/engine-browser/docs/meters.md` gives; it is drawn only while the transport rolls, since no
+frame moves it once stopped and a mark frozen mid-fall would read as a level. Its value joins the
+reading in the fader's tooltip, the one that shows: the mark sits under the fader like the bar.
+
 ## Three things are held across a pass, not a frame
 
 The engine reports per frame; a person reads afterwards. So the meter latches:
@@ -139,8 +148,8 @@ its keyboard story better than a canvas would (arrows, Home/End, a focus ring, a
 
 It is laid over the bar with `absolute inset-0` and a **transparent track**: `appearance-none` takes
 the platform's track and thumb away, and only the thumb is put back — 4×10 px, in `foreground`, with
-a one-pixel ring in the background colour so it stays legible over the emerald fill and over the
-amber. That needs per-browser pseudo-element rules, and **both** must be written or Firefox draws no
+a one-pixel ring in the background colour so it stays legible over each of the meter's three
+fills. That needs per-browser pseudo-element rules, and **both** must be written or Firefox draws no
 thumb at all. Nothing else may sit on top of it: an overlay would eat the drag.
 
 **`onChange` paints, the release commits.** The rule the mixer's knobs follow: a drag is dozens of

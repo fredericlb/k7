@@ -228,7 +228,7 @@ export function TasksPanel({
                     type="button"
                     disabled={!here}
                     onClick={() => t.at && onSeek(t.at.timecode)}
-                    className="font-mono text-[10px] text-muted-foreground enabled:cursor-pointer enabled:text-primary enabled:hover:underline"
+                    className="font-mono text-[10px] text-muted-foreground enabled:cursor-pointer enabled:text-primary-text enabled:hover:underline"
                     title={
                       here
                         ? m["tasks.seek"]()

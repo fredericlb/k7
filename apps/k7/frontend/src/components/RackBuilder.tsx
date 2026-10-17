@@ -258,7 +258,7 @@ export function RackBuilder({
       />
       <div className="relative flex max-h-[90vh] w-[min(34rem,92vw)] flex-col gap-3 overflow-auto rounded-lg border border-border bg-background p-4 shadow-xl">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-primary">
+          <span className="font-semibold text-primary-text">
             <Grip className="h-4 w-4" /> {m["rb.title"]()}
           </span>
           <span className="text-xs text-muted-foreground">
@@ -392,7 +392,7 @@ export function RackBuilder({
                       </span>
                     </>
                   ) : (
-                    <span className="m-auto text-[10px] text-muted-foreground/60">
+                    <span className="m-auto text-[10px] text-faint">
                       {m["rb.dropSample"]()}
                     </span>
                   )}

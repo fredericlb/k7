@@ -52,7 +52,7 @@ export function FooterTab({
       className={cn(
         "relative h-auto rounded-none border border-t-0 border-transparent px-2",
         active &&
-          "border-primary/20 bg-background bg-clip-padding text-foreground hover:bg-background hover:text-foreground",
+          "border-border bg-background bg-clip-padding text-foreground hover:bg-background hover:text-foreground",
         className,
       )}
       {...props}

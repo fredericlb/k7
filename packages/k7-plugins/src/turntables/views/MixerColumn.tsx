@@ -8,8 +8,9 @@
 import {
   clipLatch,
   FLOOR_DB,
-  HOT_DB,
+  type MeterZone,
   meterFill,
+  meterZone,
 } from "@studio/engine-browser/meter";
 import {
   EngineStore,
@@ -20,6 +21,13 @@ import { useEffect, useRef, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { type DeckId, LEVEL_DB, MIX_CENTRE } from "../deckVocabulary";
 import { type DeskLayout, underWave } from "../deskLayout";
+import {
+  CHANNEL_INPUT,
+  CROSSFADER_INPUT,
+  notchAt,
+  RAIL_H,
+  RAIL_V,
+} from "./faderStyles";
 import { useInSight } from "./inSight";
 
 /** `gap-3` between the column's stacked pieces — the same one the deck columns use. */
@@ -37,6 +45,13 @@ export const CROSSFADE_BLEED = 16 + 64 + 8;
  * Never written to, so every selector reads the initial frame and every meter sits at the floor.
  * The alternative — a conditional `useStoreState` — is not a thing React allows. */
 const SILENT = new EngineStore();
+
+/** The bar's fill per zone: the host's meter tokens, the header meter's three (k7's index.css). */
+const ZONE_FILL: Record<MeterZone, string> = {
+  ok: "bg-meter-ok",
+  hot: "bg-meter-hot",
+  clip: "bg-meter-clip",
+};
 
 /** One track's output level in dB, off whichever store the host provided. */
 function useLevelDb(trackId: string | null, order: readonly string[]): number {
@@ -65,7 +80,7 @@ function Meter({ db }: { db: number }) {
       {/* Scaled and not resized: a height would reflow this column every frame the engine speaks. */}
       <div
         className={`absolute inset-x-0 bottom-0 h-full origin-bottom rounded-full ${
-          db >= HOT_DB ? "bg-amber-400" : "bg-emerald-400"
+          ZONE_FILL[meterZone(db)]
         }`}
         style={{ transform: `scaleY(${fill})` }}
       />
@@ -109,7 +124,7 @@ export function MasterMeter() {
       <div className="relative h-1.5 w-20 overflow-hidden rounded-full bg-foreground/15">
         <div
           className={`absolute inset-y-0 left-0 w-full origin-left rounded-full ${
-            db >= HOT_DB ? "bg-amber-400" : "bg-emerald-400"
+            ZONE_FILL[meterZone(db)]
           }`}
           style={{ transform: `scaleX(${meterFill(db)})` }}
         />
@@ -119,7 +134,7 @@ export function MasterMeter() {
         aria-label={clipped ? m["meter.clipped"]() : m["meter.noClip"]()}
         className={`h-1.5 w-1.5 shrink-0 rounded-full ${
           clipped
-            ? "bg-red-500 shadow-[0_0_4px_1px] shadow-red-500/60"
+            ? "bg-meter-clip shadow-[0_0_4px_1px] shadow-meter-clip/60"
             : "bg-foreground/20"
         }`}
       />
@@ -148,30 +163,35 @@ function ChannelFader({
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center gap-1">
       <div className="flex min-h-0 flex-1 items-stretch justify-center gap-1.5">
-        {/* Vertical by WRITING MODE, which is the one way a native range goes upright and keeps
-            its keyboard behaviour — `appearance: slider-vertical` is gone from both engines. */}
-        <input
-          type="range"
-          min={lo}
-          max={hi}
-          step={0.5}
-          value={level}
-          disabled={!live}
-          aria-label={m["fader.aria"]({ side })}
-          title={
-            live
-              ? m["fader.title"]({
-                  side,
-                  db: `${level > 0 ? "+" : ""}${level.toFixed(1)}`,
-                })
-              : m["fader.unwired"]({ side })
-          }
-          onChange={(e) => onChange(Number(e.target.value))}
-          onDoubleClick={() => live && onChange(0)}
-          className={`[writing-mode:vertical-lr] [direction:rtl] w-3 accent-foreground ${
-            live ? "cursor-ns-resize" : "opacity-40"
-          }`}
-        />
+        {/* The rail and the unity notch behind a transparent native range, upright by writing mode (faderStyles.ts, docs/turntables/mix.md). */}
+        <div className={`relative flex w-4 ${live ? "" : "opacity-40"}`}>
+          <span aria-hidden="true" className={RAIL_V} />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/2 h-px w-3 -translate-x-1/2 translate-y-1/2 bg-foreground/40"
+            style={{ bottom: notchAt((0 - lo) / (hi - lo)) }}
+          />
+          <input
+            type="range"
+            min={lo}
+            max={hi}
+            step={0.5}
+            value={level}
+            disabled={!live}
+            aria-label={m["fader.aria"]({ side })}
+            title={
+              live
+                ? m["fader.title"]({
+                    side,
+                    db: `${level > 0 ? "+" : ""}${level.toFixed(1)}`,
+                  })
+                : m["fader.unwired"]({ side })
+            }
+            onChange={(e) => onChange(Number(e.target.value))}
+            onDoubleClick={() => live && onChange(0)}
+            className={CHANNEL_INPUT}
+          />
+        </div>
         <Meter db={db} />
       </div>
       {/* The letter under it, so the two faders are told apart without reading the tooltip. */}
@@ -262,17 +282,27 @@ export function MixerColumn({
             <span className="w-3 shrink-0 text-center font-semibold text-xs">
               A
             </span>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={mix}
-              onChange={(e) => onChange(Number(e.target.value))}
-              disabled={!ready}
-              className="min-w-0 flex-1 accent-foreground"
-              aria-label={m["xfade.aria"]()}
-            />
+            {/* A drawn crossfader over a native range, with a notch at the centre — the one place worth finding blind. */}
+            <div
+              className={`relative h-5 min-w-0 flex-1 ${ready ? "" : "opacity-40"}`}
+            >
+              <span aria-hidden="true" className={RAIL_H} />
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 left-1/2 h-3 w-px -translate-x-1/2 -translate-y-1/2 bg-foreground/40"
+              />
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={mix}
+                onChange={(e) => onChange(Number(e.target.value))}
+                disabled={!ready}
+                className={CROSSFADER_INPUT}
+                aria-label={m["xfade.aria"]()}
+              />
+            </div>
             <span className="w-3 shrink-0 text-center font-semibold text-xs">
               B
             </span>

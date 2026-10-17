@@ -127,7 +127,7 @@ export function EngineSwitch({
                       ? "text-foreground"
                       : usable
                         ? "text-muted-foreground hover:bg-accent hover:text-foreground"
-                        : "cursor-not-allowed text-muted-foreground/50",
+                        : "cursor-not-allowed text-faint",
                   )}
                 >
                   <Check

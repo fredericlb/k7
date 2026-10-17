@@ -111,8 +111,22 @@ only the surface scan is new.
 
 That scan is a `readdir` of `surfaces/` plus a small YAML parse per file, and it is asked of every
 project rather than of one — hence a window of its own, the same length and for the same reason.
-It is deliberately NOT folded into `listMachineWorkspaces`: the home page is the front door and
-does not draw surfaces, and making it pay for them would be a cost with no reader.
+
+## What a home-page row carries beyond its name
+
+`listMachineWorkspaces` answers three facts per project besides its path and tags, because the
+home page draws them and has nothing else to ask: the TYPES of its surfaces (the row's archetype
+glyph), whether it is its workspace's active project, and `editedAt`. Each is optional on the wire,
+so a page meeting an older service draws a plain row rather than a wrong one.
+
+- **The surface types** are the same scan `/external` makes, kept to the types: the row needs
+  which archetype a project amounts to, not each surface's id. The two listings run it each, inside
+  their own 5-second windows; the scan is a few small files per project.
+- **`editedAt` walks two levels and no deeper** (`projectEdited.ts`): a project's text is in its
+  root and one folder down, where `nodes/` and `surfaces/` are, and a deeper walk would stat every
+  take of a heavy project on each listing. An edit three folders down is missed, which only makes a
+  row look older than it is. It is this replica's mtime, so a project the relay just brought down
+  reads as edited now.
 
 Its diagnostics are dropped on purpose: a surface file that will not parse is not a row this page
 can offer, and the place that says WHY is the editor, which shows them beside the project's other

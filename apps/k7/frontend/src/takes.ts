@@ -4,6 +4,7 @@
 // See packages/song/docs/takes.md and docs/clipEditors.md.
 
 import { materialRefOf } from "@studio/song-schema/placementId";
+import { SERIES_COLORS, seriesColor } from "@studio/song-schema/seriesColors";
 import {
   beatsToDuration,
   beatsToPosition,
@@ -176,17 +177,10 @@ export function compFadeLine(
   return `event comp fade ${ev.track} ${ev.at} ${beatsToPosition(seam, num, den)} ${len}`;
 }
 
-/** One colour per take, by its row: the event's own first. The same in the takes view and the comp strip. */
-export const TAKE_COLORS = [
-  "#38bdf8",
-  "#f59e0b",
-  "#a78bfa",
-  "#34d399",
-  "#f472b6",
-  "#facc15",
-  "#fb7185",
-  "#60a5fa",
-];
+/** One colour per take, by its row: the event's own first. The same in the takes view and the comp strip, and the studio's one series palette. */
+export const TAKE_COLORS: readonly string[] = SERIES_COLORS.map((_, i) =>
+  seriesColor(i),
+);
 
 export function takeColor(ev: TakesEvent, ref: string): string {
   const i = Math.max(

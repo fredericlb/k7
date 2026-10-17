@@ -4,8 +4,8 @@
   "description": "k7 — a text-first DAW",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#101114",
-  "theme_color": "#101114",
+  "background_color": "#0d0e11",
+  "theme_color": "#0d0e11",
   "icons": [
     { "src": "favicon.ico", "type": "image/x-icon", "sizes": "16x16 32x32" },
     { "src": "icon-192.png", "type": "image/png", "sizes": "192x192" },

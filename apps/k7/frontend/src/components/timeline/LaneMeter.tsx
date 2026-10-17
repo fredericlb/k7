@@ -30,14 +30,14 @@ export function LaneMeter({ index, armed }: { index: number; armed: boolean }) {
     <>
       {/* live VU: a faint green fill behind the label, SCALED from the left rather than resized so it never reflows (@studio/engine-browser docs/meters.md). */}
       <div
-        className="pointer-events-none absolute inset-y-0 left-0 w-full origin-left bg-emerald-500/20"
+        className="pointer-events-none absolute inset-y-0 left-0 w-full origin-left bg-meter-ok/20"
         style={{ transform: `scaleX(${vuFill(out) / 100})` }}
       />
       {/* armed input meter, pinned to the bottom edge; the faint track shows at silence, so a quiet armed input still reads as armed. */}
       {armed && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-red-500/20">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-arm/20">
           <div
-            className="h-full w-full origin-left bg-red-500"
+            className="h-full w-full origin-left bg-arm"
             style={{ transform: `scaleX(${vuFill(input) / 100})` }}
           />
         </div>

@@ -1,17 +1,19 @@
-// NewSessionButton.tsx — the red dot that starts a take, drawn by the host wherever it puts a page's
-// own control. Utilities only: it sits outside the `.rehearsal-root` wrapper.
+// NewSessionButton.tsx — what starts a take: the red dot the host draws wherever it puts a page's own
+// control, and the labelled button an empty timeline offers in its place. Both run one hook, so a
+// start in progress or refused reads the same from either. Utilities only: the dot sits outside the
+// `.rehearsal-root` wrapper, the labelled one inside it as a `.ds-button`.
 
 import { Button } from "@frediverse/ui/button";
-import { MicOff } from "@frediverse/ui/icons";
+import { Mic, MicOff } from "@frediverse/ui/icons";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { useRehearsalRecording } from "./context";
 
-export function NewSessionButton() {
+/** Start a session, holding whether one is starting and why the last start was refused. */
+function useStartSession() {
   const { start } = useRehearsalRecording();
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const create = async () => {
     setCreating(true);
     setError(null);
@@ -23,7 +25,11 @@ export function NewSessionButton() {
       setCreating(false);
     }
   };
+  return { create, creating, error };
+}
 
+export function NewSessionButton() {
+  const { create, creating, error } = useStartSession();
   return (
     <Button
       variant="ghost"
@@ -43,5 +49,24 @@ export function NewSessionButton() {
         />
       )}
     </Button>
+  );
+}
+
+/** The empty timeline's act: the same start as the dot, named, where the eye already is. */
+export function StartFirstSessionButton() {
+  const { create, creating, error } = useStartSession();
+  return (
+    <>
+      <Button
+        size="sm"
+        className="ds-button"
+        disabled={creating}
+        onClick={create}
+      >
+        <Mic className="size-4" />
+        {creating ? m["rec.starting"]() : m["recordings.startFirst"]()}
+      </Button>
+      {error && <p className="text-destructive text-xs">{error}</p>}
+    </>
   );
 }

@@ -440,6 +440,19 @@ export function MediaLibrary({
           entries={entries}
           serverCopy={serverCopy}
           onOpen={openFile}
+          emptyActions={
+            section === "songs" ? (
+              <>
+                <Button size="sm" onClick={() => setSection("find")}>
+                  <Search className="h-4 w-4" />
+                  {labels.tree.findSongs}
+                </Button>
+                <AddSong onDone={refresh} />
+              </>
+            ) : isZone ? (
+              <AddRecording onDone={refresh} onError={setError} />
+            ) : undefined
+          }
         />
       )}
     </div>

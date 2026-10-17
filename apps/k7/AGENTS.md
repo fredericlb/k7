@@ -319,7 +319,7 @@ writes its active-project marker and switches the session, with no navigation an
 (`packages/file-service/docs/activeProject.md`). The address may still name a project, and that
 is what it opens ON; a bare `/@local/<workspace>` opens the one last played.
 
-**A workspace is no git repository, and starts EMPTY.** `Nouveau` on the home page creates one
+**A workspace is no git repository, and starts EMPTY.** **New workspace** on the home page creates one
 with no project; opening it draws the first-project wizard, since the archetype decides what the
 screen shows and that is a question better asked where the answer will be looked at. There is
 nothing to publish or import: a workspace reaches every replica through the live-sync relay, and a

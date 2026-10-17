@@ -408,3 +408,15 @@ It defines its own `--sand`, `--mauve`, `--card`, `--line`, `--dim` and `--faint
 `--accent` **per node kind** — a track, a module and a sink take `--sand`, a curve `--mauve`,
 a stub red, an unsupported plugin amber. The accent dot, the selected node's border tint and
 the badge read it from whichever node they are inside.
+
+**The neutrals and the face are the HOST's.** `--ground`, `--text`, `--card`, `--line`, `--dim`
+and `--faint` read the host's palette (`--sh-*`, k7's `--color-faint`) and the type `--font-sans`,
+each with the hex the graph used to carry as its fallback. A graph with greys of its own beside a
+timeline in the app's greys read as a second application; the sand and mauve accents stay the
+graph's, being what a node IS rather than how the app looks. The selection ring and the insert
+seams take the host's ring violet.
+
+**A cable's colour is a SIGNAL token** — `--color-sig-midi`, `-audio`, `-video`, `-event`, set by
+k7's `index.css`. `cableColorFor` answers the `var()` for anything the DOM draws (a port, the patch
+cable); the cables themselves are a canvas, which cannot resolve `var()`, so `cableStrokeFor` reads
+the token's value once and keeps it.

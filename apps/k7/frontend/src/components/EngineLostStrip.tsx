@@ -32,32 +32,37 @@ export function EngineLostStrip({
   }, [connected]);
   if (connected || !shown || dismissed) return null;
   return (
-    <div
-      role="status"
-      className="flex shrink-0 items-center gap-2 border-destructive/40 border-b bg-destructive/10 px-3 py-1 text-destructive text-xs"
-    >
-      <Unplug className="h-3.5 w-3.5 shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{m["engine.lostStrip"]()}</span>
-      {onRetry && (
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-6 px-2 text-xs"
-          onClick={onRetry}
-        >
-          {m["engine.retryNow"]()}
-        </Button>
-      )}
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-6 w-6"
-        onClick={() => setDismissed(true)}
-        title={m["common.dismiss"]()}
-        aria-label={m["common.dismiss"]()}
+    // An OVERLAY on a zero-height anchor: a row inserted two seconds in would push every pane down under the pointer (docs/shell.md).
+    <div className="relative z-30 h-0 shrink-0">
+      <div
+        role="status"
+        className="absolute inset-x-0 top-0 flex items-center gap-2 border-destructive/40 border-b bg-card px-3 py-1 text-destructive text-xs shadow-lg"
       >
-        <X className="h-3.5 w-3.5" />
-      </Button>
+        <Unplug className="h-3.5 w-3.5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">
+          {m["engine.lostStrip"]()}
+        </span>
+        {onRetry && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 px-2 text-xs"
+            onClick={onRetry}
+          >
+            {m["engine.retryNow"]()}
+          </Button>
+        )}
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6"
+          onClick={() => setDismissed(true)}
+          title={m["common.dismiss"]()}
+          aria-label={m["common.dismiss"]()}
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
     </div>
   );
 }

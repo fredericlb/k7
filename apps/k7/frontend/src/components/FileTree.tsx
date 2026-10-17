@@ -503,7 +503,7 @@ export function FileTree({
                 : "text-foreground/80 hover:text-foreground",
             )}
           >
-            <Pin className="h-3.5 w-3.5 shrink-0 text-primary" />
+            <Pin className="h-3.5 w-3.5 shrink-0 text-primary-text" />
             {/* Folder + filename, so two pinned `tracks/*.yaml` are told apart; the full path is the tooltip. */}
             <span className="truncate">{p.split("/").slice(-2).join("/")}</span>
           </button>
@@ -512,7 +512,7 @@ export function FileTree({
             onClick={() => togglePin(p)}
             title={m["tree.unpin"]()}
             aria-label={m["tree.unpinFile"]({ name: p.split("/").pop() ?? p })}
-            className="shrink-0 rounded p-0.5 text-muted-foreground/50 opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
+            className="shrink-0 rounded p-0.5 text-faint opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -706,7 +706,7 @@ export function FileTree({
                   "shrink-0 rounded p-0.5",
                   activeProject === node.path
                     ? "text-emerald-500"
-                    : "text-muted-foreground/60 hover:text-foreground",
+                    : "text-faint hover:text-foreground",
                 )}
               >
                 <Play

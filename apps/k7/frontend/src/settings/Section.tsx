@@ -14,12 +14,13 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-neutral-800 bg-neutral-900/40">
-      <header className="border-neutral-800 border-b px-4 py-3">
-        <h2 className="font-medium text-neutral-200 text-sm">{title}</h2>
-        {hint && <p className="mt-1 text-neutral-500 text-xs">{hint}</p>}
+    // A surface by its fill, not an outline: the card step above the page's ground (docs/shell.md).
+    <section className="rounded-lg bg-card">
+      <header className="border-border/60 border-b px-4 py-3">
+        <h2 className="font-semibold text-foreground text-sm">{title}</h2>
+        {hint && <p className="mt-1 text-faint text-xs">{hint}</p>}
       </header>
-      <div className="divide-y divide-neutral-800/60">{children}</div>
+      <div className="divide-y divide-border/60">{children}</div>
     </section>
   );
 }
@@ -37,10 +38,8 @@ export function Row({
   return (
     <div className="flex items-center gap-4 px-4 py-2.5">
       <div className="min-w-0 flex-1">
-        <div className="truncate text-neutral-200 text-sm">{label}</div>
-        {detail && (
-          <div className="truncate text-neutral-500 text-xs">{detail}</div>
-        )}
+        <div className="truncate text-foreground text-sm">{label}</div>
+        {detail && <div className="truncate text-faint text-xs">{detail}</div>}
       </div>
       {children && <div className="flex shrink-0 gap-2">{children}</div>}
     </div>
