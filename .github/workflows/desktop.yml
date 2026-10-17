@@ -6,7 +6,7 @@
 # binaries, compiling nothing, and only when that platform's engine built. Beside them, `android`
 # builds the phone's APK, whose arm64 engine and supervisor Gradle compiles itself.
 #
-# It is the only workflow here that compiles the C++ engine. k7.yml deliberately does not: a cold
+# It and ios.yml, for the iPhone, are the workflows here that compile the C++ engine. k7.yml deliberately does not: a cold
 # build is tens of minutes per platform, a cached one several. Hence the `decide` gate below — a main
 # push that touched only docs/ does not pay for three native builds.
 #

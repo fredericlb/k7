@@ -118,7 +118,7 @@ hosted image's stamp), [images.md](docs/images.md) (why k7's Dockerfile is stage
 [server-engine.md](docs/server-engine.md) (the server's own engine: its image, its null-sink device),
 [publishing.md](docs/publishing.md) (the four packages z0 consumes by version), [desktop-release.md](docs/desktop-release.md) (the OTHER half — the
 packaged app for the three desktops, a rolling snapshot off `main` and a release per `vX.Y.Z`
-tag, and the one workflow that compiles the C++ engine),
+tag, the workflow that compiles the C++ engine for them and the Android APK, and `ios.yml`, the unsigned iPhone build),
 and four plan/recipe pages, [platter-plan.md](docs/platter-plan.md) (the DJ deck's
 playback: a stretcher inside the platter, and the hybrid it deletes),
 [platter-node-plan.md](docs/platter-node-plan.md) (its sequel — the platter is injected into the

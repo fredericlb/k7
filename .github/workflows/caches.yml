@@ -11,7 +11,7 @@ name: caches
 
 on:
   workflow_run:
-    workflows: [desktop, k7]
+    workflows: [desktop, ios, k7]
     types: [completed]
   schedule:
     - cron: "17 4 * * *"

@@ -125,7 +125,8 @@ shell page and lays it out as `cap copy` would, and bundles the backend with `ap
   screen's controls may need the category changed.
 - **Not run on a phone**, only on the simulator (below). Sign-in through the browser, pairing, the private CA,
   downloads, the microphone flow and the local-network prompt are compiled, not driven.
-- **No CI job**, and no release signing: the app is built locally.
+- **No release signing.** `.github/workflows/ios.yml` builds an UNSIGNED `.ipa` for a device as an artifact
+  (`docs/desktop-release.md`); signing it is the developer's own team, as for a local build.
 - **Node warns about file descriptors** in the file service's worker ("closed but not opened in unmanaged mode").
   The service answers regardless; where the descriptors come from is still to find.
 - **No stem separation**: no ONNX Runtime ships for iOS in a form the supervisor loads.

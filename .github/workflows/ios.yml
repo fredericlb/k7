@@ -1,0 +1,117 @@
+# The iPhone app: engine/k7-ios built for a device, its engine and supervisor compiled from the ios-arm64
+# presets by engine/k7-ios/scripts/stage.mjs, the script a developer runs, then Xcode. UNSIGNED: signing is the
+# developer's own team for now, so the artifact is an .ipa to sign before it installs (engine/k7-runtime/docs/ios.md).
+# A workflow of its own rather than a job of desktop.yml: an iOS failure must not hold the desktop snapshot back.
+
+name: ios
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "engine/**"
+      - "apps/k7/**"
+      - "packages/**"
+      - "commons"
+      - "package-lock.json"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+
+# A native build is far too expensive to leave a superseded one running.
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    name: ios
+    # The Xcode 26 line the project is written for, rather than whichever image macos-latest names this month.
+    runs-on: macos-26
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
+      - id: commons
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
+
+      # The shell page and the backend bundle are workspaces of the repository.
+      - uses: ./.github/actions/node
+
+      # The presets generate Ninja; cmake may or may not be on the image already. The Xcode in use goes in the log.
+      - name: build deps
+        shell: bash
+        run: |
+          for f in cmake ninja; do
+            brew list --formula "$f" >/dev/null 2>&1 || brew install "$f"
+          done
+          xcodebuild -version
+
+      # Every core: the build script leaves two free for a developer's machine (engine/k7-runtime/scripts/buildLock.mjs).
+      - name: every core to the compiler
+        shell: bash
+        run: echo "CMAKE_BUILD_PARALLEL_LEVEL=$(getconf _NPROCESSORS_ONLN)" >> "$GITHUB_ENV"
+
+      # Not fatal: a runner that cannot download sccache builds uncached rather than not at all. Saved from main alone.
+      - name: compiler cache
+        id: cache
+        continue-on-error: true
+        uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+        with:
+          variant: sccache
+          key: engine-ios-arm64
+          max-size: 1G
+          save: ${{ github.ref == 'refs/heads/main' }}
+
+      # Engine, supervisor, NodeMobile and the CA bundle as pinned, Faust's libraries, the shell page, the backend.
+      - name: stage
+        env:
+          # Read by the presets, not CMAKE_<LANG>_COMPILER_LAUNCHER: that one reaches JUCE's nested juceaide build too.
+          STUDIO_COMPILER_LAUNCHER: ${{ steps.cache.outcome == 'success' && 'sccache' || '' }}
+        run: node engine/k7-ios/scripts/stage.mjs
+
+      # A generic device and no -sdk: naming both leaves the asset catalogue's unthinned half empty.
+      - name: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -project engine/k7-ios/k7.xcodeproj -scheme k7 -configuration Release \
+            -destination "generic/platform=iOS" -derivedDataPath "$RUNNER_TEMP/k7-ios" \
+            CODE_SIGNING_ALLOWED=NO build
+
+      # The three frameworks inside, each an arm64 device binary, before anything is uploaded.
+      - name: unsigned ipa
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/k7-ios/Build/Products/Release-iphoneos/k7.app"
+          for f in k7runtime k7supervisor NodeMobile; do
+            bin="$app/Frameworks/$f.framework/$f"
+            test -f "$bin" || { echo "::error::$f.framework is missing from the app"; exit 1; }
+            lipo -archs "$bin" | grep -qx arm64 || { echo "::error::$f is not arm64"; exit 1; }
+          done
+          stamp="snapshot-$(git rev-parse --short HEAD)"
+          mkdir -p "$RUNNER_TEMP/ipa/Payload" dist
+          cp -R "$app" "$RUNNER_TEMP/ipa/Payload/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/dist/k7-ios_${stamp}_arm64-unsigned.ipa" Payload)
+          ls -l dist
+
+      - name: compiler cache stats
+        if: always()
+        shell: bash
+        run: sccache --show-stats 2>/dev/null || echo 'no compiler cache this run'
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: k7-ios-arm64-unsigned
+          path: dist/*.ipa
+          if-no-files-found: error
