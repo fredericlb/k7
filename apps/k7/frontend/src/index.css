@@ -48,14 +48,10 @@
   --border: var(--sh-border);
 }
 
-/* The media library's tree panel, `bg-tree-panel`: the sidebar's tint mixed INTO the page colour
-   rather than left translucent, because on a phone the tree is a drawer over the song list. */
+/* The media library's tree panel, `bg-tree-panel`: the sidebar's surface, opaque because on a
+   phone the tree is a drawer over the song list. Neutral, the accent being kept for state. */
 @theme inline {
-  --color-tree-panel: color-mix(
-    in oklab,
-    var(--color-primary) 20%,
-    var(--color-background)
-  );
+  --color-tree-panel: var(--color-card);
 }
 
 @layer base {

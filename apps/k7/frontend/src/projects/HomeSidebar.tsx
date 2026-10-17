@@ -85,11 +85,12 @@ function SidebarEntry({
       onClick={() => onPick(route)}
       className={cn(
         "justify-center sm:justify-start",
+        // The lit entry is the one place the sidebar wears the accent: violet means "you are here" (../../docs/projects.md).
         active &&
-          "bg-background text-foreground hover:bg-background hover:text-foreground",
+          "bg-primary/15 text-foreground hover:bg-primary/20 hover:text-foreground",
       )}
     >
-      <Icon className="h-4 w-4 shrink-0" />
+      <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
       <span className="hidden min-w-0 flex-1 truncate text-left sm:inline">
         {label}
       </span>
@@ -117,7 +118,7 @@ function SidebarGroup({
       <span className="hidden px-3 pb-1 text-muted-foreground text-xs sm:inline">
         {title}
       </span>
-      <span className="mx-2 mb-1 border-primary/20 border-t sm:hidden" />
+      <span className="mx-2 mb-1 border-border border-t sm:hidden" />
       {entries.map((e) => (
         <SidebarEntry key={e.route} entry={e} onPick={onPick} />
       ))}
@@ -184,7 +185,7 @@ function HomeSidebar({
   }));
 
   return (
-    <aside className="z-20 flex w-14 shrink-0 flex-col border-r border-primary/20 bg-primary/20 sm:w-52">
+    <aside className="z-20 flex w-14 shrink-0 flex-col border-r border-border bg-card sm:w-52">
       <div className="flex flex-col gap-1 px-3 pt-4 pb-3 sm:px-5">
         <span
           className="truncate font-brand text-xl leading-none text-white"

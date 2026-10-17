@@ -219,6 +219,14 @@ it: `AppHeader` folds `items` into a hamburger of its own below 640 px and k7's 
 collapse into one — two hamburgers side by side being two answers to "where do I go" — so anything
 put there must also be in k7's own menu.
 
+### The bar is `plain`, not the house tint
+
+k7 passes `variant="plain"` to the shared bar, the card surface with a hairline under it, where every
+phare app keeps the violet tint (`commons/packages/ui/docs/app-header.md`). A DAW lights things all
+the time — the page on screen, a selection, Play — and those are violet; a violet bar around them
+leaves the accent nothing to mark. The footer and the home page's sidebar take the same surface
+(`projects.md`).
+
 ### The bar is 30 px, and its height is a rule rather than a number
 
 Every row of chrome is a row the panes don't get, and a phone in landscape is about 400 px tall.
@@ -704,7 +712,7 @@ them in its menu.
 alike: the shared header's tabs upside down, hanging from the footer's top rule, the open one taking the
 page's background and opening into the panel it shows. A lit button says a toggle is on; a tab says
 WHICH of several places you are looking at, which is what a panel row is. The footer wears the header's
-tint for it, since a tab in the page's own colour on a bar of the same colour is not seen. The notes
+card surface for it, since a tab in the page's own colour on a bar of the same colour is not seen. The notes
 button stays a toggle: it opens nothing.
 
 The buttons:

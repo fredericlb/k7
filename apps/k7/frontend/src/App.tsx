@@ -2626,7 +2626,8 @@ export default function App({
           <div className="relative flex h-full flex-col bg-background text-foreground">
             {/* The shared bar (@frediverse/ui/app-header) with k7's contents; `items` is empty on purpose — docs/shell.md. */}
             <AppHeader
-              // No `variant`: the house look, the accent tinted over the page (@frediverse/ui's docs/app-header.md).
+              // `plain`, not the house tint: k7 keeps its violet for what is lit, and a violet bar would drown it (docs/shell.md).
+              variant="plain"
               className={cn(
                 // `relative` on the INNER box is what the transport centres against — the bar's own middle, not the gap between its neighbours.
                 "z-20 [&>div]:relative",
