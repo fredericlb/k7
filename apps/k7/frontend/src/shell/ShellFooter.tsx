@@ -21,7 +21,7 @@ import { PANEL_META } from "../shellMeta";
 import type { createStatusLine } from "../statusLine";
 import type { TimelineMode } from "../timelineMode";
 import type { Tool } from "../timelineTools";
-import type { EngineSyncState } from "../types";
+import type { EngineSyncState, FormatTooNew } from "../types";
 import type { GraphSlot } from "../ui/commands/context";
 import type { WaveMode } from "../waveMode";
 
@@ -39,6 +39,7 @@ export function ShellFooter({
   waitingForEngine,
   warm,
   projectErrors,
+  formatTooNew,
   recInfo,
   optMetronome,
   setOptMetronome,
@@ -65,6 +66,8 @@ export function ShellFooter({
   waitingForEngine: boolean;
   warm: ReturnType<typeof useWarmWaveforms>;
   projectErrors: number;
+  /** Set when the project was written by a newer k7: the badge then says to update rather than counting errors. */
+  formatTooNew: FormatTooNew | null;
   recInfo: RecInfo;
   /** The metronome as last clicked, ahead of the document that will confirm it. */
   optMetronome: boolean | null;
@@ -144,14 +147,24 @@ export function ShellFooter({
             {warm.total ? ` ${warm.done}/${warm.total}` : ""}…
           </span>
         ) : null}
-        {projectErrors > 0 && (
+        {formatTooNew ? (
           <Badge
             variant="rec"
-            className="shrink-0"
-            title={`${projectErrors} error${projectErrors === 1 ? "" : "s"} in this project — the timeline and chains won't load until they're fixed`}
+            className="min-w-0 truncate"
+            title={m["project.formatTooNew"](formatTooNew)}
           >
-            {projectErrors} error{projectErrors === 1 ? "" : "s"}
+            {m["project.formatTooNew"](formatTooNew)}
           </Badge>
+        ) : (
+          projectErrors > 0 && (
+            <Badge
+              variant="rec"
+              className="shrink-0"
+              title={`${projectErrors} error${projectErrors === 1 ? "" : "s"} in this project — the timeline and chains won't load until they're fixed`}
+            >
+              {projectErrors} error{projectErrors === 1 ? "" : "s"}
+            </Badge>
+          )
         )}
       </div>
 

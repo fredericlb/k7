@@ -362,7 +362,20 @@ export interface Diagnostic {
   message: string;
   severity?: "error" | "warning"; // "error" (default) draws red; "warning" amber
 }
+/** A project root written by a newer k7: the levels the "update k7" message names (song-schema docs/formatLevel.md). */
+export interface FormatTooNew {
+  fileLevel: number;
+  buildLevel: number;
+}
 export interface ProjectErrors {
   errors: string[]; // flat messages — the count badge
   diagnostics: Diagnostic[]; // located, for the editor's inline squiggles
+  formatTooNew?: FormatTooNew; // set when the compile refused a newer format, so the UI says "update k7"
+}
+/** A document route's 400: the compiler's message, plus `code` and the levels when it is a format refusal. */
+export interface CompileErrorBody {
+  error: string;
+  code?: "format-too-new";
+  fileLevel?: number;
+  buildLevel?: number;
 }

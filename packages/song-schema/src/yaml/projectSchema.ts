@@ -71,6 +71,8 @@ const MARKER_KEY = new RegExp(`${TIMECODE.source}|${WALL_CLOCK.source}`);
 
 export const ProjectFileSchema = z
   .object({
+    // The project FORMAT LEVEL, absent meaning 1; a newer one is refused before this schema runs (docs/formatLevel.md).
+    format: z.number().int().min(1).optional(),
     project: ProjectSettingsSchema.optional(),
     // DEAD and still accepted: the folder's SUFFIX says which app opens a project (docs/projectFile.md).
     type: z.string().optional(),

@@ -66,6 +66,8 @@ export function exists(): boolean {
 
 /** Create the layout if it is not there and return the root; an existing marker is left as it is. */
 export function ensureLayout(): string {
+  // Every write passes here first, so a library a newer k7 wrote is never written by this one (docs/index.md).
+  checkSchemaVersion();
   const root = mediatekDir();
   // The families and the two zones; nothing INSIDE `songs/`, which has no subdivision to pre-create.
   for (const d of [
@@ -104,6 +106,27 @@ export function schemaVersion(): number {
   } catch {
     return 0;
   }
+}
+
+/** A library whose marker declares a version above SCHEMA_VERSION: this build refuses to write it. */
+export class MediatekTooNewError extends Error {
+  readonly code = "mediatek-too-new";
+  constructor(
+    readonly libraryVersion: number,
+    readonly buildVersion: number = SCHEMA_VERSION,
+  ) {
+    super(
+      `this media library was written by a newer k7 (version ${libraryVersion}); this k7 runs version ${buildVersion} — update k7 to use it`,
+    );
+    this.name = "MediatekTooNewError";
+  }
+}
+
+/** Throws MediatekTooNewError when the library at the root is newer than this build; an absent one passes. */
+export function checkSchemaVersion(): void {
+  if (!exists()) return;
+  const v = schemaVersion();
+  if (v > SCHEMA_VERSION) throw new MediatekTooNewError(v);
 }
 
 /** An absolute path as the mediatek-relative POSIX path used for entry ids. */

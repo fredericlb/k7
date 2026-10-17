@@ -5,6 +5,11 @@
 
 import { join } from "node:path";
 import {
+  checkFormatLevel,
+  formatLevelOf,
+  formatLevelOfText,
+} from "@studio/song-schema/formatLevel";
+import {
   CAPTION_SOURCE,
   ENTITY_SCHEMAS,
   isPictureSource,
@@ -37,7 +42,7 @@ import { loadModules } from "./moduleTree";
 import type { RawProjectRoot, RawVideoTrack } from "./rawDoc";
 import { type Lane, lanesOf } from "./trackModule";
 import { entityFileFor, entityFiles } from "./yaml/moduleIO";
-import { wsExists, wsIssues, wsRead } from "./yaml/workspaceFile";
+import { readRaw, wsExists, wsIssues, wsRead } from "./yaml/workspaceFile";
 import { parsedYaml } from "./yaml/yamlCache";
 
 // clips/ holds every kind identically ({source}), so the kind is read off the extension, by song-schema's patterns.
@@ -122,11 +127,23 @@ export function loadSettings(
   return r.success ? r.data : {};
 }
 
+const relOf = (file: { rel: string }): string => file.rel.replace(/^\/+/, "");
+
+// Throws FormatTooNewError when the project root's RAW text declares a newer format; reads no further.
+export function checkProjectFormat(dir: string): void {
+  const file = entityFileFor(dir, "", "project");
+  if (file)
+    checkFormatLevel(formatLevelOfText(readRaw(file.path)), relOf(file));
+}
+
 // The project's ROOT — `project`, `trackOrder`, `markers` — from `project.yaml`; `chains` is read separately.
 export function loadProjectRoot(dir: string, validate = false): RawProjectRoot {
   const file = entityFileFor(dir, "", "project");
   if (!file) return {};
+  // A newer format is refused whether or not this read validates, so no writer clobbers it (song-schema docs/formatLevel.md).
+  checkFormatLevel(formatLevelOfText(readRaw(file.path)), relOf(file));
   const raw = parseYaml(wsRead(file.path), YAML_READ);
+  checkFormatLevel(formatLevelOf(raw), relOf(file));
   const r = ProjectFileSchema.safeParse(raw ?? {});
   if (!r.success) {
     if (validate)

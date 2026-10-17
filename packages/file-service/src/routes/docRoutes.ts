@@ -6,6 +6,7 @@ import { validate, wrap } from "@frediverse/http/route";
 import { NEEDS_META } from "@studio/take-render/render";
 import { Router } from "express";
 import { z } from "zod";
+import { compileErrorBody } from "../compileError.ts";
 import {
   liveConflicts,
   liveLogTail,
@@ -98,7 +99,7 @@ docRouter.get(
     try {
       res.json(req.ws!.projectDoc());
     } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
+      res.status(400).json(compileErrorBody(e));
     }
   }),
 );
@@ -110,7 +111,7 @@ docRouter.get(
     try {
       res.json(req.ws!.videoProjectDoc());
     } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
+      res.status(400).json(compileErrorBody(e));
     }
   }),
 );
@@ -128,7 +129,7 @@ docRouter.get(
       res.json(req.ws!.engineDoc());
     } catch (e) {
       // A project that will not compile: the message is the compiler's own, and the caller shows it.
-      res.status(400).json({ error: (e as Error).message });
+      res.status(400).json(compileErrorBody(e));
     }
   }),
 );
@@ -140,7 +141,7 @@ docRouter.get(
       const at = String(req.query.at ?? "");
       res.json(req.ws!.graphDoc(at ? req.ws!.mediaPath(at) : undefined));
     } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
+      res.status(400).json(compileErrorBody(e));
     }
   }),
 );

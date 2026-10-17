@@ -27,6 +27,7 @@ export {
   notSupportedModules,
 } from "./diagnostics";
 export {
+  checkProjectFormat,
   exportSub,
   isVideoSource,
   loadChains,

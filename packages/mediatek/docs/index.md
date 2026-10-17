@@ -269,3 +269,17 @@ is how k7's backend files a 512 MB upload without ever holding it in memory (`ap
 swallow every error: a library on a full or read-only disk still works, it just walks
 again next time. Nothing reads `index.json` as truth — the revision is always recomputed
 from disk first, and the cached listing is used only when it matches.
+
+## A library a newer k7 wrote is refused
+
+`mediatek.yaml` carries `version`, and `SCHEMA_VERSION` (`src/layout.ts`) is the version this build
+writes. A marker above it makes `ensureLayout` throw `MediatekTooNewError` (code
+`mediatek-too-new`), and every write in `src/write.ts` passes through `ensureLayout` first, so a
+build never writes into a library whose shape it does not know. The version is read as a line,
+before anything else in the volume is trusted. A marker with no version reads as 0 and passes.
+
+k7's backend does not exit on it: the same process signs every studio service in and holds the
+editor's file hub, which do not depend on the library. It logs the refusal, starts none of the
+library's sweeps (they write derived files), and answers `/api/mediatek` with a 503 carrying the
+message, the code and both versions. The rule for bumping it is the project format's,
+`packages/song-schema/docs/formatLevel.md`.
