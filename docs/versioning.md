@@ -90,14 +90,20 @@ tzdata shifts the stamp by an hour or two rather than failing the build.
 The image also carries the commit hash, and `:latest` or, for a release, `:X.Y.Z`. Each has its
 use: the version you deploy, the commit you can `git show`, the stamp you can read. Only the
 commit's is pushed before the tests pass; the others follow once they have ([images.md](images.md)).
+Inside, the image says the same thing without its tag: `org.opencontainers.image.version` (`X.Y.Z`
+for a release, `X.Y.Z-snapshot-<commit>` otherwise, as the desktop snapshot names itself) and
+`org.opencontainers.image.revision`, so `docker inspect` answers on a host that pulled it by digest.
 
 ## A deploy names its build
 
-`docker/docker-compose.yml` takes the k7 and engine tags from `APP_VERSION` and has no default for
-it: compose refuses to start without one. `:latest` moves with every publish, so a stack started on
-it runs whatever was newest when each container last pulled — the two halves can differ, and the
-answer to "which image is that?" is no longer in the deploy's own `.env`. One variable for both
-images keeps the web app and the server's engine on the same commit.
+`docker/docker-compose.yml` takes the k7 and engine tags from `APP_VERSION`, and its default is the
+release the repository is at — `scripts/check-version.mjs` keeps it equal to the root version and
+`--set` rewrites it. So the compose file of a release tag starts that release with an empty `.env`,
+and `APP_VERSION` is for pinning anything else: a stamp, a commit. The default is never `:latest`,
+which moves with every publish, so a stack started on it runs whatever was newest when each
+container last pulled — the two halves can differ, and the answer to "which image is that?" is
+no longer in the deploy's own files. One variable for both images keeps the web app and the
+server's engine on the same commit.
 
 `Z0_VERSION` keeps its `latest` default: z0's stamps are its own repository's, and nothing here
 could check a value required of it. Pinning it in `.env` is still what makes a deploy reproducible.

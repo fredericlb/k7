@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // check-version.mjs — the release version has ONE source, the root package.json's `version`; this keeps
 // every copy equal: each private workspace's package.json, its package-lock entry, the iOS project's
-// MARKETING_VERSION. The four published packages keep their own semver and are skipped (docs/publishing.md).
+// MARKETING_VERSION, the compose file's default image tag. The four published packages keep their own semver and are skipped (docs/publishing.md).
 // `--tag <vX.Y.Z>` also refuses a release tag that is not `v` + that version; `--set <X.Y.Z>` rewrites every
 // copy, the root's included. See docs/versioning.md.
 
@@ -17,6 +17,8 @@ const PUBLISHED = new Set([
   "@studio/project-shell",
 ]);
 const PBXPROJ = "engine/k7-ios/k7.xcodeproj/project.pbxproj";
+const COMPOSE = "docker/docker-compose.yml";
+const COMPOSE_TAG = /\$\{APP_VERSION:-([^}]*)\}/g;
 const SEMVER = /^\d+\.\d+\.\d+$/;
 
 const arg = (name) => {
@@ -95,6 +97,10 @@ if (set !== undefined) {
       `MARKETING_VERSION = ${set};`,
     ),
   );
+  writeFileSync(
+    join(repo, COMPOSE),
+    read(COMPOSE).replace(COMPOSE_TAG, `\${APP_VERSION:-${set}}`),
+  );
 } else {
   if (lock.version !== version)
     errors.push(
@@ -112,6 +118,11 @@ if (set !== undefined) {
   for (const m of marketing)
     if (m !== version)
       errors.push(`${PBXPROJ}: MARKETING_VERSION ${m}, expected ${version}`);
+  const tags = [...read(COMPOSE).matchAll(COMPOSE_TAG)].map((m) => m[1]);
+  if (!tags.length) errors.push(`${COMPOSE}: no \${APP_VERSION:-…} image tag`);
+  for (const t of tags)
+    if (t !== version)
+      errors.push(`${COMPOSE}: default image tag ${t}, expected ${version}`);
 }
 
 const tag = arg("--tag");

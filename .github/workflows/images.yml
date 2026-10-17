@@ -33,18 +33,24 @@ jobs:
     outputs:
       stamp: ${{ steps.stamp.outputs.stamp }}
       release: ${{ steps.release.outputs.release }}
+      label: ${{ steps.label.outputs.label }}
     steps:
       # YY.MMDDHHmm in Europe/Paris, the stamp the SPAs show; computed once, since a second reading could disagree.
       - id: stamp
         run: echo "stamp=$(TZ=Europe/Paris date +%y.%m%d%H%M)" >> "$GITHUB_OUTPUT"
-      - if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       # A tag names the version the tree holds, or nothing is built (docs/versioning.md).
       - id: release
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           node scripts/check-version.mjs --tag "$GITHUB_REF_NAME"
           echo "release=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      # The image's own version label: the release on a tag, the version and the commit otherwise, as the desktop snapshot names itself.
+      - id: label
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          if [ -n "${{ steps.release.outputs.release }}" ]; then echo "label=$version" >> "$GITHUB_OUTPUT"
+          else echo "label=$version-snapshot-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"; fi
 
   webapp:
     name: k7-webapp
@@ -78,12 +84,16 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/k7-webapp:${{ github.sha }}
           build-args: APP_VERSION=${{ needs.version.outputs.stamp }}
-          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.version.outputs.label }}
+            org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/k7-cache:k7-webapp
           cache-to: type=registry,ref=${{ env.REGISTRY }}/k7-cache:k7-webapp,mode=max,image-manifest=true,oci-mediatypes=true
 
   engine:
     name: ${{ matrix.image }}
+    needs: version
     runs-on: ${{ matrix.runner }}
     # A cold build compiles Tracktion, JUCE, sfizz, Surge and Faust; a push that touches no native source finds it in the cache.
     timeout-minutes: 300
@@ -119,7 +129,10 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ matrix.image }}:${{ github.sha }}
           # The runners have 4 cores and 16 GB: every core compiles, a unity file taking about a gigabyte.
           build-args: BUILD_JOBS=4
-          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.version.outputs.label }}
+            org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/k7-cache:${{ matrix.image }}
           cache-to: type=registry,ref=${{ env.REGISTRY }}/k7-cache:${{ matrix.image }},mode=max,image-manifest=true,oci-mediatypes=true
 
