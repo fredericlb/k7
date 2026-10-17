@@ -6,7 +6,7 @@
 import type { StreamSink } from "./streamPlayer";
 
 /** The processor, as a source string for a Blob URL, allocating nothing and blocking on nothing — see docs/streaming.md. */
-const PROCESSOR_SOURCE = `
+export const PROCESSOR_SOURCE = `
 class StudioStreamProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
@@ -14,6 +14,11 @@ class StudioStreamProcessor extends AudioWorkletProcessor {
     this.channels = o.channels || 2;
     this.capacity = o.capacity || 96000;
     this.startFrames = o.startFrames || 7200;
+    // The latency cap, off at 0: a depth held above maxFrames for holdFrames is cut back to startFrames.
+    this.maxFrames = o.maxFrames || 0;
+    this.holdFrames = o.holdFrames || 24000;
+    this.over = 0;
+    this.minOver = 0;
     this.ring = [];
     for (let c = 0; c < this.channels; c++)
       this.ring.push(new Float32Array(this.capacity));
@@ -23,6 +28,7 @@ class StudioStreamProcessor extends AudioWorkletProcessor {
     this.playing = false;
     this.underruns = 0;
     this.overruns = 0;
+    this.skips = 0;
     this.blocks = 0;
     this.port.onmessage = (e) => this.onMessage(e.data);
   }
@@ -31,6 +37,7 @@ class StudioStreamProcessor extends AudioWorkletProcessor {
     if (msg && msg.reset) {
       this.r = this.w;
       this.playing = false;
+      this.over = 0;
       return;
     }
     const s = msg;
@@ -66,9 +73,20 @@ class StudioStreamProcessor extends AudioWorkletProcessor {
       // SILENCE, not a repeat of the last block: a repeat sounds smoother and hides the fault this exercise exists to measure.
       this.underruns++;
       this.playing = false;
+      this.over = 0;
       for (let c = 0; c < out.length; c++) out[c].fill(0);
       return this.report(avail, true);
     }
+
+    // A backlog that never drains is latency kept for good; the MINIMUM over the hold is what is surely excess, not a jitter peak.
+    if (this.maxFrames > 0 && avail > this.maxFrames) {
+      this.minOver = this.over === 0 ? avail : Math.min(this.minOver, avail);
+      this.over += n;
+      if (this.over >= this.holdFrames) {
+        this.over = 0;
+        return this.skip(out, n, avail, this.minOver - this.startFrames);
+      }
+    } else this.over = 0;
 
     for (let i = 0; i < n; i++) {
       const at = (this.r + i) % this.capacity;
@@ -79,6 +97,22 @@ class StudioStreamProcessor extends AudioWorkletProcessor {
     return this.report(avail - n, false);
   }
 
+  // One block crossfaded from where playback was to drop frames later, so the jump is a blend rather than a click.
+  skip(out, n, avail, drop) {
+    for (let i = 0; i < n; i++) {
+      const g = (i + 0.5) / n;
+      const from = (this.r + i) % this.capacity;
+      const to = (this.r + drop + i) % this.capacity;
+      for (let c = 0; c < out.length; c++) {
+        const ch = this.ring[c < this.channels ? c : this.channels - 1];
+        out[c][i] = ch[from] * (1 - g) + ch[to] * g;
+      }
+    }
+    this.r += drop + n;
+    this.skips++;
+    return this.report(avail - drop - n, true);
+  }
+
   // ~7 times a second, not per block: postMessage allocates, and the audio thread pays.
   report(depth, force) {
     if (++this.blocks % 50 === 0 || force)
@@ -86,6 +120,7 @@ class StudioStreamProcessor extends AudioWorkletProcessor {
         depth: depth,
         underruns: this.underruns,
         overruns: this.overruns,
+        skips: this.skips,
       });
     return true;
   }
@@ -98,6 +133,8 @@ export interface SinkStats {
   depth: number;
   underruns: number;
   overruns: number;
+  /** Times the latency cap cut a backlog back to the cushion. */
+  skips: number;
 }
 
 export interface WorkletSinkOptions {
@@ -106,6 +143,10 @@ export interface WorkletSinkOptions {
   capacity?: number;
   /** The cushion, in frames, before playback starts — 7200, i.e. 150 ms at 48 kHz, and the measurement is in docs/streaming.md. */
   startFrames?: number;
+  /** The latency cap, in frames: a depth above it for `holdFrames` is cut back to `startFrames`. Unset is off — a recording must never skip. */
+  maxFrames?: number;
+  /** How long, in played frames, the depth must stay above `maxFrames` first. Default 24000, half a second at 48 kHz. */
+  holdFrames?: number;
 }
 
 /** Build the sink for a context whose sampleRate ALREADY matches the stream's: it does not resample, and a mismatch is a pitch shift. */
@@ -131,10 +172,12 @@ export async function createWorkletSink(
       channels: opts.channels,
       capacity: opts.capacity ?? 96000,
       startFrames: opts.startFrames ?? 7200,
+      maxFrames: opts.maxFrames ?? 0,
+      holdFrames: opts.holdFrames ?? 24000,
     },
   });
 
-  let stats: SinkStats = { depth: 0, underruns: 0, overruns: 0 };
+  let stats: SinkStats = { depth: 0, underruns: 0, overruns: 0, skips: 0 };
   node.port.onmessage = (e) => {
     stats = e.data as SinkStats;
   };

@@ -100,6 +100,17 @@ short enough to read in one screen, and that is the whole mitigation.
   is real, concealment is a reasonable thing to add.
 * **An overrun drops the OLDEST frames**, not the newest. A listener who fell behind wants
   to catch up to live; replaying their backlog is the one thing they did not ask for.
+* **A backlog is cut back to the cushion, when the caller asks for it** (`maxFrames`,
+  `holdFrames`). Playback never speeds up, so every stall of the socket — a relay over the
+  internet has them — is latency the ring keeps for good, up to its two seconds. With the cap on,
+  a depth that stays above `maxFrames` for `holdFrames` of playback is cut by the MINIMUM depth
+  seen over that hold, less the cushion: a jitter peak is gone before the hold ends, and cutting
+  by the minimum rather than the current depth is what keeps the cut from landing on a peak and
+  underrunning in the next trough. The jump is one block crossfaded between the two positions,
+  so it is a blend rather than a click; `skips` counts them.
+  `engineOutput.ts` turns it on at 300 ms held for 500 ms, since what it plays is listening and a
+  skipped instant costs less than a lag that stays. It is off by default because the rehearsal
+  recorder takes its take off this sink's output, and a recording must never lose audio.
 * **Stats are posted ~7 times a second**, not per block: `postMessage` allocates, and the
   audio thread would pay for it 375 times a second otherwise.
 
@@ -115,6 +126,10 @@ depends on how much drift there actually is** between the machines in question. 
 mockup does not correct drift. It **measures** it: `StreamStats.driftMsPerMin`, reported as
 `null` until a minute of stream has gone by, because below that the slope is jitter and a
 number there would invite acting on noise.
+
+The latency cap above bounds what drift costs a listener without correcting it: a ring that
+fills is cut back, one that drains underruns and refills its cushion. Both are audible events,
+which is why the cap is not the fix.
 
 That is the measurement that decides the real design. Take it before writing the fix.
 

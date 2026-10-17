@@ -40,7 +40,12 @@ export function playEngineOutput(client: OutputClient): () => void {
     building = true;
     try {
       const c = new AudioContext({ sampleRate, latencyHint: "interactive" });
-      const sink = await createWorkletSink(c, { channels });
+      // Capped: playback over a relay gathers every stall as latency it never gives back (docs/streaming.md).
+      const sink = await createWorkletSink(c, {
+        channels,
+        maxFrames: Math.round(sampleRate * 0.3),
+        holdFrames: Math.round(sampleRate * 0.5),
+      });
       if (!on) {
         c.close().catch(() => {});
         return;
