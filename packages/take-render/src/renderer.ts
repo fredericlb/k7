@@ -1,6 +1,6 @@
 // renderer.ts — WHO bounces a ProjectDoc: a Renderer writes the mix (and the stems) into a folder and
 // answers the engine's manifest. The local one runs this machine's engine binary; a host with no
-// binary hands in one that asks an engine's machine instead (packages/file-service/docs/render.md).
+// binary hands in one that asks an engine's machine instead (packages/file-service/docs/renderers.md).
 // A caller never spawns the engine itself, so it does not care which one it was given.
 
 import { spawn } from "node:child_process";

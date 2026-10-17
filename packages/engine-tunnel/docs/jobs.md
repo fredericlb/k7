@@ -37,7 +37,7 @@ runs. It comes in two shapes:
   the plugins.
 - `{ doc, outDir, stems }`, every file of the manifest into a server folder, answered
   `{ type: "rendered", mix, stems: [{ name, file }] }` with every file named whole. Any render a
-  file service cannot make itself sends this one (`packages/file-service/docs/render.md`).
+  file service cannot make itself sends this one (`packages/file-service/docs/renderers.md`).
 
 In both, the paths answered are under a writable root, so naming them is what uploads them.
 

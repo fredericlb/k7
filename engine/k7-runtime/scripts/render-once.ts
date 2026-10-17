@@ -1,5 +1,5 @@
-// render-once.ts — the offline bounce through the SAME renderProject the /render route
-// calls, so this proves the wrapper and not just the CLI. No engine needs to be running:
+// render-once.ts — the offline bounce through the SAME renderProject every file-service render
+// goes through, so this proves the wrapper and not just the CLI. No engine needs to be running:
 // a render opens no audio device, which is the whole reason it can't collide with one.
 //   npx tsx engine/k7-runtime/scripts/render-once.ts
 

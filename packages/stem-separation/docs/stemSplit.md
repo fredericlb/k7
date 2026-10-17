@@ -29,13 +29,12 @@ The wiring is real: `graph.yaml` can key a module by its output
 (`stemsplit#vocals: [ reverb ]`), the derivation carries that port along the edge, and
 the graph draws a jack per stem. See `@studio/song`'s [ports.md](../../song/docs/ports.md).
 
-## Why a job, when `/render` refuses one
+## Why a job, when a render is not one
 
-[../../file-service/docs/render.md](../../file-service/docs/render.md) argues against a job registry, and it is right about a render: one
-streamable file, seconds, a caller that can simply wait. A separation is the case that turns
+A render ([../../file-service/docs/renderers.md](../../file-service/docs/renderers.md)) needs no job registry: a
+few files, seconds, a caller that can simply await it. A separation is the case that turns
 every one of those over: **minutes** rather than seconds, a **person** waiting rather than a
-server, **four files** rather than one streamable body, and a subprocess with progress worth
-reporting.
+call awaited, **four files** to hold, and a subprocess with progress worth reporting.
 
 `separateJobs.ts` makes two choices of its own:
 
@@ -331,7 +330,7 @@ system-wide change and nothing in this repo writes it.
 ## What fails hard, and why that is not a contradiction
 
 ffmpeg decodes the input, and here it is a **hard** dependency — which looks like it
-contradicts the rule stated in [../../file-service/docs/render.md](../../file-service/docs/render.md) and `@studio/take-render/render`, that a
+contradicts the rule stated in `@studio/take-render/render`, that a
 missing ffmpeg costs the FORMAT and never the render.
 
 It does not. That rule holds because there is always a lesser result to fall back to: the

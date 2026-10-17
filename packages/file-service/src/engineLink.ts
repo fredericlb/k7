@@ -666,7 +666,7 @@ function makeHost(
     get instrumentalChain(): string | undefined {
       return loadPreferences().instrumentalChain;
     },
-    // Every render a verb makes — freeze, split, consolidate, process — through this service's renderer (docs/render.md).
+    // Every render a verb makes — freeze, split, consolidate, process — through this service's renderer (docs/renderers.md).
     get renderer() {
       return serviceRenderer() ?? undefined;
     },

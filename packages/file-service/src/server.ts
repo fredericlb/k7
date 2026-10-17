@@ -23,7 +23,6 @@ import { adoptRecordedOwner, requireRootOwner } from "./owner.ts";
 import { accountRouter } from "./routes/accountRoutes.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
-import { renderRouter } from "./routes/render.ts";
 import { workspacesRouter } from "./routes/workspacesRoutes.ts";
 import { installServiceLog } from "./serviceLog.ts";
 import { exitOnSignals, exitOnStdinEnd } from "./shutdown.ts";
@@ -99,9 +98,6 @@ app.use(workspacesRouter);
 
 // The media library belongs to no workspace: the user for the gate, nothing more.
 app.use(mediatekRouter);
-
-// An offline bounce for a hosted backend that cannot exec anything itself — docs/render.md.
-app.use(renderRouter);
 
 // The machine's plugin questions and the account's chains and models — routes/accountRoutes.ts.
 app.use(accountRouter);

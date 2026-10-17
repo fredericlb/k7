@@ -106,7 +106,7 @@ compose file names both images by `APP_VERSION`, and requires it.
 ## It is k7's render machine
 
 k7's image keeps no engine binary, so an export, a share, a freeze or any other render a file
-service makes goes to an engine's machine (`packages/file-service/docs/render.md`). When the
+service makes goes to an engine's machine (`packages/file-service/docs/renderers.md`). When the
 account's own engine is bound it goes there; otherwise it comes here. The container is recognised
 by `RENDER_KEY` in `docker/.env.example`, which compose hands to both k7 and the engine as
 `STUDIO_RENDER_KEY`. The engine's token cannot serve, because every socket that drives the engine

@@ -1,7 +1,8 @@
-# Rendering for a hosted backend
+# Who renders, and how
 
-`POST /render` bounces a compiled `ProjectDoc` to audio and streams the wav back. It exists for a hosted backend outside this
-repository, which runs in a container and cannot exec anything itself.
+Every bounce the file service makes — an export, a share, a k7 publish, and the verbs that write
+audio (freeze, split, consolidate, process) — goes through `renderProject` (`src/render.ts`) and
+the one choice of machine behind it, `serviceRenderer` (`src/renderers.ts`).
 
 ## Why a process and not a message
 
@@ -21,19 +22,7 @@ constructor's argument rather than on process boundaries.
 That is also why "the supervisor runs a render-only engine" is **not** a long-lived process here.
 There is nothing to supervise: a render starts, writes, and exits.
 
-## Why the file service and not the engine
-
-The engine speaks WebSocket and knows how to make sound. The file service speaks HTTP,
-already knows where this machine's binary is (`findEngineBinary`), already has the
-engine-token gate, and is already the surface a non-browser reaches. A hosted backend
-sends no `Origin`, so CORS allows it outright — the token is what makes the call
-deliberate.
-
-## Who renders: this machine, else an engine's machine
-
-Every render the service makes — this route, an export, a share, a k7 publish, and the verbs that
-write audio (freeze, split, consolidate, process) — goes through ONE choice, `serviceRenderer` in
-`src/renderers.ts`:
+## This machine, else an engine's machine
 
 1. **this machine's engine binary**, when there is one: a desktop, a dev checkout;
 2. **the bound engine's machine**, over its jobs path: the account's own engine, its own plugins;
@@ -50,28 +39,20 @@ A machine writes only under a WRITABLE root, so a remote render lands in the acc
 scratch folder are often on different volumes — then the cache entry goes. The cache folder is
 created first: the hub accepts no upload under a root it cannot resolve.
 
-`baseDir` is refused on a machine. It names a folder on the disk the engine runs on, and the
+A base folder is refused on a machine. It names a folder on the disk the engine runs on, and the
 server cannot know what a remote machine has there.
 
-## The shape of the route
+## The scratch directory
 
-One request, one file, no job id. A render of a short clip takes seconds and the caller
-is a server: a polling protocol would be machinery in front of a wait shorter than the poll
-interval. `--stems` is deliberately not offered here — N files need a job to hold them.
-
-Stem **separation** does need exactly that, and is a job run on an engine's machine,
-start-then-poll, see [stemSplit.md](../../stem-separation/docs/stemSplit.md). A render's stems are a different thing:
-per-TRACK bounces of a document the caller already has, seconds apart from the one file it
-wanted, which is why the one-request shape still fits here.
-
-The temp directory is removed on **every** path including the failures: a wedged machine
-renders repeatedly, and each attempt costs a song's worth of disk.
+`renderProject` owns its temp directory until it succeeds, and removes it on **every** failure: a
+wedged machine renders repeatedly, and each attempt costs a song's worth of disk. On success the
+directory is the caller's to delete.
 
 ## Two failures that must not look alike
 
-- **No engine binary on this machine.** A real state, said out loud, because "render
-  failed" with no reason reads as a broken document.
+- **No engine to render with.** A real state, said out loud, because "render failed" with no
+  reason reads as a broken document.
 - **Exit 0 with nothing written.** The shape a silent failure takes — a document whose every
   track was filtered out. It is an error, not a successful empty render.
 
-Both come back as 422 with the sentence; anything else is 500.
+Both are a `RenderError` carrying the sentence, so a caller can tell a diagnosis from a crash.

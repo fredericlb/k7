@@ -1,7 +1,7 @@
 // renderers.ts — which engine bounces this service's renders: this machine's binary when it has one,
 // else the bound engine's MACHINE, else the server's own render machine, both asked over a jobs path
 // (packages/engine-tunnel/docs/jobs.md). A machine writes only under a writable root, so a remote render
-// lands in the account's render cache first and is moved into the caller's folder. See docs/render.md.
+// lands in the account's render cache first and is moved into the caller's folder. See docs/renderers.md.
 
 import { randomUUID } from "node:crypto";
 import { copyFileSync, mkdirSync, rmSync } from "node:fs";
