@@ -1,5 +1,6 @@
 // splash.ts — the page the home tab shows while the backend starts, and the one it shows if the start fails.
 // A data URL, so it needs no server; it holds no link, so the tab's routing never sees it navigate. See docs/standalone.md.
+// It declares NO drag region: on Windows a view keeps one across navigation, and k7's home would drag the window on every click (docs/tabs.md).
 
 /** --sh-background, --sh-foreground, --sh-muted-foreground and --sh-destructive, from the app's theme. */
 const BACKGROUND = "#101114";
@@ -19,15 +20,21 @@ const escapeHtml = (s: string): string =>
 function page(title: string, body: string): string {
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
 html,body{margin:0;height:100%;background:${BACKGROUND};color:${FOREGROUND};font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
-body{display:flex;align-items:center;justify-content:center;-webkit-app-region:drag;user-select:none}
+body{display:flex;align-items:center;justify-content:center;user-select:none}
 main{max-width:36rem;padding:0 24px;text-align:center}
 h1{font-size:18px;font-weight:600;margin:0 0 8px}
 p{margin:0;color:${MUTED}}
-pre{margin:16px 0 0;padding:12px;text-align:left;white-space:pre-wrap;word-break:break-word;color:${ERROR};background:#ffffff0a;border-radius:6px;font:12px/1.5 ui-monospace,monospace;-webkit-app-region:no-drag;user-select:text}
+pre{margin:16px 0 0;padding:12px;text-align:left;white-space:pre-wrap;word-break:break-word;color:${ERROR};background:#ffffff0a;border-radius:6px;font:12px/1.5 ui-monospace,monospace;user-select:text}
 .dot{display:inline-block;width:6px;height:6px;margin:0 3px;border-radius:50%;background:${MUTED};animation:b 1.2s infinite ease-in-out both}
 .dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
 @keyframes b{0%,80%,100%{opacity:.2}40%{opacity:1}}
 </style></head><body><main>${body}</main></body></html>`;
+  return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+}
+
+/** The strip until k7 answers: an empty bar that drags the window, the one place a drag region may live. */
+export function placeholderStrip(): string {
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:${BACKGROUND};-webkit-app-region:drag}</style></head><body></body></html>`;
   return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 }
 

@@ -16,6 +16,7 @@ import {
   WebContentsView,
   type WebPreferences,
 } from "electron";
+import { placeholderStrip } from "./splash.ts";
 import { TabSet } from "./tabs.ts";
 
 /** The strip's height in DIP, and the Windows caption buttons' too — one number, or they disagree. */
@@ -94,6 +95,8 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
   // Empty until `start`, and the same colour as the frame rather than a white bar.
   strip.setBackgroundColor(BACKGROUND);
   win.contentView.addChildView(strip);
+  // A bar that drags the window until `start`: the splash below declares no drag region, which on Windows would outlive it.
+  strip.webContents.loadURL(placeholderStrip()).catch(() => {});
   const tabs = new TabSet({
     parent: win.contentView,
     origin: spec.origin,

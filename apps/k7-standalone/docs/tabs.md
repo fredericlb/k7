@@ -81,6 +81,13 @@ address: `?inset=` on the left, `?right=` on the right. The bar drags the window
 (`-webkit-app-region: drag`) and every control takes itself back out with `no-drag` — forget that
 and the tabs render and cannot be clicked.
 
+**Only the strip declares a drag region — never a page in a tab.** On Windows a view keeps the drag
+regions of a page it navigates away from when the next page declares none, so a splash whose body
+dragged the window left k7's home dragging it on every click, with nothing on the page to say why.
+The splash therefore drags nothing (`src/splash.ts`), and until `start` loads the real strip, the
+strip's view holds an empty bar that does (`placeholderStrip`), so the window can still be moved
+while the backend starts.
+
 **Fullscreen on macOS is the simple kind** (`simpleFullscreen`). Native fullscreen keeps a window
 below the camera housing of a notched screen and paints the band above it black, so the strip would
 sit under a black border rather than at the top; simple fullscreen covers the whole screen, the strip
