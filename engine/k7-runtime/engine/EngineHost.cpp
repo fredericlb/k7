@@ -72,8 +72,8 @@ void EngineHost::openAudioDevice() {
     auto& dm = impl_->engine.getDeviceManager();
     // 512 is Tracktion's own default, and means "as many channels as the device has" — asked of the OUTPUTS too, since a cue bus leaves by a second pair (docs/cueOutput.md).
     int inputs = 512;
-#if JUCE_IOS
-    // iOS asks for the microphone the moment inputs open, so the app says whether it may yet (docs/ios.md).
+#if JUCE_IOS || JUCE_ANDROID
+    // Inputs without the microphone granted fail the whole device, output too, so the app says whether it may yet (docs/ios.md, docs/android.md).
     if (const char* allowed = std::getenv("STUDIO_ENGINE_INPUTS"); allowed && std::string(allowed) == "0") inputs = 0;
 #endif
     dm.initialise(inputs, 512);

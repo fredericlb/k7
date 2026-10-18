@@ -208,7 +208,9 @@ A page that goes away reports nothing (`pagehide`), and what it last said is cle
 ## The microphone is asked when first needed
 
 The engine starts **without waiting for RECORD_AUDIO**, and is not asked for it at start: without it the engine opens
-its device output only. `MicAccess.kt` asks when something first needs it — a page's `getUserMedia`
+its device output only — `EngineBridge.kt` says so with `STUDIO_ENGINE_INPUTS=0`, as on iOS. Inputs asked for without the
+permission fail JUCE's whole Oboe device, output with them: the engine runs, the transport stays on its first beat,
+and nothing sounds. `MicAccess.kt` asks when something first needs it — a page's `getUserMedia`
 (`onPermissionRequest`), or a track armed on the engine — with a short explanation when Android says one is due.
 A permission the user has blocked is not asked again: the request is denied, the page gets a `k7:mic-denied`
 event, and a dialog offers the app's settings.

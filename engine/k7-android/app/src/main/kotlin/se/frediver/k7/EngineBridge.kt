@@ -38,7 +38,10 @@ object EngineBridge {
         Os.setenv("STUDIO_ENGINE_TOKEN", token, true)
         Os.setenv("STUDIO_ENGINE_ALLOWED_ORIGINS", origins, true)
         Os.setenv("STUDIO_FAUST_LIBS", faustLibs(context).absolutePath, true)
-        startedWithMic = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val mic = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        startedWithMic = mic
+        // Without it the engine opens no inputs: asked for anyway, they fail the output with them (docs/android.md).
+        Os.setenv("STUDIO_ENGINE_INPUTS", if (mic) "1" else "0", true)
         // Loads libk7runtime (Java's static block), whose JNI_OnLoad registered this very method.
         Java.initialiseJUCE(context.applicationContext)
         thread = Thread({
