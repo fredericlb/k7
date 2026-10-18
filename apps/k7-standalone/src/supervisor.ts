@@ -8,7 +8,7 @@ import {
   renameSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { line } from "@frediverse/electron-shell/log";
 import type { Snapshot } from "@studio/supervisor-host/hostProtocol";
 import { SupervisorHost } from "@studio/supervisor-host/supervisorHost";
@@ -20,6 +20,8 @@ export function startSupervisor(
   registryUrl: string,
   /** The first port the engine tries, chosen free in the app's range; a held one moves it to the next. */
   enginePort: number,
+  /** The app's own folders the engine may open files in: a project names them by local path, never a copy under `home`. */
+  roots: string[],
   watch: {
     onSnapshot?: (s: Snapshot) => void;
     onDown?: (why: string | null) => void;
@@ -50,6 +52,7 @@ export function startSupervisor(
     env: {
       STUDIO_HOME: home,
       STUDIO_REGISTRY_URL: registryUrl,
+      STUDIO_ENGINE_ROOTS: roots.join(delimiter),
     },
     enginePidFile: join(home, "engine.pid"),
     onSnapshot: (s) => {

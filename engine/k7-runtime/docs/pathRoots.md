@@ -21,7 +21,9 @@ instrument resolves under `<state>/instruments`. A take and a saved preset land 
 which is what the tunnel uploads back.
 
 `$STUDIO_ENGINE_ROOTS` is a path list (`;` on Windows, `:` elsewhere) for a machine whose documents
-name local files elsewhere — a project driven straight from a checkout. It is read once, at start.
+name local files elsewhere — a project driven straight from a checkout. It is read once, at start. The desktop app
+sets it to its own workspaces and médiathèque, whose files its engine is sent by their own paths
+(`apps/k7-standalone/docs/engine.md`).
 
 The temp directory is READ-only, and only because the harnesses in `scripts/` write their test
 sources there and drive a running engine with them. Reading a file there plays it; it never writes

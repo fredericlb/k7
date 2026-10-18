@@ -27,6 +27,7 @@ import { AssetPicker } from "../components/AssetPicker";
 import { CommandsSettings } from "../components/CommandsSettings";
 import { ContextMenu } from "../components/ContextMenu";
 import { CurveEditor } from "../components/CurveEditor";
+import { EngineMissingDialog } from "../components/EngineMissingDialog";
 import { EngineSyncFailedDialog } from "../components/EngineSyncFailedDialog";
 import { syncRunning } from "../components/EngineSyncProgress";
 import { HelpPage } from "../components/HelpPage";
@@ -398,6 +399,8 @@ export function ShellOverlays({
       <Toaster dismissLabel={m["common.dismiss"]()} />
       {/* A LAN device asking to pair, answered here when this page runs on the engine's machine — docs/pairing.md. */}
       <PairRequestsPrompt engine={engineRef.current} connected={connected} />
+      {/* A sample, clip, patch or plugin the engine is playing the project without (engineMissing.ts). */}
+      <EngineMissingDialog engine={engineRef.current} />
       {/* The app's own confirm/prompt, in place of the OS box that ignored the Escape ladder. */}
       <AskHost />
     </>

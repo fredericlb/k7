@@ -181,10 +181,18 @@ async function boot(): Promise<void> {
   installDesktopBridge(K7, chosenServer);
   const sup = supervisorBinary();
   if (sup && existsSync(sup))
-    supervisor = startSupervisor(sup, dirs.engineHome, K7, enginePort, {
-      onSnapshot: (s) => engineSnapshot(K7, s),
-      onDown: (why) => engineDown(K7, why),
-    });
+    supervisor = startSupervisor(
+      sup,
+      dirs.engineHome,
+      K7,
+      enginePort,
+      // Outside these the engine drops every clip, sample, patch and model a project names (docs/engine.md).
+      [dirs.files, dirs.backend.STUDIO_MEDIATEK],
+      {
+        onSnapshot: (s) => engineSnapshot(K7, s),
+        onDown: (why) => engineDown(K7, why),
+      },
+    );
   else {
     line("app", "no k7-supervisor build found — running without an engine");
     engineDown(K7, "no k7-supervisor in this build");
