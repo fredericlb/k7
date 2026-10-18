@@ -170,6 +170,8 @@
   "repos.empty": "No workspace yet. A workspace is a folder that holds your projects, kept in step on each of your devices.",
   "repos.openAndCreate": "Open {name} and create a project in it",
   "repos.createFirst": "Create the first project",
+  "repos.fold": "Fold the examples",
+  "repos.unfold": "Show the examples",
   "repos.openProject": "Open {path}",
   "repos.projects.one": "{n} project",
   "repos.projects.other": "{n} projects",

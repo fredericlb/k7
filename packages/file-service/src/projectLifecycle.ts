@@ -30,6 +30,7 @@ import type { Translation } from "@studio/translator/model";
 import { resolvePluginParams } from "@studio/translator/params";
 import {
   DROPPABLE_PROJECTS,
+  EXAMPLES_WORKSPACE,
   projectApp,
   projectLabel,
 } from "@studio/web-protocol/projects";
@@ -40,6 +41,14 @@ export interface LifecycleHost {
   /** Resolve `rel` inside the workspace, or throw (path-traversal + symlink guard). */
   safePath(rel: string): string;
   toRel(abs: string): string;
+}
+
+/** Refuse a NEW project in the demos' workspace: its contents are the bundle's, mirrored on every start. */
+function refuseInExamples(host: LifecycleHost): void {
+  if (basename(host.root) === EXAMPLES_WORKSPACE)
+    throw new Error(
+      `${EXAMPLES_WORKSPACE} holds the bundled demos and takes no new project — make it in a workspace of your own`,
+    );
 }
 
 /** The foreign project formats this workspace can translate, by extension. */
@@ -126,6 +135,7 @@ function translateInto(
     outsideWorkspace?: Set<string>;
   },
 ): { project: string; log: string[] } {
+  refuseInExamples(host);
   const { source, file, bytes, as, readSample } = opts;
   const outsideWorkspace = opts.outsideWorkspace ?? new Set<string>();
   const ext = extname(file).toLowerCase();
@@ -220,6 +230,7 @@ export function createProjectIn(
   shape: ProjectShape,
   rawName: string,
 ): { project: string; missing: string[] } {
+  refuseInExamples(host);
   const name = rawName.trim().replace(/[/\\]/g, "_").replace(/^\.+/, "");
   if (!name) throw new Error("project name required");
   const abs = host.safePath(name);
@@ -252,6 +263,7 @@ export async function copyProjectInto(
   rawName: string,
   ignored: (name: string) => boolean,
 ): Promise<{ project: string }> {
+  refuseInExamples(host);
   const name = rawName.trim().replace(/[/\\]/g, "_").replace(/^\.+/, "");
   if (!name) throw new Error("project name required");
   // The SUFFIX decides which app opens the copy, so it has to stay the one the source carries.

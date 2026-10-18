@@ -170,6 +170,8 @@
   "repos.empty": "Aucun espace de travail pour l'instant. Un espace de travail est un dossier qui contient vos projets, tenu à jour sur chacun de vos appareils.",
   "repos.openAndCreate": "Ouvrir {name} et y créer un projet",
   "repos.createFirst": "Créer le premier projet",
+  "repos.fold": "Replier les exemples",
+  "repos.unfold": "Afficher les exemples",
   "repos.openProject": "Ouvrir {path}",
   "repos.projects.one": "{n} projet",
   "repos.projects.other": "{n} projets",
