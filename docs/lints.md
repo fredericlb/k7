@@ -116,15 +116,4 @@ Two settings go with it:
 - `!**/.tmp-*` is excluded from `files.includes`. Scratch scripts at the repo root are not
   source, and linting them put 86 errors in front of the five that are real.
 
-## The pre-push hook
-
-`.githooks/pre-push` runs `lint`, the two blocking checks and `test` before a push leaves the
-machine. It is a tracked shell script rather than husky or lefthook: one hook needs no dependency.
-`npm install` points `core.hooksPath` at it through the root `prepare` script,
-`git config core.hooksPath .githooks || exit 0`. Every image's `npm ci` runs `prepare` too, from a
-stage holding nothing but the manifests (`docs/images.md`), so it is one command and not a script
-file — a file would not be there — and `|| exit 0` keeps it from failing where there is no checkout
-or no git; both `sh` and `cmd.exe` read it. `lint:comments` and
-`lint:dead` stay out of it because they report a debt rather than block. Biome skips JSON: much
-of it is written by generators, whose spacing is not biome's.
-`git push --no-verify` skips it.
+Biome skips JSON: much of it is written by generators, whose spacing is not biome's.

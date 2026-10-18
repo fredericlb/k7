@@ -15,7 +15,6 @@
     "engine/k7-android/web"
   ],
   "scripts": {
-    "prepare": "git config core.hooksPath .githooks || exit 0",
     "dev": "node scripts/dev.mjs",
     "dev:native": "node scripts/dev-native.mjs",
     "desktop:build": "npm run build:frontends --workspace k7-standalone",

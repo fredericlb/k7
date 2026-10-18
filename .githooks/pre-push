@@ -1,9 +1,0 @@
-#!/bin/sh
-# pre-push — refuse a push while the blocking lints or the test suites fail.
-# Installed by `npm install` (the root `prepare` script); skip once with `git push --no-verify`.
-set -e
-
-npm run -s lint
-npm run -s lint:bytes
-npm run -s lint:docs
-npm run -s test

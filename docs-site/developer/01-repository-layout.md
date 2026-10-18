@@ -18,7 +18,6 @@ the module library k7 ships with. It is one npm workspace tree driven from the r
 | `scripts/` | Root scripts behind the npm scripts: the dev session, the workspace runner, the custom lints, the remote-machine helpers. |
 | `demos/` | Small `.k7` demo projects and a `_modules` folder used by them. |
 | `.github/` | GitHub Actions workflows and the shared `node` composite action. |
-| `.githooks/` | The `pre-push` hook, installed by `npm install` (see [Lints and conventions](./06-lints-and-conventions.md)). |
 | `.storybook/` | The repository's Storybook configuration. |
 | `docs-site/` | This guide and the user guide. |
 
