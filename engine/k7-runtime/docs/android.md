@@ -220,6 +220,27 @@ process (below). So a grant that comes after the engine started reaches it at th
 and offers to quit when nothing is busy. Quitting is the one restart there is; relaunching on the user's behalf
 would be an activity start from the background, which Android refuses.
 
+## Updates come from k7.rocks, and the person installs them
+
+A sideloaded app has no store to update it, so `Updates.kt` does what the desktop app does
+(`apps/k7-standalone/docs/notices.md`): it asks `k7.rocks/app_downloads/<channel>.json` 30 s after
+start and every 6 hours while the process lives, and fetches a newer build's APK
+([docs/app-downloads.md](../../../docs/app-downloads.md) at the root). The channel and the stamp
+compared are `BuildConfig.RELEASE_STAMP`, which only a CI release build carries; a checkout's build
+and the e2e one check nothing.
+
+| choice | why |
+|---|---|
+| downloaded on an unmetered network only | the APK is hundreds of megabytes; on mobile data the check waits for the next one on Wi-Fi |
+| offered, never installed on its own | an install ends the process, the engine and the backend with it; the person taps Install, in the notification or the dialog the app shows when it is in front and idle |
+| refused while `Busy` says the app is at work | a take or a set must not end because a tap landed on the wrong notification |
+| an APK that is not this package at a higher `versionCode` is dropped | Android would refuse it anyway; the person is never offered an install that cannot happen |
+| `PackageInstaller` with `USER_ACTION_NOT_REQUIRED` | the first update still asks, and for "install unknown apps": the browser installed k7. From then on k7 is its own installer of record, and Android 12+ lets its updates through without a prompt |
+| the notification opens `MainActivity`, never a receiver | Android 12+ refuses an activity started from a notification's broadcast, and the system's confirmation is one |
+
+Android checks the update's signature against the installed app's: an APK not signed with the
+release key never installs, whoever uploaded it.
+
 ## Signing in happens in the browser
 
 An identity provider refuses a WebView, and RFC 8252 §8.12 says it should: a page inside an app
@@ -458,6 +479,8 @@ also catches the GL driver's chatter, which is noise.
 - **The app views have not been driven through a real sign-in on a phone yet.** The routing rules,
   the browser handoff, the home page's account control, the status-bar colour and k7's engine section above are
   the design; each needs checking against a live studio.
+- **Updates have not been driven on a phone yet**: the first install's "unknown apps" prompt, the silent
+  path on Android 12+ once k7 is its own installer, and Busy's refusal each need a phone and two published builds.
 - **Downloads, Back and the start screen are compiled, not driven.** The in-page fetch of a revoked
   blob, a file of hundreds of megabytes through the chunks, Back closing a Radix sheet, the
   landscape insets and a failed start's Retry each need a phone.

@@ -37,7 +37,7 @@ const LABELS = {
     none: "No build published yet.",
     published: "published",
     updates:
-      "The Windows app and the AppImage update themselves. On macOS and with the .deb, download again from here.",
+      "The Windows app, the AppImage and the Android app update themselves. On macOS and with the .deb, download again from here.",
     sums: "Checksums",
   },
   fr: {
@@ -50,7 +50,7 @@ const LABELS = {
     none: "Aucune build publiée pour l'instant.",
     published: "publiée le",
     updates:
-      "L'app Windows et l'AppImage se mettent à jour seules. Sur macOS et avec le .deb, retéléchargez ici.",
+      "L'app Windows, l'AppImage et l'app Android se mettent à jour seules. Sur macOS et avec le .deb, retéléchargez ici.",
     sums: "Sommes de contrôle",
   },
 };

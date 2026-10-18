@@ -17,6 +17,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <!-- EngineService's notification, on Android 13+; asked the first time the app is busy (MainActivity.askNotifications). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Updates.kt: the APK from k7.rocks/app_downloads handed to PackageInstaller, and, once k7 installed itself, without a prompt (Android 12+). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
 
     <application
         android:allowBackup="false"
@@ -56,6 +59,10 @@
         <!-- The media notification's own buttons, which Android 12 and older draw instead of the session's. -->
         <receiver
             android:name=".MediaPlayback$Buttons"
+            android:exported="false" />
+        <!-- PackageInstaller's answer to an update (Updates.kt): a confirmation to show, or how it ended. -->
+        <receiver
+            android:name=".Updates$Status"
             android:exported="false" />
     </application>
 </manifest>
