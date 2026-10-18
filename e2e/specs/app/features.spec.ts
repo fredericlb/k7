@@ -2,6 +2,7 @@
 // One entry per fixture in e2e/fixtures; the table is what a reader checks against fixtures/README.md.
 import type { Page } from "@playwright/test";
 import { FIXTURES_WORKSPACE } from "../../src/fixtures.ts";
+import { navControl } from "../../src/nav.ts";
 import { expect, type K7, test } from "../../src/target.ts";
 import { play as roll } from "../../src/transport.ts";
 import { watchPage } from "../../src/watch.ts";
@@ -67,7 +68,7 @@ const FEATURES: Record<string, { check: Check; play?: boolean; bug?: string }> =
     "master-chain.k7": { check: lane("drums") },
     "mastering.k7": {
       check: async (page) => {
-        await button(page, "Mastering").click();
+        await (await navControl(page, "Mastering")).click();
         await expect(page.getByText("Limiter", { exact: true })).toBeVisible();
       },
     },
@@ -88,8 +89,8 @@ const FEATURES: Record<string, { check: Check; play?: boolean; bug?: string }> =
     "chains-only.k7": {
       play: false,
       check: async (page) => {
-        await expect(button(page, "Chains")).toBeVisible();
-        await expect(button(page, "Timeline")).toHaveCount(0);
+        await expect(await navControl(page, "Chains")).toBeVisible();
+        await expect(await navControl(page, "Timeline")).toHaveCount(0);
       },
     },
   };

@@ -2682,7 +2682,7 @@ export default function App({
             {/* No double-Shift on a phone, so the command bar needs a control of its own and this is the only place left. */}
             <MobileMenuItem
               icon={Terminal}
-              label="Commandes"
+              label={m["commandBar.list"]()}
               onSelect={() => {
                 setMobileMenu(false);
                 setPaletteOpen(true);

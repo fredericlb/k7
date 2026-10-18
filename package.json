@@ -47,7 +47,8 @@
     "lint:layouts": "tsx packages/ui-module-builder/scripts/checkLayouts.ts",
     "engine:build": "node engine/scripts/build-engine.mjs",
     "test:e2e": "npm run e2e --workspace @studio/e2e --",
-    "test:e2e:desktop": "npm run e2e:desktop --workspace @studio/e2e --"
+    "test:e2e:desktop": "npm run e2e:desktop --workspace @studio/e2e --",
+    "test:e2e:android": "npm run e2e:android --workspace @studio/e2e --"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.4",

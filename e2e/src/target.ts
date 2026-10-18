@@ -1,4 +1,4 @@
-// target.ts — the suite's `test`, bound once to a TARGET: a live instance in Chromium, or the desktop app in Electron.
+// target.ts — the suite's `test`, bound once to a TARGET: a live instance in Chromium, the desktop app in Electron, or a phone.
 // Specs ask `k7.open(path)` for a page instead of `page.goto`, because in the app a project opens in a tab of its own (docs/e2e.md).
 import {
   type APIRequestContext,
@@ -13,16 +13,19 @@ import {
   type Launched,
   launchApp,
 } from "../../apps/k7-standalone/e2e/launch.ts";
+import { android } from "./android.ts";
 import { FileService } from "./files.ts";
 import { seedFixtures } from "./fixtures.ts";
 
 export { expect };
 
-export type Target = "web" | "desktop";
+export type Target = "web" | "desktop" | "android";
 
-/** Set by playwright.desktop.config.ts before any spec loads; the web is the default. */
+/** Set by playwright.desktop.config.ts or playwright.android.config.ts before any spec loads; the web is the default. */
 export const TARGET: Target =
-  process.env.E2E_TARGET === "desktop" ? "desktop" : "web";
+  process.env.E2E_TARGET === "desktop" || process.env.E2E_TARGET === "android"
+    ? process.env.E2E_TARGET
+    : "web";
 
 /** What a spec drives, whichever target it runs on. */
 export interface K7 {
@@ -167,5 +170,7 @@ const desktop = base.extend<{ k7: K7 }, { desktop: Desktop }>({
   },
 });
 
-/** The `test` every spec imports: one of the two above, chosen when the suite loads. */
-export const test = (TARGET === "desktop" ? desktop : web) as typeof web;
+/** The `test` every spec imports: one of the three, chosen when the suite loads. */
+export const test = (
+  TARGET === "desktop" ? desktop : TARGET === "android" ? android : web
+) as typeof web;

@@ -75,6 +75,9 @@ class AppViewsPlugin : Plugin() {
     private var pendingRedeem: String? = null
 
     override fun load() {
+        // The shell page's ports too, from BuildConfig: its bundle's own are standalone.json's, and the e2e build has another (main.tsx).
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT))
+            WebViewCompat.addDocumentStartJavaScript(bridge.webView, "window.$PORTS_GLOBAL='${BackendHost.PORTS_SPEC}';", setOf("https://localhost"))
         // Over the page's WebView, in the same layout, the whole screen: the shell page is only seen with no studio.
         frame = FrameLayout(context).apply { visibility = View.GONE }
         (bridge.webView.parent as ViewGroup).addView(
