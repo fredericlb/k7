@@ -79,6 +79,8 @@ void EngineHost::openAudioDevice() {
     dm.initialise(inputs, 512);
     // initialise() replays Tracktion's saved setup, which may record from another device than it plays through.
     if (keepInputsOnOutputDevice(dm.deviceManager)) dm.rescanWaveDeviceList();
+    // …and it may play through nothing at all — a blanked output stays saved — which is a silent engine rather than a choice.
+    if (openDefaultOutputIfNone(dm.deviceManager)) dm.rescanWaveDeviceList();
     // …then onto the buffer this engine asks for, which decides its quality band; after initialise, because there is no device to ask before it.
     applyPreferredBufferSize(dm.deviceManager);
     publishAudioTiming();   // what whoami answers with, from now on — see AudioDevices.cpp

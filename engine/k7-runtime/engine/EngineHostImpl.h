@@ -32,6 +32,9 @@ void applyPreferredBufferSize(juce::AudioDeviceManager& jdm);
 // Take the inputs from the OUTPUT device when it has some and a restored setup took them elsewhere; true when it moved them (docs/audioDevice.md).
 bool keepInputsOnOutputDevice(juce::AudioDeviceManager& jdm);
 
+// Open the default output of the first backend that has one, ASIO last, when a restored setup left none; true when it did (docs/audioDevice.md).
+bool openDefaultOutputIfNone(juce::AudioDeviceManager& jdm);
+
 // The server's engine opens NO device at construction: Tracktion would replay its own Settings.xml, a second source of truth that wedges the single-client ASIO driver (docs/audioDevice.md).
 struct ServerBehaviour : te::EngineBehaviour {
     bool autoInitialiseDeviceManager() override { return false; }
