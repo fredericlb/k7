@@ -3,7 +3,7 @@
 import { sessionCookies } from "../src/session.ts";
 
 const base =
-  process.argv[2] ?? process.env.E2E_BASE_URL ?? "https://priv.st0.app";
+  process.argv[2] ?? process.env.E2E_BASE_URL ?? "https://app.priv.k7.rocks";
 const cookie = sessionCookies(base)
   .map((c) => `${c.name}=${c.value}`)
   .join("; ");

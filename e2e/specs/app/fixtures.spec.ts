@@ -1,8 +1,8 @@
 // fixtures.spec.ts — every feature project under e2e/fixtures compiles on the server, and the broken ones say why.
 // Over HTTP only: whether a project LOADS is the compiler's question; features.spec.ts asks what the screen draws.
-import { expect, test } from "@playwright/test";
-import { FileService } from "../../src/files.ts";
+import type { FileService } from "../../src/files.ts";
 import { FIXTURES_WORKSPACE, fixtureProjects } from "../../src/fixtures.ts";
+import { expect, test } from "../../src/target.ts";
 
 const WS = FIXTURES_WORKSPACE;
 // A fixture named broken-* must refuse to compile, with this text in the compiler's message.
@@ -20,8 +20,8 @@ async function errorsOf(
 }
 
 for (const project of fixtureProjects()) {
-  test(`${project} compiles`, async ({ request }) => {
-    const files = await FileService.connect(request);
+  test(`${project} compiles`, async ({ k7 }) => {
+    const files = await k7.files();
     const errors = await errorsOf(files, project);
     const expected = EXPECTED_ERROR[project];
     if (expected) {
@@ -34,9 +34,9 @@ for (const project of fixtureProjects()) {
 }
 
 test("a sequence that fails its schema is reported by the schema's error", async ({
-  request,
+  k7,
 }) => {
-  const files = await FileService.connect(request);
+  const files = await k7.files();
   const errors = await errorsOf(files, "broken-sequence.k7");
   expect(errors.join("\n")).toMatch(
     /sequence 'melody' failed to load .*sequences\/melody\.k7x/,

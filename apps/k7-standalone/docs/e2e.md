@@ -50,3 +50,9 @@ runner needs three things the others have: user namespaces for Chromium's sandbo
 PulseAudio null sink exactly as the server's engine image does (`engine/docker/asound.conf`). The
 step is `continue-on-error` until it has been green on every runner, so it reports without
 holding back a release.
+
+## The feature specs run here too
+
+This run checks the app's own seams. The feature projects and the specs that open them live in
+the functional suite, which also runs inside this app: `npm run test:e2e:desktop` launches it with
+`e2e/launch.ts` (`e2e/docs/e2e.md`).

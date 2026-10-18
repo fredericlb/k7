@@ -1,7 +1,9 @@
 // features.spec.ts — each fixture project opens in the browser and DRAWS its feature; the ones with a timeline also play.
 // One entry per fixture in e2e/fixtures; the table is what a reader checks against fixtures/README.md.
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { FIXTURES_WORKSPACE } from "../../src/fixtures.ts";
+import { expect, type K7, test } from "../../src/target.ts";
+import { play as roll } from "../../src/transport.ts";
 import { watchPage } from "../../src/watch.ts";
 
 type Check = (page: Page) => Promise<void>;
@@ -94,26 +96,24 @@ const FEATURES: Record<string, { check: Check; play?: boolean; bug?: string }> =
 
 const BROKEN = ["broken-unresolved.k7", "broken-sequence.k7"];
 
-async function openProject(page: Page, project: string) {
-  await page.goto(`/@local/${FIXTURES_WORKSPACE}/${project}`);
+async function openProject(k7: K7, project: string): Promise<Page> {
+  const page = await k7.open(`/@local/${FIXTURES_WORKSPACE}/${project}`);
   await expect(page.getByRole("img", { name: "engine connected" })).toBeVisible(
     { timeout: 30_000 },
   );
+  return page;
 }
 
 for (const [project, { check, play = true, bug }] of Object.entries(FEATURES)) {
   test(`${project} draws its feature${play ? " and plays" : ""}`, async ({
-    page,
+    k7,
   }) => {
     test.fail(!!bug, bug);
+    const page = await openProject(k7, project);
     const watch = watchPage(page);
-    await openProject(page, project);
     await check(page);
     if (play) {
-      const clock = page.getByRole("banner").getByText(/^\d+:\d\d·\d+:\d+/);
-      const before = await clock.innerText();
-      await button(page, "Play").click();
-      await expect(clock).not.toHaveText(before, { timeout: 5_000 });
+      await roll(page);
       await button(page, "Stop").click();
     }
     watch.assertClean();
@@ -121,9 +121,9 @@ for (const [project, { check, play = true, bug }] of Object.entries(FEATURES)) {
 }
 
 for (const project of BROKEN) {
-  test(`${project} says why it does not load`, async ({ page }) => {
+  test(`${project} says why it does not load`, async ({ k7 }) => {
+    const page = await openProject(k7, project);
     const watch = watchPage(page);
-    await openProject(page, project);
     await expect(page.getByText(/timeline unavailable/)).toBeVisible();
     await expect(
       page.getByRole("contentinfo").getByText(/\d+ errors?/),

@@ -5,23 +5,19 @@ import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { connect } from "node:net";
 import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
-import { homePage, K7, type Launched, launchApp } from "./launch.ts";
+import {
+  engineState,
+  homePage,
+  K7,
+  type Launched,
+  launchApp,
+} from "./launch.ts";
 
 /** CI sets it: a build without the supervisor is then a failure, not a skip. */
 const ENGINE_REQUIRED = process.env.K7_E2E_ENGINE === "1";
 
 /** A cold first boot seeds the library and starts the engine: minutes on a slow runner, not seconds. */
 const BOOT_MS = 120_000;
-
-interface EngineState {
-  snapshot: {
-    status: string;
-    enginePort: number;
-    lastHeartbeatOk: boolean;
-    error?: string;
-  } | null;
-  down: string | null;
-}
 
 test.describe.configure({ mode: "serial" });
 
@@ -105,16 +101,6 @@ test("quitting stops the backend and the engine", async () => {
       .poll(() => listening(enginePort), { timeout: 30_000 })
       .toBe(false);
 });
-
-/** What the preload's `studioEngine` bridge reports to a page of the app (src/engineBridge.ts). */
-function engineState(page: Page): Promise<EngineState> {
-  return page.evaluate(() => {
-    const bridge = (
-      globalThis as unknown as { studioEngine: { state(): Promise<unknown> } }
-    ).studioEngine;
-    return bridge.state() as Promise<EngineState>;
-  });
-}
 
 /** The first folder under `root`, at most `depth` levels down, whose path ends with `tail`. */
 function findDir(root: string, tail: string[], depth: number): string | null {

@@ -63,6 +63,26 @@ function logTail(userData: string, lines = 40): string {
   return readFileSync(log, "utf8").split("\n").slice(-lines).join("\n");
 }
 
+export interface EngineState {
+  snapshot: {
+    status: string;
+    enginePort: number;
+    lastHeartbeatOk: boolean;
+    error?: string;
+  } | null;
+  down: string | null;
+}
+
+/** What the preload's `studioEngine` bridge reports to a page of the app (src/engineBridge.ts). */
+export function engineState(page: Page): Promise<EngineState> {
+  return page.evaluate(() => {
+    const bridge = (
+      globalThis as unknown as { studioEngine: { state(): Promise<unknown> } }
+    ).studioEngine;
+    return bridge.state() as Promise<EngineState>;
+  });
+}
+
 /** The home tab once it shows k7: a page of the app's origin that is neither the tab strip nor the sign-in hop. */
 export async function homePage(
   { app, userData }: Launched,
