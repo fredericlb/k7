@@ -25,5 +25,11 @@ over the name. A reader sees the old bytes or the new ones.
   rename, and a save must not fail for that. Elsewhere a refusal is real and thrown at once.
 - **A failed write removes its temp and throws**, and the file is left as it was.
 - **Synchronous**, like the call sites it replaces.
+- **`durable: false` skips the fsync, and only the confirmed mirror asks for it.** The fsync is
+  about 4 ms a file on NTFS, and a replica applying a library's first batch confirms thousands of
+  files in one turn of the event loop: 2151 for `k7-core`, nine seconds of a backend that answers
+  nothing. The mirror is what a restart diffs the workspace against, so a file it lost to a crash
+  costs one resend of text the room already holds; a workspace file has no such second copy, and
+  keeps the fsync.
 - **Append-only logs stay appends.** A torn trailing line is skipped on load; only a rewrite or a
   compaction of such a log goes through here.
