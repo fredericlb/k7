@@ -32,6 +32,16 @@ lets drive it could reach the machine from anywhere. A device on the same networ
 own port once paired (`engine/k7-runtime/docs/pairing.md`); the phone and the command-line engine
 are the ones that join a hosted studio.
 
+## The folders it may open
+
+The engine opens only the files under its roots (`engine/k7-runtime/docs/pathRoots.md`), and its
+state folder is `engine-home/`. A project from this app's own backend is not copied there: the
+engine is on the same machine and is sent the backend's own paths — the account's workspace, the
+libraries beside it, the médiathèque. So every start hands the supervisor `workspaces/` and
+`mediatek/` as `$STUDIO_ENGINE_ROOTS`, which the engine inherits. Without them the engine drops
+every clip, rack sample, Surge patch, amp model, IR and preset the project names, and still plays:
+a silent track, a kit with no pads, a synth on its init patch.
+
 ## What the page sets
 
 - **The engine:** running or why not, start, stop, restart.

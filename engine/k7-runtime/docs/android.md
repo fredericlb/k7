@@ -48,6 +48,13 @@ run longer than a minute is no boot failure, so it resets the count too. Every s
 and its percentage, the launch and each relaunch, ready, given up on — is reported to the shell
 page as one status (`AppViews.backend()` and its `backend` event), which is what it draws.
 
+**The engine may open the backend's workspaces and médiathèque.** Its state is `filesDir/.k7`, and
+the backend's is `filesDir/standalone`, whose files it sends the engine by their own paths, not as
+copies. The engine refuses any file outside its roots (`pathRoots.md`), so `EngineBridge.start` sets
+`$STUDIO_ENGINE_ROOTS` to those two folders, named at build time from
+`apps/k7/backend/standalone.json` (`BackendHost.engineRoots`). Without them a project plays with
+every clip, sample, patch and model dropped.
+
 ## The app is also where the studio is used: k7, full screen
 
 `MainActivity` is a Capacitor `BridgeActivity`. With a studio connected, **the screen is k7, edge

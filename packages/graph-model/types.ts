@@ -348,6 +348,8 @@ export interface WebGraph {
   frozen?: Record<string, "at" | "inside">;
   /** What an AUTOMATIC freeze bakes, node → VST module; apart from `frozen`, a touch thaws it (packages/song/docs/autoFreeze.md). */
   autoFrozen?: Record<string, string>;
+  /** What an automatic freeze WOULD bake, node → VST module: the engine lacks the VST and no render is made yet. */
+  autoFreezeWaiting?: Record<string, string>;
   // The note text of every doc module, optional because dagre's layout-only subgraphs carry geometry alone.
   modules?: Record<string, WebModuleMeta>;
   // Every curve a module binds, keyed by id — its shape, for the node's label. An unreferenced curve draws nothing.

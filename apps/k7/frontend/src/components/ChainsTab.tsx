@@ -185,6 +185,8 @@ export function ChainsTab({
   onLaneNodes?: (f: {
     alternatives: WebGraph["trackAlternatives"];
     frozen: WebGraph["frozen"];
+    autoFrozen: WebGraph["autoFrozen"];
+    autoFreezeWaiting: WebGraph["autoFreezeWaiting"];
     automation: Record<string, WebAutomationLane[]>;
   }) => void;
   // Right-click a node → the shell opens its context menu. No 'edit this module' here: a module is a LIBRARY thing.
@@ -370,6 +372,9 @@ export function ChainsTab({
     () => ({
       alternatives: graph?.trackAlternatives,
       frozen: graph?.frozen,
+      // A lane the engine cannot host a VST of: played from its render, or waiting for one (packages/song/docs/autoFreeze.md).
+      autoFrozen: graph?.autoFrozen,
+      autoFreezeWaiting: graph?.autoFreezeWaiting,
       // …and each lane's AUTOMATION, by the same road: `automationLanes` is the one place the binding and the curve are joined.
       automation: graph ? automationLanes(graph) : {},
     }),

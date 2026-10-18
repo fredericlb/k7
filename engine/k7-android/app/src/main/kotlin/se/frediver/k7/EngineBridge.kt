@@ -33,6 +33,8 @@ object EngineBridge {
         }
         // What the supervisor's spawn passes on desktop, read by serve() when it starts.
         Os.setenv("STUDIO_HOME", stateDir(context).absolutePath, true)
+        // The backend sends its own paths, outside `.k7`: without these the engine drops every clip and sample.
+        Os.setenv("STUDIO_ENGINE_ROOTS", BackendHost.engineRoots(context).joinToString(":") { it.absolutePath }, true)
         Os.setenv("STUDIO_ENGINE_HOST", host, true)
         Os.setenv("STUDIO_ENGINE_ID", id, true)
         Os.setenv("STUDIO_ENGINE_TOKEN", token, true)

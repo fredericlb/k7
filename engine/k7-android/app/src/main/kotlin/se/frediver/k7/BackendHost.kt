@@ -139,10 +139,17 @@ object BackendHost {
         told.forEach { it.failed(why) }
     }
 
+    /** Where the backend keeps everything it writes, beside the engine's `.k7`. */
+    private fun rootDir(context: Context) = File(context.filesDir, "standalone")
+
+    /** The backend's workspaces and médiathèque, which the engine must be allowed to open (engine/k7-runtime/docs/android.md). */
+    fun engineRoots(context: Context): List<File> =
+        BuildConfig.ENGINE_ROOT_DIRS.split(';').filter { it.isNotEmpty() }.map { File(rootDir(context), it) }
+
     private class Dirs(val root: File, val bundle: File, val tools: File, val cacert: File, val table: JSONObject)
 
     private fun prepare(context: Context): Dirs {
-        val root = File(context.filesDir, "standalone")
+        val root = rootDir(context)
         val bundle = unpack(context, File(root, "backend"))
         val tools = layOutTools(context, File(root, "tools"))
         val cacert = File(bundle, "cacert.pem")

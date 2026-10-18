@@ -179,6 +179,12 @@ final class BackendHost {
         return base.appendingPathComponent("standalone", isDirectory: true)
     }
 
+    /// The backend's workspaces and médiathèque, which the engine must be allowed to open (engine/k7-runtime/docs/ios.md).
+    static var engineRoots: [URL] {
+        let dirs = table["dirs"] as? [String: String] ?? [:]
+        return ["STUDIO_FILES_ROOT", "STUDIO_MEDIATEK"].compactMap { dirs[$0] }.map { shared.root.appendingPathComponent($0) }
+    }
+
     private var bundle: URL { Bundle.main.resourceURL!.appendingPathComponent("backend", isDirectory: true) }
 
     /// Generated once and kept, so a session survives a restart.
