@@ -9,6 +9,7 @@ import { PageFrame } from "../projects/PageFrame";
 import {
   type DesktopEngineSnapshot,
   engineCommand,
+  idleAsioDriver,
   moveDevice,
   onDesktopEngine,
   rankedDevices,
@@ -19,6 +20,29 @@ import { Action, Row, Section } from "./Section";
 
 /** U+001F joins the names `audio.priority` takes (engine/k7-supervisor/docs/hostProtocol.md). */
 const SEP = "\u001f";
+
+/** The interface the engine is on, said where the eye lands: beside its name, with the channels it actually opened. */
+function DeviceBadge({
+  text,
+  inputs,
+  outputs,
+}: {
+  text: string;
+  inputs: number;
+  outputs: number;
+}) {
+  const channels = [
+    inputs > 0 && m["engine.channelsIn"]({ n: String(inputs) }),
+    outputs > 0 && m["engine.channelsOut"]({ n: String(outputs) }),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 font-medium text-[10px] text-emerald-500">
+      {channels ? `${text} · ${channels}` : text}
+    </span>
+  );
+}
 
 function statusLine(
   s: DesktopEngineSnapshot | null,
@@ -38,6 +62,7 @@ export function DesktopEnginePage() {
   const running = s?.status === "running";
   const devices = s ? rankedDevices(s) : [];
   const names = devices.map((d) => d.name);
+  const asio = s ? idleAsioDriver(s) : null;
   const move = (from: number, to: number) =>
     engineCommand("audio.priority", moveDevice(names, from, to).join(SEP));
 
@@ -81,17 +106,47 @@ export function DesktopEnginePage() {
               title={m["engine.audioTitle"]()}
               hint={m["engine.audioHint"]()}
             >
+              {/* The engine on Windows' shared endpoint while the interface has its own driver: two channels a side, and the mixer's latency. */}
+              {asio && (
+                <Row
+                  label={
+                    <span className="text-amber-500">
+                      {m["engine.asioHint"]({ driver: asio })}
+                    </span>
+                  }
+                >
+                  <Action onClick={() => move(names.indexOf(asio), 0)}>
+                    {m["engine.asioUse"]()}
+                  </Action>
+                </Row>
+              )}
               {devices.length === 0 ? (
                 <Row label={m["engine.noDevices"]()} />
               ) : (
                 devices.map((d, i) => (
                   <Row
                     key={d.name}
-                    label={d.name}
+                    label={
+                      <span className="flex items-center gap-2">
+                        <span className="truncate">{d.name}</span>
+                        {d.current && (
+                          <DeviceBadge
+                            text={m["engine.inUse"]()}
+                            inputs={d.currentInput ? d.inputs : 0}
+                            outputs={d.outputs}
+                          />
+                        )}
+                        {d.currentInput && !d.current && (
+                          <DeviceBadge
+                            text={m["engine.inputs"]()}
+                            inputs={d.inputs}
+                            outputs={0}
+                          />
+                        )}
+                      </span>
+                    }
                     detail={[
                       d.deviceType,
-                      d.current && m["engine.inUse"](),
-                      d.currentInput && !d.current && m["engine.inputs"](),
                       !d.present && m["engine.unplugged"](),
                     ]
                       .filter(Boolean)

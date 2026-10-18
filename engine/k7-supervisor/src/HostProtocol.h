@@ -23,6 +23,9 @@ struct AudioDevice {
     bool current = false;
     // The device the engine takes its INPUTS from — another one than `current` when the setup is split.
     bool currentInput = false;
+    // The open device's channel counts, on the row each belongs to; 0 on every other row.
+    int inputs = 0;
+    int outputs = 0;
 };
 
 struct EditPlugin {

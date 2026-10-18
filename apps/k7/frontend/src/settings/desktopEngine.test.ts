@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  idleAsioDriver,
   instrumentAction,
   instrumentRows,
   moveDevice,
@@ -46,6 +47,46 @@ describe("the audio ranking", () => {
       ["Built-in", true, true, true],
       ["Scarlett", true, false, false],
     ]);
+  });
+
+  it("carries the open device's channel counts, 0 on the others", () => {
+    const counted = {
+      ...snapshot,
+      audioDevices: [
+        { ...snapshot.audioDevices[0], inputs: 2, outputs: 2 },
+        snapshot.audioDevices[1],
+      ],
+    };
+    expect(
+      rankedDevices(counted).map((d) => [d.name, d.inputs, d.outputs]),
+    ).toEqual([
+      ["MOTU", 0, 0],
+      ["Built-in", 2, 2],
+      ["Scarlett", 0, 0],
+    ]);
+  });
+
+  it("names an ASIO driver the engine is not on, and none once it is", () => {
+    const windows = (asioCurrent: boolean) => ({
+      ...snapshot,
+      audioDevices: [
+        {
+          name: "Focusrite USB ASIO",
+          deviceType: "ASIO",
+          current: asioCurrent,
+          currentInput: asioCurrent,
+        },
+        {
+          name: "Speakers (Focusrite USB Audio)",
+          deviceType: "Windows Audio",
+          current: !asioCurrent,
+          currentInput: !asioCurrent,
+        },
+      ],
+    });
+    expect(idleAsioDriver(windows(false))).toBe("Focusrite USB ASIO");
+    expect(idleAsioDriver(windows(true))).toBeNull();
+    expect(idleAsioDriver(snapshot)).toBeNull();
   });
 
   it("sends the whole list in its new order on a move", () => {

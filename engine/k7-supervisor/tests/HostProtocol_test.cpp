@@ -54,6 +54,17 @@ void anInstrumentRowCarriesWhatTheTabDraws()
     CHECK(f["downloads"][0]["phase"] == "queued");
 }
 
+void anAudioRowCarriesTheOpenDevicesChannels()
+{
+    Snapshot s;
+    s.audioDevices = {{"Focusrite USB ASIO", "ASIO", false, false}, {"Speakers (Focusrite USB Audio)", "Windows Audio", true, true, 2, 2}};
+    const auto f = stateFrame(s);
+    CHECK(f["audioDevices"][0]["inputs"] == 0);
+    CHECK(f["audioDevices"][1]["current"] == true);
+    CHECK(f["audioDevices"][1]["inputs"] == 2);
+    CHECK(f["audioDevices"][1]["outputs"] == 2);
+}
+
 void aPairingRowCarriesWhatTheTabDraws()
 {
     Snapshot s;
@@ -99,6 +110,7 @@ void runHostProtocolTests()
     RUN(aStateFrameCarriesWhatAnAppReads);
     RUN(anErrorAndACountAppearWhenSet);
     RUN(anInstrumentRowCarriesWhatTheTabDraws);
+    RUN(anAudioRowCarriesTheOpenDevicesChannels);
     RUN(aPairingRowCarriesWhatTheTabDraws);
     RUN(aCommandIsParsedAndAnythingElseIsNot);
     RUN(aResultEchoesItsId);

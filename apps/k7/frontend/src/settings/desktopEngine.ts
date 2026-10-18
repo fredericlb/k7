@@ -19,6 +19,9 @@ export interface DesktopEngineSnapshot {
     deviceType: string;
     current: boolean;
     currentInput: boolean;
+    /** The open device's channel counts, on its own row; absent or 0 on the others. */
+    inputs?: number;
+    outputs?: number;
   }[];
   audioPriority?: string[];
   instruments?: {
@@ -136,6 +139,8 @@ export function rankedDevices(s: DesktopEngineSnapshot): {
   present: boolean;
   current: boolean;
   currentInput: boolean;
+  inputs: number;
+  outputs: number;
   ranked: boolean;
 }[] {
   const devices = s.audioDevices ?? [];
@@ -151,6 +156,8 @@ export function rankedDevices(s: DesktopEngineSnapshot): {
       present: d !== undefined,
       current: d?.current ?? false,
       currentInput: d?.currentInput ?? false,
+      inputs: d?.inputs ?? 0,
+      outputs: d?.outputs ?? 0,
       ranked: i < priority.length,
     };
   });
@@ -166,4 +173,13 @@ export function moveDevice(
   const [moved] = out.splice(from, 1);
   out.splice(to, 0, moved);
   return out;
+}
+
+/** An ASIO driver the engine is NOT on while it plays through another backend — on Windows, the shared endpoint of the same interface, two channels a side (engine/k7-runtime/docs/audioDevice.md). */
+export function idleAsioDriver(s: DesktopEngineSnapshot): string | null {
+  const devices = s.audioDevices ?? [];
+  const isAsio = (t: string) => /asio/i.test(t);
+  const current = devices.find((d) => d.current);
+  if (!current || isAsio(current.deviceType)) return null;
+  return devices.find((d) => isAsio(d.deviceType))?.name ?? null;
 }

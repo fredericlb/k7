@@ -8,6 +8,9 @@ export interface AudioDevice {
   current: boolean;
   /** The device the engine takes its inputs from, which need not be `current`. */
   currentInput: boolean;
+  /** The open device's channel counts, on the row each belongs to; 0 elsewhere, absent from an older supervisor. */
+  inputs?: number;
+  outputs?: number;
 }
 
 /** One INSTALLED plugin: the catalogue, not an instance. */

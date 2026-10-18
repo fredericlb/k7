@@ -277,7 +277,9 @@ device carries the OUTPUT's name, so a row keyed on that name alone shows the in
 an eight-input interface with nothing to say why. A row therefore carries two flags: `current`
 for the output side with the output count, `currentInput` for the device named by the setup's
 `inputDeviceName` with the input count. On an unsplit setup both land on the same row; a list of
-interfaces says "output only" or "input only" when they do not.
+interfaces says "output only" or "input only" when they do not. The supervisor relays both
+counts in its snapshot (`inputs`, `outputs`), and the desktop's engine page prints them in the
+badge on the interface in use.
 
 The engine also undoes such a split when it opens: `keepInputsOnOutputDevice` moves the inputs
 onto the output device whenever that device has inputs of its own. A split survives only where

@@ -48,6 +48,12 @@ a silent track, a kit with no pads, a synth on its init patch.
 - **Audio interfaces:** the ranking the supervisor keeps (`audioPriority`): the engine takes the
   first one plugged in. The list on screen IS the ranking, and every move sends it whole, as the
   config file's `audioPriority` holds it. A ranked interface that is unplugged keeps its row, since it holds its rank.
+  The one the engine is on wears a badge beside its name with the channels it opened (the
+  supervisor relays the engine's counts): "2 in · 2 out" on an interface that has sixteen inputs
+  is the tell that it is reached through the wrong backend. When the engine is on a Windows
+  shared endpoint while an ASIO driver is listed, a line above the list says so and puts the
+  driver first in one click — with no ranking the engine picks the shared endpoint on purpose
+  (`engine/k7-runtime/docs/audioDevice.md`), so nothing else would.
 - **Plugins:** the engine's catalogue and a rescan. Read-only otherwise.
 - **Downloads:** the sampled instruments the engine can play, each with the one action that fits —
   download, cancel while queued, retry after a failure, remove — and a progress bar while it runs.

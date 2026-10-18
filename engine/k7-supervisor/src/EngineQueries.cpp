@@ -68,7 +68,8 @@ std::int64_t millis(const json& o, const char* key)
 std::vector<AudioDevice> devicesOf(const json& msg)
 {
     std::vector<AudioDevice> out;
-    for (const auto& d : msg.value("devices", json::array())) out.push_back({str(d, "name"), str(d, "type"), flag(d, "current"), flag(d, "currentInput")});
+    for (const auto& d : msg.value("devices", json::array()))
+        out.push_back({str(d, "name"), str(d, "type"), flag(d, "current"), flag(d, "currentInput"), number(d, "inputs"), number(d, "outputs")});
     return out;
 }
 
