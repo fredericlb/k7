@@ -5,7 +5,7 @@ import { TARGET } from "./target.ts";
 
 /** A 5xx that is a documented state rather than a fault: an unpaired app answers releases and pages so (packages/rehearsal-server/src/publications.ts). */
 const expected5xx = (path: string): boolean =>
-  TARGET === "desktop" && /^\/api\/(releases|pages)(\/|$)/.test(path);
+  TARGET !== "web" && /^\/api\/(releases|pages)(\/|$)/.test(path);
 
 export function watchPage(page: Page) {
   const problems: string[] = [];

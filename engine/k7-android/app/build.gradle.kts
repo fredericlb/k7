@@ -12,6 +12,9 @@ plugins {
 // The table the desktop app starts its backend with too (apps/k7/backend/docs/standalone.md): its port is a constant here.
 val standalone = groovy.json.JsonSlurper().parse(rootDir.resolve("../../apps/k7/backend/standalone.json")) as Map<*, *>
 
+// The e2e build's backend port: the shipped app holds standalone.json's on the same loopback, and e2e/src/android.ts dials this one.
+val E2E_PORT = 18799
+
 // The root package.json's version, the one every artefact ships under (docs/versioning.md); a snapshot adds its stamp.
 val rootVersion = (groovy.json.JsonSlurper().parse(rootDir.resolve("../../package.json")) as Map<*, *>)["version"] as String
 val releaseStamp = System.getenv("STUDIO_RELEASE_STAMP").orEmpty()
@@ -44,6 +47,7 @@ android {
         versionName = appVersionName
         ndk { abiFilters += "arm64-v8a" }
         buildConfigField("int", "STANDALONE_PORT", standalone["port"].toString())
+        manifestPlaceholders["appLabel"] = "k7"
     }
 
     buildFeatures { buildConfig = true }
@@ -67,6 +71,15 @@ android {
             isMinifyEnabled = false
             isShrinkResources = false
             signingConfig = signingConfigs.findByName("release")
+        }
+        // The functional suite's build: installed BESIDE the shipped app, so its own id, port and label (e2e/docs/e2e.md).
+        create("e2e") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".e2e"
+            versionNameSuffix = "-e2e"
+            buildConfigField("int", "STANDALONE_PORT", E2E_PORT.toString())
+            manifestPlaceholders["appLabel"] = "k7 e2e"
+            matchingFallbacks += "debug"
         }
     }
 

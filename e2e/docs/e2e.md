@@ -1,11 +1,12 @@
 # The functional suite
 
-One set of specs, `specs/app/`, run on one of two **targets**:
+One set of specs, `specs/app/`, run on one of three **targets**:
 
 | target | what it drives | command |
 |---|---|---|
 | `web` | a **running** k7 in Playwright's Chromium: the instance `npm run dev` serves, `https://app.priv.k7.rocks` by default, or `E2E_BASE_URL` | `npm run test:e2e` |
 | `desktop` | k7 the desktop app, started by the run itself in Electron | `npm run test:e2e:desktop` |
+| `android` | the app on a phone — its `e2e` build, built and installed by the run itself — through the app's own WebView | `npm run test:e2e:android` |
 
 ```bash
 npm run e2e:install --workspace @studio/e2e   # once, for the web target: Playwright's Chromium
@@ -59,6 +60,32 @@ a seed: about fifteen seconds.
 
 The app's backend port is fixed, so nothing else may hold `127.0.0.1:18789` during a run, and a
 checkout without a supervisor build fails the run at once with the engine's reason.
+
+## The android target installs a build of its own, beside the shipped app
+
+The run drives the app's WebView, and Playwright's `_android` reaches only a DEBUGGABLE app's: Capacitor
+turns WebView debugging on for exactly those builds. The APK CI ships is the release type, and a
+debuggable build of the same id cannot replace it without an uninstall, which deletes the phone's
+workspaces. So the run builds `e2e`, a build type of its own in `engine/k7-android/app/build.gradle.kts`:
+
+| what differs | why |
+|---|---|
+| the id `se.frediver.k7.e2e` | installed beside the shipped app, with its own data, and removed without touching it |
+| the backend on port 18799, not standalone.json's | every app of a phone shares one loopback, and the shipped app may be running. The engine needs no such care: its port is the first of a range |
+| the label "k7 e2e" | the two launcher icons are told apart |
+
+It signs in as the local user only: the OIDC client's redirect is registered on standalone.json's port.
+
+`src/androidBuild.ts`, the global setup, runs Gradle's `installE2e`, which builds what changed and
+installs over adb — the engine's C++ is the cold part, built at half the cores, since a full engine
+build beside a dev session's own watcher has frozen a Mac. `ANDROID_HOME` defaults to where Android
+Studio puts the SDK. `E2E_ANDROID_BUILD=0` skips the build and runs what is installed, and
+`ANDROID_SERIAL` picks a device when several are attached.
+
+The worker then starts the app, forwards the backend's port with `adb forward` — the run seeds the
+fixtures over HTTP as on the other targets — and takes the page of the k7 view among the process's
+WebViews, the one on the backend's origin. There is no throwaway user-data folder: the fixtures go
+into the e2e app's local user, whose data is its own.
 
 ## Feature projects
 
