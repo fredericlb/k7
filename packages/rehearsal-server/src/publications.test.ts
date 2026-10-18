@@ -13,6 +13,7 @@ process.env.POCKETBASE_URL = "http://127.0.0.1:1";
 process.env.POCKETBASE_EMAIL = "a";
 process.env.POCKETBASE_PASSWORD = "b";
 const { mountRehearsal } = await import("./mount.ts");
+const { store } = await import("./db.ts");
 const { publicationsDeviceRouter, DEVICE_ROUTE } = await import(
   "./publications.ts"
 );
@@ -81,6 +82,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await rehearsal.stop();
   await Promise.all(servers.map((s) => new Promise((ok) => s.close(ok))));
+  store.close();
   rmSync(dir, { recursive: true, force: true });
 });
 

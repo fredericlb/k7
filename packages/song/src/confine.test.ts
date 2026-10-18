@@ -71,18 +71,30 @@ describe("confineTo", () => {
   });
 
   it("refuses a symlink inside the root that leads out of every root", () => {
-    symlinkSync(dirname(other), join(project, "out"));
+    symlinkSync(dirname(other), join(project, "out"), "junction");
     expect(confineTo([project], join(project, "out", "secret.wav"))).toBeNull();
     expect(confineTo([project], join(project, "out", "new.wav"))).toBeNull();
   });
 
-  it("refuses a dangling link, which a write would follow out", () => {
-    symlinkSync(join(dirname(other), "planted.wav"), join(project, "trap.wav"));
+  it("refuses a dangling link, which a write would follow out", (ctx) => {
+    try {
+      symlinkSync(
+        join(dirname(other), "planted.wav"),
+        join(project, "trap.wav"),
+      );
+    } catch {
+      // A file link needs Developer Mode or an admin on Windows.
+      ctx.skip();
+    }
     expect(confineTo([project], join(project, "trap.wav"))).toBeNull();
   });
 
   it("accepts a link from one allowed root into another", () => {
-    symlinkSync(join(base, "libraries", "drums"), join(project, "lib"));
+    symlinkSync(
+      join(base, "libraries", "drums"),
+      join(project, "lib"),
+      "junction",
+    );
     expect(
       confineTo(
         projectRoots(project),

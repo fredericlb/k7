@@ -69,7 +69,7 @@ describe("writeFileAtomic", () => {
 
   it("names a hidden temp in the same folder, and recognises it", () => {
     const t = atomicTempFor("/w/song.k7/nodes/mix.yaml");
-    expect(dirname(t)).toBe("/w/song.k7/nodes");
+    expect(dirname(t)).toBe(join("/w", "song.k7", "nodes"));
     expect(basename(t).startsWith(".mix.yaml.")).toBe(true);
     expect(isAtomicTemp(basename(t))).toBe(true);
     expect(isAtomicTemp("mix.yaml")).toBe(false);

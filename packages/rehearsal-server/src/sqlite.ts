@@ -346,6 +346,13 @@ export function createSqlite(dir: string) {
   /** Whether the store holds no row at all: what an import waits for. */
   const isEmpty = (): boolean => !stmt("SELECT 1 FROM records LIMIT 1").get();
 
+  /** Close the file, so its folder can be removed — Windows refuses an open one; the next call reopens it. */
+  const close = (): void => {
+    statements.clear();
+    db?.close();
+    db = null;
+  };
+
   return {
     planOf,
     listRecords,
@@ -358,5 +365,6 @@ export function createSqlite(dir: string) {
     deleteAttachment,
     isEmpty,
     inTransaction,
+    close,
   };
 }

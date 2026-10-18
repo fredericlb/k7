@@ -79,6 +79,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await Promise.all(servers.map((s) => new Promise((ok) => s.close(ok))));
+  db.store.close();
   rmSync(dir, { recursive: true, force: true });
 });
 

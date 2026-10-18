@@ -5,7 +5,7 @@
 // See packages/song-video/docs/interchange.md.
 
 import { mkdirSync, writeFileSync } from "node:fs";
-import { basename, join, relative, resolve } from "node:path";
+import { basename, join, relative, resolve, sep } from "node:path";
 import { loadProjectRoot } from "@studio/song/loader";
 import { toEdl } from "@studio/song-video/interchange/edl";
 import { toOtio } from "@studio/song-video/interchange/otio";
@@ -64,7 +64,11 @@ export const PICTURE_INTERCHANGE_VERBS: Record<string, SidHandler> = {
     if (format === "otio") {
       ({ json: text, skipped } = toOtio(doc, {
         name,
-        mediaUrl: (c) => relative(resolve(h.songPath, "exports"), c.source),
+        // A URL, so its separators are slashes on every OS.
+        mediaUrl: (c) =>
+          relative(resolve(h.songPath, "exports"), c.source)
+            .split(sep)
+            .join("/"),
         naturalSeconds,
       }));
     } else {

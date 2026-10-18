@@ -21,11 +21,15 @@ beforeEach(() => {
   writeFileSync(join(base, "checkout", "wavetables", "basic.wav"), "RIFF");
   mkdirSync(join(base, "secret"));
   writeFileSync(join(base, "secret", "key"), "x");
-  // A link INSIDE the clone, out of it.
-  symlinkSync(join(base, "secret"), join(base, "checkout", "escape"));
+  // A link INSIDE the clone, out of it; a junction, which Windows lets anyone make.
+  symlinkSync(
+    join(base, "secret"),
+    join(base, "checkout", "escape"),
+    "junction",
+  );
   mkdirSync(join(base, "edits"));
   // The clone itself is a link, as a dev's library checkout is.
-  symlinkSync(join(base, "checkout"), join(base, "edits", "k7"));
+  symlinkSync(join(base, "checkout"), join(base, "edits", "k7"), "junction");
 });
 afterEach(() => rmSync(base, { recursive: true, force: true }));
 

@@ -25,6 +25,21 @@ afterAll(() => {
   rmSync(ws, { recursive: true, force: true });
 });
 
+/** What libuv copies from the parent into a Windows child given an environment without them. */
+const WINDOWS_CHILD_ENV = [
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "LOGONSERVER",
+  "PATH",
+  "SYSTEMDRIVE",
+  "SYSTEMROOT",
+  "TEMP",
+  "USERDOMAIN",
+  "USERNAME",
+  "USERPROFILE",
+  "WINDIR",
+];
+
 const run = (source: string) => runJsDsp(source, join(ws, "mod", "jsdsp.ts"));
 const report = (body: string) =>
   JSON.parse(run(body)) as Record<string, unknown>;
@@ -36,7 +51,13 @@ describe("a jsdsp source in the jail", () => {
     const keys = Object.keys(r.env as object).filter(
       (k) => !k.startsWith("__CF_"),
     );
-    expect(keys).toEqual([]);
+    // On Windows libuv adds these to every child, whatever env it is given (docs/jsdspJail.md).
+    const libuv = new Set(WINDOWS_CHILD_ENV.map((k) => k.toUpperCase()));
+    expect(
+      process.platform === "win32"
+        ? keys.filter((k) => !libuv.has(k.toUpperCase()))
+        : keys,
+    ).toEqual([]);
   });
 
   it("runs under the permission model with nothing granted", () => {

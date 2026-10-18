@@ -222,7 +222,7 @@ async function duplicateTrack(
   const dir = h.songPath;
   const lane = splitPort(idArg).node;
   const chained = isChainProject(dir);
-  const srcRel = join(laneFolder(dir), `${lane}.yaml`);
+  const srcRel = `${laneFolder(dir)}/${lane}.yaml`;
   const srcAbs = join(dir, srcRel);
   if (!wsExists(srcAbs)) {
     h.refuse([`no track "${idArg}" — ${srcRel} does not exist`]);

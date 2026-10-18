@@ -6,7 +6,7 @@
 // Full rationale: docs/scaffold.md, and packages/song-video/docs/picture.md for the video half.
 
 import { copyFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
@@ -256,7 +256,7 @@ export function asChainProject(dir: string): string[] {
     for (const f of readdirSync(d).sort()) {
       const abs = join(d, f);
       if (statSync(abs).isDirectory()) walk(abs);
-      else out.push(relative(dir, abs));
+      else out.push(relative(dir, abs).split(sep).join("/"));
     }
   };
   walk(dir);

@@ -61,14 +61,23 @@ beforeEach(async () => {
   });
 });
 
+// Every store a test opens, closed before its folder goes: Windows will not remove an open file.
+const opened: ReturnType<typeof createSqlite>[] = [];
+const openStore = () => {
+  const s = createSqlite(dir);
+  opened.push(s);
+  return s;
+};
+
 afterEach(async () => {
   await new Promise((ok) => server.close(ok));
+  for (const s of opened.splice(0)) s.close();
   rmSync(dir, { recursive: true, force: true });
 });
 
 describe("the import from PocketBase", () => {
   it("copies rows and sheets with their ids, and only the fields schema.ts names", async () => {
-    const store = createSqlite(dir);
+    const store = openStore();
     const counts = await importFromPocketbase(
       { url, email: "a", password: "pw" },
       store,
@@ -87,7 +96,7 @@ describe("the import from PocketBase", () => {
 
   it("leaves the store empty when PocketBase fails halfway, so the next start retries", async () => {
     failSheets = true;
-    const store = createSqlite(dir);
+    const store = openStore();
     await expect(
       importFromPocketbase({ url, email: "a", password: "pw" }, store),
     ).rejects.toThrow();

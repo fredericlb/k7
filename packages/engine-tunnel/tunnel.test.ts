@@ -190,10 +190,15 @@ describe.each(agentKinds)("the engine tunnel — $name agent", ({ make }) => {
     expect(readFileSync(local, "utf8")).toBe("tampered-but-same-len");
   });
 
-  it("serves nothing through a symlink that leaves the shared tree", async () => {
+  it("serves nothing through a symlink that leaves the shared tree", async (ctx) => {
     const outside = mkdtempSync(join(tmpdir(), "tunnel-outside-"));
     writeFileSync(join(outside, "secret"), "nope");
-    symlinkSync(join(outside, "secret"), join(remote, "link.wav"));
+    try {
+      symlinkSync(join(outside, "secret"), join(remote, "link.wav"));
+    } catch {
+      // A file link needs Developer Mode or an admin on Windows.
+      ctx.skip();
+    }
     const ch = await openShared();
     ch.send(JSON.stringify({ type: "project", file: `${remote}/link.wav` }));
     await until(() => engineGot.length === 1);

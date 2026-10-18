@@ -59,8 +59,9 @@ function copyDemos(k7x: boolean): string {
 
 const compiled = (root: string, name: string): string => {
   try {
+    // JSON doubles a Windows path's backslashes, so the root is matched as JSON spells it.
     return JSON.stringify(loadProject(join(root, name))).replaceAll(
-      root,
+      JSON.stringify(root).slice(1, -1),
       "<root>",
     );
   } catch (e) {

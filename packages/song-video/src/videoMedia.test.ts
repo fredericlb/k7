@@ -1,6 +1,7 @@
 // A clip's copies and a still reach the picture document as the scene reads them: absolute paths
 // for the optimized copy and the proxy, and `still` on an image, which takes no decoder.
 
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { videoPlacementToClip } from "./videoTracks";
 
@@ -17,10 +18,11 @@ describe("a picture clip's files in the document", () => {
         },
       },
     );
+    // Resolved as the code resolves them, which on Windows puts a drive in front.
     expect(shot).toMatchObject({
-      source: "/p/clips/a.mov",
-      optimized: "/p/clips/a.optimized.mp4",
-      proxy: "/p/clips/a.proxy.mp4",
+      source: resolve("/p/clips/a.mov"),
+      optimized: resolve("/p/clips/a.optimized.mp4"),
+      proxy: resolve("/p/clips/a.proxy.mp4"),
     });
     expect(shot.still).toBeUndefined();
   });

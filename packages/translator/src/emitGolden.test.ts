@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { emitFolder } from "./emit";
 import type { PluginOut, Song } from "./model";
@@ -166,7 +166,8 @@ function tree(root: string): Record<string, string> {
     for (const n of readdirSync(d).sort()) {
       const p = join(d, n);
       if (statSync(p).isDirectory()) walk(p);
-      else out[relative(root, p)] = readFileSync(p, "utf8");
+      else
+        out[relative(root, p).split(sep).join("/")] = readFileSync(p, "utf8");
     }
   };
   walk(root);

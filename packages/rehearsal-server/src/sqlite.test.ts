@@ -12,7 +12,10 @@ beforeEach(() => {
   db = createSqlite(dir);
 });
 
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => {
+  db.close();
+  rmSync(dir, { recursive: true, force: true });
+});
 
 describe("the SQLite store", () => {
   it("reads a field a row never set as its type's zero value", async () => {
@@ -154,5 +157,6 @@ describe("the SQLite store", () => {
     const reopened = createSqlite(dir);
     expect(reopened.listRecords("Highlights")).toEqual([]);
     expect(reopened.listRecords("Markers")).toHaveLength(1);
+    reopened.close();
   });
 });

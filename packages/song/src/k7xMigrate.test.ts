@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { migrateToK7x } from "./k7xMigrate";
 import { loadProject } from "./project";
@@ -36,7 +36,7 @@ describe("migrateToK7x", () => {
     put("song.k7/graph.yaml", "modules: {}\n");
     put("song.k7/graph.k7x", "modules({})\n");
     put(".hidden/x.yaml", "a: 1\n");
-    const backup = join(root, "..", `${root.split("/").pop()}-backup`);
+    const backup = join(root, "..", `${basename(root)}-backup`);
     const report = migrateToK7x(root, { backup });
     expect(report.converted).toEqual(["song.k7/project.yaml"]);
     expect(report.shadowed).toEqual(["song.k7/graph.yaml"]);

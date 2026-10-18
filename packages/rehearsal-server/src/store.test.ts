@@ -9,7 +9,10 @@ process.env.K7_DATA_DIR = dir;
 const db = await import("./db.ts");
 const store = await import("./store.ts");
 
-afterAll(() => rmSync(dir, { recursive: true, force: true }));
+afterAll(() => {
+  db.store.close();
+  rmSync(dir, { recursive: true, force: true });
+});
 
 describe("the store's lookups and writes", () => {
   it("finds a moment by its key and answers only its owner", async () => {
