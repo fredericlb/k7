@@ -1,0 +1,6 @@
+type("custom")
+points([
+  time("1:1:1").value(0),
+  time("2:1:1").value(1),
+  time("3:1:1").value(0.2),
+])

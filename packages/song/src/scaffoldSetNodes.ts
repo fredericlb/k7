@@ -125,7 +125,8 @@ const stemGain = (stem: Stem): string =>
   `  # moves this, and it starts CENTRED on unity — left removes, right adds.\n` +
   `  ${STEM_PARAM}: ${STEM_NEUTRAL}\n`;
 
-const MEDIATEK_UTILITY = "@k7-core/audio/utility";
+/** The folder is `zz_utility`: the prefix sorts it last in the library's tree, and a ref names the folder as it is. */
+const MEDIATEK_UTILITY = "@k7-core/audio/zz_utility";
 /** The filter lives under `filter/`, not `utility/`: a category is what draws its icon. */
 const MEDIATEK_FILTER = "@k7-core/audio/filter";
 /** …and the EQ and the delay sit at the root of `audio/`, each one module with its engines — the echo is the delay's. */
@@ -366,7 +367,7 @@ export function filterNode(letter: string): string {
     `# corners sit outside the material, at 20 kHz and 20 Hz.\n` +
     `#\n` +
     `# The engine is named for the same reason the EQ's is.\n` +
-    `extends: ${q(`${MEDIATEK_FILTER}/multimode`)}\n` +
+    `extends: ${q(MEDIATEK_FILTER)}\n` +
     `engine: sweep\n` +
     `engines:\n` +
     `  sweep:\n` +

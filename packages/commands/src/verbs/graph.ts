@@ -1,6 +1,7 @@
 // graph.ts — the graph's wiring and layout (pin, unlink, organize, move, chain connect /
 // disconnect / replug) and the assemblies drawn on it. See docs/verbs.md.
 
+import { relative } from "node:path";
 import {
   assemblyMembers,
   createAssembly,
@@ -81,7 +82,9 @@ export const GRAPH_VERBS: Record<string, SidHandler> = {
     }
     try {
       const path = setChainNodePositions(h.songPath, at);
-      h.log([`pinned ${Object.keys(at).length} node(s) (${path})`]);
+      h.log([
+        `pinned ${Object.keys(at).length} node(s) (${relative(h.songPath, path)})`,
+      ]);
     } catch (e) {
       h.refuse([`graph pin: ${(e as Error).message}`]);
     }

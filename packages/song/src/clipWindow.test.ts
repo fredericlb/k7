@@ -229,3 +229,26 @@ describe("a window that cannot be played", () => {
     expect(msg).not.toContain("not found"); // the lie to avoid
   });
 });
+
+describe("a sequence that fails its schema", () => {
+  /** The same rule as a clip's: a rejected sequence is reported with its own complaint, not as a missing ref. */
+  it("does not masquerade as a missing sequence", () => {
+    writeYaml(join(dir, "sequences", "riff.yaml"), {
+      notes: [{ t: 0, d: 1, k: 60, v: 100 }],
+    });
+    writeFileSync(
+      join(dir, "nodes", "drums.yaml"),
+      `extends: "@meta/track"\nevents:\n  - { ref: riff, start: "1:1:1" }\n`,
+      "utf8",
+    );
+    let msg = "";
+    try {
+      compileNodeProject(dir);
+    } catch (e) {
+      msg = (e as Error).message;
+    }
+    expect(msg).toContain("sequence 'riff' failed to load");
+    expect(msg).toContain("sequences/riff.yaml");
+    expect(msg).not.toContain("not found");
+  });
+});

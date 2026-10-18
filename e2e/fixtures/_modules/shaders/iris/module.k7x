@@ -1,0 +1,13 @@
+// "iris" — a SHADER meant for a fade's STRETCH: the shot is shown inside a circle that opens with
+// its presence, so the same node opens a shot in on a `fade_in` and closes one out on a `fade_out`.
+//
+// Wired as an ordinary lane effect it does nothing, since `uPresence` is 1 outside a fade.
+// See packages/song-video/docs/transitions.md.
+type("shader")
+shader("iris")
+params({
+  P1: 0.15, // iris: how soft the circle's edge is
+  P2: 0,
+  P3: 0,
+  P4: 0,
+})

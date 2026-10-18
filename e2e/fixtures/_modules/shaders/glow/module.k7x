@@ -1,0 +1,17 @@
+// "glow" — a SHADER: picture in, picture out, and an optional audio input that drives it.
+//
+// The folder it sits in (`_modules/shaders/`) is what says so; nothing here names a plugin,
+// because there is none. What this module DOES is the GLSL under `shaders/`, one folder per
+// shader, and `shader:` below picks which of them runs.
+//
+// `P1`..`P4` are the four knobs every shader gets, 0..1, reaching the fragment as `uP1`..`uP4`.
+// What each one means is the shader's business — read the comments in its fragment.glsl.
+// See packages/song-video/docs/shaders.md.
+type("shader")
+shader("pulse")
+params({
+  P1: 0.6, // pulse: how hard the sound lifts the picture
+  P2: 0.35, // pulse: vignette
+  P3: 0,
+  P4: 0,
+})

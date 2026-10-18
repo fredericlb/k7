@@ -105,7 +105,9 @@ dropped, never let stop the service.
 ## Conflicts
 
 `GET /sync/conflicts` lists what the relay set aside in this workspace, each with the value kept in
-its place (`../../live-sync/docs/sync.md`). `POST /sync/conflicts/:id` settles one: with
+its place (`../../live-sync/docs/sync.md`). A workspace with no relay answers an empty list with
+`linked: false` rather than an error: the client asks on every change notice, and a 404 there is a
+red line in the console for a state that is not a fault. `POST /sync/conflicts/:id` settles one: with
 `{ "take": true }` the alternative is written over the value in place, otherwise it is dismissed.
 Either way it goes out as an ordinary batch naming the conflict in `resolves`, so the choice is in
 the log and every replica closes it.

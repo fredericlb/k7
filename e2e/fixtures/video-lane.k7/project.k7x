@@ -1,0 +1,9 @@
+project({
+  name: "video-lane",
+  tempo: 120,
+  sampleRate: 48000,
+  timeSignature: "4/4",
+  viewport: [1280, 720, 30],
+  layers: ["main"],
+})
+markers({})

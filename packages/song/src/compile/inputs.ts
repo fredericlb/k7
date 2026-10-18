@@ -16,7 +16,6 @@ import {
 import { applyLinkLevels } from "../linkLevels";
 import {
   type Diagnostic,
-  exportSub,
   loadChains,
   loadModuleRefs,
   loadModules,
@@ -33,7 +32,7 @@ import {
   type Preferences,
   resolveInput,
 } from "../preferences";
-import type { RawClip } from "../rawDoc";
+import type { RawClip, RawSequence } from "../rawDoc";
 import { tapFeedsOf, tapPairs } from "../tapOuts";
 import { lanesOf } from "../trackModule";
 import { wsExists } from "../yaml/workspaceFile";
@@ -78,7 +77,8 @@ export function loadCompileInputs(dir: string) {
   // Read WITH their issues: a rejected clip is dropped from the map, and its own complaint is what stops the ref reading as "not found".
   const clipsRead = readYamlEntities(dir, "clips");
   const clipsMap = clipsRead.values as Record<string, RawClip>;
-  const seqMap = exportSub(dir, "sequences");
+  const seqsRead = readYamlEntities(dir, "sequences");
+  const seqMap = seqsRead.values as Record<string, RawSequence>;
   // Plus the shared modules the chains name by ref, resolved ONCE so the compile loop below reads plain fields.
   const modulesMap = resolveModuleMap(
     withChainModuleRefs(localModules, moduleRefs, chains),
@@ -100,6 +100,7 @@ export function loadCompileInputs(dir: string) {
     routedTaps,
     clipsRead,
     clipsMap,
+    seqsRead,
     seqMap,
     modulesMap,
   };
@@ -117,6 +118,7 @@ export function checkReferences(dir: string, inp: CompileInputs): void {
     chains,
     clipsRead,
     clipsMap,
+    seqsRead,
     seqMap,
     modulesMap,
   } = inp;
@@ -146,13 +148,18 @@ export function checkReferences(dir: string, inp: CompileInputs): void {
       const seq = seqMap[ref];
       if (!clip && !seq) {
         // A file that EXISTS but failed to load is reported with its own complaint instead of "not found".
-        const broke = clipsRead.issues.find((i) =>
+        const brokeClip = clipsRead.issues.find((i) =>
           i.startsWith(`clips/${ref}.`),
         );
+        const brokeSeq = seqsRead.issues.find((i) =>
+          i.startsWith(`sequences/${ref}.`),
+        );
         refErrs.push(
-          broke
-            ? `track '${trackId}': clip '${ref}' failed to load — ${broke}`
-            : `track '${trackId}': clip/sequence '${ref}' not found`,
+          brokeClip
+            ? `track '${trackId}': clip '${ref}' failed to load — ${brokeClip}`
+            : brokeSeq
+              ? `track '${trackId}': sequence '${ref}' failed to load — ${brokeSeq}`
+              : `track '${trackId}': clip/sequence '${ref}' not found`,
         );
       } else if (
         clip?.source &&

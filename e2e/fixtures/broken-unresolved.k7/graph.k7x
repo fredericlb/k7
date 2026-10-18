@@ -1,0 +1,1 @@
+modules({ drums: ["ghost"], ghost: ["MIX"], MIX: ["OUT"] })

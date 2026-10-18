@@ -17,7 +17,7 @@ import { LIBRARY_SECTIONS, sectionAt, sectionPath } from "@studio/ui-library";
 import { REHEARSAL_SECTIONS, rehearsalSectionAt } from "@studio/ui-rehearsal";
 import { UserMenu } from "@studio/ui-user-menu";
 import { type ReactNode, useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { desktop } from "../desktop";
 import { m } from "../paraglide/messages.js";
@@ -69,12 +69,11 @@ interface Entry {
   count?: number;
 }
 
+/** A LINK, not a button: an entry is an address, so it opens in a new tab and copies like one. */
 function SidebarEntry({
   entry: { label, icon: Icon, route, active, count },
-  onPick,
 }: {
   entry: Entry;
-  onPick: (route: string) => void;
 }) {
   return (
     <Button
@@ -82,7 +81,7 @@ function SidebarEntry({
       size="sm"
       title={label}
       aria-current={active ? "page" : undefined}
-      onClick={() => onPick(route)}
+      asChild
       className={cn(
         "justify-center sm:justify-start",
         // The lit entry is the one place the sidebar wears the accent: violet means "you are here" (../../docs/projects.md).
@@ -90,29 +89,25 @@ function SidebarEntry({
           "bg-primary/15 text-foreground hover:bg-primary/20 hover:text-foreground",
       )}
     >
-      <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary-text")} />
-      <span className="hidden min-w-0 flex-1 truncate text-left sm:inline">
-        {label}
-      </span>
-      {count !== undefined ? (
-        <span className="hidden shrink-0 text-muted-foreground text-xs tabular-nums sm:inline">
-          {count}
+      <Link to={route}>
+        <Icon
+          className={cn("h-4 w-4 shrink-0", active && "text-primary-text")}
+        />
+        <span className="hidden min-w-0 flex-1 truncate text-left sm:inline">
+          {label}
         </span>
-      ) : null}
+        {count !== undefined ? (
+          <span className="hidden shrink-0 text-muted-foreground text-xs tabular-nums sm:inline">
+            {count}
+          </span>
+        ) : null}
+      </Link>
     </Button>
   );
 }
 
 /** A titled run of entries below the first: the title on a wide sidebar, a rule on the rail. */
-function SidebarGroup({
-  title,
-  entries,
-  onPick,
-}: {
-  title: string;
-  entries: Entry[];
-  onPick: (route: string) => void;
-}) {
+function SidebarGroup({ title, entries }: { title: string; entries: Entry[] }) {
   return (
     <nav className="mt-4 flex flex-col gap-1 px-2" aria-label={title}>
       <span className="hidden px-3 pb-1 text-muted-foreground text-xs sm:inline">
@@ -120,7 +115,7 @@ function SidebarGroup({
       </span>
       <span className="mx-2 mb-1 border-border border-t sm:hidden" />
       {entries.map((e) => (
-        <SidebarEntry key={e.route} entry={e} onPick={onPick} />
+        <SidebarEntry key={e.route} entry={e} />
       ))}
     </nav>
   );
@@ -202,20 +197,12 @@ function HomeSidebar({
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-3">
         <nav className="flex flex-col gap-1 px-2">
           {items.map((e) => (
-            <SidebarEntry key={e.route} entry={e} onPick={navigate} />
+            <SidebarEntry key={e.route} entry={e} />
           ))}
         </nav>
 
-        <SidebarGroup
-          title={m["home.media"]()}
-          entries={media}
-          onPick={navigate}
-        />
-        <SidebarGroup
-          title={m["home.rehearsal"]()}
-          entries={rehearsal}
-          onPick={navigate}
-        />
+        <SidebarGroup title={m["home.media"]()} entries={media} />
+        <SidebarGroup title={m["home.rehearsal"]()} entries={rehearsal} />
       </div>
 
       <div className="flex flex-col items-center gap-1 px-2 pb-3 sm:flex-row sm:justify-end">

@@ -36,11 +36,8 @@ beforeEach(() => {
   // A set NAMES the médiathèque's modules, so a test writes `_libraries/` in the workspace itself.
   mediatek = librariesFixture(ws);
 
-  // Every module a set NAMES, written INLINE — this repo ships none to copy, they live in an
-  // account's library (packages/dsp/docs/catalogue.md). What is pinned here is that the scaffold
-  // names a ref that RESOLVES; whether the module behind it is any good is that library's question.
-  // The EQ was already inline for a narrower reason: the authored file extends `@engine/equaliser`,
-  // which resolves against a plugin scan this test has not got and would silently stub out.
+  // Every module a set NAMES, written inline at the k7-core seed's paths; "names only modules the k7-core seed really has" checks those paths.
+  // Inline rather than copied: the EQ's real file extends `@engine/equaliser`, which needs a plugin scan this test has not got.
   const library = (at: string, body: string, panel?: string): void => {
     const to = join(mediatek, "modules", ...at.split("/"));
     mkdirSync(to, { recursive: true });
@@ -57,25 +54,25 @@ beforeEach(() => {
       '  source: { type: meter, col: 1, row: 0, rowSpan: 2, label: Source, bind: "Source BPM" }\n',
   );
   library(
-    "audio/utility/fade",
+    "audio/zz_utility/fade",
     "plugin: { type: jsdsp, name: Fade }\nparams:\n  Level: 1\n",
   );
   // The filter and the EQ are modules with ENGINES; the desk names one of each (packages/song/docs/engines.md).
-  library("audio/filter/multimode", "engine: biquad-2\n");
+  library("audio/filter", "engine: biquad-2\n");
   library(
-    "audio/filter/multimode/engines/sweep",
+    "audio/filter/engines/sweep",
     "plugin: { type: jsdsp, name: Sweep Filter }\nparams:\n  Sweep: 0\n",
   );
   library(
-    "audio/filter/multimode/engines/biquad-2",
+    "audio/filter/engines/biquad-2",
     "plugin: { type: internal, name: airwindows_biquad2 }\n",
   );
   library(
-    "audio/utility/trim",
+    "audio/zz_utility/trim",
     "plugin: { type: jsdsp, name: Trim }\nparams:\n  Trim: 0\n",
   );
   library(
-    "audio/utility/gain",
+    "audio/zz_utility/gain",
     "plugin: { type: jsdsp, name: Gain }\nparams:\n  Gain: 0\n",
   );
   library("audio/delay", "engine: echo\n");
@@ -250,8 +247,8 @@ describe("a scaffolded set", () => {
     scaffoldSet(dir, "winter");
     const ext = (f: string) =>
       /extends:\s*"([^"]+)"/.exec(readFileSync(join(dir, f), "utf8"))?.[1];
-    expect(ext("nodes/fadeA.yaml")).toBe("@k7-core/audio/utility/fade");
-    expect(ext("nodes/fadeB.yaml")).toBe("@k7-core/audio/utility/fade");
+    expect(ext("nodes/fadeA.yaml")).toBe("@k7-core/audio/zz_utility/fade");
+    expect(ext("nodes/fadeB.yaml")).toBe("@k7-core/audio/zz_utility/fade");
     expect(ext("nodes/tempoA.yaml")).toBe("@k7-core/cold/tempo");
     expect(ext("nodes/tempoB.yaml")).toBe("@k7-core/cold/tempo");
   });
@@ -262,14 +259,34 @@ describe("a scaffolded set", () => {
     expect(mediatekRefs(dir)).toEqual([
       "@k7-core/audio/delay",
       "@k7-core/audio/eq",
-      "@k7-core/audio/filter/multimode",
-      "@k7-core/audio/utility/fade",
+      "@k7-core/audio/filter",
+      "@k7-core/audio/zz_utility/fade",
       // TWO gains and not one: what separates a trim from a fader is its RANGE — docs/setProject.md.
-      "@k7-core/audio/utility/gain",
-      "@k7-core/audio/utility/trim",
+      "@k7-core/audio/zz_utility/gain",
+      "@k7-core/audio/zz_utility/trim",
       // Under `cold/`: it reads the deck's whole file before playback — docs/coldModules.md.
       "@k7-core/cold/tempo",
     ]);
+  });
+
+  it("names only modules the k7-core seed really has", () => {
+    // The inline library above only mirrors the refs; this checks them against the folder a server is seeded from.
+    scaffoldSet(dir, "winter");
+    const seed = join(
+      import.meta.dirname,
+      "..",
+      "..",
+      "..",
+      "k7-core",
+      "modules",
+    );
+    const missing = mediatekRefs(dir).filter((ref) => {
+      const at = join(seed, ...ref.replace(/^@k7-core\//, "").split("/"));
+      return !["module.k7x", "module.yaml"].some((f) =>
+        existsSync(join(at, f)),
+      );
+    });
+    expect(missing).toEqual([]);
   });
 
   it("is an ordinary k7 project with no arrangement", () => {

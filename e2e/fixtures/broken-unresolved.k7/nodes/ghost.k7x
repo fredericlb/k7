@@ -1,0 +1,2 @@
+// Deliberately broken: no such module, so the project must refuse to compile and say why.
+extends("@workspace/audio/does-not-exist")

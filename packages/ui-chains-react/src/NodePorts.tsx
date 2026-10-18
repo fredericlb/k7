@@ -117,7 +117,7 @@ export function nodePorts({
                 : side === "out" || !p.free);
             return (
               <span
-                key={`${side}:${p.name ?? i}`}
+                key={`${side}:${i}:${p.name ?? ""}`}
                 className={`dgx-port ${side}${p.free ? " free" : ""}${plug ? " plug" : ""}`}
                 title={
                   p.name

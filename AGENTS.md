@@ -38,6 +38,7 @@ The zone's `docs/` directory is where that justification belongs:
 | the engine's build scripts | `engine/scripts/docs/` |
 | the plugin contract | `packages/k7-sdk/docs/` |
 | k7's builtin plugins | `packages/k7-plugins/docs/` |
+| the functional suite (Playwright, against a running instance) | `e2e/docs/` |
 | CI and deployment, which belong to no single app | `docs/` |
 
 (Those are notes for developers. `apps/k7/docs/` is the exception: it is the

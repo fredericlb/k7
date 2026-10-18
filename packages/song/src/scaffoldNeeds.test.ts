@@ -12,7 +12,7 @@ describe("neededRefs", () => {
   it("finds the shared modules a SET extends", () => {
     const refs = neededRefs(setProjectFiles("ete"));
     // The fade is the one every set has — twice, one per deck; the rest travel with the lanes.
-    expect(refs).toContain("@k7-core/audio/utility/fade");
+    expect(refs).toContain("@k7-core/audio/zz_utility/fade");
     expect(refs.length).toBeGreaterThan(1);
     expect(refs.every((r) => r.startsWith("@"))).toBe(true);
   });

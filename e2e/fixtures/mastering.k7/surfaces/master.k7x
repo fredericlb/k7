@@ -1,0 +1,14 @@
+type("mastering")
+layout("split")
+mapping({
+  "comp.low": { module: "master", param: "Low Amount" },
+  "comp.mid": { module: "master", param: "Mid Amount" },
+  "comp.high": { module: "master", param: "High Amount" },
+  "comp.lowFreq": { module: "master", param: "Low Freq" },
+  "comp.highFreq": { module: "master", param: "High Freq" },
+  "spread.width": { module: "master", param: "Width" },
+  "spread.bassMono": { module: "master", param: "Bass Mono" },
+  "limiter.drive": { module: "master", param: "Drive" },
+  "limiter.ceiling": { module: "master", param: "Ceiling" },
+  "limiter.release": { module: "master", param: "Release" },
+})

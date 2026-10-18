@@ -9,4 +9,4 @@ export * from "@studio/rehearsal-shared";
 export type HomeTab = "sessions" | "releases" | "songbook";
 
 // The header's destinations: one entry per section, sessions and their moments under Recordings, releases and pages Publications.
-export type NavKey = "recordings" | "publications" | "songbook" | "exercices";
+export type NavKey = "recordings" | "publications" | "songbook" | "exercises";

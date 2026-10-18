@@ -1,0 +1,5 @@
+// Deliberately broken: velocity is 0..1, so this sequence fails its schema.
+notes([
+  t(0).d(1).k(60).v(100),
+  t(1).d(1).k(64),
+])

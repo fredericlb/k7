@@ -973,6 +973,7 @@ export default function App({
     {
       timeline: hasTimeline,
       turntables: hasTurntables,
+      mastering: hasMastering,
       frozen,
     },
   );

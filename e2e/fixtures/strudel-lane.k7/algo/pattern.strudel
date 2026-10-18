@@ -1,0 +1,5 @@
+// "Pad" lands on the pad lane, "Kit" on the kit lane; bd/hh/sn resolve to the bundled samples.
+stack(
+  note("c e g c5").s("sawtooth").slow(2).label("Pad"),
+  sound("bd hh sn hh").label("Kit"),
+)
