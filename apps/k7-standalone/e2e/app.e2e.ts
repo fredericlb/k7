@@ -65,11 +65,16 @@ test("the engine starts and registers with the app's backend", async () => {
     .poll(
       async () => {
         const s = await engineState(home);
-        if (s.snapshot?.status === "running" && s.snapshot.lastHeartbeatOk)
-          enginePort = s.snapshot.enginePort;
-        return (
-          s.down ?? s.snapshot?.error ?? s.snapshot?.status ?? "no snapshot yet"
-        );
+        if (s.down) return s.down;
+        if (s.snapshot?.error) return s.snapshot.error;
+        if (!s.snapshot) return "no snapshot yet";
+        // A snapshot says running before its first heartbeat and port: that is not up yet.
+        if (s.snapshot.status === "running" && !s.snapshot.lastHeartbeatOk)
+          return "running, no heartbeat yet";
+        if (s.snapshot.status === "running" && s.snapshot.enginePort <= 0)
+          return "running, no port yet";
+        enginePort = s.snapshot.enginePort;
+        return s.snapshot.status;
       },
       { timeout: BOOT_MS, intervals: [1000] },
     )
