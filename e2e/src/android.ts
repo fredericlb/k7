@@ -1,6 +1,8 @@
 // android.ts — the suite's `android` target: the app's e2e build on a phone, driven through its own WebView.
 // That build is `se.frediver.k7.e2e` on its own port, installed BESIDE the shipped app, never over it (docs/e2e.md).
 import { execFileSync } from "node:child_process";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import {
   _android,
   type AndroidDevice,
@@ -42,6 +44,19 @@ async function studioState(api: APIRequestContext): Promise<string> {
   return engines.length > 0 ? "up" : "no engine listed yet";
 }
 
+/** Remembers the phone's engine for the account, as a first pick does: a project page picks none on its own (apps/k7/frontend/docs/shell.md). */
+async function rememberEngine(api: APIRequestContext): Promise<void> {
+  const [engine] = (await (await api.get("/api/engines")).json()) as {
+    id: string;
+  }[];
+  const prefs = (await (await api.get("/api/preferences")).json()) as object;
+  const res = await api.put("/api/preferences", {
+    data: { ...prefs, engineId: engine?.id },
+  });
+  if (!res.ok())
+    throw new Error(`preferences: ${res.status()} ${await res.text()}`);
+}
+
 /** The page of the app's k7 view: one WebView per app shares the process's DevTools socket with the shell page. */
 async function k7View(device: AndroidDevice): Promise<Page> {
   let found: Page | undefined;
@@ -63,7 +78,14 @@ async function k7View(device: AndroidDevice): Promise<Page> {
       },
     )
     .toBe("found");
-  return found as Page;
+  const page = found as Page;
+  // A WebView never answers DevTools' capture, so a spec's screenshot is the phone's screen, which shows this view.
+  page.screenshot = (options) => {
+    // page.screenshot makes the folder it writes into; the device's does not.
+    if (options?.path) mkdirSync(dirname(options.path), { recursive: true });
+    return device.screenshot({ path: options?.path });
+  };
+  return page;
 }
 
 interface Phone {
@@ -107,6 +129,7 @@ export const android = base.extend<{ k7: K7 }, { phone: Phone }>({
           },
         )
         .toBe("up");
+      await rememberEngine(api);
       await seedFixtures(await FileService.connect(api));
       const view = await k7View(device);
       await use({ device, view, request: api });
