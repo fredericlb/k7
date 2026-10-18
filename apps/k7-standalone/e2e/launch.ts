@@ -122,3 +122,22 @@ export async function homePage(
     `no k7 page within ${timeoutMs} ms; pages: ${seen.join(", ")}`,
   );
 }
+
+/** Close the app without its quit confirm: a test that failed mid-play would otherwise leave the native dialog waiting. */
+export async function closeApp({ app }: Launched): Promise<void> {
+  await app
+    .evaluate(({ webContents }) =>
+      Promise.all(
+        webContents
+          .getAllWebContents()
+          .filter((w) => !w.isDestroyed())
+          .map((w) =>
+            w
+              .executeJavaScript("void (window.__k7Busy = () => null)")
+              .catch(() => undefined),
+          ),
+      ),
+    )
+    .catch(() => undefined);
+  await app.close().catch(() => undefined);
+}

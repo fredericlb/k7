@@ -8,6 +8,7 @@ import {
   request,
 } from "@playwright/test";
 import {
+  closeApp,
   engineState,
   homePage,
   type Launched,
@@ -115,11 +116,20 @@ const desktop = base.extend<{ k7: K7 }, { desktop: Desktop }>({
           storageState: { cookies, origins: [] },
         });
         // Seeded here, in the one app the specs then drive: a launch starts from an empty user-data folder.
-        await seedFixtures(await FileService.connect(api));
+        const files = await FileService.connect(api);
+        // The hub copies the k7-core seed in the background, and a workspace is refused until it lands.
+        await expect
+          .poll(() => files.libraries(), {
+            message: "the app's k7-core library was never seeded",
+            timeout: BOOT_MS,
+            intervals: [500],
+          })
+          .toContain("k7-core");
+        await seedFixtures(files);
         await use({ launched, home, request: api });
         await api.dispose();
       } finally {
-        await launched.app.close().catch(() => undefined);
+        await closeApp(launched);
       }
     },
     { scope: "worker", timeout: 4 * BOOT_MS },
