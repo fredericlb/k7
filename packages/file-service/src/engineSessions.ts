@@ -25,6 +25,9 @@ export const linkHooks: {
 /** Whether an engine is selected at all, socket open or not. */
 export const hasSelectedEngine = (): boolean => selectedEngineUrl !== undefined;
 
+/** The selected engine's address, which is what tells one engine from another. */
+export const selectedEngine = (): string | undefined => selectedEngineUrl;
+
 /** One socket per SESSION, all to the same engine. Keyed by session id. */
 export interface Link {
   client: EngineClient;
