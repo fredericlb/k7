@@ -15,7 +15,7 @@
 
 ```bash
 git submodule update --init      # commons
-npm install                      # also installs the pre-push hook (the `prepare` script)
+npm install
 cp env.example.yaml env.yaml     # then fill it in
 npm run tokens                   # optional: gives the backend its own API_TOKEN_SECRET
 ```

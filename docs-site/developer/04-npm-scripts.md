@@ -26,10 +26,10 @@ Every script in the root `package.json`, grouped by purpose. Run them from the r
 
 | Script | Runs | Blocking? |
 |---|---|---|
-| `lint` | `biome check .` | Yes (pre-push hook, OneDev). |
+| `lint` | `biome check .` | Yes (GitHub `k7` `lint` job, OneDev). |
 | `lint:fix` | `biome check --write .` | Applies Biome's safe fixes and formatting. |
-| `lint:bytes` | `node scripts/check-source-bytes.mjs` | Yes (pre-push hook, OneDev). |
-| `lint:docs` | `node scripts/check-doc-links.mjs` | Yes (pre-push hook). |
+| `lint:bytes` | `node scripts/check-source-bytes.mjs` | Yes (GitHub `k7` `lint` job, OneDev). |
+| `lint:docs` | `node scripts/check-doc-links.mjs` | No: run it before pushing. |
 | `lint:comments` | `node scripts/check-comments.mjs` | No: reports a backlog. |
 | `lint:version` | `node scripts/check-version.mjs` | Yes (GitHub `k7` `lint` job). Every private workspace carries the root `package.json`'s version; `--set X.Y.Z` writes every copy, `--tag vX.Y.Z` also checks a release tag. |
 | `lint:dead` | `knip` | No: reports a backlog. |
@@ -49,7 +49,6 @@ Each is described in [Lints and conventions](./06-lints-and-conventions.md).
 
 | Script | Runs | Purpose |
 |---|---|---|
-| `prepare` | `git config core.hooksPath .githooks` | Runs on `npm install`: enables the `pre-push` hook. Silently does nothing outside a git checkout. |
 | `tokens` | `node scripts/tokens.mjs` | Writes a random `API_TOKEN_SECRET` into the `k7-backend` section of `env.yaml`, preserving the file's comments. `--dry-run` prints without writing; `--env <file>` targets another file. Fails if `env.yaml` does not exist. |
 | `commons:sync` | `git submodule update --remote --merge commons` | Moves the `commons` submodule to its upstream `main`. |
 | `clean` | `rm -rf …/node_modules` | Deletes every `node_modules` folder in the tree (root, commons, packages, apps). |

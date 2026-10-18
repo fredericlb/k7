@@ -106,7 +106,6 @@ cd ../../packages/engine-tunnel && npx vitest run
 
 | Where | What |
 |---|---|
-| `pre-push` hook | `npm run test` (after the blocking lints) |
 | GitHub `k7` workflow | `npm run test --workspace=apps/k7 --workspace=packages --if-present`, the supervisor tests and the tunnel conformance suites |
 | OneDev `lint and test` | `npm run test -- --jobs 4` |
 

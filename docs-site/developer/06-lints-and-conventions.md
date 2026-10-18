@@ -4,19 +4,15 @@
 
 | Check | Command | Blocks |
 |---|---|---|
-| Biome lint and format | `npm run lint` | `pre-push` hook, GitHub `k7` `lint` job, OneDev `lint and test` |
-| NUL bytes in source | `npm run lint:bytes` | `pre-push` hook, GitHub `k7` `lint` job, OneDev `lint and test` |
+| Biome lint and format | `npm run lint` | GitHub `k7` `lint` job, OneDev `lint and test` |
+| NUL bytes in source | `npm run lint:bytes` | GitHub `k7` `lint` job, OneDev `lint and test` |
 | One version everywhere | `npm run lint:version` | GitHub `k7` `lint` job |
-| Dead file references | `npm run lint:docs` | `pre-push` hook |
+| Dead file references | `npm run lint:docs` | Nothing: run it before pushing |
 | Typecheck | `npm run typecheck` | OneDev `lint and test`; GitHub runs `build` (which typechecks) instead |
 | Comment limits | `npm run lint:comments` | Nothing: a backlog report |
 | Dead code | `npm run lint:dead` | Nothing: a backlog report |
 | Panel binds | `npm run lint:panels` | Nothing: needs the external plugins installed |
 | Module panel layouts | `npm run lint:layouts` | Nothing: run after editing panels |
-
-The `pre-push` hook (`.githooks/pre-push`, enabled by the `prepare` script) runs `lint`,
-`lint:bytes`, `lint:docs` and `test` in that order and stops at the first failure. Skip it once with
-`git push --no-verify`.
 
 ## Biome
 
@@ -119,4 +115,4 @@ These follow from the configuration and the checks above.
 | Packages are imported only through their `exports` subpaths; add a subpath rather than deep-importing | Module resolution |
 | Relative imports include the `.ts` extension | `allowImportingTsExtensions` in every package `tsconfig.json` |
 | npm scripts set environment variables through `with-env.mjs`, not `VAR=1 cmd`, so they run on Windows | Review |
-| Every edited JS or TS file passes Biome | `pre-push` hook |
+| Every edited JS or TS file passes Biome | GitHub `k7` `lint` job, OneDev `lint and test` |
