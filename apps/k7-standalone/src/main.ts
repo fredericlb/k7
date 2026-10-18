@@ -15,6 +15,7 @@ import {
   stopServer,
   waitListening,
 } from "@frediverse/electron-shell/servers";
+import { PORT_RANGE_ENV, PORT_RESERVED_ENV } from "@studio/file-hub/ports";
 import type { SupervisorHost } from "@studio/supervisor-host/supervisorHost";
 import { LOCAL_SIGN_IN } from "@studio/web-protocol/handoff";
 import { PORTS_ENV } from "@studio/web-protocol/services";
@@ -40,6 +41,7 @@ import {
   stateDirs,
   supervisorBinary,
 } from "./paths.ts";
+import { choosePorts, PORT_RANGE } from "./ports.ts";
 import { chooseServer, chosenServer } from "./server.ts";
 import { signIn } from "./signIn.ts";
 import { failedPage, startingPage } from "./splash.ts";
@@ -47,14 +49,10 @@ import { startSupervisor } from "./supervisor.ts";
 import { startUpdateChecks } from "./updates.ts";
 import { openTabbedWindow, type TabbedWindow } from "./window.ts";
 
-// Not the dev session's 8789, so the two run side by side; every process is told through PORTS_ENV.
-const PORTS = { k7: standalone.port };
-const PORTS_SPEC = `k7=${PORTS.k7}`;
-// Inherited by the backend, the file services it starts and the supervisor.
-process.env[PORTS_ENV] = PORTS_SPEC;
-const K7 = `http://127.0.0.1:${PORTS.k7}`;
+// Chosen at boot in PORT_RANGE, the last launch's first (src/ports.ts); every process is told through PORTS_ENV.
+let K7 = "";
 /** Where a signed-out window lands: the local user, unless a session is already there. */
-const LOCAL_HOME = `${K7}${LOCAL_SIGN_IN}?return_to=${encodeURIComponent("/")}`;
+let LOCAL_HOME = "";
 
 /** k7's own IdP, as a PUBLIC client: the app cannot keep a secret. Overridable, and an empty issuer means local only. */
 const OIDC = {
@@ -67,8 +65,24 @@ const webPreferences = {
   contextIsolation: true,
   nodeIntegration: false,
   preload: join(__dirname, "preload.cjs"),
-  additionalArguments: [`--studio-ports=${PORTS_SPEC}`],
+  additionalArguments: [] as string[],
 };
+
+/** This launch's ports, published to every child process and every page before the first one exists. */
+async function settlePorts(root: string): Promise<number> {
+  const ports = await choosePorts(root);
+  const spec = `k7=${ports.k7}`;
+  // Inherited by the backend, the file services it starts and the supervisor; the range by every port they open.
+  process.env[PORTS_ENV] = spec;
+  process.env[PORT_RANGE_ENV] = `${PORT_RANGE.first}-${PORT_RANGE.last}`;
+  // The engine binds its port seconds after a file service may look for one: promised ports are skipped by name.
+  process.env[PORT_RESERVED_ENV] = `${ports.k7},${ports.engine}`;
+  webPreferences.additionalArguments = [`--studio-ports=${spec}`];
+  K7 = `http://127.0.0.1:${ports.k7}`;
+  LOCAL_HOME = `${K7}${LOCAL_SIGN_IN}?return_to=${encodeURIComponent("/")}`;
+  line("app", `ports: k7 ${ports.k7}, engine from ${ports.engine}`);
+  return ports.engine;
+}
 
 let backends: Server[] = [];
 let supervisor: SupervisorHost | null = null;
@@ -138,6 +152,7 @@ async function boot(): Promise<void> {
   mkdirSync(dirs.root, { recursive: true });
   openLog(dirs.log, { echo: !app.isPackaged });
   line("app", `state in ${dirs.root}`);
+  const enginePort = await settlePorts(dirs.root);
   // Before the first page, the splash included: what k7's frames may use, everything else refused (docs/standalone.md, "Permissions").
   installPermissions(session.defaultSession, {
     origins: [K7],
@@ -145,7 +160,7 @@ async function boot(): Promise<void> {
   });
   // At once, on a splash: a cold start or a first library seed would otherwise show nothing for seconds.
   openWindow();
-  await assertPortsFree([PORTS.k7], "k7");
+  await assertPortsFree([Number(new URL(K7).port)], "k7");
 
   const engine = engineBinary();
   const seed = librarySource();
@@ -166,7 +181,7 @@ async function boot(): Promise<void> {
   installDesktopBridge(K7, chosenServer);
   const sup = supervisorBinary();
   if (sup && existsSync(sup))
-    supervisor = startSupervisor(sup, dirs.engineHome, K7, {
+    supervisor = startSupervisor(sup, dirs.engineHome, K7, enginePort, {
       onSnapshot: (s) => engineSnapshot(K7, s),
       onDown: (why) => engineDown(K7, why),
     });
@@ -176,7 +191,7 @@ async function boot(): Promise<void> {
     noticeNoEngine();
   }
 
-  backends = [startBackend(PORTS.k7, env, dirs.root)];
+  backends = [startBackend(Number(new URL(K7).port), env, dirs.root)];
   // The workers are cleared while the backend starts; both before the first k7 page.
   await Promise.all([
     ...backends.map((b) => waitListening(b)),
@@ -198,7 +213,8 @@ runApp({
   boot,
   // Painted in the window when it is open, behind the shell's Retry / Open log / Quit dialog.
   showFailure: (why) => win?.fail(failedPage(why, stateDirs().log)),
-  confirmQuit: confirmQuitFor(K7),
+  // Read at quit, once boot has chosen the port.
+  confirmQuit: () => confirmQuitFor(K7)(),
   stop: async () => {
     // The supervisor first: it deregisters from k7, which must still be up to hear it.
     await supervisor?.stop();

@@ -8,7 +8,6 @@ import {
   request,
 } from "@playwright/test";
 import {
-  K7 as DESKTOP_ORIGIN,
   engineState,
   homePage,
   type Launched,
@@ -102,14 +101,14 @@ const desktop = base.extend<{ k7: K7 }, { desktop: Desktop }>({
       const launched = await launchApp();
       try {
         const home = await homePage(launched, BOOT_MS);
-        await expect(home).toHaveURL(`${DESKTOP_ORIGIN}/`, {
+        await expect(home).toHaveURL(`${launched.origin}/`, {
           timeout: BOOT_MS,
         });
         await engineUp(home);
         // The local user's session lives in the app's cookie jar; the file service is asked with the same one.
         const cookies = await launched.app.context().cookies();
         const api = await request.newContext({
-          baseURL: DESKTOP_ORIGIN,
+          baseURL: launched.origin,
           storageState: { cookies, origins: [] },
         });
         // Seeded here, in the one app the specs then drive: a launch starts from an empty user-data folder.
@@ -130,7 +129,7 @@ const desktop = base.extend<{ k7: K7 }, { desktop: Desktop }>({
         .poll(
           () => {
             found = d.launched.app.windows().find((p) => {
-              if (p.isClosed() || !p.url().startsWith(`${DESKTOP_ORIGIN}/`))
+              if (p.isClosed() || !p.url().startsWith(`${d.launched.origin}/`))
                 return false;
               const url = new URL(p.url());
               return !url.pathname.startsWith("/@tabs") && at(url);
@@ -146,7 +145,7 @@ const desktop = base.extend<{ k7: K7 }, { desktop: Desktop }>({
     await use({
       target: "desktop",
       async open(path) {
-        const url = new URL(path, DESKTOP_ORIGIN);
+        const url = new URL(path, d.launched.origin);
         if (!url.pathname.startsWith("/@")) {
           await d.home.goto(url.href);
           return d.home;

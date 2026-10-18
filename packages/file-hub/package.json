@@ -6,7 +6,8 @@
   "description": "The file service, hosted: one @studio/file-service process per account on the SERVER, reached through the origin with the session as identity, driving whichever engine the account claimed through that engine's tunnel. Projects live on the server, not on the machine that plays them. See docs/fileHub.md.",
   "types": "./index.ts",
   "exports": {
-    ".": "./index.ts"
+    ".": "./index.ts",
+    "./ports": "./ports.ts"
   },
   "scripts": {
     "test": "vitest run",

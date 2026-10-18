@@ -30,17 +30,28 @@ an edit needs no bundling. What is particular to this app:
 
 ## Addresses
 
-k7 on `127.0.0.1:18789` — **not** the dev session's 8789, so the app runs beside `npm run dev`.
+k7 on `127.0.0.1:<port>`, a free port the app picks at boot in its own range, 22000–23000
+(`PORT_RANGE` in `src/ports.ts`) — away from the dev session's 8789, so the app runs beside `npm run dev`.
 Every service derives a sibling's address from its own, and on a loopback host that means a PORT
-table (`servicePorts` in `packages/web-protocol/services.ts`): the app publishes its port as `STUDIO_PORTS=k7=18789`, in the environment its children
+table (`servicePorts` in `packages/web-protocol/services.ts`): the app publishes the port it chose as `STUDIO_PORTS=k7=<port>`, in the environment its children
 inherit — the backend, the file services, the supervisor, whose `Url.cpp` reads the same
 variable — and, for the pages, as `__STUDIO_PORTS__` from `src/preload.ts`. A preload rather than a
 fetch because the pages compute the services' addresses synchronously at import time. Every window
 gets it, the ones a page opens included. Opened in an ordinary browser, the same pages would fall
 back to 8789 and reach the dev backend.
 
-The port is fixed, not picked free at each launch: a page's storage is keyed on its ORIGIN, port
-included, so a moving port would empty it every time.
+**The port chosen is remembered**, in `ports.json` beside the other state, and tried first at the
+next launch: a page's storage is keyed on its ORIGIN, port included, so a port that moved would
+empty it. The app moves only when that port has been taken meanwhile, and a k7 that moves leaves
+the engine's remembered port alone. Free rather than fixed, because a fixed port is one another
+program — or the app in another account — can hold, and then the app could not start at all. The
+range itself is published as `STUDIO_PORT_RANGE=22000-23000` (`packages/file-hub/ports.ts`, whose
+`freePort` is the one picker), so the account file services and the sign-in's loopback return
+take theirs in it too. Two traps decide how that picker tests a port. The engine binds its port
+seconds after a file service may look for one, so the ports the app has promised are published as
+`STUDIO_PORT_RESERVED` and skipped by name. And the engine listens on every interface, beside which
+macOS still lets `127.0.0.1` bind the same port, so a port counts as free only when it binds on
+both.
 
 **No service worker.** The app clears the stored ones before its first k7 page and refuses
 `/sw.js` (`noServiceWorker` in `src/main.ts`). A worker stored by an earlier run hangs the
@@ -67,9 +78,10 @@ relaunches the app, Open log, Quit (`commons/packages/electron-shell/docs/shell.
 something fails"). The page holds no button of its own: it is a data URL with no link, and the
 one set of choices is the dialog's.
 
-**Port 18789 already taken is the failure to expect.** The single-instance lock is per user, so
-the case it cannot catch is k7 left running in another account on the same Mac or PC: the
-message names the holder when `lsof` or `netstat` can see it, and says so.
+**A taken port is not a failure: the app takes the next free one.** The single-instance lock is
+per user, so k7 left running in another account on the same Mac or PC is a second app in the same
+range, and the two simply hold different ports. The failure left is the whole range taken, which
+`freePort` reports as "no free port in 22000-23000".
 
 **The window opens where it was left**, in `window-state.json` beside the other state, fitted
 onto a display that is there now (the shell's `windowState`); the first launch opens 1440×900.
@@ -131,10 +143,12 @@ is rewritten to the origin's text, binaries included, and an edit made here is p
 The supervisor is run by `@studio/supervisor-host`'s `SupervisorHost`, the way the phone runs it —
 no arguments, NDJSON on stdio, stdin held open for the app's life, relaunched when it crashes
 (`packages/supervisor-host/docs/supervisorHost.md`). It gets a home of its own and
-first engine port **8766**, not the command-line engine's `~/.k7` and 8765: its lock is per home, and
-each supervisor adopts only the engine its own pidfile names, so the two coexist. 8766 is only the
-first port tried: another program on it — phare's agent holds 8766 too — moves the engine to the next
-free one (`engine/k7-supervisor/docs/supervisor.md`, "The engine's port"). Its first run
+a first engine port of its own, not the command-line engine's `~/.k7` and 8765: its lock is per home, and
+each supervisor adopts only the engine its own pidfile names, so the two coexist. That port is a free
+one in the app's range, remembered in `ports.json` like k7's and written as `port` into the
+supervisor's `engine-host.json` (`src/supervisor.ts`); it is only the first port tried, and another
+program taking it meanwhile moves the engine to the next free one
+(`engine/k7-supervisor/docs/supervisor.md`, "The engine's port"). Its first run
 downloads its sample packs into that home, like any fresh supervisor home.
 
 Quit first has every page write the text its editor panes hold (`flushAutosaves`, through the

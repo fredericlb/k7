@@ -57,8 +57,9 @@ worker that launched it, not by a setup project, which would run in a worker and
 Playwright replaces a worker after a failed test, so each failure costs a launch, a plugin scan and
 a seed: about fifteen seconds.
 
-The app's backend port is fixed, so nothing else may hold `127.0.0.1:18789` during a run, and a
-checkout without a supervisor build fails the run at once with the engine's reason.
+The app picks its backend's port free at launch, so the config has no `baseURL`: the launcher reads
+the port from the app's `ports.json` and hands the origin to the specs. A checkout without a
+supervisor build fails the run at once with the engine's reason.
 
 ## Feature projects
 

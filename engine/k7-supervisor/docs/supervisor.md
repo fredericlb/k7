@@ -89,7 +89,7 @@ that can only fail to bind.
 
 `port` is the FIRST port tried, not the port: the next free one of ten is taken when another program
 holds it. With a fixed port, one program on the machine is enough to keep the engine from ever
-starting — phare's desktop agent listens on 8766, the desktop app's first port — and an engine that
+starting — phare's desktop agent listens on 8766, for one — and an engine that
 cannot bind exits at once, which the crash loop reads as a crash and answers with safe mode. Nothing downstream
 needs the port fixed: the registry's presence, the snapshot, the tunnel and the WebRTC pipe all read
 the one the start reports, and the pidfile records it so the next supervisor adopts the engine there.

@@ -26,8 +26,9 @@ no window state, and leaves the developer's own app alone. It also matters for a
 not obvious: Electron's single-instance lock is keyed on that folder, and without it a test launched
 beside a running k7 is the second instance and exits at once.
 
-The port is NOT per launch: the backend's 18789 is fixed (`apps/k7/backend/standalone.json`), so
-the run has one worker and the app refuses to start while anything else holds that port.
+The ports are per launch too: a fresh folder has no `ports.json`, so the app picks free ones in its
+range, and the launcher reads that file to find it (`Launched.origin`). The run still has one
+worker, since the machine has one engine output.
 
 ## The library is seeded on a page's request, not at boot
 

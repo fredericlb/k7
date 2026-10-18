@@ -5,13 +5,7 @@ import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { connect } from "node:net";
 import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
-import {
-  engineState,
-  homePage,
-  K7,
-  type Launched,
-  launchApp,
-} from "./launch.ts";
+import { engineState, homePage, type Launched, launchApp } from "./launch.ts";
 
 /** CI sets it: a build without the supervisor is then a failure, not a skip. */
 const ENGINE_REQUIRED = process.env.K7_E2E_ENGINE === "1";
@@ -43,7 +37,7 @@ test.afterAll(async ({}, testInfo) => {
 test("the window leaves the splash for k7's home page", async () => {
   home = await homePage(launched, BOOT_MS);
   await home.waitForLoadState("domcontentloaded");
-  await expect(home).toHaveURL(`${K7}/`, { timeout: BOOT_MS });
+  await expect(home).toHaveURL(`${launched.origin}/`, { timeout: BOOT_MS });
   await expect(home.locator("body")).not.toBeEmpty();
 });
 
@@ -92,7 +86,7 @@ test("the k7-core library is seeded into the app's own folder", async () => {
 
 test("quitting stops the backend and the engine", async () => {
   await launched.app.close();
-  const backendPort = Number(new URL(K7).port);
+  const backendPort = Number(new URL(launched.origin).port);
   await expect
     .poll(() => listening(backendPort), { timeout: 30_000 })
     .toBe(false);

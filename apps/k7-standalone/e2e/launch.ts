@@ -9,9 +9,7 @@ import {
   _electron as electron,
   type Page,
 } from "@playwright/test";
-import standalone from "../../k7/backend/standalone.json";
-
-export const K7 = `http://127.0.0.1:${standalone.port}`;
+import { portsFile } from "../src/ports.ts";
 
 // Playwright compiles the specs as CommonJS here, so there is no import.meta.
 const APP_DIR = join(__dirname, "..");
@@ -38,6 +36,23 @@ function packagedExecutable(): string | null {
 export interface Launched {
   app: ElectronApplication;
   userData: string;
+  /** k7's origin for this launch: the app picks its port at boot (src/ports.ts). */
+  origin: string;
+}
+
+/** The port the app chose, once it has written it beside its state. */
+async function originOf(userData: string, timeoutMs = 30_000): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const { k7 } = JSON.parse(readFileSync(portsFile(userData), "utf8"));
+      if (typeof k7 === "number") return `http://127.0.0.1:${k7}`;
+    } catch {
+      // Not written yet.
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error(`the app wrote no ports.json within ${timeoutMs} ms`);
 }
 
 /** Launch the app on a fresh user-data folder. */
@@ -53,7 +68,7 @@ export async function launchApp(): Promise<Launched> {
       ? { executablePath, args: flags, env }
       : { args: [APP_DIR, ...flags], cwd: APP_DIR, env },
   );
-  return { app, userData };
+  return { app, userData, origin: await originOf(userData) };
 }
 
 /** The last lines of the app's log, for an error that would otherwise only say it timed out. */
@@ -85,7 +100,7 @@ export function engineState(page: Page): Promise<EngineState> {
 
 /** The home tab once it shows k7: a page of the app's origin that is neither the tab strip nor the sign-in hop. */
 export async function homePage(
-  { app, userData }: Launched,
+  { app, userData, origin }: Launched,
   timeoutMs: number,
 ): Promise<Page> {
   const deadline = Date.now() + timeoutMs;
@@ -95,7 +110,7 @@ export async function homePage(
       // The shell paints its failure page while its Retry / Quit dialog waits: nothing will come after it.
       if (url.startsWith("data:") && url.includes("could%20not%20start"))
         throw new Error(`k7 could not start:\n${logTail(userData)}`);
-      if (!url.startsWith(`${K7}/`)) continue;
+      if (!url.startsWith(`${origin}/`)) continue;
       const path = new URL(url).pathname;
       if (path.startsWith("/@tabs") || path.startsWith("/auth")) continue;
       return page;

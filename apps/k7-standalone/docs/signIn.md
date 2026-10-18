@@ -35,14 +35,21 @@ sign-in with "Client authentication failed".
   authorization_policy: one_factor
   require_pkce: true
   pkce_challenge_method: S256
+  # the client asks for http://127.0.0.1:<port>/auth/callback, <port> anywhere in 22000-23000
   redirect_uris:
-    - http://127.0.0.1:18789/auth/callback
+    - http://127.0.0.1:22000/auth/callback
+    # … one per port, to http://127.0.0.1:23000/auth/callback, on a provider that matches exactly
   scopes: [openid, profile, email, groups]
   token_endpoint_auth_method: none
 ```
 
 The `redirect_uri` is the app's own backend, derived from the request like every other
-deployment's, which is why the port is fixed (`docs/standalone.md`). `K7_OIDC_ISSUER` and
+deployment's, so its port is the one the app picked at boot in its range (`docs/standalone.md`,
+"Addresses") — the same from launch to launch unless that port was taken meanwhile. The provider
+must therefore accept the desktop's loopback callback on ANY port of the range, as RFC 8252 §7.3
+asks of an authorization server for a native app's loopback redirect; a provider that matches
+redirect URIs exactly needs every URI of the range registered, from
+`http://127.0.0.1:22000/auth/callback` to `http://127.0.0.1:23000/auth/callback`. `K7_OIDC_ISSUER` and
 `K7_OIDC_CLIENT_ID` override both; an empty issuer leaves only the local user and the dev stub.
 
 ## In the system browser, never in a tab
@@ -51,7 +58,7 @@ A tab has no address bar, so a page in one cannot be told apart from the provide
 password typed there is typed into the app. RFC 8252 §8.12 is that rule, and providers enforce it.
 So `/auth/login` never loads in a tab (`src/routing.ts`): the strip's button and k7's own Sign in
 both start `src/signIn.ts`, which opens the system browser on the backend's handoff
-(`apps/k7/backend/docs/handoff.md`). The browser signs in at `127.0.0.1:18789`, the backend sends a
+(`apps/k7/backend/docs/handoff.md`). The browser signs in at the app's `127.0.0.1:<port>`, the backend sends a
 one-use code to a loopback port this process listens on, and the home tab trades it for the
 session with a verifier the browser never saw. The handoff asks the browser to forget its own
 session: the account is the app's.

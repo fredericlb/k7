@@ -89,9 +89,9 @@ does not trust, so `https://app.priv.k7.rocks` fails with `UNABLE_TO_GET_ISSUER_
 a backend while working perfectly in the browser beside it.
 
 On a loopback host the same table is what a PAGE uses too, and a host may move it:
-`STUDIO_PORTS=k7=18789` in the environment for node — and for the supervisor, whose
+`STUDIO_PORTS=k7=22000` (the desktop app publishing the port it chose) in the environment for node — and for the supervisor, whose
 `Url.cpp` reads the same variable — or `globalThis.__STUDIO_PORTS__` for a page, set before its
-scripts run (`servicePorts`). `pl8` and `k7` have no port of their own: they are k7's. The desktop app does, so it runs beside a dev session
+scripts run (`servicePorts`). `pl8` and `k7` have no port of their own: they are k7's. The desktop app picks one free in its own range, so it runs beside a dev session
 (`apps/k7-standalone/docs/standalone.md`). Unset, the table is `SERVICE_PORTS`.
 
 ## One suffix, and every shape inside it
