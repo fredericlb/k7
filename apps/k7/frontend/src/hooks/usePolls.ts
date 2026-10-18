@@ -7,6 +7,7 @@ import { isAnswer } from "../readFailure";
 import { keepIfEqual, keepIfSame } from "../shellEquality";
 import type {
   Diagnostic,
+  EngineLoadPhase,
   EngineSyncState,
   FormatTooNew,
   WaveformStatus,
@@ -114,18 +115,23 @@ export function useActiveProjectFollow(opts: {
   onTake?: (w: WorkspaceInfo) => void;
   /** Every answer's copy to the engine's machine, null when none is running or failed — docs engineSync.md. */
   onSync?: (s: EngineSyncState | null) => void;
+  /** Where the project stands on its way to playable, null once it is — what Play waits for (docs/shell.md). */
+  onLoad?: (l: EngineLoadPhase | null) => void;
   /** A take just stopped and has not landed yet: poll at TAKE_POLL_MS rather than every 2 s. */
   awaitingTake?: boolean;
+  /** The project is still on its way to the engine: poll fast, so Play frees as soon as it can play. */
+  loading?: boolean;
 }): void {
   const optsRef = useRef(opts);
   optsRef.current = opts;
   // undefined == no answer read yet; null == read, and there was no take — a ref, as it outlives the interval's re-creation.
   const seen = useRef<string | null | undefined>(undefined);
-  const eager = !!opts.awaitingTake;
+  const eager = !!opts.awaitingTake || !!opts.loading;
   // One read at a time: at 200 ms a slow answer would overlap the next, and the older could land last, firing a take twice.
   const inFlight = useRef(false);
   // The sync state last handed on, as text: the same state every tick must not re-render the shell every tick.
   const lastSync = useRef<string | undefined>(undefined);
+  const lastLoad = useRef<EngineLoadPhase | null | undefined>(undefined);
   useEffect(() => {
     const tick = async () => {
       if (inFlight.current) return;
@@ -144,6 +150,11 @@ export function useActiveProjectFollow(opts: {
         if (sync !== lastSync.current) {
           lastSync.current = sync;
           optsRef.current.onSync?.(w.engineSync ?? null);
+        }
+        const load = w.engineLoad ?? null;
+        if (load !== lastLoad.current) {
+          lastLoad.current = load;
+          optsRef.current.onLoad?.(load);
         }
       } catch {
         /* backend momentarily unavailable */

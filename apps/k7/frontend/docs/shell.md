@@ -27,6 +27,11 @@ the engine looked for, the copy, the apply and the warm-up (`components/StartupB
 that hides the project tells a beginner nothing about what they are waiting FOR; a line under a
 song they can already read and edit does.
 
+**Play waits for the same bar.** An engine whose socket is up does not yet hold the project: its
+files may still be on their way, and the edit it builds when they land drops a transport already
+rolling. So Play stays "loading the project" until the file service's `engineLoad` is null, read on
+every `/workspace` poll (faster while it is not), rather than freeing on the engine's first frame.
+
 **ProjectGate picks nothing.** The home page links here with an address —
 `/@local/<workspace>/<project>`, k7 answering the origin root — and arriving without a project in
 it draws the home page instead. That address is the router's `basename`, so the app's
