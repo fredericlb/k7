@@ -77,6 +77,7 @@ matches before changing it:
 | page | covers |
 |---|---|
 | `projects.md` | the HOME page — `/` with no project in it: the workspaces, the libraries, the shares |
+| `icons.md` | the app icon: one SVG, rendered into every platform's icon by `scripts/icons.mjs` |
 | `about.md` | `/about` — the version, the GPLv3, the source link the AGPL asks for, and the third-party notices built from the tree |
 | `playlists.md` | the cog's Playlists screen — `_playlists/` in the workspace, over the media library's song catalogue |
 | `references.md` | `_references/` — what you listen against, played by the browser beside whatever the engine is doing |

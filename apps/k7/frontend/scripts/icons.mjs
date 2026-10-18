@@ -1,0 +1,134 @@
+// Renders icon/k7.svg into every platform's app icon: web, desktop, Android, iOS, the engine's window.
+// Run by hand after changing the SVG: node apps/k7/frontend/scripts/icons.mjs (apps/k7/frontend/docs/icons.md).
+import { readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { chromium } from "@playwright/test";
+
+const frontend = join(dirname(fileURLToPath(import.meta.url)), "..");
+const repo = join(frontend, "..", "..", "..");
+const svg = readFileSync(join(frontend, "icon", "k7.svg"), "utf8").replace(
+  /^<\?xml[^>]*>\s*/,
+  "",
+);
+
+// tile: the rounded dark square; bleed: dark to the edges, the platform masks it; none: transparent.
+const SHAPES = {
+  tile: "background:#000;border-radius:22%",
+  bleed: "background:#000",
+  none: "",
+};
+
+const TARGETS = [
+  {
+    out: "apps/k7/frontend/public/icon-512.png",
+    size: 512,
+    shape: "tile",
+    width: 0.78,
+  },
+  {
+    out: "apps/k7/frontend/public/icon-192.png",
+    size: 192,
+    shape: "tile",
+    width: 0.78,
+  },
+  {
+    out: "engine/k7-runtime/engine/resources/studio_icon.png",
+    size: 192,
+    shape: "tile",
+    width: 0.78,
+  },
+  // Maskable: the cassette's diagonal stays inside the 80% circle every mask keeps.
+  {
+    out: "apps/k7/frontend/public/icon-512-maskable.png",
+    size: 512,
+    shape: "bleed",
+    width: 0.6,
+  },
+  {
+    out: "apps/k7/frontend/public/icon-192-maskable.png",
+    size: 192,
+    shape: "bleed",
+    width: 0.6,
+  },
+  {
+    out: "apps/k7/frontend/public/apple-touch-icon.png",
+    size: 180,
+    shape: "bleed",
+    width: 0.78,
+  },
+  {
+    out: "engine/k7-ios/k7/Assets.xcassets/AppIcon.appiconset/icon-1024.png",
+    size: 1024,
+    shape: "bleed",
+    width: 0.78,
+  },
+  // Adaptive foreground: 108dp canvas, the cassette inside the 72dp circle; ic_launcher.xml paints the black.
+  {
+    out: "engine/k7-android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
+    size: 432,
+    shape: "none",
+    width: 0.5,
+  },
+];
+
+const FAVICON_SIZES = [16, 32, 48];
+
+function page(size, shape, width) {
+  return `<!doctype html><html><body style="margin:0;background:transparent">
+<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;${SHAPES[shape]}">
+<div style="width:${width * 100}%">${svg.replace("<svg ", '<svg style="display:block;width:100%;height:auto;overflow:visible" ')}</div>
+</div></body></html>`;
+}
+
+async function render(browser, size, shape, width) {
+  const tab = await browser.newPage({
+    viewport: { width: size, height: size },
+  });
+  await tab.setContent(page(size, shape, width));
+  const png = await tab.screenshot({ omitBackground: true });
+  await tab.close();
+  return png;
+}
+
+// An ICO holding PNG images, which every browser reads.
+function ico(images) {
+  const header = Buffer.alloc(6 + 16 * images.length);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(images.length, 4);
+  let offset = header.length;
+  images.forEach(({ size, png }, i) => {
+    const entry = 6 + 16 * i;
+    header.writeUInt8(size % 256, entry);
+    header.writeUInt8(size % 256, entry + 1);
+    header.writeUInt16LE(1, entry + 4);
+    header.writeUInt16LE(32, entry + 6);
+    header.writeUInt32LE(png.length, entry + 8);
+    header.writeUInt32LE(offset, entry + 12);
+    offset += png.length;
+  });
+  return Buffer.concat([header, ...images.map((image) => image.png)]);
+}
+
+async function launch() {
+  try {
+    return await chromium.launch();
+  } catch {
+    return await chromium.launch({ channel: "chrome" });
+  }
+}
+
+const browser = await launch();
+try {
+  for (const { out, size, shape, width } of TARGETS) {
+    writeFileSync(join(repo, out), await render(browser, size, shape, width));
+    console.log(out);
+  }
+  const favicons = [];
+  for (const size of FAVICON_SIZES)
+    favicons.push({ size, png: await render(browser, size, "none", 1) });
+  writeFileSync(join(frontend, "public", "favicon.ico"), ico(favicons));
+  console.log("apps/k7/frontend/public/favicon.ico");
+} finally {
+  await browser.close();
+}
