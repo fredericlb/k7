@@ -110,7 +110,7 @@ import {
 } from "./components/SettingsPanel";
 import type { OpenShare } from "./components/SharedGate";
 import { SharePanel } from "./components/SharePanel";
-import { StartupBar } from "./components/StartupBar";
+import { projectLoading, StartupBar } from "./components/StartupBar";
 import { SurfaceTab } from "./components/SurfaceTab";
 import type { PanelTakes } from "./components/TakesView";
 import { TasksPanel } from "./components/TasksPanel";
@@ -224,6 +224,7 @@ import type { Tool } from "./timelineTools";
 import type {
   ChangedFile,
   CommandInfo,
+  EngineLoadPhase,
   EngineSyncState,
   ProjectInfo,
   RankedEngine,
@@ -451,6 +452,8 @@ export default function App({
   // A screen's `lcd.sound` resolves `@project/…` against the project the tab has open.
   setLcdSoundsProject(ws?.activeProject ?? null);
   const [engineSync, setEngineSync] = useState<EngineSyncState | null>(null);
+  // Copying, applying, warming: the engine does not hold a playable project yet, whatever its socket says.
+  const [engineLoad, setEngineLoad] = useState<EngineLoadPhase | null>(null);
 
   // The song's own name in the tab, over the folder `appMain` named it from (docs/tabs.md).
   const tabName = snapshot?.manifest.name || project?.name;
@@ -1195,6 +1198,7 @@ export default function App({
     const showWs = askWs();
     void api.workspace().then((w) => {
       showWs(w);
+      setEngineLoad(w.engineLoad ?? null);
       lastActive.current = w.activeProject;
       if (w.activeProject) void api.open(w.activeProject).catch(() => {});
       else fullscreen("editor");
@@ -1584,6 +1588,7 @@ export default function App({
   useActiveProjectFollow({
     lastActiveRef: lastActive,
     awaitingTake,
+    loading: engineLoad !== null,
     /** A recording landed: `setWs` carries the clip's name and the reload puts it on its lane — neither happened on its own. */
     onTake: (w) => {
       setAwaitingTake(false);
@@ -1591,6 +1596,7 @@ export default function App({
       bumpReload();
     },
     onSync: setEngineSync,
+    onLoad: setEngineLoad,
     onSwitch: (w) => {
       askWs()(w);
       // Another project's plugin values would show under a same-named module until a watch frame lands.
@@ -2483,7 +2489,11 @@ export default function App({
         );
 
   // Everything that makes the transport unable to answer, as one flag: to whoever is reaching for Play the two causes are one fact.
-  const transportWaiting = engineBusy || waitingForEngine || copyingToEngine;
+  const transportWaiting =
+    engineBusy ||
+    waitingForEngine ||
+    copyingToEngine ||
+    projectLoading(engineLoad, frozen);
 
   // The step-by-step palette's catalogue and per-argument completion — `locale` is a dependency, each description being resolved as the list is built.
   const paletteCommands = useMemo(
@@ -3909,7 +3919,7 @@ export default function App({
               <StartupBar
                 searching={engineSearching}
                 hasEngine={!!engine}
-                load={ws?.engineLoad}
+                load={engineLoad}
                 sync={engineSync}
                 connecting={waitingForEngine}
               />

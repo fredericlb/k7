@@ -14,7 +14,7 @@ service's entry.
 
 | value | why |
 |---|---|
-| `port` 18789 | not a dev session's 8789, so the desktop app runs beside `npm run dev`; FIXED, because a page's storage is keyed on its origin, port included, and because the OIDC client's redirect is registered on it |
+| `port` 18789 | the PHONE's port — the desktop app ignores it and picks its own in 22000–23000 (`apps/k7-standalone/docs/standalone.md`); FIXED on the phone, because a page's storage is keyed on its origin, port included, and because the OIDC client's redirect is registered on it |
 | `OIDC_*`: k7's provider, the public client `st0-desktop` (the provider's name for it), no secret | an app on the user's device cannot keep a secret, so PKCE alone proves the callback (`apps/k7-standalone/docs/signIn.md`); `groups`, so an account's admin rights come with it |
 | `STUDIO_LOCAL_USER=1` | signed out is a local user, never a dead end: nothing needs a network to start |
 | `STUDIO_LISTEN_HOST` `127.0.0.1` | the backend answers its own machine only — below |
@@ -35,7 +35,7 @@ person at the machine — a venue's Wi-Fi is full of strangers. Three locks, eac
 
 | lock | what it stops |
 |---|---|
-| `STUDIO_LISTEN_HOST=127.0.0.1` — `server.ts` binds there instead of every interface | a device on the same network opening `http://<ip>:18789/auth/local` |
+| `STUDIO_LISTEN_HOST=127.0.0.1` — `server.ts` binds there instead of every interface | a device on the same network opening `http://<ip>:<port>/auth/local` |
 | `loopbackOnly` (`src/loopback.ts`) on every route while `STUDIO_LOCAL_USER=1`: the peer address AND the `Host` header must be loopback | DNS rebinding: a page whose name resolves to `127.0.0.1` reaches the port from the user's own browser, and only its `Host` gives it away |
 | `/auth/local` checks both again (`src/handoff.ts`) | the same, should a host ever start the local user without the other two |
 

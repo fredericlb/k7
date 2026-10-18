@@ -48,7 +48,7 @@ The picker shows *unreachable* or *not reachable from this browser*.
 | `engine binary not found (build it)` | The supervisor found no `k7-runtime` beside it. Keep both binaries in the same folder, or set `STUDIO_ENGINE`. |
 | `something already serves :8765 and no pid could be found for it` | Another program holds the engine's port. Stop it, or change `port` in the config. |
 | `the app did not start the engine on :8765` (Android) | Quit the app and open it again. |
-| The desktop app quits at once with a port error | Port 18789 is in use. Close the other program using it. |
+| The desktop app quits at once with `no free port in 22000-23000` | Every port from 22000 to 23000 is in use. Close some of the programs holding them. |
 
 ## The engine crashed
 

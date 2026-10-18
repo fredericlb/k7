@@ -25,7 +25,7 @@ export function useRehearsalData() {
   const [songs, setSongs] = useState<SongListEntry[]>([]);
   const [moments, setMoments] = useState<Moment[]>([]);
 
-  // Releases and pages live on the server alone: refused here, they are an empty list and ServerOnly says why.
+  // Releases and pages live on the server alone: loaded by a ServerOnly that found it, never on mount (an unpaired machine answers 503).
   const refreshReleases = useCallback(
     () =>
       api
@@ -72,10 +72,8 @@ export function useRehearsalData() {
   }, [changed, refreshSessions]);
 
   useEffect(() => {
-    void refreshReleases();
-    void refreshPages();
     void refreshSongs();
-  }, [refreshReleases, refreshPages, refreshSongs]);
+  }, [refreshSongs]);
 
   const allTags = [...new Set(moments.flatMap((x) => x.tags))].sort();
 

@@ -35,6 +35,7 @@ sign-in with "Client authentication failed".
   authorization_policy: one_factor
   require_pkce: true
   pkce_challenge_method: S256
+  # one loopback entry covers every port: Authelia ignores the port of a loopback redirect
   redirect_uris:
     - http://127.0.0.1:18789/auth/callback
   scopes: [openid, profile, email, groups]
@@ -42,7 +43,13 @@ sign-in with "Client authentication failed".
 ```
 
 The `redirect_uri` is the app's own backend, derived from the request like every other
-deployment's, which is why the port is fixed (`docs/standalone.md`). `K7_OIDC_ISSUER` and
+deployment's, so its port is the one the app picked at boot in its range (`docs/standalone.md`,
+"Addresses") — the same from launch to launch unless that port was taken meanwhile. One registered
+entry is enough because the provider accepts a loopback callback on ANY port, as RFC 8252 §7.3 asks
+of an authorization server for a native app: Authelia ignores the port of an `http://127.0.0.1`
+redirect and still compares the rest, so the host must stay the literal `127.0.0.1` (never
+`localhost`) and the path `/auth/callback`. The entry's port is therefore immaterial, and the
+phone's 18789 serves both. `K7_OIDC_ISSUER` and
 `K7_OIDC_CLIENT_ID` override both; an empty issuer leaves only the local user and the dev stub.
 
 ## In the system browser, never in a tab
@@ -51,7 +58,7 @@ A tab has no address bar, so a page in one cannot be told apart from the provide
 password typed there is typed into the app. RFC 8252 §8.12 is that rule, and providers enforce it.
 So `/auth/login` never loads in a tab (`src/routing.ts`): the strip's button and k7's own Sign in
 both start `src/signIn.ts`, which opens the system browser on the backend's handoff
-(`apps/k7/backend/docs/handoff.md`). The browser signs in at `127.0.0.1:18789`, the backend sends a
+(`apps/k7/backend/docs/handoff.md`). The browser signs in at the app's `127.0.0.1:<port>`, the backend sends a
 one-use code to a loopback port this process listens on, and the home tab trades it for the
 session with a verifier the browser never saw. The handoff asks the browser to forget its own
 session: the account is the app's.

@@ -2,6 +2,7 @@
 // this app (RFC 8252 §8.12): the first request on `path` carrying `state` is answered, and the port closes.
 
 import { createServer } from "node:http";
+import { freePort } from "@studio/file-hub/ports";
 
 /** A return left unfinished in the browser stops listening after this. */
 const WAIT_MS = 10 * 60_000;
@@ -69,13 +70,16 @@ export function loopbackReturn(opts: {
       .end(page(answer.said));
   });
   server.on("error", (e) => fail("listen", e.message));
-  // Any free port: the server allows any loopback return, and the state ties this answer to this request.
-  server.listen(0, "127.0.0.1", () => {
-    const address = server.address();
-    if (!address || typeof address === "string") return;
-    if (!opts.open(`http://127.0.0.1:${address.port}${opts.path}`))
-      fail("unopened");
-  });
+  // Any free port of the app's range: the server allows any loopback return, and the state ties this answer to this request.
+  void freePort().then(
+    (port) =>
+      live &&
+      server.listen(port, "127.0.0.1", () => {
+        if (!opts.open(`http://127.0.0.1:${port}${opts.path}`))
+          fail("unopened");
+      }),
+    (e: Error) => fail("listen", e.message),
+  );
   const timer = setTimeout(() => fail("timeout"), WAIT_MS);
   timer.unref();
   return { close: () => void end() };

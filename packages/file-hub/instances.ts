@@ -8,11 +8,11 @@
 
 import { createHash, randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
-import { createServer } from "node:net";
 import { join, resolve } from "node:path";
 import { slugify } from "@studio/engine-client/paths";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import { instanceCap } from "./capacity.ts";
+import { freePort } from "./ports.ts";
 import {
   defaultCommand,
   type ServiceChild,
@@ -105,17 +105,6 @@ export interface InstancesOptions {
   pickPort?: () => Promise<number>;
   /** Run each file service on a worker thread from this plain-JS entry, not as a process; default `threadEntryFromEnv()`. */
   threadEntry?: string;
-}
-
-function freePort(): Promise<number> {
-  return new Promise((res, rej) => {
-    const s = createServer();
-    s.once("error", rej);
-    s.listen(0, "127.0.0.1", () => {
-      const port = (s.address() as { port: number }).port;
-      s.close(() => res(port));
-    });
-  });
 }
 
 class ForeignPort extends Error {}

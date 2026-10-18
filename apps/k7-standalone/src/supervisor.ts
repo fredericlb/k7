@@ -14,13 +14,12 @@ import type { Snapshot } from "@studio/supervisor-host/hostProtocol";
 import { SupervisorHost } from "@studio/supervisor-host/supervisorHost";
 import { noticeDown, noticeFrame, noticeSnapshot } from "./notices.ts";
 
-/** The first port tried, not the command-line engine's 8765; a held one moves the engine to the next free port. */
-const ENGINE_PORT = 8766;
-
 export function startSupervisor(
   bin: string,
   home: string,
   registryUrl: string,
+  /** The first port the engine tries, chosen free in the app's range; a held one moves it to the next. */
+  enginePort: number,
   watch: {
     onSnapshot?: (s: Snapshot) => void;
     onDown?: (why: string | null) => void;
@@ -29,7 +28,7 @@ export function startSupervisor(
   mkdirSync(home, { recursive: true });
   const settings = join(home, "engine-host.json");
   // The rest of the file is the supervisor's; its studios are not: this engine is reached from the LAN only (docs/engine.md).
-  let kept: Record<string, unknown> = { port: ENGINE_PORT };
+  let kept: Record<string, unknown> = {};
   try {
     if (existsSync(settings))
       kept = JSON.parse(readFileSync(settings, "utf8")) as Record<
@@ -39,7 +38,7 @@ export function startSupervisor(
   } catch {
     // Unreadable: the supervisor would read it as its defaults, and so do we.
   }
-  const pinned = { ...kept, registryUrls: [registryUrl] };
+  const pinned = { ...kept, port: enginePort, registryUrls: [registryUrl] };
   if (JSON.stringify(kept) !== JSON.stringify(pinned)) {
     const tmp = `${settings}.tmp`;
     writeFileSync(tmp, JSON.stringify(pinned, null, 2));

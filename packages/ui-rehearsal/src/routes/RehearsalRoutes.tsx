@@ -151,7 +151,7 @@ export function RehearsalRoutes() {
             <Route
               path="pages/new"
               element={
-                <ServerOnly>
+                <ServerOnly onAvailable={d.refreshReleases}>
                   <PageFormView
                     releases={d.releases}
                     onSave={async (data) => {
@@ -169,7 +169,7 @@ export function RehearsalRoutes() {
             <Route
               path="pages/:id"
               element={
-                <ServerOnly>
+                <ServerOnly onAvailable={d.refreshReleases}>
                   <PageRoute
                     allReleases={d.releases}
                     onChange={() => void d.refreshPages()}

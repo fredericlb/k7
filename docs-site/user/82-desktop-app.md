@@ -20,9 +20,9 @@ Only one copy of the app runs at a time. Launching it again brings the open wind
 
 When the app starts it:
 
-1. checks that its port, **18789**, is free on this computer, and stops with an error if it is not;
-2. starts its own k7 server on `http://127.0.0.1:18789`;
-3. starts the supervisor, which starts the engine on port **8766** and lists it at that built-in server;
+1. picks free ports on this computer between **22000** and **23000**, the same ones as last time when they are still free;
+2. starts its own k7 server on one of them, `http://127.0.0.1:<port>`;
+3. starts the supervisor, which starts the engine on another and lists it at that built-in server;
 4. opens the window.
 
 You land on k7's home page as a **local user**: you can create workspaces and projects at once, with no account. Your first workspace starts empty.
@@ -49,7 +49,7 @@ The desktop app adds an **Engine** entry to the user menu at the bottom of the h
 
 ### This machine's engine
 
-The status line reads *Running, on port 8766*, *Stopped*, *Stopped — start it again when you need it*, or *Stopped by an error: …*. Under it is the engine's id.
+The status line reads *Running, on port 22001*, *Stopped*, *Stopped — start it again when you need it*, or *Stopped by an error: …*. Under it is the engine's id.
 
 | Button | What it does |
 |---|---|
@@ -83,8 +83,7 @@ How many plugins the engine found on this computer, and the list with each plugi
 
 | Port | Used by |
 |---|---|
-| 18789 | The app's built-in k7 server |
-| 8766 | The app's engine |
+| 22000–23000 | The app's built-in k7 server, its engine, and its other local services: free ports, kept from launch to launch when they stay free |
 
 The command-line engine uses port 8765 and the `~/.k7` folder, and a k7 development session uses port 8789. The app uses neither, so you can run the desktop app and the command-line engine on the same computer.
 

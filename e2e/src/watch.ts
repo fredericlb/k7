@@ -1,11 +1,6 @@
 // watch.ts — what counts as a page going wrong while a spec drives it: an uncaught error, or a 5xx.
 // A 4xx and a console.error are noted on the report rather than failed on, since some are the app asking a question.
 import { expect, type Page, test } from "@playwright/test";
-import { TARGET } from "./target.ts";
-
-/** A 5xx that is a documented state rather than a fault: an unpaired app answers releases and pages so (packages/rehearsal-server/src/publications.ts). */
-const expected5xx = (path: string): boolean =>
-  TARGET === "desktop" && /^\/api\/(releases|pages)(\/|$)/.test(path);
 
 export function watchPage(page: Page) {
   const problems: string[] = [];
@@ -13,8 +8,7 @@ export function watchPage(page: Page) {
   const onError = (err: Error) => problems.push(`pageerror: ${err.message}`);
   const onResponse = (res: { status(): number; url(): string }) => {
     const path = new URL(res.url()).pathname;
-    if (res.status() >= 500 && !expected5xx(path))
-      problems.push(`${res.status()} ${res.url()}`);
+    if (res.status() >= 500) problems.push(`${res.status()} ${res.url()}`);
     else if (res.status() >= 400) notes.add(`${res.status()} ${path}`);
   };
   const onConsole = (msg: { type(): string; text(): string }) => {

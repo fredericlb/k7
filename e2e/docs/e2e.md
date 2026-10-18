@@ -57,8 +57,9 @@ worker that launched it, not by a setup project, which would run in a worker and
 Playwright replaces a worker after a failed test, so each failure costs a launch, a plugin scan and
 a seed: about fifteen seconds.
 
-The app's backend port is fixed, so nothing else may hold `127.0.0.1:18789` during a run, and a
-checkout without a supervisor build fails the run at once with the engine's reason.
+The app picks its backend's port free at launch, so the config has no `baseURL`: the launcher reads
+the port from the app's `ports.json` and hands the origin to the specs. A checkout without a
+supervisor build fails the run at once with the engine's reason.
 
 ## Feature projects
 
@@ -76,12 +77,13 @@ A spec that has found a bug keeps asserting the right behaviour under `test.fail
 its reason: the run stays green, and turns red the day the bug is fixed, which is the reminder to
 drop the mark.
 
-## Play is pressed until the clock moves
+## Play is pressed once, when it is offered
 
 "engine connected" shows before the project has reached the engine: the files still cross the tunnel,
-and the engine replaces its edit when they land, which drops a transport already rolling. A Play
-pressed in that window is lost. `src/transport.ts` presses it again until the clock leaves where it
-stood, so a spec tests the feature rather than how fast a project reaches the engine.
+and the engine replaces its edit when they land, which drops a transport already rolling. The header
+therefore names the button "loading the project", disabled, until the file service says the project
+is playable (`apps/k7/frontend/docs/shell.md`). `src/transport.ts` waits for the button called Play
+and presses it once: a Play that is lost again is a failure, not something to press through.
 
 ## What a web run needs from the machine
 
@@ -92,6 +94,11 @@ stood, so a spec tests the feature rather than how fast a project reaches the en
   "No engines found". `node e2e/scripts/engines.ts` prints what the e2e account sees.
 - **Sound is real**, on either target. The transport spec plays a few seconds of `synth-demo` through
   the engine's output device.
+
+**The machine must stay awake.** A laptop that sleeps mid-run freezes the app and the engine, and
+on waking every timer fires at once: the spec then fails on a closed page or a lost engine that are
+nothing but the sleep. Run on AC power with the lid open, under `caffeinate -dims`, which does not
+hold off a closed lid on battery.
 
 One worker runs the specs in order: they share one account's workspace and one engine, which serves
 one account at a time.

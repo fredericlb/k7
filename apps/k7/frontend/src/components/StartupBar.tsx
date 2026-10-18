@@ -38,6 +38,14 @@ export function startupStep({
   return connecting ? { label: m["startup.connecting"](), pct: null } : null;
 }
 
+/** Whether Play must wait for the project: it is still being copied, applied or warmed on the engine, and a Play sent now is dropped. */
+export function projectLoading(
+  load: EngineLoadPhase | null | undefined,
+  frozen: boolean,
+): boolean {
+  return !frozen && load != null;
+}
+
 export function StartupBar(props: Parameters<typeof startupStep>[0]) {
   const step = startupStep(props);
   return step ? <GateProgress label={step.label} pct={step.pct} /> : null;

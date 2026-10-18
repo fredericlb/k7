@@ -4,7 +4,7 @@ The desktop app and the Android app are the same idea on two platforms: k7's bac
 
 | Key | Value | Meaning |
 |---|---|---|
-| `port` | 18789 | The backend's port (not the dev session's 8789, so both can run) |
+| `port` | 18789 | The Android and iOS backend's port (not the dev session's 8789, so both can run). The desktop app ignores it and picks a free port in 22000–23000 |
 | `env` | `OIDC_ISSUER`, `OIDC_CLIENT_ID` (`st0-desktop`, a public client), `STUDIO_LOCAL_USER=1`, `K7_INSTANCE=local`, `STUDIO_LIBRARY_ORIGIN`, `STUDIO_LISTEN_HOST=127.0.0.1`, … | The backend's environment; it listens on loopback only |
 | `dirs` | `STUDIO_FILES_ROOT=workspaces`, `STUDIO_MEDIATEK=mediatek`, `STUDIO_PREFS_DIR=prefs/k7`, `STUDIO_HOME=server-home`, `K7_DATA_DIR=k7` | Folders relative to the app's state directory |
 | `library` | `k7-core` | The library seeded on first use from the bundled copy (`STUDIO_LIBRARY_SEED`) |
@@ -29,17 +29,17 @@ It depends on `@frediverse/electron-shell` (from the `commons/` submodule) for l
 
 | File | Role |
 |---|---|
-| `main.ts` | Boot: state dirs, port check, backend environment, the engine bridge, the supervisor, the backend, the window. Stop: the supervisor first (it deregisters from the backend, which must still be up), then the backend. |
+| `main.ts` | Boot: state dirs, the ports (`ports.ts`: free ones in 22000–23000, last launch's first, kept in `ports.json`), backend environment, the engine bridge, the supervisor, the backend, the window. Stop: the supervisor first (it deregisters from the backend, which must still be up), then the backend. |
 | `paths.ts` | Where code and binaries are: packaged from `process.resourcesPath` (`backend/`, `bin/`), unpackaged from the checkout (backend source under tsx, the newest `engine/*/build/*` binaries). State under Electron's `userData`, never `~/.k7`. |
 | `backends.ts` | Starts k7's backend with electron-shell's `startServer`: the bundle's `bin/backend.mjs` under Electron-as-node when packaged (with `STUDIO_FILE_SERVICE_ENTRY` pointing at the bundled file service), else the source |
-| `supervisor.ts` | The supervisor over `<userData>/engine-home` and engine port **8766** as its first choice, with `STUDIO_REGISTRY_URL` set to the local backend. Writes a first `engine-host.json` once; after that the file belongs to the supervisor. |
+| `supervisor.ts` | The supervisor over `<userData>/engine-home` and the engine port chosen at boot as its first choice (written as `port`), with `STUDIO_REGISTRY_URL` set to the local backend. Writes a first `engine-host.json` once; after that the file belongs to the supervisor. |
 | `engineBridge.ts` | Pushes each snapshot to pages of the app's own origin on `studio:engine`, answers `studio:engine:state`, and forwards `studio:engine:cmd` for an allow-list only: `engine.start`, `engine.stop`, `engine.restart`, `audio.priority`, `plugins.rescan`, `instruments.download`, `instruments.remove`. A page from elsewhere cannot stop the engine or rank devices. |
 | `preload.ts` | Exposes `__STUDIO_PORTS__` (synchronously, since pages derive service URLs at import time), `studioEngine`, `studioTab`, `studioTabs` |
 | `window.ts`, `tabs.ts`, `routing.ts` | One frameless window whose title bar is k7's `/@tabs` page; a `WebContentsView` per tab (a pinned home tab and one per project); `routing.ts` decides, purely, whether a navigation goes home, to a project tab, in place, to sign-in or to the system browser |
 | `signIn.ts` | Sign-in in the system browser (RFC 8252): a loopback listener receives a one-use code, useless without the PKCE-style verifier the main process keeps |
 | `pairSync.ts`, `server.ts` | Pair the signed-in account with a server's sync relay through the system browser; the chosen server (default `https://app.k7.rocks`, overridable with `K7_SYNC_ORIGIN`) is kept in `server.json` |
 
-`main.ts` sets `STUDIO_PORTS=k7=18789` in its own environment so the backend, its file services and the supervisor all derive the same loopback addresses. It clears and blocks service workers on the local origin, and treats any removal of the `studio.sid` cookie (other than an overwrite) as a sign-out, returning the window to the local user.
+`main.ts` sets `STUDIO_PORTS=k7=<port>`, with the port it chose, and `STUDIO_PORT_RANGE=22000-23000` in its own environment so the backend, its file services and the supervisor all derive the same loopback addresses, and every port they open falls in the range. It clears and blocks service workers on the local origin, and treats any removal of the `studio.sid` cookie (other than an overwrite) as a sign-out, returning the window to the local user.
 
 What the shell provides, from `@frediverse/electron-shell`: `boot` (`assertPortsFree`, `persistentSecret` for `SESSION_SECRET`), `lifecycle` (`runApp`: single instance, quit sequence), `log` (`openLog`, `line`), `servers` (`startServer`, `stopServer`, `waitListening`: child servers under Electron-as-node that die with the app), and `builder` (`baseConfig` for electron-builder).
 

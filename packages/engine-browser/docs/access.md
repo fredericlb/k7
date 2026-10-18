@@ -105,6 +105,13 @@ and it is raced like the others rather than preferred. The server answers a WebR
 account holding a claim on the engine, so before the claim that candidate simply loses; the relay,
 before the claim, carries the probe and nothing else (`packages/engine-registry/docs/proxy.md`).
 
+Every candidate is raced, but the timings decide only among equals: a **direct** socket that
+answered with a token beats the relay and WebRTC however fast those measured (`orderHits`). The
+direct path is the shorter one for the audio, and it is the only one `reachedDirectly` trusts, so a
+relay that merely won the clock would turn the one engine on this machine into one the gate may not
+take unasked. The clock is not worth trusting there anyway: each round trip ends when the page's main
+thread reads the reply, and a page still mounting easily delays one answer more than the other.
+
 ## Hosted files are opt-in, per app
 
 When the registry's server hosts the workspaces (`packages/file-hub/docs/fileHub.md`), an app
