@@ -617,6 +617,14 @@ header with "Copy to my workspace" (`components/DemoBanner.tsx`), which opens th
 "Copier" and goes straight into the copy. Only a bundled folder at the top of `Examples` counts:
 anything else put there is the person's own and is never touched.
 
+`Examples` takes **no new project** — not created, imported, dropped or copied into: the file
+service refuses all four by name (`refuseInExamples`, `packages/file-service/src/projectLifecycle.ts`),
+and the home page offers none of them on its row. A demo is copied OUT to be worked on, and a
+person's project sitting among folders the bundle rewrites on every start reads as one of them.
+The row comes **last**, after the person's own workspaces, and **folded** behind a chevron: once
+there is a workspace of one's own, the demos are the reference rather than the work. It is open
+when it is the only workspace, since a new account's page would otherwise show nothing at all.
+
 ### Renaming a project
 
 `project rename <project> <new name>`, and the ⋮'s "Rename". The folder moves on the machine, in

@@ -2,10 +2,9 @@
 // open a project straight into this tab. The page's heading and its two creates sit above them.
 // Presentational — the section holds the async and this file draws. See ../../docs/projects.md.
 
-import { Button } from "@frediverse/ui/button";
 import {
-  Cloud,
-  CloudDownload,
+  ChevronDown,
+  ChevronRight,
   Folder,
   FolderPlus,
   Loader2,
@@ -31,6 +30,7 @@ import { NewProject } from "./NewProject";
 import { NewWorkspace } from "./NewWorkspace";
 import { PAGE_COLUMN, PageHeader } from "./PageFrame";
 import { ProjectRow } from "./ProjectRow";
+import { ServerOnlyList } from "./ServerOnlyList";
 import { WorkspaceMenu } from "./WorkspaceMenu";
 import {
   hostLabel,
@@ -38,6 +38,14 @@ import {
   syncStateOf,
   WorkspaceSyncIcon,
 } from "./WorkspaceSyncIcon";
+
+/** The bundled demos' workspace: listed last, folded, and taking no new project. See ../../docs/projects.md. */
+const isExamples = (w: AccountWorkspace): boolean =>
+  w.name === EXAMPLES_WORKSPACE;
+
+/** The account's workspaces in the order the page lists them: as they come, Examples last. */
+const examplesLast = (all: AccountWorkspace[]): AccountWorkspace[] =>
+  [...all].sort((a, b) => Number(isExamples(a)) - Number(isExamples(b)));
 
 /**
  * Where a copy of a project may land: every workspace but its own, minus the ones that ARE a
@@ -47,7 +55,9 @@ const targetsFor = (
   all: AccountWorkspace[],
   from: AccountWorkspace,
 ): AccountWorkspace[] =>
-  all.filter((w) => w.name !== from.name && !w.isSingleProject);
+  all.filter(
+    (w) => w.name !== from.name && !w.isSingleProject && !isExamples(w),
+  );
 
 /** "1 project" / "4 projects", the one place the count's plural is chosen. */
 const projectsCount = (n: number): string =>
@@ -172,23 +182,17 @@ export function RepoList({
   // Several servers: each row names its own, and a workspace may move between them.
   const servers = sync?.servers ?? [];
   const several = servers.length > 1;
-  const [downloading, setDownloading] = useState<string | null>(null);
-  const serverOnly = (sync?.workspaces ?? []).filter(
-    (w) => w.state === "server",
-  );
   // Which row the pointer is over, so exactly one lights up — a boolean would light them all.
   const [over, setOver] = useState<string | null>(null);
   const now = useMinuteClock();
   const { locale } = useLocale();
   const projectTotal = workspaces.reduce((n, w) => n + w.projects.length, 0);
-  // Where the page's New project may land: a workspace that IS one project has no room beside it, and the demos' own comes last.
-  const eligible = workspaces
-    .filter((w) => !w.isSingleProject)
-    .sort(
-      (a, b) =>
-        Number(a.name === EXAMPLES_WORKSPACE) -
-        Number(b.name === EXAMPLES_WORKSPACE),
-    );
+  const ordered = examplesLast(workspaces);
+  // Folded unless it is all there is: a new account's page would otherwise open on nothing.
+  const [examplesOpen, setExamplesOpen] = useState(false);
+  const foldable = workspaces.length > 1;
+  // Where the page's New project may land: not a workspace that IS one project, nor the demos'.
+  const eligible = ordered.filter((w) => !w.isSingleProject && !isExamples(w));
   const createIn = (
     name: string,
     folder: string,
@@ -271,7 +275,7 @@ export function RepoList({
         </EmptyState>
       ) : (
         <ul className="flex flex-col gap-2">
-          {workspaces.map((w) => (
+          {ordered.map((w) => (
             <li
               key={w.name}
               className={cn(
@@ -281,7 +285,7 @@ export function RepoList({
                 over === w.name && "bg-primary/10 ring-1 ring-primary",
               )}
               onDragOver={(e) => {
-                if (!carriesFiles(e)) return;
+                if (isExamples(w) || !carriesFiles(e)) return;
                 // Both, or the browser opens the file instead — the default for a dropped file is navigation.
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "copy";
@@ -294,13 +298,19 @@ export function RepoList({
                 setOver((o) => (o === w.name ? null : o));
               }}
               onDrop={(e) => {
-                if (!carriesFiles(e)) return;
+                if (isExamples(w) || !carriesFiles(e)) return;
                 e.preventDefault();
                 setOver(null);
                 onDropProject(w, Array.from(e.dataTransfer.files));
               }}
             >
               <div className="flex items-center justify-between gap-3">
+                {isExamples(w) && foldable && (
+                  <FoldToggle
+                    open={examplesOpen}
+                    onToggle={() => setExamplesOpen((o) => !o)}
+                  />
+                )}
                 <button
                   type="button"
                   className="-mx-1.5 group flex min-w-0 flex-1 items-center gap-3 rounded-md px-1.5 py-1 text-left hover:bg-accent/60"
@@ -333,11 +343,13 @@ export function RepoList({
                 </button>
                 <div className="flex shrink-0 items-center gap-1">
                   {/* Inside the workspace's block, beside its contents: creating a project acts ON it, not on the list. */}
-                  <NewProject
-                    blocked={blocked}
-                    workspaces={[w.name]}
-                    onCreate={createIn}
-                  />
+                  {!isExamples(w) && (
+                    <NewProject
+                      blocked={blocked}
+                      workspaces={[w.name]}
+                      onCreate={createIn}
+                    />
+                  )}
                   {/* The rare acts on the whole workspace, behind one ⋮ as on a project's row. */}
                   <WorkspaceMenu
                     workspace={w.name}
@@ -366,7 +378,7 @@ export function RepoList({
               {/* Nothing in it yet. The link opens the WORKSPACE, and the editor asks for the
                   first project there — see FirstProject.tsx. It is the only way in: with no
                   project there is no project row to click. */}
-              {w.projects.length === 0 && (
+              {w.projects.length === 0 && !isExamples(w) && (
                 <a
                   className="mt-2 ml-2 flex w-fit items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent/50"
                   href={workspaceHref(w)}
@@ -380,76 +392,37 @@ export function RepoList({
               {/* The projects, indented under their workspace: a click goes straight into the app
                   that opens one, in THIS tab — the editor's back arrow returns here
                   (../../docs/projects.md). */}
-              {w.projects.length > 0 && (
-                <ul className="mt-2 ml-2 flex flex-col border-l border-border pl-2">
-                  {w.projects.map((p) => (
-                    <ProjectRow
-                      key={p.path}
-                      workspace={w}
-                      project={p}
-                      href={projectHref(w, p)}
-                      targets={targetsFor(workspaces, w)}
-                      blocked={blocked}
-                      shares={shares}
-                      onChanged={onChanged}
-                      now={now}
-                      locale={locale}
-                      onCopy={(to, folder, onStep) =>
-                        onCopy(w, p, to, folder, onStep)
-                      }
-                      onRename={(folder, onStep) =>
-                        onRename(w, p, folder, onStep)
-                      }
-                      onDelete={(onStep) => onDelete(w, p, onStep)}
-                    />
-                  ))}
-                </ul>
-              )}
+              {w.projects.length > 0 &&
+                !(isExamples(w) && foldable && !examplesOpen) && (
+                  <ul className="mt-2 ml-2 flex flex-col border-l border-border pl-2">
+                    {w.projects.map((p) => (
+                      <ProjectRow
+                        key={p.path}
+                        workspace={w}
+                        project={p}
+                        href={projectHref(w, p)}
+                        targets={targetsFor(ordered, w)}
+                        blocked={blocked}
+                        shares={shares}
+                        onChanged={onChanged}
+                        now={now}
+                        locale={locale}
+                        onCopy={(to, folder, onStep) =>
+                          onCopy(w, p, to, folder, onStep)
+                        }
+                        onRename={(folder, onStep) =>
+                          onRename(w, p, folder, onStep)
+                        }
+                        onDelete={(onStep) => onDelete(w, p, onStep)}
+                      />
+                    ))}
+                  </ul>
+                )}
             </li>
           ))}
         </ul>
       )}
-      {serverOnly.length > 0 && (
-        // Not downloaded on their own: a workspace with big takes is the person's choice to bring down.
-        <ul className="mt-2 flex flex-col gap-2">
-          {serverOnly.map((w) => (
-            <li
-              key={`${w.server ?? ""} ${w.name}`}
-              className="flex items-center justify-between gap-3 rounded-md border border-dashed border-border p-3"
-            >
-              <span className="flex min-w-0 items-center gap-3 text-muted-foreground">
-                <Cloud className="h-4 w-4 shrink-0" />
-                <span className="truncate">{w.name}</span>
-                <span className="text-xs">
-                  {m["wsync.onServerOnly"]({
-                    server: hostLabel(w.server ?? sync?.server ?? ""),
-                  })}
-                </span>
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={!onDownload || downloading !== null}
-                onClick={() => {
-                  if (!onDownload) return;
-                  const key = `${w.server ?? ""} ${w.name}`;
-                  setDownloading(key);
-                  void onDownload(w.name, w.server).finally(() =>
-                    setDownloading(null),
-                  );
-                }}
-              >
-                {downloading === `${w.server ?? ""} ${w.name}` ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <CloudDownload className="h-3.5 w-3.5" />
-                )}{" "}
-                {m["wsync.download"]()}
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ServerOnlyList sync={sync} onDownload={onDownload} />
     </div>
   );
 }
@@ -474,5 +447,27 @@ function MoveNote({
       <Loader2 className="size-3 animate-spin" />
       {(move.copy ? m["wsync.copying"] : m["wsync.moving"])({ server })}
     </span>
+  );
+}
+
+/** The chevron that folds the Examples workspace — apart from the row's button, which opens it. */
+function FoldToggle({
+  open,
+  onToggle,
+}: {
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const Icon = open ? ChevronDown : ChevronRight;
+  return (
+    <button
+      type="button"
+      className="-mr-2 shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+      aria-expanded={open}
+      aria-label={open ? m["repos.fold"]() : m["repos.unfold"]()}
+      onClick={onToggle}
+    >
+      <Icon className="h-4 w-4" />
+    </button>
   );
 }
