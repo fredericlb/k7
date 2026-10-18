@@ -13,10 +13,12 @@ const EXAMPLES = [
 
 for (const name of EXAMPLES) {
   test(`${name} opens on the engine`, async ({ k7 }) => {
-    const home = await k7.open("/");
+    // The home page folds every workspace; the address unfolds the one whose projects are links (apps/k7/frontend/docs/projects.md).
+    const home = await k7.open("/?ws=Examples");
     // The app cancels the link's navigation and opens a tab instead, so the click must not wait for one.
+    // Every row's link reads "Open in k7"; the project is in its address.
     await home
-      .getByRole("link", { name: new RegExp(`\\b${name}\\b`) })
+      .locator(`a[href$="/@local/Examples/${name}.k7"]`)
       .click({ noWaitAfter: true });
     const page = await k7.landed(home, new RegExp(`/@local/Examples/${name}`));
     const watch = watchPage(page);

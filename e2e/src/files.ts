@@ -55,6 +55,16 @@ export class FileService {
     });
   }
 
+  /** The libraries the hub has a published version of: a workspace cannot be created before one. */
+  async libraries(): Promise<string[]> {
+    const { body } = await this.call<{
+      libraries: { name: string; present: boolean; versions?: unknown[] }[];
+    }>("GET", "/account/libraries");
+    return body.libraries
+      .filter((l) => l.present && l.versions?.length)
+      .map((l) => l.name);
+  }
+
   async createWorkspace(name: string) {
     await this.call("POST", "/workspaces", { data: { name } });
   }

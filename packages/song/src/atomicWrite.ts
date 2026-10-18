@@ -64,7 +64,7 @@ function modeOf(file: string): number | undefined {
 export function writeFileAtomic(
   file: string,
   data: string | Uint8Array,
-  opts: { mode?: number } = {},
+  opts: { mode?: number; durable?: boolean } = {},
 ): void {
   const tmp = atomicTempFor(file);
   const kept = modeOf(file);
@@ -78,7 +78,8 @@ export function writeFileAtomic(
     let off = 0;
     while (off < bytes.length)
       off += writeSync(fd, bytes, off, bytes.length - off);
-    fsyncSync(fd);
+    // A cache that is rebuilt after a crash may skip it: it is most of a write's cost on NTFS (docs/atomicWrite.md).
+    if (opts.durable !== false) fsyncSync(fd);
     closeSync(fd);
     fd = null;
     renameRetrying(tmp, file);

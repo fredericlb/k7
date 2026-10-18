@@ -136,6 +136,44 @@ bool keepInputsOnOutputDevice(juce::AudioDeviceManager& jdm) {
     return true;
 }
 
+bool openDefaultOutputIfNone(juce::AudioDeviceManager& jdm) {
+    if (auto* cur = jdm.getCurrentAudioDevice(); cur != nullptr && !cur->getActiveOutputChannels().isZero())
+        return false;
+    const auto prevType = jdm.getCurrentAudioDeviceType();
+    // The OS's shared endpoint first: an ASIO driver may be for an interface that is not plugged in.
+    std::vector<juce::AudioIODeviceType*> types;
+    for (auto* t : jdm.getAvailableDeviceTypes())
+        if (t != nullptr) types.push_back(t);
+    std::stable_sort(types.begin(), types.end(), [](auto* a, auto* b) {
+        const auto rank = [](const juce::String& n) { return n.containsIgnoreCase("ASIO") ? 1 : 0; };
+        return rank(a->getTypeName()) < rank(b->getTypeName());
+    });
+    for (auto* type : types) {
+        type->scanForDevices();
+        const auto outs = type->getDeviceNames(false);
+        if (outs.isEmpty()) continue;
+        const auto out = outs[juce::jmax(0, type->getDefaultDeviceIndex(false))];
+        jdm.setCurrentAudioDeviceType(type->getTypeName(), true);
+        auto setup = jdm.getAudioDeviceSetup();
+        setup.outputDeviceName = out;
+        const auto ins = type->getDeviceNames(true);
+        setup.inputDeviceName = ins.contains(out) ? out : ins[juce::jmax(0, type->getDefaultDeviceIndex(true))];
+        setup.useDefaultInputChannels = true;
+        setup.useDefaultOutputChannels = true;
+        const auto err = jdm.setAudioDeviceSetup(setup, true);
+        auto* dev = jdm.getCurrentAudioDevice();
+        if (err.isEmpty() && dev != nullptr && !dev->getActiveOutputChannels().isZero()) {
+            std::cerr << "[audio] the restored setup had no output: fell back to '" << out << "' ["
+                      << type->getTypeName() << "]\n";
+            return true;
+        }
+        std::cerr << "[audio] fallback output '" << out << "' [" << type->getTypeName()
+                  << "] did not open: " << err << "\n";
+    }
+    jdm.setCurrentAudioDeviceType(prevType, true);
+    return false;
+}
+
 // Move the open device to kPreferredBufferFrames or the nearest size it offers, ties going to the LARGER — docs/audioDevice.md.
 void applyPreferredBufferSize(juce::AudioDeviceManager& jdm) {
     auto* dev = jdm.getCurrentAudioDevice();

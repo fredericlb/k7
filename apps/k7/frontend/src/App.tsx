@@ -1198,9 +1198,14 @@ export default function App({
     const showWs = askWs();
     void api.workspace().then((w) => {
       showWs(w);
-      setEngineLoad(w.engineLoad ?? null);
+      // The open below may begin a load: Play waits for its answer, which the next poll would correct anyway.
+      setEngineLoad(w.activeProject ? "copying" : (w.engineLoad ?? null));
       lastActive.current = w.activeProject;
-      if (w.activeProject) void api.open(w.activeProject).catch(() => {});
+      if (w.activeProject)
+        void api
+          .open(w.activeProject)
+          .then((o) => setEngineLoad(o.engineLoad ?? null))
+          .catch(() => {});
       else fullscreen("editor");
     });
     void api
@@ -1560,6 +1565,7 @@ export default function App({
         const showWs = askWs();
         const w = await api.open(path);
         showWs(w);
+        setEngineLoad(w.engineLoad ?? null);
         lastActive.current = w.activeProject;
         pluginParamsStore.clear();
         void api
@@ -2438,8 +2444,25 @@ export default function App({
     const bars = (4 * recInfo.beatsPerBar * 60) / Math.max(1, recInfo.tempo);
     e.loop(start, start + bars, true);
   }, [loopState?.on, caret?.selection, store, recInfo, engineRef]);
+  // An engine just ready may hold nothing yet: the request that binds it is what answers whether a load began (packages/file-service/docs/engineLoad.md).
+  const [askingLoad, setAskingLoad] = useState(false);
+  useEffect(() => {
+    if (!engineReady || frozen) return;
+    let live = true;
+    setAskingLoad(true);
+    void api
+      .workspace()
+      .then((w) => live && setEngineLoad(w.engineLoad ?? null))
+      .catch(() => {})
+      .finally(() => live && setAskingLoad(false));
+    return () => {
+      live = false;
+      setAskingLoad(false);
+    };
+  }, [engineReady, frozen]);
   // …and never on a snapshot: there is no engine coming, and what plays here is the browser, ready at once.
-  const waitingForEngine = !frozen && !!ws?.activeProject && !engineReady;
+  const waitingForEngine =
+    !frozen && !!ws?.activeProject && (!engineReady || askingLoad);
   // The project is sent only once its files are on the engine's machine, so Play waits for the copy too.
   const copyingToEngine = !frozen && syncRunning(engineSync);
 

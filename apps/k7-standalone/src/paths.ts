@@ -49,15 +49,27 @@ export function appIcon(): string {
     : join(frontend, "public", "icon-512.png");
 }
 
-/** The newest build of a CMake target under `<project>/build/<preset>/`, or null. */
+// A multi-config generator (MSVC) nests the binary one folder deeper, as engine/scripts/supervisorBuild.mjs knows.
+const CONFIGS = ["", "Release", "RelWithDebInfo", "Debug"];
+
+/** The newest build of a CMake target under `<project>/build/<preset>/[<config>/]`, Debug last, or null. */
 function newestBuild(project: string, name: string): string | null {
   const build = join(repoRoot(), "engine", project, "build");
   if (!existsSync(build)) return null;
   const found = readdirSync(build)
-    .map((preset) => join(build, preset, exe(name)))
-    .filter((p) => existsSync(p));
-  found.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
-  return found[0] ?? null;
+    .flatMap((preset) =>
+      CONFIGS.map((cfg) => ({
+        path: join(build, preset, cfg, exe(name)),
+        debug: cfg === "Debug",
+      })),
+    )
+    .filter((c) => existsSync(c.path) && statSync(c.path).isFile());
+  found.sort(
+    (a, b) =>
+      Number(a.debug) - Number(b.debug) ||
+      statSync(b.path).mtimeMs - statSync(a.path).mtimeMs,
+  );
+  return found[0]?.path ?? null;
 }
 
 /** The supervisor binary; it finds the engine beside itself (packaged) or in the checkout's build. */

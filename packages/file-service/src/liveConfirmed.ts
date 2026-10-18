@@ -31,7 +31,8 @@ export class ConfirmedDir implements ConfirmedStore {
     if (text === null) rmSync(abs, { force: true });
     else {
       mkdirSync(dirname(abs), { recursive: true });
-      writeFileAtomic(abs, text);
+      // Not durable: a mirror torn by a crash only makes the next start resend text the room already holds.
+      writeFileAtomic(abs, text, { durable: false });
     }
   }
 

@@ -52,6 +52,7 @@ import {
   linkHooks,
   links,
   noteServed,
+  selectedEngine,
   served,
   sessionOf,
 } from "./engineSessions.ts";
@@ -150,6 +151,9 @@ function dropClientProject(ws: Workspace): void {
   clientDocs.delete(sessionOf(ws));
 }
 
+/** The engine, by address, each session's project last went out to: another one is a load of its own (docs/engineLoad.md). */
+const sentTo = new Map<string, string>();
+
 /** Send a document in `ws`' session once its files are on the engine's machine — docs/engineSync.md. */
 function sendDoc(ws: Workspace, doc: ProjectDoc): void {
   const session = sessionOf(ws);
@@ -158,6 +162,10 @@ function sendDoc(ws: Workspace, doc: ProjectDoc): void {
     if (isWarming(session)) return;
     const c = ensureEngine(ws);
     if (!c) return endLoad(session);
+    const url = selectedEngine();
+    if (url && sentTo.get(session) !== url && loadPhase(session) === null)
+      beginLoad(session);
+    if (url) sentTo.set(session, url);
     // An armed take hears the lane around its punch, never under it (takeArm.ts).
     c.sendProject(withTakeHole(session, d));
     void warmUp(session, d, warmDeps(ws, c));
@@ -221,6 +229,26 @@ export function engineLoadOf(ws: Workspace | null): EngineLoadPhase | null {
   if (sync && (sync.failed || sync.error)) {
     endLoad(session);
     return null;
+  }
+  const url = selectedEngine();
+  const project = ws?.activeProjectPath();
+  // An engine selected after the project opened holds nothing yet, and a Play it answered now would be lost to the build.
+  if (
+    ws &&
+    url &&
+    project &&
+    loadPhase(session) === null &&
+    served.get(session)?.project === project &&
+    sentTo.get(session) !== url
+  ) {
+    sentTo.set(session, url);
+    beginLoad(session);
+    try {
+      resendServed(ws);
+    } catch {
+      // A project that does not compile: the editor shows the error, so nothing is left to wait for.
+      endLoad(session);
+    }
   }
   return loadPhase(session);
 }
@@ -440,6 +468,7 @@ export async function unloadEngine(ws: Workspace | null): Promise<void> {
     }
   }
   served.delete(leaving);
+  sentTo.delete(leaving);
   // The browser's document belongs to its session, so only this one's goes.
   clientDocs.delete(leaving);
   // The one place that means "this workspace is DONE", so the SESSION goes, not just the socket.

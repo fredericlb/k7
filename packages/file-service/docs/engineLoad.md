@@ -17,9 +17,15 @@ service reports the project ready, one phase at a time:
 
 ## When a load starts
 
-Only when a project is NEW in its session — the first open, or a switch (`startEngineForActive`).
-Not on the editor's own second `POST /open`, not on a save, not on a reconnect: those resend a
-document the engine already holds warm, and a dry run on each would make every edit a stall.
+Only when a project is NEW in its session — the first open, or a switch (`startEngineForActive`) —
+or NEW to its ENGINE: an engine selected after the project opened, or another one taking over, holds
+nothing of it. That second case is caught by address (`sentTo` in `engineLink.ts`), and the
+`/workspace` poll that would report no phase starts the load instead. Without it the gate lets go on
+an empty engine, Play is answered, and the build that follows a moment later discards it.
+
+Not on the editor's own second `POST /open`, not on a save, not on a reconnect to the same engine:
+those resend a document the engine already holds warm, and a dry run on each would make every edit a
+stall.
 
 ## The dry run
 

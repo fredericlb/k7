@@ -47,6 +47,13 @@ type offers, which on Windows is the shared WASAPI endpoint of the default outpu
 is the correct behaviour for a machine nobody has expressed a preference about. It is only
 wrong when a preference exists and is not applied.
 
+What `initialise()` replays can also be a setup with NO output — an ASIO type with a blank output
+name, say, which Tracktion keeps saved in `Settings.xml`. That is no one's choice, and it is a
+silent engine on every start of every engine on the machine, so `openDefaultOutputIfNone` then
+opens the default output of the first backend that has one. The OS's shared endpoint comes before
+ASIO there: an ASIO driver may be for an interface that is not plugged in, and is single-client.
+A ranked interface (`audioPriority`, below) still moves the engine afterwards.
+
 ## Three places could remember, and they are not interchangeable
 
 | where | who writes it | who applies it | when |

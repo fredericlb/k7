@@ -10,6 +10,7 @@ import express, { Router } from "express";
 import { z } from "zod";
 import {
   applyClientProject,
+  engineLoadOf,
   startEngineForActive,
   unloadEngine,
   unloadEngineIfServing,
@@ -50,7 +51,11 @@ entryRouter.post(
         req.ws!.setActiveProject(want);
         startEngineForActive(req.ws!);
       }
-      res.json(req.ws!.workspaceInfo());
+      // The load this open just began, so the page holds Play from now rather than from its next poll.
+      res.json({
+        ...req.ws!.workspaceInfo(),
+        engineLoad: engineLoadOf(req.ws ?? null),
+      });
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
