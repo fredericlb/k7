@@ -125,6 +125,8 @@
   "engineMissing.notFound": "fichier introuvable",
   "engineMissing.notInstalled": "pas installé sur cette machine",
   "engineMissing.logs": "Le panneau des logs donne les chemins complets.",
+  "laneFreeze.rendered": "Ce moteur n'a pas {vst} : la piste joue son rendu automatique.",
+  "laneFreeze.waiting": "Ce moteur n'a pas {vst} : la piste joue sans lui jusqu'à ce qu'une machine qui l'a en fasse un rendu.",
   "import.title": "Importer le projet DAW ?",
   "import.body": "{name} est le fichier de projet d'un autre DAW, pas un fichier k7. L'importer comme nouveau projet dans cet espace de travail ?",
   "import.confirm": "Importer",

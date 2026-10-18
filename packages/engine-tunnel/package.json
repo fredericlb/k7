@@ -11,7 +11,8 @@
     "./frames": "./frames.ts",
     "./rtc": "./rtc.ts",
     "./backpressure": "./backpressure.ts",
-    "./jobs-client": "./jobsClient.ts"
+    "./jobs-client": "./jobsClient.ts",
+    "./job-spelling": "./jobSpelling.ts"
   },
   "scripts": {
     "test": "vitest run",

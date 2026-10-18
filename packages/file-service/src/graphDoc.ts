@@ -348,10 +348,17 @@ export function buildGraphDoc(
   }
   // …and what an automatic freeze bakes, each node naming the VST whose render holds it — packages/song/docs/autoFreeze.md.
   const autoFrozen: NonNullable<WebGraph["autoFrozen"]> = {};
-  for (const f of autoFreezes ?? [])
-    if (playsRender(f))
-      for (const n of [...f.plan.lanes, ...f.plan.modules])
-        autoFrozen[n] = f.module;
+  // …and what one WOULD bake: the engine lacks the VST, and no render stands in for it yet.
+  const autoFreezeWaiting: NonNullable<WebGraph["autoFreezeWaiting"]> = {};
+  for (const f of autoFreezes ?? []) {
+    const into = playsRender(f)
+      ? autoFrozen
+      : f.hosted
+        ? null
+        : autoFreezeWaiting;
+    if (into)
+      for (const n of [...f.plan.lanes, ...f.plan.modules]) into[n] = f.module;
+  }
   // A lane's other attribute sets, from the module it IS — only past one, docs/graphFlags.md.
   const trackAlternatives: NonNullable<WebGraph["trackAlternatives"]> = {};
   // The song's meter, for spelling a clip's position: a header that says nothing is 4/4.
@@ -445,6 +452,7 @@ export function buildGraphDoc(
     ...(Object.keys(trackAlternatives).length ? { trackAlternatives } : {}),
     ...(Object.keys(frozen).length ? { frozen } : {}),
     ...(Object.keys(autoFrozen).length ? { autoFrozen } : {}),
+    ...(Object.keys(autoFreezeWaiting).length ? { autoFreezeWaiting } : {}),
     ...(Object.keys(assemblies).length ? { assemblies } : {}),
     ...(g.tapFeeds?.length ? { tapFeeds: g.tapFeeds } : {}),
     modules,

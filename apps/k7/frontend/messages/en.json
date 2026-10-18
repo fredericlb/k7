@@ -125,6 +125,8 @@
   "engineMissing.notFound": "file not found",
   "engineMissing.notInstalled": "not installed on this machine",
   "engineMissing.logs": "The log panel has the full paths.",
+  "laneFreeze.rendered": "This engine does not have {vst}: the lane plays its automatic render.",
+  "laneFreeze.waiting": "This engine does not have {vst}: the lane plays without it until a machine that has it makes a render.",
   "import.title": "Import DAW project?",
   "import.body": "{name} is another DAW's project file, not a k7 file. Import it as a new project in this workspace?",
   "import.confirm": "Import",

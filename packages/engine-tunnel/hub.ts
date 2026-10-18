@@ -32,6 +32,7 @@ import {
 } from "./frames.ts";
 import type { UploadLimits } from "./hubFiles.ts";
 import { HubTunnel } from "./hubTunnel.ts";
+import { tunnelSpelling } from "./jobSpelling.ts";
 
 export interface TunnelHubOptions {
   /** Whether `id` is an engine this server lists, `token` its token and `secret` the tunnel secret it is bound to. */
@@ -315,8 +316,13 @@ export class TunnelHub {
       deny(socket, binding ? "503 Service Unavailable" : "403 Forbidden");
       return;
     }
+    // A job names server paths the machine must map, so they leave in the tunnel's spelling (jobSpelling.ts).
+    const spell =
+      binding?.kind === "jobs"
+        ? (text: string) => tunnelSpelling(text, binding.roots)
+        : undefined;
     this.wss.handleUpgrade(req, socket, head, (client) =>
-      pipe(client, channel),
+      pipe(client, channel, spell),
     );
   }
 
@@ -333,7 +339,12 @@ export class TunnelHub {
 }
 
 /** A local client and a channel, frames both ways and bounded; what the client sends before the engine answers is held. */
-function pipe(client: WebSocket, channel: TunnelChannel): void {
+function pipe(
+  client: WebSocket,
+  channel: TunnelChannel,
+  /** What a text frame from the client is rewritten with on its way to the machine; none passes it as sent. */
+  spell?: (text: string) => string,
+): void {
   const held = new HeldFrames();
   // A peer that stopped reading is closed rather than queued for without end — backpressure.ts.
   const overrun = (): void => {
@@ -354,7 +365,8 @@ function pipe(client: WebSocket, channel: TunnelChannel): void {
   };
   client.on("message", (data: RawData, binary) =>
     safely(() => {
-      const payload = binary ? (data as Buffer) : data.toString();
+      const text = binary ? "" : data.toString();
+      const payload = binary ? (data as Buffer) : spell ? spell(text) : text;
       if (channel.readyState === OPEN) toChannel(payload, binary);
       else if (!held.push(payload, binary)) overrun();
     }),

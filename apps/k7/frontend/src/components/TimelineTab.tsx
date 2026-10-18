@@ -137,6 +137,7 @@ import {
 import { GROW } from "./timeline/grow";
 import { LaneAlternative } from "./timeline/LaneAlternative";
 import { LaneMeter } from "./timeline/LaneMeter";
+import { LaneVstFreeze } from "./timeline/LaneVstFreeze";
 import { Playhead } from "./timeline/Playhead";
 import { RecordingClip } from "./timeline/RecordingClip";
 import { UploadProgress } from "./UploadProgress";
@@ -473,6 +474,10 @@ export function TimelineTab({
       { alternatives: string[]; alternative: string }
     >;
     frozen?: Record<string, "at" | "inside">;
+    /** A lane inside an automatic VST freeze, → the VST: the engine lacks it and plays the render (packages/song/docs/autoFreeze.md). */
+    autoFrozen?: Record<string, string>;
+    /** …the same, with no render made yet: the lane plays without the VST until one is. */
+    autoFreezeWaiting?: Record<string, string>;
     /** Each lane's automation, by track id, from the graph — one row per entry, drawn under the lane. */
     automation?: Record<string, WebAutomationLane[]>;
   };
@@ -2970,6 +2975,10 @@ export function TimelineTab({
                       )}
                       {/* The label alone: the row's position and the icon already say what "3.ge." would repeat at the gutter's expense. */}
                       <span className="truncate">{trackLabel(t.name)}</span>
+                      <LaneVstFreeze
+                        rendered={laneNodes?.autoFrozen?.[t.id]}
+                        waiting={laneNodes?.autoFreezeWaiting?.[t.id]}
+                      />
                     </span>
                     {/* [m]ute / [s]olo / [a]rm, the graph's track nodes' own controls; stopPropagation so a tap does not also move the caret. */}
                     {onTrackToggle && (

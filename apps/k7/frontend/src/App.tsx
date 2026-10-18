@@ -661,8 +661,16 @@ export default function App({
   const [laneNodes, setLaneNodes] = useState<{
     alternatives: WebGraph["trackAlternatives"];
     frozen: WebGraph["frozen"];
+    autoFrozen: WebGraph["autoFrozen"];
+    autoFreezeWaiting: WebGraph["autoFreezeWaiting"];
     automation: Record<string, WebAutomationLane[]>;
-  }>({ alternatives: undefined, frozen: undefined, automation: {} });
+  }>({
+    alternatives: undefined,
+    frozen: undefined,
+    autoFrozen: undefined,
+    autoFreezeWaiting: undefined,
+    automation: {},
+  });
 
   // A take rolling (record enabled AND playing) shows it in the event panel, one-way: it STAYS when the take ends, only the × closes it.
   const rolling = recordEnabled && playing;

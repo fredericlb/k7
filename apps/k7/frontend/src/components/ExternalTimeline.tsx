@@ -130,6 +130,8 @@ export function ExternalTimeline({
         ? {
             alternatives: graph.trackAlternatives,
             frozen: graph.frozen,
+            autoFrozen: graph.autoFrozen,
+            autoFreezeWaiting: graph.autoFreezeWaiting,
             automation: automationLanes(graph),
           }
         : NO_LANE_NODES,

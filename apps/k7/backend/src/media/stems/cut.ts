@@ -6,6 +6,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import type { TunnelRoot } from "@studio/engine-tunnel/frames";
+import { tunnelSpelling } from "@studio/engine-tunnel/job-spelling";
 import { type JobSocket, requestJob } from "@studio/engine-tunnel/jobs-client";
 import { safePath } from "@studio/mediatek/layout";
 import { isAudio } from "@studio/mediatek/media";
@@ -80,17 +81,19 @@ export async function cutStems(opts: {
     );
   let job: SeparateJob;
   try {
+    const body = {
+      type: "separate",
+      user: userEmail,
+      source,
+      model: run.model,
+      outputs: run.outputs,
+      // `dirname`, not a slice on "/": `safePath` answers in the platform's own separators.
+      outDir: join(dirname(source), STEMS_DIR),
+    };
     const reply = await requestJob(
       ch,
-      {
-        type: "separate",
-        user: userEmail,
-        source,
-        model: run.model,
-        outputs: run.outputs,
-        // `dirname`, not a slice on "/": `safePath` answers in the platform's own separators.
-        outDir: join(dirname(source), STEMS_DIR),
-      },
+      // …which the machine maps only in the tunnel's spelling (packages/engine-tunnel/jobSpelling.ts).
+      JSON.parse(tunnelSpelling(JSON.stringify(body), run.roots)),
       (r) => r.type === "separated",
       // Forwarded VERBATIM: this service is a pipe for the machine's progress, not a second opinion.
       (r) => opts.onProgress?.(r.job as SeparateJob),

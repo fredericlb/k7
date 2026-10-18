@@ -118,6 +118,13 @@ need it, and the engine that made it goes on playing the VST live. When a render
 standing in — an engine without the VST bound — the swap waits for a stop: a freeze never changes
 a track's contents under the playhead.
 
+## Said on the lane
+
+The timeline's gutter wears a snowflake beside the name of a lane whose VST the bound engine lacks:
+solid when the lane plays its render (`autoFrozen`), faded while no render is made yet
+(`autoFreezeWaiting`) — the lane then plays without the VST, which is a different sound and must
+not look like the song. Both maps are the graph's, keyed by node, so the chains pane reads them too.
+
 ## Editing a frozen VST: thaw on touch
 
 This only arises on an engine without the VST. A baked VST has no plugin in the engine, so a knob drag or its window would reach nothing. The node
