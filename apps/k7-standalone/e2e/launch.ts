@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -146,7 +147,7 @@ export async function homePage(
 }
 
 /** Close the app without its quit confirm: a test that failed mid-play would otherwise leave the native dialog waiting. */
-export async function closeApp({ app }: Launched): Promise<void> {
+export async function closeApp({ app, userData }: Launched): Promise<void> {
   await app
     .evaluate(({ webContents }) =>
       Promise.all(
@@ -162,4 +163,16 @@ export async function closeApp({ app }: Launched): Promise<void> {
     )
     .catch(() => undefined);
   await app.close().catch(() => undefined);
+  // A launch's folder holds the seeded library and its sync state, ~200 MB; `K7_E2E_KEEP=1` leaves it to read.
+  if (process.env.K7_E2E_KEEP === "1") return;
+  try {
+    rmSync(userData, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 200,
+    });
+  } catch (e) {
+    console.warn(`left ${userData}: ${(e as Error).message}`);
+  }
 }
