@@ -78,4 +78,14 @@ if (kind === "engine") {
     copyFileSync(join(out, f), join(RELEASE, name));
     console.log(`✔ ${join(RELEASE, name)}`);
   }
+  // What the app updates from (docs/app-downloads.md): electron-builder already named the installers as above, so these name them right.
+  const updater = readdirSync(out).filter(
+    (f) =>
+      /^latest.*\.yml$/.test(f) ||
+      (f.startsWith(`k7_${stamp}_`) && f.endsWith(".blockmap")),
+  );
+  for (const f of updater) {
+    copyFileSync(join(out, f), join(RELEASE, f));
+    console.log(`✔ ${join(RELEASE, f)}`);
+  }
 }

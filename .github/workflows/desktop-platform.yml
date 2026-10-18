@@ -241,6 +241,9 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: k7-desktop-${{ inputs.label }}
-          path: dist/release/k7_*
+          # The installers and their blockmaps, and latest*.yml, which the app updates from (docs/app-downloads.md).
+          path: |
+            dist/release/k7_*
+            dist/release/latest*.yml
           if-no-files-found: error
 

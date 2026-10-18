@@ -76,6 +76,8 @@ ENV STUDIO_FILE_SERVICE_ENTRY=/app/server-dist/file-service.mjs
 
 # k7's per-person preferences (packages/user-prefs/docs/store.md).
 ENV STUDIO_PREFS_DIR=/data/prefs
+# The apps' builds served at /app_downloads, the current and previous one per channel (docs/app-downloads.md).
+ENV STUDIO_APP_RELEASES_DIR=/data/app-releases
 VOLUME ["/data"]
 # The media library IS this volume.
 ENV STUDIO_MEDIATEK=/library

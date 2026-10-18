@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { TunnelAgent } from "@studio/engine-tunnel/agent";
 import { TunnelHub } from "@studio/engine-tunnel/hub";
+import { ENGINE_CONNECT_DEADLINE_MS } from "@studio/web-protocol";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WebSocketServer } from "ws";
 import { openSocket } from "./rtcSocket.ts";
@@ -31,6 +32,9 @@ const until = async (ok: () => boolean, ms = 8000): Promise<void> => {
     await new Promise((r) => setTimeout(r, 20));
   }
 };
+
+// What a page allows a connection, and more: on a busy runner the handshake has taken over 8 s, and this pins behaviour, not speed.
+const CONNECT_MS = ENGINE_CONNECT_DEADLINE_MS * 2;
 
 describe.skipIf(!available)("the rtc: socket", () => {
   let server: Server;
@@ -90,24 +94,28 @@ describe.skipIf(!available)("the rtc: socket", () => {
     await new Promise((r) => server.close(r));
   });
 
-  it("opens, answers a whoami, and closes, as a WebSocket would", async () => {
-    const ws = openSocket(`rtc:${base}/api/engine/e1/rtc`);
-    const got: string[] = [];
-    let closed = false;
-    ws.onopen = () => ws.send(JSON.stringify({ type: "whoami" }));
-    ws.onmessage = (ev) => got.push(String(ev.data));
-    ws.onclose = () => {
-      closed = true;
-    };
-    await until(() => got.length === 1);
-    expect(JSON.parse(got[0])).toEqual({
-      type: "whoami",
-      id: "e1",
-      token: "tok",
-    });
-    ws.close();
-    await until(() => closed);
-  });
+  it(
+    "opens, answers a whoami, and closes, as a WebSocket would",
+    async () => {
+      const ws = openSocket(`rtc:${base}/api/engine/e1/rtc`);
+      const got: string[] = [];
+      let closed = false;
+      ws.onopen = () => ws.send(JSON.stringify({ type: "whoami" }));
+      ws.onmessage = (ev) => got.push(String(ev.data));
+      ws.onclose = () => {
+        closed = true;
+      };
+      await until(() => got.length === 1, CONNECT_MS);
+      expect(JSON.parse(got[0])).toEqual({
+        type: "whoami",
+        id: "e1",
+        token: "tok",
+      });
+      ws.close();
+      await until(() => closed);
+    },
+    CONNECT_MS + 10_000,
+  );
 
   it("reports an error, then a close, when there is no path", async () => {
     agent.stop();

@@ -42,7 +42,7 @@ A build's identity is its **release stamp** — `vX.Y.Z` for a tag, `snapshot-<c
 
 `scripts/build-main.mjs` inlines `$STUDIO_RELEASE_STAMP` into the main process and the preload as
 `__K7_RELEASE__` (`src/release.ts`); anything but the two CI shapes becomes `dev`, since the stamp is
-shown to the person and compared with GitHub's tags. Both CI paths set the variable before packaging.
+shown to the person and compared with the builds k7.rocks/app_downloads serves. Both CI paths set the variable before packaging.
 `electron-builder.cjs` sets the bundle's version (`extraMetadata.version`) from the root
 package.json, so the OS's own views of the app agree with the release: `0.1.0` for the tag `v0.1.0`,
 which it refuses to package under any other version, and `0.1.0-snapshot-9f2c1ab` for a snapshot, a

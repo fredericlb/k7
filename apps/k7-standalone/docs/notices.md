@@ -6,24 +6,33 @@ person will see it.
 
 ## A newer k7
 
-There is **no auto-update**. The app tells, and the person downloads: an installer fetched and run
-by the app would be an unsigned binary executed with nobody looking (`docs/desktop-release.md` at
-the root says why nothing is signed). Download opens the release page in the system browser.
+The app **updates itself where it can**, from `https://k7.rocks/app_downloads`, the page every build
+is published on (`docs/app-downloads.md` at the root, which also says what guards it: nothing is
+signed, so the upload token is what keeps a bad build off the machines).
 
-`src/updates.ts` asks GitHub's releases API a little after start, then at most once a day
-(`src/updateCheck.ts`, tested). The channel is the running stamp's (`docs/menu.md`): a tagged build
-asks for the latest release and compares tags by number; a snapshot asks for the moving `snapshot`
-prerelease and compares its commit, since that prerelease is recut on every push to `main`. A
-checkout run (`dev`) asks nothing.
+`src/updates.ts` asks the channel's `<channel>.json` a little after start, then at most every six
+hours (`src/updateCheck.ts`, tested). The channel is the running stamp's (`docs/menu.md`): a tagged
+build follows `release` and compares tags by number; a snapshot follows `snapshot` and takes any
+other commit as later, since that channel only ever holds `main`'s latest build. A checkout run
+(`dev`) asks nothing.
 
-- **Silent when it cannot ask.** Offline, rate-limited or a private repository: nothing is said and
-  the next check retries. Only Check for Updates… in the menu says "could not reach".
+| install | what happens |
+|---|---|
+| Windows (NSIS), AppImage | electron-updater downloads the build in the background and installs it when k7 quits; a dialog offers Restart now |
+| macOS, `.deb` | a dialog says a newer k7 exists; Download opens the page in the system browser |
+
+macOS refuses to let an ad-hoc signed app replace itself, and a `.deb` belongs to apt, so neither is
+downloaded for the person.
+
+- **Silent when it cannot ask.** Offline or k7.rocks down: nothing is said and the next check
+  retries. Only Check for Updates… in the menu says "could not reach". A failed download is silent
+  too, except from the menu, which then offers the page.
 - **Told once per build.** The automatic check does not repeat a build it already named; the menu's
   check always answers.
 - **The person can turn it off**, with the menu's checkbox, kept in `updates.json` in the app's
-  state folder. `K7_NO_UPDATE_CHECK` turns it off for a run, `K7_RELEASES_REPO` points it at another
-  repository.
-- Only a `https://github.com/` page is ever opened: the answer came over the network.
+  state folder. `K7_NO_UPDATE_CHECK` turns it off for a run, `K7_DOWNLOADS_URL` points it at another
+  downloads page.
+- The page Download opens is the app's own address, never one read from the answer.
 
 ## The engine and its supervisor
 

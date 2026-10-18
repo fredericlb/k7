@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { isNewerTag, parseStamp, RELEASE, releaseLabel } from "./release.ts";
-import { checkDue, newerRelease, releaseApiUrl } from "./updateCheck.ts";
+import { buildUrl, checkDue, feedUrl, newerBuild } from "./updateCheck.ts";
 
-const PAGE = "https://github.com/fredericlb/k7/releases/tag/v1.5.0";
+const PAGE = "https://k7.rocks/app_downloads";
 
 describe("the release stamp", () => {
   it("is dev when nothing inlined one", () => {
@@ -38,58 +38,56 @@ describe("the release stamp", () => {
 });
 
 describe("the update check", () => {
-  it("asks each channel's own release, and nothing for a checkout run", () => {
-    expect(releaseApiUrl("v1.4.0", "o/r")).toBe(
-      "https://api.github.com/repos/o/r/releases/latest",
+  it("asks each channel's own build, and nothing for a checkout run", () => {
+    expect(buildUrl("v1.4.0", "https://x/d")).toBe("https://x/d/release.json");
+    expect(buildUrl("snapshot-9f2c1ab", "https://x/d")).toBe(
+      "https://x/d/snapshot.json",
     );
-    expect(releaseApiUrl("snapshot-9f2c1ab", "o/r")).toBe(
-      "https://api.github.com/repos/o/r/releases/tags/snapshot",
+    expect(buildUrl("dev")).toBeNull();
+    expect(feedUrl("snapshot-9f2c1ab")).toBe(
+      "https://k7.rocks/app_downloads/snapshot",
     );
-    expect(releaseApiUrl("dev")).toBeNull();
+    expect(feedUrl("dev")).toBeNull();
   });
 
   it("tells of a later tag, never of the same or an older one", () => {
-    expect(
-      newerRelease("v1.4.0", { tag_name: "v1.5.0", html_url: PAGE }),
-    ).toEqual({
+    expect(newerBuild("v1.4.0", { stamp: "v1.5.0" })).toEqual({
       name: "1.5.0",
+      stamp: "v1.5.0",
       url: PAGE,
     });
-    expect(
-      newerRelease("v1.5.0", { tag_name: "v1.5.0", html_url: PAGE }),
-    ).toBeNull();
-    expect(
-      newerRelease("v1.6.0", { tag_name: "v1.5.0", html_url: PAGE }),
-    ).toBeNull();
+    expect(newerBuild("v1.5.0", { stamp: "v1.5.0" })).toBeNull();
+    expect(newerBuild("v1.6.0", { stamp: "v1.5.0" })).toBeNull();
   });
 
   it("tells a snapshot of another commit, not of its own", () => {
-    const r = {
-      html_url: PAGE,
-      target_commitish: "0123456789abcdef0123456789abcdef01234567",
-    };
-    expect(newerRelease("snapshot-0123456", r)).toBeNull();
-    expect(newerRelease("snapshot-fedcba9", r)?.name).toBe("snapshot-0123456");
     expect(
-      newerRelease("snapshot-fedcba9", { ...r, target_commitish: "main" }),
+      newerBuild("snapshot-0123456", { stamp: "snapshot-0123456" }),
     ).toBeNull();
+    expect(
+      newerBuild("snapshot-fedcba9", { stamp: "snapshot-0123456" })?.name,
+    ).toBe("snapshot-0123456");
   });
 
-  it("opens only a github.com page", () => {
-    expect(
-      newerRelease("v1.4.0", {
-        tag_name: "v1.5.0",
-        html_url: "https://evil.example/x",
-      }),
-    ).toBeNull();
-    expect(newerRelease("v1.4.0", { tag_name: "v1.5.0" })).toBeNull();
+  it("never crosses channels, nor reads an unreadable answer", () => {
+    expect(newerBuild("snapshot-fedcba9", { stamp: "v9.0.0" })).toBeNull();
+    expect(newerBuild("v1.4.0", { stamp: "snapshot-0123456" })).toBeNull();
+    expect(newerBuild("v1.4.0", { stamp: 2 })).toBeNull();
+    expect(newerBuild("v1.4.0", {})).toBeNull();
+    expect(newerBuild("dev", { stamp: "v1.5.0" })).toBeNull();
   });
 
-  it("is due once a day, and again if the clock went back", () => {
-    const day = 24 * 3600_000;
+  it("opens the downloads page it was given, never one from the answer", () => {
+    expect(newerBuild("v1.4.0", { stamp: "v1.5.0" }, "https://x/d")?.url).toBe(
+      "https://x/d",
+    );
+  });
+
+  it("is due every six hours, and again if the clock went back", () => {
+    const every = 6 * 3600_000;
     expect(checkDue(undefined, 1000)).toBe(true);
-    expect(checkDue(1000, 1000 + day - 1)).toBe(false);
-    expect(checkDue(1000, 1000 + day)).toBe(true);
+    expect(checkDue(1000, 1000 + every - 1)).toBe(false);
+    expect(checkDue(1000, 1000 + every)).toBe(true);
     expect(checkDue(5000, 1000)).toBe(true);
   });
 });

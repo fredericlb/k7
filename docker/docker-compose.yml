@@ -74,6 +74,8 @@ services:
       STUDIO_RENDER_KEY: ${RENDER_KEY:-}
       # 1: list only machines paired with an account, or the render machine (packages/engine-registry/docs/heartbeat.md).
       STUDIO_REGISTRY_REQUIRE_DEVICE: ${REGISTRY_REQUIRE_DEVICE:-0}
+      # The bearer desktop.yml publishes the apps' builds with; empty refuses every upload (docs/app-downloads.md).
+      APP_RELEASE_TOKEN: ${APP_RELEASE_TOKEN:-}
     volumes:
       - data:/data
       # The media library IS this volume — apps/k7/docker/Dockerfile.
@@ -90,6 +92,11 @@ services:
       - traefik.http.routers.k7.entrypoints=websecure
       - traefik.http.routers.k7.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
       - traefik.http.services.k7.loadbalancer.server.port=8789
+      # The root domain answers /app_downloads only, the apps' download page and update feed; the rest of it is not k7's.
+      - traefik.http.routers.k7-downloads.rule=Host(`${DOWNLOADS_DOMAIN:-k7.rocks}`) && PathPrefix(`/app_downloads`)
+      - traefik.http.routers.k7-downloads.entrypoints=websecure
+      - traefik.http.routers.k7-downloads.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      - traefik.http.routers.k7-downloads.service=k7
 
   # The rehearsal recorder's FORMER store, kept only as the source of k7's one-time import into
   # k7.db (packages/rehearsal-server/docs/store.md). Once k7's log says "rehearsal: imported …",

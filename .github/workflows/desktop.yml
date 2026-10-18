@@ -381,3 +381,23 @@ jobs:
           else
             gh release create "$TAG" --title "$TAG" --generate-notes dist/*
           fi
+
+      # The same files on k7.rocks/app_downloads, the page people download from and the feed the app updates from
+      # (docs/app-downloads.md): one PUT per file, then publish switches the stamp's channel to this build at once.
+      - name: publish on /app_downloads
+        shell: bash
+        env:
+          APP_RELEASE_TOKEN: ${{ secrets.APP_RELEASE_TOKEN }}
+          STAMP: ${{ needs.decide.outputs.stamp }}
+          API: https://app.k7.rocks/api/app-releases
+        run: |
+          set -euo pipefail
+          if [ -z "$APP_RELEASE_TOKEN" ]; then
+            echo "::warning::APP_RELEASE_TOKEN is not set, /app_downloads keeps its last build."
+            exit 0
+          fi
+          for f in dist/*; do
+            echo "uploading $(basename "$f")"
+            curl --fail-with-body -sS --retry 3 -H "Authorization: Bearer $APP_RELEASE_TOKEN" -T "$f" "$API/$STAMP/$(basename "$f")"
+          done
+          curl --fail-with-body -sS -X POST -H "Authorization: Bearer $APP_RELEASE_TOKEN" "$API/$STAMP/publish"
