@@ -56,7 +56,14 @@ mint. Each launch gets a user-data folder of its own (`apps/k7-standalone/docs/e
 an app starts with no workspace but `Examples`, and the fixtures are seeded into **that** app by the
 worker that launched it, not by a setup project, which would run in a worker and an app of its own.
 Playwright replaces a worker after a failed test, so each failure costs a launch, a plugin scan and
-a seed: about fifteen seconds.
+a seed: on Windows about thirty seconds before the next test, half of it the `k7-core` library's
+copy and the other half the fixtures written over HTTP.
+
+A fresh engine-home ranks no interface, so the engine plays through whatever the device manager
+opens, and on a machine whose Tracktion settings remember a blank output that is nothing: Play is
+accepted and the clock never moves (`engine/k7-runtime/docs/audioDevice.md`). `K7_E2E_AUDIO` names
+the outputs to rank, `;`-separated, and the launcher writes them as the engine-home's `audioPriority`
+before the app starts, the way a person would pick one on the Engine page.
 
 The app picks its backend's port free at launch, so the config has no `baseURL`: the launcher reads
 the port from the app's `ports.json` and hands the origin to the specs. A checkout without a

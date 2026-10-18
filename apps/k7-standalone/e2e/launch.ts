@@ -1,7 +1,14 @@
 // launch.ts — start k7 the desktop app for a test: the packaged build under out/ when there is one, the checkout's otherwise.
 // Every launch gets a user-data folder of its own, which is also what keys Electron's single-instance lock — docs/e2e.md.
 
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -55,9 +62,24 @@ async function originOf(userData: string, timeoutMs = 30_000): Promise<string> {
   throw new Error(`the app wrote no ports.json within ${timeoutMs} ms`);
 }
 
+/** The outputs `$K7_E2E_AUDIO` ranks, `;`-separated: the supervisor moves a fresh engine onto the first one plugged in. */
+function seedEngineHome(home: string): void {
+  const ranked = (process.env.K7_E2E_AUDIO ?? "")
+    .split(";")
+    .map((n) => n.trim())
+    .filter(Boolean);
+  if (!ranked.length) return;
+  mkdirSync(home, { recursive: true });
+  writeFileSync(
+    join(home, "engine-host.json"),
+    JSON.stringify({ audioPriority: ranked }, null, 2),
+  );
+}
+
 /** Launch the app on a fresh user-data folder. */
 export async function launchApp(): Promise<Launched> {
   const userData = mkdtempSync(join(tmpdir(), "k7-e2e-"));
+  seedEngineHome(join(userData, "engine-home"));
   const flags = [`--user-data-dir=${userData}`];
   const executablePath = packagedExecutable();
   const env = { ...process.env } as Record<string, string>;
