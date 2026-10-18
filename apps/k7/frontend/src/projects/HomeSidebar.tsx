@@ -11,6 +11,7 @@ import {
   LibraryBig,
   ListChecks,
   type LucideIcon,
+  RefreshCw,
 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { LIBRARY_SECTIONS, sectionAt, sectionPath } from "@studio/ui-library";
@@ -19,6 +20,7 @@ import { UserMenu } from "@studio/ui-user-menu";
 import { type ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api";
+import { canCheckForUpdates, checkForUpdates } from "../appUpdates";
 import { desktop } from "../desktop";
 import { m } from "../paraglide/messages.js";
 import { onDesktopEngine } from "../settings/desktopEngine";
@@ -218,8 +220,18 @@ function HomeSidebar({
           settingsLabel={m["home.settings"]()}
           label={m["home.account"]()}
           logoutLabel={m["home.signOut"]()}
-          // The desktop app's own engine page, then About — version, licence, source, notices (../../docs/about.md).
+          // Beside Settings, in an app that updates itself; the desktop app's own engine page; About (../../docs/about.md).
           items={[
+            ...(canCheckForUpdates()
+              ? [
+                  {
+                    id: "updates",
+                    label: m["home.checkUpdates"](),
+                    icon: RefreshCw,
+                    onSelect: checkForUpdates,
+                  },
+                ]
+              : []),
             ...(onDesktopEngine()
               ? [
                   {

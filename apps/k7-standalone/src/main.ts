@@ -204,7 +204,7 @@ async function boot(): Promise<void> {
   started = true;
   if (win) win.start();
   else openWindow();
-  startUpdateChecks();
+  startUpdateChecks(K7);
 }
 
 runApp({

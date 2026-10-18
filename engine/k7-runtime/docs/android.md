@@ -223,15 +223,16 @@ would be an activity start from the background, which Android refuses.
 ## Updates come from k7.rocks, and the person installs them
 
 A sideloaded app has no store to update it, so `Updates.kt` does what the desktop app does
-(`apps/k7-standalone/docs/notices.md`): it asks `k7.rocks/app_downloads/<channel>.json` 30 s after
-start and every 6 hours while the process lives, and fetches a newer build's APK
+(`apps/k7-standalone/docs/notices.md`): it asks `k7.rocks/app_downloads/<channel>.json` 5 s after
+every start and every 6 hours while the process lives, and fetches a newer build's APK
 ([docs/app-downloads.md](../../../docs/app-downloads.md) at the root). The channel and the stamp
 compared are `BuildConfig.RELEASE_STAMP`, which only a CI release build carries; a checkout's build
 and the e2e one check nothing.
 
 | choice | why |
 |---|---|
-| downloaded on an unmetered network only | the APK is hundreds of megabytes; on mobile data the check waits for the next one on Wi-Fi |
+| downloaded on an unmetered network only, unless the person asked | the APK is hundreds of megabytes; on mobile data an automatic check waits for the next one on Wi-Fi |
+| Check for updates in the home page's account menu, beside Settings | k7's page calls `checkUpdates` (StudioBridge): a check now, on any network, answered by toasts and the install dialog |
 | offered, never installed on its own | an install ends the process, the engine and the backend with it; the person taps Install, in the notification or the dialog the app shows when it is in front and idle |
 | refused while `Busy` says the app is at work | a take or a set must not end because a tap landed on the wrong notification |
 | an APK that is not this package at a higher `versionCode` is dropped | Android would refuse it anyway; the person is never offered an install that cannot happen |

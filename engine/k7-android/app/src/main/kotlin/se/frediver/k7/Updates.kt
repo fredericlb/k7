@@ -1,4 +1,4 @@
-// Updates.kt — keeps the sideloaded app current from k7.rocks/app_downloads: 30 s after start, then every 6 hours while
+// Updates.kt — keeps the sideloaded app current from k7.rocks/app_downloads: 5 s after start, then every 6 hours while
 // the process lives, asks the channel's build; a newer APK is downloaded on an unmetered network only, then offered —
 // a notification, and a dialog when the app is in front and idle. Install hands it to PackageInstaller, which restarts k7.
 // The first update always asks the person (and for "install unknown apps"); once k7 installed itself, Android 12+ lets
@@ -38,7 +38,8 @@ object Updates {
     private const val TAG = "k7-update"
     private const val CHANNEL = "updates"
     private const val NOTIFICATION = 3
-    private const val FIRST_CHECK_MS = 30_000L
+    // At every start, once the app is up; the home menu's Check for updates asks at any time (checkNow).
+    private const val FIRST_CHECK_MS = 5_000L
     private const val EVERY_MS = 6 * 3600_000L
     private val STAMP = BuildConfig.RELEASE_STAMP
 
@@ -72,7 +73,27 @@ object Updates {
 
     private fun dir(app: Context) = File(app.cacheDir, "updates").apply { mkdirs() }
 
-    private fun check(app: Context) {
+    /** The home menu's Check for updates (StudioBridge `checkUpdates`): asks now, on any network, and always answers. */
+    fun checkNow(context: Context) {
+        val app = context.applicationContext
+        if (UpdateCheck.channelOf(STAMP) == null) {
+            say(app, "This build is not a release, so there is nothing to compare it with")
+            return
+        }
+        say(app, "Checking for updates…")
+        worker.execute {
+            runCatching { check(app, manual = true) }.onFailure {
+                Log.w(TAG, "check failed: ${it.message}")
+                say(app, "Could not check for updates: ${it.message ?: "no answer from k7.rocks"}")
+            }
+        }
+    }
+
+    private fun say(app: Context, text: String) {
+        main.post { Toast.makeText(app, text, Toast.LENGTH_LONG).show() }
+    }
+
+    private fun check(app: Context, manual: Boolean = false) {
         val channel = UpdateCheck.channelOf(STAMP) ?: return
         val build = fetchJson("${UpdateCheck.DOWNLOADS}/$channel.json")
         val served = build?.optString("stamp").orEmpty()
@@ -82,23 +103,29 @@ object Updates {
         val apk = UpdateCheck.apkOf(sizes.keys.toList())
         // What an older check downloaded goes, unless it is still the build to install.
         dir(app).listFiles()?.filter { it.name != apk }?.forEach { it.delete() }
-        if (apk == null || !UpdateCheck.isNewer(STAMP, served)) return
+        if (apk == null || !UpdateCheck.isNewer(STAMP, served)) {
+            if (manual) say(app, "k7 ${UpdateCheck.label(STAMP)} is the latest")
+            return
+        }
         val target = File(dir(app), apk)
         if (!target.isFile) {
             val cm = app.getSystemService(ConnectivityManager::class.java)
-            if (cm.isActiveNetworkMetered) {
+            // The person asked: their check downloads on mobile data too.
+            if (!manual && cm.isActiveNetworkMetered) {
                 Log.i(TAG, "k7 $served is out; waiting for an unmetered network")
                 return
             }
             Log.i(TAG, "downloading k7 $served")
+            if (manual) say(app, "Downloading k7 ${UpdateCheck.label(served)}…")
             download("${UpdateCheck.DOWNLOADS}/$channel/$apk", target, sizes[apk] ?: 0)
         }
         if (!newerThanInstalled(app, target)) {
             Log.w(TAG, "$apk is not a later build of this app; dropped")
             target.delete()
+            if (manual) say(app, "k7 ${UpdateCheck.label(STAMP)} is the latest")
             return
         }
-        announce(app, served)
+        announce(app, served, manual)
     }
 
     private fun connect(url: String, readMs: Int) = (URL(url).openConnection() as HttpURLConnection).apply {
@@ -147,12 +174,14 @@ object Updates {
     private fun pending(app: Context): File? =
         dir(app).listFiles()?.firstOrNull { UpdateCheck.apkOf(listOf(it.name)) != null && newerThanInstalled(app, it) }
 
-    private fun announce(app: Context, stamp: String) {
+    private fun announce(app: Context, stamp: String, manual: Boolean = false) {
         val name = UpdateCheck.label(stamp)
         notify(app, "k7 $name is ready", "Tap to install. k7 restarts.")
         main.post {
             val activity = MainActivity.current() ?: return@post
-            if (asked == stamp || Busy.busy || !activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@post
+            // The person's own check always gets its dialog; an automatic one asks once, and never over work.
+            val quiet = !manual && (asked == stamp || Busy.busy)
+            if (quiet || !activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@post
             asked = stamp
             AlertDialog.Builder(activity)
                 .setTitle("k7 $name is ready")

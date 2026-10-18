@@ -161,6 +161,7 @@
   "panel.eventEmpty": "Aucun événement ouvert — cliquez un clip, ou double-cliquez l'en-tête d'une piste",
   "home.unknownCommand": "« {line} » n'est pas une commande de cet écran",
   "home.settings": "Réglages",
+  "home.checkUpdates": "Rechercher des mises à jour",
   "home.account": "Compte",
   "home.signOut": "Se déconnecter",
   "home.appsUnavailable": "Autres applications — associez un serveur dans les Réglages pour les ouvrir",

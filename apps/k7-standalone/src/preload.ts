@@ -15,8 +15,11 @@ const spec = process.argv
   .find((a) => a.startsWith(PREFIX))
   ?.slice(PREFIX.length);
 if (spec) contextBridge.exposeInMainWorld("__STUDIO_PORTS__", spec);
-// The release stamp, for the settings page: the same one About shows (docs/menu.md).
-contextBridge.exposeInMainWorld("studioApp", { version: RELEASE });
+// The release stamp, for the settings page (docs/menu.md), and the home menu's Check for updates (docs/notices.md).
+contextBridge.exposeInMainWorld("studioApp", {
+  version: RELEASE,
+  checkForUpdates: () => ipcRenderer.send(DESKTOP_IPC.checkUpdates),
+});
 
 const stateSubs = new Set<(s: TabState) => void>();
 const rowSubs = new Set<(r: TabRow[]) => void>();

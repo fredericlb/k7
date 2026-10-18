@@ -117,6 +117,11 @@ class StudioBridge(
             }
             "forgetCas" -> EngineOps.forgetCas(activity, answer)
             "chooseStudio" -> chooseStudio(arg.optString("origin"), answer)
+            // The home menu's Check for updates; the answer comes as toasts and the install dialog (Updates.kt).
+            "checkUpdates" -> {
+                Updates.checkNow(activity)
+                ok(JSONObject())
+            }
             "quit" -> {
                 ok(JSONObject())
                 activity.runOnUiThread { activity.finish() }

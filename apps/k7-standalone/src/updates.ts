@@ -6,8 +6,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { openExternalSafely } from "@frediverse/electron-shell/external";
 import { line } from "@frediverse/electron-shell/log";
-import { app, dialog } from "electron";
+import { DESKTOP_IPC } from "@studio/web-protocol/desktop";
+import { app, dialog, ipcMain } from "electron";
 import { autoUpdater } from "electron-updater";
+import { fromApp } from "./engineBridge.ts";
 import { RELEASE, releaseLabel } from "./release.ts";
 import {
   type Available,
@@ -194,12 +196,17 @@ export async function checkForUpdates(manual = false): Promise<void> {
   });
 }
 
-/** At start, a little after the window, then hourly whether the interval has passed; silent offline. */
-export function startUpdateChecks(): void {
-  const tick = () => {
+/** At every start, a few seconds after the window, then hourly whether the interval has passed; silent offline. */
+export function startUpdateChecks(origin: string): void {
+  // The home menu's entry, from k7's own pages only: the menu's check, dialogs included.
+  ipcMain.on(DESKTOP_IPC.checkUpdates, (e) => {
+    if (fromApp(e, origin)) void checkForUpdates(true);
+  });
+  setTimeout(() => {
+    if (autoCheckEnabled()) void checkForUpdates(false);
+  }, 5_000).unref();
+  setInterval(() => {
     if (autoCheckEnabled() && checkDue(load().last, Date.now()))
       void checkForUpdates(false);
-  };
-  setTimeout(tick, 15_000).unref();
-  setInterval(tick, 3600_000).unref();
+  }, 3600_000).unref();
 }

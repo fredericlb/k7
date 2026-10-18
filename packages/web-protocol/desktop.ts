@@ -33,4 +33,6 @@ export const DESKTOP_IPC = {
   engineState: "studio:engine:state",
   engineCmd: "studio:engine:cmd",
   desktopState: "studio:desktop:state",
+  // A page's Check for updates: the main process asks k7.rocks and answers in its own dialogs.
+  checkUpdates: "studio:updates:check",
 } as const;

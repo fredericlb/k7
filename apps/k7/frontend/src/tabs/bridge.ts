@@ -42,8 +42,8 @@ declare global {
   interface Window {
     studioTab?: TabBridge;
     studioTabs?: TabsBridge;
-    /** The desktop app's release stamp — apps/k7-standalone/docs/menu.md. */
-    studioApp?: { version: string };
+    /** The desktop app's release stamp — apps/k7-standalone/docs/menu.md — and its update check (docs/notices.md). */
+    studioApp?: { version: string; checkForUpdates?: () => void };
   }
 }
 
