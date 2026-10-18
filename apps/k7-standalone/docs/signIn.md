@@ -35,21 +35,21 @@ sign-in with "Client authentication failed".
   authorization_policy: one_factor
   require_pkce: true
   pkce_challenge_method: S256
-  # the client asks for http://127.0.0.1:<port>/auth/callback, <port> anywhere in 22000-23000
+  # one loopback entry covers every port: Authelia ignores the port of a loopback redirect
   redirect_uris:
-    - http://127.0.0.1:22000/auth/callback
-    # … one per port, to http://127.0.0.1:23000/auth/callback, on a provider that matches exactly
+    - http://127.0.0.1:18789/auth/callback
   scopes: [openid, profile, email, groups]
   token_endpoint_auth_method: none
 ```
 
 The `redirect_uri` is the app's own backend, derived from the request like every other
 deployment's, so its port is the one the app picked at boot in its range (`docs/standalone.md`,
-"Addresses") — the same from launch to launch unless that port was taken meanwhile. The provider
-must therefore accept the desktop's loopback callback on ANY port of the range, as RFC 8252 §7.3
-asks of an authorization server for a native app's loopback redirect; a provider that matches
-redirect URIs exactly needs every URI of the range registered, from
-`http://127.0.0.1:22000/auth/callback` to `http://127.0.0.1:23000/auth/callback`. `K7_OIDC_ISSUER` and
+"Addresses") — the same from launch to launch unless that port was taken meanwhile. One registered
+entry is enough because the provider accepts a loopback callback on ANY port, as RFC 8252 §7.3 asks
+of an authorization server for a native app: Authelia ignores the port of an `http://127.0.0.1`
+redirect and still compares the rest, so the host must stay the literal `127.0.0.1` (never
+`localhost`) and the path `/auth/callback`. The entry's port is therefore immaterial, and the
+phone's 18789 serves both. `K7_OIDC_ISSUER` and
 `K7_OIDC_CLIENT_ID` override both; an empty issuer leaves only the local user and the dev stub.
 
 ## In the system browser, never in a tab
