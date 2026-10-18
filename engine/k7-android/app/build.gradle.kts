@@ -49,6 +49,9 @@ android {
         versionName = appVersionName
         ndk { abiFilters += "arm64-v8a" }
         buildConfigField("int", "STANDALONE_PORT", standalone["port"].toString())
+        // The backend's folders the engine is sent files from by their own paths: its workspaces and médiathèque.
+        val dirs = standalone["dirs"] as Map<*, *>
+        buildConfigField("String", "ENGINE_ROOT_DIRS", "\"${dirs["STUDIO_FILES_ROOT"]};${dirs["STUDIO_MEDIATEK"]}\"")
         buildConfigField("String", "RELEASE_STAMP", "\"\"")
         manifestPlaceholders["appLabel"] = "k7"
     }

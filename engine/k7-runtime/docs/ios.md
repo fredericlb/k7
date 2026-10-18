@@ -32,6 +32,9 @@ interface it has as a program:
   relaunched, which node itself cannot be, and the reason its environment is its own. A worker's `process.env` is a
   copy, while node's main thread writes through to the one the engine and the supervisor read; `STUDIO_HOME` alone
   means three different folders to them. Nothing on node's main thread calls `process.exit`, which would end the app.
+  The engine's `.k7` is not the backend's `standalone` folder, whose files it is sent by their own paths, so
+  `EngineBridge.start` sets `$STUDIO_ENGINE_ROOTS` to the backend's workspaces and médiathèque
+  (`BackendHost.engineRoots`, from the bundled table): outside its roots the engine drops every file (`pathRoots.md`).
 - **The file services** each run on a worker thread of the backend. A worker has module globals of its own, so an
   account is kept apart as a process keeps it. Its stdin end is still its stop, so the file service runs unchanged.
   `STUDIO_FILE_SERVICE_THREADS=1` selects this mode, and it needs the bundled entry, since a thread runs plain JS

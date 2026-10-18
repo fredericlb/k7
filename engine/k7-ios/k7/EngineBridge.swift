@@ -29,6 +29,8 @@ enum EngineBridge {
         serving = true
         // What the supervisor's spawn passes on desktop, read by serve() when it starts.
         setenv("STUDIO_HOME", stateDir.path, 1)
+        // The backend sends its own paths, outside `.k7`: without these the engine drops every clip and sample.
+        setenv("STUDIO_ENGINE_ROOTS", BackendHost.engineRoots.map(\.path).joined(separator: ":"), 1)
         setenv("STUDIO_ENGINE_HOST", host, 1)
         setenv("STUDIO_ENGINE_ID", id, 1)
         setenv("STUDIO_ENGINE_TOKEN", token, 1)
