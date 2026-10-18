@@ -31,6 +31,11 @@ Each file is named for that channel — `k7-runtime_v1.4.0_macos-arm64.tar.gz`,
 `k7_snapshot-9f2c1ab_windows-x64.exe` — and **not** for a package version, which does not move with
 each build. `engine/scripts/package-release.mjs` does the naming, for both kinds.
 
+Every published build is also put on **`https://k7.rocks/app_downloads`**, the page people download
+from and the feed the desktop app updates itself from, one channel each
+([app-downloads.md](app-downloads.md)). That is why electron-builder already names the desktop
+installers as the release does: the `latest*.yml` beside them must name the files the page serves.
+
 ## Why the gate job, and not a `paths:` filter
 
 A cold build of the engine is tens of minutes, three times over, and a macOS runner minute is the

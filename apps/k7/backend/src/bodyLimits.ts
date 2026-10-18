@@ -2,7 +2,7 @@
 // is what an UNAUTHENTICATED caller can make this process parse. Small by default; a route with a
 // limit of its own is listed here, or parses ahead of this one (the AI organize, at 2 MB).
 // The file hub's paths are never parsed: their bodies stream through to an account's file service,
-// which holds the 8 MB limit. See ../docs/hardening.md.
+// which holds the 8 MB limit; nor are the apps' uploads, streamed to disk. See ../docs/hardening.md.
 
 import { FILE_HUB_INTERNAL, FILE_HUB_PATH } from "@studio/file-hub";
 import express, { type RequestHandler } from "express";
@@ -17,7 +17,12 @@ const ROUTE_JSON_LIMITS: Record<string, string> = {
 };
 
 /** Routes whose bodies this process never parses, since it only pipes them on. */
-const STREAMED_THROUGH: readonly string[] = [FILE_HUB_PATH, FILE_HUB_INTERNAL];
+const STREAMED_THROUGH: readonly string[] = [
+  FILE_HUB_PATH,
+  FILE_HUB_INTERNAL,
+  // The apps' builds, streamed to disk by ./appReleases/routes.ts.
+  "/api/app-releases",
+];
 
 const under = (path: string, prefix: string): boolean =>
   path === prefix || path.startsWith(`${prefix}/`);

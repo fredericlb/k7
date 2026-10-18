@@ -24,6 +24,7 @@
     "@studio/web-protocol": "*",
     "electron": "44.7.0",
     "electron-builder": "^26.0.12",
+    "electron-updater": "^6.8.9",
     "esbuild": "*",
     "vitest": "^4.1.10"
   }

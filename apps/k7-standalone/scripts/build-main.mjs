@@ -8,7 +8,7 @@ import { buildMain } from "@frediverse/electron-shell/build";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const given = process.env.STUDIO_RELEASE_STAMP?.trim() ?? "";
-// The shapes desktop.yml's `decide` lets through: the stamp is shown to the person and compared with GitHub's tags.
+// The shapes desktop.yml's `decide` lets through: the stamp is shown to the person and compared with /app_downloads' builds.
 const stamp = /^(v\d+\.\d+\.\d+|snapshot-[0-9a-f]{7,40})$/.test(given)
   ? given
   : "dev";

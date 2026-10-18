@@ -19,6 +19,12 @@ import { isLegacyHost, serviceUrl } from "@studio/web-protocol/services";
 import express from "express";
 import { z } from "zod";
 import { aiOrganizeBody, aiOrganizeRouter } from "./aiOrganize";
+import {
+  appDownloadsRouter,
+  appReleasesRouter,
+  maxBytesFromEnv,
+  storeFromEnv,
+} from "./appReleases/routes.ts";
 import { authRefusals, DEFAULT_SESSION_SECRET } from "./authGuard.ts";
 import { sessionRevocations } from "./authState.ts";
 import { jsonBodies } from "./bodyLimits.ts";
@@ -86,6 +92,19 @@ app.get(
 app.use("/api/ai", aiOrganizeBody);
 // Small for everyone, since it runs before any guard; the relayed paths are piped unparsed (./bodyLimits.ts).
 app.use(jsonBodies());
+// The apps' builds, on the hosted origin only: CI uploads with its own bearer, anyone downloads (docs/app-downloads.md).
+if (!LOCAL_USER) {
+  const releases = storeFromEnv();
+  app.use(
+    "/api/app-releases",
+    appReleasesRouter(
+      releases,
+      process.env.APP_RELEASE_TOKEN || undefined,
+      maxBytesFromEnv(),
+    ),
+  );
+  app.use("/app_downloads", appDownloadsRouter(releases));
+}
 
 // Empty stays undefined, not []: setupAuth falls back on nullish only, and [] asks for NO scopes.
 const scopes = (process.env.OIDC_SCOPES ?? "")
