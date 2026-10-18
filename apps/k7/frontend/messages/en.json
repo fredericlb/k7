@@ -161,6 +161,7 @@
   "panel.eventEmpty": "No event open — click a clip, or double-click a track's header",
   "home.unknownCommand": "\"{line}\" is not a command on this screen",
   "home.settings": "Settings",
+  "home.checkUpdates": "Check for updates",
   "home.account": "Account",
   "home.signOut": "Sign out",
   "home.appsUnavailable": "Other apps — pair a server in Settings to open them",

@@ -10,8 +10,8 @@ The app **updates itself where it can**, from `https://k7.rocks/app_downloads`, 
 is published on (`docs/app-downloads.md` at the root, which also says what guards it: nothing is
 signed, so the upload token is what keeps a bad build off the machines).
 
-`src/updates.ts` asks the channel's `<channel>.json` a little after start, then at most every six
-hours (`src/updateCheck.ts`, tested). The channel is the running stamp's (`docs/menu.md`): a tagged
+`src/updates.ts` asks the channel's `<channel>.json` a few seconds after every start, then at most
+every six hours (`src/updateCheck.ts`, tested). The channel is the running stamp's (`docs/menu.md`): a tagged
 build follows `release` and compares tags by number; a snapshot follows `snapshot` and takes any
 other commit as later, since that channel only ever holds `main`'s latest build. A checkout run
 (`dev`) asks nothing.
@@ -29,6 +29,9 @@ downloaded for the person.
   too, except from the menu, which then offers the page.
 - **Told once per build.** The automatic check does not repeat a build it already named; the menu's
   check always answers.
+- **Check for updates is also on k7's home page**, in the account menu beside Settings, since the
+  window has no menu bar on Windows and Linux. The page sends `studio:updates:check`, which the main
+  process takes from k7's own origin only, and runs the menu's check.
 - **The person can turn it off**, with the menu's checkbox, kept in `updates.json` in the app's
   state folder. `K7_NO_UPDATE_CHECK` turns it off for a run, `K7_DOWNLOADS_URL` points it at another
   downloads page.

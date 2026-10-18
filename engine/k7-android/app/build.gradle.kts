@@ -19,6 +19,8 @@ val E2E_PORT = 18799
 val rootVersion = (groovy.json.JsonSlurper().parse(rootDir.resolve("../../package.json")) as Map<*, *>)["version"] as String
 val releaseStamp = System.getenv("STUDIO_RELEASE_STAMP").orEmpty()
 val appVersionName = if (releaseStamp.matches(Regex("snapshot-[0-9a-f]+"))) "$rootVersion-$releaseStamp" else rootVersion
+// The stamp Updates.kt compares with k7.rocks/app_downloads: a CI shape on a release build, empty anywhere else, which checks nothing.
+val updateStamp = releaseStamp.takeIf { it.matches(Regex("""v\d+\.\d+\.\d+|snapshot-[0-9a-f]{7,40}""")) }.orEmpty()
 
 fun git(vararg args: String): String =
     providers.exec { commandLine("git", *args); workingDir = rootDir }.standardOutput.asText.get().trim()
@@ -47,6 +49,7 @@ android {
         versionName = appVersionName
         ndk { abiFilters += "arm64-v8a" }
         buildConfigField("int", "STANDALONE_PORT", standalone["port"].toString())
+        buildConfigField("String", "RELEASE_STAMP", "\"\"")
         manifestPlaceholders["appLabel"] = "k7"
     }
 
@@ -71,6 +74,7 @@ android {
             isMinifyEnabled = false
             isShrinkResources = false
             signingConfig = signingConfigs.findByName("release")
+            buildConfigField("String", "RELEASE_STAMP", "\"$updateStamp\"")
         }
         // The functional suite's build: installed BESIDE the shipped app, so its own id, port and label (e2e/docs/e2e.md).
         create("e2e") {

@@ -47,5 +47,9 @@ installs it when k7 quits, or at once from a Restart now dialog. macOS refuses t
 signed app replace itself, and a `.deb` belongs to apt: there the app says a newer k7 exists and
 Download opens the page ([apps/k7-standalone/docs/notices.md](../apps/k7-standalone/docs/notices.md)).
 
-The phones do not update from here: the APK is offered on the page, and the iPhone app ships
+The Android app (`engine/k7-android/.../Updates.kt`) follows its channel the same way: it downloads
+a newer APK on an unmetered network and offers it, and the person installs it — Android always asks
+the first time, and lets later updates through once k7 installed itself (Android 12+). There, the
+signature check is a second guard: an APK not signed with the release key never installs
+([engine/k7-runtime/docs/android.md](../engine/k7-runtime/docs/android.md)). The iPhone app ships
 through Xcode.

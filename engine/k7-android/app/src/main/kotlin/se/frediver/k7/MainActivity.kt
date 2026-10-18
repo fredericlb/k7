@@ -3,11 +3,13 @@
 // media library and the rehearsal recorder among its pages) in full-screen views of their own. The page is web/, bundled; the two plugins registered here are
 // its only way to the native half. Leaving this activity quits the supervisor and ends the process, which is also the
 // only way to restart an engine (EngineBridge). The services only keep the process in front while it is busy (Busy.kt).
+// A sideloaded release keeps itself current from k7.rocks/app_downloads (Updates.kt).
 // See docs/android.md.
 
 package se.frediver.k7
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -40,6 +42,13 @@ class MainActivity : BridgeActivity() {
         // Never held up by the microphone: without it the engine opens its device output only (MicAccess.kt).
         SupervisorHost.start(this)
         Busy.start(this)
+        Updates.start(this)
+        Updates.handle(this, intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        Updates.handle(this, intent)
     }
 
     /** The screen kept on while the app is busy, and only then (Busy.kt). */
