@@ -177,22 +177,23 @@ function probeOne(
 
 interface Candidate {
   url: string; // the WebSocket to try
+  direct: boolean; // one of the engine's own addresses, not the relay nor WebRTC
 }
 
-/** Every way this browser might reach one engine — the order is documentation only, since `rank` races them and keeps the FASTEST. */
+/** Every way this browser might reach one engine — the order is documentation only: `rank` races them all and `orderHits` decides. */
 function candidatesFor(e: ProbeTarget, relayBase: string): Candidate[] {
   const { loopback, lanIps, port } = e.addresses;
   /** The addresses this page may actually dial in the clear; an HTTPS page counts a LAN attempt as MIXED CONTENT — see docs/access.md. */
   const dialable =
     location.protocol === "https:" ? [loopback] : [loopback, ...lanIps];
   const direct = dialable.map(
-    (host): Candidate => ({ url: `ws://${host}:${port}` }),
+    (host): Candidate => ({ url: `ws://${host}:${port}`, direct: true }),
   );
   if (!e.proxyTicket) return direct;
   const relay = relayUrls(relayBase, e.id, e.proxyTicket, location.href);
-  const relayed: Candidate[] = [{ url: relay.ws }];
+  const relayed: Candidate[] = [{ url: relay.ws, direct: false }];
   // Straight to the engine's machine; the files are the server's, never this channel's.
-  if (e.rtc) relayed.push({ url: relay.rtc });
+  if (e.rtc) relayed.push({ url: relay.rtc, direct: false });
   return [...direct, ...relayed];
 }
 
@@ -216,6 +217,22 @@ export function relayUrls(
   };
 }
 
+/** The answers best first: usable before paired-first or tokenless, then DIRECT before relayed, then the faster (docs/access.md). */
+export function orderHits<
+  H extends {
+    c: { direct: boolean };
+    reply: { needsPairing: boolean; token: string; rttMs: number };
+  },
+>(hits: H[]): H[] {
+  return [...hits].sort(
+    (a, b) =>
+      Number(a.reply.needsPairing) - Number(b.reply.needsPairing) ||
+      Number(!a.reply.token) - Number(!b.reply.token) ||
+      Number(!a.c.direct) - Number(!b.c.direct) ||
+      a.reply.rttMs - b.reply.rttMs,
+  );
+}
+
 async function rank<E extends ProbeTarget>(
   e: E,
   relayBase: string,
@@ -227,15 +244,8 @@ async function rank<E extends ProbeTarget>(
       reply: await probeOne(c.url, e.id),
     })),
   );
-  const hits = results.flatMap((r) =>
-    r.reply ? [{ c: r.c, reply: r.reply }] : [],
-  );
-  // An address this device may USE beats a faster one it would first have to pair on, or one that withheld the token.
-  hits.sort(
-    (a, b) =>
-      Number(a.reply.needsPairing) - Number(b.reply.needsPairing) ||
-      Number(!a.reply.token) - Number(!b.reply.token) ||
-      a.reply.rttMs - b.reply.rttMs,
+  const hits = orderHits(
+    results.flatMap((r) => (r.reply ? [{ c: r.c, reply: r.reply }] : [])),
   );
   if (!hits.length)
     return {
