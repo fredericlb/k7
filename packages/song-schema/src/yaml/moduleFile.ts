@@ -80,9 +80,18 @@ export function parseModule(text: string): ParsedModule {
     }
     return { value: null, issues };
   }
+  return moduleValue(result.data);
+}
+
+/** parseModule's answer for data already read, as a .k7x file gives it; undefined on an issue, which parseModule's text path locates. */
+export function parseModuleData(raw: unknown): ParsedModule | undefined {
+  const result = ModuleSchema.safeParse(raw ?? {});
+  return result.success ? moduleValue(result.data) : undefined;
+}
+
+function moduleValue(value: Module): ParsedModule {
   // The default — applied on the way OUT, never into the file, and never over an INHERITED type:
   // a node extending a rack states nothing, and a default here would beat the parent (docs/moduleFile.md).
-  const value = result.data;
   if (
     value.type === undefined &&
     value.io === undefined &&

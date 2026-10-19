@@ -34,3 +34,9 @@ export function parseUiFile(text: string): ParsedUiFile {
   }
   return { value: result.data, issues: [] };
 }
+
+/** parseUiFile's answer for data already read, as a .k7x file gives it; undefined on an issue, which parseUiFile's text path locates. */
+export function parseUiData(raw: unknown): ParsedUiFile | undefined {
+  const result = UiFileSchema.safeParse(raw ?? {});
+  return result.success ? { value: result.data, issues: [] } : undefined;
+}

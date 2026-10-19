@@ -9,6 +9,7 @@ import {
   renameSync,
   rmSync,
 } from "node:fs";
+import { parse as parseK7x } from "@studio/k7x/document";
 import { fromYaml } from "@studio/k7x/from-yaml";
 import { applyYaml, toYaml } from "@studio/k7x/yaml-bridge";
 import { relocateIssues } from "@studio/song-schema/yaml/k7xIssues";
@@ -66,6 +67,13 @@ export function wsRead(path: string): string {
 /** The YAML text of a file already read: a .k7x one turned into YAML, by the short form its path writes. */
 export function fromRaw(real: string, raw: string): string {
   return isK7xPath(real) ? toYaml(raw, sugarFor(real)) : raw;
+}
+
+/** The data of a .k7x file already read, short forms expanded: what `fromRaw`'s YAML parses back to, without the YAML. */
+export function k7xData(real: string, raw: string): Record<string, unknown> {
+  const data = parseK7x(raw);
+  const sugar = sugarFor(real);
+  return sugar ? sugar.expand(data) : data;
 }
 
 /** A file's text as it is on disk, a .k7x one NOT turned into YAML — for what must be read before any parse. */

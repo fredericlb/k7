@@ -10,7 +10,14 @@ import { parse as parseYaml } from "yaml";
 // this one's, which is why the window has one spelling. See docs/moduleCache.md.
 import { SETTLE_MS } from "../moduleCache";
 import { parseKey, storedParse, storeParse } from "./parseStore";
-import { fromRaw, readRaw, realPath, wsRead } from "./workspaceFile";
+import {
+  fromRaw,
+  isK7xPath,
+  k7xData,
+  readRaw,
+  realPath,
+  wsRead,
+} from "./workspaceFile";
 
 /** How many parsed files to hold. A song is ~200 of them, its module libraries ~800 more. */
 const MAX_FILES = 4000;
@@ -24,11 +31,12 @@ interface Entry {
 /** Keyed by parser then path, so one file read two ways keeps both. */
 const memo = new Map<string, Entry>();
 
-/** `parse` of `path`'s text, from the cache when the file has SETTLED — `kind` names the parser. */
+/** `parse` of `path`'s text, from the cache when the file has SETTLED — `kind` names the parser; `fromData` reads a .k7x file's data without the YAML, declining with undefined. */
 export function settledParse<T>(
   path: string,
   kind: string,
   parse: (text: string) => T,
+  fromData?: (data: Record<string, unknown>) => T | undefined,
 ): T {
   let st: { mtimeMs: number; size: number };
   try {
@@ -51,7 +59,13 @@ export function settledParse<T>(
   const raw = readRaw(real);
   const at = parseKey(kind, real, raw);
   const stored = storedParse(at);
-  const value = stored ? (stored.value as T) : parse(fromRaw(real, raw));
+  const direct =
+    stored || !fromData || !isK7xPath(real)
+      ? undefined
+      : fromData(k7xData(real, raw));
+  const value = stored
+    ? (stored.value as T)
+    : (direct ?? parse(fromRaw(real, raw)));
   if (!stored) storeParse(at, value);
   if (!settled) {
     // Still inside the window where the next write could reuse this stamp — storing it would hit later.
@@ -69,7 +83,12 @@ export function settledParse<T>(
 
 /** `path` parsed as YAML 1.2, from the cache when it has SETTLED — see docs/moduleCache.md. */
 export function parsedYaml(path: string): unknown {
-  return settledParse(path, "yaml", (t) => parseYaml(t, YAML_READ));
+  return settledParse(
+    path,
+    "yaml",
+    (t) => parseYaml(t, YAML_READ),
+    (d) => d,
+  );
 }
 
 /** `path`'s text, from the cache when it has SETTLED — a string, so sharing it is safe. */

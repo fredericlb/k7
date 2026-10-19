@@ -79,6 +79,7 @@ describe("the Rust reader", () => {
     ],
     [
       "escapes",
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: a k7x raw string keeps ${…} as text, which is what this checks.
       'a("\\n\\t\\u00e9\\ud83d\\ude00\\\\\\"\\/\\0") b(`x\\`y\\\\z${1}`)',
     ],
     ["text past the BMP", 'a("é 😀 —") "clé 😀"(1)'],

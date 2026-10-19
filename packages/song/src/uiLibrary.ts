@@ -10,7 +10,7 @@ import {
   UiFileSchema,
   WIDGETS_SCRIPT,
 } from "@studio/song-schema/yaml/moduleSchema";
-import { parseUiFile } from "@studio/song-schema/yaml/uiFile";
+import { parseUiData, parseUiFile } from "@studio/song-schema/yaml/uiFile";
 import { eachLibrarySibling } from "./moduleSiblings";
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
 import { UI_BASE } from "./yaml/moduleIO";
@@ -48,7 +48,7 @@ export function loadUiLibrary(dir: string): UiLibrary {
   const out: UiLibrary = { byRef: {}, issues: [] };
   eachLibrarySibling(dir, UI_BASE, ({ ref, path, rel }, label) => {
     if (out.byRef[ref]) return; // a nearer library already answered — that is precedence working
-    const parsed = settledParse(path, "ui", parseUiFile);
+    const parsed = settledParse(path, "ui", parseUiFile, parseUiData);
     if (!parsed.value) {
       out.issues.push(
         `${label}/${rel}: ${parsed.issues[0]?.message ?? "unreadable"}`,
