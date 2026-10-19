@@ -228,18 +228,23 @@ the answer: perfectly safe, and it recovers only 12 ms of the 46.
 ## Across a restart — `yaml/parseStore.ts`
 
 The memo above dies with the process, and on a phone the process dies often: every app launch, every
-stop for idleness. Parsing the module vocabulary again is ~1.5 s on a PC and several times that on a
-phone, before a project can open. So in a packaged app (`STUDIO_PARSE_CACHE=1`, set by
-`apps/k7/backend/standalone.json`) a SETTLED parse is also written to `<account home>/.parse-cache.json`,
-under the same key and checked against the same mtime and size; the next process reads it instead
-of parsing. Measured on `01.danse`: a cold open 2.8 s → 1.5 s on a PC.
+stop for idleness. Parsing the module vocabulary again is ~1.5 s on a PC, several times that on a
+phone, and ~3.4x more again without a JIT — iOS. So in a packaged app (`STUDIO_PARSE_CACHE=1`, set by
+`apps/k7/backend/standalone.json`) a parse is also kept ON DISK, in two layers:
 
-- **Only for a bundle.** A parse is only as good as the parser that made it, so the store carries the
-  running bundle's size and mtime and is dropped whole when they differ: an update parses afresh. A
-  source run — a developer editing a parser — never uses it.
-- **Beside the workspace, never in it**: it is this machine's, and the sync must not carry it.
-- **Only what the memo would keep**: a file inside the settle window is neither read from it nor
-  written to it, by the same rule.
+- **The account's** — `<account home>/.parse-cache.json`, written a little after each new parse,
+  beside the workspace and never in it (it is this machine's; the sync must not carry it). It carries
+  the running bundle's stamp and is dropped whole by any other bundle: a parse is only as good as the
+  parser that made it. A source run — a developer editing a parser — never uses it.
+- **The bundle's** — `parse-cache.json` beside `bin/`, made at bundle time by
+  `scripts/parseCacheSeed.ts`, bundled with the same parsers, over the `k7-core` the bundle carries. It
+  is what a FIRST launch after an install or an update finds, when the account's store is gone.
+
+Both are keyed by CONTENT, not by path and mtime: the parser, whether the file is k7x, the short
+form its path writes (`sugarKind`, all the path `sugarFor` reads), and the file's bytes. A library
+copied from the bundle, or rewritten by the sync with the same bytes, is a hit; a file whose bytes
+changed is not. Measured on a phone, `01.danse` opened from a cold file service: 9.3 s with nothing
+stored, 3.7 s with the account's store, 3.8 s on a first launch with only the bundle's.
 
 ## The seam: something that already knows
 
