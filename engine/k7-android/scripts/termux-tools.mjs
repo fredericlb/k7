@@ -9,6 +9,7 @@ import { execFileSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -16,7 +17,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fetchDeb, PACKAGES, PINS, POOLS, readPins } from "./termux-debs.mjs";
 
 const PREFIX = "data/data/com.termux/files/usr";
@@ -68,8 +69,32 @@ function extract(debFile, root) {
   const { name, data } = dataMember(debFile);
   const tarball = join(cache, name);
   writeFileSync(tarball, data);
-  execFileSync("tar", ["xf", tarball, "-C", root]);
+  if (process.platform === "win32") extractWithoutLinks(tarball, root);
+  else execFileSync("tar", ["xf", tarball, "-C", root]);
   rmSync(tarball);
+}
+
+/** Windows' tar cannot create a symlink: they are left out, then each is a COPY of what it points at. */
+function extractWithoutLinks(tarball, root) {
+  const links = execFileSync("tar", ["tvf", tarball])
+    .toString()
+    .split(/\r?\n/)
+    .filter((l) => l.startsWith("l"))
+    .map((l) => / (\.\/.*) -> (.*)$/.exec(l))
+    .filter(Boolean)
+    .map(([, path, to]) => ({ path, to }));
+  const skip = links.flatMap((l) => ["--exclude", l.path]);
+  execFileSync("tar", ["xf", tarball, "-C", root, ...skip]);
+  // Twice, so a link to a link is copied once its target is.
+  for (let pass = 0; pass < 2; pass++)
+    for (const l of links) {
+      const at = join(root, l.path);
+      const from = l.to.startsWith("/")
+        ? join(root, l.to)
+        : resolve(dirname(at), l.to);
+      if (existsSync(from) && !existsSync(at))
+        cpSync(from, at, { recursive: true });
+    }
 }
 
 const readelf = () => {
