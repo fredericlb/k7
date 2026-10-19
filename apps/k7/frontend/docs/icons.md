@@ -10,13 +10,13 @@ below is drawn the same way.
 | platform | file | shape |
 |---|---|---|
 | web, PWA (`public/manifest*.webmanifest`) | `public/icon-192.png`, `public/icon-512.png` | the cassette on a rounded black tile |
-| PWA, maskable | `public/icon-*-maskable.png` | black to the edges, the cassette inside the 80% circle a mask keeps |
+| PWA, maskable | `public/icon-*-maskable.png` | #07031F to the edges, the cassette inside the 80% circle a mask keeps |
 | browser tab | `public/favicon.ico` (16, 32, 48) | the cassette alone, as large as it fits |
-| iPhone home screen (web) | `public/apple-touch-icon.png` | black to the edges: iOS rounds it |
-| desktop app (`apps/k7-standalone`) | `public/icon-512.png`, through `electron-builder.cjs` and `src/paths.ts` | the tile |
-| Android | `engine/k7-android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png` | the cassette alone, inside the 72dp circle; `ic_launcher.xml` paints the black |
-| iOS | `engine/k7-ios/k7/Assets.xcassets/AppIcon.appiconset/icon-1024.png` | black to the edges: iOS masks it |
-| a plugin's window, opened by the engine | `engine/k7-runtime/engine/resources/studio_icon.png` | the tile |
+| iPhone home screen (web) | `public/apple-touch-icon.png` | #07031F to the edges: iOS rounds it |
+| desktop app (`apps/k7-standalone`) | `public/icon-desktop.png`, through `electron-builder.cjs` and `src/paths.ts` | the cassette alone, on transparency |
+| Android | `engine/k7-android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png` | the cassette alone, inside the 72dp circle; `ic_launcher.xml` paints the #07031F (`res/values/colors.xml`) |
+| iOS | `engine/k7-ios/k7/Assets.xcassets/AppIcon.appiconset/icon-1024.png` | #07031F to the edges: iOS masks it |
+| a plugin's window, opened by the engine | `engine/k7-runtime/engine/resources/studio_icon.png` | the cassette alone, on transparency, like the desktop app's |
 
 ## The startup splash
 
@@ -43,8 +43,12 @@ the system's launch screen and k7's first render flashes another colour.
 
 ## Choices
 
-- **Black behind the cassette.** The drawing is light-edged lavender, and it is drawn on black
-  everywhere a platform shows a background, so it reads the same on a dock, a launcher and a tab.
+- **Nothing behind the cassette on a desktop.** A dock and a taskbar draw an icon as its shape, and
+  the cassette is a shape of its own; a tile would put a dark square on every light dock.
+- **#07031F behind it on a phone.** A launcher masks every icon to its own shape, so something has
+  to fill the mask: the splash's colour, so the icon and the app it opens are one colour.
+- **The web's own tile stays black**, `icon-192.png` and `icon-512.png`: a browser draws it on a
+  page or a tab strip of any colour, where a tile keeps the light-edged drawing readable.
 - **The favicon has no tile.** At 16 pixels a tile eats a quarter of the width the cassette needs.
 - **Rendered by Chrome through Playwright**, already a dependency of the repository, rather than
   a rasterizer added for one script. It uses Playwright's own Chromium when installed, the

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The launcher icon: the cassette alone, inset inside the 72dp every mask keeps, on black (apps/k7/frontend/docs/icons.md). -->
+<!-- The launcher icon: the cassette alone, inset inside the 72dp every mask keeps, on the splash's #07031F (apps/k7/frontend/docs/icons.md). -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@android:color/black" />
+    <background android:drawable="@color/splash_background" />
     <foreground android:drawable="@mipmap/ic_launcher_foreground" />
 </adaptive-icon>
