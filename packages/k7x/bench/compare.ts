@@ -170,8 +170,19 @@ for (const name of ["corpus", "largest", "big"] as const) {
       "node --jitless",
       run(process.execPath, ["--jitless", runJs, bundle, list, String(ITERS)]),
     ],
-    ["rust", run(bin, ["bench", list, String(ITERS)])],
+    ["rust, arena per file", run(bin, ["bench", list, String(ITERS), "fresh"])],
+    [
+      "rust, one arena reset",
+      run(bin, ["bench", list, String(ITERS), "reuse"]),
+    ],
   ];
+  // Another build of the Rust half to time beside this one, e.g. a previous commit's: K7X_BASELINE_BIN=label=path.
+  const baseline = process.env.K7X_BASELINE_BIN?.split("=");
+  if (baseline)
+    rows.push([
+      baseline[0],
+      run(baseline.slice(1).join("="), ["bench", list, String(ITERS)]),
+    ]);
   const { files, bytes } = rows[0][1];
   const rust = rows[2][1];
   console.log(

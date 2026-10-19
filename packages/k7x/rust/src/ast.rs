@@ -1,11 +1,10 @@
-// ast.rs — the tree a k7x file parses to, field for field the one of ../src/ast.ts.
+// ast.rs — the tree a k7x file parses to, field for field the one of ../src/ast.ts, held in a bumpalo arena.
 // A reader would get wrong that a chain and an object are different data: both are maps, the form is only how it was written.
 
-use std::borrow::Cow;
-
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Scalar<'a> {
-    Str(Cow<'a, str>),
+    /// Borrowed from the text, or from the arena when an escape had to be decoded.
+    Str(&'a str),
     Num(f64),
     Bool(bool),
     Null,
@@ -24,7 +23,7 @@ pub enum MapForm {
     Object,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Node<'a> {
     Scalar {
         value: Scalar<'a>,
@@ -32,7 +31,7 @@ pub enum Node<'a> {
         end: usize,
     },
     List {
-        items: Vec<Node<'a>>,
+        items: &'a [Node<'a>],
         form: ListForm,
         start: usize,
         end: usize,
@@ -40,9 +39,9 @@ pub enum Node<'a> {
     Map(MapNode<'a>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Entry<'a> {
-    pub key: Cow<'a, str>,
+    pub key: &'a str,
     pub value: Node<'a>,
     pub start: usize,
     pub end: usize,
@@ -51,17 +50,18 @@ pub struct Entry<'a> {
     pub key_start: usize,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MapNode<'a> {
-    pub entries: Vec<Entry<'a>>,
+    pub entries: &'a [Entry<'a>],
     pub form: MapForm,
     /// For the root, each statement's entries as [first, end) indices.
-    pub groups: Vec<(usize, usize)>,
+    pub groups: &'a [(usize, usize)],
     pub start: usize,
     pub end: usize,
 }
 
 impl<'a> Node<'a> {
+    #[must_use]
     pub fn start(&self) -> usize {
         match self {
             Node::Scalar { start, .. } | Node::List { start, .. } => *start,
@@ -69,6 +69,7 @@ impl<'a> Node<'a> {
         }
     }
 
+    #[must_use]
     pub fn end(&self) -> usize {
         match self {
             Node::Scalar { end, .. } | Node::List { end, .. } => *end,
@@ -77,11 +78,12 @@ impl<'a> Node<'a> {
     }
 
     /// The node at a path of map keys and list indices, as nodeAt does.
+    #[must_use]
     pub fn at(&self, path: &[PathSeg]) -> Option<&Node<'a>> {
         let mut node = self;
         for seg in path {
             node = match (node, seg) {
-                (Node::Map(m), PathSeg::Key(k)) => &m.entries.iter().find(|e| e.key == *k)?.value,
+                (Node::Map(m), PathSeg::Key(k)) => &m.entries.iter().find(|e| e.key == k)?.value,
                 (Node::List { items, .. }, PathSeg::Index(i)) => items.get(*i)?,
                 _ => return None,
             };

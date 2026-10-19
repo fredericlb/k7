@@ -28,7 +28,7 @@ pub fn map_value_json(m: &MapNode, out: &mut String) {
         if i > 0 {
             out.push(',');
         }
-        string_json(&e.key, out);
+        string_json(e.key, out);
         out.push(':');
         value_json(&e.value, out);
     }
@@ -132,7 +132,7 @@ pub fn map_tree_json(m: &MapNode, u: &[usize], out: &mut String) {
 
 fn entry_json(e: &Entry, u: &[usize], out: &mut String) {
     out.push_str("{\"key\":");
-    string_json(&e.key, out);
+    string_json(e.key, out);
     out.push_str(",\"value\":");
     tree_json(&e.value, u, out);
     let dot = e.dot.map_or("null".to_owned(), |d| u[d].to_string());

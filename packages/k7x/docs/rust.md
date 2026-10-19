@@ -12,35 +12,45 @@ refuses with the same message, line and column. `npm run bench:rust -w @studio/k
 tree with `parseTree`'s, spans included. A mismatch fails the run, so no number is ever printed for
 a parser that reads something else.
 
-Three differences are deliberate:
+Two differences are deliberate:
 
 - **Spans are byte offsets** into the UTF-8 text, where the TypeScript ones count UTF-16 units.
   `src/json.rs` converts them when it writes a tree, which is how the comparison checks them.
 - **A lone surrogate escape** (`"\uD800"`) reads as U+FFFD, since a Rust string cannot hold one.
-- **Keys and strings borrow from the text** (`Cow<str>`) unless they carry an escape, and every
-  container is allocated once, at its size, from a scratch stack shared by the open containers.
 
-The crate has no dependency, so a phone build is `cargo` and nothing else.
+## The tree lives in an arena
+
+`parse_tree(text, &bump)` builds the tree in a `bumpalo::Bump` the caller owns, and the tree
+borrows from both: a key or a string is a slice of the text unless it carries an escape, a decoded
+one is written into the arena, and a container's children are one slice of it, copied there once
+at their final size from a scratch stack the open containers share. Every node is `Copy` and has
+no destructor, so freeing a tree is dropping (or resetting) its arena.
+
+That is the one dependency, and it is taken for what it measures: a tree of `Vec`s and owned
+strings, freed node by node, is 1.25–1.4× slower on every set below, most of it in the allocator.
+The cost is a lifetime — a tree cannot outlive its text or its arena — which suits a file service
+that keeps a document's text and its tree together anyway.
 
 ## What was measured
 
-2026-10-19, Windows 11, x86-64, node 24.18, rustc 1.97 (release, LTO). One pass parses every
-file of the set once, its text already in memory. "Cold" is a fresh process's first pass, JIT
-warm-up included; "median" is over 50 passes. `node --jitless` is how V8 runs on iOS
-(`engine/k7-runtime/docs/ios.md`).
+2026-10-19, Windows 11, x86-64, node 24.18, rustc 1.97 (release, LTO), bumpalo 3.20. One pass
+parses every file of the set once and frees its tree, the text already in memory. "Cold" is a
+fresh process's first pass, JIT warm-up included; "median" is over 50 passes. `node --jitless` is
+how V8 runs on iOS (`engine/k7-runtime/docs/ios.md`). Medians, in ms:
 
-| set | node (JIT) cold / median | node --jitless cold / median | rust cold / median |
-|---|---|---|---|
-| the corpus, 1272 files, 1.52 MB | 35 / 23 ms | 113 / 105 ms | 10 / 8.6 ms |
-| its largest file, 0.30 MB | 8.9 / 6.0 ms | 26 / 23 ms | 3.0 / 2.2 ms |
-| one synthetic file, 2.51 MB | 41–52 / 32 ms | 142 / 128 ms | 14 / 12 ms |
+| set | node (JIT) | node --jitless | rust, `Vec` tree | rust, arena per file | rust, one arena reset |
+|---|---|---|---|---|---|
+| the corpus, 1272 files, 1.52 MB | 23 | 108–115 | 9.0–9.6 | 6.8 | 4.8–5.0 |
+| its largest file, 0.30 MB | 6.4–8.9 | 24–26 | 2.4 | 2.0 | 1.0–1.1 |
+| one synthetic file, 2.51 MB | 34 | 132–135 | 12.6 | 10.0–10.3 | 6.8 |
 
-Rust is 2.6× the JIT and 10–12× the jitless interpreter. The ratio, not the milliseconds, is what
-carries over to a phone; the phone numbers themselves are still to be taken.
+A cold pass is within 5–20 % of the median for an arena per file, 1.3–2× it for a reset arena (its
+first pass allocates the chunks the others reuse), and 1.3–1.6× it for node's JIT.
 
-## What is left on the table
+An arena per file — what a cached document would hold — is 3.2–4.5× node's JIT and 12–17× the
+jitless interpreter. A single arena reset between files, which a one-shot walk of a workspace
+could use, gains 1.4–1.9× more, since its chunks are allocated once. The ratios, not the
+milliseconds, are what carry over to a phone; the phone numbers themselves are still to be taken.
 
-The Rust parse runs at 135–210 MB/s, about a tenth of what a byte walk of the same text costs on
-this machine. Splitting a pass showed allocation and freeing are the larger share, and Windows'
-default heap is a slow one. An arena (a crate such as `bumpalo`) or a flat node table would remove
-most of it; neither is in, since each is either a dependency or a different tree shape.
+`K7X_BASELINE_BIN=<label>=<path>` adds another build of `k7x-bench` to the table, which is how the
+`Vec` tree column was taken.

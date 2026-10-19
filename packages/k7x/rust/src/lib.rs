@@ -6,4 +6,5 @@ pub mod json;
 mod parse;
 
 pub use ast::{Entry, ListForm, MapForm, MapNode, Node, PathSeg, Scalar};
+pub use bumpalo::Bump;
 pub use parse::{MAX_DEPTH, SyntaxError, parse_tree};
