@@ -104,3 +104,8 @@ studio_replace("modules/juce/extras/Build/juceaide/CMakeLists.txt"
 studio_replace("modules/juce/extras/Build/juceaide/CMakeLists.txt"
     "if(CMAKE_OSX_DEPLOYMENT_TARGET)\n"
     "if(CMAKE_OSX_DEPLOYMENT_TARGET AND NOT IOS)  # studio: an iOS floor is no macOS one\n")
+
+# On Android Tracktion busy-waits each callback to 80% of its period: a core held, and an underrun a second (docs/android.md).
+studio_replace("modules/tracktion_engine/playback/tracktion_ScopedSteadyLoad.h"
+    "        float loadLevel         { 0.8f };\n"
+    "        float loadLevel         { 0.0f }; // studio: no steady load, patches/tracktion.cmake\n")

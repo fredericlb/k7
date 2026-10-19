@@ -164,6 +164,8 @@ struct EngineHost::Impl {
     // The open device's underrun count at the last check, -1 = no baseline yet; and whether the buffer cap was already reported (checkXRuns).
     int xruns = -1;
     bool xrunsAtCap = false;
+    // The buffer the cap was reached at: a device reopened at another size is probed again.
+    int xrunsCapFrames = 0;
 
     // The count-in mode last written to Tracktion's ENGINE-GLOBAL property storage, -1 = never (EngineHost::play says why it is shadowed once per process).
     int countInApplied = -1;
