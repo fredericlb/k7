@@ -4,6 +4,7 @@
 // for this workspace asks at once, and while that push is live the timer slows to a fallback
 // (docs/conflicts.md). It takes its fetch and its push as arguments so all of it is testable.
 
+import { openedRevision } from "@studio/project-shell/files";
 import { useSyncExternalStore } from "react";
 import { api } from "../api";
 import { subscribeWorkspace } from "../syncFeed";
@@ -39,6 +40,8 @@ export function createRevisionPoller(
   intervalMs: number = REVISION_POLL_MS,
   push?: RevisionPush,
   fallbackMs: number = REVISION_FALLBACK_MS,
+  /** A token already known before the first poll — the one `/open` answered — taken as read so nothing fetches twice. */
+  initial: () => string | null = () => null,
 ): RevisionPoller {
   let token: string | null = null;
   // What the tick compares against: the published token, or a quiet write's, which is never published.
@@ -113,7 +116,14 @@ export function createRevisionPoller(
         }
       };
     },
-    get: () => token,
+    get: () => {
+      if (token === null) {
+        // Adopted once, silently: the views mounting now read the files at this token already.
+        token = initial();
+        seen ??= token;
+      }
+      return token;
+    },
     note: (rev) => {
       generation++;
       token = rev;
@@ -145,7 +155,14 @@ const poller = createRevisionPoller(
   () => api.revision().then((r) => r.rev),
   REVISION_POLL_MS,
   (notice, live) => subscribeWorkspace(() => notice(), live),
+  REVISION_FALLBACK_MS,
+  openedRevision,
 );
+
+/** The token as the poller holds it now, outside React — for the transport's reuse of derived reads. */
+export function currentRevision(): string | null {
+  return poller.get();
+}
 
 /** Tell the poller the token a writing command just answered with — only for a caller that has already reloaded the shell. */
 export function noteRevision(rev: string): void {

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The startup splash: the cassette (scripts/icons.mjs renders splash_art.png) centred on #07031F (apps/k7/frontend/docs/icons.md). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/splash_background" />
+    <item
+        android:width="280dp"
+        android:height="179dp"
+        android:gravity="center"
+        android:drawable="@drawable/splash_art" />
+</layer-list>

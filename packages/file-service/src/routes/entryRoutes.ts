@@ -55,6 +55,8 @@ entryRouter.post(
       res.json({
         ...req.ws!.workspaceInfo(),
         engineLoad: engineLoadOf(req.ws ?? null),
+        // What the page's first reads are good for: its poll then confirms it instead of re-asking all of them.
+        rev: req.ws!.revision().rev,
       });
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });

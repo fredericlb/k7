@@ -1,6 +1,6 @@
-// Renders icon/k7.svg into every platform's app icon: web, desktop, Android, iOS, the engine's window.
+// Renders icon/k7.svg into every platform's app icon (web, desktop, Android, iOS, the engine's window), and icon/k7-splash.svg into each startup splash.
 // Run by hand after changing the SVG: node apps/k7/frontend/scripts/icons.mjs (apps/k7/frontend/docs/icons.md).
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
@@ -12,10 +12,10 @@ const svg = readFileSync(join(frontend, "icon", "k7.svg"), "utf8").replace(
   "",
 );
 
-// tile: the rounded dark square; bleed: dark to the edges, the platform masks it; none: transparent.
+// tile: the rounded dark square; bleed: the splash's #07031F to the edges, a phone masks it; none: transparent.
 const SHAPES = {
   tile: "background:#000;border-radius:22%",
-  bleed: "background:#000",
+  bleed: "background:#07031F",
   none: "",
 };
 
@@ -32,11 +32,18 @@ const TARGETS = [
     shape: "tile",
     width: 0.78,
   },
+  // The desktop: the cassette alone on transparency, for the app's bundle and window, and the engine's plugin windows.
+  {
+    out: "apps/k7/frontend/public/icon-desktop.png",
+    size: 1024,
+    shape: "none",
+    width: 0.92,
+  },
   {
     out: "engine/k7-runtime/engine/resources/studio_icon.png",
     size: 192,
-    shape: "tile",
-    width: 0.78,
+    shape: "none",
+    width: 0.92,
   },
   // Maskable: the cassette's diagonal stays inside the 80% circle every mask keeps.
   {
@@ -63,7 +70,7 @@ const TARGETS = [
     shape: "bleed",
     width: 0.78,
   },
-  // Adaptive foreground: 108dp canvas, the cassette inside the 72dp circle; ic_launcher.xml paints the black.
+  // Adaptive foreground: 108dp canvas, the cassette inside the 72dp circle; ic_launcher.xml paints the #07031F.
   {
     out: "engine/k7-android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
     size: 432,
@@ -73,6 +80,45 @@ const TARGETS = [
 ];
 
 const FAVICON_SIZES = [16, 32, 48];
+
+// The startup splash, drawn transparent: each platform paints #07031F behind it (apps/k7/frontend/docs/icons.md).
+const splashSvg = readFileSync(
+  join(frontend, "icon", "k7-splash.svg"),
+  "utf8",
+).replace(/^<\?xml[^>]*>\s*/, "");
+const SPLASH_TARGETS = [
+  {
+    out: "engine/k7-android/app/src/main/res/drawable-nodpi/splash_art.png",
+    width: 960,
+  },
+  {
+    out: "engine/k7-ios/k7/Assets.xcassets/Splash.imageset/splash@2x.png",
+    width: 560,
+  },
+  {
+    out: "engine/k7-ios/k7/Assets.xcassets/Splash.imageset/splash@3x.png",
+    width: 840,
+  },
+];
+// The pages that fetch nothing carry the drawing inline (the desktop splash, k7.rocks), minus the namespaces HTML does not need.
+const SPLASH_INLINE = "apps/k7/frontend/icon/k7-splash.inline.json";
+
+async function renderSplash(browser, width) {
+  const tab = await browser.newPage({ viewport: { width, height: width } });
+  await tab.setContent(
+    `<!doctype html><html><body style="margin:0;background:transparent">${splashSvg.replace("<svg ", `<svg style="display:block;width:${width}px;height:auto" `)}</body></html>`,
+  );
+  const png = await tab.locator("svg").screenshot({ omitBackground: true });
+  await tab.close();
+  return png;
+}
+
+function inlineSplash() {
+  return splashSvg
+    .replace(/\s+xmlns(:\w+)?="[^"]*"/g, "")
+    .replace(/>\s+</g, "><")
+    .trim();
+}
 
 function page(size, shape, width) {
   return `<!doctype html><html><body style="margin:0;background:transparent">
@@ -129,6 +175,16 @@ try {
     favicons.push({ size, png: await render(browser, size, "none", 1) });
   writeFileSync(join(frontend, "public", "favicon.ico"), ico(favicons));
   console.log("apps/k7/frontend/public/favicon.ico");
+  for (const { out, width } of SPLASH_TARGETS) {
+    mkdirSync(dirname(join(repo, out)), { recursive: true });
+    writeFileSync(join(repo, out), await renderSplash(browser, width));
+    console.log(out);
+  }
+  writeFileSync(
+    join(repo, SPLASH_INLINE),
+    `${JSON.stringify({ svg: inlineSplash() }, null, 2)}\n`,
+  );
+  console.log(SPLASH_INLINE);
 } finally {
   await browser.close();
 }

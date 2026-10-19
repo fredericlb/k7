@@ -381,8 +381,7 @@ The **engine's health** sits in the header, right of the engine switch (`compone
 the connection light, the Q badge and the engine process's memory. They describe the engine that
 switch names, so they stand beside its name rather than at the far end of the status bar. Q1/Q2/Q3
 off the measured latency is a property of the SESSION rather than of a screen — it decides what you
-can do here (`@studio/web-protocol/quality`) — and it is the same line the médiathèque shows. A phone
-keeps the light alone. The light changes SHAPE as well as colour — a dot when connected, an unplugged
+can do here (`@studio/web-protocol/quality`) — and it is the same line the médiathèque shows. The light changes SHAPE as well as colour — a dot when connected, an unplugged
 plug when not — so it reads for someone who cannot tell red from green.
 
 A link that stays down says so in words, on a strip under the header
@@ -408,6 +407,13 @@ else.
 
 A pane row is `aria-current`, not `aria-pressed`, exactly like the desktop's header row: picking one
 means "show me that page", and the current row is where you are, not a switch left on.
+
+**The project's name, the engine switch and the engine's health fold into one info icon** on the
+left (`MobileInfo`), beside the back arrow. Their labels and figures would take the width the
+transport needs, and they are read far less often than the transport is pressed. The icon carries a
+dot that keeps the link's state visible with the popover closed — green when up, red when down,
+amber with no engine at all — since a silent song with nothing on screen saying why is the failure
+the engine's name in the bar exists to prevent.
 
 **There is ONE layout**, and no project chooses a second one. `project.k7x`'s `project_type` is
 accepted and ignored — the schema keeps it as a plain string so a folder still carrying it loads —

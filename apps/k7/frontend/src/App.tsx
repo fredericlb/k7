@@ -95,7 +95,11 @@ import { MasteringTab } from "./components/MasteringTab";
 import { MasterMeter, type MasterMeterHandle } from "./components/MasterMeter";
 import { MidiTakeRoll } from "./components/MidiTakeRoll";
 import { Minimap, type MinimapItem } from "./components/Minimap";
-import { MobileMenu, MobileMenuItem } from "./components/MobileChrome";
+import {
+  MobileInfo,
+  MobileMenu,
+  MobileMenuItem,
+} from "./components/MobileChrome";
 import type { RollHandle } from "./components/PianoRoll";
 import { PlaylistsPanel } from "./components/PlaylistsPanel";
 import { RackBuilder } from "./components/RackBuilder";
@@ -334,6 +338,7 @@ export default function App({
   // A phone draws the pages from its hamburger rather than from the header's row. See docs/shell.md.
   const isMobile = useIsMobile();
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [mobileInfo, setMobileInfo] = useState(false);
   // The timeline, because it is what the default view opens on — see ringPanes.
   const [focusPane, setFocusPane] = useState<Pane>("timeline");
   const [panel, setPanel] = useState<Panel | null>(null);
@@ -1206,15 +1211,10 @@ export default function App({
     const showWs = askWs();
     void api.workspace().then((w) => {
       showWs(w);
-      // The open below may begin a load: Play waits for its answer, which the next poll would correct anyway.
-      setEngineLoad(w.activeProject ? "copying" : (w.engineLoad ?? null));
+      // The gate OPENED this project before mounting us (useGatePhase.ts), so the load it began is already here: a second open re-pushed the whole project.
+      setEngineLoad(w.engineLoad ?? null);
       lastActive.current = w.activeProject;
-      if (w.activeProject)
-        void api
-          .open(w.activeProject)
-          .then((o) => setEngineLoad(o.engineLoad ?? null))
-          .catch(() => {});
-      else fullscreen("editor");
+      if (!w.activeProject) fullscreen("editor");
     });
     void api
       .commands()
@@ -2665,6 +2665,34 @@ export default function App({
     </>
   );
 
+  // The project's name, linking home; in the phone's info popover it has the popover's width rather than the bar's.
+  const projectLink = (
+    <a
+      href={projectsUrl(window.location.href)}
+      title={m["project.backToProjects"]()}
+      className={cn(
+        "truncate text-muted-foreground text-sm hover:text-foreground hover:underline",
+        isMobile ? "px-1.5 font-medium text-foreground" : "max-w-[10rem]",
+      )}
+    >
+      {project?.name || "…"}
+    </a>
+  );
+  // Which engine plays this project, and the way to another (components/EngineSwitch.tsx).
+  const engineSwitch = !frozen && onSwitchEngine && (
+    <EngineSwitch
+      current={engine ?? null}
+      onSwitch={onSwitchEngine}
+      compat={engineCompat}
+      audioToBrowser={audioToBrowser}
+      searching={engineSearching}
+    />
+  );
+  // …and how that engine is doing, right of it: the light, the latency, the memory (components/EngineLink.tsx).
+  const engineLink = !frozen && (
+    <EngineLink connected={connected} latency={engineLatency} />
+  );
+
   const headerActions = (
     <div className="flex min-w-0 items-center gap-1">
       {/* The mix leaving for the interface, at the right end of the bar; no phone fits it and a snapshot has no engine. */}
@@ -2808,32 +2836,33 @@ export default function App({
                     >
                       <ArrowLeft className="h-4 w-4" />
                     </a>
-                    <a
-                      href={projectsUrl(window.location.href)}
-                      title={m["project.backToProjects"]()}
-                      className="max-w-[10rem] truncate text-muted-foreground text-sm hover:text-foreground hover:underline"
-                    >
-                      {project?.name || "…"}
-                    </a>
+                    {!isMobile && projectLink}
                   </span>
                 )}
-                {/* Which engine plays this project, and the way to another (components/EngineSwitch.tsx). */}
-                {!frozen && onSwitchEngine && (
-                  <EngineSwitch
-                    current={engine ?? null}
-                    onSwitch={onSwitchEngine}
-                    compat={engineCompat}
-                    audioToBrowser={audioToBrowser}
-                    searching={engineSearching}
-                  />
-                )}
-                {/* …and how that engine is doing, right of it: the light, the latency, the memory (components/EngineLink.tsx). */}
-                {!frozen && (
-                  <EngineLink
-                    connected={connected}
-                    latency={engineLatency}
-                    compact={isMobile}
-                  />
+                {/* A phone folds the name and the engine into one icon, the bar having room for neither (docs/shell.md). */}
+                {isMobile && !snapshot ? (
+                  <MobileInfo
+                    open={mobileInfo}
+                    onOpenChange={setMobileInfo}
+                    status={
+                      frozen
+                        ? null
+                        : !engine
+                          ? "none"
+                          : connected
+                            ? "up"
+                            : "down"
+                    }
+                  >
+                    {!inDesktopTab && projectLink}
+                    {engineSwitch}
+                    <div className="px-1.5">{engineLink}</div>
+                  </MobileInfo>
+                ) : (
+                  <>
+                    {engineSwitch}
+                    {engineLink}
+                  </>
                 )}
                 {/* Dressed as a state, not a warning: a visitor has no other way to learn it (docs/shared.md). */}
                 {snapshot && (

@@ -2,7 +2,7 @@
 // that engine's tunnel. Only a claim binds: the registry lists every engine to everyone, and
 // driving one is the claim's to grant, never a header's. See docs/fileHub.md.
 
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { EngineRegistry } from "@studio/engine-registry";
 import type { TunnelRoot } from "@studio/engine-tunnel/frames";
@@ -226,8 +226,10 @@ async function refreshPlugins(
     return;
   }
   // The scan file's own shape, so every reader of it works unchanged.
-  await writeFile(
-    join(inst.home, "exts.json"),
-    JSON.stringify({ entries: [{ plugins }] }),
-  );
+  const at = join(inst.home, "exts.json");
+  const text = JSON.stringify({ entries: [{ plugins }] });
+  // Left alone when it says the same: its mtime is in the project's revision token, and a rewrite at every
+  // bind threw away the compile an open had just made (packages/file-service/docs/workspace.md).
+  if ((await readFile(at, "utf8").catch(() => null)) === text) return;
+  await writeFile(at, text);
 }

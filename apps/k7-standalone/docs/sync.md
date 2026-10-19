@@ -35,8 +35,11 @@ listens on, the way sign-in does (`docs/signIn.md`).
 ## The server is the person's choice
 
 Signing in asks which k7 server this machine syncs with — `app.k7.rocks`, a private instance, a dev
-origin — inline, beside the home page's Sign in, prefilled with the last one (`src/server.ts`,
-`AccountButton.tsx`). It is kept in the app's state folder and is where pairing goes; the sign-in
+origin — in a popin the home page's Sign in opens before the browser does, prefilled with the last
+one (`src/server.ts`, `ServerDialog.tsx`). A popin rather than a field beside the button, and the
+same one on the phones (`engine/k7-runtime/docs/android.md`): the address is the one decision a
+sign-in asks for, and a field squeezed into the account bar hid it. It is kept in the app's state
+folder and is where pairing goes; the sign-in
 still goes through the app's own provider. The address is an origin, https unless the server is on
 this machine (`normalizeServer` in `packages/web-protocol/pairing.ts`, one rule for the field and the
 main process): a device token sent in clear across a network would be given away.

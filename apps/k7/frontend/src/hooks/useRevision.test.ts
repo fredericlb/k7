@@ -256,4 +256,25 @@ describe("createRevisionPoller", () => {
     await settle();
     expect(calls).toBe(2);
   });
+  it("takes the token the open answered as read, so the first poll moves nothing", async () => {
+    let rev = "opened";
+    const seen: number[] = [];
+    const p = createRevisionPoller(
+      async () => rev,
+      2000,
+      undefined,
+      30_000,
+      () => "opened",
+    );
+    // A view mounting reads it before any poll, and fetches its files at it.
+    expect(p.get()).toBe("opened");
+    p.subscribe(() => seen.push(1));
+    await settle();
+    expect(seen).toHaveLength(0);
+
+    rev = "edited";
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(seen).toHaveLength(1);
+    expect(p.get()).toBe("edited");
+  });
 });

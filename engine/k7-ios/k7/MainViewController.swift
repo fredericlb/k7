@@ -21,8 +21,8 @@ final class MainViewController: CAPBridgeViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         Self.current = self
-        // Every studio page is dark-only: no white flash behind a loading page.
-        view.backgroundColor = UIColor(red: 0.04, green: 0.04, blue: 0.05, alpha: 1)
+        // The splash's #07031F, so the launch screen hands over to the shell page with no flash.
+        view.backgroundColor = UIColor(red: 7 / 255, green: 3 / 255, blue: 31 / 255, alpha: 1)
         webView?.isOpaque = false
         webView?.backgroundColor = .clear
     }

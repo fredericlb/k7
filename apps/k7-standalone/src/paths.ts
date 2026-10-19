@@ -45,8 +45,8 @@ export function appIcon(): string {
     "frontend",
   );
   return app.isPackaged
-    ? join(frontend, "dist", "icon-512.png")
-    : join(frontend, "public", "icon-512.png");
+    ? join(frontend, "dist", "icon-desktop.png")
+    : join(frontend, "public", "icon-desktop.png");
 }
 
 // A multi-config generator (MSVC) nests the binary one folder deeper, as engine/scripts/supervisorBuild.mjs knows.

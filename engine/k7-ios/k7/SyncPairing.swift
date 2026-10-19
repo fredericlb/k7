@@ -10,9 +10,11 @@ import os
 import UIKit
 
 final class SyncPairing: NSObject, ASWebAuthenticationPresentationContextProviding {
-    /// web-protocol's STUDIO_ORIGIN: the one origin a phone's workspaces and libraries follow.
-    private static let syncOrigin = "https://app.k7.rocks"
-    private static let syncHost = "app.k7.rocks"
+    /// web-protocol's STUDIO_ORIGIN: the server a phone syncs with until the sign-in popin names another.
+    private static let defaultOrigin = "https://app.k7.rocks"
+    private static let serverKey = "k7.syncServer"
+    private static var syncOrigin: String { UserDefaults.standard.string(forKey: serverKey) ?? defaultOrigin }
+    private static var syncHost: String { URLComponents(string: syncOrigin)?.host ?? syncOrigin }
     /// web-protocol's SYNC_PAIR_ROUTE and SYNC_PAIR_RETURN_PATH: the origin accepts only an http loopback return.
     private static let pairRoute = "/api/sync/devices/pair"
     private static let returnPath = "/desktop/sync-pair"
@@ -31,6 +33,16 @@ final class SyncPairing: NSObject, ASWebAuthenticationPresentationContextProvidi
         case paired
         case otherAccount(String?)
         case notStored
+    }
+
+    /// Keep the server the sign-in popin named, when it is one: https, or http on this phone only.
+    static func choose(_ input: String?) {
+        guard let raw = input?.trimmingCharacters(in: .whitespaces), !raw.isEmpty,
+              let u = URLComponents(string: raw), let host = u.host?.lowercased(), u.user == nil, u.password == nil else { return }
+        let loopback = ["127.0.0.1", "localhost", "::1"].contains(host)
+        guard u.scheme == "https" || (u.scheme == "http" && loopback) else { return }
+        let origin = u.port.map { "\(u.scheme!)://\(host):\($0)" } ?? "\(u.scheme!)://\(host)"
+        UserDefaults.standard.set(origin, forKey: serverKey)
     }
 
     /// Pair the account signed in to the phone's studio, unless it is the local user, already paired, or asked this run.
@@ -65,7 +77,11 @@ final class SyncPairing: NSObject, ASWebAuthenticationPresentationContextProvidi
         let fresh = asked.insert(email).inserted
         lock.unlock()
         if !again && !fresh { return false }
-        guard let remote = local("GET", "/api/sync/remote", cookie: cookie), remote["paired"] as? Bool != true else { return false }
+        guard let remote = local("GET", "/api/sync/remote", cookie: cookie) else { return false }
+        // Already a server of this account, main or not, as on desktop: another one chosen is paired as the main.
+        let servers = remote["servers"] as? [[String: Any]] ?? []
+        let hosts = servers.compactMap { s in (s["url"] as? String).flatMap { url in URLComponents(string: url)?.host } }
+        if hosts.contains(Self.syncHost) { return false }
         if !again && !Dialogs.ask(
             "Sync",
             "Sync this phone's workspaces with \(Self.syncHost)?\n\nThe browser opens to confirm it as \(email).",

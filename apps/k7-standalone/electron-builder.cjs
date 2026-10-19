@@ -28,7 +28,7 @@ module.exports = {
   // Frozen once shipped: macOS keys microphone grants and single-instance on it.
   appId: "org.parapluie.k7.standalone",
   productName: "k7",
-  icon: "../k7/frontend/public/icon-512.png",
+  icon: "../k7/frontend/public/icon-desktop.png",
   mac: {
     category: "public.app-category.music",
     target: ["dmg"],

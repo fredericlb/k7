@@ -38,6 +38,7 @@ import { loopbackOnly } from "./loopback.ts";
 import { originPolicyFromEnv, studioCors } from "./media/cors.ts";
 import { mediaTokens, mountMedia } from "./media/mount.ts";
 import { readinessRoute, volumesFromEnv } from "./readiness.ts";
+import { siteHostsFromEnv, sitePage } from "./sitePage.ts";
 import { BUILD, VERSION } from "./version.ts";
 
 // A stray rejection is logged and survived; an uncaught exception leaves, and the container restarts it.
@@ -105,6 +106,8 @@ if (!LOCAL_USER) {
   );
   app.use("/app_downloads", appDownloadsRouter(releases));
 }
+// The root domain and www.: one page, before the session and everything else (./sitePage.ts).
+app.use(sitePage(siteHostsFromEnv()));
 
 // Empty stays undefined, not []: setupAuth falls back on nullish only, and [] asks for NO scopes.
 const scopes = (process.env.OIDC_SCOPES ?? "")

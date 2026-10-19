@@ -78,7 +78,9 @@ so it draws the same tray with a Retry. Its forms — another studio's address, 
 collapsed, since the phone's own studio needs neither; a studio refused for its certificate opens the
 private CA section, the likely fix.
 
-The activity keeps Capacitor's `AppTheme.NoActionBar`, a dark theme, rather than a DayNight one. Every
+The activity's theme is `AppTheme.Launch` (`res/values/themes.xml`), Capacitor's `AppTheme.NoActionBar`
+with the startup splash as the window's background, so the phone shows the cassette from the first
+frame (`apps/k7/frontend/docs/icons.md`). It stays a dark theme rather than a DayNight one. Every
 studio page is dark-only (`@frediverse/ui/theme.css`, and k7's `color-scheme: dark`), so the
 `prefers-color-scheme` a light theme would give the views changes nothing in them; what it would
 change is the window behind a loading page and the native dialogs, a white flash and white boxes
@@ -312,8 +314,13 @@ not finished — in a toast. A browser signed in as another account gets a dialo
   process whose activity is behind the browser: frozen, the browser's redirect waits until the app is back in
   front; killed, the next start listens again on the same port with the same state, for as long as the pairing had
   left, and the browser's page reloaded delivers the answer. The token itself is never written down.
-- **The origin is `app.k7.rocks`**, web-protocol's `STUDIO_ORIGIN`: a phone connected to another studio
-  uses that studio's own session and has nothing to pair.
+- **The server is the person's choice, as on desktop.** Sign in opens the same popin
+  (`ServerDialog.tsx`), and the address rides on the `/auth/login` the shell already intercepts, as
+  `?server=`: the page has no other way to the shell that both phones share. The shell keeps it
+  (`SyncPairing.choose`, `SharedPreferences` here, `UserDefaults` on iOS) and pairs with it,
+  `app.k7.rocks` until then. The page keeps a copy only to prefill the popin. A server the account
+  is already paired with is not asked again; another one is paired as the main. A phone connected
+  to another studio uses that studio's own session and has nothing to pair.
 
 ## A library in the app, not a process it spawns
 

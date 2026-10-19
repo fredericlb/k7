@@ -52,7 +52,7 @@ services:
       # Signs the rehearsal recorder's personal tokens, saved in users' settings. Unset is the
       # default derived from SESSION_SECRET that k7 always used, which keeps issued tokens valid.
       K7_API_TOKEN_SECRET: ${K7_API_TOKEN_SECRET:-}
-      # Where the rehearsal store is imported from, ONCE, while k7.db is still empty —
+      # Where the rehearsal store is imported from, ONCE, while none of its rows is in k7.db —
       # packages/rehearsal-server/docs/store.md. Drop all three with the pocketbase service.
       POCKETBASE_URL: ${POCKETBASE_URL:-http://pocketbase:8090}
       POCKETBASE_EMAIL: ${POCKETBASE_EMAIL:-}
@@ -76,6 +76,8 @@ services:
       STUDIO_REGISTRY_REQUIRE_DEVICE: ${REGISTRY_REQUIRE_DEVICE:-0}
       # The bearer desktop.yml publishes the apps' builds with; empty refuses every upload (docs/app-downloads.md).
       APP_RELEASE_TOKEN: ${APP_RELEASE_TOKEN:-}
+      # The hosts that show the coming-soon page rather than the app — the k7-site router below.
+      STUDIO_SITE_HOSTS: ${SITE_DOMAIN:-k7.rocks},www.${SITE_DOMAIN:-k7.rocks}
     volumes:
       - data:/data
       # The media library IS this volume — apps/k7/docker/Dockerfile.
@@ -92,11 +94,11 @@ services:
       - traefik.http.routers.k7.entrypoints=websecure
       - traefik.http.routers.k7.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
       - traefik.http.services.k7.loadbalancer.server.port=8789
-      # The root domain answers /app_downloads only, the apps' download page and update feed; the rest of it is not k7's.
-      - traefik.http.routers.k7-downloads.rule=Host(`${DOWNLOADS_DOMAIN:-k7.rocks}`) && PathPrefix(`/app_downloads`)
-      - traefik.http.routers.k7-downloads.entrypoints=websecure
-      - traefik.http.routers.k7-downloads.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
-      - traefik.http.routers.k7-downloads.service=k7
+      # The root domain and www.: the coming-soon page, and /app_downloads, the apps' download page and update feed (apps/k7/backend/docs/site.md).
+      - traefik.http.routers.k7-site.rule=Host(`${SITE_DOMAIN:-k7.rocks}`) || Host(`www.${SITE_DOMAIN:-k7.rocks}`)
+      - traefik.http.routers.k7-site.entrypoints=websecure
+      - traefik.http.routers.k7-site.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      - traefik.http.routers.k7-site.service=k7
 
   # The rehearsal recorder's FORMER store, kept only as the source of k7's one-time import into
   # k7.db (packages/rehearsal-server/docs/store.md). Once k7's log says "rehearsal: imported …",

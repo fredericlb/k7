@@ -178,10 +178,8 @@ function resendServed(ws: Workspace): void {
   const doc = clientDocs.get(session);
   const project = served.get(session)?.project;
   if (doc) sendDoc(ws, doc);
-  else if (project) {
-    ws.invalidateProjectDoc();
-    pushProject(ws, project);
-  }
+  // The compile as it stands: the revision token already moves with every input, the engine's scan included.
+  else if (project) pushProject(ws, project);
 }
 
 /** The dry run's hands on one session's engine link. */

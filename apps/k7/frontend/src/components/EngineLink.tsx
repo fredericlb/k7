@@ -13,12 +13,9 @@ import { EngineLoad } from "./EngineLoad";
 export function EngineLink({
   connected,
   latency,
-  compact,
 }: {
   connected: boolean;
   latency: EngineLatency | null;
-  /** A phone keeps the light and drops the figures, which the header has no room for. */
-  compact?: boolean;
 }) {
   return (
     <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground text-xs">
@@ -40,25 +37,21 @@ export function EngineLink({
           />
         </span>
       )}
-      {!compact && (
-        <>
-          {/* Q1/Q2/Q3 off the measured latency, a property of the SESSION (@studio/web-protocol/quality). */}
-          <span
-            className="whitespace-nowrap font-mono text-[10px] tabular-nums"
-            title={
-              latency
-                ? m["engines.latencyBreakdown"]({
-                    network: Math.round(latency.networkMs),
-                    audio: Math.round(latency.audioMs),
-                  })
-                : m["engines.noLatency"]()
-            }
-          >
-            {latency ? formatLatency(latency) : m["engines.noLatency"]()}
-          </span>
-          <EngineLoad className="shrink-0" />
-        </>
-      )}
+      {/* Q1/Q2/Q3 off the measured latency, a property of the SESSION (@studio/web-protocol/quality). */}
+      <span
+        className="whitespace-nowrap font-mono text-[10px] tabular-nums"
+        title={
+          latency
+            ? m["engines.latencyBreakdown"]({
+                network: Math.round(latency.networkMs),
+                audio: Math.round(latency.audioMs),
+              })
+            : m["engines.noLatency"]()
+        }
+      >
+        {latency ? formatLatency(latency) : m["engines.noLatency"]()}
+      </span>
+      <EngineLoad className="shrink-0" />
     </span>
   );
 }

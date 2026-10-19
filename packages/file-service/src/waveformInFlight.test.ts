@@ -29,7 +29,12 @@ vi.mock("@studio/audio-analysis/analyse", () => ({
 // The pool would run the REAL analysis on a worker thread, out of the mock's reach: here it is the mocked call, in-thread.
 vi.mock("./analysePool.ts", async () => {
   const { analyseFile } = await import("@studio/audio-analysis/analyse");
-  return { analyseOffThread: analyseFile };
+  const { checkSidecar } = await import("./sidecarCheck.ts");
+  return {
+    analyseOffThread: analyseFile,
+    checkSidecarOffThread: async (source: string, sensitivity?: number) =>
+      checkSidecar(source, sensitivity),
+  };
 });
 
 const { CACHE_VERSION } = await import("@studio/audio-analysis/sidecar");
@@ -78,7 +83,9 @@ describe("ensureFileEnvelope", () => {
     holding = true;
     const first = ensureFileEnvelope(audio, "engine");
     const second = ensureFileEnvelope(audio, "engine");
-    // Counted BEFORE anything is let go: the second ask must not have started a decode at all.
+    // Counted BEFORE anything is let go — once the sidecar checks have run — the second ask must not have started a decode at all.
+    await vi.waitFor(() => expect(spawns.length).toBeGreaterThan(0));
+    await new Promise((r) => setTimeout(r, 20));
     expect(spawns).toHaveLength(1);
     for (const finish of held) finish();
     const [a, b] = await Promise.all([first, second]);

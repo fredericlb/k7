@@ -14,7 +14,7 @@ const raw = defineEnv(
     SESSION_SECRET: z.string().default(DEV_SECRET),
     // k7's own token secret, NOT k7's API_TOKEN_SECRET: the tokens saved in users' settings must keep verifying.
     K7_API_TOKEN_SECRET: z.string().optional(),
-    // Set, and the store still empty: the rows are copied out of that PocketBase once at boot — ../docs/store.md.
+    // Set, and none of its rows here yet: the rows are copied out of that PocketBase once at boot — ../docs/store.md.
     POCKETBASE_URL: z.string().optional(),
     POCKETBASE_EMAIL: z.string().optional(),
     POCKETBASE_PASSWORD: z.string().optional(),
@@ -44,6 +44,8 @@ export const env = {
   apiTokenSecret: raw.K7_API_TOKEN_SECRET || `${raw.SESSION_SECRET}:api-token`,
   dataDir,
   instance: raw.K7_INSTANCE,
+  // Alone, without the credentials below, it imports nothing, and the boot says so.
+  pocketbaseUrl: raw.POCKETBASE_URL || "",
   // The PocketBase the store is imported from once, when all three are set.
   pocketbase:
     raw.POCKETBASE_URL && raw.POCKETBASE_EMAIL && raw.POCKETBASE_PASSWORD

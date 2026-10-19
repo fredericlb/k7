@@ -70,7 +70,8 @@ host-only and `Lax`. `COOKIE_DOMAIN` is therefore forced empty — set, it would
 
 **The window opens at once, on a splash, and k7 loads into it once the backend answers.** A cold
 start — the backend under tsx, a first seed of the library — takes seconds, and a window held back
-until then leaves nothing on screen but a Dock icon. The splash is a data URL (`src/splash.ts`):
+until then leaves nothing on screen but a Dock icon. The splash is a data URL (`src/splash.ts`), the
+cassette every app starts on (`apps/k7/frontend/docs/icons.md`), inlined from `apps/k7/frontend/icon/k7-splash.inline.json`:
 it needs no server, holds no link, and is loaded by the main process, so the tabs' routing never
 sees it. The tab strip stays empty until then, since it is a k7 page too. A start that fails
 puts its reason and the log's path in that window, behind the shell's dialog — Retry, which
