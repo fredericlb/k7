@@ -20,7 +20,7 @@ import {
   ENGINE_REACH_BUDGET_MS,
 } from "@studio/web-protocol";
 import { WebSocket, WebSocketServer } from "ws";
-import { mayUse, roleOf } from "./owners.ts";
+import { engineRole, mayUse } from "./owners.ts";
 import type { EngineEntry, EngineRegistry } from "./registry.ts";
 import { type Frame, RelayGate } from "./relayGate.ts";
 
@@ -196,6 +196,8 @@ export function attachEngineProxy(
   server: Server,
   reg: EngineRegistry,
   tunnels?: TunnelHub,
+  /** A standalone app's backend — the same rule the listing applies (owners.ts `engineRole`). */
+  localMachine = false,
 ): void {
   const wss = new WebSocketServer({
     noServer: true,
@@ -250,10 +252,12 @@ export function attachEngineProxy(
         // Asked per frame: a share withdrawn mid-socket stops the token at once — docs/ownership.md.
         mayReadToken: () =>
           mayUse(
-            roleOf(
-              reg.owners.get(id),
+            engineRole(
+              reg,
+              id,
               ticket.holder,
               !!tunnels?.isRenderer(id),
+              localMachine,
             ),
           ),
         toEngine: (f) => {

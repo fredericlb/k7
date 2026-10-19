@@ -118,6 +118,8 @@ export function mountMedia(
     deviceOf: (token) => fileHub?.deviceAccount(token) ?? null,
     // An admin may reset an engine's owner — packages/engine-registry/docs/ownership.md.
     isAdmin: isAdminRequest,
+    // The desktop and phone apps: their own engine is every account's on that device, whoever opened it first.
+    localMachine: process.env.STUDIO_LOCAL_USER === "1",
   });
 
   // A share is played by the server's engine, one session per visitor — ../../docs/media/sharePlayer.md.

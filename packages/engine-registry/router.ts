@@ -11,7 +11,7 @@ import { REGISTRY_SERVICE } from "@studio/web-protocol/services";
 import { type Request, Router } from "express";
 import { z } from "zod";
 import { readHeartbeat, throttledLog } from "./heartbeat.ts";
-import { claimHolder, type EngineRole, mayUse, roleOf } from "./owners.ts";
+import { claimHolder, type EngineRole, engineRole, mayUse } from "./owners.ts";
 import { ownershipRouter } from "./ownershipRoutes.ts";
 import { issueEngineTicket } from "./proxy.ts";
 import type { EngineRegistry } from "./registry.ts";
@@ -100,6 +100,8 @@ export interface RouterOptions {
   isAdmin?: (req: Request) => boolean;
   /** Who may list an engine; absent, anyone, as before — docs/heartbeat.md. */
   heartbeat?: HeartbeatGate;
+  /** A standalone app's backend: the engine on its own machine is every signed-in account's — docs/ownership.md. */
+  localMachine?: boolean;
 }
 
 /** The routes over the one registry, pl8's — see docs/shared.md. */
@@ -114,7 +116,7 @@ export function engineRegistryRouter(
   const gate = opts.heartbeat;
   /** What the request's account is to engine `id` — docs/ownership.md. */
   const roleFor = (id: string, holder: string): EngineRole =>
-    roleOf(reg.owners.get(id), holder, !!tunnels?.isRenderer(id));
+    engineRole(reg, id, holder, !!tunnels?.isRenderer(id), opts.localMachine);
   // Once a minute per (engine, complaint): a machine refused every 5 s is one line, not twelve.
   const complain = throttledLog(log);
   /** Who a refusal is about, as the log should name it. */

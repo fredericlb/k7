@@ -53,7 +53,9 @@ describe("the owners store", () => {
 });
 
 /** A registry behind its routes, with the session's account read from an `x-user` header. */
-async function routes(server: { renderer?: string } = {}) {
+async function routes(
+  server: { renderer?: string; localMachine?: boolean } = {},
+) {
   const reg = createRegistry({ bindings: createBindings(undefined, quiet) });
   const app = express();
   app.use(express.json());
@@ -71,6 +73,7 @@ async function routes(server: { renderer?: string } = {}) {
     engineRegistryRouter(reg, tunnels as never, quiet, {
       isAdmin: (req) =>
         (req as { user?: { email?: string } }).user?.email === "root@x",
+      localMachine: server.localMachine,
     }),
   );
   const http = app.listen(0);
@@ -326,5 +329,46 @@ describe("the relay and the token", () => {
     expect((await whoami("ann@x")).token).toBe("tok");
     expect((await whoami("bob@x")).token).toBe("tok");
     expect((await whoami("eve@x")).token).toBeUndefined();
+  });
+});
+
+describe("on a standalone app's backend", () => {
+  let r: Awaited<ReturnType<typeof routes>>;
+  beforeEach(async () => {
+    r = await routes({ localMachine: true });
+    // The device's own engine beats from loopback; a LAN one from another machine.
+    beat(r.reg, "own", "::ffff:127.0.0.1");
+    beat(r.reg, "lan");
+    // The account that opened the app first enrolled both.
+    r.reg.owners.enrol("own", "local@x");
+    r.reg.owners.enrol("lan", "local@x");
+  });
+  afterEach(() => r.close());
+
+  it("lists the device's own engine to every signed-in account, and nobody else's", async () => {
+    const fred = (await r.call("fred@x", "GET", "/engines")).body as {
+      id: string;
+      access: string;
+    }[];
+    expect(fred.map((e) => [e.id, e.access])).toEqual([["own", "owner"]]);
+    expect((await r.call("", "GET", "/engines")).body).toEqual([]);
+  });
+
+  it("lets another account select it, without changing who enrolled it", async () => {
+    const res = await r.call("fred@x", "POST", "/engine/select", {
+      id: "own",
+      token: "tok-own",
+      project: null,
+    });
+    expect(res.status).toBe(200);
+    expect(r.reg.owners.get("own")?.owner).toBe("local@x");
+  });
+
+  it("is off on a hosted backend: the device's engine stays its owner's", async () => {
+    const hosted = await routes();
+    beat(hosted.reg, "own", "127.0.0.1");
+    hosted.reg.owners.enrol("own", "local@x");
+    expect((await hosted.call("fred@x", "GET", "/engines")).body).toEqual([]);
+    hosted.close();
   });
 });

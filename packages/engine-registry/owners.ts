@@ -3,6 +3,8 @@
 // hands that token to anyone who may not use the engine, so holding it means this browser met the
 // engine directly. Kept on disk beside the bindings, since a listing lasts 15 s. See docs/ownership.md.
 
+import { isLoopbackAddress } from "@studio/web-protocol/services";
+import type { EngineRegistry } from "./registry.ts";
 import { loadJson, saveJson } from "./stateFile.ts";
 
 /** The file's name under a host's state dir. */
@@ -69,6 +71,19 @@ export function roleOf(
   if (!holder) return "none";
   if (o.owner === holder) return "owner";
   return o.shared.includes(holder.toLowerCase()) ? "shared" : "none";
+}
+
+/** What `holder` is to engine `id`: the ONE rule the listing, a select and the relay apply — on a standalone app, its own machine's engine is every signed-in account's (docs/ownership.md). */
+export function engineRole(
+  reg: EngineRegistry,
+  id: string,
+  holder: string,
+  server: boolean,
+  localMachine = false,
+): EngineRole {
+  if (localMachine && holder && isLoopbackAddress(reg.get(id)?.publicIpHint))
+    return "owner";
+  return roleOf(reg.owners.get(id), holder, server);
 }
 
 /** Whether a role may claim the engine and read its token through the relay. */
