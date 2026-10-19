@@ -131,13 +131,19 @@ if (wanted("k7x")) {
         (d) => d.startsWith("ios-") && d.includes("simulator") === sim,
       )
     : undefined;
-  if (!slice) throw new Error(`no ${sim ? "simulator " : ""}slice in ${node}: stage "node" first`);
+  if (!slice)
+    throw new Error(
+      `no ${sim ? "simulator " : ""}slice in ${node}: stage "node" first`,
+    );
   const target = sim ? "aarch64-apple-ios-sim" : "aarch64-apple-ios";
   run(
     "cargo",
     ["build", "--release", "-p", "k7x-node", "--target", target],
     join(repo, "packages/k7x/rust"),
-    { K7X_NODEMOBILE_DIR: join(node, slice), IPHONEOS_DEPLOYMENT_TARGET: "17.0" },
+    {
+      K7X_NODEMOBILE_DIR: join(node, slice),
+      IPHONEOS_DEPLOYMENT_TARGET: "17.0",
+    },
   );
   const fw = join(cache, "k7x.framework");
   rmSync(fw, { recursive: true, force: true });
