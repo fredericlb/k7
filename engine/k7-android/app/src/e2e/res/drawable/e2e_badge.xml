@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "E2E" in block letters on an amber banner, inside the 72dp every launcher mask keeps (18..90 of 108). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFB300"
+        android:pathData="M33,67h42a3,3 0 0 1 3,3v12a3,3 0 0 1 -3,3h-42a3,3 0 0 1 -3,-3v-12a3,3 0 0 1 3,-3z" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M37,71h2v10h-2z M37,71h7v2h-7z M37,75h6v2h-6z M37,79h7v2h-7z
+            M51,71h7v2h-7z M56,71h2v6h-2z M51,75h7v2h-7z M51,75h2v6h-2z M51,79h7v2h-7z
+            M65,71h2v10h-2z M65,71h7v2h-7z M65,75h6v2h-6z M65,79h7v2h-7z" />
+</vector>
