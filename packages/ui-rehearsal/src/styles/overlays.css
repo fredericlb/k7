@@ -20,8 +20,10 @@
     background: rgba(0, 0, 0, 0.55);
   }
   /* The recorder's Card is the panel itself; this only caps its width and hosts the close button. */
+  /* Auto block margins, not align-items: center, which would crop the top of a pop-in taller than the screen. */
   .rec-popin {
     position: relative;
+    margin-block: auto;
     width: 100%;
     max-width: 720px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
@@ -89,7 +91,9 @@
     visibility: hidden;
     pointer-events: none;
   }
+  /* Centred the same way as the recorder's pop-in, and for the same reason. */
   .chain-panel {
+    margin-block: auto;
     width: 100%;
     max-width: 1100px;
     padding: 16px;

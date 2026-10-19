@@ -178,7 +178,7 @@ function AskDialog({
         className="absolute inset-0 bg-black/50"
         onClick={cancel}
       />
-      <div className="relative flex w-[min(28rem,92vw)] flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-xl">
+      <div className="relative flex max-h-full w-[min(28rem,92vw)] flex-col gap-3 overflow-y-auto rounded-lg border border-border bg-card p-4 shadow-xl">
         <h2 className="text-sm font-semibold text-foreground">
           {pending.title}
         </h2>
