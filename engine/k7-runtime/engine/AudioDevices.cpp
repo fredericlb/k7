@@ -430,14 +430,20 @@ void EngineHost::checkXRuns() {
     if (before < 0 || now <= before) return;
 
     const int current = dev->getCurrentBufferSizeSamples();
+    // At the cap there is no size to grow to, and asking Oboe for its sizes OPENS a stream on the output the music plays through.
+    if (impl_->xrunsAtCap && current == impl_->xrunsCapFrames) {
+        std::cerr << "[audio] " << (now - before) << " more underrun(s) at " << current << " frames, the cap\n";
+        return;
+    }
     const int cap = static_cast<int>(dev->getCurrentSampleRate() * kMaxXRunBufferMs / 1000.0);
     int next = 0;
     for (const int s : dev->getAvailableBufferSizes())
         if (s > current && (next == 0 || s < next)) next = s;
     if (next == 0 || next > cap) {
-        if (!std::exchange(impl_->xrunsAtCap, true))
-            std::cerr << "[audio] " << (now - before) << " underruns at " << current
-                      << " frames, the largest buffer this engine asks for\n";
+        impl_->xrunsAtCap = true;
+        impl_->xrunsCapFrames = current;
+        std::cerr << "[audio] " << (now - before) << " underruns at " << current
+                  << " frames, the largest buffer this engine asks for\n";
         return;
     }
 

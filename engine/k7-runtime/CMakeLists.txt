@@ -397,8 +397,8 @@ set(CMAKE_CXX_STANDARD 17)
 FetchContent_MakeAvailable(sfizz)
 set(CMAKE_CXX_STANDARD 20)
 if(STUDIO_WITH_SURGE)
-    # Surge's sources are compiled at the engine's macOS floor, not the 10.13 Tracktion forced (see below).
-    if(APPLE)
+    # Surge's sources are compiled at the engine's macOS floor, not the 10.13 Tracktion forced (see below); iOS keeps its preset's.
+    if(APPLE AND NOT IOS)
         set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
     endif()
     # Surge carries its own copies of code the engine already links — Mutable Instruments' plaits, clouds and stmlib

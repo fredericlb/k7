@@ -438,9 +438,21 @@ it read like a DSP bug rather than a timing one. The emulator hides it: its devi
 So on Android the engine asks for **at least two bursts**, and `checkXRuns` reads the stream's
 underrun count once a second: when it moved, the buffer goes up ONE size and the log says so
 (`[audio] N underruns at X frames — buffer now Y`). It stops at 40 ms, JUCE's own default for a
-low-latency Android device; past that the log says the cap was reached, once. Growing reopens the
-stream, a short gap, bounded by the cap — against a crackle that would otherwise never stop. It
-never shrinks back: a phone that underran once will again.
+low-latency Android device; past that the log says the cap was reached, then counts every
+further underrun (`… more underrun(s) at X frames, the cap`), at most once a second. At the cap it
+asks Oboe for nothing more: Oboe answers "which buffer sizes?" by OPENING a throwaway stream, on the
+output the music plays through, and doing that once a second is itself a click a second. Growing
+reopens the stream, a short gap, bounded by the cap — against a crackle that would otherwise never
+stop. It never shrinks back: a phone that underran once will again.
+
+**No steady load.** On Android, Tracktion wraps each audio callback in a `ScopedSteadyLoad` that
+busy-waits until 80 % of the callback's period has gone by, so the core's clock never drops between
+callbacks. That suits a low-latency stream of a few milliseconds. A phone's shared output gives this
+engine 20 to 40 ms, so the spin held a core at real-time priority while the graph needed a few
+percent of it, and handing each buffer over at 80 % of its period left too little slack: measured on
+a Nothing Phone (4a) Pro, the stream underran once a second and the speaker crackled. Without it the
+busiest thread falls from about 80 % of a core to under 15 %, and the stream underruns a couple of
+times a minute. `patches/tracktion.cmake` sets its level to zero at fetch time, so the busy-wait has nothing to wait for.
 
 To check on a phone: `adb logcat -s k7-runtime` shows the buffer at open and every step.
 
