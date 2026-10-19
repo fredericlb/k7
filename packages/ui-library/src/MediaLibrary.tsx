@@ -121,6 +121,8 @@ export function MediaLibrary({
   }, [entries, file, section]);
   /** What is open: what the tree marks active, opens down to, and what the middle of the screen shows. */
   const opened = editingSong;
+  // On a narrow screen the songs' tree IS the page until a song opens — ../docs/responsive.md.
+  const treeIsPage = section === "songs" && !editingSong;
   /** Where a drop lands, family-relative: the section, plus the folder the drop resolved to. */
   const assetsTarget = useCallback(
     (dir: string): string => (dir ? `${section}/${dir}` : section),
@@ -237,7 +239,7 @@ export function MediaLibrary({
   return (
     <div className="relative flex min-h-0 flex-1">
       {/* The tree's drawer button, on a narrow screen only — see ../docs/responsive.md. */}
-      {!treeOpen ? (
+      {!treeOpen && !treeIsPage ? (
         <Button
           variant="secondary"
           size="icon"
@@ -261,7 +263,11 @@ export function MediaLibrary({
       <aside
         // No translate (breaks FileTree's popup, ../docs/responsive.md) — a column, so the tree scrolls and the foot does not.
         className={`flex shrink-0 flex-col overflow-hidden rounded-xl bg-tree-panel p-3 md:static md:z-auto md:m-3 md:flex md:w-[290px] ${
-          treeOpen ? "fixed inset-y-0 left-0 z-40 w-72 shadow-xl" : "hidden"
+          treeIsPage
+            ? "m-3 min-w-0 flex-1 md:flex-none"
+            : treeOpen
+              ? "fixed inset-y-0 left-0 z-40 w-72 shadow-xl"
+              : "hidden"
         }`}
       >
         <div className="min-h-0 flex-1 overflow-auto">
@@ -432,6 +438,8 @@ export function MediaLibrary({
         </main>
       ) : (
         <LibraryContents
+          // The tree took the narrow screen, and these rows are the same songs it lists.
+          narrowHidden={treeIsPage}
           notice={notice}
           error={error}
           present={present}

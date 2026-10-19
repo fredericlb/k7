@@ -39,6 +39,15 @@ that ancestor the popup's containing block instead, per the CSS Transforms spec.
 opens at the pointer's offset from the `aside`'s own box rather than the viewport's, which reads
 as "the menu appears but not where I clicked."
 
+## In the songs, the tree is the page
+
+The songs section is the exception to the drawer. With no song open, its middle pane lists the
+same songs the tree does, so on a phone it would open on a duplicate with the real list one button
+away. Below `md`, the tree therefore takes the whole screen until a song opens; the song's editor
+then replaces it, and its Back button returns to the tree. With a song open, the drawer is there
+again, for moving to another song without going back. The other sections keep the drawer from
+the start: their middle pane shows what the tree does not.
+
 ## What stays put
 
 Adding a song and adding a capture are not in any bar — each sits below its tree, where there is room for the whole sentence at every width, so
