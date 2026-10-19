@@ -139,7 +139,9 @@ export const mountRehearsal = (
                 : "   rehearsal: already imported from PocketBase — its POCKETBASE_* variables can go",
             ),
           (err: unknown) => {
-            importFailed = `the rehearsal store could not be imported from PocketBase: ${(err as Error).message}`;
+            // fetch's own message is "fetch failed"; the reason (refused, unknown host, bad scheme) is its cause.
+            const cause = (err as Error).cause as Error | undefined;
+            importFailed = `the rehearsal store could not be imported from PocketBase: ${(err as Error).message}${cause?.message ? ` (${cause.message})` : ""}`;
             console.error(
               `   ⚠️  ${importFailed} — it is tried again at the next start`,
             );

@@ -39,6 +39,10 @@ if (process.env.NODE_ENV === "production" && raw.SESSION_SECRET === DEV_SECRET)
 
 const dataDir = raw.K7_DATA_DIR || join(homedir(), ".studio", "k7");
 
+// `pocketbase:8090` parses as a URL whose protocol is `pocketbase:`, which fetch refuses with a bare "fetch failed".
+const withScheme = (url: string) =>
+  /^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? url : `http://${url}`;
+
 export const env = {
   sessionSecret: raw.SESSION_SECRET,
   apiTokenSecret: raw.K7_API_TOKEN_SECRET || `${raw.SESSION_SECRET}:api-token`,
@@ -50,7 +54,7 @@ export const env = {
   pocketbase:
     raw.POCKETBASE_URL && raw.POCKETBASE_EMAIL && raw.POCKETBASE_PASSWORD
       ? {
-          url: raw.POCKETBASE_URL,
+          url: withScheme(raw.POCKETBASE_URL),
           email: raw.POCKETBASE_EMAIL,
           password: raw.POCKETBASE_PASSWORD,
         }
