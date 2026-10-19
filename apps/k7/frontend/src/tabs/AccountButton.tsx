@@ -1,13 +1,14 @@
 // AccountButton.tsx — the desktop app's account control, at the top of the home page: who is signed in, and the one button that signs in or out.
-// Signing in asks which k7 server to sync with, inline, beside the button that asked.
+// Signing in asks which k7 server to sync with, in a popin, on the desktop and the phones alike.
 // Signing in happens in the system browser — the desktop's main process, or the phone app catching `/auth/login`; signing out is the origin's own logout.
 // See apps/k7-standalone/docs/signIn.md and engine/k7-runtime/docs/android.md.
 
-import { LogIn, LogOut, X } from "@frediverse/ui/icons";
-import { normalizeServer } from "@studio/web-protocol/pairing";
+import { LogIn, LogOut } from "@frediverse/ui/icons";
+import { STUDIO_ORIGIN } from "@studio/web-protocol/services";
 import { useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { inAndroidApp, tabsBridge } from "./bridge";
+import { ServerDialog } from "./ServerDialog";
 
 export interface Me {
   name?: string;
@@ -16,11 +17,29 @@ export interface Me {
   local?: boolean;
 }
 
-/** The phone app opens the system browser on any navigation to `/auth/login`, so the page only has to go there. */
-const androidSignIn = () =>
+const PHONE_SERVER_KEY = "k7.syncServer";
+
+/** The server a phone last signed in with; only a prefill, the phone app keeping the one it pairs with. */
+function phoneServer(): string {
+  try {
+    return localStorage.getItem(PHONE_SERVER_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** The phone app opens the system browser on any navigation to `/auth/login`, and keeps its `server` for pairing. */
+function phoneSignIn(server: string): void {
+  try {
+    localStorage.setItem(PHONE_SERVER_KEY, server);
+  } catch {
+    // A prefill lost, nothing more.
+  }
+  const returnTo = encodeURIComponent(location.pathname + location.search);
   location.assign(
-    `/auth/login?return_to=${encodeURIComponent(location.pathname + location.search)}`,
+    `/auth/login?return_to=${returnTo}&server=${encodeURIComponent(server)}`,
   );
+}
 
 async function whoami(): Promise<Me | null> {
   try {
@@ -54,21 +73,23 @@ export function AccountButton({
     };
   }, [asked]);
 
-  // The server field: null while closed, else what is typed; prefilled with the last choice.
-  const [server, setServer] = useState<string | null>(null);
+  // The last server chosen, prefilling the popin: the desktop's main process keeps it, a phone this page.
+  const [asking, setAsking] = useState(false);
   const [current, setCurrent] = useState<string>("");
   useEffect(() => {
+    if (inAndroidApp()) return setCurrent(phoneServer());
     void tabsBridge()
       ?.server?.()
       .then((s) => setCurrent(s ?? ""))
       .catch(() => {});
   }, []);
-  const valid = server !== null && normalizeServer(server) !== null;
-  const submit = () => {
-    if (server === null || !valid) return;
+  // A desktop build whose main process keeps no server signs in straight away.
+  const asksServer = inAndroidApp() || !!tabsBridge()?.server;
+  const submit = (server: string) => {
+    setAsking(false);
+    setCurrent(server);
+    if (inAndroidApp()) return phoneSignIn(server);
     tabsBridge()?.signIn(server);
-    setCurrent(normalizeServer(server) ?? current);
-    setServer(null);
   };
 
   const signedIn = me !== null && !me.local;
@@ -76,64 +97,27 @@ export function AccountButton({
   const button =
     "flex items-center gap-1.5 rounded-md px-2 py-1 text-muted-foreground text-xs hover:bg-secondary/50 hover:text-foreground";
 
-  if (!signedIn && server !== null)
+  if (!signedIn)
     return (
-      <form
-        className="flex items-center gap-1"
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-      >
-        <input
-          // biome-ignore lint/a11y/noAutofocus: the field exists only because the person just asked for it.
-          autoFocus
-          className={`w-48 rounded-md border bg-secondary px-2 py-0.5 text-xs outline-none focus:border-primary ${valid || !server ? "border-border" : "border-red-400"}`}
-          value={server}
-          onChange={(e) => setServer(e.target.value)}
-          onKeyDown={(e) => e.key === "Escape" && setServer(null)}
-          placeholder="app.k7.rocks"
-          aria-label={m["account.serverLabel"]()}
-          title={m["account.serverHint"]()}
-          spellCheck={false}
-        />
+      <>
         <button
-          type="submit"
+          type="button"
           className={button}
-          disabled={!valid}
-          title={m["account.signInSync"]()}
+          onClick={() =>
+            asksServer ? setAsking(true) : tabsBridge()?.signIn()
+          }
+          title={m["account.signInAccount"]()}
           aria-label={m["auth.signIn"]()}
         >
           <LogIn className="size-3.5" />
         </button>
-        <button
-          type="button"
-          className={button}
-          onClick={() => setServer(null)}
-          title={m["common.cancel"]()}
-          aria-label={m["common.cancel"]()}
-        >
-          <X className="size-3.5" />
-        </button>
-      </form>
-    );
-  if (!signedIn)
-    return (
-      <button
-        type="button"
-        className={button}
-        onClick={() =>
-          inAndroidApp()
-            ? androidSignIn()
-            : tabsBridge()?.server
-              ? setServer(current.replace(/^https:\/\//, ""))
-              : tabsBridge()?.signIn()
-        }
-        title={m["account.signInAccount"]()}
-        aria-label={m["auth.signIn"]()}
-      >
-        <LogIn className="size-3.5" />
-      </button>
+        <ServerDialog
+          open={asking}
+          initial={current || STUDIO_ORIGIN}
+          onClose={() => setAsking(false)}
+          onSubmit={submit}
+        />
+      </>
     );
   return (
     <div className="flex min-w-0 items-center gap-1">

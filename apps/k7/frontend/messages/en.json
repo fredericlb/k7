@@ -1082,7 +1082,7 @@
   "cmds.placeholder": "what do you want to do?",
   "account.serverLabel": "k7 server",
   "account.serverHint": "The k7 server this machine syncs your workspaces with",
-  "account.signInSync": "Sign in, and sync with this server",
+  "account.serverTitle": "Sign in to a k7 server",
   "account.signInAccount": "Sign in with your k7 account",
   "account.signOut": "Sign out",
   "panel.close": "close the panel",

@@ -29,9 +29,10 @@ import java.security.SecureRandom
 import java.util.concurrent.CountDownLatch
 
 object SyncPairing {
-    /** web-protocol's STUDIO_ORIGIN: the one origin a phone's workspaces and libraries follow. */
-    private const val SYNC_ORIGIN = "https://app.k7.rocks"
-    private val SYNC_HOST = Uri.parse(SYNC_ORIGIN).host
+    /** web-protocol's STUDIO_ORIGIN: the server a phone syncs with until the sign-in popin names another. */
+    private const val DEFAULT_ORIGIN = "https://app.k7.rocks"
+    // Apart from PREFS, which `forget` clears with every pairing settled.
+    private const val SERVER_PREFS = "k7-sync-server"
     /** web-protocol's SYNC_PAIR_ROUTE and SYNC_PAIR_RETURN_PATH: the origin accepts only an http loopback return. */
     private const val PAIR_ROUTE = "/api/sync/devices/pair"
     private const val RETURN_PATH = "/desktop/sync-pair"
@@ -55,6 +56,26 @@ object SyncPairing {
         data class OtherAccount(val browserAs: String?) : Outcome
         object NotStored : Outcome
     }
+
+    /** Keep the server the sign-in popin named, when it is one: https, or http on this phone only. */
+    fun choose(context: Context, input: String?) {
+        val origin = normalize(input) ?: return
+        context.getSharedPreferences(SERVER_PREFS, Context.MODE_PRIVATE).edit().putString("origin", origin).apply()
+    }
+
+    private fun normalize(input: String?): String? {
+        val u = input?.trim()?.takeIf { it.isNotEmpty() }?.let(Uri::parse) ?: return null
+        val host = u.host?.lowercase() ?: return null
+        val loopback = host == "127.0.0.1" || host == "localhost" || host == "[::1]"
+        if (u.scheme != "https" && !(u.scheme == "http" && loopback)) return null
+        if (u.userInfo != null) return null
+        return if (u.port > 0) "${u.scheme}://$host:${u.port}" else "${u.scheme}://$host"
+    }
+
+    private fun origin(context: Context): String =
+        context.getSharedPreferences(SERVER_PREFS, Context.MODE_PRIVATE).getString("origin", null) ?: DEFAULT_ORIGIN
+
+    private fun host(context: Context): String = Uri.parse(origin(context)).host ?: origin(context)
 
     /** Pair the account signed in to the phone's studio, unless it is the local user, already paired, or asked this run. */
     fun pairIfNeeded(context: Context, cookie: String?) = launch(context, cookie, again = false)
@@ -91,15 +112,16 @@ object SyncPairing {
         }
         if (!again && synchronized(this) { !asked.add(email) }) return
         val remote = local("GET", "/api/sync/remote", cookie) ?: return
-        if (remote.optBoolean("paired")) return
-        if (!again && !ask(context, "Sync this phone's workspaces with $SYNC_HOST?\n\nThe browser opens to confirm it as $email.", "Sync")) return
+        // Already a server of this account, main or not, as on desktop: another one chosen is paired as the main.
+        if (pairedHosts(remote).contains(host(context))) return
+        if (!again && !ask(context, "Sync this phone's workspaces with ${host(context)}?\n\nThe browser opens to confirm it as $email.", "Sync")) return
         val state = ByteArray(16).also { SecureRandom().nextBytes(it) }
             .let { Base64.encodeToString(it, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP) }
         ServerSocket(0, 4, InetAddress.getByName("127.0.0.1")).use { server ->
             val pending = Pending(email, state, server.localPort, System.currentTimeMillis() + WAIT_MS)
             remember(context, pending)
             val back = "http://127.0.0.1:${server.localPort}$RETURN_PATH"
-            val url = Uri.parse(SYNC_ORIGIN + PAIR_ROUTE).buildUpon()
+            val url = Uri.parse(origin(context) + PAIR_ROUTE).buildUpon()
                 .appendQueryParameter("return", back)
                 .appendQueryParameter("state", state)
                 .appendQueryParameter("name", deviceName())
@@ -108,7 +130,7 @@ object SyncPairing {
                 context.startActivity(Intent(Intent.ACTION_VIEW, url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             } catch (_: ActivityNotFoundException) {
                 forget(context)
-                return tell(context, "There is no browser on this phone to pair it with $SYNC_HOST in.")
+                return tell(context, "There is no browser on this phone to pair it with ${host(context)} in.")
             }
             listen(context, server, pending, cookie)
         }
@@ -164,7 +186,7 @@ object SyncPairing {
         val identity = u.getQueryParameter("identity")
         if (identity != email) {
             Log.w(TAG, "sync pairing refused: the browser is signed in as $identity, not $email")
-            reply(socket, 409, "This browser is signed in to $SYNC_HOST as another account than the phone's, so nothing was paired. Go back to k7: it says what to do.")
+            reply(socket, 409, "This browser is signed in to ${host(context)} as another account than the phone's, so nothing was paired. Go back to k7: it says what to do.")
             return Outcome.OtherAccount(identity)
         }
         val url = u.getQueryParameter("url").orEmpty()
@@ -173,20 +195,20 @@ object SyncPairing {
         // The same token lists this phone's engine at that studio, which may admit paired machines only.
         if (stored != null) SupervisorHost.rememberDeviceToken(context, originOf(url), token)
         reply(socket, if (stored != null) 200 else 500, if (stored != null) "This phone now syncs your workspaces. You can go back to k7." else "The pairing could not be stored on this phone. Go back to k7.")
-        Log.i(TAG, if (stored != null) "sync paired with $SYNC_ORIGIN" else "sync pairing could not be stored")
+        Log.i(TAG, if (stored != null) "sync paired with ${origin(context)}" else "sync pairing could not be stored")
         return if (stored != null) Outcome.Paired else Outcome.NotStored
     }
 
     private fun report(context: Context, outcome: Outcome, email: String) {
         when (outcome) {
-            Outcome.Paired -> tell(context, "This phone now syncs its workspaces with $SYNC_HOST.")
+            Outcome.Paired -> tell(context, "This phone now syncs its workspaces with ${host(context)}.")
             Outcome.NotStored -> tell(context, "The sync pairing could not be saved on this phone. k7 will offer it again at its next start.")
             is Outcome.OtherAccount -> {
                 val who = outcome.browserAs?.takeIf { it.isNotEmpty() }?.let { "as $it" } ?: "as another account"
                 retry = ask(
                     context,
-                    "Nothing was paired: the browser is signed in to $SYNC_HOST $who, and this phone is signed in as $email.\n\n" +
-                        "Sign in to $SYNC_HOST in the browser as $email, then try again.",
+                    "Nothing was paired: the browser is signed in to ${host(context)} $who, and this phone is signed in as $email.\n\n" +
+                        "Sign in to ${host(context)} in the browser as $email, then try again.",
                     "Try again",
                 )
             }
@@ -233,6 +255,14 @@ object SyncPairing {
 
     private fun forget(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+    }
+
+    /** The hosts of the servers `/api/sync/remote` lists for the account. */
+    private fun pairedHosts(remote: JSONObject): Set<String> {
+        val servers = remote.optJSONArray("servers") ?: return emptySet()
+        return (0 until servers.length()).mapNotNull { i ->
+            servers.optJSONObject(i)?.optString("url")?.let { Uri.parse(it).host }
+        }.toSet()
     }
 
     /** `wss://host/api/sync` as the studio's origin, `https://host`: the key the supervisor's registry list uses. */
