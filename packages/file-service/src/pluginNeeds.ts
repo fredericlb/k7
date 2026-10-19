@@ -21,7 +21,14 @@ export function projectCompatOf(
   dir: string,
   catalogue: CataloguePlugin[],
 ): Compatibility | null {
-  const needs = pluginNeedsOf(dir);
+  return compatOfNeeds(pluginNeedsOf(dir), catalogue);
+}
+
+/** …from needs already read: the workspace keeps them per project, since reading them loads the whole graph. */
+export function compatOfNeeds(
+  needs: PluginNeed[],
+  catalogue: CataloguePlugin[],
+): Compatibility | null {
   // An empty scan is "we cannot say", never "nothing installed" (docs/enginePlugin.md) — unless nothing is asked of it.
   if (!catalogue.length && needs.length) return null;
   return compatibility(needs, catalogue);

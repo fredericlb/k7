@@ -12,7 +12,7 @@ import {
   storedSensitivity,
 } from "@studio/audio-analysis/sidecar";
 import type { FileEnvelope } from "@studio/audio-probe/waveform";
-import { analyseOffThread } from "./analysePool.ts";
+import { analyseOffThread, checkSidecarOffThread } from "./analysePool.ts";
 
 // Re-exported so this module's importers keep resolving them; they are the sidecar's, not ours.
 export {
@@ -51,21 +51,14 @@ export async function ensureFileEnvelope(
 
   const hit = memo.get(source);
   if (hit && hit.mtimeMs === mtimeMs && usable(hit.env)) return hit.env;
-  // Past the memo only: it parses the whole sidecar, which every request in a burst would otherwise pay.
-  const wanted = sensitivity ?? storedSensitivity(source);
 
-  const fp = fileFingerprint(source);
-  const cached = readSidecar(source);
-  if (cached && cached.fingerprint === fp && usable(cached)) {
-    memo.set(source, { mtimeMs, env: cached });
-    return cached;
+  // The sidecar parsed whole and the file fingerprinted, on a worker: a burst of waveforms did it here, each in turn.
+  const checked = await checkSidecarOffThread(source, sensitivity);
+  if (checked.env) {
+    memo.set(source, { mtimeMs, env: checked.env });
+    return checked.env;
   }
-
-  return sharedDecode(
-    source,
-    wanted ?? DEFAULT_TRANSIENT_SENSITIVITY,
-    engineBin,
-  );
+  return sharedDecode(source, checked.sensitivity, engineBin);
 }
 
 /** ONE decode per source and threshold, joined by a request and the prewarm alike — docs/waveformCache.md. */

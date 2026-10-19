@@ -80,6 +80,16 @@ when the marker had already made it active. The compile also hands back the proj
 freezes (`loadProjectWithFreezes`), so the graph does not compile the project a second time to list
 them, and a relay landing that touches only ANOTHER project leaves the open one's caches alone.
 
+Two things outside the project still move the token, and so must not move it for nothing. The
+engine's plugin scan (`exts.json`) is in it, since the automatic freezes depend on what the engine
+hosts: the hub rewrote it at every bind, which is during an open, and threw that open's compile
+away — it now writes the file only when the list changed (`packages/file-hub/binding.ts`). And
+re-sending the compiled project to an engine picked after the open no longer invalidates first:
+the token already moves with every input that compile reads. A project's plugin NEEDS
+(`/project-plugins`, which the page asks several times an open) are kept per project against its
+own token, since reading them loads the whole graph; the UI panels and controller maps are read
+once per module stamp, shared by the modules and the refs.
+
 `hints()` is the third, for the same reason: it is a pure read of the folder, and k7 asks for it
 after EVERY command — the editor pane is mounted in every layout and refreshes its tree and its
 completion vocabulary together, so a command that never touched a file the editor is showing

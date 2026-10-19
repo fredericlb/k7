@@ -122,6 +122,8 @@ export interface WaveformHost {
   activeProject(): string | null;
   /** The compiled (cached) doc for `dir`. */
   cachedProjectDoc(dir: string): ProjectDoc;
+  /** …trusting a check made a moment ago: a waveform only DRAWS, and comes thirty at a time. */
+  recentProjectDoc(dir: string): ProjectDoc;
   withinRoot(abs: string): boolean;
 }
 
@@ -148,7 +150,7 @@ export class WaveformOps {
     sensitivity?: number,
   ): Promise<WebWaveform> {
     const dir = this.host.requireActive();
-    const p = this.host.cachedProjectDoc(dir);
+    const p = this.host.recentProjectDoc(dir);
     // A rack's audio is an absolute path, not a clip id; the workspace guard confines the query param.
     if (isAbsolute(clipId) && AUDIO_EXT.test(clipId)) {
       const fileAbs = resolve(clipId);

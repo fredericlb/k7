@@ -100,9 +100,9 @@ import type { HistoryListEntry, HistoryPeek, HistoryState } from "./history.ts";
 import type { ChangeFeed } from "./liveCapture.ts";
 import { closeModuleWatchesUnder, moduleFoldersMoved } from "./moduleWatch.ts";
 import {
+  compatOfNeeds,
   type PluginNeed,
   pluginNeedsOf,
-  projectCompatOf,
 } from "./pluginNeeds.ts";
 import { resolvePreview } from "./previewSource.ts";
 import {
@@ -219,6 +219,9 @@ function confined(
   if (inside === null) throw new Error(`path escapes the ${what}: ${rel}`);
   return inside;
 }
+
+/** How long a checked revision stands for a read that only DRAWS — never for a compile, the graph or the engine. */
+const DRAW_REUSE_MS = 300;
 export class Workspace {
   readonly root: string;
   readonly rootIsProject: boolean;
@@ -263,6 +266,7 @@ export class Workspace {
       requireActive: () => this.requireActive(),
       activeProject: () => this.activeProject,
       cachedProjectDoc: (dir) => this.cachedProjectDoc(dir),
+      recentProjectDoc: (dir) => this.recentProjectDoc(dir),
       withinRoot: (abs) => this.withinRoot(abs),
     });
     this.journal = new WorkspaceHistory({
@@ -565,11 +569,25 @@ export class Workspace {
   /** The compiled project, memoised against the REVISION rather than our own writes — docs/workspace.md. */
   cachedProjectDoc(dir: string): ProjectDoc {
     const rev = this.revision().rev;
+    this.docCheckedAt = Date.now();
     if (this.docCache && this.docCache.dir === dir && this.docCache.rev === rev)
       return this.docCache.doc;
     const { doc, freezes } = loadProjectWithFreezes(dir);
     this.docCache = { dir, rev, doc, freezes };
     return doc;
+  }
+
+  /** When `cachedProjectDoc` last checked its token — what `recentProjectDoc` trusts for a moment. */
+  private docCheckedAt = 0;
+
+  /** The compiled doc, its token trusted DRAW_REUSE_MS after a check: a burst of waveforms walked the project once each. */
+  recentProjectDoc(dir: string): ProjectDoc {
+    if (
+      this.docCache?.dir === dir &&
+      Date.now() - this.docCheckedAt < DRAW_REUSE_MS
+    )
+      return this.docCache.doc;
+    return this.cachedProjectDoc(dir);
   }
   setCachedProjectDoc(dir: string, doc: ProjectDoc): void {
     this.docCache = { dir, rev: this.revision().rev, doc };
@@ -621,7 +639,6 @@ export class Workspace {
     // The walk a mutation already has open, else its own and a NARROW one — see docs/workspace.md.
     return this.revisionOf(this.walkScope ?? walkProject(dir, true));
   }
-
 
   /** The token from a walk — projectWalk.ts — with this workspace's mutation counter. */
   private revisionOf(files: WalkedFile[]): string {
@@ -705,12 +722,36 @@ export class Workspace {
 
   /** The plugins one project of this workspace needs its engine to host, read without opening it — pluginNeeds.ts. */
   pluginNeeds(project: string): PluginNeed[] {
-    return pluginNeedsOf(this.projectDirOf(project));
+    return this.needsOf(this.projectDirOf(project));
   }
 
   /** …scored against THIS machine's engine scan, for a project living beside its engine; null when the scan cannot say. */
   pluginCompat(project: string): Compatibility | null {
-    return projectCompatOf(this.projectDirOf(project), scannedPlugins());
+    return compatOfNeeds(
+      this.needsOf(this.projectDirOf(project)),
+      scannedPlugins(),
+    );
+  }
+
+  /** Each project's needs, against the token of ITS files: reading them loads the whole graph, and a page asks several times an open. */
+  private needsCache = new Map<string, { rev: string; needs: PluginNeed[] }>();
+  private needsOf(dir: string): PluginNeed[] {
+    // The open project's token is the one the graph and the doc key on; another's, a walk of its own sources.
+    const rev =
+      dir === this.activeProject
+        ? this.revision().rev
+        : this.revisionOf(walkProject(dir, true));
+    const hit = this.needsCache.get(dir);
+    if (hit && hit.rev === rev) return hit.needs;
+    const needs = pluginNeedsOf(dir);
+    this.needsCache.delete(dir);
+    this.needsCache.set(dir, { rev, needs });
+    // A projects page asks for every project once: a bound, not a memory of the whole disk.
+    for (const oldest of this.needsCache.keys()) {
+      if (this.needsCache.size <= 64) break;
+      this.needsCache.delete(oldest);
+    }
+    return needs;
   }
 
   private projectDirOf(project: string): string {
