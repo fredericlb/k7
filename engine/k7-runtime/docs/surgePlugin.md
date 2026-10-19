@@ -46,8 +46,21 @@ top project enables Objective-C and Objective-C++ itself: Surge's path code is a
 language enabled only inside a subdirectory configures fine and then fails to generate
 (`CMAKE_OBJCXX_COMPILE_OBJECT` missing).
 
-**Not on Android yet.** Nothing known stops it — Surge's SIMD goes through simde on ARM, as on
-Apple Silicon — but it is unbuilt and unmeasured there, and the phone's library is already 40 MB.
+**On the phones too.** `STUDIO_WITH_SURGE` is on everywhere; a build that turns it off gets no
+Surge and no `STUDIO_SURGE`. Surge's SIMD goes through simde on ARM, as on Apple Silicon, and
+Android asked three things of it:
+
+- **No `backtrace()` before API 33**, and the app starts at 29: the crash report's stack trace is
+  left out on Android (`patches/surge.cmake`).
+- **No `libpthread`**: Android's pthreads are in its libc, so the name is linked everywhere else.
+- **A `HOME`**: Surge's storage throws without one, and an Android app process has none, so
+  `EngineBridge.kt` sets it to the app's files folder. Surge writes nothing there — its config
+  creates no user directory and scans no library.
+
+Measured on a Nothing Phone (4a) Pro (A069P, Android 16, arm64), 2026-10-20: the engine library
+grows from 40.7 to 46.1 MB, the APK from 121.9 to 124.3 MB. A four-note chord held on a patch from
+`base/` costs 5.7 % (Basses/E-Bass) to 8.1 % (Pads/Bell Pad) of the audio block on average, 14 % at
+most, with no underrun; loading a patch takes 110 to 150 ms of the apply.
 
 ## Four namespaces are renamed, or the engine runs the wrong code
 

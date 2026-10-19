@@ -40,6 +40,8 @@ object EngineBridge {
         Os.setenv("STUDIO_ENGINE_TOKEN", token, true)
         Os.setenv("STUDIO_ENGINE_ALLOWED_ORIGINS", origins, true)
         Os.setenv("STUDIO_FAUST_LIBS", faustLibs(context).absolutePath, true)
+        // An app process has no HOME, and Surge XT's storage throws without one: it writes nothing there (docs/surgePlugin.md).
+        Os.setenv("HOME", context.filesDir.absolutePath, false)
         val mic = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         startedWithMic = mic
         // Without it the engine opens no inputs: asked for anyway, they fail the output with them (docs/android.md).

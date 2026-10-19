@@ -26,3 +26,16 @@ studio_replace("CMakeLists.txt"
 studio_replace("src/common/SurgeSynthesizer.cpp"
     "    : storage(suppliedDataPath), hpA"
     "    : storage([&] { SurgeStorage::SurgeStorageConfig c; c.suppliedDataPath = suppliedDataPath; c.createUserDirectory = false; c.scanWavetableAndPatches = false; return c; }()), hpA")
+
+# On Android, execinfo's backtrace() arrives with API 33 and the app starts at 29: the crash report's stack is left out there.
+studio_replace("libs/sst/sst-plugininfra/src/misc_linux.cpp"
+    "std::string stackTraceToString(int depth)\n{\n"
+    "std::string stackTraceToString(int depth)\n{\n#if defined(__ANDROID__) // studio: no backtrace() before API 33\n    (void)depth;\n    return \"(no stack trace on Android)\";\n#else\n")
+studio_replace("libs/sst/sst-plugininfra/src/misc_linux.cpp"
+    "    free(strs);\n    return oss.str();\n}"
+    "    free(strs);\n    return oss.str();\n#endif\n}")
+
+# Android's pthreads are in its libc, and there is no libpthread to link: the name stays for every other UNIX.
+studio_replace("src/common/CMakeLists.txt"
+    "      pthread\n      -Wl,--no-undefined\n"
+    "      $<$<NOT:$<PLATFORM_ID:Android>>:pthread> # studio: no libpthread on Android\n      -Wl,--no-undefined\n")
