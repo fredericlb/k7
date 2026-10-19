@@ -450,6 +450,16 @@ its files once per install, marking the copy done only once every file is writte
 folder in `STUDIO_FAUST_LIBS`, which `faustLibrariesDir()` reads before looking beside an executable
 this platform does not have.
 
+## On a Windows machine
+
+The APK builds on Windows too, for a phone on the desk without a round trip through CI: NDK
+`29.0.14206865` from the SDK manager, Android Studio's JDK 21 as `JAVA_HOME` (Gradle refuses a
+newer one), and Gradle run from a Visual Studio developer prompt (`vcvars64`) — JUCE builds its
+`juceaide` for the HOST while cross-compiling, and under Ninja that needs `cl.exe` on the path. A
+local build is signed with the debug key, so it installs as the `e2e` type beside the shipped app,
+not over it: `gradlew :app:assembleE2e`. The scripts it runs keep to `/` in what they write, and
+copy a Termux package's symlinks, which Windows' tar cannot create.
+
 ## In CI
 
 OneDev's **android** job builds the APK for every release, beside the desktops, from a cold SDK install
