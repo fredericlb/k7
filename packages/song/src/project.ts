@@ -24,11 +24,12 @@ import { parsePosition } from "@studio/song-schema/timecode";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { parse as parseYaml } from "yaml";
+import type { AutoFreeze } from "./autoFreeze";
 import { isChainProject } from "./chainProject";
 import { confineToProject } from "./confine";
 import { assembleFolder, isFolderProject } from "./folder";
 import { exportSub, readsAsPicture } from "./loader";
-import { compileNodeProject } from "./nodeProject";
+import { compileWithAutoFreezes } from "./nodeProject";
 import type { AssembledClip, AssembledDoc } from "./rawDoc";
 import { isDocName, wsExists, wsRead, yamlRetired } from "./yaml/workspaceFile";
 
@@ -135,20 +136,28 @@ function readYamlSong(path: string): AssembledDoc {
 
 // Load a .yaml song or a folder into one ProjectDoc, throwing precisely: messages are UX in a text-first tool.
 export function loadProject(sourcePath: string): ProjectDoc {
+  return loadProjectWithFreezes(sourcePath).doc;
+}
+
+/** …and the automatic freezes the same compile found, so a caller wanting both compiles ONCE (docs/autoFreeze.md). */
+export function loadProjectWithFreezes(sourcePath: string): {
+  doc: ProjectDoc;
+  freezes: AutoFreeze[];
+} {
   const abs = resolve(sourcePath);
   if (isFolderProject(abs)) {
     const dir = statSync(abs).isDirectory() ? abs : dirname(abs);
     // A node project (graph.yaml / modules/) is the graph model — compile it down (nodeProject.ts).
-    const doc =
+    const { doc, freezes } =
       wsExists(join(dir, GRAPH_FILE)) ||
       wsExists(join(dir, "modules")) ||
       isChainProject(dir)
-        ? compileNodeProject(dir)
-        : mapDoc(assembleFolder(dir), dir);
+        ? compileWithAutoFreezes(dir)
+        : { doc: mapDoc(assembleFolder(dir), dir), freezes: [] };
     // Set here, not in the two compilers, so both agree by not each deciding.
-    return { ...doc, recordDir: join(dir, "clips") };
+    return { doc: { ...doc, recordDir: join(dir, "clips") }, freezes };
   }
-  return mapDoc(readSource(sourcePath), dirname(abs));
+  return { doc: mapDoc(readSource(sourcePath), dirname(abs)), freezes: [] };
 }
 
 // Map a plain { project, tracks[] } doc into a ProjectDoc, resolving clip sources against baseDir.

@@ -131,6 +131,21 @@ take — would draw no waveform at all.
 `runWaveformBatch` rebuilds stale sidecars `WARM_DECODES` at a time rather than all at once: each
 decode holds its file's mono signal until the envelope is built, about 57 MB for five minutes.
 
+## Off the request thread
+
+An analysis is a decode (another process) and then an envelope built in JavaScript over every
+sample, a sidecar fingerprinted and written. That second half is CPU, and on the file service's one
+thread it held every other request — on a phone, a project's first open after a sync (sidecars are
+not synced, so every clip is analysed once per machine) left the page waiting tens of seconds for a
+tree or a graph. So `analyseFile` runs on a worker thread (`analysePool.ts`, `analyseWorker.ts`;
+bundled, `bin/analyse-worker.mjs` beside the service): two at most, since each decode holds a mono
+copy of its file. A runtime where a worker will not start — a test runner with no loader — analyses
+inline, as before, and says so once.
+
+A request and the prewarm asking for the same clip join ONE decode (`sharedDecode`), keyed by the
+threshold actually used, and the memo is checked before the sidecar is parsed for its threshold:
+every request of a burst used to parse the whole sidecar to learn it.
+
 ## The three bands
 
 The sidecar carries `low` / `mid` / `high` beside `peak` and `rms`: the same envelope split at

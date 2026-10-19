@@ -222,13 +222,19 @@ function expandGraph(raw: Data): Data {
 
 /** The short forms a file at `path` may write, by its kind; null for a kind that has none. */
 export function sugarFor(path: string): Sugar | null {
-  const kind = fileKindFor(path);
+  const kind = sugarKind(path);
   if (kind === "sequence") return { parts: [NOTES], expand: expandSequence };
+  if (kind === "segments") return { parts: [RUNS], expand: expandGraph };
+  return null;
+}
+
+/** Which short form a path's file is written in — all `sugarFor` reads of the path, so a parse keyed by it is keyed fully. */
+export function sugarKind(path: string): "sequence" | "segments" | null {
+  if (fileKindFor(path) === "sequence") return "sequence";
   // A project's graph, and the segments files under their other names: one format, so one short form.
   const p = path.replace(/\\/g, "/");
   const segments =
     GRAPH_FILE.test(p) ||
     (CHAINS_FILE.test(p) && !/(^|\/)chains\/[^/]+$/.test(p));
-  if (segments) return { parts: [RUNS], expand: expandGraph };
-  return null;
+  return segments ? "segments" : null;
 }

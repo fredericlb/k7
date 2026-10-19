@@ -39,7 +39,7 @@ import {
   writeLinkRecord,
 } from "./liveServers.ts";
 import { workspaceRoot } from "./slug.ts";
-import { isBinary, skip, type Workspace } from "./workspace.ts";
+import { isBinary, isProjectDir, skip, type Workspace } from "./workspace.ts";
 
 export { ACCOUNT_LIBRARY_ROOM };
 
@@ -171,8 +171,14 @@ export async function downloadWorkspace(
 
 /** An edit another replica made landed in `ws`: the caches go, and the engine hears of the open project. */
 function remoteLanded(ws: Workspace, files: string[]): void {
-  ws.invalidateProjectDoc();
   const active = ws.activeProjectPath();
+  // Only what can feed the open project's compile: a file inside ANOTHER project never does (a shared folder may).
+  const elsewhere = (f: string): boolean => {
+    const top = f.replace(/\\/g, "/").split("/")[0];
+    const abs = join(ws.root, top);
+    return isProjectDir(abs) && resolve(abs) !== (active && resolve(active));
+  };
+  if (!files.every(elsewhere)) ws.invalidateProjectDoc();
   if (!active) return;
   const prefix = `${active.replace(/\\/g, "/")}/`;
   if (

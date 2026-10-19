@@ -225,6 +225,27 @@ file **whatever its size** — it is open/read/close, not the content: 57 clip f
 is why a content-addressed cache (keep the read, compare the text, skip only the parse) is not
 the answer: perfectly safe, and it recovers only 12 ms of the 46.
 
+## Across a restart — `yaml/parseStore.ts`
+
+The memo above dies with the process, and on a phone the process dies often: every app launch, every
+stop for idleness. Parsing the module vocabulary again is ~1.5 s on a PC, several times that on a
+phone, and ~3.4x more again without a JIT — iOS. So in a packaged app (`STUDIO_PARSE_CACHE=1`, set by
+`apps/k7/backend/standalone.json`) a parse is also kept ON DISK, in two layers:
+
+- **The account's** — `<account home>/.parse-cache.json`, written a little after each new parse,
+  beside the workspace and never in it (it is this machine's; the sync must not carry it). It carries
+  the running bundle's stamp and is dropped whole by any other bundle: a parse is only as good as the
+  parser that made it. A source run — a developer editing a parser — never uses it.
+- **The bundle's** — `parse-cache.json` beside `bin/`, made at bundle time by
+  `scripts/parseCacheSeed.ts`, bundled with the same parsers, over the `k7-core` the bundle carries. It
+  is what a FIRST launch after an install or an update finds, when the account's store is gone.
+
+Both are keyed by CONTENT, not by path and mtime: the parser, whether the file is k7x, the short
+form its path writes (`sugarKind`, all the path `sugarFor` reads), and the file's bytes. A library
+copied from the bundle, or rewritten by the sync with the same bytes, is a hit; a file whose bytes
+changed is not. Measured on a phone, `01.danse` opened from a cold file service: 9.3 s with nothing
+stored, 3.7 s with the account's store, 3.8 s on a first launch with only the bundle's.
+
 ## The seam: something that already knows
 
 The walk is 20 ms and cannot be made cheaper — measured: half `readdir`, half `stat`, and the

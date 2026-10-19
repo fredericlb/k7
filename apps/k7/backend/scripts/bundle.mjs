@@ -3,6 +3,7 @@
 // its ORIGINAL path under that tree, so a bundle reads `../meta` or `frontend/dist` as the source did.
 // Usage: node bundle.mjs <outDir>, after the frontend's build; `--in-tree` for the server image. See ../docs/standalone.md.
 
+import { execFileSync } from "node:child_process";
 import {
   cpSync,
   existsSync,
@@ -105,6 +106,8 @@ if (inTree) {
     entryPoints: {
       backend: "apps/k7/backend/src/server.ts",
       "file-service": "packages/file-service/src/server.ts",
+      // Beside it, found there by analysePool.ts: the waveform analyses' worker thread.
+      "analyse-worker": "packages/file-service/src/analyseWorker.ts",
     },
     outdir: out,
     outExtension: { ".js": ".mjs" },
@@ -124,6 +127,8 @@ await build({
   entryPoints: {
     backend: "apps/k7/backend/src/server.ts",
     "file-service": "packages/file-service/src/server.ts",
+    // Beside it, found there by analysePool.ts: the waveform analyses' worker thread.
+    "analyse-worker": "packages/file-service/src/analyseWorker.ts",
   },
   outdir: join(out, BIN),
   outExtension: { ".js": ".mjs" },
@@ -142,6 +147,24 @@ for (const rel of DATA) {
 
 // The library a fresh desktop or phone copies its `k7-core` from (`$STUDIO_LIBRARY_SEED`): a published version.
 await bundleLibrary(repo, join(out, "k7-core"));
+
+// …already parsed, by THIS build's parsers, so a first launch does not parse it (packages/song/docs/moduleCache.md).
+await build({
+  ...common,
+  entryPoints: {
+    "parse-cache-seed": "packages/song/scripts/parseCacheSeed.ts",
+  },
+  outdir: join(out, BIN),
+  outExtension: { ".js": ".mjs" },
+  banner: { js: banner("..") },
+});
+const seedScript = join(out, BIN, "parse-cache-seed.mjs");
+execFileSync(
+  process.execPath,
+  [seedScript, join(out, "k7-core"), join(out, "parse-cache.json")],
+  { stdio: "inherit" },
+);
+rmSync(seedScript);
 
 writeFileSync(join(out, "STAMP"), `${new Date().toISOString()}\n`);
 console.log(`backend bundled in ${out}`);
