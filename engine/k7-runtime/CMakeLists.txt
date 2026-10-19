@@ -5,10 +5,12 @@ project(Studio VERSION 0.0.1 LANGUAGES C CXX)
 if(APPLE)
     enable_language(OBJC OBJCXX)
 endif()
-# The two phones, where the engine is a library inside an app and shares its cuts: no Surge, no plugin hosting, no Tracktion examples.
+# The two phones, where the engine is a library inside an app and shares its cuts: no plugin hosting, no Tracktion examples.
 if(ANDROID OR IOS)
     set(STUDIO_PHONE ON)
 endif()
+# Surge XT, built in on every platform, phones included; off only for a build that asks (docs/surgePlugin.md).
+option(STUDIO_WITH_SURGE "Build Surge XT into the engine" ON)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -207,7 +209,7 @@ set(ENABLE_LTO OFF CACHE BOOL "" FORCE)
 # that release's core still links juce_dsp, which would put a second JUCE beside Tracktion's.
 # Fetched by a script because FetchContent cannot shallow-fetch a commit; the four fixes being a
 # subproject needs are in the patch script. Rationale: docs/surgePlugin.md.
-if(NOT STUDIO_PHONE)
+if(STUDIO_WITH_SURGE)
     set(STUDIO_SURGE_COMMIT baa97f7cad09d3dcde472137ed030829ff55d202)
     set(STUDIO_SURGE_SUBMODULES "libs/PEGTL,libs/eurorack/eurorack,libs/fmt,libs/pffft,libs/simde,libs/zstd,libs/r8brain-free-src,libs/tuning-library,libs/sst/sst-basic-blocks,libs/sst/sst-cmake,libs/sst/sst-cpputils,libs/sst/sst-effects,libs/sst/sst-filters,libs/sst/sst-plugininfra,libs/sst/sst-waveshapers")
     FetchContent_Declare(surge
@@ -394,7 +396,7 @@ FetchContent_MakeAvailable(nlohmann_json ixwebsocket tracktion_engine nam_core e
 set(CMAKE_CXX_STANDARD 17)
 FetchContent_MakeAvailable(sfizz)
 set(CMAKE_CXX_STANDARD 20)
-if(NOT STUDIO_PHONE)
+if(STUDIO_WITH_SURGE)
     # Surge's sources are compiled at the engine's macOS floor, not the 10.13 Tracktion forced (see below).
     if(APPLE)
         set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")

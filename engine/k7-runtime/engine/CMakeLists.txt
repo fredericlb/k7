@@ -142,7 +142,7 @@ if(TARGET sfizz::sfizz)
 endif()
 
 # --- Surge XT, for SurgePlugin: a full synthesizer as a built-in (docs/surgePlugin.md) ---
-# STUDIO_SURGE says the plugin is compiled in; every desktop fetches Surge, Android does not yet.
+# STUDIO_SURGE says the plugin is compiled in: every platform fetches Surge unless STUDIO_WITH_SURGE is off.
 if(TARGET surge-common)
     add_subdirectory(surge)
     target_sources(studio_engine PRIVATE SurgePlugin.cpp)
