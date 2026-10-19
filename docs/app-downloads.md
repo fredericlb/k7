@@ -16,7 +16,7 @@ release first. A desktop app follows its own channel and never crosses to the ot
 | a channel per stamp kind, not one feed | electron-updater installs only a higher semver, and a snapshot's version (`0.1.0-snapshot-9f2c1ab`) is a prerelease of the release it was cut from: on one feed, a release would pull every snapshot install onto it and leave it there |
 | the app decides what is newer, then lets electron-updater download with `allowDowngrade` | snapshot versions sort by commit hash, not by date; the snapshot channel only ever holds `main`'s latest build, so "another commit" is "later", as the app's check already said |
 | `current` and `previous` kept per channel, nothing else | an app that read `latest.yml` just before a publish still finds its installer; older builds are on GitHub |
-| the root domain answers `/app_downloads` only (a Traefik router of its own) | `k7.rocks` is not otherwise k7's to serve; the app itself is at `app.k7.rocks`, which answers the same path |
+| on the root domain, `/app_downloads` is the one address besides the coming-soon page | the app itself is at `app.k7.rocks`, which answers the same path; `k7.rocks` is a front page, not the app ([apps/k7/backend/docs/site.md](../apps/k7/backend/docs/site.md)) |
 
 ## Publishing
 

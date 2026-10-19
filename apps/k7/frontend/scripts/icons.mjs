@@ -93,8 +93,8 @@ const SPLASH_TARGETS = [
     width: 840,
   },
 ];
-// The desktop's splash is a data URL with nothing fetched, so it carries the drawing inline, minus the namespaces HTML does not need.
-const SPLASH_INLINE = "apps/k7-standalone/src/splashArt.json";
+// The pages that fetch nothing carry the drawing inline (the desktop splash, k7.rocks), minus the namespaces HTML does not need.
+const SPLASH_INLINE = "apps/k7/frontend/icon/k7-splash.inline.json";
 
 async function renderSplash(browser, width) {
   const tab = await browser.newPage({ viewport: { width, height: width } });

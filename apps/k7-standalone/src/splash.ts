@@ -2,7 +2,7 @@
 // A data URL, so it needs no server; it holds no link, so the tab's routing never sees it navigate. See docs/standalone.md.
 // It declares NO drag region: on Windows a view keeps one across navigation, and k7's home would drag the window on every click (docs/tabs.md).
 
-import splashArt from "./splashArt.json";
+import splashArt from "../../k7/frontend/icon/k7-splash.inline.json";
 
 /** The startup splash's own colour, then --sh-foreground, --sh-muted-foreground and --sh-destructive from the app's theme. */
 const BACKGROUND = "#07031F";
