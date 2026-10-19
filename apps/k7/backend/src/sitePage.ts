@@ -6,12 +6,15 @@ import splash from "../../frontend/icon/k7-splash.inline.json" with {
   type: "json",
 };
 
-/** The hosts that answer with this page, from `$STUDIO_SITE_HOSTS`; unset is none, as in dev and on a desktop. */
+// The default, so no deployment has to set it: no other server, dev session or desktop is ever asked for these names.
+const SITE_HOSTS = "k7.rocks www.k7.rocks";
+
+/** The hosts that answer with this page: `$STUDIO_SITE_HOSTS` when set, k7.rocks and www. otherwise. */
 export function siteHostsFromEnv(
   value = process.env.STUDIO_SITE_HOSTS,
 ): Set<string> {
   return new Set(
-    (value ?? "")
+    (value ?? SITE_HOSTS)
       .split(/[\s,]+/)
       .map((h) => h.trim().toLowerCase())
       .filter((h) => h !== ""),
