@@ -339,6 +339,10 @@ whole shape:
   `stopDispatchLoop()` would instead finish the app's Activity.
 - **Once per process.** After the quit, JUCE is still bound to a Looper that cannot loop again, so an
   engine is restarted by a new process. `MainActivity` exits the process when it finishes.
+  So a start must not fail: the supervisor hands the app a port it has just BOUND itself, the first
+  free one of the usual ten (another app's engine — k7 and k7 e2e side by side — holds 8765), and a
+  connect cannot stand in for that test, since another app's listener refuses this one's loopback.
+  It adopts a running engine only when this same app process started it, on the port it recorded.
 
 Teardown after the quit posts a few messages to the dead Looper; Android logs "sending message to a
 Handler on a dead thread" and drops them. That is the same as a desktop message posted after its

@@ -206,6 +206,7 @@ int listenerPid(int port)
     return std::atoi(out.c_str());
 }
 #endif
+#endif
 
 // Whether the engine could bind `port` on every interface now, as its server will; a socket we cannot open says yes.
 bool bindable(int port)
@@ -236,6 +237,7 @@ bool bindable(int port)
     return ok;
 }
 
+#ifndef K7_ENGINE_IN_APP
 // Who holds `port`, for the log: the program and its pid when the OS says, else only that something does.
 std::string holderOf(int port)
 {
@@ -277,17 +279,26 @@ int appPid()
 }
 }  // namespace
 
-// The app binds the port it is handed, and whatever serves there is the app's: the first port is the only one.
-StartResult start(const EngineIdentity& identity, int port, bool, const std::string& origins, int safeModeCrashes)
+// The app may serve its engine ONCE per process (JUCE binds to that thread), so a held port is skipped before asking, never found by a failed bind.
+StartResult start(const EngineIdentity& identity, int first, bool fixed, const std::string& origins, int safeModeCrashes)
 {
     std::error_code ec;
     fs::create_directories(paths::studioDir(), ec);
     const int app = appPid();
-    if (isServing(port)) {
-        std::ofstream(paths::enginePid(), std::ios::trunc) << app;
-        log::host("adopting the engine the app already serves on :" + std::to_string(port));
-        return {StartKind::Adopted, app, "", port};
+    // Adopted only when THIS app started it, on the port it recorded: a listener there may be another app's engine.
+    if (const auto rec = pidfile::read(); rec.pid == app && rec.port > 0 && isServing(rec.port)) {
+        log::host("adopting the engine the app already serves on :" + std::to_string(rec.port));
+        return {StartKind::Adopted, app, "", rec.port};
     }
+    int port = 0;
+    for (int p : candidatePorts(first, fixed)) {
+        if (bindable(p)) {
+            port = p;
+            break;
+        }
+        log::host(":" + std::to_string(p) + " is held by another program — trying the next port");
+    }
+    if (port == 0) return {StartKind::Error, 0, "no free port from :" + std::to_string(first)};
     protocol::emit({{"t", "engine"}, {"action", "start"}, {"id", identity.id}, {"token", identity.token},
                     {"port", port}, {"host", "0.0.0.0"}, {"origins", origins}, {"safeMode", safeModeCrashes}});
     const auto until = std::chrono::steady_clock::now() + kAppStartBound;
@@ -296,7 +307,10 @@ StartResult start(const EngineIdentity& identity, int port, bool, const std::str
             return {StartKind::Error, 0, "the app did not start the engine on :" + std::to_string(port)};
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-    std::ofstream(paths::enginePid(), std::ios::trunc) << app;
+    pidfile::Record rec;
+    rec.pid = app;
+    rec.port = port;
+    pidfile::write(rec);
     log::host("the app started the engine on :" + std::to_string(port));
     return {StartKind::Spawned, app, "", port};
 }
