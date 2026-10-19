@@ -7,7 +7,11 @@ import { Button } from "@frediverse/ui/button";
 import { FileTree, type TreeNode } from "@frediverse/ui/file-tree";
 import { Cloud, Disc3, FolderTree, Search } from "@frediverse/ui/icons";
 import { AUDIO_ACCEPT, isAudio } from "@studio/mediatek/media";
-import { RECORDINGS_DIR, SONG_FILE } from "@studio/mediatek/types";
+import {
+  type MediatekEntry,
+  RECORDINGS_DIR,
+  SONG_FILE,
+} from "@studio/mediatek/types";
 import { sortNodes } from "@studio/web-protocol/tree";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddRecording } from "./AddRecording";
@@ -34,6 +38,7 @@ import { SongEditor } from "./SongEditor";
 import { assetActions, songActions } from "./treeActions";
 import { useLibraryData } from "./useLibraryData";
 import { useLibraryRoute } from "./useLibraryRoute";
+import { useSongTap } from "./useSongTap";
 
 export function MediaLibrary({
   vimMode = false,
@@ -142,6 +147,14 @@ export function MediaLibrary({
   }, [target]);
   // The queue and the destination are the provider's, above this screen.
   const playback = usePlayback();
+  // A tap opens the song; a double tap on a touch screen plays it instead (../docs/responsive.md).
+  const tapSong = useSongTap(
+    useCallback(
+      (entry: MediatekEntry) =>
+        openFile(`${relative(entry.path)}/${SONG_FILE}`),
+      [openFile],
+    ),
+  );
 
   // The folder PICKER beside the drag: `webkitdirectory` is the input's property, not the click's (../docs/library.md).
   const pickRef = useRef<HTMLInputElement>(null);
@@ -262,7 +275,8 @@ export function MediaLibrary({
       {/* A column when there is room and a DRAWER when there is not, same markup — see ../docs/responsive.md. */}
       <aside
         // No translate (breaks FileTree's popup, ../docs/responsive.md) — a column, so the tree scrolls and the foot does not.
-        className={`flex shrink-0 flex-col overflow-hidden rounded-xl bg-tree-panel p-3 md:static md:z-auto md:m-3 md:flex md:w-[290px] ${
+        // touch-manipulation: no double-tap zoom, since a double tap on a song plays it.
+        className={`flex shrink-0 touch-manipulation flex-col overflow-hidden rounded-xl bg-tree-panel p-3 md:static md:z-auto md:m-3 md:flex md:w-[290px] ${
           treeIsPage
             ? "m-3 min-w-0 flex-1 md:flex-none"
             : treeOpen
@@ -323,7 +337,7 @@ export function MediaLibrary({
             opensOnName={(n) => isSongFolder(entries, n.path)}
             onOpen={(n) => {
               const entry = entryAt(entries, n.path);
-              if (entry && isSong(entry)) openFile(`${n.path}/${SONG_FILE}`);
+              if (entry && isSong(entry)) tapSong(entry);
             }}
             // A song wears the glyph of its own tab; one only on the server, a cloud.
             icon={(n) => {

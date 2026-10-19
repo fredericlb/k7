@@ -48,6 +48,17 @@ then replaces it, and its Back button returns to the tree. With a song open, the
 again, for moving to another song without going back. The other sections keep the drawer from
 the start: their middle pane shows what the tree does not.
 
+## A song row under a finger
+
+- **A double tap plays the song**, starting its master on the account's destination, and opens
+  nothing. A phone has no room for the panel and the tree at once, so playing a song should not
+  cost the list. The price is a first tap that waits 300 ms, the double-tap window, before it opens
+  the panel. Only a touch screen (`hover: none`) pays it: a mouse click opens at once, and a song
+  with no master opens at once, since there is nothing to play. The tree's column is
+  `touch-action: manipulation`, or iOS would zoom on the same gesture.
+- **A long press is the right-click.** It is the tree's own (`commons/packages/ui/docs/file-tree.md`):
+  500 ms held still opens the row's menu, and the lifting finger does not also open the song.
+
 ## What stays put
 
 Adding a song and adding a capture are not in any bar — each sits below its tree, where there is room for the whole sentence at every width, so

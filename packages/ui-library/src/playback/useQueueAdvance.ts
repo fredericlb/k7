@@ -7,7 +7,7 @@ import { usePlayback } from "./PlaybackProvider";
 import type { PlaybackTarget } from "./targets";
 
 /** A song's MASTER, which is what "add to the queue" means: a variant is chosen one at a time. */
-const masterOf = (entry: Parameters<typeof takesOf>[0]): string | null =>
+export const masterOf = (entry: Parameters<typeof takesOf>[0]): string | null =>
   takesOf(entry).find((t) => t.kind === "master")?.file ?? null;
 
 /** Start the queue's next track that resolves, SKIPPING one that does not (../../docs/miniPlayer.md). */
