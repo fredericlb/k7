@@ -1,9 +1,11 @@
 // aiOrganize.ts — the WIRE and the CHECK of "AI organize": what the builder sends its host, the
 // per-module message the model reads, and the test a proposed panel must pass before it lands
 // in a buffer. Pure and React-free, so the host's server imports it too and both ends agree on
-// what a valid answer is. The prompt's stable half is aiPrompt.ts; packages/ui-module-builder/docs/aiOrganize.md.
+// what a valid answer is. The answer's JSON is aiAnswer.ts, the prompt's stable half aiPrompt.ts;
+// packages/ui-module-builder/docs/aiOrganize.md.
 
 import type { ParamMeta } from "@studio/engine-protocol";
+import { parse } from "@studio/k7x/document";
 import {
   INPUT_VOLUME_PARAM,
   MIX_PARAM,
@@ -18,7 +20,7 @@ import {
   UiFileSchema,
   type Widget,
 } from "@studio/song-schema/yaml/moduleSchema";
-import { parse } from "yaml";
+import type { AiOrganizeResult } from "./aiAnswer";
 import { clash, framedBy } from "./groupGeometry";
 import { twinIssues } from "./layoutTwins";
 
@@ -33,11 +35,11 @@ export interface AiParam {
 export interface AiOrganizeRequest {
   /** The module's name, for the header comment and the model's sense of what it is. */
   module: string;
-  /** The module.yaml text: its plugin, its declared params, its label. */
-  moduleYaml: string;
+  /** The module.k7x text: its plugin, its declared params, its label. */
+  moduleText: string;
   params: AiParam[];
-  /** The panel and the screens as they are now — sent to the model only on an UPDATE. */
-  uiYaml: string;
+  /** The panel (`ui.k7x`) and the screens as they are now — sent to the model only on an UPDATE. */
+  uiText: string;
   widgetsJs: string;
   /** `update` changes the panel there is; `reset` designs one from the parameters alone — packages/ui-module-builder/docs/aiOrganize.md. */
   mode: AiOrganizeMode;
@@ -49,9 +51,9 @@ export interface AiOrganizeRequest {
 export type AiOrganizeMode = "update" | "reset";
 
 /** Whether a panel file lays anything out — the question that decides whether there is a layout to update. */
-export function hasLayout(uiYaml: string): boolean {
+export function hasLayout(uiText: string): boolean {
   try {
-    const widgets = (parse(uiYaml) as { widgets?: unknown } | null)?.widgets;
+    const widgets = parse(uiText).widgets;
     return (
       !!widgets &&
       typeof widgets === "object" &&
@@ -63,12 +65,12 @@ export function hasLayout(uiYaml: string): boolean {
   }
 }
 
-/** What the host answers: both files as TEXT, already checked. */
-export interface AiOrganizeResult {
-  uiYaml: string;
-  widgetsJs: string;
-  notes: string;
-}
+export {
+  AI_RESULT_SCHEMA,
+  type AiAnswer,
+  type AiOrganizeResult,
+  readAiAnswer,
+} from "./aiAnswer";
 
 /** One line of the answer stream: progress while waiting, then exactly one `done` or `error`. */
 export type AiOrganizeEvent =
@@ -83,23 +85,11 @@ export interface AiSettingsView {
   keyHint: string | null;
 }
 
-/** The JSON the model is constrained to — snake_case, as the prompt names the fields. */
-export const AI_RESULT_SCHEMA = {
-  type: "object",
-  properties: {
-    ui_yaml: { type: "string" },
-    widgets_js: { type: "string" },
-    notes: { type: "string" },
-  },
-  required: ["ui_yaml", "widgets_js", "notes"],
-  additionalProperties: false,
-} as const;
-
-/** The sounds module.yaml's own `rack:` declares, by symbol; none when it has no rack or does not parse. */
-export function rackSymbols(moduleYaml: string): string[] {
+/** The sounds module.k7x's own `rack(…)` declares, by symbol; none when it has no rack or does not parse. */
+export function rackSymbols(moduleText: string): string[] {
   try {
-    const symbols = (parse(moduleYaml) as { rack?: { symbols?: unknown } })
-      ?.rack?.symbols;
+    const symbols = (parse(moduleText) as { rack?: { symbols?: unknown } }).rack
+      ?.symbols;
     return symbols && typeof symbols === "object" ? Object.keys(symbols) : [];
   } catch {
     return [];
@@ -109,9 +99,9 @@ export function rackSymbols(moduleYaml: string): string[] {
 /** Every bind a proposed panel may carry: the params, and on a rack module its taps — packages/ui-module-builder/docs/aiOrganize.md. */
 export function bindableNames(req: {
   params: readonly { name: string }[];
-  moduleYaml: string;
+  moduleText: string;
 }): string[] {
-  const rack = rackSymbols(req.moduleYaml);
+  const rack = rackSymbols(req.moduleText);
   return [
     ...req.params.map((p) => p.name),
     ...rack.map((sym) => `${RACK_BIND}${sym}`),
@@ -134,14 +124,14 @@ function paramLine(p: AiParam): string {
 /** The per-module half of the prompt — everything that changes between two requests. */
 export function aiUserPrompt(req: AiOrganizeRequest): string {
   const direction = req.direction.trim();
-  const rack = rackSymbols(req.moduleYaml);
+  const rack = rackSymbols(req.moduleText);
   const update = req.mode === "update";
   return [
     `Module: ${req.module}`,
     "",
-    "## module.yaml",
-    "```yaml",
-    req.moduleYaml.trim() || "# (empty)",
+    "## module.k7x",
+    "```k7x",
+    req.moduleText.trim() || "// (empty)",
     "```",
     "",
     `## Parameters (${req.params.length}) — bind names exactly as quoted`,
@@ -157,9 +147,9 @@ export function aiUserPrompt(req: AiOrganizeRequest): string {
     // An UPDATE shows the panel there is; a RESET leaves it out, so nothing of it can leak back in.
     ...(update
       ? [
-          "## Current ui.yaml",
-          "```yaml",
-          req.uiYaml.trim() || "# (none yet)",
+          "## Current ui.k7x",
+          "```k7x",
+          req.uiText.trim() || "// (none yet)",
           "```",
           "",
           "## Current widgets.js",
@@ -181,28 +171,6 @@ export function aiUserPrompt(req: AiOrganizeRequest): string {
         ]),
   ].join("\n");
 }
-
-/** The model's raw answer, read off its JSON text; null when it is not the promised shape. */
-export function readAiAnswer(text: string): AiOrganizeResult | null {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(text);
-  } catch {
-    return null;
-  }
-  const r = raw as Record<string, unknown>;
-  if (typeof r?.ui_yaml !== "string" || typeof r.widgets_js !== "string")
-    return null;
-  return {
-    uiYaml: stripFence(r.ui_yaml),
-    widgetsJs: stripFence(r.widgets_js),
-    notes: typeof r.notes === "string" ? r.notes : "",
-  };
-}
-
-// A model sometimes fences a file it was told to return bare; the fence would be YAML garbage.
-const stripFence = (s: string): string =>
-  s.replace(/^\s*```[a-z]*\n/, "").replace(/\n```\s*$/, "\n");
 
 const span = (n?: number) => Math.max(1, n ?? 1);
 
@@ -391,18 +359,18 @@ export function interactiveIssues(
 
 /** Why a proposal must not land, as sentences the MODEL can act on; empty means it may. */
 export function checkAiResult(
-  res: AiOrganizeResult,
+  res: AiOrganizeResult & { issues?: readonly string[] },
   bindNames: readonly string[],
   /** The request, when the caller has it: what decides whether a screen may be interactive. */
   req?: Pick<AiOrganizeRequest, "direction" | "widgetsJs" | "mode">,
 ): { ui: ModuleUI | null; issues: string[] } {
   let raw: unknown;
   try {
-    raw = parse(res.uiYaml);
+    raw = parse(res.uiText);
   } catch (e) {
     return {
       ui: null,
-      issues: [`ui_yaml is not YAML: ${(e as Error).message}`],
+      issues: [`the panel does not read as k7x: ${(e as Error).message}`],
     };
   }
   const parsed = UiFileSchema.safeParse(raw);
@@ -410,11 +378,11 @@ export function checkAiResult(
     return {
       ui: null,
       issues: parsed.error.issues.map(
-        (i) => `ui_yaml ${i.path.join(".") || "(root)"}: ${i.message}`,
+        (i) => `panel ${i.path.join(".") || "(root)"}: ${i.message}`,
       ),
     };
   const ui = parsed.data;
-  const issues: string[] = [];
+  const issues: string[] = [...(res.issues ?? [])];
   const known = new Set(bindNames);
   const top = Object.entries(ui.widgets);
   // The panel's own widgets are drawn on EVERY tab, so each tab is checked together with them.

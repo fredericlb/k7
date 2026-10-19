@@ -169,7 +169,7 @@ they never re-subscribe. A movement threshold is what keeps a pan from also sele
 
 ### Moving a card, and where dagre still rules
 
-Drag any node's header and it goes where you put it: written to graph.yaml's `positions:` by
+Drag any node's header and it goes where you put it: written to graph.k7x's `positions:` by
 `graph move` (the drop runs the verb outright, like the cable's landing). Everything that
 can be added to the graph IS a node — a module, a track, a curve, the sink — and every node is
 addressed by one name: its chains name, a curve by its curve id, the sink by `OUT`. A curve draws

@@ -1,4 +1,4 @@
-// mixView.ts — reading the project's `views/mix.yaml`. Its own file because the desk and the
+// mixView.ts — reading the project's `views/mix.k7x`. Its own file because the desk and the
 // hook that owns the decks both need it, and neither should have to import the other.
 
 // The shared file routes, direct — an app-level re-export would be a seam over something already shared.
@@ -17,7 +17,7 @@ const absent = (e: unknown): boolean =>
   (e as { status?: number } | null)?.status === 404;
 
 /** The bindings file, project-relative. Named once — the name is @studio/song's. */
-export const MIX_VIEW_FILE = `${VIEWS_DIR}/${MIX_VIEW_BASE}.yaml`;
+export const MIX_VIEW_FILE = `${VIEWS_DIR}/${MIX_VIEW_BASE}.k7x`;
 
 /** Read the desk's bindings — absent is ordinary and reads as none, any other failure throws; malformed is `parseMixView`'s business. */
 export async function readMixView(project: string): Promise<MixView> {
@@ -30,8 +30,8 @@ export async function readMixView(project: string): Promise<MixView> {
   }
 }
 
-/** The CUE SHEET at the project ROOT — not `views/mix.yaml` above, same base. See ../docs/cues.md. */
-export const MIX_FILE = `${MIX_BASE}.yaml`;
+/** The CUE SHEET at the project ROOT — not `views/mix.k7x` above, same base. See ../docs/cues.md. */
+export const MIX_FILE = `${MIX_BASE}.k7x`;
 
 const inProject = (project: string, file: string) =>
   project === "." ? file : `${project}/${file}`;
@@ -48,7 +48,7 @@ export async function readPlaylistText(name: string): Promise<string | null> {
   }
 }
 
-/** mix.yaml as TEXT, because a cue is written back INTO it — absent reads as empty, any other failure throws. */
+/** mix.k7x as TEXT, because a cue is written back INTO it — absent reads as empty, any other failure throws. */
 export async function readMixText(project: string): Promise<string> {
   try {
     return (await api.read(inProject(project, MIX_FILE))).content;

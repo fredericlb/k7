@@ -1,8 +1,8 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { copyAsYaml } from "@studio/song/testSupport";
+import { writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
@@ -19,11 +19,11 @@ let ws: Workspace;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-reopen-"));
   proj = join(root, "song.k7");
-  copyAsYaml(SONG, proj, { recursive: true });
+  cpSync(SONG, proj, { recursive: true });
   // The demo's own modules live at `@workspace`, its sibling in the Examples workspace.
   const demoModules = join(DEMOS, "_modules");
   if (existsSync(demoModules))
-    copyAsYaml(demoModules, join(root, "_modules"), { recursive: true });
+    cpSync(demoModules, join(root, "_modules"), { recursive: true });
   ws = new Workspace(root);
   ws.setActiveProject("song.k7");
 });
@@ -32,11 +32,11 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 describe("a project changed underneath the Workspace", () => {
   // Recolouring a track lands in the COMPILED doc directly, which is the thing that is cached.
   const setColor = (c: string): void => {
-    writeFileSync(
-      join(proj, "nodes", "melody.yaml"),
-      `extends: "@meta/track"\ncolor: "${c}"\nevents:\n  - { ref: melody, start: "1:1:1" }\n`,
-      "utf8",
-    );
+    writeDoc(join(proj, "nodes", "melody.k7x"), {
+      extends: "@meta/track",
+      color: c,
+      events: [{ ref: "melody", start: "1:1:1" }],
+    });
   };
   const colour = (): string | undefined =>
     ws.cachedProjectDoc(proj).tracks.find((t) => t.id === "melody")?.color;

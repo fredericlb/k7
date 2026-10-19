@@ -46,7 +46,7 @@ const KEYWORDS = new Set([
   "outputs",
 ]);
 
-/** The UI primitives — the ones that DECLARE a parameter, coloured apart since a `module.yaml` must agree with them. */
+/** The UI primitives — the ones that DECLARE a parameter, coloured apart since a `module.k7x` must agree with them. */
 const UI = new Set([
   "hslider",
   "vslider",

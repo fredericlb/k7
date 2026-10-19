@@ -206,7 +206,7 @@ export function ChainsTab({
     at: { x: number; y: number } | undefined,
     nameFor: (module: string) => string,
   ) => void;
-  // The patch cable landed: a free output then a free input, as graph.yaml addresses, ready for `graph chain connect`.
+  // The patch cable landed: a free output then a free input, as graph.k7x addresses, ready for `graph chain connect`.
   onConnect?: (from: string, to: string) => void;
   // A curve's cable landed on a knob, or a note-on on an envelope's ear — both write one line of `node automate`.
   onAutomate?: (

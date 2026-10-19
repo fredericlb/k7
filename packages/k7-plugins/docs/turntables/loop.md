@@ -13,7 +13,7 @@ So the loop is **in the platter**, in C++: two parameters `LoopStart` / `LoopEnd
 of the record like `Seek`, with the wrap in both render paths
 ([turntable.md](../../../../engine/k7-runtime/docs/turntable.md)). That costs more C++ and **less of
 everything else**: a loop is a platter gesture like `censor`, `place` and `scratch`, none of
-which is in `MIX_CONTROLS`. No module, no binding in `mix.yaml`, no surface migration.
+which is in `MIX_CONTROLS`. No module, no binding in `mix.k7x`, no surface migration.
 
 ## A length is in BEATS, and the beats are the record's
 
@@ -82,6 +82,6 @@ the position as it stands rather than inventing a bar.
   would be two answers to one question.
 - **The downbeat is assumed 4/4.** As everywhere here, `BEATS_PER_BAR` is a constant
   ([grid.md](grid.md)).
-- **Nothing is recorded.** A loop lives for the length of the set. It is not in `mix.yaml`, and
+- **Nothing is recorded.** A loop lives for the length of the set. It is not in `mix.k7x`, and
   [grid.md](grid.md)'s test says why that would be arguable both ways: the length is a mix
   decision, but it only means anything together with the place, which is one too.

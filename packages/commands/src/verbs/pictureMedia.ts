@@ -40,7 +40,7 @@ async function clipWork(
       say: `${ref}: ${plan.optimized === "none" && !plan.proxy ? "ready as it is" : "already prepared"}`,
       work: null,
     };
-  const file = resolve(h.songPath, "clips", `${ref}.yaml`);
+  const file = resolve(h.songPath, "clips", `${ref}.k7x`);
   const work = async () => {
     // The proxy is made from whatever DECODES: the optimized copy when there is one, which is also the faster read.
     let decodable =

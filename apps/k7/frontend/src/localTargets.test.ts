@@ -13,13 +13,13 @@ import {
 const TREE = [
   "clips",
   "clips/kick.wav",
-  "clips/rythm.yaml",
+  "clips/rythm.k7x",
   "modules",
   "modules/instruments/synth",
-  "modules/instruments/synth/module.yaml",
+  "modules/instruments/synth/module.k7x",
   "modules/audio/ampli",
-  "modules/audio/ampli/module.yaml",
-  "sequences/melody.yaml",
+  "modules/audio/ampli/module.k7x",
+  "sequences/melody.k7x",
 ];
 
 describe("resolveEntry", () => {
@@ -28,8 +28,8 @@ describe("resolveEntry", () => {
   });
 
   it("is fuzzy, like every other name the shell resolves", () => {
-    // The same subsequence rule the file picker uses: `rythm` finds `clips/rythm.yaml`, which a prefix filter could not.
-    expect(resolveEntry("rythm", TREE)).toBe("clips/rythm.yaml");
+    // The same subsequence rule the file picker uses: `rythm` finds `clips/rythm.k7x`, which a prefix filter could not.
+    expect(resolveEntry("rythm", TREE)).toBe("clips/rythm.k7x");
   });
 
   it("answers a FOLDER too — `fs file move` and `ui pin` are offered on one", () => {
@@ -46,16 +46,16 @@ describe("resolveModuleFile", () => {
   it("prefers a module over anything else the name could mean", () => {
     // `ui builder ampli` names a MODULE, so a clip that matches as well must not win.
     expect(resolveModuleFile("ampli", TREE)).toBe(
-      "modules/audio/ampli/module.yaml",
+      "modules/audio/ampli/module.k7x",
     );
     expect(resolveModuleFile("synth", TREE)).toBe(
-      "modules/instruments/synth/module.yaml",
+      "modules/instruments/synth/module.k7x",
     );
   });
 
   it("falls back to the whole project, so a full path can be pasted in", () => {
-    expect(resolveModuleFile("sequences/melody.yaml", TREE)).toBe(
-      "sequences/melody.yaml",
+    expect(resolveModuleFile("sequences/melody.k7x", TREE)).toBe(
+      "sequences/melody.k7x",
     );
   });
 });

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A workspace edit as a small operation: a YAML or k7x file's change as values set or deleted at key paths, replayed without touching the rest of the file, with the whole text as the fallback. No node:, so a browser may have it. Consumed as source.",
+  "description": "A workspace edit as a small operation: a k7x file's change as values set or deleted at key paths, replayed without touching the rest of the file, with the whole text as the fallback. No node:, so a browser may have it. Consumed as source.",
   "exports": {
     "./ops": "./src/ops.ts",
     "./file-op": "./src/fileOp.ts",
@@ -25,8 +25,7 @@
   "dependencies": {
     "@studio/web-protocol": "*",
     "@studio/k7x": "*",
-    "node-diff3": "^3.2.1",
-    "yaml": "^2.5.0"
+    "node-diff3": "^3.2.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -1,4 +1,5 @@
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -8,12 +9,12 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { parse } from "@studio/k7x/document";
 import { loadCurves } from "@studio/song/curves";
 import { isFolderProject } from "@studio/song/folder";
 import { loadGraph } from "@studio/song/graph";
 import { exportSub, loadModules } from "@studio/song/loader";
 import { compileNodeProject } from "@studio/song/nodeProject";
-import { copyAsYaml } from "@studio/song/testSupport";
 import { isProjectFolder } from "@studio/song/yaml/moduleIO";
 import { ClipSchema } from "@studio/song-schema/yaml/entitySchemas";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -24,7 +25,7 @@ import {
   setModuleParam,
 } from "./projectEdit";
 
-// A YAML project end to end — the loader, the compiler, the writers, over a shipped demo song.
+// A project end to end — the loader, the compiler, the writers, over a shipped demo song.
 
 const here = dirname(
   new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"),
@@ -38,10 +39,10 @@ const SYNTH = ["..", "_modules", "instruments", "synth"];
 let root: string;
 let dir: string;
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), "td-yaml-"));
+  root = mkdtempSync(join(tmpdir(), "td-e2e-"));
   dir = join(root, "synth-demo.k7");
-  copyAsYaml(SONG, dir, { recursive: true });
-  copyAsYaml(DEMO_MODULES, join(root, "_modules"), { recursive: true });
+  cpSync(SONG, dir, { recursive: true });
+  cpSync(DEMO_MODULES, join(root, "_modules"), { recursive: true });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -50,12 +51,12 @@ describe("loading", () => {
     // Closed: a module silently ignoring `paramz:` would be a knob that does nothing. A NODE is
     // what `loadModules` reads now — the shared module it extends is a different loader's business.
     writeFileSync(
-      join(dir, "nodes", "lead.yaml"),
-      'extends: "@workspace/instruments/synth"\nparamz: {}\n',
+      join(dir, "nodes", "lead.k7x"),
+      'extends("@workspace/instruments/synth")\nparamz({})\n',
       "utf8",
     );
     expect(() => loadModules(dir, true)).toThrow(/invalid module\(s\)/);
-    expect(() => loadModules(dir, true)).toThrow(/lead\.yaml/);
+    expect(() => loadModules(dir, true)).toThrow(/lead\.k7x/);
     expect(() => loadModules(dir, true)).toThrow(/paramz/);
   });
 
@@ -83,15 +84,15 @@ describe("loading", () => {
 
 describe("the writers", () => {
   it("changes one value and leaves the rest of the file alone", () => {
-    const file = join(dir, ...SYNTH, "module.yaml");
+    const file = join(dir, ...SYNTH, "module.k7x");
     const authored =
-      "# the lead\nplugin:\n  type: internal\n  name: 4osc\nparams:\n  Mix: 1\n";
+      '// the lead\nplugin({ type: "internal", name: "4osc" })\nparams({\n  Mix: 1,\n})\n';
     writeFileSync(file, authored, "utf8");
 
     setModuleParam(dir, "@workspace/instruments/synth", "Mix", 0.5);
     const after = readFileSync(file, "utf8");
     // The comment survives and exactly one line differs, so a knob drag is a one-line diff.
-    expect(after).toContain("# the lead");
+    expect(after).toContain("// the lead");
     expect(after).toContain("Mix: 0.5");
     expect(
       after.split("\n").filter((l, i) => l !== authored.split("\n")[i]),
@@ -102,20 +103,18 @@ describe("the writers", () => {
     const folder = join(root, "_modules", "audio", "cab");
     mkdirSync(folder, { recursive: true });
     writeFileSync(
-      join(folder, "module.yaml"),
-      "plugin:\n  type: internal\n  name: Impulse Response\n",
+      join(folder, "module.k7x"),
+      'plugin({ type: "internal", name: "Impulse Response" })\n',
       "utf8",
     );
+    const params = () =>
+      parse(readFileSync(join(folder, "module.k7x"), "utf8")).params;
 
     setModuleAsset(dir, "@workspace/audio/cab", "ir", "ir/marshall.wav");
-    expect(readFileSync(join(folder, "module.yaml"), "utf8")).toContain(
-      "ir: ir/marshall.wav",
-    );
+    expect(params()).toEqual({ ir: "ir/marshall.wav" });
     // Cleared, not emptied: `ir: ""` would be a value that means nothing.
     setModuleAsset(dir, "@workspace/audio/cab", "ir", null);
-    expect(readFileSync(join(folder, "module.yaml"), "utf8")).not.toContain(
-      "ir:",
-    );
+    expect(params() ?? {}).not.toHaveProperty("ir");
   });
 
   it("bypasses a module and reads it back through the graph", () => {
@@ -127,7 +126,7 @@ describe("the writers", () => {
       loadGraph(dir).chains[chain].use.find((s) => s.module === step)?.enabled,
     ).toBe(false);
     // …and off-then-on returns the file to what it was, so clicking twice leaves no diff.
-    const file = join(dir, "graph.yaml");
+    const file = join(dir, "graph.k7x");
     const bypassed = readFileSync(file, "utf8");
     setModuleBypass(dir, step, false);
     expect(readFileSync(file, "utf8")).not.toBe(bypassed);
@@ -150,10 +149,10 @@ describe("the writers", () => {
 describe("a song is still a song", () => {
   it("is recognised as a project by every check that asks", () => {
     // None of these may look for `project.cue` BY NAME, or a converted song goes invisible.
-    expect(existsSync(join(dir, "project.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "project.k7x"))).toBe(true);
     expect(isProjectFolder(dir)).toBe(true);
     expect(isFolderProject(dir)).toBe(true);
-    expect(isFolderProject(join(dir, "project.yaml"))).toBe(true);
+    expect(isFolderProject(join(dir, "project.k7x"))).toBe(true);
   });
 
   it("compiles to a project with its tracks, plugins and clips", () => {

@@ -4,6 +4,7 @@
 // A name already taken by DIFFERENT bytes is not reused: the clip gets the next free id. See
 // apps/k7/frontend/docs/timeline.md, "Same name, different file".
 
+import { parse } from "@studio/k7x/document";
 import { mediaUrl } from "@studio/project-shell/fileApi";
 import { api } from "./api";
 import { projectDir } from "./projectPaths";
@@ -18,9 +19,15 @@ export interface FiledClip {
 /** How many `-n` suffixes are tried before giving up: a project holding fifty files called `take` has another problem. */
 const MAX_SUFFIX = 50;
 
-/** The `source:` a declaration names, or null when it has none. */
-export const declaredSource = (yaml: string): string | null =>
-  /^source:\s*["']?([^"'\n]+?)["']?\s*$/m.exec(yaml)?.[1] ?? null;
+/** The `source` a declaration names, or null when it has none or does not read. */
+export function declaredSource(text: string): string | null {
+  try {
+    const source = parse(text).source;
+    return typeof source === "string" ? source : null;
+  } catch {
+    return null;
+  }
+}
 
 /** The candidate ids for `id`, in order: itself, then `id-2`, `id-3`… */
 export const candidateIds = (id: string, n = MAX_SUFFIX): string[] =>
@@ -59,7 +66,7 @@ export async function fileClip(
 
   for (const id of candidateIds(clip.id)) {
     const upload = `${id}${ext}`;
-    const decl = `${prefix}clips/${id}.yaml`;
+    const decl = `${prefix}clips/${id}.k7x`;
     const existing = await api.read(decl).then(
       (r) => r.content,
       (e: { status?: number }) => {

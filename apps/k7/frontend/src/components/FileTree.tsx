@@ -72,7 +72,7 @@ const dragHasFiles = (e: React.DragEvent): boolean =>
 /** The generic module file a module folder is recognised BY, and opened at. */
 const MODULE_FILE = docPattern("^module");
 
-/** A module is a folder that HOLDS a `module.yaml`, drawn as one row — recognised by its contents, never by its path. */
+/** A module is a folder that HOLDS a `module.k7x`, drawn as one row — recognised by its contents, never by its path. */
 function moduleFileIn(node: FileNode): string | null {
   if (!node.dir) return null;
   return node.children?.find((c) => MODULE_FILE.test(c.name))?.name ?? null;
@@ -148,7 +148,7 @@ export function FileTree({
   // Where a drop onto empty space lands — the active project, or the workspace root when none is open.
   rootDir: string;
   onOpen: (path: string) => void;
-  /** A module row was clicked — the path is its `module.yaml`, which is what the builder takes. */
+  /** A module row was clicked — the path is its `module.k7x`, which is what the builder takes. */
   onOpenModule?: (moduleFile: string) => void;
   onOpenProject: (path: string) => void;
   // Drop local files into `dir`, FOLDERS included: each carries the path it sat at, a module being a folder of three. EditorTab uploads.
@@ -162,7 +162,7 @@ export function FileTree({
   // Make an empty folder inside `dir`.
   onCreateFolder?: (dir: string, name: string) => void;
   onCloneModule?: (path: string, newName: string) => void;
-  // Add an <node>.yaml to a module folder (it inherits that folder's module.yaml).
+  // Add an <node>.k7x to a module folder (it inherits that folder's module.k7x).
   onCreateNode?: (path: string) => void;
   /** The module levels this project can reach, nearest first — the RAW answer, a row's shape carrying neither its level nor its writability. */
   levels?: ModuleLibrary[];
@@ -174,7 +174,7 @@ export function FileTree({
   onOpenLibraryModule?: (moduleFile: string) => void;
   /** The library's ASSEMBLY templates, under the repository row beside its modules and chains. */
   assemblies?: readonly LibraryAssemblyRow[];
-  /** An assembly row was opened: the `assembly.yaml` the builder opens, and its folder. */
+  /** An assembly row was opened: the `assembly.k7x` the builder opens, and its folder. */
   onOpenAssembly?: (file: string, folder: string) => void;
   /** Make an empty module in a library: `root` is the level's path as GIVEN here, `rel` the module's path under it, never built from a name. */
   onCreateModule?: (root: string, rel: string) => void;
@@ -325,7 +325,7 @@ export function FileTree({
           placeholder: "audio/my-module",
           submit: m["common.create"](),
           hint: (t, value) =>
-            `${t.path}/${value.trim() || "<type>/<name>"}/module.yaml`,
+            `${t.path}/${value.trim() || "<type>/<name>"}/module.k7x`,
         },
         run: (t, value) => {
           const root = rootOf(all, t.path);
@@ -406,8 +406,8 @@ export function FileTree({
       when: (t) =>
         isPlainDir(t) && !t.root && !isShared(t.path) && !!onCreateProjectFile,
       prompt: {
-        placeholder: "filename.yaml",
-        initial: () => "untitled.yaml",
+        placeholder: "filename.k7x",
+        initial: () => "untitled.k7x",
         submit: m["common.create"](),
       },
       run: (t, name) => onCreateProjectFile?.(t.path, name),
@@ -504,7 +504,7 @@ export function FileTree({
             )}
           >
             <Pin className="h-3.5 w-3.5 shrink-0 text-primary-text" />
-            {/* Folder + filename, so two pinned `tracks/*.yaml` are told apart; the full path is the tooltip. */}
+            {/* Folder + filename, so two pinned `tracks/*.k7x` are told apart; the full path is the tooltip. */}
             <span className="truncate">{p.split("/").slice(-2).join("/")}</span>
           </button>
           <button

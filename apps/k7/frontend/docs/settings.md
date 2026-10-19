@@ -87,7 +87,7 @@ sweep that moved them settled:
 inside this app and inside others, each with its own message set; a French string in one of them
 is a French string in every host. What crosses that line is a `noun`-shaped hint the host hands
 in, not a sentence. The same rule covers text a package writes into a FILE — the
-`SURFACE_MAPPING_SKELETON` notes that end up as comments in `surfaces/<id>.yaml` are English
+`SURFACE_MAPPING_SKELETON` notes that end up as comments in `surfaces/<id>.k7x` are English
 because the file is read where the code is.
 
 Two packages draw inside k7 alone and so carry a catalogue of their own, compiled by this app's

@@ -2,18 +2,13 @@
 // silently: a lane wired on two ports compiles to two engine tracks and must move as ONE, and a
 // stated order that names only what moved would drop every lane it left out.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
 
@@ -23,9 +18,10 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(song, { recursive: true, force: true }));
 
-const project = (body: string): void =>
-  writeFileSync(join(song, "project.yaml"), body, "utf8");
-const root = () => parse(readFileSync(join(song, "project.yaml"), "utf8"));
+const project = (body: Record<string, unknown> = {}): void =>
+  writeDoc(join(song, "project.k7x"), { project: { name: "t", ...body } });
+// biome-ignore lint/suspicious/noExplicitAny: a test reads the file's data loosely
+const root = (): any => wsData(join(song, "project.k7x"));
 
 const withTracks = (ids: string[]) =>
   testHost({
@@ -38,7 +34,7 @@ const withTracks = (ids: string[]) =>
 
 describe("track order", () => {
   it("states the WHOLE order, not just the lane that moved", async () => {
-    project("project:\n  name: t\n");
+    project();
     const h = withTracks(["vo.main", "da.kit", "ge.lead"]);
     await runCommand("track order ge.lead 1", h, "cli");
     expect(root().trackOrder).toEqual(["ge.lead", "vo.main", "da.kit"]);
@@ -46,14 +42,14 @@ describe("track order", () => {
 
   it("moves a lane's two halves together, since the order is the LANE's", async () => {
     // `lead#audio` and `lead#midi` are one lane wired on two ports (docs/graphModel.md).
-    project("project:\n  name: t\n");
+    project();
     const h = withTracks(["vo.main", "lead#audio", "lead#midi"]);
     await runCommand("track order lead#midi 1", h, "cli");
     expect(root().trackOrder).toEqual(["lead", "vo.main"]);
   });
 
   it("clamps past the end rather than refusing", async () => {
-    project("project:\n  name: t\n");
+    project();
     const h = withTracks(["a", "b", "c"]);
     await runCommand("track order a 99", h, "cli");
     expect(root().trackOrder).toEqual(["b", "c", "a"]);
@@ -61,7 +57,7 @@ describe("track order", () => {
   });
 
   it("names the lanes there are when the track is not one", async () => {
-    project("project:\n  name: t\n");
+    project();
     const h = withTracks(["a", "b"]);
     await runCommand("track order nope 1", h, "cli");
     expect(h.lines.refuse.join(" ")).toMatch(/no track "nope" — try: a, b/);
@@ -70,14 +66,14 @@ describe("track order", () => {
   // The view CLUSTERS its rows (a group's members follow its header), so a slot it counted could
   // name a different lane than the file's. Naming the lane is what makes the two agree.
   it("takes the place of a lane named instead of a slot counted", async () => {
-    project("project:\n  name: t\n");
+    project();
     const h = withTracks(["a", "b", "c"]);
     await runCommand("track order c a", h, "cli");
     expect(root().trackOrder).toEqual(["c", "a", "b"]);
   });
 
   it("refuses a target that is neither a position nor a lane, and writes nothing", async () => {
-    project("project:\n  name: t\n");
+    project();
     const h = withTracks(["a", "b"]);
     await runCommand("track order a top", h, "cli");
     expect(h.lines.refuse.join(" ")).toMatch(/neither a position nor a lane/);
@@ -86,19 +82,11 @@ describe("track order", () => {
 });
 
 describe("picture lane order", () => {
-  const lane = (id: string): void => {
-    mkdirSync(join(song, "video_tracks"), { recursive: true });
-    writeFileSync(
-      join(song, "video_tracks", `${id}.yaml`),
-      "events: []\n",
-      "utf8",
-    );
-  };
+  const lane = (id: string): void =>
+    writeDoc(join(song, "video_tracks", `${id}.k7x`), { events: [] });
 
   it("rewrites project.layers, which IS the draw order", async () => {
-    project(
-      "project:\n  name: t\n  viewport: [1280, 720]\n  layers: [main, pip]\n",
-    );
+    project({ viewport: [1280, 720], layers: ["main", "pip"] });
     lane("main");
     lane("pip");
     const h = testHost({ songPath: song });
@@ -107,16 +95,14 @@ describe("picture lane order", () => {
   });
 
   it("takes a lane's place by name here too", async () => {
-    project(
-      "project:\n  name: t\n  viewport: [1280, 720]\n  layers: [a, b, c]\n",
-    );
+    project({ viewport: [1280, 720], layers: ["a", "b", "c"] });
     const h = testHost({ songPath: song });
     await runCommand("picture lane order c a", h, "cli");
     expect(root().project.layers).toEqual(["c", "a", "b"]);
   });
 
   it("names the lanes `layers` holds when the argument is not one", async () => {
-    project("project:\n  name: t\n  viewport: [1280, 720]\n  layers: [main]\n");
+    project({ viewport: [1280, 720], layers: ["main"] });
     const h = testHost({ songPath: song });
     await runCommand("picture lane order pip 1", h, "cli");
     expect(h.lines.refuse.join(" ")).toMatch(

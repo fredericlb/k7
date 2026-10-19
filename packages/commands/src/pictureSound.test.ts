@@ -4,6 +4,7 @@
 
 import { execFileSync } from "node:child_process";
 import {
+  cpSync,
   existsSync,
   mkdtempSync,
   readFileSync,
@@ -14,7 +15,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compileNodeProject } from "@studio/song/nodeProject";
-import { copyAsYaml, writeYaml } from "@studio/song/testSupport";
+import { parse } from "@studio/k7x/document";
+import { writeDoc } from "@studio/song/testSupport";
 import { wsRead } from "@studio/song/yaml/workspaceFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
@@ -48,8 +50,8 @@ beforeEach(() => {
   logs.length = 0;
   refusals.length = 0;
   song = mkdtempSync(join(tmpdir(), "td-psound-"));
-  copyAsYaml(SONG, song, { recursive: true });
-  writeYaml(join(song, "video_tracks", "main.yaml"), {
+  cpSync(SONG, song, { recursive: true });
+  writeDoc(join(song, "video_tracks", "main.k7x"), {
     events: [{ ref: "shot", start: 0, length: 2 }],
   });
 });
@@ -57,7 +59,7 @@ afterEach(() => rmSync(song, { recursive: true, force: true }));
 
 describe("picture sound", () => {
   it("reuses a clip's stated sound, and makes ONE lane however often it runs", async () => {
-    writeYaml(join(song, "clips", "shot.yaml"), {
+    writeDoc(join(song, "clips", "shot.k7x"), {
       source: "clips/shot.mp4",
       sound: "clips/shot-take.wav",
     });
@@ -67,8 +69,8 @@ describe("picture sound", () => {
     await runCommand("picture sound main", host(), "cli");
     expect(refusals).toEqual([]);
     expect(logs).toContain("main-sound already plays main's sound");
-    const lane = wsRead(join(song, "nodes", "main-sound.yaml"));
-    expect(lane).toContain("video_source: main");
+    const lane = wsRead(join(song, "nodes", "main-sound.k7x"));
+    expect(lane).toContain('video_source("main")');
     expect(lane).not.toContain("events");
     const t = compileNodeProject(song).tracks.find(
       (x) => x.id === "main-sound",
@@ -79,7 +81,7 @@ describe("picture sound", () => {
   });
 
   it("sends an edit of the sounding lane's clip to the shot it comes from", async () => {
-    writeYaml(join(song, "clips", "shot.yaml"), {
+    writeDoc(join(song, "clips", "shot.k7x"), {
       source: "clips/shot.mp4",
       sound: "clips/shot.wav",
     });
@@ -91,10 +93,10 @@ describe("picture sound", () => {
   });
 
   it("makes no lane when no shot has a sound", async () => {
-    writeYaml(join(song, "clips", "shot.yaml"), { source: "clips/shot.webm" });
+    writeDoc(join(song, "clips", "shot.k7x"), { source: "clips/shot.webm" });
     await runCommand("picture sound main", host(), "cli");
     expect(logs).toContain("nothing on main has a sound — no lane made");
-    expect(existsSync(join(song, "nodes", "main-sound.yaml"))).toBe(false);
+    expect(existsSync(join(song, "nodes", "main-sound.k7x"))).toBe(false);
   });
 
   it("refuses a lane that is not there", async () => {
@@ -119,13 +121,13 @@ describe("picture sound", () => {
         "-shortest",
         join(song, "clips", "shot.mp4"),
       ]);
-      writeYaml(join(song, "clips", "shot.yaml"), { source: "clips/shot.mp4" });
+      writeDoc(join(song, "clips", "shot.k7x"), { source: "clips/shot.mp4" });
       await runCommand("picture sound main dialog", host(), "cli");
       expect(refusals).toEqual([]);
       expect(existsSync(join(song, "clips", "shot.sound.wav"))).toBe(true);
-      expect(readFileSync(join(song, "clips", "shot.yaml"), "utf8")).toContain(
-        "sound: clips/shot.sound.wav",
-      );
+      expect(
+        parse(readFileSync(join(song, "clips", "shot.k7x"), "utf8")).sound,
+      ).toBe("clips/shot.sound.wav");
       expect(
         compileNodeProject(song).tracks.some((t) => t.id === "dialog"),
       ).toBe(true);

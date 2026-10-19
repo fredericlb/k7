@@ -25,7 +25,7 @@ export const CONSOLE_VERBS: Record<string, SidHandler> = {
       );
       return;
     }
-    const file = join(h.songPath, "project.yaml");
+    const file = join(h.songPath, "project.k7x");
     if (want === "none") {
       deleteFileValue(file, ["project", "console"]);
       h.log(["console: none — the lanes sum as they are"]);

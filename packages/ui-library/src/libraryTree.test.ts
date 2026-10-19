@@ -119,7 +119,7 @@ describe("folderAt", () => {
   it("creates what is missing and hands back the level inside", () => {
     const roots: TreeNode[] = [];
     const level = folderAt(roots, "audio/amp");
-    level.push({ name: "module.yaml", path: "audio/amp/module.yaml" });
+    level.push({ name: "module.k7x", path: "audio/amp/module.k7x" });
     expect(roots).toEqual([
       {
         name: "audio",
@@ -130,7 +130,7 @@ describe("folderAt", () => {
             name: "amp",
             path: "audio/amp",
             dir: true,
-            children: [{ name: "module.yaml", path: "audio/amp/module.yaml" }],
+            children: [{ name: "module.k7x", path: "audio/amp/module.k7x" }],
           },
         ],
       },

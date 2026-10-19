@@ -1,5 +1,5 @@
 // useMidiControl.ts — wires the browser's MIDI controller to the graph's params. The map is a
-// FILE (each module's `controller.yaml`), so this hook holds no bindings of its own: it reads the
+// FILE (each module's `controller.k7x`), so this hook holds no bindings of its own: it reads the
 // graph, plays what the graph says, and writes through `module cc` like any other edit.
 
 import type { WebGraph, WebWidget } from "@studio/graph-model";

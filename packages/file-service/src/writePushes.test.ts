@@ -9,12 +9,12 @@
 // Counting SENDS rather than reading the reply, for the reason commandWant.test.ts does: the
 // answer is identical either way, so only the engine-facing side can tell the two apart.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
-import { writeModule, writeYaml } from "@studio/song/testSupport";
+import { writeDoc, writeModule } from "@studio/song/testSupport";
 import express from "express";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -64,17 +64,14 @@ beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), "fs-write-push-"));
   proj = join(root, "song.k7");
   mkdirSync(join(proj, "nodes"), { recursive: true });
-  writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
-  writeFileSync(
-    join(proj, "graph.yaml"),
-    "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(proj, "nodes", "gtr.yaml"),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
+  writeDoc(join(proj, "project.k7x"), { project: { name: "song" } });
+  writeDoc(join(proj, "graph.k7x"), {
+    modules: { gtr: ["amp"], amp: ["OUT"] },
+  });
+  writeDoc(join(proj, "nodes", "gtr.k7x"), {
+    extends: "@meta/track",
+    events: [],
+  });
   writeModule(proj, "audio", "amp", {
     plugin: { type: "internal", name: "Chorus" },
   });
@@ -111,21 +108,21 @@ const write = (path: string, content: string) =>
 it("pushes the project when a source write changes it", async () => {
   const before = sentCount();
   await write(
-    "song.k7/nodes/gtr.yaml",
-    'extends: "@meta/track"\nevents: []\n# edited\n',
+    "song.k7/nodes/gtr.k7x",
+    'extends("@meta/track")\nevents([])\n// edited\n',
   );
   expect(sentCount()).toBeGreaterThan(before);
 });
 
 it("pushes again for a second, different edit", async () => {
   await write(
-    "song.k7/nodes/gtr.yaml",
-    'extends: "@meta/track"\nevents: []\n# one\n',
+    "song.k7/nodes/gtr.k7x",
+    'extends("@meta/track")\nevents([])\n// one\n',
   );
   const after1 = sentCount();
   await write(
-    "song.k7/nodes/gtr.yaml",
-    'extends: "@meta/track"\nevents: []\n# two\n',
+    "song.k7/nodes/gtr.k7x",
+    'extends("@meta/track")\nevents([])\n// two\n',
   );
   expect(sentCount()).toBeGreaterThan(after1);
 });
@@ -133,16 +130,16 @@ it("pushes again for a second, different edit", async () => {
 it("does NOT push for a write OUTSIDE the active project", async () => {
   // Why there are two gates: this write DOES move the token, so a token-only gate re-sent the whole song.
   const settled = sentCount();
-  await write("_playlists/set.yaml", "title: set\nitems: []\n");
+  await write("_playlists/set.k7x", 'title("set")\nitems([])\n');
   expect(sentCount()).toBe(settled);
 });
 
 it("pushes a same-bytes rewrite too, because the token counts the mtime", async () => {
   // Stated rather than fixed: `POST /command` gates on the very same comparison (docs/fileRoutes.md).
-  const text = 'extends: "@meta/track"\nevents: []\n# same\n';
-  await write("song.k7/nodes/gtr.yaml", text);
+  const text = 'extends("@meta/track")\nevents([])\n// same\n';
+  await write("song.k7/nodes/gtr.k7x", text);
   const settled = sentCount();
-  await write("song.k7/nodes/gtr.yaml", text);
+  await write("song.k7/nodes/gtr.k7x", text);
   expect(sentCount()).toBeGreaterThan(settled);
 });
 
@@ -156,8 +153,8 @@ const step = (dir: "undo" | "redo") =>
 it("pushes after an undo and after a redo, which rewrite the project's files", async () => {
   // The bug this pins: an event restored by Ctrl+Z was on disk and on screen, and silent until the next edit.
   await write(
-    "song.k7/nodes/gtr.yaml",
-    'extends: "@meta/track"\nevents: []\n# to undo\n',
+    "song.k7/nodes/gtr.k7x",
+    'extends("@meta/track")\nevents([])\n// to undo\n',
   );
   const beforeUndo = sentCount();
   expect((await step("undo")).applied).toBe(true);

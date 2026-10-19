@@ -28,7 +28,7 @@ export interface LibraryChainRow {
 /** A chain kept as ONE file — the format; a folder chain is one a library clone has not migrated yet. */
 export const isChainFile = isDocFile;
 
-/** An assembly template of the library: `path` its folder, `file` the `assembly.yaml` the builder opens. */
+/** An assembly template of the library: `path` its folder, `file` the `assembly.k7x` the builder opens. */
 export interface LibraryAssemblyRow {
   ref: string;
   path: string;

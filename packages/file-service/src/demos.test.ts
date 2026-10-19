@@ -25,9 +25,9 @@ beforeEach(() => {
   examples = join(work, "examples");
   // A fake bundle of two demos, pointed at via the env demosDir() honors first.
   mkdirSync(join(bundle, "demoA"), { recursive: true });
-  writeFileSync(join(bundle, "demoA", "project.yaml"), "A v1");
+  writeFileSync(join(bundle, "demoA", "project.k7x"), "A v1");
   mkdirSync(join(bundle, "demoB"), { recursive: true });
-  writeFileSync(join(bundle, "demoB", "project.yaml"), "B v1");
+  writeFileSync(join(bundle, "demoB", "project.k7x"), "B v1");
   process.env.STUDIO_DEMOS = bundle;
 });
 
@@ -40,16 +40,16 @@ describe("mirrorDemos", () => {
   it("creates every bundled demo in a fresh Examples", () => {
     const synced = mirrorDemos(examples);
     expect(synced.sort()).toEqual(["demoA", "demoB"]);
-    expect(readFileSync(join(examples, "demoA", "project.yaml"), "utf8")).toBe(
+    expect(readFileSync(join(examples, "demoA", "project.k7x"), "utf8")).toBe(
       "A v1",
     );
   });
 
   it("overwrites an edited demo back to the bundled version", () => {
     mirrorDemos(examples);
-    writeFileSync(join(examples, "demoA", "project.yaml"), "USER TAMPERED");
+    writeFileSync(join(examples, "demoA", "project.k7x"), "USER TAMPERED");
     mirrorDemos(examples);
-    expect(readFileSync(join(examples, "demoA", "project.yaml"), "utf8")).toBe(
+    expect(readFileSync(join(examples, "demoA", "project.k7x"), "utf8")).toBe(
       "A v1",
     );
   });
@@ -58,7 +58,7 @@ describe("mirrorDemos", () => {
     mirrorDemos(examples);
     rmSync(join(examples, "demoA"), { recursive: true, force: true });
     mirrorDemos(examples);
-    expect(existsSync(join(examples, "demoA", "project.yaml"))).toBe(true);
+    expect(existsSync(join(examples, "demoA", "project.k7x"))).toBe(true);
   });
 
   it("removes a stray file the user added INSIDE a demo (wholesale mirror)", () => {
@@ -71,20 +71,20 @@ describe("mirrorDemos", () => {
   it("never touches the user's own project (a non-demo folder)", () => {
     mirrorDemos(examples);
     mkdirSync(join(examples, "my-song"), { recursive: true });
-    writeFileSync(join(examples, "my-song", "project.yaml"), "MINE");
+    writeFileSync(join(examples, "my-song", "project.k7x"), "MINE");
     mirrorDemos(examples);
-    expect(
-      readFileSync(join(examples, "my-song", "project.yaml"), "utf8"),
-    ).toBe("MINE");
+    expect(readFileSync(join(examples, "my-song", "project.k7x"), "utf8")).toBe(
+      "MINE",
+    );
   });
 
   it("picks up a newly shipped demo on the next mirror", () => {
     mirrorDemos(examples);
     mkdirSync(join(bundle, "demoC"), { recursive: true });
-    writeFileSync(join(bundle, "demoC", "project.yaml"), "C v1");
+    writeFileSync(join(bundle, "demoC", "project.k7x"), "C v1");
     const synced = mirrorDemos(examples);
     expect(synced).toContain("demoC");
-    expect(existsSync(join(examples, "demoC", "project.yaml"))).toBe(true);
+    expect(existsSync(join(examples, "demoC", "project.k7x"))).toBe(true);
   });
 
   it("is a no-op (no throw) when there is no bundle", () => {

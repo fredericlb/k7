@@ -7,50 +7,28 @@
 // worked. A test on the writer alone could never see it; this one goes through the
 // dispatcher, and asserts the FILE, not the message.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc, writeLane, writeModule } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
 let dir: string;
 
-const CHAINS = `modules:
-  gtr: [ amp ]
-  amp: [ cab ]
-  cab: [ OUT ]
-`;
-
 /** A song with two modules on one chain, both active. */
 function song(): string {
   const d = mkdtempSync(join(tmpdir(), "td-bypass-"));
-  writeFileSync(
-    join(d, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n",
-    "utf8",
-  );
-  writeFileSync(join(d, "graph.yaml"), CHAINS, "utf8");
-  mkdirSync(join(d, "nodes"), { recursive: true });
-  writeFileSync(
-    join(d, "nodes", "gtr.yaml"),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
-  for (const m of ["amp", "cab"]) {
-    const md = join(d, "modules", "audio", m);
-    mkdirSync(md, { recursive: true });
-    writeFileSync(
-      join(md, "module.yaml"),
-      "plugin:\n  type: internal\n  name: Chorus\n",
-      "utf8",
-    );
-  }
+  writeDoc(join(d, "project.k7x"), {
+    project: { name: "t", tempo: 120, sampleRate: 48000 },
+  });
+  writeDoc(join(d, "graph.k7x"), {
+    modules: { gtr: ["amp"], amp: ["cab"], cab: ["OUT"] },
+  });
+  writeLane(d, "gtr", "track", { events: [] });
+  for (const m of ["amp", "cab"])
+    writeModule(d, "audio", m, { plugin: { type: "internal", name: "Chorus" } });
   return d;
 }
 
@@ -68,11 +46,10 @@ const host = () =>
 
 /** Is `module` bypassed in the file right now? Read from disk, not from a return value. */
 const bypassed = (module: string): boolean => {
-  const text = readFileSync(join(dir, "graph.yaml"), "utf8");
-  if (!new RegExp(`^\\s*${module}:`, "m").test(text))
-    throw new Error(`no module "${module}" in graph.yaml`);
-  const line = text.split("\n").find((l) => l.startsWith("bypassed:")) ?? "";
-  return line.split(/[[\],]/).some((t) => t.trim() === module);
+  const graph = wsData(join(dir, "graph.k7x"));
+  if (!(module in (graph.modules as object)))
+    throw new Error(`no module "${module}" in graph.k7x`);
+  return ((graph.bypassed ?? []) as string[]).includes(module);
 };
 
 beforeEach(() => {

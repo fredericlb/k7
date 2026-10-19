@@ -57,17 +57,17 @@ export function ownMaterial(
   let n = 2;
   while (taken.has(`${ref}-${n}`)) n++;
   const id = `${ref}-${n}`;
-  const to = join(dirname(src.file.path), `${id}.yaml`);
+  const to = join(dirname(src.file.path), `${id}.k7x`);
   wsCopy(src.file.path, to);
   let hit = false;
   editTrackStruct(
     dir,
     track,
-    (text) => {
-      const at = findPlacementAt(text, atBeats, num, den);
-      if (at < 0) return text;
+    (doc) => {
+      const at = findPlacementAt(doc, atBeats, num, den);
+      if (at < 0) return;
       hit = true;
-      return setPlacementField(text, at, "ref", id);
+      setPlacementField(doc, at, "ref", id);
     },
     "give an event its own clip",
   );
@@ -152,13 +152,13 @@ async function processEventCommand(a: string, h: CommandHost): Promise<void> {
     editTrackStruct(
       h.songPath,
       track.id,
-      (text) => {
-        const at = findPlacementAt(text, atBeats, num, den);
-        return at < 0 ? text : setPlacementField(text, at, "ref", ref);
+      (doc) => {
+        const at = findPlacementAt(doc, atBeats, num, den);
+        if (at >= 0) setPlacementField(doc, at, "ref", ref);
       },
       "restore an event's clip",
     );
-    const copy = join(h.songPath, "clips", `${own}.yaml`);
+    const copy = join(h.songPath, "clips", `${own}.k7x`);
     if (wsExists(copy)) wsRemove(copy);
   }
   h.log(

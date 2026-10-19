@@ -12,9 +12,11 @@ import {
   type ResolvedChain,
   resolveChain,
 } from "@studio/audio-passes/processChain";
+import type { K7Scope } from "@studio/k7x/document";
 import { familyDir } from "@studio/mediatek/layout";
 import { isAudio } from "@studio/mediatek/media";
-import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsEdit, wsText, wsWriteText } from "@studio/song/yaml/workspaceDoc";
+import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { stripDocExt } from "@studio/song-schema/docExt";
 import {
   appendPlaylistItem,
@@ -27,9 +29,9 @@ import {
 import type { SidHandler } from "../commands.ts";
 import { playlistFile, splitWords } from "./shared.ts";
 
-/** The same refusal for both editors: the file's `items:` is in a shape a text edit cannot reorder. */
+/** The same refusal for both editors: the file's `items` is in a shape an edit cannot reorder. */
 const shapeRefusal = (rel: string) =>
-  `${rel}: the way \`items:\` is written there is not a shape this can edit — change the line by hand`;
+  `${rel}: the way \`items\` is written there is not a shape this can edit — change the line by hand`;
 
 /** A 1-based position from the line, as a 0-based index, or null when it is not one this list has. */
 function position(word: string | undefined, count: number): number | null {
@@ -38,24 +40,30 @@ function position(word: string | undefined, count: number): number | null {
   return n - 1;
 }
 
-/** Write it, or refuse in the verb's own name — the snapshot first, so the undo journal has the before. */
+/** Edit it, or refuse in the verb's own name, the snapshot first; an edit answering false writes nothing and is refused with `refusal`. */
 function write(
   abs: string,
-  next: string,
+  edit: (doc: K7Scope) => boolean,
   h: Parameters<SidHandler>[1],
   verb: string,
+  refusal: string,
 ): boolean {
+  let refused = false;
   try {
     h.snapshot?.(abs);
-    wsWrite(abs, next);
+    wsEdit(abs, (doc) => {
+      if (edit(doc.at([]))) return;
+      refused = true;
+      throw new Error(refusal);
+    });
     return true;
   } catch (e) {
-    h.refuse([`${verb}: ${(e as Error).message}`]);
+    h.refuse([refused ? refusal : `${verb}: ${(e as Error).message}`]);
     return false;
   }
 }
 
-/** The playlist both editors open: its text, its parsed lines, and whatever words followed its name. */
+/** The playlist both editors open: its parsed lines, and whatever words followed its name. */
 function openList(
   a: string,
   h: Parameters<SidHandler>[1],
@@ -64,7 +72,6 @@ function openList(
 ): {
   rel: string;
   abs: string;
-  text: string;
   items: PlaylistItem[];
   args: string[];
 } | null {
@@ -77,7 +84,7 @@ function openList(
   if (!found) return null;
   let text: string;
   try {
-    text = wsRead(found.abs);
+    text = wsText(found.abs);
   } catch {
     h.refuse([`no playlist ${found.rel} — make one with: playlist new <name>`]);
     return null;
@@ -87,7 +94,7 @@ function openList(
     h.refuse([`${found.rel} names no song`]);
     return null;
   }
-  return { ...found, text, items: parsed.items, args: splitWords(m[2]) };
+  return { ...found, items: parsed.items, args: splitWords(m[2]) };
 }
 
 export const PLAYLIST_VERBS: Record<string, SidHandler> = {
@@ -101,7 +108,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
     try {
       mkdirSync(dirname(found.abs), { recursive: true });
       // The STUB rather than an empty file, which would open on a parse failure. See docs/playlist.md.
-      wsWrite(found.abs, playlistStub(stripDocExt(basename(found.rel))));
+      wsWriteText(found.abs, playlistStub(stripDocExt(basename(found.rel))));
     } catch (e) {
       return h.refuse([`playlist new: ${(e as Error).message}`]);
     }
@@ -125,7 +132,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
     if (!found) return;
     let items: PlaylistItem[];
     try {
-      items = parsePlaylist(wsRead(found.abs))?.items ?? [];
+      items = parsePlaylist(wsText(found.abs))?.items ?? [];
     } catch {
       return h.refuse([
         `no playlist ${found.rel} — make one with: playlist new <name>`,
@@ -205,34 +212,20 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
     const found = playlistFile(m[1].replace(/^"(.*)"$/s, "$1"), h);
     if (!found) return;
     const { rel, abs } = found;
-    let text: string;
-    try {
-      text = wsRead(abs);
-    } catch {
+    if (!wsExists(abs))
       return h.refuse([
         `no playlist ${rel} — make one with: playlist new <name>`,
       ]);
-    }
     const quoted = /^"([^"]*)"\s*(.*)$/.exec(m[2].trim());
     const song = quoted ? quoted[1] : m[2].trim();
     const variant = quoted ? quoted[2].trim() : "";
     if (!song) return h.refuse(["a playlist line names a song"]);
-    const next = appendPlaylistItem(text, {
-      song,
-      ...(variant ? { variant } : {}),
-    });
-    // Null is the FILE's shape refusing the append — see docs/playlist.md.
-    if (next === null)
-      return h.refuse([
-        `${rel}: the way \`items:\` is written there is not a shape this can extend — add the line by hand`,
-      ]);
-    try {
-      h.snapshot?.(abs);
-      wsWrite(abs, next);
-    } catch (e) {
-      return h.refuse([`playlist song add: ${(e as Error).message}`]);
-    }
-    const count = parsePlaylist(next)?.items.length;
+    const item = { song, ...(variant ? { variant } : {}) };
+    // False is the FILE's shape refusing the append — see docs/playlist.md.
+    const extend = `${rel}: the way \`items\` is written there is not a shape this can extend — add the line by hand`;
+    const add = (doc: K7Scope) => appendPlaylistItem(doc, item);
+    if (!write(abs, add, h, "playlist song add", extend)) return;
+    const count = parsePlaylist(wsText(abs))?.items.length;
     h.log([
       `${rel}: + ${song}${variant ? ` (${variant})` : ""}${count ? ` — ${count} song${count > 1 ? "s" : ""}` : ""}`,
     ]);
@@ -241,16 +234,15 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
   "playlist.song.remove": (a, h) => {
     const read = openList(a, h, "remove", "<n>");
     if (!read) return;
-    const { rel, abs, text, items, args } = read;
+    const { rel, abs, items, args } = read;
     const n = position(args[0] as string | undefined, items.length);
     if (n === null)
       return h.refuse([
         `${rel} has ${items.length} song${items.length === 1 ? "" : "s"} — name a position between 1 and ${items.length}`,
       ]);
     const gone = items[n] as PlaylistItem;
-    const next = removePlaylistItem(text, n);
-    if (next === null) return h.refuse([shapeRefusal(rel)]);
-    if (!write(abs, next, h, "playlist song remove")) return;
+    const drop = (doc: K7Scope) => removePlaylistItem(doc, n);
+    if (!write(abs, drop, h, "playlist song remove", shapeRefusal(rel))) return;
     h.log([
       `${rel}: − ${gone.song}${gone.variant ? ` (${gone.variant})` : ""}`,
     ]);
@@ -259,16 +251,15 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
   "playlist.song.move": (a, h) => {
     const read = openList(a, h, "move", "<from> <to>");
     if (!read) return;
-    const { rel, abs, text, items, args } = read;
+    const { rel, abs, items, args } = read;
     const from = position(args[0] as string | undefined, items.length);
     const to = position(args[1] as string | undefined, items.length);
     if (from === null || to === null)
       return h.refuse([
         `${rel} has ${items.length} song${items.length === 1 ? "" : "s"} — both positions go from 1 to ${items.length}`,
       ]);
-    const next = movePlaylistItem(text, from, to);
-    if (next === null) return h.refuse([shapeRefusal(rel)]);
-    if (!write(abs, next, h, "playlist song move")) return;
+    const move = (doc: K7Scope) => movePlaylistItem(doc, from, to);
+    if (!write(abs, move, h, "playlist song move", shapeRefusal(rel))) return;
     const moved = items[from] as PlaylistItem;
     h.log([`${rel}: ${moved.song} → ${to + 1}/${items.length}`]);
   },

@@ -43,7 +43,7 @@ export const movedTheChains = (r: Reload): boolean =>
 export const movedTheSurfaces = (r: Reload): boolean =>
   r.files === null || r.files.some((f) => f.path.startsWith("surfaces/"));
 
-/** Could this have brought audio to prewarm? A placement, a clip, or a file that is not YAML — an upload, a take, a render. */
+/** Could this have brought audio to prewarm? A placement, a clip, or a file that is not k7x — an upload, a take, a render. */
 export const movedTheAudio = (r: Reload): boolean =>
   r.files === null ||
   r.files.some((f) => /^(tracks|clips)\//.test(f.path) || !isDocFile(f.path));

@@ -10,7 +10,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeModule, writeYaml } from "@studio/song/testSupport";
+import { writeDoc, writeModule } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
@@ -22,13 +22,12 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "fs-rev-"));
   proj = join(root, "song.k7");
   mkdirSync(join(proj, "nodes"), { recursive: true });
-  writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
-  writeFileSync(join(proj, "graph.yaml"), "modules:\n  gtr: [ OUT ]\n", "utf8");
-  writeFileSync(
-    join(proj, "nodes", "gtr.yaml"),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
+  writeDoc(join(proj, "project.k7x"), { project: { name: "song" } });
+  writeDoc(join(proj, "graph.k7x"), { modules: { gtr: ["OUT"] } });
+  writeDoc(join(proj, "nodes", "gtr.k7x"), {
+    extends: "@meta/track",
+    events: [],
+  });
   writeModule(proj, "audio", "amp", {
     plugin: { type: "internal", name: "Chorus" },
   });
@@ -58,11 +57,7 @@ describe("the revision token, from either walk", () => {
   it("still moves for a source, whichever walk saw it", async () => {
     const was = ws.revision().rev;
     await new Promise((r) => setTimeout(r, 12)); // mtime resolution
-    writeFileSync(
-      join(proj, "graph.yaml"),
-      "modules:\n  gtr: [ amp ]\n",
-      "utf8",
-    );
+    writeDoc(join(proj, "graph.k7x"), { modules: { gtr: ["amp"] } });
     const now = ws.revision().rev;
     expect(now).not.toBe(was);
     expect(await wide()).toBe(now);
@@ -73,11 +68,7 @@ describe("what a journalled mutation answers", () => {
   it("brackets a write with two different tokens", async () => {
     const r = await ws.recordChange("write", async () => {
       await new Promise((res) => setTimeout(res, 12));
-      writeFileSync(
-        join(proj, "graph.yaml"),
-        "modules:\n  gtr: [ amp ]\n",
-        "utf8",
-      );
+      writeDoc(join(proj, "graph.k7x"), { modules: { gtr: ["amp"] } });
       return "done";
     });
     expect(r.value).toBe("done");

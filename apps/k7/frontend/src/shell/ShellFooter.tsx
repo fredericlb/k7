@@ -172,7 +172,7 @@ export function ShellFooter({
       {/* right: the tempo and signature, the metronome, a separator, then the bottom-panel choices, a separator, then the side panels' buttons */}
       <div className="ml-auto flex shrink-0 items-center gap-2">
         {/* Next to the metronome because it is what the metronome clicks — the doc's tempo, not the engine's. */}
-        {/* Each number edits itself on a click, through the commands that write project.yaml (`project tempo`, `project meter`). */}
+        {/* Each number edits itself on a click, through the commands that write project.k7x (`project tempo`, `project meter`). */}
         <span className="flex items-center whitespace-nowrap font-mono tabular-nums">
           <button
             type="button"

@@ -3,13 +3,14 @@
 // (TUI watcher, web refetch) that reloads it. A surgical edit, not a re-serialization.
 
 import { join } from "node:path";
+import { K7Document, type K7Scope } from "@studio/k7x/document";
 import { laneFileFor, laneFolder } from "@studio/song/chainItemEdit";
 import {
   materialWindowOf,
   type WindowValue,
 } from "@studio/song/yaml/materialFile";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
-import { wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsEdit, wsText } from "@studio/song/yaml/workspaceDoc";
 import {
   beatsToDuration,
   beatsToPosition,
@@ -56,11 +57,11 @@ export function panToLabel(pan: number): string {
 
 // --- writing a track's file: a placement is addressed by its POSITION IN BEATS, docs/trackMix.md ---
 
-/** Rewrite lane `id`'s file in place via `transform` on its text; throws when the lane has no file (`what` names the edit in the message). */
+/** Edit lane `id`'s file in place through `edit` on its root; throws when the lane has no file (`what` names the edit in the message). */
 export function editTrackStruct(
   dir: string,
   id: string,
-  transform: (text: string) => string,
+  edit: (doc: K7Scope) => void,
   what: string,
 ): string {
   // `nodes/` (or a chain project's `tracks/`), because a lane IS a node of a `@meta/…-track` module.
@@ -69,9 +70,7 @@ export function editTrackStruct(
     throw new Error(
       `track "${id}" has no file in ${laneFolder(dir)}/ — cannot ${what}`,
     );
-  const text = wsRead(found.path);
-  const next = transform(text);
-  if (next !== text) wsWrite(found.path, next);
+  wsEdit(found.path, (doc) => edit(doc.at([])));
   return found.path;
 }
 
@@ -89,11 +88,11 @@ export function movePlacementToTrack(
   editTrackStruct(
     dir,
     fromId,
-    (text) => {
-      const at = findPlacementAt(text, fromBeats, num, den);
-      if (at < 0) return text;
-      cut = placementAt(text, at);
-      return cut ? removePlacementAt(text, at) : text;
+    (doc) => {
+      const at = findPlacementAt(doc, fromBeats, num, den);
+      if (at < 0) return;
+      cut = placementAt(doc, at);
+      if (cut) removePlacementAt(doc, at);
     },
     `move a placement off track "${fromId}"`,
   );
@@ -102,8 +101,8 @@ export function movePlacementToTrack(
   editTrackStruct(
     dir,
     toId,
-    (text) =>
-      addPlacement(text, {
+    (doc) =>
+      addPlacement(doc, {
         // Its takes were played where the event was: they travel with it (song docs/takes.md).
         ...shiftTakes(
           cut as Record<string, unknown>,
@@ -131,13 +130,14 @@ export function moveTrackPlacement(
   editTrackStruct(
     dir,
     id,
-    (text) => {
-      const at = findPlacementAt(text, fromBeats, num, den);
-      if (at < 0) return text;
+    (doc) => {
+      const at = findPlacementAt(doc, fromBeats, num, den);
+      if (at < 0) return;
       moved = true;
+      movePlacementAt(doc, at, toTc);
       // Its takes, comp and crossfades move with it — they are song positions (song docs/takes.md).
-      return shiftTakesAt(
-        movePlacementAt(text, at, toTc),
+      shiftTakesAt(
+        doc,
         at,
         parsePosition(toTc, num, den) - fromBeats,
         num,
@@ -163,28 +163,21 @@ export function moveTrackPlacementsInRange(
   editTrackStruct(
     dir,
     id,
-    (text) => {
-      const starts = placementValues(text).map((p) => {
+    (doc) => {
+      const starts = placementValues(doc).map((p) => {
         try {
           return parsePosition(String(p.start ?? "1:1:1"), num, den);
         } catch {
           return null; // an unparseable start can't fall in any range
         }
       });
-      let out = text;
       starts.forEach((s, i) => {
         if (s === null || s < fromBeats - 1e-6 || s > toBeats + 1e-6) return;
         // By index, not by position: indices are stable under a start rewrite.
-        out = shiftTakesAt(
-          movePlacementAt(out, i, beatsToPosition(s + deltaBeats, num, den)),
-          i,
-          deltaBeats,
-          num,
-          den,
-        );
+        movePlacementAt(doc, i, beatsToPosition(s + deltaBeats, num, den));
+        shiftTakesAt(doc, i, deltaBeats, num, den);
         moved++;
       });
-      return out;
     },
     "move the events in a range",
   );
@@ -207,11 +200,11 @@ function setPlacementFieldAt(
   editTrackStruct(
     dir,
     id,
-    (text) => {
-      const at = findPlacementAt(text, fromBeats, num, den);
-      if (at < 0) return text;
+    (doc) => {
+      const at = findPlacementAt(doc, fromBeats, num, den);
+      if (at < 0) return;
       hit = true;
-      return setPlacementField(text, at, key, value);
+      setPlacementField(doc, at, key, value);
     },
     what,
   );
@@ -336,10 +329,10 @@ export function resizeTrackPlacement(
 ): ResizeReport | null {
   const own = laneFileFor(dir, id);
   if (!own) throw new Error(`track "${id}" has no file in ${laneFolder(dir)}/`);
-  const text = wsRead(own.path);
-  const at = findPlacementAt(text, fromBeats, num, den);
+  const lane = new K7Document(wsText(own.path)).at([]);
+  const at = findPlacementAt(lane, fromBeats, num, den);
   if (at < 0) return null;
-  const placement = placementValues(text)[at] ?? {};
+  const placement = placementValues(lane)[at] ?? {};
   const ref = String(placement.ref ?? "");
   const found = materialFor(dir, ref);
   if (!found)
@@ -383,36 +376,34 @@ export function resizeTrackPlacement(
   editTrackStruct(
     dir,
     id,
-    (t) => {
-      const i = findPlacementAt(t, fromBeats, num, den);
-      if (i < 0) return t;
-      let out =
-        Math.abs(next.startBeats - fromBeats) > 1e-6
-          ? setPlacementField(
-              t,
-              i,
-              "start",
-              beatsToPosition(next.startBeats, num, den),
-            )
-          : t;
+    (doc) => {
+      const i = findPlacementAt(doc, fromBeats, num, den);
+      if (i < 0) return;
+      if (Math.abs(next.startBeats - fromBeats) > 1e-6)
+        setPlacementField(
+          doc,
+          i,
+          "start",
+          beatsToPosition(next.startBeats, num, den),
+        );
       // `loop: 1` is the default and is cleared rather than written, like every other absent field.
-      out = setPlacementField(
-        out,
+      setPlacementField(
+        doc,
         i,
         "loop",
         next.loops > 1 ? next.loops : undefined,
       );
       // A looped event's window does not move — its from/to stay as authored.
       if (next.loops <= 1) {
-        out = setPlacementField(
-          out,
+        setPlacementField(
+          doc,
           i,
           "from",
           next.from > matFrom + EDGE_EPS ? fmt(next.from) : undefined,
         );
         // Cleared on the material's own `to`, but kept when the material states none at all.
-        out = setPlacementField(
-          out,
+        setPlacementField(
+          doc,
           i,
           "to",
           matTo != null && next.to >= matTo - EDGE_EPS
@@ -420,7 +411,6 @@ export function resizeTrackPlacement(
             : fmt(next.to),
         );
       }
-      return out;
     },
     "resize a clip",
   );
@@ -449,7 +439,7 @@ export function addTrackPlacement(
   return editTrackStruct(
     dir,
     id,
-    (text) => addPlacement(text, { ref, start }),
+    (doc) => addPlacement(doc, { ref, start }),
     `put "${ref}" on track "${id}"`,
   );
 }
@@ -464,7 +454,9 @@ export function addTrackPlacements(
   return editTrackStruct(
     dir,
     id,
-    (text) => placements.reduce((t, p) => addPlacement(t, p), text),
+    (doc) => {
+      for (const p of placements) addPlacement(doc, p);
+    },
     `put ${placements.length} placement(s) on track "${id}"`,
   );
 }
@@ -481,11 +473,11 @@ export function removeTrackPlacement(
   editTrackStruct(
     dir,
     id,
-    (text) => {
-      const at = findPlacementAt(text, fromBeats, num, den);
-      if (at < 0) return text;
+    (doc) => {
+      const at = findPlacementAt(doc, fromBeats, num, den);
+      if (at < 0) return;
       removed = true;
-      return removePlacementAt(text, at);
+      removePlacementAt(doc, at);
     },
     "remove a clip",
   );

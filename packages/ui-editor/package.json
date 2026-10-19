@@ -3,14 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "k7's CodeMirror editor language stack — the YAML language mode + schema-derived completions + entity links, the sequence note grids, and YamlPane, the plain text pane the screens beside the editor share. Consumed as source.",
+  "description": "k7's CodeMirror editor language stack — the k7x language mode with its schema-derived completions, entity links and ▶ gutter, the YAML mode the médiathèque's files keep, the sequence note grids, and YamlPane, the plain text pane the screens beside the editor share. Consumed as source.",
   "exports": {
-    "./yaml/language": "./src/yaml/language.ts",
     "./k7x/language": "./src/k7x/language.ts",
     "./k7x/completions": "./src/k7x/completions.ts",
     "./faust/language": "./src/faust/language.ts",
-    "./yaml/entityLinks": "./src/yaml/entityLinks.ts",
-    "./yaml/previewGutter": "./src/yaml/previewGutter.ts",
+    "./k7x/entityLinks": "./src/k7x/entityLinks.ts",
+    "./k7x/previewGutter": "./src/k7x/previewGutter.ts",
+    "./k7x/tree": "./src/k7x/tree.ts",
+    "./k7x/bufferEdit": "./src/k7x/bufferEdit.ts",
+    "./buffer-sync": "./src/bufferSync.ts",
     "./yaml/completions": "./src/yaml/completions.ts",
     "./yaml/vocabulary": "./src/yaml/vocabulary.ts",
     "./tracker/notes": "./src/tracker/notes.ts",
@@ -38,10 +40,10 @@
     "@codemirror/view": "^6.34.0",
     "@lezer/highlight": "^1.2.0",
     "@replit/codemirror-vim": "^6.3.0",
+    "@studio/k7x": "*",
     "@studio/song-schema": "*",
     "@studio/web-protocol": "*",
-    "@uiw/react-codemirror": "^4.23.0",
-    "yaml": "^2.5.0"
+    "@uiw/react-codemirror": "^4.23.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

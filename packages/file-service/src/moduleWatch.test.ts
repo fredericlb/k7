@@ -29,8 +29,8 @@ let dir = "";
 const module_ = (name: string): void => {
   mkdirSync(join(root, "_modules", "audio", name), { recursive: true });
   writeFileSync(
-    join(root, "_modules", "audio", name, "module.yaml"),
-    `# ${name}\nplugin:\n  type: internal\n  name: Mixer\n`,
+    join(root, "_modules", "audio", name, "module.k7x"),
+    `// ${name}\nplugin({ type: "internal", name: "Mixer" })\n`,
     "utf8",
   );
 };
@@ -39,8 +39,8 @@ const module_ = (name: string): void => {
 const node_ = (dirAt: string, name: string): void => {
   mkdirSync(join(dirAt, "nodes"), { recursive: true });
   writeFileSync(
-    join(dirAt, "nodes", `${name}.yaml`),
-    `plugin:\n  type: internal\n  name: Mixer\n`,
+    join(dirAt, "nodes", `${name}.k7x`),
+    `plugin({ type: "internal", name: "Mixer" })\n`,
     "utf8",
   );
 };
@@ -64,7 +64,7 @@ beforeEach(() => {
   dir = join(root, "song.k7");
   // `nodes/` must exist before the watch attaches, or that root is silently uncovered.
   mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(join(dir, "project.yaml"), "project:\n  name: t\n", "utf8");
+  writeFileSync(join(dir, "project.k7x"), 'project({ name: "t" })\n', "utf8");
   module_("reverb");
 });
 afterEach(() => {
@@ -104,8 +104,8 @@ describe("moduleFoldersStill", () => {
     await seen(
       () =>
         writeFileSync(
-          join(root, "_modules", "audio", "reverb", "module.yaml"),
-          "# reverb\nplugin:\n  type: internal\n  name: Mixer\nparams:\n  Volume: 3\n",
+          join(root, "_modules", "audio", "reverb", "module.k7x"),
+          '// reverb\nplugin({ type: "internal", name: "Mixer" })\nparams({ Volume: 3 })\n',
           "utf8",
         ),
       () => expect(moduleFoldersStill(dir)).toBe(false),
@@ -231,9 +231,9 @@ describe("a watch heard through the capture's feed", () => {
     watchModuleFolders(dir, feed);
     moduleFoldersStill(dir);
     expect(moduleFoldersStill(dir)).toBe(true);
-    feed.say("_modules/audio/reverb/module.yaml");
+    feed.say("_modules/audio/reverb/module.k7x");
     expect(moduleFoldersStill(dir)).toBe(false);
-    feed.say("song.k7/nodes/chorus.yaml");
+    feed.say("song.k7/nodes/chorus.k7x");
     expect(moduleFoldersStill(dir)).toBe(false);
   });
 
@@ -250,7 +250,7 @@ describe("a watch heard through the capture's feed", () => {
     watchModuleFolders(dir, feed);
     moduleFoldersStill(dir);
     feed.say("song.k7/media/take-01.wav");
-    feed.say("other.k7/nodes/x.yaml");
+    feed.say("other.k7/nodes/x.k7x");
     expect(moduleFoldersStill(dir)).toBe(true);
   });
 
@@ -261,9 +261,9 @@ describe("a watch heard through the capture's feed", () => {
     watchModuleFolders(dir, first);
     watchModuleFolders(dir, second);
     moduleFoldersStill(dir);
-    first.say("_modules/audio/reverb/module.yaml");
+    first.say("_modules/audio/reverb/module.k7x");
     expect(moduleFoldersStill(dir)).toBe(true);
-    second.say("_modules/audio/reverb/module.yaml");
+    second.say("_modules/audio/reverb/module.k7x");
     expect(moduleFoldersStill(dir)).toBe(false);
   });
 });

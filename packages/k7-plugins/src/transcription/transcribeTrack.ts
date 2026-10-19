@@ -2,7 +2,7 @@
 // core when transcription became a plugin. It acts through the CommandHost exactly as any core
 // verb does; what the plugin adds is the DECLARATION beside it (index.ts). See docs/verbs.md.
 
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CommandHost } from "@studio/commands/commands";
@@ -10,9 +10,8 @@ import { laneFolder } from "@studio/song/chainItemEdit";
 import { confineToProject } from "@studio/song/confine";
 import { createTrackFile, isVideoSource } from "@studio/song/loader";
 import { setFileValue } from "@studio/song/yaml/edit";
-import { wsExists, wsRead } from "@studio/song/yaml/workspaceFile";
+import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
 import { listVideoPlacements } from "@studio/song-schema/yaml/videoTrackFile";
-import { parse as parseYaml } from "yaml";
 import { extractAudio, srtOf, transcribeAudio } from "./transcribe";
 
 // `track transcribe <track_in> <track_out>` — whisper listens to the video the picture lane
@@ -32,7 +31,7 @@ export async function transcribeTrack(
     return;
   }
   const [trackIn, trackOut] = parts;
-  // <track_in> is a PICTURE lane: video_tracks/<id>.yaml, the id being the stem, so the name is
+  // <track_in> is a PICTURE lane: video_tracks/<id>.k7x, the id being the stem, so the name is
   // checked before it reaches a path (docs/picture.md).
   if (!/^[A-Za-z0-9_.-]+$/.test(trackIn)) {
     h.refuse([
@@ -40,14 +39,14 @@ export async function transcribeTrack(
     ]);
     return;
   }
-  const laneFile = join(h.songPath, "video_tracks", `${trackIn}.yaml`);
-  if (!wsExists(laneFile)) {
-    h.refuse([`no picture lane "${trackIn}" (video_tracks/${trackIn}.yaml)`]);
+  const laneFile = join(h.songPath, "video_tracks", `${trackIn}.k7x`);
+  if (!existsSync(laneFile)) {
+    h.refuse([`no picture lane "${trackIn}" (video_tracks/${trackIn}.k7x)`]);
     return;
   }
   // The FIRST shot decides what is listened to: one video, timed in its own seconds. A lane that
   // cuts between sources would need the segments re-timed onto the timeline to say anything.
-  const shot = listVideoPlacements(wsRead(laneFile)).find((p) => p.ref);
+  const shot = listVideoPlacements(wsText(laneFile)).find((p) => p.ref);
   if (!shot?.ref) {
     h.refuse([`'${trackIn}' places no shot — there is no video to transcribe`]);
     return;
@@ -56,16 +55,14 @@ export async function transcribeTrack(
     h.refuse([`'${shot.ref}' is not a clip id — the stem of a file in clips/`]);
     return;
   }
-  const clipFile = join(h.songPath, "clips", `${shot.ref}.yaml`);
+  const clipFile = join(h.songPath, "clips", `${shot.ref}.k7x`);
   let source = "";
-  if (wsExists(clipFile)) {
-    const doc = parseYaml(wsRead(clipFile)) as {
-      source?: unknown;
-    };
-    source = typeof doc.source === "string" ? doc.source : "";
+  if (existsSync(clipFile)) {
+    const clip = wsData(clipFile);
+    source = typeof clip.source === "string" ? clip.source : "";
   }
   if (!source) {
-    h.refuse([`clip '${shot.ref}' says no source (clips/${shot.ref}.yaml)`]);
+    h.refuse([`clip '${shot.ref}' says no source (clips/${shot.ref}.k7x)`]);
     return;
   }
   if (!isVideoSource(source)) {
@@ -82,7 +79,7 @@ export async function transcribeTrack(
     ]);
     return;
   }
-  if (!wsExists(videoPath)) {
+  if (!existsSync(videoPath)) {
     h.refuse([`the video is not on this machine: ${source}`]);
     return;
   }
@@ -94,8 +91,8 @@ export async function transcribeTrack(
     return;
   }
   // `nodes/`, or a chain project's `tracks/` — wherever this project keeps a lane's own file.
-  const nodeFile = join(h.songPath, laneFolder(h.songPath), `${trackOut}.yaml`);
-  const existed = wsExists(nodeFile);
+  const nodeFile = join(h.songPath, laneFolder(h.songPath), `${trackOut}.k7x`);
+  const existed = existsSync(nodeFile);
   if (!existed) {
     try {
       createTrackFile(h.songPath, trackOut);

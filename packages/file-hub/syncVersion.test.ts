@@ -8,7 +8,7 @@ import { join } from "node:path";
 import type { LiveCapture } from "@studio/file-service/src/liveCapture.ts";
 import { RelayLink } from "@studio/file-service/src/liveRelay.ts";
 import { NeedsUpdate, type Sequenced } from "@studio/live-sync/ops";
-import { SYNC_PROTO } from "@studio/live-sync/protocol";
+import { SYNC_PROTO, SYNC_PROTO_MIN } from "@studio/live-sync/protocol";
 import { Replica } from "@studio/live-sync/replica";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket, WebSocketServer } from "ws";
@@ -76,14 +76,19 @@ const entry = (seq: number, text: string): Sequenced => ({
 });
 
 describe("the relay, against replicas of another level", () => {
-  it("welcomes a hello with or without proto", async () => {
+  it("welcomes a hello at its level, and tells one with no proto to update", async () => {
     const ask = await replica(await relay(mkdtempSync(join(tmpdir(), "ver-"))));
-    expect(await ask({ t: "hello", workspace: "w", since: 0 })).toMatchObject({
-      t: "welcome",
-    });
     expect(
       await ask({ t: "hello", workspace: "v", since: 0, proto: SYNC_PROTO }),
     ).toMatchObject({ t: "welcome" });
+    // No `proto` is level 1, whose `yaml` ops this build no longer applies.
+    expect(await ask({ t: "hello", workspace: "w", since: 0 })).toEqual({
+      t: "refused",
+      workspace: "w",
+      reason: "update",
+      min: SYNC_PROTO_MIN,
+      server: SYNC_PROTO,
+    });
   });
 
   it("refuses a replica newer than the server, and lets it send nothing", async () => {
@@ -99,7 +104,7 @@ describe("the relay, against replicas of another level", () => {
       t: "refused",
       workspace: "w",
       reason: "server-older",
-      min: 1,
+      min: SYNC_PROTO_MIN,
       server: SYNC_PROTO,
     });
     expect(
@@ -113,7 +118,7 @@ describe("the relay, against replicas of another level", () => {
 
   it("answers an unknown op kind and an unknown message with their reason", async () => {
     const ask = await replica(await relay(mkdtempSync(join(tmpdir(), "ver-"))));
-    await ask({ t: "hello", workspace: "w", since: 0 });
+    await ask({ t: "hello", workspace: "w", since: 0, proto: SYNC_PROTO });
     const future = {
       ...entry(1, "x").batch,
       ops: [{ kind: "json", file: "a.json" }],
@@ -228,7 +233,9 @@ describe("the log's version", () => {
       `${JSON.stringify({ v: 2, ...entry(1, "a") })}\n`,
     );
     const ask = await replica(await relay(data));
-    expect(await ask({ t: "hello", workspace: "w", since: 0 })).toMatchObject({
+    expect(
+      await ask({ t: "hello", workspace: "w", since: 0, proto: SYNC_PROTO }),
+    ).toMatchObject({
       t: "error",
     });
     expect(readFileSync(join(dir, ENTRIES), "utf8")).toContain('"v":2');
@@ -237,7 +244,7 @@ describe("the log's version", () => {
   it("writes the room's saved state with v", async () => {
     const data = mkdtempSync(join(tmpdir(), "ver-save-"));
     const ask = await replica(await relay(data));
-    await ask({ t: "hello", workspace: "w", since: 0 });
+    await ask({ t: "hello", workspace: "w", since: 0, proto: SYNC_PROTO });
     await ask({ t: "batch", workspace: "w", batch: entry(1, "a").batch });
     cleanup.splice(0).forEach((f) => {
       f();

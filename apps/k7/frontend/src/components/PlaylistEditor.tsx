@@ -1,4 +1,4 @@
-// PlaylistEditor.tsx — a playlist opened: its YAML as text on the left, the morceaux it names
+// PlaylistEditor.tsx — a playlist opened: its k7x as text on the left, the morceaux it names
 // as a playable list on the right. Two panes on purpose — you edit the file while hearing what
 // it describes. See ../docs/playlists.md.
 
@@ -16,6 +16,7 @@ import {
 } from "@studio/song-schema/playlist";
 import type { Validity } from "@studio/song-schema/yaml/validate";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
+import { editK7xText } from "@studio/ui-editor/k7x/bufferEdit";
 import { YamlPane } from "@studio/ui-editor/yaml-pane";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, mediatek } from "../api";
@@ -48,12 +49,12 @@ export function PlaylistEditor({
   onSaved,
   onRun,
 }: {
-  /** The playlist's workspace-relative path (`_playlists/ete-2026.yaml`). */
+  /** The playlist's workspace-relative path (`_playlists/ete-2026.k7x`). */
   path: string;
   /** What the header calls it — the title the listing parsed, else the file's stem. */
   name: string;
   vimMode: boolean;
-  /** Draw as the right-hand PANEL rather than as the page: no header, no YAML half — a mode, everything under the layout being the same (../docs/playlists.md). */
+  /** Draw as the right-hand PANEL rather than as the page: no header, no text half — a mode, everything under the layout being the same (../docs/playlists.md). */
   panel?: boolean;
   /** Back to the listing. Unused in `panel` mode, where there is nothing to go back to. */
   onBack?: () => void;
@@ -124,7 +125,7 @@ export function PlaylistEditor({
   useEffect(() => {
     if (content == null) return setItems([]);
     const parsed = parsePlaylist(content);
-    // Only ever REPLACED by something readable: half-typed YAML fails on nearly every keystroke, and the footer says when the pane is behind.
+    // Only ever REPLACED by something readable: half-typed text fails on nearly every keystroke, and the footer says when the pane is behind.
     if (parsed) setItems(parsed.items);
   }, [content]);
   const broken = useMemo(
@@ -137,36 +138,43 @@ export function PlaylistEditor({
     setContent((cur) => {
       if (cur == null) return cur;
       // `addRefusal` keeps the button disabled for the shapes this cannot extend, so getting here means the file changed shape under us.
-      return appendPlaylistItem(cur, item) ?? cur;
+      return editK7xText(cur, (doc) => appendPlaylistItem(doc, item)) ?? cur;
     });
   }, []);
 
   /** Why the search cannot write a line right now — computed HERE, being a fact about the text the pane has never seen. */
   const addRefusal = useMemo(() => {
     if (content == null) return m["pls.notLoaded"]();
-    return appendPlaylistItem(content, { song: "x" }) === null
+    return editK7xText(content, (doc) =>
+      appendPlaylistItem(doc, { song: "x" }),
+    ) === null
       ? m["pls.addUnsupported"]()
       : "";
   }, [content]);
 
-  /** Drop a line, by the position the pane draws — the same TEXT edit `playlist song remove` makes. */
+  /** Drop a line, by the position the pane draws — the same edit `playlist song remove` makes. */
   const removeItem = useCallback((index: number) => {
     setContent((cur) =>
-      cur == null ? cur : (removePlaylistItem(cur, index) ?? cur),
+      cur == null
+        ? cur
+        : (editK7xText(cur, (doc) => removePlaylistItem(doc, index)) ?? cur),
     );
   }, []);
 
   /** Reorder, likewise: the buffer is what changes, and the row moves because the text did. */
   const moveItem = useCallback((from: number, to: number) => {
     setContent((cur) =>
-      cur == null ? cur : (movePlaylistItem(cur, from, to) ?? cur),
+      cur == null
+        ? cur
+        : (editK7xText(cur, (doc) => movePlaylistItem(doc, from, to)) ?? cur),
     );
   }, []);
 
-  /** Why those two would not work — a flow `items:` the text edit will not reflow (docs/playlists.md). */
+  /** Why those two would not work — an `items` that is no list, or a text that does not read (docs/playlists.md). */
   const editRefusal = useMemo(() => {
     if (content == null) return m["pls.notLoaded"]();
-    return removePlaylistItem(content, 0) === null && items.length
+    return editK7xText(content, (doc) => removePlaylistItem(doc, 0)) === null &&
+      items.length
       ? m["pls.moveUnsupported"]()
       : "";
   }, [content, items.length]);

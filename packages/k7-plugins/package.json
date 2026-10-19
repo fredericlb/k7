@@ -33,6 +33,7 @@
     "@studio/ffmpeg": "*",
     "@studio/graph-model": "*",
     "@studio/k7-sdk": "*",
+    "@studio/k7x": "*",
     "@studio/mediatek": "*",
     "@studio/project-shell": "*",
     "@studio/song": "*",
@@ -42,8 +43,7 @@
     "@studio/ui-eyes": "*",
     "@studio/ui-timeline": "*",
     "@studio/ui-waveform": "*",
-    "@studio/web-protocol": "*",
-    "yaml": "^2.5.0"
+    "@studio/web-protocol": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

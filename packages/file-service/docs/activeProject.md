@@ -268,7 +268,7 @@ nothing arrives, so a stale one outlives its request and eats the following comm
   is engine-global too, and the question takes SECONDS — exactly long enough for a second one to be
   asked. What is built from the answer is a module's whole panel, so taking somebody else's reply
   would write one plugin's knobs into another plugin's file, with nothing saying so. Resolving on the
-  first frame to arrive would draw Diva's panel into Serum's `ui.yaml`.
+  first frame to arrive would draw Diva's panel into Serum's `ui.k7x`.
 
 ### Three outcomes, not two
 

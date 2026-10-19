@@ -1,7 +1,7 @@
 // converge.test.ts — replicas editing at random, messages delivered late and interleaved: all end as the room.
 
+import { K7Document } from "@studio/k7x/document";
 import { describe, expect, it } from "vitest";
-import { parseDocument, type YAMLSeq } from "yaml";
 import { fileOpFor } from "./fileOp.ts";
 import type { Batch, Sequenced } from "./ops.ts";
 import { MemoryConfirmed, Replica } from "./replica.ts";
@@ -27,20 +27,21 @@ function rng(seed: number): () => number {
 }
 
 const START: Record<string, string> = {
-  "s/mix.yaml": "plugin: mixer\nparams:\n  gain: 0.5\n  pan: 0\n  width: 1\n",
-  "s/eq.yaml": "plugin: eq\nparams:\n  low: 0\n  high: 0\nbands: [1, 2]\n",
+  "s/mix.k7x":
+    'plugin("mixer")\nparams({\n  gain: 0.5,\n  pan: 0,\n  width: 1,\n})\n',
+  "s/eq.k7x": 'plugin("eq")\nparams({ low: 0, high: 0 })\nbands([1, 2])\n',
   "s/TODOS.md": "- nothing\n",
   "s/notes.md": "# notes\n\nline 0\n\nline 1\n\nline 2\n\nline 3\n",
-  "s/seq.yaml":
-    'notes:\n  - { t: 0, d: 1, k: 60 }\n  - { t: 1, d: 1, k: 62 }\nfrom: "1:1"\n',
+  "s/seq.k7x":
+    'notes([\n  t(0).d(1).k(60),\n  t(1).d(1).k(62),\n])\nfrom("1:1")\n',
 };
 const KEYS = [
-  ["s/mix.yaml", ["params", "gain"]],
-  ["s/mix.yaml", ["params", "pan"]],
-  ["s/mix.yaml", ["params", "width"]],
-  ["s/eq.yaml", ["params", "low"]],
-  ["s/eq.yaml", ["params", "high"]],
-  ["s/eq.yaml", ["bands"]],
+  ["s/mix.k7x", ["params", "gain"]],
+  ["s/mix.k7x", ["params", "pan"]],
+  ["s/mix.k7x", ["params", "width"]],
+  ["s/eq.k7x", ["params", "low"]],
+  ["s/eq.k7x", ["params", "high"]],
+  ["s/eq.k7x", ["bands"]],
 ] as const;
 
 interface Sim {
@@ -104,29 +105,29 @@ function simulate(seed: number, replicas: number, steps: number) {
         `line ${n} ${Math.floor(rand() * 100)}`,
       );
     } else if (roll < 0.35) {
-      file = "s/seq.yaml";
+      file = "s/seq.k7x";
       const text = s.disk.get(file);
       if (text === undefined) return;
       after = noteEdit(text, rand);
     } else if (roll < 0.4) {
-      file = "s/new.yaml";
-      after = s.disk.has(file) ? null : "plugin: delay\n";
+      file = "s/new.k7x";
+      after = s.disk.has(file) ? null : 'plugin("delay")\n';
     } else if (roll < 0.45) {
       // Removing a file others are editing values in: the server sets their ops aside, and they must follow.
-      file = "s/eq.yaml";
+      file = "s/eq.k7x";
       after = s.disk.has(file) ? null : START[file];
     } else {
       const [f, path] = KEYS[Math.floor(rand() * KEYS.length)];
       file = f;
       const text = s.disk.get(f);
       if (text === undefined) return;
-      const doc = parseDocument(text, { version: "1.2" });
+      const doc = new K7Document(text);
       const value =
         path[0] === "bands"
           ? [Math.floor(rand() * 9)]
           : Math.round(rand() * 100) / 100;
-      doc.setIn([...path], doc.createNode(value));
-      after = doc.toString({ lineWidth: 0 });
+      doc.setIn([...path], value);
+      after = doc.toString();
     }
     const op = fileOpFor(file, before(file), after);
     if (!op) return;
@@ -152,7 +153,7 @@ function simulate(seed: number, replicas: number, steps: number) {
     const [msg] = toServer.splice(j, 1);
     const { entry, fresh } = room.submit(msg.batch);
     for (const op of entry.batch.ops) {
-      if (op.kind === "yaml" && op.ops.some((o) => o.path[1]?.startsWith("[")))
+      if (op.kind === "k7x" && op.ops.some((o) => o.path[1]?.startsWith("[")))
         items++;
       const sent = msg.batch.ops.find((o) => o.file === op.file);
       if (op.kind === "text" && sent?.kind === "text" && sent.text !== op.text)
@@ -190,25 +191,22 @@ function simulate(seed: number, replicas: number, steps: number) {
 
 /** A note added, removed, or its velocity changed, the way the sequence writers do it. */
 function noteEdit(text: string, rand: () => number): string {
-  const doc = parseDocument(text, { version: "1.2" });
-  const notes = doc.get("notes", true) as YAMLSeq;
+  const doc = new K7Document(text);
+  const count = (doc.getIn(["notes"]) as unknown[] | undefined)?.length ?? 0;
   const roll = rand();
-  if (roll < 0.4 || notes.items.length === 0) {
-    const node = doc.createNode({
+  if (roll < 0.4 || count === 0)
+    doc.insertIn(["notes"], Math.floor(rand() * (count + 1)), {
       t: Math.floor(rand() * 8),
       d: 1,
       k: 60 + Math.floor(rand() * 4),
     });
-    node.flow = true;
-    notes.items.splice(Math.floor(rand() * (notes.items.length + 1)), 0, node);
-  } else if (roll < 0.6)
-    notes.items.splice(Math.floor(rand() * notes.items.length), 1);
+  else if (roll < 0.6) doc.deleteIn(["notes", Math.floor(rand() * count)]);
   else
     doc.setIn(
-      ["notes", Math.floor(rand() * notes.items.length), "v"],
-      doc.createNode(Math.round(rand() * 10) / 10),
+      ["notes", Math.floor(rand() * count), "v"],
+      Math.round(rand() * 10) / 10,
     );
-  return doc.toString({ lineWidth: 0 });
+  return doc.toString();
 }
 
 let totalParked = 0;
@@ -241,18 +239,18 @@ describe("convergence", () => {
 
   it("keeps the value in place and sets the late edit aside, everywhere", () => {
     const room = new Room();
-    const text = START["s/mix.yaml"];
+    const text = START["s/mix.k7x"];
     room.submit({
       id: "seed",
       replica: "x",
       local: 0,
       ts: 0,
       label: "seed",
-      ops: [{ kind: "text", file: "s/mix.yaml", text }],
+      ops: [{ kind: "text", file: "s/mix.k7x", text }],
     });
     const disks = [
-      new Map([["s/mix.yaml", text]]),
-      new Map([["s/mix.yaml", text]]),
+      new Map([["s/mix.k7x", text]]),
+      new Map([["s/mix.k7x", text]]),
     ];
     const reps = disks.map(
       (d, i) =>
@@ -262,14 +260,14 @@ describe("convergence", () => {
             read: (f) => d.get(f) ?? null,
             write: (f, t) => (t === null ? d.delete(f) : d.set(f, t)),
           },
-          confirmedOf({ "s/mix.yaml": text }),
+          confirmedOf({ "s/mix.k7x": text }),
           1,
         ),
     );
     const edits = ["0.1", "0.9"].map((v, i) => {
       const after = text.replace("gain: 0.5", `gain: ${v}`);
-      const op = fileOpFor("s/mix.yaml", text, after);
-      disks[i].set("s/mix.yaml", after);
+      const op = fileOpFor("s/mix.k7x", text, after);
+      disks[i].set("s/mix.k7x", after);
       const batch: Batch = {
         id: `b${i}`,
         replica: `r${i}`,
@@ -285,14 +283,14 @@ describe("convergence", () => {
     const second = room.submit(edits[1]).entry;
     // r1 sees r0's edit while its own is still pending: it keeps showing its own until the room answers.
     reps[1].remote(first);
-    expect(disks[1].get("s/mix.yaml")).toContain("gain: 0.9");
+    expect(disks[1].get("s/mix.k7x")).toContain("gain: 0.9");
     reps[1].remote(second);
-    expect(second.parked).toMatchObject([{ replica: "r1", kept: "0.1\n" }]);
+    expect(second.parked).toMatchObject([{ replica: "r1", kept: "0.1" }]);
     reps[0].remote(first);
     reps[0].remote(second);
     for (const d of disks)
-      expect(d.get("s/mix.yaml")).toBe(room.files.get("s/mix.yaml"));
-    expect(room.files.get("s/mix.yaml")).toContain("gain: 0.1");
+      expect(d.get("s/mix.k7x")).toBe(room.files.get("s/mix.k7x"));
+    expect(room.files.get("s/mix.k7x")).toContain("gain: 0.1");
     for (const r of reps)
       expect(r.conflicts.list().map((c) => c.id)).toEqual([
         second.parked[0].id,

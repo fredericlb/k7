@@ -1,7 +1,7 @@
 // backgroundJobs.ts — work a COMMAND starts and does not wait for: a video transcode, minutes
 // long, which must not hold the `/command` request open. One tag runs once at a time, so a verb
 // run twice joins the first run rather than encoding the same file twice. A job reports through
-// what it WRITES — the files and the yaml field the revision token sees — and through the log.
+// what it WRITES — the files and the k7x field the revision token sees — and through the log.
 // See docs/background.md.
 
 import { guard } from "./background.ts";

@@ -3,7 +3,7 @@
 // The engine's set is derived and rebuilt whenever the audio or the sensitivity changes; the corrections are
 // in the clip file and outlive both. This resolves the two into the one list every surface should draw.
 
-/** A correction block as `clips/*.yaml` stores it — both lists in SECONDS into the source file. */
+/** A correction block as `clips/*.k7x` stores it — both lists in SECONDS into the source file. */
 export interface OnsetEdits {
   added?: number[];
   removed?: number[];

@@ -36,13 +36,13 @@ and that is the number a long press writes. The button reads **its own deck's** 
 never the transport: no deck follows the transport, so a cue set from it would be a number
 unrelated to any point on the record — and jumping to it would work perfectly, to the wrong place.
 
-## In mix.yaml, beside the song
+## In mix.k7x, beside the song
 
-```yaml
-cues:
-  - "@k7-core/songs/Alain Bashung/Album inconnu/La nuit je mens"
-  - ref: "@k7-core/songs/Daft Punk/Album inconnu/Around the world"
-    markers: [ 12.5, null, 48.25 ]
+```js
+cues([
+  "@k7-core/songs/Alain Bashung/Album inconnu/La nuit je mens",
+  ref("@k7-core/songs/Daft Punk/Album inconnu/Around the world").markers([12.5, null, 48.25]),
+])
 ```
 
 **And that is all this file does.** Which songs the set plays is the playlist the surface names
@@ -50,7 +50,7 @@ cues:
 not to a list other sets read: two bands covering the same title do not drop the needle in the
 same place. An entry therefore appears when a cue is set, not when a song is added.
 
-Not to be confused with `views/mix.yaml`, a different file: the desk's bindings, in `views/`, the
+Not to be confused with `views/mix.k7x`, a different file: the desk's bindings, in `views/`, the
 ones a surface names through its `mapping:`. This one is at the project root.
 
 An entry is **either** a bare reference **or** a reference carrying settings. Both, deliberately:
@@ -70,8 +70,8 @@ just a run of bare references.
 
 The text is **edited**, never reprinted from a parse tree. The scaffold's comments are the only
 worked example a reader of a set gets, and a desk that ate them on the first cue set is a desk
-you do not forgive. `withMarkers` goes through the `yaml` package's `Document`, which is what it
-exists for.
+you do not forgive. `withMarkers` edits the sheet as a k7x document (`K7Document`), value by value,
+which leaves every other byte where it was.
 
 A reference the file does not name is **added**. That is not politeness: a deck can be playing a
 song someone has just removed from the list, and refusing the cue would lose a gesture already

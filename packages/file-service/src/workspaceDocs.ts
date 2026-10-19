@@ -13,7 +13,8 @@ import {
 } from "@studio/song/loader";
 import type { ProjectDoc } from "@studio/song/project";
 import { surfaceIssues } from "@studio/song/surfaces";
-import { readRaw, wsRead } from "@studio/song/yaml/workspaceFile";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
+import { wsRead } from "@studio/song/yaml/workspaceFile";
 import { formatLineOf } from "@studio/song-schema/formatLevel";
 import type { VideoProjectDoc } from "@studio/song-video/videoDoc";
 import { videoDuration } from "@studio/song-video/videoTracks";
@@ -23,14 +24,13 @@ import type {
   ProjectInfo,
   WebVideoProject,
 } from "@studio/web-protocol";
-import { parse as parseYaml } from "yaml";
 import { formatTooNewOf } from "./compileError.ts";
 import { toWebVideoTracks, webPlugin } from "./webTracks.ts";
 
 // The line a root file declares its format on, or null when it cannot be read.
 function formatLineIn(path: string): number | null {
   try {
-    return formatLineOf(readRaw(path));
+    return formatLineOf(wsRead(path));
   } catch {
     return null;
   }
@@ -40,7 +40,7 @@ function formatLineIn(path: string): number | null {
 function parseCompileError(msg: string): Diagnostic[] {
   const out: Diagnostic[] = [];
   for (const line of msg.split("\n")) {
-    const m = /^\s*(\S+\.(?:ya?ml|k7x))(?::(\d+))?:\s*(.+)$/i.exec(line);
+    const m = /^\s*(\S+\.k7x)(?::(\d+))?:\s*(.+)$/i.exec(line);
     if (m)
       out.push({
         file: m[1].replace(/^\.\//, ""),
@@ -153,16 +153,16 @@ export function webVideoProjectOf(
   };
 }
 
-/** The project's own name from `project.yaml`, else its folder's. */
+/** The project's own name from `project.k7x`, else its folder's. */
 export function projectInfoOf(dir: string): ProjectInfo {
   let name = basename(dir);
   try {
-    const root = parseYaml(wsRead(join(dir, "project.yaml"))) as {
+    const root = wsData(join(dir, "project.k7x")) as {
       project?: { name?: unknown };
-    } | null;
-    if (typeof root?.project?.name === "string") name = root.project.name;
+    };
+    if (typeof root.project?.name === "string") name = root.project.name;
   } catch {
-    /* no project.yaml — keep the folder name */
+    /* no project.k7x, or one that will not read — keep the folder name */
   }
   return { name, root: dir };
 }

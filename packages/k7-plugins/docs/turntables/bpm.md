@@ -64,7 +64,7 @@ project, like a released fader.
 ## The range is the module's knob's
 
 The module declares its panel: a **BPM knob from 10 to 300**, plus a display of the measured tempo,
-in `ui.yaml`. The Mix fader **is** that knob, so its range is that one. A surface offering less
+in `ui.k7x`. The Mix fader **is** that knob, so its range is that one. A surface offering less
 would silently refuse values the module accepts; one offering more would send values the panel
 cannot draw.
 
@@ -147,12 +147,12 @@ value exists only on the surface that **realises** it, and `useDeckSet` lends it
 through `deck.setModuleParam`.
 
 Three things are needed for that, and without any one of them the node stays frozen on what
-`project.yaml` declares — which reads exactly as "the BPM does not update when a song is loaded":
+`project.k7x` declares — which reads exactly as "the BPM does not update when a song is loaded":
 
 | | what is needed |
 |---|---|
 | the host | k7 passes `moduleParams` **and** `onModuleParam` to `DomChains`: those two are what **switch these widgets on**. Without them the graph draws `–`, inert. |
-| `Source BPM` | `views/mix.yaml` binds one parameter per control, so only `Target BPM` is named there; the other is measured and has no writer in the file. The publication below is what writes it, or the display stays at 0 for every song. |
+| `Source BPM` | `views/mix.k7x` binds one parameter per control, so only `Target BPM` is named there; the other is measured and has no writer in the file. The publication below is what writes it, or the display stays at 0 for every song. |
 | the gap | putting a record on **clears** the fader (`clearTempo`) and the measurement arrives a moment later. Skipping the publication during that gap leaves the node on the **outgoing** song's numbers — at the exact moment you are looking at it to see what you have just put on. |
 
 The last two rules live in `offlinePublish` (`mixBindings.ts`), beside the other reads of the same

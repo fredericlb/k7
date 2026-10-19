@@ -131,7 +131,7 @@ export interface VideoTrackDoc {
   name: string;
   color: string;
   mute: boolean; // hidden
-  /** Soloed, from `project.yaml`'s `soloed:` — the same list audio uses, resolved within picture (docs/picture.md). */
+  /** Soloed, from `project.k7x`'s `soloed:` — the same list audio uses, resolved within picture (docs/picture.md). */
   solo: boolean;
   x: number;
   y: number;

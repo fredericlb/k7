@@ -7,13 +7,15 @@
 
 import { readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
+import type { K7Scope } from "@studio/k7x/document";
 import {
   createVideoTrackFile,
   loadProjectRoot,
   setLaneOrder,
 } from "@studio/song/loader";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
-import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsData, wsEdit, wsText } from "@studio/song/yaml/workspaceDoc";
+import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { stripDocExt } from "@studio/song-schema/docExt";
 import { orderPosition, reorderTracks } from "@studio/song-schema/trackKind";
 import {
@@ -44,7 +46,7 @@ export function laneFile(
 ): { rel: string; abs: string; text: string } | null {
   const name = stripDocExt(lane.trim());
   const dir = resolve(h.songPath, LANES_DIR);
-  const abs = join(dir, `${name}.yaml`);
+  const abs = join(dir, `${name}.k7x`);
   // Containment, as every path-taking verb does: a lane name is one segment, never a way out.
   if (
     !name ||
@@ -62,9 +64,9 @@ export function laneFile(
     return null;
   }
   return {
-    rel: `${LANES_DIR}/${name}.yaml`,
+    rel: `${LANES_DIR}/${name}.k7x`,
     abs,
-    text: wsRead(abs),
+    text: wsText(abs),
   };
 }
 
@@ -110,19 +112,25 @@ function placementAt(
   return (hits[0] as { i: number }).i;
 }
 
-/** Write the lane, snapshotting first so the undo journal has the before — every picture verb ends here. */
+/** Edit the lane, snapshotting first for the undo journal; an edit answering false writes nothing and is refused with `refusal`. */
 export function put(
   abs: string,
-  next: string,
+  edit: (doc: K7Scope) => unknown,
   h: CommandHost,
   verb: string,
+  refusal = `picture ${verb}: nothing to change there`,
 ): boolean {
+  let refused = false;
   try {
     h.snapshot?.(abs);
-    wsWrite(abs, next);
+    wsEdit(abs, (doc) => {
+      if (edit(doc.at([])) !== false) return;
+      refused = true;
+      throw new Error(refusal);
+    });
     return true;
   } catch (e) {
-    h.refuse([`picture ${verb}: ${(e as Error).message}`]);
+    h.refuse([refused ? refusal : `picture ${verb}: ${(e as Error).message}`]);
     return false;
   }
 }
@@ -230,13 +238,13 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     const found = laneFile(lane, h);
     if (!found) return;
     // Read back rather than assumed: a toggle has to start from what the file says right now.
-    const on = !/^mute:\s*true\b/m.test(found.text);
-    if (!put(found.abs, setVideoLaneMute(found.text, on), h, "mute")) return;
+    const on = wsData(found.abs).mute !== true;
+    if (!put(found.abs, (doc) => setVideoLaneMute(doc, on), h, "mute")) return;
     h.log([`${found.rel}: ${on ? "hidden" : "shown"}`]);
     return h.reload();
   },
 
-  /** `picture solo <lane>` — `soloed:` at project.yaml's root, the SAME list audio uses (docs/picture.md). */
+  /** `picture solo <lane>` — `soloed:` at project.k7x's root, the SAME list audio uses (docs/picture.md). */
   "picture.solo": async (a, h) => {
     const lane = splitWords(a)[0];
     if (!lane) {
@@ -247,7 +255,7 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     const cur = (loadProjectRoot(h.songPath).soloed ?? []).map(String);
     const on = !cur.includes(lane);
     const next = on ? [...cur, lane] : cur.filter((x) => x !== lane);
-    const file = join(h.songPath, "project.yaml");
+    const file = join(h.songPath, "project.k7x");
     try {
       if (next.length) setFileValue(file, ["soloed"], next);
       else deleteFileValue(file, ["soloed"]);
@@ -284,8 +292,9 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     }
     const found = laneFile(laneArg, h);
     if (!found) return;
-    const next = setVideoLaneRect(found.text, { x, y, w, h: box });
-    if (!put(found.abs, next, h, "rect")) return;
+    const rect = { x, y, w, h: box };
+    if (!put(found.abs, (doc) => setVideoLaneRect(doc, rect), h, "rect"))
+      return;
     h.log([`${found.rel}: ${w}x${box} at ${x},${y}`]);
     return h.reload();
   },
@@ -297,8 +306,10 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     const to = seconds(t.rest[0], h);
     if (to === null) return;
     const shot = t.list[t.index] as VideoPlacement;
-    const next = setVideoPlacementFieldAt(t.text, t.index, "start", to);
-    if (!put(t.abs, next, h, "move")) return;
+    const move = (doc: K7Scope) => {
+      setVideoPlacementFieldAt(doc, t.index, "start", to);
+    };
+    if (!put(t.abs, move, h, "move")) return;
     h.log([`${t.rel}: ${shot.ref} ${t.at}s → ${to}s`]);
     return h.reload();
   },
@@ -310,8 +321,10 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     const len = seconds(t.rest[0], h);
     if (len === null) return;
     const shot = t.list[t.index] as VideoPlacement;
-    const next = setVideoPlacementFieldAt(t.text, t.index, "length", len);
-    if (!put(t.abs, next, h, "length")) return;
+    const extent = (doc: K7Scope) => {
+      setVideoPlacementFieldAt(doc, t.index, "length", len);
+    };
+    if (!put(t.abs, extent, h, "length")) return;
     h.log([
       `${t.rel}: ${shot.ref} lasts ${len ? `${len}s` : "to the end of its source"}`,
     ]);
@@ -346,18 +359,15 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
       return;
     }
     // Three fields, together: source_from follows the head or the frame changes, and length the other way or the TAIL slides.
-    let next = setVideoPlacementFieldAt(t.text, t.index, "start", to);
-    next = setVideoPlacementFieldAt(next, t.index, "source_from", from);
-    if (shot.length > 0)
-      next = setVideoPlacementFieldAt(
-        next,
-        t.index,
-        "length",
-        shot.length - delta,
-      );
-    // …and the keys by the same delta, so an animation stays on the frames it was set on (song-video docs/animation.md).
-    next = shiftVideoAnimationAt(next, t.index, delta);
-    if (!put(t.abs, next, h, "head")) return;
+    const head = (doc: K7Scope) => {
+      setVideoPlacementFieldAt(doc, t.index, "start", to);
+      setVideoPlacementFieldAt(doc, t.index, "source_from", from);
+      if (shot.length > 0)
+        setVideoPlacementFieldAt(doc, t.index, "length", shot.length - delta);
+      // …and the keys by the same delta, so an animation stays on the frames it was set on (song-video docs/animation.md).
+      shiftVideoAnimationAt(doc, t.index, delta);
+    };
+    if (!put(t.abs, head, h, "head")) return;
     h.log([
       `${t.rel}: ${shot.ref} head ${t.at}s → ${to}s` +
         (shot.length > 0 ? ", tail held" : ", length still the source's"),
@@ -370,8 +380,10 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     const t = target(a, h, "delete", "");
     if (!t) return;
     const shot = t.list[t.index] as VideoPlacement;
-    const next = removeVideoPlacementAt(t.text, t.index);
-    if (!put(t.abs, next, h, "delete")) return;
+    const drop = (doc: K7Scope) => {
+      removeVideoPlacementAt(doc, t.index);
+    };
+    if (!put(t.abs, drop, h, "delete")) return;
     h.log([
       `${t.rel}: − ${shot.ref} at ${t.at}s (the clip stays; a lane holds placements)`,
     ]);
@@ -385,12 +397,9 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     const where = seconds(t.rest[0] ?? "", h);
     if (where === null) return;
     const shot = t.list[t.index] as VideoPlacement;
-    const next = splitVideoPlacementAt(t.text, t.index, where);
-    if (next === null) {
-      h.refuse([`${t.rel}: ${where}s is not inside the shot at ${t.at}s`]);
-      return;
-    }
-    if (!put(t.abs, next, h, "split")) return;
+    const split = (doc: K7Scope) => splitVideoPlacementAt(doc, t.index, where);
+    const outside = `${t.rel}: ${where}s is not inside the shot at ${t.at}s`;
+    if (!put(t.abs, split, h, "split", outside)) return;
     h.log([
       `${t.rel}: ${shot.ref || "activation"} at ${t.at}s split at ${where}s`,
     ]);
@@ -416,25 +425,16 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     const sourceFrom = fromArg === undefined ? 0 : seconds(fromArg, h);
     if (sourceFrom === null) return;
     // The ref names a `clips/` entry, and only the compiler reads those — so this reports rather than refuses.
-    const clip = resolve(h.songPath, "clips", `${ref}.yaml`);
+    const clip = resolve(h.songPath, "clips", `${ref}.k7x`);
     const unknown = !wsExists(clip);
-    const next = addVideoPlacement(found.text, {
-      ref,
-      start: at,
-      length,
-      sourceFrom,
-    });
-    if (next === null) {
-      h.refuse([
-        `${found.rel}: the way \`events:\` is written there is not a shape this can extend — add the line by hand`,
-      ]);
-      return;
-    }
-    if (!put(found.abs, next, h, "add")) return;
+    const shot = { ref, start: at, length, sourceFrom };
+    const add = (doc: K7Scope) => addVideoPlacement(doc, shot);
+    const shape = `${found.rel}: the way \`events\` is written there is not a shape this can extend — add the line by hand`;
+    if (!put(found.abs, add, h, "add", shape)) return;
     h.log([
       `${found.rel}: + ${ref} at ${at}s${length ? ` for ${length}s` : ""}`,
       ...(unknown
-        ? [`no clips/${ref}.yaml — the lane will report it until there is one`]
+        ? [`no clips/${ref}.k7x — the lane will report it until there is one`]
         : []),
     ]);
     return h.reload();

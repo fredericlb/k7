@@ -1383,7 +1383,7 @@ export default function App({
     [store, pushLog, setRefusal],
   );
 
-  /** A PROJECT setting off a card — the RENDER node's frame shape, written to project.yaml (packages/song-video/docs/picture.md). */
+  /** A PROJECT setting off a card — the RENDER node's frame shape, written to project.k7x (packages/song-video/docs/picture.md). */
   const onProjectField = useCallback(
     (field: string, value: string) =>
       void runCommandRef.current(`project ${field} ${value}`),

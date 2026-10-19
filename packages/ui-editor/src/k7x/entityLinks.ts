@@ -1,7 +1,5 @@
-// entityLinks.ts — clickable entity references: a dotted underline on a name that resolves
-// to a file, ctrl-click to open it. Which fields link comes from `hints.paths`; the VALUES
-// come from the syntax tree (entityValues.ts), the same source the completions use — one
-// grammar answering both, rather than two scanners agreeing by luck.
+// entityLinks.ts (k7x) — clickable entity references: a dotted underline on a name that resolves to a file, ctrl-click to open it.
+// Which fields link comes from `hints.paths`; the VALUES come from the buffer's k7x tree (entityValues.ts, tree.ts).
 
 import {
   type EditorState,
@@ -17,6 +15,7 @@ import {
 } from "@codemirror/view";
 import type { Hints } from "@studio/web-protocol";
 import { keyTokens, valueTokens } from "./entityValues";
+import { k7xTree } from "./tree";
 
 const joinPath = (base: string, rel: string) => {
   const parts = [base, ...rel.split("/")].filter(Boolean);
@@ -33,10 +32,11 @@ const FIELD_KINDS: Record<string, string[]> = {
   in: ["track", "chain", "clip", "sequence"],
 };
 
-/** chains.yaml's sections, which key by ENTITY rather than by field name — see docs/completion.md. */
+/** A graph's sections, which key by ENTITY rather than by field name — see docs/completion.md. */
 const SECTION_KINDS: Record<string, { keys?: string[]; values: string[] }> = {
   tracks: { keys: ["track"], values: ["module", "sink"] },
   modules: { keys: ["module"], values: ["module", "sink"] },
+  runs: { values: ["module", "sink"] },
   bypassed: { values: ["module"] },
 };
 
@@ -58,7 +58,7 @@ function resolvePath(
   keyPath: string[],
   value: string,
 ): string | null {
-  // The section wins where there is one: inside `modules:` a key called `in` is a module named "in".
+  // The section wins where there is one: inside `modules` a key called `in` is a module named "in".
   const section = SECTION_KINDS[keyPath[0] ?? ""];
   if (section) return firstPath(hints, section.values, value);
   const kinds = field ? FIELD_KINDS[field] : undefined;
@@ -77,7 +77,7 @@ export function linkTargets(
   }
   for (const t of keyTokens(state)) {
     const kinds = SECTION_KINDS[t.keyPath[0] ?? ""]?.keys;
-    // Only a SECTION's own entries: `tracks:` itself is a key inside no section, and names nothing.
+    // Only a SECTION's own entries: `tracks` itself is a key inside no section, and names nothing.
     if (!kinds || t.keyPath.length !== 1) continue;
     const path = firstPath(hints, kinds, t.key);
     if (path && t.to > t.from) out.push({ from: t.from, to: t.to, path });
@@ -104,7 +104,7 @@ const linkTheme = EditorView.theme({
   },
 });
 
-/** Linkify the entity references in a project file. */
+/** Linkify the entity references in a project file; the tree field comes with it. */
 export function projectEntityLinks(
   hints: Hints,
   onOpen: (path: string) => void,
@@ -144,5 +144,5 @@ export function projectEntityLinks(
       },
     },
   );
-  return [plugin, linkTheme];
+  return [k7xTree, plugin, linkTheme];
 }

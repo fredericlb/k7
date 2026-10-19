@@ -8,11 +8,11 @@
 // It mounts the router rather than the server: `req.ws` and `req.userEmail` are what
 // `resolveWorkspace` would have set, and this route needs no other gate.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeModule, writeYaml } from "@studio/song/testSupport";
+import { writeDoc, writeModule, writeNode } from "@studio/song/testSupport";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { filesRouter } from "./routes/files.ts";
@@ -27,17 +27,11 @@ beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), "fs-want-"));
   const proj = join(root, "song.k7");
   mkdirSync(join(proj, "nodes"), { recursive: true });
-  writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
-  writeFileSync(
-    join(proj, "graph.yaml"),
-    "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(proj, "nodes", "gtr.yaml"),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
+  writeDoc(join(proj, "project.k7x"), { project: { name: "song" } });
+  writeDoc(join(proj, "graph.k7x"), {
+    modules: { gtr: ["amp"], amp: ["OUT"] },
+  });
+  writeNode(proj, "gtr", { extends: "@meta/track", events: [] });
   writeModule(proj, "audio", "amp", {
     plugin: { type: "internal", name: "Chorus" },
   });

@@ -5,13 +5,14 @@
 // Full rationale: docs/materialCut.md.
 
 import { join } from "node:path";
+import { K7Document } from "@studio/k7x/document";
 import { laneFileFor, laneFolder } from "@studio/song/chainItemEdit";
 import {
   materialWindowOf,
   type WindowValue,
 } from "@studio/song/yaml/materialFile";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
-import { wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsData, wsText, wsWriteData } from "@studio/song/yaml/workspaceDoc";
 import { beatsToPosition, parsePosition } from "@studio/song-schema/timecode";
 import type { NoteIn } from "@studio/song-schema/yaml/sequenceFile";
 import {
@@ -22,8 +23,6 @@ import {
   removePlacementAt,
   setPlacementField,
 } from "@studio/song-schema/yaml/trackFile";
-import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
-import { parseDocument } from "yaml";
 import { editTrackStruct } from "./trackMix";
 
 /** Two placements at the same beat are the same placement, so this is what "the same" means. */
@@ -70,11 +69,10 @@ function freeSequenceName(
   }
 }
 
-/** The notes a sequence file holds; anything unreadable is no notes at all, and the compile says so. */
+/** The notes a sequence file holds, its short form expanded; anything unreadable is no notes at all, and the compile says so. */
 function notesOf(file: string): NoteIn[] {
   try {
-    const doc = parseDocument(wsRead(file), YAML_READ);
-    const raw = doc.toJS() as { notes?: unknown };
+    const raw = wsData(file) as { notes?: unknown };
     if (!Array.isArray(raw?.notes)) return [];
     return raw.notes
       .map((n) => n as Partial<NoteIn>)
@@ -105,7 +103,7 @@ function notesIn(notes: NoteIn[], from: number, to: number): NoteIn[] {
   return out.sort((a, b) => a.t - b.t || a.k - b.k);
 }
 
-/** Write `sequences/<ref>.yaml` — which edges it declares differs by verb, see docs/materialCut.md. */
+/** Write `sequences/<ref>.k7x` — which edges it declares differs by verb, see docs/materialCut.md. */
 function writeSequence(
   dir: string,
   ref: string,
@@ -114,29 +112,21 @@ function writeSequence(
   num: number,
   den: number,
 ): WrittenMaterial {
-  const rel = `sequences/${ref}.yaml`;
-  const lines = notes.map(
-    (n) =>
-      `  - { t: ${+n.t.toFixed(6)}, d: ${+n.d.toFixed(6)}, k: ${n.k}${
-        n.v === undefined ? "" : `, v: ${n.v}`
-      }` + " }",
-  );
-  // Both edges are POSITIONS and quoted, since `3:1` unquoted is sexagesimal in YAML 1.1.
-  const edges =
-    window == null
-      ? ""
-      : (window.from != null
-          ? `from: "${beatsToPosition(window.from, num, den)}"\n`
-          : "") +
-        (window.to > EDGE_EPS
-          ? `to: "${beatsToPosition(window.to, num, den)}"\n`
-          : "");
-  wsWrite(
-    join(dir, rel),
-    `# Written by \`${window?.verb ?? "selection consolidate"}\`.\n` +
-      edges +
-      `notes:\n${lines.join("\n")}${lines.length ? "\n" : ""}`,
-  );
+  const rel = `sequences/${ref}.k7x`;
+  const data: Record<string, unknown> = {};
+  // Both edges are POSITIONS, read the way a placement's window is.
+  if (window?.from != null) data.from = beatsToPosition(window.from, num, den);
+  if (window && window.to > EDGE_EPS)
+    data.to = beatsToPosition(window.to, num, den);
+  data.notes = notes.map((n) => ({
+    t: +n.t.toFixed(6),
+    d: +n.d.toFixed(6),
+    k: n.k,
+    ...(n.v === undefined ? {} : { v: n.v }),
+  }));
+  wsWriteData(join(dir, rel), data, {
+    header: [`Written by \`${window?.verb ?? "selection consolidate"}\`.`],
+  });
   return { ref, file: rel, notes: notes.length };
 }
 
@@ -176,10 +166,10 @@ export function splitSequenceMaterial(
   const own = laneFileFor(dir, trackId);
   if (!own)
     throw new Error(`track "${trackId}" has no file in ${laneFolder(dir)}/`);
-  const text = wsRead(own.path);
-  const index = findPlacementAt(text, fromBeats, num, den);
+  const lane = new K7Document(wsText(own.path)).at([]);
+  const index = findPlacementAt(lane, fromBeats, num, den);
   if (index < 0) return null;
-  const placement = placementValues(text)[index] ?? {};
+  const placement = placementValues(lane)[index] ?? {};
   const ref = String(placement.ref ?? "");
   const file = entityFileFor(join(dir, "sequences"), "sequences", ref);
   if (!file)
@@ -223,14 +213,14 @@ export function splitSequenceMaterial(
   editTrackStruct(
     dir,
     trackId,
-    (t) => {
-      const i = findPlacementAt(t, fromBeats, num, den);
-      if (i < 0) return t;
+    (doc) => {
+      const i = findPlacementAt(doc, fromBeats, num, den);
+      if (i < 0) return;
       // Every window on the placement is cleared: both halves are whole materials.
-      let next = setPlacementField(t, i, "ref", head.ref);
-      next = setPlacementField(next, i, "from", undefined);
-      next = setPlacementField(next, i, "to", undefined);
-      return copyPlacementAt(next, i, {
+      setPlacementField(doc, i, "ref", head.ref);
+      setPlacementField(doc, i, "from", undefined);
+      setPlacementField(doc, i, "to", undefined);
+      copyPlacementAt(doc, i, {
         ref: tail.ref,
         start: beatsToPosition(atBeats, num, den),
         from: undefined,
@@ -254,7 +244,7 @@ export function consolidateSequenceMaterial(
   const own = laneFileFor(dir, trackId);
   if (!own)
     throw new Error(`track "${trackId}" has no file in ${laneFolder(dir)}/`);
-  const text = wsRead(own.path);
+  const lane = new K7Document(wsText(own.path)).at([]);
 
   const startOf = (p: Record<string, unknown>): number | null => {
     try {
@@ -263,7 +253,7 @@ export function consolidateSequenceMaterial(
       return null;
     }
   };
-  const picked = placementValues(text)
+  const picked = placementValues(lane)
     .map((p, index) => ({ p, index, start: startOf(p) }))
     .filter(
       (e): e is { p: Record<string, unknown>; index: number; start: number } =>
@@ -316,13 +306,12 @@ export function consolidateSequenceMaterial(
   editTrackStruct(
     dir,
     trackId,
-    (t) => {
-      let next = t;
+    (doc) => {
       for (const { start } of [...picked].reverse()) {
-        const i = findPlacementAt(next, start, num, den);
-        if (i >= 0) next = removePlacementAt(next, i);
+        const i = findPlacementAt(doc, start, num, den);
+        if (i >= 0) removePlacementAt(doc, i);
       }
-      return addPlacement(next, {
+      addPlacement(doc, {
         ref: written.ref,
         start: beatsToPosition(fromBeats, num, den),
       });
@@ -353,23 +342,19 @@ export function splitAudioPlacement(
   editTrackStruct(
     dir,
     trackId,
-    (text) => {
-      const i = findPlacementAt(text, fromBeats, num, den);
-      if (i < 0) return text;
+    (doc) => {
+      const i = findPlacementAt(doc, fromBeats, num, den);
+      if (i < 0) return;
       found = true;
       // The tail: the same placement from the cut on, keeping the end and the fade-out, losing the fade-in.
-      const tail = copyPlacementAt(text, i, {
+      copyPlacementAt(doc, i, {
         start: beatsToPosition(atBeats, num, den),
         from: at,
         fadeIn: undefined,
       });
       // The head ends at the cut and loses the fade-out the tail now has.
-      return setPlacementField(
-        setPlacementField(tail, i, "to", at),
-        i,
-        "fadeOut",
-        undefined,
-      );
+      setPlacementField(doc, i, "to", at);
+      setPlacementField(doc, i, "fadeOut", undefined);
     },
     "split an event",
   );

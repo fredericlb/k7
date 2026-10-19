@@ -71,7 +71,7 @@ async function soundClip(
     }
   }
   if (clip.sound === want) return { line: made || null, heard: true };
-  const file = resolve(h.songPath, "clips", `${ref}.yaml`);
+  const file = resolve(h.songPath, "clips", `${ref}.k7x`);
   h.snapshot?.(file);
   setFileValue(file, ["sound"], want);
   return { line: made || `${ref}: sound ${want}`, heard: true };
@@ -135,7 +135,7 @@ export const PICTURE_SOUND_VERBS: Record<string, SidHandler> = {
     }
     const found = laneFile(laneArg, h);
     if (!found) return;
-    const lane = found.rel.replace(/^.*\//, "").replace(/\.yaml$/, "");
+    const lane = found.rel.replace(/^.*\//, "").replace(/\.k7x$/, "");
     const clips = readYamlEntities(h.songPath, "clips").values as Record<
       string,
       RawClip
@@ -151,8 +151,8 @@ export const PICTURE_SOUND_VERBS: Record<string, SidHandler> = {
     const lines: string[] = [];
     let heard = false;
     for (const ref of refs) {
-      if (!wsExists(resolve(h.songPath, "clips", `${ref}.yaml`))) {
-        lines.push(`${ref}: no clips/${ref}.yaml — skipped`);
+      if (!wsExists(resolve(h.songPath, "clips", `${ref}.k7x`))) {
+        lines.push(`${ref}: no clips/${ref}.k7x — skipped`);
         continue;
       }
       const done = await soundClip(ref, clips[ref], h, engineBin);

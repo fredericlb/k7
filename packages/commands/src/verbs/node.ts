@@ -178,7 +178,7 @@ export const NODE_VERBS: Record<string, SidHandler> = {
       h.refuse([`could not save the take: ${(e as Error).message}`]);
     }
   },
-  // `node bypass` writes into graph.yaml's `bypassed` list, not the module file — docs/verbs.md.
+  // `node bypass` writes into graph.k7x's `bypassed` list, not the module file — docs/verbs.md.
   "node.bypass": async (a, h) => {
     const m = /^(\S+)(?:\s+(on|off|true|false))?$/.exec(a.trim());
     if (!m) {
@@ -186,7 +186,7 @@ export const NODE_VERBS: Record<string, SidHandler> = {
       return;
     }
     const [, module, state] = m;
-    // graph.yaml alone, not loadGraph — one file instead of 220 ms of compile; docs/verbs.md.
+    // graph.k7x alone, not loadGraph — one file instead of 220 ms of compile; docs/verbs.md.
     const allChains = parseChains(
       loadChains(h.songPath, loadProjectRoot(h.songPath, true), true),
     );

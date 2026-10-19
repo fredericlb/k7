@@ -1,17 +1,11 @@
-// previewGutter.ts — the ▶ audition gutter: one marker per line naming something playable
-// (see previewTriggers.ts, which reads the syntax tree). The first trigger on a line wins;
-// onPreview(req) auditions it, wired to the file service's /preview in the app shell.
+// previewGutter.ts (k7x) — the ▶ audition gutter: one marker per line naming something playable (previewTriggers.ts).
+// The first trigger on a line wins; onPreview(req) auditions it, wired to the file service's /preview in the app shell.
 
 import { type Extension, RangeSetBuilder } from "@codemirror/state";
 import { EditorView, GutterMarker, gutter } from "@codemirror/view";
 import type { PreviewReq } from "@studio/web-protocol";
 import { previewTriggers } from "./previewTriggers";
-
-// A trigger from the scan: the offset it sits at (resolved to a line later) and the request firing it sends.
-export interface PreviewTrigger {
-  pos: number;
-  req: PreviewReq;
-}
+import { k7xTree } from "./tree";
 
 // One struct while scanning. A slice symbol is one that ends up with numeric from+to and no clip.
 class PreviewMarker extends GutterMarker {
@@ -51,8 +45,8 @@ function buildMarkers(
     if (!byLine.has(from)) byLine.set(from, t.req);
   }
   const builder = new RangeSetBuilder<GutterMarker>();
-  for (const from of [...byLine.keys()].sort((a, b) => a - b))
-    builder.add(from, from, new PreviewMarker(byLine.get(from)!, onPreview));
+  for (const [from, req] of [...byLine].sort((a, b) => a[0] - b[0]))
+    builder.add(from, from, new PreviewMarker(req, onPreview));
   return builder.finish();
 }
 
@@ -78,6 +72,7 @@ export function projectPreviewGutter(
 ): Extension {
   // markers() needs the view, so the scan runs there; CodeMirror only calls it on refresh, and these files are small.
   return [
+    k7xTree,
     gutter({
       class: "preview-gutter",
       markers: (view) => buildMarkers(view, onPreview),

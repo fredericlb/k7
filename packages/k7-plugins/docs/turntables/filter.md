@@ -2,7 +2,7 @@
 
 One knob per deck, below the three of the EQ and separated from them by a rule — it is not a fourth
 band, it is another instrument on the same strip. It drives a `sweep` module placed on that deck in
-the graph, and like everything else on the desk the link is **declared** in `views/mix.yaml`.
+the graph, and like everything else on the desk the link is **declared** in `views/mix.k7x`.
 
 ## One parameter, and that constraint is what shapes the module
 

@@ -29,7 +29,7 @@ closed elsewhere.
 
 - **The footer tab appears only while there is one**, with the count. An empty tab would be a button
   that always says "nothing".
-- **The panel shows each side as it is**: the YAML path and both values for a value; for a whole text
+- **The panel shows each side as it is**: the k7x path and both values for a value; for a whole text
   "a whole version of the file", and "a binary version" for a blob ref, since a diff of either is
   not something to decide on in a side column. Who set it aside (the replica) and when.
 - **"Use this one" and "Keep current" are the file service's `POST /sync/conflicts/:id`.** Both are

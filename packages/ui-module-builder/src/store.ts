@@ -21,7 +21,7 @@ export interface ModuleStore {
   /** One file's text, or NULL when there is none: absence is a state, not an error. */
   read(path: string): Promise<string | null>;
 
-  /** The `ui.yaml` beside a module file, or the path it WOULD take plus a blank grid. */
+  /** The `ui.k7x` beside a module file, or the path it WOULD take plus a blank grid. */
   moduleUi(path: string): Promise<ModuleUiFile>;
 
   /** The DSP source, `file` being its NAME so the host writes the right stub — see docs/store.md. */

@@ -2,18 +2,18 @@
 // each file renders through, where the render lands, and the clip files pointed at it.
 // A bounce in place: the placements stay, the clips they name play the render. See docs/processChain.md.
 
+import { existsSync } from "node:fs";
 import { join, parse as parsePath, relative, resolve } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { clipDoc, emptyDoc, trackDoc } from "@studio/engine-protocol/build";
 import type { ProjectDoc } from "@studio/song/project";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
-import { wsExists, wsRead } from "@studio/song/yaml/workspaceFile";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import {
   retimeWarpMarkers,
   type WarpMarker,
 } from "@studio/song-schema/warpPoints";
-import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { fileStamp } from "@studio/take-render/recordTake";
 import {
   localRenderer,
@@ -21,7 +21,6 @@ import {
   renderToWav,
 } from "@studio/take-render/renderer";
 import { wavSeconds } from "@studio/take-render/wavLength";
-import { parse as parseYaml } from "yaml";
 import { type RunColdStep, runColdPasses } from "./coldPass";
 import { measureFilePeakDb, needsPeak, withMeasuredPeak } from "./peakPass";
 import { BOUNCE_CHAIN, type ResolvedChain, resolveChain } from "./resolveChain";
@@ -74,9 +73,7 @@ export function resolveTargets(
     (e) => e.id === rel,
   );
   if (clip) {
-    const raw = (parseYaml(wsRead(clip.file.path), YAML_READ) ?? {}) as {
-      source?: unknown;
-    };
+    const raw = wsData(clip.file.path) as { source?: unknown };
     if (!raw.source)
       throw new Error(`clip '${rel}' names no source (${clip.file.rel})`);
     return {
@@ -154,7 +151,7 @@ export function repointClips(
     if (only && !only.includes(e.id)) continue;
     let raw: { source?: unknown; warp?: { markers?: unknown } };
     try {
-      raw = (parseYaml(wsRead(e.file.path), YAML_READ) ?? {}) as {
+      raw = wsData(e.file.path) as {
         source?: unknown;
         warp?: { markers?: unknown };
       };
@@ -211,7 +208,7 @@ export async function processWithChain(
     return { lines: [`${verb}: ${(e as Error).message}`], changed: false };
   }
 
-  const missing = targets.sources.filter((s) => !wsExists(s));
+  const missing = targets.sources.filter((s) => !existsSync(s));
   if (missing.length)
     return {
       lines: [

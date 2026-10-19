@@ -1,17 +1,12 @@
 // `curve set` — a curve written whole from the editor's fields: created, replaced, and refused when
 // the fields are not a curve, leaving the file as it was.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
 
@@ -19,10 +14,7 @@ let dir: string;
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "curve-set-"));
   mkdirSync(join(dir, "nodes"));
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n",
-  );
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t", tempo: 120 } });
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -31,7 +23,7 @@ const run = async (line: string) => {
   await runCommand(line, h, "cli");
   return h;
 };
-const read = () => parse(readFileSync(join(dir, "curves/wob.yaml"), "utf8"));
+const read = () => wsData(join(dir, "curves/wob.k7x"));
 
 describe("curve set", () => {
   it("creates the curve from its fields, then replaces it whole", async () => {
@@ -39,7 +31,7 @@ describe("curve set", () => {
       'curve set wob {"type":"lfo","shape":"saw","frequency":2,"phase":0.25,"amplitude":0.5}',
     );
     expect(h.lines.refuse).toEqual([]);
-    expect(h.lines.log[0]).toMatch(/created curves\/wob\.yaml/);
+    expect(h.lines.log[0]).toMatch(/created curves\/wob\.k7x/);
     expect(read()).toEqual({
       type: "lfo",
       shape: "saw",

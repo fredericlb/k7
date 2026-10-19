@@ -51,7 +51,7 @@ the layout rather than parsing into a state nothing can draw.
 
 > **The editor is in the fullscreen list whatever the project declares**, so a project with no
 > timeline still has one — which is where you would write the arrangement it has not got. Nothing
-> outside `surfaces/` chooses a layout; a `project.yaml` field saying which one to draw could only
+> outside `surfaces/` chooses a layout; a `project.k7x` field saying which one to draw could only
 > contradict the folder it sits in. See
 > [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 

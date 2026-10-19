@@ -272,7 +272,7 @@ export const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   playlists: "file",
   // A library is a name from the origin's list, not a path.
   libraries: "choice",
-  // A lane IS its file too, the same way — video_tracks/<id>.yaml, and the id is the stem.
+  // A lane IS its file too, the same way — video_tracks/<id>.k7x, and the id is the stem.
   pictureLanes: "file",
   // Not "file": the surface's file does not exist yet — naming its type is what creates it.
   surfaceTypes: "choice",
@@ -293,10 +293,10 @@ export const PROVIDER_HINT: Record<ProviderName, string> = {
     "a clip of this project, or one audio file (e.g. clips/kick.wav)",
   chains:
     "a chain of this project, or one the médiathèque holds (@k7-core/<path>)",
-  curves: "an automation curve of this project (curves/<id>.yaml)",
+  curves: "an automation curve of this project (curves/<id>.k7x)",
   modules: "a module of this project",
   nodes: "a node of this project — one of its uses of a module",
-  assemblies: "a box this project declares (assemblies/<name>.yaml)",
+  assemblies: "a box this project declares (assemblies/<name>.k7x)",
   assemblyTemplates:
     "an assembly template the library holds (@k7-core/<path>) — its nodes and wiring are copied in",
   baseModules:
@@ -306,14 +306,14 @@ export const PROVIDER_HINT: Record<ProviderName, string> = {
   categories:
     "<category>/<name> — the category decides the module's kind and its ports",
   markerNames: "a marker of this project",
-  sequenceFiles: "a sequence of this project (sequences/<name>.yaml)",
+  sequenceFiles: "a sequence of this project (sequences/<name>.k7x)",
   audioFiles: "an audio file of this project (e.g. clips/kick.wav)",
   samples:
     "a sample a library or this project holds under samples/ (@<library>/<path>, @project/<path>)",
-  playlists: "a set list of this repository (_playlists/<name>.yaml)",
+  playlists: "a set list of this repository (_playlists/<name>.k7x)",
   libraries:
     "one of the origin's libraries, as its refs name it (@<library>/…)",
-  pictureLanes: "a picture lane of this song (video_tracks/<id>.yaml)",
+  pictureLanes: "a picture lane of this song (video_tracks/<id>.k7x)",
   surfaceTypes:
     "which view to draw — the arrangement, the frame, or the desk. Its layout follows.",
 };

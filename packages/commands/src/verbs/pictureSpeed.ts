@@ -3,6 +3,7 @@
 // The shot keeps its place and its length on the timeline; what changes is how much source it
 // spends. See packages/song-video/docs/speed.md.
 
+import type { K7Scope } from "@studio/k7x/document";
 import {
   setVideoSpeedAt,
   type VideoPlacement,
@@ -40,8 +41,10 @@ export const PICTURE_SPEED_VERBS: Record<string, SidHandler> = {
       ]);
       return;
     }
-    const next = setVideoSpeedAt(t.text, t.index, speed);
-    if (!put(t.abs, next, h, "speed")) return;
+    const pace = (doc: K7Scope) => {
+      setVideoSpeedAt(doc, t.index, speed);
+    };
+    if (!put(t.abs, pace, h, "speed")) return;
     h.log([
       `${t.rel}: ${shot.ref} at ${t.at}s ${speed === 1 ? "back to its own pace" : speed === 0 ? "frozen on its first frame" : `at ${speed}×`}`,
     ]);

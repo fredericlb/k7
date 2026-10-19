@@ -3,13 +3,7 @@
 // and a refusal must leave every file byte-identical — a partial bulk write would be worse
 // than either doing the work or not.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -17,6 +11,8 @@ import {
   emptyDoc,
   trackDoc as track,
 } from "@studio/engine-protocol/build";
+import { writeLane } from "@studio/song/testSupport";
+import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
@@ -28,21 +24,24 @@ let refused = false;
 /** Two real lanes on disk; the compiled doc below mirrors their starts in beats (4/4). */
 function song(): string {
   const d = mkdtempSync(join(tmpdir(), "td-eventsmove-"));
-  mkdirSync(join(d, "nodes"), { recursive: true });
-  writeFileSync(
-    join(d, "nodes", "drums.yaml"),
-    'extends: "@meta/track"\nevents:\n  - { ref: kick, start: "2:1" }\n  - { ref: snare, start: "4:1" }\n',
-    "utf8",
-  );
-  writeFileSync(
-    join(d, "nodes", "bass.yaml"),
-    'extends: "@meta/track"\nevents:\n  - { ref: b1, start: "1:1" }\n  - { ref: b2, start: "3:1" }\n',
-    "utf8",
-  );
+  writeLane(d, "drums", "track", {
+    events: [
+      { ref: "kick", start: "2:1" },
+      { ref: "snare", start: "4:1" },
+    ],
+  });
+  writeLane(d, "bass", "track", {
+    events: [
+      { ref: "b1", start: "1:1" },
+      { ref: "b2", start: "3:1" },
+    ],
+  });
   return d;
 }
-const read = (name: string) =>
-  readFileSync(join(dir, "nodes", `${name}.yaml`), "utf8");
+const file = (name: string) => join(dir, "nodes", `${name}.k7x`);
+const read = (name: string) => wsText(file(name));
+const starts = (name: string) =>
+  (wsData(file(name)).events as { start: string }[]).map((e) => e.start);
 
 // The generated lane has NO file in nodes/ on purpose: `all` must skip it without looking.
 const proj = () =>
@@ -95,10 +94,8 @@ describe("events move", () => {
   it("moves every event in the range on each named lane, one reload for all of it", async () => {
     // Range 2:1..4:1 == beats [4, 12]: kick and snare on drums, b2 on bass — not b1 at 1:1.
     await runCommand("events move drums,bass 2:1 4:1 +1:0", host(), "cli");
-    expect(read("drums")).toContain('start: "3:1"');
-    expect(read("drums")).toContain('start: "5:1"');
-    expect(read("bass")).toContain('start: "4:1"');
-    expect(read("bass")).toContain('start: "1:1"'); // b1 stayed
+    expect(starts("drums")).toEqual(["3:1", "5:1"]);
+    expect(starts("bass")).toEqual(["1:1", "4:1"]); // b1 stayed
     expect(logs.join(" ")).toContain("moved 3 events on drums, bass by +1:0");
     expect(refused).toBe(false); // a report, not a refusal — the flag separates them
     expect(reloads).toBe(1);

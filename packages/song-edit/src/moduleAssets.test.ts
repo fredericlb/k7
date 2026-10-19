@@ -19,7 +19,7 @@ import {
 } from "@studio/song/loader";
 import { resolveModuleMap } from "@studio/song/moduleResolve";
 import { compileNodeProject } from "@studio/song/nodeProject";
-import { insertChainStepAfter } from "@studio/song/testSupport";
+import { insertChainStepAfter, writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setModuleAsset } from "./projectEdit";
 
@@ -38,20 +38,22 @@ function file(rel: string, body = "x"): string {
   return abs;
 }
 
-/** A module written directly into the workspace's `_modules` — a module lives at `@workspace` now. */
-function module_(rel: string, body: string): string {
-  return file(join("..", "_modules", rel), body);
+/** A module file written directly into the workspace's `_modules` — a module lives at `@workspace` now. */
+function module_(rel: string, value: Record<string, unknown>): string {
+  const abs = join(dir, "..", "_modules", rel);
+  writeDoc(abs, value);
+  return abs;
 }
+
+/** An asset file under the workspace's `_modules`. */
+const asset = (rel: string, body = "x"): string =>
+  file(join("..", "_modules", rel), body);
 
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-assets-"));
   dir = join(ws, "song");
   mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n",
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), { project: { name: "song", tempo: 120 } });
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
@@ -59,32 +61,32 @@ const amp = () => loadModuleRefs(dir)["@workspace/audio/amp"];
 
 describe("a file-valued param", () => {
   it("resolves out of the module's own assets folder", () => {
-    module_(
-      "audio/amp/module.yaml",
-      'plugin: {type: internal}\nparams:\n  model: "jcm800.nam"\n',
-    );
-    const at = module_("audio/amp/assets/jcm800.nam", "x");
+    module_("audio/amp/module.k7x", {
+      plugin: { type: "internal" },
+      params: { model: "jcm800.nam" },
+    });
+    const at = asset("audio/amp/assets/jcm800.nam");
     expect(amp()?.model).toBe(at);
     // The short name survives: it is what the module editor shows as the current choice.
     expect(amp()?.assets).toEqual({ model: "jcm800.nam" });
   });
 
   it("keeps its nesting, since a NAM pack is a folder per amp", () => {
-    module_(
-      "audio/amp/module.yaml",
-      'plugin: {type: internal}\nparams:\n  model: "Two-Rock/Clean.nam"\n',
-    );
-    const at = module_("audio/amp/assets/Two-Rock/Clean.nam", "x");
+    module_("audio/amp/module.k7x", {
+      plugin: { type: "internal" },
+      params: { model: "Two-Rock/Clean.nam" },
+    });
+    const at = asset("audio/amp/assets/Two-Rock/Clean.nam");
     expect(amp()?.model).toBe(at);
   });
 
   it("refuses a ref that climbs out of the assets folder", () => {
     // A reference resolves INSIDE the module or not at all, or it reads any file the service can.
-    module_(
-      "audio/amp/module.yaml",
-      'plugin: {type: internal}\nparams:\n  model: "../../secret.nam"\n',
-    );
-    module_("secret.nam", "x");
+    module_("audio/amp/module.k7x", {
+      plugin: { type: "internal" },
+      params: { model: "../../secret.nam" },
+    });
+    asset("secret.nam");
     expect(amp()?.model).toBeUndefined();
   });
 
@@ -96,12 +98,10 @@ describe("a file-valued param", () => {
     mkdirSync(join(ws, "_modules", "audio", "amp", "assets"), {
       recursive: true,
     });
-    writeFileSync(
-      join(ws, "_modules", "audio", "amp", "module.yaml"),
-      "plugin:\n  type: internal\n  name: Neural Amp Modeler\n" +
-        'params:\n  model: "jcm800.nam"\n  Normalize: 1\n',
-      "utf8",
-    );
+    writeDoc(join(ws, "_modules", "audio", "amp", "module.k7x"), {
+      plugin: { type: "internal", name: "Neural Amp Modeler" },
+      params: { model: "jcm800.nam", Normalize: 1 },
+    });
     writeFileSync(
       join(ws, "_modules", "audio", "amp", "assets", "jcm800.nam"),
       "{}",
@@ -133,12 +133,10 @@ describe("a file-valued param", () => {
     cpSync(SONG, proj, { recursive: true });
     cpSync(DEMO_MODULES, join(ws, "_modules"), { recursive: true });
     mkdirSync(join(ws, "_modules", "audio", "amp"), { recursive: true });
-    writeFileSync(
-      join(ws, "_modules", "audio", "amp", "module.yaml"),
-      "plugin:\n  type: internal\n  name: Neural Amp Modeler\n" +
-        'params:\n  model: "does-not-exist.nam"\n',
-      "utf8",
-    );
+    writeDoc(join(ws, "_modules", "audio", "amp", "module.k7x"), {
+      plugin: { type: "internal", name: "Neural Amp Modeler" },
+      params: { model: "does-not-exist.nam" },
+    });
     insertChainStepAfter(proj, "lead", { module: "@workspace/audio/amp" });
     const w = loadGraph(proj).warnings;
     expect(w.some((m) => m.includes("does-not-exist.nam"))).toBe(true);
@@ -146,15 +144,15 @@ describe("a file-valued param", () => {
 
   it("lets a node carry its own model, out of its OWN assets folder", () => {
     // Two amps sharing one module: the override merges per key, out of the node's own `assets/`.
-    module_(
-      "audio/amp/module.yaml",
-      'plugin: {type: internal}\nparams:\n  model: "jcm800.nam"\n  Input: -5\n',
-    );
-    module_("audio/amp/assets/jcm800.nam", "x");
-    file(
-      "nodes/clean.yaml",
-      'extends: "@workspace/audio/amp"\nparams:\n  model: "twin.nam"\n',
-    );
+    module_("audio/amp/module.k7x", {
+      plugin: { type: "internal" },
+      params: { model: "jcm800.nam", Input: -5 },
+    });
+    asset("audio/amp/assets/jcm800.nam");
+    writeDoc(join(dir, "nodes", "clean.k7x"), {
+      extends: "@workspace/audio/amp",
+      params: { model: "twin.nam" },
+    });
     file("nodes/assets/twin.nam");
     const mods = loadModules(dir);
     const refs = loadModuleRefs(dir, {});
@@ -166,10 +164,10 @@ describe("a file-valued param", () => {
   });
 
   it("writes a pick into the module's own file, and clears it again", () => {
-    module_("audio/amp/module.yaml", "plugin: {type: internal}\n");
-    module_("audio/amp/assets/jcm800.nam", "x");
-    module_("audio/amp/assets/twin.nam", "x");
-    const path = join(ws, "_modules", "audio", "amp", "module.yaml");
+    module_("audio/amp/module.k7x", { plugin: { type: "internal" } });
+    asset("audio/amp/assets/jcm800.nam");
+    asset("audio/amp/assets/twin.nam");
+    const path = join(ws, "_modules", "audio", "amp", "module.k7x");
 
     setModuleAsset(dir, "@workspace/audio/amp", "model", "jcm800.nam");
     expect(readFileSync(path, "utf8")).toContain("jcm800.nam");
@@ -192,10 +190,10 @@ describe("a file-valued param", () => {
 describe("what the dropdown offers", () => {
   it("lists the module's own assets, and only the files a param can load", () => {
     // A .wav is not a model; offering it would just be a way to pick something that can't load.
-    module_("audio/amp/module.yaml", "plugin: {type: internal}\n");
-    module_("audio/amp/assets/jcm800.nam", "x");
-    module_("audio/amp/assets/Two-Rock/Clean.nam", "x");
-    module_("audio/amp/assets/notes.wav", "x");
+    module_("audio/amp/module.k7x", { plugin: { type: "internal" } });
+    asset("audio/amp/assets/jcm800.nam");
+    asset("audio/amp/assets/Two-Rock/Clean.nam");
+    asset("audio/amp/assets/notes.wav");
     expect(listModuleAssets(join(ws, "_modules", "audio", "amp"))).toEqual([
       "Two-Rock/Clean.nam",
       "jcm800.nam",
@@ -203,7 +201,7 @@ describe("what the dropdown offers", () => {
   });
 
   it("is empty for a module that carries nothing", () => {
-    module_("audio/amp/module.yaml", "plugin: {type: internal}\n");
+    module_("audio/amp/module.k7x", { plugin: { type: "internal" } });
     expect(listModuleAssets(join(ws, "_modules", "audio", "amp"))).toEqual([]);
   });
 });
@@ -211,14 +209,18 @@ describe("what the dropdown offers", () => {
 describe("a rack's samples", () => {
   it("come from assets/ too, without dropping the old layout", () => {
     // `assets/` is where a dropped sample lands, and a shelf laid out the old way must still load.
-    module_(
-      "instruments/kit/module.yaml",
-      "type: rack\nrack:\n  rack_type: samples\n  symbols:\n" +
-        '    bd: { note: 36, clip: "bd.wav" }\n' +
-        '    sd: { note: 38, clip: "sd.wav" }\n',
-    );
-    const inAssets = module_("instruments/kit/assets/bd.wav", "x");
-    const beside = module_("instruments/kit/sd.wav", "x");
+    module_("instruments/kit/module.k7x", {
+      type: "rack",
+      rack: {
+        rack_type: "samples",
+        symbols: {
+          bd: { note: 36, clip: "bd.wav" },
+          sd: { note: 38, clip: "sd.wav" },
+        },
+      },
+    });
+    const inAssets = asset("instruments/kit/assets/bd.wav");
+    const beside = asset("instruments/kit/sd.wav");
     const rack = loadModuleRefs(dir)["@workspace/instruments/kit"]?.rack;
     expect(rack?.symbols?.bd?.clip).toBe(inAssets);
     expect(rack?.symbols?.sd?.clip).toBe(beside);
@@ -239,11 +241,11 @@ describe("a model too big to carry", () => {
   });
 
   const sep = () =>
-    module_(
-      "audio/sep/module.yaml",
-      "cold: true\nplugin: {type: offline, name: Stem Split}\n" +
-        "params: {onnx: htdemucs.onnx}\n",
-    );
+    module_("audio/sep/module.k7x", {
+      cold: true,
+      plugin: { type: "offline", name: "Stem Split" },
+      params: { onnx: "htdemucs.onnx" },
+    });
 
   it("falls back to the machine's cache when the module carries none", () => {
     sep();
@@ -255,7 +257,7 @@ describe("a model too big to carry", () => {
 
   it("prefers the module's own copy when there is one", () => {
     sep();
-    const own = module_("audio/sep/assets/htdemucs.onnx", "x");
+    const own = asset("audio/sep/assets/htdemucs.onnx");
     writeFileSync(join(models, "htdemucs.onnx"), "weights", "utf8");
     expect(loadModuleRefs(dir)["@workspace/audio/sep"]?.onnx).toBe(own);
   });
@@ -270,10 +272,10 @@ describe("a model too big to carry", () => {
 
   it("refuses a ref that climbs out, rather than redirecting it to the cache", () => {
     // The containment check comes FIRST and refuses; it does not fall through to the cache.
-    module_(
-      "audio/sep/module.yaml",
-      "plugin: {type: offline}\nparams: {onnx: ../../../secret.onnx}\n",
-    );
+    module_("audio/sep/module.k7x", {
+      plugin: { type: "offline" },
+      params: { onnx: "../../../secret.onnx" },
+    });
     writeFileSync(join(models, "secret.onnx"), "weights", "utf8");
     expect(loadModuleRefs(dir)["@workspace/audio/sep"]?.onnx).toBeUndefined();
   });

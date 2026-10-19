@@ -1,11 +1,13 @@
-// notes.ts — read/write the inline `notes:` list of a sequence file, the seam both note
-// grids go through so an edit round-trips to the exact text the compiler reads back.
-// Works on a SPAN rather than rewriting the document, which keeps the undo history and
-// the cursor. See docs/noteGrids.md.
+// notes.ts — read and write a sequence file's `notes` list, the seam both note grids go through, so an edit
+// round-trips to the exact k7x the compiler reads back. A write changes only the notes that changed, a pad keeps
+// its effects, and a `notes("c4 d4")` short form stays while it still says the same thing. See docs/noteGrids.md.
 
+import { K7Document } from "@studio/k7x/document";
 import { roundBeat } from "@studio/song-schema/timecode";
-import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
-import { isSeq, parseDocument } from "yaml";
+import {
+  editSequence,
+  sequenceData,
+} from "@studio/song-schema/yaml/sequenceFile";
 
 export interface Note {
   t: number; // onset, beats (fractional = microtiming)
@@ -21,85 +23,79 @@ export interface RackInfo {
   order: { symbol: string; note: number }[]; // ascending by note — a stable palette
 }
 
-export interface NotesSpan {
-  from: number;
-  to: number;
-  /** The indentation the list's items sit at, so a rewrite keeps the file's own shape. */
-  indent: string;
+/** What the grids read off a sequence: its notes, expanded, and the rack it names. */
+export interface SequenceRead {
+  notes: Note[];
+  useRack: string | null;
 }
 
-/** Locate the `notes:` list: the span of its VALUE plus the indentation, or null when the file has none. */
-export function findNotesArray(doc: string): NotesSpan | null {
-  let parsed: ReturnType<typeof parseDocument>;
-  try {
-    parsed = parseDocument(doc, YAML_READ);
-  } catch {
-    return null;
-  }
-  if (parsed.errors.length) return null; // mid-keystroke: don't guess at a span
-  const notes = parsed.get("notes", true);
-  if (!isSeq(notes) || !notes.range) return null;
-  const [from, rangeEnd] = notes.range;
-  // Back off the node's trailing whitespace: replacing it would eat the newline and land the next key mid-list.
-  let to = rangeEnd;
-  while (to > from && /\s/.test(doc[to - 1])) to--;
-  // The indent is whatever precedes the first item, read from the DOC — a hand-written file needn't use two spaces.
-  const lineStart = doc.lastIndexOf("\n", from - 1) + 1;
-  const lead = doc.slice(lineStart, from);
-  return { from, to, indent: /^[ \t]*$/.test(lead) ? lead : "  " };
-}
+type Data = Record<string, unknown>;
 
-/** Parse a notes span's text. Anything that isn't a {t,d,k} mapping is skipped. */
-export function parseNotes(arrayText: string): Note[] {
-  let value: unknown;
-  try {
-    // Re-indented under a key so a bare block sequence parses, whatever indent the span's first line lost.
-    value = (
-      parseDocument(`notes:\n${reindent(arrayText)}`, YAML_READ).toJS() as {
-        notes?: unknown;
-      } | null
-    )?.notes;
-  } catch {
-    return [];
-  }
+const isRecord = (v: unknown): v is Data =>
+  v !== null && typeof v === "object" && !Array.isArray(v);
+
+/** The notes of a list as read: anything that is not a {t,d,k} map is skipped. */
+function notesOf(value: unknown): Note[] {
   if (!Array.isArray(value)) return [];
   const out: Note[] = [];
   for (const raw of value) {
-    if (!raw || typeof raw !== "object") continue;
-    const n = raw as Partial<Note>;
-    if (!Number.isFinite(n.t) || !Number.isFinite(n.d) || !Number.isFinite(n.k))
+    if (!isRecord(raw)) continue;
+    const { t, d, k, v } = raw;
+    if (typeof t !== "number" || typeof d !== "number" || typeof k !== "number")
       continue;
-    const note: Note = { t: n.t as number, d: n.d as number, k: n.k as number };
-    if (Number.isFinite(n.v)) note.v = n.v as number;
+    if (!Number.isFinite(t) || !Number.isFinite(d) || !Number.isFinite(k))
+      continue;
+    const note: Note = { t, d, k };
+    if (typeof v === "number" && Number.isFinite(v)) note.v = v;
     out.push(note);
   }
   return out;
 }
 
-/** Put a span's lines at a known depth, so they parse under a key. */
-function reindent(text: string): string {
-  const [first, ...rest] = text.split("\n");
-  const body = rest.filter((l) => l.trim());
-  const drop = body.length
-    ? Math.min(...body.map((l) => /^[ \t]*/.exec(l)![0].length))
-    : 0;
-  return [
-    `  ${first.trimStart()}`,
-    ...rest.map((l) => (l.trim() ? `  ${l.slice(drop)}` : l)),
-  ].join("\n");
+/** A sequence's notes and rack, or null while the text does not read or has no notes list. */
+export function readSequence(text: string): SequenceRead | null {
+  let data: Data;
+  try {
+    data = sequenceData(new K7Document(text).at([]));
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(data.notes)) return null;
+  const rack = data.use_rack;
+  return {
+    notes: notesOf(data.notes),
+    useRack: typeof rack === "string" && rack.trim() ? rack.trim() : null,
+  };
 }
 
 // Round to 6 decimals: onsets come from drags, and an exact float would churn the file on every no-op write.
-const num = (v: number): string => String(roundBeat(v));
+const noteKey = (k: number, t: number) => `${Math.round(k)}@${roundBeat(t)}`;
 
-/** Serialize notes one per line at `indent`, the FIRST line bare since the text it replaces began after the indentation. */
-export function renderNotes(notes: Note[], indent = "  "): string {
-  if (!notes.length) return "[]";
-  return notes
-    .map((n, i) => {
-      const v = n.v !== undefined ? `, v: ${num(n.v)}` : "";
-      const row = `- { t: ${num(n.t)}, d: ${num(n.d)}, k: ${Math.round(n.k)}${v} }`;
-      return i === 0 ? row : `${indent}${row}`;
-    })
-    .join("\n");
+/** The whole list written back, each note's pad effects carried from the note it was; null when the text does not read. */
+export function writeNotes(
+  text: string,
+  notes: readonly Note[],
+): string | null {
+  try {
+    return editSequence(text, (doc) => {
+      const was = sequenceData(doc).notes;
+      const effects = new Map<string, Data>();
+      for (const n of Array.isArray(was) ? was : [])
+        if (isRecord(n) && (n.repeat !== undefined || n.skip !== undefined))
+          effects.set(noteKey(Number(n.k), Number(n.t)), {
+            ...(n.repeat === undefined ? {} : { repeat: n.repeat }),
+            ...(n.skip === undefined ? {} : { skip: n.skip }),
+          });
+      const next = notes.map((n) => ({
+        t: roundBeat(n.t),
+        d: roundBeat(n.d),
+        k: Math.round(n.k),
+        ...(n.v === undefined ? {} : { v: roundBeat(n.v) }),
+        ...effects.get(noteKey(n.k, n.t)),
+      }));
+      doc.applyIn(["notes"], next);
+    }).text;
+  } catch {
+    return null;
+  }
 }

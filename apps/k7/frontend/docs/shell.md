@@ -319,7 +319,7 @@ when there is one, and otherwise four bars from the playhead — so the one gest
 selected first. The region is the engine's session state, as Shift+L's is.
 
 **The footer's tempo and time signature edit themselves on a click**, through `project tempo` and
-`project meter`, which write `project.yaml` — the two numbers were otherwise reachable only by editing
+`project meter`, which write `project.k7x` — the two numbers were otherwise reachable only by editing
 the file.
 
 **One record, whatever the lane holds.** The circle flips the ENGINE's record state, and play records
@@ -409,12 +409,12 @@ else.
 A pane row is `aria-current`, not `aria-pressed`, exactly like the desktop's header row: picking one
 means "show me that page", and the current row is where you are, not a switch left on.
 
-**There is ONE layout**, and no project chooses a second one. `project.yaml`'s `project_type` is
+**There is ONE layout**, and no project chooses a second one. `project.k7x`'s `project_type` is
 accepted and ignored — the schema keeps it as a plain string so a folder still carrying it loads —
 and nothing here reads it: it could say `live` while the folder declared a timeline, a contradiction
 `surfaces/` cannot have.
 
-**The timeline itself is a SURFACE, and the project has to ask for it.** `surfaces/timeline.yaml`
+**The timeline itself is a SURFACE, and the project has to ask for it.** `surfaces/timeline.k7x`
 (`type: timeline`, `layout: split`) is what puts it in the layout, and it is the **home page** — the
 one a project opens on, `/` and `ui global` lead to, and Escape comes back to. A folder without one
 opens on the first pane it does declare (a set's desk, a rig's graph), keeps its editor, and is warned
@@ -422,19 +422,19 @@ about in its diagnostics. `noArrangement` is what the transport and the minimap 
 that has not declared its arrangement look alike on screen and are not the same fact. See
 [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
-**The VIEWPORT is the second**, `surfaces/viewport.yaml` — and NOT a page: a floating window over
+**The VIEWPORT is the second**, `surfaces/viewport.k7x` — and NOT a page: a floating window over
 whichever page is up, moved and sized by hand, shown and hidden by `ui viewport` or its button beside
 the pages. It owns a WebGL context and one `<video>` per layer, which is the most expensive thing the
 never-unmount rule below protects: hiding the window keeps both. See [picture.md](picture.md).
 
-**The DESK is the third**, `surfaces/turntables.yaml` (usually named `desk.yaml`). A set declares no
+**The DESK is the third**, `surfaces/turntables.k7x` (usually named `desk.k7x`). A set declares no
 timeline, so the desk is its home page. A fader on the desk is a param on a module in the graph, and
 the bottom panel's `graph` is how both are read at once. What it holds is a DOCUMENT — the loaded
 songs, the crossfader, the six EQ knobs — and a set does not stop existing because you went to look
 at the graph. See
 [../../../../packages/k7-plugins/docs/turntables/deckSet.md](../../../../packages/k7-plugins/docs/turntables/deckSet.md).
 
-The editor is never the home page: every song would open on a YAML file you had not asked for, rather
+The editor is never the home page: every song would open on a k7x file you had not asked for, rather
 than on a view that is *about the song*. `ui editor` gives it the screen, and a command that sends it
 to a file opens it as a popin (below). It stays mounted throughout, so summoning it costs nothing.
 
@@ -482,7 +482,7 @@ graph doc carries no plugin type), the graph says what each looks like and what 
 plugin type `Mixer` (`trackMixer`, `MIXER_PLUGIN`) last in the lane's run.
 `scripts/migrateTrackMixer.ts` gives one to a lane that has not got one.
 
-A song can still have **none** — one whose lanes all run into buses, or one with no `graph.yaml` at
+A song can still have **none** — one whose lanes all run into buses, or one with no `graph.k7x` at
 all. So the button stays **disabled** at zero and says why in its tooltip, and `ui panel mix` opened
 anyway says so in the panel. Nothing else explains an empty mixer, and a control that answers a click
 with nothing is worse than one visibly unavailable. That is why the mix button sits apart from the
@@ -490,7 +490,7 @@ loop that draws the other panel buttons.
 
 A strip's controls are its module's own panel — the very card the graph draws. A hand-rolled strip per
 track would be a second implementation of a channel strip and would drift from what the module's
-`ui.yaml` declares. Three consequences, all of them the design rather than gaps:
+`ui.k7x` declares. Three consequences, all of them the design rather than gaps:
 
 - **A track with no mixer module has no strip.** It is not "at unity" — it is a track with nowhere
   to put a level. It simply is not in the row.
@@ -799,7 +799,7 @@ rings what it touched on the graph and the timeline — the live ones, as they a
 rather than swapping them for the project as it was. A step carries the files it
 changed, so the marks are read off PATHS (`historyMarks.ts`): a track file is its lane, a sequence
 or clip file every placement of that material, a chain file its chain — or only the node a journal
-step's command line names in it. A file that is the whole song's (`project.yaml`) lights nothing,
+step's command line names in it. A file that is the whole song's (`project.k7x`) lights nothing,
 since lighting everything says nothing. Undone steps stay in the list, dimmed: they are what Ctrl+Y
 brings back, until the next edit drops them.
 
@@ -833,7 +833,7 @@ either.
 
 ## The open file follows the disk (`hooks/useDiskSync.ts`)
 
-Every command in k7 rewrites YAML — `node param`, `track gain`, a clip drag, a bypass click. An editor
+Every command in k7 rewrites k7x — `node param`, `track gain`, a clip drag, a bypass click. An editor
 that read its file once and never again would hold a snapshot of the past the moment you touched
 anything, and the next save would write it back over whatever had happened since. Silently. **That is a
 data-loss bug, not a cosmetic one.**
@@ -883,7 +883,7 @@ plays and a rewind — and dropping is right for a button you can see is disable
 whose whole promise is that it always works.
 
 Nothing is lost by answering them here: they write no file, so there is nothing to journal and nothing
-to reload. `transport metronome` is NOT one of them: it rewrites `settings.yaml`.
+to reload. `transport metronome` is NOT one of them: it rewrites `settings.k7x`.
 
 **Shift+Space** runs `transport replay` — the playhead returns to where playback last started, and rolls
 again. That one IS a local command on the WebSocket path, because the seek half only exists there, and
@@ -927,7 +927,7 @@ does nothing being the one failure this shell says everywhere else it will not h
 
 What it resolves is in `src/openInEditor.ts`, whose third pass is the one worth knowing: **half the
 callers name a PLACEMENT, not a file.** The right-click on an event offers `ui file` with a clip's id —
-`audio_14_0@98.5` (`@studio/song/placementId`) — wanting `clips/audio_14_0.yaml`, and that `@98.5` is a
+`audio_14_0@98.5` (`@studio/song/placementId`) — wanting `clips/audio_14_0.k7x`, and that `@98.5` is a
 subsequence of no path, so the fuzzy pass scores −1 on every file in the project. The material behind
 the id is tried LAST, after the written name has had its say, because `materialRefOf` returns a
 material name unchanged and an entity may legitimately carry an `@`.
@@ -978,7 +978,7 @@ a rack": a module's folder name, a node's stem.
 `module create rack` (web-local — the building is the browser's) opens a 4×4 pad grid over the shell.
 Drop audio files on the pads, name each pad (its TAP) and name the kit, and choose where the samples go:
 this project's `samples/` (the default — `@project/<kit>/…`) or one of the account's libraries'. CREATE
-uploads them there and makes the kit a NODE, `nodes/<kit>.yaml`, of the LIBRARY's
+uploads them there and makes the kit a NODE, `nodes/<kit>.k7x`, of the LIBRARY's
 `instruments/k7-rack`, on its `samples` engine — `@k7-core`'s when it has one, else any library's (`rackModuleRef`) —
 through `node new <ref>`, so the node lands in the graph, journalled and extending the library module
 as it stands, then its taps in one write rather than a reload per pad. The builder writes no sampler
@@ -1006,7 +1006,7 @@ wants more room than a popin has to give.
 All three write to the same buffer, so a note drawn in the roll makes the file dirty exactly as a
 keystroke does and one Save writes it whichever way you made the change.
 
-**A sequence opens on the ROLL**: its notes are what the command was about, and the YAML is one tab away.
+**A sequence opens on the ROLL**: its notes are what the command was about, and the k7x is one tab away.
 The tab is chosen per FILE — keyed on the path — so each newly opened one is answered for what it is
 rather than inheriting the last one's tab. It is a layout effect, so the swap lands before the paint
 instead of flashing the text editor for a frame.
@@ -1122,7 +1122,7 @@ clips stop propagation, so they never reach the lane's handler at all.
 ### Double-clicking a lane's header lays its modules out in a row
 
 The gutter is the row's handle: a click selects it, a double-click focuses it — opening its
-`nodes/<name>.yaml`, framing the chains it feeds, and laying **one lane's whole signal path** out side by
+`nodes/<name>.k7x`, framing the chains it feeds, and laying **one lane's whole signal path** out side by
 side over the graph. `trackModules` walks the same reach the framing uses (`subgraphForTrack`, so a send
 out of the lane's own chain is in it) and adds the ORDER a node set does not carry, then `moduleRow` lays
 it out **as drawn** (`asDrawn`): every card at the size the graph gives it, so the row is a view of the
@@ -1183,7 +1183,7 @@ button opens. A control drawn from the same card definition and wired to nothing
 three possible states: a `<select>` that will not open reads as a broken app, where an absent control
 reads as a view that does not offer it. What this row deliberately does NOT hand them is the
 CANVAS-shaped half — dragging a card (`onMoveNode`, whose coordinates are the row's own and would be
-written into `graph.yaml` as pins), and the cable gestures, which have no bare canvas here to drop a
+written into `graph.k7x` as pins), and the cable gestures, which have no bare canvas here to drop a
 loose end on. Rack pads are lit but not firing: auditioning one needs the host's own laid-out nodes to
 find the sound behind the symbol, which is `ChainsTab`'s `triggerRack` and has not been lifted out.
 
@@ -1299,20 +1299,20 @@ because what they encode is a claim about the SERVICE that is not visible from h
   sequence or a curve. Those three are gathered by NAME (`projectHints` keys them off their filenames), so
   a note drawn, a stretch point placed or a curve point moved changes nothing the completion source
   carries. Anchored at the project root on purpose — a module may be called `clips`, and
-  `modules/audio/clips/module.yaml` must not read as one.
+  `modules/audio/clips/module.k7x` must not read as one.
 - **`movedTheChains`** — could the WIRING differ? No when only `tracks/`, `clips/`, `sequences/` or
   `curves/` were written. Only the MIDI-in lanes key on it (`chainsKey`): `/graph` itself is not
   arrangement-free, since a track's card lists its clips' extents and an automation label draws its
   curve, so every view of the graph keeps the raw key.
 - **`movedTheSurfaces`** — only a file under `surfaces/` is read for `/surfaces`.
 - **`movedTheAudio`** — could there be a new waveform to prewarm? A placement, a clip, or any file that is
-  not YAML — an upload, a take, a render. A knob, a cable or a mute decodes nothing.
+  not k7x — an upload, a take, a render. A knob, a cable or a mute decodes nothing.
 
 Each consumer takes a counter of its own, `useScopedKey(reload, predicate)`, which moves only when its
 predicate says so — an effect's dependency rather than a test inside it, so a skipped reload costs no render.
 
 A mute or solo goes through the quiet path and then reloads with the files it wrote, not with `null`: it
-rewrites `graph.yaml` and nothing the surfaces or the prewarm read.
+rewrites `graph.k7x` and nothing the surfaces or the prewarm read.
 
 **A graph a command hands back is tagged with the reload key it answers.** The chains pane takes it only
 at that key, and a new one is a trigger of its own, since a bypass returns one with no reload behind it.
@@ -1664,7 +1664,7 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 | the clip panel's *stop*, while a take rolls | `transport stop` | the engine |
 | the sequencer's and the roll's *×2* | `sequence double <séquence>` | `@studio/commands`, over `doubleSequence` — see [clipEditors.md](clipEditors.md) |
 | a `.dawproject` / `.als` clicked in the tree | `project import <path>` | `useProjectImport` |
-| a file dropped on a timeline lane | `event add`, `picture add` — the PLACING half; the upload and the `clips/<id>.yaml` go through routes | `hooks/useTimelineDrop.ts`, see [timeline.md](timeline.md) |
+| a file dropped on a timeline lane | `event add`, `picture add` — the PLACING half; the upload and the `clips/<id>.k7x` go through routes | `hooks/useTimelineDrop.ts`, see [timeline.md](timeline.md) |
 | the master meter's *fix* | `project master fix` | `fixClipping` in `App`, over `MasterMeterHandle` |
 | the channel strip's mono/stereo pairing | `system channel type <ch> <mono\|stereo>` | `@studio/commands` — the rig's file AND the engine |
 | the Playlists panel's *＋* | `playlist new <name>` | `@studio/commands`, in `_playlists/` |

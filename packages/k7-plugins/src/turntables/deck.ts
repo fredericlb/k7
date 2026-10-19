@@ -94,7 +94,7 @@ const pluginId = (track: string, module: string): string =>
  *
  * WHICH of the two it is depends on the record, not on the project — a set declares all five, and
  * `load.stems` says which are playing. That is why this is derived here and not bound in
- * `surfaces/desk.yaml`: it is true of what is on the deck right now (docs/platter-node-plan.md). */
+ * `surfaces/desk.k7x`: it is true of what is on the deck right now (docs/platter-node-plan.md). */
 export function plattersOf(deck: DeckId, load?: DeckLoad | null): string[] {
   if (!load) return [];
   return load.stems

@@ -5,6 +5,7 @@ import { createServer, type Server } from "node:http";
 import { type AddressInfo, connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { SYNC_PROTO } from "@studio/live-sync/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
 import { ENTRIES } from "./historyLog.ts";
@@ -62,9 +63,10 @@ describe("the relay, against a hostile replica", () => {
   it("answers malformed frames with an error and stays up", async () => {
     const port = await relay(mkdtempSync(join(tmpdir(), "relay-frames-")));
     const { ws, ask } = await replica(port);
-    expect((await ask({ t: "hello", workspace: "w", since: 0 }))?.t).toBe(
-      "welcome",
-    );
+    expect(
+      (await ask({ t: "hello", workspace: "w", since: 0, proto: SYNC_PROTO }))
+        ?.t,
+    ).toBe("welcome");
     for (const ops of [[null], [1], [{ kind: "text", text: "x" }]])
       expect(
         await ask({ t: "batch", workspace: "w", batch: batch(ops) }),
@@ -83,10 +85,12 @@ describe("the relay, against a hostile replica", () => {
     const port = await relay(dataRoot);
     const { ws, ask } = await replica(port);
     for (const workspace of ["..", ".", "a/b", "@lib/k7-core"])
-      expect(await ask({ t: "hello", workspace, since: 0 })).toMatchObject({
+      expect(
+        await ask({ t: "hello", workspace, since: 0, proto: SYNC_PROTO }),
+      ).toMatchObject({
         t: "error",
       });
-    await ask({ t: "hello", workspace: "w", since: 0 });
+    await ask({ t: "hello", workspace: "w", since: 0, proto: SYNC_PROTO });
     const climb = batch([{ kind: "text", file: "../../x", text: "x" }]);
     expect(
       await ask({ t: "batch", workspace: "w", batch: climb }),
@@ -111,9 +115,10 @@ describe("the relay, against a hostile replica", () => {
     });
     expect(reply).toBe("closed");
     const { ws, ask } = await replica(port);
-    expect((await ask({ t: "hello", workspace: "w", since: 0 }))?.t).toBe(
-      "welcome",
-    );
+    expect(
+      (await ask({ t: "hello", workspace: "w", since: 0, proto: SYNC_PROTO }))
+        ?.t,
+    ).toBe("welcome");
     ws.close();
   });
 });

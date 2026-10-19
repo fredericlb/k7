@@ -230,6 +230,11 @@ catalogue from the plugin scan the same way any other writer would. It is enforc
 than in the UI because the routes are reachable without one. `guardMutable` adds the root, the
 recycle bin and the active project's own folder; anything INSIDE that folder is fair game.
 
+A save (`write`, behind `PUT /file`) of a `.yaml` or `.yml` path is refused. Every workspace
+document is `.k7x` and nothing reads a YAML one, so a client still holding YAML text under a YAML
+name would otherwise leave a file beside the real one that no read ever sees. The refusal is a 400
+saying so. A `.k7x` save is written as given: a half-typed file is the editor's to report.
+
 A deletion is a move into a recycle bin, never an erase. A workspace's bin is `_recycle_bin/` at
 its root; a LIBRARY's is `_recycle_bin/` at the library's own root, since a library may sit on
 another disk than the workspace and a move cannot cross disks. `skip` hides both.
@@ -311,7 +316,7 @@ own answer: none of them can be read out of that tree.
   are synthesised too — a ref is flat (`@engine/nam`), and two hundred and fifty plugins in one list
   is a level nobody can find anything in — so the folder rows carry a made-up path and the LEAVES
   carry the real ref. Each leaf is deliberately a leaf: `foldModules` turns a folder holding
-  `module.yaml` into an openable row, and this has no such file, so what draws is a name that opens
+  `module.k7x` into an openable row, and this has no such file, so what draws is a name that opens
   nothing, which is the truth about a scanned plugin. Null when the machine has never scanned — an
   empty `@engine` says nothing true.
 - **`libraryChains()`** — every library's chains, walked by `@studio/song`'s `libraryChainDirs`,
@@ -392,7 +397,7 @@ A library write is refused unless this account is an admin's (`assertLibraryWrit
 that folder, from any project, and the write is the publication. A deletion inside a library moves
 into that library's own `_recycle_bin/`, since a library may sit on another disk than the workspace. `_modules` is untouched by all of that and still forks: it is the WORKSPACE's own library,
 one copy backing every project beside it, and nothing has given it a way back. The one exception
-either way is a module's `ui.yaml` — a panel is drawn for the plugin, not for the song, so it is
+either way is a module's `ui.k7x` — a panel is drawn for the plugin, not for the song, so it is
 written where the module is, and forking a whole module to move a knob is precisely the copy nobody
 wanted.
 

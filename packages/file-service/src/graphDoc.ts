@@ -72,7 +72,7 @@ export function clipExtentsOf(doc: {
 export type TrackMixers = Record<string, string>;
 
 /**
- * The `Mixer` at the end of each track's chain, from the COMPILED project: `graph.yaml` alone says
+ * The `Mixer` at the end of each track's chain, from the COMPILED project: `graph.k7x` alone says
  * what a module is wired to, not what plugin it turns out to be, and the strip is defined by its type.
  */
 export function trackMixersOf(doc: {
@@ -109,7 +109,7 @@ export function buildGraphDoc(
   /** The compiled colours, for a lane whose file states none — `trackColorsOf`. */
   colors?: Record<string, string>,
 ): WebGraph {
-  // loadGraph reads graph.yaml exactly as the compile does.
+  // loadGraph reads graph.k7x exactly as the compile does.
   const g = loadGraph(dir);
   // Curve shapes for automation node labels, narrowed below to the curves a module actually binds.
   const allCurves = (() => {
@@ -268,7 +268,7 @@ export function buildGraphDoc(
           // A RACK's loaded sounds, the EFFECTIVE rack, so its node can draw a pad per sound — or an SFZ kit's pads.
           rack: rackSounds(module) ?? kitSounds(module),
           ...(!module?.rack && module?.kit ? { rackKit: true } : {}),
-          // Which CC plays which param, from `controller.yaml`, keyed like `ui` — docs/graphFlags.md.
+          // Which CC plays which param, from `controller.k7x`, keyed like `ui` — docs/graphFlags.md.
           cc: module?.cc,
           // The other attribute sets this module could be switched to — packages/song/docs/alternatives.md.
           alternatives: module?.alternatives,

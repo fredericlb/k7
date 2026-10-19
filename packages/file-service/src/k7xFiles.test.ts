@@ -1,4 +1,4 @@
-// k7xFiles.test.ts — the /file route over a project written in .k7x: the file as written, or read and written by its YAML name.
+// k7xFiles.test.ts — the /file route over a project: its .k7x file served and written as is, and a YAML name refused.
 
 import {
   existsSync,
@@ -11,7 +11,6 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse as parseYaml } from "yaml";
 import { Workspace } from "./workspace.ts";
 
 const PROJECT = `// the song
@@ -37,19 +36,16 @@ describe("a project written in .k7x", () => {
     expect(ws.read("song.k7/project.k7x").content).toBe(PROJECT);
   });
 
-  it("serves it as YAML by its YAML name", () => {
-    expect(parseYaml(ws.read("song.k7/project.yaml").content)).toEqual({
-      project: { name: "demo", tempo: 120, timeSignature: "4/4" },
-    });
+  it("has no YAML name to be read by", () => {
+    expect(() => ws.read("song.k7/project.yaml")).toThrow();
   });
 
-  it("takes a YAML write by that name as an edit of the .k7x file", () => {
-    ws.write(
-      "song.k7/project.yaml",
-      'project:\n  name: demo\n  tempo: 96\n  timeSignature: "4/4"\n',
-    );
+  it("refuses a write to a YAML name, and leaves the .k7x file alone", () => {
+    expect(() =>
+      ws.write("song.k7/project.yaml", "project:\n  tempo: 96\n"),
+    ).toThrow(/\.k7x, not YAML/);
     expect(readFileSync(join(root, "song.k7", "project.k7x"), "utf8")).toBe(
-      PROJECT.replace("120", "96"),
+      PROJECT,
     );
     expect(existsSync(join(root, "song.k7", "project.yaml"))).toBe(false);
   });

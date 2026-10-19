@@ -143,7 +143,7 @@ mediaRouter.get(
       16,
       Math.min(4000, Number(req.query.buckets) || 1000),
     );
-    // `whole=1` asks for the source's full duration rather than the placement's span — what a clips/*.yaml shows.
+    // `whole=1` asks for the source's full duration rather than the placement's span — what a clips/*.k7x shows.
     const whole = req.query.whole === "1" || req.query.whole === "true";
     // `sensitivity` re-detects the transients at that threshold and REMEMBERS it — see docs/fileRoutes.md.
     const raw = Number(req.query.sensitivity);

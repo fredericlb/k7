@@ -9,8 +9,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parse } from "@studio/k7x/document";
+import { writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse as parseYaml } from "yaml";
 import {
   consolidateSequenceMaterial,
   splitAudioPlacement,
@@ -20,6 +21,8 @@ import {
 const NUM = 4;
 const DEN = 4;
 
+type Note = { t: number; d: number; k: number; v?: number };
+
 let dir: string;
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-matcut-"));
@@ -28,45 +31,38 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-/** A sequence file, from a compact note list. */
-const seq = (name: string, notes: string, head = "") =>
-  writeFileSync(
-    join(dir, "sequences", `${name}.yaml`),
-    `${head}notes:\n${notes}`,
-    "utf8",
-  );
+/** A sequence file, from its notes and the edges it states. */
+const seq = (name: string, notes: Note[], head: Record<string, unknown> = {}) =>
+  writeDoc(join(dir, "sequences", `${name}.k7x`), { ...head, notes });
 
 /** The lane, carrying `events`. */
-const lane = (events: string) =>
-  writeFileSync(
-    join(dir, "nodes", "drums.yaml"),
-    `extends: "@meta/track"\nevents:\n${events}`,
-    "utf8",
-  );
+const lane = (events: Record<string, unknown>[]) =>
+  writeDoc(join(dir, "nodes", "drums.k7x"), {
+    extends: "@meta/track",
+    events,
+  });
 
 const read = (rel: string) =>
-  parseYaml(readFileSync(join(dir, rel), "utf8")) as {
-    notes?: { t: number; d: number; k: number }[];
+  parse(readFileSync(join(dir, rel), "utf8")) as {
+    notes?: Note[];
     from?: string;
     to?: string;
   };
 
 const placements = () =>
-  (
-    parseYaml(readFileSync(join(dir, "nodes", "drums.yaml"), "utf8")) as {
-      events?: Record<string, unknown>[];
-    }
-  ).events ?? [];
+  (read("nodes/drums.k7x") as { events?: Record<string, unknown>[] }).events ??
+  [];
 
 describe("event split, on a sequence", () => {
   beforeEach(() => {
     // Four beats, one note per beat.
-    seq(
-      "kick",
-      "  - { t: 0, d: 1, k: 36 }\n  - { t: 1, d: 1, k: 38 }\n" +
-        "  - { t: 2, d: 1, k: 36 }\n  - { t: 3, d: 1, k: 38 }\n",
-    );
-    lane('  - { ref: kick, start: "1:1:1" }\n');
+    seq("kick", [
+      { t: 0, d: 1, k: 36 },
+      { t: 1, d: 1, k: 38 },
+      { t: 2, d: 1, k: 36 },
+      { t: 3, d: 1, k: 38 },
+    ]);
+    lane([{ ref: "kick", start: "1:1:1" }]);
   });
 
   it("writes two new sequences and plays one after the other", () => {
@@ -84,16 +80,30 @@ describe("event split, on a sequence", () => {
     expect(ev[1].start).toBe("1:3"); // beat 2 == bar 1, beat 3
   });
 
+  it("writes each half headed by the verb that made it", () => {
+    const out = splitSequenceMaterial(dir, "drums", 0, 2, NUM, DEN);
+    const text = readFileSync(join(dir, out?.head.file ?? ""), "utf8");
+    expect(text.startsWith("// Written by `event split`.\n")).toBe(true);
+  });
+
+  it("cuts a sequence written in the short form by the notes it expands to", () => {
+    // Read raw, `notes("c2 d2 c2 d2")` is one string and no notes at all.
+    writeFileSync(join(dir, "sequences", "kick.k7x"), 'notes("c2 d2 c2 d2")\n');
+    const out = splitSequenceMaterial(dir, "drums", 0, 2, NUM, DEN);
+    expect(read(out?.head.file ?? "").notes?.map((n) => n.t)).toEqual([0, 1]);
+    expect(read(out?.tail.file ?? "").notes?.map((n) => n.t)).toEqual([0, 1]);
+  });
+
   it("leaves the material it cut exactly where it was", () => {
     // Another lane may still be playing it, and this verb cannot know.
     splitSequenceMaterial(dir, "drums", 0, 2, NUM, DEN);
-    expect(read("sequences/kick.yaml").notes).toHaveLength(4);
+    expect(read("sequences/kick.k7x").notes).toHaveLength(4);
   });
 
   it("truncates a note that STRADDLES the cut rather than dropping it", () => {
     // What was sounding at the cut goes on sounding up to it — docs/materialCut.md.
-    seq("hold", "  - { t: 0, d: 4, k: 36 }\n");
-    lane('  - { ref: hold, start: "1:1:1" }\n');
+    seq("hold", [{ t: 0, d: 4, k: 36 }]);
+    lane([{ ref: "hold", start: "1:1:1" }]);
     const { head, tail } = splitSequenceMaterial(dir, "drums", 0, 1, NUM, DEN)!;
     expect(read(head.file).notes).toEqual([{ t: 0, d: 1, k: 36 }]);
     expect(read(tail.file).notes).toEqual([{ t: 0, d: 3, k: 36 }]);
@@ -107,7 +117,7 @@ describe("event split, on a sequence", () => {
 
   it("clears the placement's window — the halves are whole materials now", () => {
     // A `from`/`to` left behind would window the NEW file with the OLD file's numbers.
-    lane('  - { ref: kick, start: "1:1:1", from: "1:2:1" }\n');
+    lane([{ ref: "kick", start: "1:1:1", from: "1:2:1" }]);
     splitSequenceMaterial(dir, "drums", 0, 2, NUM, DEN);
     for (const p of placements()) {
       expect(p.from).toBeUndefined();
@@ -117,7 +127,7 @@ describe("event split, on a sequence", () => {
 
   it("cuts inside the placement's WINDOW, not inside the file", () => {
     // The event plays from beat 1 of the material, so a cut one beat in is the material's beat 2.
-    lane('  - { ref: kick, start: "1:1:1", from: "1:2:1" }\n');
+    lane([{ ref: "kick", start: "1:1:1", from: "1:2:1" }]);
     const { head, tail } = splitSequenceMaterial(dir, "drums", 0, 1, NUM, DEN)!;
     expect(read(head.file).notes?.map((n) => n.k)).toEqual([38]); // the material's beat 1
     expect(read(tail.file).notes?.map((n) => n.k)).toEqual([36, 38]); // beats 2 and 3
@@ -130,7 +140,7 @@ describe("event split, on a sequence", () => {
   });
 
   it("refuses a looped event — the cut has one position per pass", () => {
-    lane('  - { ref: kick, start: "1:1:1", to: "1:3:1", loop: 3 }\n');
+    lane([{ ref: "kick", start: "1:1:1", to: "1:3:1", loop: 3 }]);
     expect(() => splitSequenceMaterial(dir, "drums", 0, 1, NUM, DEN)).toThrow(
       /repeats 3 times/,
     );
@@ -142,8 +152,8 @@ describe("event split, on a sequence", () => {
 
   it("says so when the material is audio, which needs a render", () => {
     mkdirSync(join(dir, "clips"), { recursive: true });
-    writeFileSync(join(dir, "clips", "riff.yaml"), "source: clips/riff.wav\n");
-    lane('  - { ref: riff, start: "1:1:1" }\n');
+    writeDoc(join(dir, "clips", "riff.k7x"), { source: "clips/riff.wav" });
+    lane([{ ref: "riff", start: "1:1:1" }]);
     expect(() => splitSequenceMaterial(dir, "drums", 0, 1, NUM, DEN)).toThrow(
       /not a sequence/,
     );
@@ -152,9 +162,12 @@ describe("event split, on a sequence", () => {
 
 describe("selection consolidate, on sequences", () => {
   it("writes ONE sequence holding what the rectangle plays", () => {
-    seq("a", "  - { t: 0, d: 1, k: 36 }\n");
-    seq("b", "  - { t: 0, d: 1, k: 38 }\n");
-    lane('  - { ref: a, start: "1:1:1" }\n  - { ref: b, start: "1:2:1" }\n');
+    seq("a", [{ t: 0, d: 1, k: 36 }]);
+    seq("b", [{ t: 0, d: 1, k: 38 }]);
+    lane([
+      { ref: "a", start: "1:1:1" },
+      { ref: "b", start: "1:2:1" },
+    ]);
     const out = consolidateSequenceMaterial(dir, "drums", 0, 4, NUM, DEN)!;
     expect(out.replaced).toBe(2);
     expect(out.from).toEqual(["a", "b"]);
@@ -167,8 +180,8 @@ describe("selection consolidate, on sequences", () => {
 
   it("keeps the GAPS — silence where nothing played", () => {
     // Why the extent is the rectangle and not the notes: the beats before an event stay empty.
-    seq("a", "  - { t: 0, d: 1, k: 36 }\n");
-    lane('  - { ref: a, start: "1:4:1" }\n');
+    seq("a", [{ t: 0, d: 1, k: 36 }]);
+    lane([{ ref: "a", start: "1:4:1" }]);
     const out = consolidateSequenceMaterial(dir, "drums", 0, 8, NUM, DEN)!;
     expect(read(out.written.file).notes).toEqual([{ t: 3, d: 1, k: 36 }]);
     // The window is the RECTANGLE, stated in full: eight beats selected, eight beats declared.
@@ -178,12 +191,11 @@ describe("selection consolidate, on sequences", () => {
 
   it("plays a note the rectangle does not reach — no extent may cut it", () => {
     // THE bug this pins: two notes at beat 3.01 sat after a `to` of beat 3 — docs/materialCut.md.
-    seq(
-      "late",
-      "  - { t: 3.013803, d: 0.479722, k: 47, v: 0.3228 }\n" +
-        "  - { t: 3.485962, d: 0.514038, k: 46, v: 0.45 }\n",
-    );
-    lane('  - { ref: late, start: "1:1:1" }\n');
+    seq("late", [
+      { t: 3.013803, d: 0.479722, k: 47, v: 0.3228 },
+      { t: 3.485962, d: 0.514038, k: 46, v: 0.45 },
+    ]);
+    lane([{ ref: "late", start: "1:1:1" }]);
     const out = consolidateSequenceMaterial(dir, "drums", 0, 3, NUM, DEN)!;
     const w = read(out.written.file);
     // The rectangle is three beats and the note ends past four, so the window is WIDENED.
@@ -192,11 +204,12 @@ describe("selection consolidate, on sequences", () => {
   });
 
   it("replaces every placement it consumed with one", () => {
-    seq("a", "  - { t: 0, d: 1, k: 36 }\n");
-    lane(
-      '  - { ref: a, start: "1:1:1" }\n  - { ref: a, start: "1:2:1" }\n' +
-        '  - { ref: a, start: "1:3:1" }\n',
-    );
+    seq("a", [{ t: 0, d: 1, k: 36 }]);
+    lane([
+      { ref: "a", start: "1:1:1" },
+      { ref: "a", start: "1:2:1" },
+      { ref: "a", start: "1:3:1" },
+    ]);
     const out = consolidateSequenceMaterial(dir, "drums", 0, 4, NUM, DEN)!;
     const ev = placements();
     expect(ev).toHaveLength(1);
@@ -205,8 +218,11 @@ describe("selection consolidate, on sequences", () => {
   });
 
   it("leaves a placement OUTSIDE the rectangle alone", () => {
-    seq("a", "  - { t: 0, d: 1, k: 36 }\n");
-    lane('  - { ref: a, start: "1:1:1" }\n  - { ref: a, start: "3:1:1" }\n');
+    seq("a", [{ t: 0, d: 1, k: 36 }]);
+    lane([
+      { ref: "a", start: "1:1:1" },
+      { ref: "a", start: "3:1:1" },
+    ]);
     consolidateSequenceMaterial(dir, "drums", 0, 4, NUM, DEN);
     const ev = placements();
     expect(ev).toHaveLength(2);
@@ -215,15 +231,15 @@ describe("selection consolidate, on sequences", () => {
 
   it("unrolls a repeat rather than refusing it", () => {
     // A loop is N copies of one window laid end to end, which is what the material must contain.
-    seq("a", "  - { t: 0, d: 1, k: 36 }\n", 'to: "1:3:1"\n');
-    lane('  - { ref: a, start: "1:1:1", loop: 3 }\n');
+    seq("a", [{ t: 0, d: 1, k: 36 }], { to: "1:3:1" });
+    lane([{ ref: "a", start: "1:1:1", loop: 3 }]);
     const out = consolidateSequenceMaterial(dir, "drums", 0, 8, NUM, DEN)!;
     expect(read(out.written.file).notes?.map((n) => n.t)).toEqual([0, 2, 4]);
   });
 
   it("answers null for a rectangle holding nothing", () => {
-    seq("a", "  - { t: 0, d: 1, k: 36 }\n");
-    lane('  - { ref: a, start: "1:1:1" }\n');
+    seq("a", [{ t: 0, d: 1, k: 36 }]);
+    lane([{ ref: "a", start: "1:1:1" }]);
     expect(
       consolidateSequenceMaterial(dir, "drums", 40, 48, NUM, DEN),
     ).toBeNull();
@@ -231,8 +247,8 @@ describe("selection consolidate, on sequences", () => {
 
   it("says so when the range holds audio, which needs a render", () => {
     mkdirSync(join(dir, "clips"), { recursive: true });
-    writeFileSync(join(dir, "clips", "riff.yaml"), "source: clips/riff.wav\n");
-    lane('  - { ref: riff, start: "1:1:1" }\n');
+    writeDoc(join(dir, "clips", "riff.k7x"), { source: "clips/riff.wav" });
+    lane([{ ref: "riff", start: "1:1:1" }]);
     expect(() =>
       consolidateSequenceMaterial(dir, "drums", 0, 4, NUM, DEN),
     ).toThrow(/not a sequence/);
@@ -241,9 +257,17 @@ describe("selection consolidate, on sequences", () => {
 
 describe("event split, on audio", () => {
   it("writes two placements of the same file, windowed either side of the cut, and renders nothing", () => {
-    lane(
-      '  - { ref: vox, start: "1:1:1", from: 1, to: 9, fadeIn: "0:0:2", fadeOut: "0:0:2", gain: -3 }\n',
-    );
+    lane([
+      {
+        ref: "vox",
+        start: "1:1:1",
+        from: 1,
+        to: 9,
+        fadeIn: "0:0:2",
+        fadeOut: "0:0:2",
+        gain: -3,
+      },
+    ]);
     // Two beats in at 120 bpm is one second of source past `from`.
     expect(splitAudioPlacement(dir, "drums", 0, 2, NUM, DEN, 2)).toEqual({
       cut: 2,
@@ -260,7 +284,7 @@ describe("event split, on audio", () => {
   });
 
   it("answers null when no placement starts there", () => {
-    lane('  - { ref: vox, start: "1:1:1" }\n');
+    lane([{ ref: "vox", start: "1:1:1" }]);
     expect(splitAudioPlacement(dir, "drums", 1, 2, NUM, DEN, 1)).toBeNull();
   });
 });

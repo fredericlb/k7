@@ -28,7 +28,7 @@ export interface RoomState {
   files: Record<string, string>;
   log: Sequenced[];
   conflicts?: Conflict[];
-  /** Recent versions of each non-YAML text, the bases a late whole text merges against. */
+  /** Recent versions of each text that is not k7x, the bases a late whole text merges against. */
   bases?: Record<string, string[]>;
 }
 

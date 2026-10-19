@@ -2,9 +2,9 @@
 // text a preset is written as. The verbs over them are tested in @studio/commands' nodePreset.test.ts.
 
 import { join, resolve } from "node:path";
+import { parse } from "@studio/k7x/document";
 import { presetFileText, presetModulePath } from "@studio/song-schema/presets";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { presetFile } from "./presets";
 
 describe("presetModulePath", () => {
@@ -38,13 +38,13 @@ describe("presetFile", () => {
         "k7-core",
         "audio",
         "reverb",
-        "big hall.yaml",
+        "big hall.k7x",
       ),
     );
   });
 
   it("refuses a name that is not a plain file name", () => {
-    for (const bad of ["../x", "a/b", "", " lead", "x.yaml"])
+    for (const bad of ["../x", "a/b", "", " lead", "x.k7x"])
       expect(() =>
         presetFile(song, "workspace", "@k7-core/audio/reverb", bad),
       ).toThrow(/invalid preset name/);
@@ -58,24 +58,21 @@ describe("presetFile", () => {
 });
 
 describe("presetFileText", () => {
-  it("writes one param per line and reads back as what it was given", () => {
+  it("reads back as what it was given", () => {
     const preset = {
       engine: "vari-mu",
       params: { "Output Level": 0.8, on: 1, Mix: 0.25 },
     };
     const text = presetFileText("@k7-core/audio/comp", preset);
-    expect(text).toContain("  Output Level: 0.8\n");
-    expect(text).toContain('  "on": 1\n');
     expect(parse(text)).toEqual(preset);
   });
 
-  it("keeps the base the values were taken over, a path in quotes when it holds one", () => {
+  it("keeps the base the values were taken over", () => {
     const preset = {
       base: "Pads/Bell Pad",
       params: { "A Filter 1 Cutoff": 0.3 },
     };
     const text = presetFileText("@k7-core/instruments/synth/surge-xt", preset);
-    expect(text).toContain('base: "Pads/Bell Pad"\n');
     expect(parse(text)).toEqual(preset);
   });
 });

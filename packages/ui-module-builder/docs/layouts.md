@@ -7,18 +7,20 @@ read DOWN, and the global graph lays its cards in ranks left to right, so there 
 | layout | where it is drawn | its limit | its tabs |
 |---|---|---|---|
 | **horizontal** — the panel itself | the per-track view on a desktop | at most **4 rows** | a column at the card's left |
-| **vertical** — `ui.yaml`'s `vertical:` block | the global graph, the per-track view on a phone | at most **4 columns** | a menu across the card's top |
+| **vertical** — `ui.k7x`'s `vertical(…)` statement | the global graph, the per-track view on a phone | at most **4 columns** | a menu across the card's top |
 
-```yaml
-cols: 12          # the HORIZONTAL layout: this grid, at most 4 rows
-rows: 4
-widgets: { … }
-tabs: [ … ]
-vertical:         # the VERTICAL layout: at most 4 columns
-  cols: 4
-  rows: 9
-  widgets: { … }
-  tabs: [ … ]     # the same tabs, by name, in the same order
+```k7x
+cols(12) // the HORIZONTAL layout: this grid, at most 4 rows
+rows(4)
+widgets({ … })
+tabs([ … ])
+// the VERTICAL layout: at most 4 columns
+vertical({
+  cols: 4,
+  rows: 9,
+  widgets: { … },
+  tabs: [ … ], // the same tabs, by name, in the same order
+})
 ```
 
 ## One panel, two shapes

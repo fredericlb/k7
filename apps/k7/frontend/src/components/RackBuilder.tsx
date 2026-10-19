@@ -14,7 +14,7 @@ import { api } from "../api";
 import { m } from "../paraglide/messages.js";
 import { projectDir } from "../projectPaths";
 import {
-  buildKitNodeYaml,
+  buildKitNode,
   cellsInNoteOrder,
   defaultSymbol,
   GRID,
@@ -202,7 +202,7 @@ export function RackBuilder({
         );
         done++;
       }
-      setUp({ done, total: rackPads.length, name: `${kit}.yaml`, frac: 0 });
+      setUp({ done, total: rackPads.length, name: `${kit}.k7x`, frac: 0 });
       // The node, IN the graph and wired to nothing, straight over the library's sampler — the verb that does both, and journals it.
       const made = await api.command(`node new ${rackRef} ${kit}`, {
         want: [],
@@ -228,8 +228,8 @@ export function RackBuilder({
       } else {
         // …else its taps, in one write rather than a reload per pad.
         await api.write(
-          `${prefix}nodes/${kit}.yaml`,
-          buildKitNodeYaml(kit, rackPads, dest, rackRef),
+          `${prefix}nodes/${kit}.k7x`,
+          buildKitNode(kit, rackPads, dest, rackRef),
         );
       }
       onCreated(kit);

@@ -17,8 +17,10 @@ import {
 import { join } from "node:path";
 import { applyFileOp } from "@studio/live-sync/file-op";
 import {
+  type Conflict,
   isKnownOpKind,
   NeedsUpdate,
+  RETIRED_OP_KINDS,
   type Sequenced,
 } from "@studio/live-sync/ops";
 import { LOG_V } from "@studio/live-sync/protocol";
@@ -93,11 +95,56 @@ export function parseEntryLine(line: string): Sequenced | null {
   )
     return null;
   for (const op of batch.ops)
-    if (!isObject(op) || !isKnownOpKind(op.kind))
+    if (!isObject(op))
+      throw new NeedsUpdate(
+        `entry ${entry.seq}: op kind unknown here: update k7`,
+      );
+  batch.ops = withoutRetired(batch.ops as { kind?: unknown }[]);
+  entry.parked = withoutRetiredConflicts(entry.parked as Conflict[]);
+  for (const op of batch.ops as { kind?: unknown }[])
+    if (!isKnownOpKind(op.kind))
       throw new NeedsUpdate(
         `entry ${entry.seq}: op kind unknown here: update k7`,
       );
   return entry as unknown as Sequenced;
+}
+
+/** Persisted ops of a retired kind skipped since this process started (docs/history.md). */
+let retiredSkipped = 0;
+
+/** How many ops of a retired kind the log and saved states held and were skipped: a count, never a throw. */
+export const retiredOpsSkipped = (): number => retiredSkipped;
+
+const isRetired = (kind: unknown): boolean =>
+  typeof kind === "string" && RETIRED_OP_KINDS.includes(kind);
+
+/** `ops` without those of a retired kind, each one counted. */
+function withoutRetired<T extends { kind?: unknown }>(ops: T[]): T[] {
+  const kept = ops.filter((op) => !isRetired(op.kind));
+  retiredSkipped += ops.length - kept.length;
+  return kept;
+}
+
+/** Conflicts without those whose op is of a retired kind, each one counted. */
+function withoutRetiredConflicts(list: Conflict[]): Conflict[] {
+  const kept = list.filter((c) => !isRetired(c?.op?.kind));
+  retiredSkipped += list.length - kept.length;
+  return kept;
+}
+
+/** A saved room state with its retired ops skipped, in the log and among its conflicts; every entry keeps its seq. */
+export function withoutRetiredOps(state: RoomState): RoomState {
+  return {
+    ...state,
+    log: state.log.map((e) => ({
+      ...e,
+      batch: { ...e.batch, ops: withoutRetired(e.batch.ops) },
+      parked: withoutRetiredConflicts(e.parked ?? []),
+    })),
+    ...(state.conflicts
+      ? { conflicts: withoutRetiredConflicts(state.conflicts) }
+      : {}),
+  };
 }
 
 /** A saved room state as written, stamped like the entries. */

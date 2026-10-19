@@ -2,15 +2,11 @@
 // What matters: it CREATES an arrow (no existing one required, unlike `node insert`), it never
 // unwires what the source already feeds, and every refusal leaves the file byte-identical.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc, writeLane, writeNode } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
@@ -30,48 +26,36 @@ const host = () =>
     },
   }) as never;
 
-const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
+const graphFile = () => join(dir, "graph.k7x");
+/** The file's text, for the refusals that must leave it byte-identical. */
+const chains = () => readFileSync(graphFile(), "utf8");
+const graph = () => wsData(graphFile());
+/** What `name` feeds, as the file lists it. */
+const feeds = (name: string) =>
+  (graph().modules as Record<string, string[]>)[name];
+const setGraph = (modules: Record<string, string[]>) =>
+  writeDoc(graphFile(), { modules });
 
 function song(): { root: string; dir: string } {
   const r = mkdtempSync(join(tmpdir(), "td-connect-"));
   const d = join(r, "song.k7");
   mkdirSync(d, { recursive: true });
-  writeFileSync(
-    join(d, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n",
-    "utf8",
-  );
+  writeDoc(join(d, "project.k7x"), { project: { name: "t", tempo: 120 } });
   // `reverb` is placed and unwired — the free jacks the gesture exists for.
-  writeFileSync(
-    join(d, "graph.yaml"),
-    "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n  reverb: []\n",
-    "utf8",
-  );
-  mkdirSync(join(d, "nodes"), { recursive: true });
-  writeFileSync(
-    join(d, "nodes", "gtr.yaml"),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
+  writeDoc(join(d, "graph.k7x"), {
+    modules: { gtr: ["amp"], amp: ["OUT"], reverb: [] },
+  });
+  writeLane(d, "gtr", "track", { events: [] });
   // Each is a workspace module, USED through a node of the same bare name — a module lives at
   // `@workspace` now, and a chain still names the node, not the module, directly.
   for (const m of ["amp", "reverb"]) {
-    const md = join(r, "_modules", "audio", m);
-    mkdirSync(md, { recursive: true });
-    writeFileSync(
-      join(md, "module.yaml"),
-      "plugin:\n  type: internal\n  name: Chorus\n",
-      "utf8",
-    );
-    writeFileSync(
-      join(d, "nodes", `${m}.yaml`),
-      `extends: "@workspace/audio/${m}"\n`,
-      "utf8",
-    );
+    writeDoc(join(r, "_modules", "audio", m, "module.k7x"), {
+      plugin: { type: "internal", name: "Chorus" },
+    });
+    writeNode(d, m, { extends: `@workspace/audio/${m}` });
   }
   // A PICTURE lane, which is a card on the graph and takes a cable from a lens (packages/song/docs/camera.md).
-  mkdirSync(join(d, "video_tracks"), { recursive: true });
-  writeFileSync(join(d, "video_tracks", "main.yaml"), "events: []\n", "utf8");
+  writeDoc(join(d, "video_tracks", "main.k7x"), { events: [] });
   return { root: r, dir: d };
 }
 

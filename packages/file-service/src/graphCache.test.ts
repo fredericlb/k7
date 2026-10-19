@@ -8,7 +8,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeLibrary, writeNode, writeYaml } from "@studio/song/testSupport";
+import { writeDoc, writeLibrary, writeNode } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
@@ -16,23 +16,19 @@ let root: string;
 let proj: string;
 let ws: Workspace;
 
-// gtr -> steps[0] -> … -> OUT, as segments: one node per line, destinations in flow.
+// gtr -> steps[0] -> … -> OUT, as segments: one node per line.
 const chains = (...steps: string[]) =>
-  `modules:\n  gtr: [ ${steps[0] ?? "OUT"} ]\n${steps
-    .map((s, i) => `  ${s}: [ ${steps[i + 1] ?? "OUT"} ]\n`)
-    .join("")}`;
+  `modules({\n  gtr: ["${steps[0] ?? "OUT"}"],\n${steps
+    .map((s, i) => `  ${s}: ["${steps[i + 1] ?? "OUT"}"],\n`)
+    .join("")}})\n`;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-gcache-"));
   proj = join(root, "song.k7");
   mkdirSync(join(proj, "nodes"), { recursive: true });
-  writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
-  writeFileSync(join(proj, "graph.yaml"), chains("amp"), "utf8");
-  writeFileSync(
-    join(proj, "nodes", "gtr.yaml"),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
+  writeDoc(join(proj, "project.k7x"), { project: { name: "song" } });
+  writeFileSync(join(proj, "graph.k7x"), chains("amp"), "utf8");
+  writeNode(proj, "gtr", { extends: "@meta/track", events: [] });
   // The modules live at `@workspace` now; "amp"/"cab" stay the bare NODE names the graph uses.
   writeLibrary(root, {
     "audio/amp": { plugin: { type: "internal", name: "Chorus" } },
@@ -58,7 +54,7 @@ describe("the graph memo", () => {
 
   it("rebuilds after a write through the service", () => {
     expect(steps()).toEqual(["amp"]);
-    ws.write("song.k7/graph.yaml", chains("amp", "cab"));
+    ws.write("song.k7/graph.k7x", chains("amp", "cab"));
     expect(steps()).toEqual(["amp", "cab"]);
   });
 
@@ -66,7 +62,7 @@ describe("the graph memo", () => {
     // The case a mutation counter cannot see; the token notices via the file count and newest mtime.
     expect(steps()).toEqual(["amp"]);
     await new Promise((r) => setTimeout(r, 12)); // mtime resolution — the write must land in a later tick
-    writeFileSync(join(proj, "graph.yaml"), chains("amp", "cab"), "utf8");
+    writeFileSync(join(proj, "graph.k7x"), chains("amp", "cab"), "utf8");
     expect(steps()).toEqual(["amp", "cab"]);
   });
 

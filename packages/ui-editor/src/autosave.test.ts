@@ -9,14 +9,14 @@ import {
 } from "./autosave";
 
 const at = (path: string, text: string) => validateFile(path, text);
-const MODULE = "modules/audio/cab/module.yaml";
+const MODULE = "modules/audio/cab/module.k7x";
 
 describe("decideAutosave", () => {
   it("does nothing when the buffer is what is on disk", () => {
     expect(
       decideAutosave({
         dirty: false,
-        validity: at(MODULE, "extends: amp\n"),
+        validity: at(MODULE, 'extends("amp")\n'),
         baselineOk: true,
       }).act,
     ).toBe("idle");
@@ -26,7 +26,7 @@ describe("decideAutosave", () => {
     expect(
       decideAutosave({
         dirty: true,
-        validity: at(MODULE, "extends: amp\n"),
+        validity: at(MODULE, 'extends("amp")\n'),
         baselineOk: true,
       }),
     ).toEqual({ act: "write", reason: null });
@@ -35,7 +35,7 @@ describe("decideAutosave", () => {
   it("holds a buffer that would not compile, and says why", () => {
     const d = decideAutosave({
       dirty: true,
-      validity: at(MODULE, "extends: amp\nparamz: 1\n"),
+      validity: at(MODULE, 'extends("amp")\nparamz(1)\n'),
       baselineOk: true,
     });
     expect(d.act).toBe("hold");
@@ -43,11 +43,11 @@ describe("decideAutosave", () => {
   });
 
   it("holds text that does not parse even when disk is already refused", () => {
-    // Nothing may write a document YAML itself cannot read: it would not survive a re-read.
+    // Nothing may write a document k7x itself cannot read: it would not survive a re-read.
     expect(
       decideAutosave({
         dirty: true,
-        validity: at(MODULE, "params: {a: 1\n"),
+        validity: at(MODULE, "params({ a: 1\n"),
         baselineOk: false,
       }).act,
     ).toBe("hold");
@@ -57,7 +57,7 @@ describe("decideAutosave", () => {
     // Otherwise the file is uneditable forever, since nothing typed can make it valid — see docs/autosave.md.
     const d = decideAutosave({
       dirty: true,
-      validity: at(MODULE, "paramz: 1\ncontent: hello\n"),
+      validity: at(MODULE, 'paramz(1)\ncontent("hello")\n'),
       baselineOk: false,
     });
     expect(d.act).toBe("write");
@@ -68,7 +68,7 @@ describe("decideAutosave", () => {
     expect(
       decideAutosave({
         dirty: true,
-        validity: at("songs/pearl/song.yaml", "title: Pearl\nanything: yes\n"),
+        validity: at("songs/pearl/notes.txt", "title: Pearl\nanything: yes\n"),
         baselineOk: true,
       }).act,
     ).toBe("write");
@@ -77,10 +77,10 @@ describe("decideAutosave", () => {
 
 describe("the held buffers", () => {
   it("survive the pane that was showing them", () => {
-    keepBuffer("tracks/lead.yaml", "type: singl\n");
-    expect(recallBuffer("tracks/lead.yaml")).toBe("type: singl\n");
-    dropBuffer("tracks/lead.yaml");
-    expect(recallBuffer("tracks/lead.yaml")).toBeNull();
+    keepBuffer("tracks/lead.k7x", 'type("singl")\n');
+    expect(recallBuffer("tracks/lead.k7x")).toBe('type("singl")\n');
+    dropBuffer("tracks/lead.k7x");
+    expect(recallBuffer("tracks/lead.k7x")).toBeNull();
   });
 });
 
@@ -92,8 +92,8 @@ describe("baselineMemo", () => {
       return validateFile(path, text);
     };
     const baseline = baselineMemo();
-    expect(baseline(judge, MODULE, "extends: amp\n")).toBe(true);
-    expect(baseline(judge, MODULE, "extends: amp\n")).toBe(true);
+    expect(baseline(judge, MODULE, 'extends("amp")\n')).toBe(true);
+    expect(baseline(judge, MODULE, 'extends("amp")\n')).toBe(true);
     expect(calls).toBe(1);
   });
 
@@ -104,9 +104,9 @@ describe("baselineMemo", () => {
       return validateFile(path, text);
     };
     const baseline = baselineMemo();
-    baseline(judge, MODULE, "extends: amp\n");
-    expect(baseline(judge, MODULE, "extends: [\n")).toBe(false);
-    baseline(judge, "modules/audio/amp/module.yaml", "extends: [\n");
+    baseline(judge, MODULE, 'extends("amp")\n');
+    expect(baseline(judge, MODULE, "extends([\n")).toBe(false);
+    baseline(judge, "modules/audio/amp/module.k7x", "extends([\n");
     expect(calls).toBe(3);
   });
 });

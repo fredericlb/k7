@@ -8,7 +8,14 @@ describe("templateGraph", () => {
   it("draws the steps as one chain from @in to @out", () => {
     const r = templateGraph(
       "@k7-core/x",
-      'steps:\n  - { id: a, extends: "@k7-core/audio/eq" }\n  - { id: b, extends: "@k7-core/audio/comp", bypass: true }\n  - to: [ { chain: "@out" } ]\n',
+      [
+        "steps([",
+        '  id("a").extends("@k7-core/audio/eq"),',
+        '  id("b").extends("@k7-core/audio/comp").bypass(true),',
+        '  to([chain("@out")]),',
+        "])",
+        "",
+      ].join("\n"),
     );
     if (!("graph" in r)) throw new Error(r.error);
     expect(r.graph.chains["@k7-core/x"]).toEqual({
@@ -22,6 +29,10 @@ describe("templateGraph", () => {
   });
 
   it("answers the reason a text does not read", () => {
-    expect(templateGraph("x", "steps: [ 3 ]\n")).toHaveProperty("error");
+    expect(templateGraph("x", "steps([3])\n")).toHaveProperty("error");
+    // …and a text that does not parse, with the line it stops on.
+    const r = templateGraph("x", "steps([\n  id(\n");
+    expect(r).toHaveProperty("error");
+    expect("error" in r ? r.error : "").toMatch(/^\d+: /);
   });
 });

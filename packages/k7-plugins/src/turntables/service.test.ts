@@ -47,7 +47,7 @@ describe("every call to the machine's file service", () => {
 
   it("carries them on the module read too, which answers TEXT", async () => {
     // A different code path, since the reply is TEXT and not JSON — so the one that drifts.
-    await service.moduleFile(link, "/modules/audio/x/module.yaml");
+    await service.moduleFile(link, "/modules/audio/x/module.k7x");
     for (const h of HEADERS) expect(sent).toHaveProperty(h);
   });
 

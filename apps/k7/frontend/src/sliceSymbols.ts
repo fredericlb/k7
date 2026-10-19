@@ -1,9 +1,7 @@
-// sliceSymbols.ts — a slice-rack file's symbols as the EDITOR knows them: where each one's
-// `from`/`to` numbers sit in the doc (for the dock's drag to rewrite), the colour each slice
-// wears everywhere (the dock's windows, the symbol names in the text), and the CodeMirror
-// extension that paints those names. Nothing here draws a per-symbol waveform: the docked source
-// waveform is THE slicer, one picture instead of one per symbol, and its handles write through the
-// same buffer a keystroke does.
+// sliceSymbols.ts — a slice-rack file's symbols as the EDITOR knows them: where each one's `from`/`to` numbers and
+// name sit in the buffer, the colour each slice wears everywhere (the dock's windows, the names in the text), and
+// the CodeMirror extension that paints those names. The docked source waveform is THE slicer, one picture for every
+// symbol, and its handles write through the same buffer a keystroke does (packages/ui-editor/docs/k7xTree.md).
 
 import {
   type EditorState,
@@ -12,79 +10,76 @@ import {
   StateField,
 } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
+import type { K7MapNode } from "@studio/k7x/ast";
+import { parseTree } from "@studio/k7x/parse";
 import { SERIES_COLORS, seriesColor } from "@studio/song-schema/seriesColors";
-import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
-import { isMap, isScalar, parseDocument } from "yaml";
+import { editK7xText } from "@studio/ui-editor/k7x/bufferEdit";
+import { k7xTree, mapSpan, treeOf } from "@studio/ui-editor/k7x/tree";
 
 export interface SliceSym {
   symbol: string;
   from: number; // seconds
   to: number;
-  fromRange: [number, number]; // doc positions of the `from` NUMBER (for the edit)
+  fromRange: [number, number]; // buffer positions of the `from` NUMBER
   toRange: [number, number];
-  keyRange: [number, number]; // doc positions of the symbol NAME (for the colour)
+  keyRange: [number, number]; // buffer positions of the symbol NAME (for the colour), quotes excluded
 }
 
-/** One colour per slice, by INDEX in the symbols map's own order, so 'the third slice is teal' is true in every view of a rack — the studio's series palette. */
+/** One colour per slice, by INDEX in the symbols map's own order, so 'the third slice is teal' is true in every view of a rack. */
 export const SLICE_COLORS = SERIES_COLORS;
 export const sliceColor = (i: number): string => seriesColor(i);
 
 const round = (v: number) => Math.round(v * 10000) / 10000; // 0.1 ms
-const fmt = (v: number) => String(round(v));
 
-/** Each symbol's from/to and the doc positions of those NUMBERS — the positions are the parser's own node ranges, not re-derived. */
-export function scanSlices(doc: string): SliceSym[] | null {
-  // Every project file's keystroke reaches here through the colouring field; a text naming no `rack_type` cannot be a slice rack.
-  if (!doc.includes("rack_type")) return null;
-  let parsed: ReturnType<typeof parseDocument>;
-  try {
-    parsed = parseDocument(doc, YAML_READ);
-  } catch {
-    return null;
-  }
-  return scanSlicesDoc(parsed);
-}
+const entryOf = (map: K7MapNode | undefined, key: string) =>
+  map?.entries.find((e) => e.key === key);
+const mapOf = (map: K7MapNode | undefined, key: string) => {
+  const v = entryOf(map, key)?.value;
+  return v?.kind === "map" ? v : undefined;
+};
 
-/** `scanSlices` over a document already parsed, so the editor's derived reads share one parse. */
-export function scanSlicesDoc(
-  parsed: ReturnType<typeof parseDocument>,
-): SliceSym[] | null {
-  if (parsed.errors.length) return null; // mid-keystroke; keep the picture we have
-  const rack = parsed.get("rack");
-  if (!isMap(rack)) return null;
-  if (rack.get("rack_type") !== "slice") return null;
-  const symbols = rack.get("symbols");
-  if (!isMap(symbols)) return null;
-
+/** The symbols of a parsed file: each one's window and the spans of its two numbers and its name. */
+export function slicesOf(root: K7MapNode, text: string): SliceSym[] | null {
+  const rack = mapOf(root, "rack");
+  const type = entryOf(rack, "rack_type")?.value;
+  if (type?.kind !== "scalar" || type.value !== "slice") return null;
+  const symbols = mapOf(rack, "symbols");
+  if (!symbols) return null;
   const out: SliceSym[] = [];
-  for (const item of symbols.items) {
-    const key = item.key as {
-      value?: unknown;
-      range?: [number, number, number];
-    };
-    const symbol = key?.value;
-    const body = item.value;
-    if (typeof symbol !== "string" || !isMap(body)) continue;
-    const from = body.get("from", true);
-    const to = body.get("to", true);
-    if (!isScalar(from) || !isScalar(to)) continue;
-    const fromN = Number(from.value);
-    const toN = Number(to.value);
-    if (!Number.isFinite(fromN) || !Number.isFinite(toN)) continue;
-    if (!from.range || !to.range || !key.range) continue;
+  for (const e of symbols.entries) {
+    if (e.value.kind !== "map") continue;
+    const from = entryOf(e.value, "from")?.value;
+    const to = entryOf(e.value, "to")?.value;
+    if (from?.kind !== "scalar" || to?.kind !== "scalar") continue;
+    if (typeof from.value !== "number" || typeof to.value !== "number")
+      continue;
+    const quoted = /^["']/.test(text.slice(e.keyStart, e.keyStart + 1));
     out.push({
-      symbol,
-      from: fromN,
-      to: toN,
-      fromRange: [from.range[0], from.range[1]],
-      toRange: [to.range[0], to.range[1]],
-      keyRange: [key.range[0], key.range[1]],
+      symbol: e.key,
+      from: from.value,
+      to: to.value,
+      fromRange: [from.start, from.end],
+      toRange: [to.start, to.end],
+      keyRange: quoted
+        ? [e.keyStart + 1, e.keyEnd - 1]
+        : [e.keyStart, e.keyEnd],
     });
   }
   return out.length ? out : null;
 }
 
-/** A rack's slice windows as the dock draws them, coloured on the same basis `sliceSymbolColors` indexes on — third window, third name. */
+/** Each symbol's window and where its numbers and name sit; null for a file that is no slice rack or does not parse. */
+export function scanSlices(text: string): SliceSym[] | null {
+  // Every keystroke of a workspace file reaches here; a text naming no `rack_type` cannot be a slice rack.
+  if (!text.includes("rack_type")) return null;
+  try {
+    return slicesOf(parseTree(text), text);
+  } catch {
+    return null;
+  }
+}
+
+/** A rack's slice windows as the dock draws them, coloured on the same basis `sliceSymbolColors` indexes on. */
 export function rackSliceRanges(
   symbols: readonly { symbol: string; from?: number; to?: number }[],
 ): { symbol: string; from: number; to: number; color: string }[] {
@@ -98,48 +93,48 @@ export function rackSliceRanges(
     }));
 }
 
-/** Rewrite one symbol's `from`/`to` NUMBERS in the doc: the edit flows through the buffer like a keystroke, and null means write nowhere. */
+/** Set one symbol's `from`/`to` in the buffer's text, the two numbers and nothing else; null means write nowhere. */
 export function setSliceWindow(
   text: string,
   symbol: string,
   from: number,
   to: number,
 ): string | null {
-  const s = scanSlices(text)?.find((x) => x.symbol === symbol);
-  if (!s) return null;
-  // The LATER range first, so the earlier one's positions stay true while both are replaced.
-  const edits = [
-    { range: s.fromRange, val: fmt(from) },
-    { range: s.toRange, val: fmt(to) },
-  ].sort((a, b) => b.range[0] - a.range[0]);
-  let out = text;
-  for (const e of edits)
-    out = out.slice(0, e.range[0]) + e.val + out.slice(e.range[1]);
-  return out;
+  if (!scanSlices(text)?.some((s) => s.symbol === symbol)) return null;
+  return editK7xText(text, (doc) => {
+    doc.setIn(["rack", "symbols", symbol, "from"], round(from));
+    doc.setIn(["rack", "symbols", symbol, "to"], round(to));
+  });
 }
 
-/** The symbol names painted in their slice's colour — the link between a line of YAML and a window on the waveform, made by hue. */
+/** The symbol names painted in their slice's colour — the link between a line of text and a window on the waveform. */
 export function sliceSymbolColors(): Extension {
   const build = (state: EditorState): DecorationSet => {
-    const syms = scanSlices(state.doc.toString());
+    const tree = treeOf(state);
+    const text = state.doc.toString();
+    if (!tree.root || !text.includes("rack_type")) return Decoration.none;
+    const syms = slicesOf(tree.root, tree.text);
     if (!syms) return Decoration.none;
     const b = new RangeSetBuilder<Decoration>();
     syms.forEach((s, i) => {
+      const span = mapSpan(tree, s.keyRange[0], s.keyRange[1], text);
+      if (!span) return;
       b.add(
-        s.keyRange[0],
-        s.keyRange[1],
+        span.from,
+        span.to,
         Decoration.mark({
-          attributes: {
-            style: `color:${sliceColor(i)};font-weight:600`,
-          },
+          attributes: { style: `color:${sliceColor(i)};font-weight:600` },
         }),
       );
     });
     return b.finish();
   };
-  return StateField.define<DecorationSet>({
-    create: build,
-    update: (deco, tr) => (tr.docChanged ? build(tr.state) : deco),
-    provide: (f) => EditorView.decorations.from(f),
-  });
+  return [
+    k7xTree,
+    StateField.define<DecorationSet>({
+      create: build,
+      update: (deco, tr) => (tr.docChanged ? build(tr.state) : deco),
+      provide: (f) => EditorView.decorations.from(f),
+    }),
+  ];
 }

@@ -1,5 +1,5 @@
 // controls.ts — every control on the Mix desk, by a stable id. What the project's
-// `views/mix.yaml` names to bind one to a module param. See ../../docs/controls.md.
+// `views/mix.k7x` names to bind one to a module param. See ../../docs/controls.md.
 
 import {
   STEM_NEUTRAL,

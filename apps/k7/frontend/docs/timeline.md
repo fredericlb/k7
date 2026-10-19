@@ -887,7 +887,7 @@ that list compiles perfectly and never appears, so the verb owns both
 ### The camcorder is the picture lane's mark
 
 One glyph — `TrackIcon`'s `video-16` — wherever a picture lane is named: its gutter row here, its
-clips on it, its node on the chains graph, its `video_tracks/*.yaml` row in the file tree, and the
+clips on it, its node on the chains graph, its `video_tracks/*.k7x` row in the file tree, and the
 menu entry that makes one. A second drawing for the same thing is how a reader learns that two
 pictures mean two things.
 
@@ -897,7 +897,7 @@ glyph, because a 14px icon in a 4px row is not a smaller icon, it is a different
 ## Dropping files from the desktop
 
 Dragging audio or video off the OS onto a lane does three things, in the one order that works:
-the bytes go into the project's `clips/`, a `clips/<id>.yaml` declares each one, and only then is
+the bytes go into the project's `clips/`, a `clips/<id>.k7x` declares each one, and only then is
 each **placed** — `event add` on an audio lane, `picture add` on a picture one. The plan is
 `timelineDrop.ts`, pure; the three round trips are `hooks/useTimelineDrop.ts`.
 
@@ -921,11 +921,11 @@ that silence.
 ### The FILENAME is the id
 
 A dropped `Prise été n°3.wav` lands as `clips/Prise-ete-n-3.wav` and declares itself in
-`clips/Prise-ete-n-3.yaml`, holding `source:` and nothing else — no window, so the clip is the
+`clips/Prise-ete-n-3.k7x`, holding `source:` and nothing else — no window, so the clip is the
 whole file, which is what an untrimmed recording is (`apps/k7/docs/22-syntax-material.md`).
 Accents are folded and everything else a path would argue about becomes one dash.
 
-**An existing declaration is never overwritten.** `clips/kick.yaml` may already carry a trim, a
+**An existing declaration is never overwritten.** `clips/kick.k7x` may already carry a trim, a
 warp or corrected onsets, and a drop knows none of them. The bytes are the same story: the upload
 refuses to clobber (409).
 
@@ -1119,7 +1119,7 @@ silence it (see `project.ts` `withGroupMix`). Aiming at the lane would be a key 
 work, so the status line names the group instead and the redirect shows.
 
 Neither `m` nor `s` writes a flag on the lane itself. `m` is the lane's module BYPASS, one
-name in `graph.yaml`'s `bypassed:`; `s` bypasses every OTHER lane, and nothing on disk says
+name in `graph.k7x`'s `bypassed:`; `s` bypasses every OTHER lane, and nothing on disk says
 "soloed" (`packages/song/docs/trackModules.md`).
 
 How a lane *reads* is not the same as the flag on it: a track is dimmed if it is muted, if

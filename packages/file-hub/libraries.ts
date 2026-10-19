@@ -17,6 +17,7 @@ import {
 } from "node:fs";
 import { cp } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { upgradeLegacy } from "@studio/file-service/src/legacyUpgrade.ts";
 import { RECYCLE_DIR } from "@studio/file-service/src/workspaceFilter.ts";
 import { writeFileAtomic } from "@studio/song/atomicWrite";
 import {
@@ -29,6 +30,10 @@ import {
   UNPINNED_VERSION,
   versionOfDir,
 } from "@studio/song-schema/libraryVersions";
+import {
+  LEGACY_LIBRARY_MANIFEST,
+  parseLegacyLibraryManifest,
+} from "@studio/song-schema/libraryVersionsLegacy";
 import {
   DEFAULT_LIBRARY,
   isLibraryName,
@@ -224,11 +229,11 @@ export class LibraryStore {
     });
   }
 
-  /** The published versions of library `name`, oldest first, each as its `library.yaml` says. */
+  /** The published versions of library `name`, oldest first, each as its `library.k7x` says. */
   versions(name: string): LibraryManifest[] {
     return versionNumbers(join(this.home, name)).map(
       (v) =>
-        readManifest(join(this.home, name, String(v))) ?? {
+        ownManifest(join(this.home, name, String(v))) ?? {
           name,
           version: v,
           requires: 1,
@@ -324,6 +329,7 @@ export class LibraryStore {
     const partial = join(this.home, `.seeding-${Date.now()}-${process.pid}`);
     try {
       await cp(from, partial, { recursive: true, filter: publishable });
+      upgradeManifest(partial);
       renameSync(partial, dest);
       return {
         name,
@@ -366,12 +372,16 @@ export class LibraryStore {
     if (existsSync(draft)) return null;
     const newest = Math.max(0, ...versionNumbers(at));
     const partial = join(this.home, `.drafting-${Date.now()}-${process.pid}`);
-    const manifest = join(at, String(newest), LIBRARY_MANIFEST);
+    const manifests = new Set(
+      [LIBRARY_MANIFEST, LEGACY_LIBRARY_MANIFEST].map((m) =>
+        join(at, String(newest), m),
+      ),
+    );
     try {
       if (newest)
         await cp(join(at, String(newest)), partial, {
           recursive: true,
-          filter: (src) => resolve(src) !== manifest,
+          filter: (src) => !manifests.has(resolve(src)),
         });
       else mkdirSync(partial, { recursive: true });
       renameSync(partial, draft);
@@ -404,18 +414,48 @@ function versionNumbers(at: string): number[] {
   }
 }
 
+/** A version's manifest, `library.k7x` or else a legacy `library.yaml`, read where it is: a seed is not the hub's to write. */
 function readManifest(dir: string): LibraryManifest | null {
   try {
     return parseLibraryManifest(
       readFileSync(join(dir, LIBRARY_MANIFEST), "utf8"),
     );
   } catch {
-    return null;
+    try {
+      return parseLegacyLibraryManifest(
+        readFileSync(join(dir, LEGACY_LIBRARY_MANIFEST), "utf8"),
+      );
+    } catch {
+      return null;
+    }
   }
+}
+
+/** The manifest in either format, for upgradeLegacy. */
+const MANIFEST = {
+  parseLegacy: parseLegacyLibraryManifest,
+  parse: parseLibraryManifest,
+  stringify: stringifyLibraryManifest,
+};
+
+/** A legacy `library.yaml` in a folder the hub owns, upgraded once to `library.k7x`. */
+function upgradeManifest(dir: string): void {
+  upgradeLegacy(
+    join(dir, LEGACY_LIBRARY_MANIFEST),
+    join(dir, LIBRARY_MANIFEST),
+    MANIFEST,
+  );
+}
+
+/** A manifest of the hub's own folders: upgraded first, then read. */
+function ownManifest(dir: string): LibraryManifest | null {
+  upgradeManifest(dir);
+  return readManifest(dir);
 }
 
 /** Version 1 of a library written before versions: it asks for nothing past the first level. */
 function writeFirstManifest(name: string, dir: string): void {
+  upgradeManifest(dir);
   if (existsSync(join(dir, LIBRARY_MANIFEST))) return;
   writeFileSync(
     join(dir, LIBRARY_MANIFEST),

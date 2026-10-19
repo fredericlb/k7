@@ -132,7 +132,7 @@ export function EditorToolbar({
           ))}
         </div>
       )}
-      {/* A BUTTON and not a redirected click: opening `module.yaml` must still open its text, the path a shared module forks through. */}
+      {/* A BUTTON and not a redirected click: opening `module.k7x` must still open its text, the path a shared module forks through. */}
       {file && isModuleFile(file.path) && (
         <Button
           size="sm"

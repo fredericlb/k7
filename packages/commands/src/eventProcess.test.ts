@@ -5,25 +5,27 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadProject } from "@studio/song/project";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
 import { otherUsesOf, ownMaterial } from "./verbs/eventProcess";
 
 let root: string;
 let dir: string;
-const put = (rel: string, text: string | Buffer): void => {
+const put = (rel: string, bytes: Buffer): void => {
   mkdirSync(join(dir, rel, ".."), { recursive: true });
-  writeFileSync(join(dir, rel), text, "utf8");
+  writeFileSync(join(dir, rel), bytes);
 };
+const doc = (rel: string, value: Record<string, unknown>): void =>
+  writeDoc(join(dir, rel), value);
 /** A second of silent 8 kHz mono: the compile wants a real file behind each clip. */
 function wav(): Buffer {
   const data = 16000;
@@ -43,28 +45,30 @@ function wav(): Buffer {
   return b;
 }
 const refs = () =>
-  (
-    parse(readFileSync(join(dir, "tracks/gtr.yaml"), "utf8")).events as {
-      ref: string;
-    }[]
-  ).map((e) => e.ref);
+  (wsData(join(dir, "tracks/gtr.k7x")).events as { ref: string }[]).map(
+    (e) => e.ref,
+  );
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "event-process-"));
   dir = join(root, "song.k7");
-  put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
-  put(
-    "tracks/gtr.yaml",
-    'extends: "@meta/track"\nevents:\n  - { ref: riff, start: "1:1" }\n  - { ref: riff, start: "3:1" }\n  - { ref: solo, start: "5:1" }\n',
-  );
+  doc("project.k7x", { project: { name: "t", tempo: 120 } });
+  doc("tracks/gtr.k7x", {
+    extends: "@meta/track",
+    events: [
+      { ref: "riff", start: "1:1" },
+      { ref: "riff", start: "3:1" },
+      { ref: "solo", start: "5:1" },
+    ],
+  });
   put("clips/riff.wav", wav());
   put("clips/solo.wav", wav());
-  put("clips/riff.yaml", "source: clips/riff.wav\n");
-  put("clips/solo.yaml", "source: clips/solo.wav\n");
-  put(
-    "chains/gtr.yaml",
-    "start: true\nsteps:\n  - { id: lane-gtr, track: gtr }\n  - to: [ { chain: MIX } ]\n",
-  );
+  doc("clips/riff.k7x", { source: "clips/riff.wav" });
+  doc("clips/solo.k7x", { source: "clips/solo.wav" });
+  doc("chains/gtr.k7x", {
+    start: true,
+    steps: [{ id: "lane-gtr", track: "gtr" }, { to: [{ chain: "MIX" }] }],
+  });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -77,16 +81,16 @@ describe("event process", () => {
 
     expect(ownMaterial(dir, "gtr", 8, 4, 4, "riff")).toBe("riff-2");
     expect(refs()).toEqual(["riff", "riff-2", "solo"]);
-    expect(readFileSync(join(dir, "clips/riff-2.yaml"), "utf8")).toBe(
-      "source: clips/riff.wav\n",
-    );
+    expect(wsData(join(dir, "clips/riff-2.k7x"))).toEqual({
+      source: "clips/riff.wav",
+    });
   });
 
   it("leaves the event on its material when the bounce writes nothing", async () => {
     const h = testHost({ songPath: dir, project: () => loadProject(dir) });
     await runCommand("event process gtr 3:1 no-such-chain", h, "cli");
     expect(refs()).toEqual(["riff", "riff", "solo"]);
-    expect(existsSync(join(dir, "clips/riff-2.yaml"))).toBe(false);
+    expect(existsSync(join(dir, "clips/riff-2.k7x"))).toBe(false);
   });
 
   it("asks for all three arguments", async () => {

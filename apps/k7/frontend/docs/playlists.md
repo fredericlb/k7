@@ -11,7 +11,7 @@ cog ▸ Playlists   (or the set's button) │ ▾ été 2026      + ⤢ ✕ │ 
                                         │ the songs,            │
                                         │ resolved and playable │
                                         └───────────────────────┘
-        ⤢ ──────────────────────────────▸ the PAGE: YAML text | the songs
+        ⤢ ──────────────────────────────▸ the PAGE: k7x text | the songs
 ```
 
 ## A panel anchored right, not a page
@@ -29,11 +29,11 @@ The songs are **below**, resolved against the médiathèque and playable — tha
 
 ## The text stays, one click away
 
-The panel is 24rem: there is no room for the YAML beside the songs. So the full-screen page is one
+The panel is 24rem: there is no room for the k7x beside the songs. So the full-screen page is one
 notch further out, and the ⤢ button opens it on the current playlist.
 
 Every line carries its three buttons — ↑, ↓, × — because reordering is what this screen is ABOUT,
-usually shortly before a gig, and having to open the YAML to remove a line is the wrong shape for
+usually shortly before a gig, and having to open the k7x to remove a line is the wrong shape for
 it. The page stays what it is: the whole file, its comments, its title.
 
 Those buttons are not writes: they go up to `PlaylistEditor` exactly as the search does, and it is
@@ -46,7 +46,7 @@ A shape the text cannot reorder — an inline `items: [a, b]` — disables the t
 reason in a tooltip, rather than reformatting somebody's file.
 
 It is the same component on both sides. `PlaylistEditor` takes a `panel` prop, which removes its
-header and the YAML half; below that everything is identical — same load, same buffer, same
+header and the k7x half; below that everything is identical — same load, same buffer, same
 autosave, same resolved list. Two components would be two documents to keep in step.
 
 ## Its own panel, not a settings tab, not a pane
@@ -135,7 +135,7 @@ and that is where it earns its keep: building a setlist without leaving the time
 ## The right-hand pane follows keystrokes, not saves
 
 `items` is recomputed on every keystroke, but is **only replaced by something readable**: half-typed
-YAML fails to parse about every other keystroke — a bracket not yet closed — and a panel that
+k7x fails to parse about every other keystroke — a bracket not yet closed — and a panel that
 emptied each time would flicker for the whole length of the line being written. The footer says when
 what is shown is behind the text.
 
@@ -283,13 +283,13 @@ not stop the evening.
 ## What a playlist is for, once written
 
 It is not only a list to re-read: it is a **surface's parameter**. A `turntables` surface — the DJ
-desk — carries a `playlist:` line, and that is the playlist its song browser lists:
+desk — carries a `playlist` line, and that is the playlist its song browser lists:
 
-```yaml
-# <projet>.k7/surfaces/desk.yaml
-type: turntables
-layout: split
-playlist: ete-2026
+```k7x
+// <projet>.k7/surfaces/desk.k7x
+type("turntables")
+layout("split")
+playlist("ete-2026")
 ```
 
 Two consequences, and the second is the one that matters:

@@ -1,31 +1,30 @@
 // `event gain`, through the dispatcher on a chain project with real files: an audio event's trim is written to
 // a tenth of a dB and compiled onto its clip, unity deletes it, and a MIDI event — which has none — is refused.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadProject } from "@studio/song/project";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
 
 let root: string;
 let dir: string;
-const put = (rel: string, text: string | Buffer): void => {
+const put = (rel: string, bytes: Buffer): void => {
   mkdirSync(join(dir, rel, ".."), { recursive: true });
-  writeFileSync(join(dir, rel), text);
+  writeFileSync(join(dir, rel), bytes);
 };
-const events = (lane: string) =>
-  parse(readFileSync(join(dir, `tracks/${lane}.yaml`), "utf8")).events;
-const clipOf = (lane: string) =>
-  loadProject(dir).tracks.find((t) => t.id === lane)?.clips[0];
+const doc = (rel: string, value: Record<string, unknown>): void =>
+  writeDoc(join(dir, rel), value);
+const lane = (id: string, event: Record<string, unknown>): void =>
+  doc(`tracks/${id}.k7x`, { extends: "@meta/track", events: [event] });
+const events = (id: string) =>
+  wsData(join(dir, `tracks/${id}.k7x`)).events as Record<string, unknown>[];
+const clipOf = (id: string) =>
+  loadProject(dir).tracks.find((t) => t.id === id)?.clips[0];
 const run = async (line: string) => {
   const h = testHost({ songPath: dir, project: () => loadProject(dir) });
   await runCommand(line, h, "cli");
@@ -55,27 +54,18 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "evgain-"));
   dir = join(root, "song.k7");
   // 120 bpm: a beat is half a second.
-  put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
+  doc("project.k7x", { project: { name: "t", tempo: 120 } });
   put("clips/a.wav", wav(10));
-  put("clips/a.yaml", "source: clips/a.wav\n");
-  const notes = Array.from(
-    { length: 16 },
-    (_, i) => `  - { t: ${i}, d: 1, k: 60 }`,
-  );
-  put("sequences/pat.yaml", `notes:\n${notes.join("\n")}\n`);
-  put(
-    "tracks/gtr.yaml",
-    'extends: "@meta/track"\nevents:\n  - { ref: a, start: "1:1" }\n',
-  );
-  put(
-    "tracks/keys.yaml",
-    'extends: "@meta/track"\nevents:\n  - { ref: pat, start: "1:1" }\n',
-  );
-  for (const lane of ["gtr", "keys"])
-    put(
-      `chains/${lane}.yaml`,
-      `start: true\nsteps:\n  - { id: lane-${lane}, track: ${lane} }\n  - to: [ { chain: MIX } ]\n`,
-    );
+  doc("clips/a.k7x", { source: "clips/a.wav" });
+  const notes = Array.from({ length: 16 }, (_, i) => ({ t: i, d: 1, k: 60 }));
+  doc("sequences/pat.k7x", { notes });
+  lane("gtr", { ref: "a", start: "1:1" });
+  lane("keys", { ref: "pat", start: "1:1" });
+  for (const id of ["gtr", "keys"])
+    doc(`chains/${id}.k7x`, {
+      start: true,
+      steps: [{ id: `lane-${id}`, track: id }, { to: [{ chain: "MIX" }] }],
+    });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -104,10 +94,7 @@ describe("event gain", () => {
   });
 
   it("reports a gain hand-written on a MIDI event rather than ignoring it", () => {
-    put(
-      "tracks/keys.yaml",
-      'extends: "@meta/track"\nevents:\n  - { ref: pat, start: "1:1", gain: 2 }\n',
-    );
+    lane("keys", { ref: "pat", start: "1:1", gain: 2 });
     expect(() => loadProject(dir)).toThrow(/only an audio event has/);
   });
 });

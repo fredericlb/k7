@@ -9,7 +9,7 @@ import {
   type ModuleDoc,
   parseModuleDoc,
 } from "@studio/ui-module-builder/module-ui";
-import { scanSlicesDoc } from "./sliceSymbols";
+import { slicesOf } from "./sliceSymbols";
 
 export interface BufferReads {
   /** The slice symbols live in this buffer, so the docked slicer's drags have somewhere to write. */
@@ -26,7 +26,7 @@ export const NO_READS: BufferReads = {
   channels: null,
 };
 
-/** Whether the text can carry a key `ioOf` reads: `io:` itself, or an `extends:` naming a meta module. */
+/** Whether the text can carry a key `ioOf` reads: `io` itself, or an `extends` naming a meta module. */
 const mayNameIo = (text: string): boolean =>
   /\bio\b/.test(text) || text.includes("extends");
 
@@ -36,7 +36,8 @@ export function readBuffer(text: string, path: string): BufferReads {
   const wantIo = mayNameIo(text);
   let doc: ModuleDoc | null = null;
   if (wantSlices || wantIo) doc = parseModuleDoc(text);
-  const slices = !!doc && wantSlices && scanSlicesDoc(doc) != null;
+  const slices =
+    !!doc?.contents && wantSlices && slicesOf(doc.contents, text) != null;
   // A path alone can make a file an input, so the io read runs even when nothing was parsed.
   const io = ioOfDoc(doc, path);
   const channels = io === "in" ? channelOfDoc(doc) : null;

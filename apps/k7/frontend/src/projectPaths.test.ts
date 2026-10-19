@@ -19,10 +19,7 @@ import {
 
 describe("which kind of file a path is", () => {
   it("recognises a rack module", () => {
-    expect(isRackModuleFile("modules/instruments/drum_1/module.yaml")).toBe(
-      true,
-    );
-    expect(isRackModuleFile("modules/instruments/drum_1/module.yml")).toBe(
+    expect(isRackModuleFile("modules/instruments/drum_1/module.k7x")).toBe(
       true,
     );
   });
@@ -31,108 +28,116 @@ describe("which kind of file a path is", () => {
     // What the file tree actually hands over on Windows in a multi-project workspace.
     expect(
       isRackModuleFile(
-        "LEMO - DANSE\\modules\\instruments\\drum_1\\module.yaml",
+        "LEMO - DANSE\\modules\\instruments\\drum_1\\module.k7x",
       ),
     ).toBe(true);
   });
 
   it("is not fooled by a module NODE file", () => {
-    // `bass.yaml` beside `module.yaml` is a node; only the generic file is the rack.
-    expect(isRackModuleFile("modules/audio/amp/bass.yaml")).toBe(false);
+    // `bass.k7x` beside `module.k7x` is a node; only the generic file is the rack.
+    expect(isRackModuleFile("modules/audio/amp/bass.k7x")).toBe(false);
   });
 
   it("recognises sequences, clips, tracks and video tracks", () => {
-    expect(isSeqFile("sequences/lead.yaml")).toBe(true);
-    expect(isClipFile("clips/kick.yaml")).toBe(true);
+    expect(isSeqFile("sequences/lead.k7x")).toBe(true);
+    expect(isClipFile("clips/kick.k7x")).toBe(true);
     // A lane lives in `nodes/` — it is a node of a `@meta/…-track` module — or a chain project's `tracks/`.
-    expect(isTrackFile("nodes/melody.yaml")).toBe(true);
-    expect(isTrackFile("tracks/melody.yaml")).toBe(true);
-    expect(isTrackFile("video_tracks/melody.yaml")).toBe(false);
-    expect(isTrackFile("chains/melody.yaml")).toBe(false);
-    expect(isVideoTrackFile("video_tracks/cam.yaml")).toBe(true);
+    expect(isTrackFile("nodes/melody.k7x")).toBe(true);
+    expect(isTrackFile("tracks/melody.k7x")).toBe(true);
+    expect(isTrackFile("video_tracks/melody.k7x")).toBe(false);
+    expect(isTrackFile("chains/melody.k7x")).toBe(false);
+    expect(isVideoTrackFile("video_tracks/cam.k7x")).toBe(true);
   });
 
   it("says no to a folder that merely looks similar", () => {
-    expect(isClipFile("clips/nested/kick.yaml")).toBe(false);
-    expect(isSeqFile("sequences.yaml")).toBe(false);
+    expect(isClipFile("clips/nested/kick.k7x")).toBe(false);
+    expect(isSeqFile("sequences.k7x")).toBe(false);
     expect(isTrackFile("nodes/melody.wav")).toBe(false);
   });
 
   it("takes the id off the extension, keeping a dot inside the name", () => {
-    expect(fileStem("clips/kick.yaml")).toBe("kick");
-    expect(fileStem("a\\b\\my.clip.yml")).toBe("my.clip");
+    expect(fileStem("clips/kick.k7x")).toBe("kick");
+    expect(fileStem("a\\b\\my.clip.k7x")).toBe("my.clip");
   });
 
   it("finds the generic module file beside a node", () => {
-    expect(moduleFileOf("modules/audio/amp/bass.yaml")).toBe(
-      "modules/audio/amp/module.yaml",
+    expect(moduleFileOf("modules/audio/amp/bass.k7x")).toBe(
+      "modules/audio/amp/module.k7x",
     );
   });
 });
 
 describe("reading a scalar field out of a file's text", () => {
-  it("reads an unquoted scalar", () => {
-    // The one that was silently returning null: CUE always quotes and YAML usually does not, so a quote-demanding regex saw no source.
-    expect(readScalarField("source: md-shots_norm.wav\n", "source")).toBe(
+  it("reads a call's string value", () => {
+    expect(readScalarField('source("md-shots_norm.wav")\n', "source")).toBe(
       "md-shots_norm.wav",
     );
   });
 
-  it("reads a quoted one, inside a flow mapping", () => {
+  it("reads one inside an object, in either quotes", () => {
     expect(
-      readScalarField('rack: { source: "break.wav", note: 36 }', "source"),
+      readScalarField('rack({ source: "break.wav", note: 36 })', "source"),
     ).toBe("break.wav");
+    expect(readScalarField("rack({ source: 'a b.wav' })", "source")).toBe(
+      "a b.wav",
+    );
   });
 
-  it("keeps a value that needed its quotes", () => {
-    expect(readScalarField('name: "2:1"\n', "name")).toBe("2:1");
+  it("reads its escapes", () => {
+    expect(readScalarField('name("say \\"hi\\"")\n', "name")).toBe('say "hi"');
   });
 
-  it("drops a trailing comment", () => {
-    expect(readScalarField("source: kick.wav # the good one\n", "source")).toBe(
-      "kick.wav",
+  it("reads it while the rest of the file does not parse", () => {
+    // Mid-keystroke: the popin's module beside an instance must not vanish because another line is half-typed.
+    expect(readScalarField('extends("audio/amp")\nparams({\n', "extends")).toBe(
+      "audio/amp",
     );
-    expect(readScalarField('source: "kick.wav" // ditto\n', "source")).toBe(
-      "kick.wav",
-    );
+  });
+
+  it("ignores a trailing comment", () => {
+    expect(
+      readScalarField('source("kick.wav") // the good one\n', "source"),
+    ).toBe("kick.wav");
   });
 
   it("doesn't match a key that merely ends with the one asked for", () => {
-    expect(readScalarField("use_rack: drums\n", "rack")).toBe(null);
+    expect(readScalarField('use_rack("drums")\n', "rack")).toBe(null);
   });
 
-  it("returns null for an absent or empty field", () => {
-    expect(readScalarField("note: 36\n", "source")).toBe(null);
-    expect(readScalarField("source:\n", "source")).toBe(null);
+  it("returns null for an absent, empty or non-string field", () => {
+    expect(readScalarField("note(36)\n", "source")).toBe(null);
+    expect(readScalarField('source("")\n', "source")).toBe(null);
+    expect(readScalarField("source(3)\n", "source")).toBe(null);
   });
 });
 
 describe("entityFile", () => {
   const files = [
-    "tracks/kick.yaml",
-    "clips/kick.yaml",
-    "tracks/ge.lead.yml",
-    "video_tracks/cam1.yaml",
+    "tracks/kick.k7x",
+    "clips/kick.k7x",
+    "tracks/ge.lead.k7x",
+    "video_tracks/cam1.k7x",
   ];
 
   it("takes the file in the folder asked for, not the one that merely shares the id", () => {
-    expect(entityFile(files, "tracks", "kick")).toBe("tracks/kick.yaml");
-    expect(entityFile(files, "clips", "kick")).toBe("clips/kick.yaml");
+    expect(entityFile(files, "tracks", "kick")).toBe("tracks/kick.k7x");
+    expect(entityFile(files, "clips", "kick")).toBe("clips/kick.k7x");
   });
 
-  it("accepts either spelling of the extension", () => {
-    expect(entityFile(files, "tracks", "ge.lead")).toBe("tracks/ge.lead.yml");
+  it("finds an id holding a dot, and never a .yaml file", () => {
+    expect(entityFile(files, "tracks", "ge.lead")).toBe("tracks/ge.lead.k7x");
+    expect(entityFile(["tracks/snare.yaml"], "tracks", "snare")).toBe(null);
   });
 
   it("finds it under a project-folder prefix", () => {
     expect(
-      entityFile(["band/winter.k7/tracks/kick.yaml"], "tracks", "kick"),
-    ).toBe("band/winter.k7/tracks/kick.yaml");
+      entityFile(["band/winter.k7/tracks/kick.k7x"], "tracks", "kick"),
+    ).toBe("band/winter.k7/tracks/kick.k7x");
   });
 
   it("does not let an id's dots stand for any character", () => {
     // The pattern is built by interpolation, so `ge.lead` must not also match `geXlead`.
-    expect(entityFile(["tracks/geXlead.yaml"], "tracks", "ge.lead")).toBe(null);
+    expect(entityFile(["tracks/geXlead.k7x"], "tracks", "ge.lead")).toBe(null);
   });
 
   it("returns null when the song has no such file", () => {
@@ -143,62 +148,55 @@ describe("entityFile", () => {
 describe("rackKeyOf", () => {
   // The key `hints.racks` files a rack under: a module's folder name, or a NODE's stem, the hint folding `extends` in under it.
   it("answers a module's folder name, filing included", () => {
-    expect(rackKeyOf("modules/instruments/drum_1/module.yaml")).toBe("drum_1");
-    expect(rackKeyOf("song.k7/modules/instruments/drum_1/module.yml")).toBe(
+    expect(rackKeyOf("modules/instruments/drum_1/module.k7x")).toBe("drum_1");
+    expect(rackKeyOf("song.k7/modules/instruments/drum_1/module.k7x")).toBe(
       "drum_1",
     );
   });
 
   it("answers a node's stem — the instance of a rack is a rack too", () => {
-    expect(rackKeyOf("nodes/da_main-drum_1.yaml")).toBe("da_main-drum_1");
-    expect(rackKeyOf("song.k7/nodes/da_main-drum_1.yaml")).toBe(
+    expect(rackKeyOf("nodes/da_main-drum_1.k7x")).toBe("da_main-drum_1");
+    expect(rackKeyOf("song.k7/nodes/da_main-drum_1.k7x")).toBe(
       "da_main-drum_1",
     );
   });
 
   it("answers nothing for every other file", () => {
-    expect(rackKeyOf("clips/kick.yaml")).toBe(null);
+    expect(rackKeyOf("clips/kick.k7x")).toBe(null);
     // A chain file holds many nodes, so its path answers for none of them.
-    expect(rackKeyOf("chains/da.main.yaml")).toBe(null);
-    expect(rackKeyOf("modules/instruments/drum_1/panel.yaml")).toBe(null);
+    expect(rackKeyOf("chains/da.main.k7x")).toBe(null);
+    expect(rackKeyOf("modules/instruments/drum_1/panel.k7x")).toBe(null);
   });
 });
 
 // The tree is the whole workspace now, so "is this file the open project's?" became a question.
 describe("inActiveProject", () => {
   it("keeps a file of another project out", () => {
-    expect(inActiveProject("song.k7/clips/a.yaml", "song.k7")).toBe(true);
-    expect(inActiveProject("other.k7/clips/a.yaml", "song.k7")).toBe(false);
+    expect(inActiveProject("song.k7/clips/a.k7x", "song.k7")).toBe(true);
+    expect(inActiveProject("other.k7/clips/a.k7x", "song.k7")).toBe(false);
     // Not a prefix match on the STRING: `song.k7-old` is a different folder.
-    expect(inActiveProject("song.k7-old/clips/a.yaml", "song.k7")).toBe(false);
+    expect(inActiveProject("song.k7-old/clips/a.k7x", "song.k7")).toBe(false);
   });
 
   it("lets everything through when the workspace IS the project", () => {
-    expect(inActiveProject("clips/a.yaml", ".")).toBe(true);
+    expect(inActiveProject("clips/a.k7x", ".")).toBe(true);
   });
 
   it("lets nothing through when no project is open", () => {
-    expect(inActiveProject("song.k7/clips/a.yaml", null)).toBe(false);
+    expect(inActiveProject("song.k7/clips/a.k7x", null)).toBe(false);
   });
 
   it("reads a windows path like every other rule here", () => {
-    expect(inActiveProject("song.k7\\clips\\a.yaml", "song.k7")).toBe(true);
+    expect(inActiveProject("song.k7\\clips\\a.k7x", "song.k7")).toBe(true);
   });
 });
 
-describe("a .k7x file is the same kind of file as its YAML spelling", () => {
-  it("is recognised by kind", () => {
-    expect(isSeqFile("song/sequences/melody.k7x")).toBe(true);
-    expect(isClipFile("song/clips/kick.k7x")).toBe(true);
-    expect(isRackModuleFile("modules/instruments/drum_1/module.k7x")).toBe(
-      true,
-    );
-  });
-
-  it("names the same id and the same module file", () => {
-    expect(fileStem("song/nodes/lead.k7x")).toBe("lead");
-    expect(moduleFileOf("_modules/audio/amp/lead.k7x")).toBe(
-      "_modules/audio/amp/module.yaml",
+describe("a .yaml file is no workspace file", () => {
+  it("is recognised as no kind", () => {
+    expect(isSeqFile("song/sequences/melody.yaml")).toBe(false);
+    expect(isClipFile("song/clips/kick.yaml")).toBe(false);
+    expect(isRackModuleFile("modules/instruments/drum_1/module.yaml")).toBe(
+      false,
     );
   });
 });
@@ -210,12 +208,10 @@ describe("projectDir / toProjectRelative", () => {
     expect(projectDir(null)).toBe("");
   });
   it("strips the project prefix and leaves any other path slashed", () => {
-    expect(toProjectRelative("a.k7\\clips\\x.yaml", "a.k7")).toBe(
-      "clips/x.yaml",
+    expect(toProjectRelative("a.k7\\clips\\x.k7x", "a.k7")).toBe("clips/x.k7x");
+    expect(toProjectRelative("a.k7x/clips/x.k7x", "a.k7")).toBe(
+      "a.k7x/clips/x.k7x",
     );
-    expect(toProjectRelative("a.k7x/clips/x.yaml", "a.k7")).toBe(
-      "a.k7x/clips/x.yaml",
-    );
-    expect(toProjectRelative("clips/x.yaml", ".")).toBe("clips/x.yaml");
+    expect(toProjectRelative("clips/x.k7x", ".")).toBe("clips/x.k7x");
   });
 });

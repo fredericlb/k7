@@ -1,15 +1,16 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse } from "@studio/k7x/document";
 import { compileNodeProject } from "@studio/song/nodeProject";
-import { copyAsYaml, writeYaml } from "@studio/song/testSupport";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsEdit } from "@studio/song/yaml/workspaceDoc";
 import { doubleSequence } from "@studio/song-schema/yaml/sequenceFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { halveLoopsOf } from "./sequenceLoops";
 
-// ×2 on a LOOPED clip: the window doubles and the passes halve, so what plays is the same length
-// and the two halves can now differ. Four passes of one beat become two of two — docs/sequenceLoops.md.
+// ×2 on a LOOPED clip: the window doubles and the passes halve, so what plays keeps its length — docs/sequenceLoops.md.
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SONG = join(here, "..", "..", "..", "demos", "synth-demo.k7");
@@ -19,12 +20,12 @@ let root: string;
 let dir: string;
 // synth-demo is 120bpm 4/4; its melody sequence gets one note per beat, windowed to the first.
 const seq = (body: Record<string, unknown>) =>
-  writeYaml(join(dir, "sequences", "melody.yaml"), {
+  writeDoc(join(dir, "sequences", "melody.k7x"), {
     notes: Array.from({ length: 8 }, (_, i) => ({ t: i, d: 1, k: 60 + i })),
     ...body,
   });
 const place = (p: Record<string, unknown>) =>
-  writeYaml(join(dir, "nodes", "melody.yaml"), {
+  writeDoc(join(dir, "nodes", "melody.k7x"), {
     extends: "@meta/track",
     events: [{ ref: "melody", start: "1:1:1", ...p }],
   });
@@ -35,17 +36,23 @@ const melody = () =>
 
 /** The ×2 button's whole act: the sequence doubled, then every placement of it halved. */
 const double = () => {
-  const f = join(dir, "sequences", "melody.yaml");
-  writeFileSync(f, doubleSequence(readFileSync(f, "utf8"), 4, 4), "utf8");
+  wsEdit(join(dir, "sequences", "melody.k7x"), (d) =>
+    doubleSequence(d.at([]), 4, 4),
+  );
   return halveLoopsOf(dir, "melody");
 };
-const laneText = () => readFileSync(join(dir, "nodes", "melody.yaml"), "utf8");
+/** The first event a lane places, as data. */
+const eventOf = (lane: string) =>
+  (
+    parse(readFileSync(join(dir, "nodes", `${lane}.k7x`), "utf8"))
+      .events as Record<string, unknown>[]
+  )[0];
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-seqx2-"));
   dir = join(root, "synth-demo.k7");
-  copyAsYaml(SONG, dir, { recursive: true });
-  copyAsYaml(DEMO_MODULES, join(root, "_modules"), { recursive: true });
+  cpSync(SONG, dir, { recursive: true });
+  cpSync(DEMO_MODULES, join(root, "_modules"), { recursive: true });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -56,7 +63,7 @@ describe("×2 on a looped placement", () => {
     expect(melody()?.length).toBe(4);
     expect(double().halved).toBe(1);
     expect(melody()?.length).toBe(4); // the arrangement did not move
-    expect(laneText()).toContain("loop: 2");
+    expect(eventOf("melody").loop).toBe(2);
   });
 
   it("writes NO loop when the last halving lands back on one pass", () => {
@@ -64,7 +71,7 @@ describe("×2 on a looped placement", () => {
     seq({ to: "1:2" });
     place({ loop: 2 });
     double();
-    expect(laneText()).not.toContain("loop:");
+    expect(eventOf("melody")).not.toHaveProperty("loop");
     expect(melody()?.length).toBe(2);
   });
 
@@ -101,13 +108,11 @@ describe("×2 on a looped placement", () => {
   it("reaches every lane that places the sequence", () => {
     seq({ to: "1:2" });
     place({ loop: 4 });
-    writeYaml(join(dir, "nodes", "second.yaml"), {
+    writeDoc(join(dir, "nodes", "second.k7x"), {
       extends: "@meta/track",
       events: [{ ref: "melody", start: "2:1:1", loop: 8 }],
     });
     expect(double()).toMatchObject({ halved: 2 });
-    expect(readFileSync(join(dir, "nodes", "second.yaml"), "utf8")).toContain(
-      "loop: 4",
-    );
+    expect(eventOf("second").loop).toBe(4);
   });
 });

@@ -26,8 +26,8 @@ import { type CaptureOptions, LiveCapture } from "./liveCapture.ts";
 import type { Batch } from "./liveLog.ts";
 import { isBinary, skip } from "./workspace.ts";
 
-const MIX = "plugin: mixer\nparams:\n  gain: 0.5\n  pan: 0\n";
-const FILE = "song.k7/nodes/mix.yaml";
+const MIX = 'plugin("mixer")\n// the strip\nparams({ gain: 0.5, pan: 0 })\n';
+const FILE = "song.k7/nodes/mix.k7x";
 
 interface Cap {
   root: string;
@@ -50,7 +50,7 @@ const read = (root: string, rel: string): string =>
 
 function replica(
   name: string,
-  files: Record<string, string> = { "song.k7/nodes/mix.yaml": MIX },
+  files: Record<string, string> = { "song.k7/nodes/mix.k7x": MIX },
   more: Partial<CaptureOptions> = {},
 ): Cap {
   const root = mkdtempSync(join(tmpdir(), `live-${name}-`));
@@ -91,25 +91,9 @@ describe("LiveCapture", () => {
     expect(a.batches).toEqual([]);
   });
 
-  it("captures a value edit as one path op", async () => {
+  it("captures a value edit as one k7x path op", async () => {
     const a = replica("value");
-    put(a.root, "song.k7/nodes/mix.yaml", MIX.replace("0.5", "0.8"));
-    const [b] = await batches(a, 1);
-    expect(b.ops).toEqual([
-      {
-        kind: "yaml",
-        file: "song.k7/nodes/mix.yaml",
-        ops: [
-          { op: "set", path: ["params", "gain"], yaml: "0.8\n", was: "0.5\n" },
-        ],
-      },
-    ]);
-  });
-
-  it("captures a .k7x value edit as one k7x path op", async () => {
-    const K7X = 'plugin("mixer")\nparams({ gain: 0.5, pan: 0 }) // kept\n';
-    const a = replica("k7x", { "song.k7/nodes/mix.k7x": K7X });
-    put(a.root, "song.k7/nodes/mix.k7x", K7X.replace("0.5", "0.8"));
+    put(a.root, FILE, MIX.replace("0.5", "0.8"));
     const [b] = await batches(a, 1);
     expect(b.ops).toEqual([
       {
@@ -122,7 +106,7 @@ describe("LiveCapture", () => {
 
   it("never captures the temp an atomic write goes through", async () => {
     const a = replica("atomic");
-    const target = join(a.root, "song.k7/nodes/mix.yaml");
+    const target = join(a.root, "song.k7/nodes/mix.k7x");
     // A temp a killed process left behind, then a real atomic save beside it.
     writeFileSync(atomicTempFor(target), "half a fi");
     writeFileAtomic(target, MIX.replace("0.5", "0.8"));
@@ -130,7 +114,7 @@ describe("LiveCapture", () => {
     await settle();
     expect(a.capture.flushNow({ full: true })).toBeNull();
     const files = a.batches.flatMap((b) => b.ops.map((o) => o.file));
-    expect(files).toEqual(["song.k7/nodes/mix.yaml"]);
+    expect(files).toEqual(["song.k7/nodes/mix.k7x"]);
   });
 
   it("writes a file for another replica without leaving a temp beside it", () => {
@@ -144,13 +128,13 @@ describe("LiveCapture", () => {
     const a = replica("create");
     put(a.root, "song.k7/TODOS.md", "- mix\n");
     await batches(a, 1);
-    rmSync(join(a.root, "song.k7/nodes/mix.yaml"));
+    rmSync(join(a.root, "song.k7/nodes/mix.k7x"));
     const all = await batches(a, 2);
     expect(all[0].ops).toEqual([
       { kind: "text", file: "song.k7/TODOS.md", text: "- mix\n", was: null },
     ]);
     expect(all[1].ops).toEqual([
-      { kind: "remove", file: "song.k7/nodes/mix.yaml", was: textHash(MIX) },
+      { kind: "remove", file: "song.k7/nodes/mix.k7x", was: textHash(MIX) },
     ]);
   });
 
@@ -160,12 +144,12 @@ describe("LiveCapture", () => {
     const [b] = await batches(a, 1);
     expect(b.ops).toContainEqual({
       kind: "remove",
-      file: "song.k7/nodes/mix.yaml",
+      file: "song.k7/nodes/mix.k7x",
       was: textHash(MIX),
     });
     expect(b.ops).toContainEqual({
       kind: "text",
-      file: "tune.k7/nodes/mix.yaml",
+      file: "tune.k7/nodes/mix.k7x",
       text: MIX,
       was: null,
     });
@@ -175,7 +159,7 @@ describe("LiveCapture", () => {
     const a = replica("hidden");
     put(a.root, ".git/HEAD", "ref: x\n");
     put(a.root, "song.k7/clips/take.wav.cache", "x");
-    put(a.root, "_recycle_bin/old.yaml", "a: 1\n");
+    put(a.root, "_recycle_bin/old.k7x", "a(1)\n");
     await settle();
     expect(a.batches).toEqual([]);
   });
@@ -203,27 +187,27 @@ describe("LiveCapture", () => {
   it("makes ONE labelled batch of a mutation window", async () => {
     const a = replica("window");
     a.capture.hold();
-    put(a.root, "song.k7/nodes/mix.yaml", MIX.replace("0.5", "0.6"));
-    put(a.root, "song.k7/nodes/new.yaml", "plugin: eq\n");
+    put(a.root, "song.k7/nodes/mix.k7x", MIX.replace("0.5", "0.6"));
+    put(a.root, "song.k7/nodes/new.k7x", 'plugin("eq")\n');
     await settle();
     expect(a.batches).toEqual([]);
     a.capture.release("track mix");
     const [b] = await batches(a, 1);
     expect(b.label).toBe("track mix");
     expect(b.ops.map((o) => o.file).sort()).toEqual([
-      "song.k7/nodes/mix.yaml",
-      "song.k7/nodes/new.yaml",
+      "song.k7/nodes/mix.k7x",
+      "song.k7/nodes/new.k7x",
     ]);
   });
 
   it("re-scans everything when asked, for the events a watcher dropped", async () => {
     const a = replica("sweep");
     a.capture.stop();
-    put(a.root, "song.k7/nodes/mix.yaml", MIX.replace("pan: 0", "pan: 1"));
+    put(a.root, "song.k7/nodes/mix.k7x", MIX.replace("pan: 0", "pan: 1"));
     const b = a.capture.flushNow({ full: true });
     expect(b?.ops[0]).toMatchObject({
-      kind: "yaml",
-      file: "song.k7/nodes/mix.yaml",
+      kind: "k7x",
+      file: "song.k7/nodes/mix.k7x",
     });
   });
 
@@ -250,7 +234,7 @@ describe("LiveCapture", () => {
     utimesSync(abs, at, at);
     await new Promise((res) => setTimeout(res, 400));
     const b = capture.flushNow({ full: true });
-    expect(b?.ops[0]).toMatchObject({ kind: "yaml", file: FILE });
+    expect(b?.ops[0]).toMatchObject({ kind: "k7x", file: FILE });
   });
 });
 
@@ -457,8 +441,9 @@ describe("two replicas through a room", () => {
     for (const c of [a, b]) for (const e of entries) receive(c, e);
     expect(read(a.root, FILE)).toBe(room.files.get(FILE));
     expect(read(b.root, FILE)).toBe(room.files.get(FILE));
-    expect(room.files.get(FILE)).toContain("gain: 0.9");
-    expect(room.files.get(FILE)).toContain("pan: -0.25");
+    expect(room.files.get(FILE)).toBe(
+      'plugin("mixer")\n// the strip\nparams({ gain: 0.9, pan: -0.25 })\n',
+    );
     await settle();
     expect(a.batches).toHaveLength(1);
     expect(b.batches).toHaveLength(1);
@@ -483,7 +468,7 @@ describe("two replicas through a room", () => {
       for (const e of es) receive(c, e);
     expect(read(a.root, FILE)).toContain("gain: 0.1");
     expect(read(a.root, FILE)).toBe(read(b.root, FILE));
-    expect(fromB.parked).toMatchObject([{ replica: "b", kept: "0.1\n" }]);
+    expect(fromB.parked).toMatchObject([{ replica: "b", kept: "0.1" }]);
   });
 
   it("send a local edit the watcher has not reported yet BEFORE applying a remote one over it", async () => {
@@ -498,7 +483,7 @@ describe("two replicas through a room", () => {
     receive(a, fromB);
     expect(a.batches).toHaveLength(1);
     expect(a.batches[0].ops[0]).toMatchObject({
-      kind: "yaml",
+      kind: "k7x",
       ops: [{ path: ["params", "gain"] }],
     });
     expect(read(a.root, FILE)).toContain("gain: 0.1");
@@ -508,53 +493,5 @@ describe("two replicas through a room", () => {
     receive(b, fromA);
     expect(read(b.root, FILE)).toBe(room.files.get(FILE));
     expect(read(a.root, FILE)).toBe(room.files.get(FILE));
-  });
-});
-
-const K7X_FILE = "song.k7/nodes/mix.k7x";
-const K7X_MIX =
-  'plugin("mixer")\n// the strip\nparams({ gain: 0.5, pan: 0 })\n';
-
-describe("two replicas through a room, on a .k7x file", () => {
-  it("converge on two edits to different values, comments kept, and echo nothing back", async () => {
-    const room = seededRoom(K7X_FILE, K7X_MIX);
-    const a = synced("a", room, { [K7X_FILE]: K7X_MIX });
-    const b = synced("b", room, { [K7X_FILE]: K7X_MIX });
-    put(a.root, K7X_FILE, K7X_MIX.replace("gain: 0.5", "gain: 0.9"));
-    put(b.root, K7X_FILE, K7X_MIX.replace("pan: 0", "pan: -0.25"));
-    const [fromA] = await batches(a, 1);
-    await batches(b, 1);
-    expect(fromA.ops[0].kind).toBe("k7x");
-    const entries = [...send(a, room), ...send(b, room)];
-    for (const c of [a, b]) for (const e of entries) receive(c, e);
-    const merged = room.files.get(K7X_FILE);
-    expect(merged).toBe(
-      'plugin("mixer")\n// the strip\nparams({ gain: 0.9, pan: -0.25 })\n',
-    );
-    expect(read(a.root, K7X_FILE)).toBe(merged);
-    expect(read(b.root, K7X_FILE)).toBe(merged);
-    await settle();
-    expect(a.batches).toHaveLength(1);
-    expect(b.batches).toHaveLength(1);
-  });
-
-  it("set aside the later of two edits to one value, keeping the first in place", async () => {
-    const room = seededRoom(K7X_FILE, K7X_MIX);
-    const a = synced("a", room, { [K7X_FILE]: K7X_MIX });
-    const b = synced("b", room, { [K7X_FILE]: K7X_MIX });
-    put(a.root, K7X_FILE, K7X_MIX.replace("gain: 0.5", "gain: 0.1"));
-    put(b.root, K7X_FILE, K7X_MIX.replace("gain: 0.5", "gain: 0.9"));
-    await batches(a, 1);
-    await batches(b, 1);
-    const [fromA] = send(a, room);
-    const [fromB] = send(b, room);
-    for (const [c, es] of [
-      [a, [fromA, fromB]],
-      [b, [fromA, fromB]],
-    ] as const)
-      for (const e of es) receive(c, e);
-    expect(read(a.root, K7X_FILE)).toContain("gain: 0.1");
-    expect(read(a.root, K7X_FILE)).toBe(read(b.root, K7X_FILE));
-    expect(fromB.parked).toMatchObject([{ replica: "b", kept: "0.1" }]);
   });
 });

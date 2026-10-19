@@ -7,9 +7,9 @@
 import type { Dirent } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
+import { MEDIA_YAML_READ } from "@studio/song-schema/mediaYaml";
 // Where a separation's four files land, beside the master — shared, because a set's graph names it too.
 import { STEMS_DIR, stemsComplete } from "@studio/song-schema/stems";
-import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { parse as parseYaml } from "yaml";
 import { familyDir, SAMPLE_KINDS, toRel } from "./layout.ts";
 import { isAudio, isVideo, withoutDerived } from "./media.ts";
@@ -79,7 +79,7 @@ async function readSong(abs: string): Promise<Record<string, unknown>> {
   try {
     const v = parseYaml(
       await readFile(join(abs, SONG_FILE), "utf8"),
-      YAML_READ,
+      MEDIA_YAML_READ,
     );
     return v && typeof v === "object" ? (v as Record<string, unknown>) : {};
   } catch {

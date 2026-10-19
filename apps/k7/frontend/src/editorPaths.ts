@@ -52,7 +52,7 @@ export function resolveGutterSource(
   return slash > 0 ? `${projRel.slice(0, slash)}/${source}` : source;
 }
 
-// clips/ holds audio and video: the kind comes off the source extension, read with readScalarField, since YAML does not quote.
+// clips/ holds audio and video: the kind comes off the source extension, read with readScalarField so a half-typed file answers.
 export const isAudioClipFile = (text: string): boolean => {
   const src = readScalarField(text, "source");
   return !!src && !VIDEO_SOURCE.test(src);

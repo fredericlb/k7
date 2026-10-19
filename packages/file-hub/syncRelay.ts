@@ -29,6 +29,7 @@ import {
   readCheckpoints,
   rollLog,
   stateText,
+  withoutRetiredOps,
 } from "./historyLog.ts";
 
 export const SYNC_PATH = SYNC_RELAY_PATH;
@@ -121,8 +122,9 @@ function roomNameError(
 
 function load(dir: string): Room {
   const file = join(dir, "room.json");
+  // A retired op kind in the saved log is skipped and counted, so a room saved before k7x still loads.
   const state = existsSync(file)
-    ? parseState<RoomState>(readFileSync(file, "utf8"))
+    ? withoutRetiredOps(parseState<RoomState>(readFileSync(file, "utf8")))
     : null;
   adoptLegacy(dir, state);
   const room = state ? Room.from(state) : new Room();

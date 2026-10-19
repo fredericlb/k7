@@ -47,7 +47,7 @@ const isMasterRun = (before: string, after: string): boolean =>
   (before === MIX_NODE && after === OUT_NODE) ||
   (before === RENDER_NODE && after === VIDEO_OUT_NODE);
 
-/** How `before → after` stands in graph.yaml: an arrow, a line to WRITE first, or why it is neither. */
+/** How `before → after` stands in graph.k7x: an arrow, a line to WRITE first, or why it is neither. */
 function arrowState(
   songPath: string,
   before: string,
@@ -64,7 +64,7 @@ function arrowState(
   if (!dests)
     return {
       ok: false,
-      error: `no node "${before}" in graph.yaml (nodes: ${
+      error: `no node "${before}" in graph.k7x (nodes: ${
         Object.keys(file?.modules ?? {}).join(", ") || "none"
       })`,
     };
@@ -91,7 +91,7 @@ function midOfArrow(
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
 
-/** Where a `module new`/`node new` target's files live: the workspace, or a template's own folder (no project.yaml). */
+/** Where a `module new`/`node new` target's files live: the workspace, or a template's own folder (no project.k7x). */
 function localModuleFolder(
   songPath: string,
   category: string,

@@ -8,9 +8,9 @@ as it was.
 
 ## Why there is no second editor
 
-A chain template is a chain FILE, `<library>/chains/<path>.yaml` — the format a project's chains
+A chain template is a chain FILE, `<library>/chains/<path>.k7x` — the format a project's chains
 are written in, ending at `@out` (`packages/song/docs/sharedFolders.md`). A library may also hold
-FOLDER chains, `graph.yaml` with `nodes/` beside it, and the screen opens both:
+FOLDER chains, `graph.k7x` with `nodes/` beside it, and the screen opens both:
 
 | where | what it does |
 |---|---|

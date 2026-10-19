@@ -3,10 +3,10 @@
 // the surfaces it appears on. Drives both completions() and runCommand(), shared by the
 // web editor and the CLI; the behaviours live in verbs/, the completion providers in providers.ts.
 
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkProjectFormat } from "@studio/song/loader";
-import { wsRead } from "@studio/song/yaml/workspaceFile";
 import { parsePosition } from "@studio/song-schema/timecode";
 import { parse as parseYaml } from "yaml";
 import {
@@ -92,7 +92,7 @@ export function loadCommandSpecs(): CommandSpec[] {
   // Both arms merge the registered specs, the cached one above all: it serves every dispatch and completion.
   if (cached) return [...cached, ...registeredSpecs];
   try {
-    const raw = parseYaml(wsRead(commandsPath()));
+    const raw = parseYaml(readFileSync(commandsPath(), "utf8"));
     cached = (Array.isArray(raw) ? raw : [])
       .filter((c: any) => c?.command && c?.sid)
       .map((c: any) => ({

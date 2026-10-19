@@ -14,6 +14,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { SYNC_PROTO } from "@studio/live-sync/protocol";
 import express from "express";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
@@ -39,7 +40,7 @@ describe("the libraries' relay", () => {
     const tmp = mkdtempSync(join(tmpdir(), "lib-relay-"));
     const home = join(tmp, "libraries");
     mkdirSync(join(home, "k7-core", "modules"), { recursive: true });
-    writeFileSync(join(home, "k7-core", "modules", "mix.yaml"), "gain: 0.5\n");
+    writeFileSync(join(home, "k7-core", "modules", "mix.k7x"), "gain(0.5)\n");
     const server = createServer();
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
     const url = `ws://127.0.0.1:${(server.address() as AddressInfo).port}${SYNC_PATH}`;
@@ -68,7 +69,7 @@ describe("the libraries' relay", () => {
         ? readFileSync(roomFile, "utf8").split("\n").filter(Boolean).length
         : 0;
     await until(() => entries() >= 1);
-    writeFileSync(join(home, "k7-core", "modules", "mix.yaml"), "gain: 0.9\n");
+    writeFileSync(join(home, "k7-core", "modules", "mix.k7x"), "gain(0.9)\n");
     // Past one 5 s re-scan: a watcher (Linux's recursive one) may miss the rewrite, and the re-scan is the net.
     await until(() => readFileSync(roomFile, "utf8").includes("0.9"), 12_000);
     expect(accounts.every((a) => a === LIBRARIES_ACCOUNT)).toBe(true);
@@ -87,7 +88,12 @@ describe("the libraries' relay", () => {
     ws.on("message", (d) => got.push(JSON.parse(d.toString())));
     await new Promise((r) => ws.on("open", r));
     ws.send(
-      JSON.stringify({ t: "hello", workspace: "@lib/k7-core", since: 0 }),
+      JSON.stringify({
+        t: "hello",
+        workspace: "@lib/k7-core",
+        since: 0,
+        proto: SYNC_PROTO,
+      }),
     );
     await until(() => got.some((m) => m.t === "welcome"));
     const welcome = got.find((m) => m.t === "welcome");
@@ -95,7 +101,7 @@ describe("the libraries' relay", () => {
       workspace: "@lib/k7-core",
       mode: "snapshot",
     });
-    expect(welcome?.files?.["modules/mix.yaml"]).toContain("0.9");
+    expect(welcome?.files?.["modules/mix.k7x"]).toContain("0.9");
     ws.send(
       JSON.stringify({
         t: "batch",
@@ -123,8 +129,8 @@ describe("the libraries' relay", () => {
     mkdirSync(join(originHome, "k7-core", "modules"), { recursive: true });
     mkdirSync(join(originHome, "k7-core", "samples"), { recursive: true });
     writeFileSync(
-      join(originHome, "k7-core", "modules", "mix.yaml"),
-      "gain: 0.5\n",
+      join(originHome, "k7-core", "modules", "mix.k7x"),
+      "gain(0.5)\n",
     );
     // A library binary: it reaches the machine from the libraries' blob store, read with the device's token.
     const kick = randomBytes(64 * 1024);
@@ -164,8 +170,8 @@ describe("the libraries' relay", () => {
     // The machine's bundled copy is stale, and holds a file the origin does not.
     const home = join(tmp, "machine", "libraries");
     mkdirSync(join(home, "k7-core", "modules"), { recursive: true });
-    writeFileSync(join(home, "k7-core", "modules", "mix.yaml"), "gain: 0.1\n");
-    writeFileSync(join(home, "k7-core", "modules", "old.yaml"), "x: 1\n");
+    writeFileSync(join(home, "k7-core", "modules", "mix.k7x"), "gain(0.1)\n");
+    writeFileSync(join(home, "k7-core", "modules", "old.k7x"), "x(1)\n");
     const machine = new LibraryRelay(home, "ws://unused", "other", () => {});
     cleanup.push(() => {
       machine.stop();
@@ -187,12 +193,10 @@ describe("the libraries' relay", () => {
 
     machine.followRemote(url, "device");
     machine.follow([{ name: "k7-core" }]);
-    const mix = join(home, "k7-core", "modules", "mix.yaml");
+    const mix = join(home, "k7-core", "modules", "mix.k7x");
     const text = () => (existsSync(mix) ? readFileSync(mix, "utf8") : "");
-    await until(() => text() === "gain: 0.5\n");
-    expect(existsSync(join(home, "k7-core", "modules", "old.yaml"))).toBe(
-      false,
-    );
+    await until(() => text() === "gain(0.5)\n");
+    expect(existsSync(join(home, "k7-core", "modules", "old.k7x"))).toBe(false);
     const machineKick = join(home, "k7-core", "samples", "kick.wav");
     await until(
       () => existsSync(machineKick) && readFileSync(machineKick).equals(kick),
@@ -201,15 +205,15 @@ describe("the libraries' relay", () => {
 
     // The origin's edit reaches the machine.
     writeFileSync(
-      join(originHome, "k7-core", "modules", "mix.yaml"),
-      "gain: 0.7\n",
+      join(originHome, "k7-core", "modules", "mix.k7x"),
+      "gain(0.7)\n",
     );
-    await until(() => text() === "gain: 0.7\n");
+    await until(() => text() === "gain(0.7)\n");
 
     // The machine's edit is put back, and the room never hears of it.
     const before = room();
-    writeFileSync(mix, "gain: 0.99\n");
-    await until(() => text() === "gain: 0.7\n");
+    writeFileSync(mix, "gain(0.99)\n");
+    await until(() => text() === "gain(0.7)\n");
     await new Promise((r) => setTimeout(r, 300));
     expect(room()).toBe(before);
     expect(room()).not.toContain("0.99");

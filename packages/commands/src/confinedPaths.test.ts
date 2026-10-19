@@ -2,6 +2,7 @@
 // Every account's file service runs as the same OS user, so `../` reaches another account's files.
 
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -12,7 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compileNodeProject } from "@studio/song/nodeProject";
-import { copyAsYaml, setYaml, writeYaml } from "@studio/song/testSupport";
+import { setDoc, writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
@@ -30,14 +31,14 @@ beforeEach(() => {
   victim = join(root, "other-account", "keep.wav");
   mkdirSync(dirname(victim), { recursive: true });
   writeFileSync(victim, "RIFF");
-  copyAsYaml(SONG, song, { recursive: true });
+  cpSync(SONG, song, { recursive: true });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("node freeze", () => {
   it("unfreezes a module whose `frozen:` escapes without deleting what it names", async () => {
-    setYaml(
-      join(song, "nodes", "drums.yaml"),
+    setDoc(
+      join(song, "nodes", "drums.k7x"),
       ["frozen"],
       "../../other-account/keep.wav",
     );
@@ -49,7 +50,7 @@ describe("node freeze", () => {
 
   it("still deletes a render inside the project", async () => {
     writeFileSync(join(song, "frozen.wav"), "RIFF");
-    setYaml(join(song, "nodes", "drums.yaml"), ["frozen"], "frozen.wav");
+    setDoc(join(song, "nodes", "drums.k7x"), ["frozen"], "frozen.wav");
     const h = testHost({ songPath: song });
     await runCommand("node freeze drums", h, "cli");
     expect(existsSync(join(song, "frozen.wav"))).toBe(false);
@@ -58,10 +59,10 @@ describe("node freeze", () => {
 
 describe("picture sound", () => {
   it("decodes no video a clip names outside the project", async () => {
-    writeYaml(join(song, "video_tracks", "main.yaml"), {
+    writeDoc(join(song, "video_tracks", "main.k7x"), {
       events: [{ ref: "shot", start: 0, length: 2 }],
     });
-    writeYaml(join(song, "clips", "shot.yaml"), { source: "/etc/passwd.mp4" });
+    writeDoc(join(song, "clips", "shot.k7x"), { source: "/etc/passwd.mp4" });
     const h = testHost({
       songPath: song,
       project: () => compileNodeProject(song),

@@ -25,9 +25,9 @@ export function selectModuleAlternative(
   name: string,
 ): { path: string; values?: SwitchedParams } {
   let sw: ParamsSwitch | null = null;
-  const path = editModuleFile(dir, module, (text) => {
-    sw = paramsSwitch(text, name);
-    return setAlternative(text, name);
+  const path = editModuleFile(dir, module, (doc) => {
+    sw = paramsSwitch((doc.toJS() ?? {}) as Record<string, unknown>, name);
+    setAlternative(doc, name);
   });
   const found = sw as ParamsSwitch | null;
   if (!found) return { path };

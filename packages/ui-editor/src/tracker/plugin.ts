@@ -1,4 +1,4 @@
-// plugin.ts — mounts a sequence's inline `notes:` array as an interactive grid (piano roll
+// plugin.ts — mounts a sequence's `notes` list as an interactive grid (piano roll
 // or tracker) in a plain filling pane, handing back the whole next file content on an edit.
 // No CodeMirror here despite the name: the subpath is what its hosts import. See docs/noteGrids.md.
 
@@ -7,19 +7,13 @@ import {
   type WindowSpan,
   windowSpan,
 } from "@studio/song-schema/seqWindow";
-import {
-  findNotesArray,
-  type Note,
-  parseNotes,
-  type RackInfo,
-  renderNotes,
-} from "./notes";
+import { type Note, type RackInfo, readSequence, writeNotes } from "./notes";
 import { renderRollGrid } from "./RollGrid";
 import { makeTrackerCtx, renderTrackerGrid } from "./TrackerGrid";
 
 function buildRackInfo(rack: RackHint | undefined): RackInfo | null {
   const entries = rack?.symbols;
-  if (!entries || !entries.length) return null;
+  if (!entries?.length) return null;
   const toSymbol = new Map<number, string>();
   const toNote = new Map<string, number>();
   for (const e of entries) {
@@ -34,13 +28,6 @@ function buildRackInfo(rack: RackHint | undefined): RackInfo | null {
       .sort((a, b) => a.note - b.note),
   };
 }
-
-// The rack a sequence names via `use_rack` — it sits OUTSIDE the notes array, so the grids can't find it alone.
-const findUseRack = (doc: string): string | null => {
-  // Quotes optional, because YAML doesn't quote a plain scalar: `use_rack: drums`.
-  const m = doc.match(/(?:^|[\s{,])use_rack\s*:\s*"?([^"\n,}]+)"?/);
-  return m ? m[1].trim() || null : null;
-};
 
 /** The window the document states, in beats, at 4/4 like the rest of these grids — see docs/noteGrids.md. */
 function docWindow(doc: string, notes: Note[]): WindowSpan | null {
@@ -80,20 +67,16 @@ export function mountSeqGrid(
   let content = opts.content;
 
   const render = () => {
-    const span = findNotesArray(content);
-    if (!span) {
-      container.replaceChildren(); // no notes array (not a sequence) — leave it empty
+    const read = readSequence(content);
+    if (!read) {
+      container.replaceChildren(); // no notes list (not a sequence) — leave it empty
       return;
     }
-    const notes = parseNotes(content.slice(span.from, span.to));
-    const useRack = findUseRack(content);
+    const { notes, useRack } = read;
     const rack = buildRackInfo(useRack ? opts.racks?.[useRack] : undefined);
     const onGridChange = (next: Note[]) => {
-      const s = findNotesArray(content);
-      if (!s) return;
-      opts.onChange(
-        content.slice(0, s.from) + renderNotes(next) + content.slice(s.to),
-      );
+      const text = writeNotes(content, next);
+      if (text !== null) opts.onChange(text);
     };
     const win = docWindow(content, notes);
     const grid =

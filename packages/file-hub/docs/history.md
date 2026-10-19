@@ -32,6 +32,12 @@ Every entry line and the index carry `v`, the log version that wrote them, and a
 version newer than its own rather than rebuild a point from entries it may misread
 (`../../live-sync/docs/sync.md`, "Versions"). An index of another version is a cache miss.
 
+An op of a RETIRED kind (`RETIRED_OP_KINDS`: `yaml`, from before every workspace file was k7x) is
+the other way round: no update reads it, so refusing it would lock the room for good. It is
+skipped wherever a log or a saved room state is read, in an entry's ops and among the conflicts set
+aside, and counted (`retiredOpsSkipped`); the entry keeps its `seq`, so the order has no hole. The
+files those ops changed were converted to k7x on disk, and the room's next texts of them are k7x.
+
 ## Snapshots, so a point is rebuilt from nearby
 
 Every 1,000 entries the files are written whole to `snapshots/<seq>.json`. The files at any point

@@ -84,8 +84,8 @@ describe("a server's own replica", () => {
     const device = mkdtempSync(join(tmpdir(), "syncrooms-device-"));
     mkdirSync(join(device, "song.k7"), { recursive: true });
     writeFileSync(
-      join(device, "song.k7/project.yaml"),
-      "project:\n  name: s\n",
+      join(device, "song.k7/project.k7x"),
+      'project({ name: "s" })\n',
     );
     const log = mkdtempSync(join(tmpdir(), "syncrooms-log-"));
     const link = new RelayLink(
@@ -124,7 +124,7 @@ describe("a server's own replica", () => {
 
     await live.joinServerRooms();
     const root = workspaceRoot("gig");
-    await until(() => existsSync(join(root, "song.k7/project.yaml")));
+    await until(() => existsSync(join(root, "song.k7/project.k7x")));
     expect(live.attachedAt(root)?.room).toBe("gig");
   }, 60_000);
 });

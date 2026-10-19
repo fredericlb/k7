@@ -19,12 +19,8 @@ import {
   isLibraryRootEditable,
   libraryRoot,
 } from "@studio/song/sharedFolders";
-import {
-  isDocName,
-  wsExists,
-  wsRead,
-  wsWrite,
-} from "@studio/song/yaml/workspaceFile";
+import { wsData, wsWriteText } from "@studio/song/yaml/workspaceDoc";
+import { isDocName, K7X_EXT, wsExists } from "@studio/song/yaml/workspaceFile";
 import { stripDocExt } from "@studio/song-schema/docExt";
 import { currentEngine, engineNames } from "@studio/song-schema/engines";
 import {
@@ -50,9 +46,7 @@ import {
   setAlternativeField,
   setAlternativeParam,
 } from "@studio/song-schema/yaml/alternativeFile";
-import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { isBelow } from "@studio/web-protocol/paths";
-import { parse as parseYaml } from "yaml";
 import { selectModuleEngine } from "./engineSwitch";
 import { editModuleFile } from "./projectEdit";
 import { setKit } from "./rackTaps";
@@ -112,7 +106,7 @@ export function presetFile(
       `invalid preset name '${name}' — letters, digits, space, '_' and '-' only`,
     );
   const folder = presetFolder(dir, scope, ref);
-  const path = resolve(folder, `${name}.yaml`);
+  const path = resolve(folder, `${name}${K7X_EXT}`);
   if (!isBelow(folder, path)) throw new Error(`invalid preset name '${name}'`);
   return path;
 }
@@ -144,12 +138,9 @@ function readPreset(
   name: string,
 ): PresetFile {
   const path = presetFile(dir, scope, ref, name);
-  const found = wsExists(path) ? path : path.replace(/\.yaml$/, ".yml");
-  if (!wsExists(found))
+  if (!wsExists(path))
     throw new Error(`no preset '${name}' in ${scope} for ${ref}`);
-  const r = PresetFileSchema.safeParse(
-    parseYaml(wsRead(found), YAML_READ) ?? {},
-  );
+  const r = PresetFileSchema.safeParse(wsData(path));
   if (!r.success)
     throw new Error(
       `preset '${name}' is malformed: ${r.error.issues[0]?.message ?? "invalid"}`,
@@ -256,7 +247,7 @@ export function writeNodePreset(
       `'${node}' has no params, base or pads to keep — set some first`,
     );
   mkdirSync(dirname(path), { recursive: true });
-  wsWrite(path, presetFileText(ref, preset));
+  wsWriteText(path, presetFileText(ref, preset));
   return { path, ref, preset };
 }
 
@@ -305,8 +296,8 @@ export function applyPresetToNode(
     else if (current !== preset.base) {
       // Into the set that is on, as the values go: a node whose set swaps its module reads its base there.
       const base = preset.base;
-      editModuleFile(dir, node, (text) =>
-        setAlternativeField(text, "base", base),
+      editModuleFile(dir, node, (doc) =>
+        setAlternativeField(doc, "base", base),
       );
       rebased = true;
     }
@@ -315,12 +306,11 @@ export function applyPresetToNode(
   const engine = currentEngine(resolved());
   // A new base drops the node's own values: they were set over the old state and mean nothing over this one.
   if (rebased || Object.keys(params).length)
-    editModuleFile(dir, node, (text) =>
-      Object.entries(params).reduce(
-        (t, [k, v]) => setAlternativeParam(t, k, v, engine),
-        rebased ? clearAlternativeParams(text, engine) : text,
-      ),
-    );
+    editModuleFile(dir, node, (doc) => {
+      if (rebased) clearAlternativeParams(doc, engine);
+      for (const [k, v] of Object.entries(params))
+        setAlternativeParam(doc, k, v, engine);
+    });
   if (preset.rack) setKit(dir, node, preset.rack);
   return {
     params,

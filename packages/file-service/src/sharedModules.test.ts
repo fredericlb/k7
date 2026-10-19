@@ -18,28 +18,29 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeLibrary, writeYaml } from "@studio/song/testSupport";
+import { writeDoc, writeLibrary } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
 let root: string;
 let ws: Workspace;
 
-const SHARED = "_modules/audio/delay/tape-delay/module.yaml";
+const SHARED = "_modules/audio/delay/tape-delay/module.k7x";
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-shared-"));
   writeLibrary(root);
   const proj = join(root, "song.k7");
   mkdirSync(join(proj, "modules"), { recursive: true });
-  writeYaml(join(proj, "project.yaml"), {
+  writeDoc(join(proj, "project.k7x"), {
     project: { name: "song", modules_from: ["../_modules"] },
   });
-  writeFileSync(
-    join(proj, "graph.yaml"),
-    'modules:\n  bs.lead: [ "@workspace/audio/delay/tape-delay" ]\n  "@workspace/audio/delay/tape-delay": [ OUT ]\n',
-    "utf8",
-  );
+  writeDoc(join(proj, "graph.k7x"), {
+    modules: {
+      "bs.lead": ["@workspace/audio/delay/tape-delay"],
+      "@workspace/audio/delay/tape-delay": ["OUT"],
+    },
+  });
   ws = new Workspace(root);
   ws.setActiveProject("song.k7");
 });
@@ -48,7 +49,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("the shared module library's structure is fixed", () => {
   it("refuses to rename, move, delete, or add to it", async () => {
-    await expect(ws.renameEntry(SHARED, "other.yaml")).rejects.toThrow(
+    await expect(ws.renameEntry(SHARED, "other.k7x")).rejects.toThrow(
       /edited in place/,
     );
     await expect(ws.moveEntry(SHARED, "song.k7")).rejects.toThrow(
@@ -64,9 +65,9 @@ describe("the shared module library's structure is fixed", () => {
       ws.uploadFile("_modules/audio", "ir.wav", Buffer.from("x")),
     ).toThrow(/edited in place/);
     // …and refuses to move something INTO it, which is a structural change to the library just the same.
-    await expect(
-      ws.moveEntry("song.k7/graph.yaml", "_modules"),
-    ).rejects.toThrow(/edited in place/);
+    await expect(ws.moveEntry("song.k7/graph.k7x", "_modules")).rejects.toThrow(
+      /edited in place/,
+    );
   });
 
   it("says which folder and what to do instead", async () => {
@@ -83,8 +84,8 @@ describe("the shared module library's structure is fixed", () => {
 describe("a module library OUTSIDE the workspace", () => {
   // The mediatek sits beside the workspaces, so `safePath` means these routes cannot ADDRESS it at all.
   it("cannot be reached by climbing out of the workspace", async () => {
-    const outside = "../mediatek/modules/audio/reverb/module.yaml";
-    expect(() => ws.write(outside, "plugin: {}\n")).toThrow(/escapes/);
+    const outside = "../mediatek/modules/audio/reverb/module.k7x";
+    expect(() => ws.write(outside, "plugin({})\n")).toThrow(/escapes/);
     await expect(ws.deleteEntry("../mediatek")).rejects.toThrow(/escapes/);
     expect(() => ws.createFolder("../mediatek/modules", "mine")).toThrow(
       /escapes/,
@@ -103,14 +104,14 @@ describe("a module library OUTSIDE the workspace", () => {
     } catch {
       return; // no permission to create links on this machine — the lexical gate still stands
     }
-    expect(() => ws.write("link/modules/x.yaml", "a: 1\n")).toThrow(/escapes/);
+    expect(() => ws.write("link/modules/x.k7x", "a(1)\n")).toThrow(/escapes/);
     rmSync(media, { recursive: true, force: true });
   });
 });
 
 describe("saving a shared module writes it in place", () => {
   const EDIT =
-    "plugin:\n  name: Tape Delay\n  type: vst3\nparams:\n  Mix: 0.8\n";
+    'plugin({ name: "Tape Delay", type: "vst3" })\nparams({ Mix: 0.8 })\n';
 
   it("changes the library file itself, with no fork and nothing extra in the answer", () => {
     const { forked } = ws.write(SHARED, EDIT);
@@ -120,13 +121,13 @@ describe("saving a shared module writes it in place", () => {
 
   it("writes a non-module file in there just as ordinarily", () => {
     writeFileSync(
-      join(root, "_modules", "config.yaml"),
-      "namespace: engine\n",
+      join(root, "_modules", "config.k7x"),
+      'namespace("engine")\n',
       "utf8",
     );
-    ws.write("_modules/config.yaml", "namespace: other\n");
-    expect(readFileSync(join(root, "_modules", "config.yaml"), "utf8")).toBe(
-      "namespace: other\n",
+    ws.write("_modules/config.k7x", 'namespace("other")\n');
+    expect(readFileSync(join(root, "_modules", "config.k7x"), "utf8")).toBe(
+      'namespace("other")\n',
     );
   });
 
@@ -151,7 +152,7 @@ describe("the catalogue the builder lists", () => {
     // A project with no `_modules` beside it lacks anything to OPEN, not anything to reach for.
     const solo = mkdtempSync(join(tmpdir(), "td-solo-"));
     mkdirSync(join(solo, "song.k7"), { recursive: true });
-    writeYaml(join(solo, "song.k7", "project.yaml"), {
+    writeDoc(join(solo, "song.k7", "project.k7x"), {
       project: { name: "song" },
     });
     const w = new Workspace(solo);

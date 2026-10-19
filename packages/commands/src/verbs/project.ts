@@ -6,7 +6,8 @@ import { METRONOME_MIN } from "@studio/engine-protocol/build";
 import { loadProjectRoot } from "@studio/song/loader";
 import type { ProjectDoc } from "@studio/song/project";
 import { createSurfaceFile } from "@studio/song/surfaces";
-import { setFileValue, setQuotedKeyMap } from "@studio/song/yaml/edit";
+import { setFileValue } from "@studio/song/yaml/edit";
+import { wsEdit } from "@studio/song/yaml/workspaceDoc";
 import { spliceProjectTime } from "@studio/song-edit/insertTime";
 import { ASPECTS, aspectSize } from "@studio/song-schema/aspect";
 import {
@@ -28,19 +29,25 @@ import { splitWords } from "./shared.ts";
 const MIN_BPM = 20;
 const MAX_BPM = 400;
 
-// Rewrite the project's `markers` map with QUOTED keys — unquoted, `2:1:1` is a YAML 1.1 integer; docs/verbs.md.
+// Make the project's `markers` map equal `map`, touching only the markers that changed; docs/verbs.md.
 function writeMarkers(songPath: string, map: Record<string, string>): void {
-  setQuotedKeyMap(join(songPath, "project.yaml"), ["markers"], map);
+  wsEdit(
+    join(songPath, "project.k7x"),
+    (doc) => doc.applyIn(["markers"], map),
+    {
+      create: true,
+    },
+  );
 }
 
-// Flip the persisted metronome flag in settings.yaml, the source of truth — so the caller re-sends.
+// Flip the persisted metronome flag in settings.k7x, the source of truth — so the caller re-sends.
 function writeMetronomeSetting(songPath: string, on: boolean): void {
-  setFileValue(join(songPath, "settings.yaml"), ["metronome"], on);
+  setFileValue(join(songPath, "settings.k7x"), ["metronome"], on);
 }
 
 // …and its LEVEL, kept apart from the flag so turning the click off and back on brings the level back.
 function writeMetronomeLevel(songPath: string, level: number): void {
-  setFileValue(join(songPath, "settings.yaml"), ["metronome_level"], level);
+  setFileValue(join(songPath, "settings.k7x"), ["metronome_level"], level);
 }
 
 /** `project add|remove <at> <length>` — a POSITION then a DURATION; docs/verbs.md, packages/song/docs/insertTime.md. */
@@ -191,7 +198,7 @@ export const PROJECT_VERBS: Record<string, SidHandler> = {
       h.refuse([`project surface new: ${(e as Error).message}`, usage]);
     }
   },
-  // Toggle the metronome: a PROJECT setting, so it rewrites settings.yaml and re-sends. The click is remembered.
+  // Toggle the metronome: a PROJECT setting, so it rewrites settings.k7x and re-sends. The click is remembered.
   "transport.metronome": async (_a, h) => {
     const p = h.project();
     const on = !p.settings.metronome;
@@ -245,7 +252,7 @@ export const PROJECT_VERBS: Record<string, SidHandler> = {
       ]);
       return;
     }
-    const file = join(h.songPath, "project.yaml");
+    const file = join(h.songPath, "project.k7x");
     // The third element is the EXPORT fps: read back and kept, so a shape change never drops it.
     const now = loadProjectRoot(h.songPath).project?.viewport as
       | number[]
@@ -276,7 +283,7 @@ export const PROJECT_VERBS: Record<string, SidHandler> = {
       return;
     }
     const tidy = Math.round(bpm * 100) / 100;
-    setFileValue(join(h.songPath, "project.yaml"), ["project", "tempo"], tidy);
+    setFileValue(join(h.songPath, "project.k7x"), ["project", "tempo"], tidy);
     h.log([`tempo ${tidy} bpm`]);
     await h.reload();
   },
@@ -293,7 +300,7 @@ export const PROJECT_VERBS: Record<string, SidHandler> = {
       return;
     }
     setFileValue(
-      join(h.songPath, "project.yaml"),
+      join(h.songPath, "project.k7x"),
       ["project", "timeSignature"],
       `${beats}/${unit}`,
     );

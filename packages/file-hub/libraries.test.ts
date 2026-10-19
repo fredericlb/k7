@@ -23,8 +23,8 @@ beforeEach(() => {
   seed = join(tmp, "seed");
   mkdirSync(join(seed, "k7-core", "modules"), { recursive: true });
   writeFileSync(
-    join(seed, "k7-core", "modules", "mix.yaml"),
-    "plugin: mixer\n",
+    join(seed, "k7-core", "modules", "mix.k7x"),
+    'plugin("mixer")\n',
   );
   mkdirSync(join(seed, "k7-core", ".git"));
 });
@@ -38,10 +38,10 @@ describe("the hub's libraries", () => {
     ]);
     expect(
       readFileSync(
-        join(store.home, "k7-core", "1", "modules", "mix.yaml"),
+        join(store.home, "k7-core", "1", "modules", "mix.k7x"),
         "utf8",
       ),
-    ).toBe("plugin: mixer\n");
+    ).toBe('plugin("mixer")\n');
     expect(existsSync(join(store.home, "k7-core", "1", ".git"))).toBe(false);
     expect(store.versions("k7-core")).toEqual([
       { name: "k7-core", version: 1, requires: 1 },
@@ -54,22 +54,22 @@ describe("the hub's libraries", () => {
   it("moves a library still in one folder into its version 1, leaving no draft until an admin asks", async () => {
     const store = new LibraryStore(data, seed);
     mkdirSync(join(store.home, "k7-core", "modules"), { recursive: true });
-    writeFileSync(join(store.home, "k7-core", "modules", "old.yaml"), "x: 1\n");
+    writeFileSync(join(store.home, "k7-core", "modules", "old.k7x"), "x(1)\n");
     expect(await store.ensure()).toMatchObject([
       { name: "k7-core", state: "current", note: "moved into version 1" },
     ]);
     expect(
-      existsSync(join(store.home, "k7-core", "1", "modules", "old.yaml")),
+      existsSync(join(store.home, "k7-core", "1", "modules", "old.k7x")),
     ).toBe(true);
     expect(existsSync(join(store.home, "k7-core", "draft"))).toBe(false);
     expect(await store.ensure({ draft: true })).toMatchObject([
       { name: "k7-core", note: "draft copied from version 1" },
     ]);
     expect(
-      existsSync(join(store.home, "k7-core", "draft", "modules", "old.yaml")),
+      existsSync(join(store.home, "k7-core", "draft", "modules", "old.k7x")),
     ).toBe(true);
     expect(
-      existsSync(join(store.home, "k7-core", "draft", "library.yaml")),
+      existsSync(join(store.home, "k7-core", "draft", "library.k7x")),
     ).toBe(false);
   });
 
@@ -77,8 +77,8 @@ describe("the hub's libraries", () => {
     const store = new LibraryStore(data, seed);
     await store.ensure({ draft: true });
     writeFileSync(
-      join(store.home, "k7-core", "draft", "modules", "mix.yaml"),
-      "plugin: newer\n",
+      join(store.home, "k7-core", "draft", "modules", "mix.k7x"),
+      'plugin("newer")\n',
     );
     expect(await store.publish("k7-core", { requires: 99 })).toMatchObject({
       error: expect.stringContaining("level 99"),
@@ -89,16 +89,16 @@ describe("the hub's libraries", () => {
     });
     expect(
       readFileSync(
-        join(store.home, "k7-core", "2", "modules", "mix.yaml"),
+        join(store.home, "k7-core", "2", "modules", "mix.k7x"),
         "utf8",
       ),
-    ).toBe("plugin: newer\n");
+    ).toBe('plugin("newer")\n');
     expect(
       readFileSync(
-        join(store.home, "k7-core", "1", "modules", "mix.yaml"),
+        join(store.home, "k7-core", "1", "modules", "mix.k7x"),
         "utf8",
       ),
-    ).toBe("plugin: mixer\n");
+    ).toBe('plugin("mixer")\n');
     expect(store.versions("k7-core").map((m) => m.version)).toEqual([1, 2]);
     expect(await store.publish("drums")).toMatchObject({
       error: "'drums' has no draft to publish",
@@ -151,8 +151,8 @@ describe("the hub's libraries", () => {
 
   it("installs a PUBLISHED seed under its own number, and adds a newer one to a machine that has the library", async () => {
     writeFileSync(
-      join(seed, "k7-core", "library.yaml"),
-      "name: k7-core\nversion: 3\nrequires: 1\n",
+      join(seed, "k7-core", "library.k7x"),
+      'name("k7-core")\nversion(3)\nrequires(1)\n',
     );
     const store = new LibraryStore(data, seed);
     expect(await store.ensure()).toMatchObject([
@@ -161,8 +161,8 @@ describe("the hub's libraries", () => {
     expect(store.versions("k7-core").map((m) => m.version)).toEqual([3]);
     // An app update carries version 4: one more frozen version, nothing else touched.
     writeFileSync(
-      join(seed, "k7-core", "library.yaml"),
-      "name: k7-core\nversion: 4\nrequires: 1\n",
+      join(seed, "k7-core", "library.k7x"),
+      'name("k7-core")\nversion(4)\nrequires(1)\n',
     );
     expect(await store.ensure()).toMatchObject([
       {

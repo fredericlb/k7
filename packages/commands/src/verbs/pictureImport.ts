@@ -14,7 +14,8 @@ import {
 import type { RawClip } from "@studio/song/rawDoc";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
-import { wsExists, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsWriteData } from "@studio/song/yaml/workspaceDoc";
+import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { fromEdl } from "@studio/song-video/interchange/fromEdl";
 import { fromOtio } from "@studio/song-video/interchange/fromOtio";
 import type { ImportedShot } from "@studio/song-video/interchange/imported";
@@ -67,7 +68,7 @@ class Media {
     return `clips/${name}`;
   }
 
-  /** The clip id for a shot's media, declaring `clips/<id>.yaml` the first time a file is met. */
+  /** The clip id for a shot's media, declaring `clips/<id>.k7x` the first time a file is met. */
   clipFor(shot: ImportedShot): string {
     const source = this.locate(shot.media || shot.name);
     const known = this.bySource.get(source);
@@ -80,24 +81,29 @@ class Media {
     for (let n = 2; this.taken.has(id); n++) id = `${stem}-${n}`;
     // A song with no footage yet has no clips/ folder, and this is the first clip it gets.
     mkdirSync(resolve(this.h.songPath, "clips"), { recursive: true });
-    wsWrite(
-      resolve(this.h.songPath, "clips", `${id}.yaml`),
-      `source: ${source}\n`,
-    );
+    wsWriteData(resolve(this.h.songPath, "clips", `${id}.k7x`), { source });
     this.taken.add(id);
     this.bySource.set(source, id);
     return id;
   }
 }
 
-// One shot as a lane entry, in the lane file's own flow spelling.
-const entry = (ref: string, s: ImportedShot): string => {
-  const f = [`ref: ${ref}`, `start: ${ms(s.start)}`, `length: ${ms(s.length)}`];
-  if (s.sourceFrom > 1e-6) f.push(`source_from: ${ms(s.sourceFrom)}`);
-  if (s.speed !== undefined && s.speed !== 1) f.push(`speed: ${ms(s.speed)}`);
-  if (s.fadeIn) f.push(`fade_in: ${ms(s.fadeIn)}`);
-  return `  - { ${f.join(", ")} }`;
+// One shot as a lane entry, written on a line of its own by the lane's writer.
+const entry = (ref: string, s: ImportedShot): Record<string, unknown> => {
+  const f: Record<string, unknown> = {
+    ref,
+    start: ms(s.start),
+    length: ms(s.length),
+  };
+  if (s.sourceFrom > 1e-6) f.source_from = ms(s.sourceFrom);
+  if (s.speed !== undefined && s.speed !== 1) f.speed = ms(s.speed);
+  if (s.fadeIn) f.fade_in = ms(s.fadeIn);
+  return f;
 };
+
+// Every entry of a lane's `events` list on one line, as a lane is written by hand.
+const shotLine = (path: readonly (string | number)[]): boolean =>
+  path.length === 2 && path[0] === "events";
 
 export const PICTURE_IMPORT_VERBS: Record<string, SidHandler> = {
   "picture.import": (a, h) => {
@@ -158,9 +164,7 @@ export const PICTURE_IMPORT_VERBS: Record<string, SidHandler> = {
     const prefix = prefixArg || "import-";
     let n = 1;
     for (const track of tracks) {
-      while (
-        wsExists(resolve(h.songPath, "video_tracks", `${prefix}${n}.yaml`))
-      )
+      while (wsExists(resolve(h.songPath, "video_tracks", `${prefix}${n}.k7x`)))
         n++;
       const id = `${prefix}${n}`;
       try {
@@ -170,9 +174,11 @@ export const PICTURE_IMPORT_VERBS: Record<string, SidHandler> = {
         return;
       }
       const events = track.shots.map((s) => entry(media.clipFor(s), s));
-      wsWrite(
-        resolve(h.songPath, "video_tracks", `${id}.yaml`),
-        `# imported from ${basename(abs)}${track.name ? `, track ${track.name}` : ""}\nevents:\n${events.join("\n")}\n`,
+      const from = `imported from ${basename(abs)}${track.name ? `, track ${track.name}` : ""}`;
+      wsWriteData(
+        resolve(h.songPath, "video_tracks", `${id}.k7x`),
+        { events },
+        { header: [from], inline: shotLine },
       );
       lines.push(
         `+ picture lane ${id}: ${track.shots.length} shot(s)${track.name ? ` from ${track.name}` : ""}`,

@@ -74,7 +74,7 @@ from the keyboard through the same ordered binding `r` uses — `caret_track` fi
 `caret_picture`, the two lanes' words living in two places.
 
 - **M** is `picture mute`, which on picture means HIDDEN — the lane's own file carries it.
-- **S** is `picture solo`, which writes `project.yaml`'s `soloed:` — the SAME list audio uses
+- **S** is `picture solo`, which writes `project.k7x`'s `soloed:` — the SAME list audio uses
   ([packages/song-video/docs/picture.md](../../../../packages/song-video/docs/picture.md)).
 
 `pictureMix.ts` is the fold, and it is one module because two surfaces read it: the frame, which
@@ -207,7 +207,7 @@ under the cursor and the shot would slide away from the pointer.
 ### A fourth gesture makes one
 
 The three above move a shot that is already there. Dropping a video file from the desktop onto a
-picture lane is what CREATES one: the bytes into `clips/`, a `clips/<id>.yaml` declaring the
+picture lane is what CREATES one: the bytes into `clips/`, a `clips/<id>.k7x` declaring the
 source, then `picture add <lane> <ref> <seconds>` — a command, so it is one journal entry and one
 Ctrl+Z, unlike the three drags. `apps/k7/frontend/docs/timeline.md` has the whole account; what
 matters here is that the position is converted at the timeline's edge, since the verb's dialect is
@@ -285,13 +285,13 @@ seeded rather than reached.
 
 ## The readers strip
 
-For an open `video_tracks/*.yaml`, the editor grows a dock of small `<video>` readers, one per
+For an open `video_tracks/*.k7x`, the editor grows a dock of small `<video>` readers, one per
 placement, with **Set From** / **Set To** writing that placement's `source_from` / `length`. The
 in-point of a shot is a frame you recognise, not a number you type.
 
 Two sources, deliberately: the **times** come from the BUFFER, since a trim typed a second ago has
 no compiled form yet and a strip that waited for one would be a step behind every edit; the **file
-each ref names** comes from the COMPILED document, because only the compiler read `clips/<ref>.yaml`
+each ref names** comes from the COMPILED document, because only the compiler read `clips/<ref>.k7x`
 to find out. A ref the compiler has never seen simply has no reader, which is honest where a black
 rectangle is not. The buttons edit the same buffer a keystroke does, so autosave writes them the
 same way.
@@ -306,7 +306,7 @@ The RENDER node's card carries the list. Three things hold it together:
 
 - **It reads as a field and writes as a verb.** The current value is put on the card by
   `buildGraph` (`renderCard`), so the menu ticks the right line without asking anyone; but what
-  it writes is in `project.yaml`, and the RENDER node has no file — hence `@project:aspect`,
+  it writes is in `project.k7x`, and the RENDER node has no file — hence `@project:aspect`,
   which runs `project aspect <value>`. Same family as `@rack:` and `@rec:`: an intrinsic that
   TRIGGERS instead of writing a module field.
 - **The ticked line is decided by the RATIO, not the size.** A project writing `[1280, 720]` ticks

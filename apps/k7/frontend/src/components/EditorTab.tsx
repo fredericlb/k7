@@ -2,8 +2,8 @@
 // a breadcrumb and (when there's room) a file tree. ONE instance serves both layouts — a
 // second would fork the open file, its unsaved text and the undo history. There is no Save
 // button: the buffer is written as soon as it is a document the compiler could read
-// (packages/ui-editor/docs/autosave.md). Saving does NOT format either — the writers emit
-// canonical YAML, and reflowing a hand-edited file is what this format was chosen to avoid.
+// (packages/ui-editor/docs/autosave.md). Saving does NOT format either — the writers edit k7x
+// value by value, and reflowing a hand-edited file is what this format was chosen to avoid.
 
 import { redo, redoDepth, undo, undoDepth } from "@codemirror/commands";
 import { Transaction } from "@codemirror/state";
@@ -19,6 +19,7 @@ import {
   setVideoPlacementField,
 } from "@studio/song-schema/yaml/videoTrackFile";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
+import { editK7xText } from "@studio/ui-editor/k7x/bufferEdit";
 import type { LintItem } from "@studio/ui-editor/lint";
 import { InputChannelBar } from "@studio/ui-module-builder/input-channels";
 import { setChannelIn } from "@studio/ui-module-builder/module-ui";
@@ -117,6 +118,15 @@ export interface EditorHandle {
 }
 
 // The hints before the first answer: every list empty, so completion offers nothing rather than failing.
+/** The placements a picture lane's text lists; none while it does not read. */
+function placementsIn(text: string): ReturnType<typeof listVideoPlacements> {
+  try {
+    return listVideoPlacements(text);
+  } catch {
+    return [];
+  }
+}
+
 const EMPTY_HINTS: Hints = {
   baseModules: [],
   ioSinks: [],
@@ -195,13 +205,13 @@ export function EditorTab({
   onOpenLibraryModule: (moduleFile: string) => void;
   /** A chain row of the Libraries tab was opened — its ref, for the chains builder. */
   onOpenChain: (ref: string, node?: string) => void;
-  /** An assembly template was opened from the Libraries tab: its `assembly.yaml`, and its folder. */
+  /** An assembly template was opened from the Libraries tab: its `assembly.k7x`, and its folder. */
   onOpenAssembly: (file: string, folder: string) => void;
   /** The chains builder, when one is open — rendered in the editor's own place. */
   chainsBuilder?: React.ReactNode;
   /** The module builder, drawn in the same place — beside the tree, never over it. */
   moduleBuilder?: React.ReactNode;
-  /** Each picture clip ref → the media file it names, from the COMPILED document: only the compiler has read `clips/<ref>.yaml`. */
+  /** Each picture clip ref → the media file it names, from the COMPILED document: only the compiler has read `clips/<ref>.k7x`. */
   videoSources: Record<string, string>;
   // The interface's inputs, for the channel strip an `io: in` file gets under its text — see ui-module-builder/docs/inputChannels.md.
   inputDevices: { name: string; channels: number[] }[];
@@ -238,11 +248,11 @@ export function EditorTab({
   const [tab, setTab] = useState<"text" | SeqView>("text");
   // The readers strip, shown for a lane file until dismissed — per-session and per-pane, a dock over the text.
   const [strip, setStrip] = useState(true);
-  // The audio clip this clips/*.yaml links to: it docks at the bottom of the CODE pane, not the shared panel.
+  // The audio clip this clips/*.k7x links to: it docks at the bottom of the CODE pane, not the shared panel.
   const [audioClip, setAudioClip] = useState<{
     project: WebProject;
     clip: WebClip;
-    // Span the whole source, not the placed region — what a clips/*.yaml shows (see WaveformView).
+    // Span the whole source, not the placed region — what a clips/*.k7x shows (see WaveformView).
     whole?: boolean;
     // Slice-rack windows to overlay on the waveform; `hollow` is the clip band of a file that trims nothing.
     sliceRanges?: {
@@ -824,7 +834,7 @@ export function EditorTab({
   const createProjectFile = useCallback(
     async (dir: string, name: string) => {
       const rel = `${dir}/${name}`;
-      // EMPTY — a YAML file needs nothing, and pre-filling one would only be something to delete.
+      // EMPTY — a k7x file needs nothing, and pre-filling one would only be something to delete.
       const body = "";
       try {
         await api.write(rel, body);
@@ -879,7 +889,7 @@ export function EditorTab({
     [refresh, open, onChanged, setStatus],
   );
 
-  // New node: add an <node>.yaml and open it — the point of a node is to state what it overrides.
+  // New node: add an <node>.k7x and open it — the point of a node is to state what it overrides.
   const createNodeEntry = useCallback(
     async (path: string) => {
       try {
@@ -1146,7 +1156,7 @@ export function EditorTab({
       !isVideoTrackFile(readFile.path)
     )
       return [];
-    return listVideoPlacements(readFile.content).flatMap((p) => {
+    return placementsIn(readFile.content).flatMap((p) => {
       const src = videoSources[p.ref];
       return src
         ? [{ ref: p.ref, src, sourceFrom: p.sourceFrom, length: p.length }]
@@ -1161,7 +1171,10 @@ export function EditorTab({
         f && !f.binary
           ? {
               ...f,
-              content: setVideoPlacementField(f.content, ref, field, value),
+              content:
+                editK7xText(f.content, (doc) =>
+                  setVideoPlacementField(doc, ref, field, value),
+                ) ?? f.content,
             }
           : f,
       ),
@@ -1431,7 +1444,7 @@ export function EditorTab({
                 onSetFrom={(ref, t) => setPlacement(ref, "source_from", t)}
                 // 'To' is an END and the file stores an EXTENT — the subtraction belongs beside the only place that knows both numbers.
                 onSetTo={(ref, t) => {
-                  const p = listVideoPlacements(
+                  const p = placementsIn(
                     file && !file.binary ? file.content : "",
                   ).find((x) => x.ref === ref);
                   setPlacement(

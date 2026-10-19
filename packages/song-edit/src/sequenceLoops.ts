@@ -5,18 +5,15 @@
 
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
+import { K7Document } from "@studio/k7x/document";
 import {
   chainFiles,
+  editChainItemIn,
   eventItemIds,
   laneFolder,
-  spliceChainItem,
 } from "@studio/song/chainItemEdit";
-import {
-  isDocName,
-  wsExists,
-  wsRead,
-  wsWrite,
-} from "@studio/song/yaml/workspaceFile";
+import { wsText, wsWriteText } from "@studio/song/yaml/workspaceDoc";
+import { isDocName, wsExists } from "@studio/song/yaml/workspaceFile";
 import { stripDocExt } from "@studio/song-schema/docExt";
 import {
   halveSequenceLoops,
@@ -54,21 +51,21 @@ export function halveLoopsOf(
   const rels = [...names.map((f) => `${folder}/${f}`), ...chainFiles(dir)];
   for (const rel of rels) {
     const path = join(dir, rel);
-    let before: string;
+    let doc: K7Document;
     try {
-      before = wsRead(path);
+      doc = new K7Document(wsText(path));
     } catch {
       continue;
     }
     const isChain = !rel.startsWith(`${folder}/`);
-    const { text, halved, kept } = isChain
-      ? halveInChain(before, ref)
-      : halveSequenceLoops(before, ref);
+    const { halved, kept } = isChain
+      ? halveInChain(doc, ref)
+      : halveSequenceLoops(doc.at([]), ref);
     const lane = stripDocExt(rel.slice(rel.indexOf("/") + 1));
     out.kept.push(...kept.map((k) => ({ ...k, lane })));
     if (!halved) continue;
     snapshot?.(path);
-    wsWrite(path, text);
+    wsWriteText(path, doc.toString());
     out.files.push(rel);
     out.halved += halved;
   }
@@ -77,18 +74,16 @@ export function halveLoopsOf(
 
 // The same over a chain file: every node item holding events of its own (docs/chainFiles.md).
 function halveInChain(
-  text: string,
+  doc: K7Document,
   ref: string,
-): { text: string; halved: number; kept: KeptLoop[] } {
-  let out = text;
+): { halved: number; kept: KeptLoop[] } {
   let halved = 0;
   const kept: KeptLoop[] = [];
-  for (const id of eventItemIds(text))
-    out = spliceChainItem(out, id, (t) => {
-      const r = halveSequenceLoops(t, ref);
+  for (const id of eventItemIds(doc.toString()))
+    editChainItemIn(doc, id, (item) => {
+      const r = halveSequenceLoops(item, ref);
       halved += r.halved;
       kept.push(...r.kept);
-      return r.text;
     });
-  return { text: out, halved, kept };
+  return { halved, kept };
 }

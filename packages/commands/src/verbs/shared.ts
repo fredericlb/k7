@@ -36,6 +36,11 @@ export function playlistFile(
     h.refuse([NO_WORKSPACE]);
     return null;
   }
+  // A set list is a .k7x file: a YAML name would only become `<name>.yaml.k7x`.
+  if (/\.ya?ml$/i.test(name.trim())) {
+    h.refuse([`'${name}': a playlist is a .k7x file — name it without .yaml`]);
+    return null;
+  }
   const rel = playlistPathOf(name);
   const dir = resolve(root, PLAYLISTS_DIR);
   const abs = rel ? resolve(root, rel) : "";

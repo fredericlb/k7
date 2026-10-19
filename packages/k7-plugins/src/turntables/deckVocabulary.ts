@@ -18,7 +18,7 @@ export interface DeckModule {
   enabled: boolean;
 }
 
-/** The two decks, named as the PROJECT names them (`chains.yaml`) — not a cosmetic match, see docs/mix.md. */
+/** The two decks, named as the PROJECT names them (`graph.k7x`) — not a cosmetic match, see docs/mix.md. */
 export const DECKS = ["deckA", "deckB"] as const;
 export type DeckId = (typeof DECKS)[number];
 
@@ -35,7 +35,7 @@ export interface DeckLoad {
   /** What PL8 knows about the recording, from its `song.yaml` — see mediatek's docs/songs.md.
    *
    * Both are facts about the RECORD and not about this set, which is why they arrive with the load
-   * rather than out of `mix.yaml`: 87 BPM is 87 BPM in every project that plays it. */
+   * rather than out of `mix.k7x`: 87 BPM is 87 BPM in every project that plays it. */
   bpm?: number;
   /** `C# minor`. Typed by a person — the detector measured 53 % (docs/key-detection-plan.md). */
   key?: string;
@@ -74,7 +74,7 @@ export interface DeckTempo {
 
 export type DeckTempos = Partial<Record<DeckId, DeckTempo>>;
 
-/** The ends of the tempo fader — the MODULE's own knob (`ui.yaml`), not a range the desk invented. See docs/bpm.md. */
+/** The ends of the tempo fader — the MODULE's own knob (`ui.k7x`), not a range the desk invented. See docs/bpm.md. */
 export const BPM_RANGE: readonly [min: number, max: number] = [10, 300];
 
 /** The ends of an EQ knob, in dB — the module's own, for the same reason `BPM_RANGE` is. See docs/eq.md. */

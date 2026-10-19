@@ -1,6 +1,6 @@
 # @studio/translator
 
-Converts another DAW's project into a k7 **node project** — a folder of YAML the
+Converts another DAW's project into a k7 **node project** — a folder of k7x files the
 `@studio/song` loader reads back. Two formats today:
 
 ```
@@ -22,7 +22,7 @@ import type { Song, Translation } from "@studio/translator/model";     // the ne
 import { parseDawproject } from "@studio/translator/dawproject";       // bytes  -> Translation
 import { parseAls } from "@studio/translator/ableton";                 // bytes  -> Translation
 import { resolvePluginParams } from "@studio/translator/params";       // presets -> text params
-import { emitFolder } from "@studio/translator/emit";                  // Song   -> the YAML folder
+import { emitFolder } from "@studio/translator/emit";                  // Song   -> the k7x folder
 ```
 
 Every mapper returns the same `Translation`, so only the first step knows a format.
@@ -38,17 +38,17 @@ Produces a self-contained folder:
 
 ```
 outDir/
-  project.yaml               header (name/tempo/sampleRate/timeSignature)
-  graph.yaml                the graph: track → module nodes → strip → MIX → OUT
-  modules/io/OUT/module.yaml            the stereo-output sink (io module)
-  modules/{instruments,audio,transformers}/<name>/module.yaml
+  project.k7x               header (name/tempo/sampleRate/timeSignature)
+  graph.k7x                the graph: track → module nodes → strip → MIX → OUT
+  modules/io/OUT/module.k7x            the stereo-output sink (io module)
+  modules/{instruments,audio,transformers}/<name>/module.k7x
                                         self-contained modules: the plugin inline +
                                         concrete params (deduped by plugin+params),
                                         with <name>.vstpreset beside them
-  nodes/<name>.yaml          a LANE: `extends` a track module, plus its placements
-  clips/<id>.yaml            one per clip; the WAV beside them is one per recording, shared
-  sequences/<id>.yaml        raw MIDI material (inline {t,d,k,v} note structs)
-  surfaces/timeline.yaml     what makes the lanes visible — an import IS an arrangement
+  nodes/<name>.k7x          a LANE: `extends` a track module, plus its placements
+  clips/<id>.k7x            one per clip; the WAV beside them is one per recording, shared
+  sequences/<id>.k7x        raw MIDI material (inline {t,d,k,v} note structs)
+  surfaces/timeline.k7x     what makes the lanes visible — an import IS an arrangement
 ```
 
 No schema ships with it: a project is validated in process against the loader's own
@@ -71,7 +71,7 @@ schemas (`packages/song/src/yaml/`).
 ## What it drops
 
 Automation curves, and cross-type plugin chain order is approximated (instrument/note FX
-before audio FX). Send **levels** are lost even where sends are carried: `graph.yaml`
+before audio FX). Send **levels** are lost even where sends are carried: `graph.k7x`
 records destinations, not gains, and the emitter writes a `NOTE:` saying so.
 
 Ableton additionally drops what has no portable form — Live's own devices, rack structure,

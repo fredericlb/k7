@@ -67,7 +67,7 @@ describe("a project dropped on a workspace", () => {
       "hiver.k7",
     );
     expect(project).toBe("hiver.k7");
-    expect(existsSync(join(root, "hiver.k7", "project.yaml"))).toBe(true);
+    expect(existsSync(join(root, "hiver.k7", "project.k7x"))).toBe(true);
     // …and the log names what it read, which is a FILE here and not a path in the workspace.
     expect(log[0]).toBe("read Winter Sketch.dawproject");
     expect(log.at(-1)).toBe("wrote hiver.k7");

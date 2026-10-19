@@ -5,41 +5,29 @@
 /** A key path through maps, and through keyed lists by an item segment like `[t=1,k=60]`. */
 export type KeyPath = string[];
 
-/** One value set or removed in a YAML document; `yaml` is the value's own source, `was` the one it replaced (null: absent). */
-export type YamlOp =
-  | {
-      op: "set";
-      path: KeyPath;
-      yaml: string;
-      was?: string | null;
-      /** A new list item goes after the item this segment names; null: first. */
-      after?: string | null;
-    }
-  | { op: "delete"; path: KeyPath; was?: string | null };
-
-/** One value set or removed in a .k7x file: YamlOp's shape, the values carried as k7x source. */
+/** One value set or removed in a .k7x file; `k7x` is the value's own source, `was` the one it replaced (null: absent). */
 export type K7xOp =
   | {
       op: "set";
       path: KeyPath;
       k7x: string;
       was?: string | null;
+      /** A new list item goes after the item this segment names; null: first. */
       after?: string | null;
     }
   | { op: "delete"; path: KeyPath; was?: string | null };
 
-/** Either kind of path op: what the room checks and sets aside the same way, whatever the format. */
-export type PathOp = YamlOp | K7xOp;
-
 /** One file's change, workspace-relative; `was` is the replaced text's `textHash` (null: absent, missing: unchecked). */
 export type FileOp =
-  | { kind: "yaml"; file: string; ops: YamlOp[] }
   | { kind: "k7x"; file: string; ops: K7xOp[] }
   | { kind: "text"; file: string; text: string; was?: string | null }
   | { kind: "remove"; file: string; was?: string | null };
 
 /** Every op kind this build applies; anything else came from a newer k7 (../docs/sync.md, "Versions"). */
-export const OP_KINDS: readonly string[] = ["yaml", "k7x", "text", "remove"];
+export const OP_KINDS: readonly string[] = ["k7x", "text", "remove"];
+
+/** Op kinds only an older k7 sent, never applied here: their sender is below `SYNC_PROTO_MIN` (protocol.ts). */
+export const RETIRED_OP_KINDS: readonly string[] = ["yaml"];
 
 export const isKnownOpKind = (kind: unknown): boolean =>
   typeof kind === "string" && OP_KINDS.includes(kind);
@@ -70,9 +58,9 @@ export interface Conflict {
   replica: string;
   ts: number;
   label: string;
-  /** The op set aside: one YAML or k7x op, or a whole text or removal. */
+  /** The op set aside: one k7x op, or a whole text or removal. */
   op: FileOp;
-  /** For a path op, the value kept in its place, as source in the file's own format (null: absent). */
+  /** For a path op, the value kept in its place, as k7x source (null: absent). */
   kept?: string | null;
 }
 

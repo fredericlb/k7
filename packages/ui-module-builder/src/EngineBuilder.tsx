@@ -52,7 +52,7 @@ export function ModuleBuilder(props: Props) {
   if (!list.engines.length) return <ModuleScreen {...props} />;
 
   const dir = path.slice(0, path.lastIndexOf("/"));
-  const target = on ? `${dir}/engines/${on}/module.yaml` : path;
+  const target = on ? `${dir}/engines/${on}/module.k7x` : path;
   const tab = (id: string | null, label: string, title: string) => (
     <button
       key={id ?? ""}

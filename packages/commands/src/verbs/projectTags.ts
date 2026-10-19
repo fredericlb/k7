@@ -1,5 +1,5 @@
 // projectTags.ts — `project tag` and `project untag`: the words the home page files this song under,
-// `project.tags` in its project.yaml. A tag is the rest of the line, so it may hold spaces; a bare
+// `project.tags` in its project.k7x. A tag is the rest of the line, so it may hold spaces; a bare
 // `project tag` lists them. No reload: a tag changes nothing the engine plays. See src/projectTags.ts
 // in @studio/song-schema for what a tag is.
 
@@ -27,7 +27,7 @@ function edit(a: string, h: CommandHost, add: boolean): void {
     return;
   }
   const next = add ? withTag(current, tag) : withoutTag(current, tag);
-  const file = join(h.songPath, "project.yaml");
+  const file = join(h.songPath, "project.k7x");
   try {
     if (next.length) setFileValue(file, ["project", "tags"], next);
     else deleteFileValue(file, ["project", "tags"]);

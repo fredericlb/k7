@@ -1,11 +1,12 @@
-// graphEdit.ts — the graph verbs: each a pure `graph.yaml` text transform from graphFile.ts, run on
+// graphEdit.ts — the graph verbs: each a `graph.k7x` writer from graphFile.ts, run on
 // the file, or — in a chain project — on its chain files read as segments and written back. The
-// transforms are the same in both, which is why a chain project needs no verbs of its own.
+// writers are the same in both, which is why a chain project needs no verbs of its own.
 // What would be got wrong: in a chain project a non-lane node is its id, and renaming one is a no-op.
 // See packages/song/docs/chainFiles.md and docs/projectEdit.md.
 
 import { renameSync, rmSync } from "node:fs";
 import { extname, join } from "node:path";
+import type { K7Scope } from "@studio/k7x/document";
 import {
   chainGraphText,
   chainNodeName,
@@ -16,7 +17,8 @@ import {
 import { isChainProject, readChainProject } from "@studio/song/chainProject";
 import { chainsUsing } from "@studio/song/moduleFork";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
-import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsEdit, wsText } from "@studio/song/yaml/workspaceDoc";
+import { wsExists } from "@studio/song/yaml/workspaceFile";
 import {
   addNode,
   clearNodePositions,
@@ -40,24 +42,22 @@ function graphFileOf(dir: string): { path: string } {
   return { path: file.path };
 }
 
-/** Run a `graph.yaml` text transform — on the file, or through a chain project's files (docs/chainFiles.md); what was written. */
-function editGraph(dir: string, transform: (text: string) => string): string {
+/** Run a `graph.k7x` writer — on the file, or through a chain project's files (docs/chainFiles.md); what was written. */
+function editGraph(dir: string, edit: (graph: K7Scope) => void): string {
   if (isChainProject(dir)) {
-    editChainGraph(dir, transform);
+    editChainGraph(dir, edit);
     return join(dir, "chains");
   }
   const { path } = graphFileOf(dir);
-  const text = wsRead(path);
-  const next = transform(text);
-  if (next !== text) wsWrite(path, next);
+  wsEdit(path, (doc) => edit(doc.at([])));
   return path;
 }
 
-/** The segments text a graph transform reads — the file, or a chain project's chains as segments. */
+/** The segments text a graph writer reads — the file, or a chain project's chains as segments. */
 function graphText(dir: string): string {
   return isChainProject(dir)
     ? chainGraphText(dir)
-    : wsRead(graphFileOf(dir).path);
+    : wsText(graphFileOf(dir).path);
 }
 
 // A node name as a caller gave it: in a chain project, a one-node chain's name stands for that node.
@@ -71,7 +71,7 @@ export function setModuleBypass(
   bypassed: boolean,
 ): string {
   const node = nodeArg(dir, module);
-  return editGraph(dir, (text) => setModuleEnabled(text, node, !bypassed));
+  return editGraph(dir, (doc) => setModuleEnabled(doc, node, !bypassed));
 }
 
 /** Take a node out of the SIGNAL PATH, joining what fed it to what it fed, and leave it in the graph wired to nothing. */
@@ -91,10 +91,8 @@ export function unlinkChainNode(
   if (!(node in (value.modules ?? {})) && !isDest)
     throw new Error(`no '${node}' in the chains`);
   let rewired: string[] = [];
-  editGraph(dir, (t) => {
-    const r = unlinkNode(t, node);
-    rewired = r.rewired;
-    return r.text;
+  editGraph(dir, (doc) => {
+    rewired = unlinkNode(doc, node);
   });
   return { rewired };
 }
@@ -108,11 +106,7 @@ export function laneOfNode(dir: string, node: string): string | null {
   }
 }
 
-/**
- * Is `name` on the graph without a file of its own — a MODULE used directly as a node? k7 writes
- * that shape itself (a lane's `mix-<lane>` strip), and an import writes it for a plugin used once,
- * so the node verbs have to know it rather than answering "no such node". See docs/projectEdit.md.
- */
+/** Is `name` on the graph without a file of its own — a MODULE used directly as a node, docs/projectEdit.md. */
 function moduleUsedAsNode(dir: string, name: string): boolean {
   // A chain project has no such shape: every node is an item (docs/chainFiles.md).
   if (isChainProject(dir)) return false;
@@ -138,8 +132,7 @@ export function renameChainNode(
   if (isChainProject(dir)) return renameInChains(dir, from, to);
   const found = entityFileFor(join(dir, "nodes"), "nodes", from);
   if (!found) {
-    // A module used directly has no instance to rename: the name on the graph IS the module's, and
-    // renaming it here would leave the graph naming something no folder answers to.
+    // A module used directly has no instance to rename: the name on the graph IS the module's.
     if (moduleUsedAsNode(dir, from))
       throw new Error(
         `'${from}' is a module used directly on the graph, not a node of one — rename the module, ` +
@@ -159,10 +152,8 @@ export function renameChainNode(
     moved.push(`nodes/${from}.vstpreset → nodes/${to}.vstpreset`);
   }
   let rewired: string[] = [];
-  editGraph(dir, (text) => {
-    const r = renameNode(text, from, to);
-    rewired = r.rewired;
-    return r.text;
+  editGraph(dir, (doc) => {
+    rewired = renameNode(doc, from, to);
   });
   return { moved, rewired };
 }
@@ -183,10 +174,8 @@ function renameInChains(
   if (readChainProject(dir).nodes[to])
     throw new Error(`'${to}' is already a node of this project`);
   let rewired: string[] = [];
-  const moved = renameChainLane(dir, from, to, (text) => {
-    const r = renameNode(text, from, to);
-    rewired = r.rewired;
-    return r.text;
+  const moved = renameChainLane(dir, from, to, (doc) => {
+    rewired = renameNode(doc, from, to);
   });
   return { moved, rewired };
 }
@@ -199,24 +188,19 @@ export function deleteChainNode(
   if (isChainProject(dir)) {
     const node = nodeArg(dir, name);
     let rewired: string[] = [];
-    const removed = deleteChainItem(dir, node, (text) => {
-      const r = removeNode(text, node);
-      rewired = r.rewired;
-      return r.text;
+    const removed = deleteChainItem(dir, node, (doc) => {
+      rewired = removeNode(doc, node);
     });
     return { rewired, removed };
   }
   const node = name;
   const found = entityFileFor(join(dir, "nodes"), "nodes", node);
   if (!found) {
-    // A module used directly: there is no file to delete, and the MODULE stays — it is a
-    // definition, and other chains may name it. What goes is its place in the graph.
+    // A module used directly: no file to delete, the MODULE stays, and only its place in the graph goes.
     if (moduleUsedAsNode(dir, node)) {
       let rewired: string[] = [];
-      editGraph(dir, (text) => {
-        const r = removeNode(text, node);
-        rewired = r.rewired;
-        return r.text;
+      editGraph(dir, (doc) => {
+        rewired = removeNode(doc, node);
       });
       return { rewired, removed: [] };
     }
@@ -231,10 +215,8 @@ export function deleteChainNode(
     removed.push(`nodes/${node}.vstpreset`);
   }
   let rewired: string[] = [];
-  editGraph(dir, (text) => {
-    const r = removeNode(text, node);
-    rewired = r.rewired;
-    return r.text;
+  editGraph(dir, (doc) => {
+    rewired = removeNode(doc, node);
   });
   return { rewired, removed };
 }
@@ -242,7 +224,7 @@ export function deleteChainNode(
 /** Put a module in the graph wired to nothing — dropped in, to be connected after. */
 export function placeChainNode(dir: string, module: string): string {
   const node = nodeArg(dir, module);
-  return editGraph(dir, (text) => addNode(text, node));
+  return editGraph(dir, (doc) => addNode(doc, node));
 }
 
 /** Pin every node in `at` that has no pin yet — one write, for a graph recording where it drew itself. */
@@ -250,12 +232,12 @@ export function setChainNodePositions(
   dir: string,
   at: Record<string, { x: number; y: number }>,
 ): string {
-  return editGraph(dir, (text) => setNodePositions(text, at));
+  return editGraph(dir, (doc) => setNodePositions(doc, at));
 }
 
 /** Hand EVERY node back to the layout — `graph organize` clearing the pins in one write. */
 export function clearChainNodePositions(dir: string): string {
-  return editGraph(dir, (text) => clearNodePositions(text));
+  return editGraph(dir, (doc) => clearNodePositions(doc));
 }
 
 /** Pin a node's place on the graph — or, with null, hand it back to the layout. */
@@ -265,7 +247,7 @@ export function setChainNodePosition(
   at: { x: number; y: number } | null,
 ): string {
   const node = nodeArg(dir, name);
-  return editGraph(dir, (text) => setNodePosition(text, node, at));
+  return editGraph(dir, (doc) => setNodePosition(doc, node, at));
 }
 
 /** Draw a new arrow from `from` to `to` (each optionally `name#port`) — the patch-cable gesture's write. */
@@ -275,7 +257,7 @@ export function connectChainNodes(
   to: string,
 ): string {
   const [a, b] = [nodeArg(dir, from), nodeArg(dir, to)];
-  return editGraph(dir, (text) => connectNodes(text, a, b));
+  return editGraph(dir, (doc) => connectNodes(doc, a, b));
 }
 
 /** Take the arrow from `from` to `to` out — the patch cable pulled and dropped on the canvas. */
@@ -285,7 +267,7 @@ export function disconnectChainNodes(
   to: string,
 ): string {
   const [a, b] = [nodeArg(dir, from), nodeArg(dir, to)];
-  return editGraph(dir, (text) => disconnectNodes(text, a, b));
+  return editGraph(dir, (doc) => disconnectNodes(doc, a, b));
 }
 
 /** Move ONE end of an existing arrow — one read and one write, so the cable can never be left half-gone. */
@@ -297,9 +279,10 @@ export function replugChainNodes(
   newTo: string,
 ): string {
   const [a, b, c, d] = [from, to, newFrom, newTo].map((n) => nodeArg(dir, n));
-  return editGraph(dir, (text) =>
-    connectNodes(disconnectNodes(text, a, b), c, d),
-  );
+  return editGraph(dir, (doc) => {
+    disconnectNodes(doc, a, b);
+    connectNodes(doc, c, d);
+  });
 }
 
 /** Insert a module into the arrow from `before` to `after` — the two ends the graph was dropped on. */
@@ -312,5 +295,5 @@ export function insertChainStep(
   const b = nodeArg(dir, before);
   const a = after === undefined ? undefined : nodeArg(dir, after);
   const m = nodeArg(dir, module);
-  return editGraph(dir, (text) => insertBetween(text, b, a, m));
+  return editGraph(dir, (doc) => insertBetween(doc, b, a, m));
 }

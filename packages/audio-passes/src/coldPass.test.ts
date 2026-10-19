@@ -47,7 +47,7 @@ describe("what it refuses, before anything is rendered", () => {
   });
 
   it("names a model this machine has not got as a machine problem, and says where", () => {
-    // This one is fixed by downloading a file, the one above by editing a module.yaml.
+    // This one is fixed by downloading a file, the one above by editing a module.k7x.
     expect(() => coldStepOf("sep", mod({ onnx: undefined }))).toThrow(
       /not on this machine.*\.studio[\\/]models|not on this machine/,
     );

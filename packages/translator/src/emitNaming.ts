@@ -1,59 +1,52 @@
-// emitNaming.ts — what every part of the emitter shares: the YAML text it writes, the slugs it names
+// emitNaming.ts — what every part of the emitter shares: the k7x files it writes, the slugs it names
 // files by, and EmitCtx, the one bag of name spaces and counters an import fills as it goes.
 // The name spaces are SHARED on purpose: a lane, a module and a node can never take one name twice.
 
 import { mkdirSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import type { K7Path } from "@studio/k7x/ast";
 import { SHARED_MODULES_PATH } from "@studio/song/sharedFolders";
+import { wsWriteData } from "@studio/song/yaml/workspaceDoc";
 import { wsWrite } from "@studio/song/yaml/workspaceFile";
-import { quoteTimecodes } from "@studio/song-schema/yaml/moduleFile";
-import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
-import { isSeq, parseDocument } from "yaml";
 import type { Song } from "./model.js";
 
-// --- YAML emitters -----------------------------------------------------------
+// --- k7x emitters ------------------------------------------------------------
 
-// The SHAPE decisions, matching what k7 itself writes — see docs/import.md.
-
-/** A YAML document with `flow` set on `flowPaths`' items and on `selfPaths`' own node. */
-function yamlDoc(
-  value: unknown,
-  flowPaths: (string | number)[][] = [],
-  selfPaths: (string | number)[][] = [],
-): ReturnType<typeof parseDocument> {
-  const doc = parseDocument("{}", YAML_READ);
-  doc.contents = doc.createNode(value) as typeof doc.contents;
-  for (const path of flowPaths) {
-    const node = doc.getIn(path);
-    if (isSeq(node)) for (const item of node.items) flowOf(item);
-    else flowOf(node);
-  }
-  for (const path of selfPaths) flowOf(doc.getIn(path));
-  quoteTimecodes(doc);
-  return doc;
+/** How a file is laid out: a comment on top, and the nodes kept on one line — docs/import.md. */
+export interface DocLayout {
+  /** Comment lines on top; they carry names from the imported file. */
+  note?: string;
+  /** Nodes written on one line, by their path from the value. */
+  oneLine?: K7Path[];
+  /** Lists whose every item is written on one line. */
+  itemsOneLine?: K7Path[];
 }
 
-const flowOf = (node: unknown): void => {
-  if (node && typeof node === "object")
-    (node as { flow?: boolean }).flow = true;
-};
+const samePath = (a: K7Path, b: K7Path): boolean =>
+  a.length === b.length && a.every((k, i) => k === b[i]);
 
-/** The file's text: an optional `#` comment block, then the document. */
-export function yamlText(
-  value: unknown,
-  flowPaths: (string | number)[][] = [],
-  note?: string,
-  selfPaths: (string | number)[][] = [],
-): string {
-  // A note carries names from the imported file: a `\r` or another control character would end the comment early.
-  const head = note
-    ? `${note
-        .split(/\r\n|[\r\n\u0085\u2028\u2029]/)
-        // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
-        .map((l) => `# ${l.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "")}`)
-        .join("\n")}\n`
-    : "";
-  return head + yamlDoc(value, flowPaths, selfPaths).toString(YAML_WRITE);
+/** The note's lines, each stripped of the control characters a name from the imported file may carry. */
+export const noteLines = (note: string): string[] =>
+  note
+    .split(/\r\n|[\r\n\u0085\u2028\u2029]/)
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
+    .map((l) => l.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, ""));
+
+/** Write `value` as a whole new k7x file, through the workspace door (song's k7xFiles.md). */
+export function writeDoc(
+  path: string,
+  value: Record<string, unknown>,
+  layout: DocLayout = {},
+): void {
+  mkdirSync(dirname(path), { recursive: true });
+  const { note, oneLine = [], itemsOneLine = [] } = layout;
+  wsWriteData(path, value, {
+    header: note ? noteLines(note) : undefined,
+    inline: (p) =>
+      oneLine.some((o) => samePath(o, p)) ||
+      (typeof p[p.length - 1] === "number" &&
+        itemsOneLine.some((o) => samePath(o, p.slice(0, -1)))),
+  });
 }
 
 /** A param map, or undefined when there is nothing to write. */
@@ -64,9 +57,9 @@ export const paramsOf = (
 
 // --- filesystem + slugs ------------------------------------------------------
 
-export function writeFile(path: string, content: string | Uint8Array): void {
+/** Write bytes the import carries (audio, presets) as they are. */
+export function writeFile(path: string, content: Uint8Array): void {
   mkdirSync(dirname(path), { recursive: true });
-  // Through the workspace door, so an imported project is written in the format new files take (song's k7xFiles.md).
   wsWrite(path, content);
 }
 

@@ -24,7 +24,7 @@ import { isBuiltinOutput } from "@studio/song-schema/moduleTypes";
 import type { SidHandler } from "../commands.ts";
 import { runCarriesInput, splitWords, takeSpawnAt } from "./shared.ts";
 
-/** The pair the graph DRAWS whether or not graph.yaml states it: a sum straight to its device — packages/song/docs/masterChain.md. */
+/** The pair the graph DRAWS whether or not graph.k7x states it: a sum straight to its device — packages/song/docs/masterChain.md. */
 /** Does this name a node of THIS graph? The five built-in outputs count — they simply have no folder. */
 function namesANode(g: ReturnType<typeof loadGraph>, name: string): boolean {
   return (
@@ -189,7 +189,7 @@ export const GRAPH_VERBS: Record<string, SidHandler> = {
       h.refuse([`graph organize failed: ${(e as Error).message}`]);
     }
   },
-  /** graph move <node> <x> <y> — pin a node into graph.yaml's `positions:`; `auto` hands it back, docs/verbs.md. */
+  /** graph move <node> <x> <y> — pin a node into graph.k7x's `positions:`; `auto` hands it back, docs/verbs.md. */
   "graph.move": async (a, h) => {
     const usage =
       "usage: graph move <node> <x> <y> (world px), or `graph move <node> auto`";

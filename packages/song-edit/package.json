@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "CHANGING a project rather than compiling one: setting a module's params and assets, moving and resizing events, cutting and consolidating material, splicing time, applying a preset. Every write goes through a YAML writer that changes the value and nothing else — comments, key order and layout all survive. Split out of @studio/song, which now only READS a folder. Consumed as source.",
+  "description": "CHANGING a project rather than compiling one: setting a module's params and assets, moving and resizing events, cutting and consolidating material, splicing time, applying a preset. Every write goes through a k7x writer that changes the value and nothing else — comments, key order and layout all survive. Split out of @studio/song, which now only READS a folder. Consumed as source.",
   "exports": {
     "./projectEdit": "./src/projectEdit.ts",
     "./alternativeSwitch": "./src/alternativeSwitch.ts",
@@ -32,10 +32,10 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@studio/k7x": "*",
     "@studio/web-protocol": "*",
     "@studio/song": "*",
-    "@studio/song-schema": "*",
-    "yaml": "^2.5.0"
+    "@studio/song-schema": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

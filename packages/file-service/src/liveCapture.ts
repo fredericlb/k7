@@ -1,5 +1,5 @@
 // liveCapture.ts — every change to a workspace's files, whoever made it, as batches of ops.
-// A ledger holds each YAML file's last known text, the only kind diffed (fileOpFor); others, a hash.
+// A ledger holds each k7x file's last known text, the only kind diffed (fileOpFor); others, a hash.
 // An opaque file (binary, or too big) is known by its blob REF, which is the text its ops carry.
 // A file written for ANOTHER replica is recorded in the ledger first, so the watcher never echoes it back.
 // Every path seen is also a ChangeFeed event, which the strudel and module watchers subscribe to.

@@ -137,7 +137,7 @@ the price noted there.
 
 **The folder's suffix makes it a project.** `mysong.k7` opens in k7, and
 `packages/web-protocol/projects.ts` is the whole rule. A folder with no suffix is not a project,
-even if it contains a `project.yaml`.
+even if it contains a `project.k7x`.
 
 This page keeps `launchUrl` on each row rather than building its own addresses: the address is a
 contract with the gate that reads it back, and one builder is one encoding.

@@ -106,9 +106,11 @@ That is the one thing this screen has that the editor's playlist screen does not
 
 ## The same format as a workspace's
 
-A playlist here is byte-for-byte a playlist under a workspace's `_playlists/`: one schema, one
-parser, one set of text edits, in `@studio/song-schema/playlist`. A file copied either way is read by
-both.
+A playlist here says what a playlist under a workspace's `_playlists/` says: one schema and one set
+of data rules, in `@studio/song-schema/playlist`. The TEXT differs: this volume is the media
+library's store and stays YAML, read and edited line by line through `@studio/song-schema/mediaYaml`,
+where a workspace's playlists are k7x files. A file copied as it is from one to the other does not
+read there.
 
 What differs is **where it is filed and what that costs**:
 
@@ -117,7 +119,7 @@ What differs is **where it is filed and what that costs**:
 | lives on | this volume, beside the songs it names | the workspace the songs were played for |
 | synced | no — the volume is the one copy | with the project, through the live-sync relay |
 | reachable | any browser with the session | the machine whose file service is up |
-| names a surface's `playlist:` | no | yes — `surfaces/desk.yaml` resolves against the workspace |
+| names a surface's `playlist` | no | yes — `surfaces/desk.k7x` resolves against the workspace |
 
 The consequence worth knowing before you build one: a set list a **`turntables` surface** names is
 resolved in the workspace, so a DJ desk's browser and the pre-fetch that fills the machine's disk

@@ -4,7 +4,7 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeYaml } from "@studio/song/testSupport";
+import { writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
@@ -16,7 +16,7 @@ beforeEach(() => {
   // `.k7` is what makes a folder a project; the project's own `name` stays unsuffixed.
   const proj = join(root, "song.k7");
   mkdirSync(join(proj, "clips"), { recursive: true });
-  writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
+  writeDoc(join(proj, "project.k7x"), { project: { name: "song" } });
   ws = new Workspace(root);
   ws.setActiveProject("song.k7");
 });

@@ -47,13 +47,13 @@ export function claudeCodePrompt(
     "",
     "You are working in a checkout of this module's repository. Write the panel DIRECTLY into its file — no JSON, no answer in chat:",
     "",
-    `- the panel, \`ui.yaml\`: ${whereIs(files.ui)} — the complete file, \`cols\`, \`rows\`, \`widgets\` and nothing else, starting with a one-line \`#\` comment naming the module.`,
+    `- the panel, \`ui.k7x\`: ${whereIs(files.ui)} — the complete k7x file, \`cols\`, \`rows\`, \`widgets\`, \`tabs\` and \`vertical\` as above and nothing else, one widget per line, starting with a one-line \`//\` comment naming the module.`,
     files.script
       ? `- the screens, \`widgets.js\`: ${whereIs(files.script)} — one draw function per lcdscreen id (\`export default { … }\`). Leave it untouched when the panel has no lcdscreen.`
       : "- this module keeps no `widgets.js`, so the panel must draw no lcdscreen.",
     "",
     "Before you finish, check it the way the builder will, and fix what fails:",
-    "- the YAML parses, and every widget lies inside `cols` × `rows` without overlapping another on the same tab (the top-level `widgets` are on every tab) — a `group` excepted, whose box wholly contains the widgets it frames;",
+    "- the file reads as k7x (calls, double-quoted strings, objects and lists, `//` comments — nothing evaluated), and every widget lies inside `cols` × `rows` without overlapping another on the same tab (the top-level `widgets` are on every tab) — a `group` excepted, whose box wholly contains the widgets it frames;",
     "- every widget id is used once;",
     `- every \`bind\` and every \`pair\` is one of: ${binds.map((b) => `\`${b}\``).join(", ") || "(none — this module has no parameters)"};`,
     "- every group frames two or more widgets — none around a single one;",

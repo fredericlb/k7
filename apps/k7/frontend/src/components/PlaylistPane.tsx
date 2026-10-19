@@ -501,7 +501,7 @@ export function PlaylistPane({
                       {m["pl.missing"]()}
                     </span>
                   ) : null}
-                  {/* The running order and what is on it: the two acts that used to mean opening the YAML. */}
+                  {/* The running order and what is on it: the two acts that would otherwise mean opening the file. */}
                   {onMove || onRemove ? (
                     <span className="flex shrink-0 items-center opacity-0 focus-within:opacity-100 group-hover/row:opacity-100 [@media(hover:none)]:opacity-100">
                       {onMove ? (

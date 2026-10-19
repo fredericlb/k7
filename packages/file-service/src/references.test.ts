@@ -6,7 +6,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeYaml } from "@studio/song/testSupport";
+import { writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
@@ -23,7 +23,7 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-references-"));
   const proj = join(root, "song.k7");
   mkdirSync(proj, { recursive: true });
-  writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
+  writeDoc(join(proj, "project.k7x"), { project: { name: "song" } });
   ws = new Workspace(root);
   ws.setActiveProject("song.k7");
 });

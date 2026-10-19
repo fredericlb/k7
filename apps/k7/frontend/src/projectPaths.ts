@@ -3,6 +3,7 @@
 // place so the conventions can't drift apart between features. Matched with `(^|\/)` rather
 // than an anchored `^`, since a path may carry a project-folder prefix in a workspace.
 
+import { parseValue } from "@studio/k7x/parse";
 import { docPattern, stripDocExt } from "@studio/song-schema/docExt";
 
 const kind = (folder: string): RegExp => docPattern(`(^|/)${folder}/[^/]+`);
@@ -99,20 +100,20 @@ export function inActiveProject(
 
 /** The generic module file beside `rel` — a node's sibling. */
 export const moduleFileOf = (rel: string): string =>
-  norm(rel).replace(docPattern("/[^/]+"), "/module.yaml");
+  norm(rel).replace(docPattern("/[^/]+"), "/module.k7x");
 
-/** The value of a top-level scalar field, quoted or not, with trailing comments and a flow mapping's `,`/`}` dropped. */
+/** A string field's value, a call's `key("v")` or an object's `key: "v"`, found by a scan so a half-typed file still answers. */
 export function readScalarField(text: string, key: string): string | null {
   const m = new RegExp(
-    `(^|[^A-Za-z0-9_])${key}\\s*:\\s*("[^"]*"|'[^']*'|[^\\n,}]*)`,
+    `(?:^|[^A-Za-z0-9_$-])${key}\\s*[(:]\\s*("(?:[^"\\\\\\n]|\\\\.)*"|'(?:[^'\\\\\\n]|\\\\.)*')`,
   ).exec(text);
   if (!m) return null;
-  let v = m[2].trim();
-  if (
-    (v.startsWith('"') && v.endsWith('"')) ||
-    (v.startsWith("'") && v.endsWith("'"))
-  )
-    return v.slice(1, -1);
-  v = v.replace(/\s+(#|\/\/).*$/, "").trim();
-  return v || null;
+  try {
+    const node = parseValue(m[1]);
+    return node.kind === "scalar" && typeof node.value === "string"
+      ? node.value || null
+      : null;
+  } catch {
+    return null;
+  }
 }

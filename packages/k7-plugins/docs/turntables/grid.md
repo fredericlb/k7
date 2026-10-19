@@ -19,7 +19,7 @@ key: "C# minor"    # entered, never detected
 
 **The test is simple: does it change from one mix to the next?** A tempo, no — 87 BPM are 87 BPM
 in every project that plays this record. A key, no either. MARKERS, yes: two bands covering the
-same track drop the needle in different places, which is why those live in `mix.yaml`
+same track drop the needle in different places, which is why those live in `mix.k7x`
 ([mixFile.md](../../../song/docs/mixFile.md)).
 
 And the médiathèque already holds the ground: `bpm:` there is **detected once then edited**, with a rule

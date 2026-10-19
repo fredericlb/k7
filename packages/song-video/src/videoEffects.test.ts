@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setLibraryOverlays } from "@studio/song/sharedFolders";
+import { writeDoc } from "@studio/song/testSupport";
 import { VideoPlacementSchema } from "@studio/song-schema/yaml/entitySchemas";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadVideoProject } from "./videoProject";
@@ -22,22 +23,25 @@ beforeEach(() => {
   mkdirSync(join(dir, "clips"), { recursive: true });
   mkdirSync(join(dir, "video_tracks"), { recursive: true });
   mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n  viewport: [640, 360, 30]\n  layers: [main, pip]\n",
-  );
-  writeFileSync(join(dir, "clips", "a.yaml"), "source: a.mp4\n");
+  writeDoc(join(dir, "project.k7x"), {
+    project: {
+      name: "t",
+      tempo: 120,
+      viewport: [640, 360, 30],
+      layers: ["main", "pip"],
+    },
+  });
+  writeDoc(join(dir, "clips", "a.k7x"), { source: "a.mp4" });
   writeFileSync(join(dir, "clips", "a.mp4"), "");
-  writeFileSync(join(dir, "video_tracks", "pip.yaml"), "events: []\n");
+  writeDoc(join(dir, "video_tracks", "pip.k7x"), { events: [] });
   // The library's grade, through a node of the song's own — the shape every library module is used in.
-  writeFileSync(
-    join(dir, "nodes", "warm.yaml"),
-    'extends: "@k7-core/shaders/grade"\nparams: { P4: 0.8 }\n',
-  );
-  writeFileSync(
-    join(dir, "graph.yaml"),
-    "modules:\n  warm: [ main ]\n  RENDER: [ VIDEO_OUT ]\n",
-  );
+  writeDoc(join(dir, "nodes", "warm.k7x"), {
+    extends: "@k7-core/shaders/grade",
+    params: { P4: 0.8 },
+  });
+  writeDoc(join(dir, "graph.k7x"), {
+    modules: { warm: ["main"], RENDER: ["VIDEO_OUT"] },
+  });
   setLibraryOverlays([{ name: "k7-core", root: LIBRARY }]);
 });
 afterEach(() => {
@@ -45,12 +49,12 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-const events = (yaml: string) =>
-  writeFileSync(join(dir, "video_tracks", "main.yaml"), `events:\n${yaml}`);
+const events = (list: Record<string, unknown>[]) =>
+  writeDoc(join(dir, "video_tracks", "main.k7x"), { events: list });
 
 describe("a shot's effect", () => {
   it("carries the run under its head node, the library's grade GLSL in it", () => {
-    events("  - { ref: a, start: 0, length: 2, effect: warm }\n");
+    events([{ ref: "a", start: 0, length: 2, effect: "warm" }]);
     const doc = loadVideoProject(dir);
     expect(doc.videoTracks.find((t) => t.id === "main")?.clips[0]?.effect).toBe(
       "warm",
@@ -61,7 +65,7 @@ describe("a shot's effect", () => {
   });
 
   it("drops an effect naming no run landing on its lane, and says so", () => {
-    events("  - { ref: a, start: 0, length: 2, effect: cold }\n");
+    events([{ ref: "a", start: 0, length: 2, effect: "cold" }]);
     const doc = loadVideoProject(dir);
     expect(
       doc.videoTracks.find((t) => t.id === "main")?.clips[0]?.effect,
@@ -70,15 +74,14 @@ describe("a shot's effect", () => {
   });
 
   it("carries a look's LUT as an absolute path, from the node that names it", () => {
-    writeFileSync(
-      join(dir, "nodes", "film.yaml"),
-      'extends: "@k7-core/shaders/look"\nlut: looks/film.cube\n',
-    );
-    writeFileSync(
-      join(dir, "graph.yaml"),
-      "modules:\n  film: [ main ]\n  RENDER: [ VIDEO_OUT ]\n",
-    );
-    events("  - { ref: a, start: 0, length: 2, effect: film }\n");
+    writeDoc(join(dir, "nodes", "film.k7x"), {
+      extends: "@k7-core/shaders/look",
+      lut: "looks/film.cube",
+    });
+    writeDoc(join(dir, "graph.k7x"), {
+      modules: { film: ["main"], RENDER: ["VIDEO_OUT"] },
+    });
+    events([{ ref: "a", start: 0, length: 2, effect: "film" }]);
     const run = loadVideoProject(dir).stretches.film;
     expect(run?.[0]?.lut).toBe(join(dir, "looks", "film.cube"));
     expect(run?.[0]?.shader?.fragment).toContain("uniform sampler3D uLut;");

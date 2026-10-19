@@ -1,18 +1,18 @@
 # The Mix view reads a playlist
 
 The song list comes from the **playlist the surface names** — a `playlist:` line in
-`surfaces/<desk>.yaml` — and not from the whole médiathèque cache on the chosen machine. That is
+`surfaces/<desk>.k7x` — and not from the whole médiathèque cache on the chosen machine. That is
 what makes this view speak about the open project like every other one, and why the project tree
 stays beside it.
 
 ## It is a PARAMETER of the surface
 
-```yaml
-# surfaces/desk.yaml
-type: turntables
-layout: split
-playlist: ete-2026        # → <espace>/_playlists/ete-2026.yaml
-mapping: { … }
+```js
+// surfaces/desk.k7x
+type("turntables")
+layout("split")
+playlist("ete-2026")      // → <espace>/_playlists/ete-2026.k7x
+mapping({ … })
 ```
 
 A **name** and not a path, for the reason a module ref is one: the folder is fixed, so spelling
@@ -31,7 +31,7 @@ screen (k7's cog opens it) and it is shared between sets. What it has nowhere to
 set's **cue points**, eight per song. A cue belongs to the desk playing the song and not to a
 list others read — two bands covering one title do not drop the needle in the same place, and a
 playlist carrying one set's marks would hand them to the other. So the cues live in
-**`mix.yaml`**, at the project root, under `cues:` ([cues.md](cues.md)).
+**`mix.k7x`**, at the project root, under `cues:` ([cues.md](cues.md)).
 
 ## Two sources, and the playlist decides
 

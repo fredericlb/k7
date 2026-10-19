@@ -95,12 +95,12 @@ the same question the preparation command asks before skipping a song.
 
 That is the third state, and it hangs on one line of the surface file:
 
-```yaml
-# surfaces/desk.yaml
-type: turntables
-layout: split
-playlist: ete-2026
-stems: true              # this desk catches an unprepared record
+```js
+// surfaces/desk.k7x
+type("turntables")
+layout("split")
+playlist("ete-2026")
+stems(true)              // this desk catches an unprepared record
 ```
 
 It turns "this song has no stems" from a dead end into a job: the record goes onto the deck

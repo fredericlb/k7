@@ -39,10 +39,10 @@ function account(withBytes = true): string {
   writeFileSync(
     join(room, ENTRIES),
     [
-      entry(1, "danse.k7/project.yaml", "name: v1\n"),
+      entry(1, "danse.k7/project.k7x", 'name("v1")\n'),
       entry(2, "danse.k7/clips/take.wav", blobRef(HASH, 12)),
-      entry(3, "danse.k7/project.yaml", "name: v2\n"),
-      entry(4, "other.k7/project.yaml", "name: other\n"),
+      entry(3, "danse.k7/project.k7x", 'name("v2")\n'),
+      entry(4, "other.k7/project.k7x", 'name("other")\n'),
     ]
       .map((e) => `${JSON.stringify(e)}\n`)
       .join(""),
@@ -86,13 +86,13 @@ describe("the files at a checkpoint", () => {
   it("are the point's, not the latest, and only under the prefixes asked", () => {
     const acct = account();
     const f = shareFilesAt(acct, "band", 2, ["danse.k7"]);
-    expect(f.texts).toEqual({ "danse.k7/project.yaml": "name: v1\n" });
+    expect(f.texts).toEqual({ "danse.k7/project.k7x": 'name("v1")\n' });
     expect(f.blobs["danse.k7/clips/take.wav"]).toEqual({
       path: blobFile(blobsDir(acct), HASH),
       size: 12,
     });
     expect(shareFilesAt(acct, "band", 4, ["danse.k7"]).texts).toEqual({
-      "danse.k7/project.yaml": "name: v2\n",
+      "danse.k7/project.k7x": 'name("v2")\n',
     });
   });
 

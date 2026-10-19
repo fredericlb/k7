@@ -155,9 +155,9 @@ describe("the file hub", () => {
       session: "fred@example.com",
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ path: "a.yaml", text: "x" }),
+      body: JSON.stringify({ path: "a.k7x", text: "x" }),
     });
-    expect(JSON.parse(echo.body)).toEqual({ path: "a.yaml", text: "x" });
+    expect(JSON.parse(echo.body)).toEqual({ path: "a.k7x", text: "x" });
   });
 
   it("gives each account its own process and home", async () => {

@@ -89,7 +89,7 @@ describe("deleting a synced workspace", () => {
     const live = await import("@studio/file-service/src/liveSync.ts");
     const { workspaceRoot } = await import("@studio/file-service/src/slug.ts");
     const root = workspaceRoot("band");
-    put(root, "song.k7/project.yaml", "project:\n  name: song\n");
+    put(root, "song.k7/project.k7x", 'project({ name: "song" })\n');
     const ws = {
       root,
       invalidateProjectDoc: () => {},
@@ -144,7 +144,7 @@ describe("deleting a synced workspace", () => {
       link.close();
       capture.stop();
     });
-    await until(() => existsSync(join(other, "song.k7/project.yaml")));
+    await until(() => existsSync(join(other, "song.k7/project.k7x")));
 
     await live.endWorkspace(root);
 
@@ -154,7 +154,7 @@ describe("deleting a synced workspace", () => {
     expect(live.attachedAt(root)).toBeUndefined();
     // The other device heard it end, its copy of the file gone with the room's.
     await until(() => ended);
-    expect(existsSync(join(other, "song.k7/project.yaml"))).toBe(false);
+    expect(existsSync(join(other, "song.k7/project.k7x"))).toBe(false);
   }, 60_000);
 });
 
@@ -171,7 +171,7 @@ describe("a workspace ended elsewhere", () => {
     expect(existsSync(empty)).toBe(false);
 
     const kept = workspaceRoot("kept");
-    put(kept, ".k7x-backup/old.yaml", "x: 1\n");
+    put(kept, ".backup/old.k7x", "x(1)\n");
     await dropEndedWorkspace("kept");
     expect(existsSync(kept)).toBe(true);
   });

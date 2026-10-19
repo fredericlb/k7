@@ -6,16 +6,11 @@
 // uses. What is asserted here is therefore the module's file: if these ever grew a store of their
 // own, the graph and the timeline would start disagreeing about what is automated.
 
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
@@ -26,36 +21,18 @@ let dir: string;
 function song(): { root: string; dir: string } {
   const r = mkdtempSync(join(tmpdir(), "td-trkauto-"));
   const d = join(r, "song.k7");
-  mkdirSync(d, { recursive: true });
-  writeFileSync(
-    join(d, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(d, "graph.yaml"),
-    "modules:\n  gtr: [ osc ]\n  osc: [ OUT ]\n",
-    "utf8",
-  );
-  mkdirSync(join(d, "nodes"), { recursive: true });
-  writeFileSync(
-    join(d, "nodes", "gtr.yaml"),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
+  writeDoc(join(d, "project.k7x"), {
+    project: { name: "t", tempo: 120, sampleRate: 48000 },
+  });
+  writeDoc(join(d, "graph.k7x"), { modules: { gtr: ["osc"], osc: ["OUT"] } });
+  writeDoc(join(d, "nodes", "gtr.k7x"), { extends: "@meta/track", events: [] });
   // A module lives at `@workspace` now, used through a node of the same bare name.
-  const md = join(r, "_modules", "instruments", "osc");
-  mkdirSync(md, { recursive: true });
-  writeFileSync(
-    join(md, "module.yaml"),
-    "plugin:\n  type: internal\n  name: 4osc\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(d, "nodes", "osc.yaml"),
-    'extends: "@workspace/instruments/osc"\n',
-    "utf8",
-  );
+  writeDoc(join(r, "_modules", "instruments", "osc", "module.k7x"), {
+    plugin: { type: "internal", name: "4osc" },
+  });
+  writeDoc(join(d, "nodes", "osc.k7x"), {
+    extends: "@workspace/instruments/osc",
+  });
   return { root: r, dir: d };
 }
 
@@ -84,10 +61,13 @@ const host = (params: Record<string, number> = { "Filter Freq": 50 }) =>
     showNativePluginUI: () => {},
   }) as never;
 
-const moduleText = (): string =>
-  readFileSync(join(dir, "nodes", "osc.yaml"), "utf8");
-const curveText = (id: string): string =>
-  readFileSync(join(dir, "curves", `${id}.yaml`), "utf8");
+type Binding = { param: string; curve: string };
+const automations = (): Binding[] | undefined =>
+  wsData(join(dir, "nodes", "osc.k7x")).automations as Binding[] | undefined;
+const curveValues = (id: string): number[] =>
+  (
+    wsData(join(dir, "curves", `${id}.k7x`)).points as { value: number }[]
+  ).map((p) => p.value);
 
 beforeEach(() => {
   ({ root, dir } = song());
@@ -99,23 +79,19 @@ describe("track automation add", () => {
   it("writes the binding on the MODULE, not on the track", async () => {
     await runCommand("track automation add gtr Filter Freq", host(), "cli");
     // The lane's own file is untouched — it holds an arrangement, not a sound.
-    expect(readFileSync(join(dir, "nodes", "gtr.yaml"), "utf8")).not.toContain(
-      "automation",
-    );
-    const text = moduleText();
-    expect(text).toContain("automations:");
-    expect(text).toContain("param: Filter Freq");
-    expect(text).toContain('curve: "@meta/curves/gtr-Filter-Freq"');
+    expect(wsData(join(dir, "nodes", "gtr.k7x")).automations).toBeUndefined();
+    expect(automations()).toEqual([
+      { param: "Filter Freq", curve: "@meta/curves/gtr-Filter-Freq" },
+    ]);
   });
 
   it("creates a FLAT curve at wherever the knob currently sits", async () => {
     // Binding a curve overrides its param at once, so `add` must be audibly a no-op.
     await runCommand("track automation add gtr Filter Freq", host(), "cli");
-    const text = curveText("gtr-Filter-Freq");
-    expect(text).toContain("type: custom");
-    const values = [...text.matchAll(/value:\s*([0-9.]+)/g)].map((m) =>
-      Number(m[1]),
+    expect(wsData(join(dir, "curves", "gtr-Filter-Freq.k7x")).type).toBe(
+      "custom",
     );
+    const values = curveValues("gtr-Filter-Freq");
     expect(values).toHaveLength(2); // two points, so the line can be grabbed at either end
     expect(values[0]).toBe(values[1]); // …and it is flat
     // 4OSC's Filter Freq spans well past 50, so the normalised value sits below the top.
@@ -125,7 +101,7 @@ describe("track automation add", () => {
 
   it("takes a param name with SPACES as one argument", async () => {
     await runCommand("track automation add gtr Filter Freq", host(), "cli");
-    expect(moduleText()).toContain("param: Filter Freq");
+    expect(automations()?.[0]?.param).toBe("Filter Freq");
   });
 
   it("refuses a param the track's chain does not have, and lists what it does", async () => {
@@ -143,11 +119,8 @@ describe("track automation add", () => {
       host({} as Record<string, number>),
       "cli",
     );
-    expect(moduleText()).toContain("automations:");
-    const v = Number(
-      /value:\s*([0-9.]+)/.exec(curveText("gtr-Filter-Freq"))?.[1] ?? "-1",
-    );
-    expect(v).toBeCloseTo(69 / 135.0762329, 4);
+    expect(automations()).toHaveLength(1);
+    expect(curveValues("gtr-Filter-Freq")[0]).toBeCloseTo(69 / 135.0762329, 4);
   });
 
   it("writes the curve at the module's OWN value when it states one", async () => {
@@ -157,10 +130,10 @@ describe("track automation add", () => {
       host({ "Filter Freq": 100 }),
       "cli",
     );
-    const v = Number(
-      /value:\s*([0-9.]+)/.exec(curveText("gtr-Filter-Freq"))?.[1] ?? "-1",
+    expect(curveValues("gtr-Filter-Freq")[0]).toBeCloseTo(
+      100 / 135.0762329,
+      4,
     );
-    expect(v).toBeCloseTo(100 / 135.0762329, 4);
   });
 
   it("refuses an unknown track", async () => {
@@ -175,17 +148,17 @@ describe("track automation add", () => {
 });
 
 describe("track automation remove", () => {
-  it("unbinds, and takes the whole `automations:` key with the last one", async () => {
+  it("unbinds, and takes the whole `automations` key with the last one", async () => {
     await runCommand("track automation add gtr Filter Freq", host(), "cli");
-    expect(moduleText()).toContain("automations:");
+    expect(automations()).toHaveLength(1);
     await runCommand("track automation remove gtr Filter Freq", host(), "cli");
-    expect(moduleText()).not.toContain("automations:");
+    expect(automations()).toBeUndefined();
   });
 
   it("LEAVES the curve file — an unbind is not a deletion", async () => {
     // An unbound curve still draws its own card on the graph, so nothing is orphaned invisibly.
     await runCommand("track automation add gtr Filter Freq", host(), "cli");
     await runCommand("track automation remove gtr Filter Freq", host(), "cli");
-    expect(existsSync(join(dir, "curves", "gtr-Filter-Freq.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "curves", "gtr-Filter-Freq.k7x"))).toBe(true);
   });
 });

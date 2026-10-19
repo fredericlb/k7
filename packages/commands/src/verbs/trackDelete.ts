@@ -30,7 +30,7 @@ function laneOwnNodes(dir: string, lane: string): string[] {
       .map((n) => n.name);
     return [...others, lane];
   }
-  // A graph.yaml project names no chain a lane owns: its strip goes with it, every other node is shared.
+  // A graph.k7x project names no chain a lane owns: its strip goes with it, every other node is shared.
   const mixer = laneMixer(loadGraph(dir), lane);
   return mixer ? [mixer, lane] : [lane];
 }
@@ -62,7 +62,7 @@ async function trackDeleteCommand(a: string, h: CommandHost): Promise<void> {
       deleteChainNode(dir, node);
       dropNodeFromAssemblies(dir, node);
     }
-    // project.yaml names lanes in three lists; a deleted one would be named there for ever.
+    // project.k7x names lanes in three lists; a deleted one would be named there for ever.
     const root = loadProjectRoot(dir);
     const projectFile = entityFileFor(dir, "", "project");
     for (const key of ["trackOrder", "soloed", "highlighted"] as const) {

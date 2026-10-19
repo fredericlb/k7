@@ -22,12 +22,11 @@ import {
   LIVE_INPUT,
   LIVE_RECORDER,
 } from "@studio/song/scaffoldLive";
-import { wsCopy, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsWriteData, wsWriteText } from "@studio/song/yaml/workspaceDoc";
+import { wsCopy, wsRead } from "@studio/song/yaml/workspaceFile";
 import { formatChains, parseGraph } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
-import { YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import type { LiveChain } from "@studio/web-protocol";
-import { stringify } from "yaml";
 
 /** The rig's own node names, which a chain's nodes must not reuse once copied beside them. */
 const RIG_NODES = new Set([
@@ -127,11 +126,11 @@ export function spliceChain(benchDir: string, ref: string): void {
     const at = join(benchDir, "nodes", names[i]);
     // A folder chain's node file is copied as written, its comments with it.
     if (chain.layout === "folder")
-      wsCopy(join(chain.at, "nodes", `${s.name}.yaml`), `${at}.yaml`);
-    else wsWrite(`${at}.yaml`, stringify(s.module, YAML_WRITE));
+      wsCopy(join(chain.at, "nodes", `${s.name}.k7x`), `${at}.k7x`);
+    else wsWriteData(`${at}.k7x`, s.module);
     if (s.preset) copyFileSync(s.preset, `${at}.vstpreset`);
   });
-  wsWrite(
+  wsWriteText(
     join(benchDir, GRAPH_FILE),
     formatChains(
       {
@@ -141,8 +140,10 @@ export function spliceChain(benchDir: string, ref: string): void {
           ...names.filter((_, i) => steps[i].bypass),
         ],
       },
-      `# The bench, with the library chain "${ref}" COPIED between the input and the fader.\n` +
-        `# Nothing here is saved: edit the chain in k7's chains builder. See apps/k7/backend/docs/media/banc.md.`,
+      [
+        `The bench, with the library chain "${ref}" COPIED between the input and the fader.`,
+        "Nothing here is saved: edit the chain in k7's chains builder. See apps/k7/backend/docs/media/banc.md.",
+      ],
     ),
   );
 }

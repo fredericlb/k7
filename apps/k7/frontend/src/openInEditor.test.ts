@@ -9,29 +9,29 @@ import { describe, expect, it } from "vitest";
 import { resolveEditorFile as resolve } from "./openInEditor";
 
 const FILES = [
-  "01.danse.k7/clips/audio_14_0.yaml",
-  "01.danse.k7/clips/audio_14_1.yaml",
-  "01.danse.k7/clips/vox_0.yaml",
-  "01.danse.k7/nodes/gtr.yaml",
-  "01.danse.k7/sequences/riff.yaml",
-  "01.danse.k7/project.yaml",
+  "01.danse.k7/clips/audio_14_0.k7x",
+  "01.danse.k7/clips/audio_14_1.k7x",
+  "01.danse.k7/clips/vox_0.k7x",
+  "01.danse.k7/nodes/gtr.k7x",
+  "01.danse.k7/sequences/riff.k7x",
+  "01.danse.k7/project.k7x",
 ];
 
 describe("what ui file resolves", () => {
   it("takes an exact path as it stands", () => {
-    expect(resolve("01.danse.k7/clips/vox_0.yaml", FILES)).toBe(
-      "01.danse.k7/clips/vox_0.yaml",
+    expect(resolve("01.danse.k7/clips/vox_0.k7x", FILES)).toBe(
+      "01.danse.k7/clips/vox_0.k7x",
     );
   });
 
   it("takes a bare id — which is what `ui file <track>` is for", () => {
-    expect(resolve("gtr", FILES)).toBe("01.danse.k7/nodes/gtr.yaml");
+    expect(resolve("gtr", FILES)).toBe("01.danse.k7/nodes/gtr.k7x");
   });
 
   it("resolves a PLACEMENT id to its material's file", () => {
     // The reported bug, verbatim. `@98.5` appears in no path, so the name alone finds nothing.
     expect(resolve("audio_14_0@98.5", FILES)).toBe(
-      "01.danse.k7/clips/audio_14_0.yaml",
+      "01.danse.k7/clips/audio_14_0.k7x",
     );
   });
 
@@ -45,7 +45,7 @@ describe("what ui file resolves", () => {
   it("lets the written name win over the material", () => {
     // Second and not first: a name that matches something is the answer, whatever an `@` in it might also have meant.
     expect(resolve("audio_14_1", FILES)).toBe(
-      "01.danse.k7/clips/audio_14_1.yaml",
+      "01.danse.k7/clips/audio_14_1.k7x",
     );
   });
 

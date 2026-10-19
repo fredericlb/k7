@@ -1,24 +1,25 @@
 # The `mastering` surface — one node, drawn as three appliances
 
-A project that declares `surfaces/<id>.yaml` with `type: mastering` gets a page of its own
+A project that declares `surfaces/<id>.k7x` with `type("mastering")` gets a page of its own
 holding ten sliders in three boxes: the compressor, the spreader, the limiter — the three parts of
 one `quick-master` node, in the order the signal meets them.
 
-```yaml
-# surfaces/master.yaml
-type: mastering
-layout: split
-mapping:
-  comp.low:        { module: master_qm_1, param: Low Amount }
-  comp.mid:        { module: master_qm_1, param: Mid Amount }
-  comp.high:       { module: master_qm_1, param: High Amount }
-  comp.lowFreq:    { module: master_qm_1, param: Low Freq }
-  comp.highFreq:   { module: master_qm_1, param: High Freq }
-  spread.width:    { module: master_qm_1, param: Width }
-  spread.bassMono: { module: master_qm_1, param: Bass Mono }
-  limiter.drive:   { module: master_qm_1, param: Drive }
-  limiter.ceiling: { module: master_qm_1, param: Ceiling }
-  limiter.release: { module: master_qm_1, param: Release }
+```k7x
+// surfaces/master.k7x
+type("mastering")
+layout("split")
+mapping({
+  "comp.low": { module: "master_qm_1", param: "Low Amount" },
+  "comp.mid": { module: "master_qm_1", param: "Mid Amount" },
+  "comp.high": { module: "master_qm_1", param: "High Amount" },
+  "comp.lowFreq": { module: "master_qm_1", param: "Low Freq" },
+  "comp.highFreq": { module: "master_qm_1", param: "High Freq" },
+  "spread.width": { module: "master_qm_1", param: "Width" },
+  "spread.bassMono": { module: "master_qm_1", param: "Bass Mono" },
+  "limiter.drive": { module: "master_qm_1", param: "Drive" },
+  "limiter.ceiling": { module: "master_qm_1", param: "Ceiling" },
+  "limiter.release": { module: "master_qm_1", param: "Release" },
+})
 ```
 
 Three files, and they are the whole surface:

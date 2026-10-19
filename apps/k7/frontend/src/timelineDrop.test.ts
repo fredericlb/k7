@@ -45,7 +45,8 @@ describe("droppedClip", () => {
     expect(droppedClip("---.wav")?.id).toBe("clip");
   });
   it("declares the source and nothing else", () => {
-    expect(clipDecl("kick.wav")).toBe("source: clips/kick.wav\n");
+    expect(clipDecl("kick.wav")).toBe('source("clips/kick.wav")\n');
+    expect(clipDecl('a "b".wav')).toBe('source("clips/a \\"b\\".wav")\n');
   });
 });
 

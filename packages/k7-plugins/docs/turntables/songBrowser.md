@@ -8,7 +8,7 @@ A box opens, holding the tracks **of the set** — not of the whole media librar
 **playlist the surface names** that says what is within reach tonight; searching 279 tracks when
 the set holds twelve is searching the wrong list.
 
-That is a parameter of `surfaces/<desk>.yaml` — `playlist: ete-2026`, a name under `_playlists/`
+That is a parameter of `surfaces/<desk>.k7x` — `playlist: ete-2026`, a name under `_playlists/`
 at the repository root — and the playlists themselves are written in k7, under the cog. See
 [setList.md](setList.md) for the why, and `@studio/song/docs/playlists.md` for the format.
 

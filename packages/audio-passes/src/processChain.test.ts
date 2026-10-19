@@ -17,9 +17,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadProject } from "@studio/song/project";
 import { librariesFixture } from "@studio/song/testSupport";
+import { wsData, wsWriteData } from "@studio/song/yaml/workspaceDoc";
 import { wavSeconds } from "@studio/take-render/wavLength";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse as parseYaml } from "yaml";
 import {
   bounceDoc,
   chainNames,
@@ -54,10 +54,36 @@ function wav(path: string, seconds = 0): void {
   writeFileSync(path, b);
 }
 
-const put = (root: string, rel: string, body: string): void => {
+/** A workspace file written from its data, `header` being its leading comment lines. */
+const put = (
+  root: string,
+  rel: string,
+  value: Record<string, unknown>,
+  header?: string[],
+): void => {
+  const path = join(root, rel);
+  mkdirSync(join(path, ".."), { recursive: true });
+  wsWriteData(path, value, { header });
+};
+
+/** A file that is not a workspace document, such as a model's bytes. */
+const asset = (root: string, rel: string, body: string): void => {
   const path = join(root, rel);
   mkdirSync(join(path, ".."), { recursive: true });
   writeFileSync(path, body, "utf8");
+};
+
+/** A step of a one-file chain that extends a library module. */
+const eq = (id: string, extra: Record<string, unknown> = {}) => ({
+  id,
+  extends: "@k7-core/audio/eq",
+  ...extra,
+});
+
+const STEMSPLIT = {
+  cold: true,
+  plugin: { type: "offline", name: "Stem Split" },
+  params: { onnx: "htdemucs.onnx" },
 };
 
 /** A song in a WORKSPACE folder, since the library submodule is mounted beside it. */
@@ -65,37 +91,30 @@ function song(): string {
   ws = mkdtempSync(join(tmpdir(), "td-process-ws-"));
   const d = join(ws, "song");
   mkdirSync(d, { recursive: true });
-  put(
-    d,
-    "project.yaml",
-    "project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n",
-  );
-  put(
-    d,
-    "graph.yaml",
-    "modules:\n  gtr: [ amp ]\n  amp: [ strip ]\n  strip: [ OUT ]\n",
-  );
+  put(d, "project.k7x", {
+    project: { name: "t", tempo: 120, sampleRate: 48000 },
+  });
+  put(d, "graph.k7x", {
+    modules: { gtr: ["amp"], amp: ["strip"], strip: ["OUT"] },
+  });
   mkdirSync(join(d, "clips"), { recursive: true });
   wav(join(d, "clips", "riff.wav"));
-  put(d, "clips/riff.yaml", "# hand-written\nsource: clips/riff.wav\n");
-  put(
-    d,
-    "nodes/gtr.yaml",
-    'extends: "@meta/track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
-  );
+  put(d, "clips/riff.k7x", { source: "clips/riff.wav" }, ["hand-written"]);
+  put(d, "nodes/gtr.k7x", {
+    extends: "@meta/track",
+    events: [{ ref: "riff", start: "1:1" }],
+  });
   // Workspace-level modules (a sibling of the project), used through a node of the same name.
-  put(
-    ws,
-    "_modules/audio/amp/module.yaml",
-    "plugin:\n  type: internal\n  name: Chorus\nparams:\n  Depth: 3\n",
-  );
-  put(d, "nodes/amp.yaml", 'extends: "@workspace/audio/amp"\n');
-  put(
-    ws,
-    "_modules/audio/strip/module.yaml",
-    "plugin:\n  type: internal\n  name: Mixer\nparams:\n  Volume: -6\n",
-  );
-  put(d, "nodes/strip.yaml", 'extends: "@workspace/audio/strip"\n');
+  put(ws, "_modules/audio/amp/module.k7x", {
+    plugin: { type: "internal", name: "Chorus" },
+    params: { Depth: 3 },
+  });
+  put(d, "nodes/amp.k7x", { extends: "@workspace/audio/amp" });
+  put(ws, "_modules/audio/strip/module.k7x", {
+    plugin: { type: "internal", name: "Mixer" },
+    params: { Volume: -6 },
+  });
+  put(d, "nodes/strip.k7x", { extends: "@workspace/audio/strip" });
   return d;
 }
 
@@ -103,27 +122,21 @@ function song(): string {
 function libraries(): string {
   const d = librariesFixture(ws);
   // Descriptive only — the level comes from where the root SITS, not from this line.
-  put(d, "modules/config.yaml", "namespace: k7-core\n");
-  put(
-    d,
-    "modules/audio/eq/module.yaml",
-    "plugin:\n  type: internal\n  name: 4Band EQ\nparams:\n  Low: 1\n",
-  );
-  put(
-    d,
-    "chains/live/vocal-strip/graph.yaml",
-    'modules:\n  "@in": [ hp ]\n  hp: [ air ]\n  air: [ "@out" ]\n',
-  );
-  put(
-    d,
-    "chains/live/vocal-strip/nodes/hp.yaml",
-    'extends: "@k7-core/audio/eq"\nparams:\n  Low: -12\n',
-  );
-  put(
-    d,
-    "chains/live/vocal-strip/nodes/air.yaml",
-    'extends: "@k7-core/audio/eq"\n',
-  );
+  put(d, "modules/config.k7x", { namespace: "k7-core" });
+  put(d, "modules/audio/eq/module.k7x", {
+    plugin: { type: "internal", name: "4Band EQ" },
+    params: { Low: 1 },
+  });
+  put(d, "chains/live/vocal-strip/graph.k7x", {
+    modules: { "@in": ["hp"], hp: ["air"], air: ["@out"] },
+  });
+  put(d, "chains/live/vocal-strip/nodes/hp.k7x", {
+    extends: "@k7-core/audio/eq",
+    params: { Low: -12 },
+  });
+  put(d, "chains/live/vocal-strip/nodes/air.k7x", {
+    extends: "@k7-core/audio/eq",
+  });
   return d;
 }
 
@@ -159,7 +172,7 @@ describe("resolving a chain of the project", () => {
 
   it("refuses a chain that is only a strip", () => {
     // Nothing is left once the mixer is dropped, so the bounce would copy the source under a lie.
-    put(dir, "graph.yaml", "modules:\n  gtr: [ strip ]\n  strip: [ OUT ]\n");
+    put(dir, "graph.k7x", { modules: { gtr: ["strip"], strip: ["OUT"] } });
     expect(() => resolveChain(dir, loadProject(dir), "gtr")).toThrow(
       /no treatment to apply/,
     );
@@ -209,16 +222,17 @@ describe("resolving a chain of the médiathèque", () => {
   });
 });
 
-// The same chains kept as ONE file — the format a library is migrated to; the readers take both.
+// The same chains kept as ONE file — the readers take a folder and a file alike.
 describe("a library chain kept as one file", () => {
   it("resolves its items in order, skipping a bypassed one", () => {
-    put(
-      library,
-      "chains/live/vocal-file.yaml",
-      'steps:\n  - { id: s1, extends: "@k7-core/audio/eq", params: { Low: -12 } }\n' +
-        '  - { id: s2, extends: "@k7-core/audio/eq", bypass: true }\n' +
-        '  - { id: s3, extends: "@k7-core/audio/eq" }\n  - to: [ { chain: "@out" } ]\n',
-    );
+    put(library, "chains/live/vocal-file.k7x", {
+      steps: [
+        eq("s1", { params: { Low: -12 } }),
+        eq("s2", { bypass: true }),
+        eq("s3"),
+        { to: [{ chain: "@out" }] },
+      ],
+    });
     const c = resolveChain(dir, loadProject(dir), "@k7-core/live/vocal-file");
     expect(c.plugins.map((p) => [p.id, p.params])).toEqual([
       ["process:s1", { Low: -12 }],
@@ -228,17 +242,14 @@ describe("a library chain kept as one file", () => {
   });
 
   it("is listed as a cold chain when its one step separates", () => {
-    put(
-      library,
-      "modules/audio/stemsplit/module.yaml",
-      "cold: true\nplugin: { type: offline, name: Stem Split }\nparams:\n  onnx: htdemucs.onnx\n",
-    );
-    put(library, "modules/audio/stemsplit/assets/htdemucs.onnx", "x");
-    put(
-      library,
-      "chains/stems.yaml",
-      'steps:\n  - { id: cut, extends: "@k7-core/audio/stemsplit" }\n  - to: [ { chain: "@out" } ]\n',
-    );
+    put(library, "modules/audio/stemsplit/module.k7x", STEMSPLIT);
+    asset(library, "modules/audio/stemsplit/assets/htdemucs.onnx", "x");
+    put(library, "chains/stems.k7x", {
+      steps: [
+        { id: "cut", extends: "@k7-core/audio/stemsplit" },
+        { to: [{ chain: "@out" }] },
+      ],
+    });
     expect(coldChains(dir).map((c) => [c.ref, c.unavailable])).toEqual([
       ["@k7-core/stems", null],
     ]);
@@ -250,7 +261,7 @@ describe("a library chain kept as one file", () => {
   });
 
   it("names what a file that is not a template's shape gets wrong", () => {
-    put(library, "chains/bad.yaml", "start: true\nsteps: []\n");
+    put(library, "chains/bad.k7x", { start: true, steps: [] });
     expect(() => resolveChain(dir, loadProject(dir), "@k7-core/bad")).toThrow(
       /no `start`/,
     );
@@ -264,35 +275,25 @@ describe("a chain that separates", () => {
     opts: { model?: boolean; withEq?: boolean } = {},
   ): void => {
     const { model = true, withEq = false } = opts;
-    put(
-      library,
-      "modules/audio/stemsplit/module.yaml",
-      "cold: true\nplugin: { type: offline, name: Stem Split }\nparams:\n  onnx: htdemucs.onnx\n",
-    );
+    put(library, "modules/audio/stemsplit/module.k7x", STEMSPLIT);
     if (model)
-      put(
+      asset(
         library,
         "modules/audio/stemsplit/assets/htdemucs.onnx",
         "not a model",
       );
-    put(
-      library,
-      "chains/tools/stems/graph.yaml",
-      withEq
-        ? 'modules:\n  "@in": [ split ]\n  split: [ air ]\n  air: [ "@out" ]\n'
-        : 'modules:\n  "@in": [ split ]\n  split: [ "@out" ]\n',
-    );
-    put(
-      library,
-      "chains/tools/stems/nodes/split.yaml",
-      'extends: "@k7-core/audio/stemsplit"\n',
-    );
+    put(library, "chains/tools/stems/graph.k7x", {
+      modules: withEq
+        ? { "@in": ["split"], split: ["air"], air: ["@out"] }
+        : { "@in": ["split"], split: ["@out"] },
+    });
+    put(library, "chains/tools/stems/nodes/split.k7x", {
+      extends: "@k7-core/audio/stemsplit",
+    });
     if (withEq)
-      put(
-        library,
-        "chains/tools/stems/nodes/air.yaml",
-        'extends: "@k7-core/audio/eq"\n',
-      );
+      put(library, "chains/tools/stems/nodes/air.k7x", {
+        extends: "@k7-core/audio/eq",
+      });
   };
 
   it("resolves the offline step as COLD, with its model, and no plugin", () => {
@@ -316,11 +317,10 @@ describe("a chain that separates", () => {
     expect(() =>
       resolveChain(dir, loadProject(dir), "@k7-core/tools/stems"),
     ).toThrow(/not on this machine.*~\/\.k7\/models/s);
-    put(
-      library,
-      "modules/audio/stemsplit/module.yaml",
-      "cold: true\nplugin: { type: offline, name: Stem Split }\n",
-    );
+    put(library, "modules/audio/stemsplit/module.k7x", {
+      cold: true,
+      plugin: STEMSPLIT.plugin,
+    });
     expect(() =>
       resolveChain(dir, loadProject(dir), "@k7-core/tools/stems"),
     ).toThrow(/names no model/);
@@ -387,11 +387,10 @@ describe("a chain that separates", () => {
       stemChain({ model: false });
       // Nothing to offer without one: the machine cannot guess where 166 MB lives.
       expect(coldChains(dir)[0].downloads).toEqual([]);
-      put(
-        library,
-        "modules/audio/stemsplit/module.yaml",
-        "cold: true\nplugin: { type: offline, name: Stem Split }\nparams:\n  onnx: htdemucs.onnx\nmodel_url: https://models.example/htdemucs.onnx\n",
-      );
+      put(library, "modules/audio/stemsplit/module.k7x", {
+        ...STEMSPLIT,
+        model_url: "https://models.example/htdemucs.onnx",
+      });
       expect(coldChains(dir)[0].downloads).toEqual([
         { file: "htdemucs.onnx", url: "https://models.example/htdemucs.onnx" },
       ]);
@@ -402,26 +401,21 @@ describe("a chain that separates", () => {
 
     it("marks the one whose step writes an instrumental", () => {
       stemChain();
-      put(
-        library,
-        "modules/audio/vocalless/module.yaml",
-        "cold: true\nplugin: { type: offline, name: Stem Split }\nparams:\n  onnx: htdemucs.onnx\noutputs:\n  - { name: instrumental, type: audio }\n",
-      );
-      put(
+      put(library, "modules/audio/vocalless/module.k7x", {
+        ...STEMSPLIT,
+        outputs: [{ name: "instrumental", type: "audio" }],
+      });
+      asset(
         library,
         "modules/audio/vocalless/assets/htdemucs.onnx",
         "not a model",
       );
-      put(
-        library,
-        "chains/tools/karaoke/graph.yaml",
-        'modules:\n  "@in": [ cut ]\n  cut: [ "@out" ]\n',
-      );
-      put(
-        library,
-        "chains/tools/karaoke/nodes/cut.yaml",
-        'extends: "@k7-core/audio/vocalless"\n',
-      );
+      put(library, "chains/tools/karaoke/graph.k7x", {
+        modules: { "@in": ["cut"], cut: ["@out"] },
+      });
+      put(library, "chains/tools/karaoke/nodes/cut.k7x", {
+        extends: "@k7-core/audio/vocalless",
+      });
       expect(coldChains(dir)).toEqual([
         {
           ref: "@k7-core/tools/karaoke",
@@ -489,7 +483,7 @@ describe("what a target names", () => {
   });
 
   it("refuses a track with nothing to process", () => {
-    put(dir, "nodes/empty.yaml", 'extends: "@meta/track"\n');
+    put(dir, "nodes/empty.k7x", { extends: "@meta/track" });
     expect(() =>
       resolveTargets(dir, loadProject(dir), "empty", "track"),
     ).toThrow(/no audio clips/);
@@ -531,9 +525,10 @@ describe("the repoint — the `in place` half", () => {
       "riff",
     ]);
 
-    const text = readFileSync(join(dir, "clips", "riff.yaml"), "utf8");
-    expect(text).toContain("source: clips/riff_warm.wav");
-    expect(text).toContain("# hand-written"); // a surgical edit, not a re-serialization
+    const file = join(dir, "clips", "riff.k7x");
+    expect(wsData(file).source).toBe("clips/riff_warm.wav");
+    // A surgical edit, not a re-serialization.
+    expect(readFileSync(file, "utf8")).toContain("// hand-written");
 
     // …and the placement is untouched, so the treated material plays exactly where it sat.
     const t = loadProject(dir).tracks.find((x) => x.id === "gtr")!;
@@ -561,18 +556,29 @@ describe("the stretch map follows the render", () => {
   const warped = (secs: number): string => {
     const src = join(dir, "clips", "take.wav");
     wav(src, secs);
-    writeFileSync(
-      join(dir, "clips", "take.yaml"),
-      "# hand-written\nsource: clips/take.wav\nwarp:\n  algorithm: slice\n  markers:\n    - [0, 0]\n    - [4, 2]\n    - [8, 4]\n",
-      "utf8",
+    put(
+      dir,
+      "clips/take.k7x",
+      {
+        source: "clips/take.wav",
+        warp: {
+          algorithm: "slice",
+          markers: [
+            [0, 0],
+            [4, 2],
+            [8, 4],
+          ],
+        },
+      },
+      ["hand-written"],
     );
     return src;
   };
   const markersOf = (): number[][] => {
-    const y = parseYaml(
-      readFileSync(join(dir, "clips", "take.yaml"), "utf8"),
-    ) as { warp: { markers: number[][] } };
-    return y.warp.markers;
+    const clip = wsData(join(dir, "clips", "take.k7x")) as {
+      warp: { markers: number[][] };
+    };
+    return clip.warp.markers;
   };
 
   it("moves the map's end onto the longer file, keeping the take's tempo", () => {
@@ -603,8 +609,8 @@ describe("the stretch map follows the render", () => {
       [8, 4],
     ]);
     // …and the file is otherwise untouched: the repoint is a surgical edit.
-    expect(readFileSync(join(dir, "clips", "take.yaml"), "utf8")).toContain(
-      "# hand-written",
+    expect(readFileSync(join(dir, "clips", "take.k7x"), "utf8")).toContain(
+      "// hand-written",
     );
   });
 

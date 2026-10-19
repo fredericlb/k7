@@ -3,9 +3,8 @@
 // library's `k7-rack` on its `samples` engine, carrying its own taps (packages/song/docs/racks.md).
 // Pure, because what lands in the project deserves a test; the popin is a grid drawn around these numbers.
 
+import { stringify } from "@studio/k7x/print";
 import { RACK_FIRST_NOTE } from "@studio/song-schema/moduleTypes";
-import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
-import { Document } from "yaml";
 import { m } from "./paraglide/messages.js";
 import { projectDir } from "./projectPaths";
 
@@ -106,8 +105,8 @@ export function rackIssues(
   return out;
 }
 
-/** The KIT node the builder writes: a node of the sampler, one tap per pad, one per line, in the order given. */
-export function buildKitNodeYaml(
+/** The KIT node the builder writes, as k7x: a node of the sampler, one tap per pad, one per line, in the order given. */
+export function buildKitNode(
   name: string,
   pads: readonly RackPad[],
   dest: KitDestination,
@@ -120,17 +119,15 @@ export function buildKitNodeYaml(
       note: p.note,
       sample: kitSampleRef(dest, name, p.fileName),
     };
-  const doc = new Document(
-    { extends: rackRef, engine: RACK_ENGINE, rack: { symbols } },
-    YAML_READ,
-  );
   // `BD: { note: 36, sample: … }` — a kit is read down, the way a drum map is.
-  const map = doc.getIn(["rack", "symbols"]) as {
-    items: { value: { flow?: boolean } }[];
-  };
-  for (const it of map.items) it.value.flow = true;
-  return (
-    `# ${name} — a kit, built with the rack builder: each tap a note and the sample it fires.\n` +
-    doc.toString(YAML_WRITE)
+  return stringify(
+    { extends: rackRef, engine: RACK_ENGINE, rack: { symbols } },
+    {
+      header: [
+        `${name} — a kit, built with the rack builder: each tap a note and the sample it fires.`,
+      ],
+      inline: (path) =>
+        path.length === 3 && path[0] === "rack" && path[1] === "symbols",
+    },
   );
 }

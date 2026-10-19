@@ -120,8 +120,8 @@ and the remedy is to serve the page over https.
 
 ## Mute and solo are the visitor's, and reach only their session
 
-Normally they are WRITES: `m` rewrites the track's bypass in `graph.yaml` and `s` the `soloed:` list
-in `project.yaml`, because a mute is a decision about the song and not a session flag. On a share
+Normally they are WRITES: `m` rewrites the track's bypass in `graph.k7x` and `s` the `soloed:` list
+in `project.k7x`, because a mute is a decision about the song and not a session flag. On a share
 there is nowhere to write, and `fsend` would refuse. So `useTrackControls` takes a `local` mode in
 which the optimistic state IS the value. `App` sends that state to the player as a `track-mix`
 (`EngineClient.trackMix`), and the player rewrites the visitor's own copy of the document. Another
