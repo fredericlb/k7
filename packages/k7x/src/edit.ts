@@ -25,6 +25,8 @@ import { prune, removeAt } from "./remove.ts";
 import { K7Scope } from "./scope.ts";
 import { holds, insertAt, writeAt } from "./write.ts";
 
+export { K7Scope };
+
 /** How a written value is laid out: `inline` keeps it on one line whatever its width. */
 export interface WriteOptions {
   inline?: boolean;
