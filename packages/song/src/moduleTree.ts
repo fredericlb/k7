@@ -369,8 +369,13 @@ export function applyUiLibrary(
   // One ref, or several tried in order, first hit winning — so the specific beats the general.
   refOf: (m: LoadedModule, key: string) => string | string[],
 ): void {
-  applyByRef(out, refOf, loadUiLibrary(dir).byRef, "ui", uiWithScript);
-  applyByRef(out, refOf, loadControllerLibrary(dir).byRef, "cc", (e) => e.cc);
+  // Under the module stamp, so the modules and the refs share ONE read of every panel: each is a deep clone.
+  const ui = cachedForModules(dir, "uiLibrary", () => loadUiLibrary(dir));
+  const cc = cachedForModules(dir, "controllerLibrary", () =>
+    loadControllerLibrary(dir),
+  );
+  applyByRef(out, refOf, ui.byRef, "ui", uiWithScript);
+  applyByRef(out, refOf, cc.byRef, "cc", (e) => e.cc);
 }
 
 /** Stamp a folder-keyed sibling file onto every module that answers to its ref; the panel and the MIDI map differ only in field. */

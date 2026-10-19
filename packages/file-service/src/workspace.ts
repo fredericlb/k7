@@ -100,9 +100,9 @@ import type { HistoryListEntry, HistoryPeek, HistoryState } from "./history.ts";
 import type { ChangeFeed } from "./liveCapture.ts";
 import { closeModuleWatchesUnder, moduleFoldersMoved } from "./moduleWatch.ts";
 import {
+  compatOfNeeds,
   type PluginNeed,
   pluginNeedsOf,
-  projectCompatOf,
 } from "./pluginNeeds.ts";
 import { resolvePreview } from "./previewSource.ts";
 import {
@@ -622,7 +622,6 @@ export class Workspace {
     return this.revisionOf(this.walkScope ?? walkProject(dir, true));
   }
 
-
   /** The token from a walk — projectWalk.ts — with this workspace's mutation counter. */
   private revisionOf(files: WalkedFile[]): string {
     return revisionOf(files, this.mutations);
@@ -705,12 +704,36 @@ export class Workspace {
 
   /** The plugins one project of this workspace needs its engine to host, read without opening it — pluginNeeds.ts. */
   pluginNeeds(project: string): PluginNeed[] {
-    return pluginNeedsOf(this.projectDirOf(project));
+    return this.needsOf(this.projectDirOf(project));
   }
 
   /** …scored against THIS machine's engine scan, for a project living beside its engine; null when the scan cannot say. */
   pluginCompat(project: string): Compatibility | null {
-    return projectCompatOf(this.projectDirOf(project), scannedPlugins());
+    return compatOfNeeds(
+      this.needsOf(this.projectDirOf(project)),
+      scannedPlugins(),
+    );
+  }
+
+  /** Each project's needs, against the token of ITS files: reading them loads the whole graph, and a page asks several times an open. */
+  private needsCache = new Map<string, { rev: string; needs: PluginNeed[] }>();
+  private needsOf(dir: string): PluginNeed[] {
+    // The open project's token is the one the graph and the doc key on; another's, a walk of its own sources.
+    const rev =
+      dir === this.activeProject
+        ? this.revision().rev
+        : this.revisionOf(walkProject(dir, true));
+    const hit = this.needsCache.get(dir);
+    if (hit && hit.rev === rev) return hit.needs;
+    const needs = pluginNeedsOf(dir);
+    this.needsCache.delete(dir);
+    this.needsCache.set(dir, { rev, needs });
+    // A projects page asks for every project once: a bound, not a memory of the whole disk.
+    for (const oldest of this.needsCache.keys()) {
+      if (this.needsCache.size <= 64) break;
+      this.needsCache.delete(oldest);
+    }
+    return needs;
   }
 
   private projectDirOf(project: string): string {
