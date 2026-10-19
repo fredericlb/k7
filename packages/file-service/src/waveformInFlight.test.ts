@@ -26,6 +26,12 @@ vi.mock("@studio/audio-analysis/analyse", () => ({
   },
 }));
 
+// The pool would run the REAL analysis on a worker thread, out of the mock's reach: here it is the mocked call, in-thread.
+vi.mock("./analysePool.ts", async () => {
+  const { analyseFile } = await import("@studio/audio-analysis/analyse");
+  return { analyseOffThread: analyseFile };
+});
+
 const { CACHE_VERSION } = await import("@studio/audio-analysis/sidecar");
 const { ensureFileEnvelope, cachePath, fileFingerprint, invalidateEnvelope } =
   await import("./waveformCache.ts");

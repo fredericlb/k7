@@ -4,7 +4,6 @@
 // @studio/audio-probe/waveform. See docs/waveformCache.md.
 
 import { statSync } from "node:fs";
-import { analyseFile } from "@studio/audio-analysis/analyse";
 import { DEFAULT_TRANSIENT_SENSITIVITY } from "@studio/audio-analysis/envelope";
 import { fileFingerprint } from "@studio/audio-analysis/fingerprint";
 import {
@@ -13,6 +12,7 @@ import {
   storedSensitivity,
 } from "@studio/audio-analysis/sidecar";
 import type { FileEnvelope } from "@studio/audio-probe/waveform";
+import { analyseOffThread } from "./analysePool.ts";
 
 // Re-exported so this module's importers keep resolving them; they are the sidecar's, not ours.
 export {
@@ -82,7 +82,11 @@ async function sharedDecode(
   const mtimeMs = statSync(source).mtimeMs;
   const decode = (async (): Promise<FileEnvelope> => {
     // A null engineBin is the hosted service: ffmpeg decodes, as in pl8 (docs/waveformCache.md).
-    const env = await analyseFile(source, sensitivity, { engineBin, signal });
+    // On a worker thread: the envelope loops over every sample, which would hold every other request.
+    const env = await analyseOffThread(source, sensitivity, {
+      engineBin,
+      signal,
+    });
     memo.set(source, { mtimeMs, env });
     return env;
   })();
