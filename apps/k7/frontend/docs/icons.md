@@ -28,7 +28,8 @@ the system's launch screen and k7's first render flashes another colour.
 | app | where it shows | what it reads |
 |---|---|---|
 | web, PWA | `index.html`'s `#root` until React renders; an installed PWA's launch screen | the SVG itself; `background_color` in both manifests |
-| desktop app | the window's first page until the backend answers (`apps/k7-standalone/src/splash.ts`) | `apps/k7-standalone/src/splashArt.json`, the SVG inlined, since a data URL fetches nothing |
+| desktop app | the window's first page until the backend answers (`apps/k7-standalone/src/splash.ts`) | `icon/k7-splash.inline.json`, the SVG inlined, since a data URL fetches nothing |
+| `k7.rocks`, `www.k7.rocks` | the whole page, with "Coming soon" (`apps/k7/backend/docs/site.md`) | the same `icon/k7-splash.inline.json`, bundled into the backend |
 | Android | the window's background (`res/drawable/splash.xml`, `AppTheme.Launch`), then the shell page while the phone's k7 starts (`engine/k7-android/web/src/Backend.tsx`) | `res/drawable-nodpi/splash_art.png`; the SVG in the shell page |
 | iOS | `UILaunchScreen` (`Info.plist`), then the same shell page | `Assets.xcassets/Splash.imageset`, on `LaunchBackground` |
 
