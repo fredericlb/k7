@@ -25,7 +25,11 @@ async function reader(src: PocketbaseSource) {
       signal: AbortSignal.timeout(15_000),
     },
   );
-  if (!auth.ok) throw new Error(`PocketBase sign-in: ${auth.status}`);
+  // PocketBase's own message ("Failed to authenticate.") says whether it is the pair or the request.
+  if (!auth.ok)
+    throw new Error(
+      `PocketBase sign-in as ${src.email}: ${auth.status} ${(await auth.text().catch(() => "")).slice(0, 200)}`,
+    );
   const { token } = (await auth.json()) as { token: string };
   const get = async (path: string): Promise<Response> => {
     const res = await fetch(`${base}${path}`, {
