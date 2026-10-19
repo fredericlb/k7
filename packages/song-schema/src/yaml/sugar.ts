@@ -4,6 +4,9 @@
 import { docPattern } from "../docExt";
 import { fileKindFor } from "./fields";
 
+// The one rule for writing expanded data back over a file's short forms, also what the YAML bridge applies.
+export { applySugared } from "@studio/k7x/sugared";
+
 const GRAPH_FILE = docPattern("(^|/)graph");
 const CHAINS_FILE = docPattern("(^|/)chains");
 

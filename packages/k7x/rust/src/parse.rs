@@ -113,6 +113,7 @@ impl<'a> Parser<'a> {
     fn call(&mut self, dot: Option<usize>) -> Res<Entry<'a>> {
         let key_start = self.pos;
         let key = self.key()?;
+        let key_end = self.pos;
         self.skip()?;
         if self.cur() != b'(' {
             return self.fail(format!("expected \"(\" after {key}"), self.pos);
@@ -160,6 +161,7 @@ impl<'a> Parser<'a> {
             end: close + 1,
             dot,
             key_start,
+            key_end,
         })
     }
 
@@ -287,6 +289,7 @@ impl<'a> Parser<'a> {
             }
             let key_start = self.pos;
             let key = self.key()?;
+            let key_end = self.pos;
             self.skip()?;
             if self.cur() != b':' {
                 return self.fail(format!("expected \":\" after {key}"), self.pos);
@@ -301,6 +304,7 @@ impl<'a> Parser<'a> {
                 end: value.end(),
                 dot: None,
                 key_start,
+                key_end,
             });
             self.skip()?;
             match self.cur() {

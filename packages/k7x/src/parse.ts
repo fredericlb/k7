@@ -21,6 +21,18 @@ export class K7SyntaxError extends Error {
   }
 }
 
+/** The 1-based line and column of an offset, the column in UTF-16 units: K7SyntaxError's convention. */
+export function lineCol(
+  text: string,
+  offset: number,
+): { line: number; col: number } {
+  const before = text.slice(0, offset);
+  return {
+    line: before.split("\n").length,
+    col: offset - before.lastIndexOf("\n"),
+  };
+}
+
 const IDENT = /[A-Za-z_$][A-Za-z0-9_$-]*/y;
 const NUMBER = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
 const ESCAPES: Record<string, string> = {
@@ -45,10 +57,8 @@ class Parser {
   constructor(readonly src: string) {}
 
   fail(message: string, at = this.pos): never {
-    const before = this.src.slice(0, at);
-    const line = before.split("\n").length;
-    const column = at - before.lastIndexOf("\n");
-    throw new K7SyntaxError(message, at, line, column);
+    const { line, col } = lineCol(this.src, at);
+    throw new K7SyntaxError(message, at, line, col);
   }
 
   /** Skips whitespace and both comment forms. */
@@ -121,6 +131,7 @@ class Parser {
   call(dot: number | null): K7Entry {
     const keyStart = this.pos;
     const key = this.key();
+    const keyEnd = this.pos;
     this.skip();
     if (this.src[this.pos] !== "(") this.fail(`expected "(" after ${key}`);
     const open = ++this.pos;
@@ -154,6 +165,7 @@ class Parser {
       end: close + 1,
       dot,
       keyStart,
+      keyEnd,
     };
   }
 
@@ -242,6 +254,7 @@ class Parser {
       if (this.pos >= this.src.length) this.fail('unclosed "{"', start);
       const keyStart = this.pos;
       const key = this.key();
+      const keyEnd = this.pos;
       this.skip();
       if (this.src[this.pos] !== ":") this.fail(`expected ":" after ${key}`);
       this.pos++;
@@ -254,6 +267,7 @@ class Parser {
         end: value.end,
         dot: null,
         keyStart,
+        keyEnd,
       });
       this.skip();
       if (this.src[this.pos] === ",") {
@@ -327,4 +341,15 @@ function checkUnique(entries: K7Entry[], p: Parser): void {
 /** The tree of a whole file; throws K7SyntaxError. An empty file is an empty map. */
 export function parseTree(text: string): K7MapNode {
   return new Parser(text).root();
+}
+
+/** One value with nothing but trivia around it: what a writer's raw source must be; throws K7SyntaxError. */
+export function parseValue(text: string): K7Node {
+  const p = new Parser(text);
+  p.skip();
+  if (p.pos >= text.length) p.fail("expected a value");
+  const value = p.value();
+  p.skip();
+  if (p.pos < text.length) p.fail("expected the end of the value");
+  return value;
 }

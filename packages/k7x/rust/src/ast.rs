@@ -48,6 +48,8 @@ pub struct Entry<'a> {
     /// Offset of the `.` that introduces a chained call; None for a chain's head and an object entry.
     pub dot: Option<usize>,
     pub key_start: usize,
+    /// Just past the key's source, quotes included.
+    pub key_end: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

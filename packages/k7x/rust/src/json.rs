@@ -142,8 +142,8 @@ fn entry_json(e: &Entry, u: &[usize], out: &mut String) {
     let dot = e.dot.map_or("null".to_owned(), |d| u[d].to_string());
     write!(
         out,
-        ",\"start\":{},\"end\":{},\"dot\":{dot},\"keyStart\":{}}}",
-        u[e.start], u[e.end], u[e.key_start]
+        ",\"start\":{},\"end\":{},\"dot\":{dot},\"keyStart\":{},\"keyEnd\":{}}}",
+        u[e.start], u[e.end], u[e.key_start], u[e.key_end]
     )
     .unwrap();
 }

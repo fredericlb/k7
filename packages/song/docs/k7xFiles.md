@@ -17,6 +17,21 @@ literals that build paths, all keep working by going through this one module. It
 writer cannot tell which format it wrote, which is the point: a k7x file stays a k7x file, with its
 comments and its layout, through every command.
 
+## The k7x door
+
+`src/yaml/workspaceDoc.ts` is the other way in, for code that speaks k7x rather than YAML: it
+takes a `.k7x` path named outright, never a YAML name to resolve, and refuses any other. A file is
+read as its text (`wsText`) or its data (`wsData`), edited as a k7x document by key path
+(`wsEdit`), or written whole, canonically from data (`wsWriteData`) or as text that must read
+(`wsWriteText`). Every write is atomic and skipped when the text would not change.
+
+- **An edit of a file with short forms sees their expanded data.** The edit runs on a scratch
+  document of that data, and the result goes back over the real one by the same rule as the YAML
+  bridge, `applySugared` (`packages/k7x/src/sugared.ts`, `packages/song-schema/docs/sugar.md`), so a
+  writer never has to know that `notes("c4 d4")` is a string.
+- **An absent file is an error unless the caller says `create`**: then it is an empty document, and
+  is only written once the edit put something in it.
+
 ## The rules
 
 - **`.k7x` wins.** A folder holding both `graph.yaml` and `graph.k7x` reads the k7x one. A folder
@@ -84,6 +99,8 @@ always allowed, to see what would happen.
 - **A finding's line is computed from its key path.** A parser runs on the YAML view, so the
   module, graph, cue-sheet and chain loaders place each finding back on the k7x text by its path
   (`wsIssues`, `packages/song-schema/src/yaml/k7xIssues.ts`). A finding with no path has no line.
+  The placing itself is `packages/song-schema/src/yaml/k7xPosition.ts`, which also takes zod's
+  findings on a file's data directly, for a parser that reads k7x without the YAML view.
 - **Entity links and the preview gutter read YAML only**: a `.k7x` file gets colours, completion
   and lint, not the click-through to a referenced file or the ▶ beside a sample.
 - **Both spellings in one folder** list twice where code counts files, though only the k7x one is

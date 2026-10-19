@@ -1,49 +1,19 @@
 // k7xIssues.ts — a .k7x buffer checked by the same parsers as YAML, its findings placed on the k7x text's own lines.
 // The parsers run on the YAML view (toYaml), so a finding's line is recomputed from its KEY PATH, never carried over.
 
-import type { K7Entry, K7Node } from "@studio/k7x/ast";
+import { K7Document } from "@studio/k7x/document";
 import { K7SyntaxError, parseTree } from "@studio/k7x/parse";
 import { toYaml } from "@studio/k7x/yaml-bridge";
+import { issueSegments, k7xPosition } from "./k7xPosition";
 import type { ModuleIssue } from "./moduleFile";
 import { sugarFor } from "./sugar";
 
-/** 1-based line and column of an offset in `text`. */
-function lineCol(text: string, offset: number): { line: number; col: number } {
-  const before = text.slice(0, offset);
-  const line = before.split("\n").length;
-  return { line, col: offset - before.lastIndexOf("\n") };
-}
-
 /** Where a key path points in k7x text: the deepest entry or item that exists, at its key when it has one. */
 export function locateK7x(
-  text: string,
+  text: string | K7Document,
   path: readonly (string | number)[],
 ): { line?: number; col?: number } {
-  let root: K7Node;
-  try {
-    root = parseTree(text);
-  } catch {
-    return {};
-  }
-  if (!path.length) return {};
-  let node: K7Node = root;
-  let at: number | null = null;
-  for (const seg of path) {
-    if (node.kind === "map") {
-      const e: K7Entry | undefined = node.entries.find(
-        (x) => x.key === String(seg),
-      );
-      if (!e) break;
-      at = e.keyStart;
-      node = e.value;
-    } else if (node.kind === "list") {
-      const item: K7Node | undefined = node.items[Number(seg)];
-      if (!item) break;
-      at = item.start;
-      node = item;
-    } else break;
-  }
-  return at === null ? {} : lineCol(text, at);
+  return k7xPosition(text, path) ?? {};
 }
 
 /** The same findings, their line and column taken from the k7x text by each one's dotted path. */
@@ -51,8 +21,9 @@ export function relocateIssues(
   text: string,
   issues: ModuleIssue[],
 ): ModuleIssue[] {
+  const doc = new K7Document(text);
   return issues.map((i) => {
-    const { line, col } = locateK7x(text, i.path ? i.path.split(".") : []);
+    const { line, col } = locateK7x(doc, issueSegments(i.path ?? ""));
     const { line: _l, col: _c, ...rest } = i;
     return line === undefined ? rest : { ...rest, line, col };
   });

@@ -48,6 +48,7 @@
     "./yaml/edit": "./src/yaml/edit.ts",
     "./yaml/moduleIO": "./src/yaml/moduleIO.ts",
     "./yaml/workspaceFile": "./src/yaml/workspaceFile.ts",
+    "./yaml/workspaceDoc": "./src/yaml/workspaceDoc.ts",
     "./k7xMigrate": "./src/k7xMigrate.ts",
     "./yaml/materialFile": "./src/yaml/materialFile.ts",
     "./folder": "./src/folder.ts",

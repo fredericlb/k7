@@ -86,6 +86,11 @@ What `print.ts` writes when it writes a whole value (a new file, a new entry, a 
   and a broken chain puts each call on its own line behind a leading `.`;
 - anything carrying a comment breaks, since `//` ends its line.
 
+A writer may ask for a node on one line whatever its width (`inline`, on `stringify` and on every
+write of the document), for data whose rows read best as rows. A file's **header** is the run of
+`//` lines it starts with: `stringify` writes one and the document reads and replaces it, since a
+file's own description is the one comment a writer, not its author, keeps up to date.
+
 The layout is only for text written whole. An edit never reformats what it does not change, and a
 conversion keeps what its author wrote on one line on one line, whatever its width (`convert.md`).
 

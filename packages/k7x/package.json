@@ -7,9 +7,11 @@
   "exports": {
     "./ast": "./src/ast.ts",
     "./parse": "./src/parse.ts",
+    "./print": "./src/print.ts",
     "./native": "./src/native.ts",
     "./document": "./src/edit.ts",
     "./from-yaml": "./src/fromYaml.ts",
+    "./sugared": "./src/sugared.ts",
     "./yaml-bridge": "./src/yamlBridge.ts"
   },
   "scripts": {
