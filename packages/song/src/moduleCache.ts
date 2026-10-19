@@ -3,67 +3,27 @@
 // from: every entry's name, plus the newest mtime among the files that define a module. A 20 ms
 // directory walk in place of a 295 ms read of the whole médiathèque. See docs/moduleCache.md.
 
-import { type Dirent, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { EXTS_PATH } from "./engineCatalogue";
 import { modelsRoot } from "./modelCache";
 import { modulePanelRoots } from "./sharedFolders";
-
-/** A file whose CONTENT says what a module is. Everything else is named in the stamp, not stat'd. */
-const DEFINITION = /\.(k7x|ts|js|vstpreset)$/i;
-
-/** `<type>/<category>/<module>/assets/<sub>` is the deepest real tree; also a floor under a link loop. */
-const MAX_DEPTH = 6;
+import { walkStamp } from "./stampWalk";
 
 /** How many projects' vocabularies to hold. Each is a few MB, and one service drives a handful. */
 const MAX_ENTRIES = 4;
 
 /** A token that changes when anything the loaders read does; NAMES are hashed, so a rename shows up. */
 function moduleStamp(dir: string): string {
-  let hash = 2166136261; // FNV-1a over every entry name — cheap, and no syscall of its own
-  let entries = 0;
-  let newest = 0;
-  const mix = (s: string): void => {
-    for (let i = 0; i < s.length; i++) {
-      hash ^= s.charCodeAt(i);
-      hash = Math.imul(hash, 16777619);
-    }
-  };
-  const stamp = (path: string): void => {
-    try {
-      const m = statSync(path).mtimeMs;
-      if (m > newest) newest = m;
-    } catch {
-      /* raced away between readdir and stat — the next call sees it */
-    }
-  };
-  const walk = (abs: string, depth: number): void => {
-    let found: Dirent[];
-    try {
-      found = readdirSync(abs, { withFileTypes: true });
-    } catch {
-      return; // not there, or unreadable — the loaders treat it as empty too
-    }
-    for (const e of found) {
-      if (e.name.startsWith(".")) continue;
-      entries++;
-      mix(e.name);
-      if (e.isDirectory()) {
-        if (depth < MAX_DEPTH) walk(join(abs, e.name), depth + 1);
-        continue;
-      }
-      if (DEFINITION.test(e.name)) stamp(join(abs, e.name));
-    }
-  };
-  for (const root of modulePanelRoots(dir)) walk(root, 0);
-  walk(join(dir, "nodes"), 0);
-  // A chain project's nodes, lanes and plugin states (docs/chainFiles.md).
-  for (const sub of ["chains", "tracks", "vstpresets"]) walk(join(dir, sub), 0);
-  // A rescan rewrites this and touches no library — `@engine/…` refs come out of it.
-  stamp(EXTS_PATH);
-  // …and a model landing in the machine's cache changes what a module's `onnx:` resolves to, in no
-  // module folder: the folder's own mtime moves when one is renamed into it (docs/moduleAssets.md).
-  stamp(modelsRoot());
+  const roots = [
+    ...modulePanelRoots(dir),
+    join(dir, "nodes"),
+    // A chain project's nodes, lanes and plugin states (docs/chainFiles.md).
+    ...["chains", "tracks", "vstpresets"].map((sub) => join(dir, sub)),
+  ];
+  // A rescan rewrites `exts.json` and touches no library — `@engine/…` refs come out of it.
+  // A model landing in the machine's cache moves its folder's mtime, in no module folder (docs/moduleAssets.md).
+  const files = [EXTS_PATH, modelsRoot()];
+  const { hash, entries, newest } = walkStamp(roots, files);
   return `${(hash >>> 0).toString(36)}:${entries}:${newest}`;
 }
 
