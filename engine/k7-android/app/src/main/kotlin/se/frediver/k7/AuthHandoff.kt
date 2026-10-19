@@ -40,6 +40,8 @@ object AuthHandoff {
             .build()
         // A Custom Tab in this task, so the answer reaching the singleTask activity closes it; outside an activity, a task of its own.
         val tab = CustomTabsIntent.Builder().setShowTitle(true).build()
+        // Held in front while the browser is: the backend trades the code with the provider meanwhile (AuthService.kt).
+        AuthService.hold(context)
         if (context !is Activity) tab.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
             tab.launchUrl(context, url)

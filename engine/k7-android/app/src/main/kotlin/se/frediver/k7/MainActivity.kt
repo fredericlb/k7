@@ -46,6 +46,12 @@ class MainActivity : BridgeActivity() {
         Updates.handle(this, intent)
     }
 
+    // Back in front, from the browser or not: a sign-in no longer needs the app held (AuthService.kt).
+    override fun onResume() {
+        super.onResume()
+        AuthService.release(this)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         Updates.handle(this, intent)

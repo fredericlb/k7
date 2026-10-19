@@ -283,6 +283,12 @@ shown, and a page switch to the app already shown loads nothing. When Android ki
 while the browser was in front, the answer is the intent that launches the next one, and it is the
 view's first load.
 
+**The app is held in front while the browser signs in** (`AuthService.kt`, a `shortService`). The
+backend trades the provider's code while the browser is in front, and Android 15 cuts a backgrounded
+app off the network, its DNS included: without the hold the sign-in fails with `ENOTFOUND` on the
+provider's host. It is released when the app is back in front, answered or not, and Android ends a
+short service on its own after a few minutes.
+
 ## Pairing with the origin, as the desktop does
 
 The phone runs the desktop's backend and hub, so it is a live-sync replica the same way
