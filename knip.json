@@ -72,6 +72,9 @@
     "packages/k7-plugins": {
       "entry": ["scripts/turntables/*.ts"]
     },
+    "packages/k7x": {
+      "entry": ["bench/*.{ts,mjs}"]
+    },
     "packages/ui-chains-react": {}
   }
 }

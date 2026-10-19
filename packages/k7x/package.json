@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "bench:rust": "tsx bench/compare.ts"
   },
   "engines": {
     "node": ">=18"

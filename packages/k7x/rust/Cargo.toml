@@ -1,0 +1,17 @@
+[package]
+name = "k7x"
+version = "0.1.0"
+edition = "2024"
+description = "k7x, parsed in Rust: the same grammar and spans as packages/k7x/src/parse.ts, with no dependency."
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "k7x-bench"
+path = "src/bin/k7x-bench.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1
