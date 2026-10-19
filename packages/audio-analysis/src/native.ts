@@ -12,8 +12,15 @@ export interface NativeMeasure {
   close(): void;
 }
 
+/** The part of WebAssembly this file uses, typed here so it compiles whatever lib a host's tsconfig names. */
+interface WasmApi {
+  Module: new (bytes: Uint8Array) => object;
+  Instance: new (module: object) => { exports: unknown };
+}
+const wasm = (globalThis as { WebAssembly?: WasmApi }).WebAssembly;
+
 interface Abi {
-  memory: WebAssembly.Memory;
+  memory: { buffer: ArrayBuffer };
   wf_input(len: number): number;
   wf_push(len: number, channels: number): void;
   wf_measure(aLow: number, aHigh: number): number;
@@ -44,7 +51,7 @@ function split(out: Float32Array, buckets: number): Measured {
   };
 }
 
-let compiled: WebAssembly.Module | null | undefined;
+let compiled: object | null | undefined;
 let addon: Addon | null | undefined;
 let kind: "addon" | "wasm" | "none" = "none";
 
@@ -66,8 +73,8 @@ function loadAddon(path: string): Addon | null {
   }
 }
 
-function wasmMeasure(module: WebAssembly.Module): NativeMeasure {
-  let x: Abi | null = new WebAssembly.Instance(module)
+function wasmMeasure(module: object): NativeMeasure {
+  let x: Abi | null = new (wasm as WasmApi).Instance(module)
     .exports as unknown as Abi;
   const abi = (): Abi => {
     if (!x) throw new Error("waveform: measure used after close()");
@@ -132,7 +139,7 @@ export function openMeasure(): NativeMeasure | null {
   }
   if (compiled === undefined) {
     try {
-      compiled = new WebAssembly.Module(Buffer.from(WASM, "base64"));
+      compiled = wasm ? new wasm.Module(Buffer.from(WASM, "base64")) : null;
     } catch {
       // A JIT-less V8 has no WebAssembly: the JS measure runs instead.
       compiled = null;
