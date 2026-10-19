@@ -4,7 +4,10 @@
 
 import { clearDevPerfEntries } from "@frediverse/ui/dev-perf";
 import { registerWorker } from "@frediverse/vite-config/register";
-import { setFileApiTally } from "@studio/project-shell/fileApi";
+import {
+  setFileApiRevision,
+  setFileApiTally,
+} from "@studio/project-shell/fileApi";
 import {
   isExternalIndex,
   parseExternal,
@@ -52,6 +55,7 @@ const RehearsalRemote = lazy(() =>
 import { PROFILING } from "@studio/project-shell/profiling";
 import { publicPageAt, RehearsalRecording } from "@studio/ui-rehearsal";
 import { installFreezeWatchdog, reportCommit, tally } from "./freezeWatchdog";
+import { currentRevision } from "./hooks/useRevision";
 import { LocaleProvider } from "./i18n";
 import { installLongPress } from "./longPress";
 import { PaneBoundary } from "./PaneBoundary";
@@ -104,6 +108,10 @@ installFreezeWatchdog({ commits: PROFILING });
 // …and let the file transport report into the same tally: parsing a response is the other thing
 // that runs on this thread while a project opens, and the engine link was the only one instrumented.
 setFileApiTally(tally);
+// The compiled views follow the change token alone, so a pane mounting a moment after another is answered from its read.
+setFileApiRevision(currentRevision, (path) =>
+  /^\/(graph|project-doc|project-plugins)(\?|$)/.test(path),
+);
 // A held finger or pen is a right-click on every surface, an iPad included (docs/contextMenu.md).
 installLongPress();
 

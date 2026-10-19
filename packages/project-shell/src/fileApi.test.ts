@@ -8,6 +8,7 @@ import {
   fget,
   fsend,
   READ_MS,
+  setFileApiRevision,
   setFileApiTally,
 } from "./fileApi.ts";
 
@@ -106,6 +107,70 @@ describe("fget", () => {
     releaseAll();
     await Promise.allSettled([stale, wrote, fresh]);
     expect(served.filter((u) => u.endsWith("/graph"))).toHaveLength(2);
+  });
+});
+
+describe("a token-derived read, once settled", () => {
+  let token = "";
+  // A fresh token per test, so nothing kept by one test answers the next.
+  beforeEach(() => {
+    token = `rev-${Math.random()}`;
+    setFileApiRevision(
+      () => token,
+      (p) => p === "/graph",
+    );
+  });
+  afterEach(() => {
+    setFileApiRevision(
+      () => null,
+      () => false,
+    );
+    vi.useRealTimers();
+  });
+
+  const settle = async (path: string): Promise<unknown> => {
+    const p = fget(path);
+    releaseAll();
+    return p;
+  };
+
+  it("answers a view mounting a moment later, at the same token", async () => {
+    const a = await settle("/graph");
+    const b = await settle("/graph");
+    expect(served).toHaveLength(1);
+    // Still parsed per caller: nobody shares an object.
+    expect(b).toEqual(a);
+    expect(b).not.toBe(a);
+  });
+
+  it("asks again once the token moved", async () => {
+    await settle("/graph");
+    token = `${token}+edited`;
+    await settle("/graph");
+    expect(served).toHaveLength(2);
+  });
+
+  it("asks again after a write, whatever the token says", async () => {
+    await settle("/graph");
+    const wrote = fsend("POST", "/command", { line: "x" });
+    releaseAll();
+    await wrote;
+    await settle("/graph");
+    expect(served.filter((u) => u.endsWith("/graph"))).toHaveLength(2);
+  });
+
+  it("is not kept past a few seconds", async () => {
+    vi.useFakeTimers();
+    await settle("/graph");
+    vi.advanceTimersByTime(6000);
+    await settle("/graph");
+    expect(served).toHaveLength(2);
+  });
+
+  it("leaves every other route a fresh request", async () => {
+    await settle("/workspace");
+    await settle("/workspace");
+    expect(served).toHaveLength(2);
   });
 });
 

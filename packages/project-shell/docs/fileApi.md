@@ -45,6 +45,24 @@ surface that fills its decks' clips into the document it was given would be writ
 component's state. Each caller pays the parse it always paid; what it stops paying is the round
 trip and the service's work behind it.
 
+### …and one exception, opted into: a compiled view at the same token
+
+Joining one request still leaves a second one, sent by a view that mounts just after the first
+answer arrives. When k7 opens a project, the timeline and the graph panes ask for `/graph` and
+`/project-doc` this way, a few hundred milliseconds apart. On a phone, that second `/graph` cost
+over a second, at the moment the waveforms were loading. A page that polls `/revision` can
+therefore declare, with `setFileApiRevision(token, derived)`, which routes are computed only from
+the project at a given token. Their settled body is kept for five seconds under
+`<epoch>\n<token>\n<path>`, and an ask under the same key is answered from it.
+
+The key keeps this as safe as joining a request:
+
+- **A write** from this tab bumps the epoch.
+- **An outside edit** moves the token at the next poll. The page reacts to that move by asking
+  again, and the new token makes it a new key.
+
+Every other route, such as `/revision` itself, `/workspace` or the waveform status, is never kept.
+
 ### A read has a budget, a write has none
 
 Joining a GET in flight has one cost: a request that never answers is never answered for ANY of

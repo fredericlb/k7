@@ -159,6 +159,11 @@ const poller = createRevisionPoller(
   openedRevision,
 );
 
+/** The token as the poller holds it now, outside React — for the transport's reuse of derived reads. */
+export function currentRevision(): string | null {
+  return poller.get();
+}
+
 /** Tell the poller the token a writing command just answered with — only for a caller that has already reloaded the shell. */
 export function noteRevision(rev: string): void {
   poller.note(rev);

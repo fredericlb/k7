@@ -87,8 +87,26 @@ export function fileHeaders(extra?: HeadersInit): HeadersInit {
 /** Writes through `fsend` — the fence under the sharing below, see docs/fileApi.md. */
 let epoch = 0;
 
-/** GETs in flight, keyed `<epoch>\n<path>`, holding the BODY TEXT. Emptied as each settles. */
+/** GETs in flight, keyed `<epoch>\n<token>\n<path>`, holding the BODY TEXT. Emptied as each settles. */
 const inFlight = new Map<string, Promise<string>>();
+
+/** The page's change token, and the routes answered from the project at that token alone — docs/fileApi.md. */
+let tokenNow: () => string | null = () => null;
+let fromToken: (path: string) => boolean = () => false;
+
+/** Let a page that polls `/revision` have its token-derived reads reused after they settle. Off until asked. */
+export function setFileApiRevision(
+  token: () => string | null,
+  derived: (path: string) => boolean,
+): void {
+  tokenNow = token;
+  fromToken = derived;
+}
+
+/** How long a settled token-derived answer is handed to a later ask at the same epoch and token. */
+const SETTLED_MS = 5000;
+/** Those answers' bodies, under the same key as `inFlight`. */
+const settled = new Map<string, { body: string; at: number }>();
 
 /** GET a route — and if the same one is in the air, wait on THAT. Not a cache: docs/fileApi.md. */
 export function fget<T>(path: string): Promise<T> {
@@ -96,15 +114,31 @@ export function fget<T>(path: string): Promise<T> {
   const stock = fileCfg?.frozen?.canned[path];
   if (stock !== undefined)
     return Promise.resolve(parse<T>(`GET ${route(path)}`, stock));
-  const key = `${epoch}\n${path}`;
+  const token = fromToken(path) ? tokenNow() : null;
+  const key = `${epoch}\n${token ?? ""}\n${path}`;
+  const kept = token === null ? undefined : settled.get(key);
+  if (kept && performance.now() - kept.at < SETTLED_MS)
+    return Promise.resolve(parse<T>(`GET ${route(path)}`, kept.body));
   let body = inFlight.get(key);
   if (!body) {
-    body = getOnce(path).finally(() => {
-      if (inFlight.get(key) === body) inFlight.delete(key);
-    });
+    body = getOnce(path)
+      .then((text) => {
+        if (token !== null) keep(key, text);
+        return text;
+      })
+      .finally(() => {
+        if (inFlight.get(key) === body) inFlight.delete(key);
+      });
     inFlight.set(key, body);
   }
   return body.then((t) => parse<T>(`GET ${route(path)}`, t));
+}
+
+/** Hold a token-derived answer, dropping whatever has aged out so the map stays a handful. */
+function keep(key: string, body: string): void {
+  const now = performance.now();
+  for (const [k, v] of settled) if (now - v.at >= SETTLED_MS) settled.delete(k);
+  settled.set(key, { body, at: now });
 }
 
 /**
