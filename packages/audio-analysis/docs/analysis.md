@@ -152,3 +152,32 @@ extraction leaves nothing a compile would take for a sound.
 `audio-probe` MEASURES audio a caller already decoded, which is why a browser may import it. This
 package spawns processes and writes files. Keeping them apart is what stops k7's clip panel from
 pulling a decoder into the bundle.
+
+## The measure runs in Rust, and writes the same bytes
+
+The pass over every sample — the mono sum, peak/RMS, the three bands, the tempo onset envelope —
+and the tempo's autocorrelation run in `rust/` where the runtime has a build of it: WebAssembly
+(`src/waveformWasm.generated.ts`, checked in, since the file service loads this package as raw
+TypeScript) wherever there is a JIT, and on iOS, whose V8 has none and so no WebAssembly either,
+the app's Node-API addon (`packages/k7x/rust/node`, the one native library the app loads,
+`K7X_ADDON`). `src/envelope.ts` stays the reference and the fallback, and `STUDIO_WAVEFORM=js`
+forces it.
+
+The two must write the same sidecar, or a decode on one host would rewrite every cache another
+made — so nothing that could differ is computed twice. The followers' coefficients and the tempo
+prior use `Math.exp`/`Math.log2`, so they stay in JS and are handed over; what crosses into Rust
+is arithmetic IEEE 754 defines exactly (adds, multiplies, divisions, `sqrt`, comparisons), done in
+the same order, with every value rounded to `f32` where `envelope.ts` stores it in a
+`Float32Array`. The sidecar's text stays in `sidecar.ts`: Rust's `{:.4}` rounds an exact tie to
+even where `toFixed` rounds it up, and a peak of exactly 1/32 is such a tie. `src/native.test.ts`
+holds every array bit for bit and every sidecar byte for byte, through both builds, so
+`CACHE_VERSION` did not move.
+
+A WebAssembly instance is made per file and dropped after it: the mono signal is held inside it
+until the measure, and a two-hour file grows that memory past a gigabyte, which an instance never
+gives back. The module itself is compiled once.
+
+Measured on five minutes of 48 kHz stereo (`npm run bench:measure -w @studio/audio-analysis`,
+Windows, x86-64, node 24.18): with a JIT, 213 ms in JS, 113 ms in WebAssembly, 91 ms through the
+addon; without one, as on iOS, 3,418 ms in JS against 92 ms through the addon. The decode is not
+in those numbers, and on a phone it is the engine's.

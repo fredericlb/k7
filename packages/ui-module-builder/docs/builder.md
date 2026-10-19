@@ -8,7 +8,7 @@ component can carry one line per decision. Its state lives in three hooks — th
 
 ## Four files, four autosaves
 
-A module is **four documents on disk** — `module.yaml` (what it is), `ui.yaml` (how it is drawn),
+A module is **four documents on disk** — `module.k7x` (what it is), `ui.k7x` (how it is drawn),
 and, when it has them, its own DSP source (a `jsdsp` or `faust` module) and the `widgets.js` that
 draws its screens. Its PRESETS are not among them: a preset is a file of the presets tree, kept
 apart from the module and chosen on a graph node (`packages/song/docs/userPresets.md`).
@@ -23,7 +23,7 @@ is four files describing one thing, and saving the one you happen to be looking 
 three behind, which on a shared module means handing everybody a panel for a plugin nobody else has
 yet. They are edited together, so they land together. `publish` runs only if every one landed: `flush`
 answers that, and a file held back because it would not compile reports false, so publishing a
-module whose `module.yaml` is still yesterday's cannot put a half-edit in front of everybody.
+module whose `module.k7x` is still yesterday's cannot put a half-edit in front of everybody.
 
 The parameters pane is the one pane with no CodeMirror in it, so it wires Ctrl+S itself — otherwise
 the documented rule ("Ctrl+S and `:w` mean the Save button, and they save all four files") would
@@ -52,7 +52,7 @@ disabled. The DSP source is its own effect rather than a fourth call in the same
 language is read off the BUFFER — so the tab lands the moment someone types the type, and an
 ordinary module never asks a host for a file that is not there.
 
-`module.yaml`'s `plugin.type` is read with a **regex and not the YAML parser**. This runs on every
+`module.k7x`'s `plugin(…)` type is read with a **regex and not the k7x parser**. This runs on every
 keystroke in the code pane and the answer decides whether a tab is drawn; mid-edit the document
 routinely does not parse, and a tab that blinked out on a half-typed line would be worse than one
 read a shade loosely.
@@ -202,7 +202,7 @@ would have hidden the value the input actually has.
 permanent one nearly every module would show empty. Its `states` are the names, so a widget bound to
 it draws as a dropdown rather than a knob; the VALUES are positions and nothing more, and the graph
 fills the real entries at draw time (`withFolderOptions`). It has to: a base can be snapshotted after
-this panel is written, and a `ui.yaml` carrying the list would be a copy of a directory going stale.
+this panel is written, and a `ui.k7x` carrying the list would be a copy of a directory going stale.
 
 The preview's widgets take the same values as NUMBERS. The pane keeps them as text because a value
 is whatever the file says; a knob needs a position, so anything that is not a number is left out and
@@ -210,28 +210,30 @@ the widget falls back to its own min.
 
 ## Reading and writing the files (`src/moduleUi.ts`)
 
-Every read here goes through the YAML **Document API** and every write is key by key, so the
-comments and the key order of a file somebody hand-wrote survive it. The one exception is the
-`ui:` block inside a module file, which is REPLACED — comments inside it do not survive.
-
-**Parse through `toJS`, not `getIn`.** `getIn` hands back the NODE, and a `YAMLMap` has none of
-the properties a Zod schema looks for: every field reads as undefined and a perfectly good block
-is reported malformed.
+Every read here goes through `@studio/k7x/document` and every write is value by value, so the
+comments and the key order of a file somebody hand-wrote survive it — inside the `ui(…)` block of a
+module file too (`src/panelWrite.ts`). A widget that is there is edited field by field, a new one is
+added on a line of its own, and only a structure that cannot take an edit in place — a widget map
+written on one line or still empty, a tab list that changed length, a `vertical` that was not there
+— is printed afresh, in the canonical layout. A buffer that does not parse is handed back unchanged:
+the grid is greyed out then, and a write would have nothing to edit.
 
 **"Malformed" means present and unreadable.** Absence is not malformed — the grid can create a
 block from scratch — and a file that does not parse AT ALL is the code editor's news, not this
-one's. Same rule for `ui.yaml`.
+one's. Same rule for `ui.k7x`.
 
-**`params:` is read as TEXT, not numbers.** The params pane only displays them, and a value the
-schema would refuse should still be readable — showing what is actually in the file is the point.
-A missing or unreadable `params:` is an empty map, never an error.
+**`params(…)` is read as TEXT, not numbers.** The params pane only displays them, and a value the
+schema would refuse should still be readable — showing what is actually in the file is the point:
+a string as the text it holds, anything else as it is written, so `1.0` stays `1.0`.
+A missing or unreadable `params(…)` is an empty map, never an error.
 
 **A widget is written as MINIMAL source**: defaults and empty optionals are dropped, so the block
 stays as terse as a hand-written one, and `undefined` entries are pruned recursively because they
-mean "not written" rather than "written null". Each widget goes on ONE flow line
-(`w1: { type: knob, col: 0, row: 0 }`) — the shape these files already have by hand, and what keeps
-moving a knob to a one-line diff — on every tab too, a tab's `name` staying on its own line above its
-widgets (`pages.md`).
+mean "not written" rather than "written null". Each widget goes on ONE line
+(`w1: { type: "knob", col: 0, row: 0 },`) — the shape these files already have by hand, and what keeps
+moving a knob to a one-line diff — on every tab too, a tab written `name("Osc").widgets({ … })` above
+its widgets (`pages.md`). Every writer of a panel prints through `@studio/panel-rules/panel-text`,
+whose `isWidgetAt` says which nodes those are, so the grid and AI organize lay a widget out alike.
 
 **Range fields belong to the NUMERIC kinds only.** A `min` on a toggle fails to load and takes the
 graph node with it, so the test names the numeric kinds: a "not label/waveform" test holds
@@ -240,11 +242,11 @@ because the module must draw the same
 with no engine to re-fetch them, and its `library` is written alongside when both are set: the file
 says what the author put.
 
-**`ui.yaml` gets its own functions rather than a path parameter**, because the two shapes differ at
-the root — `cols`/`rows`/`widgets` at the TOP level, with nothing naming the module, since the
-folder it sits in does that — and you cannot `setIn([])` a document. It is rewritten key by key
-because its header comment names the module the panel was drawn for, and a whole-document write
-would drop it along with anything else in the margins.
+**`ui.k7x` gets its own functions rather than a path parameter**, because the two shapes differ at
+the root — `cols`/`rows`/`widgets` as TOP-level statements, with nothing naming the module, since the
+folder it sits in does that. It is rewritten statement by statement because its header comment
+names the module the panel was drawn for, and a whole-document write would drop it along with
+anything else in the margins.
 
 **`KNOB_SPAN` is 2×2 in an AUTO-ORGANISED panel only.** A knob added from the palette or made by
 dropping a parameter stays one cell: those are single, deliberate gestures onto a grid whose shape
@@ -254,7 +256,7 @@ fifty at once onto a grid it sizes itself, and a wall of one-cell dials is a pan
 `moduleUi.ts` rather than `autoLayout.ts` because it is a fact about the WIDGET, not about the
 guessing.
 
-### `plugin:` is read shallowly, and `io:` from three sources
+### `plugin(…)` is read shallowly, and `io(…)` from three sources
 
 `readPlugin` reads the FILE rather than resolving through the project, which is the whole point: a
 module in a library is not a base of the open song, so nothing in `paramsByBase`
@@ -263,14 +265,14 @@ It is shallow on purpose — a module that only `extends` another states no plug
 one would mean resolving a ref this component cannot resolve. That case still has the two learned
 sources and the live engine's report; this is for the one they all miss.
 
-`ioOf` needs three sources, because a module rarely SAYS it: a real song's `ge_rythm-in.yaml` is
-two lines, `extends: "@meta/IN"` and `channel: [ 2 ]`. Reading only the file's own key called that
+`ioOf` needs three sources, because a module rarely SAYS it: a real song's `ge_rythm-in.k7x` is
+two lines, `extends("@meta/IN")` and `channel([2])`. Reading only the file's own key called that
 a plugin, which cost it both its io binds and its channel picker.
 
 1. its own `io:` — a file that states it is right about itself;
 2. `extends: "@meta/IN"` — the engine's io modules are a fixed table, not files (`IO_MODULES`);
 3. failing both, the PATH: a file under `io/IN/` is one of that folder's inputs. Location is how
-   the loader decides this too — `in-2.yaml` beside `module.yaml` carries a channel and nothing
+   the loader decides this too — `in-2.k7x` beside `module.k7x` carries a channel and nothing
    else. The path is matched on the two-segment shape rather than borrowing `moduleKeyFromPath`,
    which would drag in caring where the workspace root is.
 
@@ -280,10 +282,9 @@ preferences, resolved to numbers by whoever has them (`@studio/song`'s `resolveI
 own naming, which this editor must not silently rewrite into numbers. Null when the module declares
 none, which is an ordinary state: an input nobody has pointed at a socket yet.
 
-`setChannelIn` writes a FLOW sequence (`channel: [1, 2]`), which is how every input in this repo is
-written and how the docs show it — a two-element block list costs three lines to say one thing.
-`flow` is set on the NODE rather than at stringify time, because only that sequence should be
-inline and a document-wide setting would reflow every other list in the file.
+`setChannelIn` writes the list on ONE line (`channel([1, 2])`), which is how every input in this repo
+is written and how the docs show it — a two-element list spread over lines costs three to say one
+thing. The `inline` option is given to that one write, so nothing else in the file is laid out again.
 
 `statusOf` reads the TEXT like everything else here, so the dropdown shows an unsaved edit.
 `setStatusIn` never writes the default: a module with nothing to say about this should stay a file
@@ -399,13 +400,13 @@ the alpha, which only the text beside it sets.
   base ref of the OPEN song, and k7 passes `paramRef={null}` when it opens a module from the file
   tree — so a module in a library had nothing at all: not a base of this project, not
   instantiated, no engine behind the overlay. That is
-  `_libraries/k7/modules/instruments/4osc/module.yaml`, where a shared module is authored, which makes
+  `_libraries/k7/modules/instruments/4osc/module.k7x`, where a shared module is authored, which makes
   it the case that mattered most. There are TWO ways a file names a built-in, and the second is the
   one that file actually uses:
 
-  ```yaml
-  plugin: { type: internal, name: 4OSC }   # a module that declares the plugin
-  extends: "@engine/4osc"                  # a module that is only a FACE for one
+  ```k7x
+  plugin({ type: "internal", name: "4OSC" }) // a module that declares the plugin
+  extends("@engine/4osc") // a module that is only a FACE for one
   ```
 
   The whole of that file is the second line, so reading only the first finds nothing and leaves the
@@ -447,7 +448,7 @@ graph of members, and a module is one plugin's face. Nothing about the widget gr
 which of its members' params are knobs on the box. Everything else — the plugs, the label — is text,
 in the pane beside the list, because those are two lines each and a form for them would say less.
 
-**The param list is the template's own GRAPH.** An assembly folder is a graph folder — `graph.yaml`
+**The param list is the template's own GRAPH.** An assembly folder is a graph folder — `graph.k7x`
 and `nodes/` — so `GET /graph?at=<path>` resolves every member through its `extends` and hands back
 what it runs with. No new route, and the same road `chainsBuilder.md` takes. That also means the
 five sources the module builder unions do not apply here: what the members are is what the file

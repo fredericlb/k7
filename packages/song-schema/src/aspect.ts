@@ -1,7 +1,7 @@
 // aspect.ts — the shapes a project's FRAME can be. `project.viewport` is a pixel size and stays
 // one; this is the short list a person picks from, and the sizes each one means.
 //
-// Here rather than beside the graph that draws the dropdown: it is a value in project.yaml, and
+// Here rather than beside the graph that draws the dropdown: it is a value in project.k7x, and
 // @studio/ui-chains cannot see this package. The card's options are the two names spelled again
 // there, and `aspectSize` REFUSES a name it does not know — so a drift is a refusal, not a silent
 // wrong size. See packages/song-video/docs/picture.md.

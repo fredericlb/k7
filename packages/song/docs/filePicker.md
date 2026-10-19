@@ -2,12 +2,11 @@
 
 A panel control that picks a **file the module carries** for one of its file-valued params.
 
-```yaml
-# modules/audio/amps/guitar/ui.yaml
-cols: 4
-rows: 2
-widgets:
-  w1: { type: filepicker, col: 0, row: 0, colSpan: 4, bind: model }
+```k7x
+// modules/audio/amps/guitar/ui.k7x
+cols(4)
+rows(2)
+widgets({ w1: { type: "filepicker", col: 0, row: 0, colSpan: 4, bind: "model" } })
 ```
 
 `bind` is the whole configuration, and it names three things at once: the param the choice is
@@ -35,7 +34,7 @@ The ancestry half is not a refinement; without it the widget lists nothing in th
 A song points at a shared amp by making a thin local module that `extends` it:
 
 ```
-project/modules/audio/guitar/module.yaml     extends: "@k7-core/audio/amps/guitar"
+project/modules/audio/guitar/module.k7x      extends: "@k7-core/audio/amps/guitar"
 mediatek/modules/audio/amps/guitar/assets/   ← the fourteen profiles are HERE
 ```
 

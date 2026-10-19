@@ -11,17 +11,16 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModuleRefs, loadModules } from "./loader";
 import { moduleAssetChoices } from "./moduleAssetChoices";
 import { resolveModuleMap } from "./moduleResolve";
-import { librariesFixture } from "./testSupport";
+import { librariesFixture, writeDoc, writeNode } from "./testSupport";
 
 let root: string;
 let project: string;
 /** The `@k7-core` library, mounted in the workspace beside the project — `<ws>/_libraries/modules`. */
 let libraries: string;
 
-// A module folder with a module.yaml (which is what makes it findable by ref) and some assets.
-const mkModule = (dir: string, yaml: string, assets: string[] = []) => {
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "module.yaml"), yaml, "utf8");
+type Body = Record<string, unknown>;
+
+const writeAssets = (dir: string, assets: string[]) => {
   for (const a of assets) {
     const abs = join(dir, "assets", a);
     mkdirSync(join(abs, ".."), { recursive: true });
@@ -29,18 +28,19 @@ const mkModule = (dir: string, yaml: string, assets: string[] = []) => {
   }
 };
 
-// A project's own USE of a shared module — a node, since a project holds no modules of its own.
-// Every node shares ONE folder (`nodes/`), so `assets` here lands beside every node, not just this one.
-const mkNode = (name: string, yaml: string, assets: string[] = []) => {
-  const at = join(project, "nodes");
-  mkdirSync(at, { recursive: true });
-  writeFileSync(join(at, `${name}.yaml`), yaml, "utf8");
-  for (const a of assets) {
-    const abs = join(at, "assets", a);
-    mkdirSync(join(abs, ".."), { recursive: true });
-    writeFileSync(abs, "x", "utf8");
-  }
+// A module folder with a module.k7x (which is what makes it findable by ref) and some assets.
+const mkModule = (dir: string, body: Body, assets: string[] = []) => {
+  writeDoc(join(dir, "module.k7x"), body);
+  writeAssets(dir, assets);
 };
+
+// A project's own USE of a shared module; every node shares `nodes/`, so `assets` lands beside them all.
+const mkNode = (name: string, body: Body, assets: string[] = []) => {
+  writeNode(project, name, body);
+  writeAssets(join(project, "nodes"), assets);
+};
+
+const NAM = { plugin: { type: "internal", name: "NAM" } };
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "assets-"));
@@ -57,7 +57,7 @@ describe("moduleAssetChoices", () => {
   it("lists the module's own assets", () => {
     mkModule(
       join(project, "modules", "audio", "amp"),
-      "plugin: { type: internal, name: X }\n",
+      { plugin: { type: "internal", name: "X" } },
       ["jcm800.nam", "Two-Rock/clean.nam"],
     );
     expect(
@@ -67,12 +67,11 @@ describe("moduleAssetChoices", () => {
 
   it("INHERITS the assets of what it extends, wherever that library is", () => {
     // The guitar case: the project's module is a shell and the `@k7-core` one carries the profiles.
-    mkModule(
-      join(libraries, "audio", "amps", "guitar"),
-      "plugin: { type: internal, name: NAM }\n",
-      ["roland/bright.nam", "fender/clean.nam"],
-    );
-    mkNode("guitar", 'extends: "@k7-core/audio/amps/guitar"\n');
+    mkModule(join(libraries, "audio", "amps", "guitar"), NAM, [
+      "roland/bright.nam",
+      "fender/clean.nam",
+    ]);
+    mkNode("guitar", { extends: "@k7-core/audio/amps/guitar" });
     // Through the real loaders, since they stamp the FOLDER each module lives in.
     const refs = loadModuleRefs(project, {}, []);
     const mod = loadModules(project).guitar;
@@ -82,17 +81,13 @@ describe("moduleAssetChoices", () => {
   });
 
   it("walks more than one level, following each ref's own `extends`", () => {
-    mkModule(
-      join(libraries, "audio", "amps", "base"),
-      "plugin: { type: internal, name: NAM }\n",
-      ["deep.nam"],
-    );
+    mkModule(join(libraries, "audio", "amps", "base"), NAM, ["deep.nam"]);
     mkModule(
       join(libraries, "audio", "amps", "mid"),
-      'extends: "@k7-core/audio/amps/base"\n',
+      { extends: "@k7-core/audio/amps/base" },
       ["mid.nam"],
     );
-    mkNode("top", 'extends: "@k7-core/audio/amps/mid"\n');
+    mkNode("top", { extends: "@k7-core/audio/amps/mid" });
     const refs = loadModuleRefs(project, {}, []);
     const choices = moduleAssetChoices(project, loadModules(project).top, refs);
     // Nearest first: `mid`'s own, then what IT inherits, two links up.
@@ -100,14 +95,10 @@ describe("moduleAssetChoices", () => {
   });
 
   it("lets a nearer file shadow an inherited one of the same name", () => {
-    mkModule(
-      join(libraries, "audio", "amps", "shared"),
-      "plugin: { type: internal, name: NAM }\n",
-      ["clean.nam"],
-    );
+    mkModule(join(libraries, "audio", "amps", "shared"), NAM, ["clean.nam"]);
     mkModule(
       join(project, "modules", "audio", "local"),
-      'extends: "@k7-core/audio/amps/shared"\n',
+      { extends: "@k7-core/audio/amps/shared" },
       ["clean.nam"],
     );
     expect(
@@ -146,15 +137,14 @@ describe("moduleAssetChoices", () => {
 describe("a file the module INHERITS", () => {
   it("resolves against the folder that holds it, not the one that named it", () => {
     // Resolved against the local folder alone, the merge kept the PARENT's path: the wrong sound.
-    mkModule(
-      join(libraries, "audio", "amps", "guitar"),
-      "plugin: { type: internal, name: NAM }\n",
-      ["roland/bright.nam", "fender/clean.nam"],
-    );
-    mkNode(
-      "guitar",
-      'extends: "@k7-core/audio/amps/guitar"\nparams:\n  model: roland/bright.nam\n',
-    );
+    mkModule(join(libraries, "audio", "amps", "guitar"), NAM, [
+      "roland/bright.nam",
+      "fender/clean.nam",
+    ]);
+    mkNode("guitar", {
+      extends: "@k7-core/audio/amps/guitar",
+      params: { model: "roland/bright.nam" },
+    });
     const refs = loadModuleRefs(project, {}, []);
     const resolved = resolveModuleMap(loadModules(project), refs);
     const g = resolved.guitar;
@@ -163,14 +153,10 @@ describe("a file the module INHERITS", () => {
   });
 
   it("prefers the module's OWN file when both carry that name", () => {
-    mkModule(
-      join(libraries, "audio", "amps", "shared"),
-      "plugin: { type: internal, name: NAM }\n",
-      ["clean.nam"],
-    );
+    mkModule(join(libraries, "audio", "amps", "shared"), NAM, ["clean.nam"]);
     mkNode(
       "local",
-      'extends: "@k7-core/audio/amps/shared"\nparams:\n  model: clean.nam\n',
+      { extends: "@k7-core/audio/amps/shared", params: { model: "clean.nam" } },
       ["clean.nam"],
     );
     const refs = loadModuleRefs(project, {}, []);
@@ -181,15 +167,11 @@ describe("a file the module INHERITS", () => {
 
   it("still refuses a ref that climbs out, rather than trying the next folder up", () => {
     // Walking the ancestry must not turn `../` into a way out: a shared module is somebody else's.
-    mkModule(
-      join(libraries, "audio", "amps", "shared"),
-      "plugin: { type: internal, name: NAM }\n",
-      ["clean.nam"],
-    );
-    mkNode(
-      "sneaky",
-      'extends: "@k7-core/audio/amps/shared"\nparams:\n  model: ../../../../secret.nam\n',
-    );
+    mkModule(join(libraries, "audio", "amps", "shared"), NAM, ["clean.nam"]);
+    mkNode("sneaky", {
+      extends: "@k7-core/audio/amps/shared",
+      params: { model: "../../../../secret.nam" },
+    });
     const refs = loadModuleRefs(project, {}, []);
     const resolved = resolveModuleMap(loadModules(project), refs);
     const m = resolved.sneaky;

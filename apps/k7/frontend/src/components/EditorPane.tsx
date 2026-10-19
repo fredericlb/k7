@@ -3,13 +3,12 @@ import { javascript } from "@codemirror/lang-javascript";
 import { type Extension, Prec } from "@codemirror/state";
 import { type EditorView, keymap } from "@codemirror/view";
 import { Vim, vim } from "@replit/codemirror-vim";
+import { useBufferSync } from "@studio/ui-editor/buffer-sync";
 import { k7xCompletions } from "@studio/ui-editor/k7x/completions";
+import { projectEntityLinks } from "@studio/ui-editor/k7x/entityLinks";
 import { k7xLanguage } from "@studio/ui-editor/k7x/language";
+import { projectPreviewGutter } from "@studio/ui-editor/k7x/previewGutter";
 import { type LintItem, lint, refreshLint } from "@studio/ui-editor/lint";
-import { yamlCompletions } from "@studio/ui-editor/yaml/completions";
-import { projectEntityLinks } from "@studio/ui-editor/yaml/entityLinks";
-import { projectLanguage } from "@studio/ui-editor/yaml/language";
-import { projectPreviewGutter } from "@studio/ui-editor/yaml/previewGutter";
 import { schemaVocabulary } from "@studio/ui-editor/yaml/vocabulary";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useEffect, useMemo, useRef } from "react";
@@ -103,9 +102,7 @@ export function EditorPane({
     Vim.defineEx("write", "w", () => saveRef.current());
   }, []);
 
-  // A project file — the ones that get the language mode, completion, links and lint.
-  const isProjectFile = !!file && /\.ya?ml$/i.test(file.path);
-  // The same project file written in k7x: its own colours, the same vocabulary and lint (packages/k7x/docs/language.md).
+  // A workspace file — the ones that get the k7x mode, completion, links, the ▶ gutter and lint (packages/k7x/docs/language.md).
   const isK7xFile = !!file && /\.k7x$/i.test(file.path);
   const isStrudel = !!file && file.path.endsWith(".strudel");
   const extensions = useMemo<Extension[]>(() => {
@@ -121,12 +118,12 @@ export function EditorPane({
         },
       ]),
     );
-    if (isProjectFile) {
+    if (isK7xFile) {
       ext.push(
-        projectLanguage(),
+        k7xLanguage(),
         // The vocabulary is DERIVED from the Zod schemas, which is what stops it drifting from the real fields.
         autocompletion({
-          override: [yamlCompletions(schemaVocabulary(file?.path, hints))],
+          override: [k7xCompletions(schemaVocabulary(file?.path, hints))],
         }),
         // Inline squiggles from the load, reading diagnostics via the ref so the extension is stable across polls.
         lint(() => diagsRef.current),
@@ -136,18 +133,9 @@ export function EditorPane({
       if (onPreview) ext.push(projectPreviewGutter(onPreview));
       // A slice-rack file: its symbol names painted in their slice's colour — the link to the docked waveform, made by hue.
       ext.push(sliceSymbolColors());
-    } else if (isK7xFile)
-      ext.push(
-        k7xLanguage(),
-        autocompletion({
-          override: [k7xCompletions(schemaVocabulary(file?.path, hints))],
-        }),
-        lint(() => diagsRef.current),
-      );
-    else if (isStrudel) ext.push(javascript()); // Strudel patterns are JS + mini-notation strings
+    } else if (isStrudel) ext.push(javascript()); // Strudel patterns are JS + mini-notation strings
     return ext;
   }, [
-    isProjectFile,
     isK7xFile,
     isStrudel,
     vimMode,
@@ -156,6 +144,9 @@ export function EditorPane({
     onPreview,
     file?.path,
   ]);
+
+  // A dock gesture's edit reaches the view as its own splices, so the cursor and the undo history stay (packages/ui-editor/docs/k7xTree.md).
+  useBufferSync(() => cmRef.current?.view, file?.content ?? "");
 
   // New diagnostics but the same document, so nudge the linter. A no-op until the view mounts (grids have none).
   useEffect(() => {

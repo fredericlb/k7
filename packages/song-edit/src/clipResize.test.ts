@@ -7,6 +7,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parse } from "@studio/k7x/document";
 import { loadLanes } from "@studio/song/loader";
 import { describe, expect, it } from "vitest";
 import { resizeToWindow } from "./clipResize";
@@ -18,36 +19,38 @@ const NUM = 4;
 const DEN = 4;
 const TEMPO = 120; // 2 beats per second, so beats↔seconds is easy to read below
 
+const KICK_WAV = 'source("clips/kick.wav")\n';
+
 function song(
-  track: string,
+  events: string,
   material: { dir: string; name: string; body: string },
 ): string {
   const dir = mkdtempSync(join(tmpdir(), "td-resize-"));
   mkdirSync(join(dir, "nodes"), { recursive: true });
   mkdirSync(join(dir, material.dir), { recursive: true });
-  writeFileSync(join(dir, "nodes", "drums.yaml"), track, "utf8");
+  // The `extends` is spelled out so the file stays schema-valid: several of these assert it LOADS.
   writeFileSync(
-    join(dir, material.dir, `${material.name}.yaml`),
+    join(dir, "nodes", "drums.k7x"),
+    `extends("@meta/track")\nevents([${events}])\n`,
+    "utf8",
+  );
+  writeFileSync(
+    join(dir, material.dir, `${material.name}.k7x`),
     material.body,
     "utf8",
   );
   return dir;
 }
-// The `extends` is spelled out so the file stays schema-valid: several of these assert it LOADS.
-const clipSong = (clips: string, body = "source: clips/kick.wav\n") =>
-  song(`extends: "@meta/track"\n${clips}`, {
-    dir: "clips",
-    name: "kick",
-    body,
-  });
-const seqSong = (clips: string, body = "notes:\n  - { t: 0, d: 1, k: 36 }\n") =>
-  song(`extends: "@meta/track"\n${clips}`, {
-    dir: "sequences",
-    name: "kick",
-    body,
-  });
+const clipSong = (events: string, body = KICK_WAV) =>
+  song(events, { dir: "clips", name: "kick", body });
+const seqSong = (events: string, body = "notes([t(0).d(1).k(36)])\n") =>
+  song(events, { dir: "sequences", name: "kick", body });
 const readAt = (dir: string, ...p: string[]) =>
   readFileSync(join(dir, ...p), "utf8");
+/** The lane's events as data. */
+const events = (dir: string) =>
+  parse(readAt(dir, "nodes", "drums.k7x")).events as Record<string, unknown>[];
+const ONE = 'ref("kick").start("1:1:1")';
 
 describe("resizeToWindow — the rule", () => {
   const base = { kind: "audio" as const, from: 0, loops: 1, startBeats: 0 };
@@ -138,117 +141,107 @@ describe("resizeToWindow — the rule", () => {
 
 describe("resizeTrackPlacement — what lands on disk", () => {
   it("writes the window on the EVENT and leaves the material alone", () => {
-    const dir = clipSong('events:\n  - { ref: kick, start: "1:1:1" }\n');
+    const dir = clipSong(ONE);
     const rep = resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 4, TEMPO);
     expect(rep).toMatchObject({
       ref: "kick",
-      material: "clips/kick.yaml",
+      material: "clips/kick.k7x",
       kind: "audio",
     });
     // The event's own `to`, in seconds — 4 beats at 120bpm.
-    expect(readAt(dir, "nodes", "drums.yaml")).toContain("to: 2");
+    expect(events(dir)).toEqual([{ ref: "kick", start: "1:1:1", to: 2 }]);
     // The material is untouched: its window belongs to every placement, and this edit is one's.
-    expect(readAt(dir, "clips", "kick.yaml")).toBe("source: clips/kick.wav\n");
+    expect(readAt(dir, "clips", "kick.k7x")).toBe(KICK_WAV);
     expect(() => loadLanes(dir, true)).not.toThrow();
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("never writes `length` — the placement has no such field", () => {
     // PlacementSchema is strict about `length`, so writing one stops the lane loading at all.
-    const dir = clipSong('events:\n  - { ref: kick, start: "1:1:1" }\n');
+    const dir = clipSong(ONE);
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 4, TEMPO);
-    expect(readAt(dir, "nodes", "drums.yaml")).not.toContain("length");
+    expect(events(dir)[0]).not.toHaveProperty("length");
     expect(() => loadLanes(dir, true)).not.toThrow();
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("keeps a sequence's event window QUOTED", () => {
-    // Unquoted, `to: 2:3` is a YAML 1.1 sexagesimal — the window would reload as beat 163.
-    const dir = seqSong('events:\n  - { ref: kick, start: "1:1:1" }\n');
+  it("writes a sequence's event window as a position", () => {
+    const dir = seqSong(ONE);
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 6, TEMPO);
-    expect(readAt(dir, "nodes", "drums.yaml")).toContain('to: "2:3"');
+    expect(events(dir)[0].to).toBe("2:3");
     expect(() => loadLanes(dir, true)).not.toThrow();
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("moves the placement's start when the left edge was the one dragged", () => {
-    const dir = seqSong('events:\n  - { ref: kick, start: "1:1:1" }\n');
+    const dir = seqSong(ONE);
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 2, 8, TEMPO);
-    const nodes = readAt(dir, "nodes", "drums.yaml");
-    expect(nodes).toContain('start: "1:3"');
-    expect(nodes).toContain('from: "1:3"');
-    expect(readAt(dir, "sequences", "kick.yaml")).not.toContain("from:");
+    expect(events(dir)[0]).toMatchObject({ start: "1:3", from: "1:3" });
+    expect(parse(readAt(dir, "sequences", "kick.k7x"))).not.toHaveProperty(
+      "from",
+    );
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("leaves `from` off entirely when the event is not trimmed", () => {
     // Absent means "no further restriction", which writing the material's own edge back would blur.
-    const dir = seqSong('events:\n  - { ref: kick, start: "1:1:1" }\n');
+    const dir = seqSong(ONE);
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 4, TEMPO);
-    expect(readAt(dir, "nodes", "drums.yaml")).not.toContain("from:");
+    expect(events(dir)[0]).not.toHaveProperty("from");
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("clears the event's `to` when the drag lands on the material's own", () => {
     // The cage clamps to the material's own 1s, which only restates it — so the event says nothing.
-    const dir = clipSong(
-      'events:\n  - { ref: kick, start: "1:1:1" }\n',
-      "source: clips/kick.wav\nto: 1\n",
-    );
+    const body = `${KICK_WAV}to(1)\n`;
+    const dir = clipSong(ONE, body);
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 8, TEMPO);
-    const nodes = readAt(dir, "nodes", "drums.yaml");
-    expect(nodes).not.toContain("to:");
-    expect(readAt(dir, "clips", "kick.yaml")).toContain("to: 1"); // untouched
+    expect(events(dir)).toEqual([{ ref: "kick", start: "1:1:1" }]);
+    expect(readAt(dir, "clips", "kick.k7x")).toBe(body); // untouched
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("narrows INSIDE the material's window, and writes only the event", () => {
     // Material 0.5s → 2.5s; the event resized to one bar from its own start plays 0.5s → 1.5s.
-    const dir = clipSong(
-      'events:\n  - { ref: kick, start: "1:1:1" }\n',
-      "source: clips/kick.wav\nfrom: 0.5\nto: 2.5\n",
-    );
+    const body = `${KICK_WAV}from(0.5)\nto(2.5)\n`;
+    const dir = clipSong(ONE, body);
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 2, TEMPO);
-    const nodes = readAt(dir, "nodes", "drums.yaml");
-    expect(nodes).not.toContain("from:"); // stays at the material's own edge
-    expect(nodes).toContain("to: 1.5");
-    expect(readAt(dir, "clips", "kick.yaml")).toContain("from: 0.5"); // untouched
+    // `from` stays at the material's own edge, so it is not written.
+    expect(events(dir)).toEqual([{ ref: "kick", start: "1:1:1", to: 1.5 }]);
+    expect(readAt(dir, "clips", "kick.k7x")).toBe(body); // untouched
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("rewrites `loop` rather than the window when the event repeats", () => {
-    const dir = seqSong(
-      'events:\n  - { ref: kick, start: "1:1:1", loop: 2 }\n',
-      'notes:\n  - { t: 0, d: 1, k: 36 }\nto: "1:3"\n',
-    );
+    const body = 'notes([t(0).d(1).k(36)])\nto("1:3")\n';
+    const dir = seqSong('ref("kick").start("1:1:1").loop(2)', body);
     const rep = resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 8, TEMPO);
     expect(rep?.loops).toBe(4);
-    const nodes = readAt(dir, "nodes", "drums.yaml");
-    expect(nodes).toContain("loop: 4");
-    expect(nodes).not.toContain("to:"); // the window did not move, so none was written
-    expect(readAt(dir, "sequences", "kick.yaml")).toContain('to: "1:3"'); // untouched
+    // The window did not move, so none was written.
+    expect(events(dir)).toEqual([{ ref: "kick", start: "1:1:1", loop: 4 }]);
+    expect(readAt(dir, "sequences", "kick.k7x")).toBe(body); // untouched
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("leaves the OTHER placements of the material alone", () => {
     // The point of the event-level window: four kicks from one file do not resize together.
     const dir = clipSong(
-      'events:\n  - { ref: kick, start: "1:1:1" }\n  - { ref: kick, start: "2:1:1" }\n  - { ref: kick, start: "3:1:1" }\n',
+      '\n  ref("kick").start("1:1:1"),\n  ref("kick").start("2:1:1"),\n  ref("kick").start("3:1:1"),\n',
     );
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 2, TEMPO);
-    const nodes = readAt(dir, "nodes", "drums.yaml");
-    expect(nodes).toContain('{ ref: kick, start: "2:1:1" }');
-    expect(nodes).toContain('{ ref: kick, start: "3:1:1" }');
-    expect(readAt(dir, "clips", "kick.yaml")).toBe("source: clips/kick.wav\n");
+    const nodes = readAt(dir, "nodes", "drums.k7x");
+    expect(nodes).toContain('  ref("kick").start("2:1:1"),\n');
+    expect(nodes).toContain('  ref("kick").start("3:1:1"),\n');
+    expect(readAt(dir, "clips", "kick.k7x")).toBe(KICK_WAV);
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("reports no event rather than writing at a position nothing sits on", () => {
-    const dir = clipSong('events:\n  - { ref: kick, start: "1:1:1" }\n');
+    const dir = clipSong(ONE);
     expect(
       resizeTrackPlacement(dir, "drums", 16, NUM, DEN, 16, 20, TEMPO),
     ).toBeNull();
-    expect(readAt(dir, "clips", "kick.yaml")).toBe("source: clips/kick.wav\n");
+    expect(readAt(dir, "clips", "kick.k7x")).toBe(KICK_WAV);
     rmSync(dir, { recursive: true, force: true });
   });
 });

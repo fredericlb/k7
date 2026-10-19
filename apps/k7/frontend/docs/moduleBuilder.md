@@ -28,8 +28,8 @@ When the overlay opens, k7 reads the compiled graph and looks for a chain step w
 matches the folder the file is in:
 
 ```
-modules/audio/reverb/module.yaml            →  module "reverb"
-graph.yaml:  tracks: { banc: [ reverb ] }  →  the step, and its pluginId
+modules/audio/reverb/module.k7x            →  module "reverb"
+graph.k7x:  tracks: { banc: [ reverb ] }  →  the step, and its pluginId
 ```
 
 A chain step names a **module folder** or a **node**, and the lookup matches either, since
@@ -52,7 +52,7 @@ below, **still a parameter list for a built-in**. That is an ordinary state and 
 
 The case that matters most is the one the section above cannot answer.
 
-A module in a LIBRARY — `_libraries/k7/modules/instruments/4osc/module.yaml`, which
+A module in a LIBRARY — `_libraries/k7/modules/instruments/4osc/module.k7x`, which
 is where a shared module is authored — is not a base of the open song, is not instantiated by it,
 and the builder overlay holds no engine link. k7 passes `paramRef={null}` when it opens a module
 from the file tree, so `paramsByBase` is not consulted either. Every source above is empty, and
@@ -66,14 +66,14 @@ writes the wrong number into the file.
 
 **Two ways a file names one, and the second is the one a library module uses:**
 
-```yaml
-plugin: { type: internal, name: 4OSC }   # a module that DECLARES the plugin
-extends: "@engine/4osc"                  # a module that is only a FACE for one
+```k7x
+plugin({ type: "internal", name: "4OSC" }) // a module that DECLARES the plugin
+extends("@engine/4osc")                     // a module that is only a FACE for one
 ```
 
-The whole of `_libraries/k7/modules/instruments/4osc/module.yaml` is that second line, plus two
+The whole of `_libraries/k7/modules/instruments/4osc/module.k7x` is that second line, plus two
 comments. **Both** forms have to be read: the table on its own answers nothing for a file that
-only ever names its plugin through `extends:`.
+only ever names its plugin through `extends`.
 
 `@engine/<slug>` is `slugifyPluginName(displayName)`, the one rule `engineModuleOf` applies on the
 machine and `baseModuleRefs` applies in a browser; `builtinPluginForRef` calls it rather than
@@ -133,7 +133,7 @@ The sentinel stays BARE: `none` is a word the command understands, not a file.
 
 - **An audition input picker.** A live input belongs to a TRACK
   (`inputChannels` / `monitor` on a `TrackDoc`), which the compiler wires from the project's own
-  YAML — two lines in the lane's node file — and it feeds whatever you have chained after it,
+  k7x — two lines in the lane's node file — and it feeds whatever you have chained after it,
   not one module in isolation.
 - **A manufactured project.** Nothing here builds a `ProjectDoc` to make a plugin exist.
 - **A metering menu.** `io-levels` exists and the engine only enables the devices it is asked to
@@ -165,7 +165,7 @@ The suites here mount nothing, so none of this is covered by a green run:
 - turn a knob in the builder's card → the value moves in the graph too, and the sound changes;
 - open the builder on a module the project does NOT instantiate, declaring an EXTERNAL plugin →
   an empty parameter list, and everything else still editable;
-- open `_libraries/k7/modules/instruments/4osc/module.yaml` from the Libraries tab, with no project
+- open `_libraries/k7/modules/instruments/4osc/module.k7x` from the Libraries tab, with no project
   using it and no engine → the bind dropdown lists 4OSC's parameters, `Tune 1` offers -36..+36,
   and dragging one onto a knob gives it that range rather than 0..1;
 - close the builder, then watch the engine log → no subscription left behind;

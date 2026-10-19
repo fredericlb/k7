@@ -1,7 +1,7 @@
 # The lcdscreen widget
 
 An `lcdscreen` is a widget whose picture is **code the module ships**: a `widgets.js` beside the
-module's `ui.yaml` returns an object keyed by widget id, and each value draws one screen.
+module's `ui.k7x` returns an object keyed by widget id, and each value draws one screen.
 
 ```js
 // _modules/audio/compressor/widgets.js
@@ -13,9 +13,9 @@ export default {
 };
 ```
 
-```yaml
-# ui.yaml beside it
-screen: { type: lcdscreen, col: 0, row: 0, colSpan: 6, rowSpan: 3 }
+```k7x
+// ui.k7x beside it
+screen({ type: "lcdscreen", col: 0, row: 0, colSpan: 6, rowSpan: 3 })
 ```
 
 `return { … }` works as well as `export default { … }`: the second is read as the first, so the
@@ -82,8 +82,8 @@ assets, and `ampModel` — `{ kind, knobs }` — when it loads an amp model the 
 (`packages/song/src/ampModel.ts`). Each widget id answered `false` is not drawn; an id left out
 stays. A screen cannot be called `visible`.
 
-**It is code, not a YAML condition.** What decides a widget's presence is as open as what a screen
-draws — here a file's contents, elsewhere a param's value — and a rule language in `ui.yaml` would
+**It is code, not a condition in the panel file.** What decides a widget's presence is as open as what a screen
+draws — here a file's contents, elsewhere a param's value — and a rule language in `ui.k7x` would
 grow until it was a worse JavaScript.
 
 **A rule that throws hides nothing.** A bug in the script must leave a card with too many controls,
@@ -111,8 +111,8 @@ pointer happened to be. Whatever a wheel would set is a drag or a knob instead.
 **AI organize makes one only when asked** (`packages/ui-module-builder/docs/aiOrganize.md`): a
 screen that takes the pointer takes it from the graph too.
 
-**The script is a sibling file, not YAML.** A picture is code; squeezing it into `ui.yaml` would
-mean a string of JavaScript inside YAML that no editor highlights. It is found like the panel —
+**The script is a sibling file, not a k7x value.** A picture is code; squeezing it into `ui.k7x`
+would mean a string of JavaScript inside a data file that no editor highlights. It is found like the panel —
 same folder, same precedence — and it rides on the panel as `ui.script` through every hop to the
 browser, so it needs no route of its own and a node inherits it with its panel.
 

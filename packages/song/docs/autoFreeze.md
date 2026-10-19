@@ -35,7 +35,7 @@ a strudel lane, whose material only exists while it plays. A VST inside a manual
 baked. Downstream of the point stays live, so an internal effect after the VST is still editable
 for free.
 
-## Nothing in the YAML: the render is named by its inputs
+## Nothing in the files: the render is named by its inputs
 
 A render is `<module>-<fingerprint>.wav` in the render cache (below). The fingerprint is a hash of exactly
 what the render is made from: `freezeCut`, the compiled doc cut down to the plan — the lanes' clips,

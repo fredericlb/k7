@@ -49,12 +49,12 @@ describe("a song ref", () => {
   });
 });
 
-describe("mix.yaml", () => {
+describe("mix.k7x", () => {
   const parse = (text: string) => parseMix(text);
 
   it("reads the songs it has cues for", () => {
     const { value, issues } = parse(
-      'cues:\n  - "@k7-core/songs/a/b/c"\n  - "@k7-core/songs/d/e/f"\n',
+      'cues(["@k7-core/songs/a/b/c", "@k7-core/songs/d/e/f"])\n',
     );
     expect(issues).toEqual([]);
     expect(cueRefs(value)).toEqual([
@@ -66,7 +66,7 @@ describe("mix.yaml", () => {
 
   it("is UNORDERED: the file's line order is not the running order", () => {
     const { value } = parse(
-      'cues:\n  - "@k7-core/songs/z/z/z"\n  - "@k7-core/songs/a/a/a"\n',
+      'cues(["@k7-core/songs/z/z/z", "@k7-core/songs/a/a/a"])\n',
     );
     // Sorted here rather than in each surface, so two screens cannot draw one set two ways.
     expect(cueRefs(value)).toEqual([
@@ -78,34 +78,36 @@ describe("mix.yaml", () => {
   it("drops a duplicate instead of refusing the file", () => {
     // Two people merging their halves of a set should not have to resolve that by hand.
     const { value, issues } = parse(
-      'cues:\n  - "@k7-core/songs/a/b/c"\n  - "@k7-core/songs/a/b/c"\n',
+      'cues(["@k7-core/songs/a/b/c", "@k7-core/songs/a/b/c"])\n',
     );
     expect(issues).toEqual([]);
     expect(cueRefs(value)).toEqual(["@k7-core/songs/a/b/c"]);
   });
 
   it("is empty, not broken, when nothing has been cued yet", () => {
-    expect(cueRefs(parse("cues: []\n").value)).toEqual([]);
+    expect(cueRefs(parse("cues([])\n").value)).toEqual([]);
     expect(cueRefs(parse("").value)).toEqual([]);
   });
 
-  it("names a bare list as the mistake it is", () => {
-    const { value, issues } = parse('- "@k7-core/songs/a/b/c"\n');
-    expect(value).toBe(null);
-    expect(issues[0].message).toContain("`cues:` key");
-  });
-
-  it("refuses a path where a ref belongs", () => {
+  it("refuses a path where a ref belongs, on its line", () => {
     // A path would break on the next machine, which is the whole reason refs exist.
-    const { value, issues } = parse("cues:\n  - songs/a/b/c\n");
+    const { value, issues } = parse('cues([\n  "songs/a/b/c",\n])\n');
     expect(value).toBe(null);
     expect(issues[0].message).toContain("@k7-core/songs");
+    expect(issues[0].line).toBe(2);
   });
 
   it("refuses an unknown key rather than ignoring it", () => {
-    // `songs:` in particular, the near miss for `cues:` — a hand-carried set gets told.
-    const { value, issues } = parse("cues: []\nsongs: []\n");
+    // `songs` in particular, the near miss for `cues` — a hand-carried set gets told.
+    const { value, issues } = parse("cues([])\nsongs([])\n");
     expect(value).toBe(null);
     expect(issues.length).toBe(1);
+    expect(issues[0].line).toBe(2);
+  });
+
+  it("reports a syntax error with its line", () => {
+    const { value, issues } = parse("cues([\n");
+    expect(value).toBe(null);
+    expect(issues[0].line).toBeGreaterThan(0);
   });
 });

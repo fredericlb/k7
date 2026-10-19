@@ -4,9 +4,10 @@
 // `track new` writes one for a new lane; `scripts/migrateTrackMixer.ts` for every older one.
 // See docs/trackMixer.md.
 
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
+import { K7Document, type K7Scope } from "@studio/k7x/document";
 import { MIX_NODE } from "@studio/song-schema/moduleTypes";
 import { CHAINS_DIR } from "@studio/song-schema/yaml/chainSchema";
 import {
@@ -21,16 +22,22 @@ import { isChainProject, newNodeId, readChainProject } from "./chainProject";
 import type { Chain, GraphDoc } from "./graph";
 import { loadModules } from "./loader";
 import { SHARED_STRIP } from "./scaffoldLive";
-import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
+import { wsData, wsText, wsWriteText } from "./yaml/workspaceDoc";
 
 /** The strip's own file: a NODE on the library's mixer, never a copy of it — see docs/trackMixer.md. */
 const mixerNode = (lane: string): string =>
-  `# ${lane}'s channel strip: volume, pan and three bands.\n` +
-  `#\n` +
-  `# This is where the lane's FADER writes — the one on its timeline gutter, the one on its card\n` +
-  `# in the graph, and the Mixer view, which are three drawings of this one node. A lane with\n` +
-  `# no strip plays at unity and has nowhere to put a level.\n` +
-  `extends: ${JSON.stringify(SHARED_STRIP)}\n`;
+  `// ${lane}'s channel strip: volume, pan and three bands.\n` +
+  `//\n` +
+  `// This is where the lane's FADER writes — the one on its timeline gutter, the one on its card\n` +
+  `// in the graph, and the Mixer view, which are three drawings of this one node. A lane with\n` +
+  `// no strip plays at unity and has nowhere to put a level.\n` +
+  `extends(${JSON.stringify(SHARED_STRIP)})\n`;
+
+/** The destinations a graph's expanded data gives one node. */
+const destsIn = (graph: unknown, node: string): string[] =>
+  ((graph as { modules?: Record<string, string[]> } | undefined)?.modules?.[
+    node
+  ] ?? []) as string[];
 
 /** What a lane needs to get its strip: the module to write, and the arrow to splice it into. */
 export interface MixerPlan {
@@ -58,14 +65,7 @@ export function mixerNameFor(
 const chainOf = (g: GraphDoc, lane: string): Chain | undefined =>
   Object.values(g.chains).find((c) => c.from === lane);
 
-/**
- * Does this lane's run already end on a mixer? Then it has its strip, and everything below is a
- * no-op. Two ways to be one, and BOTH are asked: a node extending the shared strip — what this
- * file writes — and anything that RESOLVES to the Mixer plugin, which is every older strip and
- * every hand-made one. The ref alone is not enough (a project may name the plugin directly); the
- * resolved plugin alone is not either, since it needs the library mounted AND a plugin scan, and a
- * machine with neither would give every `track new` a second strip.
- */
+/** Does this lane's run already hold a strip: a node on the shared strip, or one resolving to the Mixer plugin (docs/trackMixer.md). */
 export function hasTrackMixer(g: GraphDoc, lane: string): boolean {
   const c = chainOf(g, lane);
   return !!c?.use.some((s) => {
@@ -74,13 +74,7 @@ export function hasTrackMixer(g: GraphDoc, lane: string): boolean {
   });
 }
 
-/**
- * What `lane` needs, or null when it already has a strip. The mixer goes LAST — a level belongs
- * after whatever makes the sound, and `trackMixer` reads the last one in the run.
- *
- * A run that ends anywhere but the sum (a bus, a send, a split) THROWS rather than being guessed
- * at: it is somebody's own arrangement, and splicing a strip into it would rewrite what it means.
- */
+/** What `lane` needs, the strip LAST in its run, or null when it has one; a run not ending on the sum throws (docs/trackMixer.md). */
 export function planTrackMixer(
   dir: string,
   lane: string,
@@ -88,14 +82,13 @@ export function planTrackMixer(
 ): MixerPlan | null {
   if (hasTrackMixer(g, lane)) return null;
   if (isChainProject(dir)) return planChainMixer(dir, lane, g);
-  if (!wsExists(join(dir, GRAPH_FILE)))
+  if (!existsSync(join(dir, GRAPH_FILE)))
     throw new Error(`no ${GRAPH_FILE} — a strip has nowhere to be wired`);
   const c = chainOf(g, lane);
   // The node the strip goes AFTER: the run's last module, or the lane itself when nothing follows it.
   const prev = c?.use.length ? c.use[c.use.length - 1].module : lane;
   if (c) {
-    const text = wsRead(join(dir, GRAPH_FILE));
-    const dests = parseGraph(text).value?.modules?.[prev] ?? [];
+    const dests = destsIn(wsData(join(dir, GRAPH_FILE)), prev);
     if (!dests.includes(MIX_NODE))
       throw new Error(
         `'${lane}' does not run into ${MIX_NODE} — wire its strip by hand, this would guess`,
@@ -103,7 +96,7 @@ export function planTrackMixer(
   }
   const modules = loadModules(dir);
   const name = mixerNameFor(lane, (n) => n in modules || n in g.chains);
-  return { lane, name, rel: `nodes/${name}.yaml`, after: c ? prev : null };
+  return { lane, name, rel: `nodes/${name}.k7x`, after: c ? prev : null };
 }
 
 /** In a chain project the strip is an item of the lane's chain, named by a fresh id; a run ending nowhere takes it too. */
@@ -119,7 +112,7 @@ function planChainMixer(dir: string, lane: string, g: GraphDoc): MixerPlan {
   return {
     lane,
     name: newNodeId(),
-    rel: `${CHAINS_DIR}/${chain}.yaml`,
+    rel: `${CHAINS_DIR}/${chain}.k7x`,
     after: prev,
   };
 }
@@ -130,34 +123,32 @@ function applyChainMixer(dir: string, plan: MixerPlan): string[] {
   const item = { id: plan.name, extends: SHARED_STRIP };
   return editChainGraph(
     dir,
-    (text) => {
-      const dests = parseGraph(text).value?.modules?.[after] ?? [];
-      return dests.includes(MIX_NODE)
-        ? insertBetween(text, after, MIX_NODE, plan.name)
-        : connectNodes(
-            insertBetween(text, after, undefined, plan.name),
-            plan.name,
-            MIX_NODE,
-          );
+    (graph: K7Scope) => {
+      if (destsIn(graph.toJS(), after).includes(MIX_NODE))
+        insertBetween(graph, after, MIX_NODE, plan.name);
+      else {
+        insertBetween(graph, after, undefined, plan.name);
+        connectNodes(graph, plan.name, MIX_NODE);
+      }
     },
     { add: { [plan.name]: item } },
   );
 }
 
-/** The two writes a plan implies: the node's file, and the one arrow in `graph.yaml`. */
+/** The two writes a plan implies: the node's file, and the one arrow in `graph.k7x`. */
 export function applyTrackMixer(dir: string, plan: MixerPlan): string[] {
   if (isChainProject(dir)) return applyChainMixer(dir, plan);
   const graphPath = join(dir, GRAPH_FILE);
-  const text = wsRead(graphPath);
-  const next = plan.after
-    ? insertBetween(text, plan.after, MIX_NODE, plan.name)
-    : // An orphan lane is not in the graph at all: it and its strip arrive together.
-      mergeSegments(text, {
-        modules: { [plan.lane]: [plan.name], [plan.name]: [MIX_NODE] },
-      });
+  const doc = new K7Document(wsText(graphPath));
+  if (plan.after) insertBetween(doc.at([]), plan.after, MIX_NODE, plan.name);
+  // An orphan lane is not in the graph at all: it and its strip arrive together.
+  else
+    mergeSegments(doc.at([]), {
+      modules: { [plan.lane]: [plan.name], [plan.name]: [MIX_NODE] },
+    });
   mkdirSync(join(dir, "nodes"), { recursive: true });
-  wsWrite(join(dir, plan.rel), mixerNode(plan.lane));
-  wsWrite(graphPath, next);
+  wsWriteText(join(dir, plan.rel), mixerNode(plan.lane));
+  wsWriteText(graphPath, doc.toString());
   return [plan.rel, GRAPH_FILE];
 }
 

@@ -8,14 +8,14 @@ import { MODULE_OWN_BASES } from "./moduleIO";
 
 describe("validateFile", () => {
   it("passes a module file the loader would accept", () => {
-    const v = validateFile("modules/audio/cab/module.yaml", "extends: amp\n");
+    const v = validateFile("modules/audio/cab/module.k7x", 'extends("amp")\n');
     expect(v).toMatchObject({ ok: true, depth: "schema", malformed: false });
   });
 
   it("refuses an unknown key, and says where it is", () => {
     const v = validateFile(
-      "modules/audio/cab/module.yaml",
-      "extends: amp\nparamz: 3\n",
+      "modules/audio/cab/module.k7x",
+      'extends("amp")\nparamz(3)\n',
     );
     expect(v.ok).toBe(false);
     expect(v.depth).toBe("schema");
@@ -25,23 +25,25 @@ describe("validateFile", () => {
   });
 
   it("separates text that does not parse from text that does not validate", () => {
-    const v = validateFile("modules/audio/cab/module.yaml", "params: {a: 1\n");
+    const v = validateFile("modules/audio/cab/module.k7x", "params({a: 1\n");
     expect(v).toMatchObject({ ok: false, depth: "syntax", malformed: true });
-    expect(v.issues[0].message).toMatch(/flow|expected/i);
+    expect(v.issues[0].line).toBeGreaterThan(0);
   });
 
   it("judges nothing it has no schema for — and that is not a failure", () => {
-    // The médiathèque's song sidecar: real YAML, but not a project file.
-    const v = validateFile("songs/pearl/song.yaml", "title: Pearl\nbpm: 92\n");
+    const v = validateFile("notes/pearl.k7x", 'title("Pearl").bpm(92)\n');
     expect(v).toMatchObject({ ok: true, depth: "syntax" });
-    // A file that isn't YAML at all is not this module's business.
+    // A file that isn't k7x at all is not this module's business, YAML included.
     expect(
-      validateFile("modules/audio/cab/jsdsp.ts", "not { yaml"),
+      validateFile("modules/audio/cab/jsdsp.ts", "not { k7x"),
+    ).toMatchObject({ ok: true, depth: "none" });
+    expect(
+      validateFile("modules/audio/cab/module.yaml", "paramz: 3\n"),
     ).toMatchObject({ ok: true, depth: "none" });
   });
 
-  it("still catches broken YAML in a file it has no schema for", () => {
-    const v = validateFile("songs/pearl/song.yaml", "title: [Pearl\n");
+  it("still catches broken k7x in a file it has no schema for", () => {
+    const v = validateFile("notes/pearl.k7x", 'title(["Pearl"\n');
     expect(v).toMatchObject({ ok: false, malformed: true });
   });
 
@@ -49,59 +51,57 @@ describe("validateFile", () => {
     // A LANE goes to the module parser, because that is what it is (docs/trackModules.md).
     expect(
       validateFile(
-        "nodes/lead.yaml",
-        'extends: "@meta/track"\ndisabled: soon\n',
+        "nodes/lead.k7x",
+        'extends("@meta/track")\ndisabled("soon")\n',
       ).ok,
     ).toBe(false);
     expect(
-      validateFile(
-        "nodes/lead.yaml",
-        'extends: "@meta/track"\ndisabled: true\n',
-      ).ok,
+      validateFile("nodes/lead.k7x", 'extends("@meta/track")\ndisabled(true)\n')
+        .ok,
     ).toBe(true);
-    expect(validateFile("graph.yaml", "modules:\n  lead: [cab]\n").ok).toBe(
+    expect(validateFile("graph.k7x", 'modules({ lead: ["cab"] })\n').ok).toBe(
       true,
     );
-    expect(validateFile("project.yaml", "project:\n  tempo: 120\n").ok).toBe(
+    expect(validateFile("project.k7x", "project({ tempo: 120 })\n").ok).toBe(
       true,
     );
   });
 
   it("reads a module folder's own files as themselves, and everything else as a use", () => {
-    // ui.yaml is a panel, not a module: `cols` belongs to it and nowhere else.
+    // ui.k7x is a panel, not a module: `cols` belongs to it and nowhere else.
     expect(
       validateFile(
-        "modules/audio/cab/ui.yaml",
-        "cols: 4\nrows: 2\nwidgets: {}\n",
+        "modules/audio/cab/ui.k7x",
+        "cols(4)\nrows(2)\nwidgets({})\n",
       ).ok,
     ).toBe(true);
-    expect(validateFile("modules/audio/cab/module.yaml", "cols: 4\n").ok).toBe(
+    expect(validateFile("modules/audio/cab/module.k7x", "cols(4)\n").ok).toBe(
       false,
     );
     // A node is the module schema again — a use of it says what it overrides.
     expect(
-      validateFile("modules/audio/cab/slap.yaml", "params:\n  drive: 3\n").ok,
+      validateFile("modules/audio/cab/slap.k7x", "params({ drive: 3 })\n").ok,
     ).toBe(true);
-    expect(validateFile("nodes/slap.yaml", "params:\n  drive: 3\n").ok).toBe(
+    expect(validateFile("nodes/slap.k7x", "params({ drive: 3 })\n").ok).toBe(
       true,
     );
   });
 
   it("reads a preset tree's files as presets, in the workspace and in a library", () => {
-    const preset = "engine: tracktion\nparams:\n  Ratio: 4\n";
+    const preset = 'engine("tracktion")\nparams({ Ratio: 4 })\n';
     for (const at of [
-      "_presets/k7-core/audio/compressor/soft.yaml",
-      "_libraries/k7-core/presets/k7-core/audio/compressor/soft.yaml",
-      "/home/u/.k7/libraries/k7-core/presets/workspace/modules/x/soft.yaml",
+      "_presets/k7-core/audio/compressor/soft.k7x",
+      "_libraries/k7-core/presets/k7-core/audio/compressor/soft.k7x",
+      "/home/u/.k7/libraries/k7-core/presets/workspace/modules/x/soft.k7x",
     ]) {
       expect(validateFile(at, preset).ok).toBe(true);
-      expect(validateFile(at, "params:\n  Ratio: loud\n").ok).toBe(false);
+      expect(validateFile(at, 'params({ Ratio: "loud" })\n').ok).toBe(false);
     }
     // A preset is not a module: `extends` is refused there.
     expect(
       validateFile(
-        "_presets/k7-core/audio/compressor/soft.yaml",
-        "extends: x\n",
+        "_presets/k7-core/audio/compressor/soft.k7x",
+        'extends("x")\n',
       ).ok,
     ).toBe(false);
   });
@@ -110,8 +110,8 @@ describe("validateFile", () => {
     // The router cannot import moduleIO, so an unlisted sibling file would be read as a node.
     const own = [...MODULE_OWN_BASES].filter((b) => b !== "module");
     const asModule = (base: string) =>
-      parserFor(`modules/audio/cab/${base}.yaml`) ===
-      parserFor("modules/audio/cab/module.yaml");
+      parserFor(`modules/audio/cab/${base}.k7x`) ===
+      parserFor("modules/audio/cab/module.k7x");
     expect(own.filter(asModule)).toEqual([]);
   });
 });

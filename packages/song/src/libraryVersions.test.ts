@@ -2,7 +2,7 @@
 // pin or an admin's overlay, and a library still in one folder as its own version 1 — see
 // ../../../docs/library-versions-plan.md.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -16,7 +16,7 @@ import {
   moduleNamespaceOf,
   setLibraryOverlays,
 } from "./sharedFolders";
-import { librariesFixture } from "./testSupport";
+import { librariesFixture, writeDoc } from "./testSupport";
 
 describe("library versions", () => {
   let ws: string;
@@ -36,16 +36,16 @@ describe("library versions", () => {
     rmSync(ws, { recursive: true, force: true });
   });
 
-  const pin = (text: string) =>
-    writeFileSync(join(ws, "_library-pins.yaml"), text);
+  const pin = (pins: Record<string, number | string>) =>
+    writeDoc(join(ws, "_library-pins.k7x"), pins);
 
   it("reads an unpinned workspace at version 1, and a pinned one at its pin", () => {
     expect(libraryVersions("k7-core")).toEqual([1, 2]);
     expect(libraryRoot("k7-core", project)).toBe(join(lib, "1"));
-    pin("k7-core: 2\n");
+    pin({ "k7-core": 2 });
     expect(libraryRoot("k7-core", project)).toBe(join(lib, "2"));
     expect(moduleLibraryDirs(project)).toEqual([join(lib, "2", "modules")]);
-    pin("k7-core: draft\n");
+    pin({ "k7-core": "draft" });
     expect(libraryRoot("k7-core", project)).toBe(join(lib, "draft"));
   });
 
@@ -68,7 +68,7 @@ describe("library versions", () => {
     };
     expect(editable(join(lib, "draft", "x"))).toBe(true);
     expect(editable(join(lib, "2", "x"))).toBe(false);
-    pin("k7-core: 2\n");
+    pin({ "k7-core": 2 });
     // A pin outranks the overlay: the admin hears what the workspace pinned.
     expect(libraryRoot("k7-core", project)).toBe(join(lib, "2"));
   });
@@ -76,7 +76,7 @@ describe("library versions", () => {
   it("reads a library still in one folder as every version of itself", () => {
     const flat = librariesFixture(ws, "drums");
     mkdirSync(join(flat, "modules"), { recursive: true });
-    pin("drums: 3\n");
+    pin({ drums: 3 });
     expect(libraryVersions("drums")).toEqual([1]);
     expect(libraryRoot("drums", project)).toBe(flat);
     expect(libraryOf(join(flat, "modules"))).toEqual({

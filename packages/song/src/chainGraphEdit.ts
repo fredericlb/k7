@@ -1,11 +1,13 @@
 // chainGraphEdit.ts — a graph edit on a chain project: the chain files read as segments, the SAME
-// text transform a `graph.yaml` gets, and the result written back as chain files and `layout.yaml`.
+// writer a `graph.k7x` gets, and the result written back as chain files and `layout.k7x`.
 // What would be got wrong: a node the result no longer names is KEPT, as a loose chain, unless the
 // caller says it is dropped — a hidden chain is absent from the segments it is edited through.
 // See docs/chainFiles.md.
 
-import { mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { K7Document, type K7Scope } from "@studio/k7x/document";
+import { stringify } from "@studio/k7x/print";
 import {
   isIoSource,
   isPicturePass,
@@ -18,6 +20,7 @@ import {
   type ChainFile,
   type Item,
   itemsOf,
+  LAYOUT_FILE,
   laneOfItem,
   stepLists,
   TRACKS_DIR,
@@ -25,10 +28,9 @@ import {
 } from "@studio/song-schema/yaml/chainSchema";
 import { parseGraph } from "@studio/song-schema/yaml/graphFile";
 import type { GraphFile } from "@studio/song-schema/yaml/graphSchema";
-import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
-import { parse, stringify } from "yaml";
 import {
   type ChainProject,
+  chainFilePath,
   fromSegments,
   nameOfItem,
   readChainProject,
@@ -38,21 +40,15 @@ import {
 } from "./chainProject";
 import { loadModuleRefs, loadModules } from "./loader";
 import { resolveModule } from "./moduleResolve";
-import {
-  wsExists,
-  wsRead,
-  wsRemove,
-  wsRename,
-  wsWrite,
-} from "./yaml/workspaceFile";
+import { wsText, wsWriteText } from "./yaml/workspaceDoc";
 
 const SINKS = new Set<string>([...CHAIN_SINKS, "MIX", "RENDER"]);
 const bare = (d: string) => d.split("#")[0];
 
-/** The chain project as the segments text a `graph.yaml` would hold — what every graph transform reads. */
+/** The chain project as the segments k7x text a `graph.k7x` would hold — what every graph writer reads. */
 export function chainGraphText(dir: string): string {
   const cp = readChainProject(dir);
-  return stringify(toSegments(cp, readLayout(dir)).graph, YAML_WRITE);
+  return stringify(toSegments(cp, readLayout(dir)).graph);
 }
 
 /** A name a caller may use for a node: the node itself, or a chain holding that one node alone. */
@@ -171,10 +167,10 @@ const swap = (s: string, from: string, to: string): string =>
       ? `${to}${s.slice(from.length)}`
       : s;
 
-/** Run a `graph.yaml` text transform over a chain project and write the result back — the files changed. */
+/** Run a `graph.k7x` writer over a chain project's segments and write the result back — the files changed. */
 export function editChainGraph(
   dir: string,
-  transform: (text: string) => string,
+  edit: (graph: K7Scope) => void,
   opts: ChainGraphEdit = {},
 ): string[] {
   const read = readChainProject(dir);
@@ -184,8 +180,10 @@ export function editChainGraph(
     );
   const positions = readLayout(dir);
   const { graph, levels } = toSegments(read, positions);
-  const text = stringify(graph, YAML_WRITE);
-  const next = transform(text);
+  const text = stringify(graph);
+  const doc = new K7Document(text);
+  edit(doc.at([]));
+  const next = doc.toString();
   if (next === text) return [];
   const parsed = parseGraph(next);
   if (!parsed.value)
@@ -263,9 +261,9 @@ export function editChainGraph(
   });
   const written = writeChains(dir, chains, cp.texts, asleep);
   const pos = result.positions ?? {};
-  if (stringify(pos) !== stringify(positions)) {
+  if (JSON.stringify(pos) !== JSON.stringify(positions)) {
     writeLayout(dir, pos);
-    written.push("layout.yaml");
+    written.push(LAYOUT_FILE);
   }
   return written;
 }
@@ -274,7 +272,7 @@ export function editChainGraph(
 function rawItems(cp: ChainProject): Map<string, Item> {
   const out = new Map<string, Item>();
   for (const text of Object.values(cp.texts)) {
-    const file = parse(text, YAML_READ) as {
+    const file = new K7Document(text).toJS() as {
       steps?: unknown[];
       subchains?: { steps?: unknown[] }[];
     } | null;
@@ -298,32 +296,26 @@ function writeChains(
   prevTexts: Record<string, string>,
   keep: ReadonlySet<string> = new Set(),
 ): string[] {
-  const folder = join(dir, CHAINS_DIR);
-  mkdirSync(folder, { recursive: true });
+  mkdirSync(join(dir, CHAINS_DIR), { recursive: true });
   const out: string[] = [];
   const onDisk = (name: string): string | undefined => {
-    for (const ext of [".yaml", ".yml"]) {
-      const f = join(folder, `${name}${ext}`);
-      if (wsExists(f)) return wsRead(f);
-    }
-    return undefined;
+    const f = chainFilePath(dir, name);
+    return existsSync(f) ? wsText(f) : undefined;
   };
   for (const [name, c] of Object.entries(chains)) {
     const text = formatChain(c, prevTexts[name] ?? onDisk(name) ?? "");
     if (text === onDisk(name)) continue;
-    rmSync(join(folder, `${name}.yml`), { force: true });
-    wsWrite(join(folder, `${name}.yaml`), text);
-    out.push(`${CHAINS_DIR}/${name}.yaml`);
+    wsWriteText(chainFilePath(dir, name), text);
+    out.push(`${CHAINS_DIR}/${name}.k7x`);
   }
   for (const name of Object.keys(readChainProject(dir).chains))
-    if (!chains[name] && !keep.has(name))
-      for (const ext of [".yaml", ".yml"]) {
-        const f = join(folder, `${name}${ext}`);
-        if (wsExists(f)) {
-          wsRemove(f);
-          out.push(`${CHAINS_DIR}/${name}${ext}`);
-        }
+    if (!chains[name] && !keep.has(name)) {
+      const f = chainFilePath(dir, name);
+      if (existsSync(f)) {
+        rmSync(f);
+        out.push(`${CHAINS_DIR}/${name}.k7x`);
       }
+    }
   return out;
 }
 
@@ -332,35 +324,35 @@ export function renameChainLane(
   dir: string,
   from: string,
   to: string,
-  transform: (text: string) => string,
+  edit: (graph: K7Scope) => void,
 ): string[] {
-  const src = join(dir, TRACKS_DIR, `${from}.yaml`);
-  const dest = join(dir, TRACKS_DIR, `${to}.yaml`);
-  if (wsExists(dest))
+  const src = join(dir, TRACKS_DIR, `${from}.k7x`);
+  const dest = join(dir, TRACKS_DIR, `${to}.k7x`);
+  if (existsSync(dest))
     throw new Error(
-      `${TRACKS_DIR}/${to}.yaml already exists — refusing to overwrite`,
+      `${TRACKS_DIR}/${to}.k7x already exists — refusing to overwrite`,
     );
-  const written = editChainGraph(dir, transform, { rename: { from, to } });
-  if (wsExists(src)) wsRename(src, dest);
-  return [`${TRACKS_DIR}/${from}.yaml → ${TRACKS_DIR}/${to}.yaml`, ...written];
+  const written = editChainGraph(dir, edit, { rename: { from, to } });
+  if (existsSync(src)) renameSync(src, dest);
+  return [`${TRACKS_DIR}/${from}.k7x → ${TRACKS_DIR}/${to}.k7x`, ...written];
 }
 
 /** Delete a node from a chain project — its item, a lane's file, and its preset when nobody else names it. */
 export function deleteChainItem(
   dir: string,
   node: string,
-  transform: (text: string) => string,
+  edit: (graph: K7Scope) => void,
 ): string[] {
   const cp = readChainProject(dir);
   const n = cp.nodes[node];
   if (!n) throw new Error(`no node '${node}' in this project`);
-  editChainGraph(dir, transform, { drop: [node] });
-  const removed = [`${CHAINS_DIR}/${n.chain}.yaml: ${node}`];
+  editChainGraph(dir, edit, { drop: [node] });
+  const removed = [`${CHAINS_DIR}/${n.chain}.k7x: ${node}`];
   if (n.track) {
-    const f = join(dir, TRACKS_DIR, `${n.track}.yaml`);
-    if (wsExists(f)) {
-      wsRemove(f);
-      removed.push(`${TRACKS_DIR}/${n.track}.yaml`);
+    const f = join(dir, TRACKS_DIR, `${n.track}.k7x`);
+    if (existsSync(f)) {
+      rmSync(f);
+      removed.push(`${TRACKS_DIR}/${n.track}.k7x`);
     }
     return removed;
   }
@@ -372,7 +364,7 @@ export function deleteChainItem(
       o.name !== node && (o.value as { vstpreset?: string }).vstpreset === own,
   );
   const f = join(dir, VSTPRESETS_DIR, own);
-  if ((!named || named === own) && !others && wsExists(f)) {
+  if ((!named || named === own) && !others && existsSync(f)) {
     rmSync(f);
     removed.push(`${VSTPRESETS_DIR}/${own}`);
   }

@@ -17,11 +17,10 @@ import {
   isLibraryFileParam,
   LIBRARY_FILE_PARAMS,
 } from "@studio/song-schema/moduleTypes";
-import { parse as parseYaml } from "yaml";
 import { libraryFile, resolveFileParamIn } from "./libraryFiles";
 import type { LoadedModule } from "./rawDoc";
 import { moduleFileFor } from "./yaml/moduleIO";
-import { wsRead } from "./yaml/workspaceFile";
+import { wsData } from "./yaml/workspaceDoc";
 
 /** The engine names a module folder holds: each sub-folder of `engines/` with a module file in it. */
 export function engineFoldersOf(folder: string | undefined): string[] {
@@ -57,7 +56,7 @@ export function enginesBeside(moduleFile: string): {
   const engineRefs = Object.fromEntries(folders.map((n) => [n, n]));
   let named: unknown;
   try {
-    named = (parseYaml(wsRead(moduleFile)) as { engine?: unknown })?.engine;
+    named = wsData(moduleFile).engine;
   } catch {
     named = undefined; // unreadable or half-typed: the default rule answers
   }

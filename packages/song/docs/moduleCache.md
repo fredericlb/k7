@@ -11,8 +11,8 @@ médiathèque mounted as a shared library:
 
 | | files read | time |
 |---|---|---|
-| the project's own `modules/` + `nodes/` | 24 YAML | 103 ms |
-| the médiathèque's `modules/` (`readModuleTree`) | 315 YAML | ~140 ms |
+| the project's own `modules/` + `nodes/` | 24 files | 103 ms |
+| the médiathèque's `modules/` (`readModuleTree`) | 315 files | ~140 ms |
 | the panels and MIDI maps beside them (`loadUiLibrary`, `loadControllerLibrary`) | | 55 ms |
 | **`loadModuleRefs` total** | | **295 ms** |
 | the stamp that replaces it | 391 `stat`, 318 `readdir` | **20 ms** |
@@ -20,7 +20,7 @@ médiathèque mounted as a shared library:
 That 295 ms is paid four to six times behind ONE command in k7: `loadProject` wants the
 vocabulary, `loadGraph` wants it again, and so do `projectErrors` and `hints` — each of which
 the browser fetches as soon as the command returns. Uncached, switching a track's alternative —
-one line rewritten in one YAML file — costs about 2.6 s of file service, almost all of it
+one line rewritten in one file — costs about 2.6 s of file service, almost all of it
 re-reading a médiathèque that has not changed since the app was opened.
 
 ## What the stamp covers
@@ -32,7 +32,7 @@ re-reading a médiathèque that has not changed since the app was opened.
 - `<state>/exts.json`, the engine's plugin scan, which is a module source with no folder
 
 For each entry it mixes the NAME into an FNV-1a hash, counts it, and — for the files whose
-content decides what a module is (`.yaml`, `.yml`, `.ts`, `.js`, `.vstpreset`) — takes the newest
+content decides what a module is (`.k7x`, `.ts`, `.js`, `.vstpreset`) — takes the newest
 mtime. Names rather than a plain count because a rename keeps both the count and the mtime,
 and a stamp that missed one would serve a module under a name nobody wrote.
 
@@ -170,16 +170,21 @@ layer below is still keyed per file. What it would have cost otherwise is the ed
 not existing.
 
 That layer below is `settledParse`, and the vocabulary's three readers sit on it: `readModuleFile`
-(every `module.yaml` and node file), `loadUiLibrary` (every `ui.yaml`) and the `widgets.js` beside
+(every `module.k7x` and node file), `loadUiLibrary` (every `ui.k7x`) and the `widgets.js` beside
 a panel. Without it, those two seconds re-read every library the project can see, and they are
 exactly the two seconds a command and the browser's follow-up fetches land in. On `01.danse.k7`
 — 15 tracks, 53 plugins, three module libraries — one node edit had the next compile read 740
-files (1,107 reads, `ui.yaml` twice) in 910 ms, and the graph build the same again in 873 ms;
+files (1,107 reads, `ui.k7x` twice) in 910 ms, and the graph build the same again in 873 ms;
 through the per-file layer each reads only the edited file and costs ~330 ms, the rest being the
 `stat`s that prove the other 739 settled. A kit preset pays both, so that is most of its server
 time.
 
-A parse held there is shared by every later read of the file, so the two YAML readers hand out a
+A file reaches those readers as DATA: on a miss, `settledParse` hands `k7xData` (the file parsed by
+`@studio/k7x`, its short forms expanded) to the reader's data half — `parseModuleData`,
+`parseUiData`, or the data itself. A module or panel that does not validate goes through the text
+parser after all, since its issues are located on that text's lines.
+
+A parse held there is shared by every later read of the file, so the readers hand out a
 `structuredClone` of it: `applyUiLibrary` writes `ui` and `cc` onto the modules it gets, which is
 the first of the two rules above. A script is a string, and goes out as it is.
 
@@ -201,10 +206,10 @@ Those two seconds are exactly when an edit's follow-up reads land, and there are
 `/module-catalogue` and `/base-modules` from the browser — each its own request, so its own
 uncached vocabulary. Inside each, most of the cost was not content but the walk that finds the
 panels and the MIDI maps: per module folder of every library, two `existsSync` misses for
-`ui.yaml`/`.yml`, an `engines/` probe and a `stat` per entry — four walks per vocabulary (panels
+`ui.k7x`/`.yml`, an `engines/` probe and a `stat` per entry — four walks per vocabulary (panels
 and maps, for `loadModules` and for `loadModuleRefs`).
 
-Which folders hold a `ui.yaml` or a `controller.yaml` is a fact about NAMES, and the stamp already
+Which folders hold a `ui.k7x` or a `controller.k7x` is a fact about NAMES, and the stamp already
 hashes every entry name. `cachedForModuleNames` keys on the stamp minus its mtime and has no
 window, because a same-tick write can reproduce an mtime but not a name it adds or removes. The
 CONTENT those files hold still goes through `settledParse`. The walk skips dot folders because the
@@ -249,7 +254,7 @@ stored, 3.7 s with the account's store, 3.8 s on a first launch with only the bu
 ## The seam: something that already knows
 
 The walk is 20 ms and cannot be made cheaper — measured: half `readdir`, half `stat`, and the
-`stat`s are on the files whose content is genuinely read (291 `module.yaml`, 42 `ui.yaml`, the
+`stat`s are on the files whose content is genuinely read (291 `module.k7x`, 42 `ui.k7x`, the
 `nodes/`). A directory's own mtime does not move when a file inside it is edited, so there is no
 shortcut. What is left is asking less often, and a scope only reaches as far as one derivation.
 

@@ -44,7 +44,7 @@ footnote.
 ## What "in place" means
 
 A placement holds a POSITION and names a clip; the clip names a file. So a bounce in place
-rewrites exactly one line — `source:` in `clips/<id>.yaml` — and:
+rewrites exactly one line — `source` in `clips/<id>.k7x` — and:
 
 - every placement of that clip, on every track, plays the treated material;
 - its position, window, fades and loops are untouched, because none of them are in that line;
@@ -108,7 +108,7 @@ discover it by ear.
 **The project's own**, by name (`gtr`, whatever the chains pane draws). Its plugins are
 taken off the *compiled* document, where the compiler has already resolved every step: its
 plugin format, its params, the preset it loads, a jsdsp module's graph. Rebuilding that here
-from `graph.yaml` would be a second compiler, and the two would drift.
+from `graph.k7x` would be a second compiler, and the two would drift.
 
 Two things are dropped on the way out, and both would otherwise be applied twice: a **mixer**
 module (a track's level is not a treatment — it stays live on the strip, exactly as a freeze
@@ -135,7 +135,7 @@ time. A separation is asked for by naming the library chain that holds it, which
 name. A name with no `@` that no project chain answers is looked for in every library, the default
 `k7` first: that is what a bare chain name meant before libraries had names.
 
-A library chain is a TEMPLATE — one file, `<library>/chains/<path>.yaml`, written as a project's
+A library chain is a TEMPLATE — one file, `<library>/chains/<path>.k7x`, written as a project's
 chain is and ending at `@out` (`@studio/song`'s `docs/sharedFolders.md` has the layout and why) —
 read from the account's **libraries**, because that is the disk the engine can open, rather than
 the machine's médiathèque cache. `@studio/song`'s `libraryChains.ts` is the one reader, for this
@@ -227,11 +227,12 @@ plugin at all (`@studio/song`'s [coldModules.md](../../song/docs/coldModules.md)
 `chains/stems.k7x` naming it, so a library seeded from it can separate from its first day; what the
 module has to say is in `@studio/dsp`'s `docs/catalogue.md`. The chain is one file, in substance:
 
-```yaml
-# <library>/chains/stems.yaml
-steps:
-  - { id: 69d0d198-…, extends: "@k7-core/cold/stemsplit" }
-  - to: [ { chain: "@out" } ]
+```js
+// <library>/chains/stems.k7x
+steps([
+  id("69d0d198-…").extends("@k7-core/cold/stemsplit"),
+  to([chain("@out")]),
+])
 ```
 
 …and then `clip process riff @k7-core/stems`.

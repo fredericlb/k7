@@ -5,9 +5,9 @@
 // outside this app. See docs/verbs.md.
 
 import { spawn, spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { ffmpegBin, input, spawnError } from "@studio/ffmpeg";
-import { wsExists, wsRead } from "@studio/song/yaml/workspaceFile";
 
 /** One spoken segment, in the SOURCE video's own seconds. */
 export interface TranscriptSegment {
@@ -108,7 +108,7 @@ export function extractAudio(video: string, wav: string): void {
       bin,
       "transcribing a video decodes its sound with ffmpeg. Install it.",
     );
-  if (r.status !== 0 || !wsExists(wav))
+  if (r.status !== 0 || !existsSync(wav))
     throw new Error(
       `ffmpeg could not read ${basename(video)}: ${stderrTail(r.stderr)}`,
     );
@@ -187,7 +187,7 @@ async function attempt(
       ),
     );
     child.on("close", (code) =>
-      code === 0 && wsExists(srtPath)
+      code === 0 && existsSync(srtPath)
         ? res({ ok: true, srt: srtPath })
         : res({
             ok: false,
@@ -208,7 +208,7 @@ export async function transcribeAudio(
   const notInstalled: string[] = [];
   for (const [bin, cli] of Object.entries(CLIS)) {
     const r = await attempt(bin, cli, wav, outDir);
-    if (r.ok) return parseSrt(wsRead(r.srt));
+    if (r.ok) return parseSrt(readFileSync(r.srt, "utf8"));
     if (r.missing) notInstalled.push(bin);
     else
       throw new Error(`${bin} failed: ${r.error ?? "it wrote no subtitles"}`);

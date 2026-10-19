@@ -1,7 +1,7 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "gate.unmapped": "This view's component {id} is not mapped to a module",
-  "gate.fix": "Add them under `mapping:` in `{file}` — one line per component, `{shape}`, where `module` is the name `chains.yaml` gives it.",
+  "gate.fix": "Add them under `mapping:` in `{file}` — one line per component, `{shape}`, where `module` is the name `graph.k7x` gives it.",
   "browser.title": "Deck {side}",
   "browser.count.one": "{count} song in the set",
   "browser.count.other": "{count} songs in the set",

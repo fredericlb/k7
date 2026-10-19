@@ -1,4 +1,4 @@
-# graph.yaml — the shape, and the edits
+# graph.k7x — the shape, and the edits
 
 The rationale behind `packages/song-schema/src/yaml/graphSchema.ts`,
 `packages/song-schema/src/yaml/graphFile.ts` and their test. The compile side lives in
@@ -7,13 +7,11 @@ edit has to preserve.
 
 ## The name, and the one map
 
-`graph.yaml` and not `chains.yaml`: what it holds is the whole TOPOLOGY — which nodes exist, what
+`graph.k7x` and not `chains.k7x`: what it holds is the whole TOPOLOGY — which nodes exist, what
 feeds what, which are silenced, and where each one sits. Chains are DERIVED from its `modules:` map
 (`chainsGraph.ts`), so naming the file after one of the things read out of it had it wearing the
 name of its own output. Positions live here for the same reason: where a node sits is a fact about
-the graph, not about the node. It is `.yaml` like every other file in a project; the resolver takes
-`.yml` too (`yaml/moduleIO.ts`'s `EXTS`), so a hand-written one still reads, but this is what gets
-WRITTEN.
+the graph, not about the node. It is `.k7x` like every other file in a project.
 
 There is ONE map, because a lane is a module too (`packages/song/docs/trackModules.md`): every node
 is declared in `modules:` and nowhere else, so `hasNode` is one question with one answer and no edit
@@ -22,7 +20,7 @@ wrong one and unwire it silently.
 
 A library CHAIN uses this same file name. It is not a second kind of document that happens to look
 like a graph — it IS one: a folder holding this file and a `nodes/` beside it, differing only in
-having no `project.yaml` and in naming its ends `@in`/`@out`.
+having no `project.k7x` and in naming its ends `@in`/`@out`.
 
 ## The three sections
 
@@ -50,10 +48,10 @@ nothing about modules, and whether `b` exists is a question for `validate()`, wh
 map. What IS refused is a ref that is all separator (`#b`, `x#`): those are typos with no reading,
 and letting them through would make the node name empty.
 
-## The YAML options
+## One line per node
 
-Version 1.2, so `5:1:1` stays a string, and no wrapping, keeping a node's destinations on ONE line.
-`toString` takes only the rendering half of those, the version being a parse concern.
+A node's destinations are written on ONE line whatever their length, so moving a cable changes
+that node's line and no other.
 
 ## What an edit must preserve
 
@@ -64,12 +62,10 @@ Three properties:
 - removing a module from the MIDDLE joins what fed it to what it fed, or the signal is cut with
   nothing pointing at the cut.
 
-The canonical form — one node per line, destinations as a flow sequence — IS the contract. A file
+The canonical form — one node per line, destinations as a list on that line — IS the contract. A file
 spaced any other way is re-spaced by the first edit, and then every node shows up in the diff.
 
-A name like `eq_dj:vox` is a map KEY here, which is where `:` is most dangerous: it is YAML's own
-key/value indicator. It survives (1.2 allows it inside a plain scalar when no space follows), but
-nothing about that is obvious, and it is the first thing that would break silently.
+A name like `eq_dj:vox` is a map KEY here, quoted since `:` is no letter of a bare key.
 
 ## The list format is NAMED
 

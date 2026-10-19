@@ -143,7 +143,7 @@ export function readModuleTree(
       engines.length ? { ...lm, engineRefs } : lm;
 
     out[key(type, sub)] = withEngines(decorate(m));
-    // The nodes beside module.yaml, keyed like a local one under the ref; without these an inherited node is unnameable.
+    // The nodes beside module.k7x, keyed like a local one under the ref; without these an inherited node is unnameable.
     for (const { node, file: ifile } of nodeFiles(
       folder,
       `${relDir}/${leaf}`,
@@ -186,17 +186,17 @@ interface ModulesRead {
   out: Record<string, LoadedModule>;
   /** AS AUTHORED — what validatePlugins reads, kept so a cached read can still be validated. */
   raw: { rel: string; module: Record<string, unknown> }[];
-  yamlIssues: string[];
+  fileIssues: string[];
 }
 
 // Read a project's `nodes/`, one use of a library module per file, into a { name: module } map — docs/loader.md.
 function readModules(dir: string): ModulesRead {
   const out: Record<string, LoadedModule> = {};
   const raw: { rel: string; module: Record<string, unknown> }[] = []; // AS AUTHORED, for validatePlugins below
-  const yamlIssues: string[] = []; // held rather than thrown at once, so a load reports every bad file
-  loadNodes(dir, out, raw, yamlIssues);
+  const fileIssues: string[] = []; // held rather than thrown at once, so a load reports every bad file
+  loadNodes(dir, out, raw, fileIssues);
   applyUiLibrary(dir, out, (m) => moduleOwnRefs(m));
-  return { out, raw, yamlIssues };
+  return { out, raw, fileIssues };
 }
 
 // A fresh map of fresh modules, so a cached read never leaves this file — see docs/graphModel.md.
@@ -223,15 +223,15 @@ export function loadModules(
 ): Record<string, LoadedModule> {
   const read = cachedForModules(dir, "modules", () => readModules(dir));
   if (validate) {
-    if (read.yamlIssues.length)
+    if (read.fileIssues.length)
       // callers already treat "invalid module(s)" as fatal and show it
-      throw new Error(`invalid module(s):\n  ${read.yamlIssues.join("\n  ")}`);
+      throw new Error(`invalid module(s):\n  ${read.fileIssues.join("\n  ")}`);
     validatePlugins(read.raw);
   }
   return cloneModules(read.out);
 }
 
-/** The project's uses of modules: `nodes/<name>.yaml`, flat, filename IS the name. */
+/** The project's uses of modules: `nodes/<name>.k7x`, flat, filename IS the name. */
 export const NODES_DIR = "nodes";
 
 // Load `nodes/` into `out`, keyed by the bare filename, undecorated so inheritance can fill it — see docs/nodes.md.
@@ -239,17 +239,17 @@ function loadNodes(
   dir: string,
   out: Record<string, LoadedModule>,
   raw: { rel: string; module: Record<string, unknown> }[],
-  yamlIssues: string[],
+  fileIssues: string[],
 ): void {
   if (isChainProject(dir)) {
-    loadChainNodes(dir, out, raw, yamlIssues);
+    loadChainNodes(dir, out, raw, fileIssues);
     return;
   }
   const folder = join(dir, NODES_DIR);
   if (!wsExists(folder) || !statSync(folder).isDirectory()) return;
   for (const { id: node, file } of entityFiles(folder, NODES_DIR)) {
     const read = readModuleFile(file);
-    yamlIssues.push(...read.issues);
+    fileIssues.push(...read.issues);
     const value = read.value;
     if (!value || typeof value !== "object") continue;
     // A node file wins a name a module also has, since a module is named by its ref (docs/trackModules.md).
@@ -287,10 +287,10 @@ function loadChainNodes(
   dir: string,
   out: Record<string, LoadedModule>,
   raw: { rel: string; module: Record<string, unknown> }[],
-  yamlIssues: string[],
+  fileIssues: string[],
 ): void {
   const cp = readChainProject(dir);
-  yamlIssues.push(...cp.issues);
+  fileIssues.push(...cp.issues);
   const presets = join(dir, VSTPRESETS_DIR);
   for (const n of Object.values(cp.nodes)) {
     // A PICTURE lane is no module, as in a graph project: its placements are video_tracks/, read by the picture compile.
@@ -300,18 +300,18 @@ function loadChainNodes(
     if (n.track) {
       const file = entityFileFor(join(dir, TRACKS_DIR), TRACKS_DIR, n.track);
       if (!file) {
-        yamlIssues.push(
-          `${CHAINS_DIR}/${n.chain}.yaml: lane "${n.track}" has no ${TRACKS_DIR}/${n.track}.yaml`,
+        fileIssues.push(
+          `${CHAINS_DIR}/${n.chain}.k7x: lane "${n.track}" has no ${TRACKS_DIR}/${n.track}.k7x`,
         );
         continue;
       }
       const read = readModuleFile(file);
-      yamlIssues.push(...read.issues);
+      fileIssues.push(...read.issues);
       value = read.value;
       rel = file.rel;
     } else {
       value = moduleOfItem(n.value);
-      rel = `${CHAINS_DIR}/${n.chain}.yaml`;
+      rel = `${CHAINS_DIR}/${n.chain}.k7x`;
     }
     if (!value || typeof value !== "object") continue;
     raw.push({ rel, module: value });

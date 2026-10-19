@@ -1,4 +1,4 @@
-// mixBindings.ts — join the project's `views/mix.yaml` to the desk and to the graph: which
+// mixBindings.ts — join the project's `views/mix.k7x` to the desk and to the graph: which
 // control drives which param, on which plugin, over which range. The same join k7 does for a
 // MIDI map (`mappedParams`), with a desk control as the source instead of a CC.
 // See ../../docs/controls.md.

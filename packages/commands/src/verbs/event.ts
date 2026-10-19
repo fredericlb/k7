@@ -243,9 +243,9 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
       h.refuse([`bad timecode: ${(e as Error).message}`]);
       return;
     }
-    if (!wsExists(join(h.songPath, "clips", `${clipArg}.yaml`))) {
+    if (!wsExists(join(h.songPath, "clips", `${clipArg}.k7x`))) {
       h.refuse([
-        `no clip "${clipArg}" — clips/${clipArg}.yaml does not exist`,
+        `no clip "${clipArg}" — clips/${clipArg}.k7x does not exist`,
         "a placement naming no clip stops the project loading, so this refuses rather than writes it",
       ]);
       return;
@@ -319,8 +319,8 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
       }
       // The same refusal `event add` makes: a placement the compiler cannot resolve fails the WHOLE song.
       if (
-        !wsExists(join(h.songPath, "clips", `${ref}.yaml`)) &&
-        !wsExists(join(h.songPath, "sequences", `${ref}.yaml`))
+        !wsExists(join(h.songPath, "clips", `${ref}.k7x`)) &&
+        !wsExists(join(h.songPath, "sequences", `${ref}.k7x`))
       ) {
         h.refuse([
           `${where}: no clip or sequence "${ref}" — a placement naming neither stops the project loading`,

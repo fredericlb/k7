@@ -142,7 +142,7 @@ export function placementToClip(
     };
   }
   if (seqMap[ref]) {
-    // Notes are inline in the sequence's .yaml; a pad effect is carried, never resolved (docs/padEffects.md).
+    // Notes are inline in the sequence's .k7x; a pad effect is carried, never resolved (docs/padEffects.md).
     const eff = (v: unknown): number | undefined => {
       const n = Math.floor(Number(v));
       return Number.isFinite(n) && n >= 2 ? n : undefined;

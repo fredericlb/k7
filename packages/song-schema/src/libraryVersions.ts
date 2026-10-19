@@ -1,9 +1,10 @@
 // libraryVersions.ts — a library as a series of FROZEN versions: the level k7 runs, what a version's
-// `library.yaml` says, and the pins a workspace keeps in `_library-pins.yaml`. No `node:fs`, so
+// `library.k7x` says, and the pins a workspace keeps in `_library-pins.k7x`. No `node:fs`, so
 // the file service and the browser read them by the same rules. Rationale: docs/library-versions-plan.md.
+// A `.yaml` one left on disk is read by libraryVersionsLegacy.ts, once, by whoever owns that file's I/O.
 
-import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-import { YAML_READ } from "./yaml/yamlText";
+import { parse } from "@studio/k7x/document";
+import { stringify } from "@studio/k7x/print";
 
 /** What this k7 can run: a library whose `requires` is above it is refused — raise it when a library may use something new. */
 export const LIBRARY_LEVEL = 1;
@@ -15,10 +16,10 @@ export const DRAFT_VERSION = "draft";
 export type LibraryVersion = number | typeof DRAFT_VERSION;
 
 /** The manifest every published version carries at its root. */
-export const LIBRARY_MANIFEST = "library.yaml";
+export const LIBRARY_MANIFEST = "library.k7x";
 
 /** The file a workspace keeps its pins in, at its root beside `_modules/`. */
-export const LIBRARY_PINS_FILE = "_library-pins.yaml";
+export const LIBRARY_PINS_FILE = "_library-pins.k7x";
 
 /** The version a library the pins do not name resolves to: every library published before versions is its version 1. */
 export const UNPINNED_VERSION = 1;
@@ -44,14 +45,17 @@ export interface LibraryManifest {
 const int = (v: unknown): number | null =>
   typeof v === "number" && Number.isInteger(v) && v >= 1 ? v : null;
 
-/** Read a `library.yaml`, or null when the text is not one. */
-export function parseLibraryManifest(text: string): LibraryManifest | null {
-  let doc: unknown;
+/** The k7x text's data, or null when it does not read. */
+function dataOf(text: string): Record<string, unknown> | null {
   try {
-    doc = parseYaml(text, YAML_READ);
+    return parse(text);
   } catch {
     return null;
   }
+}
+
+/** A manifest from data already read, whatever the file's format; null when it is not one. */
+export function libraryManifestData(doc: unknown): LibraryManifest | null {
   if (!doc || typeof doc !== "object" || Array.isArray(doc)) return null;
   const d = doc as Record<string, unknown>;
   const version = int(d.version);
@@ -62,9 +66,14 @@ export function parseLibraryManifest(text: string): LibraryManifest | null {
   return out;
 }
 
-/** Write a `library.yaml`. */
+/** Read a `library.k7x`, or null when the text is not one. */
+export function parseLibraryManifest(text: string): LibraryManifest | null {
+  return libraryManifestData(dataOf(text));
+}
+
+/** Write a `library.k7x`. */
 export function stringifyLibraryManifest(m: LibraryManifest): string {
-  return stringifyYaml(m);
+  return stringify(m);
 }
 
 /** Can a k7 at `level` run this version? */
@@ -76,14 +85,8 @@ export const isRunnable = (
 /** A workspace's pins, library name → version; a library absent here is UNPINNED_VERSION. */
 export type LibraryPins = Record<string, LibraryVersion>;
 
-/** Read `_library-pins.yaml`; an entry that is no version is dropped, so it reads as unpinned. */
-export function parseLibraryPins(text: string): LibraryPins {
-  let doc: unknown;
-  try {
-    doc = parseYaml(text, YAML_READ);
-  } catch {
-    return {};
-  }
+/** Pins from data already read, whatever the file's format; an entry that is no version is dropped, so it reads as unpinned. */
+export function libraryPinsData(doc: unknown): LibraryPins {
   if (!doc || typeof doc !== "object" || Array.isArray(doc)) return {};
   const out: LibraryPins = {};
   for (const [name, v] of Object.entries(doc as Record<string, unknown>)) {
@@ -93,11 +96,16 @@ export function parseLibraryPins(text: string): LibraryPins {
   return out;
 }
 
-/** Write `_library-pins.yaml`, libraries in name order so a diff stays one line. */
+/** Read `_library-pins.k7x`; a text that does not read is no pins. */
+export function parseLibraryPins(text: string): LibraryPins {
+  return libraryPinsData(dataOf(text));
+}
+
+/** Write `_library-pins.k7x`, libraries in name order so a diff stays one line. */
 export function stringifyLibraryPins(pins: LibraryPins): string {
   const sorted: LibraryPins = {};
   for (const name of Object.keys(pins).sort()) sorted[name] = pins[name];
-  return stringifyYaml(sorted);
+  return stringify(sorted);
 }
 
 /** The version `pins` resolves `library` to. */

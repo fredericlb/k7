@@ -1,16 +1,16 @@
 # A shot's sound — an audio lane that follows a picture lane
 
-```yaml
-# nodes/dialog.yaml
-extends: "@meta/track"
-video_source: main            # the picture lane whose shots this lane sounds
+```k7x
+// nodes/dialog.k7x
+extends("@meta/track")
+video_source("main") // the picture lane whose shots this lane sounds
 
-# clips/shot_a.yaml
-source: clips/shot_a.mp4
-sound: clips/shot_a.sound.wav # extracted once, by `picture sound`
+// clips/shot_a.k7x
+source("clips/shot_a.mp4")
+sound("clips/shot_a.sound.wav") // extracted once, by `picture sound`
 ```
 
-`src/videoSound.ts` turns the shots of `video_tracks/main.yaml` into this lane's clips at compile
+`src/videoSound.ts` turns the shots of `video_tracks/main.k7x` into this lane's clips at compile
 time. The verb that sets it up is `picture sound` (`packages/commands/src/verbs/pictureSound.ts`).
 
 ## The ENGINE plays it, not the `<video>`

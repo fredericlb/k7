@@ -17,7 +17,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { textHash } from "@studio/live-sync/file-op";
 import type { Batch, FileOp, Sequenced } from "@studio/live-sync/ops";
-import type { FromRelay } from "@studio/live-sync/protocol";
+import { type FromRelay, SYNC_PROTO } from "@studio/live-sync/protocol";
 import express from "express";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
@@ -85,7 +85,9 @@ async function client(port: number) {
     if (msg.t === "seq") heard.push(msg.entry);
   });
   await new Promise((r) => ws.on("open", r));
-  ws.send(JSON.stringify({ t: "hello", workspace: WS, since: 0 }));
+  ws.send(
+    JSON.stringify({ t: "hello", workspace: WS, since: 0, proto: SYNC_PROTO }),
+  );
   cleanup.push(() => ws.terminate());
   let n = 0;
   const send = (ops: FileOp[], label = "edit"): Batch => {
@@ -212,7 +214,7 @@ describe("the sync history", () => {
     const relay = await relayOn(data);
     const a = await client(relay.port);
     const b = await client(relay.port);
-    a.send([text("song.yaml", "gain: 1\n"), text("notes.md", "hi")]);
+    a.send([text("song.k7x", "gain(1)\n"), text("notes.md", "hi")]);
     await until(() => b.heard.length === 1);
     const cp = await post(`${relay.http}/${WS}/checkpoints`, { name: "mixed" });
     expect(cp.body).toMatchObject({
@@ -221,7 +223,7 @@ describe("the sync history", () => {
       by: "me@example.org",
     });
     a.send([
-      text("song.yaml", "gain: 2\n"),
+      text("song.k7x", "gain(2)\n"),
       { kind: "remove", file: "notes.md" },
     ]);
     a.send([text("extra.md", "new")]);
@@ -232,7 +234,7 @@ describe("the sync history", () => {
       seq: 4,
       replica: "history",
       label: "restore to mixed",
-      files: ["extra.md", "notes.md", "song.yaml"],
+      files: ["extra.md", "notes.md", "song.k7x"],
       parked: 0,
     });
     await until(() => b.heard.length === 4);
@@ -274,10 +276,10 @@ describe("the sync history", () => {
     const a = await client(relay.port);
     const b = await client(relay.port);
     const stale = textHash("not what is there");
-    a.send([text("song.yaml", "gain: 1\n"), text("notes.md", "n")]);
-    a.send([text("song.yaml", "gain: 2\n")]);
+    a.send([text("song.k7x", "gain(1)\n"), text("notes.md", "n")]);
+    a.send([text("song.k7x", "gain(2)\n")]);
     a.send([
-      { kind: "text", file: "song.yaml", text: "gain: 3\n", was: stale },
+      { kind: "text", file: "song.k7x", text: "gain(3)\n", was: stale },
       { kind: "text", file: "notes.md", text: "m", was: stale },
     ]);
     await until(() => b.heard.length === 3);
@@ -289,7 +291,7 @@ describe("the sync history", () => {
     await until(() => b.heard.length === 4);
     expect(b.heard[3].batch.resolves).toEqual(["3.0"]);
     expect(live.conflicts.list().map((c) => c.id)).toEqual(["3.1"]);
-    expect(live.files.get("song.yaml")).toBe("gain: 1\n");
+    expect(live.files.get("song.k7x")).toBe("gain(1)\n");
   });
 
   it("pages through many segments reading only the ones a page needs, and rebuilds a missing index", async () => {

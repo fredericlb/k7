@@ -144,7 +144,7 @@ one would be keying every memo under it on a lie.
 `withWalk` is the same shape over the file list rather than the token, and nothing inside it may
 WRITE: the whole promise is that every reader describes the same instant. `WalkedFile` carries what
 the three readers want from ONE `statSync` rather than one apiece — and `binary` and
-`source` are not the same question, since a `.yaml` is a source and text, a `.md` is text and not a
+`source` are not the same question, since a `.k7x` is a source and text, a `.md` is text and not a
 source, and a `.wav` is neither. It deliberately carries no workspace-relative path although both
 journal readers want one: computing it is `relative()` plus a separator pass, and the token wants
 none of it — putting it in costs the two-second poll ~1 ms of arithmetic for 186 files it is only
@@ -159,7 +159,7 @@ not read a failed diff as one.
 ## `recordChange` re-reads only what moved
 
 The undo journal diffs the project's text files before and after a mutation, which is two
-whole-folder walks per command — 180 small YAML files read 360 times to journal the one line a
+whole-folder walks per command — 180 small k7x files read 360 times to journal the one line a
 command rewrote. The "before" image is also almost always the "after" image of the command
 before it.
 
@@ -181,7 +181,7 @@ which is what `sourcesOnly` is, and why no workspace-relative path is computed o
 
 `diffBin` has a sharper version of the same problem: reading every binary's bytes BEFORE deciding
 whether the diff can use them means a song with 650 MB of takes in `clips/` reads all of it to
-journal one line of YAML, on every command. The bytes are read only for a file the mutation
+journal one line of k7x, on every command. The bytes are read only for a file the mutation
 created, or one it snapshotted — which is exactly the set the journal can act on.
 
 ## Listing the projects a workspace holds
@@ -239,6 +239,12 @@ silently repoint every ref naming it. Content writes are ordinary; `module popul
 catalogue from the plugin scan the same way any other writer would. It is enforced here rather
 than in the UI because the routes are reachable without one. `guardMutable` adds the root, the
 recycle bin and the active project's own folder; anything INSIDE that folder is fair game.
+
+A save (`write`, behind `PUT /file`), a rename or an upload to a `.yaml` or `.yml` name is refused
+(`refuseYamlName`, the one check all three share). Every workspace
+document is `.k7x` and nothing reads a YAML one, so a client still holding YAML text under a YAML
+name would otherwise leave a file beside the real one that no read ever sees. The refusal is a 400
+saying so. A `.k7x` save is written as given: a half-typed file is the editor's to report.
 
 A deletion is a move into a recycle bin, never an erase. A workspace's bin is `_recycle_bin/` at
 its root; a LIBRARY's is `_recycle_bin/` at the library's own root, since a library may sit on
@@ -321,16 +327,16 @@ own answer: none of them can be read out of that tree.
   are synthesised too — a ref is flat (`@engine/nam`), and two hundred and fifty plugins in one list
   is a level nobody can find anything in — so the folder rows carry a made-up path and the LEAVES
   carry the real ref. Each leaf is deliberately a leaf: `foldModules` turns a folder holding
-  `module.yaml` into an openable row, and this has no such file, so what draws is a name that opens
+  `module.k7x` into an openable row, and this has no such file, so what draws is a name that opens
   nothing, which is the truth about a scanned plugin. Null when the machine has never scanned — an
   empty `@engine` says nothing true.
 - **`libraryChains()`** — every library's chains, walked by `@studio/song`'s `libraryChainDirs`,
   the one walk `processChain` and the account's own listings use too: a chain is a folder holding a
-  `graph.yaml`, at any depth under a library's `chains/`, and nothing inside one is another. `ref` is
+  `graph.k7x`, at any depth under a library's `chains/`, and nothing inside one is another. `ref` is
   what the chain is CALLED, whole (`@k7-core/process/normalize`), `path` where it is in this API
   (`_libraries/k7/chains/…`), because that is the only address a browser may hand back. No
   library, or one with no `chains/`, is an empty list, never a throw.
-- **`playlists()`** — `_playlists/**/*.yaml`, rooted at the workspace ROOT and not beside the
+- **`playlists()`** — `_playlists/**/*.k7x`, rooted at the workspace ROOT and not beside the
   project where the two module libraries live. A set list belongs to the repository rather than to
   one song in it — you build one once and open it against whichever project you are working in — and
   rooting it at the project would give a workspace of four songs four separate playlist folders.
@@ -344,7 +350,7 @@ own answer: none of them can be read out of that tree.
   `moduleAssetChoices` exists to have stopped making for assets.
 - **`baseSnapshotPath()`** puts a base at `base/<name>.vstpreset` beside the module file. A base is
   an opaque blob kept with the module, for the plugins whose sound is not in their automatable
-  parameters — an Arturia patch is not, so `presets.yaml` (numbers only) cannot hold one. `base/` is
+  parameters — an Arturia patch is not, so `presets.k7x` (numbers only) cannot hold one. `base/` is
   its own folder because the loader already reads `<name>.vstpreset` in the module folder as its
   single default, and a second spelling in the same directory would be two rules over one namespace.
   The path is resolved here and not by the caller, twice over: the builder is forbidden from
@@ -402,7 +408,7 @@ A library write is refused unless this account is an admin's (`assertLibraryWrit
 that folder, from any project, and the write is the publication. A deletion inside a library moves
 into that library's own `_recycle_bin/`, since a library may sit on another disk than the workspace. `_modules` is untouched by all of that and still forks: it is the WORKSPACE's own library,
 one copy backing every project beside it, and nothing has given it a way back. The one exception
-either way is a module's `ui.yaml` — a panel is drawn for the plugin, not for the song, so it is
+either way is a module's `ui.k7x` — a panel is drawn for the plugin, not for the song, so it is
 written where the module is, and forking a whole module to move a knob is precisely the copy nobody
 wanted.
 

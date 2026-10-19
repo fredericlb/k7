@@ -28,6 +28,8 @@ export interface K7Entry {
   /** Offset of the `.` that introduces a chained call; null for a chain's head and for an object entry. */
   dot: number | null;
   keyStart: number;
+  /** Just past the key's source, quotes included. */
+  keyEnd: number;
 }
 
 export interface K7MapNode {
@@ -49,7 +51,7 @@ export const isMap = (n: unknown): n is K7MapNode =>
 export const isScalar = (n: unknown): n is K7ScalarNode =>
   (n as K7Node | undefined)?.kind === "scalar";
 
-/** The plain value a node stands for: what zod reads, exactly as YAML's toJS would give it. */
+/** The plain value a node stands for: what zod reads: plain objects, arrays and scalars. */
 export function toJS(node: K7Node): unknown {
   if (node.kind === "scalar") return node.value;
   if (node.kind === "list") return node.items.map(toJS);
@@ -64,15 +66,51 @@ export function toJS(node: K7Node): unknown {
   return out;
 }
 
-/** The node at a path, or undefined: a string segment names a map entry, a number a list item. */
+/** A list index from a path segment: a number, or a string of digits ("2" is 2); else undefined. */
+export function indexOf(seg: string | number): number | undefined {
+  if (typeof seg === "number") return seg;
+  return /^(?:0|[1-9]\d*)$/.test(seg) ? Number(seg) : undefined;
+}
+
+/** A node's child at one path segment: a map entry's value by key, a list item by index. */
+export function childAt(
+  node: K7Node,
+  seg: string | number,
+): K7Node | undefined {
+  if (node.kind === "map")
+    return typeof seg === "string"
+      ? node.entries.find((e) => e.key === seg)?.value
+      : undefined;
+  if (node.kind === "list") {
+    const i = indexOf(seg);
+    return i === undefined ? undefined : node.items[i];
+  }
+  return undefined;
+}
+
+/** The node at a path, or undefined: a string segment names a map entry, a number (or a string of digits) a list item. */
 export function nodeAt(root: K7Node, path: K7Path): K7Node | undefined {
   let node: K7Node | undefined = root;
   for (const seg of path) {
-    if (node?.kind === "map" && typeof seg === "string")
-      node = node.entries.find((e) => e.key === seg)?.value;
-    else if (node?.kind === "list" && typeof seg === "number")
-      node = node.items[seg];
-    else return undefined;
+    if (node === undefined) return undefined;
+    node = childAt(node, seg);
   }
   return node;
+}
+
+/** Visits every node depth-first, parents first; `visit` returning false skips that node's children. */
+export function walk(
+  root: K7Node,
+  // biome-ignore lint/suspicious/noConfusingVoidType: a visitor that returns nothing must type-check, and false is its one signal.
+  visit: (node: K7Node, path: K7Path, entry?: K7Entry) => void | false,
+): void {
+  const go = (node: K7Node, path: K7Path, entry?: K7Entry): void => {
+    if (visit(node, path, entry) === false) return;
+    if (node.kind === "list")
+      for (let i = 0; i < node.items.length; i++)
+        go(node.items[i], [...path, i]);
+    else if (node.kind === "map")
+      for (const e of node.entries) go(e.value, [...path, e.key], e);
+  };
+  go(root, []);
 }

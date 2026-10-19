@@ -1,8 +1,8 @@
 # Chains and the graph
 
 Routing — which node feeds which — is written either as **chain files** (the chain layout, a
-`chains/` folder) or as **segments** in `graph.yaml` (the graph layout). A project uses one or the
-other; when `chains/` exists, `graph.yaml` is not read. The Chains tab draws both the same way.
+`chains/` folder) or as **segments** in `graph.k7x` (the graph layout). A project uses one or the
+other; when `chains/` exists, `graph.k7x` is not read. The Chains tab draws both the same way.
 
 ## Built-in ends
 
@@ -17,20 +17,19 @@ These names are not files; they are the fixed points every project routes to.
 | `CUE` | The headphone bus, which leaves the mixer's sum entirely. |
 | `@out` | A library chain template's own exit. |
 
-## Chain files: `chains/<name>.yaml`
+## Chain files: `chains/<name>.k7x`
 
 A chain is an ordered list of **steps**. The signal enters at the first step, passes each step in
 turn, and the last step may say where it goes next.
 
-```yaml
-# chains/drums.yaml — a lane into the mix and into a shader's side input
-start: true
-steps:
-  - { id: 32ed90b2, track: drums }
-  - { id: 5f1a77c0, extends: "@k7-core/audio/compressor", params: { Threshold: -18 } }
-  - to:
-      - { chain: MIX, level: 1 }
-      - { chain: glow, port: audio, level: 0.5 }
+```k7x
+// chains/drums.k7x — a lane into the mix and into a shader's side input
+start(true)
+steps([
+  id("32ed90b2").track("drums"),
+  id("5f1a77c0").extends("@k7-core/audio/compressor").params({ Threshold: -18 }),
+  to([chain("MIX").level(1), chain("glow").port("audio").level(0.5)]),
+])
 ```
 
 ```js
@@ -57,8 +56,8 @@ A chain without a start that nothing links to is treated as hidden, unless somet
 | A step is… | Written | Meaning |
 |---|---|---|
 | a node | `{ id, extends?, params?, … }` | One module use; its fields are those of [Node and module fields](./35-node-fields.md). |
-| a lane | `{ id, track: <lane> }` | An audio lane, whose events are in `tracks/<lane>.yaml`. A source: only a chain with `start: true` may hold one. `bypass: true` mutes it. |
-| a picture lane | `{ id, video_track: <lane> }` | A picture lane, whose shots are in `video_tracks/<lane>.yaml`. |
+| a lane | `{ id, track: <lane> }` | An audio lane, whose events are in `tracks/<lane>.k7x`. A source: only a chain with `start: true` may hold one. `bypass: true` mutes it. |
+| a picture lane | `{ id, video_track: <lane> }` | A picture lane, whose shots are in `video_tracks/<lane>.k7x`. |
 | parallel nodes | a list of two or more items | Nodes side by side, all fed the same signal. |
 | a subchain run | `{ sub: <id> }` | Runs one of this file's subchains in place, its output returning to the next step. |
 | links | `{ to: [ … ] }` | The last step: where the signal goes. |
@@ -92,21 +91,22 @@ A subchain is a list of steps under an `id`, inside a chain file. It is used in 
 A subchain holds no lane, runs no subchain of its own (they are one level deep), and links only to
 its siblings or to a built-in end. Its `id` cannot be a built-in end's name.
 
-## The graph layout: `graph.yaml` and `nodes/`
+## The graph layout: `graph.k7x` and `nodes/`
 
-In the graph layout each node is a file in `nodes/`, and `graph.yaml` says, for each node, where its
+In the graph layout each node is a file in `nodes/`, and `graph.k7x` says, for each node, where its
 signal goes next. The chains are derived by following the arrows: a run breaks where the signal
 splits, and where two signals meet.
 
-```yaml
-# graph.yaml
-modules:
-  melody: [synth-melody]
-  "pad#midi": [synth-pad]
-  synth-melody: [MIX]
-  synth-pad: [MIX]
-  MIX: [OUT]
-bypassed: [pad]
+```k7x
+// graph.k7x
+modules({
+  melody: ["synth-melody"],
+  "pad#midi": ["synth-pad"],
+  synth-melody: ["MIX"],
+  synth-pad: ["MIX"],
+  MIX: ["OUT"],
+})
+bypassed(["pad"])
 ```
 
 | Field | Type | Meaning |
@@ -128,15 +128,13 @@ runs([
 ])
 ```
 
-## layout.yaml
+## layout.k7x
 
 In the chain layout, card positions live in a separate file so that moving a card never touches a
 chain:
 
-```yaml
-positions:
-  drums: { x: 120, y: 40 }
-  5f1a77c0: { x: 320, y: 40 }
+```k7x
+positions({ drums: { x: 120, y: 40 }, "5f1a77c0": { x: 320, y: 40 } })
 ```
 
 Keys are lane names or node ids. k7 writes one card per line and removes the file when it is empty.
@@ -151,4 +149,4 @@ Keys are lane names or node ids. k7 writes one card per line and removes the fil
 | `this chain has no subchain "x"` | A `{ sub: x }` naming no subchain. |
 | `chain 'c' step 2 (module 'm'): port 'in' expects audio but source 'pad' is midi` | A connection between incompatible ports. |
 | `… feeds 0 input(s) but 1 mandatory port(s) required` | A module whose required input is not fed. |
-| `a port ref is \`<module>#<port>\` — neither half may be empty` | A malformed `#` reference in `graph.yaml`. |
+| `a port ref is \`<module>#<port>\` — neither half may be empty` | A malformed `#` reference in `graph.k7x`. |

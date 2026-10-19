@@ -1,21 +1,30 @@
+import { K7Document, type K7Scope } from "@studio/k7x/document";
 import { describe, expect, it } from "vitest";
 import {
   appendPlaylistItem,
+  movePlaylistItem,
   parsePlaylist,
+  playlistFromData,
   playlistPathOf,
   playlistStub,
-  yamlScalar,
+  removePlaylistItem,
 } from "./playlist.ts";
+
+/** An edit over a whole file's text, as a caller does through wsEdit: the new text, or null when it refused. */
+const edit = (text: string, fn: (doc: K7Scope) => boolean): string | null => {
+  const doc = new K7Document(text);
+  return fn(doc.at([])) ? doc.toString() : null;
+};
 
 describe("parsePlaylist", () => {
   it("reads a title and the items, in the file's own order", () => {
     const p = parsePlaylist(
       [
-        "title: Été 2026",
-        "items:",
-        "  - AC-DC/Back in Black/Hells Bells",
-        "  - song: Nirvana/Nevermind/Lithium",
-        "    variant: instrumental",
+        'title("Été 2026")',
+        "items([",
+        '  "AC-DC/Back in Black/Hells Bells",',
+        '  song("Nirvana/Nevermind/Lithium").variant("instrumental"),',
+        "])",
       ].join("\n"),
     );
     expect(p?.title).toBe("Été 2026");
@@ -26,195 +35,152 @@ describe("parsePlaylist", () => {
     ]);
   });
 
-  it("takes a bare string as the song, which is what anyone actually types", () => {
-    expect(parsePlaylist("items:\n  - Hells Bells\n")?.items).toEqual([
-      { song: "Hells Bells" },
-    ]);
-  });
-
   it("drops a line that names no song rather than inventing a ref for it", () => {
     // Coercing a malformed line would put a row on screen pointing at nothing (docs/playlistFile.md).
     const p = parsePlaylist(
-      ["items:", "  - [x]", "  - variant: sans-voix", "  - Lithium"].join("\n"),
+      'items([["x"], { variant: "sans-voix" }, "Lithium"])\n',
     );
     expect(p?.items).toEqual([{ song: "Lithium" }]);
   });
 
-  it("is null when the text is not a playlist at all", () => {
-    // A file that does not parse is one to go and FIX; an empty `items:` is one to go and fill.
-    expect(parsePlaylist("items: [\n")).toBeNull();
-    expect(parsePlaylist("- just\n- a list\n")).toBeNull();
-    expect(parsePlaylist("")).toBeNull();
+  it("is null when the text does not read", () => {
+    // A file that does not parse is one to go and FIX; an empty `items` is one to go and fill.
+    expect(parsePlaylist("items([\n")).toBeNull();
   });
 
   it("is an empty playlist when there is no items key, not a failure", () => {
     // A file someone has started. It parses, so it is a playlist; it just has nothing in it.
-    expect(parsePlaylist("title: Set\n")).toEqual({ title: "Set", items: [] });
+    expect(parsePlaylist('title("Set")\n')).toEqual({
+      title: "Set",
+      items: [],
+    });
+    expect(parsePlaylist("")).toEqual({ items: [] });
   });
 
   it("round-trips its own stub, so a file it creates opens on a playlist", () => {
-    const p = parsePlaylist(playlistStub("répèt du jeudi"));
-    expect(p).toEqual({ title: "répèt du jeudi", items: [] });
-  });
-});
-
-describe("yamlScalar", () => {
-  it("leaves a song path alone — spaces, ampersands and parentheses and all", () => {
-    // These come out of `segment()` and are the ordinary case (docs/playlistFile.md).
-    for (const plain of [
-      "AC-DC/Back in Black/Hells Bells",
-      "Simon & Garfunkel/Bookends/America",
-      "Nirvana/Unplugged/The Man Who Sold The World (Live)",
-      "instrumental",
-    ])
-      expect(yamlScalar(plain)).toBe(plain);
-  });
-
-  it("quotes what would stop being a string", () => {
-    expect(yamlScalar("- not a list")).toBe("'- not a list'");
-    expect(yamlScalar("Artist: Album")).toBe("'Artist: Album'"); // else a mapping
-    expect(yamlScalar("*star")).toBe("'*star'"); // else an alias
-    expect(yamlScalar("track #3")).toBe("'track #3'"); // else a comment
-    expect(yamlScalar(" padded ")).toBe("' padded '");
-    expect(yamlScalar("")).toBe("''");
-  });
-
-  it("quotes what YAML would read as something other than a string", () => {
-    // A morceau called "No" is a title, not `false`.
-    expect(yamlScalar("No")).toBe("'No'");
-    expect(yamlScalar("null")).toBe("'null'");
-    expect(yamlScalar("42")).toBe("'42'");
-  });
-
-  it("doubles a quote rather than escaping it", () => {
-    expect(yamlScalar("Rock 'n' Roll: Part 2")).toBe(
-      "'Rock ''n'' Roll: Part 2'",
+    const stub = playlistStub("répèt du jeudi");
+    expect(stub).toBe(
+      '// répèt du jeudi\ntitle("répèt du jeudi")\nitems([])\n',
     );
+    expect(parsePlaylist(stub)).toEqual({ title: "répèt du jeudi", items: [] });
+  });
+
+  it("reads data already parsed by the same rules", () => {
+    expect(playlistFromData({ items: ["a"] })).toEqual({
+      items: [{ song: "a" }],
+    });
+    expect(playlistFromData(["a"])).toBeNull();
+    expect(playlistFromData(null)).toBeNull();
   });
 });
 
 describe("appendPlaylistItem", () => {
-  it("adds to the end of an existing block, keeping the file's own indentation", () => {
-    const out = appendPlaylistItem("title: Set\nitems:\n    - Lithium\n", {
-      song: "Hells Bells",
-    });
-    // Four spaces, because that is what the file was already using.
-    expect(out).toBe("title: Set\nitems:\n    - Lithium\n    - Hells Bells\n");
-  });
-
-  it("turns the stub's empty flow into a block", () => {
-    expect(appendPlaylistItem(playlistStub("Set"), { song: "Lithium" })).toBe(
-      "# Set\ntitle: Set\nitems:\n  - Lithium\n",
+  it("adds to the end of the list, a bare song when it names no variant", () => {
+    const out = edit('title("Set")\nitems([\n  "Lithium",\n])\n', (d) =>
+      appendPlaylistItem(d, { song: "Hells Bells" }),
     );
-  });
-
-  it("writes a mapping when the line names a variant, aligned past the dash", () => {
-    const out = appendPlaylistItem("items:\n  - Lithium\n", {
-      song: "Nevermind/Lithium",
-      variant: "instrumental",
-    }) as string;
     expect(out).toBe(
-      "items:\n  - Lithium\n  - song: Nevermind/Lithium\n    variant: instrumental\n",
+      'title("Set")\nitems([\n  "Lithium",\n  "Hells Bells",\n])\n',
     );
+  });
+
+  it("fills the stub's empty list", () => {
+    const out = edit(playlistStub("Set"), (d) =>
+      appendPlaylistItem(d, { song: "Lithium" }),
+    ) as string;
+    expect(out.startsWith("// Set\n")).toBe(true);
+    expect(parsePlaylist(out)?.items).toEqual([{ song: "Lithium" }]);
+  });
+
+  it("writes the variant beside the song", () => {
+    const out = edit('items(["Lithium"])\n', (d) =>
+      appendPlaylistItem(d, { song: "Nevermind/Lithium", variant: "inst" }),
+    ) as string;
     expect(parsePlaylist(out)?.items[1]).toEqual({
       song: "Nevermind/Lithium",
-      variant: "instrumental",
+      variant: "inst",
     });
   });
 
-  it("keeps the comments and the order — the whole reason this is text", () => {
+  it("keeps the comments and the order", () => {
     const before = [
-      "# la répèt du jeudi",
-      "title: Répèt",
-      "items:",
-      "  # on ouvre là-dessus",
-      "  - Hells Bells",
-      "  - Lithium",
+      "// la répèt du jeudi",
+      'title("Répèt")',
+      "items([",
+      "  // on ouvre là-dessus",
+      '  "Hells Bells",',
+      '  "Lithium",',
+      "])",
       "",
     ].join("\n");
-    const out = appendPlaylistItem(before, { song: "America" }) as string;
-    expect(out).toContain("# la répèt du jeudi");
-    expect(out).toContain("  # on ouvre là-dessus");
+    const out = edit(before, (d) =>
+      appendPlaylistItem(d, { song: "Rock 'n' Roll: Part 2" }),
+    ) as string;
+    expect(out).toContain("// la répèt du jeudi");
+    expect(out).toContain("  // on ouvre là-dessus");
     expect(parsePlaylist(out)?.items.map((i) => i.song)).toEqual([
       "Hells Bells",
       "Lithium",
-      "America",
+      "Rock 'n' Roll: Part 2",
     ]);
   });
 
-  it("adds the key when the file has none, and to a file that is only a title", () => {
-    expect(appendPlaylistItem("title: Set\n", { song: "Lithium" })).toBe(
-      "title: Set\nitems:\n  - Lithium\n",
-    );
-    // …and gives a file with no trailing newline one, rather than joining two lines.
-    expect(appendPlaylistItem("title: Set", { song: "Lithium" })).toBe(
-      "title: Set\nitems:\n  - Lithium\n",
-    );
+  it("adds the key when the file has none", () => {
+    const out = edit('title("Set")\n', (d) =>
+      appendPlaylistItem(d, { song: "Lithium" }),
+    ) as string;
+    expect(parsePlaylist(out)).toEqual({
+      title: "Set",
+      items: [{ song: "Lithium" }],
+    });
   });
 
-  it("adds under a key that has nothing under it yet", () => {
-    expect(appendPlaylistItem("items:\n", { song: "Lithium" })).toBe(
-      "items:\n  - Lithium\n",
-    );
-  });
-
-  it("extends a one-line flow list in its own notation", () => {
-    // Converting it to a block would rewrite a line nobody asked us to touch.
+  it("refuses an `items` that is no list rather than guessing", () => {
     expect(
-      appendPlaylistItem("items: [Lithium]\n", { song: "Hells Bells" }),
-    ).toBe("items: [Lithium, Hells Bells]\n");
+      edit('items("nonsense")\n', (d) => appendPlaylistItem(d, { song: "x" })),
+    ).toBeNull();
+  });
+});
+
+describe("removing and moving a line", () => {
+  const SET =
+    'items([\n  "a",\n  // the second\n  song("b").variant("v"),\n  "c",\n])\n';
+
+  it("drops one line by its position, and refuses one that is not there", () => {
+    const out = edit(SET, (d) => removePlaylistItem(d, 0)) as string;
+    expect(parsePlaylist(out)?.items.map((i) => i.song)).toEqual(["b", "c"]);
+    expect(edit(SET, (d) => removePlaylistItem(d, 3))).toBeNull();
+    expect(edit('title("x")\n', (d) => removePlaylistItem(d, 0))).toBeNull();
   });
 
-  it("quotes on the way in, so a title full of punctuation still parses back", () => {
-    const out = appendPlaylistItem("items: []\n", {
-      song: "Rock 'n' Roll: Part 2",
-    }) as string;
-    expect(parsePlaylist(out)?.items).toEqual([
-      { song: "Rock 'n' Roll: Part 2" },
+  it("moves a line with its comment", () => {
+    const out = edit(SET, (d) => movePlaylistItem(d, 1, 2)) as string;
+    expect(parsePlaylist(out)?.items.map((i) => i.song)).toEqual([
+      "a",
+      "c",
+      "b",
     ]);
-  });
-
-  it("refuses a shape it cannot extend rather than guessing", () => {
-    // Inventing a second `items:` key lower down would make the file's two halves disagree.
-    expect(appendPlaylistItem("items: [\n  Lithium,\n]\n", { song: "x" })).toBe(
-      null,
-    );
-    expect(appendPlaylistItem("items: nonsense\n", { song: "x" })).toBe(null);
-    // A mapping cannot go inside a flow sequence at this level of effort.
-    expect(
-      appendPlaylistItem("items: [a]\n", { song: "x", variant: "v" }),
-    ).toBe(null);
-  });
-
-  it("survives being run twice, which is what clicking twice does", () => {
-    const once = appendPlaylistItem(playlistStub("Set"), {
-      song: "Lithium",
-    }) as string;
-    const twice = appendPlaylistItem(once, { song: "Hells Bells" }) as string;
-    expect(parsePlaylist(twice)?.items.map((i) => i.song)).toEqual([
-      "Lithium",
-      "Hells Bells",
-    ]);
+    expect(out).toContain("// the second");
+    expect(edit(SET, (d) => movePlaylistItem(d, 0, 5))).toBeNull();
   });
 });
 
 describe("playlistPathOf", () => {
   it("turns a name into the workspace path holding it", () => {
-    expect(playlistPathOf("ete-2026")).toBe("_playlists/ete-2026.yaml");
+    expect(playlistPathOf("ete-2026")).toBe("_playlists/ete-2026.k7x");
   });
 
   it("keeps subfolders — `_playlists/` nests", () => {
-    expect(playlistPathOf("live/repet")).toBe("_playlists/live/repet.yaml");
+    expect(playlistPathOf("live/repet")).toBe("_playlists/live/repet.k7x");
   });
 
-  it("keeps an extension somebody wrote out, in either spelling", () => {
-    expect(playlistPathOf("set.yaml")).toBe("_playlists/set.yaml");
-    expect(playlistPathOf("set.yml")).toBe("_playlists/set.yml");
+  it("keeps an extension somebody wrote out", () => {
+    expect(playlistPathOf("set.k7x")).toBe("_playlists/set.k7x");
   });
 
-  it("trims what a hand-edited YAML value carries", () => {
-    expect(playlistPathOf("  ete-2026  ")).toBe("_playlists/ete-2026.yaml");
-    expect(playlistPathOf("/live/repet/")).toBe("_playlists/live/repet.yaml");
+  it("trims what a hand-edited value carries", () => {
+    expect(playlistPathOf("  ete-2026  ")).toBe("_playlists/ete-2026.k7x");
+    expect(playlistPathOf("/live/repet/")).toBe("_playlists/live/repet.k7x");
   });
 
   // Null and not a throw, since the value comes out of a file somebody typed (docs/playlistFile.md).

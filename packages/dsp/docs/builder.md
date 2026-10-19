@@ -79,7 +79,7 @@ there would refuse a legitimate graph.
 
 ## `input(port)` — an index, not a name
 
-`port` indexes the module's input ports (`inputs:` in its `module.yaml`): 0 is the chain's stream,
+`port` indexes the module's input ports (`inputs:` in its `module.k7x`): 0 is the chain's stream,
 1 the first side input — see `packages/song/docs/ports.md`.
 
 An index and not a name because the graph and the module file are **two documents**: the graph is

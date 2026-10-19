@@ -1,103 +1,89 @@
+import { parse } from "@studio/k7x/document";
 import { describe, expect, it } from "vitest";
-import { findNotesArray, type Note, parseNotes, renderNotes } from "./notes";
+import { readSequence, writeNotes } from "./notes";
 
-// The seam both grids edit through: a drag replaces the notes SPAN, so a byte either side eats a neighbouring field.
+// The seam both grids edit through: what they read off a sequence's k7x, and the text a grid edit hands back.
 
-describe("parseNotes", () => {
-  it("reads the {t,d,k,v} shape, in the block form files are written in", () => {
-    expect(
-      parseNotes(`- { t: 0, d: 1, k: 60, v: 0.8 }
-  - { t: 1, d: 0.5, k: 62 }`),
-    ).toEqual([
-      { t: 0, d: 1, k: 60, v: 0.8 },
-      { t: 1, d: 0.5, k: 62 },
-    ]);
-  });
+const SEQ = [
+  "// a bar of melody",
+  'use_rack("drums")',
+  "notes([",
+  "  t(0).d(1).k(60).v(0.8),",
+  "  t(1).d(0.5).k(62),",
+  "])",
+  "",
+].join("\n");
 
-  it("reads a flow list too — one line is legal and a person may write it", () => {
-    expect(parseNotes("[{ t: 0, d: 1, k: 60 }]")).toEqual([
-      { t: 0, d: 1, k: 60 },
-    ]);
-  });
-
-  it("ignores a note missing a required field (t/d/k)", () => {
-    expect(parseNotes("- { t: 0, d: 1 }")).toEqual([]); // no k
-  });
-
-  it("returns nothing rather than guessing when the span doesn't parse", () => {
-    expect(parseNotes("- { t: 0, d:")).toEqual([]);
-  });
-});
-
-describe("renderNotes", () => {
-  it("renders [] for no notes and omits an undefined velocity", () => {
-    expect(renderNotes([])).toBe("[]");
-    expect(renderNotes([{ t: 0, d: 1, k: 60 }])).not.toContain("v:");
-  });
-
-  it("rounds the key to an integer", () => {
-    expect(renderNotes([{ t: 0, d: 1, k: 60.4 }])).toContain("k: 60");
-  });
-
-  it("indents every line but the first — the first replaces text that was already indented", () => {
-    const out = renderNotes(
-      [
-        { t: 0, d: 1, k: 60 },
-        { t: 1, d: 1, k: 62 },
+describe("readSequence", () => {
+  it("reads the notes and the rack the sequence names", () => {
+    expect(readSequence(SEQ)).toEqual({
+      notes: [
+        { t: 0, d: 1, k: 60, v: 0.8 },
+        { t: 1, d: 0.5, k: 62 },
       ],
-      "    ",
-    );
-    const [first, second] = out.split("\n");
-    expect(first.startsWith("- ")).toBe(true);
-    expect(second.startsWith("    - ")).toBe(true);
+      useRack: "drums",
+    });
   });
-});
 
-describe("parseNotes ∘ renderNotes round-trip", () => {
-  it("is identity for representative notes", () => {
-    const notes: Note[] = [
-      { t: 0, d: 1, k: 60, v: 0.8 },
-      { t: 1.5, d: 0.25, k: 67 },
-      { t: 2, d: 2, k: 48, v: 0.333333 },
-    ];
-    expect(parseNotes(renderNotes(notes))).toEqual(notes);
-  });
-});
-
-describe("findNotesArray", () => {
-  it("spans the list's items, and the replacement round-trips", () => {
-    const doc =
-      "notes:\n  - { t: 0, d: 1, k: 60 }\n  - { t: 1, d: 1, k: 62 }\n";
-    const span = findNotesArray(doc)!;
-    expect(parseNotes(doc.slice(span.from, span.to))).toEqual([
+  it("reads the short form, expanded", () => {
+    expect(readSequence('notes("c4 d4")\n')?.notes).toEqual([
       { t: 0, d: 1, k: 60 },
       { t: 1, d: 1, k: 62 },
     ]);
-    // Splicing the same notes back in leaves the document as it was, so a no-op interaction produces no diff.
-    const same =
-      doc.slice(0, span.from) +
-      renderNotes(parseNotes(doc.slice(span.from, span.to)), span.indent) +
-      doc.slice(span.to);
-    expect(same).toBe(doc);
   });
 
-  it("reports the file's own indentation, not an assumed one", () => {
-    const doc = "notes:\n    - { t: 0, d: 1, k: 60 }\n";
-    expect(findNotesArray(doc)!.indent).toBe("    ");
+  it("skips a note missing a required field (t/d/k)", () => {
+    expect(readSequence("notes([t(0).d(1)])\n")?.notes).toEqual([]);
   });
 
-  it("does not reach past the list into what follows it", () => {
-    const doc = "notes:\n  - { t: 0, d: 1, k: 60 }\nuse_rack: drums\n";
-    const span = findNotesArray(doc)!;
-    expect(doc.slice(span.from, span.to)).not.toContain("use_rack");
+  it("is null when there is no notes list, or the text does not read", () => {
+    expect(readSequence('source("x.wav")\n')).toBeNull();
+    expect(readSequence("notes([t(0).d(\n")).toBeNull();
+  });
+});
+
+describe("writeNotes", () => {
+  it("leaves the text as it was when the notes did not change", () => {
+    const same = readSequence(SEQ)?.notes ?? [];
+    expect(writeNotes(SEQ, same)).toBe(SEQ);
   });
 
-  it("is null when there is no notes list", () => {
-    expect(findNotesArray("source: x.wav\n")).toBeNull();
+  it("changes one line for one note, and keeps the comments and the rack", () => {
+    const next = writeNotes(SEQ, [
+      { t: 0, d: 1, k: 60, v: 0.8 },
+      { t: 1, d: 0.5, k: 64 },
+    ]) as string;
+    const before = SEQ.split("\n");
+    const after = next.split("\n");
+    expect(after).toHaveLength(before.length);
+    expect(after.filter((l, i) => l !== before[i])).toHaveLength(1);
+    expect(next).toContain("// a bar of melody");
+    expect(parse(next).use_rack).toBe("drums");
   });
 
-  it("is null while the file doesn't parse, rather than guessing at a span", () => {
-    // Mid-keystroke: a guessed span would have the next transaction write into the wrong range.
-    expect(findNotesArray("notes:\n  - { t: 0, d:")).toBeNull();
+  it("rounds the key to an integer and the times to the beat grid's precision", () => {
+    const next = writeNotes(SEQ, [{ t: 0.1234567, d: 1, k: 60.4 }]) as string;
+    expect(parse(next).notes).toEqual([{ t: 0.123457, d: 1, k: 60 }]);
+  });
+
+  it("carries a pad's effects to the note it still is", () => {
+    const text = "notes([t(0).d(1).k(36).repeat(2), t(1).d(1).k(38)])\n";
+    const next = writeNotes(text, [
+      { t: 0, d: 1, k: 36 },
+      { t: 2, d: 1, k: 38 },
+    ]) as string;
+    expect(parse(next).notes).toEqual([
+      { t: 0, d: 1, k: 36, repeat: 2 },
+      { t: 2, d: 1, k: 38 },
+    ]);
+  });
+
+  it("writes the short form out in full once it no longer says the notes", () => {
+    const next = writeNotes('notes("c4 d4")\n', [{ t: 0, d: 1, k: 60 }]);
+    expect(parse(next as string).notes).toEqual([{ t: 0, d: 1, k: 60 }]);
+  });
+
+  it("is null while the text does not read", () => {
+    expect(writeNotes("notes([t(0).d(\n", [])).toBeNull();
   });
 });

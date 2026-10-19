@@ -38,8 +38,8 @@ beforeEach(() => {
   const folder = join(root, "_modules", "instruments", "synth");
   mkdirSync(folder, { recursive: true });
   writeFileSync(
-    join(folder, "module.yaml"),
-    "plugin:\n  type: jsdsp\n  name: Synth\n",
+    join(folder, "module.k7x"),
+    'plugin({ type: "jsdsp", name: "Synth" })\n',
     "utf8",
   );
   writeFileSync(join(folder, "jsdsp.ts"), "// dsp\n", "utf8");

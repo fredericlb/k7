@@ -1,6 +1,6 @@
 // emitGraph.ts — the ROUTING an import writes: one chain per source track, its plugins as steps, a
-// strip last on every lane, a stand-in instrument where none crossed over, and graph.yaml.
-// graph.yaml holds SEGMENTS, so a send's LEVEL is lost on the way — docs/import.md.
+// strip last on every lane, a stand-in instrument where none crossed over, and graph.k7x.
+// graph.k7x holds SEGMENTS, so a send's LEVEL is lost on the way — docs/import.md.
 
 import { join } from "node:path";
 import { SHARED_STRIP } from "@studio/song/scaffoldLive";
@@ -10,8 +10,7 @@ import {
   type ChainDef,
   type EmitCtx,
   type OutDef,
-  writeFile,
-  yamlText,
+  writeDoc,
 } from "./emitNaming.js";
 import type { PluginOut } from "./model.js";
 
@@ -83,13 +82,15 @@ function addTrackMixer(ctx: EmitCtx, entry: string): string {
     name = `mix-${entry}-${n}`;
   usedChainNames.add(name.toLowerCase());
   usedNodeNames.add(name.toLowerCase());
-  writeFile(
-    join(ctx.outDir, `nodes/${name}.yaml`),
-    `# ${entry}'s strip: volume, pan and three bands, and the one place its level lives.\n` +
-      `#\n` +
-      `# Written by the import, because a lane without one plays at unity with nowhere to put a\n` +
-      `# level — see packages/song/docs/trackMixer.md.\n` +
-      `extends: ${JSON.stringify(SHARED_STRIP)}\n`,
+  writeDoc(
+    join(ctx.outDir, `nodes/${name}.k7x`),
+    { extends: SHARED_STRIP },
+    {
+      note:
+        `${entry}'s strip: volume, pan and three bands, and the one place its level lives.\n\n` +
+        "Written by the import, because a lane without one plays at unity with nowhere to put a\n" +
+        "level — see packages/song/docs/trackMixer.md.",
+    },
   );
   // Not counted in `nodeFiles`: that stat is one node per plugin USE, and a strip is neither.
   return name;
@@ -107,11 +108,14 @@ function addStandIn(ctx: EmitCtx, entry: string, drums: boolean): string {
   )
     name = `${entry}-instrument-${n}`;
   usedNodeNames.add(name.toLowerCase());
-  writeFile(
-    join(ctx.outDir, `nodes/${name}.yaml`),
-    `# ${entry}'s instrument, a STAND-IN: the source project's could not be carried over, so the\n` +
-      `# import put a library one here — replace it with the instrument this part was written for.\n` +
-      `extends: ${JSON.stringify(drums ? STAND_IN_KIT : STAND_IN_SYNTH)}\n`,
+  writeDoc(
+    join(ctx.outDir, `nodes/${name}.k7x`),
+    { extends: drums ? STAND_IN_KIT : STAND_IN_SYNTH },
+    {
+      note:
+        `${entry}'s instrument, a STAND-IN: the source project's could not be carried over, so the\n` +
+        "import put a library one here — replace it with the instrument this part was written for.",
+    },
   );
   ctx.standIns++;
   return name;
@@ -161,7 +165,7 @@ export function dropDeadBuses(ctx: EmitCtx): void {
   }
 }
 
-/** graph.yaml, read AFTER the collapse, which may have renamed the master run's first step onto its module. */
+/** graph.k7x, read AFTER the collapse, which may have renamed the master run's first step onto its module. */
 export function writeGraph(ctx: EmitCtx, masterChain?: string): void {
   const { chains, song, slugOf, busChains } = ctx;
   const {
@@ -191,17 +195,15 @@ export function writeGraph(ctx: EmitCtx, masterChain?: string): void {
     .map((t) => slugOf.get(t.id) as string);
   const allBypassed = [...bypassed, ...muted];
   if (allBypassed.length) seg.bypassed = allBypassed;
-  writeFile(
-    join(ctx.outDir, "graph.yaml"),
-    yamlText(
-      seg,
-      [],
-      weighted
-        ? `NOTE: ${weighted} weighted send(s) arrived at full level — a destination says\n` +
-            `WHERE the signal goes, not how much of it. Trim them on the bus's own module.`
-        : undefined,
-      // One node per line, its destinations a flow sequence — the canonical form.
-      [...Object.keys(chainNodes).map((k) => ["modules", k]), ["bypassed"]],
-    ),
-  );
+  writeDoc(join(ctx.outDir, "graph.k7x"), seg, {
+    note: weighted
+      ? `NOTE: ${weighted} weighted send(s) arrived at full level — a destination says\n` +
+        `WHERE the signal goes, not how much of it. Trim them on the bus's own module.`
+      : undefined,
+    // One node per line, its destinations on that line — the canonical form.
+    oneLine: [
+      ...Object.keys(chainNodes).map((k) => ["modules", k]),
+      ["bypassed"],
+    ],
+  });
 }

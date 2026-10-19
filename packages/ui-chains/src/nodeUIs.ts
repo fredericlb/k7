@@ -1,6 +1,6 @@
 // nodeUIs.ts — the panels the graph draws for its BUILT-IN cards: a lane's strip, the sums and the
 // main out, a rack's pads, a live input, a camera, a MIDI input. They are generated here, not read
-// from a module's ui.yaml, because no module file stands behind them. See docs/bindings.md.
+// from a module's ui.k7x, because no module file stands behind them. See docs/bindings.md.
 
 import type {
   WebChainStep,
@@ -337,7 +337,7 @@ const SHADER_BIND = "@shader";
 /** The intrinsic a camera's dropdown writes — `node param <node> @camera <label>`. */
 export const CAMERA_BIND = "@camera";
 
-/** The UI a CAMERA node carries, synthesised since `@meta/CAM` has no ui.yaml: one dropdown of the browser's lenses. */
+/** The UI a CAMERA node carries, synthesised since `@meta/CAM` has no ui.k7x: one dropdown of the browser's lenses. */
 export function cameraUI(
   cameras: readonly string[],
   current: string | undefined,

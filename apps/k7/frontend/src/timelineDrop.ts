@@ -4,6 +4,7 @@
 // reach — and because the naming rule is the one part a wrong answer puts on disk. See
 // docs/timeline.md.
 
+import { stringify } from "@studio/k7x/print";
 import { isAudio } from "@studio/mediatek/media";
 import {
   CAPTION_SOURCE,
@@ -23,7 +24,7 @@ export interface DropLane {
 
 /** One recognised file: what it is uploaded as, what it is declared as, and which kind it is. */
 export interface DroppedClip {
-  /** The clip id — the file's stem, since `clips/<id>.yaml` is named by its id and nothing else. */
+  /** The clip id — the file's stem, since `clips/<id>.k7x` is named by its id and nothing else. */
   id: string;
   /** The name the bytes land under in `clips/`, extension kept. */
   upload: string;
@@ -60,7 +61,7 @@ export interface DropPlan {
   refused: string[];
 }
 
-// Accents folded, everything else one dash: a name a YAML key, a URL and three filesystems agree on.
+// Accents folded, everything else one dash: a name a k7x key, a URL and three filesystems agree on.
 const safeStem = (s: string): string =>
   s
     .normalize("NFD")
@@ -94,8 +95,9 @@ export function droppedClip(name: string): DroppedClip | null {
   return { id, upload: `${id}${ext}`, kind };
 }
 
-/** The declaration a dropped file gets: `source:` and nothing else, the window being the whole file (apps/k7/docs/22-syntax-material.md). */
-export const clipDecl = (upload: string): string => `source: clips/${upload}\n`;
+/** The declaration a dropped file gets: `source` and nothing else, the window being the whole file (apps/k7/docs/22-syntax-material.md). */
+export const clipDecl = (upload: string): string =>
+  stringify({ source: `clips/${upload}` });
 
 /**
  * Resolve a drop: `at` names the lane under the pointer, and its kind decides which files can be

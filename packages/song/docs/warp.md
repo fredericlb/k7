@@ -1,14 +1,16 @@
 # A clip's stretch map
 
-```yaml
-# clips/break.yaml
-source: clips/break.wav
-warp:
-  algorithm: elastique
-  markers:
-    - [0, 0]        # [timeline beat, source second]
-    - [4, 1.9382]
-    - [8, 3.8764]
+```k7x
+// clips/break.k7x
+source("clips/break.wav")
+warp({
+  algorithm: "elastique",
+  markers: [
+    [0, 0], // [timeline beat, source second]
+    [4, 1.9382],
+    [8, 3.8764],
+  ],
+})
 ```
 
 Each pair pins a **moment of the source** to a **beat of the timeline**. Both axes rise: the
@@ -74,12 +76,13 @@ way before was to copy the file.
 
 ## …and so can the MATERIAL
 
-```yaml
-# clips/break.yaml
-warp:
-  algorithm: elastique
-  disable: true      # keep the map, stop stretching
-  markers: [...]
+```k7x
+// clips/break.k7x
+warp({
+  algorithm: "elastique",
+  disable: true, // keep the map, stop stretching
+  markers: ["..."],
+})
 ```
 
 `disable: true` is the same refusal one level up: no placement of this clip stretches, and the map

@@ -1,7 +1,7 @@
 # The module file
 
 The rationale behind `packages/song-schema/src/yaml/moduleSchema.ts` and
-`packages/song-schema/src/yaml/moduleFile.ts` — a `module.yaml`'s shape, the panel and the
+`packages/song-schema/src/yaml/moduleFile.ts` — a `module.k7x`'s shape, the panel and the
 controller beside it, and the reader/writer pair over the lot.
 
 ## What the schema does not check
@@ -80,17 +80,17 @@ and `Enable`, `Active` and `Off` all exist. A click flips the param either way.
 `WidgetSchema` is a refinement rather than a union, because a union would reject the half-second
 where the editor changed `type` but not yet the fields.
 
-## The three files beside `module.yaml`
+## The three files beside `module.k7x`
 
-`ui.yaml` is the panel, at the top level of a file of its own, so the plugin scan can rewrite the
+`ui.k7x` is the panel, at the top level of a file of its own, so the plugin scan can rewrite the
 module without touching hand-drawn work. It says nothing about WHICH module it draws: the folder it
 sits in does (`uiLibrary.ts`).
 
 A module's named settings are NOT in its folder: a preset is a file of its own, under a presets
 tree keyed by the module's ref (`../src/presets.ts`, `packages/song/docs/userPresets.md`). A
-`presets.yaml` left in a module folder is a reserved name that nothing reads.
+`presets.k7x` left in a module folder is a reserved name that nothing reads.
 
-`controller.yaml` says which MIDI control moves which of the module's params. The key is the param —
+`controller.k7x` says which MIDI control moves which of the module's params. The key is the param —
 one control per param, because two controls fighting over one value is a bug rather than a feature
 (`packages/song/docs/controller.md`). Its channel is 1..16 as a musician counts them, not 0..15 as
 the wire does: this file is read by people.
@@ -208,7 +208,7 @@ a question about the whole project. `graph.ts`'s `validate()` reports an `events
 exactly as it reports a `channel:` on something that is not an input — same rule, same place
 (`packages/song/docs/trackModules.md`).
 
-`events:` and not `clips:`, because a CLIP is the material — `clips/<id>.yaml`, a source and a
+`events:` and not `clips:`, because a CLIP is the material — `clips/<id>.k7x`, a source and a
 window into it — and one clip is placed on a lane any number of times. Calling both of them clips
 gives a `clips:` list whose entries are not clips, next to a `clips/` folder whose files are. Every
 surface says "event" in its prose (`event resize`, `event remove`, the timeline's own menus), and
@@ -233,37 +233,25 @@ carry its own: two sets of settings are two sounds, and a render of one is not a
 The point of `moduleFile.ts` is not parsing, it is WRITING without reflowing the document or
 dropping comments — k7 edits these constantly and they are in git.
 
-YAML 1.2 is forced on the way in: a file may declare 1.1, whose sexagesimals and true-like scalars
-are this app's vocabulary. An empty file is an empty module rather than an error, a scaffolded one
-starting blank. `type: plugin` is the default applied on the way OUT, never into the file.
+Every writer takes a `K7Scope` and changes values in it, so the rest of the document is kept byte for
+byte. An empty file is an empty module rather than an error, a scaffolded one starting blank.
+`type: plugin` is the default applied on the way OUT, never into the file.
 
-`locate` walks to the deepest node that exists, so an error points at the map that lacks the key
-rather than at nothing. An unknown key is reported by zod against its CONTAINING object, so the path
-is rebuilt from `keys` to give the key a line number.
+A finding is placed on the k7x text by its key path (`k7xPosition.ts`), walking to the deepest node
+that exists, so an error points at the map that lacks the key rather than at nothing. An unknown key
+is reported by zod against its CONTAINING object, so the path is rebuilt from `keys` to give the key
+a line number.
 
-### The two quoting traps
-
-A value that LOOKS like a YAML 1.1 keyword (`on`, `no`, `y`…) is written quoted, exactly as the
-scaffold writes it. We parse 1.2, where they are plain strings — but the file is read by people and
-by other tools, and `monitor: on` meaning `true` somewhere else is the kind of thing nobody finds
-twice.
-
-`quoteTimecodes` runs after every write rather than at each call site, so nothing can forget. It
-guards MODULE files and not just lanes, because a lane IS a module: `nodes/melody.yaml` carries
-`events:` with a `start: "25:1"` in it, and unquoted that is a valid YAML 1.1 sexagesimal — bar 25
-reads back as beat 1501, silently, in a file nothing else would complain about. A key set through the
-document API arrives as a bare string rather than a `Scalar`, and a bare string has nowhere to carry
-the quoting style — so it is promoted to a `Scalar` that does, and a sequence of them is marked item
-by item. Looking only at `.value` would skip such a pair and let a freshly written `to: 3:1` out
-unquoted, which is the one thing this function exists to prevent.
+A k7x string is always quoted, so `monitor("on")` and `start("25:1")` are strings with no rule of
+their own: nothing here has a quoting trap to guard.
 
 ### `setModuleList`
 
 Its own function rather than a branch in `setModuleValue`, because the difference is only how it
 LOOKS and that one takes `unknown`: teaching it to reflow every array would restyle lists written by
-callers that never asked. A two-element block sequence costs three lines to say one thing, and these
-are files people edit as text first. `flow` is set on the NODE and not at stringify time, since only
-this sequence should be inline.
+callers that never asked. A list broken one item per line costs several lines to say one thing, and
+these are files people edit as text first. `inline` is asked of this one write, since only this list
+should stay on one line.
 
 ### `setModuleAutomation`
 
@@ -271,9 +259,7 @@ Keyed by PARAM: one parameter is driven by one curve, so binding a second replac
 than stacking two lanes onto one knob. That is the model's rule, not this writer's — the compiler
 bakes one automation lane per (plugin, param) and a second would silently win.
 
-When a binding is taken off, "was this the last one" is counted BEFORE the delete: `items` is the
-document's own array rather than a copy, so removing the entry shortens it under us and the test
-would always read false. The empty list goes with the last entry, because `automations: []` says
+The empty list goes with the last entry, because `automations: []` says
 something was authored and then emptied, which is not what taking a binding off means. A `trigger` is
 written only when it is not the default: the compiler reads an absent one as the module being
 automated, so writing that would be noise that goes stale the day the binding moves.
@@ -290,10 +276,9 @@ unless that set already holds a list of its own, which would hide it (`packages/
 track's alone: a lane is a module, so `moduleSchema` is what carries `events:` and this is what it
 imports.
 
-The `TIMECODE` shape is colon-separated numbers, then optionally `.ticks`. The dot makes the quoting
-rule stricter rather than looser: `25:1` unquoted is a YAML 1.1 sexagesimal, and `1.5` unquoted is a
-plain FLOAT in any YAML, so a tick form collides with a number more readily than a bare colon chain.
-The colon chain may still run deep here: every file written before ticks existed spells its sub-beats
+The `TIMECODE` shape is colon-separated numbers, then optionally `.ticks`, always a string: `1.5`
+unquoted is a number, so a tick form is only a timecode when it is quoted. The colon chain may still
+run deep here: every file written before ticks existed spells its sub-beats
 that way, and a schema that refused them would fail songs that load perfectly.
 
 A placement's `from`/`to` take the same two spellings a clip's window does — and on a sequence, the

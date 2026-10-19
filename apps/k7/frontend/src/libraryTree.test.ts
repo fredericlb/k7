@@ -28,7 +28,7 @@ const file = (name: string, path: string): FileNode => ({
 const audio = (at: string, name: string): FileNode =>
   dir("audio", `${at}/audio`, [
     dir(name, `${at}/audio/${name}`, [
-      file("module.yaml", `${at}/audio/${name}/module.yaml`),
+      file("module.k7x", `${at}/audio/${name}/module.k7x`),
     ]),
   ]);
 
@@ -187,12 +187,12 @@ describe("rootOf — what a create resolves against", () => {
 describe("libraryModuleRef", () => {
   it("names an account-library module the way a chain does", () => {
     expect(
-      libraryModuleRef("_libraries/k7-core/modules/audio/reverb/module.yaml"),
+      libraryModuleRef("_libraries/k7-core/modules/audio/reverb/module.k7x"),
     ).toBe("@k7-core/audio/reverb");
   });
 
   it("names a workspace module too — it has no `modules/` inside it", () => {
-    expect(libraryModuleRef("_modules/audio/tape-delay/module.yaml")).toBe(
+    expect(libraryModuleRef("_modules/audio/tape-delay/module.k7x")).toBe(
       "@workspace/audio/tape-delay",
     );
   });
@@ -200,7 +200,7 @@ describe("libraryModuleRef", () => {
   it("keeps the category segment", () => {
     expect(
       libraryModuleRef(
-        "_libraries/k7-core/modules/audio/delay/tape-delay/ui.yaml",
+        "_libraries/k7-core/modules/audio/delay/tape-delay/ui.k7x",
       ),
     ).toBe("@k7-core/audio/delay/tape-delay");
   });
@@ -208,42 +208,42 @@ describe("libraryModuleRef", () => {
   it("drops the last segment whatever it is spelt like", () => {
     expect(
       libraryModuleRef(
-        "_libraries/k7-core/modules/audio/tape.delay/module.yaml",
+        "_libraries/k7-core/modules/audio/tape.delay/module.k7x",
       ),
     ).toBe("@k7-core/audio/tape.delay");
   });
 
   it("answers nothing for a path in neither shared level", () => {
     // A project's own files are never a module ref — a module lives at `@workspace` or in a library now.
-    expect(libraryModuleRef("song.k7/nodes/lead.yaml")).toBeNull();
+    expect(libraryModuleRef("song.k7/nodes/lead.k7x")).toBeNull();
   });
 
   it("names a module of ANOTHER library by that library", () => {
     expect(
-      libraryModuleRef("_libraries/drums/modules/audio/kick/module.yaml"),
+      libraryModuleRef("_libraries/drums/modules/audio/kick/module.k7x"),
     ).toBe("@drums/audio/kick");
   });
 
   it("answers nothing for the library's chains", () => {
     expect(
-      libraryModuleRef("_libraries/k7-core/chains/live/vocals/graph.yaml"),
+      libraryModuleRef("_libraries/k7-core/chains/live/vocals/graph.k7x"),
     ).toBeNull();
   });
 });
 
 describe("libraryOfPath — which library a Save publishes", () => {
   it("reads the library off a `_libraries/<name>/…` path", () => {
-    expect(
-      libraryOfPath("_libraries/k7-core/modules/audio/x/module.yaml"),
-    ).toBe("k7-core");
-    expect(libraryOfPath("_libraries/drums/chains/kit/graph.yaml")).toBe(
+    expect(libraryOfPath("_libraries/k7-core/modules/audio/x/module.k7x")).toBe(
+      "k7-core",
+    );
+    expect(libraryOfPath("_libraries/drums/chains/kit/graph.k7x")).toBe(
       "drums",
     );
   });
 
   it("answers nothing outside the libraries, or for a name no library could have", () => {
-    expect(libraryOfPath("_modules/audio/x/module.yaml")).toBeNull();
-    expect(libraryOfPath("_libraries/engine/modules/x.yaml")).toBeNull();
+    expect(libraryOfPath("_modules/audio/x/module.k7x")).toBeNull();
+    expect(libraryOfPath("_libraries/engine/modules/x.k7x")).toBeNull();
     expect(libraryOfPath("_libraries")).toBeNull();
   });
 });
@@ -252,14 +252,14 @@ describe("isLibraryPath", () => {
   it("is true only for the ACCOUNT's library", () => {
     // `_modules` is shared too, but a save aimed at it forks into the workspace: it has a way back already and needs no gate.
     expect(
-      isLibraryPath("_libraries/k7-core/modules/audio/reverb/module.yaml"),
+      isLibraryPath("_libraries/k7-core/modules/audio/reverb/module.k7x"),
     ).toBe(true);
-    expect(isLibraryPath("_modules/audio/reverb/module.yaml")).toBe(false);
-    expect(isLibraryPath("song.k7/nodes/lead.yaml")).toBe(false);
+    expect(isLibraryPath("_modules/audio/reverb/module.k7x")).toBe(false);
+    expect(isLibraryPath("song.k7/nodes/lead.k7x")).toBe(false);
   });
 
   it("matches a whole segment, never a prefix", () => {
-    expect(isLibraryPath("_librariesX/modules/a/module.yaml")).toBe(false);
+    expect(isLibraryPath("_librariesX/modules/a/module.k7x")).toBe(false);
   });
 });
 
@@ -272,7 +272,7 @@ describe("the library repository row", () => {
     {
       ref: "@k7-core/process/normalize",
       path: "_libraries/k7-core/chains/process/normalize",
-      nodes: ["normalize.yaml"],
+      nodes: ["normalize.k7x"],
     },
     {
       ref: "@k7-core/live/vocals",
@@ -284,7 +284,7 @@ describe("the library repository row", () => {
     {
       ref: "@k7-core/band/four-piece",
       path: "_libraries/k7-core/assemblies/band/four-piece",
-      file: "_libraries/k7-core/assemblies/band/four-piece/assembly.yaml",
+      file: "_libraries/k7-core/assemblies/band/four-piece/assembly.k7x",
     },
   ];
   const repo = () => libraryTree(LEVELS, CHAINS, ASSEMBLIES)[0];
@@ -330,8 +330,8 @@ describe("the library repository row", () => {
     // The path is what tells a node's row from its chain's when one is clicked, so it is the real one and not a label.
     expect(first?.children?.map((n) => [n.name, n.path, n.dir])).toEqual([
       [
-        "normalize.yaml",
-        "_libraries/k7-core/chains/process/normalize/nodes/normalize.yaml",
+        "normalize.k7x",
+        "_libraries/k7-core/chains/process/normalize/nodes/normalize.k7x",
         false,
       ],
     ]);
@@ -344,14 +344,14 @@ describe("the library repository row", () => {
     const rows = libraryTree(LEVELS, [
       {
         ref: "@k7-core/stems",
-        path: "_libraries/k7-core/chains/stems.yaml",
+        path: "_libraries/k7-core/chains/stems.k7x",
         nodes: [],
       },
     ])[0].children?.[1].children;
     expect(rows?.map((c) => [c.name, c.path, c.dir, c.children])).toEqual([
-      ["stems", "_libraries/k7-core/chains/stems.yaml", false, undefined],
+      ["stems", "_libraries/k7-core/chains/stems.k7x", false, undefined],
     ]);
-    expect(isChainFile("_libraries/k7-core/chains/stems.yaml")).toBe(true);
+    expect(isChainFile("_libraries/k7-core/chains/stems.k7x")).toBe(true);
     expect(isChainFile("_libraries/k7-core/chains/process/normalize")).toBe(
       false,
     );

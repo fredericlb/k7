@@ -9,13 +9,13 @@ sentence has to mean for it to be safe.
 
 ## Why validity, and not a timer
 
-A plain debounced autosave writes whatever is in the buffer, which for YAML means writing a
+A plain debounced autosave writes whatever is in the buffer, which for a k7x file means writing a
 half-typed line several times a minute. Every one of those writes is seen: the file service
 bumps `/revision`, k7 re-vets the project, the graph rebuilds, other tabs adopt the new text,
 and the engine is handed a document that does not compile. The editor would spend most of its
 life publishing broken states.
 
-So the buffer is judged before it is written. `@studio/song/yaml/validate` answers the
+So the buffer is judged before it is written. `@studio/song-schema/yaml/validate` answers the
 question — see [that package's page](../../song/docs/validate.md) — and the answer is the same
 one the loader gives, because it is the same parsers and the same Zod schemas.
 
@@ -39,7 +39,7 @@ overrule the check with. That file would be uneditable, forever.
 
 So the check that gates the write is not "is this valid" but **"does this make it worse"**:
 
-- text that does not **parse** is refused always, no matter what is on disk. YAML that cannot be
+- text that does not **parse** is refused always, no matter what is on disk. Text that cannot be
   read back is not a state anything can recover from.
 - text that fails its **schema** is refused only when the file on disk passes it. If disk is
   already refused, the write goes through — with the reason still said out loud.
@@ -119,7 +119,7 @@ through `recallBuffer`. Nothing is lost either way; what differs is who decided.
 `flush()` resolves to **whether the buffer is on disk afterwards** — false when it is held back
 or the write fails. That is not decoration: a screen saving several files at once needs the
 answer before doing anything that assumes they all landed. The module builder publishes on that
-answer, and publishing a module whose `module.yaml` is still yesterday's would put a half-edit in
+answer, and publishing a module whose `module.k7x` is still yesterday's would put a half-edit in
 front of everybody.
 
 **One caller: the module builder** (`@studio/ui-module-builder`). A module is four files
@@ -148,10 +148,10 @@ overrule the rule. Whoever asked does not change whether the document compiles.
 | pane | file(s) |
 |---|---|
 | k7 `EditorTab` | the open project file — plus its findings drawn in the gutter beside the server's |
-| k7 `ChainsBuilder`, `ModuleSidePane` | `chains.yaml`, and a module's own file from the side pane |
+| k7 `ChainsBuilder`, `ModuleSidePane` | a library chain's file, and a module's own file from the side pane |
 | `@studio/ui-library` `SongEditor` | the médiathèque's `song.yaml` |
 | k7 `PlaylistEditor` | a playlist in `_playlists/` — not a project file, so it hands the hook its own `validate` |
-| `@studio/ui-module-builder` | **four** at once: `module.yaml`, `ui.yaml`, `presets.yaml`, `jsdsp.ts` |
+| `@studio/ui-module-builder` | **four** at once: `module.k7x`, `ui.k7x`, a jsdsp or Faust source, `widgets.js` |
 
 The builder is the one worth reading twice. Four files, four autosaves, deliberately not one
 save that walks them in order: they are four documents with four schemas, and a half-typed

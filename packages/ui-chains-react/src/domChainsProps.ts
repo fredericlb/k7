@@ -78,7 +78,7 @@ export interface DomChainsProps {
     y: number,
     at?: { x: number; y: number },
   ) => void;
-  /** The patch cable landed: `from`/`to` are chains.yaml addresses, ready for the verb — docs/hosting.md. */
+  /** The patch cable landed: `from`/`to` are chains.k7x addresses, ready for the verb — docs/hosting.md. */
   onConnect?: (from: string, to: string) => void;
   /** A lifted cable was dropped on the bare canvas: delete its arrow — docs/hosting.md. */
   onDisconnect?: (from: string, to: string) => void;

@@ -1,4 +1,4 @@
-// useModuleFiles.ts — the builder's four files: `module.yaml`, the `ui.yaml` beside it, a jsdsp or
+// useModuleFiles.ts — the builder's four files: `module.k7x`, the `ui.k7x` beside it, a jsdsp or
 // Faust source, and `widgets.js`. Read from the store, edited as buffers, saved together by one
 // button and never by a timer, since on a shared module a save is a publish. Every "dirty" is
 // DERIVED from what is on disk, never a flag. See docs/builder.md.
@@ -37,14 +37,15 @@ const DSP_SOURCE: Record<string, string> = {
   [FAUST_TYPE]: FAUST_FILE,
 };
 
-/** The `plugin.type` off the RAW text: a regex, because mid-edit the document routinely does not parse. */
+/** The `plugin(…)` statement's `type` off the RAW text: a regex, because mid-edit the document routinely does not parse. */
 export function pluginTypeOf(text: string): string {
-  const block = /^plugin:\s*(?:\n(?:[ \t]+.*\n?)*)/m.exec(text)?.[0] ?? "";
-  return (
-    /^[ \t]+type:\s*["']?([\w-]+)["']?/m.exec(block)?.[1] ??
-    /^plugin:\s*\{[^}]*\btype:\s*["']?([\w-]+)["']?/m.exec(text)?.[1] ??
-    ""
+  const q = "[\"'`]";
+  const object = new RegExp(
+    `^plugin\\(\\s*\\{[^}]*?(?:\\btype|${q}type${q})\\s*:\\s*${q}([\\w-]+)${q}`,
+    "m",
   );
+  const chain = new RegExp(`^plugin\\(\\s*type\\(\\s*${q}([\\w-]+)${q}`, "m");
+  return object.exec(text)?.[1] ?? chain.exec(text)?.[1] ?? "";
 }
 
 type SetSidecar = (
@@ -80,7 +81,7 @@ export function useModuleFiles({
   const [savedDsp, setSavedDsp] = useState("");
   const [savedScript, setSavedScript] = useState("");
   const dirty = content != null && content !== savedModule;
-  // The `ui.yaml` beside the module file, which is what the grid edits; it may not exist yet — docs/builder.md.
+  // The `ui.k7x` beside the module file, which is what the grid edits; it may not exist yet — docs/builder.md.
   const [uiFile, setUiFile] = useState<ModuleUiFile | null>(null);
   const uiDirty = !!uiFile && uiFile.content !== savedUi;
   // …and the third, which only a jsdsp module has: its own DSP source, fetched only when it claims one.

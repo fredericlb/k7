@@ -94,7 +94,7 @@ point is that it writes.
 
 ## What a rendered definition STATES, and what it deliberately does not
 
-`clips/<ref>.yaml` gets a `source:` and **nothing else**. No `from`, no `to`.
+`clips/<ref>.k7x` gets a `source:` and **nothing else**. No `from`, no `to`.
 
 `from`/`to` are a WINDOW into a file, and a render **is** its file: there is no window. Carrying
 the numbers over from the thing it was cut out of would frame it with somebody else's, and writing

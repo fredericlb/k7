@@ -3,162 +3,135 @@
 exports[`emitFolder's whole output > stays byte-identical for a song that takes every branch 1`] = `
 {
   "files": {
-    "_modules/audio/pro_l_2/module.yaml": "plugin:
-  type: vst3
-  name: Pro-L 2
+    "_modules/audio/pro_l_2/module.k7x": "plugin({ type: "vst3", name: "Pro-L 2" })
 ",
-    "_modules/audio/pro_q_3/module.yaml": "# Pro-Q 3 — used 2 times in this song, so each use is a
-# NODE in nodes/ that extends this module. The plugin is declared once here;
-# each node carries only its own settings.
-plugin:
-  type: vst3
-  name: Pro-Q 3
+    "_modules/audio/pro_q_3/module.k7x": "// Pro-Q 3 — used 2 times in this song, so each use is a
+// NODE in nodes/ that extends this module. The plugin is declared once here;
+// each node carries only its own settings.
+plugin({ type: "vst3", name: "Pro-Q 3" })
 ",
-    "_modules/audio/valhallaroom/module.yaml": "plugin:
-  type: vst3
-  name: ValhallaRoom
+    "_modules/audio/valhallaroom/module.k7x": "plugin({ type: "vst3", name: "ValhallaRoom" })
 ",
-    "_modules/instruments/diva/module.yaml": "plugin:
-  type: vst3
-  name: Diva
-params:
-  Cutoff: 0.3
+    "_modules/instruments/diva/module.k7x": "plugin({ type: "vst3", name: "Diva" })
+params({ Cutoff: 0.3 })
 ",
-    "_modules/transformers/arp/module.yaml": "plugin:
-  type: vst3
-  name: Arp
+    "_modules/transformers/arp/module.k7x": "plugin({ type: "vst3", name: "Arp" })
 ",
     "song.k7/clips/bass.wav": "RIFFbass",
-    "song.k7/clips/bass_0.yaml": "source: clips/bass.wav
-to: "2:2"
+    "song.k7/clips/bass_0.k7x": "source("clips/bass.wav")
+to("2:2")
 ",
-    "song.k7/clips/bass_1.yaml": "source: clips/bass.wav
-from: "1:3"
-to: "2:4"
-warp:
-  algorithm: complex
-  markers:
-    - [ 0, 0 ]
-    - [ 4, 2.1 ]
+    "song.k7/clips/bass_1.k7x": "source("clips/bass.wav")
+from("1:3")
+to("2:4")
+warp({ algorithm: "complex", markers: [[0, 0], [4, 2.1]] })
 ",
-    "song.k7/clips/bass_2.yaml": "source: clips/bass_2.wav
-to: "1:5"
+    "song.k7/clips/bass_2.k7x": "source("clips/bass_2.wav")
+to("1:5")
 ",
     "song.k7/clips/vox.wav": "RIFFvox",
-    "song.k7/clips/vox_0.yaml": "source: clips/vox.wav
-to: "1:5"
+    "song.k7/clips/vox_0.k7x": "source("clips/vox.wav")
+to("1:5")
 ",
-    "song.k7/graph.yaml": "# NOTE: 1 weighted send(s) arrived at full level — a destination says
-# WHERE the signal goes, not how much of it. Trim them on the bus's own module.
-modules:
-  drums: [ drums-instrument ]
-  keys: [ diva ]
-  bass: [ pro_q_3_bass ]
-  vox: [ kontakt_7 ]
-  drums-instrument: [ mix-drums ]
-  mix-drums: [ MIX ]
-  diva: [ arp ]
-  arp: [ pro_q_3_keys ]
-  pro_q_3_keys: [ mix-keys ]
-  mix-keys: [ MIX, valhallaroom ]
-  pro_q_3_bass: [ mix-bass ]
-  mix-bass: [ MIX ]
-  kontakt_7: [ mix-vox ]
-  mix-vox: [ MIX, valhallaroom ]
-  valhallaroom: [ MIX ]
-  pro_l_2: [ OUT ]
-  MIX: [ pro_l_2 ]
-bypassed: [ arp, bass ]
+    "song.k7/graph.k7x": "// NOTE: 1 weighted send(s) arrived at full level — a destination says
+// WHERE the signal goes, not how much of it. Trim them on the bus's own module.
+modules({
+  drums: ["drums-instrument"],
+  keys: ["diva"],
+  bass: ["pro_q_3_bass"],
+  vox: ["kontakt_7"],
+  drums-instrument: ["mix-drums"],
+  mix-drums: ["MIX"],
+  diva: ["arp"],
+  arp: ["pro_q_3_keys"],
+  pro_q_3_keys: ["mix-keys"],
+  mix-keys: ["MIX", "valhallaroom"],
+  pro_q_3_bass: ["mix-bass"],
+  mix-bass: ["MIX"],
+  kontakt_7: ["mix-vox"],
+  mix-vox: ["MIX", "valhallaroom"],
+  valhallaroom: ["MIX"],
+  pro_l_2: ["OUT"],
+  MIX: ["pro_l_2"],
+})
+bypassed(["arp", "bass"])
 ",
-    "song.k7/nodes/bass.yaml": "extends: "@meta/track"
-events:
-  - { ref: bass_0, start: "1:1", fadeIn: "0:0:1" }
-  - { ref: bass_1, start: "2:2", fadeOut: "0:1" }
-  - { ref: bass_2, start: "3:3" }
+    "song.k7/nodes/bass.k7x": "extends("@meta/track")
+events([
+  ref("bass_0").start("1:1").fadeIn("0:0:1"),
+  ref("bass_1").start("2:2").fadeOut("0:1"),
+  ref("bass_2").start("3:3"),
+])
 ",
-    "song.k7/nodes/drums-instrument.yaml": "# drums's instrument, a STAND-IN: the source project's could not be carried over, so the
-# import put a library one here — replace it with the instrument this part was written for.
-extends: "@k7-core/instruments/k7-rack"
+    "song.k7/nodes/drums-instrument.k7x": "// drums's instrument, a STAND-IN: the source project's could not be carried over, so the
+// import put a library one here — replace it with the instrument this part was written for.
+extends("@k7-core/instruments/k7-rack")
 ",
-    "song.k7/nodes/drums.yaml": "color: "#ff0000"
-extends: "@meta/track"
-events:
-  - { ref: drums_0, start: "1:1" }
+    "song.k7/nodes/drums.k7x": "color("#ff0000")
+extends("@meta/track")
+events([ref("drums_0").start("1:1")])
 ",
-    "song.k7/nodes/keys.yaml": "extends: "@meta/track"
-events:
-  - { ref: keys_0, start: "3:3", loop: 2, disabled: true }
+    "song.k7/nodes/keys.k7x": "extends("@meta/track")
+events([ref("keys_0").start("3:3").loop(2).disabled(true)])
 ",
-    "song.k7/nodes/kontakt_7.yaml": "# MISSING PLUGIN: "Kontakt 7" (vst3) is not in the k7 plugin cache.
-# This node stands where it was: routing only, and bypassed. Install and scan it
-# ('k7 engine scan') and re-import, or point this node's \`extends\` at a real module.
-# The params below are the ones the export carried, kept so nothing is lost.
-extends: "@meta/not-supported"
-plugin:
-  type: not_supported
-  name: Kontakt 7
-params:
-  Mix: 0.5
+    "song.k7/nodes/kontakt_7.k7x": "// MISSING PLUGIN: "Kontakt 7" (vst3) is not in the k7 plugin cache.
+// This node stands where it was: routing only, and bypassed. Install and scan it
+// ('k7 engine scan') and re-import, or point this node's \`extends\` at a real module.
+// The params below are the ones the export carried, kept so nothing is lost.
+extends("@meta/not-supported")
+plugin({ type: "not_supported", name: "Kontakt 7" })
+params({ Mix: 0.5 })
 ",
-    "song.k7/nodes/mix-bass.yaml": "# bass's strip: volume, pan and three bands, and the one place its level lives.
-#
-# Written by the import, because a lane without one plays at unity with nowhere to put a
-# level — see packages/song/docs/trackMixer.md.
-extends: "@meta/audio/mixer"
+    "song.k7/nodes/mix-bass.k7x": "// bass's strip: volume, pan and three bands, and the one place its level lives.
+//
+// Written by the import, because a lane without one plays at unity with nowhere to put a
+// level — see packages/song/docs/trackMixer.md.
+extends("@meta/audio/mixer")
 ",
-    "song.k7/nodes/mix-drums.yaml": "# drums's strip: volume, pan and three bands, and the one place its level lives.
-#
-# Written by the import, because a lane without one plays at unity with nowhere to put a
-# level — see packages/song/docs/trackMixer.md.
-extends: "@meta/audio/mixer"
+    "song.k7/nodes/mix-drums.k7x": "// drums's strip: volume, pan and three bands, and the one place its level lives.
+//
+// Written by the import, because a lane without one plays at unity with nowhere to put a
+// level — see packages/song/docs/trackMixer.md.
+extends("@meta/audio/mixer")
 ",
-    "song.k7/nodes/mix-keys.yaml": "# keys's strip: volume, pan and three bands, and the one place its level lives.
-#
-# Written by the import, because a lane without one plays at unity with nowhere to put a
-# level — see packages/song/docs/trackMixer.md.
-extends: "@meta/audio/mixer"
+    "song.k7/nodes/mix-keys.k7x": "// keys's strip: volume, pan and three bands, and the one place its level lives.
+//
+// Written by the import, because a lane without one plays at unity with nowhere to put a
+// level — see packages/song/docs/trackMixer.md.
+extends("@meta/audio/mixer")
 ",
-    "song.k7/nodes/mix-vox.yaml": "# vox's strip: volume, pan and three bands, and the one place its level lives.
-#
-# Written by the import, because a lane without one plays at unity with nowhere to put a
-# level — see packages/song/docs/trackMixer.md.
-extends: "@meta/audio/mixer"
+    "song.k7/nodes/mix-vox.k7x": "// vox's strip: volume, pan and three bands, and the one place its level lives.
+//
+// Written by the import, because a lane without one plays at unity with nowhere to put a
+// level — see packages/song/docs/trackMixer.md.
+extends("@meta/audio/mixer")
+",
+    "song.k7/nodes/pro_q_3_bass.k7x": "// pro_q_3_bass — inherits pro_q_3 (the plugin); only what this use sets differs.
+extends("@workspace/audio/pro_q_3")
 ",
     "song.k7/nodes/pro_q_3_bass.vstpreset": "VST3preset",
-    "song.k7/nodes/pro_q_3_bass.yaml": "# pro_q_3_bass — inherits pro_q_3 (the plugin); only what this use sets differs.
-extends: "@workspace/audio/pro_q_3"
+    "song.k7/nodes/pro_q_3_keys.k7x": "// pro_q_3_keys — inherits pro_q_3 (the plugin); only what this use sets differs.
+extends("@workspace/audio/pro_q_3")
+params({ Gain: 0.5 })
 ",
-    "song.k7/nodes/pro_q_3_keys.yaml": "# pro_q_3_keys — inherits pro_q_3 (the plugin); only what this use sets differs.
-extends: "@workspace/audio/pro_q_3"
-params:
-  Gain: 0.5
+    "song.k7/nodes/vox.k7x": "extends("@meta/track")
+events([ref("vox_0").start("1:5")])
 ",
-    "song.k7/nodes/vox.yaml": "extends: "@meta/track"
-events:
-  - { ref: vox_0, start: "1:5" }
+    "song.k7/project.k7x": "project({ name: "golden", tempo: 98, sampleRate: 48000, timeSignature: "7/8" })
 ",
-    "song.k7/project.yaml": "project:
-  name: golden
-  tempo: 98
-  sampleRate: 48000
-  timeSignature: 7/8
+    "song.k7/sequences/drums_0.k7x": "to("2:2")
+notes([t(0).d(0.5).k(36), t(1).d(0.5).k(38).v(0.6)])
 ",
-    "song.k7/sequences/drums_0.yaml": "to: "2:2"
-notes:
-  - { t: 0, d: 0.5, k: 36 }
-  - { t: 1, d: 0.5, k: 38, v: 0.6 }
+    "song.k7/sequences/keys_0.k7x": "to("2:2")
+notes([t(0).d(1).k(60)])
 ",
-    "song.k7/sequences/keys_0.yaml": "to: "2:2"
-notes:
-  - { t: 0, d: 1, k: 60 }
-",
-    "song.k7/surfaces/timeline.yaml": "# The ARRANGEMENT — the timeline, and the transport that rolls through it.
-#
-# Written by the import: what a .dawproject or .als carries is lanes on a ruler, so the
-# project that comes out of one draws them. Delete this file and the song still compiles
-# and still plays; you simply have no lanes on screen.
-type: timeline
-layout: split
+    "song.k7/surfaces/timeline.k7x": "// The ARRANGEMENT — the timeline, and the transport that rolls through it.
+//
+// Written by the import: what a .dawproject or .als carries is lanes on a ruler, so the
+// project that comes out of one draws them. Delete this file and the song still compiles
+// and still plays; you simply have no lanes on screen.
+type("timeline")
+layout("split")
 ",
   },
   "stats": {

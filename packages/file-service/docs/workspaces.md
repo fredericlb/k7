@@ -109,7 +109,7 @@ screens this account could put on a second device. Built ON the listing above ra
 it, so "which projects are there" is asked once and answered the same way for both pages, and
 only the surface scan is new.
 
-That scan is a `readdir` of `surfaces/` plus a small YAML parse per file, and it is asked of every
+That scan is a `readdir` of `surfaces/` plus a small k7x parse per file, and it is asked of every
 project rather than of one — hence a window of its own, the same length and for the same reason.
 
 ## What a home-page row carries beyond its name

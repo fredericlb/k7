@@ -14,7 +14,7 @@ import type {
   TrackDoc,
 } from "./project";
 
-/** The click's level when `settings.yaml` names none — Tracktion's own default, here because `DEFAULT_SETTINGS` below needs it. */
+/** The click's level when `settings.k7x` names none — Tracktion's own default, here because `DEFAULT_SETTINGS` below needs it. */
 export const DEFAULT_METRONOME_LEVEL = 0.6;
 
 /** The quietest click there is — Tracktion's floor; stated once so the schema, the command and the slider all stop in the same place. */

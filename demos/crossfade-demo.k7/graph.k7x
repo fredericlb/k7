@@ -23,5 +23,5 @@ modules({
   MIX: ["OUT"],
 })
 
-// deckB's mute. See nodes/deckB.yaml for why it is not optional.
+// deckB's mute. See nodes/deckB.k7x for why it is not optional.
 bypassed(["deckB"])

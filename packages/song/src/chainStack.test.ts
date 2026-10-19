@@ -1,13 +1,7 @@
 // A subchain RUN in place (`{ sub }`, docs/chainFiles.md): a stretch of its parent's run, compiled
 // there, written back there after a graph edit, and what `stackChainNode` makes or grows.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseChain } from "@studio/song-schema/yaml/chainFile";
@@ -16,25 +10,27 @@ import {
   setModuleEnabled,
 } from "@studio/song-schema/yaml/graphFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { editChainGraph } from "./chainGraphEdit";
 import { readChainProject, readLayout, toSegments } from "./chainProject";
 import { stackChainNode } from "./chainStack";
 import { nodeStacks } from "./nodePlace";
+import { wsData } from "./yaml/workspaceDoc";
 
 const AMP = '"@k7-core/audio/amp"';
 const GTR = [
-  "start: true",
-  "steps:",
-  "  - { id: lane-gtr, track: gtr }",
-  "  - { sub: amp }",
-  `  - { id: strip-1, extends: ${AMP} }`,
-  "  - to: [ { chain: MIX } ]",
-  "subchains:",
-  "  - id: amp",
-  "    steps:",
-  `      - { id: amp-1, extends: ${AMP} }`,
-  `      - { id: eq-1, extends: ${AMP} }`,
+  "start(true)",
+  "steps([",
+  '  id("lane-gtr").track("gtr"),',
+  '  sub("amp"),',
+  `  id("strip-1").extends(${AMP}),`,
+  '  to([chain("MIX")]),',
+  "])",
+  "subchains([",
+  '  id("amp").steps([',
+  `    id("amp-1").extends(${AMP}),`,
+  `    id("eq-1").extends(${AMP}),`,
+  "  ]),",
+  "])",
   "",
 ].join("\n");
 
@@ -46,22 +42,24 @@ const issuesOf = (text: string) =>
 describe("a `{ sub }` step", () => {
   it("parses, and names a subchain of its file that has no `to:` and is linked by nothing", () => {
     expect(parseChain(GTR).issues).toEqual([]);
-    expect(issuesOf(GTR.replace("{ sub: amp }", "{ sub: nope }"))).toMatch(
+    expect(issuesOf(GTR.replace('sub("amp")', 'sub("nope")'))).toMatch(
       /no subchain "nope"/,
     );
-    expect(issuesOf(`${GTR}      - to: [ { chain: MIX } ]\n`)).toMatch(
-      /returns to its parent/,
+    const back = GTR.replace(
+      `    id("eq-1").extends(${AMP}),\n`,
+      `    id("eq-1").extends(${AMP}),\n    to([chain("MIX")]),\n`,
     );
+    expect(issuesOf(back)).toMatch(/returns to its parent/);
     const twice = GTR.replace(
-      `  - { id: strip-1, extends: ${AMP} }`,
-      "  - { sub: amp }",
+      `  id("strip-1").extends(${AMP}),`,
+      '  sub("amp"),',
     );
     expect(issuesOf(twice)).toMatch(/run twice/);
   });
 
   it("is never the first step", () => {
-    const first = GTR.replace("start: true\n", "").replace(
-      "  - { id: lane-gtr, track: gtr }\n",
+    const first = GTR.replace("start(true)\n", "").replace(
+      '  id("lane-gtr").track("gtr"),\n',
       "",
     );
     expect(issuesOf(first)).toMatch(/first step is one node/);
@@ -74,19 +72,17 @@ const put = (rel: string, text: string): void => {
   mkdirSync(join(dir, rel, ".."), { recursive: true });
   writeFileSync(join(dir, rel), text, "utf8");
 };
-const chain = (name: string) =>
-  parse(readFileSync(join(dir, "chains", `${name}.yaml`), "utf8"), {
-    version: "1.2",
-  });
+// biome-ignore lint/suspicious/noExplicitAny: the tests reach into the file's data by shape.
+const chain = (name: string): any => wsData(join(dir, "chains", `${name}.k7x`));
 const segments = () =>
   toSegments(readChainProject(dir), readLayout(dir)).graph.modules ?? {};
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "chain-stack-"));
   dir = join(root, "song");
-  put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
-  put("tracks/gtr.yaml", 'extends: "@meta/track"\nevents: []\n');
-  put("chains/gtr.yaml", GTR);
+  put("project.k7x", 'project({ name: "t", tempo: 120 })\n');
+  put("tracks/gtr.k7x", 'extends("@meta/track")\nevents([])\n');
+  put("chains/gtr.k7x", GTR);
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -135,14 +131,11 @@ describe("a project running a subchain in place", () => {
 describe("stackChainNode", () => {
   beforeEach(() => {
     put(
-      "chains/gtr.yaml",
-      `start: true\nsteps:\n  - { id: lane-gtr, track: gtr }\n  - { id: amp-1, extends: ${AMP} }\n  - { id: strip-1, extends: ${AMP} }\n  - to: [ { chain: MIX } ]\n`,
+      "chains/gtr.k7x",
+      `start(true)\nsteps([\n  id("lane-gtr").track("gtr"),\n  id("amp-1").extends(${AMP}),\n  id("strip-1").extends(${AMP}),\n  to([chain("MIX")]),\n])\n`,
     );
-    put(
-      "chains/eq.yaml",
-      `steps:\n  - { id: eq-1, extends: "@k7-core/audio/eq" }\n`,
-    );
-    put("layout.yaml", "positions:\n  eq-1: { x: 10, y: 20 }\n");
+    put("chains/eq.k7x", 'steps([id("eq-1").extends("@k7-core/audio/eq")])\n');
+    put("layout.k7x", 'positions({ "eq-1": { x: 10, y: 20 } })\n');
   });
 
   it("wraps the node above and the new one in a subchain run in that one's place", () => {
@@ -166,8 +159,8 @@ describe("stackChainNode", () => {
   it("puts a node stacked under a member into that subchain, right under it", () => {
     stackChainNode(dir, "amp-1", "eq-1");
     put(
-      "chains/gate.yaml",
-      `steps:\n  - { id: gate-1, extends: "@k7-core/audio/gate" }\n`,
+      "chains/gate.k7x",
+      'steps([id("gate-1").extends("@k7-core/audio/gate")])\n',
     );
     stackChainNode(dir, "amp-1", "gate-1");
     const gtr = chain("gtr");

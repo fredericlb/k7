@@ -5,21 +5,19 @@
 // MIX -> OUT run changes not one byte of the compiled document.
 // See docs/masterChain.md.
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
-import { writeLane, writeNode } from "./testSupport";
+import { writeDoc, writeLane, writeNode } from "./testSupport";
 
 let dir: string;
 
-function project(graph: string): void {
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n",
-    "utf8",
-  );
+type Modules = Record<string, string[]>;
+
+function project(modules: Modules): void {
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t", tempo: 120 } });
   writeNode(dir, "amp", {
     plugin: { type: "internal", name: "Chorus" },
   });
@@ -30,7 +28,7 @@ function project(graph: string): void {
     plugin: { type: "internal", name: "EqualiserPlugin" },
   });
   writeLane(dir, "gtr");
-  writeFileSync(join(dir, "graph.yaml"), graph, "utf8");
+  writeDoc(join(dir, "graph.k7x"), { modules });
 }
 
 const compile = () => compileNodeProject(dir);
@@ -40,8 +38,8 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-/** `graph.yaml` declares SEGMENTS — who feeds whom — and the chains are derived from them. */
-const PLAIN = "modules:\n  gtr: [ amp ]\n  amp: [ MIX ]\n";
+/** `graph.k7x` declares SEGMENTS — who feeds whom — and the chains are derived from them. */
+const PLAIN: Modules = { gtr: ["amp"], amp: ["MIX"] };
 
 describe("a song with no master chain", () => {
   it("still sends the field, empty — an absent one would read as unchanged", () => {
@@ -59,13 +57,12 @@ describe("a song with no master chain", () => {
 });
 
 describe("a chain from MIX to OUT", () => {
-  const withMaster =
-    "modules:\n" +
-    "  gtr: [ amp ]\n" +
-    "  amp: [ MIX ]\n" +
-    "  MIX: [ squeeze ]\n" +
-    "  squeeze: [ shelf ]\n" +
-    "  shelf: [ OUT ]\n";
+  const withMaster: Modules = {
+    ...PLAIN,
+    MIX: ["squeeze"],
+    squeeze: ["shelf"],
+    shelf: ["OUT"],
+  };
 
   it("compiles its steps onto the master, in chain order", () => {
     project(withMaster);
@@ -97,7 +94,7 @@ describe("a chain from MIX to OUT", () => {
 
 // The line declares the run without putting anything on it, giving the graph an OUT node to draw.
 describe("the empty MIX -> OUT run every project now carries", () => {
-  const BARE = "modules:\n  gtr: [ amp ]\n  amp: [ MIX ]\n  MIX: [ OUT ]\n";
+  const BARE: Modules = { ...PLAIN, MIX: ["OUT"] };
 
   it("compiles, and changes NOTHING about the document", () => {
     // A line that costs no sound: if this stops matching, the empty run changes every project.
@@ -113,9 +110,7 @@ describe("the empty MIX -> OUT run every project now carries", () => {
   });
 
   it("still becomes a master chain the moment a module joins it", () => {
-    project(
-      "modules:\n  gtr: [ amp ]\n  amp: [ MIX ]\n  MIX: [ squeeze ]\n  squeeze: [ OUT ]\n",
-    );
+    project({ ...PLAIN, MIX: ["squeeze"], squeeze: ["OUT"] });
     expect(compile().masterPlugins.map((p) => p.name)).toEqual(["squeeze"]);
   });
 });
@@ -123,7 +118,7 @@ describe("the empty MIX -> OUT run every project now carries", () => {
 describe("what MIX and OUT mean", () => {
   it("accepts a lane's chain ending at either, so an old song still compiles", () => {
     // `out: [OUT]` still routes to the sum, but with a master chain present it would BYPASS it.
-    project("modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n");
+    project({ gtr: ["amp"], amp: ["OUT"] });
     const doc = compile();
     expect(doc.tracks.find((t) => t.id === "gtr")?.plugins).toHaveLength(1);
     expect(doc.masterPlugins).toEqual([]);

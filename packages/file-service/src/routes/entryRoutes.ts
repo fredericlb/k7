@@ -205,7 +205,7 @@ entryRouter.post(
   }),
 );
 
-// Add a node beside a module.yaml, which it inherits; `path` is the folder or any file in it.
+// Add a node beside a module.k7x, which it inherits; `path` is the folder or any file in it.
 const nodeBody = z.object({
   path: z.string().min(1),
   // Optional: without one the service names the node `<module>_<n>` — see Workspace.createNode.

@@ -5,9 +5,10 @@
 
 import { join } from "node:path";
 import { clipDoc, emptyDoc, trackDoc } from "@studio/engine-protocol/build";
+import { stringify } from "@studio/k7x/print";
 import type { ProjectDoc } from "@studio/song/project";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
-import { wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsWriteText } from "@studio/song/yaml/workspaceDoc";
 import {
   addTrackPlacements,
   removeTrackPlacement,
@@ -25,7 +26,7 @@ const CUT_TRACK = "cut";
 
 export interface RenderedMaterial {
   ref: string;
-  /** Project-relative POSIX path of the DEFINITION — `clips/<ref>.yaml`. */
+  /** Project-relative POSIX path of the DEFINITION — `clips/<ref>.k7x`. */
   file: string;
   seconds: number;
 }
@@ -45,12 +46,15 @@ function freeClipName(dir: string, base: string): string {
   }
 }
 
-/** The DEFINITION a render files beside its wav: a `source:` and NOTHING else — docs/rendering.md. */
-export function renderedClipYaml(verb: string, ref: string): string {
-  return `# Rendered by \`event ${verb}\`.\nsource: clips/${ref}.wav\n`;
+/** The DEFINITION a render files beside its wav: a `source` and NOTHING else — docs/rendering.md. */
+export function renderedClipText(verb: string, ref: string): string {
+  return stringify(
+    { source: `clips/${ref}.wav` },
+    { header: [`Rendered by \`event ${verb}\`.`] },
+  );
 }
 
-/** Render `doc` as `clips/<ref>.wav` + `.yaml`; the reported `seconds` is the wav that came OUT. */
+/** Render `doc` as `clips/<ref>.wav` + `.k7x`; the reported `seconds` is the wav that came OUT. */
 async function fileRender(
   render: Renderer,
   dir: string,
@@ -60,8 +64,8 @@ async function fileRender(
 ): Promise<RenderedMaterial> {
   const wav = join(dir, "clips", `${ref}.wav`);
   await renderToWav(render, doc, wav);
-  const file = `clips/${ref}.yaml`;
-  wsWrite(join(dir, file), renderedClipYaml(doc.name, ref));
+  const file = `clips/${ref}.k7x`;
+  wsWriteText(join(dir, file), renderedClipText(doc.name, ref));
   return { ref, file, seconds: wavSeconds(wav) ?? seconds };
 }
 

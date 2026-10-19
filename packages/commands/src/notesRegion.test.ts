@@ -5,39 +5,33 @@
 // in when it starts inside — plus the two policies that differ from the singular verbs, clamping
 // on transpose and refusing an empty box by name.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 
 let dir: string;
 const logs: string[] = [];
 let reloaded = 0;
 
-const SEQ = `notes:
-  - { t: 0, d: 1, k: 60 }
-  - { t: 1.1, d: 0.5, k: 64, v: 0.4 }
-  - { t: 2, d: 1, k: 67, repeat: 2 }
-  - { t: 4, d: 1, k: 72 }
-`;
+const SEQ = {
+  notes: [
+    { t: 0, d: 1, k: 60 },
+    { t: 1.1, d: 0.5, k: 64, v: 0.4 },
+    { t: 2, d: 1, k: 67, repeat: 2 },
+    { t: 4, d: 1, k: 72 },
+  ],
+};
 
-function song(seq = SEQ): string {
+function song(seq: Record<string, unknown> = SEQ): string {
   const d = mkdtempSync(join(tmpdir(), "td-notesreg-"));
-  writeFileSync(
-    join(d, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n",
-    "utf8",
-  );
-  mkdirSync(join(d, "sequences"), { recursive: true });
-  writeFileSync(join(d, "sequences", "melody.yaml"), seq, "utf8");
+  writeDoc(join(d, "project.k7x"), {
+    project: { name: "t", tempo: 120, sampleRate: 48000 },
+  });
+  writeDoc(join(d, "sequences", "melody.k7x"), seq);
   return d;
 }
 
@@ -53,10 +47,9 @@ const host = () =>
     },
   }) as never;
 
-const notes = () =>
-  parse(readFileSync(join(dir, "sequences", "melody.yaml"), "utf8"), {
-    version: "1.2",
-  }).notes;
+// biome-ignore lint/suspicious/noExplicitAny: the notes are read back as plain data.
+const notes = (): any[] =>
+  wsData(join(dir, "sequences", "melody.k7x")).notes as never;
 const run = (line: string) => runCommand(line, host(), "cli");
 
 beforeEach(() => {
@@ -144,9 +137,8 @@ describe("sequence notes velocity", () => {
 
   it("CLEARS the field at 1, rather than writing the schema's own default back", async () => {
     await run("sequence notes velocity melody C4 C5 0 8 1");
-    expect(
-      readFileSync(join(dir, "sequences", "melody.yaml"), "utf8"),
-    ).not.toContain("v:");
+    expect(notes().some((n: { v?: number }) => "v" in n)).toBe(false);
+    expect(wsText(join(dir, "sequences", "melody.k7x"))).not.toMatch(/\bv\(/);
   });
 
   it("refuses a velocity off the scale", async () => {
@@ -159,7 +151,7 @@ describe("sequence notes velocity", () => {
 describe("the usual refusals", () => {
   it("says which sequence file is missing", async () => {
     await run("sequence notes remove nope C4 C5 0 8");
-    expect(logs.join("\n")).toMatch(/no sequence file: sequences\/nope\.yaml/);
+    expect(logs.join("\n")).toMatch(/no sequence file: sequences\/nope\.k7x/);
   });
 
   it("prints a usage line when an argument is owed", async () => {

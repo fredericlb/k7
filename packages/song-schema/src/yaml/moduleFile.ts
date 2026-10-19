@@ -1,22 +1,10 @@
-// moduleFile.ts — reading and EDITING a module file, as YAML. Paired with
-// moduleSchema.ts. The point isn't parsing, it's WRITING without reflowing the
-// document or dropping comments — k7 edits these constantly and they're in git.
+// moduleFile.ts — reading and EDITING a module file, as k7x. Paired with moduleSchema.ts.
+// The writers edit a K7Scope in place, so a knob drag is a one-line diff and every comment stays (docs/moduleFile.md).
 
-import {
-  type Document,
-  isMap,
-  LineCounter,
-  parseDocument,
-  Scalar,
-  visit,
-  type YAMLMap,
-} from "yaml";
+import type { K7Scope } from "@studio/k7x/document";
 import { currentAlternative } from "../alternatives";
+import { parseK7xWith } from "./k7xIssues";
 import { type Module, ModuleSchema } from "./moduleSchema";
-import { TIMECODE, TIMECODE_KEYS } from "./placementSchema";
-import { YAML_READ_LENIENT } from "./yamlText";
-
-// Printed with String(doc), the default width of 80 and not YAML_WRITE: unfolding would churn files (docs/yamlText.md).
 
 /** A problem in a module file, with where it is — line/column when the file says so. */
 export interface ModuleIssue {
@@ -32,57 +20,20 @@ export interface ParsedModule {
   issues: ModuleIssue[];
 }
 
-/** Where `path` sits in the document, for an error that points at the line — validate.ts asks it too. */
-export function locate(
-  doc: Document.Parsed,
-  lines: LineCounter,
-  path: (string | number)[],
-): { line?: number; col?: number } {
-  if (!path.length) return {};
-  let node: unknown = doc.contents; // walk to the deepest node that exists — point at the map that lacks the key, not at nothing
-  let best: unknown = node;
-  for (const key of path) {
-    if (!isMap(node)) break;
-    const next = (node as YAMLMap).get(key, true);
-    if (next === undefined) break;
-    best = next;
-    node = next;
-  }
-  const range = (best as Scalar)?.range;
-  if (!range) return {};
-  const pos = lines.linePos(range[0]);
-  return { line: pos.line, col: pos.col };
+/** Parse + validate one module file's k7x text; an empty file is an empty module. */
+export function parseModule(text: string): ParsedModule {
+  const { value, issues } = parseK7xWith(ModuleSchema, text);
+  return value ? moduleValue(value) : { value: null, issues };
 }
 
-/** Parse + validate one module file. */
-export function parseModule(text: string): ParsedModule {
-  const lines = new LineCounter(); // turns a byte offset into a line/column, so a parse error isn't one you have to hunt for
-  const doc = parseDocument(text, { ...YAML_READ_LENIENT, lineCounter: lines });
-  const issues: ModuleIssue[] = [];
-  for (const e of doc.errors) {
-    const pos = lines.linePos(e.pos[0]);
-    issues.push({ path: "", message: e.message, line: pos.line, col: pos.col });
-  }
-  if (issues.length) return { value: null, issues };
+/** parseModule's answer for data already read; undefined on an issue, which parseModule's text path locates. */
+export function parseModuleData(raw: unknown): ParsedModule | undefined {
+  const result = ModuleSchema.safeParse(raw ?? {});
+  return result.success ? moduleValue(result.data) : undefined;
+}
 
-  const raw = doc.toJS({ maxAliasCount: 100 }) ?? {}; // an empty file is an empty module, not an error — a scaffolded one starts blank
-  const result = ModuleSchema.safeParse(raw);
-  if (!result.success) {
-    for (const issue of result.error.issues) {
-      // An unknown key is reported against its CONTAINING object, so rebuild the path to give the key a line number.
-      const keys = (issue as { keys?: string[] }).keys;
-      const path = [...issue.path, ...(keys?.length ? [keys[0]] : [])];
-      issues.push({
-        path: path.map(String).join("."),
-        message: issue.message,
-        ...locate(doc, lines, path as (string | number)[]),
-      });
-    }
-    return { value: null, issues };
-  }
-  // The default — applied on the way OUT, never into the file, and never over an INHERITED type:
-  // a node extending a rack states nothing, and a default here would beat the parent (docs/moduleFile.md).
-  const value = result.data;
+function moduleValue(value: Module): ParsedModule {
+  // The default is applied on the way OUT and never over an INHERITED type (docs/moduleFile.md).
   if (
     value.type === undefined &&
     value.io === undefined &&
@@ -97,134 +48,67 @@ export const formatIssue = (rel: string, i: ModuleIssue): string =>
   `${rel}${i.line ? `:${i.line}${i.col ? `:${i.col}` : ""}` : ""}: ` +
   `${i.path ? `${i.path}: ` : ""}${i.message}`;
 
-// YAML 1.1 reads these as booleans, so a value that LOOKS like a keyword is written quoted (docs/moduleFile.md).
-const YAML11_BOOLEANS = new Set([
-  "on",
-  "off",
-  "yes",
-  "no",
-  "true",
-  "false",
-  "y",
-  "n",
-]);
-const quoteIfKeyword = (
-  doc: ReturnType<typeof parseDocument>,
-  value: unknown,
-): unknown => {
-  if (typeof value !== "string" || !YAML11_BOOLEANS.has(value.toLowerCase()))
-    return value;
-  const node = doc.createNode(value) as { type?: string };
-  node.type = "QUOTE_DOUBLE";
-  return node;
-};
-
-/** Quote every timecode in the document, after every write so nothing can forget — see docs/moduleFile.md. */
-export function quoteTimecodes(doc: ReturnType<typeof parseDocument>): void {
-  visit(doc, {
-    Pair(_, pair) {
-      // A key set through the document API arrives as a bare string, not a Scalar (docs/moduleFile.md).
-      const raw = pair.key as Scalar | string;
-      const key = typeof raw === "string" ? raw : raw?.value;
-      if (typeof key !== "string" || !TIMECODE_KEYS.has(key)) return;
-      const quoted = (v: unknown): Scalar | undefined => {
-        // A bare string has nowhere to carry the quoting style, so it is promoted to a Scalar that does.
-        if (typeof v === "string" && TIMECODE.test(v)) {
-          const s = new Scalar(v);
-          s.type = Scalar.QUOTE_DOUBLE;
-          return s;
-        }
-        const s = v as Scalar;
-        if (s && typeof s.value === "string" && TIMECODE.test(s.value))
-          s.type = Scalar.QUOTE_DOUBLE;
-        return undefined;
-      };
-      const value = pair.value as { items?: unknown[] };
-      // Scalars, but a sequence of them is marked item by item rather than skipped.
-      if (Array.isArray(value?.items))
-        value.items = value.items.map((i) => quoted(i) ?? i);
-      else pair.value = quoted(value) ?? pair.value;
-    },
-  });
-}
-
-/** Set a list of numbers in the file, written INLINE — its own function, see docs/moduleFile.md. */
+/** Set a list of numbers in the file, written on ONE line whatever its length (docs/moduleFile.md). */
 export function setModuleList(
-  text: string,
+  doc: K7Scope,
   path: (string | number)[],
   values: number[],
-): string {
+): void {
   if (!path.length) throw new Error("setModuleList: empty path");
-  const doc = parseDocument(text, YAML_READ_LENIENT);
-  const node = doc.createNode(values);
-  // On the NODE, not at stringify time: only this sequence should be inline.
-  (node as { flow?: boolean }).flow = true;
-  doc.setIn(path, node);
-  return String(doc);
+  doc.setIn(path, values, { inline: true });
 }
 
 /** Bind a curve to one of a module's params, or take it away — keyed by PARAM (docs/moduleFile.md). */
 export function setModuleAutomation(
-  text: string,
+  doc: K7Scope,
   param: string,
   curve: string | null,
   trigger?: string,
-): string {
-  const doc = parseDocument(text, YAML_READ_LENIENT);
-  const base = automationsHome(doc);
-  const key = [...base, "automations"];
-  const list = doc.getIn(key) as
-    | { items?: unknown[]; delete?: (i: number) => void }
-    | undefined;
-  const items = Array.isArray(list?.items) ? list.items : [];
-  const at = items.findIndex((it) => {
-    const p = (it as { get?: (k: string) => unknown }).get?.("param");
-    return String(p) === param;
-  });
+): void {
+  const key = [...automationsHome(doc), "automations"];
+  const list = doc.getIn(key);
+  const items = Array.isArray(list) ? list : [];
+  const at = items.findIndex(
+    (it) => String((it as { param?: unknown } | null)?.param) === param,
+  );
   if (curve === null) {
-    if (at < 0) return text; // nothing bound to that param — nothing to take off
-    // Counted BEFORE the delete: `items` is the document's own array, not a copy (docs/moduleFile.md).
-    const wasOnly = items.length === 1;
-    doc.deleteIn([...key, at]);
-    // …and the empty list goes with the last entry: `automations: []` says something was emptied.
-    if (wasOnly) doc.deleteIn(key);
-    return String(doc);
+    if (at < 0) return;
+    // The empty list goes with the last entry: `automations([])` says something was emptied.
+    if (items.length === 1) doc.deleteIn(key);
+    else doc.deleteIn([...key, at]);
+    return;
   }
   const entry: Record<string, string> = { param, curve };
   // Only when it is not the default: an absent trigger already means the module being automated.
   if (trigger) entry.trigger = trigger;
-  if (base.length) {
-    const set = doc.getIn(base);
-    if (isMap(set)) set.flow = false;
-  }
-  doc.setIn([...key, at >= 0 ? at : items.length], entry);
-  quoteTimecodes(doc);
-  return String(doc);
+  if (at >= 0) doc.applyIn([...key, at], entry);
+  else doc.addIn(key, entry);
 }
 
 /** Where the resolved node reads its bindings: the set that is on when it swaps the module or has its own list, the node otherwise. */
-function automationsHome(doc: Document): (string | number)[] {
+function automationsHome(doc: K7Scope): (string | number)[] {
+  const data = doc.toJS();
   const at = currentAlternative(
-    (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
+    (data && typeof data === "object" ? data : {}) as {
+      alternatives?: unknown;
+      alternative?: unknown;
+    },
   );
   if (at === 0) return [];
   const set = doc.getIn(["alternatives", at - 1]);
-  if (!isMap(set)) return [];
-  return set.has("extends") || set.has("automations")
+  if (!set || typeof set !== "object" || Array.isArray(set)) return [];
+  return "extends" in set || "automations" in set
     ? ["alternatives", at - 1]
     : [];
 }
 
 /** Set one value in the file, leaving every other byte alone; `null` removes the key. */
 export function setModuleValue(
-  text: string,
+  doc: K7Scope,
   path: (string | number)[],
   value: unknown,
-): string {
+): void {
   if (!path.length) throw new Error("setModuleValue: empty path");
-  const doc = parseDocument(text, YAML_READ_LENIENT);
   if (value === null) doc.deleteIn(path);
-  else doc.setIn(path, quoteIfKeyword(doc, value));
-  quoteTimecodes(doc);
-  return String(doc);
+  else doc.setIn(path, value);
 }

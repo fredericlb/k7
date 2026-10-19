@@ -68,7 +68,7 @@ can name**, and they are greyed for exactly that reason: the same treatment a `.
 for the same reason — something you can read and cannot open.
 
 **This tab is the only place it is offered.** `@engine` refs are deliberately absent from the
-module-name completions — the command bar's `<module>` arguments and the YAML editor's chain
+module-name completions — the command bar's `<module>` arguments and the k7x editor's chain
 wiring — because the size of that namespace is a fact about the MACHINE and not about the song:
 a rig with four hundred plugins put four hundred entries in front of the dozen modules the
 project has, and the dozen were what you were looking for. So it is browsed here, where it is
@@ -103,7 +103,7 @@ IS the level's folder:
 | entry | makes |
 |---|---|
 | **New folder…** | a plain folder, for filing (`audio/delay/`) |
-| **New module…** | `<type>/<name>/module.yaml`, and opens the builder on it |
+| **New module…** | `<type>/<name>/module.k7x`, and opens the builder on it |
 
 A module is named by its path **under the row you clicked**, so the entry reads the same
 everywhere: `audio/reverb` on `@workspace`, `reverb` inside `audio`. The hint spells the resulting
@@ -147,7 +147,7 @@ so creating a module resolves as any `@k7-core/…` ref does; the library row an
 `assemblies` rows belong to no level and offer no create.
 
 A module is one row, as it is on the Project tab and by the same code (`foldModules`): the
-folder holds `module.yaml`, so the tree folds it and clicking it opens the builder rather than
+folder holds `module.k7x`, so the tree folds it and clicking it opens the builder rather than
 a file.
 
 The listing is fetched the first time somebody looks at the tab, not on mount — it is a walk of
@@ -209,9 +209,9 @@ So the builder's live-plugin lookup is the ordinary one — read the compiled gr
 step whose `module` matches the ref the module's own folder spells out:
 
 ```
-_modules/audio/delay/tape-delay/module.yaml                →  @workspace/audio/delay/tape-delay
-_libraries/k7/modules/audio/delay/tape-delay/module.yaml  →  @k7-core/audio/delay/tape-delay
-_libraries/drums/modules/audio/kick/module.yaml            →  @drums/audio/kick
+_modules/audio/delay/tape-delay/module.k7x                →  @workspace/audio/delay/tape-delay
+_libraries/k7/modules/audio/delay/tape-delay/module.k7x  →  @k7-core/audio/delay/tape-delay
+_libraries/drums/modules/audio/kick/module.k7x            →  @drums/audio/kick
 ```
 
 `libraryModuleRef` is that spelling (`src/libraryTree.ts`), and getting it wrong is what would
@@ -224,8 +224,8 @@ To hear a module no project uses, wire it into the song you have open.
 ## One path space, one store
 
 ```
-the workspace's own   _modules/audio/reverb/module.yaml
-a library's            _libraries/k7/modules/audio/reverb/module.yaml
+the workspace's own   _modules/audio/reverb/module.k7x
+a library's            _libraries/k7/modules/audio/reverb/module.k7x
 ```
 
 Both are workspace paths, both served by the file service, both written by the same route — the
@@ -244,7 +244,7 @@ between them must never be re-derived from a path.
 Every text pane in k7 writes as you type. This one does not, and the reason is what a save
 *means* here:
 
-- **A module is four files describing one thing.** `module.yaml`, `ui.yaml`, its DSP source and
+- **A module is four files describing one thing.** `module.k7x`, `ui.k7x`, its DSP source and
   its `widgets.js` are edited together and are only coherent together. Autosave writes each of them
   whenever *its own* typing pauses, which leaves a module half-written between two pauses — a
   panel for a plugin the DSP does not have yet.

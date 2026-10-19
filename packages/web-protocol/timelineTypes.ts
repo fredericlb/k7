@@ -280,7 +280,7 @@ export interface WebVideoTrack {
   name: string;
   color: string;
   mute: boolean;
-  /** Soloed, off `project.yaml`'s `soloed:` — the same list audio reads (packages/song-video/docs/picture.md). */
+  /** Soloed, off `project.k7x`'s `soloed:` — the same list audio reads (packages/song-video/docs/picture.md). */
   solo: boolean;
   x: number;
   y: number;
@@ -312,11 +312,11 @@ export interface WebProject {
   masterVolume: number;
   tracks: WebTrack[];
   groups: WebGroup[];
-  // The metronome enable from settings.yaml — the header button's source of truth; toggling rewrites the file.
+  // The metronome enable from settings.k7x — the header button's source of truth; toggling rewrites the file.
   metronome: boolean;
   // …and how loud it clicks, 0.2 … 1; never 0, because silence is the flag above (see METRONOME_MIN).
   metronomeLevel: number;
-  // Count-in length in BARS from settings.yaml (0 == none); the engine applies the actual pre-roll.
+  // Count-in length in BARS from settings.k7x (0 == none); the engine applies the actual pre-roll.
   countIn: number;
   // Named timeline markers, sorted by beat. Empty when the song has none.
   markers: WebMarker[];

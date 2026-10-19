@@ -8,31 +8,27 @@ Nodes live in a **flat `nodes/` folder at the project root**, and the FILE names
 the node:
 
 ```
-_modules/instruments/synth/module.yaml   ->  "@workspace/instruments/synth"   the module
-nodes/lead.yaml                          ->  "lead"                           one use of it
-nodes/pad.yaml                           ->  "pad"                            another
+_modules/instruments/synth/module.k7x    ->  "@workspace/instruments/synth"   the module
+nodes/lead.k7x                           ->  "lead"                           one use of it
+nodes/pad.k7x                            ->  "pad"                            another
 ```
 
 A chain names a node by that filename and nothing else:
 
-```yaml
-modules:
-  melody: [ synth-melody ]
-  pad:    [ synth-pad ]
-  synth-melody: [ OUT ]
-  synth-pad:    [ OUT ]
+```k7x
+modules({ melody: ["synth-melody"], pad: ["synth-pad"], synth-melody: ["OUT"], synth-pad: ["OUT"] })
 ```
 
 `melody` and `pad` are nodes too — a LANE is a node of a `@meta/…-track` module
 ([trackModules.md](trackModules.md)), which is why the file has one map and why the synths are
 named for the lanes they serve rather than after them.
 
-A node file is **the same flat struct as `module.yaml`**, vetted the same way. It may
+A node file is **the same flat struct as `module.k7x`**, vetted the same way. It may
 say anything a module may say; it normally states only what it CHANGES.
 
 ## Why flat
 
-A node beside the module it uses — `modules/instruments/synth/lead.yaml`, keyed `synth:lead` —
+A node beside the module it uses — `modules/instruments/synth/lead.k7x`, keyed `synth:lead` —
 would make the layout of a project's uses mirror the layout of the things it uses, and buy
 nothing: the folder would be doing the job `extends` does, less explicitly. Flat gains two
 things:
@@ -50,11 +46,10 @@ audio.
 
 So they come from **what the node extends**:
 
-```yaml
-# nodes/lead.yaml
-extends: "@workspace/instruments/synth"
-params:
-  Filter Freq: 90
+```k7x
+// nodes/lead.k7x
+extends("@workspace/instruments/synth")
+params({ "Filter Freq": 90 })
 ```
 
 The loader does this by NOT setting them. `moduleResolve`'s `OWN_ONLY` list keeps a child's
@@ -108,7 +103,7 @@ the top of this page: a module is a thing you could use, a node is one use of it
 | `module cc` | what every use of it inherits: its MIDI map |
 
 Everything in the first list edits a USE and not the definition: `node bypass` writes a name into
-`graph.yaml`, and a chain names nodes. `node param lead "Filter Freq" 69` sets **this** use; the
+`graph.k7x`, and a chain names nodes. `node param lead "Filter Freq" 69` sets **this** use; the
 synth two lanes over is untouched.
 
 The completion draws the same line. The `nodes` provider offers the project's uses and nothing
@@ -119,7 +114,7 @@ providers, uses first.
 
 ## Making one, and wiring it
 
-**Every node is in the graph.** A node file with no entry in `graph.yaml` is loaded by the
+**Every node is in the graph.** A node file with no entry in `graph.k7x` is loaded by the
 project and drawn nowhere — the blocks come off the chains — so a node on no screen is not a
 state worth being able to reach. `node new <category>/<name> <node> [x,y]` therefore writes the
 file *and* names the node in the graph, wired to nothing (`modules: { <node>: [] }`), at the click
@@ -192,7 +187,7 @@ Four things it declines to do, each for its own reason:
 | the module's leaf does not change (`@k7-core/audio/reverb` → `@workspace/audio/reverb`) | a different module, the same word — nothing to follow |
 | a name a `surfaces/` **mapping** points at | see below |
 
-The mapping is the only place outside `graph.yaml` where a node's name is a REFERENCE, and
+The mapping is the only place outside `graph.k7x` where a node's name is a REFERENCE, and
 nothing writes one back. A desk pointing at a name that has moved loses its knob silently: the
 screen still draws, the control does nothing. So the rename declines and names the file holding
 the name (`surfacesNaming`).
@@ -239,7 +234,7 @@ catalogue cannot say, and k7 lists it (`apps/k7/frontend/docs/contextMenu.md`).
 
 ## Not covered by this
 
-The **shared library** files nodes beside a module's `module.yaml`, keyed `@engine/io/IN:in-2`.
+The **shared library** files nodes beside a module's `module.k7x`, keyed `@engine/io/IN:in-2`.
 That is a different tree with a different purpose — `module populate` writes one per physical
 interface input, and those are variants of a shared module rather than one project's uses of it.
 `readModuleTree` reads them; a chain may name one. Only a PROJECT's own nodes are flat.
@@ -249,5 +244,5 @@ interface input, and those are variants of a shared module rather than one proje
 Deliberately. A project filing its nodes beside their modules is not read wrong —
 `modules/<type>/<name>/` yields the module and nothing else, so such a node is simply not there,
 and a chain naming `synth:lead` reports a missing module. Moving one is: create
-`nodes/<name>.yaml` with an `extends` naming the module, and rewrite the chain's
+`nodes/<name>.k7x` with an `extends` naming the module, and rewrite the chain's
 `<module>:<node>` to the bare name.

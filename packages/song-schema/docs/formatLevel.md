@@ -1,7 +1,7 @@
 # The project format level
 
 `src/formatLevel.ts` holds `FORMAT_LEVEL`, the project format this build reads and writes. A
-project root file declares the level it was written at — `format: 2` in YAML, `format(2)` in k7x —
+project root file declares the level it was written at — `format(2)` —
 and a build meeting a level above its own refuses the project with one message: *this project was
 written by a newer k7 (format N); this k7 reads format M — update k7 to open it*.
 
@@ -16,7 +16,7 @@ the key, so an old file and a new one read the same until the first bump.
 
 ## Where the level lives: the project root file
 
-The level is per project, in `project.yaml` / `project.k7x`, rather than in a marker at the
+The level is per project, in `project.k7x`, rather than in a marker at the
 workspace root:
 
 - the root file is what the compile reads first, and what refuses to compile is what must say why;
@@ -29,8 +29,8 @@ workspace root:
 
 ## Read on the raw text, before any parse
 
-`formatLevelOfText` finds the level with a line match on the text as it is on disk, before YAML or
-k7x parses it. A newer build may introduce syntax this one cannot parse; a parse error there would
+`formatLevelOfText` finds the level with a line match on the text as it is on disk, before k7x
+parses it. A newer build may introduce syntax this one cannot parse; a parse error there would
 show a syntax error where the answer is "update k7". After the parse, the parsed `format` is checked
 once more, for a level written in a form the line match does not see.
 

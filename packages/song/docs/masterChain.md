@@ -12,14 +12,15 @@ one that really leaves the sum ([cue.md](cue.md)):
 | `MIX` | the **mixer's sum** — where each track's chain ends. Carries no parameter: a level belongs to what goes **out** |
 | `OUT` | the **real output**, the interface — and the only built-in node carrying a parameter, `Volume`, the song's output level ([masterVolume.md](masterVolume.md)). It is what the header meter answers for, and what its Fix button writes |
 
-```yaml
-# graph.yaml
-modules:
-  gtr:      [ ampli ]
-  ampli:    [ MIX ]        # the track reaches the sum, like every other
-  MIX:      [ compressor ] # …and here is the MASTER CHAIN
-  compressor: [ eq ]
-  eq:         [ OUT ]      # which goes back out to the interface
+```k7x
+// graph.k7x
+modules({
+  gtr: ["ampli"],
+  ampli: ["MIX"], // the track reaches the sum, like every other
+  MIX: ["compressor"], // …and here is the MASTER CHAIN
+  compressor: ["eq"],
+  eq: ["OUT"], // which goes back out to the interface
+})
 ```
 
 The run between the two is the **master chain**: its modules process the whole mix. That is the
@@ -84,11 +85,12 @@ and changes the sound, so an unordered comparison would conclude "nothing moved"
 
 Every project written by a scaffold declares the run, **empty**:
 
-```yaml
-modules:
-  melody: [ synth-melody ]
-  synth-melody: [ MIX ]
-  MIX: [ OUT ]          # the master chain: its place, with nothing on it
+```k7x
+modules({
+  melody: ["synth-melody"],
+  synth-melody: ["MIX"],
+  MIX: ["OUT"], // the master chain: its place, with nothing on it
+})
 ```
 
 It costs **no sound** — `masterPlugins` stays empty and the compiled document is exactly that of a
@@ -116,7 +118,7 @@ one line that is always right.
 
 | | |
 |---|---|
-| written | `graph.yaml` — a run from `MIX` to `OUT` |
+| written | `graph.k7x` — a run from `MIX` to `OUT` |
 | derived | `chainsGraph.ts`: `MIX` starts a run, like `@in` and like a track |
 | compiled | `nodeProject.ts`: that run's owner is `@master`, and its steps become `masterPlugins` |
 | the wire | `@studio/engine-protocol`'s `ProjectDoc.masterPlugins` — always sent, empty by default |

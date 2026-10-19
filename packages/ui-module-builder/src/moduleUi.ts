@@ -1,10 +1,11 @@
-// moduleUi.ts — the bridge between a module file's text and the visual widget editor:
-// read its `ui:` block into a model, write an edited model back, and resolve `extends` so
+// moduleUi.ts — the bridge between a module file's k7x text and the visual widget editor:
+// read its `ui(…)` block into a model, write an edited model back, and resolve `extends` so
 // "edit the base module" finds the right file. Runs in the BROWSER (the grid edits the
 // editor's buffer) and shares the loader's Zod schema, so the grid can't offer a widget
-// the file would be refused for. Writing the block REPLACES it: comments inside don't survive.
+// the file would be refused for. Writes edit the document value by value (panelWrite.ts).
 
 import { panelWidgets } from "@studio/graph-model/panel";
+import { K7Document, type K7Scope } from "@studio/k7x/document";
 import {
   DEFAULT_MODULE_STATUS,
   IO_MODULES,
@@ -17,8 +18,7 @@ import {
   UISchema,
   type Widget,
 } from "@studio/song-schema/yaml/moduleSchema";
-import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
-import { isMap, isNode, parseDocument } from "yaml";
+import { mergeLayout, panelSource, writePanelFile } from "./panelWrite";
 
 export type {
   ModuleUI,
@@ -38,8 +38,8 @@ export const EMPTY_UI: ModuleUI = { cols: 4, rows: 2, widgets: {} };
 /** How many cells a knob takes in an AUTO-ORGANISED panel, and only there — see docs/builder.md. */
 export const KNOB_SPAN = 2;
 
-/** The document, or null when the text doesn't parse at all (mid-keystroke). */
-export type ModuleDoc = ReturnType<typeof parseDocument>;
+/** A module file's k7x document. */
+export type ModuleDoc = K7Document;
 
 /** The document, or null when the text doesn't parse at all (mid-keystroke); exported so a caller reading several fields parses once. */
 export function parseModuleDoc(fileText: string): ModuleDoc | null {
@@ -47,54 +47,57 @@ export function parseModuleDoc(fileText: string): ModuleDoc | null {
 }
 
 function docOf(fileText: string): ModuleDoc | null {
-  try {
-    const doc = parseDocument(fileText, YAML_READ);
-    return doc.errors.length ? null : doc;
-  } catch {
-    return null;
-  }
+  const doc = new K7Document(fileText);
+  return doc.contents ? doc : null;
 }
 
-/** The `ui:` block validated, or null; through `toJS` and never `getIn` — see docs/builder.md. */
-function parseUi(fileText: string): ModuleUI | null {
+/** Runs a writer on a buffer's document; a buffer that does not parse is handed back unchanged. */
+function editText(fileText: string, edit: (doc: K7Scope) => void): string {
   const doc = docOf(fileText);
-  if (!doc) return null;
-  const raw = (doc.toJS() as { ui?: unknown } | null)?.ui;
+  if (!doc) return fileText;
+  edit(doc.at([]));
+  return doc.toString();
+}
+
+/** The `ui(…)` block validated, or null. */
+function parseUi(fileText: string): ModuleUI | null {
+  const raw = docOf(fileText)?.getIn(["ui"]);
   if (raw === undefined || raw === null) return null;
   const r = UISchema.safeParse(raw);
   return r.success ? r.data : null;
 }
 
-/** The authored `ui:` block, or an empty grid when there is none this can read. */
+/** The authored `ui(…)` block, or an empty grid when there is none this can read. */
 export function readUi(fileText: string): ModuleUI {
   return parseUi(fileText) ?? { ...EMPTY_UI, widgets: {} };
 }
 
-/** Whether the `ui:` block round-trips; when false the right pane warns rather than misreading it. */
+/** Whether the `ui(…)` block round-trips; when false the right pane warns rather than misreading it. */
 export function hasParsableUi(fileText: string): boolean {
   return parseUi(fileText) !== null;
 }
 
-/** True only when a `ui:` block is PRESENT and unreadable; absence is not malformed. */
+/** True only when a `ui(…)` block is PRESENT and unreadable; absence is not malformed. */
 export function hasMalformedUi(fileText: string): boolean {
   const doc = docOf(fileText);
   if (!doc) return false; // the file doesn't parse at all; that is the code editor's news
-  const raw = (doc.toJS() as { ui?: unknown } | null)?.ui;
+  const raw = doc.getIn(["ui"]);
   return raw !== undefined && raw !== null && parseUi(fileText) === null;
 }
 
-/** The `params:` block as name -> value as TEXT, never numbers — see docs/builder.md. */
+/** The `params(…)` block as name -> value as TEXT, never numbers — see docs/builder.md. */
 export function readParams(fileText: string): Record<string, string> {
   const doc = docOf(fileText);
-  if (!doc) return {};
-  const params = doc.getIn(["params"]);
-  if (!isMap(params)) return {};
+  const params = doc?.getNode(["params"]);
+  if (!doc || params?.kind !== "map") return {};
   const out: Record<string, string> = {};
-  for (const item of params.items) {
-    const key = (item.key as { value?: unknown })?.value;
-    if (typeof key !== "string") continue;
-    const value = (item.value as { value?: unknown })?.value;
-    if (value !== undefined) out[key] = String(value);
+  for (const { key, value } of params.entries) {
+    if (value.kind !== "scalar") continue;
+    // A string as the text it holds, anything else as it is written: `1.0` stays `1.0`.
+    out[key] =
+      typeof value.value === "string"
+        ? value.value
+        : (doc.getSource(["params", key]) ?? "");
   }
   return out;
 }
@@ -155,7 +158,8 @@ const plainWidgets = (ws: Record<string, Widget>): Record<string, unknown> =>
     Object.entries(ws).map(([id, w]) => [id, widgetToPlain(w)]),
   );
 
-function uiToPlain(ui: ModuleUI): Record<string, unknown> {
+/** A panel as the plain data its file holds, minimal and pruned. */
+export function uiToPlain(ui: ModuleUI): Record<string, unknown> {
   return prune({
     cols: ui.cols,
     rows: ui.rows,
@@ -181,42 +185,25 @@ function uiToPlain(ui: ModuleUI): Record<string, unknown> {
   }) as Record<string, unknown>;
 }
 
-/** Rewrite the file's `ui:` block from the model, leaving every other line untouched. */
+/** Rewrite the module's `ui(…)` block from the model, in place where it can be, every other line untouched. */
+export function writeUiIn(doc: K7Scope, ui: ModuleUI): void {
+  const plain = uiToPlain(ui);
+  if (!mergeLayout(doc, ["ui"], plain))
+    doc.setSourceIn(["ui"], panelSource(plain));
+}
+
+/** `writeUiIn` over a buffer's text. */
 export function writeUi(fileText: string, ui: ModuleUI): string {
-  const doc = parseDocument(fileText, YAML_READ);
-  const node = doc.createNode(uiToPlain(ui));
-  flowPanel(node);
-  doc.setIn(["ui"], node);
-  return doc.toString(YAML_WRITE);
+  return editText(fileText, (doc) => writeUiIn(doc, ui));
 }
 
-/** Put each widget on ONE flow line — what keeps moving a knob a one-line diff. */
-function flowWidgets(widgets: unknown): void {
-  if (!isMap(widgets)) return;
-  for (const item of widgets.items) {
-    const w = item.value as { flow?: boolean };
-    if (w && typeof w === "object") w.flow = true;
-  }
-}
-
-/** …on the panel's own widgets and on every tab's, a tab's name staying on its own line above them. */
-function flowPanel(panel: unknown): void {
-  const p = panel as { getIn?(path: unknown[]): unknown } | null;
-  flowWidgets(p?.getIn?.(["widgets"]));
-  const tabs = p?.getIn?.(["tabs"]) as { items?: unknown[] } | undefined;
-  for (let i = 0; i < (tabs?.items?.length ?? 0); i++)
-    flowWidgets(p?.getIn?.(["tabs", i, "widgets"]));
-}
-
-// --- `ui.yaml` panel files -----------------------------------------------------
+// --- `ui.k7x` panel files ------------------------------------------------------
 
 // The same model at the TOP level of its own file, so it needs its own functions — see docs/builder.md.
 
-/** The panel a `ui.yaml` declares, or null when the text isn't one this can round-trip. */
+/** The panel a `ui.k7x` declares, or null when the text isn't one this can round-trip. */
 function parseUiFileText(text: string): ModuleUI | null {
-  const doc = docOf(text);
-  if (!doc) return null;
-  const raw = doc.toJS() as Record<string, unknown> | null;
+  const raw = docOf(text)?.toJS();
   if (!raw) return null;
   const r = UISchema.safeParse({
     cols: raw.cols,
@@ -228,7 +215,7 @@ function parseUiFileText(text: string): ModuleUI | null {
   return r.success ? r.data : null;
 }
 
-/** A `ui.yaml`'s panel, or an empty grid when it has none this can read. */
+/** A `ui.k7x`'s panel, or an empty grid when it has none this can read. */
 export function readUiFile(text: string): ModuleUI {
   return parseUiFileText(text) ?? { ...EMPTY_UI, widgets: {} };
 }
@@ -237,56 +224,43 @@ export function readUiFile(text: string): ModuleUI {
 export function hasMalformedUiFile(text: string): boolean {
   const doc = docOf(text);
   if (!doc) return false; // doesn't parse at all; that's the code editor's news
-  const raw = doc.toJS() as Record<string, unknown> | null;
-  const stated = raw?.cols !== undefined || raw?.widgets !== undefined;
+  const raw = doc.toJS();
+  const stated = raw.cols !== undefined || raw.widgets !== undefined;
   return stated && parseUiFileText(text) === null;
 }
 
-/** Rewrite a `ui.yaml`'s grid key by key, so its header comment survives — see docs/builder.md. */
-export function writeUiFile(text: string, ui: ModuleUI): string {
-  const doc = parseDocument(text, YAML_READ);
-  const plain = uiToPlain(ui);
-  const widgets = doc.createNode(plain.widgets);
-  flowWidgets(widgets);
-  doc.setIn(["cols"], plain.cols);
-  doc.setIn(["rows"], plain.rows);
-  doc.setIn(["widgets"], widgets);
-  if (plain.tabs) {
-    const tabs = doc.createNode(plain.tabs);
-    doc.setIn(["tabs"], tabs);
-    flowPanel(doc);
-  } else doc.delete("tabs");
-  // The vertical layout as a block of its own, its widgets one a line like the panel's.
-  if (plain.vertical) {
-    const vertical = doc.createNode(plain.vertical);
-    flowPanel(vertical);
-    doc.setIn(["vertical"], vertical);
-  } else doc.delete("vertical");
-  return doc.toString(YAML_WRITE);
+/** Rewrite a `ui.k7x`'s grid statement by statement, so its header comment survives — see docs/builder.md. */
+export function writeUiFileIn(doc: K7Scope, ui: ModuleUI): void {
+  writePanelFile(doc, uiToPlain(ui));
 }
 
-/** The `plugin:` block a module declares, off the FILE and SHALLOW on purpose — see docs/builder.md. */
+/** `writeUiFileIn` over a buffer's text. */
+export function writeUiFile(text: string, ui: ModuleUI): string {
+  return editText(text, (doc) => writeUiFileIn(doc, ui));
+}
+
+/** The `plugin(…)` block a module declares, off the FILE and SHALLOW on purpose — see docs/builder.md. */
 export function readPlugin(
   fileText: string,
 ): { type: string; name: string } | null {
-  const raw = (docOf(fileText)?.toJS() as { plugin?: unknown } | null)?.plugin;
+  const raw = docOf(fileText)?.getIn(["plugin"]);
   const p = raw as { type?: unknown; name?: unknown } | null | undefined;
   if (!p || typeof p !== "object") return null;
   if (typeof p.type !== "string" || typeof p.name !== "string") return null;
   return { type: p.type, name: p.name };
 }
 
-/** A module's `io:` direction, from THREE sources because a module rarely says it — see docs/builder.md. */
+/** A module's `io(…)` direction, from THREE sources because a module rarely says it — see docs/builder.md. */
 export function ioOf(fileText: string, path?: string): string | null {
   return ioOfDoc(docOf(fileText), path);
 }
 
 /** `ioOf` over a document already parsed (null when it does not parse), so one parse serves every read. */
 export function ioOfDoc(doc: ModuleDoc | null, path?: string): string | null {
-  const io = doc?.get("io");
+  const io = doc?.getIn(["io"]);
   if (typeof io === "string" && io) return io;
 
-  const ref = doc?.get("extends");
+  const ref = doc?.getIn(["extends"]);
   const base = typeof ref === "string" && ref ? ref : null;
   const engine = base?.startsWith(`${META_NS}/`)
     ? IO_MODULES[base.slice(META_NS.length + 1)]
@@ -301,16 +275,14 @@ export function ioOfDoc(doc: ModuleDoc | null, path?: string): string | null {
   return null;
 }
 
-/** The channels an `io: in` module declares, AS AUTHORED — two spellings; see docs/builder.md. */
+/** The channels an `io("in")` module declares, AS AUTHORED — two spellings; see docs/builder.md. */
 export function channelOf(fileText: string): number[] | string | null {
   return channelOfDoc(docOf(fileText));
 }
 
-/** `channelOf` over a document already parsed. */
+/** `channelOf` over a document already parsed; only the `channel` node is turned into data. */
 export function channelOfDoc(doc: ModuleDoc | null): number[] | string | null {
-  const node = doc?.get("channel", true);
-  // Only the `channel` node goes through `toJS`, not the whole document — that is a parse's worth of work per keystroke.
-  const v = doc && isNode(node) ? node.toJS(doc) : node;
+  const v = doc?.getIn(["channel"]);
   if (typeof v === "string") return v || null;
   if (Array.isArray(v)) {
     const ns = v.map(Number).filter((n) => Number.isInteger(n) && n > 0);
@@ -319,31 +291,28 @@ export function channelOfDoc(doc: ModuleDoc | null): number[] | string | null {
   return null;
 }
 
-/** Point an `io: in` module at interface channels, written as a FLOW sequence — see docs/builder.md. */
+/** Point an `io("in")` module at interface channels, written on ONE line — see docs/builder.md. */
 export function setChannelIn(fileText: string, channels: number[]): string {
-  const doc = parseDocument(fileText, YAML_READ);
-  const node = doc.createNode(channels);
-  // `flow` on the NODE, not at stringify time: a document-wide setting would reflow every other list.
-  (node as { flow?: boolean }).flow = true;
-  doc.setIn(["channel"], node);
-  return doc.toString(YAML_WRITE);
+  return editText(fileText, (doc) =>
+    doc.setIn(["channel"], channels, { inline: true }),
+  );
 }
 
 /** How this module asks the completions to treat it, read off the TEXT so an unsaved edit shows. */
 export function statusOf(fileText: string): ModuleStatus {
-  return moduleStatusOf(docOf(fileText)?.toJS?.());
+  return moduleStatusOf(docOf(fileText)?.toJS());
 }
 
 /** Set it, or CLEAR it — the DEFAULT is never written; see docs/builder.md. */
 export function setStatusIn(fileText: string, status: ModuleStatus): string {
-  const doc = parseDocument(fileText, YAML_READ);
-  if (status === DEFAULT_MODULE_STATUS) doc.delete("status");
-  else doc.setIn(["status"], status);
-  return doc.toString(YAML_WRITE);
+  return editText(fileText, (doc) => {
+    if (status === DEFAULT_MODULE_STATUS) doc.deleteIn(["status"]);
+    else doc.setIn(["status"], status);
+  });
 }
 
-/** A module file's `extends:` ref, for resolving the base's file; null when absent. */
+/** A module file's `extends(…)` ref, for resolving the base's file; null when absent. */
 export function extendsRefOf(fileText: string): string | null {
-  const ref = docOf(fileText)?.get("extends");
+  const ref = docOf(fileText)?.getIn(["extends"]);
   return typeof ref === "string" && ref ? ref : null;
 }

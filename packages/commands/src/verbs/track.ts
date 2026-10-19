@@ -7,6 +7,7 @@
 import { copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
+import { K7Document } from "@studio/k7x/document";
 import { renameNodeInAssemblies } from "@studio/song/assemblyEdit";
 import { chainTaken } from "@studio/song/chainCreate";
 import { laneFileFor, laneFolder } from "@studio/song/chainItemEdit";
@@ -24,11 +25,12 @@ import { mixerNameFor } from "@studio/song/trackMixerFile";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
 import {
-  wsCopy,
-  wsExists,
-  wsRead,
-  wsWrite,
-} from "@studio/song/yaml/workspaceFile";
+  wsData,
+  wsEdit,
+  wsText,
+  wsWriteData,
+} from "@studio/song/yaml/workspaceDoc";
+import { wsCopy, wsExists } from "@studio/song/yaml/workspaceFile";
 import { renameChainNode } from "@studio/song-edit/projectEdit";
 import {
   addTrackPlacements,
@@ -53,8 +55,6 @@ import {
   placementValues,
   setTrackField,
 } from "@studio/song-schema/yaml/trackFile";
-import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
-import { parseDocument } from "yaml";
 import type { CommandHost, SidHandler } from "../commands.ts";
 import { splitWords } from "./shared.ts";
 import { duplicateLaneChain } from "./trackChain.ts";
@@ -68,9 +68,9 @@ export const TRACK_VERBS: Record<string, SidHandler> = {
 
 /** Copy a node's file and its own preset; a node's assets live in the shared `nodes/assets/`. */
 function copyNode(dir: string, from: string, to: string): void {
-  const src = join(dir, "nodes", `${from}.yaml`);
+  const src = join(dir, "nodes", `${from}.k7x`);
   if (!wsExists(src)) throw new Error(`no node '${from}' to copy`);
-  wsCopy(src, join(dir, "nodes", `${to}.yaml`));
+  wsCopy(src, join(dir, "nodes", `${to}.k7x`));
   const preset = join(dir, "nodes", `${from}.vstpreset`);
   if (wsExists(preset))
     copyFileSync(preset, join(dir, "nodes", `${to}.vstpreset`));
@@ -79,20 +79,20 @@ function copyNode(dir: string, from: string, to: string): void {
 /** A module used directly as a node has no file to copy; give the copy a node that extends it. */
 function materialiseNode(dir: string, from: string, to: string): void {
   mkdirSync(join(dir, "nodes"), { recursive: true });
-  wsWrite(
-    join(dir, "nodes", `${to}.yaml`),
-    `extends: ${JSON.stringify(from)}\n`,
-  );
+  wsWriteData(join(dir, "nodes", `${to}.k7x`), { extends: from });
 }
 
-/** The strip file's first line names the lane it belongs to; a copy has to be re-labelled. */
+/** The strip file's first comment line names the lane it belongs to; a copy has to be re-labelled. */
 function relabelStrip(abs: string, lane: string): void {
-  const text = wsRead(abs);
-  const next = text.replace(
-    /^# .*?'s channel strip/,
-    `# ${lane}'s channel strip`,
-  );
-  if (next !== text) wsWrite(abs, next);
+  wsEdit(abs, (doc) => {
+    const [first, ...rest] = doc.header;
+    if (first === undefined) return;
+    const next = first.replace(
+      /^.*?'s channel strip/,
+      `${lane}'s channel strip`,
+    );
+    if (next !== first) doc.setHeader([next, ...rest]);
+  });
 }
 
 /** Copy the lane's exclusive chain nodes and wire the new lane into the graph. */
@@ -106,10 +106,9 @@ function duplicateChain(
 ): string[] {
   const graphAbs = join(dir, GRAPH_FILE);
   if (!wsExists(graphAbs)) return [];
-  const text = wsRead(graphAbs);
-  const parsed = parseGraph(text);
+  const parsed = parseGraph(wsText(graphAbs));
   if (!parsed.value)
-    throw new Error(`graph.yaml: ${parsed.issues[0]?.message ?? "unreadable"}`);
+    throw new Error(`graph.k7x: ${parsed.issues[0]?.message ?? "unreadable"}`);
 
   const map = parsed.value.modules ?? {};
   const sourceKeys = Object.keys(map).filter(
@@ -187,10 +186,10 @@ function duplicateChain(
   const written: string[] = [];
   for (const from of order) {
     const to = clones.get(from) as string;
-    if (wsExists(join(dir, "nodes", `${from}.yaml`))) copyNode(dir, from, to);
+    if (wsExists(join(dir, "nodes", `${from}.k7x`))) copyNode(dir, from, to);
     else materialiseNode(dir, from, to);
-    if (isStrip(from)) relabelStrip(join(dir, "nodes", `${to}.yaml`), newLane);
-    written.push(`nodes/${to}.yaml`);
+    if (isStrip(from)) relabelStrip(join(dir, "nodes", `${to}.k7x`), newLane);
+    written.push(`nodes/${to}.k7x`);
   }
 
   if (
@@ -198,12 +197,12 @@ function duplicateChain(
     addBypassed.length ||
     addBusOnly.length
   ) {
-    const next = mergeSegments(text, {
+    const segments = {
       modules: additions,
       ...(addBypassed.length ? { bypassed: addBypassed } : {}),
       ...(addBusOnly.length ? { bus_only: addBusOnly } : {}),
-    });
-    if (next !== text) wsWrite(graphAbs, next);
+    };
+    wsEdit(graphAbs, (doc) => mergeSegments(doc.at([]), segments));
     written.push(GRAPH_FILE);
   }
   return written;
@@ -222,18 +221,15 @@ async function duplicateTrack(
   const dir = h.songPath;
   const lane = splitPort(idArg).node;
   const chained = isChainProject(dir);
-  const srcRel = `${laneFolder(dir)}/${lane}.yaml`;
+  const srcRel = `${laneFolder(dir)}/${lane}.k7x`;
   const srcAbs = join(dir, srcRel);
   if (!wsExists(srcAbs)) {
     h.refuse([`no track "${idArg}" — ${srcRel} does not exist`]);
     return;
   }
   try {
-    const srcText = wsRead(srcAbs);
-    const srcValue = parseDocument(srcText, YAML_READ).toJS() as Record<
-      string,
-      unknown
-    >;
+    const srcText = wsText(srcAbs);
+    const srcValue = wsData(srcAbs);
     if (Array.isArray(srcValue.tracks)) {
       h.refuse([`"${lane}" is a group — a group has no events to duplicate`]);
       return;
@@ -245,10 +241,10 @@ async function duplicateTrack(
 
     const g = chained ? null : loadGraph(dir);
     const graphAbs = join(dir, GRAPH_FILE);
-    const graphText = !chained && wsExists(graphAbs) ? wsRead(graphAbs) : "";
+    const graphText = !chained && wsExists(graphAbs) ? wsText(graphAbs) : "";
     const parsed = graphText ? parseGraph(graphText) : null;
     if (parsed && (!parsed.value || parsed.issues.length))
-      throw new Error(parsed.issues[0]?.message ?? "graph.yaml unreadable");
+      throw new Error(parsed.issues[0]?.message ?? "graph.k7x unreadable");
     // In a chain project the graph's names are the chain files' nodes, and a chain's name is taken too.
     const modules = chained
       ? readChainProject(dir).nodes
@@ -261,7 +257,7 @@ async function duplicateTrack(
       reserved.has(name) ||
       name in modules ||
       name in loadedModules ||
-      wsExists(join(dir, laneFolder(dir), `${name}.yaml`)) ||
+      wsExists(join(dir, laneFolder(dir), `${name}.k7x`)) ||
       (chained && chainTaken(dir, name));
     const claim = (name: string): string => {
       reserved.add(name);
@@ -281,11 +277,12 @@ async function duplicateTrack(
       editTrackStruct(
         dir,
         newLane,
-        (text) => setTrackField(text, "color", srcColor),
+        (doc) => setTrackField(doc, "color", srcColor),
         `copy a track's colour`,
       );
     if (copyEvents) {
-      const placements = placementValues(srcText) as Placement[];
+      const source = new K7Document(srcText).at([]);
+      const placements = placementValues(source) as Placement[];
       if (placements.length) addTrackPlacements(dir, newLane, placements);
     }
 
@@ -334,7 +331,7 @@ async function renameTrack(arg: string, h: CommandHost): Promise<void> {
   const lane = splitPort(idArg).node;
   if (!laneFileFor(dir, lane)) {
     h.refuse([
-      `no track "${idArg}" — ${laneFolder(dir)}/${lane}.yaml does not exist`,
+      `no track "${idArg}" — ${laneFolder(dir)}/${lane}.k7x does not exist`,
     ]);
     return;
   }
@@ -361,13 +358,13 @@ async function renameTrack(arg: string, h: CommandHost): Promise<void> {
     const graphAbs = join(dir, GRAPH_FILE);
     const onGraph =
       !chained && wsExists(graphAbs)
-        ? (parseGraph(wsRead(graphAbs)).value?.modules ?? {})
+        ? (parseGraph(wsText(graphAbs)).value?.modules ?? {})
         : {};
     const nodes = chained ? readChainProject(dir).nodes : {};
     const taken = (name: string): boolean =>
       name in onGraph ||
       name in nodes ||
-      wsExists(join(dir, laneFolder(dir), `${name}.yaml`));
+      wsExists(join(dir, laneFolder(dir), `${name}.k7x`));
     if (taken(to)) {
       h.refuse([`"${to}" is already a node of this project`]);
       return;
@@ -381,7 +378,7 @@ async function renameTrack(arg: string, h: CommandHost): Promise<void> {
     if (rewired.length) notes.push(`rewired ${rewired.join(", ")}`);
     if (boxes.length) notes.push(`followed in ${boxes.join(", ")}`);
 
-    // project.yaml names lanes in two lists: the order they are drawn in, and the soloed ones.
+    // project.k7x names lanes in two lists: the order they are drawn in, and the soloed ones.
     const root = loadProjectRoot(dir);
     const projectFile = entityFileFor(dir, "", "project");
     for (const key of ["trackOrder", "soloed"] as const) {
@@ -402,7 +399,7 @@ async function renameTrack(arg: string, h: CommandHost): Promise<void> {
       if (next !== mixer) {
         renameChainNode(dir, mixer, next);
         renameNodeInAssemblies(dir, mixer, next);
-        const strip = join(dir, "nodes", `${next}.yaml`);
+        const strip = join(dir, "nodes", `${next}.k7x`);
         if (wsExists(strip)) relabelStrip(strip, to);
         notes.push(`${mixer} → ${next}`);
       }
@@ -454,7 +451,7 @@ async function arrangeTracks(h: CommandHost): Promise<void> {
         editTrackStruct(
           dir,
           lane,
-          (text) => setTrackField(text, "color", color),
+          (doc) => setTrackField(doc, "color", color),
           "colour a track by its category",
         );
     }

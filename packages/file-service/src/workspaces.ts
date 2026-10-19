@@ -322,10 +322,10 @@ export async function listMachineWorkspaces(
   return rows;
 }
 
-/** An k7 project's tags, read from its project.yaml; none when there is no such file. */
+/** A k7 project's tags, read from its project.k7x; none when there is no such file. */
 function tagsOf(projectDir: string): string[] {
   try {
-    return projectTagsOf(wsRead(join(projectDir, "project.yaml")));
+    return projectTagsOf(wsRead(join(projectDir, "project.k7x")));
   } catch {
     return [];
   }

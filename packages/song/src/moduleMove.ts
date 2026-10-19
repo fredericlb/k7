@@ -3,13 +3,16 @@
 // or the songs that used it would draw a `?` and play nothing. What a reader gets wrong: only the
 // roots handed in are repointed — another account's workspace keeps the old ref. See docs/moduleMove.md.
 
-import { readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, join, relative, sep } from "node:path";
+import { type K7Path, walk } from "@studio/k7x/ast";
+import { K7Document } from "@studio/k7x/document";
+import { isDocFile } from "@studio/song-schema/docExt";
 import { ENGINES_DIR } from "@studio/song-schema/engines";
 import { MODULE_TYPES } from "@studio/song-schema/moduleTypes";
 import { climbsOut } from "@studio/web-protocol/paths";
 import { moduleFileFor } from "./yaml/moduleIO";
-import { isDocName, wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
+import { wsText, wsWriteText } from "./yaml/workspaceDoc";
 
 /** Where a move lands, and the two refs it trades — refused, with the reason, when it cannot be one. */
 export interface ModuleMove {
@@ -66,7 +69,7 @@ export function planModuleMove(
   if (dirname(moduleAbs) === destAbs) throw new Error("it is already there");
   const name = basename(moduleAbs);
   const dest = join(destAbs, name);
-  if (wsExists(dest))
+  if (existsSync(dest))
     throw new Error(`there is already a ${name} in ${to.join("/")}/`);
   return {
     from: refOf(library.name, from),
@@ -94,14 +97,52 @@ export function assertNotEngine(library: { root: string }, abs: string): void {
     );
 }
 
-/** A ref as it is written: quoted or bare, followed by a node (`:`), a port (`#`), nothing — or, `under`, more path. */
-const refPattern = (ref: string, under: boolean): RegExp =>
-  new RegExp(
-    `${ref.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=["'\\s:#,\\]}${under ? "/" : ""}]|$)`,
-    "gm",
-  );
+/** `s` repointed when it IS the ref, or the ref followed by a node (`:`), a port (`#`) or, `under`, more path; else null. */
+function repointed(
+  s: string,
+  from: string,
+  to: string,
+  under: boolean,
+): string | null {
+  if (!s.startsWith(from)) return null;
+  const next = s.charAt(from.length);
+  const follows = next === "" || next === ":" || next === "#";
+  return follows || (under && next === "/") ? to + s.slice(from.length) : null;
+}
 
-/** Rewrite `from` to `to` in every YAML file under `roots`; the files changed, absolute. */
+/** One document's refs repointed, every string value and map key that names `from`; whether anything changed. */
+export function repointDocRefs(
+  doc: K7Document,
+  from: string,
+  to: string,
+  under = false,
+): boolean {
+  if (!doc.contents) return false;
+  const values: [K7Path, string][] = [];
+  const keys: [K7Path, string][] = [];
+  walk(doc.contents, (node, path, entry) => {
+    if (entry) {
+      const key = repointed(entry.key, from, to, under);
+      if (key !== null) keys.push([path, key]);
+    }
+    if (node.kind === "scalar" && typeof node.value === "string") {
+      const value = repointed(node.value, from, to, under);
+      if (value !== null) values.push([path, value]);
+    }
+  });
+  for (const [path, value] of values) doc.setIn(path, value);
+  // Deepest first, so a renamed key never moves a path still waiting to be renamed.
+  keys.sort((a, b) => b[0].length - a[0].length);
+  for (const [path, key] of keys)
+    try {
+      doc.renameKey(path, key);
+    } catch {
+      // The map already holds the new key: renaming would merge two entries, so this one is left.
+    }
+  return values.length + keys.length > 0;
+}
+
+/** Rewrite `from` to `to` in every workspace file under `roots`; the files changed, absolute. */
 export function repointRefs(
   roots: readonly string[],
   from: string,
@@ -109,7 +150,6 @@ export function repointRefs(
   /** Also every ref BELOW `from`: a renamed folder takes each module in it along. */
   under = false,
 ): string[] {
-  const pattern = refPattern(from, under);
   const changed: string[] = [];
   const walk = (dir: string): void => {
     let names: string[];
@@ -128,11 +168,11 @@ export function repointRefs(
         continue;
       }
       if (st.isDirectory()) walk(abs);
-      else if (isDocName(n)) {
-        const text = wsRead(abs);
-        const next = text.replace(pattern, to);
-        if (next !== text) {
-          wsWrite(abs, next);
+      else if (isDocFile(n)) {
+        const doc = new K7Document(wsText(abs));
+        // A file that does not read is left as it is: its author has a syntax error to fix first.
+        if (repointDocRefs(doc, from, to, under)) {
+          wsWriteText(abs, doc.toString());
           changed.push(abs);
         }
       }

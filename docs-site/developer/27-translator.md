@@ -19,7 +19,7 @@ routes and no UI; the file service is its only caller.
 | `packages/translator/src/abletonZip.ts` | A zipped "Collect All and Save" folder: picks the one set outside `Backup/` (the shallowest), resolves samples inside the archive, then calls `parseAls`. |
 | `packages/translator/src/inflate.ts` | Every unzip and gunzip goes through it, with a ceiling of 1 GiB on what an archive may inflate to, checked against the sizes the archive declares — an import is a file a stranger may upload. |
 | `packages/translator/src/params.ts` | Asks the engine binary to enumerate each plugin's parameters, so the module carries diffable text params instead of an opaque preset — kept only when the engine says they reproduce the state. A no-op without an engine binary. |
-| `packages/translator/src/emit.ts` | Writes the folder: `project.yaml`, the graph as segments (who feeds whom, which is how sends survive), one module per distinct plugin, nodes where a plugin's settings differ, clips, sequences, and a mixer strip per lane. |
+| `packages/translator/src/emit.ts` | Writes the folder: `project.k7x`, the graph as segments (who feeds whom, which is how sends survive), one module per distinct plugin, nodes where a plugin's settings differ, clips, sequences, and a mixer strip per lane. |
 
 Choices worth knowing before changing it:
 

@@ -1,29 +1,26 @@
 // `event crossfade`, through the dispatcher on a chain project with real files: B pulled earlier into
 // what it does not play yet, both events fading over the overlap, and the compile marking the pair.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadProject } from "@studio/song/project";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
 
 let root: string;
 let dir: string;
-const put = (rel: string, text: string | Buffer): void => {
+const put = (rel: string, bytes: Buffer): void => {
   mkdirSync(join(dir, rel, ".."), { recursive: true });
-  writeFileSync(join(dir, rel), text);
+  writeFileSync(join(dir, rel), bytes);
 };
+const doc = (rel: string, value: unknown): void =>
+  writeDoc(join(dir, rel), value);
 const events = () =>
-  parse(readFileSync(join(dir, "tracks/gtr.yaml"), "utf8")).events;
+  wsData(join(dir, "tracks/gtr.k7x")).events as Record<string, unknown>[];
 const run = async (line: string) => {
   const h = testHost({ songPath: dir, project: () => loadProject(dir) });
   await runCommand(line, h, "cli");
@@ -53,20 +50,23 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "crossfade-"));
   dir = join(root, "song.k7");
   // 120 bpm: a beat is half a second, a bar two seconds.
-  put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
+  doc("project.k7x", { project: { name: "t", tempo: 120 } });
   put("clips/a.wav", wav(10));
   put("clips/b.wav", wav(10));
-  put("clips/a.yaml", "source: clips/a.wav\n");
-  put("clips/b.yaml", "source: clips/b.wav\n");
+  doc("clips/a.k7x", { source: "clips/a.wav" });
+  doc("clips/b.k7x", { source: "clips/b.wav" });
   // A plays 0..4 s from bar 1; B plays 2..6 s of its file from bar 3 — so it has 2 s before its window.
-  put(
-    "tracks/gtr.yaml",
-    'extends: "@meta/track"\nevents:\n  - { ref: a, start: "1:1", to: 4 }\n  - { ref: b, start: "3:1", from: 2, to: 6 }\n',
-  );
-  put(
-    "chains/gtr.yaml",
-    "start: true\nsteps:\n  - { id: lane-gtr, track: gtr }\n  - to: [ { chain: MIX } ]\n",
-  );
+  doc("tracks/gtr.k7x", {
+    extends: "@meta/track",
+    events: [
+      { ref: "a", start: "1:1", to: 4 },
+      { ref: "b", start: "3:1", from: 2, to: 6 },
+    ],
+  });
+  doc("chains/gtr.k7x", {
+    start: true,
+    steps: [{ id: "lane-gtr", track: "gtr" }, { to: [{ chain: "MIX" }] }],
+  });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 

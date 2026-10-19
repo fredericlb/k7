@@ -16,7 +16,7 @@ import {
 } from "./loader";
 import { MEDIATEK_REF } from "./mediatekRoot";
 import { projectSurfaces } from "./surfaces";
-import { wsRead } from "./yaml/workspaceFile";
+import { wsText } from "./yaml/workspaceDoc";
 
 const PREFIX = `${MEDIATEK_REF}/`;
 
@@ -28,7 +28,7 @@ function mediatekModule(ref: unknown): string | null {
   return module.length > PREFIX.length ? module : null;
 }
 
-/** Every `@k7-core/…` module this project names, read off the YAML — see docs/sharedFolders.md. */
+/** Every `@k7-core/…` module this project names, read off its files — see docs/sharedFolders.md. */
 export function mediatekRefs(dir: string): string[] {
   const out = new Set<string>();
 
@@ -86,7 +86,7 @@ export function mediatekSongRefs(dir: string, workspace: string): string[] {
 
   let text: string;
   try {
-    text = wsRead(join(workspace, rel));
+    text = wsText(join(workspace, rel));
   } catch {
     return []; // a playlist that is not there is the desk's message to give, not this loop's
   }

@@ -5,7 +5,7 @@
 // and whatever extends it — so a plugin k7 defines, with no param authored on it in any project, offers
 // an empty list until something supplements it.
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -16,7 +16,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { projectHints } from "./hints";
 import { MIXER_PARAMS, MIXER_PLUGIN } from "./project";
-import { writeNode, writeYaml } from "./testSupport";
+import { writeDoc, writeNode } from "./testSupport";
 
 let ws: string;
 let dir: string;
@@ -24,16 +24,14 @@ let dir: string;
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-mixer-hints-"));
   dir = join(ws, "song");
-  writeYaml(join(dir, "project.yaml"), {
+  writeDoc(join(dir, "project.k7x"), {
     project: { name: "t", tempo: 120, sampleRate: 48000 },
   });
-  writeFileSync(
-    join(dir, "graph.yaml"),
-    "modules:\n  vox: [ mixer:vox ]\n  mixer:vox: [ OUT ]\n",
-    "utf8",
-  );
+  writeDoc(join(dir, "graph.k7x"), {
+    modules: { vox: ["mixer:vox"], "mixer:vox": ["OUT"] },
+  });
   // OUT needs no file at all — a built-in sink name (docs/moduleTypes.md).
-  writeYaml(join(ws, "_modules", "audio", "mixer", "module.yaml"), {
+  writeDoc(join(ws, "_modules", "audio", "mixer", "module.k7x"), {
     plugin: { type: "internal", name: MIXER_PLUGIN },
   });
 });

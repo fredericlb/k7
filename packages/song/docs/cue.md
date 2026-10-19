@@ -6,12 +6,13 @@ A fifth built-in node, beside `MIX`, `OUT`, `RENDER` and `VIDEO_OUT`:
 |---|---|
 | `CUE` | **a second pair on the interface** — the headphones. The only output that really leaves the mixer's sum |
 
-```yaml
-# graph.yaml
-modules:
-  filterA: [ fadeA, cueA ]   # TWO destinations: the room, and the headphones
-  fadeA:   [ MIX ]
-  cueA:    [ CUE ]
+```k7x
+// graph.k7x
+modules({
+  filterA: ["fadeA", "cueA"], // TWO destinations: the room, and the headphones
+  fadeA: ["MIX"],
+  cueA: ["CUE"],
+})
 ```
 
 This is what a two-deck desk needs to be one: cueing deck B while A is playing. See
@@ -91,7 +92,7 @@ and both `fadeA` and `cueA` become separate buses. Which forces the **dry** path
 
 | | |
 |---|---|
-| written | `graph.yaml` — a `CUE` destination |
+| written | `graph.k7x` — a `CUE` destination |
 | the word | `CUE_NODE` in `@studio/song-schema`'s `moduleTypes.ts`, in `BUILTIN_OUTPUTS` |
 | the machine | `cueOutput` in `preferences.yaml`, written by `system cue`, read by `resolveCueOutput` |
 | compiled | `nodeProject.ts`: the bus track carries `outputChannels`, or `mute` if there is no pair |

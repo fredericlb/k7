@@ -1,6 +1,6 @@
 // graph.ts — load a node/track/chain project into the GraphDoc a surface draws: clips and sequences are
 // the material, tracks arrange them, modules wrap a plugin or rack, and chains route a track through modules to
-// the OUT sink. Chains are DERIVED from graph.yaml's segments (chainsGraph.ts). See docs/nodeProjectLayout.md.
+// the OUT sink. Chains are DERIVED from graph.k7x's segments (chainsGraph.ts). See docs/nodeProjectLayout.md.
 // The model, its validation and its text form are graphTypes, graphValidate and graphDescribe, re-exported here.
 
 import {
@@ -369,7 +369,7 @@ export function loadGraph(dir: string): GraphDoc {
 
 function loadGraphIn(dir: string): GraphDoc {
   const root = loadProjectRoot(dir, true); // the root file -> project, markers
-  // graph.yaml when there is one, read ONCE so the two formats can't disagree within one load (see loadChains).
+  // graph.k7x when there is one, read ONCE so the two formats can't disagree within one load (see loadChains).
   const rootChains = loadChains(dir, root, true);
   const videoTracksMap = loadVideoTracks(dir, true);
   const clipsMap = exportSub(dir, "clips");

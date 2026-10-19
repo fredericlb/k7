@@ -18,6 +18,11 @@ import {
   PUBLIC_LIBRARIES_PATH,
   PublicLibraries,
 } from "@studio/file-hub";
+import {
+  LIBRARY_MANIFEST,
+  parseLibraryManifest,
+  stringifyLibraryManifest,
+} from "@studio/song-schema/libraryVersions";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { bundleLibrary } from "./libraryArchive.mjs";
@@ -37,24 +42,24 @@ beforeEach(async () => {
   tmp = mkdtempSync(join(tmpdir(), "lib-archive-"));
   const seed = join(tmp, "seed");
   mkdirSync(join(seed, "k7-core"), { recursive: true });
-  writeFileSync(join(seed, "k7-core", "mix.yaml"), "plugin: one\n");
+  writeFileSync(join(seed, "k7-core", "mix.k7x"), 'plugin("one")\n');
   const store = new LibraryStore(join(tmp, "origin"), seed);
   await store.ensure({ draft: true });
   writeFileSync(
-    join(store.home, "k7-core", "draft", "mix.yaml"),
-    "plugin: two\n",
+    join(store.home, "k7-core", "draft", "mix.k7x"),
+    'plugin("two")\n',
   );
   await store.publish("k7-core");
   // A third version this build cannot run: the bundle must stop at 2.
   writeFileSync(
-    join(store.home, "k7-core", "draft", "mix.yaml"),
-    "plugin: three\n",
+    join(store.home, "k7-core", "draft", "mix.k7x"),
+    'plugin("three")\n',
   );
   const three = await store.publish("k7-core");
   if ("ok" in three)
     writeFileSync(
-      join(store.home, "k7-core", "3", "library.yaml"),
-      "name: k7-core\nversion: 3\nrequires: 999\n",
+      join(store.home, "k7-core", "3", LIBRARY_MANIFEST),
+      stringifyLibraryManifest({ name: "k7-core", version: 3, requires: 999 }),
     );
   const app = express();
   app.use(PUBLIC_LIBRARIES_PATH, new PublicLibraries(store).handler);
@@ -72,10 +77,11 @@ describe("bundleLibrary", () => {
   it("bundles the newest version this build runs, with its manifest", async () => {
     const dest = join(tmp, "bundle", "k7-core");
     await bundleLibrary(repo, dest);
-    expect(readFileSync(join(dest, "mix.yaml"), "utf8")).toBe("plugin: two\n");
-    expect(readFileSync(join(dest, "library.yaml"), "utf8")).toMatch(
-      /version: 2/,
-    );
+    expect(readFileSync(join(dest, "mix.k7x"), "utf8")).toBe('plugin("two")\n');
+    expect(
+      parseLibraryManifest(readFileSync(join(dest, LIBRARY_MANIFEST), "utf8"))
+        ?.version,
+    ).toBe(2);
   });
 
   it("falls back to the repo's folder, with no manifest, when the origin cannot answer", async () => {
@@ -83,6 +89,6 @@ describe("bundleLibrary", () => {
     const dest = join(tmp, "bundle", "k7-core");
     await bundleLibrary(repo, dest);
     expect(existsSync(join(dest, "modules"))).toBe(true);
-    expect(existsSync(join(dest, "library.yaml"))).toBe(false);
+    expect(existsSync(join(dest, LIBRARY_MANIFEST))).toBe(false);
   });
 });

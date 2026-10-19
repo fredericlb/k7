@@ -1,12 +1,10 @@
 // placementSchema.ts — one placed clip or sequence, in Zod, and the timecode rule that governs
 // it. Its own file because a lane is a module (docs/trackModules.md), so moduleSchema is what
-// carries `events:` and this is what it imports.
-// A placement's timecodes ("25:1") must be QUOTED — unquoted, YAML 1.1 reads them as sexagesimal
-// numbers (bar 25 silently becomes beat 1501). See moduleFile's quoteTimecodes.
+// carries `events:` and this is what it imports. A timecode ("25:1") is a STRING, never a number.
 
 import { z } from "zod";
 
-/** The shape a position/duration has, and why every one is written QUOTED — see docs/moduleFile.md. */
+/** The shape a position/duration has — see docs/moduleFile.md. */
 export const TIMECODE = /^[0-9]+(:[0-9]+)*(\.[0-9]+)?$/;
 const Timecode = z
   .string()
@@ -61,18 +59,3 @@ export const PlacementSchema = z
   );
 
 export type Placement = z.infer<typeof PlacementSchema>;
-
-/** Is this key's value a timecode, and so a thing that must be written quoted? */
-export const TIMECODE_KEYS = new Set([
-  "start",
-  "fadeIn",
-  "fadeOut",
-  // The window's two words; a NUMBER under them is untouched, being seconds rather than a timecode.
-  "from",
-  "to",
-  // A CURVE point's position — not a placement's key, but the same trap (docs/curves.md).
-  "time",
-  // A seam crossfade's place and duration (song docs/takes.md).
-  "at",
-  "length",
-]);

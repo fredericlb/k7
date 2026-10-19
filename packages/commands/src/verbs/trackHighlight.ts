@@ -1,5 +1,5 @@
 // trackHighlight.ts — `track highlight <track>`: the mixer's highlight button. The lane joins or leaves
-// `highlighted:` at project.yaml's root, and the compile plays it 10 dB up on its strip's output stage,
+// `highlighted:` at project.k7x's root, and the compile plays it 10 dB up on its strip's output stage,
 // its fader untouched — so switching it off returns the mix exactly as it was. Several at once, like
 // solo. See packages/song/docs/highlight.md.
 
@@ -30,7 +30,7 @@ async function highlightCommand(a: string, h: CommandHost): Promise<void> {
     const cur = (loadProjectRoot(h.songPath).highlighted ?? []).map(String);
     const on = !cur.includes(lane);
     const next = on ? [...cur, lane] : cur.filter((x) => x !== lane);
-    const file = join(h.songPath, "project.yaml");
+    const file = join(h.songPath, "project.k7x");
     if (next.length) setFileValue(file, ["highlighted"], next);
     else deleteFileValue(file, ["highlighted"]);
     h.log([`${lane}: highlight ${on ? "on — 10 dB up" : "off"}`]);

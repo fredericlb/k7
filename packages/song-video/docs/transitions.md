@@ -4,14 +4,15 @@ Sister page to [shaders.md](shaders.md): the same GLSL over the picture, chosen 
 either one program that reads both shots (`with:`), or a run of ordinary shader nodes each shot
 goes through on its own (`chain:`, a **stretch**).
 
-```yaml
-# video_tracks/main.yaml
-events:
-  - { ref: plan_a, start: 0,  length: 5 }
-  - { ref: plan_b, start: 4,  length: 5, fade_in: 1 }                        # 1 s dissolve over plan_a
-  - { ref: plan_c, start: 9,  length: 5, fade_in: { over: 1.5, with: wipe } }
-  - { ref: plan_d, start: 14, length: 5, fade_out: 2 }                       # leaves towards whatever is below
-  - { ref: plan_e, start: 18, length: 5, fade_in: { over: 1, chain: iris } } # through the `iris` stretch
+```k7x
+// video_tracks/main.k7x
+events([
+  ref("plan_a").start(0).length(5),
+  ref("plan_b").start(4).length(5).fade_in(1), // 1 s dissolve over plan_a
+  ref("plan_c").start(9).length(5).fade_in({ over: 1.5, with: "wipe" }),
+  ref("plan_d").start(14).length(5).fade_out(2), // leaves towards whatever is below
+  ref("plan_e").start(18).length(5).fade_in({ over: 1, chain: "iris" }), // through the `iris` stretch
+])
 ```
 
 ## A bare number, or a map
@@ -72,10 +73,10 @@ since its end is by construction the next shot's start — the overlap is zero.
 
 ```
 modules/video_transitions/wipe/
-  module.yaml          type: video_transition, params: P1..P4
+  module.k7x           type: video_transition, params: P1..P4
   vertex.glsl
   fragment.glsl
-  ui.yaml              the four knobs, drawn by the module builder
+  ui.k7x               the four knobs, drawn by the module builder
 ```
 
 The GLSL is **flat in the module's folder**, not under `shaders/<name>/`. The extra level `shaders`
@@ -119,24 +120,23 @@ in a stretch, whose nodes ARE wired and take `#audio` like any shader.
 
 ## A STRETCH — a transition made of nodes
 
-```yaml
-# chains/main.yaml — a chain project
-start: true
-steps:
-  - { id: 7d14…, video_track: main }
-  - to: [ { chain: RENDER } ]
-subchains:
-  - id: iris                                    # `fade_in: { over: 1, chain: iris }`
-    steps:
-      - { id: 8a82…, extends: "@workspace/shaders/iris" }
+```k7x
+// chains/main.k7x — a chain project
+start(true)
+steps([id("7d14…").video_track("main"), to([chain("RENDER")])])
+subchains([
+  id("iris") // `fade_in: { over: 1, chain: iris }`
+    .steps([id("8a82…").extends("@workspace/shaders/iris")]),
+])
 ```
 
-```yaml
-# graph.yaml — a graph project, the same stretch
-modules:
-  "@workspace/shaders/iris": [ main ]                         # fed by nothing, lands on the lane
-  "@workspace/shaders/zoom": [ "@workspace/shaders/dim" ]
-  "@workspace/shaders/dim":  [ main ]
+```k7x
+// graph.k7x — a graph project, the same stretch
+modules({
+  "@workspace/shaders/iris": ["main"], // fed by nothing, lands on the lane
+  "@workspace/shaders/zoom": ["@workspace/shaders/dim"],
+  "@workspace/shaders/dim": ["main"],
+})
 ```
 
 A **stretch** is a run of picture passes (`shaders`, `video_effects`) that **nothing feeds** and that
@@ -190,13 +190,13 @@ stretch left the alpha at 1.
 ### A `chain:` that runs nothing
 
 A fade naming no stretch landing on ITS lane — a typo, a stretch wired to another lane, an
-unreadable `graph.yaml` — compiles as a **dissolve** of the same length (a named `with:` is kept),
+unreadable `graph.k7x` — compiles as a **dissolve** of the same length (a named `with:` is kept),
 and says so in the picture's `warnings`. The reason is the one below for a missing program: dropping
 the fade would move the cut.
 
 ## Named, not cabled
 
-A transition PROGRAM **never** appears in `graph.yaml`; a stretch, above, is the cabled way. It is named by a placement, as `clips/<ref>.yaml`
+A transition PROGRAM **never** appears in `graph.k7x`; a stretch, above, is the cabled way. It is named by a placement, as `clips/<ref>.k7x`
 is: material, not a station on the signal's route. Three reasons:
 
 - **There is no station.** A chain runs from a source to a sink; a transition happens *between two
@@ -219,8 +219,8 @@ module builder.
 ## Its knobs are drawn by the module BUILDER
 
 A card and its parameters belong to a **chain step**, and a module named by a placement has none.
-The `ui.yaml` sitting beside the module is therefore rendered by `@studio/ui-module-builder` — the
-**Builder** button on a `module.yaml`'s toolbar — which already draws knobs and menus from that
+The `ui.k7x` sitting beside the module is therefore rendered by `@studio/ui-module-builder` — the
+**Builder** button on a `module.k7x`'s toolbar — which already draws knobs and menus from that
 file.
 
 ## What breaks nothing
@@ -232,7 +232,7 @@ here keeping the picture by deleting the transition would **move the cut**, that
 *arrangement*. Falling back on a fade keeps the duration the author wrote and loses only the
 character.
 
-An unreadable `graph.yaml` costs no transition either: transitions are read off the **ref map**
+An unreadable `graph.k7x` costs no transition either: transitions are read off the **ref map**
 (`loadModuleRefs`) and not off the graph, outside the `try/catch` that makes chain compilation
 best-effort.
 
@@ -240,7 +240,7 @@ best-effort.
 
 `loadVideoTracks` goes through `readYamlEntities`, like `clips/`, so the refusal above exists for
 real and a track carrying an unknown key fails saying so. Without it `ENTITY_SCHEMAS.video_tracks`
-would be declared and dead on the compilation path, and a mistyped key in a `video_tracks/*.yaml`
+would be declared and dead on the compilation path, and a mistyped key in a `video_tracks/*.k7x`
 silently ignored.
 
 ## The render, in one function
@@ -281,7 +281,7 @@ to **the layer below**.
 
 | | |
 |---|---|
-| written | `fade_in:` / `fade_out:` on an event of `video_tracks/<lane>.yaml`, `modules/video_transitions/<name>/`, and a stretch's run in `graph.yaml` |
+| written | `fade_in:` / `fade_out:` on an event of `video_tracks/<lane>.k7x`, `modules/video_transitions/<name>/`, and a stretch's run in `graph.k7x` |
 | declared | `packages/song-schema/src/moduleTypes.ts` — `TRANSITION_CATEGORY`, `DISSOLVE`, `OVER`, `isPicturePass` |
 | validated | `packages/song-schema/src/yaml/entitySchemas.ts` — the widening, and the refusal of an endless `fade_out` |
 | guarded | `packages/song/src/loader.ts` — `loadVideoTracks` goes through the schema; `packages/song/src/graph.ts` — `isStretch`, and a stretch's head counted as fed in `checkChainInputs` |

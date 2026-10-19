@@ -1,17 +1,11 @@
 // An SFZ drum kit in the graph: its `kit:` pads reach the node as a rack's taps would, in note order, marked as
 // a kit's — fixed, and played as notes through the node rather than as files. See packages/song/docs/racks.md.
 
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { copyAsYaml } from "@studio/song/testSupport";
+import { writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildGraphDoc } from "./graphDoc";
 
@@ -24,18 +18,15 @@ let dir: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "fs-sfzkit-"));
   dir = join(root, "synth-demo.k7");
-  copyAsYaml(join(DEMOS, "synth-demo.k7"), dir, { recursive: true });
+  cpSync(join(DEMOS, "synth-demo.k7"), dir, { recursive: true });
   const demoModules = join(DEMOS, "_modules");
   if (existsSync(demoModules))
-    copyAsYaml(demoModules, join(root, "_modules"), { recursive: true });
+    cpSync(demoModules, join(root, "_modules"), { recursive: true });
   // The demo's `synth`, made an SFZ kit with three pads, stated out of note order.
-  const folder = join(root, "_modules", "instruments", "synth");
-  mkdirSync(folder, { recursive: true });
-  writeFileSync(
-    join(folder, "module.yaml"),
-    "plugin:\n  type: internal\n  name: SFZ Player\nkit:\n  Snare: 38\n  Kick: 36\n  HatClosed: 42\n",
-    "utf8",
-  );
+  writeDoc(join(root, "_modules", "instruments", "synth", "module.k7x"), {
+    plugin: { type: "internal", name: "SFZ Player" },
+    kit: { Snare: 38, Kick: 36, HatClosed: 42 },
+  });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 

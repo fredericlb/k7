@@ -7,6 +7,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parse } from "@studio/k7x/document";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   dbToGain,
@@ -65,8 +66,8 @@ describe("panToLabel", () => {
 describe("removeTrackPlacement", () => {
   let dir: string;
   const track = (body: string) => {
-    writeFileSync(join(dir, "nodes", "drums.yaml"), body, "utf8");
-    return () => readFileSync(join(dir, "nodes", "drums.yaml"), "utf8");
+    writeFileSync(join(dir, "nodes", "drums.k7x"), body, "utf8");
+    return () => readFileSync(join(dir, "nodes", "drums.k7x"), "utf8");
   };
 
   beforeEach(() => {
@@ -75,21 +76,20 @@ describe("removeTrackPlacement", () => {
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  const THREE = `# the drum lane
-extends: "@meta/track"
-events:
-  - { ref: kick, start: "1:1:1", length: "1:0:0" }
-  - { ref: snare, start: "2:1:1", length: "1:0:0" }
-  - { ref: hat, start: "3:1:1", length: "1:0:0" }
+  const THREE = `// the drum lane
+extends("@meta/track")
+events([
+  ref("kick").start("1:1:1"),
+  ref("snare").start("2:1:1"),
+  ref("hat").start("3:1:1"),
+])
 `;
 
   it("removes the middle placement and leaves every other line identical", () => {
     const read = track(THREE);
     expect(removeTrackPlacement(dir, "drums", 4, 4, 4)).toBe(true); // bar 2 == beat 4
-    const out = read();
-    expect(out).not.toContain("snare");
     // Everything else — the comment, the header, the survivors — comes back exactly as authored.
-    expect(out).toBe(
+    expect(read()).toBe(
       THREE.split("\n")
         .filter((l) => !l.includes("snare"))
         .join("\n"),
@@ -100,17 +100,16 @@ events:
     const read = track(THREE);
     expect(removeTrackPlacement(dir, "drums", 8, 4, 4)).toBe(true); // bar 3
     expect(read()).not.toContain("hat");
-    expect(read()).toContain("ref: snare");
+    expect(read()).toContain('ref("snare")');
   });
 
   it("empties the list cleanly when it was the only placement", () => {
     const read = track(
-      'extends: "@meta/track"\nevents:\n  - { ref: kick, start: "1:1:1" }\n',
+      'extends("@meta/track")\nevents([ref("kick").start("1:1:1")])\n',
     );
     expect(removeTrackPlacement(dir, "drums", 0, 4, 4)).toBe(true);
-    expect(read()).not.toContain("kick");
     // An empty list, not a broken one — the track still loads, with nothing placed.
-    expect(read()).toMatch(/events:\s*\[\s*\]/);
+    expect(parse(read()).events).toEqual([]);
   });
 
   it("reports false — and writes nothing — when no placement sits there", () => {
@@ -121,47 +120,39 @@ events:
   });
 });
 
-// Dragging an event onto ANOTHER lane: plain fields must land in the file, not a YAMLMap's own.
+// Dragging an event onto ANOTHER lane: the placement's plain values travel, whole.
 describe("moving a placement onto another lane", () => {
   let dir: string;
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "td-crosslane-"));
     mkdirSync(join(dir, "nodes"), { recursive: true });
     writeFileSync(
-      join(dir, "nodes", "bs.yaml"),
-      'extends: "@meta/track"\nevents:\n  - { ref: bass_0, start: "25:1", loop: 2 }\n',
+      join(dir, "nodes", "bs.k7x"),
+      'extends("@meta/track")\nevents([ref("bass_0").start("25:1").loop(2)])\n',
       "utf8",
     );
     writeFileSync(
-      join(dir, "nodes", "gtr.yaml"),
-      'extends: "@meta/track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
+      join(dir, "nodes", "gtr.k7x"),
+      'extends("@meta/track")\nevents([ref("riff").start("1:1")])\n',
       "utf8",
     );
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  const gtr = () => readFileSync(join(dir, "nodes", "gtr.yaml"), "utf8");
-
-  it("carries the placement's VALUES, not the node's fields", () => {
-    expect(movePlacementToTrack(dir, "bs", "gtr", 96, "30:1", 4, 4)).toBe(true);
-    // The exact three that leaked, and the ones that must be there instead.
-    expect(gtr()).not.toContain("items:");
-    expect(gtr()).not.toContain("flow:");
-    expect(gtr()).not.toContain("range:");
-    expect(gtr()).toContain('{ ref: bass_0, start: "30:1", loop: 2 }');
-  });
+  const events = (lane: string) =>
+    parse(readFileSync(join(dir, "nodes", `${lane}.k7x`), "utf8")).events;
 
   it("keeps everything the placement carried except its start", () => {
     // `loop` proves it: a rebuild from {ref, start} would play it once instead of twice.
-    movePlacementToTrack(dir, "bs", "gtr", 96, "30:1", 4, 4);
-    expect(gtr()).toContain("loop: 2");
-    expect(gtr()).not.toContain('"25:1"'); // …and the old start did not travel
+    expect(movePlacementToTrack(dir, "bs", "gtr", 96, "30:1", 4, 4)).toBe(true);
+    expect(events("gtr")).toEqual([
+      { ref: "riff", start: "1:1" },
+      { ref: "bass_0", start: "30:1", loop: 2 },
+    ]);
   });
 
   it("leaves the source lane without it", () => {
     movePlacementToTrack(dir, "bs", "gtr", 96, "30:1", 4, 4);
-    expect(readFileSync(join(dir, "nodes", "bs.yaml"), "utf8")).not.toContain(
-      "bass_0",
-    );
+    expect(events("bs")).toEqual([]);
   });
 });

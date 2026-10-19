@@ -1,5 +1,5 @@
-// k7xOps.ts — a .k7x file's change as values set or deleted at key paths, and the replay of them: yamlOps.ts for k7x.
-// A replay splices a changed value's source verbatim and inserts through the same k7x edits the bridge writes with (../docs/ops.md).
+// k7xOps.ts — a .k7x file's change as values set or deleted at key paths, and the replay of them.
+// A replay splices a changed value's source verbatim and inserts through the same k7x document edits song's writers use (../docs/ops.md).
 
 import { type K7Node, toJS } from "@studio/k7x/ast";
 import { type K7Document, parseDocument } from "@studio/k7x/document";
@@ -20,7 +20,7 @@ function plainValue(source: string): unknown {
 const scalarText = (v: unknown): string =>
   typeof v === "string" ? JSON.stringify(v) : String(v);
 
-/** Each item's segment in order, or null when the list under `name` is not keyed — listKeys.ts's rule on a k7x list. */
+/** Each item's segment in order, or null when the list under `name` is not keyed (listKeys.ts). */
 export function itemSegments(
   name: unknown,
   list: K7Node | undefined,
@@ -47,7 +47,7 @@ export function itemSegments(
   return out;
 }
 
-/** Where a key path leads: the index path the k7x document takes, as far as it resolves — listKeys.ts's `locate`. */
+/** Where a key path leads: the index path the k7x document takes, as far as it resolves. */
 function locate(root: K7Node, path: KeyPath) {
   const at: (string | number)[] = [];
   let node: K7Node | undefined = root;
@@ -227,7 +227,7 @@ function applyOne(doc: K7Document, o: K7xOp): void {
   if (loc.missing === last && parent?.kind === "list") {
     const segs = itemSegments(o.path[last - 1], parent) ?? [];
     const anchor = o.after == null ? -1 : segs.indexOf(o.after);
-    // An anchor removed meanwhile puts the item last, as yamlOps.ts does: the rule only has to be the same everywhere.
+    // An anchor removed meanwhile puts the item last: the rule only has to be the same everywhere.
     const index = o.after === null ? 0 : anchor < 0 ? segs.length : anchor + 1;
     doc.insertIn(loc.at, index, plainValue(o.k7x));
     return;

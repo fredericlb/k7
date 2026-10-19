@@ -1,4 +1,5 @@
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -10,7 +11,6 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { copyAsYaml } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { activeMarkerOf } from "./activeMarker.ts";
 import { Workspace } from "./workspace.ts";
@@ -25,9 +25,9 @@ let ws: Workspace;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-active-"));
-  copyAsYaml(SONG, join(root, "song.k7"), { recursive: true });
+  cpSync(SONG, join(root, "song.k7"), { recursive: true });
   // The rest of a real workspace: another song, the shared library, and a foreign session.
-  copyAsYaml(SONG, join(root, "other.k7"), { recursive: true });
+  cpSync(SONG, join(root, "other.k7"), { recursive: true });
   mkdirSync(join(root, "_modules", "audio"), { recursive: true });
   writeFileSync(
     join(root, "_modules", "audio", "note.txt"),
@@ -78,9 +78,9 @@ describe("the tree is rooted at the workspace", () => {
   it("keeps paths workspace-relative, so every other route still takes them", () => {
     ws.setActiveProject("song.k7");
     const song = ws.tree().find((n) => n.name === "song.k7");
-    const projectYaml = song?.children?.find((n) => n.name === "project.yaml");
-    expect(projectYaml?.path).toBe("song.k7/project.yaml");
-    expect(ws.read("song.k7/project.yaml").content).toContain("project:");
+    const projectFile = song?.children?.find((n) => n.name === "project.k7x");
+    expect(projectFile?.path).toBe("song.k7/project.k7x");
+    expect(ws.read("song.k7/project.k7x").content).toContain("project({");
   });
 
   it("still lists every project in the workspace", () => {

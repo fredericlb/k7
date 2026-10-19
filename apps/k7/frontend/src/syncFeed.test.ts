@@ -28,7 +28,7 @@ class FakeSource implements EventSourceLike {
 const notice: SyncNotice = {
   workspace: "band",
   seq: 3,
-  files: ["a.yaml"],
+  files: ["a.k7x"],
   parked: 0,
   settled: 0,
 };

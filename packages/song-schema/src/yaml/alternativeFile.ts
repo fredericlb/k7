@@ -1,35 +1,32 @@
-// alternativeFile.ts — switching and adding a module's attribute SETS, by editing its file in
-// place. Paired with ../alternatives.ts, which reads them. Every write goes through the
-// document rather than the text, so the comments and the key order survive — these files are
-// hand-edited and they are in git. See ../docs/alternatives.md.
+// alternativeFile.ts — switching and adding a module's attribute SETS, by editing its k7x
+// document in place. Paired with ../alternatives.ts, which reads them. Every writer takes a
+// scope (the whole file, or one chain item), so the comments and the key order survive.
+// The readers take the module's DATA, not its text. See ../docs/alternatives.md.
 
-import { isMap, isSeq, parseDocument } from "yaml";
+import type { K7Scope } from "@studio/k7x/document";
 import {
   alternativesOf,
   currentAlternative,
   pickAlternative,
 } from "../alternatives";
-import { quoteTimecodes } from "./moduleFile";
 import { AlternativeSchema } from "./moduleSchema";
-import { YAML_READ, YAML_WRITE } from "./yamlText";
 
-/** What a module's file says its alternatives are called, in order. `["1"]` when it has none. */
-export function alternativeNames(text: string): string[] {
-  return alternativesOf(parseDocument(text, YAML_READ).toJS() ?? {}).map(
-    (a) => a.name,
-  );
+type Data = Record<string, unknown>;
+
+const dataOf = (doc: K7Scope): Data => (doc.toJS() ?? {}) as Data;
+
+/** What a module says its alternatives are called, in order, read off its data. `["1"]` when it has none. */
+export function alternativeNames(raw: Data): string[] {
+  return alternativesOf(raw).map((a) => a.name);
 }
 
-/** Switch which attribute set is on — ONE line rewritten, and back to the FIRST clears the key. */
-export function setAlternative(text: string, name: string): string {
-  const names = alternativeNames(text);
+/** Switch which attribute set is on — ONE value rewritten, and back to the FIRST clears the key. */
+export function setAlternative(doc: K7Scope, name: string): void {
+  const names = alternativeNames(dataOf(doc));
   const at = pickAlternative(names, name);
   if (names[at] !== name) throw new Error(`no alternative "${name}"`);
-  const doc = parseDocument(text, YAML_READ);
   if (at === 0) doc.deleteIn(["alternative"]);
   else doc.setIn(["alternative"], name);
-  quoteTimecodes(doc);
-  return doc.toString(YAML_WRITE);
 }
 
 /** What a switch to `name` does to the params, when that is ALL it does — null otherwise (docs/alternatives.md). */
@@ -40,22 +37,14 @@ export interface ParamsSwitch {
   inherited: string[];
 }
 
-/** Read off the file alone, so a running engine can take the switch as values without a recompile. */
-export function paramsSwitch(text: string, name: string): ParamsSwitch | null {
-  const raw = (parseDocument(text, YAML_READ).toJS() ?? {}) as Record<
-    string,
-    unknown
-  >;
+/** Read off the module's data alone, so a running engine can take the switch as values without a recompile. */
+export function paramsSwitch(raw: Data, name: string): ParamsSwitch | null {
   const list = Array.isArray(raw.alternatives) ? raw.alternatives : [];
-  const names = alternativesOf(raw).map((a) => a.name);
+  const names = alternativeNames(raw);
   // The numeric params a set STATES, or null when it states anything else — the first states nothing.
   const stated = (at: number): Record<string, number> | null => {
     if (at === 0) return {};
-    const {
-      name: _n,
-      params,
-      ...rest
-    } = (list[at - 1] ?? {}) as Record<string, unknown>;
+    const { name: _n, params, ...rest } = (list[at - 1] ?? {}) as Data;
     if (Object.keys(rest).length) return null;
     if (params == null) return {};
     if (typeof params !== "object") return null;
@@ -70,7 +59,7 @@ export function paramsSwitch(text: string, name: string): ParamsSwitch | null {
   const from = stated(currentAlternative(raw));
   const to = stated(pickAlternative(names, name));
   if (!from || !to) return null;
-  const own = (raw.params ?? {}) as Record<string, unknown>;
+  const own = (raw.params ?? {}) as Data;
   const params: Record<string, number> = { ...to };
   const inherited: string[] = [];
   for (const k of Object.keys(from)) {
@@ -83,76 +72,46 @@ export function paramsSwitch(text: string, name: string): ParamsSwitch | null {
   return { params, inherited };
 }
 
+/** Where the set that is ON keeps its fields: the module's root for the first, its entry in `alternatives` otherwise. */
+const setPath = (doc: K7Scope): (string | number)[] => {
+  const at = currentAlternative(dataOf(doc));
+  return at === 0 ? [] : ["alternatives", at - 1];
+};
+
 /** Set one param on the set that is ON, under `engines.<engine>` when the module runs one; `null` removes it (packages/song/docs/engines.md). */
 export function setAlternativeParam(
-  text: string,
+  doc: K7Scope,
   name: string,
   value: number | string | null,
   engine?: string,
-): string {
-  const doc = parseDocument(text, YAML_READ);
-  const at = currentAlternative(
-    (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
-  );
+): void {
   const inSet = engine ? ["engines", engine, "params"] : ["params"];
-  if (value === null) {
-    const key =
-      at === 0 ? [...inSet, name] : ["alternatives", at - 1, ...inSet, name];
-    if (!doc.hasIn(key)) return text;
-    doc.deleteIn(key);
-    return doc.toString(YAML_WRITE);
-  }
-  if (at === 0) doc.setIn([...inSet, name], value);
-  else {
-    // An empty set is written `- {}`; opened into block style, so its params read one per line.
-    const entry = doc.getIn(["alternatives", at - 1]);
-    if (isMap(entry)) entry.flow = false;
-    doc.setIn(["alternatives", at - 1, ...inSet, name], value);
-    const params = doc.getIn(["alternatives", at - 1, ...inSet]);
-    if (isMap(params)) params.flow = false;
-  }
-  quoteTimecodes(doc);
-  return doc.toString(YAML_WRITE);
+  const key = [...setPath(doc), ...inSet, name];
+  if (value === null) doc.deleteIn(key);
+  else doc.setIn(key, value);
 }
 
 /** Remove every NUMBER the set that is ON states, under `engines.<engine>` when the module runs one — a file param stays. */
-export function clearAlternativeParams(text: string, engine?: string): string {
-  const doc = parseDocument(text, YAML_READ);
-  const at = currentAlternative(
-    (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
-  );
+export function clearAlternativeParams(doc: K7Scope, engine?: string): void {
   const inSet = engine ? ["engines", engine, "params"] : ["params"];
-  const path = at === 0 ? inSet : ["alternatives", at - 1, ...inSet];
+  const path = [...setPath(doc), ...inSet];
   const params = doc.getIn(path);
-  if (!isMap(params)) return text;
-  const numbers = params.items
-    .filter(
-      (pair) => typeof (pair.value as { value?: unknown })?.value === "number",
-    )
-    .map((pair) => (pair.key as { value?: unknown })?.value ?? pair.key);
-  if (!numbers.length) return text;
-  for (const key of numbers) params.delete(key);
-  if (!params.items.length) doc.deleteIn(path);
-  return doc.toString(YAML_WRITE);
+  if (!params || typeof params !== "object" || Array.isArray(params)) return;
+  const numbers = Object.keys(params).filter(
+    (k) => typeof (params as Data)[k] === "number",
+  );
+  if (!numbers.length) return;
+  for (const key of numbers) doc.deleteIn([...path, key]);
+  if (!Object.keys(doc.getIn(path) as Data).length) doc.deleteIn(path);
 }
 
 /** Set one FIELD on the set that is ON — `engine:` being the one that needs it (packages/song/docs/engines.md). */
 export function setAlternativeField(
-  text: string,
+  doc: K7Scope,
   field: string,
   value: string,
-): string {
-  const doc = parseDocument(text, YAML_READ);
-  const at = currentAlternative(
-    (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
-  );
-  if (at === 0) doc.set(field, value);
-  else {
-    const entry = doc.getIn(["alternatives", at - 1]);
-    if (isMap(entry)) entry.flow = false;
-    doc.setIn(["alternatives", at - 1, field], value);
-  }
-  return doc.toString(YAML_WRITE);
+): void {
+  doc.setIn([...setPath(doc), field], value);
 }
 
 export interface AddOptions {
@@ -164,44 +123,35 @@ export interface AddOptions {
 
 /** Add an attribute set and switch to it, answering the name it got — EMPTY by default (docs/alternatives.md). */
 export function addAlternative(
-  text: string,
+  doc: K7Scope,
   name?: string,
   { copy = false, blankEvents = false }: AddOptions = {},
-): { text: string; name: string } {
-  const names = alternativeNames(text);
+): string {
+  const raw = dataOf(doc);
+  const names = alternativeNames(raw);
   const chosen = name ?? String(names.length + 1);
   if (names.includes(chosen))
     throw new Error(`this module already has an alternative "${chosen}"`);
 
-  const doc = parseDocument(text, YAML_READ);
-  const entry: Record<string, unknown> = {};
+  const entry: Data = {};
   // Named only when the author said one: an unnamed set is known by its position.
   if (name !== undefined) entry.name = name;
-  if (copy) Object.assign(entry, copiedFields(doc));
+  if (copy) Object.assign(entry, copiedFields(raw));
   // A LANE's empty set is an empty ARRANGEMENT, since an inherited one would open holding the last take.
   else if (blankEvents) entry.events = [];
 
-  const node = doc.createNode(entry);
-  const alts = doc.getIn(["alternatives"]);
-  if (isSeq(alts)) alts.items.push(node);
-  else doc.setIn(["alternatives"], doc.createNode([node]));
+  if (Array.isArray(raw.alternatives)) doc.addIn(["alternatives"], entry);
+  else doc.setIn(["alternatives"], [entry]);
   doc.setIn(["alternative"], chosen);
-  quoteTimecodes(doc);
-  return { text: doc.toString(YAML_WRITE), name: chosen };
+  return chosen;
 }
 
 /** The fields a `copy` starts from: only what the CURRENT set states, never the merged result. */
-function copiedFields(
-  doc: ReturnType<typeof parseDocument>,
-): Record<string, unknown> {
-  const raw = (doc.toJS() ?? {}) as Record<string, unknown>;
+function copiedFields(raw: Data): Data {
   const at = currentAlternative(raw);
   if (at > 0) {
     const list = Array.isArray(raw.alternatives) ? raw.alternatives : [];
-    const { name: _dropped, ...fields } = (list[at - 1] ?? {}) as Record<
-      string,
-      unknown
-    >;
+    const { name: _dropped, ...fields } = (list[at - 1] ?? {}) as Data;
     return fields;
   }
   // The module's own SETTINGS only: a chain step's `id`, `bypass`… are the item's, and a set refuses them.

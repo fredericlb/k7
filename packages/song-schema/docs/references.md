@@ -11,7 +11,7 @@ somebody else got right, the last bounce, the demo the singer sent. It lives und
 
 ## The file IS the entry
 
-There is no sidecar, no `reference.yaml`, no line anywhere declaring one: **the folder and the
+There is no sidecar, no `reference.k7x`, no line anywhere declaring one: **the folder and the
 extension are the whole rule**. Upload a `.wav` there and it is a reference track; move it out
 and it stops being one. That is deliberate and it is the same rule `_playlists/` follows
 ([playlistFile.md](playlistFile.md)) — a document whose only content is "this file exists"

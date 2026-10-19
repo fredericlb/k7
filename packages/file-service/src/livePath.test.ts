@@ -11,8 +11,8 @@ describe("confinedPath", () => {
   const root = join(tmpdir(), "ws");
 
   it("answers a workspace path under the root", () => {
-    expect(confinedPath(root, "song.k7/a.yaml")).toBe(
-      join(root, "song.k7", "a.yaml"),
+    expect(confinedPath(root, "song.k7/a.k7x")).toBe(
+      join(root, "song.k7", "a.k7x"),
     );
   });
 

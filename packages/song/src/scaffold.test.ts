@@ -1,11 +1,13 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parse } from "@studio/k7x/document";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 import { projectFiles, scaffold, videoProjectFiles } from "./scaffold";
+import { wsData } from "./yaml/workspaceDoc";
 
 // The only project k7 writes from scratch, so "does it load and play" is the whole contract.
 
@@ -46,26 +48,28 @@ describe("a scaffolded project", () => {
   it("is born a CHAIN project, the main layout: chain files and lanes, no graph and no node files", () => {
     const written = scaffold(dir, "demo");
     expect(tree().filter((f) => f.endsWith(".cue"))).toEqual([]);
-    expect(tree()).toContain("project.yaml");
+    expect(tree()).toContain("project.k7x");
     expect(
       tree().filter((f) => f.startsWith("chains/")).length,
     ).toBeGreaterThan(0);
-    expect(tree()).toContain("tracks/melody.yaml");
+    expect(tree()).toContain("tracks/melody.k7x");
     expect(tree()).not.toContain(GRAPH_FILE);
     expect(tree().filter((f) => f.startsWith("nodes/"))).toEqual([]);
+    // No workspace file is YAML any more.
+    expect(tree().filter((f) => /\.ya?ml$/.test(f))).toEqual([]);
     // What it says it wrote is what is there.
     expect([...written].sort()).toEqual(tree().filter((f) => f.includes(".")));
   });
 
-  it("quotes the timecodes, so a placement isn't read as a number", () => {
-    // `1:1:1` unquoted is a YAML 1.1 sexagesimal, which is why the template quotes them.
+  it("places the melody at bar 1, which is beat 0", () => {
     scaffold(dir, "demo");
-    const track = readFileSync(join(dir, "tracks", "melody.yaml"), "utf8");
-    expect(track).toContain('start: "1:1:1"');
+    expect(wsData(join(dir, "tracks", "melody.k7x")).events).toEqual([
+      { ref: "melody", start: "1:1:1" },
+    ]);
     const melody = compileNodeProject(dir).tracks.find(
       (t) => t.id === "melody",
     );
-    expect(melody?.clips?.[0]?.start).toBe(0); // bar 1 == beat 0, not 3661
+    expect(melody?.clips?.[0]?.start).toBe(0);
   });
 
   it("names the project what it was asked to", () => {
@@ -79,30 +83,32 @@ describe("arrangement vs video", () => {
   it("gives an arrangement no picture at all — not a frame, not a shot, not the sample", () => {
     scaffold(dir, "demo");
     const files = tree();
-    expect(files).toContain("surfaces/timeline.yaml");
-    expect(files).not.toContain("surfaces/viewport.yaml");
+    expect(files).toContain("surfaces/timeline.k7x");
+    expect(files).not.toContain("surfaces/viewport.k7x");
     expect(files.filter((f) => f.startsWith("video_tracks/"))).toEqual([]);
     expect(files.filter((f) => f.startsWith("clips/"))).toEqual([]);
     // `loadVideoProject` REQUIRES a viewport, so the line without a lane fails on a missing file.
-    expect(readFileSync(join(dir, "project.yaml"), "utf8")).not.toContain(
-      "viewport:",
-    );
+    expect(
+      (wsData(join(dir, "project.k7x")).project as Record<string, unknown>)
+        .viewport,
+    ).toBeUndefined();
   });
 
   it("gives video the arrangement plus picture, sharing every other file", () => {
     scaffold(dir, "demo", "video");
     const files = tree();
     for (const f of [
-      "surfaces/timeline.yaml",
-      "surfaces/viewport.yaml",
-      "video_tracks/main.yaml",
-      "clips/sample.yaml",
+      "surfaces/timeline.k7x",
+      "surfaces/viewport.k7x",
+      "video_tracks/main.k7x",
+      "clips/sample.k7x",
       "clips/sample.mp4", // COPIED, not referenced where the package sits
     ])
       expect(files).toContain(f);
-    expect(readFileSync(join(dir, "project.yaml"), "utf8")).toContain(
-      "viewport: [1280, 720, 30]",
-    );
+    expect(
+      (wsData(join(dir, "project.k7x")).project as Record<string, unknown>)
+        .viewport,
+    ).toEqual([1280, 720, 30]);
   });
 
   it("keeps the shared half identical, byte for byte", () => {
@@ -110,23 +116,31 @@ describe("arrangement vs video", () => {
     const audio = projectFiles("demo");
     const video = videoProjectFiles("demo");
     // The two files the picture is added INTO rather than beside; both are checked below instead.
-    const merged = new Set(["project.yaml", GRAPH_FILE]);
+    const merged = new Set(["project.k7x", GRAPH_FILE]);
     for (const [rel, content] of Object.entries(audio)) {
       if (merged.has(rel)) continue;
       expect(video[rel]).toBe(content);
     }
-    // …and the header differs by exactly the picture block, nothing else.
-    expect(video["project.yaml"].startsWith(audio["project.yaml"])).toBe(true);
-    // The graph differs by a note and the run it describes; every song segment stays, in order.
-    const kept = audio[GRAPH_FILE]
-      .split("\n")
-      .filter((l) => !l.startsWith("#"));
-    const got = video[GRAPH_FILE].split("\n").filter((l) => !l.startsWith("#"));
-    expect(got).toEqual([
-      ...kept.slice(0, -1), // every segment the song had, MIX -> OUT included
-      "  RENDER: [ VIDEO_OUT ]",
-      ...kept.slice(-1), // the trailing newline the file ends on
-    ]);
+    // …and the header differs by exactly the picture fields, nothing else.
+    const a = parse(audio["project.k7x"]);
+    const v = parse(video["project.k7x"]);
+    expect(v).toEqual({
+      ...a,
+      project: {
+        ...(a.project as object),
+        viewport: [1280, 720, 30],
+        layers: ["main"],
+      },
+    });
+    // The graph differs by the run the picture adds; every song segment stays, in order.
+    const kept = parse(audio[GRAPH_FILE]).modules as Record<string, string[]>;
+    expect(parse(video[GRAPH_FILE]).modules).toEqual({
+      ...kept,
+      RENDER: ["VIDEO_OUT"],
+    });
+    expect(
+      Object.keys(parse(video[GRAPH_FILE]).modules as object).slice(0, -1),
+    ).toEqual(Object.keys(kept));
   });
 
   it("still plays, with picture on top of the same worked example", () => {

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -11,7 +11,7 @@ import {
   moduleLibraryDirs,
   moduleNamespaceOf,
 } from "./sharedFolders";
-import { librariesFixture } from "./testSupport";
+import { librariesFixture, writeDoc } from "./testSupport";
 
 // A project sees `_modules` beside it and every library the machine cloned, by WHERE they sit —
 // never by any declaration.
@@ -24,11 +24,7 @@ describe("sharedFolders", () => {
     ws = mkdtempSync(join(tmpdir(), "td-shared-"));
     project = join(ws, "song");
     mkdirSync(project, { recursive: true });
-    writeFileSync(
-      join(project, "project.yaml"),
-      "project:\n  name: song\n",
-      "utf8",
-    );
+    writeDoc(join(project, "project.k7x"), { project: { name: "song" } });
     // The account's `k7-core` library, where the file service clones it: under `$STUDIO_HOME`.
     libraries = librariesFixture(ws);
   });
@@ -70,29 +66,29 @@ describe("sharedFolders", () => {
   it("ignores a project header that still declares the old fields", () => {
     // Every song already written carries them: the schema accepts them and nothing reads them.
     addModules();
-    writeFileSync(
-      join(project, "project.yaml"),
-      "project:\n  name: song\n  modules_from: [ ../vendor ]\n  libraries_from: [ ../other ]\n",
-      "utf8",
-    );
+    writeDoc(join(project, "project.k7x"), {
+      project: {
+        name: "song",
+        modules_from: ["../vendor"],
+        libraries_from: ["../other"],
+      },
+    });
     expect(moduleLibraryDirs(project)).toEqual([join(ws, "_modules")]);
   });
 
   it("needs no project file at all to answer", () => {
     // Found by location, so an unparseable header costs the compile and not the vocabulary.
     addModules();
-    rmSync(join(project, "project.yaml"));
+    rmSync(join(project, "project.k7x"));
     expect(moduleLibraryDirs(project)).toEqual([join(ws, "_modules")]);
   });
 
   it("survives a declaration naming a folder that is gone", () => {
     // A declaration naming a deleted `_modules` must not throw and take the whole song down.
     addMediatek("modules");
-    writeFileSync(
-      join(project, "project.yaml"),
-      "project:\n  name: song\n  modules_from:\n    - ../_modules\n",
-      "utf8",
-    );
+    writeDoc(join(project, "project.k7x"), {
+      project: { name: "song", modules_from: ["../_modules"] },
+    });
     expect(moduleLibraryDirs(project)).toEqual([join(libraries, "modules")]);
   });
 

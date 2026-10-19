@@ -10,7 +10,7 @@ is named after it.
 ## What a lane's own file carries
 
 `color` and `disabled`, and nothing else (`packages/song/docs/trackModules.md`). Its mute is its
-module's bypass, written to `graph.yaml`'s `bypassed:` — one state in one place — and solo is
+module's bypass, written to `graph.k7x`'s `bypassed:` — one state in one place — and solo is
 derived by the surface; `volume` and `pan` belong to the `Mixer` module; `frozen` is a point in
 the graph rather than a lane's field.
 
@@ -36,10 +36,10 @@ leaves both files untouched. Refusing a move between lanes of different kinds is
 job (the `event.move` command).
 
 `addTrackPlacements` is likewise not a loop over `addTrackPlacement`, and the difference is the
-whole reason it exists: the single form reads, transforms and writes per placement, so a paste
+whole reason it exists: the single form reads, edits and writes per placement, so a paste
 of twelve events would be twelve reads and twelve writes of one file — and twelve chances to
-fail with half of them landed. The transforms are pure text, so folding them inside one
-`editTrackStruct` is both cheaper and atomic. Order is the caller's; they are appended as given,
+fail with half of them landed. The writers edit one document in memory, so running them all inside
+one `editTrackStruct` is both cheaper and atomic. Order is the caller's; they are appended as given,
 which is what a paste wants, since `events:` is a list rather than a sorted index and the
 compiler reads positions rather than order. It takes a WHOLE placement, not just where it goes —
 a paste reproduces the event it copied, window, fades and passes included.

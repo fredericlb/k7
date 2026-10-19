@@ -133,7 +133,7 @@ every ref, with no way to say otherwise.
 under a new timestamped key on every run, and the exact-key caches (sources, `node_modules`, Gradle)
 under a new hash whenever their inputs move; nothing reads an older generation again, and left alone
 it stays until eviction, which takes the least recently used entry, often one still needed.
-`.github/workflows/caches.yml` runs after every `desktop` and `k7` run, and daily: it keeps the newest
+`.github/workflows/caches.k7x` runs after every `desktop` and `k7` run, and daily: it keeps the newest
 entry per ref and family — the key without its trailing timestamp or hash — and deletes the rest.
 `gh cache list --sort size_in_bytes` shows what the 10 GB holds.
 

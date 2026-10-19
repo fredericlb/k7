@@ -6,7 +6,7 @@ the place where you decide what a sound goes through before it reaches the speak
 you turn the knobs of the modules on the way.
 
 Everything you do here is written back to the project's files: the graph lives in `graph.k7x`
-(or `graph.yaml`), and each node's settings in `nodes/<name>.k7x`. Nothing is hidden session
+(or `graph.k7x`), and each node's settings in `nodes/<name>.k7x`. Nothing is hidden session
 state except where the view is looking and which assembly boxes are open.
 
 ## Opening it

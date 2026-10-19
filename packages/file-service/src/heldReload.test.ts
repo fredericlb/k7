@@ -2,11 +2,11 @@
 // module stamp. What must not change for it: the engine still gets the new document, once, and
 // before the reply. See docs/activeProject.md.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
-import { writeYaml } from "@studio/song/testSupport";
+import { writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /** A stand-in engine that records what it was sent. */
@@ -54,8 +54,8 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-held-"));
   const proj = join(root, "rig.k7");
   mkdirSync(join(proj, "nodes"), { recursive: true });
-  writeYaml(join(proj, "project.yaml"), { project: { name: "rig" } });
-  writeFileSync(join(proj, "graph.yaml"), "modules:\n  MIX: [ OUT ]\n");
+  writeDoc(join(proj, "project.k7x"), { project: { name: "rig" } });
+  writeDoc(join(proj, "graph.k7x"), { modules: { MIX: ["OUT"] } });
   ws = new Workspace(root);
   ws.setActiveProject("rig.k7");
   setSelectedEngine(`ws://127.0.0.1:3000/${Math.random()}`);

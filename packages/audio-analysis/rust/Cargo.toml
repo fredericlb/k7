@@ -1,0 +1,17 @@
+[package]
+name = "waveform"
+version = "0.1.0"
+edition = "2024"
+description = "The arithmetic of a {file}.cache sidecar in Rust: the mono sum, peak/RMS/three bands, the tempo onset envelope and its autocorrelation, value for value the TypeScript in ../src."
+publish = false
+
+[lib]
+path = "src/lib.rs"
+# rlib for the tests and the Node-API addon (packages/k7x/rust/node), cdylib for WebAssembly.
+crate-type = ["rlib", "cdylib"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

@@ -86,9 +86,9 @@ const entry = (seq: number): Sequenced => ({
     label: "edit",
     ops: [
       {
-        kind: "yaml",
-        file: "song/song.yaml",
-        ops: [{ op: "set", path: ["bpm"], yaml: "120" }],
+        kind: "k7x",
+        file: "song/song.k7x",
+        ops: [{ op: "set", path: ["bpm"], k7x: "120" }],
       },
       { kind: "text", file: "notes.md", text: "secret contents" },
     ],
@@ -101,7 +101,7 @@ const entry = (seq: number): Sequenced => ({
       replica: "r1",
       ts: 1,
       label: "edit",
-      op: { kind: "remove", file: "old.yaml" },
+      op: { kind: "remove", file: "old.k7x" },
     },
   ],
 });
@@ -111,7 +111,7 @@ describe("sync events", () => {
     expect(noticeOf("band", entry(7))).toEqual({
       workspace: "band",
       seq: 7,
-      files: ["song/song.yaml", "notes.md", "old.yaml"],
+      files: ["song/song.k7x", "notes.md", "old.k7x"],
       parked: 1,
       settled: 1,
     });

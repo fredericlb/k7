@@ -3,20 +3,20 @@
 // keeps its length on the lane, its pass count recomputed, the way a loop brace behaves. See docs/eventLoop.md.
 
 import { join } from "node:path";
+import { K7Document } from "@studio/k7x/document";
 import { laneFileFor } from "@studio/song/chainItemEdit";
 import {
   materialWindowOf,
   type WindowValue,
 } from "@studio/song/yaml/materialFile";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
-import { wsRead } from "@studio/song/yaml/workspaceFile";
+import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
 import { beatsToPosition, parsePosition } from "@studio/song-schema/timecode";
 import {
   findPlacementAt,
   placementValues,
   setPlacementField,
 } from "@studio/song-schema/yaml/trackFile";
-import { parse as parseYaml } from "yaml";
 import type { MaterialKind } from "./clipResize";
 import { editTrackStruct } from "./trackMix";
 
@@ -43,9 +43,8 @@ function sequenceExtent(
   num: number,
   den: number,
 ): number | undefined {
-  const doc = parseYaml(wsRead(path)) as {
-    notes?: { t?: unknown; d?: unknown }[];
-  } | null;
+  // Expanded data: a sequence written as `notes("c4 d4")` has its notes only once its short form is read.
+  const doc = wsData(path) as { notes?: { t?: unknown; d?: unknown }[] };
   const ends = (Array.isArray(doc?.notes) ? doc.notes : []).map(
     (n) => Number(n.t ?? 0) + Number(n.d ?? 0),
   );
@@ -64,10 +63,10 @@ function placed(
 ): Placed | null {
   const own = laneFileFor(dir, id);
   if (!own) throw new Error(`track "${id}" has no lane file`);
-  const text = wsRead(own.path);
-  const at = findPlacementAt(text, fromBeats, num, den);
+  const lane = new K7Document(wsText(own.path)).at([]);
+  const at = findPlacementAt(lane, fromBeats, num, den);
   if (at < 0) return null;
-  const p = placementValues(text)[at] ?? {};
+  const p = placementValues(lane)[at] ?? {};
   const ref = String(p.ref ?? "");
   const clip = entityFileFor(join(dir, "clips"), "clips", ref);
   const seq = clip
@@ -119,13 +118,11 @@ function write(
   editTrackStruct(
     dir,
     id,
-    (t) => {
-      const i = findPlacementAt(t, fromBeats, num, den);
-      if (i < 0) return t;
-      let out = t;
+    (doc) => {
+      const i = findPlacementAt(doc, fromBeats, num, den);
+      if (i < 0) return;
       for (const [k, v] of Object.entries(fields))
-        out = setPlacementField(out, i, k, v);
-      return out;
+        setPlacementField(doc, i, k, v);
     },
     what,
   );

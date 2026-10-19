@@ -21,7 +21,7 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-/** A transition module folder: the two stages sit BESIDE module.yaml, not under a `shaders/<name>/`. */
+/** A transition module folder: the two stages sit BESIDE module.k7x, not under a `shaders/<name>/`. */
 function transitionModule(
   folder: string,
   stages: "both" | "fragment-only" | "none",

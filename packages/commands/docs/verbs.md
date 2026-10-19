@@ -62,12 +62,10 @@ One folder for the lot, at the project root. NOT beside the module's own file: a
 every song. A render belongs to THIS project, so it lives where the project can see all of them at
 once.
 
-## Timecodes as YAML keys
+## Timecodes as keys
 
-The project's `markers` map is written with QUOTED keys. Unquoted, `2:1:1` is a YAML 1.1
-sexagesimal integer. Neither of the two writers beside it can see the case: `setFileValue` gives
-every key the plain style, and `quoteTimecodes` walks VALUES under known keys, so a timecode used
-as a KEY falls between them. `setQuotedKeyMap` is the writer that covers it.
+The project's `markers` map is keyed by timecode. A k7x key that is not a bare name is written
+quoted, so `writeMarkers` replaces the map with `applyIn` and needs no writer of its own.
 
 ## Position vs. duration
 
@@ -162,8 +160,8 @@ sequences alike (`packages/song/docs/trackModules.md`). Seeding the empty sequen
 
 One state, in the one place a bypass is written (`packages/song/docs/trackModules.md`). A group is
 a lane too — one that carries no signal — and both are silenced the same way, by name, in
-`graph.yaml`'s `bypassed:`. Solo is not a set of mutes but project state (`soloed:` in
-`project.yaml`). The doc is mutated and pushed rather than reloaded, so a mixer move stays snappy.
+`graph.k7x`'s `bypassed:`. Solo is not a set of mutes but project state (`soloed:` in
+`project.k7x`). The doc is mutated and pushed rather than reloaded, so a mixer move stays snappy.
 
 ## `track duplicate` copies the chain, never shares it
 
@@ -176,8 +174,8 @@ a meeting point and stays shared — it is a bus, not part of one lane's chain.
 
 A lane's name IS its filename, `[position.][prefix.]label` (`packages/song/docs/trackKind.md`), so
 the new name is typed whole: `track rename ge.lead vo.lead` changes the instrument as well as the
-file. Everything that names the lane follows — `graph.yaml`'s keys and arrows (a `#port` kept),
-`bypassed`, the boxes, `project.yaml`'s `trackOrder` and `soloed`, a chain project's lane item — and
+file. Everything that names the lane follows — `graph.k7x`'s keys and arrows (a `#port` kept),
+`bypassed`, the boxes, `project.k7x`'s `trackOrder` and `soloed`, a chain project's lane item — and
 so does its strip when it still bears the `mix-<lane>` name `track new` gave it. A strip somebody
 named is left alone, and so are the lane's effect nodes: their names were a convenience, not a
 reference. A lane a surface mapping names is refused, since nothing writes a mapping back.
@@ -187,7 +185,7 @@ reference. A lane a surface mapping names is refused, since nothing writes a map
 `node stack <node> <new>` is the per-track row's BRANCH button, on a seam. It takes a node `node new` just made —
 loose, wired to nothing — and puts it right under `<node>`, the two in a subchain run in `<node>`'s
 place; under a node already in such a subchain, the new one joins it. A lane is a source and nothing
-goes under it, and a node in a side-by-side step has no single place to stand under. A `graph.yaml`
+goes under it, and a node in a side-by-side step has no single place to stand under. A `graph.k7x`
 project is refused: the grouping IS a subchain, and a splice there would be `node insert`.
 
 ## `track hide` sets a lane aside, files and all
@@ -218,7 +216,7 @@ built-in input — `extends: "@meta/IN"` (with `monitor: "auto"`) or `extends: "
 a hand-written rig takes, so its card is named by it rather than by where it sits. In a chain project the
 input is a step of the lane's OWN chain, just ahead of the lane, which is how a hand-written rig
 reads (`IN`, then the lane, then its plugins). `graph chain connect` would get there too, but by
-splitting the lane's chain in two and renaming its file, which nobody asked for. A `graph.yaml`
+splitting the lane's chain in two and renaming its file, which nobody asked for. A `graph.k7x`
 project has no chain to put a step in, so there it is a node and a cable. A lane something already
 feeds is refused (`runCarriesInput`), the input being the one thing a lane takes.
 
@@ -261,7 +259,7 @@ answered, so a refused transcription costs no track.
 ## `node tap` writes the NODE, never the module
 
 A rack's kit is its node's (`packages/song/docs/racks.md`), so the six `node tap` verbs — `note`,
-`sample`, `add`, `insert`, `rename`, `remove` — edit `nodes/<name>.yaml` (or the alternative that is
+`sample`, `add`, `insert`, `rename`, `remove` — edit `nodes/<name>.k7x` (or the alternative that is
 on), and a node that is not a rack is refused. `sample` takes a library file only, checked against
 the same list its `samples` completion offers, and `none` clears it. `add` picks the next free `T<n>`
 and the note after the kit's highest, since a new tap with a clashing note would fire twice.
@@ -399,7 +397,7 @@ set this control on this module. The `@` is the whole of the
 difference from a plugin param — a param is sent to a running plugin, a field is written into the
 file and read when the module is BUILT.
 
-That is also what makes them reachable from a widget: a `bind: "@channel"` in a module's `ui.yaml`
+That is also what makes them reachable from a widget: a `bind: "@channel"` in a module's `ui.k7x`
 needs no command of its own, and the day a fourth field is bindable it needs no verb either — one
 line in the table. See `packages/song/docs/intrinsics.md`.
 
@@ -460,7 +458,7 @@ header's fader and its Fix button both send this line. It is the ONLY one of the
 on it.
 
 `OUT` is a built-in NAME rather than a module on disk (`moduleTypes.ts`), so its param has no
-`module.yaml` to land in and lands in `project.yaml` instead. That is a storage detail and not a
+`module.k7x` to land in and lands in `project.k7x` instead. That is a storage detail and not a
 second control, which is why `project master` is the same write under another name. UNITY IS NOT
 WRITTEN: 0 dB deletes the key rather than writing a zero — the rule `type:` and a module's
 `status:` already follow. It is patched into the running engine rather than reloaded, like every
@@ -508,12 +506,12 @@ writes a map and a point in one go, which is what makes the gesture whole.
 
 ## Solo is PROJECT STATE
 
-`soloed:` at `project.yaml`'s root lists the soloed lanes — several at once — and the ENGINE
+`soloed:` at `project.k7x`'s root lists the soloed lanes — several at once — and the ENGINE
 resolves it across the mixer (any soloed track silences every non-soloed one; `applySoloMute`). The
 compiler folds a group's entry onto its members.
 
 ONE list rather than a derivation: bypassing every other lane would rewrite N files to say one
-fact, could not hold two solos at once, and would read in `graph.yaml` as a wall of mutes nobody
+fact, could not hold two solos at once, and would read in `graph.k7x` as a wall of mutes nobody
 wrote. Turning the last solo off deletes the key — absent means what it always means here, the
 default.
 
@@ -649,14 +647,14 @@ the two refusals worth reporting: a name a surface points at, and a destination 
 leave the replacement standing, which is the right trade — the node plays the new module either
 way, and only its label is stale.
 
-## `node bypass` — graph.yaml, and one cheap call
+## `node bypass` — graph.k7x, and one cheap call
 
-The module's name goes into `graph.yaml`'s `bypassed` list, not into the module file: a module's
+The module's name goes into `graph.k7x`'s `bypassed` list, not into the module file: a module's
 own file is what it IS, and being switched off is where it sits.
 
-It reads `graph.yaml` alone rather than `loadGraph`. The only question is which chain holds this
+It reads `graph.k7x` alone rather than `loadGraph`. The only question is which chain holds this
 module and whether it is on, and that is one file; `loadGraph` also reads every module, clip,
-sequence and curve in the song — 220 ms on a real project, spent to answer a question `graph.yaml`
+sequence and curve in the song — 220 ms on a real project, spent to answer a question `graph.k7x`
 already answers in one. Still the DERIVED chains rather than the compiled doc, so a module that is
 an io node or names nothing on disk is found too: bypass is the one verb that still works on a
 dangling reference. A module belongs to exactly one chain — it is named once in the file — so there
@@ -667,7 +665,7 @@ and for the same reason: a reload recompiles the whole song (another ~230 ms) to
 boolean. The engine treats an enabled-flip as a live `setEnabled` on the plugin, never a rebuild,
 so the diff is exactly one cheap call. An io module or a dangling step has no plugin in the
 compiled doc and nothing to diff, so those fall back to the full reload — which is what makes their
-`graph.yaml` edit take effect at all.
+`graph.k7x` edit take effect at all.
 
 Beware the polarity: `bypass` is already the state wanted and `setModuleBypass` takes the state
 wanted. Negating it writes the opposite of what the log line reports, so toggling an active module
@@ -712,7 +710,7 @@ apart without quoting.
 `none` for the curve takes the binding off — the same word `node param` uses for a value it
 removes, rather than a second verb whose only job is to undo this one.
 
-`curve new <name>` scaffolds `curves/<name>.yaml` as an LFO, the one shape with defaults worth
+`curve new <name>` scaffolds `curves/<name>.k7x` as an LFO, the one shape with defaults worth
 having (see `createCurveFile`). Binding it is a separate step: a module's `automation:` names the
 curve, so the curve has to exist first.
 
@@ -741,9 +739,9 @@ verb writes into the workspace's `_modules/`: making a module is a decision some
 side effect of adding a node.
 
 `node new <category>/<name> <node-name> [x,y]` writes one USE of an existing module, as
-`nodes/<node>.yaml`, AND its place in the graph. It names what it uses with `extends` and states
+`nodes/<node>.k7x`, AND its place in the graph. It names what it uses with `extends` and states
 only what it changes; chains name it by its FILENAME alone. The placing is not a convenience: a node
-file with no entry in `graph.yaml` is loaded and drawn NOWHERE — the graph's blocks come off the
+file with no entry in `graph.k7x` is loaded and drawn NOWHERE — the graph's blocks come off the
 chains, so a node created without one exists on disk and is on no screen. Every node is in the
 graph, and `modules: { x: [] }` is what says so. Unnamed, it gets `<module>_<n>` with no lane prefix
 — a node born here is wired to nothing, so there is no run for it to be named after yet. The `+` on
@@ -764,7 +762,7 @@ library's `k7-rack` being the case that needs it: the rack builder's kit is a no
 local shim extending it would be a second file standing for the same sampler. The ref must resolve.
 
 **io is the one category where the node IS the module.** `node new io/IN <name> [x,y]` writes
-`modules/io/<name>/module.yaml` — no `nodes/` file, the graph naming the module bare — with the role
+`modules/io/<name>/module.k7x` — no `nodes/` file, the graph naming the module bare — with the role
 the canonical arg spells: `IN` the interface input, `CAM` the camera, `FILE` the file source. A
 second input is `node new io/IN IN2`: the NAME is the node's, the ROLE the arg's. OUT and CUE are
 refused — MIX, OUT, CUE, RENDER and VIDEO_OUT are built into every graph and take no node — and so
@@ -780,7 +778,7 @@ fixable rather than quiet.
 
 `node insert <before> <after> <node> [x,y]` splices a node that EXISTS into an arrow. Creating is
 `module new`'s and `node new`'s; this WIRES, which is what keeps the two acts tellable apart. The
-arrow is validated from `graph.yaml` alone, and a COLD module is refused here rather than halfway
+arrow is validated from `graph.k7x` alone, and a COLD module is refused here rather than halfway
 through: it works only on audio already on disk, so where it sits is the question.
 
 Its birthplace follows the same rule as `node new`, with a better answer available: the trailing
@@ -834,7 +832,7 @@ speaks again on the next draw. Deliberately the ONLY reorganizing operation — 
 card where it stands (the renderer holds them), so the picture moves exactly when somebody asks it
 to.
 
-`graph move <node> <x> <y>` pins a node where a drag put it, into `graph.yaml`'s `positions:`. The
+`graph move <node> <x> <y>` pins a node where a drag put it, into `graph.k7x`'s `positions:`. The
 layout only places what has no pin, so this is the one write behind "modules stay where you moved
 them"; `auto` hands the node back. Cosmetic on purpose — nothing about the signal reads it — which
 is why a bad node name is still refused: a pin nothing can ever match would sit in the file for
@@ -867,7 +865,7 @@ would record silence.
 
 ## `transport metronome volume`
 
-A PROJECT setting like the flag beside it, so it rewrites `settings.yaml` and re-sends; the engine
+A PROJECT setting like the flag beside it, so it rewrites `settings.k7x` and re-sends; the engine
 reads it off the compiled document and never off a live control.
 
 The floor is 0.2 and it is not this command's invention: Tracktion clamps its click gain to 0.2..1,

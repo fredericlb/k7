@@ -88,7 +88,7 @@ the same reason.
 
 A module is a FOLDER holding a definition, so there is nothing useful "New folder…" could do
 here — it would make a folder the loader does not recognise and a row that opens no builder.
-This writes `<root>/<type>/<name>/module.yaml`, and the builder takes it from there.
+This writes `<root>/<type>/<name>/module.k7x`, and the builder takes it from there.
 
 `root` is a library path the caller was GIVEN (`/module-libraries` answered it), never one it
 built: the same rule the module builder's store follows, and what keeps a library's
@@ -105,10 +105,14 @@ A sync that fails is not a project that refuses: the song opens, and every `@k7-
 does not resolve reports itself missing, which is what the graph already draws a `?` for. The
 failure is logged and swallowed, and the Libraries page shows it on the library's row.
 
-The open then writes the workspace's `_library-pins.yaml` if it has none (`ensureLibraryPins`):
+The open then writes the workspace's `_library-pins.k7x` if it has none (`ensureLibraryPins`):
 version 1 of each library, which is what a workspace from before versions already hears, or the
 draft for an admin. `POST /workspaces` writes it too, at the newest version this k7 runs. After
 that, only an upgrade rewrites it (`../../../docs/library-versions-plan.md`).
+
+A workspace that still holds a `_library-pins.yaml` keeps those pins: the open writes them as
+`_library-pins.k7x` and removes the `.yaml` only once the new file reads back as the same pins
+(`packages/file-service/src/legacyUpgrade.ts`); a copy that differs is taken back and the `.yaml` is still read.
 
 ## `POST /project/create` takes an ARCHETYPE, not a mode
 
@@ -299,7 +303,7 @@ starts and prewarms again when it stops. Sidecars already written stay written, 
 costs only what was in flight.
 
 On `/waveform` itself: `whole=1` asks for the source's full duration rather than the
-placement's span — what a `clips/*.yaml` shows. `sensitivity` re-detects the source's
+placement's span — what a `clips/*.k7x` shows. `sensitivity` re-detects the source's
 transients at that threshold and REMEMBERS it, because it is written into the sidecar; absent,
 the source keeps whichever it was last built with. Bounded, because 0 makes every bucket an
 onset and a large value makes none, so neither end is a useful thing to ask for.

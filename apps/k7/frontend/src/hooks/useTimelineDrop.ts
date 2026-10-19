@@ -1,5 +1,5 @@
 // useTimelineDrop.ts — files dragged off the desktop onto the timeline: the bytes into `clips/`,
-// one `clips/<id>.yaml` declaring each, then `event add` / `picture add` to put them where the
+// one `clips/<id>.k7x` declaring each, then `event add` / `picture add` to put them where the
 // pointer was. The PLAN is timelineDrop.ts's; this is the three round trips it takes, in the one
 // order that works — nothing is placed before everything it names is on disk. See
 // ../../docs/timeline.md.

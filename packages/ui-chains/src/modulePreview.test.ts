@@ -128,20 +128,20 @@ describe("the grid the card draws", () => {
 describe("reading a module's type folder", () => {
   it("takes the segment after modules/", () => {
     expect(moduleCategoryOf("modules/instruments/synth")).toBe("instruments");
-    expect(moduleCategoryOf("modules/audio/reverb/module.yaml")).toBe("audio");
+    expect(moduleCategoryOf("modules/audio/reverb/module.k7x")).toBe("audio");
   });
 
   it("reads a shared library, one folder deeper", () => {
-    expect(
-      moduleCategoryOf("_modules/audio/delay/tape-delay/module.yaml"),
-    ).toBe("audio");
+    expect(moduleCategoryOf("_modules/audio/delay/tape-delay/module.k7x")).toBe(
+      "audio",
+    );
   });
 
   it("reads one behind a project prefix, with backslashes", () => {
     // What k7' file tree hands over on Windows in a multi-project workspace.
     expect(
       moduleCategoryOf(
-        "LEMO - DANSE\\modules\\instruments\\drum_1\\module.yaml",
+        "LEMO - DANSE\\modules\\instruments\\drum_1\\module.k7x",
       ),
     ).toBe("instruments");
   });

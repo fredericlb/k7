@@ -223,7 +223,7 @@ therefore the project: the chains, the `sidechainFrom: deckB`, and the crossfade
 by the compiler** — 768 bytes for `example.k7`.
 
 Direct consequence: the crossfader does not move two levels, it sets `Mix` on `deckA:crossfade` —
-the mediatek's module, through the binding declared in `views/mix.yaml`. Nothing on that path is
+the mediatek's module, through the binding declared in `views/mix.k7x`. Nothing on that path is
 hard-wired.
 
 `withDecks` touches **only** the clips of tracks carrying a loaded deck. A plugin, a send, an

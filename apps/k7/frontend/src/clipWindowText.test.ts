@@ -1,7 +1,8 @@
-// Reading and REWRITING a clip file's window from the buffer's text — what dragging the band's
+// Reading and REWRITING a clip file's window from the buffer's k7x text — what dragging the band's
 // edges in the waveform commits. The load-bearing rule is the SPELLING: a number is seconds and a
 // timecode is musical, and a drag must not convert one into the other behind your back.
 
+import { parse } from "@studio/k7x/document";
 import { describe, expect, it } from "vitest";
 import {
   clipWindowBand,
@@ -13,14 +14,9 @@ import {
 const G = { tempo: 110, num: 4, den: 4 };
 const BAR = 240 / 110;
 
-const FILE = `source: clips/break.wav
-warp:
-  algorithm: slice
-  markers:
-    - - 0
-      - 0
-    - - 4
-      - 1.9
+const FILE = `// the break
+source("clips/break.wav")
+warp({ algorithm: "slice", markers: [[0, 0], [4, 1.9]] })
 `;
 
 describe("reading the window", () => {
@@ -29,31 +25,31 @@ describe("reading the window", () => {
   });
 
   it("reads a window written in seconds", () => {
-    const band = clipWindowBand(`${FILE}from: 1.32\nto: 4.36\n`, G);
+    const band = clipWindowBand(`${FILE}from(1.32)\nto(4.36)\n`, G);
     expect(band).toEqual([{ symbol: "clip", from: 1.32, to: 4.36 }]);
   });
 
   it("reads one written as a timecode, at the project's tempo", () => {
-    const band = clipWindowBand(`${FILE}to: "3:1"\n`, G);
+    const band = clipWindowBand(`${FILE}to("3:1")\n`, G);
     expect(band?.[0]?.from).toBe(0);
     expect(band?.[0]?.to).toBeCloseTo(2 * BAR, 9);
   });
 
   it("an unwritten `to` is the file's end, which only the view can place", () => {
-    expect(clipWindowBand(`${FILE}from: 1.5\n`, G)?.[0]?.to).toBe(
+    expect(clipWindowBand(`${FILE}from(1.5)\n`, G)?.[0]?.to).toBe(
       Number.POSITIVE_INFINITY,
     );
   });
 
-  it("ignores a `from` nested inside another block", () => {
-    // A slice rack's symbols and a warp's markers live under indented keys; only a top-level edge is this clip's own.
-    const nested = `source: a.wav\nslices:\n  x: { from: 9, to: 10 }\n`;
+  it("ignores a `from` nested inside another value", () => {
+    const nested = 'source("a.wav")\nslices({ x: { from: 9, to: 10 } })\n';
     expect(scanClipWindow(nested)).toEqual({});
     expect(clipWindowBand(nested, G)).toBeUndefined();
   });
 
-  it("draws nothing for a half-typed timecode rather than jumping about", () => {
-    expect(clipWindowBand(`${FILE}to: "3:\n`, G)).toBeUndefined();
+  it("draws nothing for a text that does not read rather than jumping about", () => {
+    expect(clipWindowBand(`${FILE}to("3:\n`, G)).toBeUndefined();
+    expect(clipWindowBand(`${FILE}to("3:")\n`, G)).toBeUndefined();
   });
 
   it("offers HOLLOW edges on an untrimmed clip when the buffer can be edited", () => {
@@ -69,7 +65,7 @@ describe("reading the window", () => {
   });
 
   it("a real window is never hollow, editable or not", () => {
-    expect(clipWindowBand(`${FILE}from: 1\n`, G, true)?.[0]?.hollow).toBe(
+    expect(clipWindowBand(`${FILE}from(1)\n`, G, true)?.[0]?.hollow).toBe(
       undefined,
     );
   });
@@ -77,21 +73,18 @@ describe("reading the window", () => {
 
 describe("writing a dragged edge", () => {
   it("keeps SECONDS as seconds", () => {
-    const out = setClipWindowText(`${FILE}from: 1.32\nto: 4.36\n`, 2, 5, G);
-    expect(out).toContain("from: 2");
-    expect(out).toContain("to: 5");
-    expect(out).not.toContain('"');
+    const out = setClipWindowText(`${FILE}from(1.32)\nto(4.36)\n`, 2, 5, G);
+    expect(parse(out)).toMatchObject({ from: 2, to: 5 });
   });
 
-  it("keeps a TIMECODE as a timecode, quoted, at the same position", () => {
+  it("keeps a TIMECODE as a timecode, at the same position", () => {
     // The whole point: this edge was pinned to a bar and stays pinned to one, so a tempo change still moves it.
-    const out = setClipWindowText(`${FILE}to: "3:1"\n`, 0, 3 * BAR, G);
-    expect(out).toContain('to: "4:1"');
-    expect(out).not.toMatch(/to: [0-9]/);
+    const out = setClipWindowText(`${FILE}to("3:1")\n`, 0, 3 * BAR, G);
+    expect(parse(out).to).toBe("4:1");
   });
 
   it("round-trips a timecode edge that did not move", () => {
-    const before = `${FILE}from: "2:1"\nto: "3:1"\n`;
+    const before = `${FILE}from("2:1")\nto("3:1")\n`;
     const band = clipWindowBand(before, G);
     const after = setClipWindowText(
       before,
@@ -104,50 +97,45 @@ describe("writing a dragged edge", () => {
 
   it("writes seconds for an edge that was not there — there is no intent to keep", () => {
     const out = setClipWindowText(FILE, 1.5, 4, G);
-    expect(out).toContain("\nfrom: 1.5\n");
-    expect(out).toContain("\nto: 4\n");
-    // Appended at the END, past the nested markers, so both are top-level keys.
-    expect(out.indexOf("from:")).toBeGreaterThan(out.indexOf("markers:"));
+    expect(parse(out)).toMatchObject({ from: 1.5, to: 4 });
+    expect(out).toContain("\nfrom(1.5)\n");
   });
 
   it("DELETES `from` when it is dragged back to the start", () => {
     // Absent already means the material's start; a written 0 makes 'not trimmed' and 'trimmed to the beginning' read alike.
-    const out = setClipWindowText(`${FILE}from: 1.32\nto: 4.36\n`, 0, 4.36, G);
-    expect(out).not.toContain("from:");
-    expect(out).toContain("to: 4.36");
+    const out = setClipWindowText(`${FILE}from(1.32)\nto(4.36)\n`, 0, 4.36, G);
+    expect(parse(out).from).toBeUndefined();
+    expect(parse(out).to).toBe(4.36);
   });
 
   it("leaves `to` out when the edge is the file's end", () => {
     const out = setClipWindowText(
-      `${FILE}from: 1\nto: 4\n`,
+      `${FILE}from(1)\nto(4)\n`,
       2,
       Number.POSITIVE_INFINITY,
       G,
     );
-    expect(out).toContain("from: 2");
-    expect(out).not.toContain("to:");
+    expect(parse(out).from).toBe(2);
+    expect(parse(out).to).toBeUndefined();
   });
 
   it("touches nothing else in the file", () => {
-    const out = setClipWindowText(`${FILE}from: 1.32\nto: 4.36\n`, 2, 5, G);
-    expect(out).toContain("source: clips/break.wav");
-    expect(out).toContain("algorithm: slice");
-    expect(out).toContain("      - 1.9");
+    const out = setClipWindowText(`${FILE}from(1.32)\nto(4.36)\n`, 2, 5, G);
+    expect(out.startsWith(FILE)).toBe(true);
   });
 
   it("keeps a trailing comment on the line it rewrites", () => {
     const out = setClipWindowText(
-      `${FILE}from: 1.32  # the count-in\nto: 4.36\n`,
+      `${FILE}from(1.32) // the count-in\nto(4.36)\n`,
       2,
       4.36,
       G,
     );
-    expect(out).toContain("from: 2  # the count-in");
+    expect(out).toContain("from(2) // the count-in");
   });
 
   it("commits at 0.1 ms, which is finer than a sample", () => {
-    const out = setClipWindowText(FILE, 0, 1 / 3, G);
-    expect(out).toContain("to: 0.3333");
+    expect(parse(setClipWindowText(FILE, 0, 1 / 3, G)).to).toBe(0.3333);
   });
 
   it("writes nothing at all when a hollow band is released unmoved", () => {
@@ -159,7 +147,12 @@ describe("writing a dragged edge", () => {
 
   it("turns a hollow band into a real window once an edge moves", () => {
     const out = setClipWindowText(FILE, 0, 2.5, G);
-    expect(out).toContain("\nto: 2.5\n");
-    expect(out).not.toContain("from:");
+    expect(parse(out).to).toBe(2.5);
+    expect(parse(out).from).toBeUndefined();
+  });
+
+  it("leaves a text that does not read as it is", () => {
+    const broken = `${FILE}to(\n`;
+    expect(setClipWindowText(broken, 1, 2, G)).toBe(broken);
   });
 });

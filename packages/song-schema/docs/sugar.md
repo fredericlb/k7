@@ -26,7 +26,10 @@ added on the graph — writes the full data in its place, `notes([t(0).d(1).k(60
 The alternative, writing the short form back, only works for what the short form can say: notes on
 a grid at one velocity, segments that line up into runs. A roll edits notes off the grid and one at
 a time, so a rule that kept the short form would have to give up on most edits anyway, and an edit
-that half kept it would be worse than either. The bridge applies the rule (`packages/k7x/docs/bridge.md`).
+that half kept it would be worse than either. The rule has one implementation, `applySugared` in
+`packages/k7x/src/sugared.ts`, re-exported by `src/yaml/sugar.ts`: it lives in k7x because it is a rule
+about documents rather than about any kind of file, and k7x cannot depend on this package. Song's
+k7x door applies it to every edit of a file with short forms (`packages/song/docs/k7xFiles.md`).
 
 For the graph the rule is stricter still: once a segment changes, `runs` goes entirely. Left in
 place beside a full `modules`, a run would put back a link the edit had just removed.

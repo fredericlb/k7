@@ -11,7 +11,7 @@ import {
   readChainProject,
 } from "@studio/song/chainProject";
 import { loadModuleRefs } from "@studio/song/loader";
-import { wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsWriteText } from "@studio/song/yaml/workspaceDoc";
 import { formatChain, parseChain } from "@studio/song-schema/yaml/chainFile";
 import {
   CHAIN_SINKS,
@@ -66,7 +66,7 @@ function write(
       `the edit would make ${chain} unreadable — ${read.issues[0]?.message ?? ""}`,
     );
   const path = chainFilePath(dir, chain);
-  wsWrite(path, text);
+  wsWriteText(path, text);
   return relative(dir, path);
 }
 

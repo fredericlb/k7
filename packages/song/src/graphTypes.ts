@@ -34,7 +34,7 @@ export interface Track {
   name: string;
   type: "single" | "group" | "strudel";
   color?: string; // authored display colour (hex, e.g. "#ff5706"); absent when unset
-  // Silenced. Read off `graph.yaml`'s `bypassed:` — the lane file carries no `mute:` of its own.
+  // Silenced. Read off `graph.k7x`'s `bypassed:` — the lane file carries no `mute:` of its own.
   mute: boolean;
   // Always false: solo is a session state the surface derives by bypassing every OTHER lane.
   solo: boolean;
@@ -247,7 +247,7 @@ export interface GraphDoc {
   chains: Record<string, Chain>;
   // The tracks the song actually plays: a DISABLED track is absent, and so is any chain sourced from one.
   tracks: Record<string, Track>;
-  // Video tracks (video_tracks/<id>.yaml), kept SEPARATE from `tracks` — see docs/graphModel.md.
+  // Video tracks (video_tracks/<id>.k7x), kept SEPARATE from `tracks` — see docs/graphModel.md.
   videoTracks: Record<string, VideoTrack>;
   // The ids left out for being disabled, so validate() can tell "you disabled this" from "this doesn't exist".
   disabledTracks: string[];
@@ -255,7 +255,7 @@ export interface GraphDoc {
   modules: Record<string, Module>;
   // The same modules keyed by REF — the `extends` vocabulary, resolved like `modules` (see moduleResolve.ts).
   moduleRefs: Record<string, Module>;
-  // graph.yaml's `positions:`, verbatim; nothing about the SIGNAL reads it, it rides through to the renderer.
+  // graph.k7x's `positions`, verbatim; nothing about the SIGNAL reads it, it rides through to the renderer.
   positions?: Record<string, { x: number; y: number }>;
   // The `assemblies/` folder, RESOLVED — a drawing fact the compiler never reads, see docs/assemblies.md.
   assemblies: Record<string, Assembly>;

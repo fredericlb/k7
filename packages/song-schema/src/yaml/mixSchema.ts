@@ -1,4 +1,4 @@
-// mixSchema.ts — `mix.yaml`'s shape, in Zod: the desk's CUE SHEET, song by song. Where this
+// mixSchema.ts — `mix.k7x`'s shape, in Zod: the desk's CUE SHEET, song by song. Where this
 // set drops the needle, as médiathèque REFS and never as paths.
 // Full rationale: docs/mixFile.md.
 

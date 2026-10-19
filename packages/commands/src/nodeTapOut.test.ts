@@ -1,32 +1,23 @@
 // `node tap out` — a rack node's tap sent to a subchain of its chain file, written on the node's item there,
 // refused toward anything that is not one of that file's subchains (packages/song/docs/racks.md).
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadProject } from "@studio/song/project";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
 
 let root: string;
 let dir: string;
-const put = (rel: string, text: string): void => {
-  mkdirSync(join(dir, rel, ".."), { recursive: true });
-  writeFileSync(join(dir, rel), text, "utf8");
-};
+const put = (rel: string, value: Record<string, unknown>): void =>
+  writeDoc(join(dir, rel), value);
 const drums = () =>
   (
-    parse(readFileSync(join(dir, "chains", "kit.yaml"), "utf8"), {
-      version: "1.2",
-    }) as {
+    wsData(join(dir, "chains", "kit.k7x")) as {
       steps: { id?: string; tap_outs?: Record<string, string> }[];
     }
   ).steps.find((s) => s.id === "drums");
@@ -39,25 +30,36 @@ const run = async (line: string) => {
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "tap-out-"));
   dir = join(root, "song.k7");
-  put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
-  put("tracks/kit.yaml", 'extends: "@meta/track"\nevents: []\n');
-  for (const f of ["kick.wav", "snare.wav"]) put(f, "");
-  put(
-    "chains/kit.yaml",
-    [
-      "start: true",
-      "steps:",
-      "  - { id: lane-kit, track: kit }",
-      "  - { id: drums, type: rack, rack: { symbols: { Kick: { note: 36, clip: kick.wav }, Snare: { note: 38, clip: snare.wav } } } }",
-      "  - to: [ { chain: MIX } ]",
-      "subchains:",
-      "  - id: snare-fx",
-      "    steps:",
-      "      - { id: snare-verb, plugin: { type: internal, name: Chorus } }",
-      "      - to: [ { chain: MIX } ]",
-      "",
-    ].join("\n"),
-  );
+  put("project.k7x", { project: { name: "t", tempo: 120 } });
+  put("tracks/kit.k7x", { extends: "@meta/track", events: [] });
+  mkdirSync(dir, { recursive: true });
+  for (const f of ["kick.wav", "snare.wav"]) writeFileSync(join(dir, f), "");
+  put("chains/kit.k7x", {
+    start: true,
+    steps: [
+      { id: "lane-kit", track: "kit" },
+      {
+        id: "drums",
+        type: "rack",
+        rack: {
+          symbols: {
+            Kick: { note: 36, clip: "kick.wav" },
+            Snare: { note: 38, clip: "snare.wav" },
+          },
+        },
+      },
+      { to: [{ chain: "MIX" }] },
+    ],
+    subchains: [
+      {
+        id: "snare-fx",
+        steps: [
+          { id: "snare-verb", plugin: { type: "internal", name: "Chorus" } },
+          { to: [{ chain: "MIX" }] },
+        ],
+      },
+    ],
+  });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 

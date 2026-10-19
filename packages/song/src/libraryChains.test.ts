@@ -16,11 +16,11 @@ import {
   libraryChainDirs,
   readTemplate,
 } from "./libraryChains.ts";
-import { librariesFixture } from "./testSupport";
+import { librariesFixture, writeDoc } from "./testSupport";
 
 let root: string;
 
-/** A chain is a FOLDER holding a graph file; `nodes` are the yaml files beside it. */
+/** A chain is a FOLDER holding a graph file; `nodes` are the k7x files beside it. */
 function chain(
   path: string,
   nodes: string[] = [],
@@ -31,10 +31,8 @@ function chain(
     "chains",
     ...path.split("/"),
   );
-  mkdirSync(at, { recursive: true });
-  writeFileSync(join(at, "graph.yaml"), "modules: {}\n");
-  if (nodes.length) mkdirSync(join(at, "nodes"), { recursive: true });
-  for (const n of nodes) writeFileSync(join(at, "nodes", n), "params: {}\n");
+  writeDoc(join(at, "graph.k7x"), { modules: {} });
+  for (const n of nodes) writeDoc(join(at, "nodes", n), { params: {} });
   return at;
 }
 
@@ -67,19 +65,19 @@ describe("libraryChainDirs", () => {
   });
 
   it("lists a chain's node files, and none of anything else beside them", () => {
-    const at = chain("di", ["amp.yaml", "cab.yml"]);
+    const at = chain("di", ["amp.k7x", "cab.k7x"]);
     writeFileSync(join(at, "nodes", "readme.md"), "not a node\n");
+    writeFileSync(join(at, "nodes", "old.yaml"), "params: {}\n");
     const [found] = libraryChainDirs();
-    expect(found.nodes).toEqual(["amp.yaml", "cab.yml"]);
+    expect(found.nodes).toEqual(["amp.k7x", "cab.k7x"]);
     expect(found.at).toBe(at);
     expect(found.layout).toBe("folder");
   });
 
   it("stops at the graph file rather than descending into a chain", () => {
-    const at = chain("di", ["amp.yaml"]);
+    const at = chain("di", ["amp.k7x"]);
     // A folder INSIDE a chain is part of it; walking on would file `di/presets` as a chain of its own.
-    mkdirSync(join(at, "presets"), { recursive: true });
-    writeFileSync(join(at, "presets", "graph.yaml"), "modules: {}\n");
+    writeDoc(join(at, "presets", "graph.k7x"), { modules: {} });
     expect(libraryChainDirs().map((c) => c.ref)).toEqual(["@k7-core/di"]);
   });
 
@@ -124,22 +122,23 @@ describe("chainRefParts / findLibraryChain", () => {
   });
 });
 
-/** A chain FILE `chains/<path>.yaml` in `library`, its text as given. */
+/** A chain FILE `chains/<path>.k7x` in `library`, its text as given. */
 function chainFile(path: string, text: string, library = "k7-core"): string {
-  const at = join(librariesFixture(root, library), "chains", `${path}.yaml`);
+  const at = join(librariesFixture(root, library), "chains", `${path}.k7x`);
   mkdirSync(join(at, ".."), { recursive: true });
   writeFileSync(at, text);
   return at;
 }
 
-const TWO_STEPS = `steps:
-  - { id: n1, extends: "@k7-core/audio/comp", params: { Ratio: 0.5 } }
-  - { id: n2, extends: "@k7-core/audio/eq", bypass: true }
-  - to: [ { chain: "@out" } ]
+const TWO_STEPS = `steps([
+  id("n1").extends("@k7-core/audio/comp").params({ Ratio: 0.5 }),
+  id("n2").extends("@k7-core/audio/eq").bypass(),
+  to([chain("@out")]),
+])
 `;
 
 describe("chain files", () => {
-  it("files a `<path>.yaml` as the chain `<path>`, beside folder chains", () => {
+  it("files a `<path>.k7x` as the chain `<path>`, beside folder chains", () => {
     chainFile("vocals/warm", TWO_STEPS);
     chain("di");
     expect(
@@ -195,30 +194,30 @@ describe("chain files", () => {
       chainFile("x", text);
       return readTemplate(libraryChainDirs()[0]);
     };
-    expect(read("start: true\nsteps:\n  - { id: a, extends: x }\n")).toThrow(
+    expect(read('start()\nsteps([id("a").extends("x")])\n')).toThrow(
       /no `start`/,
     );
     expect(
       read(
-        "steps:\n  - { id: a, extends: x }\n  - [ { id: b, extends: x }, { id: c, extends: x } ]\n",
+        'steps([id("a").extends("x"), [id("b").extends("x"), id("c").extends("x")]])\n',
       ),
     ).toThrow(/side by side/);
-    expect(
-      read("steps:\n  - { id: a, extends: x }\n  - to: [ { chain: MIX } ]\n"),
-    ).toThrow(/links only to "@out"/);
-    expect(read("steps: [ 3 ]\n")).toThrow();
+    expect(read('steps([id("a").extends("x"), to([chain("MIX")])])\n')).toThrow(
+      /links only to "@out"/,
+    );
+    expect(read("steps([3])\n")).toThrow();
   });
 });
 
 describe("folder chains, read", () => {
   it("reads the derived steps and names a node file that is not there", () => {
-    const at = chain("di", ["amp.yaml"]);
-    writeFileSync(
-      join(at, "graph.yaml"),
-      'modules:\n  "@in": [ amp ]\n  amp: [ cab ]\n  cab: [ "@out" ]\nbypassed: [ amp ]\n',
-    );
+    const at = chain("di", ["amp.k7x"]);
+    writeDoc(join(at, "graph.k7x"), {
+      modules: { "@in": ["amp"], amp: ["cab"], cab: ["@out"] },
+      bypassed: ["amp"],
+    });
     const { steps, missing } = readTemplate(libraryChainDirs()[0]);
     expect(steps.map((s) => [s.name, s.bypass])).toEqual([["amp", true]]);
-    expect(missing).toEqual(["cab (no nodes/cab.yaml)"]);
+    expect(missing).toEqual(["cab (no nodes/cab.k7x)"]);
   });
 });

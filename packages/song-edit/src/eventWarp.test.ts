@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parse } from "@studio/k7x/document";
 import { parsePosition } from "@studio/song-schema/timecode";
 import { afterEach, describe, expect, it } from "vitest";
 import { setTrackPlacementDisabled, setTrackPlacementWarp } from "./trackMix";
@@ -20,18 +21,21 @@ const dirs: string[] = [];
 const trackDir = (body: string): string => {
   const dir = mkdtempSync(join(tmpdir(), "td-warp-"));
   mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(join(dir, "nodes", "drums.yaml"), body, "utf8");
+  writeFileSync(join(dir, "nodes", "drums.k7x"), body, "utf8");
   dirs.push(dir);
   return dir;
 };
 const laneText = (dir: string) =>
-  readFileSync(join(dir, "nodes", "drums.yaml"), "utf8");
+  readFileSync(join(dir, "nodes", "drums.k7x"), "utf8");
 
-const LANE = `extends: "@meta/track"
-events:
-  - { ref: kick, start: "1:1" }
-  - { ref: break, start: "2:1", loop: 2 }
+const LANE = `extends("@meta/track")
+events([
+  ref("kick").start("1:1"),
+  ref("break").start("2:1").loop(2),
+])
 `;
+const events = (dir: string) =>
+  parse(laneText(dir)).events as Record<string, unknown>[];
 
 afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
@@ -45,10 +49,10 @@ describe("setTrackPlacementWarp", () => {
     expect(
       setTrackPlacementWarp(dir, "drums", at("2:1"), NUM, DEN, false),
     ).toBe(true);
-    const text = laneText(dir);
-    expect(text).toMatch(/ref: break[^\n]*warp: false/);
-    expect(text).toMatch(/ref: kick[^\n]*\}/);
-    expect(text.match(/warp:/g)).toHaveLength(1);
+    expect(events(dir)).toEqual([
+      { ref: "kick", start: "1:1" },
+      { ref: "break", start: "2:1", loop: 2, warp: false },
+    ]);
   });
 
   it("DELETES the field when warping is turned back on", () => {
@@ -62,8 +66,7 @@ describe("setTrackPlacementWarp", () => {
   it("leaves the event's other fields alone", () => {
     const dir = trackDir(LANE);
     setTrackPlacementWarp(dir, "drums", at("2:1"), NUM, DEN, false);
-    expect(laneText(dir)).toContain("loop: 2");
-    expect(laneText(dir)).toContain('start: "2:1"');
+    expect(events(dir)[1]).toMatchObject({ start: "2:1", loop: 2 });
   });
 
   it("says so when no event is there, rather than writing one", () => {
@@ -79,11 +82,14 @@ describe("setTrackPlacementWarp", () => {
     const dir = trackDir(LANE);
     setTrackPlacementWarp(dir, "drums", at("2:1"), NUM, DEN, false);
     setTrackPlacementDisabled(dir, "drums", at("2:1"), NUM, DEN, true);
-    expect(laneText(dir)).toMatch(/warp: false/);
-    expect(laneText(dir)).toMatch(/disabled: true/);
+    expect(events(dir)[1]).toMatchObject({ warp: false, disabled: true });
     // …and taking one back leaves the other standing.
     setTrackPlacementDisabled(dir, "drums", at("2:1"), NUM, DEN, false);
-    expect(laneText(dir)).toMatch(/warp: false/);
-    expect(laneText(dir)).not.toMatch(/disabled/);
+    expect(events(dir)[1]).toEqual({
+      ref: "break",
+      start: "2:1",
+      loop: 2,
+      warp: false,
+    });
   });
 });

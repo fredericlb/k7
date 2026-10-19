@@ -21,6 +21,8 @@
 		AA0000000000000000000112 /* faust-libs in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000207 /* faust-libs */; };
 		AA0000000000000000000113 /* page-scripts in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000208 /* page-scripts */; };
 		AA0000000000000000000114 /* cacert.pem in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000209 /* cacert.pem */; };
+		AA0000000000000000000115 /* k7x.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000210 /* k7x.xcframework */; };
+		AA0000000000000000000116 /* k7x.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000210 /* k7x.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -33,6 +35,7 @@
 				AA0000000000000000000106 /* NodeMobile.xcframework in Embed Frameworks */,
 				AA0000000000000000000107 /* k7runtime.xcframework in Embed Frameworks */,
 				AA0000000000000000000108 /* k7supervisor.xcframework in Embed Frameworks */,
+				AA0000000000000000000116 /* k7x.xcframework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -50,6 +53,7 @@
 		AA0000000000000000000207 /* faust-libs */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "resources/faust-libs"; sourceTree = "<group>"; };
 		AA0000000000000000000208 /* page-scripts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "resources/page-scripts"; sourceTree = "<group>"; };
 		AA0000000000000000000209 /* cacert.pem */ = {isa = PBXFileReference; lastKnownFileType = text; path = resources/cacert.pem; sourceTree = "<group>"; };
+		AA0000000000000000000210 /* k7x.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = frameworks/k7x.xcframework; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -84,6 +88,7 @@
 				AA0000000000000000000103 /* NodeMobile.xcframework in Frameworks */,
 				AA0000000000000000000104 /* k7runtime.xcframework in Frameworks */,
 				AA0000000000000000000105 /* k7supervisor.xcframework in Frameworks */,
+				AA0000000000000000000115 /* k7x.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -105,6 +110,7 @@
 				AA0000000000000000000201 /* NodeMobile.xcframework */,
 				AA0000000000000000000202 /* k7runtime.xcframework */,
 				AA0000000000000000000203 /* k7supervisor.xcframework */,
+				AA0000000000000000000210 /* k7x.xcframework */,
 				AA0000000000000000000204 /* public */,
 				AA0000000000000000000205 /* capacitor.config.json */,
 				AA0000000000000000000206 /* backend */,

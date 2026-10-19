@@ -1,30 +1,23 @@
 // `node stack` — the bottom `+`'s verb. The file work is @studio/song's chainStack.ts, tested there;
 // this holds what the VERB adds: the names `node new` gave, and the refusal outside a chain project.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
 
 let root: string;
 let dir: string;
-const put = (rel: string, text: string): void => {
-  mkdirSync(join(dir, rel, ".."), { recursive: true });
-  writeFileSync(join(dir, rel), text, "utf8");
-};
+const put = (rel: string, value: Record<string, unknown>): void =>
+  writeDoc(join(dir, rel), value);
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "node-stack-"));
   dir = join(root, "song.k7");
-  put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
+  put("project.k7x", { project: { name: "t", tempo: 120 } });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -36,24 +29,27 @@ const run = async (line: string) => {
 
 describe("node stack", () => {
   it("stacks a node by the name `node new` gave it", async () => {
-    put("tracks/gtr.yaml", 'extends: "@meta/track"\nevents: []\n');
-    put(
-      "chains/gtr.yaml",
-      'start: true\nsteps:\n  - { id: lane-gtr, track: gtr }\n  - { id: amp-1, extends: "@k7-core/audio/amp" }\n  - to: [ { chain: MIX } ]\n',
-    );
+    put("tracks/gtr.k7x", { extends: "@meta/track", events: [] });
+    put("chains/gtr.k7x", {
+      start: true,
+      steps: [
+        { id: "lane-gtr", track: "gtr" },
+        { id: "amp-1", extends: "@k7-core/audio/amp" },
+        { to: [{ chain: "MIX" }] },
+      ],
+    });
     // `node new` names the CHAIN; the node inside is an id.
-    put(
-      "chains/eq.yaml",
-      'steps:\n  - { id: eq-1, extends: "@k7-core/audio/eq" }\n',
-    );
+    put("chains/eq.k7x", {
+      steps: [{ id: "eq-1", extends: "@k7-core/audio/eq" }],
+    });
     const h = await run("node stack amp-1 eq");
     expect(h.lines.refuse).toEqual([]);
-    const gtr = parse(readFileSync(join(dir, "chains/gtr.yaml"), "utf8"));
+    const gtr = wsData(join(dir, "chains/gtr.k7x")) as { steps: unknown[] };
     expect(gtr.steps[1]).toEqual({ sub: "amp" });
   });
 
-  it("refuses a project kept as graph.yaml, which has no subchains", async () => {
-    put("graph.yaml", "modules: {}\n");
+  it("refuses a project kept as graph.k7x, which has no subchains", async () => {
+    put("graph.k7x", { modules: {} });
     const h = await run("node stack a b");
     expect(h.lines.refuse.join(" ")).toMatch(/only a chain project/);
   });

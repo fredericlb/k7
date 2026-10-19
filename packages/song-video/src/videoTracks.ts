@@ -83,7 +83,7 @@ export function videoPlacementToClip(
     };
   if (!clipsMap[ref])
     warnings?.push(
-      `${lane ? `${lane}: ` : ""}'${ref}' names no clip — add clips/${ref}.yaml, or this shot draws nothing`,
+      `${lane ? `${lane}: ` : ""}'${ref}' names no clip — add clips/${ref}.k7x, or this shot draws nothing`,
     );
   // A source outside the project's roots is no file at all (@studio/song docs/confine.md).
   const source = clipsMap[ref]?.source
@@ -188,7 +188,7 @@ export function compileVideoTracks(
   clipsMap: Record<string, RawClip>,
   /** The frame, so a lane STATING no rect can fill it — see docs/picture.md. */
   viewport: readonly [number, number] = [0, 0],
-  /** `project.yaml`'s `soloed:` — the SAME list audio reads, each compile filtering to its own lanes. */
+  /** `project.k7x`'s `soloed:` — the SAME list audio reads, each compile filtering to its own lanes. */
   soloed: readonly string[] = [],
   /** Non-fatal problems, pushed as they are found: a blank lane has to be able to say why. */
   warnings?: string[],
@@ -202,7 +202,7 @@ export function compileVideoTracks(
   for (const id of layers) {
     if (!known.has(id))
       errs.push(
-        `project.layers names '${id}', which is not a video track (add video_tracks/${id}.yaml, or remove it from layers)`,
+        `project.layers names '${id}', which is not a video track (add video_tracks/${id}.k7x, or remove it from layers)`,
       );
     if (listed.has(id))
       errs.push(`project.layers lists '${id}' more than once`);
@@ -234,7 +234,7 @@ export function compileVideoTracks(
       clips: (Array.isArray(t.events) ? t.events : []).map((p) =>
         videoPlacementToClip(dir, p, clipsMap, warnings, id),
       ),
-      // What a lane draws INSTEAD of placements comes off graph.yaml, and is folded in there.
+      // What a lane draws INSTEAD of placements comes off graph.k7x, and is folded in there.
       shapes: [],
     };
   });

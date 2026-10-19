@@ -4,19 +4,19 @@
 // nothing — everything is still on disk and still on screen. `node delete` does the same splice
 // and then removes the node: its file, its preset, its entry, its pin.
 //
-// The failure worth guarding against is the same one either way, and it is quiet: a graph.yaml
+// The failure worth guarding against is the same one either way, and it is quiet: a graph.k7x
 // naming a node with no file is what stops the project loading.
 
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  writeDoc,
+  writeLane,
+  writeModule,
+  writeNode,
+} from "@studio/song/testSupport";
+import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
@@ -32,40 +32,28 @@ const host = () =>
     reload: () => {},
   }) as never;
 
-const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
-const lane = (name: string) =>
-  writeFileSync(
-    join(dir, "nodes", `${name}.yaml`),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
+const chains = () => wsText(join(dir, "graph.k7x"));
+const graph = () =>
+  wsData(join(dir, "graph.k7x")) as {
+    modules: Record<string, string[]>;
+    bypassed?: string[];
+    positions?: Record<string, { x: number; y: number }>;
+  };
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-del-"));
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n",
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t", tempo: 120 } });
   // gtr -> amp -> OUT, with amp pinned and bypassed so both are visible after the two verbs.
-  writeFileSync(
-    join(dir, "graph.yaml"),
-    "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\nbypassed: [ amp ]\npositions:\n  amp: { x: 40, y: 60 }\n",
-    "utf8",
-  );
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  lane("gtr");
-  mkdirSync(join(dir, "modules", "audio", "amp"), { recursive: true });
-  writeFileSync(
-    join(dir, "modules", "audio", "amp", "module.yaml"),
-    "plugin:\n  type: internal\n  name: Chorus\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(dir, "nodes", "amp.yaml"),
-    'extends: "audio/amp"\n',
-    "utf8",
-  );
+  writeDoc(join(dir, "graph.k7x"), {
+    modules: { gtr: ["amp"], amp: ["OUT"] },
+    bypassed: ["amp"],
+    positions: { amp: { x: 40, y: 60 } },
+  });
+  writeLane(dir, "gtr", "track", { events: [] });
+  writeModule(dir, "audio", "amp", {
+    plugin: { type: "internal", name: "Chorus" },
+  });
+  writeNode(dir, "amp", { extends: "audio/amp" });
   logs.length = 0;
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -73,51 +61,51 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 describe("graph unlink", () => {
   it("leaves the node IN the graph, wired to nothing", async () => {
     await runCommand("graph unlink amp", host(), "cli");
-    const after = chains();
+    const after = graph();
     // The entry survives — a node with none is drawn nowhere, which reads as a delete.
-    expect(after).toMatch(/amp:\s*\[\s*\]/);
+    expect(after.modules.amp).toEqual([]);
     // …and what fed it now feeds what it fed.
-    expect(after).toMatch(/gtr:\s*\[\s*OUT\s*\]/);
+    expect(after.modules.gtr).toEqual(["OUT"]);
   });
 
   it("keeps its pin, so an unlinked node does not jump across the canvas", async () => {
     await runCommand("graph unlink amp", host(), "cli");
-    expect(chains()).toMatch(/amp:\s*\{[^}]*x:\s*40/);
+    expect(graph().positions?.amp).toEqual({ x: 40, y: 60 });
   });
 
   it("keeps its bypass — it is still a node, and still silenced", async () => {
     await runCommand("graph unlink amp", host(), "cli");
-    expect(chains()).toMatch(/bypassed:[\s\S]*amp/);
+    expect(graph().bypassed).toContain("amp");
   });
 
   it("touches no file", async () => {
     await runCommand("graph unlink amp", host(), "cli");
-    expect(existsSync(join(dir, "nodes", "amp.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "nodes", "amp.k7x"))).toBe(true);
   });
 });
 
 describe("node delete", () => {
   it("removes the file AND the entry, and rejoins the run", async () => {
     await runCommand("node delete amp", host(), "cli");
-    expect(existsSync(join(dir, "nodes", "amp.yaml"))).toBe(false);
-    const after = chains();
-    expect(after).not.toMatch(/^\s+amp:/m);
-    expect(after).toMatch(/gtr:\s*\[\s*OUT\s*\]/);
+    expect(existsSync(join(dir, "nodes", "amp.k7x"))).toBe(false);
+    const after = graph();
+    expect(after.modules).not.toHaveProperty("amp");
+    expect(after.modules.gtr).toEqual(["OUT"]);
   });
 
   it("takes its pin and its bypass with it", async () => {
     await runCommand("node delete amp", host(), "cli");
-    const after = chains();
+    const after = graph();
     // A pin or a bypass naming a node that is gone is a key nothing can read.
-    expect(after).not.toMatch(/positions:[\s\S]*amp/);
-    expect(after).not.toMatch(/bypassed:[\s\S]*amp/);
+    expect(after.positions ?? {}).not.toHaveProperty("amp");
+    expect(after.bypassed ?? []).not.toContain("amp");
   });
 
   it("leaves the MODULE alone — a node is one use of one", async () => {
     await runCommand("node delete amp", host(), "cli");
-    expect(
-      existsSync(join(dir, "modules", "audio", "amp", "module.yaml")),
-    ).toBe(true);
+    expect(existsSync(join(dir, "modules", "audio", "amp", "module.k7x"))).toBe(
+      true,
+    );
   });
 
   it("deletes the node's own preset when it has one", async () => {

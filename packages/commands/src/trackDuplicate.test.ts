@@ -2,18 +2,12 @@
 // of the chain. The empty form leaves the events behind; both must never point the new lane at
 // the old lane's effect instances, or editing one would edit the other.
 
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse as parseYaml } from "yaml";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
 
@@ -22,41 +16,31 @@ let dir: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-dup-"));
   dir = join(root, "song.k7");
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n",
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t", tempo: 120 } });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-const lane = (id: string, events: string): void =>
-  writeFileSync(
-    join(dir, "nodes", `${id}.yaml`),
-    `extends: "@meta/track"\ncolor: "#ff0000"\nevents:\n  - { ref: riff, start: "${events}" }\n`,
-    "utf8",
-  );
+const lane = (id: string, start: string): void =>
+  writeDoc(join(dir, "nodes", `${id}.k7x`), {
+    extends: "@meta/track",
+    color: "#ff0000",
+    events: [{ ref: "riff", start }],
+  });
 // A module lives at `@workspace` now — beside the project, in the workspace's own `_modules`.
-const module_ = (name: string, plugin: string): void => {
-  mkdirSync(join(root, "_modules", "audio", name), { recursive: true });
-  writeFileSync(
-    join(root, "_modules", "audio", name, "module.yaml"),
-    `plugin: { type: internal, name: ${plugin} }\n`,
-    "utf8",
-  );
-};
+const module_ = (name: string, plugin: string): void =>
+  writeDoc(join(root, "_modules", "audio", name, "module.k7x"), {
+    plugin: { type: "internal", name: plugin },
+  });
 const node = (id: string, ref: string): void =>
-  writeFileSync(
-    join(dir, "nodes", `${id}.yaml`),
-    `extends: "${ref}"\nparams:\n  Drive: 3\n`,
-    "utf8",
-  );
-const graph = (body: string): void =>
-  writeFileSync(join(dir, "graph.yaml"), body, "utf8");
+  writeDoc(join(dir, "nodes", `${id}.k7x`), {
+    extends: ref,
+    params: { Drive: 3 },
+  });
+const graph = (modules: Record<string, string[]>): void =>
+  writeDoc(join(dir, "graph.k7x"), { modules });
 
-const read = (rel: string): string => readFileSync(join(dir, rel), "utf8");
-const graphValue = () => parseYaml(read("graph.yaml"), { version: "1.2" });
+const data = (rel: string) => wsData(join(dir, rel));
+const graphModules = () => data("graph.k7x").modules as Record<string, unknown>;
 
 const run = async (line: string) => {
   const h = testHost({ songPath: dir });
@@ -69,15 +53,16 @@ describe("track duplicate", () => {
     lane("gtr", "1:1:1");
     module_("amp", "Amp");
     node("gtr_amp", "@workspace/audio/amp");
-    graph("modules:\n  gtr: [ gtr_amp ]\n  gtr_amp: [ MIX ]\n  MIX: [ OUT ]\n");
+    graph({ gtr: ["gtr_amp"], gtr_amp: ["MIX"], MIX: ["OUT"] });
 
     await run("track duplicate gtr");
 
-    expect(existsSync(join(dir, "nodes", "gtr-copy.yaml"))).toBe(true);
-    expect(read("nodes/gtr-copy.yaml")).toContain("ref: riff");
+    expect(data("nodes/gtr-copy.k7x").events).toEqual([
+      expect.objectContaining({ ref: "riff" }),
+    ]);
     // The chain is COPIED: the new lane feeds a fresh amp, never the original's.
-    expect(existsSync(join(dir, "nodes", "gtr-copy_amp_1.yaml"))).toBe(true);
-    expect(graphValue().modules).toMatchObject({
+    expect(existsSync(join(dir, "nodes", "gtr-copy_amp_1.k7x"))).toBe(true);
+    expect(graphModules()).toMatchObject({
       "gtr-copy": ["gtr-copy_amp_1"],
       "gtr-copy_amp_1": ["MIX"],
     });
@@ -87,27 +72,29 @@ describe("track duplicate", () => {
     lane("gtr", "2:1:1");
     module_("amp", "Amp");
     node("gtr_amp", "@workspace/audio/amp");
-    graph("modules:\n  gtr: [ gtr_amp ]\n  gtr_amp: [ MIX ]\n  MIX: [ OUT ]\n");
+    graph({ gtr: ["gtr_amp"], gtr_amp: ["MIX"], MIX: ["OUT"] });
 
     await run("track duplicate empty gtr");
 
-    expect(read("nodes/gtr-copy.yaml")).toContain("events: []");
-    expect(existsSync(join(dir, "nodes", "gtr-copy_amp_1.yaml"))).toBe(true);
+    expect(data("nodes/gtr-copy.k7x").events).toEqual([]);
+    expect(existsSync(join(dir, "nodes", "gtr-copy_amp_1.k7x"))).toBe(true);
   });
 
   it("materialises a module used directly as a node instead of copying a missing file", async () => {
     lane("gtr", "1:1:1");
     module_("amp", "Amp");
-    graph(
-      'modules:\n  gtr: [ "@workspace/audio/amp" ]\n  "@workspace/audio/amp": [ MIX ]\n  MIX: [ OUT ]\n',
-    );
+    graph({
+      gtr: ["@workspace/audio/amp"],
+      "@workspace/audio/amp": ["MIX"],
+      MIX: ["OUT"],
+    });
 
     await run("track duplicate gtr");
 
-    expect(read("nodes/gtr-copy_amp_1.yaml")).toContain(
-      'extends: "@workspace/audio/amp"',
+    expect(data("nodes/gtr-copy_amp_1.k7x").extends).toBe(
+      "@workspace/audio/amp",
     );
-    expect(graphValue().modules).toMatchObject({
+    expect(graphModules()).toMatchObject({
       "gtr-copy": ["gtr-copy_amp_1"],
       "gtr-copy_amp_1": ["MIX"],
     });
@@ -118,29 +105,30 @@ describe("track duplicate", () => {
     lane("bass", "1:1:1");
     module_("verb", "Reverb");
     node("gtr_verb", "@workspace/audio/verb");
-    graph(
-      "modules:\n  gtr: [ gtr_verb ]\n  bass: [ gtr_verb ]\n  gtr_verb: [ MIX ]\n  MIX: [ OUT ]\n",
-    );
+    graph({
+      gtr: ["gtr_verb"],
+      bass: ["gtr_verb"],
+      gtr_verb: ["MIX"],
+      MIX: ["OUT"],
+    });
 
     await run("track duplicate gtr");
 
     // `gtr_verb` has two feeders, so it is a meeting point and stays one node both lanes reach.
-    expect(graphValue().modules["gtr-copy"]).toEqual(["gtr_verb"]);
-    expect(existsSync(join(dir, "nodes", "gtr-copy_verb_1.yaml"))).toBe(false);
+    expect(graphModules()["gtr-copy"]).toEqual(["gtr_verb"]);
+    expect(existsSync(join(dir, "nodes", "gtr-copy_verb_1.k7x"))).toBe(false);
   });
 
   it("refuses a group and a strudel lane, which hold no events list", async () => {
-    writeFileSync(
-      join(dir, "nodes", "drums.yaml"),
-      'extends: "@meta/group-track"\ntracks: [gtr]\n',
-      "utf8",
-    );
-    writeFileSync(
-      join(dir, "nodes", "algo.yaml"),
-      'extends: "@meta/strudel-track"\nstrudel: algo/beat.strudel\n',
-      "utf8",
-    );
-    graph("modules:\n  MIX: [ OUT ]\n");
+    writeDoc(join(dir, "nodes", "drums.k7x"), {
+      extends: "@meta/group-track",
+      tracks: ["gtr"],
+    });
+    writeDoc(join(dir, "nodes", "algo.k7x"), {
+      extends: "@meta/strudel-track",
+      strudel: "algo/beat.strudel",
+    });
+    graph({ MIX: ["OUT"] });
 
     const h = await run("track duplicate drums");
     await run("track duplicate algo");
@@ -149,7 +137,7 @@ describe("track duplicate", () => {
   });
 
   it("says so when the track is not there", async () => {
-    graph("modules:\n  MIX: [ OUT ]\n");
+    graph({ MIX: ["OUT"] });
     const h = await run("track duplicate nope");
     expect(h.lines.refuse.join(" ")).toContain('no track "nope"');
   });

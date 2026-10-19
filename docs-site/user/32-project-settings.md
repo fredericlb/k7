@@ -1,26 +1,24 @@
 # Project and settings files
 
-Two files at the root of a project hold its global settings: `project.yaml` (the song) and
-`settings.yaml` (how recording behaves).
+Two files at the root of a project hold its global settings: `project.k7x` (the song) and
+`settings.k7x` (how recording behaves).
 
-## project.yaml
+## project.k7x
 
 The file has two levels. The song's own settings sit under `project:`; the track order, solo state
 and markers sit at the root beside it. Both levels are strict: a key k7 does not know, or a key
 written at the wrong level, is refused and the project does not load until it is fixed.
 
-```yaml
-project:
-  name: "My song"
-  tempo: 120
-  sampleRate: 48000
-  timeSignature: "4/4"
-  tags: [demo, live]
-markers:
-  "1:1": Intro
-  "9:1": Verse
-  "17:1": Chorus
-soloed: [vocals]
+```k7x
+project({
+  name: "My song",
+  tempo: 120,
+  sampleRate: 48000,
+  timeSignature: "4/4",
+  tags: ["demo", "live"],
+})
+markers({ "1:1": "Intro", "9:1": "Verse", "17:1": "Chorus" })
+soloed(["vocals"])
 ```
 
 The same file as k7x:
@@ -66,15 +64,15 @@ soloed(["vocals"])
 
 A marker whose key does not read as a timecode is skipped rather than failing the load.
 
-## settings.yaml
+## settings.k7x
 
 A flat file of recording preferences. Every field may be left out; a partial file never fails the
-load. Unlike `project.yaml`, unknown keys are tolerated.
+load. Unlike `project.k7x`, unknown keys are tolerated.
 
-```yaml
-metronome: true
-metronome_level: 0.6
-count_in: 1
+```k7x
+metronome(true)
+metronome_level(0.6)
+count_in(1)
 ```
 
 | Field | Type | Default | Meaning |
@@ -92,7 +90,7 @@ files are then yours to change.
 |---|---|---|
 | `arrangement` | A timeline | `project`, `settings`, a melody lane playing `sequences/melody` through a synth, two Strudel lanes (`pad`, `kit`) on `algo/pattern.strudel`, a group lane `live` holding them, an empty `curves/`, and `surfaces/timeline`. Written in the chain layout. |
 | `video` | A timeline and a viewport | Everything `arrangement` writes, plus `viewport: [1280, 720, 30]` and `layers: [main]` in `project`, a sample video in `clips/`, `video_tracks/main`, the `RENDER → VIDEO_OUT` run, and `surfaces/viewport`. |
-| `mix` | A DJ desk | A set: `project` with only a name and a sample rate (a set has no bars), `mix.yaml` (the cue sheet), two decks with their strips, one turntable assembly per deck (`assemblies/`), and `surfaces/desk` of type `turntables`. Written in the graph layout. See the DJ & sets section. |
+| `mix` | A DJ desk | A set: `project` with only a name and a sample rate (a set has no bars), `mix.k7x` (the cue sheet), two decks with their strips, one turntable assembly per deck (`assemblies/`), and `surfaces/desk` of type `turntables`. Written in the graph layout. See the DJ & sets section. |
 | `live` | A rig you play through | An input `IN`, a `fader` (the shared mixer strip), a recorder `rec` on the master run, `settings`. No lane, no timeline. Chain layout. |
 | `live-video` | A rig with a camera | `live` plus a camera node `CAM`, the picture run, `viewport: [1280, 720, 30]` in `project`, and `surfaces/viewport`. |
 

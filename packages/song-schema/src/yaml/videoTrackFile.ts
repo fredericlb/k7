@@ -1,22 +1,20 @@
-// videoTrackFile.ts — read and edit a video track's `events:` list, each placement
-// `{ref, start, length, source_from}` in DECIMAL SECONDS. A SURGICAL text rewrite, like every
-// other file editor here (trackFile.ts, sequenceFile.ts): these files carry the comments that
-// document the format, and a round trip through the serialiser would delete every one of them.
-// Browser-safe, because the editor's readers strip edits a buffer that has not been saved yet.
+// videoTrackFile.ts — read and edit a video track's `events:` list, each placement `{ref, start, length, source_from}` in DECIMAL SECONDS.
+// Every writer edits a K7Scope at the file's root, value by value, so the comments that document the format stay. Browser-safe.
+// A reader would get wrong that a refused edit throws: it answers false and leaves the file alone, as does an unreadable buffer.
 // Two ways in: by INDEX, which the drag and the verbs use, and by REF for the editor's readers.
 
-import { isSeq, parseDocument } from "yaml";
+import type { K7Scope } from "@studio/k7x/document";
+import { K7Document } from "@studio/k7x/document";
+import { K7SyntaxError } from "@studio/k7x/parse";
 import {
   type Animate,
   AnimateSchema,
   keysOf,
   splitAnimate,
 } from "../keyframes";
-import { YAML_READ, YAML_WRITE } from "./yamlText";
 
 export interface VideoPlacement {
-  /** The `ref:` value — a clips/ id whose source is a video file. EMPTY on an ACTIVATION, an
-   *  event that names none and says only WHEN its lane is on (song-video/docs/shapes.md). */
+  /** The `ref:` value — a clips/ id whose source is a video file; EMPTY on an ACTIVATION (song-video/docs/shapes.md). */
   ref: string;
   start: number;
   length: number;
@@ -25,185 +23,147 @@ export interface VideoPlacement {
   speed?: number;
 }
 
-// A collection comes back from `getIn` as a YAML node; the schemas read plain values.
-const plain = (v: unknown): unknown =>
-  v && typeof v === "object" && "toJSON" in v
-    ? (v as { toJSON(): unknown }).toJSON()
-    : v;
+type Data = Record<string, unknown>;
 
 const num = (v: unknown, dflt = 0): number => {
   const n = Number(v);
   return Number.isFinite(n) ? n : dflt;
 };
 
-/** The placements a video track declares, in file order. */
-export function listVideoPlacements(text: string): VideoPlacement[] {
-  let doc: ReturnType<typeof parseDocument>;
+const ms = (n: number) => Math.round(n * 1000) / 1000;
+
+/** The file's data, or null for a buffer that does not read yet — every edit here is then a no-op. */
+function dataOf(doc: K7Scope): Data | null {
   try {
-    doc = parseDocument(text, YAML_READ);
-  } catch {
-    return []; // a half-typed file has no placements to show yet
+    const raw = doc.toJS();
+    return raw !== null && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Data)
+      : null;
+  } catch (e) {
+    if (e instanceof K7SyntaxError) return null;
+    throw e;
   }
-  const clips = doc.getIn(["events"]);
-  if (!isSeq(clips)) return [];
-  const out: VideoPlacement[] = [];
-  // Every entry, INCLUDING the ref-less ones: the list's indices are `events:`'s, and a caller
-  // that writes by index (the verbs, the timeline's drag) would address the wrong line otherwise.
-  clips.items.forEach((_item, i) => {
-    const ref = doc.getIn(["events", i, "ref"]);
-    out.push({
-      ref: typeof ref === "string" ? ref : "",
-      start: num(doc.getIn(["events", i, "start"])),
-      length: num(doc.getIn(["events", i, "length"])),
-      sourceFrom: num(doc.getIn(["events", i, "source_from"])),
-      ...(doc.getIn(["events", i, "speed"]) != null
-        ? { speed: num(doc.getIn(["events", i, "speed"]), 1) }
-        : {}),
-    });
+}
+
+/** The `events:` list as plain values, or null when the file has none or does not read. */
+function eventsOf(doc: K7Scope): Data[] | null {
+  const events = dataOf(doc)?.events;
+  return Array.isArray(events) ? (events as Data[]) : null;
+}
+
+const hasIndex = (events: unknown[] | null, index: number): boolean =>
+  !!events && index >= 0 && index < events.length;
+
+/** The placements a video track declares, in file order: from k7x text or a document; an unreadable text has none. */
+export function listVideoPlacements(
+  source: string | K7Scope,
+): VideoPlacement[] {
+  const doc =
+    typeof source === "string" ? new K7Document(source).at([]) : source;
+  // Every entry, INCLUDING the ref-less ones: the list's indices are `events:`'s, which a caller writes by.
+  return (eventsOf(doc) ?? []).map((e) => {
+    const p = e !== null && typeof e === "object" ? e : {};
+    return {
+      ref: typeof p.ref === "string" ? p.ref : "",
+      start: num(p.start),
+      length: num(p.length),
+      sourceFrom: num(p.source_from),
+      ...(p.speed != null ? { speed: num(p.speed, 1) } : {}),
+    };
   });
-  return out;
 }
 
 /** Set (or clear) the lane's `mute:` — HIDDEN, there being no sound on a picture lane. */
-export function setVideoLaneMute(text: string, mute: boolean): string {
-  let doc: ReturnType<typeof parseDocument>;
-  try {
-    doc = parseDocument(text, YAML_READ);
-  } catch {
-    return text;
-  }
+export function setVideoLaneMute(doc: K7Scope, mute: boolean): void {
+  if (!dataOf(doc)) return;
   // Removed rather than written `false`: absent already means audible, and a file says what is unusual.
   if (mute) doc.setIn(["mute"], true);
   else doc.deleteIn(["mute"]);
-  return doc.toString(YAML_WRITE);
 }
 
 /** Set the LANE's own rect — x/y/w/h, top-level keys, in viewport px (packages/song-video/docs/picture.md). */
 export function setVideoLaneRect(
-  text: string,
+  doc: K7Scope,
   rect: { x: number; y: number; w: number; h: number },
-): string {
-  let doc: ReturnType<typeof parseDocument>;
-  try {
-    doc = parseDocument(text, YAML_READ);
-  } catch {
-    return text;
-  }
+): void {
+  if (!dataOf(doc)) return;
   // All four, always: a lane stating three of them and inheriting the fourth is a rect nobody can read.
   for (const k of ["x", "y", "w", "h"] as const)
     doc.setIn([k], Math.round(rect[k]));
-  return doc.toString(YAML_WRITE);
 }
 
-/** Set one numeric field of the placement whose `ref` is `ref` — by REF and not by index, since a drag grabbed a strip. */
+/** Set one numeric field of the placement whose `ref` is `ref` — by REF, since a drag grabbed a strip; false with no such placement. */
 export function setVideoPlacementField(
-  text: string,
+  doc: K7Scope,
   ref: string,
   field: "source_from" | "length" | "start",
   value: number,
-): string {
-  let doc: ReturnType<typeof parseDocument>;
-  try {
-    doc = parseDocument(text, YAML_READ);
-  } catch {
-    return text;
-  }
-  const clips = doc.getIn(["events"]);
-  if (!isSeq(clips)) return text;
-  const at = clips.items.findIndex(
-    (_item, i) => doc.getIn(["events", i, "ref"]) === ref,
-  );
-  if (at < 0) return text;
+): boolean {
+  const at = (eventsOf(doc) ?? []).findIndex((e) => e?.ref === ref);
+  if (at < 0) return false;
   // Rounded to milliseconds: a drag's float noise doesn't belong in the file, and cutting needs no more.
-  doc.setIn(["events", at, field], Math.round(value * 1000) / 1000);
-  return doc.toString(YAML_WRITE);
+  doc.setIn(["events", at, field], ms(value));
+  return true;
 }
 
-/** Set one numeric field of the placement at `index`. By POSITION, so a ref placed twice is still two placements. */
+/** Set one numeric field of the placement at `index`, by POSITION so a ref placed twice is two; false with none there. */
 export function setVideoPlacementFieldAt(
-  text: string,
+  doc: K7Scope,
   index: number,
   field: "source_from" | "length" | "start",
   value: number,
-): string {
-  let doc: ReturnType<typeof parseDocument>;
-  try {
-    doc = parseDocument(text, YAML_READ);
-  } catch {
-    return text;
-  }
-  const events = doc.getIn(["events"]);
-  if (!isSeq(events) || index < 0 || index >= events.items.length) return text;
+): boolean {
+  if (!hasIndex(eventsOf(doc), index)) return false;
   // The same millisecond rounding the drag writes, so a verb and a gesture leave the same bytes.
-  doc.setIn(["events", index, field], Math.round(value * 1000) / 1000);
-  return doc.toString(YAML_WRITE);
+  doc.setIn(["events", index, field], ms(value));
+  return true;
 }
 
-/** Set the placement's `speed:`, signed — or drop the key at 1, which is what absent already means. */
+/** Set the placement's `speed:`, signed — or drop the key at 1, which is what absent already means; false with none there. */
 export function setVideoSpeedAt(
-  text: string,
+  doc: K7Scope,
   index: number,
   speed: number,
-): string {
-  let doc: ReturnType<typeof parseDocument>;
-  try {
-    doc = parseDocument(text, YAML_READ);
-  } catch {
-    return text;
-  }
-  const events = doc.getIn(["events"]);
-  if (!isSeq(events) || index < 0 || index >= events.items.length) return text;
+): boolean {
+  if (!hasIndex(eventsOf(doc), index)) return false;
   if (Math.abs(speed - 1) < 1e-9) doc.deleteIn(["events", index, "speed"]);
   else doc.setIn(["events", index, "speed"], Math.round(speed * 10000) / 10000);
-  return doc.toString(YAML_WRITE);
+  return true;
 }
 
-/** Drop the placement at `index`, or the text unchanged when there is none there. */
-export function removeVideoPlacementAt(text: string, index: number): string {
-  let doc: ReturnType<typeof parseDocument>;
-  try {
-    doc = parseDocument(text, YAML_READ);
-  } catch {
-    return text;
-  }
-  const events = doc.getIn(["events"]);
-  if (!isSeq(events) || index < 0 || index >= events.items.length) return text;
-  events.items.splice(index, 1);
-  return doc.toString(YAML_WRITE);
+/** Drop the placement at `index`; false when there is none there. */
+export function removeVideoPlacementAt(doc: K7Scope, index: number): boolean {
+  if (!hasIndex(eventsOf(doc), index)) return false;
+  doc.deleteIn(["events", index]);
+  return true;
 }
 
-/** Cut the placement at `index` in two at `cut` seconds, the tail inserted RIGHT AFTER it; null when the cut is not inside it. */
+/** Cut the placement at `index` in two at `cut` seconds, the tail inserted RIGHT AFTER it; false when the cut is not inside it. */
 // After, not appended: file order decides which shot covers which (song-video docs/transitions.md).
 export function splitVideoPlacementAt(
-  text: string,
+  doc: K7Scope,
   index: number,
   cut: number,
-): string | null {
-  let doc: ReturnType<typeof parseDocument>;
-  try {
-    doc = parseDocument(text, YAML_READ);
-  } catch {
-    return null;
-  }
-  const events = doc.getIn(["events"]);
-  if (!isSeq(events) || index < 0 || index >= events.items.length) return null;
-  const at = (i: number, key: string) => doc.getIn(["events", i, key]);
-  const start = num(at(index, "start"));
-  const length = num(at(index, "length"));
+): boolean {
+  const events = eventsOf(doc);
+  if (!events || !hasIndex(events, index)) return false;
+  const shot = events[index] ?? {};
+  const start = num(shot.start);
+  const length = num(shot.length);
   // The picture's own interval rule: a length, else the next entry's start, else open-ended.
   const next =
-    index + 1 < events.items.length
-      ? num(at(index + 1, "start"))
+    index + 1 < events.length
+      ? num(events[index + 1]?.start)
       : Number.POSITIVE_INFINITY;
   const end = length > 0 ? start + length : next;
-  const ms = (n: number) => Math.round(n * 1000) / 1000;
-  if (!(ms(cut) > start && ms(cut) < end)) return null;
+  if (!(ms(cut) > start && ms(cut) < end)) return false;
   const head = ms(cut) - start;
-  const tail = doc.createNode(
-    (events.items[index] as { toJSON(): unknown }).toJSON(),
-  ) as typeof events;
-  tail.flow = (events.items[index] as { flow?: boolean }).flow ?? true;
-  events.items.splice(index + 1, 0, tail);
+  // The tail is the shot's own source copied, so its layout and comments come along.
+  doc.insertSourceIn(
+    ["events"],
+    index + 1,
+    doc.getSource(["events", index]) ?? "{}",
+  );
   // The head keeps how the shot ARRIVES, the tail how it LEAVES; a cut between them is a plain cut.
   doc.setIn(["events", index, "length"], ms(head));
   doc.deleteIn(["events", index, "fade_out"]);
@@ -214,80 +174,60 @@ export function splitVideoPlacementAt(
   );
   doc.deleteIn(["events", index + 1, "fade_in"]);
   // The animation is cut EXACTLY, each half playing what the shot played over its span (keyframes.ts).
-  const animate = AnimateSchema.safeParse(plain(at(index, "animate")));
+  const animate = AnimateSchema.safeParse(shot.animate);
   if (animate.success) {
     const halves = splitAnimate(animate.data, head, length);
-    doc.setIn(
-      ["events", index, "animate"],
-      doc.createNode(halves.head, { flow: true }),
-    );
-    doc.setIn(
-      ["events", index + 1, "animate"],
-      doc.createNode(halves.tail, { flow: true }),
-    );
+    doc.setIn(["events", index, "animate"], halves.head, { inline: true });
+    doc.setIn(["events", index + 1, "animate"], halves.tail, { inline: true });
   }
   // An ACTIVATION has no source to trim into, and its schema refuses the key.
-  if (typeof at(index, "ref") === "string")
+  if (typeof shot.ref === "string")
     doc.setIn(
       ["events", index + 1, "source_from"],
       // The source runs at the shot's SPEED, so the head consumed head × speed of it (song-video docs/speed.md).
-      ms(num(at(index, "source_from")) + head * num(at(index, "speed"), 1)),
+      ms(num(shot.source_from) + head * num(shot.speed, 1)),
     );
-  return doc.toString(YAML_WRITE);
+  return true;
 }
 
-/** Append a placement, creating `events:` when the lane has none. */
-export function addVideoPlacement(
-  text: string,
-  p: VideoPlacement,
-): string | null {
-  let doc: ReturnType<typeof parseDocument>;
-  try {
-    doc = parseDocument(text, YAML_READ);
-  } catch {
-    return null; // a half-typed lane is not one to append to
-  }
-  const ms = (n: number) => Math.round(n * 1000) / 1000;
+/** Append a placement, creating `events:` when the lane has none; false when `events:` holds something else or the file does not read. */
+export function addVideoPlacement(doc: K7Scope, p: VideoPlacement): boolean {
+  const data = dataOf(doc);
+  if (!data) return false;
   const entry: Record<string, string | number> = {
     ref: p.ref,
     start: ms(p.start),
     length: ms(p.length),
   };
   if (p.sourceFrom) entry.source_from = ms(p.sourceFrom);
-  const events = doc.getIn(["events"]);
-  if (!isSeq(events)) {
-    // No `events:` at all, or one holding something else — only the absent case is ours to create.
-    if (events !== undefined && events !== null) return null;
-    doc.setIn(["events"], [entry]);
-    return doc.toString(YAML_WRITE);
+  const events = data.events;
+  if (Array.isArray(events)) {
+    doc.addIn(["events"], entry, { inline: true });
+    return true;
   }
-  doc.addIn(["events"], entry);
-  return doc.toString(YAML_WRITE);
+  // No `events:` at all, or one holding something else — only the absent case is ours to create.
+  if (events !== undefined && events !== null) return false;
+  doc.setIn(["events"], [entry]);
+  return true;
 }
 
 /** Insert or delete seconds on a video lane, by INDEX since a ref may be placed twice — the lanes' rule otherwise. */
 export function spliceVideoTime(
-  text: string,
+  doc: K7Scope,
   atSeconds: number,
   lenSeconds: number,
   mode: "insert" | "delete",
-): { text: string; moved: number; removed: number } {
-  let doc: ReturnType<typeof parseDocument>;
+): { moved: number; removed: number } {
   let moved = 0;
   let removed = 0;
-  try {
-    doc = parseDocument(text, YAML_READ);
-  } catch {
-    return { text, moved, removed }; // a half-typed file is left exactly as it is
-  }
-  const events = doc.getIn(["events"]);
-  if (!(lenSeconds > 0) || !isSeq(events)) return { text, moved, removed };
+  const events = eventsOf(doc);
+  if (!(lenSeconds > 0) || !events) return { moved, removed };
   const end = atSeconds + lenSeconds;
   // Descending, so removing one does not shift the address of the next.
-  for (let i = events.items.length - 1; i >= 0; i--) {
-    const start = num(doc.getIn(["events", i, "start"]));
+  for (let i = events.length - 1; i >= 0; i--) {
+    const start = num(events[i]?.start);
     if (mode === "delete" && start >= atSeconds - 1e-6 && start < end - 1e-6) {
-      events.items.splice(i, 1);
+      doc.deleteIn(["events", i]);
       removed++;
       continue;
     }
@@ -295,29 +235,22 @@ export function spliceVideoTime(
     if (start < from - 1e-6) continue;
     const next = start + (mode === "delete" ? -lenSeconds : lenSeconds);
     // Milliseconds, the same rounding a drag writes, so a round trip compares byte for byte.
-    doc.setIn(["events", i, "start"], Math.round(next * 1000) / 1000);
+    doc.setIn(["events", i, "start"], ms(next));
     moved++;
   }
-  if (!moved && !removed) return { text, moved, removed };
-  return { text: doc.toString(YAML_WRITE), moved, removed };
+  return { moved, removed };
 }
 
-/** Shift the keys of the placement at `index` by `-delta` seconds, so a trimmed head keeps its animation on the same frames. */
+/** Shift the keys of the placement at `index` by `-delta` seconds, so a trimmed head keeps its animation; false when it has none. */
 export function shiftVideoAnimationAt(
-  text: string,
+  doc: K7Scope,
   index: number,
   delta: number,
-): string {
-  let doc: ReturnType<typeof parseDocument>;
-  try {
-    doc = parseDocument(text, YAML_READ);
-  } catch {
-    return text;
-  }
-  const parsed = AnimateSchema.safeParse(
-    plain(doc.getIn(["events", index, "animate"])),
-  );
-  if (!parsed.success || !delta) return text;
+): boolean {
+  const events = eventsOf(doc);
+  if (!events || !hasIndex(events, index)) return false;
+  const parsed = AnimateSchema.safeParse(events[index]?.animate);
+  if (!parsed.success || !delta) return false;
   const shifted: Animate = {};
   for (const [prop, a] of Object.entries(parsed.data) as [
     keyof Animate,
@@ -328,40 +261,31 @@ export function shiftVideoAnimationAt(
       typeof a === "number"
         ? a
         : keysOf(a).map((k) => {
-            const t = Math.round((k.t - delta) * 1000) / 1000;
+            const t = ms(k.t - delta);
             return k.ease === "linear"
               ? ([t, k.v] as [number, number])
               : { t, v: k.v, ease: k.ease };
           });
   }
-  doc.setIn(
-    ["events", index, "animate"],
-    doc.createNode(shifted, { flow: true }),
-  );
-  return doc.toString(YAML_WRITE);
+  doc.setIn(["events", index, "animate"], shifted, { inline: true });
+  return true;
 }
 
-/** Rename the STRETCH each fade's `chain:` names, by `renames` — the text unchanged when none matches. */
+/** Rename the STRETCH each fade's `chain:` names, by `renames`; false when none matches. */
 export function renameFadeChains(
-  text: string,
+  doc: K7Scope,
   renames: Readonly<Record<string, string>>,
-): string {
-  let doc: ReturnType<typeof parseDocument>;
-  try {
-    doc = parseDocument(text, YAML_READ);
-  } catch {
-    return text;
-  }
-  const events = doc.getIn(["events"]);
-  if (!isSeq(events)) return text;
+): boolean {
   let changed = false;
-  events.items.forEach((_, i) => {
+  (eventsOf(doc) ?? []).forEach((e, i) => {
     for (const fade of ["fade_in", "fade_out"]) {
-      const was = doc.getIn(["events", i, fade, "chain"]);
-      if (typeof was !== "string" || !(was in renames)) continue;
+      const f = e?.[fade];
+      const was =
+        f !== null && typeof f === "object" ? (f as Data).chain : undefined;
+      if (typeof was !== "string" || !Object.hasOwn(renames, was)) continue;
       doc.setIn(["events", i, fade, "chain"], renames[was]);
       changed = true;
     }
   });
-  return changed ? doc.toString(YAML_WRITE) : text;
+  return changed;
 }

@@ -2,7 +2,7 @@
 // created, cloned, used as a node, its bases and its panel. Workspace keeps the public methods and
 // hands these its path guards through ModulesHost. See docs/workspace.md.
 
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { basename, dirname, join, relative, sep } from "node:path";
 import { ASSEMBLY_FILE, libraryAssemblies } from "@studio/song/assemblies";
 import { moduleBaseChoices } from "@studio/song/basePreset";
@@ -24,12 +24,8 @@ import {
   moduleNamespaceOf,
 } from "@studio/song/sharedFolders";
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
-import {
-  realPath,
-  wsExists,
-  wsRead,
-  wsWrite,
-} from "@studio/song/yaml/workspaceFile";
+import { wsData, wsText, wsWriteData } from "@studio/song/yaml/workspaceDoc";
+import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { isDocFile } from "@studio/song-schema/docExt";
 import {
   ENGINE_NS,
@@ -37,7 +33,6 @@ import {
 } from "@studio/song-schema/moduleTypes";
 import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
 import { isPlainSegment } from "@studio/web-protocol/paths";
-import { parse as parseYaml } from "yaml";
 
 /** The members of the workspace these read and write through. */
 export interface ModulesHost {
@@ -165,13 +160,17 @@ export function createModuleIn(
   // Through safePath, so a `..` in either part cannot leave the workspace.
   const dir = h.safePath(`${root}/${segs.join("/")}`);
   h.assertLibraryWritable(dir, "create a module in");
-  const file = join(dir, "module.yaml");
-  if (wsExists(file))
-    throw new Error(`${h.toRel(realPath(file))} already exists`);
+  const file = join(dir, "module.k7x");
+  if (wsExists(file)) throw new Error(`${h.toRel(file)} already exists`);
   mkdirSync(dir, { recursive: true });
-  wsWrite(file, `# ${segs[segs.length - 1]}\nplugin:\n  type: \n  name: \n`);
+  // A null type and name are the blanks to fill in; the header names the module.
+  wsWriteData(
+    file,
+    { plugin: { type: null, name: null } },
+    { header: [segs[segs.length - 1]] },
+  );
   h.invalidateProjectDoc();
-  return { path: h.toRel(realPath(file)), dir: h.toRel(dir) };
+  return { path: h.toRel(file), dir: h.toRel(dir) };
 }
 
 /** The named bases the module at `rel` may be set to, ancestors included — docs/workspace.md. */
@@ -261,7 +260,7 @@ function localModuleRef(dir: string, abs: string): string | null {
   return moduleRefOf(segs[1], segs.slice(2, -1).join("/"));
 }
 
-/** The `ui.yaml` panel beside a module file, or the path it WOULD take plus a scaffold. */
+/** The `ui.k7x` panel beside a module file, or the path it WOULD take plus a scaffold. */
 export function moduleUiOf(
   h: ModulesHost,
   rel: string,
@@ -272,12 +271,12 @@ export function moduleUiOf(
   if (!ref) throw new Error(`${h.toRel(abs)} is not a module file`);
   // One of the module's own files beside `abs`, or the path it would take plus a scaffold.
   const path = join(dirname(abs), UI_FILE);
-  const exists = existsSync(path);
+  const exists = wsExists(path);
   return {
     ref,
     path: h.toRel(path),
     content: exists
-      ? readFileSync(path, "utf8")
+      ? wsText(path)
       : uiFileText({ cols: 4, rows: 2, widgets: {} }, `panel for ${ref}`),
     exists,
   };
@@ -290,13 +289,13 @@ export function consolesIn(dir: string): {
 } {
   let current: string | undefined;
   try {
-    const root = parseYaml(wsRead(join(dir, "project.yaml"))) as {
+    const root = wsData(join(dir, "project.k7x")) as {
       project?: { console?: unknown };
     };
-    if (typeof root?.project?.console === "string")
+    if (typeof root.project?.console === "string")
       current = root.project.console;
   } catch {
-    current = undefined; // no project.yaml, or one that will not read: the compile says so, not this
+    current = undefined; // no project.k7x, or one that will not read: the compile says so, not this
   }
   return { systems: consoleSystems(loadModuleRefs(dir)), current };
 }

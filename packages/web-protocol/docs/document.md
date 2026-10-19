@@ -46,7 +46,7 @@ field being deleted rather than written as zero.
 
 They are on the placement, on the engine wire and in the C++ engine as well, and this document is
 what lets a BROWSER see them: without them the timeline can neither draw a fade nor let one be
-dragged, and the only way to set one is to type YAML. Beats rather than the file's timecode, like
+dragged, and the only way to set one is to type it in the file. Beats rather than the file's timecode, like
 every other time on this document — a surface measures in the unit it draws in.
 
 ## `frozen`, and why editing has to know
@@ -98,7 +98,7 @@ What it is FOR is the reload behind a command: a client that knows a marker move
 file can skip the routes that answer about files and names, which cannot have changed. See
 `apps/k7/frontend/src/reloadScope.ts`.
 
-Its paths are PROJECT-relative (`clips/x.yaml`) — the vocabulary `Hints.paths` speaks, and the one
+Its paths are PROJECT-relative (`clips/x.k7x`) — the vocabulary `Hints.paths` speaks, and the one
 an anchored test can trust. The journal's own `files` stay workspace-relative.
 
 ## A track's strip, and the fields that are NOT on it
@@ -154,7 +154,7 @@ providers are worth a word:
 - **`nodes`** is one of this project's *uses* of a module, which is what the `node …` verbs
   address. Separate from `modules` because a `@ref` names a shared definition, and those are
   edited in the builder rather than by a verb — see `packages/song/docs/nodes.md`.
-- **`playlists`** is a set list of the REPOSITORY, `_playlists/<name>.yaml` with subfolders kept.
+- **`playlists`** is a set list of the REPOSITORY, `_playlists/<name>.k7x` with subfolders kept.
   The one provider that reads nothing of the open project.
 - **`surfaceTypes`** is a closed set of words rather than something read off the project: the file
   being named is the one the command is about to create.

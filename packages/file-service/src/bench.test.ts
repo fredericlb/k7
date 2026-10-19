@@ -42,17 +42,17 @@ beforeEach(() => {
   mkdirSync(join(libraryChain(), "nodes"), { recursive: true });
   mkdirSync(join(libraryDir(), "modules/audio/comp"), { recursive: true });
   writeFileSync(
-    join(libraryDir(), "modules/audio/comp/module.yaml"),
-    "plugin:\n  type: internal\n  name: Compressor\n",
+    join(libraryDir(), "modules/audio/comp/module.k7x"),
+    'plugin({ type: "internal", name: "Compressor" })\n',
   );
   writeFileSync(
-    join(libraryChain(), "graph.yaml"),
-    '# Voix live.\nmodules:\n  "@in": [ comp ]\n  comp: [ "@out" ]\n',
+    join(libraryChain(), "graph.k7x"),
+    '// Voix live.\nmodules({\n  "@in": ["comp"],\n  comp: ["@out"],\n})\n',
     "utf8",
   );
   writeFileSync(
-    join(libraryChain(), "nodes", "comp.yaml"),
-    'extends: "@k7-core/audio/comp"\n',
+    join(libraryChain(), "nodes", "comp.k7x"),
+    'extends("@k7-core/audio/comp")\n',
   );
   mkdirSync(join(editClone(), "modules"), { recursive: true });
 });
@@ -70,7 +70,7 @@ describe("the bench", () => {
     const { workspace, project } = await openChainBench();
     expect(workspace).toBe(BENCH_WORKSPACE);
     expect(project).toBe(BENCH_PROJECT);
-    const graph = readFileSync(join(benchDir(), "graph.yaml"), "utf8");
+    const graph = readFileSync(join(benchDir(), "graph.k7x"), "utf8");
     expect(graph).toContain("IN:");
     expect(existsSync(join(benchDir(), "surfaces"))).toBe(false);
   });
@@ -87,11 +87,11 @@ describe("the bench", () => {
     const ws = new Workspace(benchRoot());
     ws.setActiveProject(BENCH_PROJECT);
     ws.write(
-      `${BENCH_PROJECT}/graph.yaml`,
-      "modules:\n  IN: [ reverb ]\n  reverb: [ MIX ]\n",
+      `${BENCH_PROJECT}/graph.k7x`,
+      'modules({ IN: ["reverb"], reverb: ["MIX"] })\n',
     );
     await openChainBench();
-    const graph = readFileSync(join(benchDir(), "graph.yaml"), "utf8");
+    const graph = readFileSync(join(benchDir(), "graph.k7x"), "utf8");
     expect(graph).not.toContain("reverb");
   });
 
@@ -105,10 +105,14 @@ describe("the bench", () => {
   it("clears the per-chain benches an older address left behind", async () => {
     const stale = join(benchRoot(), "chains", "live", "vocals.k7");
     mkdirSync(stale, { recursive: true });
-    writeFileSync(join(stale, "project.yaml"), "project:\n  name: x\n", "utf8");
+    writeFileSync(
+      join(stale, "project.k7x"),
+      'project({ name: "x" })\n',
+      "utf8",
+    );
     await openChainBench();
     expect(existsSync(join(benchRoot(), "chains"))).toBe(false);
-    expect(existsSync(join(libraryChain(), "graph.yaml"))).toBe(true);
+    expect(existsSync(join(libraryChain(), "graph.k7x"))).toBe(true);
   });
 });
 
@@ -121,13 +125,10 @@ describe("a write into a library", () => {
   it("lands in an admin's own clone, never the server's, from any workspace", () => {
     setLibraryOverlays([{ name: "k7-core", root: editClone() }]);
     const ws = songs();
-    const rel = "_libraries/k7-core/modules/audio/limit/module.yaml";
-    expect(ws.write(rel, "plugin:\n  type: internal\n")).toEqual({});
+    const rel = "_libraries/k7-core/modules/audio/limit/module.k7x";
+    expect(ws.write(rel, 'plugin({ type: "internal" })\n')).toEqual({});
     expect(
-      readFileSync(
-        join(editClone(), "modules/audio/limit/module.yaml"),
-        "utf8",
-      ),
+      readFileSync(join(editClone(), "modules/audio/limit/module.k7x"), "utf8"),
     ).toContain("internal");
     expect(existsSync(join(libraryDir(), "modules/audio/limit"))).toBe(false);
     expect(existsSync(join(rootDir(), "songs", "_libraries"))).toBe(false);
@@ -136,15 +137,15 @@ describe("a write into a library", () => {
   it("is refused to an account that holds no clone of it — anyone but an admin", () => {
     const ws = songs();
     expect(() =>
-      ws.write("_libraries/k7-core/modules/amp.yaml", "gain: 2\n"),
+      ws.write("_libraries/k7-core/modules/amp.k7x", "gain(2)\n"),
     ).toThrow(/admins/);
-    expect(existsSync(join(libraryDir(), "modules/amp.yaml"))).toBe(false);
+    expect(existsSync(join(libraryDir(), "modules/amp.k7x"))).toBe(false);
   });
 
   it("refuses a path that climbs out of the library through the virtual folder", () => {
     setLibraryOverlays([{ name: "k7-core", root: editClone() }]);
     expect(() =>
-      songs().write("_libraries/k7-core/../../escape.yaml", "x: 1\n"),
+      songs().write("_libraries/k7-core/../../escape.k7x", "x(1)\n"),
     ).toThrow(/escapes/);
   });
 });

@@ -4,7 +4,7 @@
 
 namespace studio::eurorack {
 
-// Renaming this renames the id a module.yaml may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
+// Renaming this renames the id a module.k7x may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
 const char* MacroOscillator2Plugin::xmlTypeName = "studio_macro_oscillator_2";
 
 MacroOscillator2Plugin::MacroOscillator2Plugin(tracktion::engine::PluginCreationInfo info)

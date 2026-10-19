@@ -1,7 +1,7 @@
 // "look" — a 3D LUT, a `.cube` file, over the picture: the grade a colourist or a camera maker
 // ships. The NODE names the file, since one look module serves every LUT a song uses:
 //
-//   nodes/film.yaml
+//   nodes/film.k7x
 //     extends: "@k7-core/shaders/look"
 //     lut: looks/film.cube          # project-relative
 //

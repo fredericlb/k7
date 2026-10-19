@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { emptyDoc } from "@studio/engine-protocol/build";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { rootDir, slugify } from "./slug.ts";
+import { rootDir } from "./slug.ts";
 
 /** A stand-in engine: one per session, recording what it was sent and firing what it is told to. */
 const built: FakeClient[] = [];
@@ -58,7 +58,7 @@ vi.mock("./engineLoad.ts", async (orig) => ({
   warmUp: async () => {},
 }));
 
-/** The real one writes yaml and refuses a missing wav; what is under test is which project it is handed. */
+/** The real one writes k7x and refuses a missing wav; what is under test is which project it is handed. */
 const addTakeToTrack = vi.fn(() => "take-1");
 vi.mock("@studio/take-render/recordTake", () => ({
   addTakeToTrack: (...a: unknown[]) => addTakeToTrack(...(a as [])),

@@ -3,7 +3,7 @@
 
 import { join } from "node:path";
 import { createCurveFile, editCurveFile } from "@studio/song/curves";
-import { wsRead } from "@studio/song/yaml/workspaceFile";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { parsePosition } from "@studio/song-schema/timecode";
 import {
   curvePoints,
@@ -50,8 +50,8 @@ async function curvePointCommand(
     return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
   };
   try {
-    const file = join(h.songPath, "curves", `${id}.yaml`);
-    const points = curvePoints(wsRead(file), num, den);
+    const file = join(h.songPath, "curves", `${id}.k7x`);
+    const points = curvePoints(wsData(file), num, den);
     if (mode === "add") {
       const v = unit(parts[2]);
       if (v === undefined) {
@@ -59,8 +59,8 @@ async function curvePointCommand(
         return;
       }
       const had = points.some((pt) => Math.abs(pt.beat - atBeats) < 1e-6);
-      const rel = editCurveFile(h.songPath, id, (t) =>
-        setCurvePoint(t, atBeats, v, num, den),
+      const rel = editCurveFile(h.songPath, id, (doc) =>
+        setCurvePoint(doc, atBeats, v, num, den),
       );
       await h.reload();
       h.log([
@@ -74,8 +74,8 @@ async function curvePointCommand(
         h.refuse([`bad timecode: ${(e as Error).message}`]);
         return;
       }
-      const rel = editCurveFile(h.songPath, id, (t) =>
-        moveCurvePoint(t, atBeats, toBeats, unit(parts[3]), num, den),
+      const rel = editCurveFile(h.songPath, id, (doc) =>
+        moveCurvePoint(doc, atBeats, toBeats, unit(parts[3]), num, den),
       );
       await h.reload();
       h.log([`${id}: the point at ${atTc} is now at ${parts[2]} (${rel})`]);
@@ -88,8 +88,8 @@ async function curvePointCommand(
         ]);
         return;
       }
-      const rel = editCurveFile(h.songPath, id, (t) =>
-        removeCurvePoint(t, atBeats, num, den),
+      const rel = editCurveFile(h.songPath, id, (doc) =>
+        removeCurvePoint(doc, atBeats, num, den),
       );
       await h.reload();
       h.log([`${id}: removed the point at ${atTc} (${rel})`]);

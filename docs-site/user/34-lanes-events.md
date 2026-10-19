@@ -4,17 +4,15 @@ A **lane** is a row of the timeline. In k7 a lane is a node like any other: its 
 built-in lane module it extends, and what it plays. Where its signal goes is said by the chain or
 graph that names it (see [Chains and the graph](./36-chains-graph.md)).
 
-In the chain layout, a lane's file is `tracks/<lane>.yaml`. In the graph layout, it is
-`nodes/<lane>.yaml`. The file's name is the lane's name. Picture lanes are different files, in
+In the chain layout, a lane's file is `tracks/<lane>.k7x`. In the graph layout, it is
+`nodes/<lane>.k7x`. The file's name is the lane's name. Picture lanes are different files, in
 `video_tracks/` (see [Picture, surfaces and other files](./37-picture-surfaces.md#video-lanes)).
 
-```yaml
-# tracks/drums.yaml
-extends: "@meta/track"
-color: "#e0a030"
-events:
-  - { ref: kick, start: "1:1:1", loop: 4 }
-  - { ref: snare, start: "3:1:1", fadeOut: "0:1" }
+```k7x
+// tracks/drums.k7x
+extends("@meta/track")
+color("#e0a030")
+events([ref("kick").start("1:1:1").loop(4), ref("snare").start("3:1:1").fadeOut("0:1")])
 ```
 
 ```js
@@ -50,7 +48,7 @@ the chain or graph names the port (`pad#midi`).
 | `frozen` | text | all | The lane is frozen at this point: a render stands in for everything upstream. Written by k7. |
 
 A lane's mute is not a field of its file: it is the lane's `bypass` in its chain (or its entry in
-`bypassed:` in the graph layout). Solo and highlight are kept in `project.yaml` (`soloed`,
+`bypassed:` in the graph layout). Solo and highlight are kept in `project.k7x` (`soloed`,
 `highlighted`).
 
 A lane file may also carry the other fields a node can carry, such as `alternatives`; see
@@ -97,18 +95,14 @@ more must have a `to` on the event or in the clip file, or the project refuses t
 When a passage has been recorded several times, the event keeps every performance and a **comp**
 choosing between them. All three lists are written by k7's takes view; the format is:
 
-```yaml
-events:
-  - ref: vox-take1
-    start: "9:1"
-    takes:
-      - { ref: vox-take2, start: "9:1" }
-      - { ref: vox-take3, start: "9:1" }
-    comp:
-      - { take: vox-take1, from: "9:1", to: "11:1" }
-      - { take: vox-take3, from: "11:1", to: "13:1" }
-    crossfades:
-      - { at: "11:1", length: "0:0:1" }
+```k7x
+events([
+  ref("vox-take1")
+    .start("9:1")
+    .takes([ref("vox-take2").start("9:1"), ref("vox-take3").start("9:1")])
+    .comp([take("vox-take1").from("9:1").to("11:1"), take("vox-take3").from("11:1").to("13:1")])
+    .crossfades([at("11:1").length("0:0:1")]),
+])
 ```
 
 | List | Entry fields | Meaning |

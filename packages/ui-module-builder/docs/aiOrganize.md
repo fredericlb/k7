@@ -1,7 +1,7 @@
 # AI organize — a panel designed by Claude
 
 **AI organize** sends the module to Claude and replaces the panel with the one it answers: a
-`ui.yaml`, and a `widgets.js` when the panel draws screens. It sits beside **Auto organize**
+`ui.k7x`, and a `widgets.js` when the panel draws screens. It sits beside **Auto organize**
 (`autoLayout.md`) and does not replace it. That one is instant, free and deterministic, and it
 sorts every parameter into pages by its name. This one is slow and costs money, and it
 *designs*: it picks the few controls that matter, groups them the way a hardware panel would, and
@@ -11,6 +11,7 @@ draws screens that show the sound's shape.
 |---|---|
 | `packages/panel-rules/src/aiPrompt.ts` | the system prompt: the grid, every widget, the lcdscreen contract, the design brief |
 | `packages/panel-rules/src/aiOrganize.ts` | the wire types, the per-module message, the check — in `@studio/panel-rules`, which the backend imports without React (`packages/panel-rules/docs/panelRules.md`) |
+| `packages/panel-rules/src/aiAnswer.ts` | the JSON the model answers, and its turn into `ui.k7x` text |
 | `src/useAiOrganize.ts` | the builder's half: ask, send, land the answer in the buffers |
 | `apps/k7/backend/src/aiOrganize.ts` | the host's half: the call, one repair round |
 | `apps/k7/backend/src/aiSettings.ts` | the account's key and model, write-only from the browser |
@@ -38,7 +39,7 @@ kept.
 ## The prompt is split into a constant half and a per-module half
 
 The system prompt is the same text for every request, and nothing in it names a module, so it is
-cached. The module arrives in the user message: its `module.yaml`, every parameter with its exact
+cached. The module arrives in the user message: its `module.k7x`, every parameter with its exact
 name, its range or named states and its value, and whatever the author typed in the dialog — plus,
 on an UPDATE, the panel and screens as they are now.
 
@@ -48,7 +49,7 @@ A module whose panel already lays something out (`hasLayout`) is asked first whi
 wants — the dialog is project-shell's `askChoice` — because they are different requests, not one
 request with an option:
 
-- **Update** sends the current `ui.yaml` and `widgets.js`, and a sentence saying what should change,
+- **Update** sends the current `ui.k7x` and `widgets.js`, and a sentence saying what should change,
   which is REQUIRED — the dialog refuses an empty one, and so does k7's backend: an update with
   nothing to change would pay a minute of the account's Claude for the panel it has. The message
   tells the model to change what is asked and keep every other widget id, position, size, bind and
@@ -70,7 +71,7 @@ allows, a draw function per screen — and touches nothing else.
 
 A file is named as a person finds it in a checkout, not by a disk path: the builder's paths are
 workspace-relative, and a library module's `_libraries/<name>/…` is that library's own repository,
-so it reads "`modules/…/ui.yaml` in the `k7-core` library repository". A disk path would be the server's,
+so it reads "`modules/…/ui.k7x` in the `k7-core` library repository". A disk path would be the server's,
 which a local session cannot reach.
 
 What it gives up is the builder's own check and its undo: the files change in the session's
@@ -136,8 +137,14 @@ to `twinIssues`: the sizes, the twin's geometry, and the same controls on every 
 
 ## The answer is checked, twice, against the loader's own rules
 
-The model answers JSON (`AI_RESULT_SCHEMA`, enforced by structured outputs) and `checkAiResult`
-refuses what would break the module:
+The model answers JSON (`AI_RESULT_SCHEMA`, enforced by structured outputs): a one-line header, the
+panel as DATA, `widgets.js` as text and a few notes. The panel is data rather than k7x text because a
+structured output constrains data and nothing else — text the model typed would be refused only after
+the minute it took to write. A structured output also takes no map whose keys the model chooses, so
+every `widgets` arrives as a LIST of widgets each carrying its `id`; `readAiAnswer` turns the lists
+into the id-keyed maps the file holds and prints the panel through `panelText.ts`, a widget a line,
+the header as its `//` line. An id given twice in one list cannot become a map key twice, so it is
+reported rather than dropped. Then `checkAiResult` refuses what would break the module:
 
 - the schema's own refusals, with their paths, since `UiFileSchema` is what the loader runs;
 - a widget outside the grid, or two on top of each other — a `group` excepted, which frames what

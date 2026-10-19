@@ -1,7 +1,7 @@
-// synth-pad — a second use of the same "synth" module (see lead.yaml beside this file).
+// synth-pad — a second use of the same "synth" module (see lead.k7x beside this file).
 //
 // Named for the lane it serves rather than after it: the lane "pad" is a node too now
-// (nodes/pad.yaml), and one flat name space means one name, one node.
+// (nodes/pad.k7x), and one flat name space means one name, one node.
 //
 // Two nodes of one module are two separate chain steps with separate state: their
 // params are merged independently over the module, and each saves its own opaque plugin

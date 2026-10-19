@@ -1,11 +1,10 @@
-// k7xCorpus.test.ts — every YAML file of demos/ and the library, converted to k7x and edited the way the bridge writes:
+// k7xCorpus.test.ts — every .k7x file of demos/ and the library, edited the way song's writers edit a K7Document:
 // each value edit, and each keyed-list item edited, removed or added, must travel as k7x path ops that replay byte for byte.
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import type { K7Node } from "@studio/k7x/ast";
 import { parseDocument } from "@studio/k7x/document";
-import { fromYaml } from "@studio/k7x/from-yaml";
 import { describe, expect, it } from "vitest";
 import { applyFileOp, fileOpFor } from "./fileOp.ts";
 import { itemSegments } from "./k7xOps.ts";
@@ -16,11 +15,11 @@ const CORPORA = ["demos", "k7-core"]
   .map((d) => join(ROOT, d))
   .filter(existsSync);
 
-function yamlFiles(dir: string): string[] {
+function k7xFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const abs = join(dir, name);
-    if (statSync(abs).isDirectory()) return yamlFiles(abs);
-    return /\.(ya?ml|k7x)$/.test(name) ? [abs] : [];
+    if (statSync(abs).isDirectory()) return k7xFiles(abs);
+    return name.endsWith(".k7x") ? [abs] : [];
   });
 }
 
@@ -52,18 +51,15 @@ const changed = (v: unknown): unknown =>
       ? !v
       : `${String(v)}-edited`;
 
-const k7xCorpus = CORPORA.flatMap(yamlFiles).map((abs) => {
-  const raw = readFileSync(abs, "utf8");
-  return {
-    file: relative(ROOT, abs).replace(/\.ya?ml$/, ".k7x"),
-    text: abs.endsWith(".k7x") ? raw : fromYaml(raw),
-  };
-});
+const k7xCorpus = CORPORA.flatMap(k7xFiles).map((abs) => ({
+  file: relative(ROOT, abs),
+  text: readFileSync(abs, "utf8"),
+}));
 
 describe.runIf(k7xCorpus.length > 0)(
   `the corpus as k7x (${k7xCorpus.length} files)`,
   () => {
-    it("sends every bridge-style value edit as k7x ops that replay exactly", () => {
+    it("sends every writer-style value edit as k7x ops that replay exactly", () => {
       let edits = 0;
       const fallbacks: string[] = [];
       for (const { file, text } of k7xCorpus) {

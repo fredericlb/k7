@@ -1,13 +1,7 @@
 // `events remove` — the bulk form of `event remove`, through the dispatcher, asserting the FILES:
 // every named event goes in one command and one reload, and a refusal leaves every file as it was.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -15,6 +9,8 @@ import {
   emptyDoc,
   trackDoc as track,
 } from "@studio/engine-protocol/build";
+import { writeLane } from "@studio/song/testSupport";
+import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
@@ -26,21 +22,24 @@ let refused = false;
 /** Two real lanes on disk; the compiled doc below mirrors their starts in beats (4/4). */
 function song(): string {
   const d = mkdtempSync(join(tmpdir(), "td-eventsremove-"));
-  mkdirSync(join(d, "nodes"), { recursive: true });
-  writeFileSync(
-    join(d, "nodes", "drums.yaml"),
-    'extends: "@meta/track"\nevents:\n  - { ref: kick, start: "2:1" }\n  - { ref: snare, start: "4:1" }\n',
-    "utf8",
-  );
-  writeFileSync(
-    join(d, "nodes", "bass.yaml"),
-    'extends: "@meta/track"\nevents:\n  - { ref: b1, start: "1:1" }\n  - { ref: b2, start: "3:1" }\n',
-    "utf8",
-  );
+  writeLane(d, "drums", "track", {
+    events: [
+      { ref: "kick", start: "2:1" },
+      { ref: "snare", start: "4:1" },
+    ],
+  });
+  writeLane(d, "bass", "track", {
+    events: [
+      { ref: "b1", start: "1:1" },
+      { ref: "b2", start: "3:1" },
+    ],
+  });
   return d;
 }
-const read = (name: string) =>
-  readFileSync(join(dir, "nodes", `${name}.yaml`), "utf8");
+const file = (name: string) => join(dir, "nodes", `${name}.k7x`);
+const read = (name: string) => wsText(file(name));
+const refs = (name: string) =>
+  (wsData(file(name)).events as { ref: string }[]).map((e) => e.ref);
 
 // The generated lane has NO file in nodes/ on purpose: `all` must skip it without looking.
 const proj = () =>
@@ -96,10 +95,8 @@ describe("events remove", () => {
       { track: "bass", start: "3:1" },
     ])}`;
     await runCommand(line, host(), "cli");
-    expect(read("drums")).not.toContain("kick");
-    expect(read("drums")).toContain("snare");
-    expect(read("bass")).not.toContain("b2");
-    expect(read("bass")).toContain("b1");
+    expect(refs("drums")).toEqual(["snare"]);
+    expect(refs("bass")).toEqual(["b1"]);
     expect(logs.join(" ")).toContain("removed 2 events from drums, bass");
     expect(refused).toBe(false);
     expect(reloads).toBe(1);

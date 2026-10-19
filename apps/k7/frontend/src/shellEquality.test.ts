@@ -29,14 +29,14 @@ describe("sameEditFocus", () => {
   it("a sequence is the same focus while its path is", () => {
     expect(
       sameEditFocus(
-        { kind: "seq", path: "a.yaml" },
-        { kind: "seq", path: "a.yaml" },
+        { kind: "seq", path: "a.k7x" },
+        { kind: "seq", path: "a.k7x" },
       ),
     ).toBe(true);
     expect(
       sameEditFocus(
-        { kind: "seq", path: "a.yaml" },
-        { kind: "seq", path: "b.yaml" },
+        { kind: "seq", path: "a.k7x" },
+        { kind: "seq", path: "b.k7x" },
       ),
     ).toBe(false);
   });
@@ -97,13 +97,13 @@ describe("shallowEqual / keepIfEqual", () => {
 });
 
 describe("sameJson / keepIfSame — a poll answering what it answered before", () => {
-  const hints = { paths: { "module:a": "m/a.yaml" }, racks: { k: [1, 2] } };
+  const hints = { paths: { "module:a": "m/a.k7x" }, racks: { k: [1, 2] } };
 
   it("calls two answers with the same content equal, whatever the key order", () => {
     expect(
       sameJson(hints, {
         racks: { k: [1, 2] },
-        paths: { "module:a": "m/a.yaml" },
+        paths: { "module:a": "m/a.k7x" },
       }),
     ).toBe(true);
   });

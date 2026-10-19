@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parse } from "@studio/k7x/document";
 import { parsePosition } from "@studio/song-schema/timecode";
 import { afterEach, describe, expect, it } from "vitest";
 import { setTrackPlacementWindow } from "./trackMix";
@@ -20,21 +21,24 @@ afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-const LANE = `extends: "@meta/track"
-events:
-  - { ref: vox, start: "24:1" }
-  - { ref: other, start: "40:1" }
+const LANE = `extends("@meta/track")
+events([
+  ref("vox").start("24:1"),
+  ref("other").start("40:1"),
+])
 `;
 
 function laneDir(body = LANE): string {
   const dir = mkdtempSync(join(tmpdir(), "evwin-"));
   mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(join(dir, "nodes", "vo.yaml"), body, "utf8");
+  writeFileSync(join(dir, "nodes", "vo.k7x"), body, "utf8");
   dirs.push(dir);
   return dir;
 }
 const text = (dir: string) =>
-  readFileSync(join(dir, "nodes", "vo.yaml"), "utf8");
+  readFileSync(join(dir, "nodes", "vo.k7x"), "utf8");
+const vox = (dir: string) =>
+  (parse(text(dir)).events as Record<string, unknown>[])[0];
 const at = (tc: string) => parsePosition(tc, NUM, DEN);
 
 describe("setTrackPlacementWindow", () => {
@@ -47,9 +51,12 @@ describe("setTrackPlacementWindow", () => {
         to: 69.8182,
       }),
     ).toBe(true);
-    const out = text(dir);
-    expect(out).toMatch(/ref: vox[^\n]*from: 52\.3636[^\n]*to: 69\.8182/);
-    expect(out).toMatch(/ref: other, start: "40:1" \}/);
+    expect(parse(text(dir)).events).toEqual([
+      { ref: "vox", start: "24:1", from: 52.3636, to: 69.8182 },
+      { ref: "other", start: "40:1" },
+    ]);
+    // A knob-sized edit: the other event's line is untouched.
+    expect(text(dir)).toContain('  ref("other").start("40:1"),\n');
   });
 
   it("DELETES a `from` dragged back to the material's start", () => {
@@ -63,8 +70,7 @@ describe("setTrackPlacementWindow", () => {
       from: 0,
       to: 9,
     });
-    expect(text(dir)).not.toContain("from:");
-    expect(text(dir)).toContain("to: 9");
+    expect(vox(dir)).toEqual({ ref: "vox", start: "24:1", to: 9 });
   });
 
   it("DELETES a `to` dragged onto the file's end, when the length is known", () => {
@@ -82,8 +88,7 @@ describe("setTrackPlacementWindow", () => {
       { from: 1, to: 10 },
       10,
     );
-    expect(text(dir)).toContain("from: 1");
-    expect(text(dir)).not.toContain("to:");
+    expect(vox(dir)).toEqual({ ref: "vox", start: "24:1", from: 1 });
   });
 
   it("keeps the `to` when the file's length is not known", () => {
@@ -93,7 +98,7 @@ describe("setTrackPlacementWindow", () => {
       from: 1,
       to: 10,
     });
-    expect(text(dir)).toContain("to: 10");
+    expect(vox(dir).to).toBe(10);
   });
 
   it("clears the edge a drag decided against rather than leaving it behind", () => {
@@ -112,8 +117,7 @@ describe("setTrackPlacementWindow", () => {
       { from: 0, to: 8 },
       8,
     );
-    expect(text(dir)).not.toContain("from:");
-    expect(text(dir)).not.toContain("to:");
+    expect(vox(dir)).toEqual({ ref: "vox", start: "24:1" });
   });
 
   it("commits at 0.1 ms, which is finer than a sample", () => {
@@ -122,8 +126,7 @@ describe("setTrackPlacementWindow", () => {
       from: 1 / 3,
       to: 2 / 3,
     });
-    expect(text(dir)).toContain("from: 0.3333");
-    expect(text(dir)).toContain("to: 0.6667");
+    expect(vox(dir)).toMatchObject({ from: 0.3333, to: 0.6667 });
   });
 
   it("answers false for an event that is not there", () => {

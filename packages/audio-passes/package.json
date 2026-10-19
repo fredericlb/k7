@@ -23,8 +23,7 @@
     "@studio/engine-protocol": "*",
     "@studio/song": "*",
     "@studio/song-schema": "*",
-    "@studio/take-render": "*",
-    "yaml": "^2.5.0"
+    "@studio/take-render": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

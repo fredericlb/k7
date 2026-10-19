@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parse } from "@studio/k7x/document";
 import { loadGraph } from "@studio/song/graph";
 import { notSupportedModules } from "@studio/song/loader";
 import { compileNodeProject } from "@studio/song/nodeProject";
@@ -63,16 +64,20 @@ beforeEach(() => {
   mkdirSync(mixer, { recursive: true });
   // Its plugin inline, so the fixture needs no engine scan to compile to a `Mixer`.
   writeFileSync(
-    join(mixer, "module.yaml"),
-    "plugin: { type: internal, name: Mixer }\n",
+    join(mixer, "module.k7x"),
+    'plugin({ type: "internal", name: "Mixer" })\n',
   );
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
 const read = (rel: string) => readFileSync(join(dir, rel), "utf8");
+const data = (rel: string) => parse(read(rel));
 // A module now lands in the WORKSPACE's `_modules`, beside the project rather than inside it.
-const readWs = (rel: string) => readFileSync(join(ws, "_modules", rel), "utf8");
+const dataWs = (rel: string) =>
+  parse(readFileSync(join(ws, "_modules", rel), "utf8"));
 const existsWs = (rel: string) => existsSync(join(ws, "_modules", rel));
+/** graph.k7x's segments: each node and the nodes it feeds. */
+const segments = () => data("graph.k7x").modules as Record<string, string[]>;
 
 describe("import: a track named after the device on it", () => {
   const inst = (name: string): PluginOut => ({
@@ -97,21 +102,20 @@ describe("import: a track named after the device on it", () => {
       ]),
       {},
     );
-    const chains = read("graph.yaml");
-    expect(chains).not.toContain("polysynth: [ polysynth ]");
-    expect(chains).toContain("polysynth: [ polysynth_polysynth ]");
-    expect(chains).toContain("polysynth_polysynth: [ distortion ]");
+    const chains = segments();
+    expect(chains.polysynth).toEqual(["polysynth_polysynth"]);
+    expect(chains.polysynth_polysynth).toEqual(["distortion"]);
     // …and the node is a real one, naming the module it is a use of.
-    expect(read("nodes/polysynth_polysynth.yaml")).toContain(
-      'extends: "@workspace/instruments/polysynth"',
+    expect(data("nodes/polysynth_polysynth.k7x").extends).toBe(
+      "@workspace/instruments/polysynth",
     );
   });
 
   it("still folds a sole insert whose name is nobody's chain", () => {
     // The collapse is worth having: one use of a plugin needs no node file at all.
     emitFolder(dir, song([track("vox", [fx("Reverb")])]), {});
-    expect(read("graph.yaml")).toContain("vox: [ reverb ]");
-    expect(existsSync(join(dir, "nodes/reverb_vox.yaml"))).toBe(false);
+    expect(segments().vox).toEqual(["reverb"]);
+    expect(existsSync(join(dir, "nodes/reverb_vox.k7x"))).toBe(false);
   });
 });
 
@@ -128,10 +132,8 @@ describe("import: every lane ends on a fader", () => {
     expect(g.chains.drums.use.at(-1)?.module).toBe("mix-drums");
     // A NODE on the LIBRARY's strip — its own instance per lane, and no project module: a copy of
     // a library module draws a card with no controls (packages/song/docs/liveProject.md).
-    expect(read("nodes/mix-vox.yaml")).toContain(
-      'extends: "@meta/audio/mixer"',
-    );
-    expect(read("nodes/mix-drums.yaml")).toContain("@meta/audio/mixer");
+    expect(data("nodes/mix-vox.k7x").extends).toBe("@meta/audio/mixer");
+    expect(data("nodes/mix-drums.k7x").extends).toBe("@meta/audio/mixer");
     expect(existsWs("audio/mix-vox")).toBe(false);
   });
 
@@ -152,7 +154,7 @@ describe("import: every lane ends on a fader", () => {
       ]),
       {},
     );
-    const chains = read("graph.yaml");
+    const chains = read("graph.k7x");
     expect(chains).not.toContain("mix-verb");
     expect(chains).not.toContain("mix-master");
   });
@@ -161,11 +163,10 @@ describe("import: every lane ends on a fader", () => {
 describe("import: the sum is where a lane ends", () => {
   it("runs every lane into MIX, and MIX into OUT", () => {
     emitFolder(dir, song([track("vox", [fx("Reverb")])]), {});
-    const chains = read("graph.yaml");
+    const chains = segments();
     // The k7 notation: the strip reaches the sum, and the sum goes out — docs/masterChain.md.
-    expect(chains).toContain("mix-vox: [ MIX ]");
-    expect(chains).toContain("MIX: [ OUT ]");
-    expect(chains).not.toContain("mix-vox: [ OUT ]");
+    expect(chains["mix-vox"]).toEqual(["MIX"]);
+    expect(chains.MIX).toEqual(["OUT"]);
   });
 
   it("puts a master chain BETWEEN the sum and the output", () => {
@@ -177,10 +178,10 @@ describe("import: the sum is where a lane ends", () => {
       ]),
       {},
     );
-    const chains = read("graph.yaml");
+    const chains = segments();
     // MIX feeds the master run, and the master run is what reaches OUT.
-    expect(chains).toContain("MIX: [ limiter ]");
-    expect(chains).toContain("limiter: [ OUT ]");
+    expect(chains.MIX).toEqual(["limiter"]);
+    expect(chains.limiter).toEqual(["OUT"]);
   });
 });
 
@@ -224,9 +225,7 @@ describe("import: one FILE per source, whatever the clips do with it", () => {
     expect(existsSync(join(dir, "clips/basse.wav"))).toBe(true);
     expect(existsSync(join(dir, "clips/basse_0.wav"))).toBe(false);
     for (const i of [0, 5, 11])
-      expect(read(`clips/basse_${i}.yaml`)).toContain(
-        "source: clips/basse.wav",
-      );
+      expect(data(`clips/basse_${i}.k7x`).source).toBe("clips/basse.wav");
   });
 
   it("writes one file for two sources carrying the SAME bytes", () => {
@@ -300,21 +299,21 @@ describe("import: one module per plugin, one node per use", () => {
     expect(stats.moduleNodes).toBe(1); // ONE module…
     expect(stats.nodeFiles).toBe(2); // …used twice
 
-    // module.yaml declares the plugin and nothing else; each node holds its settings.
-    const mod = readWs("audio/reverb/module.yaml");
-    expect(mod).toContain("name: Reverb");
-    expect(mod).not.toContain("mix");
+    // module.k7x declares the plugin and nothing else; each node holds its settings.
+    expect(dataWs("audio/reverb/module.k7x")).toEqual({
+      plugin: { type: "vst3", name: "Reverb" },
+    });
     // Flat in `nodes/`, each naming what it extends — see packages/song/docs/nodes.md.
-    expect(read("nodes/reverb_vox.yaml")).toContain("mix:");
-    expect(read("nodes/reverb_vox.yaml")).toContain(
-      'extends: "@workspace/audio/reverb"',
-    );
-    expect(read("nodes/reverb_drums.yaml")).toContain("mix:");
+    expect(data("nodes/reverb_vox.k7x")).toEqual({
+      extends: "@workspace/audio/reverb",
+      params: { mix: 0.2 },
+    });
+    expect(data("nodes/reverb_drums.k7x").params).toEqual({ mix: 0.8 });
 
     // …and the segments name the nodes.
-    const chains = read("graph.yaml");
-    expect(chains).toContain("vox: [ reverb_vox ]");
-    expect(chains).toContain("drums: [ reverb_drums ]");
+    const chains = segments();
+    expect(chains.vox).toEqual(["reverb_vox"]);
+    expect(chains.drums).toEqual(["reverb_drums"]);
   });
 
   it("keeps a single-use plugin in its module — no node file", () => {
@@ -324,19 +323,19 @@ describe("import: one module per plugin, one node per use", () => {
       {},
     );
     expect(stats.nodeFiles).toBe(0);
-    expect(readWs("audio/reverb/module.yaml")).toContain("mix:");
-    expect(existsSync(join(dir, "nodes/reverb_vox.yaml"))).toBe(false);
-    expect(read("graph.yaml")).toContain("vox: [ reverb ]");
+    expect(dataWs("audio/reverb/module.k7x").params).toEqual({ mix: 0.2 });
+    expect(existsSync(join(dir, "nodes/reverb_vox.k7x"))).toBe(false);
+    expect(segments().vox).toEqual(["reverb"]);
   });
 
   it("separates two uses on the SAME track", () => {
     // Identical settings too: they are distinct slots, so tweaking one must not retune the other.
     emitFolder(dir, song([track("vox", [fx("EQ"), fx("EQ")])]), {});
-    expect(existsSync(join(dir, "nodes/eq_vox.yaml"))).toBe(true);
-    expect(existsSync(join(dir, "nodes/eq_vox_2.yaml"))).toBe(true);
-    const chains = read("graph.yaml");
-    expect(chains).toContain("vox: [ eq_vox ]");
-    expect(chains).toContain("eq_vox: [ eq_vox_2 ]");
+    expect(existsSync(join(dir, "nodes/eq_vox.k7x"))).toBe(true);
+    expect(existsSync(join(dir, "nodes/eq_vox_2.k7x"))).toBe(true);
+    const chains = segments();
+    expect(chains.vox).toEqual(["eq_vox"]);
+    expect(chains.eq_vox).toEqual(["eq_vox_2"]);
   });
 
   it("doesn't count a dropped insert towards 'used more than once'", () => {
@@ -351,9 +350,9 @@ describe("import: one module per plugin, one node per use", () => {
       { type: "vst3", name: "Synth", role: "instrument", enabled: true },
     ]);
     emitFolder(dir, song([bounced, live]), {});
-    expect(existsWs("instruments/synth/module.yaml")).toBe(true);
-    expect(existsWs("instruments/synth/keys.yaml")).toBe(false);
-    expect(read("graph.yaml")).toContain("keys: [ synth ]");
+    expect(existsWs("instruments/synth/module.k7x")).toBe(true);
+    expect(existsWs("instruments/synth/keys.k7x")).toBe(false);
+    expect(segments().keys).toEqual(["synth"]);
   });
 });
 
@@ -368,8 +367,8 @@ describe("the emitted folder is a loadable project", () => {
       ]),
       {},
     );
-    // graph.yaml must be SEGMENTS, one node per line: any other format is a project that will not open.
-    expect(read("graph.yaml")).toMatch(/modules:\n\s+\S+: \[ /);
+    // graph.k7x must be SEGMENTS, one node per line: any other format is a project that will not open.
+    expect(read("graph.k7x")).toMatch(/^modules\(\{\n {2}\S+: \[[^\n]*\],$/m);
     const g = loadGraph(dir);
     // `MIX` is a chain of its own, exactly as it is in the demos: the sum, and what it runs into.
     expect(Object.keys(g.chains).sort()).toEqual(["MIX", "drums", "vox"]);
@@ -380,7 +379,7 @@ describe("the emitted folder is a loadable project", () => {
     ]);
     expect(g.modules["reverb_vox"].params).toEqual({ mix: 0.2 });
     expect(g.modules["reverb_drums"].params).toEqual({ mix: 0.8 });
-    // Both inherit the plugin from the module.yaml they share.
+    // Both inherit the plugin from the module.k7x they share.
     expect(g.modules["reverb_vox"].plugin).toEqual(
       g.modules["reverb_drums"].plugin,
     );
@@ -421,18 +420,21 @@ describe("what comes out is the arrangement that went in", () => {
       sourceFrom: 0.25,
       sourceTo: 4.25,
     });
-    expect(read("nodes/vox.yaml")).not.toContain("length");
+    expect(read("nodes/vox.k7x")).not.toContain("length");
   });
 
-  it("QUOTES every timecode it writes", () => {
-    // Unquoted, `2:1` is a YAML 1.1 sexagesimal: bar 2 would reload as beat 121.
+  it("writes every timecode as a string", () => {
+    // A bare number reads as BARS, so a timing field is a timecode string — docs/import.md.
     emitFolder(dir, song([clipTrack()]), { "a.wav": new Uint8Array([82]) });
-    const track = read("nodes/vox.yaml");
-    expect(track).toMatch(/start: "[\d:]+"/);
-    expect(track).not.toMatch(/start: \d+:/); // never bare
-    const clip = read("clips/vox_0.yaml");
-    expect(clip).toMatch(/from: "[\d:]+"/);
-    expect(clip).toMatch(/to: "[\d:]+"/);
+    const [placement] = data("nodes/vox.k7x").events as Record<
+      string,
+      unknown
+    >[];
+    expect(placement.start).toMatch(/^[\d:]+$/);
+    expect(placement.fadeIn).toMatch(/^[\d:]+$/);
+    const clip = data("clips/vox_0.k7x");
+    expect(clip.from).toMatch(/^[\d:]+$/);
+    expect(clip.to).toMatch(/^[\d:]+$/);
   });
 
   it("carries a MIDI clip's notes through as a sequence", () => {
@@ -455,10 +457,11 @@ describe("what comes out is the arrangement that went in", () => {
       ],
     } as never;
     emitFolder(dir, song([keys]), {});
-    const seq = read("sequences/keys_0.yaml");
-    // One note per line, and a default velocity of 1 stays implicit.
-    expect(seq).toContain("- { t: 0, d: 1, k: 60 }");
-    expect(seq).toContain("- { t: 1, d: 0.5, k: 64, v: 0.7 }");
+    // A default velocity of 1 stays implicit.
+    expect(data("sequences/keys_0.k7x").notes).toEqual([
+      { t: 0, d: 1, k: 60 },
+      { t: 1, d: 0.5, k: 64, v: 0.7 },
+    ]);
   });
 
   describe("a plugin this machine cannot load", () => {
@@ -484,11 +487,12 @@ describe("what comes out is the arrangement that went in", () => {
       expect(stats.missingPlugins).toEqual(["Kontakt 7"]);
       // No project module: a stub would say nothing the placeholder does not (docs/import.md).
       expect(existsSync(join(dir, "modules", "audio"))).toBe(false);
-      const node = read("nodes/kontakt_7.yaml");
-      expect(node).toContain(NOT_SUPPORTED_REF);
+      const node = data("nodes/kontakt_7.k7x");
+      expect(node.extends).toBe(NOT_SUPPORTED_REF);
       // The plugin's real name is kept on its `plugin:`, since the node's own name is a slug.
-      expect(node).toContain("name: Kontakt 7");
-      expect(node).toContain("Mix: 0.5"); // what the export carried, kept rather than dropped
+      expect(node.plugin).toMatchObject({ name: "Kontakt 7" });
+      // What the export carried, kept rather than dropped.
+      expect(node.params).toEqual({ Mix: 0.5 });
     });
 
     it("is diagnosed at the NODE's file, by the name the plugin really had", () => {
@@ -499,7 +503,7 @@ describe("what comes out is the arrangement that went in", () => {
         scan("Pro-Q 3"),
       );
       const [d] = notSupportedModules(dir);
-      expect(d?.file).toBe("nodes/kontakt_7.yaml");
+      expect(d?.file).toBe("nodes/kontakt_7.k7x");
       expect(d?.severity).toBe("warning");
       expect(d?.message).toContain('"Kontakt 7"');
     });
@@ -529,8 +533,10 @@ describe("what comes out is the arrangement that went in", () => {
         {},
         scan("Pro-Q 3"),
       );
-      expect(readWs("audio/pro_q_3/module.yaml")).toContain("name: Pro-Q 3");
-      expect(existsSync(join(dir, "nodes", "pro_q_3.yaml"))).toBe(false);
+      expect(dataWs("audio/pro_q_3/module.k7x").plugin).toMatchObject({
+        name: "Pro-Q 3",
+      });
+      expect(existsSync(join(dir, "nodes", "pro_q_3.k7x"))).toBe(false);
     });
   });
 
@@ -557,15 +563,15 @@ describe("a MIDI lane whose instrument stayed behind", () => {
       {},
     );
     expect(stats.standIns).toBe(2);
-    const g = readFileSync(join(dir, "graph.yaml"), "utf8");
-    expect(g).toContain("keys: [ keys-instrument ]");
-    expect(g).toContain("drums: [ drums-instrument ]");
-    expect(
-      readFileSync(join(dir, "nodes/keys-instrument.yaml"), "utf8"),
-    ).toContain('extends: "@k7-core/instruments/synth/surge-xt"');
-    expect(
-      readFileSync(join(dir, "nodes/drums-instrument.yaml"), "utf8"),
-    ).toContain('extends: "@k7-core/instruments/k7-rack"');
+    const g = segments();
+    expect(g.keys).toEqual(["keys-instrument"]);
+    expect(g.drums).toEqual(["drums-instrument"]);
+    expect(data("nodes/keys-instrument.k7x").extends).toBe(
+      "@k7-core/instruments/synth/surge-xt",
+    );
+    expect(data("nodes/drums-instrument.k7x").extends).toBe(
+      "@k7-core/instruments/k7-rack",
+    );
   });
 
   it("gets none when an instrument crossed over, nor on an audio lane", () => {

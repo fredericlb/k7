@@ -1,4 +1,4 @@
-// One-shot: rewrite node projects (`graph.yaml` + `nodes/`) as chain projects (`chains/` + `tracks/`).
+// One-shot: rewrite node projects (`graph.k7x` + `nodes/`) as chain projects (`chains/` + `tracks/`).
 // Dry run unless `--write`; a project it cannot carry over is reported and left alone. docs/chainFiles.md.
 //
 //   npx tsx packages/song/scripts/migrateChainFiles.ts <project.k7> [more…] [--write]

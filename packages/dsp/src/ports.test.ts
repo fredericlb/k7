@@ -1,5 +1,5 @@
 // `input(n)` — reading a module's SECOND input port from a graph. The port index is the whole contract between
-// the two documents: the graph is generated JSON the engine reads with no module.yaml in sight, so position is
+// the two documents: the graph is generated JSON the engine reads with no module.k7x in sight, so position is
 // the only fact both sides can hold on their own. See packages/song/docs/ports.md.
 
 import { describe, expect, it } from "vitest";

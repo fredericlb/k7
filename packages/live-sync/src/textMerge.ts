@@ -10,9 +10,9 @@ import { textHash } from "./textHash.ts";
 const VERSIONS_KEEP = 20;
 const CHARS_KEEP = 1 << 20;
 
-/** A YAML or k7x file merges by path ops, and a blob ref is no text: neither is kept or merged as lines. */
+/** A k7x file merges by path ops, and a blob ref is no text: neither is kept or merged as lines. */
 export const mergeable = (file: string, text: string | null): text is string =>
-  text !== null && !/\.(ya?ml|k7x)$/i.test(file) && !isBlobRef(text);
+  text !== null && !/\.k7x$/i.test(file) && !isBlobRef(text);
 
 const lines = (text: string): string[] => text.split(/(?<=\n)/);
 

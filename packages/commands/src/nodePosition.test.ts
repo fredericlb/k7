@@ -1,16 +1,12 @@
 // `graph move` — the pin behind "modules stay where you moved them", through the
-// dispatcher, asserting graph.yaml. A refusal must leave the file byte-identical, and
+// dispatcher, asserting graph.k7x. A refusal must leave the file byte-identical, and
 // `auto` must leave no trace of the round trip.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc, writeLane, writeNode } from "@studio/song/testSupport";
+import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
@@ -30,51 +26,29 @@ const host = () =>
     },
   }) as never;
 
-const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
+const chains = () => wsText(join(dir, "graph.k7x"));
+const graph = () =>
+  wsData(join(dir, "graph.k7x")) as {
+    modules: Record<string, string[]>;
+    positions?: Record<string, { x: number; y: number }>;
+  };
+const pin = (name: string) => graph().positions?.[name];
 
 function song(): { root: string; dir: string } {
   const r = mkdtempSync(join(tmpdir(), "td-modpos-"));
   const d = join(r, "song.k7");
-  mkdirSync(d, { recursive: true });
-  writeFileSync(
-    join(d, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(d, "graph.yaml"),
-    "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n",
-    "utf8",
-  );
-  mkdirSync(join(d, "nodes"), { recursive: true });
-  writeFileSync(
-    join(d, "nodes", "gtr.yaml"),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
+  writeDoc(join(d, "project.k7x"), { project: { name: "t", tempo: 120 } });
+  writeDoc(join(d, "graph.k7x"), { modules: { gtr: ["amp"], amp: ["OUT"] } });
+  writeLane(d, "gtr", "track", { events: [] });
   // A module lives at `@workspace` now, used through a node of the same bare name.
-  const md = join(r, "_modules", "audio", "amp");
-  mkdirSync(md, { recursive: true });
-  writeFileSync(
-    join(md, "module.yaml"),
-    "plugin:\n  type: internal\n  name: Chorus\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(d, "nodes", "amp.yaml"),
-    'extends: "@workspace/audio/amp"\n',
-    "utf8",
-  );
+  writeDoc(join(r, "_modules", "audio", "amp", "module.k7x"), {
+    plugin: { type: "internal", name: "Chorus" },
+  });
+  writeNode(d, "amp", { extends: "@workspace/audio/amp" });
   // A curve, so the CURVE node case has something to pin — it is not a chains node.
-  mkdirSync(join(d, "curves"), { recursive: true });
-  writeFileSync(
-    join(d, "curves", "wob.yaml"),
-    "type: lfo\nfrequency: 2\n",
-    "utf8",
-  );
+  writeDoc(join(d, "curves", "wob.k7x"), { type: "lfo", frequency: 2 });
   // …and a PICTURE lane, which is a card on the graph and is no key of `modules:` either.
-  mkdirSync(join(d, "video_tracks"), { recursive: true });
-  writeFileSync(join(d, "video_tracks", "main.yaml"), "events: []\n", "utf8");
+  writeDoc(join(d, "video_tracks", "main.k7x"), { events: [] });
   return { root: r, dir: d };
 }
 
@@ -88,7 +62,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 describe("graph move", () => {
   it("pins the node, rounded — and ABOVE the origin, which is a place like any other", async () => {
     await runCommand("graph move amp 420.6 -15", host(), "cli");
-    expect(chains()).toContain("amp: { x: 421, y: -15 }");
+    expect(pin("amp")).toEqual({ x: 421, y: -15 });
     expect(reloads).toBe(1);
   });
 
@@ -102,23 +76,23 @@ describe("graph move", () => {
 
   it("pins a CURVE by its id — a curve node is not a chains node, and moves all the same", async () => {
     await runCommand("graph move wob 60 90", host(), "cli");
-    expect(chains()).toContain("wob: { x: 60, y: 90 }");
+    expect(pin("wob")).toEqual({ x: 60, y: 90 });
   });
 
   it("a node CREATED with a trailing x,y is born there — pinned in the same undo step", async () => {
     // `node new` takes the click, so one command creates and pins (packages/song/docs/nodes.md).
     await runCommand("module new audio/verb2", host(), "cli");
     await runCommand("node new audio/verb2 verb2n 120,80", host(), "cli");
-    expect(chains()).toContain("verb2n: []");
-    expect(chains()).toContain("verb2n: { x: 120, y: 80 }");
+    expect(graph().modules.verb2n).toEqual([]);
+    expect(pin("verb2n")).toEqual({ x: 120, y: 80 });
   });
 
   it("without the token, it is born above the origin rather than left to the layout", async () => {
     // A node wired to nothing is what a fresh layout has least to say about, so the verb answers — docs/verbs.md.
     await runCommand("module new audio/verb3", host(), "cli");
     await runCommand("node new audio/verb3 verb3n", host(), "cli");
-    expect(chains()).toContain("verb3n: []");
-    expect(chains()).toContain("verb3n: { x: 0, y: -30 }");
+    expect(graph().modules.verb3n).toEqual([]);
+    expect(pin("verb3n")).toEqual({ x: 0, y: -30 });
   });
 
   it("`graph organize` clears every pin in one step", async () => {
@@ -134,8 +108,7 @@ describe("graph move", () => {
   // `videoTracks` is its own key, and reading only modules/tracks refused the node just dragged.
   it("pins a PICTURE lane, which the graph draws as a card like any other", async () => {
     await runCommand("graph move main 120 60", host(), "cli");
-    expect(chains()).toContain("main");
-    expect(chains()).toContain("120");
+    expect(pin("main")).toEqual({ x: 120, y: 60 });
     expect(reloads).toBe(1);
   });
 
@@ -158,13 +131,13 @@ describe("graph move", () => {
       logs.length = 0;
       await runCommand(`graph move ${sink} 10 20`, host(), "cli");
       expect(logs.join(" "), sink).not.toContain("no node");
-      expect(chains(), sink).toContain(`${sink}: { x: 10, y: 20 }`);
+      expect(pin(sink), sink).toEqual({ x: 10, y: 20 });
     }
   });
 
   it("hands a built-in output back to the layout like any other", async () => {
     await runCommand("graph move MIX 10 20", host(), "cli");
     await runCommand("graph move MIX auto", host(), "cli");
-    expect(chains()).not.toContain("MIX: {");
+    expect(pin("MIX")).toBeUndefined();
   });
 });

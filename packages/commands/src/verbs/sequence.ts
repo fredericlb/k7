@@ -4,7 +4,8 @@
 import { join } from "node:path";
 import { createSequenceFile } from "@studio/song/loader";
 import type { ClipDoc, ProjectDoc } from "@studio/song/project";
-import { wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsEdit } from "@studio/song/yaml/workspaceDoc";
+import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { halveLoopsOf } from "@studio/song-edit/sequenceLoops";
 import { roundBeat } from "@studio/song-schema/timecode";
 import {
@@ -113,15 +114,12 @@ export const SEQUENCE_VERBS: Record<string, SidHandler> = {
       return;
     }
     const d = end > t ? end - t : 1;
-    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
-    let text: string;
-    try {
-      text = wsRead(file);
-    } catch {
-      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+    const file = join(h.songPath, "sequences", `${seqId}.k7x`);
+    if (!wsExists(file)) {
+      h.refuse([`no sequence file: sequences/${seqId}.k7x`]);
       return;
     }
-    wsWrite(file, appendNotes(text, [{ t, d, k }]));
+    wsEdit(file, (doc) => appendNotes(doc.at([]), [{ t, d, k }]));
     h.log([
       `added ${noteStr} (k${k}) ${fmtBeat(t)}..${fmtBeat(end)} → ${seqId}`,
     ]);
@@ -156,17 +154,14 @@ export const SEQUENCE_VERBS: Record<string, SidHandler> = {
       ]);
       return;
     }
-    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
-    let text: string;
-    try {
-      text = wsRead(file);
-    } catch {
-      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+    const file = join(h.songPath, "sequences", `${seqId}.k7x`);
+    if (!wsExists(file)) {
+      h.refuse([`no sequence file: sequences/${seqId}.k7x`]);
       return;
     }
     try {
       h.snapshot?.(file);
-      wsWrite(file, setNoteTimeRange(text, k, t, nt, ne - nt));
+      wsEdit(file, (doc) => setNoteTimeRange(doc.at([]), k, t, nt, ne - nt));
     } catch (e) {
       h.refuse([`sequence note timerange: ${(e as Error).message}`]);
       return;
@@ -207,16 +202,13 @@ export const SEQUENCE_VERBS: Record<string, SidHandler> = {
       h.refuse(["start and newStart (beats) must be numbers"]);
       return;
     }
-    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
-    let text: string;
-    try {
-      text = wsRead(file);
-    } catch {
-      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+    const file = join(h.songPath, "sequences", `${seqId}.k7x`);
+    if (!wsExists(file)) {
+      h.refuse([`no sequence file: sequences/${seqId}.k7x`]);
       return;
     }
     try {
-      wsWrite(file, moveNote(text, k, t, nk, nt));
+      wsEdit(file, (doc) => moveNote(doc.at([]), k, t, nk, nt));
     } catch (e) {
       h.refuse([`sequence note move: ${(e as Error).message}`]);
       return;
@@ -245,17 +237,14 @@ export const SEQUENCE_VERBS: Record<string, SidHandler> = {
       h.refuse(["start and at must be numbers (beats)"]);
       return;
     }
-    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
-    let text: string;
-    try {
-      text = wsRead(file);
-    } catch {
-      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+    const file = join(h.songPath, "sequences", `${seqId}.k7x`);
+    if (!wsExists(file)) {
+      h.refuse([`no sequence file: sequences/${seqId}.k7x`]);
       return;
     }
     try {
       h.snapshot?.(file);
-      wsWrite(file, splitNote(text, k, t, at));
+      wsEdit(file, (doc) => splitNote(doc.at([]), k, t, at));
     } catch (e) {
       h.refuse([`sequence note split: ${(e as Error).message}`]);
       return;
@@ -283,16 +272,13 @@ export const SEQUENCE_VERBS: Record<string, SidHandler> = {
       h.refuse(["start (beats) must be a number"]);
       return;
     }
-    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
-    let text: string;
-    try {
-      text = wsRead(file);
-    } catch {
-      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+    const file = join(h.songPath, "sequences", `${seqId}.k7x`);
+    if (!wsExists(file)) {
+      h.refuse([`no sequence file: sequences/${seqId}.k7x`]);
       return;
     }
     try {
-      wsWrite(file, removeNote(text, k, t));
+      wsEdit(file, (doc) => removeNote(doc.at([]), k, t));
     } catch (e) {
       h.refuse([`sequence note remove: ${(e as Error).message}`]);
       return;
@@ -307,29 +293,22 @@ export const SEQUENCE_VERBS: Record<string, SidHandler> = {
       h.refuse(["usage: sequence double <sequence>"]);
       return;
     }
-    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
-    let text: string;
-    try {
-      text = wsRead(file);
-    } catch {
-      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+    const file = join(h.songPath, "sequences", `${seqId}.k7x`);
+    if (!wsExists(file)) {
+      h.refuse([`no sequence file: sequences/${seqId}.k7x`]);
       return;
     }
     // 4/4 when the doc states none: the bar is what a window rounds to, and every surface here reads it that way.
     const p = h.project();
-    let next: string;
+    const num = p.timeSigNumerator || 4;
+    const den = p.timeSigDenominator || 4;
     try {
-      next = doubleSequence(
-        text,
-        p.timeSigNumerator || 4,
-        p.timeSigDenominator || 4,
-      );
+      h.snapshot?.(file);
+      wsEdit(file, (doc) => doubleSequence(doc.at([]), num, den));
     } catch (e) {
       h.refuse([`sequence double: ${(e as Error).message}`]);
       return;
     }
-    h.snapshot?.(file);
-    wsWrite(file, next);
     // …and half as many passes wherever it is LOOPED, so four bars of it stay four bars — docs/verbs.md.
     const loops = halveLoopsOf(h.songPath, seqId, (f) => h.snapshot?.(f));
     h.log([

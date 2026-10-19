@@ -1,10 +1,12 @@
 // takeEdit.ts — an event's takes on disk: a comp span picked, a take dropped, a take added, and a
 // MIDI take written as a sequence of its own. The event is addressed by where it STARTS, as every
-// event verb addresses one; the YAML half is song-schema's takeFile.ts. See packages/song/docs/takes.md.
+// event verb addresses one; the file half is song-schema's takeFile.ts. See packages/song/docs/takes.md.
 
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { wsExists, wsWrite } from "@studio/song/yaml/workspaceFile";
+import type { K7Scope } from "@studio/k7x/document";
+import { wsWriteData } from "@studio/song/yaml/workspaceDoc";
+import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import {
   addTakeAt,
@@ -22,19 +24,19 @@ function atEvent(
   eventBeats: number,
   num: number,
   den: number,
-  edit: (text: string, index: number) => string,
+  edit: (doc: K7Scope, index: number) => void,
   what: string,
 ): string {
   return editTrackStruct(
     dir,
     track,
-    (text) => {
-      const i = findPlacementAt(text, eventBeats, num, den);
+    (doc) => {
+      const i = findPlacementAt(doc, eventBeats, num, den);
       if (i < 0)
         throw new Error(
           `no event at ${beatsToPosition(eventBeats, num, den)} on ${track}`,
         );
-      return edit(text, i);
+      edit(doc, i);
     },
     what,
   );
@@ -55,7 +57,7 @@ export function setEventComp(
     eventBeats,
     num,
     den,
-    (text, i) => setCompAt(text, i, span, num, den),
+    (doc, i) => setCompAt(doc, i, span, num, den),
     "comp a take",
   );
 }
@@ -76,7 +78,7 @@ export function setEventCrossfade(
     eventBeats,
     num,
     den,
-    (text, i) => setCrossfadeAt(text, i, at, length, num, den),
+    (doc, i) => setCrossfadeAt(doc, i, at, length, num, den),
     "set a crossfade",
   );
 }
@@ -96,7 +98,7 @@ export function removeEventTake(
     eventBeats,
     num,
     den,
-    (text, i) => removeTakeAt(text, i, ref, num, den),
+    (doc, i) => removeTakeAt(doc, i, ref, num, den),
     "remove a take",
   );
 }
@@ -117,12 +119,12 @@ export function addEventTake(
     eventBeats,
     num,
     den,
-    (text, i) => addTakeAt(text, i, take, span, num, den),
+    (doc, i) => addTakeAt(doc, i, take, span, num, den),
     "add a take",
   );
 }
 
-/** A recorded MIDI pass as `sequences/<id>.yaml`, notes in beats from the take's own start, its window the whole pass. */
+/** A recorded MIDI pass as `sequences/<id>.k7x`, notes in beats from the take's own start, its window the whole pass. */
 export function writeTakeSequence(
   dir: string,
   id: string,
@@ -131,22 +133,20 @@ export function writeTakeSequence(
   num: number,
   den: number,
 ): string {
-  const rel = `sequences/${id}.yaml`;
+  const rel = `sequences/${id}.k7x`;
   if (wsExists(join(dir, rel)))
     throw new Error(`sequence '${id}' already exists (${rel})`);
   mkdirSync(join(dir, "sequences"), { recursive: true });
-  const line = (n: (typeof notes)[number]) =>
-    `  - { t: ${n.t}, d: ${n.d}, k: ${n.k}${n.v === undefined ? "" : `, v: ${n.v}`} }`;
   const to = beatsToPosition(Math.max(lengthBeats, 0), num, den);
-  wsWrite(
-    join(dir, rel),
-    [
-      'from: "1:1"',
-      `to: "${to}"`,
-      notes.length ? "notes:" : "notes: []",
-      ...notes.map(line),
-      "",
-    ].join("\n"),
-  );
+  wsWriteData(join(dir, rel), {
+    from: "1:1",
+    to,
+    notes: notes.map((n) => ({
+      t: n.t,
+      d: n.d,
+      k: n.k,
+      ...(n.v === undefined ? {} : { v: n.v }),
+    })),
+  });
   return rel;
 }

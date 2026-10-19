@@ -161,7 +161,7 @@ export function videoSoundLanes(
     const picture = videoLanes[from];
     if (!picture) {
       errs.push(
-        `lane '${id}': video_source names '${from}', which is not a video track (video_tracks/${from}.yaml)`,
+        `lane '${id}': video_source names '${from}', which is not a video track (video_tracks/${from}.k7x)`,
       );
       continue;
     }

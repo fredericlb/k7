@@ -5,20 +5,20 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeYaml } from "@studio/song/testSupport";
+import { writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
 let root: string;
 let ws: Workspace;
-const MODULE = "song.k7/modules/audio/wurli/module.yaml";
+const MODULE = "song.k7/modules/audio/wurli/module.k7x";
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-base-"));
   const proj = join(root, "song.k7");
   mkdirSync(join(proj, "modules", "audio", "wurli"), { recursive: true });
-  writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
-  writeYaml(join(proj, "modules", "audio", "wurli", "module.yaml"), {
+  writeDoc(join(proj, "project.k7x"), { project: { name: "song" } });
+  writeDoc(join(proj, "modules", "audio", "wurli", "module.k7x"), {
     extends: "@engine/wurli-v2",
   });
   ws = new Workspace(root);

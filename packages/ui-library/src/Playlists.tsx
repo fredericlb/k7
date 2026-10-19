@@ -19,12 +19,13 @@ import {
 import type { PlaylistSummary } from "@studio/mediatek/playlists";
 import { type MediatekEntry, PLAYLISTS_DIR } from "@studio/mediatek/types";
 import {
-  appendPlaylistItem,
-  movePlaylistItem,
-  type Playlist,
-  parsePlaylist,
-  removePlaylistItem,
-} from "@studio/song-schema/playlist";
+  appendMediaPlaylistItem,
+  MEDIA_PLAYLIST_EXT,
+  moveMediaPlaylistItem,
+  parseMediaPlaylist,
+  removeMediaPlaylistItem,
+} from "@studio/song-schema/mediaYaml";
+import type { Playlist } from "@studio/song-schema/playlist";
 import type { Validity } from "@studio/song-schema/yaml/validate";
 import { useAutosave } from "@studio/ui-editor/autosave";
 import { sortNodes } from "@studio/web-protocol/tree";
@@ -76,7 +77,7 @@ function summaryAt(
 const playlistValidator =
   (unreadable: string) =>
   (_path: string, text: string): Validity => {
-    const ok = parsePlaylist(text) !== null;
+    const ok = parseMediaPlaylist(text) !== null;
     return {
       ok,
       issues: ok ? [] : [{ path: "items", message: unreadable }],
@@ -103,8 +104,7 @@ export function Playlists({
     () => playlistValidator(l.unreadable),
     [l.unreadable],
   );
-  // Loaded HERE and not handed down: this section has no family behind it, so the shell holds no
-  // listing for it — and a line resolves against the SONGS whichever section is open.
+  // Loaded HERE: no family stands behind this section, and a line resolves against the SONGS (../docs/playlists.md).
   const [songs, setSongs] = useState<MediatekEntry[] | null>(null);
   const [list, setList] = useState<PlaylistSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -190,15 +190,14 @@ export function Playlists({
     validate: validatePlaylist,
   });
 
-  // Recomputed on every keystroke but only REPLACED by something readable: half-typed YAML fails
-  // to parse about every other keystroke, and a list that emptied each time would flicker.
+  // Replaced only by something readable: half-typed YAML fails every other keystroke, and the list would flicker.
   const [doc, setDoc] = useState<Playlist | null>(null);
   useEffect(() => {
     if (content == null) return;
-    const parsed = parsePlaylist(content);
+    const parsed = parseMediaPlaylist(content);
     if (parsed) setDoc(parsed);
   }, [content]);
-  const behind = content != null && parsePlaylist(content) === null;
+  const behind = content != null && parseMediaPlaylist(content) === null;
 
   const rows: ResolvedItem[] = useMemo(
     () => resolveItems(doc?.items ?? [], songs),
@@ -212,7 +211,7 @@ export function Playlists({
   /** An edit the TEXT cannot take — an inline `items: [a, b]` — disables the buttons and says why. */
   const frozen =
     content != null && doc && doc.items.length > 1
-      ? movePlaylistItem(content, 0, 1) === null
+      ? moveMediaPlaylistItem(content, 0, 1) === null
         ? l.inline
         : ""
       : "";
@@ -230,7 +229,7 @@ export function Playlists({
       setNaming(false);
       setName("");
       await reload();
-      onOpen(`${made.name}.yaml`);
+      onOpen(`${made.name}${MEDIA_PLAYLIST_EXT}`);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -348,15 +347,15 @@ export function Playlists({
                   frozen={frozen}
                   onAdd={(song, variant) =>
                     edit(
-                      appendPlaylistItem(
+                      appendMediaPlaylistItem(
                         content,
                         variant ? { song, variant } : { song },
                       ),
                     )
                   }
-                  onRemove={(i) => edit(removePlaylistItem(content, i))}
+                  onRemove={(i) => edit(removeMediaPlaylistItem(content, i))}
                   onMove={(from, to) =>
-                    edit(movePlaylistItem(content, from, to))
+                    edit(moveMediaPlaylistItem(content, from, to))
                   }
                   // One line, the version the line ASKS for — which the queue cannot say.
                   onPlay={(r) => {

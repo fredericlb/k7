@@ -3,6 +3,7 @@
 // written down (caught by walking each schema's keys and asking whether any example mentions them).
 // Both read the markdown under k7/docs/ itself. See ../../docs/docExamples.md.
 
+import { parse } from "@studio/k7x/document";
 import { PresetFileSchema } from "@studio/song-schema/presets";
 import {
   ClipSchema,
@@ -22,7 +23,6 @@ import {
 } from "@studio/song-schema/yaml/projectSchema";
 import { SurfaceSchema } from "@studio/song-schema/yaml/surfaceSchema";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import type { z } from "zod";
 import { DOC_EXAMPLES } from "./examples";
 
@@ -62,8 +62,8 @@ describe("the documented file formats", () => {
   });
 
   for (const e of DOC_EXAMPLES.filter((x) => x.schema)) {
-    it(`${e.where} is valid YAML the loader would accept`, () => {
-      const parsed = parse(e.code, { version: "1.2" });
+    it(`${e.where} is valid k7x the loader would accept`, () => {
+      const parsed = parse(e.code);
       const result = SCHEMAS[e.schema as string].safeParse(parsed);
       // The whole issue list, not just the first: a stale example is usually stale in more than one place.
       const why = result.success

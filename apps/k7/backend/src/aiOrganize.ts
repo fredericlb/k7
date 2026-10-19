@@ -47,9 +47,9 @@ const paramSchema = z.object({
 const requestSchema = z
   .object({
     module: z.string().min(1),
-    moduleYaml: z.string(),
+    moduleText: z.string(),
     params: z.array(paramSchema).max(2000),
-    uiYaml: z.string(),
+    uiText: z.string(),
     widgetsJs: z.string(),
     mode: z.enum(["update", "reset"]),
     direction: z.string().max(2000),

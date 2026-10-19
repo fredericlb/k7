@@ -3,7 +3,7 @@
 // `fileParams.ts`, `moduleKeys.ts` — and imports nothing else but `@studio/graph-model`.
 //
 // A leaf on purpose. These tables are the one thing everything about a module derives
-// from — `kind`, `inputs`, `emits`, the ref a `ui.yaml` panel answers to — so knowing what
+// from — `kind`, `inputs`, `emits`, the ref a `ui.k7x` panel answers to — so knowing what
 // `audio/` means costs no import of a loader that reads files, and the engine catalogue
 // (which knows about plugins and nothing about folders) can reach them without a cycle.
 

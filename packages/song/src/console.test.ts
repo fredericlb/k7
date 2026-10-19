@@ -3,7 +3,7 @@
 // leaving by CUE and a bus return get none, and a system that is not there stops the compile.
 // See docs/console.md.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { emptyDoc, pluginDoc, trackDoc } from "@studio/engine-protocol/build";
@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { consoleSystems, withConsole } from "./console";
 import { baseModuleRefs, loadModuleRefs } from "./loader";
 import { compileNodeProject } from "./nodeProject";
-import { writeLibraries, writeLibrary } from "./testSupport";
+import { writeDoc, writeLibraries, writeLibrary } from "./testSupport";
 
 const SYS = "@k7-core/console/console-6";
 let root: string;
@@ -22,7 +22,7 @@ beforeEach(() => {
   writeLibrary(root);
   dir = join(root, "song");
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "project.yaml"), "project:\n  name: s\n", "utf8");
+  writeDoc(join(dir, "project.k7x"), { project: { name: "s" } });
   writeLibraries(root, {
     "console/console-6/channel": {
       plugin: { type: "internal", name: "Console 6 Channel" },
@@ -108,12 +108,10 @@ describe("placing the halves", () => {
     ).toThrow(/project\.console '@k7-core\/console\/broken': no buss module/);
   });
 
-  it("is read off project.yaml by the compile itself", () => {
-    writeFileSync(
-      join(dir, "project.yaml"),
-      `project:\n  name: s\n  console: "${SYS}"\n`,
-      "utf8",
-    );
+  it("is read off project.k7x by the compile itself", () => {
+    writeDoc(join(dir, "project.k7x"), {
+      project: { name: "s", console: SYS },
+    });
     expect(compileNodeProject(dir).masterPlugins[0]?.id).toBe(
       "@console:master",
     );

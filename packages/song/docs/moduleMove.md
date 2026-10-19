@@ -13,7 +13,7 @@ a node that plays nothing, in every song that used it. So the move repoints them
 - in **the open workspace**: every project in it.
 
 The rewrite is textual on purpose. A ref appears quoted, bare, as a chain step with a node
-(`ref:node`) or a port (`ref#b`), inside flow lists and in comments. Reserialising YAML to reach all
+(`ref:node`) or a port (`ref#b`), inside flow lists and in comments. Reserialising a file to reach all
 of those would eat every comment in hand-edited files. The pattern ends a ref at one of the
 characters that can follow it, so moving `echo` never touches `echo-2`. A song's `_history/`, the
 recycle bin and a stale `_libraries/` clone are not walked: none of them is something that plays.

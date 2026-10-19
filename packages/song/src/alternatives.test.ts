@@ -3,15 +3,10 @@
 // entry and a list replaces outright — and the order against `extends`, which is the one thing a
 // reader cannot guess. See docs/alternatives.md.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { K7Document, type K7Scope, parse } from "@studio/k7x/document";
 import {
   alternativesOf,
   currentAlternative,
@@ -26,6 +21,8 @@ import { loadGraph } from "./graph";
 import { loadModuleRefs, loadModules } from "./loader";
 import { resolveModuleMap } from "./moduleResolve";
 import type { LoadedModule } from "./rawDoc";
+import { writeDoc, writeNode } from "./testSupport";
+import { wsEdit } from "./yaml/workspaceDoc";
 
 const mod = (m: Partial<LoadedModule>): LoadedModule =>
   ({ kind: "plugin", inputs: [], ...m }) as LoadedModule;
@@ -147,52 +144,74 @@ describe("against `extends`", () => {
 });
 
 describe("the file the app writes", () => {
-  const AUTHORED = `# the amp
-extends: "@workspace/audio/amp"
-params: { Gain: 3, Tone: 5 }
-alternatives:
-  - name: crunch
-    params: { Gain: 9 }
+  const AUTHORED = `// the amp
+extends("@workspace/audio/amp")
+params({ Gain: 3, Tone: 5 })
+alternatives([name("crunch").params({ Gain: 9 })])
 `;
+  // Runs one writer on the whole file, as the app does, and answers the text it leaves.
+  const edit = (text: string, f: (doc: K7Scope) => void): string => {
+    const doc = new K7Document(text);
+    f(doc.at([]));
+    return doc.toString();
+  };
+  const switchTo = (text: string, name: string) =>
+    edit(text, (doc) => setAlternative(doc, name));
 
   it("switches by ADDING one line, keeping every other byte", () => {
-    const after = setAlternative(AUTHORED, "crunch");
-    expect(after).toContain("alternative: crunch");
+    const after = switchTo(AUTHORED, "crunch");
+    expect(after).toContain('alternative("crunch")');
     // Take the selection back out and the file is what it was, comments and key order included.
-    expect(after.replace("alternative: crunch\n", "")).toBe(AUTHORED);
+    expect(after.replace('alternative("crunch")\n', "")).toBe(AUTHORED);
   });
 
   it("clears the key going back to the first, rather than writing `alternative: 1`", () => {
-    const on = setAlternative(AUTHORED, "crunch");
-    expect(setAlternative(on, "1")).toBe(AUTHORED);
+    const on = switchTo(AUTHORED, "crunch");
+    expect(switchTo(on, "1")).toBe(AUTHORED);
   });
 
   it("refuses a name the module does not have", () => {
-    expect(() => setAlternative(AUTHORED, "ghost")).toThrow(/no alternative/);
+    expect(() => switchTo(AUTHORED, "ghost")).toThrow(/no alternative/);
   });
 
   it("adds an EMPTY one and switches to it — a set states only what it changes", () => {
-    const { text, name } = addAlternative(AUTHORED, "clean");
+    let name = "";
+    const text = edit(AUTHORED, (doc) => {
+      name = addAlternative(doc, "clean");
+    });
     expect(name).toBe("clean");
-    expect(text).toContain("alternative: clean");
+    const data = parse(text);
+    expect(data.alternative).toBe("clean");
     // Empty, so it plays the module as authored until you change something.
-    expect(text).toMatch(/- name: clean\s*\n/);
+    expect((data.alternatives as unknown[])[1]).toEqual({ name: "clean" });
   });
 
   it("numbers an unnamed one after the last, counting the first", () => {
-    expect(addAlternative(AUTHORED).name).toBe("3");
+    let name = "";
+    edit(AUTHORED, (doc) => {
+      name = addAlternative(doc);
+    });
+    expect(name).toBe("3");
   });
 
   it("copies the set that is CURRENTLY on, not the module's own", () => {
-    const on = setAlternative(AUTHORED, "crunch");
-    const { text } = addAlternative(on, "crunchier", { copy: true });
+    const on = switchTo(AUTHORED, "crunch");
+    const text = edit(on, (doc) => {
+      addAlternative(doc, "crunchier", { copy: true });
+    });
     // crunch's OWN fields: baking Tone in would cut the copy off from later edits to the module.
-    expect(text).toContain("Gain: 9");
-    expect(text).not.toMatch(/name: crunchier[\s\S]*Tone/);
+    expect((parse(text).alternatives as unknown[])[1]).toEqual({
+      name: "crunchier",
+      params: { Gain: 9 },
+    });
   });
 
   it("refuses a name already taken", () => {
-    expect(() => addAlternative(AUTHORED, "crunch")).toThrow(/already has/);
+    expect(() =>
+      edit(AUTHORED, (doc) => {
+        addAlternative(doc, "crunch");
+      }),
+    ).toThrow(/already has/);
   });
 });
 
@@ -203,32 +222,28 @@ describe("through the real loader", () => {
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  const project = (node: string): string => {
+  const project = (node: Record<string, unknown>): string => {
     const p = join(dir, "song.k7");
-    mkdirSync(join(p, "nodes"), { recursive: true });
-    mkdirSync(join(dir, "_modules", "audio", "amp"), { recursive: true });
-    writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
-    writeFileSync(
-      join(dir, "_modules", "audio", "amp", "module.yaml"),
-      "plugin: { type: internal, name: Chorus }\nparams: { Gain: 1, Tone: 5 }\n",
-    );
-    writeFileSync(join(p, "nodes", "ampli.yaml"), node);
-    writeFileSync(
-      join(p, "nodes", "gtr.yaml"),
-      'extends: "@meta/track"\nevents: []\n',
-    );
-    writeFileSync(
-      join(p, "graph.yaml"),
-      "modules:\n  gtr: [ ampli ]\n  ampli: [ OUT ]\n",
-    );
+    writeDoc(join(p, "project.k7x"), { project: { name: "song" } });
+    writeDoc(join(dir, "_modules", "audio", "amp", "module.k7x"), {
+      plugin: { type: "internal", name: "Chorus" },
+      params: { Gain: 1, Tone: 5 },
+    });
+    writeNode(p, "ampli", node);
+    writeNode(p, "gtr", { extends: "@meta/track", events: [] });
+    writeDoc(join(p, "graph.k7x"), {
+      modules: { gtr: ["ampli"], ampli: ["OUT"] },
+    });
     return p;
   };
 
   it("reaches the graph as the chosen set, with the list beside it", () => {
-    const p = project(
-      'extends: "@workspace/audio/amp"\nparams: { Gain: 3 }\n' +
-        "alternative: crunch\nalternatives:\n  - name: crunch\n    params: { Gain: 9 }\n",
-    );
+    const p = project({
+      extends: "@workspace/audio/amp",
+      params: { Gain: 3 },
+      alternative: "crunch",
+      alternatives: [{ name: "crunch", params: { Gain: 9 } }],
+    });
     const g = loadGraph(p);
     expect(g.modules.ampli.params).toEqual({ Gain: 9, Tone: 5 });
     // Both, so the node can draw a menu without re-reading the file.
@@ -239,21 +254,19 @@ describe("through the real loader", () => {
 
   it("says nothing about alternatives on a module that has none", () => {
     // No menu on a node with one set: a list of one is not a choice.
-    const g = loadGraph(project('extends: "@workspace/audio/amp"\n'));
+    const g = loadGraph(project({ extends: "@workspace/audio/amp" }));
     expect(g.modules.ampli.alternatives).toBeUndefined();
     expect(g.modules.ampli.alternative).toBeUndefined();
   });
 
   it("round-trips a switch written by the app", () => {
-    const p = project(
-      'extends: "@workspace/audio/amp"\nparams: { Gain: 3 }\n' +
-        "alternatives:\n  - name: crunch\n    params: { Gain: 9 }\n",
-    );
-    const file = join(p, "nodes", "ampli.yaml");
-    writeFileSync(
-      file,
-      setAlternative(readFileSync(file, "utf8"), "crunch"),
-      "utf8",
+    const p = project({
+      extends: "@workspace/audio/amp",
+      params: { Gain: 3 },
+      alternatives: [{ name: "crunch", params: { Gain: 9 } }],
+    });
+    wsEdit(join(p, "nodes", "ampli.k7x"), (doc) =>
+      setAlternative(doc.at([]), "crunch"),
     );
     const resolved = resolveModuleMap(loadModules(p), loadModuleRefs(p));
     expect(resolved.ampli.params).toEqual({ Gain: 9, Tone: 5 });
@@ -268,45 +281,46 @@ describe("a set that names ANOTHER module", () => {
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
   // Two modules to be, a strip to be a fader, and a lane: the node under test is written by each case.
-  const project = (nodes: Record<string, string>): string => {
+  const project = (nodes: Record<string, Record<string, unknown>>): string => {
     const p = join(dir, "song.k7");
-    mkdirSync(join(p, "nodes"), { recursive: true });
-    writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
-    const lib = (path: string, text: string) => {
-      mkdirSync(join(dir, "_modules", path), { recursive: true });
-      writeFileSync(join(dir, "_modules", path, "module.yaml"), text);
-    };
-    lib(
-      "instruments/vst-wurli",
-      "plugin: { type: vst3, name: Wurli V2 }\nparams: { Tremolo: 0.3 }\n",
-    );
-    lib(
-      "instruments/faust-wurli",
-      "plugin: { type: internal, name: Faust }\nparams: { Bark: 0.5 }\n",
-    );
-    lib(
-      "audio/strip",
-      "plugin: { type: internal, name: Mixer }\nparams: { Volume: 0 }\n",
-    );
-    for (const [name, text] of Object.entries(nodes))
-      writeFileSync(join(p, "nodes", `${name}.yaml`), text);
-    writeFileSync(
-      join(p, "graph.yaml"),
-      "modules:\n  keys: [ wurli ]\n  wurli: [ OUT ]\n",
-    );
+    writeDoc(join(p, "project.k7x"), { project: { name: "song" } });
+    const lib = (path: string, value: Record<string, unknown>) =>
+      writeDoc(join(dir, "_modules", path, "module.k7x"), value);
+    lib("instruments/vst-wurli", {
+      plugin: { type: "vst3", name: "Wurli V2" },
+      params: { Tremolo: 0.3 },
+    });
+    lib("instruments/faust-wurli", {
+      plugin: { type: "internal", name: "Faust" },
+      params: { Bark: 0.5 },
+    });
+    lib("audio/strip", {
+      plugin: { type: "internal", name: "Mixer" },
+      params: { Volume: 0 },
+    });
+    for (const [name, value] of Object.entries(nodes))
+      writeNode(p, name, value);
+    writeDoc(join(p, "graph.k7x"), {
+      modules: { keys: ["wurli"], wurli: ["OUT"] },
+    });
     return p;
   };
-  const LANE = 'extends: "@meta/track"\nevents: []\n';
+  const LANE = { extends: "@meta/track", events: [] };
+  const FAUST = "@workspace/instruments/faust-wurli";
   const resolved = (p: string) =>
     resolveModuleMap(loadModules(p), loadModuleRefs(p));
 
   it("becomes that module: its plugin and its params, none of the node's own", () => {
     const p = project({
       keys: LANE,
-      wurli:
-        'extends: "@workspace/instruments/vst-wurli"\nparams: { Tremolo: 0.9 }\n' +
-        "alternative: faust\nalternatives:\n" +
-        '  - name: faust\n    extends: "@workspace/instruments/faust-wurli"\n    params: { Bark: 0.8 }\n',
+      wurli: {
+        extends: "@workspace/instruments/vst-wurli",
+        params: { Tremolo: 0.9 },
+        alternative: "faust",
+        alternatives: [
+          { name: "faust", extends: FAUST, params: { Bark: 0.8 } },
+        ],
+      },
     });
     const w = resolved(p).wurli;
     expect(w.plugin).toEqual({ type: "internal", name: "Faust" });
@@ -320,9 +334,10 @@ describe("a set that names ANOTHER module", () => {
   it("is the node's own module again on set 1", () => {
     const p = project({
       keys: LANE,
-      wurli:
-        'extends: "@workspace/instruments/vst-wurli"\n' +
-        'alternatives:\n  - name: faust\n    extends: "@workspace/instruments/faust-wurli"\n',
+      wurli: {
+        extends: "@workspace/instruments/vst-wurli",
+        alternatives: [{ name: "faust", extends: FAUST }],
+      },
     });
     expect(resolved(p).wurli.plugin).toEqual({
       type: "vst3",
@@ -333,9 +348,11 @@ describe("a set that names ANOTHER module", () => {
   it("reaches the graph the compile builds, not only the resolver", () => {
     const p = project({
       keys: LANE,
-      wurli:
-        'extends: "@workspace/instruments/vst-wurli"\nalternative: faust\n' +
-        'alternatives:\n  - name: faust\n    extends: "@workspace/instruments/faust-wurli"\n',
+      wurli: {
+        extends: "@workspace/instruments/vst-wurli",
+        alternative: "faust",
+        alternatives: [{ name: "faust", extends: FAUST }],
+      },
     });
     expect(loadGraph(p).modules.wurli.plugin).toEqual({
       type: "internal",
@@ -345,10 +362,12 @@ describe("a set that names ANOTHER module", () => {
 
   it("does not swap a LANE: the arrangement is built on it", () => {
     const p = project({
-      keys:
-        'extends: "@meta/track"\nevents: []\nalternative: other\n' +
-        'alternatives:\n  - name: other\n    extends: "@workspace/instruments/faust-wurli"\n',
-      wurli: 'extends: "@workspace/instruments/vst-wurli"\n',
+      keys: {
+        ...LANE,
+        alternative: "other",
+        alternatives: [{ name: "other", extends: FAUST }],
+      },
+      wurli: { extends: "@workspace/instruments/vst-wurli" },
     });
     expect(resolved(p).keys.kind).toBe("track");
   });
@@ -356,9 +375,13 @@ describe("a set that names ANOTHER module", () => {
   it("does not swap a lane's FADER: the mixer is built on it, though its settings still switch", () => {
     const p = project({
       keys: LANE,
-      wurli:
-        'extends: "@workspace/audio/strip"\nalternative: other\n' +
-        'alternatives:\n  - name: other\n    extends: "@workspace/instruments/faust-wurli"\n    params: { Volume: -6 }\n',
+      wurli: {
+        extends: "@workspace/audio/strip",
+        alternative: "other",
+        alternatives: [
+          { name: "other", extends: FAUST, params: { Volume: -6 } },
+        ],
+      },
     });
     const w = resolved(p).wurli;
     expect(w.plugin).toEqual({ type: "internal", name: "Mixer" });

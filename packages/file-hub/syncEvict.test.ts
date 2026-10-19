@@ -6,6 +6,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { SYNC_PROTO } from "@studio/live-sync/protocol";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import { afterAll, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
@@ -51,7 +52,14 @@ describe("the sync relay's rooms", () => {
       if (m.t === "seq") seqs.push(m.entry.seq);
     });
     await new Promise((r) => ws.once("open", r));
-    ws.send(JSON.stringify({ t: "hello", workspace: "songs", since: 0 }));
+    ws.send(
+      JSON.stringify({
+        t: "hello",
+        workspace: "songs",
+        since: 0,
+        proto: SYNC_PROTO,
+      }),
+    );
     for (const n of [1, 2])
       ws.send(
         JSON.stringify({

@@ -3,15 +3,16 @@
 // the workspace's own modules and the engine's; a library module reached that way would get a local
 // shim extending it, a second file standing for the same thing (packages/song/docs/nodes.md).
 
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { stringify } from "@studio/k7x/print";
 import { createChainNode } from "./chainCreate";
 import { isChainProject } from "./chainProject";
 import { loadModuleRefs, NODES_DIR } from "./loader";
 import type { LoadedModule } from "./rawDoc";
-import { wsExists, wsWrite } from "./yaml/workspaceFile";
+import { wsWriteText } from "./yaml/workspaceDoc";
 
-/** Write `nodes/<node>.yaml` extending `ref`, which must resolve; the file written — in a chain project, the new node's id. */
+/** Write `nodes/<node>.k7x` extending `ref`, which must resolve; the file written — in a chain project, the new node's id. */
 export function createNodeOn(
   dir: string,
   ref: string,
@@ -27,14 +28,19 @@ export function createNodeOn(
     throw new Error(`'${ref}' is not a module this project can see`);
   if (m.kind === "io")
     throw new Error(`'${ref}' is an io module — use node new io/<role>`);
-  const body =
-    `# ${node}: one use of module "${ref}" — state only what THIS use changes.\n` +
-    `extends: ${JSON.stringify(ref)}\n`;
+  const body = stringify(
+    { extends: ref },
+    {
+      header: [
+        `${node}: one use of module "${ref}" — state only what THIS use changes.`,
+      ],
+    },
+  );
   if (isChainProject(dir)) return createChainNode(dir, node, body).id;
-  const rel = `${NODES_DIR}/${node}.yaml`;
-  if (wsExists(join(dir, rel)))
+  const rel = `${NODES_DIR}/${node}.k7x`;
+  if (existsSync(join(dir, rel)))
     throw new Error(`${rel} already exists — refusing to overwrite`);
   mkdirSync(join(dir, NODES_DIR), { recursive: true });
-  wsWrite(join(dir, rel), body);
+  wsWriteText(join(dir, rel), body);
   return rel;
 }

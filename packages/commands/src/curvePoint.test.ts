@@ -1,46 +1,39 @@
 // `curve point add|move|remove` — the shape of a drawn curve, point by point.
 //
 // Two invariants carry this family, and both are properties of the FILE rather than of any one
-// call, so they are asserted on the text: the points stay in TIME ORDER (the bake sorts anyway;
-// the file is the thing a person reads by eye), and a custom curve never runs out of points (one
-// with none does not load, and a curve file the loader refuses takes the whole project with it).
+// call, so they are asserted on what it holds: the points stay in TIME ORDER (the bake sorts
+// anyway; the file is the thing a person reads by eye), and a custom curve never runs out of points
+// (one with none does not load, and a curve file the loader refuses takes the whole project with it).
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
 let dir: string;
 
-const CURVE = `type: custom
-polarity: unipolar
-points:
-  - { time: "1:1:1", value: 0 }
-  - { time: "5:1:1", value: 1 }
-`;
-
 function song(): string {
   const d = mkdtempSync(join(tmpdir(), "td-curvept-"));
-  writeFileSync(
-    join(d, "project.yaml"),
-    'project:\n  name: t\n  tempo: 120\n  timeSignature: "4/4"\n',
-    "utf8",
-  );
-  mkdirSync(join(d, "curves"), { recursive: true });
-  writeFileSync(join(d, "curves", "sweep.yaml"), CURVE, "utf8");
+  writeDoc(join(d, "project.k7x"), {
+    project: { name: "t", tempo: 120, timeSignature: "4/4" },
+  });
+  writeDoc(join(d, "curves", "sweep.k7x"), {
+    type: "custom",
+    polarity: "unipolar",
+    points: [
+      { time: "1:1:1", value: 0 },
+      { time: "5:1:1", value: 1 },
+    ],
+  });
   // An LFO, to prove the family refuses a curve that has no points to edit.
-  writeFileSync(
-    join(d, "curves", "wobble.yaml"),
-    "type: lfo\nshape: sine\nfrequency: 1\n",
-    "utf8",
-  );
+  writeDoc(join(d, "curves", "wobble.k7x"), {
+    type: "lfo",
+    shape: "sine",
+    frequency: 1,
+  });
   return d;
 }
 
@@ -56,11 +49,12 @@ const host = () =>
     showNativePluginUI: () => {},
   }) as never;
 
-const text = (id = "sweep") =>
-  readFileSync(join(dir, "curves", `${id}.yaml`), "utf8");
+const file = (id = "sweep") => join(dir, "curves", `${id}.k7x`);
+type Point = { time: string; value: number };
+const points = (id = "sweep") => (wsData(file(id)).points ?? []) as Point[];
 /** The times, in the order the FILE lists them — which is the invariant worth holding. */
-const times = (id = "sweep") =>
-  [...text(id).matchAll(/time:\s*"([^"]+)"/g)].map((m) => m[1]);
+const times = (id = "sweep") => points(id).map((p) => p.time);
+const at = (time: string) => points().find((p) => p.time === time);
 
 beforeEach(() => {
   dir = song();
@@ -79,24 +73,20 @@ describe("curve point add", () => {
     // A curve is a function of song time: two values at one moment is not a curve.
     await runCommand("curve point add sweep 5:1:1 0.25", host(), "cli");
     expect(times()).toEqual(["1:1:1", "5:1:1"]);
-    expect(text()).toContain("0.25");
+    expect(at("5:1:1")?.value).toBe(0.25);
     expect(logs.join(" ")).toContain("set the point");
   });
 
   it("clamps a value outside 0..1 rather than writing it", async () => {
     await runCommand("curve point add sweep 3:1:1 4", host(), "cli");
-    expect(text()).toMatch(/time: "3:1", value: 1 \}/);
-  });
-
-  it("writes the time QUOTED — unquoted, `3:1` is a YAML 1.1 number", async () => {
-    await runCommand("curve point add sweep 3:1:1 0.5", host(), "cli");
-    expect(text()).toContain('time: "3:1"');
+    expect(at("3:1")?.value).toBe(1);
   });
 
   it("refuses a curve with no points to edit", async () => {
+    const before = readFileSync(file("wobble"), "utf8");
     await runCommand("curve point add wobble 3:1:1 0.5", host(), "cli");
     expect(logs.join(" ")).toContain("only a `type: custom`");
-    expect(text("wobble")).toBe("type: lfo\nshape: sine\nfrequency: 1\n");
+    expect(readFileSync(file("wobble"), "utf8")).toBe(before);
   });
 
   it("refuses a curve that is not there, by name", async () => {
@@ -109,12 +99,12 @@ describe("curve point move", () => {
   it("moves one point and keeps its value", async () => {
     await runCommand("curve point move sweep 5:1:1 7:1:1", host(), "cli");
     expect(times()).toEqual(["1:1:1", "7:1"]);
-    expect(text()).toMatch(/time: "7:1", value: 1 \}/);
+    expect(at("7:1")?.value).toBe(1);
   });
 
   it("takes a new value when one is given", async () => {
     await runCommand("curve point move sweep 5:1:1 7:1:1 0.3", host(), "cli");
-    expect(text()).toMatch(/time: "7:1", value: 0.3 \}/);
+    expect(at("7:1")?.value).toBe(0.3);
   });
 
   it("keeps the list sorted when a point moves BACK past another", async () => {

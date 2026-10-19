@@ -1,10 +1,12 @@
 // projectEdit.ts — changing a PROJECT in its own vocabulary ("set `Filter Freq` on
 // module `synth`"): finds the file a name lives in and hands the change to its writer.
-// Not yaml/edit.ts (the FILE primitive) — this knows modules, not YAML. Every write
+// Not yaml/edit.ts (the FILE primitive) — this knows modules, not key paths. Every write
 // changes the value and nothing else — comments, key order and layout all survive.
 
 import { join, relative, sep } from "node:path";
+import { type K7Scope, parse } from "@studio/k7x/document";
 import { chainItemText, editChainItem } from "@studio/song/chainItemEdit";
+import { chainFilePath } from "@studio/song/chainProject";
 import {
   baseModuleRefs,
   loadModuleRefs,
@@ -17,7 +19,7 @@ import { sharedRoots } from "@studio/song/moduleFork";
 import { keepsItsModule, resolveModule } from "@studio/song/moduleResolve";
 import { isTrack } from "@studio/song/trackModule";
 import { entityFileFor, moduleFileFor } from "@studio/song/yaml/moduleIO";
-import { wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsData, wsEdit } from "@studio/song/yaml/workspaceDoc";
 import { currentAlternative } from "@studio/song-schema/alternatives";
 import { currentEngine } from "@studio/song-schema/engines";
 import { materialRefOf } from "@studio/song-schema/placementId";
@@ -32,19 +34,17 @@ import {
   setModuleList,
   setModuleValue,
 } from "@studio/song-schema/yaml/moduleFile";
-import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
-import { parseDocument, parse as parseYaml } from "yaml";
 import type { OnsetEdits } from "./onsets";
 
 // --- module files -------------------------------------------------------------
 
-// Rewrite a module's node file in place, resolved through loadModules — so "synth:lead" edits its OWN file.
+// Edit a module's node file in place, resolved through loadModules — so "synth:lead" edits its OWN file.
 export function editModuleFile(
   dir: string,
   module: string,
-  transform: (text: string) => string,
+  edit: (doc: K7Scope) => void,
 ): string {
-  return rewriteModule(moduleFileOf(dir, module), transform);
+  return rewriteModule(moduleFileOf(dir, module), edit);
 }
 
 /** Where a module's text is: a file of its own, or — `item` set — an item of a chain file. */
@@ -54,22 +54,16 @@ interface ModuleText {
   item?: string;
 }
 
-// Rewrite a module's text through `transform`, writing only when it changed; the file's path.
-function rewriteModule(
-  at: ModuleText,
-  transform: (text: string) => string,
-): string {
-  if (at.item && at.dir) return editChainItem(at.dir, at.item, transform);
-  const before = wsRead(at.path);
-  const after = transform(before);
-  // No format pass afterwards: the YAML writers emit canonical output.
-  if (after !== before) wsWrite(at.path, after);
+// Edit a module's document through `edit`, writing only when it changed; the file's path.
+function rewriteModule(at: ModuleText, edit: (doc: K7Scope) => void): string {
+  if (at.item && at.dir) return editChainItem(at.dir, at.item, edit);
+  wsEdit(at.path, (doc) => edit(doc.at([])));
   return at.path;
 }
 
-// What a module's text says — a chain node's item cut out as a node file would hold it.
-const readModuleText = (at: ModuleText): string =>
-  at.item && at.dir ? chainItemText(at.dir, at.item) : wsRead(at.path);
+// What a module's file says — a chain node's item read as a node file would hold it.
+const readModuleData = (at: ModuleText): Record<string, unknown> =>
+  at.item && at.dir ? parse(chainItemText(at.dir, at.item)) : wsData(at.path);
 
 // Where a module's file is — a node's own file in the flat `nodes/`, or a shared one at `@workspace`/`@k7-core`.
 function moduleFileOf(dir: string, module: string): ModuleText {
@@ -80,7 +74,7 @@ function moduleFileOf(dir: string, module: string): ModuleText {
   const b = modules[module];
   // A chain project's node (not a lane) is an item of its chain file — docs/chainFiles.md.
   if (b?.home === "chains" && b.chain)
-    return { path: join(dir, "chains", `${b.chain}.yaml`), dir, item: module };
+    return { path: chainFilePath(dir, b.chain), dir, item: module };
   // A node carries its own folder — the only shape a project's own `loadModules` returns now.
   if (b?.home) {
     const folder = join(dir, b.home);
@@ -114,8 +108,8 @@ export function setModuleAutomationBinding(
   curve: string | null,
   trigger?: string,
 ): string {
-  return editModuleFile(dir, module, (text) =>
-    setModuleAutomation(text, param, curve, trigger),
+  return editModuleFile(dir, module, (doc) =>
+    setModuleAutomation(doc, param, curve, trigger),
   );
 }
 
@@ -126,9 +120,7 @@ function editModuleValue(
   path: string[],
   value: number | string | null,
 ): string {
-  return editModuleFile(dir, module, (text) =>
-    setModuleValue(text, path, value),
-  );
+  return editModuleFile(dir, module, (doc) => setModuleValue(doc, path, value));
 }
 
 // Set one param on a module node — on the attribute set that is ON, so a knob turned on set 2 changes set 2.
@@ -143,8 +135,8 @@ export function setModuleParam(
     engine: engineOn(dir, module),
     at: moduleFileOf(dir, module),
   }));
-  return rewriteModule(at, (text) =>
-    setAlternativeParam(text, name, value, engine),
+  return rewriteModule(at, (doc) =>
+    setAlternativeParam(doc, name, value, engine),
   );
 }
 
@@ -161,12 +153,9 @@ export function moduleAlternatives(
   dir: string,
   module: string,
 ): { names: string[]; current: string } {
-  const text = readModuleText(moduleFileOf(dir, module));
-  const names = alternativeNames(text);
-  return {
-    names,
-    current: names[currentAlternative(parseYaml(text, YAML_READ) ?? {})],
-  };
+  const raw = readModuleData(moduleFileOf(dir, module));
+  const names = alternativeNames(raw);
+  return { names, current: names[currentAlternative(raw)] };
 }
 
 /** Add one and switch to it — empty, or a copy of the set that is on; a LANE's empty one drops its placements, docs/projectEdit.md. */
@@ -185,10 +174,8 @@ export function newModuleAlternative(
     };
   });
   let chosen = name ?? "";
-  const path = rewriteModule(file, (text) => {
-    const made = addAlternative(text, name, { ...opts, blankEvents });
-    chosen = made.name;
-    return made.text;
+  const path = rewriteModule(file, (doc) => {
+    chosen = addAlternative(doc, name, { ...opts, blankEvents });
   });
   return { path, name: chosen };
 }
@@ -298,8 +285,8 @@ export function setModuleChannel(
     throw new Error("an input is one channel or a stereo pair, not more");
   if (channels.some((n) => !Number.isInteger(n) || n < 1))
     throw new Error("channels are whole numbers counted from 1");
-  return editModuleFile(dir, module, (text) =>
-    setModuleList(text, ["channel"], channels),
+  return editModuleFile(dir, module, (doc) =>
+    setModuleList(doc, ["channel"], channels),
   );
 }
 
@@ -314,8 +301,8 @@ export function setModuleAsset(
     engine: engineOn(dir, module),
     at: moduleFileOf(dir, module),
   }));
-  return rewriteModule(at, (text) =>
-    setAlternativeParam(text, param, file, engine),
+  return rewriteModule(at, (doc) =>
+    setAlternativeParam(doc, param, file, engine),
   );
 }
 
@@ -330,8 +317,8 @@ function clipFileOf(dir: string, id: string): ReturnType<typeof entityFileFor> {
 function missingClip(id: string): string {
   const ref = materialRefOf(id);
   return ref === id
-    ? `no clip "${id}" in this project — clips/${id}.yaml does not exist`
-    : `no clip "${id}" in this project — clips/${ref}.yaml does not exist`;
+    ? `no clip "${id}" in this project — clips/${id}.k7x does not exist`
+    : `no clip "${id}" in this project — clips/${ref}.k7x does not exist`;
 }
 
 /** Write a clip's onset CORRECTIONS — the block that outlives a re-detection; corrections that cancel out remove the key. */
@@ -343,17 +330,17 @@ export function setClipOnsets(
   const file = clipFileOf(dir, ref);
   if (!file) throw new Error(missingClip(ref));
   const empty = !edits.added?.length && !edits.removed?.length;
-  const before = wsRead(file.path);
-  const after = setModuleValue(before, ["onsets"], empty ? null : edits);
-  if (after !== before) wsWrite(file.path, after);
+  wsEdit(file.path, (doc) =>
+    setModuleValue(doc.at([]), ["onsets"], empty ? null : edits),
+  );
   return file.path;
 }
 
 /** Read a clip's `[timelineBeat, sourceSecond]` pairs exactly as the file states them, or null — never an identity map. */
 export function clipWarpMarkers(dir: string, ref: string): WarpMarker[] | null {
-  const raw = parseYaml(wsRead(clipFilePath(dir, ref)), YAML_READ) as {
+  const raw = wsData(clipFilePath(dir, ref)) as {
     warp?: { markers?: unknown };
-  } | null;
+  };
   const m = raw?.warp?.markers;
   if (!Array.isArray(m)) return null;
   const out = m
@@ -370,18 +357,15 @@ export function setClipWarp(
   algorithm = "elastique",
 ): string {
   const path = clipFilePath(dir, ref);
-  const before = wsRead(path);
-  const doc = parseDocument(before, YAML_READ);
-  if (!doc.getIn(["warp", "algorithm"]))
-    doc.setIn(["warp", "algorithm"], algorithm);
-  // One pair per line, inline — the shape the importer writes and the one a person can read.
-  const seq = doc.createNode(markers.map((m) => [m[0], m[1]]));
-  for (const item of (seq as { items?: { flow?: boolean }[] }).items ?? [])
-    item.flow = true;
-  doc.setIn(["warp", "markers"], seq);
-  // The default width, not YAML_WRITE: unfolding would churn clip files already written (docs/yamlText.md).
-  const after = String(doc);
-  if (after !== before) wsWrite(path, after);
+  wsEdit(path, (doc) => {
+    if (!doc.getIn(["warp", "algorithm"]))
+      doc.setIn(["warp", "algorithm"], algorithm);
+    // Applied rather than replaced: a marker the edit leaves alone keeps its line and its comment.
+    doc.applyIn(
+      ["warp", "markers"],
+      markers.map((m) => [m[0], m[1]]),
+    );
+  });
   return path;
 }
 
@@ -397,8 +381,7 @@ export function clipOnsets(dir: string, ref: string): OnsetEdits {
   const file = clipFileOf(dir, ref);
   if (!file) return {};
   try {
-    const raw = parseYaml(wsRead(file.path), YAML_READ);
-    const o = (raw as { onsets?: OnsetEdits } | null)?.onsets;
+    const o = (wsData(file.path) as { onsets?: OnsetEdits }).onsets;
     return {
       ...(o?.added?.length ? { added: [...o.added] } : {}),
       ...(o?.removed?.length ? { removed: [...o.removed] } : {}),
@@ -442,15 +425,13 @@ export function setModuleExtends(
   }
   const dropped: string[] = [];
   let set: string | undefined;
-  const path = editModuleFile(dir, module, (text) => {
-    const doc = parseDocument(text, YAML_READ);
+  const path = editModuleFile(dir, module, (doc) => {
+    const raw = (doc.toJS() ?? {}) as Record<string, unknown>;
     // On a set other than the first, the SET is repointed: it becomes another module, the node's own untouched.
-    const at = currentAlternative(
-      (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
-    );
+    const at = currentAlternative(raw);
     if (at > 0) {
       refuseSwap(dir, module);
-      set = alternativeNames(text)[at];
+      set = alternativeNames(raw)[at];
     }
     const base = at > 0 ? ["alternatives", at - 1] : [];
     doc.setIn([...base, "extends"], ref);
@@ -459,7 +440,6 @@ export function setModuleExtends(
         doc.deleteIn([...base, k]);
         dropped.push(k);
       }
-    return doc.toString(YAML_WRITE);
   });
   return {
     rel: relative(dir, path).split(sep).join("/"),

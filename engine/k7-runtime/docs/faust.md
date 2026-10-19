@@ -18,7 +18,7 @@ Three decisions that go with it:
 
 - **Faust groups are ignored.** An `hgroup`/`vgroup` nests a control's full path. Folding that into
   the parameter name would make the name depend on how someone grouped their source, while
-  `ui.yaml` is written by hand against those names.
+  `ui.k7x` is written by hand against those names.
 - **A `bargraph` is not a parameter**: it is an output the program writes for a meter. Exposing it
   would let a fader write where only the DSP should.
 - **Rendering is never in place.** Input and output are two buffers, allocated in `initialise` and
@@ -68,7 +68,7 @@ parameters, they would be a fader fighting the allocator for the same zone, and 
 win between two notes.
 
 Sixteen, and fixed: a voice is a whole copy of the program, so that is the module's cost whether
-you play a chord or not. It is not in `module.yaml` because a module file describes what a module
+you play a chord or not. It is not in `module.k7x` because a module file describes what a module
 IS, and how many fingers you have is not that.
 
 ## Notes land on THEIR sample
@@ -173,7 +173,7 @@ fails at runtime — not at build time.
 It is laid, and by the program itself rather than by a declaration. `takesAudioInput` and
 `producesAudioWhenNoAudioInput` answer from the compiled program's `getNumInputs()`, and
 `takesMidiInput()` answers yes exactly when a `mydsp_poly` was built — i.e. when the program has no
-audio input. Nothing in `module.yaml` says which of the two it is, and nothing should: the source
+audio input. Nothing in `module.k7x` says which of the two it is, and nothing should: the source
 already says.
 
 The library's `instruments/synth/wavetable` module takes it.

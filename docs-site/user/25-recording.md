@@ -71,12 +71,12 @@ or not you are recording. There is no separate thru switch.
 
 1. Arm the lane, turn Record on, press Play.
 2. The engine plays a **count-in** first — one bar by default, set by `count_in` in the song's
-   `settings.yaml` (at most two bars). The click sounds during the count-in even with the metronome
+   `settings.k7x` (at most two bars). The click sounds during the count-in even with the metronome
    off.
 3. While the take rolls, a red block grows on the lane, and the bottom panel shows **Count-in**,
    then **Recording**. **Stop the take (Esc)** ends it.
 4. When you stop, the take is filed: the audio goes into `clips/` under a name made from the lane,
-   the bar it started on and a time stamp — `gtr_3.1_260814T143012.wav` — a `clips/<name>.yaml`
+   the bar it started on and a time stamp — `gtr_3.1_260814T143012.wav` — a `clips/<name>.k7x`
    declares it, and an event is placed on the lane where the recording started.
 
 The armed lane's own playback is silenced from the punch-in point while you record over it.
@@ -152,7 +152,7 @@ The metronome button sits in the header beside the tempo and time signature.
 - **Right-click** (or ↓): a volume slider from 20 % to 100 %. It applies when you let go —
   `transport metronome volume 0.4`.
 
-Both are saved in the song's `settings.yaml`. The lowest level is 20 %; for silence, turn the click
+Both are saved in the song's `settings.k7x`. The lowest level is 20 %; for silence, turn the click
 off.
 
 ## Mapping a controller knob (MIDI learn)

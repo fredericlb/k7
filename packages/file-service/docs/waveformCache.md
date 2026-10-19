@@ -38,7 +38,7 @@ draws, and seconds survive a change of bucket density that indices would not.
 company. Two things decide it, each easy to get wrong:
 
 - **The in-point** is `sourceFrom + offset`, not `offset` alone. The compiler puts an audio clip's
-  in-point in `sourceFrom` (seconds into the file, from `clips/<id>.yaml`'s `from`) and leaves
+  in-point in `sourceFrom` (seconds into the file, from `clips/<id>.k7x`'s `from`) and leaves
   `offset` at 0, so a drawing reading only `offset` begins every trimmed clip at the file's head.
   `clipPositionFor` in `EditBuilder.cpp` sums the same two.
 - **The rate** is `warpStretch(warp, tempo)` — timeline seconds per source second, the ratio
@@ -182,7 +182,7 @@ The onset corrections ride there for the same reason.
 ### `whole` means the MATERIAL, not the placement
 
 The clip as its own file defines it, so the span is the source's full duration instead of whatever
-musical length a track happened to place it with. That is the view a `clips/<id>.yaml` wants: you
+musical length a track happened to place it with. That is the view a `clips/<id>.k7x` wants: you
 are editing the sample there, and `from`/`to` can only be judged against the whole of it. `whole`
 therefore reverses the usual precedence — the definition carries no start/length/offset, which is
 exactly what makes the span the file.
@@ -209,7 +209,7 @@ back with no window at all.
 ### The material behind an id
 
 A clip's id identifies a PLACEMENT (`bass_2_0@16`), and the two lookups want different things out of
-it: `findClip` wants the placement, while `clips/<ref>.yaml` and the onset corrections are
+it: `findClip` wants the placement, while `clips/<ref>.k7x` and the onset corrections are
 properties of the file every placement of it shares. Handed a bare material name — which the route
 also is, for the whole-file view — `materialRefOf` returns it unchanged.
 

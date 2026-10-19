@@ -1,12 +1,13 @@
 # The `shapes` module — a drawn primitive, wired to a lane
 
-```yaml
-# graph.yaml
-modules:
-  box:    [ titles ]        # both shapes draw on the same picture lane…
-  title:  [ titles ]
-  titles: [ RENDER ]        # …which composites like any other layer
-  RENDER: [ VIDEO_OUT ]
+```k7x
+// graph.k7x
+modules({
+  box: ["titles"], // both shapes draw on the same picture lane…
+  title: ["titles"],
+  titles: ["RENDER"], // …which composites like any other layer
+  RENDER: ["VIDEO_OUT"],
+})
 ```
 
 A `shapes` module takes **no picture** and gives one: it is a SOURCE, the second one a video
@@ -20,10 +21,11 @@ line of text straight onto the viewport, in px.
 
 ## WHEN it is on — an event that names nothing
 
-```yaml
-# video_tracks/title_layer.yaml — the lane the `title` module is wired to
-events:
-  - { start: 4, length: 4 }      # …and this is when it shows
+```k7x
+// video_tracks/title_layer.k7x — the lane the `title` module is wired to
+events([
+  start(4).length(4), // …and this is when it shows
+])
 ```
 
 A shape has no duration of its own, so the lane says when it is on, in the one place a lane
@@ -54,7 +56,7 @@ Four things a module has that a list of numbers in a lane file cannot:
   params; the same two numbers written into a lane are reachable by nothing.
 - **A module is INHERITED.** A lower third lives once in the account's library and a song points
   at it through a thin local module, exactly as it does for a plugin or a shader.
-- **A module has a PANEL.** `ui.yaml` gives the geometry knobs, and the module builder edits it.
+- **A module has a PANEL.** `ui.k7x` gives the geometry knobs, and the module builder edits it.
 - **A module is on the GRAPH**, where a reader can see which lane draws it.
 
 So the lane holds only what a lane is for — where in the frame it sits, whether it is hidden, what
@@ -65,21 +67,22 @@ where a wire is read.
 
 ```
 modules/shapes/title/
-  module.yaml            type: shape, shape: text, content/font/color, params: x, y, font_size
-  ui.yaml                the knobs
+  module.k7x             type: shape, shape: text, content/font/color, params: x, y, font_size
+  ui.k7x                 the knobs
 ```
 
-```yaml
-# modules/shapes/title/module.yaml
-type: shape
-shape: text              # square | circle | text
-content: "LEMO"          # text only — the words
-font: sans-serif         # …and the CSS family they are set in
-color: "#c8a97e"         # the fill, any CSS colour
-params:
-  x: 40                  # a square/text x,y is its TOP-LEFT, a circle's its CENTRE
-  y: 200
-  font_size: 72          # text; a circle takes `r`, a square `w` and `h`
+```k7x
+// modules/shapes/title/module.k7x
+type("shape")
+shape("text") // square | circle | text
+content("LEMO") // text only — the words
+font("sans-serif") // …and the CSS family they are set in
+color("#c8a97e") // the fill, any CSS colour
+params({
+  x: 40, // a square/text x,y is its TOP-LEFT, a circle's its CENTRE
+  y: 200,
+  font_size: 72, // text; a circle takes `r`, a square `w` and `h`
+})
 ```
 
 **Geometry is `params:` and everything else is a field**, and the split is the one `shader:`
@@ -96,7 +99,7 @@ set, and captions beside it, is [titles.md](titles.md).
 
 ## Where it lands, and what happens when it lands nowhere
 
-The lane the run ends at draws it, and several shapes on one lane stack in the order `graph.yaml`
+The lane the run ends at draws it, and several shapes on one lane stack in the order `graph.k7x`
 declares them. Each shape carries its own geometry, so the LANE's rect is ignored and the layer
 covers the whole viewport
 ([../../ui-eyes/docs/compositor.md](../../ui-eyes/docs/compositor.md)).

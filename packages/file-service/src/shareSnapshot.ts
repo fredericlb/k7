@@ -57,11 +57,10 @@ const slash = (p: string) => p.split(sep).join("/");
 export function checkpointPrefixes(projectRel: string): string[] {
   const out = [projectRel, "_playlists"];
   const parts = projectRel.split("/").slice(0, -1);
-  const pins = LIBRARY_PINS_FILE.replace(/\.[^.]+$/, "");
   for (let i = parts.length; i >= 0; i--) {
     const at = parts.slice(0, i).join("/");
     const p = (name: string) => (at ? `${at}/${name}` : name);
-    out.push(p("_modules"), p("_presets"), p(`${pins}.yaml`), p(`${pins}.k7x`));
+    out.push(p("_modules"), p("_presets"), p(LIBRARY_PINS_FILE));
   }
   return [...new Set(out)];
 }

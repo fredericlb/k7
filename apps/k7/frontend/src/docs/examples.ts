@@ -1,12 +1,12 @@
-// examples.ts — pull every YAML example back out of the documentation markdown, so the
+// examples.ts — pull every k7x example back out of the documentation markdown, so the
 // checkable part is recovered from the prose rather than duplicated beside it. A fenced
-// block declares itself in its INFO STRING (`yaml schema=Track`, or `yaml exempt="why"`);
-// a plain ```yaml with neither FAILS, since silence is how an unchecked example gets in.
+// block declares itself in its INFO STRING (`k7x schema=Module`, or `k7x exempt="why"`);
+// a plain ```k7x with neither FAILS, since silence is how an unchecked example gets in.
 
 import { DOC_PAGES } from "./pages";
 
 export interface DocExample {
-  where: string; // "syntax-tracks · tracks/<id>.yaml — audio", for a test name
+  where: string; // "syntax-tracks · tracks/<id>.k7x — audio", for a test name
   code: string;
   schema?: string;
   exempt?: string;
@@ -15,7 +15,7 @@ export interface DocExample {
 }
 
 // ```<info>\n<code>\n``` — non-greedy so consecutive blocks don't merge.
-const FENCE = /^```yaml([^\n]*)\n([\s\S]*?)^```$/gm;
+const FENCE = /^```k7x([^\n]*)\n([\s\S]*?)^```$/gm;
 const SCHEMA = /\bschema=([A-Za-z]+)/;
 const EXEMPT = /\bexempt="([^"]*)"/;
 

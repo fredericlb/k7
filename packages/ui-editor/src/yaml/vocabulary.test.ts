@@ -1,9 +1,9 @@
-// chains.yaml is the one project file whose values are almost entirely NAMES the project
+// graph.k7x is the one project file whose values are almost entirely NAMES the project
 // invented — tracks, modules, sinks. No Zod enum can hold those, so they come off the
 // hints instead, and this is where the two halves are wired together.
 //
 // The file declares segments, so the vocabulary is POSITIONAL: a key under
-// `tracks:`/`modules:` is a node's own name, and what follows it is a list of
+// `tracks`/`modules` is a node's own name, and what follows it is a list of
 // destinations. There are no field names left to key on.
 
 import type { Hints } from "@studio/web-protocol";
@@ -27,7 +27,7 @@ const at = (path: string, keyPath: string[], field: string, hints?: Hints) =>
 describe("the chains vocabulary", () => {
   it("offers the modules and sinks a node can feed", () => {
     // The key is the node's own name, so what is completed is where its signal goes.
-    expect(at("chains.yaml", ["modules"], "amp", HINTS)).toEqual(
+    expect(at("chains/graph.k7x", ["modules"], "amp", HINTS)).toEqual(
       expect.arrayContaining([
         "synth:lead",
         "@engine/audio/amp/nam",
@@ -36,51 +36,53 @@ describe("the chains vocabulary", () => {
     );
     // `OUT` is both a module of the project and an io sink — offered once, not twice.
     expect(
-      at("chains.yaml", ["modules"], "amp", HINTS).filter((v) => v === "OUT"),
+      at("chains/graph.k7x", ["modules"], "amp", HINTS).filter(
+        (v) => v === "OUT",
+      ),
     ).toEqual(["OUT"]);
   });
 
   // A live input is the node its run STARTS at, so a segment leaving a module has one destination more.
   it("offers the tracks too, for a segment leaving a module", () => {
-    expect(at("chains.yaml", ["modules"], "@engine/io/IN:in-1", HINTS)).toEqual(
-      expect.arrayContaining(["melody", "pad", "OUT", "synth:lead"]),
-    );
+    expect(
+      at("chains/graph.k7x", ["modules"], "@engine/io/IN:in-1", HINTS),
+    ).toEqual(expect.arrayContaining(["melody", "pad", "OUT", "synth:lead"]));
   });
 
   it("does NOT offer a track under `tracks:` — no track feeds another", () => {
-    expect(at("chains.yaml", ["tracks"], "melody", HINTS)).not.toEqual(
+    expect(at("chains/graph.k7x", ["tracks"], "melody", HINTS)).not.toEqual(
       expect.arrayContaining(["pad"]),
     );
   });
 
   it("offers the same under `tracks:` — a track's first hop is a module too", () => {
-    expect(at("chains.yaml", ["tracks"], "melody", HINTS)).toEqual(
+    expect(at("chains/graph.k7x", ["tracks"], "melody", HINTS)).toEqual(
       expect.arrayContaining(["synth:lead", "OUT"]),
     );
   });
 
   it("does NOT offer a chain name as a destination", () => {
     // A bus is reached by naming the module it starts at — see docs/completion.md.
-    expect(at("chains.yaml", ["modules"], "amp", HINTS)).not.toContain(
+    expect(at("chains/graph.k7x", ["modules"], "amp", HINTS)).not.toContain(
       "reverb",
     );
   });
 
   it("offers modules for `bypassed`, and nothing else", () => {
     // Neither a track nor a sink belongs in a list of things the signal skips.
-    const v = at("chains.yaml", [], "bypassed", HINTS);
+    const v = at("chains/graph.k7x", [], "bypassed", HINTS);
     expect(v).toEqual(HINTS.modules);
     expect(v).not.toContain("melody");
   });
 
   it("says nothing without hints, rather than guessing", () => {
     // The editor mounts before the first hints arrive, and an empty list means "free text".
-    expect(at("chains.yaml", ["modules"], "amp")).toEqual([]);
+    expect(at("chains/graph.k7x", ["modules"], "amp")).toEqual([]);
   });
 
   it("offers what a module may extend", () => {
     // The schema deliberately says nothing here, so without this layer `extends:` completed against nothing.
-    const path = "modules/audio/amp/module.yaml";
+    const path = "modules/audio/amp/module.k7x";
     expect(at(path, [], "extends", HINTS)).toEqual([
       "@engine/de-rez",
       "@meta/audio/mixer",
@@ -92,25 +94,25 @@ describe("the chains vocabulary", () => {
 
   it("offers a scanned `@engine` plugin to a library's module and never to a project's node", () => {
     // A node reaches a plugin through the library module that gives it a face, or it gets no panel.
-    expect(at("song.k7/nodes/lead.yaml", [], "extends", HINTS)).toEqual([
+    expect(at("song.k7/nodes/lead.k7x", [], "extends", HINTS)).toEqual([
       "@meta/audio/mixer",
     ]);
     expect(
-      at("_libraries/k7/modules/audio/verb/module.yaml", [], "extends", HINTS),
+      at("_libraries/k7/modules/audio/verb/module.k7x", [], "extends", HINTS),
     ).toContain("@engine/de-rez");
   });
 
   it("does not spill the chain vocabulary into another kind of file", () => {
-    // A module.yaml keeps its own enums: a project value may only ever fill a field a schema left open.
+    // A module.k7x keeps its own enums: a project value may only ever fill a field a schema left open.
     expect(
-      schemaVocabulary("modules/audio/amp/module.yaml", HINTS).valuesAt?.(
+      schemaVocabulary("modules/audio/amp/module.k7x", HINTS).valuesAt?.(
         [],
         "type",
       ),
     ).toEqual(["plugin", "rack", "video_effect", "video_transition"]);
     // A NODE file, which is what a lane is (packages/song/docs/trackModules.md).
     expect(
-      schemaVocabulary("nodes/melody.yaml", HINTS).valuesAt?.(
+      schemaVocabulary("nodes/melody.k7x", HINTS).valuesAt?.(
         ["modules"],
         "amp",
       ),
@@ -120,17 +122,17 @@ describe("the chains vocabulary", () => {
 
 describe("a chain project's files", () => {
   it("offers a chain item what a node may extend, and the lanes a lane item names", () => {
-    expect(at("song.k7/chains/gtr.yaml", ["steps"], "extends", HINTS)).toEqual([
+    expect(at("song.k7/chains/gtr.k7x", ["steps"], "extends", HINTS)).toEqual([
       "@meta/audio/mixer",
     ]);
-    expect(at("song.k7/chains/gtr.yaml", ["steps"], "track", HINTS)).toEqual([
+    expect(at("song.k7/chains/gtr.k7x", ["steps"], "track", HINTS)).toEqual([
       "melody",
       "pad",
     ]);
   });
 
   it("reads a lane's tracks/ file as a project's node", () => {
-    expect(at("song.k7/tracks/melody.yaml", [], "extends", HINTS)).toEqual([
+    expect(at("song.k7/tracks/melody.k7x", [], "extends", HINTS)).toEqual([
       "@meta/audio/mixer",
     ]);
   });

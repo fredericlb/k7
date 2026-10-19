@@ -1,7 +1,7 @@
 # The curve editor
 
 `ui curve` opens a popin on a NEW curve; `ui curve <id>` opens it on that one. It is where a curve is
-made without writing its YAML: a name, a shape, an amplitude, and what the shape takes.
+made without writing its k7x: a name, a shape, an amplitude, and what the shape takes.
 
 | field | what it is |
 |---|---|

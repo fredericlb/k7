@@ -3,6 +3,7 @@
 // playhead is; the file stores it from the shot's own start, which is what lets it travel with
 // the shot. See packages/song-video/docs/animation.md.
 
+import type { K7Scope } from "@studio/k7x/document";
 import {
   ANIMATED_PROPS,
   type AnimatedProp,
@@ -50,15 +51,10 @@ export const PICTURE_KEY_VERBS: Record<string, SidHandler> = {
       return;
     }
     const shot = t.list[t.index] as VideoPlacement;
-    const next = setVideoKeyAt(
-      t.text,
-      t.index,
-      prop,
-      when - shot.start,
-      value,
-      (easeArg as Ease | undefined) ?? "linear",
-    );
-    if (next === null || !put(t.abs, next, h, "key")) return;
+    const ease = (easeArg as Ease | undefined) ?? "linear";
+    const key = (doc: K7Scope) =>
+      setVideoKeyAt(doc, t.index, prop, when - shot.start, value, ease);
+    if (!put(t.abs, key, h, "key")) return;
     h.log([
       `${t.rel}: ${shot.ref || "activation"} ${prop} = ${value} at ${when}s (${Math.round((when - shot.start) * 1000) / 1000}s into the shot)`,
     ]);
@@ -75,14 +71,10 @@ export const PICTURE_KEY_VERBS: Record<string, SidHandler> = {
     const when = seconds(whenArg, h);
     if (when === null) return;
     const shot = t.list[t.index] as VideoPlacement;
-    const next = removeVideoKeyAt(t.text, t.index, prop, when - shot.start);
-    if (next === null) {
-      h.refuse([
-        `${t.rel}: no ${prop} key at ${when}s on the shot at ${t.at}s`,
-      ]);
-      return;
-    }
-    if (!put(t.abs, next, h, "unkey")) return;
+    const unkey = (doc: K7Scope) =>
+      removeVideoKeyAt(doc, t.index, prop, when - shot.start);
+    const none = `${t.rel}: no ${prop} key at ${when}s on the shot at ${t.at}s`;
+    if (!put(t.abs, unkey, h, "unkey", none)) return;
     h.log([`${t.rel}: ${shot.ref || "activation"} − ${prop} key at ${when}s`]);
     return h.reload();
   },

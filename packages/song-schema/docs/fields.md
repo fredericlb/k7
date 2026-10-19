@@ -1,7 +1,7 @@
 # The editor's field vocabulary
 
 The rationale behind `packages/song-schema/src/yaml/fields.ts` and its test — the completions the
-YAML editor offers, DERIVED from the Zod schemas rather than hand-kept.
+k7x editor offers, DERIVED from the Zod schemas rather than hand-kept.
 
 ## Why it is derived
 
@@ -13,14 +13,14 @@ which a single flat table cannot do. Every object gets its own fields, `project:
 
 ## `fileKindFor` — by folder, not by extension
 
-`modules/audio/cab/module.yaml` is a module whatever it is called, and so is `nodes/melody.yaml` — a
+`modules/audio/cab/module.k7x` is a module whatever it is called, and so is `nodes/melody.k7x` — a
 node is an ordinary module that happens to live in `nodes/`, LANES INCLUDED
 (`packages/song/docs/trackModules.md`). There is no `tracks/` kind for exactly that reason: a chain
-project's `tracks/<lane>.yaml` is a module file too, and `validate.ts` reads the folder the same way.
+project's `tracks/<lane>.k7x` is a module file too, and `validate.ts` reads the folder the same way.
 
-A chain project's `chains/<name>.yaml` is a kind of its own, `chain` — not `chains`, which is the
-segments file under its older root name `chains.yaml`, and stays one inside a library's older
-chain folder (`chains/<name>/graph.yaml`). Its keys are positional the way the editor's key path
+A chain project's `chains/<name>.k7x` is a kind of its own, `chain` — not `chains`, which is the
+segments file under its older root name `chains.k7x`, and stays one inside a library's older
+chain folder (`chains/<name>/graph.k7x`). Its keys are positional the way the editor's key path
 is: the file's own at the top; under `steps` a node's (a module's fields plus `id`, `bypass`,
 `vstpreset`, `mapping`), a lane item's `track` and an end step's `to`; under `steps.to` a link's;
 and below a node's field, that module field's own vocabulary
@@ -30,7 +30,7 @@ There is no per-kind narrowing for a lane either. A lane is a node, so which of 
 `tracks:` / `strudel:` it may write is decided by what it extends — a question about the project,
 not about the one file this answers for.
 
-## The two tiers of `project.yaml`
+## The two tiers of `project.k7x`
 
 `project: {…}` holds the song's settings, while `trackOrder` and `markers` are its siblings. Mixing
 the two up is what puts a field at the top level where nothing reads it. `markers` itself is a free
@@ -39,7 +39,7 @@ timecode → label map, so there is nothing to offer inside it.
 ## Where nothing is offered, on purpose
 
 `params:` is a free param-name → number map and `plugin:` is deliberately open, the engine owning its
-shape. Offering field names in either would invent a vocabulary. The same holds inside a `chains.yaml`
+shape. Offering field names in either would invent a vocabulary. The same holds inside a `chains.k7x`
 section, where the keys are node NAMES — a project's own vocabulary, which the schema cannot know
 and `hints.ts` supplies — and for a free-text value such as `extends`, where a list would read as
 though those were the only allowed values.
@@ -76,7 +76,7 @@ the editor offers it because the completion is DERIVED from the schema.
   module has one node per physical input and no project to name a track in.
 - `docs` and `todos`: a note is a doc module on the graph, and `content` is its text
   (`packages/song/docs/docModules.md`).
-- `tracks:` at the top of a `chains.yaml` — a lane is a module and lives in `modules:`.
+- `tracks:` at the top of a `chains.k7x` — a lane is a module and lives in `modules:`.
   `positions:` is the pins: where dragged nodes sit, cosmetic and hand-editable like the rest.
 
 ## The order of the module's fields

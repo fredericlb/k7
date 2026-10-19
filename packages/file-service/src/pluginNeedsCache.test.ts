@@ -26,17 +26,17 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "needs-cache-"));
   dir = join(root, "song.k7");
   mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "n"\n');
+  writeFileSync(join(dir, "project.k7x"), 'project({ name: "n" })\n');
   mkdirSync(join(root, "_modules", "instruments", "lead"), { recursive: true });
   writeFileSync(
-    join(root, "_modules", "instruments", "lead", "module.yaml"),
-    "plugin:\n  type: vst3\n  name: Serum\n",
+    join(root, "_modules", "instruments", "lead", "module.k7x"),
+    'plugin({ type: "vst3", name: "Serum" })\n',
   );
   writeFileSync(
-    join(dir, "nodes", "lead.yaml"),
-    'extends: "@workspace/instruments/lead"\n',
+    join(dir, "nodes", "lead.k7x"),
+    'extends("@workspace/instruments/lead")\n',
   );
-  writeFileSync(join(dir, "graph.yaml"), "modules:\n  lead: [ OUT ]\n");
+  writeFileSync(join(dir, "graph.k7x"), 'modules({ lead: ["OUT"] })\n');
   vi.mocked(loadGraph).mockClear();
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -54,8 +54,8 @@ describe("a workspace's plugin needs", () => {
   it("reads them again once the project's files changed", () => {
     const ws = new Workspace(root);
     ws.pluginNeeds("song.k7");
-    const node = join(dir, "nodes", "lead.yaml");
-    writeFileSync(node, "plugin:\n  type: vst3\n  name: Diva\n");
+    const node = join(dir, "nodes", "lead.k7x");
+    writeFileSync(node, 'plugin({ type: "vst3", name: "Diva" })\n');
     // A later mtime, so the token moves however fast the disk's clock ticks.
     const later = new Date(Date.now() + 5000);
     utimesSync(node, later, later);

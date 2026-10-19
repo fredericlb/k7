@@ -1,0 +1,27 @@
+[package]
+name = "k7x"
+version = "0.1.0"
+edition = "2024"
+description = "k7x, parsed in Rust: the same grammar and spans as packages/k7x/src/parse.ts, the tree in a bumpalo arena."
+publish = false
+
+[workspace]
+members = ["node"]
+
+[dependencies]
+bumpalo = { version = "3.20", features = ["collections"] }
+
+[lib]
+path = "src/lib.rs"
+# rlib for the bench and the Node-API addon (node/), cdylib for WebAssembly.
+crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "k7x-bench"
+path = "src/bin/k7x-bench.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

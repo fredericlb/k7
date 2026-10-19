@@ -33,20 +33,20 @@ const checkOther = (...a: Parameters<typeof checkAiResult>) => {
   return { ...r, issues: r.issues.filter((i) => !shape.has(i)) };
 };
 
-const result = (uiYaml: string, widgetsJs = ""): AiOrganizeResult => ({
-  uiYaml,
+const result = (uiText: string, widgetsJs = ""): AiOrganizeResult => ({
+  uiText,
   widgetsJs,
   notes: "",
 });
 
-const GOOD_UI = `# filter
-cols: 8
-rows: 5
-widgets:
-  screen: { type: lcdscreen, col: 0, row: 0, colSpan: 8, rowSpan: 2 }
-  cutoff: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Cutoff, bind: Cutoff, min: 20, max: 20000, curve: log }
-  res: { type: knob, col: 2, row: 2, colSpan: 2, rowSpan: 2, label: Res, bind: Resonance, min: 0, max: 1 }
+const GOOD_WIDGETS = `  screen: { type: "lcdscreen", col: 0, row: 0, colSpan: 8, rowSpan: 2 },
+  cutoff: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, label: "Cutoff", bind: "Cutoff", min: 20, max: 20000, curve: "log" },
+  res: { type: "knob", col: 2, row: 2, colSpan: 2, rowSpan: 2, label: "Res", bind: "Resonance", min: 0, max: 1 },
 `;
+/** The filter's panel, with more widget lines added to its map. */
+const goodUi = (more = "") =>
+  `// filter\ncols(8)\nrows(5)\nwidgets({\n${GOOD_WIDGETS}${more}})\n`;
+const GOOD_UI = goodUi();
 const GOOD_JS = `export default {
   screen(lcd) {
     lcd.ctx.fillStyle = "#000";
@@ -65,7 +65,7 @@ describe("the prompt", () => {
   it("quotes every param name exactly, and the author's direction when there is one", () => {
     const text = aiUserPrompt({
       module: "filter",
-      moduleYaml: "extends: '@engine/lowpass'",
+      moduleText: 'extends("@engine/lowpass")',
       params: [
         { name: "Cutoff", meta: { min: 20, max: 20000 }, value: "440" },
         {
@@ -73,7 +73,7 @@ describe("the prompt", () => {
           meta: { min: 0, max: 1, states: [{ label: "LP", value: 0 }] },
         },
       ],
-      uiYaml: "",
+      uiText: "",
       widgetsJs: "",
       mode: "reset",
       direction: "  make the screen big ",
@@ -85,20 +85,78 @@ describe("the prompt", () => {
 });
 
 describe("reading the answer", () => {
-  it("takes the promised JSON and strips a fence the model should not have added", () => {
+  const answer = (panel: unknown, extra: object = {}) =>
+    JSON.stringify({
+      header: "filter — a low pass",
+      panel,
+      widgets_js: "```js\nexport default {};\n```",
+      notes: "n",
+      ...extra,
+    });
+
+  it("prints the panel's data as ui.k7x, a widget a line, and strips a fence off the script", () => {
     const r = readAiAnswer(
-      JSON.stringify({
-        ui_yaml: "```yaml\ncols: 1\n```",
-        widgets_js: "",
-        notes: "n",
+      answer({
+        cols: 4,
+        rows: 2,
+        widgets: [
+          { id: "cut", type: "knob", col: 0, row: 0, bind: "Cutoff" },
+          { id: "res", type: "knob", col: 2, row: 0, bind: "Resonance" },
+        ],
+        tabs: [],
       }),
     );
-    expect(r).toEqual({ uiYaml: "cols: 1\n", widgetsJs: "", notes: "n" });
+    expect(r).toEqual({
+      uiText: `// filter — a low pass
+cols(4)
+rows(2)
+widgets({
+  cut: { type: "knob", col: 0, row: 0, bind: "Cutoff" },
+  res: { type: "knob", col: 2, row: 0, bind: "Resonance" },
+})
+`,
+      widgetsJs: "export default {};\n",
+      notes: "n",
+    });
+  });
+
+  it("turns the tabs' and the vertical twin's lists into maps too", () => {
+    const w = { id: "cut", type: "knob", col: 0, row: 0, bind: "Cutoff" };
+    const r = readAiAnswer(
+      answer({
+        cols: 8,
+        rows: 2,
+        widgets: [],
+        tabs: [{ name: "Main", widgets: [w] }],
+        vertical: {
+          cols: 4,
+          rows: 2,
+          widgets: [w],
+          tabs: [{ name: "Main", widgets: [] }],
+        },
+      }),
+    );
+    const ui = r ? checkAiResult(r, ["Cutoff"]).ui : null;
+    expect(ui?.tabs?.[0].widgets.cut.bind).toBe("Cutoff");
+    expect(ui?.vertical?.widgets.cut.type).toBe("knob");
+  });
+
+  it("reports an id used twice in one list rather than losing a widget silently", () => {
+    const w = { id: "cut", type: "knob", col: 0, row: 0, bind: "Cutoff" };
+    const r = readAiAnswer(
+      answer({ cols: 4, rows: 2, widgets: [w, { ...w, col: 2 }] }),
+    );
+    if (!r) throw new Error("the answer did not read");
+    expect(r.issues).toEqual(["panel: widget id `cut` is used twice"]);
+    expect(checkAiResult(r, ["Cutoff"]).issues).toContain(
+      "panel: widget id `cut` is used twice",
+    );
   });
 
   it("is null for anything else", () => {
     expect(readAiAnswer("not json")).toBeNull();
-    expect(readAiAnswer(JSON.stringify({ ui_yaml: 3 }))).toBeNull();
+    expect(readAiAnswer(JSON.stringify({ panel: 3 }))).toBeNull();
+    expect(readAiAnswer(answer({ cols: 1 }, { widgets_js: 3 }))).toBeNull();
   });
 });
 
@@ -145,7 +203,7 @@ describe("the check", () => {
   });
 
   it("names a bind that is not a parameter", () => {
-    const bad = GOOD_UI.replace("bind: Resonance", "bind: Reso");
+    const bad = GOOD_UI.replace('bind: "Resonance"', 'bind: "Reso"');
     expect(checkOther(result(bad, GOOD_JS), PARAMS).issues).toEqual([
       "`res` binds `Reso`, which is not a parameter",
     ]);
@@ -161,8 +219,8 @@ describe("the check", () => {
 
   it("names overlaps and widgets outside the grid", () => {
     const bad = GOOD_UI.replace("col: 2, row: 2", "col: 1, row: 2").replace(
-      "rows: 5",
-      "rows: 3",
+      "rows(5)",
+      "rows(3)",
     );
     const issues = checkOther(result(bad, GOOD_JS), PARAMS).issues;
     expect(issues).toContain("panel: `cutoff` runs outside the 8×3 grid");
@@ -170,18 +228,20 @@ describe("the check", () => {
   });
 
   it("checks each tab together with the panel-level widgets drawn over it", () => {
-    const tabs = `cols: 8
-rows: 6
-widgets:
-  screen: { type: lcdscreen, col: 0, row: 4, colSpan: 8, rowSpan: 2 }
-tabs:
-  - name: Main
-    widgets:
-      cutoff: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, bind: Cutoff, min: 0, max: 1 }
-  - name: Env
-    widgets:
-      attack: { type: knob, col: 0, row: 3, colSpan: 2, rowSpan: 2, bind: Attack, min: 0, max: 1 }
-      cutoff: { type: knob, col: 2, row: 0, bind: Cutoff, min: 0, max: 1 }
+    const tabs = `cols(8)
+rows(6)
+widgets({
+  screen: { type: "lcdscreen", col: 0, row: 4, colSpan: 8, rowSpan: 2 },
+})
+tabs([
+  name("Main").widgets({
+    cutoff: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, bind: "Cutoff", min: 0, max: 1 },
+  }),
+  name("Env").widgets({
+    attack: { type: "knob", col: 0, row: 3, colSpan: 2, rowSpan: 2, bind: "Attack", min: 0, max: 1 },
+    cutoff: { type: "knob", col: 2, row: 0, bind: "Cutoff", min: 0, max: 1 },
+  }),
+])
 `;
     const issues = checkOther(result(tabs, GOOD_JS), PARAMS).issues;
     expect(issues).toContain("tab Env: `screen` overlaps `attack`");
@@ -190,12 +250,13 @@ tabs:
   });
 
   it("lets a group frame the widgets wholly inside it, and names one that straddles its edge", () => {
-    const grouped = `${GOOD_UI}  filt: { type: group, col: 0, row: 2, colSpan: 4, rowSpan: 2, label: FILTER, color: "#3d7dff26" }
-`;
+    const grouped = goodUi(
+      `  filt: { type: "group", col: 0, row: 2, colSpan: 4, rowSpan: 2, label: "FILTER", color: "#3d7dff26" },\n`,
+    );
     expect(checkOther(result(grouped, GOOD_JS), PARAMS).issues).toEqual([]);
     const straddling = grouped.replace(
-      "colSpan: 4, rowSpan: 2, label: FILTER",
-      "colSpan: 3, rowSpan: 2, label: FILTER",
+      'colSpan: 4, rowSpan: 2, label: "FILTER"',
+      'colSpan: 3, rowSpan: 2, label: "FILTER"',
     );
     expect(checkOther(result(straddling, GOOD_JS), PARAMS).issues).toContain(
       "panel: `res` and `filt` cross — a widget lies wholly inside a group or wholly outside it, and groups never overlap",
@@ -204,8 +265,9 @@ tabs:
 
   it("takes a crossfade knob on a dry and a wet param, and names a pair that is not a parameter", () => {
     const xf = (pair: string) =>
-      `${GOOD_UI}  mix: { type: knob, col: 4, row: 2, label: MIX, bind: Attack, pair: ${pair} }
-`;
+      goodUi(
+        `  mix: { type: "knob", col: 4, row: 2, label: "MIX", bind: "Attack", pair: "${pair}" },\n`,
+      );
     expect(checkOther(result(xf("Mode"), GOOD_JS), PARAMS).issues).toEqual([]);
     expect(checkOther(result(xf("Dry"), GOOD_JS), PARAMS).issues).toEqual([
       "`mix` pairs `Dry`, which is not a parameter",
@@ -213,58 +275,62 @@ tabs:
   });
 
   it("refuses a pair anywhere but on a knob, and one equal to its bind", () => {
-    const onSlider = `${GOOD_UI}  s: { type: slider, col: 4, row: 2, bind: Attack, pair: Mode }
-`;
-    expect(checkOther(result(onSlider, GOOD_JS), PARAMS).issues[0]).toMatch(
-      /^ui_yaml widgets\.s\.pair/,
+    const onSlider = goodUi(
+      `  s: { type: "slider", col: 4, row: 2, bind: "Attack", pair: "Mode" },\n`,
     );
-    const same = `${GOOD_UI}  k: { type: knob, col: 4, row: 2, bind: Attack, pair: Attack }
-`;
+    expect(checkOther(result(onSlider, GOOD_JS), PARAMS).issues[0]).toMatch(
+      /^panel widgets\.s\.pair/,
+    );
+    const same = goodUi(
+      `  k: { type: "knob", col: 4, row: 2, bind: "Attack", pair: "Attack" },\n`,
+    );
     expect(checkOther(result(same, GOOD_JS), PARAMS).issues[0]).toMatch(
-      /^ui_yaml widgets\.k\.pair/,
+      /^panel widgets\.k\.pair/,
     );
   });
 
   it("refuses a colour anywhere but on a group, and takes a group's on/off bind", () => {
-    const bad = GOOD_UI.replace("label: Res,", 'label: Res, color: "#fff",');
-    expect(checkOther(result(bad, GOOD_JS), PARAMS).issues[0]).toMatch(
-      /^ui_yaml widgets\.res\.color/,
+    const bad = GOOD_UI.replace(
+      'label: "Res",',
+      'label: "Res", color: "#fff",',
     );
-    const bound = `${GOOD_UI}  g: { type: group, col: 4, row: 2, bind: Cutoff }
-`;
+    expect(checkOther(result(bad, GOOD_JS), PARAMS).issues[0]).toMatch(
+      /^panel widgets\.res\.color/,
+    );
+    const bound = goodUi(
+      `  g: { type: "group", col: 4, row: 2, bind: "Cutoff" },\n`,
+    );
     expect(
       checkOther(result(bound, GOOD_JS), PARAMS).issues.filter((i) =>
-        i.startsWith("ui_yaml widgets.g.bind"),
+        i.startsWith("panel widgets.g.bind"),
       ),
     ).toEqual([]);
   });
 
   it("hands the schema's own complaint back, with its path", () => {
-    const bad = GOOD_UI.replace("label: Res,", "label: Res, options: [],");
+    const bad = GOOD_UI.replace('label: "Res",', 'label: "Res", options: [],');
     const { ui, issues } = checkOther(result(bad, GOOD_JS), PARAMS);
     expect(ui).toBeNull();
-    expect(issues[0]).toMatch(/^ui_yaml widgets\.res/);
+    expect(issues[0]).toMatch(/^panel widgets\.res/);
   });
 });
 
 describe("a rack module's taps", () => {
-  const KIT = `type: rack
-rack:
-  symbols:
-    BD: { note: 36 }
-    SN: { note: 38 }
+  const KIT = `type("rack")
+rack({ symbols: { BD: { note: 36 }, SN: { note: 38 } } })
 `;
   const names = bindableNames({
     params: [{ name: "Volume" }],
-    moduleYaml: KIT,
+    moduleText: KIT,
   });
-  const KIT_UI = `cols: 9
-rows: 4
-widgets:
-  bd: { type: tap, col: 0, row: 0, colSpan: 3, rowSpan: 2, bind: "@rack:BD" }
-  sn: { type: tap, col: 3, row: 0, colSpan: 3, rowSpan: 2, bind: "@rack:SN" }
-  add: { type: tap, col: 6, row: 0, colSpan: 3, rowSpan: 2, bind: "@rack+" }
-  vol: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, bind: Volume, min: 0, max: 1 }
+  const KIT_UI = `cols(9)
+rows(4)
+widgets({
+  bd: { type: "tap", col: 0, row: 0, colSpan: 3, rowSpan: 2, bind: "@rack:BD" },
+  sn: { type: "tap", col: 3, row: 0, colSpan: 3, rowSpan: 2, bind: "@rack:SN" },
+  add: { type: "tap", col: 6, row: 0, colSpan: 3, rowSpan: 2, bind: "@rack+" },
+  vol: { type: "knob", col: 0, row: 2, colSpan: 2, rowSpan: 2, bind: "Volume", min: 0, max: 1 },
+})
 `;
 
   it("may be bound to the sounds the module's rack declares, and to the add tap", () => {
@@ -280,8 +346,8 @@ widgets:
   });
 
   it("keeps pads on taps, and taps on pads", () => {
-    const knobOnPad = KIT_UI.replace("bind: Volume", 'bind: "@rack:BD"');
-    const tapOnParam = KIT_UI.replace('"@rack:SN"', "Volume");
+    const knobOnPad = KIT_UI.replace('bind: "Volume"', 'bind: "@rack:BD"');
+    const tapOnParam = KIT_UI.replace('"@rack:SN"', '"Volume"');
     expect(checkOther(result(knobOnPad), names).issues).toEqual([
       "`vol` binds a rack sound, which only a tap may",
     ]);
@@ -293,7 +359,7 @@ widgets:
   it("is offered no tap at all on a module with no rack", () => {
     const plain = bindableNames({
       params: [{ name: "Volume" }],
-      moduleYaml: "type: fx\n",
+      moduleText: 'type("fx")\n',
     });
     expect(plain).toEqual(["Volume"]);
     expect(checkOther(result(KIT_UI), plain).issues[0]).toBe(
@@ -304,9 +370,9 @@ widgets:
   it("lists the rack's sounds in the prompt", () => {
     const prompt = aiUserPrompt({
       module: "kit",
-      moduleYaml: KIT,
+      moduleText: KIT,
       params: [],
-      uiYaml: "",
+      uiText: "",
       widgetsJs: "",
       mode: "reset",
       direction: "",
@@ -319,9 +385,9 @@ widgets:
 describe("update or reset", () => {
   const req = (mode: "update" | "reset", direction: string) => ({
     module: "filter",
-    moduleYaml: "",
+    moduleText: "",
     params: [{ name: "Cutoff" }],
-    uiYaml: GOOD_UI,
+    uiText: GOOD_UI,
     widgetsJs: GOOD_JS,
     mode,
     direction,
@@ -329,15 +395,15 @@ describe("update or reset", () => {
 
   it("knows a panel that lays something out from one that does not", () => {
     expect(hasLayout(GOOD_UI)).toBe(true);
-    expect(hasLayout("cols: 8\nrows: 5\nwidgets: {}\n")).toBe(false);
+    expect(hasLayout("cols(8)\nrows(5)\nwidgets({})\n")).toBe(false);
     expect(hasLayout("")).toBe(false);
-    expect(hasLayout("widgets: [unclosed")).toBe(false);
+    expect(hasLayout("widgets([unclosed")).toBe(false);
   });
 
   it("sends the panel there is, and what to change, on an update", () => {
     const text = aiUserPrompt(req("update", "make the cutoff bigger"));
-    expect(text).toContain("## Current ui.yaml");
-    expect(text).toContain("cutoff: { type: knob");
+    expect(text).toContain("## Current ui.k7x");
+    expect(text).toContain('cutoff: { type: "knob"');
     expect(text).toContain("## Current widgets.js");
     expect(text).toContain("## What to change\nmake the cutoff bigger");
     expect(text).toContain("keep everything else as it is");
@@ -345,8 +411,8 @@ describe("update or reset", () => {
 
   it("sends no panel at all on a reset, so none of it can come back", () => {
     const text = aiUserPrompt(req("reset", ""));
-    expect(text).not.toContain("## Current ui.yaml");
-    expect(text).not.toContain("cutoff: { type: knob");
+    expect(text).not.toContain("## Current ui.k7x");
+    expect(text).not.toContain('cutoff: { type: "knob"');
     expect(text).not.toContain("widgets.js");
     expect(text).toContain("## Design a new panel");
     expect(text).not.toContain("## What the author asks for");
@@ -437,16 +503,16 @@ describe("a group around one widget", () => {
   });
 
   it("is checked inside a tab as well", () => {
-    const tabs = `cols: 8
-rows: 6
-widgets: {}
-tabs:
-  - name: Main
-    widgets:
-      g: { type: group, col: 0, row: 0, colSpan: 2, rowSpan: 2 }
-      cutoff: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, bind: Cutoff, min: 0, max: 1 }
-  - name: Env
-    widgets: {}
+    const tabs = `cols(8)
+rows(6)
+widgets({})
+tabs([
+  name("Main").widgets({
+    g: { type: "group", col: 0, row: 0, colSpan: 2, rowSpan: 2 },
+    cutoff: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, bind: "Cutoff", min: 0, max: 1 },
+  }),
+  name("Env").widgets({}),
+])
 `;
     expect(checkOther(result(tabs, GOOD_JS), PARAMS).issues).toContain(
       "group `g` frames a single widget: a group holds two or more — drop it and leave the widget bare",
@@ -480,11 +546,12 @@ describe("the engine's blend", () => {
   });
 
   it("is what the check applies wherever @mix is offered", () => {
-    const ui = `cols: 4
-rows: 2
-widgets:
-  d: { type: knob, col: 0, row: 0, bind: Dry Level }
-  w: { type: knob, col: 1, row: 0, bind: Wet Level }
+    const ui = `cols(4)
+rows(2)
+widgets({
+  d: { type: "knob", col: 0, row: 0, bind: "Dry Level" },
+  w: { type: "knob", col: 1, row: 0, bind: "Wet Level" },
+})
 `;
     const issues = checkOther(result(ui, ""), [
       "Dry Level",
@@ -576,27 +643,19 @@ describe("an EQ band", () => {
 });
 
 describe("the two layouts", () => {
-  const H = `cols: 8
-rows: 2
-widgets:
-  cutoff: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Cutoff, bind: Cutoff, min: 20, max: 20000, curve: log }
-  res: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Res, bind: Resonance, min: 0, max: 1 }
+  const KNOBS = `    cutoff: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Cutoff", bind: "Cutoff", min: 20, max: 20000, curve: "log" },
+    res: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Res", bind: "Resonance", min: 0, max: 1 },
 `;
+  const H = `cols(8)\nrows(2)\nwidgets({\n${KNOBS.replace(/^ {2}/gm, "")}})\n`;
   it("asks for a vertical layout when the panel is wider than four columns", () => {
     const r = checkAiResult(result(H), PARAMS);
     expect(r.issues.join(" ")).toMatch(/no `vertical` layout/);
   });
 
   it("takes a vertical layout offering the same controls, and names one that drops a control", () => {
-    const twin = `${H}vertical:
-  cols: 4
-  rows: 4
-  widgets:
-    cutoff: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Cutoff, bind: Cutoff, min: 20, max: 20000, curve: log }
-    res: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Res, bind: Resonance, min: 0, max: 1 }
-`;
+    const twin = `${H}vertical({\n  cols: 4,\n  rows: 4,\n  widgets: {\n${KNOBS}  },\n})\n`;
     expect(checkAiResult(result(twin), PARAMS).issues).toEqual([]);
-    const short = twin.replace(/\n {4}res: .*\n$/, "\n");
+    const short = twin.replace(/\n {4}res: [^\n]*(?=\n {2}\},\n\}\)\n$)/, "");
     expect(checkAiResult(result(short), PARAMS).issues.join(" ")).toMatch(
       /does not offer the same controls/,
     );

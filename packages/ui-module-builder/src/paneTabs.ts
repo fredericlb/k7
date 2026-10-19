@@ -9,7 +9,7 @@ const baseName = (p: string | undefined): string | undefined =>
   p?.split(/[\\/]/).pop() || undefined;
 
 // What the panel is called before it has been read, so a tab is never blank.
-const UI_BASENAME = "ui.yaml";
+const UI_BASENAME = "ui.k7x";
 
 /** Each tab as [pane, label, dirty, ready, note]: three files on disk, not three views of one. */
 export function paneTabs({

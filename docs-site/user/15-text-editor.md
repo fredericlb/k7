@@ -15,10 +15,10 @@ When a command opens a file while another page is on screen, the editor appears 
 
 ## What the editor helps with
 
-For project files (`.yaml` and `.k7x`):
+For project files (`.k7x`):
 
 - **Syntax colouring** for the song's file format.
-- **Completion** of field names and values. The list of fields comes from the file format itself, so it is always the fields that file kind accepts at the cursor's position. Values that come from your project are completed too: a module's `extends` offers the modules it can inherit from, a chain step's `track` offers your tracks, and so on. Names that YAML would misread are quoted for you.
+- **Completion** of field names and values. The list of fields comes from the file format itself, so it is always the fields that file kind accepts at the cursor's position. Values that come from your project are completed too: a module's `extends` offers the modules it can inherit from, a chain step's `track` offers your tracks, and so on. Names that are not plain words are quoted for you.
 - **Links**: a name that refers to another file (a clip, a sequence, a module…) has a dotted underline. `Ctrl`-click (`⌘`-click on a Mac) opens that file.
 - **Audition**: a ▶ in the left gutter on every line naming something playable (a source, a clip, a slice). Click it to hear it; its waveform docks at the bottom of the editor until you dismiss it.
 - **Errors**: problems found when the project loads are underlined in the open file, with a marker in the gutter. Red is an error, amber a warning.

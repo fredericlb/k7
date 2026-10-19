@@ -9,7 +9,7 @@ import { libraryFile, libraryFiles } from "./libraryFiles";
 import { loadModuleRefs, loadModules } from "./loader";
 import { resolveModule } from "./moduleResolve";
 import { loadProject } from "./project";
-import { librariesFixture } from "./testSupport";
+import { librariesFixture, writeDoc, writeNode } from "./testSupport";
 
 let root: string;
 let lib: string;
@@ -30,6 +30,27 @@ afterEach(() => {
   delete process.env.STUDIO_HOME;
 });
 
+/** A project `name` whose lane `lane` runs into `node` and on to OUT, `node` holding `value`. */
+function project(
+  name: string,
+  lane: string,
+  node: string,
+  value: Record<string, unknown>,
+): string {
+  const p = join(root, name);
+  writeDoc(join(p, "project.k7x"), { project: { name: name.split(".")[0] } });
+  writeNode(p, lane, { extends: "@meta/track", events: [] });
+  writeNode(p, node, value);
+  writeDoc(join(p, "graph.k7x"), {
+    modules: { [lane]: [node], [node]: ["OUT"] },
+  });
+  return p;
+}
+
+const AMP = { plugin: { type: "internal", name: "Neural Amp Modeler" } };
+const writeShared = (path: string, value: Record<string, unknown>) =>
+  writeDoc(join(root, "_modules", path, "module.k7x"), value);
+
 describe("libraryFiles", () => {
   it("lists a family's SOUND files as @<library>/<path>, and nothing else", () => {
     expect(libraryFiles("irs")).toEqual(["@k7-core/fender deluxe/big.wav"]);
@@ -47,7 +68,7 @@ describe("libraryFiles", () => {
   });
 
   it("refuses a ref that climbs out of the folder, or names no library", () => {
-    expect(libraryFile("irs", "@k7-core/../modules/x.yaml")).toBeUndefined();
+    expect(libraryFile("irs", "@k7-core/../modules/x.k7x")).toBeUndefined();
     expect(libraryFile("irs", "@nope/big.wav")).toBeUndefined();
     expect(libraryFile("irs", "fender deluxe/big.wav")).toBeUndefined();
   });
@@ -55,27 +76,11 @@ describe("libraryFiles", () => {
 
 describe("a module's `ir` param", () => {
   const song = () => {
-    const p = join(root, "song.k7");
-    mkdirSync(join(p, "nodes"), { recursive: true });
-    writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
-    mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });
-    writeFileSync(
-      join(root, "_modules", "audio", "amp", "module.yaml"),
-      "plugin: { type: internal, name: Neural Amp Modeler }\n",
-    );
-    writeFileSync(
-      join(p, "nodes", "gtr.yaml"),
-      'extends: "@meta/track"\nevents: []\n',
-    );
-    writeFileSync(
-      join(p, "nodes", "amp.yaml"),
-      'extends: "@workspace/audio/amp"\nparams:\n  ir: "@k7-core/fender deluxe/big.wav"\n',
-    );
-    writeFileSync(
-      join(p, "graph.yaml"),
-      "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n",
-    );
-    return p;
+    writeShared("audio/amp", AMP);
+    return project("song.k7", "gtr", "amp", {
+      extends: "@workspace/audio/amp",
+      params: { ir: "@k7-core/fender deluxe/big.wav" },
+    });
   };
 
   it("resolves to the library's file, keeping the name it was written with", () => {
@@ -96,27 +101,12 @@ describe("a module's `ir` param", () => {
 
 describe("a module's `model` param, from a library's models/", () => {
   const song = (model: string) => {
-    const p = join(root, "song.k7");
-    mkdirSync(join(p, "nodes"), { recursive: true });
-    writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
     touch(join(root, "_modules", "audio", "amp", "assets", "own.nam"));
-    writeFileSync(
-      join(root, "_modules", "audio", "amp", "module.yaml"),
-      "plugin: { type: internal, name: Neural Amp Modeler }\n",
-    );
-    writeFileSync(
-      join(p, "nodes", "gtr.yaml"),
-      'extends: "@meta/track"\nevents: []\n',
-    );
-    writeFileSync(
-      join(p, "nodes", "amp.yaml"),
-      `extends: "@workspace/audio/amp"\nparams:\n  model: "${model}"\n`,
-    );
-    writeFileSync(
-      join(p, "graph.yaml"),
-      "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n",
-    );
-    return p;
+    writeShared("audio/amp", AMP);
+    return project("song.k7", "gtr", "amp", {
+      extends: "@workspace/audio/amp",
+      params: { model },
+    });
   };
   const engineFile = (p: string) =>
     loadProject(p)
@@ -149,35 +139,23 @@ describe("a module's `model` param, from a library's models/", () => {
   });
 });
 
+const rackOf = (p: string) =>
+  loadProject(p)
+    .tracks.flatMap((t) => t.plugins)
+    .find((pl) => pl.rack?.length)?.rack;
+
+const kit = (sample: string, more: Record<string, unknown> = {}) => ({
+  extends: "@workspace/instruments/drums",
+  type: "rack",
+  rack: { symbols: { BD: { note: 36, sample } } },
+  ...more,
+});
+
 describe("a rack tap's `sample`", () => {
   it("reaches the engine as the sound's file, the kit written on the NODE", () => {
-    const p = join(root, "kit.k7");
-    mkdirSync(join(p, "nodes"), { recursive: true });
-    writeFileSync(join(p, "project.yaml"), 'project:\n  name: "kit"\n');
-    mkdirSync(join(root, "_modules", "instruments", "drums"), {
-      recursive: true,
-    });
-    writeFileSync(
-      join(root, "_modules", "instruments", "drums", "module.yaml"),
-      "type: rack\n",
-    );
-    writeFileSync(
-      join(p, "nodes", "beat.yaml"),
-      'extends: "@meta/track"\nevents: []\n',
-    );
-    writeFileSync(
-      join(p, "nodes", "kit.yaml"),
-      'extends: "@workspace/instruments/drums"\ntype: rack\nrack:\n  symbols:\n' +
-        '    BD: { note: 36, sample: "@k7-core/kicks/808.wav" }\n',
-    );
-    writeFileSync(
-      join(p, "graph.yaml"),
-      "modules:\n  beat: [ kit ]\n  kit: [ OUT ]\n",
-    );
-    const rack = loadProject(p)
-      .tracks.flatMap((t) => t.plugins)
-      .find((pl) => pl.rack?.length)?.rack;
-    expect(rack).toEqual([
+    writeShared("instruments/drums", { type: "rack" });
+    const p = project("kit.k7", "beat", "kit", kit("@k7-core/kicks/808.wav"));
+    expect(rackOf(p)).toEqual([
       expect.objectContaining({
         symbol: "BD",
         note: 36,
@@ -189,35 +167,25 @@ describe("a rack tap's `sample`", () => {
 
 describe("a tap's sample inside an ALTERNATIVE", () => {
   it("still reaches the engine when that set is the one selected", () => {
-    const p = join(root, "demo.k7");
-    touch(join(p, "samples", "kick.wav"));
-    touch(join(p, "samples", "snare.wav"));
-    mkdirSync(join(p, "nodes"), { recursive: true });
-    writeFileSync(join(p, "project.yaml"), 'project:\n  name: "demo"\n');
-    mkdirSync(join(root, "_modules", "instruments", "drums"), {
-      recursive: true,
-    });
-    writeFileSync(
-      join(root, "_modules", "instruments", "drums", "module.yaml"),
-      "type: rack\n",
+    touch(join(root, "demo.k7", "samples", "kick.wav"));
+    touch(join(root, "demo.k7", "samples", "snare.wav"));
+    writeShared("instruments/drums", { type: "rack" });
+    const p = project(
+      "demo.k7",
+      "beat",
+      "kit",
+      kit("@project/kick.wav", {
+        alternatives: [
+          {
+            rack: {
+              symbols: { BD: { note: 36, sample: "@project/snare.wav" } },
+            },
+          },
+        ],
+        alternative: "2",
+      }),
     );
-    writeFileSync(
-      join(p, "nodes", "beat.yaml"),
-      'extends: "@meta/track"\nevents: []\n',
-    );
-    writeFileSync(
-      join(p, "nodes", "kit.yaml"),
-      'extends: "@workspace/instruments/drums"\ntype: rack\nrack:\n  symbols:\n    BD: { note: 36, sample: "@project/kick.wav" }\n' +
-        'alternatives:\n  - rack:\n      symbols:\n        BD: { note: 36, sample: "@project/snare.wav" }\nalternative: "2"\n',
-    );
-    writeFileSync(
-      join(p, "graph.yaml"),
-      "modules:\n  beat: [ kit ]\n  kit: [ OUT ]\n",
-    );
-    const rack = loadProject(p)
-      .tracks.flatMap((t) => t.plugins)
-      .find((pl) => pl.rack?.length)?.rack;
-    expect(rack?.[0]).toMatchObject({
+    expect(rackOf(p)?.[0]).toMatchObject({
       symbol: "BD",
       clip: join(p, "samples", "snare.wav"),
     });
@@ -240,33 +208,10 @@ describe("a PROJECT's own samples, as @project/…", () => {
   });
 
   it("reaches the engine from a tap on a node", () => {
-    const p = join(root, "demo.k7");
-    touch(join(p, "samples", "kick.wav"));
-    mkdirSync(join(p, "nodes"), { recursive: true });
-    writeFileSync(join(p, "project.yaml"), 'project:\n  name: "demo"\n');
-    mkdirSync(join(root, "_modules", "instruments", "drums"), {
-      recursive: true,
-    });
-    writeFileSync(
-      join(root, "_modules", "instruments", "drums", "module.yaml"),
-      "type: rack\n",
-    );
-    writeFileSync(
-      join(p, "nodes", "beat.yaml"),
-      'extends: "@meta/track"\nevents: []\n',
-    );
-    writeFileSync(
-      join(p, "nodes", "kit.yaml"),
-      'extends: "@workspace/instruments/drums"\ntype: rack\nrack:\n  symbols:\n    BD: { note: 36, sample: "@project/kick.wav" }\n',
-    );
-    writeFileSync(
-      join(p, "graph.yaml"),
-      "modules:\n  beat: [ kit ]\n  kit: [ OUT ]\n",
-    );
-    const rack = loadProject(p)
-      .tracks.flatMap((t) => t.plugins)
-      .find((pl) => pl.rack?.length)?.rack;
-    expect(rack?.[0]).toMatchObject({
+    touch(join(root, "demo.k7", "samples", "kick.wav"));
+    writeShared("instruments/drums", { type: "rack" });
+    const p = project("demo.k7", "beat", "kit", kit("@project/kick.wav"));
+    expect(rackOf(p)?.[0]).toMatchObject({
       symbol: "BD",
       clip: join(p, "samples", "kick.wav"),
     });

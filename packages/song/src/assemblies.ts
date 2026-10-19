@@ -23,7 +23,8 @@ import { plainSegments } from "@studio/web-protocol/paths";
 import type { Diagnostic } from "./loader";
 import { libraryFamilyRoot, libraryFamilyRoots } from "./sharedFolders";
 import { entityFiles } from "./yaml/moduleIO";
-import { wsExists, wsRead } from "./yaml/workspaceFile";
+import { wsText } from "./yaml/workspaceDoc";
+import { wsExists } from "./yaml/workspaceFile";
 
 export type { ProjectAssemblies, ProjectAssembly };
 export { ASSEMBLIES_DIR, ASSEMBLY_FILE };
@@ -39,7 +40,7 @@ export function projectAssemblies(dir: string): ProjectAssemblies {
     const rel = file.rel.replace(/^\/+/, "");
     let text: string;
     try {
-      text = wsRead(file.path);
+      text = wsText(file.path);
     } catch (e) {
       diagnostics.push({
         file: rel,
@@ -85,7 +86,7 @@ export function loadAssemblyTemplate(
   const folder = assemblyFolder(dir, ref);
   if (!folder) return null;
   const { value, issues } = parseAssemblyTemplate(
-    wsRead(join(folder, ASSEMBLY_FILE)),
+    wsText(join(folder, ASSEMBLY_FILE)),
   );
   // An unreadable template is an EMPTY one with its complaint attached: the box still draws.
   return {
@@ -104,7 +105,7 @@ export function libraryAssemblies(
     ASSEMBLIES_DIR,
     dir,
   )) {
-    // A folder holding an `assembly.yaml` IS one, and nothing inside one is another.
+    // A folder holding an `assembly.k7x` IS one, and nothing inside one is another.
     const walk = (folder: string, rel: string[]): void => {
       if (wsExists(join(folder, ASSEMBLY_FILE))) {
         out.push({ ref: libraryRef(library, rel.join("/")), path: folder });

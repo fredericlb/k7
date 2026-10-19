@@ -4,7 +4,7 @@
 // draft marked writable. A published version is never written. No project field declares them.
 // Full rationale: docs/sharedFolders.md.
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { climbsOut } from "@studio/web-protocol/paths";
@@ -36,14 +36,22 @@ import {
   type LibraryVersion,
   parseLibraryManifest,
   parseLibraryPins,
+  stringifyLibraryPins,
   UNPINNED_VERSION,
   versionOfDir,
 } from "@studio/song-schema/libraryVersions";
+import {
+  LEGACY_LIBRARY_MANIFEST,
+  LEGACY_LIBRARY_PINS_FILE,
+  parseLegacyLibraryManifest,
+  parseLegacyLibraryPins,
+} from "@studio/song-schema/libraryVersionsLegacy";
 import {
   ACCOUNT_LIBRARY,
   isLibraryName,
   LIBRARIES_HOME_DIR,
 } from "@studio/song-schema/moduleTypes";
+import { writeFileAtomic } from "./atomicWrite";
 
 /** The account library's folder under `$STUDIO_HOME`, beside `workspace/`. */
 const ACCOUNT_LIBRARY_DIR = "library";
@@ -100,12 +108,20 @@ export function libraryManifest(
   name: string,
   v: number,
 ): LibraryManifest | null {
+  const root = libraryVersionRoot(name, v);
   try {
     return parseLibraryManifest(
-      readFileSync(join(libraryVersionRoot(name, v), LIBRARY_MANIFEST), "utf8"),
+      readFileSync(join(root, LIBRARY_MANIFEST), "utf8"),
     );
   } catch {
-    return null;
+    // A published version is never written, so a legacy manifest is read where it is, not upgraded.
+    try {
+      return parseLegacyLibraryManifest(
+        readFileSync(join(root, LEGACY_LIBRARY_MANIFEST), "utf8"),
+      );
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -130,7 +146,7 @@ export function libraryVersionRoot(name: string, v: LibraryVersion): string {
   return isVersionedLibrary(name) ? join(home, String(v)) : home;
 }
 
-/** The pins of the workspace `from` stands in: the nearest `_library-pins.yaml` above it, else none. */
+/** The pins of the workspace `from` stands in: the nearest `_library-pins.k7x` above it, a legacy YAML one upgraded on the way, else none. */
 export function workspacePins(from: string): LibraryPins {
   let dir = resolve(from);
   for (;;) {
@@ -142,10 +158,30 @@ export function workspacePins(from: string): LibraryPins {
         return {};
       }
     }
+    const legacy = join(dir, LEGACY_LIBRARY_PINS_FILE);
+    if (existsSync(legacy)) return upgradePins(legacy, file);
     const up = dirname(dir);
     if (up === dir) return {};
     dir = up;
   }
+}
+
+/** A legacy `_library-pins.yaml` written as `_library-pins.k7x` and removed; one that does not read stays, answering no pins. */
+function upgradePins(legacy: string, file: string): LibraryPins {
+  let pins: LibraryPins | null;
+  try {
+    pins = parseLegacyLibraryPins(readFileSync(legacy, "utf8"));
+  } catch {
+    return {};
+  }
+  if (!pins) return {};
+  try {
+    writeFileAtomic(file, stringifyLibraryPins(pins));
+    rmSync(legacy, { force: true });
+  } catch {
+    /* read-only: the next read upgrades it */
+  }
+  return pins;
 }
 
 /** The libraries this account may write, by name, and the folder each is read from. */

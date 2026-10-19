@@ -32,7 +32,7 @@ collide.
 
 ## Two whole texts made from one version are merged line by line
 
-A file that is not YAML travels whole, so two edits to it name the same `was`. When the later one
+A file that is not k7x travels whole, so two edits to it name the same `was`. When the later one
 arrives, the room merges it with what is in place against the text both were made from: a line-level
 three-way merge (`node-diff3`, `src/textMerge.ts`). A clean merge is applied as a whole text holding
 the merged result, so every replica, its author included, ends on the room's text. When the two
@@ -42,8 +42,8 @@ ever written into a file, since an engine or a renderer would read it as content
 The room needs that base, and the op carries only its hash. So the room keeps, per file, the last 20
 versions it wrote (a megabyte at most), and finds the base by hash; a base it no longer has means set
 aside. The versions are part of the saved state, and written only by applying entries, so replaying
-the log after a restart rebuilds them. YAML is not merged as lines: its own merge is by path, and a
-line merge could leave two keys that parse into one. A blob ref is not text.
+the log after a restart rebuilds them. A `.k7x` file is not merged as lines: its own merge is by
+path, and a line merge could leave two keys that read as one. A blob ref is not text.
 
 `src/conflicts.ts` is the set of open conflicts, kept the same way by the room and by each replica.
 A newer alternative from the same replica for the same value replaces the older one: a knob dragged
@@ -95,8 +95,13 @@ is ever read by another on a guess. Two numbers in `src/protocol.ts` carry that 
   its own, `refused` with `server-older`, since only the server knows ops the replica would send it.
   The refused replica stops reconnecting and says which side needs the update: a retry would be
   refused the same way. A hello without `proto` is level 1, the level every replica had before the
-  field existed; that holds while no replica below 1 can exist, and is the line to change when the
-  minimum is first raised.
+  field existed.
+- **Level 2 is the minimum.** Level 1 is the k7 that synced YAML workspace files as `yaml` ops, which
+  this build no longer applies (`RETIRED_OP_KINDS` in `src/ops.ts`). Such a replica is refused at
+  hello with `update` before it sends a batch, so its pending edits wait on its disk instead of being
+  silently dropped. A `yaml` op that reaches a relay anyway is answered `unknown-op`, its error naming
+  the replica as the side to update, and `applyFileOp` throws a plain error for it, not `NeedsUpdate`,
+  since no newer k7 would replay it either.
 - **`LOG_V`**, the meaning of what is on disk. Every entry line, the saved room state and the
   segment index carry it as `v`; absent is 1. A reader meets a higher `v` with `NeedsUpdate`, and the
   room does not load at all: an entry skipped would leave the room's text wrong for every replica

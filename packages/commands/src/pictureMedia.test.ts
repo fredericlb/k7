@@ -46,10 +46,10 @@ beforeEach(() => {
   mkdirSync(join(song, "clips"), { recursive: true });
   mkdirSync(join(song, "video_tracks"), { recursive: true });
   writeFileSync(
-    join(song, "video_tracks", "main.yaml"),
-    "events:\n  - { ref: pro, start: 0, length: 1 }\n",
+    join(song, "video_tracks", "main.k7x"),
+    'events([ref("pro").start(0).length(1)])\n',
   );
-  writeFileSync(join(song, "clips", "pro.yaml"), "source: clips/pro.mov\n");
+  writeFileSync(join(song, "clips", "pro.k7x"), 'source("clips/pro.mov")\n');
 });
 afterEach(() => rmSync(song, { recursive: true, force: true }));
 
@@ -65,14 +65,14 @@ const prores = () =>
     "prores_ks",
     join(song, "clips", "pro.mov"),
   ]);
-const clipFile = () => readFileSync(join(song, "clips", "pro.yaml"), "utf8");
+const clipFile = () => readFileSync(join(song, "clips", "pro.k7x"), "utf8");
 
 describe.skipIf(!hasFfmpeg)("picture prepare", () => {
   it("makes an optimized copy of a codec no browser decodes, and names it on the clip", async () => {
     prores();
     await runCommand("picture prepare main", host(), "cli");
     expect(refusals).toEqual([]);
-    expect(clipFile()).toContain("optimized: clips/pro.optimized.mp4");
+    expect(clipFile()).toContain('optimized("clips/pro.optimized.mp4")');
     expect(existsSync(join(song, "clips", "pro.optimized.mp4"))).toBe(true);
     logs.length = 0;
     await runCommand("picture prepare main", host(), "cli");
@@ -95,6 +95,6 @@ describe.skipIf(!hasFfmpeg)("picture prepare", () => {
     expect(jobs).toHaveLength(1);
     expect(clipFile()).not.toContain("optimized");
     expect(await jobs[0]?.()).toMatch(/prepared \(optimized\)/);
-    expect(clipFile()).toContain("optimized: clips/pro.optimized.mp4");
+    expect(clipFile()).toContain('optimized("clips/pro.optimized.mp4")');
   });
 });

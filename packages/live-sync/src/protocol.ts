@@ -7,14 +7,15 @@ import {
   type Conflict,
   type FileOp,
   isKnownOpKind,
+  RETIRED_OP_KINDS,
   type Sequenced,
 } from "./ops.ts";
 import { isSyncPath } from "./path.ts";
 
 /** The level of this build's ops and frames; what bumps it is ../docs/sync.md, "Versions". */
-export const SYNC_PROTO = 1;
-/** The oldest replica level a relay of this build still serves. */
-export const SYNC_PROTO_MIN = 1;
+export const SYNC_PROTO = 2;
+/** The oldest replica level a relay of this build still serves: level 1 sent `yaml` ops. */
+export const SYNC_PROTO_MIN = 2;
 /** The version stamped on every log entry and saved room state this build writes. */
 export const LOG_V = 1;
 
@@ -86,23 +87,20 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
 const optText = (v: unknown): boolean =>
   v === undefined || v === null || typeof v === "string";
 
-/** One YAML or k7x path op: a key path of strings, and the value source `body` names when it sets. */
-function isPathOp(v: unknown, body: "yaml" | "k7x"): boolean {
+/** One k7x path op: a key path of strings, and the value's k7x source when it sets. */
+function isPathOp(v: unknown): boolean {
   if (!isObject(v) || !Array.isArray(v.path) || !optText(v.was)) return false;
   if (!v.path.every((s) => typeof s === "string")) return false;
   if (v.op === "delete") return true;
-  return v.op === "set" && typeof v[body] === "string" && optText(v.after);
+  return v.op === "set" && typeof v.k7x === "string" && optText(v.after);
 }
 
 /** One file's op, its path confined to the workspace (path.ts). */
 export function isFileOp(v: unknown): v is FileOp {
   if (!isObject(v) || !isSyncPath(v.file)) return false;
   switch (v.kind) {
-    case "yaml":
-    case "k7x": {
-      const body = v.kind;
-      return Array.isArray(v.ops) && v.ops.every((o) => isPathOp(o, body));
-    }
+    case "k7x":
+      return Array.isArray(v.ops) && v.ops.every(isPathOp);
     case "text":
       return typeof v.text === "string" && optText(v.was);
     case "remove":
@@ -156,7 +154,7 @@ export function readToRelay(raw: string): ReadFrame {
     return { reason: "malformed", error: "no workspace named" };
   const workspace = v.workspace;
   if (v.t === "hello") {
-    // No `proto` is a replica from before the field: level 1, the only level there was.
+    // No `proto` is a replica from before the field: level 1, below SYNC_PROTO_MIN, so it is told to update.
     const proto = v.proto ?? 1;
     if (typeof v.since !== "number")
       return { reason: "malformed", error: "hello without since", workspace };
@@ -175,13 +173,15 @@ export function readToRelay(raw: string): ReadFrame {
     if (isBatch(v.batch))
       return { msg: { t: "batch", workspace, batch: v.batch } };
     const kind = unknownKind(v.batch);
-    return kind === null
-      ? { reason: "malformed", error: "batch malformed", workspace }
-      : {
-          reason: "unknown-op",
-          error: `op kind "${kind}" unknown here: this server's k7 is older than the replica's`,
-          workspace,
-        };
+    if (kind === null)
+      return { reason: "malformed", error: "batch malformed", workspace };
+    return {
+      reason: "unknown-op",
+      error: RETIRED_OP_KINDS.includes(kind)
+        ? `op kind "${kind}" retired: the replica's k7 is older than this server's and must be updated`
+        : `op kind "${kind}" unknown here: this server's k7 is older than the replica's`,
+      workspace,
+    };
   }
   return {
     reason: "unknown-message",

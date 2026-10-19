@@ -14,8 +14,8 @@ import {
   paramsOf,
   slugify,
   uniquify,
+  writeDoc,
   writeFile,
-  yamlText,
 } from "./emitNaming.js";
 import type { PluginOut } from "./model.js";
 
@@ -70,7 +70,7 @@ export function moduleRefFor(
     ctx.moduleOf.set(key, mod);
     ctx.modules.push(mod);
   }
-  // A sole use folds back into module.yaml, so the module's own name is taken as far as a node is concerned.
+  // A sole use folds back into module.k7x, so the module's own name is taken as far as a node is concerned.
   ctx.usedNodeNames.add(mod.name.toLowerCase());
   // Each insert gets its OWN node even when identically set — they are separate slots; docs/import.md.
   const node = uniquify(`${mod.name}_${owner}`, ctx.usedNodeNames);
@@ -87,7 +87,7 @@ export function dropOrphanInserts(ctx: EmitCtx): void {
     mod.inserts = mod.inserts.filter((i) => liveRefs.has(i.node));
 }
 
-/** A plugin used in exactly ONE place needs no node: fold it into module.yaml — see docs/import.md. */
+/** A plugin used in exactly ONE place needs no node: fold it into module.k7x — see docs/import.md. */
 export function collapseSoleInserts(ctx: EmitCtx): void {
   for (const mod of ctx.modules) {
     if (mod.inserts.length !== 1) continue;
@@ -95,7 +95,7 @@ export function collapseSoleInserts(ctx: EmitCtx): void {
     if (ctx.chains[mod.name]) continue;
     const [only] = mod.inserts;
     const from = only.node;
-    only.node = ""; // "" == the state lives in module.yaml
+    only.node = ""; // "" == the state lives in module.k7x
     for (const d of Object.values(ctx.chains))
       for (const step of d.use)
         if (step.module === from) step.module = mod.name;
@@ -114,27 +114,27 @@ export interface ModuleStats {
 function writeMissing(ctx: EmitCtx, b: ModuleDef): number {
   for (const ins of b.inserts) {
     const params = paramsOf(ins.params);
-    writeFile(
-      join(ctx.outDir, `nodes/${ins.node || b.name}.yaml`),
-      yamlText(
-        {
-          extends: NOT_SUPPORTED_REF,
-          // The plugin's real name, restated with the marker since a node's `plugin:` replaces its base's whole.
-          plugin: { type: NOT_SUPPORTED_TYPE, name: b.pluginName },
-          ...(params ? { params } : {}),
-        },
-        [],
-        `MISSING PLUGIN: "${b.pluginName}" (${b.pluginType}) is not in the k7 plugin cache.\n` +
+    writeDoc(
+      join(ctx.outDir, `nodes/${ins.node || b.name}.k7x`),
+      {
+        extends: NOT_SUPPORTED_REF,
+        // The plugin's real name, restated with the marker since a node's `plugin:` replaces its base's whole.
+        plugin: { type: NOT_SUPPORTED_TYPE, name: b.pluginName },
+        ...(params ? { params } : {}),
+      },
+      {
+        note:
+          `MISSING PLUGIN: "${b.pluginName}" (${b.pluginType}) is not in the k7 plugin cache.\n` +
           `This node stands where it was: routing only, and bypassed. Install and scan it\n` +
           `('k7 engine scan') and re-import, or point this node's \`extends\` at a real module.\n` +
           `The params below are the ones the export carried, kept so nothing is lost.`,
-      ),
+      },
     );
   }
   return b.inserts.length;
 }
 
-/** Modules -> module.yaml, plus one flat nodes/<node>.yaml per insert past the first — see docs/import.md. */
+/** Modules -> module.k7x, plus one flat nodes/<node>.k7x per insert past the first — see docs/import.md. */
 export function writeModules(ctx: EmitCtx, extsFile?: string): ModuleStats {
   // Which modules survive: one whose every insert is orphaned has nothing left to write.
   const liveModules = ctx.modules.filter((b) => b.inserts.length > 0);
@@ -146,7 +146,7 @@ export function writeModules(ctx: EmitCtx, extsFile?: string): ModuleStats {
     // A module now lives at `@workspace`, beside the project rather than inside it.
     const dir = join(ctx.workspaceModulesDir, b.folder, b.name);
     const known = !verify || cachedNames.has(b.pluginName.toLowerCase());
-    // A sole insert's state belongs in module.yaml (node === "").
+    // A sole insert's state belongs in module.k7x (node === "").
     const sole = b.inserts.length === 1 && b.inserts[0].node === "";
 
     if (!known) {
@@ -167,23 +167,22 @@ export function writeModules(ctx: EmitCtx, extsFile?: string): ModuleStats {
       : `${b.pluginName} — used ${b.inserts.length} times in this song, so each use is a\n` +
         `NODE in nodes/ that extends this module. The plugin is declared once here;\n` +
         `each node carries only its own settings.`;
-    writeFile(join(dir, "module.yaml"), yamlText(value, [], note));
+    writeDoc(join(dir, "module.k7x"), value, { note });
     stats.moduleNodes++;
 
     for (const ins of b.inserts) {
       if (ins.node) {
         const params = paramsOf(ins.params);
         // A node is a flat file naming what it extends — packages/song/docs/nodes.md.
-        writeFile(
-          join(ctx.outDir, `nodes/${ins.node}.yaml`),
-          yamlText(
-            {
-              extends: `@workspace/${b.folder}/${b.name}`,
-              ...(params ? { params } : {}),
-            },
-            [],
-            `${ins.node} — inherits ${b.name} (the plugin); only what this use sets differs.`,
-          ),
+        writeDoc(
+          join(ctx.outDir, `nodes/${ins.node}.k7x`),
+          {
+            extends: `@workspace/${b.folder}/${b.name}`,
+            ...(params ? { params } : {}),
+          },
+          {
+            note: `${ins.node} — inherits ${b.name} (the plugin); only what this use sets differs.`,
+          },
         );
         stats.nodeFiles++;
       }

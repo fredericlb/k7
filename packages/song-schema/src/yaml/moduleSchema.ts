@@ -118,7 +118,7 @@ export function rackAddBind(
 export const rackBindSymbol = (bind: string | undefined): string | null =>
   bind?.startsWith(RACK_BIND) ? bind.slice(RACK_BIND.length) : null;
 
-/** The script beside `ui.yaml` that draws a panel's lcdscreen widgets — packages/ui-chains-react/docs/lcdScreen.md. */
+/** The script beside `ui.k7x` that draws a panel's lcdscreen widgets — packages/ui-chains-react/docs/lcdScreen.md. */
 export const WIDGETS_SCRIPT = "widgets.js";
 
 // A refinement, not a union: a union would reject the half-second where the editor changed `type` but not the fields.
@@ -262,12 +262,12 @@ export const UISchema = z
 /** A module's whole widget grid — what the visual editor reads and writes. */
 export type ModuleUI = z.infer<typeof UISchema>;
 
-// One `ui.yaml`: the panel beside a module's `module.yaml`, naming no module — the folder does (docs/moduleFile.md).
+// One `ui.k7x`: the panel beside a module's `module.k7x`, naming no module — the folder does (docs/moduleFile.md).
 export const UiFileSchema = UISchema.strict();
 
 export type UiFile = z.infer<typeof UiFileSchema>;
 
-// One `controller.yaml`: which MIDI control moves which param, one control per param — see docs/controller.md.
+// One `controller.k7x`: which MIDI control moves which param, one control per param — see docs/controller.md.
 export const CcBindingSchema = z
   .object({
     // 1..16 as a musician counts them, not 0..15 as the wire does — this file is read by people.
@@ -386,7 +386,7 @@ const MODULE_FIELDS = {
   camera: z.string().optional(),
   // …and an io "midi" module WHICH device it records from, by its label; "" or absent is any device (docs/midiIn.md).
   device: z.string().optional(),
-  // …and WHERE in the viewport it draws, [x, y, w, h] px, absent the whole frame; not graph.yaml's `positions:` (docs/camera.md).
+  // …and WHERE in the viewport it draws, [x, y, w, h] px, absent the whole frame; not graph.k7x's `positions:` (docs/camera.md).
   frame: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
   // An io "file" module's audio FILE, project-relative, and ABSENT on a chain template — see docs/fileInput.md.
   source: z.string().optional(),
@@ -477,7 +477,7 @@ export const ModuleSchema = z
 
 export type Module = z.infer<typeof ModuleSchema>;
 
-/** A module FOLDER's config (config.yaml at the root of a `_modules`) — just the namespace every module in it is addressed by. */
+/** A module FOLDER's config (config.k7x at the root of a `_modules`) — just the namespace every module in it is addressed by. */
 export const ModuleConfigSchema = z
   .object({ namespace: z.string().min(1) })
   .strict();

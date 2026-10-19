@@ -5,8 +5,8 @@ Tracktion compressor, a vari-mu and a bus compressor are its engines, and a node
 
 ```
 @k7-core/audio/dynamics/compressor/
-  module.yaml               engine: tracktion
-  engines/<name>/           module.yaml, ui.yaml, widgets.js — a whole module
+  module.k7x                engine: tracktion
+  engines/<name>/           module.k7x, ui.k7x, widgets.js — a whole module
 ```
 
 ## Why engines exist
@@ -18,12 +18,12 @@ the node.
 
 ## An engine is a module folder, inside its module
 
-Each engine is an ordinary module folder: its own `module.yaml` (usually an `extends:` of an
+Each engine is an ordinary module folder: its own `module.k7x` (usually an `extends:` of an
 `@engine/…` plugin), its own panel and screen. Engines have the same shape as modules for two
 reasons:
 
-- **every tool already works on it.** The builder edits an engine by opening its `module.yaml`,
-  the panel walk finds its `ui.yaml`, and its jsdsp source resolves against its own folder. None of
+- **every tool already works on it.** The builder edits an engine by opening its `module.k7x`,
+  the panel walk finds its `ui.k7x`, and its jsdsp source resolves against its own folder. None of
   them needed a second code path;
 - **a module stays a folder you can copy.** Its engines travel with it. Refs to modules elsewhere in
   the library would have made the compressor depend on modules that are no longer offered on their
@@ -34,7 +34,7 @@ one thing that keeps it out of the base-module picker, the catalogue and the com
 picked inside its module and never offered beside it.
 
 The engines are **found, not declared**: the module lists none, its `engines/` folder does. A
-list in `module.yaml` would be a second answer to the question the folder already answers, free to
+list in `module.k7x` would be a second answer to the question the folder already answers, free to
 disagree with it.
 
 ## The module keeps who it is; the engine says what it runs

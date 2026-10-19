@@ -83,7 +83,7 @@ export interface StemsReply {
 export interface RepoProject {
   path: string;
   app: ProjectApp;
-  /** `project.tags` of an k7 project's project.yaml; absent when it has none. */
+  /** `project.tags` of an k7 project's project.k7x; absent when it has none. */
   tags?: string[];
   /** The TYPES of the surfaces it declares (`timeline`, `turntables`…), which is what its archetype was; absent from an older service. */
   surfaces?: string[];

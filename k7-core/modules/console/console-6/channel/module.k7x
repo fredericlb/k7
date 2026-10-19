@@ -1,3 +1,3 @@
 // console-6-channel — the face for Console 6 Channel, a plugin the engine scans.
-// Everything it IS comes from the ref below; what lives here is the ui.yaml beside this file.
+// Everything it IS comes from the ref below; what lives here is the ui.k7x beside this file.
 extends("@engine/console-6-channel")

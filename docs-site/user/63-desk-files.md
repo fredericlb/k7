@@ -1,29 +1,30 @@
 # The desk's files
 
-A desk is described by two files in the project: `surfaces/desk.yaml`, which says what the desk is and what each control moves, and `mix.yaml`, the cue sheet the desk writes as you set cues. A new mix project creates both. This page is the reference for each.
+A desk is described by two files in the project: `surfaces/desk.k7x`, which says what the desk is and what each control moves, and `mix.k7x`, the cue sheet the desk writes as you set cues. A new mix project creates both. This page is the reference for each.
 
-## `surfaces/desk.yaml`
+## `surfaces/desk.k7x`
 
-The file name (without `.yaml`) is the surface's id; a mix project names it `desk`. A project can declare only one `turntables` surface.
+The file name (without `.k7x`) is the surface's id; a mix project names it `desk`. A project can declare only one `turntables` surface.
 
-```yaml
-type: turntables
-layout: split
-playlist: ete-2026
-stems: true
-mapping:
-  crossfade: { module: fadeA, param: Level, invert: true, also: { module: fadeB, param: Level } }
-  deckA.tempo: { module: tempoA, param: Target BPM }
-  deckA.trim: { module: trimA, param: Trim }
-  deckA.eqLow: { module: eqA, param: Low-shelf gain }
-  deckA.eqMid: { module: eqA, param: Mid gain 1 }
-  deckA.eqHigh: { module: eqA, param: High-shelf gain }
-  deckA.filter: { module: filterA, param: Sweep }
-  deckA.level: { module: levelA, param: Gain }
-  deckA.cue: { module: cueA, param: Level }
-  deckA.echo: { module: echoA, param: "@mix" }
-  deckA.stemDrums: { module: platterDrumsA, param: Gain }
-  # ...the same for deckB
+```k7x
+type("turntables")
+layout("split")
+playlist("ete-2026")
+stems(true)
+mapping({
+  crossfade: { module: "fadeA", param: "Level", invert: true, also: { module: "fadeB", param: "Level" } },
+  "deckA.tempo": { module: "tempoA", param: "Target BPM" },
+  "deckA.trim": { module: "trimA", param: "Trim" },
+  "deckA.eqLow": { module: "eqA", param: "Low-shelf gain" },
+  "deckA.eqMid": { module: "eqA", param: "Mid gain 1" },
+  "deckA.eqHigh": { module: "eqA", param: "High-shelf gain" },
+  "deckA.filter": { module: "filterA", param: "Sweep" },
+  "deckA.level": { module: "levelA", param: "Gain" },
+  "deckA.cue": { module: "cueA", param: "Level" },
+  "deckA.echo": { module: "echoA", param: "@mix" },
+  "deckA.stemDrums": { module: "platterDrumsA", param: "Gain" },
+  // ...the same for deckB
+})
 ```
 
 ### Fields
@@ -32,7 +33,7 @@ mapping:
 |---|---|---|
 | `type` | yes | `turntables`. |
 | `layout` | yes | `split`: the desk is a pane. It is the only layout a `turntables` surface accepts; anything else is refused with "a 'turntables' surface draws in 'split'". |
-| `playlist` | no | The playlist the song browser lists, by **name** under the workspace's `_playlists/` folder: `ete-2026` means `_playlists/ete-2026.yaml`, `live/repet` means `_playlists/live/repet.yaml`. Only a `turntables` surface may carry it. |
+| `playlist` | no | The playlist the song browser lists, by **name** under the workspace's `_playlists/` folder: `ete-2026` means `_playlists/ete-2026.k7x`, `live/repet` means `_playlists/live/repet.k7x`. Only a `turntables` surface may carry it. |
 | `stems` | no | `true` lets the desk **separate** a song put on a deck that has not been separated yet. Off when absent: a separation costs minutes and only happens when asked. Only a `turntables` surface may carry it. |
 | `mapping` | in practice | Which module parameter each desk control drives. Without the required controls the desk is not drawn. |
 
@@ -99,23 +100,23 @@ The **tempo** module is an offline ("cold") module: it reads a deck's whole file
 
 A desk with no `deckA.echo` line draws no ECHO knob and greys the echo-out button; a desk with no stem lines draws no stem knobs. Both are complete desks. To add them, give the project the nodes (see the graph in a new mix project for the wiring) and add the mapping lines.
 
-## The cue sheet: `mix.yaml`
+## The cue sheet: `mix.k7x`
 
-`mix.yaml` at the project root stores the hot cues this set has set, song by song. **The desk writes it**: hold a cue button and the line appears. It is there to be read, corrected and kept, not filled in by hand.
+`mix.k7x` at the project root stores the hot cues this set has set, song by song. **The desk writes it**: hold a cue button and the line appears. It is there to be read, corrected and kept, not filled in by hand.
 
-```yaml
-cues:
-  - ref: "@k7-core/songs/AC-DC/Back in Black/Hells Bells"
-    markers: [ 12.5, null, 48.25 ]
-  - "@k7-core/songs/Other/Album/Title"
+```k7x
+cues([
+  ref("@k7-core/songs/AC-DC/Back in Black/Hells Bells").markers([12.5, null, 48.25]),
+  "@k7-core/songs/Other/Album/Title",
+])
 ```
 
 | Field | Meaning |
 |---|---|
 | `cues` | A list. Each entry is a song reference alone, or a mapping with `ref` and `markers`. |
-| `ref` | `@k7-core/` followed by the song's media-library id, `songs/<artist>/<album>/<title>`. Quote it: a YAML plain scalar may not start with `@`. |
+| `ref` | `@k7-core/` followed by the song's media-library id, `songs/<artist>/<album>/<title>`. Quote it, like every string. |
 | `markers` | Up to eight positions, one per cue button, in **seconds into the file**. `null` is an empty button. Position 0 is button 1. |
 
 Cues are in seconds of the file and not of the playback clock, so a cue stays on the same note whatever tempo the deck plays at. A cue belongs to this set rather than to the song: two sets that play the same song keep their own cues. The tempo and key of a song do not belong here; they live with the song in the media library.
 
-If the desk could not read `mix.yaml`, it refuses to write a cue rather than overwrite the file, and says "mix.yaml could not be read yet — the cue was not written".
+If the desk could not read `mix.k7x`, it refuses to write a cue rather than overwrite the file, and says "mix.k7x could not be read yet — the cue was not written".

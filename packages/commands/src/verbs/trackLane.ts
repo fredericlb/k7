@@ -94,7 +94,7 @@ async function orderTrack(arg: string, h: CommandHost): Promise<void> {
   await h.reload();
 }
 
-// What a mute/solo can address; a group is a lane too, silenced the same way in `graph.yaml`'s `bypassed:`.
+// What a mute/solo can address; a group is a lane too, silenced the same way in `graph.k7x`'s `bypassed:`.
 type MixTarget = Pick<TrackDoc, "id" | "name" | "mute">;
 
 /** Silence (or un-silence) a set of lanes and push the result — a lane's mute IS its module's bypass; docs/verbs.md. */
@@ -274,7 +274,7 @@ export const TRACK_LANE_VERBS: Record<string, SidHandler> = {
       `${t.id}: ${bypassed ? "muted" : "unmuted"}`,
     );
   },
-  /** Solo, as PROJECT STATE — `soloed:` at project.yaml's root, resolved by the ENGINE; docs/verbs.md. */
+  /** Solo, as PROJECT STATE — `soloed:` at project.k7x's root, resolved by the ENGINE; docs/verbs.md. */
   "track.solo": async (a, h) => {
     const t = mixTarget(a, h, "solo");
     if (!t) return;
@@ -282,7 +282,7 @@ export const TRACK_LANE_VERBS: Record<string, SidHandler> = {
     const cur = (loadProjectRoot(h.songPath).soloed ?? []).map(String);
     const on = !cur.includes(t.id);
     const next = on ? [...cur, t.id] : cur.filter((x) => x !== t.id);
-    const file = join(h.songPath, "project.yaml");
+    const file = join(h.songPath, "project.k7x");
     if (next.length) setFileValue(file, ["soloed"], next);
     else deleteFileValue(file, ["soloed"]);
     const unmute = on && t.mute;

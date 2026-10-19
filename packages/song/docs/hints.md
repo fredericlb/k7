@@ -7,23 +7,23 @@ half-written file is exactly when you need it.
 
 ## What each field holds, and why it is shaped that way
 
-**`modules`** — the chain `use` vocabulary: a module's bare name for the generic `module.yaml`,
-plus `"<name>:<node>"` for each `<node>.yaml` beside it (loader.ts's `NODE_SEP`), then the
+**`modules`** — the chain `use` vocabulary: a module's bare name for the generic `module.k7x`,
+plus `"<name>:<node>"` for each `<node>.k7x` beside it (loader.ts's `NODE_SEP`), then the
 inherited modules by ref (`@ns/type/name`).
 
 Hidden ones are dropped and favourites come first, off the module's own `status:` — the only
 thing that field does (`moduleTypes`' `MODULE_STATUSES`). Applied HERE rather than in the editor,
-so the command bar and the YAML pane cannot come to offer two different lists. Read off the
+so the command bar and the text pane cannot come to offer two different lists. Read off the
 AUTHORED module: a base being hidden is a statement about the base, and a module extending it has
 its own answer or takes the default.
 
-**`chains`** — the names the chains DERIVE to, not the names written in `graph.yaml`: a track's id
+**`chains`** — the names the chains DERIVE to, not the names written in `graph.k7x`: a track's id
 for a run it feeds, a module's name for a run that starts at it (see chainsGraph.ts).
 
 **`channels`** — input-channel labels from the MACHINE's preferences, not the project. An io `in`
 module's `channel` names one of these (`preferences.resolveInput`).
 
-**`videoTracks`** — `video_tracks/<id>.yaml` ids, what an audio track's `video_source` may name to
+**`videoTracks`** — `video_tracks/<id>.k7x` ids, what an audio track's `video_source` may name to
 inherit that track's placements and play their audio. Read schema-free like everything else here:
 a project with a broken video track should still complete its audio ones.
 
@@ -52,9 +52,8 @@ note editors relabel notes as symbols (and enter by symbol) when a sequence name
 `[from,to]` window. Resolved first, so a module that inherits its flavour, its source or half its
 symbols reports the whole thing.
 
-**`keywords`** — the words YAML itself gives meaning to, offered so they can be completed rather
-than mistyped. `on`/`off`/`yes`/`no` are the ones that bite: YAML 1.1 reads them as booleans, so a
-plugin called "on" has to be quoted.
+**`keywords`** — the words k7x itself gives meaning to (`true`, `false`, `null`), offered so they
+can be completed rather than mistyped.
 
 **`pluginNames`** — scanned plugin names grouped by format (lowercased key), e.g.
 `{ vst3: ["Serum"], au: ["Massive"] }`. Populated by the file service from the engine's scan cache
@@ -117,11 +116,11 @@ spelling, so `byExtends` is keyed by the ref as written, with nothing to normali
 
 `"kind:name"` → the project-relative file that defines the entity, so the editor can turn a known
 reference into a link. `kind ∈ module|sink|track|clip|sequence|chain` (chains all live in
-`graph.yaml`). Only kept when the file actually exists and sits INSIDE the project, so an external
+`graph.k7x`). Only kept when the file actually exists and sits INSIDE the project, so an external
 `@ns/…` module is skipped — a ref pointing at `@workspace/…` or `@k7-core/…` names a file the project's
 own tree does not contain, and this map answers only in project-relative terms.
 
 `"module:"` keys by the chain `use` ref and points at the file that IS that thing — which is
-always a NODE, `nodes/<name>.yaml`, kept in `home` precisely because a node does not sit under
+always a NODE, `nodes/<name>.k7x`, kept in `home` precisely because a node does not sit under
 the module it uses. There is no `"base:"`: an `extends` ref is always namespaced, and a
 namespaced module is exactly the external case this map already excludes by its own rule above.

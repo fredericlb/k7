@@ -73,7 +73,7 @@ describe("the faust tokeniser", () => {
   });
 
   it("gives the UI primitives their own colour", () => {
-    // They declare the module's parameters, and nothing checks that `module.yaml` agrees with them.
+    // They declare the module's parameters, and nothing checks that `module.k7x` agrees with them.
     expect(styleOf('hslider("Cutoff", 1200, 20, 20000, 1)', "hslider")).toBe(
       "macroName",
     );

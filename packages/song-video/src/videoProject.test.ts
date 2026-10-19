@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { scaffold } from "@studio/song/scaffold";
+import { writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadVideoProject, parseWallClock } from "./videoProject";
 
@@ -19,23 +20,26 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
-/** Write project.yaml with the given `project:` body and optional root lines. */
-function project(body: string, root = ""): void {
-  writeFileSync(join(dir, "project.yaml"), `project:\n${body}${root}`, "utf8");
+/** Write project.k7x with the given `project:` body and optional root keys. */
+function project(
+  body: Record<string, unknown>,
+  root: Record<string, unknown> = {},
+): void {
+  writeDoc(join(dir, "project.k7x"), { project: body, ...root });
 }
 
-function lane(id: string, yaml: string): void {
-  mkdirSync(join(dir, "video_tracks"), { recursive: true });
-  writeFileSync(join(dir, "video_tracks", `${id}.yaml`), yaml, "utf8");
+function lane(id: string, value: Record<string, unknown>): void {
+  writeDoc(join(dir, "video_tracks", `${id}.k7x`), value);
 }
+
+/** One shot of clip `a`, at the start. */
+const SHOT_A = { events: [{ ref: "a", start: 0, length: 1 }] };
+
+/** The frame every case below composites into, with `main` as its one layer. */
+const FRAME = { viewport: [640, 360], layers: ["main"] };
 
 function clip(id: string, source: string): void {
-  mkdirSync(join(dir, "clips"), { recursive: true });
-  writeFileSync(
-    join(dir, "clips", `${id}.yaml`),
-    `source: ${source}\n`,
-    "utf8",
-  );
+  writeDoc(join(dir, "clips", `${id}.k7x`), { source });
   // The media file too, empty: a missing source is its own error and would mask the one under test.
   writeFileSync(join(dir, "clips", basename(source)), "", "utf8");
 }
@@ -73,10 +77,10 @@ describe("a scaffolded `video` project", () => {
 
 describe("layers", () => {
   it("refuses a lane no layer names — it would compile and never draw", () => {
-    project(`  viewport: [640, 360]\n  layers: [main]\n`);
+    project(FRAME);
     clip("a", "a.mp4");
-    lane("main", `events:\n  - { ref: a, start: 0, length: 1 }\n`);
-    lane("ghost", `events: []\n`);
+    lane("main", SHOT_A);
+    lane("ghost", { events: [] });
     expect(() => loadVideoProject(dir)).toThrow(
       /ghost.*missing from project.layers/s,
     );
@@ -84,20 +88,17 @@ describe("layers", () => {
 
   // The bug: a rect-less lane compiled to 0x0 and drew nothing, in FRONT of the full-frame one.
   it("gives a lane stating no rect the whole frame, not a 0x0 quad", () => {
-    project(`  viewport: [640, 360]\n  layers: [main]\n`);
+    project(FRAME);
     clip("a", "a.mp4");
-    lane("main", `events:\n  - { ref: a, start: 0, length: 1 }\n`);
+    lane("main", SHOT_A);
     const [t] = loadVideoProject(dir).videoTracks;
     expect([t.x, t.y, t.w, t.h]).toEqual([0, 0, 640, 360]);
   });
 
   it("keeps a rect the lane DOES state", () => {
-    project(`  viewport: [640, 360]\n  layers: [main]\n`);
+    project(FRAME);
     clip("a", "a.mp4");
-    lane(
-      "main",
-      `x: 320\ny: 180\nw: 320\nh: 180\nevents:\n  - { ref: a, start: 0, length: 1 }\n`,
-    );
+    lane("main", { x: 320, y: 180, w: 320, h: 180, ...SHOT_A });
     const [t] = loadVideoProject(dir).videoTracks;
     expect([t.x, t.y, t.w, t.h]).toEqual([320, 180, 320, 180]);
   });
@@ -105,8 +106,8 @@ describe("layers", () => {
   // A shot naming a clip that is not there COMPILES — and then draws nothing, which is the one
   // failure the frame cannot show you. It is a warning, not a throw: the rest of the picture is fine.
   it("reports a shot whose clip is missing rather than drawing a blank lane in silence", () => {
-    project(`  viewport: [640, 360]\n  layers: [main]\n`);
-    lane("main", `events:\n  - { ref: gone, start: 0, length: 1 }\n`);
+    project(FRAME);
+    lane("main", { events: [{ ref: "gone", start: 0, length: 1 }] });
     const doc = loadVideoProject(dir);
     expect(doc.warnings).toEqual([
       expect.stringContaining("'gone' names no clip"),
@@ -116,20 +117,20 @@ describe("layers", () => {
   });
 
   it("says nothing about a picture that is simply right", () => {
-    project(`  viewport: [640, 360]\n  layers: [main]\n`);
+    project(FRAME);
     clip("a", "a.mp4");
-    lane("main", `events:\n  - { ref: a, start: 0, length: 1 }\n`);
+    lane("main", SHOT_A);
     expect(loadVideoProject(dir).warnings).toEqual([]);
   });
 
   it("refuses a layer naming no lane", () => {
-    project(`  viewport: [640, 360]\n  layers: [main, nope]\n`);
-    lane("main", `events: []\n`);
+    project({ viewport: [640, 360], layers: ["main", "nope"] });
+    lane("main", { events: [] });
     expect(() => loadVideoProject(dir)).toThrow(/nope.*not a video track/s);
   });
 
   it("refuses a project with no viewport — a frame invented here letterboxes everything", () => {
-    project(`  name: "x"\n`);
+    project({ name: "x" });
     expect(() => loadVideoProject(dir)).toThrow(/viewport is required/);
   });
 });
@@ -147,8 +148,8 @@ describe("markers are wall-clock, not bars", () => {
 
   it("sorts them and keeps the key as written, which is the delete key", () => {
     project(
-      `  viewport: [640, 360]\n  layers: []\n`,
-      `markers:\n  "1:30.5": "the cut"\n  "0": "cold open"\n`,
+      { viewport: [640, 360], layers: [] },
+      { markers: { "1:30.5": "the cut", "0": "cold open" } },
     );
     mkdirSync(join(dir, "video_tracks"), { recursive: true });
     const doc = loadVideoProject(dir);

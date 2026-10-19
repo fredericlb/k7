@@ -1,7 +1,7 @@
 // print.ts — a value (with the comments a conversion carries) → k7x text, in the one canonical layout.
 // Canonical only for text written whole: an edit prints just the value it changes and keeps every other byte (edit.ts).
 
-import type { K7Scalar } from "./ast.ts";
+import type { K7Path, K7Scalar } from "./ast.ts";
 
 /** A value to print, with the comment lines that sit before it, after it, and inside it before its closing bracket. */
 export type PNode = (
@@ -15,7 +15,15 @@ export type PNode = (
   blank?: boolean;
   /** Written on one line by its author: kept on one line whatever its width, so a conversion keeps their layout. */
   inline?: boolean;
+  /** Printed verbatim in place of the scalar: k7x source its writer already checked reads as one value. */
+  raw?: string;
 };
+
+/** What a whole file is printed with: comment lines on top, and the nodes written on one line. */
+export interface StringifyOptions {
+  header?: readonly string[];
+  inline?: (path: K7Path, value: unknown) => boolean;
+}
 
 export interface PEntry {
   key: string;
@@ -43,14 +51,33 @@ function printScalar(value: K7Scalar): string {
   return JSON.stringify(value);
 }
 
-export function fromJS(value: unknown): PNode {
-  if (Array.isArray(value)) return { kind: "list", items: value.map(fromJS) };
+/** A plain value as a node to print; `inline` marks the nodes to keep on one line, by their path from `value`. */
+export function fromJS(
+  value: unknown,
+  inline?: StringifyOptions["inline"],
+  path: K7Path = [],
+): PNode {
+  const one = inline?.(path, value) ?? false;
+  const node = plain(value, inline, path);
+  return one ? { ...node, inline: true } : node;
+}
+
+function plain(
+  value: unknown,
+  inline: StringifyOptions["inline"],
+  path: K7Path,
+): PNode {
+  if (Array.isArray(value))
+    return {
+      kind: "list",
+      items: value.map((v, i) => fromJS(v, inline, [...path, i])),
+    };
   if (value !== null && typeof value === "object")
     return {
       kind: "map",
       entries: Object.entries(value)
         .filter(([, v]) => v !== undefined)
-        .map(([key, v]) => ({ key, value: fromJS(v) })),
+        .map(([key, v]) => ({ key, value: fromJS(v, inline, [...path, key]) })),
     };
   if (value === undefined) return { kind: "scalar", value: null };
   return { kind: "scalar", value: value as K7Scalar };
@@ -71,6 +98,7 @@ const asChain = (n: PNode, ctx: Ctx): boolean =>
 
 /** One-line text for a node with no comments in it, else null. */
 function flat(n: PNode, ctx: Ctx): string | null {
+  if (n.raw !== undefined) return n.raw;
   if (hasComments(n)) return null;
   if (n.kind === "scalar") return printScalar(n.value);
   if (n.kind === "list") {
@@ -214,7 +242,16 @@ export function printFile(
   return `${lines.join("\n")}\n`;
 }
 
-/** Canonical text for a plain object, with no comments. */
-export function stringify(value: unknown): string {
-  return printFile(fromJS(value));
+/** The `//` lines of a file's header, one per line given (a line holding a newline is several), each ending its line. */
+export const headerText = (lines: readonly string[]): string =>
+  lines
+    .flatMap((l) => l.split(/\r?\n|\r/))
+    .map((l) => (l === "" ? "//\n" : `${`// ${l}`.trimEnd()}\n`))
+    .join("");
+
+/** Canonical text for a plain object: no comments but the header, and the `inline` nodes on one line. */
+export function stringify(value: unknown, opts: StringifyOptions = {}): string {
+  const body = printFile(fromJS(value, opts.inline));
+  if (!opts.header?.length) return body;
+  return headerText(opts.header) + (body === "\n" ? "" : body);
 }

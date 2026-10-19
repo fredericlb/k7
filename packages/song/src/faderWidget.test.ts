@@ -42,8 +42,8 @@ const widget = () =>
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-fader-"));
   writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n",
+    join(dir, "project.k7x"),
+    'project({ name: "song", tempo: 120 })\n',
     "utf8",
   );
 });

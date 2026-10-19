@@ -3,7 +3,7 @@
 // the one axis that survives (written down or streamed) and the group that is neither. See
 // docs/trackModules.md.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -15,28 +15,49 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { loadLanes, loadModuleRefs } from "./loader";
 import { compileNodeProject } from "./nodeProject";
+import { writeDoc, writeModule, writeNode } from "./testSupport";
 import { isTrack, trackModules } from "./trackModule";
 
 let dir: string;
 
-/** A project whose lanes are `lanes`, each `[name, extends]`, all wired straight to OUT. */
-function project(lanes: [string, string, string?][], chains?: string): string {
+type Lane = [string, string, Record<string, unknown>?];
+
+/** A project whose lanes are `lanes`, each `[name, extends, extra]`, all wired straight to OUT unless `graph` says otherwise. */
+function project(lanes: Lane[], graph?: Record<string, unknown>): string {
   const p = join(dir, "song.k7");
-  mkdirSync(join(p, "nodes"), { recursive: true });
-  mkdirSync(join(p, "modules", "io", "OUT"), { recursive: true });
-  writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
-  writeFileSync(join(p, "modules", "io", "OUT", "module.yaml"), "io: out\n");
+  writeDoc(join(p, "project.k7x"), { project: { name: "song" } });
+  writeModule(p, "io", "OUT", { io: "out" });
   for (const [name, ext, extra] of lanes)
-    writeFileSync(
-      join(p, "nodes", `${name}.yaml`),
-      `extends: "${ext}"\n${extra ?? ""}`,
-    );
-  writeFileSync(
-    join(p, "graph.yaml"),
-    chains ?? `modules:\n${lanes.map(([n]) => `  ${n}: [ OUT ]\n`).join("")}`,
+    writeNode(p, name, { extends: ext, ...extra });
+  writeDoc(
+    join(p, "graph.k7x"),
+    graph ?? {
+      modules: Object.fromEntries(lanes.map(([n]) => [n, ["OUT"]])),
+    },
   );
   return p;
 }
+
+/** The clip `riff`, two bars of an empty wav. */
+const riff = (p: string): void => {
+  writeDoc(join(p, "clips", "riff.k7x"), {
+    source: "clips/riff.wav",
+    to: "2:1",
+  });
+  writeFileSync(join(p, "clips", "riff.wav"), "");
+};
+/** The sequence `line`, one note. */
+const line = (p: string): void =>
+  writeDoc(join(p, "sequences", "line.k7x"), {
+    notes: [{ t: 0, d: 1, k: 60 }],
+  });
+
+const BOTH = {
+  events: [
+    { ref: "riff", start: "1:1:1" },
+    { ref: "line", start: "3:1:1" },
+  ],
+};
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-lane-"));
@@ -80,27 +101,11 @@ describe("the three built-in track modules", () => {
 describe("a lane, read off what it extends", () => {
   it("says nothing about what it carries — the EVENTS do", () => {
     // One lane holding a clip and a sequence: a lane is not typed by what it carries.
-    const p = project(
-      [
-        [
-          "gtr",
-          "@meta/track",
-          'events:\n  - { ref: riff, start: "1:1:1" }\n  - { ref: line, start: "3:1:1" }\n',
-        ],
-      ],
-      "modules:\n  gtr: [ OUT ]\n",
-    );
-    mkdirSync(join(p, "clips"), { recursive: true });
-    mkdirSync(join(p, "sequences"), { recursive: true });
-    writeFileSync(
-      join(p, "clips", "riff.yaml"),
-      'source: clips/riff.wav\nto: "2:1"\n',
-    );
-    writeFileSync(join(p, "clips", "riff.wav"), "");
-    writeFileSync(
-      join(p, "sequences", "line.yaml"),
-      "notes:\n  - { t: 0, d: 1, k: 60 }\n",
-    );
+    const p = project([["gtr", "@meta/track", BOTH]], {
+      modules: { gtr: ["OUT"] },
+    });
+    riff(p);
+    line(p);
     expect(loadLanes(p).gtr.type).toBe("single");
     const doc = compileNodeProject(p);
     const gtr = doc.tracks.find((t) => t.id === "gtr");
@@ -111,27 +116,11 @@ describe("a lane, read off what it extends", () => {
 
   it("splits into two engine tracks when both outputs are wired", () => {
     // One plugin chain per engine track, so two wired outputs are two tracks there and one lane here.
-    const p = project(
-      [
-        [
-          "gtr",
-          "@meta/track",
-          'events:\n  - { ref: riff, start: "1:1:1" }\n  - { ref: line, start: "3:1:1" }\n',
-        ],
-      ],
-      "modules:\n  gtr#audio: [ OUT ]\n  gtr#midi: [ OUT ]\n",
-    );
-    mkdirSync(join(p, "clips"), { recursive: true });
-    mkdirSync(join(p, "sequences"), { recursive: true });
-    writeFileSync(
-      join(p, "clips", "riff.yaml"),
-      'source: clips/riff.wav\nto: "2:1"\n',
-    );
-    writeFileSync(join(p, "clips", "riff.wav"), "");
-    writeFileSync(
-      join(p, "sequences", "line.yaml"),
-      "notes:\n  - { t: 0, d: 1, k: 60 }\n",
-    );
+    const p = project([["gtr", "@meta/track", BOTH]], {
+      modules: { "gtr#audio": ["OUT"], "gtr#midi": ["OUT"] },
+    });
+    riff(p);
+    line(p);
     const doc = compileNodeProject(p);
     const ids = doc.tracks.map((t) => t.id);
     expect(ids).toContain("gtr#audio");
@@ -148,23 +137,18 @@ describe("a lane, read off what it extends", () => {
   it("refuses an event whose output is not wired, and says which key to add", () => {
     // Dropping the clip silently is what must be refused: the graph looks right and it is not heard.
     const p = project(
-      [["gtr", "@meta/track", 'events:\n  - { ref: riff, start: "1:1:1" }\n']],
-      "modules:\n  gtr#midi: [ OUT ]\n",
+      [["gtr", "@meta/track", { events: [{ ref: "riff", start: "1:1:1" }] }]],
+      { modules: { "gtr#midi": ["OUT"] } },
     );
-    mkdirSync(join(p, "clips"), { recursive: true });
-    writeFileSync(
-      join(p, "clips", "riff.yaml"),
-      'source: clips/riff.wav\nto: "2:1"\n',
-    );
-    writeFileSync(join(p, "clips", "riff.wav"), "");
+    riff(p);
     expect(() => compileNodeProject(p)).toThrow(/gtr#audio/);
   });
 
   it("says where its clips come from — there is no `type` either", () => {
     const p = project([
       ["gtr", "@meta/track"],
-      ["kit", "@meta/strudel-track", "strudel: algo/p.strudel\n"],
-      ["live", "@meta/group-track", "tracks: [gtr, kit]\n"],
+      ["kit", "@meta/strudel-track", { strudel: "algo/p.strudel" }],
+      ["live", "@meta/group-track", { tracks: ["gtr", "kit"] }],
     ]);
     const lanes = loadLanes(p);
     expect(lanes.gtr.type).toBe("single");
@@ -183,14 +167,9 @@ describe("a lane, read off what it extends", () => {
 
   it("carries its clips through to the compiled doc", () => {
     const p = project([
-      ["gtr", "@meta/track", 'events:\n  - { ref: riff, start: "2:1:1" }\n'],
+      ["gtr", "@meta/track", { events: [{ ref: "riff", start: "2:1:1" }] }],
     ]);
-    mkdirSync(join(p, "clips"), { recursive: true });
-    writeFileSync(
-      join(p, "clips", "riff.yaml"),
-      'source: clips/riff.wav\nto: "2:1"\n',
-    );
-    writeFileSync(join(p, "clips", "riff.wav"), "");
+    riff(p);
     const doc = compileNodeProject(p);
     const gtr = doc.tracks.find((t) => t.id === "gtr");
     expect(gtr?.contentType).toBe("audio");
@@ -199,13 +178,13 @@ describe("a lane, read off what it extends", () => {
 });
 
 describe("a lane's mute is its module's bypass", () => {
-  it("comes off `bypassed:`, not off the lane's file", () => {
+  it("comes off `bypassed`, not off the lane's file", () => {
     const p = project(
       [
         ["gtr", "@meta/track"],
         ["bass", "@meta/track"],
       ],
-      "modules:\n  gtr: [ OUT ]\n  bass: [ OUT ]\nbypassed: [ bass ]\n",
+      { modules: { gtr: ["OUT"], bass: ["OUT"] }, bypassed: ["bass"] },
     );
     const doc = compileNodeProject(p);
     expect(doc.tracks.find((t) => t.id === "bass")?.mute).toBe(true);
@@ -219,11 +198,9 @@ describe("what a lane may be called", () => {
   it("takes a name a module already has — a lane and its instrument are not one thing", () => {
     // What every import writes: the source DAW named the track after the instrument on it.
     const p = project([["amp", "@meta/track"]]);
-    mkdirSync(join(p, "modules", "audio", "amp"), { recursive: true });
-    writeFileSync(
-      join(p, "modules", "audio", "amp", "module.yaml"),
-      "plugin: { type: internal, name: Chorus }\n",
-    );
+    writeModule(p, "audio", "amp", {
+      plugin: { type: "internal", name: "Chorus" },
+    });
     const lanes = loadLanes(p, true);
     // The bare name is the LANE's: it is the one a graph key names, and the module keeps its ref.
     expect(Object.keys(lanes)).toContain("amp");
@@ -233,40 +210,16 @@ describe("what a lane may be called", () => {
 describe("a mixed lane wired bare", () => {
   it("warns when everything it holds goes through one typed module", () => {
     // A typed first module is handed the other kind too, which is not a crash and not meant.
-    const p = project(
-      [
-        [
-          "gtr",
-          "@meta/track",
-          'events:\n  - { ref: riff, start: "1:1:1" }\n  - { ref: line, start: "3:1:1" }\n',
-        ],
-      ],
-      "modules:\n  gtr: [ synth ]\n  synth: [ OUT ]\n",
-    );
-    mkdirSync(join(p, "clips"), { recursive: true });
-    mkdirSync(join(p, "sequences"), { recursive: true });
-    // A real type folder, so its default ports say it takes midi — a bare node has none of its own.
-    mkdirSync(join(dir, "_modules", "instruments", "synth"), {
-      recursive: true,
+    const p = project([["gtr", "@meta/track", BOTH]], {
+      modules: { gtr: ["synth"], synth: ["OUT"] },
     });
-    writeFileSync(
-      join(dir, "_modules", "instruments", "synth", "module.yaml"),
-      "plugin: { type: internal, name: 4osc }\n",
-    );
-    mkdirSync(join(p, "nodes"), { recursive: true });
-    writeFileSync(
-      join(p, "nodes", "synth.yaml"),
-      'extends: "@workspace/instruments/synth"\n',
-    );
-    writeFileSync(
-      join(p, "clips", "riff.yaml"),
-      'source: clips/riff.wav\nto: "2:1"\n',
-    );
-    writeFileSync(join(p, "clips", "riff.wav"), "");
-    writeFileSync(
-      join(p, "sequences", "line.yaml"),
-      "notes:\n  - { t: 0, d: 1, k: 60 }\n",
-    );
+    // A real type folder, so its default ports say it takes midi — a bare node has none of its own.
+    writeDoc(join(dir, "_modules", "instruments", "synth", "module.k7x"), {
+      plugin: { type: "internal", name: "4osc" },
+    });
+    writeNode(p, "synth", { extends: "@workspace/instruments/synth" });
+    riff(p);
+    line(p);
     expect(
       loadGraph(p).warnings.some(
         (x) =>

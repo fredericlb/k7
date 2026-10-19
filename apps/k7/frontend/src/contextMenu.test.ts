@@ -460,7 +460,7 @@ describe("a module node", () => {
   });
 
   it("shrinks to the verbs that survive a DANGLING node", () => {
-    // A name nothing answers to: these touch graph.yaml alone, and `node replace` is not among them.
+    // A name nothing answers to: these touch graph.k7x alone, and `node replace` is not among them.
     expect(
       lines(
         contextMenu({ kind: "module", id: "gone", missing: true }, CATALOGUE),
@@ -902,7 +902,7 @@ describe("the menu's contract", () => {
     expect(l).toEqual([
       {
         label: "ui file",
-        description: "open the track's own file, tracks/<id>.yaml",
+        description: "open the track's own file, tracks/<id>.k7x",
         command: "ui file gtr",
         complete: true,
         // The verb without the entity — two entries for the same verb on two tracks are one command, and wear one icon.

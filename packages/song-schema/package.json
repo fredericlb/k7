@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A song's FILE FORMAT and the value vocabulary around it: one zod schema and one reader/writer per kind of YAML file, plus the small pure modules a surface reads (timecode, moduleTypes, playlist, stems…). Nothing here touches node:fs, which is the whole point — this is the half of @studio/song a browser may import. Consumed as source.",
+  "description": "A song's FILE FORMAT and the value vocabulary around it: one zod schema and one reader/writer per kind of workspace (k7x) file, the media library's own YAML front end, plus the small pure modules a surface reads (timecode, moduleTypes, playlist, stems…). Nothing here touches node:fs, which is the whole point — this is the half of @studio/song a browser may import. Consumed as source.",
   "exports": {
     "./alternatives": "./src/alternatives.ts",
     "./engines": "./src/engines.ts",
@@ -14,6 +14,8 @@
     "./docExt": "./src/docExt.ts",
     "./instanceName": "./src/instanceName.ts",
     "./libraryVersions": "./src/libraryVersions.ts",
+    "./libraryVersionsLegacy": "./src/libraryVersionsLegacy.ts",
+    "./mediaYaml": "./src/mediaYaml.ts",
     "./moduleTypes": "./src/moduleTypes.ts",
     "./placementId": "./src/placementId.ts",
     "./playlist": "./src/playlist.ts",
@@ -57,11 +59,11 @@
     "./yaml/uiFile": "./src/yaml/uiFile.ts",
     "./yaml/validate": "./src/yaml/validate.ts",
     "./yaml/k7xIssues": "./src/yaml/k7xIssues.ts",
+    "./yaml/k7xPosition": "./src/yaml/k7xPosition.ts",
     "./yaml/sugar": "./src/yaml/sugar.ts",
     "./yaml/videoTrackFile": "./src/yaml/videoTrackFile.ts",
     "./keyframes": "./src/keyframes.ts",
-    "./yaml/videoKeys": "./src/yaml/videoKeys.ts",
-    "./yaml/yamlText": "./src/yaml/yamlText.ts"
+    "./yaml/videoKeys": "./src/yaml/videoKeys.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

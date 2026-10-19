@@ -6,14 +6,13 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { parse as parseK7x } from "@studio/k7x/document";
+import { parse } from "@studio/k7x/document";
 import { gridIssues, twinIssues } from "@studio/panel-rules/layout-twins";
 import {
   type ModuleUI,
   UiFileSchema,
   type Widget,
 } from "@studio/song-schema/yaml/moduleSchema";
-import { parse as parseYaml } from "yaml";
 import {
   atControlIssues,
   eqBandIssues,
@@ -22,36 +21,27 @@ import {
 
 const LIBRARY = resolve(import.meta.dirname, "../../../k7-core");
 
-/** A panel's data, read by its extension: a ui.k7x or a ui.yaml (packages/k7x/docs/language.md). */
-const parse = (text: string, file: string): unknown =>
-  file.endsWith(".k7x") ? parseK7x(text) : parseYaml(text);
-
-/** A module folder's panel file, the .k7x spelling first as the loader reads it. */
-const panelIn = (dir: string): string =>
-  existsSync(join(dir, "ui.k7x")) ? join(dir, "ui.k7x") : join(dir, "ui.yaml");
-
-/** Every ui.k7x or ui.yaml under the library, or the ones named. */
+/** Every ui.k7x under the library, or the ones of the module folders named. */
 function targets(args: string[]): string[] {
-  if (args.length) return args.map((a) => panelIn(resolve(a)));
-  const out = execFileSync(
-    "git",
-    ["-C", LIBRARY, "ls-files", "*ui.yaml", "*ui.k7x"],
-    { encoding: "utf8" },
-  );
+  if (args.length) return args.map((a) => join(resolve(a), "ui.k7x"));
+  const out = execFileSync("git", ["-C", LIBRARY, "ls-files", "*ui.k7x"], {
+    encoding: "utf8",
+  });
   return [
-    ...new Set([
-      ...out
-        .split("\n")
-        .filter(Boolean)
-        .map((f) => join(LIBRARY, f)),
-      ...execFileSync(
-        "find",
-        [join(LIBRARY, "modules"), "-name", "ui.yaml", "-o", "-name", "ui.k7x"],
-        { encoding: "utf8" },
-      )
-        .split("\n")
-        .filter(Boolean),
-    ]),
+    ...new Set(
+      [
+        ...out
+          .split("\n")
+          .filter(Boolean)
+          .map((f) => join(LIBRARY, f)),
+        ...execFileSync("find", [join(LIBRARY, "modules"), "-name", "ui.k7x"], {
+          encoding: "utf8",
+        })
+          .split("\n")
+          .filter(Boolean),
+        // One spelling per file, so git's and find's separators do not count a panel twice.
+      ].map((f) => resolve(f)),
+    ),
   ].filter((f) => existsSync(f));
 }
 
@@ -76,7 +66,7 @@ function committed(file: string): ModuleUI | null {
       ["-C", LIBRARY, "show", `HEAD:${relative(LIBRARY, file)}`],
       { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
     );
-    const r = UiFileSchema.safeParse(parse(text, file));
+    const r = UiFileSchema.safeParse(parse(text));
     return r.success ? r.data : null;
   } catch {
     return null;
@@ -110,7 +100,7 @@ function screensOf(source: string): Set<string> {
 function check(file: string): string[] {
   let raw: unknown;
   try {
-    raw = parse(readFileSync(file, "utf8"), file);
+    raw = parse(readFileSync(file, "utf8"));
   } catch (e) {
     return [`unreadable: ${(e as Error).message}`];
   }

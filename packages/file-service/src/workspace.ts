@@ -55,7 +55,6 @@ import {
 } from "@studio/song/sharedFolders";
 import { hasPicture, projectSurfaces } from "@studio/song/surfaces";
 import { ensureVideoRun } from "@studio/song/videoOutputs";
-import { isK7xPath, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { ACCOUNT_LIBRARY } from "@studio/song-schema/moduleTypes";
 import type { ReferenceTrack } from "@studio/song-schema/reference";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
@@ -133,6 +132,7 @@ import {
   guardShared,
   moveEntryIn,
   moveLibraryModuleIn,
+  refuseYamlName,
   renameEntryIn,
   renameWithRetry,
   uploadFileIn,
@@ -850,9 +850,7 @@ export class Workspace {
     const abs = this.safePath(rel);
     if (isBinary(basename(abs)))
       return { path: rel, binary: true, content: "" };
-    // A .k7x path is served as written; a YAML name reads a .k7x file as YAML (packages/song/docs/k7xFiles.md).
-    const content = isK7xPath(abs) ? readFileSync(abs, "utf8") : wsRead(abs);
-    return { path: rel, binary: false, content };
+    return { path: rel, binary: false, content: readFileSync(abs, "utf8") };
   }
 
   /** Save a file, forking a `_modules` one instead of refusing it — see docs/workspace.md. */
@@ -866,9 +864,9 @@ export class Workspace {
     const abs = this.safePath(rel);
     this.assertLibraryWritable(abs, "write");
     if (isBinary(basename(abs))) throw new Error("cannot edit a binary file");
+    refuseYamlName(rel);
     mkdirSync(dirname(abs), { recursive: true });
-    if (isK7xPath(abs)) writeFileAtomic(abs, content);
-    else wsWrite(abs, content);
+    writeFileAtomic(abs, content);
     this.invalidateProjectDoc();
     return {};
   }
@@ -937,7 +935,7 @@ export class Workspace {
     return createNodeIn(this.modulesHost(), rel, node);
   }
 
-  /** The `ui.yaml` panel beside a module file, or the path it WOULD take plus a scaffold. */
+  /** The `ui.k7x` panel beside a module file, or the path it WOULD take plus a scaffold. */
   moduleUi(rel: string): {
     ref: string;
     path: string;
@@ -1194,7 +1192,7 @@ export class Workspace {
     return ifCompiles(() => trackColorsOf(this.cachedProjectDoc(dir)));
   }
 
-  /** …and which node is each lane's fader, off the same compile: `graph.yaml` does not say what a module IS. */
+  /** …and which node is each lane's fader, off the same compile: `graph.k7x` does not say what a module IS. */
   private trackMixers(dir: string): TrackMixers | undefined {
     return ifCompiles(() => trackMixersOf(this.cachedProjectDoc(dir)));
   }

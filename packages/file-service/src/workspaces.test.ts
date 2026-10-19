@@ -73,10 +73,10 @@ describe("listMachineWorkspaces", () => {
     const root = myRoot();
     const song = join(root, "ws", "hiver.k7");
     mkdirSync(join(song, "surfaces"), { recursive: true });
-    writeFileSync(join(song, "project.yaml"), 'project:\n  name: "hiver"\n');
+    writeFileSync(join(song, "project.k7x"), 'project({ name: "hiver" })\n');
     writeFileSync(
-      join(song, "surfaces", "timeline.yaml"),
-      "type: timeline\nlayout: split\n",
+      join(song, "surfaces", "timeline.k7x"),
+      'type("timeline")\nlayout("split")\n',
     );
     mkdirSync(join(root, "ws", "vide.k7"), { recursive: true });
     const [ws] = await listMachineWorkspaces(USER);

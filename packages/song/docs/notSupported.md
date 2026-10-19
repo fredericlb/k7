@@ -51,6 +51,6 @@ and the step contributes no plugin. The signal routes through, which is what a b
 
 `notSupportedModules(dir)` reports one warning per use, and it reads the **resolved** module rather
 than the authored file — a node written by hand on `@meta/not-supported` inherits the marker and says
-nothing about it. It reports at the node's own flat path (`nodes/<name>.yaml`) and names the plugin
+nothing about it. It reports at the node's own flat path (`nodes/<name>.k7x`) and names the plugin
 by its `plugin.name`,
 which is the only place the real name survives once the node is called `kontakt_7`.

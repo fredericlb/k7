@@ -13,7 +13,7 @@ import { readChainProject, readLayout, toSegments } from "./chainProject";
 import { migrateToChainFiles } from "./chainsMigrateFiles";
 import { loadGraph, validate } from "./graph";
 import { loadProject } from "./project";
-import { wsRead } from "./yaml/workspaceFile";
+import { wsData } from "./yaml/workspaceDoc";
 
 let root: string;
 let dir: string;
@@ -25,14 +25,14 @@ const write = (rel: string, text: string) => {
 const module = (rel: string, text: string) => {
   const abs = join(root, "_modules", rel);
   mkdirSync(abs, { recursive: true });
-  writeFileSync(join(abs, "module.yaml"), text);
+  writeFileSync(join(abs, "module.k7x"), text);
 };
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "chain-picture-"));
   dir = join(root, "film.k7");
   for (const s of ["glow", "iris"]) {
-    module(`shaders/${s}`, "type: shader\nshader: p\n");
+    module(`shaders/${s}`, 'type("shader")\nshader("p")\n');
     mkdirSync(join(root, "_modules", "shaders", s, "shaders", "p"), {
       recursive: true,
     });
@@ -44,30 +44,30 @@ beforeEach(() => {
   }
   module(
     "shapes/box",
-    "type: shape\nshape: square\nparams: { w: 10, h: 10 }\n",
+    'type("shape")\nshape("square")\nparams({ w: 10, h: 10 })\n',
   );
   write(
-    "project.yaml",
-    "project:\n  name: film\n  tempo: 120\n  viewport: [640, 360, 30]\n  layers: [main, boxes]\n",
+    "project.k7x",
+    'project({ name: "film", tempo: 120, viewport: [640, 360, 30], layers: ["main", "boxes"] })\n',
   );
-  write("clips/a.yaml", "source: a.mp4\n");
+  write("clips/a.k7x", 'source("a.mp4")\n');
   write("clips/a.mp4", "");
   write(
-    "video_tracks/main.yaml",
-    "events:\n  - { ref: a, start: 0, length: 4 }\n  - { ref: a, start: 3, length: 4, fade_in: { over: 1, chain: iris } }\n",
+    "video_tracks/main.k7x",
+    'events([\n  ref("a").start(0).length(4),\n  ref("a").start(3).length(4).fade_in({ over: 1, chain: "iris" }),\n])\n',
   );
-  write("video_tracks/boxes.yaml", "events: []\n");
-  write("nodes/glow.yaml", 'extends: "@workspace/shaders/glow"\n');
-  write("nodes/iris.yaml", 'extends: "@workspace/shaders/iris"\n');
+  write("video_tracks/boxes.k7x", "events([])\n");
+  write("nodes/glow.k7x", 'extends("@workspace/shaders/glow")\n');
+  write("nodes/iris.k7x", 'extends("@workspace/shaders/iris")\n');
   // The shape is named by its REF, with no node file: the graph may say a module outright.
   write(
-    "graph.yaml",
-    'modules:\n  main: [ glow ]\n  glow: [ RENDER ]\n  iris: [ main ]\n  "@workspace/shapes/box": [ boxes ]\n  RENDER: [ VIDEO_OUT ]\n',
+    "graph.k7x",
+    'modules({\n  main: ["glow"],\n  glow: ["RENDER"],\n  iris: ["main"],\n  "@workspace/shapes/box": ["boxes"],\n  RENDER: ["VIDEO_OUT"],\n})\n',
   );
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-const chainText = (name: string) => wsRead(join(dir, "chains", `${name}.yaml`));
+const chainData = (name: string) => wsData(join(dir, "chains", `${name}.k7x`));
 
 describe("migrating a project with picture", () => {
   it("puts a picture lane at the head of a `start: true` chain of its own", () => {
@@ -91,25 +91,22 @@ describe("migrating a project with picture", () => {
   });
 
   it("renames the fade to the subchain it now names", () => {
-    write(
-      "video_tracks/main.yaml",
-      "events:\n  - { ref: a, start: 0, length: 4 }\n  - { ref: a, start: 3, length: 4, fade_in: { over: 1, chain: iris } }\n",
-    );
     // A head node named otherwise than its leaf, so the rename is visible.
-    write("nodes/opening.yaml", 'extends: "@workspace/shaders/iris"\n');
+    write("nodes/opening.k7x", 'extends("@workspace/shaders/iris")\n');
     write(
-      "graph.yaml",
-      "modules:\n  main: [ glow ]\n  glow: [ RENDER ]\n  opening: [ main ]\n  RENDER: [ VIDEO_OUT ]\n",
+      "graph.k7x",
+      'modules({ main: ["glow"], glow: ["RENDER"], opening: ["main"], RENDER: ["VIDEO_OUT"] })\n',
     );
     write(
-      "video_tracks/main.yaml",
-      "events:\n  - { ref: a, start: 3, length: 4, fade_in: { over: 1, chain: opening } }\n",
+      "video_tracks/main.k7x",
+      'events([ref("a").start(3).length(4).fade_in({ over: 1, chain: "opening" })])\n',
     );
-    rmSync(join(dir, "nodes", "iris.yaml"));
+    rmSync(join(dir, "nodes", "iris.k7x"));
     migrateToChainFiles(dir);
-    expect(wsRead(join(dir, "video_tracks", "main.yaml"))).toContain(
-      "chain: iris",
-    );
+    const events = wsData(join(dir, "video_tracks", "main.k7x")).events as {
+      fade_in?: { chain?: string };
+    }[];
+    expect(events[0].fade_in?.chain).toBe("iris");
   });
 
   it("starts a SHAPE's chain, the lane it draws on following it", () => {
@@ -159,7 +156,9 @@ describe("a graph edit on a chain project with picture", () => {
     )?.name as string;
     // An unrelated edit: the whole graph is rewritten, the stretch included.
     editChainGraph(dir, (t) => connectNodes(t, glowId, "OUT"));
-    expect(chainText("main")).toContain("- id: iris");
+    expect(
+      (chainData("main").subchains as { id: string }[]).map((s) => s.id),
+    ).toEqual(["iris"]);
     expect(readChainProject(dir).chains.main.subchains?.[0].id).toBe("iris");
     expect(readLayout(dir)).toEqual({});
   });

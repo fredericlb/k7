@@ -128,7 +128,7 @@ export interface WebChainStep {
   ampModel?: { kind: "nam" | "aida-x" | "proteus"; knobs: number };
   // The UI inside this module's rectangle, already merged; undefined == neither it nor its base defines one.
   ui?: WebModuleUI;
-  // Which MIDI CC plays which param, from the module FOLDER's controller.yaml, keyed by `bind` verbatim.
+  // Which MIDI CC plays which param, from the module FOLDER's controller.k7x, keyed by `bind` verbatim.
   cc?: Record<string, WebCc>;
   // What the module runs with; a STRING is a file-valued param, and an ABSENT one falls back to its min.
   params?: Record<string, number | string>;
@@ -323,7 +323,7 @@ export interface WebNodeAssembly {
 export interface WebGraph {
   chains: Record<string, WebChain>;
   tracks: string[]; // track ids, for resolving `from`
-  // Where somebody PINNED a node — graph.yaml's `positions:` verbatim, and the layout places only the rest.
+  // Where somebody PINNED a node — graph.k7x's `positions:` verbatim, and the layout places only the rest.
   positions?: Record<string, { x: number; y: number }>;
   // Video track ids. A video lane is a chain source like any other, and one no chain mentions is still drawn.
   videoTracks?: string[];

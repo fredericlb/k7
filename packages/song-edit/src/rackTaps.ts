@@ -3,6 +3,8 @@
 // sampler, and each node of it is a kit (packages/song/docs/racks.md). On an alternative other than
 // the first, into that set — a knob and a tap follow the same rule.
 
+import type { K7Path } from "@studio/k7x/ast";
+import type { K7Scope } from "@studio/k7x/document";
 import { readChainProject } from "@studio/song/chainProject";
 import { loadModuleRefs, loadModules } from "@studio/song/loader";
 import {
@@ -13,8 +15,6 @@ import {
 import { currentAlternative } from "@studio/song-schema/alternatives";
 import { RACK_FIRST_NOTE } from "@studio/song-schema/moduleTypes";
 import { calledSubchains } from "@studio/song-schema/yaml/chainSchema";
-import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
-import { isMap, isScalar, parseDocument, Scalar } from "yaml";
 import { editModuleFile } from "./projectEdit";
 
 /** The node's effective rack, refused when the node is not a rack at all. */
@@ -28,44 +28,20 @@ export function kitOf(dir: string, node: string) {
 }
 
 /** Where a tap is written in the node's file: its own `rack:`, or the selected set's. */
-function tapBase(text: string): (string | number)[] {
-  const at = currentAlternative(
-    (parseDocument(text, YAML_READ).toJS() ?? {}) as {
-      alternatives?: unknown;
-      alternative?: unknown;
-    },
-  );
+function tapBase(doc: K7Scope): K7Path {
+  const at = currentAlternative((doc.toJS() ?? {}) as Record<string, unknown>);
   return at > 0
     ? ["alternatives", at - 1, "rack", "symbols"]
     : ["rack", "symbols"];
 }
 
-/** Rewrite the node's file, keeping one tap per line: `BD: { note: 36, sample: … }`. */
+/** Edit the node's file at its taps' map; a tap made here is written on one line, `BD: { note: 36, sample: … }`. */
 function editTaps(
   dir: string,
   node: string,
-  change: (
-    doc: ReturnType<typeof parseDocument>,
-    base: (string | number)[],
-  ) => void,
+  change: (doc: K7Scope, base: K7Path) => void,
 ): string {
-  return editModuleFile(dir, node, (text) => {
-    const doc = parseDocument(text, YAML_READ);
-    const base = tapBase(text);
-    // A node with no `rack:` of its own has nothing yaml's deleteIn/setIn can descend through.
-    const parent = base.slice(0, -1);
-    const made = doc.getIn(parent) == null;
-    if (made) doc.setIn(parent, doc.createNode({}));
-    change(doc, base);
-    // A refused edit leaves the node's file as it found it, not with an empty `rack:` added.
-    const kept = doc.getIn(parent);
-    if (made && isMap(kept) && !kept.items.length) return text;
-    const symbols = doc.getIn(base);
-    if (isMap(symbols))
-      for (const item of symbols.items)
-        if (isMap(item.value)) item.value.flow = true;
-    return doc.toString(YAML_WRITE);
-  });
+  return editModuleFile(dir, node, (doc) => change(doc, tapBase(doc)));
 }
 
 /** Set one tap's note or sample on the node; a `null` sample clears it. The tap is made when it is not there. */
@@ -80,7 +56,13 @@ export function setTap(
   const inherited = kit.symbols[symbol];
   return editTaps(dir, node, (doc, base) => {
     const at = [...base, symbol];
-    if (!doc.hasIn([...at, "note"]))
+    if (!doc.hasIn(at))
+      doc.setIn(
+        at,
+        { note: change.note ?? inherited?.note ?? RACK_FIRST_NOTE },
+        { inline: true },
+      );
+    else if (!doc.hasIn([...at, "note"]))
       doc.setIn(
         [...at, "note"],
         change.note ?? inherited?.note ?? RACK_FIRST_NOTE,
@@ -157,7 +139,9 @@ export function addTap(
     note = notes.length
       ? Math.min(127, Math.max(...notes) + 1)
       : RACK_FIRST_NOTE;
-  editTaps(dir, node, (doc, base) => doc.setIn([...base, name, "note"], note));
+  editTaps(dir, node, (doc, base) =>
+    doc.setIn([...base, name], { note }, { inline: true }),
+  );
   return { symbol: name, note };
 }
 
@@ -178,14 +162,10 @@ export function renameTap(
     );
   let renamed = false;
   const path = editTaps(dir, node, (doc, base) => {
-    const symbols = doc.getIn(base);
-    if (!isMap(symbols)) return;
+    if (!doc.hasIn([...base, from])) return;
     // The KEY is replaced where it stands, so the file keeps its order and every other line.
-    for (const item of symbols.items)
-      if (isScalar(item.key) && item.key.value === from) {
-        item.key = new Scalar(to);
-        renamed = true;
-      }
+    doc.renameKey([...base, from], to);
+    renamed = true;
   });
   if (!renamed)
     throw new Error(
@@ -218,12 +198,17 @@ export function setKit(
   taps: Record<string, { note: number; sample?: string }>,
 ): string {
   kitOf(dir, node);
+  const kit = Object.fromEntries(
+    Object.entries(taps).map(([symbol, tap]) => [
+      symbol,
+      { note: tap.note, ...(tap.sample ? { sample: tap.sample } : {}) },
+    ]),
+  );
   return editTaps(dir, node, (doc, base) => {
-    doc.deleteIn(base);
-    for (const [symbol, tap] of Object.entries(taps)) {
-      doc.setIn([...base, symbol, "note"], tap.note);
-      if (tap.sample) doc.setIn([...base, symbol, "sample"], tap.sample);
-    }
+    if (!Object.keys(kit).length) doc.deleteIn(base, { prune: true });
+    // Applied, not replaced: a tap the new kit keeps as it was keeps its line and its comment.
+    else if (doc.hasIn(base)) doc.applyIn(base, kit);
+    else doc.setIn(base, kit);
   });
 }
 
@@ -264,18 +249,11 @@ export function setTapOut(
         `'${subchain}' is run in place as a step — a tap cannot feed it`,
       );
   }
-  return editModuleFile(dir, node, (text) => {
-    const doc = parseDocument(text, YAML_READ);
-    if (subchain === null) {
-      doc.deleteIn(["tap_outs", tap]);
-      const left = doc.get("tap_outs");
-      if (isMap(left) && !left.items.length) doc.delete("tap_outs");
-    } else {
-      if (!isMap(doc.get("tap_outs"))) doc.set("tap_outs", doc.createNode({}));
+  return editModuleFile(dir, node, (doc) => {
+    if (subchain === null) doc.deleteIn(["tap_outs", tap], { prune: true });
+    else if (doc.getNode(["tap_outs"])?.kind === "map")
       doc.setIn(["tap_outs", tap], subchain);
-      const outs = doc.get("tap_outs");
-      if (isMap(outs)) outs.flow = true;
-    }
-    return doc.toString(YAML_WRITE);
+    // Made on one line: a node routes a handful of taps, `tap_outs: { SD: snare-fx }`.
+    else doc.setIn(["tap_outs"], { [tap]: subchain }, { inline: true });
   });
 }

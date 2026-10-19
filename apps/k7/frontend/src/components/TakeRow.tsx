@@ -4,8 +4,8 @@
 // MIDI its notes; both are fetched here, since a take is not in the compiled project until comped.
 
 import { seqWindowFromText, windowSpan } from "@studio/song-schema/seqWindow";
+import { readSequence } from "@studio/ui-editor/tracker/notes";
 import { memo, useEffect, useId, useMemo, useState } from "react";
-import { parse } from "yaml";
 import { api } from "../api";
 import { envelopePath, type TakeRow as Row } from "../takes";
 
@@ -59,12 +59,11 @@ function useMaterial(
         .catch(() => retry(loadAudio));
     const loadMidi = (): void =>
       void api
-        .read(`${prefix}sequences/${row.ref}.yaml`)
+        .read(`${prefix}sequences/${row.ref}.k7x`)
         .then(({ content }) => {
-          const seq = (parse(content) ?? {}) as {
-            notes?: { t: number; d: number; k: number }[];
-          };
-          const notes = Array.isArray(seq.notes) ? seq.notes : [];
+          const read = readSequence(content);
+          if (!read) return retry(loadMidi);
+          const notes = read.notes;
           const extent = notes.reduce((m, n) => Math.max(m, n.t + n.d), 0);
           // An unreadable window reads as none: the notes' own extent frames the row.
           const win = seqWindowFromText(content, num, den);

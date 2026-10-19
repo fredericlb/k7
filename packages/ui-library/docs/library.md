@@ -188,7 +188,7 @@ dropped a file is looking straight at it.
 - **No `modules` or `chains` family.** A module is what a plugin is, and only a LOADED plugin can
   say what its parameters are called; the médiathèque has no project to load one into. Modules and
   chains are authored in k7, against a project where the plugin is really there.
-- **No pass that GENERATES a module's `ui.yaml`** from a plugin's parameter list, anywhere. A
+- **No pass that GENERATES a module's `ui.k7x`** from a plugin's parameter list, anywhere. A
   generated panel can only ever be knobs and dropdowns — `fader`, `meter`, `filepicker`, a rowSpan,
   an arrangement that means something are all things a person puts there and a parameter list
   cannot imply. Run over a library, such a pass turns a mixer's channel strip into five knobs in a

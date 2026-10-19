@@ -1,6 +1,6 @@
 # A camera — the live picture source
 
-A webcam is an **io module that emits video**, declared in `graph.yaml` like any other node.
+A webcam is an **io module that emits video**, declared in `graph.k7x` like any other node.
 
 **It is to a picture what a live audio input is to a sound** — the same shape, and deliberately: a
 signal comes FROM it, it has no plugin, so every control it has is a field of its file
@@ -8,25 +8,26 @@ signal comes FROM it, it has no plugin, so every control it has is a field of it
 
 ## It needs no lane, and that is the ordinary shape
 
-```yaml
-# graph.yaml — the whole of a live picture
-modules:
-  cam: []                   # a lens on the canvas, wired to nothing
-  RENDER: [ VIDEO_OUT ]
+```k7x
+// graph.k7x — the whole of a live picture
+modules({
+  cam: [], // a lens on the canvas, wired to nothing
+  RENDER: ["VIDEO_OUT"],
+})
 ```
 
 There is no `video_tracks/` file and no `layers:` line. The compiler **synthesises a layer** for a
 camera that feeds no lane: the whole frame unless the node says otherwise, drawn on top of whatever
 lanes the project does author, in the order the graph declares the cameras.
 
-```yaml
-# nodes/cam.yaml
-extends: "@meta/CAM"
-camera: "Logitech BRIO"
-frame: [40, 40, 320, 180]   # …and leave THIS out to fill the frame
+```k7x
+// nodes/cam.k7x
+extends("@meta/CAM")
+camera("Logitech BRIO")
+frame([40, 40, 320, 180]) // …and leave THIS out to fill the frame
 ```
 
-`frame:` is one key rather than four, so it cannot be confused with `graph.yaml`'s `positions:` —
+`frame:` is one key rather than four, so it cannot be confused with `graph.k7x`'s `positions:` —
 which is where a node's CARD sits, a different fact about the same node.
 
 It is the picture's half of the rule the sound half already got: *a run carrying a live input and

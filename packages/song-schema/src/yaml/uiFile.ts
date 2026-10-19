@@ -1,10 +1,9 @@
-// uiFile.ts — reading one module's `ui.yaml` panel. Same shape as moduleFile.ts's parseModule (Zod, in-process,
+// uiFile.ts — reading one module's `ui.k7x` panel. Same shape as moduleFile.ts's parseModule (Zod, in-process,
 // with the line and column of the offending key), against UiFileSchema instead of ModuleSchema.
 
-import { LineCounter, parseDocument } from "yaml";
+import { parseK7xWith } from "./k7xIssues";
 import type { ModuleIssue } from "./moduleFile";
 import { type UiFile, UiFileSchema } from "./moduleSchema";
-import { YAML_READ_LENIENT } from "./yamlText";
 
 export interface ParsedUiFile {
   /** The validated panel. Null when `issues` is non-empty. */
@@ -12,25 +11,13 @@ export interface ParsedUiFile {
   issues: ModuleIssue[];
 }
 
-/** Parse + validate one UI file. */
+/** Parse + validate one UI file's k7x text. */
 export function parseUiFile(text: string): ParsedUiFile {
-  const lines = new LineCounter();
-  const doc = parseDocument(text, { ...YAML_READ_LENIENT, lineCounter: lines });
-  const issues: ModuleIssue[] = [];
-  for (const e of doc.errors) {
-    const pos = lines.linePos(e.pos[0]);
-    issues.push({ path: "", message: e.message, line: pos.line, col: pos.col });
-  }
-  if (issues.length) return { value: null, issues };
+  return parseK7xWith(UiFileSchema, text);
+}
 
-  const result = UiFileSchema.safeParse(doc.toJS({ maxAliasCount: 100 }) ?? {});
-  if (!result.success) {
-    for (const issue of result.error.issues) {
-      const keys = (issue as { keys?: string[] }).keys;
-      const path = [...issue.path, ...(keys?.length ? [keys[0]] : [])];
-      issues.push({ path: path.map(String).join("."), message: issue.message });
-    }
-    return { value: null, issues };
-  }
-  return { value: result.data, issues: [] };
+/** parseUiFile's answer for data already read; undefined on an issue, which parseUiFile's text path locates. */
+export function parseUiData(raw: unknown): ParsedUiFile | undefined {
+  const result = UiFileSchema.safeParse(raw ?? {});
+  return result.success ? { value: result.data, issues: [] } : undefined;
 }

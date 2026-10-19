@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeYaml } from "@studio/song/testSupport";
+import { writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
@@ -25,8 +25,12 @@ beforeEach(() => {
   const proj = join(root, "song.k7");
   mkdirSync(join(proj, "clips", "takes"), { recursive: true });
   mkdirSync(join(proj, "sequences"), { recursive: true });
-  writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
-  writeFileSync(join(proj, "clips", "riff.yaml"), "source: riff.wav\n", "utf8");
+  writeDoc(join(proj, "project.k7x"), { project: { name: "song" } });
+  writeFileSync(
+    join(proj, "clips", "riff.k7x"),
+    'source("riff.wav")\n',
+    "utf8",
+  );
   ws = new Workspace(root);
   ws.setActiveProject("song.k7");
 });
@@ -38,32 +42,28 @@ const at = (...p: string[]) => existsSync(join(root, "song.k7", ...p));
 describe("Workspace.moveEntry", () => {
   it("moves a file into another folder", async () => {
     const { path } = await ws.moveEntry(
-      "song.k7/clips/riff.yaml",
+      "song.k7/clips/riff.k7x",
       "song.k7/sequences",
     );
-    expect(path).toBe("song.k7/sequences/riff.yaml");
-    expect(at("sequences", "riff.yaml")).toBe(true);
-    expect(at("clips", "riff.yaml")).toBe(false);
+    expect(path).toBe("song.k7/sequences/riff.k7x");
+    expect(at("sequences", "riff.k7x")).toBe(true);
+    expect(at("clips", "riff.k7x")).toBe(false);
   });
 
   it("moves a folder, subtree and all", async () => {
-    writeFileSync(
-      join(root, "song.k7", "clips", "takes", "a.yaml"),
-      "",
-      "utf8",
-    );
+    writeFileSync(join(root, "song.k7", "clips", "takes", "a.k7x"), "", "utf8");
     await ws.moveEntry("song.k7/clips/takes", "song.k7/sequences");
-    expect(at("sequences", "takes", "a.yaml")).toBe(true);
+    expect(at("sequences", "takes", "a.k7x")).toBe(true);
     expect(at("clips", "takes")).toBe(false);
   });
 
   it("is a no-op onto the folder it already sits in", async () => {
     const { path } = await ws.moveEntry(
-      "song.k7/clips/riff.yaml",
+      "song.k7/clips/riff.k7x",
       "song.k7/clips",
     );
-    expect(path).toBe("song.k7/clips/riff.yaml");
-    expect(at("clips", "riff.yaml")).toBe(true);
+    expect(path).toBe("song.k7/clips/riff.k7x");
+    expect(at("clips", "riff.k7x")).toBe(true);
   });
 
   it("refuses to swallow itself", async () => {
@@ -74,17 +74,17 @@ describe("Workspace.moveEntry", () => {
   });
 
   it("refuses to clobber a name already at the destination", async () => {
-    writeFileSync(join(root, "song.k7", "sequences", "riff.yaml"), "", "utf8");
+    writeFileSync(join(root, "song.k7", "sequences", "riff.k7x"), "", "utf8");
     await expect(
-      ws.moveEntry("song.k7/clips/riff.yaml", "song.k7/sequences"),
+      ws.moveEntry("song.k7/clips/riff.k7x", "song.k7/sequences"),
     ).rejects.toThrow(/already exists/);
     // …and the original is still where it was: a refused move must not be a half-move.
-    expect(at("clips", "riff.yaml")).toBe(true);
+    expect(at("clips", "riff.k7x")).toBe(true);
   });
 
   it("refuses a destination that is a file, not a folder", async () => {
     await expect(
-      ws.moveEntry("song.k7/clips/takes", "song.k7/clips/riff.yaml"),
+      ws.moveEntry("song.k7/clips/takes", "song.k7/clips/riff.k7x"),
     ).rejects.toThrow(/not a folder/);
   });
 
@@ -99,7 +99,7 @@ describe("Workspace.moveEntry", () => {
   it("refuses the recycle bin as a destination — deleting is the way to do that", async () => {
     await ws.deleteEntry("song.k7/sequences");
     await expect(
-      ws.moveEntry("song.k7/clips/riff.yaml", "_recycle_bin"),
+      ws.moveEntry("song.k7/clips/riff.k7x", "_recycle_bin"),
     ).rejects.toThrow(/recycle bin/);
   });
 });

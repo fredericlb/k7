@@ -1,4 +1,4 @@
-// rawDoc.ts — the RAW shapes the YAML loader hands the assemblers. "Raw" means as-authored: the file's own
+// rawDoc.ts — the RAW shapes the loader hands the assemblers. "Raw" means as-authored: the file's own
 // field names, values as the Zod schemas let them through, and `unknown` wherever the loader can't promise —
 // the assemblers coerce. This is the typed seam: a mistyped field name in an assembler is a compile error
 // rather than an `undefined` that flows to the engine.
@@ -25,7 +25,7 @@ export interface RawPlacement {
   crossfades?: { at?: string; length?: string }[];
 }
 
-/** A track file's struct (tracks/<id>.yaml), any of the three kinds. */
+/** A track file's struct (tracks/<id>.k7x), any of the three kinds. */
 export interface RawTrack {
   type?: string; // "single" (implied) | "group" | "strudel"
   contentType?: string; // "audio" | "sequences"
@@ -45,7 +45,7 @@ export interface RawTrack {
   todos?: unknown;
 }
 
-/** A clip file's struct (clips/<id>.yaml) — audio or video, told apart by extension. */
+/** A clip file's struct (clips/<id>.k7x) — audio or video, told apart by extension. */
 export interface RawClip {
   source?: string;
   // A VIDEO clip's sound, extracted into an audio file (docs/videoSound.md).
@@ -63,7 +63,7 @@ export interface RawClip {
   [key: string]: unknown;
 }
 
-/** A sequence file's struct (sequences/<id>.yaml). */
+/** A sequence file's struct (sequences/<id>.k7x). */
 export interface RawSequence {
   name?: unknown;
   notes?: unknown;
@@ -88,7 +88,7 @@ export interface RawVideoPlacement {
   effect?: unknown; // the run this shot alone goes through (song-video docs/effects.md)
 }
 
-/** A video track file's struct (video_tracks/<id>.yaml). */
+/** A video track file's struct (video_tracks/<id>.k7x). */
 export interface RawVideoTrack {
   name?: unknown;
   color?: unknown;
@@ -167,7 +167,7 @@ export interface LoadedModule {
   background?: unknown;
   shadow?: unknown;
   ui?: unknown; // the widget grid — normalized downstream (effectiveUI)
-  // The module's MIDI map from its folder's `controller.yaml`, stamped on beside `ui` and by the same rule.
+  // The module's MIDI map from its folder's `controller.k7x`, stamped on beside `ui` and by the same rule.
   cc?: unknown;
   channel?: unknown; // io "in" only
   camera?: unknown; // io "camera" only — the LABEL, see packages/song/docs/camera.md
@@ -304,7 +304,7 @@ export interface AssembledDoc {
   settings?: unknown;
 }
 
-/** The project root file (project.yaml), post-Zod. */
+/** The project root file (project.k7x), post-Zod. */
 export interface RawProjectRoot {
   project?: {
     name?: string;

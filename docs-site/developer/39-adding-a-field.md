@@ -40,7 +40,7 @@ Take, as an example, a new optional number on a lane's event.
    operations.
 9. **Tests.** A schema case beside the schema; a writer test that compares text; a compile change shows
    in the golden snapshot `packages/song/src/project.golden.test.ts` — update the snapshot in the same
-   commit. If a demo uses the field, `packages/live-sync/src/corpus.test.ts` and
+   commit. If a demo uses the field, `packages/live-sync/src/k7xCorpus.test.ts` and
    `packages/k7x/src/corpus.test.ts` check that edits to it replay.
 10. **Docs.** Add the field to the user guide's song file reference with its type, default and an
     example.
@@ -60,13 +60,14 @@ Take, as an example, a new optional number on a lane's event.
 5. **Loader.** Read it in `packages/song/src/loader.ts` — a flat folder of entities can be added to
    `ENTITY_SCHEMAS` and read through `readYamlEntities`/`exportSub`; an optional folder with its own
    reader follows `packages/song/src/surfaces.ts` or `assemblies.ts`. Always go through
-   `packages/song/src/yaml/workspaceFile.ts` (`wsRead`, `wsList`, `wsWrite`) so `.k7x` files work.
+   `packages/song/src/yaml/workspaceDoc.ts` (`wsData`, `wsEdit`, `wsWriteData`), so a file is read
+   and written as k7x.
 6. **Diagnostics.** Decide whether a broken file stops the compile (a thrown error) or is reported as a
    `Diagnostic` and skipped. A drawing aid (surfaces, assemblies) should not stop the music.
 7. **Layout migration.** If the file names nodes by name, `migrationBlocker`
    (`packages/song/src/chainsMigrateFiles.ts`) must refuse to convert a project holding it, since a
    chain project renames non-lane nodes to ids.
-8. **File service.** `.yaml`/`.k7x` files already move the revision token, are journalled by
+8. **File service.** `.k7x` files already move the revision token, are journalled by
    `recordChange` and synced by live capture. Add a route in `packages/file-service/src/routes/files.ts`
    only if the browser needs a derived view of the new kind.
 9. **Scaffold.** If new projects should have one, add it to the archetype's file map in

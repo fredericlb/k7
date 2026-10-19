@@ -6,7 +6,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeYaml } from "@studio/song/testSupport";
+import { writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
@@ -23,7 +23,7 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-playlists-"));
   const proj = join(root, "song.k7");
   mkdirSync(proj, { recursive: true });
-  writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
+  writeDoc(join(proj, "project.k7x"), { project: { name: "song" } });
   ws = new Workspace(root);
   ws.setActiveProject("song.k7");
 });
@@ -38,13 +38,13 @@ describe("Workspace.playlists", () => {
 
   it("reads the title and the count out of each file, at any depth", () => {
     write(
-      "_playlists/ete-2026.yaml",
-      "title: Été 2026\nitems:\n  - AC-DC/Back in Black/Hells Bells\n",
+      "_playlists/ete-2026.k7x",
+      'title("Été 2026")\nitems(["AC-DC/Back in Black/Hells Bells"])\n',
     );
-    write("_playlists/live/repet.yaml", "items:\n  - a\n  - b\n");
+    write("_playlists/live/repet.k7x", 'items(["a", "b"])\n');
     expect(ws.playlists()).toEqual([
       {
-        path: "_playlists/ete-2026.yaml",
+        path: "_playlists/ete-2026.k7x",
         name: "ete-2026",
         title: "Été 2026",
         count: 1,
@@ -52,7 +52,7 @@ describe("Workspace.playlists", () => {
       },
       // No title: the file's stem stands in, which is what the row shows.
       {
-        path: "_playlists/live/repet.yaml",
+        path: "_playlists/live/repet.k7x",
         name: "repet",
         count: 2,
         ok: true,
@@ -61,7 +61,7 @@ describe("Workspace.playlists", () => {
   });
 
   it("lists a file that does NOT parse, so you can click it and fix it", () => {
-    write("_playlists/cassee.yaml", "items: [\n");
+    write("_playlists/cassee.k7x", "items([\n");
     const [p] = ws.playlists();
     // A listing that hid it would leave you unable to open the one thing you have to repair.
     expect(p).toMatchObject({ name: "cassee", count: 0, ok: false });
@@ -69,14 +69,15 @@ describe("Workspace.playlists", () => {
 
   it("looks beside the active project, not inside it", () => {
     // Rooting the walk at the active project would give a workspace of four songs four set lists.
-    write("_playlists/mine.yaml", "items: []\n");
-    write("song.k7/_playlists/not-mine.yaml", "items: []\n");
-    expect(ws.playlists().map((p) => p.path)).toEqual(["_playlists/mine.yaml"]);
+    write("_playlists/mine.k7x", "items([])\n");
+    write("song.k7/_playlists/not-mine.k7x", "items([])\n");
+    expect(ws.playlists().map((p) => p.path)).toEqual(["_playlists/mine.k7x"]);
   });
 
-  it("ignores what is not a .yaml", () => {
+  it("ignores what is not a .k7x", () => {
     write("_playlists/notes.txt", "pas une playlist\n");
-    write("_playlists/ok.yml", "items: []\n"); // the other spelling counts
+    write("_playlists/old.yaml", "items: []\n");
+    write("_playlists/ok.k7x", "items([])\n");
     expect(ws.playlists().map((p) => p.name)).toEqual(["ok"]);
   });
 });

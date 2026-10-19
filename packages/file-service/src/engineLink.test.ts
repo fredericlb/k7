@@ -130,7 +130,7 @@ describe("carriesPattern", () => {
 
   it("drops every file that is not one", () => {
     for (const p of [
-      "project.yaml",
+      "project.k7x",
       "media/take-01.wav",
       "renders/mix.wav",
       "algo",
@@ -379,7 +379,7 @@ describe("awaitPluginParams", () => {
   });
 
   it("IGNORES another plugin's list", async () => {
-    // Two of these overlap routinely, and the first frame would draw Diva's panel into Serum's ui.yaml.
+    // Two of these overlap routinely, and the first frame would draw Diva's panel into Serum's ui.k7x.
     const c = spy();
     const p = awaitPluginParams(c, "VST3", "C:/vst/Serum.vst3", 200);
     c.emit("pluginParamList", {

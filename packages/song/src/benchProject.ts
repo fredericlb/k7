@@ -1,14 +1,11 @@
 // benchProject.ts — a synthetic project of N lanes, written to a temp folder, for the benches.
-//
-// Not a fixture committed under `demos/`: those hold ONE lane, and the numbers this
-// repo quotes (`graphDoc` at ~278 ms) are for a song of some seventy nodes. A one-lane
-// fixture would measure startup and nothing else. Parameterised because what a bench has to show
-// here is the CURVE — a cost that doubles when the song doubles is fine, one that quadruples is
-// the finding.
+// Not a demo fixture: those hold ONE lane, and the numbers quoted (`graphDoc` at ~278 ms) are for some seventy nodes.
+// Parameterised because what a bench shows is the CURVE: a cost that quadruples when the song doubles is the finding.
 
 import { mkdtempSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { stringify } from "@studio/k7x/print";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { writeProjectFiles } from "./scaffold";
 
@@ -27,28 +24,38 @@ export const BENCH_SIZES: Record<string, BenchSize> = {
 /** `lanes` sequence lanes, each its own NODE of the shared synth so the module map grows too. */
 export function benchProjectFiles(size: BenchSize): Record<string, string> {
   const files: Record<string, string> = {
-    "project.yaml":
-      "project:\n  name: bench\n  tempo: 120\n  sampleRate: 48000\n" +
-      '  timeSignature: "4/4"\n',
-    "settings.yaml": "metronome: false\ncount_in: 0\n",
+    "project.k7x": stringify({
+      project: {
+        name: "bench",
+        tempo: 120,
+        sampleRate: 48000,
+        timeSignature: "4/4",
+      },
+    }),
+    "settings.k7x": stringify({ metronome: false, count_in: 0 }),
   };
 
-  const notes = Array.from(
-    { length: size.notesPerLane },
-    (_, n) => `  - { t: ${n * 0.5}, d: 0.25, k: ${36 + (n % 24)} }`,
-  ).join("\n");
+  const notes = Array.from({ length: size.notesPerLane }, (_, n) => ({
+    t: n * 0.5,
+    d: 0.25,
+    k: 36 + (n % 24),
+  }));
 
-  // Its own isolated `mkdtemp`, with no workspace beside it — so each synth is inline rather
-  // than a shared module the bench would have nowhere to put.
-  const segments: string[] = [];
+  // Its own isolated `mkdtemp`, with no workspace beside it: each synth is inline, not a shared module.
+  const modules: Record<string, string[]> = {};
   for (let i = 0; i < size.lanes; i++) {
-    files[`nodes/lane${i}.yaml`] =
-      `extends: "@meta/track"\nevents:\n  - { ref: seq${i}, start: "1:1:1" }\n`;
-    files[`nodes/synth${i}.yaml`] = "plugin:\n  type: internal\n  name: 4osc\n";
-    files[`sequences/seq${i}.yaml`] = `notes:\n${notes}\n`;
-    segments.push(`  lane${i}: [ synth${i} ]`, `  synth${i}: [ OUT ]`);
+    files[`nodes/lane${i}.k7x`] = stringify({
+      extends: "@meta/track",
+      events: [{ ref: `seq${i}`, start: "1:1:1" }],
+    });
+    files[`nodes/synth${i}.k7x`] = stringify({
+      plugin: { type: "internal", name: "4osc" },
+    });
+    files[`sequences/seq${i}.k7x`] = stringify({ notes });
+    modules[`lane${i}`] = [`synth${i}`];
+    modules[`synth${i}`] = ["OUT"];
   }
-  files[GRAPH_FILE] = `modules:\n${segments.join("\n")}\n`;
+  files[GRAPH_FILE] = stringify({ modules });
   return files;
 }
 

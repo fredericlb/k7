@@ -73,7 +73,7 @@ export function PlaylistsPanel({
   const [open, setOpen] = useState<string | null>(null);
   /** Where to put the dropdown, in viewport coords, or null when it is closed. */
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  /** The FULL editor, over the shell: the panel is too narrow for the YAML, and the page is the escape hatch for what it cannot edit (../docs/playlists.md). */
+  /** The FULL editor, over the shell: the panel is too narrow for the text, and the page is the escape hatch for what it cannot edit (../docs/playlists.md). */
   const [expanded, setExpanded] = useState(false);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
@@ -232,7 +232,7 @@ export function PlaylistsPanel({
         </p>
       ) : null}
 
-      {/* The songs, under the dropdown: `PlaylistEditor` in panel mode, the same document and autosave with the YAML half left out. */}
+      {/* The songs, under the dropdown: `PlaylistEditor` in panel mode, the same document and autosave with the text half left out. */}
       <div className="min-h-0 flex-1">
         {rows === null ? (
           <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">

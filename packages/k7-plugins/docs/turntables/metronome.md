@@ -98,7 +98,7 @@ loaded or not, so that loading is a diff and not a track appearing.
 ### It is added, not declared
 
 `withDecks` puts it **after** the project's tracks. It is the only track in the document
-`graph.yaml` says nothing about, and that is owned: the metronome is a desk command, not a
+`graph.k7x` says nothing about, and that is owned: the metronome is a desk command, not a
 property of the set. What the project declares stays the project's business.
 
 ## What is not there

@@ -188,7 +188,7 @@ question about a HANDLER, and the catalogue only describes arguments.
   but it is not a value the `tracks` provider lists. Deriving would hand a group a freeze, a
   gain and four `event` verbs, none of which reach it.
 - **A dangling module.** A step naming a module that does not exist keeps exactly the verbs
-  that touch `graph.yaml` alone: `node bypass` and `graph unlink`. That is about what those
+  that touch `graph.k7x` alone: `node bypass` and `graph unlink`. That is about what those
   handlers write, which no argument declares. `node replace` is not a third: it repoints an
   `extends:`, and a dangling name has no file to repoint, so offering it would be offering a
   certain failure. What is left for one is to take it out, or to write the file it names.

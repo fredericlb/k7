@@ -1,6 +1,6 @@
 // MetronomeButton.tsx — the footer's click toggle, with its LEVEL under a right-click. Two
 // questions on one control: whether the metronome sounds (the click) and how loud (the menu).
-// Both are project settings written to settings.yaml; see @studio/song docs/metronome.md.
+// Both are project settings written to settings.k7x; see @studio/song docs/metronome.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -33,7 +33,7 @@ export function MetronomeButton({
   onLevel: (level: number) => void;
 }) {
   const [open, setOpen] = useState(false);
-  /** What the slider shows while it is being dragged — the command rewrites settings.yaml, so it goes on RELEASE. */
+  /** What the slider shows while it is being dragged — the command rewrites settings.k7x, so it goes on RELEASE. */
   const [dragging, setDragging] = useState<number | null>(null);
   const shown = dragging ?? level;
   // A reload that changes the level while the menu sits open should be seen, not overwritten by a ghost nobody is holding.

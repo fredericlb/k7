@@ -1,8 +1,8 @@
 # The note grids — TrackerGrid, RollGrid, and the plugin that mounts them
 
-Two views of the same inline `notes: [ … ]` array in a sequence file. Both are plain
-DOM, outside the React tree, and both call back with the WHOLE new note list, which
-`notes.ts` serializes straight back into the file.
+Two views of the same `notes([ … ])` list in a sequence file. Both are plain DOM, outside
+the React tree, and both call back with the WHOLE new note list, which `notes.ts` writes
+back into the file.
 
 ## `plugin.ts` — the mounting mechanism
 
@@ -12,8 +12,8 @@ content with the note list rewritten, and re-rendering is driven from OUTSIDE it
 (`controller.update`) — so an edit and an external reformat share one path, with no
 re-entrant rebuild in the middle of an event. This is what every host uses.
 
-There is no in-place mounting — a grid replacing the `notes:` array inside the text editor,
-the YAML around it still readable. A host wanting that property builds it on `mountSeqGrid`.
+There is no in-place mounting — a grid replacing the `notes` list inside the text editor,
+the text around it still readable. A host wanting that property builds it on `mountSeqGrid`.
 
 ## Where a host puts them
 
@@ -67,15 +67,17 @@ an empty cell to add a one-step note; click a note to remove it.
 
 ## `notes.ts` — the read/write seam
 
-A sequence holds its notes inline as a flat list of compact mappings —
-`- { t: 0, d: 1, k: 60, v: 0.8 }` (t/d in beats, k a MIDI key, v an optional 0..1
-velocity). Both grids go through here, so a grid edit round-trips to the exact text the
-compiler reads back.
+A sequence holds its notes as a flat list of chains, one per line —
+`t(0).d(1).k(60).v(0.8)` (t/d in beats, k a MIDI key, v an optional 0..1 velocity) — or in
+the short form `notes("c4 d4 ~ e4")`. Both grids go through here, so a grid edit round-trips
+to the exact text the compiler reads back.
 
-It works on a SPAN rather than rewriting the whole document, and that is deliberate: a host
-can replace that range alone, which keeps an editor's undo history and cursor a
-full-document rewrite would throw away. The parser finds the list, and the span comes off
-its node range.
+`readSequence` reads the notes EXPANDED, so a short form shows on the grid like any list.
+`writeNotes` hands the grid's list to `@studio/song-schema`'s `editSequence` and makes the
+file's data equal it with the fewest edits (`applyIn`): one note moved is one line changed,
+and the comments, the `use_rack` and the window around the list are never rewritten. A short
+form stays while it still expands to the grid's notes, and is written out in full the moment
+it does not — writing it back would undo the edit.
 
 ## The window both grids draw
 
@@ -86,8 +88,8 @@ the rows inside it — with its two edges picked out.
 Three things about how it gets there:
 
 - **It is read from the whole document, not from the notes array**, like `use_rack`: the
-  pair sits outside the list, so `findNotesArray` never sees it. `seqWindowFromText` in
-  `@studio/song-schema` is the reader, called on every render, since editing `from:`
+  pair sits outside the list. `seqWindowFromText` in
+  `@studio/song-schema` is the reader, called on every render, since editing `from`
   changes neither the notes nor the rack.
 - **The window joins the content span.** A `to` reaching past the last hit is a pad, and a
   grid that stopped at the notes would clip the very edge that explains the silence after
@@ -99,19 +101,13 @@ Three things about how it gets there:
 The tracker's edges are inset SHADOWS rather than borders: these rows have a fixed height,
 and a border would add to it and walk the whole grid a pixel down.
 
-## What this path DROPS, and does not say so
+## A pad's effects survive a grid edit
 
 `notes.ts`'s own `Note` is `{ t, d, k, v? }`. A sequence's schema has two fields more —
 `repeat` and `skip`, a pad's effects (`packages/song/docs/padEffects.md`) — and since these
-grids call back with the WHOLE list, a single click in one silently rewrites every pad in the
-file without them.
+grids call back with the WHOLE list, a write that took the list as given would strip them from
+every pad on the first click.
 
-Nothing in `ui-editor` can hit that today: a pad only ever gets an effect from the step
-sequencer or the roll's right-click, and neither is this path. But it is not a rule the code
-enforces, only a gap nobody has walked into. The other writer, `@studio/song-schema`'s
-`sequenceFile.ts`, addresses ONE note and touches only the fields the edit names — including
-`mapNotesInRegion`, which rewrites a whole rectangle and still leaves both effects alone. Two
-writers over one file, and only one of them round-trips the format.
-
-Widening `Note` and `renderNotes` is ten lines. It is written down here rather than done because
-the honest fix is one writer, not two that agree.
+So `writeNotes` carries them: each note the grid hands back takes the effects of the note that
+started on the same key at the same beat. A note the grid MOVED loses them: the grid hands back
+a list and no identity, and key and onset are the only address a note has in it.

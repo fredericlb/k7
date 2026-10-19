@@ -79,7 +79,7 @@ describe("a workspace named after its server", () => {
 
     // Brought down as `band.other` while another server's `band` held the name here; its room is `band`.
     const old = workspaceRoot("band.other");
-    put(old, "song.k7/project.yaml", "project:\n  name: s\n");
+    put(old, "song.k7/project.k7x", 'project({ name: "s" })\n');
     servers.writeLinkRecord(liveLogFor(old), {
       server: `http://127.0.0.1:${port}`,
       room: "band",
@@ -90,7 +90,7 @@ describe("a workspace named after its server", () => {
     expect(await ws.restoreRoomName("band.other")).toBe("band");
     const root = workspaceRoot("band");
     expect(existsSync(old)).toBe(false);
-    expect(existsSync(join(root, "song.k7/project.yaml"))).toBe(true);
+    expect(existsSync(join(root, "song.k7/project.k7x"))).toBe(true);
     // Its history moved with it, and it is the same room, linked again.
     expect(servers.readLinkRecord(liveLogFor(root))?.room).toBe("band");
     await until(
@@ -98,12 +98,12 @@ describe("a workspace named after its server", () => {
     );
 
     // An edit under the new name reaches the room; nothing was sent as removed and added again.
-    put(root, "song.k7/notes.yaml", "notes: renamed\n");
+    put(root, "song.k7/notes.k7x", 'notes("renamed")\n');
     await until(() =>
-      relay.room("acct", "band").room.files.has("song.k7/notes.yaml"),
+      relay.room("acct", "band").room.files.has("song.k7/notes.k7x"),
     );
     expect(
-      relay.room("acct", "band").room.files.has("song.k7/project.yaml"),
+      relay.room("acct", "band").room.files.has("song.k7/project.k7x"),
     ).toBe(true);
     live.detachLiveCapture(root);
   }, 60_000);

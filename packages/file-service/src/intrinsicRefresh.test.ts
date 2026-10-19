@@ -3,10 +3,10 @@
 // only thing that moves the control: if it carries the old field, the select snaps back and the
 // feature reads as broken while every part of it works. See packages/ui-chains/docs/graphBuild.md.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeYaml } from "@studio/song/testSupport";
+import { writeDoc, writeNode } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runWebCommand } from "./engineLink.ts";
 import { Workspace } from "./workspace.ts";
@@ -19,23 +19,13 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-intrinsic-"));
   proj = join(root, "rig.k7");
   mkdirSync(join(proj, "nodes"), { recursive: true });
-  writeYaml(join(proj, "project.yaml"), { project: { name: "rig" } });
-  writeFileSync(
-    join(proj, "graph.yaml"),
-    "modules:\n  IN: [ amp ]\n  amp: [ MIX ]\n  MIX: [ OUT ]\n",
-    "utf8",
-  );
+  writeDoc(join(proj, "project.k7x"), { project: { name: "rig" } });
+  writeDoc(join(proj, "graph.k7x"), {
+    modules: { IN: ["amp"], amp: ["MIX"], MIX: ["OUT"] },
+  });
   // io is a plain node now, made directly — OUT needs no file, it's a built-in sink name.
-  writeFileSync(
-    join(proj, "nodes", "IN.yaml"),
-    'io: in\nmonitor: "off"\nchannel: [1]\n',
-    "utf8",
-  );
-  writeFileSync(
-    join(proj, "nodes", "amp.yaml"),
-    "plugin:\n  type: internal\n  name: Chorus\n",
-    "utf8",
-  );
+  writeNode(proj, "IN", { io: "in", monitor: "off", channel: [1] });
+  writeNode(proj, "amp", { plugin: { type: "internal", name: "Chorus" } });
   ws = new Workspace(root);
   ws.setActiveProject("rig.k7");
 });

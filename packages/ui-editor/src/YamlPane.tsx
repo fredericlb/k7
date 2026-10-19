@@ -1,6 +1,6 @@
 // YamlPane.tsx — one file as text, for the screens beside k7's editor: a module's files, a chain,
-// a playlist, a song's sidecar. YAML, FAUST or JavaScript, chosen by extension. Deliberately smaller
-// than k7's EditorPane: no sequence tracker, no waveform, no video readers — a SONG's material needs those.
+// a playlist, a song's sidecar. k7x, YAML (the médiathèque's files), FAUST or JavaScript, chosen by extension.
+// Deliberately smaller than k7's EditorPane: no sequence tracker, no waveform, no video readers.
 
 import { autocompletion } from "@codemirror/autocomplete";
 import { javascript } from "@codemirror/lang-javascript";
@@ -8,9 +8,12 @@ import { Prec } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import type { Hints } from "@studio/web-protocol";
-import CodeMirror from "@uiw/react-codemirror";
+import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useMemo, useRef } from "react";
+import { useBufferSync } from "./bufferSync";
 import { faustLanguage } from "./faust/language";
+import { k7xCompletions } from "./k7x/completions";
+import { k7xLanguage } from "./k7x/language";
 import { type YamlVocabulary, yamlCompletions } from "./yaml/completions";
 import { projectLanguage } from "./yaml/language";
 import { schemaVocabulary } from "./yaml/vocabulary";
@@ -18,6 +21,7 @@ import { schemaVocabulary } from "./yaml/vocabulary";
 /** Is this Faust source? The EXTENSION decides, since a pane is a place rather than a language. */
 const isFaust = (path: string): boolean => path.toLowerCase().endsWith(".dsp");
 const isJs = (path: string): boolean => path.toLowerCase().endsWith(".js");
+const isK7x = (path: string): boolean => path.toLowerCase().endsWith(".k7x");
 
 export function YamlPane({
   path,
@@ -47,19 +51,27 @@ export function YamlPane({
 
   const faust = isFaust(path);
   const js = isJs(path);
+  const k7x = isK7x(path);
   const extensions = useMemo(() => {
+    const vocabulary: YamlVocabulary = {
+      fieldsAt: (p) => vocabRef.current.fieldsAt(p),
+      valuesAt: (p, f) => vocabRef.current.valuesAt?.(p, f) ?? [],
+    };
     const base = [
-      faust ? faustLanguage() : js ? javascript() : projectLanguage(),
-      // …and no YAML completions on a source file: schema-derived, so every one would be wrong there.
+      faust
+        ? faustLanguage()
+        : js
+          ? javascript()
+          : k7x
+            ? k7xLanguage()
+            : projectLanguage(),
+      // …and no completions on a source file: schema-derived, so every one would be wrong there.
       ...(faust || js
         ? []
         : [
             autocompletion({
               override: [
-                yamlCompletions({
-                  fieldsAt: (p) => vocabRef.current.fieldsAt(p),
-                  valuesAt: (p, f) => vocabRef.current.valuesAt?.(p, f) ?? [],
-                }),
+                k7x ? k7xCompletions(vocabulary) : yamlCompletions(vocabulary),
               ],
             }),
           ]),
@@ -78,10 +90,15 @@ export function YamlPane({
       ),
     ];
     return vimMode && !readOnly ? [vim(), ...base] : base;
-  }, [vimMode, readOnly, onSave, faust, js]);
+  }, [vimMode, readOnly, onSave, faust, js, k7x]);
+
+  // A row edit beside the text lands as its own splices, so the cursor and the undo history stay.
+  const cm = useRef<ReactCodeMirrorRef>(null);
+  useBufferSync(() => cm.current?.view, content);
 
   return (
     <CodeMirror
+      ref={cm}
       value={content}
       /** BOTH: without a height on the wrapper the editor's 100% resolves against nothing and the PAGE scrolls. */
       height="100%"

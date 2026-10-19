@@ -9,14 +9,13 @@
 // The one difference is the last: there is no build step here, so what travels is the source
 // itself. See packages/song/docs/faustModules.md.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
-import { copyAsYaml } from "./testSupport";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEMOS = join(here, "..", "..", "..", "demos");
@@ -30,8 +29,8 @@ function asFaust(withSource: boolean): void {
   const folder = join(ws, "_modules", "instruments", "synth");
   mkdirSync(folder, { recursive: true });
   writeFileSync(
-    join(folder, "module.yaml"),
-    "plugin:\n  type: faust\n  name: Synth\n",
+    join(folder, "module.k7x"),
+    'plugin({ type: "faust", name: "Synth" })\n',
     "utf8",
   );
   if (withSource)
@@ -48,9 +47,9 @@ const plugins = () =>
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-faust-"));
   dir = join(ws, "synth-demo.k7");
-  copyAsYaml(SONG, dir, { recursive: true });
+  cpSync(SONG, dir, { recursive: true });
   // The Examples workspace's own shared library, beside every demo project.
-  copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
+  cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), {
     recursive: true,
   });
 });
@@ -87,8 +86,8 @@ describe("a faust module", () => {
     const folder = join(ws, "_modules", ...at.split("/"));
     mkdirSync(folder, { recursive: true });
     writeFileSync(
-      join(folder, "module.yaml"),
-      "plugin:\n  type: faust\n  name: Fixture\n",
+      join(folder, "module.k7x"),
+      'plugin({ type: "faust", name: "Fixture" })\n',
       "utf8",
     );
     writeFileSync(join(folder, "dsp.dsp"), source, "utf8");
@@ -100,8 +99,8 @@ describe("a faust module", () => {
       'import("stdfaust.lib");\nprocess = par(i, 2, os.osc(440) * 0.1);\n',
     );
     writeFileSync(
-      join(dir, "nodes", "lead.yaml"),
-      'extends: "@workspace/instruments/wurlitzer"\n',
+      join(dir, "nodes", "lead.k7x"),
+      'extends("@workspace/instruments/wurlitzer")\n',
       "utf8",
     );
     const p = plugins().find((x) => x.id.endsWith(":lead"));
@@ -116,13 +115,13 @@ describe("a faust module", () => {
       'import("stdfaust.lib");\nprocess = par(i, 2, ve.moog_vcf(0.7, 2000));\n',
     );
     writeFileSync(
-      join(dir, "nodes", "moog.yaml"),
-      'extends: "@workspace/audio/filter/moogladder"\n',
+      join(dir, "nodes", "moog.k7x"),
+      'extends("@workspace/audio/filter/moogladder")\n',
       "utf8",
     );
     writeFileSync(
-      join(dir, "graph.yaml"),
-      "modules:\n  melody: [ lead ]\n  pad#midi: [ synth-pad ]\n  lead: [ moog ]\n  moog: [ OUT ]\n  synth-pad: [ OUT ]\n",
+      join(dir, "graph.k7x"),
+      'modules({\n  melody: ["lead"],\n  "pad#midi": ["synth-pad"],\n  lead: ["moog"],\n  moog: ["OUT"],\n  "synth-pad": ["OUT"],\n})\n',
       "utf8",
     );
     const p = plugins().find((x) => x.id.endsWith(":moog"));

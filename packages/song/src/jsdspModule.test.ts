@@ -6,20 +6,14 @@
 // dropped from the compiled doc. Silently: a step whose module contributes no plugin is exactly
 // how a bypass looks, so nothing warns and the module is simply not there. These pin the gate.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { compileNodeProject } from "./nodeProject";
-import { copyAsYaml } from "./testSupport";
+import { setDoc, writeDoc } from "./testSupport";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEMOS = join(here, "..", "..", "..", "demos");
@@ -31,12 +25,9 @@ let dir: string;
 /** Rewrite the fixture's instrument as a jsdsp module, source and compiled graph beside it. */
 function asJsDsp(withGraph: boolean): void {
   const folder = join(ws, "_modules", "instruments", "synth");
-  mkdirSync(folder, { recursive: true });
-  writeFileSync(
-    join(folder, "module.yaml"),
-    "plugin:\n  type: jsdsp\n  name: Synth\n",
-    "utf8",
-  );
+  writeDoc(join(folder, "module.k7x"), {
+    plugin: { type: "jsdsp", name: "Synth" },
+  });
   writeFileSync(join(folder, "jsdsp.ts"), "// dsp\n", "utf8");
   if (withGraph)
     writeFileSync(
@@ -51,26 +42,19 @@ function asJsDsp(withGraph: boolean): void {
  *  `@workspace`, referenced directly by ref since no node instantiates it. */
 function midiGraphModule(): void {
   const folder = join(ws, "_modules", "transformers", "rpt");
-  mkdirSync(folder, { recursive: true });
-  writeFileSync(
-    join(folder, "module.yaml"),
-    "plugin:\n  type: jsdsp\n  name: Note Repeat\n",
-    "utf8",
-  );
+  writeDoc(join(folder, "module.k7x"), {
+    plugin: { type: "jsdsp", name: "Note Repeat" },
+  });
   writeFileSync(join(folder, "jsdsp.ts"), "// dsp\n", "utf8");
   writeFileSync(
     join(folder, "jsdsp.json"),
     JSON.stringify({ params: [], nodes: [{ type: "mhold" }] }),
     "utf8",
   );
-  // By data, not by text: the copy's layout is the converter's, so a source pattern would find nothing.
-  const graph = join(dir, "graph.yaml");
-  const doc = parseYaml(readFileSync(graph, "utf8")) as {
-    modules: Record<string, string[]>;
-  };
-  doc.modules.melody = ["@workspace/transformers/rpt"];
-  doc.modules["@workspace/transformers/rpt"] = ["lead"];
-  writeFileSync(graph, stringifyYaml(doc), "utf8");
+  // By key path, not by text, so the fixture's layout does not matter.
+  const graph = join(dir, GRAPH_FILE);
+  setDoc(graph, ["modules", "melody"], ["@workspace/transformers/rpt"]);
+  setDoc(graph, ["modules", "@workspace/transformers/rpt"], ["lead"]);
 }
 
 const plugins = () =>
@@ -79,11 +63,9 @@ const plugins = () =>
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-jsdsp-"));
   dir = join(ws, "synth-demo.k7");
-  copyAsYaml(SONG, dir, { recursive: true });
+  cpSync(SONG, dir, { recursive: true });
   // The Examples workspace's own shared library, beside every demo project.
-  copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
-    recursive: true,
-  });
+  cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 

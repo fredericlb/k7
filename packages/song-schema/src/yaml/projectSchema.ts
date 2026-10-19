@@ -1,7 +1,7 @@
-// projectSchema.ts — project.yaml's shape, in Zod. Two tiers: `project: {…}` (the
+// projectSchema.ts — project.k7x's shape, in Zod. Two tiers: `project: {…}` (the
 // song's own settings) plus `trackOrder`/`markers` as root siblings; both tiers are
 // `.strict()`, so a key written at the wrong one refuses to load. `markers` keys
-// are quoted timecodes (unquoted, "5:1:1" is 18061 under YAML 1.1 — see trackFile.ts).
+// are timecodes, written as strings.
 
 import { METRONOME_MIN } from "@studio/engine-protocol/build";
 import { z } from "zod";
@@ -97,7 +97,7 @@ export const ProjectFileSchema = z
   })
   .strict();
 
-/** settings.yaml — project-level preferences, a flat file of its own. */
+/** settings.k7x — project-level preferences, a flat file of its own. */
 export const SettingsSchema = z.looseObject({
   metronome: z.boolean().optional(),
   // How loud the click is, 0.2 … 1 — NOT a way to silence it, and refused rather than clamped (docs/projectFile.md).

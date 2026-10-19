@@ -1,8 +1,9 @@
 # The set lists on the volume
 
 `playlists/<name>.yaml`, at the root of the médiathèque. What a playlist SAYS is not defined here —
-it is `@studio/song-schema/playlist`, one format with one parser. This page is what the volume does
-with one.
+its rules are `@studio/song-schema/playlist`, the same a workspace's `_playlists/` follow, read here
+as YAML through `@studio/song-schema/mediaYaml`, since the volume's store stays YAML while every
+workspace file is k7x. This page is what the volume does with one.
 
 ## A root zone, not a family
 
@@ -54,7 +55,7 @@ file. The autosave the screen runs on is built on the pair that exists.
 
 ## Resolving a line is somebody else's job
 
-`parsePlaylist` keeps `song` verbatim, so a line means nothing until it is held against the songs
+`parseMediaPlaylist` keeps `song` verbatim, so a line means nothing until it is held against the songs
 catalogue. That resolution is `playlistItems.ts` — pure, tested on its own, and **shared with k7**,
 which resolves the same references against the same catalogue. Two copies of "path first, name
 second" would diverge at the first case learned on one side only.

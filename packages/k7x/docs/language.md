@@ -1,8 +1,8 @@
 # k7x — the language
 
 The text format of a workspace's files, `.k7x`. It reads like a Strudel pattern and holds exactly
-what YAML held: maps with string keys, lists, strings, numbers, booleans and null. The grammar is
-`src/parse.ts`; this page is why it is shaped the way it is. The migration it belongs to is
+what a workspace file holds: maps with string keys, lists, strings, numbers, booleans and null. The grammar is
+`src/parse.ts`; this page is why it is shaped the way it is. The plan it belongs to is
 [k7x-plan.md](../../../docs/k7x-plan.md).
 
 ```js
@@ -64,8 +64,8 @@ a graph its segments as runs — read by that kind's reader into the same data
 
 ## Comments
 
-`//` and `/* */`. They are trivia to the reader and untouched by every edit; the converter carries
-YAML's `#` comments across as `//` (`convert.md`).
+`//` and `/* */`. They are trivia to the reader and untouched by every edit: a
+comment is its author's, and no writer drops or moves it.
 
 ## Why a hand-written parser, and not acorn
 
@@ -86,8 +86,13 @@ What `print.ts` writes when it writes a whole value (a new file, a new entry, a 
   and a broken chain puts each call on its own line behind a leading `.`;
 - anything carrying a comment breaks, since `//` ends its line.
 
-The layout is only for text written whole. An edit never reformats what it does not change, and a
-conversion keeps what its author wrote on one line on one line, whatever its width (`convert.md`).
+A writer may ask for a node on one line whatever its width (`inline`, on `stringify` and on every
+write of the document), for data whose rows read best as rows. A file's **header** is the run of
+`//` lines it starts with: `stringify` writes one and the document reads and replaces it, since a
+file's own description is the one comment a writer, not its author, keeps up to date.
+
+The layout is only for text written whole. An edit never reformats what it does not change, so what
+its author wrote on one line stays on one line, whatever its width.
 
 ## The extension
 

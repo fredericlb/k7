@@ -20,10 +20,10 @@ describe("project tags", () => {
   });
 
   it("reads project.tags and tolerates a broken file", () => {
-    expect(projectTagsOf("project:\n  name: a\n  tags: [live, 3]\n")).toEqual([
-      "live",
-    ]);
-    expect(projectTagsOf("project:\n  name: a\n")).toEqual([]);
-    expect(projectTagsOf("project: [\n")).toEqual([]);
+    expect(
+      projectTagsOf('project({ name: "a", tags: ["live", 3] })\n'),
+    ).toEqual(["live"]);
+    expect(projectTagsOf('project({ name: "a" })\n')).toEqual([]);
+    expect(projectTagsOf("project([\n")).toEqual([]);
   });
 });

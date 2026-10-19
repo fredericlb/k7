@@ -23,7 +23,7 @@ import { blobsRouter } from "./blobStore.ts";
 import { attachSyncRelay, SYNC_PATH } from "./syncRelay.ts";
 
 const SECRETS = new Set(["secret-a", "secret-b"]);
-const MIX = "plugin: mixer\nparams:\n  gain: 0.5\n";
+const MIX = 'plugin("mixer")\nparams({ gain: 0.5 })\n';
 
 const cleanup: (() => void)[] = [];
 afterEach(() => {
@@ -135,7 +135,7 @@ describe("a device's link, up to date or not", () => {
     const a = device(
       url,
       { secret: "secret-a" },
-      { "mix.yaml": MIX, "song.k7/clips/take.wav": take },
+      { "mix.k7x": MIX, "song.k7/clips/take.wav": take },
     );
     await until(() => a.link.textState("band") === "current");
     await until(() => a.replica.head === 1);
@@ -153,7 +153,7 @@ describe("a device's link, up to date or not", () => {
 
   it("reads as offline once the relay is gone, the copy here being all there is", async () => {
     const { url, shut } = await hub();
-    const a = device(url, { secret: "secret-a" }, { "mix.yaml": MIX });
+    const a = device(url, { secret: "secret-a" }, { "mix.k7x": MIX });
     await until(() => a.replica.head === 1);
     await until(() => a.link.textState("band") === "current");
     shut();

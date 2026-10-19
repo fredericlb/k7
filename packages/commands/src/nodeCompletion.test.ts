@@ -1,10 +1,11 @@
 // A chain project's node completes to its uuid and is SHOWN as its module and its place; a project
 // of named nodes gets no label, its name being already what a person reads. docs/completions.md.
 
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
+import { writeDoc } from "@studio/song/testSupport";
 import { describe, expect, it } from "vitest";
 import { completionItems, completions } from "./commandSpec";
 import { testHost } from "./testHost";
@@ -17,11 +18,14 @@ const project = () =>
 
 function chainProject(): string {
   const dir = mkdtempSync(join(tmpdir(), "node-completion-"));
-  mkdirSync(join(dir, "chains"));
-  writeFileSync(
-    join(dir, "chains", "gtr.yaml"),
-    `start: true\nsteps:\n  - { id: l1, track: gtr }\n  - { id: ${ID}, extends: "@k7-core/audio/auto-wah" }\n  - to: [ { chain: MIX } ]\n`,
-  );
+  writeDoc(join(dir, "chains", "gtr.k7x"), {
+    start: true,
+    steps: [
+      { id: "l1", track: "gtr" },
+      { id: ID, extends: "@k7-core/audio/auto-wah" },
+      { to: [{ chain: "MIX" }] },
+    ],
+  });
   return dir;
 }
 

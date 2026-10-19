@@ -60,13 +60,13 @@ function fakeEngines(first: EngineRef | null) {
 const STUDIO_A = { id: "e-a", name: "studio A" };
 const STUDIO_B = { id: "e-b", name: "studio B" };
 
-/** A bounce of `r.wav` from "old" to "new", recorded with an edit of its clip's YAML. */
+/** A bounce of `r.wav` from "old" to "new", recorded with an edit of its clip file. */
 function bounce(h: ProjectHistory): void {
   writeFileSync(join(dir, "r.wav"), "new");
-  writeFileSync(join(dir, "r.yaml"), "v2");
+  writeFileSync(join(dir, "r.k7x"), "v2");
   h.push({
     label: "clip process",
-    changes: [{ path: "r.yaml", before: "v1", after: "v2" }],
+    changes: [{ path: "r.k7x", before: "v1", after: "v2" }],
     blobs: [
       { path: "r.wav", before: Buffer.from("old"), after: Buffer.from("new") },
     ],
@@ -75,39 +75,39 @@ function bounce(h: ProjectHistory): void {
 
 describe("ProjectHistory", () => {
   it("round-trips a text change and reports which file it touched", async () => {
-    writeFileSync(join(dir, "a.yaml"), "v2");
+    writeFileSync(join(dir, "a.k7x"), "v2");
     const h = new ProjectHistory(store(), dir);
     h.push({
-      label: "edit a.yaml",
-      changes: [{ path: "a.yaml", before: "v1", after: "v2" }],
+      label: "edit a.k7x",
+      changes: [{ path: "a.k7x", before: "v1", after: "v2" }],
       blobs: [],
     });
 
     const undone = await h.undo();
     expect(undone).toEqual({
       kind: "text",
-      label: "edit a.yaml",
-      files: ["a.yaml"],
+      label: "edit a.k7x",
+      files: ["a.k7x"],
     });
-    expect(read("a.yaml")).toBe("v1");
+    expect(read("a.k7x")).toBe("v1");
 
     const redone = await h.redo();
-    expect(redone?.files).toEqual(["a.yaml"]);
-    expect(read("a.yaml")).toBe("v2");
+    expect(redone?.files).toEqual(["a.k7x"]);
+    expect(read("a.k7x")).toBe("v2");
   });
 
   it("undo of a created file deletes it, redo re-creates it", async () => {
-    writeFileSync(join(dir, "new.yaml"), "hello");
+    writeFileSync(join(dir, "new.k7x"), "hello");
     const h = new ProjectHistory(store(), dir);
     h.push({
-      label: "add new.yaml",
-      changes: [{ path: "new.yaml", before: null, after: "hello" }],
+      label: "add new.k7x",
+      changes: [{ path: "new.k7x", before: null, after: "hello" }],
       blobs: [],
     });
     await h.undo();
-    expect(existsSync(join(dir, "new.yaml"))).toBe(false);
+    expect(existsSync(join(dir, "new.k7x"))).toBe(false);
     await h.redo();
-    expect(read("new.yaml")).toBe("hello");
+    expect(read("new.k7x")).toBe("hello");
   });
 
   it("round-trips a binary blob and marks the entry a process, with no engine to keep it", async () => {
@@ -127,12 +127,12 @@ describe("ProjectHistory", () => {
       changes: [{ path: p, before: null, after }],
       blobs: [],
     });
-    h.push(change("a.yaml", "A"));
-    h.push(change("b.yaml", "B"));
-    await h.undo(); // b.yaml undone; cursor sits after a.yaml
-    h.push(change("c.yaml", "C")); // forks history — b.yaml's redo is gone
+    h.push(change("a.k7x", "A"));
+    h.push(change("b.k7x", "B"));
+    await h.undo(); // b.k7x undone; cursor sits after a.k7x
+    h.push(change("c.k7x", "C")); // forks history — b.k7x's redo is gone
     expect(h.peekRedo()).toBeNull();
-    expect(h.peekUndo()?.files).toEqual(["c.yaml"]);
+    expect(h.peekUndo()?.files).toEqual(["c.k7x"]);
   });
 
   it("lists every entry oldest first, its paths and not its contents, the undone ones marked", async () => {
@@ -142,13 +142,13 @@ describe("ProjectHistory", () => {
       changes: [{ path: p, before: null, after }],
       blobs: [],
     });
-    h.push(change("a.yaml", "A"));
-    h.push(change("b.yaml", "B"));
+    h.push(change("a.k7x", "A"));
+    h.push(change("b.k7x", "B"));
     await h.undo();
     const list = h.list();
     expect(list.map((e) => [e.label, e.paths, e.undone])).toEqual([
-      ["edit a.yaml", ["a.yaml"], false],
-      ["edit b.yaml", ["b.yaml"], true],
+      ["edit a.k7x", ["a.k7x"], false],
+      ["edit b.k7x", ["b.k7x"], true],
     ]);
     expect(list[0]).not.toHaveProperty("changes");
   });
@@ -158,7 +158,7 @@ describe("ProjectHistory", () => {
     for (let n = 0; n < 1005; n++)
       h.push({
         label: `e${n}`,
-        changes: [{ path: `f${n}.yaml`, before: null, after: `${n}` }],
+        changes: [{ path: `f${n}.k7x`, before: null, after: `${n}` }],
         blobs: [],
       });
     // Read the journal off disk rather than undoing 1000× (each undo is a filesystem write).
@@ -175,16 +175,16 @@ describe("ProjectHistory", () => {
   });
 
   it("persists across instances", async () => {
-    writeFileSync(join(dir, "a.yaml"), "v2");
+    writeFileSync(join(dir, "a.k7x"), "v2");
     new ProjectHistory(store(), dir).push({
-      label: "edit a.yaml",
-      changes: [{ path: "a.yaml", before: "v1", after: "v2" }],
+      label: "edit a.k7x",
+      changes: [{ path: "a.k7x", before: "v1", after: "v2" }],
       blobs: [],
     });
     // A new instance reads the journal off disk and can still undo.
     const reopened = new ProjectHistory(store(), dir);
-    expect((await reopened.undo())?.files).toEqual(["a.yaml"]);
-    expect(read("a.yaml")).toBe("v1");
+    expect((await reopened.undo())?.files).toEqual(["a.k7x"]);
+    expect(read("a.k7x")).toBe("v1");
   });
 });
 
@@ -197,7 +197,7 @@ describe("blobs kept by the engine", () => {
     expect(existsSync(join(store(), "blobs", "1-b0"))).toBe(false);
     await h.undo();
     expect(read("r.wav")).toBe("old");
-    expect(read("r.yaml")).toBe("v1");
+    expect(read("r.k7x")).toBe("v1");
     // The fetched copy was for that write only: the engine still holds it.
     expect(existsSync(join(store(), "blobs", "1-b0"))).toBe(false);
     await h.redo();
@@ -210,20 +210,20 @@ describe("blobs kept by the engine", () => {
     const h = new ProjectHistory(store(), dir, keeper);
     bounce(h);
     await h.settled();
-    writeFileSync(join(dir, "a.yaml"), "later");
+    writeFileSync(join(dir, "a.k7x"), "later");
     h.push({
-      label: "edit a.yaml",
-      changes: [{ path: "a.yaml", before: "earlier", after: "later" }],
+      label: "edit a.k7x",
+      changes: [{ path: "a.k7x", before: "earlier", after: "later" }],
       blobs: [],
     });
     r.bound = STUDIO_B;
     // A text step above it still undoes…
     await h.undo();
-    expect(read("a.yaml")).toBe("earlier");
+    expect(read("a.k7x")).toBe("earlier");
     // …and the bounce is where it stops.
     await expect(h.undo()).rejects.toThrow(/studio A/);
     expect(read("r.wav")).toBe("new");
-    expect(read("r.yaml")).toBe("v2");
+    expect(read("r.k7x")).toBe("v2");
     expect(h.peekUndo()?.label).toBe("clip process");
     // Back on the engine that keeps it, the same undo goes through.
     r.bound = STUDIO_A;
@@ -271,19 +271,19 @@ describe("Workspace.recordChange", () => {
 
   it("journals a text edit and undo/redo reverts it", async () => {
     const { ws } = openProject();
-    writeFileSync(join(dir, "proj.k7", "a.yaml"), "v1");
+    writeFileSync(join(dir, "proj.k7", "a.k7x"), "v1");
 
-    await ws.recordChange("édition proj.k7/a.yaml", () =>
-      ws.write("proj.k7/a.yaml", "v2"),
+    await ws.recordChange("édition proj.k7/a.k7x", () =>
+      ws.write("proj.k7/a.k7x", "v2"),
     );
-    expect(read("proj.k7/a.yaml")).toBe("v2");
+    expect(read("proj.k7/a.k7x")).toBe("v2");
 
     const undone = await ws.undoHistory();
-    expect(undone?.files).toEqual(["proj.k7/a.yaml"]);
-    expect(read("proj.k7/a.yaml")).toBe("v1");
+    expect(undone?.files).toEqual(["proj.k7/a.k7x"]);
+    expect(read("proj.k7/a.k7x")).toBe("v1");
 
     await ws.redoHistory();
-    expect(read("proj.k7/a.yaml")).toBe("v2");
+    expect(read("proj.k7/a.k7x")).toBe("v2");
   });
 
   it("backs up a binary overwrite via the snapshot hook (a process)", async () => {
@@ -304,7 +304,7 @@ describe("Workspace.recordChange", () => {
   // The journal is the account's, not the song's: nothing of it may reach the project's repository.
   it("keeps the journal out of the project", async () => {
     const { ws } = openProject();
-    await ws.recordChange("edit", () => ws.write("proj.k7/a.yaml", "v1"));
+    await ws.recordChange("edit", () => ws.write("proj.k7/a.k7x", "v1"));
     expect(existsSync(join(dir, "proj.k7", "_history"))).toBe(false);
     expect(
       existsSync(join(historyStoreFor(join(dir, "proj.k7")), "journal.json")),
@@ -322,26 +322,26 @@ describe("Workspace.recordChange", () => {
     it("tells a rewrite from an appearance, project-relative", async () => {
       const { ws } = openProject();
       mkdirSync(join(dir, "proj.k7", "clips"));
-      writeFileSync(join(dir, "proj.k7", "clips", "a.yaml"), "v1");
+      writeFileSync(join(dir, "proj.k7", "clips", "a.k7x"), "v1");
 
       const rewrite = await ws.recordChange("edit", () =>
-        ws.write("proj.k7/clips/a.yaml", "v2"),
+        ws.write("proj.k7/clips/a.k7x", "v2"),
       );
-      expect(rewrite.files).toEqual([{ path: "clips/a.yaml", kind: "edited" }]);
+      expect(rewrite.files).toEqual([{ path: "clips/a.k7x", kind: "edited" }]);
 
       const appear = await ws.recordChange("new", () =>
-        ws.write("proj.k7/clips/b.yaml", "v1"),
+        ws.write("proj.k7/clips/b.k7x", "v1"),
       );
-      expect(appear.files).toEqual([{ path: "clips/b.yaml", kind: "added" }]);
+      expect(appear.files).toEqual([{ path: "clips/b.k7x", kind: "added" }]);
     });
 
     it("reports a file that went", async () => {
       const { ws } = openProject();
-      writeFileSync(join(dir, "proj.k7", "a.yaml"), "v1");
+      writeFileSync(join(dir, "proj.k7", "a.k7x"), "v1");
       const gone = await ws.recordChange("delete", () =>
-        rmSync(join(dir, "proj.k7", "a.yaml")),
+        rmSync(join(dir, "proj.k7", "a.k7x")),
       );
-      expect(gone.files).toEqual([{ path: "a.yaml", kind: "removed" }]);
+      expect(gone.files).toEqual([{ path: "a.k7x", kind: "removed" }]);
     });
 
     it("answers an empty list when the mutation wrote nothing", async () => {

@@ -67,6 +67,16 @@ describe("protoRefusal", () => {
     });
   });
 
+  it("asks a level-1 replica, the one that sent yaml ops, to update", () => {
+    const hello = readToRelay(frame({ t: "hello", workspace: "w", since: 3 }));
+    const proto = "msg" in hello && hello.msg.t === "hello" && hello.msg.proto;
+    expect(protoRefusal("w", proto as number)).toMatchObject({
+      t: "refused",
+      reason: "update",
+      min: SYNC_PROTO_MIN,
+    });
+  });
+
   it("refuses a replica above its own level: the server is older", () => {
     expect(protoRefusal("w", SYNC_PROTO + 1)).toMatchObject({
       t: "refused",
@@ -89,6 +99,22 @@ describe("a frame the relay cannot read", () => {
     expect("error" in read && read.error).toContain('"json"');
   });
 
+  it("says a retired op kind's sender is the side to update", () => {
+    const yamlOp = {
+      kind: "yaml",
+      file: "a.yaml",
+      ops: [{ op: "set", path: ["a"], yaml: "1" }],
+    };
+    const read = readToRelay(
+      frame({ t: "batch", workspace: "w", batch: batch([yamlOp]) }),
+    );
+    expect(read).toMatchObject({ reason: "unknown-op", workspace: "w" });
+    expect("error" in read && read.error).toContain("must be updated");
+    const replay = () => applyFileOp("a: 1\n", yamlOp as unknown as FileOp);
+    expect(replay).toThrow(/retired/);
+    expect(replay).not.toThrow(NeedsUpdate);
+  });
+
   it("tells malformed frames and unknown messages apart", () => {
     expect(readToRelay("not json")).toMatchObject({ reason: "malformed" });
     expect(readToRelay(frame({ t: "hello" }))).toMatchObject({
@@ -104,14 +130,14 @@ describe("a frame the relay cannot read", () => {
 });
 
 describe("an op kind from a newer k7", () => {
-  const future = { kind: "json", file: "a.yaml", ops: [] } as unknown as FileOp;
+  const future = { kind: "json", file: "a.k7x", ops: [] } as unknown as FileOp;
 
-  it("is never replayed as YAML", () => {
-    expect(() => applyFileOp("a: 1\n", future)).toThrow(NeedsUpdate);
+  it("is never replayed as something else", () => {
+    expect(() => applyFileOp("a(1)\n", future)).toThrow(NeedsUpdate);
   });
 
   it("leaves a replica's head where it was", () => {
-    const files = new Map<string, string | null>([["a.yaml", "a: 1\n"]]);
+    const files = new Map<string, string | null>([["a.k7x", "a(1)\n"]]);
     const replica = new Replica("me", {
       read: (f) => files.get(f) ?? null,
       write: (f, t) => void files.set(f, t),
@@ -123,6 +149,6 @@ describe("an op kind from a newer k7", () => {
     };
     expect(() => replica.remote(entry)).toThrow(NeedsUpdate);
     expect(replica.head).toBe(0);
-    expect(files.get("a.yaml")).toBe("a: 1\n");
+    expect(files.get("a.k7x")).toBe("a(1)\n");
   });
 });

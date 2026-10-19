@@ -1,10 +1,10 @@
 # metronome.md — the click, and how loud it is
 
-Two fields in `settings.yaml`, and they are deliberately two:
+Two fields in `settings.k7x`, and they are deliberately two:
 
-```yaml
-metronome: true
-metronome_level: 0.45
+```k7x
+metronome(true)
+metronome_level(0.45)
 ```
 
 | field | what it is | range |
@@ -26,7 +26,7 @@ void Edit::setClickTrackVolume (float gain)
     clickTrackGain = juce::jlimit (0.2f, 1.0f, gain);
 ```
 
-So a smaller number is accepted, written into `settings.yaml`, and then **played at 0.2** — a file
+So a smaller number is accepted, written into `settings.k7x`, and then **played at 0.2** — a file
 stating a level nobody hears, and a slider whose bottom third does nothing. The floor is stated once
 as `METRONOME_MIN` in `@studio/engine-protocol/build` and read by the schema, the command and the
 UI, because a surface that stopped somewhere else would reintroduce exactly that gap.
@@ -40,7 +40,7 @@ sides agree on beats disagreeing quietly.
 
 ## The chain
 
-`settings.yaml` → `SettingsSchema` → `parseSettings` → `SettingsDoc.metronomeLevel` → the wire →
+`settings.k7x` → `SettingsSchema` → `parseSettings` → `SettingsDoc.metronomeLevel` → the wire →
 C++ `ProjectDoc::metronomeLevel` → `EngineHost::applyMetronome`, which calls
 `Edit::setClickTrackVolume` on every apply.
 
@@ -62,7 +62,7 @@ skips the trigger's handler and leaves the `click` untouched), and answers Enter
 for the same reason. `ArrowDown` still opens the panel, which is the way to the level with no mouse.
 
 **The icon flips before the command has run**, and that is the same rule a lane's mute follows: the
-verb rewrites `settings.yaml`, so the button's own state comes back through a file write, a
+verb rewrites `settings.k7x`, so the button's own state comes back through a file write, a
 re-send of the whole document and a project COMPILE — long enough to read as a control that did not
 take. So the shell holds an optimistic value beside the doc's, and drops it the moment the next
 compiled doc lands, whatever that one says. Dropped on the doc's IDENTITY rather than its value: a
@@ -70,7 +70,7 @@ toggle that ends up changing nothing has to take the override back too, or the b
 showing what was asked for rather than what is.
 
 The slider commits on RELEASE, not on every frame — the command rewrites
-`settings.yaml` and re-sends the whole document, so a live commit would be forty writes and forty
+`settings.k7x` and re-sends the whole document, so a live commit would be forty writes and forty
 journal entries for one gesture. Same rule as the clip panel's velocity drag and the sequencer's
 nudge.
 

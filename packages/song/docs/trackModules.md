@@ -1,26 +1,23 @@
 # Track modules — a lane IN the graph
 
-A lane is a module. It lives in `nodes/<name>.yaml` like every other use of a module, and
+A lane is a module. It lives in `nodes/<name>.k7x` like every other use of a module, and
 what it `extends` says what kind of lane it is:
 
-```yaml
-# nodes/melody.yaml
-extends: "@meta/track"
-color: "#c8a97e"
-events:
-  - { ref: melody, start: "1:1:1" }
+```k7x
+// nodes/melody.k7x
+extends("@meta/track")
+color("#c8a97e")
+events([ref("melody").start("1:1:1")])
 ```
 
-…wired in `graph.yaml`'s one `modules:` map, like anything else:
+…wired in `graph.k7x`'s one `modules:` map, like anything else:
 
-```yaml
-modules:
-  melody: [ synth-melody ]
-  synth-melody: [ OUT ]
-bypassed: [ melody ]     # a lane in this list is MUTED
+```k7x
+modules({ melody: ["synth-melody"], synth-melody: ["OUT"] })
+bypassed(["melody"]) // a lane in this list is MUTED
 ```
 
-There is no `tracks/` folder, and no `tracks:` half of `graph.yaml`.
+There is no `tracks/` folder, and no `tracks:` half of `graph.k7x`.
 
 ## Three, and none of them says what it carries
 
@@ -32,7 +29,7 @@ There is no `tracks/` folder, and no `tracks:` half of `graph.yaml`.
 ```
 
 There is no second axis for `audio` against `notes`, because **a lane does not carry a signal —
-its EVENTS do.** An event names a `clips/<id>.yaml` or a `sequences/<id>.yaml`, and that is the
+its EVENTS do.** An event names a `clips/<id>.k7x` or a `sequences/<id>.k7x`, and that is the
 whole answer, stated once per event by the material itself. A word at the top of the lane file
 would be a second copy of a fact each event carries anyway, and its only real power would be the
 power to refuse: a lane could not then hold both. Which is a thing songs do constantly — a guitar
@@ -47,20 +44,22 @@ material is **where the events come from** — written down, or streamed while t
 
 A lane offers `audio` and `midi`, and nothing else. An event leaves by the one its material fits.
 
-```yaml
-modules:
-  gtr#audio: [ amp ]      # the events naming clips
-  gtr#midi:  [ synth ]    # the events naming sequences
-  amp: [ OUT ]
-  synth: [ OUT ]
+```k7x
+modules({
+  "gtr#audio": ["amp"], // the events naming clips
+  "gtr#midi": ["synth"], // the events naming sequences
+  amp: ["OUT"],
+  synth: ["OUT"],
+})
 ```
 
 The `#port` syntax is [ports.md](ports.md)'s, the same one a stem separator's outputs use. A bare
 key works too:
 
-```yaml
-modules:
-  gtr: [ amp ]            # everything this lane emits, down one chain
+```k7x
+modules({
+  gtr: ["amp"], // everything this lane emits, down one chain
+})
 ```
 
 **Bare means everything**: one engine track, one chain, all the lane's events. A port only has to
@@ -126,26 +125,26 @@ group is not typed by its material, having none.
 
 ## Bypass is the mute
 
-A lane's mute is its module's bypass: one name in `graph.yaml`'s `bypassed:`, written by the
+A lane's mute is its module's bypass: one name in `graph.k7x`'s `bypassed:`, written by the
 `node bypass` the graph's bypass button runs.
 
 On a source, bypass reads as **produces nothing** rather than *passes through untouched* — a
 source has no input to pass through. That is the one semantic worth stating out loud, and it is
 why the lane file carries no `mute:` for the two to disagree over.
 
-**Solo is PROJECT STATE**: `soloed:` at project.yaml's root lists the soloed lanes, several at
+**Solo is PROJECT STATE**: `soloed:` at project.k7x's root lists the soloed lanes, several at
 once, and the ENGINE resolves the relationship — any soloed track silences every non-soloed one,
 `applySoloMute`. The compiler stamps the flag onto the listed lanes — a group's entry folds onto
 its members there, since the engine resolves across tracks alone — and `track solo` toggles
 membership, deleting the key with the last entry: absent means nobody, like every other default.
 
 One list at the root rather than a derived set of bypasses. Derived, solo cannot hold two at once,
-rewrites N files to say one fact, and reads in `graph.yaml` as a wall of mutes nobody asked for.
+rewrites N files to say one fact, and reads in `graph.k7x` as a wall of mutes nobody asked for.
 Mute stays the lane's own bypass, untouched by anyone's solo.
 
 ## One name space, held by nodes alone
 
-A lane is a node — `nodes/<name>.yaml` like any other use — so a lane and an insert share one flat
+A lane is a node — `nodes/<name>.k7x` like any other use — so a lane and an insert share one flat
 folder rather than two maps that could disagree. A DAW names the track after the instrument on it,
 so an import can arrive with a lane `polysynth` and an insert that plays a `polysynth` plugin; the
 filesystem itself is what keeps them apart, since the insert is filed under a name of its own
@@ -165,7 +164,7 @@ synthesised `@engine/…` plugins ([moduleNamespaces.md](moduleNamespaces.md)) a
 ([docModules.md](docModules.md)). A lane costs exactly one file — its own.
 
 The alternative is what settles it, and it is the argument `@meta/doc` makes too: a
-project-local `modules/tracks/track/module.yaml` would be a file every project must scaffold
+project-local `modules/tracks/track/module.k7x` would be a file every project must scaffold
 before its first lane.
 
 A lane being a *node* is not a trick — it is what a node already is here: one USE of a
@@ -210,7 +209,7 @@ re-parse) supplies nothing and gets `@in` alone, which is exactly the lane a tem
 
 That is why `loadGraph` and `compileNodeProject` both fold the local modules *before* deriving the
 chains. The fold is pure and in memory; doing it twice costs a walk over a few dozen structs and
-buys the derivation the one fact `graph.yaml` does not state.
+buys the derivation the one fact `graph.k7x` does not state.
 
 A lane is never ABSORBED into another run, whatever feeds it. A live channel routed into one
 satisfies every absorption test — one feeder, feeding nothing else, and the lane goes somewhere —
@@ -230,7 +229,7 @@ this repo keeps choosing (see [nodes.md](nodes.md), which makes the same call).
 | `extends: "@meta/audio-strudel-track"` | `extends: "@meta/strudel-track"` |
 | `extends: "@meta/sequence-strudel-track"` | `extends: "@meta/strudel-track"` |
 | `extends: "@meta/group-track"` | unchanged |
-| two lanes, one audio and one sequences, for one part | one lane, and `#audio:` / `#midi:` in `graph.yaml` if the two need different chains |
+| two lanes, one audio and one sequences, for one part | one lane, and `#audio:` / `#midi:` in `graph.k7x` if the two need different chains |
 
 A lane that streams (`@meta/strudel-track`) is the one case where the wiring has to say what the
 file cannot: it holds nothing until the transport rolls, so `pad#midi: [ synth ]` is the only
@@ -243,15 +242,15 @@ for `@mediatek/…`.
 
 And for a project whose lanes are still files in `tracks/`:
 
-| in `tracks/<id>.yaml` | write instead, in `nodes/<id>.yaml` |
+| in `tracks/<id>.k7x` | write instead, in `nodes/<id>.k7x` |
 |---|---|
 | `type: single` \| `strudel` | `extends:` one of the two above |
 | `contentType:` | nothing — the events say it |
 | `type: group` | `extends: "@meta/group-track"` |
 | `events:`, `color:`, `disabled:`, `tracks:`, `strudel:` | unchanged, on the node |
-| `mute: true` | the name in `graph.yaml`'s `bypassed:` |
-| `solo: true` | the name in project.yaml's root `soloed:` list |
-| the `tracks:` entry in `graph.yaml` | the same line, under `modules:` |
+| `mute: true` | the name in `graph.k7x`'s `bypassed:` |
+| `solo: true` | the name in project.k7x's root `soloed:` list |
+| the `tracks:` entry in `graph.k7x` | the same line, under `modules:` |
 
 ## Two things a lane does not carry itself
 

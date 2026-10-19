@@ -25,7 +25,7 @@ export const resolveEntry = (
   entries: readonly string[],
 ): string | null => bestMatch(arg, entries);
 
-/** A module folder's own `module.yaml` — what the builder opens on. */
+/** A module folder's own `module.k7x` — what the builder opens on. */
 const MODULE_FILE = docPattern("(^|/)module");
 
 /** The module file a name means — MODULES FIRST, then the whole project, so `ui builder ampli` cannot land on `clips/ampli`. */

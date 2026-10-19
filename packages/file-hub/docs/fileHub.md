@@ -157,7 +157,7 @@ folder per library, `<dataRoot>/libraries/<name>`, which every account's file se
 `@<name>/…` against; one folder because a library edited is edited for every account at once, and
 two copies would compile a song two ways.
 
-- **The folder IS the library**: its published versions `1/`, `2/`… each with a `library.yaml`
+- **The folder IS the library**: its published versions `1/`, `2/`… each with a `library.k7x`
   saying what level of k7 it `requires`, and the `draft/` an admin's file service writes. The draft
   is made, from the newest version, only when an admin's service asks (`/libraries/sync` with
   `draft: true`), so a machine with no admin carries no second copy. `publish` freezes the draft as
@@ -166,8 +166,11 @@ two copies would compile a song two ways.
   (`renameLegacyDefault`) — the list's entry, the folder, and the relay's and replicas' state under
   `.sync-*`, so a device following it keeps its history. Once, and never over a `k7-core` already there.
   Dropping a library from the list keeps its folder, unlisted: it is the only copy.
+- **A version's legacy `library.yaml` is upgraded once**, in the folders the hub owns, to
+  `library.k7x` (`packages/file-service/src/legacyUpgrade.ts`), the `.yaml` removed once the copy reads back
+  as the same manifest. A seed is read where it is, in either format: it is not the hub's to write.
 - **A listed library with no folder gets one**, copied from the seed when the seed holds it, else
-  an empty version 1. A seed carrying a `library.yaml` is a PUBLISHED version — what the desktop and
+  an empty version 1. A seed carrying a `library.k7x` is a PUBLISHED version — what the desktop and
   the phone bundle — and installs under its own number; a bare folder is version 1. A machine that
   already has the library and is handed a newer published seed (an app update) gets it as one more
   frozen version. The seed is `$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…` — the desktop

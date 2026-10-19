@@ -1,12 +1,13 @@
 // recordTake.ts — turn a finished take into a clip on its track, or into a TAKE of the event it was
 // recorded over. The engine writes the .wav and says where it landed; declaring it is the brain's
-// job, so this writes the clips/<take>.yaml and the placement or the take entry — making a recording
+// job, so this writes the clips/<take>.k7x and the placement or the take entry — making a recording
 // indistinguishable from a clip you dropped in yourself. (Arming is session state and never a file.)
 
-import { renameSync } from "node:fs";
+import { existsSync, renameSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
-import { wsExists, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsWriteData } from "@studio/song/yaml/workspaceDoc";
+import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { addEventTake } from "@studio/song-edit/takeEdit";
 import { editTrackStruct } from "@studio/song-edit/trackMix";
 import { beatsToPosition } from "@studio/song-schema/timecode";
@@ -36,13 +37,10 @@ function writeClipDecl(
   wavName: string,
   window: { from: string; to: string },
 ): string {
-  const path = join(dir, "clips", `${id}.yaml`);
+  const path = join(dir, "clips", `${id}.k7x`);
   // The FILENAME is the id, so there is no wrapper naming it a second time.
   if (!wsExists(path))
-    wsWrite(
-      path,
-      `source: clips/${wavName}\nfrom: "${window.from}"\nto: "${window.to}"\n`,
-    );
+    wsWriteData(path, { source: `clips/${wavName}`, ...window });
   return path;
 }
 
@@ -52,7 +50,7 @@ function declareTake(
   doc: ProjectDoc,
   take: RecordedTake,
 ): { id: string; start: string; startBeats: number; lengthBeats: number } {
-  if (!wsExists(take.file))
+  if (!existsSync(take.file))
     throw new Error(`recorded file is missing: ${take.file}`);
 
   // Seconds -> quarter notes -> timecodes; every one of these is a POSITION, docs/rendering.md.
@@ -92,7 +90,7 @@ export function addTakeToTrack(
   editTrackStruct(
     dir,
     take.track,
-    (text) => addPlacement(text, { ref: id, start }),
+    (lane) => addPlacement(lane, { ref: id, start }),
     `add the recorded clip "${id}"`,
   );
   return id;

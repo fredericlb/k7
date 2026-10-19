@@ -2,9 +2,9 @@
 // asks (the chains builder, the account's listing, a bounce, the bench), and each one READ into
 // the ordered steps those callers run. See docs/sharedFolders.md and docs/chainFiles.md.
 //
-// What a reader would get wrong: a chain is a FILE `<ref>.yaml` under a library's `chains/`, or an
-// older FOLDER holding a `graph.yaml` and a `nodes/`; both are read until every clone is migrated
-// (scripts/migrateLibraryChains.ts). Its ref is `@<library>/<path under chains/>`, and a BARE path
+// What a reader would get wrong: a chain is a FILE `<ref>.k7x` under a library's `chains/`, or an
+// older FOLDER holding a `graph.k7x` and a `nodes/`; both are read (docs/sharedFolders.md).
+// Its ref is `@<library>/<path under chains/>`, and a BARE path
 // is the default library's.
 
 import { type Dirent, readdirSync } from "node:fs";
@@ -22,12 +22,11 @@ import {
   VSTPRESETS_DIR,
 } from "@studio/song-schema/yaml/chainSchema";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
-import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 import { plainSegments } from "@studio/web-protocol/paths";
-import { parse as parseYaml } from "yaml";
 import { bypassedOf, chainSteps } from "./chainsGraph";
 import { libraryFamilyRoots } from "./sharedFolders";
-import { isDocName, wsExists, wsRead } from "./yaml/workspaceFile";
+import { wsData, wsText } from "./yaml/workspaceDoc";
+import { isDocName, K7X_EXT, wsExists } from "./yaml/workspaceFile";
 
 /** Where a template's signal leaves, written as its last step's one link. */
 export const TEMPLATE_OUT = "@out";
@@ -171,19 +170,17 @@ export function readTemplate(c: LibraryChainDir): TemplateRead {
 }
 
 function readFolderTemplate(c: LibraryChainDir): TemplateRead {
-  const text = wsRead(join(c.at, GRAPH_FILE));
-  const bypassed = bypassedOf(parseYaml(text, YAML_READ));
+  const graph = join(c.at, GRAPH_FILE);
+  const text = wsText(graph);
+  const bypassed = bypassedOf(wsData(graph));
   const steps: TemplateStep[] = [];
   const missing: string[] = [];
   for (const name of chainSteps(text)) {
     let module: Record<string, unknown>;
     try {
-      module = (parseYaml(
-        wsRead(join(c.at, NODES_DIR, `${name}.yaml`)),
-        YAML_READ,
-      ) ?? {}) as Record<string, unknown>;
+      module = wsData(join(c.at, NODES_DIR, `${name}${K7X_EXT}`));
     } catch {
-      missing.push(`${name} (no ${NODES_DIR}/${name}.yaml)`);
+      missing.push(`${name} (no ${NODES_DIR}/${name}${K7X_EXT})`);
       continue;
     }
     const preset = join(c.at, NODES_DIR, `${name}.vstpreset`);
@@ -201,7 +198,7 @@ function readFolderTemplate(c: LibraryChainDir): TemplateRead {
 /** A chain file's steps from its TEXT — `text` given when it is not on disk yet, as a migration checks it. */
 export function readFileTemplate(
   c: LibraryChainDir,
-  text = wsRead(c.at),
+  text = wsText(c.at),
 ): TemplateRead {
   const { value, issues } = parseChain(text);
   if (!value)

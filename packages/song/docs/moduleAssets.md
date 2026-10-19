@@ -5,8 +5,8 @@ A module holds the material it plays — an amp profile, the samples on a shelf 
 
 ```
 _modules/audio/amp/    ← @workspace, beside the project; a library's modules/ the same shape
-  module.yaml        ← what the module IS
-  ui.yaml
+  module.k7x         ← what the module IS
+  ui.k7x
   assets/            ← what it LOADS
     jcm800.nam
     Two-Rock/Clean.nam
@@ -20,7 +20,7 @@ asset library" below).
 (a rack's audio, below). Nothing else in a module folder is a folder with a meaning: a name not on
 that list is just a name.
 
-A module INHERITS its ancestors' assets: a NODE pointing a song at a shared amp is a `nodes/<x>.yaml`
+A module INHERITS its ancestors' assets: a NODE pointing a song at a shared amp is a `nodes/<x>.k7x`
 that `extends` it, and the files stay in the shared folder — a node has no `assets/` of its own
 except one it genuinely carries (`docs/moduleAssets.md`'s "lets a node carry its own model" case).
 `moduleAssetChoices` is the one answer to "what may this param be set to" — the panel's picker, the
@@ -34,7 +34,7 @@ widget that offers them is described.
 owns the assets and stores them itself, and wrong for the two shapes that actually carry material:
 
 - the shared module itself — `@workspace/audio/guitar` (or `@k7-core/…`) has the fourteen NAM profiles;
-- a NODE that exists only to override one param of it, which is what `extends` on a `nodes/<x>.yaml`
+- a NODE that exists only to override one param of it, which is what `extends` on a `nodes/<x>.k7x`
   produces and is the normal way a song points at a shared amp.
 
 Both would list nothing, and the panel's picker would open empty on the one module built to be
@@ -53,12 +53,9 @@ otherwise re-read that amp's `assets/` once each.
 
 The file a plugin loads is named in `params:`, beside the numbers:
 
-```yaml
-plugin: { type: internal, name: Neural Amp Modeler }
-params:
-  model: jcm800.nam
-  Input: -5.06
-  Output: 8.26
+```k7x
+plugin({ type: "internal", name: "Neural Amp Modeler" })
+params({ model: "jcm800.nam", Input: -5.06, Output: 8.26 })
 ```
 
 Because that is what it is. A .nam model is one of the plugin's controls — it sits in the panel
@@ -116,10 +113,9 @@ A model that lives outside the repository has to get onto each machine somehow, 
 `~/.k7/models`" was the whole of the answer: nothing said where the 166 MB came from. A module
 may now say so, beside the name it already gives:
 
-```yaml
-params:
-  onnx: htdemucs_fp16weights.onnx
-model_url: https://models.example.org/htdemucs_fp16weights.onnx
+```k7x
+params({ onnx: "htdemucs_fp16weights.onnx" })
+model_url("https://models.example.org/htdemucs_fp16weights.onnx")
 ```
 
 It is a top-level key, inherited like `plugin` and `cold` (`graph.ts`'s `toModule` carries it, with
@@ -173,8 +169,8 @@ onto. The row stays openable on its name (`opensOnName`), so the chevron folds w
 opens the builder.
 
 A **bare** clip name is looked for in `sources/`, then `assets/`, then the module folder itself — so
-a shelf with its `.wav` beside `module.yaml` keeps loading, and a sample dropped onto a module in
-the médiathèque is found without rewriting the yaml. `assets/bd.wav` is still a spelling that
+a shelf with its `.wav` beside `module.k7x` keeps loading, and a sample dropped onto a module in
+the médiathèque is found without rewriting the file. `assets/bd.wav` is still a spelling that
 stands on its own, resolved against the module folder like any other ref.
 
 ## No shared asset library

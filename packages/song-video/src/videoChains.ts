@@ -1,4 +1,4 @@
-// videoChains.ts — the path graph.yaml -> the renderer: a video lane's run becomes that lane's
+// videoChains.ts — the path graph.k7x -> the renderer: a video lane's run becomes that lane's
 // plugins, the RENDER -> VIDEO_OUT run becomes the whole frame's, and what is wired INTO a lane
 // becomes what it draws — a lens, a shape, or a STRETCH a fade runs its shot through. Shaders
 // arrive with their GLSL already read, because the browser cannot open a folder.
@@ -235,7 +235,7 @@ export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
       .filter((lane) => g.videoTracks[lane]);
     if (!lanes.length) {
       warnings.push(
-        `chain '${name}': ${drawn.map((st) => `'${st.module}'`).join(", ")} draws nothing — a shape is drawn by the picture lane it is wired to (\`${drawn[0].module}: [ <lane> ]\` in graph.yaml)`,
+        `chain '${name}': ${drawn.map((st) => `'${st.module}'`).join(", ")} draws nothing — a shape is drawn by the picture lane it is wired to (\`${drawn[0].module}: [ <lane> ]\` in graph.k7x)`,
       );
       continue;
     }

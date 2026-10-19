@@ -1,10 +1,11 @@
 // `project tag` / `project untag` — what the tasks panel runs. Through the dispatcher and asserting the FILE.
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 
 let dir: string;
@@ -13,7 +14,7 @@ const logs: string[] = [];
 beforeEach(() => {
   logs.length = 0;
   dir = mkdtempSync(join(tmpdir(), "td-ptags-"));
-  writeFileSync(join(dir, "project.yaml"), "project:\n  name: t\n", "utf8");
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t" } });
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -28,7 +29,7 @@ const host = () =>
   }) as never;
 
 const tags = () =>
-  parse(readFileSync(join(dir, "project.yaml"), "utf8")).project.tags;
+  (wsData(join(dir, "project.k7x")).project as { tags?: string[] }).tags;
 
 describe("project tag", () => {
   it("adds a tag once, whatever its case, and keeps spaces", async () => {

@@ -1,6 +1,6 @@
 # uiLibrary — a module's panel, in a file of its own
 
-A module's widget grid is a file of its own rather than a `ui:` block inside `module.yaml`. Those are two
+A module's widget grid is a file of its own rather than a `ui:` block inside `module.k7x`. Those are two
 unrelated things: what the module *is* (a plugin, its params, its DSP source) and how it is *drawn*. They have
 different authors, different lifetimes and different owners.
 
@@ -11,8 +11,8 @@ different authors, different lifetimes and different owners.
 The panel sits **in the module's folder**, beside the module file:
 
 ```
-_modules/audio/filter/auto-wah/module.yaml     what it is
-_modules/audio/filter/auto-wah/ui.yaml         how it's drawn
+_modules/audio/filter/auto-wah/module.k7x      what it is
+_modules/audio/filter/auto-wah/ui.k7x          how it's drawn
 ```
 
 ## Why beside, and not in a parallel tree
@@ -28,22 +28,23 @@ balance is the wrong way round.
   (`apps/k7/frontend/docs/sharedModules.md`); a parallel tree would split that write across two
   roots, and a crash between them leaves a panel that answers to nothing, or a module with none.
 
-Beside the module, the **folder is the key**. Nothing inside `ui.yaml` says which module it draws, because
+Beside the module, the **folder is the key**. Nothing inside `ui.k7x` says which module it draws, because
 nothing has to. Moving a module moves its face; copying one copies it; deleting one takes it along.
 
 ## The file
 
 The widget grid, at the top level. The header comment is a courtesy, not a key:
 
-```yaml
-# panel for @engine/audio/filter/auto-wah
-cols: 5
-rows: 4
-widgets:
-  low: { type: knob, col: 0, row: 0, rowSpan: 2, label: Low, bind: Low, min: 60, max: 8000 }
+```k7x
+// panel for @engine/audio/filter/auto-wah
+cols(5)
+rows(4)
+widgets({
+  low: { type: "knob", col: 0, row: 0, rowSpan: 2, label: "Low", bind: "Low", min: 60, max: 8000 },
+})
 ```
 
-`ui.yaml` is the one name that is neither the generic nor a node. Every other `<name>.yaml` in a module
+`ui.k7x` is the one name that is neither the generic nor a node. Every other `<name>.k7x` in a module
 folder is one *use* of the module, so `nodeFiles` skips this one by name — without that, a module with a
 panel comes back with a phantom node called `ui`.
 
@@ -61,7 +62,7 @@ the faces come along with the modules, because they are in the same folders.
 ## Writing
 
 `writeUiFile` resolves the ref back to a library — the root whose `moduleNamespaceOf` matches — and writes
-`ui.yaml` into the module's folder. It throws on a namespace no visible library answers to, rather than
+`ui.k7x` into the module's folder. It throws on a namespace no visible library answers to, rather than
 guessing at a root: a panel filed under a module that isn't there is a save that reports success and draws
 nothing.
 
@@ -91,16 +92,17 @@ isn't there. Two refs need saying:
   library, and a panel needs a folder to sit in. Better a refusal that says so than a file written under `io/`,
   which is where the io rescue would put it.
 
-### The emitted YAML is hand-written
+### Each widget on one line
 
-Each widget goes on ONE flow line. `yaml`'s stringify would produce the block form, and a widget is read as a
-row — eight scalars describing one knob — so a 20-line panel becomes 200 lines nobody scans. This is the shape
+Each widget is printed `inline`, on ONE line (`uiFileText`). The printer would break a long one child per
+line, and a widget is read as a row — eight scalars describing one knob — so a 20-line panel would become 200
+lines nobody scans. This is the shape
 the module files use. The panel is validated on the way OUT as well as in: one this cannot read back is a file
 the editor would refuse.
 
-`widgets: {}` and not a bare `widgets:`, which YAML reads back as NULL — and a null fails the schema, so a
-panel with no widgets yet would read as MALFORMED and the editor would grey its own grid out. That is the
-scaffold every module without a panel gets, which is precisely when the grid is needed.
+`widgets({})` and never a missing `widgets`: a panel with no widgets yet must still read, or the editor would
+grey its own grid out. That is the scaffold every module without a panel gets, which is precisely when the
+grid is needed.
 
 The file's header is the only place the module is NAMED, and it is a comment: the folder is what actually says
 it, and two sources of truth is one too many.
@@ -119,16 +121,16 @@ widgets in the browser, and it is read with the panel rather than on its own so 
 different folders (`packages/ui-chains-react/docs/lcdScreen.md`).
 
 A [module fork](moduleFork.md) copies the whole folder, so the panel comes along by itself. It is rewritten
-anyway, with a header naming the copy: a `ui.yaml` whose comment still points at `@engine/…` reads as the fork
+anyway, with a header naming the copy: a `ui.k7x` whose comment still points at `@engine/…` reads as the fork
 having borrowed a face rather than been given one.
 
 ## Editing
 
-The module editor's code pane switches between the two files (`module.yaml` / `ui.yaml`); the widget grid always
+The module editor's code pane switches between the two files (`module.k7x` / `ui.k7x`); the widget grid always
 edits the panel. `GET /module-ui?path=` answers the panel for a module file — the existing one, or the path it
 *would* take plus a blank grid, so the first save creates it through the ordinary write route rather than
-needing one of its own. `path` may name either file of the pair, which is what lets a click on `ui.yaml` open
-the same builder as a click on `module.yaml`.
+needing one of its own. `path` may name either file of the pair, which is what lets a click on `ui.k7x` open
+the same builder as a click on `module.k7x`.
 
 ## Migrating
 

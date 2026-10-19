@@ -1,36 +1,26 @@
-// `soloed:` at project.yaml's root IS the mixer's solo: the compiler stamps the flag onto the
+// `soloed` at project.k7x's root IS the mixer's solo: the compiler stamps the flag onto the
 // listed lanes' TrackDocs, and the ENGINE resolves the relationship (any soloed track silences
 // every non-soloed one — applySoloMute). Several at once is the point; absent is nobody.
 
-import {
-  appendFileSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
-import { copyAsYaml } from "./testSupport";
+import { setDoc } from "./testSupport";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SONG = join(here, "..", "..", "..", "demos", "node-demo.k7");
 
 let dir: string;
-const solo = (ids: string[]) =>
-  appendFileSync(
-    join(dir, "project.yaml"),
-    `soloed: [${ids.join(", ")}]\n`,
-    "utf8",
-  );
+const solo = (ids: unknown) =>
+  setDoc(join(dir, "project.k7x"), ["soloed"], ids);
 const tracks = () => compileNodeProject(dir).tracks;
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-solo-"));
-  copyAsYaml(SONG, dir, { recursive: true });
+  cpSync(SONG, dir, { recursive: true });
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -61,11 +51,7 @@ describe("soloed, compiled", () => {
   });
 
   it("is refused by the schema when it is not a list of names", () => {
-    writeFileSync(
-      join(dir, "project.yaml"),
-      `${readFileSync(join(dir, "project.yaml"), "utf8")}soloed: drums\n`,
-      "utf8",
-    );
+    solo("drums");
     expect(() => compileNodeProject(dir)).toThrow(/soloed/);
   });
 });

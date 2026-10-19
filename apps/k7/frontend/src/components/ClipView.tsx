@@ -9,7 +9,7 @@ import { DEFAULT_METRONOME_LEVEL } from "@studio/engine-protocol/build";
 import type { WebGraph } from "@studio/graph-model";
 import { seqWindowFromText, windowSpan } from "@studio/song-schema/seqWindow";
 import { beatsToPosition } from "@studio/song-schema/timecode";
-import { findNotesArray, parseNotes } from "@studio/ui-editor/tracker/notes";
+import { readSequence } from "@studio/ui-editor/tracker/notes";
 import {
   type ComponentProps,
   type RefObject,
@@ -134,9 +134,7 @@ function SeqRoll({
   }, []);
 
   const notes = useMemo<WebNote[]>(() => {
-    const span = findNotesArray(content);
-    if (!span) return [];
-    return parseNotes(content.slice(span.from, span.to)).map((n) => ({
+    return (readSequence(content)?.notes ?? []).map((n) => ({
       time: n.t,
       duration: n.d,
       key: n.k,

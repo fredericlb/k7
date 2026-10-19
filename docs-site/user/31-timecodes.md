@@ -4,9 +4,9 @@ Everything placed on the musical grid — an event's start, a fade, a marker, a 
 as a **timecode**: numbers separated by colons, counting bars, beats and subdivisions of the
 project's time signature.
 
-```yaml
-start: "5:1:1"      # bar 5, beat 1
-fadeIn: "0:1"       # one beat long
+```k7x
+start("5:1:1") // bar 5, beat 1
+fadeIn("0:1") // one beat long
 ```
 
 ## The fields
@@ -61,17 +61,14 @@ ticks only when the position falls between sixteenths.
 
 ## Always quote a timecode
 
-In a YAML file, write every timecode in quotes:
+Write every timecode in quotes, as the string it is:
 
-```yaml
-events:
-  - { ref: melody, start: "1:1:1" }
+```k7x
+events([ref("melody").start("1:1:1")])
 ```
 
-Every timecode field requires a string. `start: 5` is a number, and is refused with
-`expected a timecode like 25:1, 8:1:2 or 8:1:2:2.120`. Some other YAML tools also read an unquoted
-`5:1:1` as a base-60 number, which is a different value entirely. k7 always writes timecodes
-quoted, and so should you. In a `.k7x` file a timecode is simply a string: `start("5:1:1")`.
+Every timecode field requires a string. `start(5)` is a number, and is refused with
+`expected a timecode like 25:1, 8:1:2 or 8:1:2:2.120`. An unquoted `5:1:1` does not parse at all.
 
 ## Where seconds are used instead
 

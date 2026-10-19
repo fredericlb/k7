@@ -58,7 +58,7 @@ this song to k7"). It renders the project's mixdown (as MP3 when the engine's ma
 WAV otherwise) and its stems (FLAC, or WAV), and uploads them:
 
 - The first time, k7 asks for the artist and title, creates the release, and writes a `uuid` into
-  the project's `project.yaml` so it is recognised next time.
+  the project's `project.k7x` so it is recognised next time.
 - Every later time, it adds a new version, named after the date and time, to the same release.
 
 It needs the instance's address and a token. Generate the token in **Settings › Rehearsal ›

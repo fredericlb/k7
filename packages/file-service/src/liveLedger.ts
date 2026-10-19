@@ -8,7 +8,7 @@ import { type BlobId, parseBlobRef } from "@studio/live-sync/blob";
 import { SETTLE_MS } from "@studio/song/moduleCache";
 import { isDocFile } from "@studio/song-schema/docExt";
 
-/** What the ledger knows of one file: its stamp, the `textHash` of its text or ref, the text of a YAML file. */
+/** What the ledger knows of one file: its stamp, the `textHash` of its text or ref, the text of a k7x file. */
 export interface Known {
   stamp: string;
   hash: string;
@@ -22,7 +22,7 @@ export interface Known {
 /** A text file past this travels as an opaque file, like audio. */
 export const TEXT_CEILING = 5 * 1024 * 1024;
 
-/** A file whose text the ledger keeps, to diff its next change into path ops: YAML and k7x. */
+/** A file whose text the ledger keeps, to diff its next change into path ops: a k7x document. */
 export const keepsText = (rel: string): boolean => isDocFile(rel);
 
 /** Git's own test: a NUL byte in the first 8000 bytes makes a file binary, whatever its extension. */

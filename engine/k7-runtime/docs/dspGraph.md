@@ -11,7 +11,7 @@ to grow. This page holds what the **engine** does with the description once it h
 ## The experiment
 
 Can a module's DSP be a **description** rather than a compiled plugin, so it can be written in JS
-(or YAML) as a chain already is?
+(or k7x) as a chain already is?
 
 JS must never go near the audio thread. Throughput is not the problem — an auto-wah written in JS
 measures 0.1 % of a 5.3 ms block — a garbage-collection pause is. So the JS runs **once**, at build

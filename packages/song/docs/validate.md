@@ -9,7 +9,7 @@ It adds no schema of its own. Every file kind here already had a parser — `par
 `parseUiFile`, `parseChain`, `parseGraph`, `parseMix`, `parseMixView` — all with the same
 shape, `{ value, issues }`, all returning located findings, all browser-safe. This is a
 **router** over them, plus a plain Zod check for the kinds that have no parser of their own
-(clips, sequences, curves, video tracks, `project.yaml`, a module folder's MIDI map, and a
+(clips, sequences, curves, video tracks, `project.k7x`, a module folder's MIDI map, and a
 preset).
 
 Because it is the loader's own parsers, an editor and a compile cannot disagree about whether a
@@ -22,17 +22,17 @@ By folder and basename, the way `fileKindFor` reads one:
 
 | path | read as |
 |---|---|
-| `modules/**/ui.yaml` | the panel (`UiFileSchema`) |
-| `_presets/**/*.yaml`, `<library>/presets/**/*.yaml` | a preset (`PresetFileSchema`) — checked before `modules`, whatever the module path holds ([userPresets.md](userPresets.md)) |
-| `modules/**/presets.yaml` | nothing: a reserved name no code reads |
-| `modules/**/controller.yaml` | the MIDI map |
-| `_modules/config.yaml` | a library's namespace |
-| `modules/**/*.yaml` — anything else | a module, generic or node (`ModuleSchema`) |
-| `nodes/*.yaml` | a module, again — the project's flat nodes folder, LANES included ([trackModules.md](trackModules.md)) |
+| `modules/**/ui.k7x` | the panel (`UiFileSchema`) |
+| `_presets/**/*.k7x`, `<library>/presets/**/*.k7x` | a preset (`PresetFileSchema`) — checked before `modules`, whatever the module path holds ([userPresets.md](userPresets.md)) |
+| `modules/**/presets.k7x` | nothing: a reserved name no code reads |
+| `modules/**/controller.k7x` | the MIDI map |
+| `_modules/config.k7x` | a library's namespace |
+| `modules/**/*.k7x` — anything else | a module, generic or node (`ModuleSchema`) |
+| `nodes/*.k7x` | a module, again — the project's flat nodes folder, LANES included ([trackModules.md](trackModules.md)) |
 | `clips/`, `sequences/`, `curves/`, `video_tracks/` | that kind's schema |
-| `graph.yaml`, `project.yaml`, `mix.yaml`, `views/mix.yaml` | the root files — the last two share a base and are told apart by FOLDER, `views/` first |
-| any other `.yaml` | parsed, not judged |
-| anything not YAML | not this module's business |
+| `graph.k7x`, `project.k7x`, `mix.k7x`, `views/mix.k7x` | the root files — the last two share a base and are told apart by FOLDER, `views/` first |
+| any other `.k7x` | parsed, not judged |
+| anything not k7x | not this module's business |
 
 `_modules` is matched as well as `modules`: a shared library holds the same files, and editing
 one is what forks it.
@@ -47,8 +47,8 @@ two are **pinned by a test**: add a sibling file there without adding it here an
 `Validity` says how far the check could go:
 
 - `schema` — parsed and checked. `ok` means the loader would accept it.
-- `syntax` — parsed; no schema claims this path. `ok` means only that it is YAML.
-- `none` — not YAML at all. Nothing here can judge it, so it says nothing.
+- `syntax` — parsed; no schema claims this path. `ok` means only that it is k7x.
+- `none` — not k7x at all. Nothing here can judge it, so it says nothing.
 
 **A file this doesn't recognise is `ok`.** Silence is not a verdict, and an autosave that
 refused everything it had no opinion about would refuse the médiathèque's own files.
@@ -60,9 +60,8 @@ twice — once for syntax, once by the kind's parser — which costs nothing at 
 
 ## Where the line and column come from
 
-The same `locate` the module parser uses, exported from `moduleFile.ts`: walk the YAML
-document to the deepest node on the issue's path and read its range through a `LineCounter`. An
-unknown key is reported by Zod against its *containing* object, so the key is appended to the
+`packages/song-schema/src/yaml/k7xPosition.ts`, which every parser uses: walk the k7x tree to the
+deepest node on the issue's path and read its line and column from its span. An unknown key is reported by Zod against its *containing* object, so the key is appended to the
 path before locating — otherwise every typo would point at the top of the file.
 
 That is what lets an editor underline the reason it is not saving, instead of only naming it in

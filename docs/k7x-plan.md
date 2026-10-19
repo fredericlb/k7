@@ -1,14 +1,14 @@
 # k7x — the plan
 
-Every YAML file of a workspace becomes a `.k7x` file: the same data, written in a syntax that reads
-like Strudel and is never evaluated. The language and why it is shaped that way:
+Every file of a workspace is a `.k7x` file: data written in a syntax that reads like Strudel and is
+never evaluated. The language and why it is shaped that way:
 [packages/k7x/docs/language.md](../packages/k7x/docs/language.md).
 
 ## What "every text file" covers
 
-The YAML files, which are the files a person writes and the UI edits: project, graph, modules, nodes,
-sequences, curves, surfaces, chains, assemblies, playlists, ui panels. Out of scope, each for its own
-reason:
+The files a person writes and the UI edits: project, graph, modules, nodes, sequences, curves,
+surfaces, chains, assemblies, playlists, ui panels, and a library's pins and manifest. Out of scope,
+each for its own reason:
 
 | files | why they stay |
 |---|---|
@@ -16,57 +16,44 @@ reason:
 | `.dsp` (Faust), `jsdsp.ts`, `.glsl` | code, in the language its compiler reads |
 | `.json` | amp-model weights and generated `jsdsp.json` — written by tools, not by hand |
 | `.md` | prose |
+| the media library's store (`song.yaml`, its playlists, `mediatek.yaml`) | not a workspace: a volume of its own, read by `@studio/mediatek` (`packages/song-schema/src/mediaYaml.ts`) |
+| `env.yaml`, `commands.yaml`, `latest.yml`, a machine's `preferences.yaml` | the repository's and the machine's configuration, read by name, never edited as a workspace file |
 
 ## Measured scope
 
-- 81 source files import `yaml` outside tests; `parseDocument` is called 236 times and
-  `getIn`/`setIn`/`deleteIn`/`hasIn` about 270 — the line-preserving Document API is the contract
-  the writers depend on, not `parse`/`stringify`.
-- 1,259 YAML files in `demos/` and `k7-core/`, plus every workspace stored on a server or a
-  device.
-- No C++ or Kotlin reads YAML: the engine receives a compiled `ProjectDoc`. The change is
-  TypeScript-only.
+- No C++ or Kotlin reads a workspace file: the engine receives a compiled `ProjectDoc`. The change
+  is TypeScript-only.
+- 1,272 `.k7x` files in `demos/` and `k7-core/`, the corpus every reader and writer is held to.
 
 ## Phases
 
 1. **The core** — `@studio/k7x`: grammar, span-carrying tree, canonical printer, a document whose
-   edits keep every other byte, and the YAML converter. Proven on the whole corpus
-   (`packages/k7x/src/corpus.test.ts`). Done.
-2. **One door for reading and writing a file** — `packages/song/src/yaml/workspaceFile.ts`, at the
-   input/output boundary rather than in each writer: code keeps its YAML names and YAML text, and a
-   `.k7x` file is read as YAML and written as edits through the bridge
-   (`packages/k7x/docs/bridge.md`). Every node-side read, write, existence check, copy, rename and
-   removal of a workspace file goes through it, and so does the file service's `/file` route for a
-   YAML name (`packages/song/docs/k7xFiles.md`). Done.
-3. **Reading `.k7x`** — wherever a kind is looked up by name, `.k7x` is found first and `.yaml`
-   second; a writer writes back the file it read; a folder listing, the revision token and the
-   browser's path rules accept both. Every demo, converted whole, compiles to the same document and
-   takes the same commands as its YAML original (`packages/commands/src/k7xFiles.test.ts`). Done.
-4. **live-sync over k7x** — a `.k7x` change is a `k7x` op: the same key paths and natural list keys
+   edits keep every other byte. Proven on the whole corpus against the Rust reader, a print/parse
+   round trip and the comment lines every edit must keep (`packages/k7x/src/corpus.test.ts`). Done.
+2. **One door for reading and writing a file** — `packages/song/src/yaml/workspaceDoc.ts`: a file is
+   read as k7x text or data, edited as a k7x document by key path, or written whole from data. A
+   writer takes a document scope and changes values in it, so a knob drag is a one-line diff and an
+   author's comments stay (`packages/song/docs/k7xFiles.md`). Done.
+3. **Reading `.k7x` only** — wherever a kind is looked up by name, the name is `.k7x`; a folder
+   listing, the revision token and the browser's path rules know no other. The file service refuses
+   to save a YAML name into a workspace (`packages/file-service/docs/workspace.md`). Every demo
+   compiles and takes a run of commands (`packages/commands/src/k7xFiles.test.ts`). Done.
+4. **live-sync over k7x** — a change is a `k7x` op: the same key paths and natural list keys
    (`packages/live-sync/src/listKeys.ts`), diffed on the k7x tree, replayed byte for byte, checked
-   and set aside by the room like a YAML op (`packages/live-sync/docs/ops.md`). Done.
+   and set aside by the room when it does not replay (`packages/live-sync/docs/ops.md`). A replica
+   on an older protocol is refused at hello and told to update. Done.
 5. **The editor** — a `.k7x` file has its own colours (`packages/ui-editor/src/k7x/language.ts`),
-   completion from the same zod-derived vocabulary as YAML (`packages/ui-editor/docs/completion.md`),
-   and the same check before autosave, its findings placed on the k7x text's own lines — in the
-   browser and in the loader's messages alike. Done.
-6. **Conversion** — `demos/` and `k7-core/` are `.k7x`, each converted in a commit of its own by
-   `packages/song/scripts/migrateK7x.ts`, every file checked to read back to the same data. Stored
-   workspaces convert through the file service's `POST /migrate-k7x`, one account at a time, the
-   originals kept in the workspace's hidden `.k7x-backup/` (`packages/song/docs/k7xFiles.md`). That
-   route refuses a real run until `STUDIO_K7X=1`: turning it on, once every shipped build
-   reads `.k7x`, is the step this phase leaves to the deploy.
-7. **YAML retired**, in two steps that do not share a risk.
-   - **New files as `.k7x`**: with `STUDIO_K7X=1`, a file created through the workspace door — a
-     command, the editor, the module scaffold, a `.dawproject` import — is written as `.k7x`
-     (`packages/song/docs/k7xFiles.md`). The same switch as the migration, since both are safe exactly
-     when every device reads k7x. Done.
-   - **`.yaml` no longer looked up**: `STUDIO_K7X=only` — a lookup probes `.k7x` alone, a listing
-     skips YAML, a new file is k7x or refused (`packages/song/docs/k7xFiles.md`). A switch rather than
-     deleted code, because it is right only once every workspace has migrated: shipped as code, it
-     would leave any workspace not yet migrated unreadable. Done.
-   - **The YAML paths deleted**: once `only` has run everywhere. The repository's own tests write
-     their fixtures as YAML, and move first — to k7x, or to the YAML copy `testSupport` gives — and
-     readers still receive YAML text through the bridge, each moving to k7x data as it is next touched.
+   completion from the zod-derived vocabulary (`packages/ui-editor/docs/completion.md`), entity links
+   and the preview gutter on the k7x tree (`packages/ui-editor/docs/k7xTree.md`), and the same check
+   before autosave, its findings placed on the k7x text's own lines. Done.
+6. **Every stored workspace is k7x** — `demos/` and `k7-core/` are `.k7x`, and so is every workspace
+   the server and the devices hold: a build reads no other format, so none is left to convert at
+   run time. The one exception is a library's pins and manifest, which a folder older than the
+   format may still hold as `.yaml`: their I/O owner upgrades one once, removing the `.yaml` only
+   after the `.k7x` reads back equal (`packages/file-service/src/legacyUpgrade.ts`). Done.
+7. **YAML gone from workspaces** — no workspace code imports `yaml`. A migration whose only input
+   was a pre-k7x file has no input left and does not exist; the tests write their fixtures as k7x
+   and assert on data or k7x text. Done.
 8. **Sugar, kind by kind** — `notes("c4 d4 ~ e4")` for a sequence's notes, `runs([[…]])` for a
    graph's segments (a chain cannot repeat `.to(…)`, a key being unique in a map). Expanded before
    any reader sees the file; kept through an edit that leaves its expansion alone, written as the full
@@ -74,10 +61,9 @@ reason:
 
 ## The hazards
 
-- **A half-migrated workspace**: a project folder holding both `graph.yaml` and `graph.k7x`. `.k7x`
-  wins, and the conversion deletes the `.yaml` only once the `.k7x` reads back equal.
-- **A writer that transforms YAML text with a pattern** sees the bridge's layout, not the author's.
-  It still writes the right data, since only data is applied, but a pattern that expected one layout
-  may find nothing to change. The demo commands are the guard; a new text-pattern writer needs one.
-- **A device on an older build**: it cannot read `.k7x`. Phase 6 does not start before every
-  shipped desktop and phone build reads it (phase 3 released).
+- **A device on an older build** reads YAML and cannot open a k7x workspace, and its live-sync is
+  refused at hello. The answer is the update it is told to take, not a second format.
+- **A stray `.yaml` in a workspace folder** — copied in by hand — is never read as a workspace
+  file. It is the user's file, so nothing deletes it either.
+- **A writer that rewrites a whole file** loses its author's layout and comments. The demo commands
+  and the corpus test are the guard: a new writer edits values in the existing document.

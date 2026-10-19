@@ -22,7 +22,7 @@ export const WALK_ANYWAY_MS = 10_000;
 const rootsOf = (dir: string): string[] => [
   ...modulePanelRoots(dir),
   join(dir, "nodes"),
-  // A chain project's nodes, lanes and plugin states; `layout.yaml` feeds no cached read (docs/moduleWatch.md).
+  // A chain project's nodes, lanes and plugin states; `layout.k7x` feeds no cached read (docs/moduleWatch.md).
   ...[CHAINS_DIR, TRACKS_DIR, VSTPRESETS_DIR].map((d) => join(dir, d)),
 ];
 

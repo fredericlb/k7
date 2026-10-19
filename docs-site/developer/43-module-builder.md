@@ -1,18 +1,18 @@
 # The module builder
 
 `packages/ui-module-builder` is the visual editor for a module folder: its module file, its panel
-(`ui.k7x`/`ui.yaml`), its DSP source and its `widgets.js`. k7's frontend is its host.
+(`ui.k7x`), its DSP source and its `widgets.js`. k7's frontend is its host.
 
 ## Entry points
 
 | Export | File | What it is |
 |---|---|---|
 | `@studio/ui-module-builder` | `src/EngineBuilder.tsx` | `ModuleBuilder`, what hosts mount. It asks the store for the module's engines and, when there are any, draws the engine strip above `ModuleScreen`. |
-| `./assembly` | `src/AssemblyBuilder.tsx` | The assembly template editor: member parameters, promotion checkboxes, the YAML beside them. |
+| `./assembly` | `src/AssemblyBuilder.tsx` | The assembly template editor: member parameters, promotion checkboxes, the k7x text beside them. |
 | `./store` | `src/store.ts` | The `ModuleStore` interface a host implements. |
 | `./module-ui` | `src/moduleUi.ts` | Reading and writing the panel file, keeping its header comment; each widget on one flow line with defaults omitted. |
 | `./input-channels` | `src/InputChannelBar.tsx` | The mono/stereo and channel picker for `io: in` modules. |
-| `./yaml-pane` | `src/YamlPane.tsx` | The CodeMirror pane, also reused by the media library's song and playlist editors. |
+| `./yaml-pane` | `packages/ui-editor/src/YamlPane.tsx` | The CodeMirror pane — k7x for a workspace file, YAML for the media library's song and playlist editors. |
 | `./param-drag` | `src/paramDrag.ts` | The drag payload of a parameter (MIME `application/x-studio-param`). |
 | `./ai-organize` | `src/aiOrganize.ts` | AI organize's request format and checks, re-exported from `@studio/panel-rules`. |
 
@@ -82,7 +82,7 @@ project, a library module's parameters are best read from a project where its pl
 
 The backend calls the Anthropic API with the account's own key (write-only: reads return a
 masked hint) and model (`DEFAULT_AI_MODEL` in `aiSettings.ts`). It streams, asks for a JSON-schema
-output (`ui_yaml`, `widgets_js`, `notes`), and if the answer fails `checkAiResult` it sends the
+output (`header`, `panel`, `widgets_js`, `notes`, the panel as data printed as `ui.k7x`), and if the answer fails `checkAiResult` it sends the
 issues back once for a repair. The response to the browser is NDJSON events (`status`, `done`,
 `error`) with a heartbeat; closing the tab aborts. The result lands in the builder's buffers, not
 on disk.

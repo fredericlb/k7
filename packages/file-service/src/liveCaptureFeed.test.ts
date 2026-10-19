@@ -13,7 +13,7 @@ let capture: LiveCapture | null = null;
 function start(): LiveCapture {
   root = mkdtempSync(join(tmpdir(), "live-feed-"));
   mkdirSync(join(root, "song.k7"), { recursive: true });
-  writeFileSync(join(root, "song.k7", "project.yaml"), "project: t\n");
+  writeFileSync(join(root, "song.k7", "project.k7x"), 'project("t")\n');
   capture = new LiveCapture({
     root,
     replica: "a",

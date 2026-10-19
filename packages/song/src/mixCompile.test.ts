@@ -2,13 +2,13 @@
 // param, beside the plugin's own, and inherits through `extends` like any field. Absent, it is not
 // sent at all: all wet is what the engine does with nothing (engine/k7-runtime/docs/mix.md).
 
-import { appendFileSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
-import { copyAsYaml } from "./testSupport";
+import { setDoc } from "./testSupport";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEMOS = join(here, "..", "..", "..", "demos");
@@ -24,10 +24,8 @@ const lead = () =>
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-mix-"));
   dir = join(ws, "synth-demo.k7");
-  copyAsYaml(join(DEMOS, "synth-demo.k7"), dir, { recursive: true });
-  copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
-    recursive: true,
-  });
+  cpSync(join(DEMOS, "synth-demo.k7"), dir, { recursive: true });
+  cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
@@ -36,6 +34,6 @@ it("sends no @mix when the module states none", () => {
 });
 
 it("sends the node's own mix as @mix", () => {
-  appendFileSync(join(dir, "nodes", "lead.yaml"), "mix: 0.3\n");
+  setDoc(join(dir, "nodes", "lead.k7x"), ["mix"], 0.3);
   expect(lead()?.params["@mix"]).toBe(0.3);
 });

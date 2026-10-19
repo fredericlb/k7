@@ -2,6 +2,7 @@
 // document, or a library's, read off its template with its offline steps diverted to cold steps.
 // A chain either bounces or separates, never both. See docs/processChain.md.
 
+import { readFileSync } from "node:fs";
 import {
   DSP_GRAPH_PLUGIN,
   enginePlugin,
@@ -17,7 +18,6 @@ import { type MissingModel, missingModel } from "@studio/song/modelCache";
 import { resolveModule } from "@studio/song/moduleResolve";
 import type { PluginDoc, ProjectDoc } from "@studio/song/project";
 import { MIXER_PLUGIN } from "@studio/song/project";
-import { wsRead } from "@studio/song/yaml/workspaceFile";
 import {
   DEFAULT_LIBRARY,
   libraryRefParts,
@@ -64,7 +64,7 @@ function dspGraphOf(m: LoadedModule): string | undefined {
   if (!m.jsdsp) return undefined;
   const built = `${String(m.jsdsp).replace(/\.[tj]sx?$/, "")}.json`;
   try {
-    return wsRead(built);
+    return readFileSync(built, "utf8");
   } catch {
     return undefined; // never compiled on this machine — reported by the caller
   }

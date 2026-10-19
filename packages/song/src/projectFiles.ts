@@ -2,8 +2,9 @@
 // a module, an io node, a node, a module clone. What a reader gets wrong: a lane in a chain
 // project is a chain file, not a `nodes/` file. See docs/loader.md.
 
-import { cpSync, mkdirSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { stringify } from "@studio/k7x/print";
 import { instanceName } from "@studio/song-schema/instanceName";
 import {
   IO_MODULES,
@@ -22,7 +23,11 @@ import type { LoadedModule } from "./rawDoc";
 import { SHARED_MODULES_PATH } from "./sharedFolders";
 import { setFileValue } from "./yaml/edit";
 import { entityFileFor, isProjectFolder, moduleFileFor } from "./yaml/moduleIO";
-import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
+import { wsEdit, wsWriteText } from "./yaml/workspaceDoc";
+
+/** A node file's k7x text: its `//` description, then its fields in canonical form. */
+const nodeText = (header: string[], body: Record<string, unknown>): string =>
+  stringify(body, { header });
 
 // Create a LANE's file (`nodes/`, or `tracks/` and its chain in a chain project), appending to `trackOrder` when there is one.
 export function createTrackFile(dir: string, id: string): string[] {
@@ -31,17 +36,17 @@ export function createTrackFile(dir: string, id: string): string[] {
     throw new Error(
       `invalid track name '${id}' — letters, digits, '.', '_' and '-' only`,
     );
-  const body = [`extends: "${TRACK_REF}"`, "events: []", ""].join("\n");
+  const body = stringify({ extends: TRACK_REF, events: [] });
   // A chain project keeps a lane in `tracks/`, played by a chain of its own (docs/chainFiles.md).
   const written = isChainProject(dir) ? createChainLane(dir, id, body) : null;
-  const rel = `nodes/${id}.yaml`;
-  if (!written && wsExists(join(dir, rel)))
+  const rel = `nodes/${id}.k7x`;
+  if (!written && existsSync(join(dir, rel)))
     throw new Error(`track '${id}' already exists (${rel})`);
   // A module of that name is not in the way: the lane takes the bare name, the module keeps its ref (docs/trackModules.md).
 
   if (!written) {
     mkdirSync(join(dir, "nodes"), { recursive: true });
-    wsWrite(join(dir, rel), body);
+    wsWriteText(join(dir, rel), body);
   }
 
   const root = loadProjectRoot(dir, true);
@@ -53,7 +58,7 @@ export function createTrackFile(dir: string, id: string): string[] {
   return written ?? [rel];
 }
 
-/** State a lane order in `project.yaml` — the song's lanes, or its picture's, which are two lists (docs/trackKind.md). */
+/** State a lane order in `project.k7x` — the song's lanes, or its picture's, which are two lists (docs/trackKind.md). */
 export function setLaneOrder(
   dir: string,
   which: "trackOrder" | "layers",
@@ -61,7 +66,7 @@ export function setLaneOrder(
 ): string {
   const projectFile = entityFileFor(dir, "", "project");
   if (!projectFile)
-    throw new Error("no project.yaml — there is nowhere to state a lane order");
+    throw new Error("no project.k7x — there is nowhere to state a lane order");
   setFileValue(
     projectFile.path,
     which === "layers" ? ["project", "layers"] : ["trackOrder"],
@@ -71,33 +76,31 @@ export function setLaneOrder(
   return projectFile.rel.replace(/^\//, "");
 }
 
-/** Create `video_tracks/<id>.yaml` AND list `<id>` in `project.layers` — two writes and ONE act (packages/song-video/docs/picture.md). */
+/** Create `video_tracks/<id>.k7x` AND list `<id>` in `project.layers` — two writes and ONE act (packages/song-video/docs/picture.md). */
 export function createVideoTrackFile(dir: string, id: string): string[] {
   if (!/^[A-Za-z0-9_.-]+$/.test(id))
     throw new Error(
       `invalid lane name '${id}' — letters, digits, '.', '_' and '-' only`,
     );
-  const rel = `video_tracks/${id}.yaml`;
-  if (wsExists(join(dir, rel)))
+  const rel = `video_tracks/${id}.k7x`;
+  if (existsSync(join(dir, rel)))
     throw new Error(`picture lane '${id}' already exists (${rel})`);
   // The graph draws a song's lanes and its picture lanes in ONE name space, so the two cannot share a name.
   if (
-    wsExists(join(dir, "nodes", `${id}.yaml`)) ||
-    wsExists(join(dir, "tracks", `${id}.yaml`)) ||
+    existsSync(join(dir, "nodes", `${id}.k7x`)) ||
+    existsSync(join(dir, "tracks", `${id}.k7x`)) ||
     id in loadModules(dir)
   )
     throw new Error(`'${id}' is already a track or a module in this project`);
   // Looked up BEFORE either write: an orphan lane file would fail the compile until somebody listed it by hand.
   const projectFile = entityFileFor(dir, "", "project");
   if (!projectFile)
-    throw new Error(
-      "no project.yaml — a picture lane has nowhere to be listed",
-    );
+    throw new Error("no project.k7x — a picture lane has nowhere to be listed");
   const layers = loadProjectRoot(dir, true).project?.layers;
 
   mkdirSync(join(dir, "video_tracks"), { recursive: true });
   // No x/y/w/h: a lane stating no rect fills the frame, which is what a new one should do (song-video/docs/picture.md).
-  wsWrite(join(dir, rel), ["events: []", ""].join("\n"));
+  wsWriteText(join(dir, rel), stringify({ events: [] }));
   // Appended, so the new lane draws LAST — on top, where you can see what you just made.
   setFileValue(
     projectFile.path,
@@ -108,20 +111,17 @@ export function createVideoTrackFile(dir: string, id: string): string[] {
   return [rel, projectFile.rel.replace(/^\//, "")];
 }
 
-// Create `sequences/<id>.yaml` — four empty bars said as the sequence's own window, since no notes means nothing to measure.
+// Create `sequences/<id>.k7x` — four empty bars said as the sequence's own window, since no notes means nothing to measure.
 export function createSequenceFile(dir: string, id: string): string[] {
   if (!/^[A-Za-z0-9_.-]+$/.test(id))
     throw new Error(
       `invalid sequence name '${id}' — letters, digits, '.', '_' and '-' only`,
     );
-  const rel = `sequences/${id}.yaml`;
-  if (wsExists(join(dir, rel)))
+  const rel = `sequences/${id}.k7x`;
+  if (existsSync(join(dir, rel)))
     throw new Error(`sequence '${id}' already exists (${rel})`);
   mkdirSync(join(dir, "sequences"), { recursive: true });
-  wsWrite(
-    join(dir, rel),
-    ['from: "1:1"', 'to: "5:1"', "notes: []", ""].join("\n"),
-  );
+  wsWriteText(join(dir, rel), stringify({ from: "1:1", to: "5:1", notes: [] }));
   return [rel];
 }
 
@@ -161,74 +161,75 @@ export function createModuleFile(
     ? resolve(dir, SHARED_MODULES_PATH, category, module)
     : join(dir, "modules", category, module);
   const rel = isProject
-    ? `${SHARED_MODULES_PATH}/${category}/${module}/module.yaml`
-    : `modules/${category}/${module}/module.yaml`;
-  if (wsExists(moduleDir))
+    ? `${SHARED_MODULES_PATH}/${category}/${module}/module.k7x`
+    : `modules/${category}/${module}/module.k7x`;
+  if (existsSync(moduleDir))
     throw new Error(
       `${category}/${module} already exists ${isProject ? "in the workspace's _modules" : "here"}`,
     );
   mkdirSync(moduleDir, { recursive: true });
-  const body = extendsRef // a flat mapping, no `name:` — the folder names it
-    ? `# ${module}: extends module "${extendsRef}".\n` +
-      `extends: ${JSON.stringify(extendsRef)}\n`
-    : `# ${module}: a bare module. Give it a plugin inline, or extend another module, e.g.\n` +
-      `#   extends: "@k7-core/instruments/fourosc"\n`;
-  wsWrite(join(moduleDir, "module.yaml"), body);
+  // A flat map, no `name` — the folder names it.
+  const body = extendsRef
+    ? nodeText([`${module}: extends module "${extendsRef}".`], {
+        extends: extendsRef,
+      })
+    : `// ${module}: a bare module. Give it a plugin inline, or extend another module, e.g.\n` +
+      `//   extends("@k7-core/instruments/fourosc")\n`;
+  wsWriteText(join(moduleDir, "module.k7x"), body);
   return rel;
 }
 
-/** What an io module's `module.yaml` SAYS — the role line is what the loader reads; the rest is prose for the reader (docs/moduleTypes.md). */
+/** What an io module's `module.k7x` SAYS — the role line is what the loader reads; the rest is prose for the reader (docs/moduleTypes.md). */
 function ioModuleBody(
   module: string,
   role: "in" | "out" | "file" | "camera" | "midi",
 ): string {
   if (role === "in")
     return (
-      `# ${module}: this machine's audio input, the live rig's IN.\n` +
-      `#\n` +
-      `# \`monitor: "auto"\` is audible once its track is armed; "on" always, "off" never. QUOTED,\n` +
-      `# because YAML 1.1 would otherwise read "on" and "off" as booleans.\n` +
-      `io: in\n` +
-      `monitor: "auto"\n` +
-      `# …and a trim in dB, applied at the interface ahead of everything: 0 is unity.\n` +
-      `gain: 0\n`
+      `// ${module}: this machine's audio input, the live rig's IN.\n` +
+      `//\n` +
+      `// \`monitor("auto")\` is audible once its track is armed; "on" always, "off" never.\n` +
+      `io("in")\n` +
+      `monitor("auto")\n` +
+      `// …and a trim in dB, applied at the interface ahead of everything: 0 is unity.\n` +
+      `gain(0)\n`
     );
   if (role === "camera")
     return (
-      `# ${module}: a live picture — the one io source whose signal is video, not audio (docs/camera.md).\n` +
-      `#\n` +
-      `# It names NO lens: which camera you are on is a fact about your rig. Empty means whichever\n` +
-      `# one this machine calls default, so it draws a picture before you have chosen anything.\n` +
-      `# Pick it on the node's card, or write the LABEL here — never a deviceId, which is salted\n` +
-      `# per browser and rotates:\n` +
-      `#\n` +
-      `#     camera: "Logitech BRIO"\n` +
-      `io: camera\n`
+      `// ${module}: a live picture — the one io source whose signal is video, not audio (docs/camera.md).\n` +
+      `//\n` +
+      `// It names NO lens: which camera you are on is a fact about your rig. Empty means whichever\n` +
+      `// one this machine calls default, so it draws a picture before you have chosen anything.\n` +
+      `// Pick it on the node's card, or write the LABEL here — never a deviceId, which is salted\n` +
+      `// per browser and rotates:\n` +
+      `//\n` +
+      `//     camera("Logitech BRIO")\n` +
+      `io("camera")\n`
     );
   if (role === "midi")
     return (
-      `# ${module}: a MIDI device — the notes a lane records, when this node is wired to it (docs/midiIn.md).\n` +
-      `#\n` +
-      `# Pick the device on the node's card, or write its LABEL here — never an id, which is per\n` +
-      `# browser. Empty records from any device:\n` +
-      `#\n` +
-      `#     device: "Arturia KeyStep 37"\n` +
-      `io: midi\n`
+      `// ${module}: a MIDI device — the notes a lane records, when this node is wired to it (docs/midiIn.md).\n` +
+      `//\n` +
+      `// Pick the device on the node's card, or write its LABEL here — never an id, which is per\n` +
+      `// browser. Empty records from any device:\n` +
+      `//\n` +
+      `//     device("Arturia KeyStep 37")\n` +
+      `io("midi")\n`
     );
   if (role === "file")
     return (
-      `# ${module}: audio off disk rather than off an interface (docs/fileInput.md).\n` +
-      `#\n` +
-      `# \`source\` is optional and absent is the useful case — pick the file on the node's\n` +
-      `# card, or name it here, project-relative:\n` +
-      `#\n` +
-      `#     source: "clips/original.wav"\n` +
-      `io: file\n`
+      `// ${module}: audio off disk rather than off an interface (docs/fileInput.md).\n` +
+      `//\n` +
+      `// \`source\` is optional and absent is the useful case — pick the file on the node's\n` +
+      `// card, or name it here, project-relative:\n` +
+      `//\n` +
+      `//     source("clips/original.wav")\n` +
+      `io("file")\n`
     );
   return (
-    `# ${module}: an output sink — OUT the interface, CUE the headphone bus. A module\n` +
-    `# reaches it by naming it as a destination in the graph.\n` +
-    `io: out\n`
+    `// ${module}: an output sink — OUT the interface, CUE the headphone bus. A module\n` +
+    `// reaches it by naming it as a destination in the graph.\n` +
+    `io("out")\n`
   );
 }
 
@@ -245,11 +246,11 @@ export function createIoModuleFile(
   // In a chain project the name is the new chain's, and what comes back is the node's id.
   if (isChainProject(dir))
     return createChainNode(dir, name, ioModuleBody(name, role)).id;
-  const rel = `${NODES_DIR}/${name}.yaml`;
-  if (wsExists(join(dir, rel)))
+  const rel = `${NODES_DIR}/${name}.k7x`;
+  if (existsSync(join(dir, rel)))
     throw new Error(`${rel} already exists — refusing to overwrite`);
   mkdirSync(join(dir, NODES_DIR), { recursive: true });
-  wsWrite(join(dir, rel), ioModuleBody(name, role));
+  wsWriteText(join(dir, rel), ioModuleBody(name, role));
   return rel;
 }
 
@@ -269,11 +270,11 @@ export function nodeNameTaken(dir: string): (name: string) => boolean {
   const chains = isChainProject(dir);
   return (n) =>
     n in taken ||
-    wsExists(join(dir, NODES_DIR, `${n}.yaml`)) ||
+    existsSync(join(dir, NODES_DIR, `${n}.k7x`)) ||
     (chains && chainTaken(dir, n));
 }
 
-// Create one USE of a module: `nodes/<node>.yaml`, FLAT — or a loose chain item, returning its id (docs/chainFiles.md).
+// Create one USE of a module: `nodes/<node>.k7x`, FLAT — or a loose chain item, returning its id (docs/chainFiles.md).
 export function createNode(
   dir: string,
   category: string,
@@ -326,9 +327,9 @@ export function createNode(
         `create it first, or name one of the engine's`,
     );
   // Free among the nodes only: a module of that name keeps its ref, the node the bare name (docs/trackModules.md).
-  const rel = `${NODES_DIR}/${node}.yaml`;
+  const rel = `${NODES_DIR}/${node}.k7x`;
   const chains = isChainProject(dir);
-  if (!chains && wsExists(join(dir, rel)))
+  if (!chains && existsSync(join(dir, rel)))
     throw new Error(`${rel} already exists — refusing to overwrite`);
   const plugin = fromEngine?.plugin;
   // The explicit level, which is the form new files are written in — see loadModuleRefs.
@@ -336,21 +337,31 @@ export function createNode(
     ? `@workspace/${moduleRefOf(category, module)}`
     : `@project/${moduleRefOf(category, module)}`;
   const body = local
-    ? `# ${node}: one use of module "${category}/${module}".\n` +
-      `# It inherits everything that module says — state only what THIS use changes, e.g.\n` +
-      `#   params:\n` +
-      `#     Filter Freq: 69\n` +
-      `extends: ${JSON.stringify(ref)}\n`
-    : `# ${node}: one use of "${module}", a module the engine provides.\n` +
-      `# The plugin is named here so the project says what it uses, whatever this machine\n` +
-      `# has scanned. Add params: to set it.\n` +
-      `plugin:\n` +
-      `  type: ${JSON.stringify(String(plugin?.type ?? ""))}\n` +
-      `  name: ${JSON.stringify(String(plugin?.name ?? ""))}\n`;
+    ? nodeText(
+        [
+          `${node}: one use of module "${category}/${module}".`,
+          `It inherits everything that module says — state only what THIS use changes, e.g.`,
+          `  params({ "Filter Freq": 69 })`,
+        ],
+        { extends: ref },
+      )
+    : nodeText(
+        [
+          `${node}: one use of "${module}", a module the engine provides.`,
+          `The plugin is named here so the project says what it uses, whatever this machine`,
+          `has scanned. Add params to set it.`,
+        ],
+        {
+          plugin: {
+            type: String(plugin?.type ?? ""),
+            name: String(plugin?.name ?? ""),
+          },
+        },
+      );
   // A chain project: one item in a chain named `node`, and the node's id is what comes back.
   if (chains) return createChainNode(dir, node, body).id;
   mkdirSync(join(dir, NODES_DIR), { recursive: true });
-  wsWrite(join(dir, rel), body);
+  wsWriteText(join(dir, rel), body);
   return rel;
 }
 
@@ -382,24 +393,21 @@ export function cloneModuleFile(
       ? resolve(dir, SHARED_MODULES_PATH, category, n)
       : join(dir, "modules", category, n);
   const srcDir = localDir(name);
-  if (!wsExists(srcDir) || !wsExists(join(srcDir, "module.yaml")))
+  if (!existsSync(srcDir) || !existsSync(join(srcDir, "module.k7x")))
     throw new Error(`module '${category}/${name}' not found`);
   const destDir = localDir(newName);
   const destRel = isProject
     ? `${SHARED_MODULES_PATH}/${category}/${newName}`
     : `modules/${category}/${newName}`;
-  if (wsExists(destDir)) throw new Error(`folder ${destRel}/ already exists`);
+  if (existsSync(destDir)) throw new Error(`folder ${destRel}/ already exists`);
   cpSync(srcDir, destDir, { recursive: true });
-  const modPath = join(destDir, "module.yaml"); // rewritten below if it has a `name:` field
   try {
-    const body = wsRead(modPath);
-    const rewritten = body.replace(
-      /^(name\s*:\s*)"[^"]*"/m,
-      `$1${JSON.stringify(newName)}`,
-    );
-    if (rewritten !== body) wsWrite(modPath, rewritten);
+    // A `name` it states follows the folder; one it does not state is left unstated.
+    wsEdit(join(destDir, "module.k7x"), (doc) => {
+      if (typeof doc.getIn(["name"]) === "string") doc.setIn(["name"], newName);
+    });
   } catch {
-    /* read-only or missing — leave as-is */
+    /* read-only or unreadable — leave as-is */
   }
-  return `${destRel}/module.yaml`;
+  return `${destRel}/module.k7x`;
 }

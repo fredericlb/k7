@@ -19,14 +19,14 @@ one of them — the parameter list is a tab, so it is not the thing to hang the 
 
 ## A module rarely SAYS it is an input
 
-`nodes/ge_rythm-in.yaml`, from a real song, is two lines:
+`nodes/ge_rythm-in.k7x`, from a real song, is two lines:
 
-```yaml
-extends: "@meta/IN"
-channel: [ 2 ]
+```k7x
+extends("@meta/IN")
+channel([2])
 ```
 
-No `io:` anywhere. So `ioOf` resolves three sources in order — the file's own key, an
+No `io(…)` anywhere. So `ioOf` resolves three sources in order — the file's own key, an
 `extends` naming one of the engine's io modules (`IO_MODULES`, a fixed table and not files),
 and failing both the path, since a file under `io/IN/` is one of that folder's inputs and
 that is how the loader decides it too. Reading only the first calls this an ordinary plugin

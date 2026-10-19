@@ -35,9 +35,9 @@ export function deadAutomations(dir: string, doc: ProjectDoc): Diagnostic[] {
           : null;
       if (!why) continue;
       const chain = (lane.pluginId ?? "").split(":")[0];
-      const rel = `chains/${chain}.yaml`;
+      const rel = `chains/${chain}.k7x`;
       out.push({
-        file: wsExists(join(dir, rel)) ? rel : "project.yaml",
+        file: wsExists(join(dir, rel)) ? rel : "project.k7x",
         line: 1,
         col: 1,
         severity: "warning",

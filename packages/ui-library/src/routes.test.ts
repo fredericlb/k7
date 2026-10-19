@@ -136,14 +136,14 @@ describe("fromLocation", () => {
 
 describe("splitting an open file", () => {
   it("gives the entry's folder and the file's own name", () => {
-    expect(folderOf("audio/reverb/ui.yaml")).toBe("audio/reverb");
-    expect(fileOf("audio/reverb/ui.yaml")).toBe("ui.yaml");
+    expect(folderOf("audio/reverb/ui.k7x")).toBe("audio/reverb");
+    expect(fileOf("audio/reverb/ui.k7x")).toBe("ui.k7x");
     // A song's three tags are just more path, the way a module's category is.
     expect(folderOf("AC-DC/Back in Black/Hells Bells/song.yaml")).toBe(
       "AC-DC/Back in Black/Hells Bells",
     );
     // A bare name has no entry to belong to — nothing opens.
-    expect(folderOf("ui.yaml")).toBeNull();
+    expect(folderOf("ui.k7x")).toBeNull();
     expect(folderOf(null)).toBeNull();
   });
 });

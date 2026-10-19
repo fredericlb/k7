@@ -90,7 +90,7 @@ would do, and the waveform pass then decodes every copy.
 
 So `emit.ts` keys the audio it writes by CONTENT (`audioFor`), because that is the half both cases
 share, and names each file after the source the archive called it rather than after any clip. Each
-clip keeps its own `clips/<id>.yaml` — the window, the fades and the warp markers are the clip's,
+clip keeps its own `clips/<id>.k7x` — the window, the fades and the warp markers are the clip's,
 and only the bytes are shared. Measured on a real Bitwig export: 54 clips, 51 recordings, 243 MB
 written instead of 258.
 
@@ -263,7 +263,7 @@ Those params matter only for a plugin whose blob would not decode at all.
 ## A sole insert is folded, unless the name is a chain's
 
 One use of a plugin needs no node file: the module IS the node, and the chain names it bare. The
-exception is the collision `graph.yaml`'s one name space makes: a lane wins a bare name there
+exception is the collision `graph.k7x`'s one name space makes: a lane wins a bare name there
 (`packages/song/docs/trackModules.md`), so a step folded onto a name a chain already has reads as
 the chain naming ITSELF. The step then disappears from the segment, and on an instrument track the
 lane's midi lands on the next module's audio input — "port 'in' expects audio but source is midi",
@@ -279,13 +279,13 @@ gutter fader, the card and the Mixer view are three drawings of it
 (`packages/song/docs/trackMixer.md`). A lane without one plays at unity with nowhere to put a
 level.
 
-So each emitted lane gets `nodes/mix-<lane>.yaml`, a last step naming it, and nothing else: the node
+So each emitted lane gets `nodes/mix-<lane>.k7x`, a last step naming it, and nothing else: the node
 extends **`@meta/audio/mixer`** — `SHARED_STRIP`, k7's own module that every mixer node in every
 project is a use of (`packages/song/docs/metaModules.md`).
 
 **No project module is written for it**, and that is the point rather than a saving. A project-owned
 copy of a library module compiles to the same audio and draws **a card with no controls on it**: a
-card draws the `ui.yaml` beside the module it resolves to, and the library's `mixer/` is what
+card draws the `ui.k7x` beside the module it resolves to, and the library's `mixer/` is what
 carries one (`packages/song/docs/liveProject.md`). Writing the plugin inline here would also mean
 the import deciding what a strip IS, in a project whose library already says.
 
@@ -301,7 +301,7 @@ imported project could not be repaired by the tool that repairs every other one.
 
 ## The surface, so the song can be looked at
 
-A project draws what it DECLARES (`packages/song/docs/surfaces.md`): no `surfaces/timeline.yaml`,
+A project draws what it DECLARES (`packages/song/docs/surfaces.md`): no `surfaces/timeline.k7x`,
 no lanes on screen, no transport and no minimap — the song still compiles and still plays, which is
 what makes the absence read as a broken editor rather than as a missing file.
 
@@ -314,24 +314,24 @@ than something a foreign project describes.
 
 ```
 <outDir>/
-  project.yaml                  header
-  graph.yaml                   the graph: track -> modules -> strip -> MIX -> OUT
-  modules/io/OUT/module.yaml    the stereo-output sink (io module)
-  modules/{instruments,audio,transformers}/<slug>/module.yaml
+  project.k7x                  header
+  graph.k7x                   the graph: track -> modules -> strip -> MIX -> OUT
+  modules/io/OUT/module.k7x    the stereo-output sink (io module)
+  modules/{instruments,audio,transformers}/<slug>/module.k7x
                                 self-contained modules, each its own folder filed by
                                 type (the folder gives the kind + input port): the
                                 plugin inline + its params; deduped by plugin+params
-  nodes/<slug>.yaml             a LANE: `extends` a track module, plus its placements
-  nodes/<module>_<lane>.yaml    one USE of a plugin used more than once: `extends` the
+  nodes/<slug>.k7x             a LANE: `extends` a track module, plus its placements
+  nodes/<module>_<lane>.k7x    one USE of a plugin used more than once: `extends` the
                                 module above and holds only what this use changes
   nodes/<node>.vstpreset        that use's own plugin state, beside its file
-  clips/<id>.yaml (+.wav)       raw audio material
-  sequences/<id>.yaml           raw MIDI material (inline notes)
+  clips/<id>.k7x (+.wav)       raw audio material
+  sequences/<id>.k7x           raw MIDI material (inline notes)
 ```
 
 Nodes are **flat**, and a chain step names one by its filename alone — never
 `<module>:<node>`, the layout [nodes.md](../../song/docs/nodes.md) rules out. A plugin used
-exactly once keeps its settings in `module.yaml` and gets no node file at all.
+exactly once keeps its settings in `module.k7x` and gets no node file at all.
 
 No schema file: a project is validated in process against the loader's own schemas
 (`packages/song/src/yaml/`), so there is nothing to ship alongside it.
@@ -340,13 +340,15 @@ No schema file: a project is validated in process against the loader's own schem
 
 These are the choices `src/emit.ts` and its parts make that a reader would otherwise have to
 reconstruct. `emit.ts` runs the import; `emitGraph.ts` writes the routing, `emitModules.ts` the
-plugins, `emitAudio.ts` the material, and `emitNaming.ts` holds the YAML, the slugs and the one
-`EmitCtx` they all fill.
+plugins, `emitAudio.ts` the material, and `emitNaming.ts` holds the k7x writer, the slugs and the
+one `EmitCtx` they all fill.
 
 **Every timing field is a `#Timecode` STRING, never a bare number.** A bare `4` parses as BARS
-and lands the clip at beat 12. And a timecode is written QUOTED: bare, `25:1` is a YAML 1.1
-sexagesimal. The shape decisions in the emitters match what k7 itself writes — a placement, a
-chain node or a note stays on ONE line.
+and lands the clip at beat 12. The shape decisions in the emitters match what k7 itself writes:
+every file is a value printed by `@studio/k7x/print` in its canonical layout, a comment the import
+owes the reader goes on top as `//` lines, and a placement, a chain node or a note stays on ONE
+line. Those comments carry names from the imported file, so their control characters are
+stripped: one would end the comment early.
 
 **A placement does not carry the clip's extent.** That belongs to the material, as a `from`/`to`
 window in the clip's or sequence's own file (`materialWindow`). All the placement adds is how many
@@ -357,18 +359,18 @@ omission, which is how a hand would write it.
 slug, so the display name is that slug. A lane is a NODE of `@meta/track` and is not typed, so
 an imported track's clips carry their own kind, and one track holding both audio and MIDI is the
 ordinary case rather than a shape with nowhere to go. Its mute is its module's bypass and goes to
-`graph.yaml`. The lane file's own key is `events:`, not `clips:`:
-a clip is the material in `clips/<id>.yaml`, and these are placements of it. See
+`graph.k7x`. The lane file's own key is `events:`, not `clips:`:
+a clip is the material in `clips/<id>.k7x`, and these are placements of it. See
 [trackModules.md](../../song/docs/trackModules.md).
 
 **One module per PLUGIN, one insert per use.** Modules are keyed by the plugin rather than by its
 settings, so a plugin used several times becomes nodes rather than a `reverb_2, reverb_3` pile.
 Each insert gets its OWN node even when identically set: they are separate slots, and sharing one
 would make tweaking the vocal's reverb silently retune the drums'. A plugin used in exactly ONE
-place then folds back into `module.yaml`, so an import pays for nodes only where settings really
+place then folds back into `module.k7x`, so an import pays for nodes only where settings really
 differ.
 
-Because a node is flat (`nodes/<name>.yaml`, named by its file alone), a node shares ONE namespace
+Because a node is flat (`nodes/<name>.k7x`, named by its file alone), a node shares ONE namespace
 with the lanes and the modules a chain step may equally name, and uniqueness has to hold across all
 three. A module whose sole use folded back has its own name taken as far as a node is concerned.
 
@@ -379,7 +381,7 @@ song a legacy layout on day one.
 **Text params capture state when they are complete or when there is no preset**; otherwise the
 opaque `.vstpreset` is kept and the partial params are skipped. The preset is written beside the
 file whose state it is: `nodes/<node>.vstpreset` for a node, and the module's own folder for the
-sole use that stayed in `module.yaml`.
+sole use that stayed in `module.k7x`.
 
 **A plugin the cache does not know gets NO module of its own.** Every use of it is written as a
 node on `@meta/not-supported`, the built-in placeholder, carrying the plugin's real name as
@@ -404,7 +406,7 @@ module refs a SURVIVING chain names are counted before the sole-insert fold.
 
 ### The graph is SEGMENTS, and sends lose their level
 
-`graph.yaml` holds who feeds whom, and that is where the imported sends survive: a node lists as
+`graph.k7x` holds who feeds whom, and that is where the imported sends survive: a node lists as
 many destinations as it has, so a track that is dry to master AND feeding a bus keeps both — a
 format giving a chain ONE sink would have to drop one of them. A `to` naming another chain resolves
 to the module that chain starts at, since a chain is not something to route to by name.

@@ -1,21 +1,17 @@
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { projectHints } from "./hints";
 import { compileNodeProject } from "./nodeProject";
 import {
-  copyAsYaml,
   insertChainStepAfter,
   replaceChainStep,
+  setDoc,
+  writeDoc,
 } from "./testSupport";
 
 // A step may name an INHERITED module by its ref, with no local module standing in for it.
@@ -31,34 +27,15 @@ describe("a chain step naming an inherited module by ref", () => {
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-nsstep-"));
     dir = join(ws, "song");
-    copyAsYaml(SONG, dir, { recursive: true });
+    cpSync(SONG, dir, { recursive: true });
     // The Examples workspace's own shared library, beside every demo project.
-    copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
-      recursive: true,
-    });
+    cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
     // The workspace's shared catalogue: a namespace, and one module in it.
-    mkdirSync(join(ws, "_modules", "audio", "shared-delay"), {
-      recursive: true,
+    writeDoc(join(ws, "_modules", "audio", "shared-delay", "module.k7x"), {
+      plugin: { type: "internal", name: "delay" },
     });
-    writeFileSync(
-      join(ws, "_modules", "audio", "shared-delay", "module.yaml"),
-      "plugin:\n  type: internal\n  name: delay\n",
-    );
     // …and a shared SINK, for the other position a module name is written in.
-    mkdirSync(join(ws, "_modules", "io", "desk"), { recursive: true });
-    writeFileSync(
-      join(ws, "_modules", "io", "desk", "module.yaml"),
-      "io: out\n",
-    );
-    // Point the project at it, keeping the rest of project.yaml as the fixture wrote it.
-    const p = join(dir, "project.yaml");
-    writeFileSync(
-      p,
-      readFileSync(p, "utf8").replace(
-        "modules_from: []",
-        "modules_from: [ ../_modules ]",
-      ),
-    );
+    writeDoc(join(ws, "_modules", "io", "desk", "module.k7x"), { io: "out" });
     insertChainStepAfter(dir, "lead", { module: REF });
   });
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
@@ -73,7 +50,7 @@ describe("a chain step naming an inherited module by ref", () => {
     const melody = compileNodeProject(dir).tracks.find(
       (t) => t.id === "melody",
     );
-    expect(melody!.plugins.some((p) => p.id.endsWith(`:${REF}`))).toBe(true);
+    expect(melody?.plugins.some((p) => p.id.endsWith(`:${REF}`))).toBe(true);
   });
 
   it("is offered as a completion, alongside the project's own modules", () => {
@@ -99,25 +76,13 @@ describe("a ref that spells a node with a slash", () => {
   it("is told which character to change", () => {
     const ws = mkdtempSync(join(tmpdir(), "td-slash-"));
     const dir = join(ws, "song");
-    copyAsYaml(SONG, dir, { recursive: true });
-    mkdirSync(join(ws, "_modules", "io", "IN"), { recursive: true });
-    writeFileSync(join(ws, "_modules", "io", "IN", "module.yaml"), "io: in\n");
-    writeFileSync(
-      join(ws, "_modules", "io", "IN", "in-2.yaml"),
-      "channel: [2]\n",
-    );
-    const p = join(dir, "project.yaml");
-    writeFileSync(
-      p,
-      readFileSync(p, "utf8").replace(
-        "modules_from: []",
-        "modules_from: [ ../_modules ]",
-      ),
-    );
-    const c = join(dir, "graph.yaml");
-    writeFileSync(
-      c,
-      `${readFileSync(c, "utf8")}  "@workspace/io/IN/in-2": [ melody ]\n`,
+    cpSync(SONG, dir, { recursive: true });
+    writeDoc(join(ws, "_modules", "io", "IN", "module.k7x"), { io: "in" });
+    writeDoc(join(ws, "_modules", "io", "IN", "in-2.k7x"), { channel: [2] });
+    setDoc(
+      join(dir, GRAPH_FILE),
+      ["modules", "@workspace/io/IN/in-2"],
+      ["melody"],
     );
     const w = loadGraph(dir).warnings;
     expect(

@@ -1,5 +1,5 @@
 // emit.ts — write a Song (from any mapper) out as a node/lane/chain project: a
-// project.yaml + graph.yaml, one self-contained module folder per plugin, and
+// project.k7x + graph.k7x, one self-contained module folder per plugin, and
 // nodes/clips/sequences. No schema file ships with it — a project is validated in
 // process against the loader's own schemas. Layout + mapping: docs/import.md.
 // The parts share one EmitCtx: emitGraph.ts (routing), emitModules.ts (plugins), emitAudio.ts (material).
@@ -7,7 +7,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { MIX_NODE, OUT_NODE } from "@studio/song-schema/moduleTypes";
-import { emitArrangement, trackText } from "./emitAudio.js";
+import { emitArrangement, trackValue } from "./emitAudio.js";
 import {
   addChain,
   dedupeOuts,
@@ -20,7 +20,7 @@ import {
   orderPlugins,
   writeModules,
 } from "./emitModules.js";
-import { newEmitCtx, type OutDef, writeFile, yamlText } from "./emitNaming.js";
+import { newEmitCtx, type OutDef, writeDoc } from "./emitNaming.js";
 import type { Song } from "./model.js";
 
 export interface EmitStats {
@@ -28,8 +28,8 @@ export interface EmitStats {
   clipFiles: number;
   sequenceFiles: number;
   chainFiles: number;
-  moduleNodes: number; // module.yaml files written under modules/<type>/
-  // nodes/<name>.yaml files — one per use of a plugin used more than once (see ModuleDef).
+  moduleNodes: number; // module.k7x files written under modules/<type>/
+  // nodes/<name>.k7x files — one per use of a plugin used more than once (see ModuleDef).
   nodeFiles: number;
   modulePresetFiles: number; // .vstpreset files, beside the node or module whose state they are
   missingAudio: string[];
@@ -100,9 +100,10 @@ export function emitFolder(
     if (isBus) ctx.busChains.add(slug);
 
     if (!isBus) {
-      writeFile(
-        join(outDir, `nodes/${slug}.yaml`),
-        trackText(t, emitArrangement(ctx, t, slug)),
+      writeDoc(
+        join(outDir, `nodes/${slug}.k7x`),
+        trackValue(t, emitArrangement(ctx, t, slug)),
+        { itemsOneLine: [["events"]] },
       );
       trackFiles++;
     }
@@ -121,28 +122,26 @@ export function emitFolder(
   const moduleStats = writeModules(ctx, extsFile);
 
   const p = song.project;
-  writeFile(
-    join(outDir, "project.yaml"),
-    yamlText({
-      project: {
-        name: p.name,
-        tempo: p.tempo,
-        sampleRate: p.sampleRate,
-        timeSignature: p.timeSignature,
-      },
-    }),
-  );
+  writeDoc(join(outDir, "project.k7x"), {
+    project: {
+      name: p.name,
+      tempo: p.tempo,
+      sampleRate: p.sampleRate,
+      timeSignature: p.timeSignature,
+    },
+  });
 
   // The surface an imported project needs to be LOOKED at — an arrangement (packages/song/docs/surfaces.md).
-  writeFile(
-    join(outDir, "surfaces/timeline.yaml"),
-    `# The ARRANGEMENT — the timeline, and the transport that rolls through it.\n` +
-      `#\n` +
-      `# Written by the import: what a .dawproject or .als carries is lanes on a ruler, so the\n` +
-      `# project that comes out of one draws them. Delete this file and the song still compiles\n` +
-      `# and still plays; you simply have no lanes on screen.\n` +
-      `type: timeline\n` +
-      `layout: split\n`,
+  writeDoc(
+    join(outDir, "surfaces/timeline.k7x"),
+    { type: "timeline", layout: "split" },
+    {
+      note:
+        "The ARRANGEMENT — the timeline, and the transport that rolls through it.\n\n" +
+        "Written by the import: what a .dawproject or .als carries is lanes on a ruler, so the\n" +
+        "project that comes out of one draws them. Delete this file and the song still compiles\n" +
+        "and still plays; you simply have no lanes on screen.",
+    },
   );
 
   // No format pass: the emitter's output is canonical as written.

@@ -1,6 +1,6 @@
 // ModuleBuilder.tsx — the full-screen module editor: a file's text on the LEFT, a visual grid
-// of the module's widgets on the RIGHT. TWO files, one screen — `module.yaml` says what the
-// module is, `ui.yaml` beside it says how it's drawn — and the grid always edits the second,
+// of the module's widgets on the RIGHT. TWO files, one screen — `module.k7x` says what the
+// module is, `ui.k7x` beside it says how it's drawn — and the grid always edits the second,
 // rewriting it in place so typing flows the other way whenever it still parses (the grid greys
 // out when it doesn't). Everything file-shaped goes through the injected ModuleStore; the four
 // files are useModuleFiles.ts, what the machine is asked is usePluginProbe.ts.
@@ -283,9 +283,9 @@ export function ModuleScreen({
   const ai = useAiOrganize({
     call: onAiOrganize,
     module: moduleName,
-    moduleYaml: content ?? "",
+    moduleText: content ?? "",
     params: paramRows,
-    uiYaml: uiFile?.content ?? "",
+    uiText: uiFile?.content ?? "",
     widgetsJs: scriptFile?.content ?? "",
     canWriteScript: !!scriptFile,
     uiPath: uiFile?.path ?? null,

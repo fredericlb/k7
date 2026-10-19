@@ -255,7 +255,7 @@ export async function writeMasterVolume(
     ]);
     return false;
   }
-  const file = join(h.songPath, "project.yaml");
+  const file = join(h.songPath, "project.k7x");
   if (db === 0) deleteFileValue(file, ["project", "masterVolume"]);
   else setFileValue(file, ["project", "masterVolume"], db);
   await h.applyProject({ ...h.project(), masterVolume: db });

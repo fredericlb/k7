@@ -2,7 +2,7 @@ import type { WebModuleUI } from "@studio/graph-model";
 import { describe, expect, it } from "vitest";
 import { nodeSize, stripWidgetRect, widgetRect } from "./graph";
 
-// The strip's own panel, as packages/song/meta/audio/mixer/ui.yaml declares it.
+// The strip's own panel, as packages/song/meta/audio/mixer/ui.k7x declares it.
 const ui: WebModuleUI = {
   cols: 2,
   rows: 4,

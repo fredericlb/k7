@@ -8,7 +8,8 @@
     "./ai-organize": "./src/aiOrganize.ts",
     "./ai-prompt": "./src/aiPrompt.ts",
     "./group-geometry": "./src/groupGeometry.ts",
-    "./layout-twins": "./src/layoutTwins.ts"
+    "./layout-twins": "./src/layoutTwins.ts",
+    "./panel-text": "./src/panelText.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -17,8 +18,8 @@
   },
   "dependencies": {
     "@studio/engine-protocol": "*",
-    "@studio/song-schema": "*",
-    "yaml": "^2.5.0"
+    "@studio/k7x": "*",
+    "@studio/song-schema": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

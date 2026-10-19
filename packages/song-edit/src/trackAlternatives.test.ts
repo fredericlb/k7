@@ -1,15 +1,10 @@
 // Editing a lane playing one of its ALTERNATIVES must edit that one — packages/song/docs/alternatives.md.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeLane, writeNode } from "@studio/song/testSupport";
+import { K7Document, type K7Scope, parse } from "@studio/k7x/document";
+import { writeDoc, writeLane, writeNode } from "@studio/song/testSupport";
 import { addAlternative } from "@studio/song-schema/yaml/alternativeFile";
 import { parseModule } from "@studio/song-schema/yaml/moduleFile";
 import {
@@ -21,51 +16,54 @@ import {
   setPlacementField,
 } from "@studio/song-schema/yaml/trackFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { newModuleAlternative } from "./projectEdit";
 
 /** A lane on its SECOND set, which states nothing — so it plays the module's own arrangement. */
-const INHERITING = `extends: "@meta/track"
-events:
-  - { ref: take1_a, start: "1:1" }
-  - { ref: take1_b, start: "5:1" }
-alternatives:
-  - {}
-alternative: "2"
+const INHERITING = `extends("@meta/track")
+events([ref("take1_a").start("1:1"), ref("take1_b").start("5:1")])
+alternatives([{}])
+alternative("2")
 `;
 
 /** The same lane on a second set that states an arrangement of its OWN. */
-const OWN = `extends: "@meta/track"
-events:
-  - { ref: take1_a, start: "1:1" }
-alternatives:
-  - events:
-      - { ref: take2_a, start: "9:1" }
-alternative: "2"
+const OWN = `extends("@meta/track")
+events([ref("take1_a").start("1:1")])
+alternatives([events([ref("take2_a").start("9:1")])])
+alternative("2")
 `;
 
-const own = (text: string) => parse(text, { version: "1.2" }).events;
-const alt = (text: string, i = 0) =>
-  parse(text, { version: "1.2" }).alternatives[i].events;
+// biome-ignore lint/suspicious/noExplicitAny: a test reads back whatever the file holds
+type Any = any;
+const own = (text: string): Any => parse(text).events;
+const alt = (text: string, i = 0): Any =>
+  (parse(text).alternatives as Any[])[i].events;
+/** A writer run on a document of `text`, answering the text it leaves. */
+const ed = (text: string, edit: (doc: K7Scope) => void): string => {
+  const doc = new K7Document(text);
+  edit(doc.at([]));
+  return doc.toString();
+};
+/** A document of `text`, for the readers. */
+const at = (text: string): K7Scope => new K7Document(text).at([]);
 
 describe("a lane playing an alternative", () => {
   it("reads through to the arrangement it inherits", () => {
     // What is on screen is the merged view, so what an edit ADDRESSES has to be that too.
-    expect(placementValues(INHERITING).map((p) => p.ref)).toEqual([
+    expect(placementValues(at(INHERITING)).map((p) => p.ref)).toEqual([
       "take1_a",
       "take1_b",
     ]);
-    expect(findPlacement(INHERITING, "5:1")).toBe(1);
+    expect(findPlacement(at(INHERITING), "5:1")).toBe(1);
   });
 
   it("reads its OWN arrangement when it states one", () => {
-    expect(placementValues(OWN).map((p) => p.ref)).toEqual(["take2_a"]);
-    expect(findPlacement(OWN, "9:1")).toBe(0);
-    expect(findPlacement(OWN, "1:1")).toBe(-1); // set 1's clip is not this set's
+    expect(placementValues(at(OWN)).map((p) => p.ref)).toEqual(["take2_a"]);
+    expect(findPlacement(at(OWN), "9:1")).toBe(0);
+    expect(findPlacement(at(OWN), "1:1")).toBe(-1); // set 1's clip is not this set's
   });
 
   it("moves a clip into the SET, leaving the module's own arrangement alone", () => {
-    const after = movePlacement(INHERITING, "1:1", "3:1");
+    const after = ed(INHERITING, (d) => movePlacement(d, "1:1", "3:1"));
     // [3:1, 5:1] here would mean take 1 rewritten by an edit made on take 2.
     expect(own(after)).toEqual([
       { ref: "take1_a", start: "1:1" },
@@ -79,70 +77,74 @@ describe("a lane playing an alternative", () => {
   });
 
   it("forks ONCE: a second edit lands on the set's own list, not on a copy of a copy", () => {
-    const after = movePlacement(
-      movePlacement(INHERITING, "1:1", "3:1"),
-      "5:1",
-      "7:1",
-    );
+    const after = ed(INHERITING, (d) => {
+      movePlacement(d, "1:1", "3:1");
+      movePlacement(d, "5:1", "7:1");
+    });
     expect(own(after)).toHaveLength(2);
     expect(alt(after)).toEqual([
       { ref: "take1_a", start: "3:1" },
       { ref: "take1_b", start: "7:1" },
     ]);
-    expect(parse(after, { version: "1.2" }).alternatives).toHaveLength(1);
+    expect(parse(after).alternatives).toHaveLength(1);
   });
 
   it("removes, appends and flags inside the set", () => {
-    const removed = removePlacement(INHERITING, "1:1");
+    const removed = ed(INHERITING, (d) => removePlacement(d, "1:1"));
     expect(own(removed)).toHaveLength(2);
     expect(alt(removed).map((p: { ref: string }) => p.ref)).toEqual([
       "take1_b",
     ]);
 
-    const added = addPlacement(OWN, { ref: "take2_b", start: "13:1" });
+    const added = ed(OWN, (d) =>
+      addPlacement(d, { ref: "take2_b", start: "13:1" }),
+    );
     expect(own(added)).toHaveLength(1);
     expect(alt(added).map((p: { ref: string }) => p.ref)).toEqual([
       "take2_a",
       "take2_b",
     ]);
 
-    const flagged = setPlacementField(OWN, 0, "disabled", true);
+    const flagged = ed(OWN, (d) => setPlacementField(d, 0, "disabled", true));
     expect(alt(flagged)[0].disabled).toBe(true);
     expect(own(flagged)[0].disabled).toBeUndefined();
   });
 
-  it("forks in the file's own idiom, not as one long flow row", () => {
-    // A flow map keeps everything on one line, so the fork arrived as a 400-character row.
-    const after = movePlacement(INHERITING, "1:1", "3:1");
-    expect(after).toContain("  - events:\n");
-    expect(after).toContain('      - { ref: take1_a, start: "3:1" }\n');
+  it("forks in the file's own layout, not as one long row", () => {
+    const long = `extends("@meta/track")
+events([
+${Array.from({ length: 8 }, (_, i) => `  ref("take1_${i}").start("${i + 1}:1").fadeIn("0:1"),`).join("\n")}
+])
+alternatives([{}])
+alternative("2")
+`;
+    const after = ed(long, (d) => movePlacement(d, "1:1", "3:1"));
+    expect(alt(after)).toHaveLength(8);
     expect(after.split("\n").every((l) => l.length < 120)).toBe(true);
   });
 
   it("still edits the module's own list when the FIRST set is on", () => {
     // The ordinary case, and the one that must not move: no `alternative:` key at all.
-    const plain = `extends: "@meta/track"
-events:
-  - { ref: a, start: "1:1" }
+    const plain = `extends("@meta/track")
+events([ref("a").start("1:1")])
 `;
-    const after = movePlacement(plain, "1:1", "2:1");
+    const after = ed(plain, (d) => movePlacement(d, "1:1", "2:1"));
     expect(own(after)).toEqual([{ ref: "a", start: "2:1" }]);
     expect(after).not.toContain("alternatives");
   });
 });
 
 /** A lane on its own, no sets yet — what `create` is asked about most. */
-const PLAIN = `extends: "@meta/track"
-events:
-  - { ref: take1_a, start: "1:1" }
-  - { ref: take1_b, start: "5:1" }
+const PLAIN = `extends("@meta/track")
+events([ref("take1_a").start("1:1"), ref("take1_b").start("5:1")])
 `;
 
 describe("creating an alternative", () => {
   it("blanks a LANE's clips, so a new take is a new take", () => {
     // A set states only what it changes, so `events: []` is what keeps the new take empty.
-    const { text, name } = addAlternative(PLAIN, undefined, {
-      blankEvents: true,
+    let name = "";
+    const text = ed(PLAIN, (d) => {
+      name = addAlternative(d, undefined, { blankEvents: true });
     });
     expect(name).toBe("2");
     expect(alt(text)).toEqual([]);
@@ -151,27 +153,28 @@ describe("creating an alternative", () => {
   });
 
   it("does NOT blank anything on a module that is not a lane", () => {
-    const amp = `extends: "@workspace/audio/amp"
-params: { Gain: 3 }
+    const amp = `extends("@workspace/audio/amp")
+params({ Gain: 3 })
 `;
-    const { text } = addAlternative(amp);
-    expect(parse(text, { version: "1.2" }).alternatives[0]).toEqual({});
+    const text = ed(amp, (d) => addAlternative(d));
+    expect((parse(text).alternatives as Any[])[0]).toEqual({});
   });
 
   it("a COPY still starts from what is playing, blankEvents or not", () => {
-    const { text } = addAlternative(OWN, "third", {
-      copy: true,
-      blankEvents: true,
-    });
+    const text = ed(OWN, (d) =>
+      addAlternative(d, "third", { copy: true, blankEvents: true }),
+    );
     expect(alt(text, 1)).toEqual([{ ref: "take2_a", start: "9:1" }]);
   });
 
   it("the new take is EDITABLE without touching the old one", () => {
     // The two halves together, which is the whole report: create, then place a clip.
-    const created = addAlternative(PLAIN, undefined, {
-      blankEvents: true,
-    }).text;
-    const after = addPlacement(created, { ref: "take2_a", start: "1:1" });
+    const created = ed(PLAIN, (d) =>
+      addAlternative(d, undefined, { blankEvents: true }),
+    );
+    const after = ed(created, (d) =>
+      addPlacement(d, { ref: "take2_a", start: "1:1" }),
+    );
     expect(own(after).map((p: { ref: string }) => p.ref)).toEqual([
       "take1_a",
       "take1_b",
@@ -190,11 +193,11 @@ describe("newModuleAlternative, through the real loader", () => {
     mkdirSync(dir, { recursive: true });
     // A module lives at `@workspace` now, beside the project.
     mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });
-    writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
-    writeFileSync(
-      join(root, "_modules", "audio", "amp", "module.yaml"),
-      "plugin: { type: internal, name: Chorus }\nparams: { Gain: 1 }\n",
-    );
+    writeDoc(join(dir, "project.k7x"), { project: { name: "song" } });
+    writeDoc(join(root, "_modules", "audio", "amp", "module.k7x"), {
+      plugin: { type: "internal", name: "Chorus" },
+      params: { Gain: 1 },
+    });
     writeLane(dir, "gtr", "track", {
       events: [{ ref: "take1_a", start: "1:1" }],
     });
@@ -202,10 +205,8 @@ describe("newModuleAlternative, through the real loader", () => {
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-  const read = (node: string) =>
-    parse(readFileSync(join(dir, "nodes", `${node}.yaml`), "utf8"), {
-      version: "1.2",
-    });
+  const read = (node: string): Any =>
+    parse(readFileSync(join(dir, "nodes", `${node}.k7x`), "utf8"));
 
   it("gives a lane an empty arrangement", () => {
     newModuleAlternative(dir, "gtr");

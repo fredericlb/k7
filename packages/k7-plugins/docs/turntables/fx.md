@@ -25,11 +25,11 @@ tapped on `filterA` to stay **before** the fader ([cue.md](cue.md)): in both cas
 chain IS the feature, not a preference.
 
 The module itself is `@studio/dsp`'s `echo()` function, written in a `jsdsp.ts` next to its
-`module.yaml` — a module is a FOLDER you copy, so it carries its source.
+`module.k7x` — a module is a FOLDER you copy, so it carries its source.
 
 Two parameters and the blend, of which **one** is a gesture: the desk knob moves the node's
 `mix:`, bound `@mix` — the ENGINE's dry/wet around the delay, whose own `Mix` it holds at full wet
-(`engine/k7-runtime/docs/mix.md`). `Time` and `Feedback` are set once in `nodes/echoA.yaml` and
+(`engine/k7-runtime/docs/mix.md`). `Time` and `Feedback` are set once in `nodes/echoA.k7x` and
 left.
 
 ### What it does not do: follow the tempo
@@ -89,7 +89,7 @@ Two consequences that fall out on their own and would otherwise be written by ha
   the speed the document would have sent, stretched tempo included.
 
 So it has no control in `controls.ts`, consistent with the rest: the scratch has none either. What
-lives in `views/mix.yaml` is what **moves a module's parameter**; a gesture on the platter is
+lives in `views/mix.k7x` is what **moves a module's parameter**; a gesture on the platter is
 performed by the desk itself.
 
 It is greyed on an **empty** deck: a record has to be there for "backwards" to mean anything.

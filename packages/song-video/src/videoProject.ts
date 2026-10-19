@@ -71,7 +71,7 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     warnings,
   );
 
-  // The video CHAINS, the one thing here reading `graph.yaml`, and best-effort — docs/shaders.md.
+  // The video CHAINS, the one thing here reading `graph.k7x`, and best-effort — docs/shaders.md.
   const chains = (() => {
     try {
       return compileVideoChains(abs, loadGraph(abs));
@@ -99,7 +99,7 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     warnings,
     chainStretchHead(abs),
   );
-  // Off the REF MAP and not the graph, so an unreadable `graph.yaml` cannot delete every wipe — docs/transitions.md.
+  // Off the REF MAP and not the graph, so an unreadable `graph.k7x` cannot delete every wipe — docs/transitions.md.
   const transitions = collectTransitions(abs, fading, loadModuleRefs(abs));
   const stretches: VideoProjectDoc["stretches"] = {};
   for (const t of fading)
@@ -108,7 +108,7 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
         if (name) stretches[name] = chains.stretches[name];
 
   // The lanes with their run, their lens and their shapes folded on — done here, and not in the
-  // lane compile, because all three come off `graph.yaml` (docs/shapes.md).
+  // lane compile, because all three come off `graph.k7x` (docs/shapes.md).
   const drawn = fading.map((t) => {
     const shapes = chains.shapesByLane[t.id];
     // A shape takes the lane over, so a shot on the same lane is a shot nobody will ever see.

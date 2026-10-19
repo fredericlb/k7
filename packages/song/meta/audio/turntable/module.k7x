@@ -1,0 +1,20 @@
+// turntable — the PLATTER: a record, its speed, and a needle you put down. A deck's SOURCE: it
+// takes no input and makes its sound from the file the desk hands it, the one module whose material
+// arrives at RUN time rather than from the project. Shipped with k7, since a set cannot play
+// without it (packages/song/docs/metaModules.md).
+//
+// No jsdsp: the engine hosts the platter (`studio_turntable`), which decodes the record WHOLE so a
+// scratch can read it backwards (engine/k7-runtime/docs/turntable.md).
+//
+// THE RECORD IS NOT A PARAM. A param is a number; the record is a path, and it changes when another
+// one goes on. It travels in the document's `deckFile`, which the desk fills (docs/platter-node-plan.md).
+plugin({ type: "internal", name: "studio_turntable" })
+params({
+  // STOPPED: a platter put down must not start turning on its own, and 0 is a real stop.
+  Rate: 0,
+  // Where the needle lands, 0..1 of the record — a JUMP, applied only when the value CHANGES.
+  Seek: 0,
+  Gain: 1,
+  // Hold the PITCH while the speed moves. Off: a platter is a varispeed, and that is its sound.
+  Key: 0,
+})

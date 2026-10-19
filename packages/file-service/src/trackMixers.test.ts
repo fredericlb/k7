@@ -1,4 +1,4 @@
-// Which node is a lane's fader. It cannot be read off `graph.yaml`: that file says what a module is
+// Which node is a lane's fader. It cannot be read off `graph.k7x`: that file says what a module is
 // WIRED to, never what plugin it turns out to be, and a strip is defined by its type. So it comes in
 // from the compiled project, exactly as the clip extents do.
 

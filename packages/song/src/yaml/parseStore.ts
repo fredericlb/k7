@@ -16,7 +16,6 @@ import {
 import { dirname, join } from "node:path";
 import { sugarKind } from "@studio/song-schema/yaml/sugar";
 import { studioHome } from "../studioHome";
-import { isK7xPath } from "./workspaceFile";
 
 interface StoreFile {
   /** The code that parsed: a parse from another build is a guess, so the account's store is dropped whole. */
@@ -44,11 +43,10 @@ function bundleFile(): string | null {
   return entry.endsWith(".mjs") && existsSync(entry) ? entry : null;
 }
 
-/** What a parse of `raw` read at `path` depends on: the parser, the file's syntax and short form, its bytes. */
+/** What a parse of `raw` read at `path` depends on: the parser, the file's short form, its bytes. */
 export function parseKey(kind: string, path: string, raw: string): string {
-  const syntax = isK7xPath(path) ? "k7x" : "yaml";
   return createHash("sha1")
-    .update(`${kind}\0${syntax}\0${sugarKind(path) ?? ""}\0`)
+    .update(`${kind}\0${sugarKind(path) ?? ""}\0`)
     .update(raw)
     .digest("base64");
 }

@@ -2,17 +2,15 @@
 
 A module can hold several sets of attributes and run one of them:
 
-```yaml
-# nodes/ampli.yaml
-extends: "@workspace/audio/amp"
-params: { Gain: 3, Tone: 5 }
-alternative: crunch
-alternatives:
-  - name: crunch
-    params: { Gain: 9 }
-  - name: clean
-    params: { Gain: 1 }
-    plugin: { type: vst3, name: Twin }
+```k7x
+// nodes/ampli.k7x
+extends("@workspace/audio/amp")
+params({ Gain: 3, Tone: 5 })
+alternative("crunch")
+alternatives([
+  name("crunch").params({ Gain: 9 }),
+  name("clean").params({ Gain: 1 }).plugin({ type: "vst3", name: "Twin" }),
+])
 ```
 
 On the graph, each set is a badge above the node's corner — click one to switch, and the `+` after
@@ -57,15 +55,16 @@ a chain calls it by. Silent, and it would repoint every step naming it.
 A set with its own `extends:` is not a patch over the node: it is another module in the node's
 place — a Wurlitzer played by a VST on set 1 and a Plaits voice on set 2.
 
-```yaml
-# nodes/wurli.yaml
-extends: "@k7-core/instruments/wurli-v2"        # set 1: the VST, and its knobs
-params: { Tremolo: 0.9 }
-alternative: faust
-alternatives:
-  - name: faust
-    extends: "@workspace/instruments/faust-wurli"
-    params: { Bark: 0.8 }                   # the Faust module's knobs, over its own
+```k7x
+// nodes/wurli.k7x
+extends("@k7-core/instruments/wurli-v2") // set 1: the VST, and its knobs
+params({ Tremolo: 0.9 })
+alternative("faust")
+alternatives([
+  name("faust")
+    .extends("@workspace/instruments/faust-wurli")
+    .params({ Bark: 0.8 }), // the Faust module's knobs, over its own
+])
 ```
 
 `resolveModule` folds the SET's ancestry instead of the node's (`swappedModule`), and set 1's
@@ -132,7 +131,7 @@ that has no choice, which is nearly all of them.
 
 They overlap and they are different things, and the difference is what to hold on to:
 
-| | a preset (`presets.yaml`) | an alternative |
+| | a preset (`presets.k7x`) | an alternative |
 |---|---|---|
 | belongs to | the MODULE, so every node of it | the one module or node that holds it |
 | holds | numbers — a module's `params:` | any field a module has |

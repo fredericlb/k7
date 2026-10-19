@@ -32,8 +32,8 @@ export function selectModuleEngine(
     throw new Error(
       `${module} has no engine '${name}' — it has ${names.join(", ")}`,
     );
-  const path = editModuleFile(dir, module, (text) =>
-    setAlternativeField(text, "engine", name),
+  const path = editModuleFile(dir, module, (doc) =>
+    setAlternativeField(doc, "engine", name),
   );
   return { path };
 }

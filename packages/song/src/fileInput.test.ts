@@ -3,7 +3,7 @@
 // missing from IO_SOURCES becomes a silent sink and a chain routes into the thing meant to
 // feed it. See docs/fileInput.md.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -14,23 +14,17 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ioModules } from "./engineCatalogue";
 import { isFileInputModule, isInputModule, loadGraph } from "./graph";
+import { writeDoc } from "./testSupport";
 
 let dir: string;
 
-/** A file at `rel` under the project, folders created. */
-function file(rel: string, body = "x"): void {
-  const abs = join(dir, rel);
-  mkdirSync(join(abs, ".."), { recursive: true });
-  writeFileSync(abs, body, "utf8");
-}
+/** A k7x file at `rel` under the project, folders created. */
+const file = (rel: string, value: Record<string, unknown>): void =>
+  writeDoc(join(dir, rel), value);
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-fileio-"));
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n",
-    "utf8",
-  );
+  file("project.k7x", { project: { name: "song", tempo: 120 } });
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -62,24 +56,19 @@ describe("the file input", () => {
 
   it("carries the file it reads, and a chain may leave it unnamed", () => {
     // An io node carries its role directly — no separate module, no `extends` (docs/moduleTypes.md).
-    file("nodes/take.yaml", 'io: file\nsource: "clips/original.wav"\n');
+    file("nodes/take.k7x", { io: "file", source: "clips/original.wav" });
     const g = loadGraph(dir);
     expect(g.modules.take?.source).toBe("clips/original.wav");
   });
 
   it("is not somewhere a chain can route TO", () => {
     // `isSink` decides by ELIMINATION, so without IO_SOURCES a chain wires INTO its own feeder.
-    file("modules/io/FILE/module.yaml", "io: file\n");
-    file(
-      "modules/audio/amp/module.yaml",
-      "plugin: {type: internal, name: Chorus}\n",
-    );
-    file("nodes/t.yaml", 'extends: "@meta/track"\nevents: []\n');
-    writeFileSync(
-      join(dir, "graph.yaml"),
-      "modules:\n  t: [ amp ]\n  amp: [ FILE ]\n",
-      "utf8",
-    );
+    file("modules/io/FILE/module.k7x", { io: "file" });
+    file("modules/audio/amp/module.k7x", {
+      plugin: { type: "internal", name: "Chorus" },
+    });
+    file("nodes/t.k7x", { extends: "@meta/track", events: [] });
+    file("graph.k7x", { modules: { t: ["amp"], amp: ["FILE"] } });
     expect(loadGraph(dir).warnings).toContain(
       "chain 't': out 'FILE' is not a chain or io sink",
     );

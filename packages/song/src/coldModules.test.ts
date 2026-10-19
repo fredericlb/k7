@@ -6,7 +6,7 @@
 // draw from a file. Not merely "not live" — a file specifically, since that is the only source
 // whose whole length is knowable before playback. See docs/coldModules.md.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -19,22 +19,18 @@ import {
 import { projectHints } from "./hints";
 import { baseModuleRefs, loadModuleRefs, loadModules } from "./loader";
 import { resolveModuleMap } from "./moduleResolve";
-import { writeLibraries, writeNode, writeYaml } from "./testSupport";
+import { writeDoc, writeLibraries, writeNode } from "./testSupport";
 
 let ws: string;
 let dir: string;
 
 const SQUASH = "@workspace/audio/squash";
 
-/** A project with one cold module (`squash`, at `@workspace`) and a chain over `chains`. */
-function project(chains: string): void {
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n",
-    "utf8",
-  );
+/** A project with one cold module (`squash`, at `@workspace`) and a graph over `chains`. */
+function project(chains: Record<string, string[]>): void {
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t", tempo: 120 } });
   // A cold module is a genuine reusable base — a WORKSPACE module, extendable by nodes.
-  writeYaml(join(ws, "_modules", "audio", "squash", "module.yaml"), {
+  writeDoc(join(ws, "_modules", "audio", "squash", "module.k7x"), {
     cold: true,
     plugin: { type: "jsdsp", name: "Normalize" },
     params: { Target: -1, Peak: 0 },
@@ -44,17 +40,12 @@ function project(chains: string): void {
     plugin: { type: "internal", name: "Chorus" },
   });
   // OUT needs no file at all — a built-in sink name (docs/moduleTypes.md).
-  writeFileSync(join(dir, "graph.yaml"), chains, "utf8");
+  writeDoc(join(dir, "graph.k7x"), { modules: chains });
 }
 
 /** …and a lane, so a chain sourced from one resolves. */
 function track(id: string): void {
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(
-    join(dir, "nodes", `${id}.yaml`),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
+  writeNode(dir, id, { extends: "@meta/track", events: [] });
 }
 
 beforeEach(() => {
@@ -66,7 +57,7 @@ afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
 describe("the cold flag", () => {
   it("is read off the module file", () => {
-    project("modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n");
+    project({ gtr: ["amp"], amp: ["OUT"] });
     track("gtr");
     const g = loadGraph(dir);
     expect(isColdModule(g.moduleRefs[SQUASH])).toBe(true);
@@ -75,7 +66,7 @@ describe("the cold flag", () => {
 
   it("is INHERITED, so a use of a cold module is cold", () => {
     // Not OWN_ONLY: a node states what it changes, and needing the whole file is not its choice.
-    project("modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n");
+    project({ gtr: ["amp"], amp: ["OUT"] });
     track("gtr");
     writeNode(dir, "master", {
       extends: SQUASH,
@@ -93,9 +84,8 @@ describe("the cold flag", () => {
 
 describe("adding one to a chain", () => {
   // A track of audio clips is NOT enough: what a lane plays is decided at playback.
-  const FROM_TRACK = "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n";
-  const FROM_FILE =
-    "modules:\n  gtr: [ take ]\n  take: [ amp ]\n  amp: [ OUT ]\n";
+  const FROM_TRACK = { gtr: ["amp"], amp: ["OUT"] };
+  const FROM_FILE = { gtr: ["take"], take: ["amp"], amp: ["OUT"] };
 
   const withFileInput = (): void => {
     project(FROM_FILE);
@@ -162,7 +152,7 @@ describe("the cold/ folder", () => {
     root = mkdtempSync(join(tmpdir(), "td-coldfolder-"));
     song = join(root, "song");
     mkdirSync(song, { recursive: true });
-    writeFileSync(join(song, "project.yaml"), "project:\n  name: s\n", "utf8");
+    writeDoc(join(song, "project.k7x"), { project: { name: "s" } });
     writeLibraries(root, {
       "cold/normalize": {
         cold: true,

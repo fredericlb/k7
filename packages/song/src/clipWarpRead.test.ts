@@ -8,40 +8,36 @@
 // Pinned as an AGREEMENT rather than twice over: the danger is not either reading but that there
 // are two, and nothing reports them differing.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
 import { loadAudioClipDoc } from "./project";
+import { writeDoc, writeLane } from "./testSupport";
 
 let dir: string;
 
 // A real file behind the source, which keeps `compileNodeProject` from reporting an unresolved ref.
-const CLIP = `source: clips/bass.wav
-warp:
-  algorithm: elastique
-  markers:
-    - [0, 0]
-    - [4, 1.5]
-`;
+const WARP = {
+  algorithm: "elastique",
+  markers: [
+    [0, 0],
+    [4, 1.5],
+  ],
+};
+const clip = (value: Record<string, unknown>) =>
+  writeDoc(join(dir, "clips", "bass.k7x"), value);
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-warpread-"));
-  mkdirSync(join(dir, "clips"), { recursive: true });
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    'project:\n  name: "d"\n  tempo: 120\n',
-  );
-  writeFileSync(join(dir, "clips", "bass.yaml"), CLIP, "utf8");
+  writeDoc(join(dir, "project.k7x"), { project: { name: "d", tempo: 120 } });
+  clip({ source: "clips/bass.wav", warp: WARP });
   writeFileSync(join(dir, "clips", "bass.wav"), "RIFF");
-  writeFileSync(
-    join(dir, "nodes", "bass.yaml"),
-    'extends: "@meta/track"\nevents:\n  - { ref: bass, start: "1:1:1" }\n',
-    "utf8",
-  );
+  writeLane(dir, "bass", "track", {
+    events: [{ ref: "bass", start: "1:1:1" }],
+  });
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -61,12 +57,12 @@ describe("the unplaced clip", () => {
   });
 
   it("declines the map when the FILE declines it", () => {
-    writeFileSync(join(dir, "clips", "bass.yaml"), `${CLIP}  disable: true\n`);
+    clip({ source: "clips/bass.wav", warp: { ...WARP, disable: true } });
     expect(loadAudioClipDoc(dir, "bass")?.warp).toBeUndefined();
   });
 
   it("has no map when the clip states none", () => {
-    writeFileSync(join(dir, "clips", "bass.yaml"), "source: clips/bass.wav\n");
+    clip({ source: "clips/bass.wav" });
     expect(loadAudioClipDoc(dir, "bass")?.warp).toBeUndefined();
   });
 });

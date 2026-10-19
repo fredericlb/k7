@@ -10,14 +10,14 @@ import { execFileSync } from "node:child_process";
 import { readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { wsExists, wsRead } from "@studio/song/yaml/workspaceFile";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
+import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { builtinPluginFor } from "@studio/song-schema/builtinParams";
 import {
   engineModuleOf,
   FILE_PARAMS,
   LIBRARY_FILE_PARAMS,
 } from "@studio/song-schema/moduleTypes";
-import { parse as parseYaml } from "yaml";
 import { scannedPlugins } from "../src/engineCatalogue";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -52,12 +52,11 @@ function engineBinary(): string {
 }
 
 type Plugin = { type: string; name: string };
-type Yaml = Record<string, unknown>;
+type Doc = Record<string, unknown>;
 
-const readYaml = (f: string): Yaml =>
-  wsExists(f) ? ((parseYaml(wsRead(f), { version: "1.2" }) ?? {}) as Yaml) : {};
+const readDoc = (f: string): Doc => (wsExists(f) ? wsData(f) : {});
 
-/** Every folder under the library that holds a module.yaml, keyed by the `@<lib>/…` ref it answers to. */
+/** Every folder under the library that holds a module.k7x, keyed by the `@<lib>/…` ref it answers to. */
 function moduleFolders(): Map<string, string> {
   const ns =
     root.split(sep).pop() === "k7-core"
@@ -68,7 +67,7 @@ function moduleFolders(): Map<string, string> {
     for (const e of readdirSync(d)) {
       const p = join(d, e);
       if (!statSync(p).isDirectory()) continue;
-      if (wsExists(join(p, "module.yaml")))
+      if (wsExists(join(p, "module.k7x")))
         out.set(`@${ns}/${relative(modulesRoot, p).split(sep).join("/")}`, p);
       walk(p);
     }
@@ -89,7 +88,7 @@ for (const p of scannedPlugins()) {
 function pluginOf(folder: string, seen = new Set<string>()): Plugin | null {
   if (seen.has(folder)) return null;
   seen.add(folder);
-  const m = readYaml(join(folder, "module.yaml"));
+  const m = readDoc(join(folder, "module.k7x"));
   const own = m.plugin as Plugin | undefined;
   if (own?.type && own.name)
     return { type: String(own.type), name: String(own.name) };
@@ -188,10 +187,10 @@ const findings: Finding[] = [];
 for (const [ref, folder] of [...folders].sort(([a], [b]) =>
   a.localeCompare(b),
 )) {
-  const uiFile = join(folder, "ui.yaml");
+  const uiFile = join(folder, "ui.k7x");
   if (!wsExists(uiFile)) continue;
   if (only && !ref.toLowerCase().includes(only)) continue;
-  const binds = bindsOf(readYaml(uiFile));
+  const binds = bindsOf(readDoc(uiFile));
   if (!binds.size) continue;
   const plugin = pluginOf(folder);
   const label = plugin ? `${plugin.type} ${plugin.name}` : "—";

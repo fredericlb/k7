@@ -171,7 +171,7 @@ describe("the deck's tempo is a MODULE, and the platter's rate realises it", () 
 
 describe("the BPM fader's ends", () => {
   it("is the MODULE's knob, 10 to 300", () => {
-    // Not a range the desk invented: `@k7-core/cold/tempo`'s ui.yaml declares this knob.
+    // Not a range the desk invented: `@k7-core/cold/tempo`'s ui.k7x declares this knob.
     expect(BPM_RANGE).toEqual([10, 300]);
   });
 
@@ -556,7 +556,7 @@ describe("the decks' document", () => {
     expect(off?.plugins.length).toBeGreaterThan(0);
   });
 
-  it("names the tracks as the PROJECT's chains.yaml names them", () => {
+  it("names the tracks as the PROJECT's chain files name them", () => {
     // Not cosmetic: these ids come from the file once playback is the compiled project (docs/mix.md).
     expect([...DECKS]).toEqual(["deckA", "deckB"]);
   });

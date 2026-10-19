@@ -25,32 +25,32 @@ const TREE: FileNode[] = [
   dir("modules", `${ROOT}/modules`, [
     dir("io", `${ROOT}/modules/io`, [
       dir("OUT", `${ROOT}/modules/io/OUT`, [
-        file("module.yaml", `${ROOT}/modules/io/OUT/module.yaml`),
+        file("module.k7x", `${ROOT}/modules/io/OUT/module.k7x`),
       ]),
     ]),
   ]),
-  file("project.yaml", `${ROOT}/project.yaml`),
+  file("project.k7x", `${ROOT}/project.k7x`),
 ];
 
-const OPEN = `${ROOT}/modules/io/OUT/module.yaml`;
+const OPEN = `${ROOT}/modules/io/OUT/module.k7x`;
 
 describe("underRoot", () => {
   it("strips the project the tree is rooted at", () => {
-    expect(underRoot(OPEN, ROOT)).toBe("modules/io/OUT/module.yaml");
+    expect(underRoot(OPEN, ROOT)).toBe("modules/io/OUT/module.k7x");
   });
 
   it("is the identity for a lone-project workspace, which is why this survived", () => {
-    expect(underRoot("modules/io/OUT/module.yaml", "")).toBe(
-      "modules/io/OUT/module.yaml",
+    expect(underRoot("modules/io/OUT/module.k7x", "")).toBe(
+      "modules/io/OUT/module.k7x",
     );
   });
 
   it("answers null for a path OUTSIDE the tree — a library module is not in it", () => {
-    expect(underRoot("_libraries/modules/synth/module.yaml", ROOT)).toBeNull();
+    expect(underRoot("_libraries/modules/synth/module.k7x", ROOT)).toBeNull();
   });
 
   it("does not mistake a sibling whose name merely starts the same", () => {
-    expect(underRoot("songs/first.k7.bak/project.yaml", ROOT)).toBeNull();
+    expect(underRoot("songs/first.k7.bak/project.k7x", ROOT)).toBeNull();
   });
 });
 
@@ -60,7 +60,7 @@ describe("childrenOf", () => {
     for (const p of dirPrefixes(rel))
       expect(childrenOf(TREE, p).length).toBeGreaterThan(0);
     expect(childrenOf(TREE, "modules/io/OUT").map((n) => n.name)).toEqual([
-      "module.yaml",
+      "module.k7x",
     ]);
   });
 
@@ -72,7 +72,7 @@ describe("childrenOf", () => {
   it("still answers the whole tree for the root segment", () => {
     expect(childrenOf(TREE, "").map((n) => n.name)).toEqual([
       "modules",
-      "project.yaml",
+      "project.k7x",
     ]);
   });
 });

@@ -12,8 +12,8 @@ import {
   tsDen,
   tsNum,
   uniquify,
+  writeDoc,
   writeFile,
-  yamlText,
 } from "./emitNaming.js";
 import type { ClipOut, TrackOut } from "./model.js";
 
@@ -58,16 +58,16 @@ function windowFields(
 }
 
 /** A lane file: no `name` field, and the mute is the module's bypass rather than anything here — docs/import.md. */
-export function trackText(
+export function trackValue(
   t: TrackOut,
   placements: Record<string, unknown>[],
-): string {
+): Record<string, unknown> {
   const value: Record<string, unknown> = {};
   if (t.color) value.color = t.color;
   value.extends = "@meta/track";
   // The lane file's own key is `events:`, not `clips:`: these are placements of the material.
   value.events = placements;
-  return yamlText(value, [["events"]]);
+  return value;
 }
 
 /** Where these bytes land, named after the file the archive called them and never after a clip; docs/import.md. */
@@ -88,7 +88,7 @@ function audioFor(ctx: EmitCtx, source: string, bytes: Uint8Array): string {
   return rel;
 }
 
-/** A MIDI clip: its notes inline in sequences/<id>.yaml, answering its placement. */
+/** A MIDI clip: its notes inline in sequences/<id>.k7x, answering its placement. */
 function emitSequence(
   ctx: EmitCtx,
   c: ClipOut,
@@ -103,11 +103,10 @@ function emitSequence(
     ...(n.vel !== undefined && n.vel !== 1 ? { v: n.vel } : {}),
   }));
   const w = materialWindow(c);
-  writeFile(
-    join(outDir, `sequences/${cid}.yaml`),
-    yamlText({ ...windowFields(w, tsNum(song), tsDen(song)), notes }, [
-      ["notes"],
-    ]),
+  writeDoc(
+    join(outDir, `sequences/${cid}.k7x`),
+    { ...windowFields(w, tsNum(song), tsDen(song)), notes },
+    { itemsOneLine: [["notes"]] },
   );
   ctx.sequenceFiles++;
   return placementOf(
@@ -117,7 +116,7 @@ function emitSequence(
   );
 }
 
-/** An audio clip: its YAML in clips/<id>.yaml, its bytes once per recording, answering its placement. */
+/** An audio clip: its file in clips/<id>.k7x, its bytes once per recording, answering its placement. */
 function emitClip(
   ctx: EmitCtx,
   c: ClipOut,
@@ -134,24 +133,22 @@ function emitClip(
   else if (!bytes) ctx.missingAudio.push(cid);
   // A warped clip carries its stretch settings, so the engine time-stretches it as the source DAW did.
   const w = materialWindow(c);
-  writeFile(
-    join(outDir, `clips/${cid}.yaml`),
-    yamlText(
-      {
-        source: wavRel,
-        ...windowFields(w, tsNum(song), tsDen(song)),
-        ...(c.warp
-          ? {
-              warp: {
-                algorithm: c.warp.algorithm ?? "elastique",
-                markers: c.warp.markers.map(([b, sec]) => [b, sec]),
-              },
-            }
-          : {}),
-      },
-      // One marker pair per line, like every other list of small tuples here.
-      c.warp ? [["warp", "markers"]] : [],
-    ),
+  writeDoc(
+    join(outDir, `clips/${cid}.k7x`),
+    {
+      source: wavRel,
+      ...windowFields(w, tsNum(song), tsDen(song)),
+      ...(c.warp
+        ? {
+            warp: {
+              algorithm: c.warp.algorithm ?? "elastique",
+              markers: c.warp.markers.map(([b, sec]) => [b, sec]),
+            },
+          }
+        : {}),
+    },
+    // One marker pair per line, like every other list of small tuples here.
+    { itemsOneLine: [["warp", "markers"]] },
   );
   ctx.clipFiles++;
   return placementOf(

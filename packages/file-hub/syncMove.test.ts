@@ -104,7 +104,7 @@ async function syncedOnA(name: string) {
     mkdirSync(dirname(join(root, rel)), { recursive: true });
     writeFileSync(join(root, rel), data);
   };
-  put("song.k7/project.yaml", "project:\n  name: song\n");
+  put("song.k7/project.k7x", 'project({ name: "song" })\n');
   put("song.k7/clips/take.wav", take);
   const ws = {
     root,
@@ -131,12 +131,17 @@ describe("moving a workspace between two servers", () => {
     const { root, take, put } = await syncedOnA("band");
 
     await move.startMove(root, b.origin);
-    await until(() => move.moveState(root) === undefined, 60_000);
+    // A failed move stays listed with its reason: fail on that at once rather than time out.
+    await until(() => {
+      const s = move.moveState(root);
+      if (s?.error) throw new Error(`move failed: ${s.error}`);
+      return s === undefined;
+    }, 60_000);
 
     // B holds it whole, and the take's bytes are on B's store.
     expect([...b.files("band").keys()].sort()).toEqual([
       "song.k7/clips/take.wav",
-      "song.k7/project.yaml",
+      "song.k7/project.k7x",
     ]);
     const ref = parseBlobRef(
       b.files("band").get("song.k7/clips/take.wav") ?? "",
@@ -158,8 +163,8 @@ describe("moving a workspace between two servers", () => {
     ]);
 
     // An edit made after the move reaches B.
-    put("song.k7/notes.yaml", "notes: after the move\n");
-    await until(() => b.files("band").has("song.k7/notes.yaml"));
+    put("song.k7/notes.k7x", 'notes("after the move")\n');
+    await until(() => b.files("band").has("song.k7/notes.k7x"));
     expect(a.files("band").size).toBe(0);
   }, 120_000);
 });
@@ -175,7 +180,7 @@ describe("copying a workspace between two servers", () => {
     // B holds it whole, the take's bytes included…
     expect([...b.files("duo").keys()].sort()).toEqual([
       "song.k7/clips/take.wav",
-      "song.k7/project.yaml",
+      "song.k7/project.k7x",
     ]);
     const ref = parseBlobRef(
       b.files("duo").get("song.k7/clips/take.wav") ?? "",
@@ -199,10 +204,10 @@ describe("copying a workspace between two servers", () => {
     });
 
     // An edit made after the copy reaches A, and not B's copy.
-    put("song.k7/notes.yaml", "notes: after the copy\n");
-    await until(() => a.files("duo").has("song.k7/notes.yaml"));
+    put("song.k7/notes.k7x", 'notes("after the copy")\n');
+    await until(() => a.files("duo").has("song.k7/notes.k7x"));
     await new Promise((r) => setTimeout(r, 500));
-    expect(b.files("duo").has("song.k7/notes.yaml")).toBe(false);
+    expect(b.files("duo").has("song.k7/notes.k7x")).toBe(false);
 
     // A second copy is refused by the name the target now holds.
     await expect(move.startCopy(root, b.origin)).rejects.toThrow(

@@ -2,19 +2,14 @@
 // ways to get it wrong silently: a colour per lane that ignores its category, and an order that
 // drops a lane the categories did not mention.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { categoryShade } from "@studio/song-schema/trackColor";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
 
@@ -26,16 +21,14 @@ afterEach(() => rmSync(song, { recursive: true, force: true }));
 
 /** A song whose lanes are drawn in `ids`' order, each with the colour an import left it. */
 function songOf(ids: string[]) {
-  writeFileSync(join(song, "project.yaml"), "project:\n  name: t\n", "utf8");
-  mkdirSync(join(song, "tracks"), { recursive: true });
+  writeDoc(join(song, "project.k7x"), { project: { name: "t" } });
   // A `chains/` folder is what makes this a chain project, whose lanes live in `tracks/`.
   mkdirSync(join(song, "chains"), { recursive: true });
   for (const id of ids)
-    writeFileSync(
-      join(song, "tracks", `${id}.yaml`),
-      'color: "#123456"\nextends: "@meta/track"\n',
-      "utf8",
-    );
+    writeDoc(join(song, "tracks", `${id}.k7x`), {
+      color: "#123456",
+      extends: "@meta/track",
+    });
   return testHost({
     songPath: song,
     project: () =>
@@ -44,10 +37,8 @@ function songOf(ids: string[]) {
       }) as unknown as ProjectDoc,
   });
 }
-const colorOf = (id: string) =>
-  parse(readFileSync(join(song, "tracks", `${id}.yaml`), "utf8")).color;
-const order = () =>
-  parse(readFileSync(join(song, "project.yaml"), "utf8")).trackOrder;
+const colorOf = (id: string) => wsData(join(song, "tracks", `${id}.k7x`)).color;
+const order = () => wsData(join(song, "project.k7x")).trackOrder;
 
 describe("track arrange", () => {
   it("orders vox, drums, basses, guitars, keys, synths, then the rest — stable within one", async () => {

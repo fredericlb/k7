@@ -1,3 +1,4 @@
+import { stringify } from "@studio/k7x/print";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
 import {
@@ -30,9 +31,9 @@ const CACHE = [
   entry("songs/lemo/mante/aube", "Aube"),
 ];
 
-/** A playlist naming these refs, in this order. The format is @studio/song/playlist's. */
+/** A playlist naming these refs, in this order. The format is @studio/song-schema/playlist's. */
 const playlist = (...refs: string[]) =>
-  `title: Set\nitems:\n${refs.map((r) => `  - ${r}\n`).join("")}`;
+  stringify({ title: "Set", items: refs });
 
 describe("the song browser's list", () => {
   const song = (artist: string, name: string): SetEntry => ({
@@ -138,7 +139,9 @@ describe("a playlist resolved against the cache", () => {
       variants: [{ name: "instrumental", ref: "instru.wav", kind: "file" }],
     } as Partial<MediatekEntry>);
     const set = resolveSet(
-      "items:\n  - song: lemo/mante/danse\n    variant: instrumental\n",
+      stringify({
+        items: [{ song: "lemo/mante/danse", variant: "instrumental" }],
+      }),
       [withVariant],
     );
     expect(set.entries[0].variant).toBe("instrumental");
@@ -147,7 +150,7 @@ describe("a playlist resolved against the cache", () => {
 
   it("keeps a line whose variant the folder has not got, with nothing to play", () => {
     const set = resolveSet(
-      "items:\n  - song: lemo/mante/danse\n    variant: nope\n",
+      stringify({ items: [{ song: "lemo/mante/danse", variant: "nope" }] }),
       CACHE,
     );
     expect(set.entries.length).toBe(1);
@@ -162,7 +165,7 @@ describe("a playlist resolved against the cache", () => {
 
     // No cache entry means no tags: the id's second segment is the artist FOLDER, not a guess.
     const untagged = resolveSet(
-      playlist("'Alain Bashung/Album inconnu/La nuit je mens'"),
+      playlist("Alain Bashung/Album inconnu/La nuit je mens"),
       [],
     );
     expect(untagged.entries[0].artist).toBe("Alain Bashung");
@@ -184,7 +187,12 @@ describe("a playlist resolved against the cache", () => {
       variants: [{ name: "instrumental", ref: "instru.wav", kind: "file" }],
     } as Partial<MediatekEntry>);
     const set = resolveSet(
-      "items:\n  - lemo/mante/danse\n  - song: lemo/mante/danse\n    variant: instrumental\n",
+      stringify({
+        items: [
+          "lemo/mante/danse",
+          { song: "lemo/mante/danse", variant: "instrumental" },
+        ],
+      }),
       [withVariant],
     );
     expect(set.entries.map((e) => e.file)).toEqual([
@@ -194,7 +202,7 @@ describe("a playlist resolved against the cache", () => {
   });
 
   it("reports a playlist that will not read, and draws no songs", () => {
-    const set = resolveSet("items: [\n", CACHE);
+    const set = resolveSet("items([\n", CACHE);
     expect(set.entries).toEqual([]);
     expect(set.issues.length).toBe(1);
     expect(set.absent).toBe(false);
@@ -207,7 +215,7 @@ describe("a playlist resolved against the cache", () => {
     expect(missing.absent).toBe(false);
     expect(missing.issues.length).toBe(1);
 
-    const empty = resolveSet("items: []\n", CACHE);
+    const empty = resolveSet(stringify({ items: [] }), CACHE);
     expect(empty.entries).toEqual([]);
     expect(empty.absent).toBe(false);
     expect(empty.issues).toEqual([]);
@@ -219,7 +227,9 @@ describe("a playlist resolved against the cache", () => {
 
 describe("the row a dropped playlist line means", () => {
   const set = resolveSet(
-    "items:\n  - a/b/song\n  - song: a/b/song\n    variant: instrumental\n",
+    stringify({
+      items: ["a/b/song", { song: "a/b/song", variant: "instrumental" }],
+    }),
     [],
   );
 

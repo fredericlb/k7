@@ -1,6 +1,6 @@
 // A module that has been PLACED but not wired.
 //
-// chains.yaml can hold one (`modules: { x: [] }`), which is what a right-click on empty canvas creates: drop
+// chains.k7x can hold one (`modules: { x: [] }`), which is what a right-click on empty canvas creates: drop
 // it in, connect it after. The graph is the only place it can be connected FROM, so if it doesn't draw, it is a
 // node the file says exists and the user can neither see nor reach — worse than not creating it at all.
 

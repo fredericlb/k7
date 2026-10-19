@@ -27,8 +27,8 @@ import { WebSocket } from "ws";
 import { DeviceTokens } from "./deviceTokens.ts";
 import { attachSyncRelay, SYNC_PATH } from "./syncRelay.ts";
 
-const MIX = "plugin: mixer\nparams:\n  gain: 0.5\n  pan: 0\n";
-const FILE = "song.k7/nodes/mix.yaml";
+const MIX = 'plugin("mixer")\nparams({\n  gain: 0.5,\n  pan: 0,\n})\n';
+const FILE = "song.k7/nodes/mix.k7x";
 const SECRETS = new Set(["secret-a", "secret-b"]);
 
 const cleanup: (() => void)[] = [];
@@ -268,8 +268,8 @@ describe("the sync relay", () => {
     for (const d of [server, phone])
       await until(() => d.replica.conflicts.list().length === 1);
     const [c] = server.replica.conflicts.list();
-    expect(c.kept).toBe("0.8\n");
-    expect(c.op).toMatchObject({ kind: "yaml", ops: [{ yaml: "0.1\n" }] });
+    expect(c.kept).toBe("0.8");
+    expect(c.op).toMatchObject({ kind: "k7x", ops: [{ k7x: "0.1" }] });
     for (const d of [server, phone])
       await until(() => read(d.root, FILE)?.includes("gain: 0.8") ?? false);
 

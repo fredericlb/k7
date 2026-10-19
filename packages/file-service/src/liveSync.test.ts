@@ -23,7 +23,7 @@ function workspace(): Workspace {
   process.env.STUDIO_HOME = mkdtempSync(join(tmpdir(), "live-home-"));
   const root = mkdtempSync(join(tmpdir(), "live-ws-"));
   mkdirSync(join(root, "song.k7"), { recursive: true });
-  writeFileSync(join(root, "song.k7", "song.yaml"), "tempo: 120\n");
+  writeFileSync(join(root, "song.k7", "song.k7x"), "tempo(120)\n");
   const ws = new Workspace(root);
   roots.push(ws.root);
   return ws;
@@ -51,19 +51,19 @@ describe("live sync in the file service", () => {
   it("logs a write made inside recordChange under the window's label", async () => {
     const ws = workspace();
     attachLiveCapture(ws, "band");
-    await ws.recordChange("édition song.k7/song.yaml", () =>
-      ws.write("song.k7/song.yaml", "tempo: 128\n"),
+    await ws.recordChange("édition song.k7/song.k7x", () =>
+      ws.write("song.k7/song.k7x", "tempo(128)\n"),
     );
     const [batch] = await until(() => {
       const t = liveLogTail(ws, 10);
       return t?.length ? t : null;
     });
-    expect(batch.label).toBe("édition song.k7/song.yaml");
+    expect(batch.label).toBe("édition song.k7/song.k7x");
     expect(batch.ops).toEqual([
       {
-        kind: "yaml",
-        file: "song.k7/song.yaml",
-        ops: [{ op: "set", path: ["tempo"], yaml: "128\n", was: "120\n" }],
+        kind: "k7x",
+        file: "song.k7/song.k7x",
+        ops: [{ op: "set", path: ["tempo"], k7x: "128", was: "120" }],
       },
     ]);
   });

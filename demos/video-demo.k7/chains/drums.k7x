@@ -1,4 +1,4 @@
-// The drums lane: into the mix, and into `glow`'s audio port — see glow.yaml.
+// The drums lane: into the mix, and into `glow`'s audio port — see glow.k7x.
 start(true)
 steps([
   id("32ed90b2-df56-4d98-9d9d-d8087c5e2e86").track("drums"),

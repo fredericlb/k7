@@ -13,9 +13,8 @@ import {
   libraryRefParts,
   SHARED_MODULES_DIR,
 } from "@studio/song-schema/moduleTypes";
-import { parse as parseYaml } from "yaml";
 import { accountLibraryHome, libraryVersionRoot } from "./sharedFolders";
-import { isDocName, wsRead } from "./yaml/workspaceFile";
+import { wsData } from "./yaml/workspaceDoc";
 
 const MODULE_FILE = docPattern("^module", "");
 
@@ -27,7 +26,7 @@ export interface LibraryFork {
   base: string;
 }
 
-/** Every `module.yaml` under `dir`, recursively, skipping dot-folders. */
+/** Every `module.k7x` under `dir`, recursively, skipping dot-folders. */
 function moduleFiles(dir: string): string[] {
   const out: string[] = [];
   let entries: string[];
@@ -39,11 +38,8 @@ function moduleFiles(dir: string): string[] {
   for (const name of entries) {
     if (name.startsWith(".")) continue;
     const abs = join(dir, name);
-    // The module file in either spelling, the .k7x one first, as moduleIO's lookup reads it.
-    if (MODULE_FILE.test(name) && isDocName(name)) {
-      if (name === "module.k7x" || !entries.includes("module.k7x"))
-        out.push(abs);
-    } else if (statSync(abs).isDirectory()) out.push(...moduleFiles(abs));
+    if (MODULE_FILE.test(name)) out.push(abs);
+    else if (statSync(abs).isDirectory()) out.push(...moduleFiles(abs));
   }
   return out;
 }
@@ -62,7 +58,7 @@ export function libraryForks(repoDir: string, library: string): LibraryFork[] {
     for (const file of moduleFiles(root)) {
       let doc: unknown;
       try {
-        doc = parseYaml(wsRead(file));
+        doc = wsData(file);
       } catch {
         continue;
       }

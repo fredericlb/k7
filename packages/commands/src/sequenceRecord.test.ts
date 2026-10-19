@@ -1,34 +1,22 @@
 // `sequence record` — a MIDI take on a lane with no sequence becomes one, placed where it was played.
 
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { recordWindow, writeRecordedSequence } from "./verbs/sequenceRecord";
 
 let dir: string;
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "seq-record-"));
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(dir, "nodes", "keys.yaml"),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t", tempo: 120 } });
+  writeDoc(join(dir, "nodes", "keys.k7x"), {
+    extends: "@meta/track",
+    events: [],
+  });
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -56,15 +44,15 @@ describe("sequence record", () => {
     );
     expect(id).toBe("keys-rec-1");
     expect(at).toBe("2:1");
-    const seq = parse(
-      readFileSync(join(dir, "sequences", `${id}.yaml`), "utf8"),
-    );
+    const seq = wsData(join(dir, "sequences", `${id}.k7x`));
     expect(seq.to).toBe("2:1");
     expect(seq.notes).toEqual([
       { t: 1, d: 1, k: 60, v: 0.5 },
       { t: 2, d: 1, k: 64 },
     ]);
-    expect(readFileSync(join(dir, "nodes", "keys.yaml"), "utf8")).toContain(id);
+    expect(wsData(join(dir, "nodes", "keys.k7x")).events).toEqual([
+      expect.objectContaining({ ref: id }),
+    ]);
   });
 
   it("never overwrites an earlier take", () => {
@@ -77,6 +65,6 @@ describe("sequence record", () => {
       4,
     );
     expect(id).toBe("keys-rec-2");
-    expect(existsSync(join(dir, "sequences", "keys-rec-1.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "sequences", "keys-rec-1.k7x"))).toBe(true);
   });
 });

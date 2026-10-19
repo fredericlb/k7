@@ -3,15 +3,15 @@
 // A `@workspace` or `@k7-core` module that already HAS a folder is simply edited in place — there is
 // no project-local copy to fork into instead. Rationale: docs/moduleFork.md.
 
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { K7Document } from "@studio/k7x/document";
+import { stringify } from "@studio/k7x/print";
 import { ENGINES_DIR } from "@studio/song-schema/engines";
 import { namePart } from "@studio/song-schema/instanceName";
 import { parseGraph, renameNode } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
-import { YAML_READ, YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
 import { isBelow } from "@studio/web-protocol/paths";
-import { parseDocument } from "yaml";
 import { editChainItem } from "./chainItemEdit";
 import { isChainProject, readChainProject } from "./chainProject";
 import { deriveChains } from "./chainsGraph";
@@ -25,7 +25,7 @@ import {
 } from "./sharedFolders";
 import { loadUiLibrary, writeUiFile } from "./uiLibrary";
 import { entityFileFor } from "./yaml/moduleIO";
-import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
+import { wsText, wsWriteText } from "./yaml/workspaceDoc";
 
 export type ForkedModule = {
   /** The shared ref that was edited, e.g. "@engine/audio/delay/tape-delay". */
@@ -75,7 +75,7 @@ export function sharedModuleRef(
   return null;
 }
 
-/** Every chain that reaches `module`, `out` counting as well as `use` — see docs/moduleFork.md. */
+/** Every chain of a graph's k7x text that reaches `module`, `out` counting as well as `use` — see docs/moduleFork.md. */
 export function chainsUsing(text: string, module: string): string[] {
   const chains = deriveChains(parseGraph(text).value);
   return Object.entries(chains)
@@ -108,23 +108,31 @@ export function materialiseEngineModule(
 
   // Named after the ref's own slug, bare — not `instanceName`, see docs/moduleFork.md.
   const stem = namePart(String(found.file ?? ref.split("/").pop() ?? "module"));
-  // Same workspace-level home a fork gets — an engine module given a folder is an ordinary
-  // `@workspace` module from that point on, docs/moduleFork.md.
+  // The home a fork gets: from here on it is an ordinary `@workspace` module, docs/moduleFork.md.
   const typeDir = resolve(dir, SHARED_MODULES_PATH, type);
   let module = stem;
-  for (let n = 2; wsExists(join(typeDir, module)); n++) module = `${stem}_${n}`;
+  for (let n = 2; existsSync(join(typeDir, module)); n++)
+    module = `${stem}_${n}`;
 
   mkdirSync(join(typeDir, module), { recursive: true });
   const plugin = found.plugin as { type?: unknown; name?: unknown } | undefined;
   const body = plugin
-    ? `# ${module}: ${ref}, given a folder so it can carry a panel and presets.\n` +
-      `plugin:\n` +
-      `  type: ${JSON.stringify(String(plugin.type ?? ""))}\n` +
-      `  name: ${JSON.stringify(String(plugin.name ?? ""))}\n`
+    ? {
+        plugin: {
+          type: String(plugin.type ?? ""),
+          name: String(plugin.name ?? ""),
+        },
+      }
     : // An io module (IN / OUT / …) has no plugin — its `io:` IS its substance.
-      `# ${module}: ${ref}, given a folder so it can carry a panel and presets.\n` +
-      `io: ${JSON.stringify(String(found.io ?? ""))}\n`;
-  wsWrite(join(typeDir, module, "module.yaml"), body);
+      { io: String(found.io ?? "") };
+  wsWriteText(
+    join(typeDir, module, "module.k7x"),
+    stringify(body, {
+      header: [
+        `${module}: ${ref}, given a folder so it can carry a panel and presets.`,
+      ],
+    }),
+  );
 
   // The panel follows, if the engine module had one drawn under its ref somewhere readable.
   const panel = loadUiLibrary(dir).byRef[ref];
@@ -137,16 +145,17 @@ export function materialiseEngineModule(
   let chains: string[] = [];
   if (isChainProject(dir)) chains = repointChainItems(dir, ref, localRef);
   else if (graphFile) {
-    const text = wsRead(graphFile.path);
-    const r = renameNode(text, ref, localRef);
-    if (r.text !== text) wsWrite(graphFile.path, r.text);
-    chains = chainsUsing(r.text, localRef);
+    // The file as written: the graph's writers keep a `runs` short form themselves.
+    const doc = new K7Document(wsText(graphFile.path));
+    renameNode(doc.at([]), ref, localRef);
+    wsWriteText(graphFile.path, doc.toString());
+    chains = chainsUsing(doc.toString(), localRef);
   }
 
   return {
     ref,
     module,
-    path: `${SHARED_MODULES_PATH}/${type}/${module}/module.yaml`,
+    path: `${SHARED_MODULES_PATH}/${type}/${module}/module.k7x`,
     chains,
   };
 }
@@ -156,11 +165,7 @@ function repointChainItems(dir: string, ref: string, to: string): string[] {
   const chains = new Set<string>();
   for (const n of Object.values(readChainProject(dir).nodes)) {
     if (n.track || (n.value as { extends?: unknown }).extends !== ref) continue;
-    editChainItem(dir, n.name, (text) => {
-      const doc = parseDocument(text, YAML_READ);
-      doc.set("extends", to);
-      return doc.toString(YAML_WRITE);
-    });
+    editChainItem(dir, n.name, (item) => item.setIn(["extends"], to));
     chains.add(n.chain);
   }
   return [...chains];

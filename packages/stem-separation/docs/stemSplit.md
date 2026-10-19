@@ -25,7 +25,7 @@ pass produces the outputs before the render". It is a word rather than a silence
 the compiler's gate drops any type it does not know, silently — an unrecognised type is how a
 module vanishes from a compile with no warning at all.
 
-The wiring is real: `graph.yaml` can key a module by its output
+The wiring is real: `graph.k7x` can key a module by its output
 (`stemsplit#vocals: [ reverb ]`), the derivation carries that port along the edge, and
 the graph draws a jack per stem. See `@studio/song`'s [ports.md](../../song/docs/ports.md).
 

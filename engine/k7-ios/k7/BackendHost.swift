@@ -257,6 +257,11 @@ final class BackendHost {
         if FileManager.default.fileExists(atPath: TrustedCas.file.path) {
             setenv("NODE_EXTRA_CA_CERTS", TrustedCas.file.path, 1)
         }
+        // The k7x reader as an addon, since a JIT-less node has no WebAssembly; every worker inherits it (packages/k7x/docs/rust.md).
+        if let k7x = Bundle.main.privateFrameworksURL?.appendingPathComponent("k7x.framework/k7x"),
+           FileManager.default.fileExists(atPath: k7x.path) {
+            setenv("K7X_ADDON", k7x.path, 1)
+        }
         let boot = Bundle.main.resourceURL!.appendingPathComponent("backend-boot.mjs").path
         let args = ["node", boot, String(toNode.fileHandleForReading.fileDescriptor),
                     String(fromNode.fileHandleForWriting.fileDescriptor)]

@@ -14,11 +14,11 @@ column is a field that silently drifts out of step with the rest of the song.
 
 | moves | where | unit |
 |---|---|---|
-| a lane's events | `nodes/<id>.yaml` `events[].start` | timecode |
+| a lane's events | `nodes/<id>.k7x` `events[].start` | timecode |
 | …and every alternative's own events | `alternatives[].events[].start` | timecode |
-| markers | `project.yaml` `markers` **keys** | timecode |
-| a drawn curve's points | `curves/<id>.yaml` `points[].time` | timecode |
-| picture | `video_tracks/<id>.yaml` `events[].start` | **seconds** |
+| markers | `project.k7x` `markers` **keys** | timecode |
+| a drawn curve's points | `curves/<id>.k7x` `points[].time` | timecode |
+| picture | `video_tracks/<id>.k7x` `events[].start` | **seconds** |
 
 | stays | why |
 |---|---|
@@ -45,8 +45,8 @@ events — rather than asking where one edit belongs.
 
 ## All the files, or none
 
-A splice rewrites every lane, curve and video lane and `project.yaml`'s markers. Every new text is
-made first and only then written, so a file that cannot be transformed (its YAML broken) throws
+A splice rewrites every lane, curve and video lane and `project.k7x`'s markers. Every new text is
+made first and only then written, so a file that cannot be transformed (its k7x broken) throws
 before anything reaches the disk. Written one by one, a throw on the fifth file would leave the first
 four shifted and the rest not: a song whose lanes disagree about where bar 9 is, which no undo knows
 how to take back.
@@ -85,10 +85,8 @@ that the writers preserve input spelling, which they do not and should not.
 
 ## Two places a timecode has to be quoted
 
-**A marker key.** Unquoted, `2:1:1` is a YAML 1.1 sexagesimal integer, so `writeMarkers` goes
-through `setQuotedKeyMap` — and so does `project marker new`. Neither of the general writers can
-do it: `setFileValue` gives every key the plain style, and `quoteTimecodes` walks **values** under
-known keys, so neither sees a timecode used as a **key**.
+**A marker key.** A timecode used as a **key** is written quoted like any key that is not a bare
+name, so `writeMarkers` replaces the map with `applyIn` and the printer quotes each key.
 
 **A curve point's `time`.** It is in `TIMECODE_KEYS`, the set every writer quotes through — the one
 other place a timecode is written by a tool.

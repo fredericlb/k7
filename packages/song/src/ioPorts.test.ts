@@ -1,17 +1,11 @@
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ioPorts } from "./ioPorts";
 import type { Preferences } from "./preferences";
-import { copyAsYaml } from "./testSupport";
+import { writeDoc } from "./testSupport";
 
 // A port's CHANNEL can be a label from the rig's preferences, resolved before anything is metered.
 
@@ -27,24 +21,14 @@ describe("the declared I/O", () => {
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-io-"));
     dir = join(ws, "song");
-    copyAsYaml(SONG, dir, { recursive: true });
+    cpSync(SONG, dir, { recursive: true });
     const io = join(ws, "_modules", "io");
-    mkdirSync(join(io, "IN"), { recursive: true });
-    mkdirSync(join(io, "OUT"), { recursive: true });
-    writeFileSync(join(io, "IN", "module.yaml"), "io: in\n");
-    writeFileSync(join(io, "IN", "in-1.yaml"), "channel: [1]\n");
-    writeFileSync(join(io, "IN", "in-2.yaml"), "channel: [1, 2]\n");
-    writeFileSync(join(io, "IN", "gtr.yaml"), "channel: guitar\n"); // a preferences label
-    writeFileSync(join(io, "IN", "ghost.yaml"), "channel: nosuchinput\n");
-    writeFileSync(join(io, "OUT", "module.yaml"), "io: out\n");
-    const p = join(dir, "project.yaml");
-    writeFileSync(
-      p,
-      readFileSync(p, "utf8").replace(
-        "modules_from: []",
-        "modules_from: [ ../_modules ]",
-      ),
-    );
+    writeDoc(join(io, "IN", "module.k7x"), { io: "in" });
+    writeDoc(join(io, "IN", "in-1.k7x"), { channel: [1] });
+    writeDoc(join(io, "IN", "in-2.k7x"), { channel: [1, 2] });
+    writeDoc(join(io, "IN", "gtr.k7x"), { channel: "guitar" }); // a preferences label
+    writeDoc(join(io, "IN", "ghost.k7x"), { channel: "nosuchinput" });
+    writeDoc(join(io, "OUT", "module.k7x"), { io: "out" });
   });
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
@@ -98,9 +82,8 @@ describe("the declared I/O", () => {
 
   it("still lists a project's OWN io when nothing is inherited", () => {
     const solo = mkdtempSync(join(tmpdir(), "td-io-solo-"));
-    copyAsYaml(SONG, solo, { recursive: true });
-    mkdirSync(join(solo, "nodes"), { recursive: true });
-    writeFileSync(join(solo, "nodes", "OUT.yaml"), "io: out\n");
+    cpSync(SONG, solo, { recursive: true });
+    writeDoc(join(solo, "nodes", "OUT.k7x"), { io: "out" });
     expect(ioPorts(solo, PREFS).map((p) => p.ref)).toContain("OUT");
     rmSync(solo, { recursive: true, force: true });
   });

@@ -1,6 +1,6 @@
-// surfaceSchema.ts — `surfaces/<name>.yaml`'s shape, in Zod: a special VIEW a project asks its
+// surfaceSchema.ts — `surfaces/<name>.k7x`'s shape, in Zod: a special VIEW a project asks its
 // editor to draw, what kind it is, where it goes, and which module each of its components is
-// wired to. The wiring reuses `views/mix.yaml`'s binding, being the same question.
+// wired to. The wiring reuses `views/mix.k7x`'s binding, being the same question.
 // Full rationale: docs/surfaces.md.
 
 import { z } from "zod";

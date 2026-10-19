@@ -7,20 +7,21 @@ no answer for the thing a rig is for — *capture what is passing through here, 
 
 So: a node you wire into a chain.
 
-```yaml
-modules:
-  IN:    [ fader ]
-  fader: [ MIX ]
-  MIX:   [ rec ]     # …and the sound is unchanged whether it is recording or not
-  rec:   [ OUT ]
+```k7x
+modules({
+  IN: ["fader"],
+  fader: ["MIX"],
+  MIX: ["rec"], // …and the sound is unchanged whether it is recording or not
+  rec: ["OUT"],
+})
 ```
 
 Anywhere in the graph works — the `live` archetype puts it on the master run, and the section
 below says why that is the placement worth having.
 
-```yaml
-# nodes/rec.yaml — one USE of the shared module, as any node is
-extends: "@meta/audio/recorder"
+```k7x
+// nodes/rec.k7x — one USE of the shared module, as any node is
+extends("@meta/audio/recorder")
 ```
 
 It is an ordinary module with an engine built-in behind it (`plugin: {type: internal, name:
@@ -147,9 +148,9 @@ pixels rather than about a socket.
 
 On the **master run**, between the sum and the interface:
 
-```yaml
-  MIX: [ rec ]
-  rec: [ OUT ]
+```k7x
+MIX(["rec"])
+rec(["OUT"])
 ```
 
 So a take is the whole mix, post-fader — what you would have heard. The same node between `IN`
@@ -167,8 +168,8 @@ The module ships with k7, in `packages/song/meta/audio/recorder/`, and a project
 `@meta/audio/recorder` ([metaModules.md](metaModules.md)): a live rig is built on it, so no
 library is allowed to be the thing that provides it.
 
-Its `ui.yaml` comes with it, and that matters: a module with no face draws a card with nothing on
-it, which is how the mixer's missing `ui.yaml` was found.
+Its `ui.k7x` comes with it, and that matters: a module with no face draws a card with nothing on
+it, which is how the mixer's missing `ui.k7x` was found.
 
 ## What it does NOT do
 

@@ -1,9 +1,9 @@
-// curves.ts — automation curves: a normalised function of song time (curves/<id>.yaml)
+// curves.ts — automation curves: a normalised function of song time (curves/<id>.k7x)
 // that drives automation, not yet what they're bound to. Two shapes: `lfo` (periodic,
 // frequency in cycles/bar) and `custom` (hand-placed points, linear interpolation).
 // `polarity` (unipolar 0..1 / bipolar -1..1) is per-curve — see sampleCurve.
 
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type {
   CurveCondition,
@@ -12,6 +12,7 @@ import type {
   CurveSpec,
   LfoShape,
 } from "@studio/graph-model";
+import type { K7Scope } from "@studio/k7x/document";
 import {
   ADSR_DEFAULT_LEVEL,
   adsrMs,
@@ -25,11 +26,16 @@ import {
   CurveConditionSchema,
   CurveSchema,
 } from "@studio/song-schema/yaml/entitySchemas";
-import { YAML_WRITE } from "@studio/song-schema/yaml/yamlText";
-import { stringify } from "yaml";
 import { round6 } from "./curveBake";
 import { exportSub } from "./loader";
-import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
+import { wsEdit, wsWriteData, wsWriteText } from "./yaml/workspaceDoc";
+
+/** The project-relative file a curve lives in. */
+const curveRel = (id: string): string => `curves/${id}.k7x`;
+
+/** A curve's points written one a line, so a moved point is a one-line diff. */
+const pointLines = (path: readonly (string | number)[]): boolean =>
+  path.length === 2 && path[0] === "points";
 
 export {
   type BakedCurve,
@@ -177,29 +183,28 @@ export function parseCurve(id: string, raw: any): Curve {
   );
 }
 
-// Scaffold curves/<id>.yaml as an LFO, refusing to overwrite, and return its path — see docs/curves.md.
+// Scaffold curves/<id>.k7x as an LFO, refusing to overwrite, and return its path — see docs/curves.md.
 export function createCurveFile(dir: string, id: string): string {
   // The filename IS the id, so it has to be one a path and a reference can both carry.
   if (!/^[A-Za-z0-9_-]+$/.test(id))
     throw new Error(
       `invalid curve name '${id}' — letters, digits, '_' and '-' only`,
     );
-  const rel = `curves/${id}.yaml`;
+  const rel = curveRel(id);
   const path = join(dir, rel);
-  if (wsExists(path)) throw new Error(`curve '${id}' already exists (${rel})`);
+  if (existsSync(path))
+    throw new Error(`curve '${id}' already exists (${rel})`);
   mkdirSync(join(dir, "curves"), { recursive: true });
-  wsWrite(
+  wsWriteText(
     path,
-    `type: lfo
-` +
-      `shape: sine        # sine | triangle | saw | square
-` +
-      `frequency: 1       # cycles per bar
-` +
-      `polarity: unipolar # unipolar 0..1 | bipolar -1..1
-` +
-      `phase: 0           # 0..1 of a cycle
-`,
+    [
+      `type("lfo")`,
+      `shape("sine") // sine | triangle | saw | square`,
+      `frequency(1) // cycles per bar`,
+      `polarity("unipolar") // unipolar 0..1 | bipolar -1..1`,
+      `phase(0) // 0..1 of a cycle`,
+      "",
+    ].join("\n"),
   );
   return rel;
 }
@@ -233,7 +238,7 @@ const CURVE_FIELDS: Record<CurveSpec["type"], string[]> = {
   ],
 };
 
-/** Write `curves/<id>.yaml` WHOLE from `raw`, creating or replacing it — the curve editor's save; docs/curves.md. */
+/** Write `curves/<id>.k7x` WHOLE from `raw`, creating or replacing it — the curve editor's save; docs/curves.md. */
 export function writeCurveFile(
   dir: string,
   id: string,
@@ -254,22 +259,15 @@ export function writeCurveFile(
   const ordered: Record<string, unknown> = {};
   for (const k of CURVE_FIELDS[parsed.data.type])
     if (value[k] !== undefined) ordered[k] = value[k];
-  const rel = `curves/${id}.yaml`;
+  const rel = curveRel(id);
   const path = join(dir, rel);
-  const created = !wsExists(path);
+  const created = !existsSync(path);
   mkdirSync(join(dir, "curves"), { recursive: true });
-  wsWrite(
-    path,
-    stringify(ordered, YAML_WRITE).replace(
-      // One point a line, as `curve point` writes them: a moved point is a one-line diff.
-      /^ {2}- time: "?([^"\n]+)"?\n {4}value: (.+)$/gm,
-      '  - { time: "$1", value: $2 }',
-    ),
-  );
+  wsWriteData(path, ordered, { inline: pointLines });
   return { rel, created };
 }
 
-/** Scaffold `curves/<id>.yaml` as a FLAT custom curve at the param's current value — docs/curves.md. */
+/** Scaffold `curves/<id>.k7x` as a FLAT custom curve at the param's current value — docs/curves.md. */
 export function createFlatCurveFile(
   dir: string,
   id: string,
@@ -280,19 +278,21 @@ export function createFlatCurveFile(
     throw new Error(
       `invalid curve name '${id}' — letters, digits, '_' and '-' only`,
     );
-  const rel = `curves/${id}.yaml`;
+  const rel = curveRel(id);
   const path = join(dir, rel);
-  if (wsExists(path)) throw new Error(`curve '${id}' already exists (${rel})`);
-  const v = Math.min(1, Math.max(0, value));
+  if (existsSync(path))
+    throw new Error(`curve '${id}' already exists (${rel})`);
+  const v = round6(Math.min(1, Math.max(0, value)));
   mkdirSync(join(dir, "curves"), { recursive: true });
-  wsWrite(
+  wsWriteText(
     path,
     [
-      "type: custom",
-      "polarity: unipolar # unipolar 0..1 | bipolar -1..1",
-      "points:",
-      `  - { time: "1:1:1", value: ${round6(v)} }`,
-      `  - { time: "${endTc}", value: ${round6(v)} }`,
+      `type("custom")`,
+      `polarity("unipolar") // unipolar 0..1 | bipolar -1..1`,
+      "points([",
+      `  time("1:1:1").value(${v}),`,
+      `  time(${JSON.stringify(endTc)}).value(${v}),`,
+      "])",
       "",
     ].join("\n"),
   );
@@ -306,19 +306,20 @@ export function loadCurves(dir: string): Record<string, Curve> {
   return out;
 }
 
-/** Read, transform, write one curve file — the `curve point` seam, see docs/curves.md. */
+/** Run a writer over one curve file — the `curve point` seam; a writer answering false refused, see docs/curves.md. */
 export function editCurveFile(
   dir: string,
   id: string,
-  transform: (text: string) => string | null,
+  // biome-ignore lint/suspicious/noConfusingVoidType: a writer that returns nothing must type-check, and false is its one signal.
+  edit: (doc: K7Scope) => boolean | void,
 ): string {
-  const rel = `curves/${id}.yaml`;
+  const rel = curveRel(id);
   const path = join(dir, rel);
-  if (!wsExists(path)) throw new Error(`no curve '${id}' (${rel})`);
-  const before = wsRead(path);
-  const after = transform(before);
-  if (after === null) throw new Error(`nothing to edit in curve '${id}'`);
-  if (after !== before) wsWrite(path, after);
+  if (!existsSync(path)) throw new Error(`no curve '${id}' (${rel})`);
+  wsEdit(path, (doc) => {
+    if (edit(doc.at([])) === false)
+      throw new Error(`nothing to edit in curve '${id}'`);
+  });
   return rel;
 }
 

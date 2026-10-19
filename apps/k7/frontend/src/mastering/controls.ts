@@ -1,5 +1,5 @@
 // controls.ts — what a `mastering` surface has knobs for: ten controls in three groups, one
-// group per part of the node it is a picture of. The vocabulary a `surfaces/<id>.yaml` mapping
+// group per part of the node it is a picture of. The vocabulary a `surfaces/<id>.k7x` mapping
 // is keyed by; `@studio/song` accepts any key and this is the list that is actually drawn.
 // See ../../docs/mastering.md.
 

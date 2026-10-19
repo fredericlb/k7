@@ -1,5 +1,5 @@
 // WidgetGridEditor.tsx — the visual half of the module editor: a module's UI grid,
-// authored by placing widgets on cells instead of writing YAML. It owns nothing — every
+// authored by placing widgets on cells instead of writing k7x. It owns nothing — every
 // edit produces a fresh ModuleUI and calls onChange. A widget is bound by DRAGGING a row
 // from the Parameters pane (paramDrag.ts), which carries the range with it, so this
 // component needs to know nothing about the engine. It edits ONE widget map at a time —

@@ -1,11 +1,6 @@
-// parseTree.ts — the syntax tree, parsed as far as the caller actually reads.
-//
-// Building an EditorState parses only the first `Work.InitViewport` (3000) characters, under a 20 ms budget,
-// and keeps whatever it got (`@codemirror/language`'s LanguageState.init). `syntaxTree` hands that back with no
-// indication it is short — so a walk over a 8.5 kB chains.yaml finds a third of the file and every link, gutter
-// and completion past the cut silently goes dark. The same budget is why a loaded CI runner can return an EMPTY
-// tree for a two-line document: the first parse in a cold worker builds the parse tables, and 20 ms need not
-// cover that. A live EditorView eventually catches up in the background; a bare state never does.
+// parseTree.ts (yaml) — the YAML mode's lezer tree, parsed as far as the caller actually reads.
+// A state is built parsing only its first 3000 characters under a 20 ms budget, and `syntaxTree` gives that back
+// with no sign it is short, so a completion past the cut would go dark (docs/completion.md).
 
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import type { EditorState } from "@codemirror/state";

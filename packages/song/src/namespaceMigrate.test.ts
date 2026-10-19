@@ -18,17 +18,29 @@ describe("migrateNamespaceText", () => {
 
   it("renames the modules k7-core renamed, and not one that only starts the same", () => {
     const { after } = migrateNamespaceText(
-      "chains/d.yaml",
-      'a: "@st0/instruments/st0-rack"\nb: "@k7-core/instruments/st0-4osc"\nc: "@st0/instruments/st0-rack-sfz"\n',
+      "chains/d.k7x",
+      'a("@st0/instruments/st0-rack")\nb("@k7-core/instruments/st0-4osc")\nc("@st0/instruments/st0-rack-sfz")\n',
     );
     expect(after).toBe(
-      'a: "@k7-core/instruments/k7-rack"\nb: "@k7-core/instruments/k7-4osc"\nc: "@k7-core/instruments/st0-rack-sfz"\n',
+      'a("@k7-core/instruments/k7-rack")\nb("@k7-core/instruments/k7-4osc")\nc("@k7-core/instruments/st0-rack-sfz")\n',
     );
   });
 
   it("re-keys the library pin", () => {
-    const { after } = migrateNamespaceText("_library-pins.yaml", "st0: 1\n");
-    expect(after).toBe("k7-core: 1\n");
+    const { after, hits } = migrateNamespaceText(
+      "_library-pins.k7x",
+      "st0(1)\n",
+    );
+    expect(after).toBe("k7-core(1)\n");
+    expect(hits).toBe(1);
+  });
+
+  it("drops the old pin when the new name is pinned already", () => {
+    const { after } = migrateNamespaceText(
+      "_library-pins.k7x",
+      "st0(1)\nk7-core(2)\n",
+    );
+    expect(after).toBe("k7-core(2)\n");
   });
 
   it("changes nothing in a file done already", () => {

@@ -32,7 +32,7 @@ export function fileStamp(d: Date): string {
   );
 }
 
-/** A take's clip id: the lane it was recorded on and when. Reduced to what a path and a YAML key hold. */
+/** A take's clip id: the lane it was recorded on and when. Reduced to what a path and a k7x key hold. */
 export function takeId(lane: string, stamp: string): string {
   const safe = lane.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^[-.]+/, "");
   return `${safe || "lane"}_${stamp}`;

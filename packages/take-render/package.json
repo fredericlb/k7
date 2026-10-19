@@ -23,10 +23,10 @@
   "dependencies": {
     "@studio/engine-protocol": "*",
     "@studio/ffmpeg": "*",
+    "@studio/k7x": "*",
     "@studio/song": "*",
     "@studio/song-edit": "*",
-    "@studio/song-schema": "*",
-    "yaml": "^2.5.0"
+    "@studio/song-schema": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

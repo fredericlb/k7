@@ -39,7 +39,7 @@ the value exists only on the surface that REALISES it, and this hook lends it to
 ## Turning the tempo from the graph
 
 The graph knows a module and a parameter — all a node carries — and has no idea what a deck is.
-`controlDriving` therefore reads the binding **backwards**: `views/mix.yaml` already says which
+`controlDriving` therefore reads the binding **backwards**: `views/mix.k7x` already says which
 control drives `tempoA`'s `Target BPM`, and re-reading that same line the other way is what stops
 the two surfaces diverging. Repoint `deckA.tempo` at `tempoB` and the graph's knob on `tempoB`
 becomes deck A's, without either being told.
@@ -56,8 +56,8 @@ fall mid-drag, short enough that the exact value the knob was released at arrive
 
 Two optional parameters, `mapping` and `playlist`, same reason for both: the DECLARATION is in
 the host's file, and only the host knows which. An k7 surface carries its bindings in
-`surfaces/<id>.yaml` and has no `views/mix.yaml` to find — reading it would 404 on every reload.
-A host that passes neither lets the hook read `views/mix.yaml` itself.
+`surfaces/<id>.k7x` and has no `views/mix.k7x` to find — reading it would 404 on every reload.
+A host that passes neither lets the hook read `views/mix.k7x` itself.
 
 `mapping` must have a **stable identity**: it is an effect dependency, so a fresh object per
 render would redo the compile per render. Both callers hold it in state, which makes it free; a

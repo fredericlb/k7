@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compileNodeProject } from "@studio/song/nodeProject";
-import { writeYaml } from "@studio/song/testSupport";
+import { writeDoc } from "@studio/song/testSupport";
 import { PlacementSchema } from "@studio/song-schema/yaml/placementSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { materialWindow } from "./materialWindow";
@@ -16,14 +16,14 @@ const DEMO_MODULES = join(here, "..", "..", "..", "demos", "_modules");
 
 let root: string;
 let dir: string;
-// synth-demo is 120bpm 4/4 and places sequences/melody.yaml (8 notes, one per beat) at bar 1.
+// synth-demo is 120bpm 4/4 and places sequences/melody.k7x (8 notes, one per beat) at bar 1.
 const seq = (body: Record<string, unknown>) =>
-  writeYaml(join(dir, "sequences", "melody.yaml"), {
+  writeDoc(join(dir, "sequences", "melody.k7x"), {
     notes: Array.from({ length: 8 }, (_, i) => ({ t: i, d: 1, k: 60 + i })),
     ...body,
   });
 const place = (p: Record<string, unknown>) =>
-  writeYaml(join(dir, "nodes", "melody.yaml"), {
+  writeDoc(join(dir, "nodes", "melody.k7x"), {
     extends: "@meta/track",
     events: [{ ref: "melody", start: "1:1:1", ...p }],
   });
@@ -134,8 +134,8 @@ describe("`loop` counts passes of that window", () => {
 
   /** An audio clip with no `to` has no number to multiply, so N passes are refused rather than dropped. */
   it("is refused on an audio clip whose window has no end, the clip's nor the event's", () => {
-    writeYaml(join(dir, "clips", "riff.yaml"), { source: "clips/riff.wav" });
-    writeYaml(join(dir, "nodes", "riff.yaml"), {
+    writeDoc(join(dir, "clips", "riff.k7x"), { source: "clips/riff.wav" });
+    writeDoc(join(dir, "nodes", "riff.k7x"), {
       extends: "@meta/track",
       events: [{ ref: "riff", start: "1:1:1", loop: 2 }],
     });

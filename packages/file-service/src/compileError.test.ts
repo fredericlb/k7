@@ -39,8 +39,8 @@ describe("compileErrorBody", () => {
 describe("projectErrorsIn", () => {
   it("carries formatTooNew and puts the diagnostic on the format line", () => {
     writeFileSync(
-      join(dir, "project.yaml"),
-      `project:\n  tempo: 120\nformat: ${NEXT}\n`,
+      join(dir, "project.k7x"),
+      `project({ tempo: 120 })\nformat(${NEXT})\n`,
     );
     const r = projectErrorsIn(dir, () => {
       loadProjectRoot(dir, true);
@@ -51,6 +51,6 @@ describe("projectErrorsIn", () => {
       buildLevel: FORMAT_LEVEL,
     });
     expect(r.errors).toHaveLength(1);
-    expect(r.diagnostics[0]).toMatchObject({ file: "project.yaml", line: 3 });
+    expect(r.diagnostics[0]).toMatchObject({ file: "project.k7x", line: 2 });
   });
 });

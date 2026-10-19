@@ -8,7 +8,7 @@ track transcribe <track_in> <track_out>
 
 | Argument | Meaning |
 |---|---|
-| `track_in` | A **picture lane** of the project (a file `video_tracks/<name>.yaml`). The command completes it from the project's picture lanes. |
+| `track_in` | A **picture lane** of the project (a file `video_tracks/<name>.k7x`). The command completes it from the project's picture lanes. |
 | `track_out` | The track that receives the transcript. Created if it does not exist; if it exists, its `content:` is **replaced**. |
 
 Example:
@@ -26,15 +26,15 @@ It is also offered in the right-click menu of a track.
 3. Runs whisper on it. This can take a few minutes; the command says "whisper is listening to …".
 4. Writes the result into `track_out`'s `content:` field as SRT text: numbered cues, each with a start and end time and its words.
 
-```yaml
-content: |
-  1
-  00:00:01,480 --> 00:00:04,120
-  Good evening everyone
+```k7x
+content(`1
+00:00:01,480 --> 00:00:04,120
+Good evening everyone
 
-  2
-  00:00:05,000 --> 00:00:07,300
-  this one is called Hells Bells
+2
+00:00:05,000 --> 00:00:07,300
+this one is called Hells Bells
+`)
 ```
 
 The times are **in the video file's own seconds**, from the start of the file, not positions on the timeline. Because the text is valid SRT, it can be copied out as a subtitle file as is.
@@ -54,7 +54,7 @@ Transcription runs where the project's files are handled, and it needs, on that 
 
 | Message | Cause |
 |---|---|
-| `no picture lane "cam"` | No `video_tracks/cam.yaml`. |
+| `no picture lane "cam"` | No `video_tracks/cam.k7x`. |
 | `'cam' places no shot` | The lane has no shot, so there is nothing to listen to. |
 | `clip '…' says no source` | The shot's clip has no `source:`. |
 | `clip '…' is not a video` | The source is an audio file; transcription listens to picture lanes only. |

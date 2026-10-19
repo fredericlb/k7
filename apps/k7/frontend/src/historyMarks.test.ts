@@ -17,8 +17,8 @@ const graph = {
 describe("historyMarks — what a History row lights", () => {
   it("lights a lane for its track file, and a clip for its sequence or audio file", () => {
     const m = historyMarks([
-      "tracks/da.main.yaml",
-      "sequences/irrupt_kit_5_1.yaml",
+      "tracks/da.main.k7x",
+      "sequences/irrupt_kit_5_1.k7x",
       "clips/take 3.wav",
     ]);
     expect([...m.lanes]).toEqual(["da.main"]);
@@ -27,7 +27,7 @@ describe("historyMarks — what a History row lights", () => {
 
   it("lights only the node a journal label names, inside the chain it changed", () => {
     const m = historyMarks(
-      ["chains/be.bass.yaml"],
+      ["chains/be.bass.k7x"],
       'node param "5ee626e6" "model" "@k7-core/x.nam"',
       graph,
     );
@@ -36,19 +36,17 @@ describe("historyMarks — what a History row lights", () => {
   });
 
   it("lights the whole chain when nothing names a node — a commit, say", () => {
-    const m = historyMarks(["chains/be.bass.yaml"], "sync", graph);
+    const m = historyMarks(["chains/be.bass.k7x"], "sync", graph);
     expect([...m.chains]).toEqual(["be.bass"]);
   });
 
   it("lights nothing for project-level files", () => {
-    expect(isEmptyMark(historyMarks(["project.yaml", "layout.yaml"]))).toBe(
-      true,
-    );
+    expect(isEmptyMark(historyMarks(["project.k7x", "layout.k7x"]))).toBe(true);
   });
 });
 
 describe("nodeMarked", () => {
-  const m = historyMarks(["tracks/da.main.yaml", "chains/be.bass.yaml"]);
+  const m = historyMarks(["tracks/da.main.k7x", "chains/be.bass.k7x"]);
   it("lights a lane's own card, and every card of a lit chain", () => {
     expect(nodeMarked(m, { kind: "track", module: "da.main" })).toBe(true);
     expect(

@@ -2,10 +2,10 @@
 
 A **cold** module only works on audio that is already on disk. It says so itself:
 
-```yaml
-# modules/cold/normalize/module.yaml
-cold: true
-plugin: { type: jsdsp, name: Normalize }
+```k7x
+// modules/cold/normalize/module.k7x
+cold(true)
+plugin({ type: "jsdsp", name: "Normalize" })
 ```
 
 ## Filed under `cold/`, and never suggested
@@ -89,7 +89,7 @@ Two defaults carry the safety:
 - The gain is **clamped to +30 dB**. Near silence measures -100 dBFS and would otherwise ask for
   +99 dB, turning hiss into a full-scale roar.
 
-A normaliser module is `module.yaml` plus the `jsdsp.ts` that mirrors `@studio/dsp`'s
+A normaliser module is `module.k7x` plus the `jsdsp.ts` that mirrors `@studio/dsp`'s
 `normalize()` graph — the same arrangement the crossfade uses. It is authored into the account's
 library under `modules/cold/`, this repo holding no modules to copy from
 ([sharedFolders.md](sharedFolders.md)).
@@ -119,7 +119,7 @@ left is a pass that writes stretched audio to disk.
 
 Its params mirror the normaliser's exactly: `Source BPM` is MEASURED (0 until the pass has
 run, which makes the module a no-op rather than a stretch by a made-up ratio) and
-`Target BPM` is AUTHORED. Same two roles, same harmless default — and its `ui.yaml` draws
+`Target BPM` is AUTHORED. Same two roles, same harmless default — and its `ui.k7x` draws
 them the same way round: a knob for the one you choose (10..300 BPM), a meter for the one
 that is read. The knob cannot express 0, which is the untouched state; the panel draws it at
 the floor until the pass measures a tempo or somebody asks for one.
@@ -179,4 +179,4 @@ handed in through `CommandHost.runColdStep` — a host without one refuses by na
 ## What is NOT wired yet
 
 `io: file` playback (this package's `docs/fileInput.md`) is the one gap left: nothing compiles a
-FILE module into a `ProjectDoc` from a song's own YAML.
+FILE module into a `ProjectDoc` from a song's own files.

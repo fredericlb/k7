@@ -1,18 +1,16 @@
 # Curves — automation, and the three shapes of it
 
-A curve is a normalised function of time in `curves/<id>.yaml`, bound to a module's parameter.
+A curve is a normalised function of time in `curves/<id>.k7x`, bound to a module's parameter.
 Two things read it — a timeline row and `track automation add|remove` — so it is said once, here,
 rather than in `curves.ts`'s comments and again on the graph side.
 
 ## The three types, and what each is a function OF
 
-```yaml
-# curves/sweep.yaml — a shape somebody DREW
-type: custom
-polarity: unipolar
-points:
-  - { time: "1:1:1", value: 0 }
-  - { time: "2:1:1", value: 1 }
+```k7x
+// curves/sweep.k7x — a shape somebody DREW
+type("custom")
+polarity("unipolar")
+points([time("1:1:1").value(0), time("2:1:1").value(1)])
 ```
 
 | type | a function of | positioned? |
@@ -35,14 +33,13 @@ That column decides almost everything downstream, and it is the one thing to hol
 
 ## The binding lives on the MODULE
 
-```yaml
-# modules/instruments/synth/module.yaml
-automations:
-  - { param: "Filter Freq", curve: "@meta/curves/sweep" }
+```k7x
+// modules/instruments/synth/module.k7x
+automations([param("Filter Freq").curve("@meta/curves/sweep")])
 ```
 
 `curve` is a **namespaced ref**, `@meta/curves/<id>`, even though the file it names is a plain
-`curves/<id>.yaml` beside the project — every module ref is namespaced, and a curve binding is no
+`curves/<id>.k7x` beside the project — every module ref is namespaced, and a curve binding is no
 exception. The `curve` commands (`curve new`, `curve point add|move|remove`) and `node automate`'s
 own `<curve>` argument still take the **bare id**; only the value written into `automations:` carries
 the `@meta/curves/` prefix, added when the binding is written and stripped back off when it is read.

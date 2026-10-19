@@ -2,7 +2,7 @@
 // likely not to have — installed on one machine, unavailable on another platform — so a track
 // through one is rendered once, on a machine that has it, and the render plays everywhere until
 // what it was made from changes — but only on an engine LACKING one of its VSTs: one that has them all
-// plays them live. Nothing is written to the project's YAML: the render's NAME is a
+// plays them live. Nothing is written to the project's files: the render's NAME is a
 // fingerprint of its inputs, so a stale render is simply one whose name nobody asks for.
 // Renders live in a cache OUTSIDE the project (`<studioHome>/.renders`), never in git: an unused
 // one is purged after a month, and "used" is its ATIME. Full rationale: docs/autoFreeze.md.

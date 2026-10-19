@@ -65,7 +65,7 @@ describe("touchesSounds", () => {
   });
   it("is false for a graph, a clip or a module file", () => {
     expect(
-      touchesSounds([{ path: "graph.yaml" }, { path: "clips/a.yaml" }]),
+      touchesSounds([{ path: "graph.k7x" }, { path: "clips/a.k7x" }]),
     ).toBe(false);
   });
 });

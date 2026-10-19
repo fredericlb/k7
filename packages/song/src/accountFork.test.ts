@@ -28,13 +28,10 @@ describe("forkIntoAccount", () => {
     project = join(ws, "song");
     mkdirSync(project, { recursive: true });
     lib = writeLibraries(ws);
+    writeFileSync(join(lib, "modules", "audio/reverb", "ui.k7x"), "rows([])\n");
     writeFileSync(
-      join(lib, "modules", "audio/reverb", "ui.yaml"),
-      "rows: []\n",
-    );
-    writeFileSync(
-      join(project, "graph.yaml"),
-      'modules:\n  verb: { extends: "@k7-core/audio/reverb" }\n',
+      join(project, "graph.k7x"),
+      'modules({ verb: { extends: "@k7-core/audio/reverb" } })\n',
     );
   });
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
@@ -42,10 +39,10 @@ describe("forkIntoAccount", () => {
   it("makes @account/<path> extend the library module, and points the project at it", () => {
     const r = forkIntoAccount(project, "@k7-core/audio/reverb");
     expect(r).toMatchObject({ ref: "@account/audio/reverb", created: true });
-    expect(readFileSync(join(project, "graph.yaml"), "utf8")).toContain(
+    expect(readFileSync(join(project, "graph.k7x"), "utf8")).toContain(
       '"@account/audio/reverb"',
     );
-    expect(readFileSync(join(r.folder, "ui.yaml"), "utf8")).toBe("rows: []\n");
+    expect(readFileSync(join(r.folder, "ui.k7x"), "utf8")).toBe("rows([])\n");
     expect(libraryOf(r.folder)?.name).toBe("account");
     // It inherits: the fork plays the library's plugin until it says otherwise.
     const resolved = resolveModuleRef(
@@ -53,17 +50,17 @@ describe("forkIntoAccount", () => {
       loadModuleRefs(project),
     );
     expect(resolved?.plugin).toMatchObject({ name: "Big Reverb" });
-    expect(
-      existsSync(join(lib, "modules", "audio/reverb", "module.yaml")),
-    ).toBe(true);
+    expect(existsSync(join(lib, "modules", "audio/reverb", "module.k7x"))).toBe(
+      true,
+    );
   });
 
   it("keeps what an earlier fork holds, and refuses what is no library module", () => {
     forkIntoAccount(project, "@k7-core/audio/reverb");
-    const file = join(accountLibraryHome(), "modules/audio/reverb/module.yaml");
+    const file = join(accountLibraryHome(), "modules/audio/reverb/module.k7x");
     writeFileSync(
       file,
-      'extends: "@k7-core/audio/reverb"\nparams: { Mix: 0.2 }\n',
+      'extends("@k7-core/audio/reverb")\nparams({ Mix: 0.2 })\n',
     );
     expect(forkIntoAccount(project, "@k7-core/audio/reverb").created).toBe(
       false,

@@ -1,23 +1,68 @@
-// edit.ts — a k7x file as a document whose values are set, added and deleted by key path, every other byte kept.
-// The contract song's YAML writers rely on: a knob drag is a one-line diff and a comment survives every edit.
+// edit.ts — a k7x file as a document whose values are set, added, moved and deleted by key path, every other byte kept.
+// The contract every writer relies on: a knob drag is a one-line diff and a comment survives every edit (write.ts, remove.ts).
 
+import { applyData } from "./applyData.ts";
 import {
-  type K7Entry,
+  indexOf,
+  type K7ListNode,
   type K7MapNode,
   type K7Node,
   type K7Path,
   nodeAt,
   toJS,
 } from "./ast.ts";
-import { K7SyntaxError, parseTree } from "./parse.ts";
-import { type Ctx, fromJS, print, printKey, stringify } from "./print.ts";
+import { BOM, type Host, headBlank, readHeader, tailEnd } from "./layout.ts";
+import { nativeData } from "./native.ts";
+import { K7SyntaxError, lineCol, parseTree, parseValue } from "./parse.ts";
+import {
+  fromJS,
+  headerText,
+  type PNode,
+  printKey,
+  stringify,
+} from "./print.ts";
+import { prune, removeAt } from "./remove.ts";
+import { K7Scope } from "./scope.ts";
+import { holds, insertAt, writeAt } from "./write.ts";
 
-const pad = (n: number): string => " ".repeat(n);
+export { K7Scope };
+
+/** How a written value is laid out: `inline` keeps it on one line whatever its width. */
+export interface WriteOptions {
+  inline?: boolean;
+}
+
+/** One splice, in the coordinates of the text as it was just before it. */
+export interface K7Change {
+  start: number;
+  end: number;
+  insert: string;
+}
+
+const leafOf = (value: unknown, opts?: WriteOptions): PNode => {
+  const node = fromJS(value);
+  return opts?.inline ? { ...node, inline: true } : node;
+};
+const rawLeaf = (source: string): PNode => {
+  const node = parseValue(source);
+  if (/\/\/[^\n]*$/.test(source.slice(node.end)))
+    throw new Error(
+      "k7x: source ending in a // comment would swallow what follows it",
+    );
+  return { kind: "scalar", value: null, raw: source };
+};
 
 export class K7Document {
   text: string;
   contents: K7MapNode | null = null;
   errors: K7SyntaxError[] = [];
+  /** Every splice applied since construction, in order: what an editor dispatches to keep its undo history. */
+  readonly changes: K7Change[] = [];
+  private readonly host: Host = {
+    text: () => this.text,
+    root: () => this.root(),
+    splice: (start, end, insert) => this.splice(start, end, insert),
+  };
 
   constructor(text: string) {
     this.text = text;
@@ -61,45 +106,58 @@ export class K7Document {
     return this.getNode(path) !== undefined;
   }
 
+  /** The exact source of the node at a path; an empty call's flag, `key()`, has none and gives "". */
+  getSource(path: K7Path): string | undefined {
+    const node = this.getNode(path);
+    return node && this.text.slice(node.start, node.end);
+  }
+
+  /** Where a path is written: a map entry's key, else the node's first character. */
+  positionOf(path: K7Path): { line: number; col: number } | undefined {
+    const parent = path.length > 0 ? this.getNode(path.slice(0, -1)) : null;
+    const entry =
+      parent?.kind === "map"
+        ? parent.entries.find((e) => e.key === path[path.length - 1])
+        : undefined;
+    const at = entry?.keyStart ?? this.getNode(path)?.start;
+    return at === undefined ? undefined : lineCol(this.text, at);
+  }
+
+  /** A view whose every path is relative to `base`. */
+  at(base: K7Path): K7Scope {
+    return new K7Scope(this, base);
+  }
+
   /** Sets the value at a path, creating the maps on the way; a value equal to the one there changes nothing. */
-  setIn(path: K7Path, value: unknown): void {
+  setIn(path: K7Path, value: unknown, opts?: WriteOptions): void {
     if (path.length === 0) {
-      this.text = stringify(value);
-      this.reparse();
+      this.splice(0, this.text.length, stringify(value));
       return;
     }
-    let node: K7Node = this.root();
-    let ctx: Ctx = "entry";
-    for (let i = 0; i < path.length; i++) {
-      const seg = path[i];
-      const child = childOf(node, seg);
-      if (child === undefined) {
-        this.insert(node, ctx, seg, nest(path.slice(i + 1), value));
-        return;
-      }
-      if (i === path.length - 1) {
-        this.replace(node, child, value);
-        return;
-      }
-      if (child.kind === "scalar")
-        throw new Error(
-          `k7x: ${path.slice(0, i + 1).join(".")} is not a collection`,
-        );
-      ctx = node.kind === "list" ? "item" : "entry";
-      node = child;
+    writeAt(this.host, path, leafOf(value, opts), (n) => holds(n, value));
+  }
+
+  /** Sets (or creates) the value at a path as k7x source, which must read as one value; throws when it does not. */
+  setSourceIn(path: K7Path, source: string): void {
+    if (path.length === 0) {
+      parseTree(source);
+      this.splice(0, this.text.length, source);
+      return;
     }
+    const same = (n: K7Node) => this.text.slice(n.start, n.end) === source;
+    writeAt(this.host, path, rawLeaf(source), same);
   }
 
   /** Appends to the list at a path, creating it when it is missing. */
-  addIn(path: K7Path, value: unknown): void {
+  addIn(path: K7Path, value: unknown, opts?: WriteOptions): void {
     const node = this.getNode(path);
     if (node === undefined) {
-      this.setIn(path, [value]);
+      this.setIn(path, [value], opts);
       return;
     }
     if (node.kind !== "list")
       throw new Error(`k7x: ${path.join(".")} is not a list`);
-    this.setIn([...path, node.items.length], value);
+    this.setIn([...path, node.items.length], value, opts);
   }
 
   /** Replaces the value at a path with `source` as written, k7x text that must read back; throws when nothing is there. */
@@ -111,301 +169,126 @@ export class K7Document {
   }
 
   /** Inserts into the list at a path before item `index`, on a line of its own when that item has one. */
-  insertIn(path: K7Path, index: number, value: unknown): void {
-    const node = this.getNode(path);
-    if (node?.kind !== "list")
-      throw new Error(`k7x: ${path.join(".")} is not a list`);
-    if (index >= node.items.length) {
-      this.setIn([...path, node.items.length], value);
-      return;
-    }
-    const t = this.text;
-    const at = node.items[index].start;
-    const ind = indentOf(t, at);
-    if (node.form === "brackets" && headBlank(t, at)) {
-      const text = print(fromJS(value), ind, "item", ind).text;
-      this.splice(at, at, `${text},\n${pad(ind)}`);
-      return;
-    }
-    const used = at - lineStart(t, at);
-    this.splice(at, at, `${print(fromJS(value), ind, "item", used).text}, `);
+  insertIn(
+    path: K7Path,
+    index: number,
+    value: unknown,
+    opts?: WriteOptions,
+  ): void {
+    const get = (p: K7Path) => this.getNode(p);
+    insertAt(this.host, path, index, leafOf(value, opts), get);
   }
 
-  /** Removes the entry or item at a path; false when there was nothing there. */
-  deleteIn(path: K7Path): boolean {
+  /** Inserts k7x source into the list at a path before item `index`; throws when it does not read as one value. */
+  insertSourceIn(path: K7Path, index: number, source: string): void {
+    const get = (p: K7Path) => this.getNode(p);
+    insertAt(this.host, path, index, rawLeaf(source), get);
+  }
+
+  /** Moves a list item so it ends up at index `to`, its source kept as written. */
+  moveIn(path: K7Path, from: number, to: number): void {
+    const list = this.getNode(path);
+    if (list?.kind !== "list")
+      throw new Error(`k7x: ${path.join(".")} is not a list`);
+    const n = list.items.length;
+    const ok = (i: number) => Number.isInteger(i) && i >= 0 && i < n;
+    if (!ok(from) || !ok(to))
+      throw new Error(`k7x: no move from ${from} to ${to} in ${n} items`);
+    if (from === to) return;
+    const sources = list.items.map((i) => this.text.slice(i.start, i.end));
+    if (list.form === "args") {
+      const [item] = sources.splice(from, 1);
+      sources.splice(to, 0, item);
+      this.splice(list.start, list.end, sources.join(", "));
+      return;
+    }
+    const note = this.lineComment(list.items[from]);
+    this.deleteIn([...path, from]);
+    this.insertSourceIn(path, to, sources[from]);
+    const moved = (this.getNode(path) as K7ListNode).items[to];
+    if (note && this.lineComment(moved) === "") {
+      const at =
+        moved.end +
+        (/^[ \t]*,?/.exec(this.text.slice(moved.end))?.[0].length ?? 0);
+      this.splice(at, at, ` ${note}`);
+    }
+  }
+
+  /** The `//` comment ending an item's line when the item has that line to itself: "" for none, null when it shares it. */
+  private lineComment(item: K7Node): string | null {
+    const t = this.text;
+    const tail = tailEnd(t, item.end, true);
+    if (tail === null || !headBlank(t, item.start)) return null;
+    return /\/\/[^\n]*/.exec(t.slice(item.end, tail))?.[0].trimEnd() ?? "";
+  }
+
+  /** Renames the entry at a path, its value, comments and place kept; throws when the map already has `newKey`. */
+  renameKey(path: K7Path, newKey: string): void {
+    const parent = path.length > 0 ? this.getNode(path.slice(0, -1)) : null;
+    const key = path[path.length - 1];
+    const entry =
+      parent?.kind === "map"
+        ? parent.entries.find((e) => e.key === key)
+        : undefined;
+    if (parent?.kind !== "map" || !entry)
+      throw new Error(`k7x: no entry at ${path.join(".")} to rename`);
+    if (key === newKey) return;
+    if (parent.entries.some((e) => e.key === newKey))
+      throw new Error(`k7x: ${newKey} is already a key there`);
+    this.splice(entry.keyStart, entry.keyEnd, printKey(newKey));
+  }
+
+  /** Makes the data at a path equal `value` with the fewest edits; [] is the whole file. */
+  applyIn(path: K7Path, value: unknown): void {
+    applyData(this, this.getIn(path), value, path);
+  }
+
+  /** Removes the entry or item at a path; `prune` also removes the maps that leaves empty, up to a list or the root. */
+  deleteIn(path: K7Path, opts?: { prune?: boolean }): boolean {
+    if (path.length === 0) return false;
     const parent = this.getNode(path.slice(0, -1));
+    if (parent === undefined) return false;
     const seg = path[path.length - 1];
-    if (parent === undefined || childOf(parent, seg) === undefined)
-      return false;
-    if (parent.kind === "list") {
-      const i = seg as number;
-      if (parent.form === "args" && parent.items.length <= 2) {
-        const rest = (toJS(parent) as unknown[]).filter((_, j) => j !== i);
-        this.splice(
-          parent.start,
-          parent.end,
-          print(fromJS(rest), 0, "entry", 0).text,
-        );
-      } else this.removeListed(parent.items, i);
-      return true;
-    }
-    if (parent.kind !== "map") return false;
-    const i = parent.entries.findIndex((e) => e.key === seg);
-    if (parent.form === "object") this.removeListed(parent.entries, i);
-    else if (parent.form === "chain" && parent.entries.length === 1)
-      this.splice(parent.start, parent.end, "{}");
-    else {
-      const [a, b] = parent.groups.find(([s, e]) => i >= s && i < e) ?? [
-        0,
-        parent.entries.length,
-      ];
-      this.removeChained(parent.entries.slice(a, b), i - a);
-    }
+    const at = parent.kind === "list" ? (indexOf(seg) ?? seg) : seg;
+    if (!removeAt(this.host, parent, at)) return false;
+    if (opts?.prune) prune(this.host, path, (p) => this.getNode(p));
     return true;
+  }
+
+  /** The `//` lines the file starts with, each without `//` and one space. */
+  get header(): string[] {
+    return readHeader(this.text).lines;
+  }
+
+  /** Replaces the file's header with these lines; an empty array removes it. */
+  setHeader(lines: readonly string[]): void {
+    const { lines: old, end } = readHeader(this.text);
+    const top = headerText(lines);
+    if (headerText(old) === top) return;
+    const start = this.text.startsWith(BOM) ? 1 : 0;
+    const nl =
+      end === this.text.length && end > start && !this.text.endsWith("\n");
+    this.splice(start, end, nl ? top.slice(0, -1) : top);
   }
 
   private splice(start: number, end: number, insert: string): void {
     const before = this.text;
+    if (insert === before.slice(start, end)) return;
     this.text = before.slice(0, start) + insert + before.slice(end);
     this.reparse();
-    if (this.contents) return;
+    if (this.contents) {
+      this.changes.push({ start, end, insert });
+      return;
+    }
     const err = this.errors[0];
     this.text = before;
     this.reparse();
     throw new Error(`k7x: an edit produced unreadable text (${err.message})`);
   }
-
-  private replace(parent: K7Node, child: K7Node, value: unknown): void {
-    if (sameValue(toJS(child), value)) return;
-    const asArgs =
-      child.kind === "list" &&
-      child.form === "args" &&
-      Array.isArray(value) &&
-      value.length >= 2;
-    const ctx: Ctx = asArgs
-      ? "args"
-      : parent.kind === "list"
-        ? "item"
-        : "entry";
-    const used = child.start - lineStart(this.text, child.start);
-    const out = print(
-      fromJS(value),
-      indentOf(this.text, child.start),
-      ctx,
-      used,
-    );
-    this.splice(child.start, child.end, out.text);
-  }
-
-  private insert(
-    parent: K7Node,
-    ctx: Ctx,
-    seg: string | number,
-    value: unknown,
-  ): void {
-    const t = this.text;
-    if (parent.kind === "scalar")
-      throw new Error("k7x: cannot insert into a scalar");
-    if (parent.kind === "list") {
-      if (seg !== parent.items.length)
-        throw new Error(`k7x: no item ${seg} to set`);
-      if (parent.items.length === 0) {
-        this.splice(
-          parent.start,
-          parent.end,
-          print(fromJS([value]), indentOf(t, parent.start), ctx, 0).text,
-        );
-        return;
-      }
-      if (parent.form === "args") {
-        const last = parent.items[parent.items.length - 1];
-        this.splice(
-          last.end,
-          last.end,
-          `, ${print(fromJS(value), indentOf(t, last.end), "item", 0).text}`,
-        );
-        return;
-      }
-      this.appendListed(
-        parent,
-        parent.items,
-        (ind, used) => print(fromJS(value), ind, "item", used).text,
-      );
-      return;
-    }
-    const key = String(seg);
-    const entries = parent.entries;
-    if (parent.form === "object") {
-      if (entries.length === 0) {
-        const whole = fromJS({ [key]: value });
-        this.splice(
-          parent.start,
-          parent.end,
-          print(whole, indentOf(t, parent.start), ctx, 0).text,
-        );
-        return;
-      }
-      const head = `${printKey(key)}: `;
-      this.appendListed(
-        parent,
-        entries,
-        (ind, used) =>
-          head + print(fromJS(value), ind, "entry", used + head.length).text,
-      );
-      return;
-    }
-    const last = entries[entries.length - 1];
-    if (parent.form === "root") {
-      const head = `${printKey(key)}(`;
-      const line = `${head}${print(fromJS(value), 0, "entry", head.length).text})`;
-      if (!last) {
-        this.splice(
-          t.length,
-          t.length,
-          `${t === "" || t.endsWith("\n") ? "" : "\n"}${line}\n`,
-        );
-        return;
-      }
-      const at = tailEnd(t, last.end) ?? last.end;
-      this.splice(at, at, `\n${line}`);
-      return;
-    }
-    const broken = entries.some((e) => e.dot !== null && headBlank(t, e.dot));
-    if (!broken) {
-      const head = `.${printKey(key)}(`;
-      const used = last.end - lineStart(t, last.end) + head.length;
-      this.splice(
-        last.end,
-        last.end,
-        `${head}${print(fromJS(value), indentOf(t, last.end), "entry", used).text})`,
-      );
-      return;
-    }
-    const ind =
-      last.dot !== null && headBlank(t, last.dot)
-        ? indentOf(t, last.dot)
-        : indentOf(t, parent.start) + 2;
-    const head = `.${printKey(key)}(`;
-    const at = tailEnd(t, last.end) ?? last.end;
-    this.splice(
-      at,
-      at,
-      `\n${pad(ind)}${head}${print(fromJS(value), ind, "entry", ind + head.length).text})`,
-    );
-  }
-
-  /** Appends to a bracketed list or an object, on a line of its own when the closing bracket has one. */
-  private appendListed(
-    node: K7Node,
-    items: { start: number; end: number }[],
-    text: (indent: number, used: number) => string,
-  ): void {
-    const t = this.text;
-    const last = items[items.length - 1];
-    const close = node.end - 1;
-    if (!t.slice(last.end, close).includes("\n") || !headBlank(t, close)) {
-      const used = last.end - lineStart(t, last.end) + 2;
-      this.splice(last.end, last.end, `, ${text(indentOf(t, last.end), used)}`);
-      return;
-    }
-    const ind = headBlank(t, last.start)
-      ? indentOf(t, last.start)
-      : indentOf(t, node.start) + 2;
-    const line = `${pad(ind)}${text(ind, ind)},\n`;
-    const comma = t.slice(last.end).match(/^[ \t]*,/) !== null;
-    const at = lineStart(t, close);
-    this.text = t.slice(0, at) + line + t.slice(at);
-    this.splice(last.end, last.end, comma ? "" : ",");
-  }
-
-  /** Removes one item or object entry with its comma; a whole line when it had one to itself. */
-  private removeListed(
-    items: { start: number; end: number }[],
-    i: number,
-  ): void {
-    const t = this.text;
-    const e = items[i];
-    const tail = tailEnd(t, e.end, true);
-    if (headBlank(t, e.start) && tail !== null) {
-      this.splice(lineStart(t, e.start), Math.min(tail + 1, t.length), "");
-      return;
-    }
-    if (i < items.length - 1) {
-      this.splice(e.start, items[i + 1].start, "");
-      return;
-    }
-    if (i > 0) {
-      this.splice(items[i - 1].end, e.end, "");
-      return;
-    }
-    const comma = t.slice(e.end).match(/^[ \t]*,/);
-    this.splice(e.start, e.end + (comma ? comma[0].length : 0), "");
-  }
-
-  /** Removes one call of a chain: its line when it had one, the call and its dot otherwise. */
-  private removeChained(group: K7Entry[], i: number): void {
-    const t = this.text;
-    const e = group[i];
-    const tail = tailEnd(t, e.end);
-    if (group.length === 1) {
-      if (headBlank(t, e.start) && tail !== null) {
-        this.splice(lineStart(t, e.start), Math.min(tail + 1, t.length), "");
-        return;
-      }
-      this.splice(e.start, e.end, "");
-      return;
-    }
-    if (i === 0) {
-      this.splice(e.start, group[1].keyStart, "");
-      return;
-    }
-    if (e.dot !== null && headBlank(t, e.dot) && tail !== null) {
-      this.splice(lineStart(t, e.dot), Math.min(tail + 1, t.length), "");
-      return;
-    }
-    this.splice(e.start, e.end, "");
-  }
-}
-
-function childOf(node: K7Node, seg: string | number): K7Node | undefined {
-  if (node.kind === "map" && typeof seg === "string")
-    return node.entries.find((e) => e.key === seg)?.value;
-  if (node.kind === "list" && typeof seg === "number") return node.items[seg];
-  return undefined;
-}
-
-function nest(rest: K7Path, value: unknown): unknown {
-  return rest.reduceRight<unknown>((v, seg) => {
-    if (typeof seg === "string") return { [seg]: v };
-    if (seg === 0) return [v];
-    throw new Error(`k7x: no item ${seg} to create`);
-  }, value);
-}
-
-function sameValue(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b) && typeof a === typeof b;
-}
-
-const lineStart = (t: string, pos: number): number =>
-  t.lastIndexOf("\n", pos - 1) + 1;
-const headBlank = (t: string, pos: number): boolean =>
-  /^[ \t]*$/.test(t.slice(lineStart(t, pos), pos));
-const indentOf = (t: string, pos: number): number =>
-  /^[ \t]*/.exec(t.slice(lineStart(t, pos)))?.[0].length ?? 0;
-
-/** The offset of the newline ending the line after `pos`, when only blanks, a comma (if allowed) and a comment follow; else null. */
-function tailEnd(t: string, pos: number, comma = false): number | null {
-  const m = (
-    comma
-      ? /^[ \t]*,?[ \t\r]*(\/\/[^\n]*)?(\n|$)/
-      : /^[ \t\r]*(\/\/[^\n]*)?(\n|$)/
-  ).exec(t.slice(pos));
-  if (!m) return null;
-  return pos + m[0].length - m[m.length - 1].length;
 }
 
 export const parseDocument = (text: string): K7Document => new K7Document(text);
 
-/** The plain value of a whole file; throws K7SyntaxError. */
+/** The plain value of a whole file, from the Rust reader where this runtime has one; throws K7SyntaxError. */
 export const parse = (text: string): Record<string, unknown> =>
-  toJS(parseTree(text)) as Record<string, unknown>;
+  nativeData(text) ?? (toJS(parseTree(text)) as Record<string, unknown>);

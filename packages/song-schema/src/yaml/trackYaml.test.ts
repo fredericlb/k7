@@ -1,80 +1,54 @@
+import { K7Document, type K7Scope, parse } from "@studio/k7x/document";
 import { describe, expect, it } from "vitest";
-import { parse, parseDocument } from "yaml";
-import { parseModule, quoteTimecodes } from "./moduleFile";
+import { ModuleSchema } from "./moduleSchema";
 import {
   addPlacement,
   findPlacement,
+  halveSequenceLoops,
   movePlacement,
   removePlacement,
   setTrackField,
+  spliceTime,
 } from "./trackFile";
 
-// The file the app writes most, and a lane is a MODULE, so the timecode trap is a module file's.
+// The file the app writes most: a lane is a MODULE, edited placement by placement.
 
-// A lane as the app leaves it: one placement per line as a flow map, every timecode quoted.
-const AUTHORED = `color: "#739814"
-extends: "@meta/track"
-disabled: false
-events:
-  - { ref: bass_3_0, start: "25:1", fadeIn: "8:0:3:0:0:1:1:2" }
-  - { ref: bass_3_1, start: "54:1", fadeIn: "8:0:3:0:0:1:1:2" }
+// A lane as the app leaves it: one placement per line.
+const AUTHORED = `color("#739814")
+extends("@meta/track")
+disabled(false)
+events([
+  ref("bass_3_0").start("25:1").fadeIn("8:0:3:0:0:1:1:2"),
+  ref("bass_3_1").start("54:1").fadeIn("8:0:3:0:0:1:1:2"),
+])
 `;
 
-describe("the timecode trap", () => {
-  it("reads a quoted timecode as the string it is", () => {
-    const { value, issues } = parseModule(AUTHORED);
-    expect(issues).toEqual([]);
-    expect(value?.extends).toBe("@meta/track");
-    expect(value?.events?.[0]).toEqual({
+const edit = (text: string, fn: (doc: K7Scope) => unknown): string => {
+  const doc = new K7Document(text);
+  fn(doc.at([]));
+  return doc.toString();
+};
+const scope = (text: string) => new K7Document(text).at([]);
+const issuesOf = (text: string) => {
+  const r = ModuleSchema.safeParse(parse(text));
+  return r.success ? [] : r.error.issues;
+};
+
+describe("a lane's timecodes", () => {
+  it("reads a timecode as the string it is", () => {
+    expect(issuesOf(AUTHORED)).toEqual([]);
+    expect((parse(AUTHORED).events as unknown[])[0]).toEqual({
       ref: "bass_3_0",
       start: "25:1",
       fadeIn: "8:0:3:0:0:1:1:2",
     });
   });
 
-  it("would be CORRUPTED unquoted under YAML 1.1 — hence the quoting rule", () => {
-    // Measured on real data: unquoted, the 1.1 reading turns bar 25 into beat 1501 (docs/moduleFile.md).
-    const unquoted =
-      "events:\n  - { ref: b, start: 25:1, length: 8:0:3:0:0:1:1:2 }\n";
-    expect(parse(unquoted, { version: "1.2" }).events[0].start).toBe("25:1");
-    expect(parse(unquoted, { version: "1.1" }).events[0].start).toBe(1501);
-    expect(parse(unquoted, { version: "1.1" }).events[0].length).toBe(
-      22397212803662,
+  it("rejects something that isn't a timecode, at the key", () => {
+    const issues = issuesOf(
+      'extends("@meta/track")\nevents([ref("b").start("bar 25")])\n',
     );
-    // QUOTED, both versions agree — which is why nothing this app writes is unquoted.
-    const quoted = 'events:\n  - { ref: b, start: "25:1" }\n';
-    expect(parse(quoted, { version: "1.2" }).events[0].start).toBe("25:1");
-    expect(parse(quoted, { version: "1.1" }).events[0].start).toBe("25:1");
-  });
-
-  it("re-quotes a timecode it writes, wherever it sits", () => {
-    const moved = movePlacement(AUTHORED, "25:1", "26:1");
-    expect(moved).toContain('start: "26:1"');
-    expect(moved).not.toMatch(/start: 26:1[^"]/);
-    // …including one written wholesale, and NOT the loop count beside it, which is a number.
-    const rewritten = setTrackField(AUTHORED, "events", [
-      { ref: "x", start: "1:1", fadeIn: "2:1", loop: 4 },
-    ]);
-    expect(rewritten).toContain('start: "1:1"');
-    expect(rewritten).toContain('fadeIn: "2:1"');
-    expect(rewritten).toContain("loop: 4");
-    expect(parseModule(rewritten).issues).toEqual([]);
-  });
-
-  it("quotes a timecode written under a key that wasn't there before", () => {
-    // The gap this closes: a key set through the document API arrives as a BARE STRING (docs/moduleFile.md).
-    const doc = parseDocument("notes: []\n", { version: "1.2" });
-    doc.set("to", "3:1");
-    quoteTimecodes(doc);
-    expect(doc.toString({ lineWidth: 0 })).toContain('to: "3:1"');
-  });
-
-  it("rejects something that isn't a timecode", () => {
-    const { value, issues } = parseModule(
-      'extends: "@meta/track"\nevents:\n  - { ref: b, start: "bar 25" }\n',
-    );
-    expect(value).toBeNull();
-    expect(issues[0].path).toBe("events.0.start");
+    expect(issues[0].path.join(".")).toBe("events.0.start");
     expect(issues[0].message).toMatch(/timecode/);
   });
 });
@@ -87,48 +61,130 @@ describe("the edits the app makes most", () => {
 
   it("flips a flag in one line", () => {
     // A lane has no fader and no mute on its file — only its colour and whether it renders at all.
-    const after = setTrackField(AUTHORED, "disabled", true);
+    const after = edit(AUTHORED, (d) => setTrackField(d, "disabled", true));
     expect(changed(AUTHORED, after)).toBe(1);
-    expect(after).toContain("disabled: true");
+    expect(after).toContain("disabled(true)");
   });
 
   it("drags a clip in one line, keeping it on its own line", () => {
-    const after = movePlacement(AUTHORED, "54:1", "60:1");
+    const after = edit(AUTHORED, (d) => movePlacement(d, "54:1", "60:1"));
     expect(changed(AUTHORED, after)).toBe(1);
     expect(after).toContain(
-      '- { ref: bass_3_1, start: "60:1", fadeIn: "8:0:3:0:0:1:1:2" }',
+      '  ref("bass_3_1").start("60:1").fadeIn("8:0:3:0:0:1:1:2"),\n',
     );
   });
 
   it("finds a placement by where it starts", () => {
-    expect(findPlacement(AUTHORED, "54:1")).toBe(1);
-    expect(findPlacement(AUTHORED, "99:1")).toBe(-1);
+    expect(findPlacement(scope(AUTHORED), "54:1")).toBe(1);
+    expect(findPlacement(scope(AUTHORED), "99:1")).toBe(-1);
   });
 
   it("removes one placement and leaves the other alone", () => {
-    const after = removePlacement(AUTHORED, "25:1");
+    const after = edit(AUTHORED, (d) => removePlacement(d, "25:1"));
     expect(after).not.toContain("bass_3_0");
     expect(after).toContain(
-      '- { ref: bass_3_1, start: "54:1", fadeIn: "8:0:3:0:0:1:1:2" }',
+      '  ref("bass_3_1").start("54:1").fadeIn("8:0:3:0:0:1:1:2"),\n',
     );
-    expect(parseModule(after).issues).toEqual([]);
+    expect(issuesOf(after)).toEqual([]);
   });
 
-  it("receives a placement moved from another lane", () => {
+  it("receives a placement moved from another lane, on a line of its own", () => {
     // The other half of a cross-lane clip move: removed there, appended here.
-    const after = addPlacement(AUTHORED, {
-      ref: "bass_3_2",
-      start: "70:1",
-      loop: 2,
-    });
-    expect(after).toContain('- { ref: bass_3_2, start: "70:1", loop: 2 }');
-    expect(parseModule(after).value?.events).toHaveLength(3);
+    const after = edit(AUTHORED, (d) =>
+      addPlacement(d, { ref: "bass_3_2", start: "70:1", loop: 2 }),
+    );
+    expect(after).toContain('  ref("bass_3_2").start("70:1").loop(2),\n');
+    expect(parse(after).events).toHaveLength(3);
+  });
+
+  it("creates the events list on a lane that has none", () => {
+    const after = edit('extends("@meta/track")\n', (d) =>
+      addPlacement(d, { ref: "x", start: "1:1" }),
+    );
+    expect(parse(after).events).toEqual([{ ref: "x", start: "1:1" }]);
   });
 
   it("keeps the colour, the extends and every other field byte-identical", () => {
-    const after = setTrackField(AUTHORED, "disabled", true);
-    expect(after).toContain('color: "#739814"');
-    expect(after).toContain('extends: "@meta/track"');
+    const after = edit(AUTHORED, (d) => setTrackField(d, "disabled", true));
+    expect(after).toContain('color("#739814")');
+    expect(after).toContain('extends("@meta/track")');
+  });
+});
+
+describe("a lane on one of its alternatives", () => {
+  const ALT = `extends("@meta/track")
+alternative("quiet")
+events([
+  // the verse
+  ref("a").start("1:1"),
+  ref("b").start("5:1"),
+])
+alternatives([name("quiet")])
+`;
+
+  it("forks what the alternative PLAYS on its first edit, comments included, and leaves the module's own", () => {
+    const after = edit(ALT, (d) => movePlacement(d, "5:1", "6:1"));
+    const data = parse(after) as {
+      events: unknown[];
+      alternatives: { events: unknown[] }[];
+    };
+    expect(data.events).toEqual([
+      { ref: "a", start: "1:1" },
+      { ref: "b", start: "5:1" },
+    ]);
+    expect(data.alternatives[0].events).toEqual([
+      { ref: "a", start: "1:1" },
+      { ref: "b", start: "6:1" },
+    ]);
+    expect(after.match(/\/\/ the verse/g)).toHaveLength(2);
+  });
+
+  it("forks a list written as a call's own arguments", () => {
+    const text =
+      'alternative("quiet")\nevents(ref("a").start("1:1"), ref("b").start("5:1"))\nalternatives([name("quiet")])\n';
+    const after = edit(text, (d) => removePlacement(d, "1:1"));
+    const data = parse(after) as {
+      events: unknown[];
+      alternatives: { events: unknown[] }[];
+    };
+    expect(data.events).toHaveLength(2);
+    expect(data.alternatives[0].events).toEqual([{ ref: "b", start: "5:1" }]);
+  });
+});
+
+describe("the song's clock", () => {
+  it("moves what follows inserted time, and drops what deleted time covers", () => {
+    const doc = new K7Document(AUTHORED);
+    expect(spliceTime(doc.at([]), 100, 4, "insert", 4, 4)).toEqual({
+      moved: 1,
+      removed: 0,
+    });
+    expect((parse(doc.toString()).events as { start: string }[])[1].start).toBe(
+      "55:1",
+    );
+    expect(spliceTime(doc.at([]), 96, 8, "delete", 4, 4)).toEqual({
+      moved: 1,
+      removed: 1,
+    });
+    expect(parse(doc.toString()).events).toEqual([
+      { ref: "bass_3_1", start: "53:1", fadeIn: "8:0:3:0:0:1:1:2" },
+    ]);
+  });
+
+  it("halves an even loop, drops a loop of two, and keeps an odd or windowed one", () => {
+    const lane = `events([
+  ref("s").start("1:1").loop(4),
+  ref("s").start("9:1").loop(2),
+  ref("s").start("13:1").loop(3),
+  ref("s").start("17:1").loop(2).from(0),
+])
+`;
+    const doc = new K7Document(lane);
+    const got = halveSequenceLoops(doc.at([]), "s");
+    expect(got.halved).toBe(2);
+    expect(got.kept.map((k) => k.why)).toEqual(["odd", "windowed"]);
+    const events = parse(doc.toString()).events as Record<string, unknown>[];
+    expect(events.map((e) => e.loop)).toEqual([2, undefined, 3, 2]);
   });
 });
 
@@ -136,29 +192,29 @@ describe("the fields a lane carries", () => {
   it("takes a group's members and a strudel lane's pattern", () => {
     // Both are ordinary module fields; WHICH a lane may write is graph.ts's question (docs/moduleFile.md).
     expect(
-      parseModule('extends: "@meta/group-track"\ntracks: [a, b]\n').issues,
+      issuesOf('extends("@meta/group-track")\ntracks("a", "b")\n'),
     ).toEqual([]);
     expect(
-      parseModule(
-        'extends: "@meta/strudel-track"\nstrudel: algo/beat.strudel\n',
-      ).issues,
+      issuesOf(
+        'extends("@meta/strudel-track")\nstrudel("algo/beat.strudel")\n',
+      ),
     ).toEqual([]);
   });
 
   it("pins a strudel lane's pattern path", () => {
-    const bad = parseModule(
-      'extends: "@meta/strudel-track"\nstrudel: beat.txt\n',
+    const issues = issuesOf(
+      'extends("@meta/strudel-track")\nstrudel("beat.txt")\n',
     );
-    expect(bad.value).toBeNull();
-    expect(bad.issues[0].message).toMatch(/algo\//);
+    expect(issues[0].message).toMatch(/algo\//);
   });
 
   it("still refuses a key no module has", () => {
-    // `.strict()`, so an unknown key is named by line rather than read and dropped.
-    const { value, issues } = parseModule(
-      'extends: "@meta/track"\ncontentType: audio\n',
-    );
-    expect(value).toBeNull();
-    expect(issues.some((i) => i.path.includes("contentType"))).toBe(true);
+    // `.strict()`, so an unknown key is named rather than read and dropped.
+    const issues = issuesOf('extends("@meta/track")\ncontentType("audio")\n');
+    expect(
+      issues.some((i) =>
+        ((i as { keys?: string[] }).keys ?? []).includes("contentType"),
+      ),
+    ).toBe(true);
   });
 });

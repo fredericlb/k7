@@ -1,7 +1,7 @@
 # enginePlugin — the authoring → engine plugin mapping
 
 `enginePlugin()` (project.ts) maps an AUTHORED module plugin
-(`plugin: { type, name }` in module.yaml) to the `type` and `name` the engine's
+(`plugin: { type, name }` in module.k7x) to the `type` and `name` the engine's
 `PluginDoc` wants. The two models differ, and both have to keep working.
 
 ## What the authoring model states

@@ -1,8 +1,9 @@
 // trackInput.ts — `track input <track> audio|midi`: an input node feeding a lane, what the per-track
 // view's two buttons run. In a chain project it is a step of the lane's own chain, just ahead of the
-// lane; in a graph.yaml project, a node with a cable onto it. A lane something already feeds is refused,
+// lane; in a graph.k7x project, a node with a cable onto it. A lane something already feeds is refused,
 // the input's signal being the one thing a lane takes. See packages/commands/docs/verbs.md.
 
+import { stringify } from "@studio/k7x/print";
 import { insertChainInput } from "@studio/song/chainCreate";
 import { isChainProject } from "@studio/song/chainProject";
 import { loadGraph } from "@studio/song/graph";
@@ -41,10 +42,11 @@ async function trackInput(a: string, h: CommandHost): Promise<void> {
     const role = kind === "midi" ? MIDI_IN_NODE : "IN";
     if (isChainProject(dir)) {
       // A USE of the built-in input, as a hand-written rig spells it: its card is then named by it.
-      const body =
+      const body = stringify(
         kind === "midi"
-          ? `extends: "${metaRef(MIDI_IN_NODE)}"\n`
-          : `extends: "${metaRef("IN")}"\nmonitor: "auto"\n`;
+          ? { extends: metaRef(MIDI_IN_NODE) }
+          : { extends: metaRef("IN"), monitor: "auto" },
+      );
       const { rel } = insertChainInput(dir, lane, body);
       h.log([`${lane}: ${kind} input added ahead of it (${rel})`]);
     } else {

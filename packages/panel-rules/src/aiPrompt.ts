@@ -51,7 +51,8 @@ ${API_ANSWER}`;
 const API_ANSWER = `# What to return
 
 A JSON object with:
-- \`ui_yaml\`: the complete ui.yaml text — \`cols\`, \`rows\`, \`widgets\`, \`tabs\` when the panel has pages, and \`vertical\` whenever \`cols\` is more than 4 — and nothing else, no code fence. Start it with a one-line \`#\` comment naming the module.
+- \`header\`: one line for the top of ui.k7x, naming the module — its name, an em dash, what it is.
+- \`panel\`: the complete panel as DATA, the same fields ui.k7x holds — \`cols\`, \`rows\`, \`widgets\`, \`tabs\` when the panel has pages, and \`vertical\` whenever \`cols\` is more than 4. One difference: every \`widgets\` is a LIST, each widget an object carrying its id as \`id\` beside its fields (\`{ "id": "cutoff", "type": "knob", "col": 6, … }\`). The host prints it as ui.k7x.
 - \`widgets_js\`: the complete widgets.js text with one function per lcdscreen id (\`export default { … }\`), or an empty string when the panel has no lcdscreen.
 - \`notes\`: two or three short sentences for the author: the layout's logic and what each screen shows.
 
@@ -59,28 +60,35 @@ Whatever you return replaces the panel whole, never merged: on an update, change
 
 /** The builder, the widgets, the screen contract and the design brief — what any answer, API or files, is designed by. */
 export function aiDesignBrief(): string {
-  return `You design the control panel of an audio module for k7, a text-first DAW. A module wraps one plugin (a synth, an effect, a mixer input…) and its panel is drawn as a small card in the patch graph and in the module builder. You receive the module's parameters — and, when you are asked to update it, its current panel — and you return a complete panel: a \`ui.yaml\` and, when the panel has screens, the \`widgets.js\` that draws them.
+  return `You design the control panel of an audio module for k7, a text-first DAW. A module wraps one plugin (a synth, an effect, a mixer input…) and its panel is drawn as a small card in the patch graph and in the module builder. You receive the module's parameters — and, when you are asked to update it, its current panel — and you return a complete panel: a \`ui.k7x\` and, when the panel has screens, the \`widgets.js\` that draws them.
 
-# The panel: ui.yaml
+# The panel: ui.k7x
+
+ui.k7x is k7x, the text format of k7's files: JavaScript-looking, read and never run. Each top-level setting is one call on its own line, \`key(value)\`; a value is a number, a double-quoted string, \`true\`/\`false\`, a list \`[a, b]\` or an object \`{ key: value }\` (a key needs quotes only when it is not a plain identifier, \`"Wave Shape 1": 2\`); \`//\` starts a comment. An object in a list may be written as a chain of calls, \`name("OSC").widgets({ … })\` being \`{ name: "OSC", widgets: { … } }\`.
 
 A panel is a grid of cells. On the graph card one cell is 36×36 px, columns are 6 px apart and rows 8 px, so a 12×4 panel is a 498×168 px card: every pixel counts.
 
 **One panel, two shapes.** Cards sit side by side in a row read ACROSS (a track's view on a desktop) and NARROW where space runs down or the cards are many (the graph, a track's view on a phone), so you lay the same panel out twice:
 - the panel itself is the **HORIZONTAL** layout: at most **4 rows**, sections side by side left to right;
-- \`vertical:\` is the **VERTICAL** layout: at most **4 columns**, the same sections STACKED top to bottom in the same order. It has its own \`cols\`, \`rows\`, \`widgets\` and \`tabs\`, and offers on every page exactly the controls the horizontal page offers — the same binds, on the same tab, with the same tabs in the same order. Reuse the horizontal widgets' ids; a screen MUST reuse its id, since its draw function is keyed by it and draws at whatever size its box is. Omit \`vertical\` only when the panel is already at most 4 columns wide.
+- \`vertical({…})\` is the **VERTICAL** layout: at most **4 columns**, the same sections STACKED top to bottom in the same order. It has its own \`cols\`, \`rows\`, \`widgets\` and \`tabs\`, and offers on every page exactly the controls the horizontal page offers — the same binds, on the same tab, with the same tabs in the same order. Reuse the horizontal widgets' ids; a screen MUST reuse its id, since its draw function is keyed by it and draws at whatever size its box is. Omit \`vertical\` only when the panel is already at most 4 columns wide.
 
-\`\`\`yaml
-cols: 12          # HORIZONTAL: grid width in cells
-rows: 4           # …at most 4 rows
-widgets:
-  osc_screen: { type: lcdscreen, col: 0, row: 0, colSpan: 6, rowSpan: 4 }
-  cutoff: { type: knob, col: 6, row: 0, colSpan: 2, rowSpan: 2, label: Cutoff, bind: Cutoff, min: 20, max: 20000, curve: log }
-vertical:         # VERTICAL: at most 4 columns, the same controls stacked
-  cols: 4
-  rows: 6
-  widgets:
-    osc_screen: { type: lcdscreen, col: 0, row: 0, colSpan: 4, rowSpan: 3 }
-    cutoff: { type: knob, col: 0, row: 3, colSpan: 2, rowSpan: 2, label: Cutoff, bind: Cutoff, min: 20, max: 20000, curve: log }
+\`\`\`k7x
+// mono-synth — one oscillator into a filter
+cols(12) // HORIZONTAL: grid width in cells
+rows(4) // …at most 4 rows
+widgets({
+  osc_screen: { type: "lcdscreen", col: 0, row: 0, colSpan: 6, rowSpan: 4 },
+  cutoff: { type: "knob", col: 6, row: 0, colSpan: 2, rowSpan: 2, label: "Cutoff", bind: "Cutoff", min: 20, max: 20000, curve: "log" },
+})
+// VERTICAL: at most 4 columns, the same controls stacked
+vertical({
+  cols: 4,
+  rows: 6,
+  widgets: {
+    osc_screen: { type: "lcdscreen", col: 0, row: 0, colSpan: 4, rowSpan: 3 },
+    cutoff: { type: "knob", col: 0, row: 3, colSpan: 2, rowSpan: 2, label: "Cutoff", bind: "Cutoff", min: 20, max: 20000, curve: "log" },
+  },
+})
 \`\`\`
 
 Rules the loader enforces — a panel that breaks one is refused whole:
@@ -90,11 +98,11 @@ Rules the loader enforces — a panel that breaks one is refused whole:
 - \`bind\` names a parameter EXACTLY as listed (case, spaces and punctuation included). Never invent one.
 - \`min\`/\`max\`/\`step\`/\`curve\` only on knob, slider, fader and number; \`options\` only on dropdown; \`text\` only on label; \`source\` only on waveform; \`color\` only on group; \`pair\` only on knob; \`bind\` never on label, waveform or lcdscreen, and on a group only for the section's on/off param.
 - Use the param's own range for \`min\`/\`max\`. \`curve: log\` suits frequencies and times spanning decades; everything else is linear (omit \`curve\`).
-- Leave out fields at their default. Write one widget per line in flow style, as above.
+- Leave out fields at their default. Write one widget per line, as above.
 
 ## Tabs
 
-Tabs are the PANEL's, not a widget: a top-level \`tabs:\` list beside \`widgets\`, in order, each \`{ name: <at most 10 characters, unique>, widgets: { <id>: widget, … } }\`. Only the open tab's widgets are drawn — the horizontal card lists the tab names in a column at its left, the vertical one in a menu across its top — so a tab's widgets use the whole \`cols\` × \`rows\` grid, starting on row 0, with no row given up to a tab bar. The \`vertical\` layout has the same tabs, by name and in the same order. The top-level \`widgets\` are drawn on EVERY tab: that is where a screen or a master section that must always be visible goes (leave it \`{}\` otherwise). Use tabs only when one page cannot hold the essentials legibly; a panel of up to ~16 controls has no \`tabs\` at all, and a single tab is never written.
+Tabs are the PANEL's, not a widget: a top-level \`tabs([…])\` list beside \`widgets\`, in order, each \`{ name: <at most 10 characters, unique>, widgets: { <id>: widget, … } }\`. Only the open tab's widgets are drawn — the horizontal card lists the tab names in a column at its left, the vertical one in a menu across its top — so a tab's widgets use the whole \`cols\` × \`rows\` grid, starting on row 0, with no row given up to a tab bar. The \`vertical\` layout has the same tabs, by name and in the same order. The top-level \`widgets\` are drawn on EVERY tab: that is where a screen or a master section that must always be visible goes (leave it \`{}\` otherwise). Use tabs only when one page cannot hold the essentials legibly; a panel of up to ~16 controls has no \`tabs\` at all, and a single tab is never written.
 
 ## Widgets
 

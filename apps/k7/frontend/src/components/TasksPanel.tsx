@@ -43,7 +43,7 @@ export function TasksPanel({
     if (!project) return setTags([]);
     try {
       const dir = projectDir(project);
-      const file = dir ? `${dir}/project.yaml` : "project.yaml";
+      const file = dir ? `${dir}/project.k7x` : "project.k7x";
       setTags(projectTagsOf((await api.read(file)).content));
     } catch {
       setTags([]);

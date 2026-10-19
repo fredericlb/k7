@@ -109,8 +109,8 @@ describe("what a project reads of its workspace", () => {
     expect(p).toContain("_playlists");
     expect(p).toContain("albums/_modules");
     expect(p).toContain("_modules");
-    expect(p).toContain("albums/_library-pins.yaml");
-    expect(p).toContain("_library-pins.yaml");
+    expect(p).toContain("albums/_library-pins.k7x");
+    expect(p).toContain("_library-pins.k7x");
     // Never a sibling project.
     expect(p.some((x) => x.startsWith("albums/summer"))).toBe(false);
   });

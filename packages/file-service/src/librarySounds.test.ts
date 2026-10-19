@@ -26,7 +26,7 @@ beforeEach(() => {
   mkdirSync(join(lib, "samples"), { recursive: true });
   const proj = join(root, "song.k7");
   mkdirSync(proj, { recursive: true });
-  writeFileSync(join(proj, "project.yaml"), 'project:\n  name: "song"\n');
+  writeFileSync(join(proj, "project.k7x"), 'project({ name: "song" })\n');
   ws = new Workspace(root);
   ws.setActiveProject("song.k7");
   // An admin's own clone of `k7`: the one state in which a file may land in a library.

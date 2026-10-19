@@ -28,8 +28,8 @@ one thing a split may not do.
 
 ## What a written sequence declares as its extent
 
-`writeSequence` states both edges as POSITIONS, quoted — `3:1` unquoted is sexagesimal in YAML
-1.1 — and which edges it states differs by verb.
+`writeSequence` states both edges as POSITIONS, and which edges it states differs by verb. The
+file it writes is headed by the verb that made it, `// Written by \`event split\`.`
 
 **A SPLIT** passes only a `to`. Its halves are cut to the cut, so their notes can never run past
 it, and a head whose last note stops early still has to end where the knife fell. Each half starts

@@ -16,7 +16,7 @@ The DJ desk is the drawer of the `turntables` surface type. It is a builtin **pl
 | `packages/k7-plugins/src/turntables/deckVocabulary.ts` | Deck ids, `DeckLoad`, `DeckTempo`, and every control's range. |
 | `packages/k7-plugins/src/turntables/controls.ts`, `mapping.ts`, `mixBindings.ts` | Control ids, required controls, binding resolution. |
 | `packages/k7-plugins/src/turntables/beats.ts`, `grid.ts`, `loop.ts`, `metronome.ts`, `waveform.ts`, `shuttle.ts`, `dial.ts`, `deskLayout.ts` | Pure arithmetic, each with a test. |
-| `packages/k7-plugins/src/turntables/setList.ts`, `prewarm.ts`, `service.ts`, `mixView.ts` | Data: the playlist resolved against the machine's cache, background analysis, the file-service and library calls, reading/writing `mix.yaml`. |
+| `packages/k7-plugins/src/turntables/setList.ts`, `prewarm.ts`, `service.ts`, `mixView.ts` | Data: the playlist resolved against the machine's cache, background analysis, the file-service and library calls, reading/writing `mix.k7x`. |
 | `packages/k7-plugins/src/turntables/views/` | React components: `Turntables` (the mapping gate), `MixView` (the desk), `DeckSide`, `DeckButtons`, `ChannelStrip`, `MixerColumn`, `BpmFader`, `CueButtons`, `LoopRow`, `Vinyl`, `Waveform`, `SongBrowser`, `inSight.ts`. |
 | `packages/k7-plugins/scripts/turntables/put-on.ts` | A measurement script against a running engine; see [Desk tests](./65-dj-tests.md). |
 
@@ -91,7 +91,7 @@ A knob's displayed value is the hand's value until the engine reports the same (
 | Songs on the engine's machine | The file service on that machine's side (`cfg().base`) | `service.summary`, `service.songs` (`/mediatek`, `/mediatek/list?family=songs`) |
 | A song's envelope, onsets, tempo | Same | `service.envelope` (`/mediatek/envelope`), see [Desk timing](./62-turntables-timing.md#analysis) |
 | The playlist text | The workspace (`_playlists/…`) | `readPlaylistText` (`mixView.ts`) |
-| Cue sheet | `mix.yaml` in the project | `readMixText` / `writeMixText` |
+| Cue sheet | `mix.k7x` in the project | `readMixText` / `writeMixText` |
 | Tempo/key corrections, stems | The media library (k7's backend, `libraryBase`) | `service.setSongBpm`, `setSongKey`, `prepareStems`, `stemsHeld`, `separation` |
 
 File-service calls carry `fileHeaders()`; library calls carry the session cookie (`credentials: "include"`). Errors surface the server's own sentence when it sends one.

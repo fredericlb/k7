@@ -22,7 +22,7 @@ There is no `contentType`. A lane is not typed by what it carries — each PLACE
 (`Placement.kind`). A reader that wants the summary asks the placements, and gets "both" as an
 honest answer, which one word at the top of the file could not give.
 
-`Track.mute` is read off `graph.yaml`'s `bypassed:`: a lane's mute IS its module's bypass, which
+`Track.mute` is read off `graph.k7x`'s `bypassed:`: a lane's mute IS its module's bypass, which
 is why the lane file carries no `mute:` for the two to disagree over. `Track.solo` is always
 false — solo is a session state the surface derives, by bypassing every OTHER lane — and the
 field goes once the wire and the engine drop it too.
@@ -232,7 +232,7 @@ warns here and not on the rig the labels were written for.
 
 ## The `— did you mean` tail
 
-A node is a `<name>.yaml` BESIDE a module.yaml, not a folder inside it, so the ref of one is the
+A node is a `<name>.k7x` BESIDE a module.k7x, not a folder inside it, so the ref of one is the
 module's ref with `:node` — and the two spellings look identical to anyone reading the folder on
 disk. `nodeHint` is worth a hint rather than a second guess at the docs: "is not a module" is true
 and useless, and the whole difference is one character. See `moduleNamespaces.md`.
@@ -331,7 +331,7 @@ shape says it one way, the protocol another, and the compiler is where they meet
 
 A lane compiles to one engine track, called after the lane, when it is wired the way lanes have
 always been wired. It compiles to TWO when its `audio` and `midi` outputs were keyed separately in
-`graph.yaml` — `melody#audio` and `melody#midi` — each carrying the events its port fits and the
+`graph.k7x` — `melody#audio` and `melody#midi` — each carrying the events its port fits and the
 plugins of the run that left by it.
 
 The engine holds ONE plugin chain per track, so a lane playing a riff through an amp and a line
@@ -371,7 +371,7 @@ holds one value — the same reason `bakeAdsr` cuts rather than sums.
 Which nodes are LANES has to be settled BEFORE the chains are derived — a run is named after its
 lane, and with one `modules:` map only `extends` tells a lane from a reverb. So the local modules
 are folded first and the derivation is told. The fold is pure and in memory; doing it twice costs
-a walk over a few dozen structs and buys the derivation the one fact `graph.yaml` does not state.
+a walk over a few dozen structs and buys the derivation the one fact `graph.k7x` does not state.
 
 `loadGraph` and `compileNodeProject` both wrap their work in `withModuleStamp`: they ask the
 module cache twice, and one stamp walk covers the pair. See `moduleCache.md`. `withModuleStamp` is
@@ -385,7 +385,7 @@ caller that WRITES nothing: a stale stamp would serve a module under a name nobo
 `audio/amps/neural-amp-modeler` both, the second keyed `amps/neural-amp-modeler`. It holds for
 both shared roots — the workspace's `_modules` and the médiathèque, which files its catalogue that
 way too: **two walkers over one vocabulary have to agree.** One that skipped a folder with no
-`module.yaml` in it would make a nested module not an error but simply absent, and every symptom
+`module.k7x` in it would make a nested module not an error but simply absent, and every symptom
 would then describe something else — a chain naming a module "this project doesn't have", a
 catalogue short a few rows, and a builder answering 400 for a file sitting right in the tree.
 

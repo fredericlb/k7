@@ -72,7 +72,7 @@ The metronome stays too: a whole track built in code, and another subject.
 
 ## The nodes
 
-The `@meta/audio/turntable` module, shipped with k7 (`packages/song/docs/metaModules.md`) — `module.yaml` and `ui.yaml`, no jsdsp: the engine
+The `@meta/audio/turntable` module, shipped with k7 (`packages/song/docs/metaModules.md`) — `module.k7x` and `ui.k7x`, no jsdsp: the engine
 already hosts the platter, and `type: internal` names it the way the EQ's `tracktion` engine names the equaliser. The
 ranges come from `TurntablePlugin.cpp`:
 
@@ -87,11 +87,11 @@ The scaffold writes ten platters — one per lane that plays a file, generated b
 as `stemNodeFiles` already generates the lanes and the cuts. A deck's graph therefore starts at its
 source:
 
-```yaml
-  deckA: [ platterA ]
-  platterA: [ tempoA ]
-  stemBassA: [ platterBassA ]
-  platterBassA: [ cutBassA ]
+```k7x
+deckA(["platterA"])
+platterA(["tempoA"])
+stemBassA(["platterBassA"])
+platterBassA(["cutBassA"])
 ```
 
 `onPlatter` sets three things on the plugin the COMPILER emitted: the record, and `Rate`/`Key`.
@@ -139,7 +139,7 @@ prepared first.
 
 **The censor becomes a binding.** It needs one addition to the vocabulary: `MixControl.kind` is
 `"fader" | "button"` and a **momentary** button has no word. With `"momentary"`,
-`deckA.censor: { module: platterA, param: Rate }` becomes a line of `surfaces/desk.yaml`.
+`deckA.censor: { module: platterA, param: Rate }` becomes a line of `surfaces/desk.k7x`.
 
 ## Replaying the measurements
 

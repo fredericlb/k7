@@ -33,7 +33,7 @@ export function WaveformView({
 }: {
   project: WebProject;
   clip: WebClip;
-  // Span the whole SOURCE rather than the clip's placed region — how a clips/*.yaml shows its material, so `from`/`to` can be judged against it.
+  // Span the whole SOURCE rather than the clip's placed region — how a clips/*.k7x shows its material, so `from`/`to` can be judged against it.
   whole?: boolean;
   // Slice-rack windows over the waveform, in source seconds: `color` is the slice's own hue, `hollow` the clip band with nothing trimmed (clipWindowText.ts).
   sliceRanges?: {

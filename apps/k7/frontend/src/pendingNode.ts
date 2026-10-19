@@ -43,7 +43,7 @@ export const pendingNodeId = (node: string): string => `mod:${node}`;
 
 const bare = (ref: string): string => ref.split("#")[0];
 
-/** A node's graph.yaml name, the way an arrow's ends spell it (`jackRef`). */
+/** A node's graph.k7x name, the way an arrow's ends spell it (`jackRef`). */
 const nameOf = (n: GraphNode): string =>
   n.kind === "module" || n.kind === "assembly"
     ? (n.module ?? n.label)

@@ -32,7 +32,7 @@ upgrades. That is the price of a song sounding the same on every replica.
 - Every library of the origin is versioned, `k7` and any other alike: one mechanism, no exception.
 - The origin keeps every version a workspace of any account pins. Binaries are in the blob store,
   so an old version costs its text and nothing else.
-- Each version carries `library.yaml`: `name`, `version`, `requires`, and the publish notes.
+- Each version carries `library.k7x`: `name`, `version`, `requires`, and the publish notes.
 
 ## `requires` is a LEVEL, not an app version
 
@@ -41,7 +41,7 @@ k7 has several version schemes: the image stamp (`26.08031412`), the desktop's s
 `LIBRARY_LEVEL`, and a library declares `requires: <level>`.
 
 - The level rises when the compiler or the engine gains something a library can use: a module type,
-  a parameter kind, a bundled plugin, a field of `module.yaml`.
+  a parameter kind, a bundled plugin, a field of `module.k7x`.
 - **An k7 at level N runs every library whose `requires` is at most N.** That is the compatibility
   promise, and what lets the server open an old pin: the server is always at the highest level.
 - Publish refuses a draft whose `requires` exceeds the origin's own level. Unsaid, `requires` is
@@ -55,11 +55,11 @@ k7 has several version schemes: the image stamp (`26.08031412`), the desktop's s
 
 ## A workspace pins its versions
 
-`_library-pins.yaml` at the workspace root, beside `_modules/` and `_playlists/`:
+`_library-pins.k7x` at the workspace root, beside `_modules/` and `_playlists/`:
 
-```yaml
-k7: 7
-drums: 2
+```k7x
+k7(7)
+drums(2)
 ```
 
 - It is a workspace file, so it reaches every replica by live sync, and the server, the desktop and
@@ -84,7 +84,7 @@ drums: 2
   phone table). A hosted origin never does: it IS one, and the private instance asking `app.k7.rocks`
   would mix two origins' libraries.
 - **First run is the installer's copy.** The desktop and the phone bundle the newest published
-  version of `k7` the build runs, `library.yaml` included, and install it under that number on first
+  version of `k7` the build runs, `library.k7x` included, and install it under that number on first
   run, with no network. A folder rather than an archive: the bundle is files already, and the hub
   copies a folder. An app update carrying a newer version adds it as one more frozen version and
   moves no pin. A build that cannot reach the origin bundles the repo's `k7-core` and says so:
@@ -121,16 +121,16 @@ A ref keeps naming exactly one folder: nothing shadows `@k7-core/x` in place. Ov
 
 ## How the server opens any song
 
-It reads the workspace's `_library-pins.yaml`, resolves `@<name>/…` in `libraries/<name>/<pin>/`,
+It reads the workspace's `_library-pins.k7x`, resolves `@<name>/…` in `libraries/<name>/<pin>/`,
 and `@account/…` in the account's own folder. The server holds every pinned version, every account
 library and every workspace, and runs at the highest level, so latest, old and forked all open.
 
 ## Lots
 
-1. **Built.** `library.yaml`, `LIBRARY_LEVEL` (`../packages/song-schema/src/libraryVersions.ts`), the
+1. **Built.** `library.k7x`, `LIBRARY_LEVEL` (`../packages/song-schema/src/libraryVersions.ts`), the
    `draft/` + `<n>/` layout on the origin, an existing library moved into `1/`, the draft made on an
    admin's ask, and `LibraryStore.publish` (`../packages/file-hub/libraries.ts`).
-2. **Built.** `_library-pins.yaml`: the compile, the file tree and the presets read the pinned
+2. **Built.** `_library-pins.k7x`: the compile, the file tree and the presets read the pinned
    folder, and `ensureLibraryPins` (`../packages/file-service/src/libraryPins.ts`) writes it on
    workspace creation and on the first open.
 3. **Built:** Publish on the Libraries page, `POST /account/libraries/<name>/publish`, and each

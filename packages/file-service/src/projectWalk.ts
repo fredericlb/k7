@@ -10,7 +10,7 @@ import { PREFS_PATH } from "@studio/song/preferences";
 import { isBinary, skip } from "./workspaceFilter.ts";
 
 // What moves the revision; a .vstpreset is rewritten in place by its window — packages/song/docs/autoFreeze.md.
-const REVISION_FILE = /\.(ya?ml|k7x|vstpreset)$/i;
+const REVISION_FILE = /\.(k7x|vstpreset)$/i;
 
 /** One file found by `walkProject`, from a single `statSync` — see docs/workspace.md. */
 export interface WalkedFile {

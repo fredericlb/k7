@@ -1,4 +1,4 @@
-// k7xIssues.test.ts — a .k7x buffer is checked like its YAML spelling, and every finding lands on the k7x text's own line.
+// k7xIssues.test.ts — a .k7x buffer is checked by its kind's parser, and every finding lands on the k7x text's own line.
 
 import { describe, expect, it } from "vitest";
 import { fileKindFor } from "./fields";
@@ -14,7 +14,7 @@ params({
 `;
 
 describe("a .k7x buffer", () => {
-  it("is the same kind of file as its YAML spelling", () => {
+  it("is the kind of file its folder and name say", () => {
     expect(fileKindFor("song/nodes/pad.k7x")).toBe("module");
     expect(fileKindFor("song/project.k7x")).toBe("project");
     expect(fileKindFor("song/chains/main.k7x")).toBe("chain");

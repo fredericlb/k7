@@ -110,7 +110,7 @@ rectangle exactly as drawn.
 
 ## Curves and automation
 
-A curve is a file (`curves/<id>.yaml`, read by `packages/song/src/curves.ts`); a binding is a
+A curve is a file (`curves/<id>.k7x`, read by `packages/song/src/curves.ts`); a binding is a
 module's `automations: [{param, curve}]`, keyed by param. Verbs:
 
 - `curve set <name> <json>` — the whole curve, from the editor (`packages/commands/src/verbs/curve.ts`).

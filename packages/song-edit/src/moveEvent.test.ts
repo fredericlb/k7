@@ -7,6 +7,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parse } from "@studio/k7x/document";
 import { parsePosition } from "@studio/song-schema/timecode";
 import { describe, expect, it } from "vitest";
 import { moveTrackPlacement, moveTrackPlacementsInRange } from "./trackMix";
@@ -19,19 +20,24 @@ const DEN = 4;
 function trackDir(body: string): string {
   const dir = mkdtempSync(join(tmpdir(), "td-move-"));
   mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(join(dir, "nodes", "drums.yaml"), body, "utf8");
+  writeFileSync(join(dir, "nodes", "drums.k7x"), body, "utf8");
   return dir;
 }
 const read = (dir: string) =>
-  readFileSync(join(dir, "nodes", "drums.yaml"), "utf8");
+  readFileSync(join(dir, "nodes", "drums.k7x"), "utf8");
+const events = (dir: string) =>
+  parse(read(dir)).events as Record<string, unknown>[];
+const changedLines = (before: string, after: string) =>
+  after.split("\n").filter((l, i) => l !== before.split("\n")[i]);
 
 describe("moveTrackPlacement", () => {
   it("rewrites ONLY the matching placement, leaving every other line identical", () => {
-    const before = `# the drum lane
-extends: "@meta/track"
-events:
-  - { ref: kick, start: "1:1:1", fadeIn: "0:1" }
-  - { ref: snare, start: "2:1:1", fadeIn: "0:1", loop: 2, disabled: true }
+    const before = `// the drum lane
+extends("@meta/track")
+events([
+  ref("kick").start("1:1:1").fadeIn("0:1"),
+  ref("snare").start("2:1:1").fadeIn("0:1").loop(2).disabled(true),
+])
 `;
     const dir = trackDir(before);
     const moved = moveTrackPlacement(
@@ -46,33 +52,23 @@ events:
     const after = read(dir);
     // The snare moved with its fade, its pass count and its flag, on one line as before.
     expect(after).toContain(
-      '- { ref: snare, start: "3:1:1", fadeIn: "0:1", loop: 2, disabled: true }',
+      'ref("snare").start("3:1:1").fadeIn("0:1").loop(2).disabled(true),',
     );
     // Exactly one line differs — the comment, the kick and the field order all survive.
-    expect(
-      after.split("\n").filter((l, i) => l !== before.split("\n")[i]),
-    ).toHaveLength(1);
-    rmSync(dir, { recursive: true, force: true });
-  });
-
-  it("keeps the moved timecode QUOTED", () => {
-    // Unquoted, `3:1:1` is a YAML 1.1 sexagesimal: the clip would reload at beat 11461.
-    const dir = trackDir('events:\n  - { ref: kick, start: "2:1:1" }\n');
-    moveTrackPlacement(dir, "drums", 4, "3:1:1", NUM, DEN);
-    expect(read(dir)).toContain('start: "3:1:1"');
+    expect(changedLines(before, after)).toHaveLength(1);
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("matches by position, not string — 2:1:1 and its beat value are the same event", () => {
-    const dir = trackDir('events:\n  - { ref: kick, start: "2:1:1" }\n');
+    const dir = trackDir('events([ref("kick").start("2:1:1")])\n');
     // 4/4: bar 2 beat 1 == 4 beats. Pass the beat value; it still finds "2:1:1".
     expect(moveTrackPlacement(dir, "drums", 4, "3:1:1", NUM, DEN)).toBe(true);
-    expect(read(dir)).toContain("ref: kick");
+    expect(events(dir)).toEqual([{ ref: "kick", start: "3:1:1" }]);
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("returns false, and writes nothing, when nothing sits at the position", () => {
-    const body = 'events:\n  - { ref: kick, start: "1:1:1" }\n';
+    const body = 'events([ref("kick").start("1:1:1")])\n';
     const dir = trackDir(body);
     expect(
       moveTrackPlacement(
@@ -89,10 +85,9 @@ events:
   });
 
   it("doesn't confuse `start` with a ref name that contains it", () => {
-    const dir = trackDir('events:\n  - { ref: start_kick, start: "1:1:1" }\n');
+    const dir = trackDir('events([ref("start_kick").start("1:1:1")])\n');
     expect(moveTrackPlacement(dir, "drums", 0, "2:1:1", NUM, DEN)).toBe(true);
-    expect(read(dir)).toContain("ref: start_kick");
-    expect(read(dir)).toContain('start: "2:1:1"');
+    expect(events(dir)).toEqual([{ ref: "start_kick", start: "2:1:1" }]);
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -108,13 +103,14 @@ events:
 // The bulk form: the starts are collected before any is rewritten — see docs/trackMix.md.
 describe("moveTrackPlacementsInRange", () => {
   it("moves every placement starting in the range, and only those, one line each", () => {
-    const before = `# the drum lane
-extends: "@meta/track"
-events:
-  - { ref: intro, start: "1:1:1" }
-  - { ref: kick, start: "2:1:1", fadeIn: "0:1" }
-  - { ref: snare, start: "3:3", loop: 2 }
-  - { ref: outro, start: "9:1:1" }
+    const before = `// the drum lane
+extends("@meta/track")
+events([
+  ref("intro").start("1:1:1"),
+  ref("kick").start("2:1:1").fadeIn("0:1"),
+  ref("snare").start("3:3").loop(2),
+  ref("outro").start("9:1:1"),
+])
 `;
     const dir = trackDir(before);
     const n = moveTrackPlacementsInRange(
@@ -129,20 +125,18 @@ events:
     expect(n).toBe(2);
     const after = read(dir);
     // The two inside moved a bar, everything they carried travelling with them…
-    expect(after).toContain('- { ref: kick, start: "3:1", fadeIn: "0:1" }');
-    expect(after).toContain('- { ref: snare, start: "4:3", loop: 2 }');
+    expect(after).toContain('ref("kick").start("3:1").fadeIn("0:1"),');
+    expect(after).toContain('ref("snare").start("4:3").loop(2),');
     // …and the two outside, the comment and the field order all survive: two lines differ.
-    expect(after).toContain('- { ref: intro, start: "1:1:1" }');
-    expect(after).toContain('- { ref: outro, start: "9:1:1" }');
-    expect(
-      after.split("\n").filter((l, i) => l !== before.split("\n")[i]),
-    ).toHaveLength(2);
+    expect(after).toContain('ref("intro").start("1:1:1"),');
+    expect(after).toContain('ref("outro").start("9:1:1"),');
+    expect(changedLines(before, after)).toHaveLength(2);
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("includes both endpoints — an event sitting AT `to` moves", () => {
     const dir = trackDir(
-      'events:\n  - { ref: a, start: "2:1" }\n  - { ref: b, start: "4:1" }\n',
+      'events([ref("a").start("2:1"), ref("b").start("4:1")])\n',
     );
     const n = moveTrackPlacementsInRange(
       dir,
@@ -154,22 +148,21 @@ events:
       DEN,
     );
     expect(n).toBe(2);
-    expect(read(dir)).toContain('start: "2:2"');
-    expect(read(dir)).toContain('start: "4:2"');
+    expect(events(dir).map((e) => e.start)).toEqual(["2:2", "4:2"]);
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("moves left too, and keeps the rewritten timecodes quoted", () => {
-    const dir = trackDir('events:\n  - { ref: a, start: "3:1:1" }\n');
+  it("moves left too", () => {
+    const dir = trackDir('events([ref("a").start("3:1:1")])\n');
     expect(moveTrackPlacementsInRange(dir, "drums", 0, 100, -4, NUM, DEN)).toBe(
       1,
     );
-    expect(read(dir)).toContain('start: "2:1"');
+    expect(events(dir)).toEqual([{ ref: "a", start: "2:1" }]);
     rmSync(dir, { recursive: true, force: true });
   });
 
   it("returns 0 and writes nothing when the range holds no placement", () => {
-    const body = 'events:\n  - { ref: a, start: "1:1:1" }\n';
+    const body = 'events([ref("a").start("1:1:1")])\n';
     const dir = trackDir(body);
     expect(
       moveTrackPlacementsInRange(

@@ -45,7 +45,7 @@ the pointer (snapped to the nearest drawn tick) decide where they land; a thin l
 while you drag.
 
 1. Each file is uploaded into `clips/`, its name reduced to letters, digits, `.`, `_` and `-`.
-2. A `clips/<name>.yaml` declaration is written beside it.
+2. A `clips/<name>.k7x` declaration is written beside it.
 3. The first file is placed on the lane you dropped on, the second on the next lane of the same
    kind below it, and so on. Files with no lane left are uploaded and declared, but not placed.
 

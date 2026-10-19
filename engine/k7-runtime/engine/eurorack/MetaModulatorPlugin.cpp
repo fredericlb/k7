@@ -4,7 +4,7 @@
 
 namespace studio::eurorack {
 
-// Renaming this renames the id a module.yaml may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
+// Renaming this renames the id a module.k7x may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
 const char* MetaModulatorPlugin::xmlTypeName = "studio_meta_modulator";
 
 // At the module's own 96 kHz: Init takes a rate, but its pitch table and filter bank assume that one.

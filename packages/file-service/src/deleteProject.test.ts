@@ -22,10 +22,10 @@ let ws: Workspace;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-del-"));
-  // A workspace root (no project.yaml of its own) holding one sub-project.
+  // A workspace root (no project.k7x of its own) holding one sub-project.
   const proj = join(root, "deltest.k7");
   mkdirSync(proj, { recursive: true });
-  writeFileSync(join(proj, "project.yaml"), "package k7\n");
+  writeFileSync(join(proj, "project.k7x"), "package k7\n");
   writeFileSync(join(proj, "beat.strudel"), 's("bd")\n');
   ws = new Workspace(root);
 });
@@ -52,7 +52,7 @@ describe("Workspace.deleteProject", () => {
     const proj = join(root, "deltest.k7");
     const other = join(root, "keep.k7");
     mkdirSync(join(other, "modules"), { recursive: true });
-    writeFileSync(join(other, "project.yaml"), "package k7\n");
+    writeFileSync(join(other, "project.k7x"), "package k7\n");
     watchModuleFolders(proj);
     watchModuleFolders(other);
 

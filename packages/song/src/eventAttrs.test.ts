@@ -12,25 +12,25 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
 import type { ClipDoc } from "./project";
-import { writeLane, writeModule, writeYaml } from "./testSupport";
+import { writeDoc, writeLane, writeModule } from "./testSupport";
 
 let dir = "";
 
 /** One lane playing `riff` once, with whatever the placement wants to say about it. */
 function project(name: string, event: Record<string, unknown>): string {
   const p = join(dir, `${name}.k7`);
-  writeYaml(join(p, "project.yaml"), { project: { name, tempo: 120 } });
+  writeDoc(join(p, "project.k7x"), { project: { name, tempo: 120 } });
   writeModule(p, "io", "OUT", { io: "out" });
   writeLane(p, "gtr", "track", {
     events: [{ ref: "riff", start: "1:1:1", ...event }],
   });
   // The material must state a `to`, since a repeat needs an end to come round from.
-  writeYaml(join(p, "clips", "riff.yaml"), {
+  writeDoc(join(p, "clips", "riff.k7x"), {
     source: "clips/riff.wav",
     to: 8,
   });
   writeFileSync(join(p, "clips", "riff.wav"), "");
-  writeYaml(join(p, "graph.yaml"), { modules: { gtr: ["OUT"] } });
+  writeDoc(join(p, "graph.k7x"), { modules: { gtr: ["OUT"] } });
   return p;
 }
 

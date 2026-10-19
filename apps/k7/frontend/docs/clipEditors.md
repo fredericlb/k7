@@ -166,7 +166,7 @@ Two rules decide what you get:
 The tracker is the same grid `sequence edit tracker <sequence>` opens in the graph slot — the
 file-owning half is `SeqGridFile`, mounted by both, so there is one answer to "read it, hand it to
 the grid, write it back". It edits the sequence file directly where the other two go through
-commands; both land in the same YAML, and the difference is only whose undo you get — the
+commands; both land in the same k7x, and the difference is only whose undo you get — the
 editor's, rather than the shell's journal. A clip whose `ref` names no sequence file says so
 instead of drawing an empty grid.
 
@@ -656,7 +656,7 @@ along the placed extent, because the later passes of a looped clip really are th
 again. The pitch fit reads only the notes the window contains, so a stray note three octaves down
 cannot squash the pitches that are actually playing.
 
-**`WaveformView` in `whole` mode** — the strip a `clips/*.yaml` opens in the editor — is the same
+**`WaveformView` in `whole` mode** — the strip a `clips/*.k7x` opens in the editor — is the same
 rule at its plainest. Its purpose is to show the file the window is judged against, and it is where
 the `from`/`to` handles live.
 
@@ -770,7 +770,7 @@ answer it two ways:
 |---|---|
 | `WaveformView` (a clip file in the editor, `whole`) | shaded over the whole file, from the TEXT, live as you type — the view the window is JUDGED in, and the one it is SET in: both edges drag |
 | `AudioClipPanel` (clicking an audio event) | the pane roams the FILE and the event's window is a band on it — see below |
-| the roll, placed sequence or `sequences/*.yaml` | the canvas spans the sequence and the pair is a band on it — the panel's shape, in beats |
+| the roll, placed sequence or `sequences/*.k7x` | the canvas spans the sequence and the pair is a band on it — the panel's shape, in beats |
 | the tracker and the inline grids | the band, drawn as ground under the notes |
 
 Where it is still a band it is deliberately colourless — a white wash with its two edges picked
@@ -834,7 +834,7 @@ the placement's — `Math.max` of the froms, `Math.min` of the tos, in `nodeProj
 `WebClip`'s `sourceFrom`/`sourceTo` IS the event's effective window, and `ClipView` passes it down.
 A second copy of that arithmetic in the browser is exactly how the two would come to disagree.
 
-The panel asks for `whole`, and in that mode `WaveformOps` reads `clips/<id>.yaml` rather than the
+The panel asks for `whole`, and in that mode `WaveformOps` reads `clips/<id>.k7x` rather than the
 compiled placement, which knows nothing about which event you clicked — so `act` cannot come from
 the picture the pane is drawing. Taken from there, a phrase placed with `from: 3.51` would show
 the whole take with no way to tell which part of it is the one on the lane.

@@ -1,6 +1,0 @@
-# A chain is a signal path, written as a flat list of nodes: the head says where
-# the signal comes from (and names the chain), then the modules it passes through,
-# then the sink. A chain named after its own track needs no name at all.
-
-chains:
-  - [ { track: drums, as: beat }, { module: OUT } ]

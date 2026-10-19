@@ -1,18 +1,12 @@
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { formatChains, parseGraph } from "@studio/song-schema/yaml/graphFile";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
-import { copyAsYaml } from "./testSupport";
+import { setDoc, writeDoc, writeNode } from "./testSupport";
 
 // An input's track is named by the CHAIN, not by a field: a shared io/IN node cannot name one.
 
@@ -21,48 +15,35 @@ const DEMOS = join(here, "..", "..", "..", "demos");
 const SONG = join(DEMOS, "synth-demo.k7");
 const IN = "@workspace/io/IN:in-1";
 
+/** Set each module's destinations in `dir`'s graph, by key path, leaving the other modules as they are. */
+const wireIn = (dir: string, modules: Record<string, string[]>): void => {
+  for (const [from, to] of Object.entries(modules))
+    setDoc(join(dir, GRAPH_FILE), ["modules", from], to);
+};
+
+/** The demo song in `ws/song`, its workspace's `_modules` with a generic IN and one input, and a lane `mic`. */
+function liveSong(ws: string): string {
+  const dir = join(ws, "song");
+  cpSync(SONG, dir, { recursive: true });
+  // The Examples workspace's own shared library, beside every demo project.
+  cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
+  // The shared catalogue as `module populate` leaves it: a generic IN and one node per input.
+  writeDoc(join(ws, "_modules", "io", "IN", "module.k7x"), { io: "in" });
+  writeDoc(join(ws, "_modules", "io", "IN", "in-1.k7x"), { channel: [1] });
+  // An audio lane of its own, called `mic`: the fixture already has a group called `live`.
+  writeNode(dir, "mic", { extends: "@meta/track" });
+  wireIn(dir, { mic: [IN], [IN]: ["OUT"] });
+  return dir;
+}
+
 describe("a live input, wired by its chain", () => {
   let ws: string;
   let dir: string;
-  // Merge edges into graph.yaml through the shipping writer, so the fixture cannot drift.
-  const wire = (seg: { modules?: Record<string, string[]> }): void => {
-    const p = join(dir, "graph.yaml");
-    const cur = parseGraph(readFileSync(p, "utf8")).value ?? {};
-    writeFileSync(
-      p,
-      formatChains({
-        modules: { ...cur.modules, ...seg.modules },
-        bypassed: cur.bypassed,
-      }),
-      "utf8",
-    );
-  };
+  const wire = (seg: { modules: Record<string, string[]> }): void =>
+    wireIn(dir, seg.modules);
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-livein-"));
-    dir = join(ws, "song");
-    copyAsYaml(SONG, dir, { recursive: true });
-    // The Examples workspace's own shared library, beside every demo project.
-    copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
-      recursive: true,
-    });
-    // The shared catalogue as `module populate` leaves it: a generic IN and one node per input.
-    mkdirSync(join(ws, "_modules", "io", "IN"), { recursive: true });
-    writeFileSync(join(ws, "_modules", "io", "IN", "module.yaml"), "io: in\n");
-    writeFileSync(
-      join(ws, "_modules", "io", "IN", "in-1.yaml"),
-      "channel: [1]\n",
-    );
-    const p = join(dir, "project.yaml");
-    writeFileSync(
-      p,
-      readFileSync(p, "utf8").replace(
-        "modules_from: []",
-        "modules_from: [ ../_modules ]",
-      ),
-    );
-    // An audio lane of its own, called `mic`: the fixture already has a group called `live`.
-    writeFileSync(join(dir, "nodes", "mic.yaml"), 'extends: "@meta/track"\n');
-    wire({ modules: { mic: [IN], [IN]: ["OUT"] } });
+    dir = liveSong(ws);
   });
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
@@ -135,15 +116,10 @@ describe("a live input, wired by its chain", () => {
 
   it("lands on the AUDIO half of a split lane", () => {
     // On the midi half it would arm a track whose chain is an instrument, recording through it.
-    writeFileSync(
-      join(dir, "nodes", "mic.yaml"),
-      [
-        'extends: "@meta/track"',
-        "events:",
-        '  - { ref: melody, start: "1:1:1" }',
-        "",
-      ].join("\n"),
-    );
+    writeNode(dir, "mic", {
+      extends: "@meta/track",
+      events: [{ ref: "melody", start: "1:1:1" }],
+    });
     wire({
       modules: { "mic#audio": ["OUT"], "mic#midi": ["lead"], mic: [IN] },
     });
@@ -179,81 +155,54 @@ describe("a live input, wired by its chain", () => {
 describe("an input's monitoring and gain", () => {
   let ws: string;
   let dir: string;
-  const node = (body: string) => {
-    writeFileSync(join(ws, "_modules", "io", "IN", "in-1.yaml"), body);
+  const node = (body: Record<string, unknown>) => {
+    writeDoc(join(ws, "_modules", "io", "IN", "in-1.k7x"), {
+      channel: [1],
+      ...body,
+    });
     return compileNodeProject(dir).tracks.find((t) => t.id === "mic");
   };
 
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-ingain-"));
-    dir = join(ws, "song");
-    copyAsYaml(SONG, dir, { recursive: true });
-    // The Examples workspace's own shared library, beside every demo project.
-    copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
-      recursive: true,
-    });
-    mkdirSync(join(ws, "_modules", "io", "IN"), { recursive: true });
-    writeFileSync(join(ws, "_modules", "io", "IN", "module.yaml"), "io: in\n");
-    writeFileSync(
-      join(ws, "_modules", "io", "IN", "in-1.yaml"),
-      "channel: [1]\n",
-    );
-    const p = join(dir, "project.yaml");
-    writeFileSync(
-      p,
-      readFileSync(p, "utf8").replace(
-        "modules_from: []",
-        "modules_from: [ ../_modules ]",
-      ),
-    );
-    writeFileSync(join(dir, "nodes", "mic.yaml"), 'extends: "@meta/track"\n');
-    const c = join(dir, "graph.yaml");
-    const cur = parseGraph(readFileSync(c, "utf8")).value ?? {};
-    writeFileSync(
-      c,
-      formatChains({
-        modules: { ...cur.modules, mic: [IN], [IN]: ["OUT"] },
-        bypassed: cur.bypassed,
-      }),
-      "utf8",
-    );
+    dir = liveSong(ws);
   });
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
   it("defaults to auto and unity — an input that says neither changes neither", () => {
-    const live = node("channel: [1]\n");
+    const live = node({});
     expect(live?.monitor).toBe("auto");
     expect(live?.inputGain).toBe(0);
   });
 
   it("takes the boolean spelling, which is the everyday one", () => {
-    expect(node("channel: [1]\nmonitor: true\n")?.monitor).toBe("on");
-    expect(node("channel: [1]\nmonitor: false\n")?.monitor).toBe("off");
+    expect(node({ monitor: true })?.monitor).toBe("on");
+    expect(node({ monitor: false })?.monitor).toBe("off");
   });
 
   it("reads a boolean the same way in the graph the UI draws", () => {
-    const graphMonitor = (body: string) => {
+    const graphMonitor = (body: Record<string, unknown>) => {
       node(body);
       return loadGraph(dir).moduleRefs[IN]?.monitor;
     };
-    expect(graphMonitor("channel: [1]\nmonitor: true\n")).toBe("on");
-    expect(graphMonitor("channel: [1]\nmonitor: false\n")).toBe("off");
-    expect(graphMonitor("channel: [1]\n")).toBeUndefined();
+    expect(graphMonitor({ monitor: true })).toBe("on");
+    expect(graphMonitor({ monitor: false })).toBe("off");
+    expect(graphMonitor({})).toBeUndefined();
   });
 
   it("still takes the tri-state — only it can say 'auto'", () => {
     // "auto" is audible once ARMED, so a boolean-only spelling would drop the default.
-    expect(node("channel: [1]\nmonitor: auto\n")?.monitor).toBe("auto");
-    expect(node("channel: [1]\nmonitor: on\n")?.monitor).toBe("on");
+    expect(node({ monitor: "auto" })?.monitor).toBe("auto");
+    expect(node({ monitor: "on" })?.monitor).toBe("on");
   });
 
   it("carries the gain in dB, negative included", () => {
-    expect(node("channel: [1]\ngain: 6\n")?.inputGain).toBe(6);
-    expect(node("channel: [1]\ngain: -3.5\n")?.inputGain).toBe(-3.5);
+    expect(node({ gain: 6 })?.inputGain).toBe(6);
+    expect(node({ gain: -3.5 })?.inputGain).toBe(-3.5);
   });
 
   it("leaves a track with no input at unity, not at some other track's trim", () => {
-    node("channel: [1]\ngain: 12\n");
+    node({ gain: 12 });
     const melody = compileNodeProject(dir).tracks.find(
       (t) => t.id === "melody",
     );

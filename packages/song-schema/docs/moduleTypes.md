@@ -32,7 +32,7 @@ wired, so it is never a chain step (`packages/song-video/docs/transitions.md`).
 `VideoPluginDoc` is modelled and nothing compiles it, so a module on this run is drawn and validated
 but changes no frame (`packages/song/docs/videoOutputs.md`). Unlike the audio pair these are added
 AUTOMATICALLY: a project with a viewport surface and no such run gets one written into its
-`graph.yaml`. A song with no picture never sees either name.
+`graph.k7x`. A song with no picture never sees either name.
 
 `CUE` is the fifth, and the odd one: it is the only built-in output that really leaves the mixer's
 sum, for a SECOND PAIR of the interface — the headphones on a DJ desk. `MIX` and `OUT` are a
@@ -95,7 +95,7 @@ it left by (`Chain.fromPort`).
 `mandatory` is an INPUT's business — an output is offered, never required — and defaults to true
 where it is read (graph's `normalizeInputs`).
 
-A module may declare its own `inputs:` / `outputs:` in its `module.yaml`, and then `MODULE_TYPES` is
+A module may declare its own `inputs:` / `outputs:` in its `module.k7x`, and then `MODULE_TYPES` is
 not consulted at all: the type folder decides what a module IS, and a module that needs two audio
 inputs — a crossfade — is still an audio effect. `outputs` is deliberately not derived from `emits`:
 `emits` says what KIND of signal leaves (one word, used for cable colour), while a port is a place
@@ -287,7 +287,7 @@ a library may be called (a ref segment and a folder name at once, never `engine`
 `meta`), `libraryRefParts` splits `@<library>/<rest>`, and `DEFAULT_LIBRARY` is `k7`, the name the
 account's first library gets so every `@k7-core/…` written before libraries had names still resolves.
 Not the machine-wide `<state>/mediatek` cache, and not declared anywhere, by the argument that
-leaves `modules_from` dead: a path in a `project.yaml` can be wrong about a folder the loader can
+leaves `modules_from` dead: a path in a `project.k7x` can be wrong about a folder the loader can
 simply look for.
 
 `LIBRARIES_DIR` (`_libraries`) is the VIRTUAL folder a workspace's file API answers the libraries
@@ -310,9 +310,9 @@ available — a module that plays perfectly and shows an empty parameter list, o
 The third is the SLUG, and it is the one a library module actually uses. A module that is the face
 for a plugin the engine provides states nothing else at all — this is the whole file:
 
-```yaml
-# <library>/modules/instruments/4osc/module.yaml
-extends: "@engine/4osc"
+```k7x
+// <library>/modules/instruments/4osc/module.k7x
+extends("@engine/4osc")
 ```
 
 `@engine/<slug>` is `slugifyPluginName(displayName)`: the one rule `engineModuleOf` applies on the
@@ -337,8 +337,8 @@ be FILED one level deep (which is how the médiathèque lays its catalogue out, 
 bench's own `modules/` looks):
 
 ```
-…/modules/audio/reverb/module.yaml              → reverb
-…/modules/audio/amps/neural-amp-modeler/ui.yaml → amps/neural-amp-modeler
+…/modules/audio/reverb/module.k7x               → reverb
+…/modules/audio/amps/neural-amp-modeler/ui.k7x → amps/neural-amp-modeler
 ```
 
 Taking the folder immediately above the file instead gives `neural-amp-modeler` — a name no chain

@@ -56,7 +56,7 @@ To change the module itself rather than one node, either fork it into your accou
 A library has numbered versions (`1`, `2`, ...) and, on the server, a **draft** that admins edit.
 A published version never changes.
 
-Each workspace **pins** the version of each library it plays, in `_library-pins.yaml` at the
+Each workspace **pins** the version of each library it plays, in `_library-pins.k7x` at the
 workspace root. A workspace that pins nothing plays version 1. Upgrading is a choice made per
 workspace, so a song never changes sound because someone published a new library version.
 

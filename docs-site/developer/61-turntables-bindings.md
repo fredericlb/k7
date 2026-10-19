@@ -1,6 +1,6 @@
 # Desk controls and bindings
 
-A desk control moves a module parameter that the **project** names. Nothing about the desk is hard-wired to a module: `surfaces/<id>.yaml`'s `mapping:` joins control ids to graph nodes. This page covers the vocabulary, the join, and the mix project scaffold that writes the default mapping.
+A desk control moves a module parameter that the **project** names. Nothing about the desk is hard-wired to a module: `surfaces/<id>.k7x`'s `mapping:` joins control ids to graph nodes. This page covers the vocabulary, the join, and the mix project scaffold that writes the default mapping.
 
 ## The surface file
 
@@ -8,7 +8,7 @@ Schema: `packages/song-schema/src/yaml/surfaceSchema.ts`; reader: `packages/song
 
 - `type: turntables` must have `layout: split` (`SURFACE_LAYOUTS_BY_TYPE`).
 - `playlist` and `stems` are refused on any other type (`superRefine`), rather than ignored.
-- `mapping` is `MixViewSchema` itself (`packages/song-schema/src/yaml/mixViewSchema.ts`): a record of control id to `{ module, param, invert?, also? }` or `null`. Reusing the schema keeps the desk's older `views/mix.yaml` and the surface from drifting.
+- `mapping` is `MixViewSchema` itself (`packages/song-schema/src/yaml/mixViewSchema.ts`): a record of control id to `{ module, param, invert?, also? }` or `null`. Reusing the schema keeps the desk's older `views/mix.k7x` and the surface from drifting.
 - `SURFACE_MAPPING_SKELETON.turntables` is what `project surface new turntables` writes, every control as `null` with a comment. It is a copy of the control list kept honest by `packages/k7-plugins/src/turntables/mapping.test.ts`.
 
 `packages/song` validates the mapping's **shape** and deliberately not its ids; the desk owns its vocabulary.
@@ -31,7 +31,7 @@ Schema: `packages/song-schema/src/yaml/surfaceSchema.ts`; reader: `packages/song
 | `deckX.stem{Drums,Bass,Other,Vocals}` | fader | `STEM_RANGE` 0..2 | `STEM_NEUTRAL` 1 | stem |
 | `transport`, `listen` | button | 0..1 | 0 | |
 
-Ranges are the **modules' own** knob ranges (their `ui.yaml`), so a binding cannot offer a range the panel refuses to draw. `wants` is a hint for scaffolding and is never checked.
+Ranges are the **modules' own** knob ranges (their `ui.k7x`), so a binding cannot offer a range the panel refuses to draw. `wants` is a hint for scaffolding and is never checked.
 
 `mapping.ts` lists `REQUIRED_CONTROLS`: `crossfade` plus each deck's `tempo`, `eqLow`, `eqMid`, `eqHigh`, `filter`, `trim`, `level`. `cue`, `echo` and the stems are optional: a desk without them is complete. `Turntables.tsx` gates on `unmappedControls(mapping)` and draws the list of missing controls instead of a desk whose knobs go nowhere.
 
@@ -69,7 +69,7 @@ Choices it encodes:
 - **The crossfade is two `fade` modules**, one inverted by the mapping, because a module's second port is a sidechain and a deck feeding only a crossfade would also be heard raw.
 - **The cue tap is after the filter and before the level** (pre-fade listen); **the echo is after the level** (echo-out).
 - **Stem levels are the platter's own `Gain`** (`STEM_PARAM`), not a separate gain module.
-- `assemblyFiles` writes `assemblies/turntable{A,B}.yaml` using `TURNTABLE_REF = "@k7-core/turntable"`; they draw a deck's nodes as one box and change nothing in the compiled document.
+- `assemblyFiles` writes `assemblies/turntable{A,B}.k7x` using `TURNTABLE_REF = "@k7-core/turntable"`; they draw a deck's nodes as one box and change nothing in the compiled document.
 
 Node and control names are spelled once in `packages/song-schema/src/stems.ts` (`stemLane`, `stemPlatter`, `deckPlatter`, `stemControl`, `turntableMembers`), because the scaffold and the desk must agree and the desk cannot import a scaffold.
 

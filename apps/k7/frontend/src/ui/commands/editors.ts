@@ -62,7 +62,7 @@ export const EDITOR_COMMANDS: LocalCommand[] = [
     },
     { name: "path", hint: "a file of this project" },
   ),
-  // The name fuzzy-resolves to sequences/<id>.yaml or clips/<id>.yaml — `e` on a clip.
+  // The name fuzzy-resolves to sequences/<id>.k7x or clips/<id>.k7x — `e` on a clip.
   opensFile(
     "ui edit sequence",
     {

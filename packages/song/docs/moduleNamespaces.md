@@ -49,7 +49,7 @@ npx tsx packages/song/scripts/migrateNamespace.ts <state>/mediatek --write
 ```
 
 That script is a **text replace** on `@mediatek/` and `@st0/` (and the `st0:` key of a `_library-pins.yaml`),
-not a pass through the yaml Document API: a namespace appears in mapping KEYS (a chain step is one), in scalar values, inside flow sequences, and in
+not a pass through the k7x document: a namespace appears in mapping KEYS (a chain step is one), in scalar values, inside flow sequences, and in
 the comment at the top of a panel. Reserialising to catch all four is exactly what `formatChains`
 does, and it emits a canonical document, which would eat every comment in the file. Replacing one
 unambiguous token touches nothing else: there is no other thing in this repo spelled `@mediatek` or `@st0`.
@@ -57,7 +57,7 @@ unambiguous token touches nothing else: there is no other thing in this repo spe
 ## The level comes from the LOCATION
 
 `moduleNamespaceOf(root)` answers from the path, and no root declares one. A `namespace:`
-field in a root's `config.yaml` would make the level a free string an author picked, with
+field in a root's `config.k7x` would make the level a free string an author picked, with
 two consequences worth naming. A workspace library could call itself `engine` and collide
 head-on with the synthesised catalogue, so the same ref `@engine/io/IN` would mean a folder
 in one place and a scanned plugin in the next. And nothing would tie the name to how deep
@@ -69,7 +69,7 @@ question has exactly two answers.
 
 ## No level is declared. They are all found
 
-Every root is at a fixed place, so nothing in `project.yaml` names one:
+Every root is at a fixed place, so nothing in `project.k7x` names one:
 
 | level | where |
 |---|---|
@@ -82,7 +82,7 @@ their panels (`modulePanelRoots`), the fork path (`sharedRoots`) and the builder
 which is what keeps the three from disagreeing about what a project can reach. Which libraries the
 account HAS is the file service's setting; resolution only ever looks at which are cloned.
 
-Nothing in `project.yaml` declares one. A `modules_from` naming the middle one, or a
+Nothing in `project.k7x` declares one. A `modules_from` naming the middle one, or a
 `libraries_from` doing the same for assets, could only ever name a fixed place: it would
 decide nothing while leaving three ways to be wrong about it — docs/sharedFolders.md lists
 the three, each of which costs a real afternoon.
@@ -107,11 +107,10 @@ nothing to mean.
 
 To change a module you do not own, you make one at YOUR level that `extends` it:
 
-```yaml
-# _modules/audio/my-nam/module.yaml   (@workspace)
-extends: "@k7-core/audio/amp/nam"
-params:
-  Gain: 0.7
+```k7x
+// _modules/audio/my-nam/module.k7x   (@workspace)
+extends("@k7-core/audio/amp/nam")
+params({ Gain: 0.7 })
 ```
 
 `resolveModule` folds the whole ancestry in, deepest first, with no depth limit and a
@@ -121,7 +120,7 @@ upstream reaches every module below it. That is one merge, defined once; see
 convention.
 
 This is also how a **scanned plugin gets a face**. `@engine/nam` has no folder, so it can
-carry no `ui.yaml` — `writeUiFile` refuses it, in as many words:
+carry no `ui.k7x` — `writeUiFile` refuses it, in as many words:
 
 ```
 @engine/nam: no module library this project can see declares '@engine',

@@ -32,7 +32,7 @@ Top to bottom, in the order of the signal:
 
 - **TRIM** evens out records that arrive at different levels; nothing in a set normalises loudness. Set it against the channel meter beside the channel fader, which reads the strip before the fader.
 - **FILTRE**: turning left sweeps a low-pass down from 20 kHz to 200 Hz; turning right sweeps a high-pass up from 20 Hz to 4 kHz. In the middle it is inaudible.
-- **ECHO** is only drawn when the project wires an echo for that deck. Its delay time is fixed (375 ms in a new set, with a feedback of 0.45) and does not follow the tempo; change `Time` and `Feedback` in `nodes/echoA.yaml` / `nodes/echoB.yaml`.
+- **ECHO** is only drawn when the project wires an echo for that deck. Its delay time is fixed (375 ms in a new set, with a feedback of 0.45) and does not follow the tempo; change `Time` and `Feedback` in `nodes/echoA.k7x` / `nodes/echoB.k7x`.
 
 ## Stems
 
@@ -56,7 +56,7 @@ Stems need the song to have been **separated** first. The four knobs read differ
 | A percentage over the knobs | The desk is separating this song now. The knobs light up when it is done. |
 | `!` over the knobs | The separation failed; hover for the reason. |
 
-With `stems: true` in `surfaces/desk.yaml`, putting an unseparated song on a deck starts its separation. It takes minutes per song, so prepare a set list the night before instead (see [Preparing a gig](./65-gig-prep.md#separating-stems)). Even without `stems: true`, the desk checks whether a song was separated since the list was read and lights the knobs if so.
+With `stems: true` in `surfaces/desk.k7x`, putting an unseparated song on a deck starts its separation. It takes minutes per song, so prepare a set list the night before instead (see [Preparing a gig](./65-gig-prep.md#separating-stems)). Even without `stems: true`, the desk checks whether a song was separated since the list was read and lights the knobs if so.
 
 Loading a new record on a deck puts its stem knobs back in the middle.
 

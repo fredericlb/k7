@@ -15,18 +15,18 @@ const settle = () => vi.advanceTimersByTimeAsync(0);
 const base = { id: "4.0", seq: 4, replica: "laptop", ts: 1, label: "edit" };
 
 describe("describeConflict", () => {
-  it("names a YAML value's path, the value kept and the one set aside", () => {
+  it("names a k7x value's path, the value kept and the one set aside", () => {
     const c: SyncConflict = {
       ...base,
       op: {
-        kind: "yaml",
-        file: "song/song.yaml",
-        ops: [{ op: "set", path: ["tracks", "bass", "gain"], yaml: "-3" }],
+        kind: "k7x",
+        file: "song/song.k7x",
+        ops: [{ op: "set", path: ["tracks", "bass", "gain"], k7x: "-3" }],
       },
       kept: "-6",
     };
     expect(describeConflict(c)).toEqual({
-      file: "song/song.yaml",
+      file: "song/song.k7x",
       paths: ["tracks.bass.gain"],
       kept: { k: "value", source: "-6" },
       alternative: { k: "value", source: "-3" },

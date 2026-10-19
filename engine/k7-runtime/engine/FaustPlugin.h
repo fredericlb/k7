@@ -45,7 +45,7 @@ public:
     // Answered from the COMPILED program: `process = _ : …` is an effect, `process` with no input an instrument.
     bool takesAudioInput() override;
     bool producesAudioWhenNoAudioInput() override;
-    /** True for an instrument, i.e. a program with no audio input — nothing in `module.yaml` says which. */
+    /** True for an instrument, i.e. a program with no audio input — nothing in `module.k7x` says which. */
     bool takesMidiInput() override;
     bool noTail() override { return false; }
 

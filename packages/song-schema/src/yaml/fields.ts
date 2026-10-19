@@ -75,22 +75,21 @@ export type FileKind =
 
 /** Which kind a project-relative path is, or null — by FOLDER and not by extension, see docs/fields.md. */
 export function fileKindFor(path?: string): FileKind | null {
-  // A .k7x file is the same kind as its YAML spelling (packages/k7x/docs/language.md).
-  const p = (path ?? "").replace(/\\/g, "/").replace(/\.k7x$/i, ".yaml");
+  const p = (path ?? "").replace(/\\/g, "/");
   if (!p) return null;
   if (/(^|\/)modules\//.test(p)) return "module";
   if (/(^|\/)nodes\//.test(p)) return "module";
   // A chain project's lane file is a module file, and its chain files a kind of their own.
   if (/(^|\/)tracks\//.test(p)) return "module";
   // A library's older chain FOLDER keeps a segments file, which is not a chain file.
-  if (/(^|\/)chains\/(.+\/)?graph\.ya?ml$/.test(p)) return "chains";
-  if (/(^|\/)chains\/.+\.ya?ml$/.test(p)) return "chain";
+  if (/(^|\/)chains\/(.+\/)?graph\.k7x$/i.test(p)) return "chains";
+  if (/(^|\/)chains\/.+\.k7x$/i.test(p)) return "chain";
   if (/(^|\/)clips\//.test(p)) return "clip";
   if (/(^|\/)sequences\//.test(p)) return "sequence";
   if (/(^|\/)curves\//.test(p)) return "curve";
   if (/(^|\/)video_tracks\//.test(p)) return "video_track";
-  if (/(^|\/)chains\.ya?ml$/.test(p)) return "chains";
-  if (/(^|\/)project\.ya?ml$/.test(p)) return "project";
+  if (/(^|\/)chains\.k7x$/i.test(p)) return "chains";
+  if (/(^|\/)project\.k7x$/i.test(p)) return "project";
   return null;
 }
 
@@ -106,7 +105,7 @@ export function fieldsAt(kind: FileKind, path: string[]): string[] {
   return videoTrackFields(path);
 }
 
-/** project.yaml has TWO tiers, and mixing them up put `libraries_from` at the top level doing nothing (docs/fields.md). */
+/** project.k7x has TWO tiers, and mixing them up put `libraries_from` at the top level doing nothing (docs/fields.md). */
 function projectFields(path: string[]): string[] {
   if (path.length === 0) return keys(ProjectFileSchema);
   if (path[0] === "project" && path.length === 1)

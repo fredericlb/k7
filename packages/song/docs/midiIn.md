@@ -1,20 +1,21 @@
 # A MIDI device — the node a lane records notes from
 
-A MIDI keyboard is an **io module that emits MIDI**, declared in `graph.yaml` like any other node:
+A MIDI keyboard is an **io module that emits MIDI**, declared in `graph.k7x` like any other node:
 `@meta/MIDI`, made with `node new io/MIDI <name>` or the graph's `+` (inputs › MIDI input). It is to
 notes what a live audio input is to a sound, and what a camera is to a picture: signal comes FROM it,
 it has no plugin, and every control it has is a field of its file.
 
-```yaml
-# nodes/keys.yaml
-extends: "@meta/MIDI"
-device: "Arturia KeyStep 37"
+```k7x
+// nodes/keys.k7x
+extends("@meta/MIDI")
+device("Arturia KeyStep 37")
 ```
 
-```yaml
-# graph.yaml
-modules:
-  keys: [ lead ]          # this lane records from that keyboard
+```k7x
+// graph.k7x
+modules({
+  keys: ["lead"], // this lane records from that keyboard
+})
 ```
 
 ## The cable is what says which lane records it

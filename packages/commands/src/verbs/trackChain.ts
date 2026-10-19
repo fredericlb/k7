@@ -6,15 +6,21 @@
 
 import { copyFileSync } from "node:fs";
 import { join } from "node:path";
+import { K7Document } from "@studio/k7x/document";
 import {
   type ChainProject,
   newNodeId,
   readChainProject,
 } from "@studio/song/chainProject";
 import { confineTo } from "@studio/song/confine";
-import { wsExists, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsWriteText } from "@studio/song/yaml/workspaceDoc";
+import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { instanceName } from "@studio/song-schema/instanceName";
-import { formatChain, parseChain } from "@studio/song-schema/yaml/chainFile";
+import {
+  chainItemPaths,
+  formatChain,
+  parseChain,
+} from "@studio/song-schema/yaml/chainFile";
 import {
   CHAINS_DIR,
   type ChainFile,
@@ -88,14 +94,16 @@ export function duplicateLaneChain(
     for (const sc of src.subchains ?? [])
       for (const s of sc.steps)
         for (const i of itemsOf(s)) ids.set(i.id, newNodeId());
-    // The source text under the new ids, so formatChain keeps each copied item's own YAML and comments.
-    let text = cp.texts[from];
-    for (const [o, n] of ids) text = text.split(o).join(n);
-    text = text
-      .split(`# ${lane}'s channel strip`)
-      .join(`# ${newLane}'s channel strip`);
+    // The source under the new ids, set item by item, so formatChain keeps each copied item's own source and comments.
+    const doc = new K7Document(cp.texts[from]);
+    for (const { id, path } of chainItemPaths(doc)) {
+      const fresh = ids.get(id);
+      if (fresh) doc.setIn([...path, "id"], fresh);
+    }
+    const label = (l: string) => `// ${l}'s channel strip`;
+    const text = doc.toString().split(label(lane)).join(label(newLane));
     const parsed = parseChain(text).value;
-    if (!parsed) throw new Error(`${CHAINS_DIR}/${from}.yaml: unreadable`);
+    if (!parsed) throw new Error(`${CHAINS_DIR}/${from}.k7x: unreadable`);
 
     const copyItem = (i: Item, old: Item): Item => {
       if (isTrackItem(i)) return { id: i.id, track: newLane };
@@ -146,8 +154,8 @@ export function duplicateLaneChain(
     else if (src.ports?.length) c.ports = [...src.ports];
     if (src.bus_only) c.bus_only = true;
     // Written whole even when it reads like its source: the new lane's chain file holds a placeholder.
-    wsWrite(join(dir, CHAINS_DIR, `${to}.yaml`), formatChain(c, text));
-    written.push(`${CHAINS_DIR}/${to}.yaml`);
+    wsWriteText(join(dir, CHAINS_DIR, `${to}.k7x`), formatChain(c, text));
+    written.push(`${CHAINS_DIR}/${to}.k7x`);
   }
   return written;
 }

@@ -91,13 +91,13 @@ describe("a whole text whose file moved", () => {
     expect(room.submit(batch("b", [op])).entry.parked).toHaveLength(1);
   });
 
-  it("is never tried on YAML or on a blob ref", () => {
-    const yaml = "a: 1\nb: 2\nc: 3\n";
+  it("is never tried on k7x or on a blob ref", () => {
+    const k7x = "a(1)\nb(2)\nc(3)\n";
     const y = race(
-      "a: 9\nb: 2\nc: 3\n# x\n",
-      "a: 1\nb: 2\nc: 8\n# y\n",
-      "s/x.yaml",
-      yaml,
+      "a(9)\nb(2)\nc(3)\n// x\n",
+      "a(1)\nb(2)\nc(8)\n// y\n",
+      "s/x.k7x",
+      k7x,
     );
     expect(y.eb.parked).toHaveLength(1);
     const ref = blobRef("a".repeat(64), 3);

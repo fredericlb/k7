@@ -7,7 +7,7 @@
 
 namespace studio {
 
-// Renaming this renames the id a module.yaml may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
+// Renaming this renames the id a module.k7x may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
 const char* SurgePlugin::xmlTypeName = "studio_surge";
 
 namespace {

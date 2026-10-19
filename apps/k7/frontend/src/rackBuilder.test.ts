@@ -1,8 +1,8 @@
+import { parse } from "@studio/k7x/document";
 import { ModuleSchema } from "@studio/song-schema/yaml/moduleSchema";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import {
-  buildKitNodeYaml,
+  buildKitNode,
   cellsInNoteOrder,
   defaultSymbol,
   kitUploadDir,
@@ -85,8 +85,12 @@ describe("the kit the builder writes", () => {
   const RACK = "@k7-core/instruments/k7-rack";
 
   it("is a node of the sampler, one tap per pad naming its sample in the PROJECT's samples/", () => {
-    const text = buildKitNodeYaml("drums", pads, "project", RACK);
-    const doc = parse(text, { version: "1.2" });
+    const text = buildKitNode("drums", pads, "project", RACK);
+    const doc = parse(text) as {
+      extends: string;
+      engine: string;
+      rack: { symbols: Record<string, { note: number; sample: string }> };
+    };
     expect(ModuleSchema.safeParse(doc).success).toBe(true);
     expect(doc.extends).toBe(RACK);
     // The sampler ENGINE, said outright: the module's default is an SFZ kit, which would ignore the taps.
@@ -96,19 +100,17 @@ describe("the kit the builder writes", () => {
       note: 36,
       sample: "@project/drums/kick.wav",
     });
-    // A file name with a space survives the round trip — the stringifier owns the quoting.
+    // A file name with a space survives the round trip — the printer owns the quoting.
     expect(doc.rack.symbols.SN.sample).toBe("@project/drums/snare 01.wav");
-    // …one tap to a line, the way a drum map is read.
+    // …one tap to a line, the way a drum map is read, under the header that says what made it.
     expect(text).toMatch(/^ {4}BD: \{ note: 36, sample: /m);
+    expect(text.startsWith("// drums — a kit")).toBe(true);
   });
 
   it("names a LIBRARY's samples when the kit's sounds go there", () => {
     const doc = parse(
-      buildKitNodeYaml("drums", pads, { library: "k7-core" }, RACK),
-      {
-        version: "1.2",
-      },
-    );
+      buildKitNode("drums", pads, { library: "k7-core" }, RACK),
+    ) as { rack: { symbols: Record<string, { sample: string }> } };
     expect(doc.rack.symbols.BD.sample).toBe("@k7-core/drums/kick.wav");
   });
 

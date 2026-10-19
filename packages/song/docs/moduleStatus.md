@@ -17,7 +17,7 @@ alphabetical wall makes finding the one you meant a scroll rather than a choice.
 
 This is the only field on a module that says nothing about what it does or how it sounds. A
 `hidden` module still loads, still resolves through `extends`, still plays, and can still be
-**named** — in a chain step, in a command, by hand in the YAML. A completion list is an offer,
+**named** — in a chain step, in a command, by hand in a file. A completion list is an offer,
 never a validator, and that is what keeps this an ergonomic setting rather than a way to break a
 project from a dropdown. Hiding a module you are using costs you its completion and nothing else.
 
@@ -49,7 +49,7 @@ Once, for both completion surfaces, so they cannot come to offer different lists
 
 | surface | reads |
 |---|---|
-| the YAML editor's chain wiring and `bypassed:` | `hints.modules` (`src/hints.ts`) |
+| the text editor's chain wiring and `bypassed` | `hints.modules` (`src/hints.ts`) |
 | the command bar's `<module>` arguments | the `modules` provider (`@studio/commands`' `providers.ts`) |
 
 Both call `completionOrder` in `src/moduleTypes.ts`, which is **stable within each group**: it is
@@ -70,5 +70,5 @@ the sentiment. The file keeps the schema's own three words.
 
 The read/write pair is `statusOf` / `setStatusIn` in `@studio/ui-module-builder`'s `moduleUi.ts`,
 working on the buffer's **text** like everything else there — so the dropdown shows the edit you
-just made, saved or not — and going through the YAML Document API, so the comments and key order
+just made, saved or not — and going through the k7x document, so the comments and key order
 of a hand-written file survive being set.

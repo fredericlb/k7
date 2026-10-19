@@ -57,7 +57,7 @@ closes held keys at the stop, and the take is committed as **one** command:
 sequence record <lane> [{"t":16.02,"d":0.48,"k":60,"v":0.79}, …]     # song beats
 ```
 
-`packages/commands/src/verbs/sequenceRecord.ts` writes a new `sequences/<lane>-rec-<n>.yaml` whose
+`packages/commands/src/verbs/sequenceRecord.ts` writes a new `sequences/<lane>-rec-<n>.k7x` whose
 window runs from the bar of the first note to the bar after the last, places it on the lane at that
 bar in the same run (one undo), and removes the file if the placement fails. Every take is a new
 sequence; `sequence note add` (append to an existing one) is used by paste, not by recording.
@@ -73,7 +73,7 @@ from the `midiTake` prop, since nothing on disk names it yet.
 `runCommand` calls `cancelLearn` before it dispatches anything, and `cancelLearn` hands `null` to
 the learn's callback, which puts "MIDI learn cancelled" on the status line. `Esc` is the first rung
 of its ladder while a learn waits (`midi_learning` → `ui midi learn cancel`), so it cancels the
-learn and closes nothing behind it. The map is written to `controller.yaml` in the **module's**
+learn and closes nothing behind it. The map is written to `controller.k7x` in the **module's**
 folder (`packages/song/src/controllerBind.ts`), so every node of that module in every project plays by
 it. `apps/k7/frontend/src/hooks/useMidiControl.ts` applies incoming CCs scaled into the widget's range and sends the value
 back to an output port of the same name when there is one.
@@ -83,7 +83,7 @@ back to an output port of the same name when there is one.
 The engine writes the take into the project's `clips/` and reports
 `{type:"recorded", track, file, start, length}`. The file service files it with
 `packages/take-render/src/recordTake.ts`: renamed to `<track>_<bar.beat>_<stamp>.wav` (`fileStamp`),
-declared in `clips/<id>.yaml`, then either placed on the lane (`addTakeToTrack`) or added as a take of
+declared in `clips/<id>.k7x`, then either placed on the lane (`addTakeToTrack`) or added as a take of
 an event (`addTakeToEvent`) when the session is take-armed for that track. The count-in comes from
 `count_in` in the song's settings (default one bar); the frontend uses it only to skip the pre-roll
 when drawing the growing block (`apps/k7/frontend/src/takeCounter.ts`, `recordingFrom`).
@@ -116,7 +116,7 @@ has landed.
 ## The metronome
 
 `apps/k7/frontend/src/components/MetronomeButton.tsx`: click runs `transport metronome`, right-click opens a level slider
-that commits `transport metronome volume <0.2..1>`. Both are `settings.yaml` fields read by the engine
+that commits `transport metronome volume <0.2..1>`. Both are `settings.k7x` fields read by the engine
 off the compiled document. The floor of 0.2 is the engine library's own clamp; silence is the switch.
 
 ## The transport panic

@@ -21,7 +21,7 @@ k7 has no git at all: the relay is the only channel, and its log is where histor
 
 ## An edit travels as an operation
 
-An edit is one file's change: values set or deleted at YAML key paths, or the whole text (`FileOp`,
+An edit is one file's change: values set or deleted at k7x key paths, or the whole text (`FileOp`,
 `../packages/live-sync/src/ops.ts`). It is derived from the file's text before and after, so no writer
 has to know about sync. A list whose items carry a natural key (a note's time and pitch, a placement's
 material and start) is edited item by item; any other list is replaced whole, since its items have
@@ -141,4 +141,4 @@ reconnects. Undo stays local and works offline.
     additions to one list are two additions and edits to two items merge
     (`../packages/live-sync/docs/ops.md`).
 11. **A three-way merge for whole texts** — done: the room keeps each text's recent versions, so two
-    edits to different lines of a non-YAML file both land (`../packages/live-sync/docs/sync.md`).
+    edits to different lines of a file that is not k7x both land (`../packages/live-sync/docs/sync.md`).

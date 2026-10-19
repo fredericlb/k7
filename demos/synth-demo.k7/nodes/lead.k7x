@@ -1,7 +1,7 @@
 // lead — one USE of the "synth" module.
 //
-// A node is a `<name>.yaml` in the project's flat `nodes/` folder, and the FILE
-// NAMES IT: chains say "lead" (see chains.yaml). It does not sit under the module it uses
+// A node is a `<name>.k7x` in the project's flat `nodes/` folder, and the FILE
+// NAMES IT: chains say "lead" (see chains.k7x). It does not sit under the module it uses
 // and does not mirror its folders — which module it uses is what `extends` says, and that
 // is the only place the relationship is written down.
 //

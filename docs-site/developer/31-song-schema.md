@@ -30,7 +30,7 @@ rest of the codebase shares (timecodes, module vocabulary, playlists, stems, tak
 ## Choices
 
 **Strict objects.** Almost every schema is `.strict()`: an unknown key is a typo, and silently
-ignoring `paramz:` costs more than refusing it. The exceptions are deliberate: `settings.yaml` is
+ignoring `paramz:` costs more than refusing it. The exceptions are deliberate: `settings.k7x` is
 loose; a chain's node item is `.passthrough()` because its module fields are vetted by `parseModule`
 after `NODE_ITEM_KEYS` are stripped; `plugin:` is a loose object because the plugin's shape is the
 engine's business. Fields that are dead but still found on disk (`modules_from`, `video`, `type`) are
@@ -45,10 +45,9 @@ Transitions are widened with `z.preprocess` (`1` → `{ over: 1 }`) for the same
 **Cross-file references are not checked here.** `extends`, a placement's `ref`, a rack's `clip`
 need the rest of the project; they are checked by `@studio/song` at compile time.
 
-**YAML 1.2, always.** Every parser passes `version: "1.2"` so that `5:1:1` stays a string (YAML 1.1
-reads it as base 60) and `on`/`off` stay strings. Writers still quote timecodes (`quoteTimecodes` in
-`moduleFile.ts`, driven by `TIMECODE_KEYS`) and YAML 1.1 boolean-looking words, because other tools
-read these files too.
+**Every parser takes k7x text.** A string in k7x is always quoted, so `5:1:1` and `on` stay
+strings with no rule of their own, and a finding is placed on the text's own lines by key path
+(`k7xPosition.ts`).
 
 **Defaults applied on the way out, never into the file.** `parseModule` sets `type: "plugin"` on the
 returned value only when the module says neither `type`, `io` nor `extends`, so an inherited type is
@@ -59,9 +58,8 @@ never overridden and the file stays as terse as written.
 `validateFile(path, text)` in `packages/song-schema/src/yaml/validate.ts` answers whether the
 compiler could read `text` at `path`:
 
-1. A `.k7x` path: k7x syntax first (`k7xSyntaxIssue`), then the kind's parser on the YAML view
-   (`checkK7x`), findings relocated onto the k7x text's lines by key path.
-2. A YAML path: YAML syntax first; a syntax error makes the result `malformed`.
+1. A path that is not `.k7x` is not this router's business: `depth: "none"`.
+2. k7x syntax first (`k7xSyntaxIssue`); a syntax error makes the result `malformed`.
 3. `parserFor(path)` chooses the parser by folder and basename: presets, then `modules`/`_modules`
    (`ui`, `controller`, `config`, else `parseModule`), `nodes/`, `tracks/`, `chains/` (a library
    chain folder's `graph` is `parseGraph`), `clips/`, `sequences/`, `curves/`, `video_tracks/`,
@@ -91,6 +89,6 @@ quarter of the previous).
 
 ## Tests
 
-`npm test` in the package runs vitest over the `*.test.ts` beside each module. The YAML editors are
-tested on literal texts (a round trip must keep comments and quoting); `validate` behaviour is covered
+`npm test` in the package runs vitest over the `*.test.ts` beside each module. The k7x writers are
+tested on literal texts (an edit must keep comments and every other byte); `validate` behaviour is covered
 in `packages/song/src/yaml/validate.test.ts` alongside the loader.

@@ -3,21 +3,16 @@
 // A module FIELD, not a plugin parameter: an io module runs no plugin. The `@` is the whole
 // difference — a param reaches a running plugin, a field is written and read at the next BUILD.
 //
-// Three things pinned here: the file may be the workspace's SHARED one, `on`/`off` are YAML 1.1
-// booleans that must not be written bare, and an unknown `@field` must SAY so rather than write
-// nothing — a widget bound to one nobody implemented answered "unknown command".
+// Three things pinned here: the file may be the workspace's SHARED one, a state is written as
+// the word it is, and an unknown `@field` must SAY so rather than write nothing — a widget
+// bound to one nobody implemented answered "unknown command".
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc, writeLane, writeNode } from "@studio/song/testSupport";
+import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 
 let root: string;
@@ -34,59 +29,44 @@ const host = () =>
   }) as never;
 
 const IN = "@workspace/io/IN:in-2";
-const sharedFile = () => join(root, "_modules", "io", "IN", "in-2.yaml");
+const sharedFile = () => join(root, "_modules", "io", "IN", "in-2.k7x");
 // io is a plain NODE at the project level — never a shared-style module folder.
-const localFile = () => join(dir, "nodes", "desk.yaml");
-const spacedFile = () => join(dir, "nodes", "front desk.yaml");
-const shared = () => readFileSync(sharedFile(), "utf8");
-const sharedDoc = () => parse(shared(), { version: "1.2" });
+const localFile = () => join(dir, "nodes", "desk.k7x");
+const spacedFile = () => join(dir, "nodes", "front desk.k7x");
+const shared = () => wsText(sharedFile());
+const sharedDoc = () => wsData(sharedFile());
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-intrinsic-"));
   dir = join(root, "song");
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n  modules_from:\n    - ../_modules\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(dir, "graph.yaml"),
-    `modules:\n  gtr: [ OUT ]\n  "${IN}": [ gtr ]\n`,
-    "utf8",
-  );
-  writeFileSync(
-    join(dir, "nodes", "gtr.yaml"),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), {
+    project: { name: "t", tempo: 120, modules_from: ["../_modules"] },
+  });
+  writeDoc(join(dir, "graph.k7x"), {
+    modules: { gtr: ["OUT"], [IN]: ["gtr"] },
+  });
+  writeLane(dir, "gtr", "track", { events: [] });
   // A local io NODE too, so the shared path is shown to be a BRANCH and not the only one.
-  writeFileSync(localFile(), "io: in\nchannel: [1]\n", "utf8");
+  writeNode(dir, "desk", { io: "in", channel: [1] });
   // …and one whose NAME carries a space, which is the whole reason a ref may be quoted.
-  writeFileSync(spacedFile(), "io: in\nchannel: [3]\n", "utf8");
+  writeNode(dir, "front desk", { io: "in", channel: [3] });
 
-  mkdirSync(join(root, "_modules", "io", "IN"), { recursive: true });
-  writeFileSync(join(root, "_modules", "io", "IN", "module.yaml"), "io: in\n");
-  writeFileSync(
-    join(root, "_modules", "io", "IN", "in-2.yaml"),
-    "channel: [2]\n",
-  );
+  writeDoc(join(root, "_modules", "io", "IN", "module.k7x"), { io: "in" });
+  writeDoc(sharedFile(), { channel: [2] });
   logs.length = 0;
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("@monitor", () => {
-  it("writes a QUOTED value, because `on` is a YAML 1.1 boolean", async () => {
-    // We parse 1.2, where it stays a word; another tool reading `monitor: on` as `true` does not.
+  it("writes the state as the word it is", async () => {
     await runCommand(`node param ${IN} @monitor on`, host(), "cli");
-    expect(shared()).toContain('monitor: "on"');
+    expect(sharedDoc().monitor).toBe("on");
   });
 
   it("keeps what else the file says", async () => {
     // A write that lost the node's `channel:` would silently move the input to another socket.
     await runCommand(`node param ${IN} @monitor off`, host(), "cli");
-    expect(shared()).toContain("channel:");
-    expect(shared()).toContain("2");
+    expect(sharedDoc()).toEqual({ channel: [2], monitor: "off" });
   });
 
   it("finds a module of the SHARED catalogue, and says the write reaches past this project", async () => {
@@ -96,19 +76,19 @@ describe("@monitor", () => {
 
   it("says nothing of the sort for a module of this project", async () => {
     await runCommand("node param desk @monitor on", host(), "cli");
-    expect(readFileSync(localFile(), "utf8")).toContain('monitor: "on"');
+    expect(wsData(localFile()).monitor).toBe("on");
     expect(logs.join(" ")).not.toContain("shared library");
   });
 
   it("takes a NODE whose name has a space, quoted, as it has always taken the param", async () => {
     // A `\S+` for the ref stops at the space, so a node named "front desk" is unaddressable.
     await runCommand('node param "front desk" @monitor off', host(), "cli");
-    expect(readFileSync(spacedFile(), "utf8")).toContain('monitor: "off"');
+    expect(wsData(spacedFile()).monitor).toBe("off");
   });
 
   it("still refuses an unquoted ref with a space, rather than half-reading it", async () => {
     await runCommand("node param front desk @monitor off", host(), "cli");
-    expect(readFileSync(spacedFile(), "utf8")).not.toContain("monitor");
+    expect(wsText(spacedFile())).not.toContain("monitor");
   });
 
   it("refuses a state that is not one of the three", async () => {
@@ -209,9 +189,7 @@ describe("@device", () => {
       host(),
       "cli",
     );
-    expect(readFileSync(localFile(), "utf8")).toContain(
-      "device: Arturia KeyStep 37",
-    );
+    expect(wsData(localFile()).device).toBe("Arturia KeyStep 37");
   });
 });
 

@@ -1,7 +1,7 @@
 # Chain files — a project kept as `chains/`
 
 A project with a `chains/` folder is a **chain project**: its signal graph is written as one file
-per chain, nodes are written INSIDE the chain that plays them, and `graph.yaml` and `nodes/` do not
+per chain, nodes are written INSIDE the chain that plays them, and `graph.k7x` and `nodes/` do not
 exist. A project without one is read the way [nodes.md](nodes.md) describes. Both load, so a
 project moves over with `scripts/migrateChainFiles.ts` and nothing else has to change at once.
 
@@ -10,24 +10,25 @@ same migration ([scaffold.md](scaffold.md)). A graph is what `mix` and the bench
 what an older project keeps until it is migrated.
 
 ```
-chains/ge.rythm.yaml     a chain: its steps, and where it goes
-tracks/ge.rythm.yaml     a lane's own file — extends, colour, events, alternatives
+chains/ge.rythm.k7x      a chain: its steps, and where it goes
+tracks/ge.rythm.k7x      a lane's own file — extends, colour, events, alternatives
 vstpresets/<file>        a node's plugin state, named by its `vstpreset:` (default `<id>.vstpreset`)
 assets/<file>            what a node's file-valued params name
-layout.yaml              where cards sit on the graph, keyed by node id, lane name or built-in
+layout.k7x               where cards sit on the graph, keyed by node id, lane name or built-in
 ```
 
 ## A chain
 
-```yaml
-# chains/ge.rythm.yaml
-start: true
-steps:
-  - { id: 0525…, extends: "@meta/IN", channel: [ 2 ] }      # a source first
-  - { id: e860…, track: ge.rythm }                          # the lane — tracks/ge.rythm.yaml
-  - { id: 944c…, extends: "@k7-core/audio/auto-wah", bypass: true }
-  - [ { id: …, extends: … }, { id: …, extends: … } ]        # side by side, summed into the next step
-  - to: [ { chain: MIX, level: 1 }, { chain: verb, level: 0.3 } ]
+```k7x
+// chains/ge.rythm.k7x
+start(true)
+steps([
+  id("0525…").extends("@meta/IN").channel([2]), // a source first
+  id("e860…").track("ge.rythm"), // the lane — tracks/ge.rythm.k7x
+  id("944c…").extends("@k7-core/audio/auto-wah").bypass(true),
+  [id("…").extends("…"), id("…").extends("…")], // side by side, summed into the next step
+  to([chain("MIX").level(1), chain("verb").level(0.3)]),
+])
 ```
 
 - **A step** is one node, a lane, several nodes side by side, or — last only — the chains it links
@@ -46,24 +47,21 @@ steps:
   links, and names the `ports` it is linked into; each feeds its first node's input of that name,
   which is why the first step cannot be side by side.
 - **A chain without a start that nothing links is hidden**, unless one of its cards was placed on
-  the graph (`layout.yaml`). That is the state `node new` leaves a node in until it is wired.
+  the graph (`layout.k7x`). That is the state `node new` leaves a node in until it is wired.
 
 ## Subchains
 
 A chain may hold **subchains**: steps under an `id`, listed beside the chain's own.
 
-```yaml
-# chains/gtr.yaml
-start: true
-steps:
-  - { id: lane-1, track: gtr }
-  - { id: amp-1, extends: "@k7-core/audio/amp" }
-  - to: [ { chain: wet, level: 0.4 }, { chain: MIX, level: 1 } ]
-subchains:
-  - id: wet
-    steps:
-      - { id: verb-1, extends: "@k7-core/audio/verb" }
-      - to: [ { chain: MIX } ]
+```k7x
+// chains/gtr.k7x
+start(true)
+steps([
+  id("lane-1").track("gtr"),
+  id("amp-1").extends("@k7-core/audio/amp"),
+  to([chain("wet").level(0.4), chain("MIX").level(1)]),
+])
+subchains([id("wet").steps([id("verb-1").extends("@k7-core/audio/verb"), to([chain("MIX")])])])
 ```
 
 A subchain is a chain whose scope is its parent, and the scope is **closed both ways**: only the
@@ -91,17 +89,17 @@ one run spliced where it is put.
 A subchain can also be RUN where a step would be, with a `{ sub: <id> }` step: the signal goes
 through it in series and on to the parent's next step.
 
-```yaml
-steps:
-  - { id: lane-1, track: gtr }
-  - { sub: amp }                       # amp-1, then eq-1, then on to strip-1
-  - { id: strip-1, extends: "@k7-core/audio/strip" }
-  - to: [ { chain: MIX } ]
-subchains:
-  - id: amp
-    steps:
-      - { id: amp-1, extends: "@k7-core/audio/amp" }
-      - { id: eq-1, extends: "@k7-core/audio/eq" }
+```k7x
+steps([
+  id("lane-1").track("gtr"),
+  sub("amp"), // amp-1, then eq-1, then on to strip-1
+  id("strip-1").extends("@k7-core/audio/strip"),
+  to([chain("MIX")]),
+])
+subchains([
+  id("amp")
+    .steps([id("amp-1").extends("@k7-core/audio/amp"), id("eq-1").extends("@k7-core/audio/eq")]),
+])
 ```
 
 Such a subchain is a STRETCH of its parent's run, which decides the rest: it has no `to:` (its output
@@ -121,16 +119,14 @@ subchain's nodes name the parent's run, not the subchain, so a run never takes a
 
 ### A picture lane's subchains are its fades' STRETCHES
 
-```yaml
-# chains/main.yaml
-start: true
-steps:
-  - { id: 7d14…, video_track: main }
-  - to: [ { chain: RENDER } ]
-subchains:
-  - id: iris                                    # a fade on `main` names it: `chain: iris`
-    steps:
-      - { id: 8a82…, extends: "@workspace/shaders/iris" }
+```k7x
+// chains/main.k7x
+start(true)
+steps([id("7d14…").video_track("main"), to([chain("RENDER")])])
+subchains([
+  id("iris") // a fade on `main` names it: `chain: iris`
+    .steps([id("8a82…").extends("@workspace/shaders/iris")]),
+])
 ```
 
 A subchain of a picture lane's chain that nothing links and that links nowhere is a **stretch**: the
@@ -168,7 +164,7 @@ back; the second direction is the migration too. The pair must round-trip, and
 `chainProject.test.ts` holds it to that.
 
 Writing back keeps what segments cannot say: a chain's name (the chain that held its head node),
-each link's `level`, and every unchanged item's own YAML node, comments included. A run breaks
+each link's `level`, and every unchanged item's own source, comments included. A run breaks
 where the signal splits or meets, and a split that meets again one step later is written as a
 side-by-side step.
 
@@ -218,7 +214,7 @@ pointing at nothing.
 
 ## Writing to a chain project
 
-Every writer that knows node files and `graph.yaml` writes a chain project too, through the same
+Every writer that knows node files and `graph.k7x` writes a chain project too, through the same
 text transforms; only where the text comes from changes (`chainItemEdit.ts`, `chainGraphEdit.ts`,
 `chainCreate.ts`).
 
@@ -239,7 +235,7 @@ text transforms; only where the text comes from changes (`chainItemEdit.ts`, `ch
 - **The name a creation is given names the chain**, and the node is a fresh id, returned. A chain
   holding one node stands for that node in every graph verb, so a caller still holding the name it
   asked for places and wires what it made. A new node is hidden until placed or wired; unlinking
-  one hides it too, unless its card has a place in `layout.yaml`.
+  one hides it too, unless its card has a place in `layout.k7x`.
 - **A new lane** is its `tracks/` file and a `start: true` chain of its own; its strip is the next
   item of that chain.
 - **Assemblies are refused**, like the migration refuses them: a box names its members.

@@ -2,14 +2,14 @@
 
 Right-click any knob, slider, fader or number on a module in the chains graph and the menu
 answers for **that param**: assign a control to it, or take one away. The map itself is a file —
-`controller.yaml` in the module's folder, see `packages/song/docs/controller.md` — so what this
+`controller.k7x` in the module's folder, see `packages/song/docs/controller.md` — so what this
 side owns is only the listening and the sending.
 
 ## The split
 
 | | where | why |
 |---|---|---|
-| the map | `controller.yaml`, per module | it belongs to the device, and travels with it |
+| the map | `controller.k7x`, per module | it belongs to the device, and travels with it |
 | the listening | the browser (`midiControl.ts`) | the controller is plugged in **here**; the engine may be on another machine |
 | the writing | `module cc`, over the file service | a binding is an edit, and every edit is a command |
 

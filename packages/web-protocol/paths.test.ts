@@ -13,7 +13,7 @@ import {
 // [root, path, isWithin, isBelow]
 const WITHIN: [string, string, boolean, boolean][] = [
   ["/data/ws", "/data/ws", true, false],
-  ["/data/ws", "/data/ws/a.yaml", true, true],
+  ["/data/ws", "/data/ws/a.k7x", true, true],
   ["/data/ws", "/data/ws/a/b/c", true, true],
   ["/data/ws/", "/data/ws/a", true, true],
   ["/", "/etc/passwd", true, true],
@@ -69,7 +69,7 @@ describe("segments", () => {
   });
 
   it.each([
-    ["a/b/c.yaml", "/", ["a", "b", "c.yaml"]],
+    ["a/b/c.k7x", "/", ["a", "b", "c.k7x"]],
     ["a/../b", "/", null],
     ["./a", "/", null],
     ["a//b", "/", null],

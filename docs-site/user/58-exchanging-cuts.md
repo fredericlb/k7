@@ -56,7 +56,7 @@ What happens:
 
 - each **video track** of an OTIO file (the one track of an EDL) becomes a new picture lane;
 - each shot's media is looked for at the path the file gives, then by its file name in `clips/`.
-  A clip already declared on that file is reused; otherwise `clips/<name>.yaml` is declared for it;
+  A clip already declared on that file is reused; otherwise `clips/<name>.k7x` is declared for it;
 - media that cannot be found is placed anyway, and listed at the end ("not found, placed anyway —
   copy into clips/: …"). Copy those files into `clips/` and the shots draw;
 - a song with no `viewport` gets `[1920, 1080, <the cut's frame rate>]`;

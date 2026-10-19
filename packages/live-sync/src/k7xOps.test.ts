@@ -1,4 +1,4 @@
-// k7xOps.test.ts — a .k7x file's change travels as path ops that replay byte for byte, and the room settles them like YAML's.
+// k7xOps.test.ts — a .k7x file's change travels as path ops that replay byte for byte, and the room settles them by value.
 
 import { parseDocument } from "@studio/k7x/document";
 import { describe, expect, it } from "vitest";
@@ -19,7 +19,7 @@ const NOTES = `notes([
 ])
 `;
 
-/** What a writer does through the bridge: one document, edited in place. */
+/** What a writer does: one document, edited in place. */
 const edit = (
   text: string,
   f: (d: ReturnType<typeof parseDocument>) => void,

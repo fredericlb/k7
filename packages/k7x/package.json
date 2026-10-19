@@ -7,20 +7,21 @@
   "exports": {
     "./ast": "./src/ast.ts",
     "./parse": "./src/parse.ts",
+    "./print": "./src/print.ts",
+    "./native": "./src/native.ts",
     "./document": "./src/edit.ts",
-    "./from-yaml": "./src/fromYaml.ts",
-    "./yaml-bridge": "./src/yamlBridge.ts"
+    "./sugared": "./src/sugared.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:wasm": "node scripts/buildWasm.mjs",
+    "build:addon": "node scripts/buildAddon.mjs",
+    "bench:rust": "tsx bench/compare.ts"
   },
   "engines": {
     "node": ">=18"
-  },
-  "dependencies": {
-    "yaml": "^2.5.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -72,6 +72,12 @@
     "packages/k7-plugins": {
       "entry": ["scripts/turntables/*.ts"]
     },
+    "packages/audio-analysis": {
+      "entry": ["bench/*.ts", "scripts/*.mjs"]
+    },
+    "packages/k7x": {
+      "entry": ["bench/*.{ts,mjs}", "scripts/*.mjs"]
+    },
     "packages/ui-chains-react": {}
   }
 }

@@ -46,7 +46,7 @@ describe("filterOps", () => {
 });
 
 describe("processLine", () => {
-  it("names the clip by its REF, which is the stem of clips/<ref>.yaml", () => {
+  it("names the clip by its REF, which is the stem of clips/<ref>.k7x", () => {
     expect(processLine("audio_13_0", `@k7-core/clean`)).toBe(
       "clip process audio_13_0 @k7-core/clean",
     );

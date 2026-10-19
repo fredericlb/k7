@@ -1,6 +1,6 @@
 # The store — the one thing a host doesn't share
 
-The builder is a whole screen: a code pane over `module.yaml` or `ui.yaml`, the module's
+The builder is a whole screen: a code pane over `module.k7x` or `ui.k7x`, the module's
 parameters under it, and the widget grid beside them. All of that is identical wherever it is
 drawn, because it is about a module and no host's idea of one differs.
 
@@ -10,7 +10,7 @@ same screen, chosen by which tab of its file tree the click came from:
 | | a WORKSPACE | a LIBRARY |
 |---|---|---|
 | server | `@studio/file-service`, through the file hub on k7's backend | k7's backend, the media library's routes |
-| paths | workspace-relative (`modules/audio/reverb/module.yaml`) | library-relative (`modules/audio/reverb/module.yaml`) |
+| paths | workspace-relative (`modules/audio/reverb/module.k7x`) | library-relative (`modules/audio/reverb/module.k7x`) |
 | auth | `x-studio-{user,workspace,engine-token}` headers | the session cookie |
 | a save into a shared library | **redirected** — the module is forked into the project | written in place, for everyone |
 | hosts | k7's Project tab | k7's Libraries tab |
@@ -26,7 +26,7 @@ click came from.
 
 ```ts
 read(path)          // the file's text, or null when there is none
-moduleUi(path)      // the ui.yaml beside it — existing, or where it would go plus a blank grid
+moduleUi(path)      // the ui.k7x beside it — existing, or where it would go plus a blank grid
 jsdsp?(path)        // …and the DSP source, for a module that declares one. The one optional call
 hints()             // what the code pane completes against
 write(path, text)   // save; may answer with where the content actually landed
@@ -121,7 +121,7 @@ host whose save must leave the machine with the module itself.
 Called **once, after every dirty file has landed**, and never per file. The four files of a
 module are one edit, and four publishes for one edit is a history nobody can read. It runs only
 if every file landed — `flush()` reports that, and a file held back because it would not
-compile reports false, since publishing a module whose `module.yaml` is still yesterday's would
+compile reports false, since publishing a module whose `module.k7x` is still yesterday's would
 put a half-edit in front of everybody.
 
 `hints()` is allowed to be nearly empty. A library's is: most of `Hints` describes a SONG — its

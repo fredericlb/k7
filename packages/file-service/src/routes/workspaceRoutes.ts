@@ -169,7 +169,7 @@ workspaceRouter.get(
   }),
 );
 
-/** Make an empty module: `<root>/<type>/<name>/module.yaml` — see docs/fileRoutes.md for `root`'s rule. */
+/** Make an empty module: `<root>/<type>/<name>/module.k7x` — see docs/fileRoutes.md for `root`'s rule. */
 const moduleBody = z.object({
   root: z.string().min(1),
   rel: z.string().min(1),

@@ -1,10 +1,9 @@
-// seqWindow.ts — the window a sequence states, read from its own TEXT rather than from a compiled
+// seqWindow.ts — the window a sequence states, read from its own k7x TEXT rather than from a compiled
 // clip: the note grids are handed the document, not a ClipDoc. Timecodes only and POSITIONS, as
 // SeqEdge defines them. See apps/k7/docs/22-syntax-material.md.
 
-import { isMap, isScalar, parseDocument } from "yaml";
+import { parse } from "@studio/k7x/document";
 import { parsePosition } from "./timecode";
-import { YAML_READ } from "./yaml/yamlText";
 
 export interface SeqWindow {
   /** Where the window opens, in beats. 0 when the file states no `from`. */
@@ -25,18 +24,17 @@ export function seqWindowFromText(
   num = 4,
   den = 4,
 ): SeqWindow | null {
-  let doc: ReturnType<typeof parseDocument>;
+  let data: Record<string, unknown>;
   try {
-    doc = parseDocument(text, YAML_READ);
+    data = parse(text);
   } catch {
-    return null;
+    return null; // mid-keystroke: don't guess
   }
-  if (doc.errors.length || !isMap(doc.contents)) return null; // mid-keystroke: don't guess
   const edge = (field: "from" | "to"): number | null => {
-    const node = doc.get(field, true);
-    // A STRING and not merely a scalar: an unquoted `1.5` is a YAML number `parsePosition` would take.
-    if (!isScalar(node) || typeof node.value !== "string") return null;
-    const raw = node.value.trim();
+    const value = data[field];
+    // A STRING and not merely a scalar: a number `1.5` is a seconds spelling `parsePosition` would take.
+    if (typeof value !== "string") return null;
+    const raw = value.trim();
     if (!raw) return null;
     try {
       const beats = parsePosition(raw, num, den);

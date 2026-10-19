@@ -1,10 +1,10 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createNode, loadModuleRefs, loadModules } from "./loader";
 import { resolveModuleMap } from "./moduleResolve";
-import { writeNode } from "./testSupport";
+import { writeDoc, writeNode } from "./testSupport";
 
 // The flat `nodes/` folder has no type path, so `kind`, `inputs` and `category` come from `extends`.
 
@@ -14,12 +14,7 @@ let dir: string;
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-instfold-"));
   dir = join(ws, "song");
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n",
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t", tempo: 120 } });
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
@@ -51,14 +46,9 @@ describe("the nodes folder", () => {
 
   it("takes kind, inputs and category from what it EXTENDS", () => {
     // The replacement for the type folder, and why a node need not sit under its module.
-    mkdirSync(join(ws, "_modules", "instruments", "mini"), {
-      recursive: true,
+    writeDoc(join(ws, "_modules", "instruments", "mini", "module.k7x"), {
+      plugin: { type: "vst3", name: "Mini V3" },
     });
-    writeFileSync(
-      join(ws, "_modules", "instruments", "mini", "module.yaml"),
-      "plugin:\n  type: vst3\n  name: Mini V3\n",
-      "utf8",
-    );
     writeNode(dir, "solo", { extends: "@workspace/instruments/mini" });
     const resolved = resolveModuleMap(
       loadModules(dir),
@@ -84,17 +74,12 @@ describe("the nodes folder", () => {
   });
 
   it("no longer reads a project's own modules/ at all — a module lives at @workspace or @k7-core now", () => {
-    mkdirSync(join(dir, "modules", "audio", "amp"), { recursive: true });
-    writeFileSync(
-      join(dir, "modules", "audio", "amp", "module.yaml"),
-      "plugin:\n  type: internal\n  name: ADT\n",
-      "utf8",
-    );
-    writeFileSync(
-      join(dir, "modules", "audio", "amp", "lead.yaml"),
-      "params:\n  Input: -5\n",
-      "utf8",
-    );
+    writeDoc(join(dir, "modules", "audio", "amp", "module.k7x"), {
+      plugin: { type: "internal", name: "ADT" },
+    });
+    writeDoc(join(dir, "modules", "audio", "amp", "lead.k7x"), {
+      params: { Input: -5 },
+    });
     expect(loadModules(dir)).toEqual({});
   });
 });
@@ -113,7 +98,7 @@ describe("creating one", () => {
 
   it("writes the plugin into the node, with no module to inherit it from", () => {
     const rel = createNode(dir, "audio", "adt", "slap", CATALOGUE);
-    expect(rel).toBe("nodes/slap.yaml");
+    expect(rel).toBe("nodes/slap.k7x");
     const m = loadModules(dir);
     // The identity lands in the FILE, so a machine that has never scanned still opens this song.
     expect(m.slap.plugin).toEqual({ type: "internal", name: "ADT" });

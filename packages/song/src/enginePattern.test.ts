@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PATTERN_PLUGIN_TYPE, patternFiles } from "./enginePattern";
 import { compileNodeProject } from "./nodeProject";
+import { writeDoc, writeLane } from "./testSupport";
 
 let dir: string;
 const SOURCE = 's("bd sn").label("kit")\n';
@@ -16,24 +17,18 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-/** Strudel lanes over algo/beat.strudel (each `[name, extra node yaml]`), wired by `chains`. */
-function project(lanes: [string, string?][], chains?: string): string {
+/** Strudel lanes over algo/beat.strudel, wired by `chains` (each lane straight to OUT by default). */
+function project(lanes: string[], chains?: Record<string, string[]>): string {
   const p = join(dir, "song.k7");
-  mkdirSync(join(p, "nodes"), { recursive: true });
   mkdirSync(join(p, "algo"), { recursive: true });
-  mkdirSync(join(p, "modules", "io", "OUT"), { recursive: true });
-  writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
-  writeFileSync(join(p, "modules", "io", "OUT", "module.yaml"), "io: out\n");
+  writeDoc(join(p, "project.k7x"), { project: { name: "song" } });
+  writeDoc(join(p, "modules", "io", "OUT", "module.k7x"), { io: "out" });
   writeFileSync(join(p, "algo", "beat.strudel"), SOURCE);
-  for (const [name, extra] of lanes)
-    writeFileSync(
-      join(p, "nodes", `${name}.yaml`),
-      `extends: "@meta/strudel-track"\nstrudel: algo/beat.strudel\n${extra ?? ""}`,
-    );
-  writeFileSync(
-    join(p, "graph.yaml"),
-    chains ?? `modules:\n${lanes.map(([n]) => `  ${n}: [ OUT ]\n`).join("")}`,
-  );
+  for (const name of lanes)
+    writeLane(p, name, "strudel-track", { strudel: "algo/beat.strudel" });
+  writeDoc(join(p, "graph.k7x"), {
+    modules: chains ?? Object.fromEntries(lanes.map((n) => [n, ["OUT"]])),
+  });
   return p;
 }
 
@@ -44,7 +39,7 @@ const patternsOf = (p: string) =>
 
 describe("a pattern lane", () => {
   it("is headed by ONE plugin playing both when it is bare-wired", () => {
-    const p = project([["kit"]]);
+    const p = project(["kit"]);
     const [only, ...rest] = patternsOf(p);
     expect(rest).toEqual([]);
     expect(only.track.plugins[0]).toBe(only.pl);
@@ -61,10 +56,10 @@ describe("a pattern lane", () => {
   });
 
   it("plays its notes on #midi and its samples on #audio when the two are wired apart", () => {
-    const p = project(
-      [["kit"]],
-      "modules:\n  kit#audio: [ OUT ]\n  kit#midi: [ OUT ]\n",
-    );
+    const p = project(["kit"], {
+      "kit#audio": ["OUT"],
+      "kit#midi": ["OUT"],
+    });
     const got = patternsOf(p).map(({ track, pl }) => [
       track.contentType,
       pl.patternPlays,
@@ -79,14 +74,14 @@ describe("a pattern lane", () => {
   });
 
   it("with one half wired, plays only that and knows nothing else will", () => {
-    const p = project([["kit"]], "modules:\n  kit#audio: [ OUT ]\n");
+    const p = project(["kit"], { "kit#audio": ["OUT"] });
     expect(
       patternsOf(p).map(({ pl }) => [pl.patternPlays, pl.patternOnly]),
     ).toEqual([["samples", true]]);
   });
 
   it("shares its file: the first lane by name takes what no lane claims", () => {
-    const p = project([["pad"], ["kit"]]);
+    const p = project(["pad", "kit"]);
     const byLane = Object.fromEntries(
       patternsOf(p).map(({ pl }) => [pl.patternLabel, pl]),
     );
@@ -96,7 +91,7 @@ describe("a pattern lane", () => {
   });
 
   it("names its file among the ones whose save is a recompile", () => {
-    const p = project([["kit"]]);
+    const p = project(["kit"]);
     expect(patternFiles(p)).toEqual([join(p, "algo", "beat.strudel")]);
   });
 });

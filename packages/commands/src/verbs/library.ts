@@ -1,9 +1,9 @@
 // library.ts — the `library …` verbs: which version of each library the WORKSPACE plays, and moving
-// that pin. They act on `repoDir`, since `_library-pins.yaml` is the workspace's, and need no project.
+// that pin. They act on `repoDir`, since `_library-pins.k7x` is the workspace's, and need no project.
 // A version this k7 cannot run is refused by name; one this machine lacks is asked of the host.
 // See ../../../../docs/library-versions-plan.md.
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { forksWhoseBaseMoved } from "@studio/song/libraryForks";
 import {
@@ -11,7 +11,9 @@ import {
   libraryManifest,
   libraryVersions,
   newestRunnableVersion,
+  workspacePins,
 } from "@studio/song/sharedFolders";
+import { wsEdit } from "@studio/song/yaml/workspaceDoc";
 import {
   DRAFT_VERSION,
   LIBRARY_LEVEL,
@@ -20,8 +22,8 @@ import {
   type LibraryVersion,
   parseLibraryPins,
   pinnedVersion,
-  stringifyLibraryPins,
 } from "@studio/song-schema/libraryVersions";
+import { LEGACY_LIBRARY_PINS_FILE } from "@studio/song-schema/libraryVersionsLegacy";
 import type { SidHandler } from "../commands.ts";
 
 /** The workspace's pins file and what it says, or null when the host names no workspace. */
@@ -32,7 +34,12 @@ function readPins(
   const abs = join(h.repoDir, LIBRARY_PINS_FILE);
   return {
     abs,
-    pins: existsSync(abs) ? parseLibraryPins(readFileSync(abs, "utf8")) : {},
+    pins: existsSync(abs)
+      ? parseLibraryPins(readFileSync(abs, "utf8"))
+      : // A legacy YAML pins file is upgraded by song on this read, so the edit below lands in the .k7x one.
+        existsSync(join(h.repoDir, LEGACY_LIBRARY_PINS_FILE))
+        ? workspacePins(h.repoDir)
+        : {},
   };
 }
 
@@ -110,11 +117,7 @@ export const LIBRARY_VERBS: Record<string, SidHandler> = {
       ]);
     try {
       h.snapshot?.(read.abs);
-      writeFileSync(
-        read.abs,
-        stringifyLibraryPins({ ...read.pins, [name]: to }),
-        "utf8",
-      );
+      wsEdit(read.abs, (doc) => doc.setIn([name], to), { create: true });
     } catch (e) {
       return h.refuse([`library upgrade: ${(e as Error).message}`]);
     }

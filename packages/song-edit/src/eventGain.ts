@@ -31,11 +31,11 @@ export function setTrackPlacementGain(
   editTrackStruct(
     dir,
     id,
-    (t) => {
-      const i = findPlacementAt(t, fromBeats, num, den);
-      if (i < 0) return t;
+    (doc) => {
+      const i = findPlacementAt(doc, fromBeats, num, den);
+      if (i < 0) return;
       hit = true;
-      return setPlacementField(t, i, "gain", eventGainValue(db));
+      setPlacementField(doc, i, "gain", eventGainValue(db));
     },
     "set an event's gain",
   );

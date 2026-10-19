@@ -19,11 +19,11 @@ const dir = () => mkdtempSync(join(tmpdir(), "atomic-"));
 describe("writeFileAtomic", () => {
   it("replaces a file's content and leaves nothing beside it", () => {
     const d = dir();
-    const f = join(d, "mix.yaml");
+    const f = join(d, "mix.k7x");
     writeFileSync(f, "old\n");
     writeFileAtomic(f, "new\n");
     expect(readFileSync(f, "utf8")).toBe("new\n");
-    expect(readdirSync(d)).toEqual(["mix.yaml"]);
+    expect(readdirSync(d)).toEqual(["mix.k7x"]);
   });
 
   it("writes bytes and creates a missing file", () => {
@@ -35,14 +35,14 @@ describe("writeFileAtomic", () => {
 
   it("leaves the old file whole and removes its temp when the write fails", () => {
     const d = dir();
-    const f = join(d, "mix.yaml");
+    const f = join(d, "mix.k7x");
     writeFileSync(f, "old\n");
     // Not a string nor bytes: the write throws after the temp is open.
     expect(() =>
       writeFileAtomic(f, { length: 4 } as unknown as Uint8Array),
     ).toThrow();
     expect(readFileSync(f, "utf8")).toBe("old\n");
-    expect(readdirSync(d)).toEqual(["mix.yaml"]);
+    expect(readdirSync(d)).toEqual(["mix.k7x"]);
   });
 
   it("leaves the target alone and removes its temp when the rename fails", () => {
@@ -68,11 +68,11 @@ describe("writeFileAtomic", () => {
   );
 
   it("names a hidden temp in the same folder, and recognises it", () => {
-    const t = atomicTempFor("/w/song.k7/nodes/mix.yaml");
+    const t = atomicTempFor("/w/song.k7/nodes/mix.k7x");
     expect(dirname(t)).toBe(join("/w", "song.k7", "nodes"));
-    expect(basename(t).startsWith(".mix.yaml.")).toBe(true);
+    expect(basename(t).startsWith(".mix.k7x.")).toBe(true);
     expect(isAtomicTemp(basename(t))).toBe(true);
-    expect(isAtomicTemp("mix.yaml")).toBe(false);
+    expect(isAtomicTemp("mix.k7x")).toBe(false);
     expect(isAtomicTemp("notes.tmp")).toBe(false);
   });
 });

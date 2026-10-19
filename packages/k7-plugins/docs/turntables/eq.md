@@ -1,7 +1,7 @@
 # A deck's EQ
 
 Three knobs per deck — low, mid, high — driving the EQ module's `tracktion` engine, placed on that deck in the graph.
-As with everything else on the desk the link is **declared** in `views/mix.yaml` and not wired in
+As with everything else on the desk the link is **declared** in `views/mix.k7x` and not wired in
 code; see [controls.md](controls.md).
 
 ## The module writes no DSP
@@ -145,11 +145,11 @@ settable from both sides. See [deckSet.md](deckSet.md).
 
 The return path goes through the DECLARED binding, read backwards: the graph knows only a module
 and a parameter, and `controlDriving` finds the control driving them. Re-pointing a line of
-`views/mix.yaml` therefore moves this knob's effect too.
+`views/mix.k7x` therefore moves this knob's effect too.
 
 ## What to know
 
-A `params:` changed by hand in `nodes/eqA.yaml` does not move the knob until the project is
+A `params:` changed by hand in `nodes/eqA.k7x` does not move the knob until the project is
 reopened: what the knob shows is the **engine**'s state, and the file only reaches the engine at
 the next document send.
 

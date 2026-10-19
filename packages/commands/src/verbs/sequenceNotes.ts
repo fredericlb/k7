@@ -2,7 +2,8 @@
 // move), the pad effects, and recorded notes. See docs/verbs.md.
 
 import { join } from "node:path";
-import { wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import { wsEdit } from "@studio/song/yaml/workspaceDoc";
+import { wsExists } from "@studio/song/yaml/workspaceFile";
 import {
   appendNotes,
   isPlayableNote,
@@ -46,16 +47,13 @@ function padEffectCommand(effect: PadEffect): SidHandler {
       ]);
       return;
     }
-    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
-    let text: string;
-    try {
-      text = wsRead(file);
-    } catch {
-      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+    const file = join(h.songPath, "sequences", `${seqId}.k7x`);
+    if (!wsExists(file)) {
+      h.refuse([`no sequence file: sequences/${seqId}.k7x`]);
       return;
     }
     try {
-      wsWrite(file, setNoteEffect(text, k, t, effect, n));
+      wsEdit(file, (doc) => setNoteEffect(doc.at([]), k, t, effect, n));
     } catch (e) {
       h.refuse([`sequence note ${effect}: ${(e as Error).message}`]);
       return;
@@ -117,34 +115,35 @@ function regionCommand(
         return;
       }
     }
-    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
-    let text: string;
-    try {
-      text = wsRead(file);
-    } catch {
-      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+    const file = join(h.songPath, "sequences", `${seqId}.k7x`);
+    if (!wsExists(file)) {
+      h.refuse([`no sequence file: sequences/${seqId}.k7x`]);
       return;
     }
-    let out: { text: string; changed: number };
+    const region = {
+      loKey: Math.min(lo, hi),
+      hiKey: Math.max(lo, hi),
+      from,
+      to,
+    };
+    let changed = 0;
     try {
-      out = mapNotesInRegion(
-        text,
-        { loKey: Math.min(lo, hi), hiKey: Math.max(lo, hi), from, to },
-        edit(v),
-      );
+      // An empty rectangle edits nothing, so the file is left as it was.
+      wsEdit(file, (doc) => {
+        changed = mapNotesInRegion(doc.at([]), region, edit(v));
+      });
     } catch (e) {
       h.refuse([`sequence notes ${verb}: ${(e as Error).message}`]);
       return;
     }
     // An empty rectangle is REFUSED by name, like every other note edit: silence would read as success.
-    if (!out.changed) {
+    if (!changed) {
       h.refuse([
         `no note between ${loStr} and ${hiStr} from beat ${from} to ${to}`,
       ]);
       return;
     }
-    wsWrite(file, out.text);
-    h.log([`${seqId}: ${out.changed} note(s) ${verb}d`]);
+    h.log([`${seqId}: ${changed} note(s) ${verb}d`]);
     await h.reload();
   };
 }
@@ -211,16 +210,13 @@ export const SEQUENCE_NOTE_VERBS: Record<string, SidHandler> = {
       return;
     }
     const moves = raw.map(([k, t, nk, nt]) => ({ k, t, nk, nt }));
-    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
-    let text: string;
-    try {
-      text = wsRead(file);
-    } catch {
-      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+    const file = join(h.songPath, "sequences", `${seqId}.k7x`);
+    if (!wsExists(file)) {
+      h.refuse([`no sequence file: sequences/${seqId}.k7x`]);
       return;
     }
     try {
-      wsWrite(file, moveNotes(text, moves));
+      wsEdit(file, (doc) => moveNotes(doc.at([]), moves));
     } catch (e) {
       h.refuse([`sequence notes move: ${(e as Error).message}`]);
       return;
@@ -252,16 +248,15 @@ export const SEQUENCE_NOTE_VERBS: Record<string, SidHandler> = {
     }
     // Two decimals: the drag reads a pixel, and a file full of 0.7333333333 is noise in a diff.
     const v = Math.round(Math.max(0, Math.min(1, raw)) * 100) / 100;
-    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
-    let text: string;
-    try {
-      text = wsRead(file);
-    } catch {
-      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+    const file = join(h.songPath, "sequences", `${seqId}.k7x`);
+    if (!wsExists(file)) {
+      h.refuse([`no sequence file: sequences/${seqId}.k7x`]);
       return;
     }
     try {
-      wsWrite(file, setNoteVelocity(text, k, t, v === 1 ? undefined : v));
+      wsEdit(file, (doc) =>
+        setNoteVelocity(doc.at([]), k, t, v === 1 ? undefined : v),
+      );
     } catch (e) {
       h.refuse([`sequence note velocity: ${(e as Error).message}`]);
       return;
@@ -297,12 +292,9 @@ export const SEQUENCE_NOTE_VERBS: Record<string, SidHandler> = {
       repeat?: number;
       skip?: number;
     }[];
-    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
-    let text: string;
-    try {
-      text = wsRead(file);
-    } catch {
-      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+    const file = join(h.songPath, "sequences", `${seqId}.k7x`);
+    if (!wsExists(file)) {
+      h.refuse([`no sequence file: sequences/${seqId}.k7x`]);
       return;
     }
     // A pad's effects come through a PASTE, so they are checked rather than trusted — packages/song/docs/padEffects.md.
@@ -320,7 +312,7 @@ export const SEQUENCE_NOTE_VERBS: Record<string, SidHandler> = {
       h.refuse(["no valid notes to record"]);
       return;
     }
-    wsWrite(file, appendNotes(text, playable));
+    wsEdit(file, (doc) => appendNotes(doc.at([]), playable));
     h.log([`recorded ${playable.length} note(s) → ${seqId}`]);
     await h.reload();
   },

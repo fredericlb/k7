@@ -33,7 +33,6 @@ prefetch and the idle-link pruning.
 | `STUDIO_LIBRARIES_HOME` | `<STUDIO_HOME>/libraries` | Where the account's libraries are read from (the hub points every account at one shared folder). |
 | `STUDIO_SYNC_URL`, `STUDIO_SYNC_TOKEN`, `STUDIO_SYNC_SERVERS` | none | The live-sync relay(s); a token means this is a paired machine. |
 | `STUDIO_LIVE_SYNC` | on | `0` turns live capture off. |
-| `STUDIO_K7X` | unset | The k7x switch ([k7x](./34-k7x.md)). |
 | `STUDIO_DEMOS` | a `demos/` folder found upwards | The demo songs mirrored into Examples. |
 | `STUDIO_MEDIATEK`, `MEDIATEK_URL`, `MEDIATEK_TOKEN` | none | The media library's folder and HTTP endpoint. |
 | `STUDIO_RENDER_JOBS_URL` | none | The server's render machine. |
@@ -85,7 +84,7 @@ engine machine's jobs socket, and of the sync relay.
 | Group | Routes |
 |---|---|
 | State | `GET /workspace` (the poll; also prewarms the engine), `GET /revision`, `GET /project`, `GET /project-doc` (timeline view), `GET /engine-doc` (the compiled `ProjectDoc`), `GET /graph` (`WebGraph`), `GET /video-doc`, `GET /surfaces`, `GET /project-errors`, `GET /video-errors`, `GET /hints`, `GET /tree`, `GET /workspace-tree` |
-| Files | `GET /file`, `PUT /file` `{ path, content }`, `POST /upload`, `POST /folder`, `POST /rename`, `POST /move`, `POST /entry/delete` (to the recycle bin), `POST /fmt`, `POST /migrate-k7x` |
+| Files | `GET /file`, `PUT /file` `{ path, content }` (a `.yaml` path is refused: every workspace document is `.k7x`), `POST /upload`, `POST /folder`, `POST /rename`, `POST /move`, `POST /entry/delete` (to the recycle bin), `POST /fmt` |
 | Projects | `POST /project/create` `{ shape, name }`, `POST /open` `{ path }`, `POST /project/delete`, `POST /project/rename`, `POST /import-project`, `POST /import-upload` |
 | Modules | `POST /module`, `POST /module/clone`, `POST /node`, `POST /library/move`, `GET /module-libraries`, `GET /module-catalogue`, `GET /base-modules`, `GET /module-ui`, `GET /module-engines`, `GET /module-base`, `POST /module-base/snapshot`, `GET /presets`, `GET /consoles`, `GET /io-ports`, `GET /library-chains`, `GET /library-assemblies` |
 | Commands | `GET /commands`, `GET /complete`, `POST /command` `{ line, at?, want? }` → `{ output, refused?, rev?, changed?, graph? }` |
@@ -106,7 +105,7 @@ the project). Binary pre-images are saved before they are overwritten; on a boun
 are kept there (`src/historyKeeper.ts`).
 
 The **revision token** is how every derived view knows it is stale: a count of mutations plus the
-newest mtime among the active project's `.yaml`, `.k7x` and `.vstpreset` files (and the machine's
+newest mtime among the active project's `.k7x` and `.vstpreset` files (and the machine's
 preferences). The compiled `ProjectDoc` and the `WebGraph` are memoised on it.
 
 ## From a save to the engine
@@ -143,6 +142,6 @@ live-sync capture has its own recursive watcher.
 `npm test` (vitest, `pool: "forks"`, 30 s timeouts; `packages/file-service/vitest.config.ts` points
 `STUDIO_HOME` and `STUDIO_MEDIATEK` at non-existent temp folders). No test spawns `server.ts`, which
 would need a hub secret: tests mount `filesRouter` on an inline express app with
-`req.ws = new Workspace(tmpRoot)` — see `src/writePushes.test.ts`, `src/commandWant.test.ts`,
-`src/migrateK7x.test.ts`. Fake engines, jobs sockets and relays listen on port 0 where needed.
+`req.ws = new Workspace(tmpRoot)` — see `src/writePushes.test.ts` and
+`src/commandWant.test.ts`. Fake engines, jobs sockets and relays listen on port 0 where needed.
 `src/graphDoc.golden.test.ts` snapshots the `WebGraph`.

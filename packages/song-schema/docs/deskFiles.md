@@ -7,14 +7,13 @@ The rationale behind `packages/song-schema/src/yaml/mixSchema.ts`,
 shapes and the reader/writer rules.
 
 Both readers are browser-safe (no `fs`), because the app that DRAWS a desk is the one that needs
-them. Both pin YAML 1.2 for the reason every other file here does: a scalar shaped like `5:1:1` stays
-a string. A ref carries no colon today, and the day one does it must not silently become a number; a
-param name is arbitrary text and must not be reinterpreted on the way in.
+them. Both read k7x, where a ref and a param name are quoted strings: a param name is arbitrary text
+and is never reinterpreted on the way in.
 
-## `mix.yaml` — the cue sheet
+## `mix.k7x` — the cue sheet
 
 `MIX_BASE` is named once and every reader takes it from here rather than spelling it, which is what
-`views/mix.yaml` is NOT.
+`views/mix.k7x` is NOT.
 
 A song's cue points are positional, by BUTTON: the desk has eight. `null` is an empty slot, so button
 3 stays button 3 whatever happened to 1 and 2 — a cue is muscle memory, and a list that closed its
@@ -28,11 +27,11 @@ ONE LINE, and a bare ref is what a song goes back to when its last cue is cleare
 has cued reads as a plain list. The alternative, a map of refs to mostly-null, would have made every
 entry look as though something were missing.
 
-`cues:` is a SEQUENCE and not a map, although the list is unordered and a map is what `graph.yaml`
+`cues:` is a SEQUENCE and not a map, although the list is unordered and a map is what `graph.k7x`
 uses for "named exactly once". Duplicates are dropped on read rather than refused: two people merging
 their halves of a set should not have to resolve that by hand.
 
-The ref vocabulary itself is `songRef.ts` — a leaf, so a browser can hold it without a YAML parser.
+The ref vocabulary itself is `songRef.ts` — a leaf, so a browser can hold it without a parser.
 
 ### Reading and writing it
 
@@ -54,7 +53,7 @@ already made. Trailing empties are trimmed, and a song whose last cue is cleared
 ref — so a sheet nobody has cued reads as a plain list of refs. The cues are written on one line,
 since eight numbers down the page would bury the ref they belong to.
 
-## `views/mix.yaml` — the bindings
+## `views/mix.k7x` — the bindings
 
 Keyed by the CONTROL, because the file is about a desk, so a control drives at most ONE param — two
 targets on one fader is a thing you cannot see going wrong. The reverse is allowed and useful: two
@@ -62,8 +61,8 @@ controls may name the same module and param, and both move it.
 
 `module` is the chain's name for it — `crossfade`, `tempoA` — and not a médiathèque ref: a node is
 what a set actually has two of, and a ref would be ambiguous the moment a module is used twice. That
-ambiguity is the whole reason these bindings are not in the module's own `controller.yaml`, which
-belongs to the device and is shared by every use of it. `param` is spelled exactly as `ui.yaml`'s
+ambiguity is the whole reason these bindings are not in the module's own `controller.k7x`, which
+belongs to the device and is shared by every use of it. `param` is spelled exactly as `ui.k7x`'s
 `bind:` spells it, so the binding, the panel and a MIDI map all line up key for key and can be read
 side by side.
 

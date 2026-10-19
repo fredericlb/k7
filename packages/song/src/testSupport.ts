@@ -1,26 +1,17 @@
 // testSupport.ts — fixture surgery for the tests, not used by the app: they copy a shipped demo and change one
-// thing about it. YAML is a document, so these edit it as one — the value is found by PATH, not by matching
+// thing about it. A k7x file is a document, so these edit it as one — the value is found by PATH, not by matching
 // source text, and a path that isn't there throws instead of quietly doing nothing.
 
-import {
-  type CopySyncOptions,
-  cpSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { toYaml } from "@studio/k7x/yaml-bridge";
+import { K7Document } from "@studio/k7x/document";
 import {
   insertBetween,
   parseGraph,
   renameNode,
 } from "@studio/song-schema/yaml/graphFile";
-import { stringify } from "yaml";
-import { wsRead, wsWrite } from "./yaml/workspaceFile";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
+import { wsText, wsWriteData, wsWriteText } from "./yaml/workspaceDoc";
 
 /** The BENCH fixture, re-exported here rather than published as a subpath nobody outside imports. */
 export {
@@ -31,17 +22,19 @@ export {
 } from "./benchProject";
 // The app's own writer: a second implementation would be the thing under test.
 export {
-  deleteFileValue as deleteYaml,
-  setFileValue as setYaml,
+  deleteFileValue as deleteDoc,
+  setFileValue as setDoc,
 } from "./yaml/edit";
 
-/** Write `value` as a whole YAML file, making its folder. */
-export function writeYaml(file: string, value: unknown): void {
+/** Write `value` as a whole .k7x file, making its folder; a non-.k7x path or a non-map value throws. */
+export function writeDoc(file: string, value: unknown): void {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new Error(`${file}: a k7x file holds a map`);
   mkdirSync(dirname(file), { recursive: true });
-  wsWrite(file, stringify(value, { version: "1.2", lineWidth: 0 }));
+  wsWriteData(file, value as Record<string, unknown>);
 }
 
-/** Write a module file: `modules/<type>/<name>/<file>.yaml` (default `module`). */
+/** Write a module file: `modules/<type>/<name>/<file>.k7x` (default `module`). */
 export function writeModule(
   dir: string,
   type: string,
@@ -49,8 +42,8 @@ export function writeModule(
   value: unknown,
   file = "module",
 ): string {
-  const path = join(dir, "modules", type, name, `${file}.yaml`);
-  writeYaml(path, value);
+  const path = join(dir, "modules", type, name, `${file}.k7x`);
+  writeDoc(path, value);
   return path;
 }
 
@@ -64,16 +57,16 @@ export function writeLane(
   return writeNode(dir, name, { extends: `@meta/${extend}`, ...value });
 }
 
-/** Write one USE of a module, flat at `nodes/<name>.yaml`; what it uses is `extends`, in `value`. */
+/** Write one USE of a module, flat at `nodes/<name>.k7x`; what it uses is `extends`, in `value`. */
 export function writeNode(dir: string, name: string, value: unknown): string {
-  const path = join(dir, "nodes", `${name}.yaml`);
-  writeYaml(path, value);
+  const path = join(dir, "nodes", `${name}.k7x`);
+  writeDoc(path, value);
   return path;
 }
 
 /** The first graph node starting with `prefix`, key or destination; throws so a moved step fails loudly. */
 export function chainNodeNamed(dir: string, prefix: string): string {
-  const { value } = parseGraph(wsRead(join(dir, "graph.yaml")));
+  const { value } = parseGraph(wsText(join(dir, GRAPH_FILE)));
   for (const key of Object.keys(value?.modules ?? {}))
     if (key.startsWith(prefix)) return key;
   for (const dests of Object.values(value?.modules ?? {}))
@@ -81,10 +74,12 @@ export function chainNodeNamed(dir: string, prefix: string): string {
   throw new Error(`no chain node whose name starts with '${prefix}'`);
 }
 
-// Both edits go through the SHIPPING writers, or the tests end up measuring the helper.
-const editChains = (dir: string, f: (text: string) => string): void => {
-  const file = join(dir, "graph.yaml");
-  wsWrite(file, f(wsRead(file)));
+// Both edits go through the SHIPPING writers on the raw document, which keep a `runs(...)` form themselves.
+const editChains = (dir: string, f: (doc: K7Document) => void): void => {
+  const file = join(dir, GRAPH_FILE);
+  const doc = new K7Document(wsText(file));
+  f(doc);
+  wsWriteText(file, doc.toString());
 };
 
 /** Rename that node to `step.module`, keeping its place and everything wired to it. */
@@ -94,7 +89,9 @@ export function replaceChainStep(
   step: { module: string },
 ): void {
   const from = chainNodeNamed(dir, prefix);
-  editChains(dir, (text) => renameNode(text, from, step.module).text);
+  editChains(dir, (doc) => {
+    renameNode(doc.at([]), from, step.module);
+  });
 }
 
 /** Splice `step.module` in right after that node. */
@@ -104,9 +101,11 @@ export function insertChainStepAfter(
   step: { module: string },
 ): void {
   const before = chainNodeNamed(dir, prefix);
-  const { value } = parseGraph(wsRead(join(dir, "graph.yaml")));
+  const { value } = parseGraph(wsText(join(dir, GRAPH_FILE)));
   const dests = value?.modules?.[before] ?? [];
-  editChains(dir, (text) => insertBetween(text, before, dests[0], step.module));
+  editChains(dir, (doc) =>
+    insertBetween(doc.at([]), before, dests[0], step.module),
+  );
 }
 
 /** A workspace's shared `_modules`, spelled out rather than built by a production writer. */
@@ -119,17 +118,13 @@ export function writeLibrary(
     "io/OUT": { io: "out" },
   },
 ): void {
-  // No config.yaml: `_modules` is `@workspace` because of WHERE it is, not because it says so.
+  // No config.k7x: `_modules` is `@workspace` because of WHERE it is, not because it says so.
   const lib = join(root, "_modules");
   for (const [path, value] of Object.entries(modules))
-    writeYaml(join(lib, path, "module.yaml"), value);
+    writeDoc(join(lib, path, "module.k7x"), value);
 }
 
-/**
- * Where library `name` is, for a test whose temp folder is `root`: `$STUDIO_HOME` is pointed at a
- * dot-folder INSIDE `root`, so the libraries go when the test's folder does and no two tests share
- * one. Returns the library's own folder — `<home>/libraries/<name>`, as the file service clones it.
- */
+/** Library `name`'s folder, `<root>/.studio-home/libraries/<name>`, with `$STUDIO_HOME` pointed inside the test's own folder. */
 export function librariesFixture(root: string, name = "k7-core"): string {
   const home = join(root, ".studio-home");
   process.env.STUDIO_HOME = home;
@@ -148,28 +143,6 @@ export function writeLibraries(
 ): string {
   const lib = librariesFixture(root, name);
   for (const [path, value] of Object.entries(modules))
-    writeYaml(join(lib, "modules", path, "module.yaml"), value);
+    writeDoc(join(lib, "modules", path, "module.k7x"), value);
   return lib;
-}
-
-/** A copy of a demo as YAML, whichever format it ships in: the fixture for a test that edits the copy as YAML. */
-export function copyAsYaml(
-  src: string,
-  dest: string,
-  opts: CopySyncOptions = { recursive: true },
-): void {
-  cpSync(src, dest, opts);
-  const walk = (at: string): void => {
-    if (!statSync(at).isDirectory()) {
-      if (!at.endsWith(".k7x")) return;
-      writeFileSync(
-        at.replace(/\.k7x$/, ".yaml"),
-        toYaml(readFileSync(at, "utf8")),
-      );
-      rmSync(at);
-      return;
-    }
-    for (const name of readdirSync(at)) walk(join(at, name));
-  };
-  walk(dest);
 }

@@ -1,5 +1,5 @@
-// k7xFiles.test.ts — every demo, once as YAML and once with every file converted to .k7x: the same compile, before and after edits.
-// The commands run on both copies must log the same and leave the same project, and a .k7x file must stay one.
+// k7xFiles.test.ts — every demo as the k7x workspace it is: it compiles, and keeps compiling through a run of edits.
+// The short forms read as the data they stand for, a stray .yaml file is never read, and a new node is a .k7x file.
 
 import {
   cpSync,
@@ -13,8 +13,6 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { fromYaml } from "@studio/k7x/from-yaml";
-import { toYaml } from "@studio/k7x/yaml-bridge";
 import { loadProject } from "@studio/song/project";
 import { isDocFile, stripDocExt } from "@studio/song-schema/docExt";
 import { afterAll, describe, expect, it } from "vitest";
@@ -33,27 +31,11 @@ function walk(dir: string): string[] {
   });
 }
 
-/** A copy of demos/; with `k7x`, every YAML file in it converted and the YAML removed. */
-function copyDemos(k7x: boolean): string {
-  const root = mkdtempSync(join(tmpdir(), k7x ? "k7x-demos-" : "yaml-demos-"));
+/** A fresh copy of demos/, removed after the suite. */
+function copyDemos(): string {
+  const root = mkdtempSync(join(tmpdir(), "k7x-demos-"));
   roots.push(root);
   cpSync(DEMOS, root, { recursive: true });
-  // Whichever format demos/ is in, one copy is made all YAML and the other all k7x.
-  for (const f of walk(root)) {
-    if (k7x && /\.ya?ml$/.test(f)) {
-      writeFileSync(
-        f.replace(/\.ya?ml$/, ".k7x"),
-        fromYaml(readFileSync(f, "utf8")),
-      );
-      rmSync(f);
-    } else if (!k7x && /\.k7x$/.test(f)) {
-      writeFileSync(
-        f.replace(/\.k7x$/, ".yaml"),
-        toYaml(readFileSync(f, "utf8")),
-      );
-      rmSync(f);
-    }
-  }
   return root;
 }
 
@@ -65,9 +47,7 @@ const compiled = (root: string, name: string): string => {
       "<root>",
     );
   } catch (e) {
-    return `ERROR ${String((e as Error).message)
-      .replaceAll(root, "<root>")
-      .replaceAll(".k7x", ".yaml")}`;
+    return `ERROR ${String((e as Error).message).replaceAll(root, "<root>")}`;
   }
 };
 
@@ -91,9 +71,7 @@ async function run(
   } catch (e) {
     logs.push(`threw: ${(e as Error).message}`);
   }
-  return logs.map((l) =>
-    l.replaceAll(root, "<root>").replaceAll(".k7x", ".yaml"),
-  );
+  return logs.map((l) => l.replaceAll(root, "<root>"));
 }
 
 const names = (dir: string): string[] =>
@@ -101,21 +79,32 @@ const names = (dir: string): string[] =>
     ? readdirSync(dir).filter(isDocFile).map(stripDocExt).sort()
     : [];
 
-const yamlRoot = copyDemos(false);
-const k7xRoot = copyDemos(true);
+const yamlFiles = (dir: string): string[] =>
+  walk(dir)
+    .filter((f) => /\.ya?ml$/.test(f))
+    .map((f) => relative(dir, f));
+
+const shared = copyDemos();
 const demos = readdirSync(DEMOS).filter((d) => d.endsWith(".k7"));
 
-describe("a workspace converted to .k7x", () => {
-  it.each(demos)("%s compiles to the same document", (name) => {
-    const yaml = compiled(yamlRoot, name);
-    expect(yaml).not.toMatch(/^ERROR/);
-    expect(compiled(k7xRoot, name)).toBe(yaml);
+describe("the demos as k7x workspaces", () => {
+  it.each(demos)("%s compiles", (name) => {
+    expect(compiled(shared, name)).not.toMatch(/^ERROR/);
   });
 
-  it.each(demos)("%s takes the same edits", async (name) => {
-    const nodes = names(join(yamlRoot, name, "nodes"));
-    const curves = names(join(yamlRoot, name, "curves"));
-    const sequences = names(join(yamlRoot, name, "sequences"));
+  it("ship no YAML file, a backup included, since every Examples workspace is mirrored from them", () => {
+    const yaml = walk(DEMOS)
+      .map((f) => relative(DEMOS, f))
+      .filter((f) => /\.ya?ml(\.|$)/i.test(f));
+    expect(yaml).toEqual([]);
+  });
+
+  it.each(demos)("%s takes a run of edits and still compiles", async (name) => {
+    const dir = join(shared, name);
+    const before = yamlFiles(dir);
+    const nodes = names(join(dir, "nodes"));
+    const curves = names(join(dir, "curves"));
+    const sequences = names(join(dir, "sequences"));
     const lines = [
       "project tag demo",
       "project aspect 16:9",
@@ -131,26 +120,24 @@ describe("a workspace converted to .k7x", () => {
       ...nodes.slice(2, 3).map((n) => `node delete ${n}`),
     ];
     for (const line of lines) {
-      const [a, b] = [
-        await run(yamlRoot, name, line),
-        await run(k7xRoot, name, line),
-      ];
-      expect(b, line).toEqual(a);
+      const log = await run(shared, name, line);
       if (process.env.K7X_TRACE)
-        console.log(name, "|", line, "|", a.join(" / "));
-      expect(compiled(k7xRoot, name), line).toBe(compiled(yamlRoot, name));
+        console.log(name, "|", line, "|", log.join(" / "));
+      expect(
+        log.filter((l) => l.startsWith("threw:")),
+        line,
+      ).toEqual([]);
+      expect(compiled(shared, name), line).not.toMatch(/^ERROR/);
     }
-    const strays = walk(join(k7xRoot, name)).filter(
-      (f) => /\.ya?ml$/.test(f) && existsSync(f.replace(/\.ya?ml$/, ".k7x")),
-    );
-    expect(strays.map((f) => relative(k7xRoot, f))).toEqual([]);
+    // No edit writes a YAML file into a workspace.
+    expect(yamlFiles(dir)).toEqual(before);
   });
 
   it("reads the short forms as the data they stand for, and writes a changed note list in full", async () => {
     const name = "synth-demo.k7";
-    // Fresh copies: the shared ones above have taken other edits already.
-    const plain = copyDemos(false);
-    const short = copyDemos(true);
+    // Fresh copies: the shared one above has taken other edits already.
+    const plain = copyDemos();
+    const short = copyDemos();
     writeFileSync(
       join(short, name, "sequences", "melody.k7x"),
       'notes("c4 d4 e4 f4 g4 a4 b4 c5")\n',
@@ -174,44 +161,32 @@ describe("a workspace converted to .k7x", () => {
     );
   });
 
-  it("works on k7x alone once YAML is retired, and leaves a stray YAML file out", async () => {
+  it("leaves a stray YAML file out of the project, and out of an edit", async () => {
     const name = "synth-demo.k7";
-    const plain = copyDemos(false);
-    const only = copyDemos(true);
-    writeFileSync(
-      join(only, name, "nodes", "ghost.yaml"),
-      'extends: "@workspace/audio/compressor"\n',
-    );
-    // The YAML side first, while YAML is read: once retired, the YAML copy is no project at all.
+    const plain = copyDemos();
+    const stray = copyDemos();
+    const ghost = join(stray, name, "nodes", "ghost.yaml");
+    const text = 'extends: "@workspace/audio/compressor"\n';
+    writeFileSync(ghost, text);
+    expect(compiled(stray, name)).toBe(compiled(plain, name));
     const line = "sequence note velocity melody 62 1 0.5";
-    const before = compiled(plain, name);
-    const log = await run(plain, name, line);
-    const after = compiled(plain, name);
-    process.env.STUDIO_K7X = "only";
-    try {
-      expect(compiled(plain, name)).toMatch(/^ERROR/);
-      expect(compiled(only, name)).toBe(before);
-      expect(await run(only, name, line)).toEqual(log);
-      expect(compiled(only, name)).toBe(after);
-      expect(compiled(only, name)).not.toContain("ghost");
-    } finally {
-      delete process.env.STUDIO_K7X;
-    }
+    expect(await run(stray, name, line)).toEqual(await run(plain, name, line));
+    expect(compiled(stray, name)).toBe(compiled(plain, name));
+    expect(compiled(stray, name)).not.toContain("ghost");
+    expect(readFileSync(ghost, "utf8")).toBe(text);
   });
 
-  it("creates a new node as .k7x once k7x is everywhere, compiling as the YAML one does", async () => {
+  it("creates a new node as .k7x, and the project still compiles", async () => {
     const name = "synth-demo.k7";
-    const line = "node new @workspace/audio/compressor squash";
-    const a = await run(yamlRoot, name, line);
-    process.env.STUDIO_K7X = "1";
-    try {
-      expect(await run(k7xRoot, name, line)).toEqual(a);
-    } finally {
-      delete process.env.STUDIO_K7X;
-    }
-    expect(existsSync(join(yamlRoot, name, "nodes", "squash.yaml"))).toBe(true);
-    expect(existsSync(join(k7xRoot, name, "nodes", "squash.k7x"))).toBe(true);
-    expect(existsSync(join(k7xRoot, name, "nodes", "squash.yaml"))).toBe(false);
-    expect(compiled(k7xRoot, name)).toBe(compiled(yamlRoot, name));
+    const root = copyDemos();
+    const log = await run(
+      root,
+      name,
+      "node new @workspace/audio/compressor squash",
+    );
+    expect(log.filter((l) => /^(threw|refused):/.test(l))).toEqual([]);
+    expect(existsSync(join(root, name, "nodes", "squash.k7x"))).toBe(true);
+    expect(existsSync(join(root, name, "nodes", "squash.yaml"))).toBe(false);
+    expect(compiled(root, name)).not.toMatch(/^ERROR/);
   });
 });

@@ -27,8 +27,8 @@ function workspace(name: string, project?: string): string {
     const dir = join(root, project);
     mkdirSync(join(dir, "modules"), { recursive: true });
     mkdirSync(join(dir, "node_modules"), { recursive: true });
-    writeFileSync(join(dir, "project.yaml"), "name: winter\n");
-    writeFileSync(join(dir, "modules", "bass.yaml"), "kind: sampler\n");
+    writeFileSync(join(dir, "project.k7x"), 'name("winter")\n');
+    writeFileSync(join(dir, "modules", "bass.k7x"), 'kind("sampler")\n');
     writeFileSync(join(dir, "kick.wav.cache"), "peaks");
     writeFileSync(join(dir, "node_modules", "x.js"), "//");
   }
@@ -40,11 +40,14 @@ function deckWorkspace(): string {
   const root = workspace("songs", "winter.k7");
   mkdirSync(join(root, "winter.k7", "surfaces"), { recursive: true });
   writeFileSync(
-    join(root, "winter.k7", "surfaces", "decks.yaml"),
-    "type: turntables\nlayout: split\nplaylist: Fred\n",
+    join(root, "winter.k7", "surfaces", "decks.k7x"),
+    'type("turntables")\nlayout("split")\nplaylist("Fred")\n',
   );
   mkdirSync(join(root, "_playlists"), { recursive: true });
-  writeFileSync(join(root, "_playlists", "Fred.yaml"), "items:\n  - song: a\n");
+  writeFileSync(
+    join(root, "_playlists", "Fred.k7x"),
+    'items([{ song: "a" }])\n',
+  );
   return root;
 }
 
@@ -74,8 +77,8 @@ describe("copyProjectBetween", () => {
 
     expect(project).toBe("winter.k7");
     const at = join(dest, "winter.k7");
-    expect(readFileSync(join(at, "project.yaml"), "utf8")).toContain("winter");
-    expect(existsSync(join(at, "modules", "bass.yaml"))).toBe(true);
+    expect(readFileSync(join(at, "project.k7x"), "utf8")).toContain("winter");
+    expect(existsSync(join(at, "modules", "bass.k7x"))).toBe(true);
     // The workspace's own idea of what is not content: caches and deps stay behind.
     expect(existsSync(join(at, "kick.wav.cache"))).toBe(false);
     expect(existsSync(join(at, "node_modules"))).toBe(false);
@@ -95,14 +98,14 @@ describe("copyProjectBetween", () => {
       "winter.k7",
     );
 
-    expect(r.playlists).toEqual(["_playlists/Fred.yaml"]);
+    expect(r.playlists).toEqual(["_playlists/Fred.k7x"]);
     expect(
-      readFileSync(join(dest, "_playlists", "Fred.yaml"), "utf8"),
-    ).toContain("song: a");
+      readFileSync(join(dest, "_playlists", "Fred.k7x"), "utf8"),
+    ).toContain('song: "a"');
     // The source keeps its own, untouched.
-    expect(
-      readFileSync(join(src, "_playlists", "Fred.yaml"), "utf8"),
-    ).toContain("song: a");
+    expect(readFileSync(join(src, "_playlists", "Fred.k7x"), "utf8")).toContain(
+      'song: "a"',
+    );
   });
 
   it("leaves a playlist the destination already has alone — its own set list wins", async () => {
@@ -110,8 +113,8 @@ describe("copyProjectBetween", () => {
     const dest = workspace("albums");
     mkdirSync(join(dest, "_playlists"), { recursive: true });
     writeFileSync(
-      join(dest, "_playlists", "Fred.yaml"),
-      "items:\n  - song: b\n",
+      join(dest, "_playlists", "Fred.k7x"),
+      'items([{ song: "b" }])\n',
     );
 
     const r = await copyProjectBetween(
@@ -124,8 +127,8 @@ describe("copyProjectBetween", () => {
 
     expect(r.playlists).toBeUndefined();
     expect(
-      readFileSync(join(dest, "_playlists", "Fred.yaml"), "utf8"),
-    ).toContain("song: b");
+      readFileSync(join(dest, "_playlists", "Fred.k7x"), "utf8"),
+    ).toContain('song: "b"');
   });
 
   it("renames the copy, keeping the suffix that decides which app opens it", async () => {
@@ -176,7 +179,7 @@ describe("copyProjectBetween", () => {
     workspace("songs", "winter.k7");
     const single = join(rootDir(), "solo.k7");
     mkdirSync(single, { recursive: true });
-    writeFileSync(join(single, "project.yaml"), "name: solo\n");
+    writeFileSync(join(single, "project.k7x"), 'name("solo")\n');
 
     await expect(
       copyProjectBetween(USER, "songs", "winter.k7", "solo.k7", "winter.k7"),

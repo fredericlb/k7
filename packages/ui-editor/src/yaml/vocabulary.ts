@@ -1,11 +1,6 @@
-// vocabulary.ts — the adapter between the schema-agnostic YAML editor and a studio project:
-// it turns a file's path into a kind and asks @studio/song-schema for that kind's fields and
-// values. Derived rather than tabulated, because hand-kept field lists drift — a derived
-// list cannot be behind its schema.
-//
-// It lives HERE, and not in an app, because three editors need the same answers: k7's
-// EditorPane, the médiathèque's, and the module builder's. What it reaches for is pure
-// Zod introspection, no node in it.
+// vocabulary.ts — the adapter between the schema-agnostic completion and a studio project: a file's path becomes a
+// kind, and @studio/song-schema answers that kind's fields and values, derived so they cannot fall behind the schema.
+// Shared by k7's EditorPane, YamlPane and the module builder; the k7x and YAML modes both read it (docs/completion.md).
 
 import { docPattern } from "@studio/song-schema/docExt";
 import { isEngineRef } from "@studio/song-schema/moduleTypes";
@@ -54,7 +49,7 @@ function projectValues(
   return [];
 }
 
-/** A project's use of a module, `nodes/<name>.yaml` or a lane's `tracks/<name>.yaml` — it reaches a scanned plugin through its library face. */
+/** A project's use of a module, `nodes/<name>.k7x` or a lane's `tracks/<name>.k7x` — it reaches a scanned plugin through its library face. */
 const NODE_FILE = docPattern("(^|/)(nodes|tracks)/[^/]+", "");
 const isNodeFile = (path: string): boolean =>
   NODE_FILE.test(path.replace(/\\/g, "/"));

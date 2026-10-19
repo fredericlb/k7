@@ -5,7 +5,9 @@
 
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { wsExists, wsRemove, wsWrite } from "@studio/song/yaml/workspaceFile";
+import type { K7Scope } from "@studio/k7x/document";
+import { wsEdit } from "@studio/song/yaml/workspaceDoc";
+import { wsExists, wsRemove } from "@studio/song/yaml/workspaceFile";
 import { addTrackPlacement } from "@studio/song-edit/trackMix";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import {
@@ -70,7 +72,7 @@ export function recordWindow(
   return { from, bars: Math.max(1, Math.ceil((end - from) / bar)) };
 }
 
-/** Write the take as `sequences/<track>-rec-<n>.yaml` and place it; returns the id and where it landed. */
+/** Write the take as `sequences/<track>-rec-<n>.k7x` and place it; returns the id and where it landed. */
 export function writeRecordedSequence(
   dir: string,
   track: string,
@@ -84,7 +86,7 @@ export function writeRecordedSequence(
   // A track id may hold characters a sequence filename may not.
   const base = /^[A-Za-z0-9_.-]+$/.test(track) ? `${track}-rec` : "rec";
   let n = 1;
-  while (wsExists(join(dir, "sequences", `${base}-${n}.yaml`))) n++;
+  while (wsExists(join(dir, "sequences", `${base}-${n}.k7x`))) n++;
   const id = `${base}-${n}`;
   // Rounded as the recorded sequences already on disk are: a microsecond is below anything heard.
   const round = (v: number, places: number) => Number(v.toFixed(places));
@@ -98,10 +100,14 @@ export function writeRecordedSequence(
         ? round(x.v, 4)
         : undefined,
   }));
-  const empty = ['from: "1:1"', `to: "${bars + 1}:1"`, ""];
-  const file = join(dir, "sequences", `${id}.yaml`);
+  const file = join(dir, "sequences", `${id}.k7x`);
   mkdirSync(join(dir, "sequences"), { recursive: true });
-  wsWrite(file, appendNotes(empty.join("\n"), local));
+  const seed = (doc: K7Scope) => {
+    doc.setIn(["from"], "1:1");
+    doc.setIn(["to"], `${bars + 1}:1`);
+    appendNotes(doc, local);
+  };
+  wsEdit(file, (doc) => seed(doc.at([])), { create: true });
   const at = beatsToPosition(from, num, den);
   try {
     addTrackPlacement(dir, track, id, at);

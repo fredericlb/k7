@@ -25,8 +25,8 @@ describe("the parse store", () => {
     mkdirSync(join(home, "bin"));
     bundle = join(home, "bin", "file-service.mjs");
     writeFileSync(bundle, "// the bundle");
-    file = join(home, "module.yaml");
-    writeFileSync(file, "a: 1\n");
+    file = join(home, "module.k7x");
+    writeFileSync(file, "a(1)\n");
     process.env.STUDIO_HOME = home;
     process.env.STUDIO_PARSE_CACHE = "1";
     process.argv[1] = bundle;
@@ -44,27 +44,27 @@ describe("the parse store", () => {
   };
 
   it("serves a parse from disk after a restart", () => {
-    expect(settledParse(file, "t", parse)).toEqual({ text: "a: 1\n" });
+    expect(settledParse(file, "t", parse)).toEqual({ text: "a(1)\n" });
     flush();
     restart();
-    expect(settledParse(file, "t", refuse)).toEqual({ text: "a: 1\n" });
+    expect(settledParse(file, "t", refuse)).toEqual({ text: "a(1)\n" });
   });
 
   it("serves the same bytes at another path, as a library copied or synced", () => {
     settledParse(file, "t", parse);
     flush();
     restart();
-    const copy = join(home, "copy.yaml");
-    writeFileSync(copy, "a: 1\n");
-    expect(settledParse(copy, "t", refuse)).toEqual({ text: "a: 1\n" });
+    const copy = join(home, "copy.k7x");
+    writeFileSync(copy, "a(1)\n");
+    expect(settledParse(copy, "t", refuse)).toEqual({ text: "a(1)\n" });
   });
 
   it("parses again a file whose bytes changed", () => {
     settledParse(file, "t", parse);
     flush();
     restart();
-    writeFileSync(file, "a: 22\n");
-    expect(settledParse(file, "t", parse)).toEqual({ text: "a: 22\n" });
+    writeFileSync(file, "a(22)\n");
+    expect(settledParse(file, "t", parse)).toEqual({ text: "a(22)\n" });
   });
 
   it("drops the account's store made by another bundle", () => {
@@ -76,7 +76,7 @@ describe("the parse store", () => {
   });
 
   it("answers a first launch from the bundle's own store", () => {
-    const key = parseKey("t", file, "a: 1\n");
+    const key = parseKey("t", file, "a(1)\n");
     writeFileSync(
       join(home, SEED_FILE),
       JSON.stringify({ code: "", entries: { [key]: { text: "seeded" } } }),

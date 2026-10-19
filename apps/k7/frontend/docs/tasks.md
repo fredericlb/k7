@@ -51,7 +51,7 @@ flag says where something is to be done, and the place is what a click on the ru
 
 ## The open project's tags sit above the tasks
 
-The panel's top row holds the OPEN project's tags, `project.tags` in its project.yaml, which the home
+The panel's top row holds the OPEN project's tags, `project.tags` in its project.k7x, which the home
 page shows beside the project. They are written by `project tag <tag>` and `project untag <tag>`
 (`packages/commands/src/verbs/projectTags.ts`), never by the panel, for the same reason as the tasks.
 They sit here because this panel is where a project gets organised, and a tag sorts projects much as a

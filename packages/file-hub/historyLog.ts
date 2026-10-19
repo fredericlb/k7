@@ -17,8 +17,10 @@ import {
 import { join } from "node:path";
 import { applyFileOp } from "@studio/live-sync/file-op";
 import {
+  type Conflict,
   isKnownOpKind,
   NeedsUpdate,
+  RETIRED_OP_KINDS,
   type Sequenced,
 } from "@studio/live-sync/ops";
 import { LOG_V } from "@studio/live-sync/protocol";
@@ -93,11 +95,66 @@ export function parseEntryLine(line: string): Sequenced | null {
   )
     return null;
   for (const op of batch.ops)
-    if (!isObject(op) || !isKnownOpKind(op.kind))
+    if (!isObject(op))
+      throw new NeedsUpdate(
+        `entry ${entry.seq}: op kind unknown here: update k7`,
+      );
+  const lost = (batch.ops as { kind?: unknown; file?: unknown }[])
+    .filter((op) => isRetired(op.kind))
+    .map((op) => String(op.file));
+  if (lost.length) unreplayed.set(entry, lost);
+  batch.ops = withoutRetired(batch.ops as { kind?: unknown }[]);
+  entry.parked = withoutRetiredConflicts(entry.parked as Conflict[]);
+  for (const op of batch.ops as { kind?: unknown }[])
+    if (!isKnownOpKind(op.kind))
       throw new NeedsUpdate(
         `entry ${entry.seq}: op kind unknown here: update k7`,
       );
   return entry as unknown as Sequenced;
+}
+
+/** The files an entry's skipped retired ops changed, which a replay through it can no longer rebuild. */
+const unreplayed = new WeakMap<object, string[]>();
+
+/** A workspace file under a YAML name: a point that holds one is from before the workspace was k7x. */
+const YAML_NAME = /\.ya?ml$/i;
+
+/** Persisted ops of a retired kind skipped since this process started (docs/history.md). */
+let retiredSkipped = 0;
+
+/** How many ops of a retired kind the log and saved states held and were skipped: a count, never a throw. */
+export const retiredOpsSkipped = (): number => retiredSkipped;
+
+const isRetired = (kind: unknown): boolean =>
+  typeof kind === "string" && RETIRED_OP_KINDS.includes(kind);
+
+/** `ops` without those of a retired kind, each one counted. */
+function withoutRetired<T extends { kind?: unknown }>(ops: T[]): T[] {
+  const kept = ops.filter((op) => !isRetired(op.kind));
+  retiredSkipped += ops.length - kept.length;
+  return kept;
+}
+
+/** Conflicts without those whose op is of a retired kind, each one counted. */
+function withoutRetiredConflicts(list: Conflict[]): Conflict[] {
+  const kept = list.filter((c) => !isRetired(c?.op?.kind));
+  retiredSkipped += list.length - kept.length;
+  return kept;
+}
+
+/** A saved room state with its retired ops skipped, in the log and among its conflicts; every entry keeps its seq. */
+export function withoutRetiredOps(state: RoomState): RoomState {
+  return {
+    ...state,
+    log: state.log.map((e) => ({
+      ...e,
+      batch: { ...e.batch, ops: withoutRetired(e.batch.ops) },
+      parked: withoutRetiredConflicts(e.parked ?? []),
+    })),
+    ...(state.conflicts
+      ? { conflicts: withoutRetiredConflicts(state.conflicts) }
+      : {}),
+  };
 }
 
 /** A saved room state as written, stamped like the entries. */
@@ -264,7 +321,7 @@ export function headOnDisk(dir: string): number {
   return Math.max(tail, seg, snapshotSeqs(dir).at(-1) ?? 0);
 }
 
-/** Every file's text at `seq`: the nearest snapshot at or before it, and the entries after it replayed. */
+/** Every file's text at `seq`: the nearest snapshot at or before it, and the entries after it replayed; HistoryGap when that would be a guess. */
 export function filesAt(dir: string, seq: number): Record<string, string> {
   const snap = snapshotSeqs(dir)
     .filter((s) => s <= seq)
@@ -287,12 +344,26 @@ export function filesAt(dir: string, seq: number): Record<string, string> {
   });
   if (base + entries.length !== seq)
     throw new HistoryGap(`seq ${seq} is not kept`);
-  for (const e of entries)
+  // A file a skipped op changed is a guess until a whole text or a removal replaces it.
+  const guessed = new Set<string>();
+  for (const e of entries) {
     for (const op of e.batch.ops) {
       const text = applyFileOp(files.get(op.file) ?? null, op);
       if (text === null) files.delete(op.file);
       else files.set(op.file, text);
+      if (op.kind !== "k7x") guessed.delete(op.file);
     }
+    for (const f of unreplayed.get(e) ?? []) guessed.add(f);
+  }
+  if (guessed.size)
+    throw new HistoryGap(
+      `seq ${seq}: ${[...guessed].join(", ")} changed by an edit this k7 no longer replays`,
+    );
+  const yaml = [...files.keys()].filter((f) => YAML_NAME.test(f));
+  if (yaml.length)
+    throw new HistoryGap(
+      `seq ${seq} is from before this workspace was k7x (${yaml.join(", ")})`,
+    );
   return Object.fromEntries(files);
 }
 

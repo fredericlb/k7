@@ -1,0 +1,14 @@
+[package]
+name = "k7x-node"
+version = "0.1.0"
+edition = "2024"
+description = "The k7x reader as a Node-API addon, for a node with no WebAssembly: NodeMobile on iOS."
+publish = false
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+k7x = { path = ".." }
+waveform = { path = "../../../audio-analysis/rust" }

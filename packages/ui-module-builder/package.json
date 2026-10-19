@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "The module builder as React: a module's YAML on the left, its widget grid on the right, both editing the module.yaml / ui.yaml pair. The app supplies a ModuleStore — four calls — and owns the engine link around it.",
+  "description": "The module builder as React: a module's k7x on the left, its widget grid on the right, both editing the module.k7x / ui.k7x pair. The app supplies a ModuleStore — four calls — and owns the engine link around it.",
   "types": "./src/EngineBuilder.tsx",
   "exports": {
     ".": "./src/EngineBuilder.tsx",
@@ -29,8 +29,7 @@
     "@studio/song-schema": "*",
     "@studio/ui-editor": "*",
     "@studio/ui-timeline": "*",
-    "@studio/web-protocol": "*",
-    "yaml": "^2.5.0"
+    "@studio/web-protocol": "*"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

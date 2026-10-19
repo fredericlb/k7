@@ -1,16 +1,16 @@
 // playlists.ts — the set lists this volume holds: `playlists/<name>.yaml`, a root zone beside
 // the families. Listing them, naming one, creating one. The FORMAT is not ours — it is
-// @studio/song-schema/playlist, the same one k7 writes — and neither is resolving a line, which
-// needs the songs listing (playlistItems.ts). See docs/playlists.md.
+// @studio/song-schema/mediaYaml, the YAML front end of k7's playlist rules — and neither is
+// resolving a line, which needs the songs listing (playlistItems.ts). See docs/playlists.md.
 
 import { existsSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import {
-  PLAYLIST_EXT,
-  parsePlaylist,
-  playlistStub,
-} from "@studio/song-schema/playlist";
+  MEDIA_PLAYLIST_EXT,
+  mediaPlaylistStub,
+  parseMediaPlaylist,
+} from "@studio/song-schema/mediaYaml";
 import { plainSegments } from "@studio/web-protocol/paths";
 import { playlistsDir, safePath } from "./layout.ts";
 import { mapLimit } from "./pool.ts";
@@ -43,7 +43,7 @@ export function playlistPath(name: string): string | null {
   const segs = plainSegments(clean);
   if (!segs) return null;
   const rel = segs.join("/");
-  return `${PLAYLISTS_DIR}/${/\.ya?ml$/i.test(rel) ? rel : `${rel}${PLAYLIST_EXT}`}`;
+  return `${PLAYLISTS_DIR}/${/\.ya?ml$/i.test(rel) ? rel : `${rel}${MEDIA_PLAYLIST_EXT}`}`;
 }
 
 /** …and back: a path under the zone as the name that addresses it, or null for one outside. */
@@ -95,7 +95,7 @@ export async function listPlaylists(): Promise<PlaylistSummary[]> {
   for (const r of read) {
     if (!r) continue;
     const rel = relative(root, r.abs).split(sep).join("/");
-    const doc = parsePlaylist(r.text);
+    const doc = parseMediaPlaylist(r.text);
     out.push({
       name: rel.replace(/\.ya?ml$/i, ""),
       path: `${PLAYLISTS_DIR}/${rel}`,
@@ -115,7 +115,7 @@ export function createPlaylist(name: string): PlaylistSummary {
   if (existsSync(safePath(path)))
     throw new PlaylistExistsError(`${name} already exists`);
   const label = playlistName(path) ?? name;
-  putFile(path, playlistStub(label));
+  putFile(path, mediaPlaylistStub(label));
   return {
     name: label,
     path,

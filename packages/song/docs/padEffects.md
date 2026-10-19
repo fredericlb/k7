@@ -1,6 +1,6 @@
 # padEffects.md — a step sequencer pad's two effects
 
-A **pad** is one cell of the step sequencer, and one note in `sequences/<id>.yaml`. Two effects can
+A **pad** is one cell of the step sequencer, and one note in `sequences/<id>.k7x`. Two effects can
 be put on it, from the right-click menu:
 
 | effect | file | what it does |
@@ -8,10 +8,11 @@ be put on it, from the right-click menu:
 | repeat | `repeat: 2` \| `repeat: 4` | retriggers the note that many times **inside its own duration** |
 | skip | `skip: 2` \| `skip: 4` | silences it on every **nth pass** of the pattern |
 
-```yaml
-notes:
-  - { t: 0, d: 0.25, k: 36, repeat: 4 }   # a roll on the downbeat
-  - { t: 1, d: 0.25, k: 38, skip: 2 }     # a snare that sits out every other bar
+```k7x
+notes([
+  t(0).d(0.25).k(36).repeat(4), // a roll on the downbeat
+  t(1).d(0.25).k(38).skip(2), // a snare that sits out every other bar
+])
 ```
 
 `skip: 2` plays one pass in two and `skip: 4` plays three in four — the pad is silent on the nth,

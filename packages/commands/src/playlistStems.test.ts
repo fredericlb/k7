@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RunColdStep } from "@studio/audio-passes/coldPass";
-import { librariesFixture } from "@studio/song/testSupport";
+import { librariesFixture, writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost.ts";
@@ -59,45 +59,32 @@ beforeEach(() => {
   process.env.STUDIO_MEDIATEK = media;
 
   // A project, because the chain is resolved through its module vocabulary.
-  put(root, "song/project.yaml", "project:\n  name: t\n  tempo: 120\n");
+  writeDoc(join(root, "song", "project.k7x"), {
+    project: { name: "t", tempo: 120 },
+  });
   // …and the library holding the separator and a chain that names it.
-  put(librariesFixture(root), "modules/config.yaml", "namespace: k7-core\n");
-  put(
-    librariesFixture(root),
-    "modules/audio/stemsplit/module.yaml",
-    "cold: true\nplugin: { type: offline, name: Stem Split }\nparams:\n  onnx: htdemucs.onnx\n",
-  );
-  put(
-    librariesFixture(root),
-    "modules/audio/stemsplit/assets/htdemucs.onnx",
-    "not a model",
-  );
-  put(
-    librariesFixture(root),
-    "chains/stems/graph.yaml",
-    'modules:\n  "@in": [ split ]\n  split: [ "@out" ]\n',
-  );
-  put(
-    librariesFixture(root),
-    "chains/stems/nodes/split.yaml",
-    'extends: "@k7-core/audio/stemsplit"\n',
-  );
+  const lib = librariesFixture(root);
+  const doc = (rel: string, value: Record<string, unknown>) =>
+    writeDoc(join(lib, rel), value);
+  doc("modules/config.k7x", { namespace: "k7-core" });
+  doc("modules/audio/stemsplit/module.k7x", {
+    cold: true,
+    plugin: { type: "offline", name: "Stem Split" },
+    params: { onnx: "htdemucs.onnx" },
+  });
+  put(lib, "modules/audio/stemsplit/assets/htdemucs.onnx", "not a model");
+  doc("chains/stems/graph.k7x", {
+    modules: { "@in": ["split"], split: ["@out"] },
+  });
+  doc("chains/stems/nodes/split.k7x", {
+    extends: "@k7-core/audio/stemsplit",
+  });
   // …and one that treats rather than separates, for the refusal below.
-  put(
-    librariesFixture(root),
-    "modules/audio/eq/module.yaml",
-    "plugin:\n  type: internal\n  name: 4Band EQ\n",
-  );
-  put(
-    librariesFixture(root),
-    "chains/warm/graph.yaml",
-    'modules:\n  "@in": [ hp ]\n  hp: [ "@out" ]\n',
-  );
-  put(
-    librariesFixture(root),
-    "chains/warm/nodes/hp.yaml",
-    'extends: "@k7-core/audio/eq"\n',
-  );
+  doc("modules/audio/eq/module.k7x", {
+    plugin: { type: "internal", name: "4Band EQ" },
+  });
+  doc("chains/warm/graph.k7x", { modules: { "@in": ["hp"], hp: ["@out"] } });
+  doc("chains/warm/nodes/hp.k7x", { extends: "@k7-core/audio/eq" });
 });
 
 afterEach(() => {
@@ -108,11 +95,7 @@ afterEach(() => {
 });
 
 const setList = (...refs: string[]): void =>
-  put(
-    root,
-    "_playlists/ete.yaml",
-    `title: ete\nitems:\n${refs.map((r) => `  - ${r}\n`).join("")}`,
-  );
+  writeDoc(join(root, "_playlists", "ete.k7x"), { title: "ete", items: refs });
 
 describe("playlist stems", () => {
   it("separates every song of the set list, into `stems/` beside each master", async () => {

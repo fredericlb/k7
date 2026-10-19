@@ -1,7 +1,7 @@
 // The crossfade — the library's worked example of a TWO-INPUT module.
 //
 // What can go silently wrong here is the port index. It is the only thing tying the graph to the module file
-// that declares the ports (module.yaml's `inputs:`), and the two never meet: the engine reads the graph with
+// that declares the ports (module.k7x's `inputs:`), and the two never meet: the engine reads the graph with
 // no module in sight and counts `port` to decide how many channels to ask Tracktion for. Get it wrong and the
 // module still loads, still plays its first input, and the second one is silence — which is exactly what a
 // crossfade pushed to one side sounds like when it is working.

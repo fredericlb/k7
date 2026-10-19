@@ -50,7 +50,7 @@ per non-empty video track (`<prefix>N`, skipping taken names), and writes the ev
 Its `Media` class resolves each shot's media: the path as given (relative to the imported file,
 `file://` stripped, URL-decoded, and only if it stays inside the project), else by file name in
 `clips/` (case-insensitive), else `clips/<name>` reported missing. A clip already declaring that
-source is reused; otherwise a new `clips/<stem>.yaml` is written with a unique id.
+source is reused; otherwise a new `clips/<stem>.k7x` is written with a unique id.
 
 ### Interchange details
 

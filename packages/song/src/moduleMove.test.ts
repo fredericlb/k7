@@ -1,7 +1,7 @@
 // Moving a library module: where it may go, and the refs that follow it. Pinned here: a module stays
 // in its library and its type, at most one category deep; an engine never moves alone; and the
-// rewrite repoints the ref in every spelling a file uses without touching a ref it merely prefixes.
-// See docs/moduleMove.md.
+// rewrite repoints the ref wherever a file names it, value or key, without touching a ref it merely
+// prefixes. See docs/moduleMove.md.
 
 import {
   mkdirSync,
@@ -31,10 +31,10 @@ const write = (file: string, text: string) => {
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-move-"));
   lib = { name: "k7-core", root: join(root, "k7-core") };
-  write(join(mod("audio", "delay", "echo"), "module.yaml"), "# Echo\n");
+  write(join(mod("audio", "delay", "echo"), "module.k7x"), "// Echo\n");
   write(
-    join(mod("audio", "delay", "echo", "engines", "x"), "module.yaml"),
-    "# X\n",
+    join(mod("audio", "delay", "echo", "engines", "x"), "module.k7x"),
+    "// X\n",
   );
   mkdirSync(mod("audio", "time"), { recursive: true });
   mkdirSync(mod("instruments"), { recursive: true });
@@ -68,7 +68,7 @@ describe("where a module may go", () => {
     [
       "inside a module",
       () => {
-        write(join(mod("audio", "verb"), "module.yaml"), "# Verb\n");
+        write(join(mod("audio", "verb"), "module.k7x"), "// Verb\n");
         return mod("audio", "verb");
       },
       /not inside another module/,
@@ -92,7 +92,7 @@ describe("where a module may go", () => {
   });
 
   it("refuses to clobber a module of the same name", () => {
-    write(join(mod("audio", "time", "echo"), "module.yaml"), "# Other\n");
+    write(join(mod("audio", "time", "echo"), "module.k7x"), "// Other\n");
     expect(() =>
       planModuleMove(lib, mod("audio", "delay", "echo"), mod("audio", "time")),
     ).toThrow(/already a echo/);
@@ -100,22 +100,29 @@ describe("where a module may go", () => {
 });
 
 describe("repointing the refs", () => {
-  it("rewrites every spelling, and leaves a ref it only prefixes alone", () => {
-    const song = join(root, "song", "nodes", "a.yaml");
+  it("rewrites every value and key naming it, and leaves a ref it only prefixes alone", () => {
+    const song = join(root, "song", "nodes", "a.k7x");
     write(
       song,
       [
-        'extends: "@k7-core/audio/delay/echo"',
-        "alternatives:",
-        "  - extends: @k7-core/audio/delay/echo",
-        '  - extends: "@k7-core/audio/delay/echo-2"',
+        'extends("@k7-core/audio/delay/echo")',
+        "alternatives([",
+        '  extends("@k7-core/audio/delay/echo"),',
+        '  extends("@k7-core/audio/delay/echo-2"),',
+        "])",
         "",
       ].join("\n"),
     );
-    const graph = join(root, "song", "graph.yaml");
+    const graph = join(root, "song", "graph.k7x");
     write(
       graph,
-      "modules:\n  gtr: [ @k7-core/audio/delay/echo:slap, @k7-core/audio/delay/echo#b ]\n",
+      [
+        "modules({",
+        '  gtr: ["@k7-core/audio/delay/echo:slap", "@k7-core/audio/delay/echo#b"],',
+        '  "@k7-core/audio/delay/echo": ["OUT"],',
+        "})",
+        "",
+      ].join("\n"),
     );
     const changed = repointRefs(
       [root],
@@ -125,21 +132,28 @@ describe("repointing the refs", () => {
     expect(changed.sort()).toEqual([graph, song].sort());
     expect(readFileSync(song, "utf8")).toBe(
       [
-        'extends: "@k7-core/audio/time/echo"',
-        "alternatives:",
-        "  - extends: @k7-core/audio/time/echo",
-        '  - extends: "@k7-core/audio/delay/echo-2"',
+        'extends("@k7-core/audio/time/echo")',
+        "alternatives([",
+        '  extends("@k7-core/audio/time/echo"),',
+        '  extends("@k7-core/audio/delay/echo-2"),',
+        "])",
         "",
       ].join("\n"),
     );
-    expect(readFileSync(graph, "utf8")).toContain(
-      "[ @k7-core/audio/time/echo:slap, @k7-core/audio/time/echo#b ]",
+    expect(readFileSync(graph, "utf8")).toBe(
+      [
+        "modules({",
+        '  gtr: ["@k7-core/audio/time/echo:slap", "@k7-core/audio/time/echo#b"],',
+        '  "@k7-core/audio/time/echo": ["OUT"],',
+        "})",
+        "",
+      ].join("\n"),
     );
   });
 
   it("never walks a song's history or the recycle bin", () => {
-    const old = join(root, "song", "_history", "x.yaml");
-    write(old, 'extends: "@k7-core/audio/delay/echo"\n');
+    const old = join(root, "song", "_history", "x.k7x");
+    write(old, 'extends("@k7-core/audio/delay/echo")\n');
     expect(
       repointRefs(
         [root],
@@ -160,14 +174,14 @@ describe("renaming inside a library", () => {
   });
 
   it("repoints every ref UNDER a renamed folder, and nothing it only prefixes", () => {
-    const song = join(root, "song", "nodes", "a.yaml");
+    const song = join(root, "song", "nodes", "a.k7x");
     write(
       song,
-      'extends: "@k7-core/audio/delay/echo"\n# @k7-core/audio/delayed/x\nb: @k7-core/audio/delay\n',
+      'extends("@k7-core/audio/delay/echo")\n// @k7-core/audio/delayed/x\nb("@k7-core/audio/delay")\nc("@k7-core/audio/delayed/x")\n',
     );
     repointRefs([root], "@k7-core/audio/delay", "@k7-core/audio/time", true);
     expect(readFileSync(song, "utf8")).toBe(
-      'extends: "@k7-core/audio/time/echo"\n# @k7-core/audio/delayed/x\nb: @k7-core/audio/time\n',
+      'extends("@k7-core/audio/time/echo")\n// @k7-core/audio/delayed/x\nb("@k7-core/audio/time")\nc("@k7-core/audio/delayed/x")\n',
     );
   });
 

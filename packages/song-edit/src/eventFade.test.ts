@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse } from "@studio/k7x/document";
 import { compileNodeProject } from "@studio/song/nodeProject";
 import {
   beatsToPosition,
@@ -30,18 +31,21 @@ const dirs: string[] = [];
 const trackDir = (body: string): string => {
   const dir = mkdtempSync(join(tmpdir(), "td-fade-"));
   mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(join(dir, "nodes", "drums.yaml"), body, "utf8");
+  writeFileSync(join(dir, "nodes", "drums.k7x"), body, "utf8");
   dirs.push(dir);
   return dir;
 };
 const laneText = (dir: string) =>
-  readFileSync(join(dir, "nodes", "drums.yaml"), "utf8");
+  readFileSync(join(dir, "nodes", "drums.k7x"), "utf8");
 
-const LANE = `extends: "@meta/track"
-events:
-  - { ref: kick, start: "1:1" }
-  - { ref: break, start: "2:1", loop: 2 }
+const LANE = `extends("@meta/track")
+events([
+  ref("kick").start("1:1"),
+  ref("break").start("2:1").loop(2),
+])
 `;
+const events = (dir: string) =>
+  parse(laneText(dir)).events as Record<string, unknown>[];
 
 afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
@@ -55,15 +59,14 @@ describe("setTrackPlacementFade", () => {
     expect(
       setTrackPlacementFade(dir, "drums", at("2:1"), NUM, DEN, "fadeIn", 1),
     ).toBe(true);
-    const text = laneText(dir);
-    expect(text).toMatch(/ref: break[^\n]*fadeIn:/);
-    expect(text).not.toMatch(/ref: kick[^\n]*fade/);
+    expect(events(dir)[1].fadeIn).toBeDefined();
+    expect(events(dir)[0]).toEqual({ ref: "kick", start: "1:1" });
   });
 
   it("spells a fade as a DURATION, not as a position", () => {
     const dir = trackDir(LANE);
     setTrackPlacementFade(dir, "drums", at("1:1"), NUM, DEN, "fadeIn", 1);
-    const written = /fadeIn:\s*"([^"]+)"/.exec(laneText(dir))?.[1] ?? "";
+    const written = String(events(dir)[0].fadeIn);
     // The ROUND TRIP rather than the spelling: the same beats as a POSITION would be "1:2".
     expect(parseDuration(written, NUM, DEN)).toBeCloseTo(1, 6);
     expect(written).not.toBe(beatsToPosition(1, NUM, DEN));
@@ -72,7 +75,7 @@ describe("setTrackPlacementFade", () => {
   it("round-trips a fade longer than a bar", () => {
     const dir = trackDir(LANE);
     setTrackPlacementFade(dir, "drums", at("1:1"), NUM, DEN, "fadeOut", 6);
-    const written = /fadeOut:\s*"([^"]+)"/.exec(laneText(dir))?.[1] ?? "";
+    const written = String(events(dir)[0].fadeOut);
     expect(parseDuration(written, NUM, DEN)).toBeCloseTo(6, 6);
   });
 
@@ -80,25 +83,27 @@ describe("setTrackPlacementFade", () => {
     const dir = trackDir(LANE);
     setTrackPlacementFade(dir, "drums", at("1:1"), NUM, DEN, "fadeIn", 1);
     setTrackPlacementFade(dir, "drums", at("1:1"), NUM, DEN, "fadeOut", 2);
-    const text = laneText(dir);
-    expect(text).toMatch(/fadeIn:/);
-    expect(text).toMatch(/fadeOut:/);
+    expect(Object.keys(events(dir)[0])).toEqual([
+      "ref",
+      "start",
+      "fadeIn",
+      "fadeOut",
+    ]);
   });
 
   it("a fade of zero DELETES the key — open and closed leaves the file untouched", () => {
     const dir = trackDir(LANE);
     const before = laneText(dir);
     setTrackPlacementFade(dir, "drums", at("2:1"), NUM, DEN, "fadeIn", 2);
-    expect(laneText(dir)).toMatch(/fadeIn:/);
+    expect(events(dir)[1].fadeIn).toBeDefined();
     setTrackPlacementFade(dir, "drums", at("2:1"), NUM, DEN, "fadeIn", 0);
-    expect(laneText(dir)).not.toMatch(/fadeIn:/);
     expect(laneText(dir)).toBe(before);
   });
 
   it("a negative fade is a zero one, not a written negative", () => {
     const dir = trackDir(LANE);
     setTrackPlacementFade(dir, "drums", at("1:1"), NUM, DEN, "fadeIn", -3);
-    expect(laneText(dir)).not.toMatch(/fadeIn:/);
+    expect(laneText(dir)).toBe(LANE);
   });
 
   it("says no when nothing is at that beat, and writes nothing", () => {

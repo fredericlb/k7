@@ -17,6 +17,7 @@ import {
 import { askChoice, askTextAction } from "@studio/project-shell/ask";
 import { useCallback, useRef, useState } from "react";
 import { claudeCodePrompt, whereIs } from "./claudeCodePrompt";
+import { hasLcd } from "./moduleUi";
 
 /** The dialog's second button: the prompt on the clipboard, for a Claude Code session to write the files. */
 const COPY = "claude-code";
@@ -30,9 +31,9 @@ export type AiOrganizeCall = (
 export function useAiOrganize({
   call,
   module,
-  moduleYaml,
+  moduleText,
   params,
-  uiYaml,
+  uiText,
   widgetsJs,
   canWriteScript,
   uiPath,
@@ -43,9 +44,9 @@ export function useAiOrganize({
 }: {
   call?: AiOrganizeCall;
   module: string;
-  moduleYaml: string;
+  moduleText: string;
   params: readonly AiParam[];
-  uiYaml: string;
+  uiText: string;
   widgetsJs: string;
   /** Whether the host serves a widgets.js at all; without one, a screen would have nothing to draw it. */
   canWriteScript: boolean;
@@ -65,7 +66,7 @@ export function useAiOrganize({
     if (!call || busy) return;
     // A panel that lays something out is asked about first: change it, or start again — docs/aiOrganize.md.
     let mode: AiOrganizeMode = "reset";
-    if (hasLayout(uiYaml)) {
+    if (hasLayout(uiText)) {
       const how = await askChoice({
         title: "AI organize",
         body: "This module already has a panel. Update it — Claude changes what you describe and keeps the rest — or reset it, and Claude designs a new one from the parameters alone.",
@@ -96,7 +97,7 @@ export function useAiOrganize({
         : {
             title: "AI organize",
             body: `Claude draws a new panel from the ${params.length} parameters, with screens where a picture helps.${
-              uiYaml.trim()
+              uiText.trim()
                 ? " It REPLACES the panel and widgets.js; Ctrl+Z in the code brings them back."
                 : ""
             }\nAnything in particular? Leave empty to let it choose.`,
@@ -109,9 +110,9 @@ export function useAiOrganize({
     if (asked == null) return;
     const req: AiOrganizeRequest = {
       module,
-      moduleYaml,
+      moduleText,
       params: params.map(({ name, meta, value }) => ({ name, meta, value })),
-      uiYaml,
+      uiText,
       widgetsJs,
       mode,
       direction: asked.value,
@@ -139,16 +140,16 @@ export function useAiOrganize({
       const res = await call(req, setBusy);
       const { ui, issues } = checkAiResult(
         res,
-        bindableNames({ params, moduleYaml }),
+        bindableNames({ params, moduleText }),
         req,
       );
       if (!ui || issues.length) throw new Error(issues.join("; "));
-      const screens = /\btype:\s*lcdscreen\b/.test(res.uiYaml);
+      const screens = hasLcd(ui);
       if (screens && !canWriteScript)
         throw new Error(
           "the panel draws screens and this host keeps no widgets.js",
         );
-      latest.current.onPanel(res.uiYaml);
+      latest.current.onPanel(res.uiText);
       // A panel with no screen leaves widgets.js alone: an emptied stub would be saved as an empty file.
       if (screens) latest.current.onScript(res.widgetsJs);
       latest.current.setStatus(
@@ -163,9 +164,9 @@ export function useAiOrganize({
     call,
     busy,
     module,
-    moduleYaml,
+    moduleText,
     params,
-    uiYaml,
+    uiText,
     widgetsJs,
     canWriteScript,
     uiPath,

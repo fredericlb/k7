@@ -38,7 +38,7 @@ import {
 import { assetLookup, moduleAssetChoices } from "./moduleAssetChoices";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
 import { loadPreferences } from "./preferences";
-import { wsExists } from "./yaml/workspaceFile";
+import { K7X_EXT, wsExists } from "./yaml/workspaceFile";
 
 export interface Hints {
   baseModules: string[]; // plugin module refs a module can `extends` ("type/name", "@ns/type/name")
@@ -55,7 +55,7 @@ export interface Hints {
   videoTracks: string[];
   sequences: string[];
   chains: string[];
-  curves: string[]; // automation curve ids (curves/<id>.yaml) — for pinning a module's automations
+  curves: string[]; // automation curve ids (curves/<id>.k7x) — for pinning a module's automations
   // What each module's file-valued params may be set to, keyed by the chain `use` ref — see docs/hints.md.
   moduleAssets: Record<string, string[]>;
   paramsByBase: Record<string, string[]>; // base ref -> known param names (open — new ones still allowed)
@@ -70,7 +70,7 @@ export interface Hints {
       symbols: { symbol: string; note: number; from?: number; to?: number }[];
     }
   >;
-  keywords: string[]; // words YAML gives meaning to
+  keywords: string[]; // words k7x gives meaning to
   // Scanned plugin names by format, filled by the file service from `<state>/exts.json`.
   pluginNames: Record<string, string[]>;
   // "kind:name" -> the project-relative file that defines the entity — see docs/hints.md.
@@ -113,8 +113,8 @@ function scanMedia(dir: string): Record<string, string[]> {
   return media;
 }
 
-// The words YAML gives meaning to, offered so they are completed rather than mistyped — see docs/hints.md.
-const YAML_KEYWORDS = ["true", "false", "null", "on", "off", "yes", "no"];
+// The words k7x gives meaning to, offered so they are completed rather than mistyped — see docs/hints.md.
+const K7X_KEYWORDS = ["true", "false", "null"];
 
 const safe = <T>(f: () => T, dflt: T): T => {
   try {
@@ -216,15 +216,9 @@ function projectHintsIn(dir: string): Hints {
 
   // Where each entity is defined, for editor "open the file" links — see docs/hints.md.
   const paths: Record<string, string> = {};
-  // Both spellings are tried and the one on disk wins.
   const addPath = (kind: string, name: string, stem: string) => {
-    for (const ext of ["yaml", "yml"]) {
-      const rel = `${stem}.${ext}`;
-      if (wsExists(join(dir, rel))) {
-        paths[`${kind}:${name}`] = rel;
-        return;
-      }
-    }
+    const rel = `${stem}${K7X_EXT}`;
+    if (wsExists(join(dir, rel))) paths[`${kind}:${name}`] = rel;
   };
   // "module:" keys by the chain `use` ref — a node's own file, see docs/hints.md.
   for (const [key, b] of Object.entries<any>(modules))
@@ -311,7 +305,7 @@ function projectHintsIn(dir: string): Hints {
     paramsByBase,
     paramMetaByBase,
     racks,
-    keywords: YAML_KEYWORDS,
+    keywords: K7X_KEYWORDS,
     pluginNames: {},
     paths,
     media: safe(() => scanMedia(dir), {} as Record<string, string[]>),

@@ -1,17 +1,12 @@
 import { spawnSync } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runCommand } from "@studio/commands/commandSpec";
 import { installServerSide } from "@studio/k7-sdk/install";
 import { loadModules } from "@studio/song/loader";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { transcriptionPlugin } from "./index";
 
@@ -65,18 +60,10 @@ const makeVideo = (at: string): void => {
 };
 
 const stage = (): void => {
-  mkdirSync(join(song, "video_tracks"), { recursive: true });
-  mkdirSync(join(song, "clips"), { recursive: true });
-  writeFileSync(
-    join(song, "video_tracks", "cam.yaml"),
-    "# the camera\nevents:\n  - { ref: intro, start: 0, length: 0 }\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(song, "clips", "intro.yaml"),
-    "source: clips/intro.mp4\n",
-    "utf8",
-  );
+  writeDoc(join(song, "video_tracks", "cam.k7x"), {
+    events: [{ ref: "intro", start: 0, length: 0 }],
+  });
+  writeDoc(join(song, "clips", "intro.k7x"), { source: "clips/intro.mp4" });
   makeVideo(join(song, "clips", "intro.mp4"));
 };
 
@@ -111,18 +98,12 @@ afterEach(() => {
 
 describe("track transcribe", () => {
   it("refuses a video a clip names outside the project", async () => {
-    mkdirSync(join(song, "video_tracks"), { recursive: true });
-    mkdirSync(join(song, "clips"), { recursive: true });
-    writeFileSync(
-      join(song, "video_tracks", "cam.yaml"),
-      "events:\n  - { ref: intro, start: 0, length: 0 }\n",
-      "utf8",
-    );
-    writeFileSync(
-      join(song, "clips", "intro.yaml"),
-      "source: ../../elsewhere/intro.mp4\n",
-      "utf8",
-    );
+    writeDoc(join(song, "video_tracks", "cam.k7x"), {
+      events: [{ ref: "intro", start: 0, length: 0 }],
+    });
+    writeDoc(join(song, "clips", "intro.k7x"), {
+      source: "../../elsewhere/intro.mp4",
+    });
     await runCommand("track transcribe cam lyrics", host(), "cli");
     expect(refusals.join("\n")).toMatch(/outside the project/);
   });
@@ -132,12 +113,11 @@ describe("track transcribe", () => {
     async () => {
       stage();
       await runCommand("track transcribe cam lyrics", host(), "cli");
-      const nodeFile = join(song, "nodes", "lyrics.yaml");
+      const nodeFile = join(song, "nodes", "lyrics.k7x");
       expect(existsSync(nodeFile)).toBe(true);
-      const body = readFileSync(nodeFile, "utf8");
-      expect(body).toContain("content:");
-      expect(body).toContain("hello from the fake whisper");
-      expect(body).toContain("00:00:00,000 --> 00:00:00,900");
+      const content = String(wsData(nodeFile).content);
+      expect(content).toContain("hello from the fake whisper");
+      expect(content).toContain("00:00:00,000 --> 00:00:00,900");
       // The lane is a module like any other, so the loader answers its content by bare name.
       expect(loadModules(song).lyrics?.content).toContain(
         "hello from the fake whisper",
@@ -150,16 +130,14 @@ describe("track transcribe", () => {
     "replaces the content of a track that already existed",
     async () => {
       stage();
-      mkdirSync(join(song, "nodes"), { recursive: true });
-      writeFileSync(
-        join(song, "nodes", "lyrics.yaml"),
-        'extends: "@meta/doc"\ncontent: |\n  the old note\n',
-        "utf8",
-      );
+      writeDoc(join(song, "nodes", "lyrics.k7x"), {
+        extends: "@meta/doc",
+        content: "the old note\n",
+      });
       await runCommand("track transcribe cam lyrics", host(), "cli");
-      const body = readFileSync(join(song, "nodes", "lyrics.yaml"), "utf8");
-      expect(body).toContain("hello from the fake whisper");
-      expect(body).not.toContain("the old note");
+      const content = String(wsData(join(song, "nodes", "lyrics.k7x")).content);
+      expect(content).toContain("hello from the fake whisper");
+      expect(content).not.toContain("the old note");
       expect(logs.join(" ")).toMatch(/already existed/);
     },
   );
@@ -167,30 +145,21 @@ describe("track transcribe", () => {
   it("refuses a lane that is not there, or one placing nothing", async () => {
     await runCommand("track transcribe nope lyrics", host(), "cli");
     expect(refusals.join(" ")).toMatch(/no picture lane "nope"/);
-    mkdirSync(join(song, "video_tracks"), { recursive: true });
-    writeFileSync(
-      join(song, "video_tracks", "cam.yaml"),
-      "events:\n  - { start: 0, length: 4 }\n", // an ACTIVATION: no ref, no video
-      "utf8",
-    );
+    // An ACTIVATION: no ref, no video.
+    writeDoc(join(song, "video_tracks", "cam.k7x"), {
+      events: [{ start: 0, length: 4 }],
+    });
     await runCommand("track transcribe cam lyrics", host(), "cli");
     expect(refusals.join(" ")).toMatch(/places no shot/);
   });
 
   it("refuses a clip with no video on disk before whisper runs", async () => {
-    mkdirSync(join(song, "video_tracks"), { recursive: true });
-    mkdirSync(join(song, "clips"), { recursive: true });
-    writeFileSync(
-      join(song, "video_tracks", "cam.yaml"),
-      "events:\n  - { ref: intro, start: 0, length: 0 }\n",
-      "utf8",
-    );
-    writeFileSync(
-      join(song, "clips", "intro.yaml"),
-      "source: clips/intro.mp4\n",
-    );
+    writeDoc(join(song, "video_tracks", "cam.k7x"), {
+      events: [{ ref: "intro", start: 0, length: 0 }],
+    });
+    writeDoc(join(song, "clips", "intro.k7x"), { source: "clips/intro.mp4" });
     await runCommand("track transcribe cam lyrics", host(), "cli");
     expect(refusals.join(" ")).toMatch(/not on this machine/);
-    expect(existsSync(join(song, "nodes", "lyrics.yaml"))).toBe(false);
+    expect(existsSync(join(song, "nodes", "lyrics.k7x"))).toBe(false);
   });
 });

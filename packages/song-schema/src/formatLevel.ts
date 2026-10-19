@@ -1,5 +1,5 @@
 // formatLevel.ts — the project FORMAT LEVEL: the level this k7 reads and writes, the level a project
-// root file declares (`format: N`, k7x `format(N)`, absent meaning 1), and the refusal a newer one
+// root file declares (`format(N)`, absent meaning 1), and the refusal a newer one
 // meets. What a reader gets wrong: the level is read off the RAW text, before any parse, because a
 // newer file may use syntax this build cannot parse. No `node:fs`. Rationale: docs/formatLevel.md.
 
@@ -27,8 +27,8 @@ export class FormatTooNewError extends Error {
   }
 }
 
-// A top-level `format: N` (YAML) or `format(N)` (k7x) at the start of a line.
-const FORMAT_LINE = /^["']?format["']?\s*(?::\s*|\(\s*)(\d+)/m;
+// A top-level `format(N)` at the start of a line.
+const FORMAT_LINE = /^["']?format["']?\s*\(\s*(\d+)/m;
 
 /** The level a root file's raw text declares, or null when it declares none. */
 export function formatLevelOfText(text: string): number | null {

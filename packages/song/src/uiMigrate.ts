@@ -1,23 +1,21 @@
-// uiMigrate.ts — move the `ui:` blocks that still live inside module files out into a `ui.yaml` beside each
-// one. A one-shot, re-runnable: a module with no `ui:` left is already migrated and is skipped, so running it
+// uiMigrate.ts — move the `ui` blocks that still live inside module files out into a `ui.k7x` beside each
+// one. A one-shot, re-runnable: a module with no `ui` left is already migrated and is skipped, so running it
 // twice does nothing the first run didn't. Rationale: docs/uiLibrary.md.
 
-import { readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { setModuleValue } from "@studio/song-schema/yaml/moduleFile";
 import { type ModuleUI, UISchema } from "@studio/song-schema/yaml/moduleSchema";
-import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
-import { parse as parseYaml } from "yaml";
 import { MODULE_TYPES } from "./loader";
 import { moduleNamespaceOf } from "./sharedFolders";
 import { writeUiFile } from "./uiLibrary";
 import { moduleFileFor } from "./yaml/moduleIO";
-import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
+import { wsData, wsEdit } from "./yaml/workspaceDoc";
 
 export interface UiMigration {
   /** Panels written, as `<ref> → <library>/<path>`. */
   moved: string[];
-  /** Module files that had no `ui:` to move, or whose panel was already in the library. */
+  /** Module files that had no `ui` to move, or whose panel was already in the library. */
   skipped: string[];
   errors: string[];
 }
@@ -38,7 +36,7 @@ function candidatesIn(
   const out: Candidate[] = [];
   for (const type of Object.keys(MODULE_TYPES)) {
     const typeDir = join(base, type);
-    if (!wsExists(typeDir) || !statSync(typeDir).isDirectory()) continue;
+    if (!existsSync(typeDir) || !statSync(typeDir).isDirectory()) continue;
     const visit = (folder: string, sub: string): void => {
       const file = moduleFileFor(folder, "", "module");
       if (file) {
@@ -62,14 +60,14 @@ function candidatesIn(
   return out;
 }
 
-/** Move every inline `ui:` into the `ui.yaml` beside its module, as a one-key diff — docs/uiLibrary.md. */
+/** Move every inline `ui` into the `ui.k7x` beside its module, as a one-key diff — docs/uiLibrary.md. */
 export function migrateModuleUis(dir: string): UiMigration {
   const out: UiMigration = { moved: [], skipped: [], errors: [] };
 
   const roots: { base: string; ns: string; label: string }[] = [];
   // Nothing left to declare, so the folder existing is the whole condition (docs/sharedFolders.md).
   const shared = join(dir, "..", "_modules");
-  if (wsExists(shared))
+  if (existsSync(shared))
     roots.push({
       base: shared,
       ns: moduleNamespaceOf(shared),
@@ -77,19 +75,17 @@ export function migrateModuleUis(dir: string): UiMigration {
     });
 
   for (const { base, ns, label } of roots) {
-    if (!wsExists(base)) continue;
     const rel = (p: string) =>
       `${label}/${relative(base, p).split(sep).join("/")}`;
     for (const c of candidatesIn(base, ns, rel)) {
-      let text: string;
+      let raw: unknown;
       try {
-        text = wsRead(c.path);
+        // Read SCHEMA-FREE, so an otherwise invalid module's panel is still rescued.
+        raw = wsData(c.path).ui ?? null;
       } catch (e) {
         out.errors.push(`${c.label}: ${(e as Error).message}`);
         continue;
       }
-      // Read out of the PARSED file, so an anchor or a flow map arrives as a value, not a substring.
-      const raw = readInlineUi(text);
       if (!raw) {
         out.skipped.push(c.label);
         continue;
@@ -108,7 +104,7 @@ export function migrateModuleUis(dir: string): UiMigration {
           parsed.data as ModuleUI,
           `panel for ${c.ref}`,
         );
-        wsWrite(c.path, setModuleValue(text, ["ui"], null));
+        wsEdit(c.path, (doc) => setModuleValue(doc.at([]), ["ui"], null));
         out.moved.push(
           `${c.ref} → ${label}/${relative(base, written).split(sep).join("/")}`,
         );
@@ -118,10 +114,4 @@ export function migrateModuleUis(dir: string): UiMigration {
     }
   }
   return out;
-}
-
-/** The file's own `ui:` block, read SCHEMA-FREE so an otherwise invalid module's panel is still rescued. */
-function readInlineUi(text: string): unknown {
-  const doc = parseYaml(text, YAML_READ) as { ui?: unknown } | null;
-  return doc?.ui ?? null;
 }

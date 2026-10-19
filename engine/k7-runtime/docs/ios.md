@@ -12,6 +12,7 @@ protocol on port 8765, and the screen is k7, full screen, in a view of its own. 
 | one file-service process per account | one worker thread per account (`packages/file-hub/workerChild.ts`) | no iOS app may start a process |
 | the backend, a process relaunched on a backoff | the backend, a WORKER of `backend-boot.mjs`, relaunched on the same backoff | node runs once per process, and its `process.env` is the app's own environment |
 | the engine, `libk7runtime.so`, on a thread whose Looper is JUCE's | `k7runtime.framework`, on a thread whose run loop is JUCE's | the engine is a library on both phones |
+| the k7x reader and the waveform measure as WebAssembly, inside `@studio/k7x` and `@studio/audio-analysis` | `k7x.framework`, the one Node-API addon `BackendHost.swift` names in `K7X_ADDON`, which carries both | a JIT-less V8 has no WebAssembly (`packages/k7x/docs/rust.md`, `packages/audio-analysis/docs/analysis.md`) |
 | Android's CAs, read from the system's folders | a CA bundle the app ships (`cacert.pem`, Mozilla's set as curl publishes it) | iOS lets no app list its trusted roots |
 | foreground services while busy | background audio, released while idle | iOS keeps a running audio app alive, and suspends one that stops |
 
@@ -52,7 +53,7 @@ its own tag (`[host]`, `[engine]`, `files |`). An app's own streams reach no Con
 |---|---|
 | frameworks, not static libraries, for the engine and the supervisor | the linker folds every archive each one links into it, with no list of dependency targets to keep in step; and they are the `.so` files Android loads |
 | NodeMobile from `fogtape/nodejs-mobile`, pinned by file and SHA-256 in `engine/k7-ios/scripts/pins.json` | the original nodejs-mobile stops at Node 18; the backend is bundled for node24 and imports `node:sqlite`. This one is built from the official tag (24.21.0), full flavour, since lite drops SQLite. A single maintainer, so it is never trusted at build time: a mismatch fails the stage |
-| NodeMobile's V8 is JIT-less | Apple allows no JIT to an app. Measured below, it is no obstacle to a server of YAML and HTTP |
+| NodeMobile's V8 is JIT-less | Apple allows no JIT to an app. Measured below, it is no obstacle to a server of k7x files and HTTP |
 | the CA bundle pinned the same way | the supervisor's mbedTLS needs roots as PEM, and iOS gives none; a studio behind a private CA is the user's to add, as on Android |
 | the bundle's files read where they lie, in the app bundle | an app bundle is a folder of real files, so nothing is unpacked: no `backend.zip`, no first-run percentage, no copy of Faust's libraries |
 | cleartext to loopback only (`NSAllowsLocalNetworking`) | the phone's own studio is plain http, as on desktop; every other host stays https |

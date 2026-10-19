@@ -31,7 +31,7 @@ import { DeviceTokens } from "./deviceTokens.ts";
 import { attachSyncRelay, SYNC_PATH } from "./syncRelay.ts";
 
 const SECRETS = new Set(["secret-a", "secret-b"]);
-const MIX = "plugin: mixer\nparams:\n  gain: 0.5\n";
+const MIX = 'plugin("mixer")\nparams({ gain: 0.5 })\n';
 
 const cleanup: (() => void)[] = [];
 afterEach(() => {
@@ -150,10 +150,10 @@ const same = (root: string, rel: string, want: Buffer) => () =>
 describe("binary files over k7fs", () => {
   it("brings a take written on one machine to another, then its replacement", async () => {
     const { url } = await hub();
-    const a = device(url, { secret: "secret-a" }, { "mix.yaml": MIX });
+    const a = device(url, { secret: "secret-a" }, { "mix.k7x": MIX });
     await until(() => a.replica.head === 1);
     const b = device(url, { secret: "secret-b" }, {});
-    await until(() => bytesAt(b.root, "mix.yaml")?.toString() === MIX);
+    await until(() => bytesAt(b.root, "mix.k7x")?.toString() === MIX);
 
     const take = randomBytes(200_000);
     put(a.root, "song.k7/takes/take.wav", take);
@@ -172,7 +172,7 @@ describe("binary files over k7fs", () => {
     const a = device(
       url,
       { secret: "secret-a" },
-      { "mix.yaml": MIX, "presets/lead.fxp": preset, "irs/room.wav": amp },
+      { "mix.k7x": MIX, "presets/lead.fxp": preset, "irs/room.wav": amp },
     );
     await until(() => a.replica.head === 1);
     const b = device(url, { secret: "secret-b" }, {});
@@ -182,7 +182,7 @@ describe("binary files over k7fs", () => {
 
   it("lets a machine join with audio of its own: sent to the room, and to the others", async () => {
     const { url, tokens } = await hub();
-    const server = device(url, { secret: "secret-a" }, { "mix.yaml": MIX });
+    const server = device(url, { secret: "secret-a" }, { "mix.k7x": MIX });
     await until(() => server.replica.head === 1);
     const mine = randomBytes(60_000);
     const { token } = tokens.mint("acct", "laptop");
@@ -196,7 +196,7 @@ describe("binary files over k7fs", () => {
     const a = device(
       url,
       { secret: "secret-a" },
-      { "mix.yaml": MIX, "irs/room.wav": amp },
+      { "mix.k7x": MIX, "irs/room.wav": amp },
     );
     await until(() => a.replica.head === 1);
     const store = join(dataRoot, "acct", ".sync-blobs");
@@ -214,16 +214,16 @@ describe("binary files over k7fs", () => {
     const { url } = await hub((req, res, next) =>
       req.method === "PUT" ? void res.status(413).send("too big") : next(),
     );
-    const a = device(url, { secret: "secret-a" }, { "mix.yaml": MIX });
+    const a = device(url, { secret: "secret-a" }, { "mix.k7x": MIX });
     await until(() => a.replica.head === 1);
     const b = device(url, { secret: "secret-b" }, {});
-    await until(() => bytesAt(b.root, "mix.yaml")?.toString() === MIX);
+    await until(() => bytesAt(b.root, "mix.k7x")?.toString() === MIX);
 
     put(a.root, "takes/huge.wav", randomBytes(50_000));
     await new Promise((r) => setTimeout(r, 300));
     const after = MIX.replace("0.5", "0.8");
-    put(a.root, "mix.yaml", after);
-    await until(() => bytesAt(b.root, "mix.yaml")?.toString() === after);
+    put(a.root, "mix.k7x", after);
+    await until(() => bytesAt(b.root, "mix.k7x")?.toString() === after);
   }, 30_000);
 
   it("keeps downloading while blobs the store never had wait their turn", async () => {
@@ -237,7 +237,7 @@ describe("binary files over k7fs", () => {
         ? void res.status(404).end()
         : next(),
     );
-    const files: Record<string, Buffer | string> = { "mix.yaml": MIX };
+    const files: Record<string, Buffer | string> = { "mix.k7x": MIX };
     missing.forEach((m, i) => {
       files[`takes/a${i}.wav`] = m;
     });

@@ -20,7 +20,7 @@ const frame = (b: unknown): string =>
 
 describe("isSyncPath", () => {
   it("accepts a relative POSIX path", () => {
-    for (const p of ["a.yaml", "song.k7/tracks/1.yaml", ".k7/x", "a..b/c"])
+    for (const p of ["a.k7x", "song.k7/tracks/1.k7x", ".k7/x", "a..b/c"])
       expect(isSyncPath(p), p).toBe(true);
   });
 
@@ -52,9 +52,9 @@ describe("parseToRelay", () => {
       { kind: "text", file: "a.md", text: "x", was: null },
       { kind: "remove", file: "b.md" },
       {
-        kind: "yaml",
-        file: "c.yaml",
-        ops: [{ op: "set", path: ["k"], yaml: "1" }],
+        kind: "k7x",
+        file: "c.k7x",
+        ops: [{ op: "set", path: ["k"], k7x: "1", after: null }],
       },
       { kind: "k7x", file: "d.k7x", ops: [{ op: "delete", path: ["k"] }] },
     ]);
@@ -68,9 +68,14 @@ describe("parseToRelay", () => {
       batch([{ kind: "text", text: "x" }]),
       batch([{ kind: "text", file: "a.md" }]),
       batch([{ kind: "nope", file: "a.md" }]),
-      batch([{ kind: "yaml", file: "a.yaml", ops: [null] }]),
+      batch([{ kind: "k7x", file: "a.k7x", ops: [null] }]),
+      batch([{ kind: "k7x", file: "a.k7x", ops: [{ op: "set", path: [1] }] }]),
       batch([
-        { kind: "yaml", file: "a.yaml", ops: [{ op: "set", path: [1] }] },
+        {
+          kind: "yaml",
+          file: "c.yaml",
+          ops: [{ op: "set", path: ["k"], yaml: "1" }],
+        },
       ]),
       batch([
         {

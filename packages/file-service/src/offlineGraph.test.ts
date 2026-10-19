@@ -9,6 +9,7 @@
 // knob that moves and changes nothing.
 
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -18,7 +19,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { copyAsYaml } from "@studio/song/testSupport";
+import { writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildGraphDoc } from "./graphDoc";
 
@@ -32,18 +33,16 @@ let dir: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "fs-offline-"));
   dir = join(root, "synth-demo.k7");
-  copyAsYaml(SONG, dir, { recursive: true });
+  cpSync(SONG, dir, { recursive: true });
   // The demo's own "synth" lives at `@workspace`, its sibling in the Examples workspace.
   const demoModules = join(DEMOS, "_modules");
   if (existsSync(demoModules))
-    copyAsYaml(demoModules, join(root, "_modules"), { recursive: true });
-  const folder = join(root, "_modules", "instruments", "synth");
-  mkdirSync(folder, { recursive: true });
-  writeFileSync(
-    join(folder, "module.yaml"),
-    "cold: true\nplugin:\n  type: offline\n  name: Tempo\nparams:\n  Target BPM: 0\n",
-    "utf8",
-  );
+    cpSync(demoModules, join(root, "_modules"), { recursive: true });
+  writeDoc(join(root, "_modules", "instruments", "synth", "module.k7x"), {
+    cold: true,
+    plugin: { type: "offline", name: "Tempo" },
+    params: { "Target BPM": 0 },
+  });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -71,12 +70,13 @@ describe("an offline module in the graph", () => {
 // The right-click's "Download model": offered on a node whose model is missing AND whose module says where it lives.
 describe("a module that needs a model", () => {
   let models: string;
-  const needsModel = (extra: string) =>
-    writeFileSync(
-      join(root, "_modules", "instruments", "synth", "module.yaml"),
-      `cold: true\nplugin:\n  type: offline\n  name: Stem Split\nparams:\n  onnx: htdemucs.onnx\n${extra}`,
-      "utf8",
-    );
+  const needsModel = (extra: Record<string, unknown>) =>
+    writeDoc(join(root, "_modules", "instruments", "synth", "module.k7x"), {
+      cold: true,
+      plugin: { type: "offline", name: "Stem Split" },
+      params: { onnx: "htdemucs.onnx" },
+      ...extra,
+    });
   beforeEach(() => {
     models = join(root, "models");
     mkdirSync(models, { recursive: true });
@@ -87,7 +87,7 @@ describe("a module that needs a model", () => {
   });
 
   it("carries what to download, when the model is missing and model_url says where", () => {
-    needsModel("model_url: https://models.example/htdemucs.onnx\n");
+    needsModel({ model_url: "https://models.example/htdemucs.onnx" });
     expect(lead()?.modelDownload).toEqual({
       file: "htdemucs.onnx",
       url: "https://models.example/htdemucs.onnx",
@@ -95,12 +95,12 @@ describe("a module that needs a model", () => {
   });
 
   it("carries nothing without a model_url — there is nothing to offer", () => {
-    needsModel("");
+    needsModel({});
     expect(lead()?.modelDownload).toBeUndefined();
   });
 
   it("carries nothing once the model is on the machine", () => {
-    needsModel("model_url: https://models.example/htdemucs.onnx\n");
+    needsModel({ model_url: "https://models.example/htdemucs.onnx" });
     writeFileSync(join(models, "htdemucs.onnx"), "a model");
     expect(lead()?.modelDownload).toBeUndefined();
   });

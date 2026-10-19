@@ -1,11 +1,11 @@
 # `projectEdit.ts` — changing a project in its own vocabulary
 
 `projectEdit.ts` is the layer that turns "set `Filter Freq` on module `synth`" into a write:
-it finds the file a NAME lives in and hands the change to the YAML writer for that kind of
+it finds the file a NAME lives in and hands the change to the k7x writer for that kind of
 file. It is not `yaml/edit.ts`, the file primitive — this one knows modules, nodes, clips and
-chains, and nothing about YAML beyond calling a writer. Every write changes the value and
-nothing else: comments, key order and layout all survive, and no format pass runs afterwards
-because the writers emit canonical output.
+chains, and nothing about the format beyond handing a writer the document. Every writer takes a
+`K7Scope` — the file's root, or a chain item's — and sets values in it, so every write changes
+the value and nothing else: comments, key order and layout all survive.
 
 This page holds the reasoning behind the functions.
 
@@ -107,7 +107,7 @@ the place that turns a name into a path is where it belongs. `materialRefOf` ret
 material name unchanged, so a hand-typed one is untouched.
 
 `missingClip` names BOTH the id and the file it looked for. For a placement the id is the one
-string that is NOT the file's name — `sy.chrpan2_…@106` against `clips/sy.chrpan2_….yaml` — and
+string that is NOT the file's name — `sy.chrpan2_…@106` against `clips/sy.chrpan2_….k7x` — and
 naming both is what turns "this is broken" into "that file is gone".
 
 Two more rules in that section. Onset corrections that cancel out take the `onsets:` key away
@@ -123,8 +123,8 @@ came from and is written only because the schema requires it.
 
 `graphFileOf` is what every chain verb goes through, and it is what lets the graph editor act
 on a library CHAIN template without a single verb knowing it might be one. That costs nothing
-to arrange because a chain is not a lookalike: it is a folder holding a `graph.yaml` and a
-`nodes/`, the same two things a project holds, differing only in having no `project.yaml` and
+to arrange because a chain is not a lookalike: it is a folder holding a `graph.k7x` and a
+`nodes/`, the same two things a project holds, differing only in having no `project.k7x` and
 in naming its ends `@in`/`@out`.
 
 Bypassing needs no chain name: the file names each module once, so there is one thing to toggle
@@ -150,8 +150,8 @@ halfway, and a rename touches a file, a preset and every chain step that spells 
 
 ### A graph node need not have a file
 
-Two shapes answer to a name on the graph: a NODE — `nodes/<name>.yaml`, one use of a module — and a
-MODULE used directly, whose `module.yaml` is the only file there is. The second is not an import's
+Two shapes answer to a name on the graph: a NODE — `nodes/<name>.k7x`, one use of a module — and a
+MODULE used directly, whose `module.k7x` is the only file there is. The second is not an import's
 oddity: k7 writes it itself for every lane's strip (`mix-<lane>`,
 `packages/song/docs/trackMixer.md`), and the importer writes it for a plugin used once. So the
 verbs have to know it, rather than answering "no node 'x'" about something plainly on the graph.
@@ -175,9 +175,9 @@ somebody's destination — the last module in a run has no entry of its own, and
 the chain and still unlinkable. A LANE is not refused: it is a module like any other
 (`packages/song/docs/trackModules.md`), so the splice is well defined there too.
 
-`renameChainNode` and `deleteChainNode` share a footprint — a node is `nodes/<name>.yaml` plus,
+`renameChainNode` and `deleteChainNode` share a footprint — a node is `nodes/<name>.k7x` plus,
 when it has one, `nodes/<name>.vstpreset` — and an ORDER that is load-bearing. The FILES go
-first and the chains second, because the state to avoid at all costs is a `graph.yaml` naming a
+first and the chains second, because the state to avoid at all costs is a `graph.k7x` naming a
 node with no file: that is what stops the project loading, and it is the half a person cannot
 see. Interrupted the other way round you get an orphan file, which loads fine and is merely
 untidy. Renaming has no safe order at all — whichever half lands first, the other is dangling

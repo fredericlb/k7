@@ -13,6 +13,7 @@ import {
 } from "@studio/engine-browser/params";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";
+import { K7Document } from "@studio/k7x/document";
 import { projectApi as api } from "@studio/project-shell/project";
 import { STEMS, type Stem, stemControl } from "@studio/song-schema/stems";
 import {
@@ -156,7 +157,7 @@ export interface DeckSet extends DeckLoops {
   clicking: boolean;
   toggleMetronome: () => void;
 
-  /** mix.yaml as it stands on disk — the CUE sheet, and what a cue is written back into. */
+  /** mix.k7x as it stands on disk — the CUE sheet, and what a cue is written back into. */
   mixText: string;
   /** The set list as text: `undefined` names no playlist, `null` is one not on disk (docs/setList.md). */
   playlistText: string | null | undefined;
@@ -252,7 +253,7 @@ export function useDeckSet(
   const [view, setView] = useState<MixViewFile>({});
   const [compiled, setCompiled] = useState<ProjectDoc | null>(null);
   const [deskError, setDeskError] = useState<string | null>(null);
-  /** mix.yaml as TEXT, because writing a cue edits it in place and keeps its comments (docs/cues.md). */
+  /** mix.k7x as TEXT, because writing a cue edits it in place and keeps its comments (docs/cues.md). */
   const [mixText, setMixText] = useState("");
   // Which project the desk's reads belong to, and whether its cue sheet was ever read — the guard on writing one.
   const shownProject = useRef<string | null>(null);
@@ -271,7 +272,7 @@ export function useDeckSet(
       p.catch(() => KEEP);
     void (async () => {
       const [v, cues, list, doc] = await Promise.all([
-        // The host's own map wins and skips the read: an k7 song has no `views/mix.yaml` to ask for.
+        // The host's own map wins and skips the read: an k7 song has no `views/mix.k7x` to ask for.
         mapping ? Promise.resolve(mapping) : kept(readMixView(project)),
         kept(readMixText(project)),
         // Not read when the surface names none: a 404 per reload would say "missing" about an unclaimed file.
@@ -751,7 +752,9 @@ export function useDeckSet(
       next[slot] = at;
 
       // The text on disk is edited, never reprinted from a parse — its comments are the worked example.
-      const text = withMarkers(mixRef.current, ref, next);
+      const doc = new K7Document(mixRef.current);
+      withMarkers(doc.at([]), ref, next);
+      const text = doc.toString();
       setMixText(text);
       void writeMixText(project, text).catch((e: Error) =>
         // Said out loud: the button has already gone coloured, so a silent failure would lose the cue.
@@ -939,7 +942,7 @@ export function useDeckSet(
     crossfade: (value) => {
       setHeld(value);
       if (!deck.engine) return;
-      // THE DECLARED PATH: `views/mix.yaml` says this fader is the crossfade module's `Mix`.
+      // THE DECLARED PATH: `views/mix.k7x` says this fader is the crossfade module's `Mix`.
       if (pushParam("crossfade", value)) return;
       // …and the stand-in, before the compile lands: no crossfade module, so the two decks' levels move.
       if (!compiled) return pushCrossfade(deck.engine, value);

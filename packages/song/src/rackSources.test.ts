@@ -1,6 +1,6 @@
 // Where a rack's audio lives: `sources/` inside the module folder, which is also the one part of a
 // module the editor's tree still shows (docs/moduleAssets.md). Older racks kept their samples loose
-// beside module.yaml, and those still load — the fallback is what makes the convention adoptable.
+// beside module.k7x, and those still load — the fallback is what makes the convention adoptable.
 // A rack module needs its own folder for `sources/`, so these live at `@workspace`.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModuleRefs } from "./loader";
 import { resolvedRack } from "./moduleResolve";
-import { writeYaml } from "./testSupport";
+import { writeDoc } from "./testSupport";
 
 let ws: string;
 let dir: string;
@@ -28,14 +28,14 @@ beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-rack-"));
   dir = join(ws, "song");
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "project.yaml"), "project:\n  name: t\n", "utf8");
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t" } });
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
 describe("a samples rack's audio", () => {
   it("resolves a bare clip name against the module's sources/", () => {
-    writeYaml(
-      join(ws, "_modules", "instruments", "kit", "module.yaml"),
+    writeDoc(
+      join(ws, "_modules", "instruments", "kit", "module.k7x"),
       rack("k.wav"),
     );
     const sources = join(ws, "_modules", "instruments", "kit", "sources");
@@ -44,16 +44,16 @@ describe("a samples rack's audio", () => {
     expect(clipOf("kit")).toBe(join(sources, "k.wav"));
   });
 
-  it("still finds a sample left loose beside module.yaml", () => {
+  it("still finds a sample left loose beside module.k7x", () => {
     const folder = join(ws, "_modules", "instruments", "old");
-    writeYaml(join(folder, "module.yaml"), rack("k.wav"));
+    writeDoc(join(folder, "module.k7x"), rack("k.wav"));
     writeFileSync(join(folder, "k.wav"), "RIFF", "utf8");
     expect(clipOf("old")).toBe(join(folder, "k.wav"));
   });
 
   it("refuses a clip that climbs out of the module", () => {
     const folder = join(ws, "_modules", "instruments", "esc");
-    writeYaml(join(folder, "module.yaml"), rack("../../../secret.wav"));
+    writeDoc(join(folder, "module.k7x"), rack("../../../secret.wav"));
     writeFileSync(join(ws, "secret.wav"), "RIFF", "utf8");
     // Not resolved to the file outside: the fallback joins it, and nothing reads it as an asset.
     expect(clipOf("esc")).toBe(join(folder, "../../../secret.wav"));

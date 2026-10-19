@@ -2,16 +2,19 @@
 // Path ops are sent only when replaying them reproduces `after` byte for byte; otherwise the whole text.
 // Every op names what it replaced (`was`), so the room can set aside one that arrives after the value moved.
 
-import { applyK7x, diffK7x, goneAt, valueAt as k7xValueAt } from "./k7xOps.ts";
-import { locate } from "./listKeys.ts";
-import { type Conflict, type FileOp, NeedsUpdate, type PathOp } from "./ops.ts";
+import { applyK7x, diffK7x, goneAt, valueAt } from "./k7xOps.ts";
+import {
+  type Conflict,
+  type FileOp,
+  type K7xOp,
+  NeedsUpdate,
+  RETIRED_OP_KINDS,
+} from "./ops.ts";
 import { textHash } from "./textHash.ts";
 import { mergeable, mergeTexts } from "./textMerge.ts";
-import { applyYaml, diffYamlParsed, parse, valueAt } from "./yamlOps.ts";
 
 export { textHash };
 
-const isYaml = (file: string): boolean => /\.ya?ml$/i.test(file);
 const isK7x = (file: string): boolean => /\.k7x$/i.test(file);
 
 /** The op for `file` going from `before` to `after` (null = absent), or null when nothing changed; `beforeHash` stands in for a `before` not kept. */
@@ -27,17 +30,10 @@ export function fileOpFor(
       ? null
       : { kind: "remove", file, was: beforeHash };
   // Item ops first; when they do not replay, the same diff with every list one value.
-  if (before !== null && isYaml(file))
-    for (const lists of [true, false]) {
-      const diff = diffYamlParsed(before, after, lists);
-      if (diff?.ops.length && replays(before, diff, after))
-        return { kind: "yaml", file, ops: diff.ops };
-      if (!diff?.keyed) break;
-    }
   if (before !== null && isK7x(file))
     for (const lists of [true, false]) {
       const diff = diffK7x(before, after, lists);
-      if (diff?.ops.length && replaysK7x(before, diff.ops, after))
+      if (diff?.ops.length && replays(before, diff.ops, after))
         return { kind: "k7x", file, ops: diff.ops };
       if (!diff?.keyed) break;
     }
@@ -45,23 +41,7 @@ export function fileOpFor(
   return { kind: "text", file, text: after, was: beforeHash };
 }
 
-function replays(
-  before: string,
-  diff: NonNullable<ReturnType<typeof diffYamlParsed>>,
-  after: string,
-): boolean {
-  try {
-    return applyYaml(before, diff.ops, diff.parsed) === after;
-  } catch {
-    return false;
-  }
-}
-
-function replaysK7x(
-  before: string,
-  ops: Parameters<typeof applyK7x>[1],
-  after: string,
-): boolean {
+function replays(before: string, ops: K7xOp[], after: string): boolean {
   try {
     return applyK7x(before, ops) === after;
   } catch {
@@ -76,17 +56,19 @@ export function applyFileOp(current: string | null, op: FileOp): string | null {
       return null;
     case "text":
       return op.text;
-    case "yaml":
     case "k7x":
       if (current === null)
-        throw new Error(`${op.file}: ${op.kind} ops on a missing file`);
-      return op.kind === "k7x"
-        ? applyK7x(current, op.ops)
-        : applyYaml(current, op.ops);
-    default:
+        throw new Error(`${op.file}: k7x ops on a missing file`);
+      return applyK7x(current, op.ops);
+    default: {
+      const { file, kind } = op as { file?: unknown; kind?: unknown };
+      // A retired kind predates this k7: updating would not help, so it is no NeedsUpdate.
+      if (RETIRED_OP_KINDS.includes(kind as string))
+        throw new Error(`${file}: op kind "${kind}" retired, never replayed`);
       throw new NeedsUpdate(
-        `${(op as { file?: unknown }).file}: op kind "${(op as { kind?: unknown }).kind}" unknown here: update k7`,
+        `${file}: op kind "${kind}" unknown here: update k7`,
       );
+    }
   }
 }
 
@@ -111,13 +93,23 @@ function settleText(
     : { kind: "text", file: op.file, text: merged, was: textHash(current) };
 }
 
+/** True when `text` reads as k7x, so its values can be checked. */
+function reads(text: string): boolean {
+  try {
+    valueAt(text, []);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Split `op` against the room's `current` text: what still finds the value it replaced, and what is set aside. */
 export function settleFileOp(
   current: string | null,
   op: FileOp,
   baseOf?: BaseOf,
 ): { apply: FileOp | null; aside: SetAside[] } {
-  if (op.kind !== "yaml" && op.kind !== "k7x") {
+  if (op.kind !== "k7x") {
     const target = op.kind === "text" ? op.text : null;
     if (op.was === undefined || current === target)
       return { apply: op, aside: [] };
@@ -128,57 +120,22 @@ export function settleFileOp(
       ? { apply: merged, aside: [] }
       : { apply: null, aside: [{ op }] };
   }
-  const one = (o: PathOp): FileOp => ({ ...op, ops: [o] }) as FileOp;
-  const reader = current === null ? null : pathReader(op.kind, current);
-  if (current === null || !reader)
-    return {
-      apply: null,
-      aside: (op.ops as PathOp[]).map((o) => ({ op: one(o) })),
-    };
-  const keep: PathOp[] = [];
+  const one = (o: K7xOp): FileOp => ({ ...op, ops: [o] });
+  if (current === null || !reads(current))
+    return { apply: null, aside: op.ops.map((o) => ({ op: one(o) })) };
+  const keep: K7xOp[] = [];
   const aside: SetAside[] = [];
-  for (const o of op.ops as PathOp[]) {
+  for (const o of op.ops) {
     if (o.was === undefined) {
       keep.push(o);
       continue;
     }
-    const now = reader.valueAt(o.path);
+    const now = valueAt(current, o.path);
     // Already what the op makes it: nothing to apply, and nothing lost.
-    if (now === (o.op === "set" ? ("k7x" in o ? o.k7x : o.yaml) : null))
-      continue;
+    if (now === (o.op === "set" ? o.k7x : null)) continue;
     // An edit inside a list item someone removed has nothing to land on.
-    if (now === o.was && !reader.gone(o.path)) keep.push(o);
+    if (now === o.was && !goneAt(current, o.path)) keep.push(o);
     else aside.push({ op: one(o), kept: now });
   }
-  return {
-    apply: keep.length ? ({ ...op, ops: keep } as FileOp) : null,
-    aside,
-  };
-}
-
-/** How settleFileOp reads values in the current text, by format; null when the text does not read. */
-function pathReader(
-  kind: "yaml" | "k7x",
-  current: string,
-): {
-  valueAt: (path: string[]) => string | null;
-  gone: (path: string[]) => boolean;
-} | null {
-  if (kind === "k7x") {
-    try {
-      k7xValueAt(current, []);
-    } catch {
-      return null;
-    }
-    return {
-      valueAt: (path) => k7xValueAt(current, path),
-      gone: (path) => goneAt(current, path),
-    };
-  }
-  const doc = parse(current);
-  if (doc.errors.length) return null;
-  return {
-    valueAt: (path) => valueAt(doc, current, path),
-    gone: (path) => locate(doc, path).gone,
-  };
+  return { apply: keep.length ? { ...op, ops: keep } : null, aside };
 }

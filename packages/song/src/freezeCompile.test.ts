@@ -8,14 +8,14 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
 import type { ProjectDoc, TrackDoc } from "./project";
-import { setYaml, writeLane, writeNode, writeYaml } from "./testSupport";
+import { setDoc, writeDoc, writeLane, writeNode } from "./testSupport";
 
 let dir = "";
 
 /** Both shapes of freeze in one project: a point inside a lane's run, and a bus lanes meet at. */
 function project(name: string): string {
   const p = join(dir, `${name}.k7`);
-  writeYaml(join(p, "project.yaml"), { project: { name } });
+  writeDoc(join(p, "project.k7x"), { project: { name } });
   // OUT needs no file at all — a built-in sink name (docs/moduleTypes.md).
   for (const m of ["amp", "cab", "verb", "plate"])
     writeNode(p, m, { plugin: { type: "vst3", name: m } });
@@ -25,13 +25,13 @@ function project(name: string): string {
   writeLane(p, "keys", "track", {
     events: [{ ref: "riff", start: "1:1:1" }],
   });
-  writeYaml(join(p, "clips", "riff.yaml"), {
+  writeDoc(join(p, "clips", "riff.k7x"), {
     source: "clips/riff.wav",
     to: "2:1",
   });
   writeFileSync(join(p, "clips", "riff.wav"), "");
   // Destinations, one line per node: gtr runs amp then cab into the bus, keys joins it there.
-  writeYaml(join(p, "graph.yaml"), {
+  writeDoc(join(p, "graph.k7x"), {
     modules: {
       gtr: ["amp"],
       amp: ["cab"],
@@ -60,7 +60,7 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }));
 describe("a freeze inside one lane's run", () => {
   it("plays the render on that lane, and stops building what it contains", () => {
     const p = project("inside");
-    setYaml(join(p, "nodes", "amp.yaml"), ["frozen"], "renders/r.wav");
+    setDoc(join(p, "nodes", "amp.k7x"), ["frozen"], "renders/r.wav");
     const doc = compileNodeProject(p);
     const gtr = trackOf(doc, "gtr");
     // ONE clip, and it is the render — the lane's own material is inside it.
@@ -79,7 +79,7 @@ describe("a freeze inside one lane's run", () => {
   it("plays live again the moment the render is not on disk", () => {
     // A project cloned without its renders is not a broken project — see activeFreezePlans.
     const p = project("missing");
-    setYaml(join(p, "nodes", "amp.yaml"), ["frozen"], "renders/gone.wav");
+    setDoc(join(p, "nodes", "amp.k7x"), ["frozen"], "renders/gone.wav");
     const doc = compileNodeProject(p);
     expect(trackOf(doc, "gtr")?.clips.map((c) => c.name)).toEqual(["riff"]);
     expect(trackOf(doc, "gtr")?.frozenMaterial).toBeUndefined();
@@ -90,7 +90,7 @@ describe("a freeze inside one lane's run", () => {
 describe("a freeze at a bus", () => {
   it("silences every lane that met there and plays the render on the return track", () => {
     const p = project("bus");
-    setYaml(join(p, "nodes", "verb.yaml"), ["frozen"], "renders/r.wav");
+    setDoc(join(p, "nodes", "verb.k7x"), ["frozen"], "renders/r.wav");
     const doc = compileNodeProject(p);
     // Both lanes are inside the render, so playing them again would be the take twice.
     expect(trackOf(doc, "gtr")?.clips).toEqual([]);

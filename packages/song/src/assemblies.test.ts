@@ -5,6 +5,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { stringify } from "@studio/k7x/print";
 import {
   parseAssembly,
   parseAssemblyTemplate,
@@ -17,7 +18,7 @@ import {
   resolveAssemblies,
 } from "./assemblies";
 import { loadGraph, validate } from "./graph";
-import { librariesFixture } from "./testSupport";
+import { librariesFixture, writeDoc, writeNode } from "./testSupport";
 
 let root: string;
 beforeEach(() => {
@@ -27,33 +28,36 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-const TEMPLATE = `label: Turntable
-outputs:
-  - { name: mix, type: audio, node: fade }
-  - { name: cue, type: audio, node: cue }
-params:
-  Level: { node: level, param: Gain }
-  Fade: { node: fade, param: Level }
+const TEMPLATE = `label("Turntable")
+outputs([
+  name("mix").type("audio").node("fade"),
+  name("cue").type("audio").node("cue"),
+])
+params({
+  Level: { node: "level", param: "Gain" },
+  Fade: { node: "fade", param: "Level" },
+})
 `;
 
-const INSTANCE = `uses: "@k7-core/turntable"
-members:
-  level: levelA
-  fade: fadeA
-  cue: cueA
+const INSTANCE = `uses("@k7-core/turntable")
+members({ level: "levelA", fade: "fadeA", cue: "cueA" })
 `;
+
+/** An instance of the turntable mapping `members`. */
+const instanceOf = (members: Record<string, string>): string =>
+  stringify({ uses: "@k7-core/turntable", members });
 
 /** A workspace holding one library template and one project that uses it. */
 function workspace(instance: string, template = TEMPLATE): string {
   const dir = join(root, "song.k7");
   const lib = join(librariesFixture(root), "assemblies", "turntable");
   mkdirSync(lib, { recursive: true });
-  writeFileSync(join(lib, "assembly.yaml"), template);
-  writeFileSync(join(lib, "graph.yaml"), "modules:\n  level: [ fade ]\n");
+  writeFileSync(join(lib, "assembly.k7x"), template);
+  writeDoc(join(lib, "graph.k7x"), { modules: { level: ["fade"] } });
   mkdirSync(join(dir, "assemblies"), { recursive: true });
   mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
-  writeFileSync(join(dir, "assemblies", "turntableA.yaml"), instance);
+  writeDoc(join(dir, "project.k7x"), { project: { name: "song" } });
+  writeFileSync(join(dir, "assemblies", "turntableA.k7x"), instance);
   return dir;
 }
 
@@ -72,9 +76,7 @@ describe("the two files", () => {
 
   it("refuses two plugs called the same thing on one side", () => {
     const { issues } = parseAssemblyTemplate(
-      "outputs:\n" +
-        "  - { name: mix, type: audio, node: a }\n" +
-        "  - { name: mix, type: audio, node: b }\n",
+      'outputs([\n  name("mix").type("audio").node("a"),\n  name("mix").type("audio").node("b"),\n])\n',
     );
     expect(issues[0]?.message).toContain("two outputs are called 'mix'");
   });
@@ -87,7 +89,7 @@ describe("the two files", () => {
   });
 
   it("names an unknown key rather than ignoring it", () => {
-    const { value, issues } = parseAssembly(`${INSTANCE}colour: red\n`);
+    const { value, issues } = parseAssembly(`${INSTANCE}colour("red")\n`);
     expect(value).toBeNull();
     expect(issues.map((i) => i.path)).toContain("colour");
   });
@@ -107,7 +109,7 @@ describe("resolving one against its template", () => {
 
   it("drops a plug whose member this instance does not map, and keeps the rest", () => {
     const a = resolveAssemblies(
-      workspace('uses: "@k7-core/turntable"\nmembers:\n  fade: fadeA\n'),
+      workspace(instanceOf({ fade: "fadeA" })),
     ).turntableA;
     expect(a.outputs.map((o) => o.name)).toEqual(["mix"]);
     expect(a.params.Fade).toEqual({ node: "fadeA", param: "Level" });
@@ -136,46 +138,44 @@ describe("resolving one against its template", () => {
 
   it("reports a file that will not read and keeps the ones that do", () => {
     const dir = workspace(INSTANCE);
-    writeFileSync(join(dir, "assemblies", "broken.yaml"), "uses: []\n");
+    writeFileSync(join(dir, "assemblies", "broken.k7x"), "uses([])\n");
     const { assemblies, diagnostics } = projectAssemblies(dir);
     expect(assemblies.map((a) => a.id)).toEqual(["turntableA"]);
-    expect(diagnostics[0]?.file).toBe("assemblies/broken.yaml");
+    expect(diagnostics[0]?.file).toBe("assemblies/broken.k7x");
   });
 });
 
 /** A project whose graph is real, so `validate` has modules to check the members against. */
-function wired(members: string): string {
-  const dir = workspace(`uses: "@k7-core/turntable"\nmembers:\n${members}`);
-  writeFileSync(
-    join(dir, "graph.yaml"),
-    "modules:\n  levelA: [ fadeA ]\n  fadeA: [ MIX ]\n  MIX: [ OUT ]\n",
-  );
+function wired(members: Record<string, string>): string {
+  const dir = workspace(instanceOf(members));
+  writeDoc(join(dir, "graph.k7x"), {
+    modules: { levelA: ["fadeA"], fadeA: ["MIX"], MIX: ["OUT"] },
+  });
   for (const n of ["levelA", "fadeA"])
-    writeFileSync(
-      join(dir, "nodes", `${n}.yaml`),
-      "plugin: { type: jsdsp }\nparams: { Gain: 0 }\n",
-    );
+    writeNode(dir, n, { plugin: { type: "jsdsp" }, params: { Gain: 0 } });
   return dir;
 }
 
+const SOUND = { level: "levelA", fade: "fadeA" };
+
 describe("what validate() says about one", () => {
   it("says nothing about a sound one", () => {
-    const g = loadGraph(wired("  level: levelA\n  fade: fadeA\n"));
+    const g = loadGraph(wired(SOUND));
     expect(validate(g).filter((s) => s.includes("assembly"))).toEqual([]);
   });
 
   it("names a member the project has not got", () => {
-    const g = loadGraph(wired("  level: levelA\n  fade: nowhere\n"));
+    const g = loadGraph(wired({ level: "levelA", fade: "nowhere" }));
     expect(validate(g)).toContain(
       "assembly 'turntableA': member 'fade' names 'nowhere', which this project has not got",
     );
   });
 
   it("refuses a node claimed by two boxes", () => {
-    const dir = wired("  level: levelA\n  fade: fadeA\n");
+    const dir = wired(SOUND);
     writeFileSync(
-      join(dir, "assemblies", "turntableB.yaml"),
-      'uses: "@k7-core/turntable"\nmembers:\n  fade: fadeA\n',
+      join(dir, "assemblies", "turntableB.k7x"),
+      instanceOf({ fade: "fadeA" }),
     );
     expect(validate(loadGraph(dir))).toContain(
       "node 'fadeA': in two assemblies ('turntableA', 'turntableB')",
@@ -183,11 +183,8 @@ describe("what validate() says about one", () => {
   });
 
   it("refuses a box named after a node — one flat key space", () => {
-    const dir = wired("  level: levelA\n  fade: fadeA\n");
-    writeFileSync(
-      join(dir, "assemblies", "fadeA.yaml"),
-      'uses: "@k7-core/turntable"\nmembers: {}\n',
-    );
+    const dir = wired(SOUND);
+    writeFileSync(join(dir, "assemblies", "fadeA.k7x"), instanceOf({}));
     expect(validate(loadGraph(dir))).toContain(
       "assembly 'fadeA': a node of this project is already called that",
     );
@@ -196,7 +193,7 @@ describe("what validate() says about one", () => {
 
 describe("an assembly is a DRAWING", () => {
   it("changes not one thing about the chains", () => {
-    const dir = wired("  level: levelA\n  fade: fadeA\n");
+    const dir = wired(SOUND);
     const withBox = loadGraph(dir);
     rmSync(join(dir, "assemblies"), { recursive: true, force: true });
     const without = loadGraph(dir);

@@ -7,16 +7,12 @@ inputs, which a folder has no way of saying.
 
 So the file says it:
 
-```yaml
-# modules/audio/crossfade/module.yaml
-plugin: { type: jsdsp }
-inputs:
-  - { name: a, type: audio }
-  - { name: b, type: audio, mandatory: false }
-outputs:
-  - { name: out, type: audio }
-params:
-  mix: 0.5
+```k7x
+// modules/audio/crossfade/module.k7x
+plugin({ type: "jsdsp" })
+inputs([name("a").type("audio"), name("b").type("audio").mandatory(false)])
+outputs([name("out").type("audio")])
+params({ mix: 0.5 })
 ```
 
 Declare neither and the type folder's defaults apply, which is every module written so far.
@@ -32,11 +28,12 @@ a legitimate state, not a half-built chain.
 A chain carries **one** signal. A second input therefore has to arrive from somewhere else, and
 the chains file says so by naming the port a destination lands on:
 
-```yaml
-modules:
-  deckA: [ crossfade ]      # the FLOW — lands on the first input
-  deckB: [ crossfade#b ]    # a side input — lands on the port called `b`
-  crossfade: [ OUT ]
+```k7x
+modules({
+  deckA: ["crossfade"], // the FLOW — lands on the first input
+  deckB: ["crossfade#b"], // a side input — lands on the port called `b`
+  crossfade: ["OUT"],
+})
 ```
 
 `#` because the other two separators are spoken for: `:` joins a module to its node and `/`
@@ -80,10 +77,8 @@ It survives now. The key's port rides along as `Out.fromPort` — `WebOut.fromPo
 `GraphEdge.sourcePort` in the drawing — which is what makes a module with several outputs
 sayable at all:
 
-```yaml
-modules:
-  stemsplit#drums: [ gate ]
-  stemsplit#vocals: [ reverb ]
+```k7x
+modules({ "stemsplit#drums": ["gate"], "stemsplit#vocals": ["reverb"] })
 ```
 
 Three consequences worth knowing:
@@ -162,7 +157,7 @@ to the same shape.
 
 `input(n)` indexes the **port list above**, in order: 0 is the flow, 1 is `b`. An index and not a
 name, because the graph and the module file are two documents — the graph is generated JSON the
-engine reads with no `module.yaml` in sight — and position is the one fact both sides can hold on
+engine reads with no `module.k7x` in sight — and position is the one fact both sides can hold on
 their own. It is also what `validate()` already checks by: sources fill ports positionally.
 
 The route from that to the engine, in one line each:

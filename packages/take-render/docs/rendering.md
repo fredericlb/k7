@@ -84,15 +84,15 @@ exported because a bounce needs the same one: two runs of one chain over one cli
 on one name, for the same reason two takes of one bar must not. The date is an ARGUMENT so a
 caller can be tested; nothing but a test ever passes one.
 
-## A rendered clip's definition states a `source:` and NOTHING else
+## A rendered clip's definition states a `source` and NOTHING else
 
-`renderedClipYaml` is the text half of `fileRender`, and the nothing is the decision.
+`renderedClipText` is the text half of `fileRender`, and the nothing is the decision.
 
 `from`/`to` are a WINDOW into a file. What was rendered is the whole of the new material, so
 there is no window: carrying the numbers over from the thing this was cut out of would frame the
 render with somebody else's, and writing a `to` equal to the file's own end would not be a window
 at all — it would be the file's DURATION, copied into the song. That copy goes stale the moment
-`clip process` repoints `source:` at a processed wav of a different length, and nothing would
+`clip process` repoints `source` at a processed wav of a different length, and nothing would
 notice: the clip would draw and play to a second that no longer exists in it.
 
 The reason to want one is real: an absent extent gives the browser no length, and nothing there

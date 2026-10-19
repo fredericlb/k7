@@ -11,8 +11,10 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parse } from "@studio/k7x/document";
 import type { ProjectDoc } from "@studio/song/project";
 import { loadProject } from "@studio/song/project";
+import { writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { addTakeToTrack } from "./recordTake";
 
@@ -38,19 +40,12 @@ function wav(path: string): void {
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-take-"));
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n",
-    "utf8",
-  );
-  writeFileSync(join(dir, "graph.yaml"), "modules: {}\n", "utf8");
+  writeDoc(join(dir, "project.k7x"), {
+    project: { name: "t", tempo: 120, sampleRate: 48000 },
+  });
+  writeDoc(join(dir, "graph.k7x"), { modules: {} });
   mkdirSync(join(dir, "clips"), { recursive: true });
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(
-    join(dir, "nodes", "gtr.yaml"),
-    'extends: "@meta/track"\n',
-    "utf8",
-  );
+  writeDoc(join(dir, "nodes", "gtr.k7x"), { extends: "@meta/track" });
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -61,36 +56,30 @@ const take = (start = 4, length = 8) => {
   wav(file);
   return { track: "gtr", file, start, length };
 };
-const clipText = (id: string) =>
-  readFileSync(join(dir, "clips", `${id}.yaml`), "utf8");
-const trackText = () => readFileSync(join(dir, "nodes", "gtr.yaml"), "utf8");
+const clipData = (id: string) =>
+  parse(readFileSync(join(dir, "clips", `${id}.k7x`), "utf8"));
+const trackData = () =>
+  parse(readFileSync(join(dir, "nodes", "gtr.k7x"), "utf8"));
 
 describe("a finished take", () => {
   it("declares its window in full — `from` included, at the file's start", () => {
     // "1:1" is what an absent `from` already means — see docs/rendering.md for why it is written.
     const id = addTakeToTrack(dir, doc(), take());
-    const text = clipText(id);
-    expect(text).toContain('from: "1:1"');
-    expect(text).toContain('to: "5:1"'); // 8s at 120bpm == 16 beats == four bars in
+    const clip = clipData(id);
+    expect(clip.from).toBe("1:1");
+    expect(clip.to).toBe("5:1"); // 8s at 120bpm == 16 beats == four bars in
   });
 
   it("writes those as POSITIONS in the file, not durations", () => {
     // The trap this pins: read as a duration, "5:1" would keep a second of whatever followed.
     const id = addTakeToTrack(dir, doc(), take(0, 2)); // two seconds == four beats == one bar
-    expect(clipText(id)).toContain('to: "2:1"');
-  });
-
-  it("quotes them, so a reload can't read them as sexagesimal numbers", () => {
-    const id = addTakeToTrack(dir, doc(), take());
-    expect(clipText(id)).not.toMatch(/(from|to): \d+:/);
+    expect(clipData(id).to).toBe("2:1");
   });
 
   it("places it with a start and nothing else", () => {
     // No length on the placement: the clip's window says how long it sounds.
-    addTakeToTrack(dir, doc(), take());
-    expect(trackText()).toContain('start: "3:1"');
-    expect(trackText()).not.toContain("length");
-    expect(trackText()).not.toContain("offset");
+    const id = addTakeToTrack(dir, doc(), take());
+    expect(trackData().events).toEqual([{ ref: id, start: "3:1" }]);
   });
 
   it("compiles to a clip that plays exactly the take", () => {
@@ -107,7 +96,7 @@ describe("a finished take", () => {
   it("names the file after the track and the bar it landed on", () => {
     const id = addTakeToTrack(dir, doc(), take());
     expect(id).toMatch(/^gtr_3\.1_\d{6}T\d{6}$/);
-    expect(clipText(id)).toContain(`source: clips/${id}.wav`);
+    expect(clipData(id).source).toBe(`clips/${id}.wav`);
   });
 
   it("refuses a take whose file isn't there", () => {

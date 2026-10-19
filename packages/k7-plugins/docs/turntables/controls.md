@@ -1,7 +1,7 @@
 # The desk's controls, and how to bind one to a parameter
 
 Nothing on this desk is hard-wired. Each control carries an identifier, and what it MOVES is
-written in the project — repointing one line of `views/mix.yaml` is enough to send the left fader
+written in the project — repointing one line of `views/mix.k7x` is enough to send the left fader
 to the right deck.
 
 `controls.ts` gives every control an identifier; the per-deck ones are DERIVED from the decks, so
@@ -37,12 +37,12 @@ shipping. See [mix.md](mix.md).
 The three EQ bands are in **decibels**, the filter in percent of travel, and all are symmetric so
 that neutral falls in the middle: see [eq.md](eq.md) and [filter.md](filter.md).
 
-The bindings themselves are in the **project**: `views/mix.yaml`, described in
+The bindings themselves are in the **project**: `views/mix.k7x`, described in
 [packages/song/docs/viewBindings.md](../../../../packages/song/docs/viewBindings.md).
 
-## Why not the module's `controller.yaml`
+## Why not the module's `controller.k7x`
 
-`controller.yaml` belongs to a **module** and is shared by all its nodes. A set puts a `tempo`
+`controller.k7x` belongs to a **module** and is shared by all its nodes. A set puts a `tempo`
 module on **each** deck: one map for both, so a line cannot say "deck A's fader drives deck A's
 stretch".
 
@@ -98,7 +98,7 @@ The tempo fader binds to a TRACK. The `tempo` module is `offline`: it has no plu
 true outside the graph — here by the clip stretch Tracktion does live. So the binding gives the
 track whose material the module treats, and that clip is what gets warped.
 
-Both are declared. Repoint `deckA.tempo` at `tempoB` in `views/mix.yaml` and deck B stretches
+Both are declared. Repoint `deckA.tempo` at `tempoB` in `views/mix.k7x` and deck B stretches
 under the left fader — which is exactly the difference between a declared control and a wired one.
 The fader always belongs to a deck (its scale comes from the loaded track, a fact about what is
 playing rather than about the wiring); what it MOVES comes from the file.

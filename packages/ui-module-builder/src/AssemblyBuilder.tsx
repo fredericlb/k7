@@ -9,6 +9,7 @@
 // Full rationale: docs/builder.md, and packages/song/docs/assemblies.md.
 
 import type { WebGraph } from "@studio/graph-model";
+import { K7Document, type K7Scope } from "@studio/k7x/document";
 import {
   dropAssemblyParam,
   parseAssemblyTemplate,
@@ -19,6 +20,13 @@ import { YamlPane } from "@studio/ui-editor/yaml-pane";
 import type { Hints } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ModuleStore } from "./store";
+
+/** A writer run on the template's text, which comes back edited. */
+function edited(text: string, write: (doc: K7Scope) => unknown): string {
+  const doc = new K7Document(text);
+  write(doc.at([]));
+  return doc.toString();
+}
 
 /** One promotable row: a member, one of its params, and whether the box already wears it. */
 interface Row {
@@ -74,7 +82,7 @@ export function AssemblyBuilder({
   onRequestEdit,
   onClose,
 }: {
-  /** The template's `assembly.yaml`, as the host was GIVEN it — never a path built here. */
+  /** The template's `assembly.k7x`, as the host was GIVEN it — never a path built here. */
   path: string;
   /** The template's own graph, or null while it loads: the members and what each runs with. */
   graph: WebGraph | null;
@@ -135,12 +143,15 @@ export function AssemblyBuilder({
     (row: Row) => {
       if (content == null || readOnly) return;
       if (row.as) {
-        edit(dropAssemblyParam(content, row.as));
+        const as = row.as;
+        edit(edited(content, (doc) => dropAssemblyParam(doc, as)));
         return;
       }
       const name = freeName(row.param, new Set(Object.keys(promoted)));
       edit(
-        setAssemblyParam(content, name, { node: row.node, param: row.param }),
+        edited(content, (doc) =>
+          setAssemblyParam(doc, name, { node: row.node, param: row.param }),
+        ),
       );
     },
     [content, readOnly, promoted, edit],

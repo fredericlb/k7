@@ -2,16 +2,17 @@
 // What is pinned is that the cable is legal, that the engine is handed nothing for it, and that the
 // device travels by its label. See docs/midiIn.md.
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { formatChains, parseGraph } from "@studio/song-schema/yaml/graphFile";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { createNode } from "./loader";
 import { compileNodeProject } from "./nodeProject";
-import { copyAsYaml } from "./testSupport";
+import { setDoc, writeNode } from "./testSupport";
+import { wsData } from "./yaml/workspaceDoc";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEMOS = join(here, "..", "..", "..", "demos");
@@ -20,28 +21,15 @@ describe("a MIDI device wired to a lane", () => {
   let ws: string;
   let dir: string;
   const wire = (modules: Record<string, string[]>): void => {
-    const p = join(dir, "graph.yaml");
-    const cur = parseGraph(readFileSync(p, "utf8")).value ?? {};
-    writeFileSync(
-      p,
-      formatChains({
-        modules: { ...cur.modules, ...modules },
-        bypassed: cur.bypassed,
-      }),
-      "utf8",
-    );
+    for (const [from, to] of Object.entries(modules))
+      setDoc(join(dir, GRAPH_FILE), ["modules", from], to);
   };
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-midiin-"));
     dir = join(ws, "song");
-    copyAsYaml(join(DEMOS, "synth-demo.k7"), dir, { recursive: true });
-    copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
-      recursive: true,
-    });
-    writeFileSync(
-      join(dir, "nodes", "keys.yaml"),
-      'extends: "@meta/MIDI"\ndevice: "KeyStep 37"\n',
-    );
+    cpSync(join(DEMOS, "synth-demo.k7"), dir, { recursive: true });
+    cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
+    writeNode(dir, "keys", { extends: "@meta/MIDI", device: "KeyStep 37" });
     wire({ keys: ["melody"] });
   });
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
@@ -75,8 +63,8 @@ describe("a MIDI device wired to a lane", () => {
 
   it("is made by `node new io/MIDI`, its file naming the role and no device", () => {
     const rel = createNode(dir, "io", "MIDI", "pads");
-    const text = readFileSync(join(dir, rel), "utf8");
-    expect(text).toMatch(/^io: midi$/m);
-    expect(text).not.toMatch(/^device:/m);
+    const data = wsData(join(dir, rel));
+    expect(data.io).toBe("midi");
+    expect(data).not.toHaveProperty("device");
   });
 });

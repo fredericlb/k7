@@ -1,21 +1,22 @@
 // `project aspect` writes `project.viewport`, and the interesting half is what it must NOT lose:
 // the third element is the export fps, which belongs to nobody here.
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 
 let dir: string;
 const logs: string[] = [];
 
+// Written by hand, one key per line, so a value change shows as the one line it is.
 const song = (viewport: string): string => {
   const d = mkdtempSync(join(tmpdir(), "asp-"));
   writeFileSync(
-    join(d, "project.yaml"),
-    `project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n  viewport: ${viewport}\n`,
+    join(d, "project.k7x"),
+    `project({\n  name: "t",\n  tempo: 120,\n  sampleRate: 48000,\n  viewport: ${viewport},\n})\n`,
     "utf8",
   );
   return d;
@@ -26,8 +27,9 @@ const host = () =>
     log: (l: string[]) => logs.push(...l),
     refuse: (l: string[]) => logs.push(...l),
   }) as never;
+const projectFile = () => join(dir, "project.k7x");
 const viewport = () =>
-  parse(readFileSync(join(dir, "project.yaml"), "utf8")).project.viewport;
+  (wsData(projectFile()).project as { viewport?: number[] }).viewport;
 
 beforeEach(() => {
   logs.length = 0;
@@ -70,12 +72,13 @@ describe("project aspect", () => {
   });
 
   it("keeps an INLINE list inline — a value change is a one-line diff", async () => {
-    // `createNode` builds a block sequence, which turned one line into four.
     dir = song("[1920, 1080, 30]");
+    const before = wsText(projectFile()).split("\n");
     await runCommand("project aspect 9:16", host(), "cli");
-    expect(readFileSync(join(dir, "project.yaml"), "utf8")).toContain(
-      "viewport: [ 1080, 1920, 30 ]",
-    );
+    const after = wsText(projectFile()).split("\n");
+    expect(after).toHaveLength(before.length);
+    const changed = after.filter((l, i) => l !== before[i]);
+    expect(changed).toEqual(["  viewport: [1080, 1920, 30],"]);
   });
 
   it("refuses a shape that is not on the list, and writes nothing", async () => {

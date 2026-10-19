@@ -1,5 +1,5 @@
 // entitySchemas.ts — the remaining per-entity shapes, in Zod: clips, sequences, curves,
-// video tracks. Each is a FLAT file keyed by its own filename (clips/kick.yaml has no
+// video tracks. Each is a FLAT file keyed by its own filename (clips/kick.k7x has no
 // `id:` — the name is the id), which also rules out one file declaring several ids.
 
 import { z } from "zod";

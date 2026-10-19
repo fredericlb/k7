@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { writeYaml } from "@studio/song/testSupport";
+import { writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
@@ -15,7 +15,7 @@ beforeEach(() => {
   // The workspace root IS the project here, so its folder carries the suffix that makes it one.
   root = join(base, "song.k7");
   mkdirSync(join(root, "clips"), { recursive: true });
-  writeFileSync(join(root, "project.yaml"), "package k7\n");
+  writeFileSync(join(root, "project.k7x"), "package k7\n");
   writeFileSync(join(root, "clips", "kick.wav"), "RIFF"); // presence is enough
   writeFileSync(join(root, "clips", "loop.wav"), "RIFF");
   ws = new Workspace(root);
@@ -63,11 +63,11 @@ describe("Workspace.resolvePreview on a clip", () => {
   const clipProject = (clip: Record<string, unknown>) => {
     const dir = mkdtempSync(join(tmpdir(), "td-prevclip-"));
     const p = join(dir, "song.k7");
-    writeYaml(join(p, "project.yaml"), {
+    writeDoc(join(p, "project.k7x"), {
       project: { name: "s", tempo: 110, timeSignature: "4/4" },
     });
-    writeYaml(join(p, "graph.yaml"), { modules: {} });
-    writeYaml(join(p, "clips", "kick.yaml"), {
+    writeDoc(join(p, "graph.k7x"), { modules: {} });
+    writeDoc(join(p, "clips", "kick.k7x"), {
       source: "clips/kick.wav",
       ...clip,
     });

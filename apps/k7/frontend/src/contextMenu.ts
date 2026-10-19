@@ -244,7 +244,7 @@ const build = (
   });
 };
 
-// The verbs that still mean something on a node NOTHING answers to — each acts on graph.yaml alone, which the catalogue cannot say.
+// The verbs that still mean something on a node NOTHING answers to — each acts on graph.k7x alone, which the catalogue cannot say.
 const SURVIVES_MISSING = new Set(["node bypass", "graph unlink"]);
 
 // The lane gutter's menu lives in nodeMenu.ts; re-exported for the shell, which imports it from here.
@@ -334,7 +334,7 @@ export function contextMenu(
         {
           verb: "ui file",
           arg: ctx.id,
-          help: "open the track's own file, tracks/<id>.yaml",
+          help: "open the track's own file, tracks/<id>.k7x",
         },
       ]);
     }

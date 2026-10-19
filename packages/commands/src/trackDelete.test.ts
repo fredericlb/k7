@@ -1,28 +1,27 @@
 // `track delete` — the lane and the chain it starts go; every other chain, and the clips, stay.
 
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
 
 let root: string;
 let dir: string;
-const put = (rel: string, text: string): void => {
-  mkdirSync(join(dir, rel, ".."), { recursive: true });
-  writeFileSync(join(dir, rel), text, "utf8");
-};
-const AMP = '"@k7-core/audio/amp"';
+const put = (rel: string, value: unknown): void =>
+  writeDoc(join(dir, rel), value);
+const chain = (lane: string, amp: string) => ({
+  start: true,
+  steps: [
+    { id: `lane-${lane}`, track: lane },
+    { id: amp, extends: "@k7-core/audio/amp" },
+    { to: [{ chain: "MIX" }] },
+  ],
+});
 const host = () =>
   testHost({
     songPath: dir,
@@ -39,21 +38,16 @@ const host = () =>
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "track-delete-"));
   dir = join(root, "song.k7");
-  put(
-    "project.yaml",
-    "project:\n  name: t\n  tempo: 120\nsoloed: [gtr]\nhighlighted: [gtr, bass]\n",
-  );
-  put("tracks/gtr.yaml", 'extends: "@meta/track"\nevents: []\n');
-  put("tracks/bass.yaml", 'extends: "@meta/track"\nevents: []\n');
-  put(
-    "chains/gtr.yaml",
-    `start: true\nsteps:\n  - { id: lane-gtr, track: gtr }\n  - { id: amp-1, extends: ${AMP} }\n  - to: [ { chain: MIX } ]\n`,
-  );
-  put(
-    "chains/bass.yaml",
-    `start: true\nsteps:\n  - { id: lane-bass, track: bass }\n  - { id: amp-2, extends: ${AMP} }\n  - to: [ { chain: MIX } ]\n`,
-  );
-  put("sequences/gtr-take.yaml", 'from: "1:1"\nto: "2:1"\nnotes: []\n');
+  put("project.k7x", {
+    project: { name: "t", tempo: 120 },
+    soloed: ["gtr"],
+    highlighted: ["gtr", "bass"],
+  });
+  put("tracks/gtr.k7x", { extends: "@meta/track", events: [] });
+  put("tracks/bass.k7x", { extends: "@meta/track", events: [] });
+  put("chains/gtr.k7x", chain("gtr", "amp-1"));
+  put("chains/bass.k7x", chain("bass", "amp-2"));
+  put("sequences/gtr-take.k7x", { from: "1:1", to: "2:1", notes: [] });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -61,16 +55,16 @@ describe("track delete", () => {
   it("removes the lane's file and its whole chain, and leaves the rest", async () => {
     const h = host();
     await runCommand("track delete gtr", h, "cli");
-    expect(existsSync(join(dir, "tracks/gtr.yaml"))).toBe(false);
-    expect(existsSync(join(dir, "chains/gtr.yaml"))).toBe(false);
-    expect(existsSync(join(dir, "chains/bass.yaml"))).toBe(true);
-    expect(existsSync(join(dir, "tracks/bass.yaml"))).toBe(true);
-    expect(existsSync(join(dir, "sequences/gtr-take.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "tracks/gtr.k7x"))).toBe(false);
+    expect(existsSync(join(dir, "chains/gtr.k7x"))).toBe(false);
+    expect(existsSync(join(dir, "chains/bass.k7x"))).toBe(true);
+    expect(existsSync(join(dir, "tracks/bass.k7x"))).toBe(true);
+    expect(existsSync(join(dir, "sequences/gtr-take.k7x"))).toBe(true);
   });
 
-  it("drops the lane from project.yaml's lists", async () => {
+  it("drops the lane from project.k7x's lists", async () => {
     await runCommand("track delete gtr", host(), "cli");
-    const root = parse(readFileSync(join(dir, "project.yaml"), "utf8"));
+    const root = wsData(join(dir, "project.k7x"));
     expect(root.soloed).toBeUndefined();
     expect(root.highlighted).toEqual(["bass"]);
   });
@@ -79,6 +73,6 @@ describe("track delete", () => {
     const h = host();
     await runCommand("track delete nope", h, "cli");
     expect(h.lines.refuse.join(" ")).toContain('no track "nope"');
-    expect(existsSync(join(dir, "chains/gtr.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "chains/gtr.k7x"))).toBe(true);
   });
 });

@@ -30,12 +30,12 @@ beforeEach(async () => {
   const seed = join(tmp, "seed");
   mkdirSync(join(seed, "k7-core", "irs"), { recursive: true });
   writeFileSync(join(seed, "k7-core", "irs", "room.wav"), "RIFF-room");
-  writeFileSync(join(seed, "k7-core", "mix.yaml"), "plugin: old\n");
+  writeFileSync(join(seed, "k7-core", "mix.k7x"), 'plugin("old")\n');
   origin = new LibraryStore(join(tmp, "origin"), seed);
   await origin.ensure({ draft: true });
   writeFileSync(
-    join(origin.home, "k7-core", "draft", "mix.yaml"),
-    "plugin: new\n",
+    join(origin.home, "k7-core", "draft", "mix.k7x"),
+    'plugin("new")\n',
   );
   await origin.publish("k7-core");
   desk = join(tmp, "desk");
@@ -62,13 +62,13 @@ afterEach(() => {
 describe("fetchLibraryVersion", () => {
   it("brings version 2 down, copying the file it already holds and downloading the rest", async () => {
     expect(await fetchLibraryVersion(desk, "k7-core", 2, url)).toBeNull();
-    expect(readFileSync(join(desk, "k7-core", "2", "mix.yaml"), "utf8")).toBe(
-      "plugin: new\n",
+    expect(readFileSync(join(desk, "k7-core", "2", "mix.k7x"), "utf8")).toBe(
+      'plugin("new")\n',
     );
     expect(
       readFileSync(join(desk, "k7-core", "2", "irs", "room.wav"), "utf8"),
     ).toBe("RIFF-room");
-    expect(served.sort()).toEqual(["library.yaml", "mix.yaml"]);
+    expect(served.sort()).toEqual(["library.k7x", "mix.k7x"]);
   });
 
   it("says why when the origin has no such version, and leaves nothing behind", async () => {
@@ -83,7 +83,7 @@ describe("fetchLibraryVersion", () => {
       (await fetch(`${url}${PUBLIC_LIBRARIES_PATH}/k7-core/draft`)).status,
     ).toBe(404);
     const out = await fetch(
-      `${url}${PUBLIC_LIBRARIES_PATH}/k7-core/2/file?path=${encodeURIComponent("../draft/mix.yaml")}`,
+      `${url}${PUBLIC_LIBRARIES_PATH}/k7-core/2/file?path=${encodeURIComponent("../draft/mix.k7x")}`,
     );
     expect(out.status).toBe(404);
   });
