@@ -31,27 +31,17 @@ export const DEFAULT_TRANSIENT_SENSITIVITY = 2;
  * Tempo by autocorrelation over a fixed-rate onset envelope, or 0 when nothing correlates.
  * 0 means "no tempo found" and never a guess: every grid derived from it trusts the number.
  */
-export function detectBpm(onset: Float32Array, rate: number): number {
+export function detectBpm(
+  onset: Float32Array,
+  rate: number,
+  correlations: Correlations = jsCorrelations,
+): number {
   if (onset.length < 16 || rate <= 0) return 0;
-
-  // Mean-removed, or a loud passage simply correlates with itself.
-  let mean = 0;
-  for (const v of onset) mean += v;
-  mean /= onset.length;
-  const x = new Float64Array(onset.length);
-  for (let i = 0; i < onset.length; i++) x[i] = onset[i] - mean;
-
   const minLag = Math.floor((rate * 60) / MAX_BPM);
   const maxLag = Math.ceil((rate * 60) / MIN_BPM);
-  if (minLag < 1 || maxLag <= minLag || maxLag >= x.length) return 0;
-
-  // Normalised by the overlap, or a short lag wins for having more terms to add up.
-  const corr = (lag: number): number => {
-    let sum = 0;
-    const n = x.length - lag;
-    for (let i = 0; i < n; i++) sum += x[i] * x[i + lag];
-    return sum / n;
-  };
+  if (minLag < 1 || maxLag <= minLag || maxLag >= onset.length) return 0;
+  const table = correlations(onset, minLag, maxLag);
+  const corr = (lag: number): number => table[lag - minLag];
   // Ellis's Gaussian weighting in log2-tempo — a PRIOR, not a fold.
   const prior = (lag: number): number => {
     const bpm = (60 * rate) / lag;
@@ -87,13 +77,74 @@ export function detectBpm(onset: Float32Array, rate: number): number {
   return Math.round(bpm * 100) / 100;
 }
 
+/** detectBpm's correlation at every lag of [minLag, maxLag]: in JS here, or by the Rust build (native.ts). */
+export type Correlations = (
+  onset: Float32Array,
+  minLag: number,
+  maxLag: number,
+) => Float64Array;
+
+/** The correlations of the mean-removed onset envelope, normalised by the overlap. */
+export function jsCorrelations(
+  onset: Float32Array,
+  minLag: number,
+  maxLag: number,
+): Float64Array {
+  // Mean-removed, or a loud passage simply correlates with itself.
+  let mean = 0;
+  for (const v of onset) mean += v;
+  mean /= onset.length;
+  const x = new Float64Array(onset.length);
+  for (let i = 0; i < onset.length; i++) x[i] = onset[i] - mean;
+  const out = new Float64Array(maxLag - minLag + 1);
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    // Normalised by the overlap, or a short lag wins for having more terms to add up.
+    let sum = 0;
+    const n = x.length - lag;
+    for (let i = 0; i < n; i++) sum += x[i] * x[i + lag];
+    out[lag - minLag] = sum / n;
+  }
+  return out;
+}
+
+/** What the pass over every sample yields, as Float32Arrays: in JS here, or by the Rust build. */
+export interface Measured {
+  peak: Float32Array;
+  rms: Float32Array;
+  low: Float32Array;
+  mid: Float32Array;
+  high: Float32Array;
+  tempo: Float32Array;
+}
+
+/** The two one-pole followers' coefficients, computed here so both builds use V8's Math.exp. */
+export function followers(sampleRate: number): { aLow: number; aHigh: number } {
+  return {
+    aLow: 1 - Math.exp((-TWO_PI * BAND_LOW_HZ) / sampleRate),
+    aHigh: 1 - Math.exp((-TWO_PI * BAND_HIGH_HZ) / sampleRate),
+  };
+}
+
 /** The whole envelope, in one pass over the decoded mono signal. */
 export function buildEnvelope(
   audio: DecodedAudio,
   fingerprint: string,
   sensitivity: number = DEFAULT_TRANSIENT_SENSITIVITY,
 ): FileEnvelope {
-  const { sampleRate, channels, frames } = audio;
+  return envelopeFrom(
+    measureMono(audio.mono, audio.frames, audio.sampleRate),
+    audio,
+    fingerprint,
+    sensitivity,
+  );
+}
+
+/** The pass over every sample, in JS: what rust/src/measure.rs does operation for operation. */
+export function measureMono(
+  mono: readonly Float32Array[],
+  frames: number,
+  sampleRate: number,
+): Measured {
   const buckets =
     frames <= 0
       ? 1
@@ -110,8 +161,7 @@ export function buildEnvelope(
   const highPk = new Float32Array(buckets);
 
   // Two one-pole followers whose differences are the three bands; their state crosses chunks.
-  const aLow = 1 - Math.exp((-TWO_PI * BAND_LOW_HZ) / sampleRate);
-  const aHigh = 1 - Math.exp((-TWO_PI * BAND_HIGH_HZ) / sampleRate);
+  const { aLow, aHigh } = followers(sampleRate);
   let lpLow = 0;
   let lpHigh = 0;
   const framesPerBucket = frames > 0 ? frames / buckets : 1;
@@ -119,10 +169,9 @@ export function buildEnvelope(
   // A SECOND envelope for tempo alone, at a fixed hop whatever the length.
   const tempoHops = frames > 0 ? Math.ceil(frames / FRAMES_PER_BUCKET) : 0;
   const tempoEnv = new Float32Array(Math.max(tempoHops, 0));
-  const tempoRate = sampleRate / FRAMES_PER_BUCKET;
 
   let pos = 0;
-  for (const block of audio.mono) {
+  for (const block of mono) {
     for (let i = 0; i < block.length; i++) {
       const v = block[i];
       let b = Math.floor(pos / framesPerBucket);
@@ -157,8 +206,19 @@ export function buildEnvelope(
   const rms = new Float32Array(buckets);
   for (let b = 0; b < buckets; b++)
     rms[b] = count[b] > 0 ? Math.sqrt(sumSq[b] / count[b]) : 0;
+  return { peak, rms, low: lowPk, mid: midPk, high: highPk, tempo: tempoEnv };
+}
 
-  const peakArr = Array.from(peak);
+/** The sidecar's envelope from a measure, whichever build made it: onsets and the tempo are picked here. */
+export function envelopeFrom(
+  m: Measured,
+  facts: { sampleRate: number; channels: number; frames: number },
+  fingerprint: string,
+  sensitivity: number = DEFAULT_TRANSIENT_SENSITIVITY,
+  correlations: Correlations = jsCorrelations,
+): FileEnvelope {
+  const { sampleRate, channels, frames } = facts;
+  const peakArr = Array.from(m.peak);
   const seconds = sampleRate > 0 ? frames / sampleRate : 0;
   // Onsets in FILE seconds, since seconds survive a change of bucket density that indices would not.
   const transients = detectTransients(peakArr, sensitivity).map((i) =>
@@ -172,12 +232,12 @@ export function buildEnvelope(
     frames,
     seconds,
     peak: peakArr,
-    rms: Array.from(rms),
+    rms: Array.from(m.rms),
     transients,
     sensitivity,
-    bpm: detectBpm(tempoEnv, tempoRate),
-    low: Array.from(lowPk),
-    mid: Array.from(midPk),
-    high: Array.from(highPk),
+    bpm: detectBpm(m.tempo, sampleRate / FRAMES_PER_BUCKET, correlations),
+    low: Array.from(m.low),
+    mid: Array.from(m.mid),
+    high: Array.from(m.high),
   };
 }

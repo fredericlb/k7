@@ -11,3 +11,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 k7x = { path = ".." }
+waveform = { path = "../../../audio-analysis/rust" }

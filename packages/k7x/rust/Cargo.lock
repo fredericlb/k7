@@ -20,4 +20,9 @@ name = "k7x-node"
 version = "0.1.0"
 dependencies = [
  "k7x",
+ "waveform",
 ]
+
+[[package]]
+name = "waveform"
+version = "0.1.0"

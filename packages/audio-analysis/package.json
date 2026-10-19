@@ -17,7 +17,9 @@
     "build": "tsc --noEmit",
     "dev": "tsc --noEmit --watch --preserveWatchOutput",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:wasm": "node scripts/buildWasm.mjs",
+    "bench:measure": "tsx bench/measure.ts"
   },
   "engines": {
     "node": ">=18"
