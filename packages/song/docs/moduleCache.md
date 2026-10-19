@@ -251,12 +251,36 @@ copied from the bundle, or rewritten by the sync with the same bytes, is a hit; 
 changed is not. Measured on a phone, `01.danse` opened from a cold file service: 9.3 s with nothing
 stored, 3.7 s with the account's store, 3.8 s on a first launch with only the bundle's.
 
+## The walk runs on a worker, in parallel
+
+The walk is half `readdir`, half `stat`, and the `stat`s are on the files whose content is
+genuinely read (291 `module.k7x`, 42 `ui.k7x`, the `nodes/`). A directory's own mtime does not
+move when a file inside it is edited, so no syscall can be skipped. What can be avoided is issuing
+them ONE AT A TIME: every caller of the stamp is synchronous, down to the compile, and a walk on
+the caller's thread makes each `readdirSync` and `statSync` wait for the last.
+
+`stampWalk.ts` runs the same walk on a worker thread with every `readdir` and `stat` of a level
+in flight at once, while the caller blocks on `Atomics.wait`. Measured on Windows over `k7-core/`
+(414 `readdir`, 1,344 `stat`): **44 ms inline, 12 ms on the worker**, the round trip itself
+0.05 ms. libuv's default pool of 4 is the fastest; 16 threads measured slower.
+
+- **Why a worker and not `async`**: making the stamp async means making every derivation above it
+  async — the compile, the graph, the hints, the edits in `song-edit`. Blocking on a worker keeps
+  every signature as it is.
+- **Why its source is a string** (`eval: true`): it uses node built-ins only, so neither the
+  desktop's nor the phone's bundle has to ship a worker file for it, as `analysePool.ts` must.
+- **It never changes a stamp.** The worker collects the names per directory and mixes them in the
+  order the inline walk visits them, so both answer the same hash. `stampWalk.test.ts` holds it.
+- **It costs ~15 MB and ~40 ms to start**, and the file service runs one process per account. So
+  it starts on the first walk, which runs inline meanwhile, and stops after a minute without one:
+  an idle account holds no isolate, and no walk is ever slower than inline.
+- **A worker that fails to start, errors, or misses a 5 s deadline** leaves every later walk
+  inline. The stamp is a correctness key: a slow answer is acceptable, no answer is not.
+
 ## The seam: something that already knows
 
-The walk is 20 ms and cannot be made cheaper — measured: half `readdir`, half `stat`, and the
-`stat`s are on the files whose content is genuinely read (291 `module.k7x`, 42 `ui.k7x`, the
-`nodes/`). A directory's own mtime does not move when a file inside it is edited, so there is no
-shortcut. What is left is asking less often, and a scope only reaches as far as one derivation.
+Even in parallel, the walk is paid per derivation, and a scope only reaches as far as one.
+What is left is asking less often.
 
 So `useFoldersStill(fn)` lets a process that WATCHES those roots answer instead. It is a single
 bit — "have they moved?" — and deliberately not a token: this file must hand back the stamp the
