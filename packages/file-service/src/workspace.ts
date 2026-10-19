@@ -219,6 +219,9 @@ function confined(
   if (inside === null) throw new Error(`path escapes the ${what}: ${rel}`);
   return inside;
 }
+
+/** How long a checked revision stands for a read that only DRAWS — never for a compile, the graph or the engine. */
+const DRAW_REUSE_MS = 300;
 export class Workspace {
   readonly root: string;
   readonly rootIsProject: boolean;
@@ -263,6 +266,7 @@ export class Workspace {
       requireActive: () => this.requireActive(),
       activeProject: () => this.activeProject,
       cachedProjectDoc: (dir) => this.cachedProjectDoc(dir),
+      recentProjectDoc: (dir) => this.recentProjectDoc(dir),
       withinRoot: (abs) => this.withinRoot(abs),
     });
     this.journal = new WorkspaceHistory({
@@ -565,11 +569,25 @@ export class Workspace {
   /** The compiled project, memoised against the REVISION rather than our own writes — docs/workspace.md. */
   cachedProjectDoc(dir: string): ProjectDoc {
     const rev = this.revision().rev;
+    this.docCheckedAt = Date.now();
     if (this.docCache && this.docCache.dir === dir && this.docCache.rev === rev)
       return this.docCache.doc;
     const { doc, freezes } = loadProjectWithFreezes(dir);
     this.docCache = { dir, rev, doc, freezes };
     return doc;
+  }
+
+  /** When `cachedProjectDoc` last checked its token — what `recentProjectDoc` trusts for a moment. */
+  private docCheckedAt = 0;
+
+  /** The compiled doc, its token trusted DRAW_REUSE_MS after a check: a burst of waveforms walked the project once each. */
+  recentProjectDoc(dir: string): ProjectDoc {
+    if (
+      this.docCache?.dir === dir &&
+      Date.now() - this.docCheckedAt < DRAW_REUSE_MS
+    )
+      return this.docCache.doc;
+    return this.cachedProjectDoc(dir);
   }
   setCachedProjectDoc(dir: string, doc: ProjectDoc): void {
     this.docCache = { dir, rev: this.revision().rev, doc };

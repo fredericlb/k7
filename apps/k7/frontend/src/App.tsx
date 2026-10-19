@@ -1206,15 +1206,10 @@ export default function App({
     const showWs = askWs();
     void api.workspace().then((w) => {
       showWs(w);
-      // The open below may begin a load: Play waits for its answer, which the next poll would correct anyway.
-      setEngineLoad(w.activeProject ? "copying" : (w.engineLoad ?? null));
+      // The gate OPENED this project before mounting us (useGatePhase.ts), so the load it began is already here: a second open re-pushed the whole project.
+      setEngineLoad(w.engineLoad ?? null);
       lastActive.current = w.activeProject;
-      if (w.activeProject)
-        void api
-          .open(w.activeProject)
-          .then((o) => setEngineLoad(o.engineLoad ?? null))
-          .catch(() => {});
-      else fullscreen("editor");
+      if (!w.activeProject) fullscreen("editor");
     });
     void api
       .commands()
