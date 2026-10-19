@@ -1,5 +1,5 @@
 // DemoBanner.tsx — the line under the header while the open project is a bundled DEMO: the file
-// service overwrites demos on its next start, edits and all, so this says it before anything is
+// service overwrites demos on the next app update or reset, edits and all, so this says it before anything is
 // lost and offers the copy that keeps them. See ../../docs/projects.md, "Demos".
 
 import { Button } from "@frediverse/ui/button";

@@ -487,6 +487,18 @@ export const accountFiles = {
     );
   },
 
+  /** Put the bundled demos in Examples back as they shipped; the user's own projects there stay. */
+  resetExamples: async (m: AccountFiles): Promise<void> => {
+    await json(
+      await fetch(`${m.fileBase}/workspaces/examples/reset`, {
+        method: "POST",
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
+        body: "{}",
+      }),
+      "reset",
+    );
+  },
+
   /** Unload the project and move its folder to the workspace's recycle bin. */
   deleteProject: async (
     m: AccountFiles,

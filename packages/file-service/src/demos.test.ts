@@ -1,6 +1,6 @@
 // mirrorDemos keeps a user's Examples on par with the bundled demos — it overwrites
 // and re-creates demo folders but must never touch the user's own projects. That's a
-// data-losing operation run on every startup, so its boundaries are worth pinning.
+// data-losing operation run on an update or a reset, so its boundaries are worth pinning.
 
 import {
   existsSync,
@@ -13,7 +13,15 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { EXAMPLES_WORKSPACE, isManagedDemo, mirrorDemos } from "./demos.ts";
+import {
+  DEMOS_STAMP,
+  demosStamp,
+  EXAMPLES_WORKSPACE,
+  isManagedDemo,
+  mirrorDemos,
+  mirrorDemosStamped,
+  syncExamples,
+} from "./demos.ts";
 
 let work: string;
 let bundle: string;
@@ -100,5 +108,55 @@ describe("isManagedDemo", () => {
     expect(isManagedDemo(EXAMPLES_WORKSPACE, "my-song")).toBe(false);
     expect(isManagedDemo(EXAMPLES_WORKSPACE, "sub/demoA")).toBe(false);
     expect(isManagedDemo("band", "demoA")).toBe(false);
+  });
+});
+
+describe("syncExamples, at startup", () => {
+  let home: string;
+  let demoA: string;
+  beforeEach(() => {
+    home = join(work, "home");
+    process.env.STUDIO_HOME = home;
+    demoA = join(
+      home,
+      "workspace",
+      EXAMPLES_WORKSPACE,
+      "demoA",
+      "project.yaml",
+    );
+  });
+  afterEach(() => {
+    delete process.env.STUDIO_HOME;
+  });
+
+  it("stocks Examples the first time, and stamps it with the bundle", () => {
+    syncExamples();
+    expect(readFileSync(demoA, "utf8")).toBe("A v1");
+    const stamp = join(home, "workspace", EXAMPLES_WORKSPACE, DEMOS_STAMP);
+    expect(readFileSync(stamp, "utf8").trim()).toBe(demosStamp());
+  });
+
+  // The point of the stamp: a restart is not an update, and an edited demo survives it.
+  it("leaves an edited demo alone on a start of the same build", () => {
+    syncExamples();
+    writeFileSync(demoA, "MY EDIT");
+    syncExamples();
+    expect(readFileSync(demoA, "utf8")).toBe("MY EDIT");
+  });
+
+  it("puts the demos back once the app was updated", () => {
+    syncExamples();
+    writeFileSync(demoA, "MY EDIT");
+    // An update reinstalls the bundle: here, a demo that changed size.
+    writeFileSync(join(bundle, "demoA", "project.yaml"), "A v2, longer");
+    syncExamples();
+    expect(readFileSync(demoA, "utf8")).toBe("A v2, longer");
+  });
+
+  it("is put back by a reset whatever the stamp says", () => {
+    syncExamples();
+    writeFileSync(demoA, "MY EDIT");
+    mirrorDemosStamped(join(home, "workspace", EXAMPLES_WORKSPACE));
+    expect(readFileSync(demoA, "utf8")).toBe("A v1");
   });
 });

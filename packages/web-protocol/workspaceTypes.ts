@@ -51,7 +51,7 @@ export interface WorkspaceInfo {
   engineSync?: EngineSyncState | null;
   // Where the opened project stands on its way to playable; null once it is — packages/file-service/docs/engineLoad.md.
   engineLoad?: EngineLoadPhase | null;
-  // The open project is a bundled demo, which the next start of the service overwrites — packages/file-service/src/demos.ts.
+  // The open project is a bundled demo, which the next app update or examples reset overwrites — packages/file-service/src/demos.ts.
   activeIsDemo?: boolean;
   // The change token as of this answer, set by `/open` alone: the page's views start from it rather than fetching twice.
   rev?: string;

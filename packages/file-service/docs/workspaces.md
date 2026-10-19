@@ -16,6 +16,19 @@ The hub starts an account's service on that account's first request, so startup 
 and the demos are on the home page the first time it draws. The root's absence cannot be the cue:
 the service creates the root as it boots, so a check made later never sees a new account.
 
+A start mirrors the demos only when the app was **updated** since they were last put there.
+Otherwise every restart overwrote a demo someone was trying out. The check is a stamp:
+`.demos-stamp`, in `Examples`, holds a fingerprint of the bundled demos. The fingerprint covers
+each file's path, size and modification time, plus `$APP_VERSION` when an image sets it. There is
+no single version every platform can read: the server image, the desktop app and the phones each
+stamp their own. All of them reinstall the demos on an update, though, which moves those times.
+A stamp that is missing, unreadable or different means the demos are mirrored.
+
+`POST /workspaces/examples/reset` mirrors them on request: **Reset examples…** in the ⋮ of the
+`Examples` row. It first unloads a demo the engine is playing and closes the module watches inside
+the demos, because Windows refuses to remove a folder that has open handles. The user's own
+projects in `Examples` are never touched, by either path.
+
 The existence check runs before the memo, on every call: a folder deleted from Finder would
 otherwise be served from cache and 500 deep in `fs`. `UnknownWorkspaceError` is carried as a type
 so the HTTP layer can answer 404 rather than lumping it in with a malformed name, which is a 400

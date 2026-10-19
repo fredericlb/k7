@@ -91,7 +91,7 @@ export interface RepoProject {
   active?: boolean;
   /** When a file in it last changed on this replica, epoch ms, from a walk two levels deep. */
   editedAt?: number;
-  /** A bundled demo, overwritten on the service's next start — the home page says so; absent otherwise. */
+  /** A bundled demo, overwritten by the next app update or examples reset — the home page says so; absent otherwise. */
   demo?: boolean;
 }
 

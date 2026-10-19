@@ -827,7 +827,7 @@ export class Workspace {
       rootIsProject: this.rootIsProject,
       activeProject: active,
       projects: this.projects(),
-      // The editor warns on a demo: a restart overwrites it, edits and all (demos.ts).
+      // The editor warns on a demo: an update or a reset overwrites it, edits and all (demos.ts).
       ...(active && isManagedDemo(basename(this.root), active)
         ? { activeIsDemo: true }
         : {}),

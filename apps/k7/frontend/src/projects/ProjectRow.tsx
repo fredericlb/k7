@@ -88,7 +88,7 @@ export function ProjectRow({
             aria-label={m["repos.active"]()}
           />
         )}
-        {/* A demo is overwritten on the next start: said before anyone edits one and loses it. */}
+        {/* A demo is overwritten by the next update or reset: said before anyone edits one and loses it. */}
         {p.demo && (
           <Badge
             variant="amber"

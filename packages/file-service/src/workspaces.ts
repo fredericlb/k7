@@ -22,7 +22,12 @@ import type {
 import { projectApp } from "@studio/web-protocol/projects";
 import { activeMarkerOf, readActiveMarker } from "./activeMarker.ts";
 import { BENCH_WORKSPACE } from "./bench.ts";
-import { EXAMPLES_WORKSPACE, isManagedDemo } from "./demos.ts";
+import {
+  demoNames,
+  EXAMPLES_WORKSPACE,
+  isManagedDemo,
+  mirrorDemosStamped,
+} from "./demos.ts";
 import { liveLogFor } from "./liveLog.ts";
 import { loadHead } from "./liveRelay.ts";
 import { isPaired } from "./liveServers.ts";
@@ -209,6 +214,26 @@ export async function removeWorkspace(
   forgetListing(slugify(userEmail));
 }
 
+/**
+ * Put every bundled demo back as it shipped, on request: the ⋮ of Examples. The user's own
+ * projects there are left alone. A demo the engine plays is unloaded first, since Windows refuses
+ * to remove a folder with open handles. See docs/workspaces.md.
+ */
+export async function resetExamples(
+  userEmail: string,
+  unload?: (abs: string) => void | Promise<unknown>,
+): Promise<string[]> {
+  const root = workspaceRoot(EXAMPLES_WORKSPACE);
+  for (const name of demoNames()) {
+    const abs = join(root, name);
+    closeModuleWatchesUnder(abs);
+    await unload?.(abs);
+  }
+  const synced = mirrorDemosStamped(root);
+  forgetListing(slugify(userEmail));
+  return synced;
+}
+
 /** The files under `dir` that are no folder, counted to a bound: whether anything is left worth keeping. */
 function filesUnder(dir: string, bound = 1): number {
   let n = 0;
@@ -309,7 +334,7 @@ export async function listMachineWorkspaces(
           surfaces: projectSurfaces(at).surfaces.map((s) => s.surface.type),
           active: active !== null && active === resolve(at),
           editedAt: projectEditedAt(at),
-          // A demo is overwritten on the next start, so the home page marks it rather than letting edits vanish.
+          // A demo is overwritten by the next update or reset, so the home page marks it rather than letting edits vanish.
           ...(isManagedDemo(name, path) ? { demo: true } : {}),
         };
         return [

@@ -91,6 +91,18 @@ export function ProjectsPane({
     [chosen, onChanged],
   );
 
+  /** The demos back as they shipped; the list is read again, a deleted demo being back in it. */
+  const resetExamples = useCallback(async () => {
+    setError(null);
+    try {
+      await accountFiles.resetExamples(chosen());
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      onChanged();
+    }
+  }, [chosen, onChanged]);
+
   /** A workspace made HERE, and EMPTY — the editor asks for the first project. */
   const createWorkspace = useCallback(
     async (workspace: string, onStep: (s: string) => void) => {
@@ -268,6 +280,7 @@ export function ProjectsPane({
           onCreate={create}
           onDelete={removeProject}
           onRemoveWorkspace={removeWorkspace}
+          onResetExamples={resetExamples}
           onCopy={copyProject}
           onRename={renameProject}
           // Same departure as from the tree: the app's address, not a view local to here.

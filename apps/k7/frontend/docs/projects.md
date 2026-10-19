@@ -608,8 +608,11 @@ gives, and this is the one act on the page that cannot be undone.
 
 ### Demos
 
-The `Examples` workspace holds the bundled demos, which the file service mirrors on every start —
-an edit to one is overwritten, a deleted one comes back (`packages/file-service/src/demos.ts`).
+The `Examples` workspace holds the bundled demos. The file service mirrors them when the app was
+updated since they were last put there, and when the person picks **Reset examples…** in the ⋮ of
+the `Examples` row. Either way an edit to one is overwritten and a deleted one comes back
+(`packages/file-service/src/demos.ts`). A plain restart leaves them as they are. The reset asks first
+(`WorkspaceMenu.tsx`), since it loses the edits.
 Mirroring is what keeps them working across versions, so it stays; what changes is that it is SAID.
 The listing marks a managed demo `demo: true`, and its row wears an amber "demo — resets" badge; the
 workspace poll says `activeIsDemo` for the open project, and the editor draws a line under its
@@ -620,7 +623,7 @@ anything else put there is the person's own and is never touched.
 `Examples` takes **no new project** — not created, imported, dropped or copied into: the file
 service refuses all four by name (`refuseInExamples`, `packages/file-service/src/projectLifecycle.ts`),
 and the home page offers none of them on its row. A demo is copied OUT to be worked on, and a
-person's project sitting among folders the bundle rewrites on every start reads as one of them.
+person's project sitting among folders the bundle rewrites on each update reads as one of them.
 The row comes **last**, after the person's own workspaces, and **folded** behind a chevron: once
 there is a workspace of one's own, the demos are the reference rather than the work. It is open
 when it is the only workspace, since a new account's page would otherwise show nothing at all.

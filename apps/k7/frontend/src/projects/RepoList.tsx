@@ -113,6 +113,7 @@ export function RepoList({
   onDownload,
   onMove,
   onCopyWorkspace,
+  onResetExamples,
 }: {
   workspaces: AccountWorkspace[];
   busy: boolean;
@@ -178,6 +179,8 @@ export function RepoList({
   onMove?: (ws: AccountWorkspace, to: string) => Promise<void>;
   /** Copy a workspace to another server this account syncs with, keeping it where it is. */
   onCopyWorkspace?: (ws: AccountWorkspace, to: string) => Promise<void>;
+  /** Put the bundled demos back in Examples, from its ⋮. */
+  onResetExamples?: () => Promise<void>;
 }) {
   // Several servers: each row names its own, and a workspace may move between them.
   const servers = sync?.servers ?? [];
@@ -371,6 +374,9 @@ export function RepoList({
                     from={syncEntryOf(sync, w.name)?.server ?? ""}
                     onMove={(to) => onMove?.(w, to) ?? Promise.resolve()}
                     onCopy={onCopyWorkspace && ((to) => onCopyWorkspace(w, to))}
+                    onResetExamples={
+                      isExamples(w) ? onResetExamples : undefined
+                    }
                   />
                 </div>
               </div>

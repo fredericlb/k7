@@ -31,6 +31,7 @@ import {
   listSurfacedProjects,
   listWorkspaces,
   removeWorkspace,
+  resetExamples,
   UnknownWorkspaceError,
   workspaceNames,
 } from "../workspaces.ts";
@@ -94,6 +95,17 @@ workspacesRouter.post(
       // A bad name and an absent workspace are both the caller's to fix.
       res.status(400).json({ error: (e as Error).message });
     }
+  }),
+);
+
+/** Put the bundled demos back as they shipped — Examples' "Reset examples" (docs/workspaces.md). */
+workspacesRouter.post(
+  "/workspaces/examples/reset",
+  wrap(async (req, res) => {
+    const reset = await resetExamples(req.userEmail!, (abs) =>
+      unloadEngineIfServing(abs),
+    );
+    res.json({ reset });
   }),
 );
 

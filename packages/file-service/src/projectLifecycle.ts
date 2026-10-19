@@ -43,7 +43,7 @@ export interface LifecycleHost {
   toRel(abs: string): string;
 }
 
-/** Refuse a NEW project in the demos' workspace: its contents are the bundle's, mirrored on every start. */
+/** Refuse a NEW project in the demos' workspace: its contents are the bundle's, mirrored on each update. */
 function refuseInExamples(host: LifecycleHost): void {
   if (basename(host.root) === EXAMPLES_WORKSPACE)
     throw new Error(

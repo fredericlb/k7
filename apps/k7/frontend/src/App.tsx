@@ -2900,7 +2900,7 @@ export default function App({
                 )}
               </div>
             </AppHeader>
-            {/* A demo is overwritten on the service's next start: said before an edit is lost (components/DemoBanner.tsx). */}
+            {/* A demo is overwritten by the next update or reset of the examples: said before an edit is lost (components/DemoBanner.tsx). */}
             {!frozen && ws?.activeIsDemo && ws.activeProject && (
               <DemoBanner project={ws.activeProject} />
             )}

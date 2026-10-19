@@ -1,4 +1,5 @@
-// WorkspaceMenu.tsx — the ⋮ at the end of a workspace's row: copy or move it to another server, or delete it.
+// WorkspaceMenu.tsx — the ⋮ at the end of a workspace's row: copy or move it to another server, reset
+// the demos (Examples only), or delete it.
 // Each is confirmed in words; the delete asks for the workspace's NAME. See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
@@ -13,6 +14,7 @@ import {
   Copy,
   Loader2,
   MoreVertical,
+  RotateCcw,
   Trash2,
 } from "@frediverse/ui/icons";
 import { askConfirm, askText } from "@studio/project-shell/ask";
@@ -28,6 +30,7 @@ export function WorkspaceMenu({
   from = "",
   onMove,
   onCopy,
+  onResetExamples,
   projectCount = 0,
 }: {
   workspace: string;
@@ -42,6 +45,8 @@ export function WorkspaceMenu({
   from?: string;
   onMove?: (to: string) => Promise<void>;
   onCopy?: (to: string) => Promise<void>;
+  /** Examples only: put the bundled demos back as they shipped. */
+  onResetExamples?: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -102,6 +107,16 @@ export function WorkspaceMenu({
       () => onCopy?.(to) ?? Promise.resolve(),
     );
 
+  const resetExamples = () =>
+    confirmThen(
+      {
+        title: m["ws.resetExamplesTitle"](),
+        body: m["ws.resetExamplesBody"](),
+        confirmLabel: m["ws.resetExamples"](),
+      },
+      () => onResetExamples?.() ?? Promise.resolve(),
+    );
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -142,6 +157,15 @@ export function WorkspaceMenu({
             {m["ws.moveTo"]({ server: hostLabel(to) })}
           </DropdownMenuItem>
         ))}
+        {onResetExamples && (
+          <DropdownMenuItem
+            className="gap-2 text-xs"
+            onSelect={() => void resetExamples()}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            {m["ws.resetExamplesEllipsis"]()}
+          </DropdownMenuItem>
+        )}
         {/* In red: the one act on this row that cannot be undone at all. */}
         <DropdownMenuItem
           className="gap-2 text-destructive text-xs"
