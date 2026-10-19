@@ -130,7 +130,12 @@ waveforms, video; an app that needs no more uses it as it stands.
   MACHINE is what builds the bench and therefore what decides which address it answers; the
   libraries are the machine's already.
 - **`open`** takes the project and nothing else: the server keeps the origin's libraries and
-  brings them up to date on the way (`packages/file-service/docs/libraries.md`).
+  brings them up to date on the way (`packages/file-service/docs/libraries.md`). Its answer also
+  carries the change token as of the open, kept for `openedRevision()`. A page polling `/revision`
+  starts from it: otherwise its token begins at null, and the first poll's answer looks like a
+  change, so every view that fetched on mounting fetched again. On a phone that was the project
+  compiled a second time. If a service is too old to send the token, `openedRevision()` returns
+  null and the page behaves as before.
 - **`moduleLibraries` and `libraryChains`** sit beside `/tree` because that one is the SONG and
   these are outside it. A chain's `path` comes from the service rather than being built by the
   caller, exactly as a module library's does.

@@ -12,6 +12,14 @@ import type {
 } from "@studio/web-protocol";
 import { fget, fsend } from "./fileApi.ts";
 
+/** The change token the last `/open` answered with; null before one, or from a service too old to say. */
+let openedRev: string | null = null;
+
+/** The token a page's first reads can assume, so they are not all asked again on the first poll (docs/fileApi.md). */
+export function openedRevision(): string | null {
+  return openedRev;
+}
+
 export const fileRoutes = {
   /** The BENCH, instead of opening a workspace's project — see docs/fileApi.md. */
   openBench: (project: string | undefined) =>
@@ -22,9 +30,12 @@ export const fileRoutes = {
 
   // --- The open project ---------------------------------------------------------
   workspace: () => fget<WorkspaceInfo>("/workspace"),
-  /** Open the project, and say which library repository to mount — see docs/fileApi.md. */
   /** Open a project; the machine brings the account's libraries up to date on the way — docs/fileApi.md. */
-  open: (path: string) => fsend<WorkspaceInfo>("POST", "/open", { path }),
+  open: (path: string) =>
+    fsend<WorkspaceInfo>("POST", "/open", { path }).then((info) => {
+      openedRev = info.rev ?? null;
+      return info;
+    }),
   /** Whether `path` is up to date with the relay — `/open` refuses until it is, see docs/launch.md. */
   syncProject: (path: string) =>
     fget<ProjectSyncState>(`/sync/project?path=${encodeURIComponent(path)}`),
