@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { mixerModules } from "../mixerStrips";
 import { isAnswer } from "../readFailure";
+import { keepIfSame } from "../shellEquality";
 import type { WebProject } from "../types";
 
 export interface RecInfo {
@@ -83,7 +84,7 @@ export function useProjectDoc(
       .then((p) => {
         if (!alive) return;
         setDoc(p);
-        setTrackOrder(p.tracks.map((t) => t.id));
+        setTrackOrder(keepIfSame(p.tracks.map((t) => t.id)));
         setMetronomeOn(p.metronome);
         setMetronomeLevel(p.metronomeLevel);
         setRecInfo({

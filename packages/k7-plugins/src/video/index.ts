@@ -6,13 +6,15 @@
 // fetched only by a project that draws a picture (../lazyDrawer.tsx). See ../../docs/plugins.md.
 
 import { definePlugin, type K7Plugin } from "@studio/k7-sdk/plugin";
+import { memo } from "react";
 import { lazyDrawer } from "../lazyDrawer";
 
 export const ViewportPane = lazyDrawer(() =>
   import("./ViewportPane").then((m) => m.ViewportPane),
 );
-export const ViewportTab = lazyDrawer(() =>
-  import("./ViewportTab").then((m) => m.ViewportTab),
+// Memoised: the shell's floating window stays mounted while hidden, under an App that re-renders on every caret move.
+export const ViewportTab = memo(
+  lazyDrawer(() => import("./ViewportTab").then((m) => m.ViewportTab)),
 );
 
 export const videoPlugin: K7Plugin = definePlugin({

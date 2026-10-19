@@ -6,6 +6,7 @@
 import { parseTasks, TASKS_FILE, type Task } from "@studio/song-schema/tasks";
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { keepIfSame } from "../shellEquality";
 import { useRevision } from "./useRevision";
 
 /** The tasks pinned to `project`, as the workspace names it; none while no project is open. */
@@ -15,7 +16,7 @@ export function useProjectTasks(project: string | null): Task[] {
   // biome-ignore lint/correctness/useExhaustiveDependencies: `revision` is the trigger, not an input.
   useEffect(() => {
     if (!project) {
-      setTasks([]);
+      setTasks(keepIfSame<Task[]>([]));
       return;
     }
     let live = true;
@@ -24,11 +25,13 @@ export function useProjectTasks(project: string | null): Task[] {
       .then((f) => {
         if (live)
           setTasks(
-            parseTasks(f.content).filter((t) => t.at?.project === project),
+            keepIfSame(
+              parseTasks(f.content).filter((t) => t.at?.project === project),
+            ),
           );
       })
       // No TODOS.md yet is no task, not an error worth a word here: the panel says the rest.
-      .catch(() => live && setTasks([]));
+      .catch(() => live && setTasks(keepIfSame<Task[]>([])));
     return () => {
       live = false;
     };

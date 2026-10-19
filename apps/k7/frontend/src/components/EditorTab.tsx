@@ -25,6 +25,7 @@ import { InputChannelBar } from "@studio/ui-module-builder/input-channels";
 import { setChannelIn } from "@studio/ui-module-builder/module-ui";
 import type { ModuleLibrary } from "@studio/web-protocol";
 import {
+  memo,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -148,7 +149,10 @@ const EMPTY_HINTS: Hints = {
   media: {},
 };
 
-export function EditorTab({
+// Memoised: App re-renders on every caret move and scroll, and this pane stays mounted while hidden (../../docs/shell.md).
+export const EditorTab = memo(EditorTabView);
+
+function EditorTabView({
   active,
   showTree,
   popin,

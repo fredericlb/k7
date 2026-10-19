@@ -13,7 +13,7 @@ import {
 } from "@studio/engine-browser/params";
 import type { WebGraph } from "@studio/graph-model";
 import type { ProjectSurface } from "@studio/song-schema/yaml/surfaceFile";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { useRevision } from "../hooks/useRevision";
 import {
@@ -33,7 +33,10 @@ import {
 } from "../mastering/controls";
 import { m } from "../paraglide/messages.js";
 
-export function MasteringTab({
+// Memoised: App re-renders on every caret move and scroll, and this pane stays mounted while hidden (../../docs/shell.md).
+export const MasteringTab = memo(MasteringTabView);
+
+function MasteringTabView({
   surface,
   paramsStore,
   setPluginParam,

@@ -28,7 +28,7 @@ import {
   type NodeEngines,
   type TapAction,
 } from "@studio/ui-chains-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
@@ -49,7 +49,10 @@ import { MidiFeedback } from "./MidiFeedback";
 // A card with no authored vertical layout is folded to the same 4 columns (packages/ui-chains/docs/graphBuild.md).
 const GRAPH_FIT: GridFit = { axis: "cols", max: 4 };
 
-export function ChainsTab({
+// Memoised: App re-renders on every caret move and scroll, and this pane stays mounted while hidden (../../docs/shell.md).
+export const ChainsTab = memo(ChainsTabView);
+
+function ChainsTabView({
   mark,
   onPreviewNote,
   reloadKey,

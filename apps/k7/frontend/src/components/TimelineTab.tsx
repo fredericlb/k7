@@ -47,6 +47,7 @@ import {
 } from "@studio/ui-timeline/panZoom";
 import { adjacentTick, nearestTick } from "@studio/ui-timeline/ticks";
 import {
+  memo,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -301,7 +302,10 @@ export interface TimelineHandle {
   setTool: (t: Tool) => void;
 }
 
-export function TimelineTab({
+// Memoised: App re-renders on every caret move and scroll, and this pane stays mounted while hidden (../../docs/shell.md).
+export const TimelineTab = memo(TimelineTabView);
+
+function TimelineTabView({
   active,
   reloadKey,
   rolling,
