@@ -12,6 +12,10 @@ answer whenever the Rust reader declines.
 | a browser, the server's node, Electron's node, Termux's node | WebAssembly, `src/k7xWasm.generated.ts` | each has a JIT, so one module serves all of them — no binary per OS and CPU |
 | NodeMobile on iOS | `k7x.framework`, the Node-API addon `rust/node` | a JIT-less V8 has no WebAssembly at all |
 
+The addon is the app's ONE native library, so it also carries the waveform measure of
+`@studio/audio-analysis` (`rust/node/src/waveform.rs`, `packages/audio-analysis/docs/analysis.md`):
+a second framework would be a second thing to stage, embed and sign.
+
 Both are the same C ABI, `rust/src/ffi.rs`: UTF-8 text in, **JSON text out**, which `JSON.parse`
 turns into the value. That is the whole design, and it is measured: over the corpus (1,272 files),
 `JSON.parse` of the data takes 5 ms with or without a JIT, where building the same objects in JS

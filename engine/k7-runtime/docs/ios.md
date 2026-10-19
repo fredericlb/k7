@@ -12,7 +12,7 @@ protocol on port 8765, and the screen is k7, full screen, in a view of its own. 
 | one file-service process per account | one worker thread per account (`packages/file-hub/workerChild.ts`) | no iOS app may start a process |
 | the backend, a process relaunched on a backoff | the backend, a WORKER of `backend-boot.mjs`, relaunched on the same backoff | node runs once per process, and its `process.env` is the app's own environment |
 | the engine, `libk7runtime.so`, on a thread whose Looper is JUCE's | `k7runtime.framework`, on a thread whose run loop is JUCE's | the engine is a library on both phones |
-| the k7x reader as WebAssembly, inside `@studio/k7x` | `k7x.framework`, a Node-API addon `BackendHost.swift` names in `K7X_ADDON` | a JIT-less V8 has no WebAssembly (`packages/k7x/docs/rust.md`) |
+| the k7x reader and the waveform measure as WebAssembly, inside `@studio/k7x` and `@studio/audio-analysis` | `k7x.framework`, the one Node-API addon `BackendHost.swift` names in `K7X_ADDON`, which carries both | a JIT-less V8 has no WebAssembly (`packages/k7x/docs/rust.md`, `packages/audio-analysis/docs/analysis.md`) |
 | Android's CAs, read from the system's folders | a CA bundle the app ships (`cacert.pem`, Mozilla's set as curl publishes it) | iOS lets no app list its trusted roots |
 | foreground services while busy | background audio, released while idle | iOS keeps a running audio app alive, and suspends one that stops |
 
