@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The splash's #07031F, behind the launcher icon and the startup splash alike (apps/k7/frontend/docs/icons.md). -->
+<resources>
+    <color name="splash_background">#FF07031F</color>
+</resources>
