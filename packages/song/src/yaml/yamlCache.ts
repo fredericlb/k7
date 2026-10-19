@@ -9,6 +9,7 @@ import { parse as parseYaml } from "yaml";
 // How old an mtime must be to be trusted as a key — this cache's whole correctness, and not only
 // this one's, which is why the window has one spelling. See docs/moduleCache.md.
 import { SETTLE_MS } from "../moduleCache";
+import { storedParse, storeParse } from "./parseStore";
 import { realPath, wsRead } from "./workspaceFile";
 
 /** How many parsed files to hold. A song is ~200 of them, its module libraries ~800 more. */
@@ -45,7 +46,10 @@ export function settledParse<T>(
     memo.set(key, hit);
     return hit.value as T;
   }
-  const value = parse(wsRead(path));
+  // A file service that started again finds what the last one parsed, on disk — parseStore.ts.
+  const stored = settled ? storedParse(key, st) : null;
+  const value = stored ? (stored.value as T) : parse(wsRead(path));
+  if (settled && !stored) storeParse(key, st, value);
   if (!settled) {
     // Still inside the window where the next write could reuse this stamp — storing it would hit later.
     memo.delete(key);

@@ -73,6 +73,13 @@ makes our own write visible inside a single timestamp tick.
 The token describes the ACTIVE project. Both caches take a `dir` because building takes
 one, not because a second project can sit in them.
 
+Because the token sees every change to the project's files, an `/open` of the project already
+open keeps every cache: the page sends two for one open, and each used to throw the compile away.
+The first open of a project in a process still sets it up — the prewarm, the video repair — even
+when the marker had already made it active. The compile also hands back the project's automatic
+freezes (`loadProjectWithFreezes`), so the graph does not compile the project a second time to list
+them, and a relay landing that touches only ANOTHER project leaves the open one's caches alone.
+
 `hints()` is the third, for the same reason: it is a pure read of the folder, and k7 asks for it
 after EVERY command — the editor pane is mounted in every layout and refreshes its tree and its
 completion vocabulary together, so a command that never touched a file the editor is showing

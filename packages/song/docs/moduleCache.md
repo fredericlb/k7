@@ -225,6 +225,22 @@ file **whatever its size** — it is open/read/close, not the content: 57 clip f
 is why a content-addressed cache (keep the read, compare the text, skip only the parse) is not
 the answer: perfectly safe, and it recovers only 12 ms of the 46.
 
+## Across a restart — `yaml/parseStore.ts`
+
+The memo above dies with the process, and on a phone the process dies often: every app launch, every
+stop for idleness. Parsing the module vocabulary again is ~1.5 s on a PC and several times that on a
+phone, before a project can open. So in a packaged app (`STUDIO_PARSE_CACHE=1`, set by
+`apps/k7/backend/standalone.json`) a SETTLED parse is also written to `<account home>/.parse-cache.json`,
+under the same key and checked against the same mtime and size; the next process reads it instead
+of parsing. Measured on `01.danse`: a cold open 2.8 s → 1.5 s on a PC.
+
+- **Only for a bundle.** A parse is only as good as the parser that made it, so the store carries the
+  running bundle's size and mtime and is dropped whole when they differ: an update parses afresh. A
+  source run — a developer editing a parser — never uses it.
+- **Beside the workspace, never in it**: it is this machine's, and the sync must not carry it.
+- **Only what the memo would keep**: a file inside the settle window is neither read from it nor
+  written to it, by the same rule.
+
 ## The seam: something that already knows
 
 The walk is 20 ms and cannot be made cheaper — measured: half `readdir`, half `stat`, and the
