@@ -43,6 +43,9 @@ describe("isHandoffReturn", () => {
   it("allows loopback http and the app's scheme only", () => {
     expect(isHandoffReturn("http://127.0.0.1:5123/done")).toBe(true);
     expect(isHandoffReturn("se.frediver.k7://auth")).toBe(true);
+    // The e2e build installs beside the shipped app, under its own scheme, so the answer reaches IT.
+    expect(isHandoffReturn("se.frediver.k7.e2e://auth")).toBe(true);
+    expect(isHandoffReturn("se.frediver.k7.evil://auth")).toBe(false);
     expect(isHandoffReturn("https://evil.example/x")).toBe(false);
     expect(isHandoffReturn("http://192.168.1.2/done")).toBe(false);
     expect(isHandoffReturn("javascript:alert(1)")).toBe(false);

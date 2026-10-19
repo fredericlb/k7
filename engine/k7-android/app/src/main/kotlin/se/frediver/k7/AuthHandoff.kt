@@ -14,8 +14,8 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 
 object AuthHandoff {
-    /** The app's own scheme, in the manifest's intent filter too; the server sends the code nowhere else but loopback. */
-    const val SCHEME = "se.frediver.k7"
+    /** The app's own scheme, its application id, so an e2e build beside the shipped app gets its own answer; in the manifest too. */
+    val SCHEME: String = BuildConfig.APPLICATION_ID
     private const val HOST = "auth"
     private const val ISSUE = "/auth/handoff/issue"
     private const val REDEEM = "/auth/handoff/redeem"
