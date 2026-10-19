@@ -2,8 +2,12 @@
 // A data URL, so it needs no server; it holds no link, so the tab's routing never sees it navigate. See docs/standalone.md.
 // It declares NO drag region: on Windows a view keeps one across navigation, and k7's home would drag the window on every click (docs/tabs.md).
 
-/** --sh-background, --sh-foreground, --sh-muted-foreground and --sh-destructive, from the app's theme. */
-const BACKGROUND = "#101114";
+import splashArt from "./splashArt.json";
+
+/** The startup splash's own colour, then --sh-foreground, --sh-muted-foreground and --sh-destructive from the app's theme. */
+const BACKGROUND = "#07031F";
+/** --sh-background: the strip is one bar with the window's caption buttons (window.ts). */
+const STRIP = "#101114";
 const FOREGROUND = "#e9e9ee";
 const MUTED = "#92929e";
 const ERROR = "#f16469";
@@ -23,6 +27,7 @@ html,body{margin:0;height:100%;background:${BACKGROUND};color:${FOREGROUND};font
 body{display:flex;align-items:center;justify-content:center;user-select:none}
 main{max-width:36rem;padding:0 24px;text-align:center}
 h1{font-size:18px;font-weight:600;margin:0 0 8px}
+svg{display:block;width:min(70vw,420px);height:auto;margin:0 auto 28px}
 p{margin:0;color:${MUTED}}
 pre{margin:16px 0 0;padding:12px;text-align:left;white-space:pre-wrap;word-break:break-word;color:${ERROR};background:#ffffff0a;border-radius:6px;font:12px/1.5 ui-monospace,monospace;user-select:text}
 .dot{display:inline-block;width:6px;height:6px;margin:0 3px;border-radius:50%;background:${MUTED};animation:b 1.2s infinite ease-in-out both}
@@ -34,7 +39,7 @@ pre{margin:16px 0 0;padding:12px;text-align:left;white-space:pre-wrap;word-break
 
 /** The strip until k7 answers: an empty bar that drags the window, the one place a drag region may live. */
 export function placeholderStrip(): string {
-  const html = `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:${BACKGROUND};-webkit-app-region:drag}</style></head><body></body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:${STRIP};-webkit-app-region:drag}</style></head><body></body></html>`;
   return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 }
 
@@ -42,7 +47,7 @@ export function placeholderStrip(): string {
 export function startingPage(): string {
   return page(
     "k7",
-    `<h1>k7 is starting</h1><p>The first launch prepares the library and can take a while.</p><p style="margin-top:16px"><span class="dot"></span><span class="dot"></span><span class="dot"></span></p>`,
+    `${splashArt.svg}<p>The first launch prepares the library and can take a while.</p><p style="margin-top:16px"><span class="dot"></span><span class="dot"></span><span class="dot"></span></p>`,
   );
 }
 

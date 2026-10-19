@@ -78,7 +78,9 @@ so it draws the same tray with a Retry. Its forms — another studio's address, 
 collapsed, since the phone's own studio needs neither; a studio refused for its certificate opens the
 private CA section, the likely fix.
 
-The activity keeps Capacitor's `AppTheme.NoActionBar`, a dark theme, rather than a DayNight one. Every
+The activity's theme is `AppTheme.Launch` (`res/values/themes.xml`), Capacitor's `AppTheme.NoActionBar`
+with the startup splash as the window's background, so the phone shows the cassette from the first
+frame (`apps/k7/frontend/docs/icons.md`). It stays a dark theme rather than a DayNight one. Every
 studio page is dark-only (`@frediverse/ui/theme.css`, and k7's `color-scheme: dark`), so the
 `prefers-color-scheme` a light theme would give the views changes nothing in them; what it would
 change is the window behind a loading page and the native dialogs, a white flash and white boxes

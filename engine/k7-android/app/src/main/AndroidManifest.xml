@@ -27,7 +27,7 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:label="${appLabel}"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:theme="@style/AppTheme.NoActionBar">
+        android:theme="@style/AppTheme.Launch">
         <!-- configChanges: a rotation must not recreate the activity, which would stop the engine. -->
         <activity
             android:name=".MainActivity"
