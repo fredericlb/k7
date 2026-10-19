@@ -8,10 +8,14 @@
 //
 // See packages/song/docs/surfaces.md and packages/k7-plugins/docs/plugins.md.
 
+import { memo } from "react";
 import { m } from "../paraglide/messages.js";
 import { type ShellPaneProps, shellPaneDrawer } from "../surfacePanes";
 
-export function SurfaceTab({ surface, ...rest }: ShellPaneProps) {
+// Memoised: App re-renders on every caret move and scroll, and this pane stays mounted while hidden (../../docs/shell.md).
+export const SurfaceTab = memo(SurfaceTabView);
+
+function SurfaceTabView({ surface, ...rest }: ShellPaneProps) {
   // The registry answers which component draws this type; a type with no ring slot draws in
   // k7's window, and the card says so — the same rule a device's mount applies.
   const pane = shellPaneDrawer(surface.surface.type);

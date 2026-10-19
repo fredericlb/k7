@@ -143,6 +143,7 @@ import { type SetStatus, useLogs } from "./hooks/useLogs";
 import type { MidiControlApi } from "./hooks/useMidiControl";
 import { useMidiRecording } from "./hooks/useMidiRecording";
 import { useNodePresets } from "./hooks/useNodePresets";
+import { usePaneCallbacks } from "./hooks/usePaneCallbacks";
 import {
   useActiveProjectFollow,
   useProjectErrors,
@@ -2037,6 +2038,9 @@ export default function App({
   const focusNonce = useRef(0);
   // What the status line said about the file, so the canvas's answer is added to it rather than replacing it.
   const focusLine = useRef("");
+  // Read through a ref: `openInEditor` follows fullscreen and focus, and the panels this is handed to are memoised.
+  const openInEditorRef = useRef(openInEditor);
+  openInEditorRef.current = openInEditor;
   const focusRowInPanes = useCallback(
     (target: RowTarget) => {
       // Named, not fuzzy-matched: a lane lives in `nodes/`, or in a chain project's `tracks/` (packages/song/docs/chainFiles.md).
@@ -2044,7 +2048,7 @@ export default function App({
       const file =
         entityFile(files, "nodes", target.id) ??
         entityFile(files, "tracks", target.id);
-      const path = file && openInEditor(file, false);
+      const path = file && openInEditorRef.current(file, false);
       focusLine.current = `${target.id} — ${path ?? m["status.noNodesFile"]()}`;
       setStatus(focusLine.current);
       focusNonce.current += 1;
@@ -2053,7 +2057,7 @@ export default function App({
       if (target.kind === "track")
         openEvent({ kind: "trackModules", trackId: target.id });
     },
-    [openInEditor, openEvent],
+    [openEvent],
   );
   // The canvas reports what the framing found: a track wired to nothing has to say so, or the double-click reads as a miss.
   const reportFramed = useCallback((chains: number) => {
@@ -2070,16 +2074,19 @@ export default function App({
   const [menu, setMenu] = useState<MenuState | null>(null);
   // What the entry under the pointer DOES, borrowing the status line while the menu is open — see ContextMenu.tsx's `onHint`.
   const setMenuHint = statusStore.hint;
+  // Read through a ref: the graph's insert callbacks are built on this one, and the chains pane is memoised.
+  const paletteOpenRef = useRef(paletteOpen);
+  paletteOpenRef.current = paletteOpen;
   const prewriteCommand = useCallback(
     (text: string) => {
       // Docked, the bar is already mounted: write into it; the deferral below exists only for the popin.
-      if (docked || paletteOpen) cmdRef.current?.prewrite(text);
+      if (docked || paletteOpenRef.current) cmdRef.current?.prewrite(text);
       else {
         pendingPrewrite.current = text;
         setPaletteOpen(true);
       }
     },
-    [docked, paletteOpen],
+    [docked],
   );
   useEffect(() => {
     if (paletteOpen && pendingPrewrite.current != null) {
@@ -2792,6 +2799,117 @@ export default function App({
     </div>
   );
 
+  // EditorTab's two builders, built here so its own props stay references; each is null while closed.
+  const moduleBuilderEl = builder ? (
+    <Suspense fallback={null}>
+      <PaneBoundary
+        name="module builder"
+        resetKey={reloadKey}
+        onError={paneError}
+      >
+        <ModuleBuilder
+          // One mount per module: a module opened from the tree beside it starts clean, not on the last one's state.
+          key={builder.path}
+          // ONE store: the account's libraries answer at `_libraries/<name>/…` in every workspace, so a shared module is an ordinary workspace path.
+          store={moduleStore}
+          path={builder.path}
+          kind="module"
+          moduleName={builder.path.split("/").slice(-2)[0] ?? builder.path}
+          paramRef={null}
+          vimMode={vimMode}
+          initialPane={builder.pane}
+          // A library module opens EDITABLE, like the project's own: its Save is the publish — docs/sharedModules.md.
+          onBack={closeModuleBuilder}
+          onDirtyChange={noteBuilderDirty}
+          onSaved={() => {
+            bumpReload();
+            // A library module saved here is live at once, so the Libraries tab is re-read.
+            editorRef.current?.refreshLibraries();
+          }}
+          setStatus={setStatus}
+          // The same save sentence as every other text pane, in the app's language.
+          saveLabel={saveLabel}
+          // What the plugin calls its parameters and what each spans, off `pluginParamMeta` — never the 20 Hz store, which render would read empty.
+          pluginParamNames={
+            builderPlugin
+              ? Object.keys(pluginParamMeta[builderPlugin.pluginId] ?? {})
+              : undefined
+          }
+          pluginParamMeta={
+            builderPlugin ? pluginParamMeta[builderPlugin.pluginId] : undefined
+          }
+          // Ask the MACHINE what this module's plugin has, by loading one on purpose — the way out for a module the project does not wire (api.ts).
+          onScanParams={api.scanPluginParams}
+          // …and the same ref, opened rather than read: only for a plugin this machine SCANNED, on an instance in no project.
+          onShowNativeUI={api.showPluginNativeUI}
+          // The sockets an `io: in` module can listen on — empty with no engine attached, which is the honest answer.
+          inputDevices={inputDevices}
+          // …and the one act that changes that list, offered only with an engine attached, which is what does it.
+          onRegroupInputs={connected ? regroupInputs : undefined}
+          presets={
+            (builderPlugin && presets[builderPlugin.module]) || EMPTY_PRESETS
+          }
+          onListPresets={() =>
+            builderPlugin && listPresets(builderPlugin.module)
+          }
+          // The engine resolves both ends to the same live plugin, so which name is sent does not matter — take the builder's.
+          onSetPreset={(module, sel) => setPreset(module, sel)}
+          // A save into `_modules` forked: follow the copy, or the next save would fork again.
+          onRelocated={(next) => {
+            setBuilder({ path: next, pane: "module" });
+            editorRef.current?.open(next);
+          }}
+          // Claude draws the panel on THIS app's backend, which holds the key — absent when it holds none.
+          onAiOrganize={aiEnabled ? aiOrganize.run : undefined}
+          renderPreview={({ ui, params, bases, script, stage }) => (
+            <ModulePreview
+              icons={STUDIO_ICONS}
+              command={runCommand}
+              name={builder.path.split("/").slice(-2)[0] ?? builder.path}
+              path={builder.path}
+              ui={script ? { ...ui, script } : ui}
+              params={params}
+              bases={bases}
+              stage={stage}
+              paramsStore={builderPlugin ? pluginParamsStore : undefined}
+              onSetParam={builderPlugin ? setPluginParam : undefined}
+            />
+          )}
+        />
+      </PaneBoundary>
+    </Suspense>
+  ) : null;
+  const chainsBuilderEl =
+    openBuilder !== null ? (
+      <PaneBoundary
+        name="chains builder"
+        resetKey={reloadKey}
+        onError={paneError}
+      >
+        <ChainsBuilder
+          open={openBuilder}
+          focusNode={builderNode}
+          vimMode={vimMode}
+          onLog={pushLog}
+          onClose={() => setOpenBuilder(null)}
+        />
+      </PaneBoundary>
+    ) : null;
+
+  // Everything the panes are handed that is not already a ref, a setter or a stable callback (hooks/usePaneCallbacks.ts).
+  const paneFns = usePaneCallbacks({
+    runCommand,
+    openEvent,
+    setGraphSlot,
+    engineRef,
+    cmdRef,
+    openModuleBuilder,
+    setAssemblyBuilder,
+    setOpenBuilder,
+    setBuilderNode,
+    liveTake,
+  });
+
   return (
     <EngineStoreProvider value={store}>
       {/* The song's clock for every graph below: a curve card's playhead and its bar lines read it (ui-chains-react docs/nodeCard.md). */}
@@ -2989,152 +3107,13 @@ export default function App({
                         onEditTarget={setEditTargetIfOther}
                         onOpenItem={setOpenItemIfOther}
                         onOpenBuilder={openModuleBuilder}
-                        // The same builder for a library module — on the PANEL like a project module.
-                        onOpenLibraryModule={(path) =>
-                          void openModuleBuilder(path, "panel")
-                        }
+                        onOpenLibraryModule={paneFns.openLibraryModule}
                         // The module builder takes the editor's place BESIDE the file tree, as the chains builder does (docs/moduleBuilder.md).
-                        moduleBuilder={
-                          builder ? (
-                            <Suspense fallback={null}>
-                              <PaneBoundary
-                                name="module builder"
-                                resetKey={reloadKey}
-                                onError={paneError}
-                              >
-                                <ModuleBuilder
-                                  // One mount per module: a module opened from the tree beside it starts clean, not on the last one's state.
-                                  key={builder.path}
-                                  // ONE store: the account's libraries answer at `_libraries/<name>/…` in every workspace, so a shared module is an ordinary workspace path.
-                                  store={moduleStore}
-                                  path={builder.path}
-                                  kind="module"
-                                  moduleName={
-                                    builder.path.split("/").slice(-2)[0] ??
-                                    builder.path
-                                  }
-                                  paramRef={null}
-                                  vimMode={vimMode}
-                                  initialPane={builder.pane}
-                                  // A library module opens EDITABLE, like the project's own: its Save is the publish — docs/sharedModules.md.
-                                  onBack={closeModuleBuilder}
-                                  onDirtyChange={noteBuilderDirty}
-                                  onSaved={() => {
-                                    bumpReload();
-                                    // A library module saved here is live at once, so the Libraries tab is re-read.
-                                    editorRef.current?.refreshLibraries();
-                                  }}
-                                  setStatus={setStatus}
-                                  // The same save sentence as every other text pane, in the app's language.
-                                  saveLabel={saveLabel}
-                                  // What the plugin calls its parameters and what each spans, off `pluginParamMeta` — never the 20 Hz store, which render would read empty.
-                                  pluginParamNames={
-                                    builderPlugin
-                                      ? Object.keys(
-                                          pluginParamMeta[
-                                            builderPlugin.pluginId
-                                          ] ?? {},
-                                        )
-                                      : undefined
-                                  }
-                                  pluginParamMeta={
-                                    builderPlugin
-                                      ? pluginParamMeta[builderPlugin.pluginId]
-                                      : undefined
-                                  }
-                                  // Ask the MACHINE what this module's plugin has, by loading one on purpose — the way out for a module the project does not wire (api.ts).
-                                  onScanParams={api.scanPluginParams}
-                                  // …and the same ref, opened rather than read: only for a plugin this machine SCANNED, on an instance in no project.
-                                  onShowNativeUI={api.showPluginNativeUI}
-                                  // The sockets an `io: in` module can listen on — empty with no engine attached, which is the honest answer.
-                                  inputDevices={inputDevices}
-                                  // …and the one act that changes that list, offered only with an engine attached, which is what does it.
-                                  onRegroupInputs={
-                                    connected ? regroupInputs : undefined
-                                  }
-                                  presets={
-                                    (builderPlugin &&
-                                      presets[builderPlugin.module]) ||
-                                    EMPTY_PRESETS
-                                  }
-                                  onListPresets={() =>
-                                    builderPlugin &&
-                                    listPresets(builderPlugin.module)
-                                  }
-                                  // The engine resolves both ends to the same live plugin, so which name is sent does not matter — take the builder's.
-                                  onSetPreset={(module, sel) =>
-                                    setPreset(module, sel)
-                                  }
-                                  // A save into `_modules` forked: follow the copy, or the next save would fork again.
-                                  onRelocated={(next) => {
-                                    setBuilder({ path: next, pane: "module" });
-                                    editorRef.current?.open(next);
-                                  }}
-                                  // Claude draws the panel on THIS app's backend, which holds the key — absent when it holds none.
-                                  onAiOrganize={
-                                    aiEnabled ? aiOrganize.run : undefined
-                                  }
-                                  renderPreview={({
-                                    ui,
-                                    params,
-                                    bases,
-                                    script,
-                                    stage,
-                                  }) => (
-                                    <ModulePreview
-                                      icons={STUDIO_ICONS}
-                                      command={runCommand}
-                                      name={
-                                        builder.path.split("/").slice(-2)[0] ??
-                                        builder.path
-                                      }
-                                      path={builder.path}
-                                      ui={script ? { ...ui, script } : ui}
-                                      params={params}
-                                      bases={bases}
-                                      stage={stage}
-                                      paramsStore={
-                                        builderPlugin
-                                          ? pluginParamsStore
-                                          : undefined
-                                      }
-                                      onSetParam={
-                                        builderPlugin
-                                          ? setPluginParam
-                                          : undefined
-                                      }
-                                    />
-                                  )}
-                                />
-                              </PaneBoundary>
-                            </Suspense>
-                          ) : null
-                        }
+                        moduleBuilder={moduleBuilderEl}
                         // A chain row opens the builder ON that chain, both coming out of the one library repository.
-                        chainsBuilder={
-                          openBuilder !== null ? (
-                            <PaneBoundary
-                              name="chains builder"
-                              resetKey={reloadKey}
-                              onError={paneError}
-                            >
-                              <ChainsBuilder
-                                open={openBuilder}
-                                focusNode={builderNode}
-                                vimMode={vimMode}
-                                onLog={pushLog}
-                                onClose={() => setOpenBuilder(null)}
-                              />
-                            </PaneBoundary>
-                          ) : null
-                        }
-                        onOpenAssembly={(file, folder) =>
-                          setAssemblyBuilder({ file, folder })
-                        }
-                        onOpenChain={(ref, node) => {
-                          setOpenBuilder(ref);
-                          setBuilderNode(node ?? null);
-                        }}
+                        chainsBuilder={chainsBuilderEl}
+                        onOpenAssembly={paneFns.openAssembly}
+                        onOpenChain={paneFns.openChain}
                         diagnostics={diagnostics}
                         videoSources={videoSources}
                         // The channel strip an `io: in` file gets under its text — what actually opens when somebody clicks an IN node.
@@ -3188,11 +3167,7 @@ export default function App({
                               // The open project's tasks, flagged in the ruler where they carry a timecode (docs/tasks.md).
                               tasks={projectTasks}
                               // …and the MIDI take, drawn on its lane the same way, whichever record started it.
-                              midiTake={
-                                liveTake
-                                  ? { lane: liveTake.lane, from: liveTake.from }
-                                  : null
-                              }
+                              midiTake={paneFns.midiTake}
                               videoTracks={videoTracks}
                               // A song with no picture lane has no frame to land on, whatever its document defaults.
                               fps={
@@ -3208,120 +3183,59 @@ export default function App({
                               readOnly={frozen}
                               setStatus={setStatus}
                               onEditTarget={setEditTargetIfOther}
-                              // A double-clicked clip shows its content in the event panel, under the timeline still on screen.
-                              onOpenClip={(t) =>
-                                openEvent({ kind: "clip", target: t })
-                              }
-                              // …and the bare lane lets it go: a click on nothing clears what was open, the panel staying up.
-                              onEmptyClick={() => setGraphSlot(null)}
+                              onOpenClip={paneFns.openClip}
+                              onEmptyClick={paneFns.emptyClick}
                               onCaret={setCaretIfMoved}
                               onView={setTlViewIfOther}
                               onContextMenu={openContextMenu}
                               onSeek={seek}
-                              onSetLoop={(start, end, enabled) =>
-                                engineRef.current?.loop(start, end, enabled)
-                              }
-                              onMoveEvent={(trackId, fromTc, toTc, toTrackId) =>
-                                void runCommand(
-                                  `event move ${trackId} ${fromTc} ${toTc}${toTrackId ? ` ${toTrackId}` : ""}`,
-                                )
-                              }
+                              onSetLoop={paneFns.setLoop}
+                              onMoveEvent={paneFns.commands.moveEvent}
                               // A tool's press, already spelled by the module that is tested for it — journalled like anything else.
-                              onToolLine={(l) => void runCommand(l)}
-                              onResizeEvent={(
-                                trackId,
-                                fromTc,
-                                startTc,
-                                endTc,
-                              ) =>
-                                void runCommand(
-                                  `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
-                                )
-                              }
-                              // `lenTc` is a LENGTH, and the verb's name is the end it applies to — see `event fadein` in commands.yaml.
-                              onFadeEvent={(trackId, fromTc, which, lenTc) =>
-                                void runCommand(
-                                  `event ${which === "fadeIn" ? "fadein" : "fadeout"} ${trackId} ${fromTc} ${lenTc}`,
-                                )
-                              }
+                              onToolLine={paneFns.commands.toolLine}
+                              onResizeEvent={paneFns.commands.resizeEvent}
+                              onFadeEvent={paneFns.commands.fadeEvent}
                               // While the bar is filling a command whose open field wants a timecode, the ruler ANSWERS it instead of committing.
                               feedTimecode={
                                 barPending?.kind === "timecode"
-                                  ? (tc, live) =>
-                                      cmdRef.current?.offerValue(
-                                        "timecode",
-                                        tc,
-                                        live,
-                                      )
+                                  ? paneFns.feeds.timecode
                                   : undefined
                               }
                               feedMove={
                                 barPending?.canonical === "event move"
-                                  ? (trackId, fromTc, toTc, toTrackId, live) =>
-                                      cmdRef.current?.offer(
-                                        {
-                                          track: trackId,
-                                          timecode: fromTc,
-                                          newTimecode: toTc,
-                                          ...(toTrackId
-                                            ? { toTrack: toTrackId }
-                                            : {}),
-                                        },
-                                        live,
-                                      )
+                                  ? paneFns.feeds.move
                                   : undefined
                               }
                               // …and the selection rectangle answers `events move` the same way, leaving only the delta to type.
                               feedEventsMove={
                                 barPending?.canonical === "events move"
-                                  ? (tracks, from, to) =>
-                                      cmdRef.current?.offer({
-                                        tracks,
-                                        from,
-                                        to,
-                                      })
+                                  ? paneFns.feeds.eventsMove
                                   : undefined
                               }
                               onFocusRow={focusRowInPanes}
                               // The corner button over the name column: `track new` with no name, off on a frozen song like every structural edit.
                               onNewTrack={
-                                frozen
-                                  ? undefined
-                                  : () => void runCommand("track new")
+                                frozen ? undefined : paneFns.commands.newTrack
                               }
                               // …and its PICTURE half, which makes that button a menu — only a song with a frame has two kinds of lane.
                               onNewVideoTrack={
                                 frozen || !hasViewport
                                   ? undefined
-                                  : () => void runCommand("picture lane new")
+                                  : paneFns.commands.newVideoTrack
                               }
                               // The picture lane armed for its camera, and whether one is rolling (hooks/useVideoRecording.ts).
                               videoArmed={videoArmed}
                               videoRecording={videoRecording}
                               onVideoArm={
-                                frozen
-                                  ? undefined
-                                  : (id) =>
-                                      void runCommand(`ui picture arm ${id}`)
+                                frozen ? undefined : paneFns.commands.videoArm
                               }
                               onVideoToggle={
                                 frozen
                                   ? undefined
-                                  : (id, control) =>
-                                      void runCommand(
-                                        `picture ${control} ${id}`,
-                                      )
+                                  : paneFns.commands.videoToggle
                               }
-                              // A header dragged to another slot: two lists, one gesture (packages/song/docs/trackKind.md).
                               onReorder={
-                                frozen
-                                  ? undefined
-                                  : (family, lane, target) =>
-                                      void runCommand(
-                                        family === "video"
-                                          ? `picture lane order ${lane} ${target}`
-                                          : `track order ${lane} ${target}`,
-                                      )
+                                frozen ? undefined : paneFns.commands.reorder
                               }
                               trackControls={trackControls}
                               onTrackToggle={onTrackToggle}
@@ -3408,56 +3322,26 @@ export default function App({
                             icons={hasTurntables ? DECK_ICONS : STUDIO_ICONS}
                             // The sidebar is fullscreen chrome, and the graph is only ever on screen as a whole page.
                             showList
-                            onOrganize={() => void runCommand("graph organize")}
-                            onSetModuleAsset={(mod, kind, f) =>
-                              void runCommand(`module ${kind} ${mod} ${f}`)
-                            }
+                            onOrganize={paneFns.commands.organize}
+                            onSetModuleAsset={paneFns.commands.setModuleAsset}
                             onEdgeInsert={frozen ? undefined : insertIntoChain}
                             onCanvasInsert={frozen ? undefined : placeInGraph}
                             // The patch cable's landing runs the verb outright, and all five are OPTIONAL props a snapshot simply passes none of.
                             onConnect={
-                              frozen
-                                ? undefined
-                                : (from, to) =>
-                                    void runCommand(
-                                      `graph chain connect ${from} ${to}`,
-                                    )
+                              frozen ? undefined : paneFns.commands.connect
                             }
-                            // Both curve cables write one line of the same verb, with the param QUOTED, since a plugin's names have spaces.
                             onAutomate={
-                              frozen
-                                ? undefined
-                                : (module, param, curve, trigger) =>
-                                    void runCommand(
-                                      `node automate ${module} ${param} ${curve}${
-                                        trigger ? ` ${trigger}` : ""
-                                      }`,
-                                    )
+                              frozen ? undefined : paneFns.commands.automate
                             }
                             onDisconnect={
-                              frozen
-                                ? undefined
-                                : (from, to) =>
-                                    void runCommand(
-                                      `graph chain disconnect ${from} ${to}`,
-                                    )
+                              frozen ? undefined : paneFns.commands.disconnect
                             }
                             onReplug={
-                              frozen
-                                ? undefined
-                                : (from, to, nf, nt) =>
-                                    void runCommand(
-                                      `graph chain replug ${from} ${to} ${nf} ${nt}`,
-                                    )
+                              frozen ? undefined : paneFns.commands.replug
                             }
                             // A dropped header likewise: the drag already said everything.
                             onMoveNode={
-                              frozen
-                                ? undefined
-                                : (mod, x, y) =>
-                                    void runCommand(
-                                      `graph move ${mod} ${x} ${y}`,
-                                    )
+                              frozen ? undefined : paneFns.commands.moveNode
                             }
                             pendingInsert={insertingAt}
                             seedGraph={seedGraph}
@@ -3468,7 +3352,7 @@ export default function App({
                             focus={graphFocus}
                             onFocused={reportFramed}
                             stack={stackView}
-                            onStack={() => void runCommand("ui stack")}
+                            onStack={paneFns.commands.stack}
                             // …and the song's output level, for the fader on the OUT card — the same param the header's fader writes.
                             masterVolume={projectDoc?.masterVolume}
                             midiRef={chainsMidiRef}
@@ -3911,14 +3795,7 @@ export default function App({
                     // An armed lane opens the lens a `monitor: auto` camera wired to it names.
                     armed={videoArmed}
                     // A layer moved or resized in the frame — a command, so one journal entry and one Ctrl+Z.
-                    onRect={
-                      frozen
-                        ? undefined
-                        : (lane, r) =>
-                            void runCommand(
-                              `picture rect ${lane} ${r.x} ${r.y} ${r.w} ${r.h}`,
-                            )
-                    }
+                    onRect={frozen ? undefined : paneFns.commands.rect}
                   />
                 </PaneBoundary>
               </FloatingWindow>

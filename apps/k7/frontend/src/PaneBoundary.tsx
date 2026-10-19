@@ -3,8 +3,28 @@
 // the rest keeps playing. It resets on `resetKey` (a reload brings new data, worth a new try).
 // See docs/shell.md, "A fault stays in its pane".
 
-import { Component, type ReactNode } from "react";
+import { PROFILING } from "@studio/project-shell/profiling";
+import {
+  Component,
+  Profiler,
+  type ProfilerOnRenderCallback,
+  type ReactNode,
+} from "react";
 import { m } from "./paraglide/messages.js";
+
+/** Per pane, under `?profile=1`: commits and their render time — what a hidden pane costs (docs/shell.md). */
+type PaneRenders = Record<string, { commits: number; ms: number }>;
+declare global {
+  interface Window {
+    __k7PaneRenders?: PaneRenders;
+  }
+}
+const countRender: ProfilerOnRenderCallback = (id, _phase, actualMs) => {
+  const all = window.__k7PaneRenders ?? {};
+  const pane = all[id] ?? { commits: 0, ms: 0 };
+  all[id] = { commits: pane.commits + 1, ms: pane.ms + actualMs };
+  window.__k7PaneRenders = all;
+};
 
 interface Props {
   /** What the card and the log call this pane. */
@@ -45,6 +65,12 @@ export class PaneBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     const { error } = this.state;
+    if (!error && PROFILING)
+      return (
+        <Profiler id={this.props.name} onRender={countRender}>
+          {this.props.children}
+        </Profiler>
+      );
     if (!error) return this.props.children;
     return (
       <div className="flex h-full min-h-0 w-full items-center justify-center p-4">

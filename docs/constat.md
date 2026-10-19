@@ -116,10 +116,11 @@ which holds them at ~130 ms instead of ~465.
 
 ### What remains, in order of return
 
-1. **`App.tsx`: 4,200 lines, 51 `useState`, 11 `useMemo`, no memoised panel.** A layout panel is
-   mounted once and never unmounted (`hidden` takes it off screen), so any state change re-renders
-   `TimelineTab`'s 3,513 lines **even hidden**. The only existing profile (`timeline.md`) predates
-   lots C and D — re-measuring is the prerequisite, not the fix.
+1. **`App.tsx`: 4,000 lines and 72 `useState`.** The six panes are memoised and `App` hands them
+   only stable props, which `apps/k7/frontend/src/paneProps.test.ts` holds; a hidden pane renders
+   on a reload and on nothing else of the shell's (`apps/k7/frontend/docs/shell.md`, "The panes are
+   memoised"). Unmeasured: `?profile=1` puts each pane's render time in `window.__k7PaneRenders`,
+   and a before/after on a real song is still owed.
 2. **Engine side**: `Change`, a fat value type, copying the whole `PluginDoc` *per parameter*
    during a knob drag; `diff()` rebuilding four `std::map`s with concatenated keys per apply; and the
    pattern clock path paying **two deep copies of the `ProjectDoc`** per tick, at 6.7 Hz.

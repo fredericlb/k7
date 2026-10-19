@@ -131,13 +131,12 @@ builder and this app's backend call the same `bindableNames`.
 
 1. **`ui-waveform`'s `Waveform.tsx` is past 1 000 lines.** The layer split added to it rather than
    splitting it; the draw effect and the pointer handling are the two halves a split would take.
-2. **`App.tsx` is 5 300 lines and re-renders its hidden panels.** Their per-frame work stands down
-   while hidden (above), but a render of the shell still reconciles them. The input-rate renders are gone
-   (above); what remains is a render per real change of shell state, which still reconciles every
-   pane. `docs/constat.md` asks for a profile before memoising the panes themselves, and none has
-   been taken since lots C and D. `TimelineTab.tsx`
-   (4 000), `EditorTab.tsx` (1 600), `PianoRoll.tsx` (1 160) and six more are over this repo's
-   500-line bar too; splitting them is the same work as memoising them, and wants that profile.
+2. **`App.tsx` is 4 000 lines.** The panes are memoised and handed only stable props
+   ([`shell.md`](shell.md), "The panes are memoised"), so a change of shell state no longer
+   reconciles a hidden pane; a reload still does, by design. No profile has measured the gain yet:
+   `?profile=1` and `window.__k7PaneRenders` are the instrument. `TimelineTab.tsx` (4 000),
+   `EditorTab.tsx` (1 600), `PianoRoll.tsx` (1 160) and six more are over this repo's 500-line bar
+   too; splitting them is the remaining work.
 3. **Writes to the file service have no budget.** Deliberately, for the reason above; a hung write
    still holds its caller until the connection dies.
 

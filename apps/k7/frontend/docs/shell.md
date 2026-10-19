@@ -74,7 +74,10 @@ localStorage so it survives the reloads an investigation takes. `installFreezeWa
 unconditional — the heartbeat and the `longtask` observer are cheap and are what turn "it froze"
 into evidence at all.
 
-The flag is `src/profiling.ts`, and it is deliberately ONE flag rather than one per instrument.
+The per-pane render counter in `PaneBoundary.tsx` is behind it too, for the same reason
+("The panes are memoised" below).
+
+The flag is `packages/project-shell/src/profiling.ts`, and it is deliberately ONE flag rather than one per instrument.
 The viewport's per-lane drift readout is behind the same one (`picture.md`): it polls and
 re-renders its pane at 5 Hz, the same trade — worth it while somebody is looking, and an
 instrument measuring itself the rest of the time. Anything else that costs per-frame to *report*
@@ -1378,6 +1381,31 @@ one leaf, `components/StatusText.tsx`. A menu hint borrows the same line through
 the panes REPORT to `App` — the caret, the timeline's view, what the editor has open — goes through a
 setter that keeps the current object when the new one says the same thing (`src/shellEquality.ts`), and
 the editor reports an open sequence by PATH, never its text, so a keystroke is not a new shell state.
+
+### The panes are memoised, and App hands them only stable props
+
+`App` holds the shell's own state — the caret, the timeline's view, the bar being filled, the
+palette, the fullscreen pane — and every change of it renders `App`. The six panes (`TimelineTab`,
+`ChainsTab`, `EditorTab`, `SurfaceTab`, `MasteringTab`, `ViewportTab`) stay mounted while hidden, so
+each is exported `memo`ised, and a hidden pane renders only when something it is HANDED changes.
+
+That holds only while every prop keeps its identity, so:
+
+- **No closure, literal or element is written inline in a pane's props.** The callbacks are built in
+  `hooks/usePaneCallbacks.ts` from refs, setters and stable callbacks; EditorTab's two builders are
+  built above `App`'s return and are `null` while closed. `src/paneProps.test.ts` reads `App.tsx` as
+  text and fails on an arrow, a literal or an element in a pane's props — nothing here mounts `App`.
+- **A callback that reads fast-moving shell state reads it through a ref** (`openInEditorRef`,
+  `paletteOpenRef`), the pattern `graphOnScreenRef` already uses, so the fullscreen pane or the
+  palette opening does not hand the chains pane a new insert callback.
+- **A reload is a real change, and the panes render on it.** `projectDoc`'s identity is the signal
+  `App` reads to release the pending edits and reset the metronome override, so it is never kept when
+  equal, and the graph's `cardProps` change with it. What is kept when equal is what nothing reads as a
+  signal: the track order, the project's tasks (`keepIfSame`, `src/shellEquality.ts`).
+
+`?profile=1` (below) also wraps each pane's `PaneBoundary` in a `<Profiler>`, and
+`window.__k7PaneRenders` then holds, per pane, the commits and their render time. A memoised pane
+that skipped its render still reports a commit, at a fraction of a millisecond: read the time.
 
 ## The catalogue is the app's; the ARRANGEMENT is the person's
 
