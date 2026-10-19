@@ -1,42 +1,74 @@
 # k7x in Rust
 
-`rust/` is a port of `src/parse.ts` to Rust, kept to measure what a native file service would gain
-on a phone. It is the parser only: no edit, no print, no YAML bridge. Nothing in the studio links it.
+`rust/` is the k7x reader in Rust, and `parse` (`src/edit.ts`) reads through it on every host: the
+browser, the hosted server, the desktop app, Android and iOS. It is the READER only — a file's
+data — and `src/parse.ts` stays the source of truth: the tree with its spans, every edit, and the
+answer whenever the Rust reader declines.
 
-## Same tree, decision for decision
+## One reader, two builds
 
-The crate builds the tree of `src/ast.ts`, field for field, and refuses what the TypeScript parser
-refuses with the same message, line and column. `npm run bench:rust -w @studio/k7x`
-(`bench/compare.ts`) holds it to that before it times anything: every file of `demos/` and
-`k7-core/`, one synthetic file of the whole corpus, and a set of broken inputs, compared tree for
-tree with `parseTree`'s, spans included. A mismatch fails the run, so no number is ever printed for
-a parser that reads something else.
+| host | runs | why |
+|---|---|---|
+| a browser, the server's node, Electron's node, Termux's node | WebAssembly, `src/k7xWasm.generated.ts` | each has a JIT, so one module serves all of them — no binary per OS and CPU |
+| NodeMobile on iOS | `k7x.framework`, the Node-API addon `rust/node` | a JIT-less V8 has no WebAssembly at all |
 
-Two differences are deliberate:
+Both are the same C ABI, `rust/src/ffi.rs`: UTF-8 text in, **JSON text out**, which `JSON.parse`
+turns into the value. That is the whole design, and it is measured: over the corpus (1,272 files),
+`JSON.parse` of the data takes 5 ms with or without a JIT, where building the same objects in JS
+takes 43 ms with one and 139 ms without. Handing JS a TREE is the opposite case — the tree with its
+spans is 13.9 MB of JSON and parses in 43 ms, slower than `parseTree` itself with a JIT — which is
+why the tree and the edits stay in TypeScript.
 
-- **Spans are byte offsets** into the UTF-8 text, where the TypeScript ones count UTF-16 units.
-  `src/json.rs` converts them when it writes a tree, which is how the comparison checks them.
-- **A lone surrogate escape** (`"\uD800"`) reads as U+FFFD, since a Rust string cannot hold one.
+The addon needs no napi-rs: Node-API is a stable C ABI, and `rust/node/src/lib.rs` declares the nine
+calls it makes. `rust/node/build.rs` says where those symbols come from on each platform; iOS links
+NodeMobile.framework, since it cannot resolve them late. `engine/k7-ios/scripts/stage.mjs` builds it
+(the `k7x` part), and `BackendHost.swift` names it in `K7X_ADDON`, which every worker inherits.
+
+## It never changes an answer
+
+`src/native.ts` answers what `parse.ts` would, or declines and lets `parse.ts` answer:
+
+- **A lone surrogate** cannot be in a Rust string: a text that holds one is not sent, and one that
+  escapes one (`"\uD800"`) comes back declined.
+- **Numbers keep their JS value**: `-0` is written `-0` and an overflow `1e999`, both of which
+  `JSON.parse` reads back as `parse.ts` would have them.
+- **Spans are byte offsets** in Rust; an error's offset is converted to UTF-16 units before it
+  crosses, so a `K7SyntaxError` carries the same message, offset, line and column.
+
+`src/native.test.ts` holds that over every corpus file and every edge, and is run against both
+builds (`K7X_ADDON=… vitest run src/native.test.ts` for the addon). `bench/compare.ts` checks the
+whole tree, spans included, before it times anything.
+
+`K7X_READER=js` turns the reader off; `nativeKind()` says which one a runtime ended up with.
+
+## The module is checked in
+
+Every host loads this package as raw TypeScript with no build step, so the WebAssembly ships as
+source: `npm run build:wasm -w @studio/k7x` writes it, base64, with a hash of `rust/src`, the
+manifest and the lock file. A test fails when the Rust sources no longer hash to that, so a change
+to them without a rebuild cannot land. The module is 117 KB; a browser compiles it in the background
+when its main thread refuses a synchronous compile, and `parse.ts` answers meanwhile.
 
 ## The tree lives in an arena
 
-`parse_tree(text, &bump)` builds the tree in a `bumpalo::Bump` the caller owns, and the tree
-borrows from both: a key or a string is a slice of the text unless it carries an escape, a decoded
-one is written into the arena, and a container's children are one slice of it, copied there once
-at their final size from a scratch stack the open containers share. Every node is `Copy` and has
-no destructor, so freeing a tree is dropping (or resetting) its arena.
-
-That is the one dependency, and it is taken for what it measures: a tree of `Vec`s and owned
-strings, freed node by node, is 1.25–1.4× slower on every set below, most of it in the allocator.
-The cost is a lifetime — a tree cannot outlive its text or its arena — which suits a file service
-that keeps a document's text and its tree together anyway.
+`parse_tree(text, &bump)` builds the tree in a `bumpalo::Bump` the caller owns: a key or a string is
+a slice of the text unless it carries an escape, a container's children are one slice of the arena,
+and no node has a destructor. The C ABI keeps one arena per thread and resets it per call. A tree of
+`Vec`s and owned strings, freed node by node, measures 1.25–1.4× slower on every set below.
 
 ## What was measured
 
-2026-10-19, Windows 11, x86-64, node 24.18, rustc 1.97 (release, LTO), bumpalo 3.20. One pass
-parses every file of the set once and frees its tree, the text already in memory. "Cold" is a
-fresh process's first pass, JIT warm-up included; "median" is over 50 passes. `node --jitless` is
-how V8 runs on iOS (`engine/k7-runtime/docs/ios.md`). Medians, in ms:
+2026-10-19, Windows 11, x86-64, node 24.18, rustc 1.97 (release, LTO), bumpalo 3.20.
+
+**What a reader gets** — the corpus's data, through `parse`:
+
+| | node (JIT) | node `--jitless` (iOS) |
+|---|---|---|
+| `parse.ts` + `toJS` | 42 ms | 134 ms |
+| WebAssembly + `JSON.parse` | 17 ms | — (no WebAssembly) |
+| the addon + `JSON.parse` | 16 ms | 16 ms |
+
+**The parse alone** (`npm run bench:rust`), medians in ms:
 
 | set | node (JIT) | node --jitless | rust, `Vec` tree | rust, arena per file | rust, one arena reset |
 |---|---|---|---|---|---|
@@ -44,13 +76,10 @@ how V8 runs on iOS (`engine/k7-runtime/docs/ios.md`). Medians, in ms:
 | its largest file, 0.30 MB | 6.4–8.9 | 24–26 | 2.4 | 2.0 | 1.0–1.1 |
 | one synthetic file, 2.51 MB | 34 | 132–135 | 12.6 | 10.0–10.3 | 6.8 |
 
-A cold pass is within 5–20 % of the median for an arena per file, 1.3–2× it for a reset arena (its
-first pass allocates the chunks the others reuse), and 1.3–1.6× it for node's JIT.
+## Why the edits are not ported
 
-An arena per file — what a cached document would hold — is 3.2–4.5× node's JIT and 12–17× the
-jitless interpreter. A single arena reset between files, which a one-shot walk of a workspace
-could use, gains 1.4–1.9× more, since its chunks are allocated once. The ratios, not the
-milliseconds, are what carry over to a phone; the phone numbers themselves are still to be taken.
-
-`K7X_BASELINE_BIN=<label>=<path>` adds another build of `k7x-bench` to the table, which is how the
-`Vec` tree column was taken.
+A write's time is not k7x's. On the largest file (`surge-xt/ui.k7x`, 300 KB) one write spends
+~324 ms in the `yaml` library — the writer's document, its print, and `applyYaml` parsing it back
+(`docs/bridge.md`) — and 10–11 ms in k7x's own document work; a typical node file's whole write is
+0.04 ms. Porting `edit.ts` and `print.ts` would buy at most that 3 %. What a write costs is the YAML
+the writers still speak.

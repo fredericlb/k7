@@ -179,6 +179,14 @@ through the per-file layer each reads only the edited file and costs ~330 ms, th
 `stat`s that prove the other 739 settled. A kit preset pays both, so that is most of its server
 time.
 
+A `.k7x` file reaches those readers as DATA, not as YAML text: on a miss, `settledParse` hands
+`k7xData` (the file parsed by `@studio/k7x`, its short forms expanded) to the reader's data half —
+`parseModuleData`, `parseUiData`, or the data itself for `parsedYaml`. Printing that data as YAML
+for a YAML parser to read back was 46× the parse with a JIT and 23× without one (884 ms against
+19 ms over the 1,272 files of `demos/` and `k7-core/`; 3,119 against 135 ms under `--jitless`). A
+module or panel that does not validate goes the YAML way after all, since its issues are located on
+that text; `src/yaml/k7xData.test.ts` holds every corpus file to reading strictly equal both ways.
+
 A parse held there is shared by every later read of the file, so the two YAML readers hand out a
 `structuredClone` of it: `applyUiLibrary` writes `ui` and `cc` onto the modules it gets, which is
 the first of the two rules above. A script is a string, and goes out as it is.

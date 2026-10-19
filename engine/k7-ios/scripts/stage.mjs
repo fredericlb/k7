@@ -2,7 +2,7 @@
 // supervisor as xcframeworks, NodeMobile and the CA bundle as pinned in pins.json (each checked by its SHA-256),
 // Faust's libraries, the shell page as `cap copy` would lay it out, and k7's backend bundled. Run BEFORE Xcode:
 // it plans an xcframework's slices when the build starts, so one staged mid-build is not seen.
-// Usage: node engine/k7-ios/scripts/stage.mjs [--sim] [--only=engine,supervisor,node,cacert,faust,shell,backend]
+// Usage: node engine/k7-ios/scripts/stage.mjs [--sim] [--only=engine,supervisor,node,k7x,cacert,faust,shell,backend]
 // See engine/k7-runtime/docs/ios.md.
 
 import { execFileSync } from "node:child_process";
@@ -121,6 +121,48 @@ if (wanted("node")) {
     join(frameworks, "NodeMobile.xcframework"),
     { recursive: true },
   );
+}
+
+// The k7x reader as a Node-API addon, linked against NodeMobile's slice, since a JIT-less node has no WebAssembly (packages/k7x/docs/rust.md).
+if (wanted("k7x")) {
+  const node = join(frameworks, "NodeMobile.xcframework");
+  const slice = existsSync(node)
+    ? readdirSync(node).find(
+        (d) => d.startsWith("ios-") && d.includes("simulator") === sim,
+      )
+    : undefined;
+  if (!slice) throw new Error(`no ${sim ? "simulator " : ""}slice in ${node}: stage "node" first`);
+  const target = sim ? "aarch64-apple-ios-sim" : "aarch64-apple-ios";
+  run(
+    "cargo",
+    ["build", "--release", "-p", "k7x-node", "--target", target],
+    join(repo, "packages/k7x/rust"),
+    { K7X_NODEMOBILE_DIR: join(node, slice), IPHONEOS_DEPLOYMENT_TARGET: "17.0" },
+  );
+  const fw = join(cache, "k7x.framework");
+  rmSync(fw, { recursive: true, force: true });
+  mkdirSync(fw, { recursive: true });
+  cpSync(
+    join(repo, "packages/k7x/rust/target", target, "release/libk7x_node.dylib"),
+    join(fw, "k7x"),
+  );
+  writeFileSync(
+    join(fw, "Info.plist"),
+    `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>k7x</string>
+<key>CFBundleIdentifier</key><string>se.frediver.k7.k7x</string>
+<key>CFBundleName</key><string>k7x</string>
+<key>CFBundlePackageType</key><string>FMWK</string>
+<key>CFBundleShortVersionString</key><string>0.1.0</string>
+<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleSupportedPlatforms</key><array><string>${sim ? "iPhoneSimulator" : "iPhoneOS"}</string></array>
+<key>MinimumOSVersion</key><string>17.0</string>
+</dict></plist>
+`,
+  );
+  xcframework(fw, join(frameworks, "k7x.xcframework"));
 }
 
 if (wanted("cacert")) {

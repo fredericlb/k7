@@ -37,25 +37,27 @@ pub extern "C" fn k7x_data(len: usize) -> u32 {
         let Ok(text) = std::str::from_utf8(&input[..len.min(input.len())]) else {
             return UNREPRESENTABLE;
         };
-        OUTPUT.with(|o| {
-            let mut out = o.borrow_mut();
-            out.clear();
-            ARENA.with(|a| {
-                let mut arena = a.borrow_mut();
-                arena.reset();
-                match parse_tree_lossless(text, &arena) {
-                    Ok(Some(tree)) => {
-                        map_value_json(&tree, &mut out);
-                        OK
-                    }
-                    Ok(None) => UNREPRESENTABLE,
-                    Err(e) => {
-                        error_json(text, &e, &mut out);
-                        SYNTAX_ERROR
-                    }
-                }
-            })
-        })
+        OUTPUT.with(|o| data_json(text, &mut o.borrow_mut()))
+    })
+}
+
+/// What every binding answers for one text: a status above, and its JSON written into `out`.
+pub fn data_json(text: &str, out: &mut String) -> u32 {
+    out.clear();
+    ARENA.with(|a| {
+        let mut arena = a.borrow_mut();
+        arena.reset();
+        match parse_tree_lossless(text, &arena) {
+            Ok(Some(tree)) => {
+                map_value_json(&tree, out);
+                OK
+            }
+            Ok(None) => UNREPRESENTABLE,
+            Err(e) => {
+                error_json(text, &e, out);
+                SYNTAX_ERROR
+            }
+        }
     })
 }
 

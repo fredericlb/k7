@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { rustSourceHash } from "../scripts/rustSources.mjs";
 import { toJS } from "./ast.ts";
 import { SOURCES } from "./k7xWasm.generated.ts";
-import { nativeData, nativeReady } from "./native.ts";
+import { nativeData, nativeKind, nativeReady } from "./native.ts";
 import { K7SyntaxError, parseTree } from "./parse.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..", "..");
@@ -63,8 +63,9 @@ describe("the Rust reader", () => {
     );
   });
 
-  it("runs here", async () => {
+  it(`runs here, as ${process.env.K7X_ADDON ? "the addon" : "WebAssembly"}`, async () => {
     expect(await nativeReady()).toBe(true);
+    expect(nativeKind()).toBe(process.env.K7X_ADDON ? "addon" : "wasm");
     expect(nativeData("a(1)")).toEqual({ a: 1 });
   });
 

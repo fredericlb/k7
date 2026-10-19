@@ -32,4 +32,6 @@ note is one new line rather than every note after it rewritten. Song's lists car
 Measured on the largest file of the library (`surge-xt/ui.yaml`, 313 KB): k7x parses in 5 ms where
 YAML takes 98; `toYaml` is 45 ms, and `applyYaml` 90 ms, most of it the `yaml` library parsing the
 writer's text. A read through the bridge is therefore no slower than reading the same file as
-YAML.
+YAML — and song's readers do not take it: they read a `.k7x` file's data straight from `parse`,
+keeping `toYaml` for the writers that edit YAML text and for locating a validation issue
+(`packages/song/docs/moduleCache.md`).

@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "build:wasm": "node scripts/buildWasm.mjs",
+    "build:addon": "node scripts/buildAddon.mjs",
     "bench:rust": "tsx bench/compare.ts"
   },
   "engines": {

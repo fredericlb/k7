@@ -51,34 +51,61 @@ function bytes(): Uint8Array<ArrayBuffer> {
   return out;
 }
 
-function disabled(): boolean {
-  const env = (
-    globalThis as { process?: { env?: Record<string, string | undefined> } }
-  ).process?.env;
-  return env?.K7X_READER === "js";
+interface NodeProcess {
+  env?: Record<string, string | undefined>;
+  dlopen?: (module: { exports: unknown }, path: string) => void;
+}
+const proc = (globalThis as { process?: NodeProcess }).process;
+let kind: "addon" | "wasm" | "installed" | "none" = "none";
+
+/** The Node-API build of rust/node at `path`: what a node with no WebAssembly runs, NodeMobile on iOS. */
+function addonReader(path: string): K7Reader | null {
+  try {
+    const module = { exports: {} };
+    proc?.dlopen?.(module, path);
+    kind = "addon";
+    return module.exports as K7Reader;
+  } catch (e) {
+    console.warn(
+      `k7x: K7X_ADDON ${path} did not load, parse.ts reads instead`,
+      e,
+    );
+    return null;
+  }
 }
 
-/** The reader, compiled on first use: synchronously where the runtime allows it, else in the background while parse.ts answers. */
+/** The reader, chosen on first use: K7X_ADDON if set, else WebAssembly, compiled synchronously where the runtime allows it. */
 function current(): K7Reader | null {
   if (reader !== undefined) return reader;
-  if (disabled() || typeof WebAssembly !== "object") {
-    reader = null;
+  reader = null;
+  if (proc?.env?.K7X_READER === "js") return reader;
+  const addon = proc?.env?.K7X_ADDON;
+  if (addon) {
+    reader = addonReader(addon);
     return reader;
   }
+  if (typeof WebAssembly !== "object") return reader;
   try {
     reader = wasmReader(
       new WebAssembly.Instance(new WebAssembly.Module(bytes())),
     );
+    kind = "wasm";
   } catch {
-    // A browser's main thread refuses a synchronous compile past a size; a JIT-less V8 refuses it outright.
-    reader = null;
+    // A browser's main thread refuses a synchronous compile past a size; parse.ts answers until the async one lands.
     pending ??= WebAssembly.instantiate(bytes())
       .then(({ instance }) => {
-        reader = wasmReader(instance);
+        reader ??= wasmReader(instance);
+        kind = "wasm";
       })
       .catch(() => {});
   }
   return reader;
+}
+
+/** Which reader this runtime ended up with: a test and a host's log say which one they measured. */
+export function nativeKind(): typeof kind {
+  current();
+  return kind;
 }
 
 /** Resolves once the reader is as ready as it will get: a host may await it at boot, nothing needs to. */
@@ -91,6 +118,7 @@ export async function nativeReady(): Promise<boolean> {
 /** Hands this runtime a reader of its own, as the iOS app does with its native build; null goes back to parse.ts. */
 export function installReader(r: K7Reader | null): void {
   reader = r;
+  kind = r ? "installed" : "none";
 }
 
 const LONE_SURROGATE =

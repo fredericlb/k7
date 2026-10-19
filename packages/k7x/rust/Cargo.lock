@@ -14,3 +14,10 @@ version = "0.1.0"
 dependencies = [
  "bumpalo",
 ]
+
+[[package]]
+name = "k7x-node"
+version = "0.1.0"
+dependencies = [
+ "k7x",
+]

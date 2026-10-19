@@ -109,7 +109,11 @@ jobs:
           max-size: 1G
           save: ${{ github.ref == 'refs/heads/main' }}
 
-      # Engine, supervisor, NodeMobile and the CA bundle as pinned, Faust's libraries, the shell page, the backend.
+      # The k7x reader's Node-API addon, which the stage cross-compiles for the device (packages/k7x/docs/rust.md).
+      - name: rust for the device
+        run: rustup target add aarch64-apple-ios
+
+      # Engine, supervisor, NodeMobile, the k7x addon and the CA bundle as pinned, Faust's libraries, the shell page, the backend.
       - name: stage
         env:
           # Read by the presets, not CMAKE_<LANG>_COMPILER_LAUNCHER: that one reaches JUCE's nested juceaide build too.
