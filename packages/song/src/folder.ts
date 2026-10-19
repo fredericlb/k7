@@ -1,6 +1,6 @@
-// folder.ts — load a LEGACY flat folder project (project.yaml + tracks/clips/sequences) into
+// folder.ts — load a LEGACY flat folder project (project.k7x + tracks/clips/sequences) into
 // the plain { project, tracks } shape project.ts's mapDoc consumes. No current song takes this
-// path: a song has graph.yaml, and its lanes are module nodes (docs/trackModules.md), which
+// path: a song has graph.k7x, and its lanes are module nodes (docs/trackModules.md), which
 // compileNodeProject reads instead.
 
 import { statSync } from "node:fs";
@@ -32,7 +32,7 @@ type LegacyTrack = RawTrack & {
   clips?: unknown[];
 };
 
-// True when `abs` is a folder project (a directory with a project.yaml) or the project file itself.
+// True when `abs` is a folder project (a directory with a project.k7x) or the project file itself.
 export function isFolderProject(abs: string): boolean {
   try {
     const st = statSync(abs);
@@ -52,7 +52,7 @@ export function assembleFolder(dir: string): AssembledDoc {
   >;
   const clipsMap = exportSub(dir, "clips");
   const seqMap = exportSub(dir, "sequences");
-  // settings.yaml is a flat root file, so it isn't in `root` — loaded on its own for mapDoc to parse.
+  // settings.k7x is a flat root file, so it isn't in `root` — loaded on its own for mapDoc to parse.
   return {
     ...buildDoc(dir, root, tracksMap, clipsMap, seqMap),
     settings: loadSettings(dir, true),

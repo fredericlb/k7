@@ -8,7 +8,6 @@ import { basename, join } from "node:path";
 import { parseModule } from "@studio/song-schema/yaml/moduleFile";
 import { parseUiFile } from "@studio/song-schema/yaml/uiFile";
 import { parseKey } from "../src/yaml/parseStore";
-import { fromRaw } from "../src/yaml/workspaceFile";
 
 const [root, out] = process.argv.slice(2);
 if (!root || !out)
@@ -23,17 +22,16 @@ const walk = (dir: string): void => {
       if (!e.name.startsWith(".")) walk(path);
       continue;
     }
-    if (!/\.(k7x|ya?ml)$/i.test(e.name)) continue;
+    if (!/\.k7x$/i.test(e.name)) continue;
     const raw = readFileSync(path, "utf8");
     // A panel is `ui.*`, everything else is read as a module — a guess only costs a miss, never a wrong answer.
     const kind = /^ui\./i.test(basename(path)) ? "ui" : "module";
     try {
-      const text = fromRaw(path, raw);
       entries[parseKey(kind, path, raw)] =
-        kind === "ui" ? parseUiFile(text) : parseModule(text);
+        kind === "ui" ? parseUiFile(raw) : parseModule(raw);
       files++;
     } catch {
-      /* not convertible: the runtime reads it the slow way, as before */
+      /* unreadable: the runtime parses it and reports why */
     }
   }
 };

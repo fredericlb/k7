@@ -3,6 +3,7 @@
 // The one thing a reader would get wrong: the new node must be LOOSE — alone in its chain, wired to
 // nothing — which is what `node new` leaves; its chain file goes, its item moves. docs/chainFiles.md.
 
+import { rmSync } from "node:fs";
 import { relative } from "node:path";
 import { formatChain, parseChain } from "@studio/song-schema/yaml/chainFile";
 import {
@@ -10,6 +11,7 @@ import {
   type ChainFile,
   type Item,
   itemsOf,
+  LAYOUT_FILE,
 } from "@studio/song-schema/yaml/chainSchema";
 import {
   chainFilePath,
@@ -17,7 +19,7 @@ import {
   readLayout,
   writeLayout,
 } from "./chainProject";
-import { wsRemove, wsWrite } from "./yaml/workspaceFile";
+import { wsWriteText } from "./yaml/workspaceDoc";
 
 const SINKS = new Set<string>(CHAIN_SINKS);
 
@@ -88,8 +90,8 @@ export function stackChainNode(
 
   const atFile = chainFilePath(dir, at.chain);
   const bornFile = chainFilePath(dir, born.chain);
-  wsWrite(atFile, text);
-  wsRemove(bornFile);
+  wsWriteText(atFile, text);
+  rmSync(bornFile, { force: true });
   const written = [
     relative(dir, atFile),
     `${relative(dir, bornFile)} (removed)`,
@@ -99,7 +101,7 @@ export function stackChainNode(
   if (pins[node]) {
     delete pins[node];
     writeLayout(dir, pins);
-    written.push("layout.yaml");
+    written.push(LAYOUT_FILE);
   }
   return written;
 }

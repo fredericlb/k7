@@ -1,9 +1,10 @@
-// videoKeys.ts — set and remove one KEY of a shot's `animate:` in a video track's text, by the
-// placement's index and in seconds from the shot's own start. Surgical like videoTrackFile.ts:
-// only the placement's `animate:` is rewritten. A lone key at 0 is written back as the constant
-// it means. See packages/song-video/docs/animation.md.
+// videoKeys.ts — set and remove one KEY of a shot's `animate:` in a video track, by the placement's index and in seconds
+// from the shot's own start. Edits a K7Scope at the file's root, and only the placement's `animate:` is rewritten.
+// A reader would get wrong that a lone key at 0 stays a key: it is written back as the constant it means.
+// See packages/song-video/docs/animation.md.
 
-import { isSeq, parseDocument } from "yaml";
+import type { K7Scope } from "@studio/k7x/document";
+import { K7SyntaxError } from "@studio/k7x/parse";
 import {
   type Animate,
   type AnimatedProp,
@@ -12,21 +13,24 @@ import {
   type Key,
   keysOf,
 } from "../keyframes";
-import { YAML_READ, YAML_WRITE } from "./yamlText";
 
-// A collection comes back from `getIn` as a YAML node; the schema reads plain values.
-const plain = (v: unknown): unknown =>
-  v && typeof v === "object" && "toJSON" in v
-    ? (v as { toJSON(): unknown }).toJSON()
-    : v;
-
-type Doc = ReturnType<typeof parseDocument>;
 type Keys = Partial<Record<AnimatedProp, Key[]>>;
 
+/** The `events:` list, or null when the file has none or does not read yet. */
+function eventsOf(doc: K7Scope): unknown[] | null {
+  try {
+    const events = doc.getIn(["events"]);
+    return Array.isArray(events) ? events : null;
+  } catch (e) {
+    if (e instanceof K7SyntaxError) return null;
+    throw e;
+  }
+}
+
 // The placement's `animate:` as plain keys per property, or an empty map when it states none.
-function keysAt(doc: Doc, index: number): Keys {
+function keysAt(doc: K7Scope, index: number): Keys {
   const parsed = AnimateSchema.safeParse(
-    plain(doc.getIn(["events", index, "animate"])),
+    doc.getIn(["events", index, "animate"]),
   );
   const out: Keys = {};
   if (!parsed.success) return out;
@@ -38,8 +42,8 @@ function keysAt(doc: Doc, index: number): Keys {
   return out;
 }
 
-// Keys back in the file's spelling, the whole `animate:` dropped when no property is left.
-function write(doc: Doc, index: number, keys: Keys): string {
+// Keys back in the file's spelling, on one line, the whole `animate:` dropped when no property is left.
+function write(doc: K7Scope, index: number, keys: Keys): void {
   const out: Animate = {};
   for (const [p, ks] of Object.entries(keys) as [AnimatedProp, Key[]][]) {
     const only = ks[0];
@@ -54,58 +58,46 @@ function write(doc: Doc, index: number, keys: Keys): string {
           );
   }
   if (Object.keys(out).length)
-    doc.setIn(
-      ["events", index, "animate"],
-      doc.createNode(out, { flow: true }),
-    );
+    doc.setIn(["events", index, "animate"], out, { inline: true });
   else doc.deleteIn(["events", index, "animate"]);
-  return doc.toString(YAML_WRITE);
 }
 
 const ms = (t: number) => Math.round(t * 1000) / 1000;
 
-/** Set one key of the placement at `index`, `t` seconds into the SHOT, replacing one already there; null with no such placement. */
+/** Set one key of the placement at `index`, `t` seconds into the SHOT, replacing one already there; false with no such placement. */
 export function setVideoKeyAt(
-  text: string,
+  doc: K7Scope,
   index: number,
   prop: AnimatedProp,
   t: number,
   v: number,
   ease: Ease = "linear",
-): string | null {
-  let doc: Doc;
-  try {
-    doc = parseDocument(text, YAML_READ);
-  } catch {
-    return null;
-  }
-  const events = doc.getIn(["events"]);
-  if (!isSeq(events) || index < 0 || index >= events.items.length) return null;
+): boolean {
+  const events = eventsOf(doc);
+  if (!events || index < 0 || index >= events.length) return false;
   const keys = keysAt(doc, index);
   const at = ms(t);
   // A constant is a key at the shot's start, so it still holds before the one being added.
   const rest = (keys[prop] ?? []).filter((k) => Math.abs(k.t - at) > 5e-4);
   keys[prop] = [...rest, { t: at, v, ease }].sort((p, q) => p.t - q.t);
-  return write(doc, index, keys);
+  write(doc, index, keys);
+  return true;
 }
 
-/** Remove the key of `prop` at `t` seconds into the shot; null when there is none there. */
+/** Remove the key of `prop` at `t` seconds into the shot; false when there is none there. */
 export function removeVideoKeyAt(
-  text: string,
+  doc: K7Scope,
   index: number,
   prop: AnimatedProp,
   t: number,
-): string | null {
-  let doc: Doc;
-  try {
-    doc = parseDocument(text, YAML_READ);
-  } catch {
-    return null;
-  }
+): boolean {
+  const events = eventsOf(doc);
+  if (!events || index < 0 || index >= events.length) return false;
   const keys = keysAt(doc, index);
   const list = keys[prop] ?? [];
   const kept = list.filter((k) => Math.abs(k.t - ms(t)) > 5e-4);
-  if (kept.length === list.length) return null;
+  if (kept.length === list.length) return false;
   keys[prop] = kept;
-  return write(doc, index, keys);
+  write(doc, index, keys);
+  return true;
 }

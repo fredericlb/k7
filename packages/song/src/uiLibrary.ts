@@ -1,10 +1,11 @@
-// uiLibrary.ts — a module's panel: the `ui.yaml` that sits BESIDE its `module.yaml`, in the same folder. A file
+// uiLibrary.ts — a module's panel: the `ui.k7x` that sits BESIDE its `module.k7x`, in the same folder. A file
 // of its own, so the plugin scan can rewrite what a module IS without touching how it is DRAWN. The FOLDER says
 // which module a panel belongs to; the file only says how it looks. Read across every module library the project
 // can see, nearest first. Rationale: docs/uiLibrary.md.
 
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { stringify } from "@studio/k7x/print";
 import {
   type ModuleUI,
   UiFileSchema,
@@ -14,11 +15,11 @@ import { parseUiData, parseUiFile } from "@studio/song-schema/yaml/uiFile";
 import { eachLibrarySibling } from "./moduleSiblings";
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
 import { UI_BASE } from "./yaml/moduleIO";
-import { wsExists, wsWrite } from "./yaml/workspaceFile";
+import { wsWriteText } from "./yaml/workspaceDoc";
 import { settledParse, settledText } from "./yaml/yamlCache";
 
-/** The panel file a module folder holds, as it is written. `.yml` is read too (moduleFileFor probes both). */
-export const UI_FILE = `${UI_BASE}.yaml`;
+/** The panel file a module folder holds. */
+export const UI_FILE = `${UI_BASE}.k7x`;
 
 export interface UiEntry {
   ref: string;
@@ -74,7 +75,7 @@ export const uiWithScript = (e: UiEntry): ModuleUI & { script?: string } =>
 // A panel's script is a sibling like the panel itself: same folder, same precedence.
 function readScriptBeside(uiPath: string): string | undefined {
   const at = join(dirname(uiPath), WIDGETS_SCRIPT);
-  if (!wsExists(at)) return undefined;
+  if (!existsSync(at)) return undefined;
   try {
     return settledText(at);
   } catch {
@@ -82,12 +83,14 @@ function readScriptBeside(uiPath: string): string | undefined {
   }
 }
 
-/** Serialise a panel as a `ui.yaml`; its header NAMES the module, as a comment — docs/uiLibrary.md. */
+/** Serialise a panel as a `ui.k7x`, each widget on one line; its header NAMES the module, as a comment — docs/uiLibrary.md. */
 export function uiFileText(ui: ModuleUI, header?: string): string {
   // Validated on the way out as well as in: a panel this can't read back is a file the editor would refuse.
   UiFileSchema.parse(ui);
-  const body = stringifyUi(ui);
-  return header ? `# ${header}\n${body}` : body;
+  return stringify(ui, {
+    header: header ? [header] : [],
+    inline: (p) => p.length === 2 && p[0] === "widgets",
+  });
 }
 
 /** Write a panel into its module's folder, SHARED library included — see docs/uiLibrary.md. */
@@ -99,7 +102,7 @@ export function writeUiFile(
 ): string {
   const path = join(moduleRootFor(dir, ref), uiPathFor(ref));
   mkdirSync(dirname(path), { recursive: true });
-  wsWrite(path, uiFileText(ui, header ?? `panel for ${ref}`));
+  wsWriteText(path, uiFileText(ui, header ?? `panel for ${ref}`));
   return path;
 }
 
@@ -115,40 +118,4 @@ function moduleRootFor(dir: string, ref: string): string {
   throw new Error(
     `${ref}: no module library this project can see declares '@${ns}', so there is no folder to draw it in`,
   );
-}
-
-// --- serialisation ------------------------------------------------------------
-
-/** Emit the panel as YAML, each widget on ONE flow line — hand-written, see docs/uiLibrary.md. */
-function stringifyUi(doc: {
-  cols: number;
-  rows: number;
-  widgets: Record<string, unknown>;
-}): string {
-  const scalar = (v: unknown): string => {
-    if (typeof v === "string")
-      return /^[A-Za-z0-9_][A-Za-z0-9 _.\-+]*$/.test(v) &&
-        !/^(y|n|yes|no|on|off|true|false|null)$/i.test(v)
-        ? v
-        : JSON.stringify(v);
-    if (Array.isArray(v)) return `[${v.map(scalar).join(", ")}]`;
-    if (v && typeof v === "object")
-      return `{ ${Object.entries(v as Record<string, unknown>)
-        .filter(([, x]) => x !== undefined)
-        .map(([k, x]) => `${k}: ${scalar(x)}`)
-        .join(", ")} }`;
-    return String(v);
-  };
-  const ids = Object.entries(doc.widgets);
-  const lines = [
-    `cols: ${doc.cols}`,
-    `rows: ${doc.rows}`,
-    // `{}` and not a bare `widgets:`, which YAML reads back as NULL and the schema then refuses.
-    ids.length ? "widgets:" : "widgets: {}",
-  ];
-  for (const [id, w] of ids)
-    lines.push(
-      `  ${/^[A-Za-z0-9_-]+$/.test(id) ? id : JSON.stringify(id)}: ${scalar(w)}`,
-    );
-  return `${lines.join("\n")}\n`;
 }

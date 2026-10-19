@@ -5,28 +5,29 @@
 // expansion — see docs/padEffects.md. The proof that they play is a render, in the engine's
 // scripts/pad-effects.ts.
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { K7Document } from "@studio/k7x/document";
 import { NoteSchema } from "@studio/song-schema/yaml/entitySchemas";
 import { setNoteEffect } from "@studio/song-schema/yaml/sequenceFile";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
 import type { ClipDoc } from "./project";
-import { writeLane, writeModule, writeYaml } from "./testSupport";
+import { writeDoc, writeLane, writeModule } from "./testSupport";
 
 let dir = "";
 
 /** One lane playing `pat` once, over a sequence whose single note says whatever is asked. */
 function project(name: string, note: Record<string, unknown>): string {
   const p = join(dir, `${name}.k7`);
-  writeYaml(join(p, "project.yaml"), { project: { name, tempo: 120 } });
+  writeDoc(join(p, "project.k7x"), { project: { name, tempo: 120 } });
   writeModule(p, "io", "OUT", { io: "out" });
   writeLane(p, "drums", "track", { events: [{ ref: "pat", start: "1:1:1" }] });
-  writeYaml(join(p, "sequences", "pat.yaml"), {
+  writeDoc(join(p, "sequences", "pat.k7x"), {
     notes: [{ t: 0, d: 0.25, k: 36, ...note }],
   });
-  writeYaml(join(p, "graph.yaml"), { modules: { drums: ["OUT"] } });
+  writeDoc(join(p, "graph.k7x"), { modules: { drums: ["OUT"] } });
   return p;
 }
 
@@ -81,42 +82,51 @@ describe("compiling a pad's effects", () => {
 });
 
 describe("writing one", () => {
-  const seq =
-    "notes:\n  - { t: 0, d: 0.25, k: 36 }\n  - { t: 1, d: 0.25, k: 38 }\n";
+  const SEQ = "notes([t(0).d(0.25).k(36), t(1).d(0.25).k(38)])\n";
+  type Notes = { notes: Record<string, unknown>[] };
+  const doc = () => new K7Document(SEQ);
+  const notesOf = (d: K7Document) => (d.toJS() as Notes).notes;
 
   it("sets the effect on the addressed note and only that one", () => {
-    const out = setNoteEffect(seq, 36, 0, "repeat", 4);
-    expect(out).toMatch(/k: 36, repeat: 4/);
-    expect(out.match(/repeat:/g)).toHaveLength(1);
+    const d = doc();
+    setNoteEffect(d.at([]), 36, 0, "repeat", 4);
+    expect(notesOf(d)).toEqual([
+      { t: 0, d: 0.25, k: 36, repeat: 4 },
+      { t: 1, d: 0.25, k: 38 },
+    ]);
+    expect(d.toString()).toContain("t(0).d(0.25).k(36).repeat(4)");
   });
 
   // Off DELETES: the alternative is a value saying what its own absence already said.
   it("DELETES the key when the effect is turned off", () => {
-    const on = setNoteEffect(seq, 38, 1, "skip", 2);
-    expect(on).toContain("skip: 2");
-    expect(setNoteEffect(on, 38, 1, "skip", undefined)).not.toContain("skip");
+    const d = doc();
+    setNoteEffect(d.at([]), 38, 1, "skip", 2);
+    expect(notesOf(d)[1].skip).toBe(2);
+    setNoteEffect(d.at([]), 38, 1, "skip", undefined);
+    expect(notesOf(d)[1]).not.toHaveProperty("skip");
+    expect(d.toString()).toBe(SEQ);
   });
 
   it("keeps the two effects apart on one note", () => {
-    const both = setNoteEffect(
-      setNoteEffect(seq, 36, 0, "repeat", 2),
-      36,
-      0,
-      "skip",
-      4,
-    );
-    expect(both).toMatch(/repeat: 2/);
-    expect(both).toMatch(/skip: 4/);
+    const d = doc();
+    setNoteEffect(d.at([]), 36, 0, "repeat", 2);
+    setNoteEffect(d.at([]), 36, 0, "skip", 4);
+    expect(notesOf(d)[0]).toMatchObject({ repeat: 2, skip: 4 });
     // …and removing one leaves the other standing.
-    expect(setNoteEffect(both, 36, 0, "repeat", undefined)).toMatch(/skip: 4/);
+    setNoteEffect(d.at([]), 36, 0, "repeat", undefined);
+    expect(notesOf(d)[0]).toEqual({ t: 0, d: 0.25, k: 36, skip: 4 });
   });
 
   it("refuses a value that says nothing, rather than writing it", () => {
-    expect(() => setNoteEffect(seq, 36, 0, "repeat", 1)).toThrow(/2 or more/);
+    expect(() => setNoteEffect(doc().at([]), 36, 0, "repeat", 1)).toThrow(
+      /2 or more/,
+    );
   });
 
   // A miss is named rather than silent: a surface pointing at a missing note is out of date.
   it("throws where there is no such note", () => {
-    expect(() => setNoteEffect(seq, 36, 9, "repeat", 2)).toThrow(/no note/);
+    expect(() => setNoteEffect(doc().at([]), 36, 9, "repeat", 2)).toThrow(
+      /no note/,
+    );
   });
 });

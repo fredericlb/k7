@@ -1,9 +1,8 @@
 // sugar.test.ts — a short form reads as the data it stands for, and a write keeps it until what it expands to changes.
 
-import { applyYaml, toYaml } from "@studio/k7x/yaml-bridge";
+import { K7Document } from "@studio/k7x/document";
 import { describe, expect, it } from "vitest";
-import { parseDocument, parse as parseYaml, stringify } from "yaml";
-import { expandNotes, sugarFor } from "./sugar";
+import { applySugared, expandNotes, sugarFor } from "./sugar";
 import { validateFile } from "./validate";
 
 const n = (t: number, d: number, k: number, v?: number) =>
@@ -74,7 +73,8 @@ describe("the runs short form", () => {
   });
 
   it("belongs to the graph and the segments file, not to a chain file", () => {
-    expect(sugarFor("song/graph.yaml")).not.toBeNull();
+    expect(sugarFor("song/graph.k7x")).not.toBeNull();
+    expect(sugarFor("song/graph.yaml")).toBeNull();
     expect(sugarFor("song/chains/chains.k7x")).toBeNull();
     expect(sugarFor("song/sequences/m.k7x")?.parts[0].key).toBe("notes");
     expect(sugarFor("song/project.k7x")).toBeNull();
@@ -96,34 +96,41 @@ describe("a .k7x file written with a short form", () => {
 
   const SEQ = '// the riff\nnotes("c4 d4 e4 f4")\nto("2:1")\n';
   const path = "song/sequences/riff.k7x";
-  /** What a YAML writer does through the bridge: read the expanded YAML, change it, write it back. */
+  /** The expanded data of a file at `file`, as a writer reads it. */
+  const read = (text: string, file: string) => {
+    const raw = new K7Document(text).toJS();
+    return sugarFor(file)?.expand(raw) ?? raw;
+  };
+  /** What a writer does: change the expanded data, then apply it over the short forms. */
   const write = (
     text: string,
     file: string,
-    f: (d: ReturnType<typeof parseDocument>) => void,
+    f: (d: Record<string, unknown>) => Record<string, unknown>,
   ) => {
-    const d = parseDocument(toYaml(text, sugarFor(file)));
-    f(d);
-    return applyYaml(text, d.toString(), sugarFor(file));
+    const doc = new K7Document(text);
+    applySugared(doc, f(read(text, file)), sugarFor(file));
+    return doc.toString();
   };
 
   it("reads as the notes it stands for", () => {
-    expect(parseYaml(toYaml(SEQ, sugarFor(path))).notes).toEqual(
-      expandNotes("c4 d4 e4 f4"),
-    );
+    expect(read(SEQ, path).notes).toEqual(expandNotes("c4 d4 e4 f4"));
   });
 
   it("keeps the short form through an edit that leaves the notes alone", () => {
-    expect(write(SEQ, path, (d) => d.set("to", "3:1"))).toBe(
+    expect(write(SEQ, path, (d) => ({ ...d, to: "3:1" }))).toBe(
       SEQ.replace('"2:1"', '"3:1"'),
     );
   });
 
   it("is written as the full note list once a note changes", () => {
-    const out = write(SEQ, path, (d) => d.setIn(["notes", 1, "v"], 0.5));
+    const out = write(SEQ, path, (d) => {
+      const notes = [...(d.notes as object[])];
+      notes[1] = { ...notes[1], v: 0.5 };
+      return { ...d, notes };
+    });
     expect(out).toContain("// the riff");
     expect(out).not.toContain('notes("');
-    expect(parseYaml(toYaml(out, sugarFor(path))).notes).toEqual([
+    expect(read(out, path).notes).toEqual([
       n(0, 1, 60),
       { ...n(1, 1, 62), v: 0.5 },
       n(2, 1, 64),
@@ -135,15 +142,18 @@ describe("a .k7x file written with a short form", () => {
   const graph = "song/graph.k7x";
 
   it("keeps the runs through an edit elsewhere in the graph", () => {
-    expect(write(GRAPH, graph, (d) => d.set("bypassed", ["lead"]))).toBe(
+    expect(write(GRAPH, graph, (d) => ({ ...d, bypassed: ["lead"] }))).toBe(
       GRAPH.replace("bypassed([])", 'bypassed(["lead"])'),
     );
   });
 
   it("writes the segments in full once one changes, and never brings a removed one back", () => {
-    const out = write(GRAPH, graph, (d) => d.setIn(["modules", "lead"], []));
+    const out = write(GRAPH, graph, (d) => ({
+      ...d,
+      modules: { ...(d.modules as object), lead: [] },
+    }));
     expect(out).not.toContain("runs(");
-    expect(parseYaml(toYaml(out, sugarFor(graph))).modules).toEqual({
+    expect(read(out, graph).modules).toEqual({
       melody: ["lead"],
       lead: [],
       MIX: ["OUT"],
@@ -151,12 +161,6 @@ describe("a .k7x file written with a short form", () => {
   });
 
   it("is unchanged by a write that changes nothing", () => {
-    expect(
-      applyYaml(
-        SEQ,
-        stringify(parseYaml(toYaml(SEQ, sugarFor(path)))),
-        sugarFor(path),
-      ),
-    ).toBe(SEQ);
+    expect(write(SEQ, path, (d) => d)).toBe(SEQ);
   });
 });

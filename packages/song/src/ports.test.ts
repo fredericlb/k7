@@ -4,7 +4,7 @@
 // names the port it lands on (`crossfade#b`) and the derivation records it on the step as `in`,
 // where validate() checks it against the module's port list. See docs/ports.md.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,33 +14,26 @@ import { deriveChains } from "./chainsGraph";
 import { loadGraph } from "./graph";
 import { loadModuleRefs, loadModules } from "./loader";
 import { compileNodeProject } from "./nodeProject";
+import { writeDoc, writeLane, writeNode } from "./testSupport";
 
 let dir: string;
 
-function file(rel: string, body: string): void {
-  const abs = join(dir, rel);
-  mkdirSync(join(abs, ".."), { recursive: true });
-  writeFileSync(abs, body, "utf8");
-}
-
 /** A two-in crossfade, declared by the MODULE rather than by its type folder. */
-const CROSSFADE = `plugin: {type: jsdsp}
-inputs:
-  - { name: a, type: audio }
-  - { name: b, type: audio, mandatory: false }
-outputs:
-  - { name: out, type: audio }
-params:
-  mix: 0.5
-`;
+const CROSSFADE = {
+  plugin: { type: "jsdsp" },
+  inputs: [
+    { name: "a", type: "audio" },
+    { name: "b", type: "audio", mandatory: false },
+  ],
+  outputs: [{ name: "out", type: "audio" }],
+  params: { mix: 0.5 },
+};
+
+const SONG_PROJECT = { project: { name: "song", tempo: 120 } };
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-ports-"));
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n",
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), SONG_PROJECT);
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -69,7 +62,7 @@ describe("a port ref", () => {
 
 describe("a module's own ports", () => {
   it("override the type folder's defaults", () => {
-    file("nodes/crossfade.yaml", CROSSFADE);
+    writeNode(dir, "crossfade", CROSSFADE);
     const m = loadModules(dir).crossfade;
     expect(m.inputs).toEqual([
       { name: "a", type: "audio" },
@@ -84,21 +77,11 @@ describe("a module's own ports", () => {
     const ws = mkdtempSync(join(tmpdir(), "td-ports-type-"));
     try {
       const song = join(ws, "song");
-      mkdirSync(join(ws, "_modules", "audio", "amp"), { recursive: true });
-      writeFileSync(
-        join(ws, "_modules", "audio", "amp", "module.yaml"),
-        "plugin: {type: internal, name: Chorus}\n",
-      );
-      mkdirSync(join(song, "nodes"), { recursive: true });
-      writeFileSync(
-        join(song, "project.yaml"),
-        "project:\n  name: song\n  tempo: 120\n",
-        "utf8",
-      );
-      writeFileSync(
-        join(song, "nodes", "amp.yaml"),
-        'extends: "@workspace/audio/amp"\n',
-      );
+      writeDoc(join(ws, "_modules", "audio", "amp", "module.k7x"), {
+        plugin: { type: "internal", name: "Chorus" },
+      });
+      writeDoc(join(song, "project.k7x"), SONG_PROJECT);
+      writeNode(song, "amp", { extends: "@workspace/audio/amp" });
       const m = loadModuleRefs(song)["@workspace/audio/amp"];
       expect(m.inputs).toEqual([{ name: "in", type: "audio" }]);
       expect(m.outputs).toEqual([{ name: "out", type: "audio" }]);
@@ -176,27 +159,25 @@ describe("wiring a named port", () => {
 });
 
 describe("what validate says", () => {
-  const wire = (yaml: string) => {
-    file("nodes/crossfade.yaml", CROSSFADE);
-    file("nodes/a.yaml", 'extends: "@meta/track"\nevents: []\n');
-    file("nodes/b.yaml", 'extends: "@meta/track"\nevents: []\n');
-    writeFileSync(join(dir, "graph.yaml"), yaml, "utf8");
+  const lane = (name: string) => writeLane(dir, name, "track", { events: [] });
+  const wire = (modules: Record<string, string[]>) => {
+    writeNode(dir, "crossfade", CROSSFADE);
+    lane("a");
+    lane("b");
+    writeDoc(join(dir, "graph.k7x"), { modules });
     return loadGraph(dir);
   };
+  const BOTH = { a: ["crossfade"], b: ["crossfade#b"], crossfade: ["OUT"] };
 
   it("accepts both inputs fed, and says nothing at all", () => {
     // EVERY warning: filtering to /port|input/ hides two the raw-string walk produces.
-    const g = wire(
-      "modules:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\n  crossfade: [ OUT ]\n",
-    );
+    const g = wire(BOTH);
     expect(g.warnings).toEqual([]);
   });
 
   it("follows a side input through to the sink, and back for a cycle", () => {
     // A port lands INSIDE another run, so `reachesSink` and `hasCycle` both have to follow it there.
-    const g = wire(
-      "modules:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\n  crossfade: [ OUT ]\n",
-    );
+    const g = wire(BOTH);
     expect(
       g.warnings.filter((m) => /dead end|reaches OUT|cycle/.test(m)),
     ).toEqual([]);
@@ -204,9 +185,7 @@ describe("what validate says", () => {
 
   it("carries the side input to the engine as the TRACK feeding it", () => {
     // The engine routes from a LANE: unresolved, the module arrived as a one-input effect.
-    wire(
-      "modules:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\n  crossfade: [ OUT ]\n",
-    );
+    wire(BOTH);
     const doc = compileNodeProject(dir);
     const p = doc.tracks
       .flatMap((t) => t.plugins)
@@ -219,7 +198,7 @@ describe("what validate says", () => {
 
   it("leaves an unwired port off the wire entirely", () => {
     // `mandatory: false`: the engine must tell one quiet side from a source it failed to resolve.
-    wire("modules:\n  a: [ crossfade ]\n  crossfade: [ OUT ]\n");
+    wire({ a: ["crossfade"], crossfade: ["OUT"] });
     const p = compileNodeProject(dir)
       .tracks.flatMap((t) => t.plugins)
       .find((x) => x.id.endsWith(":crossfade"));
@@ -228,12 +207,8 @@ describe("what validate says", () => {
 
   it("refuses more sources than the module has ports", () => {
     // Arity THROWS rather than warns: the compiler cannot lay out a port that is not there.
-    file("nodes/c.yaml", 'extends: "@meta/track"\nevents: []\n');
-    expect(() =>
-      wire(
-        "modules:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\n  c: [ crossfade#b ]\n  crossfade: [ OUT ]\n",
-      ),
-    ).toThrow(/only 2 port/);
+    lane("c");
+    expect(() => wire({ ...BOTH, c: ["crossfade#b"] })).toThrow(/only 2 port/);
   });
 });
 

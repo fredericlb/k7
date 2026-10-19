@@ -12,10 +12,10 @@ import { loadGraph } from "./graph";
 import { baseModuleRefs, loadModuleRefs, loadModules } from "./loader";
 import { resolveModule } from "./moduleResolve";
 import {
+  writeDoc,
   writeLibraries,
   writeLibrary,
   writeNode,
-  writeYaml,
 } from "./testSupport";
 import { loadUiLibrary } from "./uiLibrary";
 
@@ -35,11 +35,9 @@ beforeEach(() => {
   writeLibrary(root);
   dir = join(root, "song");
   mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n",
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), {
+    project: { name: "song", tempo: 120 },
+  });
   lib = writeLibraries(root, {
     "audio/dynamics/compressor": { status: "favorite", engine: "tracktion" },
     "audio/dynamics/compressor/engines/tracktion": {
@@ -52,8 +50,8 @@ beforeEach(() => {
     },
   });
   const at = join(lib, "modules", "audio", "dynamics", "compressor", "engines");
-  writeYaml(join(at, "tracktion", "ui.yaml"), PANEL("Ratio"));
-  writeYaml(join(at, "vari-mu", "ui.yaml"), PANEL("Intensty"));
+  writeDoc(join(at, "tracktion", "ui.k7x"), PANEL("Ratio"));
+  writeDoc(join(at, "vari-mu", "ui.k7x"), PANEL("Intensty"));
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -90,7 +88,7 @@ describe("loading", () => {
       "audio",
       "dynamics",
       "compressor",
-      "module.yaml",
+      "module.k7x",
     );
     expect(enginesBeside(file)).toEqual({
       engines: ["tracktion", "vari-mu"],
@@ -173,9 +171,9 @@ describe("a rack whose engines are its kits", () => {
   };
   beforeEach(() => {
     const at = join(lib, "modules", "instruments", "drums");
-    writeYaml(join(at, "module.yaml"), { engine: "acoustic" });
-    writeYaml(join(at, "engines", "samples", "module.yaml"), { type: "rack" });
-    writeYaml(join(at, "engines", "acoustic", "module.yaml"), {
+    writeDoc(join(at, "module.k7x"), { engine: "acoustic" });
+    writeDoc(join(at, "engines", "samples", "module.k7x"), { type: "rack" });
+    writeDoc(join(at, "engines", "acoustic", "module.k7x"), {
       plugin: { type: "internal", name: "sfz" },
       kit: { Kick: 36, Snare: 38 },
     });

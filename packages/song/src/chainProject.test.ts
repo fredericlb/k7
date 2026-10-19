@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Item } from "@studio/song-schema/yaml/chainSchema";
@@ -91,8 +91,8 @@ describe("a chain nothing links", () => {
     const dir = mkdtempSync(join(tmpdir(), "chains-"));
     mkdirSync(join(dir, "chains"));
     writeFileSync(
-      join(dir, "chains", "loose.yaml"),
-      'steps:\n  - { id: d1, extends: "@k7-core/delay" }\n',
+      join(dir, "chains", "loose.k7x"),
+      'steps([id("d1").extends("@k7-core/delay")])\n',
     );
     const cp = readChainProject(dir);
     expect(toSegments(cp).graph.modules).toEqual({});
@@ -107,14 +107,14 @@ describe("writeChainProject", () => {
     const dir = mkdtempSync(join(tmpdir(), "chains-"));
     mkdirSync(join(dir, "chains"));
     const text =
-      'start: true\nsteps:\n  - { id: l, track: lane }\n  # the touch wah\n  - id: w\n    extends: "@k7-core/wah"\n';
-    writeFileSync(join(dir, "chains", "lane.yaml"), text);
+      'start()\nsteps([\n  id("l").track("lane"),\n  // the touch wah\n  id("w").extends("@k7-core/wah"),\n])\n';
+    writeFileSync(join(dir, "chains", "lane.k7x"), text);
     const cp = readChainProject(dir);
     const c = cp.chains.lane;
     c.steps.push({ id: "x", extends: "@k7-core/eq" });
     writeChainProject(dir, cp.chains, cp.texts);
     const again = readChainProject(dir);
-    expect(again.texts.lane).toContain("# the touch wah");
+    expect(again.texts.lane).toContain("// the touch wah");
     expect(again.chains.lane.steps.length).toBe(3);
   });
 });
@@ -154,47 +154,29 @@ describe("reading order", () => {
     mkdirSync(join(dir, "chains"));
     for (const n of ["a-copy", "a"])
       writeFileSync(
-        join(dir, "chains", `${n}.yaml`),
-        `start: true\nsteps:\n  - { id: ${n}, track: ${n} }\n`,
+        join(dir, "chains", `${n}.k7x`),
+        `start()\nsteps([id("${n}").track("${n}")])\n`,
       );
     expect(Object.keys(readChainProject(dir).chains)).toEqual(["a", "a-copy"]);
   });
 });
 
 describe("a chain's file", () => {
-  const folder = () => {
+  it("is .k7x, named after the chain", () => {
     const dir = mkdtempSync(join(tmpdir(), "chain-file-"));
-    mkdirSync(join(dir, "chains"));
-    return dir;
-  };
-  const touch = (dir: string, f: string) =>
-    writeFileSync(join(dir, "chains", f), "steps: []\n");
-
-  it("is .yaml for a new chain", () => {
-    const dir = folder();
-    expect(chainFilePath(dir, "a")).toBe(join(dir, "chains", "a.yaml"));
-  });
-
-  it("takes .k7x over .yaml over .yml", () => {
-    const dir = folder();
-    touch(dir, "a.yml");
-    expect(chainFilePath(dir, "a")).toBe(join(dir, "chains", "a.yml"));
-    touch(dir, "a.yaml");
-    expect(chainFilePath(dir, "a")).toBe(join(dir, "chains", "a.yaml"));
-    touch(dir, "a.k7x");
     expect(chainFilePath(dir, "a")).toBe(join(dir, "chains", "a.k7x"));
   });
 
-  it("stays .yml when a .yml chain is read and written back", () => {
-    const dir = folder();
+  it("is read back hidden once written so", () => {
+    const dir = mkdtempSync(join(tmpdir(), "chain-file-"));
+    mkdirSync(join(dir, "chains"));
     writeFileSync(
-      join(dir, "chains", "a.yml"),
-      "start: true\nsteps:\n  - { id: a, track: a }\n",
+      join(dir, "chains", "a.k7x"),
+      'start()\nsteps([id("a").track("a")])\n',
     );
     const cp = readChainProject(dir);
     expect(Object.keys(cp.chains)).toEqual(["a"]);
     writeChainProject(dir, { a: { ...cp.chains.a, hidden: true } }, cp.texts);
-    expect(existsSync(join(dir, "chains", "a.yaml"))).toBe(false);
     expect(readChainProject(dir).hidden?.a).toBeDefined();
   });
 });

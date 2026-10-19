@@ -21,26 +21,23 @@ describe("neededRefs", () => {
   it("ignores every namespace but @k7-core", () => {
     expect(
       neededRefs({
-        workspace: 'extends: "@workspace/instruments/synth"\n',
-        builtin: 'extends: "@meta/track"\n',
-        engine: 'extends: "@engine/audio/delay/adt"\n',
-        library: 'extends: "@k7-core/audio/utility/crossfade"\n',
+        workspace: 'extends("@workspace/instruments/synth")\n',
+        builtin: 'extends("@meta/track")\n',
+        engine: 'extends("@engine/audio/delay/adt")\n',
+        library: 'extends("@k7-core/audio/utility/crossfade")\n',
       }),
     ).toEqual(["@k7-core/audio/utility/crossfade"]);
   });
 
-  it("reads a ref quoted or bare, and drops a trailing comment", () => {
+  it("reads the ref past a comment, and skips a file that is not k7x", () => {
     expect(
       neededRefs({
-        a: 'extends: "@k7-core/cold/tempo"\n',
-        b: "extends: @k7-core/audio/filter/eq3\n",
-        c: "extends: @k7-core/audio/filter/sweep   # the one on the desk\n",
+        a: 'extends("@k7-core/cold/tempo")\n',
+        b: '// the one on the desk\nextends("@k7-core/audio/filter/sweep") // a note\n',
+        c: 's("bd sd")',
+        d: "not k7x at all {",
       }),
-    ).toEqual([
-      "@k7-core/audio/filter/eq3",
-      "@k7-core/audio/filter/sweep",
-      "@k7-core/cold/tempo",
-    ]);
+    ).toEqual(["@k7-core/audio/filter/sweep", "@k7-core/cold/tempo"]);
   });
 
   /** THE asymmetry this whole module is about: two archetypes open on a fresh account, and one does not. */

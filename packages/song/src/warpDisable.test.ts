@@ -9,14 +9,14 @@ import { AudioClipSchema } from "@studio/song-schema/yaml/entitySchemas";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
 import type { ClipDoc } from "./project";
-import { writeLane, writeModule, writeYaml } from "./testSupport";
+import { writeDoc, writeLane, writeModule } from "./testSupport";
 
 let dir = "";
 
 /** One lane playing `riff` twice, over a clip whose warp is `disable`d or not. */
 function project(name: string, warp: Record<string, unknown>): string {
   const p = join(dir, `${name}.k7`);
-  writeYaml(join(p, "project.yaml"), { project: { name } });
+  writeDoc(join(p, "project.k7x"), { project: { name } });
   writeModule(p, "io", "OUT", { io: "out" });
   writeLane(p, "gtr", "track", {
     events: [
@@ -24,13 +24,13 @@ function project(name: string, warp: Record<string, unknown>): string {
       { ref: "riff", start: "3:1:1" },
     ],
   });
-  writeYaml(join(p, "clips", "riff.yaml"), {
+  writeDoc(join(p, "clips", "riff.k7x"), {
     source: "clips/riff.wav",
     to: "2:1",
     warp,
   });
   writeFileSync(join(p, "clips", "riff.wav"), "");
-  writeYaml(join(p, "graph.yaml"), { modules: { gtr: ["OUT"] } });
+  writeDoc(join(p, "graph.k7x"), { modules: { gtr: ["OUT"] } });
   return p;
 }
 

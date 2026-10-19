@@ -22,7 +22,7 @@ export function songIdOf(ref: unknown): string | null {
   return isSongRef(ref) ? ref.slice(MEDIATEK_REF.length + 1) : null;
 }
 
-/** The ref for a médiathèque id — the inverse, for a surface that writes songs.yaml. */
+/** The ref for a médiathèque id — the inverse, for a surface that writes the cue sheet. */
 export function songRefOf(id: string): string {
   return `${MEDIATEK_REF}/${id.replace(/^\/+|\/+$/g, "")}`;
 }

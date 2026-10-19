@@ -1,6 +1,6 @@
-// moduleIO.ts — locate and read the YAML files a project is made of: module files
-// (module.yaml + its <node>.yaml siblings), per-file entities (tracks/, clips/, …),
-// and root files (project.yaml, graph.yaml, settings.yaml). Validation is Zod,
+// moduleIO.ts — locate and read the .k7x files a project is made of: module files
+// (module.k7x + its <node>.k7x siblings), per-file entities (tracks/, clips/, …),
+// and root files (project.k7x, graph.k7x, settings.k7x). Validation is Zod,
 // in-process, with the line and column of the offending key.
 
 import { type Dirent, readdirSync, statSync } from "node:fs";
@@ -11,7 +11,7 @@ import {
   parseModule,
   parseModuleData,
 } from "@studio/song-schema/yaml/moduleFile";
-import { wsExists, wsIssues, yamlRetired } from "./workspaceFile";
+import { K7X_EXT, wsExists } from "./workspaceFile";
 import { settledParse } from "./yamlCache";
 
 export interface ModuleFile {
@@ -21,14 +21,9 @@ export interface ModuleFile {
   rel: string;
 }
 
-// In order of precedence: a `.k7x` file wins over its YAML spelling, and `.yaml` over `.yml` (docs/k7xFiles.md).
-const EXTS = [".k7x", ".yaml", ".yml"];
-/** The extensions a lookup probes: every spelling, or the k7x one alone once YAML is retired. */
-const exts = (): string[] => (yamlRetired() ? [".k7x"] : EXTS);
-
 /** The module folder's OWN basenames — anything else there is a node, so add a new sibling here. */
 export const UI_BASE = "ui";
-// A stale `presets.yaml` in a module folder stays RESERVED, never a node, and is read by nothing (docs/userPresets.md).
+// A stale `presets.k7x` in a module folder stays RESERVED, never a node, and is read by nothing (docs/userPresets.md).
 export const PRESETS_BASE = "presets";
 export const CONTROLLER_BASE = "controller";
 
@@ -46,15 +41,12 @@ export function moduleFileFor(
   relDir: string,
   base: string,
 ): ModuleFile | null {
-  for (const ext of exts()) {
-    const path = join(folder, `${base}${ext}`);
-    if (wsExists(path)) return { path, rel: `${relDir}/${base}${ext}` };
-  }
-  return null;
+  const path = join(folder, `${base}${K7X_EXT}`);
+  return wsExists(path) ? { path, rel: `${relDir}/${base}${K7X_EXT}` } : null;
 }
 
-/** The YAML files a folder holds, by basename, in ONE readdir — see docs/moduleCache.md. */
-function yamlFilesIn(folder: string): Map<string, string> {
+/** The .k7x files a folder holds, by basename, in ONE readdir — see docs/moduleCache.md. */
+function docFilesIn(folder: string): Map<string, string> {
   let found: Dirent[];
   try {
     found = readdirSync(folder, { withFileTypes: true });
@@ -64,7 +56,7 @@ function yamlFilesIn(folder: string): Map<string, string> {
   const byBase = new Map<string, string>();
   for (const e of found) {
     const ext = extname(e.name).toLowerCase();
-    if (!exts().includes(ext)) continue;
+    if (ext !== K7X_EXT) continue;
     if (e.isDirectory()) continue;
     if (!e.isFile()) {
       // A symlink, or something stranger: ask what it points AT — a library reached through one must load.
@@ -74,22 +66,18 @@ function yamlFilesIn(folder: string): Map<string, string> {
         continue;
       }
     }
-    const base = basename(e.name, ext);
-    // The earlier extension wins when several spellings are there, whichever order readdir returned them in.
-    const held = byBase.get(base);
-    if (!held || EXTS.indexOf(ext) < EXTS.indexOf(extname(held).toLowerCase()))
-      byBase.set(base, e.name);
+    byBase.set(basename(e.name, extname(e.name)), e.name);
   }
   return byBase;
 }
 
-/** The NODE files beside a module's generic — every `<node>.yaml` that is not one of MODULE_OWN_BASES. */
+/** The NODE files beside a module's generic — every `<node>.k7x` that is not one of MODULE_OWN_BASES. */
 export function nodeFiles(
   folder: string,
   relDir: string,
 ): { node: string; file: ModuleFile }[] {
   const out: { node: string; file: ModuleFile }[] = [];
-  for (const [base, name] of [...yamlFilesIn(folder)].sort()) {
+  for (const [base, name] of [...docFilesIn(folder)].sort()) {
     // The generic, the panel, the preset shelf and the MIDI map are the module ITSELF, not uses of it.
     if (MODULE_OWN_BASES.has(base)) continue;
     out.push({
@@ -115,7 +103,7 @@ export function entityFiles(
   relDir: string,
 ): { id: string; file: ModuleFile }[] {
   const out: { id: string; file: ModuleFile }[] = [];
-  for (const [base, name] of [...yamlFilesIn(folder)].sort())
+  for (const [base, name] of [...docFilesIn(folder)].sort())
     out.push({
       id: base,
       file: { path: join(folder, name), rel: `${relDir}/${name}` },
@@ -141,13 +129,11 @@ export function readModuleFile(file: ModuleFile): ReadModule {
   return {
     // Cloned: the loaders write `ui` and `cc` onto what they get, and the parse is shared.
     value: value ? structuredClone(value as Record<string, unknown>) : null,
-    issues: wsIssues(file.path, issues).map((i: ModuleIssue) =>
-      formatIssue(file.rel, i),
-    ),
+    issues: issues.map((i: ModuleIssue) => formatIssue(file.rel, i)),
   };
 }
 
-/** Is `dir` a k7 project — does it hold a `project.yaml` (or `.yml`, or `.k7x`)? */
+/** Is `dir` a k7 project — does it hold a `project.k7x`? */
 export function isProjectFolder(dir: string): boolean {
   try {
     return entityFileFor(dir, "", "project") !== null;

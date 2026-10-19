@@ -1,6 +1,6 @@
 // assemblySchema.ts — the two files an ASSEMBLY is, in Zod. A template in the library declares
-// the plugs and the params promoted onto the box (`assembly.yaml`, beside an ordinary `graph.yaml`
-// and `nodes/`); a project's `assemblies/<name>.yaml` says which of its nodes are that box.
+// the plugs and the params promoted onto the box (`assembly.k7x`, beside an ordinary `graph.k7x`
+// and `nodes/`); a project's `assemblies/<name>.k7x` says which of its nodes are that box.
 // An assembly is a DRAWING and AUTHORING fact: nothing here reaches the compiler or the engine.
 // Full rationale: packages/song/docs/assemblies.md.
 
@@ -10,14 +10,14 @@ import { z } from "zod";
 export const ASSEMBLIES_DIR = "assemblies";
 
 /** The file that makes a library folder an assembly rather than a chain template. */
-export const ASSEMBLY_FILE = "assembly.yaml";
+export const ASSEMBLY_FILE = "assembly.k7x";
 
 /** One PLUG: a port on the box, plus the member whose own port it stands for. */
 const AssemblyPlugSchema = z
   .object({
     name: z.string().min(1),
     type: z.enum(["audio", "midi", "video"]),
-    // The template MEMBER this plug is, by the name its own `graph.yaml` uses.
+    // The template MEMBER this plug is, by the name its own `graph.k7x` uses.
     node: z.string().min(1),
     // …and which of that member's ports, written only when the member declares several.
     port: z.string().min(1).optional(),
@@ -34,7 +34,7 @@ const AssemblyParamSchema = z
 
 export type AssemblyParam = z.infer<typeof AssemblyParamSchema>;
 
-/** `assembly.yaml` — what the box IS, in the library. Its members and their wiring are the graph beside it. */
+/** `assembly.k7x` — what the box IS, in the library. Its members and their wiring are the graph beside it. */
 export const AssemblyTemplateSchema = z
   .object({
     // What the box is CALLED on the graph; absent, the instance's own name is drawn.
@@ -61,7 +61,7 @@ export const AssemblyTemplateSchema = z
 
 export type AssemblyTemplate = z.infer<typeof AssemblyTemplateSchema>;
 
-/** `assemblies/<name>.yaml` — which of THIS project's nodes are that box. */
+/** `assemblies/<name>.k7x` — which of THIS project's nodes are that box. */
 export const AssemblyFileSchema = z
   .object({
     // The template, by the ref a chain template is named by: `@k7-core/turntable`.

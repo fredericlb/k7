@@ -18,40 +18,37 @@ const put = (rel: string, body: string): void => {
 /** A synth lane playing two notes, its filter swept by an envelope those notes fire. */
 function song(automation: string, curve: string): void {
   dir = mkdtempSync(join(tmpdir(), "td-adsr-"));
+  put("project.k7x", 'project({ name: "t", tempo: 120, sampleRate: 48000 })\n');
+  put("graph.k7x", 'modules({ synth: ["osc"], osc: ["OUT"] })\n');
   put(
-    "project.yaml",
-    "project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n",
-  );
-  put("graph.yaml", "modules:\n  synth: [ osc ]\n  osc: [ OUT ]\n");
-  put(
-    "nodes/synth.yaml",
-    'extends: "@meta/track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
+    "nodes/synth.k7x",
+    'extends("@meta/track")\nevents([ref("riff").start("1:1")])\n',
   );
   put(
-    "sequences/riff.yaml",
+    "sequences/riff.k7x",
     // Two notes, one at the clip's start and one a beat later.
-    "notes:\n  - { k: 60, t: 0, d: 0.5 }\n  - { k: 64, t: 1, d: 0.5 }\n",
+    "notes([k(60).t(0).d(0.5), k(64).t(1).d(0.5)])\n",
   );
   put(
-    "nodes/osc.yaml",
-    `plugin:\n  type: internal\n  name: 4OSC\n${automation}`,
+    "nodes/osc.k7x",
+    `plugin({ type: "internal", name: "4OSC" })\n${automation}`,
   );
-  put("curves/env1.yaml", curve);
+  put("curves/env1.k7x", curve);
 }
 
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-const ENV = `type: adsr
-attack: 0
-decay: 0
-sustain: 250
-release: 250
-level: 1
+const ENV = `type("adsr")
+attack(0)
+decay(0)
+sustain(250)
+release(250)
+level(1)
 `;
 
 describe("an envelope reaches the engine placed at the notes", () => {
   it("fires once per note-on of the lane that plays it", () => {
-    song("automations:\n  - { param: Filter Freq, curve: env1 }\n", ENV);
+    song('automations([param("Filter Freq").curve("env1")])\n', ENV);
     const lane = loadProject(dir).tracks.find((t) => t.id === "synth")!;
     const a = lane.automation.find((x) => x.param === "Filter Freq");
     expect(a).toBeDefined();
@@ -70,8 +67,8 @@ describe("an envelope reaches the engine placed at the notes", () => {
 
   it("leaves the parameter alone when nothing plays it", () => {
     // No notes, no triggers, no points — rather than a lane pinning the param at zero.
-    song("automations:\n  - { param: Filter Freq, curve: env1 }\n", ENV);
-    put("sequences/riff.yaml", "notes: []\n");
+    song('automations([param("Filter Freq").curve("env1")])\n', ENV);
+    put("sequences/riff.k7x", "notes([])\n");
     const lane = loadProject(dir).tracks.find((t) => t.id === "synth")!;
     expect(lane.automation).toHaveLength(0);
   });
@@ -79,10 +76,10 @@ describe("an envelope reaches the engine placed at the notes", () => {
   it("still bakes a curve of song TIME over the whole song, notes or not", () => {
     // An LFO is triggered by nothing, so removing the notes must not silence it.
     song(
-      "automations:\n  - { param: Filter Freq, curve: env1 }\n",
-      "type: lfo\nfrequency: 1\n",
+      'automations([param("Filter Freq").curve("env1")])\n',
+      'type("lfo")\nfrequency(1)\n',
     );
-    put("sequences/riff.yaml", "notes: []\n");
+    put("sequences/riff.k7x", "notes([])\n");
     const lane = loadProject(dir).tracks.find((t) => t.id === "synth")!;
     expect(lane.automation[0].points.length).toBeGreaterThan(20);
   });

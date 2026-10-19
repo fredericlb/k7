@@ -1,87 +1,149 @@
 // The attribute-set writers: a knob turned on a set lands in THAT set, never under it.
 
+import { K7Document, type K7Scope } from "@studio/k7x/document";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
-import { addAlternative, setAlternativeParam } from "./alternativeFile";
-import { setModuleAutomation } from "./moduleFile";
+import {
+  addAlternative,
+  alternativeNames,
+  clearAlternativeParams,
+  paramsSwitch,
+  setAlternative,
+  setAlternativeField,
+  setAlternativeParam,
+} from "./alternativeFile";
 import { AlternativeSchema } from "./moduleSchema";
 
-const read = (text: string) => parse(text, { version: "1.2" });
+/** A module's data as these tests read it back. */
+interface Mod {
+  [key: string]: unknown;
+  alternatives: Record<string, unknown>[];
+  engines: Record<string, { params: unknown }>;
+}
+
+/** Run one writer over a whole file, handing back its text and what the writer answered. */
+function edit<T>(text: string, fn: (doc: K7Scope) => T) {
+  const doc = new K7Document(text);
+  const out = fn(doc.at([]));
+  return { text: doc.toString(), data: doc.toJS() as unknown as Mod, out };
+}
+
+const SETS = `params({ Gain: 3 })
+alternatives([
+  name("crunch").params({ Gain: 9 }),
+])
+alternative("crunch")
+`;
 
 describe("setAlternativeParam", () => {
   it("writes the module's own params while the first set is on", () => {
-    const out = setAlternativeParam("params: { Gain: 3 }\n", "Gain", 5);
-    expect(read(out).params).toEqual({ Gain: 5 });
+    const { data } = edit("params({ Gain: 3 })\n", (d) =>
+      setAlternativeParam(d, "Gain", 5),
+    );
+    expect(data.params).toEqual({ Gain: 5 });
   });
 
   it("writes into the set that is on, leaving the module's own alone", () => {
-    const text =
-      "params: { Gain: 3 }\nalternatives:\n  - name: crunch\n    params: { Gain: 9 }\nalternative: crunch\n";
-    const out = read(setAlternativeParam(text, "Tone", 2));
-    expect(out.params).toEqual({ Gain: 3 });
-    expect(out.alternatives[0].params).toEqual({ Gain: 9, Tone: 2 });
+    const { data } = edit(SETS, (d) => setAlternativeParam(d, "Tone", 2));
+    expect(data.params).toEqual({ Gain: 3 });
+    expect(data.alternatives[0].params).toEqual({ Gain: 9, Tone: 2 });
   });
 
-  it("opens an empty set written `{}` into block style, a param per line", () => {
+  it("fills an empty set", () => {
     // The shape `node alternative create` writes, and the case where every knob used to land on set 1.
-    const out = setAlternativeParam(
-      'params: { Gain: 3 }\nalternatives:\n  - {}\nalternative: "2"\n',
-      "Gain",
-      7,
+    const { data } = edit(
+      'params({ Gain: 3 })\nalternatives([{}])\nalternative("2")\n',
+      (d) => setAlternativeParam(d, "Gain", 7),
     );
-    expect(read(out).alternatives[0].params).toEqual({ Gain: 7 });
-    expect(read(out).params).toEqual({ Gain: 3 });
-    expect(out).toMatch(/^ {6}Gain: 7$/m);
+    expect(data.alternatives[0].params).toEqual({ Gain: 7 });
+    expect(data.params).toEqual({ Gain: 3 });
   });
 
   it("removes a param on null, under the engine named, and leaves a file without it untouched", () => {
     const text =
-      "engine: nam\nengines:\n  nam:\n    params:\n      model: a.nam\n      ir: b.wav\n";
-    const out = read(setAlternativeParam(text, "model", null, "nam"));
-    expect(out.engines.nam.params).toEqual({ ir: "b.wav" });
-    const bare = "params: { Gain: 3 }\n";
-    expect(setAlternativeParam(bare, "model", null)).toBe(bare);
+      'engine("nam")\nengines({ nam: { params: { model: "a.nam", ir: "b.wav" } } })\n';
+    const { data } = edit(text, (d) =>
+      setAlternativeParam(d, "model", null, "nam"),
+    );
+    expect(data.engines.nam.params).toEqual({ ir: "b.wav" });
+    const bare = "params({ Gain: 3 })\n";
+    expect(edit(bare, (d) => setAlternativeParam(d, "model", null)).text).toBe(
+      bare,
+    );
+  });
+
+  it("edits a chain item through its scope, the rest of the file untouched", () => {
+    const chain = 'items([\n  id("a").params({ Gain: 1 }),\n  id("b"),\n])\n';
+    const doc = new K7Document(chain);
+    setAlternativeParam(doc.at(["items", 1]), "Gain", 4);
+    expect(doc.toJS()).toEqual({
+      items: [
+        { id: "a", params: { Gain: 1 } },
+        { id: "b", params: { Gain: 4 } },
+      ],
+    });
   });
 });
 
-describe("setModuleAutomation on a module with sets", () => {
-  const swapped = `extends: a
-alternatives:
-  - extends: b
-alternative: "2"
-`;
+describe("clearAlternativeParams", () => {
+  it("drops the numbers, keeps a file param, and the map once it empties", () => {
+    const { data } = edit('params({ Gain: 3, model: "a.nam" })\n', (d) =>
+      clearAlternativeParams(d),
+    );
+    expect(data.params).toEqual({ model: "a.nam" });
+    const gone = edit("params({ Gain: 3 })\n", (d) =>
+      clearAlternativeParams(d),
+    );
+    expect(gone.data.params).toBeUndefined();
+  });
+});
 
-  it("binds inside a set that swaps the module, since the node no longer reads its own fields", () => {
-    const out = read(
-      setModuleAutomation(swapped, "Geometry", "@meta/curves/x"),
+describe("switching sets", () => {
+  it("names them, writes the switch, and clears it back on the first", () => {
+    expect(alternativeNames(edit(SETS, () => 0).data)).toEqual(["1", "crunch"]);
+    const off = edit(SETS, (d) => setAlternative(d, "1"));
+    expect(off.data.alternative).toBeUndefined();
+    expect(edit(off.text, (d) => setAlternative(d, "crunch")).text).toBe(SETS);
+    expect(() => edit(SETS, (d) => setAlternative(d, "ghost"))).toThrow(
+      /no alternative/,
     );
-    expect(out.automations).toBeUndefined();
-    expect(out.alternatives[0].automations).toEqual([
-      { param: "Geometry", curve: "@meta/curves/x" },
-    ]);
-    const off = setModuleAutomation(
-      setModuleAutomation(swapped, "Geometry", "@meta/curves/x"),
-      "Geometry",
-      null,
-    );
-    expect(read(off).alternatives[0].automations).toBeUndefined();
   });
 
-  it("binds on the node itself under a patch set, which inherits the node's list", () => {
-    const patch = 'alternatives:\n  - params: { Gain: 1 }\nalternative: "2"\n';
-    const out = read(setModuleAutomation(patch, "Gain", "@meta/curves/x"));
-    expect(out.automations).toHaveLength(1);
-    expect(out.alternatives[0].automations).toBeUndefined();
+  it("reads a numbers-only switch as values", () => {
+    const sw = paramsSwitch(edit(SETS, () => 0).data, "1");
+    expect(sw).toEqual({ params: { Gain: 3 }, inherited: [] });
+  });
+
+  it("sets a field on the set that is on", () => {
+    const { data } = edit(SETS, (d) => setAlternativeField(d, "engine", "nam"));
+    expect(data.alternatives[0].engine).toBe("nam");
+    expect(data.engine).toBeUndefined();
   });
 });
 
 describe("addAlternative", () => {
   it("copies a chain step's settings, never its own id or bypass", () => {
     const step =
-      'id: 8339210a\nextends: "@k7-core/fx/drive"\nbypass: true\nparams: { Gain: 3 }\n';
-    const out = read(addAlternative(step, undefined, { copy: true }).text);
-    expect(out.alternatives).toEqual([{ params: { Gain: 3 } }]);
-    expect(out.id).toBe("8339210a");
-    expect(AlternativeSchema.safeParse(out.alternatives[0]).success).toBe(true);
+      'id("8339210a")\nextends("@k7-core/fx/drive")\nbypass(true)\nparams({ Gain: 3 })\n';
+    const { data, out } = edit(step, (d) =>
+      addAlternative(d, undefined, { copy: true }),
+    );
+    expect(out).toBe("2");
+    expect(data.alternatives).toEqual([{ params: { Gain: 3 } }]);
+    expect(data.alternative).toBe("2");
+    expect(data.id).toBe("8339210a");
+    expect(AlternativeSchema.safeParse(data.alternatives[0]).success).toBe(
+      true,
+    );
+  });
+
+  it("appends to the list, a lane's empty set holding no events", () => {
+    const { data, out } = edit(SETS, (d) =>
+      addAlternative(d, "clean", { blankEvents: true }),
+    );
+    expect(out).toBe("clean");
+    expect(data.alternatives[1]).toEqual({ name: "clean", events: [] });
+    expect(() => edit(SETS, (d) => addAlternative(d, "crunch"))).toThrow(
+      /already has/,
+    );
   });
 });

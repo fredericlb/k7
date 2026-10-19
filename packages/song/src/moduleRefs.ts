@@ -42,7 +42,7 @@ export function dspSourceFor(
   return {};
 }
 
-// Every module referenceable by REF, memoised on the module folders' stamp because it reads ~700 YAML files (docs/moduleCache.md).
+// Every module referenceable by REF, memoised on the module folders' stamp because it reads ~700 k7x files (docs/moduleCache.md).
 export function loadModuleRefs(
   dir: string,
   // The ENGINE's own modules, injected because what this machine offers is AMBIENT state a test must be able to withhold.
@@ -92,7 +92,7 @@ function readModuleRefs(
     );
   }
 
-  // Panels come from the `ui.yaml` beside each module, keyed by these refs MINUS the node — see docs/uiLibrary.md.
+  // Panels come from the `ui.k7x` beside each module, keyed by these refs MINUS the node — see docs/uiLibrary.md.
   applyUiLibrary(dir, out, (_m, ref) => splitModuleKey(ref).module);
   return out;
 }

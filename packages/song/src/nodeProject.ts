@@ -156,7 +156,7 @@ function compileNodeProjectIn(
 
   const inputOf = liveInputsOf(inp, own);
 
-  // The soloed lanes from project.yaml's `soloed:`, a group's id folded onto its members because the engine never sees grouping.
+  // The soloed lanes from project.k7x's `soloed:`, a group's id folded onto its members because the engine never sees grouping.
   const soloed = new Set((root.soloed ?? []).map(String));
   // …and the HIGHLIGHTED ones, heard 10 dB up on their strip's output stage (highlight.ts).
   const lit = new Set((root.highlighted ?? []).map(String));
@@ -209,7 +209,7 @@ function compileNodeProjectIn(
           laneErrs.push(
             `lane '${lane}': event '${ref}' is a ${kind}, but only the lane's ` +
               `'${halves.map((h) => h.port).join("', '")}' output is wired — ` +
-              `add a '${lane}#${materialOf(ref)}:' key to graph.yaml`,
+              `add a '${lane}#${materialOf(ref)}:' key to graph.k7x`,
           );
           return false;
         }
@@ -413,7 +413,7 @@ function compileNodeProjectIn(
       tracks,
       groups,
       markers: parseMarkers(root.markers, num || 4, den || 4),
-      // settings.yaml is a flat root file, loaded on its own and validated as it is read (a bad value fails the compile).
+      // settings.k7x is a flat root file, loaded on its own and validated as it is read (a bad value fails the compile).
       settings: parseSettings(loadSettings(dir, true)),
     },
     typeof proj.console === "string" ? proj.console : undefined,

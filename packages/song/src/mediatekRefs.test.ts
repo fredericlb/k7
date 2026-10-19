@@ -2,31 +2,22 @@
 // NAMES, found in the files rather than in the resolved ref map — the ones worth fetching are
 // exactly those the loader cannot resolve yet.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mediatekPathPrefix, mediatekRefs } from "./mediatekRefs";
-import { librariesFixture } from "./testSupport";
+import { librariesFixture, writeDoc, writeNode } from "./testSupport";
 
 let ws: string;
 let dir: string;
 
-/** One USE of a module, in the project's flat `nodes/`. */
-function projectNode(name: string, body: string): void {
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(join(dir, "nodes", `${name}.yaml`), body, "utf8");
-}
-
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-mref-"));
   dir = join(ws, "song");
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n",
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), {
+    project: { name: "song", tempo: 120 },
+  });
 });
 afterEach(() => {
   rmSync(ws, { recursive: true, force: true });
@@ -35,38 +26,31 @@ afterEach(() => {
 describe("the médiathèque modules a project names", () => {
   it("finds the ones a NODE extends — the ordinary way to use one", () => {
     // A node reaches the library through `extends`, and missing it leaves the module uncached.
-    projectNode("gtr", 'extends: "@k7-core/audio/filter/auto-wah"\n');
+    writeNode(dir, "gtr", { extends: "@k7-core/audio/filter/auto-wah" });
     expect(mediatekRefs(dir)).toEqual(["@k7-core/audio/filter/auto-wah"]);
   });
 
   it("finds one a chain step names outright, node and all", () => {
     // The folder to fetch is the MODULE's, so the node suffix is dropped rather than pathed.
-    writeFileSync(
-      join(dir, "graph.yaml"),
-      "modules:\n  gtr: [ '@k7-core/audio/modulation/flanger:warm' ]\n",
-      "utf8",
-    );
+    writeDoc(join(dir, "graph.k7x"), {
+      modules: { gtr: ["@k7-core/audio/modulation/flanger:warm"] },
+    });
     expect(mediatekRefs(dir)).toEqual(["@k7-core/audio/modulation/flanger"]);
   });
 
   it("ignores every other level", () => {
     // `@workspace` and `@engine` are folders this machine already has, so nothing is fetched.
-    projectNode("a", 'extends: "@workspace/audio/thing"\n');
-    projectNode("b", 'extends: "@engine/serum"\n');
-    projectNode("c", "plugin: {type: internal}\n");
+    writeNode(dir, "a", { extends: "@workspace/audio/thing" });
+    writeNode(dir, "b", { extends: "@engine/serum" });
+    writeNode(dir, "c", { plugin: { type: "internal" } });
     expect(mediatekRefs(dir)).toEqual([]);
   });
 
   it("follows what a library module extends in turn", () => {
     // Fetching a child alone lands a module whose substance is in a parent nobody asked for.
     const at = join(librariesFixture(ws), "modules", "audio", "amp", "child");
-    mkdirSync(at, { recursive: true });
-    writeFileSync(
-      join(at, "module.yaml"),
-      'extends: "@k7-core/audio/amp/base"\n',
-      "utf8",
-    );
-    projectNode("mine", 'extends: "@k7-core/audio/amp/child"\n');
+    writeDoc(join(at, "module.k7x"), { extends: "@k7-core/audio/amp/base" });
+    writeNode(dir, "mine", { extends: "@k7-core/audio/amp/child" });
     expect(mediatekRefs(dir)).toEqual([
       "@k7-core/audio/amp/base",
       "@k7-core/audio/amp/child",

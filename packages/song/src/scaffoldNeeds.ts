@@ -5,20 +5,23 @@
 // account's first set open with every module missing, which reads as a broken song rather than as
 // a setup nobody finished. Nothing here SEEDS anything — it only says what is owed, and early.
 
+import { parse } from "@studio/k7x/document";
+
 /** The LIBRARIES namespace, and only it — the other four need no repository (apps/k7/frontend/docs/projects.md). */
 const LIBRARY = /^@k7-core\//;
 
-/** Every `extends:` a set of scaffolded FILES names — read off the text, so there is no second list to drift. */
+/** Every `extends` a set of scaffolded k7x FILES names — read off the files, so there is no second list to drift. */
 export function neededRefs(files: Record<string, string>): string[] {
   const out = new Set<string>();
-  for (const text of Object.values(files))
-    for (const m of text.matchAll(/^extends:\s*(.+)$/gm)) {
-      const raw = (m[1] ?? "").trim();
-      // A quoted ref is taken whole; an unquoted one ends at a trailing comment.
-      const quoted = /^(["'])(.*?)\1/.exec(raw);
-      const ref = (quoted ? (quoted[2] ?? "") : raw.split("#")[0]).trim();
-      if (LIBRARY.test(ref)) out.add(ref);
+  for (const text of Object.values(files)) {
+    let ref: unknown;
+    try {
+      ref = parse(text).extends;
+    } catch {
+      continue; // not k7x (a pattern, a sample): it names no module
     }
+    if (typeof ref === "string" && LIBRARY.test(ref)) out.add(ref);
+  }
   return [...out].sort();
 }
 

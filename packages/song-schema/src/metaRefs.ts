@@ -8,7 +8,7 @@ export const metaRef = (slug: string): string => `${META_NS}/${slug}`;
 
 // --- curve refs (see packages/song/docs/curves.md) -------------------------------
 
-/** The type folder a curve ref names — the file still lives at `curves/<id>.yaml`, per-project; this is REF-CONSISTENCY only. */
+/** The type folder a curve ref names — the file still lives at `curves/<id>.k7x`, per-project; this is REF-CONSISTENCY only. */
 const CURVES_CATEGORY = "curves";
 const CURVE_REF_PREFIX = `${META_NS}/${CURVES_CATEGORY}/`;
 

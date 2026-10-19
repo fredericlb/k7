@@ -4,8 +4,8 @@
 //   npx tsx packages/song/scripts/migrateTrackMixer.ts <projet.k7> [more…] [--write]
 //
 // A lane with no strip has faders that write nowhere: the gutter's, the card's, the Mixer view's.
-// Idempotent (a lane whose run already ends on a mixer is skipped), dry by default, and through the
-// yaml Document API, so graph.yaml's comments and key order come back byte-identical.
+// Idempotent (a lane whose run already ends on a mixer is skipped), dry by default, and as document
+// edits, so graph.k7x's comments and key order come back byte-identical.
 // See packages/song/docs/trackMixer.md.
 
 import { loadGraph } from "../src/graph.ts";

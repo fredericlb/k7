@@ -134,13 +134,9 @@ steps:
   `<id>.vstpreset`): the library stands where a project stands, its `vstpresets/` beside its
   `chains/`. Ids are uuids, so every template shares the one folder without colliding.
 
-`libraryChains.ts` also reads the FOLDER a library may still hold — `chains/<path>/graph.yaml`, ends
-`@in`/`@out`, a `nodes/` beside it — and answers the file when a ref is held both ways, so a live
-library keeps working until it is migrated. `scripts/migrateLibraryChains.ts` converts a library: it
-takes the run a graph declares from `@in` to `@out`, refuses anything else and any file a chain
-file has no place for, and reads every conversion back through the same reader, step by step,
-before writing it. The run is what it trusts, not the folder reader: a graph that still keys its
-source under `tracks:` reads as no step at all.
+`libraryChains.ts` also reads the FOLDER a library may still hold — `chains/<path>/graph.k7x`, ends
+`@in`/`@out`, a `nodes/` of `.k7x` files beside it — and answers the file when a ref is held both
+ways. A graph that still keys its source under `tracks` reads as no step at all.
 
 ## Why nothing declares them
 

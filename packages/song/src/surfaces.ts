@@ -3,8 +3,10 @@
 // (yaml/surfaceFile.ts), so an app can read one out of the file service without this.
 // Full rationale: docs/surfaces.md.
 
-import { mkdirSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { printKey } from "@studio/k7x/print";
+import { isDocFile } from "@studio/song-schema/docExt";
 import { CAMERA_IO } from "@studio/song-schema/moduleTypes";
 import {
   type ProjectSurface,
@@ -22,7 +24,7 @@ import { isChainProject, readChainProject } from "./chainProject";
 import { type Diagnostic, NODES_DIR } from "./loader";
 import { ensureVideoRun } from "./videoOutputs";
 import { entityFiles } from "./yaml/moduleIO";
-import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
+import { wsData, wsText, wsWriteText } from "./yaml/workspaceDoc";
 
 // The shapes are the WIRE's, declared beside the browser-safe parser, so the two sides cannot drift.
 export type { ProjectSurface, ProjectSurfaces };
@@ -38,7 +40,7 @@ export function projectSurfaces(dir: string): ProjectSurfaces {
     const rel = file.rel.replace(/^\/+/, "");
     let text: string;
     try {
-      text = wsRead(file.path);
+      text = wsText(file.path);
     } catch (e) {
       diagnostics.push({
         file: rel,
@@ -63,7 +65,7 @@ export function projectSurfaces(dir: string): ProjectSurfaces {
   return { surfaces, diagnostics };
 }
 
-/** Scaffold `surfaces/<id>.yaml`, layout DERIVED and two refusals — see docs/surfaces.md. */
+/** Scaffold `surfaces/<id>.k7x`, layout DERIVED and two refusals — see docs/surfaces.md. */
 export function createSurfaceFile(
   dir: string,
   type: SurfaceType,
@@ -81,8 +83,8 @@ export function createSurfaceFile(
       `invalid surface name '${id}' — letters, digits, '_' and '-' only`,
     );
   const layout = known.layouts[0];
-  const rel = `${SURFACES_DIR}/${id}.yaml`;
-  if (wsExists(join(dir, rel)))
+  const rel = `${SURFACES_DIR}/${id}.k7x`;
+  if (existsSync(join(dir, rel)))
     throw new Error(`surface '${id}' already exists (${rel})`);
   if (layout !== "view") {
     const taken = projectSurfaces(dir).surfaces.find(
@@ -94,9 +96,9 @@ export function createSurfaceFile(
       );
   }
   mkdirSync(join(dir, SURFACES_DIR), { recursive: true });
-  wsWrite(
+  wsWriteText(
     join(dir, rel),
-    `type: ${type}\nlayout: ${layout}\n${mappingSkeleton(known)}`,
+    `type(${JSON.stringify(type)})\nlayout(${JSON.stringify(layout)})\n${mappingSkeleton(known)}`,
   );
   // A viewport brings the picture's two outputs with it, in the same breath — docs/videoOutputs.md.
   if (type === "viewport") ensureVideoRun(dir);
@@ -106,21 +108,15 @@ export function createSurfaceFile(
 /** Every component of a type listed with a `null` and a note — not a comment, see docs/surfaces.md. */
 function mappingSkeleton(known: SurfaceTypeContribution): string {
   if (!known.mappingSkeleton.length) return "";
-  return `mapping:\n${known.mappingSkeleton
-    .map(([id, wants]) => `  ${id}: null # ${wants}\n`)
-    .join("")}`;
+  return `mapping({\n${known.mappingSkeleton
+    .map(([id, wants]) => `  ${printKey(id)}: null, // ${wants}\n`)
+    .join("")}})\n`;
 }
 
 /** Whether `dir` authors video LANES — a folder probe, kept out of song-video, docs/surfaces.md. */
 export function isVideoProject(dir: string): boolean {
-  return wsExists(resolve(dir, "video_tracks"));
+  return existsSync(resolve(dir, "video_tracks"));
 }
-
-/** `io: camera`, the one field that says a module is a lens — see docs/camera.md. */
-const CAMERA_FIELD = new RegExp(
-  `^\\s*io\\s*:\\s*["']?${CAMERA_IO}["']?\\s*$`,
-  "m",
-);
 
 /** Whether `dir` declares a LENS, which needs no lane — a camera is a plain node (docs/moduleTypes.md). */
 function namesCamera(dir: string): boolean {
@@ -136,9 +132,11 @@ function namesCamera(dir: string): boolean {
   } catch {
     return false; // no `nodes/` — as good as no camera
   }
+  // `io: camera` is the one field that says a module is a lens — see docs/camera.md.
   return found.some((name) => {
+    if (!isDocFile(name)) return false;
     try {
-      return CAMERA_FIELD.test(wsRead(join(nodes, name)));
+      return wsData(join(nodes, name)).io === CAMERA_IO;
     } catch {
       return false; // not a file, or unreadable
     }
@@ -154,8 +152,8 @@ export function hasPicture(dir: string): boolean {
 function hasMaterial(dir: string): boolean {
   const abs = resolve(dir);
   return (
-    wsExists(join(abs, "clips")) ||
-    wsExists(join(abs, "sequences")) ||
+    existsSync(join(abs, "clips")) ||
+    existsSync(join(abs, "sequences")) ||
     isVideoProject(abs)
   );
 }

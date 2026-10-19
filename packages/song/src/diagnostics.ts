@@ -37,7 +37,7 @@ export function deadProjectFields(dir: string): Diagnostic[] {
   const project = root.project as Record<string, unknown> | undefined;
   // Project-RELATIVE, like every other Diagnostic, because the editor matches these against its own tree paths.
   const file = (
-    entityFileFor(dir, "", "project")?.rel ?? "project.yaml"
+    entityFileFor(dir, "", "project")?.rel ?? "project.k7x"
   ).replace(/^\/+/, "");
   const at = (message: string): Diagnostic => ({
     file,
@@ -77,8 +77,8 @@ export function notSupportedModules(dir: string): Diagnostic[] {
       // The entry's OWN file, not the generic's — and a node's is flat, with no type folder in it.
       file:
         own?.home === "nodes"
-          ? `nodes/${own.file}.yaml`
-          : `modules/${m.category}/${m.file}/${m.node ?? "module"}.yaml`,
+          ? `nodes/${own.file}.k7x`
+          : `modules/${m.category}/${m.file}/${m.node ?? "module"}.k7x`,
       line: 1,
       col: 1,
       severity: "warning",

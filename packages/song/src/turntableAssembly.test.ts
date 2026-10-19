@@ -22,7 +22,7 @@ const FOLDER = join(
   "turntable",
 );
 
-const template = parseAssemblyTemplate(wsRead(join(FOLDER, "assembly.yaml")));
+const template = parseAssemblyTemplate(wsRead(join(FOLDER, "assembly.k7x")));
 const members = entityFiles(join(FOLDER, "nodes"), "nodes").map((f) => f.id);
 
 describe("the shipped turntable template", () => {
@@ -48,7 +48,7 @@ describe("the shipped turntable template", () => {
   });
 
   it("wires only members, and the two built-in sinks a deck ends at", () => {
-    const g = parseGraph(wsRead(join(FOLDER, "graph.yaml")));
+    const g = parseGraph(wsRead(join(FOLDER, "graph.k7x")));
     expect(g.issues).toEqual([]);
     const known = new Set([...members, "MIX", "CUE"]);
     for (const [key, dests] of Object.entries(g.value?.modules ?? {})) {

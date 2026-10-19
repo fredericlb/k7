@@ -4,7 +4,7 @@
 import { docPattern } from "../docExt";
 import { fileKindFor } from "./fields";
 
-// The one rule for writing expanded data back over a file's short forms, also what the YAML bridge applies.
+// The one rule for writing expanded data back over a file's short forms.
 export { applySugared } from "@studio/k7x/sugared";
 
 const GRAPH_FILE = docPattern("(^|/)graph");
@@ -217,7 +217,8 @@ function expandGraph(raw: Data): Data {
     modules[k] = Array.isArray(v) ? [...(v as string[])] : (v as string[]);
   for (const run of runs as string[][])
     for (let i = 0; i + 1 < run.length; i++) {
-      const dests = (modules[run[i]] ??= []);
+      modules[run[i]] ??= [];
+      const dests = modules[run[i]];
       if (!dests.includes(run[i + 1])) dests.push(run[i + 1]);
     }
   return { ...rest, modules };

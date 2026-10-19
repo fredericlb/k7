@@ -1,4 +1,4 @@
-// loader.ts — shared helpers for reading a YAML folder project: each subdirectory holds one flat file per
+// loader.ts — shared helpers for reading a k7x folder project: each subdirectory holds one flat file per
 // entity, keyed by filename, and the root holds project/settings/chains. Read in-process and validated with
 // Zod, which carries the file, line and column of a bad key into the diagnostics.
 // The readers themselves live in entities, moduleTree, moduleRefs, moduleAssetFiles, diagnostics and

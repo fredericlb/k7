@@ -3,8 +3,9 @@
 // repointed to it. The library is never written: changing a module of it is forking it, and the
 // fork keeps inheriting whatever it does not change. See ../../../docs/library-versions-plan.md.
 
-import { mkdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { stringify } from "@studio/k7x/print";
 import {
   ACCOUNT_LIBRARY,
   libraryRef,
@@ -13,7 +14,10 @@ import {
 import { plainSegments } from "@studio/web-protocol/paths";
 import { repointRefs } from "./moduleMove";
 import { accountLibraryHome, libraryFamilyRoot } from "./sharedFolders";
-import { wsCopy, wsExists, wsWrite } from "./yaml/workspaceFile";
+import { UI_FILE } from "./uiLibrary";
+import { wsWriteText } from "./yaml/workspaceDoc";
+
+const MODULE_FILE = "module.k7x";
 
 /** What a fork did: the new ref, its folder, and the project files that now name it. */
 export interface AccountFork {
@@ -34,7 +38,7 @@ export function forkIntoAccount(projectDir: string, ref: string): AccountFork {
   if (!segs) throw new Error(`${ref} is no module path`);
   const modules = libraryFamilyRoot(parts.library, "modules", projectDir);
   const base = modules ? join(modules, ...segs) : null;
-  if (!base || !wsExists(join(base, "module.yaml")))
+  if (!base || !existsSync(join(base, MODULE_FILE)))
     throw new Error(
       `${ref}: no such module in the version this workspace plays`,
     );
@@ -42,12 +46,12 @@ export function forkIntoAccount(projectDir: string, ref: string): AccountFork {
   const forkRef = libraryRef(ACCOUNT_LIBRARY, path);
   const folder = join(accountLibraryHome(), "modules", ...segs);
   // Already forked: the project is pointed at it, and what the fork holds is left alone.
-  const created = !wsExists(join(folder, "module.yaml"));
+  const created = !existsSync(join(folder, MODULE_FILE));
   if (created) {
     mkdirSync(folder, { recursive: true });
-    wsWrite(join(folder, "module.yaml"), `extends: "${baseRef}"\n`);
-    if (wsExists(join(base, "ui.yaml")))
-      wsCopy(join(base, "ui.yaml"), join(folder, "ui.yaml"));
+    wsWriteText(join(folder, MODULE_FILE), stringify({ extends: baseRef }));
+    if (existsSync(join(base, UI_FILE)))
+      copyFileSync(join(base, UI_FILE), join(folder, UI_FILE));
   }
   const repointed = repointRefs([projectDir], baseRef, forkRef);
   return { ref: forkRef, folder, created, repointed };

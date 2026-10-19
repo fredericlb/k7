@@ -1,14 +1,13 @@
 // A Faust module's `soundfile` slots, filled by the node's STRING params: resolved to absolute paths in
 // `faustFiles`, kept out of the knobs, and passed through unresolved so the engine can name what is missing.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { faustFilesOf } from "./faustFiles";
 import { compileNodeProject } from "./nodeProject";
-import { copyAsYaml } from "./testSupport";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEMOS = join(here, "..", "..", "..", "demos");
@@ -19,14 +18,14 @@ let dir: string;
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-faustfiles-"));
   dir = join(ws, "synth-demo.k7");
-  copyAsYaml(join(DEMOS, "synth-demo.k7"), dir, { recursive: true });
-  copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
+  cpSync(join(DEMOS, "synth-demo.k7"), dir, { recursive: true });
+  cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), {
     recursive: true,
   });
   const folder = join(ws, "_modules", "instruments", "synth");
   writeFileSync(
-    join(folder, "module.yaml"),
-    "plugin:\n  type: faust\n  name: Synth\n",
+    join(folder, "module.k7x"),
+    'plugin({ type: "faust", name: "Synth" })\n',
     "utf8",
   );
   writeFileSync(
@@ -37,8 +36,8 @@ beforeEach(() => {
   mkdirSync(join(dir, "wavetables"), { recursive: true });
   writeFileSync(join(dir, "wavetables", "saw.wav"), "RIFF", "utf8");
   writeFileSync(
-    join(dir, "nodes", "lead.yaml"),
-    'extends: "@workspace/instruments/synth"\nparams:\n  Table: "wavetables/saw.wav"\n',
+    join(dir, "nodes", "lead.k7x"),
+    'extends("@workspace/instruments/synth")\nparams({ Table: "wavetables/saw.wav" })\n',
     "utf8",
   );
 });

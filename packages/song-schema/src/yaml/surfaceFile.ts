@@ -1,9 +1,9 @@
-// surfaceFile.ts — read a `surfaces/<name>.yaml`. Browser-safe (no fs), for the same reason
+// surfaceFile.ts — read a `surfaces/<name>.k7x`. Browser-safe (no fs), for the same reason
 // mixViewFile.ts is: the app that DRAWS a surface is the one that has to resolve its mapping.
 // Full rationale: docs/surfaces.md.
 
 import type { Diagnostic } from "@studio/web-protocol";
-import { LineCounter, parseDocument } from "yaml";
+import { parseK7xWith, readK7x } from "./k7xIssues";
 import type { ModuleIssue } from "./moduleFile";
 import {
   SURFACE_LAYOUTS,
@@ -11,7 +11,6 @@ import {
   type Surface,
   SurfaceSchema,
 } from "./surfaceSchema";
-import { YAML_READ } from "./yamlText";
 
 /** The folder a project keeps its surfaces in. OPTIONAL — most projects have none. */
 export const SURFACES_DIR = "surfaces";
@@ -35,50 +34,20 @@ export interface ParsedSurface {
   issues: ModuleIssue[];
 }
 
-/** Parse one surface file; an EMPTY one is an error, unlike `views/mix.yaml` (docs/surfaceFiles.md). */
+/** Parse one surface file's k7x text; an EMPTY one is an error, unlike `views/mix.k7x` (docs/surfaceFiles.md). */
 export function parseSurface(text: string): ParsedSurface {
-  const lines = new LineCounter();
-  const doc = parseDocument(text, { ...YAML_READ, lineCounter: lines });
-  const issues: ModuleIssue[] = [];
-  for (const e of doc.errors) {
-    const pos = lines.linePos(e.pos[0]);
-    issues.push({ path: "", message: e.message, line: pos.line, col: pos.col });
-  }
-  if (issues.length) return { value: null, issues };
-
-  const raw = doc.toJS();
-  if (raw === null || raw === undefined)
+  const read = readK7x(text);
+  if (!read.doc) return { value: null, issues: read.issues };
+  if (Object.keys(read.data).length === 0)
     return {
       value: null,
       issues: [
         {
           path: "",
           // Both lists spelled from the enums rather than by hand, so the message cannot go stale (docs/surfaceFiles.md).
-          message: `a surface file says what it is: \`type:\` (${SURFACE_TYPES.join(", ")}) and \`layout:\` (${SURFACE_LAYOUTS.join(", ")}). This one is empty.`,
+          message: `a surface file says what it is: \`type\` (${SURFACE_TYPES.join(", ")}) and \`layout\` (${SURFACE_LAYOUTS.join(", ")}). This one is empty.`,
         },
       ],
     };
-  if (typeof raw !== "object" || Array.isArray(raw))
-    return {
-      value: null,
-      issues: [
-        {
-          path: "",
-          message:
-            "a surface is a mapping with `type`, `layout` and an optional `mapping`, not a list.",
-        },
-      ],
-    };
-
-  const result = SurfaceSchema.safeParse(raw);
-  if (!result.success) {
-    for (const issue of result.error.issues) {
-      // `.strict()` reports an unknown key on the OBJECT, so the name is in `keys` rather than in the path.
-      const keys = (issue as { keys?: string[] }).keys;
-      const path = [...issue.path, ...(keys?.length ? [keys[0]] : [])];
-      issues.push({ path: path.map(String).join("."), message: issue.message });
-    }
-    return { value: null, issues };
-  }
-  return { value: result.data, issues: [] };
+  return parseK7xWith(SurfaceSchema, text);
 }

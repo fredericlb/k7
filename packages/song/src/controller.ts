@@ -1,24 +1,23 @@
-// controller.ts — a module's MIDI map: the `controller.yaml` beside its `module.yaml`, saying which
+// controller.ts — a module's MIDI map: the `controller.k7x` beside its `module.k7x`, saying which
 // CC moves which param. A fourth sibling of the generic, the panel and the preset shelf, and for the
 // same reason as the panel: the FOLDER says which module it belongs to, the file only says how it is
 // played. Read across every module library the project can see. Rationale: docs/controller.md.
 
 import { mkdirSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
+import { parse } from "@studio/k7x/document";
 import {
   type CcBinding,
   CcBindingSchema,
   type ControllerFile,
   ControllerFileSchema,
 } from "@studio/song-schema/yaml/moduleSchema";
-import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
-import { parse as parseYaml } from "yaml";
 import { eachLibrarySibling } from "./moduleSiblings";
 import { CONTROLLER_BASE, moduleFileFor } from "./yaml/moduleIO";
-import { wsRead, wsWrite } from "./yaml/workspaceFile";
+import { wsText, wsWriteData } from "./yaml/workspaceDoc";
 
-/** The map file a module folder holds, as it is written. `.yml` is read too (moduleFileFor probes both). */
-const CONTROLLER_FILE = `${CONTROLLER_BASE}.yaml`;
+/** The map file a module folder holds. */
+const CONTROLLER_FILE = `${CONTROLLER_BASE}.k7x`;
 
 interface ControllerEntry {
   ref: string;
@@ -39,7 +38,7 @@ export function loadControllerLibrary(dir: string): ControllerLibrary {
   const out: ControllerLibrary = { byRef: {}, issues: [] };
   eachLibrarySibling(dir, CONTROLLER_BASE, ({ ref, path, rel }, label) => {
     if (out.byRef[ref]) return; // a nearer library already answered
-    const parsed = parseController(wsRead(path));
+    const parsed = parseController(wsText(path));
     if (!parsed.value) {
       out.issues.push(`${label}/${rel}: ${parsed.issue}`);
       return;
@@ -49,14 +48,14 @@ export function loadControllerLibrary(dir: string): ControllerLibrary {
   return out;
 }
 
-/** Parse one map; a file the schema refuses reads as an ISSUE, never a throw, exactly like a panel. */
+/** Parse one map's k7x text; a file the schema refuses reads as an ISSUE, never a throw, exactly like a panel. */
 export function parseController(text: string): {
   value: ControllerFile | null;
   issue: string;
 } {
   let raw: unknown;
   try {
-    raw = parseYaml(text, YAML_READ);
+    raw = parse(text);
   } catch (e) {
     return { value: null, issue: (e as Error).message };
   }
@@ -81,7 +80,7 @@ export function moduleFolderForRef(dir: string, ref: string): string | null {
   return hit;
 }
 
-/** Where a ref's map sits — beside its `module.yaml`, in whichever library holds it. */
+/** Where a ref's map sits — beside its `module.k7x`, in whichever library holds it. */
 export function moduleControllerFile(dir: string, ref: string): string | null {
   const folder = moduleFolderForRef(dir, ref);
   return folder ? join(folder, CONTROLLER_FILE) : null;
@@ -93,7 +92,7 @@ export function readModuleController(dir: string, ref: string): ControllerFile {
   if (!folder) return {};
   const found = moduleFileFor(folder, "", CONTROLLER_BASE);
   if (!found) return {};
-  return parseController(wsRead(found.path)).value ?? {};
+  return parseController(wsText(found.path)).value ?? {};
 }
 
 /** Bind `param` to a CC, or unbind with `null`, into the MODULE's own folder — see docs/controller.md. */
@@ -116,28 +115,16 @@ export function setCcBinding(
   if (binding) next[param] = binding;
   else delete next[param];
 
-  // An existing `.yml` is rewritten where it is; a new file is written as `.yaml`.
   const found = moduleFileFor(folder, "", CONTROLLER_BASE);
   const path = found?.path ?? join(folder, CONTROLLER_FILE);
   mkdirSync(dirname(path), { recursive: true });
-  wsWrite(path, controllerFileText(ref, next));
+  ControllerFileSchema.parse(next);
+  wsWriteData(path, next, {
+    header: [
+      `MIDI map for ${ref} — <param>: { ch, cc }. Shared by every node of this module.`,
+    ],
+    // One binding a line: a rebind is a one-line diff.
+    inline: (p) => p.length === 1,
+  });
   return relative(dir, path);
-}
-
-// A key as YAML, quoted only when it must be: a param name is a plugin's own ("Dry/Wet").
-const key = (k: string): string =>
-  /^[A-Za-z0-9_@][A-Za-z0-9 _.\-+@]*$/.test(k) &&
-  !/^(y|n|yes|no|on|off|true|false|null)$/i.test(k)
-    ? k
-    : JSON.stringify(k);
-
-/** Serialise the map: one FLOW mapping per param, hand-written, as the panel and preset writers are. */
-function controllerFileText(ref: string, map: ControllerFile): string {
-  ControllerFileSchema.parse(map);
-  const lines = [
-    `# MIDI map for ${ref} — <param>: { ch, cc }. Shared by every node of this module.`,
-  ];
-  for (const [param, b] of Object.entries(map))
-    lines.push(`${key(param)}: { ch: ${b.ch}, cc: ${b.cc} }`);
-  return `${lines.join("\n")}\n`;
 }

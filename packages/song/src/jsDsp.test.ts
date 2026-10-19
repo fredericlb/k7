@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModuleRefs } from "./loader";
+import { writeDoc } from "./testSupport";
 
 // `plugin: {type: jsdsp}` with `jsdsp.ts` beside it — one declaration, not two fields that must agree.
 // A jsdsp source needs its OWN folder, which is why these modules live at `@workspace`.
@@ -13,19 +14,16 @@ let dir: string;
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-jsdsp-"));
   dir = join(ws, "song");
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n",
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), {
+    project: { name: "song", tempo: 120 },
+  });
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
 const writeModule = (name: string, body: string, withSource = true) => {
   const folder = join(ws, "_modules", "audio", name);
   mkdirSync(folder, { recursive: true });
-  writeFileSync(join(folder, "module.yaml"), body, "utf8");
+  writeFileSync(join(folder, "module.k7x"), body, "utf8");
   if (withSource)
     writeFileSync(join(folder, "jsdsp.ts"), "export default {};\n", "utf8");
   return folder;
@@ -37,11 +35,9 @@ describe("a module whose DSP is its own source", () => {
     const folder = writeModule(
       "auto-wah",
       [
-        "# Auto Wah [audioEffect] — a touch wah, swept by the signal's own envelope.",
-        "# Its DSP is described in jsdsp.ts beside this file.",
-        "plugin:",
-        "  type: jsdsp",
-        "  name: Auto Wah",
+        "// Auto Wah [audioEffect] — a touch wah, swept by the signal's own envelope.",
+        "// Its DSP is described in jsdsp.ts beside this file.",
+        'plugin({ type: "jsdsp", name: "Auto Wah" })',
         "",
       ].join("\n"),
     );
@@ -50,15 +46,8 @@ describe("a module whose DSP is its own source", () => {
     );
   });
 
-  it("takes the inline spelling too", () => {
-    writeModule("inline", "plugin: { type: jsdsp, name: Inline }\n");
-    expect(loadModuleRefs(dir, {})["@workspace/audio/inline"]?.jsdsp).toContain(
-      "jsdsp.ts",
-    );
-  });
-
   it("gives an ordinary module none", () => {
-    writeModule("plain", "plugin:\n  type: vst3\n  name: Serum\n", false);
+    writeModule("plain", 'plugin({ type: "vst3", name: "Serum" })\n', false);
     expect(
       loadModuleRefs(dir, {})["@workspace/audio/plain"]?.jsdsp,
     ).toBeUndefined();
@@ -68,7 +57,7 @@ describe("a module whose DSP is its own source", () => {
     // The old form resolves NO source rather than half-working, so it is loud instead of quiet.
     writeModule(
       "legacy",
-      "plugin:\n  type: internal\n  name: DSP Graph\njsdsp: legacy.ts\n",
+      'plugin({ type: "internal", name: "DSP Graph" })\njsdsp("legacy.ts")\n',
     );
     expect(
       loadModuleRefs(dir, {})["@workspace/audio/legacy"]?.jsdsp,
@@ -77,7 +66,7 @@ describe("a module whose DSP is its own source", () => {
 
   it("points at the file even before it exists", () => {
     // A declaration, not a discovery: a module claims its source before the file is written.
-    const folder = writeModule("early", "plugin:\n  type: jsdsp\n", false);
+    const folder = writeModule("early", 'plugin({ type: "jsdsp" })\n', false);
     expect(loadModuleRefs(dir, {})["@workspace/audio/early"]?.jsdsp).toBe(
       join(folder, "jsdsp.ts"),
     );

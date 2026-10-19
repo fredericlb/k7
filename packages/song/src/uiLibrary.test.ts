@@ -2,22 +2,28 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parse } from "@studio/k7x/document";
 import { UISchema } from "@studio/song-schema/yaml/moduleSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse as parseYaml } from "yaml";
 import { loadModuleRefs, loadModules } from "./loader";
 import { resolvedUI } from "./moduleResolve";
-import { writeLibraries, writeLibrary, writeYaml } from "./testSupport";
+import {
+  setDoc,
+  writeDoc,
+  writeLibraries,
+  writeLibrary,
+  writeNode,
+} from "./testSupport";
 import { loadUiLibrary, uiFileText, uiPathFor, writeUiFile } from "./uiLibrary";
 import { migrateModuleUis } from "./uiMigrate";
+import { wsData, wsText } from "./yaml/workspaceDoc";
 
-// A panel is the `ui.yaml` in the module's own FOLDER, which is the key: no `ref:` can disagree with it.
+// A panel is the `ui.k7x` in the module's own FOLDER, which is the key: no `ref` can disagree with it.
 
 const PANEL = {
   cols: 2,
@@ -26,6 +32,7 @@ const PANEL = {
     mix: { type: "knob" as const, col: 0, row: 0, bind: "Mix", label: "Mix" },
   },
 };
+const REVERB = { plugin: { name: "Reverb", type: "vst3" } };
 
 let root: string;
 let dir: string;
@@ -34,45 +41,32 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-ui-"));
   writeLibrary(root);
   dir = join(root, "song");
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n",
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), { project: { name: "song", tempo: 120 } });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-// A module at `@workspace`, spelled out rather than built by a production writer — a module now
-// lives at `@workspace` or `@k7-core`, never inside the project.
-const writeSharedModule = (body: string): void => {
-  mkdirSync(join(root, "_modules", "audio", "reverb"), { recursive: true });
-  writeFileSync(
-    join(root, "_modules", "audio", "reverb", "module.yaml"),
-    body,
-    "utf8",
-  );
-};
+const reverbDir = (): string => join(root, "_modules", "audio", "reverb");
+
+// A module at `@workspace`, spelled out rather than built by a production writer.
+const writeSharedModule = (value: Record<string, unknown>): void =>
+  writeDoc(join(reverbDir(), "module.k7x"), value);
 
 describe("panels across more than one library", () => {
-  // A SECOND library at `_libraries/modules`, answering to `@k7-core` by its folder and no config.
+  // A SECOND library, answering to `@k7-core` by its folder and no config.
   let media: string;
   beforeEach(() => {
     media = writeLibraries(root);
   });
 
   it("loads a module OUT of the media library, through the @k7-core token", () => {
-    // The project reaches a library it does not contain, with no path anywhere in project.yaml.
+    // The project reaches a library it does not contain, with no path anywhere in project.k7x.
     const refs = loadModuleRefs(dir);
     expect(refs["@k7-core/audio/reverb"]).toBeTruthy();
     expect(refs["@workspace/audio/delay/tape-delay"]).toBeTruthy();
   });
 
   it("finds a panel beside a module in a declared library", () => {
-    writeYaml(
-      join(media, "modules", "audio", "reverb", "ui.yaml"),
-      PANEL as unknown as Record<string, unknown>,
-    );
+    writeDoc(join(media, "modules", "audio", "reverb", "ui.k7x"), PANEL);
     expect(loadUiLibrary(dir).byRef["@k7-core/audio/reverb"]?.ui).toEqual(
       PANEL,
     );
@@ -81,7 +75,7 @@ describe("panels across more than one library", () => {
   it("writes a shared module's panel into the shared module's own folder", () => {
     // A panel is drawn for the plugin, so it lands where the plugin is, not in every project.
     const written = writeUiFile(dir, "@k7-core/audio/reverb", PANEL);
-    expect(written).toBe(join(media, "modules", "audio", "reverb", "ui.yaml"));
+    expect(written).toBe(join(media, "modules", "audio", "reverb", "ui.k7x"));
     expect(loadUiLibrary(dir).byRef["@k7-core/audio/reverb"]?.ui).toEqual(
       PANEL,
     );
@@ -108,11 +102,11 @@ describe("panels across more than one library", () => {
 describe("where a panel files itself", () => {
   it("sits in the module's own folder, namespace dropped", () => {
     expect(uiPathFor("@workspace/audio/delay/tape-delay")).toBe(
-      "audio/delay/tape-delay/ui.yaml",
+      "audio/delay/tape-delay/ui.k7x",
     );
-    expect(uiPathFor("audio/reverb")).toBe("audio/reverb/ui.yaml");
+    expect(uiPathFor("audio/reverb")).toBe("audio/reverb/ui.k7x");
     // An io ref carries no type folder, so it gets one back from the REF's shape.
-    expect(uiPathFor("desk")).toBe("io/desk/ui.yaml");
+    expect(uiPathFor("desk")).toBe("io/desk/ui.k7x");
   });
 
   it("overwrites the module's existing panel rather than filing a second one", () => {
@@ -127,12 +121,9 @@ describe("where a panel files itself", () => {
 
   it("reports an unreadable panel rather than hiding the rest of the library", () => {
     writeUiFile(dir, "@workspace/audio/reverb", PANEL);
-    mkdirSync(join(root, "_modules", "audio", "broken"), { recursive: true });
-    writeFileSync(
-      join(root, "_modules", "audio", "broken", "ui.yaml"),
-      "cols: nope\n",
-      "utf8",
-    );
+    writeDoc(join(root, "_modules", "audio", "broken", "ui.k7x"), {
+      cols: "nope",
+    });
     const lib = loadUiLibrary(dir);
     expect(lib.issues).toHaveLength(1);
     expect(lib.byRef["@workspace/audio/reverb"]).toBeTruthy();
@@ -151,18 +142,22 @@ describe("where a panel files itself", () => {
   });
 
   it("ignores a panel under a dot folder, which the module stamp does not see", () => {
-    mkdirSync(join(root, "_modules", "audio", ".trash"), { recursive: true });
-    writeFileSync(
-      join(root, "_modules", "audio", ".trash", "ui.yaml"),
-      uiFileText(PANEL),
-      "utf8",
-    );
+    writeDoc(join(root, "_modules", "audio", ".trash", "ui.k7x"), PANEL);
     expect(loadUiLibrary(dir).byRef["@workspace/audio/.trash"]).toBeUndefined();
   });
 
+  it("never reads a panel under a YAML name", () => {
+    writeSharedModule(REVERB);
+    writeFileSync(
+      join(reverbDir(), "ui.yaml"),
+      "cols: 2\nrows: 1\nwidgets: {}\n",
+    );
+    expect(loadUiLibrary(dir).byRef["@workspace/audio/reverb"]).toBeUndefined();
+  });
+
   it("is not read as a node of the module it sits beside", () => {
-    // Every `<name>.yaml` in a module folder is a use, so an unguarded one reads as "reverb:ui".
-    writeSharedModule("plugin:\n  name: Reverb\n  type: vst3\n");
+    // Every `<name>.k7x` in a module folder is a use, so an unguarded one reads as "reverb:ui".
+    writeSharedModule(REVERB);
     writeUiFile(dir, "@workspace/audio/reverb", PANEL);
     const refs = loadModuleRefs(dir);
     expect(refs["@workspace/audio/reverb"]).toBeTruthy();
@@ -179,10 +174,7 @@ describe("the loader overlays the panels", () => {
 
   it("shows a shared generic's panel on its INHERITED nodes", () => {
     // A verbatim lookup of "@workspace/io/IN:in-2" found no panel, so every input drew "No Options".
-    writeFileSync(
-      join(root, "_modules", "io", "IN", "in-2.yaml"),
-      "channel: [2]\n",
-    );
+    writeDoc(join(root, "_modules", "io", "IN", "in-2.k7x"), { channel: [2] });
     writeUiFile(dir, "@workspace/io/IN", PANEL);
     const refs = loadModuleRefs(dir);
     expect(refs["@workspace/io/IN"].ui).toEqual(PANEL);
@@ -192,19 +184,14 @@ describe("the loader overlays the panels", () => {
   });
 
   it("replaces an inline ui whole rather than merging into it", () => {
-    writeSharedModule(
-      [
-        "plugin:",
-        "  name: Reverb",
-        "  type: vst3",
-        "ui:",
-        "  cols: 9",
-        "  rows: 9",
-        "  widgets:",
-        "    old: { type: knob, col: 0, row: 0, bind: Old }",
-        "",
-      ].join("\n"),
-    );
+    writeSharedModule({
+      ...REVERB,
+      ui: {
+        cols: 9,
+        rows: 9,
+        widgets: { old: { type: "knob", col: 0, row: 0, bind: "Old" } },
+      },
+    });
     writeUiFile(dir, "@workspace/audio/reverb", PANEL);
     const ui = loadModuleRefs(dir)["@workspace/audio/reverb"]
       .ui as typeof PANEL;
@@ -214,19 +201,17 @@ describe("the loader overlays the panels", () => {
 
   it("shows a module's panel on the nodes that use it", () => {
     // A node has no ref of its own to be filed under, so it is looked up by what it extends.
-    writeSharedModule("plugin:\n  name: Reverb\n  type: vst3\n");
-    mkdirSync(join(dir, "nodes"), { recursive: true });
-    writeFileSync(
-      join(dir, "nodes", "hall.yaml"),
-      'extends: "@workspace/audio/reverb"\nparams:\n  Mix: 0.9\n',
-      "utf8",
-    );
+    writeSharedModule(REVERB);
+    writeNode(dir, "hall", {
+      extends: "@workspace/audio/reverb",
+      params: { Mix: 0.9 },
+    });
     writeUiFile(dir, "@workspace/audio/reverb", PANEL);
     expect(loadModules(dir).hall.ui).toEqual(PANEL);
   });
 
   it("leaves modules alone when nothing has been drawn", () => {
-    writeSharedModule("plugin:\n  name: Reverb\n  type: vst3\n");
+    writeSharedModule(REVERB);
     expect(loadModuleRefs(dir)["@workspace/audio/reverb"].ui).toBeUndefined();
   });
 });
@@ -239,13 +224,9 @@ describe("a panel's widgets.js", () => {
     widgets: { screen: { type: "lcdscreen" as const, col: 0, row: 0 } },
   };
   const withScript = (): void => {
-    writeSharedModule("plugin:\n  name: Reverb\n  type: vst3\n");
+    writeSharedModule(REVERB);
     writeUiFile(dir, "@workspace/audio/reverb", LCD);
-    writeFileSync(
-      join(root, "_modules", "audio", "reverb", "widgets.js"),
-      SCRIPT,
-      "utf8",
-    );
+    writeFileSync(join(reverbDir(), "widgets.js"), SCRIPT, "utf8");
   };
 
   it("rides on the panel it sits beside, as text", () => {
@@ -258,18 +239,13 @@ describe("a panel's widgets.js", () => {
 
   it("reaches the nodes that use the module, and survives resolution", () => {
     withScript();
-    mkdirSync(join(dir, "nodes"), { recursive: true });
-    writeFileSync(
-      join(dir, "nodes", "hall.yaml"),
-      'extends: "@workspace/audio/reverb"\n',
-      "utf8",
-    );
+    writeNode(dir, "hall", { extends: "@workspace/audio/reverb" });
     const hall = loadModules(dir).hall;
     expect(resolvedUI(hall as never)?.script).toBe(SCRIPT);
   });
 
   it("is absent when the folder has none", () => {
-    writeSharedModule("plugin:\n  name: Reverb\n  type: vst3\n");
+    writeSharedModule(REVERB);
     writeUiFile(dir, "@workspace/audio/reverb", LCD);
     const ui = loadModuleRefs(dir)["@workspace/audio/reverb"].ui as object;
     expect("script" in ui).toBe(false);
@@ -286,20 +262,19 @@ describe("a panel's widgets.js", () => {
 });
 
 describe("migrating the panels that are still inline", () => {
-  const INLINE = [
-    "# A reverb.",
-    "plugin:",
-    "  name: Reverb",
-    "  type: vst3",
-    "ui:",
-    "  cols: 2",
-    "  rows: 1",
-    "  widgets:",
-    "    mix: { type: knob, col: 0, row: 0, bind: Mix, label: Mix }",
-    "params: # kept",
-    "  Mix: 0.4",
-    "",
-  ].join("\n");
+  const INLINE = `// A reverb.
+plugin({ name: "Reverb", type: "vst3" })
+ui({
+  cols: 2,
+  rows: 1,
+  widgets: { mix: { type: "knob", col: 0, row: 0, bind: "Mix", label: "Mix" } },
+})
+params({ Mix: 0.4 }) // kept
+`;
+  const writeInline = (): void => {
+    mkdirSync(reverbDir(), { recursive: true });
+    writeFileSync(join(reverbDir(), "module.k7x"), INLINE);
+  };
 
   it("moves a shared module's panel into the shared module's folder", () => {
     const shared = join(
@@ -308,66 +283,66 @@ describe("migrating the panels that are still inline", () => {
       "audio",
       "delay",
       "tape-delay",
-      "module.yaml",
+      "module.k7x",
     );
-    writeFileSync(
-      shared,
-      `${readFileSync(shared, "utf8")}ui:\n  cols: 1\n  rows: 1\n  widgets: {}\n`,
-    );
+    setDoc(shared, ["ui"], { cols: 1, rows: 1, widgets: {} });
     const r = migrateModuleUis(dir);
     expect(r.moved).toEqual([
-      "@workspace/audio/delay/tape-delay → _modules/audio/delay/tape-delay/ui.yaml",
+      "@workspace/audio/delay/tape-delay → _modules/audio/delay/tape-delay/ui.k7x",
     ]);
-    expect(readFileSync(shared, "utf8")).not.toMatch(/^ui:/m);
+    expect(wsData(shared).ui).toBeUndefined();
+  });
+
+  it("keeps the rest of the module file, comments included", () => {
+    writeInline();
+    expect(migrateModuleUis(dir).moved).toHaveLength(1);
+    const text = wsText(join(reverbDir(), "module.k7x"));
+    expect(text).toContain("// A reverb.");
+    expect(text).toContain("// kept");
+    expect(wsData(join(reverbDir(), "module.k7x"))).toEqual({
+      ...REVERB,
+      params: { Mix: 0.4 },
+    });
+    expect(wsData(join(reverbDir(), "ui.k7x"))).toEqual(PANEL);
   });
 
   it("is safe to run twice", () => {
-    writeSharedModule(INLINE);
+    writeInline();
     migrateModuleUis(dir);
-    const panel = join(root, "_modules", "audio", "reverb", "ui.yaml");
-    const before = readFileSync(panel, "utf8");
+    const panel = join(reverbDir(), "ui.k7x");
+    const before = wsText(panel);
     const again = migrateModuleUis(dir);
     expect(again.moved).toEqual([]);
     expect(again.errors).toEqual([]);
-    expect(readFileSync(panel, "utf8")).toBe(before);
+    expect(wsText(panel)).toBe(before);
   });
 
   it("reports a ui it cannot move rather than dropping it", () => {
-    writeSharedModule(
-      "plugin:\n  name: Reverb\n  type: vst3\nui:\n  cols: 2\n",
-    );
+    writeSharedModule({ ...REVERB, ui: { cols: 2 } });
     const r = migrateModuleUis(dir);
     expect(r.moved).toEqual([]);
     expect(r.errors.join()).toMatch(/not a panel this can move/);
     // Still in the file, so nothing was lost.
-    expect(
-      readFileSync(
-        join(root, "_modules", "audio", "reverb", "module.yaml"),
-        "utf8",
-      ),
-    ).toMatch(/^ui:/m);
+    expect(wsData(join(reverbDir(), "module.k7x")).ui).toEqual({ cols: 2 });
   });
 
   it("writes nothing when there is nothing inline", () => {
-    writeSharedModule("plugin:\n  name: Reverb\n  type: vst3\n");
+    writeSharedModule(REVERB);
     const r = migrateModuleUis(dir);
     expect(r.moved).toEqual([]);
-    expect(
-      existsSync(join(root, "_modules", "audio", "reverb", "ui.yaml")),
-    ).toBe(false);
+    expect(existsSync(join(reverbDir(), "ui.k7x"))).toBe(false);
   });
 });
 
-// A bare `widgets:` reads back as NULL, so the editor calls the file it just wrote malformed.
 describe("a panel file reads back as what was written", () => {
   const roundTrips = (ui: Parameters<typeof uiFileText>[0]) =>
-    UISchema.safeParse(parseYaml(uiFileText(ui), { version: "1.2" })).success;
+    UISchema.safeParse(parse(uiFileText(ui))).success;
 
   it("survives with no widgets at all — the scaffold's own shape", () => {
     expect(roundTrips({ cols: 4, rows: 2, widgets: {} })).toBe(true);
   });
 
-  it("survives with widgets, as it always did", () => {
+  it("survives with widgets", () => {
     expect(
       roundTrips({
         cols: 4,

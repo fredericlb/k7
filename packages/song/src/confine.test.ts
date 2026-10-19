@@ -1,4 +1,5 @@
 import {
+  cpSync,
   mkdirSync,
   mkdtempSync,
   realpathSync,
@@ -15,7 +16,7 @@ import { faustFilesOf } from "./faustFiles";
 import { resolveRackAudio } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 import { loadAudioClipDoc } from "./project";
-import { copyAsYaml, writeYaml } from "./testSupport";
+import { writeDoc } from "./testSupport";
 
 // A path a song file names may not leave the project's roots: other accounts' files sit beside it.
 
@@ -47,7 +48,7 @@ beforeEach(() => {
   process.env.STUDIO_HOME = home;
   process.env.STUDIO_LIBRARIES_HOME = join(base, "libraries");
   delete process.env.STUDIO_MODELS;
-  copyAsYaml(SONG, project, { recursive: true });
+  cpSync(SONG, project, { recursive: true });
 });
 afterEach(() => {
   process.env = { ...saved };
@@ -126,16 +127,16 @@ describe("projectRoots", () => {
 
 describe("the compiler", () => {
   it("names an escaping clip source as a compile issue rather than playing it", () => {
-    writeYaml(join(project, "clips", "kick.yaml"), { source: other });
+    writeDoc(join(project, "clips", "kick.k7x"), { source: other });
     expect(() => compileNodeProject(project)).toThrow(/outside the project/);
-    writeYaml(join(project, "clips", "kick.yaml"), {
+    writeDoc(join(project, "clips", "kick.k7x"), {
       source: "../../../../bob/workspace/main/secret.wav",
     });
     expect(() => compileNodeProject(project)).toThrow(/outside the project/);
   });
 
   it("gives the unplaced clip doc no file for an escaping source", () => {
-    writeYaml(join(project, "clips", "kick.yaml"), { source: other });
+    writeDoc(join(project, "clips", "kick.k7x"), { source: other });
     expect(loadAudioClipDoc(project, "kick")?.source).toBe("");
   });
 

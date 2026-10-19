@@ -52,9 +52,8 @@ note editors relabel notes as symbols (and enter by symbol) when a sequence name
 `[from,to]` window. Resolved first, so a module that inherits its flavour, its source or half its
 symbols reports the whole thing.
 
-**`keywords`** — the words YAML itself gives meaning to, offered so they can be completed rather
-than mistyped. `on`/`off`/`yes`/`no` are the ones that bite: YAML 1.1 reads them as booleans, so a
-plugin called "on" has to be quoted.
+**`keywords`** — the words k7x itself gives meaning to (`true`, `false`, `null`), offered so they
+can be completed rather than mistyped.
 
 **`pluginNames`** — scanned plugin names grouped by format (lowercased key), e.g.
 `{ vst3: ["Serum"], au: ["Massive"] }`. Populated by the file service from the engine's scan cache

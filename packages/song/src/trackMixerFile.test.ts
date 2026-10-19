@@ -2,13 +2,7 @@
 // would sit before what makes the sound, and `trackMixer` reads the last one), and a run that ends
 // somewhere other than the sum being rewritten on a guess.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -16,45 +10,43 @@ import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 import { trackMixer } from "./project";
 import { SHARED_STRIP } from "./scaffoldLive";
-import { librariesFixture } from "./testSupport";
+import {
+  librariesFixture,
+  writeDoc,
+  writeLane,
+  writeNode,
+} from "./testSupport";
 import {
   addTrackMixer,
   hasTrackMixer,
   mixerNameFor,
   planTrackMixer,
 } from "./trackMixerFile";
+import { wsData } from "./yaml/workspaceDoc";
 
 let dir: string;
 
-const graph = (body: string): void =>
-  writeFileSync(join(dir, "graph.yaml"), body, "utf8");
-const lane = (id: string): void =>
+const graph = (modules: Record<string, string[]>, header = ""): void =>
   writeFileSync(
-    join(dir, "nodes", `${id}.yaml`),
-    'extends: "@meta/track"\nevents: []\n',
+    join(dir, "graph.k7x"),
+    `${header}modules(${JSON.stringify(modules)})\n`,
     "utf8",
   );
-const module_ = (name: string, plugin: string): void => {
-  writeFileSync(
-    join(dir, "nodes", `${name}.yaml`),
-    `plugin:\n  type: internal\n  name: ${plugin}\n`,
-    "utf8",
-  );
+const lane = (id: string): void => {
+  writeLane(dir, id, "track", { events: [] });
 };
-const graphText = () => readFileSync(join(dir, "graph.yaml"), "utf8");
+const module_ = (name: string, plugin: string): void => {
+  writeNode(dir, name, { plugin: { type: "internal", name: plugin } });
+};
+const graphText = () => readFileSync(join(dir, "graph.k7x"), "utf8");
+const graphModules = () => wsData(join(dir, "graph.k7x")).modules;
 
 let ws: string;
 beforeEach(() => {
-  // A project in a WORKSPACE, because a strip is a use of the LIBRARY's mixer and that is where
-  // the library is mounted — see docs/trackMixer.md.
+  // A project in a WORKSPACE, because a strip is a use of the LIBRARY's mixer and that is where the library is mounted.
   ws = mkdtempSync(join(tmpdir(), "td-strip-"));
   dir = join(ws, "song.k7");
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n",
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t", tempo: 120 } });
   const mixer = join(
     librariesFixture(ws),
     "modules",
@@ -62,13 +54,10 @@ beforeEach(() => {
     "utility",
     "mixer",
   );
-  mkdirSync(mixer, { recursive: true });
   // The plugin inline in the FIXTURE's library, so nothing here waits on an engine scan.
-  writeFileSync(
-    join(mixer, "module.yaml"),
-    "plugin: { type: internal, name: Mixer }\n",
-    "utf8",
-  );
+  writeDoc(join(mixer, "module.k7x"), {
+    plugin: { type: "internal", name: "Mixer" },
+  });
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
@@ -82,7 +71,7 @@ describe("mixerNameFor", () => {
 describe("planTrackMixer", () => {
   it("wires an ORPHAN lane straight to the sum, since it is in no chain at all", () => {
     lane("kit");
-    graph("modules:\n  MIX: [ OUT ]\n");
+    graph({ MIX: ["OUT"] });
     const plan = planTrackMixer(dir, "kit", loadGraph(dir));
     expect(plan).toMatchObject({ name: "mix-kit", after: null });
   });
@@ -90,9 +79,7 @@ describe("planTrackMixer", () => {
   it("splices after the LAST module of a run, so the level sits past the sound", () => {
     lane("pad");
     module_("synth-pad", "4osc");
-    graph(
-      "modules:\n  pad: [ synth-pad ]\n  synth-pad: [ MIX ]\n  MIX: [ OUT ]\n",
-    );
+    graph({ pad: ["synth-pad"], "synth-pad": ["MIX"], MIX: ["OUT"] });
     expect(planTrackMixer(dir, "pad", loadGraph(dir))).toMatchObject({
       name: "mix-pad",
       after: "synth-pad",
@@ -102,7 +89,7 @@ describe("planTrackMixer", () => {
   it("answers null for a lane that already ends on one — the migration is idempotent", () => {
     lane("pad");
     module_("mix-pad", "Mixer");
-    graph("modules:\n  pad: [ mix-pad ]\n  mix-pad: [ MIX ]\n  MIX: [ OUT ]\n");
+    graph({ pad: ["mix-pad"], "mix-pad": ["MIX"], MIX: ["OUT"] });
     const g = loadGraph(dir);
     expect(hasTrackMixer(g, "pad")).toBe(true);
     expect(planTrackMixer(dir, "pad", g)).toBeNull();
@@ -113,11 +100,14 @@ describe("planTrackMixer", () => {
     lane("kit");
     module_("verb", "Reverb");
     module_("bus", "Mixer");
-    // A real BUS: two lanes MEET at it, so each run ends before it and neither reaches the sum
-    // itself. Splicing a strip in there would rewrite somebody's own arrangement.
-    graph(
-      "modules:\n  pad: [ verb ]\n  kit: [ verb ]\n  verb: [ bus ]\n  bus: [ MIX ]\n  MIX: [ OUT ]\n",
-    );
+    // A real BUS: two lanes MEET at it, so neither run reaches the sum itself, and a splice would rewrite the arrangement.
+    graph({
+      pad: ["verb"],
+      kit: ["verb"],
+      verb: ["bus"],
+      bus: ["MIX"],
+      MIX: ["OUT"],
+    });
     expect(() => planTrackMixer(dir, "pad", loadGraph(dir))).toThrow(
       /does not run into MIX/,
     );
@@ -129,26 +119,27 @@ describe("addTrackMixer", () => {
     lane("pad");
     module_("synth-pad", "4osc");
     graph(
-      "# the graph\nmodules:\n  pad: [ synth-pad ]\n  synth-pad: [ MIX ]\n  MIX: [ OUT ]\n",
+      { pad: ["synth-pad"], "synth-pad": ["MIX"], MIX: ["OUT"] },
+      "// the graph\n",
     );
     const files = addTrackMixer(dir, "pad", loadGraph(dir));
     // A NODE on k7's own mixer, not a project copy of it (docs/trackMixer.md, docs/metaModules.md).
-    expect(files).toEqual(["nodes/mix-pad.yaml", "graph.yaml"]);
-    expect(readFileSync(join(dir, "nodes/mix-pad.yaml"), "utf8")).toContain(
-      `extends: "${SHARED_STRIP}"`,
-    );
+    expect(files).toEqual(["nodes/mix-pad.k7x", "graph.k7x"]);
+    expect(wsData(join(dir, "nodes/mix-pad.k7x")).extends).toBe(SHARED_STRIP);
     // The splice, not an append: the synth now feeds the strip and the strip feeds the sum.
-    expect(graphText()).toContain("synth-pad: [ mix-pad ]");
-    expect(graphText()).toContain("mix-pad: [ MIX ]");
-    // …and the file's comments survive, this being a Document edit rather than a re-serialisation.
-    expect(graphText()).toContain("# the graph");
+    expect(graphModules()).toMatchObject({
+      "synth-pad": ["mix-pad"],
+      "mix-pad": ["MIX"],
+    });
+    // …and the file's comments survive, this being a document edit rather than a re-serialisation.
+    expect(graphText()).toContain("// the graph");
     const t = compileNodeProject(dir).tracks.find((x) => x.id === "pad");
     expect(trackMixer(t as never)?.name).toBe("mix-pad");
   });
 
   it("is a no-op the second time", () => {
     lane("kit");
-    graph("modules:\n  MIX: [ OUT ]\n");
+    graph({ MIX: ["OUT"] });
     addTrackMixer(dir, "kit", loadGraph(dir));
     const after = graphText();
     expect(addTrackMixer(dir, "kit", loadGraph(dir))).toBeNull();

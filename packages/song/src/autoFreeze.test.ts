@@ -17,14 +17,14 @@ import { autoFreezePoints, autoRendersHome, setThawed } from "./autoFreeze";
 import { loadGraph } from "./graph";
 import { compileWithAutoFreezes } from "./nodeProject";
 import type { ProjectDoc, TrackDoc } from "./project";
-import { setYaml, writeLane, writeNode, writeYaml } from "./testSupport";
+import { setDoc, writeDoc, writeLane, writeNode } from "./testSupport";
 
 let root = "";
 
 /** gtr → amp (VST) → cab → OUT, keys → verb (VST) → OUT; `cab` a VST too when asked. */
 function project(name: string, opts: { cabVst?: boolean } = {}): string {
   const p = join(root, name, "song.k7");
-  writeYaml(join(p, "project.yaml"), { project: { name: "song" } });
+  writeDoc(join(p, "project.k7x"), { project: { name: "song" } });
   writeNode(p, "amp", {
     plugin: { type: "vst3", name: "Amp" },
     params: { Gain: 1 },
@@ -37,12 +37,12 @@ function project(name: string, opts: { cabVst?: boolean } = {}): string {
   writeNode(p, "verb", { plugin: { type: "vst3", name: "Verb" } });
   for (const lane of ["gtr", "keys"])
     writeLane(p, lane, "track", { events: [{ ref: "riff", start: "1:1:1" }] });
-  writeYaml(join(p, "clips", "riff.yaml"), {
+  writeDoc(join(p, "clips", "riff.k7x"), {
     source: "clips/riff.wav",
     to: "2:1",
   });
   writeFileSync(join(p, "clips", "riff.wav"), "");
-  writeYaml(join(p, "graph.yaml"), {
+  writeDoc(join(p, "graph.k7x"), {
     modules: {
       gtr: ["amp"],
       amp: ["cab"],
@@ -146,7 +146,7 @@ describe("where an automatic freeze is taken", () => {
   // The freeze rule: upstream of the point may not leave the set, or it plays twice.
   it("not where the lane also goes out on its own", () => {
     const p = project("split");
-    writeYaml(join(p, "graph.yaml"), {
+    writeDoc(join(p, "graph.k7x"), {
       modules: { gtr: ["amp", "OUT"], amp: ["cab"], cab: ["OUT"] },
     });
     expect(autoFreezePoints(loadGraph(p), [])).toEqual([]);
@@ -173,7 +173,7 @@ describe("what the engine plays", () => {
   it("plays live again once a VST param changes", () => {
     const p = project("param");
     render(p, "amp");
-    setYaml(join(p, "nodes", "amp.yaml"), ["params", "Gain"], 2);
+    setDoc(join(p, "nodes", "amp.k7x"), ["params", "Gain"], 2);
     const { doc } = compileWithAutoFreezes(p);
     expect(pluginModules(trackOf(doc, "gtr"))).toEqual(["amp", "cab"]);
   });

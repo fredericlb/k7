@@ -79,7 +79,7 @@ describe("bad input", () => {
   });
 
   it("reads `1.5` as a bar and five ticks, not as a number", () => {
-    // The notation overlaps a plain YAML float, which is why TIMECODE_KEYS are written quoted.
+    // The notation overlaps a plain float, which is why a timecode is always a string.
     expect(parsePosition("1.5", 4, 4)).toBeCloseTo(5 / TICKS_PER_QUARTER, 9);
   });
 });

@@ -28,7 +28,7 @@ export function resolveRackAudio(
   projectDir?: string,
 ): RawRack | undefined {
   if (!rack || typeof rack !== "object") return rack;
-  // Searched `sources/`, `assets/`, then beside module.yaml; a ref escaping every root is no file (docs/moduleAssets.md, docs/confine.md).
+  // Searched `sources/`, `assets/`, then beside module.k7x; a ref escaping every root is no file (docs/moduleAssets.md, docs/confine.md).
   const roots = [
     folderAbs,
     ...(projectDir ? projectRoots(projectDir) : libraryReadRoots()),
@@ -144,4 +144,4 @@ export function listModuleAssets(folderAbs: string): string[] {
   return out.sort();
 }
 
-// Read an external `modules_from` tree — only the GENERIC module.yaml, since nodes aren't `extends` targets.
+// Read an external `modules_from` tree — only the GENERIC module.k7x, since nodes aren't `extends` targets.

@@ -1,11 +1,12 @@
 // assemblyEdit.ts — making a box, and taking one apart. Instancing copies the template's node
-// files into the project and its segments into `graph.yaml`, so what lands on disk is an ordinary
+// files into the project and its segments into `graph.k7x`, so what lands on disk is an ordinary
 // graph plus one record saying which of its nodes are that box: nothing downstream learns a thing.
 // The three writes that keep the record honest when a node is renamed or deleted are here too.
 // Full rationale: docs/assemblies.md.
 
-import { copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { K7Document } from "@studio/k7x/document";
 import { splitPort } from "@studio/song-schema/moduleTypes";
 import {
   formatAssembly,
@@ -26,20 +27,14 @@ import {
 } from "./assemblies";
 import { isChainProject } from "./chainProject";
 import { entityFiles } from "./yaml/moduleIO";
-import {
-  wsCopy,
-  wsExists,
-  wsRead,
-  wsRemove,
-  wsWrite,
-} from "./yaml/workspaceFile";
+import { wsEdit, wsText, wsWriteText } from "./yaml/workspaceDoc";
 
 /** The name a member takes in the project: the box's, then the template's own word for it. */
 export const memberName = (assembly: string, member: string): string =>
   `${assembly}_${member}`;
 
 const fileFor = (dir: string, id: string): string =>
-  join(dir, ASSEMBLIES_DIR, `${id}.yaml`);
+  join(dir, ASSEMBLIES_DIR, `${id}.k7x`);
 
 /** Instance a template into this project — its node files, its segments, and the record. */
 export function createAssembly(
@@ -58,7 +53,7 @@ export function createAssembly(
     throw new Error(
       `invalid assembly name '${id}' — letters, digits, '_' and '-' only`,
     );
-  if (wsExists(fileFor(dir, id)))
+  if (existsSync(fileFor(dir, id)))
     throw new Error(`assembly '${id}' already exists`);
   const loaded = loadAssemblyTemplate(dir, ref);
   if (!loaded)
@@ -73,9 +68,9 @@ export function createAssembly(
   for (const { id: member } of files) members[member] = memberName(id, member);
 
   const graphPath = join(dir, GRAPH_FILE);
-  const graphText = wsRead(graphPath);
+  const graph = new K7Document(wsText(graphPath));
   const taken = new Set(
-    Object.keys(parseGraph(graphText).value?.modules ?? {}),
+    Object.keys(parseGraph(graph.toString()).value?.modules ?? {}),
   );
   for (const [member, node] of Object.entries(members))
     if (taken.has(node))
@@ -83,18 +78,17 @@ export function createAssembly(
         `'${node}' is already in the graph — rename the box, or the member '${member}'`,
       );
 
-  // The template's segments, every name inside it swapped for this instance's. A destination the
-  // template does not own is copied verbatim: that is how a template says where its signal leaves to.
+  // The template's segments renamed for this instance; a destination it does not own is kept, as where its signal leaves to.
   const local = (ref_: string): string => {
     const { node, port } = splitPort(ref_);
     const mapped = members[node];
     if (!mapped) return ref_;
     return port ? `${mapped}#${port}` : mapped;
   };
-  const source = parseGraph(wsRead(join(loaded.folder, GRAPH_FILE)));
+  const source = parseGraph(wsText(join(loaded.folder, GRAPH_FILE)));
   if (!source.value)
     throw new Error(
-      `assembly template '${ref}': its graph.yaml will not read — ${source.issues[0]?.message ?? "unreadable"}`,
+      `assembly template '${ref}': its ${GRAPH_FILE} will not read — ${source.issues[0]?.message ?? "unreadable"}`,
     );
   const modules: Record<string, string[]> = {};
   for (const [key, dests] of Object.entries(source.value.modules ?? {}))
@@ -104,30 +98,29 @@ export function createAssembly(
 
   mkdirSync(join(dir, "nodes"), { recursive: true });
   for (const { id: member, file } of files) {
-    wsCopy(file.path, join(dir, "nodes", `${members[member]}.yaml`));
+    copyFileSync(file.path, join(dir, "nodes", `${members[member]}.k7x`));
     // Its opaque plugin state travels with it, or every instance would start from the plugin's default.
     const preset = join(loaded.folder, "nodes", `${member}.vstpreset`);
-    if (wsExists(preset))
+    if (existsSync(preset))
       copyFileSync(preset, join(dir, "nodes", `${members[member]}.vstpreset`));
   }
-  let next = mergeSegments(graphText, {
+  mergeSegments(graph.at([]), {
     modules,
     bypassed: (source.value.bypassed ?? []).map(local),
     bus_only: (source.value.bus_only ?? []).map(local),
   });
   // The box's own pin, under the INSTANCE's name — one flat key space, so it needs no folder of its own.
-  if (at) next = setNodePosition(next, id, at);
-  wsWrite(graphPath, next);
+  if (at) setNodePosition(graph.at([]), id, at);
+  wsWriteText(graphPath, graph.toString());
 
   mkdirSync(join(dir, ASSEMBLIES_DIR), { recursive: true });
-  wsWrite(
+  wsWriteText(
     fileFor(dir, id),
-    formatAssembly(
-      { uses: ref, members },
-      `# ${id} — one ${ref}. Its members are ordinary nodes; this file is what draws them as a box.`,
-    ),
+    formatAssembly({ uses: ref, members }, [
+      `${id} — one ${ref}. Its members are ordinary nodes; this file is what draws them as a box.`,
+    ]),
   );
-  return { file: `${ASSEMBLIES_DIR}/${id}.yaml`, members };
+  return { file: `${ASSEMBLIES_DIR}/${id}.k7x`, members };
 }
 
 /** The members of a box, as node names — what `assembly delete` walks and `dissolve` leaves alone. */
@@ -140,9 +133,9 @@ export function assemblyMembers(dir: string, id: string): string[] {
 /** Drop the RECORD and nothing else: the nodes stay exactly where they are, wired as they were. */
 export function dissolveAssembly(dir: string, id: string): string {
   const path = fileFor(dir, id);
-  if (!wsExists(path)) throw new Error(`no assembly '${id}' in this project`);
-  wsRemove(path);
-  return `${ASSEMBLIES_DIR}/${id}.yaml`;
+  if (!existsSync(path)) throw new Error(`no assembly '${id}' in this project`);
+  rmSync(path);
+  return `${ASSEMBLIES_DIR}/${id}.k7x`;
 }
 
 /** A node was RENAMED: every box holding it follows, since a member is a reference we can write back. */
@@ -153,12 +146,11 @@ export function renameNodeInAssemblies(
 ): string[] {
   const touched: string[] = [];
   for (const a of assembliesNaming(dir, from)) {
-    const path = join(dir, a.file);
-    const text = wsRead(path);
-    const next = renameAssemblyMember(text, from, to);
-    if (next === text) continue;
-    wsWrite(path, next);
-    touched.push(a.id);
+    let renamed = false;
+    wsEdit(join(dir, a.file), (doc) => {
+      renamed = renameAssemblyMember(doc.at([]), from, to);
+    });
+    if (renamed) touched.push(a.id);
   }
   return touched;
 }
@@ -168,14 +160,17 @@ export function dropNodeFromAssemblies(dir: string, node: string): string[] {
   const touched: string[] = [];
   for (const a of assembliesNaming(dir, node)) {
     const path = join(dir, a.file);
-    const parsed = parseAssembly(wsRead(path));
+    const parsed = parseAssembly(wsText(path));
     if (!parsed.value) continue;
-    const members = Object.fromEntries(
-      Object.entries(parsed.value.members).filter(([, n]) => n !== node),
+    const gone = Object.entries(parsed.value.members).filter(
+      ([, n]) => n === node,
     );
     // A box about nothing is not a box: the last member out takes the record with it.
-    if (!Object.keys(members).length) wsRemove(path);
-    else wsWrite(path, formatAssembly({ uses: parsed.value.uses, members }));
+    if (gone.length === Object.keys(parsed.value.members).length) rmSync(path);
+    else
+      wsEdit(path, (doc) => {
+        for (const [member] of gone) doc.deleteIn(["members", member]);
+      });
     touched.push(a.id);
   }
   return touched;

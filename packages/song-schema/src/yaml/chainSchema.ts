@@ -1,4 +1,4 @@
-// chainSchema.ts — a `chains/<name>.yaml` file's shape. A chain is a list of STEPS: a node, a lane,
+// chainSchema.ts — a `chains/<name>.k7x` file's shape. A chain is a list of STEPS: a node, a lane,
 // several nodes side by side, and last the chains its signal goes on to. Nodes are unnamed and carry
 // an `id`; a node item's own fields are a module's and are vetted by parseModule. A chain may hold
 // SUBCHAINS, steps under an id that only the parent and its other subchains link to. See docs/chainFiles.md.
@@ -14,7 +14,7 @@ export const VSTPRESETS_DIR = "vstpresets";
 /** The files a node's params name, resolved against the project root as `assets/<ref>`. */
 export const ASSETS_DIR = "assets";
 /** Where cards SIT on the graph — cosmetic, keyed by node id, lane name or built-in. */
-export const LAYOUT_FILE = "layout.yaml";
+export const LAYOUT_FILE = "layout.k7x";
 
 /** The sums a chain may START at rather than at a source node of its own. */
 export const CHAIN_STARTS = ["MIX", "RENDER"] as const;
@@ -33,12 +33,12 @@ export const NODE_ITEM_KEYS = ["id", "bypass", "vstpreset", "mapping"] as const;
 
 const Id = z.string().min(1);
 
-/** A lane in the chain: its events live in `tracks/<track>.yaml`, and its bypass is its mute. */
+/** A lane in the chain: its events live in `tracks/<track>.k7x`, and its bypass is its mute. */
 const TrackItemSchema = z
   .object({ id: Id, track: z.string().min(1), bypass: z.boolean().optional() })
   .strict();
 
-/** A PICTURE lane: its placements live in `video_tracks/<video_track>.yaml`, and it holds no module. */
+/** A PICTURE lane: its placements live in `video_tracks/<video_track>.k7x`, and it holds no module. */
 const VideoTrackItemSchema = z
   .object({
     id: Id,

@@ -2,27 +2,41 @@
 // silently is a tail appended at the end of the file (where it covers the wrong shots), a tail
 // that restarts its source, and a fade left on the wrong side of the cut.
 
+import { K7Document, type K7Scope, parse } from "@studio/k7x/document";
 import { describe, expect, it } from "vitest";
-import { parseDocument } from "yaml";
 import {
+  addVideoPlacement,
   listVideoPlacements,
+  renameFadeChains,
+  setVideoLaneMute,
   shiftVideoAnimationAt,
+  spliceVideoTime,
   splitVideoPlacementAt,
 } from "./videoTrackFile";
 
-const events = (text: string) =>
-  parseDocument(text).toJSON().events as Record<string, unknown>[];
+const edit = <R>(text: string, fn: (doc: K7Scope) => R) => {
+  const doc = new K7Document(text);
+  return { result: fn(doc.at([])), text: doc.toString() };
+};
 
-const LANE = `# the A-roll
-events:
-  - { ref: a, start: 2, length: 6, source_from: 1, fade_in: 0.5, fade_out: { over: 1, with: wipe } }
-  - { ref: b, start: 10, length: 0 }
+const events = (text: string) =>
+  parse(text).events as Record<string, unknown>[];
+
+const LANE = `// the A-roll
+events([
+  ref("a").start(2).length(6).source_from(1).fade_in(0.5).fade_out({ over: 1, with: "wipe" }),
+  ref("b").start(10).length(0),
+])
 `;
+
+const split = (text: string, index: number, cut: number) =>
+  edit(text, (d) => splitVideoPlacementAt(d, index, cut));
 
 describe("splitVideoPlacementAt", () => {
   it("cuts a shot into a head and a tail that play the same frames, the tail right after the head", () => {
-    const out = splitVideoPlacementAt(LANE, 0, 5) as string;
-    expect(events(out)).toEqual([
+    const out = split(LANE, 0, 5);
+    expect(out.result).toBe(true);
+    expect(events(out.text)).toEqual([
       { ref: "a", start: 2, length: 3, source_from: 1, fade_in: 0.5 },
       {
         ref: "a",
@@ -33,34 +47,30 @@ describe("splitVideoPlacementAt", () => {
       },
       { ref: "b", start: 10, length: 0 },
     ]);
-    expect(out).toContain("# the A-roll");
+    expect(out.text).toContain("// the A-roll");
   });
 
   it("keeps a length-0 tail open, running to the next start as the shot did", () => {
-    const out = splitVideoPlacementAt(LANE, 1, 12) as string;
-    expect(listVideoPlacements(out).slice(1)).toEqual([
+    expect(listVideoPlacements(split(LANE, 1, 12).text).slice(1)).toEqual([
       { ref: "b", start: 10, length: 2, sourceFrom: 0 },
       { ref: "b", start: 12, length: 0, sourceFrom: 2 },
     ]);
   });
 
   it("splits an activation without inventing a source to trim", () => {
-    const out = splitVideoPlacementAt(
-      "events:\n  - { start: 0, length: 4 }\n",
-      0,
-      1,
-    ) as string;
-    expect(events(out)).toEqual([
+    const out = split("events([start(0).length(4)])\n", 0, 1);
+    expect(events(out.text)).toEqual([
       { start: 0, length: 1 },
       { start: 1, length: 3 },
     ]);
   });
 
   it("cuts the animation exactly, each half playing what the shot did", () => {
-    const text = `events:
-  - { ref: a, start: 0, length: 8, animate: { x: [[0, 0], [8, 800]], opacity: 0.5 } }
+    const text = `events([
+  ref("a").start(0).length(8).animate({ x: [[0, 0], [8, 800]], opacity: 0.5 }),
+])
 `;
-    const out = events(splitVideoPlacementAt(text, 0, 2) as string);
+    const out = events(split(text, 0, 2).text);
     expect(out[0]?.animate).toEqual({
       x: [
         [0, 0],
@@ -78,26 +88,89 @@ describe("splitVideoPlacementAt", () => {
     });
   });
 
-  it("refuses a cut on an edge or outside the shot", () => {
-    expect(splitVideoPlacementAt(LANE, 0, 2)).toBeNull();
-    expect(splitVideoPlacementAt(LANE, 0, 8)).toBeNull();
-    expect(splitVideoPlacementAt(LANE, 0, 9)).toBeNull();
-    expect(splitVideoPlacementAt(LANE, 5, 3)).toBeNull();
+  it("refuses a cut on an edge or outside the shot, leaving the file alone", () => {
+    for (const [i, cut] of [
+      [0, 2],
+      [0, 8],
+      [0, 9],
+      [5, 3],
+    ])
+      expect(split(LANE, i, cut)).toEqual({ result: false, text: LANE });
   });
 });
 
 describe("shiftVideoAnimationAt", () => {
   it("moves the keys back by a trimmed head, so they stay on the same frames", () => {
-    const text = `events:
-  - { ref: a, start: 0, length: 8, animate: { scale: [[0, 1], { t: 4, v: 2, ease: out }], x: 10 } }
+    const text = `events([
+  ref("a").start(0).length(8).animate({ scale: [[0, 1], { t: 4, v: 2, ease: "out" }], x: 10 }),
+])
 `;
-    expect(events(shiftVideoAnimationAt(text, 0, 1.5))[0]?.animate).toEqual({
+    const out = edit(text, (d) => shiftVideoAnimationAt(d, 0, 1.5));
+    expect(events(out.text)[0]?.animate).toEqual({
       scale: [[-1.5, 1], { t: 2.5, v: 2, ease: "out" }],
       x: 10,
     });
   });
 
   it("leaves a shot with no animation untouched", () => {
-    expect(shiftVideoAnimationAt(LANE, 0, 1)).toBe(LANE);
+    expect(edit(LANE, (d) => shiftVideoAnimationAt(d, 0, 1))).toEqual({
+      result: false,
+      text: LANE,
+    });
+  });
+});
+
+describe("the lane's other edits", () => {
+  it("appends a placement on a line of its own, keeping the others", () => {
+    const out = edit(LANE, (d) =>
+      addVideoPlacement(d, { ref: "c", start: 12, length: 2, sourceFrom: 0 }),
+    );
+    expect(out.result).toBe(true);
+    expect(out.text).toContain('ref("b").start(10).length(0),');
+    expect(events(out.text)[2]).toEqual({ ref: "c", start: 12, length: 2 });
+  });
+
+  it("creates `events` on an empty lane, and refuses one holding something else", () => {
+    const p = { ref: "c", start: 0, length: 1, sourceFrom: 0 };
+    const fresh = edit("", (d) => addVideoPlacement(d, p));
+    expect(events(fresh.text)).toEqual([{ ref: "c", start: 0, length: 1 }]);
+    const odd = 'events("none")\n';
+    expect(edit(odd, (d) => addVideoPlacement(d, p))).toEqual({
+      result: false,
+      text: odd,
+    });
+  });
+
+  it("shifts what follows an inserted gap and drops what a deletion covers", () => {
+    const out = edit(LANE, (d) => spliceVideoTime(d, 3, 4, "delete"));
+    expect(out.result).toEqual({ moved: 1, removed: 0 });
+    expect(events(out.text)[1]).toEqual({ ref: "b", start: 6, length: 0 });
+  });
+
+  it("renames a fade's chain, and only a fade's", () => {
+    const text =
+      'events([ref("a").start(0).fade_in({ over: 1, chain: "iris" })])\n';
+    const out = edit(text, (d) => renameFadeChains(d, { iris: "wipe" }));
+    expect(out.result).toBe(true);
+    expect(out.text).toContain('chain: "wipe"');
+    expect(edit(text, (d) => renameFadeChains(d, { x: "y" })).result).toBe(
+      false,
+    );
+  });
+
+  it("mutes by writing the key, and unmutes by removing it", () => {
+    const muted = edit(LANE, (d) => setVideoLaneMute(d, true)).text;
+    expect(parse(muted).mute).toBe(true);
+    expect(edit(muted, (d) => setVideoLaneMute(d, false)).text).toBe(LANE);
+  });
+
+  it("reads nothing from a half-typed buffer, and edits nothing in it", () => {
+    const broken = "events([ref(";
+    expect(listVideoPlacements(broken)).toEqual([]);
+    expect(
+      edit(broken, (d) =>
+        addVideoPlacement(d, { ref: "a", start: 0, length: 1, sourceFrom: 0 }),
+      ),
+    ).toEqual({ result: false, text: broken });
   });
 });

@@ -2,7 +2,7 @@
 // What is pinned here is the shape that makes it a note rather than a device — one input, no
 // output, no plugin — and that its text survives the compile. See docs/docModules.md.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DOC_REF, MODULE_TYPES } from "@studio/song-schema/moduleTypes";
@@ -10,31 +10,21 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { isDoc } from "./docModule";
 import { loadGraph } from "./graph";
 import { loadModuleRefs, loadModules } from "./loader";
+import { writeDoc, writeLane, writeNode } from "./testSupport";
 
 let dir: string;
 
 /** A project whose chain runs `amp` and then a note wired off it. */
 function project(content = "watch the gain here"): string {
   const p = join(dir, "song.k7");
-  mkdirSync(join(p, "nodes"), { recursive: true });
-  writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
-  writeFileSync(
-    join(p, "nodes", "amp.yaml"),
-    "plugin: { type: internal, name: Chorus }\n",
-  );
+  writeDoc(join(p, "project.k7x"), { project: { name: "song" } });
+  writeNode(p, "amp", { plugin: { type: "internal", name: "Chorus" } });
   // OUT needs no file at all — a built-in sink name (docs/moduleTypes.md).
-  writeFileSync(
-    join(p, "nodes", "notes.yaml"),
-    `extends: "${DOC_REF}"\ncontent: |\n  ${content.split("\n").join("\n  ")}\n`,
-  );
-  writeFileSync(
-    join(p, "nodes", "gtr.yaml"),
-    'extends: "@meta/track"\nevents: []\n',
-  );
-  writeFileSync(
-    join(p, "graph.yaml"),
-    "modules:\n  gtr: [ amp ]\n  amp: [ OUT, notes ]\n",
-  );
+  writeNode(p, "notes", { extends: DOC_REF, content });
+  writeLane(p, "gtr", "track", { events: [] });
+  writeDoc(join(p, "graph.k7x"), {
+    modules: { gtr: ["amp"], amp: ["OUT", "notes"] },
+  });
   return p;
 }
 

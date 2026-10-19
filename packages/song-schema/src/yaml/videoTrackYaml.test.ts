@@ -2,6 +2,7 @@
 // one shape with no answer — a `fade_out` on the LAST length-0 shot, which has no end to measure
 // back from. See packages/song-video/docs/transitions.md.
 
+import { K7Document } from "@studio/k7x/document";
 import { describe, expect, it } from "vitest";
 import { VideoTrackSchema } from "./entitySchemas";
 import {
@@ -103,12 +104,11 @@ describe("an event with no `ref` — an ACTIVATION", () => {
   });
 
   it("is still LISTED, so an index addresses the same line in the file", () => {
-    const text =
-      "events:\n  - { start: 0, length: 2 }\n  - { ref: a, start: 4 }\n";
+    const text = 'events([start(0).length(2), ref("a").start(4)])\n';
     expect(listVideoPlacements(text).map((p) => p.ref)).toEqual(["", "a"]);
     // Index 1 is the shot, whatever precedes it — the verbs and the drag both write this way.
-    expect(setVideoPlacementFieldAt(text, 1, "start", 6)).toContain(
-      "{ ref: a, start: 6 }",
-    );
+    const doc = new K7Document(text);
+    expect(setVideoPlacementFieldAt(doc.at([]), 1, "start", 6)).toBe(true);
+    expect(doc.toString()).toContain('ref("a").start(6)');
   });
 });

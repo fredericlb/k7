@@ -12,6 +12,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { K7Document } from "@studio/k7x/document";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readChainProject } from "./chainProject";
 import { deriveChains } from "./chainsGraph";
@@ -19,8 +20,9 @@ import { loadGraph, validate } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 import { scaffold } from "./scaffold";
 import { createSurfaceFile } from "./surfaces";
-import { writeLane, writeModule } from "./testSupport";
+import { writeDoc, writeLane, writeModule } from "./testSupport";
 import { addVideoRun, ensureVideoRun, hasVideoRun } from "./videoOutputs";
+import { wsData } from "./yaml/workspaceDoc";
 
 let root: string;
 beforeEach(() => {
@@ -28,26 +30,31 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-/** A project folder with a graph, and optionally a viewport surface. */
+const PLAIN = 'modules({ gtr: ["MIX"], MIX: ["OUT"] })\n';
+const RENDER_ONLY = 'modules({ RENDER: ["VIDEO_OUT"] })\n';
+
+/** A project folder with a graph given as k7x text, and optionally a viewport surface. */
 function project(graph: string, viewport = true): string {
   const dir = join(root, "song.k7");
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n",
-  );
-  writeFileSync(join(dir, "graph.yaml"), graph, "utf8");
-  if (viewport) {
-    mkdirSync(join(dir, "surfaces"), { recursive: true });
-    writeFileSync(
-      join(dir, "surfaces", "viewport.yaml"),
-      "type: viewport\nlayout: floating\n",
-    );
-  }
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t", tempo: 120 } });
+  writeFileSync(join(dir, "graph.k7x"), graph, "utf8");
+  if (viewport)
+    writeDoc(join(dir, "surfaces", "viewport.k7x"), {
+      type: "viewport",
+      layout: "floating",
+    });
   return dir;
 }
 
-const read = (dir: string) => readFileSync(join(dir, "graph.yaml"), "utf8");
+const read = (dir: string) => readFileSync(join(dir, "graph.k7x"), "utf8");
+const modulesOf = (dir: string) =>
+  wsData(join(dir, "graph.k7x")).modules as Record<string, string[]>;
+
+/** `addVideoRun` on a whole k7x text: the new text, or null when it refused. */
+const added = (text: string): string | null => {
+  const doc = new K7Document(text);
+  return addVideoRun(doc.at([])) ? doc.toString() : null;
+};
 
 describe("the run itself", () => {
   it("derives a chain named after the sum, the way MIX does", () => {
@@ -72,12 +79,12 @@ describe("the run itself", () => {
 
   it("does not warn that RENDER is neither a track nor a chain", () => {
     // The line is written onto every project with a viewport, so a missing exemption warns on all.
-    const dir = project("modules:\n  RENDER: [ VIDEO_OUT ]\n");
+    const dir = project(RENDER_ONLY);
     expect(validate(loadGraph(dir))).toEqual([]);
   });
 
   it("is a SINK, so a run ending at VIDEO_OUT is not read as a bus", () => {
-    const dir = project("modules:\n  RENDER: [ VIDEO_OUT ]\n");
+    const dir = project(RENDER_ONLY);
     expect(
       validate(loadGraph(dir)).filter((w) => w.includes("VIDEO_OUT")),
     ).toEqual([]);
@@ -87,75 +94,87 @@ describe("the run itself", () => {
     // Nothing bakes VideoPluginDoc yet, so the run has no owner and its steps drop.
     const dir = join(root, "compiled.k7");
     mkdirSync(dir, { recursive: true });
-    writeFileSync(
-      join(dir, "project.yaml"),
-      "project:\n  name: t\n  tempo: 120\n",
-    );
+    writeDoc(join(dir, "project.k7x"), { project: { name: "t", tempo: 120 } });
     writeModule(dir, "audio", "amp", {
       plugin: { type: "internal", name: "Chorus" },
     });
     writeLane(dir, "gtr");
-    const base = "modules:\n  gtr: [ amp ]\n  amp: [ MIX ]\n  MIX: [ OUT ]\n";
-    writeFileSync(join(dir, "graph.yaml"), base, "utf8");
+    const base = { gtr: ["amp"], amp: ["MIX"], MIX: ["OUT"] };
+    writeDoc(join(dir, "graph.k7x"), { modules: base });
     const without = compileNodeProject(dir);
-    writeFileSync(
-      join(dir, "graph.yaml"),
-      `${base}  RENDER: [ VIDEO_OUT ]\n`,
-      "utf8",
-    );
+    writeDoc(join(dir, "graph.k7x"), {
+      modules: { ...base, RENDER: ["VIDEO_OUT"] },
+    });
     expect(compileNodeProject(dir)).toEqual(without);
   });
 });
 
 describe("hasVideoRun", () => {
   it("wants the KEY, not a destination naming it", () => {
-    // `main: [ RENDER ]` names the sum without saying where it goes, so the line is still needed.
-    expect(hasVideoRun("modules:\n  main: [ RENDER ]\n")).toBe(false);
-    expect(hasVideoRun("modules:\n  RENDER: [ VIDEO_OUT ]\n")).toBe(true);
+    // `main: ["RENDER"]` names the sum without saying where it goes, so the line is still needed.
+    expect(hasVideoRun({ modules: { main: ["RENDER"] } })).toBe(false);
+    expect(hasVideoRun({ modules: { RENDER: ["VIDEO_OUT"] } })).toBe(true);
+    expect(hasVideoRun({ bypassed: ["gtr"] })).toBe(false);
   });
 });
 
 describe("addVideoRun", () => {
   it("appends to the end of the modules map, keeping every comment", () => {
     const text =
-      "# the graph\nmodules:\n  # the lane\n  gtr: [ MIX ]\n  MIX: [ OUT ]\n";
-    expect(addVideoRun(text)).toBe(
-      "# the graph\nmodules:\n  # the lane\n  gtr: [ MIX ]\n  MIX: [ OUT ]\n  RENDER: [ VIDEO_OUT ]\n",
+      '// the graph\nmodules({\n  // the lane\n  gtr: ["MIX"],\n  MIX: ["OUT"],\n})\n';
+    const after = added(text) ?? "";
+    expect(after).toContain("// the graph\n");
+    expect(after).toContain("// the lane\n");
+    expect(Object.keys(new K7Document(after).toJS().modules as object)).toEqual(
+      ["gtr", "MIX", "RENDER"],
     );
+    expect(new K7Document(after).getIn(["modules", "RENDER"])).toEqual([
+      "VIDEO_OUT",
+    ]);
   });
 
-  it("steps over a blank line inside the map, and stops at the next unindented key", () => {
+  it("leaves the keys after the map where they were", () => {
     const text =
-      "modules:\n  gtr: [ MIX ]\n\n  MIX: [ OUT ]\n\nbypassed: [ gtr ]\n";
-    expect(addVideoRun(text)).toBe(
-      "modules:\n  gtr: [ MIX ]\n\n  MIX: [ OUT ]\n  RENDER: [ VIDEO_OUT ]\n\nbypassed: [ gtr ]\n",
-    );
+      'modules({ gtr: ["MIX"], MIX: ["OUT"] })\n\nbypassed(["gtr"])\n';
+    const after = added(text) ?? "";
+    expect(after.endsWith('\n\nbypassed(["gtr"])\n')).toBe(true);
+    expect(new K7Document(after).toJS()).toEqual({
+      modules: { gtr: ["MIX"], MIX: ["OUT"], RENDER: ["VIDEO_OUT"] },
+      bypassed: ["gtr"],
+    });
   });
 
-  it("refuses a graph with no modules map rather than inventing one", () => {
-    expect(addVideoRun("bypassed: [ gtr ]\n")).toBeNull();
+  it("makes the modules map when the graph has none", () => {
+    expect(new K7Document(added('bypassed(["gtr"])\n') ?? "").toJS()).toEqual({
+      bypassed: ["gtr"],
+      modules: { RENDER: ["VIDEO_OUT"] },
+    });
+  });
+
+  it("refuses a `modules` that is not a map rather than replacing it", () => {
+    expect(added('modules("gtr")\n')).toBeNull();
   });
 });
 
 describe("ensureVideoRun", () => {
   it("adds the run and reports that it wrote", () => {
-    const dir = project("modules:\n  gtr: [ MIX ]\n  MIX: [ OUT ]\n");
+    const dir = project(PLAIN);
     expect(ensureVideoRun(dir)).toBe(true);
-    expect(read(dir)).toContain("  RENDER: [ VIDEO_OUT ]");
+    expect(modulesOf(dir).RENDER).toEqual(["VIDEO_OUT"]);
   });
 
   it("is idempotent — a second open changes nothing", () => {
-    const dir = project("modules:\n  gtr: [ MIX ]\n  MIX: [ OUT ]\n");
+    const dir = project(PLAIN);
     ensureVideoRun(dir);
     const after = read(dir);
     expect(ensureVideoRun(dir)).toBe(false);
     expect(read(dir)).toBe(after);
   });
 
-  it("leaves a graph with no modules map alone rather than failing to open", () => {
-    const dir = project("bypassed: [ gtr ]\n");
+  it("leaves a graph whose modules is not a map alone rather than failing to open", () => {
+    const dir = project('modules("gtr")\n');
     expect(ensureVideoRun(dir)).toBe(false);
-    expect(read(dir)).toBe("bypassed: [ gtr ]\n");
+    expect(read(dir)).toBe('modules("gtr")\n');
   });
 
   it("says false for a project with no graph at all", () => {
@@ -168,13 +187,13 @@ describe("ensureVideoRun", () => {
 describe("where it is added from", () => {
   it("`project surface new viewport` brings the pair with it", () => {
     // Surface and outputs in one breath, so the frame has somewhere to leave by straight away.
-    const dir = project("modules:\n  gtr: [ MIX ]\n  MIX: [ OUT ]\n", false);
+    const dir = project(PLAIN, false);
     createSurfaceFile(dir, "viewport");
-    expect(read(dir)).toContain("  RENDER: [ VIDEO_OUT ]");
+    expect(modulesOf(dir).RENDER).toEqual(["VIDEO_OUT"]);
   });
 
   it("a timeline surface brings NOTHING — a song with no picture never sees the names", () => {
-    const dir = project("modules:\n  gtr: [ MIX ]\n  MIX: [ OUT ]\n", false);
+    const dir = project(PLAIN, false);
     createSurfaceFile(dir, "timeline");
     expect(read(dir)).not.toContain("RENDER");
   });

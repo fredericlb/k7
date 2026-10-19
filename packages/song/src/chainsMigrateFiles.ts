@@ -1,9 +1,16 @@
-// chainsMigrateFiles.ts — a node project (`graph.yaml` + `nodes/`) rewritten as `chains/` + `tracks/`
-// + `vstpresets/` + `assets/` + `layout.yaml`. Every non-lane node gets an `id` and loses its name; a
+// chainsMigrateFiles.ts — a node project (`graph.k7x` + `nodes/`) rewritten as `chains/` + `tracks/`
+// + `vstpresets/` + `assets/` + `layout.k7x`. Every non-lane node gets an `id` and loses its name; a
 // lane keeps its name, which is its file in `tracks/`. Refuses what it cannot carry over. docs/chainFiles.md.
 
-import { mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+} from "node:fs";
 import { join } from "node:path";
+import { isDocFile } from "@studio/song-schema/docExt";
 import {
   isIoSource,
   isPicturePass as isPicturePassCategory,
@@ -19,7 +26,6 @@ import {
 } from "@studio/song-schema/yaml/chainSchema";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { renameFadeChains } from "@studio/song-schema/yaml/videoTrackFile";
-import { parse } from "yaml";
 import {
   fromSegments,
   isChainProject,
@@ -38,13 +44,7 @@ import {
 import { resolveModuleMap } from "./moduleResolve";
 import { lanesOf } from "./trackModule";
 import { entityFiles } from "./yaml/moduleIO";
-import {
-  wsExists,
-  wsRead,
-  wsRemove,
-  wsRename,
-  wsWrite,
-} from "./yaml/workspaceFile";
+import { wsData, wsEdit } from "./yaml/workspaceDoc";
 
 export interface FilesMigration {
   /** Old node name → its id, for everything that is not a lane. */
@@ -54,22 +54,38 @@ export interface FilesMigration {
   chains: string[];
 }
 
+/** Does a surface file bind node params, under a `mapping` key at any depth; a file that does not read counts as one. */
+function mapsParams(path: string): boolean {
+  let data: unknown;
+  try {
+    data = wsData(path);
+  } catch {
+    return true;
+  }
+  const has = (v: unknown): boolean =>
+    Array.isArray(v)
+      ? v.some(has)
+      : v !== null &&
+        typeof v === "object" &&
+        Object.entries(v).some(([k, x]) => k === "mapping" || has(x));
+  return has(data);
+}
+
 /** Why this project cannot be migrated yet, or null — each reason names a file that refers to nodes by NAME. */
 export function migrationBlocker(dir: string): string | null {
   if (isChainProject(dir)) return "already a chain project";
-  if (!wsExists(join(dir, GRAPH_FILE))) return `no ${GRAPH_FILE}`;
-  if (wsExists(join(dir, "assemblies"))) return "assemblies/ names nodes";
-  if (wsExists(join(dir, "views"))) return "views/ binds node params";
+  if (!existsSync(join(dir, GRAPH_FILE))) return `no ${GRAPH_FILE}`;
+  if (existsSync(join(dir, "assemblies"))) return "assemblies/ names nodes";
+  if (existsSync(join(dir, "views"))) return "views/ binds node params";
   // Only what this knows how to move: node files, their presets, `assets/` and `base/`.
   const nodes = join(dir, "nodes");
-  for (const f of wsExists(nodes) ? readdirSync(nodes) : [])
-    if (!/\.(ya?ml|k7x|vstpreset)$/.test(f) && f !== "assets" && f !== "base")
+  for (const f of existsSync(nodes) ? readdirSync(nodes) : [])
+    if (!/\.(k7x|vstpreset)$/.test(f) && f !== "assets" && f !== "base")
       return `nodes/${f} is neither a node, a preset, assets/ nor base/`;
   const surf = join(dir, "surfaces");
-  if (wsExists(surf))
-    for (const f of readdirSync(surf))
-      if (/mapping:/.test(wsRead(join(surf, f))))
-        return `surfaces/${f} maps node params`;
+  if (existsSync(surf))
+    for (const f of readdirSync(surf).filter(isDocFile))
+      if (mapsParams(join(surf, f))) return `surfaces/${f} maps node params`;
   return null;
 }
 
@@ -90,14 +106,8 @@ function renameStretches(
     }
   }
   if (!Object.keys(renames).length) return;
-  for (const { file } of entityFiles(
-    join(dir, "video_tracks"),
-    "video_tracks",
-  )) {
-    const text = wsRead(file.path);
-    const next = renameFadeChains(text, renames);
-    if (next !== text) wsWrite(file.path, next);
-  }
+  for (const { file } of entityFiles(join(dir, "video_tracks"), "video_tracks"))
+    wsEdit(file.path, (doc) => renameFadeChains(doc.at([]), renames));
 }
 
 /** Rewrite `dir` in place; `dryRun` returns what would happen and touches nothing. */
@@ -123,12 +133,12 @@ export function migrateToChainFiles(
   const nodesDir = join(dir, "nodes");
   const ids: Record<string, string> = {};
   const raw = (n: string): Record<string, unknown> => {
-    const f = join(nodesDir, `${n}.yaml`);
-    return wsExists(f) ? (parse(wsRead(f)) ?? {}) : {};
+    const f = join(nodesDir, `${n}.k7x`);
+    return existsSync(f) ? wsData(f) : {};
   };
   const idOf = (n: string) => (ids[n] ??= newNodeId());
   const presetOf = (n: string) =>
-    wsExists(join(nodesDir, `${n}.vstpreset`)) ? `${n}.vstpreset` : undefined;
+    existsSync(join(nodesDir, `${n}.vstpreset`)) ? `${n}.vstpreset` : undefined;
 
   const itemOf = (n: string): Item => {
     if (lanes.has(n)) return { id: idOf(n), track: n };
@@ -192,11 +202,10 @@ export function migrateToChainFiles(
   writeLayout(dir, positions);
   renameStretches(dir, chains, ids);
   mkdirSync(join(dir, TRACKS_DIR), { recursive: true });
-  // Through the workspace door, so a `.k7x` lane moves as a `.k7x` file.
   for (const n of lanes)
-    if (wsExists(join(nodesDir, `${n}.yaml`)))
-      wsRename(join(nodesDir, `${n}.yaml`), join(dir, TRACKS_DIR, `${n}.yaml`));
-  for (const f of wsExists(nodesDir) ? readdirSync(nodesDir) : []) {
+    if (existsSync(join(nodesDir, `${n}.k7x`)))
+      renameSync(join(nodesDir, `${n}.k7x`), join(dir, TRACKS_DIR, `${n}.k7x`));
+  for (const f of existsSync(nodesDir) ? readdirSync(nodesDir) : []) {
     if (f.endsWith(".vstpreset")) {
       mkdirSync(join(dir, VSTPRESETS_DIR), { recursive: true });
       renameSync(join(nodesDir, f), join(dir, VSTPRESETS_DIR, f));
@@ -211,6 +220,6 @@ export function migrateToChainFiles(
     }
   }
   rmSync(nodesDir, { recursive: true, force: true });
-  wsRemove(join(dir, GRAPH_FILE));
+  rmSync(join(dir, GRAPH_FILE), { force: true });
   return result;
 }

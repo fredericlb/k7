@@ -1,11 +1,12 @@
 // assemblyFile.ts — reading and EDITING the two assembly files. Browser-safe (no fs), like
 // surfaceFile.ts beside it, because the screen that draws a box is the one that resolves it.
-// Every write goes through the yaml Document API: these files are read by people and are in git,
-// so a member rename must change one scalar and leave every comment where it was.
+// Every write goes through a k7x document scope: these files are read by people and are in git,
+// so a member rename must change one value and leave every comment where it was.
 // Full rationale: packages/song/docs/assemblies.md.
 
+import type { K7Scope } from "@studio/k7x/document";
+import { stringify } from "@studio/k7x/print";
 import type { Diagnostic } from "@studio/web-protocol";
-import { Document, isMap, LineCounter, parseDocument } from "yaml";
 import {
   ASSEMBLIES_DIR,
   ASSEMBLY_FILE,
@@ -15,8 +16,9 @@ import {
   type AssemblyTemplate,
   AssemblyTemplateSchema,
 } from "./assemblySchema";
+import { readK7x } from "./k7xIssues";
+import { k7xSchemaIssues, type SchemaIssue } from "./k7xPosition";
 import type { ModuleIssue } from "./moduleFile";
-import { YAML_READ, YAML_WRITE } from "./yamlText";
 
 export { ASSEMBLIES_DIR, ASSEMBLY_FILE };
 
@@ -39,134 +41,104 @@ export interface ParsedAssembly<T> {
   issues: ModuleIssue[];
 }
 
-/** The shared half of both parsers: the yaml errors, then the schema's, path and all. */
+type Schema<T> = {
+  safeParse: (raw: unknown) => {
+    success: boolean;
+    data?: T;
+    error?: { issues: readonly SchemaIssue[] };
+  };
+};
+
+/** The shared half of both parsers: the syntax error, an empty file, then the schema's findings, each on its line. */
 function parseWith<T>(
   text: string,
-  schema: {
-    safeParse: (raw: unknown) => {
-      success: boolean;
-      data?: T;
-      error?: { issues: unknown[] };
-    };
-  },
+  schema: Schema<T>,
   empty: string,
 ): ParsedAssembly<T> {
-  const lines = new LineCounter();
-  const doc = parseDocument(text, { ...YAML_READ, lineCounter: lines });
-  const issues: ModuleIssue[] = [];
-  for (const e of doc.errors) {
-    const pos = lines.linePos(e.pos[0]);
-    issues.push({ path: "", message: e.message, line: pos.line, col: pos.col });
-  }
-  if (issues.length) return { value: null, issues };
-
-  const raw = doc.toJS();
-  if (raw === null || raw === undefined)
+  const read = readK7x(text);
+  const { doc } = read;
+  if (!doc) return { value: null, issues: read.issues };
+  if (!doc.contents?.entries.length)
     return { value: null, issues: [{ path: "", message: empty }] };
-  if (typeof raw !== "object" || Array.isArray(raw))
+  const result = schema.safeParse(read.data);
+  if (!result.success)
     return {
       value: null,
-      issues: [{ path: "", message: `${empty} This one is a list.` }],
+      issues: k7xSchemaIssues(doc, result.error?.issues ?? []),
     };
-
-  const result = schema.safeParse(raw);
-  if (!result.success) {
-    for (const issue of result.error?.issues ?? []) {
-      // `.strict()` reports an unknown key on the OBJECT, so the name is in `keys` rather than the path.
-      const i = issue as { path: unknown[]; message: string; keys?: string[] };
-      const path = [...i.path, ...(i.keys?.length ? [i.keys[0]] : [])];
-      issues.push({ path: path.map(String).join("."), message: i.message });
-    }
-    return { value: null, issues };
-  }
   return { value: result.data as T, issues: [] };
 }
 
-/** Parse a library `assembly.yaml` — the plugs and the promoted params. */
+/** Parse a library template's k7x text — the plugs and the promoted params. */
 export function parseAssemblyTemplate(
   text: string,
 ): ParsedAssembly<AssemblyTemplate> {
   return parseWith(
     text,
     AssemblyTemplateSchema,
-    "an assembly declares its plugs (`inputs:` / `outputs:`) and the params it promotes (`params:`).",
+    "an assembly declares its plugs (`inputs` / `outputs`) and the params it promotes (`params`).",
   );
 }
 
-/** Parse a project `assemblies/<name>.yaml` — the template it uses and which nodes are its members. */
+/** Parse a project's `assemblies/<name>` k7x text — the template it uses and which nodes are its members. */
 export function parseAssembly(text: string): ParsedAssembly<AssemblyFile> {
   return parseWith(
     text,
     AssemblyFileSchema,
-    "an assembly instance says `uses:` (a template ref) and `members:` (template name -> node name).",
+    "an assembly instance says `uses` (a template ref) and `members` (template name -> node name).",
   );
 }
 
-/** The instance file as this library writes one — what `assembly new` and the migrations emit. */
-export function formatAssembly(file: AssemblyFile, header = ""): string {
-  const doc = new Document(
-    { uses: file.uses, members: file.members },
-    YAML_READ,
-  );
-  return (
-    (header
-      ? `${header}
-`
-      : "") + doc.toString(YAML_WRITE)
-  );
+/** The instance file as this library writes one, `header` its `//` lines — what `assembly new` emits. */
+export function formatAssembly(
+  file: AssemblyFile,
+  header: readonly string[] = [],
+): string {
+  return stringify({ uses: file.uses, members: file.members }, { header });
 }
 
-/** Read a file we are about to edit, refusing early rather than writing over something unreadable. */
-function read(text: string, what: string): ReturnType<typeof parseDocument> {
-  const { value, issues } =
-    what === ASSEMBLY_FILE ? parseAssemblyTemplate(text) : parseAssembly(text);
-  if (!value) throw new Error(`${what}: ${issues[0]?.message ?? "unreadable"}`);
-  return parseDocument(text, YAML_READ);
+/** Refuse early rather than write over a file that does not read as its kind. */
+function check(doc: K7Scope, template: boolean): void {
+  const schema = template ? AssemblyTemplateSchema : AssemblyFileSchema;
+  const result = schema.safeParse(doc.toJS() ?? {});
+  const what = template ? ASSEMBLY_FILE : ASSEMBLIES_DIR;
+  if (!result.success)
+    throw new Error(
+      `${what}: ${result.error.issues[0]?.message ?? "unreadable"}`,
+    );
 }
 
-/** Point one member at a different node — what a node RENAME does to every assembly holding it. */
+/** Point every member naming `from` at `to` — what a node RENAME does to every assembly holding it; true when one moved. */
 export function renameAssemblyMember(
-  text: string,
+  doc: K7Scope,
   from: string,
   to: string,
-): string {
-  const doc = read(text, "assembly");
-  const members = doc.get("members");
-  if (!isMap(members)) return text;
+): boolean {
+  check(doc, false);
+  const members = (doc.getIn(["members"]) ?? {}) as Record<string, unknown>;
   let touched = false;
-  for (const pair of members.items) {
-    const key = String((pair.key as { value?: unknown })?.value ?? pair.key);
-    if (
-      String((pair.value as { value?: unknown })?.value ?? pair.value) !== from
-    )
-      continue;
-    members.set(key, to);
+  for (const [key, node] of Object.entries(members)) {
+    if (node !== from) continue;
+    doc.setIn(["members", key], to);
     touched = true;
   }
-  return touched ? doc.toString(YAML_WRITE) : text;
+  return touched;
 }
 
 /** Promote a member's param onto the box's face, or replace what that name already promoted. */
 export function setAssemblyParam(
-  text: string,
+  doc: K7Scope,
   name: string,
   target: AssemblyParam,
-): string {
-  const doc = read(text, ASSEMBLY_FILE);
-  if (!isMap(doc.get("params"))) doc.set("params", doc.createNode({}));
-  const node = doc.createNode({ node: target.node, param: target.param });
-  node.flow = true;
-  doc.setIn(["params", name], node);
-  return doc.toString(YAML_WRITE);
+): void {
+  check(doc, true);
+  doc.setIn(["params", name], { node: target.node, param: target.param });
 }
 
-/** …and take it back off, the empty map going with the last entry — an authored-then-emptied `params:` says nothing. */
-export function dropAssemblyParam(text: string, name: string): string {
-  const doc = read(text, ASSEMBLY_FILE);
-  const params = doc.get("params");
-  if (!isMap(params)) return text;
-  if (!params.has(name)) return text;
-  params.delete(name);
-  if (!params.items.length) doc.delete("params");
-  return doc.toString(YAML_WRITE);
+/** …and take it back off, the empty map going with the last entry; true when there was one to take. */
+export function dropAssemblyParam(doc: K7Scope, name: string): boolean {
+  check(doc, true);
+  if (!doc.hasIn(["params", name])) return false;
+  doc.deleteIn(["params", name], { prune: true });
+  return true;
 }

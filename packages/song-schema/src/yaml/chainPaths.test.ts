@@ -5,49 +5,61 @@ import { describe, expect, it } from "vitest";
 import { fieldsAt, fileKindFor, valuesAt } from "./fields";
 import { validateFile } from "./validate";
 
-const CHAIN =
-  'start: true\nsteps:\n  - { id: l1, track: gtr }\n  - { id: a1, extends: "@k7-core/audio/chorus" }\n  - to: [ { chain: MIX } ]\n';
+const CHAIN = `start(true)
+steps([
+  { id: "l1", track: "gtr" },
+  { id: "a1", extends: "@k7-core/audio/chorus" },
+  { to: [{ chain: "MIX" }] },
+])
+`;
 
 describe("validateFile", () => {
-  it("checks chains/<name>.yaml as a chain file", () => {
-    expect(validateFile("song/chains/gtr.yaml", CHAIN)).toMatchObject({
+  it("checks chains/<name>.k7x as a chain file", () => {
+    expect(validateFile("song/chains/gtr.k7x", CHAIN)).toMatchObject({
       ok: true,
       depth: "schema",
     });
     const bad = validateFile(
-      "chains/gtr.yaml",
-      "steps:\n  - { id: l1, track: gtr }\n",
+      "chains/gtr.k7x",
+      'steps([{ id: "l1", track: "gtr" }])\n',
     );
     expect(bad.ok).toBe(false);
   });
 
-  it("checks tracks/<lane>.yaml as a module file", () => {
-    const v = validateFile("tracks/gtr.yaml", "extends: 3\n");
+  it("checks tracks/<lane>.k7x as a module file", () => {
+    const v = validateFile("tracks/gtr.k7x", "extends(3)\n");
     expect(v.depth).toBe("schema");
     expect(v.ok).toBe(false);
   });
 
-  it("keeps a library chain folder's graph.yaml and nodes/ as they were read", () => {
+  it("keeps a library chain folder's graph.k7x and nodes/ as they were read", () => {
     expect(
-      validateFile("_libraries/k7-core/chains/verb/graph.yaml", "modules: {}\n")
+      validateFile("_libraries/k7-core/chains/verb/graph.k7x", "modules({})\n")
         .ok,
     ).toBe(true);
     expect(
-      validateFile(
-        "_libraries/k7-core/chains/verb/nodes/v.yaml",
-        "extends: 3\n",
-      ).ok,
+      validateFile("_libraries/k7-core/chains/verb/nodes/v.k7x", "extends(3)\n")
+        .ok,
     ).toBe(false);
+  });
+
+  it("judges no file that is not a workspace document", () => {
+    expect(validateFile("song/chains/gtr.yaml", "steps: [\n")).toMatchObject({
+      ok: true,
+      depth: "none",
+    });
   });
 });
 
 describe("fileKindFor", () => {
   it("names a chain file, a lane file and the older segments files", () => {
-    expect(fileKindFor("chains/gtr.yaml")).toBe("chain");
-    expect(fileKindFor("tracks/gtr.yaml")).toBe("module");
-    expect(fileKindFor("video_tracks/cam.yaml")).toBe("video_track");
-    expect(fileKindFor("chains.yaml")).toBe("chains");
-    expect(fileKindFor("chains/verb/graph.yaml")).toBe("chains");
+    expect(fileKindFor("chains/gtr.k7x")).toBe("chain");
+    expect(fileKindFor("tracks/gtr.k7x")).toBe("module");
+    expect(fileKindFor("video_tracks/cam.k7x")).toBe("video_track");
+    expect(fileKindFor("chains.k7x")).toBe("chains");
+    expect(fileKindFor("chains/verb/graph.k7x")).toBe("chains");
+    expect(fileKindFor("chains/gtr.yaml")).toBeNull();
+    expect(fileKindFor("project.yaml")).toBeNull();
   });
 
   it("offers a chain's keys, then a node's, a link's and a module's", () => {

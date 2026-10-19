@@ -1,35 +1,32 @@
-// chainFile.ts — reading and WRITING a `chains/<name>.yaml`. A rewrite keeps every existing item's
-// own YAML node (comments included) by its `id`, so a graph edit moves nodes rather than retyping
-// them. Text in, text out: nothing here touches the disk. See docs/chainFiles.md.
+// chainFile.ts — reading and WRITING a `chains/<name>.k7x`. A rewrite puts back every unchanged item's own source and
+// the comment lines above it, found by its `id`, so a graph edit moves nodes rather than retyping them. Text in, text
+// out: nothing here touches the disk. See docs/chainFiles.md.
 
-import {
-  type Document,
-  isMap,
-  isSeq,
-  LineCounter,
-  parseDocument,
-  type YAMLMap,
-  YAMLSeq,
-} from "yaml";
+import type { K7ListNode, K7Node, K7Path } from "@studio/k7x/ast";
+import { K7Document } from "@studio/k7x/document";
+import { lineCol } from "@studio/k7x/parse";
+import { fromJS, headerText, type PNode, printFile } from "@studio/k7x/print";
 import {
   type ChainFile,
   ChainFileSchema,
   type Item,
   isCallStep,
-  isEndStep,
   isLaneItem,
   itemsOf,
   NODE_ITEM_KEYS,
-  type Step,
 } from "./chainSchema";
-import { locate, type ModuleIssue, quoteTimecodes } from "./moduleFile";
+import { k7xSyntaxIssues } from "./k7xIssues";
+import { k7xSchemaIssues } from "./k7xPosition";
+import type { ModuleIssue } from "./moduleFile";
 import { ModuleSchema } from "./moduleSchema";
-import { YAML_READ_LENIENT, YAML_WRITE } from "./yamlText";
 
 export interface ParsedChain {
   value: ChainFile | null;
   issues: ModuleIssue[];
 }
+
+/** What reads a chain file's tree: a K7Document, or a K7Scope over one. */
+type TreeReader = { getNode(path: K7Path): K7Node | undefined };
 
 /** A node item's module fields alone — what a node FILE would hold, ready for ModuleSchema. */
 export function moduleOfItem(item: Item): Record<string, unknown> {
@@ -38,102 +35,117 @@ export function moduleOfItem(item: Item): Record<string, unknown> {
   return out;
 }
 
-/** Parse + validate one chain file, every node item through ModuleSchema as a node file would be. */
-export function parseChain(text: string): ParsedChain {
-  const lines = new LineCounter();
-  const doc = parseDocument(text, { ...YAML_READ_LENIENT, lineCounter: lines });
-  const issues: ModuleIssue[] = [];
-  for (const e of doc.errors) {
-    const pos = lines.linePos(e.pos[0]);
-    issues.push({ path: "", message: e.message, line: pos.line, col: pos.col });
-  }
-  if (issues.length) return { value: null, issues };
-  const raw = doc.toJS({ maxAliasCount: 100 }) ?? {};
-  const res = ChainFileSchema.safeParse(raw);
-  if (!res.success) {
-    for (const i of res.error.issues)
-      issues.push({
-        path: i.path.map(String).join("."),
-        message: i.message,
-        ...locate(doc, lines, i.path as (string | number)[]),
-      });
-    return { value: null, issues };
-  }
-  const lists = (res.data.subchains ?? []).map((sc, j) => ({
-    at: ["subchains", j, "steps"] as (string | number)[],
-    steps: sc.steps,
-  }));
-  for (const { at: base, steps } of [
-    { at: ["steps"], steps: res.data.steps },
-    ...lists,
-  ])
+/** Every item of a chain's data with its path in the file: the chain's own steps, then each subchain's. */
+function itemSlots(chain: ChainFile): { item: Item; path: K7Path }[] {
+  const lists = [
+    { at: ["steps"] as K7Path, steps: chain.steps },
+    ...(chain.subchains ?? []).map((sc, j) => ({
+      at: ["subchains", j, "steps"] as K7Path,
+      steps: sc.steps,
+    })),
+  ];
+  const out: { item: Item; path: K7Path }[] = [];
+  for (const { at, steps } of lists)
     steps.forEach((step, s) => {
-      const items = itemsOf(step);
-      items.forEach((item, k) => {
-        if (isLaneItem(item)) return;
-        const at: (string | number)[] = Array.isArray(step)
-          ? [...base, s, k]
-          : [...base, s];
-        const m = ModuleSchema.safeParse(moduleOfItem(item));
-        if (!m.success)
-          for (const i of m.error.issues)
-            issues.push({
-              path: [...at, ...i.path].map(String).join("."),
-              message: i.message,
-              ...locate(doc, lines, at),
-            });
+      itemsOf(step).forEach((item, k) => {
+        out.push({
+          item,
+          path: Array.isArray(step) ? [...at, s, k] : [...at, s],
+        });
       });
     });
+  return out;
+}
+
+/** Parse + validate one chain file's k7x text, every node item through ModuleSchema as a node file would be. */
+export function parseChain(text: string): ParsedChain {
+  const doc = new K7Document(text);
+  const syntax = k7xSyntaxIssues(doc);
+  if (syntax.length) return { value: null, issues: syntax };
+  const res = ChainFileSchema.safeParse(doc.toJS());
+  if (!res.success)
+    return { value: null, issues: k7xSchemaIssues(doc, res.error.issues) };
+  const found = itemSlots(res.data).flatMap(({ item, path }) => {
+    if (isLaneItem(item)) return [];
+    const m = ModuleSchema.safeParse(moduleOfItem(item));
+    return m.success
+      ? []
+      : m.error.issues.map((i) => ({ ...i, path: [...path, ...i.path] }));
+  });
+  const issues = k7xSchemaIssues(doc, found);
   return issues.length ? { value: null, issues } : { value: res.data, issues };
 }
 
-/** Every item's existing YAML node in `text`, by id — what a rewrite puts back rather than retyping. */
-function nodesById(doc: Document): Map<string, YAMLMap> {
-  const out = new Map<string, YAMLMap>();
+/** The path of every `steps` list of a chain file — the chain's own, then each subchain's. */
+export function stepSeqs(doc: TreeReader): K7Path[] {
+  const out: K7Path[] = [];
+  if (doc.getNode(["steps"])?.kind === "list") out.push(["steps"]);
+  const subs = doc.getNode(["subchains"]);
+  if (subs?.kind === "list")
+    subs.items.forEach((_, j) => {
+      const at = ["subchains", j, "steps"];
+      if (doc.getNode(at)?.kind === "list") out.push(at);
+    });
+  return out;
+}
+
+/** Every item of a chain file that carries an `id`, with its path: a step's own item, or one of a parallel step's. */
+export function chainItemPaths(
+  doc: TreeReader,
+): { id: string; path: K7Path }[] {
+  const out: { id: string; path: K7Path }[] = [];
   for (const steps of stepSeqs(doc))
-    for (const s of steps.items) {
-      const maps = isSeq(s) ? s.items : [s];
-      for (const m of maps)
-        if (isMap(m)) {
-          const id = m.get("id");
-          if (typeof id === "string") out.set(id, m as YAMLMap);
-        }
-    }
-  return out;
-}
-
-/** Every `steps:` sequence of a chain file's document — the chain's own, then each subchain's. */
-export function stepSeqs(doc: Document): YAMLSeq[] {
-  const out: YAMLSeq[] = [];
-  const own = doc.get("steps", true);
-  if (isSeq(own)) out.push(own);
-  const subs = doc.get("subchains", true);
-  if (isSeq(subs))
-    for (const sc of subs.items)
-      if (isMap(sc)) {
-        const steps = sc.get("steps", true);
-        if (isSeq(steps)) out.push(steps);
+    (doc.getNode(steps) as K7ListNode).items.forEach((s, i) => {
+      const slots: [K7Node, K7Path][] =
+        s.kind === "list"
+          ? s.items.map((m, k) => [m, [...steps, i, k]])
+          : [[s, [...steps, i]]];
+      for (const [m, path] of slots) {
+        if (m.kind !== "map") continue;
+        const id = m.entries.find((e) => e.key === "id")?.value;
+        if (id?.kind === "scalar" && typeof id.value === "string")
+          out.push({ id: id.value, path });
       }
+    });
   return out;
 }
 
-/** The node for one item: the one already in the file when the item is UNCHANGED, else a fresh one. */
-function itemNode(
-  doc: Document,
-  item: Item,
-  old: Map<string, YAMLMap>,
-): unknown {
-  const prev = old.get(item.id);
-  if (prev && sameValue(prev.toJSON(), item)) return prev;
-  const fresh = doc.createNode(item) as YAMLMap;
-  // A lane item is two keys: one line reads better than three.
-  if (isLaneItem(item)) fresh.flow = true;
-  if (prev?.commentBefore) fresh.commentBefore = prev.commentBefore;
-  return fresh;
+/** An item as the old file wrote it: its data, its source, the `//` lines above it and the column it started at. */
+interface Kept {
+  value: unknown;
+  source: string;
+  lead: string[];
+  col: number;
 }
 
-function sameValue(a: unknown, b: unknown): boolean {
-  return canonical(a) === canonical(b);
+/** Every item of the previous text by id, with what a rewrite puts back when the item is unchanged. */
+function keptById(old: K7Document): Map<string, Kept> {
+  const out = new Map<string, Kept>();
+  if (!old.contents) return out;
+  for (const { id, path } of chainItemPaths(old)) {
+    const node = old.getNode(path) as K7Node;
+    const list = old.getNode(path.slice(0, -1)) as K7ListNode;
+    const k = path[path.length - 1] as number;
+    const from =
+      k > 0
+        ? list.items[k - 1].end
+        : list.start + (list.form === "brackets" ? 1 : 0);
+    // The first line of the gap is the previous token's own, its trailing comment included: only whole lines are the item's.
+    const lead = old.text
+      .slice(from, node.start)
+      .split("\n")
+      .slice(1)
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith("//"))
+      .map((l) => l.slice(2));
+    out.set(id, {
+      value: old.getIn(path),
+      source: old.text.slice(node.start, node.end),
+      lead,
+      col: lineCol(old.text, node.start).col,
+    });
+  }
+  return out;
 }
 
 /** JSON with every map's keys sorted — a parse may hand the same item back in another key order. */
@@ -147,59 +159,78 @@ function canonical(v: unknown): string {
   );
 }
 
-/** Write `chain` as a file's text, keeping `prevText`'s header and every unchanged item's own node. */
-export function formatChain(chain: ChainFile, prevText = ""): string {
-  const doc = parseDocument(prevText || "{}", YAML_READ_LENIENT);
-  const old = nodesById(doc);
+/** The print node at a path of a fromJS tree. */
+function pnodeAt(root: PNode, path: K7Path): PNode | undefined {
+  let n: PNode | undefined = root;
+  for (const seg of path) {
+    if (n?.kind === "map") n = n.entries.find((e) => e.key === seg)?.value;
+    else if (n?.kind === "list") n = n.items[seg as number];
+    else return undefined;
+  }
+  return n;
+}
+
+/** A source moved from one column to another, its continuation lines shifted by as much. */
+function reindent(source: string, from: number, to: number): string {
+  if (from === to || !source.includes("\n")) return source;
+  const [first, ...rest] = source.split("\n");
+  const shift = (l: string) =>
+    to > from
+      ? l && " ".repeat(to - from) + l
+      : l.replace(new RegExp(`^ {0,${from - to}}`), "");
+  return [first, ...rest.map(shift)].join("\n");
+}
+
+/** One line for what reads as one: the ports, a lane item, a subchain call, one link of an end step. */
+function inlineAt(path: K7Path, value: unknown): boolean {
+  if (path.length === 1) return path[0] === "ports";
+  if (!path.includes("steps")) return false;
+  return (
+    path[path.length - 2] === "to" || isLaneItem(value) || isCallStep(value)
+  );
+}
+
+/** The chain's data in the file's key order, nothing written that says nothing. */
+function chainData(chain: ChainFile): Record<string, unknown> {
   const top: Record<string, unknown> = {};
   if (chain.start !== undefined) top.start = chain.start;
   if (chain.ports?.length) top.ports = chain.ports;
   if (chain.bus_only) top.bus_only = true;
   if (chain.hidden) top.hidden = true;
-  const fresh = parseDocument("start: x", YAML_READ_LENIENT);
-  fresh.delete("start");
-  fresh.commentBefore = doc.commentBefore;
-  for (const [k, v] of Object.entries(top)) {
-    const n = fresh.createNode(v);
-    if (isSeq(n)) n.flow = true;
-    fresh.set(k, n);
-  }
-  fresh.set("steps", stepsNode(fresh, chain.steps, old));
-  if (chain.subchains?.length) {
-    const subs = new YAMLSeq();
-    for (const sc of chain.subchains) {
-      const m = fresh.createNode({ id: sc.id }) as YAMLMap;
-      m.set("steps", stepsNode(fresh, sc.steps, old));
-      subs.items.push(m);
-    }
-    fresh.set("subchains", subs);
-  }
-  quoteTimecodes(fresh);
-  return fresh.toString(YAML_WRITE);
+  top.steps = chain.steps;
+  if (chain.subchains?.length)
+    top.subchains = chain.subchains.map((sc) => ({
+      id: sc.id,
+      steps: sc.steps,
+    }));
+  return top;
 }
 
-/** One list of steps as a YAML sequence, each unchanged item keeping its own node. */
-function stepsNode(
-  fresh: Document,
-  list: Step[],
-  old: Map<string, YAMLMap>,
-): YAMLSeq {
-  const steps = new YAMLSeq();
-  for (const step of list) {
-    if (isEndStep(step)) {
-      const n = fresh.createNode(step) as YAMLMap;
-      const to = n.get("to", true);
-      if (isSeq(to)) for (const l of to.items) if (isMap(l)) l.flow = true;
-      steps.items.push(n);
-    } else if (isCallStep(step)) {
-      const n = fresh.createNode(step) as YAMLMap;
-      n.flow = true;
-      steps.items.push(n);
-    } else if (Array.isArray(step)) {
-      const par = new YAMLSeq();
-      for (const item of step) par.items.push(itemNode(fresh, item, old));
-      steps.items.push(par);
-    } else steps.items.push(itemNode(fresh, step as Item, old));
+/** Write `chain` as a file's k7x text, keeping `prevText`'s header and every unchanged item's source and comments. */
+export function formatChain(chain: ChainFile, prevText = ""): string {
+  const old = new K7Document(prevText);
+  const kept = keptById(old);
+  const root = fromJS(chainData(chain), inlineAt);
+  const reused: { path: K7Path; kept: Kept }[] = [];
+  for (const { item, path } of itemSlots(chain)) {
+    const prev = kept.get(item.id);
+    if (!prev || canonical(prev.value) !== canonical(item)) continue;
+    reused.push({ path, kept: prev });
+    const node = pnodeAt(root, path);
+    // The comments go in the print tree, so the printer gives the item a line of its own under them.
+    if (node && prev.lead.length) node.lead = prev.lead;
   }
-  return steps;
+  const fresh = new K7Document(headerText(old.header) + printFile(root));
+  for (const { path, kept: prev } of reused) {
+    if (fresh.getSource(path) === prev.source) continue;
+    const at = fresh.getNode(path) as K7Node;
+    fresh.replaceSource(
+      path,
+      reindent(prev.source, prev.col, lineCol(fresh.text, at.start).col),
+    );
+    // A multi-line string moves with its indentation inside it: shifted, it would read differently, so it goes back as written.
+    if (canonical(fresh.getIn(path)) !== canonical(prev.value))
+      fresh.replaceSource(path, prev.source);
+  }
+  return fresh.toString();
 }

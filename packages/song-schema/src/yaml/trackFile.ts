@@ -1,158 +1,119 @@
-// trackFile.ts — editing the PLACEMENTS on a lane, a lane being a node file
-// (nodes/<name>.yaml, see docs/trackModules.md). The app's most frequent edit: every clip
-// drag writes a placement's `start`. Reading and validating the file is moduleFile's job, since
-// a lane is an ordinary module; what is here is the clip list — and WHICH list, since a lane on
-// one of its alternatives has two (docs/alternatives.md).
+// trackFile.ts — editing the PLACEMENTS on a lane, a lane being a node file (nodes/<name>.k7x, docs/trackModules.md).
+// Every writer edits a K7Scope at the file's root; reading and validating the file is moduleFile's job.
+// A reader would get wrong WHICH list is edited: a lane on one of its alternatives has two (docs/alternatives.md).
 
-import { isMap, isSeq, parseDocument } from "yaml";
+import type { K7Path } from "@studio/k7x/ast";
+import type { K7Scope } from "@studio/k7x/document";
 import { currentAlternative } from "../alternatives";
 import { beatsToPosition, parsePosition } from "../timecode";
-import { quoteTimecodes } from "./moduleFile";
 import type { Placement } from "./placementSchema";
-import { editYamlText, YAML_READ, YAML_WRITE, type YamlDoc } from "./yamlText";
 
-/** Every placement edit: the change, then the timecodes quoted, printed with the shared options. */
-const editLane = (text: string, edit: (doc: YamlDoc) => void): string =>
-  editYamlText(text, (doc) => {
-    edit(doc);
-    quoteTimecodes(doc);
-  });
+type Data = Record<string, unknown>;
 
-// A raw object stored via setIn stays plain until stringify, invisible to the quoting visitor — createNode first.
-function put(
-  doc: ReturnType<typeof parseDocument>,
-  path: (string | number)[],
-  value: unknown,
-): void {
-  const node =
-    value !== null && typeof value === "object" ? doc.createNode(value) : value;
-  doc.setIn(path, node);
-}
+const isRecord = (v: unknown): v is Data =>
+  v !== null && typeof v === "object" && !Array.isArray(v);
 
 /** The module's own arrangement — attribute set "1", and where a lane with no sets keeps its events. */
-const OWN_EVENTS: (string | number)[] = ["events"];
+const OWN_EVENTS: K7Path = ["events"];
 
 /** Which attribute set is ON — what `eventsIn` addresses and `eventsToEdit` forks into, see docs/laneEdits.md. */
-function selectedSet(doc: ReturnType<typeof parseDocument>): number {
-  return currentAlternative((doc.toJS() ?? {}) as Record<string, unknown>);
+function selectedSet(doc: K7Scope): number {
+  const raw = doc.toJS();
+  return currentAlternative(isRecord(raw) ? raw : {});
 }
 
-function setEvents(at: number): (string | number)[] {
-  return ["alternatives", at - 1, "events"];
-}
+const setEvents = (at: number): K7Path => ["alternatives", at - 1, "events"];
 
-function eventsIn(doc: ReturnType<typeof parseDocument>): (string | number)[] {
+const listAt = (doc: K7Scope, path: K7Path): unknown[] | null => {
+  const v = doc.getIn(path);
+  return Array.isArray(v) ? v : null;
+};
+
+/** The events list that is PLAYING: the selected set's own, else the module's. */
+function eventsIn(doc: K7Scope): K7Path {
   const at = selectedSet(doc);
   if (at === 0) return OWN_EVENTS;
   const mine = setEvents(at);
-  return isSeq(doc.getIn(mine)) ? mine : OWN_EVENTS;
+  return listAt(doc, mine) ? mine : OWN_EVENTS;
 }
 
 /** The events list an edit lands in, forking the selected set's on its first edit — exported for takeFile.ts. */
-export function eventsToEdit(
-  doc: ReturnType<typeof parseDocument>,
-): (string | number)[] {
+export function eventsToEdit(doc: K7Scope): K7Path {
   const at = selectedSet(doc);
   if (at === 0) return OWN_EVENTS;
   const mine = setEvents(at);
-  if (isSeq(doc.getIn(mine))) return mine;
-  // First edit on a set that inherits: fork what it is PLAYING into it — see docs/laneEdits.md.
-  const inherited = doc.getIn(OWN_EVENTS);
-  doc.setIn(mine, isSeq(inherited) ? inherited.clone() : doc.createNode([]));
-  // An empty set is written `- {}`, whose flow map would arrive as one 400-character row.
-  const entry = doc.getIn(["alternatives", at - 1]);
-  if (isMap(entry)) entry.flow = false;
-  const forked = doc.getIn(mine);
-  if (isSeq(forked)) forked.flow = false;
-  flowPlacements(doc, mine);
+  if (listAt(doc, mine)) return mine;
+  // First edit on a set that inherits: fork what it is PLAYING into it, comments and layout copied (docs/laneEdits.md).
+  const own = doc.getNode(OWN_EVENTS);
+  const source = own?.kind === "list" ? doc.getSource(OWN_EVENTS) : undefined;
+  // A call's own arguments, `events(a, b)`, are a list only once bracketed.
+  const inherited =
+    own?.kind === "list" && own.form === "args" ? `[${source}]` : source;
+  if (inherited) doc.setSourceIn(mine, inherited);
+  else doc.setIn(mine, []);
   return mine;
 }
 
-/** Set one field on the lane — the module's OWN, whichever set is on, see docs/laneEdits.md. */
+/** Set one field on the lane — the module's OWN, whichever set is on; null removes it (docs/laneEdits.md). */
 export function setTrackField(
-  text: string,
+  doc: K7Scope,
   field: string,
   value: unknown,
-): string {
-  return editLane(text, (doc) => {
-    if (value === null) doc.deleteIn([field]);
-    else put(doc, [field], value);
-    flowPlacements(doc, eventsIn(doc));
-  });
-}
-
-/** One placement per line — the shape the file already uses, kept on every write. */
-function flowPlacements(
-  doc: ReturnType<typeof parseDocument>,
-  path: (string | number)[],
 ): void {
-  const events = doc.getIn(path);
-  if (!isSeq(events)) return;
-  for (const p of events.items)
-    if (p && typeof p === "object") (p as { flow?: boolean }).flow = true;
+  if (value === null) doc.deleteIn([field]);
+  else doc.setIn([field], value);
 }
 
-/** The index of the placement starting at `start`, or -1 — read off the DOCUMENT, see docs/laneEdits.md. */
-export function findPlacement(text: string, start: string): number {
-  const doc = parseDocument(text, YAML_READ);
-  const path = eventsIn(doc);
-  const events = doc.getIn(path);
-  if (!isSeq(events)) return -1;
-  return events.items.findIndex(
-    (_p, i) => String(doc.getIn([...path, i, "start"]) ?? "") === start,
+/** The index of the placement starting at `start`, or -1 — read off the playing list, see docs/laneEdits.md. */
+export function findPlacement(doc: K7Scope, start: string): number {
+  const events = listAt(doc, eventsIn(doc)) ?? [];
+  return events.findIndex(
+    (p) => isRecord(p) && String(p.start ?? "") === start,
   );
 }
 
 /** Move the placement at `start` to `to` — a clip drag, or `event move`. */
-export function movePlacement(text: string, start: string, to: string): string {
-  const at = findPlacement(text, start);
+export function movePlacement(doc: K7Scope, start: string, to: string): void {
+  const at = findPlacement(doc, start);
   if (at < 0) throw new Error(`no placement at ${start}`);
   // The index came from the list that is PLAYING, and forking copies it in order (docs/laneEdits.md).
-  return editLane(text, (doc) => {
-    doc.setIn([...eventsToEdit(doc), at, "start"], to);
-  });
+  doc.setIn([...eventsToEdit(doc), at, "start"], to);
 }
 
 /** Drop the placement at `start`. The clip itself stays in the project. */
-export function removePlacement(text: string, start: string): string {
-  const at = findPlacement(text, start);
+export function removePlacement(doc: K7Scope, start: string): void {
+  const at = findPlacement(doc, start);
   if (at < 0) throw new Error(`no placement at ${start}`);
-  return editLane(text, (doc) => {
-    doc.deleteIn([...eventsToEdit(doc), at]);
-  });
+  doc.deleteIn([...eventsToEdit(doc), at]);
+}
+
+/** Append one placement on a line of its own, the list created when the lane has none. */
+function appendPlacement(doc: K7Scope, path: K7Path, value: Data): void {
+  if (listAt(doc, path)) doc.addIn(path, value, { inline: true });
+  else doc.setIn(path, [value]);
 }
 
 /** Append a placement — the receiving half of a cross-lane clip move. */
 export function addPlacement(
-  text: string,
+  doc: K7Scope,
   // No `length`: how long a placement sounds is the material's window times `loop` (docs/laneEdits.md).
   placement: Placement,
-): string {
-  return editLane(text, (doc) => {
-    const path = eventsToEdit(doc);
-    const events = doc.getIn(path);
-    const node = doc.createNode(placement);
-    node.flow = true; // one placement per line, as the file already writes them
-    if (isSeq(events)) events.items.push(node);
-    else doc.setIn(path, doc.createNode([node]));
-  });
+): void {
+  appendPlacement(doc, eventsToEdit(doc), placement as Data);
 }
 
 // --- addressing a placement by POSITION (beats, not strings: "1:1:1", "1:1" and "1" are one position) ---
 
 /** The index of the placement whose `start` parses to `beats`, or -1. */
 export function findPlacementAt(
-  text: string,
+  doc: K7Scope,
   beats: number,
   num: number,
   den: number,
 ): number {
-  const doc = parseDocument(text, YAML_READ);
-  const path = eventsIn(doc);
-  const events = doc.getIn(path);
-  if (!isSeq(events)) return -1;
-  return events.items.findIndex((_p, i) => {
-    const start = doc.getIn([...path, i, "start"]);
+  const events = listAt(doc, eventsIn(doc)) ?? [];
+  return events.findIndex((p) => {
+    const start = isRecord(p) ? p.start : undefined;
     try {
       return (
         Math.abs(parsePosition(String(start ?? "1:1:1"), num, den) - beats) <
@@ -164,104 +125,63 @@ export function findPlacementAt(
   });
 }
 
-/** The placement at `index` as PLAIN VALUES — a node cannot cross documents, see docs/laneEdits.md. */
-export function placementAt(
-  text: string,
-  index: number,
-): Record<string, unknown> | null {
-  const doc = parseDocument(text, YAML_READ);
-  const path = eventsIn(doc);
-  const events = doc.getIn(path);
-  if (!isSeq(events) || index < 0 || index >= events.items.length) return null;
-  const node = doc.getIn([...path, index], false) as
-    | { toJSON?: () => unknown }
-    | undefined;
-  return (node?.toJSON?.() as Record<string, unknown> | undefined) ?? null;
+/** The placement at `index` in the playing list, as plain values; null when there is none. */
+export function placementAt(doc: K7Scope, index: number): Data | null {
+  const p = (listAt(doc, eventsIn(doc)) ?? [])[index];
+  return isRecord(p) ? p : null;
 }
 
-/** Every placement in `text`, as PLAIN VALUES — the list to `placementAt`'s one. */
-export function placementValues(text: string): Record<string, unknown>[] {
-  const doc = parseDocument(text, YAML_READ);
-  const events = doc.getIn(eventsIn(doc));
-  if (!isSeq(events)) return [];
-  return events.items.map(
-    (it) =>
-      ((it as { toJSON?: () => unknown })?.toJSON?.() ?? {}) as Record<
-        string,
-        unknown
-      >,
-  );
+/** Every placement in the playing list, as plain values — the list to `placementAt`'s one. */
+export function placementValues(doc: K7Scope): Data[] {
+  return (listAt(doc, eventsIn(doc)) ?? []).map((p) => (isRecord(p) ? p : {}));
 }
 
 /** Drop the placement at `index`. */
-export function removePlacementAt(text: string, index: number): string {
-  return editLane(text, (doc) => {
-    doc.deleteIn([...eventsToEdit(doc), index]);
-  });
+export function removePlacementAt(doc: K7Scope, index: number): void {
+  doc.deleteIn([...eventsToEdit(doc), index]);
 }
 
 /** Set (or, with `undefined`, clear) one field of the placement at `index` — the generic form of movePlacementAt. */
 export function setPlacementField(
-  text: string,
+  doc: K7Scope,
   index: number,
   field: string,
   value: string | number | boolean | undefined,
-): string {
-  return editLane(text, (doc) => {
-    const path = eventsToEdit(doc);
-    if (value === undefined) doc.deleteIn([...path, index, field]);
-    else doc.setIn([...path, index, field], value);
-  });
+): void {
+  const path = eventsToEdit(doc);
+  if (value === undefined) doc.deleteIn([...path, index, field]);
+  else doc.setIn([...path, index, field], value);
 }
 
 /** Copy the placement at `index`, patch the copy and append it — what a SPLIT writes (docs/laneEdits.md). */
 export function copyPlacementAt(
-  text: string,
+  doc: K7Scope,
   index: number,
-  patch: Record<string, unknown>,
-): string {
-  return editLane(text, (doc) => {
-    const path = eventsToEdit(doc);
-    const events = doc.getIn(path);
-    if (!isSeq(events) || index < 0 || index >= events.items.length)
-      throw new Error(`no placement at index ${index}`);
-    const src =
-      ((
-        doc.getIn([...path, index]) as { toJSON?: () => unknown }
-      )?.toJSON?.() as Record<string, unknown> | undefined) ?? {};
-    const merged: Record<string, unknown> = { ...src };
-    for (const [k, v] of Object.entries(patch))
-      if (v === undefined) delete merged[k];
-      else merged[k] = v;
-    const copy = doc.createNode(merged);
-    copy.flow = true; // one placement per line, as the file already writes them
-    events.items.push(copy);
-  });
+  patch: Data,
+): void {
+  const path = eventsToEdit(doc);
+  const src = (listAt(doc, path) ?? [])[index];
+  if (!isRecord(src)) throw new Error(`no placement at index ${index}`);
+  const merged: Data = { ...src };
+  for (const [k, v] of Object.entries(patch))
+    if (v === undefined) delete merged[k];
+    else merged[k] = v;
+  appendPlacement(doc, path, merged);
 }
 
 /** Rewrite the `start` of the placement at `index`. Everything else it carries stays. */
-export function movePlacementAt(
-  text: string,
-  index: number,
-  to: string,
-): string {
-  return editLane(text, (doc) => {
-    doc.setIn([...eventsToEdit(doc), index, "start"], to);
-  });
+export function movePlacementAt(doc: K7Scope, index: number, to: string): void {
+  doc.setIn([...eventsToEdit(doc), index, "start"], to);
 }
 
 /** Every list of placements this file holds — what a change to the song's CLOCK must reach, docs/laneEdits.md. */
-function everyEventList(
-  doc: ReturnType<typeof parseDocument>,
-): (string | number)[][] {
-  const out: (string | number)[][] = [];
-  const push = (path: (string | number)[]): void => {
-    if (isSeq(doc.getIn(path))) out.push(path);
-  };
-  push(["events"]);
-  const alts = doc.getIn(["alternatives"]);
-  if (isSeq(alts))
-    alts.items.forEach((_, i) => push(["alternatives", i, "events"]));
+function everyEventList(doc: K7Scope): K7Path[] {
+  const out: K7Path[] = [];
+  if (listAt(doc, OWN_EVENTS)) out.push(OWN_EVENTS);
+  (listAt(doc, ["alternatives"]) ?? []).forEach((_, i) => {
+    const path = ["alternatives", i, "events"];
+    if (listAt(doc, path)) out.push(path);
+  });
   return out;
 }
 
@@ -275,38 +195,33 @@ export interface KeptLoop {
 
 /** Halve the `loop` of every placement of `ref` that takes the material's WHOLE window — docs/laneEdits.md. */
 export function halveSequenceLoops(
-  text: string,
+  doc: K7Scope,
   ref: string,
-): { text: string; halved: number; kept: KeptLoop[] } {
-  const doc = parseDocument(text, YAML_READ);
+): { halved: number; kept: KeptLoop[] } {
   const kept: KeptLoop[] = [];
   let halved = 0;
   for (const path of everyEventList(doc)) {
-    const seq = doc.getIn(path);
-    if (!isSeq(seq)) continue;
-    for (const item of seq.items) {
-      if (!isMap(item) || String(item.get("ref") ?? "") !== ref) continue;
-      const loop = Number(item.get("loop") ?? 1);
-      if (!Number.isInteger(loop) || loop < 2) continue;
-      const start = String(item.get("start") ?? "1:1:1");
+    (listAt(doc, path) ?? []).forEach((item, i) => {
+      if (!isRecord(item) || String(item.ref ?? "") !== ref) return;
+      const loop = Number(item.loop ?? 1);
+      if (!Number.isInteger(loop) || loop < 2) return;
+      const start = String(item.start ?? "1:1:1");
       // A window of its own did not grow with the material's, so halving would halve what plays.
-      if (item.get("from") != null || item.get("to") != null) {
+      if (item.from != null || item.to != null) {
         kept.push({ start, loop, why: "windowed" });
-        continue;
+        return;
       }
       if (loop % 2) {
         kept.push({ start, loop, why: "odd" });
-        continue;
+        return;
       }
       // Back to ONE pass is the default, and the default is written by not writing it.
-      if (loop === 2) item.delete("loop");
-      else item.set("loop", loop / 2);
+      if (loop === 2) doc.deleteIn([...path, i, "loop"]);
+      else doc.setIn([...path, i, "loop"], loop / 2);
       halved++;
-    }
+    });
   }
-  if (!halved) return { text, halved, kept };
-  quoteTimecodes(doc);
-  return { text: doc.toString(YAML_WRITE), halved, kept };
+  return { halved, kept };
 }
 
 /** What `spliceTime` did to one lane — for a caller reporting it, and for refusing a no-op. */
@@ -317,50 +232,39 @@ export interface TimeSplice {
 
 /** Insert or delete time across every placement list, an event straddling the cut going by its `start` — docs/laneEdits.md. */
 export function spliceTime(
-  text: string,
+  doc: K7Scope,
   atBeats: number,
   lenBeats: number,
   mode: "insert" | "delete",
   num: number,
   den: number,
-): { text: string; splice: TimeSplice } {
-  const doc = parseDocument(text, YAML_READ);
+): TimeSplice {
   const splice: TimeSplice = { moved: 0, removed: 0 };
-  if (!(lenBeats > 0)) return { text, splice };
+  if (!(lenBeats > 0)) return splice;
   const end = atBeats + lenBeats;
   for (const path of everyEventList(doc)) {
-    const seq = doc.getIn(path);
-    if (!isSeq(seq)) continue;
+    const items = listAt(doc, path) ?? [];
     // Descending, so removing one does not shift the address of the next.
-    for (let i = seq.items.length - 1; i >= 0; i--) {
-      const item = seq.items[i];
-      if (!isMap(item)) continue;
-      const raw = item.get("start");
+    for (let i = items.length - 1; i >= 0; i--) {
+      const item = items[i];
+      if (!isRecord(item)) continue;
       let start: number;
       try {
-        start = parsePosition(String(raw ?? "1:1:1"), num, den);
+        start = parsePosition(String(item.start ?? "1:1:1"), num, den);
       } catch {
         continue; // an unreadable start is one placement left alone, not a failed splice
       }
       if (mode === "delete" && start >= atBeats - 1e-6 && start < end - 1e-6) {
-        seq.items.splice(i, 1);
+        doc.deleteIn([...path, i]);
         splice.removed++;
         continue;
       }
       const from = mode === "delete" ? end : atBeats;
       if (start < from - 1e-6) continue;
-      item.set(
-        "start",
-        beatsToPosition(
-          start + (mode === "delete" ? -lenBeats : lenBeats),
-          num,
-          den,
-        ),
-      );
+      const moved = start + (mode === "delete" ? -lenBeats : lenBeats);
+      doc.setIn([...path, i, "start"], beatsToPosition(moved, num, den));
       splice.moved++;
     }
   }
-  if (!splice.moved && !splice.removed) return { text, splice };
-  quoteTimecodes(doc);
-  return { text: doc.toString(YAML_WRITE), splice };
+  return splice;
 }

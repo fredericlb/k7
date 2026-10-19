@@ -1,10 +1,10 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
-import { copyAsYaml, writeYaml } from "./testSupport";
+import { writeDoc } from "./testSupport";
 import { videoSoundClips } from "./videoSound";
 
 // A lane naming a picture lane plays its shots' sound exactly where the picture shows them — docs/videoSound.md.
@@ -190,12 +190,12 @@ describe("compiled into the engine's document", () => {
   let dir: string;
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "td-vsound-"));
-    copyAsYaml(SONG, dir, { recursive: true });
-    writeYaml(join(dir, "clips", "a.yaml"), clips.a);
-    writeYaml(join(dir, "clips", "b.yaml"), clips.b);
+    cpSync(SONG, dir, { recursive: true });
+    writeDoc(join(dir, "clips", "a.k7x"), clips.a);
+    writeDoc(join(dir, "clips", "b.k7x"), clips.b);
     for (const f of ["a.mp4", "a.wav", "b.mp4", "b.wav"])
       writeFileSync(join(dir, "clips", f), "");
-    writeYaml(join(dir, "video_tracks", "main.yaml"), {
+    writeDoc(join(dir, "video_tracks", "main.k7x"), {
       events: [
         { ref: "a", start: 0, length: 5 },
         { ref: "b", start: 4, length: 5, fade_in: 1 },
@@ -204,7 +204,7 @@ describe("compiled into the engine's document", () => {
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
   const lane = (body: Record<string, unknown>) =>
-    writeYaml(join(dir, "nodes", "dialog.yaml"), {
+    writeDoc(join(dir, "nodes", "dialog.k7x"), {
       extends: "@meta/track",
       ...body,
     });

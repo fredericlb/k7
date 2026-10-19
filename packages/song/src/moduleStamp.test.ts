@@ -17,8 +17,8 @@ let dir = "";
 const module_ = (at: string, name: string): void => {
   mkdirSync(join(at, "nodes"), { recursive: true });
   writeFileSync(
-    join(at, "nodes", `${name}.yaml`),
-    `# ${name}\nplugin:\n  type: internal\n  name: Mixer\n`,
+    join(at, "nodes", `${name}.k7x`),
+    `// ${name}\nplugin({ type: "internal", name: "Mixer" })\n`,
     "utf8",
   );
 };
@@ -26,7 +26,7 @@ const module_ = (at: string, name: string): void => {
 const project = (name: string): string => {
   const at = join(root, name);
   mkdirSync(at, { recursive: true });
-  writeFileSync(join(at, "project.yaml"), "project:\n  name: t\n", "utf8");
+  writeFileSync(join(at, "project.k7x"), 'project({ name: "t" })\n', "utf8");
   module_(at, "reverb");
   return at;
 };

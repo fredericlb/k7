@@ -1,4 +1,4 @@
-// The metronome's LEVEL, from settings.yaml to the compiled document.
+// The metronome's LEVEL, from settings.k7x to the compiled document.
 //
 // Its range is 0.2 … 1 and that floor is not a taste: Tracktion's `Edit::setClickTrackVolume`
 // clamps there, so a smaller number would be written down and then played at 0.2 — a file stating
@@ -13,7 +13,7 @@ import { SettingsSchema } from "@studio/song-schema/yaml/projectSchema";
 import { describe, expect, it } from "vitest";
 import { parseSettings } from "./project";
 
-describe("settings.yaml's metronome_level", () => {
+describe("settings.k7x's metronome_level", () => {
   it("is read as written", () => {
     expect(parseSettings({ metronome_level: 0.4 }).metronomeLevel).toBe(0.4);
   });

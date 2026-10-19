@@ -5,82 +5,71 @@
 // What would be got wrong: the name a caller asked for names the CHAIN; the node is its fresh id.
 // See docs/chainFiles.md.
 
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { join, relative } from "node:path";
+import { K7Document } from "@studio/k7x/document";
+import { lineCol } from "@studio/k7x/parse";
+import { stringify } from "@studio/k7x/print";
 import { parseChain } from "@studio/song-schema/yaml/chainFile";
 import { CHAINS_DIR, TRACKS_DIR } from "@studio/song-schema/yaml/chainSchema";
-import {
-  YAML_READ_LENIENT,
-  YAML_WRITE,
-} from "@studio/song-schema/yaml/yamlText";
-import {
-  Document,
-  isMap,
-  isSeq,
-  parseDocument,
-  type YAMLMap,
-  YAMLSeq,
-} from "yaml";
 import { chainFilePath, newNodeId, readChainProject } from "./chainProject";
-import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
+import { wsText, wsWriteText } from "./yaml/workspaceDoc";
 
-/** Whether `chains/<name>` is taken — a chain file of that name, either extension. */
+/** Whether `chains/<name>` is taken by a chain file. */
 export const chainTaken = (dir: string, name: string): boolean =>
-  wsExists(join(dir, CHAINS_DIR, `${name}.yaml`)) ||
-  wsExists(join(dir, CHAINS_DIR, `${name}.yml`));
+  existsSync(chainFilePath(dir, name));
 
-/** Write a node, given as a node file's text, as the one item of a new loose chain `chain`; its id and file. */
+/** A node file's k7x text as an item's data after a fresh id, and the `//` lines it opens with. */
+function itemOf(body: string): {
+  id: string;
+  item: Record<string, unknown>;
+  header: string[];
+} {
+  const src = new K7Document(body);
+  const id = newNodeId();
+  return { id, item: { id, ...src.toJS() }, header: src.header };
+}
+
+/** Write a node, given as a node file's k7x text, as the one item of a new loose chain `chain`; its id and file. */
 export function createChainNode(
   dir: string,
   chain: string,
   body: string,
 ): { id: string; rel: string } {
+  const rel = `${CHAINS_DIR}/${chain}.k7x`;
   if (chainTaken(dir, chain))
-    throw new Error(
-      `${CHAINS_DIR}/${chain}.yaml already exists — refusing to overwrite`,
-    );
-  const src = parseDocument(body, YAML_READ_LENIENT);
-  const id = newNodeId();
-  const doc = new Document({ steps: [] }, YAML_READ_LENIENT);
-  const item = doc.createNode({ id }) as YAMLMap<unknown, unknown>;
-  // The body's fields after the id, each pair moved whole so its comments come along.
-  if (isMap(src.contents))
-    for (const p of src.contents.items) item.items.push(p);
-  const steps = new YAMLSeq();
-  steps.items.push(item);
-  doc.set("steps", steps);
-  doc.commentBefore = src.commentBefore ?? src.contents?.commentBefore ?? null;
+    throw new Error(`${rel} already exists — refusing to overwrite`);
+  const { id, item, header } = itemOf(body);
   mkdirSync(join(dir, CHAINS_DIR), { recursive: true });
-  const rel = `${CHAINS_DIR}/${chain}.yaml`;
-  wsWrite(join(dir, rel), doc.toString(YAML_WRITE));
+  wsWriteText(join(dir, rel), stringify({ steps: [item] }, { header }));
   return { id, rel };
 }
 
-/** A new lane: `tracks/<lane>.yaml` holding `body`, and the `start: true` chain that plays it. */
+/** A new lane: `tracks/<lane>.k7x` holding `body` (k7x text), and the `start: true` chain that plays it. */
 export function createChainLane(
   dir: string,
   lane: string,
   body: string,
 ): string[] {
-  const track = `${TRACKS_DIR}/${lane}.yaml`;
-  if (wsExists(join(dir, track)))
+  const track = `${TRACKS_DIR}/${lane}.k7x`;
+  if (existsSync(join(dir, track)))
     throw new Error(`track '${lane}' already exists (${track})`);
+  const chain = `${CHAINS_DIR}/${lane}.k7x`;
   if (chainTaken(dir, lane))
     throw new Error(
-      `${CHAINS_DIR}/${lane}.yaml already exists — a lane's chain is named after it`,
+      `${chain} already exists — a lane's chain is named after it`,
     );
   mkdirSync(join(dir, TRACKS_DIR), { recursive: true });
   mkdirSync(join(dir, CHAINS_DIR), { recursive: true });
-  wsWrite(join(dir, track), body);
-  const chain = `${CHAINS_DIR}/${lane}.yaml`;
-  wsWrite(
+  wsWriteText(join(dir, track), body);
+  wsWriteText(
     join(dir, chain),
-    `start: true\nsteps:\n  - { id: ${newNodeId()}, track: ${JSON.stringify(lane)} }\n`,
+    stringify({ start: true, steps: [{ id: newNodeId(), track: lane }] }),
   );
   return [track, chain];
 }
 
-/** Put an input, given as a node file's text, in the lane's chain just ahead of the lane — docs/chainFiles.md. */
+/** Put an input, given as a node file's k7x text, in the lane's chain just ahead of the lane — docs/chainFiles.md. */
 export function insertChainInput(
   dir: string,
   lane: string,
@@ -93,22 +82,26 @@ export function insertChainInput(
       `'${lane}' sits inside a subchain or a parallel step — wire its input by hand`,
     );
   const path = chainFilePath(dir, at.chain);
-  const doc = parseDocument(wsRead(path), YAML_READ_LENIENT);
-  const steps = doc.get("steps");
-  if (!isSeq(steps)) throw new Error(`${at.chain} has no steps`);
-  const src = parseDocument(body, YAML_READ_LENIENT);
-  const id = newNodeId();
-  const item = doc.createNode({ id }) as YAMLMap<unknown, unknown>;
-  if (isMap(src.contents))
-    for (const p of src.contents.items) item.items.push(p);
-  item.commentBefore = src.commentBefore ?? src.contents?.commentBefore;
-  steps.items.splice(at.step, 0, item);
-  const out = doc.toString(YAML_WRITE);
+  const doc = new K7Document(wsText(path));
+  const steps = doc.getNode(["steps"]);
+  if (steps?.kind !== "list") throw new Error(`${at.chain} has no steps`);
+  const { id, item, header } = itemOf(body);
+  doc.insertIn(["steps"], at.step, item);
+  const added = doc.getNode(["steps", at.step]);
+  // The body's own description goes above the item, when the item has a line of its own to sit under it.
+  const own = added && doc.text.lastIndexOf("\n", added.start) > steps.start;
+  if (header.length && added && own) {
+    const pad = " ".repeat(lineCol(doc.text, added.start).col - 1);
+    const lead = header.map((l) => `// ${l}`.trimEnd()).join(`\n${pad}`);
+    const src = doc.getSource(["steps", at.step]) ?? "";
+    doc.replaceSource(["steps", at.step], `${lead}\n${pad}${src}`);
+  }
+  const out = doc.toString();
   const parsed = parseChain(out);
   if (!parsed.value)
     throw new Error(
       `the input would make ${at.chain} unreadable — ${parsed.issues[0]?.message ?? ""}`.trim(),
     );
-  wsWrite(path, out);
+  wsWriteText(path, out);
   return { id, rel: relative(dir, path) };
 }

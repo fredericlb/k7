@@ -1,4 +1,4 @@
-// moduleSiblings.ts — finding one of a module folder's OWN files (`ui.yaml`, `controller.yaml`)
+// moduleSiblings.ts — finding one of a module folder's OWN files (`ui.k7x`, `controller.k7x`)
 // across every module library a project can see, with the ref each folder gives it. One walk,
 // because a second copy of it drifts: these files are keyed by folder, and a walk that
 // disagreed about which folders exist would hand a module someone else's panel.
@@ -21,7 +21,7 @@ export interface SiblingFile {
   rel: string;
 }
 
-/** Every `<base>.yaml` under one library, at the TWO depths the loaders' own walk uses. */
+/** Every `<base>.k7x` under one library, at the TWO depths the loaders' own walk uses. */
 function siblingsIn(
   root: string,
   ns: string | null,

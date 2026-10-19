@@ -3,7 +3,7 @@
 // walk that FINDS them is @studio/song's. One thing a reader gets wrong: an engine is not an
 // alternative — the module declares engines, a node picks one. See packages/song/docs/engines.md.
 
-/** The folder beside `module.yaml` that holds one sub-folder per engine. */
+/** The folder beside `module.k7x` that holds one sub-folder per engine. */
 export const ENGINES_DIR = "engines";
 
 /** The engine a module runs when it names none and has one called this — the Tracktion built-in. */

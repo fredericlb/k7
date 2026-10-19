@@ -1,19 +1,12 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { formatChains } from "@studio/song-schema/yaml/graphFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModuleRefs } from "./loader";
 import { materialiseEngineModule, sharedModuleRef } from "./moduleFork";
-import { writeLibrary } from "./testSupport";
-import { loadUiLibrary, writeUiFile } from "./uiLibrary";
+import { writeDoc, writeLibrary } from "./testSupport";
+import { writeUiFile } from "./uiLibrary";
+import { wsData, wsText } from "./yaml/workspaceDoc";
 
 // A shared module — `@workspace` or `@k7-core` — is edited in place; there is no project-local copy
 // to fork a write into instead. What still forks is an ENGINE module, which has no file at all
@@ -29,28 +22,22 @@ beforeEach(() => {
   writeLibrary(root);
   dir = join(root, "song");
   mkdirSync(join(dir, "modules"), { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n  modules_from:\n    - ../_modules\n",
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), {
+    project: { name: "song", tempo: 120 },
+  });
   // Two tracks through ONE module, so the fork must repoint a key AND every destination.
-  writeFileSync(
-    join(dir, "graph.yaml"),
-    formatChains({
-      modules: {
-        "bs.lead": [SHARED],
-        "dr.room": [SHARED],
-        [SHARED]: ["OUT"],
-      },
-    }),
-    "utf8",
-  );
+  writeDoc(join(dir, "graph.k7x"), {
+    modules: {
+      "bs.lead": [SHARED],
+      "dr.room": [SHARED],
+      [SHARED]: ["OUT"],
+    },
+  });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 const sharedFile = () =>
-  join(root, "_modules", "audio", "delay", "tape-delay", "module.yaml");
+  join(root, "_modules", "audio", "delay", "tape-delay", "module.k7x");
 
 describe("locating a shared module", () => {
   it("keys a file the way readModuleTree keys the module", () => {
@@ -61,14 +48,14 @@ describe("locating a shared module", () => {
     expect(
       sharedModuleRef(
         dir,
-        join(root, "_modules", "instruments", "4osc", "module.yaml"),
+        join(root, "_modules", "instruments", "4osc", "module.k7x"),
       )?.ref,
     ).toBe("@workspace/instruments/4osc");
   });
 
   it("is null for a file outside the libraries this project inherits", () => {
     expect(
-      sharedModuleRef(dir, join(dir, "modules", "audio", "x", "module.yaml")),
+      sharedModuleRef(dir, join(dir, "modules", "audio", "x", "module.k7x")),
     ).toBeNull();
   });
 });
@@ -88,13 +75,9 @@ describe("giving an engine module a folder", () => {
   } as unknown as Parameters<typeof materialiseEngineModule>[2];
 
   beforeEach(() => {
-    writeFileSync(
-      join(dir, "graph.yaml"),
-      formatChains({
-        modules: { "gt.lead": [NAM], [NAM]: ["OUT"] },
-      }),
-      "utf8",
-    );
+    writeDoc(join(dir, "graph.k7x"), {
+      modules: { "gt.lead": [NAM], [NAM]: ["OUT"] },
+    });
   });
 
   it("writes a module file that records WHICH plugin, and keys it locally", () => {
@@ -102,9 +85,10 @@ describe("giving an engine module a folder", () => {
     const r = materialiseEngineModule(dir, NAM, CATALOGUE);
     expect(r.module).toBe("nam");
     // Given a folder beside the project — an ordinary WORKSPACE module from here on.
-    expect(r.path).toBe("../_modules/audio/nam/module.yaml");
-    const text = readFileSync(join(dir, r.path), "utf8");
-    expect(text).toContain("Neural Amp Modeler");
+    expect(r.path).toBe("../_modules/audio/nam/module.k7x");
+    expect(wsData(join(dir, r.path)).plugin).toMatchObject({
+      name: "Neural Amp Modeler",
+    });
     expect(loadModuleRefs(dir)["@workspace/audio/nam"]?.plugin).toMatchObject({
       name: "Neural Amp Modeler",
     });
@@ -112,7 +96,7 @@ describe("giving an engine module a folder", () => {
 
   it("repoints the chains, so nothing still names the ref with no folder", () => {
     const r = materialiseEngineModule(dir, NAM, CATALOGUE);
-    const after = readFileSync(join(dir, "graph.yaml"), "utf8");
+    const after = wsText(join(dir, "graph.k7x"));
     expect(after).not.toContain(NAM);
     expect(after).toContain("nam");
     expect(r.chains).toEqual(["gt.lead"]);
@@ -125,19 +109,16 @@ describe("giving an engine module a folder", () => {
       rows: 1,
       widgets: { g: { type: "knob", col: 0, row: 0, bind: "Gain" } },
     });
-    expect(existsSync(join(root, "_modules", "audio", "nam", "ui.yaml"))).toBe(
+    expect(existsSync(join(root, "_modules", "audio", "nam", "ui.k7x"))).toBe(
       true,
     );
     expect(loadModuleRefs(dir)["@workspace/audio/nam"].ui).toBeTruthy();
   });
 
   it("steps past a name the workspace has taken rather than clobbering it", () => {
-    mkdirSync(join(root, "_modules", "audio", "nam"), { recursive: true });
-    writeFileSync(
-      join(root, "_modules", "audio", "nam", "module.yaml"),
-      "plugin:\n  name: Something Else\n  type: vst3\n",
-      "utf8",
-    );
+    writeDoc(join(root, "_modules", "audio", "nam", "module.k7x"), {
+      plugin: { name: "Something Else", type: "vst3" },
+    });
     expect(materialiseEngineModule(dir, NAM, CATALOGUE).module).toBe("nam_2");
   });
 

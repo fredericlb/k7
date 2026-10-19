@@ -14,16 +14,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModuleRefs } from "./loader";
+import { writeDoc } from "./testSupport";
 
-/** A module folder holding the minimal generic module.yaml. */
-function module_(
-  root: string,
-  rel: string,
-  body = 'plugin: {type: "internal"}\n',
-) {
-  const dir = join(root, rel);
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "module.yaml"), body, "utf8");
+/** A module folder holding the minimal generic module.k7x. */
+function module_(root: string, rel: string) {
+  writeDoc(join(root, rel, "module.k7x"), { plugin: { type: "internal" } });
 }
 
 describe("shared module folder: category level", () => {
@@ -59,14 +54,14 @@ describe("shared module folder: category level", () => {
     ]);
   });
 
-  it("descends exactly one level, and only past a folder with no module.yaml", () => {
+  it("descends exactly one level, and only past a folder with no module.k7x", () => {
     // A category does not recurse, or the ref space is open ended and `extends` names anything.
     module_(shared, "audio/delay/tape/vintage");
     const refs = loadModuleRefs(project);
     expect(Object.keys(refs)).not.toContain(
       "@workspace/audio/delay/tape/vintage",
     );
-    // …and a folder that HAS a module.yaml is read as one, never descended into.
+    // …and a folder that HAS a module.k7x is read as one, never descended into.
     module_(shared, "audio/comp");
     module_(shared, "audio/comp/inner");
     const again = loadModuleRefs(project);

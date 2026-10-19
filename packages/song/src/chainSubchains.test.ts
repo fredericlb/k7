@@ -18,26 +18,28 @@ import {
   setModuleEnabled,
 } from "@studio/song-schema/yaml/graphFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { editChainGraph } from "./chainGraphEdit";
 import { spliceChainItem } from "./chainItemEdit";
 import { readChainProject, readLayout, toSegments } from "./chainProject";
 import { placeOf } from "./nodePlace";
+import { wsData } from "./yaml/workspaceDoc";
 
 const AMP = '"@k7-core/audio/amp"';
 const GTR = [
-  "start: true",
-  "steps:",
-  "  - { id: lane-gtr, track: gtr }",
-  `  - { id: amp-1, extends: ${AMP} }`,
-  "  - to: [ { chain: wet, level: 0.5 }, { chain: MIX, level: 1 } ]",
-  "subchains:",
-  "  - id: wet",
-  "    steps:",
-  `      - { id: verb-1, extends: ${AMP} }`,
-  "      # the room",
-  `      - { id: eq-1, extends: ${AMP} }`,
-  "      - to: [ { chain: MIX } ]",
+  "start(true)",
+  "steps([",
+  '  id("lane-gtr").track("gtr"),',
+  `  id("amp-1").extends(${AMP}),`,
+  '  to([chain("wet").level(0.5), chain("MIX").level(1)]),',
+  "])",
+  "subchains([",
+  '  id("wet").steps([',
+  `    id("verb-1").extends(${AMP}),`,
+  "    // the room",
+  `    id("eq-1").extends(${AMP}),`,
+  '    to([chain("MIX")]),',
+  "  ]),",
+  "])",
   "",
 ].join("\n");
 
@@ -50,14 +52,14 @@ describe("a chain file's subchains", () => {
     expect(parsed.issues).toEqual([]);
     expect(parsed.value?.subchains?.[0].id).toBe("wet");
     const again = formatChain(parsed.value as never, GTR);
-    expect(again).toContain("# the room");
+    expect(again).toContain("// the room");
     expect(parseChain(again).value).toEqual(parsed.value);
   });
 
   it("link out only to a sibling or a built-in end", () => {
     const text = GTR.replace(
-      "      - to: [ { chain: MIX } ]",
-      "      - to: [ { chain: bus } ]",
+      '    to([chain("MIX")]),',
+      '    to([chain("bus")]),',
     );
     expect(issuesOf(text).join(" ")).toMatch(
       /links only to its parent's subchains/,
@@ -66,32 +68,33 @@ describe("a chain file's subchains", () => {
 
   it("hold no lane, and take no sink's name nor a sibling's", () => {
     const lane = GTR.replace(
-      `      - { id: eq-1, extends: ${AMP} }`,
-      "      - { id: l2, track: bass }",
+      `    id("eq-1").extends(${AMP}),`,
+      '    id("l2").track("bass"),',
     );
     expect(issuesOf(lane).join(" ")).toMatch(/subchain cannot hold one/);
-    const sink = GTR.replace("  - id: wet", "  - id: MIX").replace(
-      "{ chain: wet, level: 0.5 }",
-      "{ chain: OUT, level: 0.5 }",
-    );
+    const sink = GTR.replace(
+      '  id("wet").steps([',
+      '  id("MIX").steps([',
+    ).replace('chain("wet").level(0.5)', 'chain("OUT").level(0.5)');
     expect(issuesOf(sink).join(" ")).toMatch(/built-in end/);
-    const twice = `${GTR}  - id: wet\n    steps:\n      - to: [ { chain: MIX } ]\n`;
+    const twice = GTR.replace(
+      "  ]),\n])\n",
+      '  ]),\n  id("wet").steps([to([chain("MIX")])]),\n])\n',
+    );
     expect(issuesOf(twice).join(" ")).toMatch(/two subchains/);
   });
 
   it("vet a subchain node's module fields like any node's", () => {
     const bad = GTR.replace(
-      `      - { id: eq-1, extends: ${AMP} }`,
-      `      - { id: eq-1, extends: ${AMP}, params: 3 }`,
+      `    id("eq-1").extends(${AMP}),`,
+      `    id("eq-1").extends(${AMP}).params(3),`,
     );
     expect(parseChain(bad).issues[0]?.path).toMatch(/^subchains\.0\.steps\.1/);
   });
 
   it("let an item inside one be edited in place", () => {
-    const out = spliceChainItem(
-      GTR,
-      "eq-1",
-      (t) => `${t}params: { Gain: 2 }\n`,
+    const out = spliceChainItem(GTR, "eq-1", (t) =>
+      t.setIn(["params"], { Gain: 2 }),
     );
     const value = parseChain(out).value;
     const eq = value?.subchains?.[0].steps[1] as { params?: unknown };
@@ -105,28 +108,26 @@ const put = (rel: string, text: string): void => {
   mkdirSync(join(dir, rel, ".."), { recursive: true });
   writeFileSync(join(dir, rel), text, "utf8");
 };
-const chain = (name: string) =>
-  parse(readFileSync(join(dir, "chains", `${name}.yaml`), "utf8"), {
-    version: "1.2",
-  });
+// biome-ignore lint/suspicious/noExplicitAny: the tests reach into the file's data by shape.
+const chain = (name: string): any => wsData(join(dir, "chains", `${name}.k7x`));
 const segments = () =>
   toSegments(readChainProject(dir), readLayout(dir)).graph.modules ?? {};
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "chain-subs-"));
   dir = join(root, "song");
-  put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
-  put("tracks/gtr.yaml", 'extends: "@meta/track"\nevents: []\n');
-  put("tracks/bass.yaml", 'extends: "@meta/track"\nevents: []\n');
-  put("chains/gtr.yaml", GTR);
+  put("project.k7x", 'project({ name: "t", tempo: 120 })\n');
+  put("tracks/gtr.k7x", 'extends("@meta/track")\nevents([])\n');
+  put("tracks/bass.k7x", 'extends("@meta/track")\nevents([])\n');
+  put("chains/gtr.k7x", GTR);
   // A top-level chain with the subchain's name: inside gtr it is shadowed, outside it is the one reached.
   put(
-    "chains/wet.yaml",
-    `steps:\n  - { id: plate-1, extends: ${AMP} }\n  - to: [ { chain: MIX } ]\n`,
+    "chains/wet.k7x",
+    `steps([id("plate-1").extends(${AMP}), to([chain("MIX")])])\n`,
   );
   put(
-    "chains/bass.yaml",
-    "start: true\nsteps:\n  - { id: lane-bass, track: bass }\n  - to: [ { chain: wet } ]\n",
+    "chains/bass.k7x",
+    'start(true)\nsteps([id("lane-bass").track("bass"), to([chain("wet")])])\n',
   );
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -160,8 +161,8 @@ describe("a project with subchains", () => {
         ],
       },
     ]);
-    expect(readFileSync(join(dir, "chains", "gtr.yaml"), "utf8")).toContain(
-      "# the room",
+    expect(readFileSync(join(dir, "chains", "gtr.k7x"), "utf8")).toContain(
+      "// the room",
     );
   });
 

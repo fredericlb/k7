@@ -1,8 +1,9 @@
 // presets.ts — a module's named settings, one FILE each, in a `presets/` tree beside the modules
-// rather than in the module's folder: `<presets>/<ns>/<module path>/<name>.yaml`. The tree's root is
+// rather than in the module's folder: `<presets>/<ns>/<module path>/<name>.k7x`. The tree's root is
 // where it is KEPT (the workspace or a library); the path is which module it is FOR. No node:fs here,
 // so the browser shares the vocabulary. See packages/song/docs/userPresets.md.
 
+import { stringify } from "@studio/k7x/print";
 import { z } from "zod";
 
 /** The workspace's preset tree, beside `_modules/` — the `@workspace` level's spelling. */
@@ -68,33 +69,14 @@ export const PresetFileSchema = z
 
 export type PresetFile = z.infer<typeof PresetFileSchema>;
 
-// A key as YAML, quoted only when it has to be — plugin param names carry spaces, and quoting every one is noise.
-const key = (k: string): string =>
-  /^[A-Za-z0-9_][A-Za-z0-9 _.\-+]*$/.test(k) &&
-  !/ $/.test(k) &&
-  !/^(y|n|yes|no|on|off|true|false|null|~)$/i.test(k)
-    ? k
-    : JSON.stringify(k);
-
-/** A preset as text: one param per line, so changing one value is a one-line diff. */
+/** A preset as k7x text, headed by the module it is for; a rack's pad stays on one line, the way a node's file writes its taps. */
 export function presetFileText(ref: string, preset: PresetFile): string {
-  PresetFileSchema.parse(preset);
-  const lines = [`# preset for ${ref}`];
-  if (preset.engine) lines.push(`engine: ${key(preset.engine)}`);
-  if (preset.base) lines.push(`base: ${key(preset.base)}`);
-  const params = Object.entries(preset.params ?? {});
-  if (params.length) {
-    lines.push("params:");
-    for (const [k, v] of params) lines.push(`  ${key(k)}: ${v}`);
-  }
-  // A kit one pad per line, the way a node's file writes its taps.
-  const taps = Object.entries(preset.rack ?? {});
-  if (taps.length) {
-    lines.push("rack:");
-    for (const [sym, t] of taps)
-      lines.push(
-        `  ${key(sym)}: { note: ${t.note}${t.sample ? `, sample: ${JSON.stringify(t.sample)}` : ""} }`,
-      );
-  }
-  return `${lines.join("\n")}\n`;
+  const { engine, base, params, rack } = PresetFileSchema.parse(preset);
+  return stringify(
+    { engine, base, params, rack },
+    {
+      header: [`preset for ${ref}`],
+      inline: (path) => path.length === 2 && path[0] === "rack",
+    },
+  );
 }

@@ -3,23 +3,21 @@
 // refuses the whole project with `ui.widgets.w2.bind: incomplete value !=""` the moment a widget is retyped
 // to a dropdown. The intent is written beside `options?`.
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModules } from "./loader";
-import { writeNode } from "./testSupport";
+import { writeDoc, writeNode } from "./testSupport";
 
 describe("a widget with no bind", () => {
   let dir: string;
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "td-bind-"));
-    writeFileSync(
-      join(dir, "project.yaml"),
-      "project:\n  name: song\n  tempo: 120\n",
-      "utf8",
-    );
+    writeDoc(join(dir, "project.k7x"), {
+      project: { name: "song", tempo: 120 },
+    });
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 

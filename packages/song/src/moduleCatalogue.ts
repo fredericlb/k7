@@ -29,7 +29,7 @@ export interface CatalogueModule {
   path?: string;
   /** How many nodes sit beside it (`module populate` files one per interface input). */
   nodes: number;
-  /** It already has a `ui.yaml` beside it. */
+  /** It already has a `ui.k7x` beside it. */
   hasUi: boolean;
   /** Its panel grid, when it draws one — what the picker sizes a card by, docs/moduleCatalogue.md. */
   panel?: { cols: number; rows: number };

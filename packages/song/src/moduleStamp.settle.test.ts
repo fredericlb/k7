@@ -19,7 +19,10 @@ import { loadModules, withModuleStamp } from "./loader";
 
 let dir: string;
 
-const modulePath = (name: string): string => join(dir, "nodes", `${name}.yaml`);
+const modulePath = (name: string): string => join(dir, "nodes", `${name}.k7x`);
+
+const INTERNAL = 'plugin({ type: "internal" })\n';
+const withDrive = (drive: number) => `${INTERNAL}params({ Drive: ${drive} })\n`;
 
 /** Write a node, whatever it already said. */
 const module_ = (name: string, body: string): void => {
@@ -27,8 +30,7 @@ const module_ = (name: string, body: string): void => {
   writeFileSync(modulePath(name), body, "utf8");
 };
 
-/** One fixed old instant, so two backdated writes share an mtime — a fresh `Date.now()` each time
- *  would move the stamp and prove nothing about the memo. */
+// One fixed old instant, so two backdated writes share an mtime and the stamp does not move.
 const OLD = new Date(Date.now() - 60_000);
 
 /** Backdate what defines a module past the settle window, so the stamp counts as trustworthy. */
@@ -38,7 +40,7 @@ const settle = (name: string): void => {
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "module-settle-"));
-  writeFileSync(join(dir, "project.yaml"), "project:\n  name: t\n", "utf8");
+  writeFileSync(join(dir, "project.k7x"), 'project({ name: "t" })\n', "utf8");
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -48,32 +50,32 @@ describe("the module memo and a write it could not see", () => {
     // The two writes are given the SAME young mtime, which is what a same-tick rewrite is. Left to
     // the clock this would pass by luck, and a test that depends on luck proves nothing.
     const young = new Date();
-    module_("amp", "plugin: { type: internal }\n");
+    module_("amp", INTERNAL);
     utimesSync(modulePath("amp"), young, young);
     expect(loadModules(dir).amp?.params).toBeUndefined();
 
-    module_("amp", "plugin: { type: internal }\nparams:\n  Drive: 3\n");
+    module_("amp", withDrive(3));
     utimesSync(modulePath("amp"), young, young);
     expect(loadModules(dir).amp?.params).toEqual({ Drive: 3 });
   });
 
   it("caches a module nobody has touched for a while — the point of having a memo", () => {
-    module_("amp", "plugin: { type: internal }\nparams:\n  Drive: 1\n");
+    module_("amp", withDrive(1));
     settle("amp");
     expect(loadModules(dir).amp?.params).toEqual({ Drive: 1 });
     // Changed underneath, with its mtime put back: the stamp is the same, and a memo that is
     // working answers from it. Nothing else proves the walk and the reads were skipped.
-    module_("amp", "plugin: { type: internal }\nparams:\n  Drive: 9\n");
+    module_("amp", withDrive(9));
     settle("amp");
     expect(loadModules(dir).amp?.params).toEqual({ Drive: 1 });
   });
 
   // …and a scope still reads each thing once, which is what stops a compile re-walking after a save.
   it("holds a young read for the derivation that asked, and no longer", () => {
-    module_("amp", "plugin: { type: internal }\n");
+    module_("amp", INTERNAL);
     const inside = withModuleStamp(dir, () => {
       const first = loadModules(dir);
-      module_("delay", "plugin: { type: internal }\n"); // appears mid-derivation
+      module_("delay", INTERNAL); // appears mid-derivation
       return { first, second: loadModules(dir) };
     });
     // One stamp, one read, one answer — the module that appeared is not in either.

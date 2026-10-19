@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,7 +13,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { projectHints } from "./hints";
 import { resolveModuleMap } from "./moduleResolve";
 import { compileNodeProject } from "./nodeProject";
-import { writeNode, writeYaml } from "./testSupport";
+import { writeDoc, writeNode } from "./testSupport";
+import { wsData } from "./yaml/workspaceDoc";
 
 // A node is one USE of a module, filed FLAT in `nodes/`, naming what it uses by `extends` alone.
 
@@ -45,7 +46,7 @@ describe("module nodes", () => {
   });
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
-  it("loads nodes/<name>.yaml keyed by the BARE name", () => {
+  it("loads nodes/<name>.k7x keyed by the BARE name", () => {
     const modules = loadModules(dir);
     const lead = modules.lead;
     expect(lead).toBeTruthy();
@@ -72,7 +73,7 @@ describe("module nodes", () => {
   it("stays a RACK over a rack module — the type is inherited, not defaulted", () => {
     // The node states no type; anything filled in for it here would beat the rack and the
     // node would compile as an empty plugin slot, "missing plugin" and silent.
-    writeYaml(join(ws, "_modules", "instruments", "kit", "module.yaml"), {
+    writeDoc(join(ws, "_modules", "instruments", "kit", "module.k7x"), {
       type: "rack",
       rack: {
         rack_type: "samples",
@@ -94,7 +95,7 @@ describe("module nodes", () => {
     const modules = loadModules(dir);
     const refs = loadModuleRefs(dir, {});
     const resolved = resolveModuleMap(modules, refs);
-    // synth-pad.yaml overrides two params and empties the inherited automation list.
+    // synth-pad.k7x overrides two params and empties the inherited automation list.
     expect(resolved["synth-pad"].params).toEqual({
       "Filter Freq": 40,
       Level: -12,
@@ -156,16 +157,14 @@ describe("module nodes", () => {
   it("offers nodes to the editor, each linked to its own file", () => {
     const h = projectHints(dir);
     expect(h.modules).toContain("lead"); // the use of the shared module
-    expect(h.paths["module:lead"]).toBe("nodes/lead.yaml");
+    expect(h.paths["module:lead"]).toBe("nodes/lead.k7x");
   });
 
   it("scaffolds a new node into nodes/, naming what it uses", () => {
     const rel = createNode(dir, "instruments", "synth", "solo");
-    expect(rel).toBe("nodes/solo.yaml");
+    expect(rel).toBe("nodes/solo.k7x");
     // The relationship is written down exactly once, and this is it.
-    expect(readFileSync(join(dir, rel), "utf8")).toMatch(
-      /^extends: "@workspace\/instruments\/synth"$/m,
-    );
+    expect(wsData(join(dir, rel)).extends).toBe("@workspace/instruments/synth");
     const solo = loadModules(dir).solo;
     expect(solo.node).toBe("solo");
     expect(projectHints(dir).modules).toContain("solo");
@@ -188,7 +187,7 @@ describe("module nodes", () => {
       "synth",
       freeNodeName(dir, "synth"),
     );
-    expect(rel).toBe("nodes/synth_1.yaml");
+    expect(rel).toBe("nodes/synth_1.k7x");
     // …and the next one steps over it rather than colliding.
     expect(freeNodeName(dir, "synth")).toBe("synth_2");
   });
@@ -206,7 +205,7 @@ describe("module nodes", () => {
     // A node named after the module it uses is what an import writes, the source DAW having
     // called the track after its instrument — see docs/trackModules.md.
     expect(createNode(dir, "instruments", "synth", "synth")).toBe(
-      "nodes/synth.yaml",
+      "nodes/synth.k7x",
     );
     const mods = loadModules(dir, true);
     // The bare name is the NODE's, and the module is where it always was: behind its ref.
@@ -219,29 +218,22 @@ describe("module nodes", () => {
   // --- io: made directly as a NODE now, never a module folder (docs/moduleTypes.md) ---
   it("makes an io node directly in nodes/, bare in the graph", () => {
     const rel = createNode(dir, "io", "IN", "IN");
-    expect(rel).toBe("nodes/IN.yaml");
+    expect(rel).toBe("nodes/IN.k7x");
     expect(existsSync(join(dir, "modules", "io", "IN"))).toBe(false);
     // The role is what the loader reads, and what makes the graph treat it as a SOURCE.
-    const body = readFileSync(join(dir, rel), "utf8");
-    expect(body).toMatch(/^io: in$/m);
+    expect(wsData(join(dir, rel)).io).toBe("in");
     expect(loadModules(dir).IN).toMatchObject({ io: "in", kind: "io" });
   });
 
   it("scaffolds each source with its own role, and a second input keeps the first", () => {
     createNode(dir, "io", "IN", "IN");
     // A second input is another io node with the same role, under its own name.
-    expect(createNode(dir, "io", "IN", "IN2")).toBe("nodes/IN2.yaml");
-    expect(readFileSync(join(dir, "nodes", "IN2.yaml"), "utf8")).toMatch(
-      /^io: in$/m,
-    );
-    expect(createNode(dir, "io", "CAM", "CAM2")).toBe("nodes/CAM2.yaml");
-    expect(readFileSync(join(dir, "nodes", "CAM2.yaml"), "utf8")).toMatch(
-      /^io: camera$/m,
-    );
-    expect(createNode(dir, "io", "FILE", "tape")).toBe("nodes/tape.yaml");
-    expect(readFileSync(join(dir, "nodes", "tape.yaml"), "utf8")).toMatch(
-      /^io: file$/m,
-    );
+    expect(createNode(dir, "io", "IN", "IN2")).toBe("nodes/IN2.k7x");
+    expect(wsData(join(dir, "nodes", "IN2.k7x")).io).toBe("in");
+    expect(createNode(dir, "io", "CAM", "CAM2")).toBe("nodes/CAM2.k7x");
+    expect(wsData(join(dir, "nodes", "CAM2.k7x")).io).toBe("camera");
+    expect(createNode(dir, "io", "FILE", "tape")).toBe("nodes/tape.k7x");
+    expect(wsData(join(dir, "nodes", "tape.k7x")).io).toBe("file");
     // …and the first input is untouched by any of it.
     expect(loadModules(dir).IN).toMatchObject({ io: "in" });
   });
@@ -270,7 +262,7 @@ describe("module nodes", () => {
     const knob = (col: number, row: number, label: string) => ({
       a: { type: "knob", col, row, bind: "Level", label },
     });
-    writeYaml(join(ws, "_modules", "instruments", "synth", "module.yaml"), {
+    writeDoc(join(ws, "_modules", "instruments", "synth", "module.k7x"), {
       extends: "@engine/4osc",
       ui: { cols: 1, rows: 1, widgets: knob(0, 0, "SHARED") },
     });

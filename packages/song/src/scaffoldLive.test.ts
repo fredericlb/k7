@@ -7,9 +7,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
-  readFileSync,
   rmSync,
-  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
@@ -23,7 +21,6 @@ import {
   LIVE_FADER,
   LIVE_INPUT,
   LIVE_RECORDER,
-  LIVE_RECORDER_REF,
   liveProjectFiles,
   liveVideoProjectFiles,
   SHARED_STRIP,
@@ -37,7 +34,8 @@ import {
   projectSurfaces,
   surfaceIssues,
 } from "./surfaces";
-import { librariesFixture } from "./testSupport";
+import { librariesFixture, setDoc, writeDoc } from "./testSupport";
+import { wsData } from "./yaml/workspaceDoc";
 
 /** Every file under `dir`, project-relative and slash-separated. */
 function tree(dir: string): string[] {
@@ -65,13 +63,10 @@ const made = (write: (dir: string, name: string) => unknown): string => {
   for (const [name, plugin] of [
     ["mixer", MIXER_PLUGIN],
     ["recorder", RECORDER_PLUGIN],
-  ] as const) {
-    mkdirSync(join(lib, name), { recursive: true });
-    writeFileSync(
-      join(lib, name, "module.yaml"),
-      `plugin:\n  type: internal\n  name: ${plugin}\n`,
-    );
-  }
+  ] as const)
+    writeDoc(join(lib, name, "module.k7x"), {
+      plugin: { type: "internal", name: plugin },
+    });
   const dir = join(ws, "rig.k7");
   mkdirSync(dir);
   write(dir, "rig");
@@ -100,13 +95,16 @@ const on = (f: (dir: string) => void): void =>
 const onVideo = (f: (dir: string) => void): void =>
   onShape((d, n) => writeProjectFiles(d, liveVideoProjectFiles(n)), f);
 
-/** The keys of `graph.yaml`'s `modules:` map, in file order. */
-const graphKeys = (dir: string): string[] =>
-  readFileSync(join(dir, "graph.yaml"), "utf8")
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => !l.startsWith("#") && l.includes(": ["))
-    .map((l) => l.slice(0, l.indexOf(":")));
+/** `graph.k7x`'s `modules` map. */
+const graphModules = (dir: string): Record<string, string[]> =>
+  wsData(join(dir, "graph.k7x")).modules as Record<string, string[]>;
+
+/** The keys of that map, in file order. */
+const graphKeys = (dir: string): string[] => Object.keys(graphModules(dir));
+
+/** Give the input node `channel`, as the project's own picker writes it. */
+const pickChannel = (dir: string, channel: number[]): void =>
+  setDoc(join(dir, "nodes", `${LIVE_INPUT}.k7x`), ["channel"], channel);
 
 describe("what it writes", () => {
   it("declares NO surface at all — which is the whole of what makes it this shape", () =>
@@ -129,7 +127,7 @@ describe("what it writes", () => {
     on((dir) => {
       expect(
         tree(dir)
-          .filter((p) => p.endsWith(".yaml"))
+          .filter((p) => p.endsWith(".k7x"))
           .sort(),
       ).toEqual(Object.keys(liveProjectFiles("rig")).sort());
     }));
@@ -144,13 +142,13 @@ describe("the graph it writes", () => {
         "MIX",
         LIVE_RECORDER,
       ]);
-      const text = readFileSync(join(dir, "graph.yaml"), "utf8");
+      const modules = graphModules(dir);
       // The fader lands on the SUM, not on the interface: the two compile the same, and only
       // this one draws where the signal goes. See docs/liveProject.md.
-      expect(text).toContain(`${LIVE_FADER}: [ MIX ]`);
+      expect(modules[LIVE_FADER]).toEqual(["MIX"]);
       // …and the recorder sits ON the master run, so a take is the whole mix.
-      expect(text).toContain(`MIX: [ ${LIVE_RECORDER} ]`);
-      expect(text).toContain(`${LIVE_RECORDER}: [ OUT ]`);
+      expect(modules.MIX).toEqual([LIVE_RECORDER]);
+      expect(modules[LIVE_RECORDER]).toEqual(["OUT"]);
     }));
 
   it("authors NO track file — its nodes are the input, the fader and the recorder", () =>
@@ -161,20 +159,17 @@ describe("the graph it writes", () => {
           .sort(),
       ).toEqual(
         [
-          `nodes/${LIVE_INPUT}.yaml`,
-          `nodes/${LIVE_FADER}.yaml`,
-          `nodes/${LIVE_RECORDER}.yaml`,
+          `nodes/${LIVE_INPUT}.k7x`,
+          `nodes/${LIVE_FADER}.k7x`,
+          `nodes/${LIVE_RECORDER}.k7x`,
         ].sort(),
       );
     }));
 
   it("borrows the SHARED strip, which is what carries the face", () =>
     on((dir) => {
-      const node = readFileSync(
-        join(dir, "nodes", `${LIVE_FADER}.yaml`),
-        "utf8",
-      );
-      expect(node).toContain(`extends: "${SHARED_STRIP}"`);
+      const node = wsData(join(dir, "nodes", `${LIVE_FADER}.k7x`));
+      expect(node.extends).toBe(SHARED_STRIP);
     }));
 
   it("declares that borrowing, so an empty library is said at CREATION", () => {
@@ -190,7 +185,7 @@ describe("and it PLAYS", () => {
   it("says exactly one thing, and it is the CHOICE only you can make", () =>
     on((dir) => {
       // No default input: which socket you are plugged into is a fact about the rig, so the
-      // scaffold leaves `channel:` out and the project asks for it. Nothing ELSE warns —
+      // scaffold leaves `channel` out and the project asks for it. Nothing ELSE warns —
       // a fresh project complaining about its own wiring would be the scaffold's fault.
       expect(validate(loadGraph(dir))).toEqual([
         "input 'IN': no channel — it feeds nothing",
@@ -199,8 +194,7 @@ describe("and it PLAYS", () => {
 
   it("says nothing at all once a channel is chosen", () =>
     on((dir) => {
-      const io = join(dir, "nodes", `${LIVE_INPUT}.yaml`);
-      writeFileSync(io, `${readFileSync(io, "utf8")}channel: [1]\n`);
+      pickChannel(dir, [1]);
       expect(validate(loadGraph(dir))).toEqual([]);
     }));
 
@@ -252,8 +246,7 @@ describe("and it PLAYS", () => {
 
   it("carries the chosen channel onto that track", () =>
     on((dir) => {
-      const io = join(dir, "nodes", `${LIVE_INPUT}.yaml`);
-      writeFileSync(io, `${readFileSync(io, "utf8")}channel: [1, 2]\n`);
+      pickChannel(dir, [1, 2]);
       expect(compileNodeProject(dir).tracks[0].inputChannels).toEqual([1, 2]);
     }));
 });
@@ -265,8 +258,8 @@ describe("the live-video archetype", () => {
     const audio = Object.keys(liveProjectFiles("rig"));
     const both = Object.keys(liveVideoProjectFiles("rig"));
     expect(both.filter((f) => !audio.includes(f)).sort()).toEqual([
-      `nodes/${LIVE_CAMERA}.yaml`,
-      "surfaces/viewport.yaml",
+      `nodes/${LIVE_CAMERA}.k7x`,
+      "surfaces/viewport.k7x",
     ]);
   });
 
@@ -277,10 +270,10 @@ describe("the live-video archetype", () => {
         expect(t).not.toContain(gone);
       expect(t.filter((f) => f.startsWith("nodes/")).sort()).toEqual(
         [
-          `nodes/${LIVE_INPUT}.yaml`,
-          `nodes/${LIVE_FADER}.yaml`,
-          `nodes/${LIVE_RECORDER}.yaml`,
-          `nodes/${LIVE_CAMERA}.yaml`,
+          `nodes/${LIVE_INPUT}.k7x`,
+          `nodes/${LIVE_FADER}.k7x`,
+          `nodes/${LIVE_RECORDER}.k7x`,
+          `nodes/${LIVE_CAMERA}.k7x`,
         ].sort(),
       );
     }));
@@ -337,7 +330,7 @@ describe("born as chain files", () => {
     onShape(scaffoldLive, (dir) => {
       const t = tree(dir);
       expect(t).toContain("chains");
-      expect(t).not.toContain("graph.yaml");
+      expect(t).not.toContain("graph.k7x");
       expect(t).not.toContain("nodes");
     }));
 

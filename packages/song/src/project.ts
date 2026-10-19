@@ -23,7 +23,6 @@ import type {
 import { parsePosition } from "@studio/song-schema/timecode";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
-import { parse as parseYaml } from "yaml";
 import type { AutoFreeze } from "./autoFreeze";
 import { isChainProject } from "./chainProject";
 import { confineToProject } from "./confine";
@@ -31,7 +30,8 @@ import { assembleFolder, isFolderProject } from "./folder";
 import { exportSub, readsAsPicture } from "./loader";
 import { compileWithAutoFreezes } from "./nodeProject";
 import type { AssembledClip, AssembledDoc } from "./rawDoc";
-import { isDocName, wsExists, wsRead, yamlRetired } from "./yaml/workspaceFile";
+import { wsData } from "./yaml/workspaceDoc";
+import { isDocName, wsExists } from "./yaml/workspaceFile";
 
 export type * from "@studio/engine-protocol/project";
 
@@ -53,7 +53,7 @@ export function parseMarkers(raw: unknown, num: number, den: number): Marker[] {
   return out;
 }
 
-/** Bars of count-in a project gets when settings.yaml doesn't say. See parseSettings. */
+/** Bars of count-in a project gets when settings.k7x does not say. See parseSettings. */
 export const DEFAULT_COUNT_IN = 1;
 /** The click's default and floor live on the WIRE side; imported as well as re-exported, as MIXER_PLUGIN below. */
 export {
@@ -66,7 +66,7 @@ import {
   METRONOME_MIN,
 } from "@studio/engine-protocol/build";
 
-// Read settings.yaml, defaulting each field so a partial file never fails the load (`count_in` is the on-disk name).
+// Read settings.k7x, defaulting each field so a partial file never fails the load (`count_in` is the on-disk name).
 export function parseSettings(raw: unknown): SettingsDoc {
   const s = (raw && typeof raw === "object" ? raw : {}) as Record<
     string,
@@ -119,22 +119,18 @@ function readSource(sourcePath: string): AssembledDoc {
       `'${basename(sourcePath)}' is a foreign project file, not a song file. ` +
         `Import it first (click it in the file tree), then open the folder it produces.`,
     );
-  if (isDocName(sourcePath)) return readYamlSong(sourcePath);
+  if (isDocName(sourcePath)) return readSongFile(sourcePath);
   throw new Error(
-    `unsupported song '${basename(sourcePath)}' — use a ${yamlRetired() ? ".k7x" : ".k7x or .yaml"} file or a folder project`,
+    `unsupported song '${basename(sourcePath)}' — use a .k7x file or a folder project`,
   );
 }
 
-// Read a single-file song: one YAML document holding `project` and `tracks`.
-function readYamlSong(path: string): AssembledDoc {
-  const abs = resolve(path);
-  const value = parseYaml(wsRead(abs), YAML_READ);
-  if (!value || typeof value !== "object")
-    throw new Error(`${basename(abs)} is not a song — expected a mapping`);
-  return value as AssembledDoc;
+// Read a single-file song: one k7x document holding `project` and `tracks`.
+function readSongFile(path: string): AssembledDoc {
+  return wsData(resolve(path)) as AssembledDoc;
 }
 
-// Load a .yaml song or a folder into one ProjectDoc, throwing precisely: messages are UX in a text-first tool.
+// Load a .k7x song or a folder into one ProjectDoc, throwing precisely: messages are UX in a text-first tool.
 export function loadProject(sourcePath: string): ProjectDoc {
   return loadProjectWithFreezes(sourcePath).doc;
 }
@@ -147,7 +143,7 @@ export function loadProjectWithFreezes(sourcePath: string): {
   const abs = resolve(sourcePath);
   if (isFolderProject(abs)) {
     const dir = statSync(abs).isDirectory() ? abs : dirname(abs);
-    // A node project (graph.yaml / modules/) is the graph model — compile it down (nodeProject.ts).
+    // A node project (graph.k7x / modules/) is the graph model — compile it down (nodeProject.ts).
     const { doc, freezes } =
       wsExists(join(dir, GRAPH_FILE)) ||
       wsExists(join(dir, "modules")) ||
@@ -342,7 +338,6 @@ export function loadAudioClipDoc(
 
 // Imported as well as re-exported: `export … from` publishes a name without BINDING it, and trackMixer reads it.
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
-import { YAML_READ } from "@studio/song-schema/yaml/yamlText";
 
 export {
   MIXER_PARAMS,

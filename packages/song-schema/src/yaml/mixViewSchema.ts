@@ -1,4 +1,4 @@
-// mixViewSchema.ts — `views/mix.yaml`'s shape, in Zod: which control of an app's panel drives
+// mixViewSchema.ts — `views/mix.k7x`'s shape, in Zod: which control of an app's panel drives
 // which module param. Keyed by the CONTROL, because the file is about a desk.
 // Full rationale: docs/viewBindings.md.
 

@@ -30,7 +30,7 @@ const REF = "@workspace/instruments/synth";
 
 describe("parseController", () => {
   it("reads a hand-authored map", () => {
-    expect(parseController("Cutoff: { ch: 1, cc: 74 }\n").value).toEqual({
+    expect(parseController("Cutoff({ ch: 1, cc: 74 })\n").value).toEqual({
       Cutoff: { ch: 1, cc: 74 },
     });
   });
@@ -41,19 +41,19 @@ describe("parseController", () => {
 
   it("refuses a channel outside 1-16 and a cc outside 0-127", () => {
     // 1-based as a musician counts them: channel 0 is a typo for 1, not the wire's channel 1.
-    expect(parseController("Cutoff: { ch: 0, cc: 74 }\n").value).toBeNull();
-    expect(parseController("Cutoff: { ch: 17, cc: 74 }\n").value).toBeNull();
-    expect(parseController("Cutoff: { ch: 1, cc: 128 }\n").value).toBeNull();
+    expect(parseController("Cutoff({ ch: 0, cc: 74 })\n").value).toBeNull();
+    expect(parseController("Cutoff({ ch: 17, cc: 74 })\n").value).toBeNull();
+    expect(parseController("Cutoff({ ch: 1, cc: 128 })\n").value).toBeNull();
   });
 
   it("names what is wrong instead of throwing", () => {
-    const bad = parseController("Cutoff: { ch: 1, cc: 999 }\n");
+    const bad = parseController("Cutoff({ ch: 1, cc: 999 })\n");
     expect(bad.value).toBeNull();
     expect(bad.issue).toMatch(/Cutoff\.cc/);
   });
 
   it("refuses a binding missing its channel — half a binding plays nothing", () => {
-    expect(parseController("Cutoff: { cc: 74 }\n").value).toBeNull();
+    expect(parseController("Cutoff({ cc: 74 })\n").value).toBeNull();
   });
 });
 
@@ -77,7 +77,7 @@ describe("a module's MIDI map (synth-demo)", () => {
   it("binds, reads back, and unbinds", () => {
     const rel = setCcBinding(dir, REF, "Filter Freq", { ch: 1, cc: 74 });
     expect(rel).toBe(
-      join("..", "_modules", "instruments", "synth", "controller.yaml"),
+      join("..", "_modules", "instruments", "synth", "controller.k7x"),
     );
     expect(readModuleController(dir, REF)).toEqual({
       "Filter Freq": { ch: 1, cc: 74 },
@@ -109,14 +109,15 @@ describe("a module's MIDI map (synth-demo)", () => {
     setCcBinding(dir, REF, "Filter Freq", { ch: 1, cc: 74 });
     setCcBinding(dir, REF, "Resonance", { ch: 1, cc: 71 });
     const lines = mapText().trim().split("\n");
-    expect(lines[0]).toMatch(/^# MIDI map for @workspace\/instruments\/synth/);
-    // A space needs no quotes as a YAML key, and quoting would add noise to every line.
-    expect(lines[1]).toBe("Filter Freq: { ch: 1, cc: 74 }");
-    expect(lines[2]).toBe("Resonance: { ch: 1, cc: 71 }");
+    expect(lines[0]).toMatch(
+      /^\/\/ MIDI map for @workspace\/instruments\/synth/,
+    );
+    expect(lines[1]).toBe('"Filter Freq"({ ch: 1, cc: 74 })');
+    expect(lines[2]).toBe("Resonance({ ch: 1, cc: 71 })");
   });
 
   it("is not read as a node of the module it sits beside", () => {
-    // Every other `<name>.yaml` is a USE, so an unguarded map reads as "synth:controller".
+    // Every other `<name>.k7x` is a USE, so an unguarded map reads as "synth:controller".
     setCcBinding(dir, REF, "Filter Freq", { ch: 1, cc: 74 });
     expect(Object.keys(loadModules(dir))).not.toContain("synth:controller");
   });
@@ -136,10 +137,10 @@ describe("a module's MIDI map (synth-demo)", () => {
 
   it("ignores a map the schema refuses rather than losing the module", () => {
     const path = moduleControllerFile(dir, REF) as string;
-    writeFileSync(path, "Filter Freq: { ch: 99, cc: 74 }\n", "utf8");
+    writeFileSync(path, '"Filter Freq"({ ch: 99, cc: 74 })\n', "utf8");
     const lib = loadControllerLibrary(dir);
     expect(lib.byRef[REF]).toBeUndefined();
-    expect(lib.issues.join(" ")).toMatch(/controller\.yaml/);
+    expect(lib.issues.join(" ")).toMatch(/controller\.k7x/);
     // …and the module still loads, with no map.
     const refs = loadModuleRefs(dir, {}) as Record<string, { cc?: unknown }>;
     expect(refs[REF]).toBeTruthy();
@@ -153,7 +154,7 @@ describe("a module's MIDI map (synth-demo)", () => {
     });
     expect(ref).toBe(REF);
     expect(rel).toBe(
-      join("..", "_modules", "instruments", "synth", "controller.yaml"),
+      join("..", "_modules", "instruments", "synth", "controller.k7x"),
     );
     expect(readModuleController(dir, REF)["Filter Freq"]).toEqual({
       ch: 3,

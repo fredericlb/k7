@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readYamlEntities } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 import { loadAudioClipDoc } from "./project";
-import { copyAsYaml, writeYaml } from "./testSupport";
+import { writeDoc } from "./testSupport";
 
 // `from`/`to` window the SOURCE FILE at two levels, and the effective pair is the most restrictive.
 
@@ -16,12 +16,12 @@ const SONG = join(here, "..", "..", "..", "demos", "node-demo.k7");
 
 let dir: string;
 const clip = (body: Record<string, unknown>) =>
-  writeYaml(join(dir, "clips", "kick.yaml"), body);
-// The kick's PLACEMENT, with extra fields spliced into its flow entry — the event's own window.
+  writeDoc(join(dir, "clips", "kick.k7x"), body);
+// The kick's PLACEMENT, with extra calls chained onto its event — the event's own window.
 const place = (fields: string) =>
   writeFileSync(
-    join(dir, "nodes", "drums.yaml"),
-    `extends: "@meta/track"\nevents:\n  - { ref: kick, start: "1:1:1"${fields} }\n  - { ref: snare, start: "2:1:1" }\n`,
+    join(dir, "nodes", "drums.k7x"),
+    `extends("@meta/track")\nevents([ref("kick").start("1:1:1")${fields}, ref("snare").start("2:1:1")])\n`,
     "utf8",
   );
 const kick = () =>
@@ -31,7 +31,7 @@ const kick = () =>
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-cwin-"));
-  copyAsYaml(SONG, dir, { recursive: true });
+  cpSync(SONG, dir, { recursive: true });
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -91,7 +91,7 @@ describe("a clip's window into its source", () => {
 describe("the EVENT's own window, on the placement", () => {
   it("windows the placement when the clip states none", () => {
     clip({ source: "clips/kick.wav" });
-    place(", from: 0.25, to: 1.5");
+    place(".from(0.25).to(1.5)");
     expect(kick()).toMatchObject({ sourceFrom: 0.25, sourceTo: 1.5 });
     // …and gives the event its extent: 1.25 s is 2.5 beats at 120bpm.
     expect(kick()!.length).toBeCloseTo(2.5, 6);
@@ -100,30 +100,30 @@ describe("the EVENT's own window, on the placement", () => {
   it("intersects with the clip's — the most restrictive edge wins", () => {
     // Clip 0.5 → 1.25; event 0.25 → 1.5 asks for more on both sides and gets none of it.
     clip({ source: "clips/kick.wav", from: 0.5, to: 1.25 });
-    place(", from: 0.25, to: 1.5");
+    place(".from(0.25).to(1.5)");
     expect(kick()).toMatchObject({ sourceFrom: 0.5, sourceTo: 1.25 });
     // The other way round, the event is the narrow one and wins both edges.
     clip({ source: "clips/kick.wav", from: 0.25, to: 1.5 });
-    place(", from: 0.5, to: 1.25");
+    place(".from(0.5).to(1.25)");
     expect(kick()).toMatchObject({ sourceFrom: 0.5, sourceTo: 1.25 });
   });
 
   it("narrows ONE edge while the clip keeps the other", () => {
     clip({ source: "clips/kick.wav", from: 0.25, to: 1.5 });
-    place(", to: 1");
+    place(".to(1)");
     expect(kick()).toMatchObject({ sourceFrom: 0.25, sourceTo: 1 });
   });
 
   it("reads a timecode edge like the clip's own", () => {
     clip({ source: "clips/kick.wav" });
-    place(', from: "2:1"'); // bar 2 beat 1 of the file = 2 s at 120bpm 4/4
+    place('.from("2:1")'); // bar 2 beat 1 of the file = 2 s at 120bpm 4/4
     expect(kick()!.sourceFrom).toBeCloseTo(2, 6);
   });
 
   it("does not reach the OTHER placements of the clip", () => {
     // An event's window is that event's alone: the material file still says nothing.
     clip({ source: "clips/kick.wav" });
-    place(", from: 0.25");
+    place(".from(0.25)");
     const snare = compileNodeProject(dir)
       .tracks.flatMap((t) => t.clips)
       .find((c) => c.name === "snare")!;
@@ -211,7 +211,7 @@ describe("a window that cannot be played", () => {
   it("is reported against its own file when the project is read", () => {
     clip({ source: "clips/kick.wav", from: 2, to: 1 });
     expect(readYamlEntities(dir, "clips").issues).toEqual([
-      "clips/kick.yaml: to: 'to' must be greater than 'from'",
+      "clips/kick.k7x: to: 'to' must be greater than 'from'",
     ]);
   });
 
@@ -225,7 +225,7 @@ describe("a window that cannot be played", () => {
       msg = (e as Error).message;
     }
     expect(msg).toContain("failed to load");
-    expect(msg).toContain("clips/kick.yaml"); // the file to open
+    expect(msg).toContain("clips/kick.k7x"); // the file to open
     expect(msg).not.toContain("not found"); // the lie to avoid
   });
 });
@@ -233,12 +233,12 @@ describe("a window that cannot be played", () => {
 describe("a sequence that fails its schema", () => {
   /** The same rule as a clip's: a rejected sequence is reported with its own complaint, not as a missing ref. */
   it("does not masquerade as a missing sequence", () => {
-    writeYaml(join(dir, "sequences", "riff.yaml"), {
+    writeDoc(join(dir, "sequences", "riff.k7x"), {
       notes: [{ t: 0, d: 1, k: 60, v: 100 }],
     });
     writeFileSync(
-      join(dir, "nodes", "drums.yaml"),
-      `extends: "@meta/track"\nevents:\n  - { ref: riff, start: "1:1:1" }\n`,
+      join(dir, "nodes", "drums.k7x"),
+      `extends("@meta/track")\nevents([ref("riff").start("1:1:1")])\n`,
       "utf8",
     );
     let msg = "";
@@ -248,7 +248,7 @@ describe("a sequence that fails its schema", () => {
       msg = (e as Error).message;
     }
     expect(msg).toContain("sequence 'riff' failed to load");
-    expect(msg).toContain("sequences/riff.yaml");
+    expect(msg).toContain("sequences/riff.k7x");
     expect(msg).not.toContain("not found");
   });
 });

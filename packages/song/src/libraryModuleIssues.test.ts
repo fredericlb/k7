@@ -4,20 +4,14 @@
 // module" about a file plainly on disk, a catalogue one row short, a song going quiet — none of
 // which names the file that is actually wrong. These pin the diagnostic instead.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { libraryModuleIssues, loadModuleRefs } from "./loader";
 import { compileNodeProject } from "./nodeProject";
-import { copyAsYaml } from "./testSupport";
+import { writeDoc, writeNode } from "./testSupport";
 
 const DEMOS = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -32,25 +26,20 @@ let ws: string;
 let dir: string;
 
 /** A module in the workspace's shared `_modules`. */
-function sharedModule(rel: string, body: string): void {
-  const at = join(ws, "_modules", rel);
-  mkdirSync(at, { recursive: true });
-  writeFileSync(join(at, "module.yaml"), body, "utf8");
+function sharedModule(rel: string, body: Record<string, unknown>): void {
+  writeDoc(join(ws, "_modules", rel, "module.k7x"), body);
 }
 
-const GOOD = "plugin:\n  type: internal\n  name: 4osc\n";
+const GOOD = { plugin: { type: "internal", name: "4osc" } };
 // `jsdsp:` as a KEY is the real one: the field belongs to the plugin type, so a module spelling it here fails.
-const BAD = "plugin:\n  type: internal\n  name: 4osc\njsdsp: auto-wah.ts\n";
+const BAD = { ...GOOD, jsdsp: "auto-wah.ts" };
 
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-libissue-"));
   dir = join(ws, "song");
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: song\n  tempo: 120\n  modules_from:\n    - ../_modules\n",
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), {
+    project: { name: "song", tempo: 120 },
+  });
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
@@ -60,7 +49,7 @@ describe("a library module that will not read", () => {
     const [issue, ...rest] = libraryModuleIssues(dir);
     expect(rest).toEqual([]);
     // The REF, not a path: the file is outside the project, so a relative path points at nothing.
-    expect(issue.file).toBe("@workspace/audio/broken/module.yaml");
+    expect(issue.file).toBe("@workspace/audio/broken/module.k7x");
     expect(issue.severity).toBe("warning");
     expect(issue.message).toContain("did not load");
     expect(issue.message).toContain("jsdsp"); // the file's OWN complaint, not a paraphrase
@@ -95,26 +84,11 @@ describe("…and when a module DOES name it", () => {
   it("says the ref failed to load, rather than that it is unknown", () => {
     // "unknown module" sends you looking for a file that is there with wrong CONTENT.
     const song = join(ws, "demo");
-    copyAsYaml(SONG, song, { recursive: true });
+    cpSync(SONG, song, { recursive: true });
     // The Examples workspace's own shared library, beside every demo project.
-    copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
-      recursive: true,
-    });
-    writeFileSync(
-      join(song, "project.yaml"),
-      // Filled rather than added: a second key would fail to parse for an unrelated reason.
-      readFileSync(join(song, "project.yaml"), "utf8").replace(
-        /^(\s*)modules_from:.*$/m,
-        "$1modules_from: [ ../_modules ]",
-      ),
-      "utf8",
-    );
+    cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
     sharedModule("audio/broken", BAD);
-    writeFileSync(
-      join(song, "nodes", "lead.yaml"),
-      'extends: "@workspace/audio/broken"\n',
-      "utf8",
-    );
+    writeNode(song, "lead", { extends: "@workspace/audio/broken" });
 
     let message = "";
     try {

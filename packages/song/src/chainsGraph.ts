@@ -1,4 +1,4 @@
-// chainsGraph.ts — graph.yaml declares SEGMENTS (who feeds whom); this derives the
+// chainsGraph.ts — graph.k7x declares SEGMENTS (who feeds whom); this derives the
 // chains from them. A chain is a maximal linear run: it breaks where the signal splits
 // and where two signals meet. Full rationale: docs/graphFile.md.
 
@@ -34,15 +34,15 @@ export function deriveChains(
 ): Record<string, Chain> {
   if (raw == null) return {};
   // The chain-list format, named precisely: a file in it needs rewriting, not a schema error.
-  if (Array.isArray(raw) || Array.isArray((raw as { chains?: unknown }).chains))
+  if (Array.isArray((raw as { chains?: unknown }).chains))
     throw new Error(
-      "graph.yaml: `chains:` is a chain LIST, which is not read — a graph holds " +
+      "graph.k7x: `chains:` is a chain LIST, which is not read — a graph holds " +
         "`modules:` segments, who feeds whom (packages/song/docs/graphFile.md)",
     );
   const parsed = GraphFileSchema.safeParse(raw);
   if (!parsed.success)
     throw new Error(
-      `graph.yaml: ${parsed.error.issues.map((i) => `${i.path.map(String).join(".") || "(root)"}: ${i.message}`).join("; ")}`,
+      `graph.k7x: ${parsed.error.issues.map((i) => `${i.path.map(String).join(".") || "(root)"}: ${i.message}`).join("; ")}`,
     );
   return chainsOf(parsed.data, isLane);
 }
