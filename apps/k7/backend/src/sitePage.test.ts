@@ -16,12 +16,18 @@ function run(hostname: string, path: string, method = "GET") {
 }
 
 describe("siteHostsFromEnv", () => {
-  it("reads a comma or space list, and nothing when unset", () => {
-    expect([...siteHostsFromEnv("K7.rocks www.k7.rocks,")]).toEqual([
+  it("reads a comma or space list", () => {
+    expect([...siteHostsFromEnv("K7.rocks,example.org ")]).toEqual([
+      "k7.rocks",
+      "example.org",
+    ]);
+  });
+
+  it("is k7.rocks and www. when unset, so no deployment has to set it", () => {
+    expect([...siteHostsFromEnv(undefined)]).toEqual([
       "k7.rocks",
       "www.k7.rocks",
     ]);
-    expect(siteHostsFromEnv(undefined).size).toBe(0);
   });
 });
 
