@@ -283,6 +283,12 @@ shown, and a page switch to the app already shown loads nothing. When Android ki
 while the browser was in front, the answer is the intent that launches the next one, and it is the
 view's first load.
 
+**The app is held in front while the browser signs in** (`AuthService.kt`, a `shortService`). The
+backend trades the provider's code while the browser is in front, and Android 15 cuts a backgrounded
+app off the network, its DNS included: without the hold the sign-in fails with `ENOTFOUND` on the
+provider's host. It is released when the app is back in front, answered or not, and Android ends a
+short service on its own after a few minutes.
+
 ## Pairing with the origin, as the desktop does
 
 The phone runs the desktop's backend and hub, so it is a live-sync replica the same way
@@ -339,6 +345,10 @@ whole shape:
   `stopDispatchLoop()` would instead finish the app's Activity.
 - **Once per process.** After the quit, JUCE is still bound to a Looper that cannot loop again, so an
   engine is restarted by a new process. `MainActivity` exits the process when it finishes.
+  So a start must not fail: the supervisor hands the app a port it has just BOUND itself, the first
+  free one of the usual ten (another app's engine — k7 and k7 e2e side by side — holds 8765), and a
+  connect cannot stand in for that test, since another app's listener refuses this one's loopback.
+  It adopts a running engine only when this same app process started it, on the port it recorded.
 
 Teardown after the quit posts a few messages to the dead Looper; Android logs "sending message to a
 Handler on a dead thread" and drops them. That is the same as a desktop message posted after its
@@ -449,6 +459,16 @@ and fails when `stdfaust.lib` is not there, as the desktop staging does. The app
 its files once per install, marking the copy done only once every file is written, and names the
 folder in `STUDIO_FAUST_LIBS`, which `faustLibrariesDir()` reads before looking beside an executable
 this platform does not have.
+
+## On a Windows machine
+
+The APK builds on Windows too, for a phone on the desk without a round trip through CI: NDK
+`29.0.14206865` from the SDK manager, Android Studio's JDK 21 as `JAVA_HOME` (Gradle refuses a
+newer one), and Gradle run from a Visual Studio developer prompt (`vcvars64`) — JUCE builds its
+`juceaide` for the HOST while cross-compiling, and under Ninja that needs `cl.exe` on the path. A
+local build is signed with the debug key, so it installs as the `e2e` type beside the shipped app,
+not over it: `gradlew :app:assembleE2e`. The scripts it runs keep to `/` in what they write, and
+copy a Termux package's symlinks, which Windows' tar cannot create.
 
 ## In CI
 

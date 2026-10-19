@@ -9,6 +9,9 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// npm is a .cmd on Windows, which an Exec task does not resolve from the bare name.
+val npm = if (System.getProperty("os.name").startsWith("Windows")) "npm.cmd" else "npm"
+
 // The table the desktop app starts its backend with too (apps/k7/backend/docs/standalone.md): its port is a constant here.
 val standalone = groovy.json.JsonSlurper().parse(rootDir.resolve("../../apps/k7/backend/standalone.json")) as Map<*, *>
 
@@ -185,7 +188,7 @@ val buildShell by tasks.registering(Exec::class) {
     workingDir = webDir
     inputs.files(fileTree(webDir.resolve("src")), webDir.resolve("index.html"), webDir.resolve("vite.config.ts"), webDir.resolve("package.json"))
     outputs.dir(webDir.resolve("dist"))
-    commandLine("npm", "run", "build")
+    commandLine(npm, "run", "build")
 }
 
 val stageShell by tasks.registering(Sync::class) {
@@ -224,7 +227,7 @@ val repoDir = rootDir.resolve("../..")
 // The frontend the backend serves, as the desktop app's staging builds it.
 val buildFrontend by tasks.registering(Exec::class) {
     workingDir = repoDir
-    commandLine("npm", "exec", "--workspace", "k7-frontend", "--", "vite", "build")
+    commandLine(npm, "exec", "--workspace", "k7-frontend", "--", "vite", "build")
 }
 
 val backendTree = layout.buildDirectory.dir("backend-tree")

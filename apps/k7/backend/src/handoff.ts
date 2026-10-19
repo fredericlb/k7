@@ -15,7 +15,7 @@ import {
   safeReturnTarget,
 } from "@frediverse/oidc";
 import {
-  APP_SCHEME,
+  APP_SCHEMES,
   HANDOFF_ISSUE,
   HANDOFF_REDEEM,
   isHandoffReturn,
@@ -124,7 +124,7 @@ function isAppNavigation(req: Request): boolean {
   const site = req.get("sec-fetch-site");
   if (site !== undefined) return site === "none" || site === "same-origin";
   // A WebView that sends no Sec-Fetch-Site still names the app it runs in, which no page can forge.
-  return req.get("x-requested-with") === APP_SCHEME;
+  return APP_SCHEMES.includes(req.get("x-requested-with") ?? "");
 }
 
 /** Where the code would go, in words the person can check. */

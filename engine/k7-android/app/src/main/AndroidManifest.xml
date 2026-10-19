@@ -43,7 +43,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="se.frediver.k7" android:host="auth" />
+                <data android:scheme="${applicationId}" android:host="auth" />
             </intent-filter>
         </activity>
         <!-- Holds the process in front while a page plays; MediaPlayback.kt is the session it shows. -->
@@ -56,6 +56,11 @@
             android:name=".EngineService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback|microphone" />
+        <!-- Holds the process in front while the browser signs in, so the backend keeps the network (AuthService.kt). -->
+        <service
+            android:name=".AuthService"
+            android:exported="false"
+            android:foregroundServiceType="shortService" />
         <!-- The media notification's own buttons, which Android 12 and older draw instead of the session's. -->
         <receiver
             android:name=".MediaPlayback$Buttons"

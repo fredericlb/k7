@@ -11,7 +11,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { bundleLibrary } from "./libraryArchive.mjs";
@@ -48,11 +48,13 @@ const metaPlugin = {
   name: "source-meta",
   setup(b) {
     b.onLoad({ filter: /\.(m?[jt]sx?)$/ }, (args) => {
-      if (args.path.includes("/node_modules/")) return undefined;
+      // In `/` whatever the host: the bundle runs on a phone, where a Windows `\` would name one file.
+      const posix = relative(repo, args.path).split(sep).join("/");
+      if (posix.includes("node_modules/")) return undefined;
       const text = readFileSync(args.path, "utf8");
       if (!text.includes("import.meta")) return undefined;
-      metaUsers.add(relative(repo, args.path));
-      const rel = JSON.stringify(relative(repo, args.path));
+      metaUsers.add(posix);
+      const rel = JSON.stringify(posix);
       const contents = text
         .replaceAll("import.meta.url", `__k7Url(${rel})`)
         .replaceAll("import.meta.dirname", `__k7Dir(${rel})`)

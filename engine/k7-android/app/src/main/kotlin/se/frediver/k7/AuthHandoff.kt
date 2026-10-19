@@ -14,8 +14,8 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 
 object AuthHandoff {
-    /** The app's own scheme, in the manifest's intent filter too; the server sends the code nowhere else but loopback. */
-    const val SCHEME = "se.frediver.k7"
+    /** The app's own scheme, its application id, so an e2e build beside the shipped app gets its own answer; in the manifest too. */
+    val SCHEME: String = BuildConfig.APPLICATION_ID
     private const val HOST = "auth"
     private const val ISSUE = "/auth/handoff/issue"
     private const val REDEEM = "/auth/handoff/redeem"
@@ -40,6 +40,8 @@ object AuthHandoff {
             .build()
         // A Custom Tab in this task, so the answer reaching the singleTask activity closes it; outside an activity, a task of its own.
         val tab = CustomTabsIntent.Builder().setShowTitle(true).build()
+        // Held in front while the browser is: the backend trades the code with the provider meanwhile (AuthService.kt).
+        AuthService.hold(context)
         if (context !is Activity) tab.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
             tab.launchUrl(context, url)
