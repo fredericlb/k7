@@ -10,6 +10,8 @@ bumpalo = { version = "3.20", features = ["collections"] }
 
 [lib]
 path = "src/lib.rs"
+# rlib for the bench, cdylib for WebAssembly, staticlib for the iOS app.
+crate-type = ["rlib", "cdylib", "staticlib"]
 
 [[bin]]
 name = "k7x-bench"
@@ -18,3 +20,5 @@ path = "src/bin/k7x-bench.rs"
 [profile.release]
 lto = true
 codegen-units = 1
+panic = "abort"
+strip = true

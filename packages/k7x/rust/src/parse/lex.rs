@@ -191,7 +191,10 @@ impl<'a> Parser<'a> {
             let cp = 0x10000 + ((u32::from(unit) - 0xD800) << 10) + (u32::from(low) - 0xDC00);
             return char::from_u32(cp).unwrap_or('\u{FFFD}');
         }
-        char::from_u32(u32::from(unit)).unwrap_or('\u{FFFD}')
+        char::from_u32(u32::from(unit)).unwrap_or_else(|| {
+            self.lossy = true;
+            '\u{FFFD}'
+        })
     }
 
     /// A `…` string: raw, multi-line, only \` and \\ escaped, and never interpolated.

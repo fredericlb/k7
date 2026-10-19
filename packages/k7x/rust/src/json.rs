@@ -38,7 +38,11 @@ pub fn map_value_json(m: &MapNode, out: &mut String) {
 fn scalar_json(s: &Scalar, out: &mut String) {
     match s {
         Scalar::Str(v) => string_json(v, out),
-        Scalar::Num(n) if !n.is_finite() => out.push_str("null"),
+        Scalar::Num(n) if n.is_nan() => out.push_str("null"),
+        Scalar::Num(n) if n.is_infinite() => {
+            out.push_str(if *n > 0.0 { "1e999" } else { "-1e999" })
+        }
+        Scalar::Num(n) if *n == 0.0 && n.is_sign_negative() => out.push_str("-0"),
         Scalar::Num(n) if n.fract() == 0.0 && n.abs() < 1e15 => {
             write!(out, "{}", *n as i64).unwrap()
         }
@@ -48,7 +52,7 @@ fn scalar_json(s: &Scalar, out: &mut String) {
     }
 }
 
-fn string_json(s: &str, out: &mut String) {
+pub(crate) fn string_json(s: &str, out: &mut String) {
     out.push('"');
     for c in s.chars() {
         match c {

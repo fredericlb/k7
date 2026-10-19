@@ -3,7 +3,7 @@
 
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { K7Path } from "./ast.ts";
-import { type K7Document, parseDocument } from "./edit.ts";
+import { type K7Document, parse, parseDocument } from "./edit.ts";
 
 type Data = Record<string, unknown>;
 
@@ -15,7 +15,7 @@ export interface Sugar {
 
 /** The YAML text of a k7x file, short forms expanded, for a reader that parses YAML; throws on a broken file. */
 export function toYaml(k7x: string, sugar?: Sugar | null): string {
-  const data = parseDocument(k7x).toJS();
+  const data = parse(k7x);
   return stringifyYaml(sugar ? sugar.expand(data) : data, { lineWidth: 0 });
 }
 

@@ -9,6 +9,7 @@ import {
   nodeAt,
   toJS,
 } from "./ast.ts";
+import { nativeData } from "./native.ts";
 import { K7SyntaxError, parseTree } from "./parse.ts";
 import { type Ctx, fromJS, print, printKey, stringify } from "./print.ts";
 
@@ -406,6 +407,6 @@ function tailEnd(t: string, pos: number, comma = false): number | null {
 
 export const parseDocument = (text: string): K7Document => new K7Document(text);
 
-/** The plain value of a whole file; throws K7SyntaxError. */
+/** The plain value of a whole file, from the Rust reader where this runtime has one; throws K7SyntaxError. */
 export const parse = (text: string): Record<string, unknown> =>
-  toJS(parseTree(text)) as Record<string, unknown>;
+  nativeData(text) ?? (toJS(parseTree(text)) as Record<string, unknown>);

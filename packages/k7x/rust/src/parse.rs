@@ -36,6 +36,8 @@ struct Parser<'a> {
     bump: &'a Bump,
     pos: usize,
     depth: usize,
+    /// Set when a lone surrogate escape was read as U+FFFD, which TypeScript would have kept.
+    lossy: bool,
     /// Children being collected, shared by every open container: each is copied into the arena once, at its size.
     nodes: Vec<Node<'a>>,
     entries: Vec<Entry<'a>>,
@@ -344,14 +346,31 @@ impl<'a> Parser<'a> {
 /// # Errors
 /// A `SyntaxError` where the text is not k7x, with the TypeScript parser's message and position.
 pub fn parse_tree<'a>(text: &'a str, bump: &'a Bump) -> Result<MapNode<'a>, SyntaxError> {
+    parser(text, bump).root()
+}
+
+/// The same tree, or None where it differs from the TypeScript parser's: a lone surrogate escape read as U+FFFD.
+///
+/// # Errors
+/// A `SyntaxError` where the text is not k7x, as `parse_tree`.
+pub fn parse_tree_lossless<'a>(
+    text: &'a str,
+    bump: &'a Bump,
+) -> Result<Option<MapNode<'a>>, SyntaxError> {
+    let mut p = parser(text, bump);
+    let tree = p.root()?;
+    Ok((!p.lossy).then_some(tree))
+}
+
+fn parser<'a>(text: &'a str, bump: &'a Bump) -> Parser<'a> {
     Parser {
         src: text,
         b: text.as_bytes(),
         bump,
         pos: 0,
         depth: 0,
+        lossy: false,
         nodes: Vec::new(),
         entries: Vec::new(),
     }
-    .root()
 }

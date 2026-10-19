@@ -15,6 +15,7 @@ import { isDeepStrictEqual } from "node:util";
 import { build } from "esbuild";
 import { toJS } from "../src/ast.ts";
 import { fromYaml } from "../src/fromYaml.ts";
+import { nativeData, nativeReady } from "../src/native.ts";
 import { K7SyntaxError, parseTree } from "../src/parse.ts";
 import { stringify } from "../src/print.ts";
 
@@ -197,3 +198,20 @@ for (const name of ["corpus", "largest", "big"] as const) {
       `| ${label} | ${r.cold.toFixed(2)} | ${r.median.toFixed(2)} | ${(bytes / 1e3 / r.median).toFixed(0)} | ${(r.median / rust.median).toFixed(1)}x |`,
     );
 }
+
+// What a reader gets: a file's plain data, from parse.ts + toJS, or from the WebAssembly reader + JSON.parse.
+const texts = corpus.map(([, t]) => t);
+const timeData = (read: (t: string) => unknown): number => {
+  const runs = Array.from({ length: 20 }, () => {
+    const t = performance.now();
+    for (const text of texts) read(text);
+    return performance.now() - t;
+  });
+  return runs.sort((a, b) => a - b)[10];
+};
+await nativeReady();
+const viaJs = timeData((t) => toJS(parseTree(t)));
+const viaWasm = timeData((t) => nativeData(t));
+console.log(
+  `\ndata of the corpus, in this node: parse.ts + toJS ${viaJs.toFixed(1)} ms, WebAssembly + JSON.parse ${viaWasm.toFixed(1)} ms (${(viaJs / viaWasm).toFixed(1)}x)`,
+);
